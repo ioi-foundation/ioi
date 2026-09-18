@@ -208,7 +208,7 @@ const daemon = createServer((req: IncomingMessage, res) => {
         JSON.stringify({
           ok: true,
           goal_run: {
-            schema_version: "ioi.goal-run.v1",
+            schema_version: "ioi.goal-run.v2",
             goal_run_id: "gr_123",
             goal_ref: "goal://gr_123",
             owner_ref: "user://alice",
@@ -604,17 +604,23 @@ test("orchestration composition creates the coordinating thread, admits the reco
   const attached = (await attach.json()) as {
     head: string;
     membership_transition: string;
+    member_stamp: { goal_run_ref: string; orchestration_ref: string | null; stamped: boolean; refusal: { status: number; code: string } | null };
     orchestration: { member_goal_run_refs: string[] };
   };
   assert.equal(attached.membership_transition, "attach");
   assert.deepEqual(attached.orchestration.member_goal_run_refs, ["goal://gr_123"]);
   assert.notEqual(attached.head, composedBody.head);
-  assert.deepEqual(calls.slice(-2).map((call) => [call.method, call.path]), [
+  assert.equal(attached.member_stamp.goal_run_ref, "goal://gr_123");
+  assert.equal(attached.member_stamp.orchestration_ref, `app-scope://ioi-ai/orchestration/${tail}`);
+  assert.equal(attached.member_stamp.stamped, true);
+  assert.deepEqual(calls.slice(-3).map((call) => [call.method, call.path]), [
     ["GET", `${seamRoot}/${encodeURIComponent(systemRecordSlug("schema://ioi/applications/ioi-ai/orchestration/v1"))}/${encodeURIComponent(systemRecordSlug(`orchestration://${tail}`))}`],
     ["POST", seamRoot],
+    ["POST", "/v1/goal-orchestration/goal-runs/gr_123/orchestration-membership"],
   ]);
-  assert.equal(calls.at(-1)?.body.expected_head, composedBody.head);
-  assert.equal("system_binding" in (calls.at(-1)?.body.record as Record<string, unknown>), false);
+  assert.equal(calls.at(-2)?.body.expected_head, composedBody.head);
+  assert.deepEqual(calls.at(-1)?.body, { orchestration_ref: `app-scope://ioi-ai/orchestration/${tail}` });
+  assert.equal("system_binding" in (calls.at(-2)?.body.record as Record<string, unknown>), false);
 
   const stale = await fetch(`${base}/api/ioi/orchestrations/${tail}/goal-runs/detach`, {
     method: "POST",

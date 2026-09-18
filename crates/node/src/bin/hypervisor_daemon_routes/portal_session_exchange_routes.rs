@@ -466,6 +466,11 @@ mod tests {
             "/v1/hypervisor/autonomous-systems/projection",
             "/v1/hypervisor/autonomous-systems/system-tail/records",
             "/v1/hypervisor/autonomous-systems/system-tail/records/contract-slug/object-slug",
+            // R-190 (S4d-2): the composer's reciprocal stamp reaches the GoalRun plane through
+            // the `/v1/goal-orchestration/` prefix the session already carries (measured, not
+            // added) — the goal space drives GoalRuns under this session, so the membership
+            // route needs no pattern of its own.
+            "/v1/goal-orchestration/goal-runs/gr_1/orchestration-membership",
         ] {
             assert!(
                 super::super::lifecycle_routes::session_allows_route(data_dir, &headers, allowed),

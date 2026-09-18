@@ -308,7 +308,7 @@ opening is the seam's chain plus the handle re-opened on the record's
 coordinates; the graph is projected from the kernel's thread and subagents and
 the seam's records whose `parent_scope_ref` is this orchestration's scope;
 replay is the chain. Attaching or detaching a GoalRun is a successor revision of
-`member_goal_run_refs`, and a status change is a successor revision of `status`,
+`member_goal_run_refs` (and, since R-190, the composer then stamps the reciprocal `orchestration_ref` on each GoalRun through the GoalRun plane's membership route — the set here stays authoritative, the stamp is reported never hidden), and a status change is a successor revision of `status`,
 each naming the exact head it was computed against — the seam refuses any other
 by name. No reciprocal write lands in a GoalRun: the GoalRun's own composition
 over the orchestration follows in slice S4d, and until then a GoalRun's

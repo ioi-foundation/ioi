@@ -64,7 +64,7 @@ const GOAL_RUN_EXECUTION_CEILING_REVISION_KIND: &str = "goal-run-execution-ceili
 const GOAL_RUN_ADMITTED_STATE_KIND: &str = "goal-run-activation-admitted-states";
 const GOAL_RUN_AUTHORITY_DECISION_KIND: &str = "goal-run-authority-decisions";
 
-const GOAL_RUN_ACTIVATION_SCHEMA_VERSION: &str = "ioi.goal-run-activation.v1";
+const GOAL_RUN_ACTIVATION_SCHEMA_VERSION: &str = "ioi.goal-run-activation.v2";
 const GOAL_RUN_ACTIVATION_DRAFT_REQUEST_SCHEMA_VERSION: &str =
     "ioi.goal-run-activation-draft-request.v1";
 const GOAL_RUN_ACTIVATION_SUBMIT_REQUEST_SCHEMA_VERSION: &str =
@@ -75,7 +75,7 @@ const DIRECT_BOUNDED_CEILING_FAMILY: &str = "ioi-goal-run-direct-bounded";
 const DIRECT_BOUNDED_CEILING_KEY: &str = "ioi-goal-run-direct-bounded-release-v1";
 const GOAL_RUN_ACTIVATION_RECEIPT_TYPE: &str = "goal_run_activation";
 const GOAL_RUN_ACTIVATION_RECEIPT_PROFILE: &str =
-    "schema://ioi/applications/ioi-ai/goal-run-activation-receipt/v1";
+    "schema://ioi/applications/ioi-ai/goal-run-activation-receipt/v2";
 const GOAL_RUN_CREATE_AUTHORITY_SCOPE: &str = "scope:goal.run.create";
 const DIRECT_BOUNDED_POLICY_FAMILY_REF: &str = "orchestration-policy://bounded-general";
 const ADMISSION_FACT_RESOLUTION_SCHEMA: &str = "ioi.goal-run-admission-runtime-fact-resolution.v1";
@@ -99,7 +99,7 @@ const GOAL_RUN_CONTEXT_CELL_KIND: &str = "goal-run-context-cells";
 const ORCHESTRATION_PLAN_SCHEMA_VERSION: &str = "ioi.orchestration-plan.v1";
 const ORCHESTRATION_PLAN_SELECTION_RECEIPT_SCHEMA_VERSION: &str =
     "ioi.orchestration-plan-selection-decision-receipt.v1";
-const CONTEXT_CELL_SCHEMA_VERSION: &str = "ioi.context-cell.v1";
+const CONTEXT_CELL_SCHEMA_VERSION: &str = "ioi.context-cell.v2";
 /// Fields excluded from the OrchestrationPlan content commitment. Canon
 /// (`docs/architecture/domains/ioi-ai/goal-pursuit.md`) excludes the four
 /// selection/registry projections a later transition binds to the already-computed
@@ -670,7 +670,7 @@ fn stage_one(
     Ok(staged)
 }
 
-const CANONICAL_GOAL_RUN_SCHEMA_VERSION: &str = "ioi.goal-run.v1";
+const CANONICAL_GOAL_RUN_SCHEMA_VERSION: &str = "ioi.goal-run.v2";
 const INVOCATION_SCHEMA_VERSION: &str = "ioi.hypervisor.goal-run-invocation.v1";
 const RECONCILIATION_SCHEMA_VERSION: &str = "ioi.hypervisor.goal-run-reconciliation.v1";
 
@@ -1531,7 +1531,6 @@ fn activation_policy(component: &Value) -> Result<Value, HttpRefusal> {
         "direct_path_requirements": {
             "requires_system_membership": false,
             "requires_shared_frontier": false,
-            "requires_outcome_room": false,
             "requires_collective_scheduling": false,
             "policy_requires_system_path": false
         },
@@ -2108,14 +2107,10 @@ fn activation_admission_material(
             .and_then(Value::as_array)
             .is_some_and(|values| values.iter().any(|entry| entry.as_str() == Some(value)))
     };
-    let requires_room = source_kind == "outcome_room_claim"
-        || policy_bool(&resolved.policy, "requires_outcome_room")?;
-    let requires_frontier =
-        requires_room || policy_bool(&resolved.policy, "requires_shared_frontier")?;
+    let requires_frontier = policy_bool(&resolved.policy, "requires_shared_frontier")?;
     let requires_collective = text(goal_draft, "contributor_scope") != "my_workers"
         || policy_bool(&resolved.policy, "requires_collective_scheduling")?;
-    let requires_system = requires_room
-        || requires_frontier
+    let requires_system = requires_frontier
         || requires_collective
         || policy_bool(&resolved.policy, "requires_system_membership")?;
     let profile_capabilities = resolved
@@ -2192,7 +2187,6 @@ fn activation_admission_material(
             ) && !text(goal_draft, "goal_text").trim().is_empty(),
             "requires_system_membership": requires_system,
             "requires_shared_frontier": requires_frontier,
-            "requires_outcome_room": requires_room,
             "requires_collective_scheduling": requires_collective,
             "capabilities_fit_single_execution": capabilities_fit,
             "authority_fits_single_execution": authority_fits,
@@ -2875,7 +2869,6 @@ fn direct_runtime_facts(request: &Value) -> Value {
         "single_bounded_work_subject": true,
         "requires_system_membership": false,
         "requires_shared_frontier": false,
-        "requires_outcome_room": false,
         "requires_collective_scheduling": false,
         "capabilities_fit_single_execution": capabilities_fit,
         "authority_fits_single_execution": true,
@@ -3850,7 +3843,6 @@ fn direct_profile_policy(profile: &Value, definition: &Value) -> Result<Value, H
         "direct_path_requirements": {
             "requires_system_membership": false,
             "requires_shared_frontier": false,
-            "requires_outcome_room": false,
             "requires_collective_scheduling": false,
             "policy_requires_system_path": false
         },
@@ -4815,7 +4807,7 @@ fn build_orchestration_plan(
         "selected_role_topology_content_hash": Value::Null,
         "routing_decision_refs": [],
         "proposed_session_topology": session_topology,
-        "outcome_room_ref": Value::Null,
+        "orchestration_ref": Value::Null,
         "proposed_coordination_topology": "none",
         "expected_cost_ref": Value::Null,
         "expected_latency_class": "background",
@@ -4880,8 +4872,8 @@ fn build_implementer_context_cell(goal_run_id: &str, goal_ref: &str) -> (String,
         "schema_version": CONTEXT_CELL_SCHEMA_VERSION,
         "context_cell_id": cell_id,
         "work_subject_ref": goal_ref,
-        "outcome_room_ref": Value::Null,
-        "participant_lease_ref": Value::Null,
+        "orchestration_ref": Value::Null,
+        "delegation_ref": Value::Null,
         "role_topology_revision_ref": Value::Null,
         "role_binding_id": "implementer",
         "accountable_actor_ref": GOAL_RUN_APPLICATION_ACTOR_REF,
@@ -5255,7 +5247,7 @@ fn readback_conflict(code: &str, message: &str) -> HttpRefusal {
 /// and active typed context children equal to `context_cell_refs`. Missing,
 /// tampered, forked, owner-drifted, or substituted evidence fails closed.
 ///
-/// Applies ONLY to the canonical `ioi.goal-run.v1` shape admitted as
+/// Applies ONLY to the canonical `ioi.goal-run.v2` shape admitted as
 /// `direct_non_system` (direct + activation). Older/system-bound shapes are left
 /// exactly as they were.
 fn readback_verify_canonical_goal_run(data_dir: &str, run: &Value) -> Result<(), HttpRefusal> {
@@ -5756,7 +5748,7 @@ fn create_direct_goal_run(
             "obligation_id": format!("receipt-obligation://goal-run/{goal_run_id}/admission"),
             "boundary_event":"admission",
             "receipt_type":"goal_run_admission_path_decision",
-            "receipt_profile_ref":"schema://ioi/applications/ioi-ai/goal-run-admission-path-decision/v1",
+            "receipt_profile_ref":"schema://ioi/applications/ioi-ai/goal-run-admission-path-decision/v2",
             "bound_fact_requirement_refs":[
                 decision.get("decision_ref").cloned().unwrap_or(Value::Null),
                 goal_ref
@@ -5909,8 +5901,7 @@ fn create_direct_goal_run(
         "result_profile": decision.get("result_profile"),
         "activation_ref": Value::Null,
         "source_context_binding": {"target_session_ref":Value::Null,"project_ref":Value::Null},
-        "outcome_room_ref": Value::Null,
-        "room_participant_lease_ref": Value::Null,
+        "orchestration_ref": Value::Null,
         "frontier_item_refs": [],
         "work_claim_refs": [],
         "constraint_refs": body.get("constraint_refs").cloned().unwrap_or_else(|| json!([])),
@@ -5944,7 +5935,7 @@ fn create_direct_goal_run(
         // An attach-lane graduation is a programmatic crossing, NOT an ioi.ai chat draft, so
         // `ioi_goal_chat` would both misname it and borrow the chat lane's zero-execution
         // posture. The honest tag for it is `authority_gateway`, but the registered
-        // `schema://ioi/applications/ioi-ai/goal-run/v1` enum admits only
+        // `schema://ioi/applications/ioi-ai/goal-run/v2` enum admits only
         // {ioi_goal_chat, hypervisor_new_session, hypervisor_session, automation,
         // marketplace_instance, api} and the schema is outside this cut's ownership. `api` is
         // the closest LEGAL member and is at least distinct from the chat lane; the exact
@@ -5985,7 +5976,7 @@ fn create_direct_goal_run(
     }
     if let Err(error) =
         ioi_types::app::generated::architecture_contracts::validate_architecture_contract(
-            "schema://ioi/applications/ioi-ai/goal-run/v1",
+            "schema://ioi/applications/ioi-ai/goal-run/v2",
             &record,
         )
     {
@@ -6196,7 +6187,7 @@ fn activation_projection(st: &DaemonState, id: &str, replayed: bool) -> Result<V
         if let Some(run) = goal_run.as_ref() {
             if let Err(error) =
                 ioi_types::app::generated::architecture_contracts::validate_architecture_contract(
-                    "schema://ioi/applications/ioi-ai/goal-run/v1",
+                    "schema://ioi/applications/ioi-ai/goal-run/v2",
                     run,
                 )
             {
@@ -7657,7 +7648,7 @@ pub(crate) async fn handle_goal_run_activation_submit(
         "admitted_at": reviewed_at
     }));
     let activation_receipt = sealed(json!({
-        "schema_version": "ioi.goal-run-activation-receipt.v1",
+        "schema_version": "ioi.goal-run-activation-receipt.v2",
         "receipt_id": activation_receipt_ref,
         "receipt_ref": activation_receipt_ref,
         "receipt_type": GOAL_RUN_ACTIVATION_RECEIPT_TYPE,
@@ -9290,6 +9281,141 @@ async fn run_invocation(
         });
     }
     invocation
+}
+
+/// R-178 slice S4d-2 (R-190): a GoalRun's membership in an ioi.ai orchestration is COMPOSED by
+/// the application over the System-record seam and STAMPED here as the reciprocal member — the
+/// daemon stores the ref the composer asserts and never reads the orchestration record, which is
+/// application vocabulary (ADR 0022/0031, R-172). Owner-authorized like every GoalRun mutation;
+/// written through the CAS seam so a concurrent lifecycle write can never lose it.
+pub(crate) fn parse_orchestration_membership(body: &Value) -> Result<Option<String>, HttpRefusal> {
+    let Some(object) = body.as_object() else {
+        return Err(bad(
+            StatusCode::UNPROCESSABLE_ENTITY,
+            "goal_run_orchestration_membership_invalid",
+            "The membership request must be an object carrying exactly `orchestration_ref`.",
+        ));
+    };
+    if object.len() != 1 || !object.contains_key("orchestration_ref") {
+        return Err(bad(
+            StatusCode::UNPROCESSABLE_ENTITY,
+            "goal_run_orchestration_membership_invalid",
+            "The membership request carries exactly one member, `orchestration_ref` (a scope ref or null).",
+        ));
+    }
+    match &object["orchestration_ref"] {
+        Value::Null => Ok(None),
+        Value::String(reference)
+            if reference
+                .strip_prefix("app-scope://ioi-ai/orchestration/")
+                .is_some_and(|tail| {
+                    !tail.is_empty() && tail.len() <= 400 && !tail.chars().any(char::is_whitespace)
+                }) =>
+        {
+            Ok(Some(reference.clone()))
+        }
+        _ => Err(bad(
+            StatusCode::UNPROCESSABLE_ENTITY,
+            "goal_run_orchestration_ref_invalid",
+            "`orchestration_ref` is `app-scope://ioi-ai/orchestration/<tail>` or null.",
+        )),
+    }
+}
+
+/// The stamp itself: null detaches; a ref attaches; a DIFFERENT ref while attached is a conflict
+/// the composer resolves by detaching first; a run that has completed or been superseded or
+/// revoked accepts no membership change.
+pub(crate) fn stamp_orchestration_membership(
+    data_dir: &str,
+    goal_run_id: &str,
+    requested: Option<&str>,
+    now: &str,
+) -> Result<MutationOutcome, SeamErr> {
+    update_goal_run_guarded(
+        data_dir,
+        goal_run_id,
+        |fresh| {
+            let status = text(fresh, "status");
+            if matches!(status, "complete" | "superseded" | "revoked") {
+                return Err((
+                    "goal_run_orchestration_membership_closed".to_string(),
+                    format!("a GoalRun with status '{status}' accepts no membership change"),
+                ));
+            }
+            let current = fresh.get("orchestration_ref").and_then(Value::as_str);
+            if let (Some(current), Some(requested)) = (current, requested) {
+                if current != requested {
+                    return Err((
+                        "goal_run_orchestration_membership_conflict".to_string(),
+                        format!("the GoalRun is attached to '{current}'; detach it before attaching '{requested}'"),
+                    ));
+                }
+            }
+            Ok(())
+        },
+        |object| {
+            object.insert(
+                "orchestration_ref".into(),
+                requested.map(|value| json!(value)).unwrap_or(Value::Null),
+            );
+            object.insert("updated_at".into(), json!(now));
+        },
+    )
+}
+
+pub(crate) async fn handle_goal_run_orchestration_membership(
+    State(st): State<Arc<DaemonState>>,
+    headers: HeaderMap,
+    AxumPath(id): AxumPath<String>,
+    Json(body): Json<Value>,
+) -> (StatusCode, Json<Value>) {
+    let resolved_reader = match global_truth_reader(&st, &headers) {
+        Ok(reader) => reader,
+        Err(response) => return response,
+    };
+    let Some(owner_snapshot) = (match load_goal_run_for_http(&st.data_dir, &id) {
+        Ok(value) => value,
+        Err(response) => return response,
+    }) else {
+        return missing_goal_run_mutation_refusal(resolved_reader.as_deref());
+    };
+    if let Err(response) =
+        authorize_resolved_goal_run_mutation(resolved_reader.as_deref(), &owner_snapshot)
+    {
+        return response;
+    }
+    let requested = match parse_orchestration_membership(&body) {
+        Ok(value) => value,
+        Err(response) => return response,
+    };
+    let goal_run_id = text(&owner_snapshot, "goal_run_id").to_string();
+    match stamp_orchestration_membership(
+        &st.data_dir,
+        &goal_run_id,
+        requested.as_deref(),
+        &iso_now(),
+    ) {
+        Ok(MutationOutcome::Durable(record)) => (
+            StatusCode::OK,
+            Json(json!({ "ok": true, "goal_run": record, "durable": true })),
+        ),
+        Ok(MutationOutcome::VisibleUnconfirmed(record, note)) => (
+            StatusCode::OK,
+            Json(
+                json!({ "ok": true, "goal_run": record, "durable": false, "durability_note": note }),
+            ),
+        ),
+        Err((code, message)) => {
+            let status = match code.as_str() {
+                "goal_run_not_found" => StatusCode::NOT_FOUND,
+                "goal_run_registry_unreadable" | "goal_run_persist_failed" => {
+                    StatusCode::INTERNAL_SERVER_ERROR
+                }
+                _ => StatusCode::CONFLICT,
+            };
+            bad(status, &code, &message)
+        }
+    }
 }
 
 pub(crate) async fn handle_goal_run_start(
@@ -12805,6 +12931,104 @@ mod goal_run_seam_tests {
             "admitted_state_root_ref":state["state_root_ref"]
         });
         (state, run)
+    }
+
+    #[test]
+    fn orchestration_membership_body_is_closed_and_typed() {
+        assert_eq!(
+            parse_orchestration_membership(&json!({ "orchestration_ref": null })).unwrap(),
+            None
+        );
+        assert_eq!(
+            parse_orchestration_membership(
+                &json!({ "orchestration_ref": "app-scope://ioi-ai/orchestration/orc_1" })
+            )
+            .unwrap(),
+            Some("app-scope://ioi-ai/orchestration/orc_1".to_string())
+        );
+        for body in [
+            json!([]),
+            json!({}),
+            json!({ "orchestration_ref": "outcome-room://or_1" }),
+            json!({ "orchestration_ref": "app-scope://ioi-ai/orchestration/" }),
+            json!({ "orchestration_ref": "app-scope://ioi-ai/orchestration/orc_1", "status": "closed" }),
+        ] {
+            assert!(parse_orchestration_membership(&body).is_err(), "{body}");
+        }
+    }
+
+    #[test]
+    fn orchestration_membership_stamps_through_the_cas_seam_and_refuses_conflicts() {
+        let directory = temp_dir("orchestration-membership");
+        let data_dir = directory.to_str().unwrap();
+        let (_, run) = direct_admitted_state_fixture(data_dir, "gr_member_one", "user://owner");
+        persist_goal_run_atomic(data_dir, "gr_member_one", &run).unwrap();
+        let attached = stamp_orchestration_membership(
+            data_dir,
+            "gr_member_one",
+            Some("app-scope://ioi-ai/orchestration/orc_a"),
+            "2026-09-18T06:00:00Z",
+        )
+        .unwrap()
+        .into_record();
+        assert_eq!(
+            attached["orchestration_ref"],
+            json!("app-scope://ioi-ai/orchestration/orc_a")
+        );
+        assert_eq!(
+            load_goal_run_by_id_strict(data_dir, "gr_member_one")
+                .unwrap()
+                .unwrap()["orchestration_ref"],
+            json!("app-scope://ioi-ai/orchestration/orc_a")
+        );
+        let conflict = stamp_orchestration_membership(
+            data_dir,
+            "gr_member_one",
+            Some("app-scope://ioi-ai/orchestration/orc_b"),
+            "2026-09-18T06:00:01Z",
+        )
+        .unwrap_err();
+        assert_eq!(conflict.0, "goal_run_orchestration_membership_conflict");
+        let same = stamp_orchestration_membership(
+            data_dir,
+            "gr_member_one",
+            Some("app-scope://ioi-ai/orchestration/orc_a"),
+            "2026-09-18T06:00:02Z",
+        )
+        .unwrap()
+        .into_record();
+        assert_eq!(
+            same["orchestration_ref"],
+            json!("app-scope://ioi-ai/orchestration/orc_a")
+        );
+        let detached =
+            stamp_orchestration_membership(data_dir, "gr_member_one", None, "2026-09-18T06:00:03Z")
+                .unwrap()
+                .into_record();
+        assert_eq!(detached["orchestration_ref"], Value::Null);
+        assert_eq!(
+            stamp_orchestration_membership(data_dir, "gr_absent", None, "2026-09-18T06:00:04Z")
+                .unwrap_err()
+                .0,
+            "goal_run_not_found"
+        );
+        let mut closed = load_goal_run_by_id_strict(data_dir, "gr_member_one")
+            .unwrap()
+            .unwrap();
+        closed["status"] = json!("complete");
+        persist_goal_run_atomic(data_dir, "gr_member_one", &closed).unwrap();
+        assert_eq!(
+            stamp_orchestration_membership(
+                data_dir,
+                "gr_member_one",
+                Some("app-scope://ioi-ai/orchestration/orc_a"),
+                "2026-09-18T06:00:05Z",
+            )
+            .unwrap_err()
+            .0,
+            "goal_run_orchestration_membership_closed"
+        );
+        std::fs::remove_dir_all(directory).ok();
     }
 
     #[test]

@@ -310,7 +310,7 @@
       "canonical_encoding_profile_ref": "encoding-profile://ioi/jcs-json/v1",
       "evolution": {
         "successor_of": null,
-        "successor_contract_id": null,
+        "successor_contract_id": "schema://ioi/applications/ioi-ai/context-cell/v2",
         "compatibility": "initial",
         "migration_policy": "none",
         "predecessor_remains_valid": false,
@@ -631,7 +631,7 @@
       "canonical_encoding_profile_ref": "encoding-profile://ioi/jcs-json/v1",
       "evolution": {
         "successor_of": null,
-        "successor_contract_id": null,
+        "successor_contract_id": "schema://ioi/applications/ioi-ai/goal-grounding-loop/v2",
         "compatibility": "initial",
         "migration_policy": "none",
         "predecessor_remains_valid": false,
@@ -674,7 +674,7 @@
       "canonical_encoding_profile_ref": "encoding-profile://ioi/jcs-json/v1",
       "evolution": {
         "successor_of": null,
-        "successor_contract_id": null,
+        "successor_contract_id": "schema://ioi/applications/ioi-ai/goal-run-activation-receipt/v2",
         "compatibility": "initial",
         "migration_policy": "none",
         "predecessor_remains_valid": false,
@@ -732,7 +732,7 @@
       "canonical_encoding_profile_ref": "encoding-profile://ioi/jcs-json/v1",
       "evolution": {
         "successor_of": null,
-        "successor_contract_id": null,
+        "successor_contract_id": "schema://ioi/applications/ioi-ai/goal-run-activation/v2",
         "compatibility": "initial",
         "migration_policy": "none",
         "predecessor_remains_valid": false,
@@ -788,7 +788,7 @@
       "canonical_encoding_profile_ref": "encoding-profile://ioi/jcs-json/v1",
       "evolution": {
         "successor_of": null,
-        "successor_contract_id": null,
+        "successor_contract_id": "schema://ioi/applications/ioi-ai/goal-run-admission-path-decision/v2",
         "compatibility": "initial",
         "migration_policy": "none",
         "predecessor_remains_valid": false,
@@ -1028,7 +1028,7 @@
       "canonical_encoding_profile_ref": "encoding-profile://ioi/jcs-json/v1",
       "evolution": {
         "successor_of": null,
-        "successor_contract_id": null,
+        "successor_contract_id": "schema://ioi/applications/ioi-ai/goal-run/v2",
         "compatibility": "initial",
         "migration_policy": "none",
         "predecessor_remains_valid": false,
@@ -19204,6 +19204,329 @@
         },
         {
           "path": "fixtures/orchestration-v1/negative-unknown-field.json",
+          "expected_failure": "schema"
+        }
+      ]
+    },
+    {
+      "contract_id": "schema://ioi/applications/ioi-ai/goal-run/v2",
+      "canonical_name": "GoalRun",
+      "canonical_owner_ref": "canon://docs/architecture/domains/ioi-ai/goal-run-execution.md#goalrunenvelope",
+      "schema_version": "ioi.goal-run.v2",
+      "maturity": "partial",
+      "stability": "provisional",
+      "wire_format": "json",
+      "canonical_encoding_profile_ref": "encoding-profile://ioi/jcs-json/v1",
+      "evolution": {
+        "successor_of": "schema://ioi/applications/ioi-ai/goal-run/v1",
+        "successor_contract_id": null,
+        "compatibility": "breaking",
+        "migration_policy": "none",
+        "predecessor_remains_valid": true,
+        "wire_mutation_policy": "forbidden",
+        "hash_impact": "signature_preimage_changed"
+      },
+      "schema_ref": "goal-run.v2.schema.json",
+      "cross_field_invariant_refs": [],
+      "compatibility_aliases": [],
+      "generated_targets": [
+        {
+          "kind": "typescript_projection",
+          "path": "packages/hypervisor-workbench/src/runtime/generated/architecture-contracts.ts",
+          "symbol": "GoalRunV2"
+        },
+        {
+          "kind": "rust_projection",
+          "path": "crates/types/src/app/generated/architecture_contracts.rs",
+          "symbol": "GoalRunV2"
+        }
+      ],
+      "positive_fixture_refs": [
+        "fixtures/goal-run-v2/positive-minimal.json"
+      ],
+      "negative_fixture_refs": [
+        {
+          "path": "fixtures/goal-run-v2/negative-room-member.json",
+          "expected_failure": "schema"
+        },
+        {
+          "path": "fixtures/goal-run-v2/negative-unknown-field.json",
+          "expected_failure": "schema"
+        }
+      ]
+    },
+    {
+      "contract_id": "schema://ioi/applications/ioi-ai/goal-run-activation/v2",
+      "canonical_name": "GoalRunActivationEnvelope",
+      "canonical_owner_ref": "canon://docs/architecture/domains/ioi-ai/goal-pursuit.md#goalrunactivationenvelope",
+      "schema_version": "ioi.goal-run-activation.v2",
+      "maturity": "partial",
+      "stability": "provisional",
+      "wire_format": "json",
+      "canonical_encoding_profile_ref": "encoding-profile://ioi/jcs-json/v1",
+      "evolution": {
+        "successor_of": "schema://ioi/applications/ioi-ai/goal-run-activation/v1",
+        "successor_contract_id": null,
+        "compatibility": "breaking",
+        "migration_policy": "none",
+        "predecessor_remains_valid": true,
+        "wire_mutation_policy": "forbidden",
+        "hash_impact": "signature_preimage_changed"
+      },
+      "schema_ref": "goal-run-activation.v2.schema.json",
+      "cross_field_invariant_refs": [
+        {
+          "invariant_id": "invariant://ioi/applications/ioi-ai/goal-run-activation/crossing/v2",
+          "path": "invariants/goal-run-activation.v2.invariants.json"
+        }
+      ],
+      "compatibility_aliases": [],
+      "generated_targets": [
+        {
+          "kind": "typescript_projection",
+          "path": "packages/hypervisor-workbench/src/runtime/generated/architecture-contracts.ts",
+          "symbol": "GoalRunActivationEnvelopeV2"
+        },
+        {
+          "kind": "rust_projection",
+          "path": "crates/types/src/app/generated/architecture_contracts.rs",
+          "symbol": "GoalRunActivationEnvelopeV2"
+        }
+      ],
+      "positive_fixture_refs": [
+        "fixtures/goal-run-activation-v2/positive-admitted-create.json"
+      ],
+      "negative_fixture_refs": [
+        {
+          "path": "fixtures/goal-run-activation-v2/negative-admitted-without-receipt.json",
+          "expected_failure": "schema"
+        },
+        {
+          "path": "fixtures/goal-run-activation-v2/negative-create-missing-profile-hash.json",
+          "expected_failure": "schema"
+        },
+        {
+          "path": "fixtures/goal-run-activation-v2/negative-room-member.json",
+          "expected_failure": "schema"
+        },
+        {
+          "path": "fixtures/goal-run-activation-v2/negative-source-kind-ref-mismatch.json",
+          "expected_failure": "schema"
+        }
+      ]
+    },
+    {
+      "contract_id": "schema://ioi/applications/ioi-ai/goal-run-activation-receipt/v2",
+      "canonical_name": "GoalRunActivationReceipt",
+      "canonical_owner_ref": "canon://docs/architecture/domains/ioi-ai/goal-pursuit.md#goalrun-activation-receipts",
+      "schema_version": "ioi.goal-run-activation-receipt.v2",
+      "maturity": "partial",
+      "stability": "provisional",
+      "wire_format": "json",
+      "canonical_encoding_profile_ref": "encoding-profile://ioi/jcs-json/v1",
+      "evolution": {
+        "successor_of": "schema://ioi/applications/ioi-ai/goal-run-activation-receipt/v1",
+        "successor_contract_id": null,
+        "compatibility": "breaking",
+        "migration_policy": "none",
+        "predecessor_remains_valid": true,
+        "wire_mutation_policy": "forbidden",
+        "hash_impact": "signature_preimage_changed"
+      },
+      "schema_ref": "goal-run-activation-receipt.v2.schema.json",
+      "cross_field_invariant_refs": [
+        {
+          "invariant_id": "invariant://ioi/applications/ioi-ai/goal-run-activation-receipt/admission/v2",
+          "path": "invariants/goal-run-activation-receipt.v2.invariants.json"
+        }
+      ],
+      "compatibility_aliases": [],
+      "generated_targets": [
+        {
+          "kind": "typescript_projection",
+          "path": "packages/hypervisor-workbench/src/runtime/generated/architecture-contracts.ts",
+          "symbol": "GoalRunActivationReceiptV2"
+        },
+        {
+          "kind": "rust_projection",
+          "path": "crates/types/src/app/generated/architecture_contracts.rs",
+          "symbol": "GoalRunActivationReceiptV2"
+        }
+      ],
+      "positive_fixture_refs": [
+        "fixtures/goal-run-activation-receipt-v2/positive-admitted-create.json"
+      ],
+      "negative_fixture_refs": [
+        {
+          "path": "fixtures/goal-run-activation-receipt-v2/negative-admitted-goal-substitution.json",
+          "expected_failure": "invariant",
+          "expected_rule_id": "goal_run_activation_receipt.root.recomputes"
+        },
+        {
+          "path": "fixtures/goal-run-activation-receipt-v2/negative-receipt-identity-mismatch.json",
+          "expected_failure": "invariant",
+          "expected_rule_id": "goal_run_activation_receipt.identity.matches"
+        },
+        {
+          "path": "fixtures/goal-run-activation-receipt-v2/negative-room-member.json",
+          "expected_failure": "schema"
+        },
+        {
+          "path": "fixtures/goal-run-activation-receipt-v2/negative-source-kind-ref-mismatch.json",
+          "expected_failure": "schema"
+        }
+      ]
+    },
+    {
+      "contract_id": "schema://ioi/applications/ioi-ai/goal-run-admission-path-decision/v2",
+      "canonical_name": "GoalRunAdmissionPathDecision",
+      "canonical_owner_ref": "canon://docs/architecture/domains/ioi-ai/harness-application-profile.md#goalrun-admission-path-decision",
+      "schema_version": "ioi.applications.ioi-ai.goal-run-admission-path-decision.v2",
+      "maturity": "partial",
+      "stability": "provisional",
+      "wire_format": "json",
+      "canonical_encoding_profile_ref": "encoding-profile://ioi/jcs-json/v1",
+      "evolution": {
+        "successor_of": "schema://ioi/applications/ioi-ai/goal-run-admission-path-decision/v1",
+        "successor_contract_id": null,
+        "compatibility": "breaking",
+        "migration_policy": "none",
+        "predecessor_remains_valid": true,
+        "wire_mutation_policy": "forbidden",
+        "hash_impact": "signature_preimage_changed"
+      },
+      "schema_ref": "goal-run-admission-path-decision.v2.schema.json",
+      "cross_field_invariant_refs": [],
+      "compatibility_aliases": [],
+      "generated_targets": [
+        {
+          "kind": "typescript_projection",
+          "path": "packages/hypervisor-workbench/src/runtime/generated/architecture-contracts.ts",
+          "symbol": "GoalRunAdmissionPathDecisionV2"
+        },
+        {
+          "kind": "rust_projection",
+          "path": "crates/types/src/app/generated/architecture_contracts.rs",
+          "symbol": "GoalRunAdmissionPathDecisionV2"
+        }
+      ],
+      "positive_fixture_refs": [
+        "fixtures/goal-run-admission-path-decision-v2/positive-direct-research.json"
+      ],
+      "negative_fixture_refs": [
+        {
+          "path": "fixtures/goal-run-admission-path-decision-v2/negative-direct-with-shared-frontier.json",
+          "expected_failure": "schema"
+        },
+        {
+          "path": "fixtures/goal-run-admission-path-decision-v2/negative-room-member.json",
+          "expected_failure": "schema"
+        }
+      ]
+    },
+    {
+      "contract_id": "schema://ioi/applications/ioi-ai/context-cell/v2",
+      "canonical_name": "ContextCellEnvelope",
+      "canonical_owner_ref": "canon://docs/architecture/domains/ioi-ai/goal-run-execution.md#contextcellenvelope",
+      "schema_version": "ioi.context-cell.v2",
+      "maturity": "partial",
+      "stability": "provisional",
+      "wire_format": "json",
+      "canonical_encoding_profile_ref": "encoding-profile://ioi/jcs-json/v1",
+      "evolution": {
+        "successor_of": "schema://ioi/applications/ioi-ai/context-cell/v1",
+        "successor_contract_id": null,
+        "compatibility": "breaking",
+        "migration_policy": "none",
+        "predecessor_remains_valid": true,
+        "wire_mutation_policy": "forbidden",
+        "hash_impact": "signature_preimage_changed"
+      },
+      "schema_ref": "context-cell.v2.schema.json",
+      "cross_field_invariant_refs": [],
+      "compatibility_aliases": [],
+      "generated_targets": [
+        {
+          "kind": "typescript_projection",
+          "path": "packages/hypervisor-workbench/src/runtime/generated/architecture-contracts.ts",
+          "symbol": "ContextCellEnvelopeV2"
+        },
+        {
+          "kind": "rust_projection",
+          "path": "crates/types/src/app/generated/architecture_contracts.rs",
+          "symbol": "ContextCellEnvelopeV2"
+        }
+      ],
+      "positive_fixture_refs": [
+        "fixtures/context-cell-v2/positive-conductor-orchestration-bound.json",
+        "fixtures/context-cell-v2/positive-implementer-topology-less.json"
+      ],
+      "negative_fixture_refs": [
+        {
+          "path": "fixtures/context-cell-v2/negative-lease-ref-wrong-scheme.json",
+          "expected_failure": "schema"
+        },
+        {
+          "path": "fixtures/context-cell-v2/negative-legacy-underscore-identity.json",
+          "expected_failure": "schema"
+        },
+        {
+          "path": "fixtures/context-cell-v2/negative-role-outside-vocabulary.json",
+          "expected_failure": "schema"
+        },
+        {
+          "path": "fixtures/context-cell-v2/negative-room-member.json",
+          "expected_failure": "schema"
+        },
+        {
+          "path": "fixtures/context-cell-v2/negative-unknown-field.json",
+          "expected_failure": "schema"
+        }
+      ]
+    },
+    {
+      "contract_id": "schema://ioi/applications/ioi-ai/goal-grounding-loop/v2",
+      "canonical_name": "GoalGroundingLoop",
+      "canonical_owner_ref": "canon://docs/architecture/domains/ioi-ai/goal-run-execution.md#goalgroundingloopenvelope",
+      "schema_version": "ioi.goal-grounding-loop.v2",
+      "maturity": "partial",
+      "stability": "provisional",
+      "wire_format": "json",
+      "canonical_encoding_profile_ref": "encoding-profile://ioi/jcs-json/v1",
+      "evolution": {
+        "successor_of": "schema://ioi/applications/ioi-ai/goal-grounding-loop/v1",
+        "successor_contract_id": null,
+        "compatibility": "breaking",
+        "migration_policy": "none",
+        "predecessor_remains_valid": true,
+        "wire_mutation_policy": "forbidden",
+        "hash_impact": "signature_preimage_changed"
+      },
+      "schema_ref": "goal-grounding-loop.v2.schema.json",
+      "cross_field_invariant_refs": [],
+      "compatibility_aliases": [],
+      "generated_targets": [
+        {
+          "kind": "typescript_projection",
+          "path": "packages/hypervisor-workbench/src/runtime/generated/architecture-contracts.ts",
+          "symbol": "GoalGroundingLoopV2"
+        },
+        {
+          "kind": "rust_projection",
+          "path": "crates/types/src/app/generated/architecture_contracts.rs",
+          "symbol": "GoalGroundingLoopV2"
+        }
+      ],
+      "positive_fixture_refs": [
+        "fixtures/goal-grounding-loop-v2/positive-minimal.json"
+      ],
+      "negative_fixture_refs": [
+        {
+          "path": "fixtures/goal-grounding-loop-v2/negative-room-member.json",
+          "expected_failure": "schema"
+        },
+        {
+          "path": "fixtures/goal-grounding-loop-v2/negative-unknown-field.json",
           "expected_failure": "schema"
         }
       ]

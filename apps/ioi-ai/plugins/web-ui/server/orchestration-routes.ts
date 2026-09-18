@@ -313,7 +313,7 @@ export function createOrchestrationRoutes(ioiDaemon: IoiDaemonGateway, tools: Or
           action === "goal-runs/attach"
             ? await composer.attachGoalRun(tail, goalRunRef, expectedHead)
             : await composer.detachGoalRun(tail, goalRunRef, expectedHead);
-        json(res, 200, { ok: true, system_id: systemId, membership_transition: revised.action, orchestration: revised.orchestration, head: revised.head, admission: admissionOf(revised.admitted) });
+        json(res, 200, { ok: true, system_id: systemId, membership_transition: revised.action, member_stamp: revised.member_stamp ?? null, orchestration: revised.orchestration, head: revised.head, admission: admissionOf(revised.admitted) });
       } catch (error) {
         failure(res, error);
       }

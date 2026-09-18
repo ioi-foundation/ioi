@@ -75,7 +75,7 @@ GoalRunEnvelope:
     project_ref: project://... | null
   user_intent_ref: intent://... | prompt://...
   normalized_goal: string
-  outcome_room_ref: outcome-room://... | null
+  orchestration_ref: app-scope://ioi-ai/orchestration/... | null   # v2 (R-190, S4d-2): the orchestration this run is a member of; stamped by the composing application, null for a direct run
   room_participant_lease_ref: participant-lease://... | null
   frontier_item_refs:
     - frontier://...
@@ -135,10 +135,17 @@ GoalRunEnvelope:
   status: draft | active | paused | complete | superseded | revoked
 ```
 
-When `outcome_room_ref` is non-null, `room_participant_lease_ref` is required,
-must name a current lease for that same room, and every `work_claim_ref` must be
-issued to that lease. A GoalRun cannot attach itself to shared room state by
-setting a room ref alone.
+When `orchestration_ref` is non-null the GoalRun is a member of that ioi.ai
+orchestration (`collaborative-pursuit.md` § *OrchestrationEnvelope*). The
+orchestration's `member_goal_run_refs` set is authoritative; the composing
+application stamps the reciprocal member through the GoalRun plane's one
+membership route after the seam revision (R-190, slice S4d-2), and the daemon
+stores the ref it is given without reading the orchestration record. A GoalRun
+cannot attach itself to an orchestration by setting the ref alone: the
+composition's revision on the exact head comes first, and every `work_claim_ref`
+is a v4 WorkClaim admitted under that orchestration. (The v1 shape's room
+coordinates — `outcome_room_ref`, `room_participant_lease_ref` — retired with
+the room plane.)
 
 Every newly admitted GoalRun binds exactly one profile revision. Direct ad hoc
 work uses the versioned generic-adaptive profile plus explicit run constraints;
@@ -308,7 +315,7 @@ GoalGroundingLoopEnvelope:
     open_context_cells | execute_attempt | monitor_progress |
     publish_result | verify_compare_or_challenge | repair_or_escalate |
     reconcile | update_frontier_and_memory | continue_or_close
-  outcome_room_ref: outcome-room://... | null
+  orchestration_ref: app-scope://ioi-ai/orchestration/... | null   # v2 (R-190, S4d-2): the orchestration this run is a member of; stamped by the composing application, null for a direct run
   frontier_and_claim_refs:
     - frontier://... | work-claim://...
   grounding_source_refs:
@@ -392,7 +399,7 @@ RoleTopologyEnvelope:
   work_subject_ref:
     goal://... | automation-run://... | work_run://... | run://... |
     invocation://... | work-claim://... | attempt://...
-  outcome_room_ref: outcome-room://... | null
+  orchestration_ref: app-scope://ioi-ai/orchestration/... | null   # v2 (R-190, S4d-2): the orchestration this run is a member of; stamped by the composing application, null for a direct run
   topology_version: integer | semver_or_hash
   topology_kind:
     direct | goal_conductor | delegated_build | governed_release |
@@ -466,7 +473,7 @@ ContextCellEnvelope:
   work_subject_ref:
     goal://... | automation-run://... | work_run://... | run://... |
     invocation://... | work-claim://... | attempt://...
-  outcome_room_ref: outcome-room://... | null
+  orchestration_ref: app-scope://ioi-ai/orchestration/... | null   # v2 (R-190, S4d-2): the orchestration this run is a member of; stamped by the composing application, null for a direct run
   participant_lease_ref: participant-lease://... | null
   role_topology_revision_ref: role_topology://.../revision/... | null
   role_binding_id: string

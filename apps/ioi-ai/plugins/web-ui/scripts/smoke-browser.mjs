@@ -101,7 +101,7 @@ function exactFields(body, fields) {
 
 function goalRun(id, goal, status = "draft") {
   return {
-    schema_version: "ioi.goal-run.v1",
+    schema_version: "ioi.goal-run.v2",
     goal_run_id: id,
     goal_ref: `goal://${id}`,
     owner_ref: `user://${principal}`,
@@ -109,7 +109,7 @@ function goalRun(id, goal, status = "draft") {
     target_session_ref: "session:hyp-browser-smoke",
     receipt_refs: [`receipt://goal-run/${id}/admission`],
     work_result_refs: [],
-    outcome_room_ref: null,
+    orchestration_ref: null,
     status,
     created_at: "2026-08-06T12:00:00Z",
     updated_at: "2026-08-06T12:00:00Z",

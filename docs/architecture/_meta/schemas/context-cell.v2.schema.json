@@ -1,0 +1,240 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "schema://ioi/applications/ioi-ai/context-cell/v2",
+  "title": "ContextCellEnvelope",
+  "x-ioi-schema-version": "ioi.context-cell.v2",
+  "description": "Independent bounded working context for ONE role inside a GoalRun, owned by the ioi.ai orchestration application and admitted through the daemon's generic write path (never Hypervisor core). It carries refs to the information-flow labels, memory projections, leases, authority scopes and runtime assignment that other owners admit; it defines no parallel taint, privacy or authority object of its own (goal-run-execution.md § ContextCellEnvelope; execution-context-and-step-resolution.md § InformationFlowLabel and DeclassificationApproval). Ref spellings are the estate's canonical hyphenated identities; the legacy underscore spellings recorded in legacy-ref-scheme-aliases.json are refused here because that registry's write policy forbids emitting them. Version 2 (2026-09-18, R-178 slice S4d-2, R-190): the GoalRun composes over the ioi.ai orchestration — the room coordinates of v1 are gone and `orchestration_ref` names the composition; successor of v1.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "context_cell_id",
+    "work_subject_ref",
+    "orchestration_ref",
+    "delegation_ref",
+    "role_topology_revision_ref",
+    "role_binding_id",
+    "accountable_actor_ref",
+    "role",
+    "resolver_revision_ref",
+    "resolver_content_hash",
+    "model_route_ref",
+    "memory_projection_refs",
+    "context_lease_refs",
+    "information_flow_label_refs",
+    "active_runtime_assignment_ref",
+    "authority_scope_refs",
+    "compression_policy_ref",
+    "current_claim_ref",
+    "next_wake_condition_ref",
+    "status"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": "ioi.context-cell.v2"
+    },
+    "context_cell_id": {
+      "type": "string",
+      "pattern": "^context-cell://\\S+$",
+      "maxLength": 500
+    },
+    "work_subject_ref": {
+      "type": "string",
+      "pattern": "^(?:goal|automation-run|work-run|run|invocation|work-claim|attempt)://\\S+$",
+      "maxLength": 500
+    },
+    "role_topology_revision_ref": {
+      "anyOf": [
+        {
+          "type": "string",
+          "pattern": "^role-topology://\\S+/revision/\\S+$",
+          "maxLength": 500
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "role_binding_id": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 200
+    },
+    "accountable_actor_ref": {
+      "type": "string",
+      "pattern": "^(?:participant-lease|system|worker|agent|service|org|user|domain)://\\S+$",
+      "maxLength": 500
+    },
+    "role": {
+      "type": "string",
+      "enum": [
+        "conductor",
+        "implementer",
+        "reviewer",
+        "verifier",
+        "operator",
+        "researcher",
+        "specialist",
+        "synthesizer",
+        "resource_provider",
+        "integrity_challenger",
+        "memory_curator"
+      ]
+    },
+    "resolver_revision_ref": {
+      "anyOf": [
+        {
+          "type": "string",
+          "pattern": "^(?:harness-profile|agent-harness-adapter)://\\S+/revision/\\S+$",
+          "maxLength": 500
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "resolver_content_hash": {
+      "anyOf": [
+        {
+          "type": "string",
+          "pattern": "^sha256:[0-9a-f]{64}$"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "model_route_ref": {
+      "anyOf": [
+        {
+          "type": "string",
+          "pattern": "^model-route://\\S+$",
+          "maxLength": 500
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "memory_projection_refs": {
+      "type": "array",
+      "maxItems": 512,
+      "items": {
+        "type": "string",
+        "pattern": "^(?:memory-projection|wiki)://\\S+$",
+        "maxLength": 500
+      }
+    },
+    "context_lease_refs": {
+      "type": "array",
+      "maxItems": 512,
+      "items": {
+        "type": "string",
+        "pattern": "^context-lease://\\S+$",
+        "maxLength": 500
+      }
+    },
+    "information_flow_label_refs": {
+      "type": "array",
+      "maxItems": 512,
+      "items": {
+        "type": "string",
+        "pattern": "^ifc-label://\\S+$",
+        "maxLength": 500
+      }
+    },
+    "active_runtime_assignment_ref": {
+      "anyOf": [
+        {
+          "type": "string",
+          "pattern": "^runtime-assignment://\\S+$",
+          "maxLength": 500
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "authority_scope_refs": {
+      "type": "array",
+      "maxItems": 512,
+      "items": {
+        "type": "string",
+        "pattern": "^(?:authority|policy)://\\S+$",
+        "maxLength": 500
+      }
+    },
+    "compression_policy_ref": {
+      "anyOf": [
+        {
+          "type": "string",
+          "pattern": "^policy://\\S+$",
+          "maxLength": 500
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "current_claim_ref": {
+      "anyOf": [
+        {
+          "type": "string",
+          "pattern": "^work-claim://\\S+$",
+          "maxLength": 500
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "next_wake_condition_ref": {
+      "anyOf": [
+        {
+          "type": "string",
+          "pattern": "^(?:policy|event)://\\S+$",
+          "maxLength": 500
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "status": {
+      "type": "string",
+      "enum": [
+        "open",
+        "active",
+        "sleeping",
+        "waiting",
+        "handed_off",
+        "summarized",
+        "quarantined",
+        "closed",
+        "revoked"
+      ]
+    },
+    "orchestration_ref": {
+      "anyOf": [
+        {
+          "type": "string",
+          "pattern": "^app-scope://ioi-ai/orchestration/[^\\s]{1,400}$"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "delegation_ref": {
+      "anyOf": [
+        {
+          "type": "string",
+          "pattern": "^delegation://[^\\s]{1,500}$"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    }
+  }
+}

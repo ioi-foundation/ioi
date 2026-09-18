@@ -109,9 +109,9 @@
       "id": "m3-goalrun-plane",
       "npm_script": "check:m3-goalrun-plane",
       "source": "apps/hypervisor/scripts/verify-m3-goalrun-plane.mjs",
-      "runtime_assertions": 11,
-      "assertion_names_sha256": "585d49c3007e31922200f595c9b88b03cc029dce97586a445fd9de3030d7dd5c",
-      "note": "M04.4 general direct-admission closure: the live plane proves exact reusable-definition resolution, canonical skill-owner records, an Agentgres-backed reproducible admitted-state root, typed receipt/source/authority bindings, missing-state-evidence refusal, negative generic result truth, component tamper refusal, and restart lineage."
+      "runtime_assertions": 14,
+      "assertion_names_sha256": "5d572121f08911b874e847d47f6b05cc5516186562d39a46797a867e1bd99657",
+      "note": "M04.4 general direct-admission closure: the live plane proves exact reusable-definition resolution, canonical skill-owner records, an Agentgres-backed reproducible admitted-state root, typed receipt/source/authority bindings, missing-state-evidence refusal, negative generic result truth, component tamper refusal, and restart lineage. Re-pinned 2026-09-18 (R-190, S4d-2): 11 -> 14 -- the reciprocal orchestration-membership stamp on a real direct GoalRun, its four refusals (conflict, room-shaped ref, widened body, absent run) and the null detach."
     },
     {
       "id": "m4-goalrun-activation-plane",
@@ -395,9 +395,9 @@
       "id": "orchestration-records",
       "npm_script": "check:orchestration-records",
       "source": "apps/hypervisor/scripts/verify-hypervisor-orchestration-records.mjs",
-      "runtime_assertions": 19,
-      "assertion_names_sha256": "276c182a9e3ad25c21aff0629990189e7596ec3cf573102400a0c2ef5cb32444",
-      "note": "First pinned 2026-09-17 (register R-185, slice S4c-1) at the 19 assertions it executes through the built ioi-ai orchestration package and the agent SDK against an isolated daemon and the REAL wallet.network fixture: the bounded System activated through its governed genesis; composing creates the coordinating thread and then admits the orchestration record (applications/ioi-ai/orchestration/v1, the successor of OutcomeRoom v2) through the seam with the binding derived and the served member set equal to the contract's; a record naming another orchestration's scope refused by the registered invariant; the seam's list under the contract; re-attach from the record's coordinates; the seam's scope fence on an unheld id passed through untouched; GoalRun attach and detach as exact-head revisions with the stale head refused by the seam by name and the composer's own refusals by name; status open, paused, open, closed with closed terminal; the graph rooted at the thread with one delegation and only this orchestration's record; restart re-derivation; the portal exchange session minted and driving the composition end to end while the work-lifecycle, secrets, turns and System genesis routes stay scope-denied; and the structural claim over the composer, the ioi.ai server, the router and the session mint. The drill (D1-D4) is a separate invocation and is not part of this count."
+      "runtime_assertions": 21,
+      "assertion_names_sha256": "584b6ab4c02aca7082aefafc5d6ac5713abd541932e6d4da8c29a3261c7bab46",
+      "note": "First pinned 2026-09-17 (register R-185, slice S4c-1) at the 19 assertions it executes through the built ioi-ai orchestration package and the agent SDK against an isolated daemon and the REAL wallet.network fixture: the bounded System activated through its governed genesis; composing creates the coordinating thread and then admits the orchestration record (applications/ioi-ai/orchestration/v1, the successor of OutcomeRoom v2) through the seam with the binding derived and the served member set equal to the contract's; a record naming another orchestration's scope refused by the registered invariant; the seam's list under the contract; re-attach from the record's coordinates; the seam's scope fence on an unheld id passed through untouched; GoalRun attach and detach as exact-head revisions with the stale head refused by the seam by name and the composer's own refusals by name; status open, paused, open, closed with closed terminal; the graph rooted at the thread with one delegation and only this orchestration's record; restart re-derivation; the portal exchange session minted and driving the composition end to end while the work-lifecycle, secrets, turns and System genesis routes stay scope-denied; and the structural claim over the composer, the ioi.ai server, the router and the session mint. The drill (D1-D4) is a separate invocation and is not part of this count. Re-pinned 2026-09-18 (R-190, S4d-2): 19 -> 21 -- the composer's honest member_stamp report and the stamp route's reachability under the portal session."
     },
     {
       "id": "aiip-collaboration-discovery",

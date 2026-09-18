@@ -1169,7 +1169,7 @@ IoiAiGoalProjection:
   goal_run_profile_revision_ref: goal-run-profile://.../revision/...
   goal_run_profile_content_hash: hash
   owner_ref: user://... | org://... | project://... | system://...
-  outcome_room_ref: outcome-room://... | null
+  orchestration_ref: app-scope://ioi-ai/orchestration/... | null   # v2 (R-190, S4d-2): the orchestration this run is a member of; stamped by the composing application, null for a direct run
   continuation_state_projection:
     open | waiting_on_user | waiting_on_frontier | sleeping | delegated |
     verifying | course_correcting | complete | blocked | superseded
@@ -1235,7 +1235,7 @@ IoiAiCrossSessionOutcomeGraph:
   outcome_plan_projection_ref: outcome-plan://... | null
   orchestration_plan_revision_ref: orchestration_plan://.../revision/...
   orchestration_plan_content_hash: hash
-  outcome_room_ref: outcome-room://... | null
+  orchestration_ref: app-scope://ioi-ai/orchestration/... | null   # v2 (R-190, S4d-2): the orchestration this run is a member of; stamped by the composing application, null for a direct run
   room_discovery_refs:
     - room-discovery://...
   participation_request_refs:

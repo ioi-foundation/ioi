@@ -14,6 +14,9 @@ import {
 import {
   SYSTEM_RECORD_ROUTES,
   WORK_LIFECYCLE_ROUTES,
+  GOAL_RUN_ROUTES,
+  type GoalRunOrchestrationMembershipInput,
+  type GoalRunOrchestrationMembershipResult,
   type SystemRecordAdmitInput,
   type SystemRecordAdmitResult,
   type SystemRecordChainResult,
@@ -1565,6 +1568,7 @@ export interface RuntimeSubstrateClient {
   listSystemRecords(systemId: string, contractId?: string): Promise<SystemRecordListResult>;
   getSystemRecord(systemId: string, contractId: string, objectId: string): Promise<SystemRecordChainResult>;
   admitWorkReservation(input: WorkReservationAdmitInput): Promise<WorkReservationAdmitResult>;
+  stampGoalRunOrchestrationMembership(goalRunId: string, input: GoalRunOrchestrationMembershipInput): Promise<GoalRunOrchestrationMembershipResult>;
   startProviderConnection(input: ProviderConnectionStartInput): Promise<ProviderConnectionStartResult>;
   completeProviderConnection(input: ProviderConnectionCompleteInput): Promise<ProviderConnectionCompleteResult>;
   listProviderConnections(): Promise<ProviderConnectionListResult>;
@@ -2656,6 +2660,11 @@ export class DaemonRuntimeSubstrateClient implements RuntimeSubstrateClient {
   // ---- M04.10 — per-dimension work reservations on their own stream (R-74) ----------------------
   async admitWorkReservation(input: WorkReservationAdmitInput): Promise<WorkReservationAdmitResult> {
     return this.request("admitWorkReservation", "POST", WORK_LIFECYCLE_ROUTES.reservations, input);
+  }
+
+  // ---- R-190 (S4d-2) — the GoalRun plane's reciprocal orchestration member ---------------------
+  async stampGoalRunOrchestrationMembership(goalRunId: string, input: GoalRunOrchestrationMembershipInput): Promise<GoalRunOrchestrationMembershipResult> {
+    return this.request("stampGoalRunOrchestrationMembership", "POST", GOAL_RUN_ROUTES.orchestrationMembership(goalRunId), input);
   }
 
   // ---- M03.16 — external-account connections (connected is not authorized) ----------------------

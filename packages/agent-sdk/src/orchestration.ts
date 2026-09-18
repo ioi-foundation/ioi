@@ -48,6 +48,22 @@ export const SYSTEM_RECORD_ROUTES = {
 } as const;
 
 /** The work-lifecycle plane's reservation admission (M04.10). */
+/** R-178 slice S4d-2 (R-190): the GoalRun plane's one membership endpoint — the composer stamps the reciprocal member after the seam revision. */
+export const GOAL_RUN_ROUTES = {
+  orchestrationMembership: (goalRunId: string) => `/v1/goal-orchestration/goal-runs/${encode(goalRunId)}/orchestration-membership`,
+} as const;
+
+export interface GoalRunOrchestrationMembershipInput {
+  orchestration_ref: string | null;
+}
+
+export interface GoalRunOrchestrationMembershipResult {
+  ok: true;
+  goal_run: Record<string, unknown>;
+  durable: boolean;
+  durability_note?: string;
+}
+
 export const WORK_LIFECYCLE_ROUTES = {
   reservations: "/v1/hypervisor/work-lifecycle/reservations",
   records: "/v1/hypervisor/work-lifecycle/records",

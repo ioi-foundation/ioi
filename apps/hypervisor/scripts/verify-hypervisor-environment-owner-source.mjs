@@ -278,7 +278,7 @@ check("R1_DERIVED_CLOSED_WORLD",
   // population is unmoved. Before that, 2026-09-16 (R-178 S4a / R-179): 54 handlers over the 43
   // deleted `/v1/goal-orchestration/*` routes went with the room-hosted work-object,
   // participation, lease, terms and pairing modules (1219 → 1165).
-  census.registered_route_handlers === 1153 && census.workspace_route_handlers === 40
+  census.registered_route_handlers === 1154 /* 2026-09-18 (R-190, S4d-2): +1, handle_goal_run_orchestration_membership (1153 → 1154) */ && census.workspace_route_handlers === 40
     && census.routes.length === 47 && census.unresolved.length === 0 && census.unclassified.length === 0
     && ownerRoute("GET", "/") && ownerRoute("GET", "/*preview_path")
     && aggregateRoutes.join(",") === "operability_routes::handle_operability_metrics,orchestration_routes::handle_placement_metrics"

@@ -20,7 +20,7 @@ use std::collections::HashSet;
 
 pub const GOAL_RUN_ADMISSION_SCHEMA_VERSION: &str = "ioi.runtime.goal_run_admission.v1";
 pub const GOAL_RUN_ADMISSION_PATH_DECISION_SCHEMA_VERSION: &str =
-    "ioi.applications.ioi-ai.goal-run-admission-path-decision.v1";
+    "ioi.applications.ioi-ai.goal-run-admission-path-decision.v2";
 
 /// The first orchestration policy: parallel implementation + verifier reconciliation.
 pub const GOAL_RUN_POLICY_PARALLEL_IMPLEMENT_RECONCILE: &str = "parallel_implement_reconcile";
@@ -216,7 +216,6 @@ impl RuntimeGoalRunAdmissionCore {
             "single_bounded_work_subject",
             "requires_system_membership",
             "requires_shared_frontier",
-            "requires_outcome_room",
             "requires_collective_scheduling",
             "capabilities_fit_single_execution",
             "authority_fits_single_execution",
@@ -248,7 +247,6 @@ impl RuntimeGoalRunAdmissionCore {
         let single = required_bool(facts, "single_bounded_work_subject")?;
         let requires_system = required_bool(facts, "requires_system_membership")?;
         let requires_frontier = required_bool(facts, "requires_shared_frontier")?;
-        let requires_room = required_bool(facts, "requires_outcome_room")?;
         let requires_collective = required_bool(facts, "requires_collective_scheduling")?;
         let capabilities_fit = required_bool(facts, "capabilities_fit_single_execution")?;
         let authority_fits = required_bool(facts, "authority_fits_single_execution")?;
@@ -266,9 +264,6 @@ impl RuntimeGoalRunAdmissionCore {
         }
         if requires_frontier {
             reasons.push("shared_frontier_required");
-        }
-        if requires_room {
-            reasons.push("outcome_room_required");
         }
         if requires_collective {
             reasons.push("collective_scheduling_required");
@@ -322,7 +317,6 @@ impl RuntimeGoalRunAdmissionCore {
                 "single_bounded_work_subject": single,
                 "requires_system_membership": requires_system,
                 "requires_shared_frontier": requires_frontier,
-                "requires_outcome_room": requires_room,
                 "requires_collective_scheduling": requires_collective,
                 "capabilities_fit_single_execution": capabilities_fit,
                 "authority_fits_single_execution": authority_fits,
@@ -1377,7 +1371,6 @@ mod tests {
                 "single_bounded_work_subject": true,
                 "requires_system_membership": false,
                 "requires_shared_frontier": false,
-                "requires_outcome_room": false,
                 "requires_collective_scheduling": false,
                 "capabilities_fit_single_execution": true,
                 "authority_fits_single_execution": true,

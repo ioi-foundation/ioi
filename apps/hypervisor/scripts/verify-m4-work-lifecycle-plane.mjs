@@ -41,7 +41,6 @@ const pathRequest = {
     single_bounded_work_subject: true,
     requires_system_membership: false,
     requires_shared_frontier: false,
-    requires_outcome_room: false,
     requires_collective_scheduling: false,
     capabilities_fit_single_execution: true,
     authority_fits_single_execution: true,
@@ -158,7 +157,7 @@ try {
         && count("goal-run-context-cells") === 1
         && plan.schema_version === "ioi.orchestration-plan.v1"
         && receipt.schema_version === "ioi.orchestration-plan-selection-decision-receipt.v1"
-        && cell.schema_version === "ioi.context-cell.v1",
+        && cell.schema_version === "ioi.context-cell.v2",
     );
     check(
       "the selected application plan binds the exact admitted profile, workflow, hash, and decision receipt",

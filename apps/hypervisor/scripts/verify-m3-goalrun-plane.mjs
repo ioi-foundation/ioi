@@ -36,7 +36,6 @@ const pathRequest = {
     single_bounded_work_subject: true,
     requires_system_membership: false,
     requires_shared_frontier: false,
-    requires_outcome_room: false,
     requires_collective_scheduling: false,
     capabilities_fit_single_execution: true,
     authority_fits_single_execution: true,
@@ -147,7 +146,39 @@ try {
       definition_resolution: definitionResolution,
     });
     const run = created.body.goal_run;
-    check("direct GoalRun admits active through exact profile resolution and daemon-derived ownership", created.status === 201 && run?.status === "active" && run?.schema_version === "ioi.goal-run.v1" && run?.admission_path_status === "direct_non_system" && run?.owner_ref === principalRef, `${created.status}/${created.body?.error?.code}/${run?.owner_ref}`);
+    check("direct GoalRun admits active through exact profile resolution and daemon-derived ownership", created.status === 201 && run?.status === "active" && run?.schema_version === "ioi.goal-run.v2" && run?.admission_path_status === "direct_non_system" && run?.owner_ref === principalRef, `${created.status}/${created.body?.error?.code}/${run?.owner_ref}`);
+    // R-178 slice S4d-2 (R-190): the reciprocal orchestration member. The composer stamps the ref
+    // it asserted on the seam; the daemon stores it through the CAS seam and never reads the
+    // orchestration record. Owner-authorized; closed body; conflict by name; null detaches.
+    const membershipPath = `/v1/goal-orchestration/goal-runs/${run?.goal_run_id}/orchestration-membership`;
+    const orcRef = "app-scope://ioi-ai/orchestration/orc_m3_reciprocal";
+    const stamped = await request(plane.daemonUrl, "POST", membershipPath, { orchestration_ref: orcRef });
+    const afterStamp = await request(plane.daemonUrl, "GET", `/v1/goal-orchestration/goal-runs/${run?.goal_run_id}`);
+    check("the orchestration member is stamped through the CAS seam and the GoalRun projection names it",
+      stamped.status === 200 && stamped.body?.ok === true && stamped.body?.goal_run?.orchestration_ref === orcRef && stamped.body?.durable === true
+        && afterStamp.status === 200 && afterStamp.body?.goal_run?.orchestration_ref === orcRef
+        && afterStamp.body?.goal_run?.schema_version === "ioi.goal-run.v2" && !("outcome_room_ref" in (afterStamp.body?.goal_run ?? {})),
+      `${stamped.status}/${stamped.body?.error?.code ?? stamped.body?.goal_run?.orchestration_ref}/${afterStamp.body?.goal_run?.orchestration_ref}`);
+    const conflicting = await request(plane.daemonUrl, "POST", membershipPath, { orchestration_ref: "app-scope://ioi-ai/orchestration/orc_other" });
+    const malformed = await request(plane.daemonUrl, "POST", membershipPath, { orchestration_ref: "outcome-room://or_1" });
+    const widened = await request(plane.daemonUrl, "POST", membershipPath, { orchestration_ref: orcRef, status: "complete" });
+    // An absent GoalRun's refusal follows the request's DEPLOYMENT POSTURE (`global_truth_reader`):
+    // this isolated plane is local_development, which resolves no truth reader, so the honest
+    // answer is 404 goal_run_not_found. Where identity is enforced the same route answers the
+    // least-disclosure 403 goal_run_mutation_owner_mismatch — asserted under [portal] in
+    // check:orchestration-records, which drives exactly that posture.
+    const absent = await request(plane.daemonUrl, "POST", "/v1/goal-orchestration/goal-runs/gr_absent_m3/orchestration-membership", { orchestration_ref: orcRef });
+    check("a different orchestration while attached, a room-shaped ref, a widened body and an absent GoalRun refuse by name and change nothing",
+      conflicting.status === 409 && conflicting.body?.error?.code === "goal_run_orchestration_membership_conflict"
+        && malformed.status === 422 && malformed.body?.error?.code === "goal_run_orchestration_ref_invalid"
+        && widened.status === 422 && widened.body?.error?.code === "goal_run_orchestration_membership_invalid"
+        && absent.status === 404 && absent.body?.error?.code === "goal_run_not_found"
+        && (await request(plane.daemonUrl, "GET", `/v1/goal-orchestration/goal-runs/${run?.goal_run_id}`)).body?.goal_run?.orchestration_ref === orcRef,
+      `${conflicting.status}/${conflicting.body?.error?.code} ${malformed.status}/${malformed.body?.error?.code} ${widened.status}/${widened.body?.error?.code} ${absent.status}/${absent.body?.error?.code}`);
+    const detachedMember = await request(plane.daemonUrl, "POST", membershipPath, { orchestration_ref: null });
+    check("null detaches: the member is cleared on the exact record and the run stays active",
+      detachedMember.status === 200 && detachedMember.body?.goal_run?.orchestration_ref === null && detachedMember.body?.goal_run?.status === "active",
+      `${detachedMember.status}/${detachedMember.body?.error?.code ?? detachedMember.body?.goal_run?.status}`);
     check("component, canonical active-skill, resolution, and lifecycle records persist without the legacy GoalRun-local family",
       count("goal-run-component-snapshots") === 1
         && count("canonical-active-skill-set-snapshots") === 1

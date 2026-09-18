@@ -109,6 +109,7 @@ GET  /v1/goal-orchestration/goal-runs/{goal_ref}
 POST /v1/goal-orchestration/goal-runs/{goal_ref}/results
 POST /v1/goal-orchestration/goal-runs/{goal_ref}/outcome-deltas
 POST /v1/goal-orchestration/goal-runs/{goal_ref}/start
+POST /v1/goal-orchestration/goal-runs/{goal_run_id}/orchestration-membership   # R-190 (S4d-2): body { orchestration_ref | null }; the composer's reciprocal member stamp, owner-authorized, CAS-guarded
 POST /v1/goal-orchestration/goal-runs/{goal_ref}/reconcile
 POST /v1/goal-orchestration/goal-runs/{goal_ref}/lifecycle-recovery
 GET  /v1/goal-orchestration/goal-runs/{goal_ref}/events

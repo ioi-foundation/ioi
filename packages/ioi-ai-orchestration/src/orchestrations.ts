@@ -158,6 +158,15 @@ export type MembershipTransition = "attach" | "detach";
 
 export interface RevisedOrchestration extends AdmittedOrchestration {
   action: MembershipTransition | "transition";
+  member_stamp?: OrchestrationMemberStamp;
+}
+
+export interface OrchestrationMemberStamp {
+  goal_run_ref: string;
+  orchestration_ref: string | null;
+  stamped: boolean;
+  durable: boolean;
+  refusal: { status: number; code: string; message: string } | null;
 }
 
 // ---- coordinates -------------------------------------------------------------------------------
@@ -331,7 +340,7 @@ export class Orchestrations {
   /** Attach a GoalRun: a revision of the record on the exact head the caller loaded. */
   async attachGoalRun(id: unknown, goalRunRef: unknown, expectedHead: unknown): Promise<RevisedOrchestration> {
     const ref = requireGoalRunRef(goalRunRef);
-    return this.revise(id, expectedHead, "attach", (current) => {
+    const revised = await this.revise(id, expectedHead, "attach", (current) => {
       requireOpen(current, "membership change");
       if (current.member_goal_run_refs.includes(ref)) {
         throw new OrchestrationRefusal("orchestration_goal_run_already_attached", `${ref} is already attached to ${current.orchestration_id}`, { goal_run_ref: ref });
@@ -341,18 +350,41 @@ export class Orchestrations {
       }
       return { ...current, member_goal_run_refs: [...current.member_goal_run_refs, ref] };
     });
+    revised.member_stamp = await this.stampMember(ref, orchestrationScope(orchestrationIdTail(revised.orchestration.orchestration_id) ?? ""));
+    return revised;
   }
 
   /** Detach a GoalRun: the reverse revision, on the exact head. */
   async detachGoalRun(id: unknown, goalRunRef: unknown, expectedHead: unknown): Promise<RevisedOrchestration> {
     const ref = requireGoalRunRef(goalRunRef);
-    return this.revise(id, expectedHead, "detach", (current) => {
+    const revised = await this.revise(id, expectedHead, "detach", (current) => {
       requireOpen(current, "membership change");
       if (!current.member_goal_run_refs.includes(ref)) {
         throw new OrchestrationRefusal("orchestration_goal_run_not_attached", `${ref} is not attached to ${current.orchestration_id}`, { goal_run_ref: ref });
       }
       return { ...current, member_goal_run_refs: current.member_goal_run_refs.filter((member) => member !== ref) };
     });
+    revised.member_stamp = await this.stampMember(ref, null);
+    return revised;
+  }
+
+  /**
+   * The reciprocal member: the seam revision is authoritative and already durable; the GoalRun
+   * plane stores the ref the composer asserts (R-190). A refused stamp is reported, never hidden,
+   * and never rolls the seam back — the composer retries the stamp, not the membership.
+   */
+  private async stampMember(goalRunRef: string, orchestrationRef: string | null): Promise<OrchestrationMemberStamp> {
+    const goalRunId = goalRunRef.slice("goal://".length);
+    try {
+      const result = await this.client.stampGoalRunOrchestrationMembership(goalRunId, { orchestration_ref: orchestrationRef });
+      return { goal_run_ref: goalRunRef, orchestration_ref: orchestrationRef, stamped: true, durable: result.durable !== false, refusal: null };
+    } catch (error) {
+      const status = typeof (error as { status?: unknown })?.status === "number" ? (error as { status: number }).status : 0;
+      const daemonCode = (error as { details?: { daemon?: { error?: { code?: unknown } } } })?.details?.daemon?.error?.code;
+      const code = typeof daemonCode === "string" ? daemonCode : typeof (error as { code?: unknown })?.code === "string" ? (error as { code: string }).code : "goal_run_orchestration_membership_unavailable";
+      const message = error instanceof Error ? error.message : String(error);
+      return { goal_run_ref: goalRunRef, orchestration_ref: orchestrationRef, stamped: false, durable: false, refusal: { status, code, message } };
+    }
   }
 
   /** open ⇄ paused, and either → closed; closed is terminal. */

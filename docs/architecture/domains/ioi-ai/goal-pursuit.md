@@ -237,7 +237,7 @@ GoalRunActivationEnvelope:
   source_context:
     source_kind:
       ioi_goal_draft | hypervisor_session | work_run | work_item |
-      outcome_room_claim | automation_workflow_step | gateway_adapter_context
+      orchestration_claim | automation_workflow_step | gateway_adapter_context   # v2: a WorkClaim v4 admitted under an orchestration (was outcome_room_claim)
     source_ref:
       intent://... | session://... | work-run://... | run://... |
       work-item://... | work-claim://... | action://goal-run/activate/... |
@@ -350,7 +350,7 @@ GoalRunActivationReceipt:
   source_context:
     source_kind:
       ioi_goal_draft | hypervisor_session | work_run | work_item |
-      outcome_room_claim | automation_workflow_step | gateway_adapter_context
+      orchestration_claim | automation_workflow_step | gateway_adapter_context   # v2: a WorkClaim v4 admitted under an orchestration (was outcome_room_claim)
     source_ref:
       intent://... | prompt://... | session://... | work-run://... | run://... |
       work-item://... | work-claim://... | action://goal-run/activate/... |
@@ -538,7 +538,7 @@ OrchestrationPlanEnvelope:
   proposed_session_topology:
     single_session | isolated_parallel_sessions | branch_and_merge |
     collaborative_frontier | federated_room | handoff_only | no_execution
-  outcome_room_ref: outcome-room://... | null
+  orchestration_ref: app-scope://ioi-ai/orchestration/... | null   # v2 (R-190, S4d-2): the orchestration this run is a member of; stamped by the composing application, null for a direct run
   proposed_coordination_topology:
     none | hosted_admission | federated_admission
   expected_cost_ref: budget://... | null
@@ -575,7 +575,7 @@ must reference which contract governs external spend.
 NetworkGoalBudgetEnvelope:
   network_goal_budget_id: goal-budget://...
   goal_ref: goal://... | task://...
-  outcome_room_ref: outcome-room://... | null
+  orchestration_ref: app-scope://ioi-ai/orchestration/... | null   # v2 (R-190, S4d-2): the orchestration this run is a member of; stamped by the composing application, null for a direct run
   system_binding: SystemScopedObjectBinding | null
   sponsor_ref: system://... | user://... | org://... | project://... | service://...
   collaboration_terms_refs:
@@ -679,6 +679,7 @@ empty.
 contracts owned by
 [`../../components/hypervisor/core-clients-surfaces.md`](../../components/hypervisor/core-clients-surfaces.md#hypervisor-automations).
 Their `goal_run_activation_contract_refs`, `goal_run_refs`, and
-`outcome_room_ref` fields are unchanged and stay there; a field change would be
+`orchestration_ref` fields (v2 since 2026-09-18, R-190: `outcome_room_ref` was
+the v1 member) are unchanged and stay there; a field change would be
 a new contract version. This section owns only what those refs mean for the
 pursuit they reach.

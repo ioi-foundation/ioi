@@ -21,7 +21,7 @@ import {
 
 function goalRun(overrides: Record<string, unknown> = {}): Record<string, unknown> {
   return {
-    schema_version: "ioi.goal-run.v1",
+    schema_version: "ioi.goal-run.v2",
     goal_run_id: "gr_123",
     goal_ref: "goal://gr_123",
     receipt_refs: ["receipt://goal-run/gr_123/admission"],

@@ -1741,7 +1741,7 @@ generic computation-proof claim/nonclaim boundary.
   "receipt_type": "model_invocation | runtime_usage",
   "invocation_ref": "invocation://123",
   "goal_ref": "goal://123",
-  "outcome_room_ref": "outcome-room://123 | null",
+  "orchestration_ref": "app-scope://ioi-ai/orchestration/... | null",
   "attempt_ref": "attempt://123 | null",
   "worker_ref": "worker://planner",
   "harness_ref": "harness-profile://default | null",
@@ -2173,7 +2173,7 @@ RoutingDecisionReceipt:
   routing_decision_ref: routing-decision://...
   routing_decision_hash: sha256:...
   goal_ref: goal://... | null
-  outcome_room_ref: outcome-room://... | null
+  orchestration_ref: app-scope://ioi-ai/orchestration/... | null   # v2 (R-190, S4d-2): the orchestration this run is a member of; stamped by the composing application, null for a direct run
   task_ref: task://... | null
   router_ref: worker://... | runtime://... | system://... | domain://...
   task_offer_ref: packet://... | null
@@ -2249,7 +2249,7 @@ ContributionReceipt:
   model_and_route_attribution_refs:
     - model://... | model_route://... | provider://... | runtime://...
   goal_ref: goal://... | null
-  outcome_room_ref: outcome-room://... | null
+  orchestration_ref: app-scope://ioi-ai/orchestration/... | null   # v2 (R-190, S4d-2): the orchestration this run is a member of; stamped by the composing application, null for a direct run
   task_ref: task://... | null
   run_ref: run://... | null
   collaboration_terms_ref: terms://... | null
@@ -3306,7 +3306,7 @@ CollaborationTermsAcceptanceReceipt:
   collaboration_terms_ref: terms://...
   collaboration_terms_root: sha256:...
   collaboration_ref: collaboration://... | null
-  outcome_room_ref: outcome-room://... | null
+  orchestration_ref: app-scope://ioi-ai/orchestration/... | null   # v2 (R-190, S4d-2): the orchestration this run is a member of; stamped by the composing application, null for a direct run
   task_and_frontier_refs:
     - task://... | frontier://...
   order_service_and_channel_refs:
@@ -3359,7 +3359,7 @@ another party's connector, wallet, or protected payload.
   "receipt_id": "receipt://multi_party_collaboration_123",
   "receipt_type": "multi_party_collaboration",
   "collaboration_ref": "collaboration://joint-service-outcome-001",
-  "outcome_room_ref": "outcome-room://joint-service-outcome-001",
+  "orchestration_ref": "app-scope://ioi-ai/orchestration/orc_joint_service_outcome_001",
   "goal_ref": "order://123",
   "coordinator_ref": "domain://service-coordinator",
   "active_collaboration_terms_ref": "terms://joint-service-outcome/v1",
@@ -4177,7 +4177,7 @@ archival checkpoint files.
 {
   "trace_bundle_id": "trace_123",
   "run_id": "run://123",
-  "outcome_room_ref": "outcome-room://room-123 | null",
+  "orchestration_ref": "app-scope://ioi-ai/orchestration/... | null",
   "room_coordination_topology": "hosted_admission | federated_admission | null",
   "timeline_segments": [],
   "span_waterfall": [],

@@ -1189,7 +1189,7 @@ Request body:
     "project_ref": "project://... | null",
     "system_ref": "system://... | null",
     "goal_run_ref": "goal://... | null",
-    "outcome_room_ref": "outcome-room://... | null",
+    "orchestration_ref": "app-scope://ioi-ai/orchestration/... | null",
     "automation_run_ref": "automation-run://... | null",
     "session_ref": "session://... | null",
     "work_queue_ref": "work_queue://... | null",
@@ -2881,11 +2881,14 @@ the caller supplies. Cancellation is derived over the descendant graph by the
 kernel, not invoked one level at a time. There is no separate public thread-fork
 route; fork is the internal primitive reached through this surface.
 
-When a subagent participates in an OutcomeRoom, the spawn additionally carries
-`outcome_room_ref`, `room_participant_lease_ref`, and usually
-`work_claim_lease_ref`. The room owns join/sleep/wake/retire/quarantine and
-frontier state; the subagent's GoalRun owns one bounded pursuit. A spawned
-process is not automatically an independent participant or party.
+When a subagent works inside an ioi.ai orchestration, its context cell carries
+`orchestration_ref` and `delegation_ref` (`delegation://{thread_id}/{subagent_id}`,
+the v4 work objects' actor coordinate) and usually a `current_claim_ref` naming a
+WorkClaim v4 admitted under that orchestration (context-cell v2, R-190; the v1
+room coordinates `outcome_room_ref` and `participant_lease_ref` retired with the
+room plane). The composition owns membership and claims; the subagent's GoalRun
+owns one bounded pursuit. A spawned process is not automatically an independent
+participant or party.
 
 ```http
 GET  /v1/threads/{thread_id}/subagents
@@ -3312,8 +3315,11 @@ System's genesis, activation or transition routes. Later the same day
 (R-187, slice S4c-2) the daemon stopped hosting the hosted-v2 OutcomeRoom
 family: its eleven routes, the two modules that served them, the startup
 convergence of their intent families and the pending-intent fence were deleted;
-a GoalRun record that still names an `outcome_room_ref` is refused by name on
-the result and delta routes until the GoalRun family follows in S4d. Hypervisor
+a retained v1 GoalRun record that still names an `outcome_room_ref` is refused by
+name on the result and delta routes; the v2 record (2026-09-18, R-190) has no such
+member — it carries `orchestration_ref`, stamped through
+`POST /v1/goal-orchestration/goal-runs/{id}/orchestration-membership` by the
+composing application after the orchestration's own revision on the seam. Hypervisor
 keeps only what the platform owns: the record seam, threads and subagents,
 work-lifecycle reservations and System genesis/activation.
 

@@ -3012,6 +3012,10 @@ async fn async_main() -> anyhow::Result<()> {
             post(goalrun_routes::handle_goal_run_outcome_delta_create),
         )
         .route(
+            "/v1/goal-orchestration/goal-runs/:id/orchestration-membership",
+            post(goalrun_routes::handle_goal_run_orchestration_membership),
+        )
+        .route(
             "/v1/goal-orchestration/goal-runs/:id/start",
             post(goalrun_routes::handle_goal_run_start),
         )

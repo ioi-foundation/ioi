@@ -49,7 +49,7 @@ const activationSchema = JSON.parse(
       "architecture",
       "_meta",
       "schemas",
-      "goal-run-activation.v1.schema.json",
+      "goal-run-activation.v2.schema.json",
     ),
     "utf8",
   ),
@@ -62,14 +62,14 @@ const activationReceiptSchema = JSON.parse(
       "architecture",
       "_meta",
       "schemas",
-      "goal-run-activation-receipt.v1.schema.json",
+      "goal-run-activation-receipt.v2.schema.json",
     ),
     "utf8",
   ),
 );
 const goalRunSchema = JSON.parse(
   readFileSync(
-    join(REPO, "docs", "architecture", "_meta", "schemas", "goal-run.v1.schema.json"),
+    join(REPO, "docs", "architecture", "_meta", "schemas", "goal-run.v2.schema.json"),
     "utf8",
   ),
 );
@@ -631,7 +631,7 @@ try {
     check(
       "draft persists typed ioi_goal_draft and an origin tag cannot bypass activation",
       drafted.status === 201 &&
-        activation?.schema_version === "ioi.goal-run-activation.v1" &&
+        activation?.schema_version === "ioi.goal-run-activation.v2" &&
         activation?.status === "draft" &&
         activation?.source_context?.source_kind === "ioi_goal_draft" &&
         activation?.admitted_goal_ref === null &&

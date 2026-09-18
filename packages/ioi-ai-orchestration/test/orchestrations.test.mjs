@@ -53,6 +53,7 @@ function fakeSubstrate() {
   const chains = new Map(); // resource_ref -> [{ record, head, admission }]
   const calls = [];
   const resource = (systemId, contract, object) => `${systemId}/${contract}/${object}`;
+  const goalRuns = new Map([["gr_one", { goal_run_id: "gr_one", goal_ref: "goal://gr_one", orchestration_ref: null }], ["gr_two", { goal_run_id: "gr_two", goal_ref: "goal://gr_two", orchestration_ref: null }]]);
   return {
     calls,
     threads,
@@ -115,6 +116,16 @@ function fakeSubstrate() {
     },
     async admitWorkReservation() {
       throw new Error("the orchestrations composer reserves nothing");
+    },
+    goalRuns,
+    async stampGoalRunOrchestrationMembership(goalRunId, input) {
+      calls.push(["stampGoalRunOrchestrationMembership", goalRunId, input]);
+      if (goalRunId === "gr_absent") throw refusal(404, "goal_run_not_found");
+      const run = goalRuns.get(goalRunId) ?? { goal_run_id: goalRunId, goal_ref: `goal://${goalRunId}`, orchestration_ref: null };
+      goalRuns.set(goalRunId, run);
+      if (run.orchestration_ref && input.orchestration_ref && run.orchestration_ref !== input.orchestration_ref) throw refusal(409, "goal_run_orchestration_membership_conflict");
+      run.orchestration_ref = input.orchestration_ref;
+      return { ok: true, goal_run: { ...run }, durable: true };
     },
   };
 }
@@ -227,6 +238,8 @@ test("membership is a revision on the exact head: attach and detach move the hea
   const orchestrations = composer(substrate);
   const composed = await orchestrations.compose({ objective: "members", mode: "private_goal", composed_by_ref: "user://alice", governance });
   const attached = await orchestrations.attachGoalRun("orc_one", "goal://gr_1", composed.head);
+  assert.deepEqual(attached.member_stamp, { goal_run_ref: "goal://gr_1", orchestration_ref: "app-scope://ioi-ai/orchestration/orc_one", stamped: true, durable: true, refusal: null });
+  assert.equal(substrate.goalRuns.get("gr_1").orchestration_ref, "app-scope://ioi-ai/orchestration/orc_one");
   assert.equal(attached.action, "attach");
   assert.deepEqual(attached.orchestration.member_goal_run_refs, ["goal://gr_1"]);
   assert.notEqual(attached.head, composed.head);
@@ -237,12 +250,24 @@ test("membership is a revision on the exact head: attach and detach move the hea
   await assert.rejects(orchestrations.attachGoalRun("orc_one", "goal://gr_2", "latest"), (e) => e.code === "orchestration_expected_head_required");
   await assert.rejects(orchestrations.detachGoalRun("orc_one", "goal://gr_2", attached.head), (e) => e.code === "orchestration_goal_run_not_attached");
   const detached = await orchestrations.detachGoalRun("orc_one", "goal://gr_1", attached.head);
+  assert.equal(detached.member_stamp.stamped, true);
+  assert.equal(substrate.goalRuns.get("gr_1").orchestration_ref, null);
   assert.equal(detached.action, "detach");
   assert.deepEqual(detached.orchestration.member_goal_run_refs, []);
   const opened = await orchestrations.open("orc_one");
   assert.equal(opened.revisions.length, 3);
   assert.equal(opened.head, detached.head);
   assert.ok(substrate.calls.every(([name]) => name !== "admitWorkReservation"));
+  const pending = await orchestrations.attachGoalRun("orc_one", "goal://gr_absent", detached.head);
+  assert.deepEqual(pending.orchestration.member_goal_run_refs, ["goal://gr_absent"]);
+  assert.equal(pending.member_stamp.stamped, false);
+  assert.equal(pending.member_stamp.refusal.code, "goal_run_not_found");
+  assert.equal(pending.member_stamp.refusal.status, 404);
+  const cleared = await orchestrations.detachGoalRun("orc_one", "goal://gr_absent", pending.head);
+  assert.equal(cleared.member_stamp.stamped, false);
+  const reopened = await orchestrations.open("orc_one");
+  assert.equal(reopened.revisions.length, 5);
+  assert.deepEqual(reopened.orchestration.member_goal_run_refs, []);
 });
 
 test("the members bound is the contract's: the sixty-fifth attach is refused before the daemon", async () => {

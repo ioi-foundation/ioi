@@ -14125,6 +14125,234 @@ export type OrchestrationV1 = {
   status: "open" | "paused" | "closed";
 };
 
+export type GoalRunV2 = {
+  schema_version: "ioi.goal-run.v2";
+  goal_run_id: string;
+  goal_ref: string;
+  owner_ref: string;
+  goal_run_profile_revision_ref: string;
+  goal_run_profile_content_hash: string;
+  goal_run_execution_ceiling_revision_ref?: string;
+  goal_run_execution_ceiling_content_hash?: string;
+  declared_invocation_budget?: {
+      max_total_invocations: number;
+      max_parallel_invocations: number;
+    };
+  admitted_override_set_ref?: string | null;
+  admitted_override_set_hash?: string | null;
+  resolved_component_set_snapshot_ref: string;
+  resolved_component_set_hash: string;
+  active_skill_set_snapshot_ref: string;
+  active_skill_set_hash: string;
+  goal_run_profile_resolution_receipt_ref: string;
+  admission_path_decision?: Record<string, unknown>;
+  admission_path_fact_resolution?: Record<string, unknown> | null;
+  admission_path_status?: string;
+  target_system_id?: string | null;
+  result_profile?: string;
+  origin_surface: "ioi_goal_chat" | "hypervisor_new_session" | "hypervisor_session" | "automation" | "marketplace_instance" | "api";
+  activation_ref?: string | null;
+  source_context_binding: {
+      target_session_ref: string | null;
+      project_ref: string | null;
+    };
+  user_intent_ref?: string | null;
+  normalized_goal: string;
+  frontier_item_refs?: Array<string>;
+  work_claim_refs?: Array<string>;
+  constraint_refs?: Array<string>;
+  role_topology_ref?: string | null;
+  grounding_loop_ref?: string | null;
+  active_loop_phase?: string | null;
+  context_cell_refs?: Array<string>;
+  context_lease_refs?: Array<string>;
+  runtime_assignment_refs?: Array<string>;
+  orchestration_plan_revision_refs?: Array<string>;
+  selected_orchestration_plan_revision_ref?: string | null;
+  selected_orchestration_plan_content_hash?: string | null;
+  orchestration_decision_receipt_ref?: string | null;
+  topology_revision_refs?: Array<string>;
+  attempt_refs?: Array<string>;
+  work_result_refs?: Array<string>;
+  finding_refs?: Array<string>;
+  verifier_path_ref?: string | null;
+  verifier_challenge_refs?: Array<string>;
+  receipt_refs?: Array<string>;
+  receipt_obligations: Array<{
+        obligation_id: string;
+        boundary_event: string;
+        receipt_type: string;
+        receipt_profile_ref: string;
+        bound_fact_requirement_refs: Array<string>;
+        required: boolean;
+      }>;
+  admitted_state_root_ref: string;
+  authority_scope_refs: Array<string>;
+  continuation_state: "open" | "waiting_on_user" | "waiting_on_frontier" | "sleeping" | "delegated" | "verifying" | "course_correcting" | "complete" | "blocked" | "superseded";
+  lifecycle_head?: string;
+  lifecycle_record_refs?: Array<string>;
+  creation_provenance?: "explicit_activation" | "direct_substrate_activation" | "goal_run_activation_envelope";
+  created_at?: string;
+  updated_at?: string;
+  runtimeTruthSource?: "daemon-runtime";
+  status: "draft" | "active" | "paused" | "complete" | "superseded" | "revoked";
+  orchestration_ref?: string | null;
+};
+
+export type GoalRunActivationEnvelopeV2 = {
+  schema_version: "ioi.goal-run-activation.v2";
+  activation_id: string;
+  activation_mode: "create" | "join_existing";
+  source_context: {
+      source_kind: "ioi_goal_draft" | "hypervisor_session" | "work_run" | "work_item" | "orchestration_claim" | "automation_workflow_step" | "gateway_adapter_context";
+      source_ref: string;
+      source_owner_ref: string;
+    };
+  requested_goal_run_profile_revision_ref: string | null;
+  requested_goal_run_profile_content_hash: string | null;
+  existing_goal_ref: string | null;
+  normalized_intent_ref: string | null;
+  carried_context_refs: Array<string>;
+  requested_constraint_refs: Array<string>;
+  requesting_principal_ref: string;
+  authority_decision_ref: string;
+  review_requirement: "none" | "explicit_user" | "policy_gate";
+  review_decision_ref: string | null;
+  idempotency_key: string;
+  admission_decision_ref: string | null;
+  admitted_goal_ref: string | null;
+  activation_receipt_ref: string | null;
+  refusal_reason_code: string | null;
+  expires_at: string | null;
+  status: "draft" | "submitted" | "admitted" | "refused" | "superseded" | "expired";
+  non_grants: {
+      authority_widening: "none";
+      context_declassification: "none";
+      room_membership: "none";
+      budget_creation: "none";
+    };
+};
+
+export type GoalRunActivationReceiptV2 = {
+  schema_version: "ioi.goal-run-activation-receipt.v2";
+  receipt_id: string;
+  receipt_ref: string;
+  receipt_type: "goal_run_activation";
+  receipt_profile_ref: "schema://ioi/applications/ioi-ai/goal-run-activation-receipt/v2";
+  activation_ref: string;
+  activation_mode: "create" | "join_existing";
+  source_context: {
+      source_kind: "ioi_goal_draft" | "hypervisor_session" | "work_run" | "work_item" | "orchestration_claim" | "automation_workflow_step" | "gateway_adapter_context";
+      source_ref: string;
+      source_owner_ref: string;
+    };
+  draft_activation_hash: string;
+  source_context_hash: string;
+  requesting_principal_ref: string;
+  authority_decision_ref: string;
+  review_decision_ref: string | null;
+  admission_decision_ref: string;
+  admission_receipt_ref: string;
+  admitted_goal_ref: string;
+  existing_goal_ref: string | null;
+  goal_run_profile_revision_ref: string | null;
+  goal_run_profile_content_hash: string | null;
+  resolved_component_set_snapshot_ref: string;
+  resolved_component_set_hash: string;
+  profile_resolution_receipt_ref: string;
+  receipt_obligations_hash: string;
+  attested_boundary_fact_refs: Array<string>;
+  admitted_state_root_ref: string;
+  admitted_at: string;
+  non_grants: {
+      authority_widening: "none";
+      context_declassification: "none";
+      room_membership: "none";
+      budget_creation: "none";
+    };
+  receipt_root: string;
+};
+
+export type GoalRunAdmissionPathDecisionV2 = {
+  schema_version: "ioi.applications.ioi-ai.goal-run-admission-path-decision.v2";
+  decision_ref: string;
+  goal_run_ref: string;
+  requested_path: "auto" | "direct_non_system" | "system_bound";
+  decision: "direct_non_system" | "system_bound_required" | "refused";
+  admitting_owner: "hypervisor_daemon";
+  goal_run_profile_revision_ref: string;
+  goal_run_profile_content_hash: string;
+  effective_constraint_hash: string;
+  result_profile: "software_implementation" | "research" | "ontology_mutation" | "incident_resolution" | "service_delivery" | "physical_mission" | "review" | "evaluation" | "custom";
+  policy_refs: Array<string>;
+  authority_refs: Array<string>;
+  capability_requirement_refs: Array<string>;
+  runtime_facts: {
+      single_bounded_work_subject: boolean;
+      requires_system_membership: boolean;
+      requires_shared_frontier: boolean;
+      requires_collective_scheduling: boolean;
+      capabilities_fit_single_execution: boolean;
+      authority_fits_single_execution: boolean;
+      risk_and_isolation_fit_single_execution: boolean;
+      has_unresolved_system_dependency: boolean;
+      policy_requires_system_path: boolean;
+      system_path_available: boolean;
+    };
+  reason_codes: Array<"direct_path_eligible" | "multiple_work_subjects" | "system_membership_required" | "shared_frontier_required" | "collective_scheduling_required" | "capability_requirements_exceed_single_execution" | "authority_requirements_exceed_single_execution" | "risk_or_isolation_exceeds_single_execution" | "unresolved_system_dependency" | "policy_requires_system_path" | "requested_system_path" | "system_path_prerequisites_unavailable">;
+  decision_receipt_ref: string;
+  decided_at: string;
+};
+
+export type ContextCellEnvelopeV2 = {
+  schema_version: "ioi.context-cell.v2";
+  context_cell_id: string;
+  work_subject_ref: string;
+  role_topology_revision_ref: string | null;
+  role_binding_id: string;
+  accountable_actor_ref: string;
+  role: "conductor" | "implementer" | "reviewer" | "verifier" | "operator" | "researcher" | "specialist" | "synthesizer" | "resource_provider" | "integrity_challenger" | "memory_curator";
+  resolver_revision_ref: string | null;
+  resolver_content_hash: string | null;
+  model_route_ref: string | null;
+  memory_projection_refs: Array<string>;
+  context_lease_refs: Array<string>;
+  information_flow_label_refs: Array<string>;
+  active_runtime_assignment_ref: string | null;
+  authority_scope_refs: Array<string>;
+  compression_policy_ref: string | null;
+  current_claim_ref: string | null;
+  next_wake_condition_ref: string | null;
+  status: "open" | "active" | "sleeping" | "waiting" | "handed_off" | "summarized" | "quarantined" | "closed" | "revoked";
+  orchestration_ref: string | null;
+  delegation_ref: string | null;
+};
+
+export type GoalGroundingLoopV2 = {
+  schema_version: "ioi.goal-grounding-loop.v2";
+  goal_loop_id: string;
+  goal_ref: string;
+  conductor_context_cell_ref: string;
+  loop_iteration: number;
+  phase: "receive_intent" | "classify_goal" | "gather_grounding" | "inspect_state" | "derive_constraints" | "observe_frontier" | "form_hypotheses" | "select_or_adapt_topology" | "claim_allocate_or_delegate" | "lease_context" | "open_context_cells" | "execute_attempt" | "monitor_progress" | "publish_result" | "verify_compare_or_challenge" | "repair_or_escalate" | "reconcile" | "update_frontier_and_memory" | "continue_or_close";
+  frontier_and_claim_refs?: Array<string>;
+  grounding_source_refs?: Array<string>;
+  state_inspection_refs?: Array<string>;
+  decision_refs?: Array<string>;
+  context_cell_refs?: Array<string>;
+  handoff_refs?: Array<string>;
+  attempt_result_and_finding_refs?: Array<string>;
+  verifier_path_ref?: string | null;
+  evidence_refs?: Array<string>;
+  productivity_budget_ref?: string | null;
+  topology_participant_and_verifier_change_refs?: Array<string>;
+  marginal_value_stop_policy_ref?: string | null;
+  escalation_state: "none" | "ask_user" | "open_implementer_cell" | "open_reviewer_cell" | "require_independent_verifier" | "require_governance_control" | "stop_blocked";
+  exit_condition: "continue" | "delegated" | "waiting_on_frontier" | "verified_complete" | "accepted" | "risk_stop" | "budget_stop" | "deadline_stop" | "marginal_value_stop" | "blocked" | "superseded" | "user_input_required" | "governance_required";
+  status: "active" | "waiting" | "satisfied" | "blocked" | "superseded" | "revoked";
+  orchestration_ref?: string | null;
+};
+
 export const ARCHITECTURE_CONTRACT_REGISTRY_VERSION = "ioi.architecture-contract-registry.v1" as const;
 
 export const ARCHITECTURE_CONTRACT_PORTABLE_INTEGER_MINIMUM = 0 as const;
@@ -27670,6 +27898,214 @@ export const ARCHITECTURE_CONTRACT_FIXTURES = [
     "expected_schema_accept": false,
     "expected_failure": "schema",
     "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/applications/ioi-ai/goal-run/v2",
+    "path": "docs/architecture/_meta/schemas/fixtures/goal-run-v2/positive-minimal.json",
+    "expected": "accept",
+    "expected_schema_accept": true,
+    "expected_failure": null,
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/applications/ioi-ai/goal-run/v2",
+    "path": "docs/architecture/_meta/schemas/fixtures/goal-run-v2/negative-room-member.json",
+    "expected": "reject",
+    "expected_schema_accept": false,
+    "expected_failure": "schema",
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/applications/ioi-ai/goal-run/v2",
+    "path": "docs/architecture/_meta/schemas/fixtures/goal-run-v2/negative-unknown-field.json",
+    "expected": "reject",
+    "expected_schema_accept": false,
+    "expected_failure": "schema",
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/applications/ioi-ai/goal-run-activation/v2",
+    "path": "docs/architecture/_meta/schemas/fixtures/goal-run-activation-v2/positive-admitted-create.json",
+    "expected": "accept",
+    "expected_schema_accept": true,
+    "expected_failure": null,
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/applications/ioi-ai/goal-run-activation/v2",
+    "path": "docs/architecture/_meta/schemas/fixtures/goal-run-activation-v2/negative-admitted-without-receipt.json",
+    "expected": "reject",
+    "expected_schema_accept": false,
+    "expected_failure": "schema",
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/applications/ioi-ai/goal-run-activation/v2",
+    "path": "docs/architecture/_meta/schemas/fixtures/goal-run-activation-v2/negative-create-missing-profile-hash.json",
+    "expected": "reject",
+    "expected_schema_accept": false,
+    "expected_failure": "schema",
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/applications/ioi-ai/goal-run-activation/v2",
+    "path": "docs/architecture/_meta/schemas/fixtures/goal-run-activation-v2/negative-room-member.json",
+    "expected": "reject",
+    "expected_schema_accept": false,
+    "expected_failure": "schema",
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/applications/ioi-ai/goal-run-activation/v2",
+    "path": "docs/architecture/_meta/schemas/fixtures/goal-run-activation-v2/negative-source-kind-ref-mismatch.json",
+    "expected": "reject",
+    "expected_schema_accept": false,
+    "expected_failure": "schema",
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/applications/ioi-ai/goal-run-activation-receipt/v2",
+    "path": "docs/architecture/_meta/schemas/fixtures/goal-run-activation-receipt-v2/positive-admitted-create.json",
+    "expected": "accept",
+    "expected_schema_accept": true,
+    "expected_failure": null,
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/applications/ioi-ai/goal-run-activation-receipt/v2",
+    "path": "docs/architecture/_meta/schemas/fixtures/goal-run-activation-receipt-v2/negative-admitted-goal-substitution.json",
+    "expected": "reject",
+    "expected_schema_accept": true,
+    "expected_failure": "invariant",
+    "expected_rule_id": "goal_run_activation_receipt.root.recomputes"
+  },
+  {
+    "contract_id": "schema://ioi/applications/ioi-ai/goal-run-activation-receipt/v2",
+    "path": "docs/architecture/_meta/schemas/fixtures/goal-run-activation-receipt-v2/negative-receipt-identity-mismatch.json",
+    "expected": "reject",
+    "expected_schema_accept": true,
+    "expected_failure": "invariant",
+    "expected_rule_id": "goal_run_activation_receipt.identity.matches"
+  },
+  {
+    "contract_id": "schema://ioi/applications/ioi-ai/goal-run-activation-receipt/v2",
+    "path": "docs/architecture/_meta/schemas/fixtures/goal-run-activation-receipt-v2/negative-room-member.json",
+    "expected": "reject",
+    "expected_schema_accept": false,
+    "expected_failure": "schema",
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/applications/ioi-ai/goal-run-activation-receipt/v2",
+    "path": "docs/architecture/_meta/schemas/fixtures/goal-run-activation-receipt-v2/negative-source-kind-ref-mismatch.json",
+    "expected": "reject",
+    "expected_schema_accept": false,
+    "expected_failure": "schema",
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/applications/ioi-ai/goal-run-admission-path-decision/v2",
+    "path": "docs/architecture/_meta/schemas/fixtures/goal-run-admission-path-decision-v2/positive-direct-research.json",
+    "expected": "accept",
+    "expected_schema_accept": true,
+    "expected_failure": null,
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/applications/ioi-ai/goal-run-admission-path-decision/v2",
+    "path": "docs/architecture/_meta/schemas/fixtures/goal-run-admission-path-decision-v2/negative-direct-with-shared-frontier.json",
+    "expected": "reject",
+    "expected_schema_accept": false,
+    "expected_failure": "schema",
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/applications/ioi-ai/goal-run-admission-path-decision/v2",
+    "path": "docs/architecture/_meta/schemas/fixtures/goal-run-admission-path-decision-v2/negative-room-member.json",
+    "expected": "reject",
+    "expected_schema_accept": false,
+    "expected_failure": "schema",
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/applications/ioi-ai/context-cell/v2",
+    "path": "docs/architecture/_meta/schemas/fixtures/context-cell-v2/positive-conductor-orchestration-bound.json",
+    "expected": "accept",
+    "expected_schema_accept": true,
+    "expected_failure": null,
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/applications/ioi-ai/context-cell/v2",
+    "path": "docs/architecture/_meta/schemas/fixtures/context-cell-v2/positive-implementer-topology-less.json",
+    "expected": "accept",
+    "expected_schema_accept": true,
+    "expected_failure": null,
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/applications/ioi-ai/context-cell/v2",
+    "path": "docs/architecture/_meta/schemas/fixtures/context-cell-v2/negative-lease-ref-wrong-scheme.json",
+    "expected": "reject",
+    "expected_schema_accept": false,
+    "expected_failure": "schema",
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/applications/ioi-ai/context-cell/v2",
+    "path": "docs/architecture/_meta/schemas/fixtures/context-cell-v2/negative-legacy-underscore-identity.json",
+    "expected": "reject",
+    "expected_schema_accept": false,
+    "expected_failure": "schema",
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/applications/ioi-ai/context-cell/v2",
+    "path": "docs/architecture/_meta/schemas/fixtures/context-cell-v2/negative-role-outside-vocabulary.json",
+    "expected": "reject",
+    "expected_schema_accept": false,
+    "expected_failure": "schema",
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/applications/ioi-ai/context-cell/v2",
+    "path": "docs/architecture/_meta/schemas/fixtures/context-cell-v2/negative-room-member.json",
+    "expected": "reject",
+    "expected_schema_accept": false,
+    "expected_failure": "schema",
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/applications/ioi-ai/context-cell/v2",
+    "path": "docs/architecture/_meta/schemas/fixtures/context-cell-v2/negative-unknown-field.json",
+    "expected": "reject",
+    "expected_schema_accept": false,
+    "expected_failure": "schema",
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/applications/ioi-ai/goal-grounding-loop/v2",
+    "path": "docs/architecture/_meta/schemas/fixtures/goal-grounding-loop-v2/positive-minimal.json",
+    "expected": "accept",
+    "expected_schema_accept": true,
+    "expected_failure": null,
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/applications/ioi-ai/goal-grounding-loop/v2",
+    "path": "docs/architecture/_meta/schemas/fixtures/goal-grounding-loop-v2/negative-room-member.json",
+    "expected": "reject",
+    "expected_schema_accept": false,
+    "expected_failure": "schema",
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/applications/ioi-ai/goal-grounding-loop/v2",
+    "path": "docs/architecture/_meta/schemas/fixtures/goal-grounding-loop-v2/negative-unknown-field.json",
+    "expected": "reject",
+    "expected_schema_accept": false,
+    "expected_failure": "schema",
+    "expected_rule_id": null
   }
 ] as const;
 
@@ -32015,6 +32451,32 @@ export const ARCHITECTURE_CONTRACT_DIFFERENTIAL_CASES: ReadonlyArray<Architectur
   differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/orchestration-v1/negative-id-outside-scope.json","contract_id":"schema://ioi/applications/ioi-ai/orchestration/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/orchestration-v1/negative-id-outside-scope.json","mutation_id":null,"value_json":null}),
   differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/orchestration-v1/negative-root-not-a-thread.json","contract_id":"schema://ioi/applications/ioi-ai/orchestration/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/orchestration-v1/negative-root-not-a-thread.json","mutation_id":null,"value_json":null}),
   differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/orchestration-v1/negative-unknown-field.json","contract_id":"schema://ioi/applications/ioi-ai/orchestration/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/orchestration-v1/negative-unknown-field.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/goal-run-v2/positive-minimal.json","contract_id":"schema://ioi/applications/ioi-ai/goal-run/v2","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/goal-run-v2/positive-minimal.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/goal-run-v2/negative-room-member.json","contract_id":"schema://ioi/applications/ioi-ai/goal-run/v2","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/goal-run-v2/negative-room-member.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/goal-run-v2/negative-unknown-field.json","contract_id":"schema://ioi/applications/ioi-ai/goal-run/v2","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/goal-run-v2/negative-unknown-field.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/goal-run-activation-v2/positive-admitted-create.json","contract_id":"schema://ioi/applications/ioi-ai/goal-run-activation/v2","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/goal-run-activation-v2/positive-admitted-create.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/goal-run-activation-v2/negative-admitted-without-receipt.json","contract_id":"schema://ioi/applications/ioi-ai/goal-run-activation/v2","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/goal-run-activation-v2/negative-admitted-without-receipt.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/goal-run-activation-v2/negative-create-missing-profile-hash.json","contract_id":"schema://ioi/applications/ioi-ai/goal-run-activation/v2","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/goal-run-activation-v2/negative-create-missing-profile-hash.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/goal-run-activation-v2/negative-room-member.json","contract_id":"schema://ioi/applications/ioi-ai/goal-run-activation/v2","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/goal-run-activation-v2/negative-room-member.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/goal-run-activation-v2/negative-source-kind-ref-mismatch.json","contract_id":"schema://ioi/applications/ioi-ai/goal-run-activation/v2","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/goal-run-activation-v2/negative-source-kind-ref-mismatch.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/goal-run-activation-receipt-v2/positive-admitted-create.json","contract_id":"schema://ioi/applications/ioi-ai/goal-run-activation-receipt/v2","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/goal-run-activation-receipt-v2/positive-admitted-create.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/goal-run-activation-receipt-v2/negative-admitted-goal-substitution.json","contract_id":"schema://ioi/applications/ioi-ai/goal-run-activation-receipt/v2","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/goal-run-activation-receipt-v2/negative-admitted-goal-substitution.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/goal-run-activation-receipt-v2/negative-receipt-identity-mismatch.json","contract_id":"schema://ioi/applications/ioi-ai/goal-run-activation-receipt/v2","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/goal-run-activation-receipt-v2/negative-receipt-identity-mismatch.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/goal-run-activation-receipt-v2/negative-room-member.json","contract_id":"schema://ioi/applications/ioi-ai/goal-run-activation-receipt/v2","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/goal-run-activation-receipt-v2/negative-room-member.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/goal-run-activation-receipt-v2/negative-source-kind-ref-mismatch.json","contract_id":"schema://ioi/applications/ioi-ai/goal-run-activation-receipt/v2","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/goal-run-activation-receipt-v2/negative-source-kind-ref-mismatch.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/goal-run-admission-path-decision-v2/positive-direct-research.json","contract_id":"schema://ioi/applications/ioi-ai/goal-run-admission-path-decision/v2","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/goal-run-admission-path-decision-v2/positive-direct-research.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/goal-run-admission-path-decision-v2/negative-direct-with-shared-frontier.json","contract_id":"schema://ioi/applications/ioi-ai/goal-run-admission-path-decision/v2","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/goal-run-admission-path-decision-v2/negative-direct-with-shared-frontier.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/goal-run-admission-path-decision-v2/negative-room-member.json","contract_id":"schema://ioi/applications/ioi-ai/goal-run-admission-path-decision/v2","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/goal-run-admission-path-decision-v2/negative-room-member.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/context-cell-v2/positive-conductor-orchestration-bound.json","contract_id":"schema://ioi/applications/ioi-ai/context-cell/v2","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/context-cell-v2/positive-conductor-orchestration-bound.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/context-cell-v2/positive-implementer-topology-less.json","contract_id":"schema://ioi/applications/ioi-ai/context-cell/v2","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/context-cell-v2/positive-implementer-topology-less.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/context-cell-v2/negative-lease-ref-wrong-scheme.json","contract_id":"schema://ioi/applications/ioi-ai/context-cell/v2","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/context-cell-v2/negative-lease-ref-wrong-scheme.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/context-cell-v2/negative-legacy-underscore-identity.json","contract_id":"schema://ioi/applications/ioi-ai/context-cell/v2","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/context-cell-v2/negative-legacy-underscore-identity.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/context-cell-v2/negative-role-outside-vocabulary.json","contract_id":"schema://ioi/applications/ioi-ai/context-cell/v2","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/context-cell-v2/negative-role-outside-vocabulary.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/context-cell-v2/negative-room-member.json","contract_id":"schema://ioi/applications/ioi-ai/context-cell/v2","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/context-cell-v2/negative-room-member.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/context-cell-v2/negative-unknown-field.json","contract_id":"schema://ioi/applications/ioi-ai/context-cell/v2","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/context-cell-v2/negative-unknown-field.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/goal-grounding-loop-v2/positive-minimal.json","contract_id":"schema://ioi/applications/ioi-ai/goal-grounding-loop/v2","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/goal-grounding-loop-v2/positive-minimal.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/goal-grounding-loop-v2/negative-room-member.json","contract_id":"schema://ioi/applications/ioi-ai/goal-grounding-loop/v2","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/goal-grounding-loop-v2/negative-room-member.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/goal-grounding-loop-v2/negative-unknown-field.json","contract_id":"schema://ioi/applications/ioi-ai/goal-grounding-loop/v2","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/goal-grounding-loop-v2/negative-unknown-field.json","mutation_id":null,"value_json":null}),
   differentialCase({"id":"mutation:sequence-zero-receipt-timestamp-detached","contract_id":"schema://ioi/foundations/autonomous-system-sequence-zero-materialization-receipt/v2","source_fixture_path":null,"mutation_id":"sequence-zero-receipt-timestamp-detached","value_json":null}),
   differentialCase({"id":"mutation:sequence-zero-receipt-authorized-materialization-id-detached","contract_id":"schema://ioi/foundations/autonomous-system-sequence-zero-materialization-receipt/v2","source_fixture_path":null,"mutation_id":"sequence-zero-receipt-authorized-materialization-id-detached","value_json":null}),
   differentialCase({"id":"mutation:sequence-zero-receipt-authority-principal-detached","contract_id":"schema://ioi/foundations/autonomous-system-sequence-zero-materialization-receipt/v2","source_fixture_path":null,"mutation_id":"sequence-zero-receipt-authority-principal-detached","value_json":null}),
@@ -32629,6 +33091,7 @@ export const ARCHITECTURE_CONTRACT_PATTERN_SOURCES = [
   "^akash1[02-9ac-hj-np-z]{38}$",
   "^api://[^\\s]{1,240}$",
   "^api://[^\\s]{1,248}$",
+  "^app-scope://ioi-ai/orchestration/[^\\s]{1,400}$",
   "^app-scope://ioi-ai/orchestration/orc_[A-Za-z0-9_-]{1,160}$",
   "^appraisal://[^\\s]{1,248}$",
   "^appraiser://[^\\s]{1,248}$",
@@ -33579,7 +34042,13 @@ export const ARCHITECTURE_CONTRACT_SCHEMA_HASHES = {
   "schema://ioi/foundations/objects/aiip-external-protocol-binding-envelope/v1": "sha256:246178377ca60c7d74cf072dbd456403bf3be7c2dac13b5569fc879b60d648d6",
   "schema://ioi/applications/ioi-ai/outcome-room-discovery/v1": "sha256:4f180dec8f4e5a6280ec6f83fda7ec5d80a6ce6a10432a58f3b969eac2a54ad2",
   "schema://ioi/applications/ioi-ai/orchestration-discovery/v1": "sha256:e83849fc04673f4731ab603c5c8a75322c3a702051eba31fd8f65876f6290b82",
-  "schema://ioi/applications/ioi-ai/orchestration/v1": "sha256:7cf31ecade85abb3dc84ffd51e647b1e2e32416e1a263e12ffb3e53cced1d851"
+  "schema://ioi/applications/ioi-ai/orchestration/v1": "sha256:7cf31ecade85abb3dc84ffd51e647b1e2e32416e1a263e12ffb3e53cced1d851",
+  "schema://ioi/applications/ioi-ai/goal-run/v2": "sha256:71226e3a3cb3df1bf13860233a592fe5f466fd25e3bdd59a77df2315adef1c47",
+  "schema://ioi/applications/ioi-ai/goal-run-activation/v2": "sha256:60157023c71824c31be1c35804806a43bdbed1c37a014b6bdb2672a453d0b92d",
+  "schema://ioi/applications/ioi-ai/goal-run-activation-receipt/v2": "sha256:2701eb60f790a4a9559ce1a2962a02de37d718943988b2c0d2b09b37331801f5",
+  "schema://ioi/applications/ioi-ai/goal-run-admission-path-decision/v2": "sha256:4c8093ac4b46e395a49ed8454a6da27a4769eb0b6cb9455b75c17145811c0dd6",
+  "schema://ioi/applications/ioi-ai/context-cell/v2": "sha256:e33a78de6b116da0590b5fc0b948baccb5f20ac265cb8bcae99c338565220547",
+  "schema://ioi/applications/ioi-ai/goal-grounding-loop/v2": "sha256:60362cef1719499121d31faf0f5c39be5f0423a3d96306d8dfdb64081dadbbcb"
 } as const;
 
 type JsonObject = Record<string, unknown>;
@@ -142778,6 +143247,2285 @@ const CONTRACT_SCHEMAS: Record<string, JsonObject> = {
         }
       }
     }
+  },
+  "schema://ioi/applications/ioi-ai/goal-run/v2": {
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "$id": "schema://ioi/applications/ioi-ai/goal-run/v2",
+    "title": "GoalRun",
+    "x-ioi-schema-version": "ioi.goal-run.v2",
+    "type": "object",
+    "additionalProperties": false,
+    "required": [
+      "schema_version",
+      "goal_run_id",
+      "goal_ref",
+      "owner_ref",
+      "goal_run_profile_revision_ref",
+      "goal_run_profile_content_hash",
+      "resolved_component_set_snapshot_ref",
+      "resolved_component_set_hash",
+      "active_skill_set_snapshot_ref",
+      "active_skill_set_hash",
+      "goal_run_profile_resolution_receipt_ref",
+      "origin_surface",
+      "normalized_goal",
+      "source_context_binding",
+      "receipt_obligations",
+      "admitted_state_root_ref",
+      "authority_scope_refs",
+      "continuation_state",
+      "status"
+    ],
+    "properties": {
+      "schema_version": {
+        "const": "ioi.goal-run.v2"
+      },
+      "goal_run_id": {
+        "type": "string",
+        "minLength": 1
+      },
+      "goal_ref": {
+        "type": "string",
+        "pattern": "^goal://[^\\s]+$"
+      },
+      "owner_ref": {
+        "type": "string",
+        "pattern": "^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"
+      },
+      "goal_run_profile_revision_ref": {
+        "type": "string",
+        "pattern": "^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"
+      },
+      "goal_run_profile_content_hash": {
+        "type": "string",
+        "pattern": "^sha256:[0-9a-f]{64}$"
+      },
+      "goal_run_execution_ceiling_revision_ref": {
+        "type": "string",
+        "pattern": "^goal-run-execution-ceiling://[^\\s?#\\\\]{1,160}/revision/sha256:[0-9a-f]{64}$"
+      },
+      "goal_run_execution_ceiling_content_hash": {
+        "type": "string",
+        "pattern": "^sha256:[0-9a-f]{64}$"
+      },
+      "declared_invocation_budget": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "max_total_invocations",
+          "max_parallel_invocations"
+        ],
+        "properties": {
+          "max_total_invocations": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 9007199254740991
+          },
+          "max_parallel_invocations": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 9007199254740991
+          }
+        }
+      },
+      "admitted_override_set_ref": {
+        "anyOf": [
+          {
+            "type": "string",
+            "pattern": "^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"
+          },
+          {
+            "type": "null"
+          }
+        ]
+      },
+      "admitted_override_set_hash": {
+        "anyOf": [
+          {
+            "type": "string",
+            "pattern": "^sha256:[0-9a-f]{64}$"
+          },
+          {
+            "type": "null"
+          }
+        ]
+      },
+      "resolved_component_set_snapshot_ref": {
+        "type": "string",
+        "pattern": "^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"
+      },
+      "resolved_component_set_hash": {
+        "type": "string",
+        "pattern": "^sha256:[0-9a-f]{64}$"
+      },
+      "active_skill_set_snapshot_ref": {
+        "type": "string",
+        "pattern": "^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"
+      },
+      "active_skill_set_hash": {
+        "type": "string",
+        "pattern": "^sha256:[0-9a-f]{64}$"
+      },
+      "goal_run_profile_resolution_receipt_ref": {
+        "type": "string",
+        "pattern": "^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"
+      },
+      "admission_path_decision": {
+        "type": "object"
+      },
+      "admission_path_fact_resolution": {
+        "anyOf": [
+          {
+            "type": "object"
+          },
+          {
+            "type": "null"
+          }
+        ]
+      },
+      "admission_path_status": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 160
+      },
+      "target_system_id": {
+        "anyOf": [
+          {
+            "type": "string",
+            "pattern": "^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"
+          },
+          {
+            "type": "null"
+          }
+        ]
+      },
+      "result_profile": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 160
+      },
+      "origin_surface": {
+        "enum": [
+          "ioi_goal_chat",
+          "hypervisor_new_session",
+          "hypervisor_session",
+          "automation",
+          "marketplace_instance",
+          "api"
+        ]
+      },
+      "activation_ref": {
+        "anyOf": [
+          {
+            "type": "string",
+            "pattern": "^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"
+          },
+          {
+            "type": "null"
+          }
+        ]
+      },
+      "source_context_binding": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "target_session_ref",
+          "project_ref"
+        ],
+        "properties": {
+          "target_session_ref": {
+            "anyOf": [
+              {
+                "type": "string",
+                "pattern": "^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "project_ref": {
+            "anyOf": [
+              {
+                "type": "string",
+                "pattern": "^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        }
+      },
+      "user_intent_ref": {
+        "anyOf": [
+          {
+            "type": "string",
+            "pattern": "^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"
+          },
+          {
+            "type": "null"
+          }
+        ]
+      },
+      "normalized_goal": {
+        "type": "string",
+        "minLength": 1
+      },
+      "frontier_item_refs": {
+        "type": "array",
+        "uniqueItems": true,
+        "items": {
+          "type": "string",
+          "pattern": "^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"
+        }
+      },
+      "work_claim_refs": {
+        "type": "array",
+        "uniqueItems": true,
+        "items": {
+          "type": "string",
+          "pattern": "^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"
+        }
+      },
+      "constraint_refs": {
+        "type": "array",
+        "uniqueItems": true,
+        "items": {
+          "type": "string",
+          "pattern": "^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"
+        }
+      },
+      "role_topology_ref": {
+        "anyOf": [
+          {
+            "type": "string",
+            "pattern": "^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"
+          },
+          {
+            "type": "null"
+          }
+        ]
+      },
+      "grounding_loop_ref": {
+        "anyOf": [
+          {
+            "type": "string",
+            "pattern": "^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"
+          },
+          {
+            "type": "null"
+          }
+        ]
+      },
+      "active_loop_phase": {
+        "anyOf": [
+          {
+            "type": "string"
+          },
+          {
+            "type": "null"
+          }
+        ]
+      },
+      "context_cell_refs": {
+        "type": "array",
+        "uniqueItems": true,
+        "items": {
+          "type": "string",
+          "pattern": "^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"
+        }
+      },
+      "context_lease_refs": {
+        "type": "array",
+        "uniqueItems": true,
+        "items": {
+          "type": "string",
+          "pattern": "^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"
+        }
+      },
+      "runtime_assignment_refs": {
+        "type": "array",
+        "uniqueItems": true,
+        "items": {
+          "type": "string",
+          "pattern": "^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"
+        }
+      },
+      "orchestration_plan_revision_refs": {
+        "type": "array",
+        "uniqueItems": true,
+        "items": {
+          "type": "string",
+          "pattern": "^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"
+        }
+      },
+      "selected_orchestration_plan_revision_ref": {
+        "anyOf": [
+          {
+            "type": "string",
+            "pattern": "^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"
+          },
+          {
+            "type": "null"
+          }
+        ]
+      },
+      "selected_orchestration_plan_content_hash": {
+        "anyOf": [
+          {
+            "type": "string",
+            "pattern": "^sha256:[0-9a-f]{64}$"
+          },
+          {
+            "type": "null"
+          }
+        ]
+      },
+      "orchestration_decision_receipt_ref": {
+        "anyOf": [
+          {
+            "type": "string",
+            "pattern": "^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"
+          },
+          {
+            "type": "null"
+          }
+        ]
+      },
+      "topology_revision_refs": {
+        "type": "array",
+        "uniqueItems": true,
+        "items": {
+          "type": "string",
+          "pattern": "^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"
+        }
+      },
+      "attempt_refs": {
+        "type": "array",
+        "uniqueItems": true,
+        "items": {
+          "type": "string",
+          "pattern": "^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"
+        }
+      },
+      "work_result_refs": {
+        "type": "array",
+        "uniqueItems": true,
+        "items": {
+          "type": "string",
+          "pattern": "^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"
+        }
+      },
+      "finding_refs": {
+        "type": "array",
+        "uniqueItems": true,
+        "items": {
+          "type": "string",
+          "pattern": "^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"
+        }
+      },
+      "verifier_path_ref": {
+        "anyOf": [
+          {
+            "type": "string",
+            "pattern": "^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"
+          },
+          {
+            "type": "null"
+          }
+        ]
+      },
+      "verifier_challenge_refs": {
+        "type": "array",
+        "uniqueItems": true,
+        "items": {
+          "type": "string",
+          "pattern": "^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"
+        }
+      },
+      "receipt_refs": {
+        "type": "array",
+        "uniqueItems": true,
+        "items": {
+          "type": "string",
+          "pattern": "^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"
+        }
+      },
+      "receipt_obligations": {
+        "type": "array",
+        "items": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "obligation_id",
+            "boundary_event",
+            "receipt_type",
+            "receipt_profile_ref",
+            "bound_fact_requirement_refs",
+            "required"
+          ],
+          "properties": {
+            "obligation_id": {
+              "type": "string",
+              "pattern": "^receipt-obligation://[^\\s]{1,500}$"
+            },
+            "boundary_event": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 160
+            },
+            "receipt_type": {
+              "type": "string",
+              "pattern": "^[a-z][a-z0-9_]{0,159}$"
+            },
+            "receipt_profile_ref": {
+              "type": "string",
+              "pattern": "^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"
+            },
+            "bound_fact_requirement_refs": {
+              "type": "array",
+              "minItems": 1,
+              "uniqueItems": true,
+              "items": {
+                "type": "string",
+                "pattern": "^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"
+              }
+            },
+            "required": {
+              "type": "boolean"
+            }
+          }
+        }
+      },
+      "admitted_state_root_ref": {
+        "type": "string",
+        "pattern": "^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"
+      },
+      "authority_scope_refs": {
+        "type": "array",
+        "uniqueItems": true,
+        "items": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 500
+        }
+      },
+      "continuation_state": {
+        "enum": [
+          "open",
+          "waiting_on_user",
+          "waiting_on_frontier",
+          "sleeping",
+          "delegated",
+          "verifying",
+          "course_correcting",
+          "complete",
+          "blocked",
+          "superseded"
+        ]
+      },
+      "lifecycle_head": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 500
+      },
+      "lifecycle_record_refs": {
+        "type": "array",
+        "minItems": 1,
+        "uniqueItems": true,
+        "items": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 500
+        }
+      },
+      "creation_provenance": {
+        "enum": [
+          "explicit_activation",
+          "direct_substrate_activation",
+          "goal_run_activation_envelope"
+        ]
+      },
+      "created_at": {
+        "type": "string",
+        "format": "date-time",
+        "pattern": "^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$"
+      },
+      "updated_at": {
+        "type": "string",
+        "format": "date-time",
+        "pattern": "^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$"
+      },
+      "runtimeTruthSource": {
+        "const": "daemon-runtime"
+      },
+      "status": {
+        "enum": [
+          "draft",
+          "active",
+          "paused",
+          "complete",
+          "superseded",
+          "revoked"
+        ]
+      },
+      "orchestration_ref": {
+        "anyOf": [
+          {
+            "type": "string",
+            "pattern": "^app-scope://ioi-ai/orchestration/[^\\s]{1,400}$"
+          },
+          {
+            "type": "null"
+          }
+        ]
+      }
+    },
+    "allOf": [
+      {
+        "if": {
+          "required": [
+            "origin_surface"
+          ],
+          "properties": {
+            "origin_surface": {
+              "const": "ioi_goal_chat"
+            }
+          }
+        },
+        "then": {
+          "properties": {
+            "goal_run_execution_ceiling_revision_ref": {},
+            "goal_run_execution_ceiling_content_hash": {},
+            "declared_invocation_budget": {},
+            "admitted_override_set_ref": {},
+            "admitted_override_set_hash": {}
+          },
+          "required": [
+            "goal_run_execution_ceiling_revision_ref",
+            "goal_run_execution_ceiling_content_hash",
+            "declared_invocation_budget",
+            "admitted_override_set_ref",
+            "admitted_override_set_hash"
+          ]
+        }
+      }
+    ],
+    "description": "Version 2 (2026-09-18, R-178 slice S4d-2, R-190): the GoalRun composes over the ioi.ai orchestration — the room coordinates of v1 are gone and `orchestration_ref` names the composition; successor of v1."
+  },
+  "schema://ioi/applications/ioi-ai/goal-run-activation/v2": {
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "$id": "schema://ioi/applications/ioi-ai/goal-run-activation/v2",
+    "title": "GoalRunActivationEnvelope",
+    "x-ioi-schema-version": "ioi.goal-run-activation.v2",
+    "type": "object",
+    "additionalProperties": false,
+    "required": [
+      "schema_version",
+      "activation_id",
+      "activation_mode",
+      "source_context",
+      "requested_goal_run_profile_revision_ref",
+      "requested_goal_run_profile_content_hash",
+      "existing_goal_ref",
+      "normalized_intent_ref",
+      "carried_context_refs",
+      "requested_constraint_refs",
+      "requesting_principal_ref",
+      "authority_decision_ref",
+      "review_requirement",
+      "review_decision_ref",
+      "idempotency_key",
+      "admission_decision_ref",
+      "admitted_goal_ref",
+      "activation_receipt_ref",
+      "refusal_reason_code",
+      "expires_at",
+      "status",
+      "non_grants"
+    ],
+    "properties": {
+      "schema_version": {
+        "const": "ioi.goal-run-activation.v2"
+      },
+      "activation_id": {
+        "type": "string",
+        "pattern": "^goal-run-activation://[^\\s]{1,500}$"
+      },
+      "activation_mode": {
+        "enum": [
+          "create",
+          "join_existing"
+        ]
+      },
+      "source_context": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "source_kind",
+          "source_ref",
+          "source_owner_ref"
+        ],
+        "properties": {
+          "source_kind": {
+            "enum": [
+              "ioi_goal_draft",
+              "hypervisor_session",
+              "work_run",
+              "work_item",
+              "orchestration_claim",
+              "automation_workflow_step",
+              "gateway_adapter_context"
+            ]
+          },
+          "source_ref": {
+            "type": "string",
+            "pattern": "^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"
+          },
+          "source_owner_ref": {
+            "type": "string",
+            "pattern": "^(?:org|project|system|user)://[^\\s]{1,500}$"
+          }
+        },
+        "allOf": [
+          {
+            "if": {
+              "properties": {
+                "source_kind": {
+                  "const": "ioi_goal_draft"
+                }
+              }
+            },
+            "then": {
+              "properties": {
+                "source_ref": {
+                  "type": "string",
+                  "pattern": "^(?:intent|prompt)://[^\\s]{1,500}$"
+                }
+              }
+            }
+          },
+          {
+            "if": {
+              "properties": {
+                "source_kind": {
+                  "const": "hypervisor_session"
+                }
+              }
+            },
+            "then": {
+              "properties": {
+                "source_ref": {
+                  "type": "string",
+                  "pattern": "^session://[^\\s]{1,500}$"
+                }
+              }
+            }
+          },
+          {
+            "if": {
+              "properties": {
+                "source_kind": {
+                  "const": "work_run"
+                }
+              }
+            },
+            "then": {
+              "properties": {
+                "source_ref": {
+                  "type": "string",
+                  "pattern": "^(?:work-run|run)://[^\\s]{1,500}$"
+                }
+              }
+            }
+          },
+          {
+            "if": {
+              "properties": {
+                "source_kind": {
+                  "const": "work_item"
+                }
+              }
+            },
+            "then": {
+              "properties": {
+                "source_ref": {
+                  "type": "string",
+                  "pattern": "^work-item://[^\\s]{1,500}$"
+                }
+              }
+            }
+          },
+          {
+            "if": {
+              "properties": {
+                "source_kind": {
+                  "const": "orchestration_claim"
+                }
+              }
+            },
+            "then": {
+              "properties": {
+                "source_ref": {
+                  "type": "string",
+                  "pattern": "^work-claim://[^\\s]{1,500}$"
+                }
+              }
+            }
+          },
+          {
+            "if": {
+              "properties": {
+                "source_kind": {
+                  "const": "automation_workflow_step"
+                }
+              }
+            },
+            "then": {
+              "properties": {
+                "source_ref": {
+                  "type": "string",
+                  "pattern": "^action://goal-run/activate/[^\\s]{1,500}$"
+                }
+              }
+            }
+          },
+          {
+            "if": {
+              "properties": {
+                "source_kind": {
+                  "const": "gateway_adapter_context"
+                }
+              }
+            },
+            "then": {
+              "properties": {
+                "source_ref": {
+                  "type": "string",
+                  "pattern": "^adapter://[^\\s]{1,500}$"
+                }
+              }
+            }
+          }
+        ]
+      },
+      "requested_goal_run_profile_revision_ref": {
+        "anyOf": [
+          {
+            "type": "string",
+            "pattern": "^goal-run-profile://[^\\s?#\\\\]{1,160}/revision/[^\\s?#\\\\]{1,160}$"
+          },
+          {
+            "type": "null"
+          }
+        ]
+      },
+      "requested_goal_run_profile_content_hash": {
+        "anyOf": [
+          {
+            "type": "string",
+            "pattern": "^sha256:[0-9a-f]{64}$"
+          },
+          {
+            "type": "null"
+          }
+        ]
+      },
+      "existing_goal_ref": {
+        "anyOf": [
+          {
+            "type": "string",
+            "pattern": "^goal://[^\\s]{1,500}$"
+          },
+          {
+            "type": "null"
+          }
+        ]
+      },
+      "normalized_intent_ref": {
+        "anyOf": [
+          {
+            "type": "string",
+            "pattern": "^(?:intent|prompt)://[^\\s]{1,500}$"
+          },
+          {
+            "type": "null"
+          }
+        ]
+      },
+      "carried_context_refs": {
+        "type": "array",
+        "uniqueItems": true,
+        "items": {
+          "type": "string",
+          "pattern": "^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"
+        }
+      },
+      "requested_constraint_refs": {
+        "type": "array",
+        "uniqueItems": true,
+        "items": {
+          "type": "string",
+          "pattern": "^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"
+        }
+      },
+      "requesting_principal_ref": {
+        "type": "string",
+        "pattern": "^(?:wallet|user|agent|system)://[^\\s]{1,500}$"
+      },
+      "authority_decision_ref": {
+        "type": "string",
+        "pattern": "^(?:grant|approval)://[^\\s]{1,500}$"
+      },
+      "review_requirement": {
+        "enum": [
+          "none",
+          "explicit_user",
+          "policy_gate"
+        ]
+      },
+      "review_decision_ref": {
+        "anyOf": [
+          {
+            "type": "string",
+            "pattern": "^(?:receipt|approval)://[^\\s]{1,500}$"
+          },
+          {
+            "type": "null"
+          }
+        ]
+      },
+      "idempotency_key": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 200
+      },
+      "admission_decision_ref": {
+        "anyOf": [
+          {
+            "type": "string",
+            "pattern": "^(?:agentgres|decision)://[^\\s]{1,500}$"
+          },
+          {
+            "type": "null"
+          }
+        ]
+      },
+      "admitted_goal_ref": {
+        "anyOf": [
+          {
+            "type": "string",
+            "pattern": "^goal://[^\\s]{1,500}$"
+          },
+          {
+            "type": "null"
+          }
+        ]
+      },
+      "activation_receipt_ref": {
+        "anyOf": [
+          {
+            "type": "string",
+            "pattern": "^receipt://[^\\s]{1,500}$"
+          },
+          {
+            "type": "null"
+          }
+        ]
+      },
+      "refusal_reason_code": {
+        "anyOf": [
+          {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 200
+          },
+          {
+            "type": "null"
+          }
+        ]
+      },
+      "expires_at": {
+        "anyOf": [
+          {
+            "type": "string",
+            "format": "date-time",
+            "pattern": "^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$"
+          },
+          {
+            "type": "null"
+          }
+        ]
+      },
+      "status": {
+        "enum": [
+          "draft",
+          "submitted",
+          "admitted",
+          "refused",
+          "superseded",
+          "expired"
+        ]
+      },
+      "non_grants": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "authority_widening",
+          "context_declassification",
+          "room_membership",
+          "budget_creation"
+        ],
+        "properties": {
+          "authority_widening": {
+            "const": "none"
+          },
+          "context_declassification": {
+            "const": "none"
+          },
+          "room_membership": {
+            "const": "none"
+          },
+          "budget_creation": {
+            "const": "none"
+          }
+        }
+      }
+    },
+    "allOf": [
+      {
+        "if": {
+          "properties": {
+            "activation_mode": {
+              "const": "create"
+            }
+          }
+        },
+        "then": {
+          "properties": {
+            "requested_goal_run_profile_revision_ref": {
+              "type": "string"
+            },
+            "requested_goal_run_profile_content_hash": {
+              "type": "string"
+            },
+            "existing_goal_ref": {
+              "type": "null"
+            }
+          }
+        }
+      },
+      {
+        "if": {
+          "properties": {
+            "activation_mode": {
+              "const": "join_existing"
+            }
+          }
+        },
+        "then": {
+          "properties": {
+            "requested_goal_run_profile_revision_ref": {
+              "type": "null"
+            },
+            "requested_goal_run_profile_content_hash": {
+              "type": "null"
+            },
+            "existing_goal_ref": {
+              "type": "string"
+            }
+          }
+        }
+      },
+      {
+        "if": {
+          "properties": {
+            "review_requirement": {
+              "enum": [
+                "explicit_user",
+                "policy_gate"
+              ]
+            },
+            "status": {
+              "enum": [
+                "submitted",
+                "admitted"
+              ]
+            }
+          },
+          "required": [
+            "review_requirement",
+            "status"
+          ]
+        },
+        "then": {
+          "properties": {
+            "review_decision_ref": {
+              "type": "string"
+            }
+          }
+        }
+      },
+      {
+        "if": {
+          "properties": {
+            "status": {
+              "const": "admitted"
+            }
+          }
+        },
+        "then": {
+          "properties": {
+            "admission_decision_ref": {
+              "type": "string"
+            },
+            "admitted_goal_ref": {
+              "type": "string"
+            },
+            "activation_receipt_ref": {
+              "type": "string"
+            },
+            "refusal_reason_code": {
+              "type": "null"
+            }
+          }
+        }
+      },
+      {
+        "if": {
+          "properties": {
+            "status": {
+              "const": "refused"
+            }
+          }
+        },
+        "then": {
+          "properties": {
+            "admitted_goal_ref": {
+              "type": "null"
+            },
+            "activation_receipt_ref": {
+              "type": "null"
+            },
+            "refusal_reason_code": {
+              "type": "string"
+            }
+          }
+        }
+      },
+      {
+        "if": {
+          "properties": {
+            "status": {
+              "enum": [
+                "draft",
+                "submitted"
+              ]
+            }
+          }
+        },
+        "then": {
+          "properties": {
+            "admission_decision_ref": {
+              "type": "null"
+            },
+            "admitted_goal_ref": {
+              "type": "null"
+            },
+            "activation_receipt_ref": {
+              "type": "null"
+            },
+            "refusal_reason_code": {
+              "type": "null"
+            }
+          }
+        }
+      }
+    ],
+    "description": "Version 2 (2026-09-18, R-178 slice S4d-2, R-190): the GoalRun composes over the ioi.ai orchestration — the room coordinates of v1 are gone and `orchestration_ref` names the composition; successor of v1."
+  },
+  "schema://ioi/applications/ioi-ai/goal-run-activation-receipt/v2": {
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "$id": "schema://ioi/applications/ioi-ai/goal-run-activation-receipt/v2",
+    "title": "GoalRunActivationReceipt",
+    "description": "Portable receipt for one admitted GoalRunActivation crossing. It binds the exact activation draft, typed source context and source payload commitment, requesting principal, authority and review decisions, admission decision and receipt, admitted GoalRun identity and state root, and the exact profile resolution for create mode without widening authority, declassifying context, granting room membership, or creating budget. Version 2 (2026-09-18, R-178 slice S4d-2, R-190): the GoalRun composes over the ioi.ai orchestration — the room coordinates of v1 are gone and `orchestration_ref` names the composition; successor of v1.",
+    "x-ioi-schema-version": "ioi.goal-run-activation-receipt.v2",
+    "type": "object",
+    "additionalProperties": false,
+    "required": [
+      "schema_version",
+      "receipt_id",
+      "receipt_ref",
+      "receipt_type",
+      "receipt_profile_ref",
+      "activation_ref",
+      "activation_mode",
+      "source_context",
+      "draft_activation_hash",
+      "source_context_hash",
+      "requesting_principal_ref",
+      "authority_decision_ref",
+      "review_decision_ref",
+      "admission_decision_ref",
+      "admission_receipt_ref",
+      "admitted_goal_ref",
+      "existing_goal_ref",
+      "goal_run_profile_revision_ref",
+      "goal_run_profile_content_hash",
+      "resolved_component_set_snapshot_ref",
+      "resolved_component_set_hash",
+      "profile_resolution_receipt_ref",
+      "receipt_obligations_hash",
+      "attested_boundary_fact_refs",
+      "admitted_state_root_ref",
+      "admitted_at",
+      "non_grants",
+      "receipt_root"
+    ],
+    "properties": {
+      "schema_version": {
+        "const": "ioi.goal-run-activation-receipt.v2"
+      },
+      "receipt_id": {
+        "$ref": "#/$defs/receiptRef"
+      },
+      "receipt_ref": {
+        "$ref": "#/$defs/receiptRef"
+      },
+      "receipt_type": {
+        "const": "goal_run_activation"
+      },
+      "receipt_profile_ref": {
+        "const": "schema://ioi/applications/ioi-ai/goal-run-activation-receipt/v2"
+      },
+      "activation_ref": {
+        "$ref": "#/$defs/activationRef"
+      },
+      "activation_mode": {
+        "enum": [
+          "create",
+          "join_existing"
+        ]
+      },
+      "source_context": {
+        "$ref": "#/$defs/sourceContext"
+      },
+      "draft_activation_hash": {
+        "$ref": "#/$defs/hash"
+      },
+      "source_context_hash": {
+        "$ref": "#/$defs/hash"
+      },
+      "requesting_principal_ref": {
+        "type": "string",
+        "pattern": "^(?:wallet|user|agent|system)://[^\\s]{1,500}$"
+      },
+      "authority_decision_ref": {
+        "type": "string",
+        "pattern": "^(?:grant|approval)://[^\\s]{1,500}$"
+      },
+      "review_decision_ref": {
+        "anyOf": [
+          {
+            "type": "string",
+            "pattern": "^(?:receipt|approval)://[^\\s]{1,500}$"
+          },
+          {
+            "type": "null"
+          }
+        ]
+      },
+      "admission_decision_ref": {
+        "type": "string",
+        "pattern": "^(?:agentgres|decision)://[^\\s]{1,500}$"
+      },
+      "admission_receipt_ref": {
+        "$ref": "#/$defs/receiptRef"
+      },
+      "admitted_goal_ref": {
+        "$ref": "#/$defs/goalRef"
+      },
+      "existing_goal_ref": {
+        "anyOf": [
+          {
+            "$ref": "#/$defs/goalRef"
+          },
+          {
+            "type": "null"
+          }
+        ]
+      },
+      "goal_run_profile_revision_ref": {
+        "anyOf": [
+          {
+            "type": "string",
+            "pattern": "^goal-run-profile://[^\\s?#\\\\]{1,160}/revision/[^\\s?#\\\\]{1,160}$"
+          },
+          {
+            "type": "null"
+          }
+        ]
+      },
+      "goal_run_profile_content_hash": {
+        "anyOf": [
+          {
+            "$ref": "#/$defs/hash"
+          },
+          {
+            "type": "null"
+          }
+        ]
+      },
+      "resolved_component_set_snapshot_ref": {
+        "type": "string",
+        "pattern": "^artifact://[^\\s]{1,500}$"
+      },
+      "resolved_component_set_hash": {
+        "$ref": "#/$defs/hash"
+      },
+      "profile_resolution_receipt_ref": {
+        "$ref": "#/$defs/receiptRef"
+      },
+      "receipt_obligations_hash": {
+        "$ref": "#/$defs/hash"
+      },
+      "attested_boundary_fact_refs": {
+        "type": "array",
+        "minItems": 1,
+        "uniqueItems": true,
+        "items": {
+          "type": "string",
+          "pattern": "^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"
+        }
+      },
+      "admitted_state_root_ref": {
+        "type": "string",
+        "pattern": "^agentgres://state-root/goal-run/[^/\\s]{1,160}/sha256:[0-9a-f]{64}$"
+      },
+      "admitted_at": {
+        "$ref": "#/$defs/canonicalDateTime"
+      },
+      "non_grants": {
+        "$ref": "#/$defs/nonGrants"
+      },
+      "receipt_root": {
+        "$ref": "#/$defs/hash"
+      }
+    },
+    "allOf": [
+      {
+        "if": {
+          "properties": {
+            "activation_mode": {
+              "const": "create"
+            }
+          }
+        },
+        "then": {
+          "properties": {
+            "goal_run_profile_revision_ref": {
+              "type": "string"
+            },
+            "goal_run_profile_content_hash": {
+              "type": "string"
+            },
+            "existing_goal_ref": {
+              "type": "null"
+            }
+          }
+        }
+      },
+      {
+        "if": {
+          "properties": {
+            "activation_mode": {
+              "const": "join_existing"
+            }
+          }
+        },
+        "then": {
+          "properties": {
+            "goal_run_profile_revision_ref": {
+              "type": "null"
+            },
+            "goal_run_profile_content_hash": {
+              "type": "null"
+            },
+            "existing_goal_ref": {
+              "type": "string"
+            }
+          }
+        }
+      }
+    ],
+    "$defs": {
+      "hash": {
+        "type": "string",
+        "pattern": "^sha256:[0-9a-f]{64}$"
+      },
+      "receiptRef": {
+        "type": "string",
+        "pattern": "^receipt://[^\\s]{1,500}$"
+      },
+      "activationRef": {
+        "type": "string",
+        "pattern": "^goal-run-activation://[^\\s]{1,500}$"
+      },
+      "goalRef": {
+        "type": "string",
+        "pattern": "^goal://[^\\s]{1,500}$"
+      },
+      "canonicalDateTime": {
+        "type": "string",
+        "format": "date-time",
+        "pattern": "^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$"
+      },
+      "sourceContext": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "source_kind",
+          "source_ref",
+          "source_owner_ref"
+        ],
+        "properties": {
+          "source_kind": {
+            "enum": [
+              "ioi_goal_draft",
+              "hypervisor_session",
+              "work_run",
+              "work_item",
+              "orchestration_claim",
+              "automation_workflow_step",
+              "gateway_adapter_context"
+            ]
+          },
+          "source_ref": {
+            "type": "string",
+            "pattern": "^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"
+          },
+          "source_owner_ref": {
+            "type": "string",
+            "pattern": "^(?:org|project|system|user)://[^\\s]{1,500}$"
+          }
+        },
+        "allOf": [
+          {
+            "if": {
+              "properties": {
+                "source_kind": {
+                  "const": "ioi_goal_draft"
+                }
+              }
+            },
+            "then": {
+              "properties": {
+                "source_ref": {
+                  "type": "string",
+                  "pattern": "^(?:intent|prompt)://[^\\s]{1,500}$"
+                }
+              }
+            }
+          },
+          {
+            "if": {
+              "properties": {
+                "source_kind": {
+                  "const": "hypervisor_session"
+                }
+              }
+            },
+            "then": {
+              "properties": {
+                "source_ref": {
+                  "type": "string",
+                  "pattern": "^session://[^\\s]{1,500}$"
+                }
+              }
+            }
+          },
+          {
+            "if": {
+              "properties": {
+                "source_kind": {
+                  "const": "work_run"
+                }
+              }
+            },
+            "then": {
+              "properties": {
+                "source_ref": {
+                  "type": "string",
+                  "pattern": "^(?:work-run|run)://[^\\s]{1,500}$"
+                }
+              }
+            }
+          },
+          {
+            "if": {
+              "properties": {
+                "source_kind": {
+                  "const": "work_item"
+                }
+              }
+            },
+            "then": {
+              "properties": {
+                "source_ref": {
+                  "type": "string",
+                  "pattern": "^work-item://[^\\s]{1,500}$"
+                }
+              }
+            }
+          },
+          {
+            "if": {
+              "properties": {
+                "source_kind": {
+                  "const": "orchestration_claim"
+                }
+              }
+            },
+            "then": {
+              "properties": {
+                "source_ref": {
+                  "type": "string",
+                  "pattern": "^work-claim://[^\\s]{1,500}$"
+                }
+              }
+            }
+          },
+          {
+            "if": {
+              "properties": {
+                "source_kind": {
+                  "const": "automation_workflow_step"
+                }
+              }
+            },
+            "then": {
+              "properties": {
+                "source_ref": {
+                  "type": "string",
+                  "pattern": "^action://goal-run/activate/[^\\s]{1,500}$"
+                }
+              }
+            }
+          },
+          {
+            "if": {
+              "properties": {
+                "source_kind": {
+                  "const": "gateway_adapter_context"
+                }
+              }
+            },
+            "then": {
+              "properties": {
+                "source_ref": {
+                  "type": "string",
+                  "pattern": "^adapter://[^\\s]{1,500}$"
+                }
+              }
+            }
+          }
+        ]
+      },
+      "nonGrants": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "authority_widening",
+          "context_declassification",
+          "room_membership",
+          "budget_creation"
+        ],
+        "properties": {
+          "authority_widening": {
+            "const": "none"
+          },
+          "context_declassification": {
+            "const": "none"
+          },
+          "room_membership": {
+            "const": "none"
+          },
+          "budget_creation": {
+            "const": "none"
+          }
+        }
+      }
+    }
+  },
+  "schema://ioi/applications/ioi-ai/goal-run-admission-path-decision/v2": {
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "$id": "schema://ioi/applications/ioi-ai/goal-run-admission-path-decision/v2",
+    "title": "GoalRunAdmissionPathDecision",
+    "x-ioi-schema-version": "ioi.applications.ioi-ai.goal-run-admission-path-decision.v2",
+    "type": "object",
+    "additionalProperties": false,
+    "required": [
+      "schema_version",
+      "decision_ref",
+      "goal_run_ref",
+      "requested_path",
+      "decision",
+      "admitting_owner",
+      "goal_run_profile_revision_ref",
+      "goal_run_profile_content_hash",
+      "effective_constraint_hash",
+      "result_profile",
+      "policy_refs",
+      "authority_refs",
+      "capability_requirement_refs",
+      "runtime_facts",
+      "reason_codes",
+      "decision_receipt_ref",
+      "decided_at"
+    ],
+    "properties": {
+      "schema_version": {
+        "const": "ioi.applications.ioi-ai.goal-run-admission-path-decision.v2"
+      },
+      "decision_ref": {
+        "$ref": "#/$defs/ref"
+      },
+      "goal_run_ref": {
+        "type": "string",
+        "pattern": "^goal://[^\\s]{1,500}$"
+      },
+      "requested_path": {
+        "enum": [
+          "auto",
+          "direct_non_system",
+          "system_bound"
+        ]
+      },
+      "decision": {
+        "enum": [
+          "direct_non_system",
+          "system_bound_required",
+          "refused"
+        ]
+      },
+      "admitting_owner": {
+        "const": "hypervisor_daemon"
+      },
+      "goal_run_profile_revision_ref": {
+        "type": "string",
+        "pattern": "^goal-run-profile://[^\\s]+/revision/[^\\s]+$"
+      },
+      "goal_run_profile_content_hash": {
+        "$ref": "#/$defs/hash"
+      },
+      "effective_constraint_hash": {
+        "$ref": "#/$defs/hash"
+      },
+      "result_profile": {
+        "enum": [
+          "software_implementation",
+          "research",
+          "ontology_mutation",
+          "incident_resolution",
+          "service_delivery",
+          "physical_mission",
+          "review",
+          "evaluation",
+          "custom"
+        ]
+      },
+      "policy_refs": {
+        "type": "array",
+        "minItems": 1,
+        "uniqueItems": true,
+        "items": {
+          "$ref": "#/$defs/ref"
+        }
+      },
+      "authority_refs": {
+        "type": "array",
+        "minItems": 1,
+        "uniqueItems": true,
+        "items": {
+          "$ref": "#/$defs/ref"
+        }
+      },
+      "capability_requirement_refs": {
+        "type": "array",
+        "uniqueItems": true,
+        "items": {
+          "$ref": "#/$defs/ref"
+        }
+      },
+      "runtime_facts": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "single_bounded_work_subject",
+          "requires_system_membership",
+          "requires_shared_frontier",
+          "requires_collective_scheduling",
+          "capabilities_fit_single_execution",
+          "authority_fits_single_execution",
+          "risk_and_isolation_fit_single_execution",
+          "has_unresolved_system_dependency",
+          "policy_requires_system_path",
+          "system_path_available"
+        ],
+        "properties": {
+          "single_bounded_work_subject": {
+            "type": "boolean"
+          },
+          "requires_system_membership": {
+            "type": "boolean"
+          },
+          "requires_shared_frontier": {
+            "type": "boolean"
+          },
+          "requires_collective_scheduling": {
+            "type": "boolean"
+          },
+          "capabilities_fit_single_execution": {
+            "type": "boolean"
+          },
+          "authority_fits_single_execution": {
+            "type": "boolean"
+          },
+          "risk_and_isolation_fit_single_execution": {
+            "type": "boolean"
+          },
+          "has_unresolved_system_dependency": {
+            "type": "boolean"
+          },
+          "policy_requires_system_path": {
+            "type": "boolean"
+          },
+          "system_path_available": {
+            "type": "boolean"
+          }
+        }
+      },
+      "reason_codes": {
+        "type": "array",
+        "uniqueItems": true,
+        "items": {
+          "enum": [
+            "direct_path_eligible",
+            "multiple_work_subjects",
+            "system_membership_required",
+            "shared_frontier_required",
+            "collective_scheduling_required",
+            "capability_requirements_exceed_single_execution",
+            "authority_requirements_exceed_single_execution",
+            "risk_or_isolation_exceeds_single_execution",
+            "unresolved_system_dependency",
+            "policy_requires_system_path",
+            "requested_system_path",
+            "system_path_prerequisites_unavailable"
+          ]
+        }
+      },
+      "decision_receipt_ref": {
+        "type": "string",
+        "pattern": "^receipt://[^\\s]{1,500}$"
+      },
+      "decided_at": {
+        "type": "string",
+        "format": "date-time",
+        "pattern": "^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$"
+      }
+    },
+    "allOf": [
+      {
+        "if": {
+          "properties": {
+            "decision": {
+              "const": "direct_non_system"
+            }
+          },
+          "required": [
+            "decision"
+          ]
+        },
+        "then": {
+          "properties": {
+            "requested_path": {
+              "enum": [
+                "auto",
+                "direct_non_system"
+              ]
+            },
+            "reason_codes": {
+              "type": "array",
+              "contains": {
+                "const": "direct_path_eligible"
+              }
+            },
+            "runtime_facts": {
+              "type": "object",
+              "properties": {
+                "single_bounded_work_subject": {
+                  "const": true
+                },
+                "requires_system_membership": {
+                  "const": false
+                },
+                "requires_shared_frontier": {
+                  "const": false
+                },
+                "requires_collective_scheduling": {
+                  "const": false
+                },
+                "capabilities_fit_single_execution": {
+                  "const": true
+                },
+                "authority_fits_single_execution": {
+                  "const": true
+                },
+                "risk_and_isolation_fit_single_execution": {
+                  "const": true
+                },
+                "has_unresolved_system_dependency": {
+                  "const": false
+                },
+                "policy_requires_system_path": {
+                  "const": false
+                }
+              }
+            }
+          }
+        }
+      },
+      {
+        "if": {
+          "properties": {
+            "decision": {
+              "const": "system_bound_required"
+            }
+          },
+          "required": [
+            "decision"
+          ]
+        },
+        "then": {
+          "properties": {
+            "reason_codes": {
+              "type": "array",
+              "minItems": 1
+            },
+            "runtime_facts": {
+              "type": "object",
+              "properties": {
+                "system_path_available": {
+                  "const": true
+                }
+              }
+            }
+          }
+        }
+      },
+      {
+        "if": {
+          "properties": {
+            "decision": {
+              "const": "refused"
+            }
+          },
+          "required": [
+            "decision"
+          ]
+        },
+        "then": {
+          "properties": {
+            "reason_codes": {
+              "type": "array",
+              "contains": {
+                "const": "system_path_prerequisites_unavailable"
+              }
+            },
+            "runtime_facts": {
+              "type": "object",
+              "properties": {
+                "system_path_available": {
+                  "const": false
+                }
+              }
+            }
+          }
+        }
+      }
+    ],
+    "$defs": {
+      "ref": {
+        "type": "string",
+        "pattern": "^[a-z][a-z0-9+.-]*://[^\\s]{1,500}$"
+      },
+      "hash": {
+        "type": "string",
+        "pattern": "^sha256:[0-9a-f]{64}$"
+      }
+    },
+    "description": "Version 2 (2026-09-18, R-178 slice S4d-2, R-190): the GoalRun composes over the ioi.ai orchestration — the room coordinates of v1 are gone and `orchestration_ref` names the composition; successor of v1."
+  },
+  "schema://ioi/applications/ioi-ai/context-cell/v2": {
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "$id": "schema://ioi/applications/ioi-ai/context-cell/v2",
+    "title": "ContextCellEnvelope",
+    "x-ioi-schema-version": "ioi.context-cell.v2",
+    "description": "Independent bounded working context for ONE role inside a GoalRun, owned by the ioi.ai orchestration application and admitted through the daemon's generic write path (never Hypervisor core). It carries refs to the information-flow labels, memory projections, leases, authority scopes and runtime assignment that other owners admit; it defines no parallel taint, privacy or authority object of its own (goal-run-execution.md § ContextCellEnvelope; execution-context-and-step-resolution.md § InformationFlowLabel and DeclassificationApproval). Ref spellings are the estate's canonical hyphenated identities; the legacy underscore spellings recorded in legacy-ref-scheme-aliases.json are refused here because that registry's write policy forbids emitting them. Version 2 (2026-09-18, R-178 slice S4d-2, R-190): the GoalRun composes over the ioi.ai orchestration — the room coordinates of v1 are gone and `orchestration_ref` names the composition; successor of v1.",
+    "type": "object",
+    "additionalProperties": false,
+    "required": [
+      "schema_version",
+      "context_cell_id",
+      "work_subject_ref",
+      "orchestration_ref",
+      "delegation_ref",
+      "role_topology_revision_ref",
+      "role_binding_id",
+      "accountable_actor_ref",
+      "role",
+      "resolver_revision_ref",
+      "resolver_content_hash",
+      "model_route_ref",
+      "memory_projection_refs",
+      "context_lease_refs",
+      "information_flow_label_refs",
+      "active_runtime_assignment_ref",
+      "authority_scope_refs",
+      "compression_policy_ref",
+      "current_claim_ref",
+      "next_wake_condition_ref",
+      "status"
+    ],
+    "properties": {
+      "schema_version": {
+        "const": "ioi.context-cell.v2"
+      },
+      "context_cell_id": {
+        "type": "string",
+        "pattern": "^context-cell://\\S+$",
+        "maxLength": 500
+      },
+      "work_subject_ref": {
+        "type": "string",
+        "pattern": "^(?:goal|automation-run|work-run|run|invocation|work-claim|attempt)://\\S+$",
+        "maxLength": 500
+      },
+      "role_topology_revision_ref": {
+        "anyOf": [
+          {
+            "type": "string",
+            "pattern": "^role-topology://\\S+/revision/\\S+$",
+            "maxLength": 500
+          },
+          {
+            "type": "null"
+          }
+        ]
+      },
+      "role_binding_id": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 200
+      },
+      "accountable_actor_ref": {
+        "type": "string",
+        "pattern": "^(?:participant-lease|system|worker|agent|service|org|user|domain)://\\S+$",
+        "maxLength": 500
+      },
+      "role": {
+        "type": "string",
+        "enum": [
+          "conductor",
+          "implementer",
+          "reviewer",
+          "verifier",
+          "operator",
+          "researcher",
+          "specialist",
+          "synthesizer",
+          "resource_provider",
+          "integrity_challenger",
+          "memory_curator"
+        ]
+      },
+      "resolver_revision_ref": {
+        "anyOf": [
+          {
+            "type": "string",
+            "pattern": "^(?:harness-profile|agent-harness-adapter)://\\S+/revision/\\S+$",
+            "maxLength": 500
+          },
+          {
+            "type": "null"
+          }
+        ]
+      },
+      "resolver_content_hash": {
+        "anyOf": [
+          {
+            "type": "string",
+            "pattern": "^sha256:[0-9a-f]{64}$"
+          },
+          {
+            "type": "null"
+          }
+        ]
+      },
+      "model_route_ref": {
+        "anyOf": [
+          {
+            "type": "string",
+            "pattern": "^model-route://\\S+$",
+            "maxLength": 500
+          },
+          {
+            "type": "null"
+          }
+        ]
+      },
+      "memory_projection_refs": {
+        "type": "array",
+        "maxItems": 512,
+        "items": {
+          "type": "string",
+          "pattern": "^(?:memory-projection|wiki)://\\S+$",
+          "maxLength": 500
+        }
+      },
+      "context_lease_refs": {
+        "type": "array",
+        "maxItems": 512,
+        "items": {
+          "type": "string",
+          "pattern": "^context-lease://\\S+$",
+          "maxLength": 500
+        }
+      },
+      "information_flow_label_refs": {
+        "type": "array",
+        "maxItems": 512,
+        "items": {
+          "type": "string",
+          "pattern": "^ifc-label://\\S+$",
+          "maxLength": 500
+        }
+      },
+      "active_runtime_assignment_ref": {
+        "anyOf": [
+          {
+            "type": "string",
+            "pattern": "^runtime-assignment://\\S+$",
+            "maxLength": 500
+          },
+          {
+            "type": "null"
+          }
+        ]
+      },
+      "authority_scope_refs": {
+        "type": "array",
+        "maxItems": 512,
+        "items": {
+          "type": "string",
+          "pattern": "^(?:authority|policy)://\\S+$",
+          "maxLength": 500
+        }
+      },
+      "compression_policy_ref": {
+        "anyOf": [
+          {
+            "type": "string",
+            "pattern": "^policy://\\S+$",
+            "maxLength": 500
+          },
+          {
+            "type": "null"
+          }
+        ]
+      },
+      "current_claim_ref": {
+        "anyOf": [
+          {
+            "type": "string",
+            "pattern": "^work-claim://\\S+$",
+            "maxLength": 500
+          },
+          {
+            "type": "null"
+          }
+        ]
+      },
+      "next_wake_condition_ref": {
+        "anyOf": [
+          {
+            "type": "string",
+            "pattern": "^(?:policy|event)://\\S+$",
+            "maxLength": 500
+          },
+          {
+            "type": "null"
+          }
+        ]
+      },
+      "status": {
+        "type": "string",
+        "enum": [
+          "open",
+          "active",
+          "sleeping",
+          "waiting",
+          "handed_off",
+          "summarized",
+          "quarantined",
+          "closed",
+          "revoked"
+        ]
+      },
+      "orchestration_ref": {
+        "anyOf": [
+          {
+            "type": "string",
+            "pattern": "^app-scope://ioi-ai/orchestration/[^\\s]{1,400}$"
+          },
+          {
+            "type": "null"
+          }
+        ]
+      },
+      "delegation_ref": {
+        "anyOf": [
+          {
+            "type": "string",
+            "pattern": "^delegation://[^\\s]{1,500}$"
+          },
+          {
+            "type": "null"
+          }
+        ]
+      }
+    }
+  },
+  "schema://ioi/applications/ioi-ai/goal-grounding-loop/v2": {
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "$id": "schema://ioi/applications/ioi-ai/goal-grounding-loop/v2",
+    "title": "GoalGroundingLoop",
+    "x-ioi-schema-version": "ioi.goal-grounding-loop.v2",
+    "type": "object",
+    "additionalProperties": false,
+    "required": [
+      "schema_version",
+      "goal_loop_id",
+      "goal_ref",
+      "conductor_context_cell_ref",
+      "loop_iteration",
+      "phase",
+      "escalation_state",
+      "exit_condition",
+      "status"
+    ],
+    "properties": {
+      "schema_version": {
+        "const": "ioi.goal-grounding-loop.v2"
+      },
+      "goal_loop_id": {
+        "type": "string",
+        "pattern": "^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"
+      },
+      "goal_ref": {
+        "type": "string",
+        "pattern": "^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"
+      },
+      "conductor_context_cell_ref": {
+        "type": "string",
+        "pattern": "^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"
+      },
+      "loop_iteration": {
+        "type": "integer",
+        "minimum": 0,
+        "maximum": 9007199254740991
+      },
+      "phase": {
+        "enum": [
+          "receive_intent",
+          "classify_goal",
+          "gather_grounding",
+          "inspect_state",
+          "derive_constraints",
+          "observe_frontier",
+          "form_hypotheses",
+          "select_or_adapt_topology",
+          "claim_allocate_or_delegate",
+          "lease_context",
+          "open_context_cells",
+          "execute_attempt",
+          "monitor_progress",
+          "publish_result",
+          "verify_compare_or_challenge",
+          "repair_or_escalate",
+          "reconcile",
+          "update_frontier_and_memory",
+          "continue_or_close"
+        ]
+      },
+      "frontier_and_claim_refs": {
+        "type": "array",
+        "uniqueItems": true,
+        "items": {
+          "type": "string",
+          "pattern": "^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"
+        }
+      },
+      "grounding_source_refs": {
+        "type": "array",
+        "uniqueItems": true,
+        "items": {
+          "type": "string",
+          "pattern": "^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"
+        }
+      },
+      "state_inspection_refs": {
+        "type": "array",
+        "uniqueItems": true,
+        "items": {
+          "type": "string",
+          "pattern": "^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"
+        }
+      },
+      "decision_refs": {
+        "type": "array",
+        "uniqueItems": true,
+        "items": {
+          "type": "string",
+          "pattern": "^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"
+        }
+      },
+      "context_cell_refs": {
+        "type": "array",
+        "uniqueItems": true,
+        "items": {
+          "type": "string",
+          "pattern": "^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"
+        }
+      },
+      "handoff_refs": {
+        "type": "array",
+        "uniqueItems": true,
+        "items": {
+          "type": "string",
+          "pattern": "^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"
+        }
+      },
+      "attempt_result_and_finding_refs": {
+        "type": "array",
+        "uniqueItems": true,
+        "items": {
+          "type": "string",
+          "pattern": "^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"
+        }
+      },
+      "verifier_path_ref": {
+        "anyOf": [
+          {
+            "type": "string",
+            "pattern": "^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"
+          },
+          {
+            "type": "null"
+          }
+        ]
+      },
+      "evidence_refs": {
+        "type": "array",
+        "uniqueItems": true,
+        "items": {
+          "type": "string",
+          "pattern": "^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"
+        }
+      },
+      "productivity_budget_ref": {
+        "anyOf": [
+          {
+            "type": "string",
+            "pattern": "^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"
+          },
+          {
+            "type": "null"
+          }
+        ]
+      },
+      "topology_participant_and_verifier_change_refs": {
+        "type": "array",
+        "uniqueItems": true,
+        "items": {
+          "type": "string",
+          "pattern": "^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"
+        }
+      },
+      "marginal_value_stop_policy_ref": {
+        "anyOf": [
+          {
+            "type": "string",
+            "pattern": "^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"
+          },
+          {
+            "type": "null"
+          }
+        ]
+      },
+      "escalation_state": {
+        "enum": [
+          "none",
+          "ask_user",
+          "open_implementer_cell",
+          "open_reviewer_cell",
+          "require_independent_verifier",
+          "require_governance_control",
+          "stop_blocked"
+        ]
+      },
+      "exit_condition": {
+        "enum": [
+          "continue",
+          "delegated",
+          "waiting_on_frontier",
+          "verified_complete",
+          "accepted",
+          "risk_stop",
+          "budget_stop",
+          "deadline_stop",
+          "marginal_value_stop",
+          "blocked",
+          "superseded",
+          "user_input_required",
+          "governance_required"
+        ]
+      },
+      "status": {
+        "enum": [
+          "active",
+          "waiting",
+          "satisfied",
+          "blocked",
+          "superseded",
+          "revoked"
+        ]
+      },
+      "orchestration_ref": {
+        "anyOf": [
+          {
+            "type": "string",
+            "pattern": "^app-scope://ioi-ai/orchestration/[^\\s]{1,400}$"
+          },
+          {
+            "type": "null"
+          }
+        ]
+      }
+    },
+    "description": "Version 2 (2026-09-18, R-178 slice S4d-2, R-190): the GoalRun composes over the ioi.ai orchestration — the room coordinates of v1 are gone and `orchestration_ref` names the composition; successor of v1."
   }
 };
 const CONTRACT_INVARIANTS: Record<string, Array<JsonObject>> = {
@@ -162673,7 +165421,168 @@ const CONTRACT_INVARIANTS: Record<string, Array<JsonObject>> = {
         "path": "$.objective"
       }
     }
-  ]
+  ],
+  "schema://ioi/applications/ioi-ai/goal-run/v2": [],
+  "schema://ioi/applications/ioi-ai/goal-run-activation/v2": [
+    {
+      "rule_id": "goal_run_activation.create.profile_revision.required",
+      "description": "Create mode binds one exact GoalRunProfile revision.",
+      "expression": {
+        "operator": "non_empty_when_in",
+        "path": "$.requested_goal_run_profile_revision_ref",
+        "when_path": "$.activation_mode",
+        "values": [
+          "create"
+        ]
+      }
+    },
+    {
+      "rule_id": "goal_run_activation.create.profile_hash.required",
+      "description": "Create mode binds the exact GoalRunProfile content hash.",
+      "expression": {
+        "operator": "non_empty_when_in",
+        "path": "$.requested_goal_run_profile_content_hash",
+        "when_path": "$.activation_mode",
+        "values": [
+          "create"
+        ]
+      }
+    },
+    {
+      "rule_id": "goal_run_activation.join.goal.required",
+      "description": "Join mode names exactly one existing GoalRun.",
+      "expression": {
+        "operator": "non_empty_when_in",
+        "path": "$.existing_goal_ref",
+        "when_path": "$.activation_mode",
+        "values": [
+          "join_existing"
+        ]
+      }
+    },
+    {
+      "rule_id": "goal_run_activation.admitted.receipt.required",
+      "description": "An admitted crossing is receipt-backed.",
+      "expression": {
+        "operator": "non_empty_when_in",
+        "path": "$.activation_receipt_ref",
+        "when_path": "$.status",
+        "values": [
+          "admitted",
+          "superseded"
+        ]
+      }
+    }
+  ],
+  "schema://ioi/applications/ioi-ai/goal-run-activation-receipt/v2": [
+    {
+      "rule_id": "goal_run_activation_receipt.identity.matches",
+      "description": "The activation admission has one portable receipt identity.",
+      "expression": {
+        "operator": "fields_equal",
+        "paths": [
+          "$.receipt_id",
+          "$.receipt_ref"
+        ]
+      }
+    },
+    {
+      "rule_id": "goal_run_activation_receipt.root.recomputes",
+      "description": "The receipt root commits every typed activation, source, authority, admission, GoalRun, profile, state, time, and non-grant field carried by the receipt.",
+      "expression": {
+        "operator": "jcs_sha256_equals",
+        "algorithm": "jcs_sha256",
+        "material_fields": {
+          "schema_version": {
+            "path": "$.schema_version"
+          },
+          "receipt_id": {
+            "path": "$.receipt_id"
+          },
+          "receipt_ref": {
+            "path": "$.receipt_ref"
+          },
+          "receipt_type": {
+            "path": "$.receipt_type"
+          },
+          "receipt_profile_ref": {
+            "path": "$.receipt_profile_ref"
+          },
+          "activation_ref": {
+            "path": "$.activation_ref"
+          },
+          "activation_mode": {
+            "path": "$.activation_mode"
+          },
+          "source_context": {
+            "path": "$.source_context"
+          },
+          "draft_activation_hash": {
+            "path": "$.draft_activation_hash"
+          },
+          "source_context_hash": {
+            "path": "$.source_context_hash"
+          },
+          "requesting_principal_ref": {
+            "path": "$.requesting_principal_ref"
+          },
+          "authority_decision_ref": {
+            "path": "$.authority_decision_ref"
+          },
+          "review_decision_ref": {
+            "path": "$.review_decision_ref"
+          },
+          "admission_decision_ref": {
+            "path": "$.admission_decision_ref"
+          },
+          "admission_receipt_ref": {
+            "path": "$.admission_receipt_ref"
+          },
+          "admitted_goal_ref": {
+            "path": "$.admitted_goal_ref"
+          },
+          "existing_goal_ref": {
+            "path": "$.existing_goal_ref"
+          },
+          "goal_run_profile_revision_ref": {
+            "path": "$.goal_run_profile_revision_ref"
+          },
+          "goal_run_profile_content_hash": {
+            "path": "$.goal_run_profile_content_hash"
+          },
+          "resolved_component_set_snapshot_ref": {
+            "path": "$.resolved_component_set_snapshot_ref"
+          },
+          "resolved_component_set_hash": {
+            "path": "$.resolved_component_set_hash"
+          },
+          "profile_resolution_receipt_ref": {
+            "path": "$.profile_resolution_receipt_ref"
+          },
+          "receipt_obligations_hash": {
+            "path": "$.receipt_obligations_hash"
+          },
+          "attested_boundary_fact_refs": {
+            "path": "$.attested_boundary_fact_refs"
+          },
+          "admitted_state_root_ref": {
+            "path": "$.admitted_state_root_ref"
+          },
+          "admitted_at": {
+            "path": "$.admitted_at"
+          },
+          "non_grants": {
+            "path": "$.non_grants"
+          }
+        },
+        "expected_path": "$.receipt_root",
+        "expected_encoding": "sha256_string"
+      }
+    }
+  ],
+  "schema://ioi/applications/ioi-ai/goal-run-admission-path-decision/v2": [],
+  "schema://ioi/applications/ioi-ai/context-cell/v2": [],
+  "schema://ioi/applications/ioi-ai/goal-grounding-loop/v2": []
 };
 
 export function architectureContractSchemaHash(contractId: string): string | null {
@@ -165530,4 +168439,40 @@ export function validateOrchestrationV1(
   value: unknown,
 ): value is OrchestrationV1 {
   return validateArchitectureContract("schema://ioi/applications/ioi-ai/orchestration/v1", value).ok;
+}
+
+export function validateGoalRunV2(
+  value: unknown,
+): value is GoalRunV2 {
+  return validateArchitectureContract("schema://ioi/applications/ioi-ai/goal-run/v2", value).ok;
+}
+
+export function validateGoalRunActivationEnvelopeV2(
+  value: unknown,
+): value is GoalRunActivationEnvelopeV2 {
+  return validateArchitectureContract("schema://ioi/applications/ioi-ai/goal-run-activation/v2", value).ok;
+}
+
+export function validateGoalRunActivationReceiptV2(
+  value: unknown,
+): value is GoalRunActivationReceiptV2 {
+  return validateArchitectureContract("schema://ioi/applications/ioi-ai/goal-run-activation-receipt/v2", value).ok;
+}
+
+export function validateGoalRunAdmissionPathDecisionV2(
+  value: unknown,
+): value is GoalRunAdmissionPathDecisionV2 {
+  return validateArchitectureContract("schema://ioi/applications/ioi-ai/goal-run-admission-path-decision/v2", value).ok;
+}
+
+export function validateContextCellEnvelopeV2(
+  value: unknown,
+): value is ContextCellEnvelopeV2 {
+  return validateArchitectureContract("schema://ioi/applications/ioi-ai/context-cell/v2", value).ok;
+}
+
+export function validateGoalGroundingLoopV2(
+  value: unknown,
+): value is GoalGroundingLoopV2 {
+  return validateArchitectureContract("schema://ioi/applications/ioi-ai/goal-grounding-loop/v2", value).ok;
 }
