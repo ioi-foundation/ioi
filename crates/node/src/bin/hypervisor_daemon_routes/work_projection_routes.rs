@@ -63,7 +63,7 @@ const VIEWS: &[&str] = &[
 /// the owner's identity verbatim either way).
 const SUBJECT_KINDS: &[&str] = &[
     "goal_run",
-    "outcome_room",
+    "orchestration",
     "automation_run",
     "session",
     "work_queue",
@@ -80,7 +80,7 @@ const FAMILIES_NOT_PROJECTED: &[(&str, &str)] = &[
 /// it may arrive through. Said on every answer so an empty Goals column is never read as "none".
 const CONTRIBUTED_FAMILIES: &[(&str, &str)] = &[
     ("goal_run", "ioi.ai orchestration application (goal-pursuit.md § Work / Goals surface): reaches Work only through a Session's typed subject attachment or the application-contributed Work / Goals view; core publishes no reader and mints no route"),
-    ("outcome_room", "ioi.ai orchestration application (collaborative-outcome-pattern.md § The application-contributed Rooms view): reaches Work only through a Session's typed subject attachment or the application-contributed Work / Rooms view; core publishes no reader and mints no route"),
+    ("orchestration", "ioi.ai orchestration application (collaborative-pursuit.md § OrchestrationEnvelope): reaches Work only through a Session's typed subject attachment or the application-contributed Work / Rooms view; core publishes no reader and mints no route"),
 ];
 const RECENTS: usize = 10;
 
@@ -100,7 +100,13 @@ pub(crate) fn subject_kind_for_ref(subject_ref: &str) -> Option<&'static str> {
     let scheme = subject_ref.split_once("://")?.0;
     match scheme {
         "goal" | "goal-run" => Some("goal_run"),
-        "outcome-room" => Some("outcome_room"),
+        // The ioi.ai orchestration's own scope is the contributed subject (R-191, S4d-3); the
+        // room scheme it replaced went with the room plane. `app-scope://` is a generic
+        // application prefix, so ONLY this exact path maps — another application's scope under
+        // the same prefix resolves to no kind, as an unregistered ref must.
+        "app-scope" if subject_ref.starts_with("app-scope://ioi-ai/orchestration/") => {
+            Some("orchestration")
+        }
         "automation-run" => Some("automation_run"),
         "session" => Some("session"),
         "work_queue" => Some("work_queue"),
@@ -249,7 +255,7 @@ fn parse_subject_filter(
         return Err(bad(
             StatusCode::BAD_REQUEST,
             "work_projection_subject_ref_invalid",
-            format!("{subject_ref} is not a canonical typed Work subject ref; the registered schemes are goal://, outcome-room://, automation-run://, session: and work_queue|work_item|work_run://"),
+            format!("{subject_ref} is not a canonical typed Work subject ref; the registered schemes are goal://, app-scope://ioi-ai/orchestration/, automation-run://, session: and work_queue|work_item|work_run://"),
         ));
     };
     if let Some(asserted) = params.get("subject_kind") {
@@ -567,9 +573,13 @@ mod work_projection_tests {
         assert_eq!(subject_kind_for_ref("goal://acme/g1"), Some("goal_run"));
         assert_eq!(subject_kind_for_ref("goal-run://acme/g1"), Some("goal_run"));
         assert_eq!(
-            subject_kind_for_ref("outcome-room://acme/r1"),
-            Some("outcome_room")
+            subject_kind_for_ref("app-scope://ioi-ai/orchestration/orc_1"),
+            Some("orchestration")
         );
+        // the retired room scheme resolves to nothing, and another application's scope under the
+        // same generic prefix is not this family
+        assert_eq!(subject_kind_for_ref("outcome-room://acme/r1"), None);
+        assert_eq!(subject_kind_for_ref("app-scope://other/thing/1"), None);
         assert_eq!(
             subject_kind_for_ref("automation-run://acme/a1"),
             Some("automation_run")
@@ -605,7 +615,7 @@ mod work_projection_tests {
         assert_eq!(execution_mode("automation_run"), "headless");
         // a contributed kind is never derived by core, so core assigns it no mode
         assert_eq!(execution_mode("goal_run"), "not_applicable");
-        assert_eq!(execution_mode("outcome_room"), "not_applicable");
+        assert_eq!(execution_mode("orchestration"), "not_applicable");
         assert_eq!(execution_mode("work_item"), "not_applicable");
         assert_eq!(activity_view("completed"), "history");
         assert_eq!(activity_view("blocked"), "active");
@@ -731,7 +741,7 @@ mod work_projection_tests {
             .iter()
             .map(|f| f["subject_kind"].as_str().unwrap())
             .collect();
-        assert_eq!(contributed, vec!["goal_run", "outcome_room"]);
+        assert_eq!(contributed, vec!["goal_run", "orchestration"]);
         assert!(answer["families"]["contributed"][0]["seam"]
             .as_str()
             .unwrap()

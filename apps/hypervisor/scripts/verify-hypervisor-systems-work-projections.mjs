@@ -151,9 +151,9 @@ async function run() {
 
   // -- the Work subject registry is said on every answer ---------------------------------------------
   const contributed = (empty.body.families?.contributed || []);
-  ok("core Work enumerates ONLY the families the substrate owns (session, automation_run) and names goal_run and outcome_room as CONTRIBUTED families with the two seams they may arrive through — a Session's typed subject attachment or a registered application-contributed view — and mints no /work/goals or /work/rooms route (Work subject registry, ADR 0022's untangling resolved 2026-09-14)",
+  ok("core Work enumerates ONLY the families the substrate owns (session, automation_run) and names goal_run and orchestration as CONTRIBUTED families (R-191: the room family retired with the room plane) with the two seams they may arrive through — a Session's typed subject attachment or a registered application-contributed view — and mints no /work/goals or /work/rooms route (Work subject registry, ADR 0022's untangling resolved 2026-09-14)",
     JSON.stringify(empty.body.families?.projected) === JSON.stringify(["session", "automation_run"])
-      && contributed.map((f) => f.subject_kind).join(",") === "goal_run,outcome_room"
+      && contributed.map((f) => f.subject_kind).join(",") === "goal_run,orchestration"
       && contributed.every((f) => /subject attachment/u.test(f.seam) && /application-contributed Work \/ (?:Goals|Rooms) view/u.test(f.seam) && /no reader/u.test(f.seam))
       && (empty.body.policy?.readers || []).map((r) => r.family).sort().join(",") === "automation_run,session"
       && !JSON.stringify(empty.body).includes("/work/goals") && !JSON.stringify(empty.body).includes("/work/rooms")

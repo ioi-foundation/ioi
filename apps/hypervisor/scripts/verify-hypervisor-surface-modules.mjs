@@ -32,19 +32,8 @@ const results = [];
 const ok = (name, cond, detail) => { results.push({ name, pass: !!cond, detail: detail || "" }); };
 
 const MISSION_COLLECTIONS = {
-  "/v1/goal-orchestration/outcome-rooms": "outcome_rooms",
-  "/v1/goal-orchestration/room-participation-requests": "participation_requests",
-  "/v1/goal-orchestration/room-participant-leases": "participant_leases",
-  "/v1/goal-orchestration/work-frontier-items": "frontier_items",
-  "/v1/goal-orchestration/work-claim-leases": "work_claims",
-  "/v1/goal-orchestration/resource-offers": "resource_offers",
-  "/v1/goal-orchestration/capability-offers": "capability_offers",
-  "/v1/goal-orchestration/work-eligibility-matches": "eligibility_match_receipts",
-  "/v1/goal-orchestration/attempts": "attempts",
-  "/v1/goal-orchestration/findings": "findings",
-  "/v1/hypervisor/work-results": "work_results",
-  "/v1/goal-orchestration/verifier-challenges": "verifier_challenges",
   "/v1/goal-orchestration/goal-runs": "goal_runs",
+  "/v1/hypervisor/work-results": "work_results",
 };
 
 function missionsFixtureFetch(overrides = {}) {
@@ -130,73 +119,78 @@ async function run() {
   const missionsModel = await missions.load(missionsCtx);
   const missionsHtml = missions.render(missionsModel, missionsCtx);
   ok("missions: dead daemon stays an honest unavailable projection with no mutation form",
-    Object.values(missionsModel).every((entry) => entry.ok === false && entry.rows.length === 0)
-      && missionsHtml.includes('data-missions-work-graph="hosted"')
+    [missionsModel.goalRuns, missionsModel.results, missionsModel.operations]
+      .every((entry) => entry.ok === false && entry.rows.length === 0)
+      && missionsHtml.includes('data-missions-work-graph="goal-runs"')
       && missionsHtml.includes("Counts for this plane are not treated as zero")
       && !/<form\b/i.test(missionsHtml));
-  const fixtureRoom = {
-    outcome_room_id: "outcome-room://or_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
-    objective: "Partial-outage mission",
-    status: "open",
-    room_mode: "hosted",
+  // R-191 (S4d-3): the surface reads the three planes the daemon still serves. The eleven room
+  // planes it used to read were deleted with the room plane, so a fixture naming one would prove
+  // nothing — the retirement probe below asserts the surface no longer asks for them at all.
+  const requestedPaths = [];
+  const recordingFetch = (overrides = {}) => async (rawUrl, init) => {
+    requestedPaths.push(new URL(rawUrl).pathname);
+    return missionsFixtureFetch(overrides)(rawUrl, init);
+  };
+  const fixtureRun = {
+    goal_run_id: "gr_partial_outage",
+    goal_ref: "goal://gr_partial_outage",
+    normalized_goal: "Partial-outage mission",
+    status: "active",
+    continuation_state: "open",
+    orchestration_ref: "app-scope://ioi-ai/orchestration/orc_missions_fixture",
   };
   const partialCtx = {
     ...missionsCtx,
-    url: new URL(`http://x/__ioi/missions?room=${encodeURIComponent(fixtureRoom.outcome_room_id)}`),
-    fetch: missionsFixtureFetch({
-      "/v1/goal-orchestration/outcome-rooms": { body: { outcome_rooms: [fixtureRoom] } },
-      "/v1/goal-orchestration/room-participant-leases": { status: 503, body: { error: { code: "participants_unavailable" } } },
-      "/v1/goal-orchestration/work-frontier-items": { status: 503, body: { error: { code: "frontier_unavailable" } } },
-      "/v1/goal-orchestration/work-claim-leases": { status: 503, body: { error: { code: "claims_unavailable" } } },
-      "/v1/goal-orchestration/resource-offers": { status: 503, body: { error: { code: "offers_unavailable" } } },
-      "/v1/goal-orchestration/capability-offers": { status: 503, body: { error: { code: "capabilities_unavailable" } } },
-      "/v1/goal-orchestration/work-eligibility-matches": { status: 503, body: { error: { code: "matches_unavailable" } } },
-      "/v1/goal-orchestration/verifier-challenges": { status: 503, body: { error: { code: "challenges_unavailable" } } },
+    url: new URL(`http://x/__ioi/missions?goal=${encodeURIComponent(fixtureRun.goal_run_id)}`),
+    fetch: recordingFetch({
+      "/v1/goal-orchestration/goal-runs": { body: { goal_runs: [fixtureRun] } },
+      "/v1/hypervisor/work-results": { status: 503, body: { error: { code: "results_unavailable" } } },
     }),
   };
   const partialModel = await missions.load(partialCtx);
   const partialHtml = missions.render(partialModel, partialCtx);
-  ok("missions: partial child-plane outage renders unknown at every dependent room/list/supply metric",
-    partialHtml.includes('data-missions-frontier="unknown"')
-      && partialHtml.includes('data-missions-live-claims="unknown"')
-      && partialHtml.includes('data-missions-unresolved-challenges="unknown"')
-      && partialHtml.includes("<b>—</b> work <b>—</b> claims <em>— blockers</em>")
-      && partialHtml.includes('data-missions-metric="active-participants" data-value="unknown"')
-      && partialHtml.includes('data-missions-metric="frontier-items" data-value="unknown"')
-      && partialHtml.includes('data-missions-metric="live-claims" data-value="unknown"')
-      && partialHtml.includes('data-missions-metric="challenge-blockers" data-value="unknown"')
-      && partialHtml.includes('data-missions-metric="resource-offers" data-value="unknown"')
-      && partialHtml.includes('data-missions-metric="capability-offers" data-value="unknown"')
-      && partialHtml.includes('data-missions-metric="receipted-matches" data-value="unknown"'));
+  ok("missions: a partial outage renders unknown at every dependent metric and never zero, and the selected run still resolves",
+    partialModel.goalRuns.ok === true
+      && partialModel.results.ok === false
+      && partialHtml.includes('data-missions-metric="results" data-value="unknown"')
+      && partialHtml.includes('data-missions-metric="unattributed-results" data-value="unknown"')
+      && partialHtml.includes('data-missions-selected-run="gr_partial_outage"')
+      && partialHtml.includes('data-missions-orchestration="app-scope://ioi-ai/orchestration/orc_missions_fixture"')
+      && partialHtml.includes("WorkResults</b> unavailable"));
+  ok("missions: the surface asks the daemon for exactly the three planes that still exist — no room, participation, frontier, claim, offer, match, attempt, finding or challenge route is requested",
+    requestedPaths.length > 0
+      && [...new Set(requestedPaths)].sort().join(",")
+        === "/v1/goal-orchestration/goal-runs,/v1/hypervisor/operations,/v1/hypervisor/work-results",
+    [...new Set(requestedPaths)].sort().join(","));
   const malformedCtx = {
     ...missionsCtx,
     fetch: missionsFixtureFetch({
-      "/v1/goal-orchestration/outcome-rooms": { body: { outcome_rooms: { not: "an array" } } },
+      "/v1/goal-orchestration/goal-runs": { body: { goal_runs: { not: "an array" } } },
     }),
   };
   const malformedModel = await missions.load(malformedCtx);
   const malformedHtml = missions.render(malformedModel, malformedCtx);
-  const malformedRoomRowModel = await missions.load({
+  const malformedRunRowModel = await missions.load({
     ...missionsCtx,
     fetch: missionsFixtureFetch({
-      "/v1/goal-orchestration/outcome-rooms": { body: { outcome_rooms: [{}] } },
+      "/v1/goal-orchestration/goal-runs": { body: { goal_runs: [{}] } },
     }),
   });
-  const malformedRoomRowHtml = missions.render(malformedRoomRowModel, missionsCtx);
-  const mixedRoomRowModel = await missions.load({
+  const malformedRunRowHtml = missions.render(malformedRunRowModel, missionsCtx);
+  const mixedRunRowModel = await missions.load({
     ...missionsCtx,
     fetch: missionsFixtureFetch({
-      "/v1/goal-orchestration/outcome-rooms": { body: { outcome_rooms: [fixtureRoom, {}] } },
+      "/v1/goal-orchestration/goal-runs": { body: { goal_runs: [fixtureRun, {}] } },
     }),
   });
-  const mixedRoomRowHtml = missions.render(mixedRoomRowModel, missionsCtx);
-  const malformedGoalRunModel = await missions.load({
+  const mixedRunRowHtml = missions.render(mixedRunRowModel, missionsCtx);
+  const malformedResultModel = await missions.load({
     ...missionsCtx,
     fetch: missionsFixtureFetch({
-      "/v1/goal-orchestration/goal-runs": { body: { goal_runs: [null] } },
+      "/v1/hypervisor/work-results": { body: { work_results: [{ work_result_id: "not-a-ref" }] } },
     }),
   });
-  const malformedGoalRunHtml = missions.render(malformedGoalRunModel, missionsCtx);
   const malformedOperationRunModel = await missions.load({
     ...missionsCtx,
     fetch: missionsFixtureFetch({
@@ -205,22 +199,19 @@ async function run() {
   });
   const malformedOperationRunHtml = missions.render(malformedOperationRunModel, missionsCtx);
   ok("missions: malformed collection and exact invalid-row probes fail closed as plane_payload_invalid without crashing or invented rows",
-    malformedModel.rooms.ok === false && malformedModel.rooms.status === 200
-      && malformedModel.rooms.code === "plane_payload_invalid"
-      && malformedHtml.includes('data-missions-rooms="unknown"')
-      && malformedHtml.includes("Room list unavailable")
-      && !malformedHtml.includes("No rooms in this view")
-      && malformedRoomRowModel.rooms.ok === false
-      && malformedRoomRowModel.rooms.code === "plane_payload_invalid"
-      && malformedRoomRowHtml.includes('data-missions-rooms="unknown"')
-      && !malformedRoomRowHtml.includes("Untitled mission")
-      && mixedRoomRowModel.rooms.ok === false
-      && mixedRoomRowModel.rooms.rows.length === 0
-      && mixedRoomRowModel.rooms.code === "plane_payload_invalid"
-      && !mixedRoomRowHtml.includes(fixtureRoom.objective)
-      && malformedGoalRunModel.goalRuns.ok === false
-      && malformedGoalRunModel.goalRuns.code === "plane_payload_invalid"
-      && malformedGoalRunHtml.includes("Mission incidents</b> unavailable")
+    malformedModel.goalRuns.ok === false && malformedModel.goalRuns.status === 200
+      && malformedModel.goalRuns.code === "plane_payload_invalid"
+      && malformedHtml.includes("Run list unavailable")
+      && !malformedHtml.includes("No goal runs in this view")
+      && malformedRunRowModel.goalRuns.ok === false
+      && malformedRunRowModel.goalRuns.code === "plane_payload_invalid"
+      && !malformedRunRowHtml.includes("Untitled run")
+      && mixedRunRowModel.goalRuns.ok === false
+      && mixedRunRowModel.goalRuns.rows.length === 0
+      && mixedRunRowModel.goalRuns.code === "plane_payload_invalid"
+      && !mixedRunRowHtml.includes(fixtureRun.normalized_goal)
+      && malformedResultModel.results.ok === false
+      && malformedResultModel.results.code === "plane_payload_invalid"
       && malformedOperationRunModel.operations.ok === false
       && malformedOperationRunModel.operations.code === "plane_payload_invalid"
       && malformedOperationRunHtml.includes("Operations run queue</b> unavailable"));
@@ -229,7 +220,7 @@ async function run() {
     ...missionsCtx,
     planeTimeoutMs: 25,
     fetch: async (rawUrl, init) => {
-      if (new URL(rawUrl).pathname === "/v1/goal-orchestration/work-frontier-items") {
+      if (new URL(rawUrl).pathname === "/v1/hypervisor/work-results") {
         return new Promise(() => {
           init?.signal?.addEventListener("abort", () => {}, { once: true });
         });
@@ -237,17 +228,17 @@ async function run() {
       return missionsFixtureFetch()(rawUrl, init);
     },
   });
-  ok("missions: a never-resolving child plane is bounded and becomes an honest timeout, not a hung route",
+  ok("missions: a never-resolving plane is bounded and becomes an honest timeout, not a hung route",
     Date.now() - timeoutStartedAt < 500
-      && timeoutModel.frontier.ok === false
-      && timeoutModel.frontier.code === "plane_timeout",
-    `${Date.now() - timeoutStartedAt}ms/${timeoutModel.frontier.code}`);
+      && timeoutModel.results.ok === false
+      && timeoutModel.results.code === "plane_timeout",
+    `${Date.now() - timeoutStartedAt}ms/${timeoutModel.results.code}`);
   const bodyTimeoutStartedAt = Date.now();
   const bodyTimeoutModel = await missions.load({
     ...missionsCtx,
     planeTimeoutMs: 25,
     fetch: async (rawUrl, init) => {
-      if (new URL(rawUrl).pathname === "/v1/goal-orchestration/work-frontier-items") {
+      if (new URL(rawUrl).pathname === "/v1/hypervisor/work-results") {
         return {
           ok: true,
           status: 200,
@@ -261,9 +252,9 @@ async function run() {
   });
   ok("missions: the same deadline bounds a response body that stalls after headers",
     Date.now() - bodyTimeoutStartedAt < 500
-      && bodyTimeoutModel.frontier.ok === false
-      && bodyTimeoutModel.frontier.code === "plane_timeout",
-    `${Date.now() - bodyTimeoutStartedAt}ms/${bodyTimeoutModel.frontier.code}`);
+      && bodyTimeoutModel.results.ok === false
+      && bodyTimeoutModel.results.code === "plane_timeout",
+    `${Date.now() - bodyTimeoutStartedAt}ms/${bodyTimeoutModel.results.code}`);
   const unsafeTimelineModel = await missions.load({
     ...missionsCtx,
     fetch: missionsFixtureFetch({
@@ -284,328 +275,69 @@ async function run() {
       && unsafeTimelineModel.operations.code === "plane_payload_invalid"
       && !unsafeTimelineHtml.includes("javascript:")
       && !unsafeTimelineHtml.includes("alert(document.domain)"));
-  const validRoomRef = fixtureRoom.outcome_room_id;
-  const validRequestRef = "participation-request://rpr_ab";
-  const validParticipantRef = "participant-lease://rpl_ab";
-  const validFrontierRef = `frontier://wfi_${"1".repeat(64)}`;
-  const validClaimRef = `work-claim://wcl_${"2".repeat(64)}`;
-  const validGoalRunId = `gr_${"6".repeat(32)}`;
-  const validGoalRef = `goal://${validGoalRunId}`;
-  const validResultRef = "work-result://wr_ab";
-  const validAttemptRef = `attempt://att_${"3".repeat(64)}`;
-  const validFindingRef = `finding://fnd_${"4".repeat(64)}`;
-  const validChallengeRef = `verifier-challenge://vc_${"5".repeat(64)}`;
-  const validRoom = {
-    ...fixtureRoom,
-    participation_request_refs: [validRequestRef],
-    participant_lease_refs: [validParticipantRef],
-    released_participant_lease_refs: [],
-    frontier_item_refs: [validFrontierRef],
-    resource_offer_refs: [],
-    capability_offer_refs: [],
-    attempt_refs: [validAttemptRef],
-    finding_refs: [validFindingRef],
-    verifier_challenge_refs: [validChallengeRef],
-    member_goal_run_refs: [validGoalRef],
-  };
-  const validGraphModel = await missions.load({
-    ...missionsCtx,
-    fetch: missionsFixtureFetch({
-      "/v1/goal-orchestration/outcome-rooms": { body: { outcome_rooms: [validRoom] } },
-      "/v1/goal-orchestration/room-participation-requests": {
-        body: {
-          participation_requests: [{
-            participation_request_id: validRequestRef,
-            outcome_room_ref: validRoomRef,
-            requested_by_ref: "worker://valid-operator",
-            participant_lease_ref: validParticipantRef,
-            status: "admitted",
-          }],
-        },
-      },
-      "/v1/goal-orchestration/room-participant-leases": {
-        body: {
-          participant_leases: [{
-            participant_lease_id: validParticipantRef,
-            outcome_room_ref: validRoomRef,
-            participant_ref: "worker://valid-operator",
-            join_request_ref: validRequestRef,
-            current_claim_ref: validClaimRef,
-            status: "active",
-          }],
-        },
-      },
-      "/v1/goal-orchestration/work-frontier-items": {
-        body: {
-          frontier_items: [{
-            frontier_item_id: validFrontierRef,
-            outcome_room_ref: validRoomRef,
-            claim_refs: [validClaimRef],
-            active_claim_refs: [validClaimRef],
-            status: "claimed",
-          }],
-        },
-      },
-      "/v1/goal-orchestration/work-claim-leases": {
-        body: {
-          work_claims: [{
-            work_claim_id: validClaimRef,
-            outcome_room_ref: validRoomRef,
-            frontier_item_ref: validFrontierRef,
-            claimant_ref: validParticipantRef,
-            status: "active",
-          }],
-        },
-      },
-      "/v1/goal-orchestration/goal-runs": {
-        body: {
-          goal_runs: [{
-            goal_run_id: validGoalRunId,
-            goal_ref: validGoalRef,
-            outcome_room_ref: validRoomRef,
-            status: "active",
-          }],
-        },
-      },
-      "/v1/hypervisor/work-results": {
-        body: {
-          work_results: [{
-            work_result_id: validResultRef,
-            goal_ref: validGoalRef,
-            goal_run_ref: validGoalRef,
-            outcome_room_ref: validRoomRef,
-            challenge_refs: [validChallengeRef],
-            status: "completed",
-          }],
-        },
-      },
-      "/v1/goal-orchestration/attempts": {
-        body: {
-          attempts: [{
-            attempt_id: validAttemptRef,
-            outcome_room_ref: validRoomRef,
-            frontier_item_ref: validFrontierRef,
-            work_claim_ref: validClaimRef,
-            participant_ref: validParticipantRef,
-            goal_run_ref: validGoalRef,
-            work_result_ref: validResultRef,
-            status: "admitted",
-          }],
-        },
-      },
-      "/v1/goal-orchestration/findings": {
-        body: {
-          findings: [{
-            finding_id: validFindingRef,
-            outcome_room_ref: validRoomRef,
-            attempt_ref: validAttemptRef,
-            work_result_ref: validResultRef,
-            participant_ref: validParticipantRef,
-            supersedes_ref: null,
-            status: "proposed",
-          }],
-        },
-      },
-      "/v1/goal-orchestration/verifier-challenges": {
-        body: {
-          verifier_challenges: [{
-            verifier_challenge_id: validChallengeRef,
-            outcome_room_ref: validRoomRef,
-            challenger_ref: validParticipantRef,
-            challenged_ref: validFindingRef,
-            affected_attempt_refs: [validAttemptRef],
-            status: "proposed",
-          }],
-        },
-      },
-    }),
-  });
-  const validGraphHtml = missions.render(validGraphModel, {
-    ...missionsCtx,
-    url: new URL(`http://x/__ioi/missions?room=${encodeURIComponent(validRoomRef)}`),
-  });
-  ok("missions: a complete owner-plane-consistent graph remains fully inspectable",
-    ["rooms", "requests", "participants", "frontier", "claims", "attempts", "findings", "results", "challenges", "goalRuns"]
-      .every((name) => validGraphModel[name].ok)
-      && [validFrontierRef, validClaimRef, validAttemptRef, validFindingRef, validChallengeRef]
-        .every((reference) => validGraphHtml.includes(reference)));
-  const orphanRequestRef = "participation-request://rpr_cd";
-  const orphanBacklinkModel = await missions.load({
-    ...missionsCtx,
-    fetch: missionsFixtureFetch({
-      "/v1/goal-orchestration/outcome-rooms": {
-        body: {
-          outcome_rooms: [{
-            ...fixtureRoom,
-            participation_request_refs: [],
-            participant_lease_refs: [],
-            released_participant_lease_refs: [],
-            frontier_item_refs: [],
-            resource_offer_refs: [],
-            capability_offer_refs: [],
-            attempt_refs: [],
-            finding_refs: [],
-            verifier_challenge_refs: [],
-            member_goal_run_refs: [],
-          }],
-        },
-      },
-      "/v1/goal-orchestration/room-participation-requests": {
-        body: {
-          participation_requests: [{
-            participation_request_id: orphanRequestRef,
-            outcome_room_ref: validRoomRef,
-            requested_by_ref: "worker://orphan",
-            participant_lease_ref: null,
-            status: "submitted",
-          }],
-        },
-      },
-    }),
-  });
-  ok("missions: a child record absent from its room-owned backlink is not presented as admitted graph truth",
-    orphanBacklinkModel.requests.ok === false
-      && orphanBacklinkModel.requests.code === "plane_payload_invalid"
-      && orphanBacklinkModel.requests.rows.length === 0);
-  const danglingFrontierRef = `frontier://wfi_${"9".repeat(64)}`;
-  const danglingOwnerBacklinkModel = await missions.load({
-    ...missionsCtx,
-    fetch: missionsFixtureFetch({
-      "/v1/goal-orchestration/outcome-rooms": {
-        body: {
-          outcome_rooms: [{
-            ...fixtureRoom,
-            participation_request_refs: [],
-            participant_lease_refs: [],
-            released_participant_lease_refs: [],
-            frontier_item_refs: [danglingFrontierRef],
-            resource_offer_refs: [],
-            capability_offer_refs: [],
-            attempt_refs: [],
-            finding_refs: [],
-            verifier_challenge_refs: [],
-            member_goal_run_refs: [],
-          }],
-        },
-      },
-      "/v1/goal-orchestration/work-frontier-items": { body: { frontier_items: [] } },
-    }),
-  });
-  ok("missions: a room-owned backlink absent from its child plane makes that child plane unknown, not zero",
-    danglingOwnerBacklinkModel.rooms.ok
-      && danglingOwnerBacklinkModel.frontier.ok === false
-      && danglingOwnerBacklinkModel.frontier.code === "plane_payload_invalid"
-      && danglingOwnerBacklinkModel.frontier.rows.length === 0);
-  const shapedAttemptRef = `attempt://att_${"a".repeat(64)}`;
-  const unresolvedAttemptModel = await missions.load({
-    ...missionsCtx,
-    fetch: missionsFixtureFetch({
-      "/v1/goal-orchestration/outcome-rooms": { body: { outcome_rooms: [fixtureRoom] } },
-      "/v1/goal-orchestration/attempts": {
-        body: {
-          attempts: [{
-            attempt_id: shapedAttemptRef,
-            outcome_room_ref: fixtureRoom.outcome_room_id,
-            frontier_item_ref: `frontier://wfi_${"b".repeat(64)}`,
-            work_claim_ref: `work-claim://wcl_${"c".repeat(64)}`,
-            participant_ref: "participant-lease://rpl_ab",
-            goal_run_ref: "goal://missing-run",
-            work_result_ref: null,
-            status: "draft",
-          }],
-        },
-      },
-    }),
-  });
-  const unresolvedAttemptHtml = missions.render(unresolvedAttemptModel, missionsCtx);
-  ok("missions: a shaped but non-resolving Attempt invalidates the whole Attempt plane",
-    unresolvedAttemptModel.attempts.ok === false
-      && unresolvedAttemptModel.attempts.code === "plane_payload_invalid"
-      && unresolvedAttemptModel.attempts.rows.length === 0
-      && !unresolvedAttemptHtml.includes(shapedAttemptRef));
-  const roomB = {
-    outcome_room_id: "outcome-room://or_bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
-    objective: "Cross-room sentinel",
-    status: "open",
-    room_mode: "hosted",
-    participation_request_refs: [],
-    participant_lease_refs: [],
-    released_participant_lease_refs: [],
-    frontier_item_refs: [`frontier://wfi_${"e".repeat(64)}`],
-    resource_offer_refs: [],
-    capability_offer_refs: [],
-    attempt_refs: [],
-    finding_refs: [],
-    verifier_challenge_refs: [],
-    member_goal_run_refs: [],
-  };
-  const requestA = {
-    participation_request_id: "participation-request://rpr_ab",
-    outcome_room_ref: fixtureRoom.outcome_room_id,
-    requested_by_ref: "worker://claimant",
-    participant_lease_ref: "participant-lease://rpl_ab",
-    status: "admitted",
-  };
-  const crossRoomClaimRef = `work-claim://wcl_${"d".repeat(64)}`;
-  const participantA = {
-    participant_lease_id: "participant-lease://rpl_ab",
-    outcome_room_ref: fixtureRoom.outcome_room_id,
-    participant_ref: requestA.requested_by_ref,
-    join_request_ref: requestA.participation_request_id,
-    current_claim_ref: crossRoomClaimRef,
+  // R-191 (S4d-3): the five room-graph relationship assertions here read the participation,
+  // frontier, claim, offer, attempt, finding and challenge planes, all deleted under S4a and
+  // S4c-2. What this surface can still check WITHOUT reaching another owner is identity
+  // uniqueness on its two planes and the attribution of a result to a run it holds — and the
+  // honest states when a selection does not resolve. Those are asserted here instead.
+  const runOne = {
+    goal_run_id: "gr_graph_one",
+    goal_ref: "goal://gr_graph_one",
+    normalized_goal: "First run",
     status: "active",
+    continuation_state: "open",
+    orchestration_ref: "app-scope://ioi-ai/orchestration/orc_graph",
   };
-  const roomA = {
-    ...fixtureRoom,
-    participation_request_refs: [requestA.participation_request_id],
-    participant_lease_refs: [participantA.participant_lease_id],
-    released_participant_lease_refs: [],
-    frontier_item_refs: [],
-    resource_offer_refs: [],
-    capability_offer_refs: [],
-    attempt_refs: [],
-    finding_refs: [],
-    verifier_challenge_refs: [],
-    member_goal_run_refs: [],
+  const runTwo = { ...runOne, goal_run_id: "gr_graph_two", goal_ref: "goal://gr_graph_two", normalized_goal: "Second run", status: "complete" };
+  const resultOne = { work_result_id: "work-result://wr_aa", work_subject_ref: runOne.goal_ref, outcome_class: "positive", status: "completed" };
+  const resultForeign = { work_result_id: "work-result://wr_bb", work_subject_ref: "goal://gr_not_in_this_list", outcome_class: "positive", status: "completed" };
+  const graphCtx = {
+    ...missionsCtx,
+    url: new URL("http://x/__ioi/missions?goal=gr_graph_one"),
+    fetch: missionsFixtureFetch({
+      "/v1/goal-orchestration/goal-runs": { body: { goal_runs: [runOne, runTwo] } },
+      "/v1/hypervisor/work-results": { body: { work_results: [resultOne, resultForeign] } },
+    }),
   };
-  const crossRoomModel = await missions.load({
+  const graphModel = await missions.load(graphCtx);
+  const graphHtml = missions.render(graphModel, graphCtx);
+  ok("missions: a consistent two-plane projection is fully inspectable, and a result whose subject is outside this list is disclosed as unattributed rather than dropped or counted as a broken edge",
+    graphModel.goalRuns.ok === true && graphModel.results.ok === true
+      && graphModel.unattributedResults === 1
+      && graphHtml.includes('data-missions-selected-run="gr_graph_one"')
+      && graphHtml.includes("work-result://wr_aa")
+      && !graphHtml.includes("work-result://wr_bb")
+      && graphHtml.includes('data-missions-metric="unattributed-results" data-value="1"'));
+  const duplicateModel = await missions.load({
     ...missionsCtx,
     fetch: missionsFixtureFetch({
-      "/v1/goal-orchestration/outcome-rooms": { body: { outcome_rooms: [roomA, roomB] } },
-      "/v1/goal-orchestration/room-participation-requests": { body: { participation_requests: [requestA] } },
-      "/v1/goal-orchestration/room-participant-leases": { body: { participant_leases: [participantA] } },
-      "/v1/goal-orchestration/work-frontier-items": {
-        body: {
-          frontier_items: [{
-            frontier_item_id: `frontier://wfi_${"e".repeat(64)}`,
-            outcome_room_ref: roomB.outcome_room_id,
-            claim_refs: [crossRoomClaimRef],
-            active_claim_refs: [crossRoomClaimRef],
-            status: "claimed",
-          }],
-        },
-      },
-      "/v1/goal-orchestration/work-claim-leases": {
-        body: {
-          work_claims: [{
-            work_claim_id: crossRoomClaimRef,
-            outcome_room_ref: fixtureRoom.outcome_room_id,
-            frontier_item_ref: `frontier://wfi_${"e".repeat(64)}`,
-            claimant_ref: participantA.participant_lease_id,
-            status: "active",
-          }],
-        },
-      },
+      "/v1/goal-orchestration/goal-runs": { body: { goal_runs: [runOne, { ...runTwo, goal_ref: runOne.goal_ref }] } },
     }),
   });
-  const crossRoomHtml = missions.render(crossRoomModel, missionsCtx);
-  ok("missions: a cross-room Claim invalidates the whole Claim plane without partial rows",
-    crossRoomModel.claims.ok === false
-      && crossRoomModel.claims.code === "plane_payload_invalid"
-      && crossRoomModel.claims.rows.length === 0
-      && !crossRoomHtml.includes(crossRoomClaimRef));
+  ok("missions: two runs claiming one goal ref invalidate the whole plane rather than rendering an ambiguous list",
+    duplicateModel.goalRuns.ok === false
+      && duplicateModel.goalRuns.code === "plane_relationship_invalid"
+      && duplicateModel.goalRuns.rows.length === 0);
+  const missingCtx = {
+    ...missionsCtx,
+    url: new URL("http://x/__ioi/missions?goal=gr_absent"),
+    fetch: missionsFixtureFetch({ "/v1/goal-orchestration/goal-runs": { body: { goal_runs: [runOne] } } }),
+  };
+  const filteredCtx = {
+    ...missionsCtx,
+    url: new URL("http://x/__ioi/missions?goal=gr_graph_two&status=active"),
+    fetch: missionsFixtureFetch({ "/v1/goal-orchestration/goal-runs": { body: { goal_runs: [runOne, runTwo] } } }),
+  };
+  const missingHtml = missions.render(await missions.load(missingCtx), missingCtx);
+  const filteredHtml = missions.render(await missions.load(filteredCtx), filteredCtx);
+  ok("missions: a selection that does not resolve says which of the two honest reasons it is, and invents no detail",
+    missingHtml.includes('data-missions-selection="goal_run_not_found"')
+      && !missingHtml.includes('data-missions-selected-run')
+      && filteredHtml.includes('data-missions-selection="goal_run_filter_mismatch"')
+      && !filteredHtml.includes("Second run</h2>"));
   const cappedGoalRuns = Array.from({ length: 60 }, (_, index) => ({
     goal_run_id: `goal-run-${index}`,
+    goal_ref: `goal://goal-run-${index}`,
     normalized_goal: `Goal ${index}`,
     status: "blocked",
     blockers: [{ reason_code: `blocked-${index}` }],

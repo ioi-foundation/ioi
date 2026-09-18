@@ -18,14 +18,14 @@
       "title": "Missions",
       "reference_route": "http://localhost:9225/__apps/jobs + http://localhost:9225/__apps/incidents",
       "ioi_route": "/__ioi/missions",
-      "primary_workflow": "Read-only operational inspection of the merged hosted OutcomeRoom graph: filter and select a room, then inspect its exact participant, frontier, claim, offer/match, Attempt, Finding, WorkResult, and VerifierChallenge relationships with links into proof. The surface intentionally has no mutation path; authority remains in the daemon owner planes.",
+      "primary_workflow": "Read-only operational inspection of the planes the daemon still serves (R-191, S4d-3): filter and select a GoalRun, then inspect its status, continuation, admission path, the orchestration ref the composing application stamped, its generic WorkResults and its blockers; the run queue and incident inbox follow. The eleven room planes this surface used to read were deleted with the room plane.",
       "reference_reached_states": [
         "jobs/builds table baseline",
         "incidents/remediation inbox baseline",
-        "hosted room selected with exact graph-coordinate inspector",
+        "goal run selected with its results, membership ref and blockers",
         "honest empty and per-plane unavailable states"
       ],
-      "landing_vs_workflow_note": "The legacy jobs and incidents captures remain secondary layout baselines. The operational workflow is the IOI-native hosted graph inspector over daemon truth. Read-only-by-contract is complete for this projection: mutations, acceptance, verdict, settlement, execution, and federation are not hidden controls waiting to be wired.",
+      "landing_vs_workflow_note": "The legacy jobs and incidents captures remain secondary layout baselines. The operational workflow is the IOI-native GoalRun inspector over daemon truth. Read-only by contract.",
       "current": {
         "capabilities": [
           "browse",
@@ -51,47 +51,47 @@
           "label": "Refresh daemon projection",
           "reference": "refresh the current jobs/issues view",
           "outcome": "daemon_read",
-          "binding": "href:/__ioi/missions with stable room/status query",
+          "binding": "href:/__ioi/missions with stable goal/status query",
           "implemented": true
         },
         {
-          "id": "summary.graph-counts",
+          "id": "summary.run-counts",
           "region": "summary",
-          "label": "Hosted graph counts",
+          "label": "Goal run counts",
           "reference": "jobs/issues aggregate counts",
           "outcome": "daemon_read",
-          "binding": "GET OutcomeRoom/frontier/claim/Attempt/Finding/VerifierChallenge collections",
+          "binding": "GET /v1/goal-orchestration/goal-runs + /v1/hypervisor/work-results collections",
           "implemented": true
         },
         {
-          "id": "filter.room-status",
+          "id": "filter.run-status",
           "region": "filter",
-          "label": "Room status tabs",
+          "label": "Run status tabs",
           "reference": "status lane filters",
           "outcome": "local_view_interaction",
           "binding": "href:?status=<exact daemon enum>",
           "implemented": true
         },
         {
-          "id": "room.select",
-          "region": "room-list",
-          "label": "Select mission room",
+          "id": "run.select",
+          "region": "run-list",
+          "label": "Select goal run",
           "reference": "select a job or issue row",
           "outcome": "local_view_interaction",
-          "binding": "href:?room=<OutcomeRoom identity>",
+          "binding": "href:?goal=<GoalRun identity>",
           "implemented": true
         },
         {
-          "id": "room.inspect-graph",
+          "id": "run.inspect",
           "region": "inspector",
-          "label": "Inspect hosted work graph",
+          "label": "Inspect the selected run",
           "reference": "job/issue detail",
           "outcome": "daemon_read",
-          "binding": "exact same-room relationships across merged owner-plane records",
+          "binding": "its own WorkResults, the orchestration ref the application stamped, and its blockers — no cross-plane resolution",
           "implemented": true
         },
         {
-          "id": "room.proof",
+          "id": "run.proof",
           "region": "inspector",
           "label": "Open proof stream",
           "reference": "job/issue evidence link",
@@ -114,7 +114,7 @@
           "label": "Edit job or build definition",
           "reference": "build definition authoring",
           "outcome": "unsupported_reference_session",
-          "reason": "the hosted graph projection has no job-definition authoring contract",
+          "reason": "the GoalRun projection has no authoring owner; definitions live with their owning planes",
           "implemented": false
         },
         {
@@ -123,7 +123,7 @@
           "label": "Board or Kanban view",
           "reference": "alternate board layout",
           "outcome": "reference_data_only",
-          "reason": "board layout is outside the read-only hosted graph contract",
+          "reason": "board layout is outside the read-only GoalRun projection contract",
           "implemented": false
         },
         {
@@ -138,15 +138,17 @@
       ],
       "implemented_control_census": [
         "hdr.refresh",
-        "summary.graph-counts",
-        "filter.room-status",
-        "room.select",
-        "room.inspect-graph",
-        "room.proof"
+        "summary.run-counts",
+        "filter.run-status",
+        "run.select",
+        "run.inspect",
+        "run.proof"
       ],
       "existing_daemon": {
         "routes": [
-          "GET /v1/hypervisor/work-results"
+          "GET /v1/goal-orchestration/goal-runs",
+          "GET /v1/hypervisor/work-results",
+          "GET /v1/hypervisor/operations"
         ],
         "actions": [],
         "receipts": [
@@ -167,7 +169,7 @@
           "denies": []
         },
         {
-          "claim": "federated room authority",
+          "claim": "federated orchestration authority",
           "denies": []
         }
       ],

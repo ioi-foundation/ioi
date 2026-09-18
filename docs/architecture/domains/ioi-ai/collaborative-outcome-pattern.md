@@ -1071,7 +1071,20 @@ Work owns none of this room truth. Every Work row exposes a typed
 on OutcomeRoom, participant pursuit stays on GoalRun, and bounded execution
 stays on Session/WorkRun.
 
-### The application-contributed Rooms view
+### The application-contributed Orchestrations view
+
+**Re-typed 2026-09-18 (R-178 slice S4d-3, R-191).** The contributed Work subject
+is the ioi.ai ORCHESTRATION, named by its own scope
+(`app-scope://ioi-ai/orchestration/<tail>`), and the Hypervisor navigation entry
+is **Work / Orchestrations** at `/work/orchestrations`. The room subject kind and
+the `outcome-room://` scheme retired with the room plane: the core projection's
+registry resolves that scheme to no kind at all, which is what an unregistered
+ref must do. The hypervisor's own `/__ioi/missions` surface reads the GoalRun
+plane, the generic WorkResults and the operations run queue — the eleven room
+planes it used to read are gone — and renders an orchestration only as the ref
+the composing application stamped, never resolved through an application seam.
+The paragraphs below are the history of the room-shaped view.
+
 
 > Moved here from `core-clients-surfaces.md` on 2026-09-12 (ADR 0052
 > Decision 4): **Work / Rooms** is a surface this application contributes
@@ -1130,7 +1143,7 @@ The Hypervisor Work / Room detail read model this application contributes
 Decision 4; a read model only, never a second owner of room truth):
 
 ```yaml
-HypervisorOutcomeRoomProjection:
+HypervisorOutcomeRoomProjection:   # RETIRED 2026-09-18 (R-191): history of the room-shaped read model
   projection_id: hypervisor_outcome_room_projection:...
   outcome_room_ref: outcome-room://...
   objective_and_acceptance_ref: outcome-room://...

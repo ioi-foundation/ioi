@@ -2141,7 +2141,7 @@ a contributed family and mints no route for it.
 | `automation_run` | core | Automations (§ *Hypervisor Automations*) | enumerated by the core projection through the Automations plane's published reader |
 | `work_run`, `work_item`, `work_queue` | core (substrate) | the work-lifecycle log | a typed absence naming its reason until the owner publishes an enumeration; never an empty list |
 | `goal_run` | contributed | ioi.ai orchestration application ([`goal-pursuit.md`](../../domains/ioi-ai/goal-pursuit.md#work--goals-surface)) | a Session attachment, or the contributed Work / Goals view at `/work/goals` |
-| `outcome_room` | contributed | ioi.ai orchestration application ([`collaborative-outcome-pattern.md`](../../domains/ioi-ai/collaborative-outcome-pattern.md#the-application-contributed-rooms-view)) | a Session attachment, or the contributed Work / Rooms view at `/work/rooms` |
+| `orchestration` | contributed | ioi.ai orchestration application ([`collaborative-outcome-pattern.md`](../../domains/ioi-ai/collaborative-outcome-pattern.md#the-application-contributed-orchestrations-view)) | a Session attachment, or the contributed Work / Rooms view at `/work/rooms` |
 
 Reviews are `HypervisorWorkFacetProjection` pointers at the approval requests
 the caller holds (Governance owns them); incidents are a typed absence until an
@@ -4975,8 +4975,9 @@ it serves, not a direct Work subject. Fleet allocation and other domain leases
 remain facets or linked domain objects unless they acquire an independently
 owned work lifecycle and canonical detail route.
 
-# Application-contributed read models (the ioi.ai HypervisorOutcomeRoomProjection
-# among them) are owned by their application canon — see
+# Application-contributed read models (the ioi.ai orchestration view among them;
+# its retired room-shaped predecessor is kept there as history) are owned by
+# their application canon — see
 # domains/ioi-ai/collaborative-outcome-pattern.md § Minimal Implementation
 # Objects (moved 2026-09-07, ADR 0052 Decision 4). Work / detail renders them
 # through the typed subject-attachment seam, never through a core field.

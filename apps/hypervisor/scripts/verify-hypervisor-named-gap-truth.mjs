@@ -282,7 +282,7 @@ const PINNED = {
   registeredRoutes: 894 /* 2026-09-18 (R-190, S4d-2): +1 — POST /v1/goal-orchestration/goal-runs/:id/orchestration-membership, the GoalRun plane's one membership endpoint the composer stamps the reciprocal member through; before that, 2026-09-17 (R-187, S4c-2): −11 — the hosted-v2 OutcomeRoom routes deleted with outcome_room_routes.rs and outcome_room_system_routes.rs; before that, 2026-09-16: R-178 S4a / R-179 — 43 `/v1/goal-orchestration/*` routes deleted with the room-hosted work-object, participation, lease, collaboration-terms and pairing modules (947 → 904) */,
   missingAuthorityContracts: 92,
   explicitDenials: 3,
-  atlasRouteMentions: { decided: 224, unchecked: 49 } /* 2026-09-17 (R-187, S4c-2): the missions app's `existing_daemon.routes` claim on GET /v1/goal-orchestration/outcome-rooms removed with the route (225 → 224); before that, 2026-09-16: S4a — the missions app's ten deleted `existing_daemon.routes` claims removed (235 →225) */,
+  atlasRouteMentions: { decided: 228, unchecked: 49 } /* 2026-09-18 (R-191, S4d-3): decided +4 — the missions surface's operational-depth entry names the three planes it actually reads (goal-runs, work-results, operations) where it named one, and its control census binds those collections; before that, 2026-09-17 (R-187, S4c-2): the missions app's `existing_daemon.routes` claim on GET /v1/goal-orchestration/outcome-rooms removed with the route (225 → 224); before that, 2026-09-16: S4a — the missions app's ten deleted `existing_daemon.routes` claims removed (235 →225) */,
   surfaceStringsNamingARoute: 8,
   // The pin includes this gate's OWN two absence-worded labels. It walks every verifier in the estate and
   // is one of them; excluding itself would be the first exemption, and exemptions are how a closed
@@ -343,7 +343,7 @@ const PINNED = {
   // probe URL (17 held). Its other absence-worded label (the producer's) closes its call past the
   // 400-character window this walk reads and is not counted, which this comment records rather than
   // hides. Moved in the SAME COMMIT as the gate.
-  verifierAbsenceLabels: 120 /* 2026-09-18 (R-190, S4d-2): +1 — the m3 GoalRun plane's membership assertion names the absent-GoalRun refusal (404 goal_run_not_found under the local-development posture), which is absence-worded; before that, 2026-09-16: R-172 S3 +1 (collaboration gate), M11.2 +1 (portable-exit gate), M11.3 +1 (binding gate), S4b +1 (the work-objects gate's none-admits / no-lease / no-plane assertions); S4a −2 (the deleted room-spine gate's two absence-worded assertions, R-179); 17/17 probe URLs held throughout */,
+  verifierAbsenceLabels: 118 /* 2026-09-18 (R-191, S4d-3): −2 over 120 — the missions verifiers' room-graph absence assertions retired with the planes they read; before that, 2026-09-18 (R-190, S4d-2): +1 — the m3 GoalRun plane's membership assertion names the absent-GoalRun refusal (404 goal_run_not_found under the local-development posture), which is absence-worded; before that, 2026-09-16: R-172 S3 +1 (collaboration gate), M11.2 +1 (portable-exit gate), M11.3 +1 (binding gate), S4b +1 (the work-objects gate's none-admits / no-lease / no-plane assertions); S4a −2 (the deleted room-spine gate's two absence-worded assertions, R-179); 17/17 probe URLs held throughout */,
   verifierAbsenceLabelsResolvingAUrl: 17,
 };
 

@@ -49,67 +49,53 @@ const page = (url) => fetch(url).then(async (r) => ({ status: r.status, text: aw
 const plane = (rows = [], payload = {}) => ({ ok: true, status: 200, code: "", rows, payload });
 
 function renderRelationshipProbe() {
-  const roomA = "outcome-room://or_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa";
-  const roomB = "outcome-room://or_bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb";
-  const frontierA = "frontier://wfi_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa";
-  const frontierB = "frontier://wfi_bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb";
-  const claimA = "work-claim://wcl_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa";
-  const claimB = "work-claim://wcl_bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb";
-  const attemptA = "attempt://att_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa";
-  const attemptB = "attempt://att_bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb";
-  const challengeA = "verifier-challenge://vc_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa";
-  const challengeB = "verifier-challenge://vc_bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb";
-  const model = {
-    rooms: plane([
-      { outcome_room_id: roomA, objective: "Audit the lunar relay", status: "open", room_mode: "hosted", revision: 3 },
-      { outcome_room_id: roomB, objective: "Unrelated room", status: "closed", room_mode: "hosted", revision: 1 },
-    ]),
-    requests: plane([]),
-    participants: plane([
-      { outcome_room_ref: roomA, participant_lease_id: "participant-lease://pl_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa", participant_ref: "principal://alice", status: "active" },
-    ]),
-    frontier: plane([
-      { outcome_room_ref: roomA, frontier_item_id: frontierA, title: "Validate telemetry", status: "ready", max_concurrency: 1 },
-      { outcome_room_ref: roomB, frontier_item_id: frontierB, title: "Cross-room frontier sentinel", status: "ready", max_concurrency: 1 },
-    ]),
-    claims: plane([
-      { outcome_room_ref: roomA, work_claim_id: claimA, frontier_item_ref: frontierA, status: "active" },
-      { outcome_room_ref: roomB, work_claim_id: claimB, frontier_item_ref: frontierB, status: "active" },
-    ]),
-    resourceOffers: plane([]),
-    capabilityOffers: plane([]),
-    matches: plane([]),
-    attempts: plane([
-      { outcome_room_ref: roomA, attempt_id: attemptA, status: "submitted", work_result_ref: "work-result://wr_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa" },
-      { outcome_room_ref: roomB, attempt_id: attemptB, status: "submitted", work_result_ref: "work-result://wr_bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb" },
-    ]),
-    findings: plane([]),
-    results: plane([]),
-    challenges: plane([
-      { outcome_room_ref: roomA, verifier_challenge_id: challengeA, challenged_ref: attemptA, challenge_kind: "evidence", status: "investigating" },
-      { outcome_room_ref: roomB, verifier_challenge_id: challengeB, challenged_ref: attemptB, challenge_kind: "evidence", status: "investigating" },
-    ]),
-    goalRuns: plane([]),
-    operations: plane([], { runs: { total: 0, recent: [], failures: [] } }),
+  // R-191 (S4d-3): the probe used to build a two-room graph across seven planes that no longer
+  // exist. It now builds the two planes the surface reads, and asserts the same three things
+  // that mattered: the selected subject binds its OWN records, an unknown selection fails closed,
+  // and a selection outside the active filter fails closed rather than escaping it.
+  const runA = {
+    goal_run_id: "gr_probe_a",
+    goal_ref: "goal://gr_probe_a",
+    normalized_goal: "Audit the lunar relay",
+    status: "active",
+    continuation_state: "open",
+    orchestration_ref: "app-scope://ioi-ai/orchestration/orc_probe",
+    blockers: [],
   };
-  const renderWith = (query) => missionsSurface.render(model, {
-    url: new URL(`http://missions.test/__ioi/missions${query}`),
+  const runB = {
+    goal_run_id: "gr_probe_b",
+    goal_ref: "goal://gr_probe_b",
+    normalized_goal: "Unrelated pursuit",
+    status: "complete",
+    continuation_state: "complete",
+    orchestration_ref: null,
+    blockers: [],
+  };
+  const resultA = { work_result_id: "work-result://wr_aa", work_subject_ref: runA.goal_ref, outcome_class: "positive", status: "completed" };
+  const resultB = { work_result_id: "work-result://wr_bb", work_subject_ref: runB.goal_ref, outcome_class: "negative", status: "completed" };
+  const plane = (rows, ok = true) => ({ ok, status: 200, code: "", rows, payload: null });
+  const model = {
+    goalRuns: plane([runA, runB]),
+    results: plane([resultA, resultB]),
+    operations: { ok: true, status: 200, code: "", rows: [], payload: { runs: { total: 0, recent: [], failures: [] } } },
+    unattributedResults: 0,
+  };
+  const renderWith = (query) => missions.render(model, {
+    url: new URL(`http://x/__ioi/missions${query}`),
+    daemon: "http://127.0.0.1:1",
     embed: true,
   });
   return {
-    html: renderWith(`?room=${encodeURIComponent(roomA)}`),
-    unknownHtml: renderWith(`?room=${encodeURIComponent("outcome-room://or_cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc")}`),
-    filteredHtml: renderWith(`?status=closed&room=${encodeURIComponent(roomA)}`),
+    html: renderWith(`?goal=${encodeURIComponent(runA.goal_run_id)}`),
+    unknownHtml: renderWith("?goal=gr_probe_absent"),
+    filteredHtml: renderWith(`?status=complete&goal=${encodeURIComponent(runA.goal_run_id)}`),
     defaultHtml: renderWith(""),
-    roomA,
-    frontierA,
-    frontierB,
-    claimA,
-    claimB,
-    attemptA,
-    attemptB,
-    challengeA,
-    challengeB,
+    runA: runA.goal_run_id,
+    runB: runB.goal_run_id,
+    resultA: resultA.work_result_id,
+    resultB: resultB.work_result_id,
+    objectiveA: runA.normalized_goal,
+    objectiveB: runB.normalized_goal,
   };
 }
 
@@ -149,80 +135,58 @@ async function run() {
   const grAll = (await jd("/v1/goal-orchestration/goal-runs")).goal_runs || [];
   const blocked = grAll.filter((r) => Array.isArray(r.blockers) && r.blockers.length);
   const incidentCount = failures.length + blocked.length;
-  const roomPlane = await jd("/v1/goal-orchestration/outcome-rooms");
-  const frontierPlane = await jd("/v1/goal-orchestration/work-frontier-items");
-  const claimPlane = await jd("/v1/goal-orchestration/work-claim-leases");
-  const attemptPlane = await jd("/v1/goal-orchestration/attempts");
-  const findingPlane = await jd("/v1/goal-orchestration/findings");
-  const challengePlane = await jd("/v1/goal-orchestration/verifier-challenges");
-  const rooms = roomPlane.outcome_rooms || [];
-  const frontier = frontierPlane.frontier_items || [];
-  const claims = claimPlane.work_claims || [];
-  const attempts = attemptPlane.attempts || [];
-  const findings = findingPlane.findings || [];
-  const challenges = challengePlane.verifier_challenges || [];
-  const liveClaims = claims.filter((claim) => ["proposed", "active", "waiting"].includes(claim.status));
-  const unresolvedChallenges = challenges.filter((challenge) => ["proposed", "admitted", "investigating", "upheld", "rule_changed", "reverifying"].includes(challenge.status));
+  const resultPlane = await jd("/v1/hypervisor/work-results");
+  const workResults = resultPlane.work_results || [];
+  const openRuns = grAll.filter((run) => ["draft", "active", "paused"].includes(run.status));
+  const runGoalRefs = new Set(grAll.map((run) => run.goal_ref));
+  const unattributed = workResults.filter((result) => !runGoalRefs.has(result.work_subject_ref));
 
   // 2. IOI surface = the table/list grammar.
   const m = await page(`${SERVE}/__ioi/missions`);
   const t = m.text;
   ok("IOI /__ioi/missions renders the Missions grammar (title + run queue + incident inbox)", m.status === 200 && /<h1[^>]*>Missions/.test(t) && /id="missions-queue"/.test(t) && /id="missions-incidents"/.test(t));
-  ok("Missions is the hosted work-graph workspace, not only the legacy run queue",
-    /Hosted work graph/.test(t) && /data-missions-work-graph="hosted"/.test(t)
-      && /Mission rooms/.test(t)
-      && (rooms.length === 0 || (/Frontier and claims/.test(t)
-        && /Participation/.test(t) && /Attempts, Findings, and WorkResults/.test(t)
-        && /Verifier challenges/.test(t))));
-  ok("hosted graph summary counts equal daemon truth exactly",
-    t.includes(`data-missions-rooms="${rooms.length}"`)
-      && t.includes(`data-missions-frontier="${frontier.length}"`)
-      && t.includes(`data-missions-live-claims="${liveClaims.length}"`)
-      && t.includes(`data-missions-attempts="${attempts.length}"`)
-      && t.includes(`data-missions-findings="${findings.length}"`)
-      && t.includes(`data-missions-unresolved-challenges="${unresolvedChallenges.length}"`),
-    `${rooms.length}/${frontier.length}/${liveClaims.length}/${attempts.length}/${findings.length}/${unresolvedChallenges.length}`);
-  const sampleRoom = rooms.find((room) => room.status === "open") || rooms[0];
-  if (sampleRoom) {
-    const selectedPage = await page(`${SERVE}/__ioi/missions?room=${encodeURIComponent(sampleRoom.outcome_room_id)}`);
+  ok("Missions is the GoalRun workspace over the planes the daemon still serves, not only the legacy run queue",
+    /Goal runs and their results/.test(t) && /data-missions-work-graph="goal-runs"/.test(t)
+      && /Goal runs<\/span>/.test(t)
+      && !/outcome-room:\/\//.test(t) && !/Mission rooms/.test(t));
+  ok("summary counts equal daemon truth exactly",
+    t.includes(`data-missions-metric="goal-runs" data-value="${grAll.length}"`)
+      && t.includes(`data-missions-metric="open" data-value="${openRuns.length}"`)
+      && t.includes(`data-missions-metric="results" data-value="${workResults.length}"`)
+      && t.includes(`data-missions-metric="unattributed-results" data-value="${unattributed.length}"`),
+    `${grAll.length}/${openRuns.length}/${workResults.length}/${unattributed.length}`);
+  const sampleRun = grAll.find((run) => ["draft", "active", "paused"].includes(run.status)) || grAll[0];
+  if (sampleRun) {
+    const selectedPage = await page(`${SERVE}/__ioi/missions?goal=${encodeURIComponent(sampleRun.goal_run_id)}`);
     const selectedText = selectedPage.text;
-    const roomFrontier = frontier.filter((record) => record.outcome_room_ref === sampleRoom.outcome_room_id);
-    const roomClaims = claims.filter((record) => record.outcome_room_ref === sampleRoom.outcome_room_id);
-    const roomChallenges = challenges.filter((record) => record.outcome_room_ref === sampleRoom.outcome_room_id);
-    ok("room selection is refresh-stable and resolves the exact OutcomeRoom coordinate",
+    const runResults = workResults.filter((record) => record.work_subject_ref === sampleRun.goal_ref);
+    ok("run selection is refresh-stable and resolves the exact GoalRun coordinate",
       selectedPage.status === 200
-        && selectedText.includes(`data-missions-selected-room="${sampleRoom.outcome_room_id}"`)
-        && selectedText.includes(sampleRoom.objective || sampleRoom.objective_ref || "__missing_objective__"),
-      sampleRoom.outcome_room_id);
-    ok("selected room projects only its frontier, claims, and challenge relationship",
-      roomFrontier.every((record) => selectedText.includes(record.frontier_item_id))
-        && roomClaims.every((record) => selectedText.includes(record.frontier_item_ref))
-        && roomChallenges.every((record) => selectedText.includes(record.verifier_challenge_id)));
+        && selectedText.includes(`data-missions-selected-run="${sampleRun.goal_run_id}"`)
+        && selectedText.includes(sampleRun.normalized_goal || sampleRun.goal_ref || "__missing_goal__"),
+      sampleRun.goal_run_id);
+    ok("the selected run projects its own results and the membership ref the application stamped",
+      runResults.every((record) => selectedText.includes(record.work_result_id))
+        && selectedText.includes(`data-missions-orchestration="${sampleRun.orchestration_ref || "none"}"`));
   } else {
-    ok("empty OutcomeRoom registry renders an honest no-room state", /No rooms in this view/.test(t));
-    ok("empty room selection invents no graph relationship", /Select a mission room/.test(t));
+    ok("an empty GoalRun plane renders an honest no-run state", /No goal runs in this view/.test(t));
+    ok("an empty selection invents no relationship", /Choose a goal run to inspect/.test(t));
   }
   const relationshipProbe = renderRelationshipProbe();
-  ok("two-room render binds the selected inspector to exact hosted graph coordinates",
-    relationshipProbe.html.includes(`data-missions-selected-room="${relationshipProbe.roomA}"`)
-      && relationshipProbe.html.includes(relationshipProbe.frontierA)
-      && relationshipProbe.html.includes(relationshipProbe.claimA)
-      && relationshipProbe.html.includes(relationshipProbe.attemptA)
-      && relationshipProbe.html.includes(relationshipProbe.challengeA)
-      && !relationshipProbe.html.includes(relationshipProbe.frontierB)
-      && !relationshipProbe.html.includes(relationshipProbe.claimB)
-      && !relationshipProbe.html.includes(relationshipProbe.attemptB)
-      && !relationshipProbe.html.includes(relationshipProbe.challengeB));
-  ok("explicit unknown room selection fails closed instead of inspecting the first room",
-    relationshipProbe.unknownHtml.includes('data-missions-selection-error="room_not_found"')
-      && !relationshipProbe.unknownHtml.includes(`data-missions-selected-room="${relationshipProbe.roomA}"`)
-      && relationshipProbe.unknownHtml.includes("No different room was selected"));
-  ok("explicit room outside the active status filter fails closed instead of escaping the filter",
-    relationshipProbe.filteredHtml.includes('data-missions-selection-error="room_filter_mismatch"')
-      && !relationshipProbe.filteredHtml.includes(`data-missions-selected-room="${relationshipProbe.roomA}"`)
-      && relationshipProbe.filteredHtml.includes("outside this status view"));
-  ok("the bare route still selects the first open room for the normal operator landing",
-    relationshipProbe.defaultHtml.includes(`data-missions-selected-room="${relationshipProbe.roomA}"`));
+  ok("a two-run render binds the selected inspector to that run's own records only",
+    relationshipProbe.html.includes(`data-missions-selected-run="${relationshipProbe.runA}"`)
+      && relationshipProbe.html.includes(relationshipProbe.resultA)
+      && !relationshipProbe.html.includes(relationshipProbe.resultB));
+  ok("an explicit unknown run selection fails closed instead of inspecting the first run",
+    relationshipProbe.unknownHtml.includes('data-missions-selection="goal_run_not_found"')
+      && !relationshipProbe.unknownHtml.includes(`data-missions-selected-run="${relationshipProbe.runA}"`)
+      && relationshipProbe.unknownHtml.includes("not in the daemon's list"));
+  ok("an explicit run outside the active status filter fails closed instead of escaping the filter",
+    relationshipProbe.filteredHtml.includes('data-missions-selection="goal_run_filter_mismatch"')
+      && !relationshipProbe.filteredHtml.includes(`data-missions-selected-run="${relationshipProbe.runA}"`)
+      && relationshipProbe.filteredHtml.includes("filtered out of this view"));
+  ok("the bare route still selects the first open run for the normal operator landing",
+    relationshipProbe.defaultHtml.includes(`data-missions-selected-run="${relationshipProbe.runA}"`));
 
   // 3. Run queue = REAL (cross-check counts + newest run against the live daemon).
   ok("run-queue heading reflects the real recent/total run counts (no fabrication)", t.includes(`recent mission runs (${recent.length} of ${runs.total || 0})`));
