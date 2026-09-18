@@ -58,7 +58,15 @@ returns `system_bound_required` with typed reason codes when the System-bound
 path is available, or a typed `refused` decision when its prerequisites are not
 available. It never silently downgrades System-bound work to the direct path,
 silently widens the direct path, or treats a requested path as an admission
-fact. Direct work still freezes the built-in generic-adaptive
+fact. **Since 2026-09-18 (R-178 slice S4d-1, R-189) the daemon hosts no
+System-bound lane of its own:** a request that names `system_bound`, a
+`target_system_id` or the M4 hosted-collective policy answers
+`410 goal_run_system_path_retired` before any decision is minted, because the
+lane's precondition — a GoalRun admitted under a hosted OutcomeRoom package
+System — retired with the room plane (R-179) and no consumer ever sent it. A
+GoalRun's membership in a bounded System is composed by the ioi.ai application
+over its orchestration (`collaborative-pursuit.md` § *OrchestrationEnvelope*),
+never minted by this route; the kernel's decision vocabulary above is unchanged. Direct work still freezes the built-in generic-adaptive
 `GoalRunProfile` revision and content hash, effective constraint hash, policy,
 authority, resolved component set, result profile, and decision receipt. It is
 not a profileless, authority-free, or receipt-free exception.

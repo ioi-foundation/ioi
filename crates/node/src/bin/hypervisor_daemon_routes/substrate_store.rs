@@ -64,10 +64,6 @@ pub(crate) const REQUIRED_ADMISSION_DOMAINS: &[&str] = &[
     "autonomous-system-home-bindings",
     "autonomous-system-operation-log-revisions",
     "autonomous-system-chain-revisions",
-    "outcome-room-information-flow-labels",
-    "outcome-room-result-payload-write-admissions",
-    "outcome-room-component-resolution-snapshots",
-    "outcome-room-conductor-verification-evidence",
     "goal-run-activation-admitted-states",
     "autonomous-system-chain-successor-claims",
     "autonomous-system-chain-writer-reservations",
@@ -433,12 +429,6 @@ fn required_identity(record_dir: &str, record_id: &str) -> (&'static str, String
             "chain_root",
             format!("sha256:{}", record_id.strip_prefix("asc_").unwrap_or("")),
         ),
-        "outcome-room-information-flow-labels"
-        | "outcome-room-result-payload-write-admissions"
-        | "outcome-room-component-resolution-snapshots"
-        | "outcome-room-conductor-verification-evidence" => {
-            unreachable!("identity is validated by the room runtime-dependency content-root branch")
-        }
         "goal-run-activation-admitted-states" => {
             unreachable!("identity is validated by the GoalRun admitted-state content-root branch")
         }
@@ -828,10 +818,6 @@ fn validate_required_identity(
         "autonomous-system-home-bindings" => "ashdb_",
         "autonomous-system-operation-log-revisions" => "asol_",
         "autonomous-system-chain-revisions" => "asc_",
-        "outcome-room-information-flow-labels" => "orifl_",
-        "outcome-room-result-payload-write-admissions" => "orpwa_",
-        "outcome-room-component-resolution-snapshots" => "orcps_",
-        "outcome-room-conductor-verification-evidence" => "orcve_",
         "goal-run-activation-admitted-states" => "gras_",
         "autonomous-system-chain-successor-claims" => "ascsc_",
         "autonomous-system-chain-writer-reservations" => "ascwr_",
@@ -918,29 +904,6 @@ fn validate_required_identity(
             return Err(std::io::Error::new(
                 std::io::ErrorKind::InvalidInput,
                 "required Agentgres GoalRun admitted-state root does not recompute",
-            ));
-        }
-        return Ok(());
-    }
-    if matches!(
-        record_dir,
-        "outcome-room-information-flow-labels"
-            | "outcome-room-result-payload-write-admissions"
-            | "outcome-room-component-resolution-snapshots"
-            | "outcome-room-conductor-verification-evidence"
-    ) {
-        let encoded = record_id
-            .strip_prefix(required_prefix)
-            .expect("required prefix was validated");
-        let expected = jcs_root(&json!({
-            "domain": "ioi.outcome-room-runtime-dependency-record-jcs-sha256.v1",
-            "record_family": record_dir,
-            "record": record,
-        }))?;
-        if expected != format!("sha256:{encoded}") {
-            return Err(std::io::Error::new(
-                std::io::ErrorKind::InvalidInput,
-                "required Agentgres room runtime-dependency key does not match its exact record bytes",
             ));
         }
         return Ok(());

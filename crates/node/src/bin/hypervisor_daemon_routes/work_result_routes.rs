@@ -489,126 +489,6 @@ pub(crate) fn resolve_admitted_work_result(
     })
 }
 
-fn canonical_verifier_challenge_ref(reference: &str) -> bool {
-    reference
-        .strip_prefix("verifier-challenge://vc_")
-        .is_some_and(|tail| {
-            tail.len() == 64
-                && tail
-                    .chars()
-                    .all(|character| character.is_ascii_digit() || matches!(character, 'a'..='f'))
-        })
-}
-
-/// Pure WorkResult-owned successor planner for a VerifierChallenge backlink. The challenge plane
-/// seals both the exact prior and this exact successor in its durable intent; replay never derives
-/// a successor from mutable current state.
-pub(crate) fn verifier_challenge_backlink_successor(
-    prior: &Value,
-    result_ref: &str,
-    challenge_ref: &str,
-) -> Result<Value, (String, String)> {
-    if prior.get("schema_version").and_then(Value::as_str) != Some(RESULT_SCHEMA)
-        || prior.get("work_result_id").and_then(Value::as_str) != Some(result_ref)
-    {
-        return Err(verr(
-            "work_result_challenge_backlink_identity_mismatch",
-            "sealed WorkResult prior does not match its schema and identity",
-        ));
-    }
-    if !canonical_verifier_challenge_ref(challenge_ref) {
-        return Err(verr(
-            "work_result_challenge_ref_invalid",
-            "VerifierChallenge backlink must be verifier-challenge://vc_<64 lowercase hex>",
-        ));
-    }
-    let refs = prior
-        .get("review_refs")
-        .and_then(Value::as_array)
-        .ok_or_else(|| {
-            verr(
-                "work_result_challenge_backlink_invalid",
-                "WorkResult review_refs is not a plane-owned list",
-            )
-        })?;
-    if refs.len() >= 128 {
-        return Err(verr(
-            "work_result_challenge_backlink_capacity",
-            "WorkResult review_refs reached its hard bound",
-        ));
-    }
-    if refs.iter().any(|item| item.as_str() == Some(challenge_ref)) {
-        return Err(verr(
-            "work_result_challenge_backlink_already_bound",
-            "VerifierChallenge is already bound to this WorkResult",
-        ));
-    }
-    let mut next = prior.clone();
-    let object = next.as_object_mut().expect("validated WorkResult object");
-    let mut next_refs: Vec<String> = refs
-        .iter()
-        .filter_map(Value::as_str)
-        .map(ToOwned::to_owned)
-        .collect();
-    next_refs.push(challenge_ref.to_string());
-    next_refs.sort();
-    next_refs.dedup();
-    object.insert("review_refs".into(), json!(next_refs));
-    Ok(next)
-}
-
-/// WorkResult-owned, lock-required backlink seam. The caller holds DELTA_ADMISSION_LOCK and
-/// passes the exact intent tail so only that intent's reservation is bypassed. Current bytes must
-/// equal the sealed prior or sealed successor; every other state refuses without mutation.
-pub(crate) fn bind_verifier_challenge_locked(
-    data_dir: &str,
-    result_ref: &str,
-    challenge_ref: &str,
-    prior: &Value,
-    successor: &Value,
-    _intent_tail: &str,
-) -> Result<Value, (String, String)> {
-    let expected = verifier_challenge_backlink_successor(prior, result_ref, challenge_ref)?;
-    if expected != *successor {
-        return Err(verr(
-            "work_result_challenge_backlink_invalid",
-            "sealed WorkResult successor does not reconstruct exactly",
-        ));
-    }
-    let current = load_work_result_strict(data_dir, result_ref)
-        .map_err(|message| verr("work_result_challenge_backlink_unreadable", message))?
-        .ok_or_else(|| {
-            verr(
-                "work_result_challenge_backlink_not_found",
-                format!("no WorkResult '{result_ref}'"),
-            )
-        })?;
-    if current == *successor {
-        return Ok(current);
-    }
-    if current != *prior {
-        return Err(verr(
-            "work_result_challenge_backlink_conflict",
-            "WorkResult equals neither the sealed prior nor sealed successor",
-        ));
-    }
-    let storage_key = resolve_work_result_storage_key_strict(data_dir, result_ref)
-        .map_err(|message| verr("work_result_challenge_backlink_unreadable", message))?
-        .ok_or_else(|| {
-            verr(
-                "work_result_challenge_backlink_not_found",
-                format!("no WorkResult '{result_ref}'"),
-            )
-        })?;
-    persist_result_atomic(data_dir, &storage_key, successor).map_err(|error| {
-        verr(
-            "work_result_challenge_backlink_persist_failed",
-            format!("WorkResult challenge backlink persist failed ({error})"),
-        )
-    })?;
-    Ok(successor.clone())
-}
-
 /// Strict OutcomeDelta point loader for provenance consumers. The WorkResult plane remains the
 /// storage owner: callers receive absence distinctly from unreadable, malformed, or relocated
 /// canonical evidence and never scan this family themselves.
@@ -2479,57 +2359,6 @@ mod work_result_tests {
     }
 
     #[test]
-    fn verifier_challenge_backlink_is_plane_owned_and_exact() {
-        let mut caller = valid_result_body();
-        caller["review_refs"] = json!([]);
-        assert_eq!(
-            validate_work_result(&caller, &no_resolve, &no_room)
-                .unwrap_err()
-                .0,
-            "work_result_review_refs_plane_owned"
-        );
-
-        let dir = temp_dir("challenge-backlink");
-        let data_dir = dir.to_str().unwrap();
-        let result_ref = "work-result://wr_challenge";
-        let challenge_ref = format!("verifier-challenge://vc_{}", "a".repeat(64));
-        let mut prior = validate_work_result(&valid_result_body(), &no_resolve, &no_room).unwrap();
-        prior["work_result_id"] = json!(result_ref);
-        persist_record(data_dir, RESULT_DIR, "wr_challenge", &prior).unwrap();
-        let successor =
-            verifier_challenge_backlink_successor(&prior, result_ref, &challenge_ref).unwrap();
-        let applied = bind_verifier_challenge_locked(
-            data_dir,
-            result_ref,
-            &challenge_ref,
-            &prior,
-            &successor,
-            "vci_test",
-        )
-        .unwrap();
-        assert_eq!(applied, successor);
-        assert_eq!(
-            load_work_result_strict(data_dir, result_ref)
-                .unwrap()
-                .unwrap()["review_refs"],
-            json!([challenge_ref])
-        );
-        assert_eq!(
-            bind_verifier_challenge_locked(
-                data_dir,
-                result_ref,
-                &format!("verifier-challenge://vc_{}", "a".repeat(64)),
-                &prior,
-                &successor,
-                "vci_test",
-            )
-            .unwrap(),
-            successor
-        );
-        std::fs::remove_dir_all(dir).ok();
-    }
-
-    #[test]
     fn generic_seam_never_resolves_application_scope_or_mints_system_binding() {
         let mut b = valid_result_body();
         b["outcome_room_ref"] = json!("outcome-room://or_ghost");
@@ -3047,18 +2876,11 @@ mod work_result_tests {
         assert_eq!(v1.outcome_class, "positive");
         assert_eq!(v1.status, "completed");
 
-        // The owner admits a backlink, in place, through its own seam.
-        let successor =
-            verifier_challenge_backlink_successor(&prior, result_ref, &challenge_ref).unwrap();
-        bind_verifier_challenge_locked(
-            data_dir,
-            result_ref,
-            &challenge_ref,
-            &prior,
-            &successor,
-            "vci_m061",
-        )
-        .unwrap();
+        // The owner admits a second version in place (a plane-owned backlink landing in
+        // `review_refs`), through its own record store.
+        let mut successor = prior.clone();
+        successor["review_refs"] = json!([challenge_ref]);
+        persist_record(data_dir, RESULT_DIR, "wr_versions", &successor).unwrap();
 
         let v2 = resolve_admitted_work_result(data_dir, None, result_ref).expect("v2 resolves");
         assert_ne!(
