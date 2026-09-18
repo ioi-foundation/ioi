@@ -17,8 +17,8 @@ Implementation status: partial (the GoalRun admission-path decision is
 registered as an application contract; see
 [`../../_meta/canon-to-code-delta.md`](../../_meta/canon-to-code-delta.md))
 Implementation refs:
-  - `crates/node/src/bin/hypervisor_daemon_routes/goalrun_routes.rs`
-  - `crates/node/src/bin/hypervisor_daemon_routes/goal_profile_contract_routes.rs`
+  - `crates/node/src/bin/hypervisor_daemon_routes/harness_routes.rs` (the harness-profile registry, which is the platform primitive this profile is an application view over)
+  - `packages/ioi-ai-orchestration/src/orchestrations.ts` (the composition; the two daemon GoalRun modules previously named here were deleted 2026-09-18 under R-192 slice S5-1)
 Last implementation audit: 2026-09-12 (docs-only ownership move under ADR 0052 Decision 4; no implementation was re-derived — the substantive basis remains 2026-07-30)
 
 ## Scope

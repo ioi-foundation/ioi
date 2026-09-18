@@ -42,8 +42,6 @@ pub mod runtime_diagnostics_repair_control;
 pub mod runtime_diagnostics_repair_policy;
 pub mod runtime_diagnostics_repair_projection;
 pub mod runtime_doctor_report;
-pub mod runtime_goal_pursuit;
-pub mod runtime_goal_run_admission;
 pub mod runtime_harness_profile_mutation_admission;
 pub mod runtime_harness_session_binding_admission;
 pub mod runtime_harness_session_terminal_attach_admission;
@@ -69,6 +67,7 @@ pub mod runtime_subagent_projection;
 pub mod runtime_thread_event;
 pub mod runtime_thread_fork_control;
 pub mod runtime_tool_catalog;
+pub mod runtime_work_admission;
 pub mod runtime_work_lifecycle_admission;
 pub mod runtime_work_lifecycle_log;
 pub mod runtime_worker_package_install_admission;
@@ -728,66 +727,13 @@ impl RuntimeKernelService {
             .admit(request, now_iso)
     }
 
-    /// IOI Agent strategy planner (pure, deterministic v1): decides direct vs goal_run for a
-    /// launch, with eligible/excluded harnesses and reason codes.
-    pub fn select_ioi_agent_execution(
-        &self,
-        request: &serde_json::Value,
-    ) -> Result<serde_json::Value, runtime_goal_run_admission::RuntimeGoalRunAdmissionError> {
-        runtime_goal_run_admission::RuntimeGoalRunAdmissionCore.select_ioi_agent_execution(request)
-    }
-
-    /// Validate + canonicalize a GoalRun creation admission (pure: bounded invocation budget,
-    /// real session/project binding, the orchestrate scope, receipts required).
-    pub fn admit_goal_run(
-        &self,
-        request: &serde_json::Value,
-        now_iso: &str,
-    ) -> Result<serde_json::Value, runtime_goal_run_admission::RuntimeGoalRunAdmissionError> {
-        runtime_goal_run_admission::RuntimeGoalRunAdmissionCore.admit_goal_run(request, now_iso)
-    }
-
-    /// Resolve the daemon-owned direct non-System versus System-bound GoalRun path from a
-    /// complete set of admitted policy/runtime facts. Missing facts fail before selection.
-    pub fn select_goal_run_admission_path(
-        &self,
-        request: &serde_json::Value,
-        now_iso: &str,
-    ) -> Result<serde_json::Value, runtime_goal_run_admission::RuntimeGoalRunAdmissionError> {
-        runtime_goal_run_admission::RuntimeGoalRunAdmissionCore
-            .select_goal_run_admission_path(request, now_iso)
-    }
-
-    /// Pure RoleTopology selection for the parallel_implement_reconcile policy — excludes
-    /// ineligible implementers with explicit reason codes (the run continues as a partial).
-    pub fn select_goal_run_role_topology(
-        &self,
-        request: &serde_json::Value,
-    ) -> Result<serde_json::Value, runtime_goal_run_admission::RuntimeGoalRunAdmissionError> {
-        runtime_goal_run_admission::RuntimeGoalRunAdmissionCore.select_role_topology(request)
-    }
-
-    /// Validate + canonicalize a single GoalRun harness invocation (pure fail-closed gate:
-    /// active + runnable + execution-wired + available route + local-or-accepted trust).
-    pub fn admit_goal_run_harness_invocation(
-        &self,
-        request: &serde_json::Value,
-        now_iso: &str,
-    ) -> Result<serde_json::Value, runtime_goal_run_admission::RuntimeGoalRunAdmissionError> {
-        runtime_goal_run_admission::RuntimeGoalRunAdmissionCore
-            .admit_harness_invocation(request, now_iso)
-    }
-
-    /// Validate + canonicalize a GoalRun reconciliation (pure: verified-candidate selection or
-    /// an explicit blocked partial; receipts required; the only lane into the target workspace).
-    pub fn admit_goal_run_reconciliation(
-        &self,
-        request: &serde_json::Value,
-        now_iso: &str,
-    ) -> Result<serde_json::Value, runtime_goal_run_admission::RuntimeGoalRunAdmissionError> {
-        runtime_goal_run_admission::RuntimeGoalRunAdmissionCore
-            .admit_reconciliation(request, now_iso)
-    }
+    // R-192 (S5-1): six GoalRun admission wrappers stood here — IOI-Agent execution selection,
+    // GoalRun admission, the direct-versus-System path, RoleTopology selection, harness-invocation
+    // admission and reconciliation. They delegated to `runtime_goal_run_admission`, which is
+    // deleted with the rest of the GoalRun plane: goal pursuit is the ioi.ai application's, and
+    // the kernel keeps only harness-agnostic primitives. The capability they carried — per-role
+    // admission against live harness facts — returns in S5-2 as a topology-agnostic delegation
+    // primitive bound to threads rather than to a goal_ref.
 
     /// Validate + canonicalize a harness-profile-mutation governance admission (pure: asserts the
     /// harness authority scope, adapter posture, provider-trust acceptance for non-local trust,

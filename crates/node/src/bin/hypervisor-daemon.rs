@@ -100,12 +100,6 @@ mod foundry_execution_routes;
 mod foundry_routes;
 #[path = "hypervisor_daemon_routes/gcp_candidate_source.rs"]
 mod gcp_candidate_source;
-#[path = "hypervisor_daemon_routes/goal_profile_contract_routes.rs"]
-mod goal_profile_contract_routes;
-#[path = "hypervisor_daemon_routes/goal_run_context_routes.rs"]
-mod goal_run_context_routes;
-#[path = "hypervisor_daemon_routes/goalrun_routes.rs"]
-mod goalrun_routes;
 #[path = "hypervisor_daemon_routes/governance_routes.rs"]
 mod governance_routes;
 #[path = "hypervisor_daemon_routes/governed_authority.rs"]
@@ -120,8 +114,6 @@ mod hypervisoros_node_routes;
 mod improvement_campaign_routes;
 #[path = "hypervisor_daemon_routes/institutional_learning_boundary_routes.rs"]
 mod institutional_learning_boundary_routes;
-#[path = "hypervisor_daemon_routes/ioi_agent_routes.rs"]
-mod ioi_agent_routes;
 #[path = "hypervisor_daemon_routes/ioi_intelligence_routes.rs"]
 mod ioi_intelligence_routes;
 #[path = "hypervisor_daemon_routes/k8s_candidate_source.rs"]
@@ -692,7 +684,8 @@ async fn async_main() -> anyhow::Result<()> {
     // #72 round 6 — finish any GoalRun lifecycle-recovery transaction a crash interrupted: the
     // durable recovery intent seals the receipt and release facts, so restart completes it
     // FORWARD deterministically (receipt, then release) instead of guessing.
-    goalrun_routes::complete_recovery_intents(&data_dir);
+    // R-192 (S5-1): the GoalRun recovery-intent convergence went with the plane that minted
+    // those intents; the daemon converges only its own primitives at startup.
     // The hosted-room intent convergence that ran here (owner-registry census, attach and room
     // intents, current-contract room recovery) retired with the room plane on 2026-09-17
     // (R-178 slice S4c-2, R-183): the intent families it converged can no longer be minted.
@@ -2538,14 +2531,6 @@ async fn async_main() -> anyhow::Result<()> {
         // no marketplace publish.
         // IOI Agent launch plane — the user-facing product mode; strategy planner decides
         // direct vs internal GoalRun. Two-phase launch relays the wallet challenge.
-        .route(
-            "/v1/goal-orchestration/ioi-agent/launch-preview",
-            post(ioi_agent_routes::handle_ioi_agent_launch_preview),
-        )
-        .route(
-            "/v1/goal-orchestration/ioi-agent/launch",
-            post(ioi_agent_routes::handle_ioi_agent_launch),
-        )
         // IOI Agent intelligence plane — portable memory/skills/affinities + scoped projections.
         .route(
             "/v1/hypervisor/memory-spaces",
@@ -2899,138 +2884,12 @@ async fn async_main() -> anyhow::Result<()> {
             "/v1/hypervisor/memory-projections/:id",
             get(ioi_intelligence_routes::handle_projections_get),
         )
-        .route(
-            "/v1/goal-orchestration/ioi-agent/launch-policies",
-            get(ioi_agent_routes::handle_policies_list)
-                .post(ioi_agent_routes::handle_policies_create),
-        )
-        .route(
-            "/v1/goal-orchestration/ioi-agent/launch-policies/:id",
-            get(ioi_agent_routes::handle_policies_get)
-                .patch(ioi_agent_routes::handle_policies_patch)
-                .delete(ioi_agent_routes::handle_policies_delete),
-        )
-        .route(
-            "/v1/goal-orchestration/ioi-agent/launch-policies/:id/clone",
-            post(ioi_agent_routes::handle_policies_clone),
-        )
-        .route(
-            "/v1/goal-orchestration/ioi-agent/launch-policies/:id/rollout/promote",
-            post(ioi_agent_routes::handle_policy_rollout_promote),
-        )
-        .route(
-            "/v1/goal-orchestration/ioi-agent/launch-policies/:id/rollout/rollback",
-            post(ioi_agent_routes::handle_policy_rollout_rollback),
-        )
-        .route(
-            "/v1/goal-orchestration/ioi-agent/launches",
-            get(ioi_agent_routes::handle_ioi_agent_launches_list),
-        )
-        .route(
-            "/v1/goal-orchestration/ioi-agent/launches/:id",
-            get(ioi_agent_routes::handle_ioi_agent_launch_get),
-        )
         // GoalRun plane — daemon-owned multi-harness orchestration (create → wallet-gated
         // start → deterministic verify → admitted reconcile). Static sub-paths registered
         // implicitly distinct from :id (axum matches deeper literals first).
-        .route(
-            "/v1/goal-orchestration/goal-run-activations",
-            post(goalrun_routes::handle_goal_run_activation_draft),
-        )
-        .route(
-            "/v1/goal-orchestration/goal-run-profiles",
-            get(goal_profile_contract_routes::list_goal_run_profiles)
-                .post(goal_profile_contract_routes::create_goal_run_profile),
-        )
-        .route(
-            "/v1/goal-orchestration/goal-run-profiles/:id/revisions",
-            post(goal_profile_contract_routes::create_goal_run_profile_successor),
-        )
-        .route(
-            "/v1/hypervisor/agent-harness-adapters",
-            get(goal_profile_contract_routes::list_agent_harness_adapters)
-                .post(goal_profile_contract_routes::create_agent_harness_adapter),
-        )
-        .route(
-            "/v1/hypervisor/agent-harness-adapters/:id/revisions",
-            post(goal_profile_contract_routes::create_agent_harness_adapter_successor),
-        )
-        .route(
-            "/v1/goal-orchestration/goal-run-activations/:id",
-            get(goalrun_routes::handle_goal_run_activation_get),
-        )
-        .route(
-            "/v1/goal-orchestration/goal-run-activations/:id/submit",
-            post(goalrun_routes::handle_goal_run_activation_submit),
-        )
-        .route(
-            "/v1/goal-orchestration/goal-runs",
-            get(goalrun_routes::handle_goal_runs_list)
-                .post(goalrun_routes::handle_goal_runs_create),
-        )
-        .route(
-            "/v1/goal-orchestration/goal-runs/:id",
-            get(goalrun_routes::handle_goal_run_get),
-        )
-        .route(
-            "/v1/goal-orchestration/goal-runs/:id/results",
-            post(goalrun_routes::handle_goal_run_result_create),
-        )
         // M04.11 — the GoalRun's own ContextLease and ContextHandoff revisions. Narrow, revoke,
         // accept and reject are SUCCESSORS on the object's own stream, so the shared mutation spine
         // owns the CAS; the resolution is a read model rebuilt on every read.
-        .route(
-            "/v1/goal-orchestration/goal-runs/:id/context-leases",
-            post(goal_run_context_routes::handle_context_lease_admit),
-        )
-        .route(
-            "/v1/goal-orchestration/goal-runs/:id/context-leases/:lease_id/narrow",
-            post(goal_run_context_routes::handle_context_lease_narrow),
-        )
-        .route(
-            "/v1/goal-orchestration/goal-runs/:id/context-leases/:lease_id/revoke",
-            post(goal_run_context_routes::handle_context_lease_revoke),
-        )
-        .route(
-            "/v1/goal-orchestration/goal-runs/:id/context-leases/:lease_id/resolution",
-            get(goal_run_context_routes::handle_context_lease_resolution),
-        )
-        .route(
-            "/v1/goal-orchestration/goal-runs/:id/context-handoffs",
-            post(goal_run_context_routes::handle_context_handoff_admit),
-        )
-        .route(
-            "/v1/goal-orchestration/goal-runs/:id/context-handoffs/:handoff_id/accept",
-            post(goal_run_context_routes::handle_context_handoff_accept),
-        )
-        .route(
-            "/v1/goal-orchestration/goal-runs/:id/context-handoffs/:handoff_id/reject",
-            post(goal_run_context_routes::handle_context_handoff_reject),
-        )
-        .route(
-            "/v1/goal-orchestration/goal-runs/:id/outcome-deltas",
-            post(goalrun_routes::handle_goal_run_outcome_delta_create),
-        )
-        .route(
-            "/v1/goal-orchestration/goal-runs/:id/orchestration-membership",
-            post(goalrun_routes::handle_goal_run_orchestration_membership),
-        )
-        .route(
-            "/v1/goal-orchestration/goal-runs/:id/start",
-            post(goalrun_routes::handle_goal_run_start),
-        )
-        .route(
-            "/v1/goal-orchestration/goal-runs/:id/reconcile",
-            post(goalrun_routes::handle_goal_run_reconcile),
-        )
-        .route(
-            "/v1/goal-orchestration/goal-runs/:id/lifecycle-recovery",
-            post(goalrun_routes::handle_goal_run_lifecycle_recovery),
-        )
-        .route(
-            "/v1/goal-orchestration/goal-runs/:id/events",
-            get(goalrun_routes::handle_goal_run_events),
-        )
         // Shared WorkLifecycle durable mechanism — read-only status/projection
         // diagnostics and owner-scoped cancellation planning/compaction over the
         // accepted kernel. No generic append mutation is exposed on the wire;
@@ -3052,7 +2911,11 @@ async fn async_main() -> anyhow::Result<()> {
         )
         .route(
             "/v1/hypervisor/work-lifecycle/records",
-            get(work_lifecycle_routes::handle_work_lifecycle_records),
+            get(work_lifecycle_routes::handle_work_lifecycle_records)
+                // R-192 S5-1: the generic writer. The record chain's only writer was the
+                // GoalRun admission path, which left with that application plane; a platform
+                // plane whose sole writer is an application is not a platform plane.
+                .post(work_lifecycle_routes::handle_work_lifecycle_record_append),
         )
         // M04.10: per-dimension reservations on their own stream (R-74), never the record chain.
         .route(

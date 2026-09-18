@@ -20,7 +20,7 @@ Implementation status: partial (the harness-profile registry and default profile
 Implementation refs:
   - `crates/types/src/app/harness/core.rs`
   - `crates/types/src/app/harness/receipts.rs`
-  - `crates/node/src/bin/hypervisor_daemon_routes/goal_profile_contract_routes.rs`
+  - `crates/node/src/bin/hypervisor_daemon_routes/harness_routes.rs` (`goal_profile_contract_routes.rs` was deleted 2026-09-18 under R-192 slice S5-1: a goal-run profile contract is the application's, and the harness-profile registry is the platform primitive that remains)
 Last implementation audit: 2026-09-12 (docs-only ownership move under ADR 0052 Decision 4; no implementation was re-derived — the substantive basis remains 2026-07-18)
 
 ## Canonical Definition

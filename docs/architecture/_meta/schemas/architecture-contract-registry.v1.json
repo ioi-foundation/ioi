@@ -19530,6 +19530,68 @@
           "expected_failure": "schema"
         }
       ]
+    },
+    {
+      "contract_id": "schema://ioi/applications/ioi-ai/collective-resolution-receipt/v1",
+      "canonical_name": "CollectiveResolutionReceipt",
+      "canonical_owner_ref": "canon://docs/architecture/domains/ioi-ai/collaborative-outcome-pattern.md#collective-mode-is-a-product-posture-not-a-new-plane",
+      "schema_version": "ioi.applications.ioi-ai.collective-resolution-receipt.v1",
+      "maturity": "partial",
+      "stability": "provisional",
+      "wire_format": "json",
+      "canonical_encoding_profile_ref": "encoding-profile://ioi/jcs-json/v1",
+      "evolution": {
+        "successor_of": null,
+        "successor_contract_id": null,
+        "compatibility": "initial",
+        "migration_policy": "none",
+        "predecessor_remains_valid": false,
+        "wire_mutation_policy": "forbidden",
+        "hash_impact": "signature_preimage_changed"
+      },
+      "schema_ref": "collective-resolution-receipt.v1.schema.json",
+      "cross_field_invariant_refs": [
+        {
+          "invariant_id": "invariant://ioi/applications/ioi-ai/collective-resolution-receipt/freezes-existing-owners/v1",
+          "path": "invariants/collective-resolution-receipt.v1.invariants.json"
+        }
+      ],
+      "compatibility_aliases": [],
+      "generated_targets": [
+        {
+          "kind": "typescript_projection",
+          "path": "packages/hypervisor-workbench/src/runtime/generated/architecture-contracts.ts",
+          "symbol": "CollectiveResolutionReceiptV1"
+        },
+        {
+          "kind": "rust_projection",
+          "path": "crates/types/src/app/generated/architecture_contracts.rs",
+          "symbol": "CollectiveResolutionReceiptV1"
+        }
+      ],
+      "positive_fixture_refs": [
+        "fixtures/collective-resolution-receipt-v1/positive-minimal.json",
+        "fixtures/collective-resolution-receipt-v1/positive-full-closure.json"
+      ],
+      "negative_fixture_refs": [
+        {
+          "path": "fixtures/collective-resolution-receipt-v1/negative-closure-root-does-not-recompute.json",
+          "expected_failure": "invariant",
+          "expected_rule_id": "collective_resolution_receipt.closure.recomputes"
+        },
+        {
+          "path": "fixtures/collective-resolution-receipt-v1/negative-registers-a-new-owner.json",
+          "expected_failure": "schema"
+        },
+        {
+          "path": "fixtures/collective-resolution-receipt-v1/negative-room-headed-closure.json",
+          "expected_failure": "schema"
+        },
+        {
+          "path": "fixtures/collective-resolution-receipt-v1/negative-unknown-field.json",
+          "expected_failure": "schema"
+        }
+      ]
     }
   ]
 }

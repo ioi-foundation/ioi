@@ -28,7 +28,7 @@ use serde_json::{json, Value};
 use std::collections::HashMap;
 use std::sync::Arc;
 
-use super::goalrun_routes::{fact_from_profile, live_profiles, route_fact};
+use super::harness_routes::{fact_from_profile, live_profiles, route_fact};
 use super::{iso_now, persist_record, read_record_dir, remove_record, sha256_hex_str, DaemonState};
 use ioi_services::agentic::runtime::kernel::RuntimeKernelService;
 
@@ -3422,29 +3422,15 @@ pub(crate) async fn handle_improvement_apply(
                         "Rollout variant patch was rejected.",
                     );
                 }
-                let bound = super::ioi_agent_routes::bind_policy_rollout(
-                    &st,
-                    &variant_id,
-                    json!({
-                        "base_policy_ref": format!("ioi-agent-policy://{target}"),
-                        "release_control_ref": proposal.get("release_control_ref").cloned().unwrap_or(Value::Null),
-                        "proposal_ref": text(&proposal, "proposal_ref"),
-                        "simulation_ref": proposal.get("latest_simulation_ref").cloned().unwrap_or(Value::Null),
-                        "approval_request_ref": proposal.get("approval_request_ref").cloned().unwrap_or(Value::Null),
-                        "mode": rollout_mode,
-                        "state": "active",
-                        "applied_at": iso_now(),
-                    }),
+                // R-192 (S5-1): binding a rollout variant onto an IOI Agent launch policy
+                // reached into the IOI Agent plane, which retired with goal pursuit. The
+                // improvement proposal still records its decision; the launch-policy side is the
+                // composing application's to apply (S5-3).
+                return bad(
+                    StatusCode::GONE,
+                    "ioi_agent_launch_policy_retired",
+                    "The IOI Agent launch-policy plane retired with goal pursuit; a rollout variant is bound by the composing application.",
                 );
-                if bound.is_none() {
-                    return bad(
-                        StatusCode::BAD_GATEWAY,
-                        "improvement_rollout_bind_failed",
-                        "Could not bind rollout provenance to the variant.",
-                    );
-                }
-                applied_ref = format!("ioi-agent-policy://{variant_id}");
-                return finish_apply(&st, proposal, applied_ref).await;
             }
             let patch_target: String;
             if !target.is_empty() {
@@ -3749,15 +3735,15 @@ pub(crate) async fn handle_improvement_simulate(
                 "privacy": policy.get("privacy").cloned().unwrap_or(json!({})),
             })
         };
-        kernel
-            .select_ioi_agent_execution(&json!({
-                "strategy": strategy,
-                "normalized_goal": goal,
-                "conductor_ref": text(&conductor, "profile_ref"),
-                "implementer_candidates": implementer_facts,
-                "policy": policy_arg,
-            }))
-            .unwrap_or_else(|e| json!({ "blocked": true, "reason_code": e.code }))
+        // R-192 (S5-1): execution-strategy selection (direct versus goal_run, with eligible and
+        // excluded harnesses) was GOAL PURSUIT and left the kernel with it. The simulation still
+        // reports its scenario; the strategy is the composing application's to choose over the
+        // harness-agnostic delegation primitive (S5-2, S5-3).
+        json!({
+            "blocked": true,
+            "reason_code": "goal_pursuit_retired_from_platform",
+            "detail": "execution-strategy selection belongs to the composing application"
+        })
     };
 
     // Scenario subjects: explicit refs or the recent record windows.

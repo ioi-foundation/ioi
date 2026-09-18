@@ -1542,3 +1542,142 @@ mod harness_profile_tests {
         let _ = std::fs::remove_dir_all(directory);
     }
 }
+
+/// R-192 (S5-1): the released-AgentHarnessAdapter resolver, moved here from the deleted
+/// `goal_profile_contract_routes` module. Resolving an exact owner-scoped, released harness
+/// adapter revision is HARNESS REGISTRY work — it was only ever housed with the GoalRunProfile
+/// plane, and the authority gateway (its one caller) asks it a harness question, not a goal
+/// question. Reads are pinned/no-follow, ambiguity and unreleased status refuse by name, and an
+/// absent family is an empty registry rather than an error.
+pub(crate) fn resolve_released_agent_harness_adapter(
+    data_dir: &str,
+    owner_ref: &str,
+    revision_ref: &str,
+    content_hash: &str,
+) -> Result<Value, String> {
+    const ADAPTER_DIR: &str = "agent-harness-adapter-revisions";
+    let records = match super::durable_fs::open_family_dir_pinned(data_dir, ADAPTER_DIR) {
+        Ok(directory) => {
+            let mut names = super::durable_fs::enumerate_pinned(&directory)
+                .map_err(|error| format!("harness adapter registry unreadable: {error}"))?;
+            names.sort();
+            let mut records = Vec::with_capacity(names.len());
+            for name in names {
+                if !name.ends_with(".json") {
+                    return Err(format!("unexpected canonical registry occupant: {name}"));
+                }
+                let Some((_slot, bytes)) =
+                    super::durable_fs::read_slot_strict(&directory, &name)
+                        .map_err(|error| format!("harness adapter registry unreadable: {error}"))?
+                else {
+                    continue;
+                };
+                let record: Value = serde_json::from_slice(&bytes)
+                    .map_err(|error| format!("harness adapter record invalid: {error}"))?;
+                records.push(record);
+            }
+            records
+        }
+        Err(error) if error.kind() == std::io::ErrorKind::NotFound => Vec::new(),
+        Err(error) => return Err(format!("harness adapter registry unreadable: {error}")),
+    };
+    let mut matches = records.into_iter().filter(|record| {
+        record.get("owner_ref").and_then(Value::as_str) == Some(owner_ref)
+            && record.get("revision_ref").and_then(Value::as_str) == Some(revision_ref)
+            && record.get("content_hash").and_then(Value::as_str) == Some(content_hash)
+    });
+    let record = matches.next().ok_or_else(|| {
+        "the exact owner-scoped AgentHarnessAdapter revision is absent".to_string()
+    })?;
+    if matches.next().is_some() {
+        return Err("the exact owner-scoped AgentHarnessAdapter revision is ambiguous".to_string());
+    }
+    if record.get("registry_status").and_then(Value::as_str) != Some("released") {
+        return Err("the exact AgentHarnessAdapter revision is not released".to_string());
+    }
+    Ok(record)
+}
+
+/// R-192 (S5-1): three harness-registry helpers moved here from the deleted GoalRun plane.
+/// They read the harness profile registry and the model-route registry's own probe truth — a
+/// harness question in every case, housed with goal pursuit only by accident of history.
+/// Live harness fact for the kernel planner — from the registry's own live probe projection.
+pub(crate) fn fact_from_profile(profile: &Value, route_ref: &str, route_state: &str) -> Value {
+    json!({
+        "profile_ref": text(profile, "profile_ref"),
+        "harness": text(profile, "harness"),
+        "lifecycle_status": profile.pointer("/lifecycle/status").and_then(Value::as_str).unwrap_or(""),
+        "execution_wiring": profile.pointer("/adapter/execution_wiring").and_then(Value::as_str).unwrap_or(""),
+        "runnability_state": profile.pointer("/runnability/state").and_then(Value::as_str).unwrap_or("not_probed"),
+        "provider_trust": profile.pointer("/adapter/provider_trust").and_then(Value::as_str).unwrap_or(""),
+        "model_route_ref": route_ref,
+        "model_route_state": route_state,
+    })
+}
+
+/// The selected model route's (ref, availability state, model_id, endpoint) — the explicit ref
+/// or the registry default. Read from the persisted registry (availability is probe truth).
+pub(crate) fn route_fact(
+    st: &DaemonState,
+    explicit_ref: Option<&str>,
+) -> (String, String, String, String) {
+    let routes = read_record_dir(&st.data_dir, "model-route-registry");
+    let route = routes.iter().find(|route| match explicit_ref {
+        Some(wanted) => text(route, "route_ref") == wanted,
+        None => route.get("default_route").and_then(Value::as_bool) == Some(true),
+    });
+    match route {
+        Some(route) => (
+            text(route, "route_ref").to_string(),
+            route
+                .pointer("/availability/state")
+                .and_then(Value::as_str)
+                .unwrap_or("declared")
+                .to_string(),
+            route
+                .pointer("/model/model_id")
+                .and_then(Value::as_str)
+                .unwrap_or("")
+                .to_string(),
+            route
+                .pointer("/provider_binding/base_url")
+                .and_then(Value::as_str)
+                .unwrap_or("")
+                .to_string(),
+        ),
+        None => (
+            String::new(),
+            "unresolved".into(),
+            String::new(),
+            String::new(),
+        ),
+    }
+}
+
+pub(crate) async fn live_profiles(st: &DaemonState) -> Vec<Value> {
+    self_get(&format!(
+        "{}/v1/hypervisor/harness-profiles?live=1",
+        st.base_url
+    ))
+    .await
+    .and_then(|body| body.get("profiles").and_then(Value::as_array).cloned())
+    .unwrap_or_default()
+}
+
+/// Two small readers the moved helpers need (R-192, S5-1): a bounded string field, and the
+/// daemon's own loopback GET used to read its registries through their public routes.
+fn text<'a>(value: &'a Value, key: &str) -> &'a str {
+    value.get(key).and_then(Value::as_str).unwrap_or("")
+}
+
+async fn self_get(url: &str) -> Option<Value> {
+    reqwest::Client::new()
+        .get(url)
+        .timeout(Duration::from_millis(8000))
+        .send()
+        .await
+        .ok()?
+        .json::<Value>()
+        .await
+        .ok()
+}

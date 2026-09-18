@@ -481,8 +481,8 @@ const operationsPlanePayloadValid = (path, payload) => {
       return operationsArrays(payload, ["runs"]);
     case "/v1/hypervisor/failover/plans":
       return operationsArrays(payload, ["plans"]);
-    case "/v1/goal-orchestration/goal-runs":
-      return operationsArrays(payload, ["goal_runs"]);
+    case "/v1/hypervisor/work-results":
+      return operationsArrays(payload, ["work_results"]);
     case "/v1/hypervisor/work-ledger":
       return operationsArrays(payload, ["entries"]);
     default:
@@ -1684,7 +1684,7 @@ function renderWorkLedger(entries, scopedProject, selCtx) {
 // ---- Operations — the first real Operations estate card: execution health over the automation
 // substrate (scheduler · run health · needs-attention · webhook health). Real records only;
 // drilldowns into Automation detail / Work Ledger / Run Timeline. No fake incidents/cost/capacity.
-function renderOperations(ops, authpol, prov, provReceipts, spendRecon, storageBackends, storageIncidents, akashDepin, failoverRuns, failoverPlans, goalRuns, ledgerEntries) {
+function renderOperations(ops, authpol, prov, provReceipts, spendRecon, storageBackends, storageIncidents, akashDepin, failoverRuns, failoverPlans, workResults, ledgerEntries) {
   const isUnavailable = (plane) => !!plane?.__ioi_plane_unavailable;
   const planeInputs = [
     ["operations", ops],
@@ -1697,7 +1697,7 @@ function renderOperations(ops, authpol, prov, provReceipts, spendRecon, storageB
     ["depin", akashDepin],
     ["failover-runs", failoverRuns],
     ["failover-plans", failoverPlans],
-    ["goal-runs", goalRuns],
+    ["work-results", workResults],
     ["work-ledger", ledgerEntries],
   ];
   const unavailableKeys = planeInputs.filter(([, plane]) => isUnavailable(plane)).map(([key]) => key);
@@ -1714,14 +1714,14 @@ function renderOperations(ops, authpol, prov, provReceipts, spendRecon, storageB
   const depinUnavailable = isUnavailable(akashDepin);
   const failoverRunsUnavailable = isUnavailable(failoverRuns);
   const failoverPlansUnavailable = isUnavailable(failoverPlans);
-  const goalRunsUnavailable = isUnavailable(goalRuns);
+  const workResultsUnavailable = isUnavailable(workResults);
   const ledgerUnavailable = isUnavailable(ledgerEntries);
   ops = ops || {};
   authpol = authpol || {};
   prov = prov || {};
   provReceipts = provReceipts || {};
   spendRecon = spendRecon || {};
-  goalRuns = Array.isArray(goalRuns) ? goalRuns : (goalRuns?.goal_runs || []);
+  workResults = Array.isArray(workResults) ? workResults : (workResults?.work_results || []);
   ledgerEntries = Array.isArray(ledgerEntries) ? ledgerEntries : (ledgerEntries?.entries || []);
   const sch = ops.scheduler || { automations: [] };
   const rawRuns = ops.runs || {};
@@ -1766,10 +1766,14 @@ function renderOperations(ops, authpol, prov, provReceipts, spendRecon, storageB
     project: r.project_id || "—", status: r.status || "", at: r.started_at || "",
     proof: timelineLink(r.timeline_ref),
   }));
-  (goalRuns || []).forEach((g) => jobs.push({
-    type: "ioi-agent", name: `coordination · ${String(g.normalized_goal || "goal").slice(0, 44)}`, id: g.goal_run_id || "",
-    project: g.project_ref || "—", status: g.status || "", at: g.created_at || "",
-    proof: g.goal_run_id ? `<a href="/__ioi/run-timeline/goal-run/${enc(g.goal_run_id)}" target="_blank" rel="noopener">proof ↗</a>` : "—",
+  // R-192 (S5-1): this row used to be a GoalRun coordination run. Goal runs are ioi.ai
+  // compositions over thread orchestration primitives and the daemon serves no GoalRun route, so
+  // the row is now the platform record that outlives any pursuit: a generic WorkResult, named by
+  // the work subject whose ref the producing application recorded.
+  (workResults || []).forEach((r) => jobs.push({
+    type: "work-result", name: `result · ${String(r.work_subject_ref || "subject").slice(0, 44)}`, id: r.work_result_id || "",
+    project: r.project_ref || "—", status: r.status || "", at: r.recorded_at || r.created_at || "",
+    proof: r.work_result_id ? `<code style="font-size:10px">${CX_ESC(String(r.work_result_id).slice(0, 26))}</code>` : "—",
   }));
   (ledgerEntries || []).filter((e) => e.kind === "harness_execution").slice(0, 12).forEach((e) => jobs.push({
     type: "harness", name: `${e.harness || "harness"} → ${e.session_ref || "session"}`, id: e.session_ref || "",
@@ -1797,7 +1801,7 @@ function renderOperations(ops, authpol, prov, provReceipts, spendRecon, storageB
       : ["failed", "refused", "failure", "error"].includes(st) ? "warn" : "muted";
     return `<span class="pill ${cls}">${CX_ESC(st || "—")}</span>`;
   };
-  const JOB_TYPES = [["", "All"], ["automation", "Automation"], ["harness", "Harness"], ["ioi-agent", "IOI Agent"], ["failover", "Failover"]];
+  const JOB_TYPES = [["", "All"], ["automation", "Automation"], ["harness", "Harness"], ["work-result", "Work result"], ["failover", "Failover"]];
   const jobCounts = {};
   jobs.forEach((j) => { jobCounts[j.type] = (jobCounts[j.type] || 0) + 1; });
   const jobsChips = `<div class="chips" id="jobs-chips">${JOB_TYPES.map(([v, l]) => `<button class="chip${v === "" ? " on" : ""}" data-job-type="${v}" onclick="jobsChip(this)">${l} ${v === "" ? jobs.length : jobCounts[v] || 0}</button>`).join("")}</div>`;
@@ -1809,7 +1813,7 @@ function renderOperations(ops, authpol, prov, provReceipts, spendRecon, storageB
       <td>${CX_ESC(j.at)}</td>
       <td>${j.proof}</td>
     </tr>`).join("");
-  const jobsIncomplete = operationsUnavailable || goalRunsUnavailable || ledgerUnavailable || failoverRunsUnavailable;
+  const jobsIncomplete = operationsUnavailable || workResultsUnavailable || ledgerUnavailable || failoverRunsUnavailable;
   const jobsIncompleteNote = jobsIncomplete
     ? `<div class="empty compact">One or more job projections are unavailable; this is a partial list, not a complete count.</div>`
     : "";
@@ -2220,113 +2224,22 @@ function renderEnvironments(summary, classes, providerAccounts, venuesRes, polic
   return automationsShell("Environments", styles + head + posture + venueSection + decisionSection + paSection + archSection + table + script, { theme: "light" });
 }
 
-// ---- GoalRun proof page — the multi-harness orchestration ladder as Run Timeline sections.
-// Server-rendered from the daemon goal-run + events records (real refs only, nothing fabricated).
-function renderGoalRunTimeline(g, invocations, verifications, events) {
-  const enc = encodeURIComponent;
-  const pill = (cls, label) => `<span class="pill ${cls}">${CX_ESC(label)}</span>`;
-  const resultPill = (cls, state, label) =>
-    `<span class="pill ${cls}" data-result-state="${CX_ESC(state)}">${CX_ESC(label)}</span>`;
-  const stPill = (st) => pill(st === "complete" || st === "completed" ? "ok" : (st === "blocked" || st === "failed") ? "warn" : "muted", st || "—");
-  const grid = (pairs) => `<dl class="grid">${pairs.map(([k, v]) => `<dt>${CX_ESC(k)}</dt><dd>${v}</dd>`).join("")}</dl>`;
-  const code = (v) => v ? `<code>${CX_ESC(String(v))}</code>` : "—";
-  const topo = g.role_topology || {};
-  const roles = `<div class="chips"><span class="chiplabel">Conductor</span><span class="pill ok">${CX_ESC(topo.conductor_ref || "")}</span></div>
-    <div class="chips"><span class="chiplabel">Implementers</span>${(topo.implementer_refs || []).map((r) => `<span class="pill muted">${CX_ESC(r)}</span>`).join("")}</div>
-    <div class="chips"><span class="chiplabel">Verifier</span><span class="pill muted">${CX_ESC(topo.verifier_ref || "")} · deterministic</span>${(topo.excluded_implementers || []).map((x) => `<span class="pill warn" title="${CX_ESC(x.reason_code || "")}">excluded: ${CX_ESC(x.harness || x.profile_ref || "")} (${CX_ESC(x.reason_code || "")})</span>`).join("")}</div>`;
-  const verdictOf = (inv) => {
-    const v = verifications.find((x) => x.harness_invocation_ref === inv.harness_invocation_id);
-    return v ? v.verdict : "—";
-  };
-  const invRows = invocations.map((inv) => {
-    const canonicalResult = inv.implementation_result || null;
-    const pendingCandidate = inv.implementation_result_candidate || null;
-    const retainedProvenance = inv.execution_provenance || null;
-    const executionFacts = pendingCandidate || retainedProvenance || {};
-    const resultState = canonicalResult
-      ? `<div>${resultPill("ok", "admitted-result", "admitted result")} ${code(canonicalResult.implementation_result_id)} → ${code(canonicalResult.work_result_ref)}</div>${retainedProvenance ? `<div style="margin-top:4px">${resultPill("muted", "retained-provenance", "retained provenance")} ${code(retainedProvenance.source_candidate_ref)} · ${code(retainedProvenance.output_commitment)}</div>` : ""}`
-      : pendingCandidate
-        ? `${resultPill("muted", "candidate", "candidate")} ${code(pendingCandidate.candidate_ref)}`
-        : pill("muted", "no result");
-    const changedFiles = executionFacts.changed_files || [];
-    const evCount = events.filter((e) => e.harness_invocation_ref === inv.harness_invocation_id).length;
-    return `<tr>
-      <td><b>${CX_ESC(inv.role_key || "")}</b><div style="color:#878a93;font-size:11.5px">${CX_ESC(inv.harness || "")} · <code style="font-size:10.5px">${CX_ESC(inv.model_route_ref || "")}</code></div></td>
-      <td>${stPill(inv.status)}</td>
-      <td>${pill(verdictOf(inv) === "pass" ? "ok" : verdictOf(inv) === "fail" ? "warn" : "muted", "verify: " + verdictOf(inv))}</td>
-      <td>${evCount} events</td>
-      <td>${resultState}<div style="margin-top:4px">${(changedFiles || []).map((f) => `<code>${CX_ESC(f)}</code>`).join(" ") || "—"}</div></td>
-      <td>${inv.memory_projection_ref ? `<a href="/__ioi/intelligence/projections/${enc(String(inv.memory_projection_ref).replace("memory-projection://", ""))}/explain" title="explain this projection (vault truth → harness prompt)"><code style="font-size:10px">${CX_ESC(String(inv.memory_projection_ref).slice(0, 40))}…</code></a>` : "—"}</td>
-      <td>${executionFacts.transcript_run_ref ? `<a href="/__ioi/run-timeline/${enc(executionFacts.transcript_run_ref)}" target="_blank" rel="noopener">timeline ↗</a>` : "—"}<div style="color:#5f626b;font-size:10.5px">${CX_ESC((executionFacts.state_root || "").slice(0, 22))}</div></td>
-    </tr>`;
-  }).join("");
-  const artifacts = invocations.flatMap((inv) => {
-    const canonicalRefs = (inv.implementation_result || {}).artifact_refs || [];
-    const candidateRefs = (inv.implementation_result_candidate || inv.execution_provenance || {}).candidate_artifact_refs || [];
-    const refs = canonicalRefs.length ? canonicalRefs : candidateRefs;
-    const label = canonicalRefs.length ? "admitted" : "candidate";
-    return refs.map((r) => `<li><code>${CX_ESC(r)}</code> <span class="pill ${canonicalRefs.length ? "ok" : "muted"}">${CX_ESC(inv.role_key || "")} · ${label}</span></li>`);
-  }).join("");
-  const rec = g.reconciliation_ref ? null : null;
-  const recSection = g.reconciliation_ref
-    ? grid([
-        ["Result ref", code(g.reconciliation_ref)],
-        ["Final files", (g.final_changed_files || []).map((f) => `<code>${CX_ESC(f)}</code>`).join(" ") || "—"],
-        ["Run state", `${stPill(g.status)} ${pill("muted", g.continuation_state || "")}`],
-      ])
-    : `<div class="empty">Not reconciled yet — candidate artifacts stay isolated until an admitted reconciliation.</div>`;
-  const briefs = (g.task_briefs || []).map((b) => `<li><code>${CX_ESC(b.task_brief_id || "")}</code> — ${CX_ESC(b.objective_class || "")} · output contract: changed_files ${b.output_contract && b.output_contract.changed_files_required ? "required" : "optional"}</li>`).join("");
-  const projRefs = invocations.map((inv) => inv.memory_projection_ref).filter(Boolean);
-  const proof = grid([
-    ["GoalRun ref (internal)", code(g.goal_ref)],
-    ["Launch policy", g.policy_ref ? code(g.policy_ref) : "—"],
-    ["Memory projections", projRefs.length ? projRefs.map((r) => `<a href="/__ioi/intelligence/projections/${enc(String(r).replace("memory-projection://", ""))}/explain"><code style="font-size:10.5px">${CX_ESC(r)}</code></a>`).join("<br>") : "—"],
-    ["Admission", code((g.admission || {}).admission_id)],
-    ["Admission receipts", (((g.admission || {}).receipt_refs) || []).map((r) => `<code>${CX_ESC(r)}</code>`).join(" ") || "—"],
-    ["Capability lease", code(g.capability_lease_ref)],
-    ["Verifier evidence", (g.verification_refs || []).map((r) => `<code style="font-size:10.5px">${CX_ESC(r)}</code>`).join("<br>") || "—"],
-    ["Ledger", `<a href="/__ioi/work-ledger">proof stream →</a>`],
-  ]);
-  const inner = `<p><a href="/__ioi/work-ledger">← Work Ledger</a></p>
-    <h1>🎯 IOI Agent coordination ${stPill(g.status)}</h1>
-    <p class="sub">${CX_ESC(g.orchestration_policy || "")} · ${CX_ESC(g.active_loop_phase || "")} · target <code>${CX_ESC(g.target_session_ref || "")}</code> · <span title="internal orchestration object">GoalRun <code>${CX_ESC(g.goal_run_id || "")}</code></span></p>
-    <h2>Goal</h2><div class="grid" style="display:block;padding:14px 16px">${CX_ESC(g.normalized_goal || "")}</div>
-    <h2>Roles</h2>${roles}
-    <h2>Task briefs <span class="sub" style="text-transform:none;letter-spacing:0;font-weight:400">— the durable contract (rendered prompts are adapter-private)</span></h2><ul>${briefs || "<li>—</li>"}</ul>
-    <h2>Invocations (${invocations.length})</h2>${invocations.length ? `<table><thead><tr><th>Role</th><th>Status</th><th>Verifier</th><th>Events</th><th>Changed files</th><th>Memory projection</th><th>Proof</th></tr></thead><tbody>${invRows}</tbody></table>` : `<div class="empty">Not started.</div>`}
-    <h2>Invocation outputs <span class="sub" style="text-transform:none;letter-spacing:0;font-weight:400">— candidates stay non-canonical until WorkResult convergence</span></h2><ul>${artifacts || "<li>—</li>"}</ul>
-    <h2>Reconciliation</h2>${recSection}
-    ${(g.blockers || []).length ? `<h2>Blockers (explicit partial)</h2><ul>${g.blockers.map((b) => `<li><span class="pill warn">${CX_ESC(b.reason_code || "")}</span> ${CX_ESC(b.message || "")}</li>`).join("")}</ul>` : ""}
-    <h2>Proof</h2>${proof}`;
-  return automationsShell(`GoalRun ${g.goal_run_id || ""}`, inner);
-}
+// R-192 (S5-1): the GoalRun proof page renderer stood here — goal, roles, invocations,
+// candidate artifacts, reconciliation and proof, drawn from two daemon GoalRun records. Its
+// route now answers a typed 410 and the renderer is gone rather than left compiling over a
+// shape nothing produces: a goal run is an ioi.ai composition over thread orchestration
+// primitives, and the Hypervisor serves no GoalRun route.
 
-// Workbench GoalRuns panel — orchestrated multi-harness work for the estate's sessions
-// (role topology, invocation posture, final result, proof link). Additive to the grafted
-// master-detail shell; honest empty state.
-function renderWorkbenchGoalRuns(goalRuns) {
-  const enc = encodeURIComponent;
-  const rows = (goalRuns || []).slice(0, 10).map((g) => {
-    const topo = g.role_topology || {};
-    const st = g.status || "draft";
-    return `<tr>
-      <td>${CX_ESC(String(g.normalized_goal || "").slice(0, 64))}<div style="color:#878a93;font-size:11px"><code>${CX_ESC(g.goal_run_id || "")}</code> → <code>${CX_ESC(g.target_session_ref || "")}</code></div></td>
-      <td><span class="pill ${st === "complete" ? "ok" : st === "blocked" ? "warn" : "muted"}">${CX_ESC(st)}</span>${g.partial_result ? ' <span class="pill warn">partial</span>' : ""}</td>
-      <td>${(topo.implementer_refs || []).map((r) => `<span class="pill muted">${CX_ESC(String(r).replace("harness-profile:hp_", ""))}</span>`).join(" ")}</td>
-      <td>${(g.final_changed_files || []).map((f) => `<code>${CX_ESC(f)}</code>`).join(" ") || "—"}</td>
-      <td><a href="/__ioi/run-timeline/goal-run/${enc(g.goal_run_id || "")}" target="_blank" rel="noopener">proof ↗</a></td>
-    </tr>`;
-  }).join("");
-  const body = (goalRuns || []).length
-    ? `<table><thead><tr><th>Goal</th><th>Status</th><th>Implementers</th><th>Final files</th><th>Proof</th></tr></thead><tbody>${rows}</tbody></table>`
-    : `<div class="empty">No IOI Agent runs yet. Start one from New Session — IOI Agent coordinates the harnesses under one governed run.</div>`;
-  return `<h2 id="goal-runs">IOI Agent runs</h2><p class="sub" style="margin:-4px 0 12px">IOI Agent–coordinated work — parallel implementer cells over isolated candidate workspaces, verifier-admitted reconciliation into the session workspace. GoalRun refs are the internal proof objects.</p>${body}`;
-}
+// R-192 (S5-1): a Workbench "IOI Agent runs" panel stood here — GoalRuns with their role
+// topology, implementer harness refs and final changed files. It is gone with its plane rather
+// than re-skinned: goal runs are ioi.ai compositions over thread orchestration primitives, not
+// Hypervisor surfaces, and the daemon serves no GoalRun route. Workbench keeps what it owns —
+// environments, editor targets and sessions — and claims nothing about coordinated pursuit.
 
 // ---- Workbench — a LAUNCHER into an environment's live console (files/terminal/ports/tasks).
 // Reads the daemon env-summary projection (paged); "Open Workbench" navigates top-level to
 // /workspaces/:id (the real console; NOT iframed here). No owned terminal/editor.
-function renderWorkbench(summary, editorTargets, sessionsRes, goalRuns) {
+function renderWorkbench(summary, editorTargets, sessionsRes) {
   summary = summary || {};
   const enc = encodeURIComponent;
   const envs = summary.environments || [];
@@ -2355,7 +2268,7 @@ function renderWorkbench(summary, editorTargets, sessionsRes, goalRuns) {
     ? `<h2 id="editor-targets">Editors</h2><p class="sub" style="margin:-4px 0 12px">The daemon editor-target registry — every way to open a workspace, with its probed open posture and lease/revocation contract. Only an <b>openable</b> target is offered on environments below.</p><table><thead><tr><th>Editor</th><th>Open kind</th><th>Open posture</th><th>Lease / revocation</th></tr></thead><tbody>${etRows}</tbody></table>`
     : "";
   if (!(summary.total_matching || 0)) {
-    return automationsShell("Workbench", head + editorsPanel + `<div class="empty">No active environments to open. Start a session or create an environment from a project, then open its workbench here.</div>` + renderWorkbenchSessions(sessionsRes) + renderWorkbenchGoalRuns(goalRuns));
+    return automationsShell("Workbench", head + editorsPanel + `<div class="empty">No active environments to open. Start a session or create an environment from a project, then open its workbench here.</div>` + renderWorkbenchSessions(sessionsRes));
   }
   // Master-detail working shell (source shape: Workbench is the composition container, not a flat
   // launcher): environment rows select into a detail pane composed ENTIRELY from the three
@@ -2421,7 +2334,7 @@ function renderWorkbench(summary, editorTargets, sessionsRes, goalRuns) {
     });});
   </script>`;
   const table = `${pager}<div class="wlwrap"><div><table><thead><tr><th>Environment</th><th>Phase · readiness</th><th>Ports·Svc·Tasks</th><th>Open</th></tr></thead><tbody>${rows}</tbody></table>${pager}</div>${drawer}</div>`;
-  return automationsShell("Workbench", head + editorsPanel + table + renderWorkbenchSessions(sessionsRes) + renderWorkbenchGoalRuns(goalRuns) + script);
+  return automationsShell("Workbench", head + editorsPanel + table + renderWorkbenchSessions(sessionsRes) + script);
 }
 
 // Sessions panel — the daemon session records with their ADMITTED harness bindings (selection is
@@ -5352,11 +5265,11 @@ function renderDataLineage(lists, selectedId, objectSetSel, wrap = automationsSh
 // place); empty lanes render an honest empty state. Shell geometry is glyph-anchored to the
 // reference capture (/__apps/incidents, Closed lane); the row LIST is the live body (excluded
 // from shell-pixel certification, verified semantically by the incidents verifier).
-function renderIncidentsPort(ops, goalRuns, lane) {
-  const enc = encodeURIComponent, esc = CX_ESC;
+function renderIncidentsPort(ops, workResults, lane) {
+  const esc = CX_ESC;
   const runs = (ops && ops.runs) || {};
   const failures = Array.isArray(runs.failures) ? runs.failures : [];
-  const gr = Array.isArray(goalRuns) ? goalRuns : [];
+  const wr = Array.isArray(workResults) ? workResults : [];
   const TERMINAL = new Set(["complete", "completed", "done", "succeeded", "failed", "cancelled", "canceled"]);
   const DAY = 86400000;
   const ago = (t) => {
@@ -5365,22 +5278,24 @@ function renderIncidentsPort(ops, goalRuns, lane) {
     return d === 0 ? "today" : d === 1 ? "1 day ago" : `${d} days ago`;
   };
   // REAL incidents, in the reference's row shape: title = "<reason> · <subject id>".
-  const blockerIncident = (r) => {
-    const b = (Array.isArray(r.blockers) && r.blockers[0]) || {};
-    return {
-      kind: "Blocker", id: r.goal_run_id || "", title: `${b.reason_code || "blocked"} · ${r.goal_run_id || r.goal_ref || "goal-run"}`,
-      created: r.created_at || "", updated: r.updated_at || r.created_at || "",
-      closed: TERMINAL.has(String(r.status || "").toLowerCase()),
-      proof: r.goal_run_id ? `/__ioi/run-timeline/goal-run/${enc(r.goal_run_id)}` : "",
-      detail: b.role_key ? `role ${b.role_key}` : (r.status || ""),
-    };
-  };
+  // R-192 (S5-1): this was a GoalRun blocker. Goal runs are ioi.ai compositions over thread
+  // orchestration primitives and the daemon serves no GoalRun route, so the incident is now the
+  // platform record of the same trouble: a WorkResult that failed or is blocked, titled by its
+  // outcome and the work subject the producing application named.
+  const resultIncident = (r) => ({
+    kind: "Failed result", id: r.work_result_id || "",
+    title: `${r.outcome_class || r.status || "failed"} · ${r.work_subject_ref || r.work_result_id || "work subject"}`,
+    created: r.recorded_at || r.created_at || "", updated: r.updated_at || r.recorded_at || r.created_at || "",
+    closed: TERMINAL.has(String(r.status || "").toLowerCase()),
+    proof: "",
+    detail: r.status || "",
+  });
   const failureIncident = (r) => ({
     kind: "Run failure", id: r.execution_id || "", title: `${r.status || "failed"} · ${r.name || r.execution_id || "run"}`,
     created: r.started_at || "", updated: r.finished_at || r.started_at || "",
     closed: false, proof: canonicalTimelineRef(r.timeline_ref) || "/__ioi/work-ledger", detail: r.project_id || "",
   });
-  const incidents = gr.filter((r) => Array.isArray(r.blockers) && r.blockers.length).map(blockerIncident)
+  const incidents = wr.filter((r) => ["failed", "blocked"].includes(String(r.status || "").toLowerCase())).map(resultIncident)
     .concat(failures.map(failureIncident));
   const open = incidents.filter((i) => !i.closed), closed = incidents.filter((i) => i.closed);
   const rowsAll = { open, closed, all: incidents }[lane] || open;
@@ -8077,15 +7992,16 @@ async function handleEstateRequest(req, res, body) {
     // and IOI Agent coordination runs. Each row opens its owned timeline; nothing is synthesized.
     if ((pathname === "/__ioi/run-timeline" || pathname === "/__ioi/run-replay") && req.method === "GET" && !(new URLSearchParams((req.url || "").split("?")[1] || "").get("runId"))) {
       const replayHeaders = daemonRequestHeaders(req);
-      const [trRead, grRead, postureRead] = await Promise.all([
+      // R-192 (S5-1): a third source stood here, the GoalRun list, and with it the preference for
+      // the GoalRun plane's owner-filtered refusal over the others. Goal runs are ioi.ai
+      // compositions over thread orchestration primitives and the daemon serves no GoalRun route,
+      // so the index lists what the platform itself records: live agent sessions and the durable
+      // operation and execution transcripts.
+      const [trRead, postureRead] = await Promise.all([
         readDaemonJsonProjection("/v1/hypervisor/agent-run-transcripts", replayHeaders),
-        readDaemonJsonProjection("/v1/goal-orchestration/goal-runs", replayHeaders),
         readDaemonJsonProjection("/v1/hypervisor/auth/policy", replayHeaders),
       ]);
-      // Prefer the owner-filtered GoalRun refusal when more than one source refuses. Its typed
-      // response distinguishes authentication, exposure, and owner posture without disclosing
-      // whether any transcript or GoalRun exists.
-      const unavailable = !grRead.ok ? grRead : !trRead.ok ? trRead : !postureRead.ok ? postureRead : null;
+      const unavailable = !trRead.ok ? trRead : !postureRead.ok ? postureRead : null;
       if (unavailable) {
         const status = unavailable.status >= 400 ? unavailable.status : 503;
         const code = daemonProjectionCode(unavailable, "run_replay_projection_unavailable");
@@ -8103,11 +8019,9 @@ async function handleEstateRequest(req, res, body) {
         return;
       }
       const trRes = trRead.body;
-      const grRes = grRead.body;
       const rows = [];
       listRuns().forEach((r) => rows.push({ kind: "session", title: r.title || r.prompt || "agent session", id: r.id, status: r.status || "", at: r.createdAt || "", root: "", href: `/__ioi/run-timeline/${encodeURIComponent(r.id)}` }));
       (trRes.runs || []).forEach((t) => rows.push({ kind: t.kind === "harness-profile-op" || t.kind === "model-route-op" ? "admin-op" : "execution", title: `${t.op || t.kind || "run"}${t.profile_ref ? " · " + t.profile_ref : ""}`, id: t.run_id || "", status: t.status || "", at: t.started_at || t.recorded_at || "", root: t.state_root || "", href: `/__ioi/run-timeline/${encodeURIComponent(t.run_id || "")}` }));
-      (grRes.goal_runs || []).forEach((g) => rows.push({ kind: "ioi-agent", title: `coordination · ${String(g.normalized_goal || "goal").slice(0, 48)}`, id: g.goal_run_id || "", status: g.status || "", at: g.created_at || "", root: "", href: `/__ioi/run-timeline/goal-run/${encodeURIComponent(g.goal_run_id || "")}` }));
       rows.sort((a, b) => String(b.at).localeCompare(String(a.at)));
       const counts = {};
       rows.forEach((r) => { counts[r.kind] = (counts[r.kind] || 0) + 1; });
@@ -8120,8 +8034,8 @@ async function handleEstateRequest(req, res, body) {
           <td>${r.root ? `<code style="font-size:10px">${CX_ESC(String(r.root).slice(0, 20))}</code>` : "—"}</td>
           <td><a href="${r.href}" target="_blank" rel="noopener">replay ↗</a></td>
         </tr>`).join("");
-      const inner = `<h1>Run Replay</h1><p class="sub">Every recorded run, newest first — live agent sessions, durable operation and execution transcripts, IOI Agent coordination. Each replay opens the owned timeline with its lineage, temporal trace, and proof. <a href="/__ioi/work-ledger">Proof stream →</a></p>
-        ${rows.length ? `<div class="chips" id="rr-chips">${chip("", "All")}${chip("session", "Sessions")}${chip("execution", "Executions")}${chip("ioi-agent", "IOI Agent")}${chip("admin-op", "Admitted ops")}</div>
+      const inner = `<h1>Run Replay</h1><p class="sub">Every recorded run, newest first — live agent sessions and durable operation and execution transcripts. Each replay opens the owned timeline with its lineage, temporal trace, and proof. <a href="/__ioi/work-ledger">Proof stream →</a></p>
+        ${rows.length ? `<div class="chips" id="rr-chips">${chip("", "All")}${chip("session", "Sessions")}${chip("execution", "Executions")}${chip("admin-op", "Admitted ops")}</div>
         <table><thead><tr><th>Run</th><th>Kind</th><th>Status</th><th>When</th><th>State root</th><th>Replay</th></tr></thead><tbody id="rr-body">${rrRows}</tbody></table><div class="empty" id="rr-empty" style="display:none">No runs of this kind yet.</div>
         <script>function rrChip(b){document.querySelectorAll('#rr-chips .chip').forEach(function(x){x.classList.toggle('on',x===b);});var w=b.getAttribute('data-rr');var n=0;document.querySelectorAll('#rr-body tr').forEach(function(r){var on=!w||r.getAttribute('data-rrk')===w;r.style.display=on?'':'none';if(on)n++;});document.getElementById('rr-empty').style.display=n?'none':'';}</script>`
         : `<div class="empty">No recorded runs yet — governed work lands here with a replayable timeline as it happens.</div>`}`;
@@ -8136,40 +8050,14 @@ async function handleEstateRequest(req, res, body) {
       let runId = "";
       let envId = "";
       if (rest.startsWith("goal-run/")) {
-        // GoalRun proof page — the orchestration ladder as sections (Goal, Roles, Invocations,
-        // Candidate Artifacts, Reconciliation, Proof), rendered from the daemon records. Both
-        // reads carry the caller's bounded identity envelope: the product shell must never turn
-        // an exposed anonymous or wrong-owner request into loopback operator authority.
-        const grid = decodeURIComponent(rest.slice("goal-run/".length).split("/")[0]);
-        const timelineHeaders = daemonRequestHeaders(req);
-        const goalPath = `/v1/goal-orchestration/goal-runs/${encodeURIComponent(grid)}`;
-        const [gRes, eRes] = await Promise.all([
-          readDaemonJsonProjection(
-            goalPath,
-            timelineHeaders,
-            M4_OWNER_PROJECTION_TIMEOUT_MS,
-          ),
-          readDaemonJsonProjection(
-            `${goalPath}/events`,
-            timelineHeaders,
-            M4_OWNER_PROJECTION_TIMEOUT_MS,
-          ),
-        ]);
-        const unavailable = !gRes.ok ? gRes : !eRes.ok ? eRes : null;
-        if (unavailable) {
-          const status = unavailable.status >= 400 ? unavailable.status : 503;
-          const code = daemonProjectionCode(unavailable, "goal_run_timeline_unavailable");
-          res.writeHead(status, { "Content-Type": "text/html; charset=utf-8", "Cache-Control": "no-cache" });
-          res.end(automationsShell("GoalRun unavailable", `<div id="goal-run-timeline-unavailable" class="empty" data-error-code="${CX_ESC(code)}">GoalRun timeline unavailable: HTTP ${CX_ESC(String(status))} · <code>${CX_ESC(code)}</code>. No owner GoalRun, invocation, result, receipt, or replay truth is shown.</div>`));
-          return;
-        }
-        res.writeHead(200, { "Content-Type": "text/html; charset=utf-8", "Cache-Control": "no-cache" });
-        res.end(renderGoalRunTimeline(
-          gRes.body.goal_run,
-          eRes.body.invocations || [],
-          eRes.body.verifications || [],
-          eRes.body.events || [],
-        ));
+        // RETIRED 2026-09-18 (R-192, S5-1). A GoalRun proof page stood here — goal, roles,
+        // invocations, candidate artifacts, reconciliation and proof, read from two daemon
+        // GoalRun routes. Goal runs are ioi.ai compositions over thread orchestration primitives,
+        // not Hypervisor surfaces, and the daemon serves neither route now, so the page answers a
+        // typed 410 naming where the pursuit record lives instead of a 502 from a dead read.
+        const code = "goal_run_timeline_retired";
+        res.writeHead(410, { "Content-Type": "text/html; charset=utf-8", "Cache-Control": "no-store" });
+        res.end(automationsShell("GoalRun timeline retired", `<div id="goal-run-timeline-retired" class="empty" data-error-code="${code}">This proof page is retired: <code>${code}</code>. A goal run is an ioi.ai composition over the Hypervisor's thread orchestration primitives, not a Hypervisor object, and this daemon serves no GoalRun route. The platform records that outlive a pursuit are here: <a href="/__ioi/work-ledger">Work Ledger</a> · <a href="/__ioi/run-replay">Run Replay</a>.</div>`));
         return;
       }
       // Generic transcript, environment, and draft aliases resolve through the serve-side run
@@ -8459,20 +8347,22 @@ async function handleEstateRequest(req, res, body) {
               _id: b64("build:" + o.refKey),
               __typename: "BuildReport",
             });
-            const [grj, ssj, atj] = await Promise.all([
-              daemonFetch(`/v1/goal-orchestration/goal-runs`).then((r) => r.json()),
+            // R-192 (S5-1): the first source was the GoalRun list. Goal runs are ioi.ai
+            // compositions over thread orchestration primitives and the daemon serves no GoalRun
+            // route, so a recorded WorkResult is the build row's platform subject now.
+            const [wrj, ssj, atj] = await Promise.all([
+              daemonFetch(`/v1/hypervisor/work-results`).then((r) => r.json()),
               daemonFetch(`/v1/hypervisor/sessions`).then((r) => r.json()),
               daemonFetch(`/v1/hypervisor/automations`).then((r) => r.json()),
             ]);
             const autoDefs = atj.automations || [];
             const runsPer = await Promise.all(autoDefs.map((a) => daemonFetch(`/v1/hypervisor/automations/${encodeURIComponent(a.automation_id)}/runs`).then((r) => r.json()).catch(() => ({}))));
             const rows = [];
-            const grStatus = { complete: "SUCCEEDED", blocked: "FAILED", active: "RUNNING" };
-            for (const g of grj.goal_runs || []) {
-              if (g.status === "draft") continue; // a draft is not yet a run
-              const st = grStatus[g.status] || "RUNNING";
-              const id = String(g.goal_ref || g.goal_run_id || "").replace(/^goal:\/\//, "");
-              rows.push(mkBuild({ kind: "goal-run", refKey: `goal-run:${id}`, status: st, startedAt: g.created_at, finishedAt: g.status === "complete" ? g.updated_at : null, name: g.goal_ref || id, openUrl: `/__ioi/run-timeline/goal-run/${encodeURIComponent(id)}`, icon: "flows", jobs: [mkJob(`goal-run:${id}`, st)] }));
+            const wrStatus = { completed: "SUCCEEDED", failed: "FAILED", blocked: "FAILED", partial: "RUNNING", challenged: "RUNNING", superseded: "CANCELED" };
+            for (const r of wrj.work_results || []) {
+              const st = wrStatus[r.status] || "RUNNING";
+              const id = String(r.work_result_id || "").replace(/^work-result:\/\//, "");
+              rows.push(mkBuild({ kind: "work-result", refKey: `work-result:${id}`, status: st, startedAt: r.recorded_at || r.created_at, finishedAt: r.status === "completed" ? (r.updated_at || r.recorded_at || r.created_at) : null, name: String(r.work_subject_ref || id).slice(0, 64), openUrl: "/__ioi/missions", icon: "work-result", jobs: [], schedule: null }));
             }
             const ssStatus = { provisioned: "RUNNING", executed: "SUCCEEDED", execution_failed: "FAILED" };
             for (const s of ssj.sessions || []) {
@@ -10395,14 +10285,14 @@ async function handleEstateRequest(req, res, body) {
         { key: "runtime_tasks", path: "/v1/tasks", label: "Runtime tasks",
           role: "the runtime TASK projection of the same run records — a third noun over the same substrate",
           owner: "/__ioi/agent-studio", ownerLabel: "Agent Studio" },
-        { key: "goal_runs", path: "/v1/goal-orchestration/goal-runs", label: "GoalRuns",
-          role: "the orchestration plane's own long-lived run object (grounding loop, blockers, handoffs) — governed work, not an automation build",
+        { key: "work_results", path: "/v1/hypervisor/work-results", label: "Work results",
+          role: "the platform's generic result record, named by the work subject the producing application recorded — the run-shaped noun that survives a pursuit, not an automation build",
           owner: "/__ioi/missions", ownerLabel: "Missions" },
-        { key: "agent_launches", path: "/v1/goal-orchestration/ioi-agent/launches", label: "Agent launches",
-          role: "recorded agent launches with their strategy, policy and outcome — a launch is an admission decision, not a build",
-          owner: "/__ioi/agent-studio", ownerLabel: "Agent Studio" },
+        { key: "work_lifecycle_records", path: "/v1/hypervisor/work-lifecycle/records", label: "Work lifecycle records",
+          role: "an object's append-only lifecycle chain and the projection rebuilt from it, written through one generic owner-scoped route for any object kind a composing application keeps a lifecycle for (R-192)",
+          owner: "/__ioi/work-ledger", ownerLabel: "Work Ledger" },
         { key: "attempts", path: "/v1/hypervisor/autonomous-systems/:system_id/records?contract_id=schema://ioi/applications/ioi-ai/attempt/v4", label: "Orchestration attempts",
-          role: "attempts are v4 application records composed over the orchestration and served by the System-record seam (R-177 S4a); the retired goal-orchestration plane answered them and held none",
+          role: "attempts are v4 application records composed over the orchestration and served by the System-record seam (R-177 S4a); the goal-orchestration plane that once answered them held none and is itself retired (R-192 S5-1)",
           owner: "/__ioi/missions", ownerLabel: "Missions" },
         { key: "foundry_run_plans", path: "/v1/hypervisor/foundry/run-plans", label: "Foundry run plans",
           role: "draft run plans over the model substrate — planned work, and the plane holds none",
@@ -12001,11 +11891,8 @@ async function handleEstateRequest(req, res, body) {
         { key: "consumption", path: "/v1/hypervisor/usage/consumption", probe: "/v1/hypervisor/usage/consumption", shape: "singleton", lane: "invocation",
           label: "Consumption series — the roll-up over the same meter", role: "a time-series status object, never a collection of one. Read for the lane's completeness; no invocation row on this page is minted from it",
           owner: "/__ioi/operations", ownerLabel: "Operations" },
-        { key: "goal_runs", path: "/v1/goal-orchestration/goal-runs", probe: "/v1/goal-orchestration/goal-runs", shape: "collection", pick: (b) => b?.goal_runs, lane: "invocation",
-          label: "Goal runs — the estate's REAL inference orchestration lane, and the plane that DOES carry a space key", role: "the records that fan out into the harness invocations the ledger counts. Every one carries a project_ref, which is the closest the estate comes to a space-scoped inference record — and the value it carries is the load-bearing half of this page's finding",
-          owner: "/__ioi/missions", ownerLabel: "Missions" },
-        { key: "agent_launches", path: "/v1/goal-orchestration/ioi-agent/launches", probe: "/v1/goal-orchestration/ioi-agent/launches", shape: "collection", pick: (b) => b?.launches, lane: "invocation",
-          label: "Agent launches — the delivered-intent lane beneath the goal runs", role: "one record per launched agent, carrying the delivered intent and its projection refs. Read here for the lane census and to check the space key from a third side; the launches themselves belong to the Missions surface",
+        { key: "work_results", path: "/v1/hypervisor/work-results", probe: "/v1/hypervisor/work-results", shape: "collection", pick: (b) => b?.work_results, lane: "invocation",
+          label: "Work results — the platform record the invocation lane leaves behind", role: "R-192 (S5-1): two rows stood here, goal runs and agent launches, and both left with the goal-orchestration plane — a goal run is an ioi.ai composition over thread orchestration primitives, not a Hypervisor object. What the platform itself records for this lane is the generic WorkResult, named by the work subject the producing application recorded.",
           owner: "/__ioi/missions", ownerLabel: "Missions" },
         { key: "model_routes", path: "/v1/hypervisor/model-routes", probe: "/v1/hypervisor/model-routes", shape: "collection", pick: (b) => b?.routes, lane: "model",
           label: "Model routes — WHAT an inference would run on", role: "the registry the invoke verb resolves its target from. Rendered in full by the Model Catalog and READ here for the count and the executable predicate, never re-listed as cards",
@@ -12624,11 +12511,11 @@ async function handleEstateRequest(req, res, body) {
     // model_eval drafts. Declaration-only; nothing scores/executes. /__ioi/feedback stays a sublane.
     if (pathname === "/__ioi/evaluations" && req.method === "GET") {
       const flash = new URL(req.url, "http://x").searchParams.get("refused") || "";
-      const [suitesRes, ovRes, opsRes, grRes, foundryRes, fbOvRes] = await Promise.all([
+      const [suitesRes, ovRes, opsRes, wrRes, foundryRes, fbOvRes] = await Promise.all([
         daemonFetch(`/v1/hypervisor/eval-suites`).then((x) => x.json()).catch(() => ({})),
         daemonFetch(`/v1/hypervisor/eval-suites/overview`).then((x) => x.json()).catch(() => ({})),
         daemonFetch(`/v1/hypervisor/operations`).then((x) => x.json()).catch(() => ({})),
-        daemonFetch(`/v1/goal-orchestration/goal-runs`).then((x) => x.json()).catch(() => ({})),
+        daemonFetch(`/v1/hypervisor/work-results`).then((x) => x.json()).catch(() => ({})),
         daemonFetch(`/v1/hypervisor/foundry/specs`).then((x) => x.json()).catch(() => ({})),
         daemonFetch(`/v1/hypervisor/feedback/overview`).then((x) => x.json()).catch(() => ({})),
       ]);
@@ -12636,7 +12523,9 @@ async function handleEstateRequest(req, res, body) {
       const subjects = {
         missionRuns: Array.isArray(runs.recent) ? runs.recent : [],
         failedRuns: Array.isArray(runs.failures) ? runs.failures : [],
-        blockers: (grRes.goal_runs || []).filter((r) => Array.isArray(r.blockers) && r.blockers.length),
+        // R-192 (S5-1): "blockers" were GoalRun blockers. The platform record of the same trouble
+        // is a WorkResult that failed or is blocked; the pursuit that produced it is ioi.ai's.
+        blockers: (wrRes.work_results || []).filter((r) => ["failed", "blocked"].includes(String(r.status || "").toLowerCase())),
       };
       const foundryEvalSpecs = (foundryRes.specs || foundryRes.model_specs || []).filter((s) => /eval/i.test(s.kind || s.spec_kind || s.intent || s.spec_type || ""));
       res.writeHead(200, { "Content-Type": "text/html; charset=utf-8", "Cache-Control": "no-cache" });
@@ -12821,17 +12710,17 @@ async function handleEstateRequest(req, res, body) {
       return;
     }
     if (pathname === "/__ioi/missions/incidents" && req.method === "GET") {
-      const [opsRes, grRes] = await Promise.all([
+      const [opsRes, wrRes] = await Promise.all([
         daemonFetch(`/v1/hypervisor/operations`).then((x) => x.json()).catch(() => ({})),
-        daemonFetch(`/v1/goal-orchestration/goal-runs`).then((x) => x.json()).catch(() => ({})),
+        daemonFetch(`/v1/hypervisor/work-results`).then((x) => x.json()).catch(() => ({})),
       ]);
       const qp = new URL(req.url, "http://x").searchParams;
       const lane = ["open", "closed", "all"].includes(qp.get("lane")) ? qp.get("lane") : "open";
-      sendOwnedSurfaceHtml(res, "incidents", renderIncidentsPort(opsRes, grRes.goal_runs || [], lane));
+      sendOwnedSurfaceHtml(res, "incidents", renderIncidentsPort(opsRes, wrRes.work_results || [], lane));
       return;
     }
     if (pathname === "/__ioi/operations" && req.method === "GET") {
-      const [r, authpol, prov, provReceipts, spendRecon, storageB, storageInc, akashDepin, failoverRuns, failoverPlans2, goalRunsRes, ledgerRes] = await Promise.all([
+      const [r, authpol, prov, provReceipts, spendRecon, storageB, storageInc, akashDepin, failoverRuns, failoverPlans2, workResultsRes, ledgerRes] = await Promise.all([
         readOperationsPlane("/v1/hypervisor/operations"),
         readOperationsPlane("/v1/hypervisor/auth/policy"),
         readOperationsPlane("/v1/hypervisor/providers"),
@@ -12842,11 +12731,11 @@ async function handleEstateRequest(req, res, body) {
         readOperationsPlane("/v1/hypervisor/akash-deployments"),
         readOperationsPlane("/v1/hypervisor/failover/runs"),
         readOperationsPlane("/v1/hypervisor/failover/plans"),
-        readOperationsPlane("/v1/goal-orchestration/goal-runs"),
+        readOperationsPlane("/v1/hypervisor/work-results"),
         readOperationsPlane("/v1/hypervisor/work-ledger"),
       ]);
       res.writeHead(200, { "Content-Type": "text/html; charset=utf-8", "Cache-Control": "no-cache" });
-      res.end(renderOperations(r, authpol, prov, provReceipts, spendRecon, storageB, storageInc, akashDepin, failoverRuns, failoverPlans2, goalRunsRes, ledgerRes));
+      res.end(renderOperations(r, authpol, prov, provReceipts, spendRecon, storageB, storageInc, akashDepin, failoverRuns, failoverPlans2, workResultsRes, ledgerRes));
       return;
     }
     // ---- Environments — substrate estate; reads the daemon env-summary projection (paged) + classes.
@@ -12870,14 +12759,13 @@ async function handleEstateRequest(req, res, body) {
     // ---- Workbench — launcher; reads the daemon env-summary projection (paged).
     if (pathname === "/__ioi/workbench" && req.method === "GET") {
       const offset = parseInt(new URL(req.url, "http://x").searchParams.get("offset") || "0", 10) || 0;
-      const [sRes, etRes, sessRes, grRes] = await Promise.all([
+      const [sRes, etRes, sessRes] = await Promise.all([
         daemonFetch(`/v1/hypervisor/environments-summary?limit=60&offset=${offset}`).then((x) => x.json()).catch(() => ({})),
         daemonFetch(`/v1/hypervisor/editor-targets`).then((x) => x.json()).catch(() => ({})),
         daemonFetch(`/v1/hypervisor/sessions`).then((x) => x.json()).catch(() => ({})),
-        daemonFetch(`/v1/goal-orchestration/goal-runs`).then((x) => x.json()).catch(() => ({})),
       ]);
       res.writeHead(200, { "Content-Type": "text/html; charset=utf-8", "Cache-Control": "no-cache" });
-      res.end(renderWorkbench(sRes, etRes, sessRes, grRes.goal_runs || []));
+      res.end(renderWorkbench(sRes, etRes, sessRes));
       return;
     }
     // ---- New Session launcher (02-new-session graft) — the owned rail-modal's daemon-backed
@@ -12885,65 +12773,31 @@ async function handleEstateRequest(req, res, body) {
     // registry-derived harness matrix, model routes); launch forwards to the daemon session
     // create (harness selection admitted BEFORE provisioning, fail-closed) and then compiles the
     // capability-admitted knob binding (WS-D) so reasoning/speed are daemon objects, not UI state.
-    // ---- IOI Agent launch lane (the user-facing product mode). Preview is a straight
-    // daemon proxy; launch composes the daemon's two-phase wallet contract with THIS host's
-    // wallet signer (the same local wallet-holder pattern as the /ai agent-run lane): phase A
-    // provisions + returns the authority challenge, serve mints the grant, phase B executes.
-    if (pathname === "/__ioi/api/ioi-agent/preview" && req.method === "POST") {
-      const r = await daemonFetch(`/v1/goal-orchestration/ioi-agent/launch-preview`, { method: "POST", headers: { "content-type": "application/json" }, body: body.toString() || "{}" }).catch(() => null);
-      const j = r ? await r.json().catch(() => ({})) : { ok: false, error: { code: "daemon_unavailable" } };
-      res.writeHead(r ? r.status : 502, { "Content-Type": "application/json", "Cache-Control": "no-cache" });
-      res.end(JSON.stringify(j));
+    // ---- IOI Agent launch lane — RETIRED 2026-09-18 (R-192, S5-1).
+    //
+    // Two proxies stood here: a straight pass-through to the daemon's launch-preview, and a
+    // launch relay that composed the daemon's two-phase wallet contract with this host's wallet
+    // signer over its own node:http client, because a synchronous launch legitimately outruns
+    // undici's fixed 300s header wait.
+    //
+    // What they reached is gone. That plane took a GOAL and chose a strategy for pursuing it —
+    // a direct single-harness session, or an internal multi-harness compare-and-reconcile that
+    // minted a GoalRun — and goal pursuit is an ioi.ai composition over the Hypervisor's thread
+    // orchestration primitives, not a Hypervisor surface. Both routes answer a typed 410 rather
+    // than relaying into a 404, and the wallet two-phase pattern they used is unchanged and still
+    // live on the lanes that own their own execution.
+    if ((pathname === "/__ioi/api/ioi-agent/preview" || pathname === "/__ioi/api/ioi-agent/launch")
+      && req.method === "POST") {
+      res.writeHead(410, { "Content-Type": "application/json", "Cache-Control": "no-store" });
+      res.end(JSON.stringify({
+        ok: false,
+        error: {
+          code: "ioi_agent_launch_retired",
+          message: "The IOI Agent launch lane chose how to pursue a goal, which is an ioi.ai composition over this daemon's thread orchestration primitives, not a Hypervisor surface. This host relays no goal-orchestration route.",
+        },
+      }));
       return;
     }
-    if (pathname === "/__ioi/api/ioi-agent/launch" && req.method === "POST") {
-      // node:http for both phases — undici fetch caps the response-header wait at a fixed 300s,
-      // but a synchronous launch legitimately runs to the daemon's execution budgets (compare:
-      // up to two 660s-reaped invocations + retry). The relay must outwait the daemon, not undici.
-      const daemonLaunch = (payload) => new Promise((resolve) => {
-        const target = new URL(`${DAEMON}/v1/goal-orchestration/ioi-agent/launch`);
-        const reqUp = http.request(
-          { hostname: target.hostname, port: target.port, path: target.pathname, method: "POST",
-            headers: { "content-type": "application/json", "content-length": Buffer.byteLength(payload) } },
-          (r) => {
-            let raw = "";
-            r.on("data", (c) => { raw += c; });
-            r.on("end", () => { let j = {}; try { j = JSON.parse(raw); } catch {} resolve({ status: r.statusCode, j }); });
-          },
-        );
-        reqUp.on("error", () => resolve(null));
-        reqUp.write(payload); reqUp.end();
-      });
-      const phaseA = await daemonLaunch(body.toString() || "{}");
-      const a = phaseA ? phaseA.j : { error: { code: "daemon_unavailable" } };
-      if (!phaseA || (phaseA.status !== 403 && phaseA.status >= 400) || a.reason !== "execution_authority_required") {
-        res.writeHead(phaseA ? phaseA.status : 502, { "Content-Type": "application/json", "Cache-Control": "no-cache" });
-        res.end(JSON.stringify(a));
-        return;
-      }
-      // #67 authority preflight: production holds NO signer — the launch parks in the honest
-      // awaiting_wallet_authority state carrying the daemon's challenge verbatim; the dev test
-      // signer completes it only under IOI_WALLET_TEST_SIGNER=1 (flag-gated dynamic import).
-      let grant = null;
-      try {
-        grant = await mintTestGrant({ policyHash: a.approval.policy_hash, requestHash: a.approval.request_hash });
-      } catch (e) {
-        res.writeHead(502, { "Content-Type": "application/json" });
-        res.end(JSON.stringify({ ok: false, error: { code: "wallet_grant_mint_failed", message: String(e?.message || e) } }));
-        return;
-      }
-      if (!grant) {
-        res.writeHead(403, { "Content-Type": "application/json", "Cache-Control": "no-cache" });
-        res.end(JSON.stringify(awaitingWalletAuthority(a.approval)));
-        return;
-      }
-      const phaseB = await daemonLaunch(JSON.stringify({ launch_id: a.launch_id, wallet_approval_grant: grant }));
-      const b = phaseB ? phaseB.j : { ok: false, error: { code: "daemon_unavailable" } };
-      res.writeHead(phaseB ? phaseB.status : 502, { "Content-Type": "application/json", "Cache-Control": "no-cache" });
-      res.end(JSON.stringify(b));
-      return;
-    }
-    // Placement venue policy relay — the picker's durable choice is DAEMON truth, not UI state.
     if (pathname === "/__ioi/api/placement/venue-policy") {
       const method = req.method === "PUT" || req.method === "POST" ? "PUT" : "GET";
       const r = await daemonFetch(`/v1/hypervisor/placement/venue-policy`, {
@@ -12964,7 +12818,10 @@ async function handleEstateRequest(req, res, body) {
         J("/v1/hypervisor/agent-runner-profiles"),
         J("/v1/hypervisor/model-routes"),
         J("/v1/hypervisor/editor-targets"),
-        J("/v1/goal-orchestration/ioi-agent/launch-policies?status=active"),
+        // R-192 (S5-1): active IOI-Agent launch policies were resolved here. A launch policy is
+        // goal-pursuit policy and left with that plane; the context resolves an empty set rather
+        // than a 404 body, and the launcher renders no policy chooser over it.
+        Promise.resolve({ policies: [] }),
         J("/v1/hypervisor/placement/venues"),
         J("/v1/hypervisor/placement/venue-policy"),
         J("/v1/hypervisor/connectors"),
@@ -13073,7 +12930,9 @@ async function handleEstateRequest(req, res, body) {
         J("/v1/hypervisor/agentops/conversations"),
         J("/v1/hypervisor/agent-run-transcripts"),
         J("/v1/hypervisor/model-routes"),
-        J("/v1/goal-orchestration/ioi-agent/launch-policies"),
+        // R-192 (S5-1): the launch-policy registry left with goal pursuit; the studio's policy tab
+        // renders an empty, honest set rather than a 404 body.
+        Promise.resolve({ policies: [] }),
         J("/v1/hypervisor/memory-entries"),
         J("/v1/hypervisor/skill-entries"),
         J("/v1/hypervisor/automation-affinities"),
@@ -13256,271 +13115,29 @@ async function handleEstateRequest(req, res, body) {
       res.end();
       return;
     }
-    // ---- Learned-policy rollout lanes (promote to full / roll back to base).
+    // ---- Learned-policy rollout lanes — RETIRED 2026-09-18 (R-192, S5-1). Promote-to-full and
+    // roll-back-to-base drove the IOI-Agent launch-policy plane, which is goal-pursuit policy and
+    // left the daemon with goal pursuit. The lane answers a typed refusal instead of relaying.
     {
       const rolloutAct = pathname.match(/^\/__ioi\/agent-studio\/launch-policies\/([^/]+)\/rollout\/(promote|rollback)$/);
       if (rolloutAct && req.method === "POST") {
-        const [, pid, act] = rolloutAct;
-        const r = await daemonFetch(`/v1/goal-orchestration/ioi-agent/launch-policies/${encodeURIComponent(pid)}/rollout/${act}`, { method: "POST", headers: { "content-type": "application/json" }, body: "{}" }).catch(() => null);
-        const j = r ? await r.json().catch(() => ({})) : {};
-        if (!r || r.status >= 400) {
-          res.writeHead(200, { "Content-Type": "text/html; charset=utf-8" });
-          res.end(automationsShell("Rollout", `<div class="empty"><b>${CX_ESC(act)}</b> rejected fail-closed: <code>${CX_ESC((j.error && j.error.code) || "daemon unavailable")}</code></div><p><a href="/__ioi/agent-studio#launch-policies">← Studio</a></p>`));
-          return;
-        }
-        res.writeHead(302, { Location: "/__ioi/agent-studio#launch-policies", "Cache-Control": "no-cache" });
-        res.end();
+        res.writeHead(410, { "Content-Type": "text/html; charset=utf-8", "Cache-Control": "no-store" });
+        res.end(automationsShell("Rollout retired", `<div class="empty" data-error-code="ioi_agent_launch_policy_retired"><b>Retired:</b> <code>ioi_agent_launch_policy_retired</code>. A launch policy narrowed how a goal would be pursued, and goal pursuit is an ioi.ai composition over this daemon's thread orchestration primitives. This host relays no goal-orchestration route.</div>`));
         return;
       }
     }
-    // ---- Improvement governance gate lanes (controls created/bound through the daemon).
-    {
-      const govBind = pathname.match(/^\/__ioi\/agent-studio\/improvements\/([^/]+)\/governance\/(request-approval|open-release|attach)$/);
-      if (govBind && req.method === "POST") {
-        const [, iid, act] = govBind;
-        const failPage = (j, label) => {
-          res.writeHead(200, { "Content-Type": "text/html; charset=utf-8" });
-          res.end(automationsShell("Governance", `<div class="empty"><b>${CX_ESC(label)}</b> rejected fail-closed: <code>${CX_ESC((j.error && j.error.code) || j.reason || "daemon unavailable")}</code></div><p><a href="/__ioi/agent-studio#launch-policies">← Studio</a></p>`));
-        };
-        const pr = await daemonFetch(`/v1/hypervisor/intelligence/improvement-proposals/${encodeURIComponent(iid)}`).then((r) => r.json()).catch(() => ({}));
-        const proposalRef = (pr.proposal || {}).proposal_ref || "";
-        const attach = {};
-        if (act === "request-approval") {
-          const r = await daemonFetch(`/v1/hypervisor/governance/approval-requests`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ subject_ref: proposalRef, request_kind: "improvement_apply", reason: "gate a high-impact learned improvement" }) }).catch(() => null);
-          const j = r ? await r.json().catch(() => ({})) : {};
-          if (!r || r.status >= 400 || !(j.approval_request || {}).ref) { failPage(j, "request approval"); return; }
-          attach.approval_request_ref = j.approval_request.ref;
-        } else if (act === "open-release") {
-          const r = await daemonFetch(`/v1/hypervisor/governance/release-controls`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ release_target_ref: proposalRef, reason: "release gate for a high-impact learned improvement" }) }).catch(() => null);
-          const j = r ? await r.json().catch(() => ({})) : {};
-          if (!r || r.status >= 400 || !(j.release_control || {}).ref) { failPage(j, "create release gate"); return; }
-          attach.release_control_ref = j.release_control.ref;
-        } else {
-          const form = new URLSearchParams(body.toString());
-          for (const key of ["approval_request_ref", "release_control_ref"]) {
-            const v = (form.get(key) || "").trim();
-            if (v) attach[key] = v;
-          }
-        }
-        const r2 = await daemonFetch(`/v1/hypervisor/intelligence/improvement-proposals/${encodeURIComponent(iid)}`, { method: "PATCH", headers: { "content-type": "application/json" }, body: JSON.stringify(attach) }).catch(() => null);
-        const j2 = r2 ? await r2.json().catch(() => ({})) : {};
-        if (!r2 || r2.status >= 400) { failPage(j2, "bind governance refs"); return; }
-        res.writeHead(302, { Location: "/__ioi/agent-studio#launch-policies", "Cache-Control": "no-cache" });
-        res.end();
-        return;
-      }
-    }
-    {
-      const govAct = pathname.match(/^\/__ioi\/agent-studio\/governance\/(approvals|releases)\/([^/]+)\/(approve|reject|open|close)$/);
-      if (govAct && req.method === "POST") {
-        const [, family, gid, transition] = govAct;
-        const path = family === "approvals" ? "approval-requests" : "release-controls";
-        // The body is the transition and nothing else (P-IDENT-1A). This used to assert
-        // `reviewer_ref: "principal://operator"` — a constant standing in for whoever happened to
-        // be clicking, which attributed every Studio decision to a principal nobody authenticated.
-        // `daemonFetch` already carries the real caller's envelope; the daemon attributes from that.
-        const r = await daemonFetch(`/v1/hypervisor/governance/${path}/${encodeURIComponent(gid)}`, { method: "PATCH", headers: { "content-type": "application/json" }, body: JSON.stringify({ transition }) }).catch(() => null);
-        const j = r ? await r.json().catch(() => ({})) : {};
-        if (!r || j.ok === false) {
-          res.writeHead(200, { "Content-Type": "text/html; charset=utf-8" });
-          res.end(automationsShell("Governance", `<div class="empty"><b>${CX_ESC(transition)}</b> rejected fail-closed: <code>${CX_ESC((j.error && j.error.code) || j.reason || "daemon unavailable")}</code></div><p><a href="/__ioi/agent-studio#launch-policies">← Studio</a></p>`));
-          return;
-        }
-        res.writeHead(302, { Location: "/__ioi/agent-studio#launch-policies", "Cache-Control": "no-cache" });
-        res.end();
-        return;
-      }
-    }
-    {
-      const impAction = pathname.match(/^\/__ioi\/agent-studio\/improvements\/([^/]+)\/(approve|reject|apply)$/);
-      if (impAction && req.method === "POST") {
-        const [, iid, act] = impAction;
-        const r = await daemonFetch(`/v1/hypervisor/intelligence/improvement-proposals/${encodeURIComponent(iid)}/${act}`, { method: "POST", headers: { "content-type": "application/json" }, body: act === "reject" ? JSON.stringify({ reason: "operator rejected" }) : "{}" }).catch(() => null);
-        const j = r ? await r.json().catch(() => ({})) : {};
-        if (!r || r.status >= 400) {
-          res.writeHead(200, { "Content-Type": "text/html; charset=utf-8" });
-          res.end(automationsShell("Improvement", `<div class="empty"><b>${CX_ESC(act)}</b> rejected fail-closed: <code>${CX_ESC((j.error && j.error.code) || "daemon unavailable")}</code>${j.error && j.error.message ? `<br>${CX_ESC(j.error.message)}` : ""}</div><p><a href="/__ioi/agent-studio#launch-policies">← Studio</a></p>`));
-          return;
-        }
-        res.writeHead(302, { Location: "/__ioi/agent-studio#launch-policies", "Cache-Control": "no-cache" });
-        res.end();
-        return;
-      }
-    }
-    // ---- Memory lifecycle transitions + review queue lanes.
-    {
-      const lcAction = pathname.match(/^\/__ioi\/agent-studio\/intel\/(memory|skills)\/([^/]+)\/lifecycle$/);
-      if (lcAction && req.method === "POST") {
-        const [, family, rid] = lcAction;
-        const form = new URLSearchParams(body.toString());
-        const api = family === "memory" ? "memory-entries" : "skill-entries";
-        const payload = { transition: form.get("transition") || "", reason: form.get("reason") || "operator action from Agent Studio" };
-        if (form.get("superseded_by_ref")) payload.superseded_by_ref = form.get("superseded_by_ref");
-        const r = await daemonFetch(`/v1/hypervisor/${api}/${encodeURIComponent(rid)}/lifecycle`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(payload) }).catch(() => null);
-        const j = r ? await r.json().catch(() => ({})) : {};
-        if (!r || r.status >= 400) {
-          res.writeHead(200, { "Content-Type": "text/html; charset=utf-8" });
-          res.end(automationsShell("Memory lifecycle", `<div class="empty">Transition rejected fail-closed: <code>${CX_ESC((j.error && j.error.code) || "daemon unavailable")}</code>${j.error && j.error.message ? `<br>${CX_ESC(j.error.message)}` : ""}</div><p><a href="/__ioi/agent-studio#memory">← Studio</a></p>`));
-          return;
-        }
-        res.writeHead(302, { Location: "/__ioi/agent-studio#memory", "Cache-Control": "no-cache" });
-        res.end();
-        return;
-      }
-    }
-    // ---- Memory graph (derived, read-only) + projection explainability lanes.
-    if (pathname === "/__ioi/agent-studio/intel/graph" && req.method === "GET") {
-      const q = new URL(req.url, "http://x").searchParams.get("q") || "";
-      const r = await daemonFetch(`/v1/hypervisor/intelligence/graph${q ? "?q=" + encodeURIComponent(q) : ""}`).catch(() => null);
-      const j = r ? await r.json().catch(() => ({})) : { ok: false };
-      res.writeHead(200, { "Content-Type": "application/json", "Cache-Control": "no-cache" });
-      res.end(JSON.stringify(j));
-      return;
-    }
-    {
-      const explainMatch = pathname.match(/^\/__ioi\/intelligence\/projections\/([^/]+)\/explain$/);
-      if (explainMatch && req.method === "GET") {
-        const r = await daemonFetch(`/v1/hypervisor/intelligence/projections/${encodeURIComponent(explainMatch[1])}/explain`).catch(() => null);
-        const j = r ? await r.json().catch(() => ({})) : {};
-        if (!r || r.status >= 400) {
-          res.writeHead(404, { "Content-Type": "text/html; charset=utf-8" });
-          res.end(automationsShell("Projection", `<div class="empty">Projection not found.</div><p><a href="/__ioi/agent-studio#memory">← Studio</a></p>`));
-          return;
-        }
-        const ctx = j.context || {};
-        const dec = j.decisions || {};
-        const row = (d) => `<tr><td><b>${CX_ESC((d.meta || {}).title || "")}</b><div style="color:#878a93;font-size:10.5px"><code>${CX_ESC(d.ref)}</code></div></td>
-          <td><span class="pill muted">${CX_ESC((d.meta || {}).kind || "")}</span></td>
-          <td><span class="pill ${(d.meta || {}).quality_state === "accepted" ? "ok" : "muted"}">${CX_ESC((d.meta || {}).quality_state || "—")}</span></td>
-          <td><span class="pill ${(d.meta || {}).sensitivity === "secret" || (d.meta || {}).sensitivity === "private" ? "warn" : "muted"}">${CX_ESC((d.meta || {}).sensitivity || "—")}</span></td>
-          <td><span class="pill ${d.decision === "included" ? "ok" : "warn"}">${CX_ESC(d.decision)}</span>${d.reason_code ? ` <code style="font-size:10.5px">${CX_ESC(d.reason_code)}</code>` : ""}</td>
-          <td style="font-size:11px;color:#878a93">${d.checks ? d.checks.map((c) => `${c.pass ? "✓" : "✗"} ${CX_ESC(c.check)}`).join("<br>") : "—"}</td></tr>`;
-        const table = (title, list) => `<h2>${title} (${(list || []).length})</h2>${(list || []).length ? `<table><thead><tr><th>Record</th><th>Kind</th><th>Quality</th><th>Sensitivity</th><th>Decision</th><th>Checks</th></tr></thead><tbody>${list.map(row).join("")}</tbody></table>` : `<div class="empty">none</div>`}`;
-        res.writeHead(200, { "Content-Type": "text/html; charset=utf-8", "Cache-Control": "no-cache" });
-        res.end(automationsShell("Projection explain", `<p><a href="/__ioi/agent-studio#memory">← Agent Studio · Memory</a></p>
-          <h1>🧠 Projection explain <span class="pill ok">deterministic</span></h1>
-          <p class="sub">Vault truth → harness prompt, decision by decision. ${CX_ESC(j.body_disclosure || "")}</p>
-          <dl class="grid">
-            <dt>Projection</dt><dd><code>${CX_ESC(j.projection_ref || "")}</code></dd>
-            <dt>Memory space</dt><dd><code>${CX_ESC(j.memory_space_ref || "")}</code></dd>
-            <dt>Harness · route</dt><dd><code>${CX_ESC(ctx.harness_profile_ref || "")}</code> · <code>${CX_ESC(ctx.model_route_ref || "")}</code></dd>
-            <dt>Privacy · policy</dt><dd>${CX_ESC(ctx.privacy_posture || "")} · ${ctx.policy_ref ? `<code>${CX_ESC(ctx.policy_ref)}</code>` : "no policy"}</dd>
-            <dt>Bound to</dt><dd>${["goal_run_ref", "session_ref", "launch_ref"].map((k) => ctx[k] ? `<code>${CX_ESC(ctx[k])}</code>` : "").filter(Boolean).join(" · ") || "—"}</dd>
-            <dt>Receipts</dt><dd>${(j.receipt_refs || []).map((r2) => `<code>${CX_ESC(r2)}</code>`).join(" ")}</dd>
-          </dl>
-          ${table("Included", dec.included)}${table("Redacted", dec.redacted)}${table("Excluded", dec.excluded)}`));
-        return;
-      }
-    }
-    // ---- Agent Studio portable-vault + mutation-proposal lanes (daemon proxies).
-    if (pathname === "/__ioi/agent-studio/vault/export" && req.method === "GET") {
-      const r = await daemonFetch(`/v1/hypervisor/intelligence/spaces/ms_workspace_default/export`).catch(() => null);
-      const j = r ? await r.json().catch(() => ({})) : {};
-      res.writeHead(r && r.status < 400 ? 200 : 502, {
-        "Content-Type": "application/json",
-        "Content-Disposition": 'attachment; filename="ioi-memory-vault.json"',
-        "Cache-Control": "no-store",
-      });
-      res.end(JSON.stringify(j.vault || j, null, 2));
-      return;
-    }
-    if (pathname === "/__ioi/agent-studio/vault/import" && req.method === "POST") {
-      let bundle = {};
-      try {
-        const form = new URLSearchParams(body.toString());
-        bundle = JSON.parse(form.get("vault_json") || body.toString());
-      } catch { bundle = {}; }
-      const r = await daemonFetch(`/v1/hypervisor/intelligence/spaces/import`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(bundle.vault ? bundle : { vault: bundle }) }).catch(() => null);
-      const j = r ? await r.json().catch(() => ({})) : {};
-      res.writeHead(200, { "Content-Type": "text/html; charset=utf-8" });
-      if (!r || r.status >= 400) {
-        res.end(automationsShell("Vault import", `<div class="empty">Import rejected fail-closed: <code>${CX_ESC((j.error && j.error.code) || "daemon unavailable")}</code>${j.error && j.error.message ? `<br>${CX_ESC(j.error.message)}` : ""}</div><p><a href="/__ioi/agent-studio#memory">← Studio</a></p>`));
-        return;
-      }
-      res.end(automationsShell("Vault import", `<h1>Vault imported</h1><dl class="grid">
-        <dt>Imported</dt><dd>${CX_ESC(JSON.stringify(j.imported))}</dd>
-        <dt>Unchanged (idempotent)</dt><dd>${CX_ESC(String(j.unchanged))}</dd>
-        <dt>Conflicts (skipped, explicit)</dt><dd>${(j.conflicts || []).length ? (j.conflicts || []).map((c) => `<code>${CX_ESC(c.ref || c.path)}</code> ${CX_ESC(c.reason_code)}`).join("<br>") : "none"}</dd>
-        <dt>Rejected</dt><dd>${(j.rejected || []).length ? (j.rejected || []).map((c) => `<code>${CX_ESC(c.path)}</code> ${CX_ESC(c.reason_code)}`).join("<br>") : "none"}</dd>
-      </dl><p><a class="act" href="/__ioi/agent-studio#memory">Back to Memory</a></p>`));
-      return;
-    }
-    {
-      const propAction = pathname.match(/^\/__ioi\/agent-studio\/proposals\/([^/]+)\/(approve|reject)$/);
-      if (propAction && req.method === "POST") {
-        const [, pid, act] = propAction;
-        const r = await daemonFetch(`/v1/hypervisor/memory-mutation-proposals/${encodeURIComponent(pid)}/${act}`, { method: "POST", headers: { "content-type": "application/json" }, body: act === "reject" ? JSON.stringify({ reason: new URLSearchParams(body.toString()).get("reason") || "operator rejected" }) : "{}" }).catch(() => null);
-        const j = r ? await r.json().catch(() => ({})) : {};
-        if (!r || r.status >= 400) {
-          res.writeHead(200, { "Content-Type": "text/html; charset=utf-8" });
-          res.end(automationsShell("Proposal", `<div class="empty">Rejected fail-closed: <code>${CX_ESC((j.error && j.error.code) || "daemon unavailable")}</code></div><p><a href="/__ioi/agent-studio#memory">← Studio</a></p>`));
-          return;
-        }
-        res.writeHead(302, { Location: "/__ioi/agent-studio#memory", "Cache-Control": "no-cache" });
-        res.end();
-        return;
-      }
-    }
-    // ---- Agent Studio launch-policy management: proxy the daemon policy plane (list is
-    // fetched with the studio page; these are the effectful lanes). Redirects land on the tab.
+    // ---- Agent Studio launch-policy management — RETIRED 2026-09-18 (R-192, S5-1).
+    //
+    // Clone, enable, disable, delete, create and edit all proxied the daemon's IOI-Agent
+    // launch-policy plane. A launch policy is goal-pursuit policy — preferred and excluded
+    // harnesses, compare-before-write, minimum successful invocations — and goal pursuit is an
+    // ioi.ai composition over this daemon's thread orchestration primitives, not a Hypervisor
+    // surface. Every lane answers one typed refusal rather than relaying into a dead namespace.
     {
       const lpAction = pathname.match(/^\/__ioi\/agent-studio\/launch-policies\/([^/]+)\/(clone|enable|disable|delete)$/);
-      if (lpAction && req.method === "POST") {
-        const [, pid, act] = lpAction;
-        const target = act === "clone"
-          ? { method: "POST", url: `/v1/goal-orchestration/ioi-agent/launch-policies/${encodeURIComponent(pid)}/clone`, body: "{}" }
-          : act === "delete"
-            ? { method: "DELETE", url: `/v1/goal-orchestration/ioi-agent/launch-policies/${encodeURIComponent(pid)}`, body: undefined }
-            : { method: "PATCH", url: `/v1/goal-orchestration/ioi-agent/launch-policies/${encodeURIComponent(pid)}`, body: JSON.stringify({ status: act === "enable" ? "active" : "disabled" }) };
-        const r = await daemonFetch(`${target.url}`, { method: target.method, headers: { "content-type": "application/json" }, body: target.body }).catch(() => null);
-        const j = r ? await r.json().catch(() => ({})) : {};
-        if (!r || r.status >= 400) {
-          const code = (j.error && j.error.code) || (r ? `HTTP ${r.status}` : "daemon unavailable");
-          res.writeHead(200, { "Content-Type": "text/html; charset=utf-8" });
-          res.end(automationsShell("Launch policies", `<div class="empty"><b>${CX_ESC(act)}</b> was rejected fail-closed: <code>${CX_ESC(code)}</code>${j.error && j.error.message ? `<br>${CX_ESC(j.error.message)}` : ""}</div><p><a href="/__ioi/agent-studio#launch-policies">← Studio</a></p>`));
-          return;
-        }
-        res.writeHead(302, { Location: "/__ioi/agent-studio#launch-policies", "Cache-Control": "no-cache" });
-        res.end();
-        return;
-      }
-      if (pathname === "/__ioi/agent-studio/launch-policies" && req.method === "POST") {
-        const form = new URLSearchParams(body.toString());
-        const csv = (k) => (form.get(k) || "").split(",").map((x) => x.trim()).filter(Boolean);
-        const payload = {
-          display_name: form.get("display_name") || "",
-          description: form.get("description") || "",
-          strategy_preference: form.get("strategy_preference") || "auto",
-          failure_policy: form.get("failure_policy") || "partial_ok",
-          harness_preferences: {
-            preferred_harness_refs: csv("preferred_harness_refs"),
-            excluded_harness_refs: csv("excluded_harness_refs"),
-            allow_fallback: form.get("allow_fallback") === "on",
-          },
-          privacy: {
-            local_only: form.get("local_only") === "on",
-            forbid_remote_trust: form.get("local_only") === "on",
-            forbid_provider_credentials: form.get("local_only") === "on",
-          },
-          assurance: {
-            require_compare: form.get("require_compare") === "on",
-            require_verifier: true,
-            min_successful_invocations: parseInt(form.get("min_successful_invocations") || "1", 10) || 1,
-            require_reconciliation_before_write: form.get("require_compare") === "on",
-          },
-        };
-        const editId = form.get("policy_id");
-        const url = editId ? `/v1/goal-orchestration/ioi-agent/launch-policies/${encodeURIComponent(editId)}` : "/v1/goal-orchestration/ioi-agent/launch-policies";
-        const r = await daemonFetch(`${url}`, { method: editId ? "PATCH" : "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(payload) }).catch(() => null);
-        const j = r ? await r.json().catch(() => ({})) : {};
-        if (!r || r.status >= 400) {
-          const code = (j.error && j.error.code) || (r ? `HTTP ${r.status}` : "daemon unavailable");
-          res.writeHead(200, { "Content-Type": "text/html; charset=utf-8" });
-          res.end(automationsShell("Launch policies", `<div class="empty">Save was rejected fail-closed: <code>${CX_ESC(code)}</code>${j.error && j.error.message ? `<br>${CX_ESC(j.error.message)}` : ""}</div><p><a href="/__ioi/agent-studio#launch-policies">← Studio</a></p>`));
-          return;
-        }
-        res.writeHead(302, { Location: "/__ioi/agent-studio#launch-policies", "Cache-Control": "no-cache" });
-        res.end();
+      if ((lpAction || pathname === "/__ioi/agent-studio/launch-policies") && req.method === "POST") {
+        res.writeHead(410, { "Content-Type": "text/html; charset=utf-8", "Cache-Control": "no-store" });
+        res.end(automationsShell("Launch policies retired", `<div class="empty" data-error-code="ioi_agent_launch_policy_retired"><b>Retired:</b> <code>ioi_agent_launch_policy_retired</code>. A launch policy narrowed how a goal would be pursued, and goal pursuit is an ioi.ai composition over this daemon's thread orchestration primitives. This host relays no goal-orchestration route.</div>`));
         return;
       }
     }

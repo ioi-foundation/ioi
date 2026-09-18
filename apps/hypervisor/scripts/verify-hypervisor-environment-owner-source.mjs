@@ -278,7 +278,7 @@ check("R1_DERIVED_CLOSED_WORLD",
   // population is unmoved. Before that, 2026-09-16 (R-178 S4a / R-179): 54 handlers over the 43
   // deleted `/v1/goal-orchestration/*` routes went with the room-hosted work-object,
   // participation, lease, terms and pairing modules (1219 → 1165).
-  census.registered_route_handlers === 1154 /* 2026-09-18 (R-190, S4d-2): +1, handle_goal_run_orchestration_membership (1153 → 1154) */ && census.workspace_route_handlers === 40
+  census.registered_route_handlers === 1117 /* 2026-09-18 (R-192, S5-1): 1154 → 1117, −37 net. The GoalRun family left the daemon on the owner's ruling that goal runs and outcome rooms are ioi.ai compositions over the thread orchestration primitives: the GoalRun routes, the GoalRun context family, the goal-profile contract registry and the IOI-Agent launch plane, less ONE handler added in the same slice — handle_work_lifecycle_record_append, the generic writer the work-lifecycle record chain needed once its only writer left with that plane. WORKSPACE HANDLERS (40) AND CANDIDATES (47) HELD: no environment-plane owner surface moved; unresolved 0, unclassified 0. This census counts HANDLERS and the one in verify-hypervisor-named-gap-truth.mjs counts DISTINCT PATHS, so the two move by different amounts in the same commit */ && census.workspace_route_handlers === 40
     && census.routes.length === 47 && census.unresolved.length === 0 && census.unclassified.length === 0
     && ownerRoute("GET", "/") && ownerRoute("GET", "/*preview_path")
     && aggregateRoutes.join(",") === "operability_routes::handle_operability_metrics,orchestration_routes::handle_placement_metrics"

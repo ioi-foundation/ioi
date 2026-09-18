@@ -21136,7 +21136,13 @@ pub(crate) fn issue_portal_exchange_session(
                 .and_then(canonical_local_principal_ref)
                 .map(Value::String)
                 .unwrap_or(Value::Null),
-            "allowed_route_prefixes": ["/v1/goal-orchestration/"],
+            // NO PREFIX AT ALL (R-192, S5-1). This carried `/v1/goal-orchestration/` for as long
+            // as the daemon served anything under it. It serves nothing under it now: goal runs
+            // and outcome rooms are ioi.ai compositions over thread orchestration primitives, not
+            // Hypervisor surfaces, and the whole family left with that ruling. A prefix granting
+            // a namespace with no handler is standing authority over whatever is mounted there
+            // next, so it goes with the routes rather than waiting for one.
+            "allowed_route_prefixes": [],
             // R-185 (S4c-1): the ioi.ai application consumes its orchestrations as a COMPOSITION
             // over thread orchestration primitives — the coordinating thread, its subagents and
             // the System-record seam — so the portal session that used to reach only the hosted

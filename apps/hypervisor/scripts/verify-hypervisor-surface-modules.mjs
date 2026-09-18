@@ -31,8 +31,11 @@ const APP = join(HERE, "..");
 const results = [];
 const ok = (name, cond, detail) => { results.push({ name, pass: !!cond, detail: detail || "" }); };
 
+// R-192 (S5-1): one collection. The GoalRun plane this surface also read is gone from the daemon
+// — goal runs are ioi.ai compositions over thread orchestration primitives, not Hypervisor
+// surfaces — so a fixture naming it would prove nothing, and the retirement probe below asserts
+// the surface no longer asks for it at all.
 const MISSION_COLLECTIONS = {
-  "/v1/goal-orchestration/goal-runs": "goal_runs",
   "/v1/hypervisor/work-results": "work_results",
 };
 
@@ -119,76 +122,69 @@ async function run() {
   const missionsModel = await missions.load(missionsCtx);
   const missionsHtml = missions.render(missionsModel, missionsCtx);
   ok("missions: dead daemon stays an honest unavailable projection with no mutation form",
-    [missionsModel.goalRuns, missionsModel.results, missionsModel.operations]
-      .every((entry) => entry.ok === false && entry.rows.length === 0)
-      && missionsHtml.includes('data-missions-work-graph="goal-runs"')
+    [missionsModel.results, missionsModel.operations]
+      .every((plane) => plane.ok === false && plane.rows.length === 0)
+      && missionsHtml.includes('data-missions-work-graph="work-results"')
       && missionsHtml.includes("Counts for this plane are not treated as zero")
       && !/<form\b/i.test(missionsHtml));
-  // R-191 (S4d-3): the surface reads the three planes the daemon still serves. The eleven room
-  // planes it used to read were deleted with the room plane, so a fixture naming one would prove
-  // nothing — the retirement probe below asserts the surface no longer asks for them at all.
   const requestedPaths = [];
   const recordingFetch = (overrides = {}) => async (rawUrl, init) => {
     requestedPaths.push(new URL(rawUrl).pathname);
     return missionsFixtureFetch(overrides)(rawUrl, init);
   };
-  const fixtureRun = {
-    goal_run_id: "gr_partial_outage",
-    goal_ref: "goal://gr_partial_outage",
-    normalized_goal: "Partial-outage mission",
-    status: "active",
-    continuation_state: "open",
-    orchestration_ref: "app-scope://ioi-ai/orchestration/orc_missions_fixture",
+  const fixtureResult = {
+    work_result_id: "work-result://wr_partial_outage",
+    work_subject_ref: "work-run://partial-outage",
+    outcome_class: "positive",
+    status: "completed",
   };
   const partialCtx = {
     ...missionsCtx,
-    url: new URL(`http://x/__ioi/missions?goal=${encodeURIComponent(fixtureRun.goal_run_id)}`),
+    url: new URL("http://x/__ioi/missions"),
     fetch: recordingFetch({
-      "/v1/goal-orchestration/goal-runs": { body: { goal_runs: [fixtureRun] } },
       "/v1/hypervisor/work-results": { status: 503, body: { error: { code: "results_unavailable" } } },
     }),
   };
   const partialModel = await missions.load(partialCtx);
   const partialHtml = missions.render(partialModel, partialCtx);
-  ok("missions: a partial outage renders unknown at every dependent metric and never zero, and the selected run still resolves",
-    partialModel.goalRuns.ok === true
+  ok("missions: a partial outage renders unknown at every dependent metric and never zero",
+    partialModel.operations.ok === true
       && partialModel.results.ok === false
+      && partialModel.subjects.length === 0
       && partialHtml.includes('data-missions-metric="results" data-value="unknown"')
-      && partialHtml.includes('data-missions-metric="unattributed-results" data-value="unknown"')
-      && partialHtml.includes('data-missions-selected-run="gr_partial_outage"')
-      && partialHtml.includes('data-missions-orchestration="app-scope://ioi-ai/orchestration/orc_missions_fixture"')
-      && partialHtml.includes("WorkResults</b> unavailable"));
-  ok("missions: the surface asks the daemon for exactly the three planes that still exist — no room, participation, frontier, claim, offer, match, attempt, finding or challenge route is requested",
+      && partialHtml.includes('data-missions-metric="work-subjects" data-value="unknown"')
+      && partialHtml.includes('data-missions-metric="failed-results" data-value="unknown"')
+      && partialHtml.includes("WorkResult plane</b> unavailable"));
+  ok("missions: the surface asks the daemon for exactly the two planes that still exist — no goal-run, room, participation, frontier, claim, offer, match, attempt, finding or challenge route is requested",
     requestedPaths.length > 0
       && [...new Set(requestedPaths)].sort().join(",")
-        === "/v1/goal-orchestration/goal-runs,/v1/hypervisor/operations,/v1/hypervisor/work-results",
+        === "/v1/hypervisor/operations,/v1/hypervisor/work-results",
     [...new Set(requestedPaths)].sort().join(","));
   const malformedCtx = {
     ...missionsCtx,
     fetch: missionsFixtureFetch({
-      "/v1/goal-orchestration/goal-runs": { body: { goal_runs: { not: "an array" } } },
+      "/v1/hypervisor/work-results": { body: { work_results: { not: "an array" } } },
     }),
   };
   const malformedModel = await missions.load(malformedCtx);
   const malformedHtml = missions.render(malformedModel, malformedCtx);
-  const malformedRunRowModel = await missions.load({
+  const malformedRowModel = await missions.load({
     ...missionsCtx,
     fetch: missionsFixtureFetch({
-      "/v1/goal-orchestration/goal-runs": { body: { goal_runs: [{}] } },
+      "/v1/hypervisor/work-results": { body: { work_results: [{}] } },
     }),
   });
-  const malformedRunRowHtml = missions.render(malformedRunRowModel, missionsCtx);
-  const mixedRunRowModel = await missions.load({
+  const mixedRowModel = await missions.load({
     ...missionsCtx,
     fetch: missionsFixtureFetch({
-      "/v1/goal-orchestration/goal-runs": { body: { goal_runs: [fixtureRun, {}] } },
+      "/v1/hypervisor/work-results": { body: { work_results: [fixtureResult, {}] } },
     }),
   });
-  const mixedRunRowHtml = missions.render(mixedRunRowModel, missionsCtx);
-  const malformedResultModel = await missions.load({
+  const mixedRowHtml = missions.render(mixedRowModel, missionsCtx);
+  const offContractOutcomeModel = await missions.load({
     ...missionsCtx,
     fetch: missionsFixtureFetch({
-      "/v1/hypervisor/work-results": { body: { work_results: [{ work_result_id: "not-a-ref" }] } },
+      "/v1/hypervisor/work-results": { body: { work_results: [{ ...fixtureResult, outcome_class: "excellent" }] } },
     }),
   });
   const malformedOperationRunModel = await missions.load({
@@ -199,19 +195,18 @@ async function run() {
   });
   const malformedOperationRunHtml = missions.render(malformedOperationRunModel, missionsCtx);
   ok("missions: malformed collection and exact invalid-row probes fail closed as plane_payload_invalid without crashing or invented rows",
-    malformedModel.goalRuns.ok === false && malformedModel.goalRuns.status === 200
-      && malformedModel.goalRuns.code === "plane_payload_invalid"
-      && malformedHtml.includes("Run list unavailable")
-      && !malformedHtml.includes("No goal runs in this view")
-      && malformedRunRowModel.goalRuns.ok === false
-      && malformedRunRowModel.goalRuns.code === "plane_payload_invalid"
-      && !malformedRunRowHtml.includes("Untitled run")
-      && mixedRunRowModel.goalRuns.ok === false
-      && mixedRunRowModel.goalRuns.rows.length === 0
-      && mixedRunRowModel.goalRuns.code === "plane_payload_invalid"
-      && !mixedRunRowHtml.includes(fixtureRun.normalized_goal)
-      && malformedResultModel.results.ok === false
-      && malformedResultModel.results.code === "plane_payload_invalid"
+    malformedModel.results.ok === false && malformedModel.results.status === 200
+      && malformedModel.results.code === "plane_payload_invalid"
+      && malformedHtml.includes("Subject list unavailable")
+      && !malformedHtml.includes("No work subjects in this view")
+      && malformedRowModel.results.ok === false
+      && malformedRowModel.results.code === "plane_payload_invalid"
+      && mixedRowModel.results.ok === false
+      && mixedRowModel.results.rows.length === 0
+      && mixedRowModel.results.code === "plane_payload_invalid"
+      && !mixedRowHtml.includes("work-result://wr_partial_outage")
+      && offContractOutcomeModel.results.ok === false
+      && offContractOutcomeModel.results.code === "plane_payload_invalid"
       && malformedOperationRunModel.operations.ok === false
       && malformedOperationRunModel.operations.code === "plane_payload_invalid"
       && malformedOperationRunHtml.includes("Operations run queue</b> unavailable"));
@@ -275,84 +270,85 @@ async function run() {
       && unsafeTimelineModel.operations.code === "plane_payload_invalid"
       && !unsafeTimelineHtml.includes("javascript:")
       && !unsafeTimelineHtml.includes("alert(document.domain)"));
-  // R-191 (S4d-3): the five room-graph relationship assertions here read the participation,
-  // frontier, claim, offer, attempt, finding and challenge planes, all deleted under S4a and
-  // S4c-2. What this surface can still check WITHOUT reaching another owner is identity
-  // uniqueness on its two planes and the attribution of a result to a run it holds — and the
-  // honest states when a selection does not resolve. Those are asserted here instead.
-  const runOne = {
-    goal_run_id: "gr_graph_one",
-    goal_ref: "goal://gr_graph_one",
-    normalized_goal: "First run",
-    status: "active",
-    continuation_state: "open",
-    orchestration_ref: "app-scope://ioi-ai/orchestration/orc_graph",
-  };
-  const runTwo = { ...runOne, goal_run_id: "gr_graph_two", goal_ref: "goal://gr_graph_two", normalized_goal: "Second run", status: "complete" };
-  const resultOne = { work_result_id: "work-result://wr_aa", work_subject_ref: runOne.goal_ref, outcome_class: "positive", status: "completed" };
-  const resultForeign = { work_result_id: "work-result://wr_bb", work_subject_ref: "goal://gr_not_in_this_list", outcome_class: "positive", status: "completed" };
+  // R-192 (S5-1): what this surface can check WITHOUT reaching another owner is identity
+  // uniqueness on its one collection and the grouping of results under the subject each one
+  // names — plus the honest states when a selection does not resolve. A subject is an opaque ref
+  // from whatever application produced the result; this surface never resolves it.
+  const resultOne = { work_result_id: "work-result://wr_aa", work_subject_ref: "work-run://alpha", outcome_class: "positive", status: "completed" };
+  const resultTwo = { work_result_id: "work-result://wr_bb", work_subject_ref: "work-run://alpha", outcome_class: "inconclusive", status: "partial" };
+  const resultOther = { work_result_id: "work-result://wr_cc", work_subject_ref: "automation-run://beta", outcome_class: "positive", status: "completed" };
+  const alphaId = "work-run-alpha";
   const graphCtx = {
     ...missionsCtx,
-    url: new URL("http://x/__ioi/missions?goal=gr_graph_one"),
+    url: new URL(`http://x/__ioi/missions?subject=${alphaId}`),
     fetch: missionsFixtureFetch({
-      "/v1/goal-orchestration/goal-runs": { body: { goal_runs: [runOne, runTwo] } },
-      "/v1/hypervisor/work-results": { body: { work_results: [resultOne, resultForeign] } },
+      "/v1/hypervisor/work-results": { body: { work_results: [resultOne, resultTwo, resultOther] } },
     }),
   };
   const graphModel = await missions.load(graphCtx);
   const graphHtml = missions.render(graphModel, graphCtx);
-  ok("missions: a consistent two-plane projection is fully inspectable, and a result whose subject is outside this list is disclosed as unattributed rather than dropped or counted as a broken edge",
-    graphModel.goalRuns.ok === true && graphModel.results.ok === true
-      && graphModel.unattributedResults === 1
-      && graphHtml.includes('data-missions-selected-run="gr_graph_one"')
+  ok("missions: results group under the subject each one names, an open subject is one with an unsettled result, and only the selected subject's results are rendered",
+    graphModel.results.ok === true
+      && graphModel.subjects.length === 2
+      && graphModel.subjects[0].subject_ref === "work-run://alpha"
+      && graphModel.subjects[0].results.length === 2
+      && graphModel.subjects[0].open === true
+      && graphModel.subjects[1].open === false
+      && graphHtml.includes(`data-missions-selected-subject="${alphaId}"`)
       && graphHtml.includes("work-result://wr_aa")
-      && !graphHtml.includes("work-result://wr_bb")
-      && graphHtml.includes('data-missions-metric="unattributed-results" data-value="1"'));
+      && graphHtml.includes("work-result://wr_bb")
+      && !graphHtml.includes("work-result://wr_cc")
+      && graphHtml.includes('data-missions-metric="work-subjects" data-value="2"'),
+    JSON.stringify(graphModel.subjects.map((group) => [group.subject_id, group.results.length, group.open])));
   const duplicateModel = await missions.load({
     ...missionsCtx,
     fetch: missionsFixtureFetch({
-      "/v1/goal-orchestration/goal-runs": { body: { goal_runs: [runOne, { ...runTwo, goal_ref: runOne.goal_ref }] } },
+      "/v1/hypervisor/work-results": { body: { work_results: [resultOne, { ...resultTwo, work_result_id: resultOne.work_result_id }] } },
     }),
   });
-  ok("missions: two runs claiming one goal ref invalidate the whole plane rather than rendering an ambiguous list",
-    duplicateModel.goalRuns.ok === false
-      && duplicateModel.goalRuns.code === "plane_relationship_invalid"
-      && duplicateModel.goalRuns.rows.length === 0);
+  ok("missions: two results claiming one identity invalidate the whole plane rather than rendering an ambiguous list",
+    duplicateModel.results.ok === false
+      && duplicateModel.results.code === "plane_relationship_invalid"
+      && duplicateModel.results.rows.length === 0
+      && duplicateModel.subjects.length === 0);
   const missingCtx = {
     ...missionsCtx,
-    url: new URL("http://x/__ioi/missions?goal=gr_absent"),
-    fetch: missionsFixtureFetch({ "/v1/goal-orchestration/goal-runs": { body: { goal_runs: [runOne] } } }),
+    url: new URL("http://x/__ioi/missions?subject=work-run-absent"),
+    fetch: missionsFixtureFetch({ "/v1/hypervisor/work-results": { body: { work_results: [resultOne] } } }),
   };
   const filteredCtx = {
     ...missionsCtx,
-    url: new URL("http://x/__ioi/missions?goal=gr_graph_two&status=active"),
-    fetch: missionsFixtureFetch({ "/v1/goal-orchestration/goal-runs": { body: { goal_runs: [runOne, runTwo] } } }),
+    url: new URL(`http://x/__ioi/missions?subject=${alphaId}&status=completed`),
+    fetch: missionsFixtureFetch({ "/v1/hypervisor/work-results": { body: { work_results: [resultTwo, resultOther] } } }),
   };
   const missingHtml = missions.render(await missions.load(missingCtx), missingCtx);
   const filteredHtml = missions.render(await missions.load(filteredCtx), filteredCtx);
   ok("missions: a selection that does not resolve says which of the two honest reasons it is, and invents no detail",
-    missingHtml.includes('data-missions-selection="goal_run_not_found"')
-      && !missingHtml.includes('data-missions-selected-run')
-      && filteredHtml.includes('data-missions-selection="goal_run_filter_mismatch"')
-      && !filteredHtml.includes("Second run</h2>"));
-  const cappedGoalRuns = Array.from({ length: 60 }, (_, index) => ({
-    goal_run_id: `goal-run-${index}`,
-    goal_ref: `goal://goal-run-${index}`,
-    normalized_goal: `Goal ${index}`,
-    status: "blocked",
-    blockers: [{ reason_code: `blocked-${index}` }],
+    missingHtml.includes('data-missions-selection="work_subject_not_found"')
+      && !missingHtml.includes("data-missions-selected-subject")
+      && filteredHtml.includes('data-missions-selection="work_subject_filter_mismatch"'),
+    `${missingHtml.includes('data-missions-selection="work_subject_not_found"')}/${filteredHtml.includes('data-missions-selection="work_subject_filter_mismatch"')}`);
+  const cappedResults = Array.from({ length: 60 }, (_, index) => ({
+    work_result_id: `work-result://wr_capped_${index}`,
+    work_subject_ref: `work-run://capped-${index}`,
+    outcome_class: "negative",
+    status: "failed",
   }));
   const cappedCtx = {
     ...missionsCtx,
     fetch: missionsFixtureFetch({
-      "/v1/goal-orchestration/goal-runs": { body: { goal_runs: cappedGoalRuns } },
+      "/v1/hypervisor/work-results": { body: { work_results: cappedResults } },
     }),
   };
   const cappedHtml = missions.render(await missions.load(cappedCtx), cappedCtx);
-  ok("missions: blocker cap is deterministic and disclosed as showing first 50 of 60",
+  // Scoped to the incident list itself: the subject sidebar above it holds all sixty subjects, so
+  // a whole-page substring probe would measure the sidebar and call the cap broken.
+  const cappedIncidents = cappedHtml.slice(cappedHtml.indexOf('id="missions-incidents"'));
+  ok("missions: the incident cap is deterministic and disclosed as showing first 50 of 60",
     cappedHtml.includes("showing first 50 of 60")
-      && cappedHtml.includes("/__ioi/run-timeline/goal-run/goal-run-49")
-      && !cappedHtml.includes("/__ioi/run-timeline/goal-run/goal-run-50"));
+      && cappedIncidents.includes("work-run://capped-49")
+      && !cappedIncidents.includes("work-run://capped-50"),
+    `${cappedHtml.includes("showing first 50 of 60")}/${cappedIncidents.includes("work-run://capped-49")}/${cappedIncidents.includes("work-run://capped-50")}`);
   ok("serve no longer defines the extracted Missions renderer", !serveSrc.includes("function renderMissions"));
 
   // 5. ONTOLOGY MODULES (the #59 extraction) — same contract, same hygiene, both certified ports.

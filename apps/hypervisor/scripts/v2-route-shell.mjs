@@ -119,8 +119,8 @@ export const V2_ROUTE_TABLE = [
     serve: { kind: "rewrite", to: "/__ioi/work-projection/active", heading: "Work" },
     serving_today: [
       { href: "/__ioi/work-projection/active", label: "Work — typed projection", note: "M08.9 (2026-09-14): the policy-filtered read model over GET /v1/hypervisor/work-projection — sessions, goal runs, rooms and automation runs as typed rows; queues/items/runs and incident facets are typed absences; the legacy readouts below are its migration inputs" },
-      { href: "/__ioi/missions", label: "Jobs readout", note: "protected seed — goal-orchestration run queue (absorbed into Work); keeps serving untouched" },
-      { href: "/__ioi/missions/incidents", label: "Incidents inbox", note: "protected seed — run-failure + goal-blocker inbox (absorbed into Work); keeps serving untouched" },
+      { href: "/__ioi/missions", label: "Jobs readout", note: "protected seed — re-typed 2026-09-18 (R-192, S5-1) onto the platform planes that remain: work subjects derived from the generic WorkResults, plus the operations run queue" },
+      { href: "/__ioi/missions/incidents", label: "Incidents inbox", note: "protected seed — run-failure + failed-work-result inbox (R-192, S5-1: the goal-blocker half retired with goal pursuit); keeps serving untouched" },
       { href: "/__ioi/sessions", label: "Sessions root readout", note: "the T2 sessions readout — the live Sessions surface; bare /sessions is retired with a typed 410" },
       { href: "/__ioi/work-ledger", label: "Work Ledger", note: "the owned proof stream" },
       { href: "/__ioi/run-timeline", label: "Run Timeline", note: "owned governed-work timeline" },

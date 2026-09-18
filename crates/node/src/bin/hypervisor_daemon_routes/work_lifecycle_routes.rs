@@ -31,10 +31,15 @@
 //! missing, tampered, or owner-drifted evidence. Hot record logs are never
 //! pruned here.
 //!
-//! The GoalRun create route composes this owner for its application-owned plan,
-//! ContextCell reference, and GoalRun lifecycle projection. That bounded binding
-//! does not transfer Session, launch, thread, HarnessInvocation, or other kernel
-//! truth to GoalRun, and no other object owner is implied to be wired here.
+//! WHO WRITES HERE. The chain is written through one generic route,
+//! `POST /v1/hypervisor/work-lifecycle/records`, owner-scoped to the
+//! authenticated principal and gated by the platform's own continuity table.
+//! Any composing application keeps a lifecycle for its own object through it —
+//! the GoalRun plane did so in-process until R-192 re-homed goal pursuit to
+//! ioi.ai, and a platform plane whose only writer is one application is not a
+//! platform plane. Holding a lifecycle for an object transfers no Session,
+//! launch, thread, HarnessInvocation, or other kernel truth to that object's
+//! owner, and no object owner is implied to be wired here.
 
 use std::collections::BTreeMap;
 use std::sync::Arc;
@@ -111,8 +116,10 @@ fn archive_stream_tail(archive_ref: &str) -> String {
 }
 
 // ---------------------------------------------------------------------------
-// Owner-internal Rust API. GoalRun creation composes this seam with its own
-// LegalEdgeGate; subsequent owners must supply and prove their own gate.
+// Owner-internal Rust API. Every append carries a LegalEdgeGate: the platform's
+// own `OwnerContinuityGate` behind the generic record route, and an in-process
+// owner's own gate if one is ever wired here. GoalRun composed this seam with a
+// gate of its own until R-192 moved goal pursuit out of the daemon entirely.
 // ---------------------------------------------------------------------------
 
 /// The outcome of one durable append.
@@ -747,12 +754,12 @@ impl WorkLifecycleStore {
             "per_kind_lifecycle_counts": per_kind_counts,
             "unreadable_objects": unreadable_objects,
             "live_owner_route_bindings": [{
-                "object_kind": "goal_run",
-                "route": "POST /v1/goal-orchestration/goal-runs",
-                "admission_paths": ["direct_non_system", "system_activation"],
-                "owned_scope": ["application_plan", "context_cell_ref", "goal_run_lifecycle"],
+                "object_kind": "any",
+                "route": "POST /v1/hypervisor/work-lifecycle/records",
+                "admission_paths": ["owner_scoped_record_append"],
+                "owned_scope": ["lifecycle_record_chain", "rebuilt_projection"],
             }],
-            "nonclaim": "GoalRun creation is bound only for GoalRun-owned application plan/state and invocation references. The hosted OutcomeRoom binding that stood beside it retired with the room plane on 2026-09-17 (R-178 slice S4c-2): an orchestration is an ioi.ai record admitted through the System-record seam, not a route this plane binds. Session, launch, thread, HarnessInvocation, and child-owner runtime truth remain with their kernel owners; GoalGroundingLoop, WorkRun, AutomationRun, ContextCell lifecycle, and external-handle owners are not generalized by these bindings. Cancellation plans claim no child completion. Hot record logs are never pruned; snapshots are checkpoints, never a license to discard the archive.",
+            "nonclaim": "One generic owner-scoped route writes this chain, for any object kind its caller keeps a lifecycle for. It binds NOTHING about that object beyond the chain and the projection rebuilt from it. The GoalRun creation binding that stood here retired on 2026-09-18 (R-192 slice S5-1): goal runs and outcome rooms are ioi.ai compositions over thread orchestration primitives, not Hypervisor surfaces, and the room binding beside it retired on 2026-09-17 (R-178 slice S4c-2). Session, launch, thread, HarnessInvocation, and child-owner runtime truth remain with their kernel owners, and holding a lifecycle here generalizes no owner. Legal phase order is the caller\'s; the platform gate fences only object-kind continuity. Cancellation plans claim no child completion. Hot record logs are never pruned; snapshots are checkpoints, never a license to discard the archive.",
         }))
     }
 
@@ -1287,6 +1294,94 @@ pub(crate) async fn handle_work_reservation_admit(
 /// Owner-scoped cancellation PLANNING. Derives and persists the fanout plan; it
 /// does not execute it and never claims child completion. Body carries
 /// `object_ref`, `owner_ref`, and the cancellation intent fields.
+/// The PLATFORM's own legal-edge table for a generic lifecycle record (R-192, S5-1).
+///
+/// `append_gated` requires a gate because the shared kernel never acquires a caller's authority
+/// table. Until now the only table belonged to the GoalRun plane, which is deleted: goal pursuit
+/// is the composing application's. Rules specific to an application's own object — which phase may
+/// follow which, who may drive it — stay with that application, which refuses by not appending.
+///
+/// ONE RULE, AND IT IS THE ONE THE KERNEL LEAVES OPEN. The kernel reads `object_kind` from the
+/// GENESIS record alone (`runtime_work_lifecycle_log.rs`, chain-state construction) and never
+/// re-checks a successor, so without this gate a later record could claim a different kind than
+/// the projection reports for the same object and no layer would notice. Owner continuity is NOT
+/// repeated here: the kernel refuses it as `work_lifecycle_log_owner_drift` in the mechanics that
+/// run before the gate is invoked at all, so a second copy would be unreachable code asserting a
+/// guarantee it never enforces. `object_ref` needs no rule either — it is the stream key the
+/// append is routed by and cannot drift within a chain. Cross-owner WRITES are refused earlier
+/// still, at the route's principal check, which is authorization rather than continuity.
+struct ObjectKindContinuityGate;
+
+impl LegalEdgeGate for ObjectKindContinuityGate {
+    fn authorize(&self, prior: Option<&Value>, candidate: &Value) -> Result<(), String> {
+        let Some(prior) = prior else {
+            return Ok(());
+        };
+        let before = text(prior, "object_kind");
+        let after = text(candidate, "object_kind");
+        if before != after {
+            return Err(format!(
+                "a lifecycle record may not change `object_kind` under its object: '{before}' -> '{after}'"
+            ));
+        }
+        Ok(())
+    }
+}
+
+/// `POST /v1/hypervisor/work-lifecycle/records`
+///
+/// Append one record to an object's lifecycle chain. THE GENERIC WRITER (R-192, S5-1): the chain
+/// had exactly one writer, the GoalRun admission path, and it left with that plane. A platform
+/// plane whose only writer was an application is not a platform plane, so the capability is
+/// exposed here for any composing application to keep a lifecycle for its own object — the same
+/// kernel admission, the same exact-head CAS, the same projection rebuild, with the platform's
+/// own continuity gate.
+///
+/// Owner-scoped: the record's `owner_ref` must be the authenticated principal's own, or a tenant
+/// it is bound to, checked BEFORE any stream read so an unauthorized caller gets no existence
+/// oracle. The record is validated against its registered contract by the kernel's planner.
+pub(crate) async fn handle_work_lifecycle_record_append(
+    State(st): State<Arc<DaemonState>>,
+    headers: HeaderMap,
+    body: axum::body::Bytes,
+) -> Result<Json<Value>, Refused> {
+    let identity = request_identity(&st, &headers)?;
+    let body: Value = serde_json::from_slice(&body).unwrap_or(Value::Null);
+    let Some(candidate) = body.get("record").filter(|value| value.is_object()) else {
+        return Err(bad(
+            StatusCode::BAD_REQUEST,
+            "work_lifecycle_record_required",
+            "the body carries the record to append under `record`",
+        ));
+    };
+    let owner_ref = text(candidate, "owner_ref");
+    if owner_ref.is_empty() {
+        return Err(bad(
+            StatusCode::BAD_REQUEST,
+            "work_lifecycle_owner_ref_required",
+            "a lifecycle record names the owner_ref it is appended under",
+        ));
+    }
+    if owner_ref != identity.principal_ref && !identity.authorizes_tenant(owner_ref) {
+        return Err(bad(
+            StatusCode::FORBIDDEN,
+            "work_lifecycle_owner_forbidden",
+            "the authenticated principal is neither the claimed principal owner nor bound to the claimed owner tenant",
+        ));
+    }
+    let store = WorkLifecycleStore::new(st.data_dir.clone());
+    let report = store
+        .append_gated(candidate, &ObjectKindContinuityGate)
+        .map_err(store_refused)?;
+    Ok(Json(json!({
+        "ok": true,
+        "replayed": report.replayed,
+        "record": report.record,
+        "resulting_head": report.resulting_head,
+        "projection": report.projection,
+    })))
+}
+
 pub(crate) async fn handle_work_lifecycle_cancellation_plan(
     State(st): State<Arc<DaemonState>>,
     headers: HeaderMap,
@@ -1454,6 +1549,102 @@ mod tests {
         substrate_store::reset_handle_for_test();
         let store = WorkLifecycleStore::new(dir.path().to_str().unwrap());
         (dir, store)
+    }
+
+    /// R-192 S5-1. The platform's gate exists because the kernel reads `object_kind` from the
+    /// genesis record and never looks at it again. Proven by measurement, not by reading: the
+    /// SAME successor is admitted with no gate and refused with one, so the rule is reachable and
+    /// the kernel does not already own it.
+    #[test]
+    fn a_successor_may_not_claim_a_different_object_kind_than_its_genesis() {
+        let (_dir, store) = fresh_store();
+        let head = store
+            .append_gated(&genesis(), &ObjectKindContinuityGate)
+            .expect("genesis")
+            .resulting_head;
+
+        let mut drifted = phase("1", "phase-1", "active", &head, 2_000);
+        drifted["object_kind"] = json!("automation_run");
+
+        // Ungated, the kernel admits it: the projection would go on reporting `work_run` while a
+        // stored record of the same chain claims `automation_run`.
+        let ungated = WorkLifecycleLogCore
+            .plan_append(&store.load_chain(OBJECT).expect("chain"), &drifted)
+            .map(|planned| planned.record["object_kind"].clone());
+        assert_eq!(
+            ungated.expect("the kernel admits the drift"),
+            json!("automation_run")
+        );
+
+        // Gated, the same record is refused and nothing is written.
+        let refused = store
+            .append_gated(&drifted, &ObjectKindContinuityGate)
+            .expect_err("the platform gate refuses the kind drift");
+        assert_eq!(refused.code(), "work_lifecycle_log_authority_refused");
+        assert!(
+            refused.message().contains("object_kind"),
+            "the refusal names the field it fenced: {}",
+            refused.message()
+        );
+        assert_eq!(store.load_chain(OBJECT).expect("chain").len(), 1);
+    }
+
+    /// The gate is CONTINUITY, not phase policy: which phase may follow which belongs to the
+    /// composing application, so a platform chain admits an ordinary multi-edge lifecycle and
+    /// rebuilds its projection at the head the last append returned.
+    #[test]
+    fn the_platform_gate_admits_an_ordinary_chain_and_leaves_phase_policy_to_its_application() {
+        let (_dir, store) = fresh_store();
+        let first = store
+            .append_gated(&genesis(), &ObjectKindContinuityGate)
+            .expect("genesis");
+        let second = store
+            .append_gated(
+                &attach(
+                    "1",
+                    "attach-1",
+                    "compensatable",
+                    &first.resulting_head,
+                    2_000,
+                ),
+                &ObjectKindContinuityGate,
+            )
+            .expect("child attach");
+        let third = store
+            .append_gated(
+                &phase("2", "phase-2", "active", &second.resulting_head, 3_000),
+                &ObjectKindContinuityGate,
+            )
+            .expect("phase transition");
+
+        assert!(!first.replayed && !second.replayed && !third.replayed);
+        let chain = store.load_chain(OBJECT).expect("chain");
+        assert_eq!(chain.len(), 3);
+        let projection = store.read_projection(OBJECT).expect("projection");
+        assert_eq!(projection["head"], json!(third.resulting_head));
+        assert_eq!(projection["active_phase"], json!("active"));
+        assert_eq!(projection["object_kind"], json!("work_run"));
+        assert_eq!(
+            projection["active_children"]["harness_invocation"][0]["child_ref"],
+            json!("harness_invocation://1")
+        );
+    }
+
+    /// An object-scoped idempotency key replays with identical bytes and appends nothing, through
+    /// the gated path the generic route takes. The gate never sees a replay: the kernel resolves it
+    /// in the mechanics that run first.
+    #[test]
+    fn a_replayed_key_through_the_generic_writer_appends_no_second_record() {
+        let (_dir, store) = fresh_store();
+        let first = store
+            .append_gated(&genesis(), &ObjectKindContinuityGate)
+            .expect("genesis");
+        let replay = store
+            .append_gated(&genesis(), &ObjectKindContinuityGate)
+            .expect("replay");
+        assert!(!first.replayed && replay.replayed);
+        assert_eq!(replay.resulting_head, first.resulting_head);
+        assert_eq!(store.load_chain(OBJECT).expect("chain").len(), 1);
     }
 
     /// R-172 S2 driven-run finding: the first claim on an empty reservation stream was unreachable
@@ -1749,15 +1940,28 @@ mod tests {
             json!(1)
         );
         assert_eq!(
+            summary.pointer("/live_owner_route_bindings/0/route"),
+            Some(&json!("POST /v1/hypervisor/work-lifecycle/records")),
+            "the one live binding is the generic writer (R-192 slice S5-1)"
+        );
+        assert_eq!(
             summary.pointer("/live_owner_route_bindings/0/object_kind"),
-            Some(&json!("goal_run"))
+            Some(&json!("any")),
+            "the writer is not typed to one object kind"
         );
         assert_eq!(
             summary["live_owner_route_bindings"]
                 .as_array()
                 .map(Vec::len),
             Some(1),
-            "the hosted-room binding retired with the room plane (R-178 slice S4c-2)"
+            "the GoalRun binding retired with goal pursuit (R-192 S5-1); the hosted-room binding retired with the room plane (R-178 S4c-2)"
+        );
+        assert!(
+            !summary["nonclaim"]
+                .as_str()
+                .unwrap_or_default()
+                .contains("GoalRun creation is bound"),
+            "the nonclaim no longer claims a GoalRun creation binding this daemon does not serve"
         );
         let kinds = summary["per_kind_lifecycle_counts"].as_array().unwrap();
         assert_eq!(kinds.len(), 1);

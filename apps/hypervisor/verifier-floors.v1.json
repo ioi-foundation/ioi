@@ -67,14 +67,6 @@
       "assertion_names_sha256": "fb0f330aebd04b483fad7a8cd918abb561aa86a51aa4b93d910ca4e34f068236"
     },
     {
-      "id": "goal-profile-contracts",
-      "npm_script": "check:goal-profile-contracts",
-      "source": "apps/hypervisor/scripts/verify-hypervisor-goal-profile-contracts.mjs",
-      "runtime_assertions": 37,
-      "assertion_names_sha256": "d0a927ee36627292dfaef38146ed89c2e8ee50df0a612105b381a0b2e2fc44fb",
-      "note": "M04.4 generalized definition admission: 37 isolated-daemon assertions prove immutable GoalRunProfile and AgentHarnessAdapter revisions, strict owner-visible WorkflowTemplate/harness/SkillManifest/RuntimeToolContract resolution, exact gateway-adapter selection, canonical skill-owner snapshots, bounded daemon policy/constraints/null overrides, and nonempty topology/worker/model-route/service/primitive/context/verifier requirement-owner classification. Changed registry bytes, unavailable components, caller substitution, and unsupported policy/override families still fail before GoalRun persistence."
-    },
-    {
       "id": "governance-journey",
       "npm_script": "check:governance-journey",
       "source": "apps/hypervisor/scripts/verify-hypervisor-governance-journey.mjs",
@@ -106,28 +98,12 @@
       "note": "M04.5 shared execution mount: the live Session launch-chain proof remains intact and two source-bound assertions pin bounded GoalRun invocation ordering before adapter/spawn plus reuse of the same launch producer/reducer with invocation-ref-only GoalRun state."
     },
     {
-      "id": "m3-goalrun-plane",
-      "npm_script": "check:m3-goalrun-plane",
-      "source": "apps/hypervisor/scripts/verify-m3-goalrun-plane.mjs",
-      "runtime_assertions": 14,
-      "assertion_names_sha256": "5d572121f08911b874e847d47f6b05cc5516186562d39a46797a867e1bd99657",
-      "note": "M04.4 general direct-admission closure: the live plane proves exact reusable-definition resolution, canonical skill-owner records, an Agentgres-backed reproducible admitted-state root, typed receipt/source/authority bindings, missing-state-evidence refusal, negative generic result truth, component tamper refusal, and restart lineage. Re-pinned 2026-09-18 (R-190, S4d-2): 11 -> 14 -- the reciprocal orchestration-membership stamp on a real direct GoalRun, its four refusals (conflict, room-shaped ref, widened body, absent run) and the null detach."
-    },
-    {
-      "id": "m4-goalrun-activation-plane",
-      "npm_script": "check:m4-goalrun-activation-plane",
-      "source": "apps/hypervisor/scripts/verify-m4-goalrun-activation-plane.mjs",
-      "runtime_assertions": 52,
-      "assertion_names_sha256": "7156b387d56ebd3915552eecfd8cf9cec955eb4f128d16642c01cdeadc498414",
-      "note": "M04.4 activation closure: 52 fresh-process assertions cover the zero-execution ioi.ai draft lane and tenant-owned gateway_adapter_context run-on lane, including exact adapter/1:1 ceiling closure, retained intent, fresh authority, no attach carryover or receipt remint, admitted-state evidence, complete-census ownership, restart replay, and durability-fault recovery."
-    },
-    {
       "id": "m4-work-lifecycle-plane",
       "npm_script": "check:m4-work-lifecycle-plane",
       "source": "apps/hypervisor/scripts/verify-m4-work-lifecycle-plane.mjs",
       "runtime_assertions": 17,
-      "assertion_names_sha256": "a37137ab9d7e4a2ba1e76028057faff6a04c1d5ab5f95158a833c7ae343ad940",
-      "note": "M04.6 shared lifecycle closure: a fresh-process GoalRun proves exact executable application-plan, selection-receipt, and topology-less ContextCell persistence; the three-edge shared record chain and active projection; all five durable lifecycle families; principal-or-tenant owner scope; requester-derived cancellation planning without completion claims; archive-first compaction with retained hot logs; tamper refusal; and restart reconstruction without acquiring Session, launch, thread, or HarnessInvocation truth."
+      "assertion_names_sha256": "bf311fd59309a2494d34351bbe8c0e709a0bd491305cbab1d72e43b7376174d8",
+      "note": "M04.6 shared lifecycle closure. RE-TYPED 2026-09-18 (register R-192, slice S5-1) and re-pinned at the same 17 assertions with a new name set: this verifier used to drive the plane through GoalRun creation because the GoalRun admission path was the record chain's ONLY writer, and goal pursuit left the daemon with that ruling. The chain is now written through one generic owner-scoped route and the verifier drives that, on a platform work_run object with a harness_invocation child: a three-edge chain with each head stamped by the kernel; an object-scoped idempotency replay that appends nothing; the platform's continuity gate refusing a successor that re-declares the genesis object_kind, which is the one rule the kernel leaves open; anonymous and caller-substituted writes refused before the chain is read; the shared record and projection routes rebuilding the exact chain; all five durable families and the one untyped writer binding in status, with no retired goal-run or outcome-room binding surviving anywhere in it; principal-or-tenant owner scope on reads; requester-derived cancellation planning that refuses a compensatable child with no compensation policy and never claims completion; archive-first compaction with the hot log retained; and restart reconstruction from durable truth alone, acquiring no Session, launch, thread, or HarnessInvocation truth."
     },
     {
       "id": "model-route-authority",
@@ -320,14 +296,6 @@
       "note": "First pinned 2026-09-14 (R-144) at the 86 assertions it executes against an isolated daemon: the AssuranceTransitionReceipt seam \u2014 a subject resolved through its OWN owner (ontology revision, mapping revision, provenance assertion, and since M06.1 the WorkResult arm), the ladder advanced one member at a time, negative outcomes durable across restart, refusals counted by effect, the offline fixture half, and four source pins (single admitter, owner resolvers only, no raw filesystem call in the production half, the replay-intent field set read from its own initialiser, the focused test population by name). The gate had been authored before M06.1 landed and was bound nowhere; M06.1's landing (34a0e0100, 341c0440c) moved the module and the gate sat red at 82/86 \u2014 a stale eleven-of-twenty-three test pin, a work_result row still expecting the pre-resolver 501, a filesystem regex that read the tests' fixture loader as production, and a replay pin that still named subject_content_hash after the module had deliberately removed it (replay identity is the stored subject version). All four were pin repairs, none a defect; it is CI-bound from this commit in the M06.1 job beside check:verified-work-graph."
     },
     {
-      "id": "context-lease-handoff-lifecycle",
-      "npm_script": "check:context-lease-handoff-lifecycle",
-      "source": "apps/hypervisor/scripts/verify-hypervisor-context-lease-handoff-lifecycle.mjs",
-      "runtime_assertions": 43,
-      "assertion_names_sha256": "7bcf131d5b8682dafb10390fa1d05e45baa79884b15a4a72c89569d714ae1323",
-      "note": "First pinned 2026-09-15 (M04.11) at the 43 assertions it executes against an isolated daemon: the receipt_root RE-DERIVED here in JavaScript as canon defines it (SHA-256 over JCS of every field except the root) rather than read back from the record that carries it; the lease issued to a concrete CELL and the reusable HarnessProfile subject the activation lane used to write refused by the registered contract; the legacy context_lease:// identity refused; all three INHERITED dimensions (data_class, purpose, redaction_policy_ref) refused by name, because those belong to the bound PolicyBoundDataView revision and the InformationFlowLabel and a lease that restated one could claim it wider than the view it leases; a view family head and the predecessor's policy-bound-data-view:// spelling each refused where a revision is required; narrowing as SUBTRACTION with all five widening members refused by name plus a dropped denial, an extended ttl and an unbounded ttl; the least-context resolution as a read model that names what it inherits and reports a typed reason when no view is bound; a daemon restart reproducing the SAME resolution; revocation and the revoked lease resolving nothing; a terminal lease admitting no successor; a lease unreachable through another GoalRun's path; the handoff's non_grants constant and unsuppliable, self-directed and invented-payload handoffs refused, accept and reject as successors with re-asserted non-grants and only a sent handoff decidable; no MCP tool reaching the context families, so the refusals are proven on the only path that reaches them (the MCP half of the unit's matrix is a typed absence owned by M01.10/M01.11); and idempotent replay with a diverged key refused. The driven gate found THREE defects the module's own unit tests could not, because those tests never called the shared mutation spine: genesis=true passed for every successor, the narrow loop copying the spine's body fields into the record, and both history readers taking the first matching entry instead of the maximum-seq one (a stale head, so every second successor lost the compare-and-swap). Drilled by mutate:context-lease-handoff-lifecycle 4/4: the receipt-root oracle rejects a changed AND a removed field, the byte-identity comparison goes red when a real record is written, and a narrowing that shrinks is still admitted so the widening refusals are not a blanket refusal."
-    },
-    {
       "id": "improvement-governance-spine",
       "npm_script": "check:improvement-governance-spine",
       "source": "apps/hypervisor/scripts/verify-hypervisor-improvement-governance-spine.mjs",
@@ -429,7 +397,7 @@
       "source": "apps/hypervisor/scripts/verify-hypervisor-work-objects-composition.mjs",
       "runtime_assertions": 13,
       "assertion_names_sha256": "50b9e0b8fbe1ed89c72723a0db8f7cc2294c22161f5c51f5cac95b0de854d00b",
-      "note": "First pinned 2026-09-16 (register R-177, slice S4b) at the 13 assertions it executes through the built agent SDK and the built @ioi/ioi-ai-orchestration package against an isolated daemon and the REAL wallet.network fixture: the bounded System activated; an orchestration with one delegation the kernel lists, one accepted, one exited and one undecided participation, and two frontier items; a claim by the delegation and a claim by the participation admitted with the binding derived and exactly one actor; seven actor refusals by name (foreign thread, unlisted subagent, undecided and exited participations, no actor, both actors, unknown frontier item) admitting nothing; an attempt with the frontier item and the claim frozen as coordinates equal to the served records' payload roots and re-derived offline; an attempt under another actor's claim refused; a finding by the attempt's actor with the attempt frozen and a finding by the other actor refused; a challenge by the participation and a challenge of an absent record refused; a capability and a resource offer with no lease member; a record carrying a room member refused by the seam; a transition as a revision by the record's own actor and refused for the other; restart; the structural claim that the module names no room or lease, the router serves no v4 route and the old planes know nothing of v4. The drill (D1-D3) is a separate invocation and is not part of this count. Re-pinned 2026-09-16 (register R-180, slice S4a) at the same 13 assertions: the [structure] assertion was RENAMED, not replaced, when the four room-hosted planes it once read were deleted — it now asserts their absence and that the router mounts none of the retired work-object families; names sha 909f2435… → 50b9e0b8… from the census of the 13/13 run on the S4a daemon."
+      "note": "First pinned 2026-09-16 (register R-177, slice S4b) at the 13 assertions it executes through the built agent SDK and the built @ioi/ioi-ai-orchestration package against an isolated daemon and the REAL wallet.network fixture: the bounded System activated; an orchestration with one delegation the kernel lists, one accepted, one exited and one undecided participation, and two frontier items; a claim by the delegation and a claim by the participation admitted with the binding derived and exactly one actor; seven actor refusals by name (foreign thread, unlisted subagent, undecided and exited participations, no actor, both actors, unknown frontier item) admitting nothing; an attempt with the frontier item and the claim frozen as coordinates equal to the served records' payload roots and re-derived offline; an attempt under another actor's claim refused; a finding by the attempt's actor with the attempt frozen and a finding by the other actor refused; a challenge by the participation and a challenge of an absent record refused; a capability and a resource offer with no lease member; a record carrying a room member refused by the seam; a transition as a revision by the record's own actor and refused for the other; restart; the structural claim that the module names no room or lease, the router serves no v4 route and the old planes know nothing of v4. The drill (D1-D3) is a separate invocation and is not part of this count. Re-pinned 2026-09-16 (register R-180, slice S4a) at the same 13 assertions: the [structure] assertion was RENAMED, not replaced, when the four room-hosted planes it once read were deleted \u2014 it now asserts their absence and that the router mounts none of the retired work-object families; names sha 909f2435\u2026 \u2192 50b9e0b8\u2026 from the census of the 13/13 run on the S4a daemon."
     },
     {
       "id": "standalone-conformance",

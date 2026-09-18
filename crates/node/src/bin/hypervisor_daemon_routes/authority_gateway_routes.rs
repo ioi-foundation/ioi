@@ -85,7 +85,7 @@ fn resolve_run_on_adapter(data_dir: &str, owner_ref: &str, profile: &Value) -> R
     ) {
         (None, None) => Ok(()),
         (Some(revision_ref), Some(content_hash)) => {
-            super::goal_profile_contract_routes::resolve_released_agent_harness_adapter(
+            super::harness_routes::resolve_released_agent_harness_adapter(
                 data_dir,
                 owner_ref,
                 revision_ref,
@@ -196,7 +196,7 @@ pub(crate) fn resolve_run_on_graduation(
                     .into(),
             ),
         };
-    super::goal_profile_contract_routes::resolve_released_agent_harness_adapter(
+    super::harness_routes::resolve_released_agent_harness_adapter(
         data_dir,
         owner_ref,
         revision_ref,

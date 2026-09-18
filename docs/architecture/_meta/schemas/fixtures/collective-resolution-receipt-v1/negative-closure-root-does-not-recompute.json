@@ -1,0 +1,40 @@
+{
+  "schema_version": "ioi.applications.ioi-ai.collective-resolution-receipt.v1",
+  "receipt_id": "collective-resolution://crr_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+  "receipt_ref": "collective-resolution://crr_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+  "receipt_type": "collective_resolution",
+  "resolved_by_ref": "user://operator",
+  "system_id": "system://acme/collective",
+  "system_release_ref": "release://acme/collective/1",
+  "constitution_ref": "constitution://acme/collective/1",
+  "active_profile_set_ref": "profile-set://acme/collective/1",
+  "orchestration_ref": "app-scope://ioi-ai/orchestration/orc_collective_one",
+  "goal_run_profile_revision_refs": [
+    "goal-run-profile://generic-adaptive/revision/1"
+  ],
+  "policy_refs": [
+    "policy://ioi/orchestration/coordination/v1",
+    "policy://ioi/orchestration/topology/v1"
+  ],
+  "lease_policy_refs": [
+    "policy://ioi/lease/context/v1",
+    "policy://ioi/lease/budget/v1"
+  ],
+  "artifact_lifecycle_policy_ref": "policy://ioi/artifact/reuse-fork-install-retire/v1",
+  "requirement_refs": [
+    "requirement://verifier/path/v1",
+    "requirement://acceptance/v1",
+    "requirement://stop/v1",
+    "requirement://recovery/v1",
+    "requirement://evaluation/v1"
+  ],
+  "resolved_owner_refs": [
+    "app-scope://ioi-ai/orchestration/orc_collective_one",
+    "goal://gr_collective_one",
+    "context-lease://cl_one",
+    "runtime-assignment://ra_one"
+  ],
+  "registers_no_new_owner": true,
+  "resolved_at": "2026-09-18T16:00:00Z",
+  "closure_root": "sha256:6d4b6d210fe89a2d38944ce7a6a1b15dc7fdc13f3d0e14150f058dc01d0f5d11"
+}

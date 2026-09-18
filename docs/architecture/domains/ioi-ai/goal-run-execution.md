@@ -257,11 +257,20 @@ budget, and this M4 ruling does not recertify or broaden M3.
 
 ### The admission contract
 
-This is the goal-orchestration application's admission contract (ADR 0020;
+This is the ioi.ai orchestration application's admission contract (ADR 0020;
 placement per
 [ADR 0022](../../../decisions/0022-goal-orchestration-application-layer-and-clean-slate.md)).
-The daemon executes and enforces it under the substrate's admission-evidence
-discipline (INV-37); the application owns its content. The M4
+
+**The daemon no longer executes it (2026-09-18, register R-192, slice S5-1).**
+It did, under the substrate's admission-evidence discipline (INV-37), until the
+owner ruled that goal runs and outcome rooms are ioi.ai compositions over the
+Hypervisor's thread orchestration primitives and that the Hypervisor decomposes
+nothing but those primitives. The runtime goal-run admission kernel and every
+`/v1/goal-orchestration/*` route were deleted. The seven requirements below are
+unchanged as the APPLICATION's contract and are what slice S5-3 must satisfy
+where the composition now lives: over the coordinating thread, its subagents,
+the launch and harness-binding primitives, and the System-scoped record seam.
+Read them as obligations on the composer, not as daemon behaviour. The M4
 `create` + `ioi_goal_draft` slice implements all seven requirements for that
 one source lane; this remains the target contract for every other source and
 for `join_existing`, whose current runtime paths enforce narrower subsets

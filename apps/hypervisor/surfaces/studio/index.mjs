@@ -130,7 +130,9 @@ export async function load(ctx) {
     conversations: "/v1/hypervisor/agentops/conversations",
     runs: "/v1/hypervisor/agent-run-transcripts",
     model_routes: "/v1/hypervisor/model-routes",
-    launch_policies: "/v1/goal-orchestration/ioi-agent/launch-policies",
+    // R-192 (S5-1): the IOI-Agent launch-policy registry left the daemon with goal pursuit — a
+    // launch policy narrowed how a GOAL would be pursued, which is an ioi.ai composition over the
+    // thread orchestration primitives, not a Hypervisor object. The lens reads one plane fewer.
     memory: "/v1/hypervisor/memory-entries",
     skills: "/v1/hypervisor/skill-entries",
     affinities: "/v1/hypervisor/automation-affinities",
@@ -483,14 +485,10 @@ function modelRoutesPane(model) {
   return `<h2 id="model-routes">Model routes</h2><p class="sub" style="margin:-4px 0 12px">The real model-route registry — availability is probe evidence, never assumed. Administration (enable · probe · select default) lives on the owner lane.</p>${rows}`;
 }
 
-function launchPoliciesPane(model) {
-  const policies = rowsOf(model.results.launch_policies, "policies");
-  if (policies === null) return `<h2 id="launch-policies">Launch policies</h2>${degraded(model.results.launch_policies)}`;
-  const rows = policies.length
-    ? `<table><thead><tr><th>Policy</th><th>Status</th><th>Rollout</th><th>Controls</th></tr></thead><tbody>${policies.map((p) => `<tr><td><b>${esc(p.display_name || p.policy_id || "—")}</b><div style="color:#878a93;font-size:11.5px"><code>${esc(p.policy_id || "")}</code></div></td><td>${pill(p.status === "active" ? "ok" : "muted", p.status || "—")}</td><td>${p.rollout ? pill("warn", "learned rollout") : "—"}</td><td>${disabledCtl("Manage", LEGACY_STUDIO_REASON)}</td></tr>`).join("")}</tbody></table>`
-    : `<div class="empty">No launch policies yet.</div>`;
-  return `<h2 id="launch-policies">Launch policies</h2>${rows}`;
-}
+// R-192 (S5-1): a Launch policies pane stood here, listing the IOI-Agent launch-policy registry
+// with its rollout state. The registry left the daemon with goal pursuit — a launch policy chose
+// harnesses, comparison and assurance for pursuing a GOAL, which is an ioi.ai composition over
+// this daemon's thread orchestration primitives. The pane is gone rather than left degrading.
 
 // The intelligence cockpit band — the seed's per-plane panes summarized read-first (counts +
 // honest degradation); every lifecycle/authoring control stays on the owner lane.
@@ -717,7 +715,7 @@ export function render(model, ctx) {
     // The landing — the rehomed agent-estate lens (seed panes/labels; Machinery does NOT rehome
     // here per OQ-2 — its definitions plane keeps its own lane).
     const head = `<h1>Studio</h1><p class="sub"><a href="?view=system-design">System design map →</a> (concept/component/resource map over the <a href="/__ioi/studio/designer">Solution Designer seed</a>) · <a href="?view=blueprints">Blueprints →</a> (content-addressed composition drafts) · Compose systems &amp; agents. The agent lens is live — the agent estate — every configured agent, its model route and runtime posture, the platform's harness adapters, and recent activity. Author and operate agents here; <a href="/__ioi/automations">put one to work in an Automation →</a></p>`;
-    bodyHtml = head + agentEstate(model, `${ctx.url.pathname}?view=`, sp) + systemDesigns(model) + harnessProfiles(model) + modelRoutesPane(model) + launchPoliciesPane(model) + intelligencePane(model);
+    bodyHtml = head + agentEstate(model, `${ctx.url.pathname}?view=`, sp) + systemDesigns(model) + harnessProfiles(model) + modelRoutesPane(model) + intelligencePane(model);
   }
   const css = `:root{color-scheme:dark}
   body{margin:0;background:#0c0d10;color:#e6e7ea;font:14px/1.55 -apple-system,Segoe UI,Roboto,sans-serif}

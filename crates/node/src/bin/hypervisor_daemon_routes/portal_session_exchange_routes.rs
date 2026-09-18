@@ -448,7 +448,7 @@ mod tests {
         assert!(super::super::lifecycle_routes::session_allows_route(
             data_dir,
             &headers,
-            "/v1/goal-orchestration/goal-runs"
+            "/v1/threads"
         ));
         assert!(!super::super::lifecycle_routes::session_allows_route(
             data_dir,
@@ -467,10 +467,6 @@ mod tests {
             "/v1/hypervisor/autonomous-systems/system-tail/records",
             "/v1/hypervisor/autonomous-systems/system-tail/records/contract-slug/object-slug",
             // R-190 (S4d-2): the composer's reciprocal stamp reaches the GoalRun plane through
-            // the `/v1/goal-orchestration/` prefix the session already carries (measured, not
-            // added) — the goal space drives GoalRuns under this session, so the membership
-            // route needs no pattern of its own.
-            "/v1/goal-orchestration/goal-runs/gr_1/orchestration-membership",
         ] {
             assert!(
                 super::super::lifecycle_routes::session_allows_route(data_dir, &headers, allowed),
@@ -486,6 +482,14 @@ mod tests {
             "/v1/hypervisor/autonomous-systems/system-tail/records/contract-slug",
             "/v1/hypervisor/autonomous-systems/system-tail/records/contract-slug/object-slug/extra",
             "/v1/hypervisor/work-lifecycle/reservations",
+            "/v1/hypervisor/work-lifecycle/records",
+            // R-192 (S5-1): the session carried a `/v1/goal-orchestration/` PREFIX for as long as
+            // the daemon served anything under it. It serves nothing under it now — goal runs are
+            // ioi.ai compositions over thread orchestration primitives — and the prefix left with
+            // the routes, so this namespace is refused by route scope before any handler, rather
+            // than granted to whatever is mounted there next.
+            "/v1/goal-orchestration/goal-runs/gr_1/orchestration-membership",
+            "/v1/goal-orchestration/anything-mounted-here-later",
         ] {
             assert!(
                 !super::super::lifecycle_routes::session_allows_route(data_dir, &headers, denied),
@@ -499,7 +503,8 @@ mod tests {
         assert_eq!(stored[0]["source_tenant_ref"], "org://local");
         assert_eq!(
             stored[0]["allowed_route_prefixes"],
-            json!(["/v1/goal-orchestration/"])
+            json!([]),
+            "no prefix at all: a prefix grants whatever is mounted under it next (R-192, S5-1)"
         );
         assert_eq!(
             stored[0]["allowed_exact_routes"],

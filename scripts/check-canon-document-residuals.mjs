@@ -256,7 +256,7 @@ try {
   // deleted with the room plane are now annotated "no registered route — deleted" where
   // orchestration-api.md lists them (the audited block and the target block), and the ratchet
   // follows the population down rather than absorbing it.
-  const ENDPOINT_RATCHET = 94; // 2026-09-18 (R-188, S4c-3): −35 over 129 — the 41 never-registered target room routes in orchestration-api.md annotated retired on their own lines (the composition owns them)
+  const ENDPOINT_RATCHET = 86; // 2026-09-18 (R-192, S5-1): −8 over 94. The GoalRun family left the daemon, which briefly RAISED the population to 109 — routes that had been registered became documented-but-unserved overnight — and the repair was to annotate them where they are documented rather than to absorb them into the pin. `orchestration-api.md` now opens by saying its whole transport is retired, and four endpoint lines inside its fences carry the annotation that covers the rest.
   const byFile = {};
   for (const entry of undocumented) {
     const file = entry.split(":")[0];

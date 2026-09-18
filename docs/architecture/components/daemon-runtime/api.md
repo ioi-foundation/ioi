@@ -112,16 +112,30 @@ owner. Owner-scoping authorizes the claimed owner tenant before any read and
 then requires the durable `owner_ref` to match — there is no cross-tenant
 existence oracle, and a request never overrides durable owner truth.
 
-At M04.6 `live_owner_route_bindings` began with `goal_run`, bound
-at `POST /v1/goal-orchestration/goal-runs` over the `direct_non_system` and
-`system_activation` admission paths, with owned scope limited to the GoalRun
-application plan, its ContextCell reference, and the GoalRun lifecycle
-projection. M04.7 adds `outcome_room` at the hosted room create boundary:
-the room System's expected-absent Agentgres genesis commits first, then the
-OutcomeRoom owner appends `proposed -> open` and proves snapshot resume before
-the local room projection becomes visible. The retained room intent makes a
-partial append recoverable and byte-identical. This binding owns no room child,
-shared-state, Session, launch, thread, or HarnessInvocation truth. The status
+**The generic writer (2026-09-18, R-192 slice S5-1).** The paragraph above
+described a plane with no writer on the wire, because its one writer was the
+GoalRun admission path inside the daemon. Goal runs are ioi.ai compositions over
+thread orchestration primitives and left the Hypervisor with that ruling, and a
+platform plane whose only writer is one application is not a platform plane. One
+generic route writes the chain now — `POST /v1/hypervisor/work-lifecycle/records`
+— owner-scoped to the authenticated principal before the stream is read, taking
+the same kernel admission, the same exact-head compare-and-swap, the same
+object-scoped idempotency and the same projection rebuild. The platform
+contributes the one continuity rule the kernel leaves open, `object_kind`, which
+the kernel reads from the genesis record and never re-checks on a successor;
+owner continuity is the kernel's own (`work_lifecycle_log_owner_drift`) and is not
+repeated above it. Legal phase order stays with the composing application, which
+refuses by not appending. `live_owner_route_bindings` is therefore a single
+untyped row — `object_kind: "any"` bound at that route — owning the record chain
+and the projection rebuilt from it, and nothing about any object beyond them.
+
+At M04.6 `live_owner_route_bindings` began with `goal_run`, bound at a GoalRun
+create route over the `direct_non_system` and `system_activation` admission
+paths, with owned scope limited to the GoalRun application plan, its ContextCell
+reference, and the GoalRun lifecycle projection. M04.7 added `outcome_room` at
+the hosted room create boundary. Both bindings are retired — the room family on
+2026-09-17 (R-187, S4c-2) and the GoalRun family on 2026-09-18 (R-192, S5-1) —
+and neither route exists. The status
 response's nonclaim states this bound: Session, launch,
 thread, HarnessInvocation, and child-owner runtime truth remain with their
 kernel owners; GoalGroundingLoop, WorkRun, AutomationRun, ContextCell lifecycle,
@@ -3317,11 +3331,24 @@ family: its eleven routes, the two modules that served them, the startup
 convergence of their intent families and the pending-intent fence were deleted;
 a retained v1 GoalRun record that still names an `outcome_room_ref` is refused by
 name on the result and delta routes; the v2 record (2026-09-18, R-190) has no such
-member — it carries `orchestration_ref`, stamped through
-`POST /v1/goal-orchestration/goal-runs/{id}/orchestration-membership` by the
-composing application after the orchestration's own revision on the seam. Hypervisor
-keeps only what the platform owns: the record seam, threads and subagents,
-work-lifecycle reservations and System genesis/activation.
+member — it carries `orchestration_ref`, which the composing application stamped
+through a GoalRun membership route after the orchestration's own revision on the
+seam.
+
+On 2026-09-18 (R-192, slice S5-1) the daemon stopped hosting the GoalRun family
+itself, on the owner's ruling that goal runs and outcome rooms are ioi.ai
+compositions over the Hypervisor's thread orchestration primitives and that the
+Hypervisor decomposes nothing but those primitives. The GoalRun routes, the
+GoalRun context family, the goal-profile contract registry, the IOI-Agent launch
+plane (whose `goal_run` strategy minted GoalRuns and ran parallel implementer
+invocations) and the runtime goal-run admission kernel were deleted, and
+`/v1/goal-orchestration/` serves nothing. What the runtime kernel kept is the
+harness-agnostic half of what that module did, under a neutral name
+(`runtime_work_admission.rs`): work-run isolation admission and preservation,
+work-result and outcome-delta admission, declassification consumption, authority
+effects, information-flow decisions and receipt checkpoints. Hypervisor keeps only
+what the platform owns: the record seam, threads and subagents, the work-lifecycle
+record chain and its reservations, and System genesis/activation.
 
 ## Bounded Improvement Campaign APIs
 

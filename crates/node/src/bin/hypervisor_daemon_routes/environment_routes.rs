@@ -17,7 +17,7 @@ use ioi_services::agentic::runtime::kernel::emergency_containment::{
     truthful_isolation_label, unsafe_path_gate, DeclaredIsolation, DeletionOutcome, ExecutionLocus,
     IsolatedSubstrate, UNVERIFIED_WORKSPACE_RESTORE_GATE,
 };
-use ioi_services::agentic::runtime::kernel::runtime_goal_pursuit::GoalPursuitCore;
+use ioi_services::agentic::runtime::kernel::runtime_work_admission::WorkAdmissionCore;
 use ioi_types::app::agentic::InferenceOptions;
 use serde_json::{json, Value};
 
@@ -4526,7 +4526,7 @@ fn admit_workrun_isolation_contract(
                 .into(),
         )
     })?;
-    let admission = GoalPursuitCore
+    let admission = WorkAdmissionCore
         .admit_workrun_isolation(requirements, binding_inputs, &workrun_ref, admitted_at)
         .map_err(|error| {
             AppError(
@@ -5953,7 +5953,7 @@ pub(crate) async fn handle_workrun_execute(
             "workload_isolation_binding_missing: legacy unbound WorkRun cannot execute".into(),
         )
     })?;
-    GoalPursuitCore
+    WorkAdmissionCore
         .preserve_workrun_isolation(
             isolation_admission,
             &isolation_admission["binding"],

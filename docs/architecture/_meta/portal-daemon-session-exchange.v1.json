@@ -15,7 +15,7 @@
       "durably single-use JTI across restart",
       "daemon-owned principal and live tenant-membership resolution",
       "five-minute hash-at-rest daemon session retained only by the BFF",
-      "daemon-enforced /v1/goal-orchestration route scope plus whoami/logout",
+      "daemon-enforced route scope: exact routes and per-segment patterns only (threads and their subagents, the Systems projection, the System-record seam, whoami/logout) and NO prefix at all as of 2026-09-18 (R-192, S5-1), because a prefix grants whatever is mounted under it next",
       "production refusal of browser daemon-cookie or bearer fallback"
     ],
     "authority_not_granted": [

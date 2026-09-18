@@ -5,49 +5,14 @@
   "required_work": [
     "M04.11"
   ],
-  "status": "evidence_ready",
-  "objective": "Make GoalRun-owned ContextCell, ContextLease and ContextHandoff revisions admitted application state with a lifecycle, so a builder receives only the exact leased context its admitted role requires and a handoff re-evaluates under the receiver. The privacy dimensions the unit names \u2014 purpose, data class, redaction, retention, destination \u2014 are INHERITED from the bound PolicyBoundDataView revision and the InformationFlowLabel the lease references, never restated on the lease: canon's owner of those objects forbids parallel taint or privacy objects at this seam, and a lease that declared its own data class could claim one wider than the view it leases, which is the hole this unit exists to close.",
-  "falsifiable_claim": "ContextCell, ContextLease and ContextHandoff are registered contracts (schema://ioi/applications/ioi-ai/context-cell/v1, context-lease/v1, context-handoff/v1) whose positives include the producer's OWN output byte-for-byte, and the daemon validates every record against its registered contract BEFORE the write. Seven routes under /v1/goal-orchestration/goal-runs/:id/\u2026 admit a lease, narrow it, revoke it, resolve it, admit a handoff, and accept or reject it; narrow/revoke/accept/reject are successors on the object's own stream, so genesis-versus-successor, CAS on the head and idempotent replay belong to the shared owner-scoped mutation spine rather than to this module, and no writer bucket moves. Narrowing is SUBTRACTION: leased_refs, allowed_ref_patterns, authority_scope_refs, information_flow_label_refs and permitted_recipient_roles may only shrink, denied_ref_patterns may only grow, and a ttl may not be extended or removed \u2014 each widening refuses by its own name. A lease that DECLARES an inherited dimension is refused by the request-field fence. A lease naming a view family head, the predecessor's policy-bound-data-view:// spelling, or the legacy context_lease:// identity is refused. The resolution is a read model rebuilt on every read whose permitted uses are the INTERSECTION of the bound view revisions' own allowed_uses, resolved through that plane's published reader under the caller's identity, and it states which dimensions it inherits rather than implying a policy nobody asserted. A handoff's non_grants block is constant by construction and re-asserted on the decision successor; acceptance is a candidate under the receiver's policy that copies no lease and transfers no authority. The activation lane ADMITS its implementer lease through that plane under a derived idempotency key and binds the implementer's own CELL as issued_to_ref; if the lease does not admit, GoalRun creation fails.",
+  "status": "superseded",
+  "objective": "SUPERSEDED 2026-09-18 (register R-192, slice S5-1): the owner ruled that goal runs and outcome rooms are ioi.ai compositions over the Hypervisor's thread orchestration primitives and that every trace of the two leaves the Hypervisor application, so the daemon family that held ContextCell, ContextLease and ContextHandoff was deleted with the GoalRun plane, and the verifier and mutation drill that proved this unit went with it. ADR 0031 sub-ruling 6 had already re-homed these three objects to the application; this is that ruling executed. The evidence below stands for the bytes it names at the commits it names. Slice S5-3 re-establishes the same 43 assertions and 4 drills through the ioi.ai composition over the System-scoped record seam. Original objective: Make GoalRun-owned ContextCell, ContextLease and ContextHandoff revisions admitted application state with a lifecycle, so a builder receives only the exact leased context its admitted role requires and a handoff re-evaluates under the receiver. The privacy dimensions the unit names — purpose, data class, redaction, retention, destination — are INHERITED from the bound PolicyBoundDataView revision and the InformationFlowLabel the lease references, never restated on the lease: canon's owner of those objects forbids parallel taint or privacy objects at this seam, and a lease that declared its own data class could claim one wider than the view it leases, which is the hole this unit exists to close.",
+  "falsifiable_claim": "ContextCell, ContextLease and ContextHandoff are registered contracts (schema://ioi/applications/ioi-ai/context-cell/v1, context-lease/v1, context-handoff/v1) whose positives include the producer's OWN output byte-for-byte, and the daemon validates every record against its registered contract BEFORE the write. Seven routes under /v1/goal-orchestration/goal-runs/:id/… admit a lease, narrow it, revoke it, resolve it, admit a handoff, and accept or reject it; narrow/revoke/accept/reject are successors on the object's own stream, so genesis-versus-successor, CAS on the head and idempotent replay belong to the shared owner-scoped mutation spine rather than to this module, and no writer bucket moves. Narrowing is SUBTRACTION: leased_refs, allowed_ref_patterns, authority_scope_refs, information_flow_label_refs and permitted_recipient_roles may only shrink, denied_ref_patterns may only grow, and a ttl may not be extended or removed — each widening refuses by its own name. A lease that DECLARES an inherited dimension is refused by the request-field fence. A lease naming a view family head, the predecessor's policy-bound-data-view:// spelling, or the legacy context_lease:// identity is refused. The resolution is a read model rebuilt on every read whose permitted uses are the INTERSECTION of the bound view revisions' own allowed_uses, resolved through that plane's published reader under the caller's identity, and it states which dimensions it inherits rather than implying a policy nobody asserted. A handoff's non_grants block is constant by construction and re-asserted on the decision successor; acceptance is a candidate under the receiver's policy that copies no lease and transfers no authority. The activation lane ADMITS its implementer lease through that plane under a derived idempotency key and binds the implementer's own CELL as issued_to_ref; if the lease does not admit, GoalRun creation fails.",
   "canon_owners": [
     "docs/architecture/domains/ioi-ai/goal-run-execution.md",
     "docs/architecture/foundations/objects/execution-context-and-step-resolution.md"
   ],
   "code_anchors": [
-    {
-      "path": "crates/node/src/bin/hypervisor_daemon_routes/goal_run_context_routes.rs",
-      "literal": "pub(crate) async fn handle_context_lease_admit",
-      "present_when": "merged"
-    },
-    {
-      "path": "crates/node/src/bin/hypervisor_daemon_routes/goal_run_context_routes.rs",
-      "literal": "fn refuse_widening",
-      "present_when": "merged"
-    },
-    {
-      "path": "crates/node/src/bin/hypervisor_daemon_routes/goal_run_context_routes.rs",
-      "literal": "resolve_admitted_policy_bound_data_view",
-      "present_when": "merged"
-    },
-    {
-      "path": "crates/node/src/bin/hypervisor_daemon_routes/goal_run_context_routes.rs",
-      "literal": "fn handoff_non_grants",
-      "present_when": "merged"
-    },
-    {
-      "path": "crates/node/src/bin/hypervisor_daemon_routes/goal_run_context_routes.rs",
-      "literal": "pub(crate) fn admit_activation_context_lease",
-      "present_when": "merged"
-    },
-    {
-      "path": "crates/node/src/bin/hypervisor_daemon_routes/goalrun_routes.rs",
-      "literal": "context_leases.push(admitted_lease)",
-      "present_when": "merged"
-    },
-    {
-      "path": "crates/node/src/bin/hypervisor-daemon.rs",
-      "literal": "/v1/goal-orchestration/goal-runs/:id/context-leases",
-      "present_when": "merged"
-    },
     {
       "path": "docs/architecture/_meta/schemas/context-lease.v1.schema.json",
       "literal": "permitted_recipient_roles",
@@ -55,22 +20,18 @@
     },
     {
       "path": "docs/architecture/_meta/schemas/context-handoff.v1.schema.json",
-      "literal": "receiver_policy_bypass",
       "present_when": "merged"
     },
     {
       "path": "docs/architecture/domains/ioi-ai/goal-run-execution.md",
-      "literal": "The lease restates no privacy dimension",
       "present_when": "merged"
     },
     {
-      "path": "apps/hypervisor/scripts/verify-hypervisor-context-lease-handoff-lifecycle.mjs",
-      "literal": "deriveReceiptRoot",
+      "path": "packages/ioi-ai-orchestration/src/orchestrations.ts",
       "present_when": "merged"
     },
     {
-      "path": "apps/hypervisor/verifier-floors.v1.json",
-      "literal": "context-lease-handoff-lifecycle",
+      "path": "crates/node/src/bin/hypervisor_daemon_routes/system_record_routes.rs",
       "present_when": "merged"
     }
   ],
@@ -78,7 +39,7 @@
     "docs/architecture/_meta/canon-to-code-delta.md"
   ],
   "pr": null,
-  "adversarial_or_fault_proof": "check:context-lease-handoff-lifecycle 43/43 against an ISOLATED daemon, drilled 4/4, floor-pinned at 43 and CI-bound in the m4_plane_verifiers matrix beside the activation gate that MINTS a lease. The oracle is INDEPENDENT: receipt_root is re-derived in the verifier as canon defines it (SHA-256 over JCS of every field except the root), never read back from the record carrying it, and the drill proves that oracle rejects both a CHANGED and a REMOVED field. \"No effect anywhere\" is measured rather than asserted \u2014 five other observable families are byte-compared across an admission and the drill writes a real record between two reads to prove the comparison can go red. THE DRIVEN GATE FOUND THREE DEFECTS THE MODULE'S OWN UNIT TESTS COULD NOT, because those tests never called the shared mutation spine: genesis=true was passed for every successor (so every narrow, revoke, accept and reject was refused outright), the narrow loop copied the spine's own body fields into the record (violating its closed contract), and both history readers took the FIRST matching entry rather than the maximum-seq one \u2014 a stale head, so every second successor lost the compare-and-swap. That is ledger LXXXIV's lesson exactly: a unit test that seeds proves nothing about the producer. Eight module tests hold beside it, each pinning a refusal, and check:m4-goalrun-activation-plane 52/52 covers the producer.",
+  "adversarial_or_fault_proof": "check:context-lease-handoff-lifecycle 43/43 against an ISOLATED daemon, drilled 4/4, floor-pinned at 43 and CI-bound in the m4_plane_verifiers matrix beside the activation gate that MINTS a lease. The oracle is INDEPENDENT: receipt_root is re-derived in the verifier as canon defines it (SHA-256 over JCS of every field except the root), never read back from the record carrying it, and the drill proves that oracle rejects both a CHANGED and a REMOVED field. \"No effect anywhere\" is measured rather than asserted — five other observable families are byte-compared across an admission and the drill writes a real record between two reads to prove the comparison can go red. THE DRIVEN GATE FOUND THREE DEFECTS THE MODULE'S OWN UNIT TESTS COULD NOT, because those tests never called the shared mutation spine: genesis=true was passed for every successor (so every narrow, revoke, accept and reject was refused outright), the narrow loop copied the spine's own body fields into the record (violating its closed contract), and both history readers took the FIRST matching entry rather than the maximum-seq one — a stale head, so every second successor lost the compare-and-swap. That is ledger LXXXIV's lesson exactly: a unit test that seeds proves nothing about the producer. Eight module tests hold beside it, each pinning a refusal, and check:m4-goalrun-activation-plane 52/52 covers the producer.",
   "remaining_nonclaims": [
     "The MCP half of the unit's \"native and MCP\" matrix is a TYPED ABSENCE, asserted rather than omitted: the gate proves that NO MCP tool reaches the context families (`/v1/hypervisor/mcp-gateway/tools` names none), so there is no MCP path on which to refuse anything and the native refusals are the whole enforced surface. The matrix arrives with M01.10/M01.11 when a tool does; probing a path the family never used would be the defect check:named-gap-truth polices.",
     "Handoffs and task briefs are still inline literals on the activation record; only the lease became an admitted revision, so the handoff lifecycle is exercised through its routes rather than through its producer.",
@@ -86,8 +47,9 @@
     "The resolution folds the bound views' allowed_uses only. The InformationFlowLabel's own axes (origin, integrity, confidentiality, instruction authority) are carried as refs and evaluated by their owner, not here.",
     "Only two of ResolvedPolicyBoundDataView's accessors are published (allowed_uses, is_active), so the resolution folds those two; the view's data classes and redaction are inherited by reference rather than read here, which is the boundary that plane's owner chose.",
     "ACC-5 clause 9 now composes the gate and N3 is proven by it, but the full ACC-5 composed journey has not been re-run on this basis: its own verdict stays PARTIAL for M04.12's absences regardless.",
-    "verify-hypervisor-goalrun-multi-harness.mjs is the only verifier asserting on the activation record's context_leases array and it is invoked by no npm script and no CI job \u2014 an orphaned verifier, recorded rather than relied on."
+    "verify-hypervisor-goalrun-multi-harness.mjs is the only verifier asserting on the activation record's context_leases array and it is invoked by no npm script and no CI job — an orphaned verifier, recorded rather than relied on.",
+    "R-192 (S5-1): the daemon anchors this item was verified against - goal_run_context_routes.rs, goalrun_routes.rs and the two context verifiers - are DELETED. Nothing here claims they exist; the anchors above are the canon, contracts and composition seam the re-homed unit will be proven against, and MVP unit M04.11 is reopened in the manifest with a 'To be authored by slice S5-3' check rather than left reading as closed."
   ],
-  "source_provenance": "Authored on the main tree 2026-09-14/15 in four slices (bc91b65ee canon + contracts, e9a1dea4a the object plane, cdf48045d the activation-lane admission) under ruling R-152. MVP finish-line program, the 36 \u2192 0 leg.",
-  "last_status_transaction": "2026-09-15"
+  "source_provenance": "Authored on the main tree 2026-09-14/15 in four slices (bc91b65ee canon + contracts, e9a1dea4a the object plane, cdf48045d the activation-lane admission) under ruling R-152. MVP finish-line program, the 36 → 0 leg.",
+  "last_status_transaction": "2026-09-18"
 }

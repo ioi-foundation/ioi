@@ -1386,122 +1386,6 @@ fn global_truth_reader(
     work_truth_visibility_reader(&st.data_dir, headers)
 }
 
-fn authorize_goal_mutation(
-    data_dir: &str,
-    reader: Option<&str>,
-    goal_ref: &str,
-) -> Result<(), (StatusCode, Json<Value>)> {
-    let Some(owner_ref) = reader else {
-        return Ok(());
-    };
-    let goal = super::goalrun_routes::load_goal_run_strict(data_dir, goal_ref)
-        .map_err(|_message| {
-            (
-                StatusCode::SERVICE_UNAVAILABLE,
-                Json(json!({"error":{"code":"work_truth_goal_owner_unresolved","message":"GoalRun ownership truth cannot be resolved; the mutation is refused."}})),
-            )
-        })?
-        .ok_or_else(|| {
-            (
-                StatusCode::FORBIDDEN,
-                Json(
-                    json!({"error":{"code":"work_truth_goal_owner_mismatch","message":"The authenticated principal does not own this GoalRun and cannot mutate its work truth."}}),
-                ),
-            )
-        })?;
-    if goal.get("owner_ref").and_then(Value::as_str) != Some(owner_ref) {
-        return Err((
-            StatusCode::FORBIDDEN,
-            Json(
-                json!({"error":{"code":"work_truth_goal_owner_mismatch","message":"The authenticated principal does not own this GoalRun and cannot mutate its work truth."}}),
-            ),
-        ));
-    }
-    Ok(())
-}
-
-/// The generic v1 routes remain available for non-GoalRun goals and the broader M3 result seam,
-/// but they may not manufacture result truth for an explicitly resultless zero-execution GoalRun.
-/// Resolve this independently of deployment auth mode: local `reader=None` is not permission to
-/// bypass the GoalRun owner's retained execution ceiling.
-fn fence_zero_execution_goal_result_lane(
-    data_dir: &str,
-    goal_ref: &str,
-) -> Result<(), (StatusCode, Json<Value>)> {
-    if !goal_ref
-        .strip_prefix("goal://")
-        .is_some_and(|tail| !tail.is_empty() && tail.len() <= 160 && !tail.contains(".."))
-    {
-        // The closed body validator owns the existing typed syntax refusal.
-        return Ok(());
-    }
-    let goal_run = super::goalrun_routes::load_goal_run_strict(data_dir, goal_ref).map_err(
-        |_message| {
-            (
-                StatusCode::SERVICE_UNAVAILABLE,
-                Json(json!({
-                    "error": {
-                        "code":"work_truth_goal_owner_unresolved",
-                        "message":"GoalRun truth cannot be resolved before generic result admission."
-                    }
-                })),
-            )
-        },
-    )?;
-    if let Some(goal_run) = goal_run {
-        if let Some(response) =
-            super::goalrun_routes::refuse_result_write_for_zero_execution_goal(&goal_run)
-        {
-            return Err(response);
-        }
-    }
-    Ok(())
-}
-
-/// Once a GoalRun is reciprocally attached to an OutcomeRoom, all result truth for that run must
-/// cross the private v3 room-owner Agentgres admission seam. Omitting caller-supplied room fields is not
-/// permission to manufacture a parallel roomless v1 result/delta path.
-fn fence_room_member_goal_result_lane(
-    data_dir: &str,
-    goal_ref: &str,
-) -> Result<(), (StatusCode, Json<Value>)> {
-    if !goal_ref
-        .strip_prefix("goal://")
-        .is_some_and(|tail| !tail.is_empty() && tail.len() <= 160 && !tail.contains(".."))
-    {
-        return Ok(());
-    }
-    let goal_run = super::goalrun_routes::load_goal_run_strict(data_dir, goal_ref).map_err(
-        |_message| {
-            (
-                StatusCode::SERVICE_UNAVAILABLE,
-                Json(json!({
-                    "error": {
-                        "code":"work_truth_goal_owner_unresolved",
-                        "message":"GoalRun truth cannot be resolved before generic result admission."
-                    }
-                })),
-            )
-        },
-    )?;
-    if goal_run.is_some_and(|goal_run| {
-        goal_run
-            .get("outcome_room_ref")
-            .is_some_and(|value| !value.is_null())
-    }) {
-        return Err((
-            StatusCode::UNPROCESSABLE_ENTITY,
-            Json(json!({
-                "error": {
-                    "code":"generic_work_truth_room_member_goal_refused",
-                    "message":"This GoalRun still names a hosted OutcomeRoom; the generic WorkResult and OutcomeDelta routes never accepted room-bound truth, and the room lane itself retired on 2026-09-17 (R-178 slice S4c-2) — the GoalRun composition over the orchestration follows in slice S4d."
-                }
-            })),
-        ));
-    }
-    Ok(())
-}
-
 fn refuse_generic_system_binding(
     body: &Value,
     object_kind: &str,
@@ -1527,21 +1411,30 @@ fn refuse_generic_system_binding(
     Ok(())
 }
 
-fn result_owner_matches(data_dir: &str, result: &Value, owner_ref: &str) -> Result<bool, String> {
-    let goal_ref = result
-        .get("work_subject_ref")
-        .and_then(Value::as_str)
-        .unwrap_or("");
-    let Some(goal) = super::goalrun_routes::load_goal_run_strict(data_dir, goal_ref)? else {
-        // WorkResult is a substrate-generic seam: its work subject need not be a GoalRun that
-        // this application can resolve. A managed principal-scoped collection omits such a
-        // record rather than turning an unowned generic subject into a registry-wide 503 oracle.
-        return Ok(false);
-    };
-    let Some(resolved_owner) = goal.get("owner_ref").and_then(Value::as_str) else {
-        return Ok(false);
-    };
-    Ok(resolved_owner == owner_ref)
+/// R-192 (S5-1): the platform's own attribution check, replacing four functions that enforced
+/// APPLICATION rules by reading a GoalRun record — owner authorization for a mutation, the
+/// execution-ceiling fence, the room-member fence, and read entitlement.
+///
+/// WorkResult is a substrate-generic seam: its `work_subject_ref` may name any owner's subject,
+/// and the only identity the PLATFORM records on a result is `submitted_by_ref` /
+/// `produced_by_ref`, which the contract scopes to `system|worker|service|org|domain` — never to
+/// a user principal. So the daemon cannot attribute a generic result to a principal, and it says
+/// so instead of guessing: with a resolved reader this returns false, which DENIES rather than
+/// widens (a collection omits the row; a direct read answers its existing absent refusal). With
+/// no resolved reader — the local-development posture — there is no principal to attribute to and
+/// the caller is the single operator, exactly as before. Principal-scoped result truth belongs to
+/// the composing application over its own records (S5-3).
+fn platform_attributes_result_to(result: &Value, owner_ref: &str) -> bool {
+    for field in ["submitted_by_ref", "produced_by_ref"] {
+        if result.get(field).and_then(Value::as_str) == Some(owner_ref) {
+            return true;
+        }
+    }
+    false
+}
+
+fn result_owner_matches(_data_dir: &str, result: &Value, owner_ref: &str) -> Result<bool, String> {
+    Ok(platform_attributes_result_to(result, owner_ref))
 }
 
 fn delta_owner_matches(data_dir: &str, delta: &Value, owner_ref: &str) -> Result<bool, String> {
@@ -1731,24 +1624,17 @@ pub(crate) async fn handle_work_result_create(
     if let Err(response) = refuse_generic_system_binding(&body, "work_result") {
         return response;
     }
-    if let Err(response) = authorize_goal_mutation(
-        &st.data_dir,
-        reader.as_deref(),
-        body.get("goal_ref").and_then(Value::as_str).unwrap_or(""),
-    ) {
-        return response;
-    }
-    if let Err(response) = fence_zero_execution_goal_result_lane(
-        &st.data_dir,
-        body.get("goal_ref").and_then(Value::as_str).unwrap_or(""),
-    ) {
-        return response;
-    }
-    if let Err(response) = fence_room_member_goal_result_lane(
-        &st.data_dir,
-        body.get("goal_ref").and_then(Value::as_str).unwrap_or(""),
-    ) {
-        return response;
+    // R-192 (S5-1): a resolved principal may not mutate result truth the platform cannot
+    // attribute to them. The daemon no longer reads a GoalRun to answer that, so it refuses
+    // rather than guessing; the composing application authorizes its own subjects (S5-3).
+    if let Some(principal) = reader.as_deref() {
+        return (
+            StatusCode::FORBIDDEN,
+            Json(json!({"error":{
+                "code":"work_result_principal_attribution_unavailable",
+                "message": format!("the platform cannot attribute this generic work subject to '{principal}'; principal-scoped result mutation belongs to the composing application")
+            }})),
+        );
     }
     let data_dir = st.data_dir.clone();
     // ROOM-SCOPE critical section (#72 review finding 3): room resolution through finalization
@@ -1757,12 +1643,6 @@ pub(crate) async fn handle_work_result_create(
     let _record_scope = super::mutation_ordering::RECORD_SCOPE_MUTATION_LOCK
         .lock()
         .unwrap_or_else(|p| p.into_inner());
-    if let Err(response) = fence_room_member_goal_result_lane(
-        &st.data_dir,
-        body.get("goal_ref").and_then(Value::as_str).unwrap_or(""),
-    ) {
-        return response;
-    }
     let strict_results = match list_work_results_strict(&data_dir) {
         Ok(results) => results,
         Err(error) => return registry_refusal("work_result", error),
@@ -1927,24 +1807,17 @@ pub(crate) async fn handle_outcome_delta_create(
     if let Err(response) = refuse_generic_system_binding(&body, "outcome_delta") {
         return response;
     }
-    if let Err(response) = authorize_goal_mutation(
-        &st.data_dir,
-        reader.as_deref(),
-        body.get("goal_ref").and_then(Value::as_str).unwrap_or(""),
-    ) {
-        return response;
-    }
-    if let Err(response) = fence_zero_execution_goal_result_lane(
-        &st.data_dir,
-        body.get("goal_ref").and_then(Value::as_str).unwrap_or(""),
-    ) {
-        return response;
-    }
-    if let Err(response) = fence_room_member_goal_result_lane(
-        &st.data_dir,
-        body.get("goal_ref").and_then(Value::as_str).unwrap_or(""),
-    ) {
-        return response;
+    // R-192 (S5-1): a resolved principal may not mutate result truth the platform cannot
+    // attribute to them. The daemon no longer reads a GoalRun to answer that, so it refuses
+    // rather than guessing; the composing application authorizes its own subjects (S5-3).
+    if let Some(principal) = reader.as_deref() {
+        return (
+            StatusCode::FORBIDDEN,
+            Json(json!({"error":{
+                "code":"work_result_principal_attribution_unavailable",
+                "message": format!("the platform cannot attribute this generic work subject to '{principal}'; principal-scoped result mutation belongs to the composing application")
+            }})),
+        );
     }
     let data_dir = st.data_dir.clone();
     // ROOM-SCOPE + ADMISSION critical section (#71 round 2; #72 finding 3): the documented lock
@@ -1989,33 +1862,17 @@ pub(crate) async fn handle_outcome_delta_create(
             ),
         );
     }
-    if let Err(response) = authorize_goal_mutation(
-        &st.data_dir,
-        reader.as_deref(),
-        prior_result
-            .get("work_subject_ref")
-            .and_then(Value::as_str)
-            .unwrap_or(""),
-    ) {
-        return response;
-    }
-    if let Err(response) = fence_zero_execution_goal_result_lane(
-        &st.data_dir,
-        prior_result
-            .get("work_subject_ref")
-            .and_then(Value::as_str)
-            .unwrap_or(""),
-    ) {
-        return response;
-    }
-    if let Err(response) = fence_room_member_goal_result_lane(
-        &st.data_dir,
-        prior_result
-            .get("work_subject_ref")
-            .and_then(Value::as_str)
-            .unwrap_or(""),
-    ) {
-        return response;
+    // R-192 (S5-1): a resolved principal may not mutate result truth the platform cannot
+    // attribute to them. The daemon no longer reads a GoalRun to answer that, so it refuses
+    // rather than guessing; the composing application authorizes its own subjects (S5-3).
+    if let Some(principal) = reader.as_deref() {
+        return (
+            StatusCode::FORBIDDEN,
+            Json(json!({"error":{
+                "code":"work_result_principal_attribution_unavailable",
+                "message": format!("the platform cannot attribute this generic work subject to '{principal}'; principal-scoped result mutation belongs to the composing application")
+            }})),
+        );
     }
     let _bound_result_ref = s(&prior_result, "work_result_id", "");
     let id_tail = format!("od_{:x}", nanos());

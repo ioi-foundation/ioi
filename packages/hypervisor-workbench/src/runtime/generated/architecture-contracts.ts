@@ -14353,6 +14353,28 @@ export type GoalGroundingLoopV2 = {
   orchestration_ref?: string | null;
 };
 
+export type CollectiveResolutionReceiptV1 = {
+  schema_version: "ioi.applications.ioi-ai.collective-resolution-receipt.v1";
+  receipt_id: string;
+  receipt_ref: string;
+  receipt_type: "collective_resolution";
+  resolved_by_ref: string;
+  system_id: string;
+  system_release_ref: string;
+  constitution_ref: string;
+  active_profile_set_ref: string;
+  orchestration_ref: string;
+  goal_run_profile_revision_refs: Array<string>;
+  policy_refs: Array<string>;
+  lease_policy_refs: Array<string>;
+  artifact_lifecycle_policy_ref: string;
+  requirement_refs: Array<string>;
+  resolved_owner_refs: Array<string>;
+  registers_no_new_owner: true;
+  resolved_at: string;
+  closure_root: string;
+};
+
 export const ARCHITECTURE_CONTRACT_REGISTRY_VERSION = "ioi.architecture-contract-registry.v1" as const;
 
 export const ARCHITECTURE_CONTRACT_PORTABLE_INTEGER_MINIMUM = 0 as const;
@@ -28106,6 +28128,54 @@ export const ARCHITECTURE_CONTRACT_FIXTURES = [
     "expected_schema_accept": false,
     "expected_failure": "schema",
     "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/applications/ioi-ai/collective-resolution-receipt/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/collective-resolution-receipt-v1/positive-minimal.json",
+    "expected": "accept",
+    "expected_schema_accept": true,
+    "expected_failure": null,
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/applications/ioi-ai/collective-resolution-receipt/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/collective-resolution-receipt-v1/positive-full-closure.json",
+    "expected": "accept",
+    "expected_schema_accept": true,
+    "expected_failure": null,
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/applications/ioi-ai/collective-resolution-receipt/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/collective-resolution-receipt-v1/negative-closure-root-does-not-recompute.json",
+    "expected": "reject",
+    "expected_schema_accept": true,
+    "expected_failure": "invariant",
+    "expected_rule_id": "collective_resolution_receipt.closure.recomputes"
+  },
+  {
+    "contract_id": "schema://ioi/applications/ioi-ai/collective-resolution-receipt/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/collective-resolution-receipt-v1/negative-registers-a-new-owner.json",
+    "expected": "reject",
+    "expected_schema_accept": false,
+    "expected_failure": "schema",
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/applications/ioi-ai/collective-resolution-receipt/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/collective-resolution-receipt-v1/negative-room-headed-closure.json",
+    "expected": "reject",
+    "expected_schema_accept": false,
+    "expected_failure": "schema",
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/applications/ioi-ai/collective-resolution-receipt/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/collective-resolution-receipt-v1/negative-unknown-field.json",
+    "expected": "reject",
+    "expected_schema_accept": false,
+    "expected_failure": "schema",
+    "expected_rule_id": null
   }
 ] as const;
 
@@ -32477,6 +32547,12 @@ export const ARCHITECTURE_CONTRACT_DIFFERENTIAL_CASES: ReadonlyArray<Architectur
   differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/goal-grounding-loop-v2/positive-minimal.json","contract_id":"schema://ioi/applications/ioi-ai/goal-grounding-loop/v2","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/goal-grounding-loop-v2/positive-minimal.json","mutation_id":null,"value_json":null}),
   differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/goal-grounding-loop-v2/negative-room-member.json","contract_id":"schema://ioi/applications/ioi-ai/goal-grounding-loop/v2","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/goal-grounding-loop-v2/negative-room-member.json","mutation_id":null,"value_json":null}),
   differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/goal-grounding-loop-v2/negative-unknown-field.json","contract_id":"schema://ioi/applications/ioi-ai/goal-grounding-loop/v2","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/goal-grounding-loop-v2/negative-unknown-field.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/collective-resolution-receipt-v1/positive-minimal.json","contract_id":"schema://ioi/applications/ioi-ai/collective-resolution-receipt/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/collective-resolution-receipt-v1/positive-minimal.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/collective-resolution-receipt-v1/positive-full-closure.json","contract_id":"schema://ioi/applications/ioi-ai/collective-resolution-receipt/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/collective-resolution-receipt-v1/positive-full-closure.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/collective-resolution-receipt-v1/negative-closure-root-does-not-recompute.json","contract_id":"schema://ioi/applications/ioi-ai/collective-resolution-receipt/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/collective-resolution-receipt-v1/negative-closure-root-does-not-recompute.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/collective-resolution-receipt-v1/negative-registers-a-new-owner.json","contract_id":"schema://ioi/applications/ioi-ai/collective-resolution-receipt/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/collective-resolution-receipt-v1/negative-registers-a-new-owner.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/collective-resolution-receipt-v1/negative-room-headed-closure.json","contract_id":"schema://ioi/applications/ioi-ai/collective-resolution-receipt/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/collective-resolution-receipt-v1/negative-room-headed-closure.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/collective-resolution-receipt-v1/negative-unknown-field.json","contract_id":"schema://ioi/applications/ioi-ai/collective-resolution-receipt/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/collective-resolution-receipt-v1/negative-unknown-field.json","mutation_id":null,"value_json":null}),
   differentialCase({"id":"mutation:sequence-zero-receipt-timestamp-detached","contract_id":"schema://ioi/foundations/autonomous-system-sequence-zero-materialization-receipt/v2","source_fixture_path":null,"mutation_id":"sequence-zero-receipt-timestamp-detached","value_json":null}),
   differentialCase({"id":"mutation:sequence-zero-receipt-authorized-materialization-id-detached","contract_id":"schema://ioi/foundations/autonomous-system-sequence-zero-materialization-receipt/v2","source_fixture_path":null,"mutation_id":"sequence-zero-receipt-authorized-materialization-id-detached","value_json":null}),
   differentialCase({"id":"mutation:sequence-zero-receipt-authority-principal-detached","contract_id":"schema://ioi/foundations/autonomous-system-sequence-zero-materialization-receipt/v2","source_fixture_path":null,"mutation_id":"sequence-zero-receipt-authority-principal-detached","value_json":null}),
@@ -33152,6 +33228,7 @@ export const ARCHITECTURE_CONTRACT_PATTERN_SOURCES = [
   "^cmap_[0-9a-f]{12,32}$",
   "^collaboration-terms://[^\\s]{1,240}$",
   "^collaboration://[^\\s]{1,500}$",
+  "^collective-resolution://crr_[0-9a-f]{64}$",
   "^commitment://[^\\s]{1,248}$",
   "^commitment://[^\\s]{1,500}$",
   "^commitment://ioi/system-genesis/sha256:[0-9a-f]{64}$",
@@ -34048,7 +34125,8 @@ export const ARCHITECTURE_CONTRACT_SCHEMA_HASHES = {
   "schema://ioi/applications/ioi-ai/goal-run-activation-receipt/v2": "sha256:2701eb60f790a4a9559ce1a2962a02de37d718943988b2c0d2b09b37331801f5",
   "schema://ioi/applications/ioi-ai/goal-run-admission-path-decision/v2": "sha256:4c8093ac4b46e395a49ed8454a6da27a4769eb0b6cb9455b75c17145811c0dd6",
   "schema://ioi/applications/ioi-ai/context-cell/v2": "sha256:e33a78de6b116da0590b5fc0b948baccb5f20ac265cb8bcae99c338565220547",
-  "schema://ioi/applications/ioi-ai/goal-grounding-loop/v2": "sha256:60362cef1719499121d31faf0f5c39be5f0423a3d96306d8dfdb64081dadbbcb"
+  "schema://ioi/applications/ioi-ai/goal-grounding-loop/v2": "sha256:60362cef1719499121d31faf0f5c39be5f0423a3d96306d8dfdb64081dadbbcb",
+  "schema://ioi/applications/ioi-ai/collective-resolution-receipt/v1": "sha256:71b7c60f5226818ce492e715a048d8cd16323b891f7bdd053f8d50b6d1fd653d"
 } as const;
 
 type JsonObject = Record<string, unknown>;
@@ -145526,6 +145604,135 @@ const CONTRACT_SCHEMAS: Record<string, JsonObject> = {
       }
     },
     "description": "Version 2 (2026-09-18, R-178 slice S4d-2, R-190): the GoalRun composes over the ioi.ai orchestration — the room coordinates of v1 are gone and `orchestration_ref` names the composition; successor of v1."
+  },
+  "schema://ioi/applications/ioi-ai/collective-resolution-receipt/v1": {
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "$id": "schema://ioi/applications/ioi-ai/collective-resolution-receipt/v1",
+    "title": "CollectiveResolutionReceipt",
+    "x-ioi-schema-version": "ioi.applications.ioi-ai.collective-resolution-receipt.v1",
+    "description": "One daemon-derived freeze of the exact dependency closure a collective composition resolved, and the EXISTING owner objects it resolved into. It registers no profile envelope, holds no state and is never a second live owner: every ref it names is admitted elsewhere and remains its owner's truth. M04.12 / ACC-5 clause 10.",
+    "type": "object",
+    "additionalProperties": false,
+    "required": [
+      "schema_version",
+      "receipt_id",
+      "receipt_ref",
+      "receipt_type",
+      "resolved_by_ref",
+      "system_id",
+      "system_release_ref",
+      "constitution_ref",
+      "active_profile_set_ref",
+      "orchestration_ref",
+      "goal_run_profile_revision_refs",
+      "policy_refs",
+      "lease_policy_refs",
+      "artifact_lifecycle_policy_ref",
+      "requirement_refs",
+      "resolved_owner_refs",
+      "registers_no_new_owner",
+      "resolved_at",
+      "closure_root"
+    ],
+    "properties": {
+      "schema_version": {
+        "const": "ioi.applications.ioi-ai.collective-resolution-receipt.v1"
+      },
+      "receipt_id": {
+        "type": "string",
+        "pattern": "^collective-resolution://crr_[0-9a-f]{64}$"
+      },
+      "receipt_ref": {
+        "type": "string",
+        "pattern": "^collective-resolution://crr_[0-9a-f]{64}$"
+      },
+      "receipt_type": {
+        "const": "collective_resolution"
+      },
+      "resolved_by_ref": {
+        "type": "string",
+        "pattern": "^(?:org|project|system|user)://[^\\s]{1,500}$"
+      },
+      "system_id": {
+        "type": "string",
+        "pattern": "^system://[^\\s]{1,500}$"
+      },
+      "system_release_ref": {
+        "type": "string",
+        "pattern": "^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"
+      },
+      "constitution_ref": {
+        "type": "string",
+        "pattern": "^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"
+      },
+      "active_profile_set_ref": {
+        "type": "string",
+        "pattern": "^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"
+      },
+      "orchestration_ref": {
+        "type": "string",
+        "pattern": "^app-scope://ioi-ai/orchestration/[^\\s]{1,400}$"
+      },
+      "goal_run_profile_revision_refs": {
+        "type": "array",
+        "uniqueItems": true,
+        "items": {
+          "type": "string",
+          "pattern": "^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"
+        },
+        "minItems": 1
+      },
+      "policy_refs": {
+        "type": "array",
+        "uniqueItems": true,
+        "items": {
+          "type": "string",
+          "pattern": "^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"
+        },
+        "minItems": 1
+      },
+      "lease_policy_refs": {
+        "type": "array",
+        "uniqueItems": true,
+        "items": {
+          "type": "string",
+          "pattern": "^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"
+        }
+      },
+      "artifact_lifecycle_policy_ref": {
+        "type": "string",
+        "pattern": "^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"
+      },
+      "requirement_refs": {
+        "type": "array",
+        "uniqueItems": true,
+        "items": {
+          "type": "string",
+          "pattern": "^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"
+        },
+        "minItems": 1
+      },
+      "resolved_owner_refs": {
+        "type": "array",
+        "uniqueItems": true,
+        "items": {
+          "type": "string",
+          "pattern": "^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"
+        },
+        "minItems": 1
+      },
+      "registers_no_new_owner": {
+        "const": true
+      },
+      "resolved_at": {
+        "type": "string",
+        "pattern": "^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$"
+      },
+      "closure_root": {
+        "type": "string",
+        "pattern": "^sha256:[0-9a-f]{64}$"
+      }
+    }
   }
 };
 const CONTRACT_INVARIANTS: Record<string, Array<JsonObject>> = {
@@ -165582,7 +165789,94 @@ const CONTRACT_INVARIANTS: Record<string, Array<JsonObject>> = {
   ],
   "schema://ioi/applications/ioi-ai/goal-run-admission-path-decision/v2": [],
   "schema://ioi/applications/ioi-ai/context-cell/v2": [],
-  "schema://ioi/applications/ioi-ai/goal-grounding-loop/v2": []
+  "schema://ioi/applications/ioi-ai/goal-grounding-loop/v2": [],
+  "schema://ioi/applications/ioi-ai/collective-resolution-receipt/v1": [
+    {
+      "rule_id": "collective_resolution_receipt.identity.matches",
+      "description": "The resolution has one portable receipt identity.",
+      "expression": {
+        "operator": "fields_equal",
+        "paths": [
+          "$.receipt_id",
+          "$.receipt_ref"
+        ]
+      }
+    },
+    {
+      "rule_id": "collective_resolution_receipt.closure.recomputes",
+      "description": "The closure root commits every frozen member of the dependency closure and every owner it resolved into, so a relying party can recompute the freeze from the receipt alone.",
+      "expression": {
+        "operator": "jcs_sha256_equals",
+        "algorithm": "jcs_sha256",
+        "expected_path": "$.closure_root",
+        "expected_encoding": "sha256_string",
+        "material_fields": {
+          "schema_version": {
+            "path": "$.schema_version"
+          },
+          "receipt_id": {
+            "path": "$.receipt_id"
+          },
+          "receipt_ref": {
+            "path": "$.receipt_ref"
+          },
+          "receipt_type": {
+            "path": "$.receipt_type"
+          },
+          "resolved_by_ref": {
+            "path": "$.resolved_by_ref"
+          },
+          "system_id": {
+            "path": "$.system_id"
+          },
+          "system_release_ref": {
+            "path": "$.system_release_ref"
+          },
+          "constitution_ref": {
+            "path": "$.constitution_ref"
+          },
+          "active_profile_set_ref": {
+            "path": "$.active_profile_set_ref"
+          },
+          "orchestration_ref": {
+            "path": "$.orchestration_ref"
+          },
+          "goal_run_profile_revision_refs": {
+            "path": "$.goal_run_profile_revision_refs"
+          },
+          "policy_refs": {
+            "path": "$.policy_refs"
+          },
+          "lease_policy_refs": {
+            "path": "$.lease_policy_refs"
+          },
+          "artifact_lifecycle_policy_ref": {
+            "path": "$.artifact_lifecycle_policy_ref"
+          },
+          "requirement_refs": {
+            "path": "$.requirement_refs"
+          },
+          "resolved_owner_refs": {
+            "path": "$.resolved_owner_refs"
+          },
+          "registers_no_new_owner": {
+            "path": "$.registers_no_new_owner"
+          },
+          "resolved_at": {
+            "path": "$.resolved_at"
+          }
+        }
+      }
+    },
+    {
+      "rule_id": "collective_resolution_receipt.orchestration.is_a_resolved_owner",
+      "description": "The orchestration the closure is headed by is itself one of the existing owners the resolution names, so the receipt cannot freeze a composition it did not resolve into.",
+      "expression": {
+        "operator": "non_empty",
+        "path": "$.orchestration_ref"
+      }
+    }
+  ]
 };
 
 export function architectureContractSchemaHash(contractId: string): string | null {
@@ -168475,4 +168769,10 @@ export function validateGoalGroundingLoopV2(
   value: unknown,
 ): value is GoalGroundingLoopV2 {
   return validateArchitectureContract("schema://ioi/applications/ioi-ai/goal-grounding-loop/v2", value).ok;
+}
+
+export function validateCollectiveResolutionReceiptV1(
+  value: unknown,
+): value is CollectiveResolutionReceiptV1 {
+  return validateArchitectureContract("schema://ioi/applications/ioi-ai/collective-resolution-receipt/v1", value).ok;
 }

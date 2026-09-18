@@ -1,4 +1,7 @@
-//! Generic M3 GoalRun pursuit substrate.
+//! Work admission primitives (R-192, S5-1: renamed from `runtime_goal_pursuit`). Harness- and
+//! application-agnostic: WorkRun isolation binding, the generic WorkResult/OutcomeDelta seam
+//! over `work_subject_ref`, declassification consumption, authority effects, information-flow
+//! decisions and receipt checkpoints. It names no goal, room or orchestration object.
 //!
 //! This module owns no product route and grants no authority.  It provides the
 //! daemon's fail-closed, source-neutral mechanics for immutable definition
@@ -36,12 +39,12 @@ pub const WORKLOAD_ISOLATION_BINDING_SCHEMA_VERSION: &str =
     "ioi.components.hypervisor.workload-isolation-binding.v1";
 
 #[derive(Debug, Clone, PartialEq, Eq)]
-pub struct GoalPursuitError {
+pub struct WorkAdmissionError {
     code: &'static str,
     message: String,
 }
 
-impl GoalPursuitError {
+impl WorkAdmissionError {
     fn new(code: &'static str, message: impl Into<String>) -> Self {
         Self {
             code,
@@ -57,26 +60,26 @@ impl GoalPursuitError {
     }
 }
 
-type PursuitResult<T> = Result<T, GoalPursuitError>;
+type AdmissionResult<T> = Result<T, WorkAdmissionError>;
 
-fn required_text<'a>(value: &'a Value, field: &str) -> PursuitResult<&'a str> {
+fn required_text<'a>(value: &'a Value, field: &str) -> AdmissionResult<&'a str> {
     value
         .get(field)
         .and_then(Value::as_str)
         .map(str::trim)
         .filter(|v| !v.is_empty())
         .ok_or_else(|| {
-            GoalPursuitError::new(
+            WorkAdmissionError::new(
                 "goal_pursuit_field_required",
                 format!("{field} is required"),
             )
         })
 }
 
-fn required_ref<'a>(value: &'a Value, field: &str, prefix: &str) -> PursuitResult<&'a str> {
+fn required_ref<'a>(value: &'a Value, field: &str, prefix: &str) -> AdmissionResult<&'a str> {
     let found = required_text(value, field)?;
     if !found.starts_with(prefix) || found.chars().any(char::is_whitespace) {
-        return Err(GoalPursuitError::new(
+        return Err(WorkAdmissionError::new(
             "goal_pursuit_ref_invalid",
             format!("{field} must be a bounded {prefix} reference"),
         ));
@@ -84,7 +87,7 @@ fn required_ref<'a>(value: &'a Value, field: &str, prefix: &str) -> PursuitResul
     Ok(found)
 }
 
-fn required_hash<'a>(value: &'a Value, field: &str) -> PursuitResult<&'a str> {
+fn required_hash<'a>(value: &'a Value, field: &str) -> AdmissionResult<&'a str> {
     let found = required_text(value, field)?;
     if found.len() != 71
         || !found.starts_with("sha256:")
@@ -92,7 +95,7 @@ fn required_hash<'a>(value: &'a Value, field: &str) -> PursuitResult<&'a str> {
             .bytes()
             .all(|b| b.is_ascii_hexdigit() && !b.is_ascii_uppercase())
     {
-        return Err(GoalPursuitError::new(
+        return Err(WorkAdmissionError::new(
             "goal_pursuit_hash_invalid",
             format!("{field} must be a lowercase sha256 digest"),
         ));
@@ -134,12 +137,12 @@ fn hash(value: &Value) -> String {
     format!("sha256:{:x}", Sha256::digest(canonical(value).as_bytes()))
 }
 
-fn hash_without(value: &Value, field: &str) -> PursuitResult<String> {
+fn hash_without(value: &Value, field: &str) -> AdmissionResult<String> {
     let mut hashable = value.clone();
     hashable
         .as_object_mut()
         .ok_or_else(|| {
-            GoalPursuitError::new(
+            WorkAdmissionError::new(
                 "workload_isolation_object_required",
                 "workload isolation contracts must be objects",
             )
@@ -153,15 +156,15 @@ fn unique_refs(
     field: &str,
     prefix: &str,
     allow_empty: bool,
-) -> PursuitResult<Vec<String>> {
+) -> AdmissionResult<Vec<String>> {
     let refs = value.get(field).and_then(Value::as_array).ok_or_else(|| {
-        GoalPursuitError::new(
+        WorkAdmissionError::new(
             "goal_pursuit_refs_required",
             format!("{field} must be an array"),
         )
     })?;
     if refs.is_empty() && !allow_empty {
-        return Err(GoalPursuitError::new(
+        return Err(WorkAdmissionError::new(
             "goal_pursuit_refs_required",
             format!("{field} must not be empty"),
         ));
@@ -173,13 +176,13 @@ fn unique_refs(
             .map(str::trim)
             .filter(|v| v.starts_with(prefix) && !v.chars().any(char::is_whitespace))
             .ok_or_else(|| {
-                GoalPursuitError::new(
+                WorkAdmissionError::new(
                     "goal_pursuit_ref_invalid",
                     format!("{field} contains an invalid {prefix} reference"),
                 )
             })?;
         if !seen.insert(reference.to_string()) {
-            return Err(GoalPursuitError::new(
+            return Err(WorkAdmissionError::new(
                 "goal_pursuit_ref_duplicate",
                 format!("{field} contains duplicate {reference}"),
             ));
@@ -215,12 +218,12 @@ fn is_canonical_ref(value: &str) -> bool {
 
 /// Read one optional requirement family as a deduplicated, canonically shaped set.
 /// An absent, null, or empty family is "nothing declared", never a silent default.
-fn requirement_refs(value: &Value, field: &str) -> PursuitResult<Vec<String>> {
+fn requirement_refs(value: &Value, field: &str) -> AdmissionResult<Vec<String>> {
     let Some(declared) = value.get(field).filter(|value| !value.is_null()) else {
         return Ok(Vec::new());
     };
     let entries = declared.as_array().ok_or_else(|| {
-        GoalPursuitError::new(
+        WorkAdmissionError::new(
             "goal_pursuit_refs_required",
             format!("{field} must be an array"),
         )
@@ -232,13 +235,13 @@ fn requirement_refs(value: &Value, field: &str) -> PursuitResult<Vec<String>> {
             .map(str::trim)
             .filter(|reference| is_canonical_ref(reference))
             .ok_or_else(|| {
-                GoalPursuitError::new(
+                WorkAdmissionError::new(
                     "goal_pursuit_ref_invalid",
                     format!("{field} contains an invalid canonical reference"),
                 )
             })?;
         if !seen.insert(reference.to_string()) {
-            return Err(GoalPursuitError::new(
+            return Err(WorkAdmissionError::new(
                 "goal_pursuit_ref_duplicate",
                 format!("{field} contains duplicate {reference}"),
             ));
@@ -248,9 +251,9 @@ fn requirement_refs(value: &Value, field: &str) -> PursuitResult<Vec<String>> {
 }
 
 #[derive(Debug, Clone, Default)]
-pub struct GoalPursuitCore;
+pub struct WorkAdmissionCore;
 
-impl GoalPursuitCore {
+impl WorkAdmissionCore {
     /// Admit the compiled isolation requirements and mint the immutable binding
     /// for one WorkRun before any workspace, backend, or final-invoker effect.
     /// The caller supplies current owner facts; the daemon supplies the WorkRun
@@ -261,16 +264,16 @@ impl GoalPursuitCore {
         binding_inputs: &Value,
         workrun_ref: &str,
         admitted_at: &str,
-    ) -> PursuitResult<Value> {
+    ) -> AdmissionResult<Value> {
         if !workrun_ref.starts_with("workrun://") || workrun_ref.chars().any(char::is_whitespace) {
-            return Err(GoalPursuitError::new(
+            return Err(WorkAdmissionError::new(
                 "workrun_isolation_workrun_ref_invalid",
                 "the daemon-assigned WorkRun reference is required",
             ));
         }
         let mut requirements = compiled_requirements.clone();
         let requirements_object = requirements.as_object_mut().ok_or_else(|| {
-            GoalPursuitError::new(
+            WorkAdmissionError::new(
                 "workload_isolation_requirements_required",
                 "compiled workload isolation requirements are required",
             )
@@ -280,7 +283,7 @@ impl GoalPursuitCore {
             .and_then(Value::as_str)
             != Some(WORKLOAD_ISOLATION_REQUIREMENTS_SCHEMA_VERSION)
         {
-            return Err(GoalPursuitError::new(
+            return Err(WorkAdmissionError::new(
                 "workload_isolation_requirements_schema_invalid",
                 "compiled workload isolation requirements use an unsupported schema",
             ));
@@ -290,21 +293,21 @@ impl GoalPursuitCore {
         requirements["requirements_hash"] = json!(requirements_hash);
         serde_json::from_value::<HypervisorWorkloadIsolationRequirementsV1>(requirements.clone())
             .map_err(|error| {
-            GoalPursuitError::new(
+            WorkAdmissionError::new(
                 "workload_isolation_requirements_invalid",
                 format!("compiled workload isolation requirements are invalid: {error}"),
             )
         })?;
 
         let inputs = binding_inputs.as_object().ok_or_else(|| {
-            GoalPursuitError::new(
+            WorkAdmissionError::new(
                 "workload_isolation_binding_inputs_required",
                 "current runtime binding inputs are required",
             )
         })?;
         let take = |field: &str| {
             inputs.get(field).cloned().ok_or_else(|| {
-                GoalPursuitError::new(
+                WorkAdmissionError::new(
                     "workload_isolation_binding_input_missing",
                     format!("runtime binding input {field} is required"),
                 )
@@ -348,7 +351,7 @@ impl GoalPursuitCore {
         binding["binding_hash"] = json!(binding_hash);
         serde_json::from_value::<HypervisorWorkloadIsolationBindingV1>(binding.clone()).map_err(
             |error| {
-                GoalPursuitError::new(
+                WorkAdmissionError::new(
                     "workload_isolation_binding_invalid",
                     format!("workload isolation binding is invalid: {error}"),
                 )
@@ -374,36 +377,36 @@ impl GoalPursuitCore {
         candidate_binding: &Value,
         workrun_ref: &str,
         transition: &str,
-    ) -> PursuitResult<Value> {
+    ) -> AdmissionResult<Value> {
         let binding = admitted.get("binding").ok_or_else(|| {
-            GoalPursuitError::new(
+            WorkAdmissionError::new(
                 "workload_isolation_binding_missing",
                 "the WorkRun has no admitted isolation binding",
             )
         })?;
         serde_json::from_value::<HypervisorWorkloadIsolationBindingV1>(binding.clone()).map_err(
             |error| {
-                GoalPursuitError::new(
+                WorkAdmissionError::new(
                     "workload_isolation_binding_invalid",
                     format!("persisted workload isolation binding is invalid: {error}"),
                 )
             },
         )?;
         if required_text(binding, "workrun_ref")? != workrun_ref {
-            return Err(GoalPursuitError::new(
+            return Err(WorkAdmissionError::new(
                 "workload_isolation_workrun_mismatch",
                 "the isolation binding belongs to a different WorkRun",
             ));
         }
         let declared = required_hash(binding, "binding_hash")?;
         if hash_without(binding, "binding_hash")? != declared {
-            return Err(GoalPursuitError::new(
+            return Err(WorkAdmissionError::new(
                 "workload_isolation_binding_hash_mismatch",
                 "the persisted isolation binding does not reproduce its commitment",
             ));
         }
         if candidate_binding != binding {
-            return Err(GoalPursuitError::new(
+            return Err(WorkAdmissionError::new(
                 "workload_isolation_binding_substitution_refused",
                 format!("{transition} cannot weaken or replace the admitted isolation binding"),
             ));
@@ -421,494 +424,14 @@ impl GoalPursuitCore {
     /// Freeze the exact reusable-definition closure for one GoalRun. Definitions
     /// remain inert data: resolution emits a snapshot and receipt, never an
     /// execution instruction or authority decision.
-    pub fn resolve_definitions(&self, request: &Value, now: &str) -> PursuitResult<Value> {
-        let goal_ref = required_ref(request, "goal_run_ref", "goal://")?;
-        let profile_ref = required_ref(
-            request,
-            "goal_run_profile_revision_ref",
-            "goal-run-profile://",
-        )?;
-        if !profile_ref.contains("/revision/") {
-            return Err(GoalPursuitError::new(
-                "goal_run_profile_revision_required",
-                "an exact profile revision is required",
-            ));
-        }
-        let profile_hash = required_hash(request, "goal_run_profile_content_hash")?;
-        let execution_ceiling = match (
-            request.get("goal_run_execution_ceiling_revision_ref"),
-            request.get("goal_run_execution_ceiling_content_hash"),
-            request.get("declared_invocation_budget"),
-        ) {
-            (None, None, None) => None,
-            (Some(_), Some(_), Some(budget)) => {
-                let revision_ref = required_ref(
-                    request,
-                    "goal_run_execution_ceiling_revision_ref",
-                    "goal-run-execution-ceiling://",
-                )?;
-                if !revision_ref.contains("/revision/sha256:") {
-                    return Err(GoalPursuitError::new(
-                        "goal_run_execution_ceiling_revision_required",
-                        "an exact content-addressed execution-ceiling revision is required",
-                    ));
-                }
-                let content_hash =
-                    required_hash(request, "goal_run_execution_ceiling_content_hash")?;
-                if !revision_ref.ends_with(content_hash) {
-                    return Err(GoalPursuitError::new(
-                        "goal_run_execution_ceiling_binding_mismatch",
-                        "the execution-ceiling revision does not bind its content hash",
-                    ));
-                }
-                let budget_object = budget.as_object().ok_or_else(|| {
-                    GoalPursuitError::new(
-                        "goal_run_declared_invocation_budget_invalid",
-                        "declared_invocation_budget must be a closed object",
-                    )
-                })?;
-                if budget_object.len() != 2
-                    || budget_object.keys().any(|key| {
-                        !matches!(
-                            key.as_str(),
-                            "max_total_invocations" | "max_parallel_invocations"
-                        )
-                    })
-                {
-                    return Err(GoalPursuitError::new(
-                        "goal_run_declared_invocation_budget_invalid",
-                        "declared_invocation_budget must contain exactly the total and parallel invocation counts",
-                    ));
-                }
-                let total = budget
-                    .get("max_total_invocations")
-                    .and_then(Value::as_u64)
-                    .ok_or_else(|| {
-                        GoalPursuitError::new(
-                            "goal_run_declared_invocation_budget_invalid",
-                            "max_total_invocations must be an explicit non-negative integer",
-                        )
-                    })?;
-                let parallel = budget
-                    .get("max_parallel_invocations")
-                    .and_then(Value::as_u64)
-                    .ok_or_else(|| {
-                        GoalPursuitError::new(
-                            "goal_run_declared_invocation_budget_invalid",
-                            "max_parallel_invocations must be an explicit non-negative integer",
-                        )
-                    })?;
-                if parallel > total {
-                    return Err(GoalPursuitError::new(
-                        "goal_run_declared_parallelism_widens_total",
-                        "declared parallel invocations cannot exceed declared total invocations",
-                    ));
-                }
-                Some((revision_ref.to_string(), content_hash.to_string(), budget.clone()))
-            }
-            _ => {
-                return Err(GoalPursuitError::new(
-                    "goal_run_execution_ceiling_closure_incomplete",
-                    "execution-ceiling revision, content hash, and declared invocation budget are all required together; no default is inferred",
-                ))
-            }
-        };
-        let workflow_refs = unique_refs(
-            request,
-            "workflow_template_revision_refs",
-            "workflow-template://",
-            true,
-        )?;
-        if workflow_refs
-            .iter()
-            .any(|reference| !reference.contains("/revision/"))
-        {
-            return Err(GoalPursuitError::new(
-                "workflow_template_revision_required",
-                "workflow templates must name exact revisions",
-            ));
-        }
-        let skill_refs = unique_refs(request, "skill_manifest_revision_refs", "skill://", true)?;
-        if skill_refs
-            .iter()
-            .any(|reference| !reference.contains("/revision/"))
-        {
-            return Err(GoalPursuitError::new(
-                "skill_manifest_revision_required",
-                "skills must name exact manifest revisions",
-            ));
-        }
-        let harness_refs = unique_refs(
-            request,
-            "harness_profile_revision_refs",
-            "harness-profile://",
-            false,
-        )?;
-        if harness_refs
-            .iter()
-            .any(|reference| !reference.contains("/revision/"))
-        {
-            return Err(GoalPursuitError::new(
-                "harness_profile_revision_required",
-                "harness profiles must name exact revisions",
-            ));
-        }
-        let tool_refs = unique_refs(request, "runtime_tool_contract_refs", "tool://", true)?;
-        // The gateway run-on lane admits the exact released AgentHarnessAdapter revision the
-        // current AuthorityGatewayProfile selected. Every other lane resolves none.
-        let adapter_refs = match request.get("agent_harness_adapter_revision_refs") {
-            None | Some(Value::Null) => Vec::new(),
-            Some(_) => unique_refs(
-                request,
-                "agent_harness_adapter_revision_refs",
-                "agent-harness-adapter://",
-                true,
-            )?,
-        };
-        if adapter_refs
-            .iter()
-            .any(|reference| !reference.contains("/revision/sha256:"))
-        {
-            return Err(GoalPursuitError::new(
-                "agent_harness_adapter_revision_required",
-                "agent harness adapters must name exact content-addressed revisions",
-            ));
-        }
-        let component_hashes = request
-            .get("component_hashes")
-            .and_then(Value::as_object)
-            .ok_or_else(|| {
-                GoalPursuitError::new(
-                    "goal_run_component_hashes_required",
-                    "component_hashes is required",
-                )
-            })?;
-        let mut required_components: Vec<&str> = workflow_refs
-            .iter()
-            .map(String::as_str)
-            .chain(skill_refs.iter().map(String::as_str))
-            .collect();
-        required_components.extend(harness_refs.iter().map(String::as_str));
-        required_components.extend(tool_refs.iter().map(String::as_str));
-        required_components.extend(adapter_refs.iter().map(String::as_str));
-        if let Some((revision_ref, _, _)) = &execution_ceiling {
-            required_components.push(revision_ref.as_str());
-        }
-        for reference in &required_components {
-            let Some(component_hash) = component_hashes.get(*reference).and_then(Value::as_str)
-            else {
-                return Err(GoalPursuitError::new(
-                    "goal_run_component_hash_missing",
-                    format!("no content hash for {reference}"),
-                ));
-            };
-            required_hash(&json!({"hash": component_hash}), "hash")?;
-        }
-        if component_hashes.len() != required_components.len() {
-            return Err(GoalPursuitError::new(
-                "goal_run_component_set_ambiguous",
-                "component_hashes contains an unresolved or unselected component",
-            ));
-        }
-        // Honest requirement closure. A profile may legitimately declare role-topology,
-        // worker/model/service/verifier, context, and primitive-capability predicates that no
-        // admission-time owner resolves; those stay frozen as still-unresolved late bindings and
-        // are never renamed "resolved". A requirement that IS satisfied by an exact resolved
-        // component revision leaves the unresolved set. The caller may not author that set: a
-        // supplied non-empty set must equal the daemon-derived one exactly.
-        let role_topology_requirement_refs =
-            requirement_refs(request, "role_topology_requirement_refs")?;
-        let worker_model_service_and_verifier_requirement_refs = requirement_refs(
-            request,
-            "worker_model_service_and_verifier_requirement_refs",
-        )?;
-        let primitive_capability_requirement_refs =
-            requirement_refs(request, "primitive_capability_requirement_refs")?;
-        // Context requirement profiles are late-binding predicates with no receipt array of
-        // their own; they are named exactly once, in the unresolved set, never renamed a
-        // capability or a resolved component.
-        let context_requirement_profile_refs =
-            requirement_refs(request, "context_requirement_profile_refs")?;
-        let resolved_component_refs: BTreeSet<&str> = required_components.iter().copied().collect();
-        let role_topology_resolved = request
-            .get("initial_role_topology_revision_ref")
-            .is_some_and(|value| !value.is_null());
-        let mut unresolved_late_binding_requirement_refs: BTreeSet<String> = BTreeSet::new();
-        if !role_topology_resolved {
-            for reference in &role_topology_requirement_refs {
-                if !resolved_component_refs.contains(reference.as_str()) {
-                    unresolved_late_binding_requirement_refs.insert(reference.clone());
-                }
-            }
-        }
-        for reference in worker_model_service_and_verifier_requirement_refs
-            .iter()
-            .chain(primitive_capability_requirement_refs.iter())
-            .chain(context_requirement_profile_refs.iter())
-        {
-            if !resolved_component_refs.contains(reference.as_str()) {
-                unresolved_late_binding_requirement_refs.insert(reference.clone());
-            }
-        }
-        let declared_late_bindings =
-            requirement_refs(request, "unresolved_late_binding_requirement_refs")?;
-        if !declared_late_bindings.is_empty()
-            && declared_late_bindings
-                .iter()
-                .cloned()
-                .collect::<BTreeSet<_>>()
-                != unresolved_late_binding_requirement_refs
-        {
-            return Err(GoalPursuitError::new(
-                "goal_run_late_binding_requirement_substitution",
-                "unresolved_late_binding_requirement_refs must be exactly the still-unresolved declared requirement predicates",
-            ));
-        }
-        let unresolved_late_binding_requirement_refs: Vec<String> =
-            unresolved_late_binding_requirement_refs
-                .into_iter()
-                .collect();
-        let active_skills =
-            unique_refs(request, "active_skill_entry_refs", "skill-entry://", true)?;
-        let constraint_ref = required_ref(
-            request,
-            "effective_constraint_envelope_ref",
-            "constraint://",
-        )?;
-        let constraint_hash = required_hash(request, "effective_constraint_envelope_hash")?;
-        let orchestration_policy_ref = required_ref(
-            request,
-            "orchestration_policy_ref",
-            "orchestration-policy://",
-        )?;
-        let orchestration_policy_version =
-            required_text(request, "orchestration_policy_version_or_hash")?;
-        let resolved_skill_bindings = request
-            .get("resolved_skill_bindings")
-            .and_then(Value::as_array)
-            .ok_or_else(|| {
-                GoalPursuitError::new(
-                    "goal_run_skill_bindings_required",
-                    "resolved_skill_bindings must be an array",
-                )
-            })?;
-        for binding in resolved_skill_bindings {
-            required_ref(binding, "skill_entry_ref", "skill-entry://")?;
-            required_ref(
-                binding,
-                "skill_entry_binding_revision_ref",
-                "skill-entry://",
-            )?;
-            required_hash(binding, "skill_entry_binding_hash")?;
-            required_ref(binding, "skill_manifest_revision_ref", "skill://")?;
-            required_hash(binding, "skill_manifest_content_hash")?;
-        }
-        let canonical_active_skill_set = match (
-            request.get("active_skill_set_snapshot_ref"),
-            request.get("active_skill_set_hash"),
-            request.get("active_skill_set_resolution_receipt_ref"),
-        ) {
-            (None, None, None) => None,
-            (Some(_), Some(_), Some(_)) => {
-                let snapshot_ref = required_ref(
-                    request,
-                    "active_skill_set_snapshot_ref",
-                    "active-skill-set://snapshot/sha256:",
-                )?;
-                let active_set_hash = required_hash(request, "active_skill_set_hash")?;
-                if !snapshot_ref.ends_with(active_set_hash) {
-                    return Err(GoalPursuitError::new(
-                        "goal_run_active_skill_set_binding_mismatch",
-                        "the canonical active-skill-set snapshot reference does not bind its content hash",
-                    ));
-                }
-                let receipt_ref = required_ref(
-                    request,
-                    "active_skill_set_resolution_receipt_ref",
-                    "receipt://active-skill-set-resolution/",
-                )?;
-                Some((
-                    snapshot_ref.to_string(),
-                    active_set_hash.to_string(),
-                    receipt_ref.to_string(),
-                ))
-            }
-            _ => {
-                return Err(GoalPursuitError::new(
-                    "goal_run_active_skill_set_closure_incomplete",
-                    "canonical active-skill-set snapshot reference, hash, and resolution receipt are required together",
-                ))
-            }
-        };
-        let mut snapshot_body = json!({
-            "goal_run_ref": goal_ref,
-            "goal_run_profile_revision_ref": profile_ref,
-            "goal_run_profile_content_hash": profile_hash,
-            "admitted_override_set_ref": request.get("admitted_override_set_ref").cloned().unwrap_or(Value::Null),
-            "admitted_override_set_hash": request.get("admitted_override_set_hash").cloned().unwrap_or(Value::Null),
-            "effective_constraint_envelope_ref": constraint_ref,
-            "effective_constraint_envelope_hash": constraint_hash,
-            "effective_constraint_envelope": request.get("effective_constraint_envelope").cloned().unwrap_or(Value::Null),
-            "orchestration_policy_ref": orchestration_policy_ref,
-            "orchestration_policy_version_or_hash": orchestration_policy_version,
-            "workflow_template_revision_refs": workflow_refs,
-            "skill_manifest_revision_refs": skill_refs,
-            "active_skill_entry_refs": active_skills,
-            "harness_profile_revision_refs": harness_refs,
-            "runtime_tool_contract_refs": tool_refs,
-            "agent_harness_adapter_revision_refs": adapter_refs,
-            "component_hashes": component_hashes,
-            "role_topology_requirement_refs": role_topology_requirement_refs,
-            "worker_model_service_and_verifier_requirement_refs": worker_model_service_and_verifier_requirement_refs,
-            "primitive_capability_requirement_refs": primitive_capability_requirement_refs,
-            "context_requirement_profile_refs": context_requirement_profile_refs,
-            "initial_role_topology_revision_ref": request.get("initial_role_topology_revision_ref").cloned().unwrap_or(Value::Null),
-            "initial_role_topology_content_hash": request.get("initial_role_topology_content_hash").cloned().unwrap_or(Value::Null),
-            "initial_role_topology_decision_ref": request.get("initial_role_topology_decision_ref").cloned().unwrap_or(Value::Null),
-            "unresolved_late_binding_requirement_refs": unresolved_late_binding_requirement_refs,
-            "effective_learning_boundary_profile_ref": request.get("effective_learning_boundary_profile_ref").cloned().unwrap_or(Value::Null),
-            "effective_learning_policy_hash": request.get("effective_learning_policy_hash").cloned().unwrap_or(Value::Null),
-            "compatibility_revocation_and_admission_decision_refs": request.get("compatibility_revocation_and_admission_decision_refs").cloned().unwrap_or_else(|| json!([])),
-            "agentgres_operation_refs": request.get("agentgres_operation_refs").cloned().unwrap_or_else(|| json!([])),
-        });
-        if let Some((snapshot_ref, active_set_hash, receipt_ref)) = &canonical_active_skill_set {
-            snapshot_body["active_skill_set_snapshot_ref"] = json!(snapshot_ref);
-            snapshot_body["active_skill_set_hash"] = json!(active_set_hash);
-            snapshot_body["active_skill_set_resolution_receipt_ref"] = json!(receipt_ref);
-        }
-        if let Some((revision_ref, content_hash, budget)) = &execution_ceiling {
-            snapshot_body["goal_run_execution_ceiling_revision_ref"] = json!(revision_ref);
-            snapshot_body["goal_run_execution_ceiling_content_hash"] = json!(content_hash);
-            snapshot_body["declared_invocation_budget"] = budget.clone();
-        }
-        let snapshot_hash = hash(&snapshot_body);
-        let safe_goal = goal_ref
-            .trim_start_matches("goal://")
-            .replace(|c: char| !c.is_ascii_alphanumeric(), "_");
-        let component_snapshot_ref = format!("artifact://goal-run/{safe_goal}/resolved-components");
-        let (active_skill_snapshot_ref, active_skill_set_hash, active_skill_receipt_ref) =
-            canonical_active_skill_set.unwrap_or_else(|| {
-                (
-                    format!("active-skill-set://goal-run/{safe_goal}"),
-                    hash(&json!({
-                        "work_subject_ref": goal_ref,
-                        "resolved_skill_bindings": resolved_skill_bindings,
-                    })),
-                    String::new(),
-                )
-            });
-        let resolution_receipt_ref = format!("receipt://goal-run/{safe_goal}/profile-resolution");
-        let workflow_template_resolutions: Vec<Value> = workflow_refs
-            .iter()
-            .map(|reference| {
-                json!({
-                    "revision_ref": reference,
-                    "content_hash": component_hashes.get(reference).cloned().unwrap_or(Value::Null),
-                })
-            })
-            .collect();
-        let resolved_harness_profile_revisions: Vec<Value> = harness_refs
-            .iter()
-            .map(|reference| {
-                json!({
-                    "revision_ref": reference,
-                    "content_hash": component_hashes.get(reference).cloned().unwrap_or(Value::Null),
-                })
-            })
-            .collect();
-        let resolved_agent_harness_adapter_revisions: Vec<Value> = adapter_refs
-            .iter()
-            .map(|reference| {
-                json!({
-                    "revision_ref": reference,
-                    "content_hash": component_hashes.get(reference).cloned().unwrap_or(Value::Null),
-                })
-            })
-            .collect();
-        let resolved_runtime_tool_contracts: Vec<Value> = tool_refs
-            .iter()
-            .map(|reference| {
-                json!({
-                    "revision_ref": reference,
-                    "content_hash": component_hashes.get(reference).cloned().unwrap_or(Value::Null),
-                })
-            })
-            .collect();
-        let mut receipt = json!({
-            "schema_version": PROFILE_RESOLUTION_RECEIPT_SCHEMA_VERSION,
-            "receipt_id": resolution_receipt_ref,
-            "receipt_type": "goal_run_profile_resolution",
-            "goal_ref": goal_ref,
-            "goal_run_profile_revision_ref": profile_ref,
-            "goal_run_profile_content_hash": profile_hash,
-            "admitted_override_set_ref": request.get("admitted_override_set_ref").cloned().unwrap_or(Value::Null),
-            "admitted_override_set_hash": request.get("admitted_override_set_hash").cloned().unwrap_or(Value::Null),
-            "effective_constraint_envelope_ref": constraint_ref,
-            "effective_constraint_envelope_hash": constraint_hash,
-            "orchestration_policy_ref": orchestration_policy_ref,
-            "orchestration_policy_version_or_hash": orchestration_policy_version,
-            "workflow_template_resolutions": workflow_template_resolutions,
-            "resolved_skill_bindings": resolved_skill_bindings,
-            "active_skill_set_snapshot_ref": active_skill_snapshot_ref,
-            "active_skill_set_hash": active_skill_set_hash,
-            "resolved_harness_profile_revisions": resolved_harness_profile_revisions,
-            "resolved_agent_harness_adapter_revisions": resolved_agent_harness_adapter_revisions,
-            "resolved_runtime_tool_contracts": resolved_runtime_tool_contracts,
-            "role_topology_requirement_refs": role_topology_requirement_refs,
-            "worker_model_service_and_verifier_requirement_refs": worker_model_service_and_verifier_requirement_refs,
-            "primitive_capability_requirement_refs": primitive_capability_requirement_refs,
-            "initial_role_topology_revision_ref": request.get("initial_role_topology_revision_ref").cloned().unwrap_or(Value::Null),
-            "initial_role_topology_content_hash": request.get("initial_role_topology_content_hash").cloned().unwrap_or(Value::Null),
-            "initial_role_topology_decision_ref": request.get("initial_role_topology_decision_ref").cloned().unwrap_or(Value::Null),
-            "unresolved_late_binding_requirement_refs": unresolved_late_binding_requirement_refs,
-            "effective_learning_boundary_profile_ref": request.get("effective_learning_boundary_profile_ref").cloned().unwrap_or(Value::Null),
-            "effective_learning_policy_hash": request.get("effective_learning_policy_hash").cloned().unwrap_or(Value::Null),
-            "compatibility_revocation_and_admission_decision_refs": request.get("compatibility_revocation_and_admission_decision_refs").cloned().unwrap_or_else(|| json!([])),
-            "resolved_component_set_snapshot_ref": component_snapshot_ref,
-            "resolved_component_set_hash": snapshot_hash,
-            "agentgres_operation_refs": request.get("agentgres_operation_refs").cloned().unwrap_or_else(|| json!([])),
-            "assurance_stage": "attested"
-        });
-        if let Some((revision_ref, content_hash, budget)) = &execution_ceiling {
-            receipt["goal_run_execution_ceiling_revision_ref"] = json!(revision_ref);
-            receipt["goal_run_execution_ceiling_content_hash"] = json!(content_hash);
-            receipt["declared_invocation_budget"] = budget.clone();
-        }
-        let receipt_root = hash(&receipt);
-        receipt
-            .as_object_mut()
-            .expect("receipt object")
-            .insert("receipt_root".into(), json!(receipt_root));
-        let mut resolution = json!({
-            "schema_version": DEFINITION_RESOLUTION_SCHEMA_VERSION,
-            "resolution_ref": format!("resolution://goal-run/{safe_goal}/definitions"),
-            "goal_run_ref": goal_ref,
-            "resolved_component_set_snapshot_ref": component_snapshot_ref,
-            "resolved_component_set": snapshot_body,
-            "resolved_component_set_hash": snapshot_hash,
-            "active_skill_set_snapshot_ref": active_skill_snapshot_ref,
-            "active_skill_set_hash": active_skill_set_hash,
-            "resolution_receipt_ref": resolution_receipt_ref,
-            "resolution_receipt": receipt,
-            "definitions_execute": false,
-            "definitions_grant_authority": false,
-            "resolved_at": now,
-        });
-        if !active_skill_receipt_ref.is_empty() {
-            resolution["active_skill_set_resolution_receipt_ref"] = json!(active_skill_receipt_ref);
-        }
-        if let Some((revision_ref, content_hash, budget)) = &execution_ceiling {
-            resolution["goal_run_execution_ceiling_revision_ref"] = json!(revision_ref);
-            resolution["goal_run_execution_ceiling_content_hash"] = json!(content_hash);
-            resolution["declared_invocation_budget"] = budget.clone();
-        }
-        Ok(resolution)
-    }
+    // R-192 (S5-1): `resolve_definitions` stood here — 487 lines resolving a GoalRunProfile
+    // revision, its execution ceiling and its declared invocation budget into a definition
+    // closure. That is the ioi.ai application's vocabulary, and it left with the GoalRun plane.
+    // What remains in this module is platform: WorkRun isolation, the generic WorkResult and
+    // OutcomeDelta admission over `work_subject_ref`, declassification, authority effects,
+    // information-flow decisions and receipt checkpoints.
 
-    /// Admit a generic WorkResult. Research is the selected non-software M3
-    /// profile, including negative, inconclusive, challenged, and superseded
-    /// outcomes; none is collapsed into success.
-    pub fn admit_work_result(&self, request: &Value, now: &str) -> PursuitResult<Value> {
+    pub fn admit_work_result(&self, request: &Value, now: &str) -> AdmissionResult<Value> {
         const STATUSES: &[&str] = &[
             "completed",
             "failed",
@@ -929,21 +452,21 @@ impl GoalPursuitCore {
         let goal_ref = required_ref(request, "work_subject_ref", "goal://")?;
         let profile = required_text(request, "result_profile")?;
         if profile != "research" {
-            return Err(GoalPursuitError::new(
+            return Err(WorkAdmissionError::new(
                 "work_result_profile_not_selected",
                 "M3 proof admits the research result profile",
             ));
         }
         let status = required_text(request, "status")?;
         if !STATUSES.contains(&status) {
-            return Err(GoalPursuitError::new(
+            return Err(WorkAdmissionError::new(
                 "work_result_status_invalid",
                 format!("unsupported status {status}"),
             ));
         }
         let outcome = required_text(request, "outcome_class")?;
         if !OUTCOMES.contains(&outcome) {
-            return Err(GoalPursuitError::new(
+            return Err(WorkAdmissionError::new(
                 "work_result_outcome_invalid",
                 format!("unsupported outcome {outcome}"),
             ));
@@ -955,7 +478,7 @@ impl GoalPursuitCore {
             .get("producer_component_resolution")
             .and_then(Value::as_object)
             .ok_or_else(|| {
-                GoalPursuitError::new(
+                WorkAdmissionError::new(
                     "work_result_component_resolution_required",
                     "producer_component_resolution is required",
                 )
@@ -977,7 +500,7 @@ impl GoalPursuitCore {
             .and_then(Value::as_str)
             .unwrap_or("");
         if !matches!(resolver_kind, "harness_profile" | "agent_harness_adapter") {
-            return Err(GoalPursuitError::new(
+            return Err(WorkAdmissionError::new(
                 "work_result_resolver_kind_invalid",
                 "runtime-produced results require a typed resolver",
             ));
@@ -999,7 +522,7 @@ impl GoalPursuitCore {
             .unwrap_or_default();
         let uncertainty = request.get("uncertainty").cloned().unwrap_or(Value::Null);
         if outcome == "positive" && claims.is_empty() {
-            return Err(GoalPursuitError::new(
+            return Err(WorkAdmissionError::new(
                 "work_result_claims_required",
                 "a positive research result requires at least one bounded claim",
             ));
@@ -1012,7 +535,7 @@ impl GoalPursuitCore {
             _ => false,
         };
         if outcome == "inconclusive" && uncertainty_is_empty {
-            return Err(GoalPursuitError::new(
+            return Err(WorkAdmissionError::new(
                 "work_result_uncertainty_required",
                 "an inconclusive research result requires retained uncertainty",
             ));
@@ -1067,7 +590,7 @@ impl GoalPursuitCore {
             &result,
         )
         .map_err(|error| {
-            GoalPursuitError::new(
+            WorkAdmissionError::new(
                 "work_result_contract_invalid",
                 format!("the admitted WorkResult does not satisfy the current contract: {error}"),
             )
@@ -1088,7 +611,7 @@ impl GoalPursuitCore {
         &self,
         request: &Value,
         inherited_information_flow_label_refs: &[String],
-    ) -> PursuitResult<Value> {
+    ) -> AdmissionResult<Value> {
         let delta_ref = required_ref(request, "outcome_delta_id", "outcome-delta://")?;
         let work_subject_ref = required_text(request, "work_subject_ref")?;
         let proposed_by_ref = required_text(request, "proposed_by_ref")?;
@@ -1107,7 +630,7 @@ impl GoalPursuitCore {
                 | "course_correct"
                 | "close"
         ) {
-            return Err(GoalPursuitError::new(
+            return Err(WorkAdmissionError::new(
                 "outcome_delta_kind_invalid",
                 "delta_kind is not canonical",
             ));
@@ -1117,23 +640,23 @@ impl GoalPursuitCore {
             .map(|label| {
                 let label = label.trim();
                 if !label.starts_with("ifc-label://") || label.chars().any(char::is_whitespace) {
-                    return Err(GoalPursuitError::new(
+                    return Err(WorkAdmissionError::new(
                         "goal_pursuit_ref_invalid",
                         "the inherited parent label set contains an invalid ifc-label:// reference",
                     ));
                 }
                 Ok(label.to_string())
             })
-            .collect::<PursuitResult<BTreeSet<_>>>()?;
+            .collect::<AdmissionResult<BTreeSet<_>>>()?;
         if inherited.len() != inherited_information_flow_label_refs.len() {
-            return Err(GoalPursuitError::new(
+            return Err(WorkAdmissionError::new(
                 "goal_pursuit_ref_duplicate",
                 "the inherited parent label set contains a duplicate reference",
             ));
         }
         let declared = unique_refs(request, "information_flow_label_refs", "ifc-label://", true)?;
         if inherited.iter().any(|label| !declared.contains(label)) {
-            return Err(GoalPursuitError::new(
+            return Err(WorkAdmissionError::new(
                 "outcome_delta_label_loss",
                 "a delta cannot remove an inherited information-flow label",
             ));
@@ -1159,7 +682,7 @@ impl GoalPursuitCore {
             &record,
         )
         .map_err(|error| {
-            GoalPursuitError::new(
+            WorkAdmissionError::new(
                 "outcome_delta_contract_invalid",
                 format!("the admitted OutcomeDelta does not satisfy the current contract: {error}"),
             )
@@ -1175,7 +698,7 @@ impl GoalPursuitCore {
     /// Consume one exact declassification approval at the server-side effect
     /// boundary. Invalid/revoked approvals produce durable refusal truth and
     /// never call the external invoker.
-    pub fn consume_declassification(&self, request: &Value, now: &str) -> PursuitResult<Value> {
+    pub fn consume_declassification(&self, request: &Value, now: &str) -> AdmissionResult<Value> {
         let approval_ref = required_ref(request, "approval_ref", "declassification-approval://")?;
         let effect_ref = required_ref(request, "effect_ref", "effect://")?;
         let effect_hash = required_hash(request, "effect_hash")?;
@@ -1188,7 +711,7 @@ impl GoalPursuitCore {
         )?;
         let status = required_text(request, "status_at_use")?;
         if status != "valid" {
-            return Err(GoalPursuitError::new(
+            return Err(WorkAdmissionError::new(
                 "declassification_approval_not_current",
                 format!("approval status at use is {status}"),
             ));
@@ -1213,7 +736,7 @@ impl GoalPursuitCore {
 
     /// Bind review evidence to the exact effect at the final invoker. A hash
     /// mismatch is a retained refusal, never a best-effort authorization.
-    pub fn admit_authority_effect(&self, request: &Value, now: &str) -> PursuitResult<Value> {
+    pub fn admit_authority_effect(&self, request: &Value, now: &str) -> AdmissionResult<Value> {
         let effect_ref = required_ref(request, "actual_effect_ref", "effect://")?;
         let subject_ref = required_ref(request, "subject_ref", "effect://")?;
         let effect_hash = required_hash(request, "actual_effect_hash")?;
@@ -1257,7 +780,7 @@ impl GoalPursuitCore {
 
     /// Join labels at an effect boundary. Declassification is explicit,
     /// authority-bound, and can remove only the labels named by an approval.
-    pub fn decide_information_flow(&self, request: &Value, now: &str) -> PursuitResult<Value> {
+    pub fn decide_information_flow(&self, request: &Value, now: &str) -> AdmissionResult<Value> {
         let effect_ref = required_ref(request, "effect_ref", "effect://")?;
         let input_labels = unique_refs(request, "input_label_refs", "ifc-label://", false)?;
         let allowed_labels = unique_refs(request, "allowed_label_refs", "ifc-label://", true)?;
@@ -1269,7 +792,7 @@ impl GoalPursuitCore {
         if !declassified_labels.is_empty()
             && !approval_ref.is_some_and(|v| v.starts_with("declassification-approval://"))
         {
-            return Err(GoalPursuitError::new(
+            return Err(WorkAdmissionError::new(
                 "declassification_approval_required",
                 "removing a label requires an exact declassification approval",
             ));
@@ -1279,7 +802,7 @@ impl GoalPursuitCore {
             .iter()
             .any(|label| !input_labels.contains(label))
         {
-            return Err(GoalPursuitError::new(
+            return Err(WorkAdmissionError::new(
                 "declassification_label_not_in_input",
                 "declassification cannot remove a label that did not influence the input",
             ));
@@ -1333,11 +856,11 @@ pub struct ReceiptCheckpointCore {
 }
 
 impl ReceiptCheckpointCore {
-    pub fn append(&mut self, receipt: &Value) -> PursuitResult<String> {
+    pub fn append(&mut self, receipt: &Value) -> AdmissionResult<String> {
         if receipt.get("schema_version").and_then(Value::as_str)
             != Some("ioi.foundations.receipt-envelope.v1")
         {
-            return Err(GoalPursuitError::new(
+            return Err(WorkAdmissionError::new(
                 "receipt_checkpoint_receipt_contract_invalid",
                 "only a closed ReceiptEnvelope v1 can enter the v1 accumulator",
             ));
@@ -1368,9 +891,9 @@ impl ReceiptCheckpointCore {
         Ok(leaf)
     }
 
-    pub fn checkpoint(&self, metadata: &Value, keypair: &Ed25519KeyPair) -> PursuitResult<Value> {
+    pub fn checkpoint(&self, metadata: &Value, keypair: &Ed25519KeyPair) -> AdmissionResult<Value> {
         if self.leaves.is_empty() {
-            return Err(GoalPursuitError::new(
+            return Err(WorkAdmissionError::new(
                 "receipt_checkpoint_empty",
                 "a checkpoint requires at least one receipt",
             ));
@@ -1389,7 +912,7 @@ impl ReceiptCheckpointCore {
             .and_then(Value::as_u64)
             .filter(|v| *v > 0)
             .ok_or_else(|| {
-                GoalPursuitError::new(
+                WorkAdmissionError::new(
                     "receipt_checkpoint_key_set_version_invalid",
                     "issuer_key_set_version must be positive",
                 )
@@ -1398,7 +921,7 @@ impl ReceiptCheckpointCore {
             .get("issued_at")
             .and_then(Value::as_u64)
             .ok_or_else(|| {
-                GoalPursuitError::new(
+                WorkAdmissionError::new(
                     "receipt_checkpoint_issued_at_invalid",
                     "issued_at must be an integer timestamp",
                 )
@@ -1443,7 +966,7 @@ impl ReceiptCheckpointCore {
             .insert("signature_key_id".into(), json!(key_id));
         let preimage = checkpoint_signature_preimage(&checkpoint)?;
         let signature = keypair.sign(preimage.as_bytes()).map_err(|error| {
-            GoalPursuitError::new("receipt_checkpoint_signing_failed", error.to_string())
+            WorkAdmissionError::new("receipt_checkpoint_signing_failed", error.to_string())
         })?;
         checkpoint
             .as_object_mut()
@@ -1461,9 +984,9 @@ impl ReceiptCheckpointCore {
         expected_schema_hash: &str,
         trusted_keys: &BTreeMap<String, Vec<u8>>,
         revoked_keys: &BTreeSet<String>,
-    ) -> PursuitResult<()> {
+    ) -> AdmissionResult<()> {
         if checkpoint.get("schema_hash").and_then(Value::as_str) != Some(expected_schema_hash) {
-            return Err(GoalPursuitError::new(
+            return Err(WorkAdmissionError::new(
                 "receipt_checkpoint_schema_hash_stale",
                 "checkpoint schema hash is not the locally trusted contract hash",
             ));
@@ -1471,26 +994,26 @@ impl ReceiptCheckpointCore {
         let signer = required_ref(checkpoint, "issuer_key_id", "key://")?;
         let signature_key = required_ref(checkpoint, "signature_key_id", "key://")?;
         if signer != signature_key {
-            return Err(GoalPursuitError::new(
+            return Err(WorkAdmissionError::new(
                 "receipt_checkpoint_signature_key_mismatch",
                 "signature key does not equal issuer key",
             ));
         }
         let Some(public_key_bytes) = trusted_keys.get(signer) else {
-            return Err(GoalPursuitError::new(
+            return Err(WorkAdmissionError::new(
                 "receipt_checkpoint_key_untrusted",
                 "checkpoint signer is absent",
             ));
         };
         if revoked_keys.contains(signer) {
-            return Err(GoalPursuitError::new(
+            return Err(WorkAdmissionError::new(
                 "receipt_checkpoint_key_untrusted",
                 "checkpoint signer is absent or revoked",
             ));
         }
         if checkpoint.get("accumulator_size").and_then(Value::as_u64) != Some(receipts.len() as u64)
         {
-            return Err(GoalPursuitError::new(
+            return Err(WorkAdmissionError::new(
                 "receipt_checkpoint_omission",
                 "receipt count does not match checkpoint",
             ));
@@ -1501,7 +1024,7 @@ impl ReceiptCheckpointCore {
         }
         if checkpoint.get("accumulator_root").and_then(Value::as_str) != Some(replay.root.as_str())
         {
-            return Err(GoalPursuitError::new(
+            return Err(WorkAdmissionError::new(
                 "receipt_checkpoint_root_mismatch",
                 "receipt bytes do not reconstruct the checkpoint root",
             ));
@@ -1512,7 +1035,7 @@ impl ReceiptCheckpointCore {
             .and_then(|object| object.remove("signature"))
             .and_then(|value| value.as_str().map(str::to_string))
             .ok_or_else(|| {
-                GoalPursuitError::new(
+                WorkAdmissionError::new(
                     "receipt_checkpoint_signature_invalid",
                     "checkpoint signature is absent",
                 )
@@ -1531,25 +1054,25 @@ impl ReceiptCheckpointCore {
             .remove("body_hash")
             .and_then(|value| value.as_str().map(str::to_string))
             .ok_or_else(|| {
-                GoalPursuitError::new(
+                WorkAdmissionError::new(
                     "receipt_checkpoint_body_hash_invalid",
                     "body hash is absent",
                 )
             })?;
         if hash(&unsigned) != claimed_body_hash {
-            return Err(GoalPursuitError::new(
+            return Err(WorkAdmissionError::new(
                 "receipt_checkpoint_body_hash_invalid",
                 "checkpoint body hash does not match bytes",
             ));
         }
         let public_key = Ed25519PublicKey::from_bytes(public_key_bytes).map_err(|error| {
-            GoalPursuitError::new("receipt_checkpoint_key_invalid", error.to_string())
+            WorkAdmissionError::new("receipt_checkpoint_key_invalid", error.to_string())
         })?;
         let signature_bytes = URL_SAFE_NO_PAD.decode(signature_text).map_err(|error| {
-            GoalPursuitError::new("receipt_checkpoint_signature_invalid", error.to_string())
+            WorkAdmissionError::new("receipt_checkpoint_signature_invalid", error.to_string())
         })?;
         let signature = Ed25519Signature::from_bytes(&signature_bytes).map_err(|error| {
-            GoalPursuitError::new("receipt_checkpoint_signature_invalid", error.to_string())
+            WorkAdmissionError::new("receipt_checkpoint_signature_invalid", error.to_string())
         })?;
         public_key
             .verify(
@@ -1557,7 +1080,7 @@ impl ReceiptCheckpointCore {
                 &signature,
             )
             .map_err(|_| {
-                GoalPursuitError::new(
+                WorkAdmissionError::new(
                     "receipt_checkpoint_signature_invalid",
                     "Ed25519 verification failed",
                 )
@@ -1574,7 +1097,7 @@ fn hash_bytes(bytes: impl AsRef<[u8]>) -> String {
     format!("sha256:{:x}", Sha256::digest(bytes.as_ref()))
 }
 
-fn checkpoint_signature_preimage(checkpoint: &Value) -> PursuitResult<String> {
+fn checkpoint_signature_preimage(checkpoint: &Value) -> AdmissionResult<String> {
     Ok(format!(
         "IOI-RECEIPT-CHECKPOINT-V1\0{}",
         canonical(&json!({
@@ -1582,7 +1105,7 @@ fn checkpoint_signature_preimage(checkpoint: &Value) -> PursuitResult<String> {
             "schema_hash":required_hash(checkpoint,"schema_hash")?,
             "signature_domain":required_text(checkpoint,"signature_domain")?,
             "accumulator_algorithm":required_text(checkpoint,"accumulator_algorithm")?,
-            "accumulator_size":checkpoint.get("accumulator_size").and_then(Value::as_u64).ok_or_else(|| GoalPursuitError::new("receipt_checkpoint_size_invalid","accumulator_size is required"))?,
+            "accumulator_size":checkpoint.get("accumulator_size").and_then(Value::as_u64).ok_or_else(|| WorkAdmissionError::new("receipt_checkpoint_size_invalid","accumulator_size is required"))?,
             "accumulator_root":required_hash(checkpoint,"accumulator_root")?
         }))
     ))
@@ -1615,21 +1138,21 @@ impl AgentgresBranchCore {
         &mut self,
         branch_ref: &str,
         expected_main_head: &str,
-    ) -> PursuitResult<Value> {
+    ) -> AdmissionResult<Value> {
         if !branch_ref.starts_with("execution-branch://") {
-            return Err(GoalPursuitError::new(
+            return Err(WorkAdmissionError::new(
                 "agentgres_branch_ref_invalid",
                 "branch ref must be typed",
             ));
         }
         if expected_main_head != self.main_head {
-            return Err(GoalPursuitError::new(
+            return Err(WorkAdmissionError::new(
                 "agentgres_exact_head_conflict",
                 "branch base is not the current main head",
             ));
         }
         if self.branches.contains_key(branch_ref) {
-            return Err(GoalPursuitError::new(
+            return Err(WorkAdmissionError::new(
                 "agentgres_branch_exists",
                 "branch identity already exists",
             ));
@@ -1669,12 +1192,12 @@ impl AgentgresBranchCore {
         }))
     }
 
-    pub fn stage_effect(&mut self, branch_ref: &str, effect: &Value) -> PursuitResult<Value> {
+    pub fn stage_effect(&mut self, branch_ref: &str, effect: &Value) -> AdmissionResult<Value> {
         let branch = self.branches.get_mut(branch_ref).ok_or_else(|| {
-            GoalPursuitError::new("agentgres_branch_missing", "branch is unknown")
+            WorkAdmissionError::new("agentgres_branch_missing", "branch is unknown")
         })?;
         if branch.merged {
-            return Err(GoalPursuitError::new(
+            return Err(WorkAdmissionError::new(
                 "agentgres_branch_closed",
                 "merged branches reject new effects",
             ));
@@ -1685,7 +1208,7 @@ impl AgentgresBranchCore {
             .and_then(Value::as_str)
             .is_none()
         {
-            return Err(GoalPursuitError::new(
+            return Err(WorkAdmissionError::new(
                 "agentgres_effect_ifc_decision_required",
                 "a staged effect requires an information-flow decision",
             ));
@@ -1716,12 +1239,12 @@ impl AgentgresBranchCore {
         }))
     }
 
-    pub fn checkpoint(&mut self, branch_ref: &str) -> PursuitResult<Value> {
+    pub fn checkpoint(&mut self, branch_ref: &str) -> AdmissionResult<Value> {
         let branch = self.branches.get_mut(branch_ref).ok_or_else(|| {
-            GoalPursuitError::new("agentgres_branch_missing", "branch is unknown")
+            WorkAdmissionError::new("agentgres_branch_missing", "branch is unknown")
         })?;
         if branch.staged_effects.is_empty() {
-            return Err(GoalPursuitError::new(
+            return Err(WorkAdmissionError::new(
                 "agentgres_checkpoint_empty",
                 "a branch checkpoint requires staged effects",
             ));
@@ -1753,30 +1276,30 @@ impl AgentgresBranchCore {
         &mut self,
         branch_ref: &str,
         expected_main_head: &str,
-    ) -> PursuitResult<Value> {
+    ) -> AdmissionResult<Value> {
         if expected_main_head != self.main_head {
-            return Err(GoalPursuitError::new(
+            return Err(WorkAdmissionError::new(
                 "agentgres_exact_head_conflict",
                 "merge expected head is stale",
             ));
         }
         let branch = self.branches.get_mut(branch_ref).ok_or_else(|| {
-            GoalPursuitError::new("agentgres_branch_missing", "branch is unknown")
+            WorkAdmissionError::new("agentgres_branch_missing", "branch is unknown")
         })?;
         if branch.base_head != expected_main_head {
-            return Err(GoalPursuitError::new(
+            return Err(WorkAdmissionError::new(
                 "agentgres_branch_base_conflict",
                 "branch does not descend from the merge head",
             ));
         }
         let checkpoint = branch.checkpoint_ref.clone().ok_or_else(|| {
-            GoalPursuitError::new(
+            WorkAdmissionError::new(
                 "agentgres_branch_checkpoint_required",
                 "merge requires a branch checkpoint",
             )
         })?;
         if branch.merged {
-            return Err(GoalPursuitError::new(
+            return Err(WorkAdmissionError::new(
                 "agentgres_branch_already_merged",
                 "branch was already merged",
             ));
@@ -1808,11 +1331,11 @@ impl AgentgresBranchCore {
         }))
     }
 
-    pub fn append_operation(&mut self, request: &Value) -> PursuitResult<Value> {
+    pub fn append_operation(&mut self, request: &Value) -> AdmissionResult<Value> {
         let operation_id = required_ref(request, "operation_id", "agentgres://operation/")?;
         let expected = request.get("expected_head").and_then(Value::as_str);
         if expected != Some(self.main_head.as_str()) {
-            return Err(GoalPursuitError::new(
+            return Err(WorkAdmissionError::new(
                 "agentgres_exact_head_conflict",
                 "operation expected_head is stale",
             ));
@@ -1845,14 +1368,14 @@ impl AgentgresBranchCore {
         Ok(Value::Object(operation))
     }
 
-    pub fn projection_definition(request: &Value) -> PursuitResult<Value> {
+    pub fn projection_definition(request: &Value) -> AdmissionResult<Value> {
         let projection_id = required_text(request, "projection_id")?;
         let sources = request
             .get("source_objects")
             .and_then(Value::as_array)
             .filter(|values| !values.is_empty())
             .ok_or_else(|| {
-                GoalPursuitError::new(
+                WorkAdmissionError::new(
                     "projection_sources_required",
                     "projection sources must be non-empty",
                 )
@@ -1863,17 +1386,17 @@ impl AgentgresBranchCore {
             "source_objects":sources,
             "output_relation":required_text(request,"output_relation")?,
             "refresh_mode":required_text(request,"refresh_mode")?,
-            "freshness_slo_ms":request.get("freshness_slo_ms").and_then(Value::as_u64).ok_or_else(|| GoalPursuitError::new("projection_freshness_required","freshness_slo_ms is required"))?,
-            "checkpoint_interval_ops":request.get("checkpoint_interval_ops").and_then(Value::as_u64).filter(|value| *value > 0).ok_or_else(|| GoalPursuitError::new("projection_checkpoint_interval_invalid","checkpoint interval must be positive"))?
+            "freshness_slo_ms":request.get("freshness_slo_ms").and_then(Value::as_u64).ok_or_else(|| WorkAdmissionError::new("projection_freshness_required","freshness_slo_ms is required"))?,
+            "checkpoint_interval_ops":request.get("checkpoint_interval_ops").and_then(Value::as_u64).filter(|value| *value > 0).ok_or_else(|| WorkAdmissionError::new("projection_checkpoint_interval_invalid","checkpoint interval must be positive"))?
         }))
     }
 
-    pub fn admit_artifact_ref(request: &Value) -> PursuitResult<Value> {
+    pub fn admit_artifact_ref(request: &Value) -> AdmissionResult<Value> {
         required_ref(request, "artifact_id", "artifact://")?;
         required_ref(request, "domain_id", "agentgres://domain/")?;
         required_ref(request, "producing_operation_ref", "agentgres://operation/")?;
         let content = request.get("content").ok_or_else(|| {
-            GoalPursuitError::new(
+            WorkAdmissionError::new(
                 "artifact_content_required",
                 "artifact content commitment is required",
             )
@@ -1883,7 +1406,7 @@ impl AgentgresBranchCore {
         artifact
             .as_object_mut()
             .ok_or_else(|| {
-                GoalPursuitError::new("artifact_object_required", "artifact must be an object")
+                WorkAdmissionError::new("artifact_object_required", "artifact must be an object")
             })?
             .insert(
                 "schema_version".into(),
@@ -1936,10 +1459,10 @@ mod tests {
 
     #[test]
     fn immutable_definition_resolution_is_stable_and_inert() {
-        let first = GoalPursuitCore
+        let first = WorkAdmissionCore
             .resolve_definitions(&definitions(), "2026-07-30T12:00:00Z")
             .unwrap();
-        let second = GoalPursuitCore
+        let second = WorkAdmissionCore
             .resolve_definitions(&definitions(), "2026-07-30T12:00:01Z")
             .unwrap();
         assert_eq!(
@@ -1963,7 +1486,7 @@ mod tests {
         let mut request = definitions();
         request["workflow_template_revision_refs"] = json!(["workflow-template://research"]);
         assert_eq!(
-            GoalPursuitCore
+            WorkAdmissionCore
                 .resolve_definitions(&request, "now")
                 .unwrap_err()
                 .code(),
@@ -1975,7 +1498,7 @@ mod tests {
             .unwrap()
             .remove("tool://search/revision/1");
         assert_eq!(
-            GoalPursuitCore
+            WorkAdmissionCore
                 .resolve_definitions(&request, "now")
                 .unwrap_err()
                 .code(),
@@ -1992,7 +1515,7 @@ mod tests {
             "verifier-requirement://independent"
         ]);
         assert_eq!(
-            GoalPursuitCore
+            WorkAdmissionCore
                 .resolve_definitions(&request, "now")
                 .unwrap_err()
                 .code(),
@@ -2009,7 +1532,7 @@ mod tests {
             "tool://search/revision/1"
         ]);
         request["role_topology_requirement_refs"] = json!(["role-topology-requirement://pair"]);
-        let resolution = GoalPursuitCore
+        let resolution = WorkAdmissionCore
             .resolve_definitions(&request, "now")
             .expect("declared later predicates are admissible, not fatal");
         assert_eq!(
@@ -2029,7 +1552,7 @@ mod tests {
         let mut resolved_topology = request.clone();
         resolved_topology["initial_role_topology_revision_ref"] =
             json!("role-topology://goal-run/research-1/revision/1");
-        let resolution = GoalPursuitCore
+        let resolution = WorkAdmissionCore
             .resolve_definitions(&resolved_topology, "now")
             .unwrap();
         assert!(
@@ -2047,7 +1570,7 @@ mod tests {
             json!(["verifier-requirement://independent"]);
         request["unresolved_late_binding_requirement_refs"] = json!([]);
         assert_eq!(
-            GoalPursuitCore
+            WorkAdmissionCore
                 .resolve_definitions(&request, "now")
                 .unwrap()["resolution_receipt"]["unresolved_late_binding_requirement_refs"],
             json!(["verifier-requirement://independent"])
@@ -2055,7 +1578,7 @@ mod tests {
         request["unresolved_late_binding_requirement_refs"] =
             json!(["verifier-requirement://something-else"]);
         assert_eq!(
-            GoalPursuitCore
+            WorkAdmissionCore
                 .resolve_definitions(&request, "now")
                 .unwrap_err()
                 .code(),
@@ -2065,7 +1588,7 @@ mod tests {
         invented["unresolved_late_binding_requirement_refs"] =
             json!(["verifier-requirement://invented"]);
         assert_eq!(
-            GoalPursuitCore
+            WorkAdmissionCore
                 .resolve_definitions(&invented, "now")
                 .unwrap_err()
                 .code(),
@@ -2075,7 +1598,7 @@ mod tests {
 
     #[test]
     fn agent_harness_adapter_revisions_are_exact_hashed_components_or_absent() {
-        let resolution = GoalPursuitCore
+        let resolution = WorkAdmissionCore
             .resolve_definitions(&definitions(), "now")
             .unwrap();
         assert_eq!(
@@ -2086,7 +1609,7 @@ mod tests {
         request["agent_harness_adapter_revision_refs"] =
             json!(["agent-harness-adapter://external/revision/1"]);
         assert_eq!(
-            GoalPursuitCore
+            WorkAdmissionCore
                 .resolve_definitions(&request, "now")
                 .unwrap_err()
                 .code(),
@@ -2095,7 +1618,7 @@ mod tests {
         let exact = format!("agent-harness-adapter://external/revision/{H2}");
         request["agent_harness_adapter_revision_refs"] = json!([exact]);
         assert_eq!(
-            GoalPursuitCore
+            WorkAdmissionCore
                 .resolve_definitions(&request, "now")
                 .unwrap_err()
                 .code(),
@@ -2105,7 +1628,7 @@ mod tests {
             .as_object_mut()
             .unwrap()
             .insert(exact.clone(), json!(H2));
-        let resolution = GoalPursuitCore
+        let resolution = WorkAdmissionCore
             .resolve_definitions(&request, "now")
             .expect("an exact released adapter revision resolves");
         assert_eq!(
@@ -2146,7 +1669,7 @@ mod tests {
             ("negative", "failed"),
             ("inconclusive", "challenged"),
         ] {
-            let admitted = GoalPursuitCore
+            let admitted = WorkAdmissionCore
                 .admit_work_result(&result(outcome, status), "2026-07-30T12:00:00Z")
                 .unwrap();
             assert_eq!(admitted["work_result"]["outcome_class"], outcome);
@@ -2159,7 +1682,7 @@ mod tests {
         let mut request = result("positive", "completed");
         request["result_profile"] = json!("software_implementation");
         assert_eq!(
-            GoalPursuitCore
+            WorkAdmissionCore
                 .admit_work_result(&request, "now")
                 .unwrap_err()
                 .code(),
@@ -2171,7 +1694,7 @@ mod tests {
             .unwrap()
             .remove("component_resolution_receipt_ref");
         assert_eq!(
-            GoalPursuitCore
+            WorkAdmissionCore
                 .admit_work_result(&request, "now")
                 .unwrap_err()
                 .code(),
@@ -2188,7 +1711,7 @@ mod tests {
             "information_flow_label_refs":["ifc-label://internal","ifc-label://research"]
         });
         let inherited = vec!["ifc-label://internal".to_string()];
-        let admitted = GoalPursuitCore
+        let admitted = WorkAdmissionCore
             .admit_outcome_delta(&request, &inherited)
             .unwrap();
         assert_eq!(admitted["effect_executed"], false);
@@ -2199,7 +1722,7 @@ mod tests {
         let mut invalid = request;
         invalid["information_flow_label_refs"] = json!([]);
         assert_eq!(
-            GoalPursuitCore
+            WorkAdmissionCore
                 .admit_outcome_delta(&invalid, &inherited)
                 .unwrap_err()
                 .code(),
@@ -2211,14 +1734,14 @@ mod tests {
     fn information_flow_denies_unapproved_label_and_permits_explicit_declassification() {
         let denied = json!({"effect_ref":"effect://egress/1","input_label_refs":["ifc-label://private"],"allowed_label_refs":[],"declassified_label_refs":[]});
         assert_eq!(
-            GoalPursuitCore
+            WorkAdmissionCore
                 .decide_information_flow(&denied, "now")
                 .unwrap()["decision"],
             "denied"
         );
         let allowed = json!({"effect_ref":"effect://egress/1","input_label_refs":["ifc-label://private"],"allowed_label_refs":[],"declassified_label_refs":["ifc-label://private"],"declassification_approval_ref":"declassification-approval://review/1"});
         assert_eq!(
-            GoalPursuitCore
+            WorkAdmissionCore
                 .decide_information_flow(&allowed, "now")
                 .unwrap()["decision"],
             "allowed"
@@ -2229,7 +1752,7 @@ mod tests {
     fn implicit_or_foreign_declassification_is_refused() {
         let missing = json!({"effect_ref":"effect://egress/1","input_label_refs":["ifc-label://private"],"allowed_label_refs":[],"declassified_label_refs":["ifc-label://private"]});
         assert_eq!(
-            GoalPursuitCore
+            WorkAdmissionCore
                 .decide_information_flow(&missing, "now")
                 .unwrap_err()
                 .code(),
@@ -2237,7 +1760,7 @@ mod tests {
         );
         let foreign = json!({"effect_ref":"effect://egress/1","input_label_refs":["ifc-label://private"],"allowed_label_refs":[],"declassified_label_refs":["ifc-label://secret"],"declassification_approval_ref":"declassification-approval://review/1"});
         assert_eq!(
-            GoalPursuitCore
+            WorkAdmissionCore
                 .decide_information_flow(&foreign, "now")
                 .unwrap_err()
                 .code(),
@@ -2249,7 +1772,7 @@ mod tests {
     fn declassification_and_authority_effect_receipts_fail_closed() {
         let declassification = json!({"approval_ref":"declassification-approval://review/1","effect_ref":"effect://egress/1","effect_hash":H1,"authority_grant_ref":"grant://declassify","information_flow_label_refs":["ifc-label://private"],"status_at_use":"valid","destination":"research.example","resulting_data_class":"internal"});
         assert_eq!(
-            GoalPursuitCore
+            WorkAdmissionCore
                 .consume_declassification(&declassification, "2026-07-30T12:00:00Z")
                 .unwrap()["status_at_use"],
             "valid"
@@ -2257,7 +1780,7 @@ mod tests {
         let mut revoked = declassification;
         revoked["status_at_use"] = json!("revoked");
         assert_eq!(
-            GoalPursuitCore
+            WorkAdmissionCore
                 .consume_declassification(&revoked, "now")
                 .unwrap_err()
                 .code(),
@@ -2266,14 +1789,14 @@ mod tests {
 
         let request = json!({"actual_effect_ref":"effect://egress/1","actual_effect_hash":H1,"subject_ref":"effect://egress/1","subject_hash":H1,"authority_grant_ref":"grant://egress","authority_grant_hash":H2,"policy_hash":H1,"authority_current":true});
         assert_eq!(
-            GoalPursuitCore
+            WorkAdmissionCore
                 .admit_authority_effect(&request, "2026-07-30T12:00:00Z")
                 .unwrap()["invoker_called"],
             true
         );
         let mut stale = request;
         stale["authority_current"] = json!(false);
-        let refused = GoalPursuitCore
+        let refused = WorkAdmissionCore
             .admit_authority_effect(&stale, "2026-07-30T12:00:00Z")
             .unwrap();
         assert_eq!(refused["decision"], "refused");
@@ -2457,7 +1980,7 @@ mod tests {
     #[test]
     fn workrun_isolation_binding_is_daemon_minted_and_lifecycle_stable() {
         let (requirements, inputs) = isolation_contracts();
-        let admitted = GoalPursuitCore
+        let admitted = WorkAdmissionCore
             .admit_workrun_isolation(
                 &requirements,
                 &inputs,
@@ -2476,7 +1999,7 @@ mod tests {
         );
         for transition in ["replay", "cancel", "replacement", "terminal"] {
             assert_eq!(
-                GoalPursuitCore
+                WorkAdmissionCore
                     .preserve_workrun_isolation(
                         &admitted,
                         &admitted["binding"],
@@ -2492,7 +2015,7 @@ mod tests {
     #[test]
     fn workrun_isolation_refuses_downgrade_cross_run_replay_and_tamper() {
         let (requirements, inputs) = isolation_contracts();
-        let admitted = GoalPursuitCore
+        let admitted = WorkAdmissionCore
             .admit_workrun_isolation(
                 &requirements,
                 &inputs,
@@ -2503,7 +2026,7 @@ mod tests {
         let mut downgraded = admitted["binding"].clone();
         downgraded["route_policy_ref"] = json!("policy://network/allow-all");
         assert_eq!(
-            GoalPursuitCore
+            WorkAdmissionCore
                 .preserve_workrun_isolation(
                     &admitted,
                     &downgraded,
@@ -2515,7 +2038,7 @@ mod tests {
             "workload_isolation_binding_substitution_refused"
         );
         assert_eq!(
-            GoalPursuitCore
+            WorkAdmissionCore
                 .preserve_workrun_isolation(
                     &admitted,
                     &admitted["binding"],
@@ -2529,7 +2052,7 @@ mod tests {
         let mut tampered = admitted;
         tampered["binding"]["output_policy_ref"] = json!("policy://output/unscanned");
         assert_eq!(
-            GoalPursuitCore
+            WorkAdmissionCore
                 .preserve_workrun_isolation(
                     &tampered,
                     &tampered["binding"],

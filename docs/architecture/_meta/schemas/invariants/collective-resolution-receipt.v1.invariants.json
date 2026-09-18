@@ -1,0 +1,92 @@
+{
+  "$id": "invariant://ioi/applications/ioi-ai/collective-resolution-receipt/freezes-existing-owners/v1",
+  "language": "ioi.portable-invariants.v2",
+  "contract_id": "schema://ioi/applications/ioi-ai/collective-resolution-receipt/v1",
+  "rules": [
+    {
+      "rule_id": "collective_resolution_receipt.identity.matches",
+      "description": "The resolution has one portable receipt identity.",
+      "expression": {
+        "operator": "fields_equal",
+        "paths": [
+          "$.receipt_id",
+          "$.receipt_ref"
+        ]
+      }
+    },
+    {
+      "rule_id": "collective_resolution_receipt.closure.recomputes",
+      "description": "The closure root commits every frozen member of the dependency closure and every owner it resolved into, so a relying party can recompute the freeze from the receipt alone.",
+      "expression": {
+        "operator": "jcs_sha256_equals",
+        "algorithm": "jcs_sha256",
+        "expected_path": "$.closure_root",
+        "expected_encoding": "sha256_string",
+        "material_fields": {
+          "schema_version": {
+            "path": "$.schema_version"
+          },
+          "receipt_id": {
+            "path": "$.receipt_id"
+          },
+          "receipt_ref": {
+            "path": "$.receipt_ref"
+          },
+          "receipt_type": {
+            "path": "$.receipt_type"
+          },
+          "resolved_by_ref": {
+            "path": "$.resolved_by_ref"
+          },
+          "system_id": {
+            "path": "$.system_id"
+          },
+          "system_release_ref": {
+            "path": "$.system_release_ref"
+          },
+          "constitution_ref": {
+            "path": "$.constitution_ref"
+          },
+          "active_profile_set_ref": {
+            "path": "$.active_profile_set_ref"
+          },
+          "orchestration_ref": {
+            "path": "$.orchestration_ref"
+          },
+          "goal_run_profile_revision_refs": {
+            "path": "$.goal_run_profile_revision_refs"
+          },
+          "policy_refs": {
+            "path": "$.policy_refs"
+          },
+          "lease_policy_refs": {
+            "path": "$.lease_policy_refs"
+          },
+          "artifact_lifecycle_policy_ref": {
+            "path": "$.artifact_lifecycle_policy_ref"
+          },
+          "requirement_refs": {
+            "path": "$.requirement_refs"
+          },
+          "resolved_owner_refs": {
+            "path": "$.resolved_owner_refs"
+          },
+          "registers_no_new_owner": {
+            "path": "$.registers_no_new_owner"
+          },
+          "resolved_at": {
+            "path": "$.resolved_at"
+          }
+        }
+      }
+    },
+    {
+      "rule_id": "collective_resolution_receipt.orchestration.is_a_resolved_owner",
+      "description": "The orchestration the closure is headed by is itself one of the existing owners the resolution names, so the receipt cannot freeze a composition it did not resolve into.",
+      "expression": {
+        "operator": "non_empty",
+        "path": "$.orchestration_ref"
+      }
+    }
+  ]
+}

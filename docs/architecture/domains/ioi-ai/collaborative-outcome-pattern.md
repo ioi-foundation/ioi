@@ -14,7 +14,7 @@ ioi.ai owners under ADR 0052 Decision 4).
 Doctrine status: canonical
 Implementation status: partial (the M3 direct GoalRun/WorkResult seam exists.
 Implementation refs:
-  - `crates/node/src/bin/hypervisor_daemon_routes/goalrun_routes.rs`
+  - `packages/ioi-ai-orchestration/src/orchestrations.ts` (the composition; `goalrun_routes.rs` was deleted 2026-09-18 under R-192 slice S5-1)
 The current hosted M4 implementation demonstrates package/genesis binding,
 reciprocal GoalRun membership, and a minimum WorkResult/OutcomeDelta graph, but
 its room-owned admission, transition, receipt, and root spine is migration input
@@ -184,19 +184,30 @@ coordination machinery is useful. `Swarm` may appear as explanatory or search
 copy, but it is not a canonical runtime, object family, scheduler, authority
 plane, or assurance claim.
 
-The reusable configuration is initially a package/profile composition over
-existing owner-qualified contracts:
+The reusable configuration is a package/profile composition over existing
+owner-qualified contracts. **Re-typed 2026-09-18 (R-192, M04.12): the closure's
+head is the bounded System's release and the ioi.ai ORCHESTRATION composed over
+it — the OutcomeRoom package retired with the room plane (R-187, R-188), and a
+closure cannot freeze an object that no longer exists. Every other member of the
+closure is unchanged, because none of them was ever room-shaped.**
 
 ```text
-OutcomeRoom package release + constitution and active profiles
+bounded System release + constitution and active profiles
+  + the Orchestration the application composed over that System
   + GoalRunProfile revision set
   + orchestration, communication/visibility and topology policies
-  + participant, claim, context, resource, budget and authority lease policies
+  + participation, claim, context, resource, budget and authority lease policies
   + artifact reuse/fork/install/retire policy
   + verifier, acceptance, stop, recovery and evaluation requirements
     -> daemon-derived collective-resolution receipt
-    -> one OutcomeRoom System and explicit GoalRuns, leases and runtime refs
+    -> that one System, its Orchestration, and explicit GoalRuns, leases and
+       runtime refs — every one an EXISTING owner object, none newly registered
 ```
+
+The receipt freezes and names; it holds no state and is never a second live
+owner. It registers no profile envelope: a resolution that would need one is
+refused rather than satisfied, and the justification bar for a new profile
+family is the paragraph below.
 
 A product may label that composition a collective-pursuit or stigmergic profile.
 The label does not create a new canonical envelope. A separately registered
@@ -211,9 +222,9 @@ The product responsibilities remain split:
 | Surface | Responsibility |
 | --- | --- |
 | ioi.ai Goal Space | Collective-mode launch, progress, steering, comparison and final synthesis |
-| Hypervisor Work / Rooms | Operator projection of participants, claims, artifacts, installations/controllers, health, dependencies, leases, budget, authority and interventions |
+| Hypervisor Work / Orchestrations | Operator projection of participations, claims, artifacts, installations/controllers, health, dependencies, leases, budget, authority and interventions |
 | Hypervisor daemon and owner applications | Admission, execution, environments, Automations, runtime assignments, policy and effect recovery |
-| Agentgres owner domains | Canonical room, work, artifact-ref, installation/runtime lineage, observations, effects and receipts |
+| Agentgres owner domains | Canonical System, work, artifact-ref, installation/runtime lineage, observations, effects and receipts |
 | Foundry / Evaluations | Candidate construction and independent qualification of the declared collective configuration |
 
 No surface in this table may repair or advance another row's truth.

@@ -13,15 +13,45 @@ unchanged apart from link paths).
 Superseded by: none.
 Last alignment pass: 2026-09-07.
 Doctrine status: reference
-Implementation status: partial (see the daemon API owner's status paragraph and
-[`../../_meta/canon-to-code-delta.md`](../../_meta/canon-to-code-delta.md);
-these routes are application handlers hosted in the daemon, admitted through the
-same effect boundary as any other application — hosting is not ownership).
+Implementation status: planned — **NOT SERVED BY THE HYPERVISOR** as of
+2026-09-18 (register R-192, slice S5-1). Every route named below is deleted from
+the daemon; these are the application's operations awaiting re-homing onto the
+System-record seam in slice S5-3. Read the banner below before any route here.
 Implementation refs:
-  - `crates/node/src/bin/hypervisor_daemon_routes/goalrun_routes.rs`
   - `packages/ioi-ai-orchestration/src/orchestrations.ts` (the orchestration composition that replaced the hosted-v2 room routes, deleted 2026-09-17 under R-187)
-  - `crates/node/src/bin/hypervisor_daemon_routes/system_record_routes.rs`
-Last implementation audit: 2026-07-30
+  - `crates/node/src/bin/hypervisor_daemon_routes/system_record_routes.rs` (the System-record seam these operations are being re-homed onto)
+Last implementation audit: 2026-09-18
+
+## THE TRANSPORT BELOW IS RETIRED
+
+Every `/v1/goal-orchestration/*` route named in this file is **gone from the
+Hypervisor daemon**. On 2026-09-18 the owner ruled that goal runs and outcome
+rooms are ioi.ai compositions over the Hypervisor's thread orchestration
+primitives, that the Hypervisor decomposes nothing but those primitives, and
+that every trace of the two was to be removed from the Hypervisor application.
+Slice S5-1 deleted the GoalRun routes, the GoalRun context family, the
+goal-profile contract registry, the IOI-Agent launch plane and the runtime
+goal-run admission kernel, and the namespace serves nothing — it is not even in
+the ioi.ai portal session's route scope any more.
+
+What this file still is: the **operation catalog of the application**. The
+shapes, the admission paths, the refusal codes and the invariants below are the
+ioi.ai orchestration application's own vocabulary and remain its specification.
+What is no longer true of any of them is the transport: none is a daemon route,
+and none may be re-hosted as one.
+
+Where they go instead: the orchestration itself is already an application record
+on the System-scoped record seam
+([`collaborative-pursuit.md`](collaborative-pursuit.md) § *Work objects v4*,
+R-185), composed in `packages/ioi-ai-orchestration` over the coordinating thread,
+its subagents and that seam. Slice S5-3 re-homes GoalRun, GoalRunActivation, the
+GoalRun profile and the context family the same way. Until it lands, the ioi.ai
+goal space has no backend for these operations, and that is stated rather than
+hidden: the daemon returns nothing here, so no consumer should read this file as
+a live wire contract.
+
+Read every route heading below as "the application operation named X", not as a
+URL a client may call.
 
 ## Scope
 
@@ -100,14 +130,14 @@ application, not Hypervisor-substrate ownership of the objects.
 Live audited GoalRun routes:
 
 ```http
-POST /v1/goal-orchestration/goal-run-activations
+POST /v1/goal-orchestration/goal-run-activations  # not a daemon route — RETIRED 2026-09-18 (R-192, S5-1): the ioi.ai composition's operation, no longer served by the Hypervisor
 GET  /v1/goal-orchestration/goal-run-activations/{activation_ref}
 POST /v1/goal-orchestration/goal-run-activations/{activation_ref}/submit
 POST /v1/goal-orchestration/goal-runs
 GET  /v1/goal-orchestration/goal-runs
 GET  /v1/goal-orchestration/goal-runs/{goal_ref}
 POST /v1/goal-orchestration/goal-runs/{goal_ref}/results
-POST /v1/goal-orchestration/goal-runs/{goal_ref}/outcome-deltas
+POST /v1/goal-orchestration/goal-runs/{goal_ref}/outcome-deltas  # not a daemon route — RETIRED 2026-09-18 (R-192, S5-1): the ioi.ai composition's operation, no longer served by the Hypervisor
 POST /v1/goal-orchestration/goal-runs/{goal_ref}/start
 POST /v1/goal-orchestration/goal-runs/{goal_run_id}/orchestration-membership   # R-190 (S4d-2): body { orchestration_ref | null }; the composer's reciprocal member stamp, owner-authorized, CAS-guarded
 POST /v1/goal-orchestration/goal-runs/{goal_ref}/reconcile
@@ -447,7 +477,7 @@ unreceipted first-party allocation shortcut.
 Target fine-grained GoalRun / broker routes:
 
 ```http
-PATCH /v1/goal-orchestration/goal-runs/{goal_ref}
+PATCH /v1/goal-orchestration/goal-runs/{goal_ref}  # not a daemon route — RETIRED 2026-09-18 (R-192, S5-1): the ioi.ai composition's operation, no longer served by the Hypervisor
 POST /v1/goal-orchestration/goal-runs/{goal_ref}/grounding-loop
 POST /v1/goal-orchestration/goal-runs/{goal_ref}/context-cells
 POST /v1/goal-orchestration/goal-runs/{goal_ref}/context-leases
@@ -456,7 +486,7 @@ POST /v1/goal-orchestration/goal-runs/{goal_ref}/harness-invocations
 GET  /v1/goal-orchestration/goal-runs/{goal_ref}/harness-invocations
 GET  /v1/hypervisor/harness-invocations/{harness_invocation_id}
 GET  /v1/hypervisor/harness-invocations/{harness_invocation_id}/events
-POST /v1/goal-orchestration/goal-runs/{goal_ref}/verify
+POST /v1/goal-orchestration/goal-runs/{goal_ref}/verify  # not a daemon route — RETIRED 2026-09-18 (R-192, S5-1): the ioi.ai composition's operation, no longer served by the Hypervisor
 POST /v1/goal-orchestration/goal-runs/{goal_ref}/continue
 POST /v1/goal-orchestration/goal-runs/{goal_ref}/close
 ```

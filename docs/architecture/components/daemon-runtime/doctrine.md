@@ -866,13 +866,23 @@ routes transport. Receipt obligations everywhere use the typed
 — a boolean is a claim, not a contract.
 
 Application domains state their own admission contracts against these rules.
-The goal-orchestration application's GoalRun admission contract — profile
+The ioi.ai orchestration application's GoalRun admission contract — profile
 resolution closure, activation crossing, source-context verification,
 resolved authority, retained state commitment, typed receipt obligations, and
 declared bounds — is owned with its object family in
 [`goal-run-execution.md`](../../domains/ioi-ai/goal-run-execution.md)
-per [ADR 0022](../../../decisions/0022-goal-orchestration-application-layer-and-clean-slate.md);
-the daemon executes and enforces it but does not own its domain doctrine.
+per [ADR 0022](../../../decisions/0022-goal-orchestration-application-layer-and-clean-slate.md).
+
+The daemon no longer executes it. On 2026-09-18 (register R-192, slice S5-1) the
+owner ruled that goal runs and outcome rooms are ioi.ai compositions over the
+Hypervisor's thread orchestration primitives and that the Hypervisor decomposes
+nothing but those primitives, and the runtime goal-run admission kernel was
+deleted with the routes it served. What the kernel kept is the harness-agnostic
+half of that module under a neutral name (`runtime_work_admission.rs`): work-run
+isolation admission and preservation, work-result and outcome-delta admission,
+declassification consumption, authority effects, information-flow decisions and
+receipt checkpoints. Those are platform rules over any work, and they stayed.
+Everything that named a goal, a profile or a pursuit left with the application.
 
 ## Event Model
 

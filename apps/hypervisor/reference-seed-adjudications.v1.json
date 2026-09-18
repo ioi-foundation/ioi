@@ -763,15 +763,15 @@
           "/v1/jobs \u2014 10 runtime job records (jobType agent_run, status completed)",
           "/v1/runs \u2014 10 persisted run records",
           "/v1/tasks \u2014 10 runtime task records",
-          "/v1/goal-orchestration/goal-runs \u2014 190 (complete 120 \u00b7 blocked 49 \u00b7 draft 16 \u00b7 active 5)",
-          "/v1/goal-orchestration/ioi-agent/launches \u2014 289 (executed 247 \u00b7 prepared 42)",
+          "/v1/goal-orchestration/goal-runs \u2014 measured at 190 when this adjudication ran; the plane RETIRED 2026-09-18 (R-192, S5-1) and the daemon serves no GoalRun route",
+          "/v1/goal-orchestration/ioi-agent/launches \u2014 measured at 289 when this adjudication ran; RETIRED with the same ruling (R-192, S5-1)",
           "/v1/hypervisor/odk/transformation-runs \u2014 6 (all dry_run_ready)",
           "/v1/hypervisor/odk/materializing-runs \u2014 7 (executed 4 \u00b7 lease_obtained 2 \u00b7 planned 1)",
           "/v1/hypervisor/failover/runs \u2014 40 (refused 30 \u00b7 restored 5 \u00b7 awaiting_authority 5)",
           "/v1/hypervisor/workruns \u2014 4 (all open; the ONLY estate plane recording a branch + base_commit)"
         ],
         "empty": [
-          "/v1/goal-orchestration/attempts \u2014 the plane answered and holds none",
+          "/v1/goal-orchestration/attempts \u2014 the plane answered and held none; RETIRED (R-192, S5-1)",
           "/v1/hypervisor/foundry/run-plans \u2014 the plane answered and holds none"
         ],
         "refused": [
@@ -1179,8 +1179,8 @@
           "/v1/model-mount/receipts \u2014 the invocation evidence that IS readable to this identity (2583 receipts, 47 of kind model_invocation)",
           "/v1/usage \u2014 the metered runtime lane, scoped by run/thread/turn and by no space",
           "/v1/hypervisor/usage/consumption \u2014 the consumption roll-up, a status singleton",
-          "/v1/goal-orchestration/goal-runs \u2014 the estate's REAL inference orchestration lane and the ONLY plane here carrying a space key",
-          "/v1/goal-orchestration/ioi-agent/launches \u2014 the delivered-intent lane beneath the goal runs, checked for the space key from a third side",
+          "/v1/goal-orchestration/goal-runs \u2014 was the estate's inference orchestration lane and the only plane here carrying a space key; RETIRED (R-192, S5-1), and the space key is now the composing application's to carry",
+          "/v1/goal-orchestration/ioi-agent/launches \u2014 was the delivered-intent lane beneath the goal runs; RETIRED (R-192, S5-1)",
           "/v1/hypervisor/model-routes \u2014 what an inference would run on (rendered in full by Model Catalog; read here for the count and the executable predicate)",
           "/v1/hypervisor/model-routes/overview \u2014 the availability roll-up and the publisher of the governance gaps quoted verbatim on-surface",
           "/v1/hypervisor/model-route-session-bindings \u2014 the estate's OWN scoping noun: it scopes a route to a SESSION, not to a space",
