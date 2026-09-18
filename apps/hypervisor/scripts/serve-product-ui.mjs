@@ -11964,8 +11964,11 @@ async function handleEstateRequest(req, res, body) {
       // render from the planes and from the daemon's own route index.
       const infProjects = infRowsOf("projects");
       const infLedger = infRowsOf("work_ledger");
-      const infGoalRuns = infRowsOf("goal_runs");
-      const infLaunches = infRowsOf("agent_launches");
+      // R-192 (S5-1): the goal-run and agent-launch lanes were the two rows here that carried a
+      // space key. Both retired with the GoalRun plane — a goal run is an ioi.ai composition over
+      // the thread orchestration primitives, not a Hypervisor object — and the platform lane that
+      // replaced them, WorkResults, carries a work SUBJECT ref rather than a space key.
+      const infWorkResults = infRowsOf("work_results");
       const infMountReceipts = infRowsOf("mount_receipts");
       const infUsage = infRowsOf("runtime_usage");
       const infModelRoutes = infRowsOf("model_routes");
@@ -12001,13 +12004,14 @@ async function handleEstateRequest(req, res, body) {
       const infLedgerVocab = [...new Set(infLedger.map(infProjectValue).filter((v) => v !== ""))].sort();
       const infLedgerVocabResolving = infLedgerVocab.filter((v) => infProjectIds.has(v));
       const infLedgerVocabDangling = infLedgerVocab.filter((v) => !infProjectIds.has(v));
-      // THE THIRD VOCABULARY — the space key the estate's own inference orchestration lane writes.
-      const infGoalRefOf = (g) => istr(g?.project_ref);
-      const infGoalVocab = [...new Set(infGoalRuns.map(infGoalRefOf).filter((v) => v !== ""))].sort();
+      // THE THIRD VOCABULARY, re-derived after R-192 (S5-1). It used to be the goal-run plane's
+      // `project_ref`. That plane is gone, so the question is asked of the platform record that
+      // remains: does the generic WorkResult lane carry a space key at all?
+      const infResultSpaceOf = (r) => istr(r?.project_ref);
+      const infGoalVocab = [...new Set(infWorkResults.map(infResultSpaceOf).filter((v) => v !== ""))].sort();
       const infGoalVocabResolving = infGoalVocab.filter((v) => infProjectIds.has(v));
-      const infGoalRunsWithRef = infGoalRuns.filter((g) => infGoalRefOf(g) !== "").length;
-      const infGoalInvocationRefs = infGoalRuns.reduce((n, g) => n + (Array.isArray(g?.invocation_refs) ? g.invocation_refs.length : 0), 0);
-      const infLaunchesWithSpace = infLaunches.filter((l) => Object.keys(l || {}).some((k) => /project|space|tenant/i.test(k))).length;
+      const infResultsWithRef = infWorkResults.filter((r) => infResultSpaceOf(r) !== "").length;
+      const infResultSubjectRefs = infWorkResults.filter((r) => istr(r?.work_subject_ref) !== "").length;
       // THE EDGE, FROM THE SPACE SIDE — checked against the records' OWN keys and their OWN refs,
       // not from a schema doc, and re-derived every render.
       const INF_SPACE_FIELD_RE = /invocation|inference|prompt|completion|model/i;
@@ -12249,10 +12253,10 @@ async function handleEstateRequest(req, res, body) {
               <b>The daemon's own answers, on this render.</b> The filter belongs to the daemon, so this page ASKS IT rather than re-implementing its retain expression here — a re-implemented admission rule is a second answer waiting to disagree with the first. ${infAskedSelections.length} selections were put to it, every one a principled pick rather than a cherry-picked one: the first space the plane offers, the first space value the LEDGER'S OWN rows carry that resolves to a real space, and the space key the estate's own inference lane writes.<br>
               · <b>the first space the plane offers</b> — ${infAnswerLine(infAnsA, "the space plane offered none on this render, so there was no first space to ask about")}<br>
               · <b>the first space the ledger's own rows actually name</b> — ${infAnswerLine(infAnsB, "no value the ledger's rows carry resolves to a space the space plane holds, so there was no resolving selection to ask about")} This is the sharp one: a real space, present in the ledger's own vocabulary, and not one of the entries it returns names a model.<br>
-              · <b>the space key the inference lane itself writes</b> — ${infAnswerLine(infAnsC, "the goal-run plane published no project_ref on this render, so there was no key to ask about")}
+              · <b>the space key the inference lane itself writes</b> — ${infAnswerLine(infAnsC, "the work-result plane published no project_ref on this render, so there was no key to ask about")}
             </div>
             <p>And the edge is checked from the other side too, re-derived every render. From the SPACE side: <b>${infProjWithInvField.length}</b> of the <b>${infProjects.length}</b> live space records carry any field naming an invocation, an inference or a model — and the ref lanes they DO carry (${infProjRefLanes.length ? infProjRefLanes.map((f) => `<code>${esc(f)}</code>`).join(" · ") : "none on this render"}) hold <b>${infProjRefs.length}</b> refs between them, of which <b>${infProjRefsNamingInvocation.length}</b> names an invocation or a model route. Of the <b>${infProjectWriteRoutes.length}</b> published project write routes not one accepts an invocation ref; the only patch a space takes after creation is its environment-class list. From the INVOCATION side: the <b>${infModelInvReceipts.length}</b> model-invocation receipts this identity can read carry <b>${infReceiptsWithSpaceField.length}</b> space-, project- or tenant-named field between them, and the <b>${infUsage.length}</b> metered usage records carry <b>${infUsageWithSpaceField}</b>. The relation is MISSING in both directions, not unpopulated.</p>
-            <p>The one plane that DOES carry a space key makes the point twice over. The goal-run lane — the estate's real inference orchestration plane — holds <b>${infGoalRuns.length}</b> records, <b>${infGoalRunsWithRef}</b> of which carry a <code>project_ref</code>, fanning out into <b>${infGoalInvocationRefs}</b> declared invocation refs. Its whole space vocabulary is ${infGoalVocab.length ? infGoalVocab.map((v) => `<code>${esc(v)}</code>`).join(" · ") : "empty on this render"}, and <b>${infGoalVocabResolving.length}</b> of those <b>${infGoalVocab.length}</b> value${infGoalVocab.length === 1 ? "" : "s"} resolves to a space the space plane actually holds. Meanwhile the ledger's own vocabulary is ${infLedgerVocab.length ? infLedgerVocab.map((v) => `<code>${esc(v)}</code>`).join(" · ") : "empty on this render"}, of which <b>${infLedgerVocabResolving.length}</b> resolve${infLedgerVocabResolving.length === 1 ? "s" : ""} and <b>${infLedgerVocabDangling.length}</b> dangle${infLedgerVocabDangling.length === 1 ? "s" : ""}. <b>Three planes that would have to agree on what a space is, and no shared vocabulary between them.</b></p>
+            <p>R-192 (S5-1) changed the answer here by deleting the lane that carried it. The goal-run plane — the one plane that DID publish a <code>project_ref</code> — is gone from this daemon: a goal run is an ioi.ai composition over the thread orchestration primitives, not a Hypervisor object. The platform record that remains is the generic WorkResult, and it is measured rather than assumed: <b>${infWorkResults.length}</b> records, <b>${infResultsWithRef}</b> carrying a <code>project_ref</code> and <b>${infResultSubjectRefs}</b> carrying a <code>work_subject_ref</code>. Its whole space vocabulary is ${infGoalVocab.length ? infGoalVocab.map((v) => `<code>${esc(v)}</code>`).join(" · ") : "empty on this render"}, and <b>${infGoalVocabResolving.length}</b> of those <b>${infGoalVocab.length}</b> value${infGoalVocab.length === 1 ? "" : "s"} resolves to a space the space plane actually holds. Meanwhile the ledger's own vocabulary is ${infLedgerVocab.length ? infLedgerVocab.map((v) => `<code>${esc(v)}</code>`).join(" · ") : "empty on this render"}, of which <b>${infLedgerVocabResolving.length}</b> resolve${infLedgerVocabResolving.length === 1 ? "s" : ""} and <b>${infLedgerVocabDangling.length}</b> dangle${infLedgerVocabDangling.length === 1 ? "s" : ""}. <b>The planes that would have to agree on what a space is still do not, and one of the three left the estate rather than being reconciled.</b></p>
             <p>So the chooser is a TYPED ABSENCE whose reason names the receiving route by path and its predicate by its exact expression, and this surface mints no second mutation spine over the daemon's own lanes. The space records themselves are REAL read truth — one row per live project record with its id, custody posture and created stamp — because it is the EDGE that is missing, not the spaces. <b>A selection a route accepts is not a working filter</b>: the test is whether the key it lands on is written by the records it is meant to scope, and it has to be asked of the records, not of the route list.</p>
           </div>
           <h2 class="inf-h">What this estate has actually inferred — every number with its predicate and its window</h2>

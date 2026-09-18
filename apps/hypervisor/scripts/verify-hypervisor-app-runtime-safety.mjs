@@ -297,20 +297,47 @@ async function run() {
   // surface fence must fail CLOSED — a 503 refusal, never a rendered surface. This pin replaces
   // what used to be an accidental red (the old harness expected 200s through a dead daemon and
   // the fence, added later, correctly refused).
+  // THE PORT IS NOT THE PROCESS (2026-09-18, R-192 S5-1). This block used to probe the port and
+  // trust whatever answered. On a developer host where something else already held it — an
+  // orphaned preview server from a neighbouring checkout, in the instance — the spawned child
+  // died with EADDRINUSE, the probe reached the SQUATTER, and the squatter's live daemon returned
+  // 200. The gate then reported the posture broken when it had measured nothing at all. A gate
+  // that can be answered by a process it did not start is not measuring its own subject, so the
+  // child's own liveness and its bind failure are now part of the finding.
+  // PRE-FLIGHT, because the bind failure is not always loud: this serve logs a listen error and
+  // keeps running, so the child can be alive while the port belongs to someone else. Asking the
+  // port whether it is already occupied BEFORE spawning is the only check that cannot be fooled by
+  // a squatter that answers 200 to everything.
+  const portAlreadyHeld = await sGet("/__ioi/applications", `http://127.0.0.1:${FAULT_PORT + 7}`)
+    .then(() => true)
+    .catch(() => false);
+  let deadChildExit = null;
+  let deadChildStderr = "";
   const deadChild = spawn(process.execPath, [join(HERE, "serve-product-ui.mjs")], {
     env: { ...process.env, PORT: String(FAULT_PORT + 7), PRODUCT_UI_PORT: String(FAULT_UI_PORT + 7), IOI_HYPERVISOR_DAEMON_URL: "http://127.0.0.1:1" },
-    stdio: "ignore",
+    stdio: ["ignore", "ignore", "pipe"],
   });
+  deadChild.stderr?.on("data", (chunk) => { deadChildStderr += String(chunk); });
+  deadChild.on("exit", (code, signal) => { deadChildExit = signal || code; });
   try {
     const deadBase = `http://127.0.0.1:${FAULT_PORT + 7}`;
     let deadUp = null;
-    for (let i = 0; i < 30 && !deadUp; i++) {
+    for (let i = 0; i < 30 && !deadUp && deadChildExit === null; i++) {
       await new Promise((r) => setTimeout(r, 500));
       deadUp = await sGet("/__ioi/applications", deadBase).catch(() => null);
     }
-    ok("dead-daemon posture: internal surfaces fail CLOSED (503 refusal names the unrebound boundary, no surface renders)",
-      !!deadUp && deadUp.status === 503 && deadUp.text.includes("unavailable outside local development"),
-      deadUp ? `status ${deadUp.status}` : "never came up");
+    const bindRefused = portAlreadyHeld
+      || (deadChildExit !== null && /EADDRINUSE|Address already in use/u.test(deadChildStderr));
+    if (bindRefused) {
+      ok("dead-daemon posture: internal surfaces fail CLOSED (503 refusal names the unrebound boundary, no surface renders)",
+        false,
+        `BLOCKED — 127.0.0.1:${FAULT_PORT + 7} was already answering before this gate spawned anything${portAlreadyHeld ? "" : " and the child refused to bind"}, so this assertion measured another process, not the estate; free the port and re-run rather than reading a status below`);
+    } else {
+      ok("dead-daemon posture: internal surfaces fail CLOSED (503 refusal names the unrebound boundary, no surface renders)",
+        deadChildExit === null && !!deadUp && deadUp.status === 503
+          && deadUp.text.includes("unavailable outside local development"),
+        deadUp ? `status ${deadUp.status}${deadChildExit === null ? "" : ` (child exited ${deadChildExit})`}` : "never came up");
+    }
   } finally {
     deadChild.kill("SIGTERM");
   }

@@ -127,6 +127,22 @@ async function run() {
       && missionsHtml.includes('data-missions-work-graph="work-results"')
       && missionsHtml.includes("Counts for this plane are not treated as zero")
       && !/<form\b/i.test(missionsHtml));
+  // R-192 (S5-1), from a CI red the S4d-3 rewrite caused: the header's cross-surface action row is
+  // a CONTRACT. `check:native-shell` drives Missions → Operations → Missions inside the embedded
+  // slot to prove embed=1 survives a cross-application hop, and it clicks
+  // `a.ms-action[href^="/__ioi/operations"]`. That browser gate was the only thing holding the row,
+  // so when the rewrite dropped it the loss reached CI instead of a unit test. Asserted here, where
+  // it costs nothing to run. The hrefs are bare: the serve layer appends embed=1 to every
+  // `/__ioi/*` href in an embedded render, which is why the browser gate can require it and this
+  // one must not.
+  const actionRow = [...missionsHtml.matchAll(/<a class="ms-action" href="([^"]+)"/gu)].map((m) => m[1]);
+  ok("missions: the header keeps the cross-surface action row the embedded-slot gate navigates by",
+    actionRow.includes("/__ioi/operations")
+      && actionRow.includes("/__ioi/missions/builds")
+      && actionRow.includes("/__ioi/missions/schedules")
+      && actionRow.includes("/__ioi/work-ledger")
+      && actionRow.some((href) => href.startsWith("/__ioi/missions?") || href === "/__ioi/missions"),
+    actionRow.join(" "));
   const requestedPaths = [];
   const recordingFetch = (overrides = {}) => async (rawUrl, init) => {
     requestedPaths.push(new URL(rawUrl).pathname);

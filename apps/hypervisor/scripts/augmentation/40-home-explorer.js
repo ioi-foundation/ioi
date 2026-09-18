@@ -183,6 +183,81 @@
   // the Hypervisor's thread orchestration primitives, not Hypervisor objects. The composer stays
   // Session-first, which is what it always was; nothing here turns a session into a pursuit.
   let nativeSessionBusy = false;
+  function composerPrompt() {
+    const input = document.querySelector('[data-testid="prompt-input-textarea"]');
+    return input ? String(input.value || "").trim() : "";
+  }
+  function sessionPanel() { return document.getElementById("ioi-session-panel"); }
+  function statusHtml(label, value) {
+    return '<div class="flex items-start justify-between gap-3" style="padding:3px 0"><span class="text-xs text-content-tertiary">' + esc(label) + '</span><code class="text-xs text-content-primary" style="max-width:68%;overflow-wrap:anywhere;text-align:right">' + esc(value || "—") + "</code></div>";
+  }
+  function renderNativeSession(payload, prompt) {
+    const panel = sessionPanel();
+    if (!panel) return;
+    panel.style.display = "block";
+    panel.innerHTML = '<div class="rounded-xl border border-border-base bg-surface-01 text-sm text-content-primary" style="padding:14px;text-align:left">' +
+      '<div class="font-medium">Session ready</div><div class="text-xs text-content-secondary" style="margin:4px 0 10px">The native composer created bounded Session truth only. The input is attached to that Session; no GoalRun or Goal Space was activated.</div>' +
+      statusHtml("Session", payload.session_ref || "—") +
+      statusHtml("Input", prompt) +
+      statusHtml("Environment", payload.environment_ref || "—") +
+      statusHtml("Provision receipt", payload.receipt_ref || "—") +
+      statusHtml("Goal activation", payload.goal_run_activation_ref === null && payload.goal_run_ref === null ? "not performed" : "—") +
+      '<div class="text-xs" style="margin-top:10px"><a href="/__ioi/sessions">Sessions →</a></div></div>';
+  }
+  function renderNativeSessionError(status, payload) {
+    const error = (payload && payload.error) || {};
+    const panel = sessionPanel();
+    if (!panel) return;
+    panel.style.display = "block";
+    panel.innerHTML = '<div class="rounded-lg border border-border-error bg-surface-01 text-sm text-content-negative" style="padding:12px"><b>Session creation refused</b><br><code>' + esc(error.code || (status ? "HTTP " + status : "session_unavailable")) + '</code><br><span class="text-content-secondary">' + esc(error.message || "The daemon did not admit a bounded Session.") + "</span></div>";
+  }
+  function syncNativeSessionButton() {
+    const button = document.querySelector('[data-testid="prompt-input-submit-button"]');
+    if (!button || location.pathname !== "/ai" || location.hash !== "#new-session") return;
+    const ready = composerPrompt().length > 0 && !nativeSessionBusy;
+    button.disabled = !ready;
+    button.setAttribute("aria-disabled", ready ? "false" : "true");
+    button.setAttribute("aria-busy", nativeSessionBusy ? "true" : "false");
+    button.setAttribute("data-ioi-session-rebound", "true");
+  }
+  async function submitNativeSession() {
+    if (nativeSessionBusy) return;
+    const prompt = composerPrompt();
+    if (!prompt) { renderNativeSessionError(422, { error: { code: "session_initial_input_required", message: "Describe the Session before submitting." } }); return; }
+    nativeSessionBusy = true;
+    syncNativeSessionButton();
+    try {
+      const response = await fetch("/v1/hypervisor/sessions", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ initial_input: prompt }) });
+      const payload = await response.json().catch(() => ({}));
+      if (!response.ok || !payload.session_ref || payload.initial_input_projection?.disposition !== "session_only_non_goal" || payload.goal_run_activation_ref !== null || payload.goal_run_ref !== null) { renderNativeSessionError(response.status, payload); return; }
+      renderNativeSession(payload, prompt);
+    } catch (error) {
+      renderNativeSessionError(0, { error: { code: "session_daemon_unavailable", message: String(error?.message || error) } });
+    } finally {
+      nativeSessionBusy = false;
+      syncNativeSessionButton();
+    }
+  }
+  function bindNativeSessionComposer() {
+    const input = document.querySelector('[data-testid="prompt-input-textarea"]');
+    const button = document.querySelector('[data-testid="prompt-input-submit-button"]');
+    if (!input || !button) return;
+    if (input.getAttribute("data-ioi-session-rebound") !== "true") {
+      input.setAttribute("data-ioi-session-rebound", "true");
+      input.addEventListener("input", () => setTimeout(syncNativeSessionButton, 0));
+      input.addEventListener("keydown", (event) => {
+        if (event.key !== "Enter" || event.shiftKey || event.isComposing) return;
+        event.preventDefault(); event.stopImmediatePropagation(); submitNativeSession();
+      });
+    }
+    if (button.getAttribute("data-ioi-session-handler") !== "true") {
+      button.setAttribute("data-ioi-session-handler", "true");
+      button.addEventListener("click", (event) => {
+        event.preventDefault(); event.stopImmediatePropagation(); submitNativeSession();
+      });
+    }
+    syncNativeSessionButton();
+  }
   // Advanced-launch affordance on the New Session composer view — opens the owned governed modal
   // (registry-fed harness/model with disabled-reasons, venue picker, placement preview) so the
   // full admitted lane stays one click away from the polished composer. The "Activate Goal"
@@ -195,7 +270,7 @@
     wrap.id = "ioi-ns-advanced-wrap";
     wrap.className = "w-full";
     wrap.style.cssText = "display:flex;flex-direction:column;align-items:center;margin-top:10px";
-    wrap.innerHTML = '<div class="flex items-center justify-center gap-2"><button id="ioi-ns-advanced" type="button" class="text-xs text-content-tertiary hover:text-content-primary" style="background:transparent;border:0;cursor:pointer;padding:6px 10px">Advanced launch — harness · venue · placement preview</button></div>';
+    wrap.innerHTML = '<div class="flex items-center justify-center gap-2"><button id="ioi-ns-advanced" type="button" class="text-xs text-content-tertiary hover:text-content-primary" style="background:transparent;border:0;cursor:pointer;padding:6px 10px">Advanced launch — harness · venue · placement preview</button></div><div id="ioi-session-panel" class="w-full" role="status" aria-live="polite" style="display:none;max-width:720px;margin-top:10px"></div>';
     contents.appendChild(wrap);
     wrap.querySelector("#ioi-ns-advanced").addEventListener("click", (e) => { e.preventDefault(); newSessionModal(); });
   }

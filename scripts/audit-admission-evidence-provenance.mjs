@@ -314,6 +314,16 @@ const PINNED = [
 // `handle_env_port_expose` and `handle_env_port_unexpose` — calling the identical function — were
 // not. The pin that would have silenced it was the wrong fix; the sibling comparison is what said
 // so.
+// 2026-09-18 (R-192, S5-1): TWELVE baseline handlers removed, and every one of them is a DELETED
+// FILE rather than a handler that stopped resolving identity. Five were `goalrun_routes.rs`
+// (start, reconcile, result create, outcome-delta create, lifecycle recovery) and seven were
+// `ioi_agent_routes.rs` (launch, and the six launch-policy lanes). The owner ruled goal runs and
+// outcome rooms out of the Hypervisor: they are ioi.ai compositions over the thread orchestration
+// primitives, and the Hypervisor decomposes nothing but those primitives. ONE mutating handler was
+// ADDED in the same slice and is deliberately absent from this list rather than pinned into it:
+// `work_lifecycle_routes.rs::handle_work_lifecycle_record_append` calls `request_identity` as its
+// first statement, so it never enters the census this baseline pins — which is a census of
+// mutating handlers that resolve NO identity in the handler. Absence here is the passing state.
 const H_BASELINE = [
   // 2026-09-16 (M03.16): `handle_connector_oauth_start` and `handle_connector_oauth_callback` left this
   // baseline. They no longer write anything themselves: both delegate to the registered provider-
@@ -373,11 +383,6 @@ const H_BASELINE = [
   "foundry_routes.rs::handle_foundry_spec_create",
   "foundry_routes.rs::handle_foundry_spec_delete",
   "foundry_routes.rs::handle_foundry_spec_patch",
-  "goalrun_routes.rs::handle_goal_run_lifecycle_recovery",
-  "goalrun_routes.rs::handle_goal_run_outcome_delta_create",
-  "goalrun_routes.rs::handle_goal_run_reconcile",
-  "goalrun_routes.rs::handle_goal_run_result_create",
-  "goalrun_routes.rs::handle_goal_run_start",
   "governance_routes.rs::handle_approval_create",
   "governance_routes.rs::handle_cohort_create",
   "governance_routes.rs::handle_cohort_patch",
@@ -387,13 +392,6 @@ const H_BASELINE = [
   "governance_routes.rs::handle_kill_patch",
   "governance_routes.rs::handle_release_create",
   "governance_routes.rs::handle_release_patch",
-  "ioi_agent_routes.rs::handle_ioi_agent_launch",
-  "ioi_agent_routes.rs::handle_policies_clone",
-  "ioi_agent_routes.rs::handle_policies_create",
-  "ioi_agent_routes.rs::handle_policies_delete",
-  "ioi_agent_routes.rs::handle_policies_patch",
-  "ioi_agent_routes.rs::handle_policy_rollout_promote",
-  "ioi_agent_routes.rs::handle_policy_rollout_rollback",
   "ioi_intelligence_routes.rs::handle_improvement_patch",
   "ioi_intelligence_routes.rs::handle_improvement_simulate",
   "ioi_intelligence_routes.rs::handle_improvements_create",

@@ -1592,9 +1592,15 @@ jobs:
       # the root `typecheck` and `test` already run above.
       #
       # So there is currently NO CI coverage of the ioi.ai web UI. That is a real gap, left open
-      # deliberately rather than closed by guessing: `OQ-4` — whether the ioi.ai web UI ships, and
-      # from which root — is an open question in the implementation guide, and inventing a
-      # working-directory here would answer it by accident.
+      # deliberately rather than closed by guessing: whether that UI ships, and from which root,
+      # is undecided, and inventing a working-directory here would answer it by accident.
+      #
+      # This comment cited `OQ-4` as an open question in the implementation guide until 2026-09-18
+      # (R-192, S5-1). The guide declares no such question — the citation was wrong — and it was
+      # not fixed by declaring one, because the guide's own rule is that an open question blocking
+      # no unit is a note, and no unit owns this UI. The gap is recorded here and in the register.
+      # R-192 made it sharper rather than softer: the ioi.ai goal space lost its backend when goal
+      # pursuit left the Hypervisor, and nothing in CI would notice.
 
   # M03.8's device-held wallet-principal seam, on its own runner because of what it needs rather
   # than where it belongs. It drives a REAL WebAuthn ceremony on a virtual authenticator, so it
