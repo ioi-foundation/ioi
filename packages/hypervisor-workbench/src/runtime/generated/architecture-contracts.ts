@@ -14397,6 +14397,7 @@ export type DelegationEdgeV1 = {
   admitted_at_ms: number;
   parent_thread_id: string;
   child_subagent_id: string;
+  depth_bound_absent: boolean;
 };
 
 export const ARCHITECTURE_CONTRACT_REGISTRY_VERSION = "ioi.architecture-contract-registry.v1" as const;
@@ -34237,7 +34238,7 @@ export const ARCHITECTURE_CONTRACT_SCHEMA_HASHES = {
   "schema://ioi/applications/ioi-ai/context-cell/v2": "sha256:e33a78de6b116da0590b5fc0b948baccb5f20ac265cb8bcae99c338565220547",
   "schema://ioi/applications/ioi-ai/goal-grounding-loop/v2": "sha256:60362cef1719499121d31faf0f5c39be5f0423a3d96306d8dfdb64081dadbbcb",
   "schema://ioi/applications/ioi-ai/collective-resolution-receipt/v1": "sha256:71b7c60f5226818ce492e715a048d8cd16323b891f7bdd053f8d50b6d1fd653d",
-  "schema://ioi/foundations/delegation-edge/v1": "sha256:3a8e8fd188b0986f5d9cc8c61230248f7834ef4a571cfcc406b50c2bb49c6092"
+  "schema://ioi/foundations/delegation-edge/v1": "sha256:916bfac63dd49fe478bfa006e2637acf775ce6e6d6b919afc7daefcec9178548"
 } as const;
 
 type JsonObject = Record<string, unknown>;
@@ -145873,7 +145874,8 @@ const CONTRACT_SCHEMAS: Record<string, JsonObject> = {
       "launch_recipe_ref",
       "harness_binding_ref",
       "orchestration_ref",
-      "admitted_at_ms"
+      "admitted_at_ms",
+      "depth_bound_absent"
     ],
     "properties": {
       "schema_version": {
@@ -146061,6 +146063,10 @@ const CONTRACT_SCHEMAS: Record<string, JsonObject> = {
         "type": "string",
         "description": "The child object's id on the subagent surface. This edge NAMES the child and does not own it (ADR 0034 sub-ruling 5).",
         "pattern": "^[A-Za-z0-9_-]{1,200}$"
+      },
+      "depth_bound_absent": {
+        "type": "boolean",
+        "description": "TRUE when no ceiling was derivable from the parent or supplied by the caller, so `depth_ceiling` above is the depth itself rather than a bound anybody set. Required, and required to be READ: without it a reader of this record alone cannot tell an enforced ceiling from a recorded absence, and a record that cannot be told apart from an enforced one is worse than no record."
       }
     }
   }
