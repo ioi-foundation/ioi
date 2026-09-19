@@ -238,8 +238,18 @@ export async function runJourney({ gate, title, doc, clauses, argv = process.arg
     }
     if (c.provenBy) {
       const target = clauses.find((x) => x.id === c.provenBy);
-      const executed = target && (target.checks ?? []).length > 0;
-      if (!record(c.id, "composed", !!executed, c.clause, executed ? `proven inside the clause ${c.provenBy} done-bar already executed above` : `provenBy ${c.provenBy} names a clause with no executed check — the runner's own table is wrong`)) failures += 1;
+      const declared = target && (target.checks ?? []).length > 0;
+      // The target's checks must have RUN AND PASSED above, not merely be declared. Until 2026-09-19
+      // this read `(target.checks ?? []).length > 0`, so a clause proven "inside" a failed or absent
+      // clause reported PASS — ACC-5's N3 said "proven inside the clause 9 done-bar" over a clause 9
+      // whose two scripts had been deleted a day earlier and had just printed FAIL twice.
+      const outcomes = results.filter((r) => r.id === c.provenBy && r.kind === "check");
+      const executed = declared && outcomes.length > 0 && outcomes.every((r) => r.ok);
+      const why = !declared ? `provenBy ${c.provenBy} names a clause with no executed check — the runner's own table is wrong`
+        : outcomes.length === 0 ? `provenBy ${c.provenBy} names a clause that has not executed above this row — order the table so the proof precedes the claim`
+        : !executed ? `provenBy ${c.provenBy} names a clause that is RED above — a claim proven inside a failed done-bar is not proven`
+        : `proven inside the clause ${c.provenBy} done-bar already executed above`;
+      if (!record(c.id, "composed", executed, c.clause, why)) failures += 1;
     }
     for (const cite of c.cited ?? []) {
       const present = fs.existsSync(path.resolve(ROOT, cite.evidence));
