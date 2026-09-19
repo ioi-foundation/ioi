@@ -1245,6 +1245,12 @@ jobs:
   product_surfaces:
     name: Product builds and browser smoke
     runs-on: ubuntu-latest
+    env:
+      # This job DOWNLOADS the daemon built by the Rust job and installs only Node. The isolated-plane
+      # harness builds the daemon before spawning it (R-198) unless the binary is explicitly supplied;
+      # this is that supply, stated. Without it run 35462602039 auto-installed a toolchain here and
+      # tried to build the world.
+      IOI_HYPERVISOR_DAEMON_BINARY: target/debug/hypervisor-daemon
     timeout-minutes: 45
     # Product work needs only the daemon ARTIFACT, and that is now what it waits for rather than
     # what it depends on (2026-09-12, private register R-43). `needs:` alone means "after AND only

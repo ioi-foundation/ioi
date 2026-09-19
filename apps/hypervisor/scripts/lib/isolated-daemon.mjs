@@ -68,7 +68,14 @@ export const DAEMON_BINARY = resolveIsolatedDaemonBinary();
 // nothing to save by skipping, and `IOI_HYPERVISOR_DAEMON_BINARY` remains the explicit override for a
 // caller that deliberately supplies a prebuilt daemon (release qualification), which is left untouched.
 export function buildIsolatedDaemonBinary(source = process.env) {
-  if (source.IOI_HYPERVISOR_DAEMON_BINARY) return { built: false, reason: "explicit binary override" };
+  // The override is read from the PROCESS environment as well as the caller's baseEnv: DAEMON_BINARY
+  // itself resolves from process.env at module load, and five gates hand startIsolatedPlane a baseEnv
+  // they built by hand. CI's browser-smoke job (2026-09-19, run 35462602039) downloads a prebuilt
+  // daemon and installs only Node; without this the fence auto-installed a toolchain and tried to
+  // build the world there, which is the wrong measurement in the other direction.
+  if (process.env.IOI_HYPERVISOR_DAEMON_BINARY || source.IOI_HYPERVISOR_DAEMON_BINARY) {
+    return { built: false, reason: "explicit binary override (IOI_HYPERVISOR_DAEMON_BINARY)" };
+  }
   const build = spawnSync("cargo", ["build", "-p", "ioi-node", "--bin", "hypervisor-daemon"], {
     cwd: REPO,
     encoding: "utf8",
