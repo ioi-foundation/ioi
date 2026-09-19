@@ -324,6 +324,13 @@ const PINNED = [
 // `work_lifecycle_routes.rs::handle_work_lifecycle_record_append` calls `request_identity` as its
 // first statement, so it never enters the census this baseline pins — which is a census of
 // mutating handlers that resolve NO identity in the handler. Absence here is the passing state.
+// 2026-09-19 (R-194, slice S5-2a): ONE handler removed, and it is the first removal here that is a
+// REPAIR rather than a deletion. `lifecycle_routes.rs::handle_subagent_spawn` took `State`, `Path`
+// and `Json` and no `HeaderMap`: it minted agents, runs and subagent records while resolving no
+// principal at all. That is the deeper reason the subagent surface never had a delegation bound —
+// a bound narrows an OWNER's ceiling, and there was no owner. It now resolves identity as its
+// first act and answers 401 before anything is minted, so it leaves this census by doing the thing
+// the census exists to ask for.
 const H_BASELINE = [
   // 2026-09-16 (M03.16): `handle_connector_oauth_start` and `handle_connector_oauth_callback` left this
   // baseline. They no longer write anything themselves: both delegate to the registered provider-
@@ -450,7 +457,6 @@ const H_BASELINE = [
   "lifecycle_routes.rs::handle_secret_delete",
   "lifecycle_routes.rs::handle_secret_update_value",
   "lifecycle_routes.rs::handle_snapshot_capture",
-  "lifecycle_routes.rs::handle_subagent_spawn",
   "lifecycle_routes.rs::handle_thread_cancel",
   "lifecycle_routes.rs::handle_thread_create",
   "lifecycle_routes.rs::handle_thread_delete",

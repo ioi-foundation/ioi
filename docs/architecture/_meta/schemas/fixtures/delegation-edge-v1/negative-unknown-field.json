@@ -23,5 +23,6 @@
   "harness_binding_ref": "harness-binding://beta-1",
   "orchestration_ref": "app-scope://ioi-ai/orchestration/orc_one",
   "admitted_at_ms": 1789000000000,
-  "conductor_ref": "user://operator-7"
+  "conductor_ref": "user://operator-7",
+  "depth_bound_absent": false
 }

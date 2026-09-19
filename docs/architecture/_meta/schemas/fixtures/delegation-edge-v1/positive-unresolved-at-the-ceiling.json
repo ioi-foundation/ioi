@@ -21,5 +21,6 @@
   "launch_recipe_ref": null,
   "harness_binding_ref": null,
   "orchestration_ref": null,
-  "admitted_at_ms": 1789000000000
+  "admitted_at_ms": 1789000000000,
+  "depth_bound_absent": true
 }

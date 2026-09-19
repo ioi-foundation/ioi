@@ -62,6 +62,8 @@ mod connector_session_routes;
 mod data_source_routes;
 #[path = "hypervisor_daemon_routes/data_transformation_routes.rs"]
 mod data_transformation_routes;
+#[path = "hypervisor_daemon_routes/delegation_admission.rs"]
+mod delegation_admission;
 #[path = "hypervisor_daemon_routes/device_custody_routes.rs"]
 mod device_custody_routes;
 #[path = "hypervisor_daemon_routes/device_held_principal_routes.rs"]

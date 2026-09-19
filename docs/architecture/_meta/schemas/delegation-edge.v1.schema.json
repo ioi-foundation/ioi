@@ -26,7 +26,8 @@
     "launch_recipe_ref",
     "harness_binding_ref",
     "orchestration_ref",
-    "admitted_at_ms"
+    "admitted_at_ms",
+    "depth_bound_absent"
   ],
   "properties": {
     "schema_version": {
@@ -214,6 +215,10 @@
       "type": "string",
       "description": "The child object's id on the subagent surface. This edge NAMES the child and does not own it (ADR 0034 sub-ruling 5).",
       "pattern": "^[A-Za-z0-9_-]{1,200}$"
+    },
+    "depth_bound_absent": {
+      "type": "boolean",
+      "description": "TRUE when no ceiling was derivable from the parent or supplied by the caller, so `depth_ceiling` above is the depth itself rather than a bound anybody set. Required, and required to be READ: without it a reader of this record alone cannot tell an enforced ceiling from a recorded absence, and a record that cannot be told apart from an enforced one is worse than no record."
     }
   }
 }

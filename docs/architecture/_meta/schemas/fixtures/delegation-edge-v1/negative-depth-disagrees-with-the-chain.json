@@ -22,5 +22,6 @@
   "launch_recipe_ref": "launch-recipe://worker/v1",
   "harness_binding_ref": "harness-binding://beta-1",
   "orchestration_ref": "app-scope://ioi-ai/orchestration/orc_one",
-  "admitted_at_ms": 1789000000000
+  "admitted_at_ms": 1789000000000,
+  "depth_bound_absent": false
 }

@@ -126,6 +126,36 @@ async function run() {
     ok("[delegate] two delegations are two subagents of the coordinating thread (ADR 0034), each bound to it by parent_thread_id, distinct, and listed by the kernel under that thread", worker.ok && reviewer.ok && worker.value.parent_thread_id === threadId && reviewer.value.parent_thread_id === threadId && worker.value.subagent_id !== reviewer.value.subagent_id && worker.value.role === "worker" && reviewer.value.role === "reviewer" && subagentIds.includes(worker.value.subagent_id) && subagentIds.includes(reviewer.value.subagent_id), JSON.stringify({ worker, reviewer, subagentIds }).slice(0, 1400));
     console.log(`INFO  delegated runs (kernel-owned, no model behind an isolated plane): ${JSON.stringify((listed.subagents ?? []).map((s) => ({ id: s.subagent_id, run: s.run_id, status: s.lifecycle_status ?? s.status })))}`);
 
+    // -- the delegation EDGE (R-194, S5-2a): the half ADR 0034 gives the kernel ------------------
+    //
+    // Driven, not read: these assert the record the daemon ADMITTED for a real spawn, not the
+    // shape of a schema. Before this slice the spawn path wrote agent, run and subagent records
+    // and no edge at all, which is why depth and fanout had nowhere to live.
+    const workerEdge = worker.value?.delegation_edge ?? {};
+    ok("[delegate] every spawn now admits a typed delegation EDGE beside the child object: the coordinate composes from the pair it names, the depth IS the ancestor chain's length, and the accountable actor is the authenticated principal rather than nobody",
+      workerEdge.schema_version === "ioi.foundations.delegation-edge.v1"
+        && workerEdge.delegation_ref === `delegation://${threadId}/${worker.value?.subagent_id}`
+        && workerEdge.parent_thread_id === threadId
+        && Array.isArray(workerEdge.ancestor_chain)
+        && workerEdge.ancestor_chain.length === workerEdge.delegation_depth
+        && workerEdge.delegation_depth === 1
+        && String(workerEdge.accountable_actor_ref || "").startsWith("user://"),
+      JSON.stringify({ ref: workerEdge.delegation_ref, depth: workerEdge.delegation_depth, chain: workerEdge.ancestor_chain, actor: workerEdge.accountable_actor_ref }));
+    ok("[delegate] the platform records the role and topology it was handed and interprets NEITHER: the surface's free-string role translates to a canon role_kind, the topology defaults to the value that claims nothing, and no daemon behaviour is keyed on either",
+      workerEdge.role_kind === "implementer"
+        && (reviewer.value?.delegation_edge ?? {}).role_kind === "reviewer"
+        && workerEdge.topology_kind === "direct",
+      JSON.stringify({ worker: workerEdge.role_kind, reviewer: (reviewer.value?.delegation_edge ?? {}).role_kind, topology: workerEdge.topology_kind }));
+    ok("[delegate] an underivable depth bound is REPORTED as absent rather than defaulted, so nothing here reads as enforced that is not: no ceiling was supplied and none was inheritable, the edge says so by name, and the ceiling it records equals the depth itself rather than headroom nobody chose (S5-2b turns this absence into a refusal)",
+      worker.value?.delegation_depth_bound_absent === true
+        && workerEdge.depth_bound_absent === true
+        && workerEdge.depth_ceiling === workerEdge.delegation_depth,
+      JSON.stringify({ absent: worker.value?.delegation_depth_bound_absent, ceiling: workerEdge.depth_ceiling, depth: workerEdge.delegation_depth }));
+    const anonDelegate = await jsonCall(plane.daemonUrl, "POST", `/v1/threads/${threadId}/subagents`, { prompt: "spawned by nobody", role: "worker" });
+    ok("[delegate] and a spawn with no principal is refused BEFORE anything is minted: this handler resolved no identity at all until this slice, which is the deeper reason the surface had no bound — a bound narrows an OWNER's ceiling and there was no owner",
+      anonDelegate.status === 401,
+      `${anonDelegate.status}`);
+
     // -- claims: exact-head reservations on the work-lifecycle plane (M04.10) -----------------------------------
     const chain = [`thread://${threadId}`, TENANT];
     const bounds = [{ ancestor_ref: `thread://${threadId}`, bound_units: 3 }, { ancestor_ref: TENANT, bound_units: 10 }];

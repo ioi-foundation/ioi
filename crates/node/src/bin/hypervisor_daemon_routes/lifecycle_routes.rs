@@ -8102,8 +8102,36 @@ fn merge_string_refs(sources: &[Option<&Value>]) -> Vec<Value> {
 pub(crate) async fn handle_subagent_spawn(
     State(st): State<Arc<DaemonState>>,
     AxumPath(thread_id): AxumPath<String>,
+    headers: HeaderMap,
     Json(body): Json<Value>,
 ) -> Result<(StatusCode, Json<Value>), AppError> {
+    // R-194 (S5-2a). IDENTITY FIRST, and this handler had none: it took no `HeaderMap`, resolved
+    // no principal, and minted agents, runs and subagent records for nobody — which is the deeper
+    // reason the surface has never had a delegation bound. A bound narrows an OWNER's ceiling, and
+    // there was no owner. Resolving it here removes this handler from
+    // `audit-admission-evidence-provenance.mjs`'s baseline of mutating handlers that resolve none.
+    let Some(principal) = resolve_principal(&st.data_dir, &headers) else {
+        return Err(AppError(
+            StatusCode::UNAUTHORIZED,
+            "request_principal_required".to_string(),
+        ));
+    };
+    let owner_ref = principal
+        .get("principal_ref")
+        .and_then(|value| value.as_str())
+        .map(str::to_string)
+        .or_else(|| {
+            principal
+                .get("principal_id")
+                .and_then(|value| value.as_str())
+                .map(|id| format!("user://{id}"))
+        })
+        .ok_or_else(|| {
+            AppError(
+                StatusCode::UNAUTHORIZED,
+                "request_principal_required".to_string(),
+            )
+        })?;
     let prompt = body.get("prompt").and_then(|v| v.as_str()).unwrap_or("");
     if prompt.is_empty() {
         return Err(AppError(
@@ -8172,8 +8200,79 @@ pub(crate) async fn handle_subagent_spawn(
         .map_err(|error| AppError(StatusCode::BAD_GATEWAY, debug_string(error)))?;
     persist_run_with_bundle(&*st, &run_id, "run.create", &planned_run.run)?;
 
-    // --- subagent record ---
     let child_thread_id = thread_id_for_agent(&child_agent_id);
+
+    // --- the delegation EDGE, admitted BEFORE the child object is written -------------------
+    //
+    // ADR 0034 sub-ruling 5: the surface owns the child object, the kernel owns the edge, and "the
+    // child object is written only after admission succeeds, so a refused delegation leaves no
+    // agent, run, or subagent record". The agent and run above are planned but this is the first
+    // durable write of the delegation itself, and a refusal here returns before the subagent
+    // record exists.
+    //
+    // `role_kind` is TRANSLATED, never defaulted into existence: the surface's free-string `role`
+    // passes through when it is already one of canon's eleven, the legacy default "worker" maps to
+    // `implementer` because that is what a delegated work item is, and anything else is REFUSED by
+    // name rather than quietly becoming an implementer. `topology_kind` comes from the caller and
+    // defaults to `direct`, which is the only value that claims nothing about a topology.
+    let requested_role = role.as_str();
+    let role_kind = match requested_role {
+        "worker" => "implementer",
+        "conductor"
+        | "implementer"
+        | "reviewer"
+        | "verifier"
+        | "operator"
+        | "researcher"
+        | "specialist"
+        | "synthesizer"
+        | "resource_provider"
+        | "integrity_challenger"
+        | "memory_curator" => requested_role,
+        other => {
+            return Err(AppError(
+                StatusCode::UNPROCESSABLE_ENTITY,
+                format!("delegation_role_kind_unrecognized: {other}"),
+            ))
+        }
+    };
+    let topology_kind = body
+        .get("topology_kind")
+        .and_then(|value| value.as_str())
+        .unwrap_or("direct")
+        .to_string();
+    let delegation = super::delegation_admission::DelegationRequest {
+        parent_thread_id: &thread_id,
+        child_subagent_id: &child_agent_id,
+        child_thread_id: &child_thread_id,
+        accountable_actor_ref: owner_ref.clone(),
+        role_kind: role_kind.to_string(),
+        topology_kind,
+        requested_depth_ceiling: body.get("depth_ceiling").and_then(|value| value.as_u64()),
+        fanout_reservation_ref: body
+            .get("fanout_reservation_ref")
+            .and_then(|value| value.as_str())
+            .map(str::to_string),
+        selected_resolver_kind: "none".to_string(),
+        selected_resolver_revision_ref: None,
+        selected_resolver_content_hash: None,
+        selected_model_route_ref: Some(format!("model_route://{model_route_id}")),
+        orchestration_ref: body
+            .get("orchestration_ref")
+            .and_then(|value| value.as_str())
+            .map(str::to_string),
+        owner_ref: owner_ref.clone(),
+        now_ms: wall_now_ms() as u64,
+    };
+    let admitted = super::delegation_admission::admit_delegation(&st.data_dir, &delegation)
+        .map_err(|refusal| {
+            AppError(
+                StatusCode::UNPROCESSABLE_ENTITY,
+                format!("{}: {}", refusal.code(), refusal.message()),
+            )
+        })?;
+
+    // --- subagent record ---
     let subagent = json!({
         "schema_version": "ioi.runtime.subagent.v1",
         "object": "ioi.runtime_subagent",
@@ -8215,7 +8314,20 @@ pub(crate) async fn handle_subagent_spawn(
     )
     .map_err(|error| AppError(StatusCode::INTERNAL_SERVER_ERROR, error.to_string()))?;
 
-    Ok((StatusCode::CREATED, Json(planned_subagent.subagent)))
+    // The reply carries the admitted EDGE beside the child object, and says out loud when the
+    // depth bound could not be derived. `depth_bound_absent` is the typed absence R-194 ruled:
+    // recorded rather than defaulted, surfaced rather than swallowed, and refused rather than
+    // recorded once every caller supplies a bound (S5-2b). A reply that omitted it would read as
+    // bounded.
+    let mut reply = planned_subagent.subagent;
+    if let Some(object) = reply.as_object_mut() {
+        object.insert("delegation_edge".into(), admitted.edge);
+        object.insert(
+            "delegation_depth_bound_absent".into(),
+            json!(admitted.depth_bound_absent),
+        );
+    }
+    Ok((StatusCode::CREATED, Json(reply)))
 }
 
 /// GET /v1/threads/:id/subagents — list the thread's subagent records.
