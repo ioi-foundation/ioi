@@ -381,6 +381,7 @@ pub const ARCHITECTURE_CONTRACT_SCHEMA_HASHES: &[(&str, &str)] = &[
     ("schema://ioi/applications/ioi-ai/context-cell/v2", "sha256:e33a78de6b116da0590b5fc0b948baccb5f20ac265cb8bcae99c338565220547"),
     ("schema://ioi/applications/ioi-ai/goal-grounding-loop/v2", "sha256:60362cef1719499121d31faf0f5c39be5f0423a3d96306d8dfdb64081dadbbcb"),
     ("schema://ioi/applications/ioi-ai/collective-resolution-receipt/v1", "sha256:71b7c60f5226818ce492e715a048d8cd16323b891f7bdd053f8d50b6d1fd653d"),
+    ("schema://ioi/foundations/delegation-edge/v1", "sha256:3a8e8fd188b0986f5d9cc8c61230248f7834ef4a571cfcc406b50c2bb49c6092"),
 ];
 
 pub fn architecture_contract_schema_hash(contract_id: &str) -> Option<&'static str> {
@@ -161063,6 +161064,250 @@ impl<'de> serde::Deserialize<'de> for CollectiveResolutionReceiptV1RegistersNoNe
     }
 }
 
+#[derive(Debug, Clone, PartialEq, serde::Serialize)]
+pub struct DelegationEdgeV1 {
+    pub schema_version: DelegationEdgeV1SchemaVersion,
+    pub delegation_ref: String,
+    pub accountable_actor_ref: String,
+    pub role_kind: DelegationEdgeV1RoleKind,
+    pub topology_kind: DelegationEdgeV1TopologyKind,
+    pub ancestor_chain: Vec<String>,
+    pub delegation_depth: ArchitectureContractInteger,
+    pub depth_ceiling: ArchitectureContractInteger,
+    pub fanout_reservation_ref: String,
+    pub selected_resolver_kind: DelegationEdgeV1SelectedResolverKind,
+    pub selected_resolver_revision_ref: Option<String>,
+    pub selected_resolver_content_hash: Option<String>,
+    pub selected_model_route_ref: Option<String>,
+    pub forked_thread_ref: Option<String>,
+    pub managed_session_ref: Option<String>,
+    pub launch_recipe_ref: Option<String>,
+    pub harness_binding_ref: Option<String>,
+    pub orchestration_ref: Option<String>,
+    pub admitted_at_ms: ArchitectureContractInteger,
+    pub parent_thread_id: String,
+    pub child_subagent_id: String,
+}
+
+impl<'de> serde::Deserialize<'de> for DelegationEdgeV1 {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let value = <serde_json::Value as serde::Deserialize>::deserialize(deserializer)?;
+        validate_projection_subschema(
+            r#"schema://ioi/foundations/delegation-edge/v1"#,
+            r#"{"$schema":"https://json-schema.org/draft/2020-12/schema","$id":"schema://ioi/foundations/delegation-edge/v1","title":"DelegationEdge","x-ioi-schema-version":"ioi.foundations.delegation-edge.v1","type":"object","additionalProperties":false,"required":["schema_version","delegation_ref","parent_thread_id","child_subagent_id","accountable_actor_ref","role_kind","topology_kind","ancestor_chain","delegation_depth","depth_ceiling","fanout_reservation_ref","selected_resolver_kind","selected_resolver_revision_ref","selected_resolver_content_hash","selected_model_route_ref","forked_thread_ref","managed_session_ref","launch_recipe_ref","harness_binding_ref","orchestration_ref","admitted_at_ms"],"properties":{"schema_version":{"const":"ioi.foundations.delegation-edge.v1"},"delegation_ref":{"type":"string","description":"The delegation's own coordinate, delegation://{thread_id}/{subagent_id} — the actor coordinate the Subagent API section already names.","pattern":"^delegation://[^\\s/]{1,200}/[^\\s/]{1,200}$"},"accountable_actor_ref":{"type":"string","description":"Who answers for the delegated work. Read by the platform for attribution, never for behaviour.","pattern":"^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"},"role_kind":{"description":"OPAQUE TO THE PLATFORM. Closed here by contract so a nonsense value is refused at admission, while the daemon branches on no value: there is no match arm, no default and no behaviour keyed on it anywhere. What a reviewer DOES is the composing application's.","enum":["conductor","implementer","reviewer","verifier","operator","researcher","specialist","synthesizer","resource_provider","integrity_challenger","memory_curator"]},"topology_kind":{"description":"OPAQUE TO THE PLATFORM, on the same terms as role_kind. The retired GoalRun kernel emitted ONE hardcoded value and branched on it; a platform that enumerated ten and branched on them would be the same defect at a larger size.","enum":["direct","goal_conductor","delegated_build","governed_release","multi_context_review","specialist_mesh","leaderless_blackboard","market_allocated","independent_replication","federated_pursuit"]},"ancestor_chain":{"type":"array","description":"Every ancestor whose bound this delegation narrows, nearest first. Its LENGTH is the delegation depth; depth is read off the chain rather than minted as a seventh reservation dimension.","minItems":1,"uniqueItems":true,"items":{"type":"string","pattern":"^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"}},"delegation_depth":{"type":"integer","description":"The admitted depth. Equal to the ancestor chain's length by invariant, never asserted independently of it.","minimum":1,"maximum":4096},"depth_ceiling":{"type":"integer","description":"The ceiling this delegation admitted under, narrowed from the parent's and never widened by a caller.","minimum":1,"maximum":4096},"fanout_reservation_ref":{"type":"string","description":"The concurrent_invocations claim on the per-dimension reservation seam (R-74). Fanout is that claim, not a new mechanism.","pattern":"^work-reservation://[^\\s]{1,500}$"},"selected_resolver_kind":{"enum":["harness_profile","agent_harness_adapter","none"]},"selected_resolver_revision_ref":{"anyOf":[{"type":"string","pattern":"^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"},{"type":"null"}]},"selected_resolver_content_hash":{"anyOf":[{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"},{"type":"null"}]},"selected_model_route_ref":{"anyOf":[{"type":"string","pattern":"^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"},{"type":"null"}]},"forked_thread_ref":{"anyOf":[{"type":"string","pattern":"^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"},{"type":"null"}],"description":"ADR 0031 primitive 1 of 5: the thread the fork planner minted."},"managed_session_ref":{"anyOf":[{"type":"string","pattern":"^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"},{"type":"null"}],"description":"ADR 0031 primitive 3 of 5."},"launch_recipe_ref":{"anyOf":[{"type":"string","pattern":"^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"},{"type":"null"}],"description":"ADR 0031 primitive 4 of 5."},"harness_binding_ref":{"anyOf":[{"type":"string","pattern":"^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"},{"type":"null"}],"description":"ADR 0031 primitive 5 of 5. Primitive 2, the fork itself, is the delegation this record IS."},"orchestration_ref":{"anyOf":[{"type":"string","pattern":"^app-scope://[^\\s]{1,400}$"},{"type":"null"}],"description":"The composing application's own scope, recorded verbatim and never resolved by the platform."},"admitted_at_ms":{"type":"integer","minimum":0,"maximum":9007199254740991},"parent_thread_id":{"type":"string","description":"The delegating thread's id, bare, exactly as the thread plane mints it (thread_<suffix>). Bare because canon's delegation coordinate is delegation://{thread_id}/{subagent_id} and an edge that could not be composed from its own parts would be a second spelling.","pattern":"^thread_[A-Za-z0-9_-]{1,200}$"},"child_subagent_id":{"type":"string","description":"The child object's id on the subagent surface. This edge NAMES the child and does not own it (ADR 0034 sub-ruling 5).","pattern":"^[A-Za-z0-9_-]{1,200}$"}}}"#,
+            &value,
+        )
+            .map_err(serde::de::Error::custom)?;
+        let mut object = value
+            .as_object()
+            .cloned()
+            .ok_or_else(|| serde::de::Error::custom("validated projection is not an object"))?;
+        Ok(Self {
+            schema_version: serde_json::from_value::<DelegationEdgeV1SchemaVersion>(
+                object
+                    .remove(r#"schema_version"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"schema_version"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            delegation_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"delegation_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"delegation_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            accountable_actor_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"accountable_actor_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"accountable_actor_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            role_kind: serde_json::from_value::<DelegationEdgeV1RoleKind>(
+                object
+                    .remove(r#"role_kind"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"role_kind"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            topology_kind: serde_json::from_value::<DelegationEdgeV1TopologyKind>(
+                object
+                    .remove(r#"topology_kind"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"topology_kind"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            ancestor_chain: serde_json::from_value::<Vec<String>>(
+                object
+                    .remove(r#"ancestor_chain"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"ancestor_chain"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            delegation_depth: serde_json::from_value::<ArchitectureContractInteger>(
+                object
+                    .remove(r#"delegation_depth"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"delegation_depth"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            depth_ceiling: serde_json::from_value::<ArchitectureContractInteger>(
+                object
+                    .remove(r#"depth_ceiling"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"depth_ceiling"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            fanout_reservation_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"fanout_reservation_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"fanout_reservation_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            selected_resolver_kind: serde_json::from_value::<DelegationEdgeV1SelectedResolverKind>(
+                object
+                    .remove(r#"selected_resolver_kind"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"selected_resolver_kind"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            selected_resolver_revision_ref: serde_json::from_value::<Option<String>>(
+                object
+                    .remove(r#"selected_resolver_revision_ref"#)
+                    .ok_or_else(|| {
+                        serde::de::Error::missing_field(r#"selected_resolver_revision_ref"#)
+                    })?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            selected_resolver_content_hash: serde_json::from_value::<Option<String>>(
+                object
+                    .remove(r#"selected_resolver_content_hash"#)
+                    .ok_or_else(|| {
+                        serde::de::Error::missing_field(r#"selected_resolver_content_hash"#)
+                    })?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            selected_model_route_ref: serde_json::from_value::<Option<String>>(
+                object
+                    .remove(r#"selected_model_route_ref"#)
+                    .ok_or_else(|| {
+                        serde::de::Error::missing_field(r#"selected_model_route_ref"#)
+                    })?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            forked_thread_ref: serde_json::from_value::<Option<String>>(
+                object
+                    .remove(r#"forked_thread_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"forked_thread_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            managed_session_ref: serde_json::from_value::<Option<String>>(
+                object
+                    .remove(r#"managed_session_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"managed_session_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            launch_recipe_ref: serde_json::from_value::<Option<String>>(
+                object
+                    .remove(r#"launch_recipe_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"launch_recipe_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            harness_binding_ref: serde_json::from_value::<Option<String>>(
+                object
+                    .remove(r#"harness_binding_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"harness_binding_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            orchestration_ref: serde_json::from_value::<Option<String>>(
+                object
+                    .remove(r#"orchestration_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"orchestration_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            admitted_at_ms: serde_json::from_value::<ArchitectureContractInteger>(
+                object
+                    .remove(r#"admitted_at_ms"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"admitted_at_ms"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            parent_thread_id: serde_json::from_value::<String>(
+                object
+                    .remove(r#"parent_thread_id"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"parent_thread_id"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            child_subagent_id: serde_json::from_value::<String>(
+                object
+                    .remove(r#"child_subagent_id"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"child_subagent_id"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+        })
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum DelegationEdgeV1SchemaVersion {
+    #[serde(rename = r#"ioi.foundations.delegation-edge.v1"#)]
+    IoiFoundationsDelegationEdgeV1,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum DelegationEdgeV1RoleKind {
+    #[serde(rename = r#"conductor"#)]
+    Conductor,
+    #[serde(rename = r#"implementer"#)]
+    Implementer,
+    #[serde(rename = r#"reviewer"#)]
+    Reviewer,
+    #[serde(rename = r#"verifier"#)]
+    Verifier,
+    #[serde(rename = r#"operator"#)]
+    Operator,
+    #[serde(rename = r#"researcher"#)]
+    Researcher,
+    #[serde(rename = r#"specialist"#)]
+    Specialist,
+    #[serde(rename = r#"synthesizer"#)]
+    Synthesizer,
+    #[serde(rename = r#"resource_provider"#)]
+    ResourceProvider,
+    #[serde(rename = r#"integrity_challenger"#)]
+    IntegrityChallenger,
+    #[serde(rename = r#"memory_curator"#)]
+    MemoryCurator,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum DelegationEdgeV1TopologyKind {
+    #[serde(rename = r#"direct"#)]
+    Direct,
+    #[serde(rename = r#"goal_conductor"#)]
+    GoalConductor,
+    #[serde(rename = r#"delegated_build"#)]
+    DelegatedBuild,
+    #[serde(rename = r#"governed_release"#)]
+    GovernedRelease,
+    #[serde(rename = r#"multi_context_review"#)]
+    MultiContextReview,
+    #[serde(rename = r#"specialist_mesh"#)]
+    SpecialistMesh,
+    #[serde(rename = r#"leaderless_blackboard"#)]
+    LeaderlessBlackboard,
+    #[serde(rename = r#"market_allocated"#)]
+    MarketAllocated,
+    #[serde(rename = r#"independent_replication"#)]
+    IndependentReplication,
+    #[serde(rename = r#"federated_pursuit"#)]
+    FederatedPursuit,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum DelegationEdgeV1SelectedResolverKind {
+    #[serde(rename = r#"harness_profile"#)]
+    HarnessProfile,
+    #[serde(rename = r#"agent_harness_adapter"#)]
+    AgentHarnessAdapter,
+    #[serde(rename = r#"none"#)]
+    None,
+}
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct GoldenFixture {
     pub contract_id: &'static str,
@@ -174861,6 +175106,78 @@ pub const ARCHITECTURE_CONTRACT_FIXTURES: &[GoldenFixture] = &[
     GoldenFixture {
         contract_id: "schema://ioi/applications/ioi-ai/collective-resolution-receipt/v1",
         path: "docs/architecture/_meta/schemas/fixtures/collective-resolution-receipt-v1/negative-unknown-field.json",
+        expected_accept: false,
+        expected_schema_accept: false,
+        expected_failure: Some("schema"),
+        expected_rule_id: None,
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/foundations/delegation-edge/v1",
+        path: "docs/architecture/_meta/schemas/fixtures/delegation-edge-v1/positive-resolved-delegation.json",
+        expected_accept: true,
+        expected_schema_accept: true,
+        expected_failure: None,
+        expected_rule_id: None,
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/foundations/delegation-edge/v1",
+        path: "docs/architecture/_meta/schemas/fixtures/delegation-edge-v1/positive-unresolved-at-the-ceiling.json",
+        expected_accept: true,
+        expected_schema_accept: true,
+        expected_failure: None,
+        expected_rule_id: None,
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/foundations/delegation-edge/v1",
+        path: "docs/architecture/_meta/schemas/fixtures/delegation-edge-v1/negative-depth-disagrees-with-the-chain.json",
+        expected_accept: false,
+        expected_schema_accept: true,
+        expected_failure: Some("invariant"),
+        expected_rule_id: Some("delegation_edge.depth.is_the_chain_length"),
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/foundations/delegation-edge/v1",
+        path: "docs/architecture/_meta/schemas/fixtures/delegation-edge-v1/negative-depth-exceeds-its-ceiling.json",
+        expected_accept: false,
+        expected_schema_accept: true,
+        expected_failure: Some("invariant"),
+        expected_rule_id: Some("delegation_edge.depth.within_ceiling"),
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/foundations/delegation-edge/v1",
+        path: "docs/architecture/_meta/schemas/fixtures/delegation-edge-v1/negative-resolved-without-a-revision.json",
+        expected_accept: false,
+        expected_schema_accept: true,
+        expected_failure: Some("invariant"),
+        expected_rule_id: Some("delegation_edge.resolver.revision_present_when_resolved"),
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/foundations/delegation-edge/v1",
+        path: "docs/architecture/_meta/schemas/fixtures/delegation-edge-v1/negative-resolved-without-a-content-hash.json",
+        expected_accept: false,
+        expected_schema_accept: true,
+        expected_failure: Some("invariant"),
+        expected_rule_id: Some("delegation_edge.resolver.hash_present_when_resolved"),
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/foundations/delegation-edge/v1",
+        path: "docs/architecture/_meta/schemas/fixtures/delegation-edge-v1/negative-claims-a-parent-it-does-not-belong-to.json",
+        expected_accept: false,
+        expected_schema_accept: true,
+        expected_failure: Some("invariant"),
+        expected_rule_id: Some("delegation_edge.identity.composes_from_its_parts"),
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/foundations/delegation-edge/v1",
+        path: "docs/architecture/_meta/schemas/fixtures/delegation-edge-v1/negative-topology-kind-canon-does-not-name.json",
+        expected_accept: false,
+        expected_schema_accept: false,
+        expected_failure: Some("schema"),
+        expected_rule_id: None,
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/foundations/delegation-edge/v1",
+        path: "docs/architecture/_meta/schemas/fixtures/delegation-edge-v1/negative-unknown-field.json",
         expected_accept: false,
         expected_schema_accept: false,
         expected_failure: Some("schema"),
@@ -195452,6 +195769,105 @@ pub const ARCHITECTURE_CONTRACT_DIFFERENTIAL_CASES: &[ArchitectureContractDiffer
         oracle_contract_accept: false,
     },
     ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/delegation-edge-v1/positive-resolved-delegation.json"#,
+        contract_id: r#"schema://ioi/foundations/delegation-edge/v1"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/delegation-edge-v1/positive-resolved-delegation.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: true,
+        oracle_contract_accept: true,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/delegation-edge-v1/positive-unresolved-at-the-ceiling.json"#,
+        contract_id: r#"schema://ioi/foundations/delegation-edge/v1"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/delegation-edge-v1/positive-unresolved-at-the-ceiling.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: true,
+        oracle_contract_accept: true,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/delegation-edge-v1/negative-depth-disagrees-with-the-chain.json"#,
+        contract_id: r#"schema://ioi/foundations/delegation-edge/v1"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/delegation-edge-v1/negative-depth-disagrees-with-the-chain.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: true,
+        oracle_contract_accept: false,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/delegation-edge-v1/negative-depth-exceeds-its-ceiling.json"#,
+        contract_id: r#"schema://ioi/foundations/delegation-edge/v1"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/delegation-edge-v1/negative-depth-exceeds-its-ceiling.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: true,
+        oracle_contract_accept: false,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/delegation-edge-v1/negative-resolved-without-a-revision.json"#,
+        contract_id: r#"schema://ioi/foundations/delegation-edge/v1"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/delegation-edge-v1/negative-resolved-without-a-revision.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: true,
+        oracle_contract_accept: false,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/delegation-edge-v1/negative-resolved-without-a-content-hash.json"#,
+        contract_id: r#"schema://ioi/foundations/delegation-edge/v1"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/delegation-edge-v1/negative-resolved-without-a-content-hash.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: true,
+        oracle_contract_accept: false,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/delegation-edge-v1/negative-claims-a-parent-it-does-not-belong-to.json"#,
+        contract_id: r#"schema://ioi/foundations/delegation-edge/v1"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/delegation-edge-v1/negative-claims-a-parent-it-does-not-belong-to.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: true,
+        oracle_contract_accept: false,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/delegation-edge-v1/negative-topology-kind-canon-does-not-name.json"#,
+        contract_id: r#"schema://ioi/foundations/delegation-edge/v1"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/delegation-edge-v1/negative-topology-kind-canon-does-not-name.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: false,
+        oracle_contract_accept: false,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/delegation-edge-v1/negative-unknown-field.json"#,
+        contract_id: r#"schema://ioi/foundations/delegation-edge/v1"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/delegation-edge-v1/negative-unknown-field.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: false,
+        oracle_contract_accept: false,
+    },
+    ArchitectureContractDifferentialCase {
         id: r#"mutation:sequence-zero-receipt-timestamp-detached"#,
         contract_id: r#"schema://ioi/foundations/autonomous-system-sequence-zero-materialization-receipt/v2"#,
         source_fixture_path: None,
@@ -197202,6 +197618,7 @@ const CONTRACT_SCHEMAS: &[(&str, &str)] = &[
     ("schema://ioi/applications/ioi-ai/context-cell/v2", r#"{"$schema":"https://json-schema.org/draft/2020-12/schema","$id":"schema://ioi/applications/ioi-ai/context-cell/v2","title":"ContextCellEnvelope","x-ioi-schema-version":"ioi.context-cell.v2","description":"Independent bounded working context for ONE role inside a GoalRun, owned by the ioi.ai orchestration application and admitted through the daemon's generic write path (never Hypervisor core). It carries refs to the information-flow labels, memory projections, leases, authority scopes and runtime assignment that other owners admit; it defines no parallel taint, privacy or authority object of its own (goal-run-execution.md § ContextCellEnvelope; execution-context-and-step-resolution.md § InformationFlowLabel and DeclassificationApproval). Ref spellings are the estate's canonical hyphenated identities; the legacy underscore spellings recorded in legacy-ref-scheme-aliases.json are refused here because that registry's write policy forbids emitting them. Version 2 (2026-09-18, R-178 slice S4d-2, R-190): the GoalRun composes over the ioi.ai orchestration — the room coordinates of v1 are gone and `orchestration_ref` names the composition; successor of v1.","type":"object","additionalProperties":false,"required":["schema_version","context_cell_id","work_subject_ref","orchestration_ref","delegation_ref","role_topology_revision_ref","role_binding_id","accountable_actor_ref","role","resolver_revision_ref","resolver_content_hash","model_route_ref","memory_projection_refs","context_lease_refs","information_flow_label_refs","active_runtime_assignment_ref","authority_scope_refs","compression_policy_ref","current_claim_ref","next_wake_condition_ref","status"],"properties":{"schema_version":{"const":"ioi.context-cell.v2"},"context_cell_id":{"type":"string","pattern":"^context-cell://\\S+$","maxLength":500},"work_subject_ref":{"type":"string","pattern":"^(?:goal|automation-run|work-run|run|invocation|work-claim|attempt)://\\S+$","maxLength":500},"role_topology_revision_ref":{"anyOf":[{"type":"string","pattern":"^role-topology://\\S+/revision/\\S+$","maxLength":500},{"type":"null"}]},"role_binding_id":{"type":"string","minLength":1,"maxLength":200},"accountable_actor_ref":{"type":"string","pattern":"^(?:participant-lease|system|worker|agent|service|org|user|domain)://\\S+$","maxLength":500},"role":{"type":"string","enum":["conductor","implementer","reviewer","verifier","operator","researcher","specialist","synthesizer","resource_provider","integrity_challenger","memory_curator"]},"resolver_revision_ref":{"anyOf":[{"type":"string","pattern":"^(?:harness-profile|agent-harness-adapter)://\\S+/revision/\\S+$","maxLength":500},{"type":"null"}]},"resolver_content_hash":{"anyOf":[{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"},{"type":"null"}]},"model_route_ref":{"anyOf":[{"type":"string","pattern":"^model-route://\\S+$","maxLength":500},{"type":"null"}]},"memory_projection_refs":{"type":"array","maxItems":512,"items":{"type":"string","pattern":"^(?:memory-projection|wiki)://\\S+$","maxLength":500}},"context_lease_refs":{"type":"array","maxItems":512,"items":{"type":"string","pattern":"^context-lease://\\S+$","maxLength":500}},"information_flow_label_refs":{"type":"array","maxItems":512,"items":{"type":"string","pattern":"^ifc-label://\\S+$","maxLength":500}},"active_runtime_assignment_ref":{"anyOf":[{"type":"string","pattern":"^runtime-assignment://\\S+$","maxLength":500},{"type":"null"}]},"authority_scope_refs":{"type":"array","maxItems":512,"items":{"type":"string","pattern":"^(?:authority|policy)://\\S+$","maxLength":500}},"compression_policy_ref":{"anyOf":[{"type":"string","pattern":"^policy://\\S+$","maxLength":500},{"type":"null"}]},"current_claim_ref":{"anyOf":[{"type":"string","pattern":"^work-claim://\\S+$","maxLength":500},{"type":"null"}]},"next_wake_condition_ref":{"anyOf":[{"type":"string","pattern":"^(?:policy|event)://\\S+$","maxLength":500},{"type":"null"}]},"status":{"type":"string","enum":["open","active","sleeping","waiting","handed_off","summarized","quarantined","closed","revoked"]},"orchestration_ref":{"anyOf":[{"type":"string","pattern":"^app-scope://ioi-ai/orchestration/[^\\s]{1,400}$"},{"type":"null"}]},"delegation_ref":{"anyOf":[{"type":"string","pattern":"^delegation://[^\\s]{1,500}$"},{"type":"null"}]}}}"#),
     ("schema://ioi/applications/ioi-ai/goal-grounding-loop/v2", r#"{"$schema":"https://json-schema.org/draft/2020-12/schema","$id":"schema://ioi/applications/ioi-ai/goal-grounding-loop/v2","title":"GoalGroundingLoop","x-ioi-schema-version":"ioi.goal-grounding-loop.v2","type":"object","additionalProperties":false,"required":["schema_version","goal_loop_id","goal_ref","conductor_context_cell_ref","loop_iteration","phase","escalation_state","exit_condition","status"],"properties":{"schema_version":{"const":"ioi.goal-grounding-loop.v2"},"goal_loop_id":{"type":"string","pattern":"^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"},"goal_ref":{"type":"string","pattern":"^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"},"conductor_context_cell_ref":{"type":"string","pattern":"^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"},"loop_iteration":{"type":"integer","minimum":0,"maximum":9007199254740991},"phase":{"enum":["receive_intent","classify_goal","gather_grounding","inspect_state","derive_constraints","observe_frontier","form_hypotheses","select_or_adapt_topology","claim_allocate_or_delegate","lease_context","open_context_cells","execute_attempt","monitor_progress","publish_result","verify_compare_or_challenge","repair_or_escalate","reconcile","update_frontier_and_memory","continue_or_close"]},"frontier_and_claim_refs":{"type":"array","uniqueItems":true,"items":{"type":"string","pattern":"^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"}},"grounding_source_refs":{"type":"array","uniqueItems":true,"items":{"type":"string","pattern":"^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"}},"state_inspection_refs":{"type":"array","uniqueItems":true,"items":{"type":"string","pattern":"^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"}},"decision_refs":{"type":"array","uniqueItems":true,"items":{"type":"string","pattern":"^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"}},"context_cell_refs":{"type":"array","uniqueItems":true,"items":{"type":"string","pattern":"^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"}},"handoff_refs":{"type":"array","uniqueItems":true,"items":{"type":"string","pattern":"^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"}},"attempt_result_and_finding_refs":{"type":"array","uniqueItems":true,"items":{"type":"string","pattern":"^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"}},"verifier_path_ref":{"anyOf":[{"type":"string","pattern":"^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"},{"type":"null"}]},"evidence_refs":{"type":"array","uniqueItems":true,"items":{"type":"string","pattern":"^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"}},"productivity_budget_ref":{"anyOf":[{"type":"string","pattern":"^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"},{"type":"null"}]},"topology_participant_and_verifier_change_refs":{"type":"array","uniqueItems":true,"items":{"type":"string","pattern":"^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"}},"marginal_value_stop_policy_ref":{"anyOf":[{"type":"string","pattern":"^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"},{"type":"null"}]},"escalation_state":{"enum":["none","ask_user","open_implementer_cell","open_reviewer_cell","require_independent_verifier","require_governance_control","stop_blocked"]},"exit_condition":{"enum":["continue","delegated","waiting_on_frontier","verified_complete","accepted","risk_stop","budget_stop","deadline_stop","marginal_value_stop","blocked","superseded","user_input_required","governance_required"]},"status":{"enum":["active","waiting","satisfied","blocked","superseded","revoked"]},"orchestration_ref":{"anyOf":[{"type":"string","pattern":"^app-scope://ioi-ai/orchestration/[^\\s]{1,400}$"},{"type":"null"}]}},"description":"Version 2 (2026-09-18, R-178 slice S4d-2, R-190): the GoalRun composes over the ioi.ai orchestration — the room coordinates of v1 are gone and `orchestration_ref` names the composition; successor of v1."}"#),
     ("schema://ioi/applications/ioi-ai/collective-resolution-receipt/v1", r#"{"$schema":"https://json-schema.org/draft/2020-12/schema","$id":"schema://ioi/applications/ioi-ai/collective-resolution-receipt/v1","title":"CollectiveResolutionReceipt","x-ioi-schema-version":"ioi.applications.ioi-ai.collective-resolution-receipt.v1","description":"One daemon-derived freeze of the exact dependency closure a collective composition resolved, and the EXISTING owner objects it resolved into. It registers no profile envelope, holds no state and is never a second live owner: every ref it names is admitted elsewhere and remains its owner's truth. M04.12 / ACC-5 clause 10.","type":"object","additionalProperties":false,"required":["schema_version","receipt_id","receipt_ref","receipt_type","resolved_by_ref","system_id","system_release_ref","constitution_ref","active_profile_set_ref","orchestration_ref","goal_run_profile_revision_refs","policy_refs","lease_policy_refs","artifact_lifecycle_policy_ref","requirement_refs","resolved_owner_refs","registers_no_new_owner","resolved_at","closure_root"],"properties":{"schema_version":{"const":"ioi.applications.ioi-ai.collective-resolution-receipt.v1"},"receipt_id":{"type":"string","pattern":"^collective-resolution://crr_[0-9a-f]{64}$"},"receipt_ref":{"type":"string","pattern":"^collective-resolution://crr_[0-9a-f]{64}$"},"receipt_type":{"const":"collective_resolution"},"resolved_by_ref":{"type":"string","pattern":"^(?:org|project|system|user)://[^\\s]{1,500}$"},"system_id":{"type":"string","pattern":"^system://[^\\s]{1,500}$"},"system_release_ref":{"type":"string","pattern":"^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"},"constitution_ref":{"type":"string","pattern":"^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"},"active_profile_set_ref":{"type":"string","pattern":"^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"},"orchestration_ref":{"type":"string","pattern":"^app-scope://ioi-ai/orchestration/[^\\s]{1,400}$"},"goal_run_profile_revision_refs":{"type":"array","uniqueItems":true,"items":{"type":"string","pattern":"^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"},"minItems":1},"policy_refs":{"type":"array","uniqueItems":true,"items":{"type":"string","pattern":"^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"},"minItems":1},"lease_policy_refs":{"type":"array","uniqueItems":true,"items":{"type":"string","pattern":"^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"}},"artifact_lifecycle_policy_ref":{"type":"string","pattern":"^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"},"requirement_refs":{"type":"array","uniqueItems":true,"items":{"type":"string","pattern":"^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"},"minItems":1},"resolved_owner_refs":{"type":"array","uniqueItems":true,"items":{"type":"string","pattern":"^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"},"minItems":1},"registers_no_new_owner":{"const":true},"resolved_at":{"type":"string","pattern":"^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$"},"closure_root":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"}}}"#),
+    ("schema://ioi/foundations/delegation-edge/v1", r#"{"$schema":"https://json-schema.org/draft/2020-12/schema","$id":"schema://ioi/foundations/delegation-edge/v1","title":"DelegationEdge","x-ioi-schema-version":"ioi.foundations.delegation-edge.v1","type":"object","additionalProperties":false,"required":["schema_version","delegation_ref","parent_thread_id","child_subagent_id","accountable_actor_ref","role_kind","topology_kind","ancestor_chain","delegation_depth","depth_ceiling","fanout_reservation_ref","selected_resolver_kind","selected_resolver_revision_ref","selected_resolver_content_hash","selected_model_route_ref","forked_thread_ref","managed_session_ref","launch_recipe_ref","harness_binding_ref","orchestration_ref","admitted_at_ms"],"properties":{"schema_version":{"const":"ioi.foundations.delegation-edge.v1"},"delegation_ref":{"type":"string","description":"The delegation's own coordinate, delegation://{thread_id}/{subagent_id} — the actor coordinate the Subagent API section already names.","pattern":"^delegation://[^\\s/]{1,200}/[^\\s/]{1,200}$"},"accountable_actor_ref":{"type":"string","description":"Who answers for the delegated work. Read by the platform for attribution, never for behaviour.","pattern":"^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"},"role_kind":{"description":"OPAQUE TO THE PLATFORM. Closed here by contract so a nonsense value is refused at admission, while the daemon branches on no value: there is no match arm, no default and no behaviour keyed on it anywhere. What a reviewer DOES is the composing application's.","enum":["conductor","implementer","reviewer","verifier","operator","researcher","specialist","synthesizer","resource_provider","integrity_challenger","memory_curator"]},"topology_kind":{"description":"OPAQUE TO THE PLATFORM, on the same terms as role_kind. The retired GoalRun kernel emitted ONE hardcoded value and branched on it; a platform that enumerated ten and branched on them would be the same defect at a larger size.","enum":["direct","goal_conductor","delegated_build","governed_release","multi_context_review","specialist_mesh","leaderless_blackboard","market_allocated","independent_replication","federated_pursuit"]},"ancestor_chain":{"type":"array","description":"Every ancestor whose bound this delegation narrows, nearest first. Its LENGTH is the delegation depth; depth is read off the chain rather than minted as a seventh reservation dimension.","minItems":1,"uniqueItems":true,"items":{"type":"string","pattern":"^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"}},"delegation_depth":{"type":"integer","description":"The admitted depth. Equal to the ancestor chain's length by invariant, never asserted independently of it.","minimum":1,"maximum":4096},"depth_ceiling":{"type":"integer","description":"The ceiling this delegation admitted under, narrowed from the parent's and never widened by a caller.","minimum":1,"maximum":4096},"fanout_reservation_ref":{"type":"string","description":"The concurrent_invocations claim on the per-dimension reservation seam (R-74). Fanout is that claim, not a new mechanism.","pattern":"^work-reservation://[^\\s]{1,500}$"},"selected_resolver_kind":{"enum":["harness_profile","agent_harness_adapter","none"]},"selected_resolver_revision_ref":{"anyOf":[{"type":"string","pattern":"^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"},{"type":"null"}]},"selected_resolver_content_hash":{"anyOf":[{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"},{"type":"null"}]},"selected_model_route_ref":{"anyOf":[{"type":"string","pattern":"^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"},{"type":"null"}]},"forked_thread_ref":{"anyOf":[{"type":"string","pattern":"^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"},{"type":"null"}],"description":"ADR 0031 primitive 1 of 5: the thread the fork planner minted."},"managed_session_ref":{"anyOf":[{"type":"string","pattern":"^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"},{"type":"null"}],"description":"ADR 0031 primitive 3 of 5."},"launch_recipe_ref":{"anyOf":[{"type":"string","pattern":"^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"},{"type":"null"}],"description":"ADR 0031 primitive 4 of 5."},"harness_binding_ref":{"anyOf":[{"type":"string","pattern":"^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"},{"type":"null"}],"description":"ADR 0031 primitive 5 of 5. Primitive 2, the fork itself, is the delegation this record IS."},"orchestration_ref":{"anyOf":[{"type":"string","pattern":"^app-scope://[^\\s]{1,400}$"},{"type":"null"}],"description":"The composing application's own scope, recorded verbatim and never resolved by the platform."},"admitted_at_ms":{"type":"integer","minimum":0,"maximum":9007199254740991},"parent_thread_id":{"type":"string","description":"The delegating thread's id, bare, exactly as the thread plane mints it (thread_<suffix>). Bare because canon's delegation coordinate is delegation://{thread_id}/{subagent_id} and an edge that could not be composed from its own parts would be a second spelling.","pattern":"^thread_[A-Za-z0-9_-]{1,200}$"},"child_subagent_id":{"type":"string","description":"The child object's id on the subagent surface. This edge NAMES the child and does not own it (ADR 0034 sub-ruling 5).","pattern":"^[A-Za-z0-9_-]{1,200}$"}}}"#),
 ];
 
 const CONTRACT_INVARIANTS: &[(&str, &str)] = &[
@@ -197543,6 +197960,7 @@ const CONTRACT_INVARIANTS: &[(&str, &str)] = &[
     ("schema://ioi/applications/ioi-ai/context-cell/v2", r#"[]"#),
     ("schema://ioi/applications/ioi-ai/goal-grounding-loop/v2", r#"[]"#),
     ("schema://ioi/applications/ioi-ai/collective-resolution-receipt/v1", r#"[{"rule_id":"collective_resolution_receipt.identity.matches","description":"The resolution has one portable receipt identity.","expression":{"operator":"fields_equal","paths":["$.receipt_id","$.receipt_ref"]}},{"rule_id":"collective_resolution_receipt.closure.recomputes","description":"The closure root commits every frozen member of the dependency closure and every owner it resolved into, so a relying party can recompute the freeze from the receipt alone.","expression":{"operator":"jcs_sha256_equals","algorithm":"jcs_sha256","expected_path":"$.closure_root","expected_encoding":"sha256_string","material_fields":{"schema_version":{"path":"$.schema_version"},"receipt_id":{"path":"$.receipt_id"},"receipt_ref":{"path":"$.receipt_ref"},"receipt_type":{"path":"$.receipt_type"},"resolved_by_ref":{"path":"$.resolved_by_ref"},"system_id":{"path":"$.system_id"},"system_release_ref":{"path":"$.system_release_ref"},"constitution_ref":{"path":"$.constitution_ref"},"active_profile_set_ref":{"path":"$.active_profile_set_ref"},"orchestration_ref":{"path":"$.orchestration_ref"},"goal_run_profile_revision_refs":{"path":"$.goal_run_profile_revision_refs"},"policy_refs":{"path":"$.policy_refs"},"lease_policy_refs":{"path":"$.lease_policy_refs"},"artifact_lifecycle_policy_ref":{"path":"$.artifact_lifecycle_policy_ref"},"requirement_refs":{"path":"$.requirement_refs"},"resolved_owner_refs":{"path":"$.resolved_owner_refs"},"registers_no_new_owner":{"path":"$.registers_no_new_owner"},"resolved_at":{"path":"$.resolved_at"}}}},{"rule_id":"collective_resolution_receipt.orchestration.is_a_resolved_owner","description":"The orchestration the closure is headed by is itself one of the existing owners the resolution names, so the receipt cannot freeze a composition it did not resolve into.","expression":{"operator":"non_empty","path":"$.orchestration_ref"}}]"#),
+    ("schema://ioi/foundations/delegation-edge/v1", r#"[{"rule_id":"delegation_edge.depth.is_the_chain_length","description":"The delegation depth IS the ancestor chain's length. Stated as an invariant rather than a comment because a depth asserted independently of the chain is a number a caller can set, and the whole point of reading it off the chain is that the caller cannot.","expression":{"operator":"array_length_equals","array_path":"$.ancestor_chain","count_path":"$.delegation_depth"}},{"rule_id":"delegation_edge.depth.within_ceiling","description":"A delegation admits at or under the ceiling it narrowed from. Inheritance is structural (ADR 0034 sub-ruling 3): a child narrows from its admitted parent record and can never widen, whatever the caller supplies.","expression":{"operator":"numbers_lte","paths":["$.delegation_depth","$.depth_ceiling"]}},{"rule_id":"delegation_edge.resolver.revision_present_when_resolved","description":"A resolved delegation names the exact revision it resolved to. `none` is the honest absence; harness_profile and agent_harness_adapter are not.","expression":{"operator":"non_empty_when_in","path":"$.selected_resolver_revision_ref","when_path":"$.selected_resolver_kind","values":["harness_profile","agent_harness_adapter"]}},{"rule_id":"delegation_edge.resolver.hash_present_when_resolved","description":"And it names that revision's content hash, so the resolution is a binding rather than a pointer that can be re-aimed.","expression":{"operator":"non_empty_when_in","path":"$.selected_resolver_content_hash","when_path":"$.selected_resolver_kind","values":["harness_profile","agent_harness_adapter"]}},{"rule_id":"delegation_edge.identity.composes_from_its_parts","description":"The delegation coordinate is composed from the pair it names, so an edge cannot claim a parent it does not belong to. Checked as a suffix on the parent half, which is the part a caller would have to forge to re-parent a delegation.","expression":{"operator":"field_starts_with_path","path":"$.delegation_ref","expected_path":"$.parent_thread_id","prefix":"delegation://","suffix":"/"}}]"#),
 ];
 
 const CONTRACT_PATTERN_TRANSLATIONS: &[(&str, &str)] = &[
@@ -198973,6 +199391,7 @@ const CONTRACT_PATTERN_TRANSLATIONS: &[(&str, &str)] = &[
         r#"^[A-Za-z0-9][A-Za-z0-9._:/-]{0,255}$"#,
     ),
     (r#"^[A-Za-z0-9_-]+$"#, r#"^[A-Za-z0-9_-]+$"#),
+    (r#"^[A-Za-z0-9_-]{1,200}$"#, r#"^[A-Za-z0-9_-]{1,200}$"#),
     (r#"^[A-Za-z0-9_-]{43,256}$"#, r#"^[A-Za-z0-9_-]{43,256}$"#),
     (r#"^[A-Za-z0-9_-]{43}$"#, r#"^[A-Za-z0-9_-]{43}$"#),
     (r#"^[A-Za-z0-9_-]{86}$"#, r#"^[A-Za-z0-9_-]{86}$"#),
@@ -199270,6 +199689,10 @@ const CONTRACT_PATTERN_TRANSLATIONS: &[(&str, &str)] = &[
     (
         r#"^api://[^\s]{1,248}$"#,
         r#"^api://[^\u{0009}-\u{000D}\u{0020}\u{00A0}\u{1680}\u{2000}-\u{200A}\u{2028}\u{2029}\u{202F}\u{205F}\u{3000}\u{FEFF}]{1,248}$"#,
+    ),
+    (
+        r#"^app-scope://[^\s]{1,400}$"#,
+        r#"^app-scope://[^\u{0009}-\u{000D}\u{0020}\u{00A0}\u{1680}\u{2000}-\u{200A}\u{2028}\u{2029}\u{202F}\u{205F}\u{3000}\u{FEFF}]{1,400}$"#,
     ),
     (
         r#"^app-scope://ioi-ai/orchestration/[^\s]{1,400}$"#,
@@ -199692,6 +200115,10 @@ const CONTRACT_PATTERN_TRANSLATIONS: &[(&str, &str)] = &[
     (
         r#"^decision://\S+$"#,
         r#"^decision://[^\u{0009}-\u{000D}\u{0020}\u{00A0}\u{1680}\u{2000}-\u{200A}\u{2028}\u{2029}\u{202F}\u{205F}\u{3000}\u{FEFF}]+$"#,
+    ),
+    (
+        r#"^delegation://[^\s/]{1,200}/[^\s/]{1,200}$"#,
+        r#"^delegation://[^\u{0009}-\u{000D}\u{0020}\u{00A0}\u{1680}\u{2000}-\u{200A}\u{2028}\u{2029}\u{202F}\u{205F}\u{3000}\u{FEFF}/]{1,200}/[^\u{0009}-\u{000D}\u{0020}\u{00A0}\u{1680}\u{2000}-\u{200A}\u{2028}\u{2029}\u{202F}\u{205F}\u{3000}\u{FEFF}/]{1,200}$"#,
     ),
     (
         r#"^delegation://[^\s]{1,500}$"#,
@@ -201434,6 +201861,10 @@ const CONTRACT_PATTERN_TRANSLATIONS: &[(&str, &str)] = &[
         r#"^thread://[A-Za-z0-9_-]{1,200}$"#,
     ),
     (
+        r#"^thread_[A-Za-z0-9_-]{1,200}$"#,
+        r#"^thread_[A-Za-z0-9_-]{1,200}$"#,
+    ),
+    (
         r#"^tool://[A-Za-z0-9._~/-]{1,200}$"#,
         r#"^tool://[A-Za-z0-9._~/-]{1,200}$"#,
     ),
@@ -201603,6 +202034,10 @@ const CONTRACT_PATTERN_TRANSLATIONS: &[(&str, &str)] = &[
     (
         r#"^work-lifecycle://[^\s]+$"#,
         r#"^work-lifecycle://[^\u{0009}-\u{000D}\u{0020}\u{00A0}\u{1680}\u{2000}-\u{200A}\u{2028}\u{2029}\u{202F}\u{205F}\u{3000}\u{FEFF}]+$"#,
+    ),
+    (
+        r#"^work-reservation://[^\s]{1,500}$"#,
+        r#"^work-reservation://[^\u{0009}-\u{000D}\u{0020}\u{00A0}\u{1680}\u{2000}-\u{200A}\u{2028}\u{2029}\u{202F}\u{205F}\u{3000}\u{FEFF}]{1,500}$"#,
     ),
     (
         r#"^work-result://[^\s]{1,460}$"#,
@@ -204518,6 +204953,15 @@ mod tests {
     ("docs/architecture/_meta/schemas/fixtures/collective-resolution-receipt-v1/negative-registers-a-new-owner.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/collective-resolution-receipt-v1/negative-registers-a-new-owner.json"))),
     ("docs/architecture/_meta/schemas/fixtures/collective-resolution-receipt-v1/negative-room-headed-closure.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/collective-resolution-receipt-v1/negative-room-headed-closure.json"))),
     ("docs/architecture/_meta/schemas/fixtures/collective-resolution-receipt-v1/negative-unknown-field.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/collective-resolution-receipt-v1/negative-unknown-field.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/delegation-edge-v1/positive-resolved-delegation.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/delegation-edge-v1/positive-resolved-delegation.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/delegation-edge-v1/positive-unresolved-at-the-ceiling.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/delegation-edge-v1/positive-unresolved-at-the-ceiling.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/delegation-edge-v1/negative-depth-disagrees-with-the-chain.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/delegation-edge-v1/negative-depth-disagrees-with-the-chain.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/delegation-edge-v1/negative-depth-exceeds-its-ceiling.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/delegation-edge-v1/negative-depth-exceeds-its-ceiling.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/delegation-edge-v1/negative-resolved-without-a-revision.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/delegation-edge-v1/negative-resolved-without-a-revision.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/delegation-edge-v1/negative-resolved-without-a-content-hash.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/delegation-edge-v1/negative-resolved-without-a-content-hash.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/delegation-edge-v1/negative-claims-a-parent-it-does-not-belong-to.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/delegation-edge-v1/negative-claims-a-parent-it-does-not-belong-to.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/delegation-edge-v1/negative-topology-kind-canon-does-not-name.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/delegation-edge-v1/negative-topology-kind-canon-does-not-name.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/delegation-edge-v1/negative-unknown-field.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/delegation-edge-v1/negative-unknown-field.json"))),
     ];
     const RAW_STRING_DELIMITER_REGRESSION_SCHEMA: &str =
         r####"{"const":"schema-controlled\"###literal"}"####;
@@ -206211,6 +206655,11 @@ mod tests {
         },
         "schema://ioi/applications/ioi-ai/collective-resolution-receipt/v1" => {
             serde_json::from_value::<CollectiveResolutionReceiptV1>(value.clone())
+                .map(|_| ())
+                .map_err(|error| error.to_string())
+        },
+        "schema://ioi/foundations/delegation-edge/v1" => {
+            serde_json::from_value::<DelegationEdgeV1>(value.clone())
                 .map(|_| ())
                 .map_err(|error| error.to_string())
         },
@@ -207910,6 +208359,11 @@ mod tests {
                 .map_err(|error| error.to_string())?;
             serde_json::to_value(projection).map_err(|error| error.to_string())
         },
+        "schema://ioi/foundations/delegation-edge/v1" => {
+            let projection = serde_json::from_value::<DelegationEdgeV1>(value.clone())
+                .map_err(|error| error.to_string())?;
+            serde_json::to_value(projection).map_err(|error| error.to_string())
+        },
             _ => Err(format!("unknown projection: {contract_id}")),
         }
     }
@@ -208046,8 +208500,8 @@ mod tests {
     fn golden_fixtures_match_generated_rust_contracts() {
         assert_eq!(
             ARCHITECTURE_CONTRACT_FIXTURES.len(),
-            1724,
-            "the registered golden corpus must remain the explicit 1724-fixture bar",
+            1733,
+            "the registered golden corpus must remain the explicit 1733-fixture bar",
         );
         for fixture in ARCHITECTURE_CONTRACT_FIXTURES {
             let body = FIXTURE_BODIES
@@ -208289,7 +208743,7 @@ mod tests {
 
     #[test]
     fn registered_ecma_pattern_translations_compile_and_match_whitespace() {
-        assert_eq!(CONTRACT_PATTERN_TRANSLATIONS.len(), 1069,);
+        assert_eq!(CONTRACT_PATTERN_TRANSLATIONS.len(), 1074,);
         for (ecma, translated) in CONTRACT_PATTERN_TRANSLATIONS {
             Regex::new(translated).unwrap_or_else(|error| panic!("{ecma}: {error}"));
         }

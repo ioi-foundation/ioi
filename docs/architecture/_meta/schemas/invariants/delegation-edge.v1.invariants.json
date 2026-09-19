@@ -1,0 +1,64 @@
+{
+  "$id": "invariant://ioi/foundations/delegation-edge/bounds-are-read-not-asserted/v1",
+  "language": "ioi.portable-invariants.v2",
+  "contract_id": "schema://ioi/foundations/delegation-edge/v1",
+  "rules": [
+    {
+      "rule_id": "delegation_edge.depth.is_the_chain_length",
+      "description": "The delegation depth IS the ancestor chain's length. Stated as an invariant rather than a comment because a depth asserted independently of the chain is a number a caller can set, and the whole point of reading it off the chain is that the caller cannot.",
+      "expression": {
+        "operator": "array_length_equals",
+        "array_path": "$.ancestor_chain",
+        "count_path": "$.delegation_depth"
+      }
+    },
+    {
+      "rule_id": "delegation_edge.depth.within_ceiling",
+      "description": "A delegation admits at or under the ceiling it narrowed from. Inheritance is structural (ADR 0034 sub-ruling 3): a child narrows from its admitted parent record and can never widen, whatever the caller supplies.",
+      "expression": {
+        "operator": "numbers_lte",
+        "paths": [
+          "$.delegation_depth",
+          "$.depth_ceiling"
+        ]
+      }
+    },
+    {
+      "rule_id": "delegation_edge.resolver.revision_present_when_resolved",
+      "description": "A resolved delegation names the exact revision it resolved to. `none` is the honest absence; harness_profile and agent_harness_adapter are not.",
+      "expression": {
+        "operator": "non_empty_when_in",
+        "path": "$.selected_resolver_revision_ref",
+        "when_path": "$.selected_resolver_kind",
+        "values": [
+          "harness_profile",
+          "agent_harness_adapter"
+        ]
+      }
+    },
+    {
+      "rule_id": "delegation_edge.resolver.hash_present_when_resolved",
+      "description": "And it names that revision's content hash, so the resolution is a binding rather than a pointer that can be re-aimed.",
+      "expression": {
+        "operator": "non_empty_when_in",
+        "path": "$.selected_resolver_content_hash",
+        "when_path": "$.selected_resolver_kind",
+        "values": [
+          "harness_profile",
+          "agent_harness_adapter"
+        ]
+      }
+    },
+    {
+      "rule_id": "delegation_edge.identity.composes_from_its_parts",
+      "description": "The delegation coordinate is composed from the pair it names, so an edge cannot claim a parent it does not belong to. Checked as a suffix on the parent half, which is the part a caller would have to forge to re-parent a delegation.",
+      "expression": {
+        "operator": "field_starts_with_path",
+        "path": "$.delegation_ref",
+        "expected_path": "$.parent_thread_id",
+        "prefix": "delegation://",
+        "suffix": "/"
+      }
+    }
+  ]
+}

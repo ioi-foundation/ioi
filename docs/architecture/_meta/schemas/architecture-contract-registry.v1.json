@@ -19592,6 +19592,84 @@
           "expected_failure": "schema"
         }
       ]
+    },
+    {
+      "contract_id": "schema://ioi/foundations/delegation-edge/v1",
+      "canonical_name": "DelegationEdge",
+      "canonical_owner_ref": "canon://docs/architecture/components/daemon-runtime/api.md#the-delegation-edge-and-what-the-platform-refuses-to-understand",
+      "schema_version": "ioi.foundations.delegation-edge.v1",
+      "maturity": "partial",
+      "stability": "provisional",
+      "wire_format": "json",
+      "canonical_encoding_profile_ref": "encoding-profile://ioi/jcs-json/v1",
+      "evolution": {
+        "successor_of": null,
+        "successor_contract_id": null,
+        "compatibility": "initial",
+        "migration_policy": "none",
+        "predecessor_remains_valid": false,
+        "wire_mutation_policy": "forbidden",
+        "hash_impact": "signature_preimage_changed"
+      },
+      "schema_ref": "delegation-edge.v1.schema.json",
+      "cross_field_invariant_refs": [
+        {
+          "invariant_id": "invariant://ioi/foundations/delegation-edge/bounds-are-read-not-asserted/v1",
+          "path": "invariants/delegation-edge.v1.invariants.json"
+        }
+      ],
+      "compatibility_aliases": [],
+      "generated_targets": [
+        {
+          "kind": "typescript_projection",
+          "path": "packages/hypervisor-workbench/src/runtime/generated/architecture-contracts.ts",
+          "symbol": "DelegationEdgeV1"
+        },
+        {
+          "kind": "rust_projection",
+          "path": "crates/types/src/app/generated/architecture_contracts.rs",
+          "symbol": "DelegationEdgeV1"
+        }
+      ],
+      "positive_fixture_refs": [
+        "fixtures/delegation-edge-v1/positive-resolved-delegation.json",
+        "fixtures/delegation-edge-v1/positive-unresolved-at-the-ceiling.json"
+      ],
+      "negative_fixture_refs": [
+        {
+          "path": "fixtures/delegation-edge-v1/negative-depth-disagrees-with-the-chain.json",
+          "expected_failure": "invariant",
+          "expected_rule_id": "delegation_edge.depth.is_the_chain_length"
+        },
+        {
+          "path": "fixtures/delegation-edge-v1/negative-depth-exceeds-its-ceiling.json",
+          "expected_failure": "invariant",
+          "expected_rule_id": "delegation_edge.depth.within_ceiling"
+        },
+        {
+          "path": "fixtures/delegation-edge-v1/negative-resolved-without-a-revision.json",
+          "expected_failure": "invariant",
+          "expected_rule_id": "delegation_edge.resolver.revision_present_when_resolved"
+        },
+        {
+          "path": "fixtures/delegation-edge-v1/negative-resolved-without-a-content-hash.json",
+          "expected_failure": "invariant",
+          "expected_rule_id": "delegation_edge.resolver.hash_present_when_resolved"
+        },
+        {
+          "path": "fixtures/delegation-edge-v1/negative-claims-a-parent-it-does-not-belong-to.json",
+          "expected_failure": "invariant",
+          "expected_rule_id": "delegation_edge.identity.composes_from_its_parts"
+        },
+        {
+          "path": "fixtures/delegation-edge-v1/negative-topology-kind-canon-does-not-name.json",
+          "expected_failure": "schema"
+        },
+        {
+          "path": "fixtures/delegation-edge-v1/negative-unknown-field.json",
+          "expected_failure": "schema"
+        }
+      ]
     }
   ]
 }

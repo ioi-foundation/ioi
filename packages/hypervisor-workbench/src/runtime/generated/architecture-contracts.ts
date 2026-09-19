@@ -14375,6 +14375,30 @@ export type CollectiveResolutionReceiptV1 = {
   closure_root: string;
 };
 
+export type DelegationEdgeV1 = {
+  schema_version: "ioi.foundations.delegation-edge.v1";
+  delegation_ref: string;
+  accountable_actor_ref: string;
+  role_kind: "conductor" | "implementer" | "reviewer" | "verifier" | "operator" | "researcher" | "specialist" | "synthesizer" | "resource_provider" | "integrity_challenger" | "memory_curator";
+  topology_kind: "direct" | "goal_conductor" | "delegated_build" | "governed_release" | "multi_context_review" | "specialist_mesh" | "leaderless_blackboard" | "market_allocated" | "independent_replication" | "federated_pursuit";
+  ancestor_chain: Array<string>;
+  delegation_depth: number;
+  depth_ceiling: number;
+  fanout_reservation_ref: string;
+  selected_resolver_kind: "harness_profile" | "agent_harness_adapter" | "none";
+  selected_resolver_revision_ref: string | null;
+  selected_resolver_content_hash: string | null;
+  selected_model_route_ref: string | null;
+  forked_thread_ref: string | null;
+  managed_session_ref: string | null;
+  launch_recipe_ref: string | null;
+  harness_binding_ref: string | null;
+  orchestration_ref: string | null;
+  admitted_at_ms: number;
+  parent_thread_id: string;
+  child_subagent_id: string;
+};
+
 export const ARCHITECTURE_CONTRACT_REGISTRY_VERSION = "ioi.architecture-contract-registry.v1" as const;
 
 export const ARCHITECTURE_CONTRACT_PORTABLE_INTEGER_MINIMUM = 0 as const;
@@ -28176,6 +28200,78 @@ export const ARCHITECTURE_CONTRACT_FIXTURES = [
     "expected_schema_accept": false,
     "expected_failure": "schema",
     "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/foundations/delegation-edge/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/delegation-edge-v1/positive-resolved-delegation.json",
+    "expected": "accept",
+    "expected_schema_accept": true,
+    "expected_failure": null,
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/foundations/delegation-edge/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/delegation-edge-v1/positive-unresolved-at-the-ceiling.json",
+    "expected": "accept",
+    "expected_schema_accept": true,
+    "expected_failure": null,
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/foundations/delegation-edge/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/delegation-edge-v1/negative-depth-disagrees-with-the-chain.json",
+    "expected": "reject",
+    "expected_schema_accept": true,
+    "expected_failure": "invariant",
+    "expected_rule_id": "delegation_edge.depth.is_the_chain_length"
+  },
+  {
+    "contract_id": "schema://ioi/foundations/delegation-edge/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/delegation-edge-v1/negative-depth-exceeds-its-ceiling.json",
+    "expected": "reject",
+    "expected_schema_accept": true,
+    "expected_failure": "invariant",
+    "expected_rule_id": "delegation_edge.depth.within_ceiling"
+  },
+  {
+    "contract_id": "schema://ioi/foundations/delegation-edge/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/delegation-edge-v1/negative-resolved-without-a-revision.json",
+    "expected": "reject",
+    "expected_schema_accept": true,
+    "expected_failure": "invariant",
+    "expected_rule_id": "delegation_edge.resolver.revision_present_when_resolved"
+  },
+  {
+    "contract_id": "schema://ioi/foundations/delegation-edge/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/delegation-edge-v1/negative-resolved-without-a-content-hash.json",
+    "expected": "reject",
+    "expected_schema_accept": true,
+    "expected_failure": "invariant",
+    "expected_rule_id": "delegation_edge.resolver.hash_present_when_resolved"
+  },
+  {
+    "contract_id": "schema://ioi/foundations/delegation-edge/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/delegation-edge-v1/negative-claims-a-parent-it-does-not-belong-to.json",
+    "expected": "reject",
+    "expected_schema_accept": true,
+    "expected_failure": "invariant",
+    "expected_rule_id": "delegation_edge.identity.composes_from_its_parts"
+  },
+  {
+    "contract_id": "schema://ioi/foundations/delegation-edge/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/delegation-edge-v1/negative-topology-kind-canon-does-not-name.json",
+    "expected": "reject",
+    "expected_schema_accept": false,
+    "expected_failure": "schema",
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/foundations/delegation-edge/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/delegation-edge-v1/negative-unknown-field.json",
+    "expected": "reject",
+    "expected_schema_accept": false,
+    "expected_failure": "schema",
+    "expected_rule_id": null
   }
 ] as const;
 
@@ -32553,6 +32649,15 @@ export const ARCHITECTURE_CONTRACT_DIFFERENTIAL_CASES: ReadonlyArray<Architectur
   differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/collective-resolution-receipt-v1/negative-registers-a-new-owner.json","contract_id":"schema://ioi/applications/ioi-ai/collective-resolution-receipt/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/collective-resolution-receipt-v1/negative-registers-a-new-owner.json","mutation_id":null,"value_json":null}),
   differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/collective-resolution-receipt-v1/negative-room-headed-closure.json","contract_id":"schema://ioi/applications/ioi-ai/collective-resolution-receipt/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/collective-resolution-receipt-v1/negative-room-headed-closure.json","mutation_id":null,"value_json":null}),
   differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/collective-resolution-receipt-v1/negative-unknown-field.json","contract_id":"schema://ioi/applications/ioi-ai/collective-resolution-receipt/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/collective-resolution-receipt-v1/negative-unknown-field.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/delegation-edge-v1/positive-resolved-delegation.json","contract_id":"schema://ioi/foundations/delegation-edge/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/delegation-edge-v1/positive-resolved-delegation.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/delegation-edge-v1/positive-unresolved-at-the-ceiling.json","contract_id":"schema://ioi/foundations/delegation-edge/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/delegation-edge-v1/positive-unresolved-at-the-ceiling.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/delegation-edge-v1/negative-depth-disagrees-with-the-chain.json","contract_id":"schema://ioi/foundations/delegation-edge/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/delegation-edge-v1/negative-depth-disagrees-with-the-chain.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/delegation-edge-v1/negative-depth-exceeds-its-ceiling.json","contract_id":"schema://ioi/foundations/delegation-edge/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/delegation-edge-v1/negative-depth-exceeds-its-ceiling.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/delegation-edge-v1/negative-resolved-without-a-revision.json","contract_id":"schema://ioi/foundations/delegation-edge/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/delegation-edge-v1/negative-resolved-without-a-revision.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/delegation-edge-v1/negative-resolved-without-a-content-hash.json","contract_id":"schema://ioi/foundations/delegation-edge/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/delegation-edge-v1/negative-resolved-without-a-content-hash.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/delegation-edge-v1/negative-claims-a-parent-it-does-not-belong-to.json","contract_id":"schema://ioi/foundations/delegation-edge/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/delegation-edge-v1/negative-claims-a-parent-it-does-not-belong-to.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/delegation-edge-v1/negative-topology-kind-canon-does-not-name.json","contract_id":"schema://ioi/foundations/delegation-edge/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/delegation-edge-v1/negative-topology-kind-canon-does-not-name.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/delegation-edge-v1/negative-unknown-field.json","contract_id":"schema://ioi/foundations/delegation-edge/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/delegation-edge-v1/negative-unknown-field.json","mutation_id":null,"value_json":null}),
   differentialCase({"id":"mutation:sequence-zero-receipt-timestamp-detached","contract_id":"schema://ioi/foundations/autonomous-system-sequence-zero-materialization-receipt/v2","source_fixture_path":null,"mutation_id":"sequence-zero-receipt-timestamp-detached","value_json":null}),
   differentialCase({"id":"mutation:sequence-zero-receipt-authorized-materialization-id-detached","contract_id":"schema://ioi/foundations/autonomous-system-sequence-zero-materialization-receipt/v2","source_fixture_path":null,"mutation_id":"sequence-zero-receipt-authorized-materialization-id-detached","value_json":null}),
   differentialCase({"id":"mutation:sequence-zero-receipt-authority-principal-detached","contract_id":"schema://ioi/foundations/autonomous-system-sequence-zero-materialization-receipt/v2","source_fixture_path":null,"mutation_id":"sequence-zero-receipt-authority-principal-detached","value_json":null}),
@@ -33082,6 +33187,7 @@ export const ARCHITECTURE_CONTRACT_PATTERN_SOURCES = [
   "^[A-Za-z0-9][A-Za-z0-9._-]{0,159}$",
   "^[A-Za-z0-9][A-Za-z0-9._:/-]{0,255}$",
   "^[A-Za-z0-9_-]+$",
+  "^[A-Za-z0-9_-]{1,200}$",
   "^[A-Za-z0-9_-]{43,256}$",
   "^[A-Za-z0-9_-]{43}$",
   "^[A-Za-z0-9_-]{86}$",
@@ -33167,6 +33273,7 @@ export const ARCHITECTURE_CONTRACT_PATTERN_SOURCES = [
   "^akash1[02-9ac-hj-np-z]{38}$",
   "^api://[^\\s]{1,240}$",
   "^api://[^\\s]{1,248}$",
+  "^app-scope://[^\\s]{1,400}$",
   "^app-scope://ioi-ai/orchestration/[^\\s]{1,400}$",
   "^app-scope://ioi-ai/orchestration/orc_[A-Za-z0-9_-]{1,160}$",
   "^appraisal://[^\\s]{1,248}$",
@@ -33277,6 +33384,7 @@ export const ARCHITECTURE_CONTRACT_PATTERN_SOURCES = [
   "^decision://[^\\s]{1,500}$",
   "^decision://\\S*$",
   "^decision://\\S+$",
+  "^delegation://[^\\s/]{1,200}/[^\\s/]{1,200}$",
   "^delegation://[^\\s]{1,500}$",
   "^deployment-profile://[A-Za-z0-9._:/-]+$",
   "^deployment-profile://[^\\s?#\\\\]{1,160}$",
@@ -33727,6 +33835,7 @@ export const ARCHITECTURE_CONTRACT_PATTERN_SOURCES = [
   "^terms://[^\\s]{1,248}$",
   "^terms://[^\\s]{1,500}$",
   "^thread://[A-Za-z0-9_-]{1,200}$",
+  "^thread_[A-Za-z0-9_-]{1,200}$",
   "^tool://[A-Za-z0-9._~/-]{1,200}$",
   "^tool://[A-Za-z0-9._~/-]{1,200}/revision/[0-9a-f]{16}$",
   "^tool://[A-Za-z0-9._~:/-]+$",
@@ -33772,6 +33881,7 @@ export const ARCHITECTURE_CONTRACT_PATTERN_SOURCES = [
   "^work-lifecycle-archive://[^\\s]+$",
   "^work-lifecycle-snapshot://[^\\s]+$",
   "^work-lifecycle://[^\\s]+$",
+  "^work-reservation://[^\\s]{1,500}$",
   "^work-result://[^\\s]{1,460}$",
   "^work-result://[^\\s]{1,500}$",
   "^work-run://[^\\s]{1,248}$",
@@ -34126,7 +34236,8 @@ export const ARCHITECTURE_CONTRACT_SCHEMA_HASHES = {
   "schema://ioi/applications/ioi-ai/goal-run-admission-path-decision/v2": "sha256:4c8093ac4b46e395a49ed8454a6da27a4769eb0b6cb9455b75c17145811c0dd6",
   "schema://ioi/applications/ioi-ai/context-cell/v2": "sha256:e33a78de6b116da0590b5fc0b948baccb5f20ac265cb8bcae99c338565220547",
   "schema://ioi/applications/ioi-ai/goal-grounding-loop/v2": "sha256:60362cef1719499121d31faf0f5c39be5f0423a3d96306d8dfdb64081dadbbcb",
-  "schema://ioi/applications/ioi-ai/collective-resolution-receipt/v1": "sha256:71b7c60f5226818ce492e715a048d8cd16323b891f7bdd053f8d50b6d1fd653d"
+  "schema://ioi/applications/ioi-ai/collective-resolution-receipt/v1": "sha256:71b7c60f5226818ce492e715a048d8cd16323b891f7bdd053f8d50b6d1fd653d",
+  "schema://ioi/foundations/delegation-edge/v1": "sha256:3a8e8fd188b0986f5d9cc8c61230248f7834ef4a571cfcc406b50c2bb49c6092"
 } as const;
 
 type JsonObject = Record<string, unknown>;
@@ -145733,6 +145844,225 @@ const CONTRACT_SCHEMAS: Record<string, JsonObject> = {
         "pattern": "^sha256:[0-9a-f]{64}$"
       }
     }
+  },
+  "schema://ioi/foundations/delegation-edge/v1": {
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "$id": "schema://ioi/foundations/delegation-edge/v1",
+    "title": "DelegationEdge",
+    "x-ioi-schema-version": "ioi.foundations.delegation-edge.v1",
+    "type": "object",
+    "additionalProperties": false,
+    "required": [
+      "schema_version",
+      "delegation_ref",
+      "parent_thread_id",
+      "child_subagent_id",
+      "accountable_actor_ref",
+      "role_kind",
+      "topology_kind",
+      "ancestor_chain",
+      "delegation_depth",
+      "depth_ceiling",
+      "fanout_reservation_ref",
+      "selected_resolver_kind",
+      "selected_resolver_revision_ref",
+      "selected_resolver_content_hash",
+      "selected_model_route_ref",
+      "forked_thread_ref",
+      "managed_session_ref",
+      "launch_recipe_ref",
+      "harness_binding_ref",
+      "orchestration_ref",
+      "admitted_at_ms"
+    ],
+    "properties": {
+      "schema_version": {
+        "const": "ioi.foundations.delegation-edge.v1"
+      },
+      "delegation_ref": {
+        "type": "string",
+        "description": "The delegation's own coordinate, delegation://{thread_id}/{subagent_id} — the actor coordinate the Subagent API section already names.",
+        "pattern": "^delegation://[^\\s/]{1,200}/[^\\s/]{1,200}$"
+      },
+      "accountable_actor_ref": {
+        "type": "string",
+        "description": "Who answers for the delegated work. Read by the platform for attribution, never for behaviour.",
+        "pattern": "^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"
+      },
+      "role_kind": {
+        "description": "OPAQUE TO THE PLATFORM. Closed here by contract so a nonsense value is refused at admission, while the daemon branches on no value: there is no match arm, no default and no behaviour keyed on it anywhere. What a reviewer DOES is the composing application's.",
+        "enum": [
+          "conductor",
+          "implementer",
+          "reviewer",
+          "verifier",
+          "operator",
+          "researcher",
+          "specialist",
+          "synthesizer",
+          "resource_provider",
+          "integrity_challenger",
+          "memory_curator"
+        ]
+      },
+      "topology_kind": {
+        "description": "OPAQUE TO THE PLATFORM, on the same terms as role_kind. The retired GoalRun kernel emitted ONE hardcoded value and branched on it; a platform that enumerated ten and branched on them would be the same defect at a larger size.",
+        "enum": [
+          "direct",
+          "goal_conductor",
+          "delegated_build",
+          "governed_release",
+          "multi_context_review",
+          "specialist_mesh",
+          "leaderless_blackboard",
+          "market_allocated",
+          "independent_replication",
+          "federated_pursuit"
+        ]
+      },
+      "ancestor_chain": {
+        "type": "array",
+        "description": "Every ancestor whose bound this delegation narrows, nearest first. Its LENGTH is the delegation depth; depth is read off the chain rather than minted as a seventh reservation dimension.",
+        "minItems": 1,
+        "uniqueItems": true,
+        "items": {
+          "type": "string",
+          "pattern": "^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"
+        }
+      },
+      "delegation_depth": {
+        "type": "integer",
+        "description": "The admitted depth. Equal to the ancestor chain's length by invariant, never asserted independently of it.",
+        "minimum": 1,
+        "maximum": 4096
+      },
+      "depth_ceiling": {
+        "type": "integer",
+        "description": "The ceiling this delegation admitted under, narrowed from the parent's and never widened by a caller.",
+        "minimum": 1,
+        "maximum": 4096
+      },
+      "fanout_reservation_ref": {
+        "type": "string",
+        "description": "The concurrent_invocations claim on the per-dimension reservation seam (R-74). Fanout is that claim, not a new mechanism.",
+        "pattern": "^work-reservation://[^\\s]{1,500}$"
+      },
+      "selected_resolver_kind": {
+        "enum": [
+          "harness_profile",
+          "agent_harness_adapter",
+          "none"
+        ]
+      },
+      "selected_resolver_revision_ref": {
+        "anyOf": [
+          {
+            "type": "string",
+            "pattern": "^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"
+          },
+          {
+            "type": "null"
+          }
+        ]
+      },
+      "selected_resolver_content_hash": {
+        "anyOf": [
+          {
+            "type": "string",
+            "pattern": "^sha256:[0-9a-f]{64}$"
+          },
+          {
+            "type": "null"
+          }
+        ]
+      },
+      "selected_model_route_ref": {
+        "anyOf": [
+          {
+            "type": "string",
+            "pattern": "^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"
+          },
+          {
+            "type": "null"
+          }
+        ]
+      },
+      "forked_thread_ref": {
+        "anyOf": [
+          {
+            "type": "string",
+            "pattern": "^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"
+          },
+          {
+            "type": "null"
+          }
+        ],
+        "description": "ADR 0031 primitive 1 of 5: the thread the fork planner minted."
+      },
+      "managed_session_ref": {
+        "anyOf": [
+          {
+            "type": "string",
+            "pattern": "^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"
+          },
+          {
+            "type": "null"
+          }
+        ],
+        "description": "ADR 0031 primitive 3 of 5."
+      },
+      "launch_recipe_ref": {
+        "anyOf": [
+          {
+            "type": "string",
+            "pattern": "^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"
+          },
+          {
+            "type": "null"
+          }
+        ],
+        "description": "ADR 0031 primitive 4 of 5."
+      },
+      "harness_binding_ref": {
+        "anyOf": [
+          {
+            "type": "string",
+            "pattern": "^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"
+          },
+          {
+            "type": "null"
+          }
+        ],
+        "description": "ADR 0031 primitive 5 of 5. Primitive 2, the fork itself, is the delegation this record IS."
+      },
+      "orchestration_ref": {
+        "anyOf": [
+          {
+            "type": "string",
+            "pattern": "^app-scope://[^\\s]{1,400}$"
+          },
+          {
+            "type": "null"
+          }
+        ],
+        "description": "The composing application's own scope, recorded verbatim and never resolved by the platform."
+      },
+      "admitted_at_ms": {
+        "type": "integer",
+        "minimum": 0,
+        "maximum": 9007199254740991
+      },
+      "parent_thread_id": {
+        "type": "string",
+        "description": "The delegating thread's id, bare, exactly as the thread plane mints it (thread_<suffix>). Bare because canon's delegation coordinate is delegation://{thread_id}/{subagent_id} and an edge that could not be composed from its own parts would be a second spelling.",
+        "pattern": "^thread_[A-Za-z0-9_-]{1,200}$"
+      },
+      "child_subagent_id": {
+        "type": "string",
+        "description": "The child object's id on the subagent surface. This edge NAMES the child and does not own it (ADR 0034 sub-ruling 5).",
+        "pattern": "^[A-Za-z0-9_-]{1,200}$"
+      }
+    }
   }
 };
 const CONTRACT_INVARIANTS: Record<string, Array<JsonObject>> = {
@@ -165876,6 +166206,65 @@ const CONTRACT_INVARIANTS: Record<string, Array<JsonObject>> = {
         "path": "$.orchestration_ref"
       }
     }
+  ],
+  "schema://ioi/foundations/delegation-edge/v1": [
+    {
+      "rule_id": "delegation_edge.depth.is_the_chain_length",
+      "description": "The delegation depth IS the ancestor chain's length. Stated as an invariant rather than a comment because a depth asserted independently of the chain is a number a caller can set, and the whole point of reading it off the chain is that the caller cannot.",
+      "expression": {
+        "operator": "array_length_equals",
+        "array_path": "$.ancestor_chain",
+        "count_path": "$.delegation_depth"
+      }
+    },
+    {
+      "rule_id": "delegation_edge.depth.within_ceiling",
+      "description": "A delegation admits at or under the ceiling it narrowed from. Inheritance is structural (ADR 0034 sub-ruling 3): a child narrows from its admitted parent record and can never widen, whatever the caller supplies.",
+      "expression": {
+        "operator": "numbers_lte",
+        "paths": [
+          "$.delegation_depth",
+          "$.depth_ceiling"
+        ]
+      }
+    },
+    {
+      "rule_id": "delegation_edge.resolver.revision_present_when_resolved",
+      "description": "A resolved delegation names the exact revision it resolved to. `none` is the honest absence; harness_profile and agent_harness_adapter are not.",
+      "expression": {
+        "operator": "non_empty_when_in",
+        "path": "$.selected_resolver_revision_ref",
+        "when_path": "$.selected_resolver_kind",
+        "values": [
+          "harness_profile",
+          "agent_harness_adapter"
+        ]
+      }
+    },
+    {
+      "rule_id": "delegation_edge.resolver.hash_present_when_resolved",
+      "description": "And it names that revision's content hash, so the resolution is a binding rather than a pointer that can be re-aimed.",
+      "expression": {
+        "operator": "non_empty_when_in",
+        "path": "$.selected_resolver_content_hash",
+        "when_path": "$.selected_resolver_kind",
+        "values": [
+          "harness_profile",
+          "agent_harness_adapter"
+        ]
+      }
+    },
+    {
+      "rule_id": "delegation_edge.identity.composes_from_its_parts",
+      "description": "The delegation coordinate is composed from the pair it names, so an edge cannot claim a parent it does not belong to. Checked as a suffix on the parent half, which is the part a caller would have to forge to re-parent a delegation.",
+      "expression": {
+        "operator": "field_starts_with_path",
+        "path": "$.delegation_ref",
+        "expected_path": "$.parent_thread_id",
+        "prefix": "delegation://",
+        "suffix": "/"
+      }
+    }
   ]
 };
 
@@ -168775,4 +169164,10 @@ export function validateCollectiveResolutionReceiptV1(
   value: unknown,
 ): value is CollectiveResolutionReceiptV1 {
   return validateArchitectureContract("schema://ioi/applications/ioi-ai/collective-resolution-receipt/v1", value).ok;
+}
+
+export function validateDelegationEdgeV1(
+  value: unknown,
+): value is DelegationEdgeV1 {
+  return validateArchitectureContract("schema://ioi/foundations/delegation-edge/v1", value).ok;
 }

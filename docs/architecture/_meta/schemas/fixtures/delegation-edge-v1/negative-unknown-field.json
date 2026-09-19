@@ -1,0 +1,27 @@
+{
+  "schema_version": "ioi.foundations.delegation-edge.v1",
+  "delegation_ref": "delegation://thread_alpha/sub_one",
+  "parent_thread_id": "thread_alpha",
+  "child_subagent_id": "sub_one",
+  "accountable_actor_ref": "user://operator-7",
+  "role_kind": "implementer",
+  "topology_kind": "direct",
+  "ancestor_chain": [
+    "thread://alpha",
+    "org://acme"
+  ],
+  "delegation_depth": 2,
+  "depth_ceiling": 4,
+  "fanout_reservation_ref": "work-reservation://acme/alpha/concurrent/1",
+  "selected_resolver_kind": "harness_profile",
+  "selected_resolver_revision_ref": "harness-profile://hypervisor_worker/revision/3",
+  "selected_resolver_content_hash": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+  "selected_model_route_ref": "model_route://local-first",
+  "forked_thread_ref": "thread://beta",
+  "managed_session_ref": "session://beta-1",
+  "launch_recipe_ref": "launch-recipe://worker/v1",
+  "harness_binding_ref": "harness-binding://beta-1",
+  "orchestration_ref": "app-scope://ioi-ai/orchestration/orc_one",
+  "admitted_at_ms": 1789000000000,
+  "conductor_ref": "user://operator-7"
+}

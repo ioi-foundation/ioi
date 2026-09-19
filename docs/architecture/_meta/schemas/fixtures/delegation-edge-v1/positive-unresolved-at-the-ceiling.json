@@ -1,0 +1,25 @@
+{
+  "schema_version": "ioi.foundations.delegation-edge.v1",
+  "delegation_ref": "delegation://thread_alpha/sub_one",
+  "parent_thread_id": "thread_alpha",
+  "child_subagent_id": "sub_one",
+  "accountable_actor_ref": "user://operator-7",
+  "role_kind": "conductor",
+  "topology_kind": "leaderless_blackboard",
+  "ancestor_chain": [
+    "org://acme"
+  ],
+  "delegation_depth": 1,
+  "depth_ceiling": 1,
+  "fanout_reservation_ref": "work-reservation://acme/alpha/concurrent/1",
+  "selected_resolver_kind": "none",
+  "selected_resolver_revision_ref": null,
+  "selected_resolver_content_hash": null,
+  "selected_model_route_ref": null,
+  "forked_thread_ref": null,
+  "managed_session_ref": null,
+  "launch_recipe_ref": null,
+  "harness_binding_ref": null,
+  "orchestration_ref": null,
+  "admitted_at_ms": 1789000000000
+}

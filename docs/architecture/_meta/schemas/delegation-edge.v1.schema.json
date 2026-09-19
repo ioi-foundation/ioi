@@ -1,0 +1,219 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "schema://ioi/foundations/delegation-edge/v1",
+  "title": "DelegationEdge",
+  "x-ioi-schema-version": "ioi.foundations.delegation-edge.v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "delegation_ref",
+    "parent_thread_id",
+    "child_subagent_id",
+    "accountable_actor_ref",
+    "role_kind",
+    "topology_kind",
+    "ancestor_chain",
+    "delegation_depth",
+    "depth_ceiling",
+    "fanout_reservation_ref",
+    "selected_resolver_kind",
+    "selected_resolver_revision_ref",
+    "selected_resolver_content_hash",
+    "selected_model_route_ref",
+    "forked_thread_ref",
+    "managed_session_ref",
+    "launch_recipe_ref",
+    "harness_binding_ref",
+    "orchestration_ref",
+    "admitted_at_ms"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": "ioi.foundations.delegation-edge.v1"
+    },
+    "delegation_ref": {
+      "type": "string",
+      "description": "The delegation's own coordinate, delegation://{thread_id}/{subagent_id} — the actor coordinate the Subagent API section already names.",
+      "pattern": "^delegation://[^\\s/]{1,200}/[^\\s/]{1,200}$"
+    },
+    "accountable_actor_ref": {
+      "type": "string",
+      "description": "Who answers for the delegated work. Read by the platform for attribution, never for behaviour.",
+      "pattern": "^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"
+    },
+    "role_kind": {
+      "description": "OPAQUE TO THE PLATFORM. Closed here by contract so a nonsense value is refused at admission, while the daemon branches on no value: there is no match arm, no default and no behaviour keyed on it anywhere. What a reviewer DOES is the composing application's.",
+      "enum": [
+        "conductor",
+        "implementer",
+        "reviewer",
+        "verifier",
+        "operator",
+        "researcher",
+        "specialist",
+        "synthesizer",
+        "resource_provider",
+        "integrity_challenger",
+        "memory_curator"
+      ]
+    },
+    "topology_kind": {
+      "description": "OPAQUE TO THE PLATFORM, on the same terms as role_kind. The retired GoalRun kernel emitted ONE hardcoded value and branched on it; a platform that enumerated ten and branched on them would be the same defect at a larger size.",
+      "enum": [
+        "direct",
+        "goal_conductor",
+        "delegated_build",
+        "governed_release",
+        "multi_context_review",
+        "specialist_mesh",
+        "leaderless_blackboard",
+        "market_allocated",
+        "independent_replication",
+        "federated_pursuit"
+      ]
+    },
+    "ancestor_chain": {
+      "type": "array",
+      "description": "Every ancestor whose bound this delegation narrows, nearest first. Its LENGTH is the delegation depth; depth is read off the chain rather than minted as a seventh reservation dimension.",
+      "minItems": 1,
+      "uniqueItems": true,
+      "items": {
+        "type": "string",
+        "pattern": "^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"
+      }
+    },
+    "delegation_depth": {
+      "type": "integer",
+      "description": "The admitted depth. Equal to the ancestor chain's length by invariant, never asserted independently of it.",
+      "minimum": 1,
+      "maximum": 4096
+    },
+    "depth_ceiling": {
+      "type": "integer",
+      "description": "The ceiling this delegation admitted under, narrowed from the parent's and never widened by a caller.",
+      "minimum": 1,
+      "maximum": 4096
+    },
+    "fanout_reservation_ref": {
+      "type": "string",
+      "description": "The concurrent_invocations claim on the per-dimension reservation seam (R-74). Fanout is that claim, not a new mechanism.",
+      "pattern": "^work-reservation://[^\\s]{1,500}$"
+    },
+    "selected_resolver_kind": {
+      "enum": [
+        "harness_profile",
+        "agent_harness_adapter",
+        "none"
+      ]
+    },
+    "selected_resolver_revision_ref": {
+      "anyOf": [
+        {
+          "type": "string",
+          "pattern": "^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "selected_resolver_content_hash": {
+      "anyOf": [
+        {
+          "type": "string",
+          "pattern": "^sha256:[0-9a-f]{64}$"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "selected_model_route_ref": {
+      "anyOf": [
+        {
+          "type": "string",
+          "pattern": "^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "forked_thread_ref": {
+      "anyOf": [
+        {
+          "type": "string",
+          "pattern": "^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "description": "ADR 0031 primitive 1 of 5: the thread the fork planner minted."
+    },
+    "managed_session_ref": {
+      "anyOf": [
+        {
+          "type": "string",
+          "pattern": "^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "description": "ADR 0031 primitive 3 of 5."
+    },
+    "launch_recipe_ref": {
+      "anyOf": [
+        {
+          "type": "string",
+          "pattern": "^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "description": "ADR 0031 primitive 4 of 5."
+    },
+    "harness_binding_ref": {
+      "anyOf": [
+        {
+          "type": "string",
+          "pattern": "^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "description": "ADR 0031 primitive 5 of 5. Primitive 2, the fork itself, is the delegation this record IS."
+    },
+    "orchestration_ref": {
+      "anyOf": [
+        {
+          "type": "string",
+          "pattern": "^app-scope://[^\\s]{1,400}$"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "description": "The composing application's own scope, recorded verbatim and never resolved by the platform."
+    },
+    "admitted_at_ms": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 9007199254740991
+    },
+    "parent_thread_id": {
+      "type": "string",
+      "description": "The delegating thread's id, bare, exactly as the thread plane mints it (thread_<suffix>). Bare because canon's delegation coordinate is delegation://{thread_id}/{subagent_id} and an edge that could not be composed from its own parts would be a second spelling.",
+      "pattern": "^thread_[A-Za-z0-9_-]{1,200}$"
+    },
+    "child_subagent_id": {
+      "type": "string",
+      "description": "The child object's id on the subagent surface. This edge NAMES the child and does not own it (ADR 0034 sub-ruling 5).",
+      "pattern": "^[A-Za-z0-9_-]{1,200}$"
+    }
+  }
+}
