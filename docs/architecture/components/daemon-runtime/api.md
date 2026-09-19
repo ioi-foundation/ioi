@@ -2900,8 +2900,11 @@ When a subagent works inside an ioi.ai orchestration, its context cell carries
 the v4 work objects' actor coordinate) and usually a `current_claim_ref` naming a
 WorkClaim v4 admitted under that orchestration (context-cell v2, R-190; the v1
 room coordinates `outcome_room_ref` and `participant_lease_ref` retired with the
-room plane). The composition owns membership and claims; the subagent's GoalRun
-owns one bounded pursuit. A spawned process is not automatically an independent
+room plane). The composition owns membership and claims, and it owns the bounded
+pursuit the subagent is carrying: a GoalRun is an ioi.ai record over these
+primitives, not a Hypervisor object, and this daemon serves no route that holds
+one (R-192, slice S5-1). What the Hypervisor owns here is the delegation and the
+child object it names. A spawned process is not automatically an independent
 participant or party.
 
 ```http
