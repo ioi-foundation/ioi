@@ -162007,6 +162007,22 @@ pub const ARCHITECTURE_CONTRACT_FIXTURES: &[GoldenFixture] = &[
         expected_rule_id: None,
     },
     GoldenFixture {
+        contract_id: "schema://ioi/applications/ioi-ai/goal-run-profile-resolution-receipt/v1",
+        path: "docs/architecture/_meta/schemas/fixtures/goal-run-profile-resolution-receipt-v1/negative-closure-root-does-not-recompute.json",
+        expected_accept: false,
+        expected_schema_accept: true,
+        expected_failure: Some("invariant"),
+        expected_rule_id: Some("goal_run_profile_resolution_receipt.closure.recomputes"),
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/applications/ioi-ai/goal-run-profile-resolution-receipt/v1",
+        path: "docs/architecture/_meta/schemas/fixtures/goal-run-profile-resolution-receipt-v1/negative-late-binding-added-after-the-root.json",
+        expected_accept: false,
+        expected_schema_accept: true,
+        expected_failure: Some("invariant"),
+        expected_rule_id: Some("goal_run_profile_resolution_receipt.closure.recomputes"),
+    },
+    GoldenFixture {
         contract_id: "schema://ioi/applications/ioi-ai/goal-run-profile/v1",
         path: "docs/architecture/_meta/schemas/fixtures/goal-run-profile-v1/positive-minimal.json",
         expected_accept: true,
@@ -177744,6 +177760,28 @@ pub const ARCHITECTURE_CONTRACT_DIFFERENTIAL_CASES: &[ArchitectureContractDiffer
         mutation_id: None,
         value_json: None,
         ajv_schema_accept: false,
+        oracle_contract_accept: false,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/goal-run-profile-resolution-receipt-v1/negative-closure-root-does-not-recompute.json"#,
+        contract_id: r#"schema://ioi/applications/ioi-ai/goal-run-profile-resolution-receipt/v1"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/goal-run-profile-resolution-receipt-v1/negative-closure-root-does-not-recompute.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: true,
+        oracle_contract_accept: false,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/goal-run-profile-resolution-receipt-v1/negative-late-binding-added-after-the-root.json"#,
+        contract_id: r#"schema://ioi/applications/ioi-ai/goal-run-profile-resolution-receipt/v1"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/goal-run-profile-resolution-receipt-v1/negative-late-binding-added-after-the-root.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: true,
         oracle_contract_accept: false,
     },
     ArchitectureContractDifferentialCase {
@@ -197645,7 +197683,7 @@ const CONTRACT_INVARIANTS: &[(&str, &str)] = &[
     ("schema://ioi/applications/ioi-ai/goal-run-admission-path-decision/v1", r#"[]"#),
     ("schema://ioi/applications/ioi-ai/goal-run-admitted-state/v1", r#"[{"rule_id":"goal_run_admitted_state.root.matches_record","description":"The state root is SHA-256 over JCS of the complete admitted-state record with both root fields null.","expression":{"operator":"jcs_sha256_equals","algorithm":"jcs_sha256","material_fields":{"schema_version":{"path":"$.schema_version"},"state_root_ref":{"value":null},"state_root":{"value":null},"goal_run_ref":{"path":"$.goal_run_ref"},"activation_ref":{"path":"$.activation_ref"},"source_context_hash":{"path":"$.source_context_hash"},"requesting_principal_ref":{"path":"$.requesting_principal_ref"},"authority_decision_ref":{"path":"$.authority_decision_ref"},"goal_run_profile_revision_ref":{"path":"$.goal_run_profile_revision_ref"},"goal_run_profile_content_hash":{"path":"$.goal_run_profile_content_hash"},"goal_run_execution_ceiling_revision_ref":{"path":"$.goal_run_execution_ceiling_revision_ref"},"goal_run_execution_ceiling_content_hash":{"path":"$.goal_run_execution_ceiling_content_hash"},"declared_invocation_budget":{"path":"$.declared_invocation_budget"},"admitted_override_set_ref":{"path":"$.admitted_override_set_ref"},"admitted_override_set_hash":{"path":"$.admitted_override_set_hash"},"resolved_component_set_snapshot_ref":{"path":"$.resolved_component_set_snapshot_ref"},"resolved_component_set_hash":{"path":"$.resolved_component_set_hash"},"profile_resolution_receipt_ref":{"path":"$.profile_resolution_receipt_ref"},"admission_decision_ref":{"path":"$.admission_decision_ref"},"admission_receipt_ref":{"path":"$.admission_receipt_ref"},"receipt_obligations":{"path":"$.receipt_obligations"},"admitted_at":{"path":"$.admitted_at"},"non_grants":{"path":"$.non_grants"}},"expected_path":"$.state_root","expected_encoding":"sha256_string"}},{"rule_id":"goal_run_admitted_state.ref.ends_with_root","description":"The content-addressed Agentgres coordinate ends in the exact recomputed state root.","expression":{"operator":"field_ends_with","path":"$.state_root_ref","expected_path":"$.state_root"}},{"rule_id":"goal_run_admitted_state.declared_parallel_lte_total","description":"The admitted invocation budget cannot declare more parallel invocations than total invocations.","expression":{"operator":"numbers_lte","paths":["$.declared_invocation_budget.max_parallel_invocations","$.declared_invocation_budget.max_total_invocations"]}},{"rule_id":"goal_run_admitted_state.ceiling_ref.ends_with_hash","description":"The admitted execution-ceiling revision coordinate binds its exact content hash.","expression":{"operator":"field_ends_with","path":"$.goal_run_execution_ceiling_revision_ref","expected_path":"$.goal_run_execution_ceiling_content_hash"}}]"#),
     ("schema://ioi/applications/ioi-ai/goal-run-execution-ceiling/v1", r#"[{"rule_id":"goal_run_execution_ceiling.hash.recomputes","description":"The release content hash is the domain-separated JCS commitment over the immutable ceiling body.","expression":{"operator":"jcs_sha256_equals","algorithm":"jcs_sha256","material_fields":{"domain":{"value":"ioi.goal-run-execution-ceiling-release-jcs-sha256.v1"},"schema_version":{"path":"$.schema_version"},"goal_run_execution_ceiling_id":{"path":"$.goal_run_execution_ceiling_id"},"owner_ref":{"path":"$.owner_ref"},"max_total_invocations":{"path":"$.max_total_invocations"},"max_parallel_invocations":{"path":"$.max_parallel_invocations"}},"expected_path":"$.content_hash","expected_encoding":"sha256_string"}},{"rule_id":"goal_run_execution_ceiling.ref.ends_with_hash","description":"The immutable revision coordinate ends in the exact release content hash.","expression":{"operator":"field_ends_with","path":"$.revision_ref","expected_path":"$.content_hash"}},{"rule_id":"goal_run_execution_ceiling.parallel_lte_total","description":"Parallel invocations cannot exceed the total invocation ceiling.","expression":{"operator":"numbers_lte","paths":["$.max_parallel_invocations","$.max_total_invocations"]}}]"#),
-    ("schema://ioi/applications/ioi-ai/goal-run-profile-resolution-receipt/v1", r#"[]"#),
+    ("schema://ioi/applications/ioi-ai/goal-run-profile-resolution-receipt/v1", r#"[{"rule_id":"goal_run_profile_resolution_receipt.closure.recomputes","description":"The receipt root commits the ADMISSION-TIME DEPENDENCY CLOSURE: the profile revision and its content hash, the admitted override set, the effective constraint envelope, the orchestration policy, every workflow-template resolution, every resolved skill binding, the active skill set, every resolved harness-profile and agent-harness-adapter revision, every resolved runtime tool contract, every requirement left as a late binding, the resolved component set, and the assurance stage the resolution claims — under the receipt's own identity. Until this rule existed the root was decorative: the contract carried a `receipt_root` field and NOTHING recomputed it, so a relying party holding the served receipt could not tell a real closure from an arbitrary 64 hex characters, and the unit whose acceptance is 'profile resolution closure' was committing nothing. A root nobody recomputes commits nothing.","expression":{"operator":"jcs_sha256_equals","algorithm":"jcs_sha256","expected_path":"$.receipt_root","expected_encoding":"sha256_string","material_fields":{"schema_version":{"path":"$.schema_version"},"receipt_id":{"path":"$.receipt_id"},"receipt_type":{"path":"$.receipt_type"},"goal_ref":{"path":"$.goal_ref"},"goal_run_profile_revision_ref":{"path":"$.goal_run_profile_revision_ref"},"goal_run_profile_content_hash":{"path":"$.goal_run_profile_content_hash"},"admitted_override_set_ref":{"path":"$.admitted_override_set_ref"},"admitted_override_set_hash":{"path":"$.admitted_override_set_hash"},"effective_constraint_envelope_ref":{"path":"$.effective_constraint_envelope_ref"},"effective_constraint_envelope_hash":{"path":"$.effective_constraint_envelope_hash"},"orchestration_policy_ref":{"path":"$.orchestration_policy_ref"},"orchestration_policy_version_or_hash":{"path":"$.orchestration_policy_version_or_hash"},"workflow_template_resolutions":{"path":"$.workflow_template_resolutions"},"resolved_skill_bindings":{"path":"$.resolved_skill_bindings"},"active_skill_set_snapshot_ref":{"path":"$.active_skill_set_snapshot_ref"},"active_skill_set_hash":{"path":"$.active_skill_set_hash"},"resolved_harness_profile_revisions":{"path":"$.resolved_harness_profile_revisions"},"resolved_agent_harness_adapter_revisions":{"path":"$.resolved_agent_harness_adapter_revisions"},"resolved_runtime_tool_contracts":{"path":"$.resolved_runtime_tool_contracts"},"unresolved_late_binding_requirement_refs":{"path":"$.unresolved_late_binding_requirement_refs"},"resolved_component_set_snapshot_ref":{"path":"$.resolved_component_set_snapshot_ref"},"resolved_component_set_hash":{"path":"$.resolved_component_set_hash"},"assurance_stage":{"path":"$.assurance_stage"}}}}]"#),
     ("schema://ioi/applications/ioi-ai/goal-run-profile/v1", r#"[]"#),
     ("schema://ioi/applications/ioi-ai/goal-run/v1", r#"[]"#),
     ("schema://ioi/applications/ioi-ai/outcome-room-discussion-projection/v1", r#"[]"#),
@@ -203321,6 +203359,8 @@ mod tests {
     ("docs/architecture/_meta/schemas/fixtures/goal-run-execution-ceiling-v1/negative-unknown-field.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/goal-run-execution-ceiling-v1/negative-unknown-field.json"))),
     ("docs/architecture/_meta/schemas/fixtures/goal-run-profile-resolution-receipt-v1/positive-minimal.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/goal-run-profile-resolution-receipt-v1/positive-minimal.json"))),
     ("docs/architecture/_meta/schemas/fixtures/goal-run-profile-resolution-receipt-v1/negative-unknown-field.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/goal-run-profile-resolution-receipt-v1/negative-unknown-field.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/goal-run-profile-resolution-receipt-v1/negative-closure-root-does-not-recompute.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/goal-run-profile-resolution-receipt-v1/negative-closure-root-does-not-recompute.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/goal-run-profile-resolution-receipt-v1/negative-late-binding-added-after-the-root.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/goal-run-profile-resolution-receipt-v1/negative-late-binding-added-after-the-root.json"))),
     ("docs/architecture/_meta/schemas/fixtures/goal-run-profile-v1/positive-minimal.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/goal-run-profile-v1/positive-minimal.json"))),
     ("docs/architecture/_meta/schemas/fixtures/goal-run-profile-v1/negative-unknown-field.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/goal-run-profile-v1/negative-unknown-field.json"))),
     ("docs/architecture/_meta/schemas/fixtures/goal-run-v1/positive-minimal.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/goal-run-v1/positive-minimal.json"))),
@@ -208507,8 +208547,8 @@ mod tests {
     fn golden_fixtures_match_generated_rust_contracts() {
         assert_eq!(
             ARCHITECTURE_CONTRACT_FIXTURES.len(),
-            1733,
-            "the registered golden corpus must remain the explicit 1733-fixture bar",
+            1735,
+            "the registered golden corpus must remain the explicit 1735-fixture bar",
         );
         for fixture in ARCHITECTURE_CONTRACT_FIXTURES {
             let body = FIXTURE_BODIES

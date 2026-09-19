@@ -15091,6 +15091,22 @@ export const ARCHITECTURE_CONTRACT_FIXTURES = [
     "expected_rule_id": null
   },
   {
+    "contract_id": "schema://ioi/applications/ioi-ai/goal-run-profile-resolution-receipt/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/goal-run-profile-resolution-receipt-v1/negative-closure-root-does-not-recompute.json",
+    "expected": "reject",
+    "expected_schema_accept": true,
+    "expected_failure": "invariant",
+    "expected_rule_id": "goal_run_profile_resolution_receipt.closure.recomputes"
+  },
+  {
+    "contract_id": "schema://ioi/applications/ioi-ai/goal-run-profile-resolution-receipt/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/goal-run-profile-resolution-receipt-v1/negative-late-binding-added-after-the-root.json",
+    "expected": "reject",
+    "expected_schema_accept": true,
+    "expected_failure": "invariant",
+    "expected_rule_id": "goal_run_profile_resolution_receipt.closure.recomputes"
+  },
+  {
     "contract_id": "schema://ioi/applications/ioi-ai/goal-run-profile/v1",
     "path": "docs/architecture/_meta/schemas/fixtures/goal-run-profile-v1/positive-minimal.json",
     "expected": "accept",
@@ -31011,6 +31027,8 @@ export const ARCHITECTURE_CONTRACT_DIFFERENTIAL_CASES: ReadonlyArray<Architectur
   differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/goal-run-execution-ceiling-v1/negative-unknown-field.json","contract_id":"schema://ioi/applications/ioi-ai/goal-run-execution-ceiling/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/goal-run-execution-ceiling-v1/negative-unknown-field.json","mutation_id":null,"value_json":null}),
   differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/goal-run-profile-resolution-receipt-v1/positive-minimal.json","contract_id":"schema://ioi/applications/ioi-ai/goal-run-profile-resolution-receipt/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/goal-run-profile-resolution-receipt-v1/positive-minimal.json","mutation_id":null,"value_json":null}),
   differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/goal-run-profile-resolution-receipt-v1/negative-unknown-field.json","contract_id":"schema://ioi/applications/ioi-ai/goal-run-profile-resolution-receipt/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/goal-run-profile-resolution-receipt-v1/negative-unknown-field.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/goal-run-profile-resolution-receipt-v1/negative-closure-root-does-not-recompute.json","contract_id":"schema://ioi/applications/ioi-ai/goal-run-profile-resolution-receipt/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/goal-run-profile-resolution-receipt-v1/negative-closure-root-does-not-recompute.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/goal-run-profile-resolution-receipt-v1/negative-late-binding-added-after-the-root.json","contract_id":"schema://ioi/applications/ioi-ai/goal-run-profile-resolution-receipt/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/goal-run-profile-resolution-receipt-v1/negative-late-binding-added-after-the-root.json","mutation_id":null,"value_json":null}),
   differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/goal-run-profile-v1/positive-minimal.json","contract_id":"schema://ioi/applications/ioi-ai/goal-run-profile/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/goal-run-profile-v1/positive-minimal.json","mutation_id":null,"value_json":null}),
   differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/goal-run-profile-v1/negative-unknown-field.json","contract_id":"schema://ioi/applications/ioi-ai/goal-run-profile/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/goal-run-profile-v1/negative-unknown-field.json","mutation_id":null,"value_json":null}),
   differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/goal-run-v1/positive-minimal.json","contract_id":"schema://ioi/applications/ioi-ai/goal-run/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/goal-run-v1/positive-minimal.json","mutation_id":null,"value_json":null}),
@@ -146925,7 +146943,89 @@ const CONTRACT_INVARIANTS: Record<string, Array<JsonObject>> = {
       }
     }
   ],
-  "schema://ioi/applications/ioi-ai/goal-run-profile-resolution-receipt/v1": [],
+  "schema://ioi/applications/ioi-ai/goal-run-profile-resolution-receipt/v1": [
+    {
+      "rule_id": "goal_run_profile_resolution_receipt.closure.recomputes",
+      "description": "The receipt root commits the ADMISSION-TIME DEPENDENCY CLOSURE: the profile revision and its content hash, the admitted override set, the effective constraint envelope, the orchestration policy, every workflow-template resolution, every resolved skill binding, the active skill set, every resolved harness-profile and agent-harness-adapter revision, every resolved runtime tool contract, every requirement left as a late binding, the resolved component set, and the assurance stage the resolution claims — under the receipt's own identity. Until this rule existed the root was decorative: the contract carried a `receipt_root` field and NOTHING recomputed it, so a relying party holding the served receipt could not tell a real closure from an arbitrary 64 hex characters, and the unit whose acceptance is 'profile resolution closure' was committing nothing. A root nobody recomputes commits nothing.",
+      "expression": {
+        "operator": "jcs_sha256_equals",
+        "algorithm": "jcs_sha256",
+        "expected_path": "$.receipt_root",
+        "expected_encoding": "sha256_string",
+        "material_fields": {
+          "schema_version": {
+            "path": "$.schema_version"
+          },
+          "receipt_id": {
+            "path": "$.receipt_id"
+          },
+          "receipt_type": {
+            "path": "$.receipt_type"
+          },
+          "goal_ref": {
+            "path": "$.goal_ref"
+          },
+          "goal_run_profile_revision_ref": {
+            "path": "$.goal_run_profile_revision_ref"
+          },
+          "goal_run_profile_content_hash": {
+            "path": "$.goal_run_profile_content_hash"
+          },
+          "admitted_override_set_ref": {
+            "path": "$.admitted_override_set_ref"
+          },
+          "admitted_override_set_hash": {
+            "path": "$.admitted_override_set_hash"
+          },
+          "effective_constraint_envelope_ref": {
+            "path": "$.effective_constraint_envelope_ref"
+          },
+          "effective_constraint_envelope_hash": {
+            "path": "$.effective_constraint_envelope_hash"
+          },
+          "orchestration_policy_ref": {
+            "path": "$.orchestration_policy_ref"
+          },
+          "orchestration_policy_version_or_hash": {
+            "path": "$.orchestration_policy_version_or_hash"
+          },
+          "workflow_template_resolutions": {
+            "path": "$.workflow_template_resolutions"
+          },
+          "resolved_skill_bindings": {
+            "path": "$.resolved_skill_bindings"
+          },
+          "active_skill_set_snapshot_ref": {
+            "path": "$.active_skill_set_snapshot_ref"
+          },
+          "active_skill_set_hash": {
+            "path": "$.active_skill_set_hash"
+          },
+          "resolved_harness_profile_revisions": {
+            "path": "$.resolved_harness_profile_revisions"
+          },
+          "resolved_agent_harness_adapter_revisions": {
+            "path": "$.resolved_agent_harness_adapter_revisions"
+          },
+          "resolved_runtime_tool_contracts": {
+            "path": "$.resolved_runtime_tool_contracts"
+          },
+          "unresolved_late_binding_requirement_refs": {
+            "path": "$.unresolved_late_binding_requirement_refs"
+          },
+          "resolved_component_set_snapshot_ref": {
+            "path": "$.resolved_component_set_snapshot_ref"
+          },
+          "resolved_component_set_hash": {
+            "path": "$.resolved_component_set_hash"
+          },
+          "assurance_stage": {
+            "path": "$.assurance_stage"
+          }
+        }
+      }
+    }
+  ],
   "schema://ioi/applications/ioi-ai/goal-run-profile/v1": [],
   "schema://ioi/applications/ioi-ai/goal-run/v1": [],
   "schema://ioi/applications/ioi-ai/outcome-room-discussion-projection/v1": [],

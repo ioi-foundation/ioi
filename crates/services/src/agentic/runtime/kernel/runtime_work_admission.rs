@@ -19,10 +19,13 @@ use serde_json::{json, Value};
 use sha2::{Digest, Sha256};
 use std::collections::{BTreeMap, BTreeSet};
 
-pub const DEFINITION_RESOLUTION_SCHEMA_VERSION: &str =
-    "ioi.applications.ioi-ai.goal-run-definition-resolution.v1";
-pub const PROFILE_RESOLUTION_RECEIPT_SCHEMA_VERSION: &str =
-    "ioi.applications.ioi-ai.goal-run-profile-resolution-receipt.v1";
+// R-195 (S5-3): two constants stood here, `DEFINITION_RESOLUTION_SCHEMA_VERSION` and
+// `PROFILE_RESOLUTION_RECEIPT_SCHEMA_VERSION`, both naming `applications.ioi-ai.*` contracts. They
+// were `resolve_definitions`' vocabulary and lost their only user when it left in S5-1. The
+// compiler could not say so — a `pub const` in a library is never dead-code-flagged, so they
+// survived a cut that removed everything around them and a rename that made this module
+// platform-neutral, still spelling the application's name. Found by grepping for the receipt's
+// producers while adding that receipt's closure invariant, not by any gate.
 pub const WORK_RESULT_SCHEMA_VERSION: &str = "ioi.foundations.work-result.v3";
 pub const OUTCOME_DELTA_SCHEMA_VERSION: &str = "ioi.foundations.outcome-delta.v3";
 // The GoalRun-local WorkLifecycle mechanics were removed in M04.6: the shared

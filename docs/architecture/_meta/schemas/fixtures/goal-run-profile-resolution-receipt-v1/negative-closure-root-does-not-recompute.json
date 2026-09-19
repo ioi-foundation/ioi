@@ -31,7 +31,7 @@
   "resolved_runtime_tool_contracts": [],
   "unresolved_late_binding_requirement_refs": [],
   "resolved_component_set_snapshot_ref": "artifact://goal-run/research/components",
-  "resolved_component_set_hash": "sha256:2222222222222222222222222222222222222222222222222222222222222222",
+  "resolved_component_set_hash": "sha256:9999999999999999999999999999999999999999999999999999999999999999",
   "assurance_stage": "attested",
   "receipt_root": "sha256:94c405acac3d1a36b813045782c9af5dc4f18de83e7c79cf4f91adc9b9db74a5"
 }

@@ -950,7 +950,12 @@
         "hash_impact": "signature_preimage_changed"
       },
       "schema_ref": "goal-run-profile-resolution-receipt.v1.schema.json",
-      "cross_field_invariant_refs": [],
+      "cross_field_invariant_refs": [
+        {
+          "invariant_id": "invariant://ioi/applications/ioi-ai/goal-run-profile-resolution-receipt/closure-recomputes/v1",
+          "path": "invariants/goal-run-profile-resolution-receipt.v1.invariants.json"
+        }
+      ],
       "compatibility_aliases": [],
       "generated_targets": [
         {
@@ -971,6 +976,16 @@
         {
           "path": "fixtures/goal-run-profile-resolution-receipt-v1/negative-unknown-field.json",
           "expected_failure": "schema"
+        },
+        {
+          "path": "fixtures/goal-run-profile-resolution-receipt-v1/negative-closure-root-does-not-recompute.json",
+          "expected_failure": "invariant",
+          "expected_rule_id": "goal_run_profile_resolution_receipt.closure.recomputes"
+        },
+        {
+          "path": "fixtures/goal-run-profile-resolution-receipt-v1/negative-late-binding-added-after-the-root.json",
+          "expected_failure": "invariant",
+          "expected_rule_id": "goal_run_profile_resolution_receipt.closure.recomputes"
         }
       ]
     },
