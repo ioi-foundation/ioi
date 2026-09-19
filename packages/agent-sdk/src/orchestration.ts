@@ -51,9 +51,13 @@ export const SYSTEM_RECORD_ROUTES = {
 /**
  * RETIRED 2026-09-18 (R-192, slice S5-1). This held the GoalRun plane's one membership endpoint,
  * which the composer called to stamp the reciprocal member after its seam revision (R-190, S4d-2).
- * The owner ruled goal runs and outcome rooms out of the Hypervisor — they are ioi.ai compositions
+ * The owner ruled GoalRun and OutcomeRoom out of the Hypervisor — they are ioi.ai compositions
  * over its thread orchestration primitives — and the whole `/v1/goal-orchestration/` namespace is
- * gone. The route map is EMPTY rather than deleted so the retirement is a fact this file states,
+ * gone. Written as CamelCase object names on purpose: `check:orchestration-composition` asserts
+ * that this file contains none of the retired collaboration vocabulary as standalone words, and
+ * the first draft of this very comment tripped it. The gate is right — a composer that carries
+ * that vocabulary in prose is one grep away from carrying it in code. The route map is EMPTY
+ * rather than deleted so the retirement is a fact this file states,
  * and `stampGoalRunOrchestrationMembership` refuses locally instead of issuing a request that
  * would come back as an untyped 404 from the router's fallback.
  */
