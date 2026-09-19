@@ -238,6 +238,15 @@ export type ContextHandoffEnvelopeV1 = {
   successor_of: string | null;
   receipt_root: string;
   status: "draft" | "sent" | "accepted" | "rejected" | "superseded";
+  system_binding?: {
+      schema_version: "ioi.foundations.system-scoped-object-binding.v1";
+      system_id: string;
+      parent_scope_ref: string;
+      proposed_or_issued_by_ref: string;
+      payload_root: string;
+      created_at: string;
+      updated_at: string | null;
+    };
 };
 
 export type ContextLeaseEnvelopeV1 = {
@@ -260,6 +269,15 @@ export type ContextLeaseEnvelopeV1 = {
   predecessor_remains_valid: boolean;
   receipt_root: string;
   status: "draft" | "active" | "expired" | "revoked" | "consumed";
+  system_binding?: {
+      schema_version: "ioi.foundations.system-scoped-object-binding.v1";
+      system_id: string;
+      parent_scope_ref: string;
+      proposed_or_issued_by_ref: string;
+      payload_root: string;
+      created_at: string;
+      updated_at: string | null;
+    };
 };
 
 export type FindingV3 = {
@@ -14344,6 +14362,15 @@ export type ContextCellEnvelopeV2 = {
   status: "open" | "active" | "sleeping" | "waiting" | "handed_off" | "summarized" | "quarantined" | "closed" | "revoked";
   orchestration_ref: string | null;
   delegation_ref: string | null;
+  system_binding?: {
+      schema_version: "ioi.foundations.system-scoped-object-binding.v1";
+      system_id: string;
+      parent_scope_ref: string;
+      proposed_or_issued_by_ref: string;
+      payload_root: string;
+      created_at: string;
+      updated_at: string | null;
+    };
 };
 
 export type GoalGroundingLoopV2 = {
@@ -14710,6 +14737,14 @@ export const ARCHITECTURE_CONTRACT_FIXTURES = [
   },
   {
     "contract_id": "schema://ioi/applications/ioi-ai/context-handoff/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/context-handoff-v1/positive-review-request-accepted-under-a-system.json",
+    "expected": "accept",
+    "expected_schema_accept": true,
+    "expected_failure": null,
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/applications/ioi-ai/context-handoff/v1",
     "path": "docs/architecture/_meta/schemas/fixtures/context-handoff-v1/negative-handoff-kind-outside-vocabulary.json",
     "expected": "reject",
     "expected_schema_accept": false,
@@ -14775,6 +14810,14 @@ export const ARCHITECTURE_CONTRACT_FIXTURES = [
   {
     "contract_id": "schema://ioi/applications/ioi-ai/context-lease/v1",
     "path": "docs/architecture/_meta/schemas/fixtures/context-lease-v1/positive-worktree-least-context.json",
+    "expected": "accept",
+    "expected_schema_accept": true,
+    "expected_failure": null,
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/applications/ioi-ai/context-lease/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/context-lease-v1/positive-view-revision-bound-under-a-system.json",
     "expected": "accept",
     "expected_schema_accept": true,
     "expected_failure": null,
@@ -28174,6 +28217,14 @@ export const ARCHITECTURE_CONTRACT_FIXTURES = [
   },
   {
     "contract_id": "schema://ioi/applications/ioi-ai/context-cell/v2",
+    "path": "docs/architecture/_meta/schemas/fixtures/context-cell-v2/positive-conductor-orchestration-bound-under-a-system.json",
+    "expected": "accept",
+    "expected_schema_accept": true,
+    "expected_failure": null,
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/applications/ioi-ai/context-cell/v2",
     "path": "docs/architecture/_meta/schemas/fixtures/context-cell-v2/negative-lease-ref-wrong-scheme.json",
     "expected": "reject",
     "expected_schema_accept": false,
@@ -31043,6 +31094,7 @@ export const ARCHITECTURE_CONTRACT_DIFFERENTIAL_CASES: ReadonlyArray<Architectur
   differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/context-cell-v1/negative-lease-ref-wrong-scheme.json","contract_id":"schema://ioi/applications/ioi-ai/context-cell/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/context-cell-v1/negative-lease-ref-wrong-scheme.json","mutation_id":null,"value_json":null}),
   differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/context-handoff-v1/positive-review-request-accepted.json","contract_id":"schema://ioi/applications/ioi-ai/context-handoff/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/context-handoff-v1/positive-review-request-accepted.json","mutation_id":null,"value_json":null}),
   differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/context-handoff-v1/positive-task-brief-sent.json","contract_id":"schema://ioi/applications/ioi-ai/context-handoff/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/context-handoff-v1/positive-task-brief-sent.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/context-handoff-v1/positive-review-request-accepted-under-a-system.json","contract_id":"schema://ioi/applications/ioi-ai/context-handoff/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/context-handoff-v1/positive-review-request-accepted-under-a-system.json","mutation_id":null,"value_json":null}),
   differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/context-handoff-v1/negative-handoff-kind-outside-vocabulary.json","contract_id":"schema://ioi/applications/ioi-ai/context-handoff/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/context-handoff-v1/negative-handoff-kind-outside-vocabulary.json","mutation_id":null,"value_json":null}),
   differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/context-handoff-v1/negative-non-grant-member-missing.json","contract_id":"schema://ioi/applications/ioi-ai/context-handoff/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/context-handoff-v1/negative-non-grant-member-missing.json","mutation_id":null,"value_json":null}),
   differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/context-handoff-v1/negative-non-grant-weakened.json","contract_id":"schema://ioi/applications/ioi-ai/context-handoff/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/context-handoff-v1/negative-non-grant-weakened.json","mutation_id":null,"value_json":null}),
@@ -31052,6 +31104,7 @@ export const ARCHITECTURE_CONTRACT_DIFFERENTIAL_CASES: ReadonlyArray<Architectur
   differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/context-handoff-v1/negative-payload-swapped-after-the-root.json","contract_id":"schema://ioi/applications/ioi-ai/context-handoff/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/context-handoff-v1/negative-payload-swapped-after-the-root.json","mutation_id":null,"value_json":null}),
   differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/context-lease-v1/positive-view-revision-bound.json","contract_id":"schema://ioi/applications/ioi-ai/context-lease/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/context-lease-v1/positive-view-revision-bound.json","mutation_id":null,"value_json":null}),
   differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/context-lease-v1/positive-worktree-least-context.json","contract_id":"schema://ioi/applications/ioi-ai/context-lease/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/context-lease-v1/positive-worktree-least-context.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/context-lease-v1/positive-view-revision-bound-under-a-system.json","contract_id":"schema://ioi/applications/ioi-ai/context-lease/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/context-lease-v1/positive-view-revision-bound-under-a-system.json","mutation_id":null,"value_json":null}),
   differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/context-lease-v1/negative-lease-declares-its-own-data-class.json","contract_id":"schema://ioi/applications/ioi-ai/context-lease/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/context-lease-v1/negative-lease-declares-its-own-data-class.json","mutation_id":null,"value_json":null}),
   differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/context-lease-v1/negative-legacy-view-scheme.json","contract_id":"schema://ioi/applications/ioi-ai/context-lease/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/context-lease-v1/negative-legacy-view-scheme.json","mutation_id":null,"value_json":null}),
   differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/context-lease-v1/negative-recipient-role-outside-vocabulary.json","contract_id":"schema://ioi/applications/ioi-ai/context-lease/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/context-lease-v1/negative-recipient-role-outside-vocabulary.json","mutation_id":null,"value_json":null}),
@@ -32726,6 +32779,7 @@ export const ARCHITECTURE_CONTRACT_DIFFERENTIAL_CASES: ReadonlyArray<Architectur
   differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/goal-run-admission-path-decision-v2/negative-room-member.json","contract_id":"schema://ioi/applications/ioi-ai/goal-run-admission-path-decision/v2","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/goal-run-admission-path-decision-v2/negative-room-member.json","mutation_id":null,"value_json":null}),
   differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/context-cell-v2/positive-conductor-orchestration-bound.json","contract_id":"schema://ioi/applications/ioi-ai/context-cell/v2","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/context-cell-v2/positive-conductor-orchestration-bound.json","mutation_id":null,"value_json":null}),
   differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/context-cell-v2/positive-implementer-topology-less.json","contract_id":"schema://ioi/applications/ioi-ai/context-cell/v2","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/context-cell-v2/positive-implementer-topology-less.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/context-cell-v2/positive-conductor-orchestration-bound-under-a-system.json","contract_id":"schema://ioi/applications/ioi-ai/context-cell/v2","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/context-cell-v2/positive-conductor-orchestration-bound-under-a-system.json","mutation_id":null,"value_json":null}),
   differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/context-cell-v2/negative-lease-ref-wrong-scheme.json","contract_id":"schema://ioi/applications/ioi-ai/context-cell/v2","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/context-cell-v2/negative-lease-ref-wrong-scheme.json","mutation_id":null,"value_json":null}),
   differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/context-cell-v2/negative-legacy-underscore-identity.json","contract_id":"schema://ioi/applications/ioi-ai/context-cell/v2","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/context-cell-v2/negative-legacy-underscore-identity.json","mutation_id":null,"value_json":null}),
   differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/context-cell-v2/negative-role-outside-vocabulary.json","contract_id":"schema://ioi/applications/ioi-ai/context-cell/v2","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/context-cell-v2/negative-role-outside-vocabulary.json","mutation_id":null,"value_json":null}),
@@ -33996,8 +34050,8 @@ export const ARCHITECTURE_CONTRACT_SCHEMA_HASHES = {
   "schema://ioi/applications/ioi-ai/capability-offer/v4": "sha256:df932c7530f6b83384d8893ae906be4b43b479b3e0e7eed6a56ddc26cc4d6ed6",
   "schema://ioi/applications/ioi-ai/collaborative-work-graph/v1": "sha256:4153fe127298d00c9836a7ac8e8a62da6fd0c7d4b0c2372717b7468d9a96d632",
   "schema://ioi/applications/ioi-ai/context-cell/v1": "sha256:0eca9869c48e1186799ca5371d7173ad95b5f642a2e33e7ba541fc54708c2e28",
-  "schema://ioi/applications/ioi-ai/context-handoff/v1": "sha256:5083fcda55a9f6b103bbb961699d67f4ab28b00afb173846c00af2b68aa144e5",
-  "schema://ioi/applications/ioi-ai/context-lease/v1": "sha256:cd77670feff9c31f2cff2e34bb98f9906eaa0018d69944c31de4a3e58f26de25",
+  "schema://ioi/applications/ioi-ai/context-handoff/v1": "sha256:54e545061a04afcc5cecd99cf510dbc59fd6d29d9dad59be99c2b29ede2f6615",
+  "schema://ioi/applications/ioi-ai/context-lease/v1": "sha256:24e8447f54abfd0d67326f82ff15f54ab3ca4fc177e5c7c2f5d55765b7a71217",
   "schema://ioi/applications/ioi-ai/finding/v3": "sha256:58e6e7bf57e42ee280cceda6f928c84855ea18617a2c81c4127d435ba19b7253",
   "schema://ioi/applications/ioi-ai/finding/v4": "sha256:3abe0a2827626decf1a9c825e5f094226e80ae78898d3fbe4b6d0ed9b71e7a5b",
   "schema://ioi/applications/ioi-ai/goal-grounding-loop/v1": "sha256:b9ee6a68b49ece6ba66a51e69e0df922f8f22a1c7f3f22ed3b193371a21d8650",
@@ -34325,7 +34379,7 @@ export const ARCHITECTURE_CONTRACT_SCHEMA_HASHES = {
   "schema://ioi/applications/ioi-ai/goal-run-activation/v2": "sha256:60157023c71824c31be1c35804806a43bdbed1c37a014b6bdb2672a453d0b92d",
   "schema://ioi/applications/ioi-ai/goal-run-activation-receipt/v2": "sha256:2701eb60f790a4a9559ce1a2962a02de37d718943988b2c0d2b09b37331801f5",
   "schema://ioi/applications/ioi-ai/goal-run-admission-path-decision/v2": "sha256:4c8093ac4b46e395a49ed8454a6da27a4769eb0b6cb9455b75c17145811c0dd6",
-  "schema://ioi/applications/ioi-ai/context-cell/v2": "sha256:e33a78de6b116da0590b5fc0b948baccb5f20ac265cb8bcae99c338565220547",
+  "schema://ioi/applications/ioi-ai/context-cell/v2": "sha256:2c0505964f02e780b10361cd7fc7f6f09a3fcc86ca2e55abdb049e4b149c30cb",
   "schema://ioi/applications/ioi-ai/goal-grounding-loop/v2": "sha256:60362cef1719499121d31faf0f5c39be5f0423a3d96306d8dfdb64081dadbbcb",
   "schema://ioi/applications/ioi-ai/collective-resolution-receipt/v1": "sha256:71b7c60f5226818ce492e715a048d8cd16323b891f7bdd053f8d50b6d1fd653d",
   "schema://ioi/foundations/delegation-edge/v1": "sha256:916bfac63dd49fe478bfa006e2637acf775ce6e6d6b919afc7daefcec9178548"
@@ -36170,6 +36224,62 @@ const CONTRACT_SCHEMAS: Record<string, JsonObject> = {
           "rejected",
           "superseded"
         ]
+      },
+      "system_binding": {
+        "$ref": "#/$defs/systemBinding"
+      }
+    },
+    "$defs": {
+      "systemBinding": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "schema_version",
+          "system_id",
+          "parent_scope_ref",
+          "proposed_or_issued_by_ref",
+          "payload_root",
+          "created_at",
+          "updated_at"
+        ],
+        "properties": {
+          "schema_version": {
+            "const": "ioi.foundations.system-scoped-object-binding.v1"
+          },
+          "system_id": {
+            "type": "string",
+            "pattern": "^system://[^\\s]{1,500}$"
+          },
+          "parent_scope_ref": {
+            "type": "string",
+            "pattern": "^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"
+          },
+          "proposed_or_issued_by_ref": {
+            "type": "string",
+            "pattern": "^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"
+          },
+          "payload_root": {
+            "type": "string",
+            "pattern": "^sha256:[0-9a-f]{64}$"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time",
+            "pattern": "^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$"
+          },
+          "updated_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time",
+                "pattern": "^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        }
       }
     }
   },
@@ -36370,6 +36480,62 @@ const CONTRACT_SCHEMAS: Record<string, JsonObject> = {
           "revoked",
           "consumed"
         ]
+      },
+      "system_binding": {
+        "$ref": "#/$defs/systemBinding"
+      }
+    },
+    "$defs": {
+      "systemBinding": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "schema_version",
+          "system_id",
+          "parent_scope_ref",
+          "proposed_or_issued_by_ref",
+          "payload_root",
+          "created_at",
+          "updated_at"
+        ],
+        "properties": {
+          "schema_version": {
+            "const": "ioi.foundations.system-scoped-object-binding.v1"
+          },
+          "system_id": {
+            "type": "string",
+            "pattern": "^system://[^\\s]{1,500}$"
+          },
+          "parent_scope_ref": {
+            "type": "string",
+            "pattern": "^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"
+          },
+          "proposed_or_issued_by_ref": {
+            "type": "string",
+            "pattern": "^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"
+          },
+          "payload_root": {
+            "type": "string",
+            "pattern": "^sha256:[0-9a-f]{64}$"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time",
+            "pattern": "^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$"
+          },
+          "updated_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time",
+                "pattern": "^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        }
       }
     }
   },
@@ -145697,6 +145863,62 @@ const CONTRACT_SCHEMAS: Record<string, JsonObject> = {
             "type": "null"
           }
         ]
+      },
+      "system_binding": {
+        "$ref": "#/$defs/systemBinding"
+      }
+    },
+    "$defs": {
+      "systemBinding": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "schema_version",
+          "system_id",
+          "parent_scope_ref",
+          "proposed_or_issued_by_ref",
+          "payload_root",
+          "created_at",
+          "updated_at"
+        ],
+        "properties": {
+          "schema_version": {
+            "const": "ioi.foundations.system-scoped-object-binding.v1"
+          },
+          "system_id": {
+            "type": "string",
+            "pattern": "^system://[^\\s]{1,500}$"
+          },
+          "parent_scope_ref": {
+            "type": "string",
+            "pattern": "^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"
+          },
+          "proposed_or_issued_by_ref": {
+            "type": "string",
+            "pattern": "^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"
+          },
+          "payload_root": {
+            "type": "string",
+            "pattern": "^sha256:[0-9a-f]{64}$"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time",
+            "pattern": "^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$"
+          },
+          "updated_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time",
+                "pattern": "^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        }
       }
     }
   },

@@ -1,0 +1,37 @@
+{
+  "schema_version": "ioi.context-handoff.v1",
+  "handoff_id": "handoff://ho_gr_9f3a2b_review_1",
+  "work_subject_ref": "goal://gr_9f3a2b",
+  "from_context_cell_ref": "context-cell://cc_gr_9f3a2b_implementer",
+  "to_context_cell_ref": "context-cell://cc_gr_9f3a2b_reviewer",
+  "handoff_kind": "review_request",
+  "payload_ref": "implementation-result://ir_gr_9f3a2b_a",
+  "context_lease_refs": [
+    "context-lease://cl_gr_9f3a2b_implementer"
+  ],
+  "acceptance_refs": [
+    "rubric://acme/implementation/2"
+  ],
+  "receipt_refs": [
+    "receipt://acme/delivery/7/handoff/1"
+  ],
+  "non_grants": {
+    "authority_widening": "none",
+    "context_declassification": "none",
+    "executable_state_transfer": "none",
+    "budget_creation": "none",
+    "receiver_policy_bypass": "none"
+  },
+  "successor_of": "handoff://ho_gr_9f3a2b_review_0",
+  "receipt_root": "sha256:f703bca300bd886329f961d182de90c04746e0663f86ea5730746e17b842ab57",
+  "status": "accepted",
+  "system_binding": {
+    "schema_version": "ioi.foundations.system-scoped-object-binding.v1",
+    "system_id": "system://ioi/context/s5-3-proof",
+    "parent_scope_ref": "app-scope://ioi-ai/orchestration/orc_s5_3",
+    "proposed_or_issued_by_ref": "user://operator",
+    "payload_root": "sha256:261183990a7867c445d3d62c963ce9a5c2618b0db6e2775c1bdd310776e0f78c",
+    "created_at": "2026-09-19T12:00:00Z",
+    "updated_at": null
+  }
+}

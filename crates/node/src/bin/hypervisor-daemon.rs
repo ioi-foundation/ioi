@@ -2886,12 +2886,6 @@ async fn async_main() -> anyhow::Result<()> {
             "/v1/hypervisor/memory-projections/:id",
             get(ioi_intelligence_routes::handle_projections_get),
         )
-        // GoalRun plane — daemon-owned multi-harness orchestration (create → wallet-gated
-        // start → deterministic verify → admitted reconcile). Static sub-paths registered
-        // implicitly distinct from :id (axum matches deeper literals first).
-        // M04.11 — the GoalRun's own ContextLease and ContextHandoff revisions. Narrow, revoke,
-        // accept and reject are SUCCESSORS on the object's own stream, so the shared mutation spine
-        // owns the CAS; the resolution is a read model rebuilt on every read.
         // Shared WorkLifecycle durable mechanism — read-only status/projection
         // diagnostics and owner-scoped cancellation planning/compaction over the
         // accepted kernel. No generic append mutation is exposed on the wire;

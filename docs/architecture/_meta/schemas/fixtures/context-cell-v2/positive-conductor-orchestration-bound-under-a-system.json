@@ -1,0 +1,42 @@
+{
+  "schema_version": "ioi.context-cell.v2",
+  "context_cell_id": "context-cell://cc_gr_9f3a2b_conductor",
+  "work_subject_ref": "goal://gr_9f3a2b",
+  "role_topology_revision_ref": "role-topology://acme/delivery/7/revision/3",
+  "role_binding_id": "conductor",
+  "accountable_actor_ref": "participant-lease://acme/delivery/7/conductor",
+  "role": "conductor",
+  "resolver_revision_ref": "harness-profile://acme/claude-code/revision/12",
+  "resolver_content_hash": "sha256:3b1f2d4e5a6c7b8d9e0f1a2b3c4d5e6f708192a3b4c5d6e7f8091a2b3c4d5e6f",
+  "model_route_ref": "model-route://acme/frontier-a",
+  "memory_projection_refs": [
+    "memory-projection://acme/delivery/7/decisions",
+    "wiki://acme/runbooks/deploy"
+  ],
+  "context_lease_refs": [
+    "context-lease://cl_gr_9f3a2b_conductor"
+  ],
+  "information_flow_label_refs": [
+    "ifc-label://acme/internal-untrusted/4"
+  ],
+  "active_runtime_assignment_ref": "runtime-assignment://acme/pool-a/17",
+  "authority_scope_refs": [
+    "authority://acme/delivery/7/conduct",
+    "policy://acme/least-context/2"
+  ],
+  "compression_policy_ref": "policy://acme/summarize-on-sleep/1",
+  "current_claim_ref": "work-claim://acme/delivery/7/claim/22",
+  "next_wake_condition_ref": "event://acme/delivery/7/implementer-handoff",
+  "status": "active",
+  "orchestration_ref": "app-scope://ioi-ai/orchestration/orc_outcomeroomacmedelivery7",
+  "delegation_ref": "delegation://thr_composed/sub_participantlease",
+  "system_binding": {
+    "schema_version": "ioi.foundations.system-scoped-object-binding.v1",
+    "system_id": "system://ioi/context/s5-3-proof",
+    "parent_scope_ref": "app-scope://ioi-ai/orchestration/orc_s5_3",
+    "proposed_or_issued_by_ref": "user://operator",
+    "payload_root": "sha256:261183990a7867c445d3d62c963ce9a5c2618b0db6e2775c1bdd310776e0f78c",
+    "created_at": "2026-09-19T12:00:00Z",
+    "updated_at": null
+  }
+}

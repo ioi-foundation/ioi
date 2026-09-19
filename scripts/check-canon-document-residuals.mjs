@@ -256,7 +256,11 @@ try {
   // deleted with the room plane are now annotated "no registered route — deleted" where
   // orchestration-api.md lists them (the audited block and the target block), and the ratchet
   // follows the population down rather than absorbing it.
-  const ENDPOINT_RATCHET = 86; // 2026-09-18 (R-192, S5-1): −8 over 94. The GoalRun family left the daemon, which briefly RAISED the population to 109 — routes that had been registered became documented-but-unserved overnight — and the repair was to annotate them where they are documented rather than to absorb them into the pin. `orchestration-api.md` now opens by saying its whole transport is retired, and four endpoint lines inside its fences carry the annotation that covers the rest.
+  // 2026-09-19 (R-202, S5-3 M04.11): 86 -> 84. orchestration-api.md's three context routes
+  // (context-cells, context-leases, handoffs) gained the same per-route RETIRED annotation S5-1 gave
+  // their two siblings; the daemon registers none of them and the file already said so globally at
+  // its head. Two of the three were counted (11 -> 9 in that file); moved in the SAME COMMIT.
+  const ENDPOINT_RATCHET = 84; // (was 86) // 2026-09-18 (R-192, S5-1): −8 over 94. The GoalRun family left the daemon, which briefly RAISED the population to 109 — routes that had been registered became documented-but-unserved overnight — and the repair was to annotate them where they are documented rather than to absorb them into the pin. `orchestration-api.md` now opens by saying its whole transport is retired, and four endpoint lines inside its fences carry the annotation that covers the rest.
   const byFile = {};
   for (const entry of undocumented) {
     const file = entry.split(":")[0];

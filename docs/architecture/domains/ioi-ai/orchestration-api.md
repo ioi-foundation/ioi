@@ -479,9 +479,9 @@ Target fine-grained GoalRun / broker routes:
 ```http
 PATCH /v1/goal-orchestration/goal-runs/{goal_ref}  # not a daemon route — RETIRED 2026-09-18 (R-192, S5-1): the ioi.ai composition's operation, no longer served by the Hypervisor
 POST /v1/goal-orchestration/goal-runs/{goal_ref}/grounding-loop
-POST /v1/goal-orchestration/goal-runs/{goal_ref}/context-cells
-POST /v1/goal-orchestration/goal-runs/{goal_ref}/context-leases
-POST /v1/goal-orchestration/goal-runs/{goal_ref}/handoffs
+POST /v1/goal-orchestration/goal-runs/{goal_ref}/context-cells  # not a daemon route — RETIRED 2026-09-18 (R-192, S5-1): the ioi.ai composition's operation, no longer served by the Hypervisor
+POST /v1/goal-orchestration/goal-runs/{goal_ref}/context-leases  # not a daemon route — RETIRED 2026-09-18 (R-192, S5-1): the ioi.ai composition's operation, no longer served by the Hypervisor
+POST /v1/goal-orchestration/goal-runs/{goal_ref}/handoffs  # not a daemon route — RETIRED 2026-09-18 (R-192, S5-1): the ioi.ai composition's operation, no longer served by the Hypervisor
 POST /v1/goal-orchestration/goal-runs/{goal_ref}/harness-invocations
 GET  /v1/goal-orchestration/goal-runs/{goal_ref}/harness-invocations
 GET  /v1/hypervisor/harness-invocations/{harness_invocation_id}

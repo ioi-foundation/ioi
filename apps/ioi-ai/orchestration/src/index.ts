@@ -101,3 +101,34 @@ export type {
 
 export { GOAL_RUN_CONTRACTS, GoalRunRefusal, GoalRuns } from "./goalrun.js";
 export type { GoalRunDraft, ResolvedProfileClosure } from "./goalrun.js";
+export {
+  CELL_ROLES,
+  CELL_STATUSES,
+  CONTEXT_CONTRACTS,
+  CONTEXT_SCHEMA_VERSIONS,
+  ContextCells,
+  ContextHandoffs,
+  ContextLeases,
+  ContextRefusal,
+  HANDOFF_KINDS,
+  HANDOFF_NON_GRANTS,
+  HANDOFF_ROOT_MEMBERS,
+  LEASE_KINDS,
+  LEASE_ROOT_MEMBERS,
+  LEASE_TERMINAL_STATUSES,
+  parseViewRevisionRef,
+  receiptRootOf,
+} from "./context.js";
+export type {
+  CellRole,
+  ContextCellDraft,
+  ContextCellSuccessor,
+  ContextHandoffDraft,
+  ContextLeaseDraft,
+  ContextLeaseNarrowing,
+  HandoffCandidate,
+  HandoffKind,
+  LeaseKind,
+  LeastContextResolution,
+  ViewRevisionReader,
+} from "./context.js";

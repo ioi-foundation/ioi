@@ -480,6 +480,7 @@ typed handoff between cells.
 ```yaml
 ContextCellEnvelope:
   context_cell_id: context_cell://...
+  system_binding: SystemScopedObjectBinding | omitted   # (R-202, S5-3 M04.11): derived by the record seam when the composing application admits this record under its bounded System, never authored; omitted for a record not admitted under one; NOT in the receipt_root preimage below — the seam derives it after the root is taken
   work_subject_ref:
     goal://... | automation-run://... | work_run://... | run://... |
     invocation://... | work-claim://... | attempt://...
@@ -544,6 +545,7 @@ every harness.
 ```yaml
 ContextLeaseEnvelope:
   context_lease_id: context_lease://...
+  system_binding: SystemScopedObjectBinding | omitted   # (R-202, S5-3 M04.11): derived by the record seam when the composing application admits this record under its bounded System, never authored; omitted for a record not admitted under one; NOT in the receipt_root preimage below — the seam derives it after the root is taken
   work_subject_ref:
     goal://... | automation-run://... | work_run://... | run://... |
     invocation://... | work-claim://... | attempt://...
@@ -599,7 +601,8 @@ resolution: anything the bound purpose does not support is denied by the purpose
 itself, and every resolved input contributes its denials. A lease that declared
 its own data class or purpose could claim a class WIDER than the view it leases,
 which is the hole this object exists to close. `receipt_root` is SHA-256 over
-JCS of every field above except `receipt_root`.
+JCS of every field above except `receipt_root` and `system_binding` (the seam derives
+the binding after the root is taken; the wire member `schema_version` is not a field above).
 
 `permitted_recipient_roles` is the one dimension the lease owns rather than
 inherits: it constrains which cell ROLE may hold the lease, whereas the view's
@@ -625,6 +628,7 @@ the receiving cell to act without inheriting the sender's entire context window.
 ```yaml
 ContextHandoffEnvelope:
   handoff_id: handoff://...
+  system_binding: SystemScopedObjectBinding | omitted   # (R-202, S5-3 M04.11): derived by the record seam when the composing application admits this record under its bounded System, never authored; omitted for a record not admitted under one; NOT in the receipt_root preimage below — the seam derives it after the root is taken
   work_subject_ref:
     goal://... | automation-run://... | work_run://... | run://... |
     invocation://... | work-claim://... | attempt://...
@@ -668,7 +672,9 @@ a lease reaching it through a handoff is narrowed by the receiver's policy rathe
 than widened by the sender's. A handoff whose acceptance would require
 declassification is refused unless a `DeclassificationApproval` already authorises
 that exact reviewed representation — the handoff cannot mint one. `receipt_root`
-is SHA-256 over JCS of every field above except `receipt_root`.
+is SHA-256 over JCS of every field above except `receipt_root` and `system_binding` (the
+seam derives the binding after the root is taken; the wire member `schema_version` is not a
+field above).
 
 ## Orchestration Decision Receipt Registration
 

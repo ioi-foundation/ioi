@@ -395,7 +395,8 @@
       ],
       "positive_fixture_refs": [
         "fixtures/context-handoff-v1/positive-review-request-accepted.json",
-        "fixtures/context-handoff-v1/positive-task-brief-sent.json"
+        "fixtures/context-handoff-v1/positive-task-brief-sent.json",
+        "fixtures/context-handoff-v1/positive-review-request-accepted-under-a-system.json"
       ],
       "negative_fixture_refs": [
         {
@@ -470,7 +471,8 @@
       ],
       "positive_fixture_refs": [
         "fixtures/context-lease-v1/positive-view-revision-bound.json",
-        "fixtures/context-lease-v1/positive-worktree-least-context.json"
+        "fixtures/context-lease-v1/positive-worktree-least-context.json",
+        "fixtures/context-lease-v1/positive-view-revision-bound-under-a-system.json"
       ],
       "negative_fixture_refs": [
         {
@@ -19519,7 +19521,8 @@
       ],
       "positive_fixture_refs": [
         "fixtures/context-cell-v2/positive-conductor-orchestration-bound.json",
-        "fixtures/context-cell-v2/positive-implementer-topology-less.json"
+        "fixtures/context-cell-v2/positive-implementer-topology-less.json",
+        "fixtures/context-cell-v2/positive-conductor-orchestration-bound-under-a-system.json"
       ],
       "negative_fixture_refs": [
         {

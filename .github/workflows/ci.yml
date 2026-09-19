@@ -952,6 +952,7 @@ jobs:
           - verifier_id: system-record-seam
           - verifier_id: orchestration-composition
           - verifier_id: goal-run-composition
+          - verifier_id: context-family-composition
           - verifier_id: aiip-collaboration-discovery
           - verifier_id: aiip-portable-exit
           - verifier_id: aiip-binding-replaceability
@@ -1104,6 +1105,31 @@ jobs:
       - name: Drill the goal-run-composition gate's own oracles
         if: matrix.verifier_id == 'goal-run-composition'
         run: npm run mutate:goal-run-composition --workspace=@ioi/hypervisor-app
+
+      - name: Build the daemon, the agent SDK and the ioi-ai orchestration package the context-family verifier drives
+        if: matrix.verifier_id == 'context-family-composition'
+        run: |
+          cargo build --locked -p ioi-node --bin hypervisor-daemon
+          npm run build --workspace=@ioi/agent-sdk
+          npm run build --workspace=@ioi-ai/orchestration
+
+      # R-202 S5-3 M04.11 — the context family COMPOSED by ioi.ai over the orchestration: cells bind a
+      # subject this orchestration admitted; leases are issued to cells that exist here, on their
+      # subject, to roles they permit, over view REVISIONS the daemon serves; narrowing is subtraction;
+      # a terminal lease resolves nothing; handoffs are two distinct cells on one subject whose
+      # travelling leases the receiver may hold; acceptance is a candidate that copies nothing. Each
+      # receipt_root is refused BY THE REGISTERED INVARIANT'S NAME at the seam and re-derived by the gate.
+      - name: Verify the context family composed over the orchestration (R-202 S5-3 M04.11)
+        if: matrix.verifier_id == 'context-family-composition'
+        env:
+          IOI_VERIFIER_CENSUS_DIR: .artifacts/verifier-census
+          IOI_WALLET_FIXTURE_READY_TIMEOUT_MS: 1200000
+          IOI_ISOLATED_DAEMON_READY_TIMEOUT_MS: 120000
+        run: npm run check:context-family-composition --workspace=@ioi/hypervisor-app
+
+      - name: Drill the context-family-composition gate's own oracles
+        if: matrix.verifier_id == 'context-family-composition'
+        run: npm run mutate:context-family-composition --workspace=@ioi/hypervisor-app
 
       - name: Build the daemon, the agent SDK and the ioi-ai orchestration package the collaboration verifier drives
         if: matrix.verifier_id == 'aiip-collaboration-discovery'
