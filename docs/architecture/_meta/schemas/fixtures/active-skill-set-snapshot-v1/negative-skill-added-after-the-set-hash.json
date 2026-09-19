@@ -1,0 +1,22 @@
+{
+  "schema_version": "ioi.active-skill-set-snapshot.v1",
+  "active_skill_set_snapshot_id": "active-skill-set://goal-run/research",
+  "work_subject_ref": "goal://research",
+  "selected_skills": [
+    {
+      "skill_entry_ref": "skill-entry://acme-rust-review",
+      "skill_entry_binding_revision_ref": "skill-entry://acme-rust-review/revision/sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "skill_entry_binding_hash": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "skill_revision_ref": "skill://acme/rust-review/revision/sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+      "manifest_content_hash": "sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+    }
+  ],
+  "excluded_candidates": [],
+  "compatibility_and_evaluation_result_refs": [],
+  "active_set_hash": "sha256:014fa9f5c4514ea4b1fbaa10888740ad53a75ed5e8fcf0079377183ac366adf7",
+  "resolved_runtime_tool_contracts": [],
+  "context_lease_refs": [],
+  "resolution_receipt_ref": "receipt://goal-run/research/profile-resolution",
+  "registry_lifecycle_ref": null,
+  "registry_status": "active"
+}

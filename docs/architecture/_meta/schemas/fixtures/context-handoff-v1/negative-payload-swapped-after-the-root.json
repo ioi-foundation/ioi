@@ -5,7 +5,7 @@
   "from_context_cell_ref": "context-cell://cc_gr_9f3a2b_conductor",
   "to_context_cell_ref": "context-cell://cc_gr_9f3a2b_implementer",
   "handoff_kind": "task_brief",
-  "payload_ref": "task-brief://tb_gr_9f3a2b_implementer_a",
+  "payload_ref": "task-brief://tb_gr_9f3a2b_implementer_b",
   "context_lease_refs": [
     "context-lease://cl_gr_9f3a2b_implementer"
   ],

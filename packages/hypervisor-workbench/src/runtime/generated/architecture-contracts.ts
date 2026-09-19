@@ -612,6 +612,15 @@ export type GoalRunProfileResolutionReceiptV1 = {
   assurance_stage: "attested";
   receipt_root: string;
   signature?: string | null;
+  system_binding?: {
+      schema_version: "ioi.foundations.system-scoped-object-binding.v1";
+      system_id: string;
+      parent_scope_ref: string;
+      proposed_or_issued_by_ref: string;
+      payload_root: string;
+      created_at: string;
+      updated_at: string | null;
+    };
 };
 
 export type GoalRunProfileV1 = {
@@ -14197,6 +14206,15 @@ export type GoalRunV2 = {
   runtimeTruthSource?: "daemon-runtime";
   status: "draft" | "active" | "paused" | "complete" | "superseded" | "revoked";
   orchestration_ref?: string | null;
+  system_binding?: {
+      schema_version: "ioi.foundations.system-scoped-object-binding.v1";
+      system_id: string;
+      parent_scope_ref: string;
+      proposed_or_issued_by_ref: string;
+      payload_root: string;
+      created_at: string;
+      updated_at: string | null;
+    };
 };
 
 export type GoalRunActivationEnvelopeV2 = {
@@ -14731,6 +14749,22 @@ export const ARCHITECTURE_CONTRACT_FIXTURES = [
     "expected_rule_id": null
   },
   {
+    "contract_id": "schema://ioi/applications/ioi-ai/context-handoff/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/context-handoff-v1/negative-lease-added-after-the-root.json",
+    "expected": "reject",
+    "expected_schema_accept": true,
+    "expected_failure": "invariant",
+    "expected_rule_id": "context_handoff.receipt_root.recomputes"
+  },
+  {
+    "contract_id": "schema://ioi/applications/ioi-ai/context-handoff/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/context-handoff-v1/negative-payload-swapped-after-the-root.json",
+    "expected": "reject",
+    "expected_schema_accept": true,
+    "expected_failure": "invariant",
+    "expected_rule_id": "context_handoff.receipt_root.recomputes"
+  },
+  {
     "contract_id": "schema://ioi/applications/ioi-ai/context-lease/v1",
     "path": "docs/architecture/_meta/schemas/fixtures/context-lease-v1/positive-view-revision-bound.json",
     "expected": "accept",
@@ -14801,6 +14835,22 @@ export const ARCHITECTURE_CONTRACT_FIXTURES = [
     "expected_schema_accept": false,
     "expected_failure": "schema",
     "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/applications/ioi-ai/context-lease/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/context-lease-v1/negative-leased-refs-widened-after-the-root.json",
+    "expected": "reject",
+    "expected_schema_accept": true,
+    "expected_failure": "invariant",
+    "expected_rule_id": "context_lease.receipt_root.recomputes"
+  },
+  {
+    "contract_id": "schema://ioi/applications/ioi-ai/context-lease/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/context-lease-v1/negative-denied-pattern-dropped-after-the-root.json",
+    "expected": "reject",
+    "expected_schema_accept": true,
+    "expected_failure": "invariant",
+    "expected_rule_id": "context_lease.receipt_root.recomputes"
   },
   {
     "contract_id": "schema://ioi/applications/ioi-ai/finding/v3",
@@ -18705,6 +18755,22 @@ export const ARCHITECTURE_CONTRACT_FIXTURES = [
     "expected_schema_accept": false,
     "expected_failure": "schema",
     "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/foundations/active-skill-set-snapshot/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/active-skill-set-snapshot-v1/negative-skill-added-after-the-set-hash.json",
+    "expected": "reject",
+    "expected_schema_accept": true,
+    "expected_failure": "invariant",
+    "expected_rule_id": "active_skill_set_snapshot.active_set_hash.recomputes"
+  },
+  {
+    "contract_id": "schema://ioi/foundations/active-skill-set-snapshot/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/active-skill-set-snapshot-v1/negative-context-lease-added-after-the-set-hash.json",
+    "expected": "reject",
+    "expected_schema_accept": true,
+    "expected_failure": "invariant",
+    "expected_rule_id": "active_skill_set_snapshot.active_set_hash.recomputes"
   },
   {
     "contract_id": "schema://ioi/foundations/authority-scope-request-envelope/v2",
@@ -30982,6 +31048,8 @@ export const ARCHITECTURE_CONTRACT_DIFFERENTIAL_CASES: ReadonlyArray<Architectur
   differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/context-handoff-v1/negative-non-grant-weakened.json","contract_id":"schema://ioi/applications/ioi-ai/context-handoff/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/context-handoff-v1/negative-non-grant-weakened.json","mutation_id":null,"value_json":null}),
   differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/context-handoff-v1/negative-payload-scheme-invented.json","contract_id":"schema://ioi/applications/ioi-ai/context-handoff/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/context-handoff-v1/negative-payload-scheme-invented.json","mutation_id":null,"value_json":null}),
   differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/context-handoff-v1/negative-unknown-field.json","contract_id":"schema://ioi/applications/ioi-ai/context-handoff/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/context-handoff-v1/negative-unknown-field.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/context-handoff-v1/negative-lease-added-after-the-root.json","contract_id":"schema://ioi/applications/ioi-ai/context-handoff/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/context-handoff-v1/negative-lease-added-after-the-root.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/context-handoff-v1/negative-payload-swapped-after-the-root.json","contract_id":"schema://ioi/applications/ioi-ai/context-handoff/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/context-handoff-v1/negative-payload-swapped-after-the-root.json","mutation_id":null,"value_json":null}),
   differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/context-lease-v1/positive-view-revision-bound.json","contract_id":"schema://ioi/applications/ioi-ai/context-lease/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/context-lease-v1/positive-view-revision-bound.json","mutation_id":null,"value_json":null}),
   differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/context-lease-v1/positive-worktree-least-context.json","contract_id":"schema://ioi/applications/ioi-ai/context-lease/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/context-lease-v1/positive-worktree-least-context.json","mutation_id":null,"value_json":null}),
   differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/context-lease-v1/negative-lease-declares-its-own-data-class.json","contract_id":"schema://ioi/applications/ioi-ai/context-lease/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/context-lease-v1/negative-lease-declares-its-own-data-class.json","mutation_id":null,"value_json":null}),
@@ -30991,6 +31059,8 @@ export const ARCHITECTURE_CONTRACT_DIFFERENTIAL_CASES: ReadonlyArray<Architectur
   differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/context-lease-v1/negative-ttl-zero.json","contract_id":"schema://ioi/applications/ioi-ai/context-lease/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/context-lease-v1/negative-ttl-zero.json","mutation_id":null,"value_json":null}),
   differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/context-lease-v1/negative-unknown-field.json","contract_id":"schema://ioi/applications/ioi-ai/context-lease/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/context-lease-v1/negative-unknown-field.json","mutation_id":null,"value_json":null}),
   differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/context-lease-v1/negative-view-family-head.json","contract_id":"schema://ioi/applications/ioi-ai/context-lease/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/context-lease-v1/negative-view-family-head.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/context-lease-v1/negative-leased-refs-widened-after-the-root.json","contract_id":"schema://ioi/applications/ioi-ai/context-lease/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/context-lease-v1/negative-leased-refs-widened-after-the-root.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/context-lease-v1/negative-denied-pattern-dropped-after-the-root.json","contract_id":"schema://ioi/applications/ioi-ai/context-lease/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/context-lease-v1/negative-denied-pattern-dropped-after-the-root.json","mutation_id":null,"value_json":null}),
   differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/finding-v3/positive-hosted-admitted.json","contract_id":"schema://ioi/applications/ioi-ai/finding/v3","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/finding-v3/positive-hosted-admitted.json","mutation_id":null,"value_json":null}),
   differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/finding-v3/positive-non-room.json","contract_id":"schema://ioi/applications/ioi-ai/finding/v3","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/finding-v3/positive-non-room.json","mutation_id":null,"value_json":null}),
   differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/finding-v3/negative-stale-attempt-coordinate.json","contract_id":"schema://ioi/applications/ioi-ai/finding/v3","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/finding-v3/negative-stale-attempt-coordinate.json","mutation_id":null,"value_json":null}),
@@ -31479,6 +31549,8 @@ export const ARCHITECTURE_CONTRACT_DIFFERENTIAL_CASES: ReadonlyArray<Architectur
   differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/approval-ceremony-context-v1/negative-partial-predecessor.json","contract_id":"schema://ioi/foundations/approval-ceremony-context/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/approval-ceremony-context-v1/negative-partial-predecessor.json","mutation_id":null,"value_json":null}),
   differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/active-skill-set-snapshot-v1/positive-minimal.json","contract_id":"schema://ioi/foundations/active-skill-set-snapshot/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/active-skill-set-snapshot-v1/positive-minimal.json","mutation_id":null,"value_json":null}),
   differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/active-skill-set-snapshot-v1/negative-unknown-field.json","contract_id":"schema://ioi/foundations/active-skill-set-snapshot/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/active-skill-set-snapshot-v1/negative-unknown-field.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/active-skill-set-snapshot-v1/negative-skill-added-after-the-set-hash.json","contract_id":"schema://ioi/foundations/active-skill-set-snapshot/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/active-skill-set-snapshot-v1/negative-skill-added-after-the-set-hash.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/active-skill-set-snapshot-v1/negative-context-lease-added-after-the-set-hash.json","contract_id":"schema://ioi/foundations/active-skill-set-snapshot/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/active-skill-set-snapshot-v1/negative-context-lease-added-after-the-set-hash.json","mutation_id":null,"value_json":null}),
   differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/authority-scope-request-envelope-v2/positive-exact-effect.json","contract_id":"schema://ioi/foundations/authority-scope-request-envelope/v2","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/authority-scope-request-envelope-v2/positive-exact-effect.json","mutation_id":null,"value_json":null}),
   differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/authority-scope-request-envelope-v2/positive-batch-manifest.json","contract_id":"schema://ioi/foundations/authority-scope-request-envelope/v2","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/authority-scope-request-envelope-v2/positive-batch-manifest.json","mutation_id":null,"value_json":null}),
   differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/authority-scope-request-envelope-v2/positive-standing-envelope.json","contract_id":"schema://ioi/foundations/authority-scope-request-envelope/v2","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/authority-scope-request-envelope-v2/positive-standing-envelope.json","mutation_id":null,"value_json":null}),
@@ -33934,7 +34006,7 @@ export const ARCHITECTURE_CONTRACT_SCHEMA_HASHES = {
   "schema://ioi/applications/ioi-ai/goal-run-admission-path-decision/v1": "sha256:a38a908eb1ecf0ee91162b8d7b24d642cc440903e774d027123c25bd6901c1e4",
   "schema://ioi/applications/ioi-ai/goal-run-admitted-state/v1": "sha256:0746542d7754a88b937e10d7336f94c561b8e7a8d8a57246d8a8193de5049f10",
   "schema://ioi/applications/ioi-ai/goal-run-execution-ceiling/v1": "sha256:ede0138bfe5d32d8bffec8c085e51356aa53f4c8c44f6c3313d6fa143fd1b8cb",
-  "schema://ioi/applications/ioi-ai/goal-run-profile-resolution-receipt/v1": "sha256:3505a87702e6c46dccd4f92d88bbf0066bc83a47c79268485af41c2bbd59d286",
+  "schema://ioi/applications/ioi-ai/goal-run-profile-resolution-receipt/v1": "sha256:7e63365f5bcde1c235bebe68debbdb78b7ce550c6fc9ae501bab59b5c14ec900",
   "schema://ioi/applications/ioi-ai/goal-run-profile/v1": "sha256:fbdd558781430936a00565c6edcb6c14962ab95664981514864556c2d44fa4a0",
   "schema://ioi/applications/ioi-ai/goal-run/v1": "sha256:03f2aa66af2424ebb30b6adb4c605d8a22fa50816b0f939d62c868a799c16cb5",
   "schema://ioi/applications/ioi-ai/outcome-room-discussion-projection/v1": "sha256:d98eec6115a535ad4a53cdffbefccf6e6b19302502b8e86bdf9db5c5fd4710f0",
@@ -34249,7 +34321,7 @@ export const ARCHITECTURE_CONTRACT_SCHEMA_HASHES = {
   "schema://ioi/applications/ioi-ai/outcome-room-discovery/v1": "sha256:4f180dec8f4e5a6280ec6f83fda7ec5d80a6ce6a10432a58f3b969eac2a54ad2",
   "schema://ioi/applications/ioi-ai/orchestration-discovery/v1": "sha256:e83849fc04673f4731ab603c5c8a75322c3a702051eba31fd8f65876f6290b82",
   "schema://ioi/applications/ioi-ai/orchestration/v1": "sha256:7cf31ecade85abb3dc84ffd51e647b1e2e32416e1a263e12ffb3e53cced1d851",
-  "schema://ioi/applications/ioi-ai/goal-run/v2": "sha256:71226e3a3cb3df1bf13860233a592fe5f466fd25e3bdd59a77df2315adef1c47",
+  "schema://ioi/applications/ioi-ai/goal-run/v2": "sha256:f843964767cf75ef25912c9d095c463a3bc29b207cdb927504b07a612c7eae01",
   "schema://ioi/applications/ioi-ai/goal-run-activation/v2": "sha256:60157023c71824c31be1c35804806a43bdbed1c37a014b6bdb2672a453d0b92d",
   "schema://ioi/applications/ioi-ai/goal-run-activation-receipt/v2": "sha256:2701eb60f790a4a9559ce1a2962a02de37d718943988b2c0d2b09b37331801f5",
   "schema://ioi/applications/ioi-ai/goal-run-admission-path-decision/v2": "sha256:4c8093ac4b46e395a49ed8454a6da27a4769eb0b6cb9455b75c17145811c0dd6",
@@ -39330,6 +39402,9 @@ const CONTRACT_SCHEMAS: Record<string, JsonObject> = {
             "type": "null"
           }
         ]
+      },
+      "system_binding": {
+        "$ref": "#/$defs/systemBinding"
       }
     },
     "allOf": [
@@ -39375,7 +39450,60 @@ const CONTRACT_SCHEMAS: Record<string, JsonObject> = {
           ]
         }
       }
-    ]
+    ],
+    "$defs": {
+      "systemBinding": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "schema_version",
+          "system_id",
+          "parent_scope_ref",
+          "proposed_or_issued_by_ref",
+          "payload_root",
+          "created_at",
+          "updated_at"
+        ],
+        "properties": {
+          "schema_version": {
+            "const": "ioi.foundations.system-scoped-object-binding.v1"
+          },
+          "system_id": {
+            "type": "string",
+            "pattern": "^system://[^\\s]{1,500}$"
+          },
+          "parent_scope_ref": {
+            "type": "string",
+            "pattern": "^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"
+          },
+          "proposed_or_issued_by_ref": {
+            "type": "string",
+            "pattern": "^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"
+          },
+          "payload_root": {
+            "type": "string",
+            "pattern": "^sha256:[0-9a-f]{64}$"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time",
+            "pattern": "^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$"
+          },
+          "updated_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time",
+                "pattern": "^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        }
+      }
+    }
   },
   "schema://ioi/applications/ioi-ai/goal-run-profile/v1": {
     "$schema": "https://json-schema.org/draft/2020-12/schema",
@@ -143988,6 +144116,9 @@ const CONTRACT_SCHEMAS: Record<string, JsonObject> = {
             "type": "null"
           }
         ]
+      },
+      "system_binding": {
+        "$ref": "#/$defs/systemBinding"
       }
     },
     "allOf": [
@@ -144020,7 +144151,60 @@ const CONTRACT_SCHEMAS: Record<string, JsonObject> = {
         }
       }
     ],
-    "description": "Version 2 (2026-09-18, R-178 slice S4d-2, R-190): the GoalRun composes over the ioi.ai orchestration — the room coordinates of v1 are gone and `orchestration_ref` names the composition; successor of v1."
+    "description": "Version 2 (2026-09-18, R-178 slice S4d-2, R-190): the GoalRun composes over the ioi.ai orchestration — the room coordinates of v1 are gone and `orchestration_ref` names the composition; successor of v1.",
+    "$defs": {
+      "systemBinding": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "schema_version",
+          "system_id",
+          "parent_scope_ref",
+          "proposed_or_issued_by_ref",
+          "payload_root",
+          "created_at",
+          "updated_at"
+        ],
+        "properties": {
+          "schema_version": {
+            "const": "ioi.foundations.system-scoped-object-binding.v1"
+          },
+          "system_id": {
+            "type": "string",
+            "pattern": "^system://[^\\s]{1,500}$"
+          },
+          "parent_scope_ref": {
+            "type": "string",
+            "pattern": "^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"
+          },
+          "proposed_or_issued_by_ref": {
+            "type": "string",
+            "pattern": "^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"
+          },
+          "payload_root": {
+            "type": "string",
+            "pattern": "^sha256:[0-9a-f]{64}$"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time",
+            "pattern": "^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$"
+          },
+          "updated_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time",
+                "pattern": "^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        }
+      }
+    }
   },
   "schema://ioi/applications/ioi-ai/goal-run-activation/v2": {
     "$schema": "https://json-schema.org/draft/2020-12/schema",
@@ -146440,8 +146624,121 @@ const CONTRACT_INVARIANTS: Record<string, Array<JsonObject>> = {
   ],
   "schema://ioi/applications/ioi-ai/collaborative-work-graph/v1": [],
   "schema://ioi/applications/ioi-ai/context-cell/v1": [],
-  "schema://ioi/applications/ioi-ai/context-handoff/v1": [],
-  "schema://ioi/applications/ioi-ai/context-lease/v1": [],
+  "schema://ioi/applications/ioi-ai/context-handoff/v1": [
+    {
+      "rule_id": "context_handoff.receipt_root.recomputes",
+      "description": "The handoff root commits THE PACKET AS SENT: its identity, its work subject, the sending and receiving cells, the kind, the payload ref, the leases travelling with it, the acceptance criteria, the receipts, the whole non_grants block, the succession and the status — canon states the preimage verbatim in goal-run-execution.md § ContextHandoffEnvelope: 'receipt_root is SHA-256 over JCS of every field above except receipt_root'. Until this rule existed nothing recomputed it, so the lease set a receiver re-evaluates on acceptance could gain a member after the root was taken and the packet would still present as the one that was sent. A root nobody recomputes commits nothing. PREIMAGE CORRECTED 2026-09-19 (R-199): canon's sentence is \"every field above except receipt_root\", and `schema_version` is not a field of the canon block — it is the wire member the registered schema adds — so it is NOT material. A first draft of this rule hashed it, which no producer following canon would reproduce.",
+      "expression": {
+        "operator": "jcs_sha256_equals",
+        "algorithm": "jcs_sha256",
+        "expected_path": "$.receipt_root",
+        "expected_encoding": "sha256_string",
+        "material_fields": {
+          "handoff_id": {
+            "path": "$.handoff_id"
+          },
+          "work_subject_ref": {
+            "path": "$.work_subject_ref"
+          },
+          "from_context_cell_ref": {
+            "path": "$.from_context_cell_ref"
+          },
+          "to_context_cell_ref": {
+            "path": "$.to_context_cell_ref"
+          },
+          "handoff_kind": {
+            "path": "$.handoff_kind"
+          },
+          "payload_ref": {
+            "path": "$.payload_ref"
+          },
+          "context_lease_refs": {
+            "path": "$.context_lease_refs"
+          },
+          "acceptance_refs": {
+            "path": "$.acceptance_refs"
+          },
+          "receipt_refs": {
+            "path": "$.receipt_refs"
+          },
+          "non_grants": {
+            "path": "$.non_grants"
+          },
+          "successor_of": {
+            "path": "$.successor_of"
+          },
+          "status": {
+            "path": "$.status"
+          }
+        }
+      }
+    }
+  ],
+  "schema://ioi/applications/ioi-ai/context-lease/v1": [
+    {
+      "rule_id": "context_lease.receipt_root.recomputes",
+      "description": "The lease root commits THE LEASE ITSELF: its identity, its work subject and holder, its kind, both pattern fences, the authority scopes, the budget, the TTL, the receipt requirement, the EXACT leased revisions, the information-flow labels, the permitted recipient roles, the succession and its predecessor's validity, and the status — canon states the preimage verbatim in goal-run-execution.md § ContextLeaseEnvelope: 'receipt_root is SHA-256 over JCS of every field above except receipt_root'. Until this rule existed nothing recomputed it, so the one field the least-context claim rests on — leased_refs, the lease's binding truth — could be widened after the root was taken and the record would still read as an admitted lease. A root nobody recomputes commits nothing. PREIMAGE CORRECTED 2026-09-19 (R-199): canon's sentence is \"every field above except receipt_root\", and `schema_version` is not a field of the canon block — it is the wire member the registered schema adds — so it is NOT material. A first draft of this rule hashed it, which no producer following canon would reproduce.",
+      "expression": {
+        "operator": "jcs_sha256_equals",
+        "algorithm": "jcs_sha256",
+        "expected_path": "$.receipt_root",
+        "expected_encoding": "sha256_string",
+        "material_fields": {
+          "context_lease_id": {
+            "path": "$.context_lease_id"
+          },
+          "work_subject_ref": {
+            "path": "$.work_subject_ref"
+          },
+          "context_cell_ref": {
+            "path": "$.context_cell_ref"
+          },
+          "issued_to_ref": {
+            "path": "$.issued_to_ref"
+          },
+          "lease_kind": {
+            "path": "$.lease_kind"
+          },
+          "allowed_ref_patterns": {
+            "path": "$.allowed_ref_patterns"
+          },
+          "denied_ref_patterns": {
+            "path": "$.denied_ref_patterns"
+          },
+          "authority_scope_refs": {
+            "path": "$.authority_scope_refs"
+          },
+          "budget_ref": {
+            "path": "$.budget_ref"
+          },
+          "ttl_seconds": {
+            "path": "$.ttl_seconds"
+          },
+          "receipt_required": {
+            "path": "$.receipt_required"
+          },
+          "leased_refs": {
+            "path": "$.leased_refs"
+          },
+          "information_flow_label_refs": {
+            "path": "$.information_flow_label_refs"
+          },
+          "permitted_recipient_roles": {
+            "path": "$.permitted_recipient_roles"
+          },
+          "successor_of": {
+            "path": "$.successor_of"
+          },
+          "predecessor_remains_valid": {
+            "path": "$.predecessor_remains_valid"
+          },
+          "status": {
+            "path": "$.status"
+          }
+        }
+      }
+    }
+  ],
   "schema://ioi/applications/ioi-ai/finding/v3": [
     {
       "rule_id": "finding.room.matches_admission",
@@ -150023,7 +150320,41 @@ const CONTRACT_INVARIANTS: Record<string, Array<JsonObject>> = {
   "schema://ioi/components/hypervisor/workload-isolation-binding/v1": [],
   "schema://ioi/components/hypervisor/workload-isolation-requirements/v1": [],
   "schema://ioi/foundations/approval-ceremony-context/v1": [],
-  "schema://ioi/foundations/active-skill-set-snapshot/v1": [],
+  "schema://ioi/foundations/active-skill-set-snapshot/v1": [
+    {
+      "rule_id": "active_skill_set_snapshot.active_set_hash.recomputes",
+      "description": "The active-set hash commits WHAT THE RUN ACTUALLY RESOLVED, under the estate's only producer's own preimage: the domain separator `ioi.active-skill-set-jcs-sha256.v1` as the first member, the mandatory work subject, every selected skill row with its exact SkillEntry binding revision/hash and SkillManifest revision/hash, the excluded candidates with their reasons and decisions, the compatibility and evaluation results, the resolved runtime tool revisions/hashes, and the ContextLease refs — seven members, JCS-canonicalised, SHA-256. That is exactly what skill_contract_routes.rs computes and then validates through this contract, so a rule with any other preimage refuses every snapshot the daemon writes (measured on 2026-09-19: a five-member draft of this rule disagreed with the producer for every input). Canon names the exclusions by name — resolution_receipt_ref, registry_lifecycle_ref and registry_status stay OUT so the admission receipt may carry the snapshot ref and hash without a self-referential commitment and so supersession or revocation changes eligibility WITHOUT rewriting what the run originally resolved — and names no other exclusion, so the work subject the producer commits is committed here too: a snapshot re-pointed at another subject changes its hash. NOT CLAIMED: the snapshot's own identity is not in the preimage; the producer derives the id FROM the hash, so it cannot be.",
+      "expression": {
+        "operator": "jcs_sha256_equals",
+        "algorithm": "jcs_sha256",
+        "expected_path": "$.active_set_hash",
+        "expected_encoding": "sha256_string",
+        "material_fields": {
+          "domain": {
+            "value": "ioi.active-skill-set-jcs-sha256.v1"
+          },
+          "work_subject_ref": {
+            "path": "$.work_subject_ref"
+          },
+          "selected_skills": {
+            "path": "$.selected_skills"
+          },
+          "excluded_candidates": {
+            "path": "$.excluded_candidates"
+          },
+          "compatibility_and_evaluation_result_refs": {
+            "path": "$.compatibility_and_evaluation_result_refs"
+          },
+          "resolved_runtime_tool_contracts": {
+            "path": "$.resolved_runtime_tool_contracts"
+          },
+          "context_lease_refs": {
+            "path": "$.context_lease_refs"
+          }
+        }
+      }
+    }
+  ],
   "schema://ioi/foundations/authority-scope-request-envelope/v2": [
     {
       "rule_id": "authority_request.capability.required",

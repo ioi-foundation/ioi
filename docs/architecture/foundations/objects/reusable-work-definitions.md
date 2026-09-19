@@ -254,3 +254,13 @@ without rewriting what the run originally resolved.
 
 `work_subject_ref` is mandatory. A snapshot with no exact admitted work binding
 fails closed.
+
+The preimage, stated exactly (R-199, 2026-09-19): `active_set_hash` is SHA-256
+over JCS of an object whose members are, in this order of declaration, the
+domain separator `domain: "ioi.active-skill-set-jcs-sha256.v1"`,
+`work_subject_ref`, `selected_skills`, `excluded_candidates`,
+`compatibility_and_evaluation_result_refs`, `resolved_runtime_tool_contracts`
+and `context_lease_refs`. The snapshot's own identity is derived FROM the hash
+(`active-skill-set://snapshot/<hash>`) and is therefore never in it; the three
+exclusions above stay excluded. A registered invariant recomputes this preimage
+on every admitted snapshot.

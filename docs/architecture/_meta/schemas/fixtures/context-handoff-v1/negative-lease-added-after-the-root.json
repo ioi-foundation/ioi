@@ -7,7 +7,8 @@
   "handoff_kind": "task_brief",
   "payload_ref": "task-brief://tb_gr_9f3a2b_implementer_a",
   "context_lease_refs": [
-    "context-lease://cl_gr_9f3a2b_implementer"
+    "context-lease://cl_gr_9f3a2b_implementer",
+    "context-lease://cl_gr_9f3a2b_reviewer"
   ],
   "acceptance_refs": [
     "rubric://acme/implementation/2"

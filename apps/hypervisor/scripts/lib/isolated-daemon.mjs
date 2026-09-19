@@ -25,7 +25,7 @@
 //                                                               // and removes the temp data dir
 // stop() is idempotent, runs on success or failure (call it in `finally`), and a best-effort
 // process-exit hook covers crashes between spawn and finally.
-import { spawn } from "node:child_process";
+import { spawn, spawnSync } from "node:child_process";
 import {
   closeSync,
   mkdtempSync,
@@ -57,6 +57,29 @@ export function resolveIsolatedDaemonBinary(source = process.env) {
 }
 
 export const DAEMON_BINARY = resolveIsolatedDaemonBinary();
+
+// R-198: a binary's EXISTENCE is not evidence of its currentness. `scripts/lib/rust-hypervisor-daemon.mjs`
+// already ruled this for the JS runtime-daemon gates — a restored CI cache, or a local tree whose
+// contracts were regenerated after the last build, satisfies `existsSync` with a daemon that enforces
+// the PREVIOUS estate's shapes, and every downstream assertion then measures the wrong build. This
+// family never inherited that rule: the whole Hypervisor verifier estate reached for
+// `target/debug/hypervisor-daemon` and spawned whatever was there. It now builds first, exactly as the
+// sibling does. Cargo's own fingerprinting makes the already-fresh case a sub-second no-op, so there is
+// nothing to save by skipping, and `IOI_HYPERVISOR_DAEMON_BINARY` remains the explicit override for a
+// caller that deliberately supplies a prebuilt daemon (release qualification), which is left untouched.
+export function buildIsolatedDaemonBinary(source = process.env) {
+  if (source.IOI_HYPERVISOR_DAEMON_BINARY) return { built: false, reason: "explicit binary override" };
+  const build = spawnSync("cargo", ["build", "-p", "ioi-node", "--bin", "hypervisor-daemon"], {
+    cwd: REPO,
+    encoding: "utf8",
+  });
+  if (build.status !== 0) {
+    throw new Error(
+      `the isolated plane cannot measure a daemon it could not build:\n${build.stdout ?? ""}\n${build.stderr ?? ""}`,
+    );
+  }
+  return { built: true, reason: "cargo build -p ioi-node --bin hypervisor-daemon" };
+}
 
 // Keep the verifier-only transport-log boundary beside the helper that owns the
 // filenames. Durable-state snapshots may exclude exactly these root files, but
@@ -289,6 +312,7 @@ export async function startIsolatedPlane({
   baseEnv = process.env,
 } = {}) {
   const { existsSync } = await import("node:fs");
+  buildIsolatedDaemonBinary(baseEnv);
   if (!existsSync(DAEMON_BINARY)) return null;
   const readyTimeoutMs = resolveIsolatedReadyTimeoutMs(baseEnv);
   const reused = !!reuseDataDir;

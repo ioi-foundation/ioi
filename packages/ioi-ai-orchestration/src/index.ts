@@ -98,3 +98,6 @@ export type {
   RevisedOrchestration,
 } from "./orchestrations.js";
 
+
+export { GOAL_RUN_CONTRACTS, GoalRunRefusal, GoalRuns } from "./goalrun.js";
+export type { GoalRunDraft, ResolvedProfileClosure } from "./goalrun.js";

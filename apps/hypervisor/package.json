@@ -150,6 +150,8 @@
     "check:system-record-seam": "node scripts/verify-hypervisor-system-record-seam.mjs",
     "mutate:system-record-seam": "node scripts/verify-hypervisor-system-record-seam.mjs --mutation",
     "check:orchestration-composition": "node scripts/verify-hypervisor-orchestration-composition.mjs",
+    "check:goal-run-composition": "node scripts/verify-hypervisor-goal-run-composition.mjs",
+    "mutate:goal-run-composition": "node scripts/verify-hypervisor-goal-run-composition.mjs --mutation",
     "mutate:orchestration-composition": "node scripts/verify-hypervisor-orchestration-composition.mjs --mutation",
     "check:aiip-collaboration-discovery": "node scripts/verify-hypervisor-aiip-collaboration-discovery.mjs",
     "mutate:aiip-collaboration-discovery": "node scripts/verify-hypervisor-aiip-collaboration-discovery.mjs --mutation",

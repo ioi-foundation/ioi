@@ -374,7 +374,12 @@
         "hash_impact": "none"
       },
       "schema_ref": "context-handoff.v1.schema.json",
-      "cross_field_invariant_refs": [],
+      "cross_field_invariant_refs": [
+        {
+          "invariant_id": "invariant://ioi/applications/ioi-ai/context-handoff/receipt-root-recomputes/v1",
+          "path": "invariants/context-handoff.v1.invariants.json"
+        }
+      ],
       "compatibility_aliases": [],
       "generated_targets": [
         {
@@ -412,6 +417,16 @@
         {
           "path": "fixtures/context-handoff-v1/negative-unknown-field.json",
           "expected_failure": "schema"
+        },
+        {
+          "path": "fixtures/context-handoff-v1/negative-lease-added-after-the-root.json",
+          "expected_failure": "invariant",
+          "expected_rule_id": "context_handoff.receipt_root.recomputes"
+        },
+        {
+          "path": "fixtures/context-handoff-v1/negative-payload-swapped-after-the-root.json",
+          "expected_failure": "invariant",
+          "expected_rule_id": "context_handoff.receipt_root.recomputes"
         }
       ]
     },
@@ -434,7 +449,12 @@
         "hash_impact": "none"
       },
       "schema_ref": "context-lease.v1.schema.json",
-      "cross_field_invariant_refs": [],
+      "cross_field_invariant_refs": [
+        {
+          "invariant_id": "invariant://ioi/applications/ioi-ai/context-lease/receipt-root-recomputes/v1",
+          "path": "invariants/context-lease.v1.invariants.json"
+        }
+      ],
       "compatibility_aliases": [],
       "generated_targets": [
         {
@@ -480,6 +500,16 @@
         {
           "path": "fixtures/context-lease-v1/negative-view-family-head.json",
           "expected_failure": "schema"
+        },
+        {
+          "path": "fixtures/context-lease-v1/negative-leased-refs-widened-after-the-root.json",
+          "expected_failure": "invariant",
+          "expected_rule_id": "context_lease.receipt_root.recomputes"
+        },
+        {
+          "path": "fixtures/context-lease-v1/negative-denied-pattern-dropped-after-the-root.json",
+          "expected_failure": "invariant",
+          "expected_rule_id": "context_lease.receipt_root.recomputes"
         }
       ]
     },
@@ -6708,7 +6738,12 @@
         "hash_impact": "signature_preimage_changed"
       },
       "schema_ref": "active-skill-set-snapshot.v1.schema.json",
-      "cross_field_invariant_refs": [],
+      "cross_field_invariant_refs": [
+        {
+          "invariant_id": "invariant://ioi/foundations/active-skill-set-snapshot/active-set-hash-recomputes/v1",
+          "path": "invariants/active-skill-set-snapshot.v1.invariants.json"
+        }
+      ],
       "compatibility_aliases": [],
       "generated_targets": [
         {
@@ -6729,6 +6764,16 @@
         {
           "path": "fixtures/active-skill-set-snapshot-v1/negative-unknown-field.json",
           "expected_failure": "schema"
+        },
+        {
+          "path": "fixtures/active-skill-set-snapshot-v1/negative-skill-added-after-the-set-hash.json",
+          "expected_failure": "invariant",
+          "expected_rule_id": "active_skill_set_snapshot.active_set_hash.recomputes"
+        },
+        {
+          "path": "fixtures/active-skill-set-snapshot-v1/negative-context-lease-added-after-the-set-hash.json",
+          "expected_failure": "invariant",
+          "expected_rule_id": "active_skill_set_snapshot.active_set_hash.recomputes"
         }
       ]
     },

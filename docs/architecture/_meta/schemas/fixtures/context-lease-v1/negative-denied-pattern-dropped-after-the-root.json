@@ -9,7 +9,6 @@
     "workspace://goal-run/gr_9f3a2b/implementer_a"
   ],
   "denied_ref_patterns": [
-    "secret://",
     "unsafe_plaintext://",
     "workspace://session/s_77"
   ],

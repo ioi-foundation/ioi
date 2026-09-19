@@ -7,7 +7,9 @@
   "compatibility_and_evaluation_result_refs": [],
   "active_set_hash": "sha256:014fa9f5c4514ea4b1fbaa10888740ad53a75ed5e8fcf0079377183ac366adf7",
   "resolved_runtime_tool_contracts": [],
-  "context_lease_refs": [],
+  "context_lease_refs": [
+    "context-lease://goal-run/research/implementer"
+  ],
   "resolution_receipt_ref": "receipt://goal-run/research/profile-resolution",
   "registry_lifecycle_ref": null,
   "registry_status": "active"

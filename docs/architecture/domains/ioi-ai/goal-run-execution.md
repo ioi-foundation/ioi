@@ -76,6 +76,7 @@ GoalRunEnvelope:
   user_intent_ref: intent://... | prompt://...
   normalized_goal: string
   orchestration_ref: app-scope://ioi-ai/orchestration/... | null   # v2 (R-190, S4d-2): the orchestration this run is a member of; stamped by the composing application, null for a direct run
+  system_binding: SystemScopedObjectBinding | omitted   # (R-197, S5-3): derived by the record seam when the composing application admits the run under its bounded System, never authored; omitted for a run that is not admitted under one
   room_participant_lease_ref: participant-lease://... | null
   frontier_item_refs:
     - frontier://...

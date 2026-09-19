@@ -1,0 +1,70 @@
+{
+  "$id": "invariant://ioi/applications/ioi-ai/context-lease/receipt-root-recomputes/v1",
+  "language": "ioi.portable-invariants.v2",
+  "contract_id": "schema://ioi/applications/ioi-ai/context-lease/v1",
+  "rules": [
+    {
+      "rule_id": "context_lease.receipt_root.recomputes",
+      "description": "The lease root commits THE LEASE ITSELF: its identity, its work subject and holder, its kind, both pattern fences, the authority scopes, the budget, the TTL, the receipt requirement, the EXACT leased revisions, the information-flow labels, the permitted recipient roles, the succession and its predecessor's validity, and the status \u2014 canon states the preimage verbatim in goal-run-execution.md \u00a7 ContextLeaseEnvelope: 'receipt_root is SHA-256 over JCS of every field above except receipt_root'. Until this rule existed nothing recomputed it, so the one field the least-context claim rests on \u2014 leased_refs, the lease's binding truth \u2014 could be widened after the root was taken and the record would still read as an admitted lease. A root nobody recomputes commits nothing. PREIMAGE CORRECTED 2026-09-19 (R-199): canon's sentence is \"every field above except receipt_root\", and `schema_version` is not a field of the canon block \u2014 it is the wire member the registered schema adds \u2014 so it is NOT material. A first draft of this rule hashed it, which no producer following canon would reproduce.",
+      "expression": {
+        "operator": "jcs_sha256_equals",
+        "algorithm": "jcs_sha256",
+        "expected_path": "$.receipt_root",
+        "expected_encoding": "sha256_string",
+        "material_fields": {
+          "context_lease_id": {
+            "path": "$.context_lease_id"
+          },
+          "work_subject_ref": {
+            "path": "$.work_subject_ref"
+          },
+          "context_cell_ref": {
+            "path": "$.context_cell_ref"
+          },
+          "issued_to_ref": {
+            "path": "$.issued_to_ref"
+          },
+          "lease_kind": {
+            "path": "$.lease_kind"
+          },
+          "allowed_ref_patterns": {
+            "path": "$.allowed_ref_patterns"
+          },
+          "denied_ref_patterns": {
+            "path": "$.denied_ref_patterns"
+          },
+          "authority_scope_refs": {
+            "path": "$.authority_scope_refs"
+          },
+          "budget_ref": {
+            "path": "$.budget_ref"
+          },
+          "ttl_seconds": {
+            "path": "$.ttl_seconds"
+          },
+          "receipt_required": {
+            "path": "$.receipt_required"
+          },
+          "leased_refs": {
+            "path": "$.leased_refs"
+          },
+          "information_flow_label_refs": {
+            "path": "$.information_flow_label_refs"
+          },
+          "permitted_recipient_roles": {
+            "path": "$.permitted_recipient_roles"
+          },
+          "successor_of": {
+            "path": "$.successor_of"
+          },
+          "predecessor_remains_valid": {
+            "path": "$.predecessor_remains_valid"
+          },
+          "status": {
+            "path": "$.status"
+          }
+        }
+      }
+    }
+  ]
+}

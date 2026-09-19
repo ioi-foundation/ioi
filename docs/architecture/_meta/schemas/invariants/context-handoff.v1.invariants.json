@@ -1,0 +1,55 @@
+{
+  "$id": "invariant://ioi/applications/ioi-ai/context-handoff/receipt-root-recomputes/v1",
+  "language": "ioi.portable-invariants.v2",
+  "contract_id": "schema://ioi/applications/ioi-ai/context-handoff/v1",
+  "rules": [
+    {
+      "rule_id": "context_handoff.receipt_root.recomputes",
+      "description": "The handoff root commits THE PACKET AS SENT: its identity, its work subject, the sending and receiving cells, the kind, the payload ref, the leases travelling with it, the acceptance criteria, the receipts, the whole non_grants block, the succession and the status \u2014 canon states the preimage verbatim in goal-run-execution.md \u00a7 ContextHandoffEnvelope: 'receipt_root is SHA-256 over JCS of every field above except receipt_root'. Until this rule existed nothing recomputed it, so the lease set a receiver re-evaluates on acceptance could gain a member after the root was taken and the packet would still present as the one that was sent. A root nobody recomputes commits nothing. PREIMAGE CORRECTED 2026-09-19 (R-199): canon's sentence is \"every field above except receipt_root\", and `schema_version` is not a field of the canon block \u2014 it is the wire member the registered schema adds \u2014 so it is NOT material. A first draft of this rule hashed it, which no producer following canon would reproduce.",
+      "expression": {
+        "operator": "jcs_sha256_equals",
+        "algorithm": "jcs_sha256",
+        "expected_path": "$.receipt_root",
+        "expected_encoding": "sha256_string",
+        "material_fields": {
+          "handoff_id": {
+            "path": "$.handoff_id"
+          },
+          "work_subject_ref": {
+            "path": "$.work_subject_ref"
+          },
+          "from_context_cell_ref": {
+            "path": "$.from_context_cell_ref"
+          },
+          "to_context_cell_ref": {
+            "path": "$.to_context_cell_ref"
+          },
+          "handoff_kind": {
+            "path": "$.handoff_kind"
+          },
+          "payload_ref": {
+            "path": "$.payload_ref"
+          },
+          "context_lease_refs": {
+            "path": "$.context_lease_refs"
+          },
+          "acceptance_refs": {
+            "path": "$.acceptance_refs"
+          },
+          "receipt_refs": {
+            "path": "$.receipt_refs"
+          },
+          "non_grants": {
+            "path": "$.non_grants"
+          },
+          "successor_of": {
+            "path": "$.successor_of"
+          },
+          "status": {
+            "path": "$.status"
+          }
+        }
+      }
+    }
+  ]
+}

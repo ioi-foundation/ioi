@@ -1,0 +1,40 @@
+{
+  "$id": "invariant://ioi/foundations/active-skill-set-snapshot/active-set-hash-recomputes/v1",
+  "language": "ioi.portable-invariants.v2",
+  "contract_id": "schema://ioi/foundations/active-skill-set-snapshot/v1",
+  "rules": [
+    {
+      "rule_id": "active_skill_set_snapshot.active_set_hash.recomputes",
+      "description": "The active-set hash commits WHAT THE RUN ACTUALLY RESOLVED, under the estate's only producer's own preimage: the domain separator `ioi.active-skill-set-jcs-sha256.v1` as the first member, the mandatory work subject, every selected skill row with its exact SkillEntry binding revision/hash and SkillManifest revision/hash, the excluded candidates with their reasons and decisions, the compatibility and evaluation results, the resolved runtime tool revisions/hashes, and the ContextLease refs \u2014 seven members, JCS-canonicalised, SHA-256. That is exactly what skill_contract_routes.rs computes and then validates through this contract, so a rule with any other preimage refuses every snapshot the daemon writes (measured on 2026-09-19: a five-member draft of this rule disagreed with the producer for every input). Canon names the exclusions by name \u2014 resolution_receipt_ref, registry_lifecycle_ref and registry_status stay OUT so the admission receipt may carry the snapshot ref and hash without a self-referential commitment and so supersession or revocation changes eligibility WITHOUT rewriting what the run originally resolved \u2014 and names no other exclusion, so the work subject the producer commits is committed here too: a snapshot re-pointed at another subject changes its hash. NOT CLAIMED: the snapshot's own identity is not in the preimage; the producer derives the id FROM the hash, so it cannot be.",
+      "expression": {
+        "operator": "jcs_sha256_equals",
+        "algorithm": "jcs_sha256",
+        "expected_path": "$.active_set_hash",
+        "expected_encoding": "sha256_string",
+        "material_fields": {
+          "domain": {
+            "value": "ioi.active-skill-set-jcs-sha256.v1"
+          },
+          "work_subject_ref": {
+            "path": "$.work_subject_ref"
+          },
+          "selected_skills": {
+            "path": "$.selected_skills"
+          },
+          "excluded_candidates": {
+            "path": "$.excluded_candidates"
+          },
+          "compatibility_and_evaluation_result_refs": {
+            "path": "$.compatibility_and_evaluation_result_refs"
+          },
+          "resolved_runtime_tool_contracts": {
+            "path": "$.resolved_runtime_tool_contracts"
+          },
+          "context_lease_refs": {
+            "path": "$.context_lease_refs"
+          }
+        }
+      }
+    }
+  ]
+}

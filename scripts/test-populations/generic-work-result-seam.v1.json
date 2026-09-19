@@ -27,7 +27,6 @@
         "work_result_routes::work_result_tests::result_finalize_atomicity_no_orphan_record_no_orphan_receipt",
         "work_result_routes::work_result_tests::sensitive_keys_are_rejected_recursively",
         "work_result_routes::work_result_tests::supersedes_requires_resolvable_same_goal_same_room_result",
-        "work_result_routes::work_result_tests::verifier_challenge_backlink_is_plane_owned_and_exact",
         "work_result_routes::work_result_tests::work_result_commitment_binds_its_domain_and_the_whole_record",
         "work_result_routes::work_result_tests::work_result_commitment_distinguishes_owner_admitted_backlink_versions",
         "work_result_routes::work_result_tests::work_result_subject_resolver_answers_absence_and_non_entitlement_identically",
@@ -49,6 +48,6 @@
       "min_passed": 1
     }
   ],
-  "pinned_on": "2026-09-08",
-  "rule": "Every family lists exactly these test names via `cargo test -- --list --exact`, then runs them with passed == pinned count; a renamed, deleted, ignored or added test is red until this pin is deliberately moved."
+  "pinned_on": "2026-09-19",
+  "rule": "Every family lists exactly these test names via `cargo test -- --list --exact`, then runs them with passed == pinned count; a renamed, deleted, ignored or added test is red until this pin is deliberately moved. Pin moved 2026-09-19 (R-197 commit, fencing an S4d-1 regression): 20 -> 19 \u2014 `verifier_challenge_backlink_is_plane_owned_and_exact` was deleted with the WorkResult->VerifierChallenge backlink seam by 71c3d2255 (2026-09-18, recorded in the ledger at the time) and this pin was not moved with it, so ACC-5 clause 1 was red from that commit until this one."
 }

@@ -1,10 +1,10 @@
 {
   "schema_version": "ioi.context-lease.v1",
-  "context_lease_id": "context-lease://cl_gr_9f3a2b_reviewer",
+  "context_lease_id": "context-lease://cl_gr_9f3a2b_implementer",
   "work_subject_ref": "goal://gr_9f3a2b",
-  "context_cell_ref": "context-cell://cc_gr_9f3a2b_reviewer",
-  "issued_to_ref": "harness-invocation://hi_gr_9f3a2b_review_1",
-  "lease_kind": "mixed",
+  "context_cell_ref": "context-cell://cc_gr_9f3a2b_implementer",
+  "issued_to_ref": "context-cell://cc_gr_9f3a2b_implementer",
+  "lease_kind": "worktree",
   "allowed_ref_patterns": [
     "workspace://goal-run/gr_9f3a2b/implementer_a"
   ],
@@ -20,19 +20,17 @@
   "ttl_seconds": 3600,
   "receipt_required": true,
   "leased_refs": [
-    "view://acme/customer-contacts/revision/12",
-    "memory-projection://acme/delivery/7/decisions",
-    "receipt://acme/delivery/7/execute/3"
+    "workspace://goal-run/gr_9f3a2b/implementer_a",
+    "view://acme/customer-contacts/revision/12"
   ],
   "information_flow_label_refs": [
     "ifc-label://acme/internal-untrusted/4"
   ],
   "permitted_recipient_roles": [
-    "reviewer",
-    "verifier"
+    "implementer"
   ],
-  "successor_of": "context-lease://cl_gr_9f3a2b_reviewer_prior",
-  "predecessor_remains_valid": true,
-  "receipt_root": "sha256:4c39818b8c20248872f378f85599fa8676cfc3b83d577d961461d42f43317509",
+  "successor_of": null,
+  "predecessor_remains_valid": false,
+  "receipt_root": "sha256:e4c6cfc0413620998b8563b1bd467e4e85bcfcd9e382ccddffa6387ffeaf2c69",
   "status": "active"
 }

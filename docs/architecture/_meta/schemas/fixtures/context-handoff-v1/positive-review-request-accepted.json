@@ -23,6 +23,6 @@
     "receiver_policy_bypass": "none"
   },
   "successor_of": "handoff://ho_gr_9f3a2b_review_0",
-  "receipt_root": "sha256:1f2e3d4c5b6a798807162534435261708192a3b4c5d6e7f8091a2b3c4d5e6f70",
+  "receipt_root": "sha256:f703bca300bd886329f961d182de90c04746e0663f86ea5730746e17b842ab57",
   "status": "accepted"
 }
