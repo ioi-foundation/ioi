@@ -2919,6 +2919,54 @@ POST /v1/threads/{thread_id}/subagents/{subagent_id}/assign
 POST /v1/threads/{thread_id}/subagents/cancel
 ```
 
+### The delegation edge, and what the platform refuses to understand
+
+A delegation has two halves and they are owned by different layers. The CHILD
+OBJECT — prompt, status, role, run ref — is the subagent surface's, and persists
+here. The DELEGATION EDGE — the parent-to-child work-owning relation and its
+bounds — is the kernel's, admitted as a `child_reference` on the work-lifecycle
+record chain through
+`POST /v1/hypervisor/work-lifecycle/records` (ADR 0034 sub-ruling 5).
+
+The edge carries, and the platform reads, exactly what it needs to BOUND and
+ATTRIBUTE the delegation:
+
+```text
+ancestor_chain          every ancestor whose bound this delegation narrows
+                        — its LENGTH is the delegation depth; depth is read off
+                        the chain, never minted as a reservation dimension
+concurrent_invocations  the fanout claim, on the existing per-dimension
+                        reservation seam (R-74); a delegation narrows its
+                        ancestors' ceilings and can never widen them
+accountable_actor_ref   who answers for the delegated work
+resolver refs           the harness profile or adapter revision and content hash
+                        the child will run on, and its model route
+```
+
+It also carries `role_kind` and `topology_kind`, and **the platform does not
+know what they mean.** This is the whole content of "topology-agnostic", and it
+is a narrower claim than it sounds: not that the daemon supports every topology,
+but that it branches on none. There is no match arm, no default, and no
+behaviour anywhere in the daemon keyed on either value. A `reviewer` and a
+`specialist_mesh` are words the composing application wrote and the platform
+records verbatim beside the delegation they describe.
+
+The vocabularies are still closed, and the closing is done by the CONTRACT
+rather than by the runtime: the registered delegation-edge contract constrains
+both fields to the enumerations canon states — eleven role kinds and ten
+topology kinds, owned with the composition in
+[`goal-run-execution.md`](../../domains/ioi-ai/goal-run-execution.md)
+§ *RoleTopologyEnvelope* — so a nonsense value is refused at admission by the
+schema while the code stays value-blind. An application that needs a topology
+canon does not yet name adds it there, and no daemon code changes.
+
+The reason for the split is the defect it prevents. The retired GoalRun
+admission kernel emitted one hardcoded `topology_kind`, pinned one orchestration
+policy, set the verifier to the conductor and capped fanout at a constant two.
+A platform that enumerated ten kinds instead of one would be the same defect at
+a larger size, because a platform that can name a topology will eventually
+branch on it.
+
 Subagent list/result projections should expose current claim, lease expiry,
 heartbeat or wake condition, spend, last contribution, blockers, evidence,
 verification, and cancellation/quarantine posture. Clients must not reduce
