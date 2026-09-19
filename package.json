@@ -6,9 +6,9 @@
     "apps/developers-ioi-ai",
     "apps/hypervisor",
     "apps/hypervisor-web",
-    "apps/ioi-ai/orchestration",
     "apps/sas-xyz",
-    "packages/*"
+    "packages/*",
+    "apps/ioi-ai/orchestration"
   ],
   "scripts": {
     "install:all": "npm install",
