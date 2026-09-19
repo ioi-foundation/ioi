@@ -32,7 +32,12 @@ const CONSTITUTION_REF = "constitution://ioi/record-seam/s1-proof/v1";
 const PACKAGE = "package://ioi/outcome-room"; // the fixture's exact genesis release package; the seam is package-neutral
 const DEPLOYMENT_AUTHORITY = "domain://acme-host";
 const CONTRACT = "schema://ioi/applications/ioi-ai/work-frontier-item/v3";
-const UNSCOPED_CONTRACT = "schema://ioi/applications/ioi-ai/goal-run/v2";
+// The "unscoped" example must be a contract that can NEVER gain a SystemScopedObjectBinding. goal-run/v2
+// was that example until 2026-09-19, when R-197 gave it the binding (additively) so the ioi.ai composition
+// could admit runs through this seam — and this assertion went red in CI with `not_registered_valid`
+// (the seam validated the v1 fixture against v2) instead of `contract_unscoped`. goal-run/v1 is its frozen
+// predecessor: wire_mutation_policy "forbidden", no successor edits, and the fixture below is its own.
+const UNSCOPED_CONTRACT = "schema://ioi/applications/ioi-ai/goal-run/v1";
 const ROUTE = `/v1/hypervisor/autonomous-systems/${encodeURIComponent(SYSTEM_ID)}/records`;
 let OWNER = "user://local-operator";
 const results = [];

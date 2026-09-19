@@ -15,7 +15,7 @@ import test from "node:test";
 import { GOAL_RUN_CONTRACTS, GoalRuns } from "../dist/index.js";
 
 const here = path.dirname(fileURLToPath(import.meta.url));
-const schemas = path.resolve(here, "../../../docs/architecture/_meta/schemas");
+const schemas = path.resolve(here, "../../../../docs/architecture/_meta/schemas");
 const readJson = (rel) => JSON.parse(fs.readFileSync(path.join(schemas, rel), "utf8"));
 
 const SCOPE = "app-scope://ioi-ai/orchestration/orc_demo";

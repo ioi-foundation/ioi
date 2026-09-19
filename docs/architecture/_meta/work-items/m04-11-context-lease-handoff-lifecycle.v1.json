@@ -27,7 +27,7 @@
       "present_when": "merged"
     },
     {
-      "path": "packages/ioi-ai-orchestration/src/orchestrations.ts",
+      "path": "apps/ioi-ai/orchestration/src/orchestrations.ts",
       "present_when": "merged"
     },
     {

@@ -73,7 +73,7 @@ binding that records nothing as non-equivalent is claiming an equivalence the
 estate never grants), and an active binding declares its lifecycle and status
 mapping (`aiip_external_protocol_binding.active.declares_lifecycle_mapping`).
 The bindings themselves are application-layer transport adapters over the
-collaboration crossing (`packages/ioi-ai-orchestration/src/bindings.ts`): each
+collaboration crossing (`apps/ioi-ai/orchestration/src/bindings.ts`): each
 carries the same registered envelope byte-identically, checked by the envelope's
 own hash, and hands back a transport receipt whose state word means nothing to
 IOI; the receiving application admits the envelope through its own composer and

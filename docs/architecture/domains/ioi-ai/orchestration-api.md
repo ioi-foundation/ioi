@@ -18,7 +18,7 @@ Implementation status: planned — **NOT SERVED BY THE HYPERVISOR** as of
 the daemon; these are the application's operations awaiting re-homing onto the
 System-record seam in slice S5-3. Read the banner below before any route here.
 Implementation refs:
-  - `packages/ioi-ai-orchestration/src/orchestrations.ts` (the orchestration composition that replaced the hosted-v2 room routes, deleted 2026-09-17 under R-187)
+  - `apps/ioi-ai/orchestration/src/orchestrations.ts` (the orchestration composition that replaced the hosted-v2 room routes, deleted 2026-09-17 under R-187)
   - `crates/node/src/bin/hypervisor_daemon_routes/system_record_routes.rs` (the System-record seam these operations are being re-homed onto)
 Last implementation audit: 2026-09-18
 
@@ -43,7 +43,7 @@ and none may be re-hosted as one.
 Where they go instead: the orchestration itself is already an application record
 on the System-scoped record seam
 ([`collaborative-pursuit.md`](collaborative-pursuit.md) § *Work objects v4*,
-R-185), composed in `packages/ioi-ai-orchestration` over the coordinating thread,
+R-185), composed in `apps/ioi-ai/orchestration` over the coordinating thread,
 its subagents and that seam. Slice S5-3 re-homes GoalRun, GoalRunActivation, the
 GoalRun profile and the context family the same way. Until it lands, the ioi.ai
 goal space has no backend for these operations, and that is stated rather than
@@ -98,7 +98,7 @@ work-frontier-items, work-claim-leases, resource-offers, capability-offers,
 work-eligibility-matches, verifier-challenges, room-participation-requests,
 room-participant-leases, collaboration-terms and local-agent-pairing-sessions
 (43 routes deleted with their modules). Those objects are v4 application
-records the ioi.ai composer (`packages/ioi-ai-orchestration`) admits through the
+records the ioi.ai composer (`apps/ioi-ai/orchestration`) admits through the
 System-record seam, and participation is an `OrchestrationParticipationRequest`
 or a delegation of the coordinating thread
 ([`collaborative-pursuit.md`](./collaborative-pursuit.md)). The room-nested
@@ -112,7 +112,7 @@ goal space — the one live consumer the hosted-v2 OutcomeRoom routes had — no
 longer calls them. It consumes `OrchestrationEnvelope`
 ([`collaborative-pursuit.md`](./collaborative-pursuit.md)
 § *OrchestrationEnvelope*, the successor of `OutcomeRoomEnvelope`) through
-`packages/ioi-ai-orchestration` over the S2 orchestration handle and the
+`apps/ioi-ai/orchestration` over the S2 orchestration handle and the
 System-record seam: composing creates the coordinating thread and admits the
 record; listing, opening, the graph, replay and delegations are reads; GoalRun
 attach and detach and the status are revisions on the exact head. The daemon

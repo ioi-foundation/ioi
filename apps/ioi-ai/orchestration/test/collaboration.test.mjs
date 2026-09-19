@@ -31,7 +31,7 @@ import {
 } from "../dist/index.js";
 
 const here = path.dirname(fileURLToPath(import.meta.url));
-const schemas = path.resolve(here, "../../../docs/architecture/_meta/schemas");
+const schemas = path.resolve(here, "../../../../docs/architecture/_meta/schemas");
 const readJson = (rel) => JSON.parse(fs.readFileSync(path.join(schemas, rel), "utf8"));
 const materialMembers = (invariantFile, ruleId) => {
   const rule = readJson(`invariants/${invariantFile}`).rules.find((r) => r.rule_id === ruleId);

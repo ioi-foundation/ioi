@@ -126,9 +126,9 @@ function genesisBody() {
 
 async function loadModules() {
   const sdk = join(REPO, "packages", "agent-sdk", "dist", "index.js");
-  const composer = join(REPO, "packages", "ioi-ai-orchestration", "dist", "index.js");
+  const composer = join(REPO, "apps", "ioi-ai", "orchestration", "dist", "index.js");
   requireValue(existsSync(sdk), "BLOCKED: build packages/agent-sdk first");
-  requireValue(existsSync(composer), "BLOCKED: build packages/ioi-ai-orchestration first");
+  requireValue(existsSync(composer), "BLOCKED: build apps/ioi-ai/orchestration first");
   return { sdk: await import(pathToFileURL(sdk).href), composer: await import(pathToFileURL(composer).href) };
 }
 

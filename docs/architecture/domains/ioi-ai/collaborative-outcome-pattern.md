@@ -14,7 +14,7 @@ ioi.ai owners under ADR 0052 Decision 4).
 Doctrine status: canonical
 Implementation status: partial (the M3 direct GoalRun/WorkResult seam exists.
 Implementation refs:
-  - `packages/ioi-ai-orchestration/src/orchestrations.ts` (the composition; `goalrun_routes.rs` was deleted 2026-09-18 under R-192 slice S5-1)
+  - `apps/ioi-ai/orchestration/src/orchestrations.ts` (the composition; `goalrun_routes.rs` was deleted 2026-09-18 under R-192 slice S5-1)
 The current hosted M4 implementation demonstrates package/genesis binding,
 reciprocal GoalRun membership, and a minimum WorkResult/OutcomeDelta graph, but
 its room-owned admission, transition, receipt, and root spine is migration input

@@ -23,7 +23,7 @@ import {
 } from "../dist/index.js";
 
 const here = path.dirname(fileURLToPath(import.meta.url));
-const schemas = path.resolve(here, "../../../docs/architecture/_meta/schemas");
+const schemas = path.resolve(here, "../../../../docs/architecture/_meta/schemas");
 const readJson = (rel) => JSON.parse(fs.readFileSync(path.join(schemas, rel), "utf8"));
 const schema = readJson("orchestration.v1.schema.json");
 const registry = readJson("architecture-contract-registry.v1.json");

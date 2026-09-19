@@ -2,7 +2,7 @@
 // M11.2 / R-175 — portable exit and federated admission, COMPOSED over M11.1 (ACC-13 clauses 6 and 7).
 //
 // WHAT IS PROVED, on the isolated daemon and the REAL wallet.network fixture, through the built agent
-// SDK and the built @ioi/ioi-ai-orchestration package: an accepted participant EXITS through a third
+// SDK and the built @ioi-ai/orchestration package: an accepted participant EXITS through a third
 // revision of its participation record citing the least-disclosing state bundle produced with it and
 // the seam receipt of the accepted revision it leaves from, and the orchestration CONTINUES (the
 // coordinating thread stays active, a new record admits, another participant's head is unmoved, a
@@ -99,7 +99,7 @@ async function run() {
   let resolver; let plane;
   try {
     const sdk = await loadBuilt("packages/agent-sdk/dist/index.js", "packages/agent-sdk (npm run build --workspace=@ioi/agent-sdk)");
-    const app = await loadBuilt("packages/ioi-ai-orchestration/dist/index.js", "packages/ioi-ai-orchestration (npm run build --workspace=@ioi/ioi-ai-orchestration)");
+    const app = await loadBuilt("apps/ioi-ai/orchestration/dist/index.js", "apps/ioi-ai/orchestration (npm run build --workspace=@ioi-ai/orchestration)");
     const { Orchestration, createRuntimeSubstrateClient } = sdk;
     const { COLLABORATION_CONTRACTS, Collaboration, buildParticipationRequest, deriveParticipationDecisionMaterialHash, generateSigner, signerFromSeed, verifyParticipationDecision, verifyStateBundle } = app;
     const baseEnv = { ...sanitizedVerifierBaseEnv() };
@@ -213,7 +213,7 @@ async function run() {
     ok("[restart] the hosted fence holds after restart", !lateAlone.ok && lateAlone.code === "hosted_decision_takes_no_adjudicator", JSON.stringify(lateAlone).slice(0, 200));
 
     // -- structure ------------------------------------------------------------------------------------------------------
-    const appSource = readFileSync(join(REPO, "packages/ioi-ai-orchestration/src/collaboration.ts"), "utf8");
+    const appSource = readFileSync(join(REPO, "apps/ioi-ai/orchestration/src/collaboration.ts"), "utf8");
     const routerSource = readFileSync(join(REPO, "crates/node/src/bin/hypervisor-daemon.rs"), "utf8");
     ok("[structure] exit and federated admission are application code with no plane: the package names no room or lease object, drives no goal-orchestration route, and the daemon registers no route for the participation successor", !/\b(room|rooms)\b/iu.test(appSource) && !/participant[_ -]lease/iu.test(appSource) && !/goal-orchestration/u.test(appSource) && !/orchestration-participation|portable-exit|state-bundle/u.test(routerSource), "");
 

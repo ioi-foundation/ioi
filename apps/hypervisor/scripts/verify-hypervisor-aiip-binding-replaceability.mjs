@@ -5,7 +5,7 @@
 // binding.
 //
 // WHAT IS PROVED, on the isolated daemon and the REAL wallet.network fixture, through the built agent
-// SDK and the built @ioi/ioi-ai-orchestration package, against three in-process PEERS speaking the
+// SDK and the built @ioi-ai/orchestration package, against three in-process PEERS speaking the
 // A2A, MCP and HTTP/JSON-RPC wire shapes: the SAME signed participation request crosses through all
 // three bindings byte-identically (every transport receipt carries the same envelope hash; the host
 // admits the first delivery and recognizes the other two as the same submission — one record, one
@@ -125,7 +125,7 @@ async function run() {
   let resolver; let plane; const peers = [];
   try {
     const sdk = await loadBuilt("packages/agent-sdk/dist/index.js", "packages/agent-sdk (npm run build --workspace=@ioi/agent-sdk)");
-    const app = await loadBuilt("packages/ioi-ai-orchestration/dist/index.js", "packages/ioi-ai-orchestration (npm run build --workspace=@ioi/ioi-ai-orchestration)");
+    const app = await loadBuilt("apps/ioi-ai/orchestration/dist/index.js", "apps/ioi-ai/orchestration (npm run build --workspace=@ioi-ai/orchestration)");
     const { Orchestration, createRuntimeSubstrateClient } = sdk;
     const { A2aBinding, COLLABORATION_CONTRACTS, Collaboration, HttpJsonRpcBinding, McpBinding, buildParticipationRequest, deriveCrossingEnvelopeHash, generateSigner, selectBinding, signerFromSeed } = app;
     const baseEnv = { ...sanitizedVerifierBaseEnv() };
@@ -223,7 +223,7 @@ async function run() {
     ok("[restart] the accepted participation is reproduced from durable admissions (2 revisions, same head); a re-delivery of the original submission over another binding after the decision is recognized and changes nothing", after.revisions?.length === 2 && after.head === decided.value?.expected_head_for_successor && redelivered.ok && (await collaboration.participation(request.participation_request_id)).head === after.head, JSON.stringify({ after: after.head, redelivered }).slice(0, 300));
 
     // -- structure -----------------------------------------------------------------------------------------------------------
-    const bindingsSource = readFileSync(join(REPO, "packages/ioi-ai-orchestration/src/bindings.ts"), "utf8");
+    const bindingsSource = readFileSync(join(REPO, "apps/ioi-ai/orchestration/src/bindings.ts"), "utf8");
     const routerSource = readFileSync(join(REPO, "crates/node/src/bin/hypervisor-daemon.rs"), "utf8");
     ok("[structure] bindings are application-layer adapters with no plane: the module names no room or lease, imports no daemon route, and the daemon registers no route for the crossing (no aiip/a2a/mcp crossing route)", !/\b(room|rooms)\b/iu.test(bindingsSource) && !/participant[_ -]lease/iu.test(bindingsSource) && !/goal-orchestration|\/v1\/hypervisor\//u.test(bindingsSource) && !/"\/v1\/[^"]*(?:aiip|a2a|mcp-crossing)[^"]*"/u.test(routerSource), "");
 

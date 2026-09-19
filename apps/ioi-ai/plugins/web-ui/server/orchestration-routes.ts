@@ -13,7 +13,7 @@ import {
   orchestrationIdTail,
   type OrchestrationGovernance,
   type OrchestrationMode,
-} from "../../../../../packages/ioi-ai-orchestration/dist/index.js";
+} from "../../../orchestration/dist/index.js";
 import type { IoiDaemonAuthority, IoiDaemonGateway, IoiDaemonResponse } from "./ioi-daemon.ts";
 
 export interface OrchestrationRouteTools {

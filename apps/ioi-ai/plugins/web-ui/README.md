@@ -41,13 +41,13 @@ exchange configuration is a fail-closed 503; browser-supplied `ioi_session` cook
 bearer tokens are not a fallback.
 
 Orchestrations are not proxied daemon routes. `/api/ioi/orchestrations/*` runs the ioi.ai
-composition in `packages/ioi-ai-orchestration` over the agent SDK's substrate client, built for one
+composition in `apps/ioi-ai/orchestration` over the agent SDK's substrate client, built for one
 request on the verified daemon authority: composing creates the coordinating thread and admits the
 orchestration record through the System-record seam; listing, opening, the graph, replay and
 delegations are reads of that record's chain and of the kernel's thread; attaching a GoalRun or
 changing the status is a revision of the record on the exact head the client loaded. Both packages
 must be built first (`npm run build --workspace=@ioi/agent-sdk` and
-`npm run build --workspace=@ioi/ioi-ai-orchestration` from the repository root).
+`npm run build --workspace=@ioi-ai/orchestration` from the repository root).
 
 Set the same four `IOI_PORTAL_DAEMON_EXCHANGE_*` trust values on this BFF and the daemon. The secret
 must be a random value of at least 32 bytes; issuer, audience, and the canonical `org://` or

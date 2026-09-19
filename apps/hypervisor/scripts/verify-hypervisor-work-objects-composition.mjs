@@ -6,7 +6,7 @@
 // coordinating thread) and never from a room or a lease.
 //
 // WHAT IS PROVED, on the isolated daemon and the REAL wallet.network fixture, through the built agent
-// SDK and the built @ioi/ioi-ai-orchestration package: a claim by a delegation (a subagent the kernel
+// SDK and the built @ioi-ai/orchestration package: a claim by a delegation (a subagent the kernel
 // lists under this orchestration's thread) and a claim by an accepted external participation each
 // admit with the binding derived; the actor rules refuse a foreign thread's delegation, a subagent
 // the kernel does not list, a participation not yet accepted, a participation that exited, no actor
@@ -96,7 +96,7 @@ async function run() {
   let resolver; let plane;
   try {
     const sdk = await loadBuilt("packages/agent-sdk/dist/index.js", "packages/agent-sdk (npm run build --workspace=@ioi/agent-sdk)");
-    const app = await loadBuilt("packages/ioi-ai-orchestration/dist/index.js", "packages/ioi-ai-orchestration (npm run build --workspace=@ioi/ioi-ai-orchestration)");
+    const app = await loadBuilt("apps/ioi-ai/orchestration/dist/index.js", "apps/ioi-ai/orchestration (npm run build --workspace=@ioi-ai/orchestration)");
     const { Orchestration, createRuntimeSubstrateClient } = sdk;
     const { COLLABORATION_CONTRACTS, Collaboration, WORK_CONTRACTS, Work, buildParticipationRequest, coordinateOf, delegationActor, generateSigner, participationActor, signerFromSeed, verifyFrozenCoordinates } = app;
     const baseEnv = { ...sanitizedVerifierBaseEnv() };
@@ -211,7 +211,7 @@ async function run() {
     ok("[restart] a re-attached composer reads the claim (2 revisions) and the attempt (its frozen coordinates still re-deriving from the served records) from durable admissions, and the actor rules hold", afterClaim.revisions?.length === 2 && afterClaim.head === completed.value?.expected_head_for_successor && afterAttempt.current && verifyFrozenCoordinates(afterAttempt.current, { frontier_item: { record: servedItem.current, ref: items[0].frontier_item_id }, work_claim: { record: servedClaim.current, ref: CLAIM_D } }).ok && !lateForeign.ok && lateForeign.code === "work_actor_delegation_foreign_thread", JSON.stringify({ afterClaim: afterClaim.revisions?.length, lateForeign }).slice(0, 200));
 
     // -- structure ------------------------------------------------------------------------------------------------------------
-    const workSource = readFileSync(join(REPO, "packages/ioi-ai-orchestration/src/work.ts"), "utf8");
+    const workSource = readFileSync(join(REPO, "apps/ioi-ai/orchestration/src/work.ts"), "utf8");
     const routerSource = readFileSync(join(REPO, "crates/node/src/bin/hypervisor-daemon.rs"), "utf8");
     // R-178 S4a / R-179 (2026-09-16): the four daemon planes that served v3 are DELETED, not merely
     // ignorant of v4 — their absence is the structural fact, together with the router mounting no

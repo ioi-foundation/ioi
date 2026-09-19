@@ -19,7 +19,7 @@ import {
 } from "../dist/index.js";
 
 const here = path.dirname(fileURLToPath(import.meta.url));
-const schemas = path.resolve(here, "../../../docs/architecture/_meta/schemas");
+const schemas = path.resolve(here, "../../../../docs/architecture/_meta/schemas");
 const readJson = (rel) => JSON.parse(fs.readFileSync(path.join(schemas, rel), "utf8"));
 const profiles = ["positive-a2a-transport.json", "positive-mcp-transport.json", "positive-http-json-rpc-transport.json", "positive-native-aiip.json"].map((n) => readJson(`fixtures/aiip-external-protocol-binding-envelope-v1/${n}`));
 

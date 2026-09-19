@@ -14,11 +14,11 @@
   ],
   "code_anchors": [
     {
-      "path": "packages/ioi-ai-orchestration/src/collaboration.ts",
+      "path": "apps/ioi-ai/orchestration/src/collaboration.ts",
       "present_when": "merged"
     },
     {
-      "path": "packages/ioi-ai-orchestration/src/work.ts",
+      "path": "apps/ioi-ai/orchestration/src/work.ts",
       "present_when": "merged"
     },
     {
@@ -32,7 +32,7 @@
   "pr": null,
   "adversarial_or_fault_proof": "The fast lane's driver plants three defects and requires each to be refused: a pinned name with no matching fn, a name whose fn exists but whose module path cannot be listed, and an empty population. The scheduled wrapper's drill runs five synthetic runs with no wallet fixture: a complete one that must qualify (the positive control, so the refusals below prove strictness rather than breakage), one missing a pinned assertion, one whose campaign fell under the source-bound floor, one under the ratchet, and one reporting no campaign at all -- each refused as named. The fast lane's population was additionally cross-checked against the harness's own --list after the first draft, derived by source regex, under-derived by 13: thirteen of the module's tests are #[tokio::test] async fn and a regex that scraped #[test] never saw them, so the driver passed 5/5 on a population that left 13 tests deletable in silence. The sibling M04.6 population was cross-checked the same way and is complete.",
   "remaining_nonclaims": [
-    "SUPERSEDED 2026-09-16 (R-178 slice S4a, R-179): m048_collaboration_routes.rs and the participation, lease, offer, frontier, claim, attempt, finding and verifier-challenge planes it wrapped were DELETED from the daemon (43 /v1/goal-orchestration/* routes), and with them check:m4-room-participation-contribution-architecture, its population file, the scheduled wallet-authority soak (qualify-m4-room-participation-contribution-soak.mjs, m048-wallet-authority-soak.yml) and the drill. Outcome rooms and goal runs are ioi.ai compositions over thread orchestration primitives, not hypervisor planes; the participation and contribution lifecycles are composed in packages/ioi-ai-orchestration over the System-record seam and driven by check:aiip-collaboration-discovery and check:work-objects-composition on the real wallet fixture. The pins recorded here are retained as history of what the deleted plane proved; none of them is a live claim.",
+    "SUPERSEDED 2026-09-16 (R-178 slice S4a, R-179): m048_collaboration_routes.rs and the participation, lease, offer, frontier, claim, attempt, finding and verifier-challenge planes it wrapped were DELETED from the daemon (43 /v1/goal-orchestration/* routes), and with them check:m4-room-participation-contribution-architecture, its population file, the scheduled wallet-authority soak (qualify-m4-room-participation-contribution-soak.mjs, m048-wallet-authority-soak.yml) and the drill. Outcome rooms and goal runs are ioi.ai compositions over thread orchestration primitives, not hypervisor planes; the participation and contribution lifecycles are composed in apps/ioi-ai/orchestration over the System-record seam and driven by check:aiip-collaboration-discovery and check:work-objects-composition on the real wallet fixture. The pins recorded here are retained as history of what the deleted plane proved; none of them is a live claim.",
     "These are PINS, not new behaviour. No daemon or kernel source changed except the soak verifier gaining a crossing counter, and nothing about what the plane does is different.",
     "TYPED ABSENCE: the soak lane itself was not run on this host. It requires the release wallet fixture and this host builds debug only, so what is proven is the wrapper's refusals and not one real qualified run. Closure test: one artifact under _meta/evidence/m04-8-room-participation-soak-*.v1.json from a release host, which also sets the first ratchet; until then the ratchet floor is 0 and only the source-bound floor binds.",
     "The wrapper makes the soak's depth non-reducible in silence. It does not make the campaign deeper, and the floor it records is the depth as it stands, not a judgement that the depth suffices.",

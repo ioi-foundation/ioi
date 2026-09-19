@@ -1085,7 +1085,7 @@ jobs:
         run: |
           cargo build --locked -p ioi-node --bin hypervisor-daemon
           npm run build --workspace=@ioi/agent-sdk
-          npm run build --workspace=@ioi/ioi-ai-orchestration
+          npm run build --workspace=@ioi-ai/orchestration
 
       # R-197 S5-3 step 2 — the GoalRun COMPOSED by ioi.ai over the orchestration, which is unit
       # M04.4's subject: a profile-resolution receipt is admitted through the S1 seam only when its
@@ -1110,7 +1110,7 @@ jobs:
         run: |
           cargo build --locked -p ioi-node --bin hypervisor-daemon
           npm run build --workspace=@ioi/agent-sdk
-          npm run build --workspace=@ioi/ioi-ai-orchestration
+          npm run build --workspace=@ioi-ai/orchestration
 
       # R-172 S3 / M11.1 — collaboration COMPOSED in the ioi.ai application over thread primitives and
       # the System-record seam (ACC-13 clauses 1, 2, 3, N1): terms v3 with activation derived from
@@ -1136,7 +1136,7 @@ jobs:
         run: |
           cargo build --locked -p ioi-node --bin hypervisor-daemon
           npm run build --workspace=@ioi/agent-sdk
-          npm run build --workspace=@ioi/ioi-ai-orchestration
+          npm run build --workspace=@ioi-ai/orchestration
 
       # R-185 / R-172 S4c-1 — the ioi.ai application's orchestrations RECORDED under a bounded System:
       # the coordinating thread first, then the one typed record (orchestration/v1, the successor of
@@ -1164,7 +1164,7 @@ jobs:
         run: |
           cargo build --locked -p ioi-node --bin hypervisor-daemon
           npm run build --workspace=@ioi/agent-sdk
-          npm run build --workspace=@ioi/ioi-ai-orchestration
+          npm run build --workspace=@ioi-ai/orchestration
 
       # M11.2 / R-175 — portable exit and federated admission composed over M11.1 (ACC-13 clauses 6
       # and 7): an accepted participant exits through a third revision citing its least-disclosing
@@ -1188,7 +1188,7 @@ jobs:
         run: |
           cargo build --locked -p ioi-node --bin hypervisor-daemon
           npm run build --workspace=@ioi/agent-sdk
-          npm run build --workspace=@ioi/ioi-ai-orchestration
+          npm run build --workspace=@ioi-ai/orchestration
 
       # M11.3 / R-176 — standards bindings as replaceable transports (ACC-13 clause 5): the same
       # signed request crosses A2A-, MCP- and JSON-RPC-shaped peers byte-identically and is one
@@ -1211,7 +1211,7 @@ jobs:
         run: |
           cargo build --locked -p ioi-node --bin hypervisor-daemon
           npm run build --workspace=@ioi/agent-sdk
-          npm run build --workspace=@ioi/ioi-ai-orchestration
+          npm run build --workspace=@ioi-ai/orchestration
 
       # R-177 S4b — the six work objects (WorkClaim, Attempt, Finding, VerifierChallenge,
       # ResourceOffer, CapabilityOffer v4) composed over the orchestration as records under the

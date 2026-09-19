@@ -358,7 +358,7 @@ OrchestrationEnvelope:
 The ioi.ai web application's goal space is the first consumer of this record
 and the reason it exists (R-185): its six proxied hosted-room routes are
 re-pointed at this composition, so the ioi.ai UI consumes the orchestration
-through `packages/ioi-ai-orchestration` over the seam and the S2 handle, never
+through `apps/ioi-ai/orchestration` over the seam and the S2 handle, never
 through a daemon room route. The daemon session the ioi.ai portal exchange mints
 reaches exactly the primitives the composition drives — `/v1/threads`, a thread
 and its subagents, the Systems projection and the record seam under a System —

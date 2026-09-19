@@ -6,6 +6,7 @@
     "apps/developers-ioi-ai",
     "apps/hypervisor",
     "apps/hypervisor-web",
+    "apps/ioi-ai/orchestration",
     "apps/sas-xyz",
     "packages/*"
   ],
