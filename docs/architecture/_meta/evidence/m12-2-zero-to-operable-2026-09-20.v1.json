@@ -1,0 +1,309 @@
+{
+  "schema": "ioi.zero-to-operable-evidence.v1",
+  "mode": "full",
+  "started_at": "2026-09-20T06:05:24.273Z",
+  "drills": [
+    {
+      "name": "PREVIEW is read-only and names the plan: what install + activate WOULD write (release dir, current link, activation state), the endpoints, data custody, supervisor and egress posture, for the verified release",
+      "pass": true,
+      "detail": "0.0.0-zero-to-operable → /tmp/ioi-zero-to-operable-Mj6MSw/preview-missing-6d28c08f/releases/0.0.0-zero-to-operable",
+      "at": "2026-09-20T06:05:24.307Z"
+    },
+    {
+      "name": "PREVIEW wrote nothing: a prefix that did not exist still does not exist after the preview",
+      "pass": true,
+      "detail": "/tmp/ioi-zero-to-operable-Mj6MSw/preview-missing-6d28c08f",
+      "at": "2026-09-20T06:05:24.307Z"
+    },
+    {
+      "name": "PREVIEW over a prefix holding foreign material (keys, truth, backups) leaves every byte as it found it and LISTS what install would preserve",
+      "pass": true,
+      "detail": "3 files · 320778ce526b4ca0",
+      "at": "2026-09-20T06:05:24.336Z"
+    },
+    {
+      "name": "INSTALL + ACTIVATE write exactly the installer's footprint under the prefix (releases/<version>, current, state/activation.json) beside the foreign material",
+      "pass": true,
+      "detail": "/tmp/ioi-zero-to-operable-Mj6MSw/prefix-ygM5oE",
+      "at": "2026-09-20T06:05:24.390Z"
+    },
+    {
+      "name": "UNINSTALL removes exactly the installer's footprint — releases/, current, state/ are gone — and reports it",
+      "pass": true,
+      "detail": "removed 3",
+      "at": "2026-09-20T06:05:24.411Z"
+    },
+    {
+      "name": "UNINSTALL leaves the foreign material under the prefix BYTE-IDENTICAL (keys, Agentgres truth, backups) and LISTS it as preserved; the prefix itself stays because it holds it",
+      "pass": true,
+      "detail": "data 2 files · backups 1 files",
+      "at": "2026-09-20T06:05:24.412Z"
+    },
+    {
+      "name": "UNINSTALL is idempotent and typed: a second uninstall removes nothing and still lists the preserved material; a prefix that never existed answers 'nothing to remove' and is not created",
+      "pass": true,
+      "detail": "2 preserved on the second pass",
+      "at": "2026-09-20T06:05:24.453Z"
+    },
+    {
+      "name": "the installer has NO data-wipe verb: uninstall with a wipe flag is refused by name before anything is touched — the installed release and the foreign material are both still there",
+      "pass": true,
+      "detail": "exit 1 · 7 files unchanged",
+      "at": "2026-09-20T06:05:24.501Z"
+    },
+    {
+      "name": "the alpha journey drives the SAME verbs: it declares steps 0-preview, 2d-posture and 14-uninstall, runs the installer's preview and uninstall, probes the wipe refusal, reads the declared posture from the daemon's substrate status and digests the data dir before and after uninstall",
+      "pass": true,
+      "detail": "0-preview, 2d-posture, 14-uninstall",
+      "at": "2026-09-20T06:05:24.507Z"
+    },
+    {
+      "name": "the installer's verb set is verify, preview, install, activate, rollback, status, uninstall — and no wipe verb — and its uninstall names its footprint as releases, current and state",
+      "pass": true,
+      "detail": "verbs read from the installer's dispatch",
+      "at": "2026-09-20T06:05:24.507Z"
+    },
+    {
+      "name": "canon binds the check: core-clients-surfaces.md § Zero-To-Operable Local Deployment names check:zero-to-operable, the preview and uninstall verbs and the typed absences (R-206), and doctrine.md no longer calls the journey unimplemented",
+      "pass": true,
+      "detail": "read from the two canon files",
+      "at": "2026-09-20T06:05:24.507Z"
+    },
+    {
+      "name": "an isolated daemon serves the DECLARED Agentgres posture: its engine dir is under the data dir this check started it with, the engine opened without error, the promoted (1) and required-admission (73) domains are declared, zero substrate errors, and every domain the engine holds is a declared one (0 opened so far — the engine's map lists only domains with state)",
+      "pass": true,
+      "detail": "/tmp/ioi-zero-to-operable-posture-CsVWIQ/substrate · engine 0 · promoted provider-receipts · required 73",
+      "at": "2026-09-20T06:05:26.476Z"
+    },
+    {
+      "name": "the posture is DECLARED, not incidental: after a stop and a fresh start on the same data dir the daemon serves the same engine dir, the same promoted and required-admission lists, no open error, zero errors, every engine domain still declared and none of the 0 opened domains lost (0 now)",
+      "pass": true,
+      "detail": "/tmp/ioi-zero-to-operable-posture-CsVWIQ/substrate · engine (none)",
+      "at": "2026-09-20T06:05:28.367Z"
+    },
+    {
+      "name": "the packaged alpha journey PASSES on a release built from this tree with no source checkout (52/59, exit 1, 859s)",
+      "pass": false,
+      "detail": "apps/hypervisor/.artifacts/zero-to-operable/alpha-journey-2026-09-20T06-05-28-402Z.json",
+      "at": "2026-09-20T06:19:47.752Z"
+    },
+    {
+      "name": "inside it, the PREVIEW ran before anything was mutated and wrote nothing (step 0-preview, 2 assertions, from the journey's own evidence)",
+      "pass": true,
+      "detail": "0.1.0-alpha.10 → /tmp/ioi-alpha-journey-2vFodI/preview-prefix/releases/0.1.0-alpha.10 · /tmp/ioi-alpha-journey-2vFodI/preview-prefix",
+      "at": "2026-09-20T06:19:47.752Z"
+    },
+    {
+      "name": "inside it, the daemon served the DECLARED Agentgres posture at start (step 2d-posture, from the journey's evidence: engine dir under the journey's data dir)",
+      "pass": true,
+      "detail": "/tmp/ioi-alpha-journey-2vFodI/data/substrate",
+      "at": "2026-09-20T06:19:47.752Z"
+    },
+    {
+      "name": "inside it, UNINSTALL after stop removed exactly the installer's footprint, refused a wipe flag by name and left the data dir BYTE-IDENTICAL (step 14-uninstall, 3 assertions; the digests are in the journey's evidence)",
+      "pass": true,
+      "detail": "208 files · 557e7681663f44e6",
+      "at": "2026-09-20T06:19:47.752Z"
+    },
+    {
+      "name": "inside it, the App and the headless client agreed on daemon-owned records and update + rollback went through admitted change plans (steps 13-agree, 12-update, 12-rollback)",
+      "pass": false,
+      "detail": "1/5/3 assertions",
+      "at": "2026-09-20T06:19:47.752Z"
+    }
+  ],
+  "mutation": null,
+  "journey": {
+    "exit": 1,
+    "seconds": 859,
+    "evidence": "apps/hypervisor/.artifacts/zero-to-operable/alpha-journey-2026-09-20T06-05-28-402Z.json",
+    "summary": {
+      "passed": 52,
+      "total": 59
+    },
+    "packages": {
+      "trust": "/home/heathledger/.local/share/ioi-l0-packages/signer/release-signer.pub.pem",
+      "v1": "/home/heathledger/.local/share/ioi-l0-packages/releases/ioi-hypervisor-alpha-0.1.0-alpha.10-linux-x86_64",
+      "v2": "/home/heathledger/.local/share/ioi-l0-packages/releases/ioi-hypervisor-alpha-0.1.0-alpha.11-linux-x86_64",
+      "source": "environment"
+    }
+  },
+  "declared_posture": {
+    "data_dir": "/tmp/ioi-zero-to-operable-posture-CsVWIQ",
+    "first": {
+      "engine_dir": "/tmp/ioi-zero-to-operable-posture-CsVWIQ/substrate",
+      "promoted": [
+        "provider-receipts"
+      ],
+      "engineDomains": [],
+      "errors": 0,
+      "underDataDir": true,
+      "openError": null,
+      "required": [
+        "autonomous-system-genesis-registry",
+        "autonomous-system-genesis-receipts",
+        "autonomous-system-genesis-authority-consumptions",
+        "autonomous-system-sequence-zero-materializations",
+        "autonomous-system-sequence-zero-materialization-receipts",
+        "autonomous-system-sequence-zero-component-registries",
+        "autonomous-system-sequence-zero-authority-consumptions",
+        "autonomous-system-deployment-profile-revisions",
+        "autonomous-system-lifecycle-authority-evidence",
+        "autonomous-system-lifecycle-authority-consumptions",
+        "autonomous-system-lifecycle-proposals",
+        "autonomous-system-lifecycle-authority-decisions",
+        "autonomous-system-lifecycle-transitions",
+        "autonomous-system-initialize-transition-receipts",
+        "autonomous-system-activation-receipts",
+        "autonomous-system-activation-states",
+        "autonomous-system-active-profile-sets",
+        "autonomous-system-home-bindings",
+        "autonomous-system-operation-log-revisions",
+        "autonomous-system-chain-revisions",
+        "goal-run-activation-admitted-states",
+        "autonomous-system-chain-successor-claims",
+        "autonomous-system-chain-writer-reservations",
+        "autonomous-system-lifecycle-states",
+        "autonomous-system-protected-transition-receipts",
+        "autonomous-system-continuity-transition-receipts",
+        "autonomous-system-migration-destination-acknowledgements",
+        "autonomous-system-migration-destination-acknowledgement-receipts",
+        "autonomous-system-dissolution-dispositions",
+        "autonomous-system-dissolution-receipts",
+        "autonomous-system-network-enrollments",
+        "autonomous-system-amendment-receipts",
+        "autonomous-system-constitution-amendments",
+        "autonomous-system-constitution-amendment-approval-decisions",
+        "autonomous-system-constitution-amendment-approval-authority-evidence",
+        "autonomous-system-constitutions",
+        "autonomous-system-desired-topologies",
+        "autonomous-system-node-memberships",
+        "autonomous-system-membership-transitions",
+        "autonomous-system-membership-receipts",
+        "autonomous-system-membership-successor-claims",
+        "autonomous-system-failover-profiles",
+        "autonomous-system-writer-epoch-transitions",
+        "autonomous-system-writer-receipts",
+        "autonomous-system-writer-successor-claims",
+        "autonomous-system-lost-suffix-records",
+        "autonomous-system-oracle-admission-receipts",
+        "autonomous-system-ontology-assertion-admission-receipts",
+        "autonomous-system-ontology-assertions",
+        "autonomous-system-ordering-recovery-votes",
+        "autonomous-system-ordering-recovery-receipts",
+        "autonomous-system-ordering-recoveries",
+        "autonomous-system-state-transition-commitments",
+        "hypervisoros-boot-profiles",
+        "hypervisoros-temporal-profiles",
+        "hypervisoros-node-records",
+        "hypervisoros-boot-receipts",
+        "hypervisoros-node-transitions",
+        "hypervisoros-node-attestation-receipts",
+        "hypervisoros-node-successor-claims",
+        "hypervisor-environment-route-bindings",
+        "hypervisor-environment-backups",
+        "hypervisor-change-plans",
+        "hypervisor-change-plan-stage-advances",
+        "hypervisor-resource-cleanup-obligations",
+        "hypervisor-environment-lifecycle-transitions",
+        "hypervisor-environment-lifecycle-receipts",
+        "hypervisor-environment-lifecycle-successor-claims",
+        "scm-destination-bindings",
+        "scm-publication-proposals",
+        "scm-publication-effects",
+        "scm-publication-receipts",
+        "scm-publication-operations"
+      ]
+    },
+    "second": {
+      "engine_dir": "/tmp/ioi-zero-to-operable-posture-CsVWIQ/substrate",
+      "promoted": [
+        "provider-receipts"
+      ],
+      "engineDomains": [],
+      "errors": 0,
+      "underDataDir": true,
+      "openError": null,
+      "required": [
+        "autonomous-system-genesis-registry",
+        "autonomous-system-genesis-receipts",
+        "autonomous-system-genesis-authority-consumptions",
+        "autonomous-system-sequence-zero-materializations",
+        "autonomous-system-sequence-zero-materialization-receipts",
+        "autonomous-system-sequence-zero-component-registries",
+        "autonomous-system-sequence-zero-authority-consumptions",
+        "autonomous-system-deployment-profile-revisions",
+        "autonomous-system-lifecycle-authority-evidence",
+        "autonomous-system-lifecycle-authority-consumptions",
+        "autonomous-system-lifecycle-proposals",
+        "autonomous-system-lifecycle-authority-decisions",
+        "autonomous-system-lifecycle-transitions",
+        "autonomous-system-initialize-transition-receipts",
+        "autonomous-system-activation-receipts",
+        "autonomous-system-activation-states",
+        "autonomous-system-active-profile-sets",
+        "autonomous-system-home-bindings",
+        "autonomous-system-operation-log-revisions",
+        "autonomous-system-chain-revisions",
+        "goal-run-activation-admitted-states",
+        "autonomous-system-chain-successor-claims",
+        "autonomous-system-chain-writer-reservations",
+        "autonomous-system-lifecycle-states",
+        "autonomous-system-protected-transition-receipts",
+        "autonomous-system-continuity-transition-receipts",
+        "autonomous-system-migration-destination-acknowledgements",
+        "autonomous-system-migration-destination-acknowledgement-receipts",
+        "autonomous-system-dissolution-dispositions",
+        "autonomous-system-dissolution-receipts",
+        "autonomous-system-network-enrollments",
+        "autonomous-system-amendment-receipts",
+        "autonomous-system-constitution-amendments",
+        "autonomous-system-constitution-amendment-approval-decisions",
+        "autonomous-system-constitution-amendment-approval-authority-evidence",
+        "autonomous-system-constitutions",
+        "autonomous-system-desired-topologies",
+        "autonomous-system-node-memberships",
+        "autonomous-system-membership-transitions",
+        "autonomous-system-membership-receipts",
+        "autonomous-system-membership-successor-claims",
+        "autonomous-system-failover-profiles",
+        "autonomous-system-writer-epoch-transitions",
+        "autonomous-system-writer-receipts",
+        "autonomous-system-writer-successor-claims",
+        "autonomous-system-lost-suffix-records",
+        "autonomous-system-oracle-admission-receipts",
+        "autonomous-system-ontology-assertion-admission-receipts",
+        "autonomous-system-ontology-assertions",
+        "autonomous-system-ordering-recovery-votes",
+        "autonomous-system-ordering-recovery-receipts",
+        "autonomous-system-ordering-recoveries",
+        "autonomous-system-state-transition-commitments",
+        "hypervisoros-boot-profiles",
+        "hypervisoros-temporal-profiles",
+        "hypervisoros-node-records",
+        "hypervisoros-boot-receipts",
+        "hypervisoros-node-transitions",
+        "hypervisoros-node-attestation-receipts",
+        "hypervisoros-node-successor-claims",
+        "hypervisor-environment-route-bindings",
+        "hypervisor-environment-backups",
+        "hypervisor-change-plans",
+        "hypervisor-change-plan-stage-advances",
+        "hypervisor-resource-cleanup-obligations",
+        "hypervisor-environment-lifecycle-transitions",
+        "hypervisor-environment-lifecycle-receipts",
+        "hypervisor-environment-lifecycle-successor-claims",
+        "scm-destination-bindings",
+        "scm-publication-proposals",
+        "scm-publication-effects",
+        "scm-publication-receipts",
+        "scm-publication-operations"
+      ]
+    }
+  },
+  "finished_at": "2026-09-20T06:19:47.752Z",
+  "summary": {
+    "passed": 16,
+    "total": 18
+  }
+}

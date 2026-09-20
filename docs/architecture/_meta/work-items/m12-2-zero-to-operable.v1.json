@@ -1,0 +1,75 @@
+{
+  "evidence_format": "ioi.program.work_item.v1",
+  "work_item_id": "m12-2-zero-to-operable",
+  "stage_id": "M12",
+  "required_work": [
+    "M12.2"
+  ],
+  "status": "evidence_ready",
+  "objective": "Close the zero-to-operable product journey (core-clients-surfaces.md \u00a7 Zero-To-Operable Local Deployment) as a driven check rather than a capability list: the three steps no code performed \u2014 a read-only pre-install preview of paths, endpoints, data custody, supervisor and egress; the declared Agentgres posture at start; uninstall after stop without an implicit data wipe \u2014 added to the installer and the packaged alpha journey, with a CI-bound drill subset and the full packaged journey as the unit's scheduled release qualification. The journey's second client is the daemon's HTTP API driven by a thin client (register R-206); a dedicated CLI binary, supervisor/autostart, update-discovery egress and a separate host are typed absences, never inferred.",
+  "falsifiable_claim": "npm run check:zero-to-operable --workspace=@ioi/hypervisor-app (scripts/check-zero-to-operable.mjs --drills) executes 13 assertions against the installer as a child process over a synthetic signed release and against an isolated daemon: preview is read-only (a prefix that did not exist still does not; a prefix holding keys, Agentgres truth and backups is byte-identical afterwards by a digest computed in the runner, with that material listed) and names what install + activate would write, the endpoints, data custody, supervisor and egress posture; install + activate write exactly the installer's footprint; uninstall removes exactly releases/, current and state/, leaves foreign material byte-identical and listed, is idempotent and typed on a prefix that never existed; a wipe flag is refused by name before anything is touched; the alpha journey's source declares steps 0-preview, 2d-posture and 14-uninstall and drives the same verbs; canon binds the check; an isolated daemon serves the declared Agentgres posture (engine dir under the data dir it was started with, no open error, promoted and required-admission domains declared, zero errors, every engine domain declared) and the same posture after a restart on the same data dir. mutate:zero-to-operable plants four installer defects and each goes red (4/4). The full check (npm run check:zero-to-operable) runs the packaged alpha journey on a release built from this tree with no source checkout and requires steps 0-preview (2), 2d-posture (1), 14-uninstall (3), 12-update, 12-rollback and 13-agree to pass inside it, with the data dir's digest identical before and after uninstall.",
+  "canon_owners": [
+    "docs/architecture/components/hypervisor/core-clients-surfaces.md",
+    "docs/architecture/components/daemon-runtime/doctrine.md",
+    "docs/architecture/components/hypervisor/bounded-alpha-profile.md"
+  ],
+  "code_anchors": [
+    {
+      "path": "scripts/check-zero-to-operable.mjs",
+      "must_contain": "drillDeclaredPosture",
+      "present_when": "merged"
+    },
+    {
+      "path": "scripts/install-hypervisor-alpha-release.mjs",
+      "must_contain": "no data-wipe verb",
+      "present_when": "merged"
+    },
+    {
+      "path": "scripts/lib/hypervisor-alpha-release.test.mjs",
+      "must_contain": "uninstall removes exactly the installer's footprint",
+      "present_when": "merged"
+    },
+    {
+      "path": "apps/hypervisor/scripts/verify-hypervisor-alpha-journey.mjs",
+      "must_contain": "\"14-uninstall\"",
+      "present_when": "merged"
+    },
+    {
+      "path": "apps/hypervisor/verifier-floors.v1.json",
+      "must_contain": "\"id\": \"zero-to-operable\"",
+      "present_when": "merged"
+    },
+    {
+      "path": ".github/workflows/ci.yml",
+      "must_contain": "npm run check:zero-to-operable --workspace=@ioi/hypervisor-app",
+      "present_when": "merged"
+    },
+    {
+      "path": "scripts/check-acceptance-conformance-ladder.mjs",
+      "must_contain": "mutate:zero-to-operable",
+      "present_when": "merged"
+    },
+    {
+      "path": "docs/architecture/components/hypervisor/core-clients-surfaces.md",
+      "must_contain": "Implementation (zero-to-operable, 2026-09-20, register R-206)",
+      "present_when": "merged"
+    }
+  ],
+  "evidence_refs": [
+    "docs/architecture/_meta/evidence/m12-2-zero-to-operable-2026-09-20.v1.json",
+    "docs/architecture/_meta/canon-to-code-delta.md"
+  ],
+  "pr": null,
+  "adversarial_or_fault_proof": "mutate:zero-to-operable copies the installer with a planted defect \u2014 uninstall reaching into the prefix's data and backups, a preview that creates the state dir, the wipe refusal removed, an uninstall that reports removal without removing \u2014 and requires the drill that owns each to go red (4/4 detected). The wipe-refusal drill is itself a live negative: the flag is presented and the installer must refuse with nothing touched. The declared-posture drill stops the daemon and starts it again on the same data dir and requires the same posture, so a posture that was incidental would fail.",
+  "remaining_nonclaims": [
+    "A dedicated CLI binary on any ADR 0032 axis is not claimed: the headless client is the daemon's HTTP API driven by a thin client (R-206)",
+    "Supervisor/autostart integration is not shipped; the daemon runs attached/foreground or under the operator's own supervisor",
+    "Update discovery (optional egress) is not performed by the installer; updates and rollbacks are operator-initiated through the daemon's release change plans",
+    "A separate host is not exercised; the journey installs under a prefix on the measuring host",
+    "The full packaged journey is on demand (the unit's scheduled check), not CI-gated; CI executes the drills and the drill",
+    "The packaged qualification run's evidence is the journey's own file plus the runner's; a package whose install.mjs predates the verbs is BLOCKED by the runner, never run around",
+    "The packaged qualification run of 2026-09-20 (52/59) proves the three M12.2 steps inside the whole journey; its update/rollback legs were red because both packages carried the same daemon bytes and the daemon refuses an update to its own digest (a rebuild after touching the daemon's own source reproduced the binary byte-for-byte). The runner now refuses such a pairing at the door; the full check is owed on the first tree whose daemon differs, and the release change plane stands on the 2026-09-10 evidence across two real releases"
+  ],
+  "source_provenance": "Authored 2026-09-20 by the MVP finish-line program (R-206 ruled the shape after a read-only survey). Drills 13/13 on the unit's own tree (first run 12/13: the fresh engine's domain map is empty until a domain holds state \u2014 the predicate was corrected to what a fresh engine can show, not the assertion weakened past the claim); mutation 4/4; canon gates green after the two canon edits. Recorded in canon-to-code-delta.md \u00a7 Journey verification CXV. Packaged qualification run 2026-09-20 06:05Z on f18ecdb1f (14 dirty paths: this unit's own files): 52/59 \u2014 0-preview 2/2, 2d-posture 1/1, 14-uninstall 3/3; 12-update/12-rollback/13-agree red for the equal-daemon pairing (see the ledger). ACC-14 composed re-run: PARTIAL exit 2, 11 green, 14 typed absences.",
+  "last_status_transaction": "2026-09-20"
+}

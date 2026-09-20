@@ -320,6 +320,25 @@ not provide is stated in its manifest: the local model route, and the authority
 node's launcher, which still runs from a source checkout (typed absence with a
 closure test in `bounded-alpha-profile.md`).
 
+Implementation (zero-to-operable, 2026-09-20, register R-206): the journey's
+second client is the daemon's HTTP API driven by a thin client — the served App
+and that client agree on daemon-owned records inside the journey — and a
+dedicated CLI binary on any ADR 0032 axis, supervisor/autostart integration,
+update-discovery egress and a separate host are typed absences, not claims.
+`install.mjs` has `preview` (read-only: what install and activate would write,
+the endpoints, data custody, supervisor and egress posture; it writes nothing)
+and `uninstall` (removes only what install and activate wrote under the prefix —
+`releases/`, `current`, `state/` — preserves and lists everything else found
+there, and has no wipe verb: a data wipe is a separately authorized effect).
+The alpha journey performs the preview before install, reads the declared
+Agentgres posture at start from the daemon's own substrate status against the
+data dir it was started with, and uninstalls after stop with the data dir
+digested before and after. `check:zero-to-operable` is CI-bound at its drills
+(the installer verbs over a synthetic signed release, an isolated daemon's
+declared posture across a restart on the same data dir, each oracle
+mutation-drilled) and runs the full packaged journey on demand as the unit's
+scheduled release qualification (ACC-14 clause 2).
+
 ## Hypervisor Lineage And Operator Entry Contract
 
 Hypervisor must not merely borrow the word "hypervisor" metaphorically. It must

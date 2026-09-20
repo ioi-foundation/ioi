@@ -846,6 +846,23 @@ jobs:
         if: ${{ !cancelled() && steps.rust_backed_daemon.outcome == 'success' }}
         run: npm run mutate:standalone-conformance --workspace=@ioi/hypervisor-app
 
+      # M12.2. The zero-to-operable check's CI-BOUND drills (R-206): the installer's preview writes
+      # nothing and names paths, endpoints, custody, supervisor and egress; uninstall removes exactly
+      # the installer's footprint and leaves foreign material under the prefix byte-identical and
+      # listed; a wipe flag is refused before anything is touched; an isolated daemon serves the
+      # DECLARED Agentgres posture and the same posture after a restart on the same data dir; the
+      # alpha journey's source drives the same verbs (steps 0-preview, 2d-posture, 14-uninstall).
+      # The full packaged journey is on demand — the unit's scheduled release qualification.
+      - name: Verify zero-to-operable (M12.2, CI-bound drills)
+        if: ${{ !cancelled() && steps.rust_backed_daemon.outcome == 'success' }}
+        env:
+          IOI_VERIFIER_CENSUS_DIR: .artifacts/verifier-census
+        run: npm run check:zero-to-operable --workspace=@ioi/hypervisor-app
+
+      - name: Drill the zero-to-operable oracles
+        if: ${{ !cancelled() && steps.rust_backed_daemon.outcome == 'success' }}
+        run: npm run mutate:zero-to-operable --workspace=@ioi/hypervisor-app
+
       # M10.4 — the governed evaluation plane, driven against an ISOLATED daemon this job already
       # built: two deterministic ollama-dialect stub servers registered, probed, enabled and REALLY
       # invoked as routes A and B; released suite revisions, frozen and active epochs, admitted runs,
@@ -961,7 +978,10 @@ jobs:
           - verifier_id: orchestration-records
     # Each matrix entry gets a separate runner and 120-minute interim hang
     # ceiling. This is not a performance threshold or accepted runtime doctrine.
-    timeout-minutes: 120
+    # 120 → 150 (2026-09-20): run 35487082803 CANCELLED the collective-artifact-runtime-lifecycle leg at
+    # 2h00 — measured on that run: cargo build 63 min, the gate 32 min, the drill (the gate again) 32 min
+    # = 127 min. The same ceiling as the sibling verifier jobs; the census floor's red was downstream.
+    timeout-minutes: 150
     steps:
       - uses: actions/checkout@v4
 
@@ -1389,6 +1409,10 @@ jobs:
       - name: Verify product client contract — test:smoke-fence
         if: ${{ !cancelled() }}
         run: npm run test:smoke-fence
+
+      - name: Test the release library and installer (M12.2 — verify, preview, install, activate, uninstall, wipe refusal)
+        if: ${{ !cancelled() }}
+        run: npm run test:hypervisor-alpha-release
 
       - name: Verify product client contract — test:product-shell-auth
         if: ${{ !cancelled() }}

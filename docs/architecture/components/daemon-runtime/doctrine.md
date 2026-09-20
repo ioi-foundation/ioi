@@ -330,7 +330,12 @@ environment start. Initial installer verification is an explicit trust bridge;
 status and doctor operations are read-only; uninstall never implies wipe; and
 App, CLI/headless, and any optional TUI must report the same daemon/Agentgres
 state rather than maintain private installation truth. This end-to-end product
-journey is target behavior and is not yet implemented or conformance-proven.
+journey is implemented and conformance-driven (M12.2, register R-206):
+`check:zero-to-operable` drives the installer's preview, install, activation,
+rollback and uninstall verbs and the daemon's declared Agentgres posture as
+CI-bound drills, and the packaged alpha journey runs the whole sequence on
+demand as the release qualification (`core-clients-surfaces.md` § Zero-To-
+Operable Local Deployment names what it claims and what stays typed absent).
 
 When CLI prose says "Web4 L0," it refers to the IOI kernel/L0 substrate:
 domain scaffolding, manifests, policy roots, receipts, runtime profiles, and

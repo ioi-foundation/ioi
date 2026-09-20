@@ -65,7 +65,7 @@
 //                                  file when the harness exposes one (the lane waits for the
 //                                  bridge to have carried the model stream before severing).
 
-import { spawn, execFileSync } from "node:child_process";
+import { spawn, spawnSync, execFileSync } from "node:child_process";
 import crypto from "node:crypto";
 import fs from "node:fs";
 import net from "node:net";
@@ -168,6 +168,22 @@ const ok = (step, name, cond, detail) => {
 const record = (step, name, detail) => evidence.steps.push({ step, name, recorded: true, detail, at: new Date().toISOString() });
 
 const sha256File = (file) => crypto.createHash("sha256").update(fs.readFileSync(file)).digest("hex");
+// Every regular file under a directory, sorted, with its bytes' digest folded into one: "byte-identical"
+// is then a comparison of two digests, not a claim (M12.2 step 14: the data dir survives uninstall).
+const treeDigest = (dir) => {
+  const files = [];
+  const walk = (d) => {
+    for (const e of fs.readdirSync(d, { withFileTypes: true }).sort((a, b) => a.name.localeCompare(b.name))) {
+      const f = path.join(d, e.name);
+      if (e.isDirectory()) walk(f);
+      else if (e.isFile()) files.push(f);
+    }
+  };
+  if (fs.existsSync(dir)) walk(dir);
+  const h = crypto.createHash("sha256");
+  for (const f of files) h.update(`${path.relative(dir, f)}\0${sha256File(f)}\n`);
+  return { files: files.length, digest: h.digest("hex") };
+};
 const git = (...args) => { try { return execFileSync("git", args, { cwd: ROOT, encoding: "utf8" }).trim(); } catch { return ""; } };
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 const freePort = () => new Promise((resolve, reject) => {
@@ -199,6 +215,8 @@ if (PACKAGE_MODE) {
   const v2 = process.env.IOI_ALPHA_RELEASE_V2 || "";
   if (!trustPath || !v1 || !v2) { console.error("BLOCKED: package mode needs IOI_ALPHA_RELEASE_TRUST, IOI_ALPHA_RELEASE_V1 and IOI_ALPHA_RELEASE_V2"); process.exit(2); }
   pkg.prefix = path.join(workDir, "prefix");
+  pkg.v1Dir = path.resolve(v1);
+  pkg.v2Dir = path.resolve(v2);
   pkg.trust = path.resolve(trustPath);
   // In no-checkout mode the installer is the PACKAGE's own install.mjs, run outside the repo.
   pkg.installer = NO_CHECKOUT ? path.join(path.resolve(v1), "install.mjs") : path.join(ROOT, "scripts", "install-hypervisor-alpha-release.mjs");
@@ -364,6 +382,19 @@ const readReceipts = (predicate) => {
 };
 
 async function run() {
+  // ---- 0. preview (M12.2, R-206): the trust bridge is inspectable BEFORE the host is mutated ---
+  // The packaged release was installed at module load (step 1); the preview is measured against a
+  // prefix nothing has touched, so "read-only" is the absence of a directory afterwards, not a flag.
+  if (PACKAGE_MODE) {
+    const previewPrefix = path.join(workDir, "preview-prefix");
+    const plan = pkg.installerRun(["preview", "--release", pkg.v1Dir, "--trust", pkg.trust, "--prefix", previewPrefix]);
+    ok("0-preview", "the installer's preview names what install + activate WOULD write for the verified release (release dir, current link, activation state), the endpoints, data custody, supervisor and egress posture", plan.read_only === true && plan.version === pkg.v1.version && plan.would_write?.release_dir === path.join(previewPrefix, "releases", pkg.v1.version) && plan.would_write?.current_link === path.join(previewPrefix, "current") && typeof plan.data_custody?.data_dir === "string" && typeof plan.supervisor === "string" && /^none during/u.test(plan.egress || ""), `${plan.version} → ${plan.would_write?.release_dir}`);
+    ok("0-preview", "the preview WROTE NOTHING: the previewed prefix does not exist after it", !fs.existsSync(previewPrefix), previewPrefix);
+    evidence.preview = plan;
+  } else {
+    record("0-preview", "pre-install preview", "checkout mode: no packaged release to preview (no claim)");
+  }
+
   // ---- 1. install / build provenance ---------------------------------------------------------
   const head = git("rev-parse", "HEAD");
   const dirty = git("status", "--porcelain").split("\n").filter(Boolean).length;
@@ -533,6 +564,20 @@ async function run() {
   const doctor = await jd(DAEMON, "/v1/doctor");
   const substrate = await jd(DAEMON, "/v1/hypervisor/substrate/status");
   ok("3-readiness", "daemon health, doctor and substrate status answer for the operator", healthz.status === 200 && doctor.status === 200 && substrate.status === 200, `${healthz.status}/${doctor.status}/${substrate.status}`);
+  // ---- 2d. the declared Agentgres posture (M12.2): what the daemon was STARTED with is what it serves
+  // The declared posture is the operator's: an embedded engine under IOI_HYPERVISOR_DATA_DIR (the
+  // journey's own data dir), opened without error, with the release's promoted domains served from
+  // engine truth. The daemon's substrate status is the only source; nothing here is read from a file.
+  const sub = substrate.body || {};
+  // promoted/required are arrays of names; engine_domains is the engine's map of domain → state.
+  const domainNames = (xs) => (Array.isArray(xs) ? xs.map((x) => (typeof x === "string" ? x : x?.domain ?? x?.name ?? "")) : xs && typeof xs === "object" ? Object.keys(xs) : []);
+  const promoted = domainNames(sub.promoted_domains);
+  const engineDomains = domainNames(sub.engine_domains);
+  const engineUnderDataDir = typeof sub.engine_dir === "string" && (path.resolve(sub.engine_dir) + path.sep).startsWith(fs.realpathSync(dataDir) + path.sep);
+  const substrateErrors = typeof sub.errors === "number" ? sub.errors : Array.isArray(sub.errors) ? sub.errors.length : -1;
+  const requiredDomains = domainNames(sub.required_admission_domains);
+  ok("2d-posture", `the daemon serves the DECLARED Agentgres posture: its engine dir is under the data dir it was started with, the engine opened without error, the promoted (${promoted.length}) and required-admission (${requiredDomains.length}) domains are declared, zero substrate errors, and every domain the engine holds (${engineDomains.length}) is a declared one`, engineUnderDataDir && !sub.engine_open_error && promoted.length > 0 && requiredDomains.length > 0 && engineDomains.every((d) => promoted.includes(d) || requiredDomains.includes(d)) && substrateErrors === 0, `${sub.engine_dir} · engine ${engineDomains.length} · promoted ${promoted.length} · open_error ${JSON.stringify(sub.engine_open_error ?? null)} · errors ${substrateErrors}`);
+  evidence.declared_posture = { data_dir: dataDir, engine_dir: sub.engine_dir, engine_domains: engineDomains, promoted_domains: promoted, required_admission_domains: requiredDomains, engine_open_error: sub.engine_open_error ?? null, errors: sub.errors ?? null };
   // M12.1 — the typed-availability read model (core-clients-surfaces.md § Standalone Local
   // Completeness): every IOI-managed endpoint family is typed on the daemon's own readiness
   // projection. On this profile nothing hosted is bound: the wallet.network endpoint is the
@@ -1127,6 +1172,22 @@ async function qualifyUpdateAndRollback() {
   const activation = JSON.parse(fs.readFileSync(path.join(pkg.prefix, "state", "activation.json"), "utf8"));
   ok("12-rollback", "the headless client lists both completed plans and the installer's activation history agrees (activate v1 → activate v2 → rollback v1)", list.status === 200 && (list.body?.plans || []).filter((p) => p.status === "completed").length === 2 && activation.history.map((h) => `${h.act}:${h.version}`).join(",") === `activate:${pkg.v1.version},activate:${pkg.v2.version},rollback:${pkg.v1.version}`, `${(list.body?.plans || []).map((p) => `${p.kind}:${p.status}`).join(",")} · ${activation.history.map((h) => h.act).join(">")}`);
   evidence.release_change_plans = { update: observedPlan, rollback: rbPlan, activation };
+
+  // ---- 14. uninstall (M12.2, R-206): the installer's footprint goes; the operator's data stays ----
+  // The daemon and the served App are stopped first (stop and uninstall are separate effects). The
+  // data dir is digested before and after: byte-identical is measured, and "no implicit data wipe"
+  // is also the absence of a verb — a wipe flag is refused before anything is touched.
+  await stopServe();
+  await stopDaemon("SIGTERM");
+  const dataBefore = treeDigest(dataDir);
+  const wipe = spawnSync(process.execPath, [pkg.installer, "uninstall", "--prefix", pkg.prefix, "--wipe-data", "yes"], { cwd: NO_CHECKOUT ? os.tmpdir() : ROOT, encoding: "utf8", env: childBaseEnv() });
+  ok("14-uninstall", "the installer has NO data-wipe verb: uninstall with a wipe flag is refused before anything is touched (the installed release is still there)", wipe.status !== 0 && /no data-wipe verb/u.test(wipe.stderr || "") && fs.existsSync(path.join(pkg.prefix, "current")), `exit ${wipe.status}`);
+  const removed = pkg.installerRun(["uninstall", "--prefix", pkg.prefix]);
+  const footprintGone = ["releases", "current", "state"].every((e) => !fs.existsSync(path.join(pkg.prefix, e)));
+  ok("14-uninstall", "uninstall removes exactly the installer's footprint (releases/, current, state/) — the installed daemon is gone — and lists what it preserved", removed.ok === true && footprintGone && !fs.existsSync(daemonBinary) && Array.isArray(removed.preserved) && removed.preserved.length === 0 && /not performed and not a verb/u.test(removed.data_wipe || ""), `removed ${removed.removed?.length ?? "?"} · preserved ${removed.preserved?.length ?? "?"}`);
+  const dataAfter = treeDigest(dataDir);
+  ok("14-uninstall", `the operator's data dir (${dataBefore.files} files: Agentgres truth, keys, receipts) is BYTE-IDENTICAL after uninstall — no implicit data wipe`, dataBefore.files > 0 && dataBefore.digest === dataAfter.digest, `${dataBefore.files} files · ${dataBefore.digest.slice(0, 16)}`);
+  evidence.uninstall = { ...removed, wipe_refused_exit: wipe.status, data_dir_files: dataBefore.files, data_dir_digest_before: dataBefore.digest, data_dir_digest_after: dataAfter.digest };
 }
 
 function writeEvidence() {

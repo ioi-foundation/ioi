@@ -78,8 +78,10 @@ const ciChecks = new Set(
 // landing-designation audit whose filename predates this convention, plus the standalone
 // conformance runner (M12.1, 2026-09-15): a ROOT script (`scripts/check-standalone-conformance.mjs`,
 // named by three canon owners) whose CI-bound drills form is invoked through this workspace's
-// `check:standalone-conformance` so it lives in this gate's closed world. Non-verifier checks
-// (bundlers, generators) are outside this gate's subject.
+// `check:standalone-conformance` so it lives in this gate's closed world — and, the same shape, the
+// zero-to-operable runner (M12.2, 2026-09-20, `scripts/check-zero-to-operable.mjs`, invoked through
+// this workspace's `check:zero-to-operable` in its --drills form). Non-verifier checks (bundlers,
+// generators) are outside this gate's subject.
 const ciVerifierScripts = new Map();
 for (const check of ciChecks) {
   const cmd = pkg.scripts?.[check];
@@ -87,7 +89,7 @@ for (const check of ciChecks) {
     fail("ci_invokes_unknown_script", `${check} is run by ci.yml but is not a script in apps/hypervisor/package.json`);
     continue;
   }
-  const m = cmd.match(/(scripts\/(?:verify-[A-Za-z0-9._-]+|check-landing-designations|check-standalone-conformance)\.mjs)/);
+  const m = cmd.match(/(scripts\/(?:verify-[A-Za-z0-9._-]+|check-landing-designations|check-standalone-conformance|check-zero-to-operable)\.mjs)/);
   if (m) ciVerifierScripts.set(check, m[1]);
 }
 
