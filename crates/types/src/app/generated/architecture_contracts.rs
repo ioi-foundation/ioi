@@ -380,7 +380,8 @@ pub const ARCHITECTURE_CONTRACT_SCHEMA_HASHES: &[(&str, &str)] = &[
     ("schema://ioi/applications/ioi-ai/goal-run-admission-path-decision/v2", "sha256:4c8093ac4b46e395a49ed8454a6da27a4769eb0b6cb9455b75c17145811c0dd6"),
     ("schema://ioi/applications/ioi-ai/context-cell/v2", "sha256:2c0505964f02e780b10361cd7fc7f6f09a3fcc86ca2e55abdb049e4b149c30cb"),
     ("schema://ioi/applications/ioi-ai/goal-grounding-loop/v2", "sha256:60362cef1719499121d31faf0f5c39be5f0423a3d96306d8dfdb64081dadbbcb"),
-    ("schema://ioi/applications/ioi-ai/collective-resolution-receipt/v1", "sha256:71b7c60f5226818ce492e715a048d8cd16323b891f7bdd053f8d50b6d1fd653d"),
+    ("schema://ioi/applications/ioi-ai/collective-resolution-receipt/v1", "sha256:c6277404e64498fae58bd68edc04154cc6e6b48b85adaa9e7a2b1a42c5435804"),
+    ("schema://ioi/applications/ioi-ai/persistent-executable-lineage/v1", "sha256:a5636ae902410df5f81b6be4879d8f986bc01225d409e42fbdd13614c2bcd381"),
     ("schema://ioi/foundations/delegation-edge/v1", "sha256:916bfac63dd49fe478bfa006e2637acf775ce6e6d6b919afc7daefcec9178548"),
 ];
 
@@ -161343,6 +161344,8 @@ pub struct CollectiveResolutionReceiptV1 {
     pub registers_no_new_owner: CollectiveResolutionReceiptV1RegistersNoNewOwner,
     pub resolved_at: String,
     pub closure_root: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub system_binding: Option<CollectiveResolutionReceiptV1SystemBinding>,
 }
 
 impl<'de> serde::Deserialize<'de> for CollectiveResolutionReceiptV1 {
@@ -161353,7 +161356,7 @@ impl<'de> serde::Deserialize<'de> for CollectiveResolutionReceiptV1 {
         let value = <serde_json::Value as serde::Deserialize>::deserialize(deserializer)?;
         validate_projection_subschema(
             r#"schema://ioi/applications/ioi-ai/collective-resolution-receipt/v1"#,
-            r#"{"$schema":"https://json-schema.org/draft/2020-12/schema","$id":"schema://ioi/applications/ioi-ai/collective-resolution-receipt/v1","title":"CollectiveResolutionReceipt","x-ioi-schema-version":"ioi.applications.ioi-ai.collective-resolution-receipt.v1","description":"One daemon-derived freeze of the exact dependency closure a collective composition resolved, and the EXISTING owner objects it resolved into. It registers no profile envelope, holds no state and is never a second live owner: every ref it names is admitted elsewhere and remains its owner's truth. M04.12 / ACC-5 clause 10.","type":"object","additionalProperties":false,"required":["schema_version","receipt_id","receipt_ref","receipt_type","resolved_by_ref","system_id","system_release_ref","constitution_ref","active_profile_set_ref","orchestration_ref","goal_run_profile_revision_refs","policy_refs","lease_policy_refs","artifact_lifecycle_policy_ref","requirement_refs","resolved_owner_refs","registers_no_new_owner","resolved_at","closure_root"],"properties":{"schema_version":{"const":"ioi.applications.ioi-ai.collective-resolution-receipt.v1"},"receipt_id":{"type":"string","pattern":"^collective-resolution://crr_[0-9a-f]{64}$"},"receipt_ref":{"type":"string","pattern":"^collective-resolution://crr_[0-9a-f]{64}$"},"receipt_type":{"const":"collective_resolution"},"resolved_by_ref":{"type":"string","pattern":"^(?:org|project|system|user)://[^\\s]{1,500}$"},"system_id":{"type":"string","pattern":"^system://[^\\s]{1,500}$"},"system_release_ref":{"type":"string","pattern":"^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"},"constitution_ref":{"type":"string","pattern":"^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"},"active_profile_set_ref":{"type":"string","pattern":"^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"},"orchestration_ref":{"type":"string","pattern":"^app-scope://ioi-ai/orchestration/[^\\s]{1,400}$"},"goal_run_profile_revision_refs":{"type":"array","uniqueItems":true,"items":{"type":"string","pattern":"^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"},"minItems":1},"policy_refs":{"type":"array","uniqueItems":true,"items":{"type":"string","pattern":"^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"},"minItems":1},"lease_policy_refs":{"type":"array","uniqueItems":true,"items":{"type":"string","pattern":"^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"}},"artifact_lifecycle_policy_ref":{"type":"string","pattern":"^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"},"requirement_refs":{"type":"array","uniqueItems":true,"items":{"type":"string","pattern":"^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"},"minItems":1},"resolved_owner_refs":{"type":"array","uniqueItems":true,"items":{"type":"string","pattern":"^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"},"minItems":1},"registers_no_new_owner":{"const":true},"resolved_at":{"type":"string","pattern":"^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$"},"closure_root":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"}}}"#,
+            r##"{"$schema":"https://json-schema.org/draft/2020-12/schema","$id":"schema://ioi/applications/ioi-ai/collective-resolution-receipt/v1","title":"CollectiveResolutionReceipt","x-ioi-schema-version":"ioi.applications.ioi-ai.collective-resolution-receipt.v1","description":"One daemon-derived freeze of the exact dependency closure a collective composition resolved, and the EXISTING owner objects it resolved into. It registers no profile envelope, holds no state and is never a second live owner: every ref it names is admitted elsewhere and remains its owner's truth. M04.12 / ACC-5 clause 10.","type":"object","additionalProperties":false,"required":["schema_version","receipt_id","receipt_ref","receipt_type","resolved_by_ref","system_id","system_release_ref","constitution_ref","active_profile_set_ref","orchestration_ref","goal_run_profile_revision_refs","policy_refs","lease_policy_refs","artifact_lifecycle_policy_ref","requirement_refs","resolved_owner_refs","registers_no_new_owner","resolved_at","closure_root"],"properties":{"schema_version":{"const":"ioi.applications.ioi-ai.collective-resolution-receipt.v1"},"receipt_id":{"type":"string","pattern":"^collective-resolution://crr_[0-9a-f]{64}$"},"receipt_ref":{"type":"string","pattern":"^collective-resolution://crr_[0-9a-f]{64}$"},"receipt_type":{"const":"collective_resolution"},"resolved_by_ref":{"type":"string","pattern":"^(?:org|project|system|user)://[^\\s]{1,500}$"},"system_id":{"type":"string","pattern":"^system://[^\\s]{1,500}$"},"system_release_ref":{"type":"string","pattern":"^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"},"constitution_ref":{"type":"string","pattern":"^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"},"active_profile_set_ref":{"type":"string","pattern":"^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"},"orchestration_ref":{"type":"string","pattern":"^app-scope://ioi-ai/orchestration/[^\\s]{1,400}$"},"goal_run_profile_revision_refs":{"type":"array","uniqueItems":true,"items":{"type":"string","pattern":"^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"},"minItems":1},"policy_refs":{"type":"array","uniqueItems":true,"items":{"type":"string","pattern":"^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"},"minItems":1},"lease_policy_refs":{"type":"array","uniqueItems":true,"items":{"type":"string","pattern":"^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"}},"artifact_lifecycle_policy_ref":{"type":"string","pattern":"^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"},"requirement_refs":{"type":"array","uniqueItems":true,"items":{"type":"string","pattern":"^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"},"minItems":1},"resolved_owner_refs":{"type":"array","uniqueItems":true,"items":{"type":"string","pattern":"^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"},"minItems":1},"registers_no_new_owner":{"const":true},"resolved_at":{"type":"string","pattern":"^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$"},"closure_root":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"},"system_binding":{"$ref":"#/$defs/systemBinding"}},"$defs":{"systemBinding":{"type":"object","additionalProperties":false,"required":["schema_version","system_id","parent_scope_ref","proposed_or_issued_by_ref","payload_root","created_at","updated_at"],"properties":{"schema_version":{"const":"ioi.foundations.system-scoped-object-binding.v1"},"system_id":{"type":"string","pattern":"^system://[^\\s]{1,500}$"},"parent_scope_ref":{"type":"string","pattern":"^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"},"proposed_or_issued_by_ref":{"type":"string","pattern":"^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"},"payload_root":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"},"created_at":{"type":"string","format":"date-time","pattern":"^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$"},"updated_at":{"anyOf":[{"type":"string","format":"date-time","pattern":"^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$"},{"type":"null"}]}}}}}"##,
             &value,
         )
             .map_err(serde::de::Error::custom)?;
@@ -161482,6 +161485,13 @@ impl<'de> serde::Deserialize<'de> for CollectiveResolutionReceiptV1 {
                     .ok_or_else(|| serde::de::Error::missing_field(r#"closure_root"#))?,
             )
             .map_err(serde::de::Error::custom)?,
+            system_binding: match object.remove(r#"system_binding"#) {
+                Some(field_value) => serde_json::from_value::<
+                    Option<CollectiveResolutionReceiptV1SystemBinding>,
+                >(field_value)
+                .map_err(serde::de::Error::custom)?,
+                None => None,
+            },
         })
     }
 }
@@ -161524,6 +161534,472 @@ impl<'de> serde::Deserialize<'de> for CollectiveResolutionReceiptV1RegistersNoNe
             Err(serde::de::Error::custom(r#"expected boolean literal true"#))
         }
     }
+}
+
+#[derive(Debug, Clone, PartialEq, serde::Serialize)]
+pub struct CollectiveResolutionReceiptV1SystemBinding {
+    pub schema_version: CollectiveResolutionReceiptV1SystemBindingSchemaVersion,
+    pub system_id: String,
+    pub parent_scope_ref: String,
+    pub proposed_or_issued_by_ref: String,
+    pub payload_root: String,
+    pub created_at: String,
+    pub updated_at: Option<String>,
+}
+
+impl<'de> serde::Deserialize<'de> for CollectiveResolutionReceiptV1SystemBinding {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let value = <serde_json::Value as serde::Deserialize>::deserialize(deserializer)?;
+        validate_projection_subschema(
+            r#"schema://ioi/applications/ioi-ai/collective-resolution-receipt/v1"#,
+            r#"{"type":"object","additionalProperties":false,"required":["schema_version","system_id","parent_scope_ref","proposed_or_issued_by_ref","payload_root","created_at","updated_at"],"properties":{"schema_version":{"const":"ioi.foundations.system-scoped-object-binding.v1"},"system_id":{"type":"string","pattern":"^system://[^\\s]{1,500}$"},"parent_scope_ref":{"type":"string","pattern":"^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"},"proposed_or_issued_by_ref":{"type":"string","pattern":"^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"},"payload_root":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"},"created_at":{"type":"string","format":"date-time","pattern":"^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$"},"updated_at":{"anyOf":[{"type":"string","format":"date-time","pattern":"^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$"},{"type":"null"}]}}}"#,
+            &value,
+        )
+            .map_err(serde::de::Error::custom)?;
+        let mut object = value
+            .as_object()
+            .cloned()
+            .ok_or_else(|| serde::de::Error::custom("validated projection is not an object"))?;
+        Ok(Self {
+            schema_version: serde_json::from_value::<
+                CollectiveResolutionReceiptV1SystemBindingSchemaVersion,
+            >(
+                object
+                    .remove(r#"schema_version"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"schema_version"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            system_id: serde_json::from_value::<String>(
+                object
+                    .remove(r#"system_id"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"system_id"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            parent_scope_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"parent_scope_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"parent_scope_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            proposed_or_issued_by_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"proposed_or_issued_by_ref"#)
+                    .ok_or_else(|| {
+                        serde::de::Error::missing_field(r#"proposed_or_issued_by_ref"#)
+                    })?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            payload_root: serde_json::from_value::<String>(
+                object
+                    .remove(r#"payload_root"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"payload_root"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            created_at: serde_json::from_value::<String>(
+                object
+                    .remove(r#"created_at"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"created_at"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            updated_at: serde_json::from_value::<Option<String>>(
+                object
+                    .remove(r#"updated_at"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"updated_at"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+        })
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum CollectiveResolutionReceiptV1SystemBindingSchemaVersion {
+    #[serde(rename = r#"ioi.foundations.system-scoped-object-binding.v1"#)]
+    IoiFoundationsSystemScopedObjectBindingV1,
+}
+
+#[derive(Debug, Clone, PartialEq, serde::Serialize)]
+pub struct PersistentExecutableLineageV1 {
+    pub schema_version: PersistentExecutableLineageV1SchemaVersion,
+    pub lineage_id: String,
+    pub orchestration_ref: String,
+    pub resolution_receipt_ref: String,
+    pub artifact_ref: String,
+    pub artifact_sha256: String,
+    pub source_artifact_refs: Vec<String>,
+    pub successor_artifact_ref: Option<String>,
+    pub transformation_receipt_refs: Vec<String>,
+    pub definition_ref: String,
+    pub installation_ref: Option<String>,
+    pub runtime_ref: Option<String>,
+    pub runtime_kind: PersistentExecutableLineageV1RuntimeKind,
+    pub accountable_subject_ref: String,
+    pub caretaker_ref: Option<String>,
+    pub stop_policy_ref: String,
+    pub lease_refs: Vec<String>,
+    pub dependency_lineage_refs: Vec<String>,
+    pub health_ref: Option<String>,
+    pub effect_receipt_refs: Vec<String>,
+    pub posture: PersistentExecutableLineageV1Posture,
+    pub successor_of: Option<String>,
+    pub lineage_root: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub system_binding: Option<PersistentExecutableLineageV1SystemBinding>,
+}
+
+impl<'de> serde::Deserialize<'de> for PersistentExecutableLineageV1 {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let value = <serde_json::Value as serde::Deserialize>::deserialize(deserializer)?;
+        validate_projection_subschema(
+            r#"schema://ioi/applications/ioi-ai/persistent-executable-lineage/v1"#,
+            r##"{"$schema":"https://json-schema.org/draft/2020-12/schema","$id":"schema://ioi/applications/ioi-ai/persistent-executable-lineage/v1","title":"PersistentExecutableLineageV1","x-ioi-schema-version":"ioi.applications.ioi-ai.persistent-executable-lineage.v1","type":"object","additionalProperties":false,"required":["schema_version","lineage_id","orchestration_ref","resolution_receipt_ref","artifact_ref","artifact_sha256","source_artifact_refs","successor_artifact_ref","transformation_receipt_refs","definition_ref","installation_ref","runtime_ref","runtime_kind","accountable_subject_ref","caretaker_ref","stop_policy_ref","lease_refs","dependency_lineage_refs","health_ref","effect_receipt_refs","posture","successor_of","lineage_root"],"properties":{"schema_version":{"const":"ioi.applications.ioi-ai.persistent-executable-lineage.v1"},"lineage_id":{"type":"string","pattern":"^lineage://\\S+$"},"orchestration_ref":{"type":"string","pattern":"^app-scope://ioi-ai/orchestration/\\S+$"},"resolution_receipt_ref":{"type":"string","pattern":"^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$","description":"The collective-resolution receipt (its receipt_ref) this lineage was resolved under; the composer refuses one this orchestration did not admit."},"artifact_ref":{"type":"string","pattern":"^artifact://\\S+$","description":"The artifact's identity. Exactness is the hash beside it, never a mutable latest."},"artifact_sha256":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"},"source_artifact_refs":{"type":"array","items":{"type":"string","pattern":"^artifact://\\S+$"}},"successor_artifact_ref":{"anyOf":[{"type":"string","pattern":"^artifact://\\S+$"},{"type":"null"}]},"transformation_receipt_refs":{"type":"array","items":{"type":"string","pattern":"^(?:receipt|ledger)://\\S+$"}},"definition_ref":{"type":"string","pattern":"^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"},"installation_ref":{"anyOf":[{"type":"string","pattern":"^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"},{"type":"null"}]},"runtime_ref":{"anyOf":[{"type":"string","pattern":"^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"},{"type":"null"}]},"runtime_kind":{"type":"string","enum":["none","automation_run","managed_worker_instance","runtime_assignment","delegation"]},"accountable_subject_ref":{"type":"string","pattern":"^(?:system|installation|worker|automation|automation-run|service|controller|runtime-assignment|managed-worker-instance)://\\S+$","description":"A durable subject — never a session or a participant; canon: session termination is neither retirement nor transferable authority."},"caretaker_ref":{"anyOf":[{"type":"string","pattern":"^(?:participation|delegation)://\\S+$"},{"type":"null"}]},"stop_policy_ref":{"type":"string","pattern":"^policy://\\S+$"},"lease_refs":{"type":"array","items":{"type":"string","pattern":"^(?:context-lease|authority-lease|resource-lease|budget-lease)://\\S+$"}},"dependency_lineage_refs":{"type":"array","items":{"type":"string","pattern":"^lineage://\\S+$"}},"health_ref":{"anyOf":[{"type":"string","pattern":"^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"},{"type":"null"}]},"effect_receipt_refs":{"type":"array","items":{"type":"string","pattern":"^(?:receipt|ledger)://\\S+$"}},"posture":{"type":"object","additionalProperties":false,"required":["status","orphan_reason"],"properties":{"status":{"type":"string","enum":["observed","reused","forked","installed","active","stopped","quarantined","repairing","replaced","retired"]},"orphan_reason":{"anyOf":[{"type":"string","enum":["owner_absent","caretaker_absent","dependency_unavailable","artifact_unavailable","health_stale","authority_stale"]},{"type":"null"}]}}},"successor_of":{"anyOf":[{"type":"string","pattern":"^lineage://\\S+$"},{"type":"null"}]},"lineage_root":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"},"system_binding":{"$ref":"#/$defs/systemBinding"}},"$defs":{"systemBinding":{"type":"object","additionalProperties":false,"required":["schema_version","system_id","parent_scope_ref","proposed_or_issued_by_ref","payload_root","created_at","updated_at"],"properties":{"schema_version":{"const":"ioi.foundations.system-scoped-object-binding.v1"},"system_id":{"type":"string","pattern":"^system://[^\\s]{1,500}$"},"parent_scope_ref":{"type":"string","pattern":"^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"},"proposed_or_issued_by_ref":{"type":"string","pattern":"^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"},"payload_root":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"},"created_at":{"type":"string","format":"date-time","pattern":"^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$"},"updated_at":{"anyOf":[{"type":"string","format":"date-time","pattern":"^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$"},{"type":"null"}]}}}},"description":"The one record that binds a persistent executable lineage (collaborative-outcome-pattern.md § Persistent Artifact Ecology, R-204): exact artifact identity and hash, sources and successor, transformation receipts, definition, installation and runtime identities, the accountable subject, caretaker and stop policy, leases, dependency lineages, health and effect receipts, and a typed posture. Composed by the ioi.ai application and admitted through the record seam; lineage_root is SHA-256 over JCS of every field except lineage_root and system_binding."}"##,
+            &value,
+        )
+            .map_err(serde::de::Error::custom)?;
+        let mut object = value
+            .as_object()
+            .cloned()
+            .ok_or_else(|| serde::de::Error::custom("validated projection is not an object"))?;
+        Ok(Self {
+            schema_version: serde_json::from_value::<PersistentExecutableLineageV1SchemaVersion>(
+                object
+                    .remove(r#"schema_version"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"schema_version"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            lineage_id: serde_json::from_value::<String>(
+                object
+                    .remove(r#"lineage_id"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"lineage_id"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            orchestration_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"orchestration_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"orchestration_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            resolution_receipt_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"resolution_receipt_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"resolution_receipt_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            artifact_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"artifact_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"artifact_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            artifact_sha256: serde_json::from_value::<String>(
+                object
+                    .remove(r#"artifact_sha256"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"artifact_sha256"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            source_artifact_refs: serde_json::from_value::<Vec<String>>(
+                object
+                    .remove(r#"source_artifact_refs"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"source_artifact_refs"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            successor_artifact_ref: serde_json::from_value::<Option<String>>(
+                object
+                    .remove(r#"successor_artifact_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"successor_artifact_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            transformation_receipt_refs: serde_json::from_value::<Vec<String>>(
+                object
+                    .remove(r#"transformation_receipt_refs"#)
+                    .ok_or_else(|| {
+                        serde::de::Error::missing_field(r#"transformation_receipt_refs"#)
+                    })?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            definition_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"definition_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"definition_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            installation_ref: serde_json::from_value::<Option<String>>(
+                object
+                    .remove(r#"installation_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"installation_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            runtime_ref: serde_json::from_value::<Option<String>>(
+                object
+                    .remove(r#"runtime_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"runtime_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            runtime_kind: serde_json::from_value::<PersistentExecutableLineageV1RuntimeKind>(
+                object
+                    .remove(r#"runtime_kind"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"runtime_kind"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            accountable_subject_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"accountable_subject_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"accountable_subject_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            caretaker_ref: serde_json::from_value::<Option<String>>(
+                object
+                    .remove(r#"caretaker_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"caretaker_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            stop_policy_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"stop_policy_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"stop_policy_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            lease_refs: serde_json::from_value::<Vec<String>>(
+                object
+                    .remove(r#"lease_refs"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"lease_refs"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            dependency_lineage_refs: serde_json::from_value::<Vec<String>>(
+                object
+                    .remove(r#"dependency_lineage_refs"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"dependency_lineage_refs"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            health_ref: serde_json::from_value::<Option<String>>(
+                object
+                    .remove(r#"health_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"health_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            effect_receipt_refs: serde_json::from_value::<Vec<String>>(
+                object
+                    .remove(r#"effect_receipt_refs"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"effect_receipt_refs"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            posture: serde_json::from_value::<PersistentExecutableLineageV1Posture>(
+                object
+                    .remove(r#"posture"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"posture"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            successor_of: serde_json::from_value::<Option<String>>(
+                object
+                    .remove(r#"successor_of"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"successor_of"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            lineage_root: serde_json::from_value::<String>(
+                object
+                    .remove(r#"lineage_root"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"lineage_root"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            system_binding: match object.remove(r#"system_binding"#) {
+                Some(field_value) => serde_json::from_value::<
+                    Option<PersistentExecutableLineageV1SystemBinding>,
+                >(field_value)
+                .map_err(serde::de::Error::custom)?,
+                None => None,
+            },
+        })
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum PersistentExecutableLineageV1SchemaVersion {
+    #[serde(rename = r#"ioi.applications.ioi-ai.persistent-executable-lineage.v1"#)]
+    IoiApplicationsIoiAiPersistentExecutableLineageV1,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum PersistentExecutableLineageV1RuntimeKind {
+    #[serde(rename = r#"none"#)]
+    None,
+    #[serde(rename = r#"automation_run"#)]
+    AutomationRun,
+    #[serde(rename = r#"managed_worker_instance"#)]
+    ManagedWorkerInstance,
+    #[serde(rename = r#"runtime_assignment"#)]
+    RuntimeAssignment,
+    #[serde(rename = r#"delegation"#)]
+    Delegation,
+}
+
+#[derive(Debug, Clone, PartialEq, serde::Serialize)]
+pub struct PersistentExecutableLineageV1Posture {
+    pub status: PersistentExecutableLineageV1PostureStatus,
+    pub orphan_reason: Option<PersistentExecutableLineageV1PostureOrphanReason>,
+}
+
+impl<'de> serde::Deserialize<'de> for PersistentExecutableLineageV1Posture {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let value = <serde_json::Value as serde::Deserialize>::deserialize(deserializer)?;
+        validate_projection_subschema(
+            r#"schema://ioi/applications/ioi-ai/persistent-executable-lineage/v1"#,
+            r#"{"type":"object","additionalProperties":false,"required":["status","orphan_reason"],"properties":{"status":{"type":"string","enum":["observed","reused","forked","installed","active","stopped","quarantined","repairing","replaced","retired"]},"orphan_reason":{"anyOf":[{"type":"string","enum":["owner_absent","caretaker_absent","dependency_unavailable","artifact_unavailable","health_stale","authority_stale"]},{"type":"null"}]}}}"#,
+            &value,
+        )
+            .map_err(serde::de::Error::custom)?;
+        let mut object = value
+            .as_object()
+            .cloned()
+            .ok_or_else(|| serde::de::Error::custom("validated projection is not an object"))?;
+        Ok(Self {
+            status: serde_json::from_value::<PersistentExecutableLineageV1PostureStatus>(
+                object
+                    .remove(r#"status"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"status"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            orphan_reason: serde_json::from_value::<
+                Option<PersistentExecutableLineageV1PostureOrphanReason>,
+            >(
+                object
+                    .remove(r#"orphan_reason"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"orphan_reason"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+        })
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum PersistentExecutableLineageV1PostureStatus {
+    #[serde(rename = r#"observed"#)]
+    Observed,
+    #[serde(rename = r#"reused"#)]
+    Reused,
+    #[serde(rename = r#"forked"#)]
+    Forked,
+    #[serde(rename = r#"installed"#)]
+    Installed,
+    #[serde(rename = r#"active"#)]
+    Active,
+    #[serde(rename = r#"stopped"#)]
+    Stopped,
+    #[serde(rename = r#"quarantined"#)]
+    Quarantined,
+    #[serde(rename = r#"repairing"#)]
+    Repairing,
+    #[serde(rename = r#"replaced"#)]
+    Replaced,
+    #[serde(rename = r#"retired"#)]
+    Retired,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum PersistentExecutableLineageV1PostureOrphanReason {
+    #[serde(rename = r#"owner_absent"#)]
+    OwnerAbsent,
+    #[serde(rename = r#"caretaker_absent"#)]
+    CaretakerAbsent,
+    #[serde(rename = r#"dependency_unavailable"#)]
+    DependencyUnavailable,
+    #[serde(rename = r#"artifact_unavailable"#)]
+    ArtifactUnavailable,
+    #[serde(rename = r#"health_stale"#)]
+    HealthStale,
+    #[serde(rename = r#"authority_stale"#)]
+    AuthorityStale,
+}
+
+#[derive(Debug, Clone, PartialEq, serde::Serialize)]
+pub struct PersistentExecutableLineageV1SystemBinding {
+    pub schema_version: PersistentExecutableLineageV1SystemBindingSchemaVersion,
+    pub system_id: String,
+    pub parent_scope_ref: String,
+    pub proposed_or_issued_by_ref: String,
+    pub payload_root: String,
+    pub created_at: String,
+    pub updated_at: Option<String>,
+}
+
+impl<'de> serde::Deserialize<'de> for PersistentExecutableLineageV1SystemBinding {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let value = <serde_json::Value as serde::Deserialize>::deserialize(deserializer)?;
+        validate_projection_subschema(
+            r#"schema://ioi/applications/ioi-ai/persistent-executable-lineage/v1"#,
+            r#"{"type":"object","additionalProperties":false,"required":["schema_version","system_id","parent_scope_ref","proposed_or_issued_by_ref","payload_root","created_at","updated_at"],"properties":{"schema_version":{"const":"ioi.foundations.system-scoped-object-binding.v1"},"system_id":{"type":"string","pattern":"^system://[^\\s]{1,500}$"},"parent_scope_ref":{"type":"string","pattern":"^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"},"proposed_or_issued_by_ref":{"type":"string","pattern":"^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"},"payload_root":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"},"created_at":{"type":"string","format":"date-time","pattern":"^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$"},"updated_at":{"anyOf":[{"type":"string","format":"date-time","pattern":"^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$"},{"type":"null"}]}}}"#,
+            &value,
+        )
+            .map_err(serde::de::Error::custom)?;
+        let mut object = value
+            .as_object()
+            .cloned()
+            .ok_or_else(|| serde::de::Error::custom("validated projection is not an object"))?;
+        Ok(Self {
+            schema_version: serde_json::from_value::<
+                PersistentExecutableLineageV1SystemBindingSchemaVersion,
+            >(
+                object
+                    .remove(r#"schema_version"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"schema_version"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            system_id: serde_json::from_value::<String>(
+                object
+                    .remove(r#"system_id"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"system_id"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            parent_scope_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"parent_scope_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"parent_scope_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            proposed_or_issued_by_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"proposed_or_issued_by_ref"#)
+                    .ok_or_else(|| {
+                        serde::de::Error::missing_field(r#"proposed_or_issued_by_ref"#)
+                    })?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            payload_root: serde_json::from_value::<String>(
+                object
+                    .remove(r#"payload_root"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"payload_root"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            created_at: serde_json::from_value::<String>(
+                object
+                    .remove(r#"created_at"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"created_at"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            updated_at: serde_json::from_value::<Option<String>>(
+                object
+                    .remove(r#"updated_at"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"updated_at"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+        })
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum PersistentExecutableLineageV1SystemBindingSchemaVersion {
+    #[serde(rename = r#"ioi.foundations.system-scoped-object-binding.v1"#)]
+    IoiFoundationsSystemScopedObjectBindingV1,
 }
 
 #[derive(Debug, Clone, PartialEq, serde::Serialize)]
@@ -175667,6 +176143,94 @@ pub const ARCHITECTURE_CONTRACT_FIXTURES: &[GoldenFixture] = &[
         expected_schema_accept: false,
         expected_failure: Some("schema"),
         expected_rule_id: None,
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/applications/ioi-ai/collective-resolution-receipt/v1",
+        path: "docs/architecture/_meta/schemas/fixtures/collective-resolution-receipt-v1/negative-orchestration-not-a-resolved-owner.json",
+        expected_accept: false,
+        expected_schema_accept: true,
+        expected_failure: Some("invariant"),
+        expected_rule_id: Some("collective_resolution_receipt.orchestration.is_a_resolved_owner"),
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/applications/ioi-ai/persistent-executable-lineage/v1",
+        path: "docs/architecture/_meta/schemas/fixtures/persistent-executable-lineage-v1/positive-reused-original.json",
+        expected_accept: true,
+        expected_schema_accept: true,
+        expected_failure: None,
+        expected_rule_id: None,
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/applications/ioi-ai/persistent-executable-lineage/v1",
+        path: "docs/architecture/_meta/schemas/fixtures/persistent-executable-lineage-v1/positive-active-under-a-system.json",
+        expected_accept: true,
+        expected_schema_accept: true,
+        expected_failure: None,
+        expected_rule_id: None,
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/applications/ioi-ai/persistent-executable-lineage/v1",
+        path: "docs/architecture/_meta/schemas/fixtures/persistent-executable-lineage-v1/positive-forked-with-receipt.json",
+        expected_accept: true,
+        expected_schema_accept: true,
+        expected_failure: None,
+        expected_rule_id: None,
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/applications/ioi-ai/persistent-executable-lineage/v1",
+        path: "docs/architecture/_meta/schemas/fixtures/persistent-executable-lineage-v1/negative-unknown-field.json",
+        expected_accept: false,
+        expected_schema_accept: false,
+        expected_failure: Some("schema"),
+        expected_rule_id: None,
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/applications/ioi-ai/persistent-executable-lineage/v1",
+        path: "docs/architecture/_meta/schemas/fixtures/persistent-executable-lineage-v1/negative-accountable-subject-is-a-session.json",
+        expected_accept: false,
+        expected_schema_accept: false,
+        expected_failure: Some("schema"),
+        expected_rule_id: None,
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/applications/ioi-ai/persistent-executable-lineage/v1",
+        path: "docs/architecture/_meta/schemas/fixtures/persistent-executable-lineage-v1/negative-artifact-moved-after-the-root.json",
+        expected_accept: false,
+        expected_schema_accept: true,
+        expected_failure: Some("invariant"),
+        expected_rule_id: Some("persistent_executable_lineage.root.recomputes"),
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/applications/ioi-ai/persistent-executable-lineage/v1",
+        path: "docs/architecture/_meta/schemas/fixtures/persistent-executable-lineage-v1/negative-quarantined-without-a-typed-reason.json",
+        expected_accept: false,
+        expected_schema_accept: true,
+        expected_failure: Some("invariant"),
+        expected_rule_id: Some("persistent_executable_lineage.orphan.reason_is_typed"),
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/applications/ioi-ai/persistent-executable-lineage/v1",
+        path: "docs/architecture/_meta/schemas/fixtures/persistent-executable-lineage-v1/negative-fork-without-a-transformation-receipt.json",
+        expected_accept: false,
+        expected_schema_accept: true,
+        expected_failure: Some("invariant"),
+        expected_rule_id: Some("persistent_executable_lineage.fork.names_a_transformation_receipt"),
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/applications/ioi-ai/persistent-executable-lineage/v1",
+        path: "docs/architecture/_meta/schemas/fixtures/persistent-executable-lineage-v1/negative-fork-without-a-parent.json",
+        expected_accept: false,
+        expected_schema_accept: true,
+        expected_failure: Some("invariant"),
+        expected_rule_id: Some("persistent_executable_lineage.fork.names_its_parents"),
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/applications/ioi-ai/persistent-executable-lineage/v1",
+        path: "docs/architecture/_meta/schemas/fixtures/persistent-executable-lineage-v1/negative-active-without-a-runtime.json",
+        expected_accept: false,
+        expected_schema_accept: true,
+        expected_failure: Some("invariant"),
+        expected_rule_id: Some("persistent_executable_lineage.active.binds_a_runtime"),
     },
     GoldenFixture {
         contract_id: "schema://ioi/foundations/delegation-edge/v1",
@@ -196447,6 +197011,127 @@ pub const ARCHITECTURE_CONTRACT_DIFFERENTIAL_CASES: &[ArchitectureContractDiffer
         oracle_contract_accept: false,
     },
     ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/collective-resolution-receipt-v1/negative-orchestration-not-a-resolved-owner.json"#,
+        contract_id: r#"schema://ioi/applications/ioi-ai/collective-resolution-receipt/v1"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/collective-resolution-receipt-v1/negative-orchestration-not-a-resolved-owner.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: true,
+        oracle_contract_accept: false,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/persistent-executable-lineage-v1/positive-reused-original.json"#,
+        contract_id: r#"schema://ioi/applications/ioi-ai/persistent-executable-lineage/v1"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/persistent-executable-lineage-v1/positive-reused-original.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: true,
+        oracle_contract_accept: true,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/persistent-executable-lineage-v1/positive-active-under-a-system.json"#,
+        contract_id: r#"schema://ioi/applications/ioi-ai/persistent-executable-lineage/v1"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/persistent-executable-lineage-v1/positive-active-under-a-system.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: true,
+        oracle_contract_accept: true,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/persistent-executable-lineage-v1/positive-forked-with-receipt.json"#,
+        contract_id: r#"schema://ioi/applications/ioi-ai/persistent-executable-lineage/v1"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/persistent-executable-lineage-v1/positive-forked-with-receipt.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: true,
+        oracle_contract_accept: true,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/persistent-executable-lineage-v1/negative-unknown-field.json"#,
+        contract_id: r#"schema://ioi/applications/ioi-ai/persistent-executable-lineage/v1"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/persistent-executable-lineage-v1/negative-unknown-field.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: false,
+        oracle_contract_accept: false,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/persistent-executable-lineage-v1/negative-accountable-subject-is-a-session.json"#,
+        contract_id: r#"schema://ioi/applications/ioi-ai/persistent-executable-lineage/v1"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/persistent-executable-lineage-v1/negative-accountable-subject-is-a-session.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: false,
+        oracle_contract_accept: false,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/persistent-executable-lineage-v1/negative-artifact-moved-after-the-root.json"#,
+        contract_id: r#"schema://ioi/applications/ioi-ai/persistent-executable-lineage/v1"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/persistent-executable-lineage-v1/negative-artifact-moved-after-the-root.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: true,
+        oracle_contract_accept: false,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/persistent-executable-lineage-v1/negative-quarantined-without-a-typed-reason.json"#,
+        contract_id: r#"schema://ioi/applications/ioi-ai/persistent-executable-lineage/v1"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/persistent-executable-lineage-v1/negative-quarantined-without-a-typed-reason.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: true,
+        oracle_contract_accept: false,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/persistent-executable-lineage-v1/negative-fork-without-a-transformation-receipt.json"#,
+        contract_id: r#"schema://ioi/applications/ioi-ai/persistent-executable-lineage/v1"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/persistent-executable-lineage-v1/negative-fork-without-a-transformation-receipt.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: true,
+        oracle_contract_accept: false,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/persistent-executable-lineage-v1/negative-fork-without-a-parent.json"#,
+        contract_id: r#"schema://ioi/applications/ioi-ai/persistent-executable-lineage/v1"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/persistent-executable-lineage-v1/negative-fork-without-a-parent.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: true,
+        oracle_contract_accept: false,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/persistent-executable-lineage-v1/negative-active-without-a-runtime.json"#,
+        contract_id: r#"schema://ioi/applications/ioi-ai/persistent-executable-lineage/v1"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/persistent-executable-lineage-v1/negative-active-without-a-runtime.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: true,
+        oracle_contract_accept: false,
+    },
+    ArchitectureContractDifferentialCase {
         id: r#"fixture:docs/architecture/_meta/schemas/fixtures/delegation-edge-v1/positive-resolved-delegation.json"#,
         contract_id: r#"schema://ioi/foundations/delegation-edge/v1"#,
         source_fixture_path: Some(
@@ -198295,7 +198980,8 @@ const CONTRACT_SCHEMAS: &[(&str, &str)] = &[
     ("schema://ioi/applications/ioi-ai/goal-run-admission-path-decision/v2", r##"{"$schema":"https://json-schema.org/draft/2020-12/schema","$id":"schema://ioi/applications/ioi-ai/goal-run-admission-path-decision/v2","title":"GoalRunAdmissionPathDecision","x-ioi-schema-version":"ioi.applications.ioi-ai.goal-run-admission-path-decision.v2","type":"object","additionalProperties":false,"required":["schema_version","decision_ref","goal_run_ref","requested_path","decision","admitting_owner","goal_run_profile_revision_ref","goal_run_profile_content_hash","effective_constraint_hash","result_profile","policy_refs","authority_refs","capability_requirement_refs","runtime_facts","reason_codes","decision_receipt_ref","decided_at"],"properties":{"schema_version":{"const":"ioi.applications.ioi-ai.goal-run-admission-path-decision.v2"},"decision_ref":{"$ref":"#/$defs/ref"},"goal_run_ref":{"type":"string","pattern":"^goal://[^\\s]{1,500}$"},"requested_path":{"enum":["auto","direct_non_system","system_bound"]},"decision":{"enum":["direct_non_system","system_bound_required","refused"]},"admitting_owner":{"const":"hypervisor_daemon"},"goal_run_profile_revision_ref":{"type":"string","pattern":"^goal-run-profile://[^\\s]+/revision/[^\\s]+$"},"goal_run_profile_content_hash":{"$ref":"#/$defs/hash"},"effective_constraint_hash":{"$ref":"#/$defs/hash"},"result_profile":{"enum":["software_implementation","research","ontology_mutation","incident_resolution","service_delivery","physical_mission","review","evaluation","custom"]},"policy_refs":{"type":"array","minItems":1,"uniqueItems":true,"items":{"$ref":"#/$defs/ref"}},"authority_refs":{"type":"array","minItems":1,"uniqueItems":true,"items":{"$ref":"#/$defs/ref"}},"capability_requirement_refs":{"type":"array","uniqueItems":true,"items":{"$ref":"#/$defs/ref"}},"runtime_facts":{"type":"object","additionalProperties":false,"required":["single_bounded_work_subject","requires_system_membership","requires_shared_frontier","requires_collective_scheduling","capabilities_fit_single_execution","authority_fits_single_execution","risk_and_isolation_fit_single_execution","has_unresolved_system_dependency","policy_requires_system_path","system_path_available"],"properties":{"single_bounded_work_subject":{"type":"boolean"},"requires_system_membership":{"type":"boolean"},"requires_shared_frontier":{"type":"boolean"},"requires_collective_scheduling":{"type":"boolean"},"capabilities_fit_single_execution":{"type":"boolean"},"authority_fits_single_execution":{"type":"boolean"},"risk_and_isolation_fit_single_execution":{"type":"boolean"},"has_unresolved_system_dependency":{"type":"boolean"},"policy_requires_system_path":{"type":"boolean"},"system_path_available":{"type":"boolean"}}},"reason_codes":{"type":"array","uniqueItems":true,"items":{"enum":["direct_path_eligible","multiple_work_subjects","system_membership_required","shared_frontier_required","collective_scheduling_required","capability_requirements_exceed_single_execution","authority_requirements_exceed_single_execution","risk_or_isolation_exceeds_single_execution","unresolved_system_dependency","policy_requires_system_path","requested_system_path","system_path_prerequisites_unavailable"]}},"decision_receipt_ref":{"type":"string","pattern":"^receipt://[^\\s]{1,500}$"},"decided_at":{"type":"string","format":"date-time","pattern":"^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$"}},"allOf":[{"if":{"properties":{"decision":{"const":"direct_non_system"}},"required":["decision"]},"then":{"properties":{"requested_path":{"enum":["auto","direct_non_system"]},"reason_codes":{"type":"array","contains":{"const":"direct_path_eligible"}},"runtime_facts":{"type":"object","properties":{"single_bounded_work_subject":{"const":true},"requires_system_membership":{"const":false},"requires_shared_frontier":{"const":false},"requires_collective_scheduling":{"const":false},"capabilities_fit_single_execution":{"const":true},"authority_fits_single_execution":{"const":true},"risk_and_isolation_fit_single_execution":{"const":true},"has_unresolved_system_dependency":{"const":false},"policy_requires_system_path":{"const":false}}}}}},{"if":{"properties":{"decision":{"const":"system_bound_required"}},"required":["decision"]},"then":{"properties":{"reason_codes":{"type":"array","minItems":1},"runtime_facts":{"type":"object","properties":{"system_path_available":{"const":true}}}}}},{"if":{"properties":{"decision":{"const":"refused"}},"required":["decision"]},"then":{"properties":{"reason_codes":{"type":"array","contains":{"const":"system_path_prerequisites_unavailable"}},"runtime_facts":{"type":"object","properties":{"system_path_available":{"const":false}}}}}}],"$defs":{"ref":{"type":"string","pattern":"^[a-z][a-z0-9+.-]*://[^\\s]{1,500}$"},"hash":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"}},"description":"Version 2 (2026-09-18, R-178 slice S4d-2, R-190): the GoalRun composes over the ioi.ai orchestration — the room coordinates of v1 are gone and `orchestration_ref` names the composition; successor of v1."}"##),
     ("schema://ioi/applications/ioi-ai/context-cell/v2", r##"{"$schema":"https://json-schema.org/draft/2020-12/schema","$id":"schema://ioi/applications/ioi-ai/context-cell/v2","title":"ContextCellEnvelope","x-ioi-schema-version":"ioi.context-cell.v2","description":"Independent bounded working context for ONE role inside a GoalRun, owned by the ioi.ai orchestration application and admitted through the daemon's generic write path (never Hypervisor core). It carries refs to the information-flow labels, memory projections, leases, authority scopes and runtime assignment that other owners admit; it defines no parallel taint, privacy or authority object of its own (goal-run-execution.md § ContextCellEnvelope; execution-context-and-step-resolution.md § InformationFlowLabel and DeclassificationApproval). Ref spellings are the estate's canonical hyphenated identities; the legacy underscore spellings recorded in legacy-ref-scheme-aliases.json are refused here because that registry's write policy forbids emitting them. Version 2 (2026-09-18, R-178 slice S4d-2, R-190): the GoalRun composes over the ioi.ai orchestration — the room coordinates of v1 are gone and `orchestration_ref` names the composition; successor of v1.","type":"object","additionalProperties":false,"required":["schema_version","context_cell_id","work_subject_ref","orchestration_ref","delegation_ref","role_topology_revision_ref","role_binding_id","accountable_actor_ref","role","resolver_revision_ref","resolver_content_hash","model_route_ref","memory_projection_refs","context_lease_refs","information_flow_label_refs","active_runtime_assignment_ref","authority_scope_refs","compression_policy_ref","current_claim_ref","next_wake_condition_ref","status"],"properties":{"schema_version":{"const":"ioi.context-cell.v2"},"context_cell_id":{"type":"string","pattern":"^context-cell://\\S+$","maxLength":500},"work_subject_ref":{"type":"string","pattern":"^(?:goal|automation-run|work-run|run|invocation|work-claim|attempt)://\\S+$","maxLength":500},"role_topology_revision_ref":{"anyOf":[{"type":"string","pattern":"^role-topology://\\S+/revision/\\S+$","maxLength":500},{"type":"null"}]},"role_binding_id":{"type":"string","minLength":1,"maxLength":200},"accountable_actor_ref":{"type":"string","pattern":"^(?:participant-lease|system|worker|agent|service|org|user|domain)://\\S+$","maxLength":500},"role":{"type":"string","enum":["conductor","implementer","reviewer","verifier","operator","researcher","specialist","synthesizer","resource_provider","integrity_challenger","memory_curator"]},"resolver_revision_ref":{"anyOf":[{"type":"string","pattern":"^(?:harness-profile|agent-harness-adapter)://\\S+/revision/\\S+$","maxLength":500},{"type":"null"}]},"resolver_content_hash":{"anyOf":[{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"},{"type":"null"}]},"model_route_ref":{"anyOf":[{"type":"string","pattern":"^model-route://\\S+$","maxLength":500},{"type":"null"}]},"memory_projection_refs":{"type":"array","maxItems":512,"items":{"type":"string","pattern":"^(?:memory-projection|wiki)://\\S+$","maxLength":500}},"context_lease_refs":{"type":"array","maxItems":512,"items":{"type":"string","pattern":"^context-lease://\\S+$","maxLength":500}},"information_flow_label_refs":{"type":"array","maxItems":512,"items":{"type":"string","pattern":"^ifc-label://\\S+$","maxLength":500}},"active_runtime_assignment_ref":{"anyOf":[{"type":"string","pattern":"^runtime-assignment://\\S+$","maxLength":500},{"type":"null"}]},"authority_scope_refs":{"type":"array","maxItems":512,"items":{"type":"string","pattern":"^(?:authority|policy)://\\S+$","maxLength":500}},"compression_policy_ref":{"anyOf":[{"type":"string","pattern":"^policy://\\S+$","maxLength":500},{"type":"null"}]},"current_claim_ref":{"anyOf":[{"type":"string","pattern":"^work-claim://\\S+$","maxLength":500},{"type":"null"}]},"next_wake_condition_ref":{"anyOf":[{"type":"string","pattern":"^(?:policy|event)://\\S+$","maxLength":500},{"type":"null"}]},"status":{"type":"string","enum":["open","active","sleeping","waiting","handed_off","summarized","quarantined","closed","revoked"]},"orchestration_ref":{"anyOf":[{"type":"string","pattern":"^app-scope://ioi-ai/orchestration/[^\\s]{1,400}$"},{"type":"null"}]},"delegation_ref":{"anyOf":[{"type":"string","pattern":"^delegation://[^\\s]{1,500}$"},{"type":"null"}]},"system_binding":{"$ref":"#/$defs/systemBinding"}},"$defs":{"systemBinding":{"type":"object","additionalProperties":false,"required":["schema_version","system_id","parent_scope_ref","proposed_or_issued_by_ref","payload_root","created_at","updated_at"],"properties":{"schema_version":{"const":"ioi.foundations.system-scoped-object-binding.v1"},"system_id":{"type":"string","pattern":"^system://[^\\s]{1,500}$"},"parent_scope_ref":{"type":"string","pattern":"^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"},"proposed_or_issued_by_ref":{"type":"string","pattern":"^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"},"payload_root":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"},"created_at":{"type":"string","format":"date-time","pattern":"^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$"},"updated_at":{"anyOf":[{"type":"string","format":"date-time","pattern":"^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$"},{"type":"null"}]}}}}}"##),
     ("schema://ioi/applications/ioi-ai/goal-grounding-loop/v2", r#"{"$schema":"https://json-schema.org/draft/2020-12/schema","$id":"schema://ioi/applications/ioi-ai/goal-grounding-loop/v2","title":"GoalGroundingLoop","x-ioi-schema-version":"ioi.goal-grounding-loop.v2","type":"object","additionalProperties":false,"required":["schema_version","goal_loop_id","goal_ref","conductor_context_cell_ref","loop_iteration","phase","escalation_state","exit_condition","status"],"properties":{"schema_version":{"const":"ioi.goal-grounding-loop.v2"},"goal_loop_id":{"type":"string","pattern":"^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"},"goal_ref":{"type":"string","pattern":"^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"},"conductor_context_cell_ref":{"type":"string","pattern":"^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"},"loop_iteration":{"type":"integer","minimum":0,"maximum":9007199254740991},"phase":{"enum":["receive_intent","classify_goal","gather_grounding","inspect_state","derive_constraints","observe_frontier","form_hypotheses","select_or_adapt_topology","claim_allocate_or_delegate","lease_context","open_context_cells","execute_attempt","monitor_progress","publish_result","verify_compare_or_challenge","repair_or_escalate","reconcile","update_frontier_and_memory","continue_or_close"]},"frontier_and_claim_refs":{"type":"array","uniqueItems":true,"items":{"type":"string","pattern":"^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"}},"grounding_source_refs":{"type":"array","uniqueItems":true,"items":{"type":"string","pattern":"^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"}},"state_inspection_refs":{"type":"array","uniqueItems":true,"items":{"type":"string","pattern":"^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"}},"decision_refs":{"type":"array","uniqueItems":true,"items":{"type":"string","pattern":"^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"}},"context_cell_refs":{"type":"array","uniqueItems":true,"items":{"type":"string","pattern":"^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"}},"handoff_refs":{"type":"array","uniqueItems":true,"items":{"type":"string","pattern":"^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"}},"attempt_result_and_finding_refs":{"type":"array","uniqueItems":true,"items":{"type":"string","pattern":"^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"}},"verifier_path_ref":{"anyOf":[{"type":"string","pattern":"^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"},{"type":"null"}]},"evidence_refs":{"type":"array","uniqueItems":true,"items":{"type":"string","pattern":"^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"}},"productivity_budget_ref":{"anyOf":[{"type":"string","pattern":"^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"},{"type":"null"}]},"topology_participant_and_verifier_change_refs":{"type":"array","uniqueItems":true,"items":{"type":"string","pattern":"^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"}},"marginal_value_stop_policy_ref":{"anyOf":[{"type":"string","pattern":"^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"},{"type":"null"}]},"escalation_state":{"enum":["none","ask_user","open_implementer_cell","open_reviewer_cell","require_independent_verifier","require_governance_control","stop_blocked"]},"exit_condition":{"enum":["continue","delegated","waiting_on_frontier","verified_complete","accepted","risk_stop","budget_stop","deadline_stop","marginal_value_stop","blocked","superseded","user_input_required","governance_required"]},"status":{"enum":["active","waiting","satisfied","blocked","superseded","revoked"]},"orchestration_ref":{"anyOf":[{"type":"string","pattern":"^app-scope://ioi-ai/orchestration/[^\\s]{1,400}$"},{"type":"null"}]}},"description":"Version 2 (2026-09-18, R-178 slice S4d-2, R-190): the GoalRun composes over the ioi.ai orchestration — the room coordinates of v1 are gone and `orchestration_ref` names the composition; successor of v1."}"#),
-    ("schema://ioi/applications/ioi-ai/collective-resolution-receipt/v1", r#"{"$schema":"https://json-schema.org/draft/2020-12/schema","$id":"schema://ioi/applications/ioi-ai/collective-resolution-receipt/v1","title":"CollectiveResolutionReceipt","x-ioi-schema-version":"ioi.applications.ioi-ai.collective-resolution-receipt.v1","description":"One daemon-derived freeze of the exact dependency closure a collective composition resolved, and the EXISTING owner objects it resolved into. It registers no profile envelope, holds no state and is never a second live owner: every ref it names is admitted elsewhere and remains its owner's truth. M04.12 / ACC-5 clause 10.","type":"object","additionalProperties":false,"required":["schema_version","receipt_id","receipt_ref","receipt_type","resolved_by_ref","system_id","system_release_ref","constitution_ref","active_profile_set_ref","orchestration_ref","goal_run_profile_revision_refs","policy_refs","lease_policy_refs","artifact_lifecycle_policy_ref","requirement_refs","resolved_owner_refs","registers_no_new_owner","resolved_at","closure_root"],"properties":{"schema_version":{"const":"ioi.applications.ioi-ai.collective-resolution-receipt.v1"},"receipt_id":{"type":"string","pattern":"^collective-resolution://crr_[0-9a-f]{64}$"},"receipt_ref":{"type":"string","pattern":"^collective-resolution://crr_[0-9a-f]{64}$"},"receipt_type":{"const":"collective_resolution"},"resolved_by_ref":{"type":"string","pattern":"^(?:org|project|system|user)://[^\\s]{1,500}$"},"system_id":{"type":"string","pattern":"^system://[^\\s]{1,500}$"},"system_release_ref":{"type":"string","pattern":"^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"},"constitution_ref":{"type":"string","pattern":"^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"},"active_profile_set_ref":{"type":"string","pattern":"^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"},"orchestration_ref":{"type":"string","pattern":"^app-scope://ioi-ai/orchestration/[^\\s]{1,400}$"},"goal_run_profile_revision_refs":{"type":"array","uniqueItems":true,"items":{"type":"string","pattern":"^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"},"minItems":1},"policy_refs":{"type":"array","uniqueItems":true,"items":{"type":"string","pattern":"^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"},"minItems":1},"lease_policy_refs":{"type":"array","uniqueItems":true,"items":{"type":"string","pattern":"^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"}},"artifact_lifecycle_policy_ref":{"type":"string","pattern":"^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"},"requirement_refs":{"type":"array","uniqueItems":true,"items":{"type":"string","pattern":"^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"},"minItems":1},"resolved_owner_refs":{"type":"array","uniqueItems":true,"items":{"type":"string","pattern":"^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"},"minItems":1},"registers_no_new_owner":{"const":true},"resolved_at":{"type":"string","pattern":"^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$"},"closure_root":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"}}}"#),
+    ("schema://ioi/applications/ioi-ai/collective-resolution-receipt/v1", r##"{"$schema":"https://json-schema.org/draft/2020-12/schema","$id":"schema://ioi/applications/ioi-ai/collective-resolution-receipt/v1","title":"CollectiveResolutionReceipt","x-ioi-schema-version":"ioi.applications.ioi-ai.collective-resolution-receipt.v1","description":"One daemon-derived freeze of the exact dependency closure a collective composition resolved, and the EXISTING owner objects it resolved into. It registers no profile envelope, holds no state and is never a second live owner: every ref it names is admitted elsewhere and remains its owner's truth. M04.12 / ACC-5 clause 10.","type":"object","additionalProperties":false,"required":["schema_version","receipt_id","receipt_ref","receipt_type","resolved_by_ref","system_id","system_release_ref","constitution_ref","active_profile_set_ref","orchestration_ref","goal_run_profile_revision_refs","policy_refs","lease_policy_refs","artifact_lifecycle_policy_ref","requirement_refs","resolved_owner_refs","registers_no_new_owner","resolved_at","closure_root"],"properties":{"schema_version":{"const":"ioi.applications.ioi-ai.collective-resolution-receipt.v1"},"receipt_id":{"type":"string","pattern":"^collective-resolution://crr_[0-9a-f]{64}$"},"receipt_ref":{"type":"string","pattern":"^collective-resolution://crr_[0-9a-f]{64}$"},"receipt_type":{"const":"collective_resolution"},"resolved_by_ref":{"type":"string","pattern":"^(?:org|project|system|user)://[^\\s]{1,500}$"},"system_id":{"type":"string","pattern":"^system://[^\\s]{1,500}$"},"system_release_ref":{"type":"string","pattern":"^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"},"constitution_ref":{"type":"string","pattern":"^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"},"active_profile_set_ref":{"type":"string","pattern":"^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"},"orchestration_ref":{"type":"string","pattern":"^app-scope://ioi-ai/orchestration/[^\\s]{1,400}$"},"goal_run_profile_revision_refs":{"type":"array","uniqueItems":true,"items":{"type":"string","pattern":"^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"},"minItems":1},"policy_refs":{"type":"array","uniqueItems":true,"items":{"type":"string","pattern":"^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"},"minItems":1},"lease_policy_refs":{"type":"array","uniqueItems":true,"items":{"type":"string","pattern":"^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"}},"artifact_lifecycle_policy_ref":{"type":"string","pattern":"^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"},"requirement_refs":{"type":"array","uniqueItems":true,"items":{"type":"string","pattern":"^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"},"minItems":1},"resolved_owner_refs":{"type":"array","uniqueItems":true,"items":{"type":"string","pattern":"^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"},"minItems":1},"registers_no_new_owner":{"const":true},"resolved_at":{"type":"string","pattern":"^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$"},"closure_root":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"},"system_binding":{"$ref":"#/$defs/systemBinding"}},"$defs":{"systemBinding":{"type":"object","additionalProperties":false,"required":["schema_version","system_id","parent_scope_ref","proposed_or_issued_by_ref","payload_root","created_at","updated_at"],"properties":{"schema_version":{"const":"ioi.foundations.system-scoped-object-binding.v1"},"system_id":{"type":"string","pattern":"^system://[^\\s]{1,500}$"},"parent_scope_ref":{"type":"string","pattern":"^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"},"proposed_or_issued_by_ref":{"type":"string","pattern":"^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"},"payload_root":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"},"created_at":{"type":"string","format":"date-time","pattern":"^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$"},"updated_at":{"anyOf":[{"type":"string","format":"date-time","pattern":"^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$"},{"type":"null"}]}}}}}"##),
+    ("schema://ioi/applications/ioi-ai/persistent-executable-lineage/v1", r##"{"$schema":"https://json-schema.org/draft/2020-12/schema","$id":"schema://ioi/applications/ioi-ai/persistent-executable-lineage/v1","title":"PersistentExecutableLineageV1","x-ioi-schema-version":"ioi.applications.ioi-ai.persistent-executable-lineage.v1","type":"object","additionalProperties":false,"required":["schema_version","lineage_id","orchestration_ref","resolution_receipt_ref","artifact_ref","artifact_sha256","source_artifact_refs","successor_artifact_ref","transformation_receipt_refs","definition_ref","installation_ref","runtime_ref","runtime_kind","accountable_subject_ref","caretaker_ref","stop_policy_ref","lease_refs","dependency_lineage_refs","health_ref","effect_receipt_refs","posture","successor_of","lineage_root"],"properties":{"schema_version":{"const":"ioi.applications.ioi-ai.persistent-executable-lineage.v1"},"lineage_id":{"type":"string","pattern":"^lineage://\\S+$"},"orchestration_ref":{"type":"string","pattern":"^app-scope://ioi-ai/orchestration/\\S+$"},"resolution_receipt_ref":{"type":"string","pattern":"^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$","description":"The collective-resolution receipt (its receipt_ref) this lineage was resolved under; the composer refuses one this orchestration did not admit."},"artifact_ref":{"type":"string","pattern":"^artifact://\\S+$","description":"The artifact's identity. Exactness is the hash beside it, never a mutable latest."},"artifact_sha256":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"},"source_artifact_refs":{"type":"array","items":{"type":"string","pattern":"^artifact://\\S+$"}},"successor_artifact_ref":{"anyOf":[{"type":"string","pattern":"^artifact://\\S+$"},{"type":"null"}]},"transformation_receipt_refs":{"type":"array","items":{"type":"string","pattern":"^(?:receipt|ledger)://\\S+$"}},"definition_ref":{"type":"string","pattern":"^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"},"installation_ref":{"anyOf":[{"type":"string","pattern":"^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"},{"type":"null"}]},"runtime_ref":{"anyOf":[{"type":"string","pattern":"^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"},{"type":"null"}]},"runtime_kind":{"type":"string","enum":["none","automation_run","managed_worker_instance","runtime_assignment","delegation"]},"accountable_subject_ref":{"type":"string","pattern":"^(?:system|installation|worker|automation|automation-run|service|controller|runtime-assignment|managed-worker-instance)://\\S+$","description":"A durable subject — never a session or a participant; canon: session termination is neither retirement nor transferable authority."},"caretaker_ref":{"anyOf":[{"type":"string","pattern":"^(?:participation|delegation)://\\S+$"},{"type":"null"}]},"stop_policy_ref":{"type":"string","pattern":"^policy://\\S+$"},"lease_refs":{"type":"array","items":{"type":"string","pattern":"^(?:context-lease|authority-lease|resource-lease|budget-lease)://\\S+$"}},"dependency_lineage_refs":{"type":"array","items":{"type":"string","pattern":"^lineage://\\S+$"}},"health_ref":{"anyOf":[{"type":"string","pattern":"^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"},{"type":"null"}]},"effect_receipt_refs":{"type":"array","items":{"type":"string","pattern":"^(?:receipt|ledger)://\\S+$"}},"posture":{"type":"object","additionalProperties":false,"required":["status","orphan_reason"],"properties":{"status":{"type":"string","enum":["observed","reused","forked","installed","active","stopped","quarantined","repairing","replaced","retired"]},"orphan_reason":{"anyOf":[{"type":"string","enum":["owner_absent","caretaker_absent","dependency_unavailable","artifact_unavailable","health_stale","authority_stale"]},{"type":"null"}]}}},"successor_of":{"anyOf":[{"type":"string","pattern":"^lineage://\\S+$"},{"type":"null"}]},"lineage_root":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"},"system_binding":{"$ref":"#/$defs/systemBinding"}},"$defs":{"systemBinding":{"type":"object","additionalProperties":false,"required":["schema_version","system_id","parent_scope_ref","proposed_or_issued_by_ref","payload_root","created_at","updated_at"],"properties":{"schema_version":{"const":"ioi.foundations.system-scoped-object-binding.v1"},"system_id":{"type":"string","pattern":"^system://[^\\s]{1,500}$"},"parent_scope_ref":{"type":"string","pattern":"^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"},"proposed_or_issued_by_ref":{"type":"string","pattern":"^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"},"payload_root":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"},"created_at":{"type":"string","format":"date-time","pattern":"^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$"},"updated_at":{"anyOf":[{"type":"string","format":"date-time","pattern":"^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$"},{"type":"null"}]}}}},"description":"The one record that binds a persistent executable lineage (collaborative-outcome-pattern.md § Persistent Artifact Ecology, R-204): exact artifact identity and hash, sources and successor, transformation receipts, definition, installation and runtime identities, the accountable subject, caretaker and stop policy, leases, dependency lineages, health and effect receipts, and a typed posture. Composed by the ioi.ai application and admitted through the record seam; lineage_root is SHA-256 over JCS of every field except lineage_root and system_binding."}"##),
     ("schema://ioi/foundations/delegation-edge/v1", r#"{"$schema":"https://json-schema.org/draft/2020-12/schema","$id":"schema://ioi/foundations/delegation-edge/v1","title":"DelegationEdge","x-ioi-schema-version":"ioi.foundations.delegation-edge.v1","type":"object","additionalProperties":false,"required":["schema_version","delegation_ref","parent_thread_id","child_subagent_id","accountable_actor_ref","role_kind","topology_kind","ancestor_chain","delegation_depth","depth_ceiling","fanout_reservation_ref","selected_resolver_kind","selected_resolver_revision_ref","selected_resolver_content_hash","selected_model_route_ref","forked_thread_ref","managed_session_ref","launch_recipe_ref","harness_binding_ref","orchestration_ref","admitted_at_ms","depth_bound_absent"],"properties":{"schema_version":{"const":"ioi.foundations.delegation-edge.v1"},"delegation_ref":{"type":"string","description":"The delegation's own coordinate, delegation://{thread_id}/{subagent_id} — the actor coordinate the Subagent API section already names.","pattern":"^delegation://[^\\s/]{1,200}/[^\\s/]{1,200}$"},"accountable_actor_ref":{"type":"string","description":"Who answers for the delegated work. Read by the platform for attribution, never for behaviour.","pattern":"^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"},"role_kind":{"description":"OPAQUE TO THE PLATFORM. Closed here by contract so a nonsense value is refused at admission, while the daemon branches on no value: there is no match arm, no default and no behaviour keyed on it anywhere. What a reviewer DOES is the composing application's.","enum":["conductor","implementer","reviewer","verifier","operator","researcher","specialist","synthesizer","resource_provider","integrity_challenger","memory_curator"]},"topology_kind":{"description":"OPAQUE TO THE PLATFORM, on the same terms as role_kind. The retired GoalRun kernel emitted ONE hardcoded value and branched on it; a platform that enumerated ten and branched on them would be the same defect at a larger size.","enum":["direct","goal_conductor","delegated_build","governed_release","multi_context_review","specialist_mesh","leaderless_blackboard","market_allocated","independent_replication","federated_pursuit"]},"ancestor_chain":{"type":"array","description":"Every ancestor whose bound this delegation narrows, nearest first. Its LENGTH is the delegation depth; depth is read off the chain rather than minted as a seventh reservation dimension.","minItems":1,"uniqueItems":true,"items":{"type":"string","pattern":"^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"}},"delegation_depth":{"type":"integer","description":"The admitted depth. Equal to the ancestor chain's length by invariant, never asserted independently of it.","minimum":1,"maximum":4096},"depth_ceiling":{"type":"integer","description":"The ceiling this delegation admitted under, narrowed from the parent's and never widened by a caller.","minimum":1,"maximum":4096},"fanout_reservation_ref":{"type":"string","description":"The concurrent_invocations claim on the per-dimension reservation seam (R-74). Fanout is that claim, not a new mechanism.","pattern":"^work-reservation://[^\\s]{1,500}$"},"selected_resolver_kind":{"enum":["harness_profile","agent_harness_adapter","none"]},"selected_resolver_revision_ref":{"anyOf":[{"type":"string","pattern":"^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"},{"type":"null"}]},"selected_resolver_content_hash":{"anyOf":[{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"},{"type":"null"}]},"selected_model_route_ref":{"anyOf":[{"type":"string","pattern":"^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"},{"type":"null"}]},"forked_thread_ref":{"anyOf":[{"type":"string","pattern":"^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"},{"type":"null"}],"description":"ADR 0031 primitive 1 of 5: the thread the fork planner minted."},"managed_session_ref":{"anyOf":[{"type":"string","pattern":"^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"},{"type":"null"}],"description":"ADR 0031 primitive 3 of 5."},"launch_recipe_ref":{"anyOf":[{"type":"string","pattern":"^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"},{"type":"null"}],"description":"ADR 0031 primitive 4 of 5."},"harness_binding_ref":{"anyOf":[{"type":"string","pattern":"^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"},{"type":"null"}],"description":"ADR 0031 primitive 5 of 5. Primitive 2, the fork itself, is the delegation this record IS."},"orchestration_ref":{"anyOf":[{"type":"string","pattern":"^app-scope://[^\\s]{1,400}$"},{"type":"null"}],"description":"The composing application's own scope, recorded verbatim and never resolved by the platform."},"admitted_at_ms":{"type":"integer","minimum":0,"maximum":9007199254740991},"parent_thread_id":{"type":"string","description":"The delegating thread's id, bare, exactly as the thread plane mints it (thread_<suffix>). Bare because canon's delegation coordinate is delegation://{thread_id}/{subagent_id} and an edge that could not be composed from its own parts would be a second spelling.","pattern":"^thread_[A-Za-z0-9_-]{1,200}$"},"child_subagent_id":{"type":"string","description":"The child object's id on the subagent surface. This edge NAMES the child and does not own it (ADR 0034 sub-ruling 5).","pattern":"^[A-Za-z0-9_-]{1,200}$"},"depth_bound_absent":{"type":"boolean","description":"TRUE when no ceiling was derivable from the parent or supplied by the caller, so `depth_ceiling` above is the depth itself rather than a bound anybody set. Required, and required to be READ: without it a reader of this record alone cannot tell an enforced ceiling from a recorded absence, and a record that cannot be told apart from an enforced one is worse than no record."}}}"#),
 ];
 
@@ -198637,7 +199323,8 @@ const CONTRACT_INVARIANTS: &[(&str, &str)] = &[
     ("schema://ioi/applications/ioi-ai/goal-run-admission-path-decision/v2", r#"[]"#),
     ("schema://ioi/applications/ioi-ai/context-cell/v2", r#"[]"#),
     ("schema://ioi/applications/ioi-ai/goal-grounding-loop/v2", r#"[]"#),
-    ("schema://ioi/applications/ioi-ai/collective-resolution-receipt/v1", r#"[{"rule_id":"collective_resolution_receipt.identity.matches","description":"The resolution has one portable receipt identity.","expression":{"operator":"fields_equal","paths":["$.receipt_id","$.receipt_ref"]}},{"rule_id":"collective_resolution_receipt.closure.recomputes","description":"The closure root commits every frozen member of the dependency closure and every owner it resolved into, so a relying party can recompute the freeze from the receipt alone.","expression":{"operator":"jcs_sha256_equals","algorithm":"jcs_sha256","expected_path":"$.closure_root","expected_encoding":"sha256_string","material_fields":{"schema_version":{"path":"$.schema_version"},"receipt_id":{"path":"$.receipt_id"},"receipt_ref":{"path":"$.receipt_ref"},"receipt_type":{"path":"$.receipt_type"},"resolved_by_ref":{"path":"$.resolved_by_ref"},"system_id":{"path":"$.system_id"},"system_release_ref":{"path":"$.system_release_ref"},"constitution_ref":{"path":"$.constitution_ref"},"active_profile_set_ref":{"path":"$.active_profile_set_ref"},"orchestration_ref":{"path":"$.orchestration_ref"},"goal_run_profile_revision_refs":{"path":"$.goal_run_profile_revision_refs"},"policy_refs":{"path":"$.policy_refs"},"lease_policy_refs":{"path":"$.lease_policy_refs"},"artifact_lifecycle_policy_ref":{"path":"$.artifact_lifecycle_policy_ref"},"requirement_refs":{"path":"$.requirement_refs"},"resolved_owner_refs":{"path":"$.resolved_owner_refs"},"registers_no_new_owner":{"path":"$.registers_no_new_owner"},"resolved_at":{"path":"$.resolved_at"}}}},{"rule_id":"collective_resolution_receipt.orchestration.is_a_resolved_owner","description":"The orchestration the closure is headed by is itself one of the existing owners the resolution names, so the receipt cannot freeze a composition it did not resolve into.","expression":{"operator":"non_empty","path":"$.orchestration_ref"}}]"#),
+    ("schema://ioi/applications/ioi-ai/collective-resolution-receipt/v1", r#"[{"rule_id":"collective_resolution_receipt.identity.matches","description":"The resolution has one portable receipt identity.","expression":{"operator":"fields_equal","paths":["$.receipt_id","$.receipt_ref"]}},{"rule_id":"collective_resolution_receipt.closure.recomputes","description":"The closure root commits every frozen member of the dependency closure and every owner it resolved into, so a relying party can recompute the freeze from the receipt alone.","expression":{"operator":"jcs_sha256_equals","algorithm":"jcs_sha256","expected_path":"$.closure_root","expected_encoding":"sha256_string","material_fields":{"schema_version":{"path":"$.schema_version"},"receipt_id":{"path":"$.receipt_id"},"receipt_ref":{"path":"$.receipt_ref"},"receipt_type":{"path":"$.receipt_type"},"resolved_by_ref":{"path":"$.resolved_by_ref"},"system_id":{"path":"$.system_id"},"system_release_ref":{"path":"$.system_release_ref"},"constitution_ref":{"path":"$.constitution_ref"},"active_profile_set_ref":{"path":"$.active_profile_set_ref"},"orchestration_ref":{"path":"$.orchestration_ref"},"goal_run_profile_revision_refs":{"path":"$.goal_run_profile_revision_refs"},"policy_refs":{"path":"$.policy_refs"},"lease_policy_refs":{"path":"$.lease_policy_refs"},"artifact_lifecycle_policy_ref":{"path":"$.artifact_lifecycle_policy_ref"},"requirement_refs":{"path":"$.requirement_refs"},"resolved_owner_refs":{"path":"$.resolved_owner_refs"},"registers_no_new_owner":{"path":"$.registers_no_new_owner"},"resolved_at":{"path":"$.resolved_at"}}}},{"rule_id":"collective_resolution_receipt.orchestration.is_a_resolved_owner","description":"The orchestration the closure is headed by is itself one of the existing owners the resolution names, so the receipt cannot freeze a composition it did not resolve into. CORRECTED 2026-09-19 (R-204): the rule's description said membership and its expression tested only presence — an assertion that could not fail the way its sentence claimed. It now tests that `orchestration_ref` IS one of `resolved_owner_refs`, with `array_contains_value` over a path-valued needle.","expression":{"operator":"array_contains_value","array_path":"$.resolved_owner_refs","expected_path":"$.orchestration_ref"}}]"#),
+    ("schema://ioi/applications/ioi-ai/persistent-executable-lineage/v1", r#"[{"rule_id":"persistent_executable_lineage.root.recomputes","description":"lineage_root commits every field of the record except itself and the seam-derived system_binding (the wire member schema_version included, because the lineage's version IS part of what a relying party re-derives). A root nobody recomputes commits nothing.","expression":{"operator":"jcs_sha256_equals","algorithm":"jcs_sha256","expected_path":"$.lineage_root","expected_encoding":"sha256_string","material_fields":{"schema_version":{"path":"$.schema_version"},"lineage_id":{"path":"$.lineage_id"},"orchestration_ref":{"path":"$.orchestration_ref"},"resolution_receipt_ref":{"path":"$.resolution_receipt_ref"},"artifact_ref":{"path":"$.artifact_ref"},"artifact_sha256":{"path":"$.artifact_sha256"},"source_artifact_refs":{"path":"$.source_artifact_refs"},"successor_artifact_ref":{"path":"$.successor_artifact_ref"},"transformation_receipt_refs":{"path":"$.transformation_receipt_refs"},"definition_ref":{"path":"$.definition_ref"},"installation_ref":{"path":"$.installation_ref"},"runtime_ref":{"path":"$.runtime_ref"},"runtime_kind":{"path":"$.runtime_kind"},"accountable_subject_ref":{"path":"$.accountable_subject_ref"},"caretaker_ref":{"path":"$.caretaker_ref"},"stop_policy_ref":{"path":"$.stop_policy_ref"},"lease_refs":{"path":"$.lease_refs"},"dependency_lineage_refs":{"path":"$.dependency_lineage_refs"},"health_ref":{"path":"$.health_ref"},"effect_receipt_refs":{"path":"$.effect_receipt_refs"},"posture":{"path":"$.posture"},"successor_of":{"path":"$.successor_of"}}}},{"rule_id":"persistent_executable_lineage.orphan.reason_is_typed","description":"An orphaned condition is typed (canon): a quarantined lineage names WHY — owner, caretaker, dependency, artifact, health or authority absent or stale. A policy stop is not an orphan and carries no reason, which is why `stopped` is not in this rule; the composer requires a typed reason for a stop it makes BECAUSE of an orphan condition.","expression":{"operator":"non_empty_when_in","when_path":"$.posture.status","values":["quarantined"],"path":"$.posture.orphan_reason"}},{"rule_id":"persistent_executable_lineage.fork.names_its_parents","description":"A fork names the exact source artifacts it was forked from; a fork with no parent is an original wearing a fork's posture.","expression":{"operator":"non_empty_when_in","when_path":"$.posture.status","values":["forked"],"path":"$.source_artifact_refs"}},{"rule_id":"persistent_executable_lineage.fork.names_a_transformation_receipt","description":"A fork is a governed transformation and names the receipt that produced it; canon separates fork from observe/reuse by exactly this.","expression":{"operator":"non_empty_when_in","when_path":"$.posture.status","values":["forked"],"path":"$.transformation_receipt_refs"}},{"rule_id":"persistent_executable_lineage.active.binds_a_runtime","description":"`active` is a runtime binding, not an artifact flag: an active lineage names the runtime it runs as. ArtifactRef.lifecycle.status = active satisfies no check.","expression":{"operator":"non_empty_when_in","when_path":"$.posture.status","values":["active"],"path":"$.runtime_ref"}}]"#),
     ("schema://ioi/foundations/delegation-edge/v1", r#"[{"rule_id":"delegation_edge.depth.is_the_chain_length","description":"The delegation depth IS the ancestor chain's length. Stated as an invariant rather than a comment because a depth asserted independently of the chain is a number a caller can set, and the whole point of reading it off the chain is that the caller cannot.","expression":{"operator":"array_length_equals","array_path":"$.ancestor_chain","count_path":"$.delegation_depth"}},{"rule_id":"delegation_edge.depth.within_ceiling","description":"A delegation admits at or under the ceiling it narrowed from. Inheritance is structural (ADR 0034 sub-ruling 3): a child narrows from its admitted parent record and can never widen, whatever the caller supplies.","expression":{"operator":"numbers_lte","paths":["$.delegation_depth","$.depth_ceiling"]}},{"rule_id":"delegation_edge.resolver.revision_present_when_resolved","description":"A resolved delegation names the exact revision it resolved to. `none` is the honest absence; harness_profile and agent_harness_adapter are not.","expression":{"operator":"non_empty_when_in","path":"$.selected_resolver_revision_ref","when_path":"$.selected_resolver_kind","values":["harness_profile","agent_harness_adapter"]}},{"rule_id":"delegation_edge.resolver.hash_present_when_resolved","description":"And it names that revision's content hash, so the resolution is a binding rather than a pointer that can be re-aimed.","expression":{"operator":"non_empty_when_in","path":"$.selected_resolver_content_hash","when_path":"$.selected_resolver_kind","values":["harness_profile","agent_harness_adapter"]}},{"rule_id":"delegation_edge.identity.composes_from_its_parts","description":"The delegation coordinate is composed from the pair it names, so an edge cannot claim a parent it does not belong to. Checked as a suffix on the parent half, which is the part a caller would have to forge to re-parent a delegation.","expression":{"operator":"field_starts_with_path","path":"$.delegation_ref","expected_path":"$.parent_thread_id","prefix":"delegation://","suffix":"/"}}]"#),
 ];
 
@@ -198922,6 +199609,10 @@ const CONTRACT_PATTERN_TRANSLATIONS: &[(&str, &str)] = &[
     (
         r#"^(?:context-cell|harness-invocation)://\S+$"#,
         r#"^(?:context-cell|harness-invocation)://[^\u{0009}-\u{000D}\u{0020}\u{00A0}\u{1680}\u{2000}-\u{200A}\u{2028}\u{2029}\u{202F}\u{205F}\u{3000}\u{FEFF}]+$"#,
+    ),
+    (
+        r#"^(?:context-lease|authority-lease|resource-lease|budget-lease)://\S+$"#,
+        r#"^(?:context-lease|authority-lease|resource-lease|budget-lease)://[^\u{0009}-\u{000D}\u{0020}\u{00A0}\u{1680}\u{2000}-\u{200A}\u{2028}\u{2029}\u{202F}\u{205F}\u{3000}\u{FEFF}]+$"#,
     ),
     (
         r#"^(?:context_lease|grant|authority)://[^\s]{1,500}$"#,
@@ -199348,6 +200039,10 @@ const CONTRACT_PATTERN_TRANSLATIONS: &[(&str, &str)] = &[
         r#"^(?:participation-request|proposal)://[^\u{0009}-\u{000D}\u{0020}\u{00A0}\u{1680}\u{2000}-\u{200A}\u{2028}\u{2029}\u{202F}\u{205F}\u{3000}\u{FEFF}]{1,500}$"#,
     ),
     (
+        r#"^(?:participation|delegation)://\S+$"#,
+        r#"^(?:participation|delegation)://[^\u{0009}-\u{000D}\u{0020}\u{00A0}\u{1680}\u{2000}-\u{200A}\u{2028}\u{2029}\u{202F}\u{205F}\u{3000}\u{FEFF}]+$"#,
+    ),
+    (
         r#"^(?:policy)://[^\s]{1,500}$"#,
         r#"^(?:policy)://[^\u{0009}-\u{000D}\u{0020}\u{00A0}\u{1680}\u{2000}-\u{200A}\u{2028}\u{2029}\u{202F}\u{205F}\u{3000}\u{FEFF}]{1,500}$"#,
     ),
@@ -199730,6 +200425,10 @@ const CONTRACT_PATTERN_TRANSLATIONS: &[(&str, &str)] = &[
     (
         r#"^(?:system|domain|worker|service|agent|org)://[^\s]{1,500}$"#,
         r#"^(?:system|domain|worker|service|agent|org)://[^\u{0009}-\u{000D}\u{0020}\u{00A0}\u{1680}\u{2000}-\u{200A}\u{2028}\u{2029}\u{202F}\u{205F}\u{3000}\u{FEFF}]{1,500}$"#,
+    ),
+    (
+        r#"^(?:system|installation|worker|automation|automation-run|service|controller|runtime-assignment|managed-worker-instance)://\S+$"#,
+        r#"^(?:system|installation|worker|automation|automation-run|service|controller|runtime-assignment|managed-worker-instance)://[^\u{0009}-\u{000D}\u{0020}\u{00A0}\u{1680}\u{2000}-\u{200A}\u{2028}\u{2029}\u{202F}\u{205F}\u{3000}\u{FEFF}]+$"#,
     ),
     (
         r#"^(?:system|participant-lease|worker|service|org|domain)://[^\s]{1,500}$"#,
@@ -200377,6 +201076,10 @@ const CONTRACT_PATTERN_TRANSLATIONS: &[(&str, &str)] = &[
         r#"^app-scope://ioi-ai/orchestration/[^\u{0009}-\u{000D}\u{0020}\u{00A0}\u{1680}\u{2000}-\u{200A}\u{2028}\u{2029}\u{202F}\u{205F}\u{3000}\u{FEFF}]{1,400}$"#,
     ),
     (
+        r#"^app-scope://ioi-ai/orchestration/\S+$"#,
+        r#"^app-scope://ioi-ai/orchestration/[^\u{0009}-\u{000D}\u{0020}\u{00A0}\u{1680}\u{2000}-\u{200A}\u{2028}\u{2029}\u{202F}\u{205F}\u{3000}\u{FEFF}]+$"#,
+    ),
+    (
         r#"^app-scope://ioi-ai/orchestration/orc_[A-Za-z0-9_-]{1,160}$"#,
         r#"^app-scope://ioi-ai/orchestration/orc_[A-Za-z0-9_-]{1,160}$"#,
     ),
@@ -200432,6 +201135,10 @@ const CONTRACT_PATTERN_TRANSLATIONS: &[(&str, &str)] = &[
     (
         r#"^artifact://[^\s]{1,500}$"#,
         r#"^artifact://[^\u{0009}-\u{000D}\u{0020}\u{00A0}\u{1680}\u{2000}-\u{200A}\u{2028}\u{2029}\u{202F}\u{205F}\u{3000}\u{FEFF}]{1,500}$"#,
+    ),
+    (
+        r#"^artifact://\S+$"#,
+        r#"^artifact://[^\u{0009}-\u{000D}\u{0020}\u{00A0}\u{1680}\u{2000}-\u{200A}\u{2028}\u{2029}\u{202F}\u{205F}\u{3000}\u{FEFF}]+$"#,
     ),
     (
         r#"^artifact://foundry-checkpoint/[0-9a-f]{64}$"#,
@@ -201396,6 +202103,10 @@ const CONTRACT_PATTERN_TRANSLATIONS: &[(&str, &str)] = &[
     (
         r#"^lifecycle:[^\s]{1,500}$"#,
         r#"^lifecycle:[^\u{0009}-\u{000D}\u{0020}\u{00A0}\u{1680}\u{2000}-\u{200A}\u{2028}\u{2029}\u{202F}\u{205F}\u{3000}\u{FEFF}]{1,500}$"#,
+    ),
+    (
+        r#"^lineage://\S+$"#,
+        r#"^lineage://[^\u{0009}-\u{000D}\u{0020}\u{00A0}\u{1680}\u{2000}-\u{200A}\u{2028}\u{2029}\u{202F}\u{205F}\u{3000}\u{FEFF}]+$"#,
     ),
     (
         r#"^local-agent-pairing://[^\s]{1,500}$"#,
@@ -205642,6 +206353,17 @@ mod tests {
     ("docs/architecture/_meta/schemas/fixtures/collective-resolution-receipt-v1/negative-registers-a-new-owner.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/collective-resolution-receipt-v1/negative-registers-a-new-owner.json"))),
     ("docs/architecture/_meta/schemas/fixtures/collective-resolution-receipt-v1/negative-room-headed-closure.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/collective-resolution-receipt-v1/negative-room-headed-closure.json"))),
     ("docs/architecture/_meta/schemas/fixtures/collective-resolution-receipt-v1/negative-unknown-field.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/collective-resolution-receipt-v1/negative-unknown-field.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/collective-resolution-receipt-v1/negative-orchestration-not-a-resolved-owner.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/collective-resolution-receipt-v1/negative-orchestration-not-a-resolved-owner.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/persistent-executable-lineage-v1/positive-reused-original.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/persistent-executable-lineage-v1/positive-reused-original.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/persistent-executable-lineage-v1/positive-active-under-a-system.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/persistent-executable-lineage-v1/positive-active-under-a-system.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/persistent-executable-lineage-v1/positive-forked-with-receipt.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/persistent-executable-lineage-v1/positive-forked-with-receipt.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/persistent-executable-lineage-v1/negative-unknown-field.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/persistent-executable-lineage-v1/negative-unknown-field.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/persistent-executable-lineage-v1/negative-accountable-subject-is-a-session.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/persistent-executable-lineage-v1/negative-accountable-subject-is-a-session.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/persistent-executable-lineage-v1/negative-artifact-moved-after-the-root.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/persistent-executable-lineage-v1/negative-artifact-moved-after-the-root.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/persistent-executable-lineage-v1/negative-quarantined-without-a-typed-reason.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/persistent-executable-lineage-v1/negative-quarantined-without-a-typed-reason.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/persistent-executable-lineage-v1/negative-fork-without-a-transformation-receipt.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/persistent-executable-lineage-v1/negative-fork-without-a-transformation-receipt.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/persistent-executable-lineage-v1/negative-fork-without-a-parent.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/persistent-executable-lineage-v1/negative-fork-without-a-parent.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/persistent-executable-lineage-v1/negative-active-without-a-runtime.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/persistent-executable-lineage-v1/negative-active-without-a-runtime.json"))),
     ("docs/architecture/_meta/schemas/fixtures/delegation-edge-v1/positive-resolved-delegation.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/delegation-edge-v1/positive-resolved-delegation.json"))),
     ("docs/architecture/_meta/schemas/fixtures/delegation-edge-v1/positive-unresolved-at-the-ceiling.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/delegation-edge-v1/positive-unresolved-at-the-ceiling.json"))),
     ("docs/architecture/_meta/schemas/fixtures/delegation-edge-v1/negative-depth-disagrees-with-the-chain.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/delegation-edge-v1/negative-depth-disagrees-with-the-chain.json"))),
@@ -207347,6 +208069,11 @@ mod tests {
                 .map(|_| ())
                 .map_err(|error| error.to_string())
         },
+        "schema://ioi/applications/ioi-ai/persistent-executable-lineage/v1" => {
+            serde_json::from_value::<PersistentExecutableLineageV1>(value.clone())
+                .map(|_| ())
+                .map_err(|error| error.to_string())
+        },
         "schema://ioi/foundations/delegation-edge/v1" => {
             serde_json::from_value::<DelegationEdgeV1>(value.clone())
                 .map(|_| ())
@@ -209048,6 +209775,11 @@ mod tests {
                 .map_err(|error| error.to_string())?;
             serde_json::to_value(projection).map_err(|error| error.to_string())
         },
+        "schema://ioi/applications/ioi-ai/persistent-executable-lineage/v1" => {
+            let projection = serde_json::from_value::<PersistentExecutableLineageV1>(value.clone())
+                .map_err(|error| error.to_string())?;
+            serde_json::to_value(projection).map_err(|error| error.to_string())
+        },
         "schema://ioi/foundations/delegation-edge/v1" => {
             let projection = serde_json::from_value::<DelegationEdgeV1>(value.clone())
                 .map_err(|error| error.to_string())?;
@@ -209189,8 +209921,8 @@ mod tests {
     fn golden_fixtures_match_generated_rust_contracts() {
         assert_eq!(
             ARCHITECTURE_CONTRACT_FIXTURES.len(),
-            1744,
-            "the registered golden corpus must remain the explicit 1744-fixture bar",
+            1755,
+            "the registered golden corpus must remain the explicit 1755-fixture bar",
         );
         for fixture in ARCHITECTURE_CONTRACT_FIXTURES {
             let body = FIXTURE_BODIES
@@ -209432,7 +210164,7 @@ mod tests {
 
     #[test]
     fn registered_ecma_pattern_translations_compile_and_match_whitespace() {
-        assert_eq!(CONTRACT_PATTERN_TRANSLATIONS.len(), 1074,);
+        assert_eq!(CONTRACT_PATTERN_TRANSLATIONS.len(), 1080,);
         for (ecma, translated) in CONTRACT_PATTERN_TRANSLATIONS {
             Regex::new(translated).unwrap_or_else(|error| panic!("{ecma}: {error}"));
         }

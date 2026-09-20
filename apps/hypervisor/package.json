@@ -154,6 +154,8 @@
     "mutate:goal-run-composition": "node scripts/verify-hypervisor-goal-run-composition.mjs --mutation",
     "check:context-family-composition": "node scripts/verify-hypervisor-context-family-composition.mjs",
     "mutate:context-family-composition": "node scripts/verify-hypervisor-context-family-composition.mjs --mutation",
+    "check:collective-artifact-runtime-lifecycle": "node scripts/verify-hypervisor-collective-artifact-runtime-lifecycle.mjs",
+    "mutate:collective-artifact-runtime-lifecycle": "node scripts/verify-hypervisor-collective-artifact-runtime-lifecycle.mjs --mutation",
     "mutate:orchestration-composition": "node scripts/verify-hypervisor-orchestration-composition.mjs --mutation",
     "check:aiip-collaboration-discovery": "node scripts/verify-hypervisor-aiip-collaboration-discovery.mjs",
     "mutate:aiip-collaboration-discovery": "node scripts/verify-hypervisor-aiip-collaboration-discovery.mjs --mutation",

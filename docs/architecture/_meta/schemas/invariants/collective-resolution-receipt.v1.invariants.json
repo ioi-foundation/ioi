@@ -82,10 +82,11 @@
     },
     {
       "rule_id": "collective_resolution_receipt.orchestration.is_a_resolved_owner",
-      "description": "The orchestration the closure is headed by is itself one of the existing owners the resolution names, so the receipt cannot freeze a composition it did not resolve into.",
+      "description": "The orchestration the closure is headed by is itself one of the existing owners the resolution names, so the receipt cannot freeze a composition it did not resolve into. CORRECTED 2026-09-19 (R-204): the rule's description said membership and its expression tested only presence — an assertion that could not fail the way its sentence claimed. It now tests that `orchestration_ref` IS one of `resolved_owner_refs`, with `array_contains_value` over a path-valued needle.",
       "expression": {
-        "operator": "non_empty",
-        "path": "$.orchestration_ref"
+        "operator": "array_contains_value",
+        "array_path": "$.resolved_owner_refs",
+        "expected_path": "$.orchestration_ref"
       }
     }
   ]

@@ -132,3 +132,31 @@ export type {
   LeastContextResolution,
   ViewRevisionReader,
 } from "./context.js";
+export {
+  COLLECTIVE_CONTRACTS,
+  COLLECTIVE_SCHEMA_VERSIONS,
+  CollectiveRefusal,
+  CollectiveResolutions,
+  ExecutableLineages,
+  LINEAGE_ROOT_MEMBERS,
+  LINEAGE_STATUSES,
+  LINEAGE_TERMINAL_STATUSES,
+  LINEAGE_TRANSITIONS,
+  ORPHAN_REASONS,
+  RECEIPT_ROOT_MEMBERS,
+  RUNTIME_KINDS,
+  collectiveReceiptId,
+  rootOf,
+} from "./collective.js";
+export type {
+  ActorResolver,
+  ForkDraft,
+  LineageDraft,
+  LineagePosture,
+  LineageStatus,
+  OrphanReason,
+  OwnerResolver,
+  ResolutionDraft,
+  RuntimeKind,
+  SystemReader,
+} from "./collective.js";

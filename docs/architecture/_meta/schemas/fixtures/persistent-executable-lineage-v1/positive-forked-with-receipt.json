@@ -1,0 +1,32 @@
+{
+  "schema_version": "ioi.applications.ioi-ai.persistent-executable-lineage.v1",
+  "lineage_id": "lineage://s5-3/fork",
+  "orchestration_ref": "app-scope://ioi-ai/orchestration/orc_collective_one",
+  "resolution_receipt_ref": "collective-resolution://ioi/orc_collective_one/one",
+  "artifact_ref": "artifact://af_two",
+  "artifact_sha256": "sha256:2222222222222222222222222222222222222222222222222222222222222222",
+  "source_artifact_refs": [
+    "artifact://af_one"
+  ],
+  "successor_artifact_ref": null,
+  "transformation_receipt_refs": [
+    "receipt://acme/transform/1"
+  ],
+  "definition_ref": "automation-spec://acme/etl/revision/3",
+  "installation_ref": null,
+  "runtime_ref": null,
+  "runtime_kind": "none",
+  "accountable_subject_ref": "automation://acme/etl",
+  "caretaker_ref": null,
+  "stop_policy_ref": "policy://acme/stop/default",
+  "lease_refs": [],
+  "dependency_lineage_refs": [],
+  "health_ref": null,
+  "effect_receipt_refs": [],
+  "posture": {
+    "status": "forked",
+    "orphan_reason": null
+  },
+  "successor_of": null,
+  "lineage_root": "sha256:914f50b6e38c6182009a3060d340ab7a47f4189ea6b5be68f31dc1390d1a3b5d"
+}

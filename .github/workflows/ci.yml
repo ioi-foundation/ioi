@@ -953,6 +953,7 @@ jobs:
           - verifier_id: orchestration-composition
           - verifier_id: goal-run-composition
           - verifier_id: context-family-composition
+          - verifier_id: collective-artifact-runtime-lifecycle
           - verifier_id: aiip-collaboration-discovery
           - verifier_id: aiip-portable-exit
           - verifier_id: aiip-binding-replaceability
@@ -1130,6 +1131,33 @@ jobs:
       - name: Drill the context-family-composition gate's own oracles
         if: matrix.verifier_id == 'context-family-composition'
         run: npm run mutate:context-family-composition --workspace=@ioi/hypervisor-app
+
+      - name: Build the daemon, the agent SDK and the ioi-ai orchestration package the collective-lineage verifier drives
+        if: matrix.verifier_id == 'collective-artifact-runtime-lifecycle'
+        run: |
+          cargo build --locked -p ioi-node --bin hypervisor-daemon
+          npm run build --workspace=@ioi/agent-sdk
+          npm run build --workspace=@ioi-ai/orchestration
+
+      # R-204 S5-3 M04.12 — collective resolution and persistent executable lineage COMPOSED by ioi.ai:
+      # the receipt's release/constitution/profile set read from the daemon's served genesis, its
+      # owners resolved by the seam and the daemon's planes, the orchestration a resolved owner (the
+      # corrected invariant refuses otherwise BY NAME); a lineage over an EXACT artifact under an
+      # admitted receipt, installed into an automation the daemon serves, activated as a kernel-owned
+      # delegation with live leases and a resolving caretaker, its posture a read model, removal
+      # transferring nothing, repair/replace exact, retirement terminal, every root refused by the
+      # invariant's name when stale, and a restart re-deriving every record at the same head.
+      - name: Verify collective resolution and persistent executable lineage (R-204 S5-3 M04.12)
+        if: matrix.verifier_id == 'collective-artifact-runtime-lifecycle'
+        env:
+          IOI_VERIFIER_CENSUS_DIR: .artifacts/verifier-census
+          IOI_WALLET_FIXTURE_READY_TIMEOUT_MS: 1200000
+          IOI_ISOLATED_DAEMON_READY_TIMEOUT_MS: 120000
+        run: npm run check:collective-artifact-runtime-lifecycle --workspace=@ioi/hypervisor-app
+
+      - name: Drill the collective-lineage gate's own oracles
+        if: matrix.verifier_id == 'collective-artifact-runtime-lifecycle'
+        run: npm run mutate:collective-artifact-runtime-lifecycle --workspace=@ioi/hypervisor-app
 
       - name: Build the daemon, the agent SDK and the ioi-ai orchestration package the collaboration verifier drives
         if: matrix.verifier_id == 'aiip-collaboration-discovery'

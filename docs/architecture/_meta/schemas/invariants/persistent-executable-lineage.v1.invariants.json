@@ -1,0 +1,133 @@
+{
+  "$id": "invariant://ioi/applications/ioi-ai/persistent-executable-lineage/lineage-root-and-posture/v1",
+  "language": "ioi.portable-invariants.v2",
+  "contract_id": "schema://ioi/applications/ioi-ai/persistent-executable-lineage/v1",
+  "rules": [
+    {
+      "rule_id": "persistent_executable_lineage.root.recomputes",
+      "description": "lineage_root commits every field of the record except itself and the seam-derived system_binding (the wire member schema_version included, because the lineage's version IS part of what a relying party re-derives). A root nobody recomputes commits nothing.",
+      "expression": {
+        "operator": "jcs_sha256_equals",
+        "algorithm": "jcs_sha256",
+        "expected_path": "$.lineage_root",
+        "expected_encoding": "sha256_string",
+        "material_fields": {
+          "schema_version": {
+            "path": "$.schema_version"
+          },
+          "lineage_id": {
+            "path": "$.lineage_id"
+          },
+          "orchestration_ref": {
+            "path": "$.orchestration_ref"
+          },
+          "resolution_receipt_ref": {
+            "path": "$.resolution_receipt_ref"
+          },
+          "artifact_ref": {
+            "path": "$.artifact_ref"
+          },
+          "artifact_sha256": {
+            "path": "$.artifact_sha256"
+          },
+          "source_artifact_refs": {
+            "path": "$.source_artifact_refs"
+          },
+          "successor_artifact_ref": {
+            "path": "$.successor_artifact_ref"
+          },
+          "transformation_receipt_refs": {
+            "path": "$.transformation_receipt_refs"
+          },
+          "definition_ref": {
+            "path": "$.definition_ref"
+          },
+          "installation_ref": {
+            "path": "$.installation_ref"
+          },
+          "runtime_ref": {
+            "path": "$.runtime_ref"
+          },
+          "runtime_kind": {
+            "path": "$.runtime_kind"
+          },
+          "accountable_subject_ref": {
+            "path": "$.accountable_subject_ref"
+          },
+          "caretaker_ref": {
+            "path": "$.caretaker_ref"
+          },
+          "stop_policy_ref": {
+            "path": "$.stop_policy_ref"
+          },
+          "lease_refs": {
+            "path": "$.lease_refs"
+          },
+          "dependency_lineage_refs": {
+            "path": "$.dependency_lineage_refs"
+          },
+          "health_ref": {
+            "path": "$.health_ref"
+          },
+          "effect_receipt_refs": {
+            "path": "$.effect_receipt_refs"
+          },
+          "posture": {
+            "path": "$.posture"
+          },
+          "successor_of": {
+            "path": "$.successor_of"
+          }
+        }
+      }
+    },
+    {
+      "rule_id": "persistent_executable_lineage.orphan.reason_is_typed",
+      "description": "An orphaned condition is typed (canon): a quarantined lineage names WHY — owner, caretaker, dependency, artifact, health or authority absent or stale. A policy stop is not an orphan and carries no reason, which is why `stopped` is not in this rule; the composer requires a typed reason for a stop it makes BECAUSE of an orphan condition.",
+      "expression": {
+        "operator": "non_empty_when_in",
+        "when_path": "$.posture.status",
+        "values": [
+          "quarantined"
+        ],
+        "path": "$.posture.orphan_reason"
+      }
+    },
+    {
+      "rule_id": "persistent_executable_lineage.fork.names_its_parents",
+      "description": "A fork names the exact source artifacts it was forked from; a fork with no parent is an original wearing a fork's posture.",
+      "expression": {
+        "operator": "non_empty_when_in",
+        "when_path": "$.posture.status",
+        "values": [
+          "forked"
+        ],
+        "path": "$.source_artifact_refs"
+      }
+    },
+    {
+      "rule_id": "persistent_executable_lineage.fork.names_a_transformation_receipt",
+      "description": "A fork is a governed transformation and names the receipt that produced it; canon separates fork from observe/reuse by exactly this.",
+      "expression": {
+        "operator": "non_empty_when_in",
+        "when_path": "$.posture.status",
+        "values": [
+          "forked"
+        ],
+        "path": "$.transformation_receipt_refs"
+      }
+    },
+    {
+      "rule_id": "persistent_executable_lineage.active.binds_a_runtime",
+      "description": "`active` is a runtime binding, not an artifact flag: an active lineage names the runtime it runs as. ArtifactRef.lifecycle.status = active satisfies no check.",
+      "expression": {
+        "operator": "non_empty_when_in",
+        "when_path": "$.posture.status",
+        "values": [
+          "active"
+        ],
+        "path": "$.runtime_ref"
+      }
+    }
+  ]
+}

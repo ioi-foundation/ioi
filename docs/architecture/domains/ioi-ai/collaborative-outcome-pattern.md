@@ -199,7 +199,9 @@ bounded System release + constitution and active profiles
   + participation, claim, context, resource, budget and authority lease policies
   + artifact reuse/fork/install/retire policy
   + verifier, acceptance, stop, recovery and evaluation requirements
-    -> daemon-derived collective-resolution receipt
+    -> daemon-ADMITTED collective-resolution receipt (composed by the ioi.ai application;
+       binding, operation and receipt refs derived by the record seam; closure_root
+       re-derived by registered invariant at admission)
     -> that one System, its Orchestration, and explicit GoalRuns, leases and
        runtime refs — every one an EXISTING owner object, none newly registered
 ```
@@ -208,6 +210,13 @@ The receipt freezes and names; it holds no state and is never a second live
 owner. It registers no profile envelope: a resolution that would need one is
 refused rather than satisfied, and the justification bar for a new profile
 family is the paragraph below.
+
+Who derives it (R-204, 2026-09-19): the ioi.ai application composes the receipt over
+records it already admitted; the Hypervisor admits it through the record seam, which
+derives its `system_binding` (`SystemScopedObjectBinding | omitted`, excluded from
+`closure_root`) and re-derives `closure_root` by the registered invariant before any
+byte is served. No daemon route resolves a collective closure; the daemon's part is
+admission, not derivation.
 
 A product may label that composition a collective-pursuit or stigmergic profile.
 The label does not create a new canonical envelope. A separately registered
@@ -265,6 +274,18 @@ ownership, caretaker coverage, runtime health, dependency, availability or
 authority is absent or stale. Policy either stops or quarantines the runtime,
 or admits an exact governed successor; it never silently transfers ownership or
 extends a lease.
+
+The lineage's binding is one record (R-204, 2026-09-19): `PersistentExecutableLineage`
+carries exactly those refs — exact artifact identity and hash, sources and successor,
+transformation receipts, definition, installation and runtime identities, the accountable
+subject, caretaker and stop policy, leases, dependency lineages, health and effect receipts
+— and a typed posture whose orphan reason is required whenever the posture is `quarantined`
+(a policy stop is not an orphan and carries none). Caretaker coverage is a `caretaker_ref` naming an accountable actor the
+composition can resolve — an accepted participation or a live delegation of the
+coordinating thread — who may stop the runtime; its absence is the typed orphan reason
+`caretaker_absent`. `lineage_root` is SHA-256 over JCS of every field of the record except
+`lineage_root` and `system_binding`; the record is composed by the ioi.ai application and
+admitted through the record seam like the receipt above.
 
 The useful Collective view is therefore an **artifact ecology**, not a wall of
 agent chat bubbles. It shows what persistent systems exist, what is running,

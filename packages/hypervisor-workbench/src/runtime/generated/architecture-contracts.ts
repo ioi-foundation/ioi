@@ -14418,6 +14418,53 @@ export type CollectiveResolutionReceiptV1 = {
   registers_no_new_owner: true;
   resolved_at: string;
   closure_root: string;
+  system_binding?: {
+      schema_version: "ioi.foundations.system-scoped-object-binding.v1";
+      system_id: string;
+      parent_scope_ref: string;
+      proposed_or_issued_by_ref: string;
+      payload_root: string;
+      created_at: string;
+      updated_at: string | null;
+    };
+};
+
+export type PersistentExecutableLineageV1 = {
+  schema_version: "ioi.applications.ioi-ai.persistent-executable-lineage.v1";
+  lineage_id: string;
+  orchestration_ref: string;
+  resolution_receipt_ref: string;
+  artifact_ref: string;
+  artifact_sha256: string;
+  source_artifact_refs: Array<string>;
+  successor_artifact_ref: string | null;
+  transformation_receipt_refs: Array<string>;
+  definition_ref: string;
+  installation_ref: string | null;
+  runtime_ref: string | null;
+  runtime_kind: "none" | "automation_run" | "managed_worker_instance" | "runtime_assignment" | "delegation";
+  accountable_subject_ref: string;
+  caretaker_ref: string | null;
+  stop_policy_ref: string;
+  lease_refs: Array<string>;
+  dependency_lineage_refs: Array<string>;
+  health_ref: string | null;
+  effect_receipt_refs: Array<string>;
+  posture: {
+      status: "observed" | "reused" | "forked" | "installed" | "active" | "stopped" | "quarantined" | "repairing" | "replaced" | "retired";
+      orphan_reason: "owner_absent" | "caretaker_absent" | "dependency_unavailable" | "artifact_unavailable" | "health_stale" | "authority_stale" | null;
+    };
+  successor_of: string | null;
+  lineage_root: string;
+  system_binding?: {
+      schema_version: "ioi.foundations.system-scoped-object-binding.v1";
+      system_id: string;
+      parent_scope_ref: string;
+      proposed_or_issued_by_ref: string;
+      payload_root: string;
+      created_at: string;
+      updated_at: string | null;
+    };
 };
 
 export type DelegationEdgeV1 = {
@@ -28336,6 +28383,94 @@ export const ARCHITECTURE_CONTRACT_FIXTURES = [
     "expected_rule_id": null
   },
   {
+    "contract_id": "schema://ioi/applications/ioi-ai/collective-resolution-receipt/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/collective-resolution-receipt-v1/negative-orchestration-not-a-resolved-owner.json",
+    "expected": "reject",
+    "expected_schema_accept": true,
+    "expected_failure": "invariant",
+    "expected_rule_id": "collective_resolution_receipt.orchestration.is_a_resolved_owner"
+  },
+  {
+    "contract_id": "schema://ioi/applications/ioi-ai/persistent-executable-lineage/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/persistent-executable-lineage-v1/positive-reused-original.json",
+    "expected": "accept",
+    "expected_schema_accept": true,
+    "expected_failure": null,
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/applications/ioi-ai/persistent-executable-lineage/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/persistent-executable-lineage-v1/positive-active-under-a-system.json",
+    "expected": "accept",
+    "expected_schema_accept": true,
+    "expected_failure": null,
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/applications/ioi-ai/persistent-executable-lineage/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/persistent-executable-lineage-v1/positive-forked-with-receipt.json",
+    "expected": "accept",
+    "expected_schema_accept": true,
+    "expected_failure": null,
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/applications/ioi-ai/persistent-executable-lineage/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/persistent-executable-lineage-v1/negative-unknown-field.json",
+    "expected": "reject",
+    "expected_schema_accept": false,
+    "expected_failure": "schema",
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/applications/ioi-ai/persistent-executable-lineage/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/persistent-executable-lineage-v1/negative-accountable-subject-is-a-session.json",
+    "expected": "reject",
+    "expected_schema_accept": false,
+    "expected_failure": "schema",
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/applications/ioi-ai/persistent-executable-lineage/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/persistent-executable-lineage-v1/negative-artifact-moved-after-the-root.json",
+    "expected": "reject",
+    "expected_schema_accept": true,
+    "expected_failure": "invariant",
+    "expected_rule_id": "persistent_executable_lineage.root.recomputes"
+  },
+  {
+    "contract_id": "schema://ioi/applications/ioi-ai/persistent-executable-lineage/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/persistent-executable-lineage-v1/negative-quarantined-without-a-typed-reason.json",
+    "expected": "reject",
+    "expected_schema_accept": true,
+    "expected_failure": "invariant",
+    "expected_rule_id": "persistent_executable_lineage.orphan.reason_is_typed"
+  },
+  {
+    "contract_id": "schema://ioi/applications/ioi-ai/persistent-executable-lineage/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/persistent-executable-lineage-v1/negative-fork-without-a-transformation-receipt.json",
+    "expected": "reject",
+    "expected_schema_accept": true,
+    "expected_failure": "invariant",
+    "expected_rule_id": "persistent_executable_lineage.fork.names_a_transformation_receipt"
+  },
+  {
+    "contract_id": "schema://ioi/applications/ioi-ai/persistent-executable-lineage/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/persistent-executable-lineage-v1/negative-fork-without-a-parent.json",
+    "expected": "reject",
+    "expected_schema_accept": true,
+    "expected_failure": "invariant",
+    "expected_rule_id": "persistent_executable_lineage.fork.names_its_parents"
+  },
+  {
+    "contract_id": "schema://ioi/applications/ioi-ai/persistent-executable-lineage/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/persistent-executable-lineage-v1/negative-active-without-a-runtime.json",
+    "expected": "reject",
+    "expected_schema_accept": true,
+    "expected_failure": "invariant",
+    "expected_rule_id": "persistent_executable_lineage.active.binds_a_runtime"
+  },
+  {
     "contract_id": "schema://ioi/foundations/delegation-edge/v1",
     "path": "docs/architecture/_meta/schemas/fixtures/delegation-edge-v1/positive-resolved-delegation.json",
     "expected": "accept",
@@ -32794,6 +32929,17 @@ export const ARCHITECTURE_CONTRACT_DIFFERENTIAL_CASES: ReadonlyArray<Architectur
   differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/collective-resolution-receipt-v1/negative-registers-a-new-owner.json","contract_id":"schema://ioi/applications/ioi-ai/collective-resolution-receipt/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/collective-resolution-receipt-v1/negative-registers-a-new-owner.json","mutation_id":null,"value_json":null}),
   differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/collective-resolution-receipt-v1/negative-room-headed-closure.json","contract_id":"schema://ioi/applications/ioi-ai/collective-resolution-receipt/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/collective-resolution-receipt-v1/negative-room-headed-closure.json","mutation_id":null,"value_json":null}),
   differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/collective-resolution-receipt-v1/negative-unknown-field.json","contract_id":"schema://ioi/applications/ioi-ai/collective-resolution-receipt/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/collective-resolution-receipt-v1/negative-unknown-field.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/collective-resolution-receipt-v1/negative-orchestration-not-a-resolved-owner.json","contract_id":"schema://ioi/applications/ioi-ai/collective-resolution-receipt/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/collective-resolution-receipt-v1/negative-orchestration-not-a-resolved-owner.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/persistent-executable-lineage-v1/positive-reused-original.json","contract_id":"schema://ioi/applications/ioi-ai/persistent-executable-lineage/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/persistent-executable-lineage-v1/positive-reused-original.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/persistent-executable-lineage-v1/positive-active-under-a-system.json","contract_id":"schema://ioi/applications/ioi-ai/persistent-executable-lineage/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/persistent-executable-lineage-v1/positive-active-under-a-system.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/persistent-executable-lineage-v1/positive-forked-with-receipt.json","contract_id":"schema://ioi/applications/ioi-ai/persistent-executable-lineage/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/persistent-executable-lineage-v1/positive-forked-with-receipt.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/persistent-executable-lineage-v1/negative-unknown-field.json","contract_id":"schema://ioi/applications/ioi-ai/persistent-executable-lineage/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/persistent-executable-lineage-v1/negative-unknown-field.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/persistent-executable-lineage-v1/negative-accountable-subject-is-a-session.json","contract_id":"schema://ioi/applications/ioi-ai/persistent-executable-lineage/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/persistent-executable-lineage-v1/negative-accountable-subject-is-a-session.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/persistent-executable-lineage-v1/negative-artifact-moved-after-the-root.json","contract_id":"schema://ioi/applications/ioi-ai/persistent-executable-lineage/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/persistent-executable-lineage-v1/negative-artifact-moved-after-the-root.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/persistent-executable-lineage-v1/negative-quarantined-without-a-typed-reason.json","contract_id":"schema://ioi/applications/ioi-ai/persistent-executable-lineage/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/persistent-executable-lineage-v1/negative-quarantined-without-a-typed-reason.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/persistent-executable-lineage-v1/negative-fork-without-a-transformation-receipt.json","contract_id":"schema://ioi/applications/ioi-ai/persistent-executable-lineage/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/persistent-executable-lineage-v1/negative-fork-without-a-transformation-receipt.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/persistent-executable-lineage-v1/negative-fork-without-a-parent.json","contract_id":"schema://ioi/applications/ioi-ai/persistent-executable-lineage/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/persistent-executable-lineage-v1/negative-fork-without-a-parent.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/persistent-executable-lineage-v1/negative-active-without-a-runtime.json","contract_id":"schema://ioi/applications/ioi-ai/persistent-executable-lineage/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/persistent-executable-lineage-v1/negative-active-without-a-runtime.json","mutation_id":null,"value_json":null}),
   differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/delegation-edge-v1/positive-resolved-delegation.json","contract_id":"schema://ioi/foundations/delegation-edge/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/delegation-edge-v1/positive-resolved-delegation.json","mutation_id":null,"value_json":null}),
   differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/delegation-edge-v1/positive-unresolved-at-the-ceiling.json","contract_id":"schema://ioi/foundations/delegation-edge/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/delegation-edge-v1/positive-unresolved-at-the-ceiling.json","mutation_id":null,"value_json":null}),
   differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/delegation-edge-v1/negative-depth-disagrees-with-the-chain.json","contract_id":"schema://ioi/foundations/delegation-edge/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/delegation-edge-v1/negative-depth-disagrees-with-the-chain.json","mutation_id":null,"value_json":null}),
@@ -33038,6 +33184,7 @@ export const ARCHITECTURE_CONTRACT_PATTERN_SOURCES = [
   "^(?:config-revision|artifact)://[^\\s]{1,500}$",
   "^(?:constraint|policy|budget)://[^\\s]{1,500}$",
   "^(?:context-cell|harness-invocation)://\\S+$",
+  "^(?:context-lease|authority-lease|resource-lease|budget-lease)://\\S+$",
   "^(?:context_lease|grant|authority)://[^\\s]{1,500}$",
   "^(?:contribution|attempt|finding|work-result)://[^\\s]{1,500}$",
   "^(?:contribution|attempt|finding|work-result|outcome-delta)://[^\\s]{1,500}$",
@@ -33144,6 +33291,7 @@ export const ARCHITECTURE_CONTRACT_PATTERN_SOURCES = [
   "^(?:participant-lease|system|worker|org|user)://[^\\s]{1,500}$",
   "^(?:participant-lease|system|worker|service|org|domain)://[^\\s]{1,500}$",
   "^(?:participation-request|proposal)://[^\\s]{1,500}$",
+  "^(?:participation|delegation)://\\S+$",
   "^(?:policy)://[^\\s]{1,500}$",
   "^(?:policy://|grant://|scope:)[^\\s]{1,240}$",
   "^(?:policy|artifact)://[^\\s]{1,248}$",
@@ -33240,6 +33388,7 @@ export const ARCHITECTURE_CONTRACT_PATTERN_SOURCES = [
   "^(?:system|domain|org|worker|wallet|service|provider)://[^\\s]{1,500}$",
   "^(?:system|domain|policy)://[^\\s]{1,500}$",
   "^(?:system|domain|worker|service|agent|org)://[^\\s]{1,500}$",
+  "^(?:system|installation|worker|automation|automation-run|service|controller|runtime-assignment|managed-worker-instance)://\\S+$",
   "^(?:system|participant-lease|worker|service|org|domain)://[^\\s]{1,500}$",
   "^(?:system|user|org|project|domain|service)://[^\\s]{1,500}$",
   "^(?:system|user|org|wallet|domain)://[^\\s]{1,500}$",
@@ -33420,6 +33569,7 @@ export const ARCHITECTURE_CONTRACT_PATTERN_SOURCES = [
   "^api://[^\\s]{1,248}$",
   "^app-scope://[^\\s]{1,400}$",
   "^app-scope://ioi-ai/orchestration/[^\\s]{1,400}$",
+  "^app-scope://ioi-ai/orchestration/\\S+$",
   "^app-scope://ioi-ai/orchestration/orc_[A-Za-z0-9_-]{1,160}$",
   "^appraisal://[^\\s]{1,248}$",
   "^appraiser://[^\\s]{1,248}$",
@@ -33435,6 +33585,7 @@ export const ARCHITECTURE_CONTRACT_PATTERN_SOURCES = [
   "^artifact://[^\\s]{1,240}$",
   "^artifact://[^\\s]{1,248}$",
   "^artifact://[^\\s]{1,500}$",
+  "^artifact://\\S+$",
   "^artifact://foundry-checkpoint/[0-9a-f]{64}$",
   "^artifact://foundry-dataset/[0-9a-f]{64}$",
   "^asg_[0-9a-f]{64}$",
@@ -33682,6 +33833,7 @@ export const ARCHITECTURE_CONTRACT_PATTERN_SOURCES = [
   "^lifecycle-transition://[A-Za-z0-9._:/-]+$",
   "^lifecycle-transition://[^\\s]{1,248}$",
   "^lifecycle:[^\\s]{1,500}$",
+  "^lineage://\\S+$",
   "^local-agent-pairing://[^\\s]{1,500}$",
   "^location://[^\\s]{1,248}$",
   "^lost-suffix://[^\\s]{1,248}$",
@@ -34381,7 +34533,8 @@ export const ARCHITECTURE_CONTRACT_SCHEMA_HASHES = {
   "schema://ioi/applications/ioi-ai/goal-run-admission-path-decision/v2": "sha256:4c8093ac4b46e395a49ed8454a6da27a4769eb0b6cb9455b75c17145811c0dd6",
   "schema://ioi/applications/ioi-ai/context-cell/v2": "sha256:2c0505964f02e780b10361cd7fc7f6f09a3fcc86ca2e55abdb049e4b149c30cb",
   "schema://ioi/applications/ioi-ai/goal-grounding-loop/v2": "sha256:60362cef1719499121d31faf0f5c39be5f0423a3d96306d8dfdb64081dadbbcb",
-  "schema://ioi/applications/ioi-ai/collective-resolution-receipt/v1": "sha256:71b7c60f5226818ce492e715a048d8cd16323b891f7bdd053f8d50b6d1fd653d",
+  "schema://ioi/applications/ioi-ai/collective-resolution-receipt/v1": "sha256:c6277404e64498fae58bd68edc04154cc6e6b48b85adaa9e7a2b1a42c5435804",
+  "schema://ioi/applications/ioi-ai/persistent-executable-lineage/v1": "sha256:a5636ae902410df5f81b6be4879d8f986bc01225d409e42fbdd13614c2bcd381",
   "schema://ioi/foundations/delegation-edge/v1": "sha256:916bfac63dd49fe478bfa006e2637acf775ce6e6d6b919afc7daefcec9178548"
 } as const;
 
@@ -146267,8 +146420,352 @@ const CONTRACT_SCHEMAS: Record<string, JsonObject> = {
       "closure_root": {
         "type": "string",
         "pattern": "^sha256:[0-9a-f]{64}$"
+      },
+      "system_binding": {
+        "$ref": "#/$defs/systemBinding"
+      }
+    },
+    "$defs": {
+      "systemBinding": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "schema_version",
+          "system_id",
+          "parent_scope_ref",
+          "proposed_or_issued_by_ref",
+          "payload_root",
+          "created_at",
+          "updated_at"
+        ],
+        "properties": {
+          "schema_version": {
+            "const": "ioi.foundations.system-scoped-object-binding.v1"
+          },
+          "system_id": {
+            "type": "string",
+            "pattern": "^system://[^\\s]{1,500}$"
+          },
+          "parent_scope_ref": {
+            "type": "string",
+            "pattern": "^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"
+          },
+          "proposed_or_issued_by_ref": {
+            "type": "string",
+            "pattern": "^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"
+          },
+          "payload_root": {
+            "type": "string",
+            "pattern": "^sha256:[0-9a-f]{64}$"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time",
+            "pattern": "^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$"
+          },
+          "updated_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time",
+                "pattern": "^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        }
       }
     }
+  },
+  "schema://ioi/applications/ioi-ai/persistent-executable-lineage/v1": {
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "$id": "schema://ioi/applications/ioi-ai/persistent-executable-lineage/v1",
+    "title": "PersistentExecutableLineageV1",
+    "x-ioi-schema-version": "ioi.applications.ioi-ai.persistent-executable-lineage.v1",
+    "type": "object",
+    "additionalProperties": false,
+    "required": [
+      "schema_version",
+      "lineage_id",
+      "orchestration_ref",
+      "resolution_receipt_ref",
+      "artifact_ref",
+      "artifact_sha256",
+      "source_artifact_refs",
+      "successor_artifact_ref",
+      "transformation_receipt_refs",
+      "definition_ref",
+      "installation_ref",
+      "runtime_ref",
+      "runtime_kind",
+      "accountable_subject_ref",
+      "caretaker_ref",
+      "stop_policy_ref",
+      "lease_refs",
+      "dependency_lineage_refs",
+      "health_ref",
+      "effect_receipt_refs",
+      "posture",
+      "successor_of",
+      "lineage_root"
+    ],
+    "properties": {
+      "schema_version": {
+        "const": "ioi.applications.ioi-ai.persistent-executable-lineage.v1"
+      },
+      "lineage_id": {
+        "type": "string",
+        "pattern": "^lineage://\\S+$"
+      },
+      "orchestration_ref": {
+        "type": "string",
+        "pattern": "^app-scope://ioi-ai/orchestration/\\S+$"
+      },
+      "resolution_receipt_ref": {
+        "type": "string",
+        "pattern": "^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$",
+        "description": "The collective-resolution receipt (its receipt_ref) this lineage was resolved under; the composer refuses one this orchestration did not admit."
+      },
+      "artifact_ref": {
+        "type": "string",
+        "pattern": "^artifact://\\S+$",
+        "description": "The artifact's identity. Exactness is the hash beside it, never a mutable latest."
+      },
+      "artifact_sha256": {
+        "type": "string",
+        "pattern": "^sha256:[0-9a-f]{64}$"
+      },
+      "source_artifact_refs": {
+        "type": "array",
+        "items": {
+          "type": "string",
+          "pattern": "^artifact://\\S+$"
+        }
+      },
+      "successor_artifact_ref": {
+        "anyOf": [
+          {
+            "type": "string",
+            "pattern": "^artifact://\\S+$"
+          },
+          {
+            "type": "null"
+          }
+        ]
+      },
+      "transformation_receipt_refs": {
+        "type": "array",
+        "items": {
+          "type": "string",
+          "pattern": "^(?:receipt|ledger)://\\S+$"
+        }
+      },
+      "definition_ref": {
+        "type": "string",
+        "pattern": "^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"
+      },
+      "installation_ref": {
+        "anyOf": [
+          {
+            "type": "string",
+            "pattern": "^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"
+          },
+          {
+            "type": "null"
+          }
+        ]
+      },
+      "runtime_ref": {
+        "anyOf": [
+          {
+            "type": "string",
+            "pattern": "^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"
+          },
+          {
+            "type": "null"
+          }
+        ]
+      },
+      "runtime_kind": {
+        "type": "string",
+        "enum": [
+          "none",
+          "automation_run",
+          "managed_worker_instance",
+          "runtime_assignment",
+          "delegation"
+        ]
+      },
+      "accountable_subject_ref": {
+        "type": "string",
+        "pattern": "^(?:system|installation|worker|automation|automation-run|service|controller|runtime-assignment|managed-worker-instance)://\\S+$",
+        "description": "A durable subject — never a session or a participant; canon: session termination is neither retirement nor transferable authority."
+      },
+      "caretaker_ref": {
+        "anyOf": [
+          {
+            "type": "string",
+            "pattern": "^(?:participation|delegation)://\\S+$"
+          },
+          {
+            "type": "null"
+          }
+        ]
+      },
+      "stop_policy_ref": {
+        "type": "string",
+        "pattern": "^policy://\\S+$"
+      },
+      "lease_refs": {
+        "type": "array",
+        "items": {
+          "type": "string",
+          "pattern": "^(?:context-lease|authority-lease|resource-lease|budget-lease)://\\S+$"
+        }
+      },
+      "dependency_lineage_refs": {
+        "type": "array",
+        "items": {
+          "type": "string",
+          "pattern": "^lineage://\\S+$"
+        }
+      },
+      "health_ref": {
+        "anyOf": [
+          {
+            "type": "string",
+            "pattern": "^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"
+          },
+          {
+            "type": "null"
+          }
+        ]
+      },
+      "effect_receipt_refs": {
+        "type": "array",
+        "items": {
+          "type": "string",
+          "pattern": "^(?:receipt|ledger)://\\S+$"
+        }
+      },
+      "posture": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "status",
+          "orphan_reason"
+        ],
+        "properties": {
+          "status": {
+            "type": "string",
+            "enum": [
+              "observed",
+              "reused",
+              "forked",
+              "installed",
+              "active",
+              "stopped",
+              "quarantined",
+              "repairing",
+              "replaced",
+              "retired"
+            ]
+          },
+          "orphan_reason": {
+            "anyOf": [
+              {
+                "type": "string",
+                "enum": [
+                  "owner_absent",
+                  "caretaker_absent",
+                  "dependency_unavailable",
+                  "artifact_unavailable",
+                  "health_stale",
+                  "authority_stale"
+                ]
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        }
+      },
+      "successor_of": {
+        "anyOf": [
+          {
+            "type": "string",
+            "pattern": "^lineage://\\S+$"
+          },
+          {
+            "type": "null"
+          }
+        ]
+      },
+      "lineage_root": {
+        "type": "string",
+        "pattern": "^sha256:[0-9a-f]{64}$"
+      },
+      "system_binding": {
+        "$ref": "#/$defs/systemBinding"
+      }
+    },
+    "$defs": {
+      "systemBinding": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "schema_version",
+          "system_id",
+          "parent_scope_ref",
+          "proposed_or_issued_by_ref",
+          "payload_root",
+          "created_at",
+          "updated_at"
+        ],
+        "properties": {
+          "schema_version": {
+            "const": "ioi.foundations.system-scoped-object-binding.v1"
+          },
+          "system_id": {
+            "type": "string",
+            "pattern": "^system://[^\\s]{1,500}$"
+          },
+          "parent_scope_ref": {
+            "type": "string",
+            "pattern": "^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"
+          },
+          "proposed_or_issued_by_ref": {
+            "type": "string",
+            "pattern": "^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"
+          },
+          "payload_root": {
+            "type": "string",
+            "pattern": "^sha256:[0-9a-f]{64}$"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time",
+            "pattern": "^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$"
+          },
+          "updated_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time",
+                "pattern": "^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        }
+      }
+    },
+    "description": "The one record that binds a persistent executable lineage (collaborative-outcome-pattern.md § Persistent Artifact Ecology, R-204): exact artifact identity and hash, sources and successor, transformation receipts, definition, installation and runtime identities, the accountable subject, caretaker and stop policy, leases, dependency lineages, health and effect receipts, and a typed posture. Composed by the ioi.ai application and admitted through the record seam; lineage_root is SHA-256 over JCS of every field except lineage_root and system_binding."
   },
   "schema://ioi/foundations/delegation-edge/v1": {
     "$schema": "https://json-schema.org/draft/2020-12/schema",
@@ -166859,10 +167356,139 @@ const CONTRACT_INVARIANTS: Record<string, Array<JsonObject>> = {
     },
     {
       "rule_id": "collective_resolution_receipt.orchestration.is_a_resolved_owner",
-      "description": "The orchestration the closure is headed by is itself one of the existing owners the resolution names, so the receipt cannot freeze a composition it did not resolve into.",
+      "description": "The orchestration the closure is headed by is itself one of the existing owners the resolution names, so the receipt cannot freeze a composition it did not resolve into. CORRECTED 2026-09-19 (R-204): the rule's description said membership and its expression tested only presence — an assertion that could not fail the way its sentence claimed. It now tests that `orchestration_ref` IS one of `resolved_owner_refs`, with `array_contains_value` over a path-valued needle.",
       "expression": {
-        "operator": "non_empty",
-        "path": "$.orchestration_ref"
+        "operator": "array_contains_value",
+        "array_path": "$.resolved_owner_refs",
+        "expected_path": "$.orchestration_ref"
+      }
+    }
+  ],
+  "schema://ioi/applications/ioi-ai/persistent-executable-lineage/v1": [
+    {
+      "rule_id": "persistent_executable_lineage.root.recomputes",
+      "description": "lineage_root commits every field of the record except itself and the seam-derived system_binding (the wire member schema_version included, because the lineage's version IS part of what a relying party re-derives). A root nobody recomputes commits nothing.",
+      "expression": {
+        "operator": "jcs_sha256_equals",
+        "algorithm": "jcs_sha256",
+        "expected_path": "$.lineage_root",
+        "expected_encoding": "sha256_string",
+        "material_fields": {
+          "schema_version": {
+            "path": "$.schema_version"
+          },
+          "lineage_id": {
+            "path": "$.lineage_id"
+          },
+          "orchestration_ref": {
+            "path": "$.orchestration_ref"
+          },
+          "resolution_receipt_ref": {
+            "path": "$.resolution_receipt_ref"
+          },
+          "artifact_ref": {
+            "path": "$.artifact_ref"
+          },
+          "artifact_sha256": {
+            "path": "$.artifact_sha256"
+          },
+          "source_artifact_refs": {
+            "path": "$.source_artifact_refs"
+          },
+          "successor_artifact_ref": {
+            "path": "$.successor_artifact_ref"
+          },
+          "transformation_receipt_refs": {
+            "path": "$.transformation_receipt_refs"
+          },
+          "definition_ref": {
+            "path": "$.definition_ref"
+          },
+          "installation_ref": {
+            "path": "$.installation_ref"
+          },
+          "runtime_ref": {
+            "path": "$.runtime_ref"
+          },
+          "runtime_kind": {
+            "path": "$.runtime_kind"
+          },
+          "accountable_subject_ref": {
+            "path": "$.accountable_subject_ref"
+          },
+          "caretaker_ref": {
+            "path": "$.caretaker_ref"
+          },
+          "stop_policy_ref": {
+            "path": "$.stop_policy_ref"
+          },
+          "lease_refs": {
+            "path": "$.lease_refs"
+          },
+          "dependency_lineage_refs": {
+            "path": "$.dependency_lineage_refs"
+          },
+          "health_ref": {
+            "path": "$.health_ref"
+          },
+          "effect_receipt_refs": {
+            "path": "$.effect_receipt_refs"
+          },
+          "posture": {
+            "path": "$.posture"
+          },
+          "successor_of": {
+            "path": "$.successor_of"
+          }
+        }
+      }
+    },
+    {
+      "rule_id": "persistent_executable_lineage.orphan.reason_is_typed",
+      "description": "An orphaned condition is typed (canon): a quarantined lineage names WHY — owner, caretaker, dependency, artifact, health or authority absent or stale. A policy stop is not an orphan and carries no reason, which is why `stopped` is not in this rule; the composer requires a typed reason for a stop it makes BECAUSE of an orphan condition.",
+      "expression": {
+        "operator": "non_empty_when_in",
+        "when_path": "$.posture.status",
+        "values": [
+          "quarantined"
+        ],
+        "path": "$.posture.orphan_reason"
+      }
+    },
+    {
+      "rule_id": "persistent_executable_lineage.fork.names_its_parents",
+      "description": "A fork names the exact source artifacts it was forked from; a fork with no parent is an original wearing a fork's posture.",
+      "expression": {
+        "operator": "non_empty_when_in",
+        "when_path": "$.posture.status",
+        "values": [
+          "forked"
+        ],
+        "path": "$.source_artifact_refs"
+      }
+    },
+    {
+      "rule_id": "persistent_executable_lineage.fork.names_a_transformation_receipt",
+      "description": "A fork is a governed transformation and names the receipt that produced it; canon separates fork from observe/reuse by exactly this.",
+      "expression": {
+        "operator": "non_empty_when_in",
+        "when_path": "$.posture.status",
+        "values": [
+          "forked"
+        ],
+        "path": "$.transformation_receipt_refs"
+      }
+    },
+    {
+      "rule_id": "persistent_executable_lineage.active.binds_a_runtime",
+      "description": "`active` is a runtime binding, not an artifact flag: an active lineage names the runtime it runs as. ArtifactRef.lifecycle.status = active satisfies no check.",
+      "expression": {
+        "operator": "non_empty_when_in",
+        "when_path": "$.posture.status",
+        "values": [
+          "active"
+        ],
+        "path": "$.runtime_ref"
       }
     }
   ],
@@ -169823,6 +170449,12 @@ export function validateCollectiveResolutionReceiptV1(
   value: unknown,
 ): value is CollectiveResolutionReceiptV1 {
   return validateArchitectureContract("schema://ioi/applications/ioi-ai/collective-resolution-receipt/v1", value).ok;
+}
+
+export function validatePersistentExecutableLineageV1(
+  value: unknown,
+): value is PersistentExecutableLineageV1 {
+  return validateArchitectureContract("schema://ioi/applications/ioi-ai/persistent-executable-lineage/v1", value).ok;
 }
 
 export function validateDelegationEdgeV1(

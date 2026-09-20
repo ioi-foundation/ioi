@@ -19653,6 +19653,90 @@
         {
           "path": "fixtures/collective-resolution-receipt-v1/negative-unknown-field.json",
           "expected_failure": "schema"
+        },
+        {
+          "path": "fixtures/collective-resolution-receipt-v1/negative-orchestration-not-a-resolved-owner.json",
+          "expected_failure": "invariant",
+          "expected_rule_id": "collective_resolution_receipt.orchestration.is_a_resolved_owner"
+        }
+      ]
+    },
+    {
+      "contract_id": "schema://ioi/applications/ioi-ai/persistent-executable-lineage/v1",
+      "canonical_name": "PersistentExecutableLineage",
+      "canonical_owner_ref": "canon://docs/architecture/domains/ioi-ai/collaborative-outcome-pattern.md#persistent-artifact-ecology",
+      "schema_version": "ioi.applications.ioi-ai.persistent-executable-lineage.v1",
+      "maturity": "partial",
+      "stability": "provisional",
+      "wire_format": "json",
+      "canonical_encoding_profile_ref": "encoding-profile://ioi/jcs-json/v1",
+      "evolution": {
+        "successor_of": null,
+        "successor_contract_id": null,
+        "compatibility": "initial",
+        "migration_policy": "none",
+        "predecessor_remains_valid": false,
+        "wire_mutation_policy": "forbidden",
+        "hash_impact": "signature_preimage_changed"
+      },
+      "schema_ref": "persistent-executable-lineage.v1.schema.json",
+      "cross_field_invariant_refs": [
+        {
+          "invariant_id": "invariant://ioi/applications/ioi-ai/persistent-executable-lineage/lineage-root-and-posture/v1",
+          "path": "invariants/persistent-executable-lineage.v1.invariants.json"
+        }
+      ],
+      "compatibility_aliases": [],
+      "generated_targets": [
+        {
+          "kind": "typescript_projection",
+          "path": "packages/hypervisor-workbench/src/runtime/generated/architecture-contracts.ts",
+          "symbol": "PersistentExecutableLineageV1"
+        },
+        {
+          "kind": "rust_projection",
+          "path": "crates/types/src/app/generated/architecture_contracts.rs",
+          "symbol": "PersistentExecutableLineageV1"
+        }
+      ],
+      "positive_fixture_refs": [
+        "fixtures/persistent-executable-lineage-v1/positive-reused-original.json",
+        "fixtures/persistent-executable-lineage-v1/positive-active-under-a-system.json",
+        "fixtures/persistent-executable-lineage-v1/positive-forked-with-receipt.json"
+      ],
+      "negative_fixture_refs": [
+        {
+          "path": "fixtures/persistent-executable-lineage-v1/negative-unknown-field.json",
+          "expected_failure": "schema"
+        },
+        {
+          "path": "fixtures/persistent-executable-lineage-v1/negative-accountable-subject-is-a-session.json",
+          "expected_failure": "schema"
+        },
+        {
+          "path": "fixtures/persistent-executable-lineage-v1/negative-artifact-moved-after-the-root.json",
+          "expected_failure": "invariant",
+          "expected_rule_id": "persistent_executable_lineage.root.recomputes"
+        },
+        {
+          "path": "fixtures/persistent-executable-lineage-v1/negative-quarantined-without-a-typed-reason.json",
+          "expected_failure": "invariant",
+          "expected_rule_id": "persistent_executable_lineage.orphan.reason_is_typed"
+        },
+        {
+          "path": "fixtures/persistent-executable-lineage-v1/negative-fork-without-a-transformation-receipt.json",
+          "expected_failure": "invariant",
+          "expected_rule_id": "persistent_executable_lineage.fork.names_a_transformation_receipt"
+        },
+        {
+          "path": "fixtures/persistent-executable-lineage-v1/negative-fork-without-a-parent.json",
+          "expected_failure": "invariant",
+          "expected_rule_id": "persistent_executable_lineage.fork.names_its_parents"
+        },
+        {
+          "path": "fixtures/persistent-executable-lineage-v1/negative-active-without-a-runtime.json",
+          "expected_failure": "invariant",
+          "expected_rule_id": "persistent_executable_lineage.active.binds_a_runtime"
         }
       ]
     },
