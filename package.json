@@ -145,6 +145,8 @@
     "mutate:horizon-1b-improvement": "node scripts/check-horizon-1b-improvement.mjs --mutation",
     "check:horizon-2-distributed-work": "node scripts/check-horizon-2-distributed-work.mjs",
     "mutate:horizon-2-distributed-work": "node scripts/check-horizon-2-distributed-work.mjs --mutation",
+    "check:provider-neutral-live-transaction": "node scripts/check-provider-neutral-live-transaction.mjs",
+    "mutate:provider-neutral-live-transaction": "node scripts/check-provider-neutral-live-transaction.mjs --mutation",
     "mutate:standalone-conformance": "node scripts/check-standalone-conformance.mjs --mutation",
     "check:acceptance-conformance-ladder": "node scripts/check-acceptance-conformance-ladder.mjs",
     "check:acceptance-conformance-ladder:live": "node scripts/check-acceptance-conformance-ladder.mjs --live",

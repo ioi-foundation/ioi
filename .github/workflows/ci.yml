@@ -923,6 +923,31 @@ jobs:
         if: ${{ !cancelled() && steps.rust_backed_daemon.outcome == 'success' }}
         run: npm run mutate:horizon-2-distributed-work --workspace=@ioi/hypervisor-app
 
+      # M09.6 (R-210). The spend-free Akash lifecycle contract gate: source pins for both terminal branches,
+      # the akash_console unit tests with the six named branch tests required present, the daemon's two
+      # containment filters. No daemon, no network, no credential — composed by the provider-neutral live
+      # transaction gate, so its census is floor-pinned here.
+      - name: Verify the Akash lifecycle contract (M09.6, spend-free)
+        if: ${{ !cancelled() && steps.rust_backed_daemon.outcome == 'success' }}
+        env:
+          IOI_VERIFIER_CENSUS_DIR: .artifacts/verifier-census
+        run: npm run check:akash-live-lifecycle --workspace=@ioi/hypervisor-app
+
+      # M09.6 (R-210). The provider-neutral live transaction lane as a gate, CI-bound at its drills: the
+      # no-qualified-bid branch GENERATED at run time from the nine retained live closes (a tracked,
+      # redacted, hash-committed record set), verified and mutation-drilled; the lane's legs bound to the
+      # floored gates that prove them; the provider-neutral shape read from the daemon's own dispatch. The
+      # fresh positive live branch is the unit's scheduled check behind owner credentials.
+      - name: Verify the provider-neutral live transaction lane (M09.6, CI-bound drills)
+        if: ${{ !cancelled() && steps.rust_backed_daemon.outcome == 'success' }}
+        env:
+          IOI_VERIFIER_CENSUS_DIR: .artifacts/verifier-census
+        run: npm run check:provider-neutral-live-transaction --workspace=@ioi/hypervisor-app
+
+      - name: Drill the provider-neutral live transaction oracles
+        if: ${{ !cancelled() && steps.rust_backed_daemon.outcome == 'success' }}
+        run: npm run mutate:provider-neutral-live-transaction --workspace=@ioi/hypervisor-app
+
       # M10.4 — the governed evaluation plane, driven against an ISOLATED daemon this job already
       # built: two deterministic ollama-dialect stub servers registered, probed, enabled and REALLY
       # invoked as routes A and B; released suite revisions, frozen and active epochs, admitted runs,

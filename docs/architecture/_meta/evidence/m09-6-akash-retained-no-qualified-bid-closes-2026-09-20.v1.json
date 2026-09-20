@@ -1,0 +1,1189 @@
+{
+  "schema_version": "ioi.evidence.retained-akash-no-qualified-bid-closes.v1",
+  "extracted_at": "2026-09-20T18:38:23.618Z",
+  "basis": "the shared daemon's durable akash-deployments and provider-operations families (execution_mode live_console_api); owner-authorized runs of 2026-08-21 that reached no qualified bid within the polling window, closed, and settled to a provider-confirmed refund",
+  "what_this_is_not": "not a certificate and not a success: nine safe refusals that were closed and refunded; each row names the canonical members the records never held (unrecorded_members) so a certificate generated from it can name them too",
+  "rows": [
+    {
+      "dseq": "1787319132371",
+      "deployment": {
+        "account_id": "pacc_18cd245812ad55b9",
+        "at": "2026-08-21T13:33:36.04412677Z",
+        "authorized_deposit_evidence": {
+          "basis": "captured wallet challenge facet from the owner-reviewed C7 run",
+          "request_hash": "sha256:ea529a06833284c13fea846a22e57f88e0945faea5e4a5032da3112e1e90488d"
+        },
+        "close_http": 200,
+        "deposit_usd": 1,
+        "dseq": "1787319132371",
+        "environment_ref": "env-c7-capstone-2",
+        "events": [
+          {
+            "at": "2026-08-21T14:24:35.807729732Z",
+            "detail": "provider-native deployment, escrow and lease readback reached terminal settlement",
+            "execution_mode": "live_console_api",
+            "kind": "refund_settled"
+          },
+          {
+            "at": "2026-08-21T14:25:25.742578031Z",
+            "detail": "provider-native deployment, escrow and lease readback reached terminal settlement",
+            "execution_mode": "live_console_api",
+            "kind": "refund_settled"
+          }
+        ],
+        "execution_mode": "live_console_api",
+        "last_reconciled_at": "2026-08-21T14:25:25.742535286Z",
+        "note": "Stage B refused AFTER the deposit was funded; the deployment was closed. deposit_closed_refund_pending = close accepted, escrow refund is the provider's async settlement (closed != refund_settled). reconciliation_required = close unconfirmed; reconcile from the provider console.",
+        "provider_native_settlement": {
+          "active_lease_count": 0,
+          "basis": "provider-native deployment + escrow + lease readback; close HTTP alone never settles",
+          "deployment_state": "closed",
+          "deposit_usd": 1,
+          "escrow_state": "closed",
+          "final_debit_usd": 0,
+          "funds": [
+            {
+              "amount": "0.000000000000000000",
+              "denom": "uact"
+            }
+          ],
+          "provider_terminal": true,
+          "refund_usd": 1,
+          "schema_version": "ioi.hypervisor.akash-settlement-readback.v1",
+          "settled_at_height": "28269748",
+          "settlement_state": "refund_settled",
+          "transferred": [
+            {
+              "amount": "0.000000000000000000",
+              "denom": "uact"
+            }
+          ]
+        },
+        "provider_readback_hash": "sha256:3d4c3ed0fe6cfa8de262d1370c12664b1ea63d4b99d4021de4179ef915ef61cb",
+        "record_id": "akdep_intent_1787319132371",
+        "schema_version": "ioi.hypervisor.akash-deployment.v1",
+        "settlement_state": "refund_settled",
+        "stage_b_error": "akash_no_qualified_bid — no bid satisfied the 'any_marketplace' selector within the polling window",
+        "state": "refund_settled",
+        "status": "torn_down",
+        "teardown_state": "torn_down"
+      },
+      "operations": [
+        {
+          "account_ref": "provider-account://pacc_18cd245812ad55b9",
+          "at": "2026-08-21T14:14:53.68131904Z",
+          "budget_discovery": null,
+          "cost_estimate": null,
+          "environment_ref": "env-c7-capstone-2",
+          "evidence": {
+            "basis": "daemon-recorded control-plane events — provider evidence, not authority",
+            "control_plane_log": [],
+            "deployment_ref": null,
+            "execution_mode": "live_console_api",
+            "lease_ref": null,
+            "lease_state_proof": {
+              "deployment_state": "closed",
+              "retrieved_live": true,
+              "source": "managed Console API GET /v1/deployments/{dseq} — the lease's on-chain state, fetched not asserted"
+            },
+            "service_logs": "not_exposed_by_managed_console_api — container logs require the provider's own endpoint; the retrievable proof is the live lease state above",
+            "settlement_readback": {
+              "escrow": null,
+              "leases": [],
+              "provider_native": {
+                "data": {
+                  "deployment": {
+                    "created_at": "28269737",
+                    "hash": "E9p8wkMzgthhkNk6AhpBuwZnsdqtUIquyoVuuCSfaz8=",
+                    "id": {
+                      "dseq": "1787319132371",
+                      "owner": "akash1l6v0f2lz22q4ae5efkjrs9epfyuycsss2y0pmz"
+                    },
+                    "reclamation": null,
+                    "state": "closed"
+                  },
+                  "escrow_account": {
+                    "id": {
+                      "scope": "deployment",
+                      "xid": "akash1l6v0f2lz22q4ae5efkjrs9epfyuycsss2y0pmz/1787319132371"
+                    },
+                    "state": {
+                      "deposits": [],
+                      "funds": [
+                        {
+                          "amount": "0.000000000000000000",
+                          "denom": "uact"
+                        }
+                      ],
+                      "owner": "akash1l6v0f2lz22q4ae5efkjrs9epfyuycsss2y0pmz",
+                      "settled_at": "28269748",
+                      "state": "closed",
+                      "transferred": [
+                        {
+                          "amount": "0.000000000000000000",
+                          "denom": "uact"
+                        }
+                      ]
+                    }
+                  },
+                  "leases": []
+                }
+              },
+              "provider_response_hash": "sha256:3d4c3ed0fe6cfa8de262d1370c12664b1ea63d4b99d4021de4179ef915ef61cb",
+              "retrieved_live": true,
+              "source": "managed Console API GET /v1/deployments/{dseq}"
+            }
+          },
+          "grant_ref": null,
+          "op": "logs",
+          "operation_id": "pop_18cdd79c5b383735",
+          "proposal_consumption": null,
+          "provider": "akash",
+          "receipt_ref": "agentgres://provider-receipt/prc_18cdd79c5ac18bd0",
+          "schema_version": "ioi.hypervisor.provider-operation.v1"
+        },
+        {
+          "account_ref": "provider-account://pacc_18cd245812ad55b9",
+          "at": "2026-08-21T14:24:35.851258534Z",
+          "budget_discovery": null,
+          "cost_estimate": null,
+          "environment_ref": "env-c7-capstone-2",
+          "evidence": {
+            "deployment_ref": null,
+            "dseq": "1787319132371",
+            "provider_native": {
+              "deployment": {
+                "created_at": "28269737",
+                "hash": "E9p8wkMzgthhkNk6AhpBuwZnsdqtUIquyoVuuCSfaz8=",
+                "id": {
+                  "dseq": "1787319132371",
+                  "owner": "akash1l6v0f2lz22q4ae5efkjrs9epfyuycsss2y0pmz"
+                },
+                "reclamation": null,
+                "state": "closed"
+              },
+              "escrow_account": {
+                "id": {
+                  "scope": "deployment",
+                  "xid": "akash1l6v0f2lz22q4ae5efkjrs9epfyuycsss2y0pmz/1787319132371"
+                },
+                "state": {
+                  "deposits": [],
+                  "funds": [
+                    {
+                      "amount": "0.000000000000000000",
+                      "denom": "uact"
+                    }
+                  ],
+                  "owner": "akash1l6v0f2lz22q4ae5efkjrs9epfyuycsss2y0pmz",
+                  "settled_at": "28269748",
+                  "state": "closed",
+                  "transferred": [
+                    {
+                      "amount": "0.000000000000000000",
+                      "denom": "uact"
+                    }
+                  ]
+                }
+              },
+              "leases": [],
+              "response_hash": "sha256:3d4c3ed0fe6cfa8de262d1370c12664b1ea63d4b99d4021de4179ef915ef61cb"
+            },
+            "provider_operation_ref": "provider-account://pacc_18cd245812ad55b9/op/reconcile/env-c7-capstone-2",
+            "retrieved_live": true,
+            "settlement": {
+              "active_lease_count": 0,
+              "basis": "provider-native deployment + escrow + lease readback; close HTTP alone never settles",
+              "deployment_state": "closed",
+              "deposit_usd": 0,
+              "escrow_state": "closed",
+              "final_debit_usd": 0,
+              "funds": [
+                {
+                  "amount": "0.000000000000000000",
+                  "denom": "uact"
+                }
+              ],
+              "provider_terminal": true,
+              "refund_usd": 0,
+              "schema_version": "ioi.hypervisor.akash-settlement-readback.v1",
+              "settled_at_height": "28269748",
+              "settlement_state": "refund_settled",
+              "transferred": [
+                {
+                  "amount": "0.000000000000000000",
+                  "denom": "uact"
+                }
+              ]
+            },
+            "teardown_state": "torn_down"
+          },
+          "grant_ref": null,
+          "op": "reconcile",
+          "operation_id": "pop_18cdd823e7408bd9",
+          "proposal_consumption": null,
+          "provider": "akash",
+          "receipt_ref": "agentgres://provider-receipt/prc_18cdd823e6ce3a8c",
+          "schema_version": "ioi.hypervisor.provider-operation.v1"
+        },
+        {
+          "account_ref": "provider-account://pacc_18cd245812ad55b9",
+          "at": "2026-08-21T14:25:25.787834221Z",
+          "budget_discovery": null,
+          "cost_estimate": null,
+          "environment_ref": "env-c7-capstone-2",
+          "evidence": {
+            "deployment_ref": null,
+            "dseq": "1787319132371",
+            "provider_native": {
+              "deployment": {
+                "created_at": "28269737",
+                "hash": "E9p8wkMzgthhkNk6AhpBuwZnsdqtUIquyoVuuCSfaz8=",
+                "id": {
+                  "dseq": "1787319132371",
+                  "owner": "akash1l6v0f2lz22q4ae5efkjrs9epfyuycsss2y0pmz"
+                },
+                "reclamation": null,
+                "state": "closed"
+              },
+              "escrow_account": {
+                "id": {
+                  "scope": "deployment",
+                  "xid": "akash1l6v0f2lz22q4ae5efkjrs9epfyuycsss2y0pmz/1787319132371"
+                },
+                "state": {
+                  "deposits": [],
+                  "funds": [
+                    {
+                      "amount": "0.000000000000000000",
+                      "denom": "uact"
+                    }
+                  ],
+                  "owner": "akash1l6v0f2lz22q4ae5efkjrs9epfyuycsss2y0pmz",
+                  "settled_at": "28269748",
+                  "state": "closed",
+                  "transferred": [
+                    {
+                      "amount": "0.000000000000000000",
+                      "denom": "uact"
+                    }
+                  ]
+                }
+              },
+              "leases": [],
+              "response_hash": "sha256:3d4c3ed0fe6cfa8de262d1370c12664b1ea63d4b99d4021de4179ef915ef61cb"
+            },
+            "provider_operation_ref": "provider-account://pacc_18cd245812ad55b9/op/reconcile/env-c7-capstone-2",
+            "retrieved_live": true,
+            "settlement": {
+              "active_lease_count": 0,
+              "basis": "provider-native deployment + escrow + lease readback; close HTTP alone never settles",
+              "deployment_state": "closed",
+              "deposit_usd": 1,
+              "escrow_state": "closed",
+              "final_debit_usd": 0,
+              "funds": [
+                {
+                  "amount": "0.000000000000000000",
+                  "denom": "uact"
+                }
+              ],
+              "provider_terminal": true,
+              "refund_usd": 1,
+              "schema_version": "ioi.hypervisor.akash-settlement-readback.v1",
+              "settled_at_height": "28269748",
+              "settlement_state": "refund_settled",
+              "transferred": [
+                {
+                  "amount": "0.000000000000000000",
+                  "denom": "uact"
+                }
+              ]
+            },
+            "teardown_state": "torn_down"
+          },
+          "grant_ref": null,
+          "op": "reconcile",
+          "operation_id": "pop_18cdd82f87b4e406",
+          "proposal_consumption": null,
+          "provider": "akash",
+          "receipt_ref": "agentgres://provider-receipt/prc_18cdd82f87425d68",
+          "schema_version": "ioi.hypervisor.provider-operation.v1"
+        }
+      ],
+      "unrecorded_members": [
+        "proposal_consumption",
+        "journal_state_roots",
+        "capability_lease",
+        "source_commit",
+        "operator_principal_ref"
+      ],
+      "redacted_members": [],
+      "row_sha256": "sha256:db1d8a0fba72105723b22add1c52b53b75522dcd341e0fefdea5d37d226e1936"
+    },
+    {
+      "dseq": "1787394749046",
+      "deployment": {
+        "account_id": "pacc_18cd245812ad55b9",
+        "account_ref": "provider-account://pacc_18cd245812ad55b9",
+        "close_accepted_at": "2026-08-22T10:33:48.318295195Z",
+        "close_http": 200,
+        "close_response_hash": "sha256:d3866f57ba7a47425f5aa636377cdace170d1e3e9e38abd3aa1c239f8fe2a549",
+        "created_at": "2026-08-22T10:32:35.506596552Z",
+        "deployment_ref": "akash-deployment://akdep_1787394749046",
+        "deposit_usd": 1,
+        "dseq": "1787394749046",
+        "environment_ref": "env-u1-aft-a-5852-20260822",
+        "events": [
+          {
+            "at": "2026-08-22T10:32:35.506622475Z",
+            "detail": "Console funded deployment escrow for dseq=1787394749046",
+            "execution_mode": "live_console_api",
+            "kind": "deposit_funded"
+          },
+          {
+            "at": "2026-08-22T10:33:44.642095577Z",
+            "detail": "no-bid compensation close accepted; awaiting provider settlement readback",
+            "execution_mode": "live_console_api",
+            "kind": "deployment_close_accepted"
+          },
+          {
+            "at": "2026-08-22T10:33:44.84034175Z",
+            "detail": "no-bid compensation reconciled from provider-native deployment and escrow readback",
+            "execution_mode": "live_console_api",
+            "kind": "refund_settled"
+          },
+          {
+            "at": "2026-08-22T10:33:48.318328197Z",
+            "detail": "Console accepted deployment close; settlement still requires provider readback",
+            "execution_mode": "live_console_api",
+            "kind": "deployment_close_accepted"
+          },
+          {
+            "at": "2026-08-22T10:33:50.086034221Z",
+            "detail": "provider-native deployment, escrow and lease readback reached terminal settlement",
+            "execution_mode": "live_console_api",
+            "kind": "refund_settled"
+          }
+        ],
+        "execution_mode": "live_console_api",
+        "last_reconciled_at": "2026-08-22T10:33:50.085984868Z",
+        "provider_native_settlement": {
+          "active_lease_count": 0,
+          "basis": "provider-native deployment + escrow + lease readback; close HTTP alone never settles",
+          "deployment_state": "closed",
+          "deposit_usd": 1,
+          "escrow_state": "closed",
+          "final_debit_usd": 0,
+          "funds": [
+            {
+              "amount": "0.000000000000000000",
+              "denom": "uact"
+            }
+          ],
+          "provider_terminal": true,
+          "refund_usd": 1,
+          "schema_version": "ioi.hypervisor.akash-settlement-readback.v1",
+          "settled_at_height": "28282439",
+          "settlement_state": "refund_settled",
+          "transferred": [
+            {
+              "amount": "0.000000000000000000",
+              "denom": "uact"
+            }
+          ]
+        },
+        "provider_readback_hash": "sha256:0160eb70748a2b857136cccc65c6996d4f7491e946216f22fe54ee0273889a47",
+        "record_id": "akdep_1787394749046",
+        "schema_version": "ioi.hypervisor.akash-deployment.v1",
+        "sdl_yaml_bytes": 1625,
+        "settlement_state": "refund_settled",
+        "state": "refund_settled",
+        "status": "torn_down",
+        "teardown_state": "torn_down"
+      },
+      "operations": [
+        {
+          "account_ref": "provider-account://pacc_18cd245812ad55b9",
+          "at": "2026-08-22T10:33:50.422125194Z",
+          "budget_discovery": null,
+          "cost_estimate": null,
+          "environment_ref": "env-u1-aft-a-5852-20260822",
+          "evidence": {
+            "cleanup_verified": true,
+            "deployment_ref": "akash-deployment://akdep_1787394749046",
+            "dseq": "1787394749046",
+            "native_teardown": {
+              "close_http": 200,
+              "destroyed": true,
+              "provider_response_hash": "sha256:0160eb70748a2b857136cccc65c6996d4f7491e946216f22fe54ee0273889a47"
+            },
+            "provider_operation_ref": "provider-account://pacc_18cd245812ad55b9/op/delete/env-u1-aft-a-5852-20260822",
+            "settlement": {
+              "active_lease_count": 0,
+              "basis": "provider-native deployment + escrow + lease readback; close HTTP alone never settles",
+              "deployment_state": "closed",
+              "deposit_usd": 1,
+              "escrow_state": "closed",
+              "final_debit_usd": 0,
+              "funds": [
+                {
+                  "amount": "0.000000000000000000",
+                  "denom": "uact"
+                }
+              ],
+              "provider_terminal": true,
+              "refund_usd": 1,
+              "schema_version": "ioi.hypervisor.akash-settlement-readback.v1",
+              "settled_at_height": "28282439",
+              "settlement_state": "refund_settled",
+              "transferred": [
+                {
+                  "amount": "0.000000000000000000",
+                  "denom": "uact"
+                }
+              ]
+            },
+            "teardown_state": "torn_down"
+          },
+          "grant_ref": null,
+          "op": "delete",
+          "operation_id": "pop_18ce1a20d4ad4e60",
+          "proposal_consumption": null,
+          "provider": "akash",
+          "receipt_ref": "agentgres://provider-receipt/prc_18ce1a20d3eea2e3",
+          "schema_version": "ioi.hypervisor.provider-operation.v1"
+        }
+      ],
+      "unrecorded_members": [
+        "proposal_consumption",
+        "journal_state_roots",
+        "capability_lease",
+        "source_commit",
+        "operator_principal_ref"
+      ],
+      "redacted_members": [],
+      "row_sha256": "sha256:d8082aefa508afd405084cdc8d1adfc2b765b9143952e88afd7218300beb744a"
+    },
+    {
+      "dseq": "1787412006759",
+      "deployment": {
+        "account_id": "pacc_18cd245812ad55b9",
+        "account_ref": "provider-account://pacc_18cd245812ad55b9",
+        "close_accepted_at": "2026-08-22T15:21:29.911586182Z",
+        "close_http": 200,
+        "close_response_hash": "sha256:d3866f57ba7a47425f5aa636377cdace170d1e3e9e38abd3aa1c239f8fe2a549",
+        "created_at": "2026-08-22T15:20:15.164052492Z",
+        "deployment_ref": "akash-deployment://akdep_1787412006759",
+        "deposit_usd": 1,
+        "dseq": "1787412006759",
+        "environment_ref": "env-u1-aft-a-678ff2-20260822t1512z",
+        "events": [
+          {
+            "at": "2026-08-22T15:20:15.164118613Z",
+            "detail": "Console funded deployment escrow for dseq=1787412006759",
+            "execution_mode": "live_console_api",
+            "kind": "deposit_funded"
+          },
+          {
+            "at": "2026-08-22T15:21:24.279163961Z",
+            "detail": "no-bid compensation close accepted; awaiting provider settlement readback",
+            "execution_mode": "live_console_api",
+            "kind": "deployment_close_accepted"
+          },
+          {
+            "at": "2026-08-22T15:21:24.487428276Z",
+            "detail": "no-bid compensation reconciled from provider-native deployment and escrow readback",
+            "execution_mode": "live_console_api",
+            "kind": "refund_settled"
+          },
+          {
+            "at": "2026-08-22T15:21:29.911650163Z",
+            "detail": "Console accepted deployment close; settlement still requires provider readback",
+            "execution_mode": "live_console_api",
+            "kind": "deployment_close_accepted"
+          },
+          {
+            "at": "2026-08-22T15:21:32.426691187Z",
+            "detail": "provider-native deployment, escrow and lease readback reached terminal settlement",
+            "execution_mode": "live_console_api",
+            "kind": "refund_settled"
+          }
+        ],
+        "execution_mode": "live_console_api",
+        "last_reconciled_at": "2026-08-22T15:21:32.426590629Z",
+        "provider_native_settlement": {
+          "active_lease_count": 0,
+          "basis": "provider-native deployment + escrow + lease readback; close HTTP alone never settles",
+          "deployment_state": "closed",
+          "deposit_usd": 1,
+          "escrow_state": "closed",
+          "final_debit_usd": 0,
+          "funds": [
+            {
+              "amount": "0.000000000000000000",
+              "denom": "uact"
+            }
+          ],
+          "provider_terminal": true,
+          "refund_usd": 1,
+          "schema_version": "ioi.hypervisor.akash-settlement-readback.v1",
+          "settled_at_height": "28285370",
+          "settlement_state": "refund_settled",
+          "transferred": [
+            {
+              "amount": "0.000000000000000000",
+              "denom": "uact"
+            }
+          ]
+        },
+        "provider_readback_hash": "sha256:7775f0da7bbc3e69345436d69e4e5a1efd6e7ed17d60483cc20938d97fa4173b",
+        "record_id": "akdep_1787412006759",
+        "schema_version": "ioi.hypervisor.akash-deployment.v1",
+        "sdl_yaml_bytes": 1641,
+        "settlement_state": "refund_settled",
+        "state": "refund_settled",
+        "status": "torn_down",
+        "teardown_state": "torn_down"
+      },
+      "operations": [
+        {
+          "account_ref": "provider-account://pacc_18cd245812ad55b9",
+          "at": "2026-08-22T15:21:32.85868702Z",
+          "budget_discovery": null,
+          "capability_lease": null,
+          "cost_estimate": null,
+          "environment_ref": "env-u1-aft-a-678ff2-20260822t1512z",
+          "evidence": {
+            "cleanup_verified": true,
+            "deployment_ref": "akash-deployment://akdep_1787412006759",
+            "dseq": "1787412006759",
+            "native_teardown": {
+              "close_http": 200,
+              "destroyed": true,
+              "provider_response_hash": "sha256:7775f0da7bbc3e69345436d69e4e5a1efd6e7ed17d60483cc20938d97fa4173b"
+            },
+            "provider_operation_ref": "provider-account://pacc_18cd245812ad55b9/op/delete/env-u1-aft-a-678ff2-20260822t1512z",
+            "settlement": {
+              "active_lease_count": 0,
+              "basis": "provider-native deployment + escrow + lease readback; close HTTP alone never settles",
+              "deployment_state": "closed",
+              "deposit_usd": 1,
+              "escrow_state": "closed",
+              "final_debit_usd": 0,
+              "funds": [
+                {
+                  "amount": "0.000000000000000000",
+                  "denom": "uact"
+                }
+              ],
+              "provider_terminal": true,
+              "refund_usd": 1,
+              "schema_version": "ioi.hypervisor.akash-settlement-readback.v1",
+              "settled_at_height": "28285370",
+              "settlement_state": "refund_settled",
+              "transferred": [
+                {
+                  "amount": "0.000000000000000000",
+                  "denom": "uact"
+                }
+              ]
+            },
+            "teardown_state": "torn_down"
+          },
+          "grant_ref": null,
+          "op": "delete",
+          "operation_id": "pop_18ce29d40e131869",
+          "proposal_consumption": null,
+          "provider": "akash",
+          "receipt_ref": "agentgres://provider-receipt/prc_18ce29d40d1cfcd9",
+          "schema_version": "ioi.hypervisor.provider-operation.v1"
+        }
+      ],
+      "unrecorded_members": [
+        "proposal_consumption",
+        "journal_state_roots",
+        "capability_lease",
+        "source_commit",
+        "operator_principal_ref"
+      ],
+      "redacted_members": [],
+      "row_sha256": "sha256:5d3398ff3d537ad2b6c75cde64d1c930c90b717ead558b64368bcb6964757d6e"
+    },
+    {
+      "dseq": "1787418685870",
+      "deployment": {
+        "account_id": "pacc_18cd245812ad55b9",
+        "account_ref": "provider-account://pacc_18cd245812ad55b9",
+        "close_accepted_at": "2026-08-22T17:12:44.548738358Z",
+        "close_http": 200,
+        "close_response_hash": "sha256:d3866f57ba7a47425f5aa636377cdace170d1e3e9e38abd3aa1c239f8fe2a549",
+        "created_at": "2026-08-22T17:11:30.313587815Z",
+        "deployment_ref": "akash-deployment://akdep_1787418685870",
+        "deposit_usd": 1,
+        "dseq": "1787418685870",
+        "environment_ref": "env-u1-aft-a6-678ff2-20260822",
+        "events": [
+          {
+            "at": "2026-08-22T17:11:30.313625103Z",
+            "detail": "Console funded deployment escrow for dseq=1787418685870",
+            "execution_mode": "live_console_api",
+            "kind": "deposit_funded"
+          },
+          {
+            "at": "2026-08-22T17:12:40.042539954Z",
+            "detail": "no-bid compensation close accepted; awaiting provider settlement readback",
+            "execution_mode": "live_console_api",
+            "kind": "deployment_close_accepted"
+          },
+          {
+            "at": "2026-08-22T17:12:40.252471881Z",
+            "detail": "no-bid compensation reconciled from provider-native deployment and escrow readback",
+            "execution_mode": "live_console_api",
+            "kind": "refund_settled"
+          },
+          {
+            "at": "2026-08-22T17:12:44.548772322Z",
+            "detail": "Console accepted deployment close; settlement still requires provider readback",
+            "execution_mode": "live_console_api",
+            "kind": "deployment_close_accepted"
+          },
+          {
+            "at": "2026-08-22T17:12:46.582749878Z",
+            "detail": "provider-native deployment, escrow and lease readback reached terminal settlement",
+            "execution_mode": "live_console_api",
+            "kind": "refund_settled"
+          }
+        ],
+        "execution_mode": "live_console_api",
+        "last_reconciled_at": "2026-08-22T17:12:46.582719097Z",
+        "provider_native_settlement": {
+          "active_lease_count": 0,
+          "basis": "provider-native deployment + escrow + lease readback; close HTTP alone never settles",
+          "deployment_state": "closed",
+          "deposit_usd": 1,
+          "escrow_state": "closed",
+          "final_debit_usd": 0,
+          "funds": [
+            {
+              "amount": "0.000000000000000000",
+              "denom": "uact"
+            }
+          ],
+          "provider_terminal": true,
+          "refund_usd": 1,
+          "schema_version": "ioi.hypervisor.akash-settlement-readback.v1",
+          "settled_at_height": "28286502",
+          "settlement_state": "refund_settled",
+          "transferred": [
+            {
+              "amount": "0.000000000000000000",
+              "denom": "uact"
+            }
+          ]
+        },
+        "provider_readback_hash": "sha256:c90ed0ce4d1afa9ba60e7bbbc8b1c3ec35c3bd43e6ddcbfb2ae3ad64e6eb943a",
+        "record_id": "akdep_1787418685870",
+        "schema_version": "ioi.hypervisor.akash-deployment.v1",
+        "sdl_yaml_bytes": 1631,
+        "settlement_state": "refund_settled",
+        "state": "refund_settled",
+        "status": "torn_down",
+        "teardown_state": "torn_down"
+      },
+      "operations": [
+        {
+          "account_ref": "provider-account://pacc_18cd245812ad55b9",
+          "at": "2026-08-22T17:12:46.870233645Z",
+          "budget_discovery": null,
+          "capability_lease": null,
+          "cost_estimate": null,
+          "environment_ref": "env-u1-aft-a6-678ff2-20260822",
+          "evidence": {
+            "cleanup_verified": true,
+            "deployment_ref": "akash-deployment://akdep_1787418685870",
+            "dseq": "1787418685870",
+            "native_teardown": {
+              "close_http": 200,
+              "destroyed": true,
+              "provider_response_hash": "sha256:c90ed0ce4d1afa9ba60e7bbbc8b1c3ec35c3bd43e6ddcbfb2ae3ad64e6eb943a"
+            },
+            "provider_operation_ref": "provider-account://pacc_18cd245812ad55b9/op/delete/env-u1-aft-a6-678ff2-20260822",
+            "settlement": {
+              "active_lease_count": 0,
+              "basis": "provider-native deployment + escrow + lease readback; close HTTP alone never settles",
+              "deployment_state": "closed",
+              "deposit_usd": 1,
+              "escrow_state": "closed",
+              "final_debit_usd": 0,
+              "funds": [
+                {
+                  "amount": "0.000000000000000000",
+                  "denom": "uact"
+                }
+              ],
+              "provider_terminal": true,
+              "refund_usd": 1,
+              "schema_version": "ioi.hypervisor.akash-settlement-readback.v1",
+              "settled_at_height": "28286502",
+              "settlement_state": "refund_settled",
+              "transferred": [
+                {
+                  "amount": "0.000000000000000000",
+                  "denom": "uact"
+                }
+              ]
+            },
+            "teardown_state": "torn_down"
+          },
+          "grant_ref": null,
+          "op": "delete",
+          "operation_id": "pop_18ce2fe5f826a9c6",
+          "proposal_consumption": null,
+          "provider": "akash",
+          "receipt_ref": "agentgres://provider-receipt/prc_18ce2fe5f7559cbd",
+          "schema_version": "ioi.hypervisor.provider-operation.v1"
+        }
+      ],
+      "unrecorded_members": [
+        "proposal_consumption",
+        "journal_state_roots",
+        "capability_lease",
+        "source_commit",
+        "operator_principal_ref"
+      ],
+      "redacted_members": [],
+      "row_sha256": "sha256:ebaafe7089d0c5ab188f55aec764106285ac6b31494ca4df0dedd0fc855ddb6b"
+    },
+    {
+      "dseq": "1787448265781",
+      "deployment": {
+        "account_id": "pacc_18cd245812ad55b9",
+        "account_ref": "provider-account://pacc_18cd245812ad55b9",
+        "close_accepted_at": "2026-08-23T01:25:47.521025929Z",
+        "close_http": 200,
+        "close_response_hash": "sha256:d3866f57ba7a47425f5aa636377cdace170d1e3e9e38abd3aa1c239f8fe2a549",
+        "created_at": "2026-08-23T01:24:36.167391667Z",
+        "deployment_ref": "akash-deployment://akdep_1787448265781",
+        "deposit_usd": 1,
+        "dseq": "1787448265781",
+        "environment_ref": "env-u1-aft-campaign-a-0719ceb0-20260823",
+        "events": [
+          {
+            "at": "2026-08-23T01:24:36.167443883Z",
+            "detail": "Console funded deployment escrow for dseq=1787448265781",
+            "execution_mode": "live_console_api",
+            "kind": "deposit_funded"
+          },
+          {
+            "at": "2026-08-23T01:25:47.521059817Z",
+            "detail": "no-bid compensation close accepted; awaiting provider settlement readback",
+            "execution_mode": "live_console_api",
+            "kind": "deployment_close_accepted"
+          },
+          {
+            "at": "2026-08-23T01:25:47.734268609Z",
+            "detail": "no-bid compensation reconciled from provider-native deployment and escrow readback",
+            "execution_mode": "live_console_api",
+            "kind": "refund_settled"
+          }
+        ],
+        "execution_mode": "live_console_api",
+        "provider_native_settlement": {
+          "active_lease_count": 0,
+          "basis": "provider-native deployment + escrow + lease readback; close HTTP alone never settles",
+          "deployment_state": "closed",
+          "deposit_usd": 1,
+          "escrow_state": "closed",
+          "final_debit_usd": 0,
+          "funds": [
+            {
+              "amount": "0.000000000000000000",
+              "denom": "uact"
+            }
+          ],
+          "provider_terminal": true,
+          "refund_usd": 1,
+          "schema_version": "ioi.hypervisor.akash-settlement-readback.v1",
+          "settled_at_height": "28291528",
+          "settlement_state": "refund_settled",
+          "transferred": [
+            {
+              "amount": "0.000000000000000000",
+              "denom": "uact"
+            }
+          ]
+        },
+        "provider_readback_hash": "sha256:0d65764e860e86155f0e3935f9b545648f74052561f8097d51fa12875935a0fd",
+        "record_id": "akdep_1787448265781",
+        "schema_version": "ioi.hypervisor.akash-deployment.v1",
+        "sdl_yaml_bytes": 1956,
+        "settlement_state": "refund_settled",
+        "state": "refund_settled",
+        "status": "torn_down",
+        "teardown_state": "torn_down"
+      },
+      "operations": [],
+      "unrecorded_members": [
+        "proposal_consumption",
+        "journal_state_roots",
+        "capability_lease",
+        "source_commit",
+        "operator_principal_ref"
+      ],
+      "redacted_members": [],
+      "row_sha256": "sha256:45c256c041e75242765d544b8cc353dedf30a1a18e481dff3d4a3ae7591275cf"
+    },
+    {
+      "dseq": "1787457827723",
+      "deployment": {
+        "account_id": "pacc_18cd245812ad55b9",
+        "account_ref": "provider-account://pacc_18cd245812ad55b9",
+        "close_accepted_at": "2026-08-23T04:05:03.919393563Z",
+        "close_http": 200,
+        "close_response_hash": "sha256:d3866f57ba7a47425f5aa636377cdace170d1e3e9e38abd3aa1c239f8fe2a549",
+        "created_at": "2026-08-23T04:03:54.350216506Z",
+        "deployment_ref": "akash-deployment://akdep_1787457827723",
+        "deposit_usd": 1,
+        "dseq": "1787457827723",
+        "environment_ref": "env-u1-aft-campaign-b-0719ceb0-20260823",
+        "events": [
+          {
+            "at": "2026-08-23T04:03:54.350250783Z",
+            "detail": "Console funded deployment escrow for dseq=1787457827723",
+            "execution_mode": "live_console_api",
+            "kind": "deposit_funded"
+          },
+          {
+            "at": "2026-08-23T04:05:03.919430854Z",
+            "detail": "no-bid compensation close accepted; awaiting provider settlement readback",
+            "execution_mode": "live_console_api",
+            "kind": "deployment_close_accepted"
+          },
+          {
+            "at": "2026-08-23T04:05:04.121760525Z",
+            "detail": "no-bid compensation reconciled from provider-native deployment and escrow readback",
+            "execution_mode": "live_console_api",
+            "kind": "refund_settled"
+          }
+        ],
+        "execution_mode": "live_console_api",
+        "provider_native_settlement": {
+          "active_lease_count": 0,
+          "basis": "provider-native deployment + escrow + lease readback; close HTTP alone never settles",
+          "deployment_state": "closed",
+          "deposit_usd": 1,
+          "escrow_state": "closed",
+          "final_debit_usd": 0,
+          "funds": [
+            {
+              "amount": "0.000000000000000000",
+              "denom": "uact"
+            }
+          ],
+          "provider_terminal": true,
+          "refund_usd": 1,
+          "schema_version": "ioi.hypervisor.akash-settlement-readback.v1",
+          "settled_at_height": "28293153",
+          "settlement_state": "refund_settled",
+          "transferred": [
+            {
+              "amount": "0.000000000000000000",
+              "denom": "uact"
+            }
+          ]
+        },
+        "provider_readback_hash": "sha256:a3bae18b6d110b4e74b040f23e65dc9e3f302b2e896f75b3981fec0259bf7cdd",
+        "record_id": "akdep_1787457827723",
+        "schema_version": "ioi.hypervisor.akash-deployment.v1",
+        "sdl_yaml_bytes": 1956,
+        "settlement_state": "refund_settled",
+        "state": "refund_settled",
+        "status": "torn_down",
+        "teardown_state": "torn_down"
+      },
+      "operations": [],
+      "unrecorded_members": [
+        "proposal_consumption",
+        "journal_state_roots",
+        "capability_lease",
+        "source_commit",
+        "operator_principal_ref"
+      ],
+      "redacted_members": [],
+      "row_sha256": "sha256:7a4d5922b4dcce082f3f844886df6550192058526acebb422423bdff30f6504f"
+    },
+    {
+      "dseq": "1787461267387",
+      "deployment": {
+        "account_id": "pacc_18cd245812ad55b9",
+        "account_ref": "provider-account://pacc_18cd245812ad55b9",
+        "close_accepted_at": "2026-08-23T05:02:22.584780552Z",
+        "close_http": 200,
+        "close_response_hash": "sha256:d3866f57ba7a47425f5aa636377cdace170d1e3e9e38abd3aa1c239f8fe2a549",
+        "created_at": "2026-08-23T05:01:12.25640477Z",
+        "deployment_ref": "akash-deployment://akdep_1787461267387",
+        "deposit_usd": 1,
+        "dseq": "1787461267387",
+        "environment_ref": "env-u1-aft-campaign-c-dal-0719ceb0-20260823",
+        "events": [
+          {
+            "at": "2026-08-23T05:01:12.256434657Z",
+            "detail": "Console funded deployment escrow for dseq=1787461267387",
+            "execution_mode": "live_console_api",
+            "kind": "deposit_funded"
+          },
+          {
+            "at": "2026-08-23T05:02:22.584811827Z",
+            "detail": "no-bid compensation close accepted; awaiting provider settlement readback",
+            "execution_mode": "live_console_api",
+            "kind": "deployment_close_accepted"
+          },
+          {
+            "at": "2026-08-23T05:02:22.80744882Z",
+            "detail": "no-bid compensation reconciled from provider-native deployment and escrow readback",
+            "execution_mode": "live_console_api",
+            "kind": "refund_settled"
+          }
+        ],
+        "execution_mode": "live_console_api",
+        "provider_native_settlement": {
+          "active_lease_count": 0,
+          "basis": "provider-native deployment + escrow + lease readback; close HTTP alone never settles",
+          "deployment_state": "closed",
+          "deposit_usd": 1,
+          "escrow_state": "closed",
+          "final_debit_usd": 0,
+          "funds": [
+            {
+              "amount": "0.000000000000000000",
+              "denom": "uact"
+            }
+          ],
+          "provider_terminal": true,
+          "refund_usd": 1,
+          "schema_version": "ioi.hypervisor.akash-settlement-readback.v1",
+          "settled_at_height": "28293737",
+          "settlement_state": "refund_settled",
+          "transferred": [
+            {
+              "amount": "0.000000000000000000",
+              "denom": "uact"
+            }
+          ]
+        },
+        "provider_readback_hash": "sha256:1f4f82544b44af8fd53c50683032dd14356c789e9f8ad2684ad37464164ccd56",
+        "record_id": "akdep_1787461267387",
+        "schema_version": "ioi.hypervisor.akash-deployment.v1",
+        "sdl_yaml_bytes": 1964,
+        "settlement_state": "refund_settled",
+        "state": "refund_settled",
+        "status": "torn_down",
+        "teardown_state": "torn_down"
+      },
+      "operations": [],
+      "unrecorded_members": [
+        "proposal_consumption",
+        "journal_state_roots",
+        "capability_lease",
+        "source_commit",
+        "operator_principal_ref"
+      ],
+      "redacted_members": [],
+      "row_sha256": "sha256:faad3755a715daf86f92b8ce6360ac70a37d249f05ed480ef56d5149590d4613"
+    },
+    {
+      "dseq": "1787486092469",
+      "deployment": {
+        "account_id": "pacc_18cd245812ad55b9",
+        "account_ref": "provider-account://pacc_18cd245812ad55b9",
+        "bid_poll_evidence": {
+          "last_observation": {
+            "approved_ceiling": {
+              "amount": 1000,
+              "denom": "uact"
+            },
+            "exact_provider_bid_count": 0,
+            "http_status": 200,
+            "poll_index": 10,
+            "response_hash": "sha256:14ef886ee59e73d315066f9a2a9f739ad03d7bfcce7df834db815dbf6168cb35",
+            "schema_version": "ioi.akash.pinned-bid-qualification-evidence.v1",
+            "status": "exact_provider_absent",
+            "total_bid_count": 9
+          },
+          "observed_at": "2026-08-23T11:56:04.770832684Z",
+          "poll_count": 10
+        },
+        "close_accepted_at": "2026-08-23T11:56:09.649909732Z",
+        "close_http": 200,
+        "close_response_hash": "sha256:d3866f57ba7a47425f5aa636377cdace170d1e3e9e38abd3aa1c239f8fe2a549",
+        "created_at": "2026-08-23T11:54:58.929396003Z",
+        "deployment_ref": "akash-deployment://akdep_1787486092469",
+        "deposit_usd": 1,
+        "dseq": "1787486092469",
+        "environment_ref": "env-u1-aft-campaign-g-aes-0719ceb0-20260823T114520Z",
+        "events": [
+          {
+            "at": "2026-08-23T11:54:58.929448402Z",
+            "detail": "Console funded deployment escrow for dseq=1787486092469",
+            "execution_mode": "live_console_api",
+            "kind": "deposit_funded"
+          },
+          {
+            "at": "2026-08-23T11:56:09.649959859Z",
+            "detail": "no-bid compensation close accepted; awaiting provider settlement readback",
+            "execution_mode": "live_console_api",
+            "kind": "deployment_close_accepted"
+          },
+          {
+            "at": "2026-08-23T11:56:09.928704092Z",
+            "detail": "no-bid compensation reconciled from provider-native deployment and escrow readback",
+            "execution_mode": "live_console_api",
+            "kind": "refund_settled"
+          }
+        ],
+        "execution_mode": "live_console_api",
+        "provider_native_settlement": {
+          "active_lease_count": 0,
+          "basis": "provider-native deployment + escrow + lease readback; close HTTP alone never settles",
+          "deployment_state": "closed",
+          "deposit_usd": 1,
+          "escrow_state": "closed",
+          "final_debit_usd": 0,
+          "funds": [
+            {
+              "amount": "0.000000000000000000",
+              "denom": "uact"
+            }
+          ],
+          "provider_terminal": true,
+          "refund_usd": 1,
+          "schema_version": "ioi.hypervisor.akash-settlement-readback.v1",
+          "settled_at_height": "28297955",
+          "settlement_state": "refund_settled",
+          "transferred": [
+            {
+              "amount": "0.000000000000000000",
+              "denom": "uact"
+            }
+          ]
+        },
+        "provider_readback_hash": "sha256:f4b34f43d724ceb1914aa9555a1203f2de42d0d58ce4c79a980770fba2e9a046",
+        "record_id": "akdep_1787486092469",
+        "schema_version": "ioi.hypervisor.akash-deployment.v1",
+        "sdl_yaml_bytes": 1980,
+        "settlement_state": "refund_settled",
+        "state": "refund_settled",
+        "status": "torn_down",
+        "teardown_state": "torn_down"
+      },
+      "operations": [],
+      "unrecorded_members": [
+        "proposal_consumption",
+        "journal_state_roots",
+        "capability_lease",
+        "source_commit",
+        "operator_principal_ref"
+      ],
+      "redacted_members": [],
+      "row_sha256": "sha256:8ee0c34ee3d4f509597a2a5d543fc9e21102c676c10332755212bd9f64dae1bd"
+    },
+    {
+      "dseq": "1787486886782",
+      "deployment": {
+        "account_id": "pacc_18cd245812ad55b9",
+        "account_ref": "provider-account://pacc_18cd245812ad55b9",
+        "bid_poll_evidence": {
+          "last_observation": {
+            "approved_ceiling": {
+              "amount": 1000,
+              "denom": "uact"
+            },
+            "exact_provider_bid_count": 0,
+            "http_status": 200,
+            "poll_index": 10,
+            "response_hash": "sha256:0b064a51334e0ac8b570a06798dcfc0ed3076354720e21542494ecded579df72",
+            "schema_version": "ioi.akash.pinned-bid-qualification-evidence.v1",
+            "status": "exact_provider_absent",
+            "total_bid_count": 9
+          },
+          "observed_at": "2026-08-23T12:09:16.347404971Z",
+          "poll_count": 10
+        },
+        "close_accepted_at": "2026-08-23T12:09:25.395715001Z",
+        "close_http": 200,
+        "close_response_hash": "sha256:d3866f57ba7a47425f5aa636377cdace170d1e3e9e38abd3aa1c239f8fe2a549",
+        "created_at": "2026-08-23T12:08:11.484725636Z",
+        "deployment_ref": "akash-deployment://akdep_1787486886782",
+        "deposit_usd": 1,
+        "dseq": "1787486886782",
+        "environment_ref": "env-u1-aft-campaign-h-aes-dal-0719ceb0-20260823T120000Z",
+        "events": [
+          {
+            "at": "2026-08-23T12:08:11.484754287Z",
+            "detail": "Console funded deployment escrow for dseq=1787486886782",
+            "execution_mode": "live_console_api",
+            "kind": "deposit_funded"
+          },
+          {
+            "at": "2026-08-23T12:09:25.395763714Z",
+            "detail": "no-bid compensation close accepted; awaiting provider settlement readback",
+            "execution_mode": "live_console_api",
+            "kind": "deployment_close_accepted"
+          },
+          {
+            "at": "2026-08-23T12:09:25.574612326Z",
+            "detail": "no-bid compensation reconciled from provider-native deployment and escrow readback",
+            "execution_mode": "live_console_api",
+            "kind": "refund_settled"
+          }
+        ],
+        "execution_mode": "live_console_api",
+        "provider_native_settlement": {
+          "active_lease_count": 0,
+          "basis": "provider-native deployment + escrow + lease readback; close HTTP alone never settles",
+          "deployment_state": "closed",
+          "deposit_usd": 1,
+          "escrow_state": "closed",
+          "final_debit_usd": 0,
+          "funds": [
+            {
+              "amount": "0.000000000000000000",
+              "denom": "uact"
+            }
+          ],
+          "provider_terminal": true,
+          "refund_usd": 1,
+          "schema_version": "ioi.hypervisor.akash-settlement-readback.v1",
+          "settled_at_height": "28298090",
+          "settlement_state": "refund_settled",
+          "transferred": [
+            {
+              "amount": "0.000000000000000000",
+              "denom": "uact"
+            }
+          ]
+        },
+        "provider_readback_hash": "sha256:7ce72c9f7d4a9b1c96b4293bf8b0e22ae62b7762c471352eda04065c2440ccb3",
+        "record_id": "akdep_1787486886782",
+        "schema_version": "ioi.hypervisor.akash-deployment.v1",
+        "sdl_yaml_bytes": 1988,
+        "settlement_state": "refund_settled",
+        "state": "refund_settled",
+        "status": "torn_down",
+        "teardown_state": "torn_down"
+      },
+      "operations": [],
+      "unrecorded_members": [
+        "proposal_consumption",
+        "journal_state_roots",
+        "capability_lease",
+        "source_commit",
+        "operator_principal_ref"
+      ],
+      "redacted_members": [],
+      "row_sha256": "sha256:9694788b73e6cbd14efa1558cfa0b523eb0844f4fd11e29bb12010604af5cd90"
+    }
+  ],
+  "set_sha256": "sha256:d688f3364eb097465d238db306d399778ad35fbc382e97178f08a411b1d41440"
+}

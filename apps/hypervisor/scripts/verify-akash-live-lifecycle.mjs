@@ -3,13 +3,18 @@ import fs from "node:fs";
 import path from "node:path";
 import { spawnSync } from "node:child_process";
 import { fileURLToPath } from "node:url";
+import { emitVerifierCensus } from "./lib/verifier-census.mjs";
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 const root = path.resolve(here, "..", "..", "..");
 const provider = fs.readFileSync(path.join(root, "crates/node/src/bin/hypervisor_daemon_routes/provider_routes.rs"), "utf8");
 const consoleAdapter = fs.readFileSync(path.join(root, "crates/drivers/src/provisioning/akash_console.rs"), "utf8");
 const failures = [];
-const requireText = (text, needle, code) => { if (!text.includes(needle)) failures.push({ code, detail: needle }); };
+// M09.6 (2026-09-20, R-210): every pin, required branch test and containment filter is a named assertion,
+// censused and floor-pinned, because check:provider-neutral-live-transaction composes this gate.
+const rows = [];
+const row = (name, pass) => rows.push({ name, pass });
+const requireText = (text, needle, code) => { const pass = text.includes(needle); row(`pin: ${code}`, pass); if (!pass) failures.push({ code, detail: needle }); };
 
 for (const [needle, code] of [
   ["deposit_funded", "deposit_funded_state_absent"],
@@ -45,6 +50,7 @@ const tests = spawnSync("cargo", ["test", "-p", "ioi-drivers", "akash_console", 
   encoding: "utf8",
   maxBuffer: 16 * 1024 * 1024,
 });
+row("akash_console tests pass (cargo test -p ioi-drivers akash_console)", tests.status === 0);
 if (tests.status !== 0) failures.push({ code: "akash_console_tests_failed", detail: (tests.stderr || tests.stdout).slice(-4000) });
 for (const name of [
   "settlement_requires_closed_provider_readback_and_computes_zero_debit_refund",
@@ -54,7 +60,9 @@ for (const name of [
   "parse_pinned_bid_priced_extracts_exact_price_and_denom",
   "bid_passes_ceiling_enforces_denom_and_amount_exactly",
 ]) {
-  if (!(tests.stdout || "").includes(name)) failures.push({ code: "required_branch_test_not_executed", detail: name });
+  const ran = (tests.stdout || "").includes(name);
+  row(`required branch test executed: ${name}`, ran);
+  if (!ran) failures.push({ code: "required_branch_test_not_executed", detail: name });
 }
 
 for (const filter of ["sdl_secret", "direct_akash_"]) {
@@ -63,7 +71,9 @@ for (const filter of ["sdl_secret", "direct_akash_"]) {
     encoding: "utf8",
     maxBuffer: 16 * 1024 * 1024,
   });
-  if (containment.status !== 0 || !/test result: ok/u.test(containment.stdout || "")) {
+  const contained = containment.status === 0 && /test result: ok/u.test(containment.stdout || "");
+  row(`daemon containment tests pass: ${filter}`, contained);
+  if (!contained) {
     failures.push({ code: "provider_containment_tests_failed", detail: `${filter}: ${(containment.stderr || containment.stdout).slice(-4000)}` });
   }
 }
@@ -74,4 +84,5 @@ console.log(JSON.stringify({
   branches: ["no-qualified-bid -> close -> provider settlement", "qualified bid -> active lease -> provider endpoint discovery", "endpoint discovery != workload readiness", "exact provider + exact denomination/ceiling", "sealed secret refs -> post-intent injection -> authenticated result receipt"],
   failures,
 }, null, 2));
+emitVerifierCensus({ verifierId: "akash-live-lifecycle", sourceUrl: import.meta.url, results: rows });
 process.exit(failures.length ? 1 : 0);

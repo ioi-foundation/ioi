@@ -1,0 +1,79 @@
+{
+  "evidence_format": "ioi.program.work_item.v1",
+  "work_item_id": "m09-6-provider-neutral-live-transaction",
+  "stage_id": "M09",
+  "required_work": [
+    "M09.6"
+  ],
+  "status": "evidence_ready",
+  "objective": "Close the provider-neutral live transaction lane as an executable gate: its legs and two terminal branches as clauses executed by the floored gates that prove them or by the runner's own legs \u2014 the no-qualified-bid branch as a typed terminal certificate generated at run time from the nine retained owner-authorized live closes (a tracked, redacted, hash-committed record set) and verified by the certificate library's new branch, and the lane's provider-neutral shape read from the daemon's own dispatch \u2014 with the fresh positive live branch scheduled by name behind owner credentials (a missing credential blocks that run, never the unit). Safe refusal is not successful deployment; close acceptance is not refund settlement.",
+  "falsifiable_claim": "npm run check:provider-neutral-live-transaction --workspace=@ioi/hypervisor-app (scripts/check-provider-neutral-live-transaction.mjs --drills) binds every clause to a floored app gate or a drilled root script, requires the live branch to be scheduled with a prerequisite and a ruling, re-derives every row's sha256 and the set's sha256 of the retained record set before reading it and refuses a row carrying lease evidence or a non-live run, generates, seals and verifies a no_qualified_bid_closed certificate for each retained row (no lease evidence; deployment and escrow closed; provider-confirmed refund of the whole deposit at a settled height; zero open exposure; every unrecorded member named; never success, never publication-eligible, no secret), proves eleven planted defects on the generated certificate each fail by their own code, reads the provider-neutral shape from provider_routes.rs (eleven operations, eight adapters behind one trait, quotes verbatim or skipped, reconciliation_required not a refusal) and the certificate library's refusal to certify neutrality, refuses to compose the nine shared-daemon adapter done-bars, drills the verdict, and requires canon to name the gate. mutate:provider-neutral-live-transaction plants ten defects and each goes red. The full gate composes the executed gates inside the isolated-egress harness and exits 0 only on a pass, 2 on a named failure, 1 on a fail; it never spends.",
+  "canon_owners": [
+    "docs/architecture/components/hypervisor/byo-provider-plane.md",
+    "docs/architecture/components/hypervisor/providers-and-environments.md"
+  ],
+  "code_anchors": [
+    {
+      "path": "scripts/check-provider-neutral-live-transaction.mjs",
+      "must_contain": "generationLeg",
+      "present_when": "merged"
+    },
+    {
+      "path": "scripts/extract-retained-akash-closes.mjs",
+      "must_contain": "unrecorded_members",
+      "present_when": "merged"
+    },
+    {
+      "path": "apps/hypervisor/scripts/lib/c7-c8-certificate.mjs",
+      "must_contain": "validateNoQualifiedBidCertificate",
+      "present_when": "merged"
+    },
+    {
+      "path": "apps/hypervisor/scripts/verify-akash-live-lifecycle.mjs",
+      "must_contain": "emitVerifierCensus",
+      "present_when": "merged"
+    },
+    {
+      "path": "docs/architecture/_meta/evidence/m09-6-akash-retained-no-qualified-bid-closes-2026-09-20.v1.json",
+      "must_contain": "ioi.evidence.retained-akash-no-qualified-bid-closes.v1",
+      "present_when": "merged"
+    },
+    {
+      "path": "apps/hypervisor/verifier-floors.v1.json",
+      "must_contain": "\"id\": \"provider-neutral-live-transaction\"",
+      "present_when": "merged"
+    },
+    {
+      "path": ".github/workflows/ci.yml",
+      "must_contain": "npm run check:provider-neutral-live-transaction --workspace=@ioi/hypervisor-app",
+      "present_when": "merged"
+    },
+    {
+      "path": "scripts/check-acceptance-external-effect-reconciliation.mjs",
+      "must_contain": "mutate:provider-neutral-live-transaction",
+      "present_when": "merged"
+    },
+    {
+      "path": "docs/architecture/components/hypervisor/byo-provider-plane.md",
+      "must_contain": "The lane is executable (2026-09-20, M09.6, register R-210)",
+      "present_when": "merged"
+    }
+  ],
+  "evidence_refs": [
+    "docs/architecture/_meta/evidence/m09-6-provider-neutral-live-transaction-2026-09-20.v1.json",
+    "docs/architecture/_meta/evidence/m09-6-akash-retained-no-qualified-bid-closes-2026-09-20.v1.json",
+    "docs/architecture/_meta/canon-to-code-delta.md"
+  ],
+  "pr": null,
+  "adversarial_or_fault_proof": "mutate:provider-neutral-live-transaction plants a clause bound to a script that does not exist, a scheduled live leg without a ruling, the no-qualified-bid clause dropped, a retained row whose bytes were changed after commit, a row re-committed with lease evidence, a dispatch with no adapters behind the trait, a certificate library that would certify neutrality, a library without the no-bid branch, and fabricated success rows \u2014 each must go red (10/10); inside the drills, eleven planted defects on the GENERATED certificate (a smuggled lease, a relabel to success, refund_pending, a refund short of the deposit, an open exposure, an active lease, a hidden unrecorded member, a simulated run, an inflated claim, a wrong hash, a bearer token) each fail by their own code.",
+  "remaining_nonclaims": [
+    "No provider-neutral live PASS is claimed: the fresh positive live branch (bid, lease, C6 retrieved_live, endpoint, teardown, provider-confirmed zero open exposure) is SCHEDULED behind an owner-authorized funded Akash account (IOI_C7_EMAIL, IOI_C7_PASSWORD_FILE, IOI_WALLET_SECRET_PASS), authorized leg by leg; the retained 2026-08-24 capstone is re-qualified on every run by its applicability gate",
+    "Whether the nine retained no-qualified-bid closes, re-assembled at run time, are branch (a)'s PASS or a tenth live close is owed is an owner question (R-210); the certificate generated here is a typed terminal NON-success and says so",
+    "Provider neutrality is asserted over the daemon's dispatch and never certified: the C7/C8 certificate refuses to certify it by contract; a second live substrate executing the same workload, authority, effect and receipt contract is M09.10's own proof",
+    "The nine provider adapter done-bars (vast, runpod, lambda, akash, aws, gcp, azure, k8s, cross-provider failover) target the shared daemon without a session and are registered by no npm script; their isolated form is owed (M09.10 \u00b7 a follow-on slice)",
+    "No gate asserts that a CHANGED ceiling or selector forces a fresh challenge; the certificate refuses changed facets after the fact",
+    "The full gate is on demand, not CI-gated; CI executes the drills and the drill"
+  ],
+  "source_provenance": "Authored 2026-09-20 by the MVP finish-line program (R-210 ruled the shape after a read-only survey; R-140/R-139 are its letter). Drills 8/8, mutation 10/10, nine of nine retained rows generate and verify (after three predicate corrections that moved the predicates to what the records hold), canon gates green. NAMED FAILURE, exit 2 (isolation refused_and_recorded): `check:provider-proposal-provenance` 23/23 in 3 s (0 connects, reach 0); `check:governed-effect-assurance-floor` 4/4 in 22 s (0 connects, reach 0); `check:provider-transport` 31/31 in 6 s (10 connects, reach 0); `check:provider-spend-reconciliation` green in 6 s (10 connects, reach 0); `check:akash-live-lifecycle` 35/35 in 1 s (0 connects, reach 0); `check:t7-retained-capstone-applicability` 4 in 22 s (0 connects, reach 0) \u2014 every recorded connect loopback; the generation leg's nine certificates and the neutrality leg in-process; the positive live branch SCHEDULED-OUTSTANDING with its prerequisite and ruling; 7 named entries. Recorded in canon-to-code-delta.md \u00a7 Journey verification CXIX. ACC-4 PARTIAL, exit 2 \u2014 18 executed clause checks green (clause 4 executes the drills 8/8 and the drill 10/10), 1 typed absence, 1 multi-hour battery not executed, 3 live legs scheduled-outstanding by ruling; ACC-11 PARTIAL, exit 2 \u2014 27 executed clause checks green (clause 7 the same), 2 typed absences, 0 batteries not executed, 1 live leg scheduled \u2014 after two harness corrections this unit made: the battery is labelled in the harness's own cost vocabulary so it runs on every invocation, and N2's live-label rule judges how a check is INVOKED (:live, --live, (live)) rather than whether its name carries the word (the first ACC-11 re-run had flagged check:provider-neutral-live-transaction as a live lane by its name).",
+  "last_status_transaction": "2026-09-20"
+}

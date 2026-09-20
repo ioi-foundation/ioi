@@ -23,6 +23,8 @@
     "mutate:horizon-1b-improvement": "node ../../scripts/check-horizon-1b-improvement.mjs --mutation",
     "check:horizon-2-distributed-work": "node ../../scripts/check-horizon-2-distributed-work.mjs --drills && node ../../scripts/check-horizon-2-distributed-work.mjs --storage",
     "mutate:horizon-2-distributed-work": "node ../../scripts/check-horizon-2-distributed-work.mjs --mutation",
+    "check:provider-neutral-live-transaction": "node ../../scripts/check-provider-neutral-live-transaction.mjs --drills",
+    "mutate:provider-neutral-live-transaction": "node ../../scripts/check-provider-neutral-live-transaction.mjs --mutation",
     "check:app-runtime-safety": "node scripts/verify-hypervisor-app-runtime-safety.mjs",
     "check:assurance-ladder-lifecycle": "node scripts/verify-hypervisor-assurance-ladder-lifecycle.mjs",
     "check:assurance-transition-receipt": "node scripts/verify-hypervisor-assurance-transition-receipt.mjs",

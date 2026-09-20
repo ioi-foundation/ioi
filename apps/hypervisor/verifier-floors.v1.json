@@ -470,6 +470,22 @@
       "runtime_assertions": 5,
       "assertion_names_sha256": "85371dcef63e81e1cba1452ea7c8896bc8a991e739344e5d5c8dbc1fbfd82ef2",
       "note": "First pinned 2026-09-20 (M12.6, R-209) at the 5 assertions of its CI-BOUND drill subset (this workspace's check:horizon-2-distributed-work is the root runner's --drills --storage form: the drills are censused; the storage-continuity leg that runs beside them in CI writes its own twelve-row evidence and is not a floor). The five: Horizon 2's fifteen demands bound to real scripts with pinned floors or pinned populations and every named failure owned; the sources carry what the storage leg claims and the named gap is anchored (the replica binary's promote mode, the handshake and mid-stream fence and the same-host cap, the daemon's replica env, the membership seam's load_node_evidence); the two provider-placement failover verifiers not composed; the verdict's own rules; canon's binding under R-192 with the storage-layer honesty (replicated_same_host, never the System writer epoch). Drilled by mutate:horizon-2-distributed-work (10/10 planted defects red)."
+    },
+    {
+      "id": "akash-live-lifecycle",
+      "npm_script": "check:akash-live-lifecycle",
+      "source": "apps/hypervisor/scripts/verify-akash-live-lifecycle.mjs",
+      "runtime_assertions": 35,
+      "assertion_names_sha256": "1bf07d79158dd5d991c3706d1c8ecccae0b909016fe89ac946a1f49c0ecd56a7",
+      "note": "First pinned 2026-09-20 (M09.6, R-210) at the assertions of the spend-free Akash lifecycle contract gate: source pins over provider_routes.rs and akash_console.rs for both terminal branches (deposit funded, close accepted, refund pending, reconciliation required, the no-bid compensation close, the exact ceiling selector, SDL-derived ceiling, positive endpoint readback, endpoint discovery != workload readiness, the exact-provider selector and its price/ceiling gates, sealed secret refs and post-intent injection, the receipted workload-result channel, C6 live readback, one-shot lease terminalization, provider-terminal settlement states), the akash_console unit tests with six named branch tests required present, and the daemon's two containment filters. No daemon, no network, no credential; composed by check:provider-neutral-live-transaction."
+    },
+    {
+      "id": "provider-neutral-live-transaction",
+      "npm_script": "check:provider-neutral-live-transaction",
+      "source": "scripts/check-provider-neutral-live-transaction.mjs",
+      "runtime_assertions": 8,
+      "assertion_names_sha256": "f0073309a9d797f1a8e6ce4476016f03f790faaba6e41d0c54fae5e84b9f0a69",
+      "note": "First pinned 2026-09-20 (M09.6, R-210) at the 8 assertions of its CI-BOUND drill subset (this workspace's check:provider-neutral-live-transaction is the root runner's --drills form). The eight: the lane's legs and its two branches bound to floored app gates or drilled root scripts, every named failure owned, the live branch SCHEDULED with its prerequisite and ruling; the retained durable-record set intact before it is read (nine live no-qualified-bid closes, every row's sha256 re-derived, the set's sha256, no lease evidence, every row live); GENERATION \u2014 a typed no-qualified-bid terminal certificate generated, sealed and verified for each retained close; the generation drill's eleven planted defects on the generated certificate each red by code; NEUTRALITY \u2014 the lane's shape read from the daemon's dispatch (one operation vocabulary over the adapters behind one trait, quotes verbatim or skipped, reconciliation_required not a refusal) and the certificate library's refusal to certify neutrality plus its no-bid branch; the nine shared-daemon adapter done-bars not composed; the verdict's own rules; canon's binding. Drilled by mutate:provider-neutral-live-transaction (10/10 planted defects red)."
     }
   ],
   "excluded": [

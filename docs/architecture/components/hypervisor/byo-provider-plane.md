@@ -2,11 +2,15 @@
 
 Status: implemented contract (daemon `provider_routes.rs`, first cut)
 Doctrine status: canonical
-Implementation status: built (plane + ssh/vast/runpod/lambda_cloud/akash/aws/gcp lanes; k8s credential+preflight only; live paths env-gated)
+Implementation status: built (the plane plus eight adapter lanes — ssh, vast, runpod, lambda_cloud, akash, aws, gcp, azure — and k8s/KubeVirt namespace admission behind one operation vocabulary; live paths env-gated; the provider-neutral live transaction lane is an executable gate whose spend-free half runs in CI and whose fresh positive live branch is scheduled behind owner credentials — M09.6, 2026-09-20, register R-210)
 Implementation refs:
   - `crates/node/src/bin/hypervisor_daemon_routes/provider_routes.rs`
   - `apps/hypervisor/scripts/verify-hypervisor-byo-provider-plane.mjs`
-Last implementation audit: 2026-07-05
+  - `apps/hypervisor/scripts/assemble-c7-c8-evidence.mjs`
+  - `apps/hypervisor/scripts/lib/c7-c8-certificate.mjs`
+  - `apps/hypervisor/scripts/verify-akash-live-lifecycle.mjs`
+  - `scripts/check-provider-neutral-live-transaction.mjs`
+Last implementation audit: 2026-09-20
 Canonical owner: this file for the ProviderAccount object plane, provider credential
 binding, snapshot custody, and provider spend posture. Provider/environment doctrine
 authority remains `providers-and-environments.md`; pricing boundaries remain
@@ -347,3 +351,40 @@ IOI manages the admitted estate through its existing provider and environment
 owners. It does not thereby become the underlying VMM, acquire cluster
 membership, or claim unsupported migration/HA semantics. Simulated evidence may
 exercise projections but cannot close the live attached-estate claim.
+
+## The Provider-Neutral Live Transaction Lane
+
+One lane, provider-neutral in shape, proven on one provider: typed
+admissible-provider selection, a verbatim-or-skipped quote, the committed
+intent root, execution, the outcome root, reconciliation on ambiguity, teardown,
+and provider-native billing readback, authorized leg by leg — a plan document
+is never authorization to spend. The lane has two terminal branches and never
+conflates them: no qualified bid → deployment close → provider-confirmed refund
+or final debit, and qualified bid → selected lease → live provider readback →
+endpoint evidence → teardown → provider-confirmed zero open exposure. Safe
+refusal is not successful deployment; close acceptance is not refund
+settlement. Changing the ceiling or the selector requires a fresh challenge and
+explicit owner approval of the changed facets.
+
+**The lane is executable (2026-09-20, M09.6, register R-210).** The runner is
+`check:provider-neutral-live-transaction`. Its clauses are the legs above and
+the two branches, each executed by the floored gates that already prove them —
+the governed-effect assurance floor for the two-phase boundary, proposal
+provenance for leg-by-leg authorization, the provider transport boundary,
+provider-spend reconciliation for the readback, the retained capstone's
+applicability to this tree, and the Akash lifecycle contract pins — or by the
+runner's own legs: the no-qualified-bid branch as a typed terminal certificate
+GENERATED at run time from the retained durable records of the nine live
+closes (the deployment records with their provider-native settlement
+readbacks, secrets stripped, kept in the tree), verified, and mutation-drilled
+so that a lease smuggled into a no-bid certificate, a no-bid certificate
+re-labelled success, a pending refund, a refund short of the deposit or an open
+exposure each go red; and the provider-neutral shape read from the daemon's
+own dispatch (one operation vocabulary over eight adapters behind one trait),
+with the certificate's refusal to certify neutrality kept as the boundary it
+is. The fresh positive live branch — bid, lease, live provider readback,
+endpoint, teardown, provider-confirmed zero open exposure — is the unit's
+scheduled check behind owner credentials and a funded deposit, authorized leg
+by leg; a missing credential blocks that run, never the unit. The verdict is a
+pass only with zero named failures and the live branch executed; today it is
+the named failure, and no provider-neutral live pass is claimed.

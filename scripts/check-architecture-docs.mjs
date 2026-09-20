@@ -101,10 +101,6 @@ const VERIFICATION_ANCHOR =
   /(?:^|\/)(?:verify|check|mutate)-[^/]+\.mjs$|\.test\.mjs$/u;
 const HAND_RUN_BUILT_BASELINE = new Map([
   [
-    "docs/architecture/components/hypervisor/byo-provider-plane.md",
-    "verify-hypervisor-byo-provider-plane.mjs is hand-run against the shared dev daemon; the CI isolated-daemon lane boots no ssh fixture yet",
-  ],
-  [
     "docs/architecture/components/storage-backends/filecoin-cas.md",
     "verify-hypervisor-filecoin-cas-archive-custody.mjs is hand-run against the shared dev daemon; the live Filecoin lane is env-gated",
   ],

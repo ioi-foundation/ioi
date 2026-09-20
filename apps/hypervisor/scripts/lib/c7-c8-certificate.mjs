@@ -24,7 +24,104 @@ const ref = (value) => typeof value === "string" && value.length > 8 && !/\s/u.t
 const same = (left, right) => stableStringify(left) === stableStringify(right);
 const sha256Text = (value) => `sha256:${crypto.createHash("sha256").update(value).digest("hex")}`;
 
+// ---- the no-qualified-bid terminal branch (M09.6, register R-210) ------------------------------------------
+// A live run that reached no qualified bid within its polling window, closed its deployment, and settled to a
+// provider-confirmed refund is a TERMINAL outcome of the lane and never a success: it may claim no lease, no
+// endpoint, no readiness and no workload result. Its certificate is generated at run time from the retained
+// durable records (docs/architecture/_meta/evidence/m09-6-akash-retained-no-qualified-bid-closes-*.json) and
+// names, by member, what those records never held — a certificate that hides an unrecorded member is invalid.
+export const NO_BID_RESULT = "no_qualified_bid_closed";
+export const NO_BID_UNRECORDED_VOCABULARY = ["proposal_consumption", "journal_state_roots", "capability_lease", "source_commit", "operator_principal_ref", "no_bid_reason", "challenge_request_hash"];
+const NO_BID_REASON = "akash_no_qualified_bid";
+export function assembleNoQualifiedBidClose(row, { retainedSetRef = null, source = null } = {}) {
+  const deployment = row?.deployment ?? {};
+  const settlement = deployment.provider_native_settlement ?? {};
+  const readbacks = (row?.operations ?? []).filter((op) => op?.op === "reconcile").map((op) => ({
+    operation_id: op.operation_id, at: op.at, receipt_ref: op.receipt_ref ?? null, retrieved_live: op.evidence?.retrieved_live === true,
+    settlement_state: op.evidence?.settlement?.settlement_state ?? op.evidence?.settlement?.state ?? null,
+  }));
+  const reason = String(deployment.stage_b_error ?? "");
+  const requestHash = deployment.authorized_deposit_evidence?.request_hash ?? null;
+  const unrecorded = [...(row?.unrecorded_members ?? [])];
+  if (!reason && !unrecorded.includes("no_bid_reason")) unrecorded.push("no_bid_reason");
+  if (!requestHash && !unrecorded.includes("challenge_request_hash")) unrecorded.push("challenge_request_hash");
+  return {
+    ok: true,
+    result: NO_BID_RESULT,
+    terminal_branch: "no_qualified_bid",
+    source: {
+      commit: source?.commit ?? null,
+      daemon_binary_sha256: source?.daemon_binary_sha256 ?? null,
+      dirty_state_declaration: source?.commit ? String(source.dirty_state_declaration ?? "unknown") : "retained_run:source_basis_unrecorded",
+      publication_eligible: false,
+    },
+    authority: { request_hash: requestHash, basis: deployment.authorized_deposit_evidence?.basis ?? null, deposit_usd: deployment.deposit_usd ?? settlement.deposit_usd ?? null },
+    refusal: { code: reason.startsWith(NO_BID_REASON) ? NO_BID_REASON : (reason || null), detail: reason || null, at: deployment.at ?? null, execution_mode: deployment.execution_mode ?? null },
+    provider: {
+      dseq: String(row?.dseq ?? deployment.dseq ?? ""), provider_account_ref: deployment.account_id ? `provider-account://${deployment.account_id}` : null,
+      bid_ref: null, lease_ref: null, endpoint_ref: null, provider_address: null,
+      deployment_state: settlement.deployment_state ?? null, escrow_state: settlement.escrow_state ?? null, active_lease_count: settlement.active_lease_count ?? null,
+    },
+    teardown: { state: deployment.teardown_state ?? null, close_http: deployment.close_http ?? null, provider_terminal: settlement.provider_terminal === true },
+    settlement: {
+      state: settlement.settlement_state ?? deployment.settlement_state ?? null, deposit_usd: settlement.deposit_usd ?? deployment.deposit_usd ?? null, refund_usd: settlement.refund_usd ?? null,
+      final_debit_usd: settlement.final_debit_usd ?? null, final_net_cost_usd: settlement.final_debit_usd ?? null, settled_at_height: settlement.settled_at_height ?? null,
+      provider_readback: typeof deployment.provider_readback_hash === "string", provider_response_hash: deployment.provider_readback_hash ?? null,
+      open_exposure_count: 0, unknown_exposure_count: 0, exposure_basis: "no provider-spend-exposure row references the run in the retained set",
+    },
+    readbacks,
+    events: (deployment.events ?? []).map((e) => ({ at: e.at, kind: e.kind, execution_mode: e.execution_mode })),
+    claims: { certified_scope: "governed_infrastructure_lifecycle", deployment_claimed: false, application_readiness_claimed: false, workload_result_claimed: false, bare_metal_claimed: false, provider_neutrality_claimed: false, remote_worker_secret_non_possession_claimed: false },
+    nonclaims: ["successful deployment (no qualified bid — safe refusal, closed and refunded)", "provider-neutral execution", "certified bare-metal or dedicated-core placement", "hard secret non-possession by an untrusted remote worker", "application-level workload readiness", "application-level workload result retrieval"],
+    unrecorded_members: unrecorded,
+    durable: { deployment_record_id: deployment.record_id ?? null, retained_row_sha256: row?.row_sha256 ?? null, retained_set_ref: retainedSetRef, reconcile_operation_ids: readbacks.map((r) => r.operation_id) },
+  };
+}
+export function validateNoQualifiedBidCertificate(certificate) {
+  const failures = [];
+  const fail = (code, path, detail) => failures.push({ code, path, detail });
+  if (certificate?.schema_version !== "ioi.hypervisor.c7-c8-certificate.v2") fail("certificate_schema_invalid", "schema_version", "unknown certificate schema");
+  if (certificate?.result !== NO_BID_RESULT || certificate?.ok !== true || certificate?.terminal_branch !== "no_qualified_bid") fail("no_bid_result_invalid", "result", "a no-qualified-bid certificate is exactly result no_qualified_bid_closed on the no_qualified_bid branch");
+  if (!hash(certificate?.certificate_hash) || certificateHash(certificate) !== certificate.certificate_hash) fail("certificate_hash_mismatch", "certificate_hash", "certificate bytes do not match the sealed hash");
+  const provider = certificate?.provider;
+  for (const key of ["bid_ref", "lease_ref", "endpoint_ref", "provider_address"]) if (provider?.[key] !== null && provider?.[key] !== undefined) fail("lease_evidence_in_no_bid_certificate", `provider.${key}`, "a no-qualified-bid certificate carries no bid, lease, endpoint or provider address");
+  if (!ref(provider?.dseq) && !/^[0-9]{6,}$/u.test(String(provider?.dseq ?? ""))) fail("provider_dseq_missing", "provider.dseq", "the provider-native deployment sequence is required");
+  if (!ref(provider?.provider_account_ref)) fail("provider_account_missing", "provider.provider_account_ref", "the provider account the deposit was funded under is required");
+  if (provider?.deployment_state !== "closed" || provider?.escrow_state !== "closed" || provider?.active_lease_count !== 0) fail("deployment_not_closed", "provider", "provider-native readback must show the deployment and escrow closed with no active lease");
+  const unrecordedList = Array.isArray(certificate?.unrecorded_members) ? certificate.unrecorded_members : [];
+  const kinds = Array.isArray(certificate?.events) ? certificate.events.map((e) => e?.kind) : [];
+  const closedWithoutLease = kinds.includes("deposit_funded") && kinds.includes("deployment_close_accepted") && kinds.includes("refund_settled");
+  const typedReason = certificate?.refusal?.code === NO_BID_REASON && typeof certificate?.refusal?.detail === "string" && certificate.refusal.detail.length > 8;
+  if (!(typedReason || (unrecordedList.includes("no_bid_reason") && closedWithoutLease))) fail("no_bid_reason_missing", "refusal", "the typed no-qualified-bid refusal is required — or, when the record never held it, it is named unrecorded AND the durable events show deposit funded → close accepted → refund settled with no lease");
+  if (certificate?.refusal?.execution_mode !== "live_console_api") fail("no_bid_not_live", "refusal.execution_mode", "only a LIVE console-API run can be certified as a live no-qualified-bid close");
+  const teardown = certificate?.teardown;
+  if (teardown?.state !== "torn_down" || teardown?.provider_terminal !== true || ![200, 202, 204].includes(teardown?.close_http)) fail("close_unconfirmed", "teardown", "provider close and terminal readback are required");
+  const settlement = certificate?.settlement;
+  if (settlement?.state !== "refund_settled") fail("settlement_not_refund_settled", "settlement.state", "a no-qualified-bid close settles to a provider-confirmed refund; close acceptance and refund_pending certify nothing");
+  if (!(typeof settlement?.deposit_usd === "number" && settlement.deposit_usd > 0) || settlement?.final_debit_usd !== 0 || settlement?.final_net_cost_usd !== 0 || settlement?.refund_usd !== settlement?.deposit_usd) fail("refund_short_of_deposit", "settlement", "with no lease the provider refunds the whole deposit and debits nothing");
+  if (settlement?.provider_readback !== true || !hash(settlement?.provider_response_hash) || !/^[0-9]{5,}$/u.test(String(settlement?.settled_at_height ?? ""))) fail("settlement_readback_missing", "settlement", "provider-native settlement readback with its hash and settled height are required");
+  if (settlement?.open_exposure_count !== 0 || settlement?.unknown_exposure_count !== 0) fail("open_or_unknown_exposure", "settlement", "all exposure must be closed and known");
+  if (!(hash(certificate?.authority?.request_hash) || unrecordedList.includes("challenge_request_hash"))) fail("authority_request_hash_missing", "authority.request_hash", "the owner-reviewed challenge facet hash is required, or named unrecorded");
+  if (!Array.isArray(certificate?.events) || !certificate.events.some((e) => e?.kind === "refund_settled")) fail("refund_event_missing", "events", "the durable refund_settled event is required");
+  const claims = certificate?.claims;
+  if (claims?.certified_scope !== "governed_infrastructure_lifecycle" || claims?.deployment_claimed !== false || claims?.application_readiness_claimed !== false || claims?.workload_result_claimed !== false || claims?.bare_metal_claimed !== false || claims?.provider_neutrality_claimed !== false || claims?.remote_worker_secret_non_possession_claimed !== false) fail("no_bid_claims_inflated", "claims", "a no-qualified-bid certificate claims no deployment, readiness, result, bare metal, neutrality or non-possession");
+  if (!Array.isArray(certificate?.nonclaims) || certificate.nonclaims.length < 3 || !certificate.nonclaims.some((n) => /successful deployment/u.test(String(n)))) fail("nonclaims_missing", "nonclaims", "the certificate must say it is not a successful deployment");
+  const unrecorded = certificate?.unrecorded_members;
+  if (!Array.isArray(unrecorded) || unrecorded.length === 0 || !unrecorded.every((m) => NO_BID_UNRECORDED_VOCABULARY.includes(m))) fail("unrecorded_members_invalid", "unrecorded_members", "the members the retained records never held must be named from the vocabulary");
+  else {
+    const present = { proposal_consumption: certificate?.proposal?.consumption_receipt_ref, journal_state_roots: certificate?.journal?.intent_root, capability_lease: certificate?.authority?.lease?.lease_ref, source_commit: certificate?.source?.commit, operator_principal_ref: certificate?.operator?.principal_ref, no_bid_reason: certificate?.refusal?.code, challenge_request_hash: certificate?.authority?.request_hash };
+    for (const m of unrecorded) if (present[m] !== null && present[m] !== undefined) fail("unrecorded_member_present", `unrecorded_members.${m}`, "a member named unrecorded is carried anyway");
+  }
+  if (certificate?.source?.publication_eligible !== false) fail("publication_posture_invalid", "source.publication_eligible", "a retained no-qualified-bid close is never publication-eligible");
+  const durable = certificate?.durable;
+  if (!ref(durable?.deployment_record_id) || !hash(durable?.retained_row_sha256)) fail("durable_locator_missing", "durable", "the retained row's record id and sha256 are required");
+  const serialized = JSON.stringify(certificate);
+  if ([/"(?:password|session_token|api_key|sealed_token|recovery_material|mnemonic|private_key)"\s*:/iu, /ioi_sess_[A-Za-z0-9_-]+/u, /ioi_bootstrap_[A-Za-z0-9_-]+/u, /(?:^|[^A-Za-z0-9])sk-[A-Za-z0-9_-]{12,}/u].some((p) => p.test(serialized))) fail("secret_bearing_artifact", "$", "certificate contains credential or bearer material");
+  return { ok: failures.length === 0, failures };
+}
+
 export function validateCertificate(certificate) {
+  if (certificate?.result === NO_BID_RESULT || certificate?.terminal_branch === "no_qualified_bid") return validateNoQualifiedBidCertificate(certificate);
   const failures = [];
   const fail = (code, path, detail) => failures.push({ code, path, detail });
   if (certificate?.schema_version !== "ioi.hypervisor.c7-c8-certificate.v2") fail("certificate_schema_invalid", "schema_version", "unknown certificate schema");

@@ -1,0 +1,736 @@
+{
+  "schema": "ioi.provider-neutral-live-transaction-evidence.v1",
+  "mode": "full",
+  "started_at": "2026-09-20T18:46:27.887Z",
+  "drills": [
+    {
+      "name": "the lane's legs and its two branches are bound: every executed clause names a real script with a pinned floor (app) or a drilled root script, every named failure carries its owner, the live branch is SCHEDULED with its exact prerequisite and ruling, clauses cover 1–12 exactly once",
+      "pass": true,
+      "detail": "bound",
+      "at": "2026-09-20T18:46:27.889Z"
+    },
+    {
+      "name": "the retained durable-record set is intact before it is read: 9 live no-qualified-bid closes, every row's sha256 re-derived here, the set's sha256 over the rows, no row carrying lease evidence, every row a live console-API run",
+      "pass": true,
+      "detail": "sha256:d688f3364eb0",
+      "at": "2026-09-20T18:46:27.890Z"
+    },
+    {
+      "name": "GENERATION: a typed no-qualified-bid terminal certificate is generated, sealed and verified for each of the 9 retained closes — result no_qualified_bid_closed, no lease evidence, deployment and escrow closed, provider-confirmed refund of the whole deposit at a settled height, zero open exposure, every unrecorded member named (proposal_consumption, journal_state_roots, capability_lease, source_commit, operator_principal_ref, no_bid_reason, challenge_request_hash), never publication-eligible, no secret",
+      "pass": true,
+      "detail": "4d7a1295,08152857,bf59a931,29d2995c,04c5c39a,8c53bc6a,cdefa5d5,ed634d14,ba1575df",
+      "at": "2026-09-20T18:46:27.896Z"
+    },
+    {
+      "name": "GENERATION drill: 11 planted defects on the GENERATED certificate each go red by their own code — a lease smuggled in, a relabel to success, a pending refund, a refund short of the deposit, an open exposure, an active lease, a hidden unrecorded member, a simulated run, an inflated claim, a wrong hash, a bearer token",
+      "pass": true,
+      "detail": "11/11",
+      "at": "2026-09-20T18:46:27.896Z"
+    },
+    {
+      "name": "NEUTRALITY: the lane's provider-neutral SHAPE is read from the daemon's own dispatch — one operation vocabulary (preflight, create, start, workrun, stop, snapshot, restore, inject_outage, recover, delete, observe) over 13 adapters behind one trait, quotes verbatim or skipped, ambiguity a reconciliation_required that is NOT a refusal — and the certificate library refuses to certify neutrality and carries the no-bid branch",
+      "pass": true,
+      "detail": "13 adapters",
+      "at": "2026-09-20T18:46:27.898Z"
+    },
+    {
+      "name": "the nine provider adapter done-bars (vast, runpod, lambda, akash, aws, gcp, azure, k8s, cross-provider failover) are NOT composed: they target the shared daemon without a session and are registered by no npm script — named as owed in their isolated form, never read as evidence",
+      "pass": true,
+      "detail": "none registered",
+      "at": "2026-09-20T18:46:27.899Z"
+    },
+    {
+      "name": "the verdict is a pure function of the clause rows: all executed green with no absence → PASS; a typed absence or a scheduled live leg → NAMED FAILURE; a scheduled leg without a ruling, a fabricated success row, a red gate, a reach beyond loopback or a missing clause → FAIL",
+      "pass": true,
+      "detail": "pass/named_failure/named_failure/fail/fail/fail/fail/fail",
+      "at": "2026-09-20T18:46:27.899Z"
+    },
+    {
+      "name": "canon binds the gate: byo-provider-plane.md § The Provider-Neutral Live Transaction Lane names check:provider-neutral-live-transaction, says safe refusal is not successful deployment and close acceptance is not refund settlement, names the generated no-qualified-bid certificate and the scheduled positive branch, and claims no provider-neutral live pass",
+      "pass": true,
+      "detail": "read from byo-provider-plane.md",
+      "at": "2026-09-20T18:46:27.899Z"
+    }
+  ],
+  "generation": {
+    "certificates": [
+      {
+        "dseq": "1787319132371",
+        "certificate_hash": "sha256:4d7a12955f97e4b95e73d6cef158079d12b70797554b1e4025057fbd67e9b062",
+        "result": "no_qualified_bid_closed",
+        "refund_usd": 1,
+        "unrecorded": [
+          "proposal_consumption",
+          "journal_state_roots",
+          "capability_lease",
+          "source_commit",
+          "operator_principal_ref"
+        ]
+      },
+      {
+        "dseq": "1787394749046",
+        "certificate_hash": "sha256:081528578bad8a133b4457df9c4c75d13b049d1f8190355435562a2717600450",
+        "result": "no_qualified_bid_closed",
+        "refund_usd": 1,
+        "unrecorded": [
+          "proposal_consumption",
+          "journal_state_roots",
+          "capability_lease",
+          "source_commit",
+          "operator_principal_ref",
+          "no_bid_reason",
+          "challenge_request_hash"
+        ]
+      },
+      {
+        "dseq": "1787412006759",
+        "certificate_hash": "sha256:bf59a931ac5aee26dc49ec5b4f39a84897b8313efbcde2db01cabf53d2a6b006",
+        "result": "no_qualified_bid_closed",
+        "refund_usd": 1,
+        "unrecorded": [
+          "proposal_consumption",
+          "journal_state_roots",
+          "capability_lease",
+          "source_commit",
+          "operator_principal_ref",
+          "no_bid_reason",
+          "challenge_request_hash"
+        ]
+      },
+      {
+        "dseq": "1787418685870",
+        "certificate_hash": "sha256:29d2995c3ed315e278c1d7eb7f3b0c19f0a35aa33f59a5e96cb3619e694749e5",
+        "result": "no_qualified_bid_closed",
+        "refund_usd": 1,
+        "unrecorded": [
+          "proposal_consumption",
+          "journal_state_roots",
+          "capability_lease",
+          "source_commit",
+          "operator_principal_ref",
+          "no_bid_reason",
+          "challenge_request_hash"
+        ]
+      },
+      {
+        "dseq": "1787448265781",
+        "certificate_hash": "sha256:04c5c39ab351b7220edf0025a3f0595d845cb5f75b467cf50cf34ae63f9f100a",
+        "result": "no_qualified_bid_closed",
+        "refund_usd": 1,
+        "unrecorded": [
+          "proposal_consumption",
+          "journal_state_roots",
+          "capability_lease",
+          "source_commit",
+          "operator_principal_ref",
+          "no_bid_reason",
+          "challenge_request_hash"
+        ]
+      },
+      {
+        "dseq": "1787457827723",
+        "certificate_hash": "sha256:8c53bc6adb81adf39c45e5524caf63cf9ebf6d7b69f9349294735d7022c6c93b",
+        "result": "no_qualified_bid_closed",
+        "refund_usd": 1,
+        "unrecorded": [
+          "proposal_consumption",
+          "journal_state_roots",
+          "capability_lease",
+          "source_commit",
+          "operator_principal_ref",
+          "no_bid_reason",
+          "challenge_request_hash"
+        ]
+      },
+      {
+        "dseq": "1787461267387",
+        "certificate_hash": "sha256:cdefa5d5958032155380749769c8d7e2ce07d236d8c2f61aedd36467a52f4a32",
+        "result": "no_qualified_bid_closed",
+        "refund_usd": 1,
+        "unrecorded": [
+          "proposal_consumption",
+          "journal_state_roots",
+          "capability_lease",
+          "source_commit",
+          "operator_principal_ref",
+          "no_bid_reason",
+          "challenge_request_hash"
+        ]
+      },
+      {
+        "dseq": "1787486092469",
+        "certificate_hash": "sha256:ed634d148b1139367ea4beff5f8c4dc9ee06ba843b67fc977c5b464571241a07",
+        "result": "no_qualified_bid_closed",
+        "refund_usd": 1,
+        "unrecorded": [
+          "proposal_consumption",
+          "journal_state_roots",
+          "capability_lease",
+          "source_commit",
+          "operator_principal_ref",
+          "no_bid_reason",
+          "challenge_request_hash"
+        ]
+      },
+      {
+        "dseq": "1787486886782",
+        "certificate_hash": "sha256:ba1575dfb7ebe9a2abcdab36871765d338694440f53c226d72095c8af3a30175",
+        "result": "no_qualified_bid_closed",
+        "refund_usd": 1,
+        "unrecorded": [
+          "proposal_consumption",
+          "journal_state_roots",
+          "capability_lease",
+          "source_commit",
+          "operator_principal_ref",
+          "no_bid_reason",
+          "challenge_request_hash"
+        ]
+      }
+    ],
+    "failures": [],
+    "plants": [
+      {
+        "expected": "lease_evidence_in_no_bid_certificate",
+        "detected": true,
+        "codes": [
+          "lease_evidence_in_no_bid_certificate"
+        ]
+      },
+      {
+        "expected": "no_bid_result_invalid",
+        "detected": true,
+        "codes": [
+          "no_bid_result_invalid"
+        ]
+      },
+      {
+        "expected": "settlement_not_refund_settled",
+        "detected": true,
+        "codes": [
+          "settlement_not_refund_settled"
+        ]
+      },
+      {
+        "expected": "refund_short_of_deposit",
+        "detected": true,
+        "codes": [
+          "refund_short_of_deposit"
+        ]
+      },
+      {
+        "expected": "open_or_unknown_exposure",
+        "detected": true,
+        "codes": [
+          "open_or_unknown_exposure"
+        ]
+      },
+      {
+        "expected": "deployment_not_closed",
+        "detected": true,
+        "codes": [
+          "deployment_not_closed"
+        ]
+      },
+      {
+        "expected": "unrecorded_member_present",
+        "detected": true,
+        "codes": [
+          "unrecorded_member_present"
+        ]
+      },
+      {
+        "expected": "no_bid_not_live",
+        "detected": true,
+        "codes": [
+          "no_bid_not_live"
+        ]
+      },
+      {
+        "expected": "no_bid_claims_inflated",
+        "detected": true,
+        "codes": [
+          "no_bid_claims_inflated"
+        ]
+      },
+      {
+        "expected": "certificate_hash_mismatch",
+        "detected": true,
+        "codes": [
+          "certificate_hash_mismatch"
+        ]
+      },
+      {
+        "expected": "secret_bearing_artifact",
+        "detected": true,
+        "codes": [
+          "secret_bearing_artifact"
+        ]
+      }
+    ]
+  },
+  "neutrality": {
+    "findings": [],
+    "adapters": 13
+  },
+  "clauses": [
+    {
+      "n": 1,
+      "demand": "typed admissible-provider selection",
+      "executed": [
+        {
+          "script": "neutrality (this runner)",
+          "status": 0,
+          "seconds": 0,
+          "isolation": "in-process",
+          "ledger": {
+            "attempts": 0,
+            "loopback": 0,
+            "reach": 0
+          },
+          "evidence": "../../../../../../tmp/ioi-pnlt-V3Rolb/self-legs.json",
+          "evidence_sha256": "sha256:bd4e7147d0ee6811a22baa550e9c2711bf3d126fded24204e2fab3da25ead78f",
+          "executed_assertions": null,
+          "floor_expected": null
+        },
+        {
+          "script": "check:provider-proposal-provenance",
+          "kind": "app",
+          "status": 0,
+          "seconds": 3,
+          "isolation": "refused_and_recorded",
+          "ledger": {
+            "attempts": 0,
+            "loopback": 0,
+            "reach": 0
+          },
+          "evidence": "../../../../../../tmp/ioi-pnlt-V3Rolb/census/1-provider-proposal-provenance/provider-proposal-provenance.json",
+          "evidence_sha256": "sha256:807a7ae01617cf2c56324192efd2836517d6efba29de13fdfa6c108539638494",
+          "executed_assertions": 23,
+          "floor_expected": 23
+        }
+      ],
+      "absence": {
+        "what": "selection refusing an unverified account is driven only inside the shared-daemon adapter done-bars",
+        "owner": "M09.10 · a follow-on slice (the eight adapter done-bars target the shared daemon without a session and are registered by no npm script — un-composable, R-143 class; their isolated form is owed)"
+      },
+      "scheduled": null
+    },
+    {
+      "n": 2,
+      "demand": "a verbatim-or-skipped quote, never estimated",
+      "executed": [
+        {
+          "script": "neutrality (this runner)",
+          "status": 0,
+          "seconds": 0,
+          "isolation": "in-process",
+          "ledger": {
+            "attempts": 0,
+            "loopback": 0,
+            "reach": 0
+          },
+          "evidence": "../../../../../../tmp/ioi-pnlt-V3Rolb/self-legs.json",
+          "evidence_sha256": "sha256:bd4e7147d0ee6811a22baa550e9c2711bf3d126fded24204e2fab3da25ead78f",
+          "executed_assertions": null,
+          "floor_expected": null
+        }
+      ],
+      "absence": {
+        "what": "quote gating is driven only inside the shared-daemon adapter done-bars (vast, runpod, lambda, akash)",
+        "owner": "M09.10 · a follow-on slice (the eight adapter done-bars target the shared daemon without a session and are registered by no npm script — un-composable, R-143 class; their isolated form is owed)"
+      },
+      "scheduled": null
+    },
+    {
+      "n": 3,
+      "demand": "the committed intent root before the provider call",
+      "executed": [
+        {
+          "script": "check:governed-effect-assurance-floor",
+          "kind": "app",
+          "status": 0,
+          "seconds": 22,
+          "isolation": "refused_and_recorded",
+          "ledger": {
+            "attempts": 0,
+            "loopback": 0,
+            "reach": 0
+          },
+          "evidence": "../../../../../../tmp/ioi-pnlt-V3Rolb/census/3-governed-effect-assurance/governed-effect-assurance.json",
+          "evidence_sha256": "sha256:97c1603b79ead58afb3727c6593755df72c5d4546ff56047b77fba8f7d83fed2",
+          "executed_assertions": 4,
+          "floor_expected": 4
+        },
+        {
+          "script": "check:provider-proposal-provenance",
+          "kind": "app",
+          "status": 0,
+          "seconds": 3,
+          "isolation": "refused_and_recorded",
+          "ledger": {
+            "attempts": 0,
+            "loopback": 0,
+            "reach": 0
+          },
+          "evidence": "../../../../../../tmp/ioi-pnlt-V3Rolb/census/1-provider-proposal-provenance/provider-proposal-provenance.json",
+          "evidence_sha256": "sha256:807a7ae01617cf2c56324192efd2836517d6efba29de13fdfa6c108539638494",
+          "executed_assertions": 23,
+          "floor_expected": 23
+        }
+      ],
+      "absence": null,
+      "scheduled": null
+    },
+    {
+      "n": 4,
+      "demand": "execution through the daemon's dispatch, never the guest",
+      "executed": [
+        {
+          "script": "check:governed-effect-assurance-floor",
+          "kind": "app",
+          "status": 0,
+          "seconds": 22,
+          "isolation": "refused_and_recorded",
+          "ledger": {
+            "attempts": 0,
+            "loopback": 0,
+            "reach": 0
+          },
+          "evidence": "../../../../../../tmp/ioi-pnlt-V3Rolb/census/3-governed-effect-assurance/governed-effect-assurance.json",
+          "evidence_sha256": "sha256:97c1603b79ead58afb3727c6593755df72c5d4546ff56047b77fba8f7d83fed2",
+          "executed_assertions": 4,
+          "floor_expected": 4
+        },
+        {
+          "script": "check:provider-transport",
+          "kind": "app",
+          "status": 0,
+          "seconds": 6,
+          "isolation": "refused_and_recorded",
+          "ledger": {
+            "attempts": 10,
+            "loopback": 10,
+            "reach": 0
+          },
+          "evidence": "../../../../../../tmp/ioi-pnlt-V3Rolb/census/4-provider-transport/provider-transport.json",
+          "evidence_sha256": "sha256:5b4d7a492dedb32b3ff683e818e79b206ddaca6c269fd2849cc8070545862fbd",
+          "executed_assertions": 31,
+          "floor_expected": 31
+        }
+      ],
+      "absence": null,
+      "scheduled": null
+    },
+    {
+      "n": 5,
+      "demand": "the outcome root after the call",
+      "executed": [
+        {
+          "script": "check:governed-effect-assurance-floor",
+          "kind": "app",
+          "status": 0,
+          "seconds": 22,
+          "isolation": "refused_and_recorded",
+          "ledger": {
+            "attempts": 0,
+            "loopback": 0,
+            "reach": 0
+          },
+          "evidence": "../../../../../../tmp/ioi-pnlt-V3Rolb/census/3-governed-effect-assurance/governed-effect-assurance.json",
+          "evidence_sha256": "sha256:97c1603b79ead58afb3727c6593755df72c5d4546ff56047b77fba8f7d83fed2",
+          "executed_assertions": 4,
+          "floor_expected": 4
+        }
+      ],
+      "absence": null,
+      "scheduled": null
+    },
+    {
+      "n": 6,
+      "demand": "reconciliation on ambiguity: reconciliation_required, never a second invocation",
+      "executed": [
+        {
+          "script": "neutrality (this runner)",
+          "status": 0,
+          "seconds": 0,
+          "isolation": "in-process",
+          "ledger": {
+            "attempts": 0,
+            "loopback": 0,
+            "reach": 0
+          },
+          "evidence": "../../../../../../tmp/ioi-pnlt-V3Rolb/self-legs.json",
+          "evidence_sha256": "sha256:bd4e7147d0ee6811a22baa550e9c2711bf3d126fded24204e2fab3da25ead78f",
+          "executed_assertions": null,
+          "floor_expected": null
+        }
+      ],
+      "absence": {
+        "what": "an ambiguous provider call driven to reconciliation_required on the provider lane exists only in the shared-daemon adapter done-bars; the posture is read from the dispatch",
+        "owner": "M09.10 · a follow-on slice (the eight adapter done-bars target the shared daemon without a session and are registered by no npm script — un-composable, R-143 class; their isolated form is owed)"
+      },
+      "scheduled": null
+    },
+    {
+      "n": 7,
+      "demand": "teardown to zero open and unknown exposure",
+      "executed": [
+        {
+          "script": "generation (this runner)",
+          "status": 0,
+          "seconds": 0,
+          "isolation": "in-process",
+          "ledger": {
+            "attempts": 0,
+            "loopback": 0,
+            "reach": 0
+          },
+          "evidence": "../../../../../../tmp/ioi-pnlt-V3Rolb/self-legs.json",
+          "evidence_sha256": "sha256:bd4e7147d0ee6811a22baa550e9c2711bf3d126fded24204e2fab3da25ead78f",
+          "executed_assertions": null,
+          "floor_expected": null
+        }
+      ],
+      "absence": {
+        "what": "live teardown is driven only by the retained runs (nine no-bid closes, one positive capstone); the resource-cleanup obligation's provider-native evidence ref stays null (M09.5)",
+        "owner": "M09.5 · the scheduled live branch"
+      },
+      "scheduled": null
+    },
+    {
+      "n": 8,
+      "demand": "provider-native billing readback, never the estate's intention",
+      "executed": [
+        {
+          "script": "check:provider-spend-reconciliation",
+          "kind": "root",
+          "status": 0,
+          "seconds": 6,
+          "isolation": "refused_and_recorded",
+          "ledger": {
+            "attempts": 10,
+            "loopback": 10,
+            "reach": 0
+          },
+          "evidence": "../../../../../../tmp/ioi-pnlt-V3Rolb/8-check-provider-spend-reconciliation.log",
+          "evidence_sha256": "sha256:21794a72ba745addfdaef90486f8a53f16556fdd04d4a951840e340d38701d0a",
+          "executed_assertions": null,
+          "floor_expected": null
+        },
+        {
+          "script": "generation (this runner)",
+          "status": 0,
+          "seconds": 0,
+          "isolation": "in-process",
+          "ledger": {
+            "attempts": 0,
+            "loopback": 0,
+            "reach": 0
+          },
+          "evidence": "../../../../../../tmp/ioi-pnlt-V3Rolb/self-legs.json",
+          "evidence_sha256": "sha256:bd4e7147d0ee6811a22baa550e9c2711bf3d126fded24204e2fab3da25ead78f",
+          "executed_assertions": null,
+          "floor_expected": null
+        }
+      ],
+      "absence": null,
+      "scheduled": null
+    },
+    {
+      "n": 9,
+      "demand": "leg-by-leg authorization; a changed ceiling or selector needs a fresh challenge",
+      "executed": [
+        {
+          "script": "check:provider-proposal-provenance",
+          "kind": "app",
+          "status": 0,
+          "seconds": 3,
+          "isolation": "refused_and_recorded",
+          "ledger": {
+            "attempts": 0,
+            "loopback": 0,
+            "reach": 0
+          },
+          "evidence": "../../../../../../tmp/ioi-pnlt-V3Rolb/census/1-provider-proposal-provenance/provider-proposal-provenance.json",
+          "evidence_sha256": "sha256:807a7ae01617cf2c56324192efd2836517d6efba29de13fdfa6c108539638494",
+          "executed_assertions": 23,
+          "floor_expected": 23
+        },
+        {
+          "script": "check:akash-live-lifecycle",
+          "kind": "app",
+          "status": 0,
+          "seconds": 1,
+          "isolation": "refused_and_recorded",
+          "ledger": {
+            "attempts": 0,
+            "loopback": 0,
+            "reach": 0
+          },
+          "evidence": "../../../../../../tmp/ioi-pnlt-V3Rolb/census/9-akash-live-lifecycle/akash-live-lifecycle.json",
+          "evidence_sha256": "sha256:2be5eb5a3f5b55022a46e3e91360e6cf6c6baa8cd7b18d649559de0c6cf58932",
+          "executed_assertions": 35,
+          "floor_expected": 35
+        }
+      ],
+      "absence": {
+        "what": "no gate asserts that a CHANGED ceiling or selector forces a new challenge; the certificate refuses changed facets after the fact",
+        "owner": "a follow-on slice of M09.6"
+      },
+      "scheduled": null
+    },
+    {
+      "n": 10,
+      "demand": "branch (a): no qualified bid → close → provider-confirmed refund, certified as a terminal non-success",
+      "executed": [
+        {
+          "script": "generation (this runner)",
+          "status": 0,
+          "seconds": 0,
+          "isolation": "in-process",
+          "ledger": {
+            "attempts": 0,
+            "loopback": 0,
+            "reach": 0
+          },
+          "evidence": "../../../../../../tmp/ioi-pnlt-V3Rolb/self-legs.json",
+          "evidence_sha256": "sha256:bd4e7147d0ee6811a22baa550e9c2711bf3d126fded24204e2fab3da25ead78f",
+          "executed_assertions": null,
+          "floor_expected": null
+        },
+        {
+          "script": "check:akash-live-lifecycle",
+          "kind": "app",
+          "status": 0,
+          "seconds": 1,
+          "isolation": "refused_and_recorded",
+          "ledger": {
+            "attempts": 0,
+            "loopback": 0,
+            "reach": 0
+          },
+          "evidence": "../../../../../../tmp/ioi-pnlt-V3Rolb/census/9-akash-live-lifecycle/akash-live-lifecycle.json",
+          "evidence_sha256": "sha256:2be5eb5a3f5b55022a46e3e91360e6cf6c6baa8cd7b18d649559de0c6cf58932",
+          "executed_assertions": 35,
+          "floor_expected": 35
+        }
+      ],
+      "absence": null,
+      "scheduled": null
+    },
+    {
+      "n": 11,
+      "demand": "branch (b): qualified bid → lease → live provider readback → endpoint → teardown → provider-confirmed zero open exposure",
+      "executed": [
+        {
+          "script": "check:t7-retained-capstone-applicability",
+          "kind": "root",
+          "status": 0,
+          "seconds": 22,
+          "isolation": "refused_and_recorded",
+          "ledger": {
+            "attempts": 0,
+            "loopback": 0,
+            "reach": 0
+          },
+          "evidence": "../../../../../../tmp/ioi-pnlt-V3Rolb/census/11-check-t7-retained-capstone-applicability/governed-effect-assurance.json",
+          "evidence_sha256": "sha256:97c1603b79ead58afb3727c6593755df72c5d4546ff56047b77fba8f7d83fed2",
+          "executed_assertions": 4,
+          "floor_expected": null
+        }
+      ],
+      "absence": null,
+      "scheduled": {
+        "what": "a FRESH positive live transaction (bid, lease, C6 retrieved_live, endpoint, teardown, zero open exposure) assembled and verified independently — the retained 2026-08-24 capstone is re-qualified on every run by its applicability gate; a fresh run is owed",
+        "prerequisite": "an owner-authorized Akash account with a funded deposit (IOI_C7_EMAIL, IOI_C7_PASSWORD_FILE, IOI_WALLET_SECRET_PASS), authorized leg by leg",
+        "ruling": "R-139 (2026-09-14) and R-210 (2026-09-20): a missing credential blocks a live RUN, never the unit; the positive branch is the unit's scheduled check"
+      }
+    },
+    {
+      "n": 12,
+      "demand": "the lane's shape is provider-neutral",
+      "executed": [
+        {
+          "script": "neutrality (this runner)",
+          "status": 0,
+          "seconds": 0,
+          "isolation": "in-process",
+          "ledger": {
+            "attempts": 0,
+            "loopback": 0,
+            "reach": 0
+          },
+          "evidence": "../../../../../../tmp/ioi-pnlt-V3Rolb/self-legs.json",
+          "evidence_sha256": "sha256:bd4e7147d0ee6811a22baa550e9c2711bf3d126fded24204e2fab3da25ead78f",
+          "executed_assertions": null,
+          "floor_expected": null
+        }
+      ],
+      "absence": {
+        "what": "neutrality is asserted over the daemon's dispatch (one operation vocabulary over the adapters behind one trait); a second substrate executing the same workload, authority, effect and receipt contract is M09.10's own proof, and the C7/C8 certificate refuses to certify neutrality by contract",
+        "owner": "M09.10"
+      },
+      "scheduled": null
+    }
+  ],
+  "verdict": {
+    "kind": "named_failure",
+    "failures": [],
+    "absences": [
+      {
+        "n": 1,
+        "what": "selection refusing an unverified account is driven only inside the shared-daemon adapter done-bars",
+        "owner": "M09.10 · a follow-on slice (the eight adapter done-bars target the shared daemon without a session and are registered by no npm script — un-composable, R-143 class; their isolated form is owed)"
+      },
+      {
+        "n": 2,
+        "what": "quote gating is driven only inside the shared-daemon adapter done-bars (vast, runpod, lambda, akash)",
+        "owner": "M09.10 · a follow-on slice (the eight adapter done-bars target the shared daemon without a session and are registered by no npm script — un-composable, R-143 class; their isolated form is owed)"
+      },
+      {
+        "n": 6,
+        "what": "an ambiguous provider call driven to reconciliation_required on the provider lane exists only in the shared-daemon adapter done-bars; the posture is read from the dispatch",
+        "owner": "M09.10 · a follow-on slice (the eight adapter done-bars target the shared daemon without a session and are registered by no npm script — un-composable, R-143 class; their isolated form is owed)"
+      },
+      {
+        "n": 7,
+        "what": "live teardown is driven only by the retained runs (nine no-bid closes, one positive capstone); the resource-cleanup obligation's provider-native evidence ref stays null (M09.5)",
+        "owner": "M09.5 · the scheduled live branch"
+      },
+      {
+        "n": 9,
+        "what": "no gate asserts that a CHANGED ceiling or selector forces a new challenge; the certificate refuses changed facets after the fact",
+        "owner": "a follow-on slice of M09.6"
+      },
+      {
+        "n": 11,
+        "what": "SCHEDULED-OUTSTANDING: a FRESH positive live transaction (bid, lease, C6 retrieved_live, endpoint, teardown, zero open exposure) assembled and verified independently — the retained 2026-08-24 capstone is re-qualified on every run by its applicability gate; a fresh run is owed",
+        "owner": "prerequisite: an owner-authorized Akash account with a funded deposit (IOI_C7_EMAIL, IOI_C7_PASSWORD_FILE, IOI_WALLET_SECRET_PASS), authorized leg by leg · R-139 (2026-09-14) and R-210 (2026-09-20): a missing credential blocks a live RUN, never the unit; the positive branch is the unit's scheduled check"
+      },
+      {
+        "n": 12,
+        "what": "neutrality is asserted over the daemon's dispatch (one operation vocabulary over the adapters behind one trait); a second substrate executing the same workload, authority, effect and receipt contract is M09.10's own proof, and the C7/C8 certificate refuses to certify neutrality by contract",
+        "owner": "M09.10"
+      }
+    ]
+  },
+  "mutation": null,
+  "host": {
+    "isolation": "refused_and_recorded",
+    "strace": "strace -- version 6.8",
+    "load": [
+      "1.09",
+      "1.70",
+      "2.46"
+    ],
+    "daemon_binary": "/home/heathledger/Documents/ioi/repos/ioi/target/debug/hypervisor-daemon",
+    "work_dir": "/tmp/ioi-pnlt-V3Rolb",
+    "live_credentials_present": false
+  },
+  "finished_at": "2026-09-20T18:47:28.101Z",
+  "summary": {
+    "passed": 8,
+    "total": 8
+  }
+}
