@@ -965,6 +965,29 @@ jobs:
         if: ${{ !cancelled() && steps.rust_backed_daemon.outcome == 'success' }}
         run: npm run mutate:c8-bounded-live-effect-certificate --workspace=@ioi/hypervisor-app
 
+      # M13.4's session-truth verifier (isolated daemon + serve): the SPA session pane's panes read daemon
+      # truth and the parked decision's projection carries the exact effect, both commitments, the audience
+      # and the endpoints. Floor-pinned here because M03.9's gate composes it (R-212, 2026-09-20).
+      - name: Verify the SPA session pane reads daemon truth (M13.4, composed by M03.9)
+        if: ${{ !cancelled() && steps.rust_backed_daemon.outcome == 'success' }}
+        env:
+          IOI_VERIFIER_CENSUS_DIR: .artifacts/verifier-census
+        run: npm run check:session-truth-rebind --workspace=@ioi/hypervisor-app
+
+      # M03.9 (R-212). The approval surface renders the signed facts verbatim: the daemon publishes the exact
+      # preimage bytes its commitment hashes cover, the card grammar renders every hashed member from those
+      # bytes with the full commitments and audience, and the diff harness names paraphrase, truncation,
+      # re-statement and reconstruction by code — over a tracked daemon-minted challenge fixture, spend-free.
+      - name: Verify the approval card renders the challenge facets byte-derived (M03.9, CI-bound drills)
+        if: ${{ !cancelled() && steps.rust_backed_daemon.outcome == 'success' }}
+        env:
+          IOI_VERIFIER_CENSUS_DIR: .artifacts/verifier-census
+        run: npm run check:approval-card-facets --workspace=@ioi/hypervisor-app
+
+      - name: Drill the approval card facets oracles
+        if: ${{ !cancelled() && steps.rust_backed_daemon.outcome == 'success' }}
+        run: npm run mutate:approval-card-facets --workspace=@ioi/hypervisor-app
+
       # M10.4 — the governed evaluation plane, driven against an ISOLATED daemon this job already
       # built: two deterministic ollama-dialect stub servers registered, probed, enabled and REALLY
       # invoked as routes A and B; released suite revisions, frozen and active epochs, admitted runs,

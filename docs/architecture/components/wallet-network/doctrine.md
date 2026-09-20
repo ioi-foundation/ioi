@@ -969,6 +969,13 @@ provisioning that could carry a spend ceiling would be a standing envelope
 wearing a custody name. A spend still requires its own consent ceremony bound to
 the exact request facets.
 
+**The presentation is byte-derived (2026-09-20, M03.9, register R-212).** The
+consent ceremony's approval surface renders the daemon challenge's signed
+facets and the grant audience from the preimage bytes the challenge publishes,
+whole, and never re-states them; approval signs exactly the policy and request
+hashes those rendered bytes reproduce. The Hypervisor's gate for that rule is
+`check:approval-card-facets` (see `../hypervisor/byo-provider-plane.md`).
+
 **Continuity is a successor, never a silent replacement.** A replaced or added
 device records a successor naming its predecessor on the same principal, so a
 device that is gone leaves a readable lineage rather than a gap. A successor

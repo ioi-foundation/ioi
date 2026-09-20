@@ -15707,8 +15707,17 @@ pub(crate) struct AuthorizedCapabilityLease {
     pub(crate) admitted: CapabilityAuthorityAdmission,
 }
 
-fn capability_lease_policy_hash(req: &CapabilityLeaseRequest) -> String {
-    sha256_json_ref(&json!({
+/// THE EXACT BYTES each commitment hash is the SHA-256 of (M03.9, register R-212, 2026-09-20).
+///
+/// A capability-lease challenge publishes these two strings beside the hashes so that a signing
+/// surface can render the facets FROM the bytes that will execute and re-derive the hash it signs:
+/// what you sign is what executes, and a signer never reconstructs the request locally (the hashed
+/// map is not the `lease_request_facets` superset a route echoes — it adds the account, op,
+/// environment, kind and spend posture and omits the raw SDL, and it is serialized by THIS
+/// function, not by the reader). The hash functions below are defined over these preimages so
+/// there is exactly one serialization and no second reconstruction to drift from.
+pub(crate) fn capability_lease_policy_preimage(req: &CapabilityLeaseRequest) -> String {
+    serde_json::to_string(&json!({
         "domain": req.policy_domain,
         "authority_provider_ref": req.authority_provider_ref,
         "backing_provider": req.backing_provider,
@@ -15716,15 +15725,116 @@ fn capability_lease_policy_hash(req: &CapabilityLeaseRequest) -> String {
         "resource_refs": req.resource_refs,
         "scopes": req.scopes,
     }))
+    .unwrap_or_default()
 }
-fn capability_lease_request_hash(req: &CapabilityLeaseRequest) -> String {
-    sha256_json_ref(&json!({
+pub(crate) fn capability_lease_request_preimage(req: &CapabilityLeaseRequest) -> String {
+    serde_json::to_string(&json!({
         "domain": req.request_domain,
         "allowed_tools": req.allowed_tools,
         "resource_refs": req.resource_refs,
         "scopes": req.scopes,
         "facets": req.request_facets,
     }))
+    .unwrap_or_default()
+}
+fn capability_lease_policy_hash(req: &CapabilityLeaseRequest) -> String {
+    format!(
+        "sha256:{}",
+        sha256_hex_str(&capability_lease_policy_preimage(req))
+    )
+}
+fn capability_lease_request_hash(req: &CapabilityLeaseRequest) -> String {
+    format!(
+        "sha256:{}",
+        sha256_hex_str(&capability_lease_request_preimage(req))
+    )
+}
+
+#[cfg(test)]
+mod capability_lease_preimage_tests {
+    use super::*;
+
+    fn request() -> CapabilityLeaseRequest {
+        CapabilityLeaseRequest {
+            authority_provider_ref: "wallet.network".to_string(),
+            backing_provider: "provider:account:pacc_test".to_string(),
+            allowed_tools: vec!["provider.create".to_string()],
+            resource_refs: vec![
+                "provider-account://pacc_test".to_string(),
+                "env-test".to_string(),
+            ],
+            scopes: vec!["provider.provision".to_string()],
+            policy_domain: "hypervisor.provider.op.policy.v1".to_string(),
+            request_domain: "hypervisor.provider.op.request.v1".to_string(),
+            request_facets: json!({
+                "account_ref": "provider-account://pacc_test",
+                "op": "create",
+                "environment_ref": "env-test",
+                "kind": "akash",
+                "external_spend_posture": "external_spend",
+                "stage": "deployment_intent",
+                "deposit_usd": 1.0_f64,
+                "ceiling_amount": "1000",
+                "ceiling_denom": "uact",
+                "provider_selector": { "mode": "any_marketplace", "selection": "lowest_qualified_bid" },
+                "auto_topup": false,
+                "sdl_hash": format!("sha256:{}", "a".repeat(64)),
+                "teardown_policy": "always_teardown_required",
+                "execution_mode": "live",
+            }),
+            credential_connector_id: Some("pacc_test".to_string()),
+            credential_store: "connector-credentials".to_string(),
+            credential_required: true,
+            github_host_fallback: false,
+            receipt_required: true,
+            revocation_ref: "provider-accounts/pacc_test/credential".to_string(),
+            authority_reason: "provider_operation_authority_required".to_string(),
+            grant_value: Value::Null,
+            standing_draw: None,
+            principal_binding: None,
+        }
+    }
+
+    #[test]
+    fn the_published_preimages_are_the_exact_bytes_the_hashes_commit_to() {
+        let req = request();
+        let request_preimage = capability_lease_request_preimage(&req);
+        let policy_preimage = capability_lease_policy_preimage(&req);
+        assert_eq!(
+            capability_lease_request_hash(&req),
+            format!("sha256:{}", sha256_hex_str(&request_preimage))
+        );
+        assert_eq!(
+            capability_lease_policy_hash(&req),
+            format!("sha256:{}", sha256_hex_str(&policy_preimage))
+        );
+        // Key-sorted, compact, and the float printed the way the hash saw it: a reader that
+        // re-serialized `1.0` as `1` would hash different bytes, which is why the bytes are published.
+        assert!(request_preimage.starts_with("{\"allowed_tools\":[\"provider.create\"],\"domain\":\"hypervisor.provider.op.request.v1\",\"facets\":{\"account_ref\":"));
+        assert!(request_preimage.contains("\"deposit_usd\":1.0,"));
+        assert!(!request_preimage.contains(' '));
+        let parsed: Value = serde_json::from_str(&request_preimage).expect("preimage parses");
+        assert_eq!(parsed["facets"]["stage"], json!("deployment_intent"));
+        assert_eq!(
+            parsed["facets"]["external_spend_posture"],
+            json!("external_spend")
+        );
+        assert!(parsed["facets"].get("sdl_yaml").is_none());
+        // A changed facet moves the preimage and the hash together.
+        let mut changed = request();
+        changed.request_facets["deposit_usd"] = json!(2.0_f64);
+        assert_ne!(
+            capability_lease_request_preimage(&changed),
+            request_preimage
+        );
+        assert_ne!(
+            capability_lease_request_hash(&changed),
+            capability_lease_request_hash(&req)
+        );
+        // The policy preimage never carries the facets; the request preimage never carries the backing provider.
+        assert!(!policy_preimage.contains("facets"));
+        assert!(!request_preimage.contains("backing_provider"));
+    }
 }
 
 /// Exact effect material consumed by the shared live-route authority PEP.
@@ -16085,6 +16195,11 @@ pub(crate) async fn authorize_capability_lease(
                         "request_hash": request_hash,
                         "audience": super::wallet_network_capability_client::capability_account_id_hex(),
                         "target_scope": required_scope,
+                        // The exact bytes the two hashes commit to (R-212): a signing surface
+                        // renders the facets from these and re-derives the hash it signs, so the
+                        // card is byte-derived from the challenge and never re-stated locally.
+                        "policy_preimage": capability_lease_policy_preimage(req),
+                        "request_preimage": capability_lease_request_preimage(req),
                     },
                     "authority_challenge": challenge,
                     "host_mutation": false,

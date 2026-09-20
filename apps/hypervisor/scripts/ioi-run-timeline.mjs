@@ -15,6 +15,8 @@
 // The projection is pure: the serve layer fetches daemon records (authority receipts, drafts) and
 // passes them in; the daemon EXECUTES + RECORDS, this only PRESENTS.
 
+import { PROVIDER_APPROVAL_KIND, projectProviderApprovalForTimeline } from "./lib/approval-card-facets.mjs";
+
 const PHASE_BY_STATUS = {
   waiting: "AGENT_EXECUTION_PHASE_PENDING",
   running: "AGENT_EXECUTION_PHASE_RUNNING",
@@ -190,6 +192,9 @@ export function projectRunTimeline(run, extra = {}) {
       decidedAt: run.pendingApproval.decided_at || null,
       approveUrl: run.status === "awaiting_operator_approval" ? `/__ioi/runs/${encodeURIComponent(run.id)}/approve` : null,
       denyUrl: run.status === "awaiting_operator_approval" ? `/__ioi/runs/${encodeURIComponent(run.id)}/deny` : null,
+      // A parked provider operation carries every signed facet as the bytes the daemon hashed
+      // (M03.9, R-212): the pane shows the same facts the card shows, whole, never re-stated.
+      ...(run.pendingApproval.kind === PROVIDER_APPROVAL_KIND ? projectProviderApprovalForTimeline(run.pendingApproval) : {}),
     } : null,
     response: (run.status === "done" || run.status === "failed")
       ? { text: run.status === "failed" ? (run.error || "Run failed.") : (run.summary || "Run complete."), at: run.updatedAt, failed: run.status === "failed" }

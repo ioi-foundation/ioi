@@ -1,0 +1,104 @@
+{
+  "evidence_format": "ioi.program.work_item.v1",
+  "work_item_id": "m03-9-approval-card-facets",
+  "stage_id": "M03",
+  "required_work": [
+    "M03.9"
+  ],
+  "status": "evidence_ready",
+  "objective": "Close M03.9 as an executable gate: the signing surface renders the daemon challenge's signed facts BYTE-DERIVED and never re-states them. The daemon publishes, on every capability-lease challenge, the exact preimage strings its policy and request hashes are the SHA-256 of; the card grammar parses the request preimage, renders every hashed member as its raw bytes with the full policy hash, request hash and grant audience, refuses a challenge whose preimage is absent or does not hash to its request hash or whose echoed facets re-state a member, and the diff harness names paraphrase, truncation, a dropped, smuggled or duplicated member by code; the SPA pane carries the same bytes and truncates nothing. The subject is a tracked, hash-committed deployment_intent challenge fixture minted by an isolated daemon, spend-free, cross-checked in full mode against a fresh one; the App lane that parks a provider operation as this card is M08.11's, the live session-execute and custody cards stay the alpha journey's deployment mode.",
+  "falsifiable_claim": "npm run check:approval-card-facets --workspace=@ioi/hypervisor-app (scripts/check-approval-card-facets.mjs --drills) binds every clause to a floored app gate or one of the runner's own legs, requires the live cards to be scheduled with a prerequisite and a ruling, re-derives the fixture's sha256 before reading it and requires its request and policy preimages to hash to its hashes and the SDL hash to re-derive from the plan's own bytes with no secret carried, pins R-212's finding (the hashed bytes carry account_ref, op, environment_ref, kind and external_spend_posture the echoed facets never did and omit the raw SDL), renders the card from the preimage and requires every hashed member verbatim with the six deployment_intent members present and the full commitments and audience, proves six harness plants named by code, refuses five malformed challenges (including the retained 2026-08-21 challenge, which carries no preimage) with no approve form, proves the SPA projection carries the same bytes and the serve and pane sources render the grammar and truncate nothing, pins the daemon's preimage functions and published members and its unit test, executes the grammar's own test suite (7 cases), drills the verdict and requires canon to name the gate. mutate:approval-card-facets plants seventeen defects and each goes red. The full gate mints a FRESH challenge from an isolated daemon (a sealed fake credential, live mode at a dead loopback endpoint; no grant, nothing spent) and requires the same hashed member set and domain as the fixture with bytes differing only in account and environment, then composes the executed gates inside the isolated-egress harness; it exits 0 only on a pass, 2 on a named failure, 1 on a fail.",
+  "canon_owners": [
+    "docs/architecture/components/hypervisor/byo-provider-plane.md",
+    "docs/architecture/components/wallet-network/doctrine.md"
+  ],
+  "code_anchors": [
+    {
+      "path": "crates/node/src/bin/hypervisor_daemon_routes/lifecycle_routes.rs",
+      "must_contain": "pub(crate) fn capability_lease_request_preimage",
+      "present_when": "merged"
+    },
+    {
+      "path": "crates/node/src/bin/hypervisor_daemon_routes/lifecycle_routes.rs",
+      "must_contain": "\"request_preimage\": capability_lease_request_preimage(req),",
+      "present_when": "merged"
+    },
+    {
+      "path": "apps/hypervisor/scripts/lib/approval-card-facets.mjs",
+      "must_contain": "export function verifyRenderedFacets",
+      "present_when": "merged"
+    },
+    {
+      "path": "apps/hypervisor/scripts/lib/approval-card-facets.test.mjs",
+      "must_contain": "the diff harness names a paraphrased amount",
+      "present_when": "merged"
+    },
+    {
+      "path": "apps/hypervisor/scripts/serve-product-ui.mjs",
+      "must_contain": "renderProviderFacetsCard(projectProviderChallenge(p.challenge)",
+      "present_when": "merged"
+    },
+    {
+      "path": "apps/hypervisor/scripts/ioi-run-timeline.mjs",
+      "must_contain": "projectProviderApprovalForTimeline(run.pendingApproval)",
+      "present_when": "merged"
+    },
+    {
+      "path": "scripts/check-approval-card-facets.mjs",
+      "must_contain": "export function refusalFindings",
+      "present_when": "merged"
+    },
+    {
+      "path": "scripts/mint-provider-challenge-fixture.mjs",
+      "must_contain": "mintProviderChallenge",
+      "present_when": "merged"
+    },
+    {
+      "path": "docs/architecture/_meta/evidence/m03-9-provider-challenge-fixture-2026-09-20.v1.json",
+      "must_contain": "ioi.evidence.provider-challenge-fixture.v1",
+      "present_when": "merged"
+    },
+    {
+      "path": "apps/hypervisor/verifier-floors.v1.json",
+      "must_contain": "\"id\": \"approval-card-facets\"",
+      "present_when": "merged"
+    },
+    {
+      "path": ".github/workflows/ci.yml",
+      "must_contain": "npm run check:approval-card-facets --workspace=@ioi/hypervisor-app",
+      "present_when": "merged"
+    },
+    {
+      "path": "scripts/check-acceptance-authority-and-leases.mjs",
+      "must_contain": "mutate:approval-card-facets",
+      "present_when": "merged"
+    },
+    {
+      "path": "docs/architecture/components/hypervisor/byo-provider-plane.md",
+      "must_contain": "The challenge carries the bytes that will execute (2026-09-20, M03.9, register",
+      "present_when": "merged"
+    },
+    {
+      "path": "docs/architecture/components/wallet-network/doctrine.md",
+      "must_contain": "The presentation is byte-derived (2026-09-20, M03.9, register",
+      "present_when": "merged"
+    }
+  ],
+  "evidence_refs": [
+    "docs/architecture/_meta/evidence/m03-9-approval-card-facets-2026-09-20.v1.json",
+    "docs/architecture/_meta/evidence/m03-9-provider-challenge-fixture-2026-09-20.v1.json",
+    "docs/architecture/_meta/canon-to-code-delta.md"
+  ],
+  "pr": null,
+  "adversarial_or_fault_proof": "mutate:approval-card-facets plants a clause bound to a script that does not exist, the live cards scheduled without a ruling, the refusal clause dropped, a fixture whose challenge bytes changed after commit, a fixture re-committed with a preimage that no longer hashes to its request hash, a bearer session in the fixture, a plan whose SDL bytes no longer hash to sdl_hash, the harness's six plants on the rendered card, an echo carrying a hashed-only member, a serve that stops rendering the grammar, a pane that truncates the audience again, a timeline that drops the facets, a daemon that stops publishing the preimage, a daemon whose hash is no longer defined over the preimage, canon without the gate, fabricated success rows, and a fresh challenge whose member set differs from the fixture's — each must go red (17/17). Inside the drills, five malformed challenges are refused with no approve form and six harness plants are named by code; the daemon's own unit test pins the preimage bytes.",
+  "remaining_nonclaims": [
+    "No live PASS is claimed: the session-execute and custody cards live under the deployment-local tier are the alpha journey's deployment mode, SCHEDULED behind a local model and the authority node (R-139); the provider-operation card has no App lane yet (M08.11) and no isolated gate admits a grant on a live provider create (the console URL is hard-coded; admission after a rendered card is M09.10's isolated form)",
+    "A denial produces no signed receipt anywhere (the serve's deny mints nothing; no deny act exists on the authority node or the fixture) — an owner question (R-212)",
+    "The bounded alpha's signing surface is the ported product UI's card under the deployment_local_operator tier; the wallet-network prototype is a design mock and a graduated wallet app's handoff is absent — an owner question (R-212)",
+    "Only the direct-Akash deployment_intent challenge is fixtured and drilled; the quote-gated adapter and storage-archive facet lanes are read by the same grammar but their members are not pinned",
+    "The commitment hashes stay key-sorted compact serde_json with the preimage echoed; moving them to JCS (as the proposal and consumption commitments already are) is an owner question",
+    "The full gate is on demand, not CI-gated; CI executes the drills, the drill and the composed gates' own steps"
+  ],
+  "source_provenance": "Authored 2026-09-20 by the MVP finish-line program (R-212 ruled the shape after a read-only survey; R-139 and R-14 are its letter). Drills 11/11, mutation 17/17, the grammar's node --test 7/7, the daemon unit test 1/1, canon gates green (canon-document-residuals + its battery, source-neutral, architecture-docs), verifier floors green for approval-card-facets, session-truth-rebind and c8-bounded-live-effect-certificate. NAMED FAILURE, exit 2 (isolation refused_and_recorded): the FRESH challenge from a second isolated daemon carried the same 28 hashed members and domain as the fixture (status 501, no wallet client) with bytes differing only in account and environment; check:session-truth-rebind 11/11 in 5 s (18 connects, all loopback, reach 0); check:custody-proven-private-routes 39/39 in 743 s (423 connects, all loopback, reach 0); check:c8-bounded-live-effect-certificate --drills 9/9 in 8 s (2 connects loopback, reach 0); check:provider-proposal-provenance 23/23 in 3 s (0 connects, reach 0); the FIXTURE, CARD, REFUSAL, SPA and SOURCE legs in-process; the live cards SCHEDULED-OUTSTANDING; 6 named entries. Recorded in canon-to-code-delta.md § Journey verification CXXI. ACC-3 PARTIAL, exit 2 — 28 executed clause checks green (was 27 executed checks before this unit; clause 10 executed nothing), 3 typed absences, 8 multi-hour batteries not executed, 1 live leg scheduled-outstanding by ruling, basis 186178798 (the tree before this commit) (clause 10 executes check:approval-card-facets --drills 11/11 and mutate:approval-card-facets 17/17 beside the corrected alpha-journey citation; its typed absence names the App lane, the wallet-app handoff and the denial receipt with owners; its scheduled leg is the alpha journey's deployment mode).",
+  "last_status_transaction": "2026-09-20"
+}

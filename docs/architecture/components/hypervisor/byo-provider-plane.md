@@ -281,6 +281,26 @@ request facets (account, op, environment), lease descriptor persisted without se
 Presence-check `grant_ref` strings do not pass. Preflight/observe are read-only and
 ungated.
 
+**The challenge carries the bytes that will execute (2026-09-20, M03.9, register
+R-212).** The 403 challenge echoes `lease_request_facets` — for a direct
+marketplace deployment: stage, the SDL-derived ceiling amount and denomination,
+the deposit, the provider selector, the SDL hash, the teardown policy, the
+execution mode and auto-topup — and, under `approval`, the two preimages:
+`request_preimage` and `policy_preimage`, the exact JSON strings the request
+hash and the policy hash are the SHA-256 of, serialized by the same function
+that hashes them. The hashed request adds the account, operation, environment,
+kind and spend posture and omits the raw SDL; it is not the echoed superset. A
+signing surface renders the signed facts FROM the request preimage, every
+hashed member as the bytes the hash covers, with the full policy hash, request
+hash and grant audience, and re-derives the request hash from those bytes
+before it signs: what you sign is what executes. A paraphrased, truncated or
+locally reconstructed facet set is a defect, and a challenge that carries no
+preimage is not signable byte-derived. The gate that proves this is
+`check:approval-card-facets`: the card grammar and its diff harness over a
+tracked daemon-minted challenge fixture and, in full mode, over a fresh
+challenge from an isolated daemon; the lane that parks a blocked provider
+operation as a card in the App is the spend-approval lane's own unit.
+
 ## Receipts — success AND failure
 
 Every dispatched op mints `ioi.hypervisor.provider-receipt.v1`

@@ -43,6 +43,7 @@ import { managerLink, managerResourceLink, objectSetLink, sourcesLink, pipelineN
 import { ioiGlobalRailHtml, IOI_GRAIL_CSS } from "../surfaces/chrome.mjs";
 import { renderSplashLanding } from "./splash-landing-grammar.mjs";
 import { mintTestGrant, awaitingWalletAuthority, bindStandingLease, revokeStandingLease, STANDING_LEASE_CUSTODY_TIER_UNRULED } from "./lib/wallet-authority.mjs";
+import { PROVIDER_APPROVAL_KIND, projectProviderChallenge, renderProviderFacetsCard } from "./lib/approval-card-facets.mjs";
 import { handleSystemGenesisSurfaces } from "./system-genesis-surfaces.mjs";
 import { resolveV2Route, v2RouteFor, retiredUiRouteFor, renderV2RouteShellPage, renderRetiredUiRoutePage, retiredUiRouteRefusal, renderRouteLedgerPage } from "./v2-route-shell.mjs";
 import { projectDomainAppRuntimeModel } from "./domain-app-runtime-model.mjs";
@@ -1390,6 +1391,12 @@ function renderAwaitingApprovals(pendingRuns, returnTo) {
   if (!pendingRuns || !pendingRuns.length) return "";
   const cards = pendingRuns.map((run) => {
     const p = run.pendingApproval || {};
+    // A parked PROVIDER operation renders the daemon challenge's signed facts byte-derived from the
+    // published preimage (M03.9, R-212): every hashed member as the exact bytes the hash covers, the
+    // full commitments and audience, and a refusal with no approve form when the bytes cannot be shown.
+    if (p.kind === PROVIDER_APPROVAL_KIND) {
+      return `<div data-ioi-awaiting-approval="${CX_ESC(run.id)}">${renderProviderFacetsCard(projectProviderChallenge(p.challenge), { approveUrl: `/__ioi/runs/${enc(run.id)}/approve`, denyUrl: `/__ioi/runs/${enc(run.id)}/deny`, returnTo })}</div>`;
+    }
     const scopes = (p.required_scopes || []).map((s) => `<code style="font-size:11px">${CX_ESC(s)}</code>`).join(" ") || "—";
     return `<div class="card" data-ioi-awaiting-approval="${CX_ESC(run.id)}"><div class="main">
       <div class="name">Approve this run?<span class="pill warn">awaiting your approval</span></div>
@@ -7046,9 +7053,10 @@ const RUN_TIMELINE_HTML = `<!doctype html>
         var apkv=el("dl","rt-kv");
         apkv.appendChild(el("dt",null,"operator decision")); apkv.appendChild(el("dd",null, ap.state==="awaiting" ? "AWAITING YOUR APPROVAL — the run will not execute until you decide" : ("decided: "+(ap.decision||ap.state)+(ap.decidedAt?" at "+ap.decidedAt:""))));
         apkv.appendChild(el("dt",null,"exact effect")); apkv.appendChild(el("dd",null,(ap.kind||"session_execute")+" in "+(ap.sessionRef||"?")+" — "+trunc(ap.intent||"",160)));
-        apkv.appendChild(el("dt",null,"policy hash")); apkv.appendChild(el("dd",null,trunc(ap.policyHash||"",32)));
-        apkv.appendChild(el("dt",null,"request hash")); apkv.appendChild(el("dd",null,trunc(ap.requestHash||"",32)));
-        if(ap.audience){ apkv.appendChild(el("dt",null,"grant audience")); apkv.appendChild(el("dd",null,trunc(ap.audience,24)+" (this daemon's wallet account)")); }
+        apkv.appendChild(el("dt",null,"policy hash")); apkv.appendChild(el("dd",null,ap.policyHash||""));
+        apkv.appendChild(el("dt",null,"request hash")); apkv.appendChild(el("dd",null,ap.requestHash||""));
+        if(ap.audience){ apkv.appendChild(el("dt",null,"grant audience")); apkv.appendChild(el("dd",null,ap.audience)); apkv.appendChild(el("dt",null,"")); apkv.appendChild(el("dd",null,"(this daemon's wallet account, shown whole: a truncated commitment is not the one you sign)")); }
+        if(ap.facets&&ap.facets.length){ ap.facets.forEach(function(f){ apkv.appendChild(el("dt",null,"facet "+f.key)); apkv.appendChild(el("dd",null,f.raw)); }); if(ap.preimageSha256){ apkv.appendChild(el("dt",null,"signed bytes")); apkv.appendChild(el("dd",null,ap.preimageSha256)); } }
         if((ap.requiredScopes||[]).length){ apkv.appendChild(el("dt",null,"scopes")); apkv.appendChild(el("dd",null,ap.requiredScopes.join(", "))); }
         apc.appendChild(apkv);
         if(ap.state==="awaiting"&&ap.approveUrl){

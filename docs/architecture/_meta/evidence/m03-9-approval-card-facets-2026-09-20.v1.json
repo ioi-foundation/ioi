@@ -1,0 +1,645 @@
+{
+  "schema": "ioi.approval-card-facets-evidence.v1",
+  "mode": "full",
+  "started_at": "2026-09-20T21:28:51.697Z",
+  "drills": [
+    {
+      "name": "the acceptance's demands are bound: every executed clause names a real script with a pinned floor (app) or one of this runner's legs, every named failure carries its owner, the live cards are SCHEDULED with their exact prerequisite and ruling, clauses cover 1–12 exactly once",
+      "pass": true,
+      "detail": "bound",
+      "at": "2026-09-20T21:28:51.699Z"
+    },
+    {
+      "name": "FIXTURE: the tracked daemon-minted challenge is intact before it is read (its sha256 re-derived), it is the wallet gate's authority refusal for a live deployment_intent create, approval.request_preimage hashes to approval.request_hash and approval.policy_preimage to approval.policy_hash, the SDL hash re-derives from the plan's own SDL bytes, and no secret or fake key is carried",
+      "pass": true,
+      "detail": "sha256:d783f3852292 · status 501",
+      "at": "2026-09-20T21:28:51.700Z"
+    },
+    {
+      "name": "R-212's finding, pinned: the hashed bytes carry members the echoed lease_request_facets never did (account_ref, op, environment_ref, kind, external_spend_posture) and omit the raw SDL the echo carries — so only the preimage can be signed byte-derived; the deposit is rendered as the float the hash saw",
+      "pass": true,
+      "detail": "28 hashed members",
+      "at": "2026-09-20T21:28:51.701Z"
+    },
+    {
+      "name": "CARD: the projection parses the preimage and the card renders every hashed member verbatim — 28 members, each as its exact bytes — with ceiling amount and denomination, deposit, provider selector, SDL hash, teardown policy and stage present, the full policy hash, request hash and grant audience, and the approve form; the diff harness is clean on it",
+      "pass": true,
+      "detail": "account_ref,auto_topup,benchmark_protocol_version,benchmark_repeats,benchmark_source_commit,benchmark_warmups,campaign_id,ceiling_amount,ceiling_denom,deposit_usd,environment_ref,execution_mode,external_spend_posture,image_build_identity_sha256,image_digest,kind,max_duration_seconds,op,provider_preflight_sha256,provider_selector,registry_credential_ref,registry_host,result_credential_ref,result_schema_version,result_tls_server_certificate_sha256,sdl_hash,stage,teardown_policy",
+      "at": "2026-09-20T21:28:51.702Z"
+    },
+    {
+      "name": "CARD drill: the diff harness names each of 6 plants on the rendered card by code — a paraphrased deposit, a truncated request hash, a truncated audience, a dropped member, a smuggled member, a duplicated member",
+      "pass": true,
+      "detail": "6/6",
+      "at": "2026-09-20T21:28:51.704Z"
+    },
+    {
+      "name": "REFUSAL: a challenge without a preimage (the retained 2026-08-21 challenge from M12.9's set), one whose preimage does not hash to its request hash, one whose echoed facets re-state a hashed member, one of another request domain and one without a policy preimage are each refused by code, rendered as a refusal with NO approve form, and named by the harness",
+      "pass": true,
+      "detail": "5 refusals typed",
+      "at": "2026-09-20T21:28:51.705Z"
+    },
+    {
+      "name": "SPA: the session pane's projection carries the same bytes as the card (every facet raw, the full hashes, the full audience, the decision endpoints) and refuses a missing preimage; the serve renders the grammar for a parked provider operation and the pane truncates no commitment (source pins)",
+      "pass": true,
+      "detail": "same bytes",
+      "at": "2026-09-20T21:28:51.710Z"
+    },
+    {
+      "name": "SOURCE: the daemon defines both commitment hashes over the published preimages and publishes request_preimage and policy_preimage on every capability-lease challenge, with its own unit test present (lifecycle_routes.rs pins)",
+      "pass": true,
+      "detail": "pinned",
+      "at": "2026-09-20T21:28:51.714Z"
+    },
+    {
+      "name": "the grammar's own test suite executes here, as part of this one command: 7+ cases over a synthetic challenge built the way the daemon builds it (the float as hashed, the nested selector's bytes, every refusal and every harness code)",
+      "pass": true,
+      "detail": "7 passed, 0 failed",
+      "at": "2026-09-20T21:28:51.779Z"
+    },
+    {
+      "name": "the verdict is a pure function of the clause rows: all executed green with no absence → PASS; a typed absence or a scheduled live leg → NAMED FAILURE; a scheduled leg without a ruling, a fabricated success row, a red gate, a reach beyond loopback or a missing clause → FAIL",
+      "pass": true,
+      "detail": "pass/named_failure/named_failure/fail/fail/fail/fail/fail",
+      "at": "2026-09-20T21:28:51.780Z"
+    },
+    {
+      "name": "canon binds the gate: byo-provider-plane.md says the challenge carries the two preimages the hashes are the SHA-256 of, that what you sign is what executes, that a paraphrased, truncated or locally reconstructed facet set is a defect and a challenge without a preimage is not signable byte-derived, names the lane's owner and the gate; wallet-network/doctrine.md says the presentation is byte-derived and names the gate",
+      "pass": true,
+      "detail": "read from both canon owners",
+      "at": "2026-09-20T21:28:51.781Z"
+    }
+  ],
+  "fixture": {
+    "challenge_sha256": "sha256:d783f3852292aad6fbf8c5d36658816f3ed6aa38af5628b7b759fe2e5dd536bb",
+    "status": 501,
+    "findings": [],
+    "shape": [],
+    "hashed_members": [
+      "account_ref",
+      "auto_topup",
+      "benchmark_protocol_version",
+      "benchmark_repeats",
+      "benchmark_source_commit",
+      "benchmark_warmups",
+      "campaign_id",
+      "ceiling_amount",
+      "ceiling_denom",
+      "deposit_usd",
+      "environment_ref",
+      "execution_mode",
+      "external_spend_posture",
+      "image_build_identity_sha256",
+      "image_digest",
+      "kind",
+      "max_duration_seconds",
+      "op",
+      "provider_preflight_sha256",
+      "provider_selector",
+      "registry_credential_ref",
+      "registry_host",
+      "result_credential_ref",
+      "result_schema_version",
+      "result_tls_server_certificate_sha256",
+      "sdl_hash",
+      "stage",
+      "teardown_policy"
+    ]
+  },
+  "card": {
+    "findings": [],
+    "plants": [
+      {
+        "expected": "facet_not_verbatim",
+        "detected": true,
+        "findings": [
+          "facet_not_verbatim:deposit_usd"
+        ],
+        "changed": true
+      },
+      {
+        "expected": "request_hash_not_verbatim",
+        "detected": true,
+        "findings": [
+          "request_hash_not_verbatim"
+        ],
+        "changed": true
+      },
+      {
+        "expected": "audience_not_verbatim",
+        "detected": true,
+        "findings": [
+          "audience_not_verbatim"
+        ],
+        "changed": true
+      },
+      {
+        "expected": "facet_missing_in_card",
+        "detected": true,
+        "findings": [
+          "facet_missing_in_card:teardown_policy"
+        ],
+        "changed": true
+      },
+      {
+        "expected": "facet_smuggled",
+        "detected": true,
+        "findings": [
+          "facet_smuggled:auto_topup_note"
+        ],
+        "changed": true
+      },
+      {
+        "expected": "facet_duplicated",
+        "detected": true,
+        "findings": [
+          "facet_duplicated:account_ref"
+        ],
+        "changed": true
+      }
+    ]
+  },
+  "refusal": [],
+  "spa": [],
+  "source": [],
+  "fresh": {
+    "findings": [],
+    "minted": {
+      "status": 501,
+      "reason": "provider_operation_authority_required",
+      "request_hash": "sha256:60f70d4d8f95e1dbf7dbc64fa051a1fe7bd948600a0863b84b00d1e6800a1738",
+      "hashed_members": [
+        "account_ref",
+        "auto_topup",
+        "benchmark_protocol_version",
+        "benchmark_repeats",
+        "benchmark_source_commit",
+        "benchmark_warmups",
+        "campaign_id",
+        "ceiling_amount",
+        "ceiling_denom",
+        "deposit_usd",
+        "environment_ref",
+        "execution_mode",
+        "external_spend_posture",
+        "image_build_identity_sha256",
+        "image_digest",
+        "kind",
+        "max_duration_seconds",
+        "op",
+        "provider_preflight_sha256",
+        "provider_selector",
+        "registry_credential_ref",
+        "registry_host",
+        "result_credential_ref",
+        "result_schema_version",
+        "result_tls_server_certificate_sha256",
+        "sdl_hash",
+        "stage",
+        "teardown_policy"
+      ],
+      "steps": [
+        {
+          "method": "POST",
+          "route": "/v1/hypervisor/provider-accounts",
+          "status": 201,
+          "reason": null
+        },
+        {
+          "method": "POST",
+          "route": "/v1/hypervisor/provider-accounts/pacc_18d724b4a768f326/credential",
+          "status": 201,
+          "reason": null
+        },
+        {
+          "method": "POST",
+          "route": "/v1/hypervisor/provider-accounts/pacc_18d724b4a768f326/preflight",
+          "status": 200,
+          "reason": null
+        },
+        {
+          "method": "PATCH",
+          "route": "/v1/hypervisor/provider-accounts/pacc_18d724b4a768f326",
+          "status": 200,
+          "reason": null
+        },
+        {
+          "method": "POST",
+          "route": "/v1/hypervisor/provider-accounts/pacc_18d724b4a768f326/preflight",
+          "status": 200,
+          "reason": null
+        },
+        {
+          "method": "POST",
+          "route": "/v1/hypervisor/resource/budgets",
+          "status": 200,
+          "reason": null
+        },
+        {
+          "method": "POST",
+          "route": "/v1/hypervisor/provider-ops",
+          "status": 501,
+          "reason": "provider_operation_authority_required"
+        }
+      ],
+      "daemon": "http://127.0.0.1:39563"
+    }
+  },
+  "clauses": [
+    {
+      "n": 1,
+      "demand": "the challenge carries the exact bytes its commitment hashes cover — approval.request_preimage and approval.policy_preimage — and request_hash = sha256(request_preimage)",
+      "executed": [
+        {
+          "script": "fixture (this runner)",
+          "status": 0,
+          "seconds": 0,
+          "isolation": "in-process",
+          "ledger": {
+            "attempts": 0,
+            "loopback": 0,
+            "reach": 0
+          },
+          "evidence": "../../../../../../tmp/ioi-acf-xHw5sk/self-legs.json",
+          "evidence_sha256": "sha256:77287445afbd2d967430041156f51c20aad20bdf1f38defcfaaccf00d204d08f",
+          "executed_assertions": null,
+          "floor_expected": null
+        },
+        {
+          "script": "source (this runner)",
+          "status": 0,
+          "seconds": 0,
+          "isolation": "in-process",
+          "ledger": {
+            "attempts": 0,
+            "loopback": 0,
+            "reach": 0
+          },
+          "evidence": "../../../../../../tmp/ioi-acf-xHw5sk/self-legs.json",
+          "evidence_sha256": "sha256:77287445afbd2d967430041156f51c20aad20bdf1f38defcfaaccf00d204d08f",
+          "executed_assertions": null,
+          "floor_expected": null
+        },
+        {
+          "script": "fresh challenge (this runner)",
+          "status": 0,
+          "seconds": 0,
+          "isolation": "in-process",
+          "ledger": {
+            "attempts": 0,
+            "loopback": 0,
+            "reach": 0
+          },
+          "evidence": "../../../../../../tmp/ioi-acf-xHw5sk/self-legs.json",
+          "evidence_sha256": "sha256:77287445afbd2d967430041156f51c20aad20bdf1f38defcfaaccf00d204d08f",
+          "executed_assertions": null,
+          "floor_expected": null
+        }
+      ],
+      "absence": null,
+      "scheduled": null
+    },
+    {
+      "n": 2,
+      "demand": "the card renders every hashed facet member verbatim — the member's exact bytes — and, for a deployment_intent challenge, ceiling amount and denomination, deposit, provider selector, SDL hash, teardown policy and stage are all present",
+      "executed": [
+        {
+          "script": "card (this runner)",
+          "status": 0,
+          "seconds": 0,
+          "isolation": "in-process",
+          "ledger": {
+            "attempts": 0,
+            "loopback": 0,
+            "reach": 0
+          },
+          "evidence": "../../../../../../tmp/ioi-acf-xHw5sk/self-legs.json",
+          "evidence_sha256": "sha256:77287445afbd2d967430041156f51c20aad20bdf1f38defcfaaccf00d204d08f",
+          "executed_assertions": null,
+          "floor_expected": null
+        },
+        {
+          "script": "fresh challenge (this runner)",
+          "status": 0,
+          "seconds": 0,
+          "isolation": "in-process",
+          "ledger": {
+            "attempts": 0,
+            "loopback": 0,
+            "reach": 0
+          },
+          "evidence": "../../../../../../tmp/ioi-acf-xHw5sk/self-legs.json",
+          "evidence_sha256": "sha256:77287445afbd2d967430041156f51c20aad20bdf1f38defcfaaccf00d204d08f",
+          "executed_assertions": null,
+          "floor_expected": null
+        }
+      ],
+      "absence": null,
+      "scheduled": null
+    },
+    {
+      "n": 3,
+      "demand": "the card renders the full policy hash, request hash and grant audience; nothing is truncated",
+      "executed": [
+        {
+          "script": "card (this runner)",
+          "status": 0,
+          "seconds": 0,
+          "isolation": "in-process",
+          "ledger": {
+            "attempts": 0,
+            "loopback": 0,
+            "reach": 0
+          },
+          "evidence": "../../../../../../tmp/ioi-acf-xHw5sk/self-legs.json",
+          "evidence_sha256": "sha256:77287445afbd2d967430041156f51c20aad20bdf1f38defcfaaccf00d204d08f",
+          "executed_assertions": null,
+          "floor_expected": null
+        },
+        {
+          "script": "spa (this runner)",
+          "status": 0,
+          "seconds": 0,
+          "isolation": "in-process",
+          "ledger": {
+            "attempts": 0,
+            "loopback": 0,
+            "reach": 0
+          },
+          "evidence": "../../../../../../tmp/ioi-acf-xHw5sk/self-legs.json",
+          "evidence_sha256": "sha256:77287445afbd2d967430041156f51c20aad20bdf1f38defcfaaccf00d204d08f",
+          "executed_assertions": null,
+          "floor_expected": null
+        }
+      ],
+      "absence": null,
+      "scheduled": null
+    },
+    {
+      "n": 4,
+      "demand": "the card is byte-derived, never re-stated: a challenge whose echoed facets differ from the hashed bytes, whose preimage does not hash to its request hash, or which carries no preimage is refused by code and rendered with no approve form",
+      "executed": [
+        {
+          "script": "refusal (this runner)",
+          "status": 0,
+          "seconds": 0,
+          "isolation": "in-process",
+          "ledger": {
+            "attempts": 0,
+            "loopback": 0,
+            "reach": 0
+          },
+          "evidence": "../../../../../../tmp/ioi-acf-xHw5sk/self-legs.json",
+          "evidence_sha256": "sha256:77287445afbd2d967430041156f51c20aad20bdf1f38defcfaaccf00d204d08f",
+          "executed_assertions": null,
+          "floor_expected": null
+        }
+      ],
+      "absence": null,
+      "scheduled": null
+    },
+    {
+      "n": 5,
+      "demand": "a paraphrased, truncated or locally reconstructed facet set is a defect the diff harness names by code",
+      "executed": [
+        {
+          "script": "card (this runner)",
+          "status": 0,
+          "seconds": 0,
+          "isolation": "in-process",
+          "ledger": {
+            "attempts": 0,
+            "loopback": 0,
+            "reach": 0
+          },
+          "evidence": "../../../../../../tmp/ioi-acf-xHw5sk/self-legs.json",
+          "evidence_sha256": "sha256:77287445afbd2d967430041156f51c20aad20bdf1f38defcfaaccf00d204d08f",
+          "executed_assertions": null,
+          "floor_expected": null
+        }
+      ],
+      "absence": null,
+      "scheduled": null
+    },
+    {
+      "n": 6,
+      "demand": "the SPA session pane shows the same bytes: every facet, the full hashes and the full audience",
+      "executed": [
+        {
+          "script": "spa (this runner)",
+          "status": 0,
+          "seconds": 0,
+          "isolation": "in-process",
+          "ledger": {
+            "attempts": 0,
+            "loopback": 0,
+            "reach": 0
+          },
+          "evidence": "../../../../../../tmp/ioi-acf-xHw5sk/self-legs.json",
+          "evidence_sha256": "sha256:77287445afbd2d967430041156f51c20aad20bdf1f38defcfaaccf00d204d08f",
+          "executed_assertions": null,
+          "floor_expected": null
+        },
+        {
+          "script": "check:session-truth-rebind",
+          "kind": "app",
+          "status": 0,
+          "seconds": 5,
+          "isolation": "refused_and_recorded",
+          "ledger": {
+            "attempts": 18,
+            "loopback": 18,
+            "reach": 0
+          },
+          "evidence": "../../../../../../tmp/ioi-acf-xHw5sk/census/6-session-truth-rebind/session-truth-rebind.json",
+          "evidence_sha256": "sha256:d70e1d1ffa9fc64b6477090859644949e8822a9f2782e00cb54b68db95539ef9",
+          "executed_assertions": 11,
+          "floor_expected": 11
+        }
+      ],
+      "absence": null,
+      "scheduled": null
+    },
+    {
+      "n": 7,
+      "demand": "the resolved principal signs and the daemon admits the grant for exactly those facets",
+      "executed": [
+        {
+          "script": "check:custody-proven-private-routes",
+          "kind": "app",
+          "status": 0,
+          "seconds": 743,
+          "isolation": "refused_and_recorded",
+          "ledger": {
+            "attempts": 423,
+            "loopback": 423,
+            "reach": 0
+          },
+          "evidence": "../../../../../../tmp/ioi-acf-xHw5sk/census/7-custody-proven-private-routes/custody-proven-private-routes.json",
+          "evidence_sha256": "sha256:fd5b2562f9385c33a4b79412f27e4fbc5c53b5155daa5068242ec141b23a1654",
+          "executed_assertions": 39,
+          "floor_expected": 39
+        },
+        {
+          "script": "check:c8-bounded-live-effect-certificate",
+          "kind": "app",
+          "status": 0,
+          "seconds": 8,
+          "isolation": "refused_and_recorded",
+          "ledger": {
+            "attempts": 2,
+            "loopback": 2,
+            "reach": 0
+          },
+          "evidence": "../../../../../../tmp/ioi-acf-xHw5sk/census/7-c8-bounded-live-effect-certificate/c8-bounded-live-effect-certificate.json",
+          "evidence_sha256": "sha256:88ef556f6be1428c4f53ffb084ccc81cc94a4f90f924e67e7b301d4b632abdd4",
+          "executed_assertions": 9,
+          "floor_expected": 9
+        },
+        {
+          "script": "check:provider-proposal-provenance",
+          "kind": "app",
+          "status": 0,
+          "seconds": 3,
+          "isolation": "refused_and_recorded",
+          "ledger": {
+            "attempts": 0,
+            "loopback": 0,
+            "reach": 0
+          },
+          "evidence": "../../../../../../tmp/ioi-acf-xHw5sk/census/7-provider-proposal-provenance/provider-proposal-provenance.json",
+          "evidence_sha256": "sha256:807a7ae01617cf2c56324192efd2836517d6efba29de13fdfa6c108539638494",
+          "executed_assertions": 23,
+          "floor_expected": 23
+        }
+      ],
+      "absence": {
+        "what": "a provider-operation admission AFTER a rendered card is driven by no isolated gate: a live create reaches the provider's console (never loopback, never spend-free), and the simulator-mode admission lives only in the shared-daemon adapter done-bar; the retained 2026-08-21 run's challenge → grant → admitted one-shot lease is replayed by check:c8-bounded-live-effect-certificate, and fresh admissions under the real wallet fixture by check:custody-proven-private-routes",
+        "owner": "M09.10's isolated form · the scheduled alpha journey (clause 12)"
+      },
+      "scheduled": null
+    },
+    {
+      "n": 8,
+      "demand": "sign or refuse, each with a receipt",
+      "executed": [
+        {
+          "script": "check:custody-proven-private-routes",
+          "kind": "app",
+          "status": 0,
+          "seconds": 743,
+          "isolation": "refused_and_recorded",
+          "ledger": {
+            "attempts": 423,
+            "loopback": 423,
+            "reach": 0
+          },
+          "evidence": "../../../../../../tmp/ioi-acf-xHw5sk/census/7-custody-proven-private-routes/custody-proven-private-routes.json",
+          "evidence_sha256": "sha256:fd5b2562f9385c33a4b79412f27e4fbc5c53b5155daa5068242ec141b23a1654",
+          "executed_assertions": 39,
+          "floor_expected": 39
+        }
+      ],
+      "absence": {
+        "what": "a denial produces no signed receipt anywhere: the serve's deny mints nothing and writes no daemon receipt, and no deny act exists on the authority node or the wallet fixture",
+        "owner": "a follow-on slice of M03.9 (owner question, R-212)"
+      },
+      "scheduled": null
+    },
+    {
+      "n": 9,
+      "demand": "the grant is delivered back to the requesting surface",
+      "executed": [],
+      "absence": {
+        "what": "the in-process serve delivers the grant it mints for session execute (the alpha journey); a graduated wallet app's handoff to the requesting surface does not exist — the wallet-network prototype is a design mock",
+        "owner": "the graduated wallet app (owner question, R-212)"
+      },
+      "scheduled": null
+    },
+    {
+      "n": 10,
+      "demand": "the App parks a blocked provider operation as this card and hands it to the custody tier",
+      "executed": [],
+      "absence": {
+        "what": "no App lane creates a pendingApproval of kind provider_operation today; the renderer and the pane consume it when one does",
+        "owner": "M08.11 (the spend-approval lane: parking a blocked provider operation as this card in the App and handing it to the custody tier — R-6 resolved by R-212: M03.9 owns the grammar and its oracle, M08.11 the routing)"
+      },
+      "scheduled": null
+    },
+    {
+      "n": 11,
+      "demand": "the facet lanes beyond the direct-Akash deployment_intent challenge (quote-gated adapters, storage archive operations) render byte-derived",
+      "executed": [],
+      "absence": {
+        "what": "the grammar reads any capability-lease preimage, but only the deployment_intent challenge is fixtured and drilled; the other lanes' members are not pinned",
+        "owner": "a follow-on slice of M03.9 (R-212(1))"
+      },
+      "scheduled": null
+    },
+    {
+      "n": 12,
+      "demand": "the session-execute and custody cards live, under the deployment-local custody tier",
+      "executed": [],
+      "absence": null,
+      "scheduled": {
+        "what": "check:alpha-journey with IOI_ALPHA_JOURNEY_AUTHORITY=deployment — the run parks on Work / Sessions and the SPA pane, the operator approves with the deployment-local key, the daemon admits and executes, the receipt binds",
+        "prerequisite": "a local model (Ollama, IOI_ALPHA_MODEL) and the deployment-local authority node (M03.8), IOI_ALPHA_JOURNEY_AUTHORITY=deployment",
+        "ruling": "R-139 (2026-09-14) and R-212 (2026-09-20): a missing local model or authority node blocks that RUN, never the unit; the card grammar is proven spend-free over daemon-minted bytes"
+      }
+    }
+  ],
+  "verdict": {
+    "kind": "named_failure",
+    "failures": [],
+    "absences": [
+      {
+        "n": 7,
+        "what": "a provider-operation admission AFTER a rendered card is driven by no isolated gate: a live create reaches the provider's console (never loopback, never spend-free), and the simulator-mode admission lives only in the shared-daemon adapter done-bar; the retained 2026-08-21 run's challenge → grant → admitted one-shot lease is replayed by check:c8-bounded-live-effect-certificate, and fresh admissions under the real wallet fixture by check:custody-proven-private-routes",
+        "owner": "M09.10's isolated form · the scheduled alpha journey (clause 12)"
+      },
+      {
+        "n": 8,
+        "what": "a denial produces no signed receipt anywhere: the serve's deny mints nothing and writes no daemon receipt, and no deny act exists on the authority node or the wallet fixture",
+        "owner": "a follow-on slice of M03.9 (owner question, R-212)"
+      },
+      {
+        "n": 9,
+        "what": "the in-process serve delivers the grant it mints for session execute (the alpha journey); a graduated wallet app's handoff to the requesting surface does not exist — the wallet-network prototype is a design mock",
+        "owner": "the graduated wallet app (owner question, R-212)"
+      },
+      {
+        "n": 10,
+        "what": "no App lane creates a pendingApproval of kind provider_operation today; the renderer and the pane consume it when one does",
+        "owner": "M08.11 (the spend-approval lane: parking a blocked provider operation as this card in the App and handing it to the custody tier — R-6 resolved by R-212: M03.9 owns the grammar and its oracle, M08.11 the routing)"
+      },
+      {
+        "n": 11,
+        "what": "the grammar reads any capability-lease preimage, but only the deployment_intent challenge is fixtured and drilled; the other lanes' members are not pinned",
+        "owner": "a follow-on slice of M03.9 (R-212(1))"
+      },
+      {
+        "n": 12,
+        "what": "SCHEDULED-OUTSTANDING: check:alpha-journey with IOI_ALPHA_JOURNEY_AUTHORITY=deployment — the run parks on Work / Sessions and the SPA pane, the operator approves with the deployment-local key, the daemon admits and executes, the receipt binds",
+        "owner": "prerequisite: a local model (Ollama, IOI_ALPHA_MODEL) and the deployment-local authority node (M03.8), IOI_ALPHA_JOURNEY_AUTHORITY=deployment · R-139 (2026-09-14) and R-212 (2026-09-20): a missing local model or authority node blocks that RUN, never the unit; the card grammar is proven spend-free over daemon-minted bytes"
+      }
+    ]
+  },
+  "mutation": null,
+  "host": {
+    "isolation": "refused_and_recorded",
+    "strace": "strace -- version 6.8",
+    "load": [
+      "2.86",
+      "3.13",
+      "2.77"
+    ],
+    "daemon_binary": "/home/heathledger/Documents/ioi/repos/ioi/target/debug/hypervisor-daemon",
+    "work_dir": "/tmp/ioi-acf-xHw5sk",
+    "live_prerequisites_present": false
+  },
+  "finished_at": "2026-09-20T21:42:07.515Z",
+  "summary": {
+    "passed": 11,
+    "total": 11
+  }
+}

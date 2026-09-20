@@ -85,7 +85,8 @@ const ciChecks = new Set(
 // 1B proof (M12.5, 2026-09-20, `scripts/check-horizon-1b-improvement.mjs`) and the Horizon 2 gate
 // (M12.6, 2026-09-20, `scripts/check-horizon-2-distributed-work.mjs`) and the provider-neutral live
 // transaction gate (M09.6, 2026-09-20, `scripts/check-provider-neutral-live-transaction.mjs`) and the C8
-// generation gate (M12.9, 2026-09-20, `scripts/check-c8-bounded-live-effect-certificate.mjs`). Non-verifier
+// generation gate (M12.9, 2026-09-20, `scripts/check-c8-bounded-live-effect-certificate.mjs`) and the approval-card
+// facets gate (M03.9, 2026-09-20, `scripts/check-approval-card-facets.mjs`). Non-verifier
 // checks (bundlers, generators) are outside this gate's subject.
 const ciVerifierScripts = new Map();
 for (const check of ciChecks) {
@@ -94,7 +95,7 @@ for (const check of ciChecks) {
     fail("ci_invokes_unknown_script", `${check} is run by ci.yml but is not a script in apps/hypervisor/package.json`);
     continue;
   }
-  const m = cmd.match(/(scripts\/(?:verify-[A-Za-z0-9._-]+|check-landing-designations|check-standalone-conformance|check-zero-to-operable|check-undeniable-product-proof|check-horizon-1b-improvement|check-horizon-2-distributed-work|check-provider-neutral-live-transaction|check-c8-bounded-live-effect-certificate)\.mjs)/);
+  const m = cmd.match(/(scripts\/(?:verify-[A-Za-z0-9._-]+|check-landing-designations|check-standalone-conformance|check-zero-to-operable|check-undeniable-product-proof|check-horizon-1b-improvement|check-horizon-2-distributed-work|check-provider-neutral-live-transaction|check-c8-bounded-live-effect-certificate|check-approval-card-facets)\.mjs)/);
   if (m) ciVerifierScripts.set(check, m[1]);
 }
 

@@ -1,0 +1,143 @@
+{
+  "schema_version": "ioi.evidence.provider-challenge-fixture.v1",
+  "minted_at": "2026-09-20T21:24:18.866Z",
+  "basis": {
+    "commit": "186178798b03ac9adfe8c31d20b697ef73fb8e2c",
+    "daemon_binary_sha256": "sha256:da518468e7b842996fdebb45a19c2e5c52570b45cf8fcab5dcf9b8521cb83bfa",
+    "daemon": "an isolated hypervisor-daemon started by apps/hypervisor/scripts/lib/isolated-daemon.mjs (no wallet client configured: the challenge's audience is null and its status is the not-configured form)"
+  },
+  "what_this_is": "one direct-Akash deployment_intent capability-lease challenge minted by an ISOLATED daemon against a provider account holding a sealed FAKE credential, in live mode at a dead loopback endpoint, with an external-spend budget — the wallet gate refused the create and echoed the challenge before any provider call; no grant was presented, nothing was admitted or cast, nothing was spent",
+  "what_this_is_not": "not a grant, not an admitted lease and not a live run: the bytes a signing surface renders from and re-derives the request hash over; the runner cross-checks a fresh challenge from an isolated daemon against it in full mode",
+  "request_body": {
+    "provider_id": "pacc_18d7246c0a0c791d",
+    "op": "create",
+    "environment_ref": "env-approval-card-fixture",
+    "plan": {
+      "sdl_yaml": "version: \"2.0\"\nservices:\n  web:\n    image: nginx:alpine\n    expose:\n      - port: 80\n        as: 80\n        to:\n          - global: true\nprofiles:\n  compute:\n    web:\n      resources:\n        cpu:\n          units: 0.1\n        memory:\n          size: 128Mi\n        storage:\n          size: 128Mi\n  placement:\n    dcloud:\n      pricing:\n        web:\n          denom: uact\n          amount: 1000\ndeployment:\n  web:\n    dcloud:\n      profile: web\n      count: 1\n",
+      "deposit_usd": 1,
+      "ceiling_amount": "1000",
+      "ceiling_denom": "uact",
+      "auto_topup": false,
+      "provider_selector": {
+        "mode": "any_marketplace",
+        "selection": "lowest_qualified_bid"
+      }
+    },
+    "owner_ref": "org://local",
+    "idempotency_key": "approval-card-fixture",
+    "teardown_policy": "always_teardown_required"
+  },
+  "status": 501,
+  "challenge": {
+    "account_ref": "provider-account://pacc_18d7246c0a0c791d",
+    "allowed_tools": [
+      "provider.create"
+    ],
+    "approval": {
+      "audience": null,
+      "policy_hash": "sha256:1c15841a93df27fd14f752bfedfdf6e468017b8e189786b407cbaca30a3bb8af",
+      "policy_preimage": "{\"allowed_tools\":[\"provider.create\"],\"authority_provider_ref\":\"wallet.network\",\"backing_provider\":\"provider:account:pacc_18d7246c0a0c791d\",\"domain\":\"hypervisor.provider.op.policy.v1\",\"resource_refs\":[\"provider-account://pacc_18d7246c0a0c791d\",\"env-approval-card-fixture\"],\"scopes\":[\"provider.provision\"]}",
+      "request_hash": "sha256:45499f501b9db266492a23187d000f7104f75e5c901067962937527c4bafc23b",
+      "request_preimage": "{\"allowed_tools\":[\"provider.create\"],\"domain\":\"hypervisor.provider.op.request.v1\",\"facets\":{\"account_ref\":\"provider-account://pacc_18d7246c0a0c791d\",\"auto_topup\":false,\"benchmark_protocol_version\":null,\"benchmark_repeats\":null,\"benchmark_source_commit\":null,\"benchmark_warmups\":null,\"campaign_id\":null,\"ceiling_amount\":\"1000\",\"ceiling_denom\":\"uact\",\"deposit_usd\":1.0,\"environment_ref\":\"env-approval-card-fixture\",\"execution_mode\":\"live\",\"external_spend_posture\":\"external_spend\",\"image_build_identity_sha256\":null,\"image_digest\":null,\"kind\":\"akash\",\"max_duration_seconds\":null,\"op\":\"create\",\"provider_preflight_sha256\":null,\"provider_selector\":{\"mode\":\"any_marketplace\",\"selection\":\"lowest_qualified_bid\"},\"registry_credential_ref\":null,\"registry_host\":null,\"result_credential_ref\":null,\"result_schema_version\":null,\"result_tls_server_certificate_sha256\":null,\"sdl_hash\":\"sha256:1963b29e21efe0bf2dae7a65ec3cc67fabf354cba2837d4717b3f6e9a7474cba\",\"stage\":\"deployment_intent\",\"teardown_policy\":\"always_teardown_required\"},\"resource_refs\":[\"provider-account://pacc_18d7246c0a0c791d\",\"env-approval-card-fixture\"],\"scopes\":[\"provider.provision\"]}",
+      "target_scope": "scope:hypervisor.live-route.hypervisor-provider-op"
+    },
+    "authority_challenge": {
+      "error": {
+        "code": "live_route_authority_principal_not_configured",
+        "message": "IOI_HYPERVISOR_AUTHORITY_PRINCIPAL_REF is required; request-carried issuer fields never select deployment authority",
+        "runtimeTruthSource": "daemon-runtime"
+      }
+    },
+    "decision": "blocked",
+    "host_mutation": false,
+    "lease_request_facets": {
+      "auto_topup": false,
+      "benchmark_protocol_version": null,
+      "benchmark_repeats": null,
+      "benchmark_source_commit": null,
+      "benchmark_warmups": null,
+      "campaign_id": null,
+      "ceiling_amount": "1000",
+      "ceiling_denom": "uact",
+      "deposit_usd": 1,
+      "execution_mode": "live",
+      "image_build_identity_sha256": null,
+      "image_digest": null,
+      "max_duration_seconds": null,
+      "provider_id": "pacc_18d7246c0a0c791d",
+      "provider_preflight_sha256": null,
+      "provider_selector": {
+        "mode": "any_marketplace",
+        "selection": "lowest_qualified_bid"
+      },
+      "registry_credential_ref": null,
+      "registry_host": null,
+      "result_credential_ref": null,
+      "result_schema_version": null,
+      "result_tls_server_certificate_sha256": null,
+      "sdl_hash": "sha256:1963b29e21efe0bf2dae7a65ec3cc67fabf354cba2837d4717b3f6e9a7474cba",
+      "sdl_yaml": "version: \"2.0\"\nservices:\n  web:\n    image: nginx:alpine\n    expose:\n      - port: 80\n        as: 80\n        to:\n          - global: true\nprofiles:\n  compute:\n    web:\n      resources:\n        cpu:\n          units: 0.1\n        memory:\n          size: 128Mi\n        storage:\n          size: 128Mi\n  placement:\n    dcloud:\n      pricing:\n        web:\n          denom: uact\n          amount: 1000\ndeployment:\n  web:\n    dcloud:\n      profile: web\n      count: 1\n",
+      "stage": "deployment_intent",
+      "teardown_policy": "always_teardown_required"
+    },
+    "message": "This crossing requires independently resolved, atomically consumed owner authority.",
+    "ok": false,
+    "reason": "provider_operation_authority_required",
+    "receipt_ref": "agentgres://provider-receipt/prc_18d72474220de68c",
+    "required_authority_scope": "scope:hypervisor.live-route.hypervisor-provider-op",
+    "required_scopes": [
+      "provider.provision"
+    ],
+    "resource_refs": [
+      "provider-account://pacc_18d7246c0a0c791d",
+      "env-approval-card-fixture"
+    ],
+    "spend_estimate": null
+  },
+  "challenge_sha256": "sha256:d783f3852292aad6fbf8c5d36658816f3ed6aa38af5628b7b759fe2e5dd536bb",
+  "redacted_members": [],
+  "steps": [
+    {
+      "method": "POST",
+      "route": "/v1/hypervisor/provider-accounts",
+      "status": 201,
+      "reason": null
+    },
+    {
+      "method": "POST",
+      "route": "/v1/hypervisor/provider-accounts/pacc_18d7246c0a0c791d/credential",
+      "status": 201,
+      "reason": null
+    },
+    {
+      "method": "POST",
+      "route": "/v1/hypervisor/provider-accounts/pacc_18d7246c0a0c791d/preflight",
+      "status": 200,
+      "reason": null
+    },
+    {
+      "method": "PATCH",
+      "route": "/v1/hypervisor/provider-accounts/pacc_18d7246c0a0c791d",
+      "status": 200,
+      "reason": null
+    },
+    {
+      "method": "POST",
+      "route": "/v1/hypervisor/provider-accounts/pacc_18d7246c0a0c791d/preflight",
+      "status": 200,
+      "reason": null
+    },
+    {
+      "method": "POST",
+      "route": "/v1/hypervisor/resource/budgets",
+      "status": 200,
+      "reason": null
+    },
+    {
+      "method": "POST",
+      "route": "/v1/hypervisor/provider-ops",
+      "status": 501,
+      "reason": "provider_operation_authority_required"
+    }
+  ]
+}
