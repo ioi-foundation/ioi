@@ -1,0 +1,382 @@
+{
+  "schema": "ioi.horizon-1b-improvement-evidence.v1",
+  "mode": "full",
+  "started_at": "2026-09-20T15:45:02.591Z",
+  "drills": [
+    {
+      "name": "clause 5's seven demands and the falsifier are bound: every executed clause names a real hypervisor-workspace script with a pinned floor (improvement-governance-spine, governed-evaluation-plane, improvement-role-separation = 327 assertions, all isolated), every named failure carries its owner, clauses cover 1–8 exactly once",
+      "pass": true,
+      "detail": "327 assertions",
+      "at": "2026-09-20T15:45:02.592Z"
+    },
+    {
+      "name": "each executed gate's SOURCE carries what its clause claims: the spine freezes an order-0 campaign, drives exposure exhaustion and measures the falsifier and the handoff (every other family byte-identical, apply refused before approval); the role gate binds three principals and refuses crossings by name; the evaluation gate carries the reproduction leg ([P14], independent_reproduction lane, independent_reproducer) and retains negative results across a restart",
+      "pass": true,
+      "detail": "read from the three sources",
+      "at": "2026-09-20T15:45:02.594Z"
+    },
+    {
+      "name": "the two verifiers the unit's check text once cited (apply-time governance gates, what-if simulation replay) are NOT composed: they target the shared daemon with Playwright and are registered by no npm script, so this gate names them dropped rather than reading them as evidence",
+      "pass": true,
+      "detail": "verify-hypervisor-improvement-governance-gates.mjs: present, unregistered · verify-hypervisor-improvement-simulation-replay.mjs: present, unregistered",
+      "at": "2026-09-20T15:45:02.594Z"
+    },
+    {
+      "name": "the verdict is a pure function of the clause rows and carries the falsifier's own conditions as its rules: all executed green with no absence → PASS; a typed absence → NAMED FAILURE; a fabricated success row, a red gate, a census below its floor, a reach beyond loopback, an unowned absence or a missing clause → FAIL",
+      "pass": true,
+      "detail": "pass/named_failure/fail/fail/fail/fail/fail/fail",
+      "at": "2026-09-20T15:45:02.594Z"
+    },
+    {
+      "name": "canon binds the gate: execution-horizons.md § Horizon 1B names check:horizon-1b-improvement, reads the coordinating work as the ioi.ai orchestration composed over the System (R-192), lists the reproduction leg and the named failures, and claims no Horizon 1B pass",
+      "pass": true,
+      "detail": "read from execution-horizons.md",
+      "at": "2026-09-20T15:45:02.594Z"
+    }
+  ],
+  "clauses": [
+    {
+      "n": 1,
+      "demand": "frozen order-0 epoch",
+      "executed": [
+        {
+          "script": "check:improvement-governance-spine",
+          "status": 0,
+          "seconds": 96,
+          "isolation": "refused_and_recorded",
+          "ledger": {
+            "attempts": 13,
+            "loopback": 13,
+            "reach": 0
+          },
+          "evidence": "../../../../../../tmp/ioi-horizon-1b-U3QnL7/census/improvement-governance-spine/improvement-governance-spine.json",
+          "evidence_sha256": "e49688aa04fdbc0446de83796cf90e5babbe7497446d56ccfc9bb0977a2880a2",
+          "executed_assertions": 102,
+          "floor_expected": 102
+        },
+        {
+          "script": "check:governed-evaluation-plane",
+          "status": 0,
+          "seconds": 377,
+          "isolation": "refused_and_recorded",
+          "ledger": {
+            "attempts": 48,
+            "loopback": 48,
+            "reach": 0
+          },
+          "evidence": "../../../../../../tmp/ioi-horizon-1b-U3QnL7/census/governed-evaluation-plane/governed-evaluation-plane.json",
+          "evidence_sha256": "4a44509c231c2b82ae55183876ceeb1ce0a0957f7810a27218db41c2efab37ad",
+          "executed_assertions": 156,
+          "floor_expected": 156
+        }
+      ],
+      "absence": {
+        "what": "the epoch is frozen over a core-owned target (automation-affinity, skill-entry), not over the selected bounded software-change target base; order 0 is asserted from the spine's own campaign, not contrasted with a higher order",
+        "owner": "M12.4 (product_track)"
+      }
+    },
+    {
+      "n": 2,
+      "demand": "finite reservations",
+      "executed": [
+        {
+          "script": "check:improvement-governance-spine",
+          "status": 0,
+          "seconds": 96,
+          "isolation": "refused_and_recorded",
+          "ledger": {
+            "attempts": 13,
+            "loopback": 13,
+            "reach": 0
+          },
+          "evidence": "../../../../../../tmp/ioi-horizon-1b-U3QnL7/census/improvement-governance-spine/improvement-governance-spine.json",
+          "evidence_sha256": "e49688aa04fdbc0446de83796cf90e5babbe7497446d56ccfc9bb0977a2880a2",
+          "executed_assertions": 102,
+          "floor_expected": 102
+        },
+        {
+          "script": "check:governed-evaluation-plane",
+          "status": 0,
+          "seconds": 377,
+          "isolation": "refused_and_recorded",
+          "ledger": {
+            "attempts": 48,
+            "loopback": 48,
+            "reach": 0
+          },
+          "evidence": "../../../../../../tmp/ioi-horizon-1b-U3QnL7/census/governed-evaluation-plane/governed-evaluation-plane.json",
+          "evidence_sha256": "4a44509c231c2b82ae55183876ceeb1ce0a0957f7810a27218db41c2efab37ad",
+          "executed_assertions": 156,
+          "floor_expected": 156
+        }
+      ],
+      "absence": {
+        "what": "finite reservations close on the evaluation-exposure ledger (budget, reserve, spend, return, exhaustion); the ancestor resource and statistical-risk ledgers, wall-clock and false-promotion ceilings and disjoint reservations for concurrent descendants are not driven",
+        "owner": "M10.8 (the ancestor resource and statistical-risk ledgers; the assurance tiers above independent_review)"
+      }
+    },
+    {
+      "n": 3,
+      "demand": "candidate/evaluator separation",
+      "executed": [
+        {
+          "script": "check:improvement-role-separation",
+          "status": 0,
+          "seconds": 70,
+          "isolation": "refused_and_recorded",
+          "ledger": {
+            "attempts": 12,
+            "loopback": 12,
+            "reach": 0
+          },
+          "evidence": "../../../../../../tmp/ioi-horizon-1b-U3QnL7/census/improvement-role-separation/improvement-role-separation.json",
+          "evidence_sha256": "8f87b4a502ea3e69df24f656418d75212ed94e19cace0fd2b7f0efc804e02775",
+          "executed_assertions": 69,
+          "floor_expected": 69
+        },
+        {
+          "script": "check:governed-evaluation-plane",
+          "status": 0,
+          "seconds": 377,
+          "isolation": "refused_and_recorded",
+          "ledger": {
+            "attempts": 48,
+            "loopback": 48,
+            "reach": 0
+          },
+          "evidence": "../../../../../../tmp/ioi-horizon-1b-U3QnL7/census/governed-evaluation-plane/governed-evaluation-plane.json",
+          "evidence_sha256": "4a44509c231c2b82ae55183876ceeb1ce0a0957f7810a27218db41c2efab37ad",
+          "executed_assertions": 156,
+          "floor_expected": 156
+        }
+      ],
+      "absence": {
+        "what": "separation is proven over three real principals at independent_review and over the evaluator lifecycle; no candidate/attempt/finding object exists (candidates are a derived projection over nominations) and the tiers above independent_review fail closed assurance_profile_not_evidenced",
+        "owner": "M10.8 (the ancestor resource and statistical-risk ledgers; the assurance tiers above independent_review) · the ioi.ai application (attempt and finding objects, R-155)"
+      }
+    },
+    {
+      "n": 4,
+      "demand": "exposure ledger (append-only)",
+      "executed": [
+        {
+          "script": "check:improvement-governance-spine",
+          "status": 0,
+          "seconds": 96,
+          "isolation": "refused_and_recorded",
+          "ledger": {
+            "attempts": 13,
+            "loopback": 13,
+            "reach": 0
+          },
+          "evidence": "../../../../../../tmp/ioi-horizon-1b-U3QnL7/census/improvement-governance-spine/improvement-governance-spine.json",
+          "evidence_sha256": "e49688aa04fdbc0446de83796cf90e5babbe7497446d56ccfc9bb0977a2880a2",
+          "executed_assertions": 102,
+          "floor_expected": 102
+        },
+        {
+          "script": "check:governed-evaluation-plane",
+          "status": 0,
+          "seconds": 377,
+          "isolation": "refused_and_recorded",
+          "ledger": {
+            "attempts": 48,
+            "loopback": 48,
+            "reach": 0
+          },
+          "evidence": "../../../../../../tmp/ioi-horizon-1b-U3QnL7/census/governed-evaluation-plane/governed-evaluation-plane.json",
+          "evidence_sha256": "4a44509c231c2b82ae55183876ceeb1ce0a0957f7810a27218db41c2efab37ad",
+          "executed_assertions": 156,
+          "floor_expected": 156
+        }
+      ],
+      "absence": {
+        "what": "ancestor-inherited spend across a child campaign (a child cannot reset spent exposure by changing identity or order) is not driven",
+        "owner": "M10.8 (the ancestor resource and statistical-risk ledgers; the assurance tiers above independent_review)"
+      }
+    },
+    {
+      "n": 5,
+      "demand": "negative-result retention",
+      "executed": [
+        {
+          "script": "check:governed-evaluation-plane",
+          "status": 0,
+          "seconds": 377,
+          "isolation": "refused_and_recorded",
+          "ledger": {
+            "attempts": 48,
+            "loopback": 48,
+            "reach": 0
+          },
+          "evidence": "../../../../../../tmp/ioi-horizon-1b-U3QnL7/census/governed-evaluation-plane/governed-evaluation-plane.json",
+          "evidence_sha256": "4a44509c231c2b82ae55183876ceeb1ce0a0957f7810a27218db41c2efab37ad",
+          "executed_assertions": 156,
+          "floor_expected": 156
+        },
+        {
+          "script": "check:improvement-role-separation",
+          "status": 0,
+          "seconds": 70,
+          "isolation": "refused_and_recorded",
+          "ledger": {
+            "attempts": 12,
+            "loopback": 12,
+            "reach": 0
+          },
+          "evidence": "../../../../../../tmp/ioi-horizon-1b-U3QnL7/census/improvement-role-separation/improvement-role-separation.json",
+          "evidence_sha256": "8f87b4a502ea3e69df24f656418d75212ed94e19cace0fd2b7f0efc804e02775",
+          "executed_assertions": 69,
+          "floor_expected": 69
+        }
+      ],
+      "absence": {
+        "what": "exploit findings and attempt ancestry have no object; negative, invalid, blocked and rejected results are retained, immutable and reproduced across a restart",
+        "owner": "the ioi.ai application (attempt and finding objects, R-155)"
+      }
+    },
+    {
+      "n": 6,
+      "demand": "reproduction",
+      "executed": [
+        {
+          "script": "check:governed-evaluation-plane",
+          "status": 0,
+          "seconds": 377,
+          "isolation": "refused_and_recorded",
+          "ledger": {
+            "attempts": 48,
+            "loopback": 48,
+            "reach": 0
+          },
+          "evidence": "../../../../../../tmp/ioi-horizon-1b-U3QnL7/census/governed-evaluation-plane/governed-evaluation-plane.json",
+          "evidence_sha256": "4a44509c231c2b82ae55183876ceeb1ce0a0957f7810a27218db41c2efab37ad",
+          "executed_assertions": 156,
+          "floor_expected": 156
+        }
+      ],
+      "absence": {
+        "what": "the reproducer is the same operator under local_lightweight; a fourth principal bound to neither search nor authority at independent_review is not driven",
+        "owner": "M10.8 · a credentialed run"
+      }
+    },
+    {
+      "n": 7,
+      "demand": "target-owner UpgradeProposal handoff with no campaign-owned production mutation",
+      "executed": [
+        {
+          "script": "check:improvement-governance-spine",
+          "status": 0,
+          "seconds": 96,
+          "isolation": "refused_and_recorded",
+          "ledger": {
+            "attempts": 13,
+            "loopback": 13,
+            "reach": 0
+          },
+          "evidence": "../../../../../../tmp/ioi-horizon-1b-U3QnL7/census/improvement-governance-spine/improvement-governance-spine.json",
+          "evidence_sha256": "e49688aa04fdbc0446de83796cf90e5babbe7497446d56ccfc9bb0977a2880a2",
+          "executed_assertions": 102,
+          "floor_expected": 102
+        }
+      ],
+      "absence": {
+        "what": "the handoff carries no evidence/recovery bundle: ImprovementEvidenceClaim is unregistered (recursive_claim_unsupported); shadow, canary and activation crossings are the target owner's ordinary release path and are not driven here",
+        "owner": "M10.8 · a follow-on slice of M12.5 (the evidence claim)"
+      }
+    },
+    {
+      "n": 8,
+      "demand": "the falsifier: a campaign that changed production has falsified itself",
+      "executed": [
+        {
+          "script": "check:improvement-governance-spine",
+          "status": 0,
+          "seconds": 96,
+          "isolation": "refused_and_recorded",
+          "ledger": {
+            "attempts": 13,
+            "loopback": 13,
+            "reach": 0
+          },
+          "evidence": "../../../../../../tmp/ioi-horizon-1b-U3QnL7/census/improvement-governance-spine/improvement-governance-spine.json",
+          "evidence_sha256": "e49688aa04fdbc0446de83796cf90e5babbe7497446d56ccfc9bb0977a2880a2",
+          "executed_assertions": 102,
+          "floor_expected": 102
+        }
+      ],
+      "absence": {
+        "what": "byte-identity is measured over the isolated verifier's own observable families at every campaign operation; the same measurement over the flagship System's records (the M12.4 path) is not driven",
+        "owner": "M12.4 (product_track)"
+      }
+    }
+  ],
+  "verdict": {
+    "kind": "named_failure",
+    "failures": [],
+    "absences": [
+      {
+        "n": 1,
+        "what": "the epoch is frozen over a core-owned target (automation-affinity, skill-entry), not over the selected bounded software-change target base; order 0 is asserted from the spine's own campaign, not contrasted with a higher order",
+        "owner": "M12.4 (product_track)"
+      },
+      {
+        "n": 2,
+        "what": "finite reservations close on the evaluation-exposure ledger (budget, reserve, spend, return, exhaustion); the ancestor resource and statistical-risk ledgers, wall-clock and false-promotion ceilings and disjoint reservations for concurrent descendants are not driven",
+        "owner": "M10.8 (the ancestor resource and statistical-risk ledgers; the assurance tiers above independent_review)"
+      },
+      {
+        "n": 3,
+        "what": "separation is proven over three real principals at independent_review and over the evaluator lifecycle; no candidate/attempt/finding object exists (candidates are a derived projection over nominations) and the tiers above independent_review fail closed assurance_profile_not_evidenced",
+        "owner": "M10.8 (the ancestor resource and statistical-risk ledgers; the assurance tiers above independent_review) · the ioi.ai application (attempt and finding objects, R-155)"
+      },
+      {
+        "n": 4,
+        "what": "ancestor-inherited spend across a child campaign (a child cannot reset spent exposure by changing identity or order) is not driven",
+        "owner": "M10.8 (the ancestor resource and statistical-risk ledgers; the assurance tiers above independent_review)"
+      },
+      {
+        "n": 5,
+        "what": "exploit findings and attempt ancestry have no object; negative, invalid, blocked and rejected results are retained, immutable and reproduced across a restart",
+        "owner": "the ioi.ai application (attempt and finding objects, R-155)"
+      },
+      {
+        "n": 6,
+        "what": "the reproducer is the same operator under local_lightweight; a fourth principal bound to neither search nor authority at independent_review is not driven",
+        "owner": "M10.8 · a credentialed run"
+      },
+      {
+        "n": 7,
+        "what": "the handoff carries no evidence/recovery bundle: ImprovementEvidenceClaim is unregistered (recursive_claim_unsupported); shadow, canary and activation crossings are the target owner's ordinary release path and are not driven here",
+        "owner": "M10.8 · a follow-on slice of M12.5 (the evidence claim)"
+      },
+      {
+        "n": 8,
+        "what": "byte-identity is measured over the isolated verifier's own observable families at every campaign operation; the same measurement over the flagship System's records (the M12.4 path) is not driven",
+        "owner": "M12.4 (product_track)"
+      }
+    ]
+  },
+  "mutation": null,
+  "host": {
+    "isolation": "refused_and_recorded",
+    "strace": "strace -- version 6.8",
+    "load": [
+      "2.21",
+      "2.38",
+      "2.63"
+    ],
+    "daemon_binary": "/home/heathledger/Documents/ioi/repos/ioi/target/debug/hypervisor-daemon",
+    "work_dir": "/tmp/ioi-horizon-1b-U3QnL7"
+  },
+  "network_blocked_completion": {
+    "runs": 3,
+    "attempts": 73,
+    "reach": 0
+  },
+  "finished_at": "2026-09-20T15:54:05.469Z",
+  "summary": {
+    "passed": 5,
+    "total": 5
+  }
+}

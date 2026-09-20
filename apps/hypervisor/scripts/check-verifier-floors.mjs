@@ -81,8 +81,9 @@ const ciChecks = new Set(
 // `check:standalone-conformance` so it lives in this gate's closed world — and, the same shape, the
 // zero-to-operable runner (M12.2, 2026-09-20, `scripts/check-zero-to-operable.mjs`, invoked through
 // this workspace's `check:zero-to-operable` in its --drills form) and the undeniable-product proof
-// gate (M12.3, 2026-09-20, `scripts/check-undeniable-product-proof.mjs`, the same form). Non-verifier
-// checks (bundlers, generators) are outside this gate's subject.
+// gate (M12.3, 2026-09-20, `scripts/check-undeniable-product-proof.mjs`, the same form) and the Horizon
+// 1B proof (M12.5, 2026-09-20, `scripts/check-horizon-1b-improvement.mjs`). Non-verifier checks
+// (bundlers, generators) are outside this gate's subject.
 const ciVerifierScripts = new Map();
 for (const check of ciChecks) {
   const cmd = pkg.scripts?.[check];
@@ -90,7 +91,7 @@ for (const check of ciChecks) {
     fail("ci_invokes_unknown_script", `${check} is run by ci.yml but is not a script in apps/hypervisor/package.json`);
     continue;
   }
-  const m = cmd.match(/(scripts\/(?:verify-[A-Za-z0-9._-]+|check-landing-designations|check-standalone-conformance|check-zero-to-operable|check-undeniable-product-proof)\.mjs)/);
+  const m = cmd.match(/(scripts\/(?:verify-[A-Za-z0-9._-]+|check-landing-designations|check-standalone-conformance|check-zero-to-operable|check-undeniable-product-proof|check-horizon-1b-improvement)\.mjs)/);
   if (m) ciVerifierScripts.set(check, m[1]);
 }
 

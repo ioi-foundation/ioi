@@ -880,6 +880,22 @@ jobs:
         if: ${{ !cancelled() && steps.rust_backed_daemon.outcome == 'success' }}
         run: npm run mutate:undeniable-product-proof --workspace=@ioi/hypervisor-app
 
+      # M12.5. Horizon 1B, the first bounded improvement campaign, as a gate (R-208): the CI-BOUND
+      # drills bind clause 5's seven demands and the falsifier to the isolated, floored gates that
+      # execute them (the improvement-governance spine, the role-separation gate, the governed
+      # evaluation plane with its reproduction leg), read each gate's source for what its clause
+      # claims, drill the verdict's own rules and canon's binding. The full gate — the three gates
+      # inside the isolated-egress harness — is on demand; today it emits a NAMED failure.
+      - name: Verify the Horizon 1B improvement proof (M12.5, CI-bound drills)
+        if: ${{ !cancelled() && steps.rust_backed_daemon.outcome == 'success' }}
+        env:
+          IOI_VERIFIER_CENSUS_DIR: .artifacts/verifier-census
+        run: npm run check:horizon-1b-improvement --workspace=@ioi/hypervisor-app
+
+      - name: Drill the Horizon 1B improvement oracles
+        if: ${{ !cancelled() && steps.rust_backed_daemon.outcome == 'success' }}
+        run: npm run mutate:horizon-1b-improvement --workspace=@ioi/hypervisor-app
+
       # M10.4 — the governed evaluation plane, driven against an ISOLATED daemon this job already
       # built: two deterministic ollama-dialect stub servers registered, probed, enabled and REALLY
       # invoked as routes A and B; released suite revisions, frozen and active epochs, admitted runs,

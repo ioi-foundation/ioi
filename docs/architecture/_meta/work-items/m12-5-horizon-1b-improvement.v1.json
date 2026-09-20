@@ -1,0 +1,63 @@
+{
+  "evidence_format": "ioi.program.work_item.v1",
+  "work_item_id": "m12-5-horizon-1b-improvement",
+  "stage_id": "M12",
+  "required_work": [
+    "M12.5"
+  ],
+  "status": "evidence_ready",
+  "objective": "Run Horizon 1B \u2014 the first bounded improvement campaign (execution-horizons.md \u00a7 Horizon 1B; ACC-14 clause 5) \u2014 as a gate: clause 5's seven demands and the falsifier as clauses, each executed by the isolated, floored gate that already proves it (the improvement-governance spine, the role-separation gate, the governed evaluation plane) or named as a typed failure with its owner; reproduction of the selected result against the unchanged epoch driven for the first time as [P14 reproduction] in the evaluation gate; the coordinating work re-typed under R-192 as the ioi.ai orchestration composed over the System. The verdict is a pass or a named failure; today it is the named failure and no Horizon 1B pass is claimed.",
+  "falsifiable_claim": "npm run check:horizon-1b-improvement --workspace=@ioi/hypervisor-app (scripts/check-horizon-1b-improvement.mjs --drills) binds every executed clause to a real hypervisor-workspace script with a pinned floor and every named failure to an owner, reads each executed gate's source for what its clause claims (the spine freezes an order-0 campaign, drives exposure exhaustion and measures the falsifier and the handoff; the role gate binds three principals with refusals by name; the evaluation gate carries [P14 reproduction] under the independent_reproduction lane and retains negative results across a restart), refuses to compose the two shared-daemon verifiers the check text once cited, drills the verdict as a pure function of clause rows, and requires canon to name the gate under R-192. mutate:horizon-1b-improvement plants nine defects and each goes red. check:governed-evaluation-plane admits a reproduction run under lane independent_reproduction by an independent_reproducer bound to the same active epoch, suite and evaluator revisions, citing fresh wire-crossing invocations whose answers equal the originals, admits its result with the same verdict and per-case observations under the same epoch_frozen_root beside the original, and refuses a reproduction asserting another frozen root (epoch_binding_mismatch). The full gate runs the three gates inside the isolated-egress harness and exits 0 only on a pass, 2 on a named failure, 1 on a fail.",
+  "canon_owners": [
+    "docs/architecture/_meta/execution-horizons.md",
+    "docs/architecture/foundations/bounded-recursive-improvement.md",
+    "docs/architecture/components/hypervisor/improvement.md",
+    "docs/architecture/components/hypervisor/evaluations.md"
+  ],
+  "code_anchors": [
+    {
+      "path": "scripts/check-horizon-1b-improvement.mjs",
+      "must_contain": "named_failure",
+      "present_when": "merged"
+    },
+    {
+      "path": "apps/hypervisor/scripts/verify-hypervisor-governed-evaluation-plane.mjs",
+      "must_contain": "[P14 reproduction]",
+      "present_when": "merged"
+    },
+    {
+      "path": "apps/hypervisor/verifier-floors.v1.json",
+      "must_contain": "\"id\": \"horizon-1b-improvement\"",
+      "present_when": "merged"
+    },
+    {
+      "path": ".github/workflows/ci.yml",
+      "must_contain": "npm run check:horizon-1b-improvement --workspace=@ioi/hypervisor-app",
+      "present_when": "merged"
+    },
+    {
+      "path": "scripts/check-acceptance-conformance-ladder.mjs",
+      "must_contain": "mutate:horizon-1b-improvement",
+      "present_when": "merged"
+    },
+    {
+      "path": "docs/architecture/_meta/execution-horizons.md",
+      "must_contain": "The proof is executable (2026-09-20, M12.5, register R-208)",
+      "present_when": "merged"
+    }
+  ],
+  "evidence_refs": [
+    "docs/architecture/_meta/evidence/m12-5-horizon-1b-improvement-2026-09-20.v1.json",
+    "docs/architecture/_meta/canon-to-code-delta.md"
+  ],
+  "pr": null,
+  "adversarial_or_fault_proof": "mutate:horizon-1b-improvement plants a clause bound to a script that does not exist, an executed clause whose floor row does not exist, a named failure without an owner, the reproduction clause dropped, a spine that freezes an order-1 campaign, an evaluation gate whose reproduction leg is gone, a spine that no longer measures byte-identity, a run whose every clause reports success without evidence, and a run whose gate census fell below its pinned floor \u2014 each must go red (9/9). Inside the evaluation gate, the reproduction leg's negative is live: a reproduction asserting another frozen root is refused by name.",
+  "remaining_nonclaims": [
+    "The Horizon 1B PASS is not claimed: the gate emits the named failure canon allows. Named: the software-change target base and the falsifier measured over the flagship System (M12.4, product_track); the ancestor resource and statistical-risk ledgers, ancestor-inherited spend across a child campaign, the assurance tiers above independent_review (M10.8); the evidence claim (ImprovementEvidenceClaim is unregistered) and the evidence/recovery bundle on the handoff; exploit findings and attempt ancestry (the ioi.ai application, R-155); a fourth-principal reproducer at independent_review",
+    "The two verifiers the check text once cited (apply-time governance gates, what-if simulation replay) are dropped as un-composable (shared daemon, Playwright, no npm script); their isolated form is owed to a follow-on slice",
+    "outcome_room_ref is a required member inside the frozen campaign_contract_root (schema, daemon, spine oracle) \u2014 an R-192 residual in the daemon, owed as its own slice because retiring it moves a frozen hash for every campaign",
+    "The full gate is on demand, not CI-gated; CI executes the drills and the drill"
+  ],
+  "source_provenance": "Authored 2026-09-20 by the MVP finish-line program (R-208 ruled the shape after a read-only survey). Drills 5/5 and mutation 9/9 on the unit's tree; the evaluation gate 156/156 with the reproduction leg after two probe corrections; canon gates green after the retyping. Recorded in canon-to-code-delta.md \u00a7 Journey verification CXVII. Full gate 2026-09-20 15:45Z on the unit's tree (isolation refused_and_recorded): spine 102/102, evaluation 156/156, roles 69/69 inside the harness with zero reach; verdict NAMED FAILURE, exit 2. ACC-14 composed re-run on this tree: PARTIAL, exit 2 \u2014 15 executed clause checks green (clause 5's drills 5/5 and drill 9/9 among them), 16 typed absences, basis `59895d793` dirty.",
+  "last_status_transaction": "2026-09-20"
+}

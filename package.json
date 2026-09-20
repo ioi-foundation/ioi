@@ -141,6 +141,8 @@
     "mutate:zero-to-operable": "node scripts/check-zero-to-operable.mjs --mutation",
     "check:undeniable-product-proof": "node scripts/check-undeniable-product-proof.mjs",
     "mutate:undeniable-product-proof": "node scripts/check-undeniable-product-proof.mjs --mutation",
+    "check:horizon-1b-improvement": "node scripts/check-horizon-1b-improvement.mjs",
+    "mutate:horizon-1b-improvement": "node scripts/check-horizon-1b-improvement.mjs --mutation",
     "mutate:standalone-conformance": "node scripts/check-standalone-conformance.mjs --mutation",
     "check:acceptance-conformance-ladder": "node scripts/check-acceptance-conformance-ladder.mjs",
     "check:acceptance-conformance-ladder:live": "node scripts/check-acceptance-conformance-ladder.mjs --live",

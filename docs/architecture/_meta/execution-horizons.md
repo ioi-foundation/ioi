@@ -554,9 +554,11 @@ replaces the direct one-shot `UpgradeProposal` path:
 - admit one immutable owner-scoped `ImprovementGovernanceProfile`, one
   immutable-by-revision `ImprovementAgenda`, one finite `ImprovementCampaign`,
   one exact target base, and one coordinating-work declaration — the
-  flagship proof uses a coordinating `GoalRunProfile` resolution; the
-  Campaign spine itself never requires the goal-orchestration application
-  (ADR 0023);
+  flagship proof's coordinating work is the ioi.ai orchestration composed
+  over the System (a composition, not a Hypervisor plane: ADR 0030, register
+  R-192); the epoch records that pursuit reference and never resolves it
+  (R-155), and the Campaign spine itself never requires the orchestration
+  application (ADR 0023);
 - identify Search, Judgment, and Authority separately even when a low-risk
   profile places them under one accountable organization;
 - freeze one `EvaluationEpoch` with visible-development and sealed-survival
@@ -574,6 +576,29 @@ replaces the direct one-shot `UpgradeProposal` path:
 
 This closes only the bounded-campaign vertical slice. It is not evidence of
 recursive improvement, ignition, inflection, or a generally capable optimizer.
+
+**The proof is executable (2026-09-20, M12.5, register R-208).** The runner
+is `check:horizon-1b-improvement`. Its clauses are the seven demands above
+and the falsifier, each executed by the isolated, floored gate that already
+proves it — the improvement-governance spine (the frozen order-0 epoch, finite
+exposure reservations, the append-only exposure ledger, the target-owner
+handoff as exactly one pending `UpgradeProposal`, and the falsifier as
+byte-identity of every other observable family at every campaign operation),
+the role-separation gate (three real principals; candidate/evaluator
+separation; negative results retained in the archive) and the governed
+evaluation plane (negative results retained, immutable and reproduced across
+a restart; the reproduction leg: a run admitted under the
+`independent_reproduction` lane by an `independent_reproducer`, bound to the
+unchanged epoch, suite and evaluator revisions, re-invoking the same routes
+and required to carry the same verdict and answers as the selected result) —
+or named as a typed failure with its owner: the ancestor resource and
+statistical-risk ledgers and the assurance tiers above `independent_review`
+(M10.8), the evidence claim and the evidence/recovery bundle on the handoff,
+the software-change target base and the falsifier measured over the flagship
+System (M12.4), exploit findings and attempt ancestry (the application). The
+drills are CI-bound; the full run composes the three gates inside the
+isolated-egress harness on demand. The verdict is a pass only with zero named
+failures; today it is the named failure, and no Horizon 1B pass is claimed.
 
 ## Horizon 2 — one logical DAS doing useful work across nodes
 

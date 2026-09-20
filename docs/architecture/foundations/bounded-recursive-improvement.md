@@ -13,18 +13,30 @@ Supersedes: prose that treats autonomous optimization, self-editing, one
 benchmark improvement, or one successful self-targeted mutation as sufficient
 evidence of recursive self-improvement.
 Superseded by: none.
-Last alignment pass: 2026-07-26.
+Last alignment pass: 2026-09-20 (R-192 gloss on the coordinating work; status re-typed against M10.1, M10.2, M10.4 and M12.5).
 Doctrine status: canonical
-Implementation status: planned campaign protocol over partial existing GoalRun,
-Improvement Proposal Plane, Foundry, evaluation, governance, release, receipt,
-and learning-boundary primitives. Current master retains the older direct
-proposal/simulation/approval/release precursor; same-target-family
-decomposition, deployment-aware simulation/waivers, exact-base freshness,
-versioned impact, application-chain receipts, and the Campaign lifecycle remain
-planned. Do not claim campaign conformance, recursive
-improvement, ignition, or inflection until the corresponding conformance and
-evidence profiles pass.
-Last implementation audit: 2026-07-16 (direct-proposal precursor only).
+Implementation status: partial. The six-family campaign spine (governance
+profile, agenda, campaign, epoch, exposure ledger, order cutoff) is admitted
+as registered contracts with lifecycle routes and a campaign → pending
+`UpgradeProposal` handoff (M10.1); three real principals per campaign with
+role separation refused by name (M10.2); the governed evaluation plane with
+frozen epochs, admitted runs, retained negative results and a reproduction
+lane (M10.4, M12.5); and `check:horizon-1b-improvement` composes those gates
+as the Horizon 1B proof and names what it does not prove (M12.5, R-208). The
+evidence-claim family, candidate/attempt/finding objects, atomic target
+bundles, System-scoped admission, governed successor contract revisions,
+profile revocation, epoch adjudication and the ancestor resource and
+statistical-risk ledgers remain target. Do not claim recursive improvement,
+ignition, or inflection; campaign conformance is claimed exactly as far as
+that gate's pass, which today is a named failure.
+Implementation refs:
+  - `crates/node/src/bin/hypervisor_daemon_routes/improvement_campaign_routes.rs`
+  - `crates/node/src/bin/hypervisor_daemon_routes/evaluation_routes.rs`
+  - `apps/hypervisor/scripts/verify-hypervisor-improvement-governance-spine.mjs`
+  - `apps/hypervisor/scripts/verify-hypervisor-improvement-role-separation.mjs`
+  - `apps/hypervisor/scripts/verify-hypervisor-governed-evaluation-plane.mjs`
+  - `scripts/check-horizon-1b-improvement.mjs`
+Last implementation audit: 2026-09-20
 
 ## Canonical Definition
 
@@ -73,7 +85,9 @@ adaptive or multi-epoch improvement
   ImprovementAgenda revision
     -> admitted ImprovementCampaign
     -> typed work subjects (Sessions / WorkRuns; optionally GoalRuns and
-       OutcomeRooms where the goal-orchestration application is present)
+       OutcomeRooms where the goal-orchestration application is present —
+       compositions over thread-orchestration primitives, never Hypervisor
+       planes: ADR 0030, R-192)
     -> candidate attempts / frozen EvaluationEpochs
     -> archive, cutoff, reproduction, and claim evidence
     -> UpgradeProposal
@@ -235,7 +249,9 @@ Campaign admission freezes or content-addresses at least:
   goal-orchestration application is present — or the Campaign's declared
   Session/WorkRun coordination profile. The Campaign spine never requires the
   orchestration application (ADR 0023 resolving ADR 0022's first named
-  untangling); the flagship Horizon 1B proof remains pursuit-coordinated;
+  untangling); the flagship Horizon 1B proof remains pursuit-coordinated by
+  the ioi.ai orchestration composed over the System, a reference the epoch
+  records and never resolves (R-155, R-192);
 - evaluator, task-distribution, benchmark, model-route, tool, environment,
   dependency, rights, custody, and policy roots applicable to the first epoch;
 - total resource, wall-clock, statistical-risk, evaluation-exposure, nesting,

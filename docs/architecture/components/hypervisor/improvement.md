@@ -9,12 +9,23 @@ claims over Hypervisor Core.
 Supersedes: product prose that treats Improvement as a self-modifying runtime,
 a generic issue tracker, a release authority, or a Foundry experiment view.
 Superseded by: none.
-Last alignment pass: 2026-07-15.
+Last alignment pass: 2026-09-20 (status re-typed against M10.1, M10.2, M10.4 and M12.5).
 Doctrine status: canonical
-Implementation status: planned campaign/agenda/epoch integration over a narrow
-transitional improvement-proposal and simulation/rollout slice. The current
-slice must not be described as a general recursive-improvement substrate until
-campaign-grade Search/Judgment/Authority conformance exists.
+Implementation status: partial. The campaign/agenda/epoch spine is admitted
+(M10.1) beside the direct improvement-proposal and simulation/rollout slice;
+Search, Judgment and Authority are three real principals whose crossings are
+refused by name (M10.2); the evaluation plane is governed (M10.4) and carries
+a reproduction lane (M12.5); the Horizon 1B proof runs as
+`check:horizon-1b-improvement` and names its gaps (M12.5, R-208). The slice
+must not be described as a general recursive-improvement substrate: the
+ancestor ledgers, the evidence claim and the assurance tiers above
+`independent_review` remain target.
+Implementation refs:
+  - `crates/node/src/bin/hypervisor_daemon_routes/improvement_campaign_routes.rs`
+  - `apps/hypervisor/scripts/verify-hypervisor-improvement-governance-spine.mjs`
+  - `apps/hypervisor/scripts/verify-hypervisor-improvement-role-separation.mjs`
+  - `scripts/check-horizon-1b-improvement.mjs`
+Last implementation audit: 2026-09-20
 
 ## Canonical Definition
 

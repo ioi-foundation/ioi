@@ -167,7 +167,7 @@ reads as `superseded` once a later revision of the family is released.
 
 A Campaign owns the optional multi-epoch candidate, evaluation,
 synchronization, and promotion lineage for one mutable target or exceptional
-same-owner atomic bundle. Typed work subjects coordinate its work — Sessions and WorkRuns generically, GoalRuns and OutcomeRooms optionally where the goal-orchestration application is present (ADR 0023); the Campaign is not a
+same-owner atomic bundle. Typed work subjects coordinate its work — Sessions and WorkRuns generically, GoalRuns and OutcomeRooms optionally where the goal-orchestration application is present (ADR 0023; compositions over thread-orchestration primitives, never Hypervisor planes — ADR 0030, R-192); the Campaign is not a
 second goal, pursuit profile, execution identity, evaluator, or authority.
 
 ```yaml
