@@ -863,6 +863,23 @@ jobs:
         if: ${{ !cancelled() && steps.rust_backed_daemon.outcome == 'success' }}
         run: npm run mutate:zero-to-operable --workspace=@ioi/hypervisor-app
 
+      # M12.3. Canon's undeniable-product proof gate, run as a gate (R-207): the CI-BOUND drills load,
+      # validate and pin the selected minimum-L0 profile (a registered ConformanceProfile instance —
+      # the ioi.ai composition over the substrate), resolve the twenty-two steps against the real npm
+      # scripts and pinned floors that execute them or the owners that owe them, drill the verdict's
+      # own failure rules (a fabricated success row, an absence without an owner, a reach beyond
+      # loopback are FAILs, never passes) and the measurement set. The full gate — every executed
+      # clause inside the isolated-egress harness — is on demand; today it emits a NAMED failure.
+      - name: Verify the undeniable-product proof gate (M12.3, CI-bound drills)
+        if: ${{ !cancelled() && steps.rust_backed_daemon.outcome == 'success' }}
+        env:
+          IOI_VERIFIER_CENSUS_DIR: .artifacts/verifier-census
+        run: npm run check:undeniable-product-proof --workspace=@ioi/hypervisor-app
+
+      - name: Drill the undeniable-product proof oracles
+        if: ${{ !cancelled() && steps.rust_backed_daemon.outcome == 'success' }}
+        run: npm run mutate:undeniable-product-proof --workspace=@ioi/hypervisor-app
+
       # M10.4 — the governed evaluation plane, driven against an ISOLATED daemon this job already
       # built: two deterministic ollama-dialect stub servers registered, probed, enabled and REALLY
       # invoked as routes A and B; released suite revisions, frozen and active epochs, admitted runs,

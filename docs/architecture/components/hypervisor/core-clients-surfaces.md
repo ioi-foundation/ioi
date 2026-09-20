@@ -258,7 +258,8 @@ pointed at a non-loopback dependency must FAIL the profile with
 property of each run (`refused_and_recorded` where unprivileged namespaces
 exist, `recorded_only` where they do not); a pass claims exactly the
 bounded-alpha envelope under the fixture and not the selected minimum-L0
-OutcomeRoom profile, which stays with `M12.3`/`M12.4`.
+profile (the ioi.ai composition over the substrate), whose gate is
+`check:undeniable-product-proof` (M12.3) and whose pass stays target.
 
 ## Zero-To-Operable Local Deployment
 

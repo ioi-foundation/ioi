@@ -1,0 +1,140 @@
+{
+  "schema_version": "ioi.conformance-profile.v1",
+  "profile_id": "conformance_profile://ioi/flagship/minimum-l0-software-change/v1",
+  "family": "runtime_node",
+  "version": "1.0.0",
+  "required_interfaces": [
+    {
+      "interface_ref": "api://hypervisor-daemon/healthz"
+    },
+    {
+      "interface_ref": "api://hypervisor-daemon/v1/doctor"
+    },
+    {
+      "interface_ref": "api://hypervisor-daemon/v1/hypervisor/substrate/status"
+    },
+    {
+      "interface_ref": "api://hypervisor-app/__ioi/bootstrap"
+    },
+    {
+      "interface_ref": "api://hypervisor-app/__ioi/login"
+    },
+    {
+      "interface_ref": "api://hypervisor-daemon/v1/hypervisor/auth/whoami"
+    },
+    {
+      "interface_ref": "api://hypervisor-daemon/v1/hypervisor/autonomous-systems"
+    },
+    {
+      "interface_ref": "api://hypervisor-daemon/v1/hypervisor/autonomous-systems/{system_id}/sequence-zero-materialization"
+    },
+    {
+      "interface_ref": "api://hypervisor-daemon/v1/hypervisor/autonomous-systems/{system_id}/activate"
+    },
+    {
+      "interface_ref": "api://hypervisor-daemon/v1/hypervisor/autonomous-systems/{system_id}/amendments"
+    },
+    {
+      "interface_ref": "api://hypervisor-daemon/v1/hypervisor/projects"
+    },
+    {
+      "interface_ref": "api://hypervisor-app/__ioi/api/new-session/launch"
+    },
+    {
+      "interface_ref": "api://hypervisor-app/api/ioi.v1.AgentService/CreateAgentSession"
+    },
+    {
+      "interface_ref": "api://hypervisor-daemon/v1/hypervisor/agent-run-transcripts/{run_id}"
+    },
+    {
+      "interface_ref": "api://hypervisor-daemon/v1/hypervisor/sessions/{session_ref}"
+    },
+    {
+      "interface_ref": "api://hypervisor-daemon/v1/hypervisor/environments/{environment_ref}/backups"
+    },
+    {
+      "interface_ref": "api://hypervisor-daemon/v1/hypervisor/backup-exports"
+    },
+    {
+      "interface_ref": "api://hypervisor-daemon/v1/hypervisor/backup-imports"
+    },
+    {
+      "interface_ref": "api://hypervisor-daemon/v1/hypervisor/restore-plans"
+    },
+    {
+      "interface_ref": "api://hypervisor-daemon/v1/hypervisor/release-change-plans"
+    },
+    {
+      "interface_ref": "api://aft-c8-verifier/accept"
+    },
+    {
+      "interface_ref": "api://hypervisor-daemon/v1/hypervisor/autonomous-systems/{system_id}/records"
+    },
+    {
+      "interface_ref": "api://hypervisor-daemon/v1/hypervisor/autonomous-systems/{system_id}/records/{contract}/{object_id}"
+    },
+    {
+      "interface_ref": "api://hypervisor-daemon/v1/hypervisor/automations"
+    },
+    {
+      "interface_ref": "api://hypervisor-daemon/v1/hypervisor/automation-executions/{execution_id}"
+    }
+  ],
+  "required_events": [],
+  "required_receipts": [
+    {
+      "receipt_type": "hypervisor.session.execute"
+    },
+    {
+      "receipt_type": "hypervisor.session.standing_draw"
+    },
+    {
+      "receipt_type": "hypervisor.session.teardown"
+    },
+    {
+      "receipt_type": "hypervisor.release.change-plan.admitted"
+    },
+    {
+      "receipt_type": "hypervisor.release.change-plan.completed"
+    }
+  ],
+  "negative_tests": [
+    {
+      "condition": "a declared dependency (the local model route) is made unavailable while a governed run is executing",
+      "expected": "fail_closed"
+    },
+    {
+      "condition": "the deployment reaches for an endpoint outside the fixture's allowed egress (any non-loopback host, or any name resolved for one)",
+      "expected": "reject"
+    },
+    {
+      "condition": "a journey step is satisfied only by a hidden database edit, a privileged one-off script, copied bearer authority, an uninspectable prompt-only transition, a fabricated success row, or manual reconstruction of the evidence chain",
+      "expected": "reject"
+    },
+    {
+      "condition": "a record naming the System is posted around the composing application without the seam's binding, or with a closure root that does not recompute",
+      "expected": "reject"
+    }
+  ],
+  "compatibility_level": "experimental",
+  "declared_envelope_ref": "canon://docs/architecture/_meta/execution-horizons.md#selected-minimum-l0-proof-profile",
+  "fixture": {
+    "fixture_id": "embedded_single_operator_offline",
+    "denied_endpoint_families": [
+      "ioi_ai_account",
+      "hosted_wallet_network_login",
+      "marketplace",
+      "ioi_network_enrollment",
+      "ioi_l1",
+      "license_heartbeat",
+      "telemetry",
+      "update_service",
+      "external_model_provider"
+    ],
+    "allowed_egress": [
+      "loopback",
+      "local_ipc",
+      "declared_byo_endpoint"
+    ]
+  }
+}

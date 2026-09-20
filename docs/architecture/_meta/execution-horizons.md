@@ -4,7 +4,7 @@ Status: canonical architecture note.
 Canonical owner: this file for the horizon framing that separates the launch wedge from long-horizon breadth without narrowing canon.
 Supersedes: readings of the canon that mistake speculative breadth for current shipped surface, or that treat horizon labels as scope deletion.
 Superseded by: none.
-Last alignment pass: 2026-09-15 (the sovereign-local fixture's runner and harness recorded as built; horizon framing unchanged since 2026-08-12).
+Last alignment pass: 2026-09-20 (R-192 alignment: the selected profile is the ioi.ai composition over the substrate, not an OutcomeRoom-backed plane; the undeniable-product gate recorded as executable; horizon framing unchanged since 2026-08-12).
 Doctrine status: canonical
 Implementation status: mixed (this note classifies; subject owners carry per-file status)
 Last implementation audit: 2026-07-05
@@ -79,14 +79,20 @@ separate exact wipe action is authorized. This is one non-object
 zero-to-operable product journey, not a new plane, profile, deployment mode,
 zero-to-idle policy, or environment StartupPlan.
 
-The selected first profile is an **OutcomeRoom-backed bounded software change
-institution**. One reusable package instantiates one single-node,
-single-authority System that can receive a bounded change goal, allocate
-independent work and verification, propose a sandboxed repository change,
-obtain exact effect authority, apply or refuse the change, and preserve the
-complete result/evidence/lifecycle chain. It combines the flagship OutcomeRoom
-with a narrow domain whose effects can be reproduced, diffed, tested, reversed,
-and adversarially inspected.
+The selected first profile is a **bounded software-change institution composed
+by the ioi.ai orchestration application over the substrate** (since 2026-09-18
+the room is a composition, not a Hypervisor plane — ADR 0030, register R-192;
+every earlier "OutcomeRoom-backed" reading of this profile, including ADR 0021
+and ADR 0052, resolves to this one). One reusable package instantiates one
+single-node, single-authority System that can receive a bounded change goal,
+allocate independent work and verification, propose a sandboxed repository
+change, obtain exact effect authority, apply or refuse the change, and preserve
+the complete result/evidence/lifecycle chain. It combines the flagship ioi.ai
+orchestration — the coordinating thread, GoalRun, context family,
+collective-resolution receipt and executable lineage admitted as records of
+that System through the generic System-record seam — with a narrow domain
+whose effects can be reproduced, diffed, tested, reversed, and adversarially
+inspected.
 
 Required for this profile:
 
@@ -103,7 +109,8 @@ Required for this profile:
 - one admitted `GoalRunProfile`, frozen `GoalRun`, optional directed workflow,
   disclosed Worker/role topology, scoped skills/tools/model routes, isolated
   work environment, generic result, independent deterministic verifier, and
-  OutcomeRoom admission/claim/finding lineage;
+  the composed orchestration's admission/claim/finding lineage (seam-admitted
+  records of the System, composed by ioi.ai);
 - deployment-local identity authentication and a low-risk product session for
   the isolated lane, with authentication remaining separate from a locally
   permitted authority provider; exact consequential-action review, scoped
@@ -158,8 +165,9 @@ replay, update and rollback — with every denied family typed unavailable on
 the daemon's own readiness projection, and the negative half executed: a
 declared dependency severed mid-run terminates the run typed, and a deployment
 pointed at a non-loopback dependency fails the profile. The selected profile's
-OutcomeRoom-backed institution below remains target until `M12.3`/`M12.4`
-compose it under the same fixture.
+composed institution below is driven by `check:undeniable-product-proof`
+(2026-09-20, M12.3 — § *Undeniable-product proof gate*); its pass remains
+target until every named failure that gate emits has an executed proof.
 
 ## Undeniable-product proof gate
 
@@ -178,7 +186,8 @@ product/operator states through supported surfaces and public contracts:
 9. inspect and explicitly accept any discovery candidate and overrides
 10. validate, preview, and simulate one compiled package/genesis proposal
 11. approve genesis and inspect the stable System
-12. start or admit the GoalRun in its OutcomeRoom-backed work context
+12. start or admit the GoalRun in its composed work context (the ioi.ai
+    orchestration over the System)
 13. observe planning, claimed work, attempts, verification, and blockers
 14. review the exact proposed repository effect
 15. satisfy the lane's exact scoped authority ceremony
@@ -195,6 +204,26 @@ one-off script unavailable to the product, copied bearer authority, an
 uninspectable prompt-only transition, a fabricated success row, or manual
 reconstruction of the evidence chain. A compact flow and the advanced
 declaration must resolve to the same typed objects and hashes.
+
+**The gate is executable (2026-09-20, M12.3, register R-207).** The runner is
+`check:undeniable-product-proof`. The twenty-two steps are its clauses: each is
+executed by the gate that already proves it under the fixture — steps 1–6,
+18–20 and 22 by the standalone-conformance and zero-to-operable runners;
+10–11 by the System-record seam gate (the compiled genesis it proposes and the
+System it activates); 12–13 by the goal-run, orchestration and context-family
+composition gates; 17 by the collective-artifact runtime-lifecycle gate — or
+it is emitted as a NAMED, TYPED failure with its owner: 7 (no template-choice
+surface), 8–9 (the goal description and the discovery proposal are not driven),
+14–16 (the exact-effect review chain, the next kernel program), 21's System
+retirement (only release update and rollback exist), and profile 2. Every
+measurement below is recorded by the run or typed `not_measured` with an
+owner. The runner's drills (the profile instance loaded, validated and pinned;
+the step-to-gate binding resolved against real scripts and pinned floors; the
+failure conditions above as the runner's own verdict rules, mutation-drilled)
+are CI-bound; the full run composes the executed clauses inside the
+isolated-egress harness on demand. The verdict is a pass only with zero named
+failures; today the gate's output is the named failure — one of the two
+results this section allows — and no pass is claimed.
 
 The gate runs in two ordered profiles:
 
@@ -343,7 +372,8 @@ everything else can claim?**
 
 The ruling: **sovereign-local completeness is the first flagship proof** — the
 `embedded_single_operator_offline` fixture plus undeniable-product profile 1,
-on the selected bounded software-change OutcomeRoom institution. It ranks the
+on the selected bounded software-change institution composed by ioi.ai over
+the substrate. It ranks the
 flagship proofs among themselves; the base-platform alpha above is a separate
 class and is not ranked by this ruling.
 
@@ -357,8 +387,9 @@ Why this one and not another:
 - **It discharges the canon's most-repeated caveat.** "The current estate has
   not yet passed the end-to-end standalone contract" is the single most
   restated honesty clause in this canon. Landing this proof flips the largest
-  set of target claims — genesis, constitution, admission, GoalRun,
-  OutcomeRoom, receipts, replay, backup/restore, uninstall-without-wipe — from
+  set of target claims — genesis, constitution, admission, GoalRun, the
+  composed orchestration, receipts, replay, backup/restore,
+  uninstall-without-wipe — from
   target to evidenced at once.
 - **It is the adoption argument.** Local-first, credible exit, and
   adopt-rather-than-fork all rest on an independently operable core
@@ -473,7 +504,9 @@ product wedge.
 
 ### Horizon 1A — flagship OutcomeRoom bounded DAS
 
-Build ioi.ai's reusable OutcomeRoom package and instantiate each durable room as
+Build ioi.ai's reusable OutcomeRoom package — a composition over
+thread-orchestration primitives admitted through the System-record seam, not a
+Hypervisor plane (ADR 0030, R-192) — and instantiate each durable room as
 a permissioned flagship bounded DAS on one Hypervisor Node and one declared
 Agentgres admission domain. The hosted service operates many room systems; it
 is not itself their shared logical identity. OutcomeRoom is the reference
@@ -831,7 +864,8 @@ delta and the deferred UX backlog):
    objects needed by the Horizon 1B order-0 proof without making them a new
    runtime, authority plane, or mandatory wrapper for direct proposals.
 9. Single-node flagship proofs — Horizon 1A's package-to-genesis,
-   constitution-bound OutcomeRoom and room-child admission spine, end to end,
+   constitution-bound composed orchestration and its child admission spine
+   (seam-admitted records), end to end,
    on one node through the selected bounded software-change profile and the
    undeniable-product proof gate above; then Horizon 1B's immutable
    improvement-governance profile,

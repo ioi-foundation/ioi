@@ -17,6 +17,8 @@
     "mutate:standalone-conformance": "node ../../scripts/check-standalone-conformance.mjs --mutation",
     "check:zero-to-operable": "node ../../scripts/check-zero-to-operable.mjs --drills",
     "mutate:zero-to-operable": "node ../../scripts/check-zero-to-operable.mjs --mutation",
+    "check:undeniable-product-proof": "node ../../scripts/check-undeniable-product-proof.mjs --drills",
+    "mutate:undeniable-product-proof": "node ../../scripts/check-undeniable-product-proof.mjs --mutation",
     "check:app-runtime-safety": "node scripts/verify-hypervisor-app-runtime-safety.mjs",
     "check:assurance-ladder-lifecycle": "node scripts/verify-hypervisor-assurance-ladder-lifecycle.mjs",
     "check:assurance-transition-receipt": "node scripts/verify-hypervisor-assurance-transition-receipt.mjs",

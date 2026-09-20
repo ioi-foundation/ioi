@@ -174882,6 +174882,14 @@ pub const ARCHITECTURE_CONTRACT_FIXTURES: &[GoldenFixture] = &[
     },
     GoldenFixture {
         contract_id: "schema://ioi/foundations/conformance-profile/v1",
+        path: "docs/architecture/_meta/schemas/fixtures/conformance-profile-v1/positive-flagship-minimum-l0-software-change.json",
+        expected_accept: true,
+        expected_schema_accept: true,
+        expected_failure: None,
+        expected_rule_id: None,
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/foundations/conformance-profile/v1",
         path: "docs/architecture/_meta/schemas/fixtures/conformance-profile-v1/negative-unknown-field.json",
         expected_accept: false,
         expected_schema_accept: false,
@@ -195273,6 +195281,17 @@ pub const ARCHITECTURE_CONTRACT_DIFFERENTIAL_CASES: &[ArchitectureContractDiffer
         oracle_contract_accept: true,
     },
     ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/conformance-profile-v1/positive-flagship-minimum-l0-software-change.json"#,
+        contract_id: r#"schema://ioi/foundations/conformance-profile/v1"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/conformance-profile-v1/positive-flagship-minimum-l0-software-change.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: true,
+        oracle_contract_accept: true,
+    },
+    ArchitectureContractDifferentialCase {
         id: r#"fixture:docs/architecture/_meta/schemas/fixtures/conformance-profile-v1/negative-unknown-field.json"#,
         contract_id: r#"schema://ioi/foundations/conformance-profile/v1"#,
         source_fixture_path: Some(
@@ -206195,6 +206214,7 @@ mod tests {
     ("docs/architecture/_meta/schemas/fixtures/improvement-order-cutoff-receipt-v1/negative-stale-receipt-root.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/improvement-order-cutoff-receipt-v1/negative-stale-receipt-root.json"))),
     ("docs/architecture/_meta/schemas/fixtures/conformance-profile-v1/positive-standalone-embedded-single-operator-offline.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/conformance-profile-v1/positive-standalone-embedded-single-operator-offline.json"))),
     ("docs/architecture/_meta/schemas/fixtures/conformance-profile-v1/positive-worker-endpoint-minimal.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/conformance-profile-v1/positive-worker-endpoint-minimal.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/conformance-profile-v1/positive-flagship-minimum-l0-software-change.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/conformance-profile-v1/positive-flagship-minimum-l0-software-change.json"))),
     ("docs/architecture/_meta/schemas/fixtures/conformance-profile-v1/negative-unknown-field.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/conformance-profile-v1/negative-unknown-field.json"))),
     ("docs/architecture/_meta/schemas/fixtures/conformance-profile-v1/negative-family-outside-vocabulary.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/conformance-profile-v1/negative-family-outside-vocabulary.json"))),
     ("docs/architecture/_meta/schemas/fixtures/conformance-profile-v1/negative-expected-outside-vocabulary.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/conformance-profile-v1/negative-expected-outside-vocabulary.json"))),
@@ -209921,8 +209941,8 @@ mod tests {
     fn golden_fixtures_match_generated_rust_contracts() {
         assert_eq!(
             ARCHITECTURE_CONTRACT_FIXTURES.len(),
-            1755,
-            "the registered golden corpus must remain the explicit 1755-fixture bar",
+            1756,
+            "the registered golden corpus must remain the explicit 1756-fixture bar",
         );
         for fixture in ARCHITECTURE_CONTRACT_FIXTURES {
             let body = FIXTURE_BODIES

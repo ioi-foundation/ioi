@@ -18097,7 +18097,8 @@
       ],
       "positive_fixture_refs": [
         "fixtures/conformance-profile-v1/positive-standalone-embedded-single-operator-offline.json",
-        "fixtures/conformance-profile-v1/positive-worker-endpoint-minimal.json"
+        "fixtures/conformance-profile-v1/positive-worker-endpoint-minimal.json",
+        "fixtures/conformance-profile-v1/positive-flagship-minimum-l0-software-change.json"
       ],
       "negative_fixture_refs": [
         {

@@ -27120,6 +27120,14 @@ export const ARCHITECTURE_CONTRACT_FIXTURES = [
   },
   {
     "contract_id": "schema://ioi/foundations/conformance-profile/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/conformance-profile-v1/positive-flagship-minimum-l0-software-change.json",
+    "expected": "accept",
+    "expected_schema_accept": true,
+    "expected_failure": null,
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/foundations/conformance-profile/v1",
     "path": "docs/architecture/_meta/schemas/fixtures/conformance-profile-v1/negative-unknown-field.json",
     "expected": "reject",
     "expected_schema_accept": false,
@@ -32771,6 +32779,7 @@ export const ARCHITECTURE_CONTRACT_DIFFERENTIAL_CASES: ReadonlyArray<Architectur
   differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/improvement-order-cutoff-receipt-v1/negative-stale-receipt-root.json","contract_id":"schema://ioi/foundations/objects/improvement-order-cutoff-receipt/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/improvement-order-cutoff-receipt-v1/negative-stale-receipt-root.json","mutation_id":null,"value_json":null}),
   differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/conformance-profile-v1/positive-standalone-embedded-single-operator-offline.json","contract_id":"schema://ioi/foundations/conformance-profile/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/conformance-profile-v1/positive-standalone-embedded-single-operator-offline.json","mutation_id":null,"value_json":null}),
   differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/conformance-profile-v1/positive-worker-endpoint-minimal.json","contract_id":"schema://ioi/foundations/conformance-profile/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/conformance-profile-v1/positive-worker-endpoint-minimal.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/conformance-profile-v1/positive-flagship-minimum-l0-software-change.json","contract_id":"schema://ioi/foundations/conformance-profile/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/conformance-profile-v1/positive-flagship-minimum-l0-software-change.json","mutation_id":null,"value_json":null}),
   differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/conformance-profile-v1/negative-unknown-field.json","contract_id":"schema://ioi/foundations/conformance-profile/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/conformance-profile-v1/negative-unknown-field.json","mutation_id":null,"value_json":null}),
   differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/conformance-profile-v1/negative-family-outside-vocabulary.json","contract_id":"schema://ioi/foundations/conformance-profile/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/conformance-profile-v1/negative-family-outside-vocabulary.json","mutation_id":null,"value_json":null}),
   differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/conformance-profile-v1/negative-expected-outside-vocabulary.json","contract_id":"schema://ioi/foundations/conformance-profile/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/conformance-profile-v1/negative-expected-outside-vocabulary.json","mutation_id":null,"value_json":null}),

@@ -1,0 +1,585 @@
+{
+  "schema": "ioi.undeniable-product-proof-evidence.v1",
+  "mode": "full",
+  "started_at": "2026-09-20T12:56:53.388Z",
+  "profile": {
+    "id": "conformance_profile://ioi/flagship/minimum-l0-software-change/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/conformance-profile-v1/positive-flagship-minimum-l0-software-change.json",
+    "digest": "sha256:c9eeea6a6194d4b9b0659e53cf8c141ee2bdca2262adceb2ce66b4d47fee9ad1",
+    "interfaces": 25,
+    "receipts": 5,
+    "negative_tests": 4,
+    "findings": []
+  },
+  "drills": [
+    {
+      "name": "the selected minimum-L0 profile is a registered ConformanceProfile instance: valid against schema://ioi/foundations/conformance-profile/v1, family runtime_node, envelope = execution-horizons.md § Selected minimum-L0 proof profile, fixture embedded_single_operator_offline with the nine denied families, the seam and activation interfaces required, and the gate's failure taxonomy among its negative tests — loaded and pinned by digest",
+      "pass": true,
+      "detail": "conformance_profile://ioi/flagship/minimum-l0-software-change/v1 · sha256:c9eeea6a6194d4b9",
+      "at": "2026-09-20T12:56:53.417Z"
+    },
+    {
+      "name": "the twenty-two steps are bound: every executed clause names a real npm script (16 steps: 1,2,3,4,5,6,10,11,12,13,17,18,19,20,21,22) and every app verifier a pinned floor; every named failure carries its owner (12 steps: 6,7,8,9,10,12,13,14,15,16,17,21); steps cover 1–22 exactly once",
+      "pass": true,
+      "detail": "bound",
+      "at": "2026-09-20T12:56:53.418Z"
+    },
+    {
+      "name": "the composed half stands on pinned floors: system-record-seam, orchestration-composition, goal-run-composition, context-family-composition, collective-artifact-runtime-lifecycle = 103 assertions against an isolated daemon and the real wallet fixture; the packaged half stands on the standalone-conformance and zero-to-operable runners' own floors",
+      "pass": true,
+      "detail": "103",
+      "at": "2026-09-20T12:56:53.418Z"
+    },
+    {
+      "name": "the verdict is a pure function of the clause rows and carries canon's failure conditions as its own rules: all clauses executed green with no absence → PASS; a typed absence with an owner → NAMED FAILURE; a fabricated success row (success without evidence), a red clause, an absence without an owner, a duplicated step, a missing step, or a reach beyond loopback → FAIL",
+      "pass": true,
+      "detail": "pass/named_failure/fail/fail/fail/fail/fail/fail",
+      "at": "2026-09-20T12:56:53.419Z"
+    },
+    {
+      "name": "canon's twenty-two measurements are each recorded by a named clause or typed not_measured with an owner (14 recorded, 8 typed not_measured); none is omitted",
+      "pass": true,
+      "detail": "14/22 recorded",
+      "at": "2026-09-20T12:56:53.419Z"
+    },
+    {
+      "name": "canon binds the gate: execution-horizons.md § Undeniable-product proof gate names check:undeniable-product-proof, says the result is a pass or a named typed failure, and types the selected profile as the ioi.ai composition over the substrate (R-192); the stale OutcomeRoom-backed reading is gone from the profile, the fixture paragraph, the ruling and the build sequence",
+      "pass": true,
+      "detail": "read from execution-horizons.md (the phrase survives only as the retyping note and the alignment header)",
+      "at": "2026-09-20T12:56:53.419Z"
+    }
+  ],
+  "clauses": [
+    {
+      "n": 1,
+      "step": "verify the selected release, signer, integrity, and supply-chain evidence",
+      "executed": [],
+      "absence": null,
+      "not_executed": "check:standalone-conformance (packaged; pass --with-packaged)"
+    },
+    {
+      "n": 2,
+      "step": "preview install paths, endpoints, custody, supervision, egress, and effects",
+      "executed": [],
+      "absence": null,
+      "not_executed": "check:zero-to-operable (packaged; pass --with-packaged)"
+    },
+    {
+      "n": 3,
+      "step": "install and bootstrap deployment-local identity and authority posture",
+      "executed": [],
+      "absence": null,
+      "not_executed": "check:standalone-conformance (packaged; pass --with-packaged)"
+    },
+    {
+      "n": 4,
+      "step": "start the client, daemon, and declared Agentgres posture",
+      "executed": [],
+      "absence": null,
+      "not_executed": "check:zero-to-operable (packaged; pass --with-packaged)"
+    },
+    {
+      "n": 5,
+      "step": "pass bounded readiness and inspect status, doctor findings, and logs",
+      "executed": [],
+      "absence": null,
+      "not_executed": "check:standalone-conformance (packaged; pass --with-packaged)"
+    },
+    {
+      "n": 6,
+      "step": "authenticate through the deployment-local or connected identity lane",
+      "executed": [],
+      "absence": {
+        "what": "the connected identity lane (provider-neutral account authentication, passkey step-up, the portable AuthorityGrantEnvelope v3 successor) is not exercised; the deployment-local lane is",
+        "owner": "M03.9 · M10.2"
+      },
+      "not_executed": "check:standalone-conformance (packaged; pass --with-packaged)"
+    },
+    {
+      "n": 7,
+      "step": "choose the bounded software-change template",
+      "executed": [],
+      "absence": {
+        "what": "no template-choice surface exists: the composition gates instantiate the package's genesis directly (exactGenesisBody), never through a chosen template",
+        "owner": "M12.4 (product_track) · Studio"
+      }
+    },
+    {
+      "n": 8,
+      "step": "describe the goal, repository, constraints, authority, and acceptance",
+      "executed": [],
+      "absence": {
+        "what": "the goal description is not driven as an operator input: the goal-run composition gate admits a GoalRun over a committed profile-resolution closure it authors itself",
+        "owner": "M12.4 (product_track)"
+      }
+    },
+    {
+      "n": 9,
+      "step": "inspect and explicitly accept any discovery candidate and overrides",
+      "executed": [],
+      "absence": {
+        "what": "HypervisorProjectDiscoveryProposal is not driven by any M12 gate; blank/template construction must record that no discovery proposal was used",
+        "owner": "M08.15"
+      }
+    },
+    {
+      "n": 10,
+      "step": "validate, preview, and simulate one compiled package/genesis proposal",
+      "executed": [
+        {
+          "script": "check:system-record-seam",
+          "workspace": "@ioi/hypervisor-app",
+          "status": 0,
+          "seconds": 984,
+          "isolation": "refused_and_recorded",
+          "ledger": {
+            "attempts": 249,
+            "loopback": 249,
+            "reach": 0,
+            "undeclared": [],
+            "names": []
+          },
+          "evidence": "../../../../../../tmp/ioi-undeniable-kUK3Kb/census/clause-10-check-system-record-seam/system-record-seam.json",
+          "evidence_sha256": "6e6c1750c2d29e080a870e217917f32b47e9dcfeabed1f8a73783a8c6ebd3b97",
+          "executed_assertions": 17
+        }
+      ],
+      "absence": {
+        "what": "preview and simulation of the compiled proposal before admission are not separate operator states; the seam gate proposes the exact genesis body and the daemon admits it",
+        "owner": "M12.4 (product_track)"
+      }
+    },
+    {
+      "n": 11,
+      "step": "approve genesis and inspect the stable System",
+      "executed": [
+        {
+          "script": "check:system-record-seam",
+          "workspace": "@ioi/hypervisor-app",
+          "status": 0,
+          "seconds": 984,
+          "isolation": "refused_and_recorded",
+          "ledger": {
+            "attempts": 249,
+            "loopback": 249,
+            "reach": 0,
+            "undeclared": [],
+            "names": []
+          },
+          "evidence": "../../../../../../tmp/ioi-undeniable-kUK3Kb/census/clause-10-check-system-record-seam/system-record-seam.json",
+          "evidence_sha256": "6e6c1750c2d29e080a870e217917f32b47e9dcfeabed1f8a73783a8c6ebd3b97",
+          "executed_assertions": 17
+        }
+      ],
+      "absence": null
+    },
+    {
+      "n": 12,
+      "step": "start or admit the GoalRun in its composed work context (the ioi.ai orchestration over the System)",
+      "executed": [
+        {
+          "script": "check:orchestration-composition",
+          "workspace": "@ioi/hypervisor-app",
+          "status": 0,
+          "seconds": 625,
+          "isolation": "refused_and_recorded",
+          "ledger": {
+            "attempts": 258,
+            "loopback": 258,
+            "reach": 0,
+            "undeclared": [],
+            "names": []
+          },
+          "evidence": "../../../../../../tmp/ioi-undeniable-kUK3Kb/census/clause-12-check-orchestration-composition/orchestration-composition.json",
+          "evidence_sha256": "19ff4b5e4fba1a5cd7a5f11df364beab68c3f120579253accb1c339fd2dfa89f",
+          "executed_assertions": 22
+        },
+        {
+          "script": "check:goal-run-composition",
+          "workspace": "@ioi/hypervisor-app",
+          "status": 0,
+          "seconds": 633,
+          "isolation": "refused_and_recorded",
+          "ledger": {
+            "attempts": 241,
+            "loopback": 241,
+            "reach": 0,
+            "undeclared": [],
+            "names": []
+          },
+          "evidence": "../../../../../../tmp/ioi-undeniable-kUK3Kb/census/clause-12-check-goal-run-composition/goal-run-composition.json",
+          "evidence_sha256": "03a7d6035c399e3858da4489adaca987b1cd7e619997ac56afe0ad38a0cc50fa",
+          "executed_assertions": 11
+        }
+      ],
+      "absence": {
+        "what": "the GoalRun is ADMITTED over a committed closure; execution is not started and no invocation is minted (the goal-run gate's own non-claim)",
+        "owner": "M12.4 (product_track)"
+      }
+    },
+    {
+      "n": 13,
+      "step": "observe planning, claimed work, attempts, verification, and blockers",
+      "executed": [
+        {
+          "script": "check:context-family-composition",
+          "workspace": "@ioi/hypervisor-app",
+          "status": 0,
+          "seconds": 824,
+          "isolation": "refused_and_recorded",
+          "ledger": {
+            "attempts": 254,
+            "loopback": 254,
+            "reach": 0,
+            "undeclared": [],
+            "names": []
+          },
+          "evidence": "../../../../../../tmp/ioi-undeniable-kUK3Kb/census/clause-13-check-context-family-composition/context-family-composition.json",
+          "evidence_sha256": "54956b3e87495a2fc6676b4a942009a1a66b559a95adb7db4ca00d2820acc5f6",
+          "executed_assertions": 31
+        }
+      ],
+      "absence": {
+        "what": "attempts, verification findings and blockers as observed operator states are not driven; the context family (cells, leases, handoffs) and the orchestration's claims are",
+        "owner": "M12.4 (product_track)"
+      }
+    },
+    {
+      "n": 14,
+      "step": "review the exact proposed repository effect",
+      "executed": [],
+      "absence": {
+        "what": "no gate drives an exact proposed repository effect under the fixture",
+        "owner": "the exact-effect review chain, M03.15 → M01.9 → M13.6 (execution-horizons.md § The first proof: the next kernel program)"
+      }
+    },
+    {
+      "n": 15,
+      "step": "satisfy the lane's exact scoped authority ceremony",
+      "executed": [],
+      "absence": {
+        "what": "no gate drives the exact scoped authority ceremony for a repository effect under the fixture",
+        "owner": "the exact-effect review chain, M03.15 → M01.9 → M13.6 (execution-horizons.md § The first proof: the next kernel program)"
+      }
+    },
+    {
+      "n": 16,
+      "step": "let the daemon revalidate and execute or refuse the effect",
+      "executed": [],
+      "absence": {
+        "what": "no gate drives daemon-boundary revalidation and execute-or-refuse of a repository effect under the fixture",
+        "owner": "the exact-effect review chain, M03.15 → M01.9 → M13.6 (execution-horizons.md § The first proof: the next kernel program)"
+      }
+    },
+    {
+      "n": 17,
+      "step": "inspect the diff, tests, evidence admission, receipt chain, state root, costs, provider route, and learning eligibility",
+      "executed": [
+        {
+          "script": "check:collective-artifact-runtime-lifecycle",
+          "workspace": "@ioi/hypervisor-app",
+          "status": 0,
+          "seconds": 1150,
+          "isolation": "refused_and_recorded",
+          "ledger": {
+            "attempts": 298,
+            "loopback": 298,
+            "reach": 0,
+            "undeclared": [],
+            "names": []
+          },
+          "evidence": "../../../../../../tmp/ioi-undeniable-kUK3Kb/census/clause-17-check-collective-artifact-runtime-lifecycle/collective-artifact-runtime-lifecycle.json",
+          "evidence_sha256": "f3215e16c3b187bb264c17d1df86a373d5c5dda2810f5369b5c867bf25b8c707",
+          "executed_assertions": 22
+        }
+      ],
+      "absence": {
+        "what": "diff, tests, costs, provider route and learning eligibility of a repository effect are not inspected because no effect is produced (14–16); the artifact lineage, receipts and re-derived roots are. ArtifactRef production has no producer (R-205, open owner question)",
+        "owner": "the exact-effect review chain, M03.15 → M01.9 → M13.6 (execution-horizons.md § The first proof: the next kernel program) · R-205"
+      }
+    },
+    {
+      "n": 18,
+      "step": "replay the decision and effect from exported evidence",
+      "executed": [],
+      "absence": null,
+      "not_executed": "check:standalone-conformance (packaged; pass --with-packaged)"
+    },
+    {
+      "n": 19,
+      "step": "create and verify a manifest-complete backup",
+      "executed": [],
+      "absence": null,
+      "not_executed": "check:standalone-conformance (packaged; pass --with-packaged)"
+    },
+    {
+      "n": 20,
+      "step": "prepare a restore without mutation, then apply or refuse it through a fenced change plan and verify the resulting root/readiness",
+      "executed": [],
+      "absence": null,
+      "not_executed": "check:standalone-conformance (packaged; pass --with-packaged)"
+    },
+    {
+      "n": 21,
+      "step": "propose an upgrade, exercise rollback or recall, and retire the System",
+      "executed": [],
+      "absence": {
+        "what": "System retirement (dissolution) is not exercised; release update and rollback through admitted change plans are",
+        "owner": "M12.4 (product_track)"
+      },
+      "not_executed": "check:zero-to-operable (packaged; pass --with-packaged)"
+    },
+    {
+      "n": 22,
+      "step": "stop and uninstall without implicit data wipe",
+      "executed": [],
+      "absence": null,
+      "not_executed": "check:zero-to-operable (packaged; pass --with-packaged)"
+    },
+    {
+      "n": 0,
+      "profile_2": {
+        "what": "profile 2, managed optionality (link an account, enable one managed service, execute one managed operation, inspect binding/custody/usage/charge/receipts, revoke) needs an ioi.ai account; the minimum-L0 claim requires profile 1 only (execution-horizons.md: 'The minimum-L0 claim requires the first profile')",
+        "owner": "M12.4 (product_track) · a credentialed run"
+      }
+    }
+  ],
+  "measurements": {
+    "time to verified release": {
+      "not_measured": "clause 1 not executed in this run",
+      "owner": "this runner (on demand)"
+    },
+    "time to operable": {
+      "not_measured": "clause 4 not executed in this run",
+      "owner": "this runner (on demand)"
+    },
+    "diagnostic detection and recovery": {
+      "not_measured": "clause 5 not executed in this run",
+      "owner": "this runner (on demand)"
+    },
+    "time to first valid preview": {
+      "not_measured": "clause 2 not executed in this run",
+      "owner": "this runner (on demand)"
+    },
+    "time to genesis": {
+      "value_seconds": 984,
+      "from": "clause:11 check:system-record-seam",
+      "note": "clause 11 (seconds of the seam gate to its activated System)"
+    },
+    "typed-blocker resolution rate": {
+      "not_measured": "no blockers are raised as operator states (step 13's absence)",
+      "owner": "M12.4 (product_track)"
+    },
+    "authorized completion rate": {
+      "not_measured": "no repository effect is authorized or completed (steps 14–16)",
+      "owner": "the exact-effect review chain, M03.15 → M01.9 → M13.6 (execution-horizons.md § The first proof: the next kernel program)"
+    },
+    "verifier reproducibility": {
+      "not_measured": "clause 18 not executed in this run",
+      "owner": "this runner (on demand)"
+    },
+    "effect-recovery success": {
+      "not_measured": "no effect is produced (steps 14–16)",
+      "owner": "the exact-effect review chain, M03.15 → M01.9 → M13.6 (execution-horizons.md § The first proof: the next kernel program)"
+    },
+    "receipt/replay completeness": {
+      "not_measured": "clause 18 not executed in this run",
+      "owner": "this runner (on demand)"
+    },
+    "provider-swap continuity": {
+      "not_measured": "the fixture runs one declared model route; the swap continuity report is M10.4's evaluation plane, not this journey",
+      "owner": "M10.4 (closed) · a two-route run"
+    },
+    "recovery/revocation behavior": {
+      "not_measured": "clause 6 not executed in this run",
+      "owner": "this runner (on demand)"
+    },
+    "time to a locally valid System": {
+      "value_seconds": 984,
+      "from": "clause:11 check:system-record-seam",
+      "note": "clause 11 (seconds of the seam gate)"
+    },
+    "network-blocked completion": {
+      "value": {
+        "attempts": 1549,
+        "reach": 0
+      },
+      "note": "every executed clause (the harness ledger: zero reach beyond loopback)"
+    },
+    "managed-link scope accuracy": {
+      "not_measured": "profile 2 is not run",
+      "owner": "M12.4 (product_track) · a credentialed run"
+    },
+    "disconnect continuity": {
+      "not_measured": "profile 2 is not run",
+      "owner": "M12.4 (product_track) · a credentialed run"
+    },
+    "backup-byte/manifest verification": {
+      "not_measured": "clause 19 not executed in this run",
+      "owner": "this runner (on demand)"
+    },
+    "restore-preparation non-mutation": {
+      "not_measured": "clause 20 not executed in this run",
+      "owner": "this runner (on demand)"
+    },
+    "active-head preservation under failed/late execution": {
+      "not_measured": "no effect fails late (steps 14–16)",
+      "owner": "the exact-effect review chain, M03.15 → M01.9 → M13.6 (execution-horizons.md § The first proof: the next kernel program)"
+    },
+    "uninstall-without-wipe": {
+      "not_measured": "clause 22 not executed in this run",
+      "owner": "this runner (on demand)"
+    },
+    "export/import portability": {
+      "not_measured": "clause 18 not executed in this run",
+      "owner": "this runner (on demand)"
+    },
+    "the amount of architecture vocabulary exposed to a first-time operator": {
+      "not_measured": "no first-time-operator cohort has run the journey; a count of vocabulary terms on the surfaces is a release-program measurement",
+      "owner": "the release program"
+    }
+  },
+  "verdict": {
+    "kind": "named_failure",
+    "failures": [],
+    "absences": [
+      {
+        "n": 1,
+        "what": "not executed in this run: check:standalone-conformance (packaged; pass --with-packaged)",
+        "owner": "this runner (on demand)"
+      },
+      {
+        "n": 2,
+        "what": "not executed in this run: check:zero-to-operable (packaged; pass --with-packaged)",
+        "owner": "this runner (on demand)"
+      },
+      {
+        "n": 3,
+        "what": "not executed in this run: check:standalone-conformance (packaged; pass --with-packaged)",
+        "owner": "this runner (on demand)"
+      },
+      {
+        "n": 4,
+        "what": "not executed in this run: check:zero-to-operable (packaged; pass --with-packaged)",
+        "owner": "this runner (on demand)"
+      },
+      {
+        "n": 5,
+        "what": "not executed in this run: check:standalone-conformance (packaged; pass --with-packaged)",
+        "owner": "this runner (on demand)"
+      },
+      {
+        "n": 6,
+        "what": "the connected identity lane (provider-neutral account authentication, passkey step-up, the portable AuthorityGrantEnvelope v3 successor) is not exercised; the deployment-local lane is",
+        "owner": "M03.9 · M10.2"
+      },
+      {
+        "n": 6,
+        "what": "not executed in this run: check:standalone-conformance (packaged; pass --with-packaged)",
+        "owner": "this runner (on demand)"
+      },
+      {
+        "n": 7,
+        "what": "no template-choice surface exists: the composition gates instantiate the package's genesis directly (exactGenesisBody), never through a chosen template",
+        "owner": "M12.4 (product_track) · Studio"
+      },
+      {
+        "n": 8,
+        "what": "the goal description is not driven as an operator input: the goal-run composition gate admits a GoalRun over a committed profile-resolution closure it authors itself",
+        "owner": "M12.4 (product_track)"
+      },
+      {
+        "n": 9,
+        "what": "HypervisorProjectDiscoveryProposal is not driven by any M12 gate; blank/template construction must record that no discovery proposal was used",
+        "owner": "M08.15"
+      },
+      {
+        "n": 10,
+        "what": "preview and simulation of the compiled proposal before admission are not separate operator states; the seam gate proposes the exact genesis body and the daemon admits it",
+        "owner": "M12.4 (product_track)"
+      },
+      {
+        "n": 12,
+        "what": "the GoalRun is ADMITTED over a committed closure; execution is not started and no invocation is minted (the goal-run gate's own non-claim)",
+        "owner": "M12.4 (product_track)"
+      },
+      {
+        "n": 13,
+        "what": "attempts, verification findings and blockers as observed operator states are not driven; the context family (cells, leases, handoffs) and the orchestration's claims are",
+        "owner": "M12.4 (product_track)"
+      },
+      {
+        "n": 14,
+        "what": "no gate drives an exact proposed repository effect under the fixture",
+        "owner": "the exact-effect review chain, M03.15 → M01.9 → M13.6 (execution-horizons.md § The first proof: the next kernel program)"
+      },
+      {
+        "n": 15,
+        "what": "no gate drives the exact scoped authority ceremony for a repository effect under the fixture",
+        "owner": "the exact-effect review chain, M03.15 → M01.9 → M13.6 (execution-horizons.md § The first proof: the next kernel program)"
+      },
+      {
+        "n": 16,
+        "what": "no gate drives daemon-boundary revalidation and execute-or-refuse of a repository effect under the fixture",
+        "owner": "the exact-effect review chain, M03.15 → M01.9 → M13.6 (execution-horizons.md § The first proof: the next kernel program)"
+      },
+      {
+        "n": 17,
+        "what": "diff, tests, costs, provider route and learning eligibility of a repository effect are not inspected because no effect is produced (14–16); the artifact lineage, receipts and re-derived roots are. ArtifactRef production has no producer (R-205, open owner question)",
+        "owner": "the exact-effect review chain, M03.15 → M01.9 → M13.6 (execution-horizons.md § The first proof: the next kernel program) · R-205"
+      },
+      {
+        "n": 18,
+        "what": "not executed in this run: check:standalone-conformance (packaged; pass --with-packaged)",
+        "owner": "this runner (on demand)"
+      },
+      {
+        "n": 19,
+        "what": "not executed in this run: check:standalone-conformance (packaged; pass --with-packaged)",
+        "owner": "this runner (on demand)"
+      },
+      {
+        "n": 20,
+        "what": "not executed in this run: check:standalone-conformance (packaged; pass --with-packaged)",
+        "owner": "this runner (on demand)"
+      },
+      {
+        "n": 21,
+        "what": "System retirement (dissolution) is not exercised; release update and rollback through admitted change plans are",
+        "owner": "M12.4 (product_track)"
+      },
+      {
+        "n": 21,
+        "what": "not executed in this run: check:zero-to-operable (packaged; pass --with-packaged)",
+        "owner": "this runner (on demand)"
+      },
+      {
+        "n": 22,
+        "what": "not executed in this run: check:zero-to-operable (packaged; pass --with-packaged)",
+        "owner": "this runner (on demand)"
+      },
+      {
+        "n": 0,
+        "what": "profile 2, managed optionality (link an account, enable one managed service, execute one managed operation, inspect binding/custody/usage/charge/receipts, revoke) needs an ioi.ai account; the minimum-L0 claim requires profile 1 only (execution-horizons.md: 'The minimum-L0 claim requires the first profile')",
+        "owner": "M12.4 (product_track) · a credentialed run"
+      }
+    ]
+  },
+  "mutation": null,
+  "host": {
+    "isolation": "refused_and_recorded",
+    "strace": "strace -- version 6.8",
+    "load": [
+      "1.56",
+      "1.74",
+      "1.82"
+    ],
+    "daemon_binary": "/home/heathledger/Documents/ioi/repos/ioi/target/debug/hypervisor-daemon",
+    "work_dir": "/tmp/ioi-undeniable-kUK3Kb"
+  },
+  "finished_at": "2026-09-20T14:07:09.923Z",
+  "summary": {
+    "passed": 6,
+    "total": 6
+  }
+}

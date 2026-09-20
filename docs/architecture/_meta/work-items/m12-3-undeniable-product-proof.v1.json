@@ -1,0 +1,67 @@
+{
+  "evidence_format": "ioi.program.work_item.v1",
+  "work_item_id": "m12-3-undeniable-product-proof",
+  "stage_id": "M12",
+  "required_work": [
+    "M12.3"
+  ],
+  "status": "evidence_ready",
+  "objective": "Run canon's undeniable-product proof gate as a gate (execution-horizons.md \u00a7 Undeniable-product proof gate): the selected minimum-L0 profile \u2014 re-typed under R-192 as the bounded software-change institution the ioi.ai orchestration application composes over the substrate \u2014 as a registered ConformanceProfile instance, and the twenty-two-step journey as clauses each executed by the gate that already proves it under the sovereign-local fixture or emitted as a named, typed failure with its owner, with canon's measurements recorded or typed not_measured. The result is a pass or a named failure, never a weaker pass; today the gate emits the named failure canon allows and no pass is claimed.",
+  "falsifiable_claim": "npm run check:undeniable-product-proof --workspace=@ioi/hypervisor-app (scripts/check-undeniable-product-proof.mjs --drills) loads conformance_profile://ioi/flagship/minimum-l0-software-change/v1, validates it against schema://ioi/foundations/conformance-profile/v1 and its registered invariant, requires runtime_node, the execution-horizons envelope, the embedded_single_operator_offline fixture with the nine denied families, the seam and activation interfaces and the gate's failure taxonomy among its negative tests, and pins its digest; resolves every executed clause of the twenty-two against a real npm script and, for app verifiers, a pinned floor row, requires an owner on every named failure and steps 1\u201322 exactly once; drills the verdict as a pure function of clause rows (PASS only with every clause executed green and no absence; NAMED FAILURE with typed absences; FAIL on a red clause, a success row without evidence, an unowned absence, a duplicated or missing step, or a reach beyond loopback); requires all twenty-two canon measurements recorded by a named clause or typed not_measured with an owner; and requires canon to name the gate and type the profile as the ioi.ai composition. mutate:undeniable-product-proof plants ten defects and each goes red. The full gate (npm run check:undeniable-product-proof) runs every executed clause inside the isolated-egress harness with the wallet fixture as the declared loopback dependency, classifies each ledger, and exits 0 only on a pass, 2 on a named failure, 1 on a fail.",
+  "canon_owners": [
+    "docs/architecture/_meta/execution-horizons.md",
+    "docs/architecture/foundations/ecosystem-assurance-certification-liability.md",
+    "docs/architecture/components/hypervisor/core-clients-surfaces.md"
+  ],
+  "code_anchors": [
+    {
+      "path": "scripts/check-undeniable-product-proof.mjs",
+      "must_contain": "named_failure",
+      "present_when": "merged"
+    },
+    {
+      "path": "docs/architecture/_meta/schemas/fixtures/conformance-profile-v1/positive-flagship-minimum-l0-software-change.json",
+      "must_contain": "conformance_profile://ioi/flagship/minimum-l0-software-change/v1",
+      "present_when": "merged"
+    },
+    {
+      "path": "docs/architecture/_meta/schemas/architecture-contract-registry.v1.json",
+      "must_contain": "positive-flagship-minimum-l0-software-change.json",
+      "present_when": "merged"
+    },
+    {
+      "path": "apps/hypervisor/verifier-floors.v1.json",
+      "must_contain": "\"id\": \"undeniable-product-proof\"",
+      "present_when": "merged"
+    },
+    {
+      "path": ".github/workflows/ci.yml",
+      "must_contain": "npm run check:undeniable-product-proof --workspace=@ioi/hypervisor-app",
+      "present_when": "merged"
+    },
+    {
+      "path": "scripts/check-acceptance-conformance-ladder.mjs",
+      "must_contain": "mutate:undeniable-product-proof",
+      "present_when": "merged"
+    },
+    {
+      "path": "docs/architecture/_meta/execution-horizons.md",
+      "must_contain": "The gate is executable (2026-09-20, M12.3, register R-207)",
+      "present_when": "merged"
+    }
+  ],
+  "evidence_refs": [
+    "docs/architecture/_meta/evidence/m12-3-undeniable-product-proof-2026-09-20.v1.json",
+    "docs/architecture/_meta/canon-to-code-delta.md"
+  ],
+  "pr": null,
+  "adversarial_or_fault_proof": "mutate:undeniable-product-proof plants a re-fixtured profile, a profile without negative tests, a profile declaring the bounded-alpha envelope, a profile whose negatives omit the failure taxonomy, a step bound to a script that does not exist, a named failure without an owner, an executed clause whose floor row does not exist, a step silently dropped from the twenty-two, a run whose every clause reports success without evidence, and a measurement typed not_measured without an owner \u2014 each must go red (10/10). The verdict's failure rules are canon's own failure conditions: a fabricated success row is a FAIL, never a pass.",
+  "remaining_nonclaims": [
+    "The minimum-L0 PASS is not claimed: the gate emits the named failure canon allows. Named: no template-choice surface (7); goal description and discovery proposal not driven (8\u20139); preview/simulate of the compiled proposal (10); execution not started (12); attempts, findings and blockers as operator states (13); the exact-effect review chain (14\u201316, owner M03.15 \u2192 M01.9 \u2192 M13.6); diff/tests/costs of an effect and ArtifactRef production (17, R-205); System retirement (21); the connected identity lane (6); profile 2 managed optionality",
+    "Eight of canon's twenty-two measurements are typed not_measured with owners; fourteen are recorded by named clauses",
+    "The full gate is on demand, not CI-gated; CI executes the drills and the drill. The packaged clauses (1\u20136, 18\u201320, 22) run under --with-packaged and need two release packages whose daemon bytes differ",
+    "The composition gates run on the real wallet fixture as a loopback dependency inside the harness; a cargo reach inside the namespace is a finding, so the daemon binary must be prebuilt (IOI_HYPERVISOR_DAEMON_BINARY)"
+  ],
+  "source_provenance": "Authored 2026-09-20 by the MVP finish-line program (R-207 ruled the shape after a read-only survey). Drills 6/6 and mutation 10/10 on the unit's own tree; canon gates green after the retyping; contract oracle green with the registered profile instance. Recorded in canon-to-code-delta.md \u00a7 Journey verification CXVI. Full gate 2026-09-20 12:56Z on the unit's tree (isolation refused_and_recorded): the five composed clauses 103/103 inside the harness with zero reach; verdict NAMED FAILURE, exit 2. ACC-14 composed re-run on this tree: PARTIAL, exit 2 \u2014 13 executed clause checks green (clause 3's drills 6/6 and drill 10/10 among them, clause 4's seam 17/17 and composition), 15 typed absences, basis `ba13697ab` dirty.",
+  "last_status_transaction": "2026-09-20"
+}

@@ -54,7 +54,9 @@ managed dependency. Managed attachment adds separately admitted capabilities
 and never silently transfers truth, authority, custody, or writer ownership.
 The bounded-alpha envelope passed the standalone conformance profile under the
 sovereign-local fixture on 2026-09-15 (`check:standalone-conformance`, M12.1);
-the selected minimum-L0 profile has not yet been passed end to end.
+the selected minimum-L0 profile's gate runs (`check:undeniable-product-proof`,
+M12.3, 2026-09-20) and today names its failures; it has not been passed end to
+end.
 
 The local product target makes that contract visible as one shared,
 non-object zero-to-operable journey across App and CLI/headless:

@@ -95,7 +95,7 @@ records, and neither client keeps lifecycle truth of its own.
 | --- | --- | --- |
 | Base platform | the journey above, on the selected profile, with the checks named in the matrix | required |
 | Optional applications and capabilities | Data, Ontology, Pipelines, Foundry/models, Evaluations, Approvals, Automate, Packages, Studio/application building, bounded-System genesis and conformance, marketplace, decentralized.cloud, AIIP and network enrollment | each ships under its own owner's availability label and check; none gates the alpha; none is removed |
-| Flagship ioi.ai proofs | sovereign-local completeness on the OutcomeRoom-backed institution, continuity across failure domains, two-sovereign AIIP, the north-star external-Worker proof | strong integration evidence for the application and substrate; never the platform's front-door proof |
+| Flagship ioi.ai proofs | sovereign-local completeness on the institution ioi.ai composes over the substrate, continuity across failure domains, two-sovereign AIIP, the north-star external-Worker proof | strong integration evidence for the application and substrate; never the platform's front-door proof |
 
 ## Journey → contract → implementation readiness matrix
 
