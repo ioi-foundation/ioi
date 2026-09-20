@@ -25,6 +25,8 @@
     "mutate:horizon-2-distributed-work": "node ../../scripts/check-horizon-2-distributed-work.mjs --mutation",
     "check:provider-neutral-live-transaction": "node ../../scripts/check-provider-neutral-live-transaction.mjs --drills",
     "mutate:provider-neutral-live-transaction": "node ../../scripts/check-provider-neutral-live-transaction.mjs --mutation",
+    "check:c8-bounded-live-effect-certificate": "node ../../scripts/check-c8-bounded-live-effect-certificate.mjs --drills",
+    "mutate:c8-bounded-live-effect-certificate": "node ../../scripts/check-c8-bounded-live-effect-certificate.mjs --mutation",
     "check:app-runtime-safety": "node scripts/verify-hypervisor-app-runtime-safety.mjs",
     "check:assurance-ladder-lifecycle": "node scripts/verify-hypervisor-assurance-ladder-lifecycle.mjs",
     "check:assurance-transition-receipt": "node scripts/verify-hypervisor-assurance-transition-receipt.mjs",

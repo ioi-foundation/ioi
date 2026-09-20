@@ -1,0 +1,2491 @@
+{
+  "schema_version": "ioi.evidence.retained-c7-bounded-live-effect-run.v1",
+  "extracted_at": "2026-09-20T20:17:53.845Z",
+  "basis": "the live driver's artifact directory for the run and the shared daemon's durable akash-deployments, akash-leases, akash-endpoints, capability-leases and provider-operations families (execution_mode live_console_api); one owner-authorized run of 2026-08-21 that reached bid, lease, live provider readback, endpoint evidence, teardown and a provider-confirmed final debit",
+  "what_this_is_not": "not a certificate and not a new crossing: the durable records one C8 v2 certificate is GENERATED from at run time; it is NOT the T7 integrated capstone (dseq 1787578174606) and claims nothing about it; a certificate regenerated from these records is evidence about the 2026-08-21 crossing and never a fresh one",
+  "attested_certificate_sha256": "sha256:0f0cb46c1ff35d710eac6f3c29e031b0739985787e42449758ebdfea567b331c",
+  "attested_certificate_basis": "the certificate_hash sealed from these same records on 2026-08-21 (the run's -v2-successor certificate, not tracked); the generation gate regenerates the certificate from this set and requires the regenerated hash to EQUAL it",
+  "extension_owed": {
+    "settled_positive_runs_without_artifact_sets": 13,
+    "note": "thirteen further live final_debit_settled runs (2026-08-22..24, including the T7 capstone) exist only as durable records without the driver's artifact set; they cannot answer the assembler's challenge, proposal and receipt members and are not extracted (R-211)"
+  },
+  "runs": [
+    {
+      "dseq": "1787324505416",
+      "environment_ref": "env-c7-capstone-4",
+      "subject": {
+        "campaign": "c7-c8-development-1787324505416",
+        "run_at": "2026-08-21T15:02:06.603834793Z",
+        "execution_mode": "live_console_api",
+        "settlement_state": "final_debit_settled",
+        "is_t7_capstone": false,
+        "t7_capstone_dseq": "1787578174606",
+        "statement": "this is the retained 2026-08-21 positive live run dseq 1787324505416 (env-c7-capstone-4); it is NOT the T7 integrated capstone M01.7 closed on (dseq 1787578174606, 2026-08-24), whose artifacts and certificate bytes do not exist on the extracting host and whose certificate remains re-qualified as an attested hash by check:t7-retained-capstone-applicability"
+      },
+      "source_basis": {
+        "commit": "8d536a5dacb0b1602fbaa2f5060b86023294df02",
+        "daemon_binary_sha256": "sha256:300e321d554e8134d660003d34a8976269ff41a802d84bd55b23d6ea964f4360",
+        "dirty_state_declaration": "M apps/hypervisor/package.json\n M crates/drivers/src/provisioning/akash_console.rs\n M crates/drivers/src/provisioning/akash_console/tests.rs\n M crates/node/src/bin/hypervisor-daemon.rs\n M crates/node/src/bin/hypervisor_daemon_routes/provider_routes.rs\n?? 0\n?? apps/hypervisor/scripts/assemble-c7-c8-evidence.mjs\n?? apps/hypervisor/scripts/generate-c7-c8-certificate.mjs\n?? apps/hypervisor/scripts/lib/c7-c8-certificate.mjs\n?? apps/hypervisor/scripts/verify-akash-live-lifecycle.mjs\n?? apps/hypervisor/scripts/verify-c7-c8-capstone.mjs\n?? apps/hypervisor/scripts/verify-provider-proposal-provenance.mjs",
+        "publication_eligible": false,
+        "basis": "the run's own evidence, as attested on 2026-08-21: the tree was declared dirty and the certificate is never publication-eligible"
+      },
+      "substrate_anchor": {
+        "bytes": 6331685,
+        "prefix_sha256": "sha256:6a57ac447cdf78e0dddda1cc41c98cb60997a9be9d69778265153b6977c21ba7",
+        "basis": "attested by the run's own evidence against the live substrate log on 2026-08-21, not recomputed here: the log has grown since and is not tracked"
+      },
+      "artifacts": {
+        "challenge": {
+          "account_ref": "provider-account://pacc_18cd245812ad55b9",
+          "allowed_tools": [
+            "provider.create"
+          ],
+          "approval": {
+            "policy_hash": "sha256:3b65fad028ce4478d4906a028ee264e5791b18b5c03d7dc0aa8a3b6d6a587e7e",
+            "request_hash": "sha256:f5d7c90aec7b61124e68304ab03eb530bdade8620a0d593d86f38ff6c97b05c2"
+          },
+          "authority_challenge": {
+            "error": {
+              "code": "live_route_authority_grant_invalid",
+              "message": "approval grant must be one JSON object",
+              "runtimeTruthSource": "daemon-runtime"
+            }
+          },
+          "decision": "blocked",
+          "host_mutation": false,
+          "lease_request_facets": {
+            "auto_topup": false,
+            "ceiling_amount": "1000",
+            "ceiling_denom": "uact",
+            "deposit_usd": 1,
+            "execution_mode": "live",
+            "provider_selector": {
+              "mode": "any_marketplace",
+              "selection": "lowest_qualified_bid"
+            },
+            "sdl_hash": "sha256:1963b29e21efe0bf2dae7a65ec3cc67fabf354cba2837d4717b3f6e9a7474cba",
+            "sdl_yaml": "version: \"2.0\"\nservices:\n  web:\n    image: nginx:alpine\n    expose:\n      - port: 80\n        as: 80\n        to:\n          - global: true\nprofiles:\n  compute:\n    web:\n      resources:\n        cpu:\n          units: 0.1\n        memory:\n          size: 128Mi\n        storage:\n          size: 128Mi\n  placement:\n    dcloud:\n      pricing:\n        web:\n          denom: uact\n          amount: 1000\ndeployment:\n  web:\n    dcloud:\n      profile: web\n      count: 1\n",
+            "stage": "deployment_intent",
+            "teardown_policy": "always_teardown_required"
+          },
+          "message": "This crossing requires independently resolved, atomically consumed owner authority.",
+          "ok": false,
+          "reason": "provider_operation_authority_required",
+          "receipt_ref": "agentgres://provider-receipt/prc_18cdda2300ec3516",
+          "required_authority_scope": "scope:hypervisor.live-route.hypervisor-provider-op",
+          "required_scopes": [
+            "provider.provision"
+          ],
+          "resource_refs": [
+            "provider-account://pacc_18cd245812ad55b9",
+            "env-c7-capstone-4"
+          ],
+          "spend_estimate": null
+        },
+        "proposal_admission": {
+          "expires_at_unix": 1787324779,
+          "ok": true,
+          "proposal_admission_operation_ref": "agentgres://operation/event-stream/hypervisor-provider-operation-proposals/provider_operation_proposal.723b642c455b8159c0db715b9d7406986ae4fc1ac9031ceca51efc7508e1e0f6/sequence/0/head/sha256:329f0de90a9a6cdee49873815ca12747b4cc3501ee9c0c512d437a2660907e52",
+          "proposal_admission_receipt_ref": "provider-operation-proposal-admission://968fd34981b0b6a35eeddd09ca2912bd245b5c1e66ccd835f4124d056c275532",
+          "proposal_ref": "provider-operation-proposal://popp_7dc70ffcb5eb3f57",
+          "replayed": false,
+          "request_hash": "sha256:c77d9d2fead85c47da38b2052f258e9645091fc820dacc550c1fdd632c7c2883"
+        },
+        "cast": {
+          "account_ref": "provider-account://pacc_18cd245812ad55b9",
+          "capability_lease": {
+            "admission_intent_ref": "authority-admission-intents/aai_1b959c971cf3f2310f2cabea5a8613eb4518e6ff05ab75433a9042ad23056699",
+            "allowed_tools": [
+              "provider.create"
+            ],
+            "authority_provider_ref": "wallet.network",
+            "backing_provider": "provider:account:pacc_18cd245812ad55b9",
+            "credential_source": "connector",
+            "expires_at": 1850000000000,
+            "grant_ref": "wallet.network://grant/approval/d613d3001e822bd1075b4c4e41a895f8a0bdb1495e6024fb29b38829f9be2391",
+            "issued_at": "2026-08-21T15:01:41.060960956Z",
+            "lease_id": "lease_a35c6ac58cc3f43d",
+            "policy_hash": "sha256:3b65fad028ce4478d4906a028ee264e5791b18b5c03d7dc0aa8a3b6d6a587e7e",
+            "receipt_required": true,
+            "remaining_calls": 0,
+            "request_hash": "sha256:f5d7c90aec7b61124e68304ab03eb530bdade8620a0d593d86f38ff6c97b05c2",
+            "resource_refs": [
+              "provider-account://pacc_18cd245812ad55b9",
+              "env-c7-capstone-4"
+            ],
+            "revocation_ref": "provider-accounts/pacc_18cd245812ad55b9/credential",
+            "schema_version": "ioi.hypervisor.capability-lease.v1",
+            "state": "active"
+          },
+          "cost_estimate": null,
+          "environment_ref": "env-c7-capstone-4",
+          "evidence": {
+            "bid_ref": "akash-bid://akbid_18cdda2ff28c25d2",
+            "deployment": {
+              "deployment_ref": "akash-deployment://akdep_1787324505416",
+              "dseq": "1787324505416",
+              "execution_mode": "live_console_api",
+              "status": "active"
+            },
+            "lease_ref": "akash-lease://aklease_18cdda2ff28c25d2",
+            "provider_native": {
+              "dseq": "1787324505416",
+              "note": "REAL managed-Console deployment — dseq/provider are provider-native evidence; daemon custody state roots remain restore truth",
+              "provider": "akash15tl6v6gd0nte0syyxnv57zmmspgju4c3xfmdhk"
+            },
+            "provider_operation_ref": "provider-account://pacc_18cd245812ad55b9/op/create/env-c7-capstone-4",
+            "spend": "REAL — deposit-funded lease accrues until close; run delete/close to stop",
+            "teardown_required": true
+          },
+          "journal_state_roots": [
+            "sha256:9b293ebae592a2579f0a6a8f36388e628f1408fc4d00d20dad2d9221d4c19c5b",
+            "sha256:2a540f475902fe22d4db2690e6c5d503e0b2b616cdae6ed0e50da46a492ead48"
+          ],
+          "ok": true,
+          "op": "create",
+          "proposal_consumption": {
+            "principal_ref": "user://00000000-0000-4000-8000-000000000001",
+            "proposal_admission_receipt_ref": "provider-operation-proposal-admission://968fd34981b0b6a35eeddd09ca2912bd245b5c1e66ccd835f4124d056c275532",
+            "proposal_admission_root": "sha256:329f0de90a9a6cdee49873815ca12747b4cc3501ee9c0c512d437a2660907e52",
+            "proposal_consumption_receipt_ref": "provider-operation-proposal-consumption://6bb5bf1a069833fcf26c4e2e7fa2f8d733bc9405cdcd89515c9b0945fd560c04",
+            "proposal_consumption_root": "sha256:d7cfaa682ce27709d9339d5b4c88869fca7753d9fa7bb4f5d8f1df76b1b1cc5d",
+            "proposal_ref": "provider-operation-proposal://popp_7dc70ffcb5eb3f57",
+            "request_hash": "sha256:c77d9d2fead85c47da38b2052f258e9645091fc820dacc550c1fdd632c7c2883"
+          },
+          "provider": "pacc_18cd245812ad55b9",
+          "receipt_ref": "agentgres://provider-receipt/prc_18cdda2ff2955b87"
+        },
+        "start": {
+          "account_ref": "provider-account://pacc_18cd245812ad55b9",
+          "capability_lease": null,
+          "cost_estimate": null,
+          "environment_ref": "env-c7-capstone-4",
+          "evidence": {
+            "deployment_ref": "akash-deployment://akdep_1787324505416",
+            "dseq": "1787324505416",
+            "endpoint": {
+              "authority_note": "lease-assigned endpoints are fetched provider evidence, never authority",
+              "deployment_ref": "akash-deployment://akdep_1787324505416",
+              "endpoint_ref": "akash-endpoint://akep_18cdda30b78d2472",
+              "environment_ref": "env-c7-capstone-4",
+              "forwarded_ports": null,
+              "ips": null,
+              "lease_id": {
+                "bseq": 0,
+                "dseq": "1787324505416",
+                "gseq": 1,
+                "oseq": 1,
+                "owner": "akash1l6v0f2lz22q4ae5efkjrs9epfyuycsss2y0pmz",
+                "provider": "akash15tl6v6gd0nte0syyxnv57zmmspgju4c3xfmdhk"
+              },
+              "lease_ref": "akash-lease://aklease_18cdda2ff28c25d2",
+              "proven_at": "2026-08-21T15:02:09.909007199Z",
+              "provider_address": "akash15tl6v6gd0nte0syyxnv57zmmspgju4c3xfmdhk",
+              "provider_response_hash": "sha256:09eccc18da29f092159cbc270896f96ad22a12e6c6d7da5b27569de72ef1735a",
+              "record_id": "akep_18cdda30b78d2472",
+              "retrieved_live": true,
+              "schema_version": "ioi.hypervisor.akash-endpoint.v1",
+              "services": {
+                "web": {
+                  "available": 0,
+                  "available_replicas": 0,
+                  "name": "web",
+                  "observed_generation": 1,
+                  "ready_replicas": 0,
+                  "replicas": 1,
+                  "total": 1,
+                  "updated_replicas": 1,
+                  "uris": [
+                    "o30rbbbegd9o5b3veo339vde2c.ingress.hurricane.akash.pub"
+                  ]
+                }
+              }
+            },
+            "endpoint_ready": true,
+            "provider_operation_ref": "provider-account://pacc_18cd245812ad55b9/op/start/env-c7-capstone-4",
+            "retrieved_live": true,
+            "status": "running"
+          },
+          "journal_state_roots": [],
+          "ok": true,
+          "op": "start",
+          "proposal_consumption": null,
+          "provider": "pacc_18cd245812ad55b9",
+          "receipt_ref": "agentgres://provider-receipt/prc_18cdda30b7de0f42"
+        },
+        "logs": {
+          "account_ref": "provider-account://pacc_18cd245812ad55b9",
+          "capability_lease": null,
+          "cost_estimate": null,
+          "environment_ref": "env-c7-capstone-4",
+          "evidence": {
+            "basis": "daemon-recorded control-plane events — provider evidence, not authority",
+            "control_plane_log": [
+              {
+                "at": "2026-08-21T15:02:06.603842812Z",
+                "detail": "REAL Console deployment dseq=1787324505416",
+                "execution_mode": "live_console_api",
+                "kind": "deployment_created"
+              },
+              {
+                "at": "2026-08-21T15:02:06.603860046Z",
+                "detail": "provider akash15tl6v6gd0nte0syyxnv57zmmspgju4c3xfmdhk selected",
+                "execution_mode": "live_console_api",
+                "kind": "bid_selected"
+              },
+              {
+                "at": "2026-08-21T15:02:06.603885026Z",
+                "detail": "lease open, $ deposit escrow — customer-borne until close",
+                "execution_mode": "live_console_api",
+                "kind": "lease_opened"
+              },
+              {
+                "at": "2026-08-21T15:02:09.913596251Z",
+                "detail": "active lease service endpoint fetched from managed Console API",
+                "execution_mode": "live_console_api",
+                "kind": "endpoint_ready"
+              }
+            ],
+            "deployment_ref": "akash-deployment://akdep_1787324505416",
+            "execution_mode": "live_console_api",
+            "lease_ref": "akash-lease://aklease_18cdda2ff28c25d2",
+            "lease_state_proof": {
+              "deployment_state": "active",
+              "retrieved_live": true,
+              "source": "managed Console API GET /v1/deployments/{dseq} — the lease's on-chain state, fetched not asserted"
+            },
+            "service_logs": "not_exposed_by_managed_console_api — container logs require the provider's own endpoint; the retrievable proof is the live lease state above",
+            "settlement_readback": {
+              "leases": [
+                {
+                  "closed_on": "0",
+                  "created_at": "28270643",
+                  "id": {
+                    "bseq": 0,
+                    "dseq": "1787324505416",
+                    "gseq": 1,
+                    "oseq": 1,
+                    "owner": "akash1l6v0f2lz22q4ae5efkjrs9epfyuycsss2y0pmz",
+                    "provider": "akash15tl6v6gd0nte0syyxnv57zmmspgju4c3xfmdhk"
+                  },
+                  "price": {
+                    "amount": "0.726898000000000000",
+                    "denom": "uact"
+                  },
+                  "reason": "lease_closed_invalid",
+                  "reclamation": null,
+                  "state": "active",
+                  "status": {
+                    "forwarded_ports": null,
+                    "ips": null,
+                    "services": {
+                      "web": {
+                        "available": 0,
+                        "available_replicas": 0,
+                        "name": "web",
+                        "observed_generation": 1,
+                        "ready_replicas": 0,
+                        "replicas": 1,
+                        "total": 1,
+                        "updated_replicas": 1,
+                        "uris": [
+                          "o30rbbbegd9o5b3veo339vde2c.ingress.hurricane.akash.pub"
+                        ]
+                      }
+                    }
+                  }
+                }
+              ],
+              "normalized": {
+                "active_lease_count": 1,
+                "basis": "provider-native deployment + escrow + lease readback; close HTTP alone never settles",
+                "deployment_state": "active",
+                "deposit_usd": 1,
+                "escrow_state": "open",
+                "final_debit_usd": 0,
+                "funds": [
+                  {
+                    "amount": "1000000.000000000000000000",
+                    "denom": "uact"
+                  }
+                ],
+                "provider_terminal": false,
+                "refund_usd": 1,
+                "schema_version": "ioi.hypervisor.akash-settlement-readback.v1",
+                "settled_at_height": "28270643",
+                "settlement_state": "reconciliation_required",
+                "transferred": [
+                  {
+                    "amount": "0.000000000000000000",
+                    "denom": "uact"
+                  }
+                ]
+              },
+              "provider_native": {
+                "data": {
+                  "deployment": {
+                    "created_at": "28270641",
+                    "hash": "E9p8wkMzgthhkNk6AhpBuwZnsdqtUIquyoVuuCSfaz8=",
+                    "id": {
+                      "dseq": "1787324505416",
+                      "owner": "akash1l6v0f2lz22q4ae5efkjrs9epfyuycsss2y0pmz"
+                    },
+                    "reclamation": null,
+                    "state": "active"
+                  },
+                  "escrow_account": {
+                    "id": {
+                      "scope": "deployment",
+                      "xid": "akash1l6v0f2lz22q4ae5efkjrs9epfyuycsss2y0pmz/1787324505416"
+                    },
+                    "state": {
+                      "deposits": [
+                        {
+                          "balance": {
+                            "amount": "1000000.000000000000000000",
+                            "denom": "uact"
+                          },
+                          "height": "28270641",
+                          "owner": "akash17f8kfdvzaamk6gapy6tsrf8sg4cdd0296kkhnz",
+                          "source": "grant"
+                        }
+                      ],
+                      "funds": [
+                        {
+                          "amount": "1000000.000000000000000000",
+                          "denom": "uact"
+                        }
+                      ],
+                      "owner": "akash1l6v0f2lz22q4ae5efkjrs9epfyuycsss2y0pmz",
+                      "settled_at": "28270643",
+                      "state": "open",
+                      "transferred": [
+                        {
+                          "amount": "0.000000000000000000",
+                          "denom": "uact"
+                        }
+                      ]
+                    }
+                  },
+                  "leases": [
+                    {
+                      "closed_on": "0",
+                      "created_at": "28270643",
+                      "id": {
+                        "bseq": 0,
+                        "dseq": "1787324505416",
+                        "gseq": 1,
+                        "oseq": 1,
+                        "owner": "akash1l6v0f2lz22q4ae5efkjrs9epfyuycsss2y0pmz",
+                        "provider": "akash15tl6v6gd0nte0syyxnv57zmmspgju4c3xfmdhk"
+                      },
+                      "price": {
+                        "amount": "0.726898000000000000",
+                        "denom": "uact"
+                      },
+                      "reason": "lease_closed_invalid",
+                      "reclamation": null,
+                      "state": "active",
+                      "status": {
+                        "forwarded_ports": null,
+                        "ips": null,
+                        "services": {
+                          "web": {
+                            "available": 0,
+                            "available_replicas": 0,
+                            "name": "web",
+                            "observed_generation": 1,
+                            "ready_replicas": 0,
+                            "replicas": 1,
+                            "total": 1,
+                            "updated_replicas": 1,
+                            "uris": [
+                              "o30rbbbegd9o5b3veo339vde2c.ingress.hurricane.akash.pub"
+                            ]
+                          }
+                        }
+                      }
+                    }
+                  ]
+                }
+              },
+              "provider_response_hash": "sha256:09eccc18da29f092159cbc270896f96ad22a12e6c6d7da5b27569de72ef1735a",
+              "retrieved_live": true,
+              "source": "managed Console API GET /v1/deployments/{dseq}"
+            }
+          },
+          "journal_state_roots": [],
+          "ok": true,
+          "op": "logs",
+          "proposal_consumption": null,
+          "provider": "pacc_18cd245812ad55b9",
+          "receipt_ref": "agentgres://provider-receipt/prc_18cdda312e3414d0"
+        },
+        "delete": {
+          "account_ref": "provider-account://pacc_18cd245812ad55b9",
+          "capability_lease": null,
+          "cost_estimate": null,
+          "environment_ref": "env-c7-capstone-4",
+          "evidence": {
+            "cleanup_verified": false,
+            "deployment_ref": "akash-deployment://akdep_1787324505416",
+            "dseq": "1787324505416",
+            "native_teardown": {
+              "close_http": 200,
+              "destroyed": false,
+              "provider_response_hash": "sha256:09eccc18da29f092159cbc270896f96ad22a12e6c6d7da5b27569de72ef1735a"
+            },
+            "provider_operation_ref": "provider-account://pacc_18cd245812ad55b9/op/delete/env-c7-capstone-4",
+            "settlement": {
+              "active_lease_count": 1,
+              "basis": "provider-native deployment + escrow + lease readback; close HTTP alone never settles",
+              "deployment_state": "active",
+              "deposit_usd": 1,
+              "escrow_state": "open",
+              "final_debit_usd": 0,
+              "funds": [
+                {
+                  "amount": "1000000.000000000000000000",
+                  "denom": "uact"
+                }
+              ],
+              "provider_terminal": false,
+              "refund_usd": 1,
+              "schema_version": "ioi.hypervisor.akash-settlement-readback.v1",
+              "settled_at_height": "28270643",
+              "settlement_state": "reconciliation_required",
+              "transferred": [
+                {
+                  "amount": "0.000000000000000000",
+                  "denom": "uact"
+                }
+              ]
+            },
+            "teardown_state": "reconciliation_required"
+          },
+          "journal_state_roots": [],
+          "ok": true,
+          "op": "delete",
+          "proposal_consumption": null,
+          "provider": "pacc_18cd245812ad55b9",
+          "receipt_ref": "agentgres://provider-receipt/prc_18cdda34357c6d98"
+        },
+        "reconcile": {
+          "account_ref": "provider-account://pacc_18cd245812ad55b9",
+          "capability_lease": null,
+          "cost_estimate": null,
+          "environment_ref": "env-c7-capstone-4",
+          "evidence": {
+            "deployment_ref": "akash-deployment://akdep_1787324505416",
+            "dseq": "1787324505416",
+            "provider_native": {
+              "deployment": {
+                "created_at": "28270641",
+                "hash": "E9p8wkMzgthhkNk6AhpBuwZnsdqtUIquyoVuuCSfaz8=",
+                "id": {
+                  "dseq": "1787324505416",
+                  "owner": "akash1l6v0f2lz22q4ae5efkjrs9epfyuycsss2y0pmz"
+                },
+                "reclamation": null,
+                "state": "closed"
+              },
+              "escrow_account": {
+                "id": {
+                  "scope": "deployment",
+                  "xid": "akash1l6v0f2lz22q4ae5efkjrs9epfyuycsss2y0pmz/1787324505416"
+                },
+                "state": {
+                  "deposits": [],
+                  "funds": [
+                    {
+                      "amount": "0.000000000000000000",
+                      "denom": "uact"
+                    }
+                  ],
+                  "owner": "akash1l6v0f2lz22q4ae5efkjrs9epfyuycsss2y0pmz",
+                  "settled_at": "28270646",
+                  "state": "closed",
+                  "transferred": [
+                    {
+                      "amount": "2.000000000000000000",
+                      "denom": "uact"
+                    }
+                  ]
+                }
+              },
+              "leases": [
+                {
+                  "closed_on": "28270646",
+                  "created_at": "28270643",
+                  "id": {
+                    "bseq": 0,
+                    "dseq": "1787324505416",
+                    "gseq": 1,
+                    "oseq": 1,
+                    "owner": "akash1l6v0f2lz22q4ae5efkjrs9epfyuycsss2y0pmz",
+                    "provider": "akash15tl6v6gd0nte0syyxnv57zmmspgju4c3xfmdhk"
+                  },
+                  "price": {
+                    "amount": "0.726898000000000000",
+                    "denom": "uact"
+                  },
+                  "reason": "lease_closed_owner",
+                  "reclamation": null,
+                  "state": "closed",
+                  "status": null
+                }
+              ],
+              "response_hash": "sha256:4951308287df74abf42031da437ef8b0505aec48a0996fe2f3d46a25ba179dde"
+            },
+            "provider_operation_ref": "provider-account://pacc_18cd245812ad55b9/op/reconcile/env-c7-capstone-4",
+            "retrieved_live": true,
+            "settlement": {
+              "active_lease_count": 0,
+              "basis": "provider-native deployment + escrow + lease readback; close HTTP alone never settles",
+              "deployment_state": "closed",
+              "deposit_usd": 1,
+              "escrow_state": "closed",
+              "final_debit_usd": 0.000002,
+              "funds": [
+                {
+                  "amount": "0.000000000000000000",
+                  "denom": "uact"
+                }
+              ],
+              "provider_terminal": true,
+              "refund_usd": 0.999998,
+              "schema_version": "ioi.hypervisor.akash-settlement-readback.v1",
+              "settled_at_height": "28270646",
+              "settlement_state": "final_debit_settled",
+              "transferred": [
+                {
+                  "amount": "2.000000000000000000",
+                  "denom": "uact"
+                }
+              ]
+            },
+            "teardown_state": "torn_down"
+          },
+          "journal_state_roots": [],
+          "ok": true,
+          "op": "reconcile",
+          "proposal_consumption": null,
+          "provider": "pacc_18cd245812ad55b9",
+          "receipt_ref": "agentgres://provider-receipt/prc_18cdda380d9f8b1b"
+        },
+        "whoami": {
+          "ok": true,
+          "authenticated": true,
+          "principal": {
+            "principal_ref": "user://00000000-0000-4000-8000-000000000001",
+            "role": "admin",
+            "source": "local-operator",
+            "schema_version": "ioi.hypervisor.principal.v1"
+          }
+        },
+        "receipts": {
+          "receipts": [
+            {
+              "account_ref": "provider-account://pacc_18cd245812ad55b9",
+              "at": "2026-08-21T15:02:41.417545263Z",
+              "environment_ref": "env-c7-capstone-4",
+              "op": "reconcile",
+              "outcome": "ok",
+              "provider": "akash",
+              "provider_native": {
+                "deployment": {
+                  "created_at": "28270641",
+                  "hash": "E9p8wkMzgthhkNk6AhpBuwZnsdqtUIquyoVuuCSfaz8=",
+                  "id": {
+                    "dseq": "1787324505416",
+                    "owner": "akash1l6v0f2lz22q4ae5efkjrs9epfyuycsss2y0pmz"
+                  },
+                  "reclamation": null,
+                  "state": "closed"
+                },
+                "escrow_account": {
+                  "id": {
+                    "scope": "deployment",
+                    "xid": "akash1l6v0f2lz22q4ae5efkjrs9epfyuycsss2y0pmz/1787324505416"
+                  },
+                  "state": {
+                    "deposits": [],
+                    "funds": [
+                      {
+                        "amount": "0.000000000000000000",
+                        "denom": "uact"
+                      }
+                    ],
+                    "owner": "akash1l6v0f2lz22q4ae5efkjrs9epfyuycsss2y0pmz",
+                    "settled_at": "28270646",
+                    "state": "closed",
+                    "transferred": [
+                      {
+                        "amount": "2.000000000000000000",
+                        "denom": "uact"
+                      }
+                    ]
+                  }
+                },
+                "leases": [
+                  {
+                    "closed_on": "28270646",
+                    "created_at": "28270643",
+                    "id": {
+                      "bseq": 0,
+                      "dseq": "1787324505416",
+                      "gseq": 1,
+                      "oseq": 1,
+                      "owner": "akash1l6v0f2lz22q4ae5efkjrs9epfyuycsss2y0pmz",
+                      "provider": "akash15tl6v6gd0nte0syyxnv57zmmspgju4c3xfmdhk"
+                    },
+                    "price": {
+                      "amount": "0.726898000000000000",
+                      "denom": "uact"
+                    },
+                    "reason": "lease_closed_owner",
+                    "reclamation": null,
+                    "state": "closed",
+                    "status": null
+                  }
+                ],
+                "response_hash": "sha256:4951308287df74abf42031da437ef8b0505aec48a0996fe2f3d46a25ba179dde"
+              },
+              "receipt_id": "prc_18cdda380d9f8b1b",
+              "receipt_ref": "agentgres://provider-receipt/prc_18cdda380d9f8b1b",
+              "schema_version": "ioi.hypervisor.provider-receipt.v1",
+              "teardown_state": "torn_down"
+            },
+            {
+              "account_ref": "provider-account://pacc_18cd245812ad55b9",
+              "at": "2026-08-21T15:02:32.994717262Z",
+              "environment_ref": "env-c7-capstone-4",
+              "op": "reconcile",
+              "outcome": "ok",
+              "provider": "akash",
+              "provider_native": {
+                "deployment": {
+                  "created_at": "28270641",
+                  "hash": "E9p8wkMzgthhkNk6AhpBuwZnsdqtUIquyoVuuCSfaz8=",
+                  "id": {
+                    "dseq": "1787324505416",
+                    "owner": "akash1l6v0f2lz22q4ae5efkjrs9epfyuycsss2y0pmz"
+                  },
+                  "reclamation": null,
+                  "state": "active"
+                },
+                "escrow_account": {
+                  "id": {
+                    "scope": "deployment",
+                    "xid": "akash1l6v0f2lz22q4ae5efkjrs9epfyuycsss2y0pmz/1787324505416"
+                  },
+                  "state": {
+                    "deposits": [
+                      {
+                        "balance": {
+                          "amount": "1000000.000000000000000000",
+                          "denom": "uact"
+                        },
+                        "height": "28270641",
+                        "owner": "akash17f8kfdvzaamk6gapy6tsrf8sg4cdd0296kkhnz",
+                        "source": "grant"
+                      }
+                    ],
+                    "funds": [
+                      {
+                        "amount": "1000000.000000000000000000",
+                        "denom": "uact"
+                      }
+                    ],
+                    "owner": "akash1l6v0f2lz22q4ae5efkjrs9epfyuycsss2y0pmz",
+                    "settled_at": "28270643",
+                    "state": "open",
+                    "transferred": [
+                      {
+                        "amount": "0.000000000000000000",
+                        "denom": "uact"
+                      }
+                    ]
+                  }
+                },
+                "leases": [
+                  {
+                    "closed_on": "0",
+                    "created_at": "28270643",
+                    "id": {
+                      "bseq": 0,
+                      "dseq": "1787324505416",
+                      "gseq": 1,
+                      "oseq": 1,
+                      "owner": "akash1l6v0f2lz22q4ae5efkjrs9epfyuycsss2y0pmz",
+                      "provider": "akash15tl6v6gd0nte0syyxnv57zmmspgju4c3xfmdhk"
+                    },
+                    "price": {
+                      "amount": "0.726898000000000000",
+                      "denom": "uact"
+                    },
+                    "reason": "lease_closed_invalid",
+                    "reclamation": null,
+                    "state": "active",
+                    "status": {
+                      "forwarded_ports": null,
+                      "ips": null,
+                      "services": {
+                        "web": {
+                          "available": 0,
+                          "available_replicas": 0,
+                          "name": "web",
+                          "observed_generation": 1,
+                          "ready_replicas": 0,
+                          "replicas": 1,
+                          "total": 1,
+                          "updated_replicas": 1,
+                          "uris": [
+                            "o30rbbbegd9o5b3veo339vde2c.ingress.hurricane.akash.pub"
+                          ]
+                        }
+                      }
+                    }
+                  }
+                ],
+                "response_hash": "sha256:09eccc18da29f092159cbc270896f96ad22a12e6c6d7da5b27569de72ef1735a"
+              },
+              "receipt_id": "prc_18cdda36179564bb",
+              "receipt_ref": "agentgres://provider-receipt/prc_18cdda36179564bb",
+              "schema_version": "ioi.hypervisor.provider-receipt.v1"
+            },
+            {
+              "account_ref": "provider-account://pacc_18cd245812ad55b9",
+              "at": "2026-08-21T15:02:24.906466137Z",
+              "environment_ref": "env-c7-capstone-4",
+              "op": "delete",
+              "outcome": "ok",
+              "provider": "akash",
+              "receipt_id": "prc_18cdda34357c6d98",
+              "receipt_ref": "agentgres://provider-receipt/prc_18cdda34357c6d98",
+              "schema_version": "ioi.hypervisor.provider-receipt.v1",
+              "teardown_state": "reconciliation_required"
+            },
+            {
+              "account_ref": "provider-account://pacc_18cd245812ad55b9",
+              "at": "2026-08-21T15:02:11.899380635Z",
+              "environment_ref": "env-c7-capstone-4",
+              "op": "logs",
+              "outcome": "ok",
+              "provider": "akash",
+              "receipt_id": "prc_18cdda312e3414d0",
+              "receipt_ref": "agentgres://provider-receipt/prc_18cdda312e3414d0",
+              "schema_version": "ioi.hypervisor.provider-receipt.v1"
+            },
+            {
+              "account_ref": "provider-account://pacc_18cd245812ad55b9",
+              "at": "2026-08-21T15:02:09.914028199Z",
+              "environment_ref": "env-c7-capstone-4",
+              "op": "start",
+              "outcome": "ok",
+              "provider": "akash",
+              "receipt_id": "prc_18cdda30b7de0f42",
+              "receipt_ref": "agentgres://provider-receipt/prc_18cdda30b7de0f42",
+              "schema_version": "ioi.hypervisor.provider-receipt.v1"
+            },
+            {
+              "account_ref": "provider-account://pacc_18cd245812ad55b9",
+              "at": "2026-08-21T15:02:06.604178847Z",
+              "budget_discovery": {
+                "admitted": true,
+                "budget_ref": "budget://c7-capstone-spend",
+                "discovered_before_mutation": true,
+                "provider_spend_borne_by": "customer",
+                "remaining": 5,
+                "remaining_headroom_after_reservations": 4.6,
+                "reservation_note": "reservations are first-hour estimates at declared max rates — never an actual provider bill; budget spent is never faked",
+                "reserved_open_estimates": 0.4,
+                "scope": "external_spend"
+              },
+              "capability_lease": {
+                "admission_intent_ref": "authority-admission-intents/aai_1b959c971cf3f2310f2cabea5a8613eb4518e6ff05ab75433a9042ad23056699",
+                "allowed_tools": [
+                  "provider.create"
+                ],
+                "authority_provider_ref": "wallet.network",
+                "backing_provider": "provider:account:pacc_18cd245812ad55b9",
+                "credential_source": "connector",
+                "expires_at": 1850000000000,
+                "grant_ref": "wallet.network://grant/approval/d613d3001e822bd1075b4c4e41a895f8a0bdb1495e6024fb29b38829f9be2391",
+                "issued_at": "2026-08-21T15:01:41.060960956Z",
+                "lease_id": "lease_a35c6ac58cc3f43d",
+                "policy_hash": "sha256:3b65fad028ce4478d4906a028ee264e5791b18b5c03d7dc0aa8a3b6d6a587e7e",
+                "receipt_required": true,
+                "remaining_calls": 0,
+                "request_hash": "sha256:f5d7c90aec7b61124e68304ab03eb530bdade8620a0d593d86f38ff6c97b05c2",
+                "resource_refs": [
+                  "provider-account://pacc_18cd245812ad55b9",
+                  "env-c7-capstone-4"
+                ],
+                "revocation_ref": "provider-accounts/pacc_18cd245812ad55b9/credential",
+                "schema_version": "ioi.hypervisor.capability-lease.v1",
+                "state": "active"
+              },
+              "environment_ref": "env-c7-capstone-4",
+              "execution_mode": "live",
+              "grant_ref": "wallet.network://grant/approval/d613d3001e822bd1075b4c4e41a895f8a0bdb1495e6024fb29b38829f9be2391",
+              "op": "create",
+              "outcome": "ok",
+              "proposal_consumption": {
+                "principal_ref": "user://00000000-0000-4000-8000-000000000001",
+                "proposal_admission_receipt_ref": "provider-operation-proposal-admission://968fd34981b0b6a35eeddd09ca2912bd245b5c1e66ccd835f4124d056c275532",
+                "proposal_admission_root": "sha256:329f0de90a9a6cdee49873815ca12747b4cc3501ee9c0c512d437a2660907e52",
+                "proposal_consumption_receipt_ref": "provider-operation-proposal-consumption://6bb5bf1a069833fcf26c4e2e7fa2f8d733bc9405cdcd89515c9b0945fd560c04",
+                "proposal_consumption_root": "sha256:d7cfaa682ce27709d9339d5b4c88869fca7753d9fa7bb4f5d8f1df76b1b1cc5d",
+                "proposal_ref": "provider-operation-proposal://popp_7dc70ffcb5eb3f57",
+                "request_hash": "sha256:c77d9d2fead85c47da38b2052f258e9645091fc820dacc550c1fdd632c7c2883"
+              },
+              "provider": "akash",
+              "provider_native": {
+                "dseq": "1787324505416",
+                "note": "REAL managed-Console deployment — dseq/provider are provider-native evidence; daemon custody state roots remain restore truth",
+                "provider": "akash15tl6v6gd0nte0syyxnv57zmmspgju4c3xfmdhk"
+              },
+              "receipt_id": "prc_18cdda2ff2955b87",
+              "receipt_ref": "agentgres://provider-receipt/prc_18cdda2ff2955b87",
+              "schema_version": "ioi.hypervisor.provider-receipt.v1"
+            },
+            {
+              "account_ref": "provider-account://pacc_18cd245812ad55b9",
+              "at": "2026-08-21T15:01:11.01015511Z",
+              "budget_discovery": {
+                "admitted": true,
+                "budget_ref": "budget://c7-capstone-spend",
+                "discovered_before_mutation": true,
+                "provider_spend_borne_by": "customer",
+                "remaining": 5,
+                "remaining_headroom_after_reservations": 4.6,
+                "reservation_note": "reservations are first-hour estimates at declared max rates — never an actual provider bill; budget spent is never faked",
+                "reserved_open_estimates": 0.4,
+                "scope": "external_spend"
+              },
+              "environment_ref": "env-c7-capstone-4",
+              "op": "create",
+              "outcome": "authority_missing",
+              "provider": "akash",
+              "receipt_id": "prc_18cdda2300ec3516",
+              "receipt_ref": "agentgres://provider-receipt/prc_18cdda2300ec3516",
+              "schema_version": "ioi.hypervisor.provider-receipt.v1"
+            },
+            {
+              "account_ref": "provider-account://pacc_18cd245812ad55b9",
+              "at": "2026-08-21T14:58:31.505996503Z",
+              "budget_discovery": {
+                "admitted": true,
+                "budget_ref": "budget://c7-capstone-spend",
+                "discovered_before_mutation": true,
+                "provider_spend_borne_by": "customer",
+                "remaining": 5,
+                "remaining_headroom_after_reservations": 4.6,
+                "reservation_note": "reservations are first-hour estimates at declared max rates — never an actual provider bill; budget spent is never faked",
+                "reserved_open_estimates": 0.4,
+                "scope": "external_spend"
+              },
+              "environment_ref": "env-c7-capstone-4",
+              "op": "create",
+              "outcome": "authority_missing",
+              "provider": "akash",
+              "receipt_id": "prc_18cdd9fdddbbe66c",
+              "receipt_ref": "agentgres://provider-receipt/prc_18cdd9fdddbbe66c",
+              "schema_version": "ioi.hypervisor.provider-receipt.v1"
+            },
+            {
+              "account_ref": "provider-account://pacc_18cd245812ad55b9",
+              "at": "2026-08-21T14:52:27.099997635Z",
+              "budget_discovery": {
+                "admitted": true,
+                "budget_ref": "budget://c7-capstone-spend",
+                "discovered_before_mutation": true,
+                "provider_spend_borne_by": "customer",
+                "remaining": 5,
+                "remaining_headroom_after_reservations": 4.6,
+                "reservation_note": "reservations are first-hour estimates at declared max rates — never an actual provider bill; budget spent is never faked",
+                "reserved_open_estimates": 0.4,
+                "scope": "external_spend"
+              },
+              "environment_ref": "env-c7-capstone-4",
+              "op": "create",
+              "outcome": "authority_missing",
+              "provider": "akash",
+              "receipt_id": "prc_18cdd9a905719fad",
+              "receipt_ref": "agentgres://provider-receipt/prc_18cdd9a905719fad",
+              "schema_version": "ioi.hypervisor.provider-receipt.v1"
+            }
+          ]
+        },
+        "reconciliation": {
+          "at": "2026-08-21T15:02:45.544230082Z",
+          "authorized_external_spend_rate": {
+            "basis": "sum of grant-authorized max hourly rates across all exposures (rates, not totals — open rentals have no invented total)",
+            "usd_per_hour_sum": 10.900000000000002
+          },
+          "budget": {
+            "budget_ref": "budget://c7-capstone-spend",
+            "exists": true,
+            "limit": 5,
+            "remaining_headroom": 4.6,
+            "reserved_open_estimates": 0.4,
+            "spent": 0,
+            "spent_note": "budget `spent` reflects ACTUAL debits only — reservations and estimates never fake it"
+          },
+          "estimated_open_exposure_rate": {
+            "open_count": 1,
+            "usd_per_hour_sum": 0.311
+          },
+          "incomplete_teardown_warnings": [],
+          "rows": [],
+          "schema_version": "ioi.hypervisor.provider-spend-reconciliation.v1",
+          "spend_rule": "BYO/marketplace provider spend is CUSTOMER-BORNE on the customer's own account; Hypervisor records, governs, estimates, and reconciles — no fee objects, no markup, no Work Credit debit, no fake settlement",
+          "teardown_finalized": {
+            "count": 23
+          },
+          "unsettled_estimates": {
+            "count": 1,
+            "note": "estimates stay unsettled until the customer's own provider bill — Hypervisor never fakes settlement"
+          }
+        },
+        "operations": {
+          "operations": [
+            {
+              "account_ref": "provider-account://pacc_18cd245812ad55b9",
+              "at": "2026-08-21T15:02:41.424743683Z",
+              "budget_discovery": null,
+              "cost_estimate": null,
+              "environment_ref": "env-c7-capstone-4",
+              "evidence": {
+                "deployment_ref": "akash-deployment://akdep_1787324505416",
+                "dseq": "1787324505416",
+                "provider_native": {
+                  "deployment": {
+                    "created_at": "28270641",
+                    "hash": "E9p8wkMzgthhkNk6AhpBuwZnsdqtUIquyoVuuCSfaz8=",
+                    "id": {
+                      "dseq": "1787324505416",
+                      "owner": "akash1l6v0f2lz22q4ae5efkjrs9epfyuycsss2y0pmz"
+                    },
+                    "reclamation": null,
+                    "state": "closed"
+                  },
+                  "escrow_account": {
+                    "id": {
+                      "scope": "deployment",
+                      "xid": "akash1l6v0f2lz22q4ae5efkjrs9epfyuycsss2y0pmz/1787324505416"
+                    },
+                    "state": {
+                      "deposits": [],
+                      "funds": [
+                        {
+                          "amount": "0.000000000000000000",
+                          "denom": "uact"
+                        }
+                      ],
+                      "owner": "akash1l6v0f2lz22q4ae5efkjrs9epfyuycsss2y0pmz",
+                      "settled_at": "28270646",
+                      "state": "closed",
+                      "transferred": [
+                        {
+                          "amount": "2.000000000000000000",
+                          "denom": "uact"
+                        }
+                      ]
+                    }
+                  },
+                  "leases": [
+                    {
+                      "closed_on": "28270646",
+                      "created_at": "28270643",
+                      "id": {
+                        "bseq": 0,
+                        "dseq": "1787324505416",
+                        "gseq": 1,
+                        "oseq": 1,
+                        "owner": "akash1l6v0f2lz22q4ae5efkjrs9epfyuycsss2y0pmz",
+                        "provider": "akash15tl6v6gd0nte0syyxnv57zmmspgju4c3xfmdhk"
+                      },
+                      "price": {
+                        "amount": "0.726898000000000000",
+                        "denom": "uact"
+                      },
+                      "reason": "lease_closed_owner",
+                      "reclamation": null,
+                      "state": "closed",
+                      "status": null
+                    }
+                  ],
+                  "response_hash": "sha256:4951308287df74abf42031da437ef8b0505aec48a0996fe2f3d46a25ba179dde"
+                },
+                "provider_operation_ref": "provider-account://pacc_18cd245812ad55b9/op/reconcile/env-c7-capstone-4",
+                "retrieved_live": true,
+                "settlement": {
+                  "active_lease_count": 0,
+                  "basis": "provider-native deployment + escrow + lease readback; close HTTP alone never settles",
+                  "deployment_state": "closed",
+                  "deposit_usd": 1,
+                  "escrow_state": "closed",
+                  "final_debit_usd": 0.000002,
+                  "funds": [
+                    {
+                      "amount": "0.000000000000000000",
+                      "denom": "uact"
+                    }
+                  ],
+                  "provider_terminal": true,
+                  "refund_usd": 0.999998,
+                  "schema_version": "ioi.hypervisor.akash-settlement-readback.v1",
+                  "settled_at_height": "28270646",
+                  "settlement_state": "final_debit_settled",
+                  "transferred": [
+                    {
+                      "amount": "2.000000000000000000",
+                      "denom": "uact"
+                    }
+                  ]
+                },
+                "teardown_state": "torn_down"
+              },
+              "grant_ref": null,
+              "op": "reconcile",
+              "operation_id": "pop_18cdda380e0c942c",
+              "proposal_consumption": null,
+              "provider": "akash",
+              "receipt_ref": "agentgres://provider-receipt/prc_18cdda380d9f8b1b",
+              "schema_version": "ioi.hypervisor.provider-operation.v1"
+            },
+            {
+              "account_ref": "provider-account://pacc_18cd245812ad55b9",
+              "at": "2026-08-21T15:02:33.002016069Z",
+              "budget_discovery": null,
+              "cost_estimate": null,
+              "environment_ref": "env-c7-capstone-4",
+              "evidence": {
+                "deployment_ref": "akash-deployment://akdep_1787324505416",
+                "dseq": "1787324505416",
+                "provider_native": {
+                  "deployment": {
+                    "created_at": "28270641",
+                    "hash": "E9p8wkMzgthhkNk6AhpBuwZnsdqtUIquyoVuuCSfaz8=",
+                    "id": {
+                      "dseq": "1787324505416",
+                      "owner": "akash1l6v0f2lz22q4ae5efkjrs9epfyuycsss2y0pmz"
+                    },
+                    "reclamation": null,
+                    "state": "active"
+                  },
+                  "escrow_account": {
+                    "id": {
+                      "scope": "deployment",
+                      "xid": "akash1l6v0f2lz22q4ae5efkjrs9epfyuycsss2y0pmz/1787324505416"
+                    },
+                    "state": {
+                      "deposits": [
+                        {
+                          "balance": {
+                            "amount": "1000000.000000000000000000",
+                            "denom": "uact"
+                          },
+                          "height": "28270641",
+                          "owner": "akash17f8kfdvzaamk6gapy6tsrf8sg4cdd0296kkhnz",
+                          "source": "grant"
+                        }
+                      ],
+                      "funds": [
+                        {
+                          "amount": "1000000.000000000000000000",
+                          "denom": "uact"
+                        }
+                      ],
+                      "owner": "akash1l6v0f2lz22q4ae5efkjrs9epfyuycsss2y0pmz",
+                      "settled_at": "28270643",
+                      "state": "open",
+                      "transferred": [
+                        {
+                          "amount": "0.000000000000000000",
+                          "denom": "uact"
+                        }
+                      ]
+                    }
+                  },
+                  "leases": [
+                    {
+                      "closed_on": "0",
+                      "created_at": "28270643",
+                      "id": {
+                        "bseq": 0,
+                        "dseq": "1787324505416",
+                        "gseq": 1,
+                        "oseq": 1,
+                        "owner": "akash1l6v0f2lz22q4ae5efkjrs9epfyuycsss2y0pmz",
+                        "provider": "akash15tl6v6gd0nte0syyxnv57zmmspgju4c3xfmdhk"
+                      },
+                      "price": {
+                        "amount": "0.726898000000000000",
+                        "denom": "uact"
+                      },
+                      "reason": "lease_closed_invalid",
+                      "reclamation": null,
+                      "state": "active",
+                      "status": {
+                        "forwarded_ports": null,
+                        "ips": null,
+                        "services": {
+                          "web": {
+                            "available": 0,
+                            "available_replicas": 0,
+                            "name": "web",
+                            "observed_generation": 1,
+                            "ready_replicas": 0,
+                            "replicas": 1,
+                            "total": 1,
+                            "updated_replicas": 1,
+                            "uris": [
+                              "o30rbbbegd9o5b3veo339vde2c.ingress.hurricane.akash.pub"
+                            ]
+                          }
+                        }
+                      }
+                    }
+                  ],
+                  "response_hash": "sha256:09eccc18da29f092159cbc270896f96ad22a12e6c6d7da5b27569de72ef1735a"
+                },
+                "provider_operation_ref": "provider-account://pacc_18cd245812ad55b9/op/reconcile/env-c7-capstone-4",
+                "retrieved_live": true,
+                "settlement": {
+                  "active_lease_count": 1,
+                  "basis": "provider-native deployment + escrow + lease readback; close HTTP alone never settles",
+                  "deployment_state": "active",
+                  "deposit_usd": 1,
+                  "escrow_state": "open",
+                  "final_debit_usd": 0,
+                  "funds": [
+                    {
+                      "amount": "1000000.000000000000000000",
+                      "denom": "uact"
+                    }
+                  ],
+                  "provider_terminal": false,
+                  "refund_usd": 1,
+                  "schema_version": "ioi.hypervisor.akash-settlement-readback.v1",
+                  "settled_at_height": "28270643",
+                  "settlement_state": "reconciliation_required",
+                  "transferred": [
+                    {
+                      "amount": "0.000000000000000000",
+                      "denom": "uact"
+                    }
+                  ]
+                },
+                "teardown_state": null
+              },
+              "grant_ref": null,
+              "op": "reconcile",
+              "operation_id": "pop_18cdda3618033acd",
+              "proposal_consumption": null,
+              "provider": "akash",
+              "receipt_ref": "agentgres://provider-receipt/prc_18cdda36179564bb",
+              "schema_version": "ioi.hypervisor.provider-operation.v1"
+            },
+            {
+              "account_ref": "provider-account://pacc_18cd245812ad55b9",
+              "at": "2026-08-21T15:02:24.913437933Z",
+              "budget_discovery": null,
+              "cost_estimate": null,
+              "environment_ref": "env-c7-capstone-4",
+              "evidence": {
+                "cleanup_verified": false,
+                "deployment_ref": "akash-deployment://akdep_1787324505416",
+                "dseq": "1787324505416",
+                "native_teardown": {
+                  "close_http": 200,
+                  "destroyed": false,
+                  "provider_response_hash": "sha256:09eccc18da29f092159cbc270896f96ad22a12e6c6d7da5b27569de72ef1735a"
+                },
+                "provider_operation_ref": "provider-account://pacc_18cd245812ad55b9/op/delete/env-c7-capstone-4",
+                "settlement": {
+                  "active_lease_count": 1,
+                  "basis": "provider-native deployment + escrow + lease readback; close HTTP alone never settles",
+                  "deployment_state": "active",
+                  "deposit_usd": 1,
+                  "escrow_state": "open",
+                  "final_debit_usd": 0,
+                  "funds": [
+                    {
+                      "amount": "1000000.000000000000000000",
+                      "denom": "uact"
+                    }
+                  ],
+                  "provider_terminal": false,
+                  "refund_usd": 1,
+                  "schema_version": "ioi.hypervisor.akash-settlement-readback.v1",
+                  "settled_at_height": "28270643",
+                  "settlement_state": "reconciliation_required",
+                  "transferred": [
+                    {
+                      "amount": "0.000000000000000000",
+                      "denom": "uact"
+                    }
+                  ]
+                },
+                "teardown_state": "reconciliation_required"
+              },
+              "grant_ref": null,
+              "op": "delete",
+              "operation_id": "pop_18cdda3435e65b5c",
+              "proposal_consumption": null,
+              "provider": "akash",
+              "receipt_ref": "agentgres://provider-receipt/prc_18cdda34357c6d98",
+              "schema_version": "ioi.hypervisor.provider-operation.v1"
+            },
+            {
+              "account_ref": "provider-account://pacc_18cd245812ad55b9",
+              "at": "2026-08-21T15:02:11.911546505Z",
+              "budget_discovery": null,
+              "cost_estimate": null,
+              "environment_ref": "env-c7-capstone-4",
+              "evidence": {
+                "basis": "daemon-recorded control-plane events — provider evidence, not authority",
+                "control_plane_log": [
+                  {
+                    "at": "2026-08-21T15:02:06.603842812Z",
+                    "detail": "REAL Console deployment dseq=1787324505416",
+                    "execution_mode": "live_console_api",
+                    "kind": "deployment_created"
+                  },
+                  {
+                    "at": "2026-08-21T15:02:06.603860046Z",
+                    "detail": "provider akash15tl6v6gd0nte0syyxnv57zmmspgju4c3xfmdhk selected",
+                    "execution_mode": "live_console_api",
+                    "kind": "bid_selected"
+                  },
+                  {
+                    "at": "2026-08-21T15:02:06.603885026Z",
+                    "detail": "lease open, $ deposit escrow — customer-borne until close",
+                    "execution_mode": "live_console_api",
+                    "kind": "lease_opened"
+                  },
+                  {
+                    "at": "2026-08-21T15:02:09.913596251Z",
+                    "detail": "active lease service endpoint fetched from managed Console API",
+                    "execution_mode": "live_console_api",
+                    "kind": "endpoint_ready"
+                  }
+                ],
+                "deployment_ref": "akash-deployment://akdep_1787324505416",
+                "execution_mode": "live_console_api",
+                "lease_ref": "akash-lease://aklease_18cdda2ff28c25d2",
+                "lease_state_proof": {
+                  "deployment_state": "active",
+                  "retrieved_live": true,
+                  "source": "managed Console API GET /v1/deployments/{dseq} — the lease's on-chain state, fetched not asserted"
+                },
+                "service_logs": "not_exposed_by_managed_console_api — container logs require the provider's own endpoint; the retrievable proof is the live lease state above",
+                "settlement_readback": {
+                  "leases": [
+                    {
+                      "closed_on": "0",
+                      "created_at": "28270643",
+                      "id": {
+                        "bseq": 0,
+                        "dseq": "1787324505416",
+                        "gseq": 1,
+                        "oseq": 1,
+                        "owner": "akash1l6v0f2lz22q4ae5efkjrs9epfyuycsss2y0pmz",
+                        "provider": "akash15tl6v6gd0nte0syyxnv57zmmspgju4c3xfmdhk"
+                      },
+                      "price": {
+                        "amount": "0.726898000000000000",
+                        "denom": "uact"
+                      },
+                      "reason": "lease_closed_invalid",
+                      "reclamation": null,
+                      "state": "active",
+                      "status": {
+                        "forwarded_ports": null,
+                        "ips": null,
+                        "services": {
+                          "web": {
+                            "available": 0,
+                            "available_replicas": 0,
+                            "name": "web",
+                            "observed_generation": 1,
+                            "ready_replicas": 0,
+                            "replicas": 1,
+                            "total": 1,
+                            "updated_replicas": 1,
+                            "uris": [
+                              "o30rbbbegd9o5b3veo339vde2c.ingress.hurricane.akash.pub"
+                            ]
+                          }
+                        }
+                      }
+                    }
+                  ],
+                  "normalized": {
+                    "active_lease_count": 1,
+                    "basis": "provider-native deployment + escrow + lease readback; close HTTP alone never settles",
+                    "deployment_state": "active",
+                    "deposit_usd": 1,
+                    "escrow_state": "open",
+                    "final_debit_usd": 0,
+                    "funds": [
+                      {
+                        "amount": "1000000.000000000000000000",
+                        "denom": "uact"
+                      }
+                    ],
+                    "provider_terminal": false,
+                    "refund_usd": 1,
+                    "schema_version": "ioi.hypervisor.akash-settlement-readback.v1",
+                    "settled_at_height": "28270643",
+                    "settlement_state": "reconciliation_required",
+                    "transferred": [
+                      {
+                        "amount": "0.000000000000000000",
+                        "denom": "uact"
+                      }
+                    ]
+                  },
+                  "provider_native": {
+                    "data": {
+                      "deployment": {
+                        "created_at": "28270641",
+                        "hash": "E9p8wkMzgthhkNk6AhpBuwZnsdqtUIquyoVuuCSfaz8=",
+                        "id": {
+                          "dseq": "1787324505416",
+                          "owner": "akash1l6v0f2lz22q4ae5efkjrs9epfyuycsss2y0pmz"
+                        },
+                        "reclamation": null,
+                        "state": "active"
+                      },
+                      "escrow_account": {
+                        "id": {
+                          "scope": "deployment",
+                          "xid": "akash1l6v0f2lz22q4ae5efkjrs9epfyuycsss2y0pmz/1787324505416"
+                        },
+                        "state": {
+                          "deposits": [
+                            {
+                              "balance": {
+                                "amount": "1000000.000000000000000000",
+                                "denom": "uact"
+                              },
+                              "height": "28270641",
+                              "owner": "akash17f8kfdvzaamk6gapy6tsrf8sg4cdd0296kkhnz",
+                              "source": "grant"
+                            }
+                          ],
+                          "funds": [
+                            {
+                              "amount": "1000000.000000000000000000",
+                              "denom": "uact"
+                            }
+                          ],
+                          "owner": "akash1l6v0f2lz22q4ae5efkjrs9epfyuycsss2y0pmz",
+                          "settled_at": "28270643",
+                          "state": "open",
+                          "transferred": [
+                            {
+                              "amount": "0.000000000000000000",
+                              "denom": "uact"
+                            }
+                          ]
+                        }
+                      },
+                      "leases": [
+                        {
+                          "closed_on": "0",
+                          "created_at": "28270643",
+                          "id": {
+                            "bseq": 0,
+                            "dseq": "1787324505416",
+                            "gseq": 1,
+                            "oseq": 1,
+                            "owner": "akash1l6v0f2lz22q4ae5efkjrs9epfyuycsss2y0pmz",
+                            "provider": "akash15tl6v6gd0nte0syyxnv57zmmspgju4c3xfmdhk"
+                          },
+                          "price": {
+                            "amount": "0.726898000000000000",
+                            "denom": "uact"
+                          },
+                          "reason": "lease_closed_invalid",
+                          "reclamation": null,
+                          "state": "active",
+                          "status": {
+                            "forwarded_ports": null,
+                            "ips": null,
+                            "services": {
+                              "web": {
+                                "available": 0,
+                                "available_replicas": 0,
+                                "name": "web",
+                                "observed_generation": 1,
+                                "ready_replicas": 0,
+                                "replicas": 1,
+                                "total": 1,
+                                "updated_replicas": 1,
+                                "uris": [
+                                  "o30rbbbegd9o5b3veo339vde2c.ingress.hurricane.akash.pub"
+                                ]
+                              }
+                            }
+                          }
+                        }
+                      ]
+                    }
+                  },
+                  "provider_response_hash": "sha256:09eccc18da29f092159cbc270896f96ad22a12e6c6d7da5b27569de72ef1735a",
+                  "retrieved_live": true,
+                  "source": "managed Console API GET /v1/deployments/{dseq}"
+                }
+              },
+              "grant_ref": null,
+              "op": "logs",
+              "operation_id": "pop_18cdda312eeaeda8",
+              "proposal_consumption": null,
+              "provider": "akash",
+              "receipt_ref": "agentgres://provider-receipt/prc_18cdda312e3414d0",
+              "schema_version": "ioi.hypervisor.provider-operation.v1"
+            },
+            {
+              "account_ref": "provider-account://pacc_18cd245812ad55b9",
+              "at": "2026-08-21T15:02:09.922103782Z",
+              "budget_discovery": null,
+              "cost_estimate": null,
+              "environment_ref": "env-c7-capstone-4",
+              "evidence": {
+                "deployment_ref": "akash-deployment://akdep_1787324505416",
+                "dseq": "1787324505416",
+                "endpoint": {
+                  "authority_note": "lease-assigned endpoints are fetched provider evidence, never authority",
+                  "deployment_ref": "akash-deployment://akdep_1787324505416",
+                  "endpoint_ref": "akash-endpoint://akep_18cdda30b78d2472",
+                  "environment_ref": "env-c7-capstone-4",
+                  "forwarded_ports": null,
+                  "ips": null,
+                  "lease_id": {
+                    "bseq": 0,
+                    "dseq": "1787324505416",
+                    "gseq": 1,
+                    "oseq": 1,
+                    "owner": "akash1l6v0f2lz22q4ae5efkjrs9epfyuycsss2y0pmz",
+                    "provider": "akash15tl6v6gd0nte0syyxnv57zmmspgju4c3xfmdhk"
+                  },
+                  "lease_ref": "akash-lease://aklease_18cdda2ff28c25d2",
+                  "proven_at": "2026-08-21T15:02:09.909007199Z",
+                  "provider_address": "akash15tl6v6gd0nte0syyxnv57zmmspgju4c3xfmdhk",
+                  "provider_response_hash": "sha256:09eccc18da29f092159cbc270896f96ad22a12e6c6d7da5b27569de72ef1735a",
+                  "record_id": "akep_18cdda30b78d2472",
+                  "retrieved_live": true,
+                  "schema_version": "ioi.hypervisor.akash-endpoint.v1",
+                  "services": {
+                    "web": {
+                      "available": 0,
+                      "available_replicas": 0,
+                      "name": "web",
+                      "observed_generation": 1,
+                      "ready_replicas": 0,
+                      "replicas": 1,
+                      "total": 1,
+                      "updated_replicas": 1,
+                      "uris": [
+                        "o30rbbbegd9o5b3veo339vde2c.ingress.hurricane.akash.pub"
+                      ]
+                    }
+                  }
+                },
+                "endpoint_ready": true,
+                "provider_operation_ref": "provider-account://pacc_18cd245812ad55b9/op/start/env-c7-capstone-4",
+                "retrieved_live": true,
+                "status": "running"
+              },
+              "grant_ref": null,
+              "op": "start",
+              "operation_id": "pop_18cdda30b858b96e",
+              "proposal_consumption": null,
+              "provider": "akash",
+              "receipt_ref": "agentgres://provider-receipt/prc_18cdda30b7de0f42",
+              "schema_version": "ioi.hypervisor.provider-operation.v1"
+            },
+            {
+              "account_ref": "provider-account://pacc_18cd245812ad55b9",
+              "at": "2026-08-21T15:02:06.614425045Z",
+              "budget_discovery": {
+                "admitted": true,
+                "budget_ref": "budget://c7-capstone-spend",
+                "discovered_before_mutation": true,
+                "provider_spend_borne_by": "customer",
+                "remaining": 5,
+                "remaining_headroom_after_reservations": 4.6,
+                "reservation_note": "reservations are first-hour estimates at declared max rates — never an actual provider bill; budget spent is never faked",
+                "reserved_open_estimates": 0.4,
+                "scope": "external_spend"
+              },
+              "cost_estimate": null,
+              "environment_ref": "env-c7-capstone-4",
+              "evidence": {
+                "bid_ref": "akash-bid://akbid_18cdda2ff28c25d2",
+                "deployment": {
+                  "deployment_ref": "akash-deployment://akdep_1787324505416",
+                  "dseq": "1787324505416",
+                  "execution_mode": "live_console_api",
+                  "status": "active"
+                },
+                "lease_ref": "akash-lease://aklease_18cdda2ff28c25d2",
+                "provider_native": {
+                  "dseq": "1787324505416",
+                  "note": "REAL managed-Console deployment — dseq/provider are provider-native evidence; daemon custody state roots remain restore truth",
+                  "provider": "akash15tl6v6gd0nte0syyxnv57zmmspgju4c3xfmdhk"
+                },
+                "provider_operation_ref": "provider-account://pacc_18cd245812ad55b9/op/create/env-c7-capstone-4",
+                "spend": "REAL — deposit-funded lease accrues until close; run delete/close to stop",
+                "teardown_required": true
+              },
+              "grant_ref": "wallet.network://grant/approval/d613d3001e822bd1075b4c4e41a895f8a0bdb1495e6024fb29b38829f9be2391",
+              "journal_state_roots": [
+                "sha256:9b293ebae592a2579f0a6a8f36388e628f1408fc4d00d20dad2d9221d4c19c5b",
+                "sha256:2a540f475902fe22d4db2690e6c5d503e0b2b616cdae6ed0e50da46a492ead48"
+              ],
+              "op": "create",
+              "operation_id": "pop_18cdda2ff3315666",
+              "proposal_consumption": {
+                "principal_ref": "user://00000000-0000-4000-8000-000000000001",
+                "proposal_admission_receipt_ref": "provider-operation-proposal-admission://968fd34981b0b6a35eeddd09ca2912bd245b5c1e66ccd835f4124d056c275532",
+                "proposal_admission_root": "sha256:329f0de90a9a6cdee49873815ca12747b4cc3501ee9c0c512d437a2660907e52",
+                "proposal_consumption_receipt_ref": "provider-operation-proposal-consumption://6bb5bf1a069833fcf26c4e2e7fa2f8d733bc9405cdcd89515c9b0945fd560c04",
+                "proposal_consumption_root": "sha256:d7cfaa682ce27709d9339d5b4c88869fca7753d9fa7bb4f5d8f1df76b1b1cc5d",
+                "proposal_ref": "provider-operation-proposal://popp_7dc70ffcb5eb3f57",
+                "request_hash": "sha256:c77d9d2fead85c47da38b2052f258e9645091fc820dacc550c1fdd632c7c2883"
+              },
+              "provider": "akash",
+              "receipt_ref": "agentgres://provider-receipt/prc_18cdda2ff2955b87",
+              "schema_version": "ioi.hypervisor.provider-operation.v1"
+            }
+          ]
+        }
+      },
+      "records": {
+        "deployment": {
+          "account_id": "pacc_18cd245812ad55b9",
+          "account_ref": "provider-account://pacc_18cd245812ad55b9",
+          "bid_ref": "akash-bid://akbid_18cdda2ff28c25d2",
+          "close_accepted_at": "2026-08-21T15:02:23.036722942Z",
+          "close_http": 200,
+          "close_response_hash": "sha256:d3866f57ba7a47425f5aa636377cdace170d1e3e9e38abd3aa1c239f8fe2a549",
+          "created_at": "2026-08-21T15:02:06.603834793Z",
+          "deployment_ref": "akash-deployment://akdep_1787324505416",
+          "deployment_state": "active",
+          "deposit_usd": 1,
+          "dseq": "1787324505416",
+          "endpoint_ready": true,
+          "endpoint_ref": "akash-endpoint://akep_18cdda30b78d2472",
+          "environment_ref": "env-c7-capstone-4",
+          "events": [
+            {
+              "at": "2026-08-21T15:02:06.603842812Z",
+              "detail": "REAL Console deployment dseq=1787324505416",
+              "execution_mode": "live_console_api",
+              "kind": "deployment_created"
+            },
+            {
+              "at": "2026-08-21T15:02:06.603860046Z",
+              "detail": "provider akash15tl6v6gd0nte0syyxnv57zmmspgju4c3xfmdhk selected",
+              "execution_mode": "live_console_api",
+              "kind": "bid_selected"
+            },
+            {
+              "at": "2026-08-21T15:02:06.603885026Z",
+              "detail": "lease open, $ deposit escrow — customer-borne until close",
+              "execution_mode": "live_console_api",
+              "kind": "lease_opened"
+            },
+            {
+              "at": "2026-08-21T15:02:09.913596251Z",
+              "detail": "active lease service endpoint fetched from managed Console API",
+              "execution_mode": "live_console_api",
+              "kind": "endpoint_ready"
+            },
+            {
+              "at": "2026-08-21T15:02:23.036780483Z",
+              "detail": "Console accepted deployment close; settlement still requires provider readback",
+              "execution_mode": "live_console_api",
+              "kind": "deployment_close_accepted"
+            },
+            {
+              "at": "2026-08-21T15:02:24.838144621Z",
+              "detail": "provider-native close/escrow readback is not terminal",
+              "execution_mode": "live_console_api",
+              "kind": "reconciliation_required"
+            },
+            {
+              "at": "2026-08-21T15:02:32.960340071Z",
+              "detail": "provider-native close/escrow readback is not terminal",
+              "execution_mode": "live_console_api",
+              "kind": "reconciliation_required"
+            },
+            {
+              "at": "2026-08-21T15:02:41.382000546Z",
+              "detail": "provider-native deployment, escrow and lease readback reached terminal settlement",
+              "execution_mode": "live_console_api",
+              "kind": "final_debit_settled"
+            },
+            {
+              "at": "2026-08-21T16:51:44.54673808Z",
+              "detail": "provider-native deployment, escrow and lease readback reached terminal settlement",
+              "execution_mode": "live_console_api",
+              "kind": "final_debit_settled"
+            }
+          ],
+          "execution_mode": "live_console_api",
+          "last_reconciled_at": "2026-08-21T16:51:44.546669612Z",
+          "lease_ref": "akash-lease://aklease_18cdda2ff28c25d2",
+          "provider_native": {
+            "dseq": "1787324505416",
+            "note": "REAL managed-Console deployment — dseq/provider are provider-native evidence; daemon custody state roots remain restore truth",
+            "provider": "akash15tl6v6gd0nte0syyxnv57zmmspgju4c3xfmdhk"
+          },
+          "provider_native_settlement": {
+            "active_lease_count": 0,
+            "basis": "provider-native deployment + escrow + lease readback; close HTTP alone never settles",
+            "deployment_state": "closed",
+            "deposit_usd": 1,
+            "escrow_state": "closed",
+            "final_debit_usd": 0.000002,
+            "funds": [
+              {
+                "amount": "0.000000000000000000",
+                "denom": "uact"
+              }
+            ],
+            "provider_terminal": true,
+            "refund_usd": 0.999998,
+            "schema_version": "ioi.hypervisor.akash-settlement-readback.v1",
+            "settled_at_height": "28270646",
+            "settlement_state": "final_debit_settled",
+            "transferred": [
+              {
+                "amount": "2.000000000000000000",
+                "denom": "uact"
+              }
+            ]
+          },
+          "provider_readback_hash": "sha256:4951308287df74abf42031da437ef8b0505aec48a0996fe2f3d46a25ba179dde",
+          "record_id": "akdep_1787324505416",
+          "redeployed_from": null,
+          "schema_version": "ioi.hypervisor.akash-deployment.v1",
+          "sdl_yaml_bytes": 458,
+          "settlement_state": "final_debit_settled",
+          "state": "final_debit_settled",
+          "status": "torn_down",
+          "teardown_state": "torn_down"
+        },
+        "provider_lease": {
+          "account_ref": "provider-account://pacc_18cd245812ad55b9",
+          "bid_ref": "akash-bid://akbid_18cdda2ff28c25d2",
+          "closed_at": "2026-08-21T15:02:41.382982775Z",
+          "closure_basis": "provider-native terminal deployment, escrow and zero-active-lease readback",
+          "deployment_ref": "akash-deployment://akdep_1787324505416",
+          "deposit_usd": 1,
+          "environment_ref": "env-c7-capstone-4",
+          "execution_mode": "live_console_api",
+          "lease_ref": "akash-lease://aklease_18cdda2ff28c25d2",
+          "opened_at": "2026-08-21T15:02:06.603734235Z",
+          "provider_address": "akash15tl6v6gd0nte0syyxnv57zmmspgju4c3xfmdhk",
+          "record_id": "aklease_18cdda2ff28c25d2",
+          "schema_version": "ioi.hypervisor.akash-lease.v1",
+          "spend_note": "REAL customer-borne lease spend accrues (deposit-funded escrow) until the lease closes",
+          "state": "closed"
+        },
+        "endpoint": {
+          "authority_note": "lease-assigned endpoints are fetched provider evidence, never authority",
+          "deployment_ref": "akash-deployment://akdep_1787324505416",
+          "endpoint_ref": "akash-endpoint://akep_18cdda30b78d2472",
+          "environment_ref": "env-c7-capstone-4",
+          "forwarded_ports": null,
+          "ips": null,
+          "lease_id": {
+            "bseq": 0,
+            "dseq": "1787324505416",
+            "gseq": 1,
+            "oseq": 1,
+            "owner": "akash1l6v0f2lz22q4ae5efkjrs9epfyuycsss2y0pmz",
+            "provider": "akash15tl6v6gd0nte0syyxnv57zmmspgju4c3xfmdhk"
+          },
+          "lease_ref": "akash-lease://aklease_18cdda2ff28c25d2",
+          "proven_at": "2026-08-21T15:02:09.909007199Z",
+          "provider_address": "akash15tl6v6gd0nte0syyxnv57zmmspgju4c3xfmdhk",
+          "provider_response_hash": "sha256:09eccc18da29f092159cbc270896f96ad22a12e6c6d7da5b27569de72ef1735a",
+          "record_id": "akep_18cdda30b78d2472",
+          "retrieved_live": true,
+          "schema_version": "ioi.hypervisor.akash-endpoint.v1",
+          "services": {
+            "web": {
+              "available": 0,
+              "available_replicas": 0,
+              "name": "web",
+              "observed_generation": 1,
+              "ready_replicas": 0,
+              "replicas": 1,
+              "total": 1,
+              "updated_replicas": 1,
+              "uris": [
+                "o30rbbbegd9o5b3veo339vde2c.ingress.hurricane.akash.pub"
+              ]
+            }
+          }
+        },
+        "capability_lease": {
+          "admission_intent_ref": "authority-admission-intents/aai_1b959c971cf3f2310f2cabea5a8613eb4518e6ff05ab75433a9042ad23056699",
+          "allowed_tools": [
+            "provider.create"
+          ],
+          "authority_provider_ref": "wallet.network",
+          "backing_provider": "provider:account:pacc_18cd245812ad55b9",
+          "credential_source": "connector",
+          "exhausted_at": "2026-08-21T15:02:24.899682777Z",
+          "expires_at": 1850000000000,
+          "grant_ref": "wallet.network://grant/approval/d613d3001e822bd1075b4c4e41a895f8a0bdb1495e6024fb29b38829f9be2391",
+          "issued_at": "2026-08-21T15:01:41.060960956Z",
+          "lease_id": "lease_a35c6ac58cc3f43d",
+          "policy_hash": "sha256:3b65fad028ce4478d4906a028ee264e5791b18b5c03d7dc0aa8a3b6d6a587e7e",
+          "receipt_required": true,
+          "remaining_calls": 0,
+          "request_hash": "sha256:f5d7c90aec7b61124e68304ab03eb530bdade8620a0d593d86f38ff6c97b05c2",
+          "resource_refs": [
+            "provider-account://pacc_18cd245812ad55b9",
+            "env-c7-capstone-4"
+          ],
+          "revocation_ref": "provider-accounts/pacc_18cd245812ad55b9/credential",
+          "schema_version": "ioi.hypervisor.capability-lease.v1",
+          "state": "exhausted"
+        },
+        "provider_operations": [
+          {
+            "account_ref": "provider-account://pacc_18cd245812ad55b9",
+            "at": "2026-08-21T15:02:06.614425045Z",
+            "budget_discovery": {
+              "admitted": true,
+              "budget_ref": "budget://c7-capstone-spend",
+              "discovered_before_mutation": true,
+              "provider_spend_borne_by": "customer",
+              "remaining": 5,
+              "remaining_headroom_after_reservations": 4.6,
+              "reservation_note": "reservations are first-hour estimates at declared max rates — never an actual provider bill; budget spent is never faked",
+              "reserved_open_estimates": 0.4,
+              "scope": "external_spend"
+            },
+            "cost_estimate": null,
+            "environment_ref": "env-c7-capstone-4",
+            "evidence": {
+              "bid_ref": "akash-bid://akbid_18cdda2ff28c25d2",
+              "deployment": {
+                "deployment_ref": "akash-deployment://akdep_1787324505416",
+                "dseq": "1787324505416",
+                "execution_mode": "live_console_api",
+                "status": "active"
+              },
+              "lease_ref": "akash-lease://aklease_18cdda2ff28c25d2",
+              "provider_native": {
+                "dseq": "1787324505416",
+                "note": "REAL managed-Console deployment — dseq/provider are provider-native evidence; daemon custody state roots remain restore truth",
+                "provider": "akash15tl6v6gd0nte0syyxnv57zmmspgju4c3xfmdhk"
+              },
+              "provider_operation_ref": "provider-account://pacc_18cd245812ad55b9/op/create/env-c7-capstone-4",
+              "spend": "REAL — deposit-funded lease accrues until close; run delete/close to stop",
+              "teardown_required": true
+            },
+            "grant_ref": "wallet.network://grant/approval/d613d3001e822bd1075b4c4e41a895f8a0bdb1495e6024fb29b38829f9be2391",
+            "journal_state_roots": [
+              "sha256:9b293ebae592a2579f0a6a8f36388e628f1408fc4d00d20dad2d9221d4c19c5b",
+              "sha256:2a540f475902fe22d4db2690e6c5d503e0b2b616cdae6ed0e50da46a492ead48"
+            ],
+            "op": "create",
+            "operation_id": "pop_18cdda2ff3315666",
+            "proposal_consumption": {
+              "principal_ref": "user://00000000-0000-4000-8000-000000000001",
+              "proposal_admission_receipt_ref": "provider-operation-proposal-admission://968fd34981b0b6a35eeddd09ca2912bd245b5c1e66ccd835f4124d056c275532",
+              "proposal_admission_root": "sha256:329f0de90a9a6cdee49873815ca12747b4cc3501ee9c0c512d437a2660907e52",
+              "proposal_consumption_receipt_ref": "provider-operation-proposal-consumption://6bb5bf1a069833fcf26c4e2e7fa2f8d733bc9405cdcd89515c9b0945fd560c04",
+              "proposal_consumption_root": "sha256:d7cfaa682ce27709d9339d5b4c88869fca7753d9fa7bb4f5d8f1df76b1b1cc5d",
+              "proposal_ref": "provider-operation-proposal://popp_7dc70ffcb5eb3f57",
+              "request_hash": "sha256:c77d9d2fead85c47da38b2052f258e9645091fc820dacc550c1fdd632c7c2883"
+            },
+            "provider": "akash",
+            "receipt_ref": "agentgres://provider-receipt/prc_18cdda2ff2955b87",
+            "schema_version": "ioi.hypervisor.provider-operation.v1"
+          },
+          {
+            "account_ref": "provider-account://pacc_18cd245812ad55b9",
+            "at": "2026-08-21T15:02:09.922103782Z",
+            "budget_discovery": null,
+            "cost_estimate": null,
+            "environment_ref": "env-c7-capstone-4",
+            "evidence": {
+              "deployment_ref": "akash-deployment://akdep_1787324505416",
+              "dseq": "1787324505416",
+              "endpoint": {
+                "authority_note": "lease-assigned endpoints are fetched provider evidence, never authority",
+                "deployment_ref": "akash-deployment://akdep_1787324505416",
+                "endpoint_ref": "akash-endpoint://akep_18cdda30b78d2472",
+                "environment_ref": "env-c7-capstone-4",
+                "forwarded_ports": null,
+                "ips": null,
+                "lease_id": {
+                  "bseq": 0,
+                  "dseq": "1787324505416",
+                  "gseq": 1,
+                  "oseq": 1,
+                  "owner": "akash1l6v0f2lz22q4ae5efkjrs9epfyuycsss2y0pmz",
+                  "provider": "akash15tl6v6gd0nte0syyxnv57zmmspgju4c3xfmdhk"
+                },
+                "lease_ref": "akash-lease://aklease_18cdda2ff28c25d2",
+                "proven_at": "2026-08-21T15:02:09.909007199Z",
+                "provider_address": "akash15tl6v6gd0nte0syyxnv57zmmspgju4c3xfmdhk",
+                "provider_response_hash": "sha256:09eccc18da29f092159cbc270896f96ad22a12e6c6d7da5b27569de72ef1735a",
+                "record_id": "akep_18cdda30b78d2472",
+                "retrieved_live": true,
+                "schema_version": "ioi.hypervisor.akash-endpoint.v1",
+                "services": {
+                  "web": {
+                    "available": 0,
+                    "available_replicas": 0,
+                    "name": "web",
+                    "observed_generation": 1,
+                    "ready_replicas": 0,
+                    "replicas": 1,
+                    "total": 1,
+                    "updated_replicas": 1,
+                    "uris": [
+                      "o30rbbbegd9o5b3veo339vde2c.ingress.hurricane.akash.pub"
+                    ]
+                  }
+                }
+              },
+              "endpoint_ready": true,
+              "provider_operation_ref": "provider-account://pacc_18cd245812ad55b9/op/start/env-c7-capstone-4",
+              "retrieved_live": true,
+              "status": "running"
+            },
+            "grant_ref": null,
+            "op": "start",
+            "operation_id": "pop_18cdda30b858b96e",
+            "proposal_consumption": null,
+            "provider": "akash",
+            "receipt_ref": "agentgres://provider-receipt/prc_18cdda30b7de0f42",
+            "schema_version": "ioi.hypervisor.provider-operation.v1"
+          },
+          {
+            "account_ref": "provider-account://pacc_18cd245812ad55b9",
+            "at": "2026-08-21T15:02:11.911546505Z",
+            "budget_discovery": null,
+            "cost_estimate": null,
+            "environment_ref": "env-c7-capstone-4",
+            "evidence": {
+              "basis": "daemon-recorded control-plane events — provider evidence, not authority",
+              "control_plane_log": [
+                {
+                  "at": "2026-08-21T15:02:06.603842812Z",
+                  "detail": "REAL Console deployment dseq=1787324505416",
+                  "execution_mode": "live_console_api",
+                  "kind": "deployment_created"
+                },
+                {
+                  "at": "2026-08-21T15:02:06.603860046Z",
+                  "detail": "provider akash15tl6v6gd0nte0syyxnv57zmmspgju4c3xfmdhk selected",
+                  "execution_mode": "live_console_api",
+                  "kind": "bid_selected"
+                },
+                {
+                  "at": "2026-08-21T15:02:06.603885026Z",
+                  "detail": "lease open, $ deposit escrow — customer-borne until close",
+                  "execution_mode": "live_console_api",
+                  "kind": "lease_opened"
+                },
+                {
+                  "at": "2026-08-21T15:02:09.913596251Z",
+                  "detail": "active lease service endpoint fetched from managed Console API",
+                  "execution_mode": "live_console_api",
+                  "kind": "endpoint_ready"
+                }
+              ],
+              "deployment_ref": "akash-deployment://akdep_1787324505416",
+              "execution_mode": "live_console_api",
+              "lease_ref": "akash-lease://aklease_18cdda2ff28c25d2",
+              "lease_state_proof": {
+                "deployment_state": "active",
+                "retrieved_live": true,
+                "source": "managed Console API GET /v1/deployments/{dseq} — the lease's on-chain state, fetched not asserted"
+              },
+              "service_logs": "not_exposed_by_managed_console_api — container logs require the provider's own endpoint; the retrievable proof is the live lease state above",
+              "settlement_readback": {
+                "leases": [
+                  {
+                    "closed_on": "0",
+                    "created_at": "28270643",
+                    "id": {
+                      "bseq": 0,
+                      "dseq": "1787324505416",
+                      "gseq": 1,
+                      "oseq": 1,
+                      "owner": "akash1l6v0f2lz22q4ae5efkjrs9epfyuycsss2y0pmz",
+                      "provider": "akash15tl6v6gd0nte0syyxnv57zmmspgju4c3xfmdhk"
+                    },
+                    "price": {
+                      "amount": "0.726898000000000000",
+                      "denom": "uact"
+                    },
+                    "reason": "lease_closed_invalid",
+                    "reclamation": null,
+                    "state": "active",
+                    "status": {
+                      "forwarded_ports": null,
+                      "ips": null,
+                      "services": {
+                        "web": {
+                          "available": 0,
+                          "available_replicas": 0,
+                          "name": "web",
+                          "observed_generation": 1,
+                          "ready_replicas": 0,
+                          "replicas": 1,
+                          "total": 1,
+                          "updated_replicas": 1,
+                          "uris": [
+                            "o30rbbbegd9o5b3veo339vde2c.ingress.hurricane.akash.pub"
+                          ]
+                        }
+                      }
+                    }
+                  }
+                ],
+                "normalized": {
+                  "active_lease_count": 1,
+                  "basis": "provider-native deployment + escrow + lease readback; close HTTP alone never settles",
+                  "deployment_state": "active",
+                  "deposit_usd": 1,
+                  "escrow_state": "open",
+                  "final_debit_usd": 0,
+                  "funds": [
+                    {
+                      "amount": "1000000.000000000000000000",
+                      "denom": "uact"
+                    }
+                  ],
+                  "provider_terminal": false,
+                  "refund_usd": 1,
+                  "schema_version": "ioi.hypervisor.akash-settlement-readback.v1",
+                  "settled_at_height": "28270643",
+                  "settlement_state": "reconciliation_required",
+                  "transferred": [
+                    {
+                      "amount": "0.000000000000000000",
+                      "denom": "uact"
+                    }
+                  ]
+                },
+                "provider_native": {
+                  "data": {
+                    "deployment": {
+                      "created_at": "28270641",
+                      "hash": "E9p8wkMzgthhkNk6AhpBuwZnsdqtUIquyoVuuCSfaz8=",
+                      "id": {
+                        "dseq": "1787324505416",
+                        "owner": "akash1l6v0f2lz22q4ae5efkjrs9epfyuycsss2y0pmz"
+                      },
+                      "reclamation": null,
+                      "state": "active"
+                    },
+                    "escrow_account": {
+                      "id": {
+                        "scope": "deployment",
+                        "xid": "akash1l6v0f2lz22q4ae5efkjrs9epfyuycsss2y0pmz/1787324505416"
+                      },
+                      "state": {
+                        "deposits": [
+                          {
+                            "balance": {
+                              "amount": "1000000.000000000000000000",
+                              "denom": "uact"
+                            },
+                            "height": "28270641",
+                            "owner": "akash17f8kfdvzaamk6gapy6tsrf8sg4cdd0296kkhnz",
+                            "source": "grant"
+                          }
+                        ],
+                        "funds": [
+                          {
+                            "amount": "1000000.000000000000000000",
+                            "denom": "uact"
+                          }
+                        ],
+                        "owner": "akash1l6v0f2lz22q4ae5efkjrs9epfyuycsss2y0pmz",
+                        "settled_at": "28270643",
+                        "state": "open",
+                        "transferred": [
+                          {
+                            "amount": "0.000000000000000000",
+                            "denom": "uact"
+                          }
+                        ]
+                      }
+                    },
+                    "leases": [
+                      {
+                        "closed_on": "0",
+                        "created_at": "28270643",
+                        "id": {
+                          "bseq": 0,
+                          "dseq": "1787324505416",
+                          "gseq": 1,
+                          "oseq": 1,
+                          "owner": "akash1l6v0f2lz22q4ae5efkjrs9epfyuycsss2y0pmz",
+                          "provider": "akash15tl6v6gd0nte0syyxnv57zmmspgju4c3xfmdhk"
+                        },
+                        "price": {
+                          "amount": "0.726898000000000000",
+                          "denom": "uact"
+                        },
+                        "reason": "lease_closed_invalid",
+                        "reclamation": null,
+                        "state": "active",
+                        "status": {
+                          "forwarded_ports": null,
+                          "ips": null,
+                          "services": {
+                            "web": {
+                              "available": 0,
+                              "available_replicas": 0,
+                              "name": "web",
+                              "observed_generation": 1,
+                              "ready_replicas": 0,
+                              "replicas": 1,
+                              "total": 1,
+                              "updated_replicas": 1,
+                              "uris": [
+                                "o30rbbbegd9o5b3veo339vde2c.ingress.hurricane.akash.pub"
+                              ]
+                            }
+                          }
+                        }
+                      }
+                    ]
+                  }
+                },
+                "provider_response_hash": "sha256:09eccc18da29f092159cbc270896f96ad22a12e6c6d7da5b27569de72ef1735a",
+                "retrieved_live": true,
+                "source": "managed Console API GET /v1/deployments/{dseq}"
+              }
+            },
+            "grant_ref": null,
+            "op": "logs",
+            "operation_id": "pop_18cdda312eeaeda8",
+            "proposal_consumption": null,
+            "provider": "akash",
+            "receipt_ref": "agentgres://provider-receipt/prc_18cdda312e3414d0",
+            "schema_version": "ioi.hypervisor.provider-operation.v1"
+          },
+          {
+            "account_ref": "provider-account://pacc_18cd245812ad55b9",
+            "at": "2026-08-21T15:02:24.913437933Z",
+            "budget_discovery": null,
+            "cost_estimate": null,
+            "environment_ref": "env-c7-capstone-4",
+            "evidence": {
+              "cleanup_verified": false,
+              "deployment_ref": "akash-deployment://akdep_1787324505416",
+              "dseq": "1787324505416",
+              "native_teardown": {
+                "close_http": 200,
+                "destroyed": false,
+                "provider_response_hash": "sha256:09eccc18da29f092159cbc270896f96ad22a12e6c6d7da5b27569de72ef1735a"
+              },
+              "provider_operation_ref": "provider-account://pacc_18cd245812ad55b9/op/delete/env-c7-capstone-4",
+              "settlement": {
+                "active_lease_count": 1,
+                "basis": "provider-native deployment + escrow + lease readback; close HTTP alone never settles",
+                "deployment_state": "active",
+                "deposit_usd": 1,
+                "escrow_state": "open",
+                "final_debit_usd": 0,
+                "funds": [
+                  {
+                    "amount": "1000000.000000000000000000",
+                    "denom": "uact"
+                  }
+                ],
+                "provider_terminal": false,
+                "refund_usd": 1,
+                "schema_version": "ioi.hypervisor.akash-settlement-readback.v1",
+                "settled_at_height": "28270643",
+                "settlement_state": "reconciliation_required",
+                "transferred": [
+                  {
+                    "amount": "0.000000000000000000",
+                    "denom": "uact"
+                  }
+                ]
+              },
+              "teardown_state": "reconciliation_required"
+            },
+            "grant_ref": null,
+            "op": "delete",
+            "operation_id": "pop_18cdda3435e65b5c",
+            "proposal_consumption": null,
+            "provider": "akash",
+            "receipt_ref": "agentgres://provider-receipt/prc_18cdda34357c6d98",
+            "schema_version": "ioi.hypervisor.provider-operation.v1"
+          },
+          {
+            "account_ref": "provider-account://pacc_18cd245812ad55b9",
+            "at": "2026-08-21T15:02:33.002016069Z",
+            "budget_discovery": null,
+            "cost_estimate": null,
+            "environment_ref": "env-c7-capstone-4",
+            "evidence": {
+              "deployment_ref": "akash-deployment://akdep_1787324505416",
+              "dseq": "1787324505416",
+              "provider_native": {
+                "deployment": {
+                  "created_at": "28270641",
+                  "hash": "E9p8wkMzgthhkNk6AhpBuwZnsdqtUIquyoVuuCSfaz8=",
+                  "id": {
+                    "dseq": "1787324505416",
+                    "owner": "akash1l6v0f2lz22q4ae5efkjrs9epfyuycsss2y0pmz"
+                  },
+                  "reclamation": null,
+                  "state": "active"
+                },
+                "escrow_account": {
+                  "id": {
+                    "scope": "deployment",
+                    "xid": "akash1l6v0f2lz22q4ae5efkjrs9epfyuycsss2y0pmz/1787324505416"
+                  },
+                  "state": {
+                    "deposits": [
+                      {
+                        "balance": {
+                          "amount": "1000000.000000000000000000",
+                          "denom": "uact"
+                        },
+                        "height": "28270641",
+                        "owner": "akash17f8kfdvzaamk6gapy6tsrf8sg4cdd0296kkhnz",
+                        "source": "grant"
+                      }
+                    ],
+                    "funds": [
+                      {
+                        "amount": "1000000.000000000000000000",
+                        "denom": "uact"
+                      }
+                    ],
+                    "owner": "akash1l6v0f2lz22q4ae5efkjrs9epfyuycsss2y0pmz",
+                    "settled_at": "28270643",
+                    "state": "open",
+                    "transferred": [
+                      {
+                        "amount": "0.000000000000000000",
+                        "denom": "uact"
+                      }
+                    ]
+                  }
+                },
+                "leases": [
+                  {
+                    "closed_on": "0",
+                    "created_at": "28270643",
+                    "id": {
+                      "bseq": 0,
+                      "dseq": "1787324505416",
+                      "gseq": 1,
+                      "oseq": 1,
+                      "owner": "akash1l6v0f2lz22q4ae5efkjrs9epfyuycsss2y0pmz",
+                      "provider": "akash15tl6v6gd0nte0syyxnv57zmmspgju4c3xfmdhk"
+                    },
+                    "price": {
+                      "amount": "0.726898000000000000",
+                      "denom": "uact"
+                    },
+                    "reason": "lease_closed_invalid",
+                    "reclamation": null,
+                    "state": "active",
+                    "status": {
+                      "forwarded_ports": null,
+                      "ips": null,
+                      "services": {
+                        "web": {
+                          "available": 0,
+                          "available_replicas": 0,
+                          "name": "web",
+                          "observed_generation": 1,
+                          "ready_replicas": 0,
+                          "replicas": 1,
+                          "total": 1,
+                          "updated_replicas": 1,
+                          "uris": [
+                            "o30rbbbegd9o5b3veo339vde2c.ingress.hurricane.akash.pub"
+                          ]
+                        }
+                      }
+                    }
+                  }
+                ],
+                "response_hash": "sha256:09eccc18da29f092159cbc270896f96ad22a12e6c6d7da5b27569de72ef1735a"
+              },
+              "provider_operation_ref": "provider-account://pacc_18cd245812ad55b9/op/reconcile/env-c7-capstone-4",
+              "retrieved_live": true,
+              "settlement": {
+                "active_lease_count": 1,
+                "basis": "provider-native deployment + escrow + lease readback; close HTTP alone never settles",
+                "deployment_state": "active",
+                "deposit_usd": 1,
+                "escrow_state": "open",
+                "final_debit_usd": 0,
+                "funds": [
+                  {
+                    "amount": "1000000.000000000000000000",
+                    "denom": "uact"
+                  }
+                ],
+                "provider_terminal": false,
+                "refund_usd": 1,
+                "schema_version": "ioi.hypervisor.akash-settlement-readback.v1",
+                "settled_at_height": "28270643",
+                "settlement_state": "reconciliation_required",
+                "transferred": [
+                  {
+                    "amount": "0.000000000000000000",
+                    "denom": "uact"
+                  }
+                ]
+              },
+              "teardown_state": null
+            },
+            "grant_ref": null,
+            "op": "reconcile",
+            "operation_id": "pop_18cdda3618033acd",
+            "proposal_consumption": null,
+            "provider": "akash",
+            "receipt_ref": "agentgres://provider-receipt/prc_18cdda36179564bb",
+            "schema_version": "ioi.hypervisor.provider-operation.v1"
+          },
+          {
+            "account_ref": "provider-account://pacc_18cd245812ad55b9",
+            "at": "2026-08-21T15:02:41.424743683Z",
+            "budget_discovery": null,
+            "cost_estimate": null,
+            "environment_ref": "env-c7-capstone-4",
+            "evidence": {
+              "deployment_ref": "akash-deployment://akdep_1787324505416",
+              "dseq": "1787324505416",
+              "provider_native": {
+                "deployment": {
+                  "created_at": "28270641",
+                  "hash": "E9p8wkMzgthhkNk6AhpBuwZnsdqtUIquyoVuuCSfaz8=",
+                  "id": {
+                    "dseq": "1787324505416",
+                    "owner": "akash1l6v0f2lz22q4ae5efkjrs9epfyuycsss2y0pmz"
+                  },
+                  "reclamation": null,
+                  "state": "closed"
+                },
+                "escrow_account": {
+                  "id": {
+                    "scope": "deployment",
+                    "xid": "akash1l6v0f2lz22q4ae5efkjrs9epfyuycsss2y0pmz/1787324505416"
+                  },
+                  "state": {
+                    "deposits": [],
+                    "funds": [
+                      {
+                        "amount": "0.000000000000000000",
+                        "denom": "uact"
+                      }
+                    ],
+                    "owner": "akash1l6v0f2lz22q4ae5efkjrs9epfyuycsss2y0pmz",
+                    "settled_at": "28270646",
+                    "state": "closed",
+                    "transferred": [
+                      {
+                        "amount": "2.000000000000000000",
+                        "denom": "uact"
+                      }
+                    ]
+                  }
+                },
+                "leases": [
+                  {
+                    "closed_on": "28270646",
+                    "created_at": "28270643",
+                    "id": {
+                      "bseq": 0,
+                      "dseq": "1787324505416",
+                      "gseq": 1,
+                      "oseq": 1,
+                      "owner": "akash1l6v0f2lz22q4ae5efkjrs9epfyuycsss2y0pmz",
+                      "provider": "akash15tl6v6gd0nte0syyxnv57zmmspgju4c3xfmdhk"
+                    },
+                    "price": {
+                      "amount": "0.726898000000000000",
+                      "denom": "uact"
+                    },
+                    "reason": "lease_closed_owner",
+                    "reclamation": null,
+                    "state": "closed",
+                    "status": null
+                  }
+                ],
+                "response_hash": "sha256:4951308287df74abf42031da437ef8b0505aec48a0996fe2f3d46a25ba179dde"
+              },
+              "provider_operation_ref": "provider-account://pacc_18cd245812ad55b9/op/reconcile/env-c7-capstone-4",
+              "retrieved_live": true,
+              "settlement": {
+                "active_lease_count": 0,
+                "basis": "provider-native deployment + escrow + lease readback; close HTTP alone never settles",
+                "deployment_state": "closed",
+                "deposit_usd": 1,
+                "escrow_state": "closed",
+                "final_debit_usd": 0.000002,
+                "funds": [
+                  {
+                    "amount": "0.000000000000000000",
+                    "denom": "uact"
+                  }
+                ],
+                "provider_terminal": true,
+                "refund_usd": 0.999998,
+                "schema_version": "ioi.hypervisor.akash-settlement-readback.v1",
+                "settled_at_height": "28270646",
+                "settlement_state": "final_debit_settled",
+                "transferred": [
+                  {
+                    "amount": "2.000000000000000000",
+                    "denom": "uact"
+                  }
+                ]
+              },
+              "teardown_state": "torn_down"
+            },
+            "grant_ref": null,
+            "op": "reconcile",
+            "operation_id": "pop_18cdda380e0c942c",
+            "proposal_consumption": null,
+            "provider": "akash",
+            "receipt_ref": "agentgres://provider-receipt/prc_18cdda380d9f8b1b",
+            "schema_version": "ioi.hypervisor.provider-operation.v1"
+          },
+          {
+            "account_ref": "provider-account://pacc_18cd245812ad55b9",
+            "at": "2026-08-21T16:51:44.880657274Z",
+            "budget_discovery": null,
+            "cost_estimate": null,
+            "environment_ref": "env-c7-capstone-4",
+            "evidence": {
+              "deployment_ref": "akash-deployment://akdep_1787324505416",
+              "dseq": "1787324505416",
+              "provider_native": {
+                "deployment": {
+                  "created_at": "28270641",
+                  "hash": "E9p8wkMzgthhkNk6AhpBuwZnsdqtUIquyoVuuCSfaz8=",
+                  "id": {
+                    "dseq": "1787324505416",
+                    "owner": "akash1l6v0f2lz22q4ae5efkjrs9epfyuycsss2y0pmz"
+                  },
+                  "reclamation": null,
+                  "state": "closed"
+                },
+                "escrow_account": {
+                  "id": {
+                    "scope": "deployment",
+                    "xid": "akash1l6v0f2lz22q4ae5efkjrs9epfyuycsss2y0pmz/1787324505416"
+                  },
+                  "state": {
+                    "deposits": [],
+                    "funds": [
+                      {
+                        "amount": "0.000000000000000000",
+                        "denom": "uact"
+                      }
+                    ],
+                    "owner": "akash1l6v0f2lz22q4ae5efkjrs9epfyuycsss2y0pmz",
+                    "settled_at": "28270646",
+                    "state": "closed",
+                    "transferred": [
+                      {
+                        "amount": "2.000000000000000000",
+                        "denom": "uact"
+                      }
+                    ]
+                  }
+                },
+                "leases": [
+                  {
+                    "closed_on": "28270646",
+                    "created_at": "28270643",
+                    "id": {
+                      "bseq": 0,
+                      "dseq": "1787324505416",
+                      "gseq": 1,
+                      "oseq": 1,
+                      "owner": "akash1l6v0f2lz22q4ae5efkjrs9epfyuycsss2y0pmz",
+                      "provider": "akash15tl6v6gd0nte0syyxnv57zmmspgju4c3xfmdhk"
+                    },
+                    "price": {
+                      "amount": "0.726898000000000000",
+                      "denom": "uact"
+                    },
+                    "reason": "lease_closed_owner",
+                    "reclamation": null,
+                    "state": "closed",
+                    "status": null
+                  }
+                ],
+                "response_hash": "sha256:4951308287df74abf42031da437ef8b0505aec48a0996fe2f3d46a25ba179dde"
+              },
+              "provider_operation_ref": "provider-account://pacc_18cd245812ad55b9/op/reconcile/env-c7-capstone-4",
+              "retrieved_live": true,
+              "settlement": {
+                "active_lease_count": 0,
+                "basis": "provider-native deployment + escrow + lease readback; close HTTP alone never settles",
+                "deployment_state": "closed",
+                "deposit_usd": 1,
+                "escrow_state": "closed",
+                "final_debit_usd": 0.000002,
+                "funds": [
+                  {
+                    "amount": "0.000000000000000000",
+                    "denom": "uact"
+                  }
+                ],
+                "provider_terminal": true,
+                "refund_usd": 0.999998,
+                "schema_version": "ioi.hypervisor.akash-settlement-readback.v1",
+                "settled_at_height": "28270646",
+                "settlement_state": "final_debit_settled",
+                "transferred": [
+                  {
+                    "amount": "2.000000000000000000",
+                    "denom": "uact"
+                  }
+                ]
+              },
+              "teardown_state": "torn_down"
+            },
+            "grant_ref": null,
+            "op": "reconcile",
+            "operation_id": "pop_18cde02b926a46eb",
+            "proposal_consumption": null,
+            "provider": "akash",
+            "receipt_ref": "agentgres://provider-receipt/prc_18cde02b91f08108",
+            "schema_version": "ioi.hypervisor.provider-operation.v1"
+          }
+        ]
+      },
+      "redacted_members": [],
+      "run_sha256": "sha256:9b10d05819b3044ea8d5b22e8a4e6390365acb1d92e9be309454bd038a1cd466"
+    }
+  ],
+  "set_sha256": "sha256:15f5630880513bb8d09a5d6c15226847fa2ba6094797a28661032b0aac695ac1"
+}

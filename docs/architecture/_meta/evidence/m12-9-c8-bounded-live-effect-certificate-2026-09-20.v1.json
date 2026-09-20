@@ -1,0 +1,1120 @@
+{
+  "schema": "ioi.c8-bounded-live-effect-certificate-evidence.v1",
+  "mode": "full",
+  "started_at": "2026-09-20T20:25:54.967Z",
+  "drills": [
+    {
+      "name": "the certificate's binding demands are bound: every executed clause names a real script with a pinned floor (app) or a drilled root script, every named failure carries its owner, the fresh crossing is SCHEDULED with its exact prerequisite and ruling, clauses cover 1–12 exactly once",
+      "pass": true,
+      "detail": "bound",
+      "at": "2026-09-20T20:25:54.968Z"
+    },
+    {
+      "name": "the retained record set is intact before it is read: 1 owner-authorized positive live run, its sha256 re-derived here over the eleven artifact projections, the five record members, the source basis and the substrate anchor, the set's sha256 over the runs, the run declared in its own words NOT the T7 capstone, never publication-eligible, no secret or identity member",
+      "pass": true,
+      "detail": "sha256:15f563088051",
+      "at": "2026-09-20T20:25:54.971Z"
+    },
+    {
+      "name": "GENERATION: the run evidence is ASSEMBLED at run time from the retained records (never read pre-sealed), sealed as a C8 v2 certificate, verified with zero failures, and regenerates EXACTLY the hash sealed on 2026-08-21 — sha256:0f0cb46c1ff3 — with result success, scope governed_infrastructure_lifecycle, no bare-metal or neutrality claim, never publication-eligible",
+      "pass": true,
+      "detail": "1787324505416 → 0f0cb46c1ff3 · final_debit_settled · $0.000002",
+      "at": "2026-09-20T20:25:54.974Z"
+    },
+    {
+      "name": "REPLAY (structural): the verifier's 22 structural mutation cases are REPLAYED on the GENERATED certificate — 21 fire by their own code, 1 is not applicable by a typed reason (the exact-provider case on a any_marketplace-selector run), none is a false green",
+      "pass": true,
+      "detail": "21/1/0/0",
+      "at": "2026-09-20T20:26:03.038Z"
+    },
+    {
+      "name": "REPLAY (durable): the verifier's 22 durable mutation cases are REPLAYED on the GENERATED certificate against the RETAINED records materialized as a data dir, the retained receipts served from a loopback stub this runner owns — the unmutated certificate's moved-tree baseline is EXACTLY the three host-bound checks (substrate log, daemon binary, HEAD equality) and nothing else; 20 cases fire, 1 is typed not applicable, 1 is masked by the moved tree, none is a false green",
+      "pass": true,
+      "detail": "baseline substrate_log_missing,daemon_binary_mismatch,source_commit_mismatch · 20/1/1/0",
+      "at": "2026-09-20T20:26:03.038Z"
+    },
+    {
+      "name": "NON-SUCCESS: every fired case yields a TYPED non-success report (ioi.hypervisor.c8-non-success-report.v1: result not_certified, the planted condition, the subject hash, the codes; it claims nothing), the generated certificate itself is judged a certificate and not a report, the lane's no-qualified-bid terminal certificate assembles from M09.6's retained set as a validated NON-success, a no-bid certificate relabelled success is refused, and the positive certificate relabelled no-bid is refused for the lease evidence it carries",
+      "pass": true,
+      "detail": "41 reports",
+      "at": "2026-09-20T20:26:03.040Z"
+    },
+    {
+      "name": "BASIS: the run's source commit resolves in this repository and is an ANCESTOR of HEAD (the applicability question, asked of this run too), its basis is declared dirty and so never publication-eligible, and the generated certificate carries exactly that commit, binary hash and posture",
+      "pass": true,
+      "detail": "8d536a5dacb0 ancestor of e98641ccb515",
+      "at": "2026-09-20T20:26:03.049Z"
+    },
+    {
+      "name": "the verdict is a pure function of the clause rows: all executed green with no absence → PASS; a typed absence or a scheduled live leg → NAMED FAILURE; a scheduled leg without a ruling, a fabricated success row, a red gate, a reach beyond loopback or a missing clause → FAIL",
+      "pass": true,
+      "detail": "pass/named_failure/named_failure/fail/fail/fail/fail/fail",
+      "at": "2026-09-20T20:26:03.050Z"
+    },
+    {
+      "name": "canon binds the gate: byo-provider-plane.md § The C8 v2 Bounded Provider-Lifecycle Certificate names check:c8-bounded-live-effect-certificate, records \"bounded-live-effect certificate\" as this program's gloss for canon's own name, disambiguates it from the kernel's C8 clause and the v3 envelope, states the typed non-success rule, says the certificate is generated not read and regenerates the sealed hash from records that are NOT the T7 capstone, says a regenerated certificate is evidence about the retained crossing and never a new one, names the scheduled crossing, and claims no fresh pass",
+      "pass": true,
+      "detail": "read from byo-provider-plane.md",
+      "at": "2026-09-20T20:26:03.050Z"
+    }
+  ],
+  "generation": {
+    "findings": [],
+    "certificates": [
+      {
+        "dseq": "1787324505416",
+        "certificate_hash": "sha256:0f0cb46c1ff35d710eac6f3c29e031b0739985787e42449758ebdfea567b331c",
+        "result": "success",
+        "final_net_cost_usd": 0.000002,
+        "settlement_state": "final_debit_settled",
+        "publication_eligible": false,
+        "nonclaims": 5
+      }
+    ],
+    "attested_certificate_sha256": "sha256:0f0cb46c1ff35d710eac6f3c29e031b0739985787e42449758ebdfea567b331c"
+  },
+  "replay": {
+    "baseline": [
+      "substrate_log_missing",
+      "daemon_binary_mismatch",
+      "source_commit_mismatch"
+    ],
+    "selector_mode": "any_marketplace",
+    "structural": {
+      "tally": {
+        "fired": 21,
+        "not_applicable": 1,
+        "masked_by_moved_tree": 0,
+        "false_green": 0
+      },
+      "rows": [
+        {
+          "expected": "run_not_successful",
+          "needs_durable": false,
+          "outcome": "fired",
+          "reason": null,
+          "codes": [
+            "run_not_successful"
+          ],
+          "mutated_hash": "sha256:3252ce60910776cb5e64ed116da43f972fd3255b8e5aae7420df90c9c29850c3"
+        },
+        {
+          "expected": "proposal_provenance_invalid",
+          "needs_durable": false,
+          "outcome": "fired",
+          "reason": null,
+          "codes": [
+            "proposal_provenance_invalid"
+          ],
+          "mutated_hash": "sha256:05093f84d0a6329382a1c08f42f8056a1710f6a220091dd953af70527376a524"
+        },
+        {
+          "expected": "c6_live_proof_missing",
+          "needs_durable": false,
+          "outcome": "fired",
+          "reason": null,
+          "codes": [
+            "c6_live_proof_missing"
+          ],
+          "mutated_hash": "sha256:f96039b5194bf7816d58a14bb2df65f5e0e98ecaf0432441e86986eb8dd74912"
+        },
+        {
+          "expected": "settlement_not_terminal",
+          "needs_durable": false,
+          "outcome": "fired",
+          "reason": null,
+          "codes": [
+            "settlement_not_terminal"
+          ],
+          "mutated_hash": "sha256:9fe7ac2412102c36643bb811cd41224c87c3808d5a795c51f95c55d4e4b6b1a1"
+        },
+        {
+          "expected": "provider_lease_open",
+          "needs_durable": false,
+          "outcome": "fired",
+          "reason": null,
+          "codes": [
+            "provider_lease_open"
+          ],
+          "mutated_hash": "sha256:c8327b9376c75123547ffc184d985b04dfea4554120470bfce7bba52858e6fc0"
+        },
+        {
+          "expected": "provider_endpoint_missing",
+          "needs_durable": false,
+          "outcome": "fired",
+          "reason": null,
+          "codes": [
+            "provider_endpoint_missing"
+          ],
+          "mutated_hash": "sha256:16fb95193fc484becc4159d87af05542fead5240d20a524a3188c154ea24eb2a"
+        },
+        {
+          "expected": "provider_readiness_inflated",
+          "needs_durable": false,
+          "outcome": "fired",
+          "reason": null,
+          "codes": [
+            "provider_readiness_inflated"
+          ],
+          "mutated_hash": "sha256:65018b46b7193c43e174a1ce8ea33a6c05f99011538a8f80e749f1b9a8632316"
+        },
+        {
+          "expected": "application_readiness_claim_mismatch",
+          "needs_durable": false,
+          "outcome": "fired",
+          "reason": null,
+          "codes": [
+            "application_readiness_claim_mismatch"
+          ],
+          "mutated_hash": "sha256:6a17b69f5c3a0e57641d7b69c47b47006084b1f0729d34445ef254e0638f0a45"
+        },
+        {
+          "expected": "exhausted_authority_still_active",
+          "needs_durable": false,
+          "outcome": "fired",
+          "reason": null,
+          "codes": [
+            "exhausted_authority_still_active"
+          ],
+          "mutated_hash": "sha256:45ca2a297ea1d95289bfd431a06111aaa07b3820287e6ed0df6250bec2447146"
+        },
+        {
+          "expected": "journal_root_mismatch",
+          "needs_durable": false,
+          "outcome": "fired",
+          "reason": null,
+          "codes": [
+            "journal_root_mismatch"
+          ],
+          "mutated_hash": "sha256:e0c7184ed1e37ba7827d6980674d118b85a4df15ff39d134f27683ea593b7ddc"
+        },
+        {
+          "expected": "final_cost_unreconciled",
+          "needs_durable": false,
+          "outcome": "fired",
+          "reason": null,
+          "codes": [
+            "final_cost_unreconciled"
+          ],
+          "mutated_hash": "sha256:1b9143fc5595ad740b5459dc2fb28076d9215e27cb3c805b13c447ceeb0042af"
+        },
+        {
+          "expected": "open_or_unknown_exposure",
+          "needs_durable": false,
+          "outcome": "fired",
+          "reason": null,
+          "codes": [
+            "open_or_unknown_exposure"
+          ],
+          "mutated_hash": "sha256:d9298fccda68b18a1c8095e5de2fb4f099d1d5d9b97a918736b7a9889543fcaf"
+        },
+        {
+          "expected": "secret_bearing_artifact",
+          "needs_durable": false,
+          "outcome": "fired",
+          "reason": null,
+          "codes": [
+            "secret_bearing_artifact"
+          ],
+          "mutated_hash": "sha256:03c9662f9fbb576e5d4cce186bcccbeeddca7874edbd5a24d551f2ad80e8dca1"
+        },
+        {
+          "expected": "bounded_spend_facets_changed",
+          "needs_durable": false,
+          "outcome": "fired",
+          "reason": null,
+          "codes": [
+            "bounded_spend_facets_changed"
+          ],
+          "mutated_hash": "sha256:208b03e710e36dd04ba5388f679415d727752122f875b39d96bf7ddb76564084"
+        },
+        {
+          "expected": "provider_selector_changed",
+          "needs_durable": false,
+          "outcome": "fired",
+          "reason": null,
+          "codes": [
+            "provider_selector_changed"
+          ],
+          "mutated_hash": "sha256:cdf25419cfd8b30b14b216e693fb4fc2b44acef596bf4f8c1e0945e7de761540"
+        },
+        {
+          "expected": "redacted_sdl_invalid",
+          "needs_durable": false,
+          "outcome": "fired",
+          "reason": null,
+          "codes": [
+            "redacted_sdl_invalid"
+          ],
+          "mutated_hash": "sha256:ddae69837fcdebc0ddbfc9b9eaa01091b4e30707ba6d21bc9b4f90a880b505a8"
+        },
+        {
+          "expected": "raw_sdl_retained",
+          "needs_durable": false,
+          "outcome": "fired",
+          "reason": null,
+          "codes": [
+            "raw_sdl_retained"
+          ],
+          "mutated_hash": "sha256:64215e2fd7ab14464e2058a17a4316e0af5bc16aa650a50622a20116559c3b94"
+        },
+        {
+          "expected": "exact_provider_mismatch",
+          "needs_durable": false,
+          "outcome": "not_applicable",
+          "reason": "the retained run reviewed a any_marketplace selector; exact_provider_mismatch fires only for an exact-provider selector",
+          "codes": [],
+          "mutated_hash": "sha256:10ab8177498c376f6c17075ddc88cb141959085a49963f1df15652083eb1d597"
+        },
+        {
+          "expected": "unsupported_architecture_claim",
+          "needs_durable": false,
+          "outcome": "fired",
+          "reason": null,
+          "codes": [
+            "unsupported_architecture_claim"
+          ],
+          "mutated_hash": "sha256:f680efa18db7fc7fcad641ec930d3b30b7a07fd1d0530ea8a0c97e1ef1c8ef1c"
+        },
+        {
+          "expected": "authority_binding_invalid",
+          "needs_durable": false,
+          "outcome": "fired",
+          "reason": null,
+          "codes": [
+            "authority_binding_invalid"
+          ],
+          "mutated_hash": "sha256:f2f8d2c7afe3c7568b17e8e882143416e4520b6be6249a61687f4f4e28ad89d7"
+        },
+        {
+          "expected": "proposal_request_hash_missing",
+          "needs_durable": false,
+          "outcome": "fired",
+          "reason": null,
+          "codes": [
+            "proposal_request_hash_missing"
+          ],
+          "mutated_hash": "sha256:38f8ef364ff638ae822012cd95865fa2ef7cf31700fa2a0c1a3270c59b625d88"
+        },
+        {
+          "expected": "authority_lifecycle_evidence_missing",
+          "needs_durable": false,
+          "outcome": "fired",
+          "reason": null,
+          "codes": [
+            "authority_lifecycle_evidence_missing"
+          ],
+          "mutated_hash": "sha256:fa084a75d001bf5b50923fa4d0472f3acb152f31866395bfc7df5616e51bbb9b"
+        }
+      ]
+    },
+    "durable": {
+      "tally": {
+        "fired": 20,
+        "not_applicable": 1,
+        "masked_by_moved_tree": 1,
+        "false_green": 0
+      },
+      "rows": [
+        {
+          "expected": "bounded_spend_facets_changed",
+          "needs_durable": false,
+          "outcome": "fired",
+          "reason": null,
+          "codes": [
+            "bounded_spend_facets_changed"
+          ],
+          "mutated_hash": "sha256:208b03e710e36dd04ba5388f679415d727752122f875b39d96bf7ddb76564084"
+        },
+        {
+          "expected": "bounded_spend_facets_changed",
+          "needs_durable": false,
+          "outcome": "fired",
+          "reason": null,
+          "codes": [
+            "bounded_spend_facets_changed"
+          ],
+          "mutated_hash": "sha256:5cba0d170fd3f751bdf3541f615121cb8fdd6539aa1cc85ccc2808e637d2999e"
+        },
+        {
+          "expected": "bounded_spend_facets_changed",
+          "needs_durable": false,
+          "outcome": "fired",
+          "reason": null,
+          "codes": [
+            "bounded_spend_facets_changed"
+          ],
+          "mutated_hash": "sha256:281ae84ece552ca7fcf257fe92f6f27eb2ba1231b1ab92b0407129f742c67c84"
+        },
+        {
+          "expected": "provider_selector_changed",
+          "needs_durable": false,
+          "outcome": "fired",
+          "reason": null,
+          "codes": [
+            "provider_selector_changed"
+          ],
+          "mutated_hash": "sha256:cdf25419cfd8b30b14b216e693fb4fc2b44acef596bf4f8c1e0945e7de761540"
+        },
+        {
+          "expected": "redacted_sdl_invalid",
+          "needs_durable": false,
+          "outcome": "fired",
+          "reason": null,
+          "codes": [
+            "redacted_sdl_invalid"
+          ],
+          "mutated_hash": "sha256:6777843a923b849aa9e7e63f9b0e2a266c6430ef1828f5e9c00d63e8f62fc950"
+        },
+        {
+          "expected": "raw_sdl_retained",
+          "needs_durable": false,
+          "outcome": "fired",
+          "reason": null,
+          "codes": [
+            "raw_sdl_retained",
+            "secret_bearing_artifact"
+          ],
+          "mutated_hash": "sha256:b7378640b4a64a0a845d4b7763bf070fd48a213d178f67adb26b32d097dfbed6"
+        },
+        {
+          "expected": "provider_readiness_inflated",
+          "needs_durable": false,
+          "outcome": "fired",
+          "reason": null,
+          "codes": [
+            "provider_readiness_inflated"
+          ],
+          "mutated_hash": "sha256:65018b46b7193c43e174a1ce8ea33a6c05f99011538a8f80e749f1b9a8632316"
+        },
+        {
+          "expected": "exact_provider_mismatch",
+          "needs_durable": false,
+          "outcome": "not_applicable",
+          "reason": "the retained run reviewed a any_marketplace selector; exact_provider_mismatch fires only for an exact-provider selector",
+          "codes": [],
+          "mutated_hash": "sha256:10ab8177498c376f6c17075ddc88cb141959085a49963f1df15652083eb1d597"
+        },
+        {
+          "expected": "proposal_provenance_invalid",
+          "needs_durable": false,
+          "outcome": "fired",
+          "reason": null,
+          "codes": [
+            "proposal_provenance_invalid"
+          ],
+          "mutated_hash": "sha256:797898ce519e7e891f8b79a548bf51586af891739467dbf5de2671d4ce60dd70"
+        },
+        {
+          "expected": "durable_proposal_mismatch",
+          "needs_durable": true,
+          "outcome": "fired",
+          "reason": null,
+          "codes": [
+            "durable_proposal_mismatch",
+            "substrate_log_missing",
+            "daemon_binary_mismatch",
+            "source_commit_mismatch"
+          ],
+          "mutated_hash": "sha256:b84f3dc1af7fc7ed1c5ae9443c8cf5e8a69e0da9813a59ed7bbfafee1eb524ba"
+        },
+        {
+          "expected": "durable_journal_mismatch",
+          "needs_durable": true,
+          "outcome": "fired",
+          "reason": null,
+          "codes": [
+            "durable_journal_mismatch",
+            "substrate_log_missing",
+            "daemon_binary_mismatch",
+            "source_commit_mismatch"
+          ],
+          "mutated_hash": "sha256:b363396091c06766b7c622c5b134e89ca62652864f17b17f4d6f102bfcd72ef0"
+        },
+        {
+          "expected": "durable_authority_mismatch",
+          "needs_durable": true,
+          "outcome": "fired",
+          "reason": null,
+          "codes": [
+            "durable_authority_mismatch",
+            "substrate_log_missing",
+            "daemon_binary_mismatch",
+            "source_commit_mismatch"
+          ],
+          "mutated_hash": "sha256:e5b297f8f15d941f89cfbf3aee4509f6c119cefbfd2de12a782b80182f20d149"
+        },
+        {
+          "expected": "durable_authority_mismatch",
+          "needs_durable": true,
+          "outcome": "fired",
+          "reason": null,
+          "codes": [
+            "durable_authority_mismatch",
+            "substrate_log_missing",
+            "daemon_binary_mismatch",
+            "source_commit_mismatch"
+          ],
+          "mutated_hash": "sha256:ebc7e91eadcf579bf63e8af45270c2dcfbbfc8f10cc8af9162d2e6d189249455"
+        },
+        {
+          "expected": "durable_negative_receipt_missing",
+          "needs_durable": true,
+          "outcome": "fired",
+          "reason": null,
+          "codes": [
+            "durable_negative_receipt_missing",
+            "substrate_log_missing",
+            "daemon_binary_mismatch",
+            "source_commit_mismatch"
+          ],
+          "mutated_hash": "sha256:e1fbff90701eb250ec84f403ca30b8bbc866fe255b5f8e4f8f7d323bd865e131"
+        },
+        {
+          "expected": "durable_terminal_receipt_missing",
+          "needs_durable": true,
+          "outcome": "fired",
+          "reason": null,
+          "codes": [
+            "durable_terminal_receipt_missing",
+            "substrate_log_missing",
+            "daemon_binary_mismatch",
+            "source_commit_mismatch"
+          ],
+          "mutated_hash": "sha256:e80aa0f7fff8ad332d3f0230900abd40d0deefe8a2785a4e6f1f929de8b6981e"
+        },
+        {
+          "expected": "daemon_binary_mismatch",
+          "needs_durable": true,
+          "outcome": "masked_by_moved_tree",
+          "reason": "daemon_binary_mismatch is already carried by the UNMUTATED certificate on this tree (moved-tree baseline), so the planted defect cannot be told from the host",
+          "codes": [
+            "substrate_log_missing",
+            "daemon_binary_mismatch",
+            "source_commit_mismatch"
+          ],
+          "mutated_hash": "sha256:5f5d0b6a5a5894ea0a76308b1421fc8156db1c809f1d980035cc6e74690a8063"
+        },
+        {
+          "expected": "durable_settlement_mismatch",
+          "needs_durable": true,
+          "outcome": "fired",
+          "reason": null,
+          "codes": [
+            "durable_settlement_mismatch",
+            "substrate_log_missing",
+            "daemon_binary_mismatch",
+            "source_commit_mismatch"
+          ],
+          "mutated_hash": "sha256:531526d2f525f3548523298476916dc1533551272795d6726c9542e3c7559485"
+        },
+        {
+          "expected": "c6_live_proof_missing",
+          "needs_durable": false,
+          "outcome": "fired",
+          "reason": null,
+          "codes": [
+            "c6_live_proof_missing"
+          ],
+          "mutated_hash": "sha256:f96039b5194bf7816d58a14bb2df65f5e0e98ecaf0432441e86986eb8dd74912"
+        },
+        {
+          "expected": "open_or_unknown_exposure",
+          "needs_durable": false,
+          "outcome": "fired",
+          "reason": null,
+          "codes": [
+            "open_or_unknown_exposure"
+          ],
+          "mutated_hash": "sha256:5290df5daa962330711dfeec36f703505260b9f78a335531ca5f858675be8556"
+        },
+        {
+          "expected": "secret_bearing_artifact",
+          "needs_durable": false,
+          "outcome": "fired",
+          "reason": null,
+          "codes": [
+            "secret_bearing_artifact"
+          ],
+          "mutated_hash": "sha256:03c9662f9fbb576e5d4cce186bcccbeeddca7874edbd5a24d551f2ad80e8dca1"
+        },
+        {
+          "expected": "unsupported_architecture_claim",
+          "needs_durable": false,
+          "outcome": "fired",
+          "reason": null,
+          "codes": [
+            "unsupported_architecture_claim"
+          ],
+          "mutated_hash": "sha256:f680efa18db7fc7fcad641ec930d3b30b7a07fd1d0530ea8a0c97e1ef1c8ef1c"
+        },
+        {
+          "expected": "authority_lifecycle_evidence_missing",
+          "needs_durable": false,
+          "outcome": "fired",
+          "reason": null,
+          "codes": [
+            "authority_lifecycle_evidence_missing"
+          ],
+          "mutated_hash": "sha256:fa084a75d001bf5b50923fa4d0472f3acb152f31866395bfc7df5616e51bbb9b"
+        }
+      ]
+    },
+    "findings": []
+  },
+  "non_success": {
+    "findings": [],
+    "reports": 41
+  },
+  "basis": {
+    "findings": [],
+    "commit": "8d536a5dacb0b1602fbaa2f5060b86023294df02",
+    "head": "e98641ccb51545c8e00530668e692bbd6812c9fb",
+    "resolves": true,
+    "ancestor": true
+  },
+  "clauses": [
+    {
+      "n": 1,
+      "demand": "the certificate is GENERATED from durable records at run time, never read pre-sealed, and regenerates exactly the hash sealed when the records were written",
+      "executed": [
+        {
+          "script": "generation (this runner)",
+          "status": 0,
+          "seconds": 0,
+          "isolation": "in-process",
+          "ledger": {
+            "attempts": 0,
+            "loopback": 0,
+            "reach": 0
+          },
+          "evidence": "../../../../../../tmp/ioi-c8blec-TvwYAv/self-legs.json",
+          "evidence_sha256": "sha256:1549179b1fe717046876c3839fccaf407a156c8e39b16f90f6dcd6a6fa8892b3",
+          "executed_assertions": null,
+          "floor_expected": null
+        }
+      ],
+      "absence": null,
+      "scheduled": null
+    },
+    {
+      "n": 2,
+      "demand": "the source commit and daemon binary of the run are bound and the publication posture is declared",
+      "executed": [
+        {
+          "script": "generation (this runner)",
+          "status": 0,
+          "seconds": 0,
+          "isolation": "in-process",
+          "ledger": {
+            "attempts": 0,
+            "loopback": 0,
+            "reach": 0
+          },
+          "evidence": "../../../../../../tmp/ioi-c8blec-TvwYAv/self-legs.json",
+          "evidence_sha256": "sha256:1549179b1fe717046876c3839fccaf407a156c8e39b16f90f6dcd6a6fa8892b3",
+          "executed_assertions": null,
+          "floor_expected": null
+        },
+        {
+          "script": "basis (this runner)",
+          "status": 0,
+          "seconds": 0,
+          "isolation": "in-process",
+          "ledger": {
+            "attempts": 0,
+            "loopback": 0,
+            "reach": 0
+          },
+          "evidence": "../../../../../../tmp/ioi-c8blec-TvwYAv/self-legs.json",
+          "evidence_sha256": "sha256:1549179b1fe717046876c3839fccaf407a156c8e39b16f90f6dcd6a6fa8892b3",
+          "executed_assertions": null,
+          "floor_expected": null
+        },
+        {
+          "script": "check:t7-retained-capstone-applicability",
+          "kind": "root",
+          "status": 0,
+          "seconds": 23,
+          "isolation": "refused_and_recorded",
+          "ledger": {
+            "attempts": 0,
+            "loopback": 0,
+            "reach": 0
+          },
+          "evidence": "../../../../../../tmp/ioi-c8blec-TvwYAv/census/2-check-t7-retained-capstone-applicability/governed-effect-assurance.json",
+          "evidence_sha256": "sha256:97c1603b79ead58afb3727c6593755df72c5d4546ff56047b77fba8f7d83fed2",
+          "executed_assertions": 4,
+          "floor_expected": null
+        }
+      ],
+      "absence": {
+        "what": "the equality of HEAD and of the built daemon binary with the run's basis, and the substrate log prefix, are the moved-tree remainder: asserted here as EXACTLY those three and nothing else, answerable only on the run's own host",
+        "owner": "the scheduled fresh crossing (clause 12): the substrate log prefix, the certified daemon binary and the equality of HEAD with the run's commit can be answered only on the run's own host"
+      },
+      "scheduled": null
+    },
+    {
+      "n": 3,
+      "demand": "an authenticated operator principal; no secret value, password path, bearer session or credential material anywhere",
+      "executed": [
+        {
+          "script": "generation (this runner)",
+          "status": 0,
+          "seconds": 0,
+          "isolation": "in-process",
+          "ledger": {
+            "attempts": 0,
+            "loopback": 0,
+            "reach": 0
+          },
+          "evidence": "../../../../../../tmp/ioi-c8blec-TvwYAv/self-legs.json",
+          "evidence_sha256": "sha256:1549179b1fe717046876c3839fccaf407a156c8e39b16f90f6dcd6a6fa8892b3",
+          "executed_assertions": null,
+          "floor_expected": null
+        },
+        {
+          "script": "replay (this runner)",
+          "status": 0,
+          "seconds": 0,
+          "isolation": "in-process",
+          "ledger": {
+            "attempts": 0,
+            "loopback": 0,
+            "reach": 0
+          },
+          "evidence": "../../../../../../tmp/ioi-c8blec-TvwYAv/self-legs.json",
+          "evidence_sha256": "sha256:1549179b1fe717046876c3839fccaf407a156c8e39b16f90f6dcd6a6fa8892b3",
+          "executed_assertions": null,
+          "floor_expected": null
+        }
+      ],
+      "absence": null,
+      "scheduled": null
+    },
+    {
+      "n": 4,
+      "demand": "the challenge policy and request hashes and the exact reviewed facets: deposit, ceiling, selector, SDL hash, teardown policy, retry count",
+      "executed": [
+        {
+          "script": "generation (this runner)",
+          "status": 0,
+          "seconds": 0,
+          "isolation": "in-process",
+          "ledger": {
+            "attempts": 0,
+            "loopback": 0,
+            "reach": 0
+          },
+          "evidence": "../../../../../../tmp/ioi-c8blec-TvwYAv/self-legs.json",
+          "evidence_sha256": "sha256:1549179b1fe717046876c3839fccaf407a156c8e39b16f90f6dcd6a6fa8892b3",
+          "executed_assertions": null,
+          "floor_expected": null
+        },
+        {
+          "script": "replay (this runner)",
+          "status": 0,
+          "seconds": 0,
+          "isolation": "in-process",
+          "ledger": {
+            "attempts": 0,
+            "loopback": 0,
+            "reach": 0
+          },
+          "evidence": "../../../../../../tmp/ioi-c8blec-TvwYAv/self-legs.json",
+          "evidence_sha256": "sha256:1549179b1fe717046876c3839fccaf407a156c8e39b16f90f6dcd6a6fa8892b3",
+          "executed_assertions": null,
+          "floor_expected": null
+        },
+        {
+          "script": "check:governed-effect-assurance-floor",
+          "kind": "app",
+          "status": 0,
+          "seconds": 23,
+          "isolation": "refused_and_recorded",
+          "ledger": {
+            "attempts": 0,
+            "loopback": 0,
+            "reach": 0
+          },
+          "evidence": "../../../../../../tmp/ioi-c8blec-TvwYAv/census/4-governed-effect-assurance/governed-effect-assurance.json",
+          "evidence_sha256": "sha256:97c1603b79ead58afb3727c6593755df72c5d4546ff56047b77fba8f7d83fed2",
+          "executed_assertions": 4,
+          "floor_expected": 4
+        }
+      ],
+      "absence": null,
+      "scheduled": null
+    },
+    {
+      "n": 5,
+      "demand": "the wallet grant and the consumed one-shot capability lease, terminal, with its expiry and revocation",
+      "executed": [
+        {
+          "script": "generation (this runner)",
+          "status": 0,
+          "seconds": 0,
+          "isolation": "in-process",
+          "ledger": {
+            "attempts": 0,
+            "loopback": 0,
+            "reach": 0
+          },
+          "evidence": "../../../../../../tmp/ioi-c8blec-TvwYAv/self-legs.json",
+          "evidence_sha256": "sha256:1549179b1fe717046876c3839fccaf407a156c8e39b16f90f6dcd6a6fa8892b3",
+          "executed_assertions": null,
+          "floor_expected": null
+        },
+        {
+          "script": "replay (this runner)",
+          "status": 0,
+          "seconds": 0,
+          "isolation": "in-process",
+          "ledger": {
+            "attempts": 0,
+            "loopback": 0,
+            "reach": 0
+          },
+          "evidence": "../../../../../../tmp/ioi-c8blec-TvwYAv/self-legs.json",
+          "evidence_sha256": "sha256:1549179b1fe717046876c3839fccaf407a156c8e39b16f90f6dcd6a6fa8892b3",
+          "executed_assertions": null,
+          "floor_expected": null
+        }
+      ],
+      "absence": null,
+      "scheduled": null
+    },
+    {
+      "n": 6,
+      "demand": "daemon-issued C4 proposal admission and consumption, never inline caller-authored provenance",
+      "executed": [
+        {
+          "script": "replay (this runner)",
+          "status": 0,
+          "seconds": 0,
+          "isolation": "in-process",
+          "ledger": {
+            "attempts": 0,
+            "loopback": 0,
+            "reach": 0
+          },
+          "evidence": "../../../../../../tmp/ioi-c8blec-TvwYAv/self-legs.json",
+          "evidence_sha256": "sha256:1549179b1fe717046876c3839fccaf407a156c8e39b16f90f6dcd6a6fa8892b3",
+          "executed_assertions": null,
+          "floor_expected": null
+        },
+        {
+          "script": "check:provider-proposal-provenance",
+          "kind": "app",
+          "status": 0,
+          "seconds": 3,
+          "isolation": "refused_and_recorded",
+          "ledger": {
+            "attempts": 0,
+            "loopback": 0,
+            "reach": 0
+          },
+          "evidence": "../../../../../../tmp/ioi-c8blec-TvwYAv/census/6-provider-proposal-provenance/provider-proposal-provenance.json",
+          "evidence_sha256": "sha256:807a7ae01617cf2c56324192efd2836517d6efba29de13fdfa6c108539638494",
+          "executed_assertions": 23,
+          "floor_expected": 23
+        }
+      ],
+      "absence": null,
+      "scheduled": null
+    },
+    {
+      "n": 7,
+      "demand": "the C2 intent and outcome roots, the outcome a distinct successor of the exact intent",
+      "executed": [
+        {
+          "script": "generation (this runner)",
+          "status": 0,
+          "seconds": 0,
+          "isolation": "in-process",
+          "ledger": {
+            "attempts": 0,
+            "loopback": 0,
+            "reach": 0
+          },
+          "evidence": "../../../../../../tmp/ioi-c8blec-TvwYAv/self-legs.json",
+          "evidence_sha256": "sha256:1549179b1fe717046876c3839fccaf407a156c8e39b16f90f6dcd6a6fa8892b3",
+          "executed_assertions": null,
+          "floor_expected": null
+        },
+        {
+          "script": "replay (this runner)",
+          "status": 0,
+          "seconds": 0,
+          "isolation": "in-process",
+          "ledger": {
+            "attempts": 0,
+            "loopback": 0,
+            "reach": 0
+          },
+          "evidence": "../../../../../../tmp/ioi-c8blec-TvwYAv/self-legs.json",
+          "evidence_sha256": "sha256:1549179b1fe717046876c3839fccaf407a156c8e39b16f90f6dcd6a6fa8892b3",
+          "executed_assertions": null,
+          "floor_expected": null
+        },
+        {
+          "script": "check:governed-effect-assurance-floor",
+          "kind": "app",
+          "status": 0,
+          "seconds": 23,
+          "isolation": "refused_and_recorded",
+          "ledger": {
+            "attempts": 0,
+            "loopback": 0,
+            "reach": 0
+          },
+          "evidence": "../../../../../../tmp/ioi-c8blec-TvwYAv/census/4-governed-effect-assurance/governed-effect-assurance.json",
+          "evidence_sha256": "sha256:97c1603b79ead58afb3727c6593755df72c5d4546ff56047b77fba8f7d83fed2",
+          "executed_assertions": 4,
+          "floor_expected": 4
+        }
+      ],
+      "absence": null,
+      "scheduled": null
+    },
+    {
+      "n": 8,
+      "demand": "provider-native deployment, bid, provider and lease identifiers; C6 state fetched live; endpoint evidence",
+      "executed": [
+        {
+          "script": "generation (this runner)",
+          "status": 0,
+          "seconds": 0,
+          "isolation": "in-process",
+          "ledger": {
+            "attempts": 0,
+            "loopback": 0,
+            "reach": 0
+          },
+          "evidence": "../../../../../../tmp/ioi-c8blec-TvwYAv/self-legs.json",
+          "evidence_sha256": "sha256:1549179b1fe717046876c3839fccaf407a156c8e39b16f90f6dcd6a6fa8892b3",
+          "executed_assertions": null,
+          "floor_expected": null
+        },
+        {
+          "script": "replay (this runner)",
+          "status": 0,
+          "seconds": 0,
+          "isolation": "in-process",
+          "ledger": {
+            "attempts": 0,
+            "loopback": 0,
+            "reach": 0
+          },
+          "evidence": "../../../../../../tmp/ioi-c8blec-TvwYAv/self-legs.json",
+          "evidence_sha256": "sha256:1549179b1fe717046876c3839fccaf407a156c8e39b16f90f6dcd6a6fa8892b3",
+          "executed_assertions": null,
+          "floor_expected": null
+        }
+      ],
+      "absence": null,
+      "scheduled": null
+    },
+    {
+      "n": 9,
+      "demand": "teardown, the provider-native final billing/refund readback, the final net cost, zero open and unknown exposure",
+      "executed": [
+        {
+          "script": "generation (this runner)",
+          "status": 0,
+          "seconds": 0,
+          "isolation": "in-process",
+          "ledger": {
+            "attempts": 0,
+            "loopback": 0,
+            "reach": 0
+          },
+          "evidence": "../../../../../../tmp/ioi-c8blec-TvwYAv/self-legs.json",
+          "evidence_sha256": "sha256:1549179b1fe717046876c3839fccaf407a156c8e39b16f90f6dcd6a6fa8892b3",
+          "executed_assertions": null,
+          "floor_expected": null
+        },
+        {
+          "script": "replay (this runner)",
+          "status": 0,
+          "seconds": 0,
+          "isolation": "in-process",
+          "ledger": {
+            "attempts": 0,
+            "loopback": 0,
+            "reach": 0
+          },
+          "evidence": "../../../../../../tmp/ioi-c8blec-TvwYAv/self-legs.json",
+          "evidence_sha256": "sha256:1549179b1fe717046876c3839fccaf407a156c8e39b16f90f6dcd6a6fa8892b3",
+          "executed_assertions": null,
+          "floor_expected": null
+        },
+        {
+          "script": "check:provider-neutral-live-transaction",
+          "kind": "app",
+          "status": 0,
+          "seconds": 0,
+          "isolation": "refused_and_recorded",
+          "ledger": {
+            "attempts": 0,
+            "loopback": 0,
+            "reach": 0
+          },
+          "evidence": "../../../../../../tmp/ioi-c8blec-TvwYAv/census/9-provider-neutral-live-transaction/provider-neutral-live-transaction.json",
+          "evidence_sha256": "sha256:02b628319c775e83523961cc7cf14260310aafa546b1ead44a4fdeac111a5739",
+          "executed_assertions": 8,
+          "floor_expected": 8
+        }
+      ],
+      "absence": null,
+      "scheduled": null
+    },
+    {
+      "n": 10,
+      "demand": "the negative refusal receipts, durable and promoted",
+      "executed": [
+        {
+          "script": "replay (this runner)",
+          "status": 0,
+          "seconds": 0,
+          "isolation": "in-process",
+          "ledger": {
+            "attempts": 0,
+            "loopback": 0,
+            "reach": 0
+          },
+          "evidence": "../../../../../../tmp/ioi-c8blec-TvwYAv/self-legs.json",
+          "evidence_sha256": "sha256:1549179b1fe717046876c3839fccaf407a156c8e39b16f90f6dcd6a6fa8892b3",
+          "executed_assertions": null,
+          "floor_expected": null
+        }
+      ],
+      "absence": {
+        "what": "the promoted receipts are served from the retained set by a loopback stub this runner owns; the live daemon's promoted family is read only by a run on the run's own host",
+        "owner": "the scheduled fresh crossing (clause 12): the substrate log prefix, the certified daemon binary and the equality of HEAD with the run's commit can be answered only on the run's own host"
+      },
+      "scheduled": null
+    },
+    {
+      "n": 11,
+      "demand": "every incomplete or unsafe condition yields a typed non-success report, never a success label; the no-qualified-bid close is the lane's typed terminal non-success; no ACC-14 rung is claimed",
+      "executed": [
+        {
+          "script": "non-success (this runner)",
+          "status": 0,
+          "seconds": 0,
+          "isolation": "in-process",
+          "ledger": {
+            "attempts": 0,
+            "loopback": 0,
+            "reach": 0
+          },
+          "evidence": "../../../../../../tmp/ioi-c8blec-TvwYAv/self-legs.json",
+          "evidence_sha256": "sha256:1549179b1fe717046876c3839fccaf407a156c8e39b16f90f6dcd6a6fa8892b3",
+          "executed_assertions": null,
+          "floor_expected": null
+        },
+        {
+          "script": "replay (this runner)",
+          "status": 0,
+          "seconds": 0,
+          "isolation": "in-process",
+          "ledger": {
+            "attempts": 0,
+            "loopback": 0,
+            "reach": 0
+          },
+          "evidence": "../../../../../../tmp/ioi-c8blec-TvwYAv/self-legs.json",
+          "evidence_sha256": "sha256:1549179b1fe717046876c3839fccaf407a156c8e39b16f90f6dcd6a6fa8892b3",
+          "executed_assertions": null,
+          "floor_expected": null
+        },
+        {
+          "script": "check:provider-neutral-live-transaction",
+          "kind": "app",
+          "status": 0,
+          "seconds": 0,
+          "isolation": "refused_and_recorded",
+          "ledger": {
+            "attempts": 0,
+            "loopback": 0,
+            "reach": 0
+          },
+          "evidence": "../../../../../../tmp/ioi-c8blec-TvwYAv/census/9-provider-neutral-live-transaction/provider-neutral-live-transaction.json",
+          "evidence_sha256": "sha256:02b628319c775e83523961cc7cf14260310aafa546b1ead44a4fdeac111a5739",
+          "executed_assertions": 8,
+          "floor_expected": 8
+        }
+      ],
+      "absence": null,
+      "scheduled": null
+    },
+    {
+      "n": 12,
+      "demand": "a fresh certificate from a fresh live crossing",
+      "executed": [
+        {
+          "script": "check:t7-retained-capstone-applicability",
+          "kind": "root",
+          "status": 0,
+          "seconds": 23,
+          "isolation": "refused_and_recorded",
+          "ledger": {
+            "attempts": 0,
+            "loopback": 0,
+            "reach": 0
+          },
+          "evidence": "../../../../../../tmp/ioi-c8blec-TvwYAv/census/2-check-t7-retained-capstone-applicability/governed-effect-assurance.json",
+          "evidence_sha256": "sha256:97c1603b79ead58afb3727c6593755df72c5d4546ff56047b77fba8f7d83fed2",
+          "executed_assertions": 4,
+          "floor_expected": null
+        }
+      ],
+      "absence": null,
+      "scheduled": {
+        "what": "a NEW live crossing (bid → lease → C6 retrieved_live → endpoint → teardown → provider-confirmed final debit) driven leg by leg, its artifacts extracted into a second retained run, and a NEW certificate generated and replayed by this same gate — the certificate generated today is evidence about the retained 2026-08-21 crossing",
+        "prerequisite": "an owner-authorized Akash account with a funded deposit (IOI_C7_EMAIL, IOI_C7_PASSWORD_FILE, IOI_WALLET_SECRET_PASS), authorized leg by leg",
+        "ruling": "R-139 (2026-09-14) and R-211 (2026-09-20): a missing credential blocks a live RUN, never the unit; a certificate regenerated from retained records is evidence about the retained crossing, never a new one — the fresh crossing is the unit's scheduled check"
+      }
+    }
+  ],
+  "verdict": {
+    "kind": "named_failure",
+    "failures": [],
+    "absences": [
+      {
+        "n": 2,
+        "what": "the equality of HEAD and of the built daemon binary with the run's basis, and the substrate log prefix, are the moved-tree remainder: asserted here as EXACTLY those three and nothing else, answerable only on the run's own host",
+        "owner": "the scheduled fresh crossing (clause 12): the substrate log prefix, the certified daemon binary and the equality of HEAD with the run's commit can be answered only on the run's own host"
+      },
+      {
+        "n": 10,
+        "what": "the promoted receipts are served from the retained set by a loopback stub this runner owns; the live daemon's promoted family is read only by a run on the run's own host",
+        "owner": "the scheduled fresh crossing (clause 12): the substrate log prefix, the certified daemon binary and the equality of HEAD with the run's commit can be answered only on the run's own host"
+      },
+      {
+        "n": 12,
+        "what": "SCHEDULED-OUTSTANDING: a NEW live crossing (bid → lease → C6 retrieved_live → endpoint → teardown → provider-confirmed final debit) driven leg by leg, its artifacts extracted into a second retained run, and a NEW certificate generated and replayed by this same gate — the certificate generated today is evidence about the retained 2026-08-21 crossing",
+        "owner": "prerequisite: an owner-authorized Akash account with a funded deposit (IOI_C7_EMAIL, IOI_C7_PASSWORD_FILE, IOI_WALLET_SECRET_PASS), authorized leg by leg · R-139 (2026-09-14) and R-211 (2026-09-20): a missing credential blocks a live RUN, never the unit; a certificate regenerated from retained records is evidence about the retained crossing, never a new one — the fresh crossing is the unit's scheduled check"
+      }
+    ]
+  },
+  "mutation": null,
+  "host": {
+    "isolation": "refused_and_recorded",
+    "strace": "strace -- version 6.8",
+    "load": [
+      "3.96",
+      "3.58",
+      "3.22"
+    ],
+    "daemon_binary": "/home/heathledger/Documents/ioi/repos/ioi/target/debug/hypervisor-daemon",
+    "work_dir": "/tmp/ioi-c8blec-TvwYAv",
+    "live_credentials_present": false
+  },
+  "finished_at": "2026-09-20T20:26:51.435Z",
+  "summary": {
+    "passed": 9,
+    "total": 9
+  }
+}

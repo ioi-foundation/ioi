@@ -948,6 +948,23 @@ jobs:
         if: ${{ !cancelled() && steps.rust_backed_daemon.outcome == 'success' }}
         run: npm run mutate:provider-neutral-live-transaction --workspace=@ioi/hypervisor-app
 
+      # M12.9 (R-211). The C8 v2 bounded provider-lifecycle certificate GENERATED at run time from the
+      # tracked, redacted, hash-committed record set of one retained positive live run (NOT the T7
+      # capstone), required to regenerate exactly the hash sealed on 2026-08-21; the capstone verifier's
+      # 22 + 22 mutation cases replayed on the GENERATED certificate against the retained records (the
+      # receipts served from a loopback stub the gate owns), each case fired, typed not-applicable or
+      # masked by the moved tree with the counts pinned; a typed non-success report for every planted
+      # defect. No daemon, no network beyond loopback, no credential. The fresh crossing is scheduled.
+      - name: Verify the C8 bounded-live-effect certificate generation gate (M12.9, CI-bound drills)
+        if: ${{ !cancelled() && steps.rust_backed_daemon.outcome == 'success' }}
+        env:
+          IOI_VERIFIER_CENSUS_DIR: .artifacts/verifier-census
+        run: npm run check:c8-bounded-live-effect-certificate --workspace=@ioi/hypervisor-app
+
+      - name: Drill the C8 certificate generation oracles
+        if: ${{ !cancelled() && steps.rust_backed_daemon.outcome == 'success' }}
+        run: npm run mutate:c8-bounded-live-effect-certificate --workspace=@ioi/hypervisor-app
+
       # M10.4 — the governed evaluation plane, driven against an ISOLATED daemon this job already
       # built: two deterministic ollama-dialect stub servers registered, probed, enabled and REALLY
       # invoked as routes A and B; released suite revisions, frozen and active epochs, admitted runs,

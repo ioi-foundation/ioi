@@ -4,11 +4,12 @@ import fs from "node:fs";
 import path from "node:path";
 import os from "node:os";
 import { execFileSync } from "node:child_process";
+import { fileURLToPath } from "node:url";
 import { sealCertificate, validateCertificate } from "./lib/c7-c8-certificate.mjs";
 
 const arg = (name) => { const index = process.argv.indexOf(name); return index >= 0 ? process.argv[index + 1] : null; };
 
-function validFixture() {
+export function validFixture() {
   const fixtureSdl = "version: fixture\n";
   const fixtureSdlHash = `sha256:${crypto.createHash("sha256").update(fixtureSdl).digest("hex")}`;
   const providerAddress = "akash1provider000000000000000000000000000";
@@ -38,7 +39,65 @@ function validFixture() {
   });
 }
 
-async function verifyDurable(certificate, dataDir, repo, daemon) {
+// THE TWO BATTERIES, AS EXPORTED TABLES (R-211, 2026-09-20). They are the same twenty-two and
+// twenty-two cases the self-test and the durable mutation test have always run; exporting them lets
+// the generation gate (scripts/check-c8-bounded-live-effect-certificate.mjs) REPLAY every case on a
+// certificate it generated at run time rather than on the synthetic fixture. Their populations are
+// pinned by size in check:t7-retained-capstone-applicability, which reads this source.
+export const SELF_TEST_CASES = [
+  ["run_not_successful", (c) => { c.ok = false; c.result = "failure"; }],
+  ["proposal_provenance_invalid", (c) => { c.proposal.source = "daemon-provider-operation-proposal"; }],
+  ["c6_live_proof_missing", (c) => { c.provider.c6.retrieved_live = false; }],
+  ["settlement_not_terminal", (c) => { c.settlement.state = "refund_pending"; }],
+  ["provider_lease_open", (c) => { c.provider.lease_state = "open"; }],
+  ["provider_endpoint_missing", (c) => { c.provider.endpoint_ref = null; c.provider.endpoint_discovered = false; }],
+  ["provider_readiness_inflated", (c) => { c.provider.workload_readiness_proven = true; c.claims.application_readiness_claimed = true; }],
+  ["application_readiness_claim_mismatch", (c) => { c.claims.application_readiness_claimed = true; }],
+  ["exhausted_authority_still_active", (c) => { c.authority.lease.state = "active"; }],
+  ["journal_root_mismatch", (c) => { c.journal.outcome_predecessor_root = `sha256:${"b".repeat(64)}`; }],
+  ["final_cost_unreconciled", (c) => { c.settlement.final_net_cost_usd = null; }],
+  ["open_or_unknown_exposure", (c) => { c.settlement.open_exposure_count = 1; }],
+  ["secret_bearing_artifact", (c) => { c.operator.session_token = "ioi_sess_forbidden"; }],
+  ["bounded_spend_facets_changed", (c) => { c.authority.reviewed_facets.deposit_usd = 2; }],
+  ["provider_selector_changed", (c) => { c.authority.reviewed_facets.provider_selector.selection = "caller_selected"; }],
+  ["redacted_sdl_invalid", (c) => { c.workload.redacted_sdl += "# changed"; }],
+  ["raw_sdl_retained", (c) => { c.authority.reviewed_facets.sdl_yaml = "password: CANARY"; }],
+  ["exact_provider_mismatch", (c) => { c.provider.provider_address = "akash1different000000000000000000000000"; }],
+  ["unsupported_architecture_claim", (c) => { c.claims.bare_metal_claimed = true; }],
+  ["authority_binding_invalid", (c) => { c.authority.binding.resource_refs[1] = "env-other"; }],
+  ["proposal_request_hash_missing", (c) => { c.proposal.request_hash = null; }],
+  ["authority_lifecycle_evidence_missing", (c) => { c.authority.lease.revocation_ref = null; }],
+];
+
+export const DURABLE_CASES = [
+  ["bounded_spend_facets_changed", (c) => { c.authority.reviewed_facets.deposit_usd = 2; }, false],
+  ["bounded_spend_facets_changed", (c) => { c.authority.reviewed_facets.ceiling_amount = "2000"; }, false],
+  ["bounded_spend_facets_changed", (c) => { c.authority.reviewed_facets.retry_count = 2; }, false],
+  ["provider_selector_changed", (c) => { c.authority.reviewed_facets.provider_selector.selection = "caller_selected"; }, false],
+  ["redacted_sdl_invalid", (c) => { c.workload.redacted_sdl += "# mutation"; }, false],
+  ["raw_sdl_retained", (c) => { c.authority.reviewed_facets.sdl_yaml = "api_key: sk-forbidden-canary"; }, false],
+  ["provider_readiness_inflated", (c) => {
+    c.provider.workload_readiness_proven = !c.provider.workload_readiness_proven;
+    c.claims.application_readiness_claimed = c.provider.workload_readiness_proven;
+  }, false],
+  ["exact_provider_mismatch", (c) => { c.provider.provider_address = "akash1different000000000000000000000000"; }, false],
+  ["proposal_provenance_invalid", (c) => { c.proposal.source = "caller-asserted"; }, false],
+  ["durable_proposal_mismatch", (c) => { c.proposal.request_hash = `sha256:${"0".repeat(64)}`; }, true],
+  ["durable_journal_mismatch", (c) => { c.journal.outcome_root = `sha256:${"1".repeat(64)}`; c.journal.outcome_predecessor_root = c.journal.intent_root; }, true],
+  ["durable_authority_mismatch", (c) => { c.authority.policy_hash = `sha256:${"2".repeat(64)}`; }, true],
+  ["durable_authority_mismatch", (c) => { c.authority.lease.expires_at += 1; }, true],
+  ["durable_negative_receipt_missing", (c) => { c.negative_receipts[0] = "agentgres://provider-receipt/prc_missing"; }, true],
+  ["durable_terminal_receipt_missing", (c) => { c.durable.terminal_reconciliation_receipt_ref = "agentgres://provider-receipt/prc_missing"; }, true],
+  ["daemon_binary_mismatch", (c) => { c.source.daemon_binary_sha256 = `sha256:${"3".repeat(64)}`; }, true],
+  ["durable_settlement_mismatch", (c) => { c.settlement.final_net_cost_usd = 0.5; }, true],
+  ["c6_live_proof_missing", (c) => { c.provider.c6.retrieved_live = false; }, false],
+  ["open_or_unknown_exposure", (c) => { c.settlement.unknown_exposure_count = 1; }, false],
+  ["secret_bearing_artifact", (c) => { c.operator.session_token = "ioi_sess_forbidden"; }, false],
+  ["unsupported_architecture_claim", (c) => { c.claims.bare_metal_claimed = true; }, false],
+  ["authority_lifecycle_evidence_missing", (c) => { c.authority.lease.revocation_ref = null; }, false],
+];
+
+export async function verifyDurable(certificate, dataDir, repo, daemon) {
   const failures = [];
   const fail = (code, pathName, detail) => failures.push({ code, path: pathName, detail });
   const safe = (value) => typeof value === "string" && /^[A-Za-z0-9_.-]+$/u.test(value);
@@ -163,31 +222,8 @@ async function verifyDurable(certificate, dataDir, repo, daemon) {
   return failures;
 }
 
-function selfTest() {
-  const cases = [
-    ["run_not_successful", (c) => { c.ok = false; c.result = "failure"; }],
-    ["proposal_provenance_invalid", (c) => { c.proposal.source = "daemon-provider-operation-proposal"; }],
-    ["c6_live_proof_missing", (c) => { c.provider.c6.retrieved_live = false; }],
-    ["settlement_not_terminal", (c) => { c.settlement.state = "refund_pending"; }],
-    ["provider_lease_open", (c) => { c.provider.lease_state = "open"; }],
-    ["provider_endpoint_missing", (c) => { c.provider.endpoint_ref = null; c.provider.endpoint_discovered = false; }],
-    ["provider_readiness_inflated", (c) => { c.provider.workload_readiness_proven = true; c.claims.application_readiness_claimed = true; }],
-    ["application_readiness_claim_mismatch", (c) => { c.claims.application_readiness_claimed = true; }],
-    ["exhausted_authority_still_active", (c) => { c.authority.lease.state = "active"; }],
-    ["journal_root_mismatch", (c) => { c.journal.outcome_predecessor_root = `sha256:${"b".repeat(64)}`; }],
-    ["final_cost_unreconciled", (c) => { c.settlement.final_net_cost_usd = null; }],
-    ["open_or_unknown_exposure", (c) => { c.settlement.open_exposure_count = 1; }],
-    ["secret_bearing_artifact", (c) => { c.operator.session_token = "ioi_sess_forbidden"; }],
-    ["bounded_spend_facets_changed", (c) => { c.authority.reviewed_facets.deposit_usd = 2; }],
-    ["provider_selector_changed", (c) => { c.authority.reviewed_facets.provider_selector.selection = "caller_selected"; }],
-    ["redacted_sdl_invalid", (c) => { c.workload.redacted_sdl += "# changed"; }],
-    ["raw_sdl_retained", (c) => { c.authority.reviewed_facets.sdl_yaml = "password: CANARY"; }],
-    ["exact_provider_mismatch", (c) => { c.provider.provider_address = "akash1different000000000000000000000000"; }],
-    ["unsupported_architecture_claim", (c) => { c.claims.bare_metal_claimed = true; }],
-    ["authority_binding_invalid", (c) => { c.authority.binding.resource_refs[1] = "env-other"; }],
-    ["proposal_request_hash_missing", (c) => { c.proposal.request_hash = null; }],
-    ["authority_lifecycle_evidence_missing", (c) => { c.authority.lease.revocation_ref = null; }],
-  ];
+export function selfTest() {
+  const cases = SELF_TEST_CASES;
   const base = validFixture();
   const baseResult = validateCertificate(base);
   if (!baseResult.ok) return { ok: false, failures: [{ code: "positive_control_failed", detail: baseResult.failures }] };
@@ -207,34 +243,8 @@ function selfTest() {
   };
 }
 
-async function mutationTest(base, dataDir, repo, daemon) {
-  const cases = [
-    ["bounded_spend_facets_changed", (c) => { c.authority.reviewed_facets.deposit_usd = 2; }, false],
-    ["bounded_spend_facets_changed", (c) => { c.authority.reviewed_facets.ceiling_amount = "2000"; }, false],
-    ["bounded_spend_facets_changed", (c) => { c.authority.reviewed_facets.retry_count = 2; }, false],
-    ["provider_selector_changed", (c) => { c.authority.reviewed_facets.provider_selector.selection = "caller_selected"; }, false],
-    ["redacted_sdl_invalid", (c) => { c.workload.redacted_sdl += "# mutation"; }, false],
-    ["raw_sdl_retained", (c) => { c.authority.reviewed_facets.sdl_yaml = "api_key: sk-forbidden-canary"; }, false],
-    ["provider_readiness_inflated", (c) => {
-      c.provider.workload_readiness_proven = !c.provider.workload_readiness_proven;
-      c.claims.application_readiness_claimed = c.provider.workload_readiness_proven;
-    }, false],
-    ["exact_provider_mismatch", (c) => { c.provider.provider_address = "akash1different000000000000000000000000"; }, false],
-    ["proposal_provenance_invalid", (c) => { c.proposal.source = "caller-asserted"; }, false],
-    ["durable_proposal_mismatch", (c) => { c.proposal.request_hash = `sha256:${"0".repeat(64)}`; }, true],
-    ["durable_journal_mismatch", (c) => { c.journal.outcome_root = `sha256:${"1".repeat(64)}`; c.journal.outcome_predecessor_root = c.journal.intent_root; }, true],
-    ["durable_authority_mismatch", (c) => { c.authority.policy_hash = `sha256:${"2".repeat(64)}`; }, true],
-    ["durable_authority_mismatch", (c) => { c.authority.lease.expires_at += 1; }, true],
-    ["durable_negative_receipt_missing", (c) => { c.negative_receipts[0] = "agentgres://provider-receipt/prc_missing"; }, true],
-    ["durable_terminal_receipt_missing", (c) => { c.durable.terminal_reconciliation_receipt_ref = "agentgres://provider-receipt/prc_missing"; }, true],
-    ["daemon_binary_mismatch", (c) => { c.source.daemon_binary_sha256 = `sha256:${"3".repeat(64)}`; }, true],
-    ["durable_settlement_mismatch", (c) => { c.settlement.final_net_cost_usd = 0.5; }, true],
-    ["c6_live_proof_missing", (c) => { c.provider.c6.retrieved_live = false; }, false],
-    ["open_or_unknown_exposure", (c) => { c.settlement.unknown_exposure_count = 1; }, false],
-    ["secret_bearing_artifact", (c) => { c.operator.session_token = "ioi_sess_forbidden"; }, false],
-    ["unsupported_architecture_claim", (c) => { c.claims.bare_metal_claimed = true; }, false],
-    ["authority_lifecycle_evidence_missing", (c) => { c.authority.lease.revocation_ref = null; }, false],
-  ];
+export async function mutationTest(base, dataDir, repo, daemon) {
+  const cases = DURABLE_CASES;
   const failures = [];
   for (const [expected, mutate, needsDurable] of cases) {
     const certificate = structuredClone(base);
@@ -253,31 +263,36 @@ async function mutationTest(base, dataDir, repo, daemon) {
   };
 }
 
-if (process.argv.includes("--self-test")) {
-  const result = selfTest();
-  console.log(JSON.stringify({ schema_version: "ioi.check.c7-c8-capstone.self-test.v1", ...result }, null, 2));
-  process.exit(result.ok ? 0 : 1);
-}
+// The CLI runs only when this file is the entry point; the generation gate imports the tables,
+// the fixture and the durable verifier above without running it.
+const isMain = process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.meta.url);
+if (isMain) {
+  if (process.argv.includes("--self-test")) {
+    const result = selfTest();
+    console.log(JSON.stringify({ schema_version: "ioi.check.c7-c8-capstone.self-test.v1", ...result }, null, 2));
+    process.exit(result.ok ? 0 : 1);
+  }
 
-const evidence = arg("--evidence");
-if (!evidence) {
-  console.error("usage: check:c7-c8-capstone -- --evidence <dir-or-certificate.json> | --self-test");
-  process.exit(2);
+  const evidence = arg("--evidence");
+  if (!evidence) {
+    console.error("usage: check:c7-c8-capstone -- --evidence <dir-or-certificate.json> | --self-test");
+    process.exit(2);
+  }
+  const resolved = path.resolve(evidence);
+  const certificatePath = fs.statSync(resolved).isDirectory() ? path.join(resolved, "certificate.json") : resolved;
+  if (!fs.existsSync(certificatePath)) {
+    console.error(JSON.stringify({ ok: false, failures: [{ code: "certificate_missing", path: certificatePath }] }, null, 2));
+    process.exit(1);
+  }
+  const certificate = JSON.parse(fs.readFileSync(certificatePath, "utf8"));
+  const result = validateCertificate(certificate);
+  const dataDir = path.resolve(arg("--data-dir") || process.env.IOI_HYPERVISOR_DATA_DIR || path.join(os.homedir(), ".ioi/hypervisor/data"));
+  const daemon = arg("--daemon") || "http://127.0.0.1:8765";
+  const repo = path.resolve(arg("--repo") || process.cwd());
+  const durableFailures = await verifyDurable(certificate, dataDir, repo, daemon);
+  const final = { ok: result.ok && durableFailures.length === 0, failures: [...result.failures, ...durableFailures] };
+  const mutations = process.argv.includes("--mutation-test") ? await mutationTest(certificate, dataDir, repo, daemon) : null;
+  const withMutations = { ok: final.ok && (mutations?.ok ?? true), failures: [...final.failures, ...(mutations?.failures || [])] };
+  console.log(JSON.stringify({ schema_version: "ioi.check.c7-c8-capstone.v1", certificate: certificatePath, ...withMutations, ...(mutations ? { mutations } : {}) }, null, 2));
+  process.exit(withMutations.ok ? 0 : 1);
 }
-const resolved = path.resolve(evidence);
-const certificatePath = fs.statSync(resolved).isDirectory() ? path.join(resolved, "certificate.json") : resolved;
-if (!fs.existsSync(certificatePath)) {
-  console.error(JSON.stringify({ ok: false, failures: [{ code: "certificate_missing", path: certificatePath }] }, null, 2));
-  process.exit(1);
-}
-const certificate = JSON.parse(fs.readFileSync(certificatePath, "utf8"));
-const result = validateCertificate(certificate);
-const dataDir = path.resolve(arg("--data-dir") || process.env.IOI_HYPERVISOR_DATA_DIR || path.join(os.homedir(), ".ioi/hypervisor/data"));
-const daemon = arg("--daemon") || "http://127.0.0.1:8765";
-const repo = path.resolve(arg("--repo") || process.cwd());
-const durableFailures = await verifyDurable(certificate, dataDir, repo, daemon);
-const final = { ok: result.ok && durableFailures.length === 0, failures: [...result.failures, ...durableFailures] };
-const mutations = process.argv.includes("--mutation-test") ? await mutationTest(certificate, dataDir, repo, daemon) : null;
-const withMutations = { ok: final.ok && (mutations?.ok ?? true), failures: [...final.failures, ...(mutations?.failures || [])] };
-console.log(JSON.stringify({ schema_version: "ioi.check.c7-c8-capstone.v1", certificate: certificatePath, ...withMutations, ...(mutations ? { mutations } : {}) }, null, 2));
-process.exit(withMutations.ok ? 0 : 1);

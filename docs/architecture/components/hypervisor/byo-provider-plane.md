@@ -10,6 +10,8 @@ Implementation refs:
   - `apps/hypervisor/scripts/lib/c7-c8-certificate.mjs`
   - `apps/hypervisor/scripts/verify-akash-live-lifecycle.mjs`
   - `scripts/check-provider-neutral-live-transaction.mjs`
+  - `apps/hypervisor/scripts/lib/c7-c8-evidence.mjs`
+  - `scripts/check-c8-bounded-live-effect-certificate.mjs`
 Last implementation audit: 2026-09-20
 Canonical owner: this file for the ProviderAccount object plane, provider credential
 binding, snapshot custody, and provider spend posture. Provider/environment doctrine
@@ -388,3 +390,57 @@ scheduled check behind owner credentials and a funded deposit, authorized leg
 by leg; a missing credential blocks that run, never the unit. The verdict is a
 pass only with zero named failures and the live branch executed; today it is
 the named failure, and no provider-neutral live pass is claimed.
+
+## The C8 v2 Bounded Provider-Lifecycle Certificate
+
+The immutable C8 v2 bounded provider-lifecycle certificate
+(`ioi.hypervisor.c7-c8-certificate.v2`) is the machine-verifiable record of one
+bounded live effect on one provider. It binds the source commit and daemon
+binary of the run, the authenticated operator principal, the challenge policy
+and request hashes and the exact reviewed facets (deposit, ceiling, selector,
+SDL hash, teardown policy, retry count), the wallet grant and the consumed
+one-shot capability lease with its expiry and revocation, the daemon-issued C4
+proposal admission and consumption, the C2 intent and outcome roots with the
+outcome a distinct successor of the intent, the provider-native deployment, bid,
+provider and lease identifiers, the C6 state fetched live, the endpoint
+evidence, teardown, the provider-native final billing or refund readback, the
+final net cost, zero open and unknown exposure, and the negative refusal
+receipts. Secret values, password paths, bearer sessions and credential
+material are forbidden fields. The implementation program calls this object the
+"bounded-live-effect certificate"; that is a gloss for the same v2 object, not a
+second certificate. It is neither the kernel's C8 clause (deterministic replay
+and recovery, in `../../foundations/web4-and-ioi-stack.md`) nor the
+`C8CertificateV3` successor envelope of `providers-and-environments.md`, which
+carries this v2 certificate as its exact predecessor.
+
+Every incomplete or unsafe condition yields a typed non-success report, never a
+success label: `ok:false`, inline caller-authored proposal provenance, a pending
+refund, a missing provider readback, an absent or open lease, an unconsumed or
+reusable one-shot lease, mismatched roots, unreconciled spend or a
+secret-bearing artifact each refuse success by their own typed code, and the
+report that carries those codes certifies nothing. The lane's other typed
+non-success is the no-qualified-bid terminal certificate above: a terminal
+outcome, not a refusal, and never a success either.
+
+**The certificate is generated, not read (2026-09-20, M12.9, register R-211).**
+The runner is `check:c8-bounded-live-effect-certificate`. It does not read a
+pre-sealed certificate: it assembles the run evidence at run time from a
+tracked, redacted, hash-committed record set of one retained owner-authorized
+positive live run (the 2026-08-21 run that reached bid, lease, live provider
+readback, endpoint evidence, teardown and a provider-confirmed final debit; it
+is NOT the T7 integrated capstone, which stays re-qualified by its own
+applicability gate as an attested hash), seals it, verifies it, and requires the
+regenerated hash to equal the hash sealed on the day the records were written,
+so the certificate bytes never need to be tracked. It then replays the
+verifier's twenty-two structural and twenty-two durable mutation cases on the
+generated certificate against the retained records, classifying each case as
+fired, not applicable by a typed reason, or masked by the moved tree: the three
+host-bound checks (the substrate log prefix, the certified daemon binary, the
+equality of HEAD with the run's commit) are the named remainder that only the
+run's own host can answer, and the gate asserts they are exactly three. Under
+the kernel's C8 clause a certificate regenerated from retained records is
+evidence about the retained crossing and never a new one; a fresh certificate
+from a fresh live crossing is the unit's scheduled check behind owner
+credentials and a funded deposit, authorized leg by leg. The verdict is a pass
+only with zero named failures and the fresh crossing executed; today it is the
+named failure, and no fresh bounded-live-effect pass is claimed.

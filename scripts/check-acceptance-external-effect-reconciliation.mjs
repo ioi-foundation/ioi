@@ -7,9 +7,10 @@
 // RETAINED and an applicability gate proves, on every run, that the retained evidence still
 // describes THIS tree (integrated commit is an ancestor, coordinates well-formed, terminal claims
 // carried, structural mutations executed). R-139 (2026-09-14, MVP owner, owner-reversible) applies
-// that precedent to the journey: fresh live runs (M09.6's dual-branch transaction, M12.9's fresh
-// certificate) are SCHEDULED-OUTSTANDING with their exact prerequisite and do not hold the MVP
-// gate; they are printed on every run and are never a pass.
+// that precedent to the journey: fresh live runs (M09.6's positive branch, M12.9's fresh crossing —
+// its certificate is GENERATED spend-free from retained records, R-211) are SCHEDULED-OUTSTANDING
+// with their exact prerequisite and do not hold the MVP gate; they are printed on every run and are
+// never a pass.
 //
 //   node scripts/check-acceptance-external-effect-reconciliation.mjs [--mutation-batteries] [--mutation] [--evidence <out.json>]
 
@@ -38,7 +39,12 @@ const CLAUSES = [
   // and there is no tracked v3 bundle, so it cannot run as written (measured 2026-09-14, R-137). The
   // relying-party battery (40 resealed semantic mutations rejected) and the U1 real-campaign relying
   // party (56 mutations over retained real evidence) are the executable forms of the same claim.
-  { id: "N3", negative: true, clause: "No success certificate is emitted while a deposit is refund_pending, a provider lease is unclosed, or the final debit/refund is unknown", unit: "M12.9 · M12.10 · M06.7", checks: [app("check:c8-v3-relying-party"), app("check:c8-v3-portable-bundle"), app("check:u1-real-campaign-relying-party"), app("check:c7-c8-capstone", ["--", "--self-test"])], scheduled: [{ what: "a NEW C8 certificate assembled from fresh durable evidence with its generated output mutation-tested — M12.9's check:c8-bounded-live-effect-certificate (assemble-c7-c8-evidence.mjs reads akash-deployments/leases/endpoints and eleven c7-*.json artifacts including the wallet transaction cast)", prerequisite: LIVE_PREREQ, ruling: LIVE_RULING }] },
+  // M12.9 landed 2026-09-20 (R-211): the C8 v2 certificate is GENERATED at run time from the tracked,
+  // redacted, hash-committed record set of one retained positive live run (NOT the T7 capstone), required
+  // to regenerate exactly the hash sealed on 2026-08-21, and the capstone verifier's 22 + 22 mutation
+  // cases are replayed on the GENERATED certificate against the retained records — spend-free, so the
+  // scheduled leg narrows to a NEW live crossing generating a NEW certificate through the same gate.
+  { id: "N3", negative: true, clause: "No success certificate is emitted while a deposit is refund_pending, a provider lease is unclosed, or the final debit/refund is unknown", unit: "M12.9 · M12.10 · M06.7", checks: [app("check:c8-v3-relying-party"), app("check:c8-v3-portable-bundle"), app("check:u1-real-campaign-relying-party"), app("check:c7-c8-capstone", ["--", "--self-test"]), { ...bounded(rootScript("check:c8-bounded-live-effect-certificate", ["--", "--drills"]), 15), allowsFixture: true }], battery: { ...rootScript("mutate:c8-bounded-live-effect-certificate"), cost: "minutes" }, scheduled: [{ what: "a NEW live crossing (bid → lease → C6 retrieved_live → endpoint → teardown → provider-confirmed final debit) whose artifacts are extracted into a second retained run and whose certificate is GENERATED and replayed by the same gate — the certificate check:c8-bounded-live-effect-certificate generates today is evidence about the retained 2026-08-21 crossing, never a new one (R-211)", prerequisite: LIVE_PREREQ, ruling: LIVE_RULING }] },
   { id: "E", clause: "Journey evidence: the provider transport boundary, proposal provenance and the Agentgres-owned recognized-effect publication order", unit: "M01.8 · M06.8", checks: [app("check:provider-transport"), app("check:provider-proposal-provenance"), rootScript("check:recognized-effect-publication-order")], battery: { ...rootScript("mutate:recognized-effect-publication-order"), cost: "minutes" }, scheduled: [{ what: "check:provider-transport:live — the transport boundary against a real provider", prerequisite: "a provider API key for one registered model provider", ruling: LIVE_RULING }] },
 ];
 

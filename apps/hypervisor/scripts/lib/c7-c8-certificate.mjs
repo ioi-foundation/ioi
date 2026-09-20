@@ -120,6 +120,34 @@ export function validateNoQualifiedBidCertificate(certificate) {
   return { ok: failures.length === 0, failures };
 }
 
+// ---- the typed non-success report (M12.9, register R-211) ----------------------------------------------------
+// Every incomplete or unsafe condition yields a TYPED non-success report, never a success label: the
+// report names the certificate it judged (by hash), the condition that was planted or observed, and
+// the exact codes the validator returned. It certifies nothing and carries no claim; its only
+// positive statement is which typed refusals fired. The no-qualified-bid certificate above is the
+// lane's OTHER typed non-success — a terminal outcome, not a refusal — and is validated, not reported.
+export const NON_SUCCESS_REPORT_SCHEMA = "ioi.hypervisor.c8-non-success-report.v1";
+export function nonSuccessReport(certificate, failures, { condition = null, subject = null } = {}) {
+  const list = Array.isArray(failures) ? failures : [];
+  return {
+    schema_version: NON_SUCCESS_REPORT_SCHEMA,
+    result: "not_certified",
+    subject_certificate_hash: typeof certificate?.certificate_hash === "string" ? certificate.certificate_hash : null,
+    subject,
+    condition,
+    codes: [...new Set(list.map((f) => f?.code).filter((c) => typeof c === "string"))],
+    failures: list.map((f) => ({ code: f?.code ?? null, path: f?.path ?? null, detail: f?.detail ?? null })),
+    claims: null,
+    nonclaims: ["this report certifies nothing: it records which typed refusals a candidate certificate triggered"],
+  };
+}
+// Judge a candidate: a validated certificate, or a typed non-success report — never a success label
+// for a certificate the validator refused.
+export function judgeCertificate(certificate, options = {}) {
+  const v = validateCertificate(certificate);
+  return v.ok ? { kind: "certificate", certificate, failures: [] } : { kind: "non_success_report", report: nonSuccessReport(certificate, v.failures, options), failures: v.failures };
+}
+
 export function validateCertificate(certificate) {
   if (certificate?.result === NO_BID_RESULT || certificate?.terminal_branch === "no_qualified_bid") return validateNoQualifiedBidCertificate(certificate);
   const failures = [];

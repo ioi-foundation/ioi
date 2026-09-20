@@ -1,0 +1,89 @@
+{
+  "evidence_format": "ioi.program.work_item.v1",
+  "work_item_id": "m12-9-c8-bounded-live-effect-certificate",
+  "stage_id": "M12",
+  "required_work": [
+    "M12.9"
+  ],
+  "status": "evidence_ready",
+  "objective": "Close the C8 v2 bounded provider-lifecycle certificate (the program's \"bounded-live-effect certificate\") as an executable GENERATION gate: the run evidence assembled at run time from a tracked, redacted, hash-committed record set of one retained owner-authorized positive live run (dseq 1787324505416, 2026-08-21 — declared in its own words NOT the T7 capstone M01.7 closed on), sealed, verified, and required to regenerate exactly the hash sealed on that day; the capstone verifier's 22 structural and 22 durable mutation cases replayed on the GENERATED certificate against the retained records with every case fired, typed not-applicable or masked by the moved tree and the counts pinned; a typed non-success report for every planted defect; the certificate's binding demands as clauses executed by the floored gates that prove them or named with owners; a fresh crossing scheduled by name behind owner credentials. A certificate regenerated from retained records is evidence about the retained crossing and never a new one.",
+  "falsifiable_claim": "npm run check:c8-bounded-live-effect-certificate --workspace=@ioi/hypervisor-app (scripts/check-c8-bounded-live-effect-certificate.mjs --drills) binds every clause to a floored app gate or a drilled root script, requires the fresh crossing to be scheduled with a prerequisite and a ruling, re-derives the retained run's sha256 and the set's sha256 before reading them and refuses a run not declared non-T7, not live, not a settled positive, or carrying a secret or identity member, ASSEMBLES the run evidence from the records with the library the CLI wraps (never reading a pre-sealed certificate), seals and verifies it with zero failures and requires the regenerated certificate_hash to equal the attested sha256:0f0cb46c…, replays the 22 structural cases (21 fired, 1 typed not-applicable, 0 false green) and the 22 durable cases against the retained records materialized as a data dir with the retained receipts served from a loopback stub the gate owns (20 fired, 1 typed not-applicable, 1 masked, 0 false green) with the unmutated certificate's moved-tree baseline exactly substrate_log_missing + daemon_binary_mismatch|missing + source_commit_mismatch, produces a typed non-success report for every fired case and judges the generated certificate a certificate, validates M09.6's no-qualified-bid terminal as a non-success and refuses it relabelled success and the positive certificate relabelled no-bid, proves the run's commit an ancestor of HEAD and never publication-eligible, drills the verdict, and requires canon to name the gate. mutate:c8-bounded-live-effect-certificate plants seventeen defects and each goes red. The full gate composes the executed gates inside the isolated-egress harness and exits 0 only on a pass, 2 on a named failure, 1 on a fail; it never spends.",
+  "canon_owners": [
+    "docs/architecture/components/hypervisor/byo-provider-plane.md",
+    "docs/architecture/components/hypervisor/providers-and-environments.md"
+  ],
+  "code_anchors": [
+    {
+      "path": "scripts/check-c8-bounded-live-effect-certificate.mjs",
+      "must_contain": "replayLeg",
+      "present_when": "merged"
+    },
+    {
+      "path": "scripts/extract-retained-c7-bounded-live-effect-run.mjs",
+      "must_contain": "is_t7_capstone: false",
+      "present_when": "merged"
+    },
+    {
+      "path": "apps/hypervisor/scripts/lib/c7-c8-evidence.mjs",
+      "must_contain": "export function assembleRunEvidence",
+      "present_when": "merged"
+    },
+    {
+      "path": "apps/hypervisor/scripts/lib/c7-c8-certificate.mjs",
+      "must_contain": "export function nonSuccessReport",
+      "present_when": "merged"
+    },
+    {
+      "path": "apps/hypervisor/scripts/verify-c7-c8-capstone.mjs",
+      "must_contain": "export const DURABLE_CASES",
+      "present_when": "merged"
+    },
+    {
+      "path": "docs/architecture/_meta/evidence/m12-9-c7-retained-bounded-live-effect-run-2026-09-20.v1.json",
+      "must_contain": "ioi.evidence.retained-c7-bounded-live-effect-run.v1",
+      "present_when": "merged"
+    },
+    {
+      "path": "apps/hypervisor/verifier-floors.v1.json",
+      "must_contain": "\"id\": \"c8-bounded-live-effect-certificate\"",
+      "present_when": "merged"
+    },
+    {
+      "path": ".github/workflows/ci.yml",
+      "must_contain": "npm run check:c8-bounded-live-effect-certificate --workspace=@ioi/hypervisor-app",
+      "present_when": "merged"
+    },
+    {
+      "path": "scripts/check-acceptance-external-effect-reconciliation.mjs",
+      "must_contain": "mutate:c8-bounded-live-effect-certificate",
+      "present_when": "merged"
+    },
+    {
+      "path": "scripts/check-acceptance-environment-lifecycle-spend.mjs",
+      "must_contain": "mutate:c8-bounded-live-effect-certificate",
+      "present_when": "merged"
+    },
+    {
+      "path": "docs/architecture/components/hypervisor/byo-provider-plane.md",
+      "must_contain": "The certificate is generated, not read (2026-09-20, M12.9, register R-211)",
+      "present_when": "merged"
+    }
+  ],
+  "evidence_refs": [
+    "docs/architecture/_meta/evidence/m12-9-c8-bounded-live-effect-certificate-2026-09-20.v1.json",
+    "docs/architecture/_meta/evidence/m12-9-c7-retained-bounded-live-effect-run-2026-09-20.v1.json",
+    "docs/architecture/_meta/canon-to-code-delta.md"
+  ],
+  "pr": null,
+  "adversarial_or_fault_proof": "mutate:c8-bounded-live-effect-certificate plants a clause bound to a script that does not exist, the fresh crossing scheduled without a ruling, the typed non-success clause dropped, a retained record changed after commit (the final debit altered), the run re-committed as the T7 capstone it is not, a bearer session re-committed into the set, an attested hash the regenerated certificate does not equal, a retained settlement re-committed as refund_pending (the generated certificate is refused, never a success), a deleted structural case, a structural case that stops firing, a fourth code hidden in the moved-tree baseline, a skipped case without a typed reason, a masked case counted as fired, a non-success report relabelled success, canon that no longer names the gate, and fabricated success rows — each must go red (17/17); inside the drills, the 22 + 22 replayed cases on the GENERATED certificate each fire by their own code or are typed.",
+  "remaining_nonclaims": [
+    "No fresh bounded-live-effect PASS is claimed: the certificate generated on every run is evidence about the retained 2026-08-21 crossing and never a new one (kernel C8); a NEW live crossing generating a NEW certificate through this gate is SCHEDULED behind an owner-authorized funded Akash account (IOI_C7_EMAIL, IOI_C7_PASSWORD_FILE, IOI_WALLET_SECRET_PASS), authorized leg by leg",
+    "The three host-bound checks — the substrate log prefix, the certified daemon binary, the equality of HEAD with the run's commit — are the moved-tree remainder and can be answered only on the run's own host; the gate asserts they are exactly three and names them",
+    "The retained run is NOT the T7 integrated capstone (dseq 1787578174606) M01.7 closed on; that capstone's artifacts and certificate bytes do not exist on the extracting host and its certificate stays re-qualified by check:t7-retained-capstone-applicability as an attested hash; thirteen further settled positive runs exist only as durable records without an artifact set and are not extracted",
+    "The sealed certificate bytes are not tracked (the run's basis declares publication_eligible false); the tracked set carries the records and the attested hash, and the gate regenerates the bytes — whether such bytes may ever be tracked is an owner question (R-211)",
+    "Whether a certificate regenerated from retained records is the positive branch's PASS or a fresh crossing is owed is R-210's open owner question, recurring unchanged; this unit treats it as the named failure",
+    "The full gate is on demand, not CI-gated; CI executes the drills and the drill"
+  ],
+  "source_provenance": "Authored 2026-09-20 by the MVP finish-line program (R-211 ruled the shape after a read-only survey that found R-140's bracket described the 2026-08-21 run, not the T7 capstone; R-140/R-139 are its letter). The assembler's CLI is byte-identical after the library refactor (cmp of its output before and after). Drills 9/9, mutation 17/17, the generated certificate regenerates exactly sha256:0f0cb46c1ff35d710eac6f3c29e031b0739985787e42449758ebdfea567b331c, canon gates green (canon-document-residuals + its battery, source-neutral, architecture-docs), check:t7-retained-capstone-applicability and its battery green on the exported tables. NAMED FAILURE, exit 2 (isolation refused_and_recorded): check:t7-retained-capstone-applicability 4 in 23 s (0 connects, reach 0); check:governed-effect-assurance-floor 4/4 in 23 s (0 connects, reach 0); check:provider-proposal-provenance 23/23 in 3 s (0 connects, reach 0); check:provider-neutral-live-transaction 8/8 (0 connects, reach 0); the generation, replay, non-success and basis legs in-process; the fresh crossing SCHEDULED-OUTSTANDING with its prerequisite and ruling; 3 named entries. Recorded in canon-to-code-delta.md § Journey verification CXX. ACC-4 and ACC-11 composed re-runs on this tree: ACC-4 PARTIAL, exit 2 — 20 executed clause checks green, 1 typed absence, 1 multi-hour battery not executed, 3 live legs scheduled-outstanding by ruling (was 18 green after M09.6) (N3 executes the drills 9/9 and the drill 17/17 beside the four existing checks; its scheduled leg is the fresh crossing); ACC-11 PARTIAL, exit 2 — 29 executed clause checks green, 2 typed absences, 0 batteries not executed, 1 live leg scheduled-outstanding by ruling (was 27 green after M09.6) (clause 7 executes the drills 9/9 and the drill 17/17 beside M07.3, M01.7 and M09.6's checks; N2's spend-free rule holds).",
+  "last_status_transaction": "2026-09-20"
+}

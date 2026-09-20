@@ -229,9 +229,11 @@ if (!mutation) {
 
 // The OTHER battery cannot run here: it needs a live daemon and the untracked certificate. Pinning
 // its size in the source that owns it is what keeps a deleted case from shrinking it in silence.
+// (R-211, 2026-09-20: the durable cases are the exported table `DURABLE_CASES` in that source —
+// the generation gate replays them on a certificate it generates — so the pin reads that table.)
 const capstoneSource = readFileSync(resolveSubject(capstone), "utf8");
-const durableBlock = capstoneSource.slice(capstoneSource.indexOf("async function mutationTest"));
-const durableCases = (durableBlock.slice(0, durableBlock.indexOf("\n  ];")).match(/^\s*\["/gmu) || []).length;
+const durableBlock = capstoneSource.slice(capstoneSource.indexOf("export const DURABLE_CASES"));
+const durableCases = (durableBlock.slice(0, durableBlock.indexOf("\n];")).match(/^\s*\["/gmu) || []).length;
 ok("and the DURABLE battery's population is pinned in the source that owns it — it needs a live daemon and the certificate this repository does not track, so it cannot run here; what can be checked is that nobody deleted a case from it, which is the failure mode a size pin exists for",
   durableCases === DURABLE_MUTATIONS,
   `${durableCases}/${DURABLE_MUTATIONS} durable mutation cases`);
@@ -307,8 +309,8 @@ if (mutation) {
     // deleted must make the size pin red.
     const capstoneSrc = read(join(repo, "apps/hypervisor/scripts/verify-c7-c8-capstone.mjs"), "utf8");
     const shrunkPath = join(scratch, "capstone-one-case-short.mjs");
-    const marker = capstoneSrc.indexOf("async function mutationTest");
-    const firstCase = capstoneSrc.indexOf('    ["', marker);
+    const marker = capstoneSrc.indexOf("export const DURABLE_CASES");
+    const firstCase = capstoneSrc.indexOf('  ["', marker);
     const lineEnd = capstoneSrc.indexOf("\n", firstCase) + 1;
     writeFileSync(shrunkPath, capstoneSrc.slice(0, firstCase) + capstoneSrc.slice(lineEnd));
     const executed = spawnSync("node", [join(repo, "scripts", "check-t7-retained-capstone-applicability.mjs"),
