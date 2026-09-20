@@ -27,6 +27,7 @@
 //
 //   --mutation  prove each finding fails on its own
 import { readFileSync } from "node:fs";
+import { emitVerifierCensus } from "./lib/verifier-census.mjs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -294,4 +295,7 @@ console.log(
     2,
   ),
 );
+// M12.6 (2026-09-20, R-209): the gate carries ACC-7 clause 4 and ACC-5 clause 8 and is composed by
+// check:horizon-2-distributed-work, so its assertion population is censused and floor-pinned.
+emitVerifierCensus({ verifierId: "work-lifecycle-reservations", sourceUrl: import.meta.url, results: findings.map((f) => ({ name: f.name, pass: f.satisfied })) });
 process.exit(failed.length === 0 ? 0 : 1);

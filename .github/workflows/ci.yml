@@ -896,6 +896,33 @@ jobs:
         if: ${{ !cancelled() && steps.rust_backed_daemon.outcome == 'success' }}
         run: npm run mutate:horizon-1b-improvement --workspace=@ioi/hypervisor-app
 
+      # M04.10's seam gate, floor-pinned by M12.6 (R-209) because the Horizon 2 gate composes it as its
+      # placement/atomic-reassignment clause: the admission applies the kernel's reservation decision
+      # before any write; its check form runs its own mutation.
+      - name: Verify work-lifecycle reservations (M04.10 seam, composed by M12.6)
+        if: ${{ !cancelled() && steps.rust_backed_daemon.outcome == 'success' }}
+        env:
+          IOI_VERIFIER_CENSUS_DIR: .artifacts/verifier-census
+        run: npm run check:work-lifecycle-reservations --workspace=@ioi/hypervisor-app
+
+      # M12.6. Horizon 2 as a gate (R-209): the CI-BOUND drills bind 2A's and H2B-core's demands to the
+      # gates and pinned populations that execute them and name the rest with owners, read the sources
+      # for what the storage leg claims and anchor the named seam gap; then the storage-continuity leg
+      # runs for real — two isolated daemons, one Agentgres log shipped to a substrate-replica peer:
+      # byte-identical shipping, catch-up by offset after a link failure, operator promotion at epoch+1,
+      # a second daemon serving the same roots from the promoted directory, the deposed primary fenced
+      # at its next handshake with no dual effect at the peer. Storage layer (replicated_same_host),
+      # never the System writer epoch. The full gate inside the harness is on demand.
+      - name: Verify the Horizon 2 distributed-work gate (M12.6, CI-bound drills + storage continuity)
+        if: ${{ !cancelled() && steps.rust_backed_daemon.outcome == 'success' }}
+        env:
+          IOI_VERIFIER_CENSUS_DIR: .artifacts/verifier-census
+        run: npm run check:horizon-2-distributed-work --workspace=@ioi/hypervisor-app
+
+      - name: Drill the Horizon 2 oracles
+        if: ${{ !cancelled() && steps.rust_backed_daemon.outcome == 'success' }}
+        run: npm run mutate:horizon-2-distributed-work --workspace=@ioi/hypervisor-app
+
       # M10.4 — the governed evaluation plane, driven against an ISOLATED daemon this job already
       # built: two deterministic ollama-dialect stub servers registered, probed, enabled and REALLY
       # invoked as routes A and B; released suite revisions, frozen and active epochs, admitted runs,

@@ -333,7 +333,8 @@ log length, so a late or restarted replica CATCHES UP by offset streaming
 before live batches, a replica that is AHEAD refuses overwrite (promote
 it instead), and a deposed primary is fenced at handshake or mid-stream
 NACK — split brain is structurally refused on every replica. PROMOTION is
-operator-driven and receipted (`ioi.agentgres.writer-promotion.v1` minted
+operator-driven (`substrate-replica promote`, M12.6, 2026-09-20 — driven by
+`check:horizon-2-distributed-work`'s storage-continuity leg) and receipted (`ioi.agentgres.writer-promotion.v1` minted
 at epoch+1; the replica dir is already a valid engine dir). Multi-replica
 fan-out acks against a static quorum; `quorum_replicated` requires every
 acking peer to be DECLARED failure-independent (same-host peers cap at

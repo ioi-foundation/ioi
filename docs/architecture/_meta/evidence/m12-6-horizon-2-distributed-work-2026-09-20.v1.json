@@ -1,0 +1,518 @@
+{
+  "schema": "ioi.horizon-2-distributed-work-evidence.v1",
+  "mode": "full",
+  "started_at": "2026-09-20T16:48:22.848Z",
+  "drills": [
+    {
+      "name": "Horizon 2's fifteen demands are bound: every executed clause names a real script with a pinned floor or a pinned population (executed 2,3,4,5,6,7,8,9,10,11,13; nothing executes 1,12,14,15), every named failure carries its owner, clauses cover 1–15 exactly once",
+      "pass": true,
+      "detail": "bound",
+      "at": "2026-09-20T16:48:22.850Z"
+    },
+    {
+      "name": "the sources carry what the storage leg claims and the named gap is ANCHORED in code: the replica binary has the operator promotion mode; the replica link fences a stale primary at handshake and mid-stream and caps same-host peers below quorum_replicated; the daemon consumes IOI_SUBSTRATE_REPLICA_ADDRS and continues loudly without an unreachable peer; the membership seam resolves catch-up evidence from its own data dir (load_node_evidence) — which is exactly why the System-layer clauses are named, not claimed",
+      "pass": true,
+      "detail": "read from four sources",
+      "at": "2026-09-20T16:48:22.851Z"
+    },
+    {
+      "name": "the two provider-placement failover verifiers (auto-failover trigger, cross-provider failover) are NOT composed: they target the shared daemon and carry no npm script, and a provider FailoverPlan is a different object from the System writer/state continuity this gate is about",
+      "pass": true,
+      "detail": "verify-hypervisor-auto-failover-trigger.mjs: unregistered · verify-hypervisor-cross-provider-failover.mjs: unregistered",
+      "at": "2026-09-20T16:48:22.851Z"
+    },
+    {
+      "name": "the verdict is a pure function of the clause rows: all executed green with no absence → PASS; a typed absence → NAMED FAILURE; a fabricated success row, a red gate, a census below its floor, a reach beyond loopback, an unowned absence or a missing clause → FAIL",
+      "pass": true,
+      "detail": "pass/named_failure/fail/fail/fail/fail/fail/fail",
+      "at": "2026-09-20T16:48:22.852Z"
+    },
+    {
+      "name": "canon binds the gate: execution-horizons.md § Horizon 2 names check:horizon-2-distributed-work, types the storage-layer leg as replicated_same_host and never a System writer epoch, reads 2B's workload as the application's composition bound through the seam (R-192), and claims no Horizon 2 pass; agentgres/doctrine.md keeps the mux epoch and the System writer epoch separate",
+      "pass": true,
+      "detail": "read from execution-horizons.md and agentgres/doctrine.md",
+      "at": "2026-09-20T16:48:22.852Z"
+    }
+  ],
+  "storage": null,
+  "clauses": [
+    {
+      "n": 1,
+      "demand": "one stable system_id, constitution, owner set and ordering profile across both domains",
+      "executed": [],
+      "absence": {
+        "what": "no gate reads one system_id from two processes; the genesis gates prove it on one node",
+        "owner": "M12.6-S6-6 (the daemon slice: a peer-produced catch-up receipt and verified root consumed by admission; one system_id read from two processes; a deposed System writer refused a consequential effect; RPO/RTO on a second node)"
+      }
+    },
+    {
+      "n": 2,
+      "demand": "provision and attest a candidate node",
+      "executed": [
+        {
+          "script": "check:custody-proven-private-routes",
+          "kind": "app",
+          "status": 0,
+          "seconds": 734,
+          "isolation": "refused_and_recorded",
+          "ledger": {
+            "attempts": 419,
+            "loopback": 419,
+            "reach": 0
+          },
+          "evidence": "../../../../../../tmp/ioi-horizon-2-5kRbeh/census/2-custody-proven-private-routes/custody-proven-private-routes.json",
+          "evidence_sha256": "fd5b2562f9385c33a4b79412f27e4fbc5c53b5155daa5068242ec141b23a1654",
+          "executed_assertions": 39,
+          "floor_expected": 39
+        }
+      ],
+      "absence": {
+        "what": "the attested node (HypervisorOS node plane: temporal profile, boot profile, sealed receipt, derived readiness) is never joined to a System — attestation is not membership",
+        "owner": "M12.6-S6-6 (the daemon slice: a peer-produced catch-up receipt and verified root consumed by admission; one system_id read from two processes; a deposed System writer refused a consequential effect; RPO/RTO on a second node)"
+      }
+    },
+    {
+      "n": 3,
+      "demand": "propose membership, assign state_replica / hot_standby, admit the node",
+      "executed": [
+        {
+          "script": "check:system-deployment-membership-plane",
+          "kind": "population",
+          "status": 0,
+          "seconds": 87,
+          "isolation": "refused_and_recorded",
+          "ledger": {
+            "attempts": 8,
+            "loopback": 8,
+            "reach": 0
+          },
+          "evidence": "../../../../../../tmp/ioi-horizon-2-5kRbeh/3-check-system-deployment-membership-plane.log",
+          "evidence_sha256": "a4c3cc0b3bdb14e2442c35f3f988fd2c0f797195590dbc6d712523d87373b33c",
+          "executed_assertions": null,
+          "floor_expected": null
+        }
+      ],
+      "absence": {
+        "what": "the membership plane's six operations are pinned unit tests over records; never driven over HTTP with a real peer",
+        "owner": "M12.6-S6-6 (the daemon slice: a peer-produced catch-up receipt and verified root consumed by admission; one system_id read from two processes; a deposed System writer refused a consequential effect; RPO/RTO on a second node)"
+      }
+    },
+    {
+      "n": 4,
+      "demand": "restore a checkpoint on the second domain",
+      "executed": [
+        {
+          "script": "check:backup-restore",
+          "kind": "app",
+          "status": 0,
+          "seconds": 24,
+          "isolation": "refused_and_recorded",
+          "ledger": {
+            "attempts": 27,
+            "loopback": 27,
+            "reach": 0
+          },
+          "evidence": "../../../../../../tmp/ioi-horizon-2-5kRbeh/census/4-backup-restore/backup-restore.json",
+          "evidence_sha256": "21bcd8dedcb92e20fa8d98e7d5d275dcd82c3eb70f94ff71e06b4d1e77e8c4c9",
+          "executed_assertions": 76,
+          "floor_expected": 76
+        }
+      ],
+      "absence": {
+        "what": "restore across two real daemons is custody evidence (W3.3), not a System's membership-bound restore",
+        "owner": "M12.6-S6-6 (the daemon slice: a peer-produced catch-up receipt and verified root consumed by admission; one system_id read from two processes; a deposed System writer refused a consequential effect; RPO/RTO on a second node)"
+      }
+    },
+    {
+      "n": 5,
+      "demand": "catch up the ordered log",
+      "executed": [
+        {
+          "script": "check:horizon-2-distributed-work -- --storage",
+          "kind": "storage",
+          "status": 0,
+          "seconds": 11,
+          "isolation": "refused_and_recorded",
+          "ledger": {
+            "attempts": 24,
+            "loopback": 24,
+            "reach": 0
+          },
+          "evidence": "../../../../../../tmp/ioi-horizon-2-5kRbeh/census/5-check-horizon-2-distributed-work-storage/storage.json",
+          "evidence_sha256": "f67d4165fbc598d653c865a1f1851c8f12966401fa4ab71069906bfacc71b4db",
+          "executed_assertions": 12,
+          "floor_expected": null
+        },
+        {
+          "script": "check:system-deployment-membership-plane",
+          "kind": "population",
+          "status": 0,
+          "seconds": 87,
+          "isolation": "refused_and_recorded",
+          "ledger": {
+            "attempts": 8,
+            "loopback": 8,
+            "reach": 0
+          },
+          "evidence": "../../../../../../tmp/ioi-horizon-2-5kRbeh/3-check-system-deployment-membership-plane.log",
+          "evidence_sha256": "a4c3cc0b3bdb14e2442c35f3f988fd2c0f797195590dbc6d712523d87373b33c",
+          "executed_assertions": null,
+          "floor_expected": null
+        }
+      ],
+      "absence": {
+        "what": "catch-up is proven at the storage layer (a replica that fell behind resyncs by offset at the next handshake); the System-layer advance_catchup resolves its receipt from the same daemon's own evidence directory — no peer produces one",
+        "owner": "M12.6-S6-6 (the daemon slice: a peer-produced catch-up receipt and verified root consumed by admission; one system_id read from two processes; a deposed System writer refused a consequential effect; RPO/RTO on a second node)"
+      }
+    },
+    {
+      "n": 6,
+      "demand": "verify the current state root on the second domain",
+      "executed": [
+        {
+          "script": "check:horizon-2-distributed-work -- --storage",
+          "kind": "storage",
+          "status": 0,
+          "seconds": 11,
+          "isolation": "refused_and_recorded",
+          "ledger": {
+            "attempts": 24,
+            "loopback": 24,
+            "reach": 0
+          },
+          "evidence": "../../../../../../tmp/ioi-horizon-2-5kRbeh/census/5-check-horizon-2-distributed-work-storage/storage.json",
+          "evidence_sha256": "f67d4165fbc598d653c865a1f1851c8f12966401fa4ab71069906bfacc71b4db",
+          "executed_assertions": 12,
+          "floor_expected": null
+        }
+      ],
+      "absence": {
+        "what": "the promoted replica's engine serves the same domain roots as the primary (storage layer); a peer-verified root consumed by attest_readiness does not exist",
+        "owner": "M12.6-S6-6 (the daemon slice: a peer-produced catch-up receipt and verified root consumed by admission; one system_id read from two processes; a deposed System writer refused a consequential effect; RPO/RTO on a second node)"
+      }
+    },
+    {
+      "n": 7,
+      "demand": "mark observed readiness",
+      "executed": [
+        {
+          "script": "check:system-deployment-membership-plane",
+          "kind": "population",
+          "status": 0,
+          "seconds": 87,
+          "isolation": "refused_and_recorded",
+          "ledger": {
+            "attempts": 8,
+            "loopback": 8,
+            "reach": 0
+          },
+          "evidence": "../../../../../../tmp/ioi-horizon-2-5kRbeh/3-check-system-deployment-membership-plane.log",
+          "evidence_sha256": "a4c3cc0b3bdb14e2442c35f3f988fd2c0f797195590dbc6d712523d87373b33c",
+          "executed_assertions": null,
+          "floor_expected": null
+        }
+      ],
+      "absence": {
+        "what": "readiness evidence is record-shaped and pinned by contract invariant; never attested by a second process",
+        "owner": "M12.6-S6-6 (the daemon slice: a peer-produced catch-up receipt and verified root consumed by admission; one system_id read from two processes; a deposed System writer refused a consequential effect; RPO/RTO on a second node)"
+      }
+    },
+    {
+      "n": 8,
+      "demand": "promote only through operator policy, increment the writer epoch, fence the old writer",
+      "executed": [
+        {
+          "script": "check:horizon-2-distributed-work -- --storage",
+          "kind": "storage",
+          "status": 0,
+          "seconds": 11,
+          "isolation": "refused_and_recorded",
+          "ledger": {
+            "attempts": 24,
+            "loopback": 24,
+            "reach": 0
+          },
+          "evidence": "../../../../../../tmp/ioi-horizon-2-5kRbeh/census/5-check-horizon-2-distributed-work-storage/storage.json",
+          "evidence_sha256": "f67d4165fbc598d653c865a1f1851c8f12966401fa4ab71069906bfacc71b4db",
+          "executed_assertions": 12,
+          "floor_expected": null
+        },
+        {
+          "script": "check:ordering-finality-recovery",
+          "kind": "population",
+          "status": 0,
+          "seconds": 378,
+          "isolation": "refused_and_recorded",
+          "ledger": {
+            "attempts": 8,
+            "loopback": 8,
+            "reach": 0
+          },
+          "evidence": "../../../../../../tmp/ioi-horizon-2-5kRbeh/8-check-ordering-finality-recovery.log",
+          "evidence_sha256": "2cba1e5a5016fe417ddba4c9fc0900a259bbe15c922eb4b3ca916b4b4183ac3a",
+          "executed_assertions": null,
+          "floor_expected": null
+        }
+      ],
+      "absence": {
+        "what": "operator promotion at epoch+1 with a durable record and the deposed primary fenced at its next handshake are proven at the STORAGE layer (replicated_same_host); the System writer-epoch transition and a deposed System writer refused a consequential effect are contracts with pinned tests, never demonstrated live",
+        "owner": "M12.6-S6-6 (the daemon slice: a peer-produced catch-up receipt and verified root consumed by admission; one system_id read from two processes; a deposed System writer refused a consequential effect; RPO/RTO on a second node)"
+      }
+    },
+    {
+      "n": 9,
+      "demand": "replay converges on both domains",
+      "executed": [
+        {
+          "script": "check:portable-evidence-replay",
+          "kind": "root",
+          "status": 0,
+          "seconds": 11,
+          "isolation": "refused_and_recorded",
+          "ledger": {
+            "attempts": 0,
+            "loopback": 0,
+            "reach": 0
+          },
+          "evidence": "../../../../../../tmp/ioi-horizon-2-5kRbeh/9-check-portable-evidence-replay.log",
+          "evidence_sha256": "bbb30d5e02b4e36eda72cebe79805804a0b7f2f55e43809de33251dc77a88e59",
+          "executed_assertions": null,
+          "floor_expected": null
+        }
+      ],
+      "absence": {
+        "what": "portable evidence replays to its root on one domain; replay on a SECOND domain is not driven",
+        "owner": "M12.6-S6-6 (the daemon slice: a peer-produced catch-up receipt and verified root consumed by admission; one system_id read from two processes; a deposed System writer refused a consequential effect; RPO/RTO on a second node)"
+      }
+    },
+    {
+      "n": 10,
+      "demand": "drain and removal as lifecycle (two-step)",
+      "executed": [
+        {
+          "script": "check:system-deployment-membership-plane",
+          "kind": "population",
+          "status": 0,
+          "seconds": 87,
+          "isolation": "refused_and_recorded",
+          "ledger": {
+            "attempts": 8,
+            "loopback": 8,
+            "reach": 0
+          },
+          "evidence": "../../../../../../tmp/ioi-horizon-2-5kRbeh/3-check-system-deployment-membership-plane.log",
+          "evidence_sha256": "a4c3cc0b3bdb14e2442c35f3f988fd2c0f797195590dbc6d712523d87373b33c",
+          "executed_assertions": null,
+          "floor_expected": null
+        }
+      ],
+      "absence": {
+        "what": "drain_node and remove_node are pinned unit tests over records; a node's work is never drained live",
+        "owner": "M12.6-S6-6 (the daemon slice: a peer-produced catch-up receipt and verified root consumed by admission; one system_id read from two processes; a deposed System writer refused a consequential effect; RPO/RTO on a second node)"
+      }
+    },
+    {
+      "n": 11,
+      "demand": "no dual effects; duplicate/ambiguous-effect custody and reconciliation",
+      "executed": [
+        {
+          "script": "check:horizon-2-distributed-work -- --storage",
+          "kind": "storage",
+          "status": 0,
+          "seconds": 11,
+          "isolation": "refused_and_recorded",
+          "ledger": {
+            "attempts": 24,
+            "loopback": 24,
+            "reach": 0
+          },
+          "evidence": "../../../../../../tmp/ioi-horizon-2-5kRbeh/census/5-check-horizon-2-distributed-work-storage/storage.json",
+          "evidence_sha256": "f67d4165fbc598d653c865a1f1851c8f12966401fa4ab71069906bfacc71b4db",
+          "executed_assertions": 12,
+          "floor_expected": null
+        },
+        {
+          "script": "check:recognized-effect-publication-order",
+          "kind": "population",
+          "status": 0,
+          "seconds": 179,
+          "isolation": "refused_and_recorded",
+          "ledger": {
+            "attempts": 0,
+            "loopback": 0,
+            "reach": 0
+          },
+          "evidence": "../../../../../../tmp/ioi-horizon-2-5kRbeh/11-check-recognized-effect-publication-order.log",
+          "evidence_sha256": "5f6bd033827ca6a980861649c5f865a724e3153ae855ab62e39a050cfe8cdb10",
+          "executed_assertions": null,
+          "floor_expected": null
+        }
+      ],
+      "absence": {
+        "what": "the deposed primary's later writes never reach the peer (storage); recognized-effect publication order is pinned in-process across 42 crash edges; reconciliation ACROSS two domains is not driven",
+        "owner": "M12.6-S6-6 (the daemon slice: a peer-produced catch-up receipt and verified root consumed by admission; one system_id read from two processes; a deposed System writer refused a consequential effect; RPO/RTO on a second node) · the H2B-core module (canon owner doc for the digital coordination epoch and allocation lease, contracts, daemon, verifier — M12.6 follow-on with M04)"
+      }
+    },
+    {
+      "n": 12,
+      "demand": "typed role→membership runtime assignments without granting authority by placement",
+      "executed": [],
+      "absence": {
+        "what": "runtime-assignment.v1 carries placement only — no system_placement, no node_membership_ref; canon's RuntimeAssignmentEnvelope is planned",
+        "owner": "the H2B-core module (canon owner doc for the digital coordination epoch and allocation lease, contracts, daemon, verifier — M12.6 follow-on with M04)"
+      }
+    },
+    {
+      "n": 13,
+      "demand": "allocation leases and fenced reassignment",
+      "executed": [
+        {
+          "script": "check:work-lifecycle-reservations",
+          "kind": "app",
+          "status": 0,
+          "seconds": 0,
+          "isolation": "refused_and_recorded",
+          "ledger": {
+            "attempts": 0,
+            "loopback": 0,
+            "reach": 0
+          },
+          "evidence": "../../../../../../tmp/ioi-horizon-2-5kRbeh/census/13-work-lifecycle-reservations/work-lifecycle-reservations.json",
+          "evidence_sha256": "d78d6503bcbb0db1d4d2d0045d69cd38b734e31aea1c67165cb7b7a367610c71",
+          "executed_assertions": 23,
+          "floor_expected": 23
+        }
+      ],
+      "absence": {
+        "what": "per-dimension reservations transfer atomically on reassignment in the kernel seam — not fenced, not across nodes; no digital allocation-lease contract is registered",
+        "owner": "the H2B-core module (canon owner doc for the digital coordination epoch and allocation lease, contracts, daemon, verifier — M12.6 follow-on with M04)"
+      }
+    },
+    {
+      "n": 14,
+      "demand": "shared-state watermarks and coordination epochs",
+      "executed": [],
+      "absence": {
+        "what": "watermarks exist only as policy refs and a fence-context member; a coordination epoch is defined only in the embodied plane",
+        "owner": "the H2B-core module (canon owner doc for the digital coordination epoch and allocation lease, contracts, daemon, verifier — M12.6 follow-on with M04)"
+      }
+    },
+    {
+      "n": 15,
+      "demand": "partition / rejoin / rebalance and backpressure during useful work",
+      "executed": [],
+      "absence": {
+        "what": "no daemon seam, no policy object, no gate",
+        "owner": "the H2B-core module (canon owner doc for the digital coordination epoch and allocation lease, contracts, daemon, verifier — M12.6 follow-on with M04)"
+      }
+    }
+  ],
+  "verdict": {
+    "kind": "named_failure",
+    "failures": [],
+    "absences": [
+      {
+        "n": 1,
+        "what": "no gate reads one system_id from two processes; the genesis gates prove it on one node",
+        "owner": "M12.6-S6-6 (the daemon slice: a peer-produced catch-up receipt and verified root consumed by admission; one system_id read from two processes; a deposed System writer refused a consequential effect; RPO/RTO on a second node)"
+      },
+      {
+        "n": 2,
+        "what": "the attested node (HypervisorOS node plane: temporal profile, boot profile, sealed receipt, derived readiness) is never joined to a System — attestation is not membership",
+        "owner": "M12.6-S6-6 (the daemon slice: a peer-produced catch-up receipt and verified root consumed by admission; one system_id read from two processes; a deposed System writer refused a consequential effect; RPO/RTO on a second node)"
+      },
+      {
+        "n": 3,
+        "what": "the membership plane's six operations are pinned unit tests over records; never driven over HTTP with a real peer",
+        "owner": "M12.6-S6-6 (the daemon slice: a peer-produced catch-up receipt and verified root consumed by admission; one system_id read from two processes; a deposed System writer refused a consequential effect; RPO/RTO on a second node)"
+      },
+      {
+        "n": 4,
+        "what": "restore across two real daemons is custody evidence (W3.3), not a System's membership-bound restore",
+        "owner": "M12.6-S6-6 (the daemon slice: a peer-produced catch-up receipt and verified root consumed by admission; one system_id read from two processes; a deposed System writer refused a consequential effect; RPO/RTO on a second node)"
+      },
+      {
+        "n": 5,
+        "what": "catch-up is proven at the storage layer (a replica that fell behind resyncs by offset at the next handshake); the System-layer advance_catchup resolves its receipt from the same daemon's own evidence directory — no peer produces one",
+        "owner": "M12.6-S6-6 (the daemon slice: a peer-produced catch-up receipt and verified root consumed by admission; one system_id read from two processes; a deposed System writer refused a consequential effect; RPO/RTO on a second node)"
+      },
+      {
+        "n": 6,
+        "what": "the promoted replica's engine serves the same domain roots as the primary (storage layer); a peer-verified root consumed by attest_readiness does not exist",
+        "owner": "M12.6-S6-6 (the daemon slice: a peer-produced catch-up receipt and verified root consumed by admission; one system_id read from two processes; a deposed System writer refused a consequential effect; RPO/RTO on a second node)"
+      },
+      {
+        "n": 7,
+        "what": "readiness evidence is record-shaped and pinned by contract invariant; never attested by a second process",
+        "owner": "M12.6-S6-6 (the daemon slice: a peer-produced catch-up receipt and verified root consumed by admission; one system_id read from two processes; a deposed System writer refused a consequential effect; RPO/RTO on a second node)"
+      },
+      {
+        "n": 8,
+        "what": "operator promotion at epoch+1 with a durable record and the deposed primary fenced at its next handshake are proven at the STORAGE layer (replicated_same_host); the System writer-epoch transition and a deposed System writer refused a consequential effect are contracts with pinned tests, never demonstrated live",
+        "owner": "M12.6-S6-6 (the daemon slice: a peer-produced catch-up receipt and verified root consumed by admission; one system_id read from two processes; a deposed System writer refused a consequential effect; RPO/RTO on a second node)"
+      },
+      {
+        "n": 9,
+        "what": "portable evidence replays to its root on one domain; replay on a SECOND domain is not driven",
+        "owner": "M12.6-S6-6 (the daemon slice: a peer-produced catch-up receipt and verified root consumed by admission; one system_id read from two processes; a deposed System writer refused a consequential effect; RPO/RTO on a second node)"
+      },
+      {
+        "n": 10,
+        "what": "drain_node and remove_node are pinned unit tests over records; a node's work is never drained live",
+        "owner": "M12.6-S6-6 (the daemon slice: a peer-produced catch-up receipt and verified root consumed by admission; one system_id read from two processes; a deposed System writer refused a consequential effect; RPO/RTO on a second node)"
+      },
+      {
+        "n": 11,
+        "what": "the deposed primary's later writes never reach the peer (storage); recognized-effect publication order is pinned in-process across 42 crash edges; reconciliation ACROSS two domains is not driven",
+        "owner": "M12.6-S6-6 (the daemon slice: a peer-produced catch-up receipt and verified root consumed by admission; one system_id read from two processes; a deposed System writer refused a consequential effect; RPO/RTO on a second node) · the H2B-core module (canon owner doc for the digital coordination epoch and allocation lease, contracts, daemon, verifier — M12.6 follow-on with M04)"
+      },
+      {
+        "n": 12,
+        "what": "runtime-assignment.v1 carries placement only — no system_placement, no node_membership_ref; canon's RuntimeAssignmentEnvelope is planned",
+        "owner": "the H2B-core module (canon owner doc for the digital coordination epoch and allocation lease, contracts, daemon, verifier — M12.6 follow-on with M04)"
+      },
+      {
+        "n": 13,
+        "what": "per-dimension reservations transfer atomically on reassignment in the kernel seam — not fenced, not across nodes; no digital allocation-lease contract is registered",
+        "owner": "the H2B-core module (canon owner doc for the digital coordination epoch and allocation lease, contracts, daemon, verifier — M12.6 follow-on with M04)"
+      },
+      {
+        "n": 14,
+        "what": "watermarks exist only as policy refs and a fence-context member; a coordination epoch is defined only in the embodied plane",
+        "owner": "the H2B-core module (canon owner doc for the digital coordination epoch and allocation lease, contracts, daemon, verifier — M12.6 follow-on with M04)"
+      },
+      {
+        "n": 15,
+        "what": "no daemon seam, no policy object, no gate",
+        "owner": "the H2B-core module (canon owner doc for the digital coordination epoch and allocation lease, contracts, daemon, verifier — M12.6 follow-on with M04)"
+      },
+      {
+        "n": 0,
+        "what": "H2B-embodied (fleet manifests, HIL, spacetime reservation leases) is parallel or later and gates embodied promotion only",
+        "owner": "the embodied runtime program"
+      }
+    ]
+  },
+  "mutation": null,
+  "host": {
+    "isolation": "refused_and_recorded",
+    "strace": "strace -- version 6.8",
+    "load": [
+      "2.23",
+      "2.36",
+      "2.53"
+    ],
+    "daemon_binary": "/home/heathledger/Documents/ioi/repos/ioi/target/debug/hypervisor-daemon",
+    "work_dir": "/tmp/ioi-horizon-2-5kRbeh"
+  },
+  "network_blocked_completion": {
+    "runs": 8,
+    "attempts": 486,
+    "reach": 0
+  },
+  "finished_at": "2026-09-20T17:12:06.641Z",
+  "summary": {
+    "passed": 5,
+    "total": 5
+  }
+}

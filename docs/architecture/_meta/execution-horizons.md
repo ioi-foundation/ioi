@@ -4,7 +4,7 @@ Status: canonical architecture note.
 Canonical owner: this file for the horizon framing that separates the launch wedge from long-horizon breadth without narrowing canon.
 Supersedes: readings of the canon that mistake speculative breadth for current shipped surface, or that treat horizon labels as scope deletion.
 Superseded by: none.
-Last alignment pass: 2026-09-20 (R-192 alignment: the selected profile is the ioi.ai composition over the substrate, not an OutcomeRoom-backed plane; the undeniable-product gate recorded as executable; horizon framing unchanged since 2026-08-12).
+Last alignment pass: 2026-09-20 (R-192 alignment: the selected profile and Horizon 1B's and 2B's coordinating work are the ioi.ai composition over the substrate, not an OutcomeRoom-backed plane; the undeniable-product, Horizon 1B and Horizon 2 gates recorded as executable; horizon framing unchanged since 2026-08-12).
 Doctrine status: canonical
 Implementation status: mixed (this note classifies; subject owners carry per-file status)
 Last implementation audit: 2026-07-05
@@ -633,8 +633,9 @@ can orchestrate a useful distributed autonomous system.
 
 ### Horizon 2B — useful same-system distributed work
 
-Run a non-trivial GoalRun/workload whose complementary roles execute across the admitted
-nodes while remaining one system. The horizon carries two independently
+Run a non-trivial workload — the application's composed pursuit or any
+other — whose complementary roles execute across the admitted nodes while
+remaining one system. The horizon carries two independently
 scheduled profiles: **H2B-core** proves distributed digital work with
 continuity and failure handling and is what Horizon 3 inherits; **H2B-embodied**
 proves the physical/HIL/fleet profile, may run later or in parallel, and gates
@@ -643,9 +644,11 @@ continuity, not fleet physicality — bundling them gated Horizon 3 falsely.
 
 #### H2B-core — distributed digital work
 
-- bind GoalRun/RoleTopology work, runtime assignments, capability/resource
-  offers, and claim leases to the stable `system_id`, deployment profile, and
-  observed node memberships without granting authority by placement;
+- bind the application's composed workload and its role topology (through
+  the System-record seam — a composition, not a Hypervisor plane: ADR 0030,
+  R-192), runtime assignments, capability/resource offers, and claim leases
+  to the stable `system_id`, deployment profile, and observed node
+  memberships without granting authority by placement;
 - prove leased allocation, backpressure, shared-state watermarks, coordination
   epochs, fenced reassignment, partition/degraded behavior, rejoin, rebalance,
   and duplicate/ambiguous-effect reconciliation;
@@ -696,6 +699,36 @@ an application wrapper; they are not yet an Internet-of-Intelligence or
 multi-party network proof. H2B-embodied extends the same system contract to
 physical execution and gates embodied promotion only — Horizon 3 does not wait
 on it.
+
+**The proof is executable (2026-09-20, M12.6, register R-209).** The runner
+is `check:horizon-2-distributed-work`. Its clauses are 2A's demands and
+H2B-core's, each executed by the gate or pinned population that already
+proves it — node attestation (M09.7), the membership, topology and writer
+planes as pinned unit tests over records (M02.3), restore across two real
+daemons (W3.3), portable replay on one domain (M06.4), recognized-effect
+publication order in-process (M06.8), per-dimension reservations and atomic
+reassignment in the kernel seam (M04.10) — plus one leg of its own, the only
+genuinely two-process evidence the estate produces today and labelled
+exactly as what it is: STORAGE-LAYER continuity. Two isolated daemons and one
+Agentgres log shipped to a `substrate-replica` peer on its own directory:
+admitted batches arrive byte-identical; a peer that fell behind catches up by
+offset at the primary's next handshake; the operator promotes the replica to
+epoch+1 with a durable `ioi.agentgres.writer-promotion.v1` record
+(`substrate-replica promote`); a second daemon opened on the promoted
+directory serves the same domain roots; the deposed primary is fenced at its
+next handshake, continues loudly without its replica, and its later writes
+never reach the peer. That is `replicated_same_host`, never
+`quorum_replicated`, and never the System writer epoch. Every System-layer
+demand is named with its owner — a peer-produced catch-up receipt and
+verified root consumed by admission, one `system_id` read from two
+processes, a deposed System writer refused a consequential effect, RPO/RTO
+on a second node — as is every H2B-core demand beyond placement (typed
+role→membership assignments, allocation leases, watermarks, coordination
+epochs, partition/rejoin/rebalance, backpressure, cross-domain
+reconciliation). The drills are CI-bound; the full run composes the gates and
+the storage leg inside the isolated-egress harness on demand. The verdict is
+a pass only with zero named failures; today it is the named failure, and no
+Horizon 2 pass is claimed.
 
 ## Horizon 3 — two sovereign DASs over AIIP
 

@@ -1,0 +1,69 @@
+{
+  "evidence_format": "ioi.program.work_item.v1",
+  "work_item_id": "m12-6-horizon-2-distributed-work",
+  "stage_id": "M12",
+  "required_work": [
+    "M12.6"
+  ],
+  "status": "evidence_ready",
+  "objective": "Run Horizon 2 \u2014 one logical DAS doing useful work across nodes (execution-horizons.md \u00a7 Horizon 2; ACC-14 clause 6; ACC-7) \u2014 as a gate: 2A's and H2B-core's demands as clauses, each executed by the gate or pinned population that already proves it or named with its owner, plus the estate's only genuinely two-process evidence \u2014 storage-layer continuity over the Agentgres substrate-replica (byte-identical shipping, catch-up by offset, operator promotion at epoch+1 through the new `substrate-replica promote`, a second daemon serving the same roots from the promoted directory, the deposed primary fenced with no dual effect) \u2014 labelled exactly as replicated_same_host and never the System writer epoch. The verdict is a pass or a named failure; today it is the named failure and no Horizon 2 pass is claimed.",
+  "falsifiable_claim": "npm run check:horizon-2-distributed-work --workspace=@ioi/hypervisor-app (scripts/check-horizon-2-distributed-work.mjs --drills, then --storage) binds every executed clause to a real script with a pinned floor or a pinned population and every named failure to an owner; reads the sources for what the storage leg claims (the replica binary's promote mode, the handshake and mid-stream fence, the same-host cap, the daemon's replica env) and anchors the named seam gap (system_membership_routes.rs load_node_evidence); refuses to compose the two shared-daemon provider-failover verifiers; drills the verdict as a pure function of clause rows; requires canon to name the gate under R-192 with the storage-layer honesty. The storage leg then runs two isolated daemons and a substrate-replica peer and requires: admitted batches byte-identical at the peer; with the peer down the primary keeps admitting and the peer falls behind; at the next handshake the peer catches up by offset to byte-identity; operator promotion mints ioi.agentgres.writer-promotion.v1 at epoch+1; a second daemon on the promoted directory serves the same domain roots; the deposed primary is fenced at its next handshake by name and continues loudly; a record it admits afterwards never reaches the peer. mutate:horizon-2-distributed-work plants ten defects and each goes red. The full gate runs every executed gate, population and the storage leg inside the isolated-egress harness and exits 0 only on a pass, 2 on a named failure, 1 on a fail.",
+  "canon_owners": [
+    "docs/architecture/_meta/execution-horizons.md",
+    "docs/architecture/components/agentgres/doctrine.md",
+    "docs/architecture/foundations/objects/bounded-system-genesis.md",
+    "docs/architecture/foundations/objects/work-execution.md"
+  ],
+  "code_anchors": [
+    {
+      "path": "scripts/check-horizon-2-distributed-work.mjs",
+      "must_contain": "storageContinuity",
+      "present_when": "merged"
+    },
+    {
+      "path": "crates/agentgres/src/bin/replica.rs",
+      "must_contain": "Some(\"promote\")",
+      "present_when": "merged"
+    },
+    {
+      "path": "apps/hypervisor/scripts/verify-hypervisor-work-lifecycle-reservations.mjs",
+      "must_contain": "emitVerifierCensus",
+      "present_when": "merged"
+    },
+    {
+      "path": "apps/hypervisor/verifier-floors.v1.json",
+      "must_contain": "\"id\": \"horizon-2-distributed-work\"",
+      "present_when": "merged"
+    },
+    {
+      "path": ".github/workflows/ci.yml",
+      "must_contain": "npm run check:horizon-2-distributed-work --workspace=@ioi/hypervisor-app",
+      "present_when": "merged"
+    },
+    {
+      "path": "scripts/check-acceptance-conformance-ladder.mjs",
+      "must_contain": "mutate:horizon-2-distributed-work",
+      "present_when": "merged"
+    },
+    {
+      "path": "docs/architecture/_meta/execution-horizons.md",
+      "must_contain": "The proof is executable (2026-09-20, M12.6, register R-209)",
+      "present_when": "merged"
+    }
+  ],
+  "evidence_refs": [
+    "docs/architecture/_meta/evidence/m12-6-horizon-2-distributed-work-2026-09-20.v1.json",
+    "docs/architecture/_meta/canon-to-code-delta.md"
+  ],
+  "pr": null,
+  "adversarial_or_fault_proof": "mutate:horizon-2-distributed-work plants a clause bound to a script that does not exist, an executed clause whose floor row does not exist, a population file that does not exist, a named failure without an owner, the fenced-promotion clause dropped, a replica binary without the promotion mode, a replica link that no longer fences a stale primary, a membership seam whose named gap moved, a run whose every clause reports success without evidence, and a run whose gate census fell below its pinned floor \u2014 each must go red (10/10). The storage leg's negatives are live: the peer is killed mid-run and must fall behind; the deposed primary must be fenced by name; its later write must not reach the peer.",
+  "remaining_nonclaims": [
+    "The Horizon 2 PASS is not claimed: the gate emits the named failure canon allows. Named: the System layer across two failure domains \u2014 a peer-produced catch-up receipt and verified root consumed by admission, one system_id read from two processes, a deposed System writer refused a consequential effect, RPO/RTO on a second node (M12.6-S6-6, a daemon slice); every H2B-core demand beyond placement \u2014 typed role\u2192membership assignments, allocation leases, watermarks, coordination epochs, partition/rejoin/rebalance, backpressure, cross-domain reconciliation (the H2B-core module); H2B-embodied (parallel, gates embodied promotion only)",
+    "What executes is storage-layer continuity on ONE host (replicated_same_host); whether same-host processes can ever count as Horizon 2A's two failure domains, and whether the unit may close at the named failure when its acceptance says 'ACC-7 as a whole', are owner questions (R-209) \u2014 this closes the CHECK, not ACC-7, which stays PARTIAL with its absences re-owned",
+    "The two provider-placement failover verifiers are not composed (shared daemon, no npm script); a provider FailoverPlan is a different object from System continuity",
+    "Engine writes in the storage leg come from the documented dual-write soak (projects); ordinary bootstrap and project creation write nothing to the engine without it",
+    "The full gate is on demand, not CI-gated; CI executes the drills, the storage leg and the drill"
+  ],
+  "source_provenance": "Authored 2026-09-20 by the MVP finish-line program (R-209 ruled the shape after a read-only survey). Drills 5/5, mutation 10/10, the storage leg 12/12 on the third run (the isolated plane deletes an un-owned data directory on stop; a failed python assert had written nothing) on the unit's tree; canon gates green after the retyping. NAMED FAILURE, exit 2 (2026-09-20 16:48Z, isolation refused_and_recorded): node attestation 39/39 in 734 s (419 connects), the membership population in 87 s, restore across two daemons 76/76 in 24 s, the storage-continuity leg 12/12 in 11 s inside the harness, the recovery population in 378 s, portable replay in 11 s, the effect-order population in 179 s, reservations 23/23 \u2014 eight runs, 486 recorded connects, every one loopback, zero reach; sixteen named absences with owners. ACC-14 composed re-run on this tree: the first re-run FAILED on clause 3 alone (17 executed checks green, 17 typed absences) because this unit's alignment-header wording broke M12.3's counted phrase \u2014 fixed in the same slice; the re-run after the fix is recorded here: PARTIAL, exit 2 \u2014 18 executed clause checks green (clause 6's drills 5/5, the storage leg 12/12 and the drill 10/10 among them), 17 typed absences, basis `93f341552` dirty.. Recorded in canon-to-code-delta.md \u00a7 Journey verification CXVIII.",
+  "last_status_transaction": "2026-09-20"
+}

@@ -454,6 +454,22 @@
       "runtime_assertions": 5,
       "assertion_names_sha256": "076591fd7bffed308f769ce4164ef858f93f3674b73b23d5364b5b4abccf8a2f",
       "note": "First pinned 2026-09-20 (M12.5, R-208) at the 5 assertions of its CI-BOUND drill subset (this workspace's check:horizon-1b-improvement is the root runner's --drills form; the census is emitted over the drills in every non-mutation mode, so the full gate's clause rows \u2014 the improvement-governance spine, the role-separation gate and the governed evaluation plane inside the isolated-egress harness, on demand \u2014 live in its evidence file and never in a floor). The five: clause 5's seven demands and the falsifier are bound to real hypervisor-workspace scripts with pinned floors (spine 102, roles 69, evaluation plane with its reproduction leg), every named failure owned, clauses 1-8 exactly once; each executed gate's SOURCE carries what its clause claims (the spine freezes an order-0 campaign, drives exposure exhaustion, measures the falsifier and the handoff; the role gate binds three principals with refusals by name; the evaluation gate carries [P14 reproduction] under the independent_reproduction lane and retains negative results across a restart); the two shared-daemon verifiers the check text once cited are dropped, not read as evidence; the verdict is a pure function of the clause rows (a fabricated success row, a red gate, a census below its floor, a reach beyond loopback, an unowned absence, a missing clause are FAILs); canon binds the gate under R-192. Drilled by mutate:horizon-1b-improvement (9/9 planted defects red)."
+    },
+    {
+      "id": "work-lifecycle-reservations",
+      "npm_script": "check:work-lifecycle-reservations",
+      "source": "apps/hypervisor/scripts/verify-hypervisor-work-lifecycle-reservations.mjs",
+      "runtime_assertions": 23,
+      "assertion_names_sha256": "d9258e76619f82ff9ff9b0baa0d56e65da9c411b53b7105e19c143dd76b8e631",
+      "note": "First pinned 2026-09-20 (M12.6, R-209) at the 23 assertions of M04.10's seam gate \u2014 the admission path APPLIES the kernel's per-dimension reservation decision before any write (exact-head, disjoint, ancestor-narrowing, atomic transfer on reassignment), the reservation stream separated from the record stream as a pinned absence, each finding proved to fail on its own (the gate's check form runs its own mutation). Composed by check:horizon-2-distributed-work as the placement and atomic-reassignment clause; it holds ACC-7 clause 4 and ACC-5 clause 8. Static and kernel-seam: no node, no partition, no second failure domain \u2014 those are the named failures the Horizon 2 gate carries."
+    },
+    {
+      "id": "horizon-2-distributed-work",
+      "npm_script": "check:horizon-2-distributed-work",
+      "source": "scripts/check-horizon-2-distributed-work.mjs",
+      "runtime_assertions": 5,
+      "assertion_names_sha256": "85371dcef63e81e1cba1452ea7c8896bc8a991e739344e5d5c8dbc1fbfd82ef2",
+      "note": "First pinned 2026-09-20 (M12.6, R-209) at the 5 assertions of its CI-BOUND drill subset (this workspace's check:horizon-2-distributed-work is the root runner's --drills --storage form: the drills are censused; the storage-continuity leg that runs beside them in CI writes its own twelve-row evidence and is not a floor). The five: Horizon 2's fifteen demands bound to real scripts with pinned floors or pinned populations and every named failure owned; the sources carry what the storage leg claims and the named gap is anchored (the replica binary's promote mode, the handshake and mid-stream fence and the same-host cap, the daemon's replica env, the membership seam's load_node_evidence); the two provider-placement failover verifiers not composed; the verdict's own rules; canon's binding under R-192 with the storage-layer honesty (replicated_same_host, never the System writer epoch). Drilled by mutate:horizon-2-distributed-work (10/10 planted defects red)."
     }
   ],
   "excluded": [
