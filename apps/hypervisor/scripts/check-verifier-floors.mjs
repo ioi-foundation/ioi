@@ -138,6 +138,27 @@ for (const [check] of excluded) {
   }
 }
 
+// (2b) EVERY ROW NAMES A FILE THAT EXISTS, AND THIS IS CHECKED BEFORE THE CENSUS IS.
+//
+// A wrong source path is a STATIC defect: it needs no runtime evidence to detect, and checking it only
+// inside the census branch means an unset census directory hides it behind `census_dir_unset`. That is
+// exactly how M06.11's `c8-v3-relying-party` row shipped pointing at `scripts/...` while the verifier lives
+// at `apps/hypervisor/scripts/...` — every local run stopped at the census guard, and CI 35584898041 was
+// the first reader to get far enough to notice (R-220). What can be checked without evidence is checked
+// without evidence.
+for (const [check, row] of [...rows, ...excluded]) {
+  const source = typeof row?.source === "string" ? row.source : null;
+  if (!source) {
+    fail("floor_row_without_a_source", `${check} names no source file, so nothing can be read back from it`);
+  } else if (!fs.existsSync(path.resolve(ROOT, source))) {
+    fail(
+      "source_missing_static",
+      `${check}: ${source} does not exist — a floor row that points at no file pins nothing, and this is ` +
+        `true whether or not a census was emitted`,
+    );
+  }
+}
+
 // ------------------------------------------------------------------ (3)(4)(5) runtime counts
 if (!censusDir) {
   fail(
