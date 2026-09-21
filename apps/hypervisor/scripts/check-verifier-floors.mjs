@@ -88,7 +88,8 @@ const ciChecks = new Set(
 // generation gate (M12.9, 2026-09-20, `scripts/check-c8-bounded-live-effect-certificate.mjs`) and the approval-card
 // facets gate (M03.9, 2026-09-20, `scripts/check-approval-card-facets.mjs`) and the spend-approval lane
 // (M08.11, 2026-09-20, `scripts/check-spend-approval-lane.mjs`) and the editor challenge relay (M08.12,
-// 2026-09-20, `scripts/check-editor-challenge-relay.mjs`). Non-verifier
+// 2026-09-20, `scripts/check-editor-challenge-relay.mjs`) and the MCP non-tool primitive normalization
+// gate (M01.10, 2026-09-21, `scripts/check-mcp-non-tool-normalization.mjs`). Non-verifier
 // checks (bundlers, generators) are outside this gate's subject.
 const ciVerifierScripts = new Map();
 for (const check of ciChecks) {
@@ -97,7 +98,7 @@ for (const check of ciChecks) {
     fail("ci_invokes_unknown_script", `${check} is run by ci.yml but is not a script in apps/hypervisor/package.json`);
     continue;
   }
-  const m = cmd.match(/(scripts\/(?:verify-[A-Za-z0-9._-]+|check-landing-designations|check-standalone-conformance|check-zero-to-operable|check-undeniable-product-proof|check-horizon-1b-improvement|check-horizon-2-distributed-work|check-provider-neutral-live-transaction|check-c8-bounded-live-effect-certificate|check-approval-card-facets|check-spend-approval-lane|check-editor-challenge-relay|check-machine-product-composition|check-machine-product-profile-qualification|check-public-verifier-conformance)\.mjs)/);
+  const m = cmd.match(/(scripts\/(?:verify-[A-Za-z0-9._-]+|check-landing-designations|check-standalone-conformance|check-zero-to-operable|check-undeniable-product-proof|check-horizon-1b-improvement|check-horizon-2-distributed-work|check-provider-neutral-live-transaction|check-c8-bounded-live-effect-certificate|check-approval-card-facets|check-spend-approval-lane|check-editor-challenge-relay|check-machine-product-composition|check-machine-product-profile-qualification|check-public-verifier-conformance|check-mcp-non-tool-normalization)\.mjs)/);
   if (m) ciVerifierScripts.set(check, m[1]);
 }
 

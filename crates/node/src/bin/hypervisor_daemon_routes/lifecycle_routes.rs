@@ -9261,6 +9261,23 @@ pub(crate) async fn handle_mcp_tool_get(
             })),
         );
     }
+    let normalization = match super::mcp_normalization_routes::normalization_decision(
+        "mcp.tool",
+        "RuntimeToolContract",
+        Some(&resolved.contract.revision_ref),
+        "The tool resolves to the admitted RuntimeToolContract revision this thread's daemon-owned MCP mount enables.",
+        json!({ "thread_id": thread_id.clone(), "object_id": tool_id.clone() }),
+    ) {
+        Ok(decision) => decision,
+        Err(detail) => {
+            return (
+                StatusCode::INTERNAL_SERVER_ERROR,
+                Json(
+                    json!({ "error": { "code": "mcp_normalization_decision_invalid", "message": detail } }),
+                ),
+            )
+        }
+    };
     (
         StatusCode::OK,
         Json(json!({
@@ -9278,36 +9295,22 @@ pub(crate) async fn handle_mcp_tool_get(
                 "egress_policy": resolved.contract.egress_policy,
             },
             "source_protocol_version": ioi_drivers::mcp::protocol::MCP_PROTOCOL_VERSION,
-            "normalization_decision": "RuntimeToolContract",
+            // M01.10: `normalization_decision` is a STATUS, not an owner name. This route used to print the
+            // owner here ("RuntimeToolContract") while three other emitters printed "typed_unavailable" into
+            // the same member — one word meaning two things. The owner is named where it belongs, and the
+            // registered decision travels with the richer projection rather than instead of it.
+            "normalization_decision": "normalized",
+            "normalization": normalization,
             "runtime_tool_contract_admission_receipt_ref": resolved.admission_receipt_ref,
             "contract": resolved.contract,
         })),
     )
 }
 
-fn mcp_unavailable_classification(path: &str) -> (&'static str, &'static str) {
-    if path.contains("/resources") {
-        (
-            "mcp.resource",
-            "PolicyBoundDataView|ArtifactRef|MemoryProjection+ContextLease",
-        )
-    } else if path.contains("/prompts") {
-        (
-            "mcp.prompt",
-            "tainted-import:SkillManifest|GoalRunProfile|invocation",
-        )
-    } else if path.contains("/elicitation-requests") {
-        ("mcp.elicitation", "typed-user-input-request")
-    } else if path.contains("/external-task-bindings") {
-        ("mcp.task", "HarnessInvocation.external-handle")
-    } else if path.contains("/apps") {
-        (
-            "mcp.app",
-            "sandboxed-extension_application-descriptor-and-surface",
-        )
-    } else {
-        ("mcp.serve", "RuntimeMcpServe")
-    }
+/// Whether a thread-scoped MCP route has no thread to be scoped to. The MCP normalization module answers
+/// under the SAME precondition these routes always had, so the check has one owner rather than a copy.
+pub(crate) fn mcp_thread_missing(st: &DaemonState, thread_id: &str) -> bool {
+    read_agent_for_thread(st, thread_id).is_none()
 }
 
 fn mcp_normalization_unavailable_response(
@@ -9316,32 +9319,16 @@ fn mcp_normalization_unavailable_response(
     object_id: Option<String>,
     uri: &str,
 ) -> (StatusCode, Json<Value>) {
-    if read_agent_for_thread(st, &thread_id).is_none() {
+    if mcp_thread_missing(st, &thread_id) {
         return (
             StatusCode::NOT_FOUND,
             Json(json!({ "error": { "code": "mcp_thread_not_found" } })),
         );
     }
-    let (primitive, canonical_owner) = mcp_unavailable_classification(uri);
-    (
-        StatusCode::NOT_IMPLEMENTED,
-        Json(json!({
-            "schema_version": "ioi.runtime.mcp-normalization-decision.v1",
-            "status": "typed_unavailable",
-            "thread_id": thread_id,
-            "object_id": object_id,
-            "primitive": primitive,
-            "canonical_owner": canonical_owner,
-            "canonical_backing_ref": Value::Null,
-            "effective_gateway_profile_revision": Value::Null,
-            "policy_lease_posture": "not_minted",
-            "source_protocol_version": ioi_drivers::mcp::protocol::MCP_PROTOCOL_VERSION,
-            "normalization_decision": "typed_unavailable",
-            "authority_granted": false,
-            "receipt_identity_granted": false,
-            "reason": "This MCP protocol object has no admitted canonical runtime normalization implementation.",
-        })),
-    )
+    // M01.10: one envelope, built and contract-validated in one place. This route used to hand-roll the
+    // JSON, the gateway hand-rolled a DIFFERENT one under the same schema version, and neither was checked
+    // against a registered contract because none existed.
+    super::mcp_normalization_routes::typed_unavailable(uri, &thread_id, object_id)
 }
 
 /// Canonical MCP normalization routes without an object id. These surfaces are
@@ -18202,6 +18189,23 @@ pub(crate) async fn handle_connector_mcp_tools(
             ),
         );
     }
+    let candidate_normalization = match super::mcp_normalization_routes::normalization_decision(
+        "mcp.tool",
+        "RuntimeToolContractRegistry",
+        None,
+        "These tools were discovered on an external server and admitted by nobody; each needs a RuntimeToolContract admission before it can be invoked.",
+        json!({ "object_id": Value::Null }),
+    ) {
+        Ok(decision) => decision,
+        Err(detail) => {
+            return (
+                StatusCode::INTERNAL_SERVER_ERROR,
+                Json(
+                    json!({ "error": { "code": "mcp_normalization_decision_invalid", "message": detail } }),
+                ),
+            )
+        }
+    };
     match mcp_list_tools(&base_url, &token.unwrap_or_default()).await {
         Ok(tool_candidates) => (
             StatusCode::OK,
@@ -18217,6 +18221,9 @@ pub(crate) async fn handle_connector_mcp_tools(
                 "authority_granted": false,
                 "receipt_identity_granted": false,
                 "source_protocol_version": ioi_drivers::mcp::protocol::MCP_PROTOCOL_VERSION,
+                // M01.10: discovery finds CANDIDATES. Saying so in the registered decision, beside the
+                // list, is what stops a caller reading a discovered tool as an admitted one.
+                "normalization": candidate_normalization,
             })),
         ),
         Err(e) => (

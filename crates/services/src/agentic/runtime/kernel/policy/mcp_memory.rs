@@ -3649,6 +3649,31 @@ fn mcp_catalog_field_string(value: &Value, keys: &[&str]) -> Option<String> {
     })
 }
 
+/// M01.10 — the registered MCP primitive normalization decision, as the catalog carries it.
+///
+/// The catalog is a READ surface: it says what a server offers. Until this unit it also said, of every
+/// resource and prompt, that an author could bind it as a workflow node under an authority scope — a claim
+/// no plane behind it could honour. The decision this builds is the same registered contract the daemon's
+/// routes and the stdio client answer with (`ioi.runtime.mcp-normalization-decision.v1`), and it is never a
+/// grant: `authority_granted` and `receipt_identity_granted` are false, and a typed-unavailable decision
+/// names no backing record. The contract-validity of what this returns is asserted in this module's tests
+/// rather than on every catalog projection, because the inputs are constants.
+fn mcp_primitive_typed_unavailable(primitive: &str, canonical_owner: &str, reason: &str) -> Value {
+    json!({
+        "schema_version": "ioi.runtime.mcp-normalization-decision.v1",
+        "status": "typed_unavailable",
+        "primitive": primitive,
+        "canonical_owner": canonical_owner,
+        "canonical_backing_ref": Value::Null,
+        "normalization_decision": "typed_unavailable",
+        "authority_granted": false,
+        "receipt_identity_granted": false,
+        "source_protocol_version": ioi_drivers::mcp::protocol::MCP_PROTOCOL_VERSION,
+        "policy_lease_posture": "not_minted",
+        "reason": reason,
+    })
+}
+
 fn mcp_catalog_tools_for_server(server: &Value) -> Vec<Value> {
     let server_label = mcp_catalog_server_label(server);
     let safe_server = safe_id(&server_label);
@@ -3675,6 +3700,10 @@ fn mcp_catalog_tools_for_server(server: &Value) -> Vec<Value> {
                 "status": status,
                 "transport": transport,
                 "primitive_capabilities": ["prim:connector.invoke"],
+                // The tool is the one catalogued primitive with an owner, an executor and a scope the
+                // workflow binding actually resolves, so it keeps all three and says so beside the two
+                // that do not (M01.10). An admitted RuntimeToolContract is still required to invoke it.
+                "invocable": true,
                 "authority_scope_requirements": ["scope:mcp.invoke"],
                 "effect_class": "connector_call",
                 "risk_domain": "connector",
@@ -3724,13 +3753,25 @@ fn mcp_catalog_resources_for_server(server: &Value) -> Vec<Value> {
             "status": status,
             "transport": transport,
             "primitive_capabilities": ["prim:connector.resource.read"],
-            "authority_scope_requirements": ["scope:mcp.resource.read"],
+            // M01.10 — THE CATALOG MAY NOT ADVERTISE WHAT NOTHING NORMALIZES. This entry used to require
+            // `scope:mcp.resource.read` and offer the workflow node type `McpResourceNode`. No plane
+            // grants that scope, nothing else in the estate mentions it, and no executor serves that node
+            // type — so an author who bound it discovered at RUN time what the catalog should have said at
+            // READ time. The entry still DESCRIBES the resource, which is what a catalog is for, and the
+            // registered decision beside it says the primitive is typed unavailable and names its owner.
+            "invocable": false,
+            "authority_scope_requirements": [],
             "effect_class": "read_only_catalog",
             "risk_domain": "connector",
             "evidence_requirements": ["mcp_resource_catalog_receipt"],
-            "workflow_node_type": "McpResourceNode",
+            "workflow_node_type": Value::Null,
             "workflow_config_fields": ["server_id", "uri", "containment"],
-            "workflow_node_id": format!("runtime.mcp-resource.{safe_server}.{safe_uri}"),
+            "workflow_node_id": Value::Null,
+            "normalization": mcp_primitive_typed_unavailable(
+                "mcp.resource",
+                "PolicyBoundDataView|ArtifactRef|MemoryProjection+ContextLease",
+                "A catalogued MCP resource resolves to no admitted canonical owner in this tree: ContextLease is the orchestration application's record over the generic System-record seam, ArtifactRef has no producer and MemoryProjection has no registered contract.",
+            ),
             "receipt_refs": [],
         })
     })
@@ -3774,13 +3815,23 @@ fn mcp_catalog_prompts_for_server(server: &Value) -> Vec<Value> {
             "status": status,
             "transport": transport,
             "primitive_capabilities": ["prim:connector.prompt.read"],
-            "authority_scope_requirements": ["scope:mcp.prompt.read"],
+            // M01.10 — the same fence, and for the prompt it is the sharper one: a catalogued prompt that
+            // an author can bind as a workflow node is a foreign string on its way to becoming a trusted
+            // instruction (ACC-1 N5). It is described and not offered until M04.3's SkillManifest has the
+            // inert, provenance-bearing import record a normalized prompt would produce.
+            "invocable": false,
+            "authority_scope_requirements": [],
             "effect_class": "read_only_catalog",
             "risk_domain": "connector",
             "evidence_requirements": ["mcp_prompt_catalog_receipt"],
-            "workflow_node_type": "McpPromptNode",
+            "workflow_node_type": Value::Null,
             "workflow_config_fields": ["server_id", "prompt_name", "containment"],
-            "workflow_node_id": format!("runtime.mcp-prompt.{safe_server}.{safe_prompt}"),
+            "workflow_node_id": Value::Null,
+            "normalization": mcp_primitive_typed_unavailable(
+                "mcp.prompt",
+                "tainted-import:SkillManifest|ioi.ai-owned-profile|invocation",
+                "A catalogued MCP prompt is an untrusted foreign string; the tainted-import record that would carry its provenance into a SkillManifest does not exist, so it is described and never offered as an instruction.",
+            ),
             "receipt_refs": [],
         })
     })
@@ -5931,6 +5982,45 @@ mod tests {
         assert_eq!(
             record.prompts[0]["stable_prompt_id"],
             "mcp.Docs.prompt.summarize"
+        );
+
+        // M01.10 — the catalog does not advertise a primitive nothing normalizes. Before this unit both
+        // of these rows named an authority scope no plane grants and a workflow node type no executor
+        // serves, which is a binding an author could only discover was fiction at run time.
+        for (row, primitive) in [
+            (&record.resources[0], "mcp.resource"),
+            (&record.prompts[0], "mcp.prompt"),
+        ] {
+            assert_eq!(
+                row["invocable"], false,
+                "{primitive} is offered as invocable"
+            );
+            assert_eq!(
+                row["authority_scope_requirements"],
+                serde_json::json!([]),
+                "{primitive} requires a scope nothing can grant"
+            );
+            assert_eq!(row["workflow_node_type"], Value::Null);
+            assert_eq!(row["workflow_node_id"], Value::Null);
+            let decision = &row["normalization"];
+            ioi_types::app::generated::architecture_contracts::validate_architecture_contract(
+                "schema://ioi/components/hypervisor/mcp-primitive-normalization-decision/v1",
+                decision,
+            )
+            .unwrap_or_else(|error| {
+                panic!("{primitive}'s catalog decision is not contract-valid: {error}")
+            });
+            assert_eq!(decision["primitive"], primitive);
+            assert_eq!(decision["normalization_decision"], "typed_unavailable");
+            assert_eq!(decision["authority_granted"], false);
+            assert_eq!(decision["receipt_identity_granted"], false);
+            assert_eq!(decision["canonical_backing_ref"], Value::Null);
+        }
+        // The tool keeps its scope and its node type, because both resolve to something.
+        assert_eq!(record.tools[0]["invocable"], true);
+        assert_eq!(
+            record.tools[0]["authority_scope_requirements"],
+            serde_json::json!(["scope:mcp.invoke"])
         );
         assert!(record.tools[0].get("stableToolId").is_none());
         assert!(record.resources[0].get("stableResourceId").is_none());

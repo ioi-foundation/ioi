@@ -1068,23 +1068,12 @@ pub(crate) async fn handle_incident_reconstruct(
 
 // ============================ O. HYPERVISOR MCP GATEWAY ===========================================
 
+/// M01.10: the gateway's refusal is the SAME registered contract the thread-scoped routes and the stdio
+/// client answer with. It used to be a hand-rolled object carrying the same `schema_version` as the thread
+/// routes' hand-rolled object while omitting three of their members — the divergence a consumer would have
+/// discovered by parsing one and failing on the other.
 fn mcp_gateway_profile_unavailable(tool: Option<String>) -> (StatusCode, Json<Value>) {
-    (
-        StatusCode::NOT_IMPLEMENTED,
-        Json(json!({
-            "schema_version": "ioi.runtime.mcp-normalization-decision.v1",
-            "status": "typed_unavailable",
-            "primitive": "mcp.gateway",
-            "canonical_owner": "HypervisorMCPGatewayProfile",
-            "tool": tool,
-            "gateway_profile_revision_ref": Value::Null,
-            "resolved_requirement_revision_refs": [],
-            "authority_granted": false,
-            "receipt_identity_granted": false,
-            "normalization_decision": "typed_unavailable",
-            "reason": "No admitted subject-scoped Hypervisor MCP Gateway profile resolves this external surface.",
-        })),
-    )
+    super::mcp_normalization_routes::gateway_typed_unavailable(tool)
 }
 
 /// GET /v1/hypervisor/mcp-gateway/tools — fail typed-unavailable until an

@@ -40,6 +40,8 @@
     "mutate:machine-product-profile-qualification": "node ../../scripts/check-machine-product-profile-qualification.mjs --mutation",
     "check:public-verifier-conformance": "node ../../scripts/check-public-verifier-conformance.mjs --drills",
     "mutate:public-verifier-conformance": "node ../../scripts/check-public-verifier-conformance.mjs --mutation",
+    "check:mcp-non-tool-normalization": "node ../../scripts/check-mcp-non-tool-normalization.mjs --drills",
+    "mutate:mcp-non-tool-normalization": "node ../../scripts/check-mcp-non-tool-normalization.mjs --mutation",
     "check:app-runtime-safety": "node scripts/verify-hypervisor-app-runtime-safety.mjs",
     "check:assurance-ladder-lifecycle": "node scripts/verify-hypervisor-assurance-ladder-lifecycle.mjs",
     "check:assurance-transition-receipt": "node scripts/verify-hypervisor-assurance-transition-receipt.mjs",

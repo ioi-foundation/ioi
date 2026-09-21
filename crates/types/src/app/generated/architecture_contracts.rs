@@ -90,6 +90,7 @@ pub const ARCHITECTURE_CONTRACT_SCHEMA_HASHES: &[(&str, &str)] = &[
     ("schema://ioi/components/agentgres/staged-effect/v1", "sha256:fe662fdb440e2751201a7013c02457ea18e27958f3a3348d6a156cabfa74b5b0"),
     ("schema://ioi/components/agentgres/storage-backend-write-admission/v1", "sha256:afde420387eea9baccfbdce3df97ad175fa2e17677a80beea5041ac93c3a7723"),
     ("schema://ioi/components/connectors-tools/runtime-tool-contract/v1", "sha256:ac6c0e6bb9b6ec06a1162e4d84b676b2c96bbc9527e50836c04162d788b5f924"),
+    ("schema://ioi/components/hypervisor/mcp-primitive-normalization-decision/v1", "sha256:01fa219b3c4e6e25dc05bb2663f24a4cd680b8cde5728be75e1fb9bdb333a1b5"),
     ("schema://ioi/components/connectors-tools/scm-publication-effect/v1", "sha256:00f65134dab87fe98063d3cc720268553cd1cd96862df5dfe7ec00041de0abff"),
     ("schema://ioi/components/connectors-tools/scm-publication-effect/v2", "sha256:acc0b12e275584302f9fa0d30937e7439bdb8bf9af7805edcba0b861e24e3ae5"),
     ("schema://ioi/components/daemon-runtime/action-request-envelope/v1", "sha256:7187aa163181dc69f8c40b219307ea6bd23b74cb7b246602032bc1b78688c4ad"),
@@ -17104,6 +17105,642 @@ pub enum RuntimeToolContractV1RegistryStatus {
     Deprecated,
     #[serde(rename = r#"revoked"#)]
     Revoked,
+}
+
+#[derive(Debug, Clone, PartialEq, serde::Serialize)]
+pub struct McpPrimitiveNormalizationDecisionV1 {
+    pub schema_version: McpPrimitiveNormalizationDecisionV1SchemaVersion,
+    pub status: McpPrimitiveNormalizationDecisionV1Status,
+    pub primitive: McpPrimitiveNormalizationDecisionV1Primitive,
+    pub canonical_owner: String,
+    pub canonical_backing_ref: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub backing_revision_refs: Option<Vec<String>>,
+    pub normalization_decision: McpPrimitiveNormalizationDecisionV1NormalizationDecision,
+    pub authority_granted: bool,
+    pub receipt_identity_granted: bool,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub receipt_refs: Option<Vec<String>>,
+    pub source_protocol_version: String,
+    pub policy_lease_posture: McpPrimitiveNormalizationDecisionV1PolicyLeasePosture,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub thread_id: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub object_id: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub effective_gateway_profile_revision: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub tool: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub gateway_profile_revision_ref: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub resolved_requirement_revision_refs: Option<Vec<String>>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub refusal_code: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub org_ref: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub app_count: Option<ArchitectureContractInteger>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub apps: Option<Vec<McpPrimitiveNormalizationDecisionV1AppsItem>>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub descriptor: Option<McpPrimitiveNormalizationDecisionV1Descriptor>,
+    pub reason: String,
+}
+
+impl<'de> serde::Deserialize<'de> for McpPrimitiveNormalizationDecisionV1 {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let value = <serde_json::Value as serde::Deserialize>::deserialize(deserializer)?;
+        validate_projection_subschema(
+            r#"schema://ioi/components/hypervisor/mcp-primitive-normalization-decision/v1"#,
+            r##"{"$schema":"https://json-schema.org/draft/2020-12/schema","$id":"schema://ioi/components/hypervisor/mcp-primitive-normalization-decision/v1","title":"McpPrimitiveNormalizationDecision","x-ioi-schema-version":"ioi.runtime.mcp-normalization-decision.v1","description":"WHAT ONE EXPOSED MCP PRIMITIVE RESOLVED TO, OR WHY IT RESOLVED TO NOTHING. Canon's rule is that every exposed MCP primitive resolves to an existing canonical owner with exact session, invocation and context bindings, produces the same admitted semantics as the native path, and fails TYPED-UNAVAILABLE rather than inventing truth when normalization is impossible. This envelope is that answer, and the estate emits it from three places — the thread-scoped MCP routes, the outward gateway, and the stdio client when a server initiates a primitive this client does not implement — which until this contract was registered meant three divergent shapes under one schema version. THE DECISION IS NOT A GRANT. `authority_granted` and `receipt_identity_granted` are false on every typed-unavailable answer and remain false unless the normalized owner itself issued them: a protocol object never becomes authority by being described, and a resource URI, a prompt, an elicitation answer, a task handle or an App descriptor is not a capability, an instruction, an approval, a run identity or runtime truth. A normalized decision names its `canonical_backing_ref` — the admitted owner record the answer resolved to — and a typed-unavailable one carries null there and says which owner would have to exist. Owner: components/connectors-tools/contracts.md § MCP primitive normalization (M01.10).","type":"object","additionalProperties":false,"required":["schema_version","status","primitive","canonical_owner","canonical_backing_ref","normalization_decision","authority_granted","receipt_identity_granted","source_protocol_version","policy_lease_posture","reason"],"properties":{"schema_version":{"type":"string","const":"ioi.runtime.mcp-normalization-decision.v1"},"status":{"type":"string","enum":["normalized","typed_unavailable"],"description":"The same fact as `normalization_decision`, carried for a reader that reads status first; the two may not disagree."},"primitive":{"type":"string","enum":["mcp.tool","mcp.resource","mcp.prompt","mcp.elicitation","mcp.task","mcp.app","mcp.serve","mcp.gateway","mcp.sampling","mcp.roots","mcp.logging","mcp.notification","mcp.unknown"],"description":"The exposed MCP primitive this decision is about. The vocabulary is closed: a primitive the estate has never heard of resolves to `mcp.unknown` and is typed unavailable, never guessed into a neighbour."},"canonical_owner":{"type":"string","minLength":1,"maxLength":240,"description":"The existing canonical owner this primitive resolves to, or — when it resolves to nothing — the owner that would have to exist for it to be served. Naming it is what makes a refusal actionable rather than a wall."},"canonical_backing_ref":{"anyOf":[{"$ref":"#/$defs/ref"},{"type":"null"}],"description":"The admitted owner record the answer resolved to. Null on every typed-unavailable decision, and required on a normalized one: a normalization with no backing record would be the invented truth the acceptance forbids."},"backing_revision_refs":{"type":"array","uniqueItems":true,"maxItems":32,"items":{"$ref":"#/$defs/ref"},"description":"The exact revisions the normalized answer was built from, so a reader can bind to the version it saw rather than to a moving head."},"normalization_decision":{"type":"string","enum":["normalized","typed_unavailable"]},"authority_granted":{"type":"boolean","description":"Whether this decision itself conferred authority. Always false: authority crosses at its own owner's gateway, never at a protocol projection."},"receipt_identity_granted":{"type":"boolean","description":"Whether this decision conferred receipt identity. Always false: a receipt is written by the owner that performed the effect."},"receipt_refs":{"type":"array","uniqueItems":true,"maxItems":32,"items":{"$ref":"#/$defs/ref"},"description":"Receipts the normalized owner already wrote for this object. An empty array is the claim that there are none, and a typed-unavailable decision carries none."},"source_protocol_version":{"type":"string","minLength":1,"maxLength":40,"description":"The MCP protocol revision this decision was made under. A divergent revision is refused at the handshake rather than adapted silently."},"policy_lease_posture":{"type":"string","enum":["not_minted","minted","not_applicable"],"description":"Whether a policy lease stands behind this answer. `not_minted` on a typed-unavailable decision; `not_applicable` where the normalized owner needs none."},"thread_id":{"anyOf":[{"type":"string","minLength":1,"maxLength":240},{"type":"null"}]},"object_id":{"anyOf":[{"type":"string","minLength":1,"maxLength":240},{"type":"null"}]},"effective_gateway_profile_revision":{"anyOf":[{"$ref":"#/$defs/ref"},{"type":"null"}]},"tool":{"anyOf":[{"type":"string","minLength":1,"maxLength":240},{"type":"null"}]},"gateway_profile_revision_ref":{"anyOf":[{"$ref":"#/$defs/ref"},{"type":"null"}]},"resolved_requirement_revision_refs":{"type":"array","uniqueItems":true,"maxItems":64,"items":{"$ref":"#/$defs/ref"}},"refusal_code":{"type":"string","minLength":1,"maxLength":120,"description":"Why a NAMED refusal refused, for the cases where 'typed unavailable' is not the whole answer — an App this organization never admitted, or one whose release was recalled, is refused by this code rather than described. Absent on a normalized decision."},"org_ref":{"anyOf":[{"$ref":"#/$defs/ref"},{"type":"null"}],"description":"The organization whose admitted records this answer was resolved against. Registrations are org-scoped, so the answer says which scope it read; a caller with no resolvable organization reads the local one and never another tenant's."},"app_count":{"type":"integer","minimum":0,"maximum":100000},"apps":{"type":"array","maxItems":1000,"items":{"$ref":"#/$defs/app_summary"},"description":"The organization's admitted extension_application registrations, as a listing. It is a projection: every member is the registration's own."},"descriptor":{"anyOf":[{"$ref":"#/$defs/app_descriptor"},{"type":"null"}],"description":"One admitted extension_application registration, projected. The App primitive's whole positive answer."},"reason":{"type":"string","minLength":1,"maxLength":512}},"allOf":[{"if":{"type":"object","properties":{"normalization_decision":{"type":"string","const":"typed_unavailable"}},"required":["normalization_decision"]},"then":{"type":"object","properties":{"status":{"type":"string","const":"typed_unavailable"},"authority_granted":{"type":"boolean","const":false},"receipt_identity_granted":{"type":"boolean","const":false},"canonical_backing_ref":{"type":"null"}}}},{"if":{"type":"object","properties":{"normalization_decision":{"type":"string","const":"normalized"}},"required":["normalization_decision"]},"then":{"type":"object","properties":{"status":{"type":"string","const":"normalized"},"authority_granted":{"type":"boolean","const":false},"receipt_identity_granted":{"type":"boolean","const":false},"canonical_backing_ref":{"$ref":"#/$defs/ref"}},"required":["canonical_backing_ref"]}}],"$defs":{"ref":{"type":"string","pattern":"^[a-z][a-z0-9+.-]*://[^ ]{1,480}$"},"app_summary":{"type":"object","additionalProperties":false,"required":["app_id","surface_ref","display_name","canonical_route","effect_boundary"],"properties":{"app_id":{"type":"string","minLength":1,"maxLength":240},"surface_ref":{"$ref":"#/$defs/ref"},"display_name":{"anyOf":[{"type":"string","maxLength":240},{"type":"null"}]},"canonical_route":{"anyOf":[{"type":"string","maxLength":480},{"type":"null"}]},"effect_boundary":{"anyOf":[{"type":"string","maxLength":120},{"type":"null"}]}}},"app_descriptor":{"type":"object","additionalProperties":false,"description":"A PROJECTION of an admitted extension_application registration, and nothing more. Every member here is the registration's own; the descriptor derives none of them, and `grants` says in the bytes what reading it does not buy. ACC-1 N5: an App cannot acquire host or runtime truth, so the four grant members are constant false in the schema rather than by convention.","required":["app_id","surface_ref","canonical_route","surface_class","effect_boundary","grants"],"properties":{"app_id":{"type":"string","minLength":1,"maxLength":240},"surface_ref":{"$ref":"#/$defs/ref"},"display_name":{"anyOf":[{"type":"string","maxLength":240},{"type":"null"}]},"canonical_route":{"anyOf":[{"type":"string","maxLength":480},{"type":"null"}]},"surface_class":{"anyOf":[{"type":"string","maxLength":120},{"type":"null"}]},"surface_origin":{"anyOf":[{"type":"string","maxLength":120},{"type":"null"}]},"surface_creation_method":{"anyOf":[{"type":"string","maxLength":120},{"type":"null"}]},"effect_boundary":{"anyOf":[{"type":"string","maxLength":120},{"type":"null"}]},"declared_object_contract_refs":{"anyOf":[{"type":"array","maxItems":256,"items":{"type":"string","maxLength":480}},{"type":"null"}]},"declared_action_contract_refs":{"anyOf":[{"type":"array","maxItems":256,"items":{"type":"string","maxLength":480}},{"type":"null"}]},"supported_placements":{"anyOf":[{"type":"array","maxItems":64,"items":{"type":"string","maxLength":120}},{"type":"null"}]},"launch_modes":{"anyOf":[{"type":"array","maxItems":64,"items":{"type":"string","maxLength":120}},{"type":"null"}]},"grants":{"type":"object","additionalProperties":false,"required":["host_mutation","runtime_ownership","authority","receipt_identity"],"properties":{"host_mutation":{"type":"boolean","const":false},"runtime_ownership":{"type":"boolean","const":false},"authority":{"type":"boolean","const":false},"receipt_identity":{"type":"boolean","const":false}}}}}}}"##,
+            &value,
+        )
+            .map_err(serde::de::Error::custom)?;
+        let mut object = value
+            .as_object()
+            .cloned()
+            .ok_or_else(|| serde::de::Error::custom("validated projection is not an object"))?;
+        Ok(Self {
+            schema_version: serde_json::from_value::<
+                McpPrimitiveNormalizationDecisionV1SchemaVersion,
+            >(
+                object
+                    .remove(r#"schema_version"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"schema_version"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            status: serde_json::from_value::<McpPrimitiveNormalizationDecisionV1Status>(
+                object
+                    .remove(r#"status"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"status"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            primitive: serde_json::from_value::<McpPrimitiveNormalizationDecisionV1Primitive>(
+                object
+                    .remove(r#"primitive"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"primitive"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            canonical_owner: serde_json::from_value::<String>(
+                object
+                    .remove(r#"canonical_owner"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"canonical_owner"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            canonical_backing_ref: serde_json::from_value::<Option<String>>(
+                object
+                    .remove(r#"canonical_backing_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"canonical_backing_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            backing_revision_refs: match object.remove(r#"backing_revision_refs"#) {
+                Some(field_value) => serde_json::from_value::<Option<Vec<String>>>(field_value)
+                    .map_err(serde::de::Error::custom)?,
+                None => None,
+            },
+            normalization_decision: serde_json::from_value::<
+                McpPrimitiveNormalizationDecisionV1NormalizationDecision,
+            >(
+                object
+                    .remove(r#"normalization_decision"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"normalization_decision"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            authority_granted: serde_json::from_value::<bool>(
+                object
+                    .remove(r#"authority_granted"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"authority_granted"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            receipt_identity_granted: serde_json::from_value::<bool>(
+                object
+                    .remove(r#"receipt_identity_granted"#)
+                    .ok_or_else(|| {
+                        serde::de::Error::missing_field(r#"receipt_identity_granted"#)
+                    })?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            receipt_refs: match object.remove(r#"receipt_refs"#) {
+                Some(field_value) => serde_json::from_value::<Option<Vec<String>>>(field_value)
+                    .map_err(serde::de::Error::custom)?,
+                None => None,
+            },
+            source_protocol_version: serde_json::from_value::<String>(
+                object
+                    .remove(r#"source_protocol_version"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"source_protocol_version"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            policy_lease_posture: serde_json::from_value::<
+                McpPrimitiveNormalizationDecisionV1PolicyLeasePosture,
+            >(
+                object
+                    .remove(r#"policy_lease_posture"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"policy_lease_posture"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            thread_id: match object.remove(r#"thread_id"#) {
+                Some(field_value) => serde_json::from_value::<Option<String>>(field_value)
+                    .map_err(serde::de::Error::custom)?,
+                None => None,
+            },
+            object_id: match object.remove(r#"object_id"#) {
+                Some(field_value) => serde_json::from_value::<Option<String>>(field_value)
+                    .map_err(serde::de::Error::custom)?,
+                None => None,
+            },
+            effective_gateway_profile_revision: match object
+                .remove(r#"effective_gateway_profile_revision"#)
+            {
+                Some(field_value) => serde_json::from_value::<Option<String>>(field_value)
+                    .map_err(serde::de::Error::custom)?,
+                None => None,
+            },
+            tool: match object.remove(r#"tool"#) {
+                Some(field_value) => serde_json::from_value::<Option<String>>(field_value)
+                    .map_err(serde::de::Error::custom)?,
+                None => None,
+            },
+            gateway_profile_revision_ref: match object.remove(r#"gateway_profile_revision_ref"#) {
+                Some(field_value) => serde_json::from_value::<Option<String>>(field_value)
+                    .map_err(serde::de::Error::custom)?,
+                None => None,
+            },
+            resolved_requirement_revision_refs: match object
+                .remove(r#"resolved_requirement_revision_refs"#)
+            {
+                Some(field_value) => serde_json::from_value::<Option<Vec<String>>>(field_value)
+                    .map_err(serde::de::Error::custom)?,
+                None => None,
+            },
+            refusal_code: match object.remove(r#"refusal_code"#) {
+                Some(field_value) => serde_json::from_value::<Option<String>>(field_value)
+                    .map_err(serde::de::Error::custom)?,
+                None => None,
+            },
+            org_ref: match object.remove(r#"org_ref"#) {
+                Some(field_value) => serde_json::from_value::<Option<String>>(field_value)
+                    .map_err(serde::de::Error::custom)?,
+                None => None,
+            },
+            app_count: match object.remove(r#"app_count"#) {
+                Some(field_value) => {
+                    serde_json::from_value::<Option<ArchitectureContractInteger>>(field_value)
+                        .map_err(serde::de::Error::custom)?
+                }
+                None => None,
+            },
+            apps: match object.remove(r#"apps"#) {
+                Some(field_value) => serde_json::from_value::<
+                    Option<Vec<McpPrimitiveNormalizationDecisionV1AppsItem>>,
+                >(field_value)
+                .map_err(serde::de::Error::custom)?,
+                None => None,
+            },
+            descriptor: match object.remove(r#"descriptor"#) {
+                Some(field_value) => serde_json::from_value::<
+                    Option<McpPrimitiveNormalizationDecisionV1Descriptor>,
+                >(field_value)
+                .map_err(serde::de::Error::custom)?,
+                None => None,
+            },
+            reason: serde_json::from_value::<String>(
+                object
+                    .remove(r#"reason"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"reason"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+        })
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum McpPrimitiveNormalizationDecisionV1SchemaVersion {
+    #[serde(rename = r#"ioi.runtime.mcp-normalization-decision.v1"#)]
+    IoiRuntimeMcpNormalizationDecisionV1,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum McpPrimitiveNormalizationDecisionV1Status {
+    #[serde(rename = r#"normalized"#)]
+    Normalized,
+    #[serde(rename = r#"typed_unavailable"#)]
+    TypedUnavailable,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum McpPrimitiveNormalizationDecisionV1Primitive {
+    #[serde(rename = r#"mcp.tool"#)]
+    McpTool,
+    #[serde(rename = r#"mcp.resource"#)]
+    McpResource,
+    #[serde(rename = r#"mcp.prompt"#)]
+    McpPrompt,
+    #[serde(rename = r#"mcp.elicitation"#)]
+    McpElicitation,
+    #[serde(rename = r#"mcp.task"#)]
+    McpTask,
+    #[serde(rename = r#"mcp.app"#)]
+    McpApp,
+    #[serde(rename = r#"mcp.serve"#)]
+    McpServe,
+    #[serde(rename = r#"mcp.gateway"#)]
+    McpGateway,
+    #[serde(rename = r#"mcp.sampling"#)]
+    McpSampling,
+    #[serde(rename = r#"mcp.roots"#)]
+    McpRoots,
+    #[serde(rename = r#"mcp.logging"#)]
+    McpLogging,
+    #[serde(rename = r#"mcp.notification"#)]
+    McpNotification,
+    #[serde(rename = r#"mcp.unknown"#)]
+    McpUnknown,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum McpPrimitiveNormalizationDecisionV1NormalizationDecision {
+    #[serde(rename = r#"normalized"#)]
+    Normalized,
+    #[serde(rename = r#"typed_unavailable"#)]
+    TypedUnavailable,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum McpPrimitiveNormalizationDecisionV1PolicyLeasePosture {
+    #[serde(rename = r#"not_minted"#)]
+    NotMinted,
+    #[serde(rename = r#"minted"#)]
+    Minted,
+    #[serde(rename = r#"not_applicable"#)]
+    NotApplicable,
+}
+
+#[derive(Debug, Clone, PartialEq, serde::Serialize)]
+pub struct McpPrimitiveNormalizationDecisionV1AppsItem {
+    pub app_id: String,
+    pub surface_ref: String,
+    pub display_name: Option<String>,
+    pub canonical_route: Option<String>,
+    pub effect_boundary: Option<String>,
+}
+
+impl<'de> serde::Deserialize<'de> for McpPrimitiveNormalizationDecisionV1AppsItem {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let value = <serde_json::Value as serde::Deserialize>::deserialize(deserializer)?;
+        validate_projection_subschema(
+            r#"schema://ioi/components/hypervisor/mcp-primitive-normalization-decision/v1"#,
+            r##"{"type":"object","additionalProperties":false,"required":["app_id","surface_ref","display_name","canonical_route","effect_boundary"],"properties":{"app_id":{"type":"string","minLength":1,"maxLength":240},"surface_ref":{"$ref":"#/$defs/ref"},"display_name":{"anyOf":[{"type":"string","maxLength":240},{"type":"null"}]},"canonical_route":{"anyOf":[{"type":"string","maxLength":480},{"type":"null"}]},"effect_boundary":{"anyOf":[{"type":"string","maxLength":120},{"type":"null"}]}}}"##,
+            &value,
+        )
+            .map_err(serde::de::Error::custom)?;
+        let mut object = value
+            .as_object()
+            .cloned()
+            .ok_or_else(|| serde::de::Error::custom("validated projection is not an object"))?;
+        Ok(Self {
+            app_id: serde_json::from_value::<String>(
+                object
+                    .remove(r#"app_id"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"app_id"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            surface_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"surface_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"surface_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            display_name: serde_json::from_value::<Option<String>>(
+                object
+                    .remove(r#"display_name"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"display_name"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            canonical_route: serde_json::from_value::<Option<String>>(
+                object
+                    .remove(r#"canonical_route"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"canonical_route"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            effect_boundary: serde_json::from_value::<Option<String>>(
+                object
+                    .remove(r#"effect_boundary"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"effect_boundary"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+        })
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, serde::Serialize)]
+pub struct McpPrimitiveNormalizationDecisionV1Descriptor {
+    pub app_id: String,
+    pub surface_ref: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub display_name: Option<String>,
+    pub canonical_route: Option<String>,
+    pub surface_class: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub surface_origin: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub surface_creation_method: Option<String>,
+    pub effect_boundary: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub declared_object_contract_refs: Option<Vec<String>>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub declared_action_contract_refs: Option<Vec<String>>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub supported_placements: Option<Vec<String>>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub launch_modes: Option<Vec<String>>,
+    pub grants: McpPrimitiveNormalizationDecisionV1DescriptorGrants,
+}
+
+impl<'de> serde::Deserialize<'de> for McpPrimitiveNormalizationDecisionV1Descriptor {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let value = <serde_json::Value as serde::Deserialize>::deserialize(deserializer)?;
+        validate_projection_subschema(
+            r#"schema://ioi/components/hypervisor/mcp-primitive-normalization-decision/v1"#,
+            r##"{"type":"object","additionalProperties":false,"description":"A PROJECTION of an admitted extension_application registration, and nothing more. Every member here is the registration's own; the descriptor derives none of them, and `grants` says in the bytes what reading it does not buy. ACC-1 N5: an App cannot acquire host or runtime truth, so the four grant members are constant false in the schema rather than by convention.","required":["app_id","surface_ref","canonical_route","surface_class","effect_boundary","grants"],"properties":{"app_id":{"type":"string","minLength":1,"maxLength":240},"surface_ref":{"$ref":"#/$defs/ref"},"display_name":{"anyOf":[{"type":"string","maxLength":240},{"type":"null"}]},"canonical_route":{"anyOf":[{"type":"string","maxLength":480},{"type":"null"}]},"surface_class":{"anyOf":[{"type":"string","maxLength":120},{"type":"null"}]},"surface_origin":{"anyOf":[{"type":"string","maxLength":120},{"type":"null"}]},"surface_creation_method":{"anyOf":[{"type":"string","maxLength":120},{"type":"null"}]},"effect_boundary":{"anyOf":[{"type":"string","maxLength":120},{"type":"null"}]},"declared_object_contract_refs":{"anyOf":[{"type":"array","maxItems":256,"items":{"type":"string","maxLength":480}},{"type":"null"}]},"declared_action_contract_refs":{"anyOf":[{"type":"array","maxItems":256,"items":{"type":"string","maxLength":480}},{"type":"null"}]},"supported_placements":{"anyOf":[{"type":"array","maxItems":64,"items":{"type":"string","maxLength":120}},{"type":"null"}]},"launch_modes":{"anyOf":[{"type":"array","maxItems":64,"items":{"type":"string","maxLength":120}},{"type":"null"}]},"grants":{"type":"object","additionalProperties":false,"required":["host_mutation","runtime_ownership","authority","receipt_identity"],"properties":{"host_mutation":{"type":"boolean","const":false},"runtime_ownership":{"type":"boolean","const":false},"authority":{"type":"boolean","const":false},"receipt_identity":{"type":"boolean","const":false}}}}}"##,
+            &value,
+        )
+            .map_err(serde::de::Error::custom)?;
+        let mut object = value
+            .as_object()
+            .cloned()
+            .ok_or_else(|| serde::de::Error::custom("validated projection is not an object"))?;
+        Ok(Self {
+            app_id: serde_json::from_value::<String>(
+                object
+                    .remove(r#"app_id"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"app_id"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            surface_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"surface_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"surface_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            display_name: match object.remove(r#"display_name"#) {
+                Some(field_value) => serde_json::from_value::<Option<String>>(field_value)
+                    .map_err(serde::de::Error::custom)?,
+                None => None,
+            },
+            canonical_route: serde_json::from_value::<Option<String>>(
+                object
+                    .remove(r#"canonical_route"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"canonical_route"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            surface_class: serde_json::from_value::<Option<String>>(
+                object
+                    .remove(r#"surface_class"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"surface_class"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            surface_origin: match object.remove(r#"surface_origin"#) {
+                Some(field_value) => serde_json::from_value::<Option<String>>(field_value)
+                    .map_err(serde::de::Error::custom)?,
+                None => None,
+            },
+            surface_creation_method: match object.remove(r#"surface_creation_method"#) {
+                Some(field_value) => serde_json::from_value::<Option<String>>(field_value)
+                    .map_err(serde::de::Error::custom)?,
+                None => None,
+            },
+            effect_boundary: serde_json::from_value::<Option<String>>(
+                object
+                    .remove(r#"effect_boundary"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"effect_boundary"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            declared_object_contract_refs: match object.remove(r#"declared_object_contract_refs"#) {
+                Some(field_value) => serde_json::from_value::<Option<Vec<String>>>(field_value)
+                    .map_err(serde::de::Error::custom)?,
+                None => None,
+            },
+            declared_action_contract_refs: match object.remove(r#"declared_action_contract_refs"#) {
+                Some(field_value) => serde_json::from_value::<Option<Vec<String>>>(field_value)
+                    .map_err(serde::de::Error::custom)?,
+                None => None,
+            },
+            supported_placements: match object.remove(r#"supported_placements"#) {
+                Some(field_value) => serde_json::from_value::<Option<Vec<String>>>(field_value)
+                    .map_err(serde::de::Error::custom)?,
+                None => None,
+            },
+            launch_modes: match object.remove(r#"launch_modes"#) {
+                Some(field_value) => serde_json::from_value::<Option<Vec<String>>>(field_value)
+                    .map_err(serde::de::Error::custom)?,
+                None => None,
+            },
+            grants: serde_json::from_value::<McpPrimitiveNormalizationDecisionV1DescriptorGrants>(
+                object
+                    .remove(r#"grants"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"grants"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+        })
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, serde::Serialize)]
+pub struct McpPrimitiveNormalizationDecisionV1DescriptorGrants {
+    pub host_mutation: McpPrimitiveNormalizationDecisionV1DescriptorGrantsHostMutation,
+    pub runtime_ownership: McpPrimitiveNormalizationDecisionV1DescriptorGrantsRuntimeOwnership,
+    pub authority: McpPrimitiveNormalizationDecisionV1DescriptorGrantsAuthority,
+    pub receipt_identity: McpPrimitiveNormalizationDecisionV1DescriptorGrantsReceiptIdentity,
+}
+
+impl<'de> serde::Deserialize<'de> for McpPrimitiveNormalizationDecisionV1DescriptorGrants {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let value = <serde_json::Value as serde::Deserialize>::deserialize(deserializer)?;
+        validate_projection_subschema(
+            r#"schema://ioi/components/hypervisor/mcp-primitive-normalization-decision/v1"#,
+            r#"{"type":"object","additionalProperties":false,"required":["host_mutation","runtime_ownership","authority","receipt_identity"],"properties":{"host_mutation":{"type":"boolean","const":false},"runtime_ownership":{"type":"boolean","const":false},"authority":{"type":"boolean","const":false},"receipt_identity":{"type":"boolean","const":false}}}"#,
+            &value,
+        )
+            .map_err(serde::de::Error::custom)?;
+        let mut object = value
+            .as_object()
+            .cloned()
+            .ok_or_else(|| serde::de::Error::custom("validated projection is not an object"))?;
+        Ok(Self {
+            host_mutation: serde_json::from_value::<
+                McpPrimitiveNormalizationDecisionV1DescriptorGrantsHostMutation,
+            >(
+                object
+                    .remove(r#"host_mutation"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"host_mutation"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            runtime_ownership: serde_json::from_value::<
+                McpPrimitiveNormalizationDecisionV1DescriptorGrantsRuntimeOwnership,
+            >(
+                object
+                    .remove(r#"runtime_ownership"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"runtime_ownership"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            authority: serde_json::from_value::<
+                McpPrimitiveNormalizationDecisionV1DescriptorGrantsAuthority,
+            >(
+                object
+                    .remove(r#"authority"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"authority"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            receipt_identity: serde_json::from_value::<
+                McpPrimitiveNormalizationDecisionV1DescriptorGrantsReceiptIdentity,
+            >(
+                object
+                    .remove(r#"receipt_identity"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"receipt_identity"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+        })
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum McpPrimitiveNormalizationDecisionV1DescriptorGrantsHostMutation {
+    False,
+}
+
+impl serde::Serialize for McpPrimitiveNormalizationDecisionV1DescriptorGrantsHostMutation {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: serde::Serializer,
+    {
+        serializer.serialize_bool(false)
+    }
+}
+
+impl<'de> serde::Deserialize<'de>
+    for McpPrimitiveNormalizationDecisionV1DescriptorGrantsHostMutation
+{
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let value = <bool as serde::Deserialize>::deserialize(deserializer)?;
+        if value == false {
+            Ok(Self::False)
+        } else {
+            Err(serde::de::Error::custom(
+                r#"expected boolean literal false"#,
+            ))
+        }
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum McpPrimitiveNormalizationDecisionV1DescriptorGrantsRuntimeOwnership {
+    False,
+}
+
+impl serde::Serialize for McpPrimitiveNormalizationDecisionV1DescriptorGrantsRuntimeOwnership {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: serde::Serializer,
+    {
+        serializer.serialize_bool(false)
+    }
+}
+
+impl<'de> serde::Deserialize<'de>
+    for McpPrimitiveNormalizationDecisionV1DescriptorGrantsRuntimeOwnership
+{
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let value = <bool as serde::Deserialize>::deserialize(deserializer)?;
+        if value == false {
+            Ok(Self::False)
+        } else {
+            Err(serde::de::Error::custom(
+                r#"expected boolean literal false"#,
+            ))
+        }
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum McpPrimitiveNormalizationDecisionV1DescriptorGrantsAuthority {
+    False,
+}
+
+impl serde::Serialize for McpPrimitiveNormalizationDecisionV1DescriptorGrantsAuthority {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: serde::Serializer,
+    {
+        serializer.serialize_bool(false)
+    }
+}
+
+impl<'de> serde::Deserialize<'de> for McpPrimitiveNormalizationDecisionV1DescriptorGrantsAuthority {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let value = <bool as serde::Deserialize>::deserialize(deserializer)?;
+        if value == false {
+            Ok(Self::False)
+        } else {
+            Err(serde::de::Error::custom(
+                r#"expected boolean literal false"#,
+            ))
+        }
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum McpPrimitiveNormalizationDecisionV1DescriptorGrantsReceiptIdentity {
+    False,
+}
+
+impl serde::Serialize for McpPrimitiveNormalizationDecisionV1DescriptorGrantsReceiptIdentity {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: serde::Serializer,
+    {
+        serializer.serialize_bool(false)
+    }
+}
+
+impl<'de> serde::Deserialize<'de>
+    for McpPrimitiveNormalizationDecisionV1DescriptorGrantsReceiptIdentity
+{
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let value = <bool as serde::Deserialize>::deserialize(deserializer)?;
+        if value == false {
+            Ok(Self::False)
+        } else {
+            Err(serde::de::Error::custom(
+                r#"expected boolean literal false"#,
+            ))
+        }
+    }
 }
 
 #[derive(Debug, Clone, PartialEq, serde::Serialize)]
@@ -165363,6 +166000,110 @@ pub const ARCHITECTURE_CONTRACT_FIXTURES: &[GoldenFixture] = &[
         expected_rule_id: None,
     },
     GoldenFixture {
+        contract_id: "schema://ioi/components/hypervisor/mcp-primitive-normalization-decision/v1",
+        path: "docs/architecture/_meta/schemas/fixtures/mcp-primitive-normalization-decision-v1/positive-normalized-app-descriptor.json",
+        expected_accept: true,
+        expected_schema_accept: true,
+        expected_failure: None,
+        expected_rule_id: None,
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/components/hypervisor/mcp-primitive-normalization-decision/v1",
+        path: "docs/architecture/_meta/schemas/fixtures/mcp-primitive-normalization-decision-v1/positive-normalized-app-descriptor-projection.json",
+        expected_accept: true,
+        expected_schema_accept: true,
+        expected_failure: None,
+        expected_rule_id: None,
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/components/hypervisor/mcp-primitive-normalization-decision/v1",
+        path: "docs/architecture/_meta/schemas/fixtures/mcp-primitive-normalization-decision-v1/positive-typed-unavailable-gateway.json",
+        expected_accept: true,
+        expected_schema_accept: true,
+        expected_failure: None,
+        expected_rule_id: None,
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/components/hypervisor/mcp-primitive-normalization-decision/v1",
+        path: "docs/architecture/_meta/schemas/fixtures/mcp-primitive-normalization-decision-v1/positive-typed-unavailable-resource.json",
+        expected_accept: true,
+        expected_schema_accept: true,
+        expected_failure: None,
+        expected_rule_id: None,
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/components/hypervisor/mcp-primitive-normalization-decision/v1",
+        path: "docs/architecture/_meta/schemas/fixtures/mcp-primitive-normalization-decision-v1/negative-app-descriptor-granting-host-mutation.json",
+        expected_accept: false,
+        expected_schema_accept: false,
+        expected_failure: Some("schema"),
+        expected_rule_id: None,
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/components/hypervisor/mcp-primitive-normalization-decision/v1",
+        path: "docs/architecture/_meta/schemas/fixtures/mcp-primitive-normalization-decision-v1/negative-normalized-granting-authority.json",
+        expected_accept: false,
+        expected_schema_accept: false,
+        expected_failure: Some("schema"),
+        expected_rule_id: None,
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/components/hypervisor/mcp-primitive-normalization-decision/v1",
+        path: "docs/architecture/_meta/schemas/fixtures/mcp-primitive-normalization-decision-v1/negative-normalized-without-a-backing-ref.json",
+        expected_accept: false,
+        expected_schema_accept: false,
+        expected_failure: Some("schema"),
+        expected_rule_id: None,
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/components/hypervisor/mcp-primitive-normalization-decision/v1",
+        path: "docs/architecture/_meta/schemas/fixtures/mcp-primitive-normalization-decision-v1/negative-status-disagrees-with-the-decision.json",
+        expected_accept: false,
+        expected_schema_accept: false,
+        expected_failure: Some("schema"),
+        expected_rule_id: None,
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/components/hypervisor/mcp-primitive-normalization-decision/v1",
+        path: "docs/architecture/_meta/schemas/fixtures/mcp-primitive-normalization-decision-v1/negative-typed-unavailable-granting-authority.json",
+        expected_accept: false,
+        expected_schema_accept: false,
+        expected_failure: Some("schema"),
+        expected_rule_id: None,
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/components/hypervisor/mcp-primitive-normalization-decision/v1",
+        path: "docs/architecture/_meta/schemas/fixtures/mcp-primitive-normalization-decision-v1/negative-typed-unavailable-granting-receipt-identity.json",
+        expected_accept: false,
+        expected_schema_accept: false,
+        expected_failure: Some("schema"),
+        expected_rule_id: None,
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/components/hypervisor/mcp-primitive-normalization-decision/v1",
+        path: "docs/architecture/_meta/schemas/fixtures/mcp-primitive-normalization-decision-v1/negative-typed-unavailable-with-a-backing-ref.json",
+        expected_accept: false,
+        expected_schema_accept: false,
+        expected_failure: Some("schema"),
+        expected_rule_id: None,
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/components/hypervisor/mcp-primitive-normalization-decision/v1",
+        path: "docs/architecture/_meta/schemas/fixtures/mcp-primitive-normalization-decision-v1/negative-unknown-member.json",
+        expected_accept: false,
+        expected_schema_accept: false,
+        expected_failure: Some("schema"),
+        expected_rule_id: None,
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/components/hypervisor/mcp-primitive-normalization-decision/v1",
+        path: "docs/architecture/_meta/schemas/fixtures/mcp-primitive-normalization-decision-v1/negative-unknown-primitive.json",
+        expected_accept: false,
+        expected_schema_accept: false,
+        expected_failure: Some("schema"),
+        expected_rule_id: None,
+    },
+    GoldenFixture {
         contract_id: "schema://ioi/components/connectors-tools/scm-publication-effect/v1",
         path: "docs/architecture/_meta/schemas/fixtures/scm-publication-effect-v1/positive-published-with-review-request.json",
         expected_accept: true,
@@ -181798,6 +182539,149 @@ pub const ARCHITECTURE_CONTRACT_DIFFERENTIAL_CASES: &[ArchitectureContractDiffer
         contract_id: r#"schema://ioi/components/connectors-tools/runtime-tool-contract/v1"#,
         source_fixture_path: Some(
             r#"docs/architecture/_meta/schemas/fixtures/runtime-tool-contract-v1/negative-missing-destination-declaration.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: false,
+        oracle_contract_accept: false,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/mcp-primitive-normalization-decision-v1/positive-normalized-app-descriptor.json"#,
+        contract_id: r#"schema://ioi/components/hypervisor/mcp-primitive-normalization-decision/v1"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/mcp-primitive-normalization-decision-v1/positive-normalized-app-descriptor.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: true,
+        oracle_contract_accept: true,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/mcp-primitive-normalization-decision-v1/positive-normalized-app-descriptor-projection.json"#,
+        contract_id: r#"schema://ioi/components/hypervisor/mcp-primitive-normalization-decision/v1"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/mcp-primitive-normalization-decision-v1/positive-normalized-app-descriptor-projection.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: true,
+        oracle_contract_accept: true,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/mcp-primitive-normalization-decision-v1/positive-typed-unavailable-gateway.json"#,
+        contract_id: r#"schema://ioi/components/hypervisor/mcp-primitive-normalization-decision/v1"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/mcp-primitive-normalization-decision-v1/positive-typed-unavailable-gateway.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: true,
+        oracle_contract_accept: true,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/mcp-primitive-normalization-decision-v1/positive-typed-unavailable-resource.json"#,
+        contract_id: r#"schema://ioi/components/hypervisor/mcp-primitive-normalization-decision/v1"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/mcp-primitive-normalization-decision-v1/positive-typed-unavailable-resource.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: true,
+        oracle_contract_accept: true,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/mcp-primitive-normalization-decision-v1/negative-app-descriptor-granting-host-mutation.json"#,
+        contract_id: r#"schema://ioi/components/hypervisor/mcp-primitive-normalization-decision/v1"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/mcp-primitive-normalization-decision-v1/negative-app-descriptor-granting-host-mutation.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: false,
+        oracle_contract_accept: false,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/mcp-primitive-normalization-decision-v1/negative-normalized-granting-authority.json"#,
+        contract_id: r#"schema://ioi/components/hypervisor/mcp-primitive-normalization-decision/v1"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/mcp-primitive-normalization-decision-v1/negative-normalized-granting-authority.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: false,
+        oracle_contract_accept: false,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/mcp-primitive-normalization-decision-v1/negative-normalized-without-a-backing-ref.json"#,
+        contract_id: r#"schema://ioi/components/hypervisor/mcp-primitive-normalization-decision/v1"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/mcp-primitive-normalization-decision-v1/negative-normalized-without-a-backing-ref.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: false,
+        oracle_contract_accept: false,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/mcp-primitive-normalization-decision-v1/negative-status-disagrees-with-the-decision.json"#,
+        contract_id: r#"schema://ioi/components/hypervisor/mcp-primitive-normalization-decision/v1"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/mcp-primitive-normalization-decision-v1/negative-status-disagrees-with-the-decision.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: false,
+        oracle_contract_accept: false,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/mcp-primitive-normalization-decision-v1/negative-typed-unavailable-granting-authority.json"#,
+        contract_id: r#"schema://ioi/components/hypervisor/mcp-primitive-normalization-decision/v1"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/mcp-primitive-normalization-decision-v1/negative-typed-unavailable-granting-authority.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: false,
+        oracle_contract_accept: false,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/mcp-primitive-normalization-decision-v1/negative-typed-unavailable-granting-receipt-identity.json"#,
+        contract_id: r#"schema://ioi/components/hypervisor/mcp-primitive-normalization-decision/v1"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/mcp-primitive-normalization-decision-v1/negative-typed-unavailable-granting-receipt-identity.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: false,
+        oracle_contract_accept: false,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/mcp-primitive-normalization-decision-v1/negative-typed-unavailable-with-a-backing-ref.json"#,
+        contract_id: r#"schema://ioi/components/hypervisor/mcp-primitive-normalization-decision/v1"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/mcp-primitive-normalization-decision-v1/negative-typed-unavailable-with-a-backing-ref.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: false,
+        oracle_contract_accept: false,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/mcp-primitive-normalization-decision-v1/negative-unknown-member.json"#,
+        contract_id: r#"schema://ioi/components/hypervisor/mcp-primitive-normalization-decision/v1"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/mcp-primitive-normalization-decision-v1/negative-unknown-member.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: false,
+        oracle_contract_accept: false,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/mcp-primitive-normalization-decision-v1/negative-unknown-primitive.json"#,
+        contract_id: r#"schema://ioi/components/hypervisor/mcp-primitive-normalization-decision/v1"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/mcp-primitive-normalization-decision-v1/negative-unknown-primitive.json"#,
         ),
         mutation_id: None,
         value_json: None,
@@ -200149,6 +201033,7 @@ const CONTRACT_SCHEMAS: &[(&str, &str)] = &[
     ("schema://ioi/components/agentgres/staged-effect/v1", r#"{"$schema":"https://json-schema.org/draft/2020-12/schema","$id":"schema://ioi/components/agentgres/staged-effect/v1","title":"StagedEffect","x-ioi-schema-version":"ioi.agentgres.staged-effect.v1","type":"object","additionalProperties":false,"required":["schema_version","object_class","staged_effect_ref","execution_branch_ref","trace_ref","effect_kind","intent_ref","policy_decision_ref","authority_decision_ref","information_flow_decision_ref","outcome_ref","affected_ref_patterns","pre_state_root","post_state_root","receipt_refs","settlement_status","effect_hash","branch_head","applied"],"properties":{"schema_version":{"const":"ioi.agentgres.staged-effect.v1"},"object_class":{"const":"StagedEffect"},"staged_effect_ref":{"type":"string","pattern":"^staged-effect://[^\\s]+$"},"execution_branch_ref":{"type":"string","pattern":"^execution-branch://[^\\s]+$"},"trace_ref":{"type":"string","pattern":"^[a-z][a-z0-9+.-]*://[^\\s]{1,500}$"},"effect_kind":{"enum":["model_call","tool_call","file_mutation","connector_action","memory_mutation","policy_mutation","spend","provisioning","package_change","custom"]},"intent_ref":{"type":"string","pattern":"^[a-z][a-z0-9+.-]*://[^\\s]{1,500}$"},"policy_decision_ref":{"anyOf":[{"type":"string","pattern":"^[a-z][a-z0-9+.-]*://[^\\s]{1,500}$"},{"type":"null"}]},"authority_decision_ref":{"anyOf":[{"type":"string","pattern":"^[a-z][a-z0-9+.-]*://[^\\s]{1,500}$"},{"type":"null"}]},"information_flow_decision_ref":{"type":"string","pattern":"^[a-z][a-z0-9+.-]*://[^\\s]{1,500}$"},"outcome_ref":{"anyOf":[{"type":"string","pattern":"^[a-z][a-z0-9+.-]*://[^\\s]{1,500}$"},{"type":"null"}]},"affected_ref_patterns":{"type":"array","uniqueItems":true,"items":{"type":"string"}},"pre_state_root":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"},"post_state_root":{"anyOf":[{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"},{"type":"null"}]},"receipt_refs":{"type":"array","uniqueItems":true,"items":{"type":"string","pattern":"^[a-z][a-z0-9+.-]*://[^\\s]{1,500}$"}},"settlement_status":{"enum":["proposed","authorized","materialized","denied","reverted","admitted","discarded"]},"effect_hash":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"},"branch_head":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"},"applied":{"type":"boolean"}}}"#),
     ("schema://ioi/components/agentgres/storage-backend-write-admission/v1", r##"{"$schema":"https://json-schema.org/draft/2020-12/schema","$id":"schema://ioi/components/agentgres/storage-backend-write-admission/v1","title":"StorageBackendWriteAdmission","description":"The runtime-kernel storage-backend write admission record (AgentgresAdmissionCore::admit_storage_backend_write). This is the enforced seam where the Agentgres artifact-ref plane binds every runtime-state byte write: a write without at least one Agentgres artifact ref or payload ref fails, a write without a receipt ref fails, and the content hash plus the admission hash commit the exact admitted write. Refs cross this seam as canonical strings; the full canonical ArtifactRef/PayloadRef objects are deferred canon.","x-ioi-schema-version":"ioi.storage_backend_write_admission.v1","type":"object","additionalProperties":false,"required":["schema_version","storage_backend_ref","object_ref","content_hash","artifact_refs","payload_refs","receipt_refs","admission_hash"],"properties":{"schema_version":{"const":"ioi.storage_backend_write_admission.v1"},"storage_backend_ref":{"type":"string","minLength":1,"maxLength":512},"object_ref":{"type":"string","minLength":1,"maxLength":1024},"content_hash":{"$ref":"#/$defs/sha256Hash"},"artifact_refs":{"$ref":"#/$defs/refs"},"payload_refs":{"$ref":"#/$defs/refs"},"receipt_refs":{"type":"array","minItems":1,"maxItems":64,"items":{"type":"string","minLength":1,"maxLength":512}},"admission_hash":{"$ref":"#/$defs/sha256Hash"}},"$defs":{"sha256Hash":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"},"refs":{"type":"array","maxItems":64,"items":{"type":"string","minLength":1,"maxLength":1024}}}}"##),
     ("schema://ioi/components/connectors-tools/runtime-tool-contract/v1", r##"{"$schema":"https://json-schema.org/draft/2020-12/schema","$id":"schema://ioi/components/connectors-tools/runtime-tool-contract/v1","title":"RuntimeToolContract","description":"Immutable callable capability contract including data-class and destination-specific egress ceilings.","x-ioi-schema-version":"ioi.components.connectors-tools.runtime-tool-contract.v1","type":"object","additionalProperties":false,"required":["schema_version","tool_id","revision_ref","content_hash","namespace","display_name","version","risk_class","effect_class","primitive_capabilities_required","authority_scopes_required","approval_required","evidence_required","owner","data_class_allowlist","egress_policy"],"properties":{"schema_version":{"const":"ioi.components.connectors-tools.runtime-tool-contract.v1"},"tool_id":{"type":"string","pattern":"^tool://[A-Za-z0-9._~:/-]+$"},"revision_ref":{"type":"string","pattern":"^tool://[A-Za-z0-9._~:/-]+/revision/[A-Za-z0-9._~-]+$"},"predecessor_revision_ref":{"anyOf":[{"type":"string","pattern":"^tool://[A-Za-z0-9._~:/-]+/revision/[A-Za-z0-9._~-]+$"},{"type":"null"}]},"content_hash":{"$ref":"#/$defs/hash"},"namespace":{"type":"string","minLength":1},"display_name":{"type":"string","minLength":1},"version":{"type":"string","minLength":1},"input_schema":{"type":"object"},"output_schema":{"type":"object"},"risk_class":{"type":"string","minLength":1},"effect_class":{"type":"string","minLength":1},"concurrency_class":{"enum":["safe_parallel","resource_scoped","exclusive","serialized"]},"timeout":{"type":"object","additionalProperties":false,"required":["default_ms","max_ms"],"properties":{"default_ms":{"type":"integer","minimum":1,"maximum":9007199254740991},"max_ms":{"type":"integer","minimum":1,"maximum":9007199254740991}}},"primitive_capabilities_required":{"type":"array","items":{"type":"string","pattern":"^prim:[a-z0-9._-]+$"},"uniqueItems":true},"authority_scopes_required":{"type":"array","items":{"type":"string","pattern":"^scope:[a-z0-9._-]+$"},"uniqueItems":true},"approval_required":{"type":"boolean"},"evidence_required":{"type":"array","items":{"type":"string","minLength":1},"uniqueItems":true},"redaction_policy":{"enum":["redact_body","hash_only","full_private"]},"owner":{"type":"string","minLength":1},"data_class_allowlist":{"type":"array","items":{"enum":["public","internal","confidential","private","restricted"]},"minItems":1,"uniqueItems":true},"egress_policy":{"type":"object","additionalProperties":false,"required":["default","allowed_destination_patterns"],"properties":{"default":{"enum":["deny","allow_declared"]},"allowed_destination_patterns":{"type":"array","items":{"type":"string","minLength":1},"minItems":1,"uniqueItems":true}}},"registry_lifecycle_ref":{"anyOf":[{"type":"string","minLength":1},{"type":"null"}]},"registry_status":{"enum":["draft","released","deprecated","revoked"]}},"$defs":{"hash":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"}}}"##),
+    ("schema://ioi/components/hypervisor/mcp-primitive-normalization-decision/v1", r##"{"$schema":"https://json-schema.org/draft/2020-12/schema","$id":"schema://ioi/components/hypervisor/mcp-primitive-normalization-decision/v1","title":"McpPrimitiveNormalizationDecision","x-ioi-schema-version":"ioi.runtime.mcp-normalization-decision.v1","description":"WHAT ONE EXPOSED MCP PRIMITIVE RESOLVED TO, OR WHY IT RESOLVED TO NOTHING. Canon's rule is that every exposed MCP primitive resolves to an existing canonical owner with exact session, invocation and context bindings, produces the same admitted semantics as the native path, and fails TYPED-UNAVAILABLE rather than inventing truth when normalization is impossible. This envelope is that answer, and the estate emits it from three places — the thread-scoped MCP routes, the outward gateway, and the stdio client when a server initiates a primitive this client does not implement — which until this contract was registered meant three divergent shapes under one schema version. THE DECISION IS NOT A GRANT. `authority_granted` and `receipt_identity_granted` are false on every typed-unavailable answer and remain false unless the normalized owner itself issued them: a protocol object never becomes authority by being described, and a resource URI, a prompt, an elicitation answer, a task handle or an App descriptor is not a capability, an instruction, an approval, a run identity or runtime truth. A normalized decision names its `canonical_backing_ref` — the admitted owner record the answer resolved to — and a typed-unavailable one carries null there and says which owner would have to exist. Owner: components/connectors-tools/contracts.md § MCP primitive normalization (M01.10).","type":"object","additionalProperties":false,"required":["schema_version","status","primitive","canonical_owner","canonical_backing_ref","normalization_decision","authority_granted","receipt_identity_granted","source_protocol_version","policy_lease_posture","reason"],"properties":{"schema_version":{"type":"string","const":"ioi.runtime.mcp-normalization-decision.v1"},"status":{"type":"string","enum":["normalized","typed_unavailable"],"description":"The same fact as `normalization_decision`, carried for a reader that reads status first; the two may not disagree."},"primitive":{"type":"string","enum":["mcp.tool","mcp.resource","mcp.prompt","mcp.elicitation","mcp.task","mcp.app","mcp.serve","mcp.gateway","mcp.sampling","mcp.roots","mcp.logging","mcp.notification","mcp.unknown"],"description":"The exposed MCP primitive this decision is about. The vocabulary is closed: a primitive the estate has never heard of resolves to `mcp.unknown` and is typed unavailable, never guessed into a neighbour."},"canonical_owner":{"type":"string","minLength":1,"maxLength":240,"description":"The existing canonical owner this primitive resolves to, or — when it resolves to nothing — the owner that would have to exist for it to be served. Naming it is what makes a refusal actionable rather than a wall."},"canonical_backing_ref":{"anyOf":[{"$ref":"#/$defs/ref"},{"type":"null"}],"description":"The admitted owner record the answer resolved to. Null on every typed-unavailable decision, and required on a normalized one: a normalization with no backing record would be the invented truth the acceptance forbids."},"backing_revision_refs":{"type":"array","uniqueItems":true,"maxItems":32,"items":{"$ref":"#/$defs/ref"},"description":"The exact revisions the normalized answer was built from, so a reader can bind to the version it saw rather than to a moving head."},"normalization_decision":{"type":"string","enum":["normalized","typed_unavailable"]},"authority_granted":{"type":"boolean","description":"Whether this decision itself conferred authority. Always false: authority crosses at its own owner's gateway, never at a protocol projection."},"receipt_identity_granted":{"type":"boolean","description":"Whether this decision conferred receipt identity. Always false: a receipt is written by the owner that performed the effect."},"receipt_refs":{"type":"array","uniqueItems":true,"maxItems":32,"items":{"$ref":"#/$defs/ref"},"description":"Receipts the normalized owner already wrote for this object. An empty array is the claim that there are none, and a typed-unavailable decision carries none."},"source_protocol_version":{"type":"string","minLength":1,"maxLength":40,"description":"The MCP protocol revision this decision was made under. A divergent revision is refused at the handshake rather than adapted silently."},"policy_lease_posture":{"type":"string","enum":["not_minted","minted","not_applicable"],"description":"Whether a policy lease stands behind this answer. `not_minted` on a typed-unavailable decision; `not_applicable` where the normalized owner needs none."},"thread_id":{"anyOf":[{"type":"string","minLength":1,"maxLength":240},{"type":"null"}]},"object_id":{"anyOf":[{"type":"string","minLength":1,"maxLength":240},{"type":"null"}]},"effective_gateway_profile_revision":{"anyOf":[{"$ref":"#/$defs/ref"},{"type":"null"}]},"tool":{"anyOf":[{"type":"string","minLength":1,"maxLength":240},{"type":"null"}]},"gateway_profile_revision_ref":{"anyOf":[{"$ref":"#/$defs/ref"},{"type":"null"}]},"resolved_requirement_revision_refs":{"type":"array","uniqueItems":true,"maxItems":64,"items":{"$ref":"#/$defs/ref"}},"refusal_code":{"type":"string","minLength":1,"maxLength":120,"description":"Why a NAMED refusal refused, for the cases where 'typed unavailable' is not the whole answer — an App this organization never admitted, or one whose release was recalled, is refused by this code rather than described. Absent on a normalized decision."},"org_ref":{"anyOf":[{"$ref":"#/$defs/ref"},{"type":"null"}],"description":"The organization whose admitted records this answer was resolved against. Registrations are org-scoped, so the answer says which scope it read; a caller with no resolvable organization reads the local one and never another tenant's."},"app_count":{"type":"integer","minimum":0,"maximum":100000},"apps":{"type":"array","maxItems":1000,"items":{"$ref":"#/$defs/app_summary"},"description":"The organization's admitted extension_application registrations, as a listing. It is a projection: every member is the registration's own."},"descriptor":{"anyOf":[{"$ref":"#/$defs/app_descriptor"},{"type":"null"}],"description":"One admitted extension_application registration, projected. The App primitive's whole positive answer."},"reason":{"type":"string","minLength":1,"maxLength":512}},"allOf":[{"if":{"type":"object","properties":{"normalization_decision":{"type":"string","const":"typed_unavailable"}},"required":["normalization_decision"]},"then":{"type":"object","properties":{"status":{"type":"string","const":"typed_unavailable"},"authority_granted":{"type":"boolean","const":false},"receipt_identity_granted":{"type":"boolean","const":false},"canonical_backing_ref":{"type":"null"}}}},{"if":{"type":"object","properties":{"normalization_decision":{"type":"string","const":"normalized"}},"required":["normalization_decision"]},"then":{"type":"object","properties":{"status":{"type":"string","const":"normalized"},"authority_granted":{"type":"boolean","const":false},"receipt_identity_granted":{"type":"boolean","const":false},"canonical_backing_ref":{"$ref":"#/$defs/ref"}},"required":["canonical_backing_ref"]}}],"$defs":{"ref":{"type":"string","pattern":"^[a-z][a-z0-9+.-]*://[^ ]{1,480}$"},"app_summary":{"type":"object","additionalProperties":false,"required":["app_id","surface_ref","display_name","canonical_route","effect_boundary"],"properties":{"app_id":{"type":"string","minLength":1,"maxLength":240},"surface_ref":{"$ref":"#/$defs/ref"},"display_name":{"anyOf":[{"type":"string","maxLength":240},{"type":"null"}]},"canonical_route":{"anyOf":[{"type":"string","maxLength":480},{"type":"null"}]},"effect_boundary":{"anyOf":[{"type":"string","maxLength":120},{"type":"null"}]}}},"app_descriptor":{"type":"object","additionalProperties":false,"description":"A PROJECTION of an admitted extension_application registration, and nothing more. Every member here is the registration's own; the descriptor derives none of them, and `grants` says in the bytes what reading it does not buy. ACC-1 N5: an App cannot acquire host or runtime truth, so the four grant members are constant false in the schema rather than by convention.","required":["app_id","surface_ref","canonical_route","surface_class","effect_boundary","grants"],"properties":{"app_id":{"type":"string","minLength":1,"maxLength":240},"surface_ref":{"$ref":"#/$defs/ref"},"display_name":{"anyOf":[{"type":"string","maxLength":240},{"type":"null"}]},"canonical_route":{"anyOf":[{"type":"string","maxLength":480},{"type":"null"}]},"surface_class":{"anyOf":[{"type":"string","maxLength":120},{"type":"null"}]},"surface_origin":{"anyOf":[{"type":"string","maxLength":120},{"type":"null"}]},"surface_creation_method":{"anyOf":[{"type":"string","maxLength":120},{"type":"null"}]},"effect_boundary":{"anyOf":[{"type":"string","maxLength":120},{"type":"null"}]},"declared_object_contract_refs":{"anyOf":[{"type":"array","maxItems":256,"items":{"type":"string","maxLength":480}},{"type":"null"}]},"declared_action_contract_refs":{"anyOf":[{"type":"array","maxItems":256,"items":{"type":"string","maxLength":480}},{"type":"null"}]},"supported_placements":{"anyOf":[{"type":"array","maxItems":64,"items":{"type":"string","maxLength":120}},{"type":"null"}]},"launch_modes":{"anyOf":[{"type":"array","maxItems":64,"items":{"type":"string","maxLength":120}},{"type":"null"}]},"grants":{"type":"object","additionalProperties":false,"required":["host_mutation","runtime_ownership","authority","receipt_identity"],"properties":{"host_mutation":{"type":"boolean","const":false},"runtime_ownership":{"type":"boolean","const":false},"authority":{"type":"boolean","const":false},"receipt_identity":{"type":"boolean","const":false}}}}}}}"##),
     ("schema://ioi/components/connectors-tools/scm-publication-effect/v1", r##"{"$schema":"https://json-schema.org/draft/2020-12/schema","$id":"schema://ioi/components/connectors-tools/scm-publication-effect/v1","title":"ScmPublicationEffect","description":"One immutable, receipted source-control publication effect. It binds an enumerated proposal-bound file set to an admitted remote destination, advances the target ref only under an expected-head compare-and-swap, and carries the publication and the review-request as separately receipted sub-effects with their own honest outcomes. No representable field can request an overwrite of the remote head, express a whole-workspace change set, name a destination outside the admitted binding, or report success over a failed sub-effect.","x-ioi-schema-version":"ioi.scm-publication-effect.v1","type":"object","additionalProperties":false,"required":["schema_version","publication_effect_id","publication_effect_hash","work_subject","authority","destination","change_set","remote_cas","idempotency","effects","overall_outcome","nonclaims","committed_at"],"properties":{"schema_version":{"const":"ioi.scm-publication-effect.v1"},"publication_effect_id":{"$ref":"#/$defs/publicationEffectRef"},"publication_effect_hash":{"$ref":"#/$defs/hash"},"work_subject":{"type":"object","additionalProperties":false,"required":["proposal_ref","proposal_hash","work_run_ref"],"properties":{"proposal_ref":{"$ref":"#/$defs/proposalRef"},"proposal_hash":{"$ref":"#/$defs/hash"},"work_run_ref":{"type":"string","pattern":"^work-run://[^\\s]{1,248}$"}}},"authority":{"type":"object","additionalProperties":false,"required":["authority_grant_refs","authority_scope_refs","capability_lease_ref","admission_receipt_ref"],"properties":{"authority_grant_refs":{"type":"array","items":{"type":"string","pattern":"^grant://[^\\s]{1,248}$"},"minItems":1,"maxItems":8,"uniqueItems":true},"authority_scope_refs":{"type":"array","items":{"$ref":"#/$defs/scopeRef"},"minItems":1,"maxItems":8,"uniqueItems":true},"capability_lease_ref":{"type":"string","pattern":"^lease://[^\\s]{1,248}$"},"admission_receipt_ref":{"$ref":"#/$defs/receiptRef"}}},"destination":{"type":"object","additionalProperties":false,"required":["resolution","connector_ref","connector_revision_hash","destination_binding_ref","destination_binding_hash","repository_ref","target_ref","base_ref"],"properties":{"resolution":{"const":"admitted_connector_binding"},"connector_ref":{"type":"string","pattern":"^connector://[^\\s]{1,248}$"},"connector_revision_hash":{"$ref":"#/$defs/hash"},"destination_binding_ref":{"type":"string","pattern":"^scm-destination-binding://[^\\s]{1,248}$"},"destination_binding_hash":{"$ref":"#/$defs/hash"},"repository_ref":{"type":"string","pattern":"^repository://[^\\s]{1,224}$"},"target_ref":{"type":"string","pattern":"^scm-ref://[^\\s]{1,248}$"},"base_ref":{"type":"string","pattern":"^scm-ref://[^\\s]{1,248}$"}}},"change_set":{"type":"object","additionalProperties":false,"required":["change_set_kind","proposal_content_commitment","base_revision_id","files","file_set_digest","resulting_revision_id"],"properties":{"change_set_kind":{"const":"proposal_bound_file_set"},"proposal_content_commitment":{"$ref":"#/$defs/hash"},"base_revision_id":{"$ref":"#/$defs/revisionId"},"files":{"type":"array","items":{"$ref":"#/$defs/changeSetFile"},"minItems":1,"maxItems":512,"uniqueItems":true},"file_set_digest":{"$ref":"#/$defs/hash"},"resulting_revision_id":{"$ref":"#/$defs/nullableRevisionId"}}},"remote_cas":{"type":"object","additionalProperties":false,"required":["mechanism","remote_update_mode","stale_head_disposition","target_ref_precondition","expected_target_head","expected_base_head","observed_at","observation_evidence_ref","resulting_target_head","proof_ref"],"properties":{"mechanism":{"const":"expected_head_compare_and_swap"},"remote_update_mode":{"const":"expected_head_advance_or_refuse"},"stale_head_disposition":{"const":"refuse_never_overwrite"},"target_ref_precondition":{"enum":["expected_head","must_not_exist"]},"expected_target_head":{"$ref":"#/$defs/nullableRevisionId"},"expected_base_head":{"$ref":"#/$defs/revisionId"},"observed_at":{"$ref":"#/$defs/dateTime"},"observation_evidence_ref":{"$ref":"#/$defs/evidenceRef"},"resulting_target_head":{"$ref":"#/$defs/nullableRevisionId"},"proof_ref":{"$ref":"#/$defs/evidenceRef"}}},"idempotency":{"type":"object","additionalProperties":false,"required":["idempotency_key","submission_disposition","prior_effect_ref","prior_effect_hash"],"properties":{"idempotency_key":{"$ref":"#/$defs/hash"},"submission_disposition":{"enum":["first_admission","converged_replay","refused_conflicting_replay"]},"prior_effect_ref":{"anyOf":[{"$ref":"#/$defs/publicationEffectRef"},{"type":"null"}]},"prior_effect_hash":{"$ref":"#/$defs/nullableHash"}}},"effects":{"type":"object","additionalProperties":false,"required":["publication","review_request"],"properties":{"publication":{"type":"object","additionalProperties":false,"required":["effect_kind","outcome","receipt_ref","refusal_code","evidence_refs"],"properties":{"effect_kind":{"const":"scm_publication"},"outcome":{"enum":["published","partially_applied","refused"]},"receipt_ref":{"$ref":"#/$defs/receiptRef"},"refusal_code":{"$ref":"#/$defs/nullableShortToken"},"evidence_refs":{"type":"array","items":{"$ref":"#/$defs/evidenceRef"},"minItems":1,"maxItems":16,"uniqueItems":true}}},"review_request":{"type":"object","additionalProperties":false,"required":["effect_kind","outcome","receipt_ref","refusal_code","evidence_refs"],"properties":{"effect_kind":{"const":"scm_review_request"},"outcome":{"enum":["opened","failed","refused","not_requested","not_attempted"]},"receipt_ref":{"anyOf":[{"$ref":"#/$defs/receiptRef"},{"type":"null"}]},"refusal_code":{"$ref":"#/$defs/nullableShortToken"},"evidence_refs":{"type":"array","items":{"$ref":"#/$defs/evidenceRef"},"maxItems":16,"uniqueItems":true}}}}},"overall_outcome":{"enum":["published_with_review_request","published_review_request_not_requested","review_request_failed","partially_applied","refused"]},"nonclaims":{"type":"array","items":{"enum":["grants_no_authority","no_remote_acceptance_beyond_receipt_evidence","asserts_no_review_approval"]},"minItems":3,"maxItems":3,"uniqueItems":true},"committed_at":{"$ref":"#/$defs/dateTime"}},"allOf":[{"type":"object","if":{"type":"object","properties":{"overall_outcome":{"const":"published_with_review_request"}},"required":["overall_outcome"]},"then":{"type":"object","properties":{"effects":{"type":"object","properties":{"publication":{"type":"object","properties":{"outcome":{"const":"published"}}},"review_request":{"type":"object","properties":{"outcome":{"const":"opened"}}}}}}}},{"type":"object","if":{"type":"object","properties":{"overall_outcome":{"const":"published_review_request_not_requested"}},"required":["overall_outcome"]},"then":{"type":"object","properties":{"effects":{"type":"object","properties":{"publication":{"type":"object","properties":{"outcome":{"const":"published"}}},"review_request":{"type":"object","properties":{"outcome":{"const":"not_requested"}}}}}}}},{"type":"object","if":{"type":"object","properties":{"overall_outcome":{"const":"review_request_failed"}},"required":["overall_outcome"]},"then":{"type":"object","properties":{"effects":{"type":"object","properties":{"publication":{"type":"object","properties":{"outcome":{"const":"published"}}},"review_request":{"type":"object","properties":{"outcome":{"const":"failed"}}}}}}}},{"type":"object","if":{"type":"object","properties":{"overall_outcome":{"const":"partially_applied"}},"required":["overall_outcome"]},"then":{"type":"object","properties":{"effects":{"type":"object","properties":{"publication":{"type":"object","properties":{"outcome":{"const":"partially_applied"}}},"review_request":{"type":"object","properties":{"outcome":{"const":"not_attempted"}}}}}}}},{"type":"object","if":{"type":"object","properties":{"overall_outcome":{"const":"refused"}},"required":["overall_outcome"]},"then":{"type":"object","properties":{"effects":{"type":"object","properties":{"publication":{"type":"object","properties":{"outcome":{"const":"refused"}}},"review_request":{"type":"object","properties":{"outcome":{"enum":["refused","not_attempted"]}}}}},"change_set":{"type":"object","properties":{"resulting_revision_id":{"type":"null"}}},"remote_cas":{"type":"object","properties":{"resulting_target_head":{"type":"null"}}}}}}],"$defs":{"hash":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"},"nullableHash":{"anyOf":[{"$ref":"#/$defs/hash"},{"type":"null"}]},"revisionId":{"type":"string","pattern":"^scm-revision:[0-9a-f]{40,64}$"},"nullableRevisionId":{"anyOf":[{"$ref":"#/$defs/revisionId"},{"type":"null"}]},"dateTime":{"type":"string","format":"date-time","pattern":"^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$"},"publicationEffectRef":{"type":"string","pattern":"^scm-publication-effect://[^\\s]{1,248}$"},"proposalRef":{"type":"string","pattern":"^proposal://[^\\s]{1,248}$"},"receiptRef":{"type":"string","pattern":"^receipt://[^\\s]{1,248}$"},"evidenceRef":{"type":"string","pattern":"^(?:evidence|receipt|artifact|attestation)://[^\\s]{1,248}$"},"scopeRef":{"type":"string","pattern":"^scope:[a-z0-9][a-z0-9._:/-]{0,127}$"},"shortToken":{"type":"string","pattern":"^[a-z0-9][a-z0-9._:/-]{0,127}$"},"nullableShortToken":{"anyOf":[{"$ref":"#/$defs/shortToken"},{"type":"null"}]},"changeSetFile":{"type":"object","additionalProperties":false,"required":["path","change_kind","content_digest","proposal_ref"],"properties":{"path":{"type":"string","minLength":1,"maxLength":256,"pattern":"^[A-Za-z0-9_][A-Za-z0-9._/-]{0,255}$"},"change_kind":{"enum":["added","modified","removed"]},"content_digest":{"$ref":"#/$defs/nullableHash"},"proposal_ref":{"$ref":"#/$defs/proposalRef"}}}}}"##),
     ("schema://ioi/components/connectors-tools/scm-publication-effect/v2", r##"{"$schema":"https://json-schema.org/draft/2020-12/schema","$id":"schema://ioi/components/connectors-tools/scm-publication-effect/v2","title":"ScmPublicationEffect","description":"One immutable, receipted source-control publication crossing carried as one durable logical operation. The ScmPublicationOperation identity is observation-independent: it covers the work run, the proposal, the admitted destination binding, the target ref, the enumerated file set, the review intent, and frozen commit metadata, and it never contains an observed remote head. The observed head lives only in the per-attempt compare-and-swap fingerprint. A Prepared record is persisted before any remote effect is invoked, and a re-entry resolves by replaying an existing terminal result, recovering an already-converged remote revision, retrying the same frozen compare-and-swap when dispatch is proven absent and the original precondition still holds, or refusing as reconciliation_required. This contract states at-most-once execution plus reconciliation; it is not an exactly-once claim, and no representable field can advance a fresh child commit, request an overwrite of the remote head, express a whole-workspace change set, name a destination outside the admitted binding, absorb a review-request reconciliation into the publication, or report success over a failed or unresolved sub-effect.","x-ioi-schema-version":"ioi.scm-publication-effect.v2","type":"object","additionalProperties":false,"required":["schema_version","publication_effect_id","publication_effect_hash","execution_semantics","operation","authority","preparation","attempt","recovery","outcome","effects","overall_outcome","nonclaims","committed_at"],"properties":{"schema_version":{"const":"ioi.scm-publication-effect.v2"},"publication_effect_id":{"$ref":"#/$defs/publicationEffectRef"},"publication_effect_hash":{"$ref":"#/$defs/hash"},"execution_semantics":{"const":"at_most_once_execution_plus_reconciliation"},"operation":{"type":"object","additionalProperties":false,"required":["operation_ref","operation_key","operation_key_domain","identity"],"properties":{"operation_ref":{"$ref":"#/$defs/operationRef"},"operation_key":{"$ref":"#/$defs/hash"},"operation_key_domain":{"const":"excludes_observed_remote_state"},"identity":{"type":"object","additionalProperties":false,"required":["work_run_ref","proposal_ref","proposal_hash","connector_ref","connector_revision_hash","destination_binding_ref","destination_binding_hash","repository_ref","target_ref","base_ref","base_revision_id","change_set_kind","files","file_set_digest","review_intent","frozen_commit_metadata","intended_revision_id"],"properties":{"work_run_ref":{"type":"string","pattern":"^work-run://[^\\s]{1,248}$"},"proposal_ref":{"$ref":"#/$defs/proposalRef"},"proposal_hash":{"$ref":"#/$defs/hash"},"connector_ref":{"type":"string","pattern":"^connector://[^\\s]{1,248}$"},"connector_revision_hash":{"$ref":"#/$defs/hash"},"destination_binding_ref":{"type":"string","pattern":"^scm-destination-binding://[^\\s]{1,248}$"},"destination_binding_hash":{"$ref":"#/$defs/hash"},"repository_ref":{"type":"string","pattern":"^repository://[^\\s]{1,224}$"},"target_ref":{"type":"string","pattern":"^scm-ref://[^\\s]{1,248}$"},"base_ref":{"type":"string","pattern":"^scm-ref://[^\\s]{1,248}$"},"base_revision_id":{"$ref":"#/$defs/revisionId"},"change_set_kind":{"const":"proposal_bound_file_set"},"files":{"type":"array","items":{"$ref":"#/$defs/changeSetFile"},"minItems":1,"maxItems":512,"uniqueItems":true},"file_set_digest":{"$ref":"#/$defs/hash"},"review_intent":{"enum":["requested","not_requested"]},"frozen_commit_metadata":{"type":"object","additionalProperties":false,"required":["commit_message_digest","authorship_commitment","authored_at","commit_timestamp","metadata_digest"],"properties":{"commit_message_digest":{"$ref":"#/$defs/hash"},"authorship_commitment":{"$ref":"#/$defs/hash"},"authored_at":{"$ref":"#/$defs/dateTime"},"commit_timestamp":{"$ref":"#/$defs/dateTime"},"metadata_digest":{"$ref":"#/$defs/hash"}}},"intended_revision_id":{"$ref":"#/$defs/revisionId"}}}}},"authority":{"type":"object","additionalProperties":false,"required":["authority_grant_refs","authority_scope_refs","capability_lease_ref","admission_receipt_ref"],"properties":{"authority_grant_refs":{"type":"array","items":{"type":"string","pattern":"^grant://[^\\s]{1,248}$"},"minItems":1,"maxItems":8,"uniqueItems":true},"authority_scope_refs":{"type":"array","items":{"$ref":"#/$defs/scopeRef"},"minItems":1,"maxItems":8,"uniqueItems":true},"capability_lease_ref":{"type":"string","pattern":"^lease://[^\\s]{1,248}$"},"admission_receipt_ref":{"$ref":"#/$defs/receiptRef"}}},"preparation":{"type":"object","additionalProperties":false,"required":["prepared_record_ref","prepared_record_hash","prepared_persisted_at","persistence_order","prepared_persistence_evidence_ref"],"properties":{"prepared_record_ref":{"$ref":"#/$defs/preparedRef"},"prepared_record_hash":{"$ref":"#/$defs/hash"},"prepared_persisted_at":{"$ref":"#/$defs/dateTime"},"persistence_order":{"const":"prepared_persisted_before_remote_effect"},"prepared_persistence_evidence_ref":{"$ref":"#/$defs/evidenceRef"}}},"attempt":{"type":"object","additionalProperties":false,"required":["publication_attempt_ref","attempt_number","cas","cas_fingerprint","frozen_cas_fingerprint","dispatch"],"properties":{"publication_attempt_ref":{"$ref":"#/$defs/attemptRef"},"attempt_number":{"type":"integer","minimum":1,"maximum":64},"cas":{"type":"object","additionalProperties":false,"required":["mechanism","remote_update_mode","stale_head_disposition","target_ref_precondition","expected_target_head","observed_at","observation_evidence_ref"],"properties":{"mechanism":{"const":"expected_head_compare_and_swap"},"remote_update_mode":{"const":"expected_head_advance_or_refuse"},"stale_head_disposition":{"const":"refuse_never_overwrite"},"target_ref_precondition":{"enum":["expected_head","must_not_exist"]},"expected_target_head":{"$ref":"#/$defs/nullableRevisionId"},"observed_at":{"$ref":"#/$defs/dateTime"},"observation_evidence_ref":{"$ref":"#/$defs/evidenceRef"}}},"cas_fingerprint":{"$ref":"#/$defs/hash"},"frozen_cas_fingerprint":{"$ref":"#/$defs/hash"},"dispatch":{"type":"object","additionalProperties":false,"required":["prepared_record_hash","dispatch_observation","dispatch_evidence_refs"],"properties":{"prepared_record_hash":{"$ref":"#/$defs/hash"},"dispatch_observation":{"enum":["proven_absent","proven_present","indeterminate"]},"dispatch_evidence_refs":{"type":"array","items":{"$ref":"#/$defs/evidenceRef"},"minItems":1,"maxItems":8,"uniqueItems":true}}}}},"recovery":{"type":"object","additionalProperties":false,"required":["resolution_disposition","remote_effect_invoked","remote_convergence","precondition_recheck","prior_terminal_effect_ref","prior_terminal_effect_hash","reconciliation_code","recovery_evidence_refs"],"properties":{"resolution_disposition":{"$ref":"#/$defs/resolutionDisposition"},"remote_effect_invoked":{"type":"boolean"},"remote_convergence":{"enum":["matches_intended_revision","diverged","unobserved"]},"precondition_recheck":{"enum":["holds","moved","unobserved"]},"prior_terminal_effect_ref":{"anyOf":[{"$ref":"#/$defs/publicationEffectRef"},{"type":"null"}]},"prior_terminal_effect_hash":{"$ref":"#/$defs/nullableHash"},"reconciliation_code":{"$ref":"#/$defs/nullableShortToken"},"recovery_evidence_refs":{"type":"array","items":{"$ref":"#/$defs/evidenceRef"},"minItems":1,"maxItems":16,"uniqueItems":true}}},"outcome":{"type":"object","additionalProperties":false,"required":["resulting_revision","proof_ref"],"properties":{"resulting_revision":{"anyOf":[{"$ref":"#/$defs/resultingRevision"},{"type":"null"}]},"proof_ref":{"$ref":"#/$defs/evidenceRef"}}},"effects":{"type":"object","additionalProperties":false,"required":["publication","review_request"],"properties":{"publication":{"type":"object","additionalProperties":false,"required":["effect_kind","outcome","receipt_ref","refusal_code","evidence_refs"],"properties":{"effect_kind":{"const":"scm_publication"},"outcome":{"enum":["published","partially_applied","refused","reconciliation_required"]},"receipt_ref":{"$ref":"#/$defs/receiptRef"},"refusal_code":{"$ref":"#/$defs/nullableShortToken"},"evidence_refs":{"type":"array","items":{"$ref":"#/$defs/evidenceRef"},"minItems":1,"maxItems":16,"uniqueItems":true}}},"review_request":{"type":"object","additionalProperties":false,"required":["effect_kind","outcome","receipt_ref","refusal_code","evidence_refs","reconciliation"],"properties":{"effect_kind":{"const":"scm_review_request"},"outcome":{"enum":["opened","failed","refused","not_requested","not_attempted","reconciliation_required"]},"receipt_ref":{"anyOf":[{"$ref":"#/$defs/receiptRef"},{"type":"null"}]},"refusal_code":{"$ref":"#/$defs/nullableShortToken"},"evidence_refs":{"type":"array","items":{"$ref":"#/$defs/evidenceRef"},"maxItems":16,"uniqueItems":true},"reconciliation":{"type":"object","additionalProperties":false,"required":["operation_key","resolution_disposition","remote_effect_invoked","reconciliation_code"],"properties":{"operation_key":{"$ref":"#/$defs/hash"},"resolution_disposition":{"$ref":"#/$defs/reviewResolutionDisposition"},"remote_effect_invoked":{"type":"boolean"},"reconciliation_code":{"$ref":"#/$defs/nullableShortToken"}}}}}}},"overall_outcome":{"enum":["published_with_review_request","published_review_request_not_requested","review_request_failed","published_review_request_reconciliation_required","partially_applied","refused","reconciliation_required"]},"nonclaims":{"type":"array","items":{"enum":["grants_no_authority","no_remote_acceptance_beyond_receipt_evidence","asserts_no_review_approval","asserts_no_exactly_once_execution"]},"minItems":4,"maxItems":4,"uniqueItems":true},"committed_at":{"$ref":"#/$defs/dateTime"}},"allOf":[{"type":"object","if":{"type":"object","properties":{"overall_outcome":{"const":"published_with_review_request"}},"required":["overall_outcome"]},"then":{"type":"object","properties":{"effects":{"type":"object","properties":{"publication":{"type":"object","properties":{"outcome":{"const":"published"}}},"review_request":{"type":"object","properties":{"outcome":{"const":"opened"}}}}},"outcome":{"type":"object","properties":{"resulting_revision":{"type":"object"}}}}}},{"type":"object","if":{"type":"object","properties":{"overall_outcome":{"const":"published_review_request_not_requested"}},"required":["overall_outcome"]},"then":{"type":"object","properties":{"effects":{"type":"object","properties":{"publication":{"type":"object","properties":{"outcome":{"const":"published"}}},"review_request":{"type":"object","properties":{"outcome":{"const":"not_requested"}}}}},"outcome":{"type":"object","properties":{"resulting_revision":{"type":"object"}}}}}},{"type":"object","if":{"type":"object","properties":{"overall_outcome":{"const":"review_request_failed"}},"required":["overall_outcome"]},"then":{"type":"object","properties":{"effects":{"type":"object","properties":{"publication":{"type":"object","properties":{"outcome":{"const":"published"}}},"review_request":{"type":"object","properties":{"outcome":{"const":"failed"}}}}}}}},{"type":"object","if":{"type":"object","properties":{"overall_outcome":{"const":"published_review_request_reconciliation_required"}},"required":["overall_outcome"]},"then":{"type":"object","properties":{"effects":{"type":"object","properties":{"publication":{"type":"object","properties":{"outcome":{"const":"published"}}},"review_request":{"type":"object","properties":{"outcome":{"const":"reconciliation_required"}}}}}}}},{"type":"object","if":{"type":"object","properties":{"overall_outcome":{"const":"partially_applied"}},"required":["overall_outcome"]},"then":{"type":"object","properties":{"effects":{"type":"object","properties":{"publication":{"type":"object","properties":{"outcome":{"const":"partially_applied"}}},"review_request":{"type":"object","properties":{"outcome":{"const":"not_attempted"}}}}}}}},{"type":"object","if":{"type":"object","properties":{"overall_outcome":{"const":"refused"}},"required":["overall_outcome"]},"then":{"type":"object","properties":{"effects":{"type":"object","properties":{"publication":{"type":"object","properties":{"outcome":{"const":"refused"}}},"review_request":{"type":"object","properties":{"outcome":{"enum":["refused","not_attempted"]}}}}},"outcome":{"type":"object","properties":{"resulting_revision":{"type":"null"}}}}}},{"type":"object","if":{"type":"object","properties":{"overall_outcome":{"const":"reconciliation_required"}},"required":["overall_outcome"]},"then":{"type":"object","properties":{"effects":{"type":"object","properties":{"publication":{"type":"object","properties":{"outcome":{"const":"reconciliation_required"}}},"review_request":{"type":"object","properties":{"outcome":{"enum":["not_attempted","reconciliation_required"]}}}}},"recovery":{"type":"object","properties":{"resolution_disposition":{"const":"reconciliation_required"}}},"outcome":{"type":"object","properties":{"resulting_revision":{"type":"null"}}}}}},{"type":"object","if":{"type":"object","properties":{"recovery":{"type":"object","properties":{"resolution_disposition":{"const":"replayed_terminal_result"}},"required":["resolution_disposition"]}},"required":["recovery"]},"then":{"type":"object","properties":{"recovery":{"type":"object","properties":{"remote_effect_invoked":{"const":false}}}}}},{"type":"object","if":{"type":"object","properties":{"recovery":{"type":"object","properties":{"resolution_disposition":{"const":"recovered_converged_remote"}},"required":["resolution_disposition"]}},"required":["recovery"]},"then":{"type":"object","properties":{"recovery":{"type":"object","properties":{"remote_effect_invoked":{"const":false},"remote_convergence":{"const":"matches_intended_revision"}}}}}},{"type":"object","if":{"type":"object","properties":{"recovery":{"type":"object","properties":{"resolution_disposition":{"const":"retried_frozen_cas"}},"required":["resolution_disposition"]}},"required":["recovery"]},"then":{"type":"object","properties":{"recovery":{"type":"object","properties":{"remote_effect_invoked":{"const":true},"precondition_recheck":{"const":"holds"}}},"attempt":{"type":"object","properties":{"dispatch":{"type":"object","properties":{"dispatch_observation":{"const":"proven_absent"}}}}}}}},{"type":"object","if":{"type":"object","properties":{"recovery":{"type":"object","properties":{"resolution_disposition":{"const":"reconciliation_required"}},"required":["resolution_disposition"]}},"required":["recovery"]},"then":{"type":"object","properties":{"recovery":{"type":"object","properties":{"remote_effect_invoked":{"const":false}}},"outcome":{"type":"object","properties":{"resulting_revision":{"type":"null"}}}}}},{"type":"object","if":{"type":"object","properties":{"attempt":{"type":"object","properties":{"cas":{"type":"object","properties":{"target_ref_precondition":{"const":"must_not_exist"}},"required":["target_ref_precondition"]}},"required":["cas"]}},"required":["attempt"]},"then":{"type":"object","properties":{"attempt":{"type":"object","properties":{"cas":{"type":"object","properties":{"expected_target_head":{"type":"null"}}}}}}}},{"type":"object","if":{"type":"object","properties":{"operation":{"type":"object","properties":{"identity":{"type":"object","properties":{"review_intent":{"const":"not_requested"}},"required":["review_intent"]}},"required":["identity"]}},"required":["operation"]},"then":{"type":"object","properties":{"effects":{"type":"object","properties":{"review_request":{"type":"object","properties":{"outcome":{"enum":["not_requested","not_attempted"]},"reconciliation":{"type":"object","properties":{"resolution_disposition":{"const":"not_engaged"}}}}}}}}}},{"type":"object","if":{"type":"object","properties":{"operation":{"type":"object","properties":{"identity":{"type":"object","properties":{"review_intent":{"const":"requested"}},"required":["review_intent"]}},"required":["identity"]}},"required":["operation"]},"then":{"type":"object","properties":{"effects":{"type":"object","properties":{"review_request":{"type":"object","properties":{"outcome":{"enum":["opened","failed","refused","not_attempted","reconciliation_required"]}}}}}}}},{"type":"object","if":{"type":"object","properties":{"effects":{"type":"object","properties":{"review_request":{"type":"object","properties":{"outcome":{"const":"opened"}},"required":["outcome"]}},"required":["review_request"]}},"required":["effects"]},"then":{"type":"object","properties":{"effects":{"type":"object","properties":{"review_request":{"type":"object","properties":{"reconciliation":{"type":"object","properties":{"resolution_disposition":{"enum":["first_dispatch","replayed_terminal_result","recovered_converged_remote","retried_frozen_cas"]}}}}}}}}}},{"type":"object","if":{"type":"object","properties":{"effects":{"type":"object","properties":{"review_request":{"type":"object","properties":{"outcome":{"const":"reconciliation_required"}},"required":["outcome"]}},"required":["review_request"]}},"required":["effects"]},"then":{"type":"object","properties":{"effects":{"type":"object","properties":{"review_request":{"type":"object","properties":{"reconciliation":{"type":"object","properties":{"resolution_disposition":{"const":"reconciliation_required"},"remote_effect_invoked":{"const":false}}}}}}}}}},{"type":"object","if":{"type":"object","properties":{"effects":{"type":"object","properties":{"review_request":{"type":"object","properties":{"reconciliation":{"type":"object","properties":{"resolution_disposition":{"const":"not_engaged"}},"required":["resolution_disposition"]}},"required":["reconciliation"]}},"required":["review_request"]}},"required":["effects"]},"then":{"type":"object","properties":{"effects":{"type":"object","properties":{"review_request":{"type":"object","properties":{"outcome":{"enum":["not_requested","not_attempted"]},"reconciliation":{"type":"object","properties":{"remote_effect_invoked":{"const":false}}}}}}}}}}],"$defs":{"hash":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"},"nullableHash":{"anyOf":[{"$ref":"#/$defs/hash"},{"type":"null"}]},"revisionId":{"type":"string","pattern":"^scm-revision:[0-9a-f]{40,64}$"},"nullableRevisionId":{"anyOf":[{"$ref":"#/$defs/revisionId"},{"type":"null"}]},"dateTime":{"type":"string","format":"date-time","pattern":"^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$"},"publicationEffectRef":{"type":"string","pattern":"^scm-publication-effect://[^\\s]{1,248}$"},"operationRef":{"type":"string","pattern":"^scm-publication-operation://[^\\s]{1,248}$"},"attemptRef":{"type":"string","pattern":"^scm-publication-attempt://[^\\s]{1,248}$"},"preparedRef":{"type":"string","pattern":"^scm-publication-prepared://[^\\s]{1,248}$"},"proposalRef":{"type":"string","pattern":"^proposal://[^\\s]{1,248}$"},"receiptRef":{"type":"string","pattern":"^receipt://[^\\s]{1,248}$"},"evidenceRef":{"type":"string","pattern":"^(?:evidence|receipt|artifact|attestation)://[^\\s]{1,248}$"},"scopeRef":{"type":"string","pattern":"^scope:[a-z0-9][a-z0-9._:/-]{0,127}$"},"shortToken":{"type":"string","pattern":"^[a-z0-9][a-z0-9._:/-]{0,127}$"},"nullableShortToken":{"anyOf":[{"$ref":"#/$defs/shortToken"},{"type":"null"}]},"resolutionDisposition":{"enum":["first_dispatch","replayed_terminal_result","recovered_converged_remote","retried_frozen_cas","reconciliation_required"]},"reviewResolutionDisposition":{"enum":["first_dispatch","replayed_terminal_result","recovered_converged_remote","retried_frozen_cas","reconciliation_required","not_engaged"]},"resultingRevision":{"type":"object","additionalProperties":false,"required":["revision_id","target_head"],"properties":{"revision_id":{"$ref":"#/$defs/revisionId"},"target_head":{"$ref":"#/$defs/revisionId"}}},"changeSetFile":{"type":"object","additionalProperties":false,"required":["path","change_kind","content_digest","proposal_ref"],"properties":{"path":{"type":"string","minLength":1,"maxLength":256,"pattern":"^[A-Za-z0-9_][A-Za-z0-9._/-]{0,255}$"},"change_kind":{"enum":["added","modified","removed"]},"content_digest":{"$ref":"#/$defs/nullableHash"},"proposal_ref":{"$ref":"#/$defs/proposalRef"}}}}}"##),
     ("schema://ioi/components/daemon-runtime/action-request-envelope/v1", r##"{"$schema":"https://json-schema.org/draft/2020-12/schema","$id":"schema://ioi/components/daemon-runtime/action-request-envelope/v1","title":"ActionRequestEnvelope","description":"Immutable proposal envelope for one Authority Gateway mediated action. It declares requirements and evidence obligations but grants no authority and invokes nothing.","x-ioi-schema-version":"ioi.components.daemon-runtime.action-request-envelope.v1","type":"object","additionalProperties":false,"required":["schema_version","action_request_ref","request_revision","request_hash","authority_gateway_profile_ref","authority_gateway_profile_hash","source_adapter","proposed_action","risk_class","primitive_capabilities_required","authority_scopes_required","policy_decision","subject_refs","receipt_obligations","created_at","expires_at"],"properties":{"schema_version":{"const":"ioi.components.daemon-runtime.action-request-envelope.v1"},"action_request_ref":{"$ref":"#/$defs/actionRequestRef"},"request_revision":{"$ref":"#/$defs/positiveInteger"},"request_hash":{"$ref":"#/$defs/hash"},"authority_gateway_profile_ref":{"$ref":"#/$defs/gatewayProfileRef"},"authority_gateway_profile_hash":{"$ref":"#/$defs/hash"},"source_adapter":{"$ref":"#/$defs/sourceAdapter"},"proposed_action":{"$ref":"#/$defs/proposedAction"},"risk_class":{"enum":["informational","local_mutation","external_effect","system_destructive","secret_access","financial"]},"primitive_capabilities_required":{"type":"array","items":{"$ref":"#/$defs/primitiveCapability"},"maxItems":32,"uniqueItems":true},"authority_scopes_required":{"type":"array","items":{"$ref":"#/$defs/authorityScope"},"maxItems":32,"uniqueItems":true},"policy_decision":{"$ref":"#/$defs/policyDecision"},"subject_refs":{"$ref":"#/$defs/subjectRefs"},"receipt_obligations":{"type":"array","items":{"$ref":"#/$defs/receiptObligation"},"minItems":3,"maxItems":16,"allOf":[{"contains":{"type":"object","properties":{"receipt_type":{"const":"gateway_decision"}},"required":["receipt_type"]}},{"contains":{"type":"object","properties":{"receipt_type":{"const":"gateway_execution"}},"required":["receipt_type"]}},{"contains":{"type":"object","properties":{"receipt_type":{"const":"gateway_artifact"}},"required":["receipt_type"]}}]},"created_at":{"$ref":"#/$defs/dateTime"},"expires_at":{"$ref":"#/$defs/dateTime"}},"$defs":{"sourceAdapter":{"type":"object","additionalProperties":false,"required":["adapter_ref","adapter_revision","adapter_kind","implementation_ref","deployment_profile_ref"],"properties":{"adapter_ref":{"type":"string","pattern":"^adapter://[^\\s]{1,500}$"},"adapter_revision":{"type":"string","minLength":1,"maxLength":128},"adapter_kind":{"enum":["ide_extension","cli_wrapper","mcp_gateway","shell_wrapper","git_hook","workspace_watcher","api_proxy","browser_adapter","hosted_agent_gateway","ci_gate"]},"implementation_ref":{"$ref":"#/$defs/artifactRef"},"deployment_profile_ref":{"type":"string","pattern":"^deployment-profile://[^\\s]{1,500}$"}}},"proposedAction":{"type":"object","additionalProperties":false,"required":["action_class","operation","summary","input_commitment","target_refs","external_effect","proposed_effect_ref","proposed_effect_hash"],"properties":{"action_class":{"enum":["shell","file","git","mcp_tool","api","browser","deploy","secret","connector","provider"]},"operation":{"type":"string","pattern":"^[a-z][a-z0-9._-]{0,127}$"},"summary":{"type":"string","minLength":1,"maxLength":2048},"input_commitment":{"$ref":"#/$defs/hash"},"target_refs":{"type":"array","items":{"$ref":"#/$defs/canonicalRef"},"minItems":1,"maxItems":32,"uniqueItems":true},"external_effect":{"type":"boolean"},"proposed_effect_ref":{"oneOf":[{"type":"string","pattern":"^effect://[^\\s]{1,500}$"},{"type":"null"}]},"proposed_effect_hash":{"oneOf":[{"$ref":"#/$defs/hash"},{"type":"null"}]}},"allOf":[{"if":{"properties":{"external_effect":{"const":true}},"required":["external_effect"]},"then":{"properties":{"proposed_effect_ref":{"type":"string","pattern":"^effect://[^\\s]{1,500}$"},"proposed_effect_hash":{"$ref":"#/$defs/hash"}}},"else":{"properties":{"proposed_effect_ref":{"type":"null"},"proposed_effect_hash":{"type":"null"}}}}]},"policyDecision":{"type":"object","additionalProperties":false,"required":["status","decision_receipt_ref","policy_ref","policy_hash","decided_at"],"properties":{"status":{"enum":["pending","allowed","denied","requires_approval","transform_required"]},"decision_receipt_ref":{"oneOf":[{"$ref":"#/$defs/receiptRef"},{"type":"null"}]},"policy_ref":{"type":"string","pattern":"^policy://[^\\s]{1,500}$"},"policy_hash":{"$ref":"#/$defs/hash"},"decided_at":{"oneOf":[{"$ref":"#/$defs/dateTime"},{"type":"null"}]}},"allOf":[{"if":{"properties":{"status":{"const":"pending"}},"required":["status"]},"then":{"properties":{"decision_receipt_ref":{"type":"null"},"decided_at":{"type":"null"}}},"else":{"properties":{"decision_receipt_ref":{"$ref":"#/$defs/receiptRef"},"decided_at":{"$ref":"#/$defs/dateTime"}}}}]},"subjectRefs":{"type":"object","additionalProperties":false,"required":["session_ref","goal_ref","work_run_ref","work_item_ref"],"properties":{"session_ref":{"oneOf":[{"type":"string","pattern":"^session://[^\\s]{1,500}$"},{"type":"null"}]},"goal_ref":{"oneOf":[{"type":"string","pattern":"^goal://[^\\s]{1,500}$"},{"type":"null"}]},"work_run_ref":{"oneOf":[{"type":"string","pattern":"^work_run://[^\\s]{1,500}$"},{"type":"null"}]},"work_item_ref":{"oneOf":[{"type":"string","pattern":"^work_item://[^\\s]{1,500}$"},{"type":"null"}]}}},"receiptObligation":{"type":"object","additionalProperties":false,"required":["obligation_id","boundary_event","receipt_type","receipt_profile_ref","bound_fact_requirement_refs","required"],"properties":{"obligation_id":{"type":"string","pattern":"^[a-z][a-z0-9._-]{0,127}$"},"boundary_event":{"enum":["decision","execution","artifact"]},"receipt_type":{"enum":["gateway_decision","gateway_execution","gateway_artifact"]},"receipt_profile_ref":{"enum":["schema://ioi/components/daemon-runtime/gateway-decision-receipt/v1","schema://ioi/components/daemon-runtime/gateway-execution-receipt/v1","schema://ioi/components/daemon-runtime/gateway-artifact-receipt/v1"]},"bound_fact_requirement_refs":{"type":"array","items":{"$ref":"#/$defs/canonicalRef"},"maxItems":32,"uniqueItems":true},"required":{"const":true}}},"positiveInteger":{"type":"integer","minimum":1,"maximum":9007199254740991},"actionRequestRef":{"type":"string","pattern":"^action-request://[^\\s]{1,500}$"},"gatewayProfileRef":{"type":"string","pattern":"^authority-gateway://[^\\s]{1,500}$"},"receiptRef":{"type":"string","pattern":"^receipt://[^\\s]{1,500}$"},"artifactRef":{"type":"string","pattern":"^artifact://[^\\s]{1,500}$"},"canonicalRef":{"type":"string","pattern":"^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"},"primitiveCapability":{"type":"string","pattern":"^prim:[a-z][a-z0-9._-]*$"},"authorityScope":{"type":"string","pattern":"^scope:[a-z][a-z0-9._-]*$"},"hash":{"type":"string","pattern":"^sha256:[a-f0-9]{64}$"},"dateTime":{"type":"string","format":"date-time","pattern":"^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$"}}}"##),
@@ -200493,6 +201378,7 @@ const CONTRACT_INVARIANTS: &[(&str, &str)] = &[
     ("schema://ioi/components/agentgres/staged-effect/v1", r#"[]"#),
     ("schema://ioi/components/agentgres/storage-backend-write-admission/v1", r#"[{"rule_id":"storage_backend_write_admission.agentgres_ref.required","description":"A storage backend write without an Agentgres ArtifactRef or PayloadRef fails: every admitted byte write binds at least one artifact ref or payload ref, so no payload can exist outside the artifact-ref plane.","expression":{"operator":"any_non_empty","paths":["$.artifact_refs","$.payload_refs"]}}]"#),
     ("schema://ioi/components/connectors-tools/runtime-tool-contract/v1", r#"[{"rule_id":"runtime_tool_contract.data_class_allowlist.required","description":"A tool declares the information classes it may receive.","expression":{"operator":"non_empty","path":"$.data_class_allowlist"}},{"rule_id":"runtime_tool_contract.destination_allowlist.required","description":"A tool declares at least one destination pattern; ambient network is forbidden.","expression":{"operator":"non_empty","path":"$.egress_policy.allowed_destination_patterns"}}]"#),
+    ("schema://ioi/components/hypervisor/mcp-primitive-normalization-decision/v1", r#"[{"rule_id":"mcp_primitive_normalization_decision.normalized_names_its_backing_record","description":"A NORMALIZED decision names the admitted owner record it resolved to. The JSON Schema enforces this too, and refuses first — measured, not assumed: the golden-fixture oracle reports `schema` for a normalized decision with no backing ref, so the negative fixture is registered against the schema layer. This rule is not therefore idle. It is the same law in the PORTABLE invariant language, which is what a consumer that does not run JSON Schema reads, and the claim it carries is the one the whole unit turns on: 'resolves to its existing canonical owner' is a statement about a RECORD, and a normalization with nothing behind it is exactly the invented truth the acceptance forbids.","expression":{"operator":"non_empty_when_in","path":"$.canonical_backing_ref","when_path":"$.normalization_decision","values":["normalized"]}},{"rule_id":"mcp_primitive_normalization_decision.typed_unavailable_names_the_owner_that_would_serve_it","description":"A refusal that named no owner would be a wall rather than a boundary: the caller could not tell whether the primitive is unsupported, unbuilt or forbidden. Every decision carries the canonical owner, and on a typed-unavailable answer that is the owner which would have to exist for the primitive to be served.","expression":{"operator":"non_empty_when_in","path":"$.canonical_owner","when_path":"$.normalization_decision","values":["typed_unavailable","normalized"]}}]"#),
     ("schema://ioi/components/connectors-tools/scm-publication-effect/v1", r#"[{"rule_id":"scm_publication_effect.content_commitment.recomputes","description":"The publication effect hash recomputes over every field except publication_effect_hash, so the declared destination, change set, compare-and-swap, idempotency material, and per-effect outcomes are all committed material.","expression":{"operator":"jcs_sha256_equals","algorithm":"jcs_sha256","material_fields":{"domain":{"value":"ioi.scm-publication-effect-commitment-jcs-sha256.v1"},"schema_version":{"path":"$.schema_version"},"publication_effect_id":{"path":"$.publication_effect_id"},"work_subject":{"path":"$.work_subject"},"authority":{"path":"$.authority"},"destination":{"path":"$.destination"},"change_set":{"path":"$.change_set"},"remote_cas":{"path":"$.remote_cas"},"idempotency":{"path":"$.idempotency"},"effects":{"path":"$.effects"},"overall_outcome":{"path":"$.overall_outcome"},"nonclaims":{"path":"$.nonclaims"},"committed_at":{"path":"$.committed_at"}},"expected_path":"$.publication_effect_hash","expected_encoding":"sha256_string"}},{"rule_id":"scm_publication_effect.change_set.file_set_digest.recomputes","description":"The file-set digest recomputes over the bound proposal, the base revision, and the exact enumerated file rows, so the published change set is the declared set and nothing else.","expression":{"operator":"jcs_sha256_equals","algorithm":"jcs_sha256","material_fields":{"domain":{"value":"ioi.scm-publication-effect-file-set-jcs-sha256.v1"},"proposal_ref":{"path":"$.work_subject.proposal_ref"},"proposal_content_commitment":{"path":"$.change_set.proposal_content_commitment"},"base_revision_id":{"path":"$.change_set.base_revision_id"},"files":{"path":"$.change_set.files"}},"expected_path":"$.change_set.file_set_digest","expected_encoding":"sha256_string"}},{"rule_id":"scm_publication_effect.change_set.binds_proposal_commitment","description":"The change set carries the exact content commitment of the proposal it was computed from, and that commitment equals the bound work subject proposal hash.","expression":{"operator":"fields_equal","paths":["$.change_set.proposal_content_commitment","$.work_subject.proposal_hash"]}},{"rule_id":"scm_publication_effect.change_set.files.bind_proposal","description":"Every published file row is attributed to the one bound proposal; an unattributed or foreign file cannot ride along.","expression":{"operator":"array_field_equals","array_path":"$.change_set.files","field":"proposal_ref","expected_path":"$.work_subject.proposal_ref"}},{"rule_id":"scm_publication_effect.change_set.files.unique_paths","description":"Each repository-relative path appears at most once in the published change set.","expression":{"operator":"array_unique_by_fields","array_path":"$.change_set.files","fields":["path"]}},{"rule_id":"scm_publication_effect.destination.binding_covers_repository","description":"The repository the effect names is the repository the admitted destination binding covers; the destination never resolves from free caller text.","expression":{"operator":"field_starts_with_path","path":"$.destination.destination_binding_ref","expected_path":"$.destination.repository_ref","prefix":"scm-destination-binding://","strip_prefix":"repository://","suffix":"/"}},{"rule_id":"scm_publication_effect.remote_cas.expected_target_head.declared","description":"When the target ref is expected to exist, the effect declares the exact remote head it was computed against; an absent expected head is a refusal, never an unconditional advance.","expression":{"operator":"non_empty_when_in","path":"$.remote_cas.expected_target_head","when_path":"$.remote_cas.target_ref_precondition","values":["expected_head"]}},{"rule_id":"scm_publication_effect.remote_cas.expected_base_head.binds_change_set_base","description":"The expected base head is the exact revision the change set was computed onto; a declared head detached from the change-set base is a stale compare-and-swap and is refused.","expression":{"operator":"fields_equal","paths":["$.remote_cas.expected_base_head","$.change_set.base_revision_id"]}},{"rule_id":"scm_publication_effect.remote_cas.resulting_target_head.binds_resulting_revision","description":"The resulting remote head equals the resulting revision of the published change set, so a remote advance can never be reported for material the effect did not commit.","expression":{"operator":"fields_equal","paths":["$.remote_cas.resulting_target_head","$.change_set.resulting_revision_id"]}},{"rule_id":"scm_publication_effect.idempotency.key.recomputes","description":"The idempotency key recomputes over the bound proposal, the admitted destination binding, the target ref precondition and expected head, and the file-set digest, so an exact resubmission converges and any changed material is a different submission.","expression":{"operator":"jcs_sha256_equals","algorithm":"jcs_sha256","material_fields":{"domain":{"value":"ioi.scm-publication-effect-idempotency-jcs-sha256.v1"},"proposal_ref":{"path":"$.work_subject.proposal_ref"},"proposal_hash":{"path":"$.work_subject.proposal_hash"},"destination_binding_ref":{"path":"$.destination.destination_binding_ref"},"destination_binding_hash":{"path":"$.destination.destination_binding_hash"},"repository_ref":{"path":"$.destination.repository_ref"},"target_ref":{"path":"$.destination.target_ref"},"target_ref_precondition":{"path":"$.remote_cas.target_ref_precondition"},"expected_target_head":{"path":"$.remote_cas.expected_target_head"},"file_set_digest":{"path":"$.change_set.file_set_digest"}},"expected_path":"$.idempotency.idempotency_key","expected_encoding":"sha256_string"}},{"rule_id":"scm_publication_effect.idempotency.replay.binds_prior_effect","description":"A converged or conflicting replay names the prior publication effect it converged against; a replay disposition without a prior effect is unrepresentable.","expression":{"operator":"non_empty_when_in","path":"$.idempotency.prior_effect_ref","when_path":"$.idempotency.submission_disposition","values":["converged_replay","refused_conflicting_replay"]}},{"rule_id":"scm_publication_effect.idempotency.replay.binds_prior_hash","description":"A replay also carries the prior effect content commitment, so convergence is asserted against exact material rather than an identifier alone.","expression":{"operator":"non_empty_when_in","path":"$.idempotency.prior_effect_hash","when_path":"$.idempotency.submission_disposition","values":["converged_replay","refused_conflicting_replay"]}},{"rule_id":"scm_publication_effect.effects.receipts.distinct","description":"The publication and the review request are separately receipted; one receipt can never stand for both sub-effects.","expression":{"operator":"fields_not_equal","paths":["$.effects.publication.receipt_ref","$.effects.review_request.receipt_ref"]}},{"rule_id":"scm_publication_effect.effects.review_request.receipt_declared","description":"An opened or failed review request carries its own receipt; a failed review request is receipted as its own honest outcome rather than absorbed into the publication receipt.","expression":{"operator":"non_empty_when_in","path":"$.effects.review_request.receipt_ref","when_path":"$.effects.review_request.outcome","values":["opened","failed"]}},{"rule_id":"scm_publication_effect.effects.publication.refusal_code_declared","description":"A refused or partially applied publication declares the exact refusal code it failed closed on.","expression":{"operator":"non_empty_when_in","path":"$.effects.publication.refusal_code","when_path":"$.effects.publication.outcome","values":["refused","partially_applied"]}},{"rule_id":"scm_publication_effect.effects.review_request.refusal_code_declared","description":"A failed or refused review request declares the exact refusal code, so a review-request failure is never reported as an empty success.","expression":{"operator":"non_empty_when_in","path":"$.effects.review_request.refusal_code","when_path":"$.effects.review_request.outcome","values":["failed","refused"]}}]"#),
     ("schema://ioi/components/connectors-tools/scm-publication-effect/v2", r#"[{"rule_id":"scm_publication_effect_v2.content_commitment.recomputes","description":"The publication effect hash recomputes over every field except publication_effect_hash, so the operation identity, the preparation record, the attempt fingerprint, the recovery disposition, the outcome, and both sub-effect outcomes are all committed material.","expression":{"operator":"jcs_sha256_equals","algorithm":"jcs_sha256","material_fields":{"domain":{"value":"ioi.scm-publication-effect-commitment-jcs-sha256.v2"},"schema_version":{"path":"$.schema_version"},"publication_effect_id":{"path":"$.publication_effect_id"},"execution_semantics":{"path":"$.execution_semantics"},"operation":{"path":"$.operation"},"authority":{"path":"$.authority"},"preparation":{"path":"$.preparation"},"attempt":{"path":"$.attempt"},"recovery":{"path":"$.recovery"},"outcome":{"path":"$.outcome"},"effects":{"path":"$.effects"},"overall_outcome":{"path":"$.overall_outcome"},"nonclaims":{"path":"$.nonclaims"},"committed_at":{"path":"$.committed_at"}},"expected_path":"$.publication_effect_hash","expected_encoding":"sha256_string"}},{"rule_id":"scm_publication_effect_v2.operation.key.recomputes","description":"The operation key recomputes over the operation identity and NOTHING else. The identity is a closed object carrying the work run, the proposal, the admitted destination binding, the target and base refs, the enumerated file set, the review intent, the frozen commit metadata, and the intended revision; it has no field for an observed remote head. An implementation that folded a head observation into the key therefore cannot produce a key that recomputes, which is what makes the operation identity observation-independent and a retry the same logical operation.","expression":{"operator":"jcs_sha256_equals","algorithm":"jcs_sha256","material_fields":{"domain":{"value":"ioi.scm-publication-operation-identity-jcs-sha256.v2"},"identity":{"path":"$.operation.identity"}},"expected_path":"$.operation.operation_key","expected_encoding":"sha256_string"}},{"rule_id":"scm_publication_effect_v2.operation.identity.file_set_digest.recomputes","description":"The file-set digest recomputes over the bound proposal, the frozen base revision, and the exact enumerated file rows, so the file set inside the operation identity is the declared set and nothing else.","expression":{"operator":"jcs_sha256_equals","algorithm":"jcs_sha256","material_fields":{"domain":{"value":"ioi.scm-publication-operation-file-set-jcs-sha256.v2"},"proposal_ref":{"path":"$.operation.identity.proposal_ref"},"proposal_hash":{"path":"$.operation.identity.proposal_hash"},"base_revision_id":{"path":"$.operation.identity.base_revision_id"},"files":{"path":"$.operation.identity.files"}},"expected_path":"$.operation.identity.file_set_digest","expected_encoding":"sha256_string"}},{"rule_id":"scm_publication_effect_v2.operation.identity.commit_metadata.frozen","description":"The commit metadata digest recomputes over the message commitment, the authorship commitment, and both declared timestamps, so the commit the operation intends is frozen at preparation and cannot be re-derived on a later attempt.","expression":{"operator":"jcs_sha256_equals","algorithm":"jcs_sha256","material_fields":{"domain":{"value":"ioi.scm-publication-frozen-commit-metadata-jcs-sha256.v2"},"commit_message_digest":{"path":"$.operation.identity.frozen_commit_metadata.commit_message_digest"},"authorship_commitment":{"path":"$.operation.identity.frozen_commit_metadata.authorship_commitment"},"authored_at":{"path":"$.operation.identity.frozen_commit_metadata.authored_at"},"commit_timestamp":{"path":"$.operation.identity.frozen_commit_metadata.commit_timestamp"}},"expected_path":"$.operation.identity.frozen_commit_metadata.metadata_digest","expected_encoding":"sha256_string"}},{"rule_id":"scm_publication_effect_v2.operation.identity.files.bind_proposal","description":"Every file row inside the operation identity is attributed to the one bound proposal; an unattributed or foreign file cannot ride along.","expression":{"operator":"array_field_equals","array_path":"$.operation.identity.files","field":"proposal_ref","expected_path":"$.operation.identity.proposal_ref"}},{"rule_id":"scm_publication_effect_v2.operation.identity.files.unique_paths","description":"Each repository-relative path appears at most once in the operation's frozen file set.","expression":{"operator":"array_unique_by_fields","array_path":"$.operation.identity.files","fields":["path"]}},{"rule_id":"scm_publication_effect_v2.destination.binding_covers_repository","description":"The repository the operation names is the repository the admitted destination binding covers; the destination never resolves from free caller text.","expression":{"operator":"field_starts_with_path","path":"$.operation.identity.destination_binding_ref","expected_path":"$.operation.identity.repository_ref","prefix":"scm-destination-binding://","strip_prefix":"repository://","suffix":"/"}},{"rule_id":"scm_publication_effect_v2.preparation.precedes_remote_effect","description":"A dispatch is only describable against the Prepared record that was persisted before it: the dispatch carries the Prepared content commitment, and it must equal the persisted preparation commitment. A remote effect invoked before Prepared was persisted has no commitment to name.","expression":{"operator":"fields_equal","paths":["$.attempt.dispatch.prepared_record_hash","$.preparation.prepared_record_hash"]}},{"rule_id":"scm_publication_effect_v2.attempt.cas_fingerprint.recomputes","description":"The attempt fingerprint recomputes over the operation key, the target ref precondition, the observed expected head, and the frozen base revision. This is the only place the observed remote head is committed, which is what keeps it out of the operation identity.","expression":{"operator":"jcs_sha256_equals","algorithm":"jcs_sha256","material_fields":{"domain":{"value":"ioi.scm-publication-attempt-cas-jcs-sha256.v2"},"operation_key":{"path":"$.operation.operation_key"},"target_ref_precondition":{"path":"$.attempt.cas.target_ref_precondition"},"expected_target_head":{"path":"$.attempt.cas.expected_target_head"},"base_revision_id":{"path":"$.operation.identity.base_revision_id"}},"expected_path":"$.attempt.cas_fingerprint","expected_encoding":"sha256_string"}},{"rule_id":"scm_publication_effect_v2.attempt.cas.frozen","description":"Every attempt of one operation carries the frozen compare-and-swap: this attempt's fingerprint must equal the fingerprint frozen at preparation. A retry that re-observed the remote head and recomputed a different precondition is not an attempt of this operation and is unrepresentable; a moved head must be refused as reconciliation_required instead.","expression":{"operator":"fields_equal","paths":["$.attempt.cas_fingerprint","$.attempt.frozen_cas_fingerprint"]}},{"rule_id":"scm_publication_effect_v2.attempt.cas.expected_target_head.declared","description":"When the target ref is expected to exist, the attempt declares the exact remote head it was computed against; an absent expected head is a refusal, never an unconditional advance.","expression":{"operator":"non_empty_when_in","path":"$.attempt.cas.expected_target_head","when_path":"$.attempt.cas.target_ref_precondition","values":["expected_head"]}},{"rule_id":"scm_publication_effect_v2.recovery.replay.binds_prior_terminal","description":"A replayed terminal result names the prior terminal publication effect it replayed; a replay disposition without a prior terminal effect is unrepresentable, so a replay can never be manufactured to skip a remote effect that never happened.","expression":{"operator":"non_empty_when_in","path":"$.recovery.prior_terminal_effect_ref","when_path":"$.recovery.resolution_disposition","values":["replayed_terminal_result"]}},{"rule_id":"scm_publication_effect_v2.recovery.replay.binds_prior_hash","description":"A replay also carries the prior terminal effect's content commitment, so the replayed result is asserted against exact material rather than an identifier alone.","expression":{"operator":"non_empty_when_in","path":"$.recovery.prior_terminal_effect_hash","when_path":"$.recovery.resolution_disposition","values":["replayed_terminal_result"]}},{"rule_id":"scm_publication_effect_v2.recovery.reconciliation.code_declared","description":"A reconciliation_required resolution declares the exact reconciliation code an operator must act on; an unresolved operation is never an empty refusal.","expression":{"operator":"non_empty_when_in","path":"$.recovery.reconciliation_code","when_path":"$.recovery.resolution_disposition","values":["reconciliation_required"]}},{"rule_id":"scm_publication_effect_v2.outcome.never_fresh_child_commit","description":"Either no revision was created, or the created revision is exactly the revision the operation froze. A resulting revision that differs from intended_revision_id would be a second commit produced by a retry, and it has no representation.","expression":{"operator":"optional_field_equals","optional_object_path":"$.outcome.resulting_revision","field":"revision_id","expected_path":"$.operation.identity.intended_revision_id"}},{"rule_id":"scm_publication_effect_v2.outcome.head_binds_intended_revision","description":"When a revision exists, the remote head reported for the target ref equals that same frozen intended revision, so a remote advance can never be reported for material this operation did not freeze.","expression":{"operator":"optional_field_equals","optional_object_path":"$.outcome.resulting_revision","field":"target_head","expected_path":"$.operation.identity.intended_revision_id"}},{"rule_id":"scm_publication_effect_v2.effects.receipts.distinct","description":"The publication and the review request are separately receipted; one receipt can never stand for both sub-effects.","expression":{"operator":"fields_not_equal","paths":["$.effects.publication.receipt_ref","$.effects.review_request.receipt_ref"]}},{"rule_id":"scm_publication_effect_v2.effects.review_request.reconciles_independently","description":"The review request reconciles as its own logical operation: its reconciliation key is derived from, and must differ from, the publication operation key. A review-request ambiguity therefore cannot be absorbed into the publication operation, and resolving one never resolves the other.","expression":{"operator":"fields_not_equal","paths":["$.effects.review_request.reconciliation.operation_key","$.operation.operation_key"]}},{"rule_id":"scm_publication_effect_v2.effects.review_request.reconciliation.key_recomputes","description":"The review-request reconciliation key recomputes over the publication operation key, the frozen review intent, and the target ref, so the review sub-effect is bound to the same publication without sharing its identity.","expression":{"operator":"jcs_sha256_equals","algorithm":"jcs_sha256","material_fields":{"domain":{"value":"ioi.scm-review-request-operation-jcs-sha256.v2"},"publication_operation_key":{"path":"$.operation.operation_key"},"review_intent":{"path":"$.operation.identity.review_intent"},"target_ref":{"path":"$.operation.identity.target_ref"}},"expected_path":"$.effects.review_request.reconciliation.operation_key","expected_encoding":"sha256_string"}},{"rule_id":"scm_publication_effect_v2.effects.review_request.receipt_declared","description":"An opened or failed review request carries its own receipt; a failed review request is receipted as its own honest outcome rather than absorbed into the publication receipt.","expression":{"operator":"non_empty_when_in","path":"$.effects.review_request.receipt_ref","when_path":"$.effects.review_request.outcome","values":["opened","failed"]}},{"rule_id":"scm_publication_effect_v2.effects.publication.refusal_code_declared","description":"A refused, partially applied, or unresolved publication declares the exact code it failed closed on.","expression":{"operator":"non_empty_when_in","path":"$.effects.publication.refusal_code","when_path":"$.effects.publication.outcome","values":["refused","partially_applied","reconciliation_required"]}},{"rule_id":"scm_publication_effect_v2.effects.review_request.refusal_code_declared","description":"A failed, refused, or unresolved review request declares its exact code, so a review-request failure or ambiguity is never reported as an empty success.","expression":{"operator":"non_empty_when_in","path":"$.effects.review_request.refusal_code","when_path":"$.effects.review_request.outcome","values":["failed","refused","reconciliation_required"]}}]"#),
     ("schema://ioi/components/daemon-runtime/action-request-envelope/v1", r#"[{"rule_id":"action_request.request_hash.recomputes","description":"The request hash binds the profile, adapter, exact proposal, declared requirements, policy posture, subjects, obligations, and validity window.","expression":{"operator":"jcs_sha256_equals","algorithm":"jcs_sha256","material_fields":{"domain":{"value":"ioi.action-request-envelope-hash-jcs-sha256.v1"},"action_request_ref":{"path":"$.action_request_ref"},"request_revision":{"path":"$.request_revision"},"authority_gateway_profile_ref":{"path":"$.authority_gateway_profile_ref"},"authority_gateway_profile_hash":{"path":"$.authority_gateway_profile_hash"},"source_adapter":{"path":"$.source_adapter"},"proposed_action":{"path":"$.proposed_action"},"risk_class":{"path":"$.risk_class"},"primitive_capabilities_required":{"path":"$.primitive_capabilities_required"},"authority_scopes_required":{"path":"$.authority_scopes_required"},"policy_decision":{"path":"$.policy_decision"},"subject_refs":{"path":"$.subject_refs"},"receipt_obligations":{"path":"$.receipt_obligations"},"created_at":{"path":"$.created_at"},"expires_at":{"path":"$.expires_at"}},"expected_path":"$.request_hash","expected_encoding":"sha256_string"}}]"#),
@@ -202278,6 +203164,10 @@ const CONTRACT_PATTERN_TRANSLATIONS: &[(&str, &str)] = &[
     (
         r#"^[a-z][a-z0-9+.-]*(?:://|:)[^\s]{1,248}$"#,
         r#"^[a-z][a-z0-9+.-]*(?:://|:)[^\u{0009}-\u{000D}\u{0020}\u{00A0}\u{1680}\u{2000}-\u{200A}\u{2028}\u{2029}\u{202F}\u{205F}\u{3000}\u{FEFF}]{1,248}$"#,
+    ),
+    (
+        r#"^[a-z][a-z0-9+.-]*://[^ ]{1,480}$"#,
+        r#"^[a-z][a-z0-9+.-]*://[^ ]{1,480}$"#,
     ),
     (
         r#"^[a-z][a-z0-9+.-]*://[^\s]{1,248}$"#,
@@ -206318,6 +207208,19 @@ mod tests {
     ("docs/architecture/_meta/schemas/fixtures/storage-backend-write-admission-v1/negative-content-hash-unbound.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/storage-backend-write-admission-v1/negative-content-hash-unbound.json"))),
     ("docs/architecture/_meta/schemas/fixtures/runtime-tool-contract-v1/positive-declared-egress.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/runtime-tool-contract-v1/positive-declared-egress.json"))),
     ("docs/architecture/_meta/schemas/fixtures/runtime-tool-contract-v1/negative-missing-destination-declaration.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/runtime-tool-contract-v1/negative-missing-destination-declaration.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/mcp-primitive-normalization-decision-v1/positive-normalized-app-descriptor.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/mcp-primitive-normalization-decision-v1/positive-normalized-app-descriptor.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/mcp-primitive-normalization-decision-v1/positive-normalized-app-descriptor-projection.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/mcp-primitive-normalization-decision-v1/positive-normalized-app-descriptor-projection.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/mcp-primitive-normalization-decision-v1/positive-typed-unavailable-gateway.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/mcp-primitive-normalization-decision-v1/positive-typed-unavailable-gateway.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/mcp-primitive-normalization-decision-v1/positive-typed-unavailable-resource.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/mcp-primitive-normalization-decision-v1/positive-typed-unavailable-resource.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/mcp-primitive-normalization-decision-v1/negative-app-descriptor-granting-host-mutation.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/mcp-primitive-normalization-decision-v1/negative-app-descriptor-granting-host-mutation.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/mcp-primitive-normalization-decision-v1/negative-normalized-granting-authority.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/mcp-primitive-normalization-decision-v1/negative-normalized-granting-authority.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/mcp-primitive-normalization-decision-v1/negative-normalized-without-a-backing-ref.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/mcp-primitive-normalization-decision-v1/negative-normalized-without-a-backing-ref.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/mcp-primitive-normalization-decision-v1/negative-status-disagrees-with-the-decision.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/mcp-primitive-normalization-decision-v1/negative-status-disagrees-with-the-decision.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/mcp-primitive-normalization-decision-v1/negative-typed-unavailable-granting-authority.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/mcp-primitive-normalization-decision-v1/negative-typed-unavailable-granting-authority.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/mcp-primitive-normalization-decision-v1/negative-typed-unavailable-granting-receipt-identity.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/mcp-primitive-normalization-decision-v1/negative-typed-unavailable-granting-receipt-identity.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/mcp-primitive-normalization-decision-v1/negative-typed-unavailable-with-a-backing-ref.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/mcp-primitive-normalization-decision-v1/negative-typed-unavailable-with-a-backing-ref.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/mcp-primitive-normalization-decision-v1/negative-unknown-member.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/mcp-primitive-normalization-decision-v1/negative-unknown-member.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/mcp-primitive-normalization-decision-v1/negative-unknown-primitive.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/mcp-primitive-normalization-decision-v1/negative-unknown-primitive.json"))),
     ("docs/architecture/_meta/schemas/fixtures/scm-publication-effect-v1/positive-published-with-review-request.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/scm-publication-effect-v1/positive-published-with-review-request.json"))),
     ("docs/architecture/_meta/schemas/fixtures/scm-publication-effect-v1/positive-review-request-failed.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/scm-publication-effect-v1/positive-review-request-failed.json"))),
     ("docs/architecture/_meta/schemas/fixtures/scm-publication-effect-v1/positive-refused-stale-remote-head.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/scm-publication-effect-v1/positive-refused-stale-remote-head.json"))),
@@ -208094,6 +208997,11 @@ mod tests {
                 .map(|_| ())
                 .map_err(|error| error.to_string())
         },
+        "schema://ioi/components/hypervisor/mcp-primitive-normalization-decision/v1" => {
+            serde_json::from_value::<McpPrimitiveNormalizationDecisionV1>(value.clone())
+                .map(|_| ())
+                .map_err(|error| error.to_string())
+        },
         "schema://ioi/components/connectors-tools/scm-publication-effect/v1" => {
             serde_json::from_value::<ScmPublicationEffectV1>(value.clone())
                 .map(|_| ())
@@ -209805,6 +210713,11 @@ mod tests {
                 .map_err(|error| error.to_string())?;
             serde_json::to_value(projection).map_err(|error| error.to_string())
         },
+        "schema://ioi/components/hypervisor/mcp-primitive-normalization-decision/v1" => {
+            let projection = serde_json::from_value::<McpPrimitiveNormalizationDecisionV1>(value.clone())
+                .map_err(|error| error.to_string())?;
+            serde_json::to_value(projection).map_err(|error| error.to_string())
+        },
         "schema://ioi/components/connectors-tools/scm-publication-effect/v1" => {
             let projection = serde_json::from_value::<ScmPublicationEffectV1>(value.clone())
                 .map_err(|error| error.to_string())?;
@@ -211411,8 +212324,8 @@ mod tests {
     fn golden_fixtures_match_generated_rust_contracts() {
         assert_eq!(
             ARCHITECTURE_CONTRACT_FIXTURES.len(),
-            1766,
-            "the registered golden corpus must remain the explicit 1766-fixture bar",
+            1779,
+            "the registered golden corpus must remain the explicit 1779-fixture bar",
         );
         for fixture in ARCHITECTURE_CONTRACT_FIXTURES {
             let body = FIXTURE_BODIES
@@ -211654,7 +212567,7 @@ mod tests {
 
     #[test]
     fn registered_ecma_pattern_translations_compile_and_match_whitespace() {
-        assert_eq!(CONTRACT_PATTERN_TRANSLATIONS.len(), 1082,);
+        assert_eq!(CONTRACT_PATTERN_TRANSLATIONS.len(), 1083,);
         for (ecma, translated) in CONTRACT_PATTERN_TRANSLATIONS {
             Regex::new(translated).unwrap_or_else(|error| panic!("{ecma}: {error}"));
         }

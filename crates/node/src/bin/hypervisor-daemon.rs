@@ -134,6 +134,8 @@ mod managed_runtime_routes;
 mod marketplace_routes;
 #[path = "hypervisor_daemon_routes/materializing_run_routes.rs"]
 mod materializing_run_routes;
+#[path = "hypervisor_daemon_routes/mcp_normalization_routes.rs"]
+mod mcp_normalization_routes;
 #[path = "hypervisor_daemon_routes/media_trajectory_dataset_routes.rs"]
 mod media_trajectory_dataset_routes;
 #[path = "hypervisor_daemon_routes/microvm.rs"]
@@ -1199,13 +1201,15 @@ async fn async_main() -> anyhow::Result<()> {
             "/v1/threads/:id/mcp/external-task-bindings/:binding_id/cancel",
             post(lifecycle_routes::handle_mcp_normalization_unavailable_object),
         )
+        // M01.10: the one primitive this tree can normalize honestly. An App resolves to an admitted
+        // extension_application registration and to nothing else — see mcp_normalization_routes.
         .route(
             "/v1/threads/:id/mcp/apps/search",
-            get(lifecycle_routes::handle_mcp_normalization_unavailable_root),
+            get(mcp_normalization_routes::handle_mcp_apps_search),
         )
         .route(
             "/v1/threads/:id/mcp/apps/:app_id/descriptor",
-            get(lifecycle_routes::handle_mcp_normalization_unavailable_object),
+            get(mcp_normalization_routes::handle_mcp_app_descriptor),
         )
         .route(
             "/v1/threads/:id/mcp/serve",

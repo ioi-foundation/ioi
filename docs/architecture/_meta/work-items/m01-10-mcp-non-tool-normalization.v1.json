@@ -1,0 +1,109 @@
+{
+  "evidence_format": "ioi.program.work_item.v1",
+  "work_item_id": "m01-10-mcp-non-tool-normalization",
+  "stage_id": "M01",
+  "required_work": [
+    "M01.10"
+  ],
+  "status": "evidence_ready",
+  "objective": "Close M01.10 as an executable gate: make MCP a transport in fact and not only in canon, by giving every exposed MCP primitive ONE registered answer that is validated before it is served, normalizing the one primitive this tree can normalize honestly (an App resolves to an admitted extension_application registration and is projected member for member), refusing the other four with the owner that would have to exist for each, fencing the runtime catalog so it stops advertising primitives no plane can serve, and making the stdio client ANSWER a server-initiated primitive instead of dropping it. The four absent positive normalizations stay named with their owners rather than invented.",
+  "falsifiable_claim": "npm run check:mcp-non-tool-normalization --workspace=@ioi/hypervisor-app (the root runner's --drills form) proves the pure oracle refuses every constructed decision that claims more than it resolved — a granted authority or receipt identity in either branch, a normalized decision naming no admitted record, a typed-unavailable one naming a record or reporting a minted lease or carrying receipts, a status disagreeing with its decision, a primitive outside the closed thirteen-value vocabulary, each of the eleven required members absent in turn, a catalog entry requiring an ungrantable scope or advertising an unserved workflow node type, and an App descriptor deriving any projected member or granting any of its four grant members; that the daemon has ONE envelope builder which validates against schema://ioi/components/hypervisor/mcp-primitive-normalization-decision/v1 before serving, that neither the thread routes nor the gateway hand-rolls a second shape under the same schema version, that the daemon's primitive-owner table equals the gate's row for row and names no retired plane, that the App routes are mounted on the positive handlers and refuse an unadmitted App by name, that the stdio client carries a JSON-RPC refusal at code -32001 and declares an empty capability set, that the catalog names neither scope:mcp.resource.read nor scope:mcp.prompt.read nor McpResourceNode nor McpPromptNode, and that canon names the registered contract; and that both gates are floored and CI-bound with all twelve clauses executed or named with an owner. npm run mutate:mcp-non-tool-normalization drills those oracles with 25 planted defects against mutant copies of the pure library. The full gate additionally drives the REAL stdio client against two loopback stub MCP servers (a server-initiated request answered with a contract-valid typed refusal; an id-less notification dropped with the session still usable) and one isolated daemon (twelve refusal routes plus the gateway, every answer contract-valid; the App positive over a registration the runner admits through the real ODK and Packages chain; the descriptor in member-for-member parity with the native Packages registration route; an unadmitted App and a recalled release refused by name; every record family's digest unchanged by every read).",
+  "canon_owners": [
+    "docs/architecture/components/connectors-tools/contracts.md"
+  ],
+  "code_anchors": [
+    {
+      "path": "crates/node/src/bin/hypervisor_daemon_routes/mcp_normalization_routes.rs",
+      "must_contain": "pub(crate) fn normalization_decision(",
+      "present_when": "merged"
+    },
+    {
+      "path": "crates/node/src/bin/hypervisor_daemon_routes/mcp_normalization_routes.rs",
+      "must_contain": "validate_architecture_contract(MCP_NORMALIZATION_DECISION_CONTRACT",
+      "present_when": "merged"
+    },
+    {
+      "path": "crates/node/src/bin/hypervisor_daemon_routes/mcp_normalization_routes.rs",
+      "must_contain": "pub(crate) async fn handle_mcp_app_descriptor(",
+      "present_when": "merged"
+    },
+    {
+      "path": "crates/node/src/bin/hypervisor_daemon_routes/mcp_normalization_routes.rs",
+      "must_contain": "extension_application_registration_absent",
+      "present_when": "merged"
+    },
+    {
+      "path": "crates/node/src/bin/hypervisor_daemon_routes/lifecycle_routes.rs",
+      "must_contain": "mcp_normalization_routes::typed_unavailable(",
+      "present_when": "merged"
+    },
+    {
+      "path": "crates/node/src/bin/hypervisor_daemon_routes/operability_routes.rs",
+      "must_contain": "mcp_normalization_routes::gateway_typed_unavailable(",
+      "present_when": "merged"
+    },
+    {
+      "path": "crates/drivers/src/mcp/transport.rs",
+      "must_contain": "fn normalization_refusal(",
+      "present_when": "merged"
+    },
+    {
+      "path": "crates/drivers/src/mcp/transport.rs",
+      "must_contain": "MCP_TYPED_UNAVAILABLE_CODE: i64 = -32001",
+      "present_when": "merged"
+    },
+    {
+      "path": "crates/services/src/agentic/runtime/kernel/policy/mcp_memory.rs",
+      "must_contain": "fn mcp_primitive_typed_unavailable(",
+      "present_when": "merged"
+    },
+    {
+      "path": "apps/hypervisor/scripts/lib/mcp-normalization.mjs",
+      "must_contain": "export function decisionFindings(",
+      "present_when": "merged"
+    },
+    {
+      "path": "apps/hypervisor/scripts/lib/mcp-normalization.mjs",
+      "must_contain": "export function appDescriptorFindings(",
+      "present_when": "merged"
+    },
+    {
+      "path": "apps/hypervisor/scripts/lib/mcp-normalization.mjs",
+      "must_contain": "export function codeOnly(",
+      "present_when": "merged"
+    },
+    {
+      "path": "scripts/check-mcp-non-tool-normalization.mjs",
+      "must_contain": "async function planeLeg(",
+      "present_when": "merged"
+    },
+    {
+      "path": "scripts/check-acceptance-effect-boundary.mjs",
+      "must_contain": "check:mcp-non-tool-normalization",
+      "present_when": "merged"
+    },
+    {
+      "path": "apps/hypervisor/verifier-floors.v1.json",
+      "must_contain": "\"id\": \"mcp-non-tool-normalization\"",
+      "present_when": "merged"
+    },
+    {
+      "path": "apps/hypervisor/verifier-floors.v1.json",
+      "must_contain": "\"id\": \"mcp-transport-normalization\"",
+      "present_when": "merged"
+    },
+    {
+      "path": ".github/workflows/ci.yml",
+      "must_contain": "npm run check:mcp-non-tool-normalization --workspace=@ioi/hypervisor-app",
+      "present_when": "merged"
+    },
+    {
+      "path": "docs/architecture/_meta/schemas/mcp-primitive-normalization-decision.v1.schema.json",
+      "must_contain": "\"app_descriptor\"",
+      "present_when": "merged"
+    }
+  ],
+  "evidence_refs": [
+    "docs/architecture/_meta/evidence/m01-10-mcp-non-tool-normalization-2026-09-21.v1.json"
+  ]
+}

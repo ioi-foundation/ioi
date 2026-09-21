@@ -161,6 +161,8 @@
     "mutate:machine-product-profile-qualification": "node scripts/check-machine-product-profile-qualification.mjs --mutation",
     "check:public-verifier-conformance": "node scripts/check-public-verifier-conformance.mjs",
     "mutate:public-verifier-conformance": "node scripts/check-public-verifier-conformance.mjs --mutation",
+    "check:mcp-non-tool-normalization": "node scripts/check-mcp-non-tool-normalization.mjs",
+    "mutate:mcp-non-tool-normalization": "node scripts/check-mcp-non-tool-normalization.mjs --mutation",
     "mutate:standalone-conformance": "node scripts/check-standalone-conformance.mjs --mutation",
     "check:acceptance-conformance-ladder": "node scripts/check-acceptance-conformance-ladder.mjs",
     "check:acceptance-conformance-ladder:live": "node scripts/check-acceptance-conformance-ladder.mjs --live",

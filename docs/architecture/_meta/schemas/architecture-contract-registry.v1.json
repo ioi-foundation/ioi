@@ -2707,6 +2707,89 @@
       ]
     },
     {
+      "contract_id": "schema://ioi/components/hypervisor/mcp-primitive-normalization-decision/v1",
+      "canonical_name": "McpPrimitiveNormalizationDecision",
+      "canonical_owner_ref": "canon://docs/architecture/components/connectors-tools/contracts.md#mcp-primitive-normalization",
+      "schema_version": "ioi.runtime.mcp-normalization-decision.v1",
+      "maturity": "partial",
+      "stability": "provisional",
+      "wire_format": "json",
+      "canonical_encoding_profile_ref": "encoding-profile://ioi/jcs-json/v1",
+      "evolution": {
+        "successor_of": null,
+        "successor_contract_id": null,
+        "compatibility": "initial",
+        "migration_policy": "none",
+        "predecessor_remains_valid": false,
+        "wire_mutation_policy": "forbidden",
+        "hash_impact": "signature_preimage_changed"
+      },
+      "schema_ref": "mcp-primitive-normalization-decision.v1.schema.json",
+      "cross_field_invariant_refs": [
+        {
+          "invariant_id": "invariant://ioi/components/hypervisor/mcp-primitive-normalization-decision/names-its-owner/v1",
+          "path": "invariants/mcp-primitive-normalization-decision.v1.invariants.json"
+        }
+      ],
+      "compatibility_aliases": [],
+      "generated_targets": [
+        {
+          "kind": "typescript_projection",
+          "path": "packages/hypervisor-workbench/src/runtime/generated/architecture-contracts.ts",
+          "symbol": "McpPrimitiveNormalizationDecisionV1"
+        },
+        {
+          "kind": "rust_projection",
+          "path": "crates/types/src/app/generated/architecture_contracts.rs",
+          "symbol": "McpPrimitiveNormalizationDecisionV1"
+        }
+      ],
+      "positive_fixture_refs": [
+        "fixtures/mcp-primitive-normalization-decision-v1/positive-normalized-app-descriptor.json",
+        "fixtures/mcp-primitive-normalization-decision-v1/positive-normalized-app-descriptor-projection.json",
+        "fixtures/mcp-primitive-normalization-decision-v1/positive-typed-unavailable-gateway.json",
+        "fixtures/mcp-primitive-normalization-decision-v1/positive-typed-unavailable-resource.json"
+      ],
+      "negative_fixture_refs": [
+        {
+          "path": "fixtures/mcp-primitive-normalization-decision-v1/negative-app-descriptor-granting-host-mutation.json",
+          "expected_failure": "schema"
+        },
+        {
+          "path": "fixtures/mcp-primitive-normalization-decision-v1/negative-normalized-granting-authority.json",
+          "expected_failure": "schema"
+        },
+        {
+          "path": "fixtures/mcp-primitive-normalization-decision-v1/negative-normalized-without-a-backing-ref.json",
+          "expected_failure": "schema"
+        },
+        {
+          "path": "fixtures/mcp-primitive-normalization-decision-v1/negative-status-disagrees-with-the-decision.json",
+          "expected_failure": "schema"
+        },
+        {
+          "path": "fixtures/mcp-primitive-normalization-decision-v1/negative-typed-unavailable-granting-authority.json",
+          "expected_failure": "schema"
+        },
+        {
+          "path": "fixtures/mcp-primitive-normalization-decision-v1/negative-typed-unavailable-granting-receipt-identity.json",
+          "expected_failure": "schema"
+        },
+        {
+          "path": "fixtures/mcp-primitive-normalization-decision-v1/negative-typed-unavailable-with-a-backing-ref.json",
+          "expected_failure": "schema"
+        },
+        {
+          "path": "fixtures/mcp-primitive-normalization-decision-v1/negative-unknown-member.json",
+          "expected_failure": "schema"
+        },
+        {
+          "path": "fixtures/mcp-primitive-normalization-decision-v1/negative-unknown-primitive.json",
+          "expected_failure": "schema"
+        }
+      ]
+    },
+    {
       "contract_id": "schema://ioi/components/connectors-tools/scm-publication-effect/v1",
       "canonical_name": "ScmPublicationEffect",
       "canonical_owner_ref": "canon://docs/architecture/components/connectors-tools/contracts.md#scmpublicationeffect",

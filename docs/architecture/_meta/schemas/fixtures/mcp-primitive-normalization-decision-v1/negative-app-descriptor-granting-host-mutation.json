@@ -1,0 +1,28 @@
+{
+  "schema_version": "ioi.runtime.mcp-normalization-decision.v1",
+  "status": "normalized",
+  "primitive": "mcp.app",
+  "canonical_owner": "sandboxed-extension_application-descriptor-and-surface",
+  "canonical_backing_ref": "surface://extensions/packages-journey-app",
+  "normalization_decision": "normalized",
+  "authority_granted": false,
+  "receipt_identity_granted": false,
+  "source_protocol_version": "2025-06-18",
+  "policy_lease_posture": "not_applicable",
+  "reason": "ACC-1 N5: an App cannot acquire host or runtime truth, so a descriptor claiming host mutation is refused by the contract rather than by a reviewer.",
+  "thread_id": "thr_corpus",
+  "object_id": "packages-journey-app",
+  "descriptor": {
+    "app_id": "packages-journey-app",
+    "surface_ref": "surface://extensions/packages-journey-app",
+    "canonical_route": "/__ioi/extensions/packages-journey-app",
+    "surface_class": "extension_application",
+    "effect_boundary": "propose_only",
+    "grants": {
+      "host_mutation": true,
+      "runtime_ownership": false,
+      "authority": false,
+      "receipt_identity": false
+    }
+  }
+}

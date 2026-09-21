@@ -1646,6 +1646,58 @@ export type RuntimeToolContractV1 = {
   registry_status?: "draft" | "released" | "deprecated" | "revoked";
 };
 
+export type McpPrimitiveNormalizationDecisionV1 = {
+  schema_version: "ioi.runtime.mcp-normalization-decision.v1";
+  status: "normalized" | "typed_unavailable";
+  primitive: "mcp.tool" | "mcp.resource" | "mcp.prompt" | "mcp.elicitation" | "mcp.task" | "mcp.app" | "mcp.serve" | "mcp.gateway" | "mcp.sampling" | "mcp.roots" | "mcp.logging" | "mcp.notification" | "mcp.unknown";
+  canonical_owner: string;
+  canonical_backing_ref: string | null;
+  backing_revision_refs?: Array<string>;
+  normalization_decision: "normalized" | "typed_unavailable";
+  authority_granted: boolean;
+  receipt_identity_granted: boolean;
+  receipt_refs?: Array<string>;
+  source_protocol_version: string;
+  policy_lease_posture: "not_minted" | "minted" | "not_applicable";
+  thread_id?: string | null;
+  object_id?: string | null;
+  effective_gateway_profile_revision?: string | null;
+  tool?: string | null;
+  gateway_profile_revision_ref?: string | null;
+  resolved_requirement_revision_refs?: Array<string>;
+  refusal_code?: string;
+  org_ref?: string | null;
+  app_count?: number;
+  apps?: Array<{
+        app_id: string;
+        surface_ref: string;
+        display_name: string | null;
+        canonical_route: string | null;
+        effect_boundary: string | null;
+      }>;
+  descriptor?: {
+      app_id: string;
+      surface_ref: string;
+      display_name?: string | null;
+      canonical_route: string | null;
+      surface_class: string | null;
+      surface_origin?: string | null;
+      surface_creation_method?: string | null;
+      effect_boundary: string | null;
+      declared_object_contract_refs?: Array<string> | null;
+      declared_action_contract_refs?: Array<string> | null;
+      supported_placements?: Array<string> | null;
+      launch_modes?: Array<string> | null;
+      grants: {
+            host_mutation: false;
+            runtime_ownership: false;
+            authority: false;
+            receipt_identity: false;
+          };
+    } | null;
+  reason: string;
+};
+
 export type ScmPublicationEffectV1 = {
   schema_version: "ioi.scm-publication-effect.v1";
   publication_effect_id: string;
@@ -16437,6 +16489,110 @@ export const ARCHITECTURE_CONTRACT_FIXTURES = [
   {
     "contract_id": "schema://ioi/components/connectors-tools/runtime-tool-contract/v1",
     "path": "docs/architecture/_meta/schemas/fixtures/runtime-tool-contract-v1/negative-missing-destination-declaration.json",
+    "expected": "reject",
+    "expected_schema_accept": false,
+    "expected_failure": "schema",
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/components/hypervisor/mcp-primitive-normalization-decision/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/mcp-primitive-normalization-decision-v1/positive-normalized-app-descriptor.json",
+    "expected": "accept",
+    "expected_schema_accept": true,
+    "expected_failure": null,
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/components/hypervisor/mcp-primitive-normalization-decision/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/mcp-primitive-normalization-decision-v1/positive-normalized-app-descriptor-projection.json",
+    "expected": "accept",
+    "expected_schema_accept": true,
+    "expected_failure": null,
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/components/hypervisor/mcp-primitive-normalization-decision/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/mcp-primitive-normalization-decision-v1/positive-typed-unavailable-gateway.json",
+    "expected": "accept",
+    "expected_schema_accept": true,
+    "expected_failure": null,
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/components/hypervisor/mcp-primitive-normalization-decision/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/mcp-primitive-normalization-decision-v1/positive-typed-unavailable-resource.json",
+    "expected": "accept",
+    "expected_schema_accept": true,
+    "expected_failure": null,
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/components/hypervisor/mcp-primitive-normalization-decision/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/mcp-primitive-normalization-decision-v1/negative-app-descriptor-granting-host-mutation.json",
+    "expected": "reject",
+    "expected_schema_accept": false,
+    "expected_failure": "schema",
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/components/hypervisor/mcp-primitive-normalization-decision/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/mcp-primitive-normalization-decision-v1/negative-normalized-granting-authority.json",
+    "expected": "reject",
+    "expected_schema_accept": false,
+    "expected_failure": "schema",
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/components/hypervisor/mcp-primitive-normalization-decision/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/mcp-primitive-normalization-decision-v1/negative-normalized-without-a-backing-ref.json",
+    "expected": "reject",
+    "expected_schema_accept": false,
+    "expected_failure": "schema",
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/components/hypervisor/mcp-primitive-normalization-decision/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/mcp-primitive-normalization-decision-v1/negative-status-disagrees-with-the-decision.json",
+    "expected": "reject",
+    "expected_schema_accept": false,
+    "expected_failure": "schema",
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/components/hypervisor/mcp-primitive-normalization-decision/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/mcp-primitive-normalization-decision-v1/negative-typed-unavailable-granting-authority.json",
+    "expected": "reject",
+    "expected_schema_accept": false,
+    "expected_failure": "schema",
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/components/hypervisor/mcp-primitive-normalization-decision/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/mcp-primitive-normalization-decision-v1/negative-typed-unavailable-granting-receipt-identity.json",
+    "expected": "reject",
+    "expected_schema_accept": false,
+    "expected_failure": "schema",
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/components/hypervisor/mcp-primitive-normalization-decision/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/mcp-primitive-normalization-decision-v1/negative-typed-unavailable-with-a-backing-ref.json",
+    "expected": "reject",
+    "expected_schema_accept": false,
+    "expected_failure": "schema",
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/components/hypervisor/mcp-primitive-normalization-decision/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/mcp-primitive-normalization-decision-v1/negative-unknown-member.json",
+    "expected": "reject",
+    "expected_schema_accept": false,
+    "expected_failure": "schema",
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/components/hypervisor/mcp-primitive-normalization-decision/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/mcp-primitive-normalization-decision-v1/negative-unknown-primitive.json",
     "expected": "reject",
     "expected_schema_accept": false,
     "expected_failure": "schema",
@@ -31605,6 +31761,19 @@ export const ARCHITECTURE_CONTRACT_DIFFERENTIAL_CASES: ReadonlyArray<Architectur
   differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/storage-backend-write-admission-v1/negative-content-hash-unbound.json","contract_id":"schema://ioi/components/agentgres/storage-backend-write-admission/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/storage-backend-write-admission-v1/negative-content-hash-unbound.json","mutation_id":null,"value_json":null}),
   differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/runtime-tool-contract-v1/positive-declared-egress.json","contract_id":"schema://ioi/components/connectors-tools/runtime-tool-contract/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/runtime-tool-contract-v1/positive-declared-egress.json","mutation_id":null,"value_json":null}),
   differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/runtime-tool-contract-v1/negative-missing-destination-declaration.json","contract_id":"schema://ioi/components/connectors-tools/runtime-tool-contract/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/runtime-tool-contract-v1/negative-missing-destination-declaration.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/mcp-primitive-normalization-decision-v1/positive-normalized-app-descriptor.json","contract_id":"schema://ioi/components/hypervisor/mcp-primitive-normalization-decision/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/mcp-primitive-normalization-decision-v1/positive-normalized-app-descriptor.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/mcp-primitive-normalization-decision-v1/positive-normalized-app-descriptor-projection.json","contract_id":"schema://ioi/components/hypervisor/mcp-primitive-normalization-decision/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/mcp-primitive-normalization-decision-v1/positive-normalized-app-descriptor-projection.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/mcp-primitive-normalization-decision-v1/positive-typed-unavailable-gateway.json","contract_id":"schema://ioi/components/hypervisor/mcp-primitive-normalization-decision/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/mcp-primitive-normalization-decision-v1/positive-typed-unavailable-gateway.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/mcp-primitive-normalization-decision-v1/positive-typed-unavailable-resource.json","contract_id":"schema://ioi/components/hypervisor/mcp-primitive-normalization-decision/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/mcp-primitive-normalization-decision-v1/positive-typed-unavailable-resource.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/mcp-primitive-normalization-decision-v1/negative-app-descriptor-granting-host-mutation.json","contract_id":"schema://ioi/components/hypervisor/mcp-primitive-normalization-decision/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/mcp-primitive-normalization-decision-v1/negative-app-descriptor-granting-host-mutation.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/mcp-primitive-normalization-decision-v1/negative-normalized-granting-authority.json","contract_id":"schema://ioi/components/hypervisor/mcp-primitive-normalization-decision/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/mcp-primitive-normalization-decision-v1/negative-normalized-granting-authority.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/mcp-primitive-normalization-decision-v1/negative-normalized-without-a-backing-ref.json","contract_id":"schema://ioi/components/hypervisor/mcp-primitive-normalization-decision/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/mcp-primitive-normalization-decision-v1/negative-normalized-without-a-backing-ref.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/mcp-primitive-normalization-decision-v1/negative-status-disagrees-with-the-decision.json","contract_id":"schema://ioi/components/hypervisor/mcp-primitive-normalization-decision/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/mcp-primitive-normalization-decision-v1/negative-status-disagrees-with-the-decision.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/mcp-primitive-normalization-decision-v1/negative-typed-unavailable-granting-authority.json","contract_id":"schema://ioi/components/hypervisor/mcp-primitive-normalization-decision/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/mcp-primitive-normalization-decision-v1/negative-typed-unavailable-granting-authority.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/mcp-primitive-normalization-decision-v1/negative-typed-unavailable-granting-receipt-identity.json","contract_id":"schema://ioi/components/hypervisor/mcp-primitive-normalization-decision/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/mcp-primitive-normalization-decision-v1/negative-typed-unavailable-granting-receipt-identity.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/mcp-primitive-normalization-decision-v1/negative-typed-unavailable-with-a-backing-ref.json","contract_id":"schema://ioi/components/hypervisor/mcp-primitive-normalization-decision/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/mcp-primitive-normalization-decision-v1/negative-typed-unavailable-with-a-backing-ref.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/mcp-primitive-normalization-decision-v1/negative-unknown-member.json","contract_id":"schema://ioi/components/hypervisor/mcp-primitive-normalization-decision/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/mcp-primitive-normalization-decision-v1/negative-unknown-member.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/mcp-primitive-normalization-decision-v1/negative-unknown-primitive.json","contract_id":"schema://ioi/components/hypervisor/mcp-primitive-normalization-decision/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/mcp-primitive-normalization-decision-v1/negative-unknown-primitive.json","mutation_id":null,"value_json":null}),
   differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/scm-publication-effect-v1/positive-published-with-review-request.json","contract_id":"schema://ioi/components/connectors-tools/scm-publication-effect/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/scm-publication-effect-v1/positive-published-with-review-request.json","mutation_id":null,"value_json":null}),
   differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/scm-publication-effect-v1/positive-review-request-failed.json","contract_id":"schema://ioi/components/connectors-tools/scm-publication-effect/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/scm-publication-effect-v1/positive-review-request-failed.json","mutation_id":null,"value_json":null}),
   differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/scm-publication-effect-v1/positive-refused-stale-remote-head.json","contract_id":"schema://ioi/components/connectors-tools/scm-publication-effect/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/scm-publication-effect-v1/positive-refused-stale-remote-head.json","mutation_id":null,"value_json":null}),
@@ -33689,6 +33858,7 @@ export const ARCHITECTURE_CONTRACT_PATTERN_SOURCES = [
   "^[a-z0-9][a-z0-9._-]{0,95}$",
   "^[a-z0-9][a-z0-9._:/-]{0,127}$",
   "^[a-z][a-z0-9+.-]*(?:://|:)[^\\s]{1,248}$",
+  "^[a-z][a-z0-9+.-]*://[^ ]{1,480}$",
   "^[a-z][a-z0-9+.-]*://[^\\s]{1,248}$",
   "^[a-z][a-z0-9+.-]*://[^\\s]{1,500}$",
   "^[a-z][a-z0-9+.-]*://\\S+$",
@@ -34436,6 +34606,7 @@ export const ARCHITECTURE_CONTRACT_SCHEMA_HASHES = {
   "schema://ioi/components/agentgres/staged-effect/v1": "sha256:fe662fdb440e2751201a7013c02457ea18e27958f3a3348d6a156cabfa74b5b0",
   "schema://ioi/components/agentgres/storage-backend-write-admission/v1": "sha256:afde420387eea9baccfbdce3df97ad175fa2e17677a80beea5041ac93c3a7723",
   "schema://ioi/components/connectors-tools/runtime-tool-contract/v1": "sha256:ac6c0e6bb9b6ec06a1162e4d84b676b2c96bbc9527e50836c04162d788b5f924",
+  "schema://ioi/components/hypervisor/mcp-primitive-normalization-decision/v1": "sha256:01fa219b3c4e6e25dc05bb2663f24a4cd680b8cde5728be75e1fb9bdb333a1b5",
   "schema://ioi/components/connectors-tools/scm-publication-effect/v1": "sha256:00f65134dab87fe98063d3cc720268553cd1cd96862df5dfe7ec00041de0abff",
   "schema://ioi/components/connectors-tools/scm-publication-effect/v2": "sha256:acc0b12e275584302f9fa0d30937e7439bdb8bf9af7805edcba0b861e24e3ae5",
   "schema://ioi/components/daemon-runtime/action-request-envelope/v1": "sha256:7187aa163181dc69f8c40b219307ea6bd23b74cb7b246602032bc1b78688c4ad",
@@ -47014,6 +47185,546 @@ const CONTRACT_SCHEMAS: Record<string, JsonObject> = {
       "hash": {
         "type": "string",
         "pattern": "^sha256:[0-9a-f]{64}$"
+      }
+    }
+  },
+  "schema://ioi/components/hypervisor/mcp-primitive-normalization-decision/v1": {
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "$id": "schema://ioi/components/hypervisor/mcp-primitive-normalization-decision/v1",
+    "title": "McpPrimitiveNormalizationDecision",
+    "x-ioi-schema-version": "ioi.runtime.mcp-normalization-decision.v1",
+    "description": "WHAT ONE EXPOSED MCP PRIMITIVE RESOLVED TO, OR WHY IT RESOLVED TO NOTHING. Canon's rule is that every exposed MCP primitive resolves to an existing canonical owner with exact session, invocation and context bindings, produces the same admitted semantics as the native path, and fails TYPED-UNAVAILABLE rather than inventing truth when normalization is impossible. This envelope is that answer, and the estate emits it from three places — the thread-scoped MCP routes, the outward gateway, and the stdio client when a server initiates a primitive this client does not implement — which until this contract was registered meant three divergent shapes under one schema version. THE DECISION IS NOT A GRANT. `authority_granted` and `receipt_identity_granted` are false on every typed-unavailable answer and remain false unless the normalized owner itself issued them: a protocol object never becomes authority by being described, and a resource URI, a prompt, an elicitation answer, a task handle or an App descriptor is not a capability, an instruction, an approval, a run identity or runtime truth. A normalized decision names its `canonical_backing_ref` — the admitted owner record the answer resolved to — and a typed-unavailable one carries null there and says which owner would have to exist. Owner: components/connectors-tools/contracts.md § MCP primitive normalization (M01.10).",
+    "type": "object",
+    "additionalProperties": false,
+    "required": [
+      "schema_version",
+      "status",
+      "primitive",
+      "canonical_owner",
+      "canonical_backing_ref",
+      "normalization_decision",
+      "authority_granted",
+      "receipt_identity_granted",
+      "source_protocol_version",
+      "policy_lease_posture",
+      "reason"
+    ],
+    "properties": {
+      "schema_version": {
+        "type": "string",
+        "const": "ioi.runtime.mcp-normalization-decision.v1"
+      },
+      "status": {
+        "type": "string",
+        "enum": [
+          "normalized",
+          "typed_unavailable"
+        ],
+        "description": "The same fact as `normalization_decision`, carried for a reader that reads status first; the two may not disagree."
+      },
+      "primitive": {
+        "type": "string",
+        "enum": [
+          "mcp.tool",
+          "mcp.resource",
+          "mcp.prompt",
+          "mcp.elicitation",
+          "mcp.task",
+          "mcp.app",
+          "mcp.serve",
+          "mcp.gateway",
+          "mcp.sampling",
+          "mcp.roots",
+          "mcp.logging",
+          "mcp.notification",
+          "mcp.unknown"
+        ],
+        "description": "The exposed MCP primitive this decision is about. The vocabulary is closed: a primitive the estate has never heard of resolves to `mcp.unknown` and is typed unavailable, never guessed into a neighbour."
+      },
+      "canonical_owner": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 240,
+        "description": "The existing canonical owner this primitive resolves to, or — when it resolves to nothing — the owner that would have to exist for it to be served. Naming it is what makes a refusal actionable rather than a wall."
+      },
+      "canonical_backing_ref": {
+        "anyOf": [
+          {
+            "$ref": "#/$defs/ref"
+          },
+          {
+            "type": "null"
+          }
+        ],
+        "description": "The admitted owner record the answer resolved to. Null on every typed-unavailable decision, and required on a normalized one: a normalization with no backing record would be the invented truth the acceptance forbids."
+      },
+      "backing_revision_refs": {
+        "type": "array",
+        "uniqueItems": true,
+        "maxItems": 32,
+        "items": {
+          "$ref": "#/$defs/ref"
+        },
+        "description": "The exact revisions the normalized answer was built from, so a reader can bind to the version it saw rather than to a moving head."
+      },
+      "normalization_decision": {
+        "type": "string",
+        "enum": [
+          "normalized",
+          "typed_unavailable"
+        ]
+      },
+      "authority_granted": {
+        "type": "boolean",
+        "description": "Whether this decision itself conferred authority. Always false: authority crosses at its own owner's gateway, never at a protocol projection."
+      },
+      "receipt_identity_granted": {
+        "type": "boolean",
+        "description": "Whether this decision conferred receipt identity. Always false: a receipt is written by the owner that performed the effect."
+      },
+      "receipt_refs": {
+        "type": "array",
+        "uniqueItems": true,
+        "maxItems": 32,
+        "items": {
+          "$ref": "#/$defs/ref"
+        },
+        "description": "Receipts the normalized owner already wrote for this object. An empty array is the claim that there are none, and a typed-unavailable decision carries none."
+      },
+      "source_protocol_version": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 40,
+        "description": "The MCP protocol revision this decision was made under. A divergent revision is refused at the handshake rather than adapted silently."
+      },
+      "policy_lease_posture": {
+        "type": "string",
+        "enum": [
+          "not_minted",
+          "minted",
+          "not_applicable"
+        ],
+        "description": "Whether a policy lease stands behind this answer. `not_minted` on a typed-unavailable decision; `not_applicable` where the normalized owner needs none."
+      },
+      "thread_id": {
+        "anyOf": [
+          {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 240
+          },
+          {
+            "type": "null"
+          }
+        ]
+      },
+      "object_id": {
+        "anyOf": [
+          {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 240
+          },
+          {
+            "type": "null"
+          }
+        ]
+      },
+      "effective_gateway_profile_revision": {
+        "anyOf": [
+          {
+            "$ref": "#/$defs/ref"
+          },
+          {
+            "type": "null"
+          }
+        ]
+      },
+      "tool": {
+        "anyOf": [
+          {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 240
+          },
+          {
+            "type": "null"
+          }
+        ]
+      },
+      "gateway_profile_revision_ref": {
+        "anyOf": [
+          {
+            "$ref": "#/$defs/ref"
+          },
+          {
+            "type": "null"
+          }
+        ]
+      },
+      "resolved_requirement_revision_refs": {
+        "type": "array",
+        "uniqueItems": true,
+        "maxItems": 64,
+        "items": {
+          "$ref": "#/$defs/ref"
+        }
+      },
+      "refusal_code": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 120,
+        "description": "Why a NAMED refusal refused, for the cases where 'typed unavailable' is not the whole answer — an App this organization never admitted, or one whose release was recalled, is refused by this code rather than described. Absent on a normalized decision."
+      },
+      "org_ref": {
+        "anyOf": [
+          {
+            "$ref": "#/$defs/ref"
+          },
+          {
+            "type": "null"
+          }
+        ],
+        "description": "The organization whose admitted records this answer was resolved against. Registrations are org-scoped, so the answer says which scope it read; a caller with no resolvable organization reads the local one and never another tenant's."
+      },
+      "app_count": {
+        "type": "integer",
+        "minimum": 0,
+        "maximum": 100000
+      },
+      "apps": {
+        "type": "array",
+        "maxItems": 1000,
+        "items": {
+          "$ref": "#/$defs/app_summary"
+        },
+        "description": "The organization's admitted extension_application registrations, as a listing. It is a projection: every member is the registration's own."
+      },
+      "descriptor": {
+        "anyOf": [
+          {
+            "$ref": "#/$defs/app_descriptor"
+          },
+          {
+            "type": "null"
+          }
+        ],
+        "description": "One admitted extension_application registration, projected. The App primitive's whole positive answer."
+      },
+      "reason": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 512
+      }
+    },
+    "allOf": [
+      {
+        "if": {
+          "type": "object",
+          "properties": {
+            "normalization_decision": {
+              "type": "string",
+              "const": "typed_unavailable"
+            }
+          },
+          "required": [
+            "normalization_decision"
+          ]
+        },
+        "then": {
+          "type": "object",
+          "properties": {
+            "status": {
+              "type": "string",
+              "const": "typed_unavailable"
+            },
+            "authority_granted": {
+              "type": "boolean",
+              "const": false
+            },
+            "receipt_identity_granted": {
+              "type": "boolean",
+              "const": false
+            },
+            "canonical_backing_ref": {
+              "type": "null"
+            }
+          }
+        }
+      },
+      {
+        "if": {
+          "type": "object",
+          "properties": {
+            "normalization_decision": {
+              "type": "string",
+              "const": "normalized"
+            }
+          },
+          "required": [
+            "normalization_decision"
+          ]
+        },
+        "then": {
+          "type": "object",
+          "properties": {
+            "status": {
+              "type": "string",
+              "const": "normalized"
+            },
+            "authority_granted": {
+              "type": "boolean",
+              "const": false
+            },
+            "receipt_identity_granted": {
+              "type": "boolean",
+              "const": false
+            },
+            "canonical_backing_ref": {
+              "$ref": "#/$defs/ref"
+            }
+          },
+          "required": [
+            "canonical_backing_ref"
+          ]
+        }
+      }
+    ],
+    "$defs": {
+      "ref": {
+        "type": "string",
+        "pattern": "^[a-z][a-z0-9+.-]*://[^ ]{1,480}$"
+      },
+      "app_summary": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "app_id",
+          "surface_ref",
+          "display_name",
+          "canonical_route",
+          "effect_boundary"
+        ],
+        "properties": {
+          "app_id": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 240
+          },
+          "surface_ref": {
+            "$ref": "#/$defs/ref"
+          },
+          "display_name": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 240
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "canonical_route": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 480
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "effect_boundary": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 120
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        }
+      },
+      "app_descriptor": {
+        "type": "object",
+        "additionalProperties": false,
+        "description": "A PROJECTION of an admitted extension_application registration, and nothing more. Every member here is the registration's own; the descriptor derives none of them, and `grants` says in the bytes what reading it does not buy. ACC-1 N5: an App cannot acquire host or runtime truth, so the four grant members are constant false in the schema rather than by convention.",
+        "required": [
+          "app_id",
+          "surface_ref",
+          "canonical_route",
+          "surface_class",
+          "effect_boundary",
+          "grants"
+        ],
+        "properties": {
+          "app_id": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 240
+          },
+          "surface_ref": {
+            "$ref": "#/$defs/ref"
+          },
+          "display_name": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 240
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "canonical_route": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 480
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "surface_class": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 120
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "surface_origin": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 120
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "surface_creation_method": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 120
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "effect_boundary": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 120
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "declared_object_contract_refs": {
+            "anyOf": [
+              {
+                "type": "array",
+                "maxItems": 256,
+                "items": {
+                  "type": "string",
+                  "maxLength": 480
+                }
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "declared_action_contract_refs": {
+            "anyOf": [
+              {
+                "type": "array",
+                "maxItems": 256,
+                "items": {
+                  "type": "string",
+                  "maxLength": 480
+                }
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "supported_placements": {
+            "anyOf": [
+              {
+                "type": "array",
+                "maxItems": 64,
+                "items": {
+                  "type": "string",
+                  "maxLength": 120
+                }
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "launch_modes": {
+            "anyOf": [
+              {
+                "type": "array",
+                "maxItems": 64,
+                "items": {
+                  "type": "string",
+                  "maxLength": 120
+                }
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "grants": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "host_mutation",
+              "runtime_ownership",
+              "authority",
+              "receipt_identity"
+            ],
+            "properties": {
+              "host_mutation": {
+                "type": "boolean",
+                "const": false
+              },
+              "runtime_ownership": {
+                "type": "boolean",
+                "const": false
+              },
+              "authority": {
+                "type": "boolean",
+                "const": false
+              },
+              "receipt_identity": {
+                "type": "boolean",
+                "const": false
+              }
+            }
+          }
+        }
       }
     }
   },
@@ -150152,6 +150863,33 @@ const CONTRACT_INVARIANTS: Record<string, Array<JsonObject>> = {
       }
     }
   ],
+  "schema://ioi/components/hypervisor/mcp-primitive-normalization-decision/v1": [
+    {
+      "rule_id": "mcp_primitive_normalization_decision.normalized_names_its_backing_record",
+      "description": "A NORMALIZED decision names the admitted owner record it resolved to. The JSON Schema enforces this too, and refuses first — measured, not assumed: the golden-fixture oracle reports `schema` for a normalized decision with no backing ref, so the negative fixture is registered against the schema layer. This rule is not therefore idle. It is the same law in the PORTABLE invariant language, which is what a consumer that does not run JSON Schema reads, and the claim it carries is the one the whole unit turns on: 'resolves to its existing canonical owner' is a statement about a RECORD, and a normalization with nothing behind it is exactly the invented truth the acceptance forbids.",
+      "expression": {
+        "operator": "non_empty_when_in",
+        "path": "$.canonical_backing_ref",
+        "when_path": "$.normalization_decision",
+        "values": [
+          "normalized"
+        ]
+      }
+    },
+    {
+      "rule_id": "mcp_primitive_normalization_decision.typed_unavailable_names_the_owner_that_would_serve_it",
+      "description": "A refusal that named no owner would be a wall rather than a boundary: the caller could not tell whether the primitive is unsupported, unbuilt or forbidden. Every decision carries the canonical owner, and on a typed-unavailable answer that is the owner which would have to exist for the primitive to be served.",
+      "expression": {
+        "operator": "non_empty_when_in",
+        "path": "$.canonical_owner",
+        "when_path": "$.normalization_decision",
+        "values": [
+          "typed_unavailable",
+          "normalized"
+        ]
+      }
+    }
+  ],
   "schema://ioi/components/connectors-tools/scm-publication-effect/v1": [
     {
       "rule_id": "scm_publication_effect.content_commitment.recomputes",
@@ -169706,6 +170444,12 @@ export function validateRuntimeToolContractV1(
   value: unknown,
 ): value is RuntimeToolContractV1 {
   return validateArchitectureContract("schema://ioi/components/connectors-tools/runtime-tool-contract/v1", value).ok;
+}
+
+export function validateMcpPrimitiveNormalizationDecisionV1(
+  value: unknown,
+): value is McpPrimitiveNormalizationDecisionV1 {
+  return validateArchitectureContract("schema://ioi/components/hypervisor/mcp-primitive-normalization-decision/v1", value).ok;
 }
 
 export function validateScmPublicationEffectV1(

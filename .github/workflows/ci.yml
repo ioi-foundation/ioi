@@ -1080,6 +1080,31 @@ jobs:
         if: ${{ !cancelled() && steps.rust_backed_daemon.outcome == 'success' }}
         run: npm run mutate:public-verifier-conformance --workspace=@ioi/hypervisor-app
 
+      # M01.10 (R-219). MCP is a transport: every exposed primitive resolves to an existing canonical owner
+      # or fails TYPED-UNAVAILABLE, and the answer is ONE registered contract validated before it is served.
+      # CI-bound at the drills — the oracle, the daemon's single envelope builder and closed owner table, the
+      # App positive over an admitted extension_application registration, the catalog fence and the client's
+      # refusal. The isolated-daemon plane and the stub-driven stdio client run in the gate's full mode.
+      #
+      # check:mcp-transport-normalization is bound here for the FIRST time in the same cut: it existed since
+      # M01.4, emitted no census, carried no floor row and appeared in no job, so it could have been emptied
+      # without anything saying so. It now counts thirty named assertions.
+      - name: Verify the MCP transport normalization invariants (M01.4, CI-bound by M01.10)
+        if: ${{ !cancelled() && steps.rust_backed_daemon.outcome == 'success' }}
+        env:
+          IOI_VERIFIER_CENSUS_DIR: .artifacts/verifier-census
+        run: npm run check:mcp-transport-normalization --workspace=@ioi/hypervisor-app
+
+      - name: Verify MCP non-tool primitive normalization (M01.10, CI-bound drills)
+        if: ${{ !cancelled() && steps.rust_backed_daemon.outcome == 'success' }}
+        env:
+          IOI_VERIFIER_CENSUS_DIR: .artifacts/verifier-census
+        run: npm run check:mcp-non-tool-normalization --workspace=@ioi/hypervisor-app
+
+      - name: Drill the MCP non-tool normalization oracle
+        if: ${{ !cancelled() && steps.rust_backed_daemon.outcome == 'success' }}
+        run: npm run mutate:mcp-non-tool-normalization --workspace=@ioi/hypervisor-app
+
       # M10.4 — the governed evaluation plane, driven against an ISOLATED daemon this job already
       # built: two deterministic ollama-dialect stub servers registered, probed, enabled and REALLY
       # invoked as routes A and B; released suite revisions, frozen and active epochs, admitted runs,

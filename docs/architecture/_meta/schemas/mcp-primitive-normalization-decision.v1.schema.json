@@ -1,0 +1,172 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "schema://ioi/components/hypervisor/mcp-primitive-normalization-decision/v1",
+  "title": "McpPrimitiveNormalizationDecision",
+  "x-ioi-schema-version": "ioi.runtime.mcp-normalization-decision.v1",
+  "description": "WHAT ONE EXPOSED MCP PRIMITIVE RESOLVED TO, OR WHY IT RESOLVED TO NOTHING. Canon's rule is that every exposed MCP primitive resolves to an existing canonical owner with exact session, invocation and context bindings, produces the same admitted semantics as the native path, and fails TYPED-UNAVAILABLE rather than inventing truth when normalization is impossible. This envelope is that answer, and the estate emits it from three places — the thread-scoped MCP routes, the outward gateway, and the stdio client when a server initiates a primitive this client does not implement — which until this contract was registered meant three divergent shapes under one schema version. THE DECISION IS NOT A GRANT. `authority_granted` and `receipt_identity_granted` are false on every typed-unavailable answer and remain false unless the normalized owner itself issued them: a protocol object never becomes authority by being described, and a resource URI, a prompt, an elicitation answer, a task handle or an App descriptor is not a capability, an instruction, an approval, a run identity or runtime truth. A normalized decision names its `canonical_backing_ref` — the admitted owner record the answer resolved to — and a typed-unavailable one carries null there and says which owner would have to exist. Owner: components/connectors-tools/contracts.md § MCP primitive normalization (M01.10).",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "status",
+    "primitive",
+    "canonical_owner",
+    "canonical_backing_ref",
+    "normalization_decision",
+    "authority_granted",
+    "receipt_identity_granted",
+    "source_protocol_version",
+    "policy_lease_posture",
+    "reason"
+  ],
+  "properties": {
+    "schema_version": { "type": "string", "const": "ioi.runtime.mcp-normalization-decision.v1" },
+    "status": {
+      "type": "string",
+      "enum": ["normalized", "typed_unavailable"],
+      "description": "The same fact as `normalization_decision`, carried for a reader that reads status first; the two may not disagree."
+    },
+    "primitive": {
+      "type": "string",
+      "enum": [
+        "mcp.tool", "mcp.resource", "mcp.prompt", "mcp.elicitation", "mcp.task", "mcp.app",
+        "mcp.serve", "mcp.gateway", "mcp.sampling", "mcp.roots", "mcp.logging", "mcp.notification", "mcp.unknown"
+      ],
+      "description": "The exposed MCP primitive this decision is about. The vocabulary is closed: a primitive the estate has never heard of resolves to `mcp.unknown` and is typed unavailable, never guessed into a neighbour."
+    },
+    "canonical_owner": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 240,
+      "description": "The existing canonical owner this primitive resolves to, or — when it resolves to nothing — the owner that would have to exist for it to be served. Naming it is what makes a refusal actionable rather than a wall."
+    },
+    "canonical_backing_ref": {
+      "anyOf": [{ "$ref": "#/$defs/ref" }, { "type": "null" }],
+      "description": "The admitted owner record the answer resolved to. Null on every typed-unavailable decision, and required on a normalized one: a normalization with no backing record would be the invented truth the acceptance forbids."
+    },
+    "backing_revision_refs": {
+      "type": "array",
+      "uniqueItems": true,
+      "maxItems": 32,
+      "items": { "$ref": "#/$defs/ref" },
+      "description": "The exact revisions the normalized answer was built from, so a reader can bind to the version it saw rather than to a moving head."
+    },
+    "normalization_decision": { "type": "string", "enum": ["normalized", "typed_unavailable"] },
+    "authority_granted": { "type": "boolean", "description": "Whether this decision itself conferred authority. Always false: authority crosses at its own owner's gateway, never at a protocol projection." },
+    "receipt_identity_granted": { "type": "boolean", "description": "Whether this decision conferred receipt identity. Always false: a receipt is written by the owner that performed the effect." },
+    "receipt_refs": {
+      "type": "array",
+      "uniqueItems": true,
+      "maxItems": 32,
+      "items": { "$ref": "#/$defs/ref" },
+      "description": "Receipts the normalized owner already wrote for this object. An empty array is the claim that there are none, and a typed-unavailable decision carries none."
+    },
+    "source_protocol_version": { "type": "string", "minLength": 1, "maxLength": 40, "description": "The MCP protocol revision this decision was made under. A divergent revision is refused at the handshake rather than adapted silently." },
+    "policy_lease_posture": {
+      "type": "string",
+      "enum": ["not_minted", "minted", "not_applicable"],
+      "description": "Whether a policy lease stands behind this answer. `not_minted` on a typed-unavailable decision; `not_applicable` where the normalized owner needs none."
+    },
+    "thread_id": { "anyOf": [{ "type": "string", "minLength": 1, "maxLength": 240 }, { "type": "null" }] },
+    "object_id": { "anyOf": [{ "type": "string", "minLength": 1, "maxLength": 240 }, { "type": "null" }] },
+    "effective_gateway_profile_revision": { "anyOf": [{ "$ref": "#/$defs/ref" }, { "type": "null" }] },
+    "tool": { "anyOf": [{ "type": "string", "minLength": 1, "maxLength": 240 }, { "type": "null" }] },
+    "gateway_profile_revision_ref": { "anyOf": [{ "$ref": "#/$defs/ref" }, { "type": "null" }] },
+    "resolved_requirement_revision_refs": { "type": "array", "uniqueItems": true, "maxItems": 64, "items": { "$ref": "#/$defs/ref" } },
+    "refusal_code": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 120,
+      "description": "Why a NAMED refusal refused, for the cases where 'typed unavailable' is not the whole answer — an App this organization never admitted, or one whose release was recalled, is refused by this code rather than described. Absent on a normalized decision."
+    },
+    "org_ref": {
+      "anyOf": [{ "$ref": "#/$defs/ref" }, { "type": "null" }],
+      "description": "The organization whose admitted records this answer was resolved against. Registrations are org-scoped, so the answer says which scope it read; a caller with no resolvable organization reads the local one and never another tenant's."
+    },
+    "app_count": { "type": "integer", "minimum": 0, "maximum": 100000 },
+    "apps": {
+      "type": "array",
+      "maxItems": 1000,
+      "items": { "$ref": "#/$defs/app_summary" },
+      "description": "The organization's admitted extension_application registrations, as a listing. It is a projection: every member is the registration's own."
+    },
+    "descriptor": {
+      "anyOf": [{ "$ref": "#/$defs/app_descriptor" }, { "type": "null" }],
+      "description": "One admitted extension_application registration, projected. The App primitive's whole positive answer."
+    },
+    "reason": { "type": "string", "minLength": 1, "maxLength": 512 }
+  },
+  "allOf": [
+    {
+      "if": { "type": "object", "properties": { "normalization_decision": { "type": "string", "const": "typed_unavailable" } }, "required": ["normalization_decision"] },
+      "then": {
+        "type": "object",
+        "properties": {
+          "status": { "type": "string", "const": "typed_unavailable" },
+          "authority_granted": { "type": "boolean", "const": false },
+          "receipt_identity_granted": { "type": "boolean", "const": false },
+          "canonical_backing_ref": { "type": "null" }
+        }
+      }
+    },
+    {
+      "if": { "type": "object", "properties": { "normalization_decision": { "type": "string", "const": "normalized" } }, "required": ["normalization_decision"] },
+      "then": {
+        "type": "object",
+        "properties": {
+          "status": { "type": "string", "const": "normalized" },
+          "authority_granted": { "type": "boolean", "const": false },
+          "receipt_identity_granted": { "type": "boolean", "const": false },
+          "canonical_backing_ref": { "$ref": "#/$defs/ref" }
+        },
+        "required": ["canonical_backing_ref"]
+      }
+    }
+  ],
+  "$defs": {
+    "ref": { "type": "string", "pattern": "^[a-z][a-z0-9+.-]*://[^ ]{1,480}$" },
+    "app_summary": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["app_id", "surface_ref", "display_name", "canonical_route", "effect_boundary"],
+      "properties": {
+        "app_id": { "type": "string", "minLength": 1, "maxLength": 240 },
+        "surface_ref": { "$ref": "#/$defs/ref" },
+        "display_name": { "anyOf": [{ "type": "string", "maxLength": 240 }, { "type": "null" }] },
+        "canonical_route": { "anyOf": [{ "type": "string", "maxLength": 480 }, { "type": "null" }] },
+        "effect_boundary": { "anyOf": [{ "type": "string", "maxLength": 120 }, { "type": "null" }] }
+      }
+    },
+    "app_descriptor": {
+      "type": "object",
+      "additionalProperties": false,
+      "description": "A PROJECTION of an admitted extension_application registration, and nothing more. Every member here is the registration's own; the descriptor derives none of them, and `grants` says in the bytes what reading it does not buy. ACC-1 N5: an App cannot acquire host or runtime truth, so the four grant members are constant false in the schema rather than by convention.",
+      "required": ["app_id", "surface_ref", "canonical_route", "surface_class", "effect_boundary", "grants"],
+      "properties": {
+        "app_id": { "type": "string", "minLength": 1, "maxLength": 240 },
+        "surface_ref": { "$ref": "#/$defs/ref" },
+        "display_name": { "anyOf": [{ "type": "string", "maxLength": 240 }, { "type": "null" }] },
+        "canonical_route": { "anyOf": [{ "type": "string", "maxLength": 480 }, { "type": "null" }] },
+        "surface_class": { "anyOf": [{ "type": "string", "maxLength": 120 }, { "type": "null" }] },
+        "surface_origin": { "anyOf": [{ "type": "string", "maxLength": 120 }, { "type": "null" }] },
+        "surface_creation_method": { "anyOf": [{ "type": "string", "maxLength": 120 }, { "type": "null" }] },
+        "effect_boundary": { "anyOf": [{ "type": "string", "maxLength": 120 }, { "type": "null" }] },
+        "declared_object_contract_refs": { "anyOf": [{ "type": "array", "maxItems": 256, "items": { "type": "string", "maxLength": 480 } }, { "type": "null" }] },
+        "declared_action_contract_refs": { "anyOf": [{ "type": "array", "maxItems": 256, "items": { "type": "string", "maxLength": 480 } }, { "type": "null" }] },
+        "supported_placements": { "anyOf": [{ "type": "array", "maxItems": 64, "items": { "type": "string", "maxLength": 120 } }, { "type": "null" }] },
+        "launch_modes": { "anyOf": [{ "type": "array", "maxItems": 64, "items": { "type": "string", "maxLength": 120 } }, { "type": "null" }] },
+        "grants": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["host_mutation", "runtime_ownership", "authority", "receipt_identity"],
+          "properties": {
+            "host_mutation": { "type": "boolean", "const": false },
+            "runtime_ownership": { "type": "boolean", "const": false },
+            "authority": { "type": "boolean", "const": false },
+            "receipt_identity": { "type": "boolean", "const": false }
+          }
+        }
+      }
+    }
+  }
+}

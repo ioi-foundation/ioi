@@ -297,9 +297,9 @@ remain independent of MCP protocol versions:
 |---|---|
 | Tool | One admitted `RuntimeToolContract`; actual use still requires the invocation's authority, policy, budget, evidence, and receipt path. |
 | Resource | `PolicyBoundDataView`, `ArtifactRef`, or `MemoryProjection` accessed under a `ContextLease`; a resource URI is neither truth nor access authority. |
-| Prompt | User-selectable import input to a `SkillManifest`, `GoalRunProfile`, or invocation; always untrusted/tainted until schema, policy, and provenance checks pass. |
+| Prompt | User-selectable import input to a `SkillManifest`, to a profile owned by an orchestration application composed on this Hypervisor, or to an invocation; always untrusted/tainted until schema, policy, and provenance checks pass. |
 | Elicitation | Typed user-input or clarification request. An authority-bearing choice separately enters wallet.network approval; elicitation itself is not approval. |
-| Task | Opaque external invocation handle recorded on `HarnessInvocation`; it never becomes `GoalRun`, `AutomationRun`, WorkRun, or receipt identity. |
+| Task | Opaque external invocation handle recorded on `HarnessInvocation`; it never becomes an application-owned goal run, an `AutomationRun`, a WorkRun, or receipt identity. |
 | App | Sandboxed `extension_application` surface over admitted contracts; it owns no runtime truth, secrets, authority, or direct host mutation. |
 
 An MCP server session, task handle, prompt name, or resource URI therefore may
@@ -307,6 +307,58 @@ be transport evidence, but it cannot replace IOI run identity, state roots,
 ContextLeases, authority grants, policy decisions, or receipts. Protocol-
 version adapters must normalize into these owners and fail typed-unavailable
 when they cannot preserve the mapping.
+
+### MCP primitive normalization
+
+The answer to "what did this primitive normalize to?" is one registered
+contract,
+`schema://ioi/components/hypervisor/mcp-primitive-normalization-decision/v1`
+(`ioi.runtime.mcp-normalization-decision.v1`). Every place this estate answers
+for an MCP primitive emits it: the thread-scoped MCP routes, the outward
+gateway, the stdio client when a server initiates a primitive the client does
+not implement, and — beside their own richer members — the admitted tool
+projection and connector discovery. One builder constructs it and validates it
+against the registered contract before it is served, so a drifted member is a
+typed failure in the daemon rather than a shape a consumer discovers.
+
+The decision is never a grant. `authority_granted` and
+`receipt_identity_granted` are false on every answer, positive or negative: a
+protocol object does not become authority by being described, and a projection
+writes no receipt. A NORMALIZED decision names the admitted owner record it
+resolved to in `canonical_backing_ref`; a TYPED-UNAVAILABLE decision carries
+null there, reports its policy lease as not minted, and still names the
+canonical owner that would have to exist for the primitive to be served. That
+last member is what makes a refusal a boundary rather than a wall: a caller can
+tell "unsupported" from "unbuilt" from "forbidden".
+
+The primitive vocabulary is closed. A primitive this estate has never heard of
+resolves to `mcp.unknown` and is typed unavailable; it is never guessed into a
+neighbour.
+
+Two primitives normalize today. A **tool** resolves to an admitted
+`RuntimeToolContract` revision enabled by the thread's daemon-owned MCP mount.
+An **App** resolves to an admitted `extension_application` registration, and the
+descriptor served over MCP is a projection of that registration — its canonical
+route, surface class, origin, creation method, effect boundary, declared object
+and action contract references, supported placements and launch modes — bound to
+the exact installation revision, carrying in its own bytes that it grants no
+host mutation, no runtime ownership, no authority and no receipt identity. An
+App the caller's organization has not admitted, or whose release was recalled,
+is refused by name rather than described.
+
+The remaining four are NAMED ABSENCES with owners, not gaps. A **resource**
+would resolve to a `PolicyBoundDataView`, an `ArtifactRef` or a
+`MemoryProjection` read under a `ContextLease`; the lease is an orchestration
+application's record over the generic System-record seam, which knows no
+application vocabulary by construction, `ArtifactRef` has no producer and
+`MemoryProjection` has no registered contract. A **prompt** has its owner —
+`SkillManifest` — but not the inert, provenance-bearing import record a
+normalized prompt would produce. **Elicitation** has no typed-user-input record
+family and a **task** has no `HarnessInvocation` record family. The runtime tool
+catalog therefore describes catalogued resources and prompts and refuses to
+offer them: it declares them non-invocable, requires no authority scope for
+them, advertises no workflow node type, and carries the same typed-unavailable
+decision beside each entry.
 
 ### Local-agent pairing profile binding
 

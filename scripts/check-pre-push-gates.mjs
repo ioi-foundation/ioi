@@ -152,11 +152,16 @@ for (const [label, command, argv, options = {}] of GATES) {
     process.stdout.write(`\rPASS  ${label}${" ".repeat(20)}\n`);
   } catch (error) {
     process.stdout.write(`\rFAIL  ${label}${" ".repeat(20)}\n`);
-    const output = `${error.stdout ?? ""}${error.stderr ?? ""}`
-      .split("\n")
-      .filter((line) => /FAIL|pinned|expected|Error/i.test(line))
-      .slice(0, 3);
-    for (const line of output) console.log(`        ${line.trim().slice(0, 200)}`);
+    // WHAT THE FAILING GATE ACTUALLY SAID. The filter here used to be /FAIL|pinned|expected|Error/i taken
+    // from the TOP of the output, and `pinned` matches `repinned` — so a failing mutation battery printed
+    // three of its PASSING rows ("ok RED-ON-TARGET … [repinned 7]") and the real cause scrolled away
+    // unseen. A sweep that reports the wrong three lines is worse than one that reports none, because the
+    // reader believes they have been told. Failure lines are preferred and read from the END, where a
+    // battery's verdict lives; if none match, the tail of the output is printed verbatim. (M01.10, R-219.)
+    const lines = `${error.stdout ?? ""}${error.stderr ?? ""}`.split("\n").filter((line) => line.trim());
+    const failing = lines.filter((line) => /(^|\s)(FAIL|FAILED|BLOCKED|error|Error:)\b|SURVIVED|does not compile/.test(line));
+    const output = (failing.length ? failing : lines).slice(-4);
+    for (const line of output) console.log(`        ${line.trim().slice(0, 240)}`);
     failures.push(label);
   }
 }

@@ -1,0 +1,613 @@
+{
+  "schema": "ioi.mcp-non-tool-normalization-evidence.v1",
+  "mode": "full",
+  "started_at": "2026-09-21T08:59:44.175Z",
+  "drills": [
+    {
+      "name": "PURE — the oracle refuses every constructed decision that claims more than it resolved, and accepts the two clean shapes",
+      "pass": true,
+      "detail": "",
+      "at": "2026-09-21T08:59:44.176Z"
+    },
+    {
+      "name": "SOURCE — one contract-validated envelope builder, no second hand-rolled shape, a closed table equal on both sides, the App positive over an admitted registration, a client that answers, a fenced catalog and canon that says so",
+      "pass": true,
+      "detail": "",
+      "at": "2026-09-21T08:59:44.184Z"
+    },
+    {
+      "name": "BINDING — both gates are floored and CI-bound, every clause is executed or named with an owner, and the twelve clauses are present",
+      "pass": true,
+      "detail": "",
+      "at": "2026-09-21T08:59:44.186Z"
+    },
+    {
+      "name": "VERDICT — a table missing eleven of its twelve rows is a FAIL, not a pass",
+      "pass": true,
+      "detail": "row_missing:2 ; row_missing:3",
+      "at": "2026-09-21T08:59:44.186Z"
+    },
+    {
+      "name": "VERDICT — twelve green rows with no absence is a PASS",
+      "pass": true,
+      "detail": "",
+      "at": "2026-09-21T08:59:44.186Z"
+    },
+    {
+      "name": "VERDICT — one named absence is a NAMED FAILURE, never a pass",
+      "pass": true,
+      "detail": "named_failure",
+      "at": "2026-09-21T08:59:44.186Z"
+    },
+    {
+      "name": "VERDICT — a gate that reports success without evidence is fabricated, not green",
+      "pass": true,
+      "detail": "clause_1_fabricated: x reports success without evidence",
+      "at": "2026-09-21T08:59:44.186Z"
+    },
+    {
+      "name": "VERDICT — a gate that reached a non-loopback destination fails, whatever it returned",
+      "pass": true,
+      "detail": "clause_1_undeclared_egress: x reached 1 non-loopback destination(s)",
+      "at": "2026-09-21T08:59:44.186Z"
+    },
+    {
+      "name": "VERDICT — a gate below its floor fails even at exit 0",
+      "pass": true,
+      "detail": "clause_1_below_floor: x 2 < 9",
+      "at": "2026-09-21T08:59:44.186Z"
+    }
+  ],
+  "pure": {
+    "findings": []
+  },
+  "source": {
+    "findings": []
+  },
+  "client": {
+    "findings": [],
+    "seconds": 0,
+    "tests": "4"
+  },
+  "plane": {
+    "findings": [],
+    "observed": {
+      "decisions": 17,
+      "contract_valid": 17
+    },
+    "seconds": 6
+  },
+  "clauses": [
+    {
+      "n": 1,
+      "demand": "MCP is a transport and its answer is ONE registered contract: every normalization decision this estate emits — the thread-scoped routes, the outward gateway, the stdio client, the tool projection and connector discovery — carries the same eleven members under one schema, built in one place and validated against the registered contract BEFORE it is served",
+      "executed": [
+        {
+          "script": "source (this runner)",
+          "status": 0,
+          "seconds": 0,
+          "evidence": {
+            "findings": []
+          },
+          "evidence_sha256": "sha256:9d0f2143c61cfbb6c0cf0425ce8b447811a32d48ec37333ba8b3700218631b36",
+          "ledger": {
+            "attempts": 0,
+            "loopback": 0,
+            "reach": 0
+          }
+        },
+        {
+          "script": "plane (this runner)",
+          "status": 0,
+          "seconds": 6,
+          "evidence": {
+            "findings": [],
+            "observed": {
+              "decisions": 17,
+              "contract_valid": 17
+            },
+            "seconds": 6
+          },
+          "evidence_sha256": "sha256:d636a7dd5de159d5f95e6cb0bab3fd3c2fd521f95c3f2b94839e66db8b93e3e9",
+          "ledger": {
+            "attempts": 0,
+            "loopback": 0,
+            "reach": 0
+          }
+        },
+        {
+          "script": "client (this runner)",
+          "status": 0,
+          "seconds": 0,
+          "evidence": {
+            "findings": [],
+            "seconds": 0,
+            "tests": "4"
+          },
+          "evidence_sha256": "sha256:5c1cbe26de37f31451a1aabb8bd4c9688138a94935ac34cbf9156caf31e0fe88",
+          "ledger": {
+            "attempts": 0,
+            "loopback": 0,
+            "reach": 0
+          }
+        },
+        {
+          "script": "check:architecture-contracts",
+          "status": 0,
+          "seconds": 5,
+          "isolation": "refused_and_recorded",
+          "ledger": {
+            "attempts": 0,
+            "loopback": 0,
+            "reach": 0,
+            "declared": 0
+          },
+          "evidence": "../../../../../../tmp/mcp-normalization-harness-qmTgw9/1-check-architecture-contracts.log",
+          "evidence_sha256": "sha256:787ba3f8a5baea64e6e98dab8102ea37ea7625fe3903ed6957c0bba014180025",
+          "executed_assertions": null,
+          "floor_expected": null,
+          "clause": 1
+        }
+      ],
+      "absence": null,
+      "scheduled": null
+    },
+    {
+      "n": 2,
+      "demand": "the primitive vocabulary is closed and the owner map is a table, not a chain of substring tests: an unrecognised path resolves to mcp.unknown rather than to the last branch, the daemon's table and this gate's agree row for row, and no primitive names a retired plane as its owner",
+      "executed": [
+        {
+          "script": "pure (this runner)",
+          "status": 0,
+          "seconds": 0,
+          "evidence": {
+            "findings": []
+          },
+          "evidence_sha256": "sha256:9d0f2143c61cfbb6c0cf0425ce8b447811a32d48ec37333ba8b3700218631b36",
+          "ledger": {
+            "attempts": 0,
+            "loopback": 0,
+            "reach": 0
+          }
+        },
+        {
+          "script": "source (this runner)",
+          "status": 0,
+          "seconds": 0,
+          "evidence": {
+            "findings": []
+          },
+          "evidence_sha256": "sha256:9d0f2143c61cfbb6c0cf0425ce8b447811a32d48ec37333ba8b3700218631b36",
+          "ledger": {
+            "attempts": 0,
+            "loopback": 0,
+            "reach": 0
+          }
+        }
+      ],
+      "absence": null,
+      "scheduled": null
+    },
+    {
+      "n": 3,
+      "demand": "a refusal is a boundary, not a wall: every typed-unavailable decision names the canonical owner that would have to exist for the primitive to be served, carries a null backing ref, reports the lease as not minted, and grants neither authority nor receipt identity",
+      "executed": [
+        {
+          "script": "pure (this runner)",
+          "status": 0,
+          "seconds": 0,
+          "evidence": {
+            "findings": []
+          },
+          "evidence_sha256": "sha256:9d0f2143c61cfbb6c0cf0425ce8b447811a32d48ec37333ba8b3700218631b36",
+          "ledger": {
+            "attempts": 0,
+            "loopback": 0,
+            "reach": 0
+          }
+        },
+        {
+          "script": "plane (this runner)",
+          "status": 0,
+          "seconds": 6,
+          "evidence": {
+            "findings": [],
+            "observed": {
+              "decisions": 17,
+              "contract_valid": 17
+            },
+            "seconds": 6
+          },
+          "evidence_sha256": "sha256:d636a7dd5de159d5f95e6cb0bab3fd3c2fd521f95c3f2b94839e66db8b93e3e9",
+          "ledger": {
+            "attempts": 0,
+            "loopback": 0,
+            "reach": 0
+          }
+        }
+      ],
+      "absence": null,
+      "scheduled": null
+    },
+    {
+      "n": 4,
+      "demand": "the App primitive NORMALIZES: an MCP App resolves to an admitted extension_application registration, and the descriptor is a projection of that registration — its route, class, origin, creation method, effect boundary, declared contract sets, placements and launch modes — bound to the exact installation revision",
+      "executed": [
+        {
+          "script": "plane (this runner)",
+          "status": 0,
+          "seconds": 6,
+          "evidence": {
+            "findings": [],
+            "observed": {
+              "decisions": 17,
+              "contract_valid": 17
+            },
+            "seconds": 6
+          },
+          "evidence_sha256": "sha256:d636a7dd5de159d5f95e6cb0bab3fd3c2fd521f95c3f2b94839e66db8b93e3e9",
+          "ledger": {
+            "attempts": 0,
+            "loopback": 0,
+            "reach": 0
+          }
+        },
+        {
+          "script": "pure (this runner)",
+          "status": 0,
+          "seconds": 0,
+          "evidence": {
+            "findings": []
+          },
+          "evidence_sha256": "sha256:9d0f2143c61cfbb6c0cf0425ce8b447811a32d48ec37333ba8b3700218631b36",
+          "ledger": {
+            "attempts": 0,
+            "loopback": 0,
+            "reach": 0
+          }
+        }
+      ],
+      "absence": null,
+      "scheduled": null
+    },
+    {
+      "n": 5,
+      "demand": "native equivalence: the App read over MCP and the same registration read over the Packages route are the same record, member for member; the MCP path derives nothing the native path does not carry and admits nothing the native path would refuse",
+      "executed": [
+        {
+          "script": "plane (this runner)",
+          "status": 0,
+          "seconds": 6,
+          "evidence": {
+            "findings": [],
+            "observed": {
+              "decisions": 17,
+              "contract_valid": 17
+            },
+            "seconds": 6
+          },
+          "evidence_sha256": "sha256:d636a7dd5de159d5f95e6cb0bab3fd3c2fd521f95c3f2b94839e66db8b93e3e9",
+          "ledger": {
+            "attempts": 0,
+            "loopback": 0,
+            "reach": 0
+          }
+        }
+      ],
+      "absence": null,
+      "scheduled": null
+    },
+    {
+      "n": 6,
+      "demand": "private projection: an App this organization has not admitted, an App whose release was recalled, and another organization's registration are each REFUSED BY NAME rather than described, and the refusal is the same registered decision",
+      "executed": [
+        {
+          "script": "plane (this runner)",
+          "status": 0,
+          "seconds": 6,
+          "evidence": {
+            "findings": [],
+            "observed": {
+              "decisions": 17,
+              "contract_valid": 17
+            },
+            "seconds": 6
+          },
+          "evidence_sha256": "sha256:d636a7dd5de159d5f95e6cb0bab3fd3c2fd521f95c3f2b94839e66db8b93e3e9",
+          "ledger": {
+            "attempts": 0,
+            "loopback": 0,
+            "reach": 0
+          }
+        }
+      ],
+      "absence": null,
+      "scheduled": null
+    },
+    {
+      "n": 7,
+      "demand": "N5 — a resource URI cannot grant access: every resource route refuses typed-unavailable, names the owner that would serve it, mints no lease and produces no view",
+      "executed": [
+        {
+          "script": "plane (this runner)",
+          "status": 0,
+          "seconds": 6,
+          "evidence": {
+            "findings": [],
+            "observed": {
+              "decisions": 17,
+              "contract_valid": 17
+            },
+            "seconds": 6
+          },
+          "evidence_sha256": "sha256:d636a7dd5de159d5f95e6cb0bab3fd3c2fd521f95c3f2b94839e66db8b93e3e9",
+          "ledger": {
+            "attempts": 0,
+            "loopback": 0,
+            "reach": 0
+          }
+        },
+        {
+          "script": "pure (this runner)",
+          "status": 0,
+          "seconds": 0,
+          "evidence": {
+            "findings": []
+          },
+          "evidence_sha256": "sha256:9d0f2143c61cfbb6c0cf0425ce8b447811a32d48ec37333ba8b3700218631b36",
+          "ledger": {
+            "attempts": 0,
+            "loopback": 0,
+            "reach": 0
+          }
+        }
+      ],
+      "absence": {
+        "what": "the resource POSITIVE normalization: ContextLease is the ioi.ai orchestration application's record over the generic System-record seam (R-192, R-202) and the seam knows no application vocabulary; ArtifactRef has no producer (R-205) and MemoryProjection has no registered contract",
+        "owner": "the ioi.ai orchestration application's ContextLease (R-192, R-202) · ArtifactRef's producer (R-205) · MemoryProjection's contract (owner question, R-219)"
+      },
+      "scheduled": null
+    },
+    {
+      "n": 8,
+      "demand": "N5 — a prompt cannot become trusted instruction: the prompt routes refuse typed-unavailable, and the runtime catalog does not advertise a prompt as an invocable workflow node or require an authority scope for it",
+      "executed": [
+        {
+          "script": "plane (this runner)",
+          "status": 0,
+          "seconds": 6,
+          "evidence": {
+            "findings": [],
+            "observed": {
+              "decisions": 17,
+              "contract_valid": 17
+            },
+            "seconds": 6
+          },
+          "evidence_sha256": "sha256:d636a7dd5de159d5f95e6cb0bab3fd3c2fd521f95c3f2b94839e66db8b93e3e9",
+          "ledger": {
+            "attempts": 0,
+            "loopback": 0,
+            "reach": 0
+          }
+        },
+        {
+          "script": "source (this runner)",
+          "status": 0,
+          "seconds": 0,
+          "evidence": {
+            "findings": []
+          },
+          "evidence_sha256": "sha256:9d0f2143c61cfbb6c0cf0425ce8b447811a32d48ec37333ba8b3700218631b36",
+          "ledger": {
+            "attempts": 0,
+            "loopback": 0,
+            "reach": 0
+          }
+        },
+        {
+          "script": "pure (this runner)",
+          "status": 0,
+          "seconds": 0,
+          "evidence": {
+            "findings": []
+          },
+          "evidence_sha256": "sha256:9d0f2143c61cfbb6c0cf0425ce8b447811a32d48ec37333ba8b3700218631b36",
+          "ledger": {
+            "attempts": 0,
+            "loopback": 0,
+            "reach": 0
+          }
+        }
+      ],
+      "absence": {
+        "what": "the prompt POSITIVE normalization: M04.3's SkillManifest is the owner, and the inert provenance-bearing import record a normalized prompt would produce does not exist",
+        "owner": "M04.3's SkillManifest and the tainted-import record family (owner question, R-219)"
+      },
+      "scheduled": null
+    },
+    {
+      "n": 9,
+      "demand": "N5 — elicitation cannot approve and an MCP task cannot become a run identity: both routes refuse typed-unavailable and neither answer carries a receipt ref, an approval or a run identity",
+      "executed": [
+        {
+          "script": "plane (this runner)",
+          "status": 0,
+          "seconds": 6,
+          "evidence": {
+            "findings": [],
+            "observed": {
+              "decisions": 17,
+              "contract_valid": 17
+            },
+            "seconds": 6
+          },
+          "evidence_sha256": "sha256:d636a7dd5de159d5f95e6cb0bab3fd3c2fd521f95c3f2b94839e66db8b93e3e9",
+          "ledger": {
+            "attempts": 0,
+            "loopback": 0,
+            "reach": 0
+          }
+        },
+        {
+          "script": "pure (this runner)",
+          "status": 0,
+          "seconds": 0,
+          "evidence": {
+            "findings": []
+          },
+          "evidence_sha256": "sha256:9d0f2143c61cfbb6c0cf0425ce8b447811a32d48ec37333ba8b3700218631b36",
+          "ledger": {
+            "attempts": 0,
+            "loopback": 0,
+            "reach": 0
+          }
+        }
+      ],
+      "absence": {
+        "what": "the elicitation and task POSITIVE normalizations: no typed-user-input record family exists; no HarnessInvocation record family exists",
+        "owner": "M01's typed-user-input family and the HarnessInvocation family (owner question, R-219)"
+      },
+      "scheduled": null
+    },
+    {
+      "n": 10,
+      "demand": "N5 — an App cannot acquire host or runtime truth: the descriptor says in its own bytes that it grants no host mutation, no runtime ownership, no authority and no receipt identity, and reading it writes no record to any family",
+      "executed": [
+        {
+          "script": "plane (this runner)",
+          "status": 0,
+          "seconds": 6,
+          "evidence": {
+            "findings": [],
+            "observed": {
+              "decisions": 17,
+              "contract_valid": 17
+            },
+            "seconds": 6
+          },
+          "evidence_sha256": "sha256:d636a7dd5de159d5f95e6cb0bab3fd3c2fd521f95c3f2b94839e66db8b93e3e9",
+          "ledger": {
+            "attempts": 0,
+            "loopback": 0,
+            "reach": 0
+          }
+        },
+        {
+          "script": "pure (this runner)",
+          "status": 0,
+          "seconds": 0,
+          "evidence": {
+            "findings": []
+          },
+          "evidence_sha256": "sha256:9d0f2143c61cfbb6c0cf0425ce8b447811a32d48ec37333ba8b3700218631b36",
+          "ledger": {
+            "attempts": 0,
+            "loopback": 0,
+            "reach": 0
+          }
+        }
+      ],
+      "absence": null,
+      "scheduled": null
+    },
+    {
+      "n": 11,
+      "demand": "the client half: a server-initiated primitive this client does not implement is ANSWERED with the typed refusal rather than dropped, a notification carries no id and is dropped deliberately rather than answered, and the session stays usable after both",
+      "executed": [
+        {
+          "script": "client (this runner)",
+          "status": 0,
+          "seconds": 0,
+          "evidence": {
+            "findings": [],
+            "seconds": 0,
+            "tests": "4"
+          },
+          "evidence_sha256": "sha256:5c1cbe26de37f31451a1aabb8bd4c9688138a94935ac34cbf9156caf31e0fe88",
+          "ledger": {
+            "attempts": 0,
+            "loopback": 0,
+            "reach": 0
+          }
+        },
+        {
+          "script": "source (this runner)",
+          "status": 0,
+          "seconds": 0,
+          "evidence": {
+            "findings": []
+          },
+          "evidence_sha256": "sha256:9d0f2143c61cfbb6c0cf0425ce8b447811a32d48ec37333ba8b3700218631b36",
+          "ledger": {
+            "attempts": 0,
+            "loopback": 0,
+            "reach": 0
+          }
+        }
+      ],
+      "absence": null,
+      "scheduled": null
+    },
+    {
+      "n": 12,
+      "demand": "the transport's own invariants hold beneath all of this: the protocol revision is pinned and negotiated, every externally reachable MCP route is classified, the canonical route set is complete, and a tool arriving over MCP normalizes to the same RuntimeToolContract the native path resolves",
+      "executed": [
+        {
+          "script": "check:mcp-transport-normalization",
+          "status": 0,
+          "seconds": 0,
+          "isolation": "refused_and_recorded",
+          "ledger": {
+            "attempts": 0,
+            "loopback": 0,
+            "reach": 0,
+            "declared": 0
+          },
+          "evidence": "../../../../../../tmp/mcp-normalization-harness-qmTgw9/census/12-mcp-transport-normalization/mcp-transport-normalization.json",
+          "evidence_sha256": "sha256:40a2084129ea7174981455dc0cfa22455b45ae5c047fe7bd3c6c241c723405f4",
+          "executed_assertions": 30,
+          "floor_expected": 30,
+          "clause": 12
+        }
+      ],
+      "absence": {
+        "what": "the outward Hypervisor MCP Gateway profile: both gateway routes still refuse typed-unavailable and no gateway profile schema is registered, so 'a tool arriving over MCP' is proven for the thread-scoped mount and NAMED for the outward gateway",
+        "owner": "M01.11 (check:hypervisor-mcp-gateway-profile) — ACC-1 clause 8 and N6"
+      },
+      "scheduled": null
+    }
+  ],
+  "verdict": {
+    "kind": "named_failure",
+    "failures": [],
+    "absences": [
+      {
+        "n": 7,
+        "what": "the resource POSITIVE normalization: ContextLease is the ioi.ai orchestration application's record over the generic System-record seam (R-192, R-202) and the seam knows no application vocabulary; ArtifactRef has no producer (R-205) and MemoryProjection has no registered contract",
+        "owner": "the ioi.ai orchestration application's ContextLease (R-192, R-202) · ArtifactRef's producer (R-205) · MemoryProjection's contract (owner question, R-219)"
+      },
+      {
+        "n": 8,
+        "what": "the prompt POSITIVE normalization: M04.3's SkillManifest is the owner, and the inert provenance-bearing import record a normalized prompt would produce does not exist",
+        "owner": "M04.3's SkillManifest and the tainted-import record family (owner question, R-219)"
+      },
+      {
+        "n": 9,
+        "what": "the elicitation and task POSITIVE normalizations: no typed-user-input record family exists; no HarnessInvocation record family exists",
+        "owner": "M01's typed-user-input family and the HarnessInvocation family (owner question, R-219)"
+      },
+      {
+        "n": 12,
+        "what": "the outward Hypervisor MCP Gateway profile: both gateway routes still refuse typed-unavailable and no gateway profile schema is registered, so 'a tool arriving over MCP' is proven for the thread-scoped mount and NAMED for the outward gateway",
+        "owner": "M01.11 (check:hypervisor-mcp-gateway-profile) — ACC-1 clause 8 and N6"
+      }
+    ]
+  },
+  "mutation": null,
+  "finished_at": "2026-09-21T08:59:55.755Z",
+  "summary": {
+    "passed": 9,
+    "total": 9
+  }
+}

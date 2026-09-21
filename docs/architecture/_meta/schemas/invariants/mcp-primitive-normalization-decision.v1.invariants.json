@@ -1,0 +1,27 @@
+{
+  "$id": "invariant://ioi/components/hypervisor/mcp-primitive-normalization-decision/names-its-owner/v1",
+  "language": "ioi.portable-invariants.v1",
+  "contract_id": "schema://ioi/components/hypervisor/mcp-primitive-normalization-decision/v1",
+  "rules": [
+    {
+      "rule_id": "mcp_primitive_normalization_decision.normalized_names_its_backing_record",
+      "description": "A NORMALIZED decision names the admitted owner record it resolved to. The JSON Schema enforces this too, and refuses first — measured, not assumed: the golden-fixture oracle reports `schema` for a normalized decision with no backing ref, so the negative fixture is registered against the schema layer. This rule is not therefore idle. It is the same law in the PORTABLE invariant language, which is what a consumer that does not run JSON Schema reads, and the claim it carries is the one the whole unit turns on: 'resolves to its existing canonical owner' is a statement about a RECORD, and a normalization with nothing behind it is exactly the invented truth the acceptance forbids.",
+      "expression": {
+        "operator": "non_empty_when_in",
+        "path": "$.canonical_backing_ref",
+        "when_path": "$.normalization_decision",
+        "values": ["normalized"]
+      }
+    },
+    {
+      "rule_id": "mcp_primitive_normalization_decision.typed_unavailable_names_the_owner_that_would_serve_it",
+      "description": "A refusal that named no owner would be a wall rather than a boundary: the caller could not tell whether the primitive is unsupported, unbuilt or forbidden. Every decision carries the canonical owner, and on a typed-unavailable answer that is the owner which would have to exist for the primitive to be served.",
+      "expression": {
+        "operator": "non_empty_when_in",
+        "path": "$.canonical_owner",
+        "when_path": "$.normalization_decision",
+        "values": ["typed_unavailable", "normalized"]
+      }
+    }
+  ]
+}
