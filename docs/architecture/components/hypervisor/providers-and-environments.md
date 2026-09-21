@@ -8,7 +8,7 @@ integration doctrine.
 Supersedes: prior live canon that split provider and environment posture into a
 standalone provider-management product or peer control plane.
 Superseded by: none.
-Last alignment pass: 2026-09-05 (workload-source and runtime-reuse boundary).
+Last alignment pass: 2026-09-21 (R-192 document-wide pass: the two GoalRun mentions retyped as the ioi.ai composition's; R-216 machine-profile certificate).
 Doctrine status: canonical
 Implementation status: partial (env lifecycle, providers, readiness, warm pools, placement, the local hostile-guest provider path, and offline C8 v3 AFT admission built; DePIN/storage posture families vary)
 Implementation refs:
@@ -1260,7 +1260,11 @@ Historical `recipe_ref`, `resolution_ref`, `required_wallet_scope_refs`, and
 compatibility aliases. Boundary adapters may read them, but canonical state
 emits the owner-qualified development-environment and provider-neutral
 authority names above so they cannot collide with `DataRecipe`,
-`HypervisorSessionLaunchRecipe`, `WorkflowTemplate`, or `GoalRunProfile`.
+`HypervisorSessionLaunchRecipe`, `WorkflowTemplate`, or an application-owned
+definition such as ioi.ai's `GoalRunProfile` (R-192: goal pursuit is the ioi.ai
+application's composition over the substrate and the Hypervisor owns no goal
+object; the name is listed here only as one a canonical name must not collide
+with).
 
 `HypervisorEnvironmentSubstratePolicy` records why the selected substrate is
 allowed for the workload and tenant posture:
@@ -2710,7 +2714,8 @@ Environments
   runtime environment lifecycle and provider placement evidence
 
 Work
-  typed GoalRun, AutomationRun, Session, WorkRun, retry, failure, and incident projections
+  typed work-subject projections — AutomationRun, Session, WorkRun, retry, failure
+  and incident, and the ioi.ai composition's GoalRun among them (R-192)
 
 Operations resource facet
   quota, queue, capacity, rate-limit, utilization, and spend posture
