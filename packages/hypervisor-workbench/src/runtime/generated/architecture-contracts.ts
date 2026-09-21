@@ -14800,6 +14800,30 @@ export type HypervisorMcpGatewayProfileV2 = {
   receipt_refs?: Array<string>;
 };
 
+export type CollectiveQualificationEstimandV1 = {
+  schema_version: "ioi.ioi-ai.collective-qualification-estimand.v1";
+  estimand_ref: string;
+  estimand_kind: "cooperation_surplus" | "resilience" | "independence";
+  quantity: {
+      metric_ref: string;
+      unit: string;
+      aggregation: "mean" | "median" | "trimmed_mean" | "rate" | "count" | "max" | "min";
+    };
+  direction: "higher_is_better" | "lower_is_better";
+  minimum_effect: {
+      value: number;
+      basis: "absolute" | "relative_to_baseline" | "standard_deviations";
+    };
+  cost_normalization: "none" | "per_cost_unit" | "per_wall_second" | "per_verification_unit";
+  decision_rule: string;
+  knockout_axis_refs?: Array<string>;
+  declared_at: string;
+  declared_before_epoch_freeze: true;
+  epoch_ref?: string | null;
+  system_binding: string;
+  qualifies_nothing_on_its_own: true;
+};
+
 export const ARCHITECTURE_CONTRACT_REGISTRY_VERSION = "ioi.architecture-contract-registry.v1" as const;
 
 export const ARCHITECTURE_CONTRACT_PORTABLE_INTEGER_MINIMUM = 0 as const;
@@ -29305,6 +29329,110 @@ export const ARCHITECTURE_CONTRACT_FIXTURES = [
     "expected_schema_accept": false,
     "expected_failure": "schema",
     "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/applications/ioi-ai/collective-qualification-estimand/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/collective-qualification-estimand-v1/positive-bound-to-a-frozen-epoch.json",
+    "expected": "accept",
+    "expected_schema_accept": true,
+    "expected_failure": null,
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/applications/ioi-ai/collective-qualification-estimand/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/collective-qualification-estimand-v1/positive-cooperation-surplus.json",
+    "expected": "accept",
+    "expected_schema_accept": true,
+    "expected_failure": null,
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/applications/ioi-ai/collective-qualification-estimand/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/collective-qualification-estimand-v1/positive-resilience-names-its-axes.json",
+    "expected": "accept",
+    "expected_schema_accept": true,
+    "expected_failure": null,
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/applications/ioi-ai/collective-qualification-estimand/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/collective-qualification-estimand-v1/negative-aggregation-outside-the-set.json",
+    "expected": "reject",
+    "expected_schema_accept": false,
+    "expected_failure": "schema",
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/applications/ioi-ai/collective-qualification-estimand/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/collective-qualification-estimand-v1/negative-claims-to-qualify-on-its-own.json",
+    "expected": "reject",
+    "expected_schema_accept": false,
+    "expected_failure": "schema",
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/applications/ioi-ai/collective-qualification-estimand/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/collective-qualification-estimand-v1/negative-declared-after-the-freeze.json",
+    "expected": "reject",
+    "expected_schema_accept": false,
+    "expected_failure": "schema",
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/applications/ioi-ai/collective-qualification-estimand/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/collective-qualification-estimand-v1/negative-direction-outside-the-set.json",
+    "expected": "reject",
+    "expected_schema_accept": false,
+    "expected_failure": "schema",
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/applications/ioi-ai/collective-qualification-estimand/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/collective-qualification-estimand-v1/negative-estimand-ref-off-scheme.json",
+    "expected": "reject",
+    "expected_schema_accept": false,
+    "expected_failure": "schema",
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/applications/ioi-ai/collective-qualification-estimand/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/collective-qualification-estimand-v1/negative-no-decision-rule.json",
+    "expected": "reject",
+    "expected_schema_accept": false,
+    "expected_failure": "schema",
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/applications/ioi-ai/collective-qualification-estimand/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/collective-qualification-estimand-v1/negative-no-minimum-effect.json",
+    "expected": "reject",
+    "expected_schema_accept": false,
+    "expected_failure": "schema",
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/applications/ioi-ai/collective-qualification-estimand/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/collective-qualification-estimand-v1/negative-resilience-with-no-axis.json",
+    "expected": "reject",
+    "expected_schema_accept": false,
+    "expected_failure": "schema",
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/applications/ioi-ai/collective-qualification-estimand/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/collective-qualification-estimand-v1/negative-unknown-estimand-kind.json",
+    "expected": "reject",
+    "expected_schema_accept": false,
+    "expected_failure": "schema",
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/applications/ioi-ai/collective-qualification-estimand/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/collective-qualification-estimand-v1/negative-unknown-member.json",
+    "expected": "reject",
+    "expected_schema_accept": false,
+    "expected_failure": "schema",
+    "expected_rule_id": null
   }
 ] as const;
 
@@ -33770,6 +33898,19 @@ export const ARCHITECTURE_CONTRACT_DIFFERENTIAL_CASES: ReadonlyArray<Architectur
   differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/hypervisor-mcp-gateway-profile-v2/negative-unknown-kind.json","contract_id":"schema://ioi/components/connectors-tools/hypervisor-mcp-gateway-profile/v2","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/hypervisor-mcp-gateway-profile-v2/negative-unknown-kind.json","mutation_id":null,"value_json":null}),
   differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/hypervisor-mcp-gateway-profile-v2/negative-unknown-member.json","contract_id":"schema://ioi/components/connectors-tools/hypervisor-mcp-gateway-profile/v2","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/hypervisor-mcp-gateway-profile-v2/negative-unknown-member.json","mutation_id":null,"value_json":null}),
   differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/hypervisor-mcp-gateway-profile-v2/negative-v1-version-in-a-v2-document.json","contract_id":"schema://ioi/components/connectors-tools/hypervisor-mcp-gateway-profile/v2","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/hypervisor-mcp-gateway-profile-v2/negative-v1-version-in-a-v2-document.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/collective-qualification-estimand-v1/positive-bound-to-a-frozen-epoch.json","contract_id":"schema://ioi/applications/ioi-ai/collective-qualification-estimand/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/collective-qualification-estimand-v1/positive-bound-to-a-frozen-epoch.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/collective-qualification-estimand-v1/positive-cooperation-surplus.json","contract_id":"schema://ioi/applications/ioi-ai/collective-qualification-estimand/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/collective-qualification-estimand-v1/positive-cooperation-surplus.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/collective-qualification-estimand-v1/positive-resilience-names-its-axes.json","contract_id":"schema://ioi/applications/ioi-ai/collective-qualification-estimand/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/collective-qualification-estimand-v1/positive-resilience-names-its-axes.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/collective-qualification-estimand-v1/negative-aggregation-outside-the-set.json","contract_id":"schema://ioi/applications/ioi-ai/collective-qualification-estimand/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/collective-qualification-estimand-v1/negative-aggregation-outside-the-set.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/collective-qualification-estimand-v1/negative-claims-to-qualify-on-its-own.json","contract_id":"schema://ioi/applications/ioi-ai/collective-qualification-estimand/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/collective-qualification-estimand-v1/negative-claims-to-qualify-on-its-own.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/collective-qualification-estimand-v1/negative-declared-after-the-freeze.json","contract_id":"schema://ioi/applications/ioi-ai/collective-qualification-estimand/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/collective-qualification-estimand-v1/negative-declared-after-the-freeze.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/collective-qualification-estimand-v1/negative-direction-outside-the-set.json","contract_id":"schema://ioi/applications/ioi-ai/collective-qualification-estimand/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/collective-qualification-estimand-v1/negative-direction-outside-the-set.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/collective-qualification-estimand-v1/negative-estimand-ref-off-scheme.json","contract_id":"schema://ioi/applications/ioi-ai/collective-qualification-estimand/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/collective-qualification-estimand-v1/negative-estimand-ref-off-scheme.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/collective-qualification-estimand-v1/negative-no-decision-rule.json","contract_id":"schema://ioi/applications/ioi-ai/collective-qualification-estimand/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/collective-qualification-estimand-v1/negative-no-decision-rule.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/collective-qualification-estimand-v1/negative-no-minimum-effect.json","contract_id":"schema://ioi/applications/ioi-ai/collective-qualification-estimand/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/collective-qualification-estimand-v1/negative-no-minimum-effect.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/collective-qualification-estimand-v1/negative-resilience-with-no-axis.json","contract_id":"schema://ioi/applications/ioi-ai/collective-qualification-estimand/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/collective-qualification-estimand-v1/negative-resilience-with-no-axis.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/collective-qualification-estimand-v1/negative-unknown-estimand-kind.json","contract_id":"schema://ioi/applications/ioi-ai/collective-qualification-estimand/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/collective-qualification-estimand-v1/negative-unknown-estimand-kind.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/collective-qualification-estimand-v1/negative-unknown-member.json","contract_id":"schema://ioi/applications/ioi-ai/collective-qualification-estimand/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/collective-qualification-estimand-v1/negative-unknown-member.json","mutation_id":null,"value_json":null}),
   differentialCase({"id":"mutation:sequence-zero-receipt-timestamp-detached","contract_id":"schema://ioi/foundations/autonomous-system-sequence-zero-materialization-receipt/v2","source_fixture_path":null,"mutation_id":"sequence-zero-receipt-timestamp-detached","value_json":null}),
   differentialCase({"id":"mutation:sequence-zero-receipt-authorized-materialization-id-detached","contract_id":"schema://ioi/foundations/autonomous-system-sequence-zero-materialization-receipt/v2","source_fixture_path":null,"mutation_id":"sequence-zero-receipt-authorized-materialization-id-detached","value_json":null}),
   differentialCase({"id":"mutation:sequence-zero-receipt-authority-principal-detached","contract_id":"schema://ioi/foundations/autonomous-system-sequence-zero-materialization-receipt/v2","source_fixture_path":null,"mutation_id":"sequence-zero-receipt-authority-principal-detached","value_json":null}),
@@ -34549,6 +34690,7 @@ export const ARCHITECTURE_CONTRACT_PATTERN_SOURCES = [
   "^environment://\\S+$",
   "^episode://[a-z0-9][a-z0-9._-]{0,127}$",
   "^episode://[a-z0-9][a-z0-9._-]{0,127}/revision/[1-9][0-9]{0,8}$",
+  "^estimand://[^\\s?#\\\\]{1,200}$",
   "^estop://[^\\s]+$",
   "^eval-suite://[A-Za-z0-9][A-Za-z0-9._-]{0,127}$",
   "^evaluation-epoch://[a-z0-9][a-z0-9._-]{0,127}$",
@@ -35369,7 +35511,8 @@ export const ARCHITECTURE_CONTRACT_SCHEMA_HASHES = {
   "schema://ioi/foundations/delegation-edge/v1": "sha256:916bfac63dd49fe478bfa006e2637acf775ce6e6d6b919afc7daefcec9178548",
   "schema://ioi/components/connectors-tools/mcp-gateway-requirement-envelope/v1": "sha256:d0cfdf520f16cd5c159eee6ba539135f1a9487a86e7316a7a2bc67418ef3185a",
   "schema://ioi/components/connectors-tools/hypervisor-mcp-gateway-profile/v1": "sha256:b391979446fb6da9a75f40018188ccf70f33d4cd2acd5008e1c7ded69b8ef086",
-  "schema://ioi/components/connectors-tools/hypervisor-mcp-gateway-profile/v2": "sha256:36c770c98e4e799359e479b3a6c0a8253a9889c5b0ee25f3865c802cb18d888b"
+  "schema://ioi/components/connectors-tools/hypervisor-mcp-gateway-profile/v2": "sha256:36c770c98e4e799359e479b3a6c0a8253a9889c5b0ee25f3865c802cb18d888b",
+  "schema://ioi/applications/ioi-ai/collective-qualification-estimand/v1": "sha256:dfaba07526e124f927f7d33e88df910df1142b8c051b6b1a0f84f587e8764723"
 } as const;
 
 type JsonObject = Record<string, unknown>;
@@ -150398,6 +150541,208 @@ const CONTRACT_SCHEMAS: Record<string, JsonObject> = {
         }
       }
     }
+  },
+  "schema://ioi/applications/ioi-ai/collective-qualification-estimand/v1": {
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "$id": "schema://ioi/applications/ioi-ai/collective-qualification-estimand/v1",
+    "title": "CollectiveQualificationEstimand",
+    "x-ioi-schema-version": "ioi.ioi-ai.collective-qualification-estimand.v1",
+    "description": "WHAT A COLLECTIVE IS BEING ASKED TO PROVE, DECLARED BEFORE ANY ARM RUNS. Canon's rule is that collective machinery earns its complexity: a frozen epoch compares the exact collective composition against a matched cheaper baseline under a DECLARED estimand, and neither participant count, aggregate score, active artifact nor surviving process proves cooperation surplus, runtime continuity or authority. THE WORD ALREADY EXISTED AND MEANT ALMOST NOTHING: the evaluation epoch carries `confirmatory_estimand_and_minimum_effect_refs`, an unvalidated bounded list of refs that nothing in the estate dereferences — a `policy://` string satisfies it — frozen into the epoch's root so that it looks settled. This contract is the referent that list never had. It names the quantity, the direction, the minimum effect that counts as a difference and the decision rule, so that a result can be read as confirming or failing a claim someone made IN ADVANCE rather than as a number to interpret afterwards. A DECLARATION IS NOT A RESULT: this envelope grants nothing, promotes nothing and qualifies nothing on its own, and it must be declared before the epoch freezes because a frozen epoch refuses a moved member. Owner: domains/ioi-ai/collaborative-outcome-pattern.md § Collective qualification (M10.9, R-222).",
+    "type": "object",
+    "additionalProperties": false,
+    "required": [
+      "schema_version",
+      "estimand_ref",
+      "estimand_kind",
+      "quantity",
+      "direction",
+      "minimum_effect",
+      "cost_normalization",
+      "decision_rule",
+      "declared_at",
+      "declared_before_epoch_freeze",
+      "system_binding",
+      "qualifies_nothing_on_its_own"
+    ],
+    "properties": {
+      "schema_version": {
+        "type": "string",
+        "const": "ioi.ioi-ai.collective-qualification-estimand.v1"
+      },
+      "estimand_ref": {
+        "$ref": "#/$defs/estimandRef"
+      },
+      "estimand_kind": {
+        "type": "string",
+        "description": "COOPERATION SURPLUS is the claim that the collective beats a matched cheaper baseline on the declared quantity. RESILIENCE is the claim that it degrades less than the baseline under a named knockout. INDEPENDENCE is the claim that its result does not depend on a named participant, edge or artifact. They are different claims with different failure modes and a run proves at most the one declared here.",
+        "enum": [
+          "cooperation_surplus",
+          "resilience",
+          "independence"
+        ]
+      },
+      "quantity": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "metric_ref",
+          "unit",
+          "aggregation"
+        ],
+        "description": "The exact thing measured. An aggregate with no named metric and no aggregation is a score, and canon refuses a score as proof.",
+        "properties": {
+          "metric_ref": {
+            "$ref": "#/$defs/ref"
+          },
+          "unit": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 60
+          },
+          "aggregation": {
+            "type": "string",
+            "enum": [
+              "mean",
+              "median",
+              "trimmed_mean",
+              "rate",
+              "count",
+              "max",
+              "min"
+            ]
+          }
+        }
+      },
+      "direction": {
+        "type": "string",
+        "enum": [
+          "higher_is_better",
+          "lower_is_better"
+        ],
+        "description": "Declared in advance, because a direction chosen after the numbers are in turns any result into a confirmation."
+      },
+      "minimum_effect": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "value",
+          "basis"
+        ],
+        "description": "The smallest difference that counts. Without it, any non-zero difference reads as success and the comparison proves nothing it did not assume.",
+        "properties": {
+          "value": {
+            "type": "number"
+          },
+          "basis": {
+            "type": "string",
+            "enum": [
+              "absolute",
+              "relative_to_baseline",
+              "standard_deviations"
+            ]
+          }
+        }
+      },
+      "cost_normalization": {
+        "type": "string",
+        "description": "A collective that wins by spending more has not earned its complexity; canon's sentence is that the machinery must earn it. `none` is admissible and says plainly that cost is not being controlled for.",
+        "enum": [
+          "none",
+          "per_cost_unit",
+          "per_wall_second",
+          "per_verification_unit"
+        ]
+      },
+      "decision_rule": {
+        "type": "string",
+        "minLength": 24,
+        "maxLength": 600,
+        "description": "In words, what reading of the two arms confirms the estimand and what reading fails it — written before the run, so the rule cannot be fitted to the outcome."
+      },
+      "knockout_axis_refs": {
+        "type": "array",
+        "uniqueItems": true,
+        "maxItems": 64,
+        "items": {
+          "$ref": "#/$defs/ref"
+        },
+        "description": "For a resilience or independence estimand, the exact axes the claim is about. An estimand of those kinds with no axis is a claim about nothing."
+      },
+      "declared_at": {
+        "$ref": "#/$defs/timestamp"
+      },
+      "declared_before_epoch_freeze": {
+        "type": "boolean",
+        "const": true,
+        "description": "Always true, and on the wire rather than implied. The epoch freezes this ref into its root and refuses a moved frozen member afterwards, so an estimand declared after the freeze could only ever be a second one — and a second estimand chosen once results exist is the defect this whole contract exists to refuse."
+      },
+      "epoch_ref": {
+        "anyOf": [
+          {
+            "$ref": "#/$defs/ref"
+          },
+          {
+            "type": "null"
+          }
+        ],
+        "description": "The frozen evaluation epoch this estimand was declared for, once one exists. Null while the epoch is still a draft — the estimand comes first."
+      },
+      "system_binding": {
+        "$ref": "#/$defs/ref",
+        "description": "The ACTIVE System this record is admitted under. This is an application record on the generic System-record seam, not a Hypervisor family: the evaluation plane's layer law forbids a Hypervisor component from reading an orchestration application's records, and its own gate asserts so against a planted import."
+      },
+      "qualifies_nothing_on_its_own": {
+        "type": "boolean",
+        "const": true,
+        "description": "A declaration is not a result. Declaring an estimand promotes nothing, activates nothing and qualifies no collective; it only fixes what a later comparison will be read against."
+      }
+    },
+    "allOf": [
+      {
+        "if": {
+          "type": "object",
+          "properties": {
+            "estimand_kind": {
+              "type": "string",
+              "enum": [
+                "resilience",
+                "independence"
+              ]
+            }
+          },
+          "required": [
+            "estimand_kind"
+          ]
+        },
+        "then": {
+          "type": "object",
+          "description": "Resilience and independence are claims ABOUT something being removed. Without the axes named, there is no claim to confirm.",
+          "properties": {
+            "knockout_axis_refs": {
+              "type": "array",
+              "minItems": 1
+            }
+          },
+          "required": [
+            "knockout_axis_refs"
+          ]
+        }
+      }
+    ],
+    "$defs": {
+      "ref": {
+        "type": "string",
+        "pattern": "^[a-z][a-z0-9+.-]*://[^ ]{1,480}$"
+      },
+      "estimandRef": {
+        "type": "string",
+        "pattern": "^estimand://[^\\s?#\\\\]{1,200}$"
+      },
+      "timestamp": {
+        "type": "string",
+        "pattern": "^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$"
+      }
+    }
   }
 };
 const CONTRACT_INVARIANTS: Record<string, Array<JsonObject>> = {
@@ -171309,6 +171654,37 @@ const CONTRACT_INVARIANTS: Record<string, Array<JsonObject>> = {
         ]
       }
     }
+  ],
+  "schema://ioi/applications/ioi-ai/collective-qualification-estimand/v1": [
+    {
+      "rule_id": "collective_qualification_estimand.a_resilience_or_independence_claim_names_its_axes",
+      "description": "Resilience and independence are claims ABOUT something being removed: that the collective degrades less than the baseline under a named knockout, or that its result does not depend on a named participant, edge or artifact. With no axis named there is no claim to confirm, and a run against such an estimand would confirm whatever it happened to measure. The JSON Schema enforces this too through its conditional branch; the portable rule is the same law in the language a consumer that does not run JSON Schema reads.",
+      "expression": {
+        "operator": "non_empty_when_in",
+        "path": "$.knockout_axis_refs",
+        "when_path": "$.estimand_kind",
+        "values": [
+          "resilience",
+          "independence"
+        ]
+      }
+    },
+    {
+      "rule_id": "collective_qualification_estimand.the_decision_rule_is_written_out",
+      "description": "The decision rule is the whole point of declaring in advance: it says which reading of the two arms confirms the estimand and which fails it. A record that names a metric and a minimum effect but no rule leaves the reading to whoever holds the results, which is the fitting this contract exists to prevent.",
+      "expression": {
+        "operator": "non_empty",
+        "path": "$.decision_rule"
+      }
+    },
+    {
+      "rule_id": "collective_qualification_estimand.the_estimand_names_the_system_it_was_admitted_under",
+      "description": "This is an application record on the generic System-record seam rather than a Hypervisor family, because the evaluation plane may not read an orchestration application's records. The System binding is what makes it resolvable at all, and an estimand admitted under no System is a declaration with no admitting authority behind it.",
+      "expression": {
+        "operator": "non_empty",
+        "path": "$.system_binding"
+      }
+    }
   ]
 };
 
@@ -174250,4 +174626,10 @@ export function validateHypervisorMcpGatewayProfileV2(
   value: unknown,
 ): value is HypervisorMcpGatewayProfileV2 {
   return validateArchitectureContract("schema://ioi/components/connectors-tools/hypervisor-mcp-gateway-profile/v2", value).ok;
+}
+
+export function validateCollectiveQualificationEstimandV1(
+  value: unknown,
+): value is CollectiveQualificationEstimandV1 {
+  return validateArchitectureContract("schema://ioi/applications/ioi-ai/collective-qualification-estimand/v1", value).ok;
 }

@@ -20212,6 +20212,92 @@
           "expected_failure": "schema"
         }
       ]
+    },
+    {
+      "contract_id": "schema://ioi/applications/ioi-ai/collective-qualification-estimand/v1",
+      "canonical_name": "CollectiveQualificationEstimand",
+      "canonical_owner_ref": "canon://docs/architecture/domains/ioi-ai/collaborative-outcome-pattern.md#collective-qualification",
+      "schema_version": "ioi.ioi-ai.collective-qualification-estimand.v1",
+      "maturity": "partial",
+      "stability": "provisional",
+      "wire_format": "json",
+      "canonical_encoding_profile_ref": "encoding-profile://ioi/jcs-json/v1",
+      "evolution": {
+        "successor_of": null,
+        "successor_contract_id": null,
+        "compatibility": "initial",
+        "migration_policy": "none",
+        "predecessor_remains_valid": false,
+        "wire_mutation_policy": "forbidden",
+        "hash_impact": "signature_preimage_changed"
+      },
+      "schema_ref": "collective-qualification-estimand.v1.schema.json",
+      "cross_field_invariant_refs": [
+        {
+          "invariant_id": "invariant://ioi/applications/ioi-ai/collective-qualification-estimand/declared-before-it-can-be-confirmed/v1",
+          "path": "invariants/collective-qualification-estimand.v1.invariants.json"
+        }
+      ],
+      "compatibility_aliases": [],
+      "generated_targets": [
+        {
+          "kind": "typescript_projection",
+          "path": "packages/hypervisor-workbench/src/runtime/generated/architecture-contracts.ts",
+          "symbol": "CollectiveQualificationEstimandV1"
+        },
+        {
+          "kind": "rust_projection",
+          "path": "crates/types/src/app/generated/architecture_contracts.rs",
+          "symbol": "CollectiveQualificationEstimandV1"
+        }
+      ],
+      "positive_fixture_refs": [
+        "fixtures/collective-qualification-estimand-v1/positive-bound-to-a-frozen-epoch.json",
+        "fixtures/collective-qualification-estimand-v1/positive-cooperation-surplus.json",
+        "fixtures/collective-qualification-estimand-v1/positive-resilience-names-its-axes.json"
+      ],
+      "negative_fixture_refs": [
+        {
+          "path": "fixtures/collective-qualification-estimand-v1/negative-aggregation-outside-the-set.json",
+          "expected_failure": "schema"
+        },
+        {
+          "path": "fixtures/collective-qualification-estimand-v1/negative-claims-to-qualify-on-its-own.json",
+          "expected_failure": "schema"
+        },
+        {
+          "path": "fixtures/collective-qualification-estimand-v1/negative-declared-after-the-freeze.json",
+          "expected_failure": "schema"
+        },
+        {
+          "path": "fixtures/collective-qualification-estimand-v1/negative-direction-outside-the-set.json",
+          "expected_failure": "schema"
+        },
+        {
+          "path": "fixtures/collective-qualification-estimand-v1/negative-estimand-ref-off-scheme.json",
+          "expected_failure": "schema"
+        },
+        {
+          "path": "fixtures/collective-qualification-estimand-v1/negative-no-decision-rule.json",
+          "expected_failure": "schema"
+        },
+        {
+          "path": "fixtures/collective-qualification-estimand-v1/negative-no-minimum-effect.json",
+          "expected_failure": "schema"
+        },
+        {
+          "path": "fixtures/collective-qualification-estimand-v1/negative-resilience-with-no-axis.json",
+          "expected_failure": "schema"
+        },
+        {
+          "path": "fixtures/collective-qualification-estimand-v1/negative-unknown-estimand-kind.json",
+          "expected_failure": "schema"
+        },
+        {
+          "path": "fixtures/collective-qualification-estimand-v1/negative-unknown-member.json",
+          "expected_failure": "schema"
+        }
+      ]
     }
   ]
 }

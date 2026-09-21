@@ -1,0 +1,33 @@
+{
+  "$id": "invariant://ioi/applications/ioi-ai/collective-qualification-estimand/declared-before-it-can-be-confirmed/v1",
+  "language": "ioi.portable-invariants.v1",
+  "contract_id": "schema://ioi/applications/ioi-ai/collective-qualification-estimand/v1",
+  "rules": [
+    {
+      "rule_id": "collective_qualification_estimand.a_resilience_or_independence_claim_names_its_axes",
+      "description": "Resilience and independence are claims ABOUT something being removed: that the collective degrades less than the baseline under a named knockout, or that its result does not depend on a named participant, edge or artifact. With no axis named there is no claim to confirm, and a run against such an estimand would confirm whatever it happened to measure. The JSON Schema enforces this too through its conditional branch; the portable rule is the same law in the language a consumer that does not run JSON Schema reads.",
+      "expression": {
+        "operator": "non_empty_when_in",
+        "path": "$.knockout_axis_refs",
+        "when_path": "$.estimand_kind",
+        "values": ["resilience", "independence"]
+      }
+    },
+    {
+      "rule_id": "collective_qualification_estimand.the_decision_rule_is_written_out",
+      "description": "The decision rule is the whole point of declaring in advance: it says which reading of the two arms confirms the estimand and which fails it. A record that names a metric and a minimum effect but no rule leaves the reading to whoever holds the results, which is the fitting this contract exists to prevent.",
+      "expression": {
+        "operator": "non_empty",
+        "path": "$.decision_rule"
+      }
+    },
+    {
+      "rule_id": "collective_qualification_estimand.the_estimand_names_the_system_it_was_admitted_under",
+      "description": "This is an application record on the generic System-record seam rather than a Hypervisor family, because the evaluation plane may not read an orchestration application's records. The System binding is what makes it resolvable at all, and an estimand admitted under no System is a declaration with no admitting authority behind it.",
+      "expression": {
+        "operator": "non_empty",
+        "path": "$.system_binding"
+      }
+    }
+  ]
+}

@@ -1,0 +1,22 @@
+{
+  "schema_version": "ioi.ioi-ai.collective-qualification-estimand.v1",
+  "estimand_ref": "estimand://collective/cooperation-surplus/1",
+  "estimand_kind": "cooperation_surplus",
+  "quantity": {
+    "metric_ref": "metric://task/solved-rate",
+    "unit": "rate",
+    "aggregation": "vibes"
+  },
+  "direction": "higher_is_better",
+  "minimum_effect": {
+    "value": 0.05,
+    "basis": "absolute"
+  },
+  "cost_normalization": "per_cost_unit",
+  "decision_rule": "The collective arm confirms only if its cost-normalized mean exceeds the matched baseline's by at least the minimum effect on the same frozen cases; any smaller difference, or a difference in the other direction, fails.",
+  "declared_at": "2026-09-21T12:00:00Z",
+  "declared_before_epoch_freeze": true,
+  "epoch_ref": null,
+  "system_binding": "autonomous-system://ioi-ai/1",
+  "qualifies_nothing_on_its_own": true
+}

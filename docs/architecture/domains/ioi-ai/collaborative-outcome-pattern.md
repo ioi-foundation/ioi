@@ -1573,6 +1573,50 @@ deleted rather than moved:
   supersession, and future-access revocation while preserving historical
   contribution, receipt, acceptance, and dispute lineage.
 
+## Collective qualification
+
+Collective machinery earns its complexity or it does not get to keep it. A
+frozen evaluation epoch compares the exact collective composition against a
+MATCHED cheaper baseline — a direct run, or a single pursuit under the same
+orchestration — and the comparison is read against an estimand declared before
+either arm ran.
+
+**The estimand is an object, not a word.** The evaluation epoch has long carried
+`confirmatory_estimand_and_minimum_effect_refs`, a bounded list of refs frozen
+into its root that nothing in the estate dereferences: a `policy://` string
+satisfies it. That member is a place to put a pointer, and
+[`CollectiveQualificationEstimand`](../../_meta/schemas/collective-qualification-estimand.v1.schema.json)
+is the thing it points at. It declares the kind of claim being made
+(`cooperation_surplus`, `resilience` or `independence`), the exact quantity and
+its aggregation, the direction, the minimum effect that counts as a difference,
+the cost normalization, and in words the rule by which the two arms will be
+read. A resilience or independence claim additionally names the axes it is about,
+because a claim that something does not depend on anything in particular is not
+a claim.
+
+It is declared BEFORE the epoch freezes. A frozen epoch refuses a moved frozen
+member, so an estimand arriving afterwards could only be a second one — and a
+second estimand chosen once results exist is the fitting this object prevents.
+Declaring it grants nothing, promotes nothing and qualifies no collective; it
+fixes what a later comparison will be read against.
+
+**Result robustness and controller continuity are separate claims with separate
+evidence.** A healthy runtime says nothing about the quality of a collective
+result, and a good result does not entitle a controller to keep running. The
+persistent lineage's posture is a read model that only ever lowers an active
+controller to stopped or quarantined with a typed reason; it is not an input to
+an estimand, and binding it as one would create the conflation this section
+exists to refuse.
+
+**Knockout results are judgment evidence only.** A knockout does not rewrite the
+live topology, revoke a participant, activate a controller, install an artifact
+or promote a profile. Evaluation is never activation.
+
+**This is an application record.** It is admitted through the generic
+System-record seam under an ACTIVE System, not as a Hypervisor family: the
+evaluation plane is a Hypervisor component and may not read an orchestration
+application's records, which its own gate asserts against a planted import.
+
 ## Anti-Patterns
 
 Avoid:
