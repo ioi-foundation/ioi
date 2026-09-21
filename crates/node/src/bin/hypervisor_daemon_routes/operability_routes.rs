@@ -1257,13 +1257,17 @@ pub(crate) const MCP_ROUTE_CLASSIFICATIONS: &[(&str, &str)] = &[
         "/v1/threads/:id/mcp/external-task-bindings/:binding_id/cancel",
         "canonical_typed_unavailable",
     ),
-    (
-        "/v1/threads/:id/mcp/apps/search",
-        "canonical_typed_unavailable",
-    ),
+    // M01.10 (R-219) made these two SERVE: an App resolves to an admitted extension_application
+    // registration and the descriptor is that registration projected. They carried
+    // `canonical_typed_unavailable` for one cut after they stopped refusing — this table's classes are
+    // free-form strings that the startup verifier only checks for coverage, so a stale label drifts
+    // silently while the route it describes changes meaning. `check:mcp-transport-normalization` now
+    // asserts that a route labelled typed-unavailable is mounted on a typed-unavailable handler, which
+    // is the check that catches this class rather than the comment that apologises for it.
+    ("/v1/threads/:id/mcp/apps/search", "canonical_normalized"),
     (
         "/v1/threads/:id/mcp/apps/:app_id/descriptor",
-        "canonical_typed_unavailable",
+        "canonical_normalized",
     ),
     ("/v1/threads/:id/mcp/serve", "canonical_typed_unavailable"),
     ("/v1/mcp", "compatibility_projection"),

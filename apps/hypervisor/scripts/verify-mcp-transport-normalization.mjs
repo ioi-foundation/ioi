@@ -208,6 +208,24 @@ function analyze(candidate) {
       candidate.policy.includes("install_constrained_extension_invoke_policy"),
     "typed_extension_dispatch_missing",
   );
+  // M01.10 (R-219) left a stale class behind for one cut: it made the two App routes SERVE and left them
+  // labelled `canonical_typed_unavailable`. The startup verifier only checks that every mounted MCP route
+  // has SOME class, so a label drifts silently while the route it describes changes meaning — and a reader
+  // of this table would conclude the App primitive still refuses. A route labelled typed-unavailable must
+  // therefore be MOUNTED on a typed-unavailable handler, and the two App positives must not be.
+  const appPositiveRoutes = [
+    ["/v1/threads/:id/mcp/apps/search", "mcp_normalization_routes::handle_mcp_apps_search"],
+    ["/v1/threads/:id/mcp/apps/:app_id/descriptor", "mcp_normalization_routes::handle_mcp_app_descriptor"],
+  ];
+  const classOf = (route) =>
+    (classifications.match(new RegExp(`"${route.replace(/[.*+?^${}()|[\]\\]/gu, "\\$&")}"\\s*,\\s*\\n?\\s*"([a-z_]+)"`, "u")) ?? [])[1] ?? null;
+  require(
+    appPositiveRoutes.every(([route, handler]) =>
+      candidate.router.includes(handler) && classOf(route) === "canonical_normalized") &&
+      [...classifications.matchAll(/"(\/v1\/[^"]*)"\s*,\s*\n?\s*"canonical_typed_unavailable"/gu)]
+        .every(([, route]) => !appPositiveRoutes.some(([positive]) => positive === route)),
+    "route_classification_describes_a_route_it_no_longer_matches",
+  );
   require(
     candidate.protocol.includes('MCP_PROTOCOL_VERSION: &str = "2025-06-18"') &&
       candidate.stdio.includes("MCP_PROTOCOL_VERSION") &&
@@ -238,6 +256,7 @@ const ASSERTION_CODES = [
   "canonical_import_not_live_or_teardown_not_deterministic",
   "typed_extension_dispatch_missing",
   "transport_protocol_revision_drift",
+  "route_classification_describes_a_route_it_no_longer_matches",
 ];
 
 const sourceFailures = analyze(sources);
@@ -263,6 +282,8 @@ const mutations = [
   ["manager", "transport.shutdown().await?", "canonical_import_not_live_or_teardown_not_deterministic"],
   ["decision", "fn maybe_typed_runtime_mcp_tool_call(", "typed_extension_dispatch_missing"],
   ["protocol", 'MCP_PROTOCOL_VERSION: &str = "2025-06-18"', "transport_protocol_revision_drift"],
+  ["operability", '("/v1/threads/:id/mcp/apps/search", "canonical_normalized")', "route_classification_describes_a_route_it_no_longer_matches"],
+  ["router", "mcp_normalization_routes::handle_mcp_app_descriptor", "route_classification_describes_a_route_it_no_longer_matches"],
 ];
 for (const [file, needle, expected] of mutations) {
   const mutated = { ...sources, [file]: sources[file].replace(needle, "removed_by_mutation") };
