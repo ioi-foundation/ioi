@@ -1076,22 +1076,94 @@ fn mcp_gateway_profile_unavailable(tool: Option<String>) -> (StatusCode, Json<Va
     super::mcp_normalization_routes::gateway_typed_unavailable(tool)
 }
 
-/// GET /v1/hypervisor/mcp-gateway/tools — fail typed-unavailable until an
-/// admitted subject-scoped Hypervisor MCP Gateway profile owns discovery.
-pub(crate) async fn handle_mcp_gateway_tools(
-    State(_st): State<Arc<DaemonState>>,
-) -> (StatusCode, Json<Value>) {
-    mcp_gateway_profile_unavailable(None)
+/// The subject an outward call is made for: the caller's own resolved principal, never a body member.
+/// A subject taken from the request would let a caller discover another subject's exposure by naming it.
+fn outward_subject(st: &DaemonState, headers: &HeaderMap) -> Option<String> {
+    let principal = super::lifecycle_routes::resolve_principal(&st.data_dir, headers)?;
+    principal
+        .get("principal_ref")
+        .or_else(|| principal.get("principal_id"))
+        .and_then(Value::as_str)
+        .map(str::to_owned)
 }
 
-/// POST /v1/hypervisor/mcp-gateway/tools/:tool — never forward directly into
-/// daemon mutation routes without a resolved gateway profile revision.
-pub(crate) async fn handle_mcp_gateway_invoke(
-    State(_st): State<Arc<DaemonState>>,
-    AxumPath(tool): AxumPath<String>,
-    Json(_body): Json<Value>,
+/// GET /v1/hypervisor/mcp-gateway/tools — the exposure of the ADMITTED profile for this subject, or the
+/// typed-unavailable refusal when none resolves.
+///
+/// M01.11 (R-220): this route refused unconditionally until a profile plane existed. It still refuses when
+/// nothing resolves — that branch is the one the estate has always had and it is unchanged — but a subject
+/// holding an active admitted profile now sees exactly that profile's frozen exposure manifest and
+/// nothing else. Discovery is a READ of the manifest: it starts nothing, and a tool listed here is still
+/// refused at invocation on readiness, approval posture or lifecycle state.
+pub(crate) async fn handle_mcp_gateway_tools(
+    State(st): State<Arc<DaemonState>>,
+    headers: HeaderMap,
 ) -> (StatusCode, Json<Value>) {
-    mcp_gateway_profile_unavailable(Some(tool))
+    let Some(subject) = outward_subject(&st, &headers) else {
+        return mcp_gateway_profile_unavailable(None);
+    };
+    let Some(profile) =
+        super::mcp_gateway_routes::active_profile_for_subject(&st.data_dir, &subject)
+    else {
+        return mcp_gateway_profile_unavailable(None);
+    };
+    (
+        StatusCode::OK,
+        Json(json!({
+            "schema_version": "ioi.runtime.mcp-gateway-discovery.v1",
+            "subject_ref": subject,
+            "gateway_profile_id": profile.get("gateway_profile_id").cloned().unwrap_or(Value::Null),
+            "profile_revision_ref": profile.get("profile_revision_ref").cloned().unwrap_or(Value::Null),
+            "exposure_manifest_hash": profile.get("exposure_manifest_hash").cloned().unwrap_or(Value::Null),
+            "tools": profile.get("exposed_tools").cloned().unwrap_or_else(|| json!([])),
+            // Discovery is a read. It confers nothing, and every listed tool is admitted again at call time.
+            "authority_granted": false,
+            "receipt_identity_granted": false,
+        })),
+    )
+}
+
+/// POST /v1/hypervisor/mcp-gateway/tools/:tool — never forward directly into daemon mutation routes
+/// without a resolved gateway profile revision.
+///
+/// M01.11 (R-220): the sentence above was the whole implementation, enforced by refusing everything. It is
+/// now enforced by RESOLVING: the caller's own subject must hold an active admitted profile, the tool must
+/// be in that profile's frozen exposure manifest, and the call is then handed to the gateway plane, which
+/// narrows and delegates to the canonical invoker the native path uses. There is still no forwarding —
+/// what changed is that a resolved profile is now possible, and without one the refusal is the same typed
+/// answer it always was.
+pub(crate) async fn handle_mcp_gateway_invoke(
+    State(st): State<Arc<DaemonState>>,
+    AxumPath(tool): AxumPath<String>,
+    headers: HeaderMap,
+    Json(body): Json<Value>,
+) -> (StatusCode, Json<Value>) {
+    let Some(subject) = outward_subject(&st, &headers) else {
+        return mcp_gateway_profile_unavailable(Some(tool));
+    };
+    let Some(profile) =
+        super::mcp_gateway_routes::active_profile_for_subject(&st.data_dir, &subject)
+    else {
+        return mcp_gateway_profile_unavailable(Some(tool));
+    };
+    let gateway_profile_id = profile
+        .get("gateway_profile_id")
+        .and_then(Value::as_str)
+        .unwrap_or_default()
+        .to_owned();
+    let mut call = body;
+    if let Some(map) = call.as_object_mut() {
+        // The tool is taken from the PATH, never from the body: a body-named tool beside a path-named one
+        // is two claims about what is being invoked, and the gateway would have to pick.
+        map.insert("mcp_tool_name".into(), Value::String(tool));
+    }
+    super::mcp_gateway_routes::handle_gateway_call(
+        State(st),
+        AxumPath(gateway_profile_id),
+        headers,
+        Json(call),
+    )
+    .await
 }
 
 // ============================ /v1 CAPABILITY INDEX (W0.6) ========================================
@@ -1264,6 +1336,39 @@ pub(crate) const MCP_ROUTE_CLASSIFICATIONS: &[(&str, &str)] = &[
     // silently while the route it describes changes meaning. `check:mcp-transport-normalization` now
     // asserts that a route labelled typed-unavailable is mounted on a typed-unavailable handler, which
     // is the check that catches this class rather than the comment that apologises for it.
+    // M01.11 (R-220) — canon's outward gateway API. `gateway_profile_plane` is the profile's own
+    // lifecycle; `gateway_profile_resolver` evaluates a requirement and issues nothing;
+    // `gateway_profile_delegating_call` narrows and then reaches the SAME final invoker as the native path.
+    ("/v1/mcp/gateway-requirements", "gateway_profile_resolver"),
+    (
+        "/v1/mcp/gateway-requirements/resolve",
+        "gateway_profile_resolver",
+    ),
+    ("/v1/mcp/gateways", "gateway_profile_plane"),
+    (
+        "/v1/mcp/gateways/:gateway_profile_id",
+        "gateway_profile_plane",
+    ),
+    (
+        "/v1/mcp/gateways/:gateway_profile_id/revoke",
+        "gateway_profile_plane",
+    ),
+    (
+        "/v1/mcp/gateways/:gateway_profile_id/manifest",
+        "gateway_profile_plane",
+    ),
+    (
+        "/v1/mcp/gateways/:gateway_profile_id/call",
+        "gateway_profile_delegating_call",
+    ),
+    (
+        "/v1/mcp/gateways/:gateway_profile_id/events",
+        "gateway_profile_plane",
+    ),
+    (
+        "/v1/mcp/gateways/:gateway_profile_id/receipts",
+        "gateway_profile_plane",
+    ),
     ("/v1/threads/:id/mcp/apps/search", "canonical_normalized"),
     (
         "/v1/threads/:id/mcp/apps/:app_id/descriptor",
@@ -2524,9 +2629,20 @@ mod command_execution_guardrail_tests {
         // `/v1/model-mount/mcp/act` (`standing_lease_delegate`), and classified both. The count is
         // re-pinned to the growth those two routes account for and nothing else, so an
         // unclassified or accidental third route is still red here as well as at startup.
-        assert_eq!(MCP_ROUTE_CLASSIFICATIONS.len(), 38);
+        // 38 → 47 on 2026-09-21 (M01.11, R-220): canon's nine distinct outward gateway paths joined
+        // the table in the cut that mounted them. `verify_mcp_route_classification()` refuses at
+        // daemon STARTUP when a mounted MCP route carries no class, so a route added without its
+        // class does not fail a test — it fails to boot.
+        assert_eq!(MCP_ROUTE_CLASSIFICATIONS.len(), 47);
     }
 
+    /// The refusal branch, unchanged by M01.11 and pinned because it is the branch that matters.
+    ///
+    /// Until R-220 this test covered the WHOLE route: the gateway refused unconditionally, so proving the
+    /// refusal proved everything. The route can now forward, and this pin is deliberately kept rather than
+    /// deleted — what it guards is that the no-profile answer is still typed, still grants nothing, and
+    /// still carries neither a result nor a tool listing. A negative pin whose subject became reachable is
+    /// not obsolete; it is the boundary of the thing that became reachable.
     #[test]
     fn external_mcp_gateway_cannot_forward_without_admitted_profile() {
         let (status, Json(response)) =
@@ -2538,4 +2654,11 @@ mod command_execution_guardrail_tests {
         assert!(response.get("result").is_none());
         assert!(response.get("tools").is_none());
     }
+
+    // That both outward routes REACH that refusal by resolution — no resolvable subject, therefore no
+    // profile, therefore this answer — is a claim about a running daemon, not about a function. It is
+    // proven in `check:hypervisor-mcp-gateway-profile`'s plane leg against an isolated daemon, the same
+    // way M01.10 proved its own routes. A unit test here would have to construct a `DaemonState` with an
+    // inference runtime and an MCP manager to assert something the plane leg asserts against the real
+    // router, and no test in this daemon does that.
 }

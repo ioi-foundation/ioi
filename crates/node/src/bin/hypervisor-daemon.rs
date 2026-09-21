@@ -134,6 +134,8 @@ mod managed_runtime_routes;
 mod marketplace_routes;
 #[path = "hypervisor_daemon_routes/materializing_run_routes.rs"]
 mod materializing_run_routes;
+#[path = "hypervisor_daemon_routes/mcp_gateway_routes.rs"]
+mod mcp_gateway_routes;
 #[path = "hypervisor_daemon_routes/mcp_normalization_routes.rs"]
 mod mcp_normalization_routes;
 #[path = "hypervisor_daemon_routes/media_trajectory_dataset_routes.rs"]
@@ -3652,6 +3654,48 @@ async fn async_main() -> anyhow::Result<()> {
         .route(
             "/v1/hypervisor/mcp-gateway/tools/:tool",
             post(operability_routes::handle_mcp_gateway_invoke),
+        )
+        // M01.11 (R-220, ADR 0055) — canon's outward gateway API. The profile plane mounts at canon's own
+        // `/v1/mcp/gateways/*`; the two routes above stay where they are as the outward TOOL surface and
+        // resolve a profile instead of refusing unconditionally. Every path here also joins
+        // MCP_ROUTE_CLASSIFICATIONS in the same cut, because that table refuses at STARTUP.
+        .route(
+            "/v1/mcp/gateway-requirements",
+            get(mcp_gateway_routes::handle_gateway_requirement_list),
+        )
+        .route(
+            "/v1/mcp/gateway-requirements/resolve",
+            post(mcp_gateway_routes::handle_gateway_requirement_resolve),
+        )
+        .route(
+            "/v1/mcp/gateways",
+            get(mcp_gateway_routes::handle_gateway_list)
+                .post(mcp_gateway_routes::handle_gateway_create),
+        )
+        .route(
+            "/v1/mcp/gateways/:gateway_profile_id",
+            get(mcp_gateway_routes::handle_gateway_get)
+                .patch(mcp_gateway_routes::handle_gateway_patch),
+        )
+        .route(
+            "/v1/mcp/gateways/:gateway_profile_id/revoke",
+            post(mcp_gateway_routes::handle_gateway_revoke),
+        )
+        .route(
+            "/v1/mcp/gateways/:gateway_profile_id/manifest",
+            get(mcp_gateway_routes::handle_gateway_manifest),
+        )
+        .route(
+            "/v1/mcp/gateways/:gateway_profile_id/call",
+            post(mcp_gateway_routes::handle_gateway_call),
+        )
+        .route(
+            "/v1/mcp/gateways/:gateway_profile_id/events",
+            get(mcp_gateway_routes::handle_gateway_events),
+        )
+        .route(
+            "/v1/mcp/gateways/:gateway_profile_id/receipts",
+            get(mcp_gateway_routes::handle_gateway_receipts),
         )
         // Cut G — provider ladder (one recipe across rungs, honest claims) + end-game consumers.
         .route(
