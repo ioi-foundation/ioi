@@ -3087,7 +3087,7 @@ templates. They never contain SkillEntries, ActiveSkillSetSnapshots, concrete
 MCP gateway profiles, ContextLeases, RuntimeAssignments, authority grants,
 connector credentials, or subject/session/run-scoped bindings. A package may
 carry an MCP gateway requirement or immutable template reference; the concrete
-`mcp_gateway://...` profile is separately admitted and revocable for live work
+`mcp-gateway://...` profile is separately admitted and revocable for live work
 or a live System.
 
 Package admission does not grant runtime authority, create a live System, or

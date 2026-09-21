@@ -385,6 +385,9 @@ pub const ARCHITECTURE_CONTRACT_SCHEMA_HASHES: &[(&str, &str)] = &[
     ("schema://ioi/applications/ioi-ai/collective-resolution-receipt/v1", "sha256:c6277404e64498fae58bd68edc04154cc6e6b48b85adaa9e7a2b1a42c5435804"),
     ("schema://ioi/applications/ioi-ai/persistent-executable-lineage/v1", "sha256:a5636ae902410df5f81b6be4879d8f986bc01225d409e42fbdd13614c2bcd381"),
     ("schema://ioi/foundations/delegation-edge/v1", "sha256:916bfac63dd49fe478bfa006e2637acf775ce6e6d6b919afc7daefcec9178548"),
+    ("schema://ioi/components/connectors-tools/mcp-gateway-requirement-envelope/v1", "sha256:d0cfdf520f16cd5c159eee6ba539135f1a9487a86e7316a7a2bc67418ef3185a"),
+    ("schema://ioi/components/connectors-tools/hypervisor-mcp-gateway-profile/v1", "sha256:b391979446fb6da9a75f40018188ccf70f33d4cd2acd5008e1c7ded69b8ef086"),
+    ("schema://ioi/components/connectors-tools/hypervisor-mcp-gateway-profile/v2", "sha256:36c770c98e4e799359e479b3a6c0a8253a9889c5b0ee25f3865c802cb18d888b"),
 ];
 
 pub fn architecture_contract_schema_hash(contract_id: &str) -> Option<&'static str> {
@@ -164140,6 +164143,1793 @@ pub enum DelegationEdgeV1SelectedResolverKind {
     None,
 }
 
+#[derive(Debug, Clone, PartialEq, serde::Serialize)]
+pub struct McpGatewayRequirementEnvelopeV1 {
+    pub schema_version: McpGatewayRequirementEnvelopeV1SchemaVersion,
+    pub requirement_id: String,
+    pub revision_ref: String,
+    pub predecessor_revision_ref: Option<String>,
+    pub content_hash: String,
+    pub owner_ref: String,
+    pub consumer_class_refs: Vec<String>,
+    pub required_runtime_tool_contract_refs: Vec<String>,
+    pub required_resource_projection_contract_refs: Vec<String>,
+    pub permitted_prompt_import_contract_refs: Vec<String>,
+    pub required_elicitation_contract_refs: Vec<String>,
+    pub external_task_compatibility_refs: Vec<String>,
+    pub extension_application_requirement_refs: Vec<String>,
+    pub maximum_risk_class: McpGatewayRequirementEnvelopeV1MaximumRiskClass,
+    pub authority_scope_requirement_refs: Vec<String>,
+    pub privacy_budget_rate_and_retention_policy_refs: Vec<String>,
+    pub transport_and_protocol_compatibility_refs: Vec<String>,
+    pub allowed_override_schema_ref: Option<String>,
+    pub provenance_and_evaluation_refs: Vec<String>,
+    pub registry_lifecycle_ref: String,
+    pub registry_status: McpGatewayRequirementEnvelopeV1RegistryStatus,
+}
+
+impl<'de> serde::Deserialize<'de> for McpGatewayRequirementEnvelopeV1 {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let value = <serde_json::Value as serde::Deserialize>::deserialize(deserializer)?;
+        validate_projection_subschema(
+            r#"schema://ioi/components/connectors-tools/mcp-gateway-requirement-envelope/v1"#,
+            r##"{"$schema":"https://json-schema.org/draft/2020-12/schema","$id":"schema://ioi/components/connectors-tools/mcp-gateway-requirement-envelope/v1","title":"McpGatewayRequirementEnvelope","x-ioi-schema-version":"ioi.mcp-gateway-requirement.v1","description":"WHAT AN MCP CONSUMER WOULD NEED, DECLARED IMMUTABLY AND GRANTING NOTHING. A Package, an application-surface release, an adapter manifest or a System manifest references this envelope when MCP compatibility is itself a requirement of the thing being shipped. It is a CEILING and a shopping list, never an issuance: packaging the requirement creates no gateway profile and grants none of the scopes it names, and admission is what resolves it — to native capabilities, to service modules, to connectors, or to exactly one concrete gateway profile. That separation is enforced structurally as well as here: the System MANIFEST carries requirements under `mcp-gateway-requirement://` and the System GENESIS carries live profiles under `mcp-gateway://`, and the manifest schema does not admit the profile member at all. The released body and its content hash are immutable; registry lifecycle and status are excluded projections, and any change to the declared body is a successor revision. Owner: components/connectors-tools/contracts.md § MCP Gateway Requirement (M01.11, ADR 0055).","type":"object","additionalProperties":false,"required":["schema_version","requirement_id","revision_ref","predecessor_revision_ref","content_hash","owner_ref","consumer_class_refs","required_runtime_tool_contract_refs","required_resource_projection_contract_refs","permitted_prompt_import_contract_refs","required_elicitation_contract_refs","external_task_compatibility_refs","extension_application_requirement_refs","maximum_risk_class","authority_scope_requirement_refs","privacy_budget_rate_and_retention_policy_refs","transport_and_protocol_compatibility_refs","allowed_override_schema_ref","provenance_and_evaluation_refs","registry_lifecycle_ref","registry_status"],"properties":{"schema_version":{"type":"string","const":"ioi.mcp-gateway-requirement.v1"},"requirement_id":{"$ref":"#/$defs/requirementId"},"revision_ref":{"$ref":"#/$defs/requirementRevisionRef","description":"The exact immutable revision. A consumer pins this plus `content_hash`, never the family id alone."},"predecessor_revision_ref":{"anyOf":[{"$ref":"#/$defs/requirementRevisionRef"},{"type":"null"}],"description":"Null only on the genesis revision. Any change to the declared body is a successor, so this is the whole lineage."},"content_hash":{"$ref":"#/$defs/sha256"},"owner_ref":{"$ref":"#/$defs/ref"},"consumer_class_refs":{"type":"array","uniqueItems":true,"maxItems":64,"items":{"$ref":"#/$defs/ref"},"description":"Which classes of consumer this requirement is written for. An empty list is the claim that it is written for none, which admission will refuse — it is not a wildcard."},"required_runtime_tool_contract_refs":{"$ref":"#/$defs/refList"},"required_resource_projection_contract_refs":{"$ref":"#/$defs/refList"},"permitted_prompt_import_contract_refs":{"$ref":"#/$defs/refList"},"required_elicitation_contract_refs":{"$ref":"#/$defs/refList"},"external_task_compatibility_refs":{"$ref":"#/$defs/refList"},"extension_application_requirement_refs":{"$ref":"#/$defs/refList"},"maximum_risk_class":{"$ref":"#/$defs/riskClass","description":"The CEILING a resolved profile may not exceed. It draws from the canonical risk-class ladder and defines no enum of its own."},"authority_scope_requirement_refs":{"type":"array","uniqueItems":true,"maxItems":128,"items":{"$ref":"#/$defs/scopeOrPolicyRef"},"description":"Scopes the consumer WOULD need. Naming a scope here grants nothing: the profile that resolves this requirement is admitted separately and may resolve fewer."},"privacy_budget_rate_and_retention_policy_refs":{"$ref":"#/$defs/refList"},"transport_and_protocol_compatibility_refs":{"$ref":"#/$defs/refList"},"allowed_override_schema_ref":{"anyOf":[{"$ref":"#/$defs/ref"},{"type":"null"}],"description":"The closed shape of the only overrides a consumer may propose at resolution. Null means no override is admissible, which is the safe default and not an absence of policy."},"provenance_and_evaluation_refs":{"$ref":"#/$defs/refList"},"registry_lifecycle_ref":{"$ref":"#/$defs/ref"},"registry_status":{"type":"string","enum":["draft","released","deprecated","revoked"],"description":"An EXCLUDED projection: it is not part of `content_hash`, because a status change must not mint a new identity for an unchanged body."}},"$defs":{"sha256":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"},"ref":{"type":"string","pattern":"^[a-z][a-z0-9+.-]*://[^ ]{1,480}$"},"refList":{"type":"array","uniqueItems":true,"maxItems":256,"items":{"$ref":"#/$defs/ref"}},"scopeOrPolicyRef":{"type":"string","pattern":"^(?:scope:[A-Za-z0-9_.:-]{1,160}|(?:policy|grant)://[^ ]{1,480})$"},"requirementId":{"type":"string","pattern":"^mcp-gateway-requirement://[^\\s?#\\\\]{1,160}$"},"requirementRevisionRef":{"type":"string","pattern":"^mcp-gateway-requirement://[^\\s?#\\\\]{1,160}/revision/sha256:[0-9a-f]{64}$"},"riskClass":{"type":"string","description":"The canonical ladder from foundations/canonical-enums.md § Risk Classes, lowest to highest required assurance, plus the peer top-tier class `physical_action` that sits outside the monotonic ladder and carries the Physical Action Safety envelope. This enum is a COPY of that ladder and defines nothing of its own; a member added there is added here.","enum":["read","draft","local_write","write_reversible","external_message","commerce","funds","credential_access","policy_widening","secret_export","identity_change","system_destructive","physical_action"]}}}"##,
+            &value,
+        )
+            .map_err(serde::de::Error::custom)?;
+        let mut object = value
+            .as_object()
+            .cloned()
+            .ok_or_else(|| serde::de::Error::custom("validated projection is not an object"))?;
+        Ok(Self {
+            schema_version: serde_json::from_value::<McpGatewayRequirementEnvelopeV1SchemaVersion>(
+                object
+                    .remove(r#"schema_version"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"schema_version"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            requirement_id: serde_json::from_value::<String>(
+                object
+                    .remove(r#"requirement_id"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"requirement_id"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            revision_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"revision_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"revision_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            predecessor_revision_ref: serde_json::from_value::<Option<String>>(
+                object
+                    .remove(r#"predecessor_revision_ref"#)
+                    .ok_or_else(|| {
+                        serde::de::Error::missing_field(r#"predecessor_revision_ref"#)
+                    })?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            content_hash: serde_json::from_value::<String>(
+                object
+                    .remove(r#"content_hash"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"content_hash"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            owner_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"owner_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"owner_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            consumer_class_refs: serde_json::from_value::<Vec<String>>(
+                object
+                    .remove(r#"consumer_class_refs"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"consumer_class_refs"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            required_runtime_tool_contract_refs: serde_json::from_value::<Vec<String>>(
+                object
+                    .remove(r#"required_runtime_tool_contract_refs"#)
+                    .ok_or_else(|| {
+                        serde::de::Error::missing_field(r#"required_runtime_tool_contract_refs"#)
+                    })?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            required_resource_projection_contract_refs: serde_json::from_value::<Vec<String>>(
+                object
+                    .remove(r#"required_resource_projection_contract_refs"#)
+                    .ok_or_else(|| {
+                        serde::de::Error::missing_field(
+                            r#"required_resource_projection_contract_refs"#,
+                        )
+                    })?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            permitted_prompt_import_contract_refs: serde_json::from_value::<Vec<String>>(
+                object
+                    .remove(r#"permitted_prompt_import_contract_refs"#)
+                    .ok_or_else(|| {
+                        serde::de::Error::missing_field(r#"permitted_prompt_import_contract_refs"#)
+                    })?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            required_elicitation_contract_refs: serde_json::from_value::<Vec<String>>(
+                object
+                    .remove(r#"required_elicitation_contract_refs"#)
+                    .ok_or_else(|| {
+                        serde::de::Error::missing_field(r#"required_elicitation_contract_refs"#)
+                    })?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            external_task_compatibility_refs: serde_json::from_value::<Vec<String>>(
+                object
+                    .remove(r#"external_task_compatibility_refs"#)
+                    .ok_or_else(|| {
+                        serde::de::Error::missing_field(r#"external_task_compatibility_refs"#)
+                    })?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            extension_application_requirement_refs: serde_json::from_value::<Vec<String>>(
+                object
+                    .remove(r#"extension_application_requirement_refs"#)
+                    .ok_or_else(|| {
+                        serde::de::Error::missing_field(r#"extension_application_requirement_refs"#)
+                    })?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            maximum_risk_class: serde_json::from_value::<
+                McpGatewayRequirementEnvelopeV1MaximumRiskClass,
+            >(
+                object
+                    .remove(r#"maximum_risk_class"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"maximum_risk_class"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            authority_scope_requirement_refs: serde_json::from_value::<Vec<String>>(
+                object
+                    .remove(r#"authority_scope_requirement_refs"#)
+                    .ok_or_else(|| {
+                        serde::de::Error::missing_field(r#"authority_scope_requirement_refs"#)
+                    })?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            privacy_budget_rate_and_retention_policy_refs: serde_json::from_value::<Vec<String>>(
+                object
+                    .remove(r#"privacy_budget_rate_and_retention_policy_refs"#)
+                    .ok_or_else(|| {
+                        serde::de::Error::missing_field(
+                            r#"privacy_budget_rate_and_retention_policy_refs"#,
+                        )
+                    })?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            transport_and_protocol_compatibility_refs: serde_json::from_value::<Vec<String>>(
+                object
+                    .remove(r#"transport_and_protocol_compatibility_refs"#)
+                    .ok_or_else(|| {
+                        serde::de::Error::missing_field(
+                            r#"transport_and_protocol_compatibility_refs"#,
+                        )
+                    })?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            allowed_override_schema_ref: serde_json::from_value::<Option<String>>(
+                object
+                    .remove(r#"allowed_override_schema_ref"#)
+                    .ok_or_else(|| {
+                        serde::de::Error::missing_field(r#"allowed_override_schema_ref"#)
+                    })?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            provenance_and_evaluation_refs: serde_json::from_value::<Vec<String>>(
+                object
+                    .remove(r#"provenance_and_evaluation_refs"#)
+                    .ok_or_else(|| {
+                        serde::de::Error::missing_field(r#"provenance_and_evaluation_refs"#)
+                    })?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            registry_lifecycle_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"registry_lifecycle_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"registry_lifecycle_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            registry_status:
+                serde_json::from_value::<McpGatewayRequirementEnvelopeV1RegistryStatus>(
+                    object
+                        .remove(r#"registry_status"#)
+                        .ok_or_else(|| serde::de::Error::missing_field(r#"registry_status"#))?,
+                )
+                .map_err(serde::de::Error::custom)?,
+        })
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum McpGatewayRequirementEnvelopeV1SchemaVersion {
+    #[serde(rename = r#"ioi.mcp-gateway-requirement.v1"#)]
+    IoiMcpGatewayRequirementV1,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum McpGatewayRequirementEnvelopeV1MaximumRiskClass {
+    #[serde(rename = r#"read"#)]
+    Read,
+    #[serde(rename = r#"draft"#)]
+    Draft,
+    #[serde(rename = r#"local_write"#)]
+    LocalWrite,
+    #[serde(rename = r#"write_reversible"#)]
+    WriteReversible,
+    #[serde(rename = r#"external_message"#)]
+    ExternalMessage,
+    #[serde(rename = r#"commerce"#)]
+    Commerce,
+    #[serde(rename = r#"funds"#)]
+    Funds,
+    #[serde(rename = r#"credential_access"#)]
+    CredentialAccess,
+    #[serde(rename = r#"policy_widening"#)]
+    PolicyWidening,
+    #[serde(rename = r#"secret_export"#)]
+    SecretExport,
+    #[serde(rename = r#"identity_change"#)]
+    IdentityChange,
+    #[serde(rename = r#"system_destructive"#)]
+    SystemDestructive,
+    #[serde(rename = r#"physical_action"#)]
+    PhysicalAction,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum McpGatewayRequirementEnvelopeV1RegistryStatus {
+    #[serde(rename = r#"draft"#)]
+    Draft,
+    #[serde(rename = r#"released"#)]
+    Released,
+    #[serde(rename = r#"deprecated"#)]
+    Deprecated,
+    #[serde(rename = r#"revoked"#)]
+    Revoked,
+}
+
+#[derive(Debug, Clone, PartialEq, serde::Serialize)]
+pub struct HypervisorMcpGatewayProfileV1 {
+    pub schema_version: HypervisorMcpGatewayProfileV1SchemaVersion,
+    pub gateway_profile_id: String,
+    pub profile_revision_ref: String,
+    pub predecessor_profile_revision_ref: Option<String>,
+    pub profile_content_hash: String,
+    pub resolved_requirement_revision_refs: Vec<String>,
+    pub resolved_requirement_set_hash: String,
+    pub exposure_manifest_hash: String,
+    pub display_name: String,
+    pub audience: HypervisorMcpGatewayProfileV1Audience,
+    pub profile_kind: HypervisorMcpGatewayProfileV1ProfileKind,
+    pub subject_ref: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub local_agent_pairing_session_ref: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub candidate_public_key_ref: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub project_refs: Option<Vec<String>>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub session_refs: Option<Vec<String>>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub outcome_room_ref: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub room_participant_lease_ref: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub room_admission_decision_ref: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub worker_registration_ref: Option<String>,
+    pub admission_basis: HypervisorMcpGatewayProfileV1AdmissionBasis,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub invocation_scope_refs: Option<Vec<String>>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub pairing_execution_posture: Option<HypervisorMcpGatewayProfileV1PairingExecutionPosture>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub pairing_contribution_lane: Option<HypervisorMcpGatewayProfileV1PairingContributionLane>,
+    pub surface_refs: Vec<String>,
+    pub exposed_tools: Vec<HypervisorMcpGatewayProfileV1ExposedToolsItem>,
+    pub exposed_resources: Vec<HypervisorMcpGatewayProfileV1ExposedResourcesItem>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub exposed_prompt_import_contract_refs: Option<Vec<String>>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub elicitation_contract_refs: Option<Vec<String>>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub external_task_contract_refs: Option<Vec<String>>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub extension_application_refs: Option<Vec<String>>,
+    pub authority_client_ref: String,
+    pub origin_binding_ref: String,
+    pub authority_scope_refs: Vec<String>,
+    pub privacy_posture_ref: String,
+    pub budget_policy_ref: String,
+    pub rate_limit_ref: String,
+    pub quarantine_policy_ref: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub dependent_refs: Option<Vec<String>>,
+    pub issued_after_required_admission: HypervisorMcpGatewayProfileV1IssuedAfterRequiredAdmission,
+    pub prompt_only_proposal: bool,
+    pub expires_at: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub revocation_ref: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub quarantine_advisory_refs: Option<Vec<String>>,
+    pub status: HypervisorMcpGatewayProfileV1Status,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub last_use_ref: Option<String>,
+    pub manifest_ref: String,
+    pub admission_decision_ref: String,
+    pub admission_receipt_ref: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub receipt_refs: Option<Vec<String>>,
+}
+
+impl<'de> serde::Deserialize<'de> for HypervisorMcpGatewayProfileV1 {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let value = <serde_json::Value as serde::Deserialize>::deserialize(deserializer)?;
+        validate_projection_subschema(
+            r#"schema://ioi/components/connectors-tools/hypervisor-mcp-gateway-profile/v1"#,
+            r##"{"$schema":"https://json-schema.org/draft/2020-12/schema","$id":"schema://ioi/components/connectors-tools/hypervisor-mcp-gateway-profile/v1","title":"HypervisorMcpGatewayProfileV1","x-ioi-schema-version":"ioi.hypervisor-mcp-gateway-profile.v1","description":"WHAT ONE MCP CONSUMER MAY DISCOVER, PREVIEW, PROPOSE OR EXECUTE — the contract that limits an outward gateway to one subject and one use. A profile grants no authority by itself: it BINDS an exposure manifest to wallet.network authority clients, daemon admission, policy and receipt obligations, and every effectful call still crosses at its owner's gateway. The admitted revision FREEZES its resolved requirement set, exposure manifest, subject, scope, policies and expiry. Status, revocation, quarantine advisories and last-use are EXCLUDED projections that bind the already-computed `profile_content_hash` rather than entering it, and they — like upstream policy, lease and connector state — may only REDUCE effective access. Any change to the declared body is a successor revision, and widening tools, resources, scopes, subjects, projects, sessions, risk ceiling, budget, retention or expiry additionally repeats admission. The seven profile kinds here are the v1 closed set and do not change; the v2 successor adds `capability_construction_eval` and nothing else, and the two versions refuse each other in both directions (ADR 0055). Owner: components/connectors-tools/contracts.md § Hypervisor MCP Gateway Profile (M01.11).","type":"object","additionalProperties":false,"required":["schema_version","gateway_profile_id","profile_revision_ref","predecessor_profile_revision_ref","profile_content_hash","resolved_requirement_revision_refs","resolved_requirement_set_hash","exposure_manifest_hash","display_name","audience","profile_kind","subject_ref","admission_basis","surface_refs","exposed_tools","exposed_resources","authority_client_ref","origin_binding_ref","authority_scope_refs","privacy_posture_ref","budget_policy_ref","rate_limit_ref","quarantine_policy_ref","issued_after_required_admission","prompt_only_proposal","expires_at","status","manifest_ref","admission_decision_ref","admission_receipt_ref"],"properties":{"schema_version":{"type":"string","const":"ioi.hypervisor-mcp-gateway-profile.v1"},"gateway_profile_id":{"$ref":"#/$defs/profileId"},"profile_revision_ref":{"$ref":"#/$defs/profileRevisionRef"},"predecessor_profile_revision_ref":{"anyOf":[{"$ref":"#/$defs/profileRevisionRef"},{"type":"null"}],"description":"Null only on the genesis revision. A narrowed successor and a widened successor are both successors; only the widened one repeats admission."},"profile_content_hash":{"$ref":"#/$defs/sha256"},"resolved_requirement_revision_refs":{"type":"array","uniqueItems":true,"maxItems":128,"items":{"$ref":"#/$defs/requirementRevisionRef"},"description":"The exact immutable requirement revisions this profile resolves. Resolving is an evaluation of a declared ceiling against one proposed use; the requirement issued nothing."},"resolved_requirement_set_hash":{"$ref":"#/$defs/sha256"},"exposure_manifest_hash":{"$ref":"#/$defs/sha256","description":"Frozen at admission over the exposed tool, resource, prompt, elicitation, task and App sets. A consumer that computes a different hash over what it was served has been served something else."},"display_name":{"type":"string","minLength":1,"maxLength":200},"audience":{"type":"string","enum":["external_agent","ci_agent","marketplace_worker","enterprise_agent","local_harness"]},"profile_kind":{"type":"string","description":"The v1 closed set of seven. `capability_construction_eval` is v2's and is refused here by name rather than ignored.","enum":["discovery_readonly","project_session","connector_preview","operator_proposal","effectful_approved","foundry_eval_training","receipts_replay_proof"]},"subject_ref":{"$ref":"#/$defs/ref"},"local_agent_pairing_session_ref":{"$ref":"#/$defs/nullableRef"},"candidate_public_key_ref":{"$ref":"#/$defs/nullableRef"},"project_refs":{"$ref":"#/$defs/refList"},"session_refs":{"$ref":"#/$defs/refList"},"outcome_room_ref":{"$ref":"#/$defs/nullableRef"},"room_participant_lease_ref":{"$ref":"#/$defs/nullableRef"},"room_admission_decision_ref":{"$ref":"#/$defs/nullableRef"},"worker_registration_ref":{"$ref":"#/$defs/nullableRef"},"admission_basis":{"type":"string","enum":["not_applicable","room_guest","registered_worker_invocation"]},"invocation_scope_refs":{"$ref":"#/$defs/refList"},"pairing_execution_posture":{"type":"string","enum":["not_applicable","instrumented_adapter","prompt_only"]},"pairing_contribution_lane":{"type":"string","enum":["not_applicable","instrumented_candidate","proposal_only"]},"surface_refs":{"$ref":"#/$defs/refList"},"exposed_tools":{"type":"array","maxItems":512,"items":{"$ref":"#/$defs/exposedTool"},"description":"An empty list is a real and common posture — a profile that exposes no tool. It is not a wildcard."},"exposed_resources":{"type":"array","maxItems":512,"items":{"$ref":"#/$defs/exposedResource"}},"exposed_prompt_import_contract_refs":{"$ref":"#/$defs/refList"},"elicitation_contract_refs":{"$ref":"#/$defs/refList"},"external_task_contract_refs":{"$ref":"#/$defs/refList"},"extension_application_refs":{"$ref":"#/$defs/refList"},"authority_client_ref":{"$ref":"#/$defs/ref"},"origin_binding_ref":{"$ref":"#/$defs/ref"},"authority_scope_refs":{"type":"array","uniqueItems":true,"maxItems":128,"items":{"$ref":"#/$defs/scopeRef"}},"privacy_posture_ref":{"$ref":"#/$defs/ref"},"budget_policy_ref":{"$ref":"#/$defs/ref"},"rate_limit_ref":{"$ref":"#/$defs/ref"},"quarantine_policy_ref":{"$ref":"#/$defs/ref"},"dependent_refs":{"$ref":"#/$defs/refList"},"issued_after_required_admission":{"type":"boolean","const":true,"description":"A profile that was not issued after its required admission is not a profile. The member exists so the claim is on the wire and hashed, not implied by the record's presence."},"prompt_only_proposal":{"type":"boolean"},"expires_at":{"type":"string","format":"date-time","pattern":"^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$"},"revocation_ref":{"$ref":"#/$defs/nullableRef"},"quarantine_advisory_refs":{"$ref":"#/$defs/refList"},"status":{"type":"string","enum":["active","expired","suspended","quarantined","revoked"],"description":"An EXCLUDED lifecycle projection. It binds the already-computed content hash rather than entering it, and it may only reduce effective access."},"last_use_ref":{"$ref":"#/$defs/nullableRef"},"manifest_ref":{"$ref":"#/$defs/ref"},"admission_decision_ref":{"$ref":"#/$defs/ref"},"admission_receipt_ref":{"$ref":"#/$defs/ref"},"receipt_refs":{"$ref":"#/$defs/refList"}},"allOf":[{"if":{"type":"object","properties":{"pairing_execution_posture":{"type":"string","const":"prompt_only"}},"required":["pairing_execution_posture"]},"then":{"type":"object","description":"A prompt-only pairing may only ever propose. The contribution lane and the proposal flag are not independent of the posture, and letting them drift is how a prompt-only harness acquires an instrumented lane.","properties":{"pairing_contribution_lane":{"type":"string","const":"proposal_only"},"prompt_only_proposal":{"type":"boolean","const":true}},"required":["pairing_contribution_lane","prompt_only_proposal"]}},{"if":{"type":"object","properties":{"profile_kind":{"type":"string","const":"discovery_readonly"}},"required":["profile_kind"]},"then":{"type":"object","description":"A read-only discovery profile that exposed an approval-requiring or effectful tool would be a contradiction admitted in writing.","properties":{"exposed_tools":{"type":"array","items":{"type":"object","properties":{"approval_required":{"type":"boolean","const":false},"effect_class":{"type":"string","enum":["read","draft"]}}}}}}}],"$defs":{"sha256":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"},"ref":{"type":"string","pattern":"^[a-z][a-z0-9+._-]*://[^ ]{1,480}$"},"nullableRef":{"anyOf":[{"$ref":"#/$defs/ref"},{"type":"null"}]},"refList":{"type":"array","uniqueItems":true,"maxItems":256,"items":{"$ref":"#/$defs/ref"}},"scopeRef":{"type":"string","pattern":"^scope:[A-Za-z0-9_.:-]{1,160}$"},"profileId":{"type":"string","pattern":"^mcp-gateway://[^\\s?#\\\\]{1,160}$"},"profileRevisionRef":{"type":"string","pattern":"^mcp-gateway://[^\\s?#\\\\]{1,160}/revision/sha256:[0-9a-f]{64}$"},"requirementRevisionRef":{"type":"string","pattern":"^mcp-gateway-requirement://[^\\s?#\\\\]{1,160}/revision/sha256:[0-9a-f]{64}$"},"riskClass":{"type":"string","description":"A copy of the canonical ladder in foundations/canonical-enums.md § Risk Classes, plus the peer top-tier `physical_action`.","enum":["read","draft","local_write","write_reversible","external_message","commerce","funds","credential_access","policy_widening","secret_export","identity_change","system_destructive","physical_action"]},"exposedTool":{"type":"object","additionalProperties":false,"required":["mcp_tool_name","backing_contract_revision_ref","backing_contract_content_hash","contract_kind","risk_class","effect_class","readiness","dry_run_required","approval_required","authority_scopes_required","receipt_obligations"],"description":"One exposed tool, bound to the EXACT backing contract revision and its content hash. A tool named without both is a tool nobody can check, and the name it carries on the wire is the consumer's only handle on it.","properties":{"mcp_tool_name":{"type":"string","minLength":1,"maxLength":200},"backing_contract_revision_ref":{"$ref":"#/$defs/ref"},"backing_contract_content_hash":{"$ref":"#/$defs/sha256"},"contract_kind":{"type":"string","enum":["runtime_tool_contract","surface_mcp_contract","operator_plane_contract"]},"risk_class":{"$ref":"#/$defs/riskClass"},"effect_class":{"$ref":"#/$defs/riskClass"},"readiness":{"type":"string","enum":["ready","not_connected","scope_insufficient","dry_run_required","approval_required","policy_blocked","degraded"],"description":"A profile may expose a tool as DISCOVERABLE while still refusing a particular operation; these are canon's own words for that refusal."},"dry_run_required":{"type":"boolean"},"approval_required":{"type":"boolean"},"authority_scopes_required":{"type":"array","uniqueItems":true,"maxItems":64,"items":{"$ref":"#/$defs/scopeRef"}},"receipt_obligations":{"type":"array","uniqueItems":true,"maxItems":32,"items":{"type":"string","minLength":1,"maxLength":120}}}},"exposedResource":{"type":"object","additionalProperties":false,"required":["mcp_resource_uri","backing_projection_ref","required_context_lease_ref","redaction_policy_ref"],"description":"One exposed resource. The lease is REQUIRED and not nullable: a resource URI is not access, and the thing that makes it access is the lease named here.","properties":{"mcp_resource_uri":{"type":"string","minLength":1,"maxLength":480},"backing_projection_ref":{"$ref":"#/$defs/ref"},"required_context_lease_ref":{"$ref":"#/$defs/ref"},"redaction_policy_ref":{"$ref":"#/$defs/ref"}}}}}"##,
+            &value,
+        )
+            .map_err(serde::de::Error::custom)?;
+        let mut object = value
+            .as_object()
+            .cloned()
+            .ok_or_else(|| serde::de::Error::custom("validated projection is not an object"))?;
+        Ok(Self {
+            schema_version: serde_json::from_value::<HypervisorMcpGatewayProfileV1SchemaVersion>(
+                object
+                    .remove(r#"schema_version"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"schema_version"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            gateway_profile_id: serde_json::from_value::<String>(
+                object
+                    .remove(r#"gateway_profile_id"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"gateway_profile_id"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            profile_revision_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"profile_revision_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"profile_revision_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            predecessor_profile_revision_ref: serde_json::from_value::<Option<String>>(
+                object
+                    .remove(r#"predecessor_profile_revision_ref"#)
+                    .ok_or_else(|| {
+                        serde::de::Error::missing_field(r#"predecessor_profile_revision_ref"#)
+                    })?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            profile_content_hash: serde_json::from_value::<String>(
+                object
+                    .remove(r#"profile_content_hash"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"profile_content_hash"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            resolved_requirement_revision_refs: serde_json::from_value::<Vec<String>>(
+                object
+                    .remove(r#"resolved_requirement_revision_refs"#)
+                    .ok_or_else(|| {
+                        serde::de::Error::missing_field(r#"resolved_requirement_revision_refs"#)
+                    })?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            resolved_requirement_set_hash: serde_json::from_value::<String>(
+                object
+                    .remove(r#"resolved_requirement_set_hash"#)
+                    .ok_or_else(|| {
+                        serde::de::Error::missing_field(r#"resolved_requirement_set_hash"#)
+                    })?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            exposure_manifest_hash: serde_json::from_value::<String>(
+                object
+                    .remove(r#"exposure_manifest_hash"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"exposure_manifest_hash"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            display_name: serde_json::from_value::<String>(
+                object
+                    .remove(r#"display_name"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"display_name"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            audience: serde_json::from_value::<HypervisorMcpGatewayProfileV1Audience>(
+                object
+                    .remove(r#"audience"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"audience"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            profile_kind: serde_json::from_value::<HypervisorMcpGatewayProfileV1ProfileKind>(
+                object
+                    .remove(r#"profile_kind"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"profile_kind"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            subject_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"subject_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"subject_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            local_agent_pairing_session_ref: match object
+                .remove(r#"local_agent_pairing_session_ref"#)
+            {
+                Some(field_value) => serde_json::from_value::<Option<String>>(field_value)
+                    .map_err(serde::de::Error::custom)?,
+                None => None,
+            },
+            candidate_public_key_ref: match object.remove(r#"candidate_public_key_ref"#) {
+                Some(field_value) => serde_json::from_value::<Option<String>>(field_value)
+                    .map_err(serde::de::Error::custom)?,
+                None => None,
+            },
+            project_refs: match object.remove(r#"project_refs"#) {
+                Some(field_value) => serde_json::from_value::<Option<Vec<String>>>(field_value)
+                    .map_err(serde::de::Error::custom)?,
+                None => None,
+            },
+            session_refs: match object.remove(r#"session_refs"#) {
+                Some(field_value) => serde_json::from_value::<Option<Vec<String>>>(field_value)
+                    .map_err(serde::de::Error::custom)?,
+                None => None,
+            },
+            outcome_room_ref: match object.remove(r#"outcome_room_ref"#) {
+                Some(field_value) => serde_json::from_value::<Option<String>>(field_value)
+                    .map_err(serde::de::Error::custom)?,
+                None => None,
+            },
+            room_participant_lease_ref: match object.remove(r#"room_participant_lease_ref"#) {
+                Some(field_value) => serde_json::from_value::<Option<String>>(field_value)
+                    .map_err(serde::de::Error::custom)?,
+                None => None,
+            },
+            room_admission_decision_ref: match object.remove(r#"room_admission_decision_ref"#) {
+                Some(field_value) => serde_json::from_value::<Option<String>>(field_value)
+                    .map_err(serde::de::Error::custom)?,
+                None => None,
+            },
+            worker_registration_ref: match object.remove(r#"worker_registration_ref"#) {
+                Some(field_value) => serde_json::from_value::<Option<String>>(field_value)
+                    .map_err(serde::de::Error::custom)?,
+                None => None,
+            },
+            admission_basis: serde_json::from_value::<HypervisorMcpGatewayProfileV1AdmissionBasis>(
+                object
+                    .remove(r#"admission_basis"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"admission_basis"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            invocation_scope_refs: match object.remove(r#"invocation_scope_refs"#) {
+                Some(field_value) => serde_json::from_value::<Option<Vec<String>>>(field_value)
+                    .map_err(serde::de::Error::custom)?,
+                None => None,
+            },
+            pairing_execution_posture: match object.remove(r#"pairing_execution_posture"#) {
+                Some(field_value) => serde_json::from_value::<
+                    Option<HypervisorMcpGatewayProfileV1PairingExecutionPosture>,
+                >(field_value)
+                .map_err(serde::de::Error::custom)?,
+                None => None,
+            },
+            pairing_contribution_lane: match object.remove(r#"pairing_contribution_lane"#) {
+                Some(field_value) => serde_json::from_value::<
+                    Option<HypervisorMcpGatewayProfileV1PairingContributionLane>,
+                >(field_value)
+                .map_err(serde::de::Error::custom)?,
+                None => None,
+            },
+            surface_refs: serde_json::from_value::<Vec<String>>(
+                object
+                    .remove(r#"surface_refs"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"surface_refs"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            exposed_tools: serde_json::from_value::<
+                Vec<HypervisorMcpGatewayProfileV1ExposedToolsItem>,
+            >(
+                object
+                    .remove(r#"exposed_tools"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"exposed_tools"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            exposed_resources: serde_json::from_value::<
+                Vec<HypervisorMcpGatewayProfileV1ExposedResourcesItem>,
+            >(
+                object
+                    .remove(r#"exposed_resources"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"exposed_resources"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            exposed_prompt_import_contract_refs: match object
+                .remove(r#"exposed_prompt_import_contract_refs"#)
+            {
+                Some(field_value) => serde_json::from_value::<Option<Vec<String>>>(field_value)
+                    .map_err(serde::de::Error::custom)?,
+                None => None,
+            },
+            elicitation_contract_refs: match object.remove(r#"elicitation_contract_refs"#) {
+                Some(field_value) => serde_json::from_value::<Option<Vec<String>>>(field_value)
+                    .map_err(serde::de::Error::custom)?,
+                None => None,
+            },
+            external_task_contract_refs: match object.remove(r#"external_task_contract_refs"#) {
+                Some(field_value) => serde_json::from_value::<Option<Vec<String>>>(field_value)
+                    .map_err(serde::de::Error::custom)?,
+                None => None,
+            },
+            extension_application_refs: match object.remove(r#"extension_application_refs"#) {
+                Some(field_value) => serde_json::from_value::<Option<Vec<String>>>(field_value)
+                    .map_err(serde::de::Error::custom)?,
+                None => None,
+            },
+            authority_client_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"authority_client_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"authority_client_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            origin_binding_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"origin_binding_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"origin_binding_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            authority_scope_refs: serde_json::from_value::<Vec<String>>(
+                object
+                    .remove(r#"authority_scope_refs"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"authority_scope_refs"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            privacy_posture_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"privacy_posture_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"privacy_posture_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            budget_policy_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"budget_policy_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"budget_policy_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            rate_limit_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"rate_limit_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"rate_limit_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            quarantine_policy_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"quarantine_policy_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"quarantine_policy_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            dependent_refs: match object.remove(r#"dependent_refs"#) {
+                Some(field_value) => serde_json::from_value::<Option<Vec<String>>>(field_value)
+                    .map_err(serde::de::Error::custom)?,
+                None => None,
+            },
+            issued_after_required_admission: serde_json::from_value::<
+                HypervisorMcpGatewayProfileV1IssuedAfterRequiredAdmission,
+            >(
+                object
+                    .remove(r#"issued_after_required_admission"#)
+                    .ok_or_else(|| {
+                        serde::de::Error::missing_field(r#"issued_after_required_admission"#)
+                    })?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            prompt_only_proposal: serde_json::from_value::<bool>(
+                object
+                    .remove(r#"prompt_only_proposal"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"prompt_only_proposal"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            expires_at: serde_json::from_value::<String>(
+                object
+                    .remove(r#"expires_at"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"expires_at"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            revocation_ref: match object.remove(r#"revocation_ref"#) {
+                Some(field_value) => serde_json::from_value::<Option<String>>(field_value)
+                    .map_err(serde::de::Error::custom)?,
+                None => None,
+            },
+            quarantine_advisory_refs: match object.remove(r#"quarantine_advisory_refs"#) {
+                Some(field_value) => serde_json::from_value::<Option<Vec<String>>>(field_value)
+                    .map_err(serde::de::Error::custom)?,
+                None => None,
+            },
+            status: serde_json::from_value::<HypervisorMcpGatewayProfileV1Status>(
+                object
+                    .remove(r#"status"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"status"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            last_use_ref: match object.remove(r#"last_use_ref"#) {
+                Some(field_value) => serde_json::from_value::<Option<String>>(field_value)
+                    .map_err(serde::de::Error::custom)?,
+                None => None,
+            },
+            manifest_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"manifest_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"manifest_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            admission_decision_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"admission_decision_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"admission_decision_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            admission_receipt_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"admission_receipt_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"admission_receipt_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            receipt_refs: match object.remove(r#"receipt_refs"#) {
+                Some(field_value) => serde_json::from_value::<Option<Vec<String>>>(field_value)
+                    .map_err(serde::de::Error::custom)?,
+                None => None,
+            },
+        })
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum HypervisorMcpGatewayProfileV1SchemaVersion {
+    #[serde(rename = r#"ioi.hypervisor-mcp-gateway-profile.v1"#)]
+    IoiHypervisorMcpGatewayProfileV1,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum HypervisorMcpGatewayProfileV1Audience {
+    #[serde(rename = r#"external_agent"#)]
+    ExternalAgent,
+    #[serde(rename = r#"ci_agent"#)]
+    CiAgent,
+    #[serde(rename = r#"marketplace_worker"#)]
+    MarketplaceWorker,
+    #[serde(rename = r#"enterprise_agent"#)]
+    EnterpriseAgent,
+    #[serde(rename = r#"local_harness"#)]
+    LocalHarness,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum HypervisorMcpGatewayProfileV1ProfileKind {
+    #[serde(rename = r#"discovery_readonly"#)]
+    DiscoveryReadonly,
+    #[serde(rename = r#"project_session"#)]
+    ProjectSession,
+    #[serde(rename = r#"connector_preview"#)]
+    ConnectorPreview,
+    #[serde(rename = r#"operator_proposal"#)]
+    OperatorProposal,
+    #[serde(rename = r#"effectful_approved"#)]
+    EffectfulApproved,
+    #[serde(rename = r#"foundry_eval_training"#)]
+    FoundryEvalTraining,
+    #[serde(rename = r#"receipts_replay_proof"#)]
+    ReceiptsReplayProof,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum HypervisorMcpGatewayProfileV1AdmissionBasis {
+    #[serde(rename = r#"not_applicable"#)]
+    NotApplicable,
+    #[serde(rename = r#"room_guest"#)]
+    RoomGuest,
+    #[serde(rename = r#"registered_worker_invocation"#)]
+    RegisteredWorkerInvocation,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum HypervisorMcpGatewayProfileV1PairingExecutionPosture {
+    #[serde(rename = r#"not_applicable"#)]
+    NotApplicable,
+    #[serde(rename = r#"instrumented_adapter"#)]
+    InstrumentedAdapter,
+    #[serde(rename = r#"prompt_only"#)]
+    PromptOnly,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum HypervisorMcpGatewayProfileV1PairingContributionLane {
+    #[serde(rename = r#"not_applicable"#)]
+    NotApplicable,
+    #[serde(rename = r#"instrumented_candidate"#)]
+    InstrumentedCandidate,
+    #[serde(rename = r#"proposal_only"#)]
+    ProposalOnly,
+}
+
+#[derive(Debug, Clone, PartialEq, serde::Serialize)]
+pub struct HypervisorMcpGatewayProfileV1ExposedToolsItem {
+    pub mcp_tool_name: String,
+    pub backing_contract_revision_ref: String,
+    pub backing_contract_content_hash: String,
+    pub contract_kind: HypervisorMcpGatewayProfileV1ExposedToolsItemContractKind,
+    pub risk_class: HypervisorMcpGatewayProfileV1ExposedToolsItemRiskClass,
+    pub effect_class: HypervisorMcpGatewayProfileV1ExposedToolsItemEffectClass,
+    pub readiness: HypervisorMcpGatewayProfileV1ExposedToolsItemReadiness,
+    pub dry_run_required: bool,
+    pub approval_required: bool,
+    pub authority_scopes_required: Vec<String>,
+    pub receipt_obligations: Vec<String>,
+}
+
+impl<'de> serde::Deserialize<'de> for HypervisorMcpGatewayProfileV1ExposedToolsItem {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let value = <serde_json::Value as serde::Deserialize>::deserialize(deserializer)?;
+        validate_projection_subschema(
+            r#"schema://ioi/components/connectors-tools/hypervisor-mcp-gateway-profile/v1"#,
+            r##"{"type":"object","additionalProperties":false,"required":["mcp_tool_name","backing_contract_revision_ref","backing_contract_content_hash","contract_kind","risk_class","effect_class","readiness","dry_run_required","approval_required","authority_scopes_required","receipt_obligations"],"description":"One exposed tool, bound to the EXACT backing contract revision and its content hash. A tool named without both is a tool nobody can check, and the name it carries on the wire is the consumer's only handle on it.","properties":{"mcp_tool_name":{"type":"string","minLength":1,"maxLength":200},"backing_contract_revision_ref":{"$ref":"#/$defs/ref"},"backing_contract_content_hash":{"$ref":"#/$defs/sha256"},"contract_kind":{"type":"string","enum":["runtime_tool_contract","surface_mcp_contract","operator_plane_contract"]},"risk_class":{"$ref":"#/$defs/riskClass"},"effect_class":{"$ref":"#/$defs/riskClass"},"readiness":{"type":"string","enum":["ready","not_connected","scope_insufficient","dry_run_required","approval_required","policy_blocked","degraded"],"description":"A profile may expose a tool as DISCOVERABLE while still refusing a particular operation; these are canon's own words for that refusal."},"dry_run_required":{"type":"boolean"},"approval_required":{"type":"boolean"},"authority_scopes_required":{"type":"array","uniqueItems":true,"maxItems":64,"items":{"$ref":"#/$defs/scopeRef"}},"receipt_obligations":{"type":"array","uniqueItems":true,"maxItems":32,"items":{"type":"string","minLength":1,"maxLength":120}}}}"##,
+            &value,
+        )
+            .map_err(serde::de::Error::custom)?;
+        let mut object = value
+            .as_object()
+            .cloned()
+            .ok_or_else(|| serde::de::Error::custom("validated projection is not an object"))?;
+        Ok(Self {
+            mcp_tool_name: serde_json::from_value::<String>(
+                object
+                    .remove(r#"mcp_tool_name"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"mcp_tool_name"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            backing_contract_revision_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"backing_contract_revision_ref"#)
+                    .ok_or_else(|| {
+                        serde::de::Error::missing_field(r#"backing_contract_revision_ref"#)
+                    })?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            backing_contract_content_hash: serde_json::from_value::<String>(
+                object
+                    .remove(r#"backing_contract_content_hash"#)
+                    .ok_or_else(|| {
+                        serde::de::Error::missing_field(r#"backing_contract_content_hash"#)
+                    })?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            contract_kind: serde_json::from_value::<
+                HypervisorMcpGatewayProfileV1ExposedToolsItemContractKind,
+            >(
+                object
+                    .remove(r#"contract_kind"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"contract_kind"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            risk_class: serde_json::from_value::<
+                HypervisorMcpGatewayProfileV1ExposedToolsItemRiskClass,
+            >(
+                object
+                    .remove(r#"risk_class"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"risk_class"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            effect_class: serde_json::from_value::<
+                HypervisorMcpGatewayProfileV1ExposedToolsItemEffectClass,
+            >(
+                object
+                    .remove(r#"effect_class"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"effect_class"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            readiness: serde_json::from_value::<
+                HypervisorMcpGatewayProfileV1ExposedToolsItemReadiness,
+            >(
+                object
+                    .remove(r#"readiness"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"readiness"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            dry_run_required: serde_json::from_value::<bool>(
+                object
+                    .remove(r#"dry_run_required"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"dry_run_required"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            approval_required: serde_json::from_value::<bool>(
+                object
+                    .remove(r#"approval_required"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"approval_required"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            authority_scopes_required: serde_json::from_value::<Vec<String>>(
+                object
+                    .remove(r#"authority_scopes_required"#)
+                    .ok_or_else(|| {
+                        serde::de::Error::missing_field(r#"authority_scopes_required"#)
+                    })?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            receipt_obligations: serde_json::from_value::<Vec<String>>(
+                object
+                    .remove(r#"receipt_obligations"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"receipt_obligations"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+        })
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum HypervisorMcpGatewayProfileV1ExposedToolsItemContractKind {
+    #[serde(rename = r#"runtime_tool_contract"#)]
+    RuntimeToolContract,
+    #[serde(rename = r#"surface_mcp_contract"#)]
+    SurfaceMcpContract,
+    #[serde(rename = r#"operator_plane_contract"#)]
+    OperatorPlaneContract,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum HypervisorMcpGatewayProfileV1ExposedToolsItemRiskClass {
+    #[serde(rename = r#"read"#)]
+    Read,
+    #[serde(rename = r#"draft"#)]
+    Draft,
+    #[serde(rename = r#"local_write"#)]
+    LocalWrite,
+    #[serde(rename = r#"write_reversible"#)]
+    WriteReversible,
+    #[serde(rename = r#"external_message"#)]
+    ExternalMessage,
+    #[serde(rename = r#"commerce"#)]
+    Commerce,
+    #[serde(rename = r#"funds"#)]
+    Funds,
+    #[serde(rename = r#"credential_access"#)]
+    CredentialAccess,
+    #[serde(rename = r#"policy_widening"#)]
+    PolicyWidening,
+    #[serde(rename = r#"secret_export"#)]
+    SecretExport,
+    #[serde(rename = r#"identity_change"#)]
+    IdentityChange,
+    #[serde(rename = r#"system_destructive"#)]
+    SystemDestructive,
+    #[serde(rename = r#"physical_action"#)]
+    PhysicalAction,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum HypervisorMcpGatewayProfileV1ExposedToolsItemEffectClass {
+    #[serde(rename = r#"read"#)]
+    Read,
+    #[serde(rename = r#"draft"#)]
+    Draft,
+    #[serde(rename = r#"local_write"#)]
+    LocalWrite,
+    #[serde(rename = r#"write_reversible"#)]
+    WriteReversible,
+    #[serde(rename = r#"external_message"#)]
+    ExternalMessage,
+    #[serde(rename = r#"commerce"#)]
+    Commerce,
+    #[serde(rename = r#"funds"#)]
+    Funds,
+    #[serde(rename = r#"credential_access"#)]
+    CredentialAccess,
+    #[serde(rename = r#"policy_widening"#)]
+    PolicyWidening,
+    #[serde(rename = r#"secret_export"#)]
+    SecretExport,
+    #[serde(rename = r#"identity_change"#)]
+    IdentityChange,
+    #[serde(rename = r#"system_destructive"#)]
+    SystemDestructive,
+    #[serde(rename = r#"physical_action"#)]
+    PhysicalAction,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum HypervisorMcpGatewayProfileV1ExposedToolsItemReadiness {
+    #[serde(rename = r#"ready"#)]
+    Ready,
+    #[serde(rename = r#"not_connected"#)]
+    NotConnected,
+    #[serde(rename = r#"scope_insufficient"#)]
+    ScopeInsufficient,
+    #[serde(rename = r#"dry_run_required"#)]
+    DryRunRequired,
+    #[serde(rename = r#"approval_required"#)]
+    ApprovalRequired,
+    #[serde(rename = r#"policy_blocked"#)]
+    PolicyBlocked,
+    #[serde(rename = r#"degraded"#)]
+    Degraded,
+}
+
+#[derive(Debug, Clone, PartialEq, serde::Serialize)]
+pub struct HypervisorMcpGatewayProfileV1ExposedResourcesItem {
+    pub mcp_resource_uri: String,
+    pub backing_projection_ref: String,
+    pub required_context_lease_ref: String,
+    pub redaction_policy_ref: String,
+}
+
+impl<'de> serde::Deserialize<'de> for HypervisorMcpGatewayProfileV1ExposedResourcesItem {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let value = <serde_json::Value as serde::Deserialize>::deserialize(deserializer)?;
+        validate_projection_subschema(
+            r#"schema://ioi/components/connectors-tools/hypervisor-mcp-gateway-profile/v1"#,
+            r##"{"type":"object","additionalProperties":false,"required":["mcp_resource_uri","backing_projection_ref","required_context_lease_ref","redaction_policy_ref"],"description":"One exposed resource. The lease is REQUIRED and not nullable: a resource URI is not access, and the thing that makes it access is the lease named here.","properties":{"mcp_resource_uri":{"type":"string","minLength":1,"maxLength":480},"backing_projection_ref":{"$ref":"#/$defs/ref"},"required_context_lease_ref":{"$ref":"#/$defs/ref"},"redaction_policy_ref":{"$ref":"#/$defs/ref"}}}"##,
+            &value,
+        )
+            .map_err(serde::de::Error::custom)?;
+        let mut object = value
+            .as_object()
+            .cloned()
+            .ok_or_else(|| serde::de::Error::custom("validated projection is not an object"))?;
+        Ok(Self {
+            mcp_resource_uri: serde_json::from_value::<String>(
+                object
+                    .remove(r#"mcp_resource_uri"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"mcp_resource_uri"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            backing_projection_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"backing_projection_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"backing_projection_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            required_context_lease_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"required_context_lease_ref"#)
+                    .ok_or_else(|| {
+                        serde::de::Error::missing_field(r#"required_context_lease_ref"#)
+                    })?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            redaction_policy_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"redaction_policy_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"redaction_policy_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+        })
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum HypervisorMcpGatewayProfileV1IssuedAfterRequiredAdmission {
+    True,
+}
+
+impl serde::Serialize for HypervisorMcpGatewayProfileV1IssuedAfterRequiredAdmission {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: serde::Serializer,
+    {
+        serializer.serialize_bool(true)
+    }
+}
+
+impl<'de> serde::Deserialize<'de> for HypervisorMcpGatewayProfileV1IssuedAfterRequiredAdmission {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let value = <bool as serde::Deserialize>::deserialize(deserializer)?;
+        if value == true {
+            Ok(Self::True)
+        } else {
+            Err(serde::de::Error::custom(r#"expected boolean literal true"#))
+        }
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum HypervisorMcpGatewayProfileV1Status {
+    #[serde(rename = r#"active"#)]
+    Active,
+    #[serde(rename = r#"expired"#)]
+    Expired,
+    #[serde(rename = r#"suspended"#)]
+    Suspended,
+    #[serde(rename = r#"quarantined"#)]
+    Quarantined,
+    #[serde(rename = r#"revoked"#)]
+    Revoked,
+}
+
+#[derive(Debug, Clone, PartialEq, serde::Serialize)]
+pub struct HypervisorMcpGatewayProfileV2 {
+    pub schema_version: HypervisorMcpGatewayProfileV2SchemaVersion,
+    pub gateway_profile_id: String,
+    pub profile_revision_ref: String,
+    pub predecessor_profile_revision_ref: Option<String>,
+    pub profile_content_hash: String,
+    pub resolved_requirement_revision_refs: Vec<String>,
+    pub resolved_requirement_set_hash: String,
+    pub exposure_manifest_hash: String,
+    pub display_name: String,
+    pub audience: HypervisorMcpGatewayProfileV2Audience,
+    pub profile_kind: HypervisorMcpGatewayProfileV2ProfileKind,
+    pub subject_ref: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub local_agent_pairing_session_ref: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub candidate_public_key_ref: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub project_refs: Option<Vec<String>>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub session_refs: Option<Vec<String>>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub outcome_room_ref: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub room_participant_lease_ref: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub room_admission_decision_ref: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub worker_registration_ref: Option<String>,
+    pub admission_basis: HypervisorMcpGatewayProfileV2AdmissionBasis,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub invocation_scope_refs: Option<Vec<String>>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub pairing_execution_posture: Option<HypervisorMcpGatewayProfileV2PairingExecutionPosture>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub pairing_contribution_lane: Option<HypervisorMcpGatewayProfileV2PairingContributionLane>,
+    pub surface_refs: Vec<String>,
+    pub exposed_tools: Vec<HypervisorMcpGatewayProfileV2ExposedToolsItem>,
+    pub exposed_resources: Vec<HypervisorMcpGatewayProfileV2ExposedResourcesItem>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub exposed_prompt_import_contract_refs: Option<Vec<String>>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub elicitation_contract_refs: Option<Vec<String>>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub external_task_contract_refs: Option<Vec<String>>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub extension_application_refs: Option<Vec<String>>,
+    pub authority_client_ref: String,
+    pub origin_binding_ref: String,
+    pub authority_scope_refs: Vec<String>,
+    pub privacy_posture_ref: String,
+    pub budget_policy_ref: String,
+    pub rate_limit_ref: String,
+    pub quarantine_policy_ref: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub dependent_refs: Option<Vec<String>>,
+    pub issued_after_required_admission: HypervisorMcpGatewayProfileV2IssuedAfterRequiredAdmission,
+    pub prompt_only_proposal: bool,
+    pub expires_at: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub revocation_ref: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub quarantine_advisory_refs: Option<Vec<String>>,
+    pub status: HypervisorMcpGatewayProfileV2Status,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub last_use_ref: Option<String>,
+    pub manifest_ref: String,
+    pub admission_decision_ref: String,
+    pub admission_receipt_ref: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub receipt_refs: Option<Vec<String>>,
+}
+
+impl<'de> serde::Deserialize<'de> for HypervisorMcpGatewayProfileV2 {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let value = <serde_json::Value as serde::Deserialize>::deserialize(deserializer)?;
+        validate_projection_subschema(
+            r#"schema://ioi/components/connectors-tools/hypervisor-mcp-gateway-profile/v2"#,
+            r##"{"$schema":"https://json-schema.org/draft/2020-12/schema","$id":"schema://ioi/components/connectors-tools/hypervisor-mcp-gateway-profile/v2","title":"HypervisorMcpGatewayProfileV2","x-ioi-schema-version":"ioi.hypervisor-mcp-gateway-profile.v2","description":"THE v1 PROFILE WITH EXACTLY ONE MORE KIND, AND NOTHING ELSE CHANGED. Every member, constraint and conditional of ioi.hypervisor-mcp-gateway-profile.v1 holds here unchanged; the single difference is that `profile_kind` also admits `capability_construction_eval`, the SOURCE-NEUTRAL builder surface. That kind claims one thing and it is the strongest claim this gateway makes: an external builder invocation admitted under it reaches the same RuntimeToolContract resolution, the same final invoker and the same receipt obligations as the native call, bound to one exact subject, candidate key, origin, admission basis, project, session and invocation ref — it can neither widen what the native path would allow nor execute what the native path would refuse. It trains nothing, promotes nothing and reads no first-party corpus; `foundry_eval_training` remains the separately admitted first-party training specialization and the two are never substitutable. VERSIONS DO NOT FALL BACK. A v1 profile presented to a v2 reader and a v2 profile presented to a v1 reader both refuse, with the version named: reading a v2 profile as a v1 by discarding the kind it does not recognise would admit the builder surface as whatever the v1 reader defaulted to, and a version boundary that degrades gracefully is one that grants silently. The schema version is part of the admitted body and therefore of `profile_content_hash`, so a version change is a successor revision that repeats admission exactly as a widening does. Owner: components/connectors-tools/contracts.md § Profile versions and the source-neutral builder kind (M01.11, ADR 0055).","type":"object","additionalProperties":false,"required":["schema_version","gateway_profile_id","profile_revision_ref","predecessor_profile_revision_ref","profile_content_hash","resolved_requirement_revision_refs","resolved_requirement_set_hash","exposure_manifest_hash","display_name","audience","profile_kind","subject_ref","admission_basis","surface_refs","exposed_tools","exposed_resources","authority_client_ref","origin_binding_ref","authority_scope_refs","privacy_posture_ref","budget_policy_ref","rate_limit_ref","quarantine_policy_ref","issued_after_required_admission","prompt_only_proposal","expires_at","status","manifest_ref","admission_decision_ref","admission_receipt_ref"],"properties":{"schema_version":{"type":"string","const":"ioi.hypervisor-mcp-gateway-profile.v2"},"gateway_profile_id":{"$ref":"#/$defs/profileId"},"profile_revision_ref":{"$ref":"#/$defs/profileRevisionRef"},"predecessor_profile_revision_ref":{"anyOf":[{"$ref":"#/$defs/profileRevisionRef"},{"type":"null"}],"description":"Null only on the genesis revision. A narrowed successor and a widened successor are both successors; only the widened one repeats admission."},"profile_content_hash":{"$ref":"#/$defs/sha256"},"resolved_requirement_revision_refs":{"type":"array","uniqueItems":true,"maxItems":128,"items":{"$ref":"#/$defs/requirementRevisionRef"},"description":"The exact immutable requirement revisions this profile resolves. Resolving is an evaluation of a declared ceiling against one proposed use; the requirement issued nothing."},"resolved_requirement_set_hash":{"$ref":"#/$defs/sha256"},"exposure_manifest_hash":{"$ref":"#/$defs/sha256","description":"Frozen at admission over the exposed tool, resource, prompt, elicitation, task and App sets. A consumer that computes a different hash over what it was served has been served something else."},"display_name":{"type":"string","minLength":1,"maxLength":200},"audience":{"type":"string","enum":["external_agent","ci_agent","marketplace_worker","enterprise_agent","local_harness"]},"profile_kind":{"type":"string","description":"The v2 closed set of eight: the seven v1 kinds, unchanged in meaning, plus the source-neutral builder surface. A v1 reader refuses this document rather than ignoring the member it does not know.","enum":["discovery_readonly","project_session","connector_preview","operator_proposal","effectful_approved","foundry_eval_training","receipts_replay_proof","capability_construction_eval"]},"subject_ref":{"$ref":"#/$defs/ref"},"local_agent_pairing_session_ref":{"$ref":"#/$defs/nullableRef"},"candidate_public_key_ref":{"$ref":"#/$defs/nullableRef"},"project_refs":{"$ref":"#/$defs/refList"},"session_refs":{"$ref":"#/$defs/refList"},"outcome_room_ref":{"$ref":"#/$defs/nullableRef"},"room_participant_lease_ref":{"$ref":"#/$defs/nullableRef"},"room_admission_decision_ref":{"$ref":"#/$defs/nullableRef"},"worker_registration_ref":{"$ref":"#/$defs/nullableRef"},"admission_basis":{"type":"string","enum":["not_applicable","room_guest","registered_worker_invocation"]},"invocation_scope_refs":{"$ref":"#/$defs/refList"},"pairing_execution_posture":{"type":"string","enum":["not_applicable","instrumented_adapter","prompt_only"]},"pairing_contribution_lane":{"type":"string","enum":["not_applicable","instrumented_candidate","proposal_only"]},"surface_refs":{"$ref":"#/$defs/refList"},"exposed_tools":{"type":"array","maxItems":512,"items":{"$ref":"#/$defs/exposedTool"},"description":"An empty list is a real and common posture — a profile that exposes no tool. It is not a wildcard."},"exposed_resources":{"type":"array","maxItems":512,"items":{"$ref":"#/$defs/exposedResource"}},"exposed_prompt_import_contract_refs":{"$ref":"#/$defs/refList"},"elicitation_contract_refs":{"$ref":"#/$defs/refList"},"external_task_contract_refs":{"$ref":"#/$defs/refList"},"extension_application_refs":{"$ref":"#/$defs/refList"},"authority_client_ref":{"$ref":"#/$defs/ref"},"origin_binding_ref":{"$ref":"#/$defs/ref"},"authority_scope_refs":{"type":"array","uniqueItems":true,"maxItems":128,"items":{"$ref":"#/$defs/scopeRef"}},"privacy_posture_ref":{"$ref":"#/$defs/ref"},"budget_policy_ref":{"$ref":"#/$defs/ref"},"rate_limit_ref":{"$ref":"#/$defs/ref"},"quarantine_policy_ref":{"$ref":"#/$defs/ref"},"dependent_refs":{"$ref":"#/$defs/refList"},"issued_after_required_admission":{"type":"boolean","const":true,"description":"A profile that was not issued after its required admission is not a profile. The member exists so the claim is on the wire and hashed, not implied by the record's presence."},"prompt_only_proposal":{"type":"boolean"},"expires_at":{"type":"string","format":"date-time","pattern":"^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$"},"revocation_ref":{"$ref":"#/$defs/nullableRef"},"quarantine_advisory_refs":{"$ref":"#/$defs/refList"},"status":{"type":"string","enum":["active","expired","suspended","quarantined","revoked"],"description":"An EXCLUDED lifecycle projection. It binds the already-computed content hash rather than entering it, and it may only reduce effective access."},"last_use_ref":{"$ref":"#/$defs/nullableRef"},"manifest_ref":{"$ref":"#/$defs/ref"},"admission_decision_ref":{"$ref":"#/$defs/ref"},"admission_receipt_ref":{"$ref":"#/$defs/ref"},"receipt_refs":{"$ref":"#/$defs/refList"}},"allOf":[{"if":{"type":"object","properties":{"pairing_execution_posture":{"type":"string","const":"prompt_only"}},"required":["pairing_execution_posture"]},"then":{"type":"object","description":"A prompt-only pairing may only ever propose. The contribution lane and the proposal flag are not independent of the posture, and letting them drift is how a prompt-only harness acquires an instrumented lane.","properties":{"pairing_contribution_lane":{"type":"string","const":"proposal_only"},"prompt_only_proposal":{"type":"boolean","const":true}},"required":["pairing_contribution_lane","prompt_only_proposal"]}},{"if":{"type":"object","properties":{"profile_kind":{"type":"string","const":"discovery_readonly"}},"required":["profile_kind"]},"then":{"type":"object","description":"A read-only discovery profile that exposed an approval-requiring or effectful tool would be a contradiction admitted in writing.","properties":{"exposed_tools":{"type":"array","items":{"type":"object","properties":{"approval_required":{"type":"boolean","const":false},"effect_class":{"type":"string","enum":["read","draft"]}}}}}}},{"if":{"type":"object","properties":{"profile_kind":{"type":"string","const":"capability_construction_eval"}},"required":["profile_kind"]},"then":{"type":"object","description":"SOURCE-NEUTRAL means the builder surface reads no first-party training corpus and mints no training artifact, and it is bound to ONE invocation rather than to every invocation its subject can reach — that binding is what makes the native-versus-MCP comparison a comparison of the same thing, and it is required here. The other half of source-neutrality, that no exposed tool requires a foundry, training or dataset-factory scope, is NOT expressible in this contract: it is a negative over an array member's string, and the portable schema keyword set this estate generates from admits no negation. It is therefore enforced and drilled in check:hypervisor-mcp-gateway-profile rather than asserted here in a form no validator would run. Saying which layer holds a rule is the point of writing it down.","properties":{"invocation_scope_refs":{"type":"array","minItems":1}},"required":["invocation_scope_refs"]}}],"$defs":{"sha256":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"},"ref":{"type":"string","pattern":"^[a-z][a-z0-9+._-]*://[^ ]{1,480}$"},"nullableRef":{"anyOf":[{"$ref":"#/$defs/ref"},{"type":"null"}]},"refList":{"type":"array","uniqueItems":true,"maxItems":256,"items":{"$ref":"#/$defs/ref"}},"scopeRef":{"type":"string","pattern":"^scope:[A-Za-z0-9_.:-]{1,160}$"},"profileId":{"type":"string","pattern":"^mcp-gateway://[^\\s?#\\\\]{1,160}$"},"profileRevisionRef":{"type":"string","pattern":"^mcp-gateway://[^\\s?#\\\\]{1,160}/revision/sha256:[0-9a-f]{64}$"},"requirementRevisionRef":{"type":"string","pattern":"^mcp-gateway-requirement://[^\\s?#\\\\]{1,160}/revision/sha256:[0-9a-f]{64}$"},"riskClass":{"type":"string","description":"A copy of the canonical ladder in foundations/canonical-enums.md § Risk Classes, plus the peer top-tier `physical_action`.","enum":["read","draft","local_write","write_reversible","external_message","commerce","funds","credential_access","policy_widening","secret_export","identity_change","system_destructive","physical_action"]},"exposedTool":{"type":"object","additionalProperties":false,"required":["mcp_tool_name","backing_contract_revision_ref","backing_contract_content_hash","contract_kind","risk_class","effect_class","readiness","dry_run_required","approval_required","authority_scopes_required","receipt_obligations"],"description":"One exposed tool, bound to the EXACT backing contract revision and its content hash. A tool named without both is a tool nobody can check, and the name it carries on the wire is the consumer's only handle on it.","properties":{"mcp_tool_name":{"type":"string","minLength":1,"maxLength":200},"backing_contract_revision_ref":{"$ref":"#/$defs/ref"},"backing_contract_content_hash":{"$ref":"#/$defs/sha256"},"contract_kind":{"type":"string","enum":["runtime_tool_contract","surface_mcp_contract","operator_plane_contract"]},"risk_class":{"$ref":"#/$defs/riskClass"},"effect_class":{"$ref":"#/$defs/riskClass"},"readiness":{"type":"string","enum":["ready","not_connected","scope_insufficient","dry_run_required","approval_required","policy_blocked","degraded"],"description":"A profile may expose a tool as DISCOVERABLE while still refusing a particular operation; these are canon's own words for that refusal."},"dry_run_required":{"type":"boolean"},"approval_required":{"type":"boolean"},"authority_scopes_required":{"type":"array","uniqueItems":true,"maxItems":64,"items":{"$ref":"#/$defs/scopeRef"}},"receipt_obligations":{"type":"array","uniqueItems":true,"maxItems":32,"items":{"type":"string","minLength":1,"maxLength":120}}}},"exposedResource":{"type":"object","additionalProperties":false,"required":["mcp_resource_uri","backing_projection_ref","required_context_lease_ref","redaction_policy_ref"],"description":"One exposed resource. The lease is REQUIRED and not nullable: a resource URI is not access, and the thing that makes it access is the lease named here.","properties":{"mcp_resource_uri":{"type":"string","minLength":1,"maxLength":480},"backing_projection_ref":{"$ref":"#/$defs/ref"},"required_context_lease_ref":{"$ref":"#/$defs/ref"},"redaction_policy_ref":{"$ref":"#/$defs/ref"}}}}}"##,
+            &value,
+        )
+            .map_err(serde::de::Error::custom)?;
+        let mut object = value
+            .as_object()
+            .cloned()
+            .ok_or_else(|| serde::de::Error::custom("validated projection is not an object"))?;
+        Ok(Self {
+            schema_version: serde_json::from_value::<HypervisorMcpGatewayProfileV2SchemaVersion>(
+                object
+                    .remove(r#"schema_version"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"schema_version"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            gateway_profile_id: serde_json::from_value::<String>(
+                object
+                    .remove(r#"gateway_profile_id"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"gateway_profile_id"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            profile_revision_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"profile_revision_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"profile_revision_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            predecessor_profile_revision_ref: serde_json::from_value::<Option<String>>(
+                object
+                    .remove(r#"predecessor_profile_revision_ref"#)
+                    .ok_or_else(|| {
+                        serde::de::Error::missing_field(r#"predecessor_profile_revision_ref"#)
+                    })?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            profile_content_hash: serde_json::from_value::<String>(
+                object
+                    .remove(r#"profile_content_hash"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"profile_content_hash"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            resolved_requirement_revision_refs: serde_json::from_value::<Vec<String>>(
+                object
+                    .remove(r#"resolved_requirement_revision_refs"#)
+                    .ok_or_else(|| {
+                        serde::de::Error::missing_field(r#"resolved_requirement_revision_refs"#)
+                    })?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            resolved_requirement_set_hash: serde_json::from_value::<String>(
+                object
+                    .remove(r#"resolved_requirement_set_hash"#)
+                    .ok_or_else(|| {
+                        serde::de::Error::missing_field(r#"resolved_requirement_set_hash"#)
+                    })?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            exposure_manifest_hash: serde_json::from_value::<String>(
+                object
+                    .remove(r#"exposure_manifest_hash"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"exposure_manifest_hash"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            display_name: serde_json::from_value::<String>(
+                object
+                    .remove(r#"display_name"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"display_name"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            audience: serde_json::from_value::<HypervisorMcpGatewayProfileV2Audience>(
+                object
+                    .remove(r#"audience"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"audience"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            profile_kind: serde_json::from_value::<HypervisorMcpGatewayProfileV2ProfileKind>(
+                object
+                    .remove(r#"profile_kind"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"profile_kind"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            subject_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"subject_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"subject_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            local_agent_pairing_session_ref: match object
+                .remove(r#"local_agent_pairing_session_ref"#)
+            {
+                Some(field_value) => serde_json::from_value::<Option<String>>(field_value)
+                    .map_err(serde::de::Error::custom)?,
+                None => None,
+            },
+            candidate_public_key_ref: match object.remove(r#"candidate_public_key_ref"#) {
+                Some(field_value) => serde_json::from_value::<Option<String>>(field_value)
+                    .map_err(serde::de::Error::custom)?,
+                None => None,
+            },
+            project_refs: match object.remove(r#"project_refs"#) {
+                Some(field_value) => serde_json::from_value::<Option<Vec<String>>>(field_value)
+                    .map_err(serde::de::Error::custom)?,
+                None => None,
+            },
+            session_refs: match object.remove(r#"session_refs"#) {
+                Some(field_value) => serde_json::from_value::<Option<Vec<String>>>(field_value)
+                    .map_err(serde::de::Error::custom)?,
+                None => None,
+            },
+            outcome_room_ref: match object.remove(r#"outcome_room_ref"#) {
+                Some(field_value) => serde_json::from_value::<Option<String>>(field_value)
+                    .map_err(serde::de::Error::custom)?,
+                None => None,
+            },
+            room_participant_lease_ref: match object.remove(r#"room_participant_lease_ref"#) {
+                Some(field_value) => serde_json::from_value::<Option<String>>(field_value)
+                    .map_err(serde::de::Error::custom)?,
+                None => None,
+            },
+            room_admission_decision_ref: match object.remove(r#"room_admission_decision_ref"#) {
+                Some(field_value) => serde_json::from_value::<Option<String>>(field_value)
+                    .map_err(serde::de::Error::custom)?,
+                None => None,
+            },
+            worker_registration_ref: match object.remove(r#"worker_registration_ref"#) {
+                Some(field_value) => serde_json::from_value::<Option<String>>(field_value)
+                    .map_err(serde::de::Error::custom)?,
+                None => None,
+            },
+            admission_basis: serde_json::from_value::<HypervisorMcpGatewayProfileV2AdmissionBasis>(
+                object
+                    .remove(r#"admission_basis"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"admission_basis"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            invocation_scope_refs: match object.remove(r#"invocation_scope_refs"#) {
+                Some(field_value) => serde_json::from_value::<Option<Vec<String>>>(field_value)
+                    .map_err(serde::de::Error::custom)?,
+                None => None,
+            },
+            pairing_execution_posture: match object.remove(r#"pairing_execution_posture"#) {
+                Some(field_value) => serde_json::from_value::<
+                    Option<HypervisorMcpGatewayProfileV2PairingExecutionPosture>,
+                >(field_value)
+                .map_err(serde::de::Error::custom)?,
+                None => None,
+            },
+            pairing_contribution_lane: match object.remove(r#"pairing_contribution_lane"#) {
+                Some(field_value) => serde_json::from_value::<
+                    Option<HypervisorMcpGatewayProfileV2PairingContributionLane>,
+                >(field_value)
+                .map_err(serde::de::Error::custom)?,
+                None => None,
+            },
+            surface_refs: serde_json::from_value::<Vec<String>>(
+                object
+                    .remove(r#"surface_refs"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"surface_refs"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            exposed_tools: serde_json::from_value::<
+                Vec<HypervisorMcpGatewayProfileV2ExposedToolsItem>,
+            >(
+                object
+                    .remove(r#"exposed_tools"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"exposed_tools"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            exposed_resources: serde_json::from_value::<
+                Vec<HypervisorMcpGatewayProfileV2ExposedResourcesItem>,
+            >(
+                object
+                    .remove(r#"exposed_resources"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"exposed_resources"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            exposed_prompt_import_contract_refs: match object
+                .remove(r#"exposed_prompt_import_contract_refs"#)
+            {
+                Some(field_value) => serde_json::from_value::<Option<Vec<String>>>(field_value)
+                    .map_err(serde::de::Error::custom)?,
+                None => None,
+            },
+            elicitation_contract_refs: match object.remove(r#"elicitation_contract_refs"#) {
+                Some(field_value) => serde_json::from_value::<Option<Vec<String>>>(field_value)
+                    .map_err(serde::de::Error::custom)?,
+                None => None,
+            },
+            external_task_contract_refs: match object.remove(r#"external_task_contract_refs"#) {
+                Some(field_value) => serde_json::from_value::<Option<Vec<String>>>(field_value)
+                    .map_err(serde::de::Error::custom)?,
+                None => None,
+            },
+            extension_application_refs: match object.remove(r#"extension_application_refs"#) {
+                Some(field_value) => serde_json::from_value::<Option<Vec<String>>>(field_value)
+                    .map_err(serde::de::Error::custom)?,
+                None => None,
+            },
+            authority_client_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"authority_client_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"authority_client_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            origin_binding_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"origin_binding_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"origin_binding_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            authority_scope_refs: serde_json::from_value::<Vec<String>>(
+                object
+                    .remove(r#"authority_scope_refs"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"authority_scope_refs"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            privacy_posture_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"privacy_posture_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"privacy_posture_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            budget_policy_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"budget_policy_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"budget_policy_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            rate_limit_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"rate_limit_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"rate_limit_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            quarantine_policy_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"quarantine_policy_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"quarantine_policy_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            dependent_refs: match object.remove(r#"dependent_refs"#) {
+                Some(field_value) => serde_json::from_value::<Option<Vec<String>>>(field_value)
+                    .map_err(serde::de::Error::custom)?,
+                None => None,
+            },
+            issued_after_required_admission: serde_json::from_value::<
+                HypervisorMcpGatewayProfileV2IssuedAfterRequiredAdmission,
+            >(
+                object
+                    .remove(r#"issued_after_required_admission"#)
+                    .ok_or_else(|| {
+                        serde::de::Error::missing_field(r#"issued_after_required_admission"#)
+                    })?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            prompt_only_proposal: serde_json::from_value::<bool>(
+                object
+                    .remove(r#"prompt_only_proposal"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"prompt_only_proposal"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            expires_at: serde_json::from_value::<String>(
+                object
+                    .remove(r#"expires_at"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"expires_at"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            revocation_ref: match object.remove(r#"revocation_ref"#) {
+                Some(field_value) => serde_json::from_value::<Option<String>>(field_value)
+                    .map_err(serde::de::Error::custom)?,
+                None => None,
+            },
+            quarantine_advisory_refs: match object.remove(r#"quarantine_advisory_refs"#) {
+                Some(field_value) => serde_json::from_value::<Option<Vec<String>>>(field_value)
+                    .map_err(serde::de::Error::custom)?,
+                None => None,
+            },
+            status: serde_json::from_value::<HypervisorMcpGatewayProfileV2Status>(
+                object
+                    .remove(r#"status"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"status"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            last_use_ref: match object.remove(r#"last_use_ref"#) {
+                Some(field_value) => serde_json::from_value::<Option<String>>(field_value)
+                    .map_err(serde::de::Error::custom)?,
+                None => None,
+            },
+            manifest_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"manifest_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"manifest_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            admission_decision_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"admission_decision_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"admission_decision_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            admission_receipt_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"admission_receipt_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"admission_receipt_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            receipt_refs: match object.remove(r#"receipt_refs"#) {
+                Some(field_value) => serde_json::from_value::<Option<Vec<String>>>(field_value)
+                    .map_err(serde::de::Error::custom)?,
+                None => None,
+            },
+        })
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum HypervisorMcpGatewayProfileV2SchemaVersion {
+    #[serde(rename = r#"ioi.hypervisor-mcp-gateway-profile.v2"#)]
+    IoiHypervisorMcpGatewayProfileV2,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum HypervisorMcpGatewayProfileV2Audience {
+    #[serde(rename = r#"external_agent"#)]
+    ExternalAgent,
+    #[serde(rename = r#"ci_agent"#)]
+    CiAgent,
+    #[serde(rename = r#"marketplace_worker"#)]
+    MarketplaceWorker,
+    #[serde(rename = r#"enterprise_agent"#)]
+    EnterpriseAgent,
+    #[serde(rename = r#"local_harness"#)]
+    LocalHarness,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum HypervisorMcpGatewayProfileV2ProfileKind {
+    #[serde(rename = r#"discovery_readonly"#)]
+    DiscoveryReadonly,
+    #[serde(rename = r#"project_session"#)]
+    ProjectSession,
+    #[serde(rename = r#"connector_preview"#)]
+    ConnectorPreview,
+    #[serde(rename = r#"operator_proposal"#)]
+    OperatorProposal,
+    #[serde(rename = r#"effectful_approved"#)]
+    EffectfulApproved,
+    #[serde(rename = r#"foundry_eval_training"#)]
+    FoundryEvalTraining,
+    #[serde(rename = r#"receipts_replay_proof"#)]
+    ReceiptsReplayProof,
+    #[serde(rename = r#"capability_construction_eval"#)]
+    CapabilityConstructionEval,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum HypervisorMcpGatewayProfileV2AdmissionBasis {
+    #[serde(rename = r#"not_applicable"#)]
+    NotApplicable,
+    #[serde(rename = r#"room_guest"#)]
+    RoomGuest,
+    #[serde(rename = r#"registered_worker_invocation"#)]
+    RegisteredWorkerInvocation,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum HypervisorMcpGatewayProfileV2PairingExecutionPosture {
+    #[serde(rename = r#"not_applicable"#)]
+    NotApplicable,
+    #[serde(rename = r#"instrumented_adapter"#)]
+    InstrumentedAdapter,
+    #[serde(rename = r#"prompt_only"#)]
+    PromptOnly,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum HypervisorMcpGatewayProfileV2PairingContributionLane {
+    #[serde(rename = r#"not_applicable"#)]
+    NotApplicable,
+    #[serde(rename = r#"instrumented_candidate"#)]
+    InstrumentedCandidate,
+    #[serde(rename = r#"proposal_only"#)]
+    ProposalOnly,
+}
+
+#[derive(Debug, Clone, PartialEq, serde::Serialize)]
+pub struct HypervisorMcpGatewayProfileV2ExposedToolsItem {
+    pub mcp_tool_name: String,
+    pub backing_contract_revision_ref: String,
+    pub backing_contract_content_hash: String,
+    pub contract_kind: HypervisorMcpGatewayProfileV2ExposedToolsItemContractKind,
+    pub risk_class: HypervisorMcpGatewayProfileV2ExposedToolsItemRiskClass,
+    pub effect_class: HypervisorMcpGatewayProfileV2ExposedToolsItemEffectClass,
+    pub readiness: HypervisorMcpGatewayProfileV2ExposedToolsItemReadiness,
+    pub dry_run_required: bool,
+    pub approval_required: bool,
+    pub authority_scopes_required: Vec<String>,
+    pub receipt_obligations: Vec<String>,
+}
+
+impl<'de> serde::Deserialize<'de> for HypervisorMcpGatewayProfileV2ExposedToolsItem {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let value = <serde_json::Value as serde::Deserialize>::deserialize(deserializer)?;
+        validate_projection_subschema(
+            r#"schema://ioi/components/connectors-tools/hypervisor-mcp-gateway-profile/v2"#,
+            r##"{"type":"object","additionalProperties":false,"required":["mcp_tool_name","backing_contract_revision_ref","backing_contract_content_hash","contract_kind","risk_class","effect_class","readiness","dry_run_required","approval_required","authority_scopes_required","receipt_obligations"],"description":"One exposed tool, bound to the EXACT backing contract revision and its content hash. A tool named without both is a tool nobody can check, and the name it carries on the wire is the consumer's only handle on it.","properties":{"mcp_tool_name":{"type":"string","minLength":1,"maxLength":200},"backing_contract_revision_ref":{"$ref":"#/$defs/ref"},"backing_contract_content_hash":{"$ref":"#/$defs/sha256"},"contract_kind":{"type":"string","enum":["runtime_tool_contract","surface_mcp_contract","operator_plane_contract"]},"risk_class":{"$ref":"#/$defs/riskClass"},"effect_class":{"$ref":"#/$defs/riskClass"},"readiness":{"type":"string","enum":["ready","not_connected","scope_insufficient","dry_run_required","approval_required","policy_blocked","degraded"],"description":"A profile may expose a tool as DISCOVERABLE while still refusing a particular operation; these are canon's own words for that refusal."},"dry_run_required":{"type":"boolean"},"approval_required":{"type":"boolean"},"authority_scopes_required":{"type":"array","uniqueItems":true,"maxItems":64,"items":{"$ref":"#/$defs/scopeRef"}},"receipt_obligations":{"type":"array","uniqueItems":true,"maxItems":32,"items":{"type":"string","minLength":1,"maxLength":120}}}}"##,
+            &value,
+        )
+            .map_err(serde::de::Error::custom)?;
+        let mut object = value
+            .as_object()
+            .cloned()
+            .ok_or_else(|| serde::de::Error::custom("validated projection is not an object"))?;
+        Ok(Self {
+            mcp_tool_name: serde_json::from_value::<String>(
+                object
+                    .remove(r#"mcp_tool_name"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"mcp_tool_name"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            backing_contract_revision_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"backing_contract_revision_ref"#)
+                    .ok_or_else(|| {
+                        serde::de::Error::missing_field(r#"backing_contract_revision_ref"#)
+                    })?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            backing_contract_content_hash: serde_json::from_value::<String>(
+                object
+                    .remove(r#"backing_contract_content_hash"#)
+                    .ok_or_else(|| {
+                        serde::de::Error::missing_field(r#"backing_contract_content_hash"#)
+                    })?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            contract_kind: serde_json::from_value::<
+                HypervisorMcpGatewayProfileV2ExposedToolsItemContractKind,
+            >(
+                object
+                    .remove(r#"contract_kind"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"contract_kind"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            risk_class: serde_json::from_value::<
+                HypervisorMcpGatewayProfileV2ExposedToolsItemRiskClass,
+            >(
+                object
+                    .remove(r#"risk_class"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"risk_class"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            effect_class: serde_json::from_value::<
+                HypervisorMcpGatewayProfileV2ExposedToolsItemEffectClass,
+            >(
+                object
+                    .remove(r#"effect_class"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"effect_class"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            readiness: serde_json::from_value::<
+                HypervisorMcpGatewayProfileV2ExposedToolsItemReadiness,
+            >(
+                object
+                    .remove(r#"readiness"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"readiness"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            dry_run_required: serde_json::from_value::<bool>(
+                object
+                    .remove(r#"dry_run_required"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"dry_run_required"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            approval_required: serde_json::from_value::<bool>(
+                object
+                    .remove(r#"approval_required"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"approval_required"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            authority_scopes_required: serde_json::from_value::<Vec<String>>(
+                object
+                    .remove(r#"authority_scopes_required"#)
+                    .ok_or_else(|| {
+                        serde::de::Error::missing_field(r#"authority_scopes_required"#)
+                    })?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            receipt_obligations: serde_json::from_value::<Vec<String>>(
+                object
+                    .remove(r#"receipt_obligations"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"receipt_obligations"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+        })
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum HypervisorMcpGatewayProfileV2ExposedToolsItemContractKind {
+    #[serde(rename = r#"runtime_tool_contract"#)]
+    RuntimeToolContract,
+    #[serde(rename = r#"surface_mcp_contract"#)]
+    SurfaceMcpContract,
+    #[serde(rename = r#"operator_plane_contract"#)]
+    OperatorPlaneContract,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum HypervisorMcpGatewayProfileV2ExposedToolsItemRiskClass {
+    #[serde(rename = r#"read"#)]
+    Read,
+    #[serde(rename = r#"draft"#)]
+    Draft,
+    #[serde(rename = r#"local_write"#)]
+    LocalWrite,
+    #[serde(rename = r#"write_reversible"#)]
+    WriteReversible,
+    #[serde(rename = r#"external_message"#)]
+    ExternalMessage,
+    #[serde(rename = r#"commerce"#)]
+    Commerce,
+    #[serde(rename = r#"funds"#)]
+    Funds,
+    #[serde(rename = r#"credential_access"#)]
+    CredentialAccess,
+    #[serde(rename = r#"policy_widening"#)]
+    PolicyWidening,
+    #[serde(rename = r#"secret_export"#)]
+    SecretExport,
+    #[serde(rename = r#"identity_change"#)]
+    IdentityChange,
+    #[serde(rename = r#"system_destructive"#)]
+    SystemDestructive,
+    #[serde(rename = r#"physical_action"#)]
+    PhysicalAction,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum HypervisorMcpGatewayProfileV2ExposedToolsItemEffectClass {
+    #[serde(rename = r#"read"#)]
+    Read,
+    #[serde(rename = r#"draft"#)]
+    Draft,
+    #[serde(rename = r#"local_write"#)]
+    LocalWrite,
+    #[serde(rename = r#"write_reversible"#)]
+    WriteReversible,
+    #[serde(rename = r#"external_message"#)]
+    ExternalMessage,
+    #[serde(rename = r#"commerce"#)]
+    Commerce,
+    #[serde(rename = r#"funds"#)]
+    Funds,
+    #[serde(rename = r#"credential_access"#)]
+    CredentialAccess,
+    #[serde(rename = r#"policy_widening"#)]
+    PolicyWidening,
+    #[serde(rename = r#"secret_export"#)]
+    SecretExport,
+    #[serde(rename = r#"identity_change"#)]
+    IdentityChange,
+    #[serde(rename = r#"system_destructive"#)]
+    SystemDestructive,
+    #[serde(rename = r#"physical_action"#)]
+    PhysicalAction,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum HypervisorMcpGatewayProfileV2ExposedToolsItemReadiness {
+    #[serde(rename = r#"ready"#)]
+    Ready,
+    #[serde(rename = r#"not_connected"#)]
+    NotConnected,
+    #[serde(rename = r#"scope_insufficient"#)]
+    ScopeInsufficient,
+    #[serde(rename = r#"dry_run_required"#)]
+    DryRunRequired,
+    #[serde(rename = r#"approval_required"#)]
+    ApprovalRequired,
+    #[serde(rename = r#"policy_blocked"#)]
+    PolicyBlocked,
+    #[serde(rename = r#"degraded"#)]
+    Degraded,
+}
+
+#[derive(Debug, Clone, PartialEq, serde::Serialize)]
+pub struct HypervisorMcpGatewayProfileV2ExposedResourcesItem {
+    pub mcp_resource_uri: String,
+    pub backing_projection_ref: String,
+    pub required_context_lease_ref: String,
+    pub redaction_policy_ref: String,
+}
+
+impl<'de> serde::Deserialize<'de> for HypervisorMcpGatewayProfileV2ExposedResourcesItem {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let value = <serde_json::Value as serde::Deserialize>::deserialize(deserializer)?;
+        validate_projection_subschema(
+            r#"schema://ioi/components/connectors-tools/hypervisor-mcp-gateway-profile/v2"#,
+            r##"{"type":"object","additionalProperties":false,"required":["mcp_resource_uri","backing_projection_ref","required_context_lease_ref","redaction_policy_ref"],"description":"One exposed resource. The lease is REQUIRED and not nullable: a resource URI is not access, and the thing that makes it access is the lease named here.","properties":{"mcp_resource_uri":{"type":"string","minLength":1,"maxLength":480},"backing_projection_ref":{"$ref":"#/$defs/ref"},"required_context_lease_ref":{"$ref":"#/$defs/ref"},"redaction_policy_ref":{"$ref":"#/$defs/ref"}}}"##,
+            &value,
+        )
+            .map_err(serde::de::Error::custom)?;
+        let mut object = value
+            .as_object()
+            .cloned()
+            .ok_or_else(|| serde::de::Error::custom("validated projection is not an object"))?;
+        Ok(Self {
+            mcp_resource_uri: serde_json::from_value::<String>(
+                object
+                    .remove(r#"mcp_resource_uri"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"mcp_resource_uri"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            backing_projection_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"backing_projection_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"backing_projection_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            required_context_lease_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"required_context_lease_ref"#)
+                    .ok_or_else(|| {
+                        serde::de::Error::missing_field(r#"required_context_lease_ref"#)
+                    })?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            redaction_policy_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"redaction_policy_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"redaction_policy_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+        })
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum HypervisorMcpGatewayProfileV2IssuedAfterRequiredAdmission {
+    True,
+}
+
+impl serde::Serialize for HypervisorMcpGatewayProfileV2IssuedAfterRequiredAdmission {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: serde::Serializer,
+    {
+        serializer.serialize_bool(true)
+    }
+}
+
+impl<'de> serde::Deserialize<'de> for HypervisorMcpGatewayProfileV2IssuedAfterRequiredAdmission {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let value = <bool as serde::Deserialize>::deserialize(deserializer)?;
+        if value == true {
+            Ok(Self::True)
+        } else {
+            Err(serde::de::Error::custom(r#"expected boolean literal true"#))
+        }
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum HypervisorMcpGatewayProfileV2Status {
+    #[serde(rename = r#"active"#)]
+    Active,
+    #[serde(rename = r#"expired"#)]
+    Expired,
+    #[serde(rename = r#"suspended"#)]
+    Suspended,
+    #[serde(rename = r#"quarantined"#)]
+    Quarantined,
+    #[serde(rename = r#"revoked"#)]
+    Revoked,
+}
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct GoldenFixture {
     pub contract_id: &'static str,
@@ -178378,6 +180168,270 @@ pub const ARCHITECTURE_CONTRACT_FIXTURES: &[GoldenFixture] = &[
     GoldenFixture {
         contract_id: "schema://ioi/foundations/delegation-edge/v1",
         path: "docs/architecture/_meta/schemas/fixtures/delegation-edge-v1/negative-unknown-field.json",
+        expected_accept: false,
+        expected_schema_accept: false,
+        expected_failure: Some("schema"),
+        expected_rule_id: None,
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/components/connectors-tools/mcp-gateway-requirement-envelope/v1",
+        path: "docs/architecture/_meta/schemas/fixtures/mcp-gateway-requirement-envelope-v1/positive-draft-requirement-may-still-be-incomplete.json",
+        expected_accept: true,
+        expected_schema_accept: true,
+        expected_failure: None,
+        expected_rule_id: None,
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/components/connectors-tools/mcp-gateway-requirement-envelope/v1",
+        path: "docs/architecture/_meta/schemas/fixtures/mcp-gateway-requirement-envelope-v1/positive-released-read-only-requirement.json",
+        expected_accept: true,
+        expected_schema_accept: true,
+        expected_failure: None,
+        expected_rule_id: None,
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/components/connectors-tools/mcp-gateway-requirement-envelope/v1",
+        path: "docs/architecture/_meta/schemas/fixtures/mcp-gateway-requirement-envelope-v1/negative-released-with-no-consumer-class.json",
+        expected_accept: false,
+        expected_schema_accept: true,
+        expected_failure: Some("invariant"),
+        expected_rule_id: None,
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/components/connectors-tools/mcp-gateway-requirement-envelope/v1",
+        path: "docs/architecture/_meta/schemas/fixtures/mcp-gateway-requirement-envelope-v1/negative-revision-belongs-to-another-family.json",
+        expected_accept: false,
+        expected_schema_accept: true,
+        expected_failure: Some("invariant"),
+        expected_rule_id: None,
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/components/connectors-tools/mcp-gateway-requirement-envelope/v1",
+        path: "docs/architecture/_meta/schemas/fixtures/mcp-gateway-requirement-envelope-v1/negative-risk-ceiling-outside-the-canonical-ladder.json",
+        expected_accept: false,
+        expected_schema_accept: false,
+        expected_failure: Some("schema"),
+        expected_rule_id: None,
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/components/connectors-tools/mcp-gateway-requirement-envelope/v1",
+        path: "docs/architecture/_meta/schemas/fixtures/mcp-gateway-requirement-envelope-v1/negative-underscored-legacy-ref-scheme.json",
+        expected_accept: false,
+        expected_schema_accept: false,
+        expected_failure: Some("schema"),
+        expected_rule_id: None,
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/components/connectors-tools/mcp-gateway-requirement-envelope/v1",
+        path: "docs/architecture/_meta/schemas/fixtures/mcp-gateway-requirement-envelope-v1/negative-unknown-member.json",
+        expected_accept: false,
+        expected_schema_accept: false,
+        expected_failure: Some("schema"),
+        expected_rule_id: None,
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/components/connectors-tools/hypervisor-mcp-gateway-profile/v1",
+        path: "docs/architecture/_meta/schemas/fixtures/hypervisor-mcp-gateway-profile-v1/positive-discovery-readonly.json",
+        expected_accept: true,
+        expected_schema_accept: true,
+        expected_failure: None,
+        expected_rule_id: None,
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/components/connectors-tools/hypervisor-mcp-gateway-profile/v1",
+        path: "docs/architecture/_meta/schemas/fixtures/hypervisor-mcp-gateway-profile-v1/positive-paired-local-harness-proposal-only.json",
+        expected_accept: true,
+        expected_schema_accept: true,
+        expected_failure: None,
+        expected_rule_id: None,
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/components/connectors-tools/hypervisor-mcp-gateway-profile/v1",
+        path: "docs/architecture/_meta/schemas/fixtures/hypervisor-mcp-gateway-profile-v1/positive-revoked-profile-names-its-revocation.json",
+        expected_accept: true,
+        expected_schema_accept: true,
+        expected_failure: None,
+        expected_rule_id: None,
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/components/connectors-tools/hypervisor-mcp-gateway-profile/v1",
+        path: "docs/architecture/_meta/schemas/fixtures/hypervisor-mcp-gateway-profile-v1/negative-active-profile-without-an-admission-decision.json",
+        expected_accept: false,
+        expected_schema_accept: false,
+        expected_failure: Some("schema"),
+        expected_rule_id: None,
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/components/connectors-tools/hypervisor-mcp-gateway-profile/v1",
+        path: "docs/architecture/_meta/schemas/fixtures/hypervisor-mcp-gateway-profile-v1/negative-discovery-readonly-exposing-an-approval-required-tool.json",
+        expected_accept: false,
+        expected_schema_accept: false,
+        expected_failure: Some("schema"),
+        expected_rule_id: None,
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/components/connectors-tools/hypervisor-mcp-gateway-profile/v1",
+        path: "docs/architecture/_meta/schemas/fixtures/hypervisor-mcp-gateway-profile-v1/negative-discovery-readonly-exposing-an-effectful-tool.json",
+        expected_accept: false,
+        expected_schema_accept: false,
+        expected_failure: Some("schema"),
+        expected_rule_id: None,
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/components/connectors-tools/hypervisor-mcp-gateway-profile/v1",
+        path: "docs/architecture/_meta/schemas/fixtures/hypervisor-mcp-gateway-profile-v1/negative-exposed-resource-without-a-context-lease.json",
+        expected_accept: false,
+        expected_schema_accept: false,
+        expected_failure: Some("schema"),
+        expected_rule_id: None,
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/components/connectors-tools/hypervisor-mcp-gateway-profile/v1",
+        path: "docs/architecture/_meta/schemas/fixtures/hypervisor-mcp-gateway-profile-v1/negative-local-harness-without-a-candidate-key.json",
+        expected_accept: false,
+        expected_schema_accept: true,
+        expected_failure: Some("invariant"),
+        expected_rule_id: None,
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/components/connectors-tools/hypervisor-mcp-gateway-profile/v1",
+        path: "docs/architecture/_meta/schemas/fixtures/hypervisor-mcp-gateway-profile-v1/negative-not-issued-after-admission.json",
+        expected_accept: false,
+        expected_schema_accept: false,
+        expected_failure: Some("schema"),
+        expected_rule_id: None,
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/components/connectors-tools/hypervisor-mcp-gateway-profile/v1",
+        path: "docs/architecture/_meta/schemas/fixtures/hypervisor-mcp-gateway-profile-v1/negative-prompt-only-posture-not-marked-proposal.json",
+        expected_accept: false,
+        expected_schema_accept: false,
+        expected_failure: Some("schema"),
+        expected_rule_id: None,
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/components/connectors-tools/hypervisor-mcp-gateway-profile/v1",
+        path: "docs/architecture/_meta/schemas/fixtures/hypervisor-mcp-gateway-profile-v1/negative-prompt-only-posture-with-an-instrumented-lane.json",
+        expected_accept: false,
+        expected_schema_accept: false,
+        expected_failure: Some("schema"),
+        expected_rule_id: None,
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/components/connectors-tools/hypervisor-mcp-gateway-profile/v1",
+        path: "docs/architecture/_meta/schemas/fixtures/hypervisor-mcp-gateway-profile-v1/negative-registered-worker-without-a-registration.json",
+        expected_accept: false,
+        expected_schema_accept: true,
+        expected_failure: Some("invariant"),
+        expected_rule_id: None,
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/components/connectors-tools/hypervisor-mcp-gateway-profile/v1",
+        path: "docs/architecture/_meta/schemas/fixtures/hypervisor-mcp-gateway-profile-v1/negative-revision-belongs-to-another-profile.json",
+        expected_accept: false,
+        expected_schema_accept: true,
+        expected_failure: Some("invariant"),
+        expected_rule_id: None,
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/components/connectors-tools/hypervisor-mcp-gateway-profile/v1",
+        path: "docs/architecture/_meta/schemas/fixtures/hypervisor-mcp-gateway-profile-v1/negative-revoked-without-a-revocation-ref.json",
+        expected_accept: false,
+        expected_schema_accept: true,
+        expected_failure: Some("invariant"),
+        expected_rule_id: None,
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/components/connectors-tools/hypervisor-mcp-gateway-profile/v1",
+        path: "docs/architecture/_meta/schemas/fixtures/hypervisor-mcp-gateway-profile-v1/negative-room-guest-without-a-room-admission.json",
+        expected_accept: false,
+        expected_schema_accept: true,
+        expected_failure: Some("invariant"),
+        expected_rule_id: None,
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/components/connectors-tools/hypervisor-mcp-gateway-profile/v1",
+        path: "docs/architecture/_meta/schemas/fixtures/hypervisor-mcp-gateway-profile-v1/negative-two-exposed-tools-under-one-wire-name.json",
+        expected_accept: false,
+        expected_schema_accept: true,
+        expected_failure: Some("invariant"),
+        expected_rule_id: None,
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/components/connectors-tools/hypervisor-mcp-gateway-profile/v1",
+        path: "docs/architecture/_meta/schemas/fixtures/hypervisor-mcp-gateway-profile-v1/negative-underscored-legacy-ref-scheme.json",
+        expected_accept: false,
+        expected_schema_accept: false,
+        expected_failure: Some("schema"),
+        expected_rule_id: None,
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/components/connectors-tools/hypervisor-mcp-gateway-profile/v1",
+        path: "docs/architecture/_meta/schemas/fixtures/hypervisor-mcp-gateway-profile-v1/negative-unknown-member.json",
+        expected_accept: false,
+        expected_schema_accept: false,
+        expected_failure: Some("schema"),
+        expected_rule_id: None,
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/components/connectors-tools/hypervisor-mcp-gateway-profile/v1",
+        path: "docs/architecture/_meta/schemas/fixtures/hypervisor-mcp-gateway-profile-v1/negative-v2-kind-in-a-v1-profile.json",
+        expected_accept: false,
+        expected_schema_accept: false,
+        expected_failure: Some("schema"),
+        expected_rule_id: None,
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/components/connectors-tools/hypervisor-mcp-gateway-profile/v2",
+        path: "docs/architecture/_meta/schemas/fixtures/hypervisor-mcp-gateway-profile-v2/positive-source-neutral-builder.json",
+        expected_accept: true,
+        expected_schema_accept: true,
+        expected_failure: None,
+        expected_rule_id: None,
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/components/connectors-tools/hypervisor-mcp-gateway-profile/v2",
+        path: "docs/architecture/_meta/schemas/fixtures/hypervisor-mcp-gateway-profile-v2/positive-v1-kind-discovery-readonly.json",
+        expected_accept: true,
+        expected_schema_accept: true,
+        expected_failure: None,
+        expected_rule_id: None,
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/components/connectors-tools/hypervisor-mcp-gateway-profile/v2",
+        path: "docs/architecture/_meta/schemas/fixtures/hypervisor-mcp-gateway-profile-v2/positive-v1-kind-paired-local-harness-proposal-only.json",
+        expected_accept: true,
+        expected_schema_accept: true,
+        expected_failure: None,
+        expected_rule_id: None,
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/components/connectors-tools/hypervisor-mcp-gateway-profile/v2",
+        path: "docs/architecture/_meta/schemas/fixtures/hypervisor-mcp-gateway-profile-v2/negative-builder-without-an-invocation-scope.json",
+        expected_accept: false,
+        expected_schema_accept: false,
+        expected_failure: Some("schema"),
+        expected_rule_id: None,
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/components/connectors-tools/hypervisor-mcp-gateway-profile/v2",
+        path: "docs/architecture/_meta/schemas/fixtures/hypervisor-mcp-gateway-profile-v2/negative-unknown-kind.json",
+        expected_accept: false,
+        expected_schema_accept: false,
+        expected_failure: Some("schema"),
+        expected_rule_id: None,
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/components/connectors-tools/hypervisor-mcp-gateway-profile/v2",
+        path: "docs/architecture/_meta/schemas/fixtures/hypervisor-mcp-gateway-profile-v2/negative-unknown-member.json",
+        expected_accept: false,
+        expected_schema_accept: false,
+        expected_failure: Some("schema"),
+        expected_rule_id: None,
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/components/connectors-tools/hypervisor-mcp-gateway-profile/v2",
+        path: "docs/architecture/_meta/schemas/fixtures/hypervisor-mcp-gateway-profile-v2/negative-v1-version-in-a-v2-document.json",
         expected_accept: false,
         expected_schema_accept: false,
         expected_failure: Some("schema"),
@@ -199574,6 +201628,369 @@ pub const ARCHITECTURE_CONTRACT_DIFFERENTIAL_CASES: &[ArchitectureContractDiffer
         oracle_contract_accept: false,
     },
     ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/mcp-gateway-requirement-envelope-v1/positive-draft-requirement-may-still-be-incomplete.json"#,
+        contract_id: r#"schema://ioi/components/connectors-tools/mcp-gateway-requirement-envelope/v1"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/mcp-gateway-requirement-envelope-v1/positive-draft-requirement-may-still-be-incomplete.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: true,
+        oracle_contract_accept: true,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/mcp-gateway-requirement-envelope-v1/positive-released-read-only-requirement.json"#,
+        contract_id: r#"schema://ioi/components/connectors-tools/mcp-gateway-requirement-envelope/v1"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/mcp-gateway-requirement-envelope-v1/positive-released-read-only-requirement.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: true,
+        oracle_contract_accept: true,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/mcp-gateway-requirement-envelope-v1/negative-released-with-no-consumer-class.json"#,
+        contract_id: r#"schema://ioi/components/connectors-tools/mcp-gateway-requirement-envelope/v1"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/mcp-gateway-requirement-envelope-v1/negative-released-with-no-consumer-class.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: true,
+        oracle_contract_accept: false,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/mcp-gateway-requirement-envelope-v1/negative-revision-belongs-to-another-family.json"#,
+        contract_id: r#"schema://ioi/components/connectors-tools/mcp-gateway-requirement-envelope/v1"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/mcp-gateway-requirement-envelope-v1/negative-revision-belongs-to-another-family.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: true,
+        oracle_contract_accept: false,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/mcp-gateway-requirement-envelope-v1/negative-risk-ceiling-outside-the-canonical-ladder.json"#,
+        contract_id: r#"schema://ioi/components/connectors-tools/mcp-gateway-requirement-envelope/v1"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/mcp-gateway-requirement-envelope-v1/negative-risk-ceiling-outside-the-canonical-ladder.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: false,
+        oracle_contract_accept: false,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/mcp-gateway-requirement-envelope-v1/negative-underscored-legacy-ref-scheme.json"#,
+        contract_id: r#"schema://ioi/components/connectors-tools/mcp-gateway-requirement-envelope/v1"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/mcp-gateway-requirement-envelope-v1/negative-underscored-legacy-ref-scheme.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: false,
+        oracle_contract_accept: false,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/mcp-gateway-requirement-envelope-v1/negative-unknown-member.json"#,
+        contract_id: r#"schema://ioi/components/connectors-tools/mcp-gateway-requirement-envelope/v1"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/mcp-gateway-requirement-envelope-v1/negative-unknown-member.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: false,
+        oracle_contract_accept: false,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/hypervisor-mcp-gateway-profile-v1/positive-discovery-readonly.json"#,
+        contract_id: r#"schema://ioi/components/connectors-tools/hypervisor-mcp-gateway-profile/v1"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/hypervisor-mcp-gateway-profile-v1/positive-discovery-readonly.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: true,
+        oracle_contract_accept: true,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/hypervisor-mcp-gateway-profile-v1/positive-paired-local-harness-proposal-only.json"#,
+        contract_id: r#"schema://ioi/components/connectors-tools/hypervisor-mcp-gateway-profile/v1"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/hypervisor-mcp-gateway-profile-v1/positive-paired-local-harness-proposal-only.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: true,
+        oracle_contract_accept: true,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/hypervisor-mcp-gateway-profile-v1/positive-revoked-profile-names-its-revocation.json"#,
+        contract_id: r#"schema://ioi/components/connectors-tools/hypervisor-mcp-gateway-profile/v1"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/hypervisor-mcp-gateway-profile-v1/positive-revoked-profile-names-its-revocation.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: true,
+        oracle_contract_accept: true,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/hypervisor-mcp-gateway-profile-v1/negative-active-profile-without-an-admission-decision.json"#,
+        contract_id: r#"schema://ioi/components/connectors-tools/hypervisor-mcp-gateway-profile/v1"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/hypervisor-mcp-gateway-profile-v1/negative-active-profile-without-an-admission-decision.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: false,
+        oracle_contract_accept: false,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/hypervisor-mcp-gateway-profile-v1/negative-discovery-readonly-exposing-an-approval-required-tool.json"#,
+        contract_id: r#"schema://ioi/components/connectors-tools/hypervisor-mcp-gateway-profile/v1"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/hypervisor-mcp-gateway-profile-v1/negative-discovery-readonly-exposing-an-approval-required-tool.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: false,
+        oracle_contract_accept: false,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/hypervisor-mcp-gateway-profile-v1/negative-discovery-readonly-exposing-an-effectful-tool.json"#,
+        contract_id: r#"schema://ioi/components/connectors-tools/hypervisor-mcp-gateway-profile/v1"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/hypervisor-mcp-gateway-profile-v1/negative-discovery-readonly-exposing-an-effectful-tool.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: false,
+        oracle_contract_accept: false,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/hypervisor-mcp-gateway-profile-v1/negative-exposed-resource-without-a-context-lease.json"#,
+        contract_id: r#"schema://ioi/components/connectors-tools/hypervisor-mcp-gateway-profile/v1"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/hypervisor-mcp-gateway-profile-v1/negative-exposed-resource-without-a-context-lease.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: false,
+        oracle_contract_accept: false,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/hypervisor-mcp-gateway-profile-v1/negative-local-harness-without-a-candidate-key.json"#,
+        contract_id: r#"schema://ioi/components/connectors-tools/hypervisor-mcp-gateway-profile/v1"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/hypervisor-mcp-gateway-profile-v1/negative-local-harness-without-a-candidate-key.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: true,
+        oracle_contract_accept: false,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/hypervisor-mcp-gateway-profile-v1/negative-not-issued-after-admission.json"#,
+        contract_id: r#"schema://ioi/components/connectors-tools/hypervisor-mcp-gateway-profile/v1"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/hypervisor-mcp-gateway-profile-v1/negative-not-issued-after-admission.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: false,
+        oracle_contract_accept: false,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/hypervisor-mcp-gateway-profile-v1/negative-prompt-only-posture-not-marked-proposal.json"#,
+        contract_id: r#"schema://ioi/components/connectors-tools/hypervisor-mcp-gateway-profile/v1"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/hypervisor-mcp-gateway-profile-v1/negative-prompt-only-posture-not-marked-proposal.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: false,
+        oracle_contract_accept: false,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/hypervisor-mcp-gateway-profile-v1/negative-prompt-only-posture-with-an-instrumented-lane.json"#,
+        contract_id: r#"schema://ioi/components/connectors-tools/hypervisor-mcp-gateway-profile/v1"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/hypervisor-mcp-gateway-profile-v1/negative-prompt-only-posture-with-an-instrumented-lane.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: false,
+        oracle_contract_accept: false,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/hypervisor-mcp-gateway-profile-v1/negative-registered-worker-without-a-registration.json"#,
+        contract_id: r#"schema://ioi/components/connectors-tools/hypervisor-mcp-gateway-profile/v1"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/hypervisor-mcp-gateway-profile-v1/negative-registered-worker-without-a-registration.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: true,
+        oracle_contract_accept: false,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/hypervisor-mcp-gateway-profile-v1/negative-revision-belongs-to-another-profile.json"#,
+        contract_id: r#"schema://ioi/components/connectors-tools/hypervisor-mcp-gateway-profile/v1"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/hypervisor-mcp-gateway-profile-v1/negative-revision-belongs-to-another-profile.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: true,
+        oracle_contract_accept: false,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/hypervisor-mcp-gateway-profile-v1/negative-revoked-without-a-revocation-ref.json"#,
+        contract_id: r#"schema://ioi/components/connectors-tools/hypervisor-mcp-gateway-profile/v1"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/hypervisor-mcp-gateway-profile-v1/negative-revoked-without-a-revocation-ref.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: true,
+        oracle_contract_accept: false,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/hypervisor-mcp-gateway-profile-v1/negative-room-guest-without-a-room-admission.json"#,
+        contract_id: r#"schema://ioi/components/connectors-tools/hypervisor-mcp-gateway-profile/v1"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/hypervisor-mcp-gateway-profile-v1/negative-room-guest-without-a-room-admission.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: true,
+        oracle_contract_accept: false,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/hypervisor-mcp-gateway-profile-v1/negative-two-exposed-tools-under-one-wire-name.json"#,
+        contract_id: r#"schema://ioi/components/connectors-tools/hypervisor-mcp-gateway-profile/v1"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/hypervisor-mcp-gateway-profile-v1/negative-two-exposed-tools-under-one-wire-name.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: true,
+        oracle_contract_accept: false,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/hypervisor-mcp-gateway-profile-v1/negative-underscored-legacy-ref-scheme.json"#,
+        contract_id: r#"schema://ioi/components/connectors-tools/hypervisor-mcp-gateway-profile/v1"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/hypervisor-mcp-gateway-profile-v1/negative-underscored-legacy-ref-scheme.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: false,
+        oracle_contract_accept: false,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/hypervisor-mcp-gateway-profile-v1/negative-unknown-member.json"#,
+        contract_id: r#"schema://ioi/components/connectors-tools/hypervisor-mcp-gateway-profile/v1"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/hypervisor-mcp-gateway-profile-v1/negative-unknown-member.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: false,
+        oracle_contract_accept: false,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/hypervisor-mcp-gateway-profile-v1/negative-v2-kind-in-a-v1-profile.json"#,
+        contract_id: r#"schema://ioi/components/connectors-tools/hypervisor-mcp-gateway-profile/v1"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/hypervisor-mcp-gateway-profile-v1/negative-v2-kind-in-a-v1-profile.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: false,
+        oracle_contract_accept: false,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/hypervisor-mcp-gateway-profile-v2/positive-source-neutral-builder.json"#,
+        contract_id: r#"schema://ioi/components/connectors-tools/hypervisor-mcp-gateway-profile/v2"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/hypervisor-mcp-gateway-profile-v2/positive-source-neutral-builder.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: true,
+        oracle_contract_accept: true,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/hypervisor-mcp-gateway-profile-v2/positive-v1-kind-discovery-readonly.json"#,
+        contract_id: r#"schema://ioi/components/connectors-tools/hypervisor-mcp-gateway-profile/v2"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/hypervisor-mcp-gateway-profile-v2/positive-v1-kind-discovery-readonly.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: true,
+        oracle_contract_accept: true,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/hypervisor-mcp-gateway-profile-v2/positive-v1-kind-paired-local-harness-proposal-only.json"#,
+        contract_id: r#"schema://ioi/components/connectors-tools/hypervisor-mcp-gateway-profile/v2"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/hypervisor-mcp-gateway-profile-v2/positive-v1-kind-paired-local-harness-proposal-only.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: true,
+        oracle_contract_accept: true,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/hypervisor-mcp-gateway-profile-v2/negative-builder-without-an-invocation-scope.json"#,
+        contract_id: r#"schema://ioi/components/connectors-tools/hypervisor-mcp-gateway-profile/v2"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/hypervisor-mcp-gateway-profile-v2/negative-builder-without-an-invocation-scope.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: false,
+        oracle_contract_accept: false,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/hypervisor-mcp-gateway-profile-v2/negative-unknown-kind.json"#,
+        contract_id: r#"schema://ioi/components/connectors-tools/hypervisor-mcp-gateway-profile/v2"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/hypervisor-mcp-gateway-profile-v2/negative-unknown-kind.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: false,
+        oracle_contract_accept: false,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/hypervisor-mcp-gateway-profile-v2/negative-unknown-member.json"#,
+        contract_id: r#"schema://ioi/components/connectors-tools/hypervisor-mcp-gateway-profile/v2"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/hypervisor-mcp-gateway-profile-v2/negative-unknown-member.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: false,
+        oracle_contract_accept: false,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/hypervisor-mcp-gateway-profile-v2/negative-v1-version-in-a-v2-document.json"#,
+        contract_id: r#"schema://ioi/components/connectors-tools/hypervisor-mcp-gateway-profile/v2"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/hypervisor-mcp-gateway-profile-v2/negative-v1-version-in-a-v2-document.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: false,
+        oracle_contract_accept: false,
+    },
+    ArchitectureContractDifferentialCase {
         id: r#"mutation:sequence-zero-receipt-timestamp-detached"#,
         contract_id: r#"schema://ioi/foundations/autonomous-system-sequence-zero-materialization-receipt/v2"#,
         source_fixture_path: None,
@@ -201328,6 +203745,9 @@ const CONTRACT_SCHEMAS: &[(&str, &str)] = &[
     ("schema://ioi/applications/ioi-ai/collective-resolution-receipt/v1", r##"{"$schema":"https://json-schema.org/draft/2020-12/schema","$id":"schema://ioi/applications/ioi-ai/collective-resolution-receipt/v1","title":"CollectiveResolutionReceipt","x-ioi-schema-version":"ioi.applications.ioi-ai.collective-resolution-receipt.v1","description":"One daemon-derived freeze of the exact dependency closure a collective composition resolved, and the EXISTING owner objects it resolved into. It registers no profile envelope, holds no state and is never a second live owner: every ref it names is admitted elsewhere and remains its owner's truth. M04.12 / ACC-5 clause 10.","type":"object","additionalProperties":false,"required":["schema_version","receipt_id","receipt_ref","receipt_type","resolved_by_ref","system_id","system_release_ref","constitution_ref","active_profile_set_ref","orchestration_ref","goal_run_profile_revision_refs","policy_refs","lease_policy_refs","artifact_lifecycle_policy_ref","requirement_refs","resolved_owner_refs","registers_no_new_owner","resolved_at","closure_root"],"properties":{"schema_version":{"const":"ioi.applications.ioi-ai.collective-resolution-receipt.v1"},"receipt_id":{"type":"string","pattern":"^collective-resolution://crr_[0-9a-f]{64}$"},"receipt_ref":{"type":"string","pattern":"^collective-resolution://crr_[0-9a-f]{64}$"},"receipt_type":{"const":"collective_resolution"},"resolved_by_ref":{"type":"string","pattern":"^(?:org|project|system|user)://[^\\s]{1,500}$"},"system_id":{"type":"string","pattern":"^system://[^\\s]{1,500}$"},"system_release_ref":{"type":"string","pattern":"^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"},"constitution_ref":{"type":"string","pattern":"^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"},"active_profile_set_ref":{"type":"string","pattern":"^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"},"orchestration_ref":{"type":"string","pattern":"^app-scope://ioi-ai/orchestration/[^\\s]{1,400}$"},"goal_run_profile_revision_refs":{"type":"array","uniqueItems":true,"items":{"type":"string","pattern":"^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"},"minItems":1},"policy_refs":{"type":"array","uniqueItems":true,"items":{"type":"string","pattern":"^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"},"minItems":1},"lease_policy_refs":{"type":"array","uniqueItems":true,"items":{"type":"string","pattern":"^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"}},"artifact_lifecycle_policy_ref":{"type":"string","pattern":"^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"},"requirement_refs":{"type":"array","uniqueItems":true,"items":{"type":"string","pattern":"^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"},"minItems":1},"resolved_owner_refs":{"type":"array","uniqueItems":true,"items":{"type":"string","pattern":"^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"},"minItems":1},"registers_no_new_owner":{"const":true},"resolved_at":{"type":"string","pattern":"^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$"},"closure_root":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"},"system_binding":{"$ref":"#/$defs/systemBinding"}},"$defs":{"systemBinding":{"type":"object","additionalProperties":false,"required":["schema_version","system_id","parent_scope_ref","proposed_or_issued_by_ref","payload_root","created_at","updated_at"],"properties":{"schema_version":{"const":"ioi.foundations.system-scoped-object-binding.v1"},"system_id":{"type":"string","pattern":"^system://[^\\s]{1,500}$"},"parent_scope_ref":{"type":"string","pattern":"^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"},"proposed_or_issued_by_ref":{"type":"string","pattern":"^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"},"payload_root":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"},"created_at":{"type":"string","format":"date-time","pattern":"^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$"},"updated_at":{"anyOf":[{"type":"string","format":"date-time","pattern":"^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$"},{"type":"null"}]}}}}}"##),
     ("schema://ioi/applications/ioi-ai/persistent-executable-lineage/v1", r##"{"$schema":"https://json-schema.org/draft/2020-12/schema","$id":"schema://ioi/applications/ioi-ai/persistent-executable-lineage/v1","title":"PersistentExecutableLineageV1","x-ioi-schema-version":"ioi.applications.ioi-ai.persistent-executable-lineage.v1","type":"object","additionalProperties":false,"required":["schema_version","lineage_id","orchestration_ref","resolution_receipt_ref","artifact_ref","artifact_sha256","source_artifact_refs","successor_artifact_ref","transformation_receipt_refs","definition_ref","installation_ref","runtime_ref","runtime_kind","accountable_subject_ref","caretaker_ref","stop_policy_ref","lease_refs","dependency_lineage_refs","health_ref","effect_receipt_refs","posture","successor_of","lineage_root"],"properties":{"schema_version":{"const":"ioi.applications.ioi-ai.persistent-executable-lineage.v1"},"lineage_id":{"type":"string","pattern":"^lineage://\\S+$"},"orchestration_ref":{"type":"string","pattern":"^app-scope://ioi-ai/orchestration/\\S+$"},"resolution_receipt_ref":{"type":"string","pattern":"^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$","description":"The collective-resolution receipt (its receipt_ref) this lineage was resolved under; the composer refuses one this orchestration did not admit."},"artifact_ref":{"type":"string","pattern":"^artifact://\\S+$","description":"The artifact's identity. Exactness is the hash beside it, never a mutable latest."},"artifact_sha256":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"},"source_artifact_refs":{"type":"array","items":{"type":"string","pattern":"^artifact://\\S+$"}},"successor_artifact_ref":{"anyOf":[{"type":"string","pattern":"^artifact://\\S+$"},{"type":"null"}]},"transformation_receipt_refs":{"type":"array","items":{"type":"string","pattern":"^(?:receipt|ledger)://\\S+$"}},"definition_ref":{"type":"string","pattern":"^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"},"installation_ref":{"anyOf":[{"type":"string","pattern":"^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"},{"type":"null"}]},"runtime_ref":{"anyOf":[{"type":"string","pattern":"^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"},{"type":"null"}]},"runtime_kind":{"type":"string","enum":["none","automation_run","managed_worker_instance","runtime_assignment","delegation"]},"accountable_subject_ref":{"type":"string","pattern":"^(?:system|installation|worker|automation|automation-run|service|controller|runtime-assignment|managed-worker-instance)://\\S+$","description":"A durable subject — never a session or a participant; canon: session termination is neither retirement nor transferable authority."},"caretaker_ref":{"anyOf":[{"type":"string","pattern":"^(?:participation|delegation)://\\S+$"},{"type":"null"}]},"stop_policy_ref":{"type":"string","pattern":"^policy://\\S+$"},"lease_refs":{"type":"array","items":{"type":"string","pattern":"^(?:context-lease|authority-lease|resource-lease|budget-lease)://\\S+$"}},"dependency_lineage_refs":{"type":"array","items":{"type":"string","pattern":"^lineage://\\S+$"}},"health_ref":{"anyOf":[{"type":"string","pattern":"^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"},{"type":"null"}]},"effect_receipt_refs":{"type":"array","items":{"type":"string","pattern":"^(?:receipt|ledger)://\\S+$"}},"posture":{"type":"object","additionalProperties":false,"required":["status","orphan_reason"],"properties":{"status":{"type":"string","enum":["observed","reused","forked","installed","active","stopped","quarantined","repairing","replaced","retired"]},"orphan_reason":{"anyOf":[{"type":"string","enum":["owner_absent","caretaker_absent","dependency_unavailable","artifact_unavailable","health_stale","authority_stale"]},{"type":"null"}]}}},"successor_of":{"anyOf":[{"type":"string","pattern":"^lineage://\\S+$"},{"type":"null"}]},"lineage_root":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"},"system_binding":{"$ref":"#/$defs/systemBinding"}},"$defs":{"systemBinding":{"type":"object","additionalProperties":false,"required":["schema_version","system_id","parent_scope_ref","proposed_or_issued_by_ref","payload_root","created_at","updated_at"],"properties":{"schema_version":{"const":"ioi.foundations.system-scoped-object-binding.v1"},"system_id":{"type":"string","pattern":"^system://[^\\s]{1,500}$"},"parent_scope_ref":{"type":"string","pattern":"^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"},"proposed_or_issued_by_ref":{"type":"string","pattern":"^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"},"payload_root":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"},"created_at":{"type":"string","format":"date-time","pattern":"^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$"},"updated_at":{"anyOf":[{"type":"string","format":"date-time","pattern":"^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$"},{"type":"null"}]}}}},"description":"The one record that binds a persistent executable lineage (collaborative-outcome-pattern.md § Persistent Artifact Ecology, R-204): exact artifact identity and hash, sources and successor, transformation receipts, definition, installation and runtime identities, the accountable subject, caretaker and stop policy, leases, dependency lineages, health and effect receipts, and a typed posture. Composed by the ioi.ai application and admitted through the record seam; lineage_root is SHA-256 over JCS of every field except lineage_root and system_binding."}"##),
     ("schema://ioi/foundations/delegation-edge/v1", r#"{"$schema":"https://json-schema.org/draft/2020-12/schema","$id":"schema://ioi/foundations/delegation-edge/v1","title":"DelegationEdge","x-ioi-schema-version":"ioi.foundations.delegation-edge.v1","type":"object","additionalProperties":false,"required":["schema_version","delegation_ref","parent_thread_id","child_subagent_id","accountable_actor_ref","role_kind","topology_kind","ancestor_chain","delegation_depth","depth_ceiling","fanout_reservation_ref","selected_resolver_kind","selected_resolver_revision_ref","selected_resolver_content_hash","selected_model_route_ref","forked_thread_ref","managed_session_ref","launch_recipe_ref","harness_binding_ref","orchestration_ref","admitted_at_ms","depth_bound_absent"],"properties":{"schema_version":{"const":"ioi.foundations.delegation-edge.v1"},"delegation_ref":{"type":"string","description":"The delegation's own coordinate, delegation://{thread_id}/{subagent_id} — the actor coordinate the Subagent API section already names.","pattern":"^delegation://[^\\s/]{1,200}/[^\\s/]{1,200}$"},"accountable_actor_ref":{"type":"string","description":"Who answers for the delegated work. Read by the platform for attribution, never for behaviour.","pattern":"^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"},"role_kind":{"description":"OPAQUE TO THE PLATFORM. Closed here by contract so a nonsense value is refused at admission, while the daemon branches on no value: there is no match arm, no default and no behaviour keyed on it anywhere. What a reviewer DOES is the composing application's.","enum":["conductor","implementer","reviewer","verifier","operator","researcher","specialist","synthesizer","resource_provider","integrity_challenger","memory_curator"]},"topology_kind":{"description":"OPAQUE TO THE PLATFORM, on the same terms as role_kind. The retired GoalRun kernel emitted ONE hardcoded value and branched on it; a platform that enumerated ten and branched on them would be the same defect at a larger size.","enum":["direct","goal_conductor","delegated_build","governed_release","multi_context_review","specialist_mesh","leaderless_blackboard","market_allocated","independent_replication","federated_pursuit"]},"ancestor_chain":{"type":"array","description":"Every ancestor whose bound this delegation narrows, nearest first. Its LENGTH is the delegation depth; depth is read off the chain rather than minted as a seventh reservation dimension.","minItems":1,"uniqueItems":true,"items":{"type":"string","pattern":"^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"}},"delegation_depth":{"type":"integer","description":"The admitted depth. Equal to the ancestor chain's length by invariant, never asserted independently of it.","minimum":1,"maximum":4096},"depth_ceiling":{"type":"integer","description":"The ceiling this delegation admitted under, narrowed from the parent's and never widened by a caller.","minimum":1,"maximum":4096},"fanout_reservation_ref":{"type":"string","description":"The concurrent_invocations claim on the per-dimension reservation seam (R-74). Fanout is that claim, not a new mechanism.","pattern":"^work-reservation://[^\\s]{1,500}$"},"selected_resolver_kind":{"enum":["harness_profile","agent_harness_adapter","none"]},"selected_resolver_revision_ref":{"anyOf":[{"type":"string","pattern":"^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"},{"type":"null"}]},"selected_resolver_content_hash":{"anyOf":[{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"},{"type":"null"}]},"selected_model_route_ref":{"anyOf":[{"type":"string","pattern":"^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"},{"type":"null"}]},"forked_thread_ref":{"anyOf":[{"type":"string","pattern":"^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"},{"type":"null"}],"description":"ADR 0031 primitive 1 of 5: the thread the fork planner minted."},"managed_session_ref":{"anyOf":[{"type":"string","pattern":"^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"},{"type":"null"}],"description":"ADR 0031 primitive 3 of 5."},"launch_recipe_ref":{"anyOf":[{"type":"string","pattern":"^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"},{"type":"null"}],"description":"ADR 0031 primitive 4 of 5."},"harness_binding_ref":{"anyOf":[{"type":"string","pattern":"^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"},{"type":"null"}],"description":"ADR 0031 primitive 5 of 5. Primitive 2, the fork itself, is the delegation this record IS."},"orchestration_ref":{"anyOf":[{"type":"string","pattern":"^app-scope://[^\\s]{1,400}$"},{"type":"null"}],"description":"The composing application's own scope, recorded verbatim and never resolved by the platform."},"admitted_at_ms":{"type":"integer","minimum":0,"maximum":9007199254740991},"parent_thread_id":{"type":"string","description":"The delegating thread's id, bare, exactly as the thread plane mints it (thread_<suffix>). Bare because canon's delegation coordinate is delegation://{thread_id}/{subagent_id} and an edge that could not be composed from its own parts would be a second spelling.","pattern":"^thread_[A-Za-z0-9_-]{1,200}$"},"child_subagent_id":{"type":"string","description":"The child object's id on the subagent surface. This edge NAMES the child and does not own it (ADR 0034 sub-ruling 5).","pattern":"^[A-Za-z0-9_-]{1,200}$"},"depth_bound_absent":{"type":"boolean","description":"TRUE when no ceiling was derivable from the parent or supplied by the caller, so `depth_ceiling` above is the depth itself rather than a bound anybody set. Required, and required to be READ: without it a reader of this record alone cannot tell an enforced ceiling from a recorded absence, and a record that cannot be told apart from an enforced one is worse than no record."}}}"#),
+    ("schema://ioi/components/connectors-tools/mcp-gateway-requirement-envelope/v1", r##"{"$schema":"https://json-schema.org/draft/2020-12/schema","$id":"schema://ioi/components/connectors-tools/mcp-gateway-requirement-envelope/v1","title":"McpGatewayRequirementEnvelope","x-ioi-schema-version":"ioi.mcp-gateway-requirement.v1","description":"WHAT AN MCP CONSUMER WOULD NEED, DECLARED IMMUTABLY AND GRANTING NOTHING. A Package, an application-surface release, an adapter manifest or a System manifest references this envelope when MCP compatibility is itself a requirement of the thing being shipped. It is a CEILING and a shopping list, never an issuance: packaging the requirement creates no gateway profile and grants none of the scopes it names, and admission is what resolves it — to native capabilities, to service modules, to connectors, or to exactly one concrete gateway profile. That separation is enforced structurally as well as here: the System MANIFEST carries requirements under `mcp-gateway-requirement://` and the System GENESIS carries live profiles under `mcp-gateway://`, and the manifest schema does not admit the profile member at all. The released body and its content hash are immutable; registry lifecycle and status are excluded projections, and any change to the declared body is a successor revision. Owner: components/connectors-tools/contracts.md § MCP Gateway Requirement (M01.11, ADR 0055).","type":"object","additionalProperties":false,"required":["schema_version","requirement_id","revision_ref","predecessor_revision_ref","content_hash","owner_ref","consumer_class_refs","required_runtime_tool_contract_refs","required_resource_projection_contract_refs","permitted_prompt_import_contract_refs","required_elicitation_contract_refs","external_task_compatibility_refs","extension_application_requirement_refs","maximum_risk_class","authority_scope_requirement_refs","privacy_budget_rate_and_retention_policy_refs","transport_and_protocol_compatibility_refs","allowed_override_schema_ref","provenance_and_evaluation_refs","registry_lifecycle_ref","registry_status"],"properties":{"schema_version":{"type":"string","const":"ioi.mcp-gateway-requirement.v1"},"requirement_id":{"$ref":"#/$defs/requirementId"},"revision_ref":{"$ref":"#/$defs/requirementRevisionRef","description":"The exact immutable revision. A consumer pins this plus `content_hash`, never the family id alone."},"predecessor_revision_ref":{"anyOf":[{"$ref":"#/$defs/requirementRevisionRef"},{"type":"null"}],"description":"Null only on the genesis revision. Any change to the declared body is a successor, so this is the whole lineage."},"content_hash":{"$ref":"#/$defs/sha256"},"owner_ref":{"$ref":"#/$defs/ref"},"consumer_class_refs":{"type":"array","uniqueItems":true,"maxItems":64,"items":{"$ref":"#/$defs/ref"},"description":"Which classes of consumer this requirement is written for. An empty list is the claim that it is written for none, which admission will refuse — it is not a wildcard."},"required_runtime_tool_contract_refs":{"$ref":"#/$defs/refList"},"required_resource_projection_contract_refs":{"$ref":"#/$defs/refList"},"permitted_prompt_import_contract_refs":{"$ref":"#/$defs/refList"},"required_elicitation_contract_refs":{"$ref":"#/$defs/refList"},"external_task_compatibility_refs":{"$ref":"#/$defs/refList"},"extension_application_requirement_refs":{"$ref":"#/$defs/refList"},"maximum_risk_class":{"$ref":"#/$defs/riskClass","description":"The CEILING a resolved profile may not exceed. It draws from the canonical risk-class ladder and defines no enum of its own."},"authority_scope_requirement_refs":{"type":"array","uniqueItems":true,"maxItems":128,"items":{"$ref":"#/$defs/scopeOrPolicyRef"},"description":"Scopes the consumer WOULD need. Naming a scope here grants nothing: the profile that resolves this requirement is admitted separately and may resolve fewer."},"privacy_budget_rate_and_retention_policy_refs":{"$ref":"#/$defs/refList"},"transport_and_protocol_compatibility_refs":{"$ref":"#/$defs/refList"},"allowed_override_schema_ref":{"anyOf":[{"$ref":"#/$defs/ref"},{"type":"null"}],"description":"The closed shape of the only overrides a consumer may propose at resolution. Null means no override is admissible, which is the safe default and not an absence of policy."},"provenance_and_evaluation_refs":{"$ref":"#/$defs/refList"},"registry_lifecycle_ref":{"$ref":"#/$defs/ref"},"registry_status":{"type":"string","enum":["draft","released","deprecated","revoked"],"description":"An EXCLUDED projection: it is not part of `content_hash`, because a status change must not mint a new identity for an unchanged body."}},"$defs":{"sha256":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"},"ref":{"type":"string","pattern":"^[a-z][a-z0-9+.-]*://[^ ]{1,480}$"},"refList":{"type":"array","uniqueItems":true,"maxItems":256,"items":{"$ref":"#/$defs/ref"}},"scopeOrPolicyRef":{"type":"string","pattern":"^(?:scope:[A-Za-z0-9_.:-]{1,160}|(?:policy|grant)://[^ ]{1,480})$"},"requirementId":{"type":"string","pattern":"^mcp-gateway-requirement://[^\\s?#\\\\]{1,160}$"},"requirementRevisionRef":{"type":"string","pattern":"^mcp-gateway-requirement://[^\\s?#\\\\]{1,160}/revision/sha256:[0-9a-f]{64}$"},"riskClass":{"type":"string","description":"The canonical ladder from foundations/canonical-enums.md § Risk Classes, lowest to highest required assurance, plus the peer top-tier class `physical_action` that sits outside the monotonic ladder and carries the Physical Action Safety envelope. This enum is a COPY of that ladder and defines nothing of its own; a member added there is added here.","enum":["read","draft","local_write","write_reversible","external_message","commerce","funds","credential_access","policy_widening","secret_export","identity_change","system_destructive","physical_action"]}}}"##),
+    ("schema://ioi/components/connectors-tools/hypervisor-mcp-gateway-profile/v1", r##"{"$schema":"https://json-schema.org/draft/2020-12/schema","$id":"schema://ioi/components/connectors-tools/hypervisor-mcp-gateway-profile/v1","title":"HypervisorMcpGatewayProfileV1","x-ioi-schema-version":"ioi.hypervisor-mcp-gateway-profile.v1","description":"WHAT ONE MCP CONSUMER MAY DISCOVER, PREVIEW, PROPOSE OR EXECUTE — the contract that limits an outward gateway to one subject and one use. A profile grants no authority by itself: it BINDS an exposure manifest to wallet.network authority clients, daemon admission, policy and receipt obligations, and every effectful call still crosses at its owner's gateway. The admitted revision FREEZES its resolved requirement set, exposure manifest, subject, scope, policies and expiry. Status, revocation, quarantine advisories and last-use are EXCLUDED projections that bind the already-computed `profile_content_hash` rather than entering it, and they — like upstream policy, lease and connector state — may only REDUCE effective access. Any change to the declared body is a successor revision, and widening tools, resources, scopes, subjects, projects, sessions, risk ceiling, budget, retention or expiry additionally repeats admission. The seven profile kinds here are the v1 closed set and do not change; the v2 successor adds `capability_construction_eval` and nothing else, and the two versions refuse each other in both directions (ADR 0055). Owner: components/connectors-tools/contracts.md § Hypervisor MCP Gateway Profile (M01.11).","type":"object","additionalProperties":false,"required":["schema_version","gateway_profile_id","profile_revision_ref","predecessor_profile_revision_ref","profile_content_hash","resolved_requirement_revision_refs","resolved_requirement_set_hash","exposure_manifest_hash","display_name","audience","profile_kind","subject_ref","admission_basis","surface_refs","exposed_tools","exposed_resources","authority_client_ref","origin_binding_ref","authority_scope_refs","privacy_posture_ref","budget_policy_ref","rate_limit_ref","quarantine_policy_ref","issued_after_required_admission","prompt_only_proposal","expires_at","status","manifest_ref","admission_decision_ref","admission_receipt_ref"],"properties":{"schema_version":{"type":"string","const":"ioi.hypervisor-mcp-gateway-profile.v1"},"gateway_profile_id":{"$ref":"#/$defs/profileId"},"profile_revision_ref":{"$ref":"#/$defs/profileRevisionRef"},"predecessor_profile_revision_ref":{"anyOf":[{"$ref":"#/$defs/profileRevisionRef"},{"type":"null"}],"description":"Null only on the genesis revision. A narrowed successor and a widened successor are both successors; only the widened one repeats admission."},"profile_content_hash":{"$ref":"#/$defs/sha256"},"resolved_requirement_revision_refs":{"type":"array","uniqueItems":true,"maxItems":128,"items":{"$ref":"#/$defs/requirementRevisionRef"},"description":"The exact immutable requirement revisions this profile resolves. Resolving is an evaluation of a declared ceiling against one proposed use; the requirement issued nothing."},"resolved_requirement_set_hash":{"$ref":"#/$defs/sha256"},"exposure_manifest_hash":{"$ref":"#/$defs/sha256","description":"Frozen at admission over the exposed tool, resource, prompt, elicitation, task and App sets. A consumer that computes a different hash over what it was served has been served something else."},"display_name":{"type":"string","minLength":1,"maxLength":200},"audience":{"type":"string","enum":["external_agent","ci_agent","marketplace_worker","enterprise_agent","local_harness"]},"profile_kind":{"type":"string","description":"The v1 closed set of seven. `capability_construction_eval` is v2's and is refused here by name rather than ignored.","enum":["discovery_readonly","project_session","connector_preview","operator_proposal","effectful_approved","foundry_eval_training","receipts_replay_proof"]},"subject_ref":{"$ref":"#/$defs/ref"},"local_agent_pairing_session_ref":{"$ref":"#/$defs/nullableRef"},"candidate_public_key_ref":{"$ref":"#/$defs/nullableRef"},"project_refs":{"$ref":"#/$defs/refList"},"session_refs":{"$ref":"#/$defs/refList"},"outcome_room_ref":{"$ref":"#/$defs/nullableRef"},"room_participant_lease_ref":{"$ref":"#/$defs/nullableRef"},"room_admission_decision_ref":{"$ref":"#/$defs/nullableRef"},"worker_registration_ref":{"$ref":"#/$defs/nullableRef"},"admission_basis":{"type":"string","enum":["not_applicable","room_guest","registered_worker_invocation"]},"invocation_scope_refs":{"$ref":"#/$defs/refList"},"pairing_execution_posture":{"type":"string","enum":["not_applicable","instrumented_adapter","prompt_only"]},"pairing_contribution_lane":{"type":"string","enum":["not_applicable","instrumented_candidate","proposal_only"]},"surface_refs":{"$ref":"#/$defs/refList"},"exposed_tools":{"type":"array","maxItems":512,"items":{"$ref":"#/$defs/exposedTool"},"description":"An empty list is a real and common posture — a profile that exposes no tool. It is not a wildcard."},"exposed_resources":{"type":"array","maxItems":512,"items":{"$ref":"#/$defs/exposedResource"}},"exposed_prompt_import_contract_refs":{"$ref":"#/$defs/refList"},"elicitation_contract_refs":{"$ref":"#/$defs/refList"},"external_task_contract_refs":{"$ref":"#/$defs/refList"},"extension_application_refs":{"$ref":"#/$defs/refList"},"authority_client_ref":{"$ref":"#/$defs/ref"},"origin_binding_ref":{"$ref":"#/$defs/ref"},"authority_scope_refs":{"type":"array","uniqueItems":true,"maxItems":128,"items":{"$ref":"#/$defs/scopeRef"}},"privacy_posture_ref":{"$ref":"#/$defs/ref"},"budget_policy_ref":{"$ref":"#/$defs/ref"},"rate_limit_ref":{"$ref":"#/$defs/ref"},"quarantine_policy_ref":{"$ref":"#/$defs/ref"},"dependent_refs":{"$ref":"#/$defs/refList"},"issued_after_required_admission":{"type":"boolean","const":true,"description":"A profile that was not issued after its required admission is not a profile. The member exists so the claim is on the wire and hashed, not implied by the record's presence."},"prompt_only_proposal":{"type":"boolean"},"expires_at":{"type":"string","format":"date-time","pattern":"^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$"},"revocation_ref":{"$ref":"#/$defs/nullableRef"},"quarantine_advisory_refs":{"$ref":"#/$defs/refList"},"status":{"type":"string","enum":["active","expired","suspended","quarantined","revoked"],"description":"An EXCLUDED lifecycle projection. It binds the already-computed content hash rather than entering it, and it may only reduce effective access."},"last_use_ref":{"$ref":"#/$defs/nullableRef"},"manifest_ref":{"$ref":"#/$defs/ref"},"admission_decision_ref":{"$ref":"#/$defs/ref"},"admission_receipt_ref":{"$ref":"#/$defs/ref"},"receipt_refs":{"$ref":"#/$defs/refList"}},"allOf":[{"if":{"type":"object","properties":{"pairing_execution_posture":{"type":"string","const":"prompt_only"}},"required":["pairing_execution_posture"]},"then":{"type":"object","description":"A prompt-only pairing may only ever propose. The contribution lane and the proposal flag are not independent of the posture, and letting them drift is how a prompt-only harness acquires an instrumented lane.","properties":{"pairing_contribution_lane":{"type":"string","const":"proposal_only"},"prompt_only_proposal":{"type":"boolean","const":true}},"required":["pairing_contribution_lane","prompt_only_proposal"]}},{"if":{"type":"object","properties":{"profile_kind":{"type":"string","const":"discovery_readonly"}},"required":["profile_kind"]},"then":{"type":"object","description":"A read-only discovery profile that exposed an approval-requiring or effectful tool would be a contradiction admitted in writing.","properties":{"exposed_tools":{"type":"array","items":{"type":"object","properties":{"approval_required":{"type":"boolean","const":false},"effect_class":{"type":"string","enum":["read","draft"]}}}}}}}],"$defs":{"sha256":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"},"ref":{"type":"string","pattern":"^[a-z][a-z0-9+._-]*://[^ ]{1,480}$"},"nullableRef":{"anyOf":[{"$ref":"#/$defs/ref"},{"type":"null"}]},"refList":{"type":"array","uniqueItems":true,"maxItems":256,"items":{"$ref":"#/$defs/ref"}},"scopeRef":{"type":"string","pattern":"^scope:[A-Za-z0-9_.:-]{1,160}$"},"profileId":{"type":"string","pattern":"^mcp-gateway://[^\\s?#\\\\]{1,160}$"},"profileRevisionRef":{"type":"string","pattern":"^mcp-gateway://[^\\s?#\\\\]{1,160}/revision/sha256:[0-9a-f]{64}$"},"requirementRevisionRef":{"type":"string","pattern":"^mcp-gateway-requirement://[^\\s?#\\\\]{1,160}/revision/sha256:[0-9a-f]{64}$"},"riskClass":{"type":"string","description":"A copy of the canonical ladder in foundations/canonical-enums.md § Risk Classes, plus the peer top-tier `physical_action`.","enum":["read","draft","local_write","write_reversible","external_message","commerce","funds","credential_access","policy_widening","secret_export","identity_change","system_destructive","physical_action"]},"exposedTool":{"type":"object","additionalProperties":false,"required":["mcp_tool_name","backing_contract_revision_ref","backing_contract_content_hash","contract_kind","risk_class","effect_class","readiness","dry_run_required","approval_required","authority_scopes_required","receipt_obligations"],"description":"One exposed tool, bound to the EXACT backing contract revision and its content hash. A tool named without both is a tool nobody can check, and the name it carries on the wire is the consumer's only handle on it.","properties":{"mcp_tool_name":{"type":"string","minLength":1,"maxLength":200},"backing_contract_revision_ref":{"$ref":"#/$defs/ref"},"backing_contract_content_hash":{"$ref":"#/$defs/sha256"},"contract_kind":{"type":"string","enum":["runtime_tool_contract","surface_mcp_contract","operator_plane_contract"]},"risk_class":{"$ref":"#/$defs/riskClass"},"effect_class":{"$ref":"#/$defs/riskClass"},"readiness":{"type":"string","enum":["ready","not_connected","scope_insufficient","dry_run_required","approval_required","policy_blocked","degraded"],"description":"A profile may expose a tool as DISCOVERABLE while still refusing a particular operation; these are canon's own words for that refusal."},"dry_run_required":{"type":"boolean"},"approval_required":{"type":"boolean"},"authority_scopes_required":{"type":"array","uniqueItems":true,"maxItems":64,"items":{"$ref":"#/$defs/scopeRef"}},"receipt_obligations":{"type":"array","uniqueItems":true,"maxItems":32,"items":{"type":"string","minLength":1,"maxLength":120}}}},"exposedResource":{"type":"object","additionalProperties":false,"required":["mcp_resource_uri","backing_projection_ref","required_context_lease_ref","redaction_policy_ref"],"description":"One exposed resource. The lease is REQUIRED and not nullable: a resource URI is not access, and the thing that makes it access is the lease named here.","properties":{"mcp_resource_uri":{"type":"string","minLength":1,"maxLength":480},"backing_projection_ref":{"$ref":"#/$defs/ref"},"required_context_lease_ref":{"$ref":"#/$defs/ref"},"redaction_policy_ref":{"$ref":"#/$defs/ref"}}}}}"##),
+    ("schema://ioi/components/connectors-tools/hypervisor-mcp-gateway-profile/v2", r##"{"$schema":"https://json-schema.org/draft/2020-12/schema","$id":"schema://ioi/components/connectors-tools/hypervisor-mcp-gateway-profile/v2","title":"HypervisorMcpGatewayProfileV2","x-ioi-schema-version":"ioi.hypervisor-mcp-gateway-profile.v2","description":"THE v1 PROFILE WITH EXACTLY ONE MORE KIND, AND NOTHING ELSE CHANGED. Every member, constraint and conditional of ioi.hypervisor-mcp-gateway-profile.v1 holds here unchanged; the single difference is that `profile_kind` also admits `capability_construction_eval`, the SOURCE-NEUTRAL builder surface. That kind claims one thing and it is the strongest claim this gateway makes: an external builder invocation admitted under it reaches the same RuntimeToolContract resolution, the same final invoker and the same receipt obligations as the native call, bound to one exact subject, candidate key, origin, admission basis, project, session and invocation ref — it can neither widen what the native path would allow nor execute what the native path would refuse. It trains nothing, promotes nothing and reads no first-party corpus; `foundry_eval_training` remains the separately admitted first-party training specialization and the two are never substitutable. VERSIONS DO NOT FALL BACK. A v1 profile presented to a v2 reader and a v2 profile presented to a v1 reader both refuse, with the version named: reading a v2 profile as a v1 by discarding the kind it does not recognise would admit the builder surface as whatever the v1 reader defaulted to, and a version boundary that degrades gracefully is one that grants silently. The schema version is part of the admitted body and therefore of `profile_content_hash`, so a version change is a successor revision that repeats admission exactly as a widening does. Owner: components/connectors-tools/contracts.md § Profile versions and the source-neutral builder kind (M01.11, ADR 0055).","type":"object","additionalProperties":false,"required":["schema_version","gateway_profile_id","profile_revision_ref","predecessor_profile_revision_ref","profile_content_hash","resolved_requirement_revision_refs","resolved_requirement_set_hash","exposure_manifest_hash","display_name","audience","profile_kind","subject_ref","admission_basis","surface_refs","exposed_tools","exposed_resources","authority_client_ref","origin_binding_ref","authority_scope_refs","privacy_posture_ref","budget_policy_ref","rate_limit_ref","quarantine_policy_ref","issued_after_required_admission","prompt_only_proposal","expires_at","status","manifest_ref","admission_decision_ref","admission_receipt_ref"],"properties":{"schema_version":{"type":"string","const":"ioi.hypervisor-mcp-gateway-profile.v2"},"gateway_profile_id":{"$ref":"#/$defs/profileId"},"profile_revision_ref":{"$ref":"#/$defs/profileRevisionRef"},"predecessor_profile_revision_ref":{"anyOf":[{"$ref":"#/$defs/profileRevisionRef"},{"type":"null"}],"description":"Null only on the genesis revision. A narrowed successor and a widened successor are both successors; only the widened one repeats admission."},"profile_content_hash":{"$ref":"#/$defs/sha256"},"resolved_requirement_revision_refs":{"type":"array","uniqueItems":true,"maxItems":128,"items":{"$ref":"#/$defs/requirementRevisionRef"},"description":"The exact immutable requirement revisions this profile resolves. Resolving is an evaluation of a declared ceiling against one proposed use; the requirement issued nothing."},"resolved_requirement_set_hash":{"$ref":"#/$defs/sha256"},"exposure_manifest_hash":{"$ref":"#/$defs/sha256","description":"Frozen at admission over the exposed tool, resource, prompt, elicitation, task and App sets. A consumer that computes a different hash over what it was served has been served something else."},"display_name":{"type":"string","minLength":1,"maxLength":200},"audience":{"type":"string","enum":["external_agent","ci_agent","marketplace_worker","enterprise_agent","local_harness"]},"profile_kind":{"type":"string","description":"The v2 closed set of eight: the seven v1 kinds, unchanged in meaning, plus the source-neutral builder surface. A v1 reader refuses this document rather than ignoring the member it does not know.","enum":["discovery_readonly","project_session","connector_preview","operator_proposal","effectful_approved","foundry_eval_training","receipts_replay_proof","capability_construction_eval"]},"subject_ref":{"$ref":"#/$defs/ref"},"local_agent_pairing_session_ref":{"$ref":"#/$defs/nullableRef"},"candidate_public_key_ref":{"$ref":"#/$defs/nullableRef"},"project_refs":{"$ref":"#/$defs/refList"},"session_refs":{"$ref":"#/$defs/refList"},"outcome_room_ref":{"$ref":"#/$defs/nullableRef"},"room_participant_lease_ref":{"$ref":"#/$defs/nullableRef"},"room_admission_decision_ref":{"$ref":"#/$defs/nullableRef"},"worker_registration_ref":{"$ref":"#/$defs/nullableRef"},"admission_basis":{"type":"string","enum":["not_applicable","room_guest","registered_worker_invocation"]},"invocation_scope_refs":{"$ref":"#/$defs/refList"},"pairing_execution_posture":{"type":"string","enum":["not_applicable","instrumented_adapter","prompt_only"]},"pairing_contribution_lane":{"type":"string","enum":["not_applicable","instrumented_candidate","proposal_only"]},"surface_refs":{"$ref":"#/$defs/refList"},"exposed_tools":{"type":"array","maxItems":512,"items":{"$ref":"#/$defs/exposedTool"},"description":"An empty list is a real and common posture — a profile that exposes no tool. It is not a wildcard."},"exposed_resources":{"type":"array","maxItems":512,"items":{"$ref":"#/$defs/exposedResource"}},"exposed_prompt_import_contract_refs":{"$ref":"#/$defs/refList"},"elicitation_contract_refs":{"$ref":"#/$defs/refList"},"external_task_contract_refs":{"$ref":"#/$defs/refList"},"extension_application_refs":{"$ref":"#/$defs/refList"},"authority_client_ref":{"$ref":"#/$defs/ref"},"origin_binding_ref":{"$ref":"#/$defs/ref"},"authority_scope_refs":{"type":"array","uniqueItems":true,"maxItems":128,"items":{"$ref":"#/$defs/scopeRef"}},"privacy_posture_ref":{"$ref":"#/$defs/ref"},"budget_policy_ref":{"$ref":"#/$defs/ref"},"rate_limit_ref":{"$ref":"#/$defs/ref"},"quarantine_policy_ref":{"$ref":"#/$defs/ref"},"dependent_refs":{"$ref":"#/$defs/refList"},"issued_after_required_admission":{"type":"boolean","const":true,"description":"A profile that was not issued after its required admission is not a profile. The member exists so the claim is on the wire and hashed, not implied by the record's presence."},"prompt_only_proposal":{"type":"boolean"},"expires_at":{"type":"string","format":"date-time","pattern":"^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$"},"revocation_ref":{"$ref":"#/$defs/nullableRef"},"quarantine_advisory_refs":{"$ref":"#/$defs/refList"},"status":{"type":"string","enum":["active","expired","suspended","quarantined","revoked"],"description":"An EXCLUDED lifecycle projection. It binds the already-computed content hash rather than entering it, and it may only reduce effective access."},"last_use_ref":{"$ref":"#/$defs/nullableRef"},"manifest_ref":{"$ref":"#/$defs/ref"},"admission_decision_ref":{"$ref":"#/$defs/ref"},"admission_receipt_ref":{"$ref":"#/$defs/ref"},"receipt_refs":{"$ref":"#/$defs/refList"}},"allOf":[{"if":{"type":"object","properties":{"pairing_execution_posture":{"type":"string","const":"prompt_only"}},"required":["pairing_execution_posture"]},"then":{"type":"object","description":"A prompt-only pairing may only ever propose. The contribution lane and the proposal flag are not independent of the posture, and letting them drift is how a prompt-only harness acquires an instrumented lane.","properties":{"pairing_contribution_lane":{"type":"string","const":"proposal_only"},"prompt_only_proposal":{"type":"boolean","const":true}},"required":["pairing_contribution_lane","prompt_only_proposal"]}},{"if":{"type":"object","properties":{"profile_kind":{"type":"string","const":"discovery_readonly"}},"required":["profile_kind"]},"then":{"type":"object","description":"A read-only discovery profile that exposed an approval-requiring or effectful tool would be a contradiction admitted in writing.","properties":{"exposed_tools":{"type":"array","items":{"type":"object","properties":{"approval_required":{"type":"boolean","const":false},"effect_class":{"type":"string","enum":["read","draft"]}}}}}}},{"if":{"type":"object","properties":{"profile_kind":{"type":"string","const":"capability_construction_eval"}},"required":["profile_kind"]},"then":{"type":"object","description":"SOURCE-NEUTRAL means the builder surface reads no first-party training corpus and mints no training artifact, and it is bound to ONE invocation rather than to every invocation its subject can reach — that binding is what makes the native-versus-MCP comparison a comparison of the same thing, and it is required here. The other half of source-neutrality, that no exposed tool requires a foundry, training or dataset-factory scope, is NOT expressible in this contract: it is a negative over an array member's string, and the portable schema keyword set this estate generates from admits no negation. It is therefore enforced and drilled in check:hypervisor-mcp-gateway-profile rather than asserted here in a form no validator would run. Saying which layer holds a rule is the point of writing it down.","properties":{"invocation_scope_refs":{"type":"array","minItems":1}},"required":["invocation_scope_refs"]}}],"$defs":{"sha256":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"},"ref":{"type":"string","pattern":"^[a-z][a-z0-9+._-]*://[^ ]{1,480}$"},"nullableRef":{"anyOf":[{"$ref":"#/$defs/ref"},{"type":"null"}]},"refList":{"type":"array","uniqueItems":true,"maxItems":256,"items":{"$ref":"#/$defs/ref"}},"scopeRef":{"type":"string","pattern":"^scope:[A-Za-z0-9_.:-]{1,160}$"},"profileId":{"type":"string","pattern":"^mcp-gateway://[^\\s?#\\\\]{1,160}$"},"profileRevisionRef":{"type":"string","pattern":"^mcp-gateway://[^\\s?#\\\\]{1,160}/revision/sha256:[0-9a-f]{64}$"},"requirementRevisionRef":{"type":"string","pattern":"^mcp-gateway-requirement://[^\\s?#\\\\]{1,160}/revision/sha256:[0-9a-f]{64}$"},"riskClass":{"type":"string","description":"A copy of the canonical ladder in foundations/canonical-enums.md § Risk Classes, plus the peer top-tier `physical_action`.","enum":["read","draft","local_write","write_reversible","external_message","commerce","funds","credential_access","policy_widening","secret_export","identity_change","system_destructive","physical_action"]},"exposedTool":{"type":"object","additionalProperties":false,"required":["mcp_tool_name","backing_contract_revision_ref","backing_contract_content_hash","contract_kind","risk_class","effect_class","readiness","dry_run_required","approval_required","authority_scopes_required","receipt_obligations"],"description":"One exposed tool, bound to the EXACT backing contract revision and its content hash. A tool named without both is a tool nobody can check, and the name it carries on the wire is the consumer's only handle on it.","properties":{"mcp_tool_name":{"type":"string","minLength":1,"maxLength":200},"backing_contract_revision_ref":{"$ref":"#/$defs/ref"},"backing_contract_content_hash":{"$ref":"#/$defs/sha256"},"contract_kind":{"type":"string","enum":["runtime_tool_contract","surface_mcp_contract","operator_plane_contract"]},"risk_class":{"$ref":"#/$defs/riskClass"},"effect_class":{"$ref":"#/$defs/riskClass"},"readiness":{"type":"string","enum":["ready","not_connected","scope_insufficient","dry_run_required","approval_required","policy_blocked","degraded"],"description":"A profile may expose a tool as DISCOVERABLE while still refusing a particular operation; these are canon's own words for that refusal."},"dry_run_required":{"type":"boolean"},"approval_required":{"type":"boolean"},"authority_scopes_required":{"type":"array","uniqueItems":true,"maxItems":64,"items":{"$ref":"#/$defs/scopeRef"}},"receipt_obligations":{"type":"array","uniqueItems":true,"maxItems":32,"items":{"type":"string","minLength":1,"maxLength":120}}}},"exposedResource":{"type":"object","additionalProperties":false,"required":["mcp_resource_uri","backing_projection_ref","required_context_lease_ref","redaction_policy_ref"],"description":"One exposed resource. The lease is REQUIRED and not nullable: a resource URI is not access, and the thing that makes it access is the lease named here.","properties":{"mcp_resource_uri":{"type":"string","minLength":1,"maxLength":480},"backing_projection_ref":{"$ref":"#/$defs/ref"},"required_context_lease_ref":{"$ref":"#/$defs/ref"},"redaction_policy_ref":{"$ref":"#/$defs/ref"}}}}}"##),
 ];
 
 const CONTRACT_INVARIANTS: &[(&str, &str)] = &[
@@ -201673,6 +204093,9 @@ const CONTRACT_INVARIANTS: &[(&str, &str)] = &[
     ("schema://ioi/applications/ioi-ai/collective-resolution-receipt/v1", r#"[{"rule_id":"collective_resolution_receipt.identity.matches","description":"The resolution has one portable receipt identity.","expression":{"operator":"fields_equal","paths":["$.receipt_id","$.receipt_ref"]}},{"rule_id":"collective_resolution_receipt.closure.recomputes","description":"The closure root commits every frozen member of the dependency closure and every owner it resolved into, so a relying party can recompute the freeze from the receipt alone.","expression":{"operator":"jcs_sha256_equals","algorithm":"jcs_sha256","expected_path":"$.closure_root","expected_encoding":"sha256_string","material_fields":{"schema_version":{"path":"$.schema_version"},"receipt_id":{"path":"$.receipt_id"},"receipt_ref":{"path":"$.receipt_ref"},"receipt_type":{"path":"$.receipt_type"},"resolved_by_ref":{"path":"$.resolved_by_ref"},"system_id":{"path":"$.system_id"},"system_release_ref":{"path":"$.system_release_ref"},"constitution_ref":{"path":"$.constitution_ref"},"active_profile_set_ref":{"path":"$.active_profile_set_ref"},"orchestration_ref":{"path":"$.orchestration_ref"},"goal_run_profile_revision_refs":{"path":"$.goal_run_profile_revision_refs"},"policy_refs":{"path":"$.policy_refs"},"lease_policy_refs":{"path":"$.lease_policy_refs"},"artifact_lifecycle_policy_ref":{"path":"$.artifact_lifecycle_policy_ref"},"requirement_refs":{"path":"$.requirement_refs"},"resolved_owner_refs":{"path":"$.resolved_owner_refs"},"registers_no_new_owner":{"path":"$.registers_no_new_owner"},"resolved_at":{"path":"$.resolved_at"}}}},{"rule_id":"collective_resolution_receipt.orchestration.is_a_resolved_owner","description":"The orchestration the closure is headed by is itself one of the existing owners the resolution names, so the receipt cannot freeze a composition it did not resolve into. CORRECTED 2026-09-19 (R-204): the rule's description said membership and its expression tested only presence — an assertion that could not fail the way its sentence claimed. It now tests that `orchestration_ref` IS one of `resolved_owner_refs`, with `array_contains_value` over a path-valued needle.","expression":{"operator":"array_contains_value","array_path":"$.resolved_owner_refs","expected_path":"$.orchestration_ref"}}]"#),
     ("schema://ioi/applications/ioi-ai/persistent-executable-lineage/v1", r#"[{"rule_id":"persistent_executable_lineage.root.recomputes","description":"lineage_root commits every field of the record except itself and the seam-derived system_binding (the wire member schema_version included, because the lineage's version IS part of what a relying party re-derives). A root nobody recomputes commits nothing.","expression":{"operator":"jcs_sha256_equals","algorithm":"jcs_sha256","expected_path":"$.lineage_root","expected_encoding":"sha256_string","material_fields":{"schema_version":{"path":"$.schema_version"},"lineage_id":{"path":"$.lineage_id"},"orchestration_ref":{"path":"$.orchestration_ref"},"resolution_receipt_ref":{"path":"$.resolution_receipt_ref"},"artifact_ref":{"path":"$.artifact_ref"},"artifact_sha256":{"path":"$.artifact_sha256"},"source_artifact_refs":{"path":"$.source_artifact_refs"},"successor_artifact_ref":{"path":"$.successor_artifact_ref"},"transformation_receipt_refs":{"path":"$.transformation_receipt_refs"},"definition_ref":{"path":"$.definition_ref"},"installation_ref":{"path":"$.installation_ref"},"runtime_ref":{"path":"$.runtime_ref"},"runtime_kind":{"path":"$.runtime_kind"},"accountable_subject_ref":{"path":"$.accountable_subject_ref"},"caretaker_ref":{"path":"$.caretaker_ref"},"stop_policy_ref":{"path":"$.stop_policy_ref"},"lease_refs":{"path":"$.lease_refs"},"dependency_lineage_refs":{"path":"$.dependency_lineage_refs"},"health_ref":{"path":"$.health_ref"},"effect_receipt_refs":{"path":"$.effect_receipt_refs"},"posture":{"path":"$.posture"},"successor_of":{"path":"$.successor_of"}}}},{"rule_id":"persistent_executable_lineage.orphan.reason_is_typed","description":"An orphaned condition is typed (canon): a quarantined lineage names WHY — owner, caretaker, dependency, artifact, health or authority absent or stale. A policy stop is not an orphan and carries no reason, which is why `stopped` is not in this rule; the composer requires a typed reason for a stop it makes BECAUSE of an orphan condition.","expression":{"operator":"non_empty_when_in","when_path":"$.posture.status","values":["quarantined"],"path":"$.posture.orphan_reason"}},{"rule_id":"persistent_executable_lineage.fork.names_its_parents","description":"A fork names the exact source artifacts it was forked from; a fork with no parent is an original wearing a fork's posture.","expression":{"operator":"non_empty_when_in","when_path":"$.posture.status","values":["forked"],"path":"$.source_artifact_refs"}},{"rule_id":"persistent_executable_lineage.fork.names_a_transformation_receipt","description":"A fork is a governed transformation and names the receipt that produced it; canon separates fork from observe/reuse by exactly this.","expression":{"operator":"non_empty_when_in","when_path":"$.posture.status","values":["forked"],"path":"$.transformation_receipt_refs"}},{"rule_id":"persistent_executable_lineage.active.binds_a_runtime","description":"`active` is a runtime binding, not an artifact flag: an active lineage names the runtime it runs as. ArtifactRef.lifecycle.status = active satisfies no check.","expression":{"operator":"non_empty_when_in","when_path":"$.posture.status","values":["active"],"path":"$.runtime_ref"}}]"#),
     ("schema://ioi/foundations/delegation-edge/v1", r#"[{"rule_id":"delegation_edge.depth.is_the_chain_length","description":"The delegation depth IS the ancestor chain's length. Stated as an invariant rather than a comment because a depth asserted independently of the chain is a number a caller can set, and the whole point of reading it off the chain is that the caller cannot.","expression":{"operator":"array_length_equals","array_path":"$.ancestor_chain","count_path":"$.delegation_depth"}},{"rule_id":"delegation_edge.depth.within_ceiling","description":"A delegation admits at or under the ceiling it narrowed from. Inheritance is structural (ADR 0034 sub-ruling 3): a child narrows from its admitted parent record and can never widen, whatever the caller supplies.","expression":{"operator":"numbers_lte","paths":["$.delegation_depth","$.depth_ceiling"]}},{"rule_id":"delegation_edge.resolver.revision_present_when_resolved","description":"A resolved delegation names the exact revision it resolved to. `none` is the honest absence; harness_profile and agent_harness_adapter are not.","expression":{"operator":"non_empty_when_in","path":"$.selected_resolver_revision_ref","when_path":"$.selected_resolver_kind","values":["harness_profile","agent_harness_adapter"]}},{"rule_id":"delegation_edge.resolver.hash_present_when_resolved","description":"And it names that revision's content hash, so the resolution is a binding rather than a pointer that can be re-aimed.","expression":{"operator":"non_empty_when_in","path":"$.selected_resolver_content_hash","when_path":"$.selected_resolver_kind","values":["harness_profile","agent_harness_adapter"]}},{"rule_id":"delegation_edge.identity.composes_from_its_parts","description":"The delegation coordinate is composed from the pair it names, so an edge cannot claim a parent it does not belong to. Checked as a suffix on the parent half, which is the part a caller would have to forge to re-parent a delegation.","expression":{"operator":"field_starts_with_path","path":"$.delegation_ref","expected_path":"$.parent_thread_id","prefix":"delegation://","suffix":"/"}}]"#),
+    ("schema://ioi/components/connectors-tools/mcp-gateway-requirement-envelope/v1", r#"[{"rule_id":"mcp_gateway_requirement_envelope.revision_belongs_to_its_own_family","description":"The revision ref is this requirement's own id plus a revision. A revision filed under another family's id is how a consumer pins requirement A and resolves requirement B's ceiling — and both documents look correct in isolation, which is why the schema cannot catch it and this rule must.","expression":{"operator":"field_starts_with_path","path":"$.revision_ref","prefix":"mcp-gateway-requirement://","expected_path":"$.requirement_id","strip_prefix":"mcp-gateway-requirement://","suffix":"/revision/"}},{"rule_id":"mcp_gateway_requirement_envelope.a_released_requirement_names_the_consumers_it_is_written_for","description":"A released requirement with no consumer class is a ceiling for nobody, and the natural reading of 'nobody' at an admission boundary is 'anybody'. A draft may still be incomplete; a released one may not.","expression":{"operator":"non_empty_when_in","path":"$.consumer_class_refs","when_path":"$.registry_status","values":["released","deprecated"]}},{"rule_id":"mcp_gateway_requirement_envelope.a_released_requirement_names_its_registry_lifecycle","description":"Status is an EXCLUDED projection — it does not enter the content hash — so the lifecycle ref is what ties a status to a record somewhere that can be read back. Without it, `released` is a word the document applied to itself.","expression":{"operator":"non_empty_when_in","path":"$.registry_lifecycle_ref","when_path":"$.registry_status","values":["released","deprecated","revoked"]}}]"#),
+    ("schema://ioi/components/connectors-tools/hypervisor-mcp-gateway-profile/v1", r#"[{"rule_id":"hypervisor_mcp_gateway_profile.revision_belongs_to_its_own_family","description":"The revision ref is the profile's own identity plus a revision, not a ref that merely looks like one. A revision under a DIFFERENT family id is how a narrowed successor of profile A gets stored as a revision of profile B and then resolves for B's subject — a substitution no hash catches, because both documents are internally consistent. JSON Schema can enforce the shape of each member separately and cannot enforce that the two agree; this is the rule that makes them agree.","expression":{"operator":"field_starts_with_path","path":"$.profile_revision_ref","prefix":"mcp-gateway://","expected_path":"$.gateway_profile_id","strip_prefix":"mcp-gateway://","suffix":"/revision/"}},{"rule_id":"hypervisor_mcp_gateway_profile.an_admitted_profile_names_its_admission","description":"Canon's rule is that a profile is issued AFTER its required admission, and the boolean member that says so is only as good as the decision and receipt it points at. An admitted profile with no decision ref or no receipt ref is a profile that asserts its own admission — the exact shape of claim this estate refuses everywhere else.","expression":{"operator":"non_empty_when_in","path":"$.admission_decision_ref","when_path":"$.status","values":["active","suspended","quarantined","expired","revoked"]}},{"rule_id":"hypervisor_mcp_gateway_profile.an_admitted_profile_names_its_admission_receipt","description":"The receipt half of the same rule. A decision without a receipt is a record of intent; the receipt is what a relying party replays.","expression":{"operator":"non_empty_when_in","path":"$.admission_receipt_ref","when_path":"$.status","values":["active","suspended","quarantined","expired","revoked"]}},{"rule_id":"hypervisor_mcp_gateway_profile.a_revoked_profile_names_its_revocation","description":"Revocation is an excluded lifecycle projection, which is exactly why it must carry its own ref: the content hash does not move when a profile is revoked, so the revocation ref is the only thing on the document that distinguishes a revoked profile from the active one it used to be.","expression":{"operator":"non_empty_when_in","path":"$.revocation_ref","when_path":"$.status","values":["revoked"]}},{"rule_id":"hypervisor_mcp_gateway_profile.a_room_guest_names_the_room_that_admitted_it","description":"`admission_basis: room_guest` is a claim about WHERE the subject was admitted. Without the admission decision that admitted it, the basis is a word the profile chose for itself, and a subject with no room could carry it.","expression":{"operator":"non_empty_when_in","path":"$.room_admission_decision_ref","when_path":"$.admission_basis","values":["room_guest"]}},{"rule_id":"hypervisor_mcp_gateway_profile.a_registered_worker_invocation_names_its_registration","description":"The other half of the same split: `registered_worker_invocation` without a worker registration ref is an unregistered worker calling itself registered.","expression":{"operator":"non_empty_when_in","path":"$.worker_registration_ref","when_path":"$.admission_basis","values":["registered_worker_invocation"]}},{"rule_id":"hypervisor_mcp_gateway_profile.a_paired_local_harness_names_its_candidate_key","description":"A local-harness audience is admitted by a pairing proof, and the candidate public key is what binds the proof to the process that will call. An audience of `local_harness` with no candidate key is a pairing nobody can check.","expression":{"operator":"non_empty_when_in","path":"$.candidate_public_key_ref","when_path":"$.audience","values":["local_harness"]}},{"rule_id":"hypervisor_mcp_gateway_profile.a_paired_local_harness_names_its_pairing_session","description":"And the session the key was presented in. Canon requires the pairing session envelope; without its ref the key is a key with no occasion.","expression":{"operator":"non_empty_when_in","path":"$.local_agent_pairing_session_ref","when_path":"$.audience","values":["local_harness"]}},{"rule_id":"hypervisor_mcp_gateway_profile.exposed_tools_are_unique_by_wire_name","description":"The MCP tool name is the ONLY handle a consumer has on an exposed tool. Two entries under one name make the exposure manifest ambiguous at the exact point where it decides what a call resolves to, and the two may carry different risk classes, different backing revisions and different approval postures.","expression":{"operator":"array_unique_by_fields","fields":["mcp_tool_name"],"array_path":"$.exposed_tools"}},{"rule_id":"hypervisor_mcp_gateway_profile.exposed_resources_are_unique_by_uri","description":"The same rule one primitive over: two resource entries under one URI would let a redaction policy and a lease requirement depend on which entry a reader happened to find first.","expression":{"operator":"array_unique_by_fields","fields":["mcp_resource_uri"],"array_path":"$.exposed_resources"}}]"#),
+    ("schema://ioi/components/connectors-tools/hypervisor-mcp-gateway-profile/v2", r#"[{"rule_id":"hypervisor_mcp_gateway_profile_v2.revision_belongs_to_its_own_family","description":"The revision ref is the profile's own identity plus a revision, not a ref that merely looks like one. A revision under a DIFFERENT family id is how a narrowed successor of profile A gets stored as a revision of profile B and then resolves for B's subject — a substitution no hash catches, because both documents are internally consistent. JSON Schema can enforce the shape of each member separately and cannot enforce that the two agree; this is the rule that makes them agree.","expression":{"operator":"field_starts_with_path","path":"$.profile_revision_ref","prefix":"mcp-gateway://","expected_path":"$.gateway_profile_id","strip_prefix":"mcp-gateway://","suffix":"/revision/"}},{"rule_id":"hypervisor_mcp_gateway_profile_v2.an_admitted_profile_names_its_admission","description":"Canon's rule is that a profile is issued AFTER its required admission, and the boolean member that says so is only as good as the decision and receipt it points at. An admitted profile with no decision ref or no receipt ref is a profile that asserts its own admission — the exact shape of claim this estate refuses everywhere else.","expression":{"operator":"non_empty_when_in","path":"$.admission_decision_ref","when_path":"$.status","values":["active","suspended","quarantined","expired","revoked"]}},{"rule_id":"hypervisor_mcp_gateway_profile_v2.an_admitted_profile_names_its_admission_receipt","description":"The receipt half of the same rule. A decision without a receipt is a record of intent; the receipt is what a relying party replays.","expression":{"operator":"non_empty_when_in","path":"$.admission_receipt_ref","when_path":"$.status","values":["active","suspended","quarantined","expired","revoked"]}},{"rule_id":"hypervisor_mcp_gateway_profile_v2.a_revoked_profile_names_its_revocation","description":"Revocation is an excluded lifecycle projection, which is exactly why it must carry its own ref: the content hash does not move when a profile is revoked, so the revocation ref is the only thing on the document that distinguishes a revoked profile from the active one it used to be.","expression":{"operator":"non_empty_when_in","path":"$.revocation_ref","when_path":"$.status","values":["revoked"]}},{"rule_id":"hypervisor_mcp_gateway_profile_v2.a_room_guest_names_the_room_that_admitted_it","description":"`admission_basis: room_guest` is a claim about WHERE the subject was admitted. Without the admission decision that admitted it, the basis is a word the profile chose for itself, and a subject with no room could carry it.","expression":{"operator":"non_empty_when_in","path":"$.room_admission_decision_ref","when_path":"$.admission_basis","values":["room_guest"]}},{"rule_id":"hypervisor_mcp_gateway_profile_v2.a_registered_worker_invocation_names_its_registration","description":"The other half of the same split: `registered_worker_invocation` without a worker registration ref is an unregistered worker calling itself registered.","expression":{"operator":"non_empty_when_in","path":"$.worker_registration_ref","when_path":"$.admission_basis","values":["registered_worker_invocation"]}},{"rule_id":"hypervisor_mcp_gateway_profile_v2.a_paired_local_harness_names_its_candidate_key","description":"A local-harness audience is admitted by a pairing proof, and the candidate public key is what binds the proof to the process that will call. An audience of `local_harness` with no candidate key is a pairing nobody can check.","expression":{"operator":"non_empty_when_in","path":"$.candidate_public_key_ref","when_path":"$.audience","values":["local_harness"]}},{"rule_id":"hypervisor_mcp_gateway_profile_v2.a_paired_local_harness_names_its_pairing_session","description":"And the session the key was presented in. Canon requires the pairing session envelope; without its ref the key is a key with no occasion.","expression":{"operator":"non_empty_when_in","path":"$.local_agent_pairing_session_ref","when_path":"$.audience","values":["local_harness"]}},{"rule_id":"hypervisor_mcp_gateway_profile_v2.exposed_tools_are_unique_by_wire_name","description":"The MCP tool name is the ONLY handle a consumer has on an exposed tool. Two entries under one name make the exposure manifest ambiguous at the exact point where it decides what a call resolves to, and the two may carry different risk classes, different backing revisions and different approval postures.","expression":{"operator":"array_unique_by_fields","fields":["mcp_tool_name"],"array_path":"$.exposed_tools"}},{"rule_id":"hypervisor_mcp_gateway_profile_v2.exposed_resources_are_unique_by_uri","description":"The same rule one primitive over: two resource entries under one URI would let a redaction policy and a lease requirement depend on which entry a reader happened to find first.","expression":{"operator":"array_unique_by_fields","fields":["mcp_resource_uri"],"array_path":"$.exposed_resources"}},{"rule_id":"hypervisor_mcp_gateway_profile_v2.the_builder_surface_names_the_invocation_it_runs_in","description":"`capability_construction_eval` is the one kind whose whole claim is equivalence with the native path FOR ONE INVOCATION. A builder profile with no invocation scope is scoped to every invocation the subject can reach, which is the widening the kind exists to prevent — and it is the member that makes the native-versus-MCP comparison a comparison of the same thing rather than of two runs.","expression":{"operator":"non_empty_when_in","path":"$.invocation_scope_refs","when_path":"$.profile_kind","values":["capability_construction_eval"]}}]"#),
 ];
 
 const CONTRACT_PATTERN_TRANSLATIONS: &[(&str, &str)] = &[
@@ -202682,6 +205105,10 @@ const CONTRACT_PATTERN_TRANSLATIONS: &[(&str, &str)] = &[
         r#"^(?:schema|profile)://[^\u{0009}-\u{000D}\u{0020}\u{00A0}\u{1680}\u{2000}-\u{200A}\u{2028}\u{2029}\u{202F}\u{205F}\u{3000}\u{FEFF}]{1,500}$"#,
     ),
     (
+        r#"^(?:scope:[A-Za-z0-9_.:-]{1,160}|(?:policy|grant)://[^ ]{1,480})$"#,
+        r#"^(?:scope:[A-Za-z0-9_.:-]{1,160}|(?:policy|grant)://[^ ]{1,480})$"#,
+    ),
+    (
         r#"^(?:scope:[^\s]{1,200}|policy://[^\s]{1,500})$"#,
         r#"^(?:scope:[^\u{0009}-\u{000D}\u{0020}\u{00A0}\u{1680}\u{2000}-\u{200A}\u{2028}\u{2029}\u{202F}\u{205F}\u{3000}\u{FEFF}]{1,200}|policy://[^\u{0009}-\u{000D}\u{0020}\u{00A0}\u{1680}\u{2000}-\u{200A}\u{2028}\u{2029}\u{202F}\u{205F}\u{3000}\u{FEFF}]{1,500})$"#,
     ),
@@ -203180,6 +205607,10 @@ const CONTRACT_PATTERN_TRANSLATIONS: &[(&str, &str)] = &[
     (
         r#"^[a-z][a-z0-9+.-]*://\S+$"#,
         r#"^[a-z][a-z0-9+.-]*://[^\u{0009}-\u{000D}\u{0020}\u{00A0}\u{1680}\u{2000}-\u{200A}\u{2028}\u{2029}\u{202F}\u{205F}\u{3000}\u{FEFF}]+$"#,
+    ),
+    (
+        r#"^[a-z][a-z0-9+._-]*://[^ ]{1,480}$"#,
+        r#"^[a-z][a-z0-9+._-]*://[^ ]{1,480}$"#,
     ),
     (
         r#"^[a-z][a-z0-9+._-]*://[^\s]{1,500}$"#,
@@ -204532,8 +206963,16 @@ const CONTRACT_PATTERN_TRANSLATIONS: &[(&str, &str)] = &[
         r#"^mapping://[a-z0-9][a-z0-9._-]{0,127}/revision/[1-9][0-9]{0,8}$"#,
     ),
     (
+        r#"^mcp-gateway-requirement://[^\s?#\\]{1,160}$"#,
+        r#"^mcp-gateway-requirement://[^\u{0009}-\u{000D}\u{0020}\u{00A0}\u{1680}\u{2000}-\u{200A}\u{2028}\u{2029}\u{202F}\u{205F}\u{3000}\u{FEFF}?#\\]{1,160}$"#,
+    ),
+    (
         r#"^mcp-gateway-requirement://[^\s?#\\]{1,160}/revision/sha256:[0-9a-f]{64}$"#,
         r#"^mcp-gateway-requirement://[^\u{0009}-\u{000D}\u{0020}\u{00A0}\u{1680}\u{2000}-\u{200A}\u{2028}\u{2029}\u{202F}\u{205F}\u{3000}\u{FEFF}?#\\]{1,160}/revision/sha256:[0-9a-f]{64}$"#,
+    ),
+    (
+        r#"^mcp-gateway://[^\s?#\\]{1,160}$"#,
+        r#"^mcp-gateway://[^\u{0009}-\u{000D}\u{0020}\u{00A0}\u{1680}\u{2000}-\u{200A}\u{2028}\u{2029}\u{202F}\u{205F}\u{3000}\u{FEFF}?#\\]{1,160}$"#,
     ),
     (
         r#"^mcp-gateway://[^\s?#\\]{1,160}/revision/sha256:[0-9a-f]{64}$"#,
@@ -205291,6 +207730,10 @@ const CONTRACT_PATTERN_TRANSLATIONS: &[(&str, &str)] = &[
     (
         r#"^scope:[A-Za-z0-9][A-Za-z0-9._:-]{0,190}$"#,
         r#"^scope:[A-Za-z0-9][A-Za-z0-9._:-]{0,190}$"#,
+    ),
+    (
+        r#"^scope:[A-Za-z0-9_.:-]{1,160}$"#,
+        r#"^scope:[A-Za-z0-9_.:-]{1,160}$"#,
     ),
     (
         r#"^scope:[^\s]{1,120}$"#,
@@ -208756,6 +211199,39 @@ mod tests {
     ("docs/architecture/_meta/schemas/fixtures/delegation-edge-v1/negative-claims-a-parent-it-does-not-belong-to.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/delegation-edge-v1/negative-claims-a-parent-it-does-not-belong-to.json"))),
     ("docs/architecture/_meta/schemas/fixtures/delegation-edge-v1/negative-topology-kind-canon-does-not-name.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/delegation-edge-v1/negative-topology-kind-canon-does-not-name.json"))),
     ("docs/architecture/_meta/schemas/fixtures/delegation-edge-v1/negative-unknown-field.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/delegation-edge-v1/negative-unknown-field.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/mcp-gateway-requirement-envelope-v1/positive-draft-requirement-may-still-be-incomplete.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/mcp-gateway-requirement-envelope-v1/positive-draft-requirement-may-still-be-incomplete.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/mcp-gateway-requirement-envelope-v1/positive-released-read-only-requirement.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/mcp-gateway-requirement-envelope-v1/positive-released-read-only-requirement.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/mcp-gateway-requirement-envelope-v1/negative-released-with-no-consumer-class.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/mcp-gateway-requirement-envelope-v1/negative-released-with-no-consumer-class.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/mcp-gateway-requirement-envelope-v1/negative-revision-belongs-to-another-family.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/mcp-gateway-requirement-envelope-v1/negative-revision-belongs-to-another-family.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/mcp-gateway-requirement-envelope-v1/negative-risk-ceiling-outside-the-canonical-ladder.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/mcp-gateway-requirement-envelope-v1/negative-risk-ceiling-outside-the-canonical-ladder.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/mcp-gateway-requirement-envelope-v1/negative-underscored-legacy-ref-scheme.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/mcp-gateway-requirement-envelope-v1/negative-underscored-legacy-ref-scheme.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/mcp-gateway-requirement-envelope-v1/negative-unknown-member.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/mcp-gateway-requirement-envelope-v1/negative-unknown-member.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/hypervisor-mcp-gateway-profile-v1/positive-discovery-readonly.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/hypervisor-mcp-gateway-profile-v1/positive-discovery-readonly.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/hypervisor-mcp-gateway-profile-v1/positive-paired-local-harness-proposal-only.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/hypervisor-mcp-gateway-profile-v1/positive-paired-local-harness-proposal-only.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/hypervisor-mcp-gateway-profile-v1/positive-revoked-profile-names-its-revocation.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/hypervisor-mcp-gateway-profile-v1/positive-revoked-profile-names-its-revocation.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/hypervisor-mcp-gateway-profile-v1/negative-active-profile-without-an-admission-decision.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/hypervisor-mcp-gateway-profile-v1/negative-active-profile-without-an-admission-decision.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/hypervisor-mcp-gateway-profile-v1/negative-discovery-readonly-exposing-an-approval-required-tool.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/hypervisor-mcp-gateway-profile-v1/negative-discovery-readonly-exposing-an-approval-required-tool.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/hypervisor-mcp-gateway-profile-v1/negative-discovery-readonly-exposing-an-effectful-tool.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/hypervisor-mcp-gateway-profile-v1/negative-discovery-readonly-exposing-an-effectful-tool.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/hypervisor-mcp-gateway-profile-v1/negative-exposed-resource-without-a-context-lease.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/hypervisor-mcp-gateway-profile-v1/negative-exposed-resource-without-a-context-lease.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/hypervisor-mcp-gateway-profile-v1/negative-local-harness-without-a-candidate-key.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/hypervisor-mcp-gateway-profile-v1/negative-local-harness-without-a-candidate-key.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/hypervisor-mcp-gateway-profile-v1/negative-not-issued-after-admission.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/hypervisor-mcp-gateway-profile-v1/negative-not-issued-after-admission.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/hypervisor-mcp-gateway-profile-v1/negative-prompt-only-posture-not-marked-proposal.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/hypervisor-mcp-gateway-profile-v1/negative-prompt-only-posture-not-marked-proposal.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/hypervisor-mcp-gateway-profile-v1/negative-prompt-only-posture-with-an-instrumented-lane.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/hypervisor-mcp-gateway-profile-v1/negative-prompt-only-posture-with-an-instrumented-lane.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/hypervisor-mcp-gateway-profile-v1/negative-registered-worker-without-a-registration.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/hypervisor-mcp-gateway-profile-v1/negative-registered-worker-without-a-registration.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/hypervisor-mcp-gateway-profile-v1/negative-revision-belongs-to-another-profile.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/hypervisor-mcp-gateway-profile-v1/negative-revision-belongs-to-another-profile.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/hypervisor-mcp-gateway-profile-v1/negative-revoked-without-a-revocation-ref.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/hypervisor-mcp-gateway-profile-v1/negative-revoked-without-a-revocation-ref.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/hypervisor-mcp-gateway-profile-v1/negative-room-guest-without-a-room-admission.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/hypervisor-mcp-gateway-profile-v1/negative-room-guest-without-a-room-admission.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/hypervisor-mcp-gateway-profile-v1/negative-two-exposed-tools-under-one-wire-name.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/hypervisor-mcp-gateway-profile-v1/negative-two-exposed-tools-under-one-wire-name.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/hypervisor-mcp-gateway-profile-v1/negative-underscored-legacy-ref-scheme.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/hypervisor-mcp-gateway-profile-v1/negative-underscored-legacy-ref-scheme.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/hypervisor-mcp-gateway-profile-v1/negative-unknown-member.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/hypervisor-mcp-gateway-profile-v1/negative-unknown-member.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/hypervisor-mcp-gateway-profile-v1/negative-v2-kind-in-a-v1-profile.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/hypervisor-mcp-gateway-profile-v1/negative-v2-kind-in-a-v1-profile.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/hypervisor-mcp-gateway-profile-v2/positive-source-neutral-builder.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/hypervisor-mcp-gateway-profile-v2/positive-source-neutral-builder.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/hypervisor-mcp-gateway-profile-v2/positive-v1-kind-discovery-readonly.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/hypervisor-mcp-gateway-profile-v2/positive-v1-kind-discovery-readonly.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/hypervisor-mcp-gateway-profile-v2/positive-v1-kind-paired-local-harness-proposal-only.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/hypervisor-mcp-gateway-profile-v2/positive-v1-kind-paired-local-harness-proposal-only.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/hypervisor-mcp-gateway-profile-v2/negative-builder-without-an-invocation-scope.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/hypervisor-mcp-gateway-profile-v2/negative-builder-without-an-invocation-scope.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/hypervisor-mcp-gateway-profile-v2/negative-unknown-kind.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/hypervisor-mcp-gateway-profile-v2/negative-unknown-kind.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/hypervisor-mcp-gateway-profile-v2/negative-unknown-member.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/hypervisor-mcp-gateway-profile-v2/negative-unknown-member.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/hypervisor-mcp-gateway-profile-v2/negative-v1-version-in-a-v2-document.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/hypervisor-mcp-gateway-profile-v2/negative-v1-version-in-a-v2-document.json"))),
     ];
     const RAW_STRING_DELIMITER_REGRESSION_SCHEMA: &str =
         r####"{"const":"schema-controlled\"###literal"}"####;
@@ -210469,6 +212945,21 @@ mod tests {
         },
         "schema://ioi/foundations/delegation-edge/v1" => {
             serde_json::from_value::<DelegationEdgeV1>(value.clone())
+                .map(|_| ())
+                .map_err(|error| error.to_string())
+        },
+        "schema://ioi/components/connectors-tools/mcp-gateway-requirement-envelope/v1" => {
+            serde_json::from_value::<McpGatewayRequirementEnvelopeV1>(value.clone())
+                .map(|_| ())
+                .map_err(|error| error.to_string())
+        },
+        "schema://ioi/components/connectors-tools/hypervisor-mcp-gateway-profile/v1" => {
+            serde_json::from_value::<HypervisorMcpGatewayProfileV1>(value.clone())
+                .map(|_| ())
+                .map_err(|error| error.to_string())
+        },
+        "schema://ioi/components/connectors-tools/hypervisor-mcp-gateway-profile/v2" => {
+            serde_json::from_value::<HypervisorMcpGatewayProfileV2>(value.clone())
                 .map(|_| ())
                 .map_err(|error| error.to_string())
         },
@@ -212188,6 +214679,21 @@ mod tests {
                 .map_err(|error| error.to_string())?;
             serde_json::to_value(projection).map_err(|error| error.to_string())
         },
+        "schema://ioi/components/connectors-tools/mcp-gateway-requirement-envelope/v1" => {
+            let projection = serde_json::from_value::<McpGatewayRequirementEnvelopeV1>(value.clone())
+                .map_err(|error| error.to_string())?;
+            serde_json::to_value(projection).map_err(|error| error.to_string())
+        },
+        "schema://ioi/components/connectors-tools/hypervisor-mcp-gateway-profile/v1" => {
+            let projection = serde_json::from_value::<HypervisorMcpGatewayProfileV1>(value.clone())
+                .map_err(|error| error.to_string())?;
+            serde_json::to_value(projection).map_err(|error| error.to_string())
+        },
+        "schema://ioi/components/connectors-tools/hypervisor-mcp-gateway-profile/v2" => {
+            let projection = serde_json::from_value::<HypervisorMcpGatewayProfileV2>(value.clone())
+                .map_err(|error| error.to_string())?;
+            serde_json::to_value(projection).map_err(|error| error.to_string())
+        },
             _ => Err(format!("unknown projection: {contract_id}")),
         }
     }
@@ -212324,8 +214830,8 @@ mod tests {
     fn golden_fixtures_match_generated_rust_contracts() {
         assert_eq!(
             ARCHITECTURE_CONTRACT_FIXTURES.len(),
-            1779,
-            "the registered golden corpus must remain the explicit 1779-fixture bar",
+            1812,
+            "the registered golden corpus must remain the explicit 1812-fixture bar",
         );
         for fixture in ARCHITECTURE_CONTRACT_FIXTURES {
             let body = FIXTURE_BODIES
@@ -212567,7 +215073,7 @@ mod tests {
 
     #[test]
     fn registered_ecma_pattern_translations_compile_and_match_whitespace() {
-        assert_eq!(CONTRACT_PATTERN_TRANSLATIONS.len(), 1083,);
+        assert_eq!(CONTRACT_PATTERN_TRANSLATIONS.len(), 1088,);
         for (ecma, translated) in CONTRACT_PATTERN_TRANSLATIONS {
             Regex::new(translated).unwrap_or_else(|error| panic!("{ecma}: {error}"));
         }

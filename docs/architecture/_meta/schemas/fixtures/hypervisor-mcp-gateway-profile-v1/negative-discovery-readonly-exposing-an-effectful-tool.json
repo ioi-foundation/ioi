@@ -1,0 +1,78 @@
+{
+  "schema_version": "ioi.hypervisor-mcp-gateway-profile.v1",
+  "gateway_profile_id": "mcp-gateway://project-auditor-readonly",
+  "profile_revision_ref": "mcp-gateway://project-auditor-readonly/revision/sha256:a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1",
+  "predecessor_profile_revision_ref": null,
+  "profile_content_hash": "sha256:b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2",
+  "resolved_requirement_revision_refs": [
+    "mcp-gateway-requirement://project-auditor/revision/sha256:c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3"
+  ],
+  "resolved_requirement_set_hash": "sha256:c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3",
+  "exposure_manifest_hash": "sha256:d4d4d4d4d4d4d4d4d4d4d4d4d4d4d4d4d4d4d4d4d4d4d4d4d4d4d4d4d4d4d4d4",
+  "display_name": "Project Auditor Read-only Gateway",
+  "audience": "external_agent",
+  "profile_kind": "discovery_readonly",
+  "subject_ref": "agent://external/runtime-auditor",
+  "local_agent_pairing_session_ref": null,
+  "candidate_public_key_ref": null,
+  "project_refs": [
+    "project://ioi"
+  ],
+  "session_refs": [],
+  "outcome_room_ref": null,
+  "room_participant_lease_ref": null,
+  "room_admission_decision_ref": null,
+  "worker_registration_ref": null,
+  "admission_basis": "not_applicable",
+  "invocation_scope_refs": [],
+  "pairing_execution_posture": "not_applicable",
+  "pairing_contribution_lane": "not_applicable",
+  "surface_refs": [
+    "surface://connectors-tools-mcp"
+  ],
+  "exposed_tools": [
+    {
+      "mcp_tool_name": "hypervisor.project.inspect",
+      "backing_contract_revision_ref": "tool://project.inspect/revision/1.0.0",
+      "backing_contract_content_hash": "sha256:a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1",
+      "contract_kind": "runtime_tool_contract",
+      "risk_class": "read",
+      "effect_class": "funds",
+      "readiness": "ready",
+      "dry_run_required": false,
+      "approval_required": false,
+      "authority_scopes_required": [
+        "scope:project.read"
+      ],
+      "receipt_obligations": [
+        "ToolExecutionReceipt"
+      ]
+    }
+  ],
+  "exposed_resources": [],
+  "exposed_prompt_import_contract_refs": [],
+  "elicitation_contract_refs": [],
+  "external_task_contract_refs": [],
+  "extension_application_refs": [],
+  "authority_client_ref": "wallet-client://auditor",
+  "origin_binding_ref": "origin://https.auditor.example",
+  "authority_scope_refs": [
+    "scope:project.read"
+  ],
+  "privacy_posture_ref": "privacy://redacted",
+  "budget_policy_ref": "policy://gateway-budget",
+  "rate_limit_ref": "policy://gateway-rate-limit",
+  "quarantine_policy_ref": "policy://gateway-quarantine",
+  "dependent_refs": [],
+  "issued_after_required_admission": true,
+  "prompt_only_proposal": false,
+  "expires_at": "2026-12-31T23:59:59Z",
+  "revocation_ref": null,
+  "quarantine_advisory_refs": [],
+  "status": "active",
+  "last_use_ref": null,
+  "manifest_ref": "mcp-manifest://project-auditor-readonly",
+  "admission_decision_ref": "decision://hypervisor/gateway/1",
+  "admission_receipt_ref": "receipt://hypervisor/gateway/1",
+  "receipt_refs": []
+}

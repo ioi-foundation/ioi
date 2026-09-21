@@ -1,0 +1,110 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "schema://ioi/components/connectors-tools/mcp-gateway-requirement-envelope/v1",
+  "title": "McpGatewayRequirementEnvelope",
+  "x-ioi-schema-version": "ioi.mcp-gateway-requirement.v1",
+  "description": "WHAT AN MCP CONSUMER WOULD NEED, DECLARED IMMUTABLY AND GRANTING NOTHING. A Package, an application-surface release, an adapter manifest or a System manifest references this envelope when MCP compatibility is itself a requirement of the thing being shipped. It is a CEILING and a shopping list, never an issuance: packaging the requirement creates no gateway profile and grants none of the scopes it names, and admission is what resolves it — to native capabilities, to service modules, to connectors, or to exactly one concrete gateway profile. That separation is enforced structurally as well as here: the System MANIFEST carries requirements under `mcp-gateway-requirement://` and the System GENESIS carries live profiles under `mcp-gateway://`, and the manifest schema does not admit the profile member at all. The released body and its content hash are immutable; registry lifecycle and status are excluded projections, and any change to the declared body is a successor revision. Owner: components/connectors-tools/contracts.md § MCP Gateway Requirement (M01.11, ADR 0055).",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "requirement_id",
+    "revision_ref",
+    "predecessor_revision_ref",
+    "content_hash",
+    "owner_ref",
+    "consumer_class_refs",
+    "required_runtime_tool_contract_refs",
+    "required_resource_projection_contract_refs",
+    "permitted_prompt_import_contract_refs",
+    "required_elicitation_contract_refs",
+    "external_task_compatibility_refs",
+    "extension_application_requirement_refs",
+    "maximum_risk_class",
+    "authority_scope_requirement_refs",
+    "privacy_budget_rate_and_retention_policy_refs",
+    "transport_and_protocol_compatibility_refs",
+    "allowed_override_schema_ref",
+    "provenance_and_evaluation_refs",
+    "registry_lifecycle_ref",
+    "registry_status"
+  ],
+  "properties": {
+    "schema_version": { "type": "string", "const": "ioi.mcp-gateway-requirement.v1" },
+    "requirement_id": { "$ref": "#/$defs/requirementId" },
+    "revision_ref": {
+      "$ref": "#/$defs/requirementRevisionRef",
+      "description": "The exact immutable revision. A consumer pins this plus `content_hash`, never the family id alone."
+    },
+    "predecessor_revision_ref": {
+      "anyOf": [{ "$ref": "#/$defs/requirementRevisionRef" }, { "type": "null" }],
+      "description": "Null only on the genesis revision. Any change to the declared body is a successor, so this is the whole lineage."
+    },
+    "content_hash": { "$ref": "#/$defs/sha256" },
+    "owner_ref": { "$ref": "#/$defs/ref" },
+    "consumer_class_refs": {
+      "type": "array",
+      "uniqueItems": true,
+      "maxItems": 64,
+      "items": { "$ref": "#/$defs/ref" },
+      "description": "Which classes of consumer this requirement is written for. An empty list is the claim that it is written for none, which admission will refuse — it is not a wildcard."
+    },
+    "required_runtime_tool_contract_refs": { "$ref": "#/$defs/refList" },
+    "required_resource_projection_contract_refs": { "$ref": "#/$defs/refList" },
+    "permitted_prompt_import_contract_refs": { "$ref": "#/$defs/refList" },
+    "required_elicitation_contract_refs": { "$ref": "#/$defs/refList" },
+    "external_task_compatibility_refs": { "$ref": "#/$defs/refList" },
+    "extension_application_requirement_refs": { "$ref": "#/$defs/refList" },
+    "maximum_risk_class": {
+      "$ref": "#/$defs/riskClass",
+      "description": "The CEILING a resolved profile may not exceed. It draws from the canonical risk-class ladder and defines no enum of its own."
+    },
+    "authority_scope_requirement_refs": {
+      "type": "array",
+      "uniqueItems": true,
+      "maxItems": 128,
+      "items": { "$ref": "#/$defs/scopeOrPolicyRef" },
+      "description": "Scopes the consumer WOULD need. Naming a scope here grants nothing: the profile that resolves this requirement is admitted separately and may resolve fewer."
+    },
+    "privacy_budget_rate_and_retention_policy_refs": { "$ref": "#/$defs/refList" },
+    "transport_and_protocol_compatibility_refs": { "$ref": "#/$defs/refList" },
+    "allowed_override_schema_ref": {
+      "anyOf": [{ "$ref": "#/$defs/ref" }, { "type": "null" }],
+      "description": "The closed shape of the only overrides a consumer may propose at resolution. Null means no override is admissible, which is the safe default and not an absence of policy."
+    },
+    "provenance_and_evaluation_refs": { "$ref": "#/$defs/refList" },
+    "registry_lifecycle_ref": { "$ref": "#/$defs/ref" },
+    "registry_status": {
+      "type": "string",
+      "enum": ["draft", "released", "deprecated", "revoked"],
+      "description": "An EXCLUDED projection: it is not part of `content_hash`, because a status change must not mint a new identity for an unchanged body."
+    }
+  },
+  "$defs": {
+    "sha256": { "type": "string", "pattern": "^sha256:[0-9a-f]{64}$" },
+    "ref": { "type": "string", "pattern": "^[a-z][a-z0-9+.-]*://[^ ]{1,480}$" },
+    "refList": { "type": "array", "uniqueItems": true, "maxItems": 256, "items": { "$ref": "#/$defs/ref" } },
+    "scopeOrPolicyRef": { "type": "string", "pattern": "^(?:scope:[A-Za-z0-9_.:-]{1,160}|(?:policy|grant)://[^ ]{1,480})$" },
+    "requirementId": { "type": "string", "pattern": "^mcp-gateway-requirement://[^\\s?#\\\\]{1,160}$" },
+    "requirementRevisionRef": { "type": "string", "pattern": "^mcp-gateway-requirement://[^\\s?#\\\\]{1,160}/revision/sha256:[0-9a-f]{64}$" },
+    "riskClass": {
+      "type": "string",
+      "description": "The canonical ladder from foundations/canonical-enums.md § Risk Classes, lowest to highest required assurance, plus the peer top-tier class `physical_action` that sits outside the monotonic ladder and carries the Physical Action Safety envelope. This enum is a COPY of that ladder and defines nothing of its own; a member added there is added here.",
+      "enum": [
+        "read",
+        "draft",
+        "local_write",
+        "write_reversible",
+        "external_message",
+        "commerce",
+        "funds",
+        "credential_access",
+        "policy_widening",
+        "secret_export",
+        "identity_change",
+        "system_destructive",
+        "physical_action"
+      ]
+    }
+  }
+}

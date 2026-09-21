@@ -19975,6 +19975,243 @@
           "expected_failure": "schema"
         }
       ]
+    },
+    {
+      "contract_id": "schema://ioi/components/connectors-tools/mcp-gateway-requirement-envelope/v1",
+      "canonical_name": "McpGatewayRequirementEnvelope",
+      "canonical_owner_ref": "canon://docs/architecture/components/connectors-tools/contracts.md#mcp-gateway-requirement",
+      "schema_version": "ioi.mcp-gateway-requirement.v1",
+      "maturity": "partial",
+      "stability": "provisional",
+      "wire_format": "json",
+      "canonical_encoding_profile_ref": "encoding-profile://ioi/jcs-json/v1",
+      "evolution": {
+        "successor_of": null,
+        "successor_contract_id": null,
+        "compatibility": "initial",
+        "migration_policy": "none",
+        "predecessor_remains_valid": false,
+        "wire_mutation_policy": "forbidden",
+        "hash_impact": "signature_preimage_changed"
+      },
+      "schema_ref": "mcp-gateway-requirement-envelope.v1.schema.json",
+      "cross_field_invariant_refs": [
+        {
+          "invariant_id": "invariant://ioi/components/connectors-tools/mcp-gateway-requirement-envelope/declares-a-ceiling-and-grants-nothing/v1",
+          "path": "invariants/mcp-gateway-requirement-envelope.v1.invariants.json"
+        }
+      ],
+      "compatibility_aliases": [],
+      "generated_targets": [
+        {
+          "kind": "typescript_projection",
+          "path": "packages/hypervisor-workbench/src/runtime/generated/architecture-contracts.ts",
+          "symbol": "McpGatewayRequirementEnvelopeV1"
+        },
+        {
+          "kind": "rust_projection",
+          "path": "crates/types/src/app/generated/architecture_contracts.rs",
+          "symbol": "McpGatewayRequirementEnvelopeV1"
+        }
+      ],
+      "positive_fixture_refs": [
+        "fixtures/mcp-gateway-requirement-envelope-v1/positive-draft-requirement-may-still-be-incomplete.json",
+        "fixtures/mcp-gateway-requirement-envelope-v1/positive-released-read-only-requirement.json"
+      ],
+      "negative_fixture_refs": [
+        {
+          "path": "fixtures/mcp-gateway-requirement-envelope-v1/negative-released-with-no-consumer-class.json",
+          "expected_failure": "invariant"
+        },
+        {
+          "path": "fixtures/mcp-gateway-requirement-envelope-v1/negative-revision-belongs-to-another-family.json",
+          "expected_failure": "invariant"
+        },
+        {
+          "path": "fixtures/mcp-gateway-requirement-envelope-v1/negative-risk-ceiling-outside-the-canonical-ladder.json",
+          "expected_failure": "schema"
+        },
+        {
+          "path": "fixtures/mcp-gateway-requirement-envelope-v1/negative-underscored-legacy-ref-scheme.json",
+          "expected_failure": "schema"
+        },
+        {
+          "path": "fixtures/mcp-gateway-requirement-envelope-v1/negative-unknown-member.json",
+          "expected_failure": "schema"
+        }
+      ]
+    },
+    {
+      "contract_id": "schema://ioi/components/connectors-tools/hypervisor-mcp-gateway-profile/v1",
+      "canonical_name": "HypervisorMcpGatewayProfile",
+      "canonical_owner_ref": "canon://docs/architecture/components/connectors-tools/contracts.md#hypervisor-mcp-gateway-profile",
+      "schema_version": "ioi.hypervisor-mcp-gateway-profile.v1",
+      "maturity": "partial",
+      "stability": "provisional",
+      "wire_format": "json",
+      "canonical_encoding_profile_ref": "encoding-profile://ioi/jcs-json/v1",
+      "evolution": {
+        "successor_of": null,
+        "successor_contract_id": "schema://ioi/components/connectors-tools/hypervisor-mcp-gateway-profile/v2",
+        "compatibility": "initial",
+        "migration_policy": "successor_revision",
+        "predecessor_remains_valid": true,
+        "wire_mutation_policy": "forbidden",
+        "hash_impact": "signature_preimage_changed"
+      },
+      "schema_ref": "hypervisor-mcp-gateway-profile.v1.schema.json",
+      "cross_field_invariant_refs": [
+        {
+          "invariant_id": "invariant://ioi/components/connectors-tools/hypervisor-mcp-gateway-profile/binds-one-subject-and-use/v1",
+          "path": "invariants/hypervisor-mcp-gateway-profile.v1.invariants.json"
+        }
+      ],
+      "compatibility_aliases": [],
+      "generated_targets": [
+        {
+          "kind": "typescript_projection",
+          "path": "packages/hypervisor-workbench/src/runtime/generated/architecture-contracts.ts",
+          "symbol": "HypervisorMcpGatewayProfileV1"
+        },
+        {
+          "kind": "rust_projection",
+          "path": "crates/types/src/app/generated/architecture_contracts.rs",
+          "symbol": "HypervisorMcpGatewayProfileV1"
+        }
+      ],
+      "positive_fixture_refs": [
+        "fixtures/hypervisor-mcp-gateway-profile-v1/positive-discovery-readonly.json",
+        "fixtures/hypervisor-mcp-gateway-profile-v1/positive-paired-local-harness-proposal-only.json",
+        "fixtures/hypervisor-mcp-gateway-profile-v1/positive-revoked-profile-names-its-revocation.json"
+      ],
+      "negative_fixture_refs": [
+        {
+          "path": "fixtures/hypervisor-mcp-gateway-profile-v1/negative-active-profile-without-an-admission-decision.json",
+          "expected_failure": "schema"
+        },
+        {
+          "path": "fixtures/hypervisor-mcp-gateway-profile-v1/negative-discovery-readonly-exposing-an-approval-required-tool.json",
+          "expected_failure": "schema"
+        },
+        {
+          "path": "fixtures/hypervisor-mcp-gateway-profile-v1/negative-discovery-readonly-exposing-an-effectful-tool.json",
+          "expected_failure": "schema"
+        },
+        {
+          "path": "fixtures/hypervisor-mcp-gateway-profile-v1/negative-exposed-resource-without-a-context-lease.json",
+          "expected_failure": "schema"
+        },
+        {
+          "path": "fixtures/hypervisor-mcp-gateway-profile-v1/negative-local-harness-without-a-candidate-key.json",
+          "expected_failure": "invariant"
+        },
+        {
+          "path": "fixtures/hypervisor-mcp-gateway-profile-v1/negative-not-issued-after-admission.json",
+          "expected_failure": "schema"
+        },
+        {
+          "path": "fixtures/hypervisor-mcp-gateway-profile-v1/negative-prompt-only-posture-not-marked-proposal.json",
+          "expected_failure": "schema"
+        },
+        {
+          "path": "fixtures/hypervisor-mcp-gateway-profile-v1/negative-prompt-only-posture-with-an-instrumented-lane.json",
+          "expected_failure": "schema"
+        },
+        {
+          "path": "fixtures/hypervisor-mcp-gateway-profile-v1/negative-registered-worker-without-a-registration.json",
+          "expected_failure": "invariant"
+        },
+        {
+          "path": "fixtures/hypervisor-mcp-gateway-profile-v1/negative-revision-belongs-to-another-profile.json",
+          "expected_failure": "invariant"
+        },
+        {
+          "path": "fixtures/hypervisor-mcp-gateway-profile-v1/negative-revoked-without-a-revocation-ref.json",
+          "expected_failure": "invariant"
+        },
+        {
+          "path": "fixtures/hypervisor-mcp-gateway-profile-v1/negative-room-guest-without-a-room-admission.json",
+          "expected_failure": "invariant"
+        },
+        {
+          "path": "fixtures/hypervisor-mcp-gateway-profile-v1/negative-two-exposed-tools-under-one-wire-name.json",
+          "expected_failure": "invariant"
+        },
+        {
+          "path": "fixtures/hypervisor-mcp-gateway-profile-v1/negative-underscored-legacy-ref-scheme.json",
+          "expected_failure": "schema"
+        },
+        {
+          "path": "fixtures/hypervisor-mcp-gateway-profile-v1/negative-unknown-member.json",
+          "expected_failure": "schema"
+        },
+        {
+          "path": "fixtures/hypervisor-mcp-gateway-profile-v1/negative-v2-kind-in-a-v1-profile.json",
+          "expected_failure": "schema"
+        }
+      ]
+    },
+    {
+      "contract_id": "schema://ioi/components/connectors-tools/hypervisor-mcp-gateway-profile/v2",
+      "canonical_name": "HypervisorMcpGatewayProfile",
+      "canonical_owner_ref": "canon://docs/architecture/components/connectors-tools/contracts.md#profile-versions-and-the-source-neutral-builder-kind",
+      "schema_version": "ioi.hypervisor-mcp-gateway-profile.v2",
+      "maturity": "partial",
+      "stability": "provisional",
+      "wire_format": "json",
+      "canonical_encoding_profile_ref": "encoding-profile://ioi/jcs-json/v1",
+      "evolution": {
+        "successor_of": "schema://ioi/components/connectors-tools/hypervisor-mcp-gateway-profile/v1",
+        "successor_contract_id": null,
+        "compatibility": "additive",
+        "migration_policy": "successor_revision",
+        "predecessor_remains_valid": true,
+        "wire_mutation_policy": "forbidden",
+        "hash_impact": "signature_preimage_changed"
+      },
+      "schema_ref": "hypervisor-mcp-gateway-profile.v2.schema.json",
+      "cross_field_invariant_refs": [
+        {
+          "invariant_id": "invariant://ioi/components/connectors-tools/hypervisor-mcp-gateway-profile/binds-one-subject-and-use/v2",
+          "path": "invariants/hypervisor-mcp-gateway-profile.v2.invariants.json"
+        }
+      ],
+      "compatibility_aliases": [],
+      "generated_targets": [
+        {
+          "kind": "typescript_projection",
+          "path": "packages/hypervisor-workbench/src/runtime/generated/architecture-contracts.ts",
+          "symbol": "HypervisorMcpGatewayProfileV2"
+        },
+        {
+          "kind": "rust_projection",
+          "path": "crates/types/src/app/generated/architecture_contracts.rs",
+          "symbol": "HypervisorMcpGatewayProfileV2"
+        }
+      ],
+      "positive_fixture_refs": [
+        "fixtures/hypervisor-mcp-gateway-profile-v2/positive-source-neutral-builder.json",
+        "fixtures/hypervisor-mcp-gateway-profile-v2/positive-v1-kind-discovery-readonly.json",
+        "fixtures/hypervisor-mcp-gateway-profile-v2/positive-v1-kind-paired-local-harness-proposal-only.json"
+      ],
+      "negative_fixture_refs": [
+        {
+          "path": "fixtures/hypervisor-mcp-gateway-profile-v2/negative-builder-without-an-invocation-scope.json",
+          "expected_failure": "schema"
+        },
+        {
+          "path": "fixtures/hypervisor-mcp-gateway-profile-v2/negative-unknown-kind.json",
+          "expected_failure": "schema"
+        },
+        {
+          "path": "fixtures/hypervisor-mcp-gateway-profile-v2/negative-unknown-member.json",
+          "expected_failure": "schema"
+        },
+        {
+          "path": "fixtures/hypervisor-mcp-gateway-profile-v2/negative-v1-version-in-a-v2-document.json",
+          "expected_failure": "schema"
+        }
+      ]
     }
   ]
 }

@@ -3163,7 +3163,7 @@ secrets, provider tokens, or private payloads.
   "receipt_id": "receipt://authority_client_123",
   "receipt_type": "authority_client_registration | authority_client_use | authority_client_denial | authority_client_revocation | authority_client_rotation | authority_client_quarantine | mcp_gateway_profile_quarantine | blast_radius_report",
   "authority_client_ref": "wallet-client://...",
-  "gateway_profile_ref": "mcp_gateway://... | null",
+  "gateway_profile_ref": "mcp-gateway://... | null",
   "origin_binding_ref": "origin://... | null",
   "grant_refs": ["grant://..."],
   "lease_refs": ["lease://..."],

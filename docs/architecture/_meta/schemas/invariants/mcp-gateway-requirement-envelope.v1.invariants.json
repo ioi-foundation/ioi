@@ -1,0 +1,39 @@
+{
+  "$id": "invariant://ioi/components/connectors-tools/mcp-gateway-requirement-envelope/declares-a-ceiling-and-grants-nothing/v1",
+  "language": "ioi.portable-invariants.v1",
+  "contract_id": "schema://ioi/components/connectors-tools/mcp-gateway-requirement-envelope/v1",
+  "rules": [
+    {
+      "rule_id": "mcp_gateway_requirement_envelope.revision_belongs_to_its_own_family",
+      "description": "The revision ref is this requirement's own id plus a revision. A revision filed under another family's id is how a consumer pins requirement A and resolves requirement B's ceiling — and both documents look correct in isolation, which is why the schema cannot catch it and this rule must.",
+      "expression": {
+        "operator": "field_starts_with_path",
+        "path": "$.revision_ref",
+        "prefix": "mcp-gateway-requirement://",
+        "expected_path": "$.requirement_id",
+        "strip_prefix": "mcp-gateway-requirement://",
+        "suffix": "/revision/"
+      }
+    },
+    {
+      "rule_id": "mcp_gateway_requirement_envelope.a_released_requirement_names_the_consumers_it_is_written_for",
+      "description": "A released requirement with no consumer class is a ceiling for nobody, and the natural reading of 'nobody' at an admission boundary is 'anybody'. A draft may still be incomplete; a released one may not.",
+      "expression": {
+        "operator": "non_empty_when_in",
+        "path": "$.consumer_class_refs",
+        "when_path": "$.registry_status",
+        "values": ["released", "deprecated"]
+      }
+    },
+    {
+      "rule_id": "mcp_gateway_requirement_envelope.a_released_requirement_names_its_registry_lifecycle",
+      "description": "Status is an EXCLUDED projection — it does not enter the content hash — so the lifecycle ref is what ties a status to a record somewhere that can be read back. Without it, `released` is a word the document applied to itself.",
+      "expression": {
+        "operator": "non_empty_when_in",
+        "path": "$.registry_lifecycle_ref",
+        "when_path": "$.registry_status",
+        "values": ["released", "deprecated", "revoked"]
+      }
+    }
+  ]
+}

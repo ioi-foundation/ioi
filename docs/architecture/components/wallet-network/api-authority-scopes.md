@@ -1679,7 +1679,7 @@ Client session example:
   "authority_scope_refs": ["scope:project.read"],
   "active_grant_refs": ["grant://project-read/123"],
   "active_lease_refs": ["lease://project-read/456"],
-  "gateway_profile_refs": ["mcp_gateway://project-auditor-readonly"],
+  "gateway_profile_refs": ["mcp-gateway://project-auditor-readonly"],
   "connector_refs": ["connector://github"],
   "risk_ceiling": "funds | deploy | secret_export | policy_widening",
   "last_use_at": "2026-06-20T12:45:00Z",

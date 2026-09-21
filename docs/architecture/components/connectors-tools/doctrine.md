@@ -163,10 +163,26 @@ receipts_replay_proof
   and proof/settlement drilldowns
 ```
 
+The v2 successor adds one kind to that closed set and changes nothing else:
+
+```
+capability_construction_eval
+  the source-neutral builder surface: an external builder invocation reaching
+  the same contract resolution, final invoker and receipt obligations as the
+  native call, bound to one exact subject, key, origin, basis, project, session
+  and invocation. It trains nothing and reads no first-party corpus, which is
+  what keeps it distinct from foundry_eval_training rather than a widening of it
+```
+
+Versions never fall back to one another: a v1 profile refuses a v2 reader and a
+v2 profile refuses a v1 reader, because a version boundary that degrades
+gracefully is one that grants silently (ADR 0055).
+
 Packages, application-surface releases, adapter manifests, and System manifests
 may carry immutable `MCPGatewayRequirementEnvelope` refs when MCP compatibility
-is specifically required. GoalRunProfiles, WorkflowTemplates, and
-SkillManifests remain transport-neutral and declare semantic capabilities,
+is specifically required. WorkflowTemplates, SkillManifests and the pursuit
+profiles owned by orchestration applications composed on this Hypervisor remain
+transport-neutral and declare semantic capabilities,
 tools, resources, context, and input contracts instead. The concrete
 Hypervisor MCP Gateway profile is created later for one admitted subject and use, freezes
 the resolved requirement set and exposure-manifest hashes, and binds scope,
@@ -181,8 +197,8 @@ Protocol objects stay subordinate to canonical IOI owners: tools normalize to
 projections under `ContextLease`; prompts to untrusted import inputs;
 elicitation to typed user input with separate wallet approval when authority is
 required; tasks to opaque handles on `HarnessInvocation`; and Apps to sandboxed
-`extension_application` surfaces. An MCP server session or task is never
-GoalRun, WorkRun, authority, state-root, or receipt truth. The field-level
+`extension_application` surfaces. An MCP server session or task is never a run
+identity, a WorkRun, authority, state-root, or receipt truth. The field-level
 mapping is owned by [`contracts.md`](./contracts.md#mcp-normalization-boundary).
 
 Every gateway-exposed MCP tool must declare the backing contract ref, profile,

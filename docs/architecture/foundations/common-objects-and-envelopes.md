@@ -592,7 +592,7 @@ origin://...            authority-client origin binding identity
 device://...            authority-client, guardian, or enrolled device identity
 key://...               public key, signing key, or key material metadata ref
 lease://...             capability lease or short-lived authority lease ref
-mcp_gateway://...       Hypervisor MCP Gateway profile identity
+mcp-gateway://...       Hypervisor MCP Gateway profile identity
 mcp-gateway-requirement://... immutable gateway capability and exposure requirement identity
 connector://...         connector or external-system adapter identity
 tool://...              typed tool or tool contract identity

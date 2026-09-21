@@ -1,0 +1,514 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "schema://ioi/components/connectors-tools/hypervisor-mcp-gateway-profile/v1",
+  "title": "HypervisorMcpGatewayProfileV1",
+  "x-ioi-schema-version": "ioi.hypervisor-mcp-gateway-profile.v1",
+  "description": "WHAT ONE MCP CONSUMER MAY DISCOVER, PREVIEW, PROPOSE OR EXECUTE \u2014 the contract that limits an outward gateway to one subject and one use. A profile grants no authority by itself: it BINDS an exposure manifest to wallet.network authority clients, daemon admission, policy and receipt obligations, and every effectful call still crosses at its owner's gateway. The admitted revision FREEZES its resolved requirement set, exposure manifest, subject, scope, policies and expiry. Status, revocation, quarantine advisories and last-use are EXCLUDED projections that bind the already-computed `profile_content_hash` rather than entering it, and they \u2014 like upstream policy, lease and connector state \u2014 may only REDUCE effective access. Any change to the declared body is a successor revision, and widening tools, resources, scopes, subjects, projects, sessions, risk ceiling, budget, retention or expiry additionally repeats admission. The seven profile kinds here are the v1 closed set and do not change; the v2 successor adds `capability_construction_eval` and nothing else, and the two versions refuse each other in both directions (ADR 0055). Owner: components/connectors-tools/contracts.md \u00a7 Hypervisor MCP Gateway Profile (M01.11).",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "gateway_profile_id",
+    "profile_revision_ref",
+    "predecessor_profile_revision_ref",
+    "profile_content_hash",
+    "resolved_requirement_revision_refs",
+    "resolved_requirement_set_hash",
+    "exposure_manifest_hash",
+    "display_name",
+    "audience",
+    "profile_kind",
+    "subject_ref",
+    "admission_basis",
+    "surface_refs",
+    "exposed_tools",
+    "exposed_resources",
+    "authority_client_ref",
+    "origin_binding_ref",
+    "authority_scope_refs",
+    "privacy_posture_ref",
+    "budget_policy_ref",
+    "rate_limit_ref",
+    "quarantine_policy_ref",
+    "issued_after_required_admission",
+    "prompt_only_proposal",
+    "expires_at",
+    "status",
+    "manifest_ref",
+    "admission_decision_ref",
+    "admission_receipt_ref"
+  ],
+  "properties": {
+    "schema_version": {
+      "type": "string",
+      "const": "ioi.hypervisor-mcp-gateway-profile.v1"
+    },
+    "gateway_profile_id": {
+      "$ref": "#/$defs/profileId"
+    },
+    "profile_revision_ref": {
+      "$ref": "#/$defs/profileRevisionRef"
+    },
+    "predecessor_profile_revision_ref": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/profileRevisionRef"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "description": "Null only on the genesis revision. A narrowed successor and a widened successor are both successors; only the widened one repeats admission."
+    },
+    "profile_content_hash": {
+      "$ref": "#/$defs/sha256"
+    },
+    "resolved_requirement_revision_refs": {
+      "type": "array",
+      "uniqueItems": true,
+      "maxItems": 128,
+      "items": {
+        "$ref": "#/$defs/requirementRevisionRef"
+      },
+      "description": "The exact immutable requirement revisions this profile resolves. Resolving is an evaluation of a declared ceiling against one proposed use; the requirement issued nothing."
+    },
+    "resolved_requirement_set_hash": {
+      "$ref": "#/$defs/sha256"
+    },
+    "exposure_manifest_hash": {
+      "$ref": "#/$defs/sha256",
+      "description": "Frozen at admission over the exposed tool, resource, prompt, elicitation, task and App sets. A consumer that computes a different hash over what it was served has been served something else."
+    },
+    "display_name": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 200
+    },
+    "audience": {
+      "type": "string",
+      "enum": [
+        "external_agent",
+        "ci_agent",
+        "marketplace_worker",
+        "enterprise_agent",
+        "local_harness"
+      ]
+    },
+    "profile_kind": {
+      "type": "string",
+      "description": "The v1 closed set of seven. `capability_construction_eval` is v2's and is refused here by name rather than ignored.",
+      "enum": [
+        "discovery_readonly",
+        "project_session",
+        "connector_preview",
+        "operator_proposal",
+        "effectful_approved",
+        "foundry_eval_training",
+        "receipts_replay_proof"
+      ]
+    },
+    "subject_ref": {
+      "$ref": "#/$defs/ref"
+    },
+    "local_agent_pairing_session_ref": {
+      "$ref": "#/$defs/nullableRef"
+    },
+    "candidate_public_key_ref": {
+      "$ref": "#/$defs/nullableRef"
+    },
+    "project_refs": {
+      "$ref": "#/$defs/refList"
+    },
+    "session_refs": {
+      "$ref": "#/$defs/refList"
+    },
+    "outcome_room_ref": {
+      "$ref": "#/$defs/nullableRef"
+    },
+    "room_participant_lease_ref": {
+      "$ref": "#/$defs/nullableRef"
+    },
+    "room_admission_decision_ref": {
+      "$ref": "#/$defs/nullableRef"
+    },
+    "worker_registration_ref": {
+      "$ref": "#/$defs/nullableRef"
+    },
+    "admission_basis": {
+      "type": "string",
+      "enum": [
+        "not_applicable",
+        "room_guest",
+        "registered_worker_invocation"
+      ]
+    },
+    "invocation_scope_refs": {
+      "$ref": "#/$defs/refList"
+    },
+    "pairing_execution_posture": {
+      "type": "string",
+      "enum": [
+        "not_applicable",
+        "instrumented_adapter",
+        "prompt_only"
+      ]
+    },
+    "pairing_contribution_lane": {
+      "type": "string",
+      "enum": [
+        "not_applicable",
+        "instrumented_candidate",
+        "proposal_only"
+      ]
+    },
+    "surface_refs": {
+      "$ref": "#/$defs/refList"
+    },
+    "exposed_tools": {
+      "type": "array",
+      "maxItems": 512,
+      "items": {
+        "$ref": "#/$defs/exposedTool"
+      },
+      "description": "An empty list is a real and common posture \u2014 a profile that exposes no tool. It is not a wildcard."
+    },
+    "exposed_resources": {
+      "type": "array",
+      "maxItems": 512,
+      "items": {
+        "$ref": "#/$defs/exposedResource"
+      }
+    },
+    "exposed_prompt_import_contract_refs": {
+      "$ref": "#/$defs/refList"
+    },
+    "elicitation_contract_refs": {
+      "$ref": "#/$defs/refList"
+    },
+    "external_task_contract_refs": {
+      "$ref": "#/$defs/refList"
+    },
+    "extension_application_refs": {
+      "$ref": "#/$defs/refList"
+    },
+    "authority_client_ref": {
+      "$ref": "#/$defs/ref"
+    },
+    "origin_binding_ref": {
+      "$ref": "#/$defs/ref"
+    },
+    "authority_scope_refs": {
+      "type": "array",
+      "uniqueItems": true,
+      "maxItems": 128,
+      "items": {
+        "$ref": "#/$defs/scopeRef"
+      }
+    },
+    "privacy_posture_ref": {
+      "$ref": "#/$defs/ref"
+    },
+    "budget_policy_ref": {
+      "$ref": "#/$defs/ref"
+    },
+    "rate_limit_ref": {
+      "$ref": "#/$defs/ref"
+    },
+    "quarantine_policy_ref": {
+      "$ref": "#/$defs/ref"
+    },
+    "dependent_refs": {
+      "$ref": "#/$defs/refList"
+    },
+    "issued_after_required_admission": {
+      "type": "boolean",
+      "const": true,
+      "description": "A profile that was not issued after its required admission is not a profile. The member exists so the claim is on the wire and hashed, not implied by the record's presence."
+    },
+    "prompt_only_proposal": {
+      "type": "boolean"
+    },
+    "expires_at": {
+      "type": "string",
+      "format": "date-time",
+      "pattern": "^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$"
+    },
+    "revocation_ref": {
+      "$ref": "#/$defs/nullableRef"
+    },
+    "quarantine_advisory_refs": {
+      "$ref": "#/$defs/refList"
+    },
+    "status": {
+      "type": "string",
+      "enum": [
+        "active",
+        "expired",
+        "suspended",
+        "quarantined",
+        "revoked"
+      ],
+      "description": "An EXCLUDED lifecycle projection. It binds the already-computed content hash rather than entering it, and it may only reduce effective access."
+    },
+    "last_use_ref": {
+      "$ref": "#/$defs/nullableRef"
+    },
+    "manifest_ref": {
+      "$ref": "#/$defs/ref"
+    },
+    "admission_decision_ref": {
+      "$ref": "#/$defs/ref"
+    },
+    "admission_receipt_ref": {
+      "$ref": "#/$defs/ref"
+    },
+    "receipt_refs": {
+      "$ref": "#/$defs/refList"
+    }
+  },
+  "allOf": [
+    {
+      "if": {
+        "type": "object",
+        "properties": {
+          "pairing_execution_posture": {
+            "type": "string",
+            "const": "prompt_only"
+          }
+        },
+        "required": [
+          "pairing_execution_posture"
+        ]
+      },
+      "then": {
+        "type": "object",
+        "description": "A prompt-only pairing may only ever propose. The contribution lane and the proposal flag are not independent of the posture, and letting them drift is how a prompt-only harness acquires an instrumented lane.",
+        "properties": {
+          "pairing_contribution_lane": {
+            "type": "string",
+            "const": "proposal_only"
+          },
+          "prompt_only_proposal": {
+            "type": "boolean",
+            "const": true
+          }
+        },
+        "required": [
+          "pairing_contribution_lane",
+          "prompt_only_proposal"
+        ]
+      }
+    },
+    {
+      "if": {
+        "type": "object",
+        "properties": {
+          "profile_kind": {
+            "type": "string",
+            "const": "discovery_readonly"
+          }
+        },
+        "required": [
+          "profile_kind"
+        ]
+      },
+      "then": {
+        "type": "object",
+        "description": "A read-only discovery profile that exposed an approval-requiring or effectful tool would be a contradiction admitted in writing.",
+        "properties": {
+          "exposed_tools": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "approval_required": {
+                  "type": "boolean",
+                  "const": false
+                },
+                "effect_class": {
+                  "type": "string",
+                  "enum": [
+                    "read",
+                    "draft"
+                  ]
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  ],
+  "$defs": {
+    "sha256": {
+      "type": "string",
+      "pattern": "^sha256:[0-9a-f]{64}$"
+    },
+    "ref": {
+      "type": "string",
+      "pattern": "^[a-z][a-z0-9+._-]*://[^ ]{1,480}$"
+    },
+    "nullableRef": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/ref"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "refList": {
+      "type": "array",
+      "uniqueItems": true,
+      "maxItems": 256,
+      "items": {
+        "$ref": "#/$defs/ref"
+      }
+    },
+    "scopeRef": {
+      "type": "string",
+      "pattern": "^scope:[A-Za-z0-9_.:-]{1,160}$"
+    },
+    "profileId": {
+      "type": "string",
+      "pattern": "^mcp-gateway://[^\\s?#\\\\]{1,160}$"
+    },
+    "profileRevisionRef": {
+      "type": "string",
+      "pattern": "^mcp-gateway://[^\\s?#\\\\]{1,160}/revision/sha256:[0-9a-f]{64}$"
+    },
+    "requirementRevisionRef": {
+      "type": "string",
+      "pattern": "^mcp-gateway-requirement://[^\\s?#\\\\]{1,160}/revision/sha256:[0-9a-f]{64}$"
+    },
+    "riskClass": {
+      "type": "string",
+      "description": "A copy of the canonical ladder in foundations/canonical-enums.md \u00a7 Risk Classes, plus the peer top-tier `physical_action`.",
+      "enum": [
+        "read",
+        "draft",
+        "local_write",
+        "write_reversible",
+        "external_message",
+        "commerce",
+        "funds",
+        "credential_access",
+        "policy_widening",
+        "secret_export",
+        "identity_change",
+        "system_destructive",
+        "physical_action"
+      ]
+    },
+    "exposedTool": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "mcp_tool_name",
+        "backing_contract_revision_ref",
+        "backing_contract_content_hash",
+        "contract_kind",
+        "risk_class",
+        "effect_class",
+        "readiness",
+        "dry_run_required",
+        "approval_required",
+        "authority_scopes_required",
+        "receipt_obligations"
+      ],
+      "description": "One exposed tool, bound to the EXACT backing contract revision and its content hash. A tool named without both is a tool nobody can check, and the name it carries on the wire is the consumer's only handle on it.",
+      "properties": {
+        "mcp_tool_name": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 200
+        },
+        "backing_contract_revision_ref": {
+          "$ref": "#/$defs/ref"
+        },
+        "backing_contract_content_hash": {
+          "$ref": "#/$defs/sha256"
+        },
+        "contract_kind": {
+          "type": "string",
+          "enum": [
+            "runtime_tool_contract",
+            "surface_mcp_contract",
+            "operator_plane_contract"
+          ]
+        },
+        "risk_class": {
+          "$ref": "#/$defs/riskClass"
+        },
+        "effect_class": {
+          "$ref": "#/$defs/riskClass"
+        },
+        "readiness": {
+          "type": "string",
+          "enum": [
+            "ready",
+            "not_connected",
+            "scope_insufficient",
+            "dry_run_required",
+            "approval_required",
+            "policy_blocked",
+            "degraded"
+          ],
+          "description": "A profile may expose a tool as DISCOVERABLE while still refusing a particular operation; these are canon's own words for that refusal."
+        },
+        "dry_run_required": {
+          "type": "boolean"
+        },
+        "approval_required": {
+          "type": "boolean"
+        },
+        "authority_scopes_required": {
+          "type": "array",
+          "uniqueItems": true,
+          "maxItems": 64,
+          "items": {
+            "$ref": "#/$defs/scopeRef"
+          }
+        },
+        "receipt_obligations": {
+          "type": "array",
+          "uniqueItems": true,
+          "maxItems": 32,
+          "items": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 120
+          }
+        }
+      }
+    },
+    "exposedResource": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "mcp_resource_uri",
+        "backing_projection_ref",
+        "required_context_lease_ref",
+        "redaction_policy_ref"
+      ],
+      "description": "One exposed resource. The lease is REQUIRED and not nullable: a resource URI is not access, and the thing that makes it access is the lease named here.",
+      "properties": {
+        "mcp_resource_uri": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 480
+        },
+        "backing_projection_ref": {
+          "$ref": "#/$defs/ref"
+        },
+        "required_context_lease_ref": {
+          "$ref": "#/$defs/ref"
+        },
+        "redaction_policy_ref": {
+          "$ref": "#/$defs/ref"
+        }
+      }
+    }
+  }
+}

@@ -1,0 +1,145 @@
+{
+  "$id": "invariant://ioi/components/connectors-tools/hypervisor-mcp-gateway-profile/binds-one-subject-and-use/v2",
+  "language": "ioi.portable-invariants.v1",
+  "contract_id": "schema://ioi/components/connectors-tools/hypervisor-mcp-gateway-profile/v2",
+  "rules": [
+    {
+      "rule_id": "hypervisor_mcp_gateway_profile_v2.revision_belongs_to_its_own_family",
+      "description": "The revision ref is the profile's own identity plus a revision, not a ref that merely looks like one. A revision under a DIFFERENT family id is how a narrowed successor of profile A gets stored as a revision of profile B and then resolves for B's subject \u2014 a substitution no hash catches, because both documents are internally consistent. JSON Schema can enforce the shape of each member separately and cannot enforce that the two agree; this is the rule that makes them agree.",
+      "expression": {
+        "operator": "field_starts_with_path",
+        "path": "$.profile_revision_ref",
+        "prefix": "mcp-gateway://",
+        "expected_path": "$.gateway_profile_id",
+        "strip_prefix": "mcp-gateway://",
+        "suffix": "/revision/"
+      }
+    },
+    {
+      "rule_id": "hypervisor_mcp_gateway_profile_v2.an_admitted_profile_names_its_admission",
+      "description": "Canon's rule is that a profile is issued AFTER its required admission, and the boolean member that says so is only as good as the decision and receipt it points at. An admitted profile with no decision ref or no receipt ref is a profile that asserts its own admission \u2014 the exact shape of claim this estate refuses everywhere else.",
+      "expression": {
+        "operator": "non_empty_when_in",
+        "path": "$.admission_decision_ref",
+        "when_path": "$.status",
+        "values": [
+          "active",
+          "suspended",
+          "quarantined",
+          "expired",
+          "revoked"
+        ]
+      }
+    },
+    {
+      "rule_id": "hypervisor_mcp_gateway_profile_v2.an_admitted_profile_names_its_admission_receipt",
+      "description": "The receipt half of the same rule. A decision without a receipt is a record of intent; the receipt is what a relying party replays.",
+      "expression": {
+        "operator": "non_empty_when_in",
+        "path": "$.admission_receipt_ref",
+        "when_path": "$.status",
+        "values": [
+          "active",
+          "suspended",
+          "quarantined",
+          "expired",
+          "revoked"
+        ]
+      }
+    },
+    {
+      "rule_id": "hypervisor_mcp_gateway_profile_v2.a_revoked_profile_names_its_revocation",
+      "description": "Revocation is an excluded lifecycle projection, which is exactly why it must carry its own ref: the content hash does not move when a profile is revoked, so the revocation ref is the only thing on the document that distinguishes a revoked profile from the active one it used to be.",
+      "expression": {
+        "operator": "non_empty_when_in",
+        "path": "$.revocation_ref",
+        "when_path": "$.status",
+        "values": [
+          "revoked"
+        ]
+      }
+    },
+    {
+      "rule_id": "hypervisor_mcp_gateway_profile_v2.a_room_guest_names_the_room_that_admitted_it",
+      "description": "`admission_basis: room_guest` is a claim about WHERE the subject was admitted. Without the admission decision that admitted it, the basis is a word the profile chose for itself, and a subject with no room could carry it.",
+      "expression": {
+        "operator": "non_empty_when_in",
+        "path": "$.room_admission_decision_ref",
+        "when_path": "$.admission_basis",
+        "values": [
+          "room_guest"
+        ]
+      }
+    },
+    {
+      "rule_id": "hypervisor_mcp_gateway_profile_v2.a_registered_worker_invocation_names_its_registration",
+      "description": "The other half of the same split: `registered_worker_invocation` without a worker registration ref is an unregistered worker calling itself registered.",
+      "expression": {
+        "operator": "non_empty_when_in",
+        "path": "$.worker_registration_ref",
+        "when_path": "$.admission_basis",
+        "values": [
+          "registered_worker_invocation"
+        ]
+      }
+    },
+    {
+      "rule_id": "hypervisor_mcp_gateway_profile_v2.a_paired_local_harness_names_its_candidate_key",
+      "description": "A local-harness audience is admitted by a pairing proof, and the candidate public key is what binds the proof to the process that will call. An audience of `local_harness` with no candidate key is a pairing nobody can check.",
+      "expression": {
+        "operator": "non_empty_when_in",
+        "path": "$.candidate_public_key_ref",
+        "when_path": "$.audience",
+        "values": [
+          "local_harness"
+        ]
+      }
+    },
+    {
+      "rule_id": "hypervisor_mcp_gateway_profile_v2.a_paired_local_harness_names_its_pairing_session",
+      "description": "And the session the key was presented in. Canon requires the pairing session envelope; without its ref the key is a key with no occasion.",
+      "expression": {
+        "operator": "non_empty_when_in",
+        "path": "$.local_agent_pairing_session_ref",
+        "when_path": "$.audience",
+        "values": [
+          "local_harness"
+        ]
+      }
+    },
+    {
+      "rule_id": "hypervisor_mcp_gateway_profile_v2.exposed_tools_are_unique_by_wire_name",
+      "description": "The MCP tool name is the ONLY handle a consumer has on an exposed tool. Two entries under one name make the exposure manifest ambiguous at the exact point where it decides what a call resolves to, and the two may carry different risk classes, different backing revisions and different approval postures.",
+      "expression": {
+        "operator": "array_unique_by_fields",
+        "fields": [
+          "mcp_tool_name"
+        ],
+        "array_path": "$.exposed_tools"
+      }
+    },
+    {
+      "rule_id": "hypervisor_mcp_gateway_profile_v2.exposed_resources_are_unique_by_uri",
+      "description": "The same rule one primitive over: two resource entries under one URI would let a redaction policy and a lease requirement depend on which entry a reader happened to find first.",
+      "expression": {
+        "operator": "array_unique_by_fields",
+        "fields": [
+          "mcp_resource_uri"
+        ],
+        "array_path": "$.exposed_resources"
+      }
+    },
+    {
+      "rule_id": "hypervisor_mcp_gateway_profile_v2.the_builder_surface_names_the_invocation_it_runs_in",
+      "description": "`capability_construction_eval` is the one kind whose whole claim is equivalence with the native path FOR ONE INVOCATION. A builder profile with no invocation scope is scoped to every invocation the subject can reach, which is the widening the kind exists to prevent \u2014 and it is the member that makes the native-versus-MCP comparison a comparison of the same thing rather than of two runs.",
+      "expression": {
+        "operator": "non_empty_when_in",
+        "path": "$.invocation_scope_refs",
+        "when_path": "$.profile_kind",
+        "values": [
+          "capability_construction_eval"
+        ]
+      }
+    }
+  ]
+}

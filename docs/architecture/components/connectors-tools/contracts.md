@@ -172,8 +172,9 @@ MCPGatewayRequirementEnvelope:
 ```
 
 A Package, application-surface release, adapter manifest, or System manifest
-may reference this requirement when MCP compatibility is itself required.
-GoalRunProfile, WorkflowTemplate, and SkillManifest instead declare semantic
+may reference this requirement when MCP compatibility is itself required. A
+WorkflowTemplate, a SkillManifest, and a pursuit profile owned by an
+orchestration application composed on this Hypervisor instead declare semantic
 capability, tool, resource, context, or input requirements and remain transport-
 neutral. Admission resolves the MCP-specific requirement to native
 capabilities, service modules, connectors, or one concrete gateway profile.
@@ -191,8 +192,8 @@ given MCP consumer can discover, preview, propose, or execute.
 
 ```json
 {
-  "gateway_profile_id": "mcp_gateway://project-auditor-readonly",
-  "profile_revision_ref": "mcp_gateway://project-auditor-readonly/revision/1",
+  "gateway_profile_id": "mcp-gateway://project-auditor-readonly",
+  "profile_revision_ref": "mcp-gateway://project-auditor-readonly/revision/sha256:...",
   "predecessor_profile_revision_ref": null,
   "profile_content_hash": "sha256:...",
   "resolved_requirement_revision_refs": ["mcp-gateway-requirement://.../revision/..."],
@@ -287,6 +288,43 @@ declared profile body creates a successor revision. Widening tools, resources,
 scopes, subjects, projects, sessions, risk ceiling, budget, retention, or
 expiry additionally requires a fresh admission; `PATCH` is never a privilege-
 widening or in-place definition-edit shortcut.
+
+### Profile versions and the source-neutral builder kind
+
+`ioi.hypervisor-mcp-gateway-profile.v1` is the seven-kind contract above and it
+does not change. Its successor `ioi.hypervisor-mcp-gateway-profile.v2` adds
+exactly one profile kind and nothing else:
+
+```
+capability_construction_eval
+  the SOURCE-NEUTRAL builder surface. An external builder invocation admitted
+  under this kind reaches the same RuntimeToolContract resolution, the same
+  final invoker and the same receipt obligations as the native call, bound to
+  one exact subject, candidate key, origin, admission basis, project, session
+  and invocation ref. It trains nothing, promotes nothing and reads no
+  first-party corpus; `foundry_eval_training` remains the separately admitted
+  optional first-party training specialization, and the two are never
+  substitutable for one another.
+```
+
+**Versions do not fall back to each other, in either direction.** A v1 profile
+presented to a reader that requires v2 refuses, and a v2 profile presented to a
+v1 reader refuses, with the version named in the refusal. There is no downgrade
+path: reading a v2 profile as a v1 by discarding the kind it does not recognise
+would silently admit `capability_construction_eval` as whatever the v1 reader
+defaulted to, and a version boundary that degrades gracefully is a version
+boundary that grants silently. The schema version is part of the admitted body
+and therefore part of `profile_content_hash`; a version change is a successor
+revision that repeats admission, exactly as a widening does.
+
+Both versions carry the same identity scheme. A profile is
+`mcp-gateway://<name>` and a revision is
+`mcp-gateway://<name>/revision/sha256:<64 hex>`; the requirement envelope is
+`mcp-gateway-requirement://<name>/revision/sha256:<64 hex>`. The underscored
+spelling that earlier drafts of this document used is retired — an object with
+two spellings has two identities, and a profile stored under one and resolved
+under the other refuses as "no such profile" rather than as the authoring
+mistake it is (ADR 0055).
 
 ### MCP normalization boundary
 
@@ -446,7 +484,7 @@ operation:
 
 ```json
 {
-  "gateway_profile_id": "mcp_gateway://project-auditor-readonly",
+  "gateway_profile_id": "mcp-gateway://project-auditor-readonly",
   "mcp_tool_name": "hypervisor.connector.gmail.trash_preview",
   "input": {},
   "run_id": "run://123",

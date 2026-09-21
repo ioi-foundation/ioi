@@ -1,0 +1,34 @@
+{
+  "schema_version": "ioi.mcp-gateway-requirement.v1",
+  "requirement_id": "mcp-gateway-requirement://project-auditor",
+  "revision_ref": "mcp-gateway-requirement://project-auditor/revision/sha256:a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1",
+  "predecessor_revision_ref": null,
+  "content_hash": "sha256:b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2",
+  "owner_ref": "org://ioi",
+  "consumer_class_refs": [
+    "consumer-class://external-auditor"
+  ],
+  "required_runtime_tool_contract_refs": [
+    "tool://project.inspect/revision/1.0.0"
+  ],
+  "required_resource_projection_contract_refs": [],
+  "permitted_prompt_import_contract_refs": [],
+  "required_elicitation_contract_refs": [],
+  "external_task_compatibility_refs": [],
+  "extension_application_requirement_refs": [],
+  "maximum_risk_class": "read",
+  "authority_scope_requirement_refs": [
+    "scope:project.read"
+  ],
+  "privacy_budget_rate_and_retention_policy_refs": [
+    "policy://gateway-privacy"
+  ],
+  "transport_and_protocol_compatibility_refs": [
+    "protocol://mcp/2025-06-18"
+  ],
+  "allowed_override_schema_ref": null,
+  "provenance_and_evaluation_refs": [],
+  "registry_lifecycle_ref": "agentgres://object/mcp-gateway-requirement/project-auditor",
+  "registry_status": "released",
+  "grants_scopes": true
+}
