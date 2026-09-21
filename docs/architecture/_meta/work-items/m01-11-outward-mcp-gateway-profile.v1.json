@@ -1,0 +1,105 @@
+{
+  "evidence_format": "ioi.program.work_item.v1",
+  "work_item_id": "m01-11-outward-mcp-gateway-profile",
+  "stage_id": "M01",
+  "required_work": [
+    "M01.11"
+  ],
+  "status": "evidence_ready",
+  "objective": "Close M01.11 as an executable gate: make the outward Hypervisor MCP gateway a registered contract before it is a route, mount canon's eleven operations over a durable profile record family, and hold the whole plane to the one rule that makes an outward surface safe — it may only ever NARROW. Lifecycle state reduces effective access without touching the declared body; a changed body is a successor; a successor that adds anything repeats admission; resolving a requirement issues nothing; and a tool arriving over MCP reaches the same final invoker as the native call rather than a second one. The clause requiring a 'heavy builder GoalRun' is retyped onto that equivalence (ADR 0055 decision 3) because R-192 removed goal pursuit from the Hypervisor, and a check text that cannot be executed is an unfalsifiable bar.",
+  "falsifiable_claim": "npm run check:hypervisor-mcp-gateway-profile --workspace=@ioi/hypervisor-app (the root runner's --drills form) proves the oracle refuses every profile, successor, lifecycle change, resolution and call that claims more than it was admitted for: a v2-only kind in a v1 document and a version this estate does not read (versions never fall back in either direction); the retired underscored identity scheme and a revision belonging to another profile family; a profile asserting its own admission, a revoked profile naming no revocation, a room guest naming no room, a registered worker naming no registration, a paired local harness naming no candidate key or pairing session; a prompt-only posture carrying an instrumented lane or not marked proposal-only; a read-only profile exposing an approval-requiring or effectful tool; two exposed tools under one wire name; an exposed resource naming no context lease; a source-neutral builder bound to no invocation or requiring a foundry, training or dataset-factory scope; a successor widening the tool, resource, scope, project, session, surface or extension set, raising the risk ceiling, reaching the peer physical-action class, extending the expiry or changing the subject; a fork answered with a head; an expiry trusted from the record rather than derived; a lifecycle change back to active, or one that edits the declared body or moves the content hash, or a revocation naming no revocation ref; a resolver that issues a profile, grants authority, refuses without naming what exceeded, or answers for no exact immutable revision; a call that claims authority, reports a final invoker other than the native one, names no exposure manifest hash or does not delegate; and native-versus-gateway parity on the admitted members. It further proves the daemon's risk ladder and content-hash exclusion set equal the gate's, that it validates against all three registered contracts, that the retired scheme is gone, that the widening refusal and the lifecycle hash recheck and the exposure-manifest enforcement are named in code, that the gateway delegates to lifecycle_routes::handle_mcp_tool_invoke rather than invoking, that the eleven operations are mounted over nine paths with every path classified in the table that refuses at daemon startup, that both outward tool routes resolve a profile and still carry their refusal branch with no forwarded-auth bypass, and that canon, doctrine and ADR 0055 say what the code does. npm run mutate:hypervisor-mcp-gateway-profile drills those oracles with 35 planted defects, each of which must go red on target.",
+  "canon_owners": [
+    "docs/architecture/components/connectors-tools/contracts.md",
+    "docs/architecture/components/connectors-tools/doctrine.md"
+  ],
+  "code_anchors": [
+    {
+      "path": "crates/node/src/bin/hypervisor_daemon_routes/mcp_gateway_routes.rs",
+      "must_contain": "pub(crate) fn widening_findings(",
+      "present_when": "merged"
+    },
+    {
+      "path": "crates/node/src/bin/hypervisor_daemon_routes/mcp_gateway_routes.rs",
+      "must_contain": "fn declared_body(",
+      "present_when": "merged"
+    },
+    {
+      "path": "crates/node/src/bin/hypervisor_daemon_routes/mcp_gateway_routes.rs",
+      "must_contain": "pub(crate) fn current_revision(",
+      "present_when": "merged"
+    },
+    {
+      "path": "crates/node/src/bin/hypervisor_daemon_routes/mcp_gateway_routes.rs",
+      "must_contain": "mcp_gateway_profile_widened_without_fresh_admission",
+      "present_when": "merged"
+    },
+    {
+      "path": "crates/node/src/bin/hypervisor_daemon_routes/mcp_gateway_routes.rs",
+      "must_contain": "mcp_gateway_lifecycle_change_moved_the_content_hash",
+      "present_when": "merged"
+    },
+    {
+      "path": "crates/node/src/bin/hypervisor_daemon_routes/mcp_gateway_routes.rs",
+      "must_contain": "lifecycle_routes::handle_mcp_tool_invoke(",
+      "present_when": "merged"
+    },
+    {
+      "path": "crates/node/src/bin/hypervisor_daemon_routes/operability_routes.rs",
+      "must_contain": "active_profile_for_subject(",
+      "present_when": "merged"
+    },
+    {
+      "path": "crates/node/src/bin/hypervisor-daemon.rs",
+      "must_contain": "mcp_gateway_routes::handle_gateway_call",
+      "present_when": "merged"
+    },
+    {
+      "path": "apps/hypervisor/scripts/lib/mcp-gateway-profile.mjs",
+      "must_contain": "export function wideningFindings(",
+      "present_when": "merged"
+    },
+    {
+      "path": "apps/hypervisor/scripts/lib/mcp-gateway-profile.mjs",
+      "must_contain": "export function lifecycleFindings(",
+      "present_when": "merged"
+    },
+    {
+      "path": "apps/hypervisor/scripts/lib/mcp-gateway-profile.mjs",
+      "must_contain": "export function parityFindings(",
+      "present_when": "merged"
+    },
+    {
+      "path": "scripts/check-hypervisor-mcp-gateway-profile.mjs",
+      "must_contain": "export function sourceFindings(",
+      "present_when": "merged"
+    },
+    {
+      "path": "scripts/check-acceptance-effect-boundary.mjs",
+      "must_contain": "check:hypervisor-mcp-gateway-profile",
+      "present_when": "merged"
+    },
+    {
+      "path": "apps/hypervisor/verifier-floors.v1.json",
+      "must_contain": "\"id\": \"hypervisor-mcp-gateway-profile\"",
+      "present_when": "merged"
+    },
+    {
+      "path": ".github/workflows/ci.yml",
+      "must_contain": "npm run check:hypervisor-mcp-gateway-profile --workspace=@ioi/hypervisor-app",
+      "present_when": "merged"
+    },
+    {
+      "path": "docs/architecture/_meta/schemas/hypervisor-mcp-gateway-profile.v2.schema.json",
+      "must_contain": "capability_construction_eval",
+      "present_when": "merged"
+    },
+    {
+      "path": "docs/decisions/0055-the-outward-mcp-gateway-profile-is-registered-hyphen-scheme-and-its-heavy-builder-clause-is-retyped.md",
+      "must_contain": "Status: Accepted",
+      "present_when": "merged"
+    }
+  ],
+  "evidence_refs": [
+    "docs/architecture/_meta/evidence/m01-11-outward-mcp-gateway-profile-2026-09-21.v1.json"
+  ]
+}

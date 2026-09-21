@@ -193,7 +193,9 @@
     "check:work-objects-composition": "node scripts/verify-hypervisor-work-objects-composition.mjs",
     "mutate:work-objects-composition": "node scripts/verify-hypervisor-work-objects-composition.mjs --mutation",
     "check:orchestration-records": "node scripts/verify-hypervisor-orchestration-records.mjs",
-    "mutate:orchestration-records": "node scripts/verify-hypervisor-orchestration-records.mjs --mutation"
+    "mutate:orchestration-records": "node scripts/verify-hypervisor-orchestration-records.mjs --mutation",
+    "check:hypervisor-mcp-gateway-profile": "node ../../scripts/check-hypervisor-mcp-gateway-profile.mjs --drills",
+    "mutate:hypervisor-mcp-gateway-profile": "node ../../scripts/check-hypervisor-mcp-gateway-profile.mjs --mutation"
   },
   "dependencies": {
     "@codemirror/commands": "^6.10.3",

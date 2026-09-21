@@ -1105,6 +1105,22 @@ jobs:
         if: ${{ !cancelled() && steps.rust_backed_daemon.outcome == 'success' }}
         run: npm run mutate:mcp-non-tool-normalization --workspace=@ioi/hypervisor-app
 
+      # M01.11 (R-220, ADR 0055). The subject-scoped outward gateway: one immutable versioned profile binds
+      # ONE subject and ONE use, the admitted revision freezes its exposure, lifecycle state may only
+      # reduce, a successor that adds anything repeats admission, and a tool arriving over MCP reaches the
+      # same final invoker as the native call. CI-bound at the drills — the oracle over constructed
+      # profiles, successors, lifecycle changes, resolutions and calls, plus the daemon's ladder and
+      # exclusion set, its contract validation, the eleven mounted and classified operations, and canon.
+      - name: Verify the outward MCP gateway profile (M01.11, CI-bound drills)
+        if: ${{ !cancelled() && steps.rust_backed_daemon.outcome == 'success' }}
+        env:
+          IOI_VERIFIER_CENSUS_DIR: .artifacts/verifier-census
+        run: npm run check:hypervisor-mcp-gateway-profile --workspace=@ioi/hypervisor-app
+
+      - name: Drill the outward MCP gateway profile oracle
+        if: ${{ !cancelled() && steps.rust_backed_daemon.outcome == 'success' }}
+        run: npm run mutate:hypervisor-mcp-gateway-profile --workspace=@ioi/hypervisor-app
+
       # M10.4 — the governed evaluation plane, driven against an ISOLATED daemon this job already
       # built: two deterministic ollama-dialect stub servers registered, probed, enabled and REALLY
       # invoked as routes A and B; released suite revisions, frozen and active epochs, admitted runs,

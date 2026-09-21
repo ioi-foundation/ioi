@@ -1,0 +1,76 @@
+{
+  "schema": "ioi.hypervisor-mcp-gateway-profile-evidence.v1",
+  "mode": "drills",
+  "started_at": "2026-09-21T14:38:01.332Z",
+  "drills": [
+    {
+      "name": "PURE — the oracle refuses every profile, successor, lifecycle change, resolution and call that claims more than it was admitted for, and accepts the clean shapes",
+      "pass": true,
+      "detail": "",
+      "at": "2026-09-21T14:38:01.335Z"
+    },
+    {
+      "name": "SOURCE — the daemon's ladder and exclusion set equal the gate's, it validates against all three registered contracts, the eleven operations are mounted and classified, the outward routes resolve and still refuse without a profile, and canon and ADR 0055 say what the code does",
+      "pass": true,
+      "detail": "",
+      "at": "2026-09-21T14:38:01.339Z"
+    },
+    {
+      "name": "BINDING — the gate is floored with an existing source and CI-bound, every clause is executed or named with an owner, and the twelve clauses are present",
+      "pass": true,
+      "detail": "",
+      "at": "2026-09-21T14:38:01.340Z"
+    },
+    {
+      "name": "VERDICT — a table missing eleven of its twelve rows is a FAIL, not a pass",
+      "pass": true,
+      "detail": "row_missing:2 ; row_missing:3",
+      "at": "2026-09-21T14:38:01.340Z"
+    },
+    {
+      "name": "VERDICT — twelve green rows with no absence is a PASS",
+      "pass": true,
+      "detail": "",
+      "at": "2026-09-21T14:38:01.340Z"
+    },
+    {
+      "name": "VERDICT — one named absence is a NAMED FAILURE, never a pass",
+      "pass": true,
+      "detail": "named_failure",
+      "at": "2026-09-21T14:38:01.340Z"
+    },
+    {
+      "name": "VERDICT — a gate that reports success without evidence is fabricated, not green",
+      "pass": true,
+      "detail": "clause_1_fabricated: x reports success without evidence",
+      "at": "2026-09-21T14:38:01.340Z"
+    },
+    {
+      "name": "VERDICT — a gate that reached a non-loopback destination fails, whatever it returned",
+      "pass": true,
+      "detail": "clause_1_undeclared_egress: x reached 1 non-loopback destination(s)",
+      "at": "2026-09-21T14:38:01.341Z"
+    },
+    {
+      "name": "VERDICT — a gate below its floor fails even at exit 0",
+      "pass": true,
+      "detail": "clause_1_below_floor: x 2 < 9",
+      "at": "2026-09-21T14:38:01.341Z"
+    }
+  ],
+  "pure": {
+    "findings": []
+  },
+  "source": {
+    "findings": []
+  },
+  "plane": null,
+  "clauses": [],
+  "verdict": null,
+  "mutation": null,
+  "finished_at": "2026-09-21T14:38:01.341Z",
+  "summary": {
+    "passed": 9,
+    "total": 9
+  }
+}
