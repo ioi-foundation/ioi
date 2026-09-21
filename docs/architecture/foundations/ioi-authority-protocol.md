@@ -303,6 +303,20 @@ No profile may be marked `stable` until all applicable gates pass:
 9. The release states exactly what a passing implementation may and may not
    claim.
 
+Gates 1, 3, 4, 5 and 9 are satisfied by one artifact rather than five: the
+published verification package of
+[`verifiable-bounded-agency.md`](./verifiable-bounded-agency.md) § *The
+published verification package*, which carries the frozen closure of its own
+contract family, the clone-and-run verifier, the vectors and the statement of
+what a passing implementation may claim, and whose clean-room counterpart
+reaches refusal parity over every published vector.
+`check:public-verifier-conformance` is that artifact's gate (M06.11, register
+R-218). Gate 6 remains separate and is never inferred from it: an
+organizationally independent implementation needs a disclosed external
+principal, and a second first-party package is not one. The C8 v3 portable
+evidence family is the first family to have such a package; a frozen
+`ProtocolSurfaceManifest` for a whole profile is still absent.
+
 ## Present Profile Status
 
 | Profile | Current Evidence | Blocking Conditions |

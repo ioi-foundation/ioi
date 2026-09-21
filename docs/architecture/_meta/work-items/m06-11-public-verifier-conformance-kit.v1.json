@@ -1,0 +1,121 @@
+{
+  "evidence_format": "ioi.program.work_item.v1",
+  "work_item_id": "m06-11-public-verifier-conformance-kit",
+  "stage_id": "M06",
+  "required_work": [
+    "M06.11"
+  ],
+  "status": "evidence_ready",
+  "objective": "Close M06.11 as an executable gate: publish the C8 v3 portable-evidence verification package as one content-addressed artifact assembled from tracked sources, and prove the published bytes are sufficient by building a second, independent verifier from them and reaching refusal parity with the canonical verifier over every published vector — in a directory outside the repository with no repository, no dependencies and no network path at all. The organizational half (an externally authored implementation, an independently administered relying party) stays scheduled with its prerequisite and ruling.",
+  "falsifiable_claim": "npm run check:public-verifier-conformance --workspace=@ioi/hypervisor-app (--drills) proves the package regenerates the digest pinned in its tracked record with a member list computed from the clean-room verifier's import closure, verifies only against a consumer-pinned key and refuses a missing key, a foreign key, a tampered member, an unlisted member and a tampered manifest; that it carries the five registered schemas, the canonicalization and self-hash rules, the trust-input, revocation and per-verifier provisioning contract, the typed failure vocabulary, the version and downgrade rules and the nonclaims that refuse the ADR 0032 fourth axis; that the published negative corpus is forty vectors with one owner read by M06.7's gate too; that the clean-room verifier's import closure is node:-only and names no host, URL or canonical implementation file; and that it computes its own build hash from its own bytes and cannot be told it. npm run mutate:public-verifier-conformance drills those oracles with 16 planted defects. The full gate additionally runs the kit in a clean room under the isolated-egress harness with bridges: [] and requires zero reach AND zero loopback, requires the clean-room verifier to accept the positive with the canonical verifier's certificate hash and to be refused the canonical verifier's own provision by name, and requires all forty published negatives to be refused by both implementations with identical typed codes.",
+  "canon_owners": [
+    "docs/architecture/foundations/verifiable-bounded-agency.md",
+    "docs/architecture/foundations/ioi-authority-protocol.md"
+  ],
+  "code_anchors": [
+    {
+      "path": "apps/hypervisor/scripts/lib/clean-room-bundle-verifier.mjs",
+      "must_contain": "export function verifyBundle(",
+      "present_when": "merged"
+    },
+    {
+      "path": "apps/hypervisor/scripts/lib/clean-room-bundle-verifier.mjs",
+      "must_contain": "export function ownBuildHashOf(",
+      "present_when": "merged"
+    },
+    {
+      "path": "apps/hypervisor/scripts/lib/public-verifier-kit.mjs",
+      "must_contain": "export function assembleKit(",
+      "present_when": "merged"
+    },
+    {
+      "path": "apps/hypervisor/scripts/lib/public-verifier-kit.mjs",
+      "must_contain": "export function verifyKit(",
+      "present_when": "merged"
+    },
+    {
+      "path": "apps/hypervisor/scripts/lib/public-verifier-kit.mjs",
+      "must_contain": "export function cleanRoomFindings(",
+      "present_when": "merged"
+    },
+    {
+      "path": "apps/hypervisor/scripts/lib/c8-v3-negative-corpus.mjs",
+      "must_contain": "export const NEGATIVE_CORPUS",
+      "present_when": "merged"
+    },
+    {
+      "path": "apps/hypervisor/scripts/verify-c8-v3-relying-party.mjs",
+      "must_contain": "emitVerifierCensus({ verifierId: \"c8-v3-relying-party\"",
+      "present_when": "merged"
+    },
+    {
+      "path": "apps/hypervisor/scripts/verify-c8-v3-relying-party.mjs",
+      "must_contain": "--second-verifier",
+      "present_when": "merged"
+    },
+    {
+      "path": "scripts/check-public-verifier-conformance.mjs",
+      "must_contain": "async function cleanRoomAndDifferential(",
+      "present_when": "merged"
+    },
+    {
+      "path": "scripts/check-acceptance-conformance-ladder.mjs",
+      "must_contain": "check:public-verifier-conformance",
+      "present_when": "merged"
+    },
+    {
+      "path": "apps/hypervisor/verifier-floors.v1.json",
+      "must_contain": "\"id\": \"public-verifier-conformance\"",
+      "present_when": "merged"
+    },
+    {
+      "path": "apps/hypervisor/verifier-floors.v1.json",
+      "must_contain": "\"id\": \"c8-v3-relying-party\"",
+      "present_when": "merged"
+    },
+    {
+      "path": ".github/workflows/ci.yml",
+      "must_contain": "npm run check:public-verifier-conformance --workspace=@ioi/hypervisor-app",
+      "present_when": "merged"
+    },
+    {
+      "path": ".github/workflows/ci.yml",
+      "must_contain": "npm run check:c8-v3-relying-party --workspace=@ioi/hypervisor-app",
+      "present_when": "merged"
+    },
+    {
+      "path": "docs/architecture/foundations/verifiable-bounded-agency.md",
+      "must_contain": "The published verification package",
+      "present_when": "merged"
+    },
+    {
+      "path": "docs/architecture/foundations/ioi-authority-protocol.md",
+      "must_contain": "satisfied by one artifact rather than five",
+      "present_when": "merged"
+    },
+    {
+      "path": "docs/architecture/_meta/evidence/m06-11-public-verifier-kit-2026-09-21.v1.json",
+      "must_contain": "ioi.evidence.m06-11-public-verifier-kit.v1",
+      "present_when": "merged"
+    }
+  ],
+  "evidence_refs": [
+    "docs/architecture/_meta/evidence/m06-11-public-verifier-conformance-2026-09-21.v1.json",
+    "docs/architecture/_meta/evidence/m06-11-public-verifier-kit-2026-09-21.v1.json",
+    "docs/architecture/_meta/canon-to-code-delta.md"
+  ],
+  "remaining_nonclaims": [
+    "No organizational independence is claimed: the clean-room verifier is first-party, its profile declares separate_authoring_party false, and the kit's nonclaims refuse the fourth axis in bytes; an independently administered relying party is M12.7's scheduled campaign",
+    "The package is built and clean-room-verified inside CI; it is not published to a public URL or registry, which is a licence and web-estate decision (owner question, R-218)",
+    "The canonical verifier's SOURCE is not publishable today: crates/aft-c8-verifier is not in LICENSE-MANIFEST.json's open protocol surface, so the kit names it by digest and the specification-sufficiency claim rests on the clean-room implementation (owner question, R-218)",
+    "Retention and availability have no referent in the five contracts this package publishes; no vector is invented for them (owner M06.8)",
+    "The C8 portable path is hash-bound, not signature-bound: a signature mutation over a bundle has no referent, and the only signature in this cut is the kit manifest's own (owner: the portable outer-signature profile)",
+    "kit.json is a frozen closure for ONE contract family and is not the frozen ProtocolSurfaceManifest the authority protocol requires (owner: the ioi-authority-protocol.md owner)",
+    "Refusal parity is claimed over the PUBLISHED corpus: the canonical verifier carries additional rules the published vectors do not exercise (the campaign statistical consistency checks among them), and the clean-room implementation re-derives those it needs for the corpus",
+    "The full gate is on demand, not CI-gated; CI executes the drills and the drill"
+  ],
+  "last_status_transaction": "2026-09-21",
+  "pr": null,
+  "adversarial_or_fault_proof": "mutate:public-verifier-conformance plants, against mutant copies of the kit library loaded and measured: a kit that verifies without a pinned key, one that does not re-derive its members' digests, one whose manifest self-hash is not recomputed, a hermeticity oracle blind to a third-party import, one blind to an escaping import, and a clean-room check that accepts a room inside the repository; and against the runner's own oracles: a shrunken corpus, a licence surface that does not cover the published members, a kit whose digest differs from the pinned record, a pinned record missing members, no tracked record at all, canon that no longer names the gate, fabricated success rows, a scheduled clause dropped without a prerequisite, and a scheduled ruling naming no register row — 16/16 red. The differential's own positive control is that both verifiers ACCEPT the positive: a verifier that refused everything would satisfy 'both refuse' and is caught there.",
+  "source_provenance": "Authored 2026-09-21 by the MVP finish-line program (R-218 ruled the shape after a read-only survey; R-62, R-137, R-139 and the R-210/R-211 certificate posture are its letter). Drills 8/8 with a census and a floor row, mutation 16/16; the full gate NAMED FAILURE (exit 2) with CLEANROOM green (isolation refused_and_recorded, ledger 0/0/0) and DIFFERENTIAL green (40/40 identical refusal codes over 29 distinct codes), check:c8-v3-relying-party 43/43 and check:portable-evidence-replay green inside the harness, 3 named entries. M06.7's gate was CI-bound and floored in the same cut. Recorded in canon-to-code-delta.md § Journey verification CXXVI. ACC-14 composed re-run on this tree (`acc-14.log`): PARTIAL, exit 2 — 20 executed clause checks green, 16 typed absences, 0 batteries not executed, 0 fenced. Clause 7 now EXECUTES M06.11's third (`check:public-verifier-conformance --drills` 8/8 and `mutate:public-verifier-conformance` 16/16) where it carried a To-be-authored absence; M12.7's three-institution matrix and M09.10's two-substrate binding remain the clause's other two typed absences."
+}

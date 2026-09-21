@@ -1,0 +1,719 @@
+{
+  "schema": "ioi.public-verifier-conformance-evidence.v1",
+  "mode": "full",
+  "started_at": "2026-09-21T07:00:50.348Z",
+  "drills": [
+    {
+      "name": "BINDING — the acceptance's demands are twelve clauses, each executed by a floored gate or one of this runner's legs, or named with an owner, or scheduled with its prerequisite and ruling",
+      "pass": true,
+      "detail": "12 clauses",
+      "at": "2026-09-21T07:00:50.349Z"
+    },
+    {
+      "name": "KIT — the package is assembled from tracked sources with its member list computed from the verifier's import closure, regenerates the digest pinned in the tracked record byte for byte, verifies under a pinned key, and refuses a missing key, a foreign key, a tampered member, an unlisted member and a tampered manifest",
+      "pass": true,
+      "detail": "16 members · sha256:fc2e70cdeac0",
+      "at": "2026-09-21T07:00:50.365Z"
+    },
+    {
+      "name": "SPEC — the package carries the five registered schemas, the canonicalization and self-hash rules, the trust-input, revocation and per-verifier provisioning contract, the typed failure vocabulary, the version and downgrade rules and the nonclaims that refuse the fourth axis and name the absent members; the published members are inside the licence's open protocol surface",
+      "pass": true,
+      "detail": "carried",
+      "at": "2026-09-21T07:00:50.367Z"
+    },
+    {
+      "name": "VECTORS — the negative corpus is the published forty with unique names and one owner, every vector carries its mutator, an unresolvable role refuses rather than mutating nothing, and the relying-party gate reads this table instead of a copy",
+      "pass": true,
+      "detail": "40 vectors",
+      "at": "2026-09-21T07:00:50.367Z"
+    },
+    {
+      "name": "HERMETIC — the clean-room verifier is one file whose import closure is node: builtins only, escaping nothing, naming no host, no URL and no file of the canonical implementation",
+      "pass": true,
+      "detail": "node:crypto node:fs node:path",
+      "at": "2026-09-21T07:00:50.368Z"
+    },
+    {
+      "name": "NO-AUTHORITY — the verifier computes its own build hash from its own bytes (the same bytes anywhere give the same identity, one edited byte does not) and cannot be told it; it checks the provisioned profile against itself; the kit cannot be verified without a pinned key",
+      "pass": true,
+      "detail": "self-identified",
+      "at": "2026-09-21T07:00:50.369Z"
+    },
+    {
+      "name": "CANON — verifiable-bounded-agency.md carries the published-verification-package section with the sufficiency rule, the fourth-axis refusal and the gate; ioi-authority-protocol.md binds the gate to its release gates",
+      "pass": true,
+      "detail": "bound",
+      "at": "2026-09-21T07:00:50.370Z"
+    },
+    {
+      "name": "VERDICT — pass only when every clause is executed green with evidence and no absence is named; a named absence or a scheduled leg is a NAMED FAILURE (exit 2); a red, an evidence-less green, an undeclared egress or a missing row is a FAIL",
+      "pass": true,
+      "detail": "named_failure/fail/fail/fail/fail",
+      "at": "2026-09-21T07:00:50.371Z"
+    }
+  ],
+  "kit": {
+    "findings": [],
+    "kit_hash": "sha256:fc2e70cdeac0cce94752ba05e117b98d6256f0b491dbd1799487b67c06619f74",
+    "members": 16,
+    "closure": [
+      "clean-room-bundle-verifier.mjs"
+    ]
+  },
+  "spec": [],
+  "vectors": [],
+  "hermetic": {
+    "findings": [],
+    "closure": {
+      "files": [
+        "clean-room-bundle-verifier.mjs"
+      ],
+      "bare": [
+        "node:crypto",
+        "node:fs",
+        "node:path"
+      ]
+    }
+  },
+  "no_authority": [],
+  "cleanroom": {
+    "findings": [],
+    "room": "/tmp/ioi-clean-room-KhvzGK",
+    "build_hash": "sha256:36cee3d52c6709442cf7a0ea715bf3a828faf03aa277cc1ab30bdcaff4d8eaaf",
+    "certificate_hash": "sha256:b9812b5b21769ce89cdc47cf02d1c485cd41cf6b61d6ca49ddaf59f660f564dd",
+    "claim_identity": {
+      "campaign_id": "campaign-fixture",
+      "result_ref": "result://aft/campaign-fixture",
+      "result_hash": "sha256:7bdeb53a7c553e8e3ba8e5f1cbbffcc9650bd1e3a1755ca7b4f5a3551889532a",
+      "provider_ref": "provider://akash/corpus",
+      "environment_class": "measured_container",
+      "honesty_class": "same_provider_container_unknown_host",
+      "verdict": "reproduced_within_threshold"
+    },
+    "isolation": "refused_and_recorded",
+    "ledger": {
+      "attempts": 0,
+      "loopback": 0,
+      "reach": 0
+    }
+  },
+  "differential": {
+    "findings": [],
+    "rows": [
+      {
+        "name": "result-verdict",
+        "canonical": "result_verdict_inconsistent",
+        "clean_room": "result_verdict_inconsistent",
+        "agree": true
+      },
+      {
+        "name": "result-scenario",
+        "canonical": "campaign_scenario_lane_matrix_mismatch",
+        "clean_room": "campaign_scenario_lane_matrix_mismatch",
+        "agree": true
+      },
+      {
+        "name": "result-pass-count",
+        "canonical": "campaign_metric_values_invalid",
+        "clean_room": "campaign_metric_values_invalid",
+        "agree": true
+      },
+      {
+        "name": "result-threshold",
+        "canonical": "campaign_threshold_substitution",
+        "clean_room": "campaign_threshold_substitution",
+        "agree": true
+      },
+      {
+        "name": "request-provider",
+        "canonical": "provider_ref",
+        "clean_room": "provider_ref",
+        "agree": true
+      },
+      {
+        "name": "request-address",
+        "canonical": "provider_address",
+        "clean_room": "provider_address",
+        "agree": true
+      },
+      {
+        "name": "request-image",
+        "canonical": "image_digest",
+        "clean_room": "image_digest",
+        "agree": true
+      },
+      {
+        "name": "request-source",
+        "canonical": "benchmark_source_commit",
+        "clean_room": "benchmark_source_commit",
+        "agree": true
+      },
+      {
+        "name": "request-operation",
+        "canonical": "governed_request_operation_invalid",
+        "clean_room": "governed_request_operation_invalid",
+        "agree": true
+      },
+      {
+        "name": "readiness-status",
+        "canonical": "status",
+        "clean_room": "status",
+        "agree": true
+      },
+      {
+        "name": "readiness-replicas",
+        "canonical": "workload_not_ready",
+        "clean_room": "workload_not_ready",
+        "agree": true
+      },
+      {
+        "name": "readiness-provider",
+        "canonical": "provider_ref",
+        "clean_room": "provider_ref",
+        "agree": true
+      },
+      {
+        "name": "readiness-image",
+        "canonical": "image_digest",
+        "clean_room": "image_digest",
+        "agree": true
+      },
+      {
+        "name": "retrieval-auth",
+        "canonical": "result_retrieval_not_authenticated",
+        "clean_room": "result_retrieval_not_authenticated",
+        "agree": true
+      },
+      {
+        "name": "retrieval-result",
+        "canonical": "result_hash",
+        "clean_room": "result_hash",
+        "agree": true
+      },
+      {
+        "name": "environment-provider",
+        "canonical": "provider_ref",
+        "clean_room": "provider_ref",
+        "agree": true
+      },
+      {
+        "name": "environment-class",
+        "canonical": "environment_class",
+        "clean_room": "environment_class",
+        "agree": true
+      },
+      {
+        "name": "campaign-status",
+        "canonical": "status",
+        "clean_room": "status",
+        "agree": true
+      },
+      {
+        "name": "campaign-result",
+        "canonical": "result_hash",
+        "clean_room": "result_hash",
+        "agree": true
+      },
+      {
+        "name": "isolation-network",
+        "canonical": "network_posture",
+        "clean_room": "network_posture",
+        "agree": true
+      },
+      {
+        "name": "isolation-bypass",
+        "canonical": "isolation_boundary_not_demonstrated",
+        "clean_room": "isolation_boundary_not_demonstrated",
+        "agree": true
+      },
+      {
+        "name": "isolation-invoker",
+        "canonical": "isolation_boundary_not_demonstrated",
+        "clean_room": "isolation_boundary_not_demonstrated",
+        "agree": true
+      },
+      {
+        "name": "isolation-host-mount",
+        "canonical": "host_mount_policy",
+        "clean_room": "host_mount_policy",
+        "agree": true
+      },
+      {
+        "name": "isolation-daemon-socket",
+        "canonical": "isolation_requirements_not_hostile_guest_safe",
+        "clean_room": "isolation_requirements_not_hostile_guest_safe",
+        "agree": true
+      },
+      {
+        "name": "secret-finding",
+        "canonical": "worker_secret_non_possession_not_demonstrated",
+        "clean_room": "worker_secret_non_possession_not_demonstrated",
+        "agree": true
+      },
+      {
+        "name": "secret-credential",
+        "canonical": "worker_secret_non_possession_not_demonstrated",
+        "clean_room": "worker_secret_non_possession_not_demonstrated",
+        "agree": true
+      },
+      {
+        "name": "envelope-topup",
+        "canonical": "standing_envelope_does_not_cover_request",
+        "clean_room": "standing_envelope_does_not_cover_request",
+        "agree": true
+      },
+      {
+        "name": "envelope-image",
+        "canonical": "standing_envelope_does_not_cover_request",
+        "clean_room": "standing_envelope_does_not_cover_request",
+        "agree": true
+      },
+      {
+        "name": "draw-decision",
+        "canonical": "decision",
+        "clean_room": "decision",
+        "agree": true
+      },
+      {
+        "name": "draw-atomicity",
+        "canonical": "authority_draw_not_terminally_consumed",
+        "clean_room": "authority_draw_not_terminally_consumed",
+        "agree": true
+      },
+      {
+        "name": "trajectory-decision",
+        "canonical": "decision",
+        "clean_room": "decision",
+        "agree": true
+      },
+      {
+        "name": "trajectory-constraint",
+        "canonical": "trajectory_constraint_not_satisfied",
+        "clean_room": "trajectory_constraint_not_satisfied",
+        "agree": true
+      },
+      {
+        "name": "trajectory-count",
+        "canonical": "trajectory_state_transition_invalid",
+        "clean_room": "trajectory_state_transition_invalid",
+        "agree": true
+      },
+      {
+        "name": "trajectory-provider",
+        "canonical": "trajectory_state_transition_invalid",
+        "clean_room": "trajectory_state_transition_invalid",
+        "agree": true
+      },
+      {
+        "name": "settlement-lease",
+        "canonical": "lease_status",
+        "clean_room": "lease_status",
+        "agree": true
+      },
+      {
+        "name": "settlement-exposure",
+        "canonical": "terminal_settlement_incomplete",
+        "clean_room": "terminal_settlement_incomplete",
+        "agree": true
+      },
+      {
+        "name": "settlement-teardown",
+        "canonical": "terminal_settlement_incomplete",
+        "clean_room": "terminal_settlement_incomplete",
+        "agree": true
+      },
+      {
+        "name": "terminal-result",
+        "canonical": "terminal_prerequisite_unsatisfied",
+        "clean_room": "terminal_prerequisite_unsatisfied",
+        "agree": true
+      },
+      {
+        "name": "journal-predecessor",
+        "canonical": "outcome_predecessor_mismatch",
+        "clean_room": "outcome_predecessor_mismatch",
+        "agree": true
+      },
+      {
+        "name": "journal-no-advance",
+        "canonical": "outcome_root_did_not_advance",
+        "clean_room": "outcome_root_did_not_advance",
+        "agree": true
+      }
+    ],
+    "agreed": 40,
+    "distinct_codes": [
+      "authority_draw_not_terminally_consumed",
+      "benchmark_source_commit",
+      "campaign_metric_values_invalid",
+      "campaign_scenario_lane_matrix_mismatch",
+      "campaign_threshold_substitution",
+      "decision",
+      "environment_class",
+      "governed_request_operation_invalid",
+      "host_mount_policy",
+      "image_digest",
+      "isolation_boundary_not_demonstrated",
+      "isolation_requirements_not_hostile_guest_safe",
+      "lease_status",
+      "network_posture",
+      "outcome_predecessor_mismatch",
+      "outcome_root_did_not_advance",
+      "provider_address",
+      "provider_ref",
+      "result_hash",
+      "result_retrieval_not_authenticated",
+      "result_verdict_inconsistent",
+      "standing_envelope_does_not_cover_request",
+      "status",
+      "terminal_prerequisite_unsatisfied",
+      "terminal_settlement_incomplete",
+      "trajectory_constraint_not_satisfied",
+      "trajectory_state_transition_invalid",
+      "worker_secret_non_possession_not_demonstrated",
+      "workload_not_ready"
+    ]
+  },
+  "clauses": [
+    {
+      "n": 1,
+      "demand": "the published package is content-addressed and re-derives: its member list is computed from the verifier's import closure, every member's digest is recomputed from the bytes, the manifest self-hash regenerates the digest pinned in the tracked record, and the signature verifies against a key the consumer pins and never one the package carries",
+      "executed": [
+        {
+          "script": "kit (this runner)",
+          "status": 0,
+          "seconds": 0,
+          "isolation": "in-process",
+          "ledger": {
+            "attempts": 0,
+            "loopback": 0,
+            "reach": 0
+          },
+          "evidence": "../../../../../../tmp/ioi-pvc-gate-7CLX6y/self-legs.json",
+          "evidence_sha256": "sha256:f8a8179369bc4f2afa665157ca9e06674bf7fad49db0c088ef4bb7248b0d2f40",
+          "executed_assertions": null,
+          "floor_expected": null
+        }
+      ],
+      "absence": null,
+      "scheduled": null
+    },
+    {
+      "n": 2,
+      "demand": "the package carries the specification a relying party needs: the registered schemas, the canonicalization and self-hash rules, the trust-input and revocation contract, the typed failure vocabulary, the version and downgrade rules, and the statement of what a passing implementation may and may not claim — and every published member is inside the licence's open protocol surface",
+      "executed": [
+        {
+          "script": "spec (this runner)",
+          "status": 0,
+          "seconds": 0,
+          "isolation": "in-process",
+          "ledger": {
+            "attempts": 0,
+            "loopback": 0,
+            "reach": 0
+          },
+          "evidence": "../../../../../../tmp/ioi-pvc-gate-7CLX6y/self-legs.json",
+          "evidence_sha256": "sha256:f8a8179369bc4f2afa665157ca9e06674bf7fad49db0c088ef4bb7248b0d2f40",
+          "executed_assertions": null,
+          "floor_expected": null
+        }
+      ],
+      "absence": null,
+      "scheduled": null
+    },
+    {
+      "n": 3,
+      "demand": "the vector corpus is the published one and its size is pinned in both directions: the forty resealed semantic negatives and the positive, with one owner for the table",
+      "executed": [
+        {
+          "script": "vectors (this runner)",
+          "status": 0,
+          "seconds": 0,
+          "isolation": "in-process",
+          "ledger": {
+            "attempts": 0,
+            "loopback": 0,
+            "reach": 0
+          },
+          "evidence": "../../../../../../tmp/ioi-pvc-gate-7CLX6y/self-legs.json",
+          "evidence_sha256": "sha256:f8a8179369bc4f2afa665157ca9e06674bf7fad49db0c088ef4bb7248b0d2f40",
+          "executed_assertions": null,
+          "floor_expected": null
+        },
+        {
+          "script": "check:c8-v3-relying-party",
+          "kind": "app",
+          "status": 0,
+          "seconds": 17,
+          "isolation": "refused_and_recorded",
+          "ledger": {
+            "attempts": 0,
+            "loopback": 0,
+            "reach": 0
+          },
+          "evidence": "../../../../../../tmp/ioi-pvc-gate-7CLX6y/census/3-c8-v3-relying-party/c8-v3-relying-party.json",
+          "evidence_sha256": "sha256:e0839c36b7ae4a51965c94855e1a05005afe22d9b4163433b8a376c9978c86f0",
+          "executed_assertions": 43,
+          "floor_expected": 43
+        }
+      ],
+      "absence": null,
+      "scheduled": null
+    },
+    {
+      "n": 4,
+      "demand": "clean room: the package and one bundle in a directory outside the repository with no .git, no node_modules and no package.json, run with no network path at all, and the clean-room verifier accepts the positive with the same certificate hash and claim identity as the canonical verifier",
+      "executed": [
+        {
+          "script": "cleanroom (this runner)",
+          "status": 0,
+          "seconds": 0,
+          "isolation": "in-process",
+          "ledger": {
+            "attempts": 0,
+            "loopback": 0,
+            "reach": 0
+          },
+          "evidence": "../../../../../../tmp/ioi-pvc-gate-7CLX6y/self-legs.json",
+          "evidence_sha256": "sha256:f8a8179369bc4f2afa665157ca9e06674bf7fad49db0c088ef4bb7248b0d2f40",
+          "executed_assertions": null,
+          "floor_expected": null
+        }
+      ],
+      "absence": null,
+      "scheduled": null
+    },
+    {
+      "n": 5,
+      "demand": "refusal parity: every published negative is refused by BOTH verifiers with the SAME typed failure code, and the positive is accepted by both — a verifier that refused everything would satisfy 'both refuse' and is caught by the positive control",
+      "executed": [
+        {
+          "script": "differential (this runner)",
+          "status": 0,
+          "seconds": 0,
+          "isolation": "in-process",
+          "ledger": {
+            "attempts": 0,
+            "loopback": 0,
+            "reach": 0
+          },
+          "evidence": "../../../../../../tmp/ioi-pvc-gate-7CLX6y/self-legs.json",
+          "evidence_sha256": "sha256:f8a8179369bc4f2afa665157ca9e06674bf7fad49db0c088ef4bb7248b0d2f40",
+          "executed_assertions": null,
+          "floor_expected": null
+        }
+      ],
+      "absence": null,
+      "scheduled": null
+    },
+    {
+      "n": 6,
+      "demand": "the clean-room verifier links no IOI runtime, Agentgres, Hypervisor or first-party verifier code: its import closure is node:-only and names no host, no URL and no file of the canonical implementation, asserted over its bytes",
+      "executed": [
+        {
+          "script": "hermetic (this runner)",
+          "status": 0,
+          "seconds": 0,
+          "isolation": "in-process",
+          "ledger": {
+            "attempts": 0,
+            "loopback": 0,
+            "reach": 0
+          },
+          "evidence": "../../../../../../tmp/ioi-pvc-gate-7CLX6y/self-legs.json",
+          "evidence_sha256": "sha256:f8a8179369bc4f2afa665157ca9e06674bf7fad49db0c088ef4bb7248b0d2f40",
+          "executed_assertions": null,
+          "floor_expected": null
+        }
+      ],
+      "absence": null,
+      "scheduled": null
+    },
+    {
+      "n": 7,
+      "demand": "no private lookup, hosted callback, implicit first-party trust root or verifier-generated authority: the verifier computes its own build hash from its own bytes and cannot be told it, the acceptance policy is supplied rather than discovered, and a kit offered without a pinned public key is refused",
+      "executed": [
+        {
+          "script": "no-authority (this runner)",
+          "status": 0,
+          "seconds": 0,
+          "isolation": "in-process",
+          "ledger": {
+            "attempts": 0,
+            "loopback": 0,
+            "reach": 0
+          },
+          "evidence": "../../../../../../tmp/ioi-pvc-gate-7CLX6y/self-legs.json",
+          "evidence_sha256": "sha256:f8a8179369bc4f2afa665157ca9e06674bf7fad49db0c088ef4bb7248b0d2f40",
+          "executed_assertions": null,
+          "floor_expected": null
+        },
+        {
+          "script": "cleanroom (this runner)",
+          "status": 0,
+          "seconds": 0,
+          "isolation": "in-process",
+          "ledger": {
+            "attempts": 0,
+            "loopback": 0,
+            "reach": 0
+          },
+          "evidence": "../../../../../../tmp/ioi-pvc-gate-7CLX6y/self-legs.json",
+          "evidence_sha256": "sha256:f8a8179369bc4f2afa665157ca9e06674bf7fad49db0c088ef4bb7248b0d2f40",
+          "executed_assertions": null,
+          "floor_expected": null
+        }
+      ],
+      "absence": null,
+      "scheduled": null
+    },
+    {
+      "n": 8,
+      "demand": "the canonicalization is one rule, not three: the clean-room verifier's own canonical JSON and the canonical verifier's agree over every object in the corpus, which is what identical acceptance and identical refusal codes over forty resealed mutations measure",
+      "executed": [
+        {
+          "script": "differential (this runner)",
+          "status": 0,
+          "seconds": 0,
+          "isolation": "in-process",
+          "ledger": {
+            "attempts": 0,
+            "loopback": 0,
+            "reach": 0
+          },
+          "evidence": "../../../../../../tmp/ioi-pvc-gate-7CLX6y/self-legs.json",
+          "evidence_sha256": "sha256:f8a8179369bc4f2afa665157ca9e06674bf7fad49db0c088ef4bb7248b0d2f40",
+          "executed_assertions": null,
+          "floor_expected": null
+        },
+        {
+          "script": "kit (this runner)",
+          "status": 0,
+          "seconds": 0,
+          "isolation": "in-process",
+          "ledger": {
+            "attempts": 0,
+            "loopback": 0,
+            "reach": 0
+          },
+          "evidence": "../../../../../../tmp/ioi-pvc-gate-7CLX6y/self-legs.json",
+          "evidence_sha256": "sha256:f8a8179369bc4f2afa665157ca9e06674bf7fad49db0c088ef4bb7248b0d2f40",
+          "executed_assertions": null,
+          "floor_expected": null
+        }
+      ],
+      "absence": null,
+      "scheduled": null
+    },
+    {
+      "n": 9,
+      "demand": "the portable replay and the relying-party acceptance matrix hold on the published bytes: reordered members accept byte-identically, every missing member refuses, a substituted member refuses, and one accepted fixture performs exactly one CAS-bound promotion while every rejection leaves the target hash unchanged",
+      "executed": [
+        {
+          "script": "check:portable-evidence-replay",
+          "kind": "root",
+          "status": 0,
+          "seconds": 11,
+          "isolation": "refused_and_recorded",
+          "ledger": {
+            "attempts": 0,
+            "loopback": 0,
+            "reach": 0
+          },
+          "evidence": "../../../../../../tmp/ioi-pvc-gate-7CLX6y/9-check-portable-evidence-replay.log",
+          "evidence_sha256": "sha256:8f4395a094cea4aa394d6867a93f093796c06af7c95840e3deebdbec5a77b0e2",
+          "executed_assertions": null,
+          "floor_expected": null
+        },
+        {
+          "script": "check:c8-v3-relying-party",
+          "kind": "app",
+          "status": 0,
+          "seconds": 17,
+          "isolation": "refused_and_recorded",
+          "ledger": {
+            "attempts": 0,
+            "loopback": 0,
+            "reach": 0
+          },
+          "evidence": "../../../../../../tmp/ioi-pvc-gate-7CLX6y/census/3-c8-v3-relying-party/c8-v3-relying-party.json",
+          "evidence_sha256": "sha256:e0839c36b7ae4a51965c94855e1a05005afe22d9b4163433b8a376c9978c86f0",
+          "executed_assertions": 43,
+          "floor_expected": 43
+        }
+      ],
+      "absence": null,
+      "scheduled": null
+    },
+    {
+      "n": 10,
+      "demand": "retention and availability requirements as package members and as mutation axes",
+      "executed": [],
+      "absence": {
+        "what": "the scope names retention and availability requirements and the check names availability and retention mutations; NEITHER HAS A REFERENT in the five contracts this package publishes — AvailabilityManifest belongs to the M06.8 finality family and no retention member exists on the bundle, the certificate, the policy, the profile or the acceptance receipt. The package says so in its nonclaims rather than carrying a vector for a member that does not exist",
+        "owner": "M06.8 (the availability family) · the M06 owner for the check text"
+      },
+      "scheduled": null
+    },
+    {
+      "n": 11,
+      "demand": "a signature over the bundle, and a frozen protocol-surface manifest freezing the exact closure the package publishes",
+      "executed": [],
+      "absence": {
+        "what": "the C8 portable path is hash-bound, not signature-bound: the only signature machinery in the estate is the release manifest's Ed25519 signer, which this package reuses for its OWN manifest — so a signature mutation over a BUNDLE has no referent, and canon still calls the portable outer-signature profile planned. A frozen ProtocolSurfaceManifest is required by the authority protocol in three places and exists nowhere; this package's kit.json is a frozen closure for one contract family and does not stand in for it",
+        "owner": "the M06 owner (events-receipts-delivery-bundles.md § portable outer-signature profile) · the ioi-authority-protocol.md owner (the surface manifest)"
+      },
+      "scheduled": null
+    },
+    {
+      "n": 12,
+      "demand": "an independently authored implementation reaching refusal parity, and an independently administered relying party selecting its own trust policy and accepting or rejecting the exact published bytes",
+      "executed": [],
+      "absence": null,
+      "scheduled": {
+        "what": "a disclosed external accountable principal authors and maintains a second implementation and reaches refusal parity over the published corpus (the ADR 0032 fourth axis), and M12.7's independently administered relying party selects its own trust policy and decides on the published bytes",
+        "prerequisite": "a disclosed external accountable principal outside this estate, and M12.7's separately authorized three-institution campaign; neither is a credential this program can supply, and a second first-party package would not satisfy either",
+        "ruling": "ADR 0032 (the fourth axis is claimable only with the party disclosed), journey-14's negative clause (a second first-party binary or repository package is not an independently administered relying party), R-139 (2026-09-14) and R-218 (2026-09-21): a missing external principal blocks a RUN, never the unit"
+      }
+    }
+  ],
+  "verdict": {
+    "kind": "named_failure",
+    "failures": [],
+    "absences": [
+      {
+        "n": 10,
+        "what": "the scope names retention and availability requirements and the check names availability and retention mutations; NEITHER HAS A REFERENT in the five contracts this package publishes — AvailabilityManifest belongs to the M06.8 finality family and no retention member exists on the bundle, the certificate, the policy, the profile or the acceptance receipt. The package says so in its nonclaims rather than carrying a vector for a member that does not exist",
+        "owner": "M06.8 (the availability family) · the M06 owner for the check text"
+      },
+      {
+        "n": 11,
+        "what": "the C8 portable path is hash-bound, not signature-bound: the only signature machinery in the estate is the release manifest's Ed25519 signer, which this package reuses for its OWN manifest — so a signature mutation over a BUNDLE has no referent, and canon still calls the portable outer-signature profile planned. A frozen ProtocolSurfaceManifest is required by the authority protocol in three places and exists nowhere; this package's kit.json is a frozen closure for one contract family and does not stand in for it",
+        "owner": "the M06 owner (events-receipts-delivery-bundles.md § portable outer-signature profile) · the ioi-authority-protocol.md owner (the surface manifest)"
+      },
+      {
+        "n": 12,
+        "what": "SCHEDULED-OUTSTANDING: a disclosed external accountable principal authors and maintains a second implementation and reaches refusal parity over the published corpus (the ADR 0032 fourth axis), and M12.7's independently administered relying party selects its own trust policy and decides on the published bytes",
+        "owner": "prerequisite: a disclosed external accountable principal outside this estate, and M12.7's separately authorized three-institution campaign; neither is a credential this program can supply, and a second first-party package would not satisfy either · ADR 0032 (the fourth axis is claimable only with the party disclosed), journey-14's negative clause (a second first-party binary or repository package is not an independently administered relying party), R-139 (2026-09-14) and R-218 (2026-09-21): a missing external principal blocks a RUN, never the unit"
+      }
+    ]
+  },
+  "mutation": null,
+  "host": {
+    "isolation": "refused_and_recorded",
+    "strace": "strace -- version 6.8",
+    "load": [
+      "5.58",
+      "10.32",
+      "7.81"
+    ],
+    "canonical_verifier": "/home/heathledger/Documents/ioi/repos/ioi/target/debug/aft-c8-verifier",
+    "canonical_verifier_sha256": "sha256:2b2e5c66d79a23ec74648f559c4666ef006953d886a0c07488770c98ce0983d7",
+    "work_dir": "/tmp/ioi-pvc-gate-7CLX6y"
+  },
+  "finished_at": "2026-09-21T07:01:22.789Z",
+  "summary": {
+    "passed": 8,
+    "total": 8
+  }
+}

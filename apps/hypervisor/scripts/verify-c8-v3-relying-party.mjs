@@ -6,6 +6,8 @@ import path from "node:path";
 import { spawnSync } from "node:child_process";
 import { assemblePortableBundle, contentHash, sealSelfHash } from "./lib/c8-v3-portable-bundle.mjs";
 import { fullyResealBundle } from "./lib/c8-v3-bundle-reseal.mjs";
+import { NEGATIVE_CORPUS, NEGATIVE_CORPUS_SIZE, resolveVector } from "./lib/c8-v3-negative-corpus.mjs";
+import { emitVerifierCensus } from "./lib/verifier-census.mjs";
 
 const repo = path.resolve(import.meta.dirname, "../../..");
 const verifier = process.env.IOI_AFT_C8_VERIFIER || path.join(repo, "target/debug/aft-c8-verifier");
@@ -25,6 +27,17 @@ const generic = (name, ref, schemaRef, extra = {}) => object(name, ref, schemaRe
   ...extra,
 });
 const run = (...args) => spawnSync(verifier, args, { cwd: repo, encoding: "utf8" });
+
+// THE ASSERTIONS ARE NAMED AND COUNTED (2026-09-21, M06.11). This gate used to throw a bare Error at each
+// checkpoint, so it emitted no verifier census and could carry no floor row — CI never ran it and nothing
+// noticed when an assertion was deleted. It now records every checkpoint by name and still throws on the
+// first failure, which is what a crashed verifier should do: no census is emitted, and the floors check
+// reports the absence rather than a lower count.
+const results = [];
+const ok = (name, condition, detail = "") => {
+  results.push({ name, pass: !!condition, detail: String(detail).slice(0, 200) });
+  if (!condition) throw new Error(`${name}${detail ? `: ${detail}` : ""}`);
+};
 
 try {
   const binaryHash = hashBytes(fs.readFileSync(verifier));
@@ -279,11 +292,45 @@ try {
     terminal_settlement_ref: refs.settlement, generated_at: now,
   };
   const draftPath = write("certificate-draft.json", draft);
+  // A SECOND RELYING-PARTY PROVISION, for a second verifier (M06.11, R-218). The policy names ONE verifier
+  // independence profile and that profile carries ONE verifier build hash, which the verifier checks against
+  // its own bytes — so a second implementation cannot verify this bundle by borrowing the first's provision,
+  // and "the published bytes are sufficient" would be false for it on a technicality rather than a finding.
+  // The relying party provisions policy and profile BEFORE the producer assembles, so provisioning a second
+  // pair is the relying party's act, not a producer's favour: both profiles become trust inputs of the same
+  // bundle and each verifier runs under the policy that names its own build. Opt-in, so the default fixture
+  // (and every consumer pinning its member count) is unchanged.
+  const secondVerifierArg = process.argv.includes("--second-verifier") ? process.argv[process.argv.indexOf("--second-verifier") + 1] : null;
+  const secondVerifier = secondVerifierArg ? (() => {
+    const separator = secondVerifierArg.lastIndexOf("=");
+    if (separator < 1) throw new Error("--second-verifier takes <identity-ref>=<build-hash>");
+    const identityRef = secondVerifierArg.slice(0, separator);
+    const buildHash = secondVerifierArg.slice(separator + 1);
+    if (!/^sha256:[0-9a-f]{64}$/u.test(buildHash)) throw new Error("--second-verifier build hash must be sha256:<64 hex>");
+    const secondProfile = sealSelfHash({
+      ...profile, profile_hash: undefined, profile_ref: "verifier-profile://aft/c8-v3-clean-room",
+      verifier_identity_ref: identityRef, verifier_build_hash: buildHash,
+      evidence_refs: ["evidence://verifier/separate-binary", "evidence://verifier/manual-types", "evidence://verifier/filesystem-transport"],
+    });
+    const secondPolicy = sealSelfHash({
+      ...resealedPolicy, policy_hash: undefined, policy_ref: "acceptance-policy://aft/measured-results/clean-room/v1",
+      verifier_profile_ref: secondProfile.profile_ref, verifier_profile_hash: secondProfile.profile_hash,
+    });
+    return {
+      profile: secondProfile, policy: secondPolicy,
+      profilePath: write("source-profile-clean-room.json", secondProfile),
+      policyPath: write("source-policy-clean-room.json", secondPolicy),
+    };
+  })() : null;
   const spec = {
     bundle_ref: "evidence-bundle://aft/campaign-fixture", created_at: now, certificate_draft_path: draftPath, certificate_file: "certificate.json", objects,
     trust_inputs: [
       { ref: resealedPolicy.policy_ref, schema_ref: "schema://ioi/foundations/relying-party-acceptance-policy/v1", file: "policy.json", path: policyPath },
       { ref: profile.profile_ref, schema_ref: "schema://ioi/foundations/verifier-independence-profile/v1", file: "verifier-profile.json", path: profilePath },
+      ...(secondVerifier ? [
+        { ref: secondVerifier.policy.policy_ref, schema_ref: "schema://ioi/foundations/relying-party-acceptance-policy/v1", file: "policy-clean-room.json", path: secondVerifier.policyPath },
+        { ref: secondVerifier.profile.profile_ref, schema_ref: "schema://ioi/foundations/verifier-independence-profile/v1", file: "verifier-profile-clean-room.json", path: secondVerifier.profilePath },
+      ] : []),
     ],
   };
   const positive = path.join(temp, "positive-bundle");
@@ -317,59 +364,36 @@ try {
       now,
       expected_revision: 0,
       member_files: fs.readdirSync(emittedBundle).sort(),
+      refs,
+      ...(secondVerifier ? {
+        second_verifier: {
+          policy: path.join(emittedBundle, "policy-clean-room.json"),
+          policy_ref: secondVerifier.policy.policy_ref,
+          profile_ref: secondVerifier.profile.profile_ref,
+          verifier_identity_ref: secondVerifier.profile.verifier_identity_ref,
+          verifier_build_hash: secondVerifier.profile.verifier_build_hash,
+        },
+      } : {}),
     }, null, 2));
     process.exit(0);
   }
   const accepted = run("accept", "--bundle", positive, "--policy", path.join(positive, "policy.json"), "--registry", registryPath, "--row-output", path.join(temp, "accepted-row.json"), "--receipt", path.join(temp, "accepted-receipt.json"), "--expected-revision", "0", "--now", now);
-  if (accepted.status !== 0) throw new Error(`positive acceptance failed: ${accepted.stderr}`);
+  ok("the canonical verifier ACCEPTS the positive bundle under the provisioned policy", accepted.status === 0, String(accepted.stderr).slice(0, 160));
   const after = JSON.parse(fs.readFileSync(registryPath, "utf8"));
   const acceptedReceipt = JSON.parse(fs.readFileSync(path.join(temp, "accepted-receipt.json"), "utf8"));
-  if (after.revision !== 1 || after.entries.length !== 1 || acceptedReceipt.decision !== "accepted" || acceptedReceipt.mutation_applied !== true) throw new Error("positive acceptance did not atomically promote one row");
+  ok("acceptance promotes EXACTLY ONE measured row under CAS: revision 0 to 1, one entry, an accepted receipt, the mutation applied", after.revision === 1 && after.entries.length === 1 && acceptedReceipt.decision === "accepted" && acceptedReceipt.mutation_applied === true, `revision ${after.revision} entries ${after.entries.length} ${acceptedReceipt.decision}`);
 
   const fullyReseal = (directory, objectRef, mutate, mutateCertificate) =>
     fullyResealBundle({ directory, refs, objectRef, mutate, mutateCertificate });
-  const mutations = [
-    ["result-verdict", refs.result, (v) => { v.all_rows_within_threshold = false; }],
-    ["result-scenario", refs.result, (v) => { v.summaries[0].scenario = "paper_unknown_4v"; }],
-    ["result-pass-count", refs.result, (v) => { v.summaries[0].metrics.injection_tps.values.pop(); }],
-    ["result-threshold", refs.result, (v) => { v.summaries[0].metrics.injection_tps.threshold = 0.2; }],
-    ["request-provider", refs.request, (v) => { v.provider_ref = "provider://akash/other"; }],
-    ["request-address", refs.request, (v) => { v.provider_address = "akash19zzh7whjt4vfwxd5wtj3tjtyatnpntfhldshd8"; }],
-    ["request-image", refs.request, (v) => { v.image_digest = h("9"); }],
-    ["request-source", refs.request, (v) => { v.benchmark_source_commit = "9".repeat(40); }],
-    ["request-operation", refs.request, (v) => { v.operation = "delete"; }],
-    ["readiness-status", refs.readiness, (v) => { v.status = "pending"; }],
-    ["readiness-replicas", refs.readiness, (v) => { v.ready_replicas = 0; }],
-    ["readiness-provider", refs.readiness, (v) => { v.provider_ref = "provider://akash/other"; }],
-    ["readiness-image", refs.readiness, (v) => { v.image_digest = h("9"); }],
-    ["retrieval-auth", refs.retrieval, (v) => { v.authenticated = false; }],
-    ["retrieval-result", refs.retrieval, (v) => { v.result_hash = h("9"); }],
-    ["environment-provider", refs.environment, (v) => { v.provider_ref = "provider://akash/other"; }],
-    ["environment-class", refs.environment, (v) => { v.environment_class = "unmeasured"; }],
-    ["campaign-status", refs.campaign, (v) => { v.status = "partial"; }],
-    ["campaign-result", refs.campaign, (v) => { v.result_hash = h("9"); }],
-    ["isolation-network", refs.isolationEvidence, (v) => { v.network_posture = "egress_enabled"; }],
-    ["isolation-bypass", refs.isolationEvidence, (v) => { v.direct_protected_effect_invocations = 1; }],
-    ["isolation-invoker", refs.isolationEvidence, (v) => { v.final_invoker_calls = 0; }],
-    ["isolation-host-mount", refs.isolationRequirements, (v) => { v.host_mount_policy = "read_only"; }],
-    ["isolation-daemon-socket", refs.isolationRequirements, (v) => { v.daemon_socket_exposed = true; }],
-    ["secret-finding", refs.secret, (v) => { v.secret_findings = 1; }],
-    ["secret-credential", refs.secret, (v) => { v.provider_credential_observed = true; }],
-    ["envelope-topup", refs.envelope, (v) => { v.facet_template.auto_topup = true; }],
-    ["envelope-image", refs.envelope, (v) => { v.facet_template.image_digests = [h("9")]; }],
-    ["draw-decision", refs.drawReceipt, (v) => { v.decision = "refused"; }],
-    ["draw-atomicity", refs.drawReceipt, (v) => { v.atomic_consumption = false; }],
-    ["trajectory-decision", refs.decision, (v) => { v.decision = "deny"; }],
-    ["trajectory-constraint", refs.decision, (v) => { v.constraint_results[0].satisfied = false; }],
-    ["trajectory-count", refs.after, (v) => { v.admitted_call_count = 0; }],
-    ["trajectory-provider", refs.after, (v) => { v.provider_refs = []; }],
-    ["settlement-lease", refs.settlement, (v) => { v.lease_status = "open"; }],
-    ["settlement-exposure", refs.settlement, (v) => { v.open_unknown_exposure_microusd = 1; }],
-    ["settlement-teardown", refs.settlement, (v) => { v.teardown_verified = false; }],
-    ["terminal-result", refs.terminal, (v) => { v.result_verified = false; }],
-    ["journal-predecessor", null, null, (v) => { v.journal_binding.outcome_predecessor_root = h("9"); }],
-    ["journal-no-advance", null, null, (v) => { v.journal_binding.outcome_root = v.journal_binding.intent_root; }],
-  ];
+  // THE CORPUS HAS ONE OWNER (2026-09-21, M06.11). The forty vectors used to be written out here; M06.11's
+  // conformance gate needs the same forty to compare two verifiers, and a second copy would be a second
+  // drifting definition of the published corpus. They now live in lib/c8-v3-negative-corpus.mjs and both
+  // gates read them. The size is pinned so a shrunken corpus cannot make this battery trivial.
+  const mutations = NEGATIVE_CORPUS.map((vector) => {
+    const resolved = resolveVector(vector, refs);
+    return [resolved.name, resolved.objectRef, resolved.mutate, resolved.mutateCertificate];
+  });
+  ok("the published negative corpus is its pinned size, read from its one owner", mutations.length === NEGATIVE_CORPUS_SIZE, `${mutations.length}/${NEGATIVE_CORPUS_SIZE}`);
   const rejectionCodes = {};
   for (const [index, [name, objectRef, mutate, mutateCertificate]] of mutations.entries()) {
     const negative = path.join(temp, `negative-${index}-${name}`);
@@ -379,13 +403,15 @@ try {
     const beforeBytes = fs.readFileSync(negativeRegistryPath);
     const receiptPath = path.join(temp, `rejected-receipt-${index}.json`);
     const rejected = run("accept", "--bundle", negative, "--policy", path.join(negative, "policy.json"), "--registry", negativeRegistryPath, "--row-output", path.join(temp, `rejected-row-${index}.json`), "--receipt", receiptPath, "--expected-revision", "0", "--now", now);
-    if (rejected.status === 0) throw new Error(`resealed semantic mutation was accepted: ${name}`);
-    if (!fs.readFileSync(negativeRegistryPath).equals(beforeBytes)) throw new Error(`rejected candidate changed registry bytes: ${name}`);
-    const rejectedReceipt = JSON.parse(fs.readFileSync(receiptPath, "utf8"));
-    if (rejectedReceipt.decision !== "rejected" || rejectedReceipt.mutation_applied !== false || rejectedReceipt.target_state_before_hash !== rejectedReceipt.target_state_after_hash) throw new Error(`rejection receipt did not preserve state truth: ${name}`);
+    const registryUnchanged = fs.readFileSync(negativeRegistryPath).equals(beforeBytes);
+    const rejectedReceipt = rejected.status === 0 ? null : JSON.parse(fs.readFileSync(receiptPath, "utf8"));
+    ok(`the resealed semantic mutation '${name}' is REFUSED, the registry bytes are unchanged, and the rejection receipt preserves the target hash`,
+      rejected.status !== 0 && registryUnchanged && rejectedReceipt?.decision === "rejected" && rejectedReceipt?.mutation_applied === false && rejectedReceipt?.target_state_before_hash === rejectedReceipt?.target_state_after_hash,
+      rejected.status === 0 ? "ACCEPTED" : `${rejectedReceipt?.decision} registry_unchanged=${registryUnchanged}`);
     rejectionCodes[name] = rejectedReceipt.failure_codes;
   }
-  console.log(JSON.stringify({ ok: true, accepted_revision: after.revision, accepted_certificate_hash: acceptedReceipt.certificate_hash, resealed_semantic_mutations_rejected: mutations.length, rejection_codes: rejectionCodes }));
+  emitVerifierCensus({ verifierId: "c8-v3-relying-party", sourceUrl: import.meta.url, results });
+  console.log(JSON.stringify({ ok: true, executed_assertions: results.length, accepted_revision: after.revision, accepted_certificate_hash: acceptedReceipt.certificate_hash, resealed_semantic_mutations_rejected: mutations.length, rejection_codes: rejectionCodes }));
 } finally {
   fs.rmSync(temp, { recursive: true, force: true });
 }

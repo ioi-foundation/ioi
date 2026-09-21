@@ -1054,6 +1054,32 @@ jobs:
         if: ${{ !cancelled() && steps.rust_backed_daemon.outcome == 'success' }}
         run: npm run mutate:machine-product-profile-qualification --workspace=@ioi/hypervisor-app
 
+      # M06.7's relying-party acceptance matrix, CI-bound 2026-09-21 in M06.11's cut (R-218). It was never run
+      # here and no floor protected it, while M06.11 declares M06.7 a dependency: the canonical verifier accepts
+      # one provisioned bundle, promotes exactly one measured row under CAS, and refuses all forty resealed
+      # semantic mutations with the registry bytes unchanged. Needs the canonical verifier crate.
+      - name: Verify the C8 v3 relying-party acceptance matrix (M06.7, CI-bound by M06.11)
+        if: ${{ !cancelled() && steps.rust_backed_daemon.outcome == 'success' }}
+        env:
+          IOI_VERIFIER_CENSUS_DIR: .artifacts/verifier-census
+        run: npm run check:c8-v3-relying-party --workspace=@ioi/hypervisor-app
+
+      # M06.11 (R-218). The published verification package and clean-room acceptance, CI-bound at its drills:
+      # the kit assembled from tracked sources with a computed member list, regenerating the digest pinned in
+      # its tracked record and verified against a pinned key; the specification members; the published corpus
+      # and its single owner; the clean-room verifier's node:-only import closure; its self-computed identity.
+      # The clean room itself and the forty-vector differential against the canonical verifier run in the
+      # gate's full mode.
+      - name: Verify the public verifier conformance kit (M06.11, CI-bound drills)
+        if: ${{ !cancelled() && steps.rust_backed_daemon.outcome == 'success' }}
+        env:
+          IOI_VERIFIER_CENSUS_DIR: .artifacts/verifier-census
+        run: npm run check:public-verifier-conformance --workspace=@ioi/hypervisor-app
+
+      - name: Drill the public verifier conformance oracles
+        if: ${{ !cancelled() && steps.rust_backed_daemon.outcome == 'success' }}
+        run: npm run mutate:public-verifier-conformance --workspace=@ioi/hypervisor-app
+
       # M10.4 — the governed evaluation plane, driven against an ISOLATED daemon this job already
       # built: two deterministic ollama-dialect stub servers registered, probed, enabled and REALLY
       # invoked as routes A and B; released suite revisions, frozen and active epochs, admitted runs,

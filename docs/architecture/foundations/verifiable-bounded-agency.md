@@ -569,6 +569,40 @@ The registered contracts are:
 - `schema://ioi/foundations/verifier-independence-profile/v1`; and
 - `schema://ioi/components/hypervisor/c8-portable-evidence-bundle/v1`.
 
+### The published verification package
+
+A relying party that holds only the published bytes must be able to reach the
+same verdict as the producer. The registered schemas, the canonical encoding
+profile, the hashing rules and self-hash preimages, the trust-root and
+revocation input contract, the executable positive and negative vectors, the
+expected typed failures, the version and downgrade rules, and the statement of
+what a passing implementation may and may not claim are published together as
+one content-addressed package, whose manifest is verified against a key the
+consumer pins and never against one the package carries. **Published bytes are
+sufficient: verification requires no IOI runtime endpoint, no private database
+lookup, no hosted callback, no implicit first-party trust root and no authority
+the verifier generates for itself.**
+
+The acceptance policy names one verifier-independence profile, and that profile
+carries one verifier build hash which the verifier compares against its own
+bytes. A second implementation therefore needs its own profile and policy
+provisioned into the same bundle by the relying party; it may not borrow the
+first implementation's provision, and a verifier that could be told its own
+build hash would be verifying on another implementation's behalf.
+
+A verifier built only from that package, reaching refusal parity with the
+canonical verifier over every published vector — the same verdict on the
+positive and the same typed failure code on every negative — is technical
+evidence that the specification is sufficient. Under ADR 0032 it claims
+`separate_binary`, `separate_codegen` and `separate_transport` and never
+`separate_authoring_party`, and it is not an independently administered relying
+party: that is a separate proof with a disclosed external principal.
+`check:public-verifier-conformance` is the executable form of this section
+(M06.11, register R-218): it assembles the package from tracked sources with a
+member list computed from the verifier's import closure, regenerates the digest
+pinned in a tracked record, and runs the package in a directory outside the
+repository with no repository, no dependencies and no network path at all.
+
 External witnessing initially composes the registered `ReceiptCheckpoint` and
 `ReceiptProofBundle` contracts over the acceptance receipt and C8 outcome root.
 No separate `ExternalWitnessCommitment` contract is introduced until a concrete
