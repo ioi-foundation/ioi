@@ -4001,6 +4001,16 @@ async fn async_main() -> anyhow::Result<()> {
             post(machine_routes::handle_machine_operation_submit)
                 .get(machine_routes::handle_machine_operations_list),
         )
+        // M08.15 — the machine READ MODEL: the inventory and one workload's spine, derived from the
+        // records on every read so that no client has to derive them (and none may).
+        .route(
+            "/v1/hypervisor/machines",
+            get(machine_routes::handle_machines_list),
+        )
+        .route(
+            "/v1/hypervisor/machines/:workload",
+            get(machine_routes::handle_machine_get),
+        )
         .route(
             "/v1/hypervisor/environments/:id/ports",
             get(environment_routes::handle_env_ports),

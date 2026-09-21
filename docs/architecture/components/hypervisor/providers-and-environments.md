@@ -1877,15 +1877,26 @@ before registration, because a schema whose fields exist in no canon makes the
 registry the specification rather than a projection of it.
 
 Registration is not implementation and neither is qualification. This family
-remains **target canon with no complete production path behind it**: nothing
-serves these contracts yet, no backend declares against them, and the current VM
-state payload and backend capability declaration stay prerequisites rather than
-evidence of Workstation, Infrastructure or HypervisorOS lifecycle conformance.
-What registration buys is the thing the journey asks for first — contracts before
-surfaces — and what it does not buy is any claim over the surfaces. The current VM state payload and backend capability
-declaration are prerequisites, not evidence of Workstation, Infrastructure, or
-HypervisorOS lifecycle conformance. Contract registration and generated
-projection agreement precede any product claim over the family.
+is **served in part and qualified in no part**: the daemon serves the operation
+and receipt members on one route (`/v1/hypervisor/machines/:workload/operations`,
+M09.11) against simulated reference declarations, and answers the family's READ
+MODEL — `GET /v1/hypervisor/machines` (the inventory) and
+`GET /v1/hypervisor/machines/:workload` (one workload's head, desired and
+observed generations and phases, its bound declaration, its operations in chain
+order, its receipts and cleanup obligations), derived from the records on every
+read (M08.15, R-215) — so that no client derives a head or a phase for itself.
+The nine host/image/attachment/console/snapshot/migration/maintenance members
+are registered and unserved; declarations are planted records, not a
+registration route; the families are durable records, not Agentgres streams.
+`check:machine-product-composition` is the family's surface proof: the
+integrated and a second client over that read model against one daemon, with
+the extension seam. The current VM state payload and backend capability
+declaration stay prerequisites rather than evidence of Workstation,
+Infrastructure or HypervisorOS lifecycle conformance. What registration buys
+is the thing the journey asks for first — contracts before surfaces — and what
+it does not buy is any claim over the surfaces. Contract registration and
+generated projection agreement precede any product claim over the family, and
+a served read model is not a qualified profile (M12.15).
 
 `HypervisorEnvironmentConnectivityProfile` makes internal network access a
 typed posture instead of a tunnel workaround:

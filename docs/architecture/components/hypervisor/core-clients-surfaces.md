@@ -15,7 +15,7 @@ Supersedes: live product prose that treats one editor shell as the parent
 Hypervisor product, treats Electron/VS Code hosting as the product identity, or
 treats editor integrations as runtime ownership.
 Superseded by: none.
-Last alignment pass: 2026-09-12 (ioi.ai catalog/routes/terms/checks moved out).
+Last alignment pass: 2026-09-20 (R-215 machine delivery forms bound to their gate; document-wide R-192 pass still owed).
 Doctrine status: canonical
 Implementation status: mixed (the existing Home, New Session, Projects,
 Automations, Applications, Sessions, owner-application, environment, and
@@ -367,8 +367,9 @@ enabled capabilities:
 The facets describe posture; they grant no capability. Current backend
 declarations, desired/observed state, authority, receipts, and final-invoker
 proof remain mandatory. Manual operations may remain the complete selected
-experience: conventional machine users do not need to create a System,
-AutomationRun, or GoalRun.
+experience: conventional machine users do not need to create a System, an
+AutomationRun, or an ioi.ai GoalRun (goal pursuit is the ioi.ai application's
+composition over the substrate, R-192; the Hypervisor owns no goal object).
 
 Four owner-qualified bundles project these facets through existing surfaces:
 
@@ -412,6 +413,30 @@ admission, backend-registration, and projection roles. ODK is not the
 application or runtime, and native streaming, console, graphics, device, or
 host-integration code need not be generated. No generated or hand-authored
 console may bypass the same daemon operation and owner boundaries.
+
+`check:machine-product-composition` is the executable form of this section
+(register R-215, 2026-09-20). It drives the integrated form — the daemon's
+machine read model projected through the Environments owner, with a proposal
+lane that relays the daemon's answer verbatim — and a second client against
+ONE isolated daemon, and compares operation identity, receipts and the daemon's
+own desired/observed spine member for member across a daemon restart on the
+same records, a client restart, a client's removal and a second client; it
+deletes the workload through one client and reads its whole history from the
+other; it admits one ODK-authored extension console through Packages and
+proves the view renders only the public read model, lists a non-public
+`daemon_api_ref` unrendered, offers its declared action without invoking,
+carries no lane, and cannot be reached anonymously or claim a first-party
+class, origin or route. The App picks members and derives none: a client-side
+head or phase derivation is the parallel truth this section forbids, and the
+gate pins the App and the M09.11 gate against it. The daemon admits a machine
+proposal under a resolved principal only (an anonymous proposal is refused
+`request_principal_required`) and records the submitter as it resolved it.
+Its drills are CI-bound and floor-pinned. Named until their owners land: the
+separately distributed standalone client (the standalone FORM the gate drives
+is the daemon's HTTP API as a thin client, M12.2's precedent), the wallet-owned
+authority challenge on a machine operation, the extension's invocation
+crossing, the nine unserved machine-control members' surfaces, the backend
+registration route, and an ODK scaffolding command.
 
 The product should preserve the interaction grammar infrastructure operators and
 desktop virtualization users already expect:

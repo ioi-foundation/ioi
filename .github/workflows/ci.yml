@@ -1018,6 +1018,24 @@ jobs:
         if: ${{ !cancelled() && steps.rust_backed_daemon.outcome == 'success' }}
         run: npm run mutate:editor-challenge-relay --workspace=@ioi/hypervisor-app
 
+      # M08.15 (R-215). The Workstation / Infrastructure product composition, CI-bound at its drills: the
+      # App's projection of the daemon's machine read model carries every member and derives none (a fork
+      # reads back as no head), pages render and read back member for member, parity detects a changed
+      # head, receipt, phase or operation, the extension view renders only the public read model and
+      # offers actions without invoking; the source pins (identity-first submit, no head derivation in
+      # the App, guarded extension reads). The real plane — an isolated daemon restarted on its records,
+      # this runner's own serve as the integrated form, the daemon's API as the standalone form, the
+      # ODK-authored extension admitted through Packages — runs in the gate's full mode.
+      - name: Verify the machine product composition (M08.15, CI-bound drills)
+        if: ${{ !cancelled() && steps.rust_backed_daemon.outcome == 'success' }}
+        env:
+          IOI_VERIFIER_CENSUS_DIR: .artifacts/verifier-census
+        run: npm run check:machine-product-composition --workspace=@ioi/hypervisor-app
+
+      - name: Drill the machine product composition oracles
+        if: ${{ !cancelled() && steps.rust_backed_daemon.outcome == 'success' }}
+        run: npm run mutate:machine-product-composition --workspace=@ioi/hypervisor-app
+
       # M10.4 — the governed evaluation plane, driven against an ISOLATED daemon this job already
       # built: two deterministic ollama-dialect stub servers registered, probed, enabled and REALLY
       # invoked as routes A and B; released suite revisions, frozen and active epochs, admitted runs,

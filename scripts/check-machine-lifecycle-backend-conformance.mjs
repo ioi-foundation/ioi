@@ -135,6 +135,10 @@ for (const [name, decl] of [["hosted", HOSTED], ["attached", ATTACHED], ["live",
 let daemon = null;
 let BASE = "";
 let daemonLog = "";
+// The operator session. M08.15 made the submit identity-first (an anonymous proposal is refused 401
+// request_principal_required), so this gate bootstraps the isolated daemon's first operator and
+// submits as that principal — exactly as a client would.
+let SESSION = "";
 const daemonBinary = path.join(ROOT, "target/debug/hypervisor-daemon");
 
 async function startDaemon(port) {
@@ -192,19 +196,21 @@ function proposal(verb, decl, { head = GENESIS, generation = 1, hash = null } = 
 
 /// The workload's current head, asked of the daemon rather than tracked here. A gate that kept its
 /// own copy would be asserting its own bookkeeping, and the first version of this file did exactly
-/// that — it used `.at(-1)` over an unordered record listing and produced three false failures.
+/// that — it used `.at(-1)` over an unordered record listing and produced three false failures. The
+/// second version re-derived the head from the operation list (the hash no successor cites), which
+/// is the daemon's rule copied into a client; M08.15 (R-215) gave the daemon a read model, and this
+/// gate now asks it: `GET /v1/hypervisor/machines/:workload` answers `head`, or 404 before the first
+/// admitted operation, which is the genesis head by the plane's own definition.
 async function currentHead() {
-  const list = await (await fetch(`${BASE}/v1/hypervisor/machines/vm_conformance/operations`)).json();
-  const admitted = (list.operations ?? []).filter((o) => o.admission?.admitted === true);
-  if (admitted.length === 0) return GENESIS;
-  const cited = new Set(admitted.map((o) => o.previous_head).filter(Boolean));
-  const heads = admitted.map((o) => o.admitted_request_hash).filter((h) => h && !cited.has(h));
-  return heads.length === 1 ? heads[0] : GENESIS;
+  const res = await fetch(`${BASE}/v1/hypervisor/machines/vm_conformance`);
+  if (res.status === 404) return GENESIS;
+  const spine = await res.json();
+  return typeof spine.machine?.head === "string" ? spine.machine.head : GENESIS;
 }
 
-async function submit(body) {
+async function submit(body, { authenticated = true } = {}) {
   const res = await fetch(`${BASE}/v1/hypervisor/machines/vm_conformance/operations`, {
-    method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(body),
+    method: "POST", headers: { "content-type": "application/json", ...(authenticated && SESSION ? { cookie: `ioi_session=${SESSION}` } : {}) }, body: JSON.stringify(body),
   });
   const text = await res.text();
   let json = null;
@@ -220,6 +226,15 @@ async function main() {
   const pid = await startDaemon(await freePort());
   ok("a real daemon is serving the machine-operation route", pid > 0, `pid ${pid}`);
   if (!pid) return;
+  const token = daemonLog.match(/ioi_bootstrap_[a-f0-9]{64}/gu)?.at(-1) ?? null;
+  if (token) {
+    const boot = await fetch(`${BASE}/v1/hypervisor/auth/bootstrap`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ token, password: "machine-conformance-bootstrap-v1", email: "machine-conformance@ioi.local" }) });
+    SESSION = (await boot.json().catch(() => ({}))).session_token ?? "";
+  }
+  ok("the operator bootstrap yields the session the proposals are submitted under (the route is identity-first)", SESSION.startsWith("ioi_sess_"), SESSION.slice(0, 12));
+  const anonymous = await submit(proposal("create", HOSTED, { head: GENESIS, generation: 1 }), { authenticated: false });
+  ok("an ANONYMOUS proposal is refused 401 request_principal_required before the contract is even validated — a mutation is admitted under a resolved principal or not at all",
+    anonymous.status === 401 && anonymous.json?.reason === "request_principal_required", `${anonymous.status} ${anonymous.json?.reason ?? ""}`);
 
   // THE PORTABLE SUBSET, ON BOTH. The attached estate withholds the console, so "portable" means
   // portable where declared — which is the honest reading of a capability matrix.
@@ -245,6 +260,9 @@ async function main() {
     all.operations.length > 0
     && all.operations.every((o) => o.operation_ref.startsWith("machine-operation://hypervisor/vm_conformance/")),
     `${all.operations.length} record(s)`);
+  ok("every record carries the submitter AS THE DAEMON RESOLVED IT from the session — a `user://` principal, never a member of the proposal",
+    all.operations.every((o) => typeof o.submitted_by === "string" && o.submitted_by.startsWith("user://") && typeof o.submitted_at === "string"),
+    all.operations[0]?.submitted_by ?? "—");
 
   // AN EXTENSION CELL RUNS ONLY WHERE DECLARED, and the other refuses with the DECLARATION's reason.
   const migrateOnHosted = await submit(proposal("migrate", HOSTED, { head: await currentHead(), generation: generation + 1 }));

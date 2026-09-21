@@ -17,11 +17,25 @@
 //! persisted as admitted and awaiting effect, with no receipt. That is the honest record: a receipt
 //! naming a result would be describing an effect nothing attempted. The refusal path, by contrast,
 //! is complete — which is why the tests here are mostly about refusals.
+//!
+//! M08.15 (R-215) adds the two things a CLIENT needs and must not build for itself:
+//!
+//!   * A READ MODEL. `GET /v1/hypervisor/machines` is the inventory and
+//!     `GET /v1/hypervisor/machines/:workload` is one workload's spine — head, desired and observed
+//!     generations and phases, the declaration it is bound to, its operations in chain order, its
+//!     receipts and cleanup obligations — DERIVED FROM THE RECORDS ON EVERY READ by the same
+//!     functions the submit path admits with. The first client of this plane (the M09.11 gate)
+//!     re-derived the head from the operation list on its own; that is the parallel bookkeeping
+//!     ACC-20 clause 2 forbids, and the cure is a daemon that answers the question.
+//!   * IDENTITY. A proposal is admitted under a resolved principal or not at all: an anonymous
+//!     submit is refused 401 `request_principal_required` before the contract is even validated,
+//!     and the record carries `submitted_by` as the DAEMON resolved it, never as the caller said.
+//!     The read lanes keep the estate's loopback convenience; a mutation does not.
 
 use std::sync::Arc;
 
 use axum::extract::{Path as AxumPath, State};
-use axum::http::HeaderMap;
+use axum::http::{HeaderMap, StatusCode};
 use axum::Json;
 use ioi_types::app::generated::architecture_contracts::validate_architecture_contract;
 use ioi_types::app::hypervisor_machine_lifecycle::{
@@ -31,7 +45,27 @@ use ioi_types::app::hypervisor_machine_lifecycle::{
 };
 use serde_json::{json, Value};
 
-use crate::{read_record_dir, AppError, DaemonState};
+use super::lifecycle_routes::resolve_principal;
+use crate::{iso_now, read_record_dir, AppError, DaemonState};
+
+/// The vocabulary members that SET a phase, and the phase each sets. Everything else — a snapshot,
+/// a console session, a migration — leaves the phase where it was. One table, consulted by both
+/// the desired readout (over admitted operations) and the observed readout (over succeeded
+/// receipts), so the two can never disagree about what a verb means.
+fn phase_after(verb: &str, previous: &str) -> String {
+    match verb {
+        "discover" | "define" | "import" | "create" => "defined".to_owned(),
+        "start" | "resume" | "reboot" => "running".to_owned(),
+        "stop" => "stopped".to_owned(),
+        "pause" => "paused".to_owned(),
+        "delete" => "deleted".to_owned(),
+        _ => previous.to_owned(),
+    }
+}
+
+/// A workload with no recorded operation has no phase — a real value the read model states rather
+/// than an absence a client would have to invent a word for.
+const MACHINE_PHASE_NONE: &str = "unrecorded";
 
 /// Path-safe id, matching the convention the environment plane already uses for record ids.
 fn safe_id(id: &str) -> String {
@@ -141,18 +175,24 @@ fn observed_head_for(data_dir: &str, workload_ref: &str) -> Result<String, Strin
 /// Read from receipts and not from the operations, because a generation is a fact about EFFECT:
 /// an admitted operation that came back ambiguous advanced nothing, and reading the operation
 /// records would have it advance the moment it was admitted.
+///
+/// IN CHAIN ORDER (M08.15). The first cut took `.last()` over `read_record_dir`, which iterates the
+/// directory with NO ORDERING — the same defect R-130 found in the head derivation, one function
+/// down. With two succeeded receipts the "last" one was whichever the filesystem handed back last,
+/// so a workload at generation 2 read back at generation 1 on some runs and not others; the
+/// composition gate caught it on its first full run. The generations are now those of the LAST
+/// SUCCEEDED receipt along the admitted chain, which is deterministic because the chain is.
 fn current_generations(data_dir: &str, workload_ref: &str) -> (u64, u64) {
-    let operations = read_record_dir(data_dir, MACHINE_OPERATION_RECORDS);
-    let receipt_for = |receipt: &Value| -> bool {
-        let operation_ref = receipt["operation_ref"].as_str().unwrap_or_default();
-        operations.iter().any(|record| {
-            record["operation_ref"].as_str() == Some(operation_ref)
-                && record["operation"]["workload_ref"].as_str() == Some(workload_ref)
+    let receipts = read_record_dir(data_dir, MACHINE_RECEIPT_RECORDS);
+    admitted_chain(data_dir, workload_ref)
+        .iter()
+        .filter_map(|record| {
+            let operation_ref = record["operation_ref"].as_str()?;
+            receipts.iter().find(|receipt| {
+                receipt["operation_ref"].as_str() == Some(operation_ref)
+                    && receipt["result"].as_str() == Some("succeeded")
+            })
         })
-    };
-    read_record_dir(data_dir, MACHINE_RECEIPT_RECORDS)
-        .into_iter()
-        .filter(|receipt| receipt["result"].as_str() == Some("succeeded") && receipt_for(receipt))
         .filter_map(|receipt| {
             Some((
                 receipt["desired_generation_after"].as_u64()?,
@@ -161,6 +201,43 @@ fn current_generations(data_dir: &str, workload_ref: &str) -> (u64, u64) {
         })
         .last()
         .unwrap_or((0, 0))
+}
+
+/// The workload's ADMITTED operations in chain order, genesis first: each admitted record names the
+/// head it advanced from, so the chain is walked without a clock, a counter or a sorted directory.
+/// A fork (two records advancing from one head) ends the walk there — nothing past a fork is on
+/// the chain, because picking a side would be choosing which history is real.
+pub(crate) fn admitted_chain(data_dir: &str, workload_ref: &str) -> Vec<Value> {
+    let admitted: Vec<Value> = read_record_dir(data_dir, MACHINE_OPERATION_RECORDS)
+        .into_iter()
+        .filter(|record| {
+            record["operation"]["workload_ref"].as_str() == Some(workload_ref)
+                && record["admission"]["admitted"].as_bool() == Some(true)
+        })
+        .collect();
+    let mut chain: Vec<Value> = Vec::new();
+    let mut cursor = MACHINE_GENESIS_HEAD.to_owned();
+    loop {
+        let successors: Vec<&Value> = admitted
+            .iter()
+            .filter(|record| record["previous_head"].as_str() == Some(cursor.as_str()))
+            .collect();
+        match successors.as_slice() {
+            [single] => {
+                let next = single["admitted_request_hash"]
+                    .as_str()
+                    .unwrap_or_default()
+                    .to_owned();
+                chain.push((*single).clone());
+                if next.is_empty() || chain.len() > admitted.len() {
+                    break;
+                }
+                cursor = next;
+            }
+            _ => break,
+        }
+    }
+    chain
 }
 
 /// Every idempotency hash already applied for this workload. Read from the durable record set
@@ -187,13 +264,35 @@ pub(crate) async fn handle_machine_operation_submit(
     AxumPath(workload_id): AxumPath<String>,
     headers: HeaderMap,
     body: axum::body::Bytes,
-) -> Result<Json<Value>, AppError> {
+) -> Result<(StatusCode, Json<Value>), AppError> {
     // Bytes, not `Json<Value>`: the body extractor runs BEFORE the handler, so a caller sending
     // nothing would be refused for its content type rather than answered for who it is.
-    let _ = &headers;
+    //
+    // IDENTITY FIRST (M08.15). A machine operation is a mutation, and the estate's rule for a
+    // mutating route is a resolved principal or a 401 — the loopback `user://local-operator`
+    // convenience belongs to READ lanes. The first cut of this handler ignored the headers
+    // outright, so an anonymous proposal was admitted and recorded as nobody's; the App lane and
+    // an admitted extension made that reachable from a browser, which is exactly the
+    // authority-bypass ACC-20 clause 9 asks a gate to go red on.
+    let Some(principal) = resolve_principal(&st.data_dir, &headers) else {
+        return Ok((
+            StatusCode::UNAUTHORIZED,
+            Json(json!({
+                "ok": false,
+                "reason": "request_principal_required",
+                "error": { "code": "request_principal_required", "message": "a machine operation is admitted under a resolved principal; this request carried none" },
+            })),
+        ));
+    };
+    let submitted_by = principal
+        .get("principal_id")
+        .and_then(Value::as_str)
+        .map(|id| format!("user://{id}"))
+        .unwrap_or_else(|| "user://unresolved".to_owned());
     let Ok(proposal) = serde_json::from_slice::<Value>(&body) else {
-        return Ok(Json(
-            json!({ "ok": false, "reason": "operation_proposal_unparsable" }),
+        return Ok((
+            StatusCode::OK,
+            Json(json!({ "ok": false, "reason": "operation_proposal_unparsable" })),
         ));
     };
 
@@ -208,11 +307,14 @@ pub(crate) async fn handle_machine_operation_submit(
     operation["operation_ref"] = json!(operation_ref);
 
     if let Err(error) = validate_architecture_contract(MACHINE_OPERATION_CONTRACT, &operation) {
-        return Ok(Json(json!({
-            "ok": false,
-            "reason": "operation_contract_invalid",
-            "detail": error,
-        })));
+        return Ok((
+            StatusCode::OK,
+            Json(json!({
+                "ok": false,
+                "reason": "operation_contract_invalid",
+                "detail": error,
+            })),
+        ));
     }
 
     let declaration_ref = operation["capability_declaration_ref"]
@@ -240,13 +342,17 @@ pub(crate) async fn handle_machine_operation_submit(
             &verdict,
             Some(&receipt),
             MACHINE_GENESIS_HEAD,
+            &submitted_by,
         );
-        return Ok(Json(json!({
-            "ok": false,
-            "operation_ref": operation_ref,
-            "reason": verdict.refusal_dimension,
-            "receipt_ref": receipt_ref,
-        })));
+        return Ok((
+            StatusCode::OK,
+            Json(json!({
+                "ok": false,
+                "operation_ref": operation_ref,
+                "reason": verdict.refusal_dimension,
+                "receipt_ref": receipt_ref,
+            })),
+        ));
     };
 
     let workload_ref = operation["workload_ref"]
@@ -275,14 +381,18 @@ pub(crate) async fn handle_machine_operation_submit(
                 &verdict,
                 Some(&receipt),
                 MACHINE_GENESIS_HEAD,
+                &submitted_by,
             );
-            return Ok(Json(json!({
-                "ok": false,
-                "operation_ref": operation_ref,
-                "reason": verdict.refusal_dimension,
-                "detail": verdict.refusal_reason,
-                "receipt_ref": receipt_ref,
-            })));
+            return Ok((
+                StatusCode::OK,
+                Json(json!({
+                    "ok": false,
+                    "operation_ref": operation_ref,
+                    "reason": verdict.refusal_dimension,
+                    "detail": verdict.refusal_reason,
+                    "receipt_ref": receipt_ref,
+                })),
+            ));
         }
     };
     let applied = applied_idempotency_hashes(&st.data_dir, &workload_ref);
@@ -305,14 +415,18 @@ pub(crate) async fn handle_machine_operation_submit(
             &verdict,
             Some(&receipt),
             &observed_head,
+            &submitted_by,
         );
-        return Ok(Json(json!({
-            "ok": false,
-            "operation_ref": operation_ref,
-            "reason": verdict.refusal_dimension,
-            "detail": verdict.refusal_reason,
-            "receipt_ref": receipt_ref,
-        })));
+        return Ok((
+            StatusCode::OK,
+            Json(json!({
+                "ok": false,
+                "operation_ref": operation_ref,
+                "reason": verdict.refusal_dimension,
+                "detail": verdict.refusal_reason,
+                "receipt_ref": receipt_ref,
+            })),
+        ));
     }
 
     // ADMITTED. Whether it can be EXECUTED is a separate question with an honest answer either way.
@@ -337,27 +451,41 @@ pub(crate) async fn handle_machine_operation_submit(
                 &verdict,
                 Some(&receipt),
                 &observed_head,
+                &submitted_by,
             );
-            Ok(Json(json!({
-                "ok": true,
-                "operation_ref": operation_ref,
-                "state": result,
-                "receipt_ref": receipt_ref,
-            })))
+            Ok((
+                StatusCode::OK,
+                Json(json!({
+                    "ok": true,
+                    "operation_ref": operation_ref,
+                    "state": result,
+                    "receipt_ref": receipt_ref,
+                })),
+            ))
         }
         Err(reason) => {
             // NO EXECUTOR FOR THIS BACKEND. A real (live or declared) backend is admitted and left
             // awaiting effect with NO receipt, because this daemon has nothing that can act on it
             // yet and a receipt naming a result would describe an effect nothing attempted. The
             // reference executor refusing here is the fence working, not a failure.
-            persist_operation(&st.data_dir, &operation, &verdict, None, &observed_head);
-            Ok(Json(json!({
-                "ok": true,
-                "operation_ref": operation_ref,
-                "state": "admitted_awaiting_effect",
-                "detail": reason,
-                "receipt_ref": Value::Null,
-            })))
+            persist_operation(
+                &st.data_dir,
+                &operation,
+                &verdict,
+                None,
+                &observed_head,
+                &submitted_by,
+            );
+            Ok((
+                StatusCode::OK,
+                Json(json!({
+                    "ok": true,
+                    "operation_ref": operation_ref,
+                    "state": "admitted_awaiting_effect",
+                    "detail": reason,
+                    "receipt_ref": Value::Null,
+                })),
+            ))
         }
     }
 }
@@ -368,11 +496,17 @@ fn persist_operation(
     verdict: &MachineVerdict,
     receipt: Option<&Value>,
     previous_head: &str,
+    submitted_by: &str,
 ) {
     let operation_ref = operation["operation_ref"].as_str().unwrap_or_default();
     let record = json!({
         "operation_ref": operation_ref,
         "operation": operation,
+        // WHO, as the daemon resolved it from the session — never a member of the proposal, which
+        // the contract closes against extra fields anyway. And WHEN, so refusals (which advance no
+        // head and therefore sit on no chain) still read back in a stable order.
+        "submitted_by": submitted_by,
+        "submitted_at": iso_now(),
         // Stored, not recomputed on read: the head this operation advances the workload to is the
         // SAME hash the receipt binds, from the same definition in the kernel.
         "admitted_request_hash": admitted_request_hash(operation).unwrap_or_default(),
@@ -398,6 +532,268 @@ fn persist_operation(
             receipt,
         );
     }
+}
+
+/// The workload id the operation refs carry: the path-safe segment after the plane prefix.
+fn workload_id_of(operation_ref: &str) -> Option<&str> {
+    operation_ref
+        .strip_prefix("machine-operation://hypervisor/")
+        .and_then(|rest| rest.split('/').next())
+        .filter(|segment| !segment.is_empty())
+}
+
+/// ONE WORKLOAD'S SPINE, derived from the records on every read. `None` when no record names the
+/// workload — unknown is not empty.
+///
+/// What is derived and how, stated once here because a client reading it must not re-derive it:
+///   head              — `observed_head_for` (the admitted hash no successor cites); a fork reads
+///                       back as `head: null` with `head_error`, never as one of the two heads;
+///   generations       — `current_generations` (from SUCCEEDED receipts, never from operations);
+///   desired_phase     — `phase_after` folded over the admitted chain in chain order;
+///   observed_phase    — `phase_after` folded over the same chain, moving only where the
+///                       operation's receipt says `succeeded`;
+///   operations        — the admitted chain in order (genesis → head) followed by the refused
+///                       proposals by submission time, each with its record members and receipt ref;
+///   declaration       — the ref and hash the LAST admitted operation was written against, with
+///                       the resolved declaration's evidence mode (or null if it no longer resolves).
+pub(crate) fn machine_spine(data_dir: &str, workload_ref: &str) -> Option<Value> {
+    let records: Vec<Value> = read_record_dir(data_dir, MACHINE_OPERATION_RECORDS)
+        .into_iter()
+        .filter(|record| record["operation"]["workload_ref"].as_str() == Some(workload_ref))
+        .collect();
+    if records.is_empty() {
+        return None;
+    }
+    let receipts: Vec<Value> = read_record_dir(data_dir, MACHINE_RECEIPT_RECORDS);
+    let receipt_for = |operation_ref: &str| -> Option<&Value> {
+        receipts
+            .iter()
+            .find(|receipt| receipt["operation_ref"].as_str() == Some(operation_ref))
+    };
+
+    // The admitted chain, walked from genesis by the same function the generations use.
+    let admitted: Vec<&Value> = records
+        .iter()
+        .filter(|record| record["admission"]["admitted"].as_bool() == Some(true))
+        .collect();
+    let chain_owned = admitted_chain(data_dir, workload_ref);
+    let chain: Vec<&Value> = chain_owned.iter().collect();
+    let mut refused: Vec<&Value> = records
+        .iter()
+        .filter(|record| record["admission"]["admitted"].as_bool() != Some(true))
+        .collect();
+    refused.sort_by(|left, right| {
+        let key = |record: &Value| {
+            (
+                record["submitted_at"]
+                    .as_str()
+                    .unwrap_or_default()
+                    .to_owned(),
+                record["operation_ref"]
+                    .as_str()
+                    .unwrap_or_default()
+                    .to_owned(),
+            )
+        };
+        key(left).cmp(&key(right))
+    });
+
+    let mut desired_phase = MACHINE_PHASE_NONE.to_owned();
+    let mut observed_phase = MACHINE_PHASE_NONE.to_owned();
+    for record in &chain {
+        let verb = record["operation"]["operation"]
+            .as_str()
+            .unwrap_or_default();
+        desired_phase = phase_after(verb, &desired_phase);
+        let succeeded = record["operation_ref"]
+            .as_str()
+            .and_then(receipt_for)
+            .is_some_and(|receipt| receipt["result"].as_str() == Some("succeeded"));
+        if succeeded {
+            observed_phase = phase_after(verb, &observed_phase);
+        }
+    }
+
+    let project = |record: &Value| -> Value {
+        let operation_ref = record["operation_ref"].as_str().unwrap_or_default();
+        let receipt = receipt_for(operation_ref);
+        json!({
+            "operation_ref": operation_ref,
+            "operation": record["operation"]["operation"],
+            "desired_generation": record["operation"]["desired_generation"],
+            "expected_head": record["operation"]["expected_head"],
+            "state": record["state"],
+            "admitted": record["admission"]["admitted"],
+            "refusal_dimension": record["admission"]["refusal_dimension"],
+            "refusal_reason": record["admission"]["refusal_reason"],
+            "previous_head": record["previous_head"],
+            "admitted_request_hash": record["admitted_request_hash"],
+            "receipt_ref": record["receipt_ref"],
+            "result": receipt.map(|r| r["result"].clone()).unwrap_or(Value::Null),
+            "submitted_by": record["submitted_by"],
+            "submitted_at": record["submitted_at"],
+            "capability_declaration_ref": record["operation"]["capability_declaration_ref"],
+            "capability_declaration_hash": record["operation"]["capability_declaration_hash"],
+            "cleanup_obligation_ref": record["operation"]["cleanup_obligation_ref"],
+        })
+    };
+    // Admitted records the walk did not reach — the two sides of a fork — are still operations the
+    // daemon admitted, and a read model that dropped them would hide the fork it just reported.
+    let chained: std::collections::HashSet<&str> = chain
+        .iter()
+        .filter_map(|record| record["operation_ref"].as_str())
+        .collect();
+    let mut unchained: Vec<&Value> = admitted
+        .iter()
+        .copied()
+        .filter(|record| {
+            !record["operation_ref"]
+                .as_str()
+                .is_some_and(|r| chained.contains(r))
+        })
+        .collect();
+    unchained.sort_by_key(|record| {
+        record["operation_ref"]
+            .as_str()
+            .unwrap_or_default()
+            .to_owned()
+    });
+    let operations: Vec<Value> = chain
+        .iter()
+        .map(|record| project(record))
+        .chain(unchained.iter().map(|record| project(record)))
+        .chain(refused.iter().map(|record| project(record)))
+        .collect();
+    let operation_receipts: Vec<Value> = operations
+        .iter()
+        .filter_map(|operation| operation["operation_ref"].as_str().and_then(receipt_for))
+        .cloned()
+        .collect();
+    let cleanup_obligation_refs: Vec<Value> = chain
+        .iter()
+        .filter_map(|record| {
+            let value = &record["operation"]["cleanup_obligation_ref"];
+            (!value.is_null()).then(|| value.clone())
+        })
+        .collect();
+
+    let (head, head_error) = match observed_head_for(data_dir, workload_ref) {
+        Ok(head) => (Value::String(head), Value::Null),
+        Err(detail) => (Value::Null, Value::String(detail)),
+    };
+    let (desired_generation, observed_generation) = current_generations(data_dir, workload_ref);
+    let bound = chain.last().copied();
+    let declaration_ref = bound
+        .and_then(|record| record["operation"]["capability_declaration_ref"].as_str())
+        .unwrap_or_default()
+        .to_owned();
+    let declaration = if declaration_ref.is_empty() {
+        None
+    } else {
+        resolve_capability_declaration(data_dir, &declaration_ref)
+    };
+    let workload_id = records
+        .first()
+        .and_then(|record| record["operation_ref"].as_str())
+        .and_then(workload_id_of)
+        .unwrap_or_default()
+        .to_owned();
+    Some(json!({
+        "workload_ref": workload_ref,
+        "workload_id": workload_id,
+        "head": head,
+        "head_error": head_error,
+        "desired_generation": desired_generation,
+        "observed_generation": observed_generation,
+        "desired_phase": desired_phase,
+        "observed_phase": observed_phase,
+        "backend_registration_ref": bound.map(|r| r["operation"]["backend_registration_ref"].clone()).unwrap_or(Value::Null),
+        "capability_declaration_ref": if declaration_ref.is_empty() { Value::Null } else { Value::String(declaration_ref.clone()) },
+        "capability_declaration_hash": bound.map(|r| r["operation"]["capability_declaration_hash"].clone()).unwrap_or(Value::Null),
+        "capability_declaration_resolves": declaration.is_some(),
+        "evidence_mode": declaration.as_ref().map(|d| d["evidence_mode"].clone()).unwrap_or(Value::Null),
+        "operation_count": operations.len(),
+        "admitted_count": chain.len(),
+        "refused_count": refused.len(),
+        "receipt_count": operation_receipts.len(),
+        "operations": operations,
+        "receipts": operation_receipts,
+        "cleanup_obligation_refs": cleanup_obligation_refs,
+        "derived_from": {
+            "operation_records": MACHINE_OPERATION_RECORDS,
+            "receipt_records": MACHINE_RECEIPT_RECORDS,
+            "declaration_records": MACHINE_CAPABILITY_RECORDS,
+            "rule": "head = the admitted hash no successor cites; generations from succeeded receipts; phases folded over the admitted chain (observed moves only on a succeeded receipt)",
+        },
+    }))
+}
+
+/// The inventory: every workload the records name, each as its spine. Ordered by workload ref so
+/// two clients reading it list the same machines in the same order.
+pub(crate) fn machine_inventory(data_dir: &str) -> Vec<Value> {
+    let mut workload_refs: Vec<String> = read_record_dir(data_dir, MACHINE_OPERATION_RECORDS)
+        .into_iter()
+        .filter_map(|record| {
+            record["operation"]["workload_ref"]
+                .as_str()
+                .map(str::to_owned)
+        })
+        .collect();
+    workload_refs.sort();
+    workload_refs.dedup();
+    workload_refs
+        .iter()
+        .filter_map(|workload_ref| machine_spine(data_dir, workload_ref))
+        .collect()
+}
+
+/// GET /v1/hypervisor/machines — the inventory, derived on read.
+pub(crate) async fn handle_machines_list(
+    State(st): State<Arc<DaemonState>>,
+) -> Result<Json<Value>, AppError> {
+    let machines = machine_inventory(&st.data_dir);
+    Ok(Json(json!({
+        "ok": true,
+        "count": machines.len(),
+        "machines": machines,
+    })))
+}
+
+/// GET /v1/hypervisor/machines/:workload — one workload's spine, or a typed 404. The path segment
+/// is the path-safe id the operation refs carry; the record's own `workload_ref` is what it resolves
+/// to, so the same machine reads back under the same identity from every client.
+pub(crate) async fn handle_machine_get(
+    State(st): State<Arc<DaemonState>>,
+    AxumPath(workload_id): AxumPath<String>,
+) -> Result<(StatusCode, Json<Value>), AppError> {
+    let wanted = safe_id(&workload_id);
+    let workload_ref = read_record_dir(&st.data_dir, MACHINE_OPERATION_RECORDS)
+        .into_iter()
+        .find(|record| {
+            record["operation_ref"]
+                .as_str()
+                .and_then(workload_id_of)
+                .is_some_and(|id| id == wanted)
+        })
+        .and_then(|record| {
+            record["operation"]["workload_ref"]
+                .as_str()
+                .map(str::to_owned)
+        });
+    let Some(spine) = workload_ref.and_then(|r| machine_spine(&st.data_dir, &r)) else {
+        return Ok((
+            StatusCode::NOT_FOUND,
+            Json(json!({
+                "ok": false,
+                "code": "machine_workload_unknown",
+                "workload": workload_id,
+            })),
+        ));
+    };
+    Ok((
+        StatusCode::OK,
+        Json(json!({ "ok": true, "machine": spine })),
+    ))
 }
 
 /// Read every operation recorded for one workload, newest first by record order.
@@ -627,6 +1023,9 @@ mod tests {
             "k1",
         );
         record["operation_ref"] = json!(op_ref);
+        // ON THE CHAIN: generations are read along the admitted chain (M08.15), so the record
+        // names the head it advanced from, as every record the daemon writes does.
+        record["previous_head"] = json!(MACHINE_GENESIS_HEAD);
         write(&dir, MACHINE_OPERATION_RECORDS, "a1", &record);
         assert_eq!(current_generations(d, workload), (7, 7));
 
@@ -642,6 +1041,234 @@ mod tests {
         );
         assert_eq!(current_generations(d, workload), (7, 7));
         let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    fn chained_record(workload: &str, verb: &str, previous: &str, hash: &str, key: &str) -> Value {
+        let mut record = admitted_record(workload, hash, key);
+        record["operation_ref"] =
+            json!(format!("machine-operation://hypervisor/vm_r/{verb}/{key}"));
+        record["operation"]["operation"] = json!(verb);
+        record["operation"]["desired_generation"] = json!(1);
+        record["operation"]["capability_declaration_ref"] = json!("capability://backend/ref/1");
+        record["operation"]["capability_declaration_hash"] =
+            json!(format!("sha256:{}", "a".repeat(64)));
+        record["previous_head"] = json!(previous);
+        record["submitted_by"] = json!("user://p_1");
+        record["submitted_at"] = json!("2026-09-20T00:00:00Z");
+        record
+    }
+
+    fn succeeded_receipt(operation_ref: &str, id: &str, generation: u64) -> Value {
+        json!({
+            "receipt_ref": format!("machine-operation-receipt://hypervisor/{id}"),
+            "operation_ref": operation_ref,
+            "result": "succeeded",
+            "result_reason": Value::Null,
+            "desired_generation_before": generation - 1, "desired_generation_after": generation,
+            "observed_generation_before": generation - 1, "observed_generation_after": generation,
+        })
+    }
+
+    #[test]
+    fn the_spine_is_derived_from_the_records_in_chain_order_and_unknown_is_not_empty() {
+        let dir = temp_dir();
+        let d = dir.to_str().unwrap();
+        let workload = "virtual-machine-workload://vm_r";
+        let genesis = MACHINE_GENESIS_HEAD;
+        let h1 = format!("sha256:{}", "1".repeat(64));
+        let h2 = format!("sha256:{}", "2".repeat(64));
+        // Written OUT of chain order on purpose: the read model must order by the chain, not by
+        // the directory.
+        write(
+            &dir,
+            MACHINE_OPERATION_RECORDS,
+            "k2",
+            &chained_record(workload, "start", &h1, &h2, "k2"),
+        );
+        write(
+            &dir,
+            MACHINE_OPERATION_RECORDS,
+            "k1",
+            &chained_record(workload, "create", genesis, &h1, "k1"),
+        );
+        // A refused proposal sits on no chain and reads back after the chain.
+        let mut refused = chained_record(workload, "stop", &h2, "", "k3");
+        refused["admission"] = json!({ "admitted": false, "refusal_dimension": "expected_head_stale", "refusal_reason": "stale" });
+        refused["state"] = json!("refused");
+        refused["receipt_ref"] = json!("machine-operation-receipt://hypervisor/k3");
+        write(&dir, MACHINE_OPERATION_RECORDS, "k3", &refused);
+        // Only the CREATE succeeded; the START is admitted and awaiting effect (no receipt).
+        write(
+            &dir,
+            MACHINE_RECEIPT_RECORDS,
+            "k1",
+            &succeeded_receipt("machine-operation://hypervisor/vm_r/create/k1", "k1", 1),
+        );
+
+        let spine = machine_spine(d, workload).expect("the workload is recorded");
+        assert_eq!(
+            spine["head"],
+            json!(h2),
+            "the head is the admitted hash no successor cites"
+        );
+        assert_eq!(
+            spine["desired_phase"],
+            json!("running"),
+            "desired folds over the ADMITTED chain"
+        );
+        assert_eq!(
+            spine["observed_phase"],
+            json!("defined"),
+            "observed moves only on a SUCCEEDED receipt"
+        );
+        assert_eq!(
+            (
+                spine["desired_generation"].as_u64(),
+                spine["observed_generation"].as_u64()
+            ),
+            (Some(1), Some(1))
+        );
+        let verbs: Vec<&str> = spine["operations"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .map(|o| o["operation"].as_str().unwrap())
+            .collect();
+        assert_eq!(
+            verbs,
+            vec!["create", "start", "stop"],
+            "chain order, then the refused proposal"
+        );
+        assert_eq!(
+            spine["operations"][2]["refusal_dimension"],
+            json!("expected_head_stale")
+        );
+        assert_eq!(
+            spine["operations"][0]["submitted_by"],
+            json!("user://p_1"),
+            "who, as recorded"
+        );
+        assert_eq!(spine["receipt_count"], json!(1));
+        assert_eq!(
+            spine["capability_declaration_ref"],
+            json!("capability://backend/ref/1")
+        );
+        assert_eq!(
+            spine["capability_declaration_resolves"],
+            json!(false),
+            "no declaration record was written here"
+        );
+        assert_eq!(spine["workload_id"], json!("vm_r"));
+        assert!(
+            machine_spine(d, "virtual-machine-workload://vm_nobody").is_none(),
+            "unknown, not empty"
+        );
+        let inventory = machine_inventory(d);
+        assert_eq!(inventory.len(), 1);
+        assert_eq!(inventory[0]["workload_ref"], json!(workload));
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn generations_follow_the_chain_not_the_directory_order() {
+        let dir = temp_dir();
+        let d = dir.to_str().unwrap();
+        let workload = "virtual-machine-workload://vm_r";
+        let h1 = format!("sha256:{}", "1".repeat(64));
+        let h2 = format!("sha256:{}", "2".repeat(64));
+        write(
+            &dir,
+            MACHINE_OPERATION_RECORDS,
+            "a-first",
+            &chained_record(workload, "create", MACHINE_GENESIS_HEAD, &h1, "a-first"),
+        );
+        write(
+            &dir,
+            MACHINE_OPERATION_RECORDS,
+            "b-second",
+            &chained_record(workload, "start", &h1, &h2, "b-second"),
+        );
+        // The receipt for the SECOND operation is written under a name that sorts FIRST, and the
+        // first operation's receipt under a name that sorts last: a directory-order derivation
+        // reads generation 1, the chain reads generation 2.
+        write(
+            &dir,
+            MACHINE_RECEIPT_RECORDS,
+            "0-start",
+            &succeeded_receipt(
+                "machine-operation://hypervisor/vm_r/start/b-second",
+                "0-start",
+                2,
+            ),
+        );
+        write(
+            &dir,
+            MACHINE_RECEIPT_RECORDS,
+            "z-create",
+            &succeeded_receipt(
+                "machine-operation://hypervisor/vm_r/create/a-first",
+                "z-create",
+                1,
+            ),
+        );
+        assert_eq!(current_generations(d, workload), (2, 2));
+        let spine = machine_spine(d, workload).expect("recorded");
+        assert_eq!(spine["observed_generation"], json!(2));
+        assert_eq!(spine["observed_phase"], json!("running"));
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn a_fork_reads_back_as_no_head_with_the_reason_never_as_one_of_the_two() {
+        let dir = temp_dir();
+        let d = dir.to_str().unwrap();
+        let workload = "virtual-machine-workload://vm_r";
+        let ha = format!("sha256:{}", "a".repeat(64));
+        let hb = format!("sha256:{}", "b".repeat(64));
+        write(
+            &dir,
+            MACHINE_OPERATION_RECORDS,
+            "ka",
+            &chained_record(workload, "create", MACHINE_GENESIS_HEAD, &ha, "ka"),
+        );
+        write(
+            &dir,
+            MACHINE_OPERATION_RECORDS,
+            "kb",
+            &chained_record(workload, "create", MACHINE_GENESIS_HEAD, &hb, "kb"),
+        );
+        let spine = machine_spine(d, workload).expect("recorded");
+        assert!(spine["head"].is_null());
+        assert!(spine["head_error"].as_str().unwrap().contains("fork"));
+        assert_eq!(
+            spine["admitted_count"],
+            json!(0),
+            "a forked chain has no walkable head — nothing is on the chain"
+        );
+        assert_eq!(
+            spine["operation_count"],
+            json!(2),
+            "both admitted sides of the fork are still listed"
+        );
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn phases_move_only_on_the_verbs_that_set_them() {
+        assert_eq!(phase_after("create", MACHINE_PHASE_NONE), "defined");
+        assert_eq!(phase_after("start", "defined"), "running");
+        assert_eq!(
+            phase_after("snapshot", "running"),
+            "running",
+            "a snapshot leaves the phase alone"
+        );
+        assert_eq!(
+            phase_after("migrate", "running"),
+            "running",
+            "so does an ambiguous migration"
+        );
+        assert_eq!(phase_after("stop", "running"), "stopped");
+        assert_eq!(phase_after("delete", "stopped"), "deleted");
     }
 
     #[test]

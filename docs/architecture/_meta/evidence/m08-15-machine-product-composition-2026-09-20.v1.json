@@ -1,0 +1,590 @@
+{
+  "schema": "ioi.machine-product-composition-evidence.v1",
+  "mode": "full",
+  "started_at": "2026-09-21T03:25:47.886Z",
+  "drills": [
+    {
+      "name": "BINDING — the acceptance's demands are twelve clauses, each executed by a floored gate, M09.11's own gate or this runner's legs, or named with an owner or scheduled with its prerequisite and ruling",
+      "pass": true,
+      "detail": "12 clauses",
+      "at": "2026-09-21T03:25:47.887Z"
+    },
+    {
+      "name": "PURE — over the tracked read-model fixture: the App's readout carries every member of the daemon's spine and derives none (a fork reads back as no head); a page renders and reads back member for member with the lane form and the refusals verbatim; parity detects a changed head, receipt, phase and operation; the inventory renders every machine and invents none; the extension view renders only the public read model, lists the non-public ref unrendered, offers the action disabled with the typed reason and carries no lane",
+      "pass": true,
+      "detail": "2 machine(s) in the fixture",
+      "at": "2026-09-21T03:25:47.891Z"
+    },
+    {
+      "name": "SOURCE — the serve's inventory, detail and lane routes, the lane relaying the daemon's answer verbatim to the daemon's own route and touching no authority, no head derivation and no machine cache in the App, the runtime view's single guarded public read, the pure library with disabled offers and no form, the daemon's identity-first submit, its read model, its recorded submitter and its head rule, the routes wired, the M09.11 gate asking the daemon for the head under a bootstrapped session",
+      "pass": true,
+      "detail": "pins hold",
+      "at": "2026-09-21T03:25:47.903Z"
+    },
+    {
+      "name": "CANON — core-clients-surfaces.md binds the gate to the two delivery forms and the extension path; providers-and-environments.md names the read model and the gate",
+      "pass": true,
+      "detail": "bound",
+      "at": "2026-09-21T03:25:47.911Z"
+    },
+    {
+      "name": "VERDICT — pass only when every clause is executed green with evidence and no absence is named; a named absence or scheduled leg is a NAMED FAILURE (exit 2); a red, an evidence-less green, an undeclared egress or a missing row is a FAIL",
+      "pass": true,
+      "detail": "named_failure/fail/fail/fail/fail",
+      "at": "2026-09-21T03:25:47.912Z"
+    }
+  ],
+  "pure": {
+    "findings": [],
+    "fixture": {
+      "sha256": "sha256:0b8c7c5e87f89442541ba2ffd123b091cf8d152db019e61d62a29781d1555987",
+      "machines": 2,
+      "minted_at": "2026-09-21T03:12:46.310Z"
+    }
+  },
+  "source": [],
+  "spine": {
+    "findings": [],
+    "principal": "00000000-0000-4000-8000-000000000001",
+    "owner": "org://local",
+    "workloads": [
+      "vm_composed",
+      "vm_attached"
+    ],
+    "head_after_create": "sha256:229a7dba86dd071484d9dabb161a6ad464e242ba4886c812b22c98e7bf61f9bb",
+    "refusal_receipts": [
+      "machine-operation-receipt://hypervisor/eb03393b9e8544a7b5f26361e7f807a5",
+      "machine-operation-receipt://hypervisor/17745ba15f25451c9e98aa03ee960c3d",
+      "machine-operation-receipt://hypervisor/da8b20b25d34407c9a76fd8973dfc748"
+    ],
+    "operations_after_delete": 7,
+    "receipts_after_delete": 7,
+    "family_digest": "sha256:19a33f8ec5e52b98614621634198fc6661c4aca9c1ede2569ffb8cd4a01f297f",
+    "serve_log_tail": "===============================\nLocal URL:  http://localhost:43015\nServing:    /home/heathledger/Documents/ioi/repos/ioi/apps/hypervisor/product-ui/owned/public\nTree:       owned\nIndex:      sha256:64a437e45dadf9bbc11f36197785d0f0e069ed51547763dc8ef19d77385bfaab\n============================================================\n[hypervisor] product-ui bundle + IOI /api adapter on http://localhost:42649\n"
+  },
+  "ext": {
+    "findings": [],
+    "package": "machine-console-ext",
+    "surface_ref": "surface://extensions/machine-console-ext",
+    "runtime_route": "/__ioi/domain-app-runtime/dartm_822aac4ee9946665",
+    "registration": {
+      "surface_class": "extension_application",
+      "surface_origin": "organization",
+      "effect_boundary": "propose_only",
+      "canonical_route": "/__ioi/extensions/machine-console-ext"
+    },
+    "reads": {
+      "machines": 2,
+      "not_public": [
+        "api://v1/hypervisor/environments-summary"
+      ],
+      "actions": [
+        {
+          "ref": "action://machine-console/start",
+          "disabled": true,
+          "reason": "extension_action_invocation_not_admitted"
+        }
+      ]
+    },
+    "environment_probe": "env_9a6c85974a7c4cc1b8b9546bc3301e8f92e18176a6da42f1b69abcb9f5973fb4",
+    "route_statuses": {
+      "loopback_anonymous": 302,
+      "exposed_anonymous": 401,
+      "exposed_operator": 403
+    }
+  },
+  "clauses": [
+    {
+      "n": 1,
+      "demand": "contracts precede surfaces, the sixteen-verb vocabulary is one and closed, and capability truth is the backend's current declaration bound by ref and hash (unsupported, drifted, stale and replayed cells refuse before effect; a non-simulated backend is admitted and never executed by the reference executor)",
+      "executed": [
+        {
+          "script": "check:machine-lifecycle-backend-conformance",
+          "kind": "root",
+          "status": 0,
+          "seconds": 11,
+          "isolation": "refused_and_recorded",
+          "ledger": {
+            "attempts": 7,
+            "loopback": 7,
+            "reach": 0,
+            "declared": 0,
+            "declared_hosts": [],
+            "declared_note": null
+          },
+          "evidence": "../../../../../../tmp/ioi-mpc-gate-Jjit9U/1-check-machine-lifecycle-backend-conformance.log",
+          "evidence_sha256": "sha256:69f4627c5174093577ac5687102e84c4874d29555e9fcc84a83ec5d638d0f29e",
+          "executed_assertions": 23,
+          "floor_expected": null
+        }
+      ],
+      "absence": null,
+      "scheduled": null
+    },
+    {
+      "n": 2,
+      "demand": "one desired/observed spine: the App renders the daemon's read model — head, generations, phases, the bound declaration, operations in chain order, receipts, cleanup obligations — member for member and derives none of it; the standalone client reads the same spine from the same route",
+      "executed": [
+        {
+          "script": "pure (this runner)",
+          "status": 0,
+          "seconds": 0,
+          "isolation": "in-process",
+          "ledger": {
+            "attempts": 0,
+            "loopback": 0,
+            "reach": 0
+          },
+          "evidence": "../../../../../../tmp/ioi-mpc-gate-Jjit9U/self-legs.json",
+          "evidence_sha256": "sha256:6ed2b60b44a3812b855e1630425d35cfec02b93774d03e86a599f6bd96e64e8a",
+          "executed_assertions": null,
+          "floor_expected": null
+        },
+        {
+          "script": "source (this runner)",
+          "status": 0,
+          "seconds": 0,
+          "isolation": "in-process",
+          "ledger": {
+            "attempts": 0,
+            "loopback": 0,
+            "reach": 0
+          },
+          "evidence": "../../../../../../tmp/ioi-mpc-gate-Jjit9U/self-legs.json",
+          "evidence_sha256": "sha256:6ed2b60b44a3812b855e1630425d35cfec02b93774d03e86a599f6bd96e64e8a",
+          "executed_assertions": null,
+          "floor_expected": null
+        },
+        {
+          "script": "spine (this runner)",
+          "status": 0,
+          "seconds": 0,
+          "isolation": "in-process",
+          "ledger": {
+            "attempts": 0,
+            "loopback": 0,
+            "reach": 0
+          },
+          "evidence": "../../../../../../tmp/ioi-mpc-gate-Jjit9U/self-legs.json",
+          "evidence_sha256": "sha256:6ed2b60b44a3812b855e1630425d35cfec02b93774d03e86a599f6bd96e64e8a",
+          "executed_assertions": null,
+          "floor_expected": null
+        }
+      ],
+      "absence": null,
+      "scheduled": null
+    },
+    {
+      "n": 3,
+      "demand": "authority and effects do not move into clients: both clients submit PROPOSALS under the operator's own session, an anonymous proposal is refused 401 through either, the daemon mints the identity and records the submitter as it resolved it, the App's lane relays the daemon's answer verbatim",
+      "executed": [
+        {
+          "script": "spine (this runner)",
+          "status": 0,
+          "seconds": 0,
+          "isolation": "in-process",
+          "ledger": {
+            "attempts": 0,
+            "loopback": 0,
+            "reach": 0
+          },
+          "evidence": "../../../../../../tmp/ioi-mpc-gate-Jjit9U/self-legs.json",
+          "evidence_sha256": "sha256:6ed2b60b44a3812b855e1630425d35cfec02b93774d03e86a599f6bd96e64e8a",
+          "executed_assertions": null,
+          "floor_expected": null
+        },
+        {
+          "script": "source (this runner)",
+          "status": 0,
+          "seconds": 0,
+          "isolation": "in-process",
+          "ledger": {
+            "attempts": 0,
+            "loopback": 0,
+            "reach": 0
+          },
+          "evidence": "../../../../../../tmp/ioi-mpc-gate-Jjit9U/self-legs.json",
+          "evidence_sha256": "sha256:6ed2b60b44a3812b855e1630425d35cfec02b93774d03e86a599f6bd96e64e8a",
+          "executed_assertions": null,
+          "floor_expected": null
+        }
+      ],
+      "absence": {
+        "what": "the wallet-owned authority challenge on a machine operation — a proposal's authority_refs are schema strings the kernel does not adjudicate, and no machine verb parks a byte-derived card the way a provider operation does (M08.11); the daemon binds identity and admits through its kernel, it does not yet ask the custody tier",
+        "owner": "M09.11's authority seam with the M03 approval card (owner question, R-215)"
+      },
+      "scheduled": null
+    },
+    {
+      "n": 4,
+      "demand": "capability truth through the clients: a drifted declaration hash and a declaration the daemon does not hold refuse with a receipt through the App's lane, and the refusal is rendered verbatim on the machine's page beside its receipt ref",
+      "executed": [
+        {
+          "script": "spine (this runner)",
+          "status": 0,
+          "seconds": 0,
+          "isolation": "in-process",
+          "ledger": {
+            "attempts": 0,
+            "loopback": 0,
+            "reach": 0
+          },
+          "evidence": "../../../../../../tmp/ioi-mpc-gate-Jjit9U/self-legs.json",
+          "evidence_sha256": "sha256:6ed2b60b44a3812b855e1630425d35cfec02b93774d03e86a599f6bd96e64e8a",
+          "executed_assertions": null,
+          "floor_expected": null
+        },
+        {
+          "script": "check:machine-lifecycle-backend-conformance",
+          "kind": "root",
+          "status": 0,
+          "seconds": 11,
+          "isolation": "refused_and_recorded",
+          "ledger": {
+            "attempts": 7,
+            "loopback": 7,
+            "reach": 0,
+            "declared": 0,
+            "declared_hosts": [],
+            "declared_note": null
+          },
+          "evidence": "../../../../../../tmp/ioi-mpc-gate-Jjit9U/1-check-machine-lifecycle-backend-conformance.log",
+          "evidence_sha256": "sha256:69f4627c5174093577ac5687102e84c4874d29555e9fcc84a83ec5d638d0f29e",
+          "executed_assertions": 23,
+          "floor_expected": null
+        }
+      ],
+      "absence": null,
+      "scheduled": null
+    },
+    {
+      "n": 5,
+      "demand": "integrated and standalone are the same product truth: create through the App, operate through the standalone client and back, and both read the same workload, operation ids, receipts, history and inventory",
+      "executed": [
+        {
+          "script": "spine (this runner)",
+          "status": 0,
+          "seconds": 0,
+          "isolation": "in-process",
+          "ledger": {
+            "attempts": 0,
+            "loopback": 0,
+            "reach": 0
+          },
+          "evidence": "../../../../../../tmp/ioi-mpc-gate-Jjit9U/self-legs.json",
+          "evidence_sha256": "sha256:6ed2b60b44a3812b855e1630425d35cfec02b93774d03e86a599f6bd96e64e8a",
+          "executed_assertions": null,
+          "floor_expected": null
+        }
+      ],
+      "absence": {
+        "what": "a separately DISTRIBUTED focused client on an ADR 0032 axis (a packaged cli_headless or TUI presentation over the same routes): the standalone FORM here is the daemon's HTTP API driven as a thin client, M12.2's precedent, labelled exactly that",
+        "owner": "the standalone client's packaging (owner question, R-215; the taxonomy's cli_headless first-class client)"
+      },
+      "scheduled": null
+    },
+    {
+      "n": 6,
+      "demand": "restart both, remove either: the daemon restarted on the same records and the App restarted read back the identical spine; the App removed leaves the standalone readback unchanged; a second App instance reads the same and its removal changes nothing; no client read changes any record family",
+      "executed": [
+        {
+          "script": "spine (this runner)",
+          "status": 0,
+          "seconds": 0,
+          "isolation": "in-process",
+          "ledger": {
+            "attempts": 0,
+            "loopback": 0,
+            "reach": 0
+          },
+          "evidence": "../../../../../../tmp/ioi-mpc-gate-Jjit9U/self-legs.json",
+          "evidence_sha256": "sha256:6ed2b60b44a3812b855e1630425d35cfec02b93774d03e86a599f6bd96e64e8a",
+          "executed_assertions": null,
+          "floor_expected": null
+        }
+      ],
+      "absence": null,
+      "scheduled": {
+        "what": "daemon, client and backend LOSS mid-operation and crash before/after durable steps on fresh hosted and attached subjects — the phase-by-phase crash/restart/recovery matrix",
+        "prerequisite": "IOI_ACC20_SOAK_EVIDENCE naming fresh hosted (this host's KVM, an ordinary-OS backend) and attached (an independently implemented attached-estate backend) subjects driven through the phase-by-phase crash/restart/recovery matrix (check:governed-machine-product --soak)",
+        "ruling": "the journey's own matrix text (the merge lane uses deterministic reference backends; a release claim additionally carries fresh scheduled backend/host evidence), R-139 (2026-09-14) and R-215 (2026-09-20): a missing backend or host blocks a RUN, never the unit"
+      }
+    },
+    {
+      "n": 7,
+      "demand": "deletion survival: the workload deleted through the standalone client keeps its whole history readable from both clients, its observed phase reads deleted, and the inventory keeps the row rather than forgetting the machine",
+      "executed": [
+        {
+          "script": "spine (this runner)",
+          "status": 0,
+          "seconds": 0,
+          "isolation": "in-process",
+          "ledger": {
+            "attempts": 0,
+            "loopback": 0,
+            "reach": 0
+          },
+          "evidence": "../../../../../../tmp/ioi-mpc-gate-Jjit9U/self-legs.json",
+          "evidence_sha256": "sha256:6ed2b60b44a3812b855e1630425d35cfec02b93774d03e86a599f6bd96e64e8a",
+          "executed_assertions": null,
+          "floor_expected": null
+        }
+      ],
+      "absence": null,
+      "scheduled": null
+    },
+    {
+      "n": 8,
+      "demand": "console sessions, device/volume/network attachments, snapshot/restore lineage, capacity and health, image posture and host inventory through the existing owner surfaces",
+      "executed": [],
+      "absence": {
+        "what": "the daemon serves the operation and receipt members of the machine-control family on one route; the nine host/image/attachment/console/snapshot/migration/maintenance members are registered and unserved, so no surface can render them without inventing them — the snapshot VERB is admitted and receipted here, its lineage is not a record",
+        "owner": "M09.11 (its own OUTSTANDING: attachments, console scope, snapshot lineage — ACC-20 clause 6)"
+      },
+      "scheduled": null
+    },
+    {
+      "n": 9,
+      "demand": "the extension seam is real: an ODK-authored, Packages-admitted extension_application reaches its runtime view through the compiled join and renders the machine inventory from the PUBLIC read model in parity with the daemon, offers its declared actions, and cannot render a ref outside the public list",
+      "executed": [
+        {
+          "script": "ext (this runner)",
+          "status": 0,
+          "seconds": 0,
+          "isolation": "in-process",
+          "ledger": {
+            "attempts": 0,
+            "loopback": 0,
+            "reach": 0
+          },
+          "evidence": "../../../../../../tmp/ioi-mpc-gate-Jjit9U/self-legs.json",
+          "evidence_sha256": "sha256:6ed2b60b44a3812b855e1630425d35cfec02b93774d03e86a599f6bd96e64e8a",
+          "executed_assertions": null,
+          "floor_expected": null
+        },
+        {
+          "script": "pure (this runner)",
+          "status": 0,
+          "seconds": 0,
+          "isolation": "in-process",
+          "ledger": {
+            "attempts": 0,
+            "loopback": 0,
+            "reach": 0
+          },
+          "evidence": "../../../../../../tmp/ioi-mpc-gate-Jjit9U/self-legs.json",
+          "evidence_sha256": "sha256:6ed2b60b44a3812b855e1630425d35cfec02b93774d03e86a599f6bd96e64e8a",
+          "executed_assertions": null,
+          "floor_expected": null
+        },
+        {
+          "script": "check:packages-journey",
+          "kind": "app",
+          "status": 0,
+          "seconds": 20,
+          "isolation": "refused_and_recorded",
+          "ledger": {
+            "attempts": 58,
+            "loopback": 56,
+            "reach": 0,
+            "declared": 2,
+            "declared_hosts": [
+              "2001:4860:4860::8888"
+            ],
+            "declared_note": "Chromium's DNS-over-HTTPS probe from the journey's browser matrix; refused by the host (ENETUNREACH); not the journey's subject"
+          },
+          "evidence": "../../../../../../tmp/ioi-mpc-gate-Jjit9U/census/9-packages-journey/packages-journey.json",
+          "evidence_sha256": "sha256:48d95b9a3ef08cafc3d831d1cdcf372b9a8b5aa57c9daa1ca4b1679f4918b27d",
+          "executed_assertions": 83,
+          "floor_expected": 83
+        },
+        {
+          "script": "check:odk-contract-and-domainapp",
+          "kind": "app",
+          "status": 0,
+          "seconds": 16,
+          "isolation": "refused_and_recorded",
+          "ledger": {
+            "attempts": 29,
+            "loopback": 29,
+            "reach": 0,
+            "declared": 0,
+            "declared_hosts": [],
+            "declared_note": null
+          },
+          "evidence": "../../../../../../tmp/ioi-mpc-gate-Jjit9U/census/9-odk-contract-and-domainapp/odk-contract-and-domainapp.json",
+          "evidence_sha256": "sha256:4b1beb3854c48a912cf848d92db0a14b3e3780a3eb554888827c51abf5515906",
+          "executed_assertions": 58,
+          "floor_expected": 58
+        }
+      ],
+      "absence": {
+        "what": "the extension's INVOCATION crossing: an offered action is rendered disabled with a typed reason because no gateway path exists for an extension to submit a machine proposal under its own admitted contracts (canon routes UI-initiated extension actions through the MCP Gateway / RuntimeToolContract, which has no machine binding)",
+        "owner": "the DomainApp runtime plane and the Hypervisor MCP Gateway (owner question, R-215)"
+      },
+      "scheduled": null
+    },
+    {
+      "n": 10,
+      "demand": "the four mutations refuse: private projection (anonymous cannot reach the extension's route, the compiled join answers only under the caller's org, a non-public daemon_api_ref is listed and never fetched, an environment's identity never appears on the extension's page), authority bypass (anonymous 401 at the daemon and through the App's lane, no lane, form or script call on the extension's page), capability forgery (a forged hash and an unknown declaration refuse with receipts), first-party privilege (class, origin, effect boundary and route are derived by the registration, never claimed)",
+      "executed": [
+        {
+          "script": "ext (this runner)",
+          "status": 0,
+          "seconds": 0,
+          "isolation": "in-process",
+          "ledger": {
+            "attempts": 0,
+            "loopback": 0,
+            "reach": 0
+          },
+          "evidence": "../../../../../../tmp/ioi-mpc-gate-Jjit9U/self-legs.json",
+          "evidence_sha256": "sha256:6ed2b60b44a3812b855e1630425d35cfec02b93774d03e86a599f6bd96e64e8a",
+          "executed_assertions": null,
+          "floor_expected": null
+        },
+        {
+          "script": "spine (this runner)",
+          "status": 0,
+          "seconds": 0,
+          "isolation": "in-process",
+          "ledger": {
+            "attempts": 0,
+            "loopback": 0,
+            "reach": 0
+          },
+          "evidence": "../../../../../../tmp/ioi-mpc-gate-Jjit9U/self-legs.json",
+          "evidence_sha256": "sha256:6ed2b60b44a3812b855e1630425d35cfec02b93774d03e86a599f6bd96e64e8a",
+          "executed_assertions": null,
+          "floor_expected": null
+        },
+        {
+          "script": "source (this runner)",
+          "status": 0,
+          "seconds": 0,
+          "isolation": "in-process",
+          "ledger": {
+            "attempts": 0,
+            "loopback": 0,
+            "reach": 0
+          },
+          "evidence": "../../../../../../tmp/ioi-mpc-gate-Jjit9U/self-legs.json",
+          "evidence_sha256": "sha256:6ed2b60b44a3812b855e1630425d35cfec02b93774d03e86a599f6bd96e64e8a",
+          "executed_assertions": null,
+          "floor_expected": null
+        }
+      ],
+      "absence": null,
+      "scheduled": null
+    },
+    {
+      "n": 11,
+      "demand": "neither delivery form is a second runtime, database, machine owner, authority path or receipt writer: the App keeps no machine cache and derives no head, the library is pure, the daemon's record families are unchanged by every client read, and the standalone client holds nothing between requests",
+      "executed": [
+        {
+          "script": "source (this runner)",
+          "status": 0,
+          "seconds": 0,
+          "isolation": "in-process",
+          "ledger": {
+            "attempts": 0,
+            "loopback": 0,
+            "reach": 0
+          },
+          "evidence": "../../../../../../tmp/ioi-mpc-gate-Jjit9U/self-legs.json",
+          "evidence_sha256": "sha256:6ed2b60b44a3812b855e1630425d35cfec02b93774d03e86a599f6bd96e64e8a",
+          "executed_assertions": null,
+          "floor_expected": null
+        },
+        {
+          "script": "spine (this runner)",
+          "status": 0,
+          "seconds": 0,
+          "isolation": "in-process",
+          "ledger": {
+            "attempts": 0,
+            "loopback": 0,
+            "reach": 0
+          },
+          "evidence": "../../../../../../tmp/ioi-mpc-gate-Jjit9U/self-legs.json",
+          "evidence_sha256": "sha256:6ed2b60b44a3812b855e1630425d35cfec02b93774d03e86a599f6bd96e64e8a",
+          "executed_assertions": null,
+          "floor_expected": null
+        }
+      ],
+      "absence": {
+        "what": "an ODK SCAFFOLDING command: the extension's mesh is authored through the ODK routes (the dev kit's four draft objects); no `scaffold` verb produces a package skeleton, fixtures or conformance checks from a template",
+        "owner": "M05's developer kit (owner question, R-215)"
+      },
+      "scheduled": null
+    },
+    {
+      "n": 12,
+      "demand": "backend registration through a route, Agentgres-backed machine truth, and the two profile certificates",
+      "executed": [],
+      "absence": {
+        "what": "declarations are planted as files under machine-capability-declarations (no registration route); the machine families are durable_fs records, not Agentgres streams; workstation_hosted_v1 and infrastructure_attached_v1 are M12.15's certificates",
+        "owner": "M09.11 (registration route, Agentgres migration) · M12.15 (check:machine-product-profile-qualification)"
+      },
+      "scheduled": null
+    }
+  ],
+  "verdict": {
+    "kind": "named_failure",
+    "failures": [],
+    "absences": [
+      {
+        "n": 3,
+        "what": "the wallet-owned authority challenge on a machine operation — a proposal's authority_refs are schema strings the kernel does not adjudicate, and no machine verb parks a byte-derived card the way a provider operation does (M08.11); the daemon binds identity and admits through its kernel, it does not yet ask the custody tier",
+        "owner": "M09.11's authority seam with the M03 approval card (owner question, R-215)"
+      },
+      {
+        "n": 5,
+        "what": "a separately DISTRIBUTED focused client on an ADR 0032 axis (a packaged cli_headless or TUI presentation over the same routes): the standalone FORM here is the daemon's HTTP API driven as a thin client, M12.2's precedent, labelled exactly that",
+        "owner": "the standalone client's packaging (owner question, R-215; the taxonomy's cli_headless first-class client)"
+      },
+      {
+        "n": 6,
+        "what": "SCHEDULED-OUTSTANDING: daemon, client and backend LOSS mid-operation and crash before/after durable steps on fresh hosted and attached subjects — the phase-by-phase crash/restart/recovery matrix",
+        "owner": "prerequisite: IOI_ACC20_SOAK_EVIDENCE naming fresh hosted (this host's KVM, an ordinary-OS backend) and attached (an independently implemented attached-estate backend) subjects driven through the phase-by-phase crash/restart/recovery matrix (check:governed-machine-product --soak) · the journey's own matrix text (the merge lane uses deterministic reference backends; a release claim additionally carries fresh scheduled backend/host evidence), R-139 (2026-09-14) and R-215 (2026-09-20): a missing backend or host blocks a RUN, never the unit"
+      },
+      {
+        "n": 8,
+        "what": "the daemon serves the operation and receipt members of the machine-control family on one route; the nine host/image/attachment/console/snapshot/migration/maintenance members are registered and unserved, so no surface can render them without inventing them — the snapshot VERB is admitted and receipted here, its lineage is not a record",
+        "owner": "M09.11 (its own OUTSTANDING: attachments, console scope, snapshot lineage — ACC-20 clause 6)"
+      },
+      {
+        "n": 9,
+        "what": "the extension's INVOCATION crossing: an offered action is rendered disabled with a typed reason because no gateway path exists for an extension to submit a machine proposal under its own admitted contracts (canon routes UI-initiated extension actions through the MCP Gateway / RuntimeToolContract, which has no machine binding)",
+        "owner": "the DomainApp runtime plane and the Hypervisor MCP Gateway (owner question, R-215)"
+      },
+      {
+        "n": 11,
+        "what": "an ODK SCAFFOLDING command: the extension's mesh is authored through the ODK routes (the dev kit's four draft objects); no `scaffold` verb produces a package skeleton, fixtures or conformance checks from a template",
+        "owner": "M05's developer kit (owner question, R-215)"
+      },
+      {
+        "n": 12,
+        "what": "declarations are planted as files under machine-capability-declarations (no registration route); the machine families are durable_fs records, not Agentgres streams; workstation_hosted_v1 and infrastructure_attached_v1 are M12.15's certificates",
+        "owner": "M09.11 (registration route, Agentgres migration) · M12.15 (check:machine-product-profile-qualification)"
+      }
+    ]
+  },
+  "mutation": null,
+  "host": {
+    "isolation": "refused_and_recorded",
+    "strace": "strace -- version 6.8",
+    "load": [
+      "2.17",
+      "2.93",
+      "2.95"
+    ],
+    "daemon_binary": "/home/heathledger/Documents/ioi/repos/ioi/target/debug/hypervisor-daemon",
+    "work_dir": "/tmp/ioi-mpc-gate-Jjit9U"
+  },
+  "finished_at": "2026-09-21T03:26:47.245Z",
+  "summary": {
+    "passed": 5,
+    "total": 5
+  }
+}

@@ -28,6 +28,7 @@ import { WebSocketServer } from "ws";
 import * as adapter from "./ioi-api-adapter.mjs";
 import { getRun, listRuns, hydrateRunsFromDaemon, reconcileInFlightRuns, publishRunViaConnector, listRunsAwaitingApproval, decideRunApproval, listPendingCredentialBinds, startModelRouteCredentialBind, decideModelRouteCredentialBind, submitProviderOperation } from "./ioi-agent-runs.mjs";
 import { projectRunTimeline } from "./ioi-run-timeline.mjs";
+import { MACHINES_API, MACHINES_ROUTE, MACHINE_LANE_PATH, PUBLIC_EXTENSION_READS, renderExtensionMachineReads, renderMachineDetail, renderMachineInventory } from "./lib/machine-product-composition.mjs";
 import { bpIcon, ONTOLOGY_APP_ICON_URI, APPROVALS_APP_ICON_URI, PIPELINE_APP_ICON_URI, ISSUES_APP_ICON_URI, EXPLORER_APP_ICON_URI, MODELS_APP_ICON_URI, AIP_GRADIENT_SVG_RAIL, AIP_GRADIENT_SVG_TOOLBAR } from "./bp-icons.mjs";
 import { MARKETPLACE_APP_ICON_URI, MK_GLOBE_URI, MK_HERO_URI, MK_STORE_ICON_URI, MK_PACKAGE_URI, MK_WIZ1_URI, MK_ARROW_URI, MK_WIZ2_URI, MK_WIZ3_URI } from "./marketplace-assets.mjs";
 import { DSG_APP_TILE_URI, DSG_ROW_DOC_URI, DSG_HERO_URI, DSG_AIP_ICON_URI, DSG_GALLERY_STRIP_URI } from "./designer-assets.mjs";
@@ -2196,7 +2197,7 @@ function renderEnvironments(summary, classes, providerAccounts, venuesRes, polic
     </tr>`;
   }).join("");
   const pager = envPager("/__ioi/environments", summary);
-  const table = `<h2>Active environments</h2><p class="sub" style="margin:-4px 0 12px">Select an environment to inspect its live lifecycle detail — component phases, readiness observations, ports/services/tasks, isolation and connectivity posture — read from the daemon record. <a href="/__ioi/environments/map">Placement map →</a></p>${pager}<div class="envwrap"><div><table><thead><tr><th>Environment</th><th>Phase</th><th>Readiness</th><th>Project</th><th>Class · substrate</th><th>Ports·Svc·Tasks</th><th>Open</th></tr></thead><tbody>${rows}</tbody></table>${pager}</div><div class="envdrawer" id="env-drawer"><div class="sub" style="margin:0">Select an environment to inspect its lifecycle detail.</div></div></div>`;
+  const table = `<h2>Active environments</h2><p class="sub" style="margin:-4px 0 12px">Select an environment to inspect its live lifecycle detail — component phases, readiness observations, ports/services/tasks, isolation and connectivity posture — read from the daemon record. <a href="/__ioi/environments/map">Placement map →</a> · <a href="/__ioi/environments/machines">Governed machines →</a></p>${pager}<div class="envwrap"><div><table><thead><tr><th>Environment</th><th>Phase</th><th>Readiness</th><th>Project</th><th>Class · substrate</th><th>Ports·Svc·Tasks</th><th>Open</th></tr></thead><tbody>${rows}</tbody></table>${pager}</div><div class="envdrawer" id="env-drawer"><div class="sub" style="margin:0">Select an environment to inspect its lifecycle detail.</div></div></div>`;
   const styles = `<style>.envwrap{display:grid;grid-template-columns:1fr 380px;gap:16px;align-items:start}.envdrawer{position:sticky;top:12px;border:1px solid #e5e8eb;border-radius:12px;background:#fff;padding:14px 16px;max-height:82vh;overflow:auto;font-size:12.5px}.envrow{cursor:pointer}.envrow.selrow{background:#e8eef7}.envrow:hover{background:#f6f7f9}.envd-k{color:#5f6b7c;font-size:11px;text-transform:uppercase;letter-spacing:.05em;margin:12px 0 4px;font-weight:600}.envd-comp{display:flex;justify-content:space-between;padding:3px 0;border-bottom:1px solid #f0f2f5}.envd-obs{border-left:2px solid #d1d1d1;padding:2px 0 8px 10px;margin-left:3px}@media(max-width:1100px){.envwrap{grid-template-columns:1fr}.envdrawer{position:static}}@media(max-width:700px){.envwrap{min-width:0}.envwrap *{min-width:0}.envwrap .row,.row{flex-wrap:wrap}.envdrawer{max-width:100%;overflow-x:auto}}</style>`;
   const script = `<script>
     function envEsc(s){return String(s==null?'':s).replace(/[&<>]/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;'}[c];});}
@@ -6016,7 +6017,7 @@ function odkGovLink(ref) {
   return ref ? `<a href="/__ioi/governance?tab=${tab}"><code>${CX_ESC(ref)}</code></a>` : "—";
 }
 // The internally-served, descriptor-driven, READ-ONLY generated app view.
-function renderDomainAppRuntimeView(rt, dapp, descriptor, ontology) {
+function renderDomainAppRuntimeView(rt, dapp, descriptor, ontology, publicReads = {}) {
   const enc = encodeURIComponent;
   const d = dapp || {}; const desc = descriptor || {}; const ont = ontology || {};
   const runtimeModel = projectDomainAppRuntimeModel(ont);
@@ -6039,8 +6040,9 @@ function renderDomainAppRuntimeView(rt, dapp, descriptor, ontology) {
     <div class="chips"><span class="chiplabel">Events</span>${chips(runtimeModel.events)}</div>
     <div class="chips"><span class="chiplabel">Roles</span>${chips(runtimeModel.roles)}</div>
     <h2>Objects</h2>${objList}`;
+  const reads = renderExtensionMachineReads({ descriptor: desc, machines: publicReads.machines ?? null, esc: CX_ESC });
   const footer = `<p class="sub" style="margin-top:20px">Runtime <code>${CX_ESC(rt.ref || "")}</code> · descriptor <code>${CX_ESC(d.surface_descriptor_ref || "")}</code> · governed by ${odkGovLink(rt.approval_request_ref)} + ${odkGovLink(rt.release_control_ref)} · <a href="/__ioi/work-ledger">Work Ledger</a> · <a href="/__ioi/domain-apps/${enc(d.domain_app_id || "")}">← Domain App</a></p>`;
-  return automationsShell(d.name || "Domain App", head + banner + model + footer);
+  return automationsShell(d.name || "Domain App", head + banner + model + reads + footer);
 }
 function domainAppCard(a) {
   const e = encodeURIComponent;
@@ -12653,6 +12655,62 @@ async function handleEstateRequest(req, res, body) {
     // own provider-ops request; the caller's identity rides to the daemon; a refusal carrying the
     // daemon's request preimage parks the run on Work / Sessions as the byte-derived card, and the
     // operator's decision below hands it to the deployment's custody tier. The App signs nothing here.
+    // ---- M08.15 (R-215) — the INTEGRATED form of the Workstation / Infrastructure bundle: the daemon's
+    // machine read model projected through the Environments owner. The App picks members and renders
+    // them; it derives no head, holds no cache and writes no machine record. The proposal lane forwards
+    // the caller's own identity to the daemon's machine-operation route and relays the daemon's answer
+    // verbatim (status and body): the App is a client of that route, never an authority over it.
+    if (pathname === MACHINES_ROUTE && req.method === "GET") {
+      const listing = await daemonFetch(MACHINES_API).then((r) => r.json()).catch(() => ({}));
+      const machines = Array.isArray(listing.machines) ? listing.machines : [];
+      res.writeHead(200, { "Content-Type": "text/html; charset=utf-8", "Cache-Control": "no-cache", "X-IOI-Surface-Route": pathname, "X-IOI-Surface-Owner": "Environments · governed machines" });
+      res.end(automationsShell("Governed machines", `<div class="brand">IOI Hypervisor · Environments</div><h1>Governed machines</h1><p class="sub">The daemon's machine inventory, read from <code>${CX_ESC(MACHINES_API)}</code> on this request and rendered verbatim: every row is the daemon's own head, generations and phases. This page keeps no copy. ${listing.ok === false ? `<span class="pill warn">${CX_ESC(listing.code || "read_model_unavailable")}</span>` : ""}</p>${renderMachineInventory(machines, { esc: CX_ESC, route: MACHINES_ROUTE })}<p class="sub" style="margin-top:20px"><a href="/__ioi/environments">← Environments</a> · <a href="/__ioi/operations">Operations</a></p>`));
+      return;
+    }
+    if (pathname.startsWith(`${MACHINES_ROUTE}/`) && req.method === "GET") {
+      const workload = decodeURIComponent(pathname.slice(MACHINES_ROUTE.length + 1).split("/")[0]);
+      const read = await daemonFetch(`${MACHINES_API}/${encodeURIComponent(workload)}`).then(async (r) => ({ status: r.status, body: await r.json().catch(() => ({})) })).catch(() => ({ status: 0, body: {} }));
+      const headers = { "Content-Type": "text/html; charset=utf-8", "Cache-Control": "no-cache", "X-IOI-Surface-Route": `${MACHINES_ROUTE}/:workload`, "X-IOI-Surface-Owner": "Environments · governed machines" };
+      if (!(read.status === 200 && read.body?.ok === true && read.body.machine)) {
+        res.writeHead(read.status === 404 ? 404 : 200, headers);
+        res.end(automationsShell("Governed machine", `<div class="brand">IOI Hypervisor · Environments</div><h1>${CX_ESC(workload)}</h1><div class="empty" data-ioi-machine-unknown="${CX_ESC(workload)}">${read.status === 404 ? `The daemon records no machine named <code>${CX_ESC(workload)}</code> (<code>${CX_ESC(read.body?.code || "machine_workload_unknown")}</code>). Unknown is not empty: nothing is shown that was not recorded.` : `The machine read model did not answer (<code>${CX_ESC(read.body?.code || String(read.status))}</code>).`}</div><p><a href="${MACHINES_ROUTE}">← Governed machines</a></p>`));
+        return;
+      }
+      res.writeHead(200, headers);
+      res.end(automationsShell(`Machine ${workload}`, `<div class="brand">IOI Hypervisor · Environments</div><h1>${CX_ESC(read.body.machine.workload_ref || workload)}</h1><p class="sub">One workload's spine, read from <code>${CX_ESC(`${MACHINES_API}/${workload}`)}</code> on this request. Head, generations and phases are the daemon's derivation; this page repeats them and computes nothing.</p>${renderMachineDetail(read.body.machine, { esc: CX_ESC, laneUrl: MACHINE_LANE_PATH, route: MACHINES_ROUTE })}<p class="sub" style="margin-top:20px"><a href="${MACHINES_ROUTE}">← Governed machines</a> · <a href="/__ioi/operations">Operations</a></p>`));
+      return;
+    }
+    if (pathname === MACHINE_LANE_PATH && req.method === "POST") {
+      // JSON {workload, proposal} from a client, or the detail page's form (a minimal proposal the
+      // daemon will refuse by contract unless the form is completed by a client that knows the
+      // declaration — the form is a human affordance; the lane's contract is the JSON shape).
+      const isForm = String(req.headers["content-type"] || "").includes("application/x-www-form-urlencoded");
+      let workload = ""; let proposal = null;
+      if (isForm) {
+        const form = new URLSearchParams(body.toString("utf8"));
+        workload = form.get("workload") || "";
+        proposal = { operation: form.get("operation") || "", desired_generation: Number(form.get("desired_generation") || 0), expected_head: form.get("expected_head") || "" };
+      } else {
+        let payload = null;
+        try { payload = JSON.parse(body.toString("utf8") || "null"); } catch { payload = null; }
+        workload = String(payload?.workload || "");
+        proposal = payload?.proposal ?? null;
+      }
+      if (!workload || !proposal || typeof proposal !== "object") {
+        res.writeHead(400, { "Content-Type": "application/json", "Cache-Control": "no-cache" });
+        res.end(JSON.stringify({ ok: false, reason: "machine_lane_request_invalid", error: { code: "machine_lane_request_invalid", message: "the lane takes {workload, proposal}; the proposal is the daemon's machine-operation contract" } }));
+        return;
+      }
+      const relayed = await daemonFetch(`${MACHINES_API}/${encodeURIComponent(workload)}/operations`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(proposal) }).then(async (r) => ({ status: r.status, text: await r.text() })).catch((error) => ({ status: 503, text: JSON.stringify({ ok: false, reason: "machine_lane_daemon_unreachable", detail: String(error?.message || error) }) }));
+      if (isForm) {
+        res.writeHead(303, { Location: `${MACHINES_ROUTE}/${encodeURIComponent(workload)}`, "Cache-Control": "no-cache" });
+        res.end();
+        return;
+      }
+      res.writeHead(relayed.status || 502, { "Content-Type": "application/json", "Cache-Control": "no-cache", "X-IOI-Surface-Owner": "Environments · machine lane (relayed verbatim)" });
+      res.end(relayed.text);
+      return;
+    }
     if (pathname === "/__ioi/provider-ops" && req.method === "POST") {
       const cacheAdmission = await localRunCacheAdmission(req);
       if (!cacheAdmission.ok) {
@@ -13815,8 +13873,17 @@ async function handleEstateRequest(req, res, body) {
       const descriptor = descRes.surface_descriptor || {};
       const ontId = String(descriptor.ontology_ref || "").replace(/^ontology:\/\//, "");
       const ontRes = ontId ? await daemonFetch(`/v1/hypervisor/odk/domain-ontologies/${encodeURIComponent(ontId)}`).then((x) => x.json()).catch(() => ({})) : {};
+      // M08.15: an admitted extension's view may render the PUBLIC read models its descriptor names
+      // and nothing else — the closed list is PUBLIC_EXTENSION_READS; every other daemon_api_ref is
+      // listed as declared-and-not-rendered. Read under the caller's own identity, like every read here.
+      const publicReads = {};
+      for (const ref of (Array.isArray(descriptor.daemon_api_refs) ? descriptor.daemon_api_refs : [])) {
+        if (ref === "api://v1/hypervisor/machines" && PUBLIC_EXTENSION_READS[ref]) {
+          publicReads.machines = await daemonFetch(PUBLIC_EXTENSION_READS[ref]).then((x) => x.json()).then((j) => (Array.isArray(j.machines) ? j.machines : [])).catch(() => []);
+        }
+      }
       res.writeHead(200, HTMLH);
-      res.end(renderDomainAppRuntimeView(rt, dapp, descriptor, ontRes.ontology || {}));
+      res.end(renderDomainAppRuntimeView(rt, dapp, descriptor, ontRes.ontology || {}, publicReads));
       return;
     }
     // ---- Domain Apps — controlled builder over the daemon Domain Apps object plane (estate #6).

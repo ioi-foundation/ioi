@@ -1,0 +1,132 @@
+{
+  "evidence_format": "ioi.program.work_item.v1",
+  "work_item_id": "m08-15-machine-product-composition",
+  "stage_id": "M08",
+  "required_work": [
+    "M08.15"
+  ],
+  "status": "evidence_ready",
+  "objective": "Close M08.15 as an executable gate: the Workstation / Infrastructure bundle's two delivery forms and its extension seam over ONE daemon-owned machine lifecycle. The daemon answers the machine family's read model (inventory and per-workload spine — head, desired/observed generations and phases, the bound declaration, operations in chain order, receipts, cleanup obligations) derived from its records on every read, and admits a proposal under a resolved principal only, recording the submitter as it resolved it. The App projects that read model member for member and derives nothing; its lane relays the daemon's answer verbatim. A thin client over the daemon's API is the standalone form in this cut. An ODK-authored extension admitted through Packages renders only the public read model and offers its declared action without invoking.",
+  "falsifiable_claim": "npm run check:machine-product-composition --workspace=@ioi/hypervisor-app (scripts/check-machine-product-composition.mjs --drills) binds every clause to a floored app gate, M09.11's own gate or one of the runner's legs, proves over the tracked read-model fixture that the App's projection carries every member and derives none (a fork reads back as no head), that a page renders and reads back member for member, that parity detects a changed head, receipt, phase or operation, that the extension view renders only the public read model and offers without invoking, and pins the serve's routes and verbatim relay, the absence of any head derivation or machine cache in the App, the runtime view's single guarded read, the daemon's identity-first submit, read model and recorded submitter, and the M09.11 gate asking the daemon for the head; npm run mutate:machine-product-composition drills the oracles with 19 planted defects. npm run check:machine-product-composition (full mode) drives the integrated form and the thin client against one isolated daemon (cross-client operation, refusals rendered verbatim, restart on the same records, App removal and doubling, deletion survival, record families unchanged by reads) and one ODK-authored extension admitted through Packages (parity with the daemon, the non-public ref unrendered, the offer disabled, no lane, the exposed anonymous request refused), with check:machine-lifecycle-backend-conformance, check:packages-journey and check:odk-contract-and-domainapp composed inside the isolated-egress harness; the verdict is pass only when every clause is executed green with evidence and no absence is named.",
+  "canon_owners": [
+    "docs/architecture/components/hypervisor/core-clients-surfaces.md",
+    "docs/architecture/components/hypervisor/providers-and-environments.md"
+  ],
+  "code_anchors": [
+    {
+      "path": "crates/node/src/bin/hypervisor_daemon_routes/machine_routes.rs",
+      "must_contain": "pub(crate) fn machine_spine(",
+      "present_when": "merged"
+    },
+    {
+      "path": "crates/node/src/bin/hypervisor_daemon_routes/machine_routes.rs",
+      "must_contain": "pub(crate) async fn handle_machine_get(",
+      "present_when": "merged"
+    },
+    {
+      "path": "crates/node/src/bin/hypervisor_daemon_routes/machine_routes.rs",
+      "must_contain": "\"reason\": \"request_principal_required\"",
+      "present_when": "merged"
+    },
+    {
+      "path": "crates/node/src/bin/hypervisor_daemon_routes/machine_routes.rs",
+      "must_contain": "pub(crate) fn admitted_chain(",
+      "present_when": "merged"
+    },
+    {
+      "path": "crates/node/src/bin/hypervisor-daemon.rs",
+      "must_contain": "get(machine_routes::handle_machine_get)",
+      "present_when": "merged"
+    },
+    {
+      "path": "apps/hypervisor/scripts/lib/machine-product-composition.mjs",
+      "must_contain": "export function projectMachineSpine(",
+      "present_when": "merged"
+    },
+    {
+      "path": "apps/hypervisor/scripts/lib/machine-product-composition.mjs",
+      "must_contain": "export function renderExtensionMachineReads(",
+      "present_when": "merged"
+    },
+    {
+      "path": "apps/hypervisor/scripts/lib/machine-product-composition.mjs",
+      "must_contain": "export function spineParity(",
+      "present_when": "merged"
+    },
+    {
+      "path": "apps/hypervisor/scripts/serve-product-ui.mjs",
+      "must_contain": "pathname === MACHINE_LANE_PATH && req.method === \"POST\"",
+      "present_when": "merged"
+    },
+    {
+      "path": "apps/hypervisor/scripts/serve-product-ui.mjs",
+      "must_contain": "renderExtensionMachineReads({ descriptor: desc",
+      "present_when": "merged"
+    },
+    {
+      "path": "scripts/check-machine-product-composition.mjs",
+      "must_contain": "export function pureFindings(",
+      "present_when": "merged"
+    },
+    {
+      "path": "scripts/check-machine-product-composition.mjs",
+      "must_contain": "async function fullLegs(",
+      "present_when": "merged"
+    },
+    {
+      "path": "scripts/check-machine-lifecycle-backend-conformance.mjs",
+      "must_contain": "auth/bootstrap",
+      "present_when": "merged"
+    },
+    {
+      "path": "scripts/check-governed-machine-product.mjs",
+      "must_contain": "const COMPOSITION = ",
+      "present_when": "merged"
+    },
+    {
+      "path": "apps/hypervisor/verifier-floors.v1.json",
+      "must_contain": "\"id\": \"machine-product-composition\"",
+      "present_when": "merged"
+    },
+    {
+      "path": ".github/workflows/ci.yml",
+      "must_contain": "npm run check:machine-product-composition --workspace=@ioi/hypervisor-app",
+      "present_when": "merged"
+    },
+    {
+      "path": "docs/architecture/components/hypervisor/core-clients-surfaces.md",
+      "must_contain": "`check:machine-product-composition` is the executable form of this section",
+      "present_when": "merged"
+    },
+    {
+      "path": "docs/architecture/components/hypervisor/providers-and-environments.md",
+      "must_contain": "`check:machine-product-composition` is the family's surface proof",
+      "present_when": "merged"
+    },
+    {
+      "path": "docs/architecture/_meta/evidence/m08-15-machine-read-model-fixture-2026-09-20.v1.json",
+      "must_contain": "ioi.m08-15-machine-read-model-fixture.v1",
+      "present_when": "merged"
+    }
+  ],
+  "evidence_refs": [
+    "docs/architecture/_meta/evidence/m08-15-machine-product-composition-2026-09-20.v1.json",
+    "docs/architecture/_meta/evidence/m08-15-machine-read-model-fixture-2026-09-20.v1.json",
+    "docs/architecture/_meta/canon-to-code-delta.md"
+  ],
+  "remaining_nonclaims": [
+    "No separately DISTRIBUTED standalone client exists on an ADR 0032 axis: the standalone FORM the gate drives is the daemon's HTTP API as a thin client (M12.2's precedent), labelled exactly that (owner question, R-215)",
+    "No wallet-owned authority challenge on a machine operation: a proposal's authority_refs are schema strings the kernel does not adjudicate; the daemon binds identity and admits through its kernel (owner question, R-215; M09.11's seam with the M03 card)",
+    "The extension cannot INVOKE: its declared action is rendered as a disabled offer with a typed reason because no gateway path exists for an extension to submit a machine proposal under its own admitted contracts (owner question, R-215)",
+    "Console sessions, attachments, snapshot lineage, capacity/health, image and host inventory have no surfaces: the nine machine-control members beyond operation and receipt are registered and unserved (M09.11's own outstanding)",
+    "Backend declarations are planted records, not a registration route; the machine families are durable_fs records, not Agentgres streams (M09.11)",
+    "No ODK scaffolding command exists: the extension's mesh is authored through the ODK routes (owner question, R-215)",
+    "The crash/restart matrix on fresh hosted and attached subjects is SCHEDULED (M12.15's soak, IOI_ACC20_SOAK_EVIDENCE); the two profile certificates are M12.15's",
+    "The full gate is on demand, not CI-gated; CI executes the drills and the drill",
+    "On loopback in the local_development posture an anonymous read of the extension route resolves the daemon's documented local-operator convenience (measured 302, recorded not asserted); the private-projection refusal is measured in the exposed posture (forwarded host), where the deployment fails closed — anonymous 401, the loopback-minted operator session 403 — until it is authenticated-managed"
+  ],
+  "last_status_transaction": "2026-09-20",
+  "pr": null,
+  "adversarial_or_fault_proof": "mutate:machine-product-composition plants: a projection that drops the head, a projection that DERIVES the head from the last operation (the client-side rule), a renderer that drops a receipt member, a parity that ignores receipts, an inventory that renders only the first machine, an extension view that enables the offered action, one that treats a first-party projection as public, one that carries a form (eight mutant copies of the library, loaded and measured); a serve without the lane route, a lane that answers for the daemon, a serve that derives the head, a runtime view that fetches whatever the descriptor names, a library whose offers are enabled, a daemon that admits an anonymous proposal, a daemon that records the caller's claimed owner as the submitter, the M09.11 gate deriving the head again, canon without the gate, fabricated success rows, and a clause neither executed nor named — each must go red (19/19). The gate's first two full runs found and fixed a directory-ordered generations derivation in the daemon (a workload at generation 2 read back at 1 on some runs), the DomainApp plane's pattern requirement on the extension's descriptor, and an assertion that was wrong for the loopback posture.",
+  "source_provenance": "Authored 2026-09-20 by the MVP finish-line program (R-215 ruled the shape after a read-only survey; R-124, R-128..R-130, R-133, R-139 and R-143 are its letter). Drills 5/5 with a census and a floor row, mutation 19/19, unit tests 16/16 in machine_routes, the M09.11 gate 23/23 against the rebuilt daemon; the full gate NAMED FAILURE (exit 2) with SPINE and EXT green, check:machine-lifecycle-backend-conformance 23, check:packages-journey 83/83 (58 attempts, 56 loopback, the browser's two Google Public DNS probes declared by name and refused by the host, 0 reach), check:odk-contract-and-domainapp 58/58, 7 named entries. Census pins moved with the two routes (1117 → 1119 handlers, 862 → 864 paths). Recorded in canon-to-code-delta.md § Journey verification CXXIV. ACC-20 composed re-run on this tree (`acc-20.log`): PARTIAL, exit 2 — 4 executed clause checks green (M09.11's conformance gate 23/23; clause 2's `check:machine-product-composition --drills` 5/5 and `mutate:machine-product-composition` 19/19), 7 typed absences (clauses 2, 5, 6, 8, 9, 10 and N1 — each owned: M09.11's boot epoch and console/attachment members, R-215's owner questions, M12.15's certificates), 0 batteries not executed, 1 scheduled leg (the crash matrix); before this unit: 2 executed checks and 6 absences owned by a check that was To be authored."
+}

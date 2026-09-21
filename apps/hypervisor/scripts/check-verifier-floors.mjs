@@ -97,7 +97,7 @@ for (const check of ciChecks) {
     fail("ci_invokes_unknown_script", `${check} is run by ci.yml but is not a script in apps/hypervisor/package.json`);
     continue;
   }
-  const m = cmd.match(/(scripts\/(?:verify-[A-Za-z0-9._-]+|check-landing-designations|check-standalone-conformance|check-zero-to-operable|check-undeniable-product-proof|check-horizon-1b-improvement|check-horizon-2-distributed-work|check-provider-neutral-live-transaction|check-c8-bounded-live-effect-certificate|check-approval-card-facets|check-spend-approval-lane|check-editor-challenge-relay)\.mjs)/);
+  const m = cmd.match(/(scripts\/(?:verify-[A-Za-z0-9._-]+|check-landing-designations|check-standalone-conformance|check-zero-to-operable|check-undeniable-product-proof|check-horizon-1b-improvement|check-horizon-2-distributed-work|check-provider-neutral-live-transaction|check-c8-bounded-live-effect-certificate|check-approval-card-facets|check-spend-approval-lane|check-editor-challenge-relay|check-machine-product-composition)\.mjs)/);
   if (m) ciVerifierScripts.set(check, m[1]);
 }
 
