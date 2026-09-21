@@ -44,6 +44,7 @@ import { ioiGlobalRailHtml, IOI_GRAIL_CSS } from "../surfaces/chrome.mjs";
 import { renderSplashLanding } from "./splash-landing-grammar.mjs";
 import { mintTestGrant, awaitingWalletAuthority, bindStandingLease, revokeStandingLease, STANDING_LEASE_CUSTODY_TIER_UNRULED } from "./lib/wallet-authority.mjs";
 import { PROVIDER_APPROVAL_KIND, projectProviderChallenge, renderProviderFacetsCard } from "./lib/approval-card-facets.mjs";
+import { relayEditorEffect } from "./lib/editor-challenge-relay.mjs";
 import { handleSystemGenesisSurfaces } from "./system-genesis-surfaces.mjs";
 import { resolveV2Route, v2RouteFor, retiredUiRouteFor, renderV2RouteShellPage, renderRetiredUiRoutePage, retiredUiRouteRefusal, renderRouteLedgerPage } from "./v2-route-shell.mjs";
 import { projectDomainAppRuntimeModel } from "./domain-app-runtime-model.mjs";
@@ -12624,6 +12625,28 @@ async function handleEstateRequest(req, res, body) {
       const returnTo = req.headers["x-ioi-canonical-route"] || "/work/sessions";
       res.writeHead(200, { "Content-Type": "text/html; charset=utf-8", "Cache-Control": "no-cache" });
       res.end(renderSessionsRoot(sessRes, envRes, listRunsAwaitingApproval(), returnTo));
+      return;
+    }
+    // M08.12 (R-214): an effect RELAYED from an attached editor. The JSON body is {body, attach}: the
+    // daemon's own provider-ops request plus the attach tuple the daemon injected into the hosted editor
+    // (editor service, access lease, environment). The relay authenticates the attach against the daemon's
+    // grant projection under the caller's own identity, submits through the M08.11 lane, and returns the
+    // typed notification; the decision stays on the App's card through the lane's own endpoints. No key,
+    // no mint, no grant cache, no decision route lives here.
+    if (pathname === "/__ioi/editor-relay/provider-ops" && req.method === "POST") {
+      const cacheAdmission = await localRunCacheAdmission(req);
+      if (!cacheAdmission.ok) {
+        refuseLocalRunCacheJson(res, cacheAdmission);
+        return;
+      }
+      let payload = null;
+      try { payload = JSON.parse(body.toString("utf8") || "null"); } catch { payload = null; }
+      const grantsRes = await daemonFetch("/v1/hypervisor/authority/grants", { headers: cacheAdmission.headers }).then((x) => x.json()).catch(() => ({}));
+      const grants = Array.isArray(grantsRes?.grants) ? grantsRes.grants : [];
+      const serveBase = `${(req.headers["x-forwarded-proto"] || "http")}://${req.headers.host || `127.0.0.1:${PORT}`}`;
+      const result = await relayEditorEffect({ body: payload?.body, attach: payload?.attach, grants, daemonHeaders: cacheAdmission.headers, serveBase });
+      res.writeHead(result.status || (result.ok ? 200 : 409), { "Content-Type": "application/json", "Cache-Control": "no-cache" });
+      res.end(JSON.stringify(result));
       return;
     }
     // M08.11 (R-213): a provider operation submitted THROUGH the App. The JSON body is the daemon's

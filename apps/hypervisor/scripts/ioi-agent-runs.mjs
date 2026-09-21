@@ -70,6 +70,8 @@ export function runRecord(run) {
     authority: run.authority || null,
     pending_approval: run.pendingApproval || null,
     provider_operation: run.providerOperation || null,
+    editor_notification: run.editorNotification || null,
+    relayed_from: run.relayedFrom || null,
     capability_lease_ref: run.capabilityLeaseRef || null,
     proposal_ref: run.proposalRef || null,
     publication_proposal_ref: run.publicationProposalRef || null,
@@ -110,6 +112,8 @@ function recordToRun(r) {
     authority: r.authority || null,
     pendingApproval: r.pending_approval || null,
     providerOperation: r.provider_operation || null,
+    editorNotification: r.editor_notification || null,
+    relayedFrom: r.relayed_from || null,
     capabilityLeaseRef: r.capability_lease_ref || null,
     proposalRef: r.proposal_ref || null,
     publicationProposalRef: r.publication_proposal_ref || null,
@@ -122,7 +126,7 @@ function recordToRun(r) {
 }
 
 // Write-through (fire-and-forget) — records the run durably and captures the daemon's state_root.
-function persistRun(run) {
+export function persistRun(run) {
   if (!run?.id) return;
   // The write-through is ORDERED per run. Two state changes a millisecond apart (a silent
   // authorization followed at once by the harness's failure) used to race as two concurrent

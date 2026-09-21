@@ -32,6 +32,8 @@
     "check:approval-card-facets-lib": "node --test scripts/lib/approval-card-facets.test.mjs",
     "check:spend-approval-lane": "node ../../scripts/check-spend-approval-lane.mjs --drills",
     "mutate:spend-approval-lane": "node ../../scripts/check-spend-approval-lane.mjs --mutation",
+    "check:editor-challenge-relay": "node ../../scripts/check-editor-challenge-relay.mjs --drills",
+    "mutate:editor-challenge-relay": "node ../../scripts/check-editor-challenge-relay.mjs --mutation",
     "check:app-runtime-safety": "node scripts/verify-hypervisor-app-runtime-safety.mjs",
     "check:assurance-ladder-lifecycle": "node scripts/verify-hypervisor-assurance-ladder-lifecycle.mjs",
     "check:assurance-transition-receipt": "node scripts/verify-hypervisor-assurance-transition-receipt.mjs",

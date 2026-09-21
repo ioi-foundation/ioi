@@ -1,0 +1,567 @@
+{
+  "schema": "ioi.editor-challenge-relay-evidence.v1",
+  "mode": "full",
+  "started_at": "2026-09-21T01:33:10.869Z",
+  "drills": [
+    {
+      "name": "the acceptance's demands are bound: every executed clause names a real script with a pinned floor (app) or one of this runner's legs, every named failure carries its owner, the live legs are SCHEDULED with their exact prerequisite and ruling, clauses cover 1–12 exactly once",
+      "pass": true,
+      "detail": "bound",
+      "at": "2026-09-21T01:33:10.870Z"
+    },
+    {
+      "name": "RELAY: the attach is authenticated by an active editor-open lease naming the service (an unknown, revoked, wrong-action or foreign lease and an effect on another environment are refused by name with nothing submitted); the relay parks exactly what the App lane parks minus the attach refs, under the user's own identity, with a caller-supplied grant stripped and no grant on the record; the notification carries the challenge's hashes, audience, receipt ref and preimage sha and run-bound links to the App's decision and never a facet, preimage, grant or key (the grammar refuses a smuggled facet and a wrong hash); a challenge without a preimage yields a notification with no approve link; the decision is the lane's own (mint for the card's hashes, the identical retry, the daemon's typed refusal finalizing); and the same operation admitted through the relay and through the App lane leaves identical records — with the parity oracle's negative proven",
+      "pass": true,
+      "detail": "9 runs driven; notification members audience,byte_derived,decision,kind,message,operation,policy_hash,preimage_sha256,receipt_ref,request_hash,required_scopes,run_id,schema_version,source_adapter,state,target_scope",
+      "at": "2026-09-21T01:33:10.932Z"
+    },
+    {
+      "name": "RENDER: the extension's VS-Code-free renderer executes here (node:test, 3+ cases): a notification becomes one message and the actions that open the App's decision, never an in-editor approval; it depends on no editor host",
+      "pass": true,
+      "detail": "rendered",
+      "at": "2026-09-21T01:33:10.991Z"
+    },
+    {
+      "name": "SOURCE: the relay imports no authority module and no minter, names no minter, reads no key path or test-signer flag, writes no grant member, submits only through the lane and carries no decision path; the lane's single mint call site is unchanged; the serve's relay route sits behind the local-run cache admission, submits through the relay, and has no decision route of its own; the extension wires the renderer",
+      "pass": true,
+      "detail": "pinned",
+      "at": "2026-09-21T01:33:10.995Z"
+    },
+    {
+      "name": "the verdict is a pure function of the clause rows: all executed green with no absence → PASS; a typed absence or a scheduled live leg → NAMED FAILURE; a scheduled leg without a ruling, a fabricated success row, a red gate, a reach beyond loopback or a missing clause → FAIL",
+      "pass": true,
+      "detail": "pass/named_failure/named_failure/fail/fail/fail/fail/fail",
+      "at": "2026-09-21T01:33:10.996Z"
+    },
+    {
+      "name": "canon binds the gate: daemon-runtime/doctrine.md says an adapter that meets a wallet challenge relays it and holds no key, mints no authority and caches no grant; core-clients-surfaces.md says an effect from an attached editor parks the same way through the relay and the notification carries never a facet, a grant or a key; wallet-network/doctrine.md says an attached editor is not a GuardianSurface; the first two name check:editor-challenge-relay",
+      "pass": true,
+      "detail": "read from the three canon owners",
+      "at": "2026-09-21T01:33:11.004Z"
+    }
+  ],
+  "relay": {
+    "findings": [],
+    "runs_driven": 9,
+    "notification_members": [
+      "audience",
+      "byte_derived",
+      "decision",
+      "kind",
+      "message",
+      "operation",
+      "policy_hash",
+      "preimage_sha256",
+      "receipt_ref",
+      "request_hash",
+      "required_scopes",
+      "run_id",
+      "schema_version",
+      "source_adapter",
+      "state",
+      "target_scope"
+    ]
+  },
+  "render": [],
+  "source": [],
+  "relay_park": {
+    "findings": [],
+    "run_id": "pop_muakua2e0",
+    "audience": "93c1c73b8cba8f285f94b85afed8452a5082adcd2b15c537cf8c50b07bcf83b4",
+    "attach": {
+      "editor_service_ref": "environment_service:editor_eds_18d73254fbc69570",
+      "access_lease_ref": "enterprise.authority://grant/agr_18d73254fd062d1e",
+      "session_ref": null,
+      "environment_ref": "env-approval-card-relay-muakt2q6"
+    },
+    "receipts": [
+      "proposal_not_admitted",
+      "authority_missing"
+    ],
+    "refusal": "provider_operation_proposal_ref_required",
+    "notification_members": [
+      "audience",
+      "byte_derived",
+      "decision",
+      "kind",
+      "message",
+      "operation",
+      "policy_hash",
+      "preimage_sha256",
+      "receipt_ref",
+      "request_hash",
+      "required_scopes",
+      "run_id",
+      "schema_version",
+      "source_adapter",
+      "state",
+      "target_scope"
+    ]
+  },
+  "relay_parity": {
+    "findings": [],
+    "relay_run_id": "pop_muakwjo21",
+    "app_run_id": "pop_muakz4ip2",
+    "receipt_members": [
+      "account_ref",
+      "at",
+      "budget_discovery",
+      "candidate_ref",
+      "capability_lease",
+      "environment_ref",
+      "execution_mode",
+      "grant_ref",
+      "op",
+      "outcome",
+      "provider",
+      "provider_native",
+      "quote_ref",
+      "receipt_id",
+      "receipt_ref",
+      "schema_version",
+      "spend_estimate"
+    ],
+    "operation_members": [
+      "account_ref",
+      "at",
+      "budget_discovery",
+      "capability_lease",
+      "cost_estimate",
+      "environment_ref",
+      "evidence",
+      "grant_ref",
+      "op",
+      "operation_id",
+      "proposal_consumption",
+      "provider",
+      "receipt_ref",
+      "schema_version",
+      "trajectory_admission"
+    ],
+    "receipt_a": "agentgres://provider-receipt/prc_18d73286011cde5f",
+    "receipt_b": "agentgres://provider-receipt/prc_18d732a2055062ac"
+  },
+  "clauses": [
+    {
+      "n": 1,
+      "demand": "an effect initiated from an attached editor reaches the daemon under the user's own identity and its refusal parks through the App's lane as the byte-derived card",
+      "executed": [
+        {
+          "script": "relay (this runner)",
+          "status": 0,
+          "seconds": 0,
+          "isolation": "in-process",
+          "ledger": {
+            "attempts": 0,
+            "loopback": 0,
+            "reach": 0
+          },
+          "evidence": "../../../../../../tmp/ioi-ecr-gate-kvwUp1/self-legs.json",
+          "evidence_sha256": "sha256:a163162b5a098f4d9ea8d175012f90b7f2921b55a1db0b601a09b343079448e7",
+          "executed_assertions": null,
+          "floor_expected": null
+        },
+        {
+          "script": "relay-park (this runner)",
+          "status": 0,
+          "seconds": 0,
+          "isolation": "in-process",
+          "ledger": {
+            "attempts": 0,
+            "loopback": 0,
+            "reach": 0
+          },
+          "evidence": "../../../../../../tmp/ioi-ecr-gate-kvwUp1/self-legs.json",
+          "evidence_sha256": "sha256:a163162b5a098f4d9ea8d175012f90b7f2921b55a1db0b601a09b343079448e7",
+          "executed_assertions": null,
+          "floor_expected": null
+        },
+        {
+          "script": "check:spend-approval-lane",
+          "kind": "app",
+          "status": 0,
+          "seconds": 0,
+          "isolation": "refused_and_recorded",
+          "ledger": {
+            "attempts": 12,
+            "loopback": 12,
+            "reach": 0
+          },
+          "evidence": "../../../../../../tmp/ioi-ecr-gate-kvwUp1/census/1-spend-approval-lane/spend-approval-lane.json",
+          "evidence_sha256": "sha256:78292ede9cf327cea7b5ef7871806901563d19533eeeccd85cef83155dc5599f",
+          "executed_assertions": 5,
+          "floor_expected": 5
+        }
+      ],
+      "absence": null,
+      "scheduled": null
+    },
+    {
+      "n": 2,
+      "demand": "the attach is authenticated by an active editor-open lease naming the editor service; an unknown, inactive, wrong-action or foreign lease, or an effect on another environment, is refused by name — the lease never authorizes the effect",
+      "executed": [
+        {
+          "script": "relay (this runner)",
+          "status": 0,
+          "seconds": 0,
+          "isolation": "in-process",
+          "ledger": {
+            "attempts": 0,
+            "loopback": 0,
+            "reach": 0
+          },
+          "evidence": "../../../../../../tmp/ioi-ecr-gate-kvwUp1/self-legs.json",
+          "evidence_sha256": "sha256:a163162b5a098f4d9ea8d175012f90b7f2921b55a1db0b601a09b343079448e7",
+          "executed_assertions": null,
+          "floor_expected": null
+        },
+        {
+          "script": "relay-park (this runner)",
+          "status": 0,
+          "seconds": 0,
+          "isolation": "in-process",
+          "ledger": {
+            "attempts": 0,
+            "loopback": 0,
+            "reach": 0
+          },
+          "evidence": "../../../../../../tmp/ioi-ecr-gate-kvwUp1/self-legs.json",
+          "evidence_sha256": "sha256:a163162b5a098f4d9ea8d175012f90b7f2921b55a1db0b601a09b343079448e7",
+          "executed_assertions": null,
+          "floor_expected": null
+        }
+      ],
+      "absence": null,
+      "scheduled": null
+    },
+    {
+      "n": 3,
+      "demand": "the blocked decision surfaces as a typed editor notification carrying the challenge's coordinates and the decision links, and never a facet, a preimage, a grant or a key",
+      "executed": [
+        {
+          "script": "relay (this runner)",
+          "status": 0,
+          "seconds": 0,
+          "isolation": "in-process",
+          "ledger": {
+            "attempts": 0,
+            "loopback": 0,
+            "reach": 0
+          },
+          "evidence": "../../../../../../tmp/ioi-ecr-gate-kvwUp1/self-legs.json",
+          "evidence_sha256": "sha256:a163162b5a098f4d9ea8d175012f90b7f2921b55a1db0b601a09b343079448e7",
+          "executed_assertions": null,
+          "floor_expected": null
+        },
+        {
+          "script": "render (this runner)",
+          "status": 0,
+          "seconds": 0,
+          "isolation": "in-process",
+          "ledger": {
+            "attempts": 0,
+            "loopback": 0,
+            "reach": 0
+          },
+          "evidence": "../../../../../../tmp/ioi-ecr-gate-kvwUp1/self-legs.json",
+          "evidence_sha256": "sha256:a163162b5a098f4d9ea8d175012f90b7f2921b55a1db0b601a09b343079448e7",
+          "executed_assertions": null,
+          "floor_expected": null
+        },
+        {
+          "script": "relay-park (this runner)",
+          "status": 0,
+          "seconds": 0,
+          "isolation": "in-process",
+          "ledger": {
+            "attempts": 0,
+            "loopback": 0,
+            "reach": 0
+          },
+          "evidence": "../../../../../../tmp/ioi-ecr-gate-kvwUp1/self-legs.json",
+          "evidence_sha256": "sha256:a163162b5a098f4d9ea8d175012f90b7f2921b55a1db0b601a09b343079448e7",
+          "executed_assertions": null,
+          "floor_expected": null
+        }
+      ],
+      "absence": null,
+      "scheduled": null
+    },
+    {
+      "n": 4,
+      "demand": "the notification deep-links the challenge to the operator's decision on the App card; the decision is taken there, through the lane's own endpoints, and the relay adds no decision path",
+      "executed": [
+        {
+          "script": "relay (this runner)",
+          "status": 0,
+          "seconds": 0,
+          "isolation": "in-process",
+          "ledger": {
+            "attempts": 0,
+            "loopback": 0,
+            "reach": 0
+          },
+          "evidence": "../../../../../../tmp/ioi-ecr-gate-kvwUp1/self-legs.json",
+          "evidence_sha256": "sha256:a163162b5a098f4d9ea8d175012f90b7f2921b55a1db0b601a09b343079448e7",
+          "executed_assertions": null,
+          "floor_expected": null
+        },
+        {
+          "script": "source (this runner)",
+          "status": 0,
+          "seconds": 0,
+          "isolation": "in-process",
+          "ledger": {
+            "attempts": 0,
+            "loopback": 0,
+            "reach": 0
+          },
+          "evidence": "../../../../../../tmp/ioi-ecr-gate-kvwUp1/self-legs.json",
+          "evidence_sha256": "sha256:a163162b5a098f4d9ea8d175012f90b7f2921b55a1db0b601a09b343079448e7",
+          "executed_assertions": null,
+          "floor_expected": null
+        },
+        {
+          "script": "relay-park (this runner)",
+          "status": 0,
+          "seconds": 0,
+          "isolation": "in-process",
+          "ledger": {
+            "attempts": 0,
+            "loopback": 0,
+            "reach": 0
+          },
+          "evidence": "../../../../../../tmp/ioi-ecr-gate-kvwUp1/self-legs.json",
+          "evidence_sha256": "sha256:a163162b5a098f4d9ea8d175012f90b7f2921b55a1db0b601a09b343079448e7",
+          "executed_assertions": null,
+          "floor_expected": null
+        },
+        {
+          "script": "check:approval-card-facets",
+          "kind": "app",
+          "status": 0,
+          "seconds": 0,
+          "isolation": "refused_and_recorded",
+          "ledger": {
+            "attempts": 0,
+            "loopback": 0,
+            "reach": 0
+          },
+          "evidence": "../../../../../../tmp/ioi-ecr-gate-kvwUp1/census/4-approval-card-facets/approval-card-facets.json",
+          "evidence_sha256": "sha256:53b92acd9c62e3b87a850be5e4679c535034dcf21b16d30292aad25be549509d",
+          "executed_assertions": 11,
+          "floor_expected": 11
+        }
+      ],
+      "absence": null,
+      "scheduled": null
+    },
+    {
+      "n": 5,
+      "demand": "the guard holds no keys, mints no authority and caches no grant",
+      "executed": [
+        {
+          "script": "relay (this runner)",
+          "status": 0,
+          "seconds": 0,
+          "isolation": "in-process",
+          "ledger": {
+            "attempts": 0,
+            "loopback": 0,
+            "reach": 0
+          },
+          "evidence": "../../../../../../tmp/ioi-ecr-gate-kvwUp1/self-legs.json",
+          "evidence_sha256": "sha256:a163162b5a098f4d9ea8d175012f90b7f2921b55a1db0b601a09b343079448e7",
+          "executed_assertions": null,
+          "floor_expected": null
+        },
+        {
+          "script": "source (this runner)",
+          "status": 0,
+          "seconds": 0,
+          "isolation": "in-process",
+          "ledger": {
+            "attempts": 0,
+            "loopback": 0,
+            "reach": 0
+          },
+          "evidence": "../../../../../../tmp/ioi-ecr-gate-kvwUp1/self-legs.json",
+          "evidence_sha256": "sha256:a163162b5a098f4d9ea8d175012f90b7f2921b55a1db0b601a09b343079448e7",
+          "executed_assertions": null,
+          "floor_expected": null
+        }
+      ],
+      "absence": null,
+      "scheduled": null
+    },
+    {
+      "n": 6,
+      "demand": "the admitted operation's receipts are identical to the App-initiated path, read back from the daemon",
+      "executed": [
+        {
+          "script": "relay (this runner)",
+          "status": 0,
+          "seconds": 0,
+          "isolation": "in-process",
+          "ledger": {
+            "attempts": 0,
+            "loopback": 0,
+            "reach": 0
+          },
+          "evidence": "../../../../../../tmp/ioi-ecr-gate-kvwUp1/self-legs.json",
+          "evidence_sha256": "sha256:a163162b5a098f4d9ea8d175012f90b7f2921b55a1db0b601a09b343079448e7",
+          "executed_assertions": null,
+          "floor_expected": null
+        },
+        {
+          "script": "relay-parity (this runner)",
+          "status": 0,
+          "seconds": 0,
+          "isolation": "in-process",
+          "ledger": {
+            "attempts": 0,
+            "loopback": 0,
+            "reach": 0
+          },
+          "evidence": "../../../../../../tmp/ioi-ecr-gate-kvwUp1/self-legs.json",
+          "evidence_sha256": "sha256:a163162b5a098f4d9ea8d175012f90b7f2921b55a1db0b601a09b343079448e7",
+          "executed_assertions": null,
+          "floor_expected": null
+        }
+      ],
+      "absence": null,
+      "scheduled": null
+    },
+    {
+      "n": 7,
+      "demand": "the editor renders the notification as a message with actions that open the App's decision, never an in-editor approval",
+      "executed": [
+        {
+          "script": "render (this runner)",
+          "status": 0,
+          "seconds": 0,
+          "isolation": "in-process",
+          "ledger": {
+            "attempts": 0,
+            "loopback": 0,
+            "reach": 0
+          },
+          "evidence": "../../../../../../tmp/ioi-ecr-gate-kvwUp1/self-legs.json",
+          "evidence_sha256": "sha256:a163162b5a098f4d9ea8d175012f90b7f2921b55a1db0b601a09b343079448e7",
+          "executed_assertions": null,
+          "floor_expected": null
+        }
+      ],
+      "absence": {
+        "what": "the rendering in a REAL VS Code (the extension host wiring the renderer into a warning message and opening the deep link), the Electron packaged host and the JetBrains and SSH targets are not driven: the extension has no command or notification surface today and CI has no editor runtime",
+        "owner": "the VS Code extension host (a follow-on slice of M08.12); the pinned openvscode runtime leg is scheduled (clause 12)"
+      },
+      "scheduled": null
+    },
+    {
+      "n": 8,
+      "demand": "the editor learns of the challenge through a channel the daemon or the App pushes",
+      "executed": [],
+      "absence": {
+        "what": "the relay returns the notification synchronously and keeps it on the run record; no daemon push or poll channel for challenges exists (editor-proxy-events and editor-receipts are write-only telemetry)",
+        "owner": "a daemon change (owner question, R-214)"
+      },
+      "scheduled": null
+    },
+    {
+      "n": 9,
+      "demand": "an editor-initiated provider operation crosses the Authority Gateway action-request envelope as an ide_extension adapter",
+      "executed": [],
+      "absence": {
+        "what": "the Authority Gateway attach lane admits an ide_extension action request as requires_approval but executes SCM advance_target_ref only and refuses a wallet grant in its payload; the relay crosses the provider-ops route directly",
+        "owner": "the Authority Gateway execute adapter for provider ops (owner question, R-214)"
+      },
+      "scheduled": null
+    },
+    {
+      "n": 10,
+      "demand": "Hypervisor Guard ships as its own sidecar packaging",
+      "executed": [],
+      "absence": {
+        "what": "the relay is a serve-hosted route and an App-side library; ADR 0008 names Hypervisor Guard as packaging for the IOI Authority Gateway adapters and forbids authority in either — the packaging is not built",
+        "owner": "packaging (owner question, R-214)"
+      },
+      "scheduled": null
+    },
+    {
+      "n": 11,
+      "demand": "the relay's park is reachable beside Governance / Approvals and a denial produces a signed receipt",
+      "executed": [],
+      "absence": {
+        "what": "inherited from M08.11 and M03.9: no approvals-inbox plane reads the run record and no deny act exists on the authority node or the fixture",
+        "owner": "follow-on slices of M08.11 and M03.9 (owner questions, R-212/R-213)"
+      },
+      "scheduled": null
+    },
+    {
+      "n": 12,
+      "demand": "the live admission through the relay, and a hosted-editor leg",
+      "executed": [],
+      "absence": null,
+      "scheduled": {
+        "what": "the live direct-Akash deployment_intent create relayed from an attached editor, approved on the App card and ADMITTED with a daemon-issued proposal; and a leg on a host with the pinned openvscode-server runtime where the editor service is started and exposed and the relay is driven from the hosted editor's own terminal",
+        "prerequisite": "an owner-authorized Akash account with a funded deposit (IOI_C7_EMAIL, IOI_C7_PASSWORD_FILE, IOI_WALLET_SECRET_PASS) for the live admission through the relay; the pinned openvscode-server runtime (IOI_EDITOR_RUNTIME_URL, scripts/provision-hypervisor-vscode-browser-host.mjs) for a hosted-editor leg",
+        "ruling": "R-139 (2026-09-14) and R-214 (2026-09-20): a missing credential or editor runtime blocks a live RUN, never the unit; the relay is proven spend-free on the daemon's typed refusal and the simulator-mode admission, with the attach created in the daemon"
+      }
+    }
+  ],
+  "verdict": {
+    "kind": "named_failure",
+    "failures": [],
+    "absences": [
+      {
+        "n": 7,
+        "what": "the rendering in a REAL VS Code (the extension host wiring the renderer into a warning message and opening the deep link), the Electron packaged host and the JetBrains and SSH targets are not driven: the extension has no command or notification surface today and CI has no editor runtime",
+        "owner": "the VS Code extension host (a follow-on slice of M08.12); the pinned openvscode runtime leg is scheduled (clause 12)"
+      },
+      {
+        "n": 8,
+        "what": "the relay returns the notification synchronously and keeps it on the run record; no daemon push or poll channel for challenges exists (editor-proxy-events and editor-receipts are write-only telemetry)",
+        "owner": "a daemon change (owner question, R-214)"
+      },
+      {
+        "n": 9,
+        "what": "the Authority Gateway attach lane admits an ide_extension action request as requires_approval but executes SCM advance_target_ref only and refuses a wallet grant in its payload; the relay crosses the provider-ops route directly",
+        "owner": "the Authority Gateway execute adapter for provider ops (owner question, R-214)"
+      },
+      {
+        "n": 10,
+        "what": "the relay is a serve-hosted route and an App-side library; ADR 0008 names Hypervisor Guard as packaging for the IOI Authority Gateway adapters and forbids authority in either — the packaging is not built",
+        "owner": "packaging (owner question, R-214)"
+      },
+      {
+        "n": 11,
+        "what": "inherited from M08.11 and M03.9: no approvals-inbox plane reads the run record and no deny act exists on the authority node or the fixture",
+        "owner": "follow-on slices of M08.11 and M03.9 (owner questions, R-212/R-213)"
+      },
+      {
+        "n": 12,
+        "what": "SCHEDULED-OUTSTANDING: the live direct-Akash deployment_intent create relayed from an attached editor, approved on the App card and ADMITTED with a daemon-issued proposal; and a leg on a host with the pinned openvscode-server runtime where the editor service is started and exposed and the relay is driven from the hosted editor's own terminal",
+        "owner": "prerequisite: an owner-authorized Akash account with a funded deposit (IOI_C7_EMAIL, IOI_C7_PASSWORD_FILE, IOI_WALLET_SECRET_PASS) for the live admission through the relay; the pinned openvscode-server runtime (IOI_EDITOR_RUNTIME_URL, scripts/provision-hypervisor-vscode-browser-host.mjs) for a hosted-editor leg · R-139 (2026-09-14) and R-214 (2026-09-20): a missing credential or editor runtime blocks a live RUN, never the unit; the relay is proven spend-free on the daemon's typed refusal and the simulator-mode admission, with the attach created in the daemon"
+      }
+    ]
+  },
+  "mutation": null,
+  "host": {
+    "isolation": "refused_and_recorded",
+    "strace": "strace -- version 6.8",
+    "load": [
+      "2.26",
+      "2.53",
+      "2.53"
+    ],
+    "daemon_binary": "/home/heathledger/Documents/ioi/repos/ioi/target/debug/hypervisor-daemon",
+    "work_dir": "/tmp/ioi-ecr-gate-kvwUp1"
+  },
+  "fixture_ready_seconds": 296,
+  "finished_at": "2026-09-21T01:44:09.268Z",
+  "summary": {
+    "passed": 6,
+    "total": 6
+  }
+}

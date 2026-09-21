@@ -983,7 +983,10 @@ custody tier, which signs one one-use grant for exactly the rendered hashes on
 that explicit act; the App holds no grant and signs nothing on its own. A passkey
 step-up or a graduated wallet app replaces the tier without changing the card;
 neither exists in the alpha and both are named absent. The Hypervisor's gate is
-`check:spend-approval-lane`.
+`check:spend-approval-lane`. An attached editor is not a GuardianSurface: its relay
+projects the challenge's coordinates and the decision link only; the Hypervisor
+App remains the projection under the tier, and the daemon refuses a grant from
+any other signer (`check:editor-challenge-relay`, M08.12).
 
 **Continuity is a successor, never a silent replacement.** A replaced or added
 device records a successor naming its predecessor on the same principal, so a

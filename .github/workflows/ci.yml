@@ -1003,6 +1003,21 @@ jobs:
         if: ${{ !cancelled() && steps.rust_backed_daemon.outcome == 'success' }}
         run: npm run mutate:spend-approval-lane --workspace=@ioi/hypervisor-app
 
+      # M08.12 (R-214). The editor-side challenge relay, CI-bound at its drills: the attach authenticated by
+      # its editor-open lease, the identical request relayed under the user's own session through the M08.11
+      # lane, a typed notification with the decision links and nothing else, the extension's VS-Code-free
+      # renderer executed, the relay's no-key/no-mint/no-grant source pins, receipt parity. The real relay
+      # (an attach tuple created in an isolated daemon, the wallet fixture) runs in the gate's full mode.
+      - name: Verify the editor-side challenge relay (M08.12, CI-bound drills)
+        if: ${{ !cancelled() && steps.rust_backed_daemon.outcome == 'success' }}
+        env:
+          IOI_VERIFIER_CENSUS_DIR: .artifacts/verifier-census
+        run: npm run check:editor-challenge-relay --workspace=@ioi/hypervisor-app
+
+      - name: Drill the editor challenge relay oracles
+        if: ${{ !cancelled() && steps.rust_backed_daemon.outcome == 'success' }}
+        run: npm run mutate:editor-challenge-relay --workspace=@ioi/hypervisor-app
+
       # M10.4 — the governed evaluation plane, driven against an ISOLATED daemon this job already
       # built: two deterministic ollama-dialect stub servers registered, probed, enabled and REALLY
       # invoked as routes A and B; released suite revisions, frozen and active epochs, admitted runs,

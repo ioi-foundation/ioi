@@ -153,6 +153,8 @@
     "mutate:approval-card-facets": "node scripts/check-approval-card-facets.mjs --mutation",
     "check:spend-approval-lane": "node scripts/check-spend-approval-lane.mjs",
     "mutate:spend-approval-lane": "node scripts/check-spend-approval-lane.mjs --mutation",
+    "check:editor-challenge-relay": "node scripts/check-editor-challenge-relay.mjs",
+    "mutate:editor-challenge-relay": "node scripts/check-editor-challenge-relay.mjs --mutation",
     "mutate:standalone-conformance": "node scripts/check-standalone-conformance.mjs --mutation",
     "check:acceptance-conformance-ladder": "node scripts/check-acceptance-conformance-ladder.mjs",
     "check:acceptance-conformance-ladder:live": "node scripts/check-acceptance-conformance-ladder.mjs --live",

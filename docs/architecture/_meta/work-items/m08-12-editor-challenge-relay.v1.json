@@ -1,0 +1,91 @@
+{
+  "evidence_format": "ioi.program.work_item.v1",
+  "work_item_id": "m08-12-editor-challenge-relay",
+  "stage_id": "M08",
+  "required_work": [
+    "M08.12"
+  ],
+  "status": "evidence_ready",
+  "objective": "Close M08.12 as an executable gate under ADR 0008's relay-only contract: an effect initiated from an attached editor is relayed to the daemon under the user's own session, its refusal parks through the App's spend-approval lane as the byte-derived card, and the editor receives a typed notification carrying the challenge's coordinates (both commitments, the audience, the target scope, the receipt ref, the preimage sha256) and the decision links — never a facet, a preimage, a grant or a key. The relay authenticates the attach by its active editor-open access lease (which never authorizes the effect), holds no key, mints nothing, caches no grant and adds no decision path; the decision is taken on the App card; the daemon's receipts and admitted records are identical across attach surfaces, read back from the daemon.",
+  "falsifiable_claim": "npm run check:editor-challenge-relay --workspace=@ioi/hypervisor-app (scripts/check-editor-challenge-relay.mjs --drills) binds every clause to a floored app gate or one of the runner's own legs, requires the live legs to be scheduled with a prerequisite and a ruling, drives the relay in-process over the tracked M03.9 challenge fixture with an injected transport and grant projection — an unknown, revoked, wrong-action or foreign attach lease and an effect on another environment refused by name with nothing submitted; the park equal to the App lane's minus the attach refs under the user's own identity with a caller-supplied grant stripped and no grant on the record; the notification's grammar (the challenge's hashes, audience, receipt ref and preimage sha, run-bound links, the source adapter) with its refusals of a smuggled facet and a wrong hash; a refusal park's notification without an approve link; the decision through the lane's own function with the identical retry and the daemon's typed refusal; receipt parity over the same operation admitted through the relay and through the App with the parity oracle's negative — executes the extension's VS-Code-free renderer tests, pins the relay's sources (no authority module, no minter, no key path or test-signer flag, no grant member, submits only through the lane, no decision path; the lane's single mint call site unchanged; the serve route admitted and without a decision route; the extension wired), drills the verdict and requires the three canon owners to name the gate. mutate:editor-challenge-relay plants nineteen defects and each goes red. The full gate runs the REAL relay: an attach tuple created in an isolated daemon (an environment, an editor service, an editor access lease — no editor runtime) under the wallet fixture with the runner's own serve; the live deployment_intent effect relayed and parked with the daemon's audience, a foreign attach refused, the notification returned and persisted, the operator's approve through the notification's own link, the daemon's typed refusal with both receipts read back; the simulator-mode create driven through the relay and through the App, both approved and admitted, the daemon's receipts and admitted records compared member by member modulo identities; then the composed gates inside the isolated-egress harness; exit 0 only on a pass, 2 on a named failure, 1 on a fail.",
+  "canon_owners": [
+    "docs/architecture/components/daemon-runtime/doctrine.md",
+    "docs/architecture/components/hypervisor/core-clients-surfaces.md",
+    "docs/architecture/components/wallet-network/doctrine.md"
+  ],
+  "code_anchors": [
+    {
+      "path": "apps/hypervisor/scripts/lib/editor-challenge-relay.mjs",
+      "must_contain": "export async function relayEditorEffect",
+      "present_when": "merged"
+    },
+    {
+      "path": "apps/hypervisor/scripts/lib/editor-challenge-relay.mjs",
+      "must_contain": "export function receiptParity",
+      "present_when": "merged"
+    },
+    {
+      "path": "apps/hypervisor/scripts/serve-product-ui.mjs",
+      "must_contain": "pathname === \"/__ioi/editor-relay/provider-ops\" && req.method === \"POST\"",
+      "present_when": "merged"
+    },
+    {
+      "path": "packages/hypervisor-adapter-targets/code-editors/vscode-extension/editor-context/challenge-notification.js",
+      "must_contain": "function renderChallengeNotification",
+      "present_when": "merged"
+    },
+    {
+      "path": "packages/hypervisor-adapter-targets/code-editors/vscode-extension/extension.js",
+      "must_contain": "showChallengeNotification",
+      "present_when": "merged"
+    },
+    {
+      "path": "scripts/check-editor-challenge-relay.mjs",
+      "must_contain": "export async function relayLeg",
+      "present_when": "merged"
+    },
+    {
+      "path": "apps/hypervisor/verifier-floors.v1.json",
+      "must_contain": "\"id\": \"editor-challenge-relay\"",
+      "present_when": "merged"
+    },
+    {
+      "path": ".github/workflows/ci.yml",
+      "must_contain": "npm run check:editor-challenge-relay --workspace=@ioi/hypervisor-app",
+      "present_when": "merged"
+    },
+    {
+      "path": "scripts/check-acceptance-operator-workday.mjs",
+      "must_contain": "mutate:editor-challenge-relay",
+      "present_when": "merged"
+    },
+    {
+      "path": "docs/architecture/components/daemon-runtime/doctrine.md",
+      "must_contain": "An adapter that meets a wallet challenge relays it",
+      "present_when": "merged"
+    },
+    {
+      "path": "docs/architecture/components/hypervisor/core-clients-surfaces.md",
+      "must_contain": "attached editor parks the same way through the editor challenge relay",
+      "present_when": "merged"
+    }
+  ],
+  "evidence_refs": [
+    "docs/architecture/_meta/evidence/m08-12-editor-challenge-relay-2026-09-20.v1.json",
+    "docs/architecture/_meta/evidence/m03-9-provider-challenge-fixture-2026-09-20.v1.json",
+    "docs/architecture/_meta/canon-to-code-delta.md"
+  ],
+  "pr": null,
+  "adversarial_or_fault_proof": "mutate:editor-challenge-relay plants a clause bound to a script that does not exist, the live legs scheduled without a ruling, the no-keys clause dropped, a challenge whose request hash does not match its preimage, a notification that carries the preimage, one that carries a grant, one whose deny link points at another run, one with a truncated hash, one carrying a bearer session, an expired attach lease, a relay that imports the authority module, one that bypasses the lane, one that carries a decision path, a serve without the relay route, a serve with a relay decision route, the parity oracle on a nested value change, canon without the gate, and fabricated success rows — each must go red (19/19); the positive control (the in-process relay over the fixture) is asserted clean.",
+  "remaining_nonclaims": [
+    "No live PASS is claimed: the live deployment_intent admission relayed from an attached editor and a hosted-editor leg on a host with the pinned openvscode-server runtime are SCHEDULED (R-139); in the gate the attach tuple is created in the daemon without the editor runtime and the live path ends at the daemon's typed refusal",
+    "The rendering in a REAL VS Code (the extension host wiring the renderer into a warning message and opening the deep link), the Electron packaged host and the JetBrains and SSH targets are not driven; the extension has no command or notification surface today",
+    "No daemon push or poll channel for challenges exists: the relay returns the notification synchronously and keeps it on the run record (owner question, R-214)",
+    "Editor-initiated provider operations cross the provider-ops route directly; the Authority Gateway attach lane executes SCM advance_target_ref only (owner question, R-214)",
+    "Hypervisor Guard's sidecar packaging is not built: the relay is a serve-hosted route and an App-side library (owner question, R-214)",
+    "Inherited from M08.11 and M03.9: no approvals-inbox row, no signed denial receipt, the lane-issued C4 proposal and the passkey/wallet-app tiers",
+    "The full gate is on demand, not CI-gated; CI executes the drills and the drill"
+  ],
+  "source_provenance": "Authored 2026-09-20 by the MVP finish-line program (R-214 ruled the shape after a read-only survey; ADR 0008, R-212(3), R-213 and R-139 are its letter). Drills 6/6, mutation 19/19, canon gates green (canon-document-residuals + its battery, source-neutral, architecture-docs), verifier floors green. NAMED FAILURE, exit 2 (isolation refused_and_recorded): the wallet fixture (Solo profile) ready in ~5 min beside an isolated daemon under its env and the runner's own serve, an attach tuple CREATED IN THE DAEMON (an environment, an editor service, an editor access lease — no editor runtime); RELAY-PARK — a foreign attach lease refused by name, the live deployment_intent effect relayed and parked WITH the daemon's audience (the fixture's capability account), the typed notification returned and persisted on the durable record, the operator's approve taken through the notification's own link, the daemon's typed refusal provider_operation_proposal_ref_required with both receipts (authority_missing, proposal_not_admitted) read back and no grant or key on the record; RELAY-PARITY — the same simulator-mode create driven through the relay and then through the App lane on the daemon's one engaged Akash account (a fresh candidate for the second, since a refresh supersedes the previous quote batch), both approved and ADMITTED, the daemon's provider receipts (17 members) and admitted operation records (15 members) and the runs' authority and operation records identical modulo identities, both exposures opened and closed; check:spend-approval-lane --drills 5/5 (12 connects, all loopback, reach 0); check:approval-card-facets --drills 11/11 (0 connects); the RELAY, RENDER and SOURCE legs in-process; 6 named entries. Three earlier full runs found and fixed: the notification attached after the run's write-through (never persisted), the second account picking the engaged account's candidate (akash_candidate_account_mismatch), and a parallel refresh expiring the first quote (akash_quote_expired_requires_requote). Recorded in canon-to-code-delta.md § Journey verification CXXIII. ACC-10 composed re-run on this tree: PARTIAL, exit 2 — 31 executed clause checks green, 5 typed absences, 2 live legs scheduled-outstanding by ruling (29 / 4 / 1 before this unit). ACC-3 composed re-run: PARTIAL, exit 2 — 30 green, 3 typed absences, 8 batteries not executed, 1 scheduled, unchanged in count.",
+  "last_status_transaction": "2026-09-20"
+}

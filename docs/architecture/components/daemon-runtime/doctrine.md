@@ -405,6 +405,13 @@ extensions, terminals, workspace watchers, and MCP gateways. CLI agents can run
 as guest workloads behind shell wrappers and tool proxies. Hosted agent systems
 may require API gateways, GitHub Apps, CI/CD policy gates, webhook mediation, or
 receipt ingestion.
+An adapter that meets a wallet challenge relays it: the adapter holds no key,
+mints no authority and caches no grant; the challenge is decided on the
+deployment's custody tier through the Hypervisor App's spend-approval lane, and
+the admitted effect's receipts are the daemon's, identical across attach
+surfaces (`check:editor-challenge-relay`, M08.12, register R-214). The relay
+authenticates the attach by its editor access lease, which never authorizes the
+effect — the user's own session does, at the daemon.
 
 This profile strengthens the marketplace/protocol thesis instead of competing
 with it: developers can first govern existing models and agents, then discover

@@ -91,8 +91,18 @@ export const SIMULATOR_BIDS = { bids: [
  * simulator mode with an ssh object (create records a simulated deployment and never connects), an
  * external-spend budget — and the quote-gated request body the wallet gate refuses with its challenge.
  */
-export async function prepareSimulatorAccount({ daemonUrl, cookie, tag = "sim", scratch, environment = `env-approval-lane-${tag}` }) {
+export async function prepareSimulatorAccount({ daemonUrl, cookie, tag = "sim", scratch, environment = `env-approval-lane-${tag}`, reuse = null }) {
   const { jd, steps } = daemonCalls({ daemonUrl, cookie });
+  // One Akash account is the daemon's engaged candidate source at a time: a second operation on the same
+  // daemon REUSES the prepared account and refreshes its candidates for a fresh candidate ref.
+  if (reuse?.account?.account_id && reuse?.intent_ref) {
+    const refreshed = (await jd("POST", "/v1/hypervisor/cloud-candidates/candidates/refresh", { intent_ref: reuse.intent_ref })).j;
+    const mine = (refreshed.candidates ?? []).filter((c) => c.provider_kind === "akash" && c.provider_address === "akash1gpuprov4090xq");
+    const candidate = mine[0] ?? null;
+    if (!candidate?.candidate_ref) return { error: `no simulator candidate on reuse: ${JSON.stringify(refreshed).slice(0, 200)}`, steps };
+    const body = { provider_id: reuse.account.account_id, op: "create", environment_ref: environment, candidate_ref: candidate.candidate_ref, max_hourly_usd: 0.4, teardown_policy: "always_teardown_required", owner_ref: "org://local", idempotency_key: `approval-lane-${tag}` };
+    return { account: reuse.account, intent_ref: reuse.intent_ref, candidate: { candidate_ref: candidate.candidate_ref, quote_ref: candidate.quote_ref ?? null, bid_ref: candidate.bid_ref ?? null }, body, steps, jd };
+  }
   const bidsFile = path.join(scratch, `akash-bids-${tag}.json`);
   fs.writeFileSync(bidsFile, JSON.stringify(SIMULATOR_BIDS));
   const keyFile = path.join(scratch, `sim-ssh-${tag}.key`);
@@ -109,10 +119,13 @@ export async function prepareSimulatorAccount({ daemonUrl, cookie, tag = "sim", 
   await jd("POST", `/v1/hypervisor/provider-accounts/${accountId}/preflight`);
   await jd("POST", "/v1/hypervisor/resource/budgets", { budget_id: `approval-lane-${tag}`, name: `Approval lane ${tag}`, scope: "external_spend", limit: 1, spent: 0, currency: "USD" });
   const refreshed = (await jd("POST", "/v1/hypervisor/cloud-candidates/candidates/refresh", { intent_ref: intent.intent_ref })).j;
-  const candidate = (refreshed.candidates ?? []).find((c) => c.provider_kind === "akash" && c.provider_address === "akash1gpuprov4090xq");
+  // The candidate must belong to THIS account: the refresh lists every account's candidates, and the daemon
+  // refuses a create whose candidate belongs to another provider account (akash_candidate_account_mismatch).
+  const mine = (refreshed.candidates ?? []).filter((c) => c.provider_kind === "akash" && c.provider_address === "akash1gpuprov4090xq");
+  const candidate = mine.find((c) => JSON.stringify(c).includes(accountId)) ?? (mine.length === 1 ? mine[0] : null);
   if (!candidate?.candidate_ref) return { error: `no simulator candidate: ${JSON.stringify(refreshed).slice(0, 200)}`, steps };
   const body = { provider_id: accountId, op: "create", environment_ref: environment, candidate_ref: candidate.candidate_ref, max_hourly_usd: 0.4, teardown_policy: "always_teardown_required", owner_ref: "org://local", idempotency_key: `approval-lane-${tag}` };
-  return { account: { account_id: accountId, account_ref: account.account_ref ?? null }, candidate: { candidate_ref: candidate.candidate_ref, quote_ref: candidate.quote_ref ?? null, bid_ref: candidate.bid_ref ?? null }, body, steps, jd };
+  return { account: { account_id: accountId, account_ref: account.account_ref ?? null }, intent_ref: intent.intent_ref ?? null, candidate: { candidate_ref: candidate.candidate_ref, quote_ref: candidate.quote_ref ?? null, bid_ref: candidate.bid_ref ?? null }, body, steps, jd };
 }
 
 export function fixtureFrom({ minted, basis }) {

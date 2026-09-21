@@ -3216,7 +3216,16 @@ retries the identical request with `wallet_approval_grant`; the App holds no
 grant, signs nothing on its own act, and after admission renders the daemon's
 provider receipt, admitted operation and spend exposure. A live create without
 a daemon-issued proposal ends at the daemon's typed refusal before any provider
-is contacted. Verifier: `check:spend-approval-lane`. A run the App was driving when the
+is contacted. Verifier: `check:spend-approval-lane`. An effect initiated from an
+attached editor parks the same way through the editor challenge relay
+(2026-09-20, M08.12, register R-214): the relay authenticates the attach by its
+editor access lease, forwards the identical request under the operator's own
+session, parks the daemon's challenge as the same run, and hands the editor a
+typed notification carrying only the run, both commitments, the grant audience,
+the receipt ref and the decision links — never a facet, a grant or a key; the
+decision is taken on this card, and the daemon's receipt and admitted operation
+are identical to the App-submitted path. Verifier: `check:editor-challenge-relay`.
+A run the App was driving when the
 serve restarted is reconciled at rehydration against the daemon session's
 execute receipt — the lane's verdict lives there, not in the App's memory — so
 a finished run reads done or failed with the harness's own error, never
