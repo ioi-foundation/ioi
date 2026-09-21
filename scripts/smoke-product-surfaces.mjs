@@ -220,7 +220,9 @@ function safeName(value) {
 const staticTargets = [
   {
     name: "hypervisor-vite-workbench",
-    port: 44179,
+    // Taken from the kernel immediately before this target's listener binds; a literal here would be
+    // a constant a reader could believe, and believing it is how the pair came apart once already.
+    port: null,
     dist: "apps/hypervisor/dist",
     semantics: {
       "/": ["Hypervisor", "product UI is served by the IOI /api adapter"],
@@ -229,7 +231,7 @@ const staticTargets = [
   },
   {
     name: "hypervisor-web",
-    port: 44176,
+    port: null,
     dist: "apps/hypervisor-web/dist",
     semantics: {
       "/": ["The operating environment for autonomous systems"],
@@ -259,7 +261,7 @@ const staticTargets = [
   },
   {
     name: "developers-ioi-ai",
-    port: 44177,
+    port: null,
     dist: "apps/developers-ioi-ai/dist",
     semantics: {
       "/": ["Start Here"],
@@ -287,7 +289,7 @@ const staticTargets = [
 const applicationTargets = [
   {
     name: "aiagent-xyz",
-    port: 44174,
+    port: null,
     entry: "apps/aiagent-xyz/server.mjs",
     storeEnvironment: "IOI_AIAGENT_STORE_PATH",
     semantics: {
@@ -319,7 +321,7 @@ const applicationTargets = [
   },
   {
     name: "sas-xyz",
-    port: 44175,
+    port: null,
     entry: "apps/sas-xyz/server.mjs",
     storeEnvironment: "IOI_SAS_STORE_PATH",
     semantics: {
@@ -923,6 +925,13 @@ try {
     };
   }
 
+  // ONE PORT, PICKED ONCE, USED BY EVERY SIDE OF THE PAIR. The first cut of this fix (ca3f3bf8e) freed
+  // the BROWSER's port — `hypervisorTarget.port` — and left the served UI starting on the fixed 44173,
+  // so the collision became a connection refused: the process was listening, just not where anything
+  // looked. A port is a BINDING between a listener and a reader, and freeing one end of a binding is
+  // not a fix. Both ports are taken from the kernel here and every reader below uses these names.
+  const hypervisorPort = await freePort();
+  const hypervisorProductUiPort = await freePort();
   hypervisor = spawn(
     process.execPath,
     [path.join(root, "apps/hypervisor/scripts/serve-product-ui.mjs")],
@@ -930,8 +939,8 @@ try {
       cwd: root,
       env: {
         ...process.env,
-        PORT: "44173",
-        PRODUCT_UI_PORT: "49301",
+        PORT: String(hypervisorPort),
+        PRODUCT_UI_PORT: String(hypervisorProductUiPort),
         IOI_HYPERVISOR_DAEMON_URL: daemonEndpoint,
         IOI_PRODUCT_UI_PUBLIC: path.join(
           root,
@@ -948,9 +957,9 @@ try {
   hypervisor.stderr.on("data", (chunk) => {
     hypervisorLog += chunk.toString();
   });
-  await waitFor("http://127.0.0.1:44173/");
+  await waitFor(`http://127.0.0.1:${hypervisorPort}/`);
   const identityResponse = await fetch(
-    "http://127.0.0.1:44173/__ioi/product-ui-identity",
+    `http://127.0.0.1:${hypervisorPort}/__ioi/product-ui-identity`,
   );
   hypervisorArtifactIdentity = await identityResponse.json();
   const expectedOwnedIndexSha256 = crypto
@@ -1024,7 +1033,8 @@ try {
   ])];
   const hypervisorTarget = {
     name: "hypervisor-owned-served-ui",
-    port: await freePort(),
+    // The port the served UI was actually started on above, never a second allocation.
+    port: hypervisorPort,
     routes: hypervisorRoutes,
     // ADR 0052 Decision 5: a canonical route declared `serve.kind === "redirect"` lands on its
     // lane (the vendored SPA home, the login page); `serve.kind === "rewrite"` serves the lane's
