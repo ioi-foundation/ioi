@@ -1898,6 +1898,20 @@ it does not buy is any claim over the surfaces. Contract registration and
 generated projection agreement precede any product claim over the family, and
 a served read model is not a qualified profile (M12.15).
 
+The profile certificate (`HypervisorMachineProfileQualificationCertificate`,
+`check:machine-product-profile-qualification`, R-216) is generated, never read
+pre-sealed; it selects evidence by backend registration and capability
+declaration, not by the daemon's admission verifier profile (every daemon
+receipt names `verifier-profile://hypervisor/machine-admission/v1`), and
+recomputes the declaration's digest rather than trusting the member it carries,
+because the kernel compares that member and never recomputes it. The registered
+declaration contract carries `temporal_verification_evidence_ref` and
+`currentness_evaluation_ref` and no `observed_at`, `valid_until` or guest
+members: the prose members above are target, the certificate derives its
+evidence window from the runs' submission times and declares the guest matrix
+empty, and both are named reasons on the certificate until the declaration
+contract's successor carries them.
+
 `HypervisorEnvironmentConnectivityProfile` makes internal network access a
 typed posture instead of a tunnel workaround:
 

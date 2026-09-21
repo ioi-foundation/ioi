@@ -13076,6 +13076,98 @@ export type HypervisorMachineOperationReceiptV1 = {
   verifier_profile_ref: string;
 };
 
+export type HypervisorMachineProfileQualificationCertificateV1 = {
+  schema_version: "ioi.hypervisor.machine-profile-qualification-certificate.v1";
+  certificate_ref: string;
+  certificate_hash: string;
+  profile_id: "workstation_hosted_v1" | "infrastructure_attached_v1";
+  bundle: "hypervisor_workstation" | "hypervisor_infrastructure";
+  does_not_qualify: Array<"workstation_hosted_v1" | "infrastructure_attached_v1" | "hypervisoros_node_root_v1" | "type_1" | "type_2" | "legacy_replacement">;
+  subject: {
+      backend_registration_ref: string;
+      capability_declaration_ref: string;
+      capability_declaration_hash_declared: string;
+      capability_declaration_bytes_sha256: string;
+      evidence_mode: "live" | "simulated" | "declared";
+      resource_relationship: "local" | "customer_attached";
+      vmm_ownership_claimed: boolean;
+    };
+  release: {
+      source_commit: string | null;
+      daemon_binary_sha256: string | null;
+      release_manifest_sha256: string | null;
+      release_version: string | null;
+      signer_key_id: string | null;
+      dirty_state_declaration: string;
+    };
+  matrix: {
+      verbs: Array<{
+              operation: "discover" | "define" | "import" | "create" | "start" | "stop" | "pause" | "resume" | "reboot" | "open_console" | "close_console" | "snapshot" | "clone" | "restore" | "migrate" | "delete";
+              status: "supported" | "unsupported" | "untested";
+              reason_code: string | null;
+            }>;
+      architectures: Array<string>;
+      guests: Array<string>;
+      limitations: Array<string>;
+    };
+  delivery_forms: {
+      integrated: {
+            form: "hypervisor_app" | "thin_client" | "distributed_client";
+            evidence_ref: string;
+            evidence_sha256: string;
+          } | null;
+      standalone: {
+            form: "hypervisor_app" | "thin_client" | "distributed_client";
+            evidence_ref: string;
+            evidence_sha256: string;
+          } | null;
+    };
+  evidence_runs: Array<{
+        kind: "machine_lifecycle_run";
+        workload_ref: string;
+        head: string | null;
+        operation_count: number;
+        receipts: Array<{
+                  receipt_ref: string;
+                  receipt_sha256: string;
+                  operation: string;
+                  result: "succeeded" | "refused" | "ambiguous";
+                }>;
+        window: {
+                from: string;
+                to: string;
+              };
+      }>;
+  freshness: {
+      evidence_window: {
+            from: string;
+            to: string;
+          };
+      issued_at: string;
+      valid_until: string;
+      validity_policy_ref: string;
+      currentness_evaluation_ref: string;
+    };
+  qualification: "qualified" | "not_qualified" | "withdrawn";
+  evidence_basis: "live" | "simulated" | "declared" | "none";
+  not_qualified_reasons: Array<"evidence_basis_simulated" | "evidence_basis_declared" | "no_live_backend_registered" | "release_unbound" | "supported_cells_untested" | "guest_matrix_undeclared" | "limitations_undeclared" | "delivery_form_missing" | "freshness_expired" | "declaration_drifted" | "evidence_window_empty">;
+  refused_evidence: Array<{
+        kind: "vm_boot" | "hostile_guest_test" | "downloadable_binary" | "bootable_image" | "generated_dashboard" | "backend_declaration" | "autonomy_proof" | "provider_portability" | "packaging" | "simulated_only_as_host_compatibility" | "other_profile_evidence";
+        ref: string;
+        reason: "not_qualification_evidence";
+      }>;
+  nonclaims: Array<string>;
+  issuer: {
+      verifier_identity_ref: string;
+      verifier_build_hash: string | null;
+    };
+  withdrawal: null | {
+      reason: "freshness_expired" | "declaration_drifted" | "release_unbound" | "evidence_basis_downgraded" | "owner_withdrawn";
+      at: string;
+      detail: string;
+    };
+};
+
 export type HypervisorMachineHostV1 = {
   schema_version: "ioi.hypervisor.machine-host.v1";
   host_ref: string;
@@ -26487,6 +26579,86 @@ export const ARCHITECTURE_CONTRACT_FIXTURES = [
     "expected_rule_id": null
   },
   {
+    "contract_id": "schema://ioi/components/hypervisor/hypervisor-machine-profile-qualification-certificate/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/hypervisor-machine-profile-qualification-certificate-v1/positive-infrastructure-attached-not-qualified-simulated.json",
+    "expected": "accept",
+    "expected_schema_accept": true,
+    "expected_failure": null,
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/components/hypervisor/hypervisor-machine-profile-qualification-certificate/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/hypervisor-machine-profile-qualification-certificate-v1/positive-withdrawn-freshness-expired.json",
+    "expected": "accept",
+    "expected_schema_accept": true,
+    "expected_failure": null,
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/components/hypervisor/hypervisor-machine-profile-qualification-certificate/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/hypervisor-machine-profile-qualification-certificate-v1/positive-workstation-hosted-not-qualified-simulated.json",
+    "expected": "accept",
+    "expected_schema_accept": true,
+    "expected_failure": null,
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/components/hypervisor/hypervisor-machine-profile-qualification-certificate/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/hypervisor-machine-profile-qualification-certificate-v1/negative-attached-claims-vmm-ownership.json",
+    "expected": "reject",
+    "expected_schema_accept": false,
+    "expected_failure": "schema",
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/components/hypervisor/hypervisor-machine-profile-qualification-certificate/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/hypervisor-machine-profile-qualification-certificate-v1/negative-not-qualified-without-a-reason.json",
+    "expected": "reject",
+    "expected_schema_accept": true,
+    "expected_failure": "invariant",
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/components/hypervisor/hypervisor-machine-profile-qualification-certificate/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/hypervisor-machine-profile-qualification-certificate-v1/negative-other-profile-not-disclaimed.json",
+    "expected": "reject",
+    "expected_schema_accept": false,
+    "expected_failure": "schema",
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/components/hypervisor/hypervisor-machine-profile-qualification-certificate/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/hypervisor-machine-profile-qualification-certificate-v1/negative-qualified-on-simulated-basis.json",
+    "expected": "reject",
+    "expected_schema_accept": false,
+    "expected_failure": "schema",
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/components/hypervisor/hypervisor-machine-profile-qualification-certificate/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/hypervisor-machine-profile-qualification-certificate-v1/negative-seventeenth-verb.json",
+    "expected": "reject",
+    "expected_schema_accept": false,
+    "expected_failure": "schema",
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/components/hypervisor/hypervisor-machine-profile-qualification-certificate/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/hypervisor-machine-profile-qualification-certificate-v1/negative-unknown-member.json",
+    "expected": "reject",
+    "expected_schema_accept": false,
+    "expected_failure": "schema",
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/components/hypervisor/hypervisor-machine-profile-qualification-certificate/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/hypervisor-machine-profile-qualification-certificate-v1/negative-vm-boot-admitted-as-evidence.json",
+    "expected": "reject",
+    "expected_schema_accept": false,
+    "expected_failure": "schema",
+    "expected_rule_id": null
+  },
+  {
     "contract_id": "schema://ioi/components/hypervisor/hypervisor-machine-host/v1",
     "path": "docs/architecture/_meta/schemas/fixtures/hypervisor-machine-host-v1/positive-nominal.json",
     "expected": "accept",
@@ -32700,6 +32872,16 @@ export const ARCHITECTURE_CONTRACT_DIFFERENTIAL_CASES: ReadonlyArray<Architectur
   differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/hypervisor-machine-operation-receipt-v1/negative-ambiguous-without-a-reason.json","contract_id":"schema://ioi/components/hypervisor/hypervisor-machine-operation-receipt/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/hypervisor-machine-operation-receipt-v1/negative-ambiguous-without-a-reason.json","mutation_id":null,"value_json":null}),
   differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/hypervisor-machine-operation-receipt-v1/negative-refused-without-a-reason.json","contract_id":"schema://ioi/components/hypervisor/hypervisor-machine-operation-receipt/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/hypervisor-machine-operation-receipt-v1/negative-refused-without-a-reason.json","mutation_id":null,"value_json":null}),
   differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/hypervisor-machine-operation-receipt-v1/negative-unknown-result.json","contract_id":"schema://ioi/components/hypervisor/hypervisor-machine-operation-receipt/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/hypervisor-machine-operation-receipt-v1/negative-unknown-result.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/hypervisor-machine-profile-qualification-certificate-v1/positive-infrastructure-attached-not-qualified-simulated.json","contract_id":"schema://ioi/components/hypervisor/hypervisor-machine-profile-qualification-certificate/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/hypervisor-machine-profile-qualification-certificate-v1/positive-infrastructure-attached-not-qualified-simulated.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/hypervisor-machine-profile-qualification-certificate-v1/positive-withdrawn-freshness-expired.json","contract_id":"schema://ioi/components/hypervisor/hypervisor-machine-profile-qualification-certificate/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/hypervisor-machine-profile-qualification-certificate-v1/positive-withdrawn-freshness-expired.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/hypervisor-machine-profile-qualification-certificate-v1/positive-workstation-hosted-not-qualified-simulated.json","contract_id":"schema://ioi/components/hypervisor/hypervisor-machine-profile-qualification-certificate/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/hypervisor-machine-profile-qualification-certificate-v1/positive-workstation-hosted-not-qualified-simulated.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/hypervisor-machine-profile-qualification-certificate-v1/negative-attached-claims-vmm-ownership.json","contract_id":"schema://ioi/components/hypervisor/hypervisor-machine-profile-qualification-certificate/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/hypervisor-machine-profile-qualification-certificate-v1/negative-attached-claims-vmm-ownership.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/hypervisor-machine-profile-qualification-certificate-v1/negative-not-qualified-without-a-reason.json","contract_id":"schema://ioi/components/hypervisor/hypervisor-machine-profile-qualification-certificate/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/hypervisor-machine-profile-qualification-certificate-v1/negative-not-qualified-without-a-reason.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/hypervisor-machine-profile-qualification-certificate-v1/negative-other-profile-not-disclaimed.json","contract_id":"schema://ioi/components/hypervisor/hypervisor-machine-profile-qualification-certificate/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/hypervisor-machine-profile-qualification-certificate-v1/negative-other-profile-not-disclaimed.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/hypervisor-machine-profile-qualification-certificate-v1/negative-qualified-on-simulated-basis.json","contract_id":"schema://ioi/components/hypervisor/hypervisor-machine-profile-qualification-certificate/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/hypervisor-machine-profile-qualification-certificate-v1/negative-qualified-on-simulated-basis.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/hypervisor-machine-profile-qualification-certificate-v1/negative-seventeenth-verb.json","contract_id":"schema://ioi/components/hypervisor/hypervisor-machine-profile-qualification-certificate/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/hypervisor-machine-profile-qualification-certificate-v1/negative-seventeenth-verb.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/hypervisor-machine-profile-qualification-certificate-v1/negative-unknown-member.json","contract_id":"schema://ioi/components/hypervisor/hypervisor-machine-profile-qualification-certificate/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/hypervisor-machine-profile-qualification-certificate-v1/negative-unknown-member.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/hypervisor-machine-profile-qualification-certificate-v1/negative-vm-boot-admitted-as-evidence.json","contract_id":"schema://ioi/components/hypervisor/hypervisor-machine-profile-qualification-certificate/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/hypervisor-machine-profile-qualification-certificate-v1/negative-vm-boot-admitted-as-evidence.json","mutation_id":null,"value_json":null}),
   differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/hypervisor-machine-host-v1/positive-nominal.json","contract_id":"schema://ioi/components/hypervisor/hypervisor-machine-host/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/hypervisor-machine-host-v1/positive-nominal.json","mutation_id":null,"value_json":null}),
   differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/hypervisor-machine-host-v1/negative-missing-required-member.json","contract_id":"schema://ioi/components/hypervisor/hypervisor-machine-host/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/hypervisor-machine-host-v1/negative-missing-required-member.json","mutation_id":null,"value_json":null}),
   differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/hypervisor-machine-image-v1/positive-nominal.json","contract_id":"schema://ioi/components/hypervisor/hypervisor-machine-image/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/hypervisor-machine-image-v1/positive-nominal.json","mutation_id":null,"value_json":null}),
@@ -33475,6 +33657,7 @@ export const ARCHITECTURE_CONTRACT_PATTERN_SOURCES = [
   "^[0-9A-Za-z][0-9A-Za-z.+_-]{0,63}$",
   "^[0-9]+[.][0-9]+[.][0-9]+[-+A-Za-z0-9.]{0,128}$",
   "^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$",
+  "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}[.0-9]*Z$",
   "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[^\\s]+Z$",
   "^[0-9a-f]{128}$",
   "^[0-9a-f]{16}$",
@@ -33854,6 +34037,7 @@ export const ARCHITECTURE_CONTRACT_PATTERN_SOURCES = [
   "^machine-network-attachment://\\S+$",
   "^machine-operation-receipt://\\S+$",
   "^machine-operation://\\S+$",
+  "^machine-profile-certificate://[^\\s]{1,240}$",
   "^machine-snapshot://\\S+$",
   "^machine-volume-attachment://\\S+$",
   "^mapping://[^\\s]{1,240}$",
@@ -34502,6 +34686,7 @@ export const ARCHITECTURE_CONTRACT_SCHEMA_HASHES = {
   "schema://ioi/components/hypervisor/foundry-qualified-measurement/v2": "sha256:63f53a1f0b08dd46c3ae7646eed4f47806331998d9d8c219cb67e32e9c6ea55a",
   "schema://ioi/components/hypervisor/hypervisor-machine-operation/v1": "sha256:7789c4fbdba7e8ea8df3f22aa61b35864edf9355c344c6cd267ae82631626826",
   "schema://ioi/components/hypervisor/hypervisor-machine-operation-receipt/v1": "sha256:5e350acd918db65d988baae5d6e49bc4cac4ad60033c8f218bde436bc7ded00a",
+  "schema://ioi/components/hypervisor/hypervisor-machine-profile-qualification-certificate/v1": "sha256:392a0c13b39c2c50960bd81cc60af6f48fe7dc17e6eea1d8cda80fb9343ceee4",
   "schema://ioi/components/hypervisor/hypervisor-machine-host/v1": "sha256:56f09db7ef83f8f3554e48e0f0d6ac17fdd932807fab9a8b270a831b45048b9e",
   "schema://ioi/components/hypervisor/hypervisor-machine-image/v1": "sha256:a4f5c99faf68b002952a450f193b30a24b751c5b460002d56750d9cc61d696df",
   "schema://ioi/components/hypervisor/hypervisor-machine-volume-attachment/v1": "sha256:79174ae478411620a2c6c40da4dfeec9ee13c6b5f740c8888231ecd5b572b8ed",
@@ -134828,6 +135013,800 @@ const CONTRACT_SCHEMAS: Record<string, JsonObject> = {
       }
     }
   },
+  "schema://ioi/components/hypervisor/hypervisor-machine-profile-qualification-certificate/v1": {
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "$id": "schema://ioi/components/hypervisor/hypervisor-machine-profile-qualification-certificate/v1",
+    "title": "HypervisorMachineProfileQualificationCertificate",
+    "x-ioi-schema-version": "ioi.hypervisor.machine-profile-qualification-certificate.v1",
+    "description": "ONE machine-product profile's qualification, as a certificate that can only read DOWN from its evidence. Canon binds every Workstation and attached-Infrastructure statement to one subject-specific claim, the exact release/profile/backend matrix and fresh evidence, closable and withdrawable on its own (public-web-estate.md § Subject-specific compute claims; core-clients-surfaces.md § the bundles; ACC-20 clause 10). This certificate is GENERATED from durable machine-plane records, never authored: it binds the backend registration and the capability declaration by ref, by the hash the declaration carries AND by a digest recomputed over the declaration's bytes (the kernel compares the carried member and never recomputes, so a drifted record with an unchanged member is invisible to it and must not be to this); the sixteen-verb matrix with every unsupported cell and its typed reason and every supported cell the evidence never exercised named `untested`; the declared limitations; the evidence runs with their receipts by ref and hash; both delivery forms' evidence; the evidence window and validity; and the release identity the daemon ran under. `qualification` reads `qualified` ONLY from `live` backend evidence — the schema refuses `qualified` on any other basis — reads `not_qualified` with typed reasons from simulated or declared evidence, and reads `withdrawn` with a typed reason when its evidence expires, its declaration drifts or its release is no longer the one that ran. `does_not_qualify` MUST name the other profile: evidence from one profile never promotes the other. An attached-Infrastructure certificate carries `vmm_ownership_claimed: false` as a constant. Artifacts canon refuses as qualification evidence (a VM boot, a hostile-guest test, a downloadable binary, a bootable image, a generated dashboard, a backend declaration, an autonomy proof, provider-portability or packaging evidence, simulated-only runs presented as host compatibility, the other profile's evidence) are recorded under `refused_evidence` when presented and never under `evidence_runs`. Owner: providers-and-environments.md § Machine-control contract family (M12.15).",
+    "type": "object",
+    "additionalProperties": false,
+    "required": [
+      "schema_version",
+      "certificate_ref",
+      "certificate_hash",
+      "profile_id",
+      "bundle",
+      "does_not_qualify",
+      "subject",
+      "release",
+      "matrix",
+      "delivery_forms",
+      "evidence_runs",
+      "freshness",
+      "qualification",
+      "evidence_basis",
+      "not_qualified_reasons",
+      "refused_evidence",
+      "nonclaims",
+      "issuer",
+      "withdrawal"
+    ],
+    "properties": {
+      "schema_version": {
+        "type": "string",
+        "const": "ioi.hypervisor.machine-profile-qualification-certificate.v1"
+      },
+      "certificate_ref": {
+        "type": "string",
+        "pattern": "^machine-profile-certificate://[^\\s]{1,240}$"
+      },
+      "certificate_hash": {
+        "$ref": "#/$defs/hash",
+        "description": "sha256 over the certificate's stable JSON with this member removed. Regenerating the certificate from the same records yields the same hash; a certificate that cannot be regenerated is not evidence."
+      },
+      "profile_id": {
+        "$ref": "#/$defs/profile_id"
+      },
+      "bundle": {
+        "type": "string",
+        "enum": [
+          "hypervisor_workstation",
+          "hypervisor_infrastructure"
+        ],
+        "description": "The owner-qualified claim bundle this profile closes (term-boundaries.md § Hypervisor category terms): a bundle, not an app, plane or truth owner."
+      },
+      "does_not_qualify": {
+        "type": "array",
+        "minItems": 1,
+        "uniqueItems": true,
+        "items": {
+          "type": "string",
+          "enum": [
+            "workstation_hosted_v1",
+            "infrastructure_attached_v1",
+            "hypervisoros_node_root_v1",
+            "type_1",
+            "type_2",
+            "legacy_replacement"
+          ]
+        },
+        "description": "What this certificate never qualifies. It MUST name the other machine profile (evidence from one cannot promote the other) and names the external mappings and the supersession claim canon keeps separate."
+      },
+      "subject": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "backend_registration_ref",
+          "capability_declaration_ref",
+          "capability_declaration_hash_declared",
+          "capability_declaration_bytes_sha256",
+          "evidence_mode",
+          "resource_relationship",
+          "vmm_ownership_claimed"
+        ],
+        "properties": {
+          "backend_registration_ref": {
+            "$ref": "#/$defs/ref"
+          },
+          "capability_declaration_ref": {
+            "$ref": "#/$defs/ref"
+          },
+          "capability_declaration_hash_declared": {
+            "$ref": "#/$defs/hash",
+            "description": "The `declaration_hash` member the declaration record carries — what the kernel compares an operation's binding against."
+          },
+          "capability_declaration_bytes_sha256": {
+            "$ref": "#/$defs/hash",
+            "description": "A digest RECOMPUTED over the declaration record's stable JSON at generation time. The kernel never recomputes it; the certificate does, so a declaration edited in place under an unchanged carried hash withdraws this certificate on the next verification rather than passing unseen."
+          },
+          "evidence_mode": {
+            "type": "string",
+            "enum": [
+              "live",
+              "simulated",
+              "declared"
+            ],
+            "description": "The declaration's own evidence mode, copied never relabelled: it is what `evidence_basis` derives from."
+          },
+          "resource_relationship": {
+            "type": "string",
+            "enum": [
+              "local",
+              "customer_attached"
+            ],
+            "description": "The bundle's deployment/resource relationship facet: `local` for the hosted Workstation, `customer_attached` for attached Infrastructure."
+          },
+          "vmm_ownership_claimed": {
+            "type": "boolean",
+            "description": "Whether this certificate claims Hypervisor is the subject estate's underlying VMM. Always false; the schema refuses true on the attached profile outright, and the hosted profile has no estate to own."
+          }
+        }
+      },
+      "release": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "source_commit",
+          "daemon_binary_sha256",
+          "release_manifest_sha256",
+          "release_version",
+          "signer_key_id",
+          "dirty_state_declaration"
+        ],
+        "properties": {
+          "source_commit": {
+            "anyOf": [
+              {
+                "type": "string",
+                "pattern": "^[0-9a-f]{40}$"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "daemon_binary_sha256": {
+            "anyOf": [
+              {
+                "$ref": "#/$defs/hash"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "release_manifest_sha256": {
+            "anyOf": [
+              {
+                "$ref": "#/$defs/hash"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "The sha256 of the packaged release manifest the daemon was installed from (M12.2's alpha-release), or null when the daemon ran from a source build — in which case the certificate carries `release_unbound` among its reasons."
+          },
+          "release_version": {
+            "anyOf": [
+              {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 120
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "signer_key_id": {
+            "anyOf": [
+              {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 240
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "dirty_state_declaration": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 240
+          }
+        }
+      },
+      "matrix": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "verbs",
+          "architectures",
+          "guests",
+          "limitations"
+        ],
+        "properties": {
+          "verbs": {
+            "type": "array",
+            "minItems": 16,
+            "maxItems": 16,
+            "items": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "operation",
+                "status",
+                "reason_code"
+              ],
+              "properties": {
+                "operation": {
+                  "type": "string",
+                  "enum": [
+                    "discover",
+                    "define",
+                    "import",
+                    "create",
+                    "start",
+                    "stop",
+                    "pause",
+                    "resume",
+                    "reboot",
+                    "open_console",
+                    "close_console",
+                    "snapshot",
+                    "clone",
+                    "restore",
+                    "migrate",
+                    "delete"
+                  ]
+                },
+                "status": {
+                  "type": "string",
+                  "enum": [
+                    "supported",
+                    "unsupported",
+                    "untested"
+                  ],
+                  "description": "`supported` = declared and exercised by a succeeded receipt in this certificate's evidence runs; `unsupported` = declared unsupported with the declaration's own reason; `untested` = declared supported and never exercised here — named, never assumed."
+                },
+                "reason_code": {
+                  "anyOf": [
+                    {
+                      "type": "string",
+                      "pattern": "^[a-z][a-z0-9_]*$",
+                      "maxLength": 120
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "Canon's sixteen verbs, each with its status under THIS backend and THIS evidence. The vocabulary is the kernel's; a seventeenth verb or a missing one fails the schema."
+          },
+          "architectures": {
+            "type": "array",
+            "uniqueItems": true,
+            "items": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 40
+            }
+          },
+          "guests": {
+            "type": "array",
+            "uniqueItems": true,
+            "items": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 120
+            },
+            "description": "The guest/firmware profiles the backend declares. The registered declaration contract carries none today; an empty list is the declared fact and the certificate names `guest_matrix_undeclared` among its reasons."
+          },
+          "limitations": {
+            "type": "array",
+            "uniqueItems": true,
+            "items": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 512
+            }
+          }
+        }
+      },
+      "delivery_forms": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "integrated",
+          "standalone"
+        ],
+        "properties": {
+          "integrated": {
+            "anyOf": [
+              {
+                "$ref": "#/$defs/delivery_evidence"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "standalone": {
+            "anyOf": [
+              {
+                "$ref": "#/$defs/delivery_evidence"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "description": "The two delivery forms' evidence of rendering the same spine (M08.15). A missing form is null and names `delivery_form_missing`; the standalone form records WHICH form it was — the thin client is not the distributed client."
+      },
+      "evidence_runs": {
+        "type": "array",
+        "minItems": 1,
+        "items": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "kind",
+            "workload_ref",
+            "head",
+            "operation_count",
+            "receipts",
+            "window"
+          ],
+          "properties": {
+            "kind": {
+              "type": "string",
+              "const": "machine_lifecycle_run",
+              "description": "The only evidence kind a certificate admits. Everything else canon refuses is recorded under `refused_evidence`."
+            },
+            "workload_ref": {
+              "$ref": "#/$defs/ref"
+            },
+            "head": {
+              "anyOf": [
+                {
+                  "$ref": "#/$defs/hash"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "operation_count": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 9007199254740991
+            },
+            "receipts": {
+              "type": "array",
+              "minItems": 1,
+              "items": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                  "receipt_ref",
+                  "receipt_sha256",
+                  "operation",
+                  "result"
+                ],
+                "properties": {
+                  "receipt_ref": {
+                    "$ref": "#/$defs/ref"
+                  },
+                  "receipt_sha256": {
+                    "$ref": "#/$defs/hash"
+                  },
+                  "operation": {
+                    "type": "string",
+                    "pattern": "^[a-z][a-z0-9_]*$",
+                    "maxLength": 40
+                  },
+                  "result": {
+                    "type": "string",
+                    "enum": [
+                      "succeeded",
+                      "refused",
+                      "ambiguous"
+                    ]
+                  }
+                }
+              }
+            },
+            "window": {
+              "$ref": "#/$defs/window"
+            }
+          }
+        }
+      },
+      "freshness": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "evidence_window",
+          "issued_at",
+          "valid_until",
+          "validity_policy_ref",
+          "currentness_evaluation_ref"
+        ],
+        "properties": {
+          "evidence_window": {
+            "$ref": "#/$defs/window"
+          },
+          "issued_at": {
+            "$ref": "#/$defs/instant"
+          },
+          "valid_until": {
+            "$ref": "#/$defs/instant"
+          },
+          "validity_policy_ref": {
+            "$ref": "#/$defs/ref"
+          },
+          "currentness_evaluation_ref": {
+            "$ref": "#/$defs/ref",
+            "description": "The declaration's own currentness evaluation ref, carried so a verifier can ask its evaluator; the registered declaration contract carries no timestamps, and this certificate's window is derived from the runs' submission times."
+          }
+        }
+      },
+      "qualification": {
+        "type": "string",
+        "enum": [
+          "qualified",
+          "not_qualified",
+          "withdrawn"
+        ]
+      },
+      "evidence_basis": {
+        "type": "string",
+        "enum": [
+          "live",
+          "simulated",
+          "declared",
+          "none"
+        ]
+      },
+      "not_qualified_reasons": {
+        "type": "array",
+        "uniqueItems": true,
+        "items": {
+          "type": "string",
+          "enum": [
+            "evidence_basis_simulated",
+            "evidence_basis_declared",
+            "no_live_backend_registered",
+            "release_unbound",
+            "supported_cells_untested",
+            "guest_matrix_undeclared",
+            "limitations_undeclared",
+            "delivery_form_missing",
+            "freshness_expired",
+            "declaration_drifted",
+            "evidence_window_empty"
+          ]
+        }
+      },
+      "refused_evidence": {
+        "type": "array",
+        "uniqueItems": true,
+        "items": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "kind",
+            "ref",
+            "reason"
+          ],
+          "properties": {
+            "kind": {
+              "type": "string",
+              "enum": [
+                "vm_boot",
+                "hostile_guest_test",
+                "downloadable_binary",
+                "bootable_image",
+                "generated_dashboard",
+                "backend_declaration",
+                "autonomy_proof",
+                "provider_portability",
+                "packaging",
+                "simulated_only_as_host_compatibility",
+                "other_profile_evidence"
+              ]
+            },
+            "ref": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 512
+            },
+            "reason": {
+              "type": "string",
+              "const": "not_qualification_evidence"
+            }
+          }
+        },
+        "description": "Artifacts PRESENTED as qualification evidence and refused by kind (ACC-20 N1; M12 § 5). They are recorded so the refusal is visible; they contribute nothing."
+      },
+      "nonclaims": {
+        "type": "array",
+        "minItems": 6,
+        "uniqueItems": true,
+        "items": {
+          "type": "string",
+          "minLength": 12,
+          "maxLength": 400
+        }
+      },
+      "issuer": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "verifier_identity_ref",
+          "verifier_build_hash"
+        ],
+        "properties": {
+          "verifier_identity_ref": {
+            "$ref": "#/$defs/ref"
+          },
+          "verifier_build_hash": {
+            "anyOf": [
+              {
+                "$ref": "#/$defs/hash"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        }
+      },
+      "withdrawal": {
+        "anyOf": [
+          {
+            "type": "null"
+          },
+          {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "reason",
+              "at",
+              "detail"
+            ],
+            "properties": {
+              "reason": {
+                "type": "string",
+                "enum": [
+                  "freshness_expired",
+                  "declaration_drifted",
+                  "release_unbound",
+                  "evidence_basis_downgraded",
+                  "owner_withdrawn"
+                ]
+              },
+              "at": {
+                "$ref": "#/$defs/instant"
+              },
+              "detail": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 512
+              }
+            }
+          }
+        ]
+      }
+    },
+    "allOf": [
+      {
+        "if": {
+          "properties": {
+            "qualification": {
+              "type": "string",
+              "const": "qualified"
+            }
+          },
+          "required": [
+            "qualification"
+          ]
+        },
+        "then": {
+          "properties": {
+            "evidence_basis": {
+              "type": "string",
+              "const": "live"
+            },
+            "withdrawal": {
+              "type": "null"
+            }
+          }
+        }
+      },
+      {
+        "if": {
+          "properties": {
+            "qualification": {
+              "type": "string",
+              "const": "withdrawn"
+            }
+          },
+          "required": [
+            "qualification"
+          ]
+        },
+        "then": {
+          "properties": {
+            "withdrawal": {
+              "type": "object"
+            }
+          }
+        }
+      },
+      {
+        "if": {
+          "properties": {
+            "qualification": {
+              "type": "string",
+              "const": "not_qualified"
+            }
+          },
+          "required": [
+            "qualification"
+          ]
+        },
+        "then": {
+          "properties": {
+            "withdrawal": {
+              "type": "null"
+            }
+          }
+        }
+      },
+      {
+        "if": {
+          "properties": {
+            "profile_id": {
+              "type": "string",
+              "const": "workstation_hosted_v1"
+            }
+          },
+          "required": [
+            "profile_id"
+          ]
+        },
+        "then": {
+          "properties": {
+            "bundle": {
+              "type": "string",
+              "const": "hypervisor_workstation"
+            },
+            "does_not_qualify": {
+              "type": "array",
+              "contains": {
+                "type": "string",
+                "const": "infrastructure_attached_v1"
+              }
+            },
+            "subject": {
+              "type": "object",
+              "properties": {
+                "resource_relationship": {
+                  "type": "string",
+                  "const": "local"
+                },
+                "vmm_ownership_claimed": {
+                  "type": "boolean",
+                  "const": false
+                }
+              }
+            }
+          }
+        }
+      },
+      {
+        "if": {
+          "properties": {
+            "profile_id": {
+              "type": "string",
+              "const": "infrastructure_attached_v1"
+            }
+          },
+          "required": [
+            "profile_id"
+          ]
+        },
+        "then": {
+          "properties": {
+            "bundle": {
+              "type": "string",
+              "const": "hypervisor_infrastructure"
+            },
+            "does_not_qualify": {
+              "type": "array",
+              "contains": {
+                "type": "string",
+                "const": "workstation_hosted_v1"
+              }
+            },
+            "subject": {
+              "type": "object",
+              "properties": {
+                "resource_relationship": {
+                  "type": "string",
+                  "const": "customer_attached"
+                },
+                "vmm_ownership_claimed": {
+                  "type": "boolean",
+                  "const": false
+                }
+              }
+            }
+          }
+        }
+      }
+    ],
+    "$defs": {
+      "ref": {
+        "type": "string",
+        "pattern": "^[a-z][a-z0-9+.-]*://\\S+$"
+      },
+      "hash": {
+        "type": "string",
+        "pattern": "^sha256:[0-9a-f]{64}$"
+      },
+      "instant": {
+        "type": "string",
+        "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}[.0-9]*Z$"
+      },
+      "profile_id": {
+        "type": "string",
+        "enum": [
+          "workstation_hosted_v1",
+          "infrastructure_attached_v1"
+        ]
+      },
+      "window": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "from",
+          "to"
+        ],
+        "properties": {
+          "from": {
+            "$ref": "#/$defs/instant"
+          },
+          "to": {
+            "$ref": "#/$defs/instant"
+          }
+        }
+      },
+      "delivery_evidence": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "form",
+          "evidence_ref",
+          "evidence_sha256"
+        ],
+        "properties": {
+          "form": {
+            "type": "string",
+            "enum": [
+              "hypervisor_app",
+              "thin_client",
+              "distributed_client"
+            ]
+          },
+          "evidence_ref": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 512
+          },
+          "evidence_sha256": {
+            "$ref": "#/$defs/hash"
+          }
+        }
+      }
+    }
+  },
   "schema://ioi/components/hypervisor/hypervisor-machine-host/v1": {
     "$schema": "https://json-schema.org/draft/2020-12/schema",
     "$id": "schema://ioi/components/hypervisor/hypervisor-machine-host/v1",
@@ -164402,6 +165381,21 @@ const CONTRACT_INVARIANTS: Record<string, Array<JsonObject>> = {
       }
     }
   ],
+  "schema://ioi/components/hypervisor/hypervisor-machine-profile-qualification-certificate/v1": [
+    {
+      "rule_id": "hypervisor_machine_profile_qualification_certificate.not_qualified_names_its_reasons",
+      "description": "A certificate that does not qualify says WHY, from the closed vocabulary. The schema already refuses `qualified` on anything but a live basis; this rule keeps the other direction honest — `not_qualified` with no reason would be a downgrade nobody can act on, and `withdrawn` without one would be a withdrawal nobody can lift.",
+      "expression": {
+        "operator": "non_empty_when_in",
+        "path": "$.not_qualified_reasons",
+        "when_path": "$.qualification",
+        "values": [
+          "not_qualified",
+          "withdrawn"
+        ]
+      }
+    }
+  ],
   "schema://ioi/components/hypervisor/hypervisor-machine-host/v1": [],
   "schema://ioi/components/hypervisor/hypervisor-machine-image/v1": [
     {
@@ -170212,6 +171206,12 @@ export function validateHypervisorMachineOperationReceiptV1(
   value: unknown,
 ): value is HypervisorMachineOperationReceiptV1 {
   return validateArchitectureContract("schema://ioi/components/hypervisor/hypervisor-machine-operation-receipt/v1", value).ok;
+}
+
+export function validateHypervisorMachineProfileQualificationCertificateV1(
+  value: unknown,
+): value is HypervisorMachineProfileQualificationCertificateV1 {
+  return validateArchitectureContract("schema://ioi/components/hypervisor/hypervisor-machine-profile-qualification-certificate/v1", value).ok;
 }
 
 export function validateHypervisorMachineHostV1(

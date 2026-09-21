@@ -379,7 +379,11 @@ truth. Attachment begins read-only. Mutation is a separate graduation.
 IOI manages the admitted estate through its existing provider and environment
 owners. It does not thereby become the underlying VMM, acquire cluster
 membership, or claim unsupported migration/HA semantics. Simulated evidence may
-exercise projections but cannot close the live attached-estate claim.
+exercise projections but cannot close the live attached-estate claim. The
+offline form of the Infrastructure claim is the `infrastructure_attached_v1`
+certificate (`check:machine-product-profile-qualification`, M12.15), which
+carries `vmm_ownership_claimed: false` as a constant and reads `not_qualified`
+until a live attached-estate backend's evidence is bound.
 
 ## The Provider-Neutral Live Transaction Lane
 

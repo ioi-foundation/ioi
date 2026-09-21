@@ -1,0 +1,20 @@
+{
+  "$id": "invariant://ioi/components/hypervisor/hypervisor-machine-profile-qualification-certificate/reads-down/v1",
+  "language": "ioi.portable-invariants.v1",
+  "contract_id": "schema://ioi/components/hypervisor/hypervisor-machine-profile-qualification-certificate/v1",
+  "rules": [
+    {
+      "rule_id": "hypervisor_machine_profile_qualification_certificate.not_qualified_names_its_reasons",
+      "description": "A certificate that does not qualify says WHY, from the closed vocabulary. The schema already refuses `qualified` on anything but a live basis; this rule keeps the other direction honest — `not_qualified` with no reason would be a downgrade nobody can act on, and `withdrawn` without one would be a withdrawal nobody can lift.",
+      "expression": {
+        "operator": "non_empty_when_in",
+        "path": "$.not_qualified_reasons",
+        "when_path": "$.qualification",
+        "values": [
+          "not_qualified",
+          "withdrawn"
+        ]
+      }
+    }
+  ]
+}

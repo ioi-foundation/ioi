@@ -36,6 +36,8 @@
     "mutate:editor-challenge-relay": "node ../../scripts/check-editor-challenge-relay.mjs --mutation",
     "check:machine-product-composition": "node ../../scripts/check-machine-product-composition.mjs --drills",
     "mutate:machine-product-composition": "node ../../scripts/check-machine-product-composition.mjs --mutation",
+    "check:machine-product-profile-qualification": "node ../../scripts/check-machine-product-profile-qualification.mjs --drills",
+    "mutate:machine-product-profile-qualification": "node ../../scripts/check-machine-product-profile-qualification.mjs --mutation",
     "check:app-runtime-safety": "node scripts/verify-hypervisor-app-runtime-safety.mjs",
     "check:assurance-ladder-lifecycle": "node scripts/verify-hypervisor-assurance-ladder-lifecycle.mjs",
     "check:assurance-transition-receipt": "node scripts/verify-hypervisor-assurance-transition-receipt.mjs",

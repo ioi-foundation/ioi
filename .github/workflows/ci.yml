@@ -1036,6 +1036,24 @@ jobs:
         if: ${{ !cancelled() && steps.rust_backed_daemon.outcome == 'success' }}
         run: npm run mutate:machine-product-composition --workspace=@ioi/hypervisor-app
 
+      # M12.15 (R-216). The Workstation and attached-Infrastructure profile qualification, CI-bound at its
+      # drills: the certificate contract registered with its reads-down invariant and fixtures, the two profile
+      # matrices pinned, both certificates GENERATED from the tracked record set (minted from a real isolated
+      # run against the simulated reference backends) regenerating their attested hashes and reading
+      # not_qualified on a simulated basis with their typed reasons, the offline verifier and independence,
+      # every refused evidence kind refused, expiry and drift withdrawing. The fresh RUN (an isolated daemon,
+      # this runner's own serve, the thin client) is the gate's full mode; the positive hosted and attached
+      # crossings are scheduled by name.
+      - name: Verify the machine profile qualification (M12.15, CI-bound drills)
+        if: ${{ !cancelled() && steps.rust_backed_daemon.outcome == 'success' }}
+        env:
+          IOI_VERIFIER_CENSUS_DIR: .artifacts/verifier-census
+        run: npm run check:machine-product-profile-qualification --workspace=@ioi/hypervisor-app
+
+      - name: Drill the machine profile qualification oracles
+        if: ${{ !cancelled() && steps.rust_backed_daemon.outcome == 'success' }}
+        run: npm run mutate:machine-product-profile-qualification --workspace=@ioi/hypervisor-app
+
       # M10.4 — the governed evaluation plane, driven against an ISOLATED daemon this job already
       # built: two deterministic ollama-dialect stub servers registered, probed, enabled and REALLY
       # invoked as routes A and B; released suite revisions, frozen and active epochs, admitted runs,

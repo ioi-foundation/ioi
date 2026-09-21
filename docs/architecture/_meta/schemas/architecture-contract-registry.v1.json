@@ -17184,6 +17184,80 @@
       ]
     },
     {
+      "contract_id": "schema://ioi/components/hypervisor/hypervisor-machine-profile-qualification-certificate/v1",
+      "canonical_name": "HypervisorMachineProfileQualificationCertificate",
+      "canonical_owner_ref": "canon://docs/architecture/components/hypervisor/providers-and-environments.md#machine-control-contract-family",
+      "schema_version": "ioi.hypervisor.machine-profile-qualification-certificate.v1",
+      "maturity": "partial",
+      "stability": "provisional",
+      "wire_format": "json",
+      "canonical_encoding_profile_ref": "encoding-profile://ioi/jcs-json/v1",
+      "evolution": {
+        "successor_of": null,
+        "successor_contract_id": null,
+        "compatibility": "initial",
+        "migration_policy": "none",
+        "predecessor_remains_valid": false,
+        "wire_mutation_policy": "forbidden",
+        "hash_impact": "signature_preimage_changed"
+      },
+      "schema_ref": "hypervisor-machine-profile-qualification-certificate.v1.schema.json",
+      "cross_field_invariant_refs": [
+        {
+          "invariant_id": "invariant://ioi/components/hypervisor/hypervisor-machine-profile-qualification-certificate/reads-down/v1",
+          "path": "invariants/hypervisor-machine-profile-qualification-certificate.v1.invariants.json"
+        }
+      ],
+      "compatibility_aliases": [],
+      "generated_targets": [
+        {
+          "kind": "typescript_projection",
+          "path": "packages/hypervisor-workbench/src/runtime/generated/architecture-contracts.ts",
+          "symbol": "HypervisorMachineProfileQualificationCertificateV1"
+        },
+        {
+          "kind": "rust_projection",
+          "path": "crates/types/src/app/generated/architecture_contracts.rs",
+          "symbol": "HypervisorMachineProfileQualificationCertificateV1"
+        }
+      ],
+      "positive_fixture_refs": [
+        "fixtures/hypervisor-machine-profile-qualification-certificate-v1/positive-infrastructure-attached-not-qualified-simulated.json",
+        "fixtures/hypervisor-machine-profile-qualification-certificate-v1/positive-withdrawn-freshness-expired.json",
+        "fixtures/hypervisor-machine-profile-qualification-certificate-v1/positive-workstation-hosted-not-qualified-simulated.json"
+      ],
+      "negative_fixture_refs": [
+        {
+          "path": "fixtures/hypervisor-machine-profile-qualification-certificate-v1/negative-attached-claims-vmm-ownership.json",
+          "expected_failure": "schema"
+        },
+        {
+          "path": "fixtures/hypervisor-machine-profile-qualification-certificate-v1/negative-not-qualified-without-a-reason.json",
+          "expected_failure": "invariant"
+        },
+        {
+          "path": "fixtures/hypervisor-machine-profile-qualification-certificate-v1/negative-other-profile-not-disclaimed.json",
+          "expected_failure": "schema"
+        },
+        {
+          "path": "fixtures/hypervisor-machine-profile-qualification-certificate-v1/negative-qualified-on-simulated-basis.json",
+          "expected_failure": "schema"
+        },
+        {
+          "path": "fixtures/hypervisor-machine-profile-qualification-certificate-v1/negative-seventeenth-verb.json",
+          "expected_failure": "schema"
+        },
+        {
+          "path": "fixtures/hypervisor-machine-profile-qualification-certificate-v1/negative-unknown-member.json",
+          "expected_failure": "schema"
+        },
+        {
+          "path": "fixtures/hypervisor-machine-profile-qualification-certificate-v1/negative-vm-boot-admitted-as-evidence.json",
+          "expected_failure": "schema"
+        }
+      ]
+    },
+    {
       "contract_id": "schema://ioi/components/hypervisor/hypervisor-machine-host/v1",
       "canonical_name": "HypervisorMachineHost",
       "canonical_owner_ref": "canon://docs/architecture/components/hypervisor/providers-and-environments.md#the-nine-remaining-machine-control-members-specified",

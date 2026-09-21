@@ -1,0 +1,601 @@
+{
+  "schema": "ioi.machine-product-profile-qualification-evidence.v1",
+  "mode": "full",
+  "started_at": "2026-09-21T04:05:10.558Z",
+  "drills": [
+    {
+      "name": "BINDING — the acceptance's demands are twelve clauses, each executed by a floored gate, M09.11's own gate or this runner's legs, or named with an owner, or scheduled with its prerequisite and ruling (both positive crossings)",
+      "pass": true,
+      "detail": "12 clauses",
+      "at": "2026-09-21T04:05:10.559Z"
+    },
+    {
+      "name": "CONTRACT — the certificate contract is registered with its reads-down invariant and fixtures; every positive fixture validates under the schema and the verifier, every negative fixture is refused for its declared cause, and the schema itself refuses `qualified` on a simulated basis and an attached certificate claiming VMM ownership",
+      "pass": true,
+      "detail": "registered",
+      "at": "2026-09-21T04:05:10.612Z"
+    },
+    {
+      "name": "PROFILES — the two profile matrices are canon's: sixteen verbs, the hosted profile requiring clone and restore and not migrate, the attached profile requiring migrate and not the console, distinct admitted backends, each naming the other; the refused-evidence kinds and the nonclaims complete; the whole pinned by digest",
+      "pass": true,
+      "detail": "sha256:47c99560a98c",
+      "at": "2026-09-21T04:05:10.612Z"
+    },
+    {
+      "name": "GENERATION — the tracked record set (minted from a real isolated run against the two simulated reference backends) re-hashes to its committed set hash with the declarations' digests recomputed; both certificates are assembled from it, regenerate their attested hashes byte for byte, read not_qualified with evidence_basis simulated and the reasons the evidence carries, bind the source commit and daemon digest with the release named unbound, carry both delivery forms' agreeing evidence, and derive the matrix from the receipts",
+      "pass": true,
+      "detail": "hosted ccceb37f9727 · attached 4b42a6a0e05e",
+      "at": "2026-09-21T04:05:10.614Z"
+    },
+    {
+      "name": "VERIFY — the offline verifier accepts both certificates and withdraws neither while fresh; the two are independent (distinct backends, declarations and receipts, each disclaiming the other) and independence sees a certificate built on the other's evidence; the attached certificate claims no VMM ownership",
+      "pass": true,
+      "detail": "independent",
+      "at": "2026-09-21T04:05:10.615Z"
+    },
+    {
+      "name": "REFUSALS — every artifact kind canon refuses is refused by kind and never enters the runs; the other profile's declaration reads cross-profile evidence; a declared-mode declaration reads declared; a certificate relabelled qualified or relabelled to a live basis is refused; a declaration edited under an unchanged carried hash is caught by the recomputed digest; a missing delivery form is named; VMM ownership and a VM-boot run are refused",
+      "pass": true,
+      "detail": "refused by kind",
+      "at": "2026-09-21T04:05:10.617Z"
+    },
+    {
+      "name": "FRESHNESS — an expired certificate withdraws with its reason and verifies as withdrawn; a fresh one is not withdrawn; a daemon other than the one that ran withdraws it and the same daemon does not; withdrawal only ever moves down and the library exports no upgrade",
+      "pass": true,
+      "detail": "reads down only",
+      "at": "2026-09-21T04:05:10.619Z"
+    },
+    {
+      "name": "CANON — providers-and-environments.md, core-clients-surfaces.md, public-web-estate.md and byo-provider-plane.md bind the two profiles, the certificate's read-down rule and the gate",
+      "pass": true,
+      "detail": "bound",
+      "at": "2026-09-21T04:05:10.641Z"
+    },
+    {
+      "name": "VERDICT — pass only when every clause is executed green with evidence and no absence is named; a named absence or scheduled leg is a NAMED FAILURE (exit 2); a red, an evidence-less green, an undeclared egress or a missing row is a FAIL",
+      "pass": true,
+      "detail": "named_failure/fail/fail/fail/fail",
+      "at": "2026-09-21T04:05:10.642Z"
+    }
+  ],
+  "contract": [],
+  "profiles": {
+    "findings": [],
+    "digest": "sha256:47c99560a98cce05df31e68c378923211d21e547710ddf860f707a457d66e143"
+  },
+  "generation": {
+    "set_findings": [],
+    "findings": [],
+    "set_sha256": "sha256:e8ed230a878aac157c74f5937089b8e33df97b4f6071cd9e8950766f54898352",
+    "attested": {
+      "workstation_hosted_v1": "sha256:ccceb37f9727b9b4aeaf1dc51f1c66366d14803f98d4d5964159a5a86f334763",
+      "infrastructure_attached_v1": "sha256:4b42a6a0e05ec572571a327b01d722c493ed21a305d467c090be487c84234602"
+    },
+    "certificates": {
+      "workstation_hosted_v1": {
+        "certificate_ref": "machine-profile-certificate://workstation_hosted_v1/1b1bd7a6a45270efd2e138bd",
+        "certificate_hash": "sha256:ccceb37f9727b9b4aeaf1dc51f1c66366d14803f98d4d5964159a5a86f334763",
+        "qualification": "not_qualified",
+        "evidence_basis": "simulated",
+        "reasons": [
+          "evidence_basis_simulated",
+          "guest_matrix_undeclared",
+          "limitations_undeclared",
+          "no_live_backend_registered",
+          "release_unbound",
+          "supported_cells_untested"
+        ],
+        "matrix": [
+          "discover:untested",
+          "define:untested",
+          "import:untested",
+          "create:supported",
+          "start:supported",
+          "stop:supported",
+          "pause:untested",
+          "resume:untested",
+          "reboot:untested",
+          "open_console:untested",
+          "close_console:untested",
+          "snapshot:supported",
+          "clone:untested",
+          "restore:untested",
+          "migrate:unsupported",
+          "delete:supported"
+        ]
+      },
+      "infrastructure_attached_v1": {
+        "certificate_ref": "machine-profile-certificate://infrastructure_attached_v1/ce4fd4f3baa23a847ac1561f",
+        "certificate_hash": "sha256:4b42a6a0e05ec572571a327b01d722c493ed21a305d467c090be487c84234602",
+        "qualification": "not_qualified",
+        "evidence_basis": "simulated",
+        "reasons": [
+          "evidence_basis_simulated",
+          "guest_matrix_undeclared",
+          "limitations_undeclared",
+          "no_live_backend_registered",
+          "release_unbound",
+          "supported_cells_untested"
+        ],
+        "matrix": [
+          "discover:untested",
+          "define:untested",
+          "import:untested",
+          "create:supported",
+          "start:supported",
+          "stop:untested",
+          "pause:untested",
+          "resume:untested",
+          "reboot:untested",
+          "open_console:unsupported",
+          "close_console:unsupported",
+          "snapshot:untested",
+          "clone:unsupported",
+          "restore:unsupported",
+          "migrate:untested",
+          "delete:untested"
+        ]
+      }
+    }
+  },
+  "verify": [],
+  "refusals": [],
+  "freshness": [],
+  "run": {
+    "findings": [],
+    "set_sha256": "sha256:1fabd0b771a0453b20d7be11aa27870bda346ff9f204a00bbe277b0a036bf67b",
+    "attested": {
+      "workstation_hosted_v1": "sha256:69bca72a74db4b0233fea1ddb6518d929261142a53eb07ac32e2549685fe2629",
+      "infrastructure_attached_v1": "sha256:18cba5c1fedc799ad3c5cff0dcd10ba5d12de004f2fd9e112cbddefa06cd9819"
+    },
+    "outcomes": [
+      "200:succeeded",
+      "200:succeeded",
+      "200:succeeded",
+      "200:succeeded",
+      "200:expected_head_stale",
+      "200:succeeded",
+      "200:succeeded",
+      "200:ambiguous",
+      "200:succeeded"
+    ],
+    "certificates": {
+      "workstation_hosted_v1": {
+        "certificate_hash": "sha256:69bca72a74db4b0233fea1ddb6518d929261142a53eb07ac32e2549685fe2629",
+        "qualification": "not_qualified",
+        "evidence_basis": "simulated",
+        "reasons": [
+          "evidence_basis_simulated",
+          "guest_matrix_undeclared",
+          "limitations_undeclared",
+          "no_live_backend_registered",
+          "release_unbound",
+          "supported_cells_untested"
+        ]
+      },
+      "infrastructure_attached_v1": {
+        "certificate_hash": "sha256:18cba5c1fedc799ad3c5cff0dcd10ba5d12de004f2fd9e112cbddefa06cd9819",
+        "qualification": "not_qualified",
+        "evidence_basis": "simulated",
+        "reasons": [
+          "evidence_basis_simulated",
+          "guest_matrix_undeclared",
+          "limitations_undeclared",
+          "no_live_backend_registered",
+          "release_unbound",
+          "supported_cells_untested"
+        ]
+      }
+    }
+  },
+  "clauses": [
+    {
+      "n": 1,
+      "demand": "contracts precede claims: the profile qualification certificate is a registered contract with an invariant and fixtures; the schema itself refuses `qualified` on any basis but live and refuses an attached certificate that claims VMM ownership",
+      "executed": [
+        {
+          "script": "contract (this runner)",
+          "status": 0,
+          "seconds": 0,
+          "isolation": "in-process",
+          "ledger": {
+            "attempts": 0,
+            "loopback": 0,
+            "reach": 0
+          },
+          "evidence": "../../../../../../tmp/ioi-mpq-gate-kdk6g2/self-legs.json",
+          "evidence_sha256": "sha256:e2546041e97435cd01e288989459ce6c9778bce331cf3c761939a843b9ad00a6",
+          "executed_assertions": null,
+          "floor_expected": null
+        }
+      ],
+      "absence": null,
+      "scheduled": null
+    },
+    {
+      "n": 2,
+      "demand": "the matrix is consulted, not assumed: unsupported, drifted, stale and replayed cells refuse before effect with the declaration's own reason; a non-simulated backend is admitted and never executed by the reference executor",
+      "executed": [
+        {
+          "script": "check:machine-lifecycle-backend-conformance",
+          "kind": "root",
+          "status": 0,
+          "seconds": 11,
+          "isolation": "refused_and_recorded",
+          "ledger": {
+            "attempts": 8,
+            "loopback": 8,
+            "reach": 0
+          },
+          "evidence": "../../../../../../tmp/ioi-mpq-gate-kdk6g2/2-check-machine-lifecycle-backend-conformance.log",
+          "evidence_sha256": "sha256:a651244067a7c2d7517ff6a1dd55e1c9cdd932cb267fdd48d107fc6d0038710b",
+          "executed_assertions": 23,
+          "floor_expected": null
+        }
+      ],
+      "absence": null,
+      "scheduled": null
+    },
+    {
+      "n": 3,
+      "demand": "both delivery forms render the same truth over the lifecycle the certificate binds: the integrated form and the thin client agree member for member, and the certificate carries each form's evidence by hash",
+      "executed": [
+        {
+          "script": "check:machine-product-composition",
+          "kind": "app",
+          "status": 0,
+          "seconds": 0,
+          "isolation": "refused_and_recorded",
+          "ledger": {
+            "attempts": 0,
+            "loopback": 0,
+            "reach": 0
+          },
+          "evidence": "../../../../../../tmp/ioi-mpq-gate-kdk6g2/census/3-machine-product-composition/machine-product-composition.json",
+          "evidence_sha256": "sha256:7bcd227fbe3446b7d31b86d444e70d2ea0fc22d56fbc5b31af79fa2815799816",
+          "executed_assertions": 5,
+          "floor_expected": 5
+        },
+        {
+          "script": "generation (this runner)",
+          "status": 0,
+          "seconds": 0,
+          "isolation": "in-process",
+          "ledger": {
+            "attempts": 0,
+            "loopback": 0,
+            "reach": 0
+          },
+          "evidence": "../../../../../../tmp/ioi-mpq-gate-kdk6g2/self-legs.json",
+          "evidence_sha256": "sha256:e2546041e97435cd01e288989459ce6c9778bce331cf3c761939a843b9ad00a6",
+          "executed_assertions": null,
+          "floor_expected": null
+        },
+        {
+          "script": "run (this runner)",
+          "status": 0,
+          "seconds": 0,
+          "isolation": "in-process",
+          "ledger": {
+            "attempts": 0,
+            "loopback": 0,
+            "reach": 0
+          },
+          "evidence": "../../../../../../tmp/ioi-mpq-gate-kdk6g2/self-legs.json",
+          "evidence_sha256": "sha256:e2546041e97435cd01e288989459ce6c9778bce331cf3c761939a843b9ad00a6",
+          "executed_assertions": null,
+          "floor_expected": null
+        }
+      ],
+      "absence": null,
+      "scheduled": null
+    },
+    {
+      "n": 4,
+      "demand": "the release identity the daemon ran under is bound — source commit, daemon binary digest, and the packaged release manifest when there is one — and an unbound release is a named reason, never an omission",
+      "executed": [
+        {
+          "script": "generation (this runner)",
+          "status": 0,
+          "seconds": 0,
+          "isolation": "in-process",
+          "ledger": {
+            "attempts": 0,
+            "loopback": 0,
+            "reach": 0
+          },
+          "evidence": "../../../../../../tmp/ioi-mpq-gate-kdk6g2/self-legs.json",
+          "evidence_sha256": "sha256:e2546041e97435cd01e288989459ce6c9778bce331cf3c761939a843b9ad00a6",
+          "executed_assertions": null,
+          "floor_expected": null
+        },
+        {
+          "script": "check:zero-to-operable",
+          "kind": "app",
+          "status": 0,
+          "seconds": 4,
+          "isolation": "refused_and_recorded",
+          "ledger": {
+            "attempts": 11,
+            "loopback": 11,
+            "reach": 0
+          },
+          "evidence": "../../../../../../tmp/ioi-mpq-gate-kdk6g2/census/4-zero-to-operable/zero-to-operable.json",
+          "evidence_sha256": "sha256:f8fe52814acd1bd22709ee808a1a17d86f6a0de0e7a73d07fc067cb54f6a1ea9",
+          "executed_assertions": 13,
+          "floor_expected": 13
+        }
+      ],
+      "absence": {
+        "what": "no packaged release is built from this tree: the certificates bind the source commit and the daemon binary digest and carry `release_unbound`; binding a signed release manifest and its signer key needs M12.2's packaged journey on this tree (the owed differing-daemon run)",
+        "owner": "M12.2's scheduled release qualification (R-206)"
+      },
+      "scheduled": null
+    },
+    {
+      "n": 5,
+      "demand": "the workstation_hosted_v1 certificate is generated from the tracked record set, regenerates its attested hash byte for byte, reads not_qualified with evidence_basis simulated and its typed reasons, and verifies offline",
+      "executed": [
+        {
+          "script": "generation (this runner)",
+          "status": 0,
+          "seconds": 0,
+          "isolation": "in-process",
+          "ledger": {
+            "attempts": 0,
+            "loopback": 0,
+            "reach": 0
+          },
+          "evidence": "../../../../../../tmp/ioi-mpq-gate-kdk6g2/self-legs.json",
+          "evidence_sha256": "sha256:e2546041e97435cd01e288989459ce6c9778bce331cf3c761939a843b9ad00a6",
+          "executed_assertions": null,
+          "floor_expected": null
+        },
+        {
+          "script": "verify (this runner)",
+          "status": 0,
+          "seconds": 0,
+          "isolation": "in-process",
+          "ledger": {
+            "attempts": 0,
+            "loopback": 0,
+            "reach": 0
+          },
+          "evidence": "../../../../../../tmp/ioi-mpq-gate-kdk6g2/self-legs.json",
+          "evidence_sha256": "sha256:e2546041e97435cd01e288989459ce6c9778bce331cf3c761939a843b9ad00a6",
+          "executed_assertions": null,
+          "floor_expected": null
+        }
+      ],
+      "absence": null,
+      "scheduled": null
+    },
+    {
+      "n": 6,
+      "demand": "the infrastructure_attached_v1 certificate likewise, with vmm_ownership_claimed false as a constant and the attached estate's console withheld by the declaration's own reason",
+      "executed": [
+        {
+          "script": "generation (this runner)",
+          "status": 0,
+          "seconds": 0,
+          "isolation": "in-process",
+          "ledger": {
+            "attempts": 0,
+            "loopback": 0,
+            "reach": 0
+          },
+          "evidence": "../../../../../../tmp/ioi-mpq-gate-kdk6g2/self-legs.json",
+          "evidence_sha256": "sha256:e2546041e97435cd01e288989459ce6c9778bce331cf3c761939a843b9ad00a6",
+          "executed_assertions": null,
+          "floor_expected": null
+        },
+        {
+          "script": "verify (this runner)",
+          "status": 0,
+          "seconds": 0,
+          "isolation": "in-process",
+          "ledger": {
+            "attempts": 0,
+            "loopback": 0,
+            "reach": 0
+          },
+          "evidence": "../../../../../../tmp/ioi-mpq-gate-kdk6g2/self-legs.json",
+          "evidence_sha256": "sha256:e2546041e97435cd01e288989459ce6c9778bce331cf3c761939a843b9ad00a6",
+          "executed_assertions": null,
+          "floor_expected": null
+        }
+      ],
+      "absence": null,
+      "scheduled": null
+    },
+    {
+      "n": 7,
+      "demand": "the two certificates are independent: distinct backends, declarations and receipts; each names the other among what it does not qualify; a certificate assembled from the other profile's declaration is refused as cross-profile evidence",
+      "executed": [
+        {
+          "script": "verify (this runner)",
+          "status": 0,
+          "seconds": 0,
+          "isolation": "in-process",
+          "ledger": {
+            "attempts": 0,
+            "loopback": 0,
+            "reach": 0
+          },
+          "evidence": "../../../../../../tmp/ioi-mpq-gate-kdk6g2/self-legs.json",
+          "evidence_sha256": "sha256:e2546041e97435cd01e288989459ce6c9778bce331cf3c761939a843b9ad00a6",
+          "executed_assertions": null,
+          "floor_expected": null
+        },
+        {
+          "script": "refusals (this runner)",
+          "status": 0,
+          "seconds": 0,
+          "isolation": "in-process",
+          "ledger": {
+            "attempts": 0,
+            "loopback": 0,
+            "reach": 0
+          },
+          "evidence": "../../../../../../tmp/ioi-mpq-gate-kdk6g2/self-legs.json",
+          "evidence_sha256": "sha256:e2546041e97435cd01e288989459ce6c9778bce331cf3c761939a843b9ad00a6",
+          "executed_assertions": null,
+          "floor_expected": null
+        }
+      ],
+      "absence": null,
+      "scheduled": null
+    },
+    {
+      "n": 8,
+      "demand": "a VM boot, a hostile-guest test, a downloadable binary, a bootable image, a generated dashboard, a backend declaration, an autonomy proof, provider-portability or packaging evidence and simulated-only runs presented as host compatibility are refused by kind and never enter the evidence runs; a certificate relabelled qualified on a simulated basis is refused by schema and verifier",
+      "executed": [
+        {
+          "script": "refusals (this runner)",
+          "status": 0,
+          "seconds": 0,
+          "isolation": "in-process",
+          "ledger": {
+            "attempts": 0,
+            "loopback": 0,
+            "reach": 0
+          },
+          "evidence": "../../../../../../tmp/ioi-mpq-gate-kdk6g2/self-legs.json",
+          "evidence_sha256": "sha256:e2546041e97435cd01e288989459ce6c9778bce331cf3c761939a843b9ad00a6",
+          "executed_assertions": null,
+          "floor_expected": null
+        },
+        {
+          "script": "contract (this runner)",
+          "status": 0,
+          "seconds": 0,
+          "isolation": "in-process",
+          "ledger": {
+            "attempts": 0,
+            "loopback": 0,
+            "reach": 0
+          },
+          "evidence": "../../../../../../tmp/ioi-mpq-gate-kdk6g2/self-legs.json",
+          "evidence_sha256": "sha256:e2546041e97435cd01e288989459ce6c9778bce331cf3c761939a843b9ad00a6",
+          "executed_assertions": null,
+          "floor_expected": null
+        }
+      ],
+      "absence": null,
+      "scheduled": null
+    },
+    {
+      "n": 9,
+      "demand": "freshness and drift withdraw: an expired certificate withdraws with its reason and verifies as withdrawn; a declaration whose bytes moved under an unchanged carried hash withdraws; a daemon other than the one that ran withdraws; withdrawal only ever moves down",
+      "executed": [
+        {
+          "script": "freshness (this runner)",
+          "status": 0,
+          "seconds": 0,
+          "isolation": "in-process",
+          "ledger": {
+            "attempts": 0,
+            "loopback": 0,
+            "reach": 0
+          },
+          "evidence": "../../../../../../tmp/ioi-mpq-gate-kdk6g2/self-legs.json",
+          "evidence_sha256": "sha256:e2546041e97435cd01e288989459ce6c9778bce331cf3c761939a843b9ad00a6",
+          "executed_assertions": null,
+          "floor_expected": null
+        },
+        {
+          "script": "refusals (this runner)",
+          "status": 0,
+          "seconds": 0,
+          "isolation": "in-process",
+          "ledger": {
+            "attempts": 0,
+            "loopback": 0,
+            "reach": 0
+          },
+          "evidence": "../../../../../../tmp/ioi-mpq-gate-kdk6g2/self-legs.json",
+          "evidence_sha256": "sha256:e2546041e97435cd01e288989459ce6c9778bce331cf3c761939a843b9ad00a6",
+          "executed_assertions": null,
+          "floor_expected": null
+        }
+      ],
+      "absence": null,
+      "scheduled": null
+    },
+    {
+      "n": 10,
+      "demand": "the hosted Workstation POSITIVE crossing: a live ordinary-OS backend on this host's KVM registered against the machine plane, its declaration `live`, the sixteen-verb matrix exercised through both delivery forms, the certificate reading qualified",
+      "executed": [],
+      "absence": null,
+      "scheduled": {
+        "what": "the hosted positive crossing through this gate (--soak evidence validated by the same verifier)",
+        "prerequisite": "an ordinary-OS backend registered against the MACHINE plane with a `live` capability declaration on this host's KVM — the environment plane's microVM provider is a different object and does not count — driven through this gate (IOI_ACC20_SOAK_EVIDENCE with hosted-backend-evidence.json)",
+        "ruling": "the journey's own text (simulated-only evidence may validate the contract and never qualify a public host or attached-estate matrix), R-121 (the two profiles qualify independently), R-139 (2026-09-14) and R-216 (2026-09-20): a missing backend or host blocks a RUN, never the unit — the certificates read not_qualified until the live crossing"
+      }
+    },
+    {
+      "n": 11,
+      "demand": "the attached-Infrastructure POSITIVE crossing: an independently implemented attached-estate backend, discovery, desired/observed reconciliation, lifecycle, failure and recovery, without claiming Hypervisor is the estate's VMM, the certificate reading qualified",
+      "executed": [],
+      "absence": null,
+      "scheduled": {
+        "what": "the attached positive crossing through this gate (--soak evidence validated by the same verifier)",
+        "prerequisite": "an independently implemented attached-estate backend registered against the machine family with a `live` declaration (IOI_ACC20_SOAK_EVIDENCE with attached-backend-evidence.json), attachment beginning read-only and mutation as a separate graduation (byo-provider-plane.md § Attached-estate claim journey)",
+        "ruling": "the journey's own text (simulated-only evidence may validate the contract and never qualify a public host or attached-estate matrix), R-121 (the two profiles qualify independently), R-139 (2026-09-14) and R-216 (2026-09-20): a missing backend or host blocks a RUN, never the unit — the certificates read not_qualified until the live crossing"
+      }
+    },
+    {
+      "n": 12,
+      "demand": "an issuer and a withdrawal authority, a backend registration route, a declaration contract with observed_at/valid_until and guest profiles, and a per-profile verifier_profile_ref on the daemon's receipts",
+      "executed": [],
+      "absence": {
+        "what": "the certificate is issued by this verifier under no key and withdrawn by rule (expiry, drift, release), not by an owner's receipted act; declarations are planted records (no registration route); the registered declaration contract carries two opaque currentness refs and no timestamps or guest members, so freshness is derived from the runs' submission times and the guest matrix is declared empty; the daemon stamps every receipt `verifier-profile://hypervisor/machine-admission/v1`, so evidence is selected by backend registration and declaration, never by profile",
+        "owner": "the issuer/withdrawal authority (owner question, R-216) · M09.11 (registration route, the declaration contract's successor, the receipts' profile ref)"
+      },
+      "scheduled": null
+    }
+  ],
+  "verdict": {
+    "kind": "named_failure",
+    "failures": [],
+    "absences": [
+      {
+        "n": 4,
+        "what": "no packaged release is built from this tree: the certificates bind the source commit and the daemon binary digest and carry `release_unbound`; binding a signed release manifest and its signer key needs M12.2's packaged journey on this tree (the owed differing-daemon run)",
+        "owner": "M12.2's scheduled release qualification (R-206)"
+      },
+      {
+        "n": 10,
+        "what": "SCHEDULED-OUTSTANDING: the hosted positive crossing through this gate (--soak evidence validated by the same verifier)",
+        "owner": "prerequisite: an ordinary-OS backend registered against the MACHINE plane with a `live` capability declaration on this host's KVM — the environment plane's microVM provider is a different object and does not count — driven through this gate (IOI_ACC20_SOAK_EVIDENCE with hosted-backend-evidence.json) · the journey's own text (simulated-only evidence may validate the contract and never qualify a public host or attached-estate matrix), R-121 (the two profiles qualify independently), R-139 (2026-09-14) and R-216 (2026-09-20): a missing backend or host blocks a RUN, never the unit — the certificates read not_qualified until the live crossing"
+      },
+      {
+        "n": 11,
+        "what": "SCHEDULED-OUTSTANDING: the attached positive crossing through this gate (--soak evidence validated by the same verifier)",
+        "owner": "prerequisite: an independently implemented attached-estate backend registered against the machine family with a `live` declaration (IOI_ACC20_SOAK_EVIDENCE with attached-backend-evidence.json), attachment beginning read-only and mutation as a separate graduation (byo-provider-plane.md § Attached-estate claim journey) · the journey's own text (simulated-only evidence may validate the contract and never qualify a public host or attached-estate matrix), R-121 (the two profiles qualify independently), R-139 (2026-09-14) and R-216 (2026-09-20): a missing backend or host blocks a RUN, never the unit — the certificates read not_qualified until the live crossing"
+      },
+      {
+        "n": 12,
+        "what": "the certificate is issued by this verifier under no key and withdrawn by rule (expiry, drift, release), not by an owner's receipted act; declarations are planted records (no registration route); the registered declaration contract carries two opaque currentness refs and no timestamps or guest members, so freshness is derived from the runs' submission times and the guest matrix is declared empty; the daemon stamps every receipt `verifier-profile://hypervisor/machine-admission/v1`, so evidence is selected by backend registration and declaration, never by profile",
+        "owner": "the issuer/withdrawal authority (owner question, R-216) · M09.11 (registration route, the declaration contract's successor, the receipts' profile ref)"
+      }
+    ]
+  },
+  "mutation": null,
+  "host": {
+    "isolation": "refused_and_recorded",
+    "strace": "strace -- version 6.8",
+    "load": [
+      "3.38",
+      "3.03",
+      "3.04"
+    ],
+    "daemon_binary": "/home/heathledger/Documents/ioi/repos/ioi/target/debug/hypervisor-daemon",
+    "work_dir": "/tmp/ioi-mpq-gate-kdk6g2"
+  },
+  "finished_at": "2026-09-21T04:05:34.572Z",
+  "summary": {
+    "passed": 9,
+    "total": 9
+  }
+}

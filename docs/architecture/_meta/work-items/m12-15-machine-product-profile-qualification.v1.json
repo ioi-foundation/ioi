@@ -1,0 +1,124 @@
+{
+  "evidence_format": "ioi.program.work_item.v1",
+  "work_item_id": "m12-15-machine-product-profile-qualification",
+  "stage_id": "M12",
+  "required_work": [
+    "M12.15"
+  ],
+  "status": "evidence_ready",
+  "objective": "Close M12.15 as an executable gate in the certificate posture: a registered HypervisorMachineProfileQualificationCertificate that can only read down from its evidence, a pure library that assembles, seals, verifies, withdraws and refuses by kind, and a gate that GENERATES the workstation_hosted_v1 and infrastructure_attached_v1 certificates from a tracked record set minted from a real isolated run of the machine plane against the two simulated reference backends — both reading not_qualified on a simulated basis with typed reasons, independent, withdrawing on expiry, drift and a different daemon — with the hosted and attached positive crossings scheduled by name.",
+  "falsifiable_claim": "npm run check:machine-product-profile-qualification --workspace=@ioi/hypervisor-app (scripts/check-machine-product-profile-qualification.mjs --drills) proves the contract is registered with its reads-down invariant and fixtures (the schema refusing qualified on a simulated basis and an attached certificate claiming VMM ownership), the two profile matrices pinned, both certificates regenerated from the tracked record set byte for byte and reading not_qualified/simulated with their reasons, the offline verifier accepting both and independence holding, every refused evidence kind refused and never entering the runs, cross-profile evidence, a declared basis, relabelling, drift under an unchanged carried hash and a missing delivery form refused, expiry and a different daemon withdrawing with withdrawal only moving down; npm run mutate:machine-product-profile-qualification drills the oracles with 20 planted defects. npm run check:machine-product-profile-qualification (full mode) mints the records afresh in the runner's own isolated plane and generates and verifies both certificates from that run with the same downgrade, with check:machine-lifecycle-backend-conformance, check:machine-product-composition --drills and check:zero-to-operable --drills composed inside the isolated-egress harness; the verdict is pass only when every clause is executed green with evidence and no absence is named or scheduled.",
+  "canon_owners": [
+    "docs/architecture/components/hypervisor/providers-and-environments.md",
+    "docs/architecture/components/hypervisor/core-clients-surfaces.md",
+    "docs/architecture/_meta/public-web-estate.md",
+    "docs/architecture/components/hypervisor/byo-provider-plane.md"
+  ],
+  "code_anchors": [
+    {
+      "path": "docs/architecture/_meta/schemas/hypervisor-machine-profile-qualification-certificate.v1.schema.json",
+      "must_contain": "\"x-ioi-schema-version\": \"ioi.hypervisor.machine-profile-qualification-certificate.v1\"",
+      "present_when": "merged"
+    },
+    {
+      "path": "docs/architecture/_meta/schemas/invariants/hypervisor-machine-profile-qualification-certificate.v1.invariants.json",
+      "must_contain": "not_qualified_names_its_reasons",
+      "present_when": "merged"
+    },
+    {
+      "path": "docs/architecture/_meta/schemas/architecture-contract-registry.v1.json",
+      "must_contain": "\"canonical_name\": \"HypervisorMachineProfileQualificationCertificate\"",
+      "present_when": "merged"
+    },
+    {
+      "path": "apps/hypervisor/scripts/lib/machine-profile-qualification.mjs",
+      "must_contain": "export function assembleProfileCertificate(",
+      "present_when": "merged"
+    },
+    {
+      "path": "apps/hypervisor/scripts/lib/machine-profile-qualification.mjs",
+      "must_contain": "export function validateProfileCertificate(",
+      "present_when": "merged"
+    },
+    {
+      "path": "apps/hypervisor/scripts/lib/machine-profile-qualification.mjs",
+      "must_contain": "export function withdraw(",
+      "present_when": "merged"
+    },
+    {
+      "path": "apps/hypervisor/scripts/lib/machine-profile-qualification.mjs",
+      "must_contain": "export function independenceFindings(",
+      "present_when": "merged"
+    },
+    {
+      "path": "scripts/check-machine-product-profile-qualification.mjs",
+      "must_contain": "export function generationFindings(",
+      "present_when": "merged"
+    },
+    {
+      "path": "scripts/check-machine-product-profile-qualification.mjs",
+      "must_contain": "async function runLeg(",
+      "present_when": "merged"
+    },
+    {
+      "path": "scripts/check-governed-machine-product.mjs",
+      "must_contain": "const QUALIFICATION = ",
+      "present_when": "merged"
+    },
+    {
+      "path": "apps/hypervisor/verifier-floors.v1.json",
+      "must_contain": "\"id\": \"machine-product-profile-qualification\"",
+      "present_when": "merged"
+    },
+    {
+      "path": ".github/workflows/ci.yml",
+      "must_contain": "npm run check:machine-product-profile-qualification --workspace=@ioi/hypervisor-app",
+      "present_when": "merged"
+    },
+    {
+      "path": "docs/architecture/components/hypervisor/core-clients-surfaces.md",
+      "must_contain": "reads `qualified` only from `live` backend evidence",
+      "present_when": "merged"
+    },
+    {
+      "path": "docs/architecture/components/hypervisor/providers-and-environments.md",
+      "must_contain": "is generated, never read",
+      "present_when": "merged"
+    },
+    {
+      "path": "docs/architecture/_meta/public-web-estate.md",
+      "must_contain": "`certificate_ref` under `workstation_hosted_v1`",
+      "present_when": "merged"
+    },
+    {
+      "path": "docs/architecture/components/hypervisor/byo-provider-plane.md",
+      "must_contain": "offline form of the Infrastructure claim is the",
+      "present_when": "merged"
+    },
+    {
+      "path": "docs/architecture/_meta/evidence/m12-15-machine-reference-runs-2026-09-20.v1.json",
+      "must_contain": "ioi.evidence.m12-15-machine-reference-runs.v1",
+      "present_when": "merged"
+    }
+  ],
+  "evidence_refs": [
+    "docs/architecture/_meta/evidence/m12-15-machine-product-profile-qualification-2026-09-21.v1.json",
+    "docs/architecture/_meta/evidence/m12-15-machine-reference-runs-2026-09-20.v1.json",
+    "docs/architecture/_meta/canon-to-code-delta.md"
+  ],
+  "remaining_nonclaims": [
+    "Neither profile is QUALIFIED: both certificates read not_qualified on a simulated basis; no public Workstation or Infrastructure copy may cite them as a pass",
+    "The hosted POSITIVE crossing is SCHEDULED: no ordinary-OS backend exists for the MACHINE plane (the environment plane's microVM provider is a different object and writes no machine record); KVM readiness on this host is not a backend",
+    "The attached POSITIVE crossing is SCHEDULED: no independently implemented attached-estate backend exists",
+    "The release is bound to the source commit and daemon digest only and named release_unbound: no packaged release is built from this tree (M12.2's owed differing-daemon run)",
+    "The certificate is issued by this verifier under no key and withdrawn by rule, not by an owner's receipted act (owner question, R-216)",
+    "The registered declaration contract carries no observed_at, valid_until or guest members: the evidence window derives from the runs' submission times and the guest matrix is declared empty, both named as reasons",
+    "The daemon stamps every receipt verifier-profile://hypervisor/machine-admission/v1, so evidence is selected by backend registration and declaration, never by profile (owner question, R-216)",
+    "The ACC-20 --soak lane still counts evidence files and exits 2; validating them through this verifier is this unit's follow-on",
+    "The full gate is on demand, not CI-gated; CI executes the drills and the drill"
+  ],
+  "last_status_transaction": "2026-09-21",
+  "pr": null,
+  "adversarial_or_fault_proof": "mutate:machine-product-profile-qualification plants: an assembler that reads qualified on a simulated basis, a verifier that lets qualified through without a live basis, one blind to a relabelled evidence basis, an assembler that forgets to disclaim the other profile, a verifier blind to VMM ownership, an assembler that trusts the carried declaration hash instead of recomputing the digest, a withdrawal that moves a certificate up, an independence check blind to shared evidence, a verifier that admits a VM boot as a run, an assembler that admits presented artifacts into the runs, a hosted profile that no longer requires restore, a verifier blind to expiry, one blind to a moved declaration (thirteen mutant copies of the library, loaded and measured); a record set whose row moved under its committed hash, one whose declaration was relabelled live, a schema that admits qualified on a simulated basis, a registry without the contract, canon without the gate, fabricated success rows, and a scheduled crossing dropped without a prerequisite — each must go red (20/20).",
+  "source_provenance": "Authored 2026-09-21 by the MVP finish-line program (R-216 ruled the shape after a read-only survey; R-121, R-139 and R-215 are its letter, R-210/R-211 its posture). Drills 9/9 with a census and a floor row, mutation 20/20, the contract pipeline green (generate, check, the ioi-types golden test); the full gate NAMED FAILURE (exit 2) with the RUN leg green, check:machine-lifecycle-backend-conformance 23, check:machine-product-composition --drills 5/5, check:zero-to-operable --drills 13/13, 4 named entries. Recorded in canon-to-code-delta.md § Journey verification CXXV. ACC-20 composed re-run: PARTIAL, exit 2 — 6 executed clause checks green (M09.11's conformance gate; M08.15's drills 5/5 and battery 19/19; this unit's drills 9/9 and battery 20/20), 5 typed absences, 0 batteries not executed, 2 live legs scheduled-outstanding by ruling (M08.15's crash matrix and this unit's two positive crossings); before this unit: 4 executed, 7 absences, 1 scheduled"
+}

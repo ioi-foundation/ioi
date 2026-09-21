@@ -1,0 +1,222 @@
+{
+  "schema_version": "ioi.hypervisor.machine-profile-qualification-certificate.v1",
+  "certificate_ref": "machine-profile-certificate://workstation_hosted_v1/c7cc18e685186a894edf9e4c",
+  "profile_id": "workstation_hosted_v1",
+  "bundle": "hypervisor_workstation",
+  "does_not_qualify": [
+    "infrastructure_attached_v1",
+    "hypervisoros_node_root_v1",
+    "type_1",
+    "type_2",
+    "legacy_replacement"
+  ],
+  "subject": {
+    "backend_registration_ref": "backend://reference/workstation-hosted",
+    "capability_declaration_ref": "capability://backend/workstation-hosted/1",
+    "capability_declaration_hash_declared": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    "capability_declaration_bytes_sha256": "sha256:d6a98e6139fe3733dabca91092b540d4cb1a047b04ca25c146c4a978019b22b9",
+    "evidence_mode": "simulated",
+    "resource_relationship": "local",
+    "vmm_ownership_claimed": false
+  },
+  "release": {
+    "source_commit": null,
+    "daemon_binary_sha256": null,
+    "release_manifest_sha256": null,
+    "release_version": null,
+    "signer_key_id": null,
+    "dirty_state_declaration": "source_build:no_packaged_release"
+  },
+  "matrix": {
+    "verbs": [
+      {
+        "operation": "discover",
+        "status": "untested",
+        "reason_code": null
+      },
+      {
+        "operation": "define",
+        "status": "untested",
+        "reason_code": null
+      },
+      {
+        "operation": "import",
+        "status": "untested",
+        "reason_code": null
+      },
+      {
+        "operation": "create",
+        "status": "supported",
+        "reason_code": null
+      },
+      {
+        "operation": "start",
+        "status": "supported",
+        "reason_code": null
+      },
+      {
+        "operation": "stop",
+        "status": "untested",
+        "reason_code": null
+      },
+      {
+        "operation": "pause",
+        "status": "untested",
+        "reason_code": null
+      },
+      {
+        "operation": "resume",
+        "status": "untested",
+        "reason_code": null
+      },
+      {
+        "operation": "reboot",
+        "status": "untested",
+        "reason_code": null
+      },
+      {
+        "operation": "open_console",
+        "status": "untested",
+        "reason_code": null
+      },
+      {
+        "operation": "close_console",
+        "status": "untested",
+        "reason_code": null
+      },
+      {
+        "operation": "snapshot",
+        "status": "supported",
+        "reason_code": null
+      },
+      {
+        "operation": "clone",
+        "status": "untested",
+        "reason_code": null
+      },
+      {
+        "operation": "restore",
+        "status": "untested",
+        "reason_code": null
+      },
+      {
+        "operation": "migrate",
+        "status": "unsupported",
+        "reason_code": "backend_is_single_host"
+      },
+      {
+        "operation": "delete",
+        "status": "untested",
+        "reason_code": null
+      }
+    ],
+    "architectures": [
+      "x86_64"
+    ],
+    "guests": [],
+    "limitations": []
+  },
+  "delivery_forms": {
+    "integrated": {
+      "form": "hypervisor_app",
+      "evidence_ref": "page:///__ioi/environments/machines/vm",
+      "evidence_sha256": "sha256:df53366d135fdcc04ed527cb731c848ab43c801131b574fe4cdee97d423982d1"
+    },
+    "standalone": {
+      "form": "thin_client",
+      "evidence_ref": "api:///v1/hypervisor/machines/vm",
+      "evidence_sha256": "sha256:df53366d135fdcc04ed527cb731c848ab43c801131b574fe4cdee97d423982d1"
+    }
+  },
+  "evidence_runs": [
+    {
+      "kind": "machine_lifecycle_run",
+      "workload_ref": "virtual-machine-workload://vm_composed",
+      "head": "sha256:f0df64867bb4999a07c923e4e9f79f648657403e5db9a4760f6087db6113c5f3",
+      "operation_count": 6,
+      "receipts": [
+        {
+          "receipt_ref": "machine-operation-receipt://hypervisor/08f0de6380554b14b847532e0293452b",
+          "receipt_sha256": "sha256:d95409ad6f09c9f3f7bbc98023533ccd41fff50c76c8cbb25c9046823bfc83c4",
+          "operation": "create",
+          "result": "succeeded"
+        },
+        {
+          "receipt_ref": "machine-operation-receipt://hypervisor/2aed53bf1bcd4d498a4e9aabeaa329ec",
+          "receipt_sha256": "sha256:00fdaf5a771053ffa44dfdf20203309ca566c88d947b1a06ef06e5ed7e616c2e",
+          "operation": "start",
+          "result": "succeeded"
+        },
+        {
+          "receipt_ref": "machine-operation-receipt://hypervisor/32530954fbb4447e876aa793b838f371",
+          "receipt_sha256": "sha256:1eba679573035438c5bbfdf30af5d42b66b4a057630f38d76cdce3555869581f",
+          "operation": "snapshot",
+          "result": "succeeded"
+        },
+        {
+          "receipt_ref": "machine-operation-receipt://hypervisor/9f56e4e495ad457887371b1fd863577b",
+          "receipt_sha256": "sha256:e8235775f05e0badc64957c86786ee04fdaa4c652a1d8012a03c46ed25c323da",
+          "operation": "stop",
+          "result": "refused"
+        },
+        {
+          "receipt_ref": "machine-operation-receipt://hypervisor/5bc2008dbc5d4a3690e258b964df169b",
+          "receipt_sha256": "sha256:efb75e91444de4f58d123b1654078a7beae6982da678a6291eba97cfa69b6418",
+          "operation": "stop",
+          "result": "refused"
+        },
+        {
+          "receipt_ref": "machine-operation-receipt://hypervisor/f5e1a69cc7da479f95b820f65e116636",
+          "receipt_sha256": "sha256:3bdf54734a458b5cf36da9b3f440284cb813245664f987f283f1e1b40695403d",
+          "operation": "stop",
+          "result": "refused"
+        }
+      ],
+      "window": {
+        "from": "2026-09-21T03:12:44.15897474Z",
+        "to": "2026-09-21T03:12:45.56849204Z"
+      }
+    }
+  ],
+  "freshness": {
+    "evidence_window": {
+      "from": "2026-09-21T03:12:44.15897474Z",
+      "to": "2026-09-21T03:12:45.56849204Z"
+    },
+    "issued_at": "2026-09-20T23:59:59.000Z",
+    "valid_until": "2026-10-20T23:59:59.000Z",
+    "validity_policy_ref": "policy://ioi/hypervisor/machine-profile-qualification/validity/30d",
+    "currentness_evaluation_ref": "evaluation://currentness/backend-capability-1"
+  },
+  "qualification": "qualified",
+  "evidence_basis": "simulated",
+  "not_qualified_reasons": [],
+  "refused_evidence": [
+    {
+      "kind": "vm_boot",
+      "ref": "check:microvm-model-broker",
+      "reason": "not_qualification_evidence"
+    },
+    {
+      "kind": "backend_declaration",
+      "ref": "capability://backend/workstation-hosted/1",
+      "reason": "not_qualification_evidence"
+    }
+  ],
+  "nonclaims": [
+    "A VM boot, hostile-guest test, downloadable binary, bootable image, generated dashboard, backend declaration or autonomy proof is not profile qualification.",
+    "A focused standalone client is not a second runtime, database, machine owner, provider owner, authority path or receipt writer.",
+    "The portable subset does not erase backend-specific extensions or turn an unsupported operation into simulated success.",
+    "ODK scaffolding does not certify correctness, compatibility or authority and need not generate native streaming, graphics, device or host integrations.",
+    "Attached-Infrastructure qualification does not claim that Hypervisor is the attached estate's underlying VMM.",
+    "This certificate grants no HypervisorOS, Type-1, cluster, HA, live-migration, disaster-recovery, drop-in replacement or supersession claim.",
+    "Simulated-only evidence validates the contract and never qualifies a public host or attached-estate matrix; a not_qualified certificate is not a lesser positive.",
+    "Evidence for one profile never promotes the other; each certificate is closable and withdrawable on its own."
+  ],
+  "issuer": {
+    "verifier_identity_ref": "verifier://ioi/check-machine-product-profile-qualification/v1",
+    "verifier_build_hash": null
+  },
+  "withdrawal": null,
+  "certificate_hash": "sha256:9cb36114634cdeacbf8a5e7ac2d0a6bf375f8f2a80506c51a79544cbda9fa6b6"
+}

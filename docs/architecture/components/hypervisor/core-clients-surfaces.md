@@ -383,6 +383,28 @@ Four owner-qualified bundles project these facets through existing surfaces:
 These are conformance and claim bundles, not apps, planes, primitive families,
 or truth owners. They may coexist and close independently.
 
+The two MVP machine claims are `workstation_hosted_v1` (Hypervisor Workstation:
+`hosted_ordinary_os` × `local`) and `infrastructure_attached_v1` (Hypervisor
+Infrastructure: `hosted_ordinary_os` × `customer_attached`). Each is closed only
+by its own offline certificate — the registered
+`HypervisorMachineProfileQualificationCertificate` — generated from durable
+machine-plane records and verified by
+`check:machine-product-profile-qualification` (M12.15, R-216). The certificate
+binds the exact release, backend registration and capability declaration (by
+ref, by the hash the declaration carries and by a digest recomputed over its
+bytes), the sixteen-verb matrix with every unsupported cell and its typed reason
+and every supported cell the evidence never exercised named `untested`, the
+declared limitations, the evidence window and validity, and both delivery
+forms' evidence. It reads `qualified` only from `live` backend evidence, reads
+`not_qualified` with typed reasons from simulated or declared evidence, is
+withdrawn when its evidence expires, its declaration drifts or its release is
+no longer the one that ran, and names the other profile among what it does not
+qualify. A VM boot, a hostile-guest test, a downloadable client, a bootable
+image, a generated dashboard, a backend declaration, an autonomy proof or the
+other profile's evidence is refused as qualification evidence by kind. On this
+tree both certificates read `not_qualified` on a simulated basis; the hosted
+and attached positive crossings are the unit's scheduled checks.
+
 Each bundle may have two product delivery forms without creating a second
 implementation or truth path:
 

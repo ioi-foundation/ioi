@@ -340,6 +340,7 @@ pub const ARCHITECTURE_CONTRACT_SCHEMA_HASHES: &[(&str, &str)] = &[
     ("schema://ioi/components/hypervisor/foundry-qualified-measurement/v2", "sha256:63f53a1f0b08dd46c3ae7646eed4f47806331998d9d8c219cb67e32e9c6ea55a"),
     ("schema://ioi/components/hypervisor/hypervisor-machine-operation/v1", "sha256:7789c4fbdba7e8ea8df3f22aa61b35864edf9355c344c6cd267ae82631626826"),
     ("schema://ioi/components/hypervisor/hypervisor-machine-operation-receipt/v1", "sha256:5e350acd918db65d988baae5d6e49bc4cac4ad60033c8f218bde436bc7ded00a"),
+    ("schema://ioi/components/hypervisor/hypervisor-machine-profile-qualification-certificate/v1", "sha256:392a0c13b39c2c50960bd81cc60af6f48fe7dc17e6eea1d8cda80fb9343ceee4"),
     ("schema://ioi/components/hypervisor/hypervisor-machine-host/v1", "sha256:56f09db7ef83f8f3554e48e0f0d6ac17fdd932807fab9a8b270a831b45048b9e"),
     ("schema://ioi/components/hypervisor/hypervisor-machine-image/v1", "sha256:a4f5c99faf68b002952a450f193b30a24b751c5b460002d56750d9cc61d696df"),
     ("schema://ioi/components/hypervisor/hypervisor-machine-volume-attachment/v1", "sha256:79174ae478411620a2c6c40da4dfeec9ee13c6b5f740c8888231ecd5b572b8ed"),
@@ -147754,6 +147755,1255 @@ pub enum HypervisorMachineOperationReceiptV1Result {
 }
 
 #[derive(Debug, Clone, PartialEq, serde::Serialize)]
+pub struct HypervisorMachineProfileQualificationCertificateV1 {
+    pub schema_version: HypervisorMachineProfileQualificationCertificateV1SchemaVersion,
+    pub certificate_ref: String,
+    pub certificate_hash: String,
+    pub profile_id: HypervisorMachineProfileQualificationCertificateV1ProfileId,
+    pub bundle: HypervisorMachineProfileQualificationCertificateV1Bundle,
+    pub does_not_qualify: Vec<HypervisorMachineProfileQualificationCertificateV1DoesNotQualifyItem>,
+    pub subject: HypervisorMachineProfileQualificationCertificateV1Subject,
+    pub release: HypervisorMachineProfileQualificationCertificateV1Release,
+    pub matrix: HypervisorMachineProfileQualificationCertificateV1Matrix,
+    pub delivery_forms: HypervisorMachineProfileQualificationCertificateV1DeliveryForms,
+    pub evidence_runs: Vec<HypervisorMachineProfileQualificationCertificateV1EvidenceRunsItem>,
+    pub freshness: HypervisorMachineProfileQualificationCertificateV1Freshness,
+    pub qualification: HypervisorMachineProfileQualificationCertificateV1Qualification,
+    pub evidence_basis: HypervisorMachineProfileQualificationCertificateV1EvidenceBasis,
+    pub not_qualified_reasons:
+        Vec<HypervisorMachineProfileQualificationCertificateV1NotQualifiedReasonsItem>,
+    pub refused_evidence:
+        Vec<HypervisorMachineProfileQualificationCertificateV1RefusedEvidenceItem>,
+    pub nonclaims: Vec<String>,
+    pub issuer: HypervisorMachineProfileQualificationCertificateV1Issuer,
+    pub withdrawal: Option<HypervisorMachineProfileQualificationCertificateV1Withdrawal>,
+}
+
+impl<'de> serde::Deserialize<'de> for HypervisorMachineProfileQualificationCertificateV1 {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let value = <serde_json::Value as serde::Deserialize>::deserialize(deserializer)?;
+        validate_projection_subschema(
+            r#"schema://ioi/components/hypervisor/hypervisor-machine-profile-qualification-certificate/v1"#,
+            r##"{"$schema":"https://json-schema.org/draft/2020-12/schema","$id":"schema://ioi/components/hypervisor/hypervisor-machine-profile-qualification-certificate/v1","title":"HypervisorMachineProfileQualificationCertificate","x-ioi-schema-version":"ioi.hypervisor.machine-profile-qualification-certificate.v1","description":"ONE machine-product profile's qualification, as a certificate that can only read DOWN from its evidence. Canon binds every Workstation and attached-Infrastructure statement to one subject-specific claim, the exact release/profile/backend matrix and fresh evidence, closable and withdrawable on its own (public-web-estate.md § Subject-specific compute claims; core-clients-surfaces.md § the bundles; ACC-20 clause 10). This certificate is GENERATED from durable machine-plane records, never authored: it binds the backend registration and the capability declaration by ref, by the hash the declaration carries AND by a digest recomputed over the declaration's bytes (the kernel compares the carried member and never recomputes, so a drifted record with an unchanged member is invisible to it and must not be to this); the sixteen-verb matrix with every unsupported cell and its typed reason and every supported cell the evidence never exercised named `untested`; the declared limitations; the evidence runs with their receipts by ref and hash; both delivery forms' evidence; the evidence window and validity; and the release identity the daemon ran under. `qualification` reads `qualified` ONLY from `live` backend evidence — the schema refuses `qualified` on any other basis — reads `not_qualified` with typed reasons from simulated or declared evidence, and reads `withdrawn` with a typed reason when its evidence expires, its declaration drifts or its release is no longer the one that ran. `does_not_qualify` MUST name the other profile: evidence from one profile never promotes the other. An attached-Infrastructure certificate carries `vmm_ownership_claimed: false` as a constant. Artifacts canon refuses as qualification evidence (a VM boot, a hostile-guest test, a downloadable binary, a bootable image, a generated dashboard, a backend declaration, an autonomy proof, provider-portability or packaging evidence, simulated-only runs presented as host compatibility, the other profile's evidence) are recorded under `refused_evidence` when presented and never under `evidence_runs`. Owner: providers-and-environments.md § Machine-control contract family (M12.15).","type":"object","additionalProperties":false,"required":["schema_version","certificate_ref","certificate_hash","profile_id","bundle","does_not_qualify","subject","release","matrix","delivery_forms","evidence_runs","freshness","qualification","evidence_basis","not_qualified_reasons","refused_evidence","nonclaims","issuer","withdrawal"],"properties":{"schema_version":{"type":"string","const":"ioi.hypervisor.machine-profile-qualification-certificate.v1"},"certificate_ref":{"type":"string","pattern":"^machine-profile-certificate://[^\\s]{1,240}$"},"certificate_hash":{"$ref":"#/$defs/hash","description":"sha256 over the certificate's stable JSON with this member removed. Regenerating the certificate from the same records yields the same hash; a certificate that cannot be regenerated is not evidence."},"profile_id":{"$ref":"#/$defs/profile_id"},"bundle":{"type":"string","enum":["hypervisor_workstation","hypervisor_infrastructure"],"description":"The owner-qualified claim bundle this profile closes (term-boundaries.md § Hypervisor category terms): a bundle, not an app, plane or truth owner."},"does_not_qualify":{"type":"array","minItems":1,"uniqueItems":true,"items":{"type":"string","enum":["workstation_hosted_v1","infrastructure_attached_v1","hypervisoros_node_root_v1","type_1","type_2","legacy_replacement"]},"description":"What this certificate never qualifies. It MUST name the other machine profile (evidence from one cannot promote the other) and names the external mappings and the supersession claim canon keeps separate."},"subject":{"type":"object","additionalProperties":false,"required":["backend_registration_ref","capability_declaration_ref","capability_declaration_hash_declared","capability_declaration_bytes_sha256","evidence_mode","resource_relationship","vmm_ownership_claimed"],"properties":{"backend_registration_ref":{"$ref":"#/$defs/ref"},"capability_declaration_ref":{"$ref":"#/$defs/ref"},"capability_declaration_hash_declared":{"$ref":"#/$defs/hash","description":"The `declaration_hash` member the declaration record carries — what the kernel compares an operation's binding against."},"capability_declaration_bytes_sha256":{"$ref":"#/$defs/hash","description":"A digest RECOMPUTED over the declaration record's stable JSON at generation time. The kernel never recomputes it; the certificate does, so a declaration edited in place under an unchanged carried hash withdraws this certificate on the next verification rather than passing unseen."},"evidence_mode":{"type":"string","enum":["live","simulated","declared"],"description":"The declaration's own evidence mode, copied never relabelled: it is what `evidence_basis` derives from."},"resource_relationship":{"type":"string","enum":["local","customer_attached"],"description":"The bundle's deployment/resource relationship facet: `local` for the hosted Workstation, `customer_attached` for attached Infrastructure."},"vmm_ownership_claimed":{"type":"boolean","description":"Whether this certificate claims Hypervisor is the subject estate's underlying VMM. Always false; the schema refuses true on the attached profile outright, and the hosted profile has no estate to own."}}},"release":{"type":"object","additionalProperties":false,"required":["source_commit","daemon_binary_sha256","release_manifest_sha256","release_version","signer_key_id","dirty_state_declaration"],"properties":{"source_commit":{"anyOf":[{"type":"string","pattern":"^[0-9a-f]{40}$"},{"type":"null"}]},"daemon_binary_sha256":{"anyOf":[{"$ref":"#/$defs/hash"},{"type":"null"}]},"release_manifest_sha256":{"anyOf":[{"$ref":"#/$defs/hash"},{"type":"null"}],"description":"The sha256 of the packaged release manifest the daemon was installed from (M12.2's alpha-release), or null when the daemon ran from a source build — in which case the certificate carries `release_unbound` among its reasons."},"release_version":{"anyOf":[{"type":"string","minLength":1,"maxLength":120},{"type":"null"}]},"signer_key_id":{"anyOf":[{"type":"string","minLength":1,"maxLength":240},{"type":"null"}]},"dirty_state_declaration":{"type":"string","minLength":1,"maxLength":240}}},"matrix":{"type":"object","additionalProperties":false,"required":["verbs","architectures","guests","limitations"],"properties":{"verbs":{"type":"array","minItems":16,"maxItems":16,"items":{"type":"object","additionalProperties":false,"required":["operation","status","reason_code"],"properties":{"operation":{"type":"string","enum":["discover","define","import","create","start","stop","pause","resume","reboot","open_console","close_console","snapshot","clone","restore","migrate","delete"]},"status":{"type":"string","enum":["supported","unsupported","untested"],"description":"`supported` = declared and exercised by a succeeded receipt in this certificate's evidence runs; `unsupported` = declared unsupported with the declaration's own reason; `untested` = declared supported and never exercised here — named, never assumed."},"reason_code":{"anyOf":[{"type":"string","pattern":"^[a-z][a-z0-9_]*$","maxLength":120},{"type":"null"}]}}},"description":"Canon's sixteen verbs, each with its status under THIS backend and THIS evidence. The vocabulary is the kernel's; a seventeenth verb or a missing one fails the schema."},"architectures":{"type":"array","uniqueItems":true,"items":{"type":"string","minLength":1,"maxLength":40}},"guests":{"type":"array","uniqueItems":true,"items":{"type":"string","minLength":1,"maxLength":120},"description":"The guest/firmware profiles the backend declares. The registered declaration contract carries none today; an empty list is the declared fact and the certificate names `guest_matrix_undeclared` among its reasons."},"limitations":{"type":"array","uniqueItems":true,"items":{"type":"string","minLength":1,"maxLength":512}}}},"delivery_forms":{"type":"object","additionalProperties":false,"required":["integrated","standalone"],"properties":{"integrated":{"anyOf":[{"$ref":"#/$defs/delivery_evidence"},{"type":"null"}]},"standalone":{"anyOf":[{"$ref":"#/$defs/delivery_evidence"},{"type":"null"}]}},"description":"The two delivery forms' evidence of rendering the same spine (M08.15). A missing form is null and names `delivery_form_missing`; the standalone form records WHICH form it was — the thin client is not the distributed client."},"evidence_runs":{"type":"array","minItems":1,"items":{"type":"object","additionalProperties":false,"required":["kind","workload_ref","head","operation_count","receipts","window"],"properties":{"kind":{"type":"string","const":"machine_lifecycle_run","description":"The only evidence kind a certificate admits. Everything else canon refuses is recorded under `refused_evidence`."},"workload_ref":{"$ref":"#/$defs/ref"},"head":{"anyOf":[{"$ref":"#/$defs/hash"},{"type":"null"}]},"operation_count":{"type":"integer","minimum":1,"maximum":9007199254740991},"receipts":{"type":"array","minItems":1,"items":{"type":"object","additionalProperties":false,"required":["receipt_ref","receipt_sha256","operation","result"],"properties":{"receipt_ref":{"$ref":"#/$defs/ref"},"receipt_sha256":{"$ref":"#/$defs/hash"},"operation":{"type":"string","pattern":"^[a-z][a-z0-9_]*$","maxLength":40},"result":{"type":"string","enum":["succeeded","refused","ambiguous"]}}}},"window":{"$ref":"#/$defs/window"}}}},"freshness":{"type":"object","additionalProperties":false,"required":["evidence_window","issued_at","valid_until","validity_policy_ref","currentness_evaluation_ref"],"properties":{"evidence_window":{"$ref":"#/$defs/window"},"issued_at":{"$ref":"#/$defs/instant"},"valid_until":{"$ref":"#/$defs/instant"},"validity_policy_ref":{"$ref":"#/$defs/ref"},"currentness_evaluation_ref":{"$ref":"#/$defs/ref","description":"The declaration's own currentness evaluation ref, carried so a verifier can ask its evaluator; the registered declaration contract carries no timestamps, and this certificate's window is derived from the runs' submission times."}}},"qualification":{"type":"string","enum":["qualified","not_qualified","withdrawn"]},"evidence_basis":{"type":"string","enum":["live","simulated","declared","none"]},"not_qualified_reasons":{"type":"array","uniqueItems":true,"items":{"type":"string","enum":["evidence_basis_simulated","evidence_basis_declared","no_live_backend_registered","release_unbound","supported_cells_untested","guest_matrix_undeclared","limitations_undeclared","delivery_form_missing","freshness_expired","declaration_drifted","evidence_window_empty"]}},"refused_evidence":{"type":"array","uniqueItems":true,"items":{"type":"object","additionalProperties":false,"required":["kind","ref","reason"],"properties":{"kind":{"type":"string","enum":["vm_boot","hostile_guest_test","downloadable_binary","bootable_image","generated_dashboard","backend_declaration","autonomy_proof","provider_portability","packaging","simulated_only_as_host_compatibility","other_profile_evidence"]},"ref":{"type":"string","minLength":1,"maxLength":512},"reason":{"type":"string","const":"not_qualification_evidence"}}},"description":"Artifacts PRESENTED as qualification evidence and refused by kind (ACC-20 N1; M12 § 5). They are recorded so the refusal is visible; they contribute nothing."},"nonclaims":{"type":"array","minItems":6,"uniqueItems":true,"items":{"type":"string","minLength":12,"maxLength":400}},"issuer":{"type":"object","additionalProperties":false,"required":["verifier_identity_ref","verifier_build_hash"],"properties":{"verifier_identity_ref":{"$ref":"#/$defs/ref"},"verifier_build_hash":{"anyOf":[{"$ref":"#/$defs/hash"},{"type":"null"}]}}},"withdrawal":{"anyOf":[{"type":"null"},{"type":"object","additionalProperties":false,"required":["reason","at","detail"],"properties":{"reason":{"type":"string","enum":["freshness_expired","declaration_drifted","release_unbound","evidence_basis_downgraded","owner_withdrawn"]},"at":{"$ref":"#/$defs/instant"},"detail":{"type":"string","minLength":1,"maxLength":512}}}]}},"allOf":[{"if":{"properties":{"qualification":{"type":"string","const":"qualified"}},"required":["qualification"]},"then":{"properties":{"evidence_basis":{"type":"string","const":"live"},"withdrawal":{"type":"null"}}}},{"if":{"properties":{"qualification":{"type":"string","const":"withdrawn"}},"required":["qualification"]},"then":{"properties":{"withdrawal":{"type":"object"}}}},{"if":{"properties":{"qualification":{"type":"string","const":"not_qualified"}},"required":["qualification"]},"then":{"properties":{"withdrawal":{"type":"null"}}}},{"if":{"properties":{"profile_id":{"type":"string","const":"workstation_hosted_v1"}},"required":["profile_id"]},"then":{"properties":{"bundle":{"type":"string","const":"hypervisor_workstation"},"does_not_qualify":{"type":"array","contains":{"type":"string","const":"infrastructure_attached_v1"}},"subject":{"type":"object","properties":{"resource_relationship":{"type":"string","const":"local"},"vmm_ownership_claimed":{"type":"boolean","const":false}}}}}},{"if":{"properties":{"profile_id":{"type":"string","const":"infrastructure_attached_v1"}},"required":["profile_id"]},"then":{"properties":{"bundle":{"type":"string","const":"hypervisor_infrastructure"},"does_not_qualify":{"type":"array","contains":{"type":"string","const":"workstation_hosted_v1"}},"subject":{"type":"object","properties":{"resource_relationship":{"type":"string","const":"customer_attached"},"vmm_ownership_claimed":{"type":"boolean","const":false}}}}}}],"$defs":{"ref":{"type":"string","pattern":"^[a-z][a-z0-9+.-]*://\\S+$"},"hash":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"},"instant":{"type":"string","pattern":"^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}[.0-9]*Z$"},"profile_id":{"type":"string","enum":["workstation_hosted_v1","infrastructure_attached_v1"]},"window":{"type":"object","additionalProperties":false,"required":["from","to"],"properties":{"from":{"$ref":"#/$defs/instant"},"to":{"$ref":"#/$defs/instant"}}},"delivery_evidence":{"type":"object","additionalProperties":false,"required":["form","evidence_ref","evidence_sha256"],"properties":{"form":{"type":"string","enum":["hypervisor_app","thin_client","distributed_client"]},"evidence_ref":{"type":"string","minLength":1,"maxLength":512},"evidence_sha256":{"$ref":"#/$defs/hash"}}}}}"##,
+            &value,
+        )
+            .map_err(serde::de::Error::custom)?;
+        let mut object = value
+            .as_object()
+            .cloned()
+            .ok_or_else(|| serde::de::Error::custom("validated projection is not an object"))?;
+        Ok(Self {
+            schema_version: serde_json::from_value::<
+                HypervisorMachineProfileQualificationCertificateV1SchemaVersion,
+            >(
+                object
+                    .remove(r#"schema_version"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"schema_version"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            certificate_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"certificate_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"certificate_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            certificate_hash: serde_json::from_value::<String>(
+                object
+                    .remove(r#"certificate_hash"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"certificate_hash"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            profile_id: serde_json::from_value::<
+                HypervisorMachineProfileQualificationCertificateV1ProfileId,
+            >(
+                object
+                    .remove(r#"profile_id"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"profile_id"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            bundle: serde_json::from_value::<
+                HypervisorMachineProfileQualificationCertificateV1Bundle,
+            >(
+                object
+                    .remove(r#"bundle"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"bundle"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            does_not_qualify: serde_json::from_value::<
+                Vec<HypervisorMachineProfileQualificationCertificateV1DoesNotQualifyItem>,
+            >(
+                object
+                    .remove(r#"does_not_qualify"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"does_not_qualify"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            subject: serde_json::from_value::<
+                HypervisorMachineProfileQualificationCertificateV1Subject,
+            >(
+                object
+                    .remove(r#"subject"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"subject"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            release: serde_json::from_value::<
+                HypervisorMachineProfileQualificationCertificateV1Release,
+            >(
+                object
+                    .remove(r#"release"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"release"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            matrix: serde_json::from_value::<
+                HypervisorMachineProfileQualificationCertificateV1Matrix,
+            >(
+                object
+                    .remove(r#"matrix"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"matrix"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            delivery_forms: serde_json::from_value::<
+                HypervisorMachineProfileQualificationCertificateV1DeliveryForms,
+            >(
+                object
+                    .remove(r#"delivery_forms"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"delivery_forms"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            evidence_runs: serde_json::from_value::<
+                Vec<HypervisorMachineProfileQualificationCertificateV1EvidenceRunsItem>,
+            >(
+                object
+                    .remove(r#"evidence_runs"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"evidence_runs"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            freshness: serde_json::from_value::<
+                HypervisorMachineProfileQualificationCertificateV1Freshness,
+            >(
+                object
+                    .remove(r#"freshness"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"freshness"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            qualification: serde_json::from_value::<
+                HypervisorMachineProfileQualificationCertificateV1Qualification,
+            >(
+                object
+                    .remove(r#"qualification"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"qualification"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            evidence_basis: serde_json::from_value::<
+                HypervisorMachineProfileQualificationCertificateV1EvidenceBasis,
+            >(
+                object
+                    .remove(r#"evidence_basis"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"evidence_basis"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            not_qualified_reasons: serde_json::from_value::<
+                Vec<HypervisorMachineProfileQualificationCertificateV1NotQualifiedReasonsItem>,
+            >(
+                object
+                    .remove(r#"not_qualified_reasons"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"not_qualified_reasons"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            refused_evidence: serde_json::from_value::<
+                Vec<HypervisorMachineProfileQualificationCertificateV1RefusedEvidenceItem>,
+            >(
+                object
+                    .remove(r#"refused_evidence"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"refused_evidence"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            nonclaims: serde_json::from_value::<Vec<String>>(
+                object
+                    .remove(r#"nonclaims"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"nonclaims"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            issuer: serde_json::from_value::<
+                HypervisorMachineProfileQualificationCertificateV1Issuer,
+            >(
+                object
+                    .remove(r#"issuer"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"issuer"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            withdrawal: serde_json::from_value::<
+                Option<HypervisorMachineProfileQualificationCertificateV1Withdrawal>,
+            >(
+                object
+                    .remove(r#"withdrawal"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"withdrawal"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+        })
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum HypervisorMachineProfileQualificationCertificateV1SchemaVersion {
+    #[serde(rename = r#"ioi.hypervisor.machine-profile-qualification-certificate.v1"#)]
+    IoiHypervisorMachineProfileQualificationCertificateV1,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum HypervisorMachineProfileQualificationCertificateV1ProfileId {
+    #[serde(rename = r#"workstation_hosted_v1"#)]
+    WorkstationHostedV1,
+    #[serde(rename = r#"infrastructure_attached_v1"#)]
+    InfrastructureAttachedV1,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum HypervisorMachineProfileQualificationCertificateV1Bundle {
+    #[serde(rename = r#"hypervisor_workstation"#)]
+    HypervisorWorkstation,
+    #[serde(rename = r#"hypervisor_infrastructure"#)]
+    HypervisorInfrastructure,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum HypervisorMachineProfileQualificationCertificateV1DoesNotQualifyItem {
+    #[serde(rename = r#"workstation_hosted_v1"#)]
+    WorkstationHostedV1,
+    #[serde(rename = r#"infrastructure_attached_v1"#)]
+    InfrastructureAttachedV1,
+    #[serde(rename = r#"hypervisoros_node_root_v1"#)]
+    HypervisorosNodeRootV1,
+    #[serde(rename = r#"type_1"#)]
+    Type1,
+    #[serde(rename = r#"type_2"#)]
+    Type2,
+    #[serde(rename = r#"legacy_replacement"#)]
+    LegacyReplacement,
+}
+
+#[derive(Debug, Clone, PartialEq, serde::Serialize)]
+pub struct HypervisorMachineProfileQualificationCertificateV1Subject {
+    pub backend_registration_ref: String,
+    pub capability_declaration_ref: String,
+    pub capability_declaration_hash_declared: String,
+    pub capability_declaration_bytes_sha256: String,
+    pub evidence_mode: HypervisorMachineProfileQualificationCertificateV1SubjectEvidenceMode,
+    pub resource_relationship:
+        HypervisorMachineProfileQualificationCertificateV1SubjectResourceRelationship,
+    pub vmm_ownership_claimed: bool,
+}
+
+impl<'de> serde::Deserialize<'de> for HypervisorMachineProfileQualificationCertificateV1Subject {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let value = <serde_json::Value as serde::Deserialize>::deserialize(deserializer)?;
+        validate_projection_subschema(
+            r#"schema://ioi/components/hypervisor/hypervisor-machine-profile-qualification-certificate/v1"#,
+            r##"{"type":"object","additionalProperties":false,"required":["backend_registration_ref","capability_declaration_ref","capability_declaration_hash_declared","capability_declaration_bytes_sha256","evidence_mode","resource_relationship","vmm_ownership_claimed"],"properties":{"backend_registration_ref":{"$ref":"#/$defs/ref"},"capability_declaration_ref":{"$ref":"#/$defs/ref"},"capability_declaration_hash_declared":{"$ref":"#/$defs/hash","description":"The `declaration_hash` member the declaration record carries — what the kernel compares an operation's binding against."},"capability_declaration_bytes_sha256":{"$ref":"#/$defs/hash","description":"A digest RECOMPUTED over the declaration record's stable JSON at generation time. The kernel never recomputes it; the certificate does, so a declaration edited in place under an unchanged carried hash withdraws this certificate on the next verification rather than passing unseen."},"evidence_mode":{"type":"string","enum":["live","simulated","declared"],"description":"The declaration's own evidence mode, copied never relabelled: it is what `evidence_basis` derives from."},"resource_relationship":{"type":"string","enum":["local","customer_attached"],"description":"The bundle's deployment/resource relationship facet: `local` for the hosted Workstation, `customer_attached` for attached Infrastructure."},"vmm_ownership_claimed":{"type":"boolean","description":"Whether this certificate claims Hypervisor is the subject estate's underlying VMM. Always false; the schema refuses true on the attached profile outright, and the hosted profile has no estate to own."}}}"##,
+            &value,
+        )
+            .map_err(serde::de::Error::custom)?;
+        let mut object = value
+            .as_object()
+            .cloned()
+            .ok_or_else(|| serde::de::Error::custom("validated projection is not an object"))?;
+        Ok(Self {
+            backend_registration_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"backend_registration_ref"#)
+                    .ok_or_else(|| {
+                        serde::de::Error::missing_field(r#"backend_registration_ref"#)
+                    })?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            capability_declaration_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"capability_declaration_ref"#)
+                    .ok_or_else(|| {
+                        serde::de::Error::missing_field(r#"capability_declaration_ref"#)
+                    })?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            capability_declaration_hash_declared: serde_json::from_value::<String>(
+                object
+                    .remove(r#"capability_declaration_hash_declared"#)
+                    .ok_or_else(|| {
+                        serde::de::Error::missing_field(r#"capability_declaration_hash_declared"#)
+                    })?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            capability_declaration_bytes_sha256: serde_json::from_value::<String>(
+                object
+                    .remove(r#"capability_declaration_bytes_sha256"#)
+                    .ok_or_else(|| {
+                        serde::de::Error::missing_field(r#"capability_declaration_bytes_sha256"#)
+                    })?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            evidence_mode: serde_json::from_value::<
+                HypervisorMachineProfileQualificationCertificateV1SubjectEvidenceMode,
+            >(
+                object
+                    .remove(r#"evidence_mode"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"evidence_mode"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            resource_relationship: serde_json::from_value::<
+                HypervisorMachineProfileQualificationCertificateV1SubjectResourceRelationship,
+            >(
+                object
+                    .remove(r#"resource_relationship"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"resource_relationship"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            vmm_ownership_claimed: serde_json::from_value::<bool>(
+                object
+                    .remove(r#"vmm_ownership_claimed"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"vmm_ownership_claimed"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+        })
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum HypervisorMachineProfileQualificationCertificateV1SubjectEvidenceMode {
+    #[serde(rename = r#"live"#)]
+    Live,
+    #[serde(rename = r#"simulated"#)]
+    Simulated,
+    #[serde(rename = r#"declared"#)]
+    Declared,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum HypervisorMachineProfileQualificationCertificateV1SubjectResourceRelationship {
+    #[serde(rename = r#"local"#)]
+    Local,
+    #[serde(rename = r#"customer_attached"#)]
+    CustomerAttached,
+}
+
+#[derive(Debug, Clone, PartialEq, serde::Serialize)]
+pub struct HypervisorMachineProfileQualificationCertificateV1Release {
+    pub source_commit: Option<String>,
+    pub daemon_binary_sha256: Option<String>,
+    pub release_manifest_sha256: Option<String>,
+    pub release_version: Option<String>,
+    pub signer_key_id: Option<String>,
+    pub dirty_state_declaration: String,
+}
+
+impl<'de> serde::Deserialize<'de> for HypervisorMachineProfileQualificationCertificateV1Release {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let value = <serde_json::Value as serde::Deserialize>::deserialize(deserializer)?;
+        validate_projection_subschema(
+            r#"schema://ioi/components/hypervisor/hypervisor-machine-profile-qualification-certificate/v1"#,
+            r##"{"type":"object","additionalProperties":false,"required":["source_commit","daemon_binary_sha256","release_manifest_sha256","release_version","signer_key_id","dirty_state_declaration"],"properties":{"source_commit":{"anyOf":[{"type":"string","pattern":"^[0-9a-f]{40}$"},{"type":"null"}]},"daemon_binary_sha256":{"anyOf":[{"$ref":"#/$defs/hash"},{"type":"null"}]},"release_manifest_sha256":{"anyOf":[{"$ref":"#/$defs/hash"},{"type":"null"}],"description":"The sha256 of the packaged release manifest the daemon was installed from (M12.2's alpha-release), or null when the daemon ran from a source build — in which case the certificate carries `release_unbound` among its reasons."},"release_version":{"anyOf":[{"type":"string","minLength":1,"maxLength":120},{"type":"null"}]},"signer_key_id":{"anyOf":[{"type":"string","minLength":1,"maxLength":240},{"type":"null"}]},"dirty_state_declaration":{"type":"string","minLength":1,"maxLength":240}}}"##,
+            &value,
+        )
+            .map_err(serde::de::Error::custom)?;
+        let mut object = value
+            .as_object()
+            .cloned()
+            .ok_or_else(|| serde::de::Error::custom("validated projection is not an object"))?;
+        Ok(Self {
+            source_commit: serde_json::from_value::<Option<String>>(
+                object
+                    .remove(r#"source_commit"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"source_commit"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            daemon_binary_sha256: serde_json::from_value::<Option<String>>(
+                object
+                    .remove(r#"daemon_binary_sha256"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"daemon_binary_sha256"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            release_manifest_sha256: serde_json::from_value::<Option<String>>(
+                object
+                    .remove(r#"release_manifest_sha256"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"release_manifest_sha256"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            release_version: serde_json::from_value::<Option<String>>(
+                object
+                    .remove(r#"release_version"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"release_version"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            signer_key_id: serde_json::from_value::<Option<String>>(
+                object
+                    .remove(r#"signer_key_id"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"signer_key_id"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            dirty_state_declaration: serde_json::from_value::<String>(
+                object
+                    .remove(r#"dirty_state_declaration"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"dirty_state_declaration"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+        })
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, serde::Serialize)]
+pub struct HypervisorMachineProfileQualificationCertificateV1Matrix {
+    pub verbs: Vec<HypervisorMachineProfileQualificationCertificateV1MatrixVerbsItem>,
+    pub architectures: Vec<String>,
+    pub guests: Vec<String>,
+    pub limitations: Vec<String>,
+}
+
+impl<'de> serde::Deserialize<'de> for HypervisorMachineProfileQualificationCertificateV1Matrix {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let value = <serde_json::Value as serde::Deserialize>::deserialize(deserializer)?;
+        validate_projection_subschema(
+            r#"schema://ioi/components/hypervisor/hypervisor-machine-profile-qualification-certificate/v1"#,
+            r#"{"type":"object","additionalProperties":false,"required":["verbs","architectures","guests","limitations"],"properties":{"verbs":{"type":"array","minItems":16,"maxItems":16,"items":{"type":"object","additionalProperties":false,"required":["operation","status","reason_code"],"properties":{"operation":{"type":"string","enum":["discover","define","import","create","start","stop","pause","resume","reboot","open_console","close_console","snapshot","clone","restore","migrate","delete"]},"status":{"type":"string","enum":["supported","unsupported","untested"],"description":"`supported` = declared and exercised by a succeeded receipt in this certificate's evidence runs; `unsupported` = declared unsupported with the declaration's own reason; `untested` = declared supported and never exercised here — named, never assumed."},"reason_code":{"anyOf":[{"type":"string","pattern":"^[a-z][a-z0-9_]*$","maxLength":120},{"type":"null"}]}}},"description":"Canon's sixteen verbs, each with its status under THIS backend and THIS evidence. The vocabulary is the kernel's; a seventeenth verb or a missing one fails the schema."},"architectures":{"type":"array","uniqueItems":true,"items":{"type":"string","minLength":1,"maxLength":40}},"guests":{"type":"array","uniqueItems":true,"items":{"type":"string","minLength":1,"maxLength":120},"description":"The guest/firmware profiles the backend declares. The registered declaration contract carries none today; an empty list is the declared fact and the certificate names `guest_matrix_undeclared` among its reasons."},"limitations":{"type":"array","uniqueItems":true,"items":{"type":"string","minLength":1,"maxLength":512}}}}"#,
+            &value,
+        )
+            .map_err(serde::de::Error::custom)?;
+        let mut object = value
+            .as_object()
+            .cloned()
+            .ok_or_else(|| serde::de::Error::custom("validated projection is not an object"))?;
+        Ok(Self {
+            verbs: serde_json::from_value::<
+                Vec<HypervisorMachineProfileQualificationCertificateV1MatrixVerbsItem>,
+            >(
+                object
+                    .remove(r#"verbs"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"verbs"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            architectures: serde_json::from_value::<Vec<String>>(
+                object
+                    .remove(r#"architectures"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"architectures"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            guests: serde_json::from_value::<Vec<String>>(
+                object
+                    .remove(r#"guests"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"guests"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            limitations: serde_json::from_value::<Vec<String>>(
+                object
+                    .remove(r#"limitations"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"limitations"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+        })
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, serde::Serialize)]
+pub struct HypervisorMachineProfileQualificationCertificateV1MatrixVerbsItem {
+    pub operation: HypervisorMachineProfileQualificationCertificateV1MatrixVerbsItemOperation,
+    pub status: HypervisorMachineProfileQualificationCertificateV1MatrixVerbsItemStatus,
+    pub reason_code: Option<String>,
+}
+
+impl<'de> serde::Deserialize<'de>
+    for HypervisorMachineProfileQualificationCertificateV1MatrixVerbsItem
+{
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let value = <serde_json::Value as serde::Deserialize>::deserialize(deserializer)?;
+        validate_projection_subschema(
+            r#"schema://ioi/components/hypervisor/hypervisor-machine-profile-qualification-certificate/v1"#,
+            r#"{"type":"object","additionalProperties":false,"required":["operation","status","reason_code"],"properties":{"operation":{"type":"string","enum":["discover","define","import","create","start","stop","pause","resume","reboot","open_console","close_console","snapshot","clone","restore","migrate","delete"]},"status":{"type":"string","enum":["supported","unsupported","untested"],"description":"`supported` = declared and exercised by a succeeded receipt in this certificate's evidence runs; `unsupported` = declared unsupported with the declaration's own reason; `untested` = declared supported and never exercised here — named, never assumed."},"reason_code":{"anyOf":[{"type":"string","pattern":"^[a-z][a-z0-9_]*$","maxLength":120},{"type":"null"}]}}}"#,
+            &value,
+        )
+            .map_err(serde::de::Error::custom)?;
+        let mut object = value
+            .as_object()
+            .cloned()
+            .ok_or_else(|| serde::de::Error::custom("validated projection is not an object"))?;
+        Ok(Self {
+            operation: serde_json::from_value::<
+                HypervisorMachineProfileQualificationCertificateV1MatrixVerbsItemOperation,
+            >(
+                object
+                    .remove(r#"operation"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"operation"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            status: serde_json::from_value::<
+                HypervisorMachineProfileQualificationCertificateV1MatrixVerbsItemStatus,
+            >(
+                object
+                    .remove(r#"status"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"status"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            reason_code: serde_json::from_value::<Option<String>>(
+                object
+                    .remove(r#"reason_code"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"reason_code"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+        })
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum HypervisorMachineProfileQualificationCertificateV1MatrixVerbsItemOperation {
+    #[serde(rename = r#"discover"#)]
+    Discover,
+    #[serde(rename = r#"define"#)]
+    Define,
+    #[serde(rename = r#"import"#)]
+    Import,
+    #[serde(rename = r#"create"#)]
+    Create,
+    #[serde(rename = r#"start"#)]
+    Start,
+    #[serde(rename = r#"stop"#)]
+    Stop,
+    #[serde(rename = r#"pause"#)]
+    Pause,
+    #[serde(rename = r#"resume"#)]
+    Resume,
+    #[serde(rename = r#"reboot"#)]
+    Reboot,
+    #[serde(rename = r#"open_console"#)]
+    OpenConsole,
+    #[serde(rename = r#"close_console"#)]
+    CloseConsole,
+    #[serde(rename = r#"snapshot"#)]
+    Snapshot,
+    #[serde(rename = r#"clone"#)]
+    Clone,
+    #[serde(rename = r#"restore"#)]
+    Restore,
+    #[serde(rename = r#"migrate"#)]
+    Migrate,
+    #[serde(rename = r#"delete"#)]
+    Delete,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum HypervisorMachineProfileQualificationCertificateV1MatrixVerbsItemStatus {
+    #[serde(rename = r#"supported"#)]
+    Supported,
+    #[serde(rename = r#"unsupported"#)]
+    Unsupported,
+    #[serde(rename = r#"untested"#)]
+    Untested,
+}
+
+#[derive(Debug, Clone, PartialEq, serde::Serialize)]
+pub struct HypervisorMachineProfileQualificationCertificateV1DeliveryForms {
+    pub integrated:
+        Option<HypervisorMachineProfileQualificationCertificateV1DeliveryFormsIntegrated>,
+    pub standalone:
+        Option<HypervisorMachineProfileQualificationCertificateV1DeliveryFormsStandalone>,
+}
+
+impl<'de> serde::Deserialize<'de>
+    for HypervisorMachineProfileQualificationCertificateV1DeliveryForms
+{
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let value = <serde_json::Value as serde::Deserialize>::deserialize(deserializer)?;
+        validate_projection_subschema(
+            r#"schema://ioi/components/hypervisor/hypervisor-machine-profile-qualification-certificate/v1"#,
+            r##"{"type":"object","additionalProperties":false,"required":["integrated","standalone"],"properties":{"integrated":{"anyOf":[{"$ref":"#/$defs/delivery_evidence"},{"type":"null"}]},"standalone":{"anyOf":[{"$ref":"#/$defs/delivery_evidence"},{"type":"null"}]}},"description":"The two delivery forms' evidence of rendering the same spine (M08.15). A missing form is null and names `delivery_form_missing`; the standalone form records WHICH form it was — the thin client is not the distributed client."}"##,
+            &value,
+        )
+            .map_err(serde::de::Error::custom)?;
+        let mut object = value
+            .as_object()
+            .cloned()
+            .ok_or_else(|| serde::de::Error::custom("validated projection is not an object"))?;
+        Ok(Self {
+            integrated: serde_json::from_value::<
+                Option<HypervisorMachineProfileQualificationCertificateV1DeliveryFormsIntegrated>,
+            >(
+                object
+                    .remove(r#"integrated"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"integrated"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            standalone: serde_json::from_value::<
+                Option<HypervisorMachineProfileQualificationCertificateV1DeliveryFormsStandalone>,
+            >(
+                object
+                    .remove(r#"standalone"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"standalone"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+        })
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, serde::Serialize)]
+pub struct HypervisorMachineProfileQualificationCertificateV1DeliveryFormsIntegrated {
+    pub form: HypervisorMachineProfileQualificationCertificateV1DeliveryFormsIntegratedForm,
+    pub evidence_ref: String,
+    pub evidence_sha256: String,
+}
+
+impl<'de> serde::Deserialize<'de>
+    for HypervisorMachineProfileQualificationCertificateV1DeliveryFormsIntegrated
+{
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let value = <serde_json::Value as serde::Deserialize>::deserialize(deserializer)?;
+        validate_projection_subschema(
+            r#"schema://ioi/components/hypervisor/hypervisor-machine-profile-qualification-certificate/v1"#,
+            r##"{"type":"object","additionalProperties":false,"required":["form","evidence_ref","evidence_sha256"],"properties":{"form":{"type":"string","enum":["hypervisor_app","thin_client","distributed_client"]},"evidence_ref":{"type":"string","minLength":1,"maxLength":512},"evidence_sha256":{"$ref":"#/$defs/hash"}}}"##,
+            &value,
+        )
+            .map_err(serde::de::Error::custom)?;
+        let mut object = value
+            .as_object()
+            .cloned()
+            .ok_or_else(|| serde::de::Error::custom("validated projection is not an object"))?;
+        Ok(Self {
+            form: serde_json::from_value::<
+                HypervisorMachineProfileQualificationCertificateV1DeliveryFormsIntegratedForm,
+            >(
+                object
+                    .remove(r#"form"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"form"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            evidence_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"evidence_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"evidence_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            evidence_sha256: serde_json::from_value::<String>(
+                object
+                    .remove(r#"evidence_sha256"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"evidence_sha256"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+        })
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum HypervisorMachineProfileQualificationCertificateV1DeliveryFormsIntegratedForm {
+    #[serde(rename = r#"hypervisor_app"#)]
+    HypervisorApp,
+    #[serde(rename = r#"thin_client"#)]
+    ThinClient,
+    #[serde(rename = r#"distributed_client"#)]
+    DistributedClient,
+}
+
+#[derive(Debug, Clone, PartialEq, serde::Serialize)]
+pub struct HypervisorMachineProfileQualificationCertificateV1DeliveryFormsStandalone {
+    pub form: HypervisorMachineProfileQualificationCertificateV1DeliveryFormsStandaloneForm,
+    pub evidence_ref: String,
+    pub evidence_sha256: String,
+}
+
+impl<'de> serde::Deserialize<'de>
+    for HypervisorMachineProfileQualificationCertificateV1DeliveryFormsStandalone
+{
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let value = <serde_json::Value as serde::Deserialize>::deserialize(deserializer)?;
+        validate_projection_subschema(
+            r#"schema://ioi/components/hypervisor/hypervisor-machine-profile-qualification-certificate/v1"#,
+            r##"{"type":"object","additionalProperties":false,"required":["form","evidence_ref","evidence_sha256"],"properties":{"form":{"type":"string","enum":["hypervisor_app","thin_client","distributed_client"]},"evidence_ref":{"type":"string","minLength":1,"maxLength":512},"evidence_sha256":{"$ref":"#/$defs/hash"}}}"##,
+            &value,
+        )
+            .map_err(serde::de::Error::custom)?;
+        let mut object = value
+            .as_object()
+            .cloned()
+            .ok_or_else(|| serde::de::Error::custom("validated projection is not an object"))?;
+        Ok(Self {
+            form: serde_json::from_value::<
+                HypervisorMachineProfileQualificationCertificateV1DeliveryFormsStandaloneForm,
+            >(
+                object
+                    .remove(r#"form"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"form"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            evidence_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"evidence_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"evidence_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            evidence_sha256: serde_json::from_value::<String>(
+                object
+                    .remove(r#"evidence_sha256"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"evidence_sha256"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+        })
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum HypervisorMachineProfileQualificationCertificateV1DeliveryFormsStandaloneForm {
+    #[serde(rename = r#"hypervisor_app"#)]
+    HypervisorApp,
+    #[serde(rename = r#"thin_client"#)]
+    ThinClient,
+    #[serde(rename = r#"distributed_client"#)]
+    DistributedClient,
+}
+
+#[derive(Debug, Clone, PartialEq, serde::Serialize)]
+pub struct HypervisorMachineProfileQualificationCertificateV1EvidenceRunsItem {
+    pub kind: HypervisorMachineProfileQualificationCertificateV1EvidenceRunsItemKind,
+    pub workload_ref: String,
+    pub head: Option<String>,
+    pub operation_count: ArchitectureContractInteger,
+    pub receipts:
+        Vec<HypervisorMachineProfileQualificationCertificateV1EvidenceRunsItemReceiptsItem>,
+    pub window: HypervisorMachineProfileQualificationCertificateV1EvidenceRunsItemWindow,
+}
+
+impl<'de> serde::Deserialize<'de>
+    for HypervisorMachineProfileQualificationCertificateV1EvidenceRunsItem
+{
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let value = <serde_json::Value as serde::Deserialize>::deserialize(deserializer)?;
+        validate_projection_subschema(
+            r#"schema://ioi/components/hypervisor/hypervisor-machine-profile-qualification-certificate/v1"#,
+            r##"{"type":"object","additionalProperties":false,"required":["kind","workload_ref","head","operation_count","receipts","window"],"properties":{"kind":{"type":"string","const":"machine_lifecycle_run","description":"The only evidence kind a certificate admits. Everything else canon refuses is recorded under `refused_evidence`."},"workload_ref":{"$ref":"#/$defs/ref"},"head":{"anyOf":[{"$ref":"#/$defs/hash"},{"type":"null"}]},"operation_count":{"type":"integer","minimum":1,"maximum":9007199254740991},"receipts":{"type":"array","minItems":1,"items":{"type":"object","additionalProperties":false,"required":["receipt_ref","receipt_sha256","operation","result"],"properties":{"receipt_ref":{"$ref":"#/$defs/ref"},"receipt_sha256":{"$ref":"#/$defs/hash"},"operation":{"type":"string","pattern":"^[a-z][a-z0-9_]*$","maxLength":40},"result":{"type":"string","enum":["succeeded","refused","ambiguous"]}}}},"window":{"$ref":"#/$defs/window"}}}"##,
+            &value,
+        )
+            .map_err(serde::de::Error::custom)?;
+        let mut object = value
+            .as_object()
+            .cloned()
+            .ok_or_else(|| serde::de::Error::custom("validated projection is not an object"))?;
+        Ok(Self {
+            kind: serde_json::from_value::<
+                HypervisorMachineProfileQualificationCertificateV1EvidenceRunsItemKind,
+            >(
+                object
+                    .remove(r#"kind"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"kind"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            workload_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"workload_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"workload_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            head: serde_json::from_value::<Option<String>>(
+                object
+                    .remove(r#"head"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"head"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            operation_count: serde_json::from_value::<ArchitectureContractInteger>(
+                object
+                    .remove(r#"operation_count"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"operation_count"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            receipts: serde_json::from_value::<
+                Vec<HypervisorMachineProfileQualificationCertificateV1EvidenceRunsItemReceiptsItem>,
+            >(
+                object
+                    .remove(r#"receipts"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"receipts"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            window: serde_json::from_value::<
+                HypervisorMachineProfileQualificationCertificateV1EvidenceRunsItemWindow,
+            >(
+                object
+                    .remove(r#"window"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"window"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+        })
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum HypervisorMachineProfileQualificationCertificateV1EvidenceRunsItemKind {
+    #[serde(rename = r#"machine_lifecycle_run"#)]
+    MachineLifecycleRun,
+}
+
+#[derive(Debug, Clone, PartialEq, serde::Serialize)]
+pub struct HypervisorMachineProfileQualificationCertificateV1EvidenceRunsItemReceiptsItem {
+    pub receipt_ref: String,
+    pub receipt_sha256: String,
+    pub operation: String,
+    pub result:
+        HypervisorMachineProfileQualificationCertificateV1EvidenceRunsItemReceiptsItemResult,
+}
+
+impl<'de> serde::Deserialize<'de>
+    for HypervisorMachineProfileQualificationCertificateV1EvidenceRunsItemReceiptsItem
+{
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let value = <serde_json::Value as serde::Deserialize>::deserialize(deserializer)?;
+        validate_projection_subschema(
+            r#"schema://ioi/components/hypervisor/hypervisor-machine-profile-qualification-certificate/v1"#,
+            r##"{"type":"object","additionalProperties":false,"required":["receipt_ref","receipt_sha256","operation","result"],"properties":{"receipt_ref":{"$ref":"#/$defs/ref"},"receipt_sha256":{"$ref":"#/$defs/hash"},"operation":{"type":"string","pattern":"^[a-z][a-z0-9_]*$","maxLength":40},"result":{"type":"string","enum":["succeeded","refused","ambiguous"]}}}"##,
+            &value,
+        )
+            .map_err(serde::de::Error::custom)?;
+        let mut object = value
+            .as_object()
+            .cloned()
+            .ok_or_else(|| serde::de::Error::custom("validated projection is not an object"))?;
+        Ok(Self {
+            receipt_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"receipt_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"receipt_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            receipt_sha256: serde_json::from_value::<String>(
+                object
+                    .remove(r#"receipt_sha256"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"receipt_sha256"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            operation: serde_json::from_value::<String>(
+                object
+                    .remove(r#"operation"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"operation"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            result: serde_json::from_value::<HypervisorMachineProfileQualificationCertificateV1EvidenceRunsItemReceiptsItemResult>(
+                object
+                    .remove(r#"result"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"result"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+        })
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum HypervisorMachineProfileQualificationCertificateV1EvidenceRunsItemReceiptsItemResult {
+    #[serde(rename = r#"succeeded"#)]
+    Succeeded,
+    #[serde(rename = r#"refused"#)]
+    Refused,
+    #[serde(rename = r#"ambiguous"#)]
+    Ambiguous,
+}
+
+#[derive(Debug, Clone, PartialEq, serde::Serialize)]
+pub struct HypervisorMachineProfileQualificationCertificateV1EvidenceRunsItemWindow {
+    pub from: String,
+    pub to: String,
+}
+
+impl<'de> serde::Deserialize<'de>
+    for HypervisorMachineProfileQualificationCertificateV1EvidenceRunsItemWindow
+{
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let value = <serde_json::Value as serde::Deserialize>::deserialize(deserializer)?;
+        validate_projection_subschema(
+            r#"schema://ioi/components/hypervisor/hypervisor-machine-profile-qualification-certificate/v1"#,
+            r##"{"type":"object","additionalProperties":false,"required":["from","to"],"properties":{"from":{"$ref":"#/$defs/instant"},"to":{"$ref":"#/$defs/instant"}}}"##,
+            &value,
+        )
+            .map_err(serde::de::Error::custom)?;
+        let mut object = value
+            .as_object()
+            .cloned()
+            .ok_or_else(|| serde::de::Error::custom("validated projection is not an object"))?;
+        Ok(Self {
+            from: serde_json::from_value::<String>(
+                object
+                    .remove(r#"from"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"from"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            to: serde_json::from_value::<String>(
+                object
+                    .remove(r#"to"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"to"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+        })
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, serde::Serialize)]
+pub struct HypervisorMachineProfileQualificationCertificateV1Freshness {
+    pub evidence_window: HypervisorMachineProfileQualificationCertificateV1FreshnessEvidenceWindow,
+    pub issued_at: String,
+    pub valid_until: String,
+    pub validity_policy_ref: String,
+    pub currentness_evaluation_ref: String,
+}
+
+impl<'de> serde::Deserialize<'de> for HypervisorMachineProfileQualificationCertificateV1Freshness {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let value = <serde_json::Value as serde::Deserialize>::deserialize(deserializer)?;
+        validate_projection_subschema(
+            r#"schema://ioi/components/hypervisor/hypervisor-machine-profile-qualification-certificate/v1"#,
+            r##"{"type":"object","additionalProperties":false,"required":["evidence_window","issued_at","valid_until","validity_policy_ref","currentness_evaluation_ref"],"properties":{"evidence_window":{"$ref":"#/$defs/window"},"issued_at":{"$ref":"#/$defs/instant"},"valid_until":{"$ref":"#/$defs/instant"},"validity_policy_ref":{"$ref":"#/$defs/ref"},"currentness_evaluation_ref":{"$ref":"#/$defs/ref","description":"The declaration's own currentness evaluation ref, carried so a verifier can ask its evaluator; the registered declaration contract carries no timestamps, and this certificate's window is derived from the runs' submission times."}}}"##,
+            &value,
+        )
+            .map_err(serde::de::Error::custom)?;
+        let mut object = value
+            .as_object()
+            .cloned()
+            .ok_or_else(|| serde::de::Error::custom("validated projection is not an object"))?;
+        Ok(Self {
+            evidence_window: serde_json::from_value::<
+                HypervisorMachineProfileQualificationCertificateV1FreshnessEvidenceWindow,
+            >(
+                object
+                    .remove(r#"evidence_window"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"evidence_window"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            issued_at: serde_json::from_value::<String>(
+                object
+                    .remove(r#"issued_at"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"issued_at"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            valid_until: serde_json::from_value::<String>(
+                object
+                    .remove(r#"valid_until"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"valid_until"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            validity_policy_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"validity_policy_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"validity_policy_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            currentness_evaluation_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"currentness_evaluation_ref"#)
+                    .ok_or_else(|| {
+                        serde::de::Error::missing_field(r#"currentness_evaluation_ref"#)
+                    })?,
+            )
+            .map_err(serde::de::Error::custom)?,
+        })
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, serde::Serialize)]
+pub struct HypervisorMachineProfileQualificationCertificateV1FreshnessEvidenceWindow {
+    pub from: String,
+    pub to: String,
+}
+
+impl<'de> serde::Deserialize<'de>
+    for HypervisorMachineProfileQualificationCertificateV1FreshnessEvidenceWindow
+{
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let value = <serde_json::Value as serde::Deserialize>::deserialize(deserializer)?;
+        validate_projection_subschema(
+            r#"schema://ioi/components/hypervisor/hypervisor-machine-profile-qualification-certificate/v1"#,
+            r##"{"type":"object","additionalProperties":false,"required":["from","to"],"properties":{"from":{"$ref":"#/$defs/instant"},"to":{"$ref":"#/$defs/instant"}}}"##,
+            &value,
+        )
+            .map_err(serde::de::Error::custom)?;
+        let mut object = value
+            .as_object()
+            .cloned()
+            .ok_or_else(|| serde::de::Error::custom("validated projection is not an object"))?;
+        Ok(Self {
+            from: serde_json::from_value::<String>(
+                object
+                    .remove(r#"from"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"from"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            to: serde_json::from_value::<String>(
+                object
+                    .remove(r#"to"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"to"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+        })
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum HypervisorMachineProfileQualificationCertificateV1Qualification {
+    #[serde(rename = r#"qualified"#)]
+    Qualified,
+    #[serde(rename = r#"not_qualified"#)]
+    NotQualified,
+    #[serde(rename = r#"withdrawn"#)]
+    Withdrawn,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum HypervisorMachineProfileQualificationCertificateV1EvidenceBasis {
+    #[serde(rename = r#"live"#)]
+    Live,
+    #[serde(rename = r#"simulated"#)]
+    Simulated,
+    #[serde(rename = r#"declared"#)]
+    Declared,
+    #[serde(rename = r#"none"#)]
+    None,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum HypervisorMachineProfileQualificationCertificateV1NotQualifiedReasonsItem {
+    #[serde(rename = r#"evidence_basis_simulated"#)]
+    EvidenceBasisSimulated,
+    #[serde(rename = r#"evidence_basis_declared"#)]
+    EvidenceBasisDeclared,
+    #[serde(rename = r#"no_live_backend_registered"#)]
+    NoLiveBackendRegistered,
+    #[serde(rename = r#"release_unbound"#)]
+    ReleaseUnbound,
+    #[serde(rename = r#"supported_cells_untested"#)]
+    SupportedCellsUntested,
+    #[serde(rename = r#"guest_matrix_undeclared"#)]
+    GuestMatrixUndeclared,
+    #[serde(rename = r#"limitations_undeclared"#)]
+    LimitationsUndeclared,
+    #[serde(rename = r#"delivery_form_missing"#)]
+    DeliveryFormMissing,
+    #[serde(rename = r#"freshness_expired"#)]
+    FreshnessExpired,
+    #[serde(rename = r#"declaration_drifted"#)]
+    DeclarationDrifted,
+    #[serde(rename = r#"evidence_window_empty"#)]
+    EvidenceWindowEmpty,
+}
+
+#[derive(Debug, Clone, PartialEq, serde::Serialize)]
+pub struct HypervisorMachineProfileQualificationCertificateV1RefusedEvidenceItem {
+    pub kind: HypervisorMachineProfileQualificationCertificateV1RefusedEvidenceItemKind,
+    pub r#ref: String,
+    pub reason: HypervisorMachineProfileQualificationCertificateV1RefusedEvidenceItemReason,
+}
+
+impl<'de> serde::Deserialize<'de>
+    for HypervisorMachineProfileQualificationCertificateV1RefusedEvidenceItem
+{
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let value = <serde_json::Value as serde::Deserialize>::deserialize(deserializer)?;
+        validate_projection_subschema(
+            r#"schema://ioi/components/hypervisor/hypervisor-machine-profile-qualification-certificate/v1"#,
+            r#"{"type":"object","additionalProperties":false,"required":["kind","ref","reason"],"properties":{"kind":{"type":"string","enum":["vm_boot","hostile_guest_test","downloadable_binary","bootable_image","generated_dashboard","backend_declaration","autonomy_proof","provider_portability","packaging","simulated_only_as_host_compatibility","other_profile_evidence"]},"ref":{"type":"string","minLength":1,"maxLength":512},"reason":{"type":"string","const":"not_qualification_evidence"}}}"#,
+            &value,
+        )
+            .map_err(serde::de::Error::custom)?;
+        let mut object = value
+            .as_object()
+            .cloned()
+            .ok_or_else(|| serde::de::Error::custom("validated projection is not an object"))?;
+        Ok(Self {
+            kind: serde_json::from_value::<
+                HypervisorMachineProfileQualificationCertificateV1RefusedEvidenceItemKind,
+            >(
+                object
+                    .remove(r#"kind"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"kind"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            r#ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            reason: serde_json::from_value::<
+                HypervisorMachineProfileQualificationCertificateV1RefusedEvidenceItemReason,
+            >(
+                object
+                    .remove(r#"reason"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"reason"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+        })
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum HypervisorMachineProfileQualificationCertificateV1RefusedEvidenceItemKind {
+    #[serde(rename = r#"vm_boot"#)]
+    VmBoot,
+    #[serde(rename = r#"hostile_guest_test"#)]
+    HostileGuestTest,
+    #[serde(rename = r#"downloadable_binary"#)]
+    DownloadableBinary,
+    #[serde(rename = r#"bootable_image"#)]
+    BootableImage,
+    #[serde(rename = r#"generated_dashboard"#)]
+    GeneratedDashboard,
+    #[serde(rename = r#"backend_declaration"#)]
+    BackendDeclaration,
+    #[serde(rename = r#"autonomy_proof"#)]
+    AutonomyProof,
+    #[serde(rename = r#"provider_portability"#)]
+    ProviderPortability,
+    #[serde(rename = r#"packaging"#)]
+    Packaging,
+    #[serde(rename = r#"simulated_only_as_host_compatibility"#)]
+    SimulatedOnlyAsHostCompatibility,
+    #[serde(rename = r#"other_profile_evidence"#)]
+    OtherProfileEvidence,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum HypervisorMachineProfileQualificationCertificateV1RefusedEvidenceItemReason {
+    #[serde(rename = r#"not_qualification_evidence"#)]
+    NotQualificationEvidence,
+}
+
+#[derive(Debug, Clone, PartialEq, serde::Serialize)]
+pub struct HypervisorMachineProfileQualificationCertificateV1Issuer {
+    pub verifier_identity_ref: String,
+    pub verifier_build_hash: Option<String>,
+}
+
+impl<'de> serde::Deserialize<'de> for HypervisorMachineProfileQualificationCertificateV1Issuer {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let value = <serde_json::Value as serde::Deserialize>::deserialize(deserializer)?;
+        validate_projection_subschema(
+            r#"schema://ioi/components/hypervisor/hypervisor-machine-profile-qualification-certificate/v1"#,
+            r##"{"type":"object","additionalProperties":false,"required":["verifier_identity_ref","verifier_build_hash"],"properties":{"verifier_identity_ref":{"$ref":"#/$defs/ref"},"verifier_build_hash":{"anyOf":[{"$ref":"#/$defs/hash"},{"type":"null"}]}}}"##,
+            &value,
+        )
+            .map_err(serde::de::Error::custom)?;
+        let mut object = value
+            .as_object()
+            .cloned()
+            .ok_or_else(|| serde::de::Error::custom("validated projection is not an object"))?;
+        Ok(Self {
+            verifier_identity_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"verifier_identity_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"verifier_identity_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            verifier_build_hash: serde_json::from_value::<Option<String>>(
+                object
+                    .remove(r#"verifier_build_hash"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"verifier_build_hash"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+        })
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, serde::Serialize)]
+pub struct HypervisorMachineProfileQualificationCertificateV1Withdrawal {
+    pub reason: HypervisorMachineProfileQualificationCertificateV1WithdrawalReason,
+    pub at: String,
+    pub detail: String,
+}
+
+impl<'de> serde::Deserialize<'de> for HypervisorMachineProfileQualificationCertificateV1Withdrawal {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let value = <serde_json::Value as serde::Deserialize>::deserialize(deserializer)?;
+        validate_projection_subschema(
+            r#"schema://ioi/components/hypervisor/hypervisor-machine-profile-qualification-certificate/v1"#,
+            r##"{"type":"object","additionalProperties":false,"required":["reason","at","detail"],"properties":{"reason":{"type":"string","enum":["freshness_expired","declaration_drifted","release_unbound","evidence_basis_downgraded","owner_withdrawn"]},"at":{"$ref":"#/$defs/instant"},"detail":{"type":"string","minLength":1,"maxLength":512}}}"##,
+            &value,
+        )
+            .map_err(serde::de::Error::custom)?;
+        let mut object = value
+            .as_object()
+            .cloned()
+            .ok_or_else(|| serde::de::Error::custom("validated projection is not an object"))?;
+        Ok(Self {
+            reason: serde_json::from_value::<
+                HypervisorMachineProfileQualificationCertificateV1WithdrawalReason,
+            >(
+                object
+                    .remove(r#"reason"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"reason"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            at: serde_json::from_value::<String>(
+                object
+                    .remove(r#"at"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"at"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            detail: serde_json::from_value::<String>(
+                object
+                    .remove(r#"detail"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"detail"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+        })
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum HypervisorMachineProfileQualificationCertificateV1WithdrawalReason {
+    #[serde(rename = r#"freshness_expired"#)]
+    FreshnessExpired,
+    #[serde(rename = r#"declaration_drifted"#)]
+    DeclarationDrifted,
+    #[serde(rename = r#"release_unbound"#)]
+    ReleaseUnbound,
+    #[serde(rename = r#"evidence_basis_downgraded"#)]
+    EvidenceBasisDowngraded,
+    #[serde(rename = r#"owner_withdrawn"#)]
+    OwnerWithdrawn,
+}
+
+#[derive(Debug, Clone, PartialEq, serde::Serialize)]
 pub struct HypervisorMachineHostV1 {
     pub schema_version: HypervisorMachineHostV1SchemaVersion,
     pub host_ref: String,
@@ -174249,6 +175499,86 @@ pub const ARCHITECTURE_CONTRACT_FIXTURES: &[GoldenFixture] = &[
         expected_rule_id: None,
     },
     GoldenFixture {
+        contract_id: "schema://ioi/components/hypervisor/hypervisor-machine-profile-qualification-certificate/v1",
+        path: "docs/architecture/_meta/schemas/fixtures/hypervisor-machine-profile-qualification-certificate-v1/positive-infrastructure-attached-not-qualified-simulated.json",
+        expected_accept: true,
+        expected_schema_accept: true,
+        expected_failure: None,
+        expected_rule_id: None,
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/components/hypervisor/hypervisor-machine-profile-qualification-certificate/v1",
+        path: "docs/architecture/_meta/schemas/fixtures/hypervisor-machine-profile-qualification-certificate-v1/positive-withdrawn-freshness-expired.json",
+        expected_accept: true,
+        expected_schema_accept: true,
+        expected_failure: None,
+        expected_rule_id: None,
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/components/hypervisor/hypervisor-machine-profile-qualification-certificate/v1",
+        path: "docs/architecture/_meta/schemas/fixtures/hypervisor-machine-profile-qualification-certificate-v1/positive-workstation-hosted-not-qualified-simulated.json",
+        expected_accept: true,
+        expected_schema_accept: true,
+        expected_failure: None,
+        expected_rule_id: None,
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/components/hypervisor/hypervisor-machine-profile-qualification-certificate/v1",
+        path: "docs/architecture/_meta/schemas/fixtures/hypervisor-machine-profile-qualification-certificate-v1/negative-attached-claims-vmm-ownership.json",
+        expected_accept: false,
+        expected_schema_accept: false,
+        expected_failure: Some("schema"),
+        expected_rule_id: None,
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/components/hypervisor/hypervisor-machine-profile-qualification-certificate/v1",
+        path: "docs/architecture/_meta/schemas/fixtures/hypervisor-machine-profile-qualification-certificate-v1/negative-not-qualified-without-a-reason.json",
+        expected_accept: false,
+        expected_schema_accept: true,
+        expected_failure: Some("invariant"),
+        expected_rule_id: None,
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/components/hypervisor/hypervisor-machine-profile-qualification-certificate/v1",
+        path: "docs/architecture/_meta/schemas/fixtures/hypervisor-machine-profile-qualification-certificate-v1/negative-other-profile-not-disclaimed.json",
+        expected_accept: false,
+        expected_schema_accept: false,
+        expected_failure: Some("schema"),
+        expected_rule_id: None,
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/components/hypervisor/hypervisor-machine-profile-qualification-certificate/v1",
+        path: "docs/architecture/_meta/schemas/fixtures/hypervisor-machine-profile-qualification-certificate-v1/negative-qualified-on-simulated-basis.json",
+        expected_accept: false,
+        expected_schema_accept: false,
+        expected_failure: Some("schema"),
+        expected_rule_id: None,
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/components/hypervisor/hypervisor-machine-profile-qualification-certificate/v1",
+        path: "docs/architecture/_meta/schemas/fixtures/hypervisor-machine-profile-qualification-certificate-v1/negative-seventeenth-verb.json",
+        expected_accept: false,
+        expected_schema_accept: false,
+        expected_failure: Some("schema"),
+        expected_rule_id: None,
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/components/hypervisor/hypervisor-machine-profile-qualification-certificate/v1",
+        path: "docs/architecture/_meta/schemas/fixtures/hypervisor-machine-profile-qualification-certificate-v1/negative-unknown-member.json",
+        expected_accept: false,
+        expected_schema_accept: false,
+        expected_failure: Some("schema"),
+        expected_rule_id: None,
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/components/hypervisor/hypervisor-machine-profile-qualification-certificate/v1",
+        path: "docs/architecture/_meta/schemas/fixtures/hypervisor-machine-profile-qualification-certificate-v1/negative-vm-boot-admitted-as-evidence.json",
+        expected_accept: false,
+        expected_schema_accept: false,
+        expected_failure: Some("schema"),
+        expected_rule_id: None,
+    },
+    GoldenFixture {
         contract_id: "schema://ioi/components/hypervisor/hypervisor-machine-host/v1",
         path: "docs/architecture/_meta/schemas/fixtures/hypervisor-machine-host-v1/positive-nominal.json",
         expected_accept: true,
@@ -194412,6 +195742,116 @@ pub const ARCHITECTURE_CONTRACT_DIFFERENTIAL_CASES: &[ArchitectureContractDiffer
         oracle_contract_accept: false,
     },
     ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/hypervisor-machine-profile-qualification-certificate-v1/positive-infrastructure-attached-not-qualified-simulated.json"#,
+        contract_id: r#"schema://ioi/components/hypervisor/hypervisor-machine-profile-qualification-certificate/v1"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/hypervisor-machine-profile-qualification-certificate-v1/positive-infrastructure-attached-not-qualified-simulated.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: true,
+        oracle_contract_accept: true,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/hypervisor-machine-profile-qualification-certificate-v1/positive-withdrawn-freshness-expired.json"#,
+        contract_id: r#"schema://ioi/components/hypervisor/hypervisor-machine-profile-qualification-certificate/v1"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/hypervisor-machine-profile-qualification-certificate-v1/positive-withdrawn-freshness-expired.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: true,
+        oracle_contract_accept: true,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/hypervisor-machine-profile-qualification-certificate-v1/positive-workstation-hosted-not-qualified-simulated.json"#,
+        contract_id: r#"schema://ioi/components/hypervisor/hypervisor-machine-profile-qualification-certificate/v1"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/hypervisor-machine-profile-qualification-certificate-v1/positive-workstation-hosted-not-qualified-simulated.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: true,
+        oracle_contract_accept: true,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/hypervisor-machine-profile-qualification-certificate-v1/negative-attached-claims-vmm-ownership.json"#,
+        contract_id: r#"schema://ioi/components/hypervisor/hypervisor-machine-profile-qualification-certificate/v1"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/hypervisor-machine-profile-qualification-certificate-v1/negative-attached-claims-vmm-ownership.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: false,
+        oracle_contract_accept: false,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/hypervisor-machine-profile-qualification-certificate-v1/negative-not-qualified-without-a-reason.json"#,
+        contract_id: r#"schema://ioi/components/hypervisor/hypervisor-machine-profile-qualification-certificate/v1"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/hypervisor-machine-profile-qualification-certificate-v1/negative-not-qualified-without-a-reason.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: true,
+        oracle_contract_accept: false,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/hypervisor-machine-profile-qualification-certificate-v1/negative-other-profile-not-disclaimed.json"#,
+        contract_id: r#"schema://ioi/components/hypervisor/hypervisor-machine-profile-qualification-certificate/v1"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/hypervisor-machine-profile-qualification-certificate-v1/negative-other-profile-not-disclaimed.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: false,
+        oracle_contract_accept: false,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/hypervisor-machine-profile-qualification-certificate-v1/negative-qualified-on-simulated-basis.json"#,
+        contract_id: r#"schema://ioi/components/hypervisor/hypervisor-machine-profile-qualification-certificate/v1"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/hypervisor-machine-profile-qualification-certificate-v1/negative-qualified-on-simulated-basis.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: false,
+        oracle_contract_accept: false,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/hypervisor-machine-profile-qualification-certificate-v1/negative-seventeenth-verb.json"#,
+        contract_id: r#"schema://ioi/components/hypervisor/hypervisor-machine-profile-qualification-certificate/v1"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/hypervisor-machine-profile-qualification-certificate-v1/negative-seventeenth-verb.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: false,
+        oracle_contract_accept: false,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/hypervisor-machine-profile-qualification-certificate-v1/negative-unknown-member.json"#,
+        contract_id: r#"schema://ioi/components/hypervisor/hypervisor-machine-profile-qualification-certificate/v1"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/hypervisor-machine-profile-qualification-certificate-v1/negative-unknown-member.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: false,
+        oracle_contract_accept: false,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/hypervisor-machine-profile-qualification-certificate-v1/negative-vm-boot-admitted-as-evidence.json"#,
+        contract_id: r#"schema://ioi/components/hypervisor/hypervisor-machine-profile-qualification-certificate/v1"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/hypervisor-machine-profile-qualification-certificate-v1/negative-vm-boot-admitted-as-evidence.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: false,
+        oracle_contract_accept: false,
+    },
+    ArchitectureContractDifferentialCase {
         id: r#"fixture:docs/architecture/_meta/schemas/fixtures/hypervisor-machine-host-v1/positive-nominal.json"#,
         contract_id: r#"schema://ioi/components/hypervisor/hypervisor-machine-host/v1"#,
         source_fixture_path: Some(
@@ -198959,6 +200399,7 @@ const CONTRACT_SCHEMAS: &[(&str, &str)] = &[
     ("schema://ioi/components/hypervisor/foundry-qualified-measurement/v2", r##"{"$schema":"https://json-schema.org/draft/2020-12/schema","$id":"schema://ioi/components/hypervisor/foundry-qualified-measurement/v2","title":"FoundryQualifiedMeasurement","description":"A PERFORMANCE CLAIM THAT CARRIES ITS COMPLETE FINGERPRINT SET, WHICH v1 COULD NOT. Canon requires a Foundry performance claim to state MODEL, RECIPE, SOFTWARE, HARDWARE and TOPOLOGY fingerprints plus TIME-TO-QUALITY. v1 carried ONE composite `hardware_software_topology_fingerprint` of eight CPU, OS and release members — three of canon's six named elements had no field anywhere in the estate, and a claim cannot be audited against a fingerprint set it never recorded. THIS IS A SUCCESSOR AND NOT A WIDENING because v1 is `wire_mutation_policy: forbidden` and carries written records: adding fields in place would change what already-admitted bytes mean, so canon mandates succession and v1 stays valid for everything written under it. THE SPLIT IS NOT COSMETIC. A single composite cannot answer the question a reader actually has — WHICH axis changed between two measurements — because a differing composite says only that something did. Five named fingerprints make a claim comparable: two runs differing in `software_fingerprint` alone are a software regression, and the same two differing in `hardware_fingerprint` alone are not a regression at all. AND `topology_fingerprint` STOPS BEING DEGENERATE: v1 pinned `scope` to `daemon_cpu_process`, so every measurement described a single process by construction and the topology axis could never vary. It is stated explicitly here, so a distributed measurement is recordable rather than unrepresentable. `time_to_quality` is required with its own target, because a throughput number without the quality it reached is a speed claim wearing a quality claim's clothes.","x-ioi-schema-version":"ioi.foundry-qualified-measurement.v2","type":"object","additionalProperties":false,"required":["schema_version","verdict","quality","measurement","promotion_boundary"],"properties":{"schema_version":{"type":"string","const":"ioi.foundry-qualified-measurement.v2"},"verdict":{"enum":["qualified","rejected"]},"quality":{"type":"object","additionalProperties":false,"required":["token_coverage","mean_negative_log_likelihood","gate"],"properties":{"token_coverage":{"type":"number","minimum":0,"maximum":1},"mean_negative_log_likelihood":{"type":"number","minimum":0,"maximum":1000000000000},"gate":{"type":"object","additionalProperties":false,"required":["minimum_token_coverage","maximum_mean_negative_log_likelihood"],"properties":{"minimum_token_coverage":{"type":"number","minimum":0,"maximum":1},"maximum_mean_negative_log_likelihood":{"type":"number","minimum":0,"maximum":1000000000000}}}}},"measurement":{"type":"object","additionalProperties":false,"required":["phase","token_numerator","denominator","scope","raw_tokens","effective_tokens","elapsed_nanoseconds","tokens_per_second","includes_compilation","includes_loading","includes_evaluation","includes_checkpoint","includes_failure_and_recovery","cost_basis_ref","failure_schedule_ref","model_fingerprint","recipe_fingerprint","software_fingerprint","hardware_fingerprint","topology_fingerprint","time_to_quality"],"properties":{"phase":{"const":"evaluation"},"token_numerator":{"const":"loss_bearing"},"denominator":{"const":"full_wall_clock"},"scope":{"enum":["daemon_cpu_process","distributed"]},"raw_tokens":{"$ref":"#/$defs/positiveInteger"},"effective_tokens":{"$ref":"#/$defs/positiveInteger"},"elapsed_nanoseconds":{"$ref":"#/$defs/positiveInteger"},"tokens_per_second":{"type":"number","minimum":0,"maximum":1000000000000000},"includes_compilation":{"const":false},"includes_loading":{"const":true},"includes_evaluation":{"const":true},"includes_checkpoint":{"const":false},"includes_failure_and_recovery":{"const":false},"cost_basis_ref":{"type":"string","pattern":"^(?:cost|ledger|policy)://[^\\s]{1,500}$"},"failure_schedule_ref":{"type":"string","pattern":"^(?:schedule|policy|artifact)://[^\\s]{1,500}$"},"model_fingerprint":{"$ref":"#/$defs/modelFingerprint"},"recipe_fingerprint":{"$ref":"#/$defs/recipeFingerprint"},"software_fingerprint":{"$ref":"#/$defs/softwareFingerprint"},"hardware_fingerprint":{"$ref":"#/$defs/hardwareFingerprint"},"topology_fingerprint":{"$ref":"#/$defs/topologyFingerprint"},"time_to_quality":{"$ref":"#/$defs/timeToQuality"}}},"promotion_boundary":{"type":"object","additionalProperties":false,"required":["proposal_only","governance_approval_required","runtime_activation_performed"],"properties":{"proposal_only":{"const":true},"governance_approval_required":{"const":true},"runtime_activation_performed":{"const":false}}}},"$defs":{"positiveInteger":{"type":"integer","minimum":1,"maximum":9007199254740991},"contentHash":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"},"ref":{"type":"string","pattern":"^[a-z][a-z0-9+._-]*://\\S+$"},"modelFingerprint":{"type":"object","additionalProperties":false,"description":"WHICH MODEL was measured, by identity AND by content. A ref alone is a mutable pointer; the weights digest is what makes two measurements of 'the same model' checkable.","required":["model_ref","weights_digest","parameter_count"],"properties":{"model_ref":{"$ref":"#/$defs/ref"},"weights_digest":{"$ref":"#/$defs/contentHash"},"parameter_count":{"$ref":"#/$defs/positiveInteger"}}},"recipeFingerprint":{"type":"object","additionalProperties":false,"description":"WHICH RECIPE produced it, pinned by content. A recipe named but not hashed lets an edited recipe wear an old measurement's result.","required":["recipe_ref","recipe_body_hash"],"properties":{"recipe_ref":{"$ref":"#/$defs/ref"},"recipe_body_hash":{"$ref":"#/$defs/contentHash"}}},"softwareFingerprint":{"type":"object","additionalProperties":false,"description":"The software axis, split out of v1's composite so a software regression is distinguishable from a hardware one.","required":["operating_system","daemon_release_ref","trainer_backend_profile_ref"],"properties":{"operating_system":{"enum":["linux","macos","windows"]},"daemon_release_ref":{"type":"string","pattern":"^release://[^\\s]{1,500}$"},"trainer_backend_profile_ref":{"$ref":"#/$defs/ref"}}},"hardwareFingerprint":{"type":"object","additionalProperties":false,"description":"The hardware axis. `accelerator` is nullable rather than absent, so a CPU-only run states that it was CPU-only instead of leaving a reader to infer it.","required":["hardware_architecture","logical_cpu_count","memory_bytes","accelerator"],"properties":{"hardware_architecture":{"enum":["x86_64","aarch64"]},"logical_cpu_count":{"type":"integer","minimum":1,"maximum":65535},"memory_bytes":{"type":"integer","minimum":1,"maximum":9007199254740991},"accelerator":{"anyOf":[{"type":"string","minLength":1},{"type":"null"}]}}},"topologyFingerprint":{"type":"object","additionalProperties":false,"description":"The topology axis, which v1 could not vary: its `scope` was pinned to a single daemon CPU process, so every measurement described one process BY CONSTRUCTION. Stated explicitly here so a distributed measurement is recordable rather than unrepresentable.","required":["runtime_node_ref","environment_ref","process_count","node_count","parallelism"],"properties":{"runtime_node_ref":{"type":"string","pattern":"^runtime://[^\\s]{1,500}$"},"environment_ref":{"type":"string","pattern":"^environment://[^\\s]{1,500}$"},"process_count":{"$ref":"#/$defs/positiveInteger"},"node_count":{"$ref":"#/$defs/positiveInteger"},"parallelism":{"enum":["single_process","multi_process","multi_node"]}}},"timeToQuality":{"type":"object","additionalProperties":false,"description":"How long it took to REACH a stated quality, and which quality. A throughput number without the quality it reached is a speed claim wearing a quality claim's clothes; `reached` being false with a finite elapsed time is the honest record of a run that ran out of budget.","required":["quality_metric","target_value","reached","elapsed_nanoseconds"],"properties":{"quality_metric":{"type":"string","minLength":1},"target_value":{"type":"number"},"reached":{"type":"boolean"},"elapsed_nanoseconds":{"$ref":"#/$defs/positiveInteger"}}}}}"##),
     ("schema://ioi/components/hypervisor/hypervisor-machine-operation/v1", r##"{"$schema":"https://json-schema.org/draft/2020-12/schema","$id":"schema://ioi/components/hypervisor/hypervisor-machine-operation/v1","title":"HypervisorMachineOperation","description":"THE VERSIONED MACHINE OPERATION, WHICH IS WHY THE VERB CANNOT BE A BACKEND STRING. Canon's machine-control family names eleven contracts and specifies the fields of exactly two; this is one of them, authored from canon's own binding list rather than from a shape invented here. Its purpose is ACC-20 clause 3: discover/define/import/create, start/stop/pause/resume/reboot, console open/close, snapshot/clone/restore, supported migration and delete resolve to the SAME versioned daemon operations, and backend aliases never become canonical verbs. A backend that calls reboot `restart` does not get to widen the vocabulary by saying so, which is the entire reason `operation` is a closed enum and not a string. WHY THE CAPABILITY DECLARATION IS BOUND BY REF AND HASH TOGETHER. Canon: backend support is a capability matrix, not a lowest-common-denominator lie, and an unsupported operation fails BEFORE effect with the exact typed reason from the CURRENT capability declaration. A ref alone would let the declaration drift under the operation between admission and effect, which is the drifted cell ACC-20 clause 4 requires to refuse; the hash is what makes 'current' checkable rather than assumed. WHAT IS DELIBERATELY A REF AND NOT AN ENUM. Canon says an operation binds its 'declared durability and observation boundary' but nowhere states a vocabulary for either, and neither term appears anywhere else in this estate's canon or code. Minting one here would make this schema the specification for a thing canon has not decided, which inverts the ordering this estate works by, so both are carried as refs to a declaration that owns its own vocabulary.","x-ioi-schema-version":"ioi.hypervisor.machine-operation.v1","type":"object","additionalProperties":false,"required":["schema_version","operation_ref","operation","workload_ref","desired_generation","expected_head","owner_ref","environment_ref","backend_registration_ref","capability_declaration_ref","capability_declaration_hash","affected_image_bindings","affected_volume_bindings","affected_network_bindings","affected_device_bindings","authority_refs","policy_refs","idempotency_key_hash","cleanup_obligation_ref","durability_boundary_ref","observation_boundary_ref"],"properties":{"schema_version":{"type":"string","const":"ioi.hypervisor.machine-operation.v1"},"operation_ref":{"type":"string","pattern":"^machine-operation://\\S+$","description":"The operation's OWN canonical identity, minted by the daemon. Canon is explicit that backend-native ids never become canonical identity; they arrive on the receipt as evidence instead."},"operation":{"enum":["discover","define","import","create","start","stop","pause","resume","reboot","open_console","close_console","snapshot","clone","restore","migrate","delete"],"description":"Canon's minimum lifecycle vocabulary, exactly and in its order. Closed on purpose: 'an exact versioned operation member rather than a backend-authored string'. A backend extension is expressed by the capability matrix declaring the cell supported, never by adding a verb here."},"workload_ref":{"$ref":"#/$defs/ref","description":"The target VirtualMachineWorkload."},"desired_generation":{"type":"integer","minimum":0,"maximum":9007199254740991,"description":"The target generation this operation acts on. Bound with `expected_head` because a generation alone says WHEN the caller looked and not WHAT it saw."},"expected_head":{"$ref":"#/$defs/hash","description":"The canonical head the caller expects. A stale generation is one of the cases ACC-20 clause 7 requires to converge without double effect, and that is only decidable if the request carries what it believed."},"owner_ref":{"$ref":"#/$defs/ref"},"environment_ref":{"$ref":"#/$defs/ref"},"backend_registration_ref":{"$ref":"#/$defs/ref","description":"The registered backend this operation is bound to. Provider ids stay evidence; the registration is the admitted thing."},"capability_declaration_ref":{"$ref":"#/$defs/ref"},"capability_declaration_hash":{"$ref":"#/$defs/hash","description":"The EXACT declaration consulted, not merely which one. Unsupported, stale, unknown and drifted cells must refuse before effect (ACC-20 clause 4), and a drifted cell is undetectable from a ref."},"affected_image_bindings":{"$ref":"#/$defs/boundRefs","description":"Every image the operation affects, each bound by ref AND hash as canon requires. An empty array is a claim — this operation affects no image — and is why the field is required rather than optional."},"affected_volume_bindings":{"$ref":"#/$defs/boundRefs"},"affected_network_bindings":{"$ref":"#/$defs/boundRefs"},"affected_device_bindings":{"$ref":"#/$defs/boundRefs"},"authority_refs":{"type":"array","uniqueItems":true,"items":{"$ref":"#/$defs/ref"},"description":"The authority under which this crosses. ACC-20 clause 5: authority and effects do not move into clients — a client submits a proposal and the daemon plus the wallet-owned authority path admit it."},"policy_refs":{"type":"array","uniqueItems":true,"items":{"$ref":"#/$defs/ref"}},"idempotency_key_hash":{"$ref":"#/$defs/hash","description":"The HASH of the caller's idempotency key, matching the estate's existing convention on `connector-mapping.v2` rather than minting a second one. Duplicate and replayed requests must converge without double effect (ACC-20 clause 7), and the durable record needs to recognise a repeat without retaining the key itself."},"cleanup_obligation_ref":{"anyOf":[{"$ref":"#/$defs/ref"},{"type":"null"}],"description":"The cleanup/compensation obligation this operation owes if it fails or becomes ambiguous. Present-and-null rather than absent: an operation that owes nothing has SAID so, and an absent field would be indistinguishable from one nobody computed."},"durability_boundary_ref":{"$ref":"#/$defs/ref","description":"The declared durability boundary — what is guaranteed to survive a crash at this point. A ref, not an enum, because canon names the binding and not its vocabulary (see the title description)."},"observation_boundary_ref":{"$ref":"#/$defs/ref","description":"The declared observation boundary — what the daemon can honestly claim to have observed rather than inferred. Canon requires uncertain external completion to reconcile honestly instead of being assumed complete, which needs the boundary stated in the request rather than reconstructed afterwards."}},"$defs":{"ref":{"type":"string","pattern":"^[a-z][a-z0-9+.-]*://\\S+$"},"hash":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"},"boundRef":{"type":"object","additionalProperties":false,"required":["ref","hash"],"properties":{"ref":{"$ref":"#/$defs/ref"},"hash":{"$ref":"#/$defs/hash"}}},"boundRefs":{"type":"array","uniqueItems":true,"items":{"$ref":"#/$defs/boundRef"}}}}"##),
     ("schema://ioi/components/hypervisor/hypervisor-machine-operation-receipt/v1", r##"{"$schema":"https://json-schema.org/draft/2020-12/schema","$id":"schema://ioi/components/hypervisor/hypervisor-machine-operation-receipt/v1","title":"HypervisorMachineOperationReceipt","description":"WHAT ACTUALLY HAPPENED TO A MACHINE, INCLUDING WHEN THAT IS NOT KNOWN. Canon's binding list for this receipt is exact: the admitted request, backend-native operation identity AS EVIDENCE, pre and post desired AND observed generations, result or typed ambiguity/refusal, consequence receipts, and the exact verifier profile. THE RESULT VOCABULARY HAS THREE MEMBERS AND NOT TWO, WHICH IS THE POINT. `ambiguous` is a first-class outcome beside `succeeded` and `refused` because ACC-20 clause 7 requires uncertain external completion to reconcile honestly rather than be recorded as either — a backend that timed out after the effect may have started may have done the work, and a receipt forced to choose would be inventing one of the two answers. The estate's existing reconciler doctrine says the same thing from the other side: restart from an ambiguous claim becomes `reconciliation_required` rather than a second invocation. FOUR GENERATIONS, NOT TWO, BECAUSE DESIRED AND OBSERVED NEVER COLLAPSE. Canon states that desired and observed state never collapse into one mutable status field; a receipt that recorded a single before and after would re-collapse them at the moment of recording. The gap between `observed_generation_after` and `desired_generation_after` is exactly how a caller learns that an operation was admitted and has not yet landed. THE BACKEND'S OWN ID IS EVIDENCE AND NEVER IDENTITY. It is carried so an operator can correlate with the backend's console, and it is nullable because a refusal before effect has no backend operation to name — but canonical identity is always the daemon's `operation_ref`.","x-ioi-schema-version":"ioi.hypervisor.machine-operation-receipt.v1","type":"object","additionalProperties":false,"required":["schema_version","receipt_ref","operation_ref","admitted_request_hash","backend_native_operation_id","desired_generation_before","desired_generation_after","observed_generation_before","observed_generation_after","result","result_reason","consequence_receipt_refs","verifier_profile_ref"],"properties":{"schema_version":{"type":"string","const":"ioi.hypervisor.machine-operation-receipt.v1"},"receipt_ref":{"type":"string","pattern":"^machine-operation-receipt://\\S+$"},"operation_ref":{"$ref":"#/$defs/ref","description":"The canonical operation this answers."},"admitted_request_hash":{"$ref":"#/$defs/hash","description":"The hash of the request AS ADMITTED, which is not necessarily the request as submitted. Binding the admitted form is what makes a receipt evidence about the operation the daemon actually ran rather than about what a client said it wanted."},"backend_native_operation_id":{"anyOf":[{"type":"string","minLength":1,"maxLength":512},{"type":"null"}],"description":"EVIDENCE, never identity. Null when the operation refused before reaching the backend, which is a claim rather than an omission — a refusal that named a backend operation would be describing an effect it prevented."},"desired_generation_before":{"$ref":"#/$defs/generation"},"desired_generation_after":{"$ref":"#/$defs/generation"},"observed_generation_before":{"$ref":"#/$defs/generation"},"observed_generation_after":{"$ref":"#/$defs/generation","description":"Observed, not desired. When this trails `desired_generation_after` the operation is admitted and not yet landed, and saying so is the difference between a runtime that reports state and one that reports intentions."},"result":{"enum":["succeeded","refused","ambiguous"],"description":"Three members. `ambiguous` is not a failure mode of the vocabulary, it is a fact the vocabulary must be able to state: an external completion the daemon could not confirm is neither a success nor a refusal, and forcing it into either would be inventing the answer."},"result_reason":{"anyOf":[{"type":"string","minLength":1,"maxLength":512,"pattern":"^[a-z][a-z0-9_]*$"},{"type":"null"}],"description":"The TYPED reason, snake_case so it is a member of a vocabulary rather than a sentence. Required-and-nullable: null is admitted only alongside `succeeded`, and a refusal or ambiguity without a reason is exactly the untyped failure canon refuses — see the portable invariant."},"consequence_receipt_refs":{"type":"array","uniqueItems":true,"items":{"$ref":"#/$defs/ref"},"description":"Receipts for what this operation caused downstream. An empty array is a claim that it caused nothing further."},"verifier_profile_ref":{"$ref":"#/$defs/ref","description":"The EXACT verifier profile under which this receipt's claims were checked. ACC-20 clause 10 keeps the hosted and attached matrices separate; evidence from one cannot promote the other, and a receipt that did not name its profile could be read as either."}},"$defs":{"ref":{"type":"string","pattern":"^[a-z][a-z0-9+.-]*://\\S+$"},"hash":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"},"generation":{"type":"integer","minimum":0,"maximum":9007199254740991}}}"##),
+    ("schema://ioi/components/hypervisor/hypervisor-machine-profile-qualification-certificate/v1", r##"{"$schema":"https://json-schema.org/draft/2020-12/schema","$id":"schema://ioi/components/hypervisor/hypervisor-machine-profile-qualification-certificate/v1","title":"HypervisorMachineProfileQualificationCertificate","x-ioi-schema-version":"ioi.hypervisor.machine-profile-qualification-certificate.v1","description":"ONE machine-product profile's qualification, as a certificate that can only read DOWN from its evidence. Canon binds every Workstation and attached-Infrastructure statement to one subject-specific claim, the exact release/profile/backend matrix and fresh evidence, closable and withdrawable on its own (public-web-estate.md § Subject-specific compute claims; core-clients-surfaces.md § the bundles; ACC-20 clause 10). This certificate is GENERATED from durable machine-plane records, never authored: it binds the backend registration and the capability declaration by ref, by the hash the declaration carries AND by a digest recomputed over the declaration's bytes (the kernel compares the carried member and never recomputes, so a drifted record with an unchanged member is invisible to it and must not be to this); the sixteen-verb matrix with every unsupported cell and its typed reason and every supported cell the evidence never exercised named `untested`; the declared limitations; the evidence runs with their receipts by ref and hash; both delivery forms' evidence; the evidence window and validity; and the release identity the daemon ran under. `qualification` reads `qualified` ONLY from `live` backend evidence — the schema refuses `qualified` on any other basis — reads `not_qualified` with typed reasons from simulated or declared evidence, and reads `withdrawn` with a typed reason when its evidence expires, its declaration drifts or its release is no longer the one that ran. `does_not_qualify` MUST name the other profile: evidence from one profile never promotes the other. An attached-Infrastructure certificate carries `vmm_ownership_claimed: false` as a constant. Artifacts canon refuses as qualification evidence (a VM boot, a hostile-guest test, a downloadable binary, a bootable image, a generated dashboard, a backend declaration, an autonomy proof, provider-portability or packaging evidence, simulated-only runs presented as host compatibility, the other profile's evidence) are recorded under `refused_evidence` when presented and never under `evidence_runs`. Owner: providers-and-environments.md § Machine-control contract family (M12.15).","type":"object","additionalProperties":false,"required":["schema_version","certificate_ref","certificate_hash","profile_id","bundle","does_not_qualify","subject","release","matrix","delivery_forms","evidence_runs","freshness","qualification","evidence_basis","not_qualified_reasons","refused_evidence","nonclaims","issuer","withdrawal"],"properties":{"schema_version":{"type":"string","const":"ioi.hypervisor.machine-profile-qualification-certificate.v1"},"certificate_ref":{"type":"string","pattern":"^machine-profile-certificate://[^\\s]{1,240}$"},"certificate_hash":{"$ref":"#/$defs/hash","description":"sha256 over the certificate's stable JSON with this member removed. Regenerating the certificate from the same records yields the same hash; a certificate that cannot be regenerated is not evidence."},"profile_id":{"$ref":"#/$defs/profile_id"},"bundle":{"type":"string","enum":["hypervisor_workstation","hypervisor_infrastructure"],"description":"The owner-qualified claim bundle this profile closes (term-boundaries.md § Hypervisor category terms): a bundle, not an app, plane or truth owner."},"does_not_qualify":{"type":"array","minItems":1,"uniqueItems":true,"items":{"type":"string","enum":["workstation_hosted_v1","infrastructure_attached_v1","hypervisoros_node_root_v1","type_1","type_2","legacy_replacement"]},"description":"What this certificate never qualifies. It MUST name the other machine profile (evidence from one cannot promote the other) and names the external mappings and the supersession claim canon keeps separate."},"subject":{"type":"object","additionalProperties":false,"required":["backend_registration_ref","capability_declaration_ref","capability_declaration_hash_declared","capability_declaration_bytes_sha256","evidence_mode","resource_relationship","vmm_ownership_claimed"],"properties":{"backend_registration_ref":{"$ref":"#/$defs/ref"},"capability_declaration_ref":{"$ref":"#/$defs/ref"},"capability_declaration_hash_declared":{"$ref":"#/$defs/hash","description":"The `declaration_hash` member the declaration record carries — what the kernel compares an operation's binding against."},"capability_declaration_bytes_sha256":{"$ref":"#/$defs/hash","description":"A digest RECOMPUTED over the declaration record's stable JSON at generation time. The kernel never recomputes it; the certificate does, so a declaration edited in place under an unchanged carried hash withdraws this certificate on the next verification rather than passing unseen."},"evidence_mode":{"type":"string","enum":["live","simulated","declared"],"description":"The declaration's own evidence mode, copied never relabelled: it is what `evidence_basis` derives from."},"resource_relationship":{"type":"string","enum":["local","customer_attached"],"description":"The bundle's deployment/resource relationship facet: `local` for the hosted Workstation, `customer_attached` for attached Infrastructure."},"vmm_ownership_claimed":{"type":"boolean","description":"Whether this certificate claims Hypervisor is the subject estate's underlying VMM. Always false; the schema refuses true on the attached profile outright, and the hosted profile has no estate to own."}}},"release":{"type":"object","additionalProperties":false,"required":["source_commit","daemon_binary_sha256","release_manifest_sha256","release_version","signer_key_id","dirty_state_declaration"],"properties":{"source_commit":{"anyOf":[{"type":"string","pattern":"^[0-9a-f]{40}$"},{"type":"null"}]},"daemon_binary_sha256":{"anyOf":[{"$ref":"#/$defs/hash"},{"type":"null"}]},"release_manifest_sha256":{"anyOf":[{"$ref":"#/$defs/hash"},{"type":"null"}],"description":"The sha256 of the packaged release manifest the daemon was installed from (M12.2's alpha-release), or null when the daemon ran from a source build — in which case the certificate carries `release_unbound` among its reasons."},"release_version":{"anyOf":[{"type":"string","minLength":1,"maxLength":120},{"type":"null"}]},"signer_key_id":{"anyOf":[{"type":"string","minLength":1,"maxLength":240},{"type":"null"}]},"dirty_state_declaration":{"type":"string","minLength":1,"maxLength":240}}},"matrix":{"type":"object","additionalProperties":false,"required":["verbs","architectures","guests","limitations"],"properties":{"verbs":{"type":"array","minItems":16,"maxItems":16,"items":{"type":"object","additionalProperties":false,"required":["operation","status","reason_code"],"properties":{"operation":{"type":"string","enum":["discover","define","import","create","start","stop","pause","resume","reboot","open_console","close_console","snapshot","clone","restore","migrate","delete"]},"status":{"type":"string","enum":["supported","unsupported","untested"],"description":"`supported` = declared and exercised by a succeeded receipt in this certificate's evidence runs; `unsupported` = declared unsupported with the declaration's own reason; `untested` = declared supported and never exercised here — named, never assumed."},"reason_code":{"anyOf":[{"type":"string","pattern":"^[a-z][a-z0-9_]*$","maxLength":120},{"type":"null"}]}}},"description":"Canon's sixteen verbs, each with its status under THIS backend and THIS evidence. The vocabulary is the kernel's; a seventeenth verb or a missing one fails the schema."},"architectures":{"type":"array","uniqueItems":true,"items":{"type":"string","minLength":1,"maxLength":40}},"guests":{"type":"array","uniqueItems":true,"items":{"type":"string","minLength":1,"maxLength":120},"description":"The guest/firmware profiles the backend declares. The registered declaration contract carries none today; an empty list is the declared fact and the certificate names `guest_matrix_undeclared` among its reasons."},"limitations":{"type":"array","uniqueItems":true,"items":{"type":"string","minLength":1,"maxLength":512}}}},"delivery_forms":{"type":"object","additionalProperties":false,"required":["integrated","standalone"],"properties":{"integrated":{"anyOf":[{"$ref":"#/$defs/delivery_evidence"},{"type":"null"}]},"standalone":{"anyOf":[{"$ref":"#/$defs/delivery_evidence"},{"type":"null"}]}},"description":"The two delivery forms' evidence of rendering the same spine (M08.15). A missing form is null and names `delivery_form_missing`; the standalone form records WHICH form it was — the thin client is not the distributed client."},"evidence_runs":{"type":"array","minItems":1,"items":{"type":"object","additionalProperties":false,"required":["kind","workload_ref","head","operation_count","receipts","window"],"properties":{"kind":{"type":"string","const":"machine_lifecycle_run","description":"The only evidence kind a certificate admits. Everything else canon refuses is recorded under `refused_evidence`."},"workload_ref":{"$ref":"#/$defs/ref"},"head":{"anyOf":[{"$ref":"#/$defs/hash"},{"type":"null"}]},"operation_count":{"type":"integer","minimum":1,"maximum":9007199254740991},"receipts":{"type":"array","minItems":1,"items":{"type":"object","additionalProperties":false,"required":["receipt_ref","receipt_sha256","operation","result"],"properties":{"receipt_ref":{"$ref":"#/$defs/ref"},"receipt_sha256":{"$ref":"#/$defs/hash"},"operation":{"type":"string","pattern":"^[a-z][a-z0-9_]*$","maxLength":40},"result":{"type":"string","enum":["succeeded","refused","ambiguous"]}}}},"window":{"$ref":"#/$defs/window"}}}},"freshness":{"type":"object","additionalProperties":false,"required":["evidence_window","issued_at","valid_until","validity_policy_ref","currentness_evaluation_ref"],"properties":{"evidence_window":{"$ref":"#/$defs/window"},"issued_at":{"$ref":"#/$defs/instant"},"valid_until":{"$ref":"#/$defs/instant"},"validity_policy_ref":{"$ref":"#/$defs/ref"},"currentness_evaluation_ref":{"$ref":"#/$defs/ref","description":"The declaration's own currentness evaluation ref, carried so a verifier can ask its evaluator; the registered declaration contract carries no timestamps, and this certificate's window is derived from the runs' submission times."}}},"qualification":{"type":"string","enum":["qualified","not_qualified","withdrawn"]},"evidence_basis":{"type":"string","enum":["live","simulated","declared","none"]},"not_qualified_reasons":{"type":"array","uniqueItems":true,"items":{"type":"string","enum":["evidence_basis_simulated","evidence_basis_declared","no_live_backend_registered","release_unbound","supported_cells_untested","guest_matrix_undeclared","limitations_undeclared","delivery_form_missing","freshness_expired","declaration_drifted","evidence_window_empty"]}},"refused_evidence":{"type":"array","uniqueItems":true,"items":{"type":"object","additionalProperties":false,"required":["kind","ref","reason"],"properties":{"kind":{"type":"string","enum":["vm_boot","hostile_guest_test","downloadable_binary","bootable_image","generated_dashboard","backend_declaration","autonomy_proof","provider_portability","packaging","simulated_only_as_host_compatibility","other_profile_evidence"]},"ref":{"type":"string","minLength":1,"maxLength":512},"reason":{"type":"string","const":"not_qualification_evidence"}}},"description":"Artifacts PRESENTED as qualification evidence and refused by kind (ACC-20 N1; M12 § 5). They are recorded so the refusal is visible; they contribute nothing."},"nonclaims":{"type":"array","minItems":6,"uniqueItems":true,"items":{"type":"string","minLength":12,"maxLength":400}},"issuer":{"type":"object","additionalProperties":false,"required":["verifier_identity_ref","verifier_build_hash"],"properties":{"verifier_identity_ref":{"$ref":"#/$defs/ref"},"verifier_build_hash":{"anyOf":[{"$ref":"#/$defs/hash"},{"type":"null"}]}}},"withdrawal":{"anyOf":[{"type":"null"},{"type":"object","additionalProperties":false,"required":["reason","at","detail"],"properties":{"reason":{"type":"string","enum":["freshness_expired","declaration_drifted","release_unbound","evidence_basis_downgraded","owner_withdrawn"]},"at":{"$ref":"#/$defs/instant"},"detail":{"type":"string","minLength":1,"maxLength":512}}}]}},"allOf":[{"if":{"properties":{"qualification":{"type":"string","const":"qualified"}},"required":["qualification"]},"then":{"properties":{"evidence_basis":{"type":"string","const":"live"},"withdrawal":{"type":"null"}}}},{"if":{"properties":{"qualification":{"type":"string","const":"withdrawn"}},"required":["qualification"]},"then":{"properties":{"withdrawal":{"type":"object"}}}},{"if":{"properties":{"qualification":{"type":"string","const":"not_qualified"}},"required":["qualification"]},"then":{"properties":{"withdrawal":{"type":"null"}}}},{"if":{"properties":{"profile_id":{"type":"string","const":"workstation_hosted_v1"}},"required":["profile_id"]},"then":{"properties":{"bundle":{"type":"string","const":"hypervisor_workstation"},"does_not_qualify":{"type":"array","contains":{"type":"string","const":"infrastructure_attached_v1"}},"subject":{"type":"object","properties":{"resource_relationship":{"type":"string","const":"local"},"vmm_ownership_claimed":{"type":"boolean","const":false}}}}}},{"if":{"properties":{"profile_id":{"type":"string","const":"infrastructure_attached_v1"}},"required":["profile_id"]},"then":{"properties":{"bundle":{"type":"string","const":"hypervisor_infrastructure"},"does_not_qualify":{"type":"array","contains":{"type":"string","const":"workstation_hosted_v1"}},"subject":{"type":"object","properties":{"resource_relationship":{"type":"string","const":"customer_attached"},"vmm_ownership_claimed":{"type":"boolean","const":false}}}}}}],"$defs":{"ref":{"type":"string","pattern":"^[a-z][a-z0-9+.-]*://\\S+$"},"hash":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"},"instant":{"type":"string","pattern":"^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}[.0-9]*Z$"},"profile_id":{"type":"string","enum":["workstation_hosted_v1","infrastructure_attached_v1"]},"window":{"type":"object","additionalProperties":false,"required":["from","to"],"properties":{"from":{"$ref":"#/$defs/instant"},"to":{"$ref":"#/$defs/instant"}}},"delivery_evidence":{"type":"object","additionalProperties":false,"required":["form","evidence_ref","evidence_sha256"],"properties":{"form":{"type":"string","enum":["hypervisor_app","thin_client","distributed_client"]},"evidence_ref":{"type":"string","minLength":1,"maxLength":512},"evidence_sha256":{"$ref":"#/$defs/hash"}}}}}"##),
     ("schema://ioi/components/hypervisor/hypervisor-machine-host/v1", r##"{"$schema":"https://json-schema.org/draft/2020-12/schema","$id":"schema://ioi/components/hypervisor/hypervisor-machine-host/v1","title":"HypervisorMachineHost","description":"A HOST, WHICH IS WHAT A DEVICE BELONGS TO BEFORE A MACHINE DOES. Declared capacity and observed capacity are separate members because canon's rule that desired and observed never collapse applies to a host exactly as it does to a machine: a host whose observed capacity trails its declared capacity is oversubscribed or degraded, and one number cannot say that.","x-ioi-schema-version":"ioi.hypervisor.machine-host.v1","type":"object","additionalProperties":false,"required":["schema_version","host_ref","backend_registration_ref","backend_native_host_id","machine_architecture","capability_declaration_ref","capability_declaration_hash","capacity","observed_capacity","maintenance_state","maintenance_plan_ref","evidence_refs","receipt_refs"],"properties":{"schema_version":{"type":"string","const":"ioi.hypervisor.machine-host.v1"},"host_ref":{"type":"string","pattern":"^machine-host://\\S+$","description":"Canonical identity, daemon-minted."},"backend_registration_ref":{"$ref":"#/$defs/ref"},"backend_native_host_id":{"anyOf":[{"type":"string","minLength":1,"maxLength":512},{"type":"null"}],"description":"EVIDENCE, never identity. Null when the backend exposes none."},"machine_architecture":{"type":"string","minLength":1,"maxLength":64},"capability_declaration_ref":{"$ref":"#/$defs/ref"},"capability_declaration_hash":{"$ref":"#/$defs/hash"},"capacity":{"type":"object","additionalProperties":false,"required":["vcpus","memory_mib","storage_gib"],"properties":{"vcpus":{"type":"integer","minimum":0,"maximum":9007199254740991},"memory_mib":{"type":"integer","minimum":0,"maximum":9007199254740991},"storage_gib":{"type":"integer","minimum":0,"maximum":9007199254740991}},"description":"DECLARED, not inferred from observation."},"observed_capacity":{"type":"object","additionalProperties":false,"required":["vcpus","memory_mib","storage_gib"],"properties":{"vcpus":{"type":"integer","minimum":0,"maximum":9007199254740991},"memory_mib":{"type":"integer","minimum":0,"maximum":9007199254740991},"storage_gib":{"type":"integer","minimum":0,"maximum":9007199254740991}},"description":"What the host reports. May trail `capacity`; saying so is the point."},"maintenance_state":{"enum":["available","draining","maintenance","unreachable"]},"maintenance_plan_ref":{"anyOf":[{"$ref":"#/$defs/ref"},{"type":"null"}],"description":"Present while a plan governs this host; null is a claim that none does."},"evidence_refs":{"type":"array","uniqueItems":true,"items":{"$ref":"#/$defs/ref"}},"receipt_refs":{"type":"array","uniqueItems":true,"items":{"$ref":"#/$defs/ref"}}},"$defs":{"ref":{"type":"string","pattern":"^[a-z][a-z0-9+.-]*://\\S+$"},"hash":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"},"typedReason":{"type":"string","minLength":1,"maxLength":512,"pattern":"^[a-z][a-z0-9_]*$"}}}"##),
     ("schema://ioi/components/hypervisor/hypervisor-machine-image/v1", r##"{"$schema":"https://json-schema.org/draft/2020-12/schema","$id":"schema://ioi/components/hypervisor/hypervisor-machine-image/v1","title":"HypervisorMachineImage","description":"AN IMAGE IS ITS DIGEST, AND A TAG IS NOT IDENTITY. A machine started from a moving tag cannot be reconstructed, and reconstruction after restart is what the governed-machine journey requires rather than a nicety.","x-ioi-schema-version":"ioi.hypervisor.machine-image.v1","type":"object","additionalProperties":false,"required":["schema_version","image_ref","content_digest","machine_architecture","image_format","size_bytes","provenance_refs","admission_state","admission_reason","receipt_refs"],"properties":{"schema_version":{"type":"string","const":"ioi.hypervisor.machine-image.v1"},"image_ref":{"type":"string","pattern":"^machine-image://\\S+$"},"content_digest":{"$ref":"#/$defs/hash"},"machine_architecture":{"type":"string","minLength":1,"maxLength":64},"image_format":{"type":"string","minLength":1,"maxLength":64},"size_bytes":{"type":"integer","minimum":0,"maximum":9007199254740991},"provenance_refs":{"type":"array","uniqueItems":true,"items":{"$ref":"#/$defs/ref"}},"admission_state":{"enum":["admitted","refused","withdrawn"]},"admission_reason":{"anyOf":[{"$ref":"#/$defs/typedReason"},{"type":"null"}],"description":"Typed, and REQUIRED whenever the image is not admitted — a refusal with no reason is the untyped failure this estate refuses."},"receipt_refs":{"type":"array","uniqueItems":true,"items":{"$ref":"#/$defs/ref"}}},"$defs":{"ref":{"type":"string","pattern":"^[a-z][a-z0-9+.-]*://\\S+$"},"hash":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"},"typedReason":{"type":"string","minLength":1,"maxLength":512,"pattern":"^[a-z][a-z0-9_]*$"}}}"##),
     ("schema://ioi/components/hypervisor/hypervisor-machine-volume-attachment/v1", r##"{"$schema":"https://json-schema.org/draft/2020-12/schema","$id":"schema://ioi/components/hypervisor/hypervisor-machine-volume-attachment/v1","title":"HypervisorMachineVolumeAttachment","description":"A VOLUME ATTACHMENT, BOUND TO FIVE AXES. Machine, principal, environment, scope and epoch, because an attachment that outlives any one of them becomes ambient access to the next machine.","x-ioi-schema-version":"ioi.hypervisor.machine-volume-attachment.v1","type":"object","additionalProperties":false,"required":["schema_version","attachment_ref","workload_ref","principal_ref","environment_ref","scope_ref","boot_epoch","volume_ref","volume_content_hash","access_mode","persistence","attachment_state","attachment_reason","cleanup_obligation_ref","receipt_refs"],"properties":{"schema_version":{"type":"string","const":"ioi.hypervisor.machine-volume-attachment.v1"},"workload_ref":{"$ref":"#/$defs/ref","description":"Machine-bound."},"principal_ref":{"$ref":"#/$defs/ref","description":"Principal-bound."},"environment_ref":{"$ref":"#/$defs/ref","description":"Environment-bound."},"scope_ref":{"$ref":"#/$defs/ref","description":"Scope-bound."},"boot_epoch":{"type":"integer","minimum":0,"maximum":9007199254740991,"description":"The boot epoch this was made under. An attachment does not survive a new epoch merely because the machine persists — a machine that rebooted is not still holding what it held before unless something said so again."},"attachment_ref":{"type":"string","pattern":"^machine-volume-attachment://\\S+$"},"volume_ref":{"$ref":"#/$defs/ref"},"volume_content_hash":{"$ref":"#/$defs/hash"},"access_mode":{"enum":["read_only","read_write"]},"persistence":{"enum":["persistent","ephemeral"]},"attachment_state":{"enum":["requested","attached","detaching","detached","refused"]},"attachment_reason":{"anyOf":[{"$ref":"#/$defs/typedReason"},{"type":"null"}],"description":"Typed, and REQUIRED whenever refused."},"cleanup_obligation_ref":{"anyOf":[{"$ref":"#/$defs/ref"},{"type":"null"}],"description":"Present-and-null when nothing is owed: an attachment that owes no cleanup has SAID so."},"receipt_refs":{"type":"array","uniqueItems":true,"items":{"$ref":"#/$defs/ref"}}},"$defs":{"ref":{"type":"string","pattern":"^[a-z][a-z0-9+.-]*://\\S+$"},"hash":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"},"typedReason":{"type":"string","minLength":1,"maxLength":512,"pattern":"^[a-z][a-z0-9_]*$"}}}"##),
@@ -199302,6 +200743,7 @@ const CONTRACT_INVARIANTS: &[(&str, &str)] = &[
     ("schema://ioi/components/hypervisor/foundry-qualified-measurement/v2", r#"[]"#),
     ("schema://ioi/components/hypervisor/hypervisor-machine-operation/v1", r#"[]"#),
     ("schema://ioi/components/hypervisor/hypervisor-machine-operation-receipt/v1", r#"[{"rule_id":"hypervisor_machine_operation_receipt.failure_and_ambiguity_are_typed","description":"A refusal or an ambiguity MUST name its reason. This is the one rule that keeps the three-member result vocabulary honest: `ambiguous` exists so that an unconfirmable external completion can be stated rather than guessed, and without this rule it degrades into a way to record 'something happened' with no obligation to say what — which is worse than the two-member vocabulary it replaced, because it looks like more information while carrying less.","expression":{"operator":"non_empty_when_in","path":"$.result_reason","when_path":"$.result","values":["refused","ambiguous"]}}]"#),
+    ("schema://ioi/components/hypervisor/hypervisor-machine-profile-qualification-certificate/v1", r#"[{"rule_id":"hypervisor_machine_profile_qualification_certificate.not_qualified_names_its_reasons","description":"A certificate that does not qualify says WHY, from the closed vocabulary. The schema already refuses `qualified` on anything but a live basis; this rule keeps the other direction honest — `not_qualified` with no reason would be a downgrade nobody can act on, and `withdrawn` without one would be a withdrawal nobody can lift.","expression":{"operator":"non_empty_when_in","path":"$.not_qualified_reasons","when_path":"$.qualification","values":["not_qualified","withdrawn"]}}]"#),
     ("schema://ioi/components/hypervisor/hypervisor-machine-host/v1", r#"[]"#),
     ("schema://ioi/components/hypervisor/hypervisor-machine-image/v1", r#"[{"rule_id":"hypervisor_machine_image.outcome_is_typed","description":"An image that is not admitted MUST say why. `withdrawn` is included beside `refused`: a withdrawal with no reason is indistinguishable from an image nobody looked at.","expression":{"operator":"non_empty_when_in","path":"$.admission_reason","when_path":"$.admission_state","values":["refused","withdrawn"]}}]"#),
     ("schema://ioi/components/hypervisor/hypervisor-machine-volume-attachment/v1", r#"[{"rule_id":"hypervisor_machine_volume_attachment.outcome_is_typed","description":"A refused attachment MUST name its reason — the journey requires unsupported and drifted cells to refuse before effect WITH the exact typed reason, and an untyped refusal cannot be told from a failure.","expression":{"operator":"non_empty_when_in","path":"$.attachment_reason","when_path":"$.attachment_state","values":["refused"]}}]"#),
@@ -200752,6 +202194,10 @@ const CONTRACT_PATTERN_TRANSLATIONS: &[(&str, &str)] = &[
         r#"^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$"#,
     ),
     (
+        r#"^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}[.0-9]*Z$"#,
+        r#"^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}[.0-9]*Z$"#,
+    ),
+    (
         r#"^[0-9]{4}-[0-9]{2}-[0-9]{2}T[^\s]+Z$"#,
         r#"^[0-9]{4}-[0-9]{2}-[0-9]{2}T[^\u{0009}-\u{000D}\u{0020}\u{00A0}\u{1680}\u{2000}-\u{200A}\u{2028}\u{2029}\u{202F}\u{205F}\u{3000}\u{FEFF}]+Z$"#,
     ),
@@ -202170,6 +203616,10 @@ const CONTRACT_PATTERN_TRANSLATIONS: &[(&str, &str)] = &[
     (
         r#"^machine-operation://\S+$"#,
         r#"^machine-operation://[^\u{0009}-\u{000D}\u{0020}\u{00A0}\u{1680}\u{2000}-\u{200A}\u{2028}\u{2029}\u{202F}\u{205F}\u{3000}\u{FEFF}]+$"#,
+    ),
+    (
+        r#"^machine-profile-certificate://[^\s]{1,240}$"#,
+        r#"^machine-profile-certificate://[^\u{0009}-\u{000D}\u{0020}\u{00A0}\u{1680}\u{2000}-\u{200A}\u{2028}\u{2029}\u{202F}\u{205F}\u{3000}\u{FEFF}]{1,240}$"#,
     ),
     (
         r#"^machine-snapshot://\S+$"#,
@@ -206135,6 +207585,16 @@ mod tests {
     ("docs/architecture/_meta/schemas/fixtures/hypervisor-machine-operation-receipt-v1/negative-ambiguous-without-a-reason.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/hypervisor-machine-operation-receipt-v1/negative-ambiguous-without-a-reason.json"))),
     ("docs/architecture/_meta/schemas/fixtures/hypervisor-machine-operation-receipt-v1/negative-refused-without-a-reason.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/hypervisor-machine-operation-receipt-v1/negative-refused-without-a-reason.json"))),
     ("docs/architecture/_meta/schemas/fixtures/hypervisor-machine-operation-receipt-v1/negative-unknown-result.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/hypervisor-machine-operation-receipt-v1/negative-unknown-result.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/hypervisor-machine-profile-qualification-certificate-v1/positive-infrastructure-attached-not-qualified-simulated.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/hypervisor-machine-profile-qualification-certificate-v1/positive-infrastructure-attached-not-qualified-simulated.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/hypervisor-machine-profile-qualification-certificate-v1/positive-withdrawn-freshness-expired.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/hypervisor-machine-profile-qualification-certificate-v1/positive-withdrawn-freshness-expired.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/hypervisor-machine-profile-qualification-certificate-v1/positive-workstation-hosted-not-qualified-simulated.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/hypervisor-machine-profile-qualification-certificate-v1/positive-workstation-hosted-not-qualified-simulated.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/hypervisor-machine-profile-qualification-certificate-v1/negative-attached-claims-vmm-ownership.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/hypervisor-machine-profile-qualification-certificate-v1/negative-attached-claims-vmm-ownership.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/hypervisor-machine-profile-qualification-certificate-v1/negative-not-qualified-without-a-reason.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/hypervisor-machine-profile-qualification-certificate-v1/negative-not-qualified-without-a-reason.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/hypervisor-machine-profile-qualification-certificate-v1/negative-other-profile-not-disclaimed.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/hypervisor-machine-profile-qualification-certificate-v1/negative-other-profile-not-disclaimed.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/hypervisor-machine-profile-qualification-certificate-v1/negative-qualified-on-simulated-basis.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/hypervisor-machine-profile-qualification-certificate-v1/negative-qualified-on-simulated-basis.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/hypervisor-machine-profile-qualification-certificate-v1/negative-seventeenth-verb.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/hypervisor-machine-profile-qualification-certificate-v1/negative-seventeenth-verb.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/hypervisor-machine-profile-qualification-certificate-v1/negative-unknown-member.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/hypervisor-machine-profile-qualification-certificate-v1/negative-unknown-member.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/hypervisor-machine-profile-qualification-certificate-v1/negative-vm-boot-admitted-as-evidence.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/hypervisor-machine-profile-qualification-certificate-v1/negative-vm-boot-admitted-as-evidence.json"))),
     ("docs/architecture/_meta/schemas/fixtures/hypervisor-machine-host-v1/positive-nominal.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/hypervisor-machine-host-v1/positive-nominal.json"))),
     ("docs/architecture/_meta/schemas/fixtures/hypervisor-machine-host-v1/negative-missing-required-member.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/hypervisor-machine-host-v1/negative-missing-required-member.json"))),
     ("docs/architecture/_meta/schemas/fixtures/hypervisor-machine-image-v1/positive-nominal.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/hypervisor-machine-image-v1/positive-nominal.json"))),
@@ -207884,6 +209344,11 @@ mod tests {
                 .map(|_| ())
                 .map_err(|error| error.to_string())
         },
+        "schema://ioi/components/hypervisor/hypervisor-machine-profile-qualification-certificate/v1" => {
+            serde_json::from_value::<HypervisorMachineProfileQualificationCertificateV1>(value.clone())
+                .map(|_| ())
+                .map_err(|error| error.to_string())
+        },
         "schema://ioi/components/hypervisor/hypervisor-machine-host/v1" => {
             serde_json::from_value::<HypervisorMachineHostV1>(value.clone())
                 .map(|_| ())
@@ -209590,6 +211055,11 @@ mod tests {
                 .map_err(|error| error.to_string())?;
             serde_json::to_value(projection).map_err(|error| error.to_string())
         },
+        "schema://ioi/components/hypervisor/hypervisor-machine-profile-qualification-certificate/v1" => {
+            let projection = serde_json::from_value::<HypervisorMachineProfileQualificationCertificateV1>(value.clone())
+                .map_err(|error| error.to_string())?;
+            serde_json::to_value(projection).map_err(|error| error.to_string())
+        },
         "schema://ioi/components/hypervisor/hypervisor-machine-host/v1" => {
             let projection = serde_json::from_value::<HypervisorMachineHostV1>(value.clone())
                 .map_err(|error| error.to_string())?;
@@ -209941,8 +211411,8 @@ mod tests {
     fn golden_fixtures_match_generated_rust_contracts() {
         assert_eq!(
             ARCHITECTURE_CONTRACT_FIXTURES.len(),
-            1756,
-            "the registered golden corpus must remain the explicit 1756-fixture bar",
+            1766,
+            "the registered golden corpus must remain the explicit 1766-fixture bar",
         );
         for fixture in ARCHITECTURE_CONTRACT_FIXTURES {
             let body = FIXTURE_BODIES
@@ -210184,7 +211654,7 @@ mod tests {
 
     #[test]
     fn registered_ecma_pattern_translations_compile_and_match_whitespace() {
-        assert_eq!(CONTRACT_PATTERN_TRANSLATIONS.len(), 1080,);
+        assert_eq!(CONTRACT_PATTERN_TRANSLATIONS.len(), 1082,);
         for (ecma, translated) in CONTRACT_PATTERN_TRANSLATIONS {
             Regex::new(translated).unwrap_or_else(|error| panic!("{ecma}: {error}"));
         }

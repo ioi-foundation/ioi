@@ -1,0 +1,540 @@
+{
+  "schema_version": "ioi.evidence.m12-15-machine-reference-runs.v1",
+  "minted_at": "2026-09-21T04:02:42.758Z",
+  "minted_by": "scripts/check-machine-product-profile-qualification.mjs (RUN leg)",
+  "source": "an isolated daemon with the two simulated reference declarations planted; the hosted workload through create/start/snapshot/stop/(stale reboot refused)/delete across the App lane and the thin client, the attached workload through create/migrate(ambiguous)/start; the daemon's own read models, the declarations as records, both delivery forms' evidence, the source basis",
+  "workloads": {
+    "hosted": "vm_profile_hosted",
+    "attached": "vm_profile_attached"
+  },
+  "declarations": {
+    "hosted": {
+      "schema_version": "ioi.components.hypervisor.backend-capability-declaration.v1",
+      "declaration_ref": "capability://backend/workstation-hosted/1",
+      "declaration_hash": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "producer_ref": "runtime://daemon/node-1",
+      "producer_release_ref": "release://hypervisor/0.1.0",
+      "backend_registration_ref": "backend://reference/workstation-hosted",
+      "adapter_release_ref": "release://adapter/workstation-hosted/0.1.0",
+      "scope_ref": "runtime-node://local/node-1",
+      "observed_backend_version": "1.0.0",
+      "evidence_mode": "simulated",
+      "discovery_method_ref": "evaluator://backend-preflight/v1",
+      "supported_machine_architectures": [
+        "x86_64"
+      ],
+      "supported_operations": [
+        "discover",
+        "define",
+        "import",
+        "create",
+        "start",
+        "stop",
+        "pause",
+        "resume",
+        "reboot",
+        "open_console",
+        "close_console",
+        "snapshot",
+        "delete",
+        "clone",
+        "restore"
+      ],
+      "unsupported_operations": [
+        {
+          "operation": "migrate",
+          "reason_code": "backend_is_single_host"
+        }
+      ],
+      "limitations": [],
+      "evaluator_ref": "evaluator://backend-capability/v1",
+      "signature_or_attestation_ref": "evidence://signature/backend-capability-1",
+      "temporal_verification_evidence_ref": "evidence://temporal/backend-capability-1",
+      "currentness_evaluation_ref": "evaluation://currentness/backend-capability-1",
+      "provenance_evidence_refs": [
+        "evidence://preflight/backend-capability-1"
+      ]
+    },
+    "attached": {
+      "schema_version": "ioi.components.hypervisor.backend-capability-declaration.v1",
+      "declaration_ref": "capability://backend/infrastructure-attached/1",
+      "declaration_hash": "sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+      "producer_ref": "runtime://daemon/node-1",
+      "producer_release_ref": "release://hypervisor/0.1.0",
+      "backend_registration_ref": "backend://reference/infrastructure-attached",
+      "adapter_release_ref": "release://adapter/infrastructure-attached/0.1.0",
+      "scope_ref": "runtime-node://local/node-1",
+      "observed_backend_version": "1.0.0",
+      "evidence_mode": "simulated",
+      "discovery_method_ref": "evaluator://backend-preflight/v1",
+      "supported_machine_architectures": [
+        "x86_64"
+      ],
+      "supported_operations": [
+        "discover",
+        "define",
+        "import",
+        "create",
+        "start",
+        "stop",
+        "pause",
+        "resume",
+        "reboot",
+        "snapshot",
+        "delete",
+        "migrate"
+      ],
+      "unsupported_operations": [
+        {
+          "operation": "open_console",
+          "reason_code": "attached_estate_withholds_console"
+        },
+        {
+          "operation": "close_console",
+          "reason_code": "attached_estate_withholds_console"
+        }
+      ],
+      "limitations": [],
+      "evaluator_ref": "evaluator://backend-capability/v1",
+      "signature_or_attestation_ref": "evidence://signature/backend-capability-1",
+      "temporal_verification_evidence_ref": "evidence://temporal/backend-capability-1",
+      "currentness_evaluation_ref": "evaluation://currentness/backend-capability-1",
+      "provenance_evidence_refs": [
+        "evidence://preflight/backend-capability-1"
+      ]
+    }
+  },
+  "declaration_bytes_sha256": {
+    "hosted": "sha256:d6a98e6139fe3733dabca91092b540d4cb1a047b04ca25c146c4a978019b22b9",
+    "attached": "sha256:adbbc446e598a73809a1898591c52a15f1a40814b85ba66599822f24c85d26e6"
+  },
+  "read_models": [
+    {
+      "admitted_count": 5,
+      "backend_registration_ref": "backend://reference/workstation-hosted",
+      "capability_declaration_hash": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "capability_declaration_ref": "capability://backend/workstation-hosted/1",
+      "capability_declaration_resolves": true,
+      "cleanup_obligation_refs": [],
+      "derived_from": {
+        "declaration_records": "machine-capability-declarations",
+        "operation_records": "machine-operations",
+        "receipt_records": "machine-operation-receipts",
+        "rule": "head = the admitted hash no successor cites; generations from succeeded receipts; phases folded over the admitted chain (observed moves only on a succeeded receipt)"
+      },
+      "desired_generation": 5,
+      "desired_phase": "deleted",
+      "evidence_mode": "simulated",
+      "head": "sha256:0725411ce099fa86ea62bc8a74f0a48c827aaeea9179ad66845488666668f34e",
+      "head_error": null,
+      "observed_generation": 5,
+      "observed_phase": "deleted",
+      "operation_count": 6,
+      "operations": [
+        {
+          "admitted": true,
+          "admitted_request_hash": "sha256:32792fad4743b41ef1aca373a45e1951ce480799fc26666e0a445bd8b79a6f10",
+          "capability_declaration_hash": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "capability_declaration_ref": "capability://backend/workstation-hosted/1",
+          "cleanup_obligation_ref": null,
+          "desired_generation": 1,
+          "expected_head": "sha256:0000000000000000000000000000000000000000000000000000000000000000",
+          "operation": "create",
+          "operation_ref": "machine-operation://hypervisor/vm_profile_hosted/create/7b4cc9288d82497e8acee74889678873",
+          "previous_head": "sha256:0000000000000000000000000000000000000000000000000000000000000000",
+          "receipt_ref": "machine-operation-receipt://hypervisor/7b4cc9288d82497e8acee74889678873",
+          "refusal_dimension": null,
+          "refusal_reason": null,
+          "result": "succeeded",
+          "state": "admitted_awaiting_effect",
+          "submitted_at": "2026-09-21T04:02:39.929177524Z",
+          "submitted_by": "user://00000000-0000-4000-8000-000000000001"
+        },
+        {
+          "admitted": true,
+          "admitted_request_hash": "sha256:ed8135433c75faf9b6f18f8239a1ec2634c2133b08759261ac4c4bbe714f7845",
+          "capability_declaration_hash": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "capability_declaration_ref": "capability://backend/workstation-hosted/1",
+          "cleanup_obligation_ref": null,
+          "desired_generation": 2,
+          "expected_head": "sha256:32792fad4743b41ef1aca373a45e1951ce480799fc26666e0a445bd8b79a6f10",
+          "operation": "start",
+          "operation_ref": "machine-operation://hypervisor/vm_profile_hosted/start/6bb8e6ce8e454b7eb7f4b112a1f9201f",
+          "previous_head": "sha256:32792fad4743b41ef1aca373a45e1951ce480799fc26666e0a445bd8b79a6f10",
+          "receipt_ref": "machine-operation-receipt://hypervisor/6bb8e6ce8e454b7eb7f4b112a1f9201f",
+          "refusal_dimension": null,
+          "refusal_reason": null,
+          "result": "succeeded",
+          "state": "admitted_awaiting_effect",
+          "submitted_at": "2026-09-21T04:02:40.293683839Z",
+          "submitted_by": "user://00000000-0000-4000-8000-000000000001"
+        },
+        {
+          "admitted": true,
+          "admitted_request_hash": "sha256:1ce3a64b0f97e8d08b6e2e4dde13cdd07d20104502cc1f14b5d67c18432fd0bc",
+          "capability_declaration_hash": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "capability_declaration_ref": "capability://backend/workstation-hosted/1",
+          "cleanup_obligation_ref": null,
+          "desired_generation": 3,
+          "expected_head": "sha256:ed8135433c75faf9b6f18f8239a1ec2634c2133b08759261ac4c4bbe714f7845",
+          "operation": "snapshot",
+          "operation_ref": "machine-operation://hypervisor/vm_profile_hosted/snapshot/7b6921fc73b0457792648c9a7b167947",
+          "previous_head": "sha256:ed8135433c75faf9b6f18f8239a1ec2634c2133b08759261ac4c4bbe714f7845",
+          "receipt_ref": "machine-operation-receipt://hypervisor/7b6921fc73b0457792648c9a7b167947",
+          "refusal_dimension": null,
+          "refusal_reason": null,
+          "result": "succeeded",
+          "state": "admitted_awaiting_effect",
+          "submitted_at": "2026-09-21T04:02:40.634395733Z",
+          "submitted_by": "user://00000000-0000-4000-8000-000000000001"
+        },
+        {
+          "admitted": true,
+          "admitted_request_hash": "sha256:c0512a49293dbc09140961f1ef437358f64782398cef9b14957537aeb0f16ee2",
+          "capability_declaration_hash": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "capability_declaration_ref": "capability://backend/workstation-hosted/1",
+          "cleanup_obligation_ref": null,
+          "desired_generation": 4,
+          "expected_head": "sha256:1ce3a64b0f97e8d08b6e2e4dde13cdd07d20104502cc1f14b5d67c18432fd0bc",
+          "operation": "stop",
+          "operation_ref": "machine-operation://hypervisor/vm_profile_hosted/stop/75e8af6b993740b6b6a4eba76933f0e5",
+          "previous_head": "sha256:1ce3a64b0f97e8d08b6e2e4dde13cdd07d20104502cc1f14b5d67c18432fd0bc",
+          "receipt_ref": "machine-operation-receipt://hypervisor/75e8af6b993740b6b6a4eba76933f0e5",
+          "refusal_dimension": null,
+          "refusal_reason": null,
+          "result": "succeeded",
+          "state": "admitted_awaiting_effect",
+          "submitted_at": "2026-09-21T04:02:40.974294186Z",
+          "submitted_by": "user://00000000-0000-4000-8000-000000000001"
+        },
+        {
+          "admitted": true,
+          "admitted_request_hash": "sha256:0725411ce099fa86ea62bc8a74f0a48c827aaeea9179ad66845488666668f34e",
+          "capability_declaration_hash": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "capability_declaration_ref": "capability://backend/workstation-hosted/1",
+          "cleanup_obligation_ref": null,
+          "desired_generation": 5,
+          "expected_head": "sha256:c0512a49293dbc09140961f1ef437358f64782398cef9b14957537aeb0f16ee2",
+          "operation": "delete",
+          "operation_ref": "machine-operation://hypervisor/vm_profile_hosted/delete/d4abf65ea8bd488db738341d9e2603ac",
+          "previous_head": "sha256:c0512a49293dbc09140961f1ef437358f64782398cef9b14957537aeb0f16ee2",
+          "receipt_ref": "machine-operation-receipt://hypervisor/d4abf65ea8bd488db738341d9e2603ac",
+          "refusal_dimension": null,
+          "refusal_reason": null,
+          "result": "succeeded",
+          "state": "admitted_awaiting_effect",
+          "submitted_at": "2026-09-21T04:02:41.654582518Z",
+          "submitted_by": "user://00000000-0000-4000-8000-000000000001"
+        },
+        {
+          "admitted": false,
+          "admitted_request_hash": "sha256:6983225ff0085797310200a696d17829817a5ecb0940c47293165ffbd2f0986e",
+          "capability_declaration_hash": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "capability_declaration_ref": "capability://backend/workstation-hosted/1",
+          "cleanup_obligation_ref": null,
+          "desired_generation": 5,
+          "expected_head": "sha256:0000000000000000000000000000000000000000000000000000000000000000",
+          "operation": "reboot",
+          "operation_ref": "machine-operation://hypervisor/vm_profile_hosted/reboot/f838ee4cebb9456d921a885a7427f015",
+          "previous_head": "sha256:c0512a49293dbc09140961f1ef437358f64782398cef9b14957537aeb0f16ee2",
+          "receipt_ref": "machine-operation-receipt://hypervisor/f838ee4cebb9456d921a885a7427f015",
+          "refusal_dimension": "expected_head_stale",
+          "refusal_reason": "operation expects head sha256:0000000000000000000000000000000000000000000000000000000000000000, server head is sha256:c0512a49293dbc09140961f1ef437358f64782398cef9b14957537aeb0f16ee2",
+          "result": "refused",
+          "state": "refused",
+          "submitted_at": "2026-09-21T04:02:41.316885236Z",
+          "submitted_by": "user://00000000-0000-4000-8000-000000000001"
+        }
+      ],
+      "receipt_count": 6,
+      "receipts": [
+        {
+          "admitted_request_hash": "sha256:32792fad4743b41ef1aca373a45e1951ce480799fc26666e0a445bd8b79a6f10",
+          "backend_native_operation_id": "reference-create-1",
+          "consequence_receipt_refs": [],
+          "desired_generation_after": 1,
+          "desired_generation_before": 0,
+          "observed_generation_after": 1,
+          "observed_generation_before": 0,
+          "operation_ref": "machine-operation://hypervisor/vm_profile_hosted/create/7b4cc9288d82497e8acee74889678873",
+          "receipt_ref": "machine-operation-receipt://hypervisor/7b4cc9288d82497e8acee74889678873",
+          "result": "succeeded",
+          "result_reason": null,
+          "schema_version": "ioi.hypervisor.machine-operation-receipt.v1",
+          "verifier_profile_ref": "verifier-profile://hypervisor/machine-admission/v1"
+        },
+        {
+          "admitted_request_hash": "sha256:ed8135433c75faf9b6f18f8239a1ec2634c2133b08759261ac4c4bbe714f7845",
+          "backend_native_operation_id": "reference-start-2",
+          "consequence_receipt_refs": [],
+          "desired_generation_after": 2,
+          "desired_generation_before": 1,
+          "observed_generation_after": 2,
+          "observed_generation_before": 1,
+          "operation_ref": "machine-operation://hypervisor/vm_profile_hosted/start/6bb8e6ce8e454b7eb7f4b112a1f9201f",
+          "receipt_ref": "machine-operation-receipt://hypervisor/6bb8e6ce8e454b7eb7f4b112a1f9201f",
+          "result": "succeeded",
+          "result_reason": null,
+          "schema_version": "ioi.hypervisor.machine-operation-receipt.v1",
+          "verifier_profile_ref": "verifier-profile://hypervisor/machine-admission/v1"
+        },
+        {
+          "admitted_request_hash": "sha256:1ce3a64b0f97e8d08b6e2e4dde13cdd07d20104502cc1f14b5d67c18432fd0bc",
+          "backend_native_operation_id": "reference-snapshot-3",
+          "consequence_receipt_refs": [],
+          "desired_generation_after": 3,
+          "desired_generation_before": 2,
+          "observed_generation_after": 3,
+          "observed_generation_before": 2,
+          "operation_ref": "machine-operation://hypervisor/vm_profile_hosted/snapshot/7b6921fc73b0457792648c9a7b167947",
+          "receipt_ref": "machine-operation-receipt://hypervisor/7b6921fc73b0457792648c9a7b167947",
+          "result": "succeeded",
+          "result_reason": null,
+          "schema_version": "ioi.hypervisor.machine-operation-receipt.v1",
+          "verifier_profile_ref": "verifier-profile://hypervisor/machine-admission/v1"
+        },
+        {
+          "admitted_request_hash": "sha256:c0512a49293dbc09140961f1ef437358f64782398cef9b14957537aeb0f16ee2",
+          "backend_native_operation_id": "reference-stop-4",
+          "consequence_receipt_refs": [],
+          "desired_generation_after": 4,
+          "desired_generation_before": 3,
+          "observed_generation_after": 4,
+          "observed_generation_before": 3,
+          "operation_ref": "machine-operation://hypervisor/vm_profile_hosted/stop/75e8af6b993740b6b6a4eba76933f0e5",
+          "receipt_ref": "machine-operation-receipt://hypervisor/75e8af6b993740b6b6a4eba76933f0e5",
+          "result": "succeeded",
+          "result_reason": null,
+          "schema_version": "ioi.hypervisor.machine-operation-receipt.v1",
+          "verifier_profile_ref": "verifier-profile://hypervisor/machine-admission/v1"
+        },
+        {
+          "admitted_request_hash": "sha256:0725411ce099fa86ea62bc8a74f0a48c827aaeea9179ad66845488666668f34e",
+          "backend_native_operation_id": "reference-delete-5",
+          "consequence_receipt_refs": [],
+          "desired_generation_after": 5,
+          "desired_generation_before": 4,
+          "observed_generation_after": 5,
+          "observed_generation_before": 4,
+          "operation_ref": "machine-operation://hypervisor/vm_profile_hosted/delete/d4abf65ea8bd488db738341d9e2603ac",
+          "receipt_ref": "machine-operation-receipt://hypervisor/d4abf65ea8bd488db738341d9e2603ac",
+          "result": "succeeded",
+          "result_reason": null,
+          "schema_version": "ioi.hypervisor.machine-operation-receipt.v1",
+          "verifier_profile_ref": "verifier-profile://hypervisor/machine-admission/v1"
+        },
+        {
+          "admitted_request_hash": "sha256:6983225ff0085797310200a696d17829817a5ecb0940c47293165ffbd2f0986e",
+          "backend_native_operation_id": null,
+          "consequence_receipt_refs": [],
+          "desired_generation_after": 0,
+          "desired_generation_before": 0,
+          "observed_generation_after": 0,
+          "observed_generation_before": 0,
+          "operation_ref": "machine-operation://hypervisor/vm_profile_hosted/reboot/f838ee4cebb9456d921a885a7427f015",
+          "receipt_ref": "machine-operation-receipt://hypervisor/f838ee4cebb9456d921a885a7427f015",
+          "result": "refused",
+          "result_reason": "expected_head_stale",
+          "schema_version": "ioi.hypervisor.machine-operation-receipt.v1",
+          "verifier_profile_ref": "verifier-profile://hypervisor/machine-admission/v1"
+        }
+      ],
+      "refused_count": 1,
+      "workload_id": "vm_profile_hosted",
+      "workload_ref": "virtual-machine-workload://vm_profile_hosted"
+    },
+    {
+      "admitted_count": 3,
+      "backend_registration_ref": "backend://reference/infrastructure-attached",
+      "capability_declaration_hash": "sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+      "capability_declaration_ref": "capability://backend/infrastructure-attached/1",
+      "capability_declaration_resolves": true,
+      "cleanup_obligation_refs": [],
+      "derived_from": {
+        "declaration_records": "machine-capability-declarations",
+        "operation_records": "machine-operations",
+        "receipt_records": "machine-operation-receipts",
+        "rule": "head = the admitted hash no successor cites; generations from succeeded receipts; phases folded over the admitted chain (observed moves only on a succeeded receipt)"
+      },
+      "desired_generation": 2,
+      "desired_phase": "running",
+      "evidence_mode": "simulated",
+      "head": "sha256:2c3783a96c6ea650e29537584d0002bfd564272b951e5955bfde6f205f3e37a9",
+      "head_error": null,
+      "observed_generation": 2,
+      "observed_phase": "running",
+      "operation_count": 3,
+      "operations": [
+        {
+          "admitted": true,
+          "admitted_request_hash": "sha256:96087e4688b203a1605468ce8b00a1341221f214d64c1873a1b54657f9605bdb",
+          "capability_declaration_hash": "sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+          "capability_declaration_ref": "capability://backend/infrastructure-attached/1",
+          "cleanup_obligation_ref": null,
+          "desired_generation": 1,
+          "expected_head": "sha256:0000000000000000000000000000000000000000000000000000000000000000",
+          "operation": "create",
+          "operation_ref": "machine-operation://hypervisor/vm_profile_attached/create/b798fef0245a4c3199b8109cd1f63ac6",
+          "previous_head": "sha256:0000000000000000000000000000000000000000000000000000000000000000",
+          "receipt_ref": "machine-operation-receipt://hypervisor/b798fef0245a4c3199b8109cd1f63ac6",
+          "refusal_dimension": null,
+          "refusal_reason": null,
+          "result": "succeeded",
+          "state": "admitted_awaiting_effect",
+          "submitted_at": "2026-09-21T04:02:41.992826262Z",
+          "submitted_by": "user://00000000-0000-4000-8000-000000000001"
+        },
+        {
+          "admitted": true,
+          "admitted_request_hash": "sha256:7334e788656f4b9d375860497bffe0f85d3c60a6eb45b9b96c7c59011a61e2fb",
+          "capability_declaration_hash": "sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+          "capability_declaration_ref": "capability://backend/infrastructure-attached/1",
+          "cleanup_obligation_ref": null,
+          "desired_generation": 2,
+          "expected_head": "sha256:96087e4688b203a1605468ce8b00a1341221f214d64c1873a1b54657f9605bdb",
+          "operation": "migrate",
+          "operation_ref": "machine-operation://hypervisor/vm_profile_attached/migrate/762a74e4066e43e8bc4c0438fd7e0e89",
+          "previous_head": "sha256:96087e4688b203a1605468ce8b00a1341221f214d64c1873a1b54657f9605bdb",
+          "receipt_ref": "machine-operation-receipt://hypervisor/762a74e4066e43e8bc4c0438fd7e0e89",
+          "refusal_dimension": null,
+          "refusal_reason": null,
+          "result": "ambiguous",
+          "state": "admitted_awaiting_effect",
+          "submitted_at": "2026-09-21T04:02:42.332256007Z",
+          "submitted_by": "user://00000000-0000-4000-8000-000000000001"
+        },
+        {
+          "admitted": true,
+          "admitted_request_hash": "sha256:2c3783a96c6ea650e29537584d0002bfd564272b951e5955bfde6f205f3e37a9",
+          "capability_declaration_hash": "sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+          "capability_declaration_ref": "capability://backend/infrastructure-attached/1",
+          "cleanup_obligation_ref": null,
+          "desired_generation": 2,
+          "expected_head": "sha256:7334e788656f4b9d375860497bffe0f85d3c60a6eb45b9b96c7c59011a61e2fb",
+          "operation": "start",
+          "operation_ref": "machine-operation://hypervisor/vm_profile_attached/start/5a942552ddd44b71970798ccf5b07f84",
+          "previous_head": "sha256:7334e788656f4b9d375860497bffe0f85d3c60a6eb45b9b96c7c59011a61e2fb",
+          "receipt_ref": "machine-operation-receipt://hypervisor/5a942552ddd44b71970798ccf5b07f84",
+          "refusal_dimension": null,
+          "refusal_reason": null,
+          "result": "succeeded",
+          "state": "admitted_awaiting_effect",
+          "submitted_at": "2026-09-21T04:02:42.695201724Z",
+          "submitted_by": "user://00000000-0000-4000-8000-000000000001"
+        }
+      ],
+      "receipt_count": 3,
+      "receipts": [
+        {
+          "admitted_request_hash": "sha256:96087e4688b203a1605468ce8b00a1341221f214d64c1873a1b54657f9605bdb",
+          "backend_native_operation_id": "reference-create-1",
+          "consequence_receipt_refs": [],
+          "desired_generation_after": 1,
+          "desired_generation_before": 0,
+          "observed_generation_after": 1,
+          "observed_generation_before": 0,
+          "operation_ref": "machine-operation://hypervisor/vm_profile_attached/create/b798fef0245a4c3199b8109cd1f63ac6",
+          "receipt_ref": "machine-operation-receipt://hypervisor/b798fef0245a4c3199b8109cd1f63ac6",
+          "result": "succeeded",
+          "result_reason": null,
+          "schema_version": "ioi.hypervisor.machine-operation-receipt.v1",
+          "verifier_profile_ref": "verifier-profile://hypervisor/machine-admission/v1"
+        },
+        {
+          "admitted_request_hash": "sha256:7334e788656f4b9d375860497bffe0f85d3c60a6eb45b9b96c7c59011a61e2fb",
+          "backend_native_operation_id": "reference-migrate-2",
+          "consequence_receipt_refs": [],
+          "desired_generation_after": 1,
+          "desired_generation_before": 1,
+          "observed_generation_after": 1,
+          "observed_generation_before": 1,
+          "operation_ref": "machine-operation://hypervisor/vm_profile_attached/migrate/762a74e4066e43e8bc4c0438fd7e0e89",
+          "receipt_ref": "machine-operation-receipt://hypervisor/762a74e4066e43e8bc4c0438fd7e0e89",
+          "result": "ambiguous",
+          "result_reason": "external_completion_unconfirmed",
+          "schema_version": "ioi.hypervisor.machine-operation-receipt.v1",
+          "verifier_profile_ref": "verifier-profile://hypervisor/machine-admission/v1"
+        },
+        {
+          "admitted_request_hash": "sha256:2c3783a96c6ea650e29537584d0002bfd564272b951e5955bfde6f205f3e37a9",
+          "backend_native_operation_id": "reference-start-2",
+          "consequence_receipt_refs": [],
+          "desired_generation_after": 2,
+          "desired_generation_before": 1,
+          "observed_generation_after": 2,
+          "observed_generation_before": 1,
+          "operation_ref": "machine-operation://hypervisor/vm_profile_attached/start/5a942552ddd44b71970798ccf5b07f84",
+          "receipt_ref": "machine-operation-receipt://hypervisor/5a942552ddd44b71970798ccf5b07f84",
+          "result": "succeeded",
+          "result_reason": null,
+          "schema_version": "ioi.hypervisor.machine-operation-receipt.v1",
+          "verifier_profile_ref": "verifier-profile://hypervisor/machine-admission/v1"
+        }
+      ],
+      "refused_count": 0,
+      "workload_id": "vm_profile_attached",
+      "workload_ref": "virtual-machine-workload://vm_profile_attached"
+    }
+  ],
+  "delivery_forms": {
+    "hosted": {
+      "integrated": {
+        "form": "hypervisor_app",
+        "evidence_ref": "page:///__ioi/environments/machines/vm_profile_hosted",
+        "evidence_sha256": "sha256:8a357b25dc074021290313bf19e34c21b81a6e75badc5043e0a33e763efbee4a"
+      },
+      "standalone": {
+        "form": "thin_client",
+        "evidence_ref": "api:///v1/hypervisor/machines/vm_profile_hosted",
+        "evidence_sha256": "sha256:8a357b25dc074021290313bf19e34c21b81a6e75badc5043e0a33e763efbee4a"
+      }
+    },
+    "attached": {
+      "integrated": {
+        "form": "hypervisor_app",
+        "evidence_ref": "page:///__ioi/environments/machines/vm_profile_attached",
+        "evidence_sha256": "sha256:f6aaf155ae5175934436705174d81b1f4ec78a15e00fd48213ebffb72190a4f1"
+      },
+      "standalone": {
+        "form": "thin_client",
+        "evidence_ref": "api:///v1/hypervisor/machines/vm_profile_attached",
+        "evidence_sha256": "sha256:f6aaf155ae5175934436705174d81b1f4ec78a15e00fd48213ebffb72190a4f1"
+      }
+    }
+  },
+  "release": {
+    "source_commit": "15bfcffc261510175ebccdfcde2ad2203051051d",
+    "daemon_binary_sha256": "sha256:c1ae8b29a202570e6ad8723f4bacced44dbd78fbcc81d1b0b2e4db661d4691ac",
+    "release_manifest_sha256": null,
+    "release_version": null,
+    "signer_key_id": null,
+    "dirty_state_declaration": "source_build:working_tree_dirty"
+  },
+  "presented": [
+    {
+      "kind": "vm_boot",
+      "ref": "check:microvm-model-broker (a VM boot on this host)"
+    },
+    {
+      "kind": "backend_declaration",
+      "ref": "capability://backend/workstation-hosted/1"
+    },
+    {
+      "kind": "autonomy_proof",
+      "ref": "check:undeniable-product-proof"
+    },
+    {
+      "kind": "packaging",
+      "ref": "check:zero-to-operable"
+    },
+    {
+      "kind": "simulated_only_as_host_compatibility",
+      "ref": "check:machine-lifecycle-backend-conformance"
+    }
+  ],
+  "set_sha256": "sha256:e8ed230a878aac157c74f5937089b8e33df97b4f6071cd9e8950766f54898352",
+  "attested": {
+    "workstation_hosted_v1": "sha256:ccceb37f9727b9b4aeaf1dc51f1c66366d14803f98d4d5964159a5a86f334763",
+    "infrastructure_attached_v1": "sha256:4b42a6a0e05ec572571a327b01d722c493ed21a305d467c090be487c84234602"
+  }
+}

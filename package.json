@@ -157,6 +157,8 @@
     "mutate:editor-challenge-relay": "node scripts/check-editor-challenge-relay.mjs --mutation",
     "check:machine-product-composition": "node scripts/check-machine-product-composition.mjs",
     "mutate:machine-product-composition": "node scripts/check-machine-product-composition.mjs --mutation",
+    "check:machine-product-profile-qualification": "node scripts/check-machine-product-profile-qualification.mjs",
+    "mutate:machine-product-profile-qualification": "node scripts/check-machine-product-profile-qualification.mjs --mutation",
     "mutate:standalone-conformance": "node scripts/check-standalone-conformance.mjs --mutation",
     "check:acceptance-conformance-ladder": "node scripts/check-acceptance-conformance-ladder.mjs",
     "check:acceptance-conformance-ladder:live": "node scripts/check-acceptance-conformance-ladder.mjs --live",

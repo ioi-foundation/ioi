@@ -109,7 +109,11 @@ HypervisorOS/node-root statement binds one subject-specific claim id, one
 conformance profile, the exact selected release/profile/backend matrix, and
 fresh evidence. These claims are independently closable and withdrawable.
 Missing, expired, simulated-only, or drifted evidence removes or downscopes the
-copy; evidence for one subject never closes another.
+copy; evidence for one subject never closes another. For Hypervisor Workstation
+and Hypervisor Infrastructure the subject-specific claim id is the profile
+certificate's `certificate_ref` under `workstation_hosted_v1` or
+`infrastructure_attached_v1` (`check:machine-product-profile-qualification`,
+M12.15); a certificate reading `not_qualified` or `withdrawn` removes the copy.
 
 Public pages may describe the integrated and focused-standalone delivery forms
 of the same bundle, but must not turn distribution into a capability claim. A
