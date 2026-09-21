@@ -40,7 +40,7 @@ export function bootstrapToken(dataDir) {
  * Drive the isolated daemon to the challenge. Returns the request body that was posted (no secret),
  * the daemon's reply status and the challenge JSON, plus the steps taken (each with its status).
  */
-export async function mintProviderChallenge({ daemonUrl, cookie, tag = "m03-9", environment = `env-approval-card-${tag}` }) {
+function daemonCalls({ daemonUrl, cookie }) {
   const steps = [];
   const jd = async (method, route, body) => {
     const r = await fetch(`${daemonUrl}${route}`, { method, headers: { "content-type": "application/json", ...(cookie ? { cookie } : {}) }, body: body ? JSON.stringify(body) : undefined });
@@ -48,6 +48,17 @@ export async function mintProviderChallenge({ daemonUrl, cookie, tag = "m03-9", 
     steps.push({ method, route, status: r.status, reason: j?.reason ?? j?.error?.code ?? null });
     return { status: r.status, j };
   };
+  return { jd, steps };
+}
+
+/**
+ * The spend-free LIVE deployment_intent setup: an Akash account with a sealed FAKE credential, live mode at
+ * a dead loopback endpoint, an external-spend budget — and the request body the wallet gate will refuse
+ * with its challenge before any provider call. Used by the fixture mint and by M08.11's lane (which posts
+ * the body through the App instead of straight at the daemon).
+ */
+export async function prepareProviderAccount({ daemonUrl, cookie, tag = "m03-9", environment = `env-approval-card-${tag}` }) {
+  const { jd, steps } = daemonCalls({ daemonUrl, cookie });
   const account = (await jd("POST", "/v1/hypervisor/provider-accounts", { kind: "akash", display_name: `Akash approval-card ${tag}` })).j.account ?? {};
   const accountId = account.account_id;
   if (!accountId) throw new Error(`provider account was not created: ${JSON.stringify(steps.at(-1))}`);
@@ -57,8 +68,51 @@ export async function mintProviderChallenge({ daemonUrl, cookie, tag = "m03-9", 
   await jd("POST", `/v1/hypervisor/provider-accounts/${accountId}/preflight`);
   await jd("POST", "/v1/hypervisor/resource/budgets", { budget_id: `approval-card-${tag}`, name: `Approval card ${tag}`, scope: "external_spend", limit: 5, spent: 0, currency: "USD" });
   const body = { provider_id: accountId, op: "create", environment_ref: environment, plan: { sdl_yaml: PLAN_SDL, deposit_usd: 1.0, ceiling_amount: "1000", ceiling_denom: "uact", auto_topup: false, provider_selector: { mode: "any_marketplace", selection: "lowest_qualified_bid" } }, owner_ref: "org://local", idempotency_key: `approval-card-${tag}`, teardown_policy: "always_teardown_required" };
-  const reply = await jd("POST", "/v1/hypervisor/provider-ops", body);
-  return { account: { account_id: accountId, account_ref: account.account_ref ?? null }, request_body: body, status: reply.status, challenge: reply.j, steps };
+  return { account: { account_id: accountId, account_ref: account.account_ref ?? null }, body, steps, jd };
+}
+
+export async function mintProviderChallenge({ daemonUrl, cookie, tag = "m03-9", environment = `env-approval-card-${tag}` }) {
+  const prepared = await prepareProviderAccount({ daemonUrl, cookie, tag, environment });
+  const reply = await prepared.jd("POST", "/v1/hypervisor/provider-ops", prepared.body);
+  return { account: prepared.account, request_body: prepared.body, status: reply.status, challenge: reply.j, steps: prepared.steps };
+}
+
+// REAL Akash bid shapes for the daemon's fixture candidate source (the adapter done-bar's), so the simulator
+// lane quotes a real-shaped bid; one bid carries no source-quoted USD and must be skipped, never converted.
+export const SIMULATOR_BIDS = { bids: [
+  { provider: "akash1gpuprov4090xq", region: "us-west", attributes: { tier: "community", auditor: "none" }, deployment_class: "compute.gpu_runtime", gpu: { model: "RTX 4090", count: 1, vram_gb: 24 }, cpu_milli: 8000, memory_gb: 32, storage_gb: 200, persistent_storage: true, price: { uakt_per_block: 145, usd_per_hour_quoted: 0.38, rate_basis: "console-quoted USD (uakt × oracle rate at quote time)" } },
+  { provider: "akash1cpuprovzz7e", region: "eu-central", attributes: { tier: "datacenter" }, deployment_class: "compute.container", cpu_milli: 4000, memory_gb: 16, storage_gb: 100, persistent_storage: false, price: { uakt_per_block: 40, usd_per_hour_quoted: 0.11, rate_basis: "console-quoted USD (uakt × oracle rate at quote time)" } },
+  { provider: "akash1unpricedbid", region: "ap-south", cpu_milli: 2000, memory_gb: 8, storage_gb: 50, price: { uakt_per_block: 99 } },
+] };
+
+/**
+ * The spend-free SIMULATOR-mode setup (quote-gated facets): an Akash account with a sealed fake credential, a
+ * fixture bids file the daemon quotes from, a candidate intent refreshed against it, the endpoint switched to
+ * simulator mode with an ssh object (create records a simulated deployment and never connects), an
+ * external-spend budget — and the quote-gated request body the wallet gate refuses with its challenge.
+ */
+export async function prepareSimulatorAccount({ daemonUrl, cookie, tag = "sim", scratch, environment = `env-approval-lane-${tag}` }) {
+  const { jd, steps } = daemonCalls({ daemonUrl, cookie });
+  const bidsFile = path.join(scratch, `akash-bids-${tag}.json`);
+  fs.writeFileSync(bidsFile, JSON.stringify(SIMULATOR_BIDS));
+  const keyFile = path.join(scratch, `sim-ssh-${tag}.key`);
+  fs.writeFileSync(keyFile, "-----BEGIN OPENSSH PRIVATE KEY-----\nnot-a-key-the-simulator-create-never-connects\n-----END OPENSSH PRIVATE KEY-----\n", { mode: 0o600 });
+  const account = (await jd("POST", "/v1/hypervisor/provider-accounts", { kind: "akash", display_name: `Akash approval-lane ${tag}` })).j.account ?? {};
+  const accountId = account.account_id;
+  if (!accountId) return { error: `provider account was not created: ${JSON.stringify(steps.at(-1))}`, steps };
+  await jd("POST", `/v1/hypervisor/provider-accounts/${accountId}/credential`, { api_key: `FAKE-AKASH-KEY-${tag}-never-valid` });
+  await jd("PATCH", `/v1/hypervisor/provider-accounts/${accountId}`, { endpoint: { mode: "fixture", fixture_file: bidsFile } });
+  await jd("POST", `/v1/hypervisor/provider-accounts/${accountId}/preflight`);
+  const intent = (await jd("POST", "/v1/hypervisor/cloud-candidates/intents", { runtime_class: "compute.gpu_runtime", resource_classes: ["compute.gpu_runtime", "compute.container"], gpu: { required: true } })).j.intent ?? {};
+  await jd("POST", "/v1/hypervisor/cloud-candidates/candidates/refresh", { intent_ref: intent.intent_ref });
+  await jd("PATCH", `/v1/hypervisor/provider-accounts/${accountId}`, { endpoint: { mode: "simulator", fixture_file: bidsFile, ssh: { host: "127.0.0.1", port: 2222, user: "ioi-simulator", key_file: keyFile } } });
+  await jd("POST", `/v1/hypervisor/provider-accounts/${accountId}/preflight`);
+  await jd("POST", "/v1/hypervisor/resource/budgets", { budget_id: `approval-lane-${tag}`, name: `Approval lane ${tag}`, scope: "external_spend", limit: 1, spent: 0, currency: "USD" });
+  const refreshed = (await jd("POST", "/v1/hypervisor/cloud-candidates/candidates/refresh", { intent_ref: intent.intent_ref })).j;
+  const candidate = (refreshed.candidates ?? []).find((c) => c.provider_kind === "akash" && c.provider_address === "akash1gpuprov4090xq");
+  if (!candidate?.candidate_ref) return { error: `no simulator candidate: ${JSON.stringify(refreshed).slice(0, 200)}`, steps };
+  const body = { provider_id: accountId, op: "create", environment_ref: environment, candidate_ref: candidate.candidate_ref, max_hourly_usd: 0.4, teardown_policy: "always_teardown_required", owner_ref: "org://local", idempotency_key: `approval-lane-${tag}` };
+  return { account: { account_id: accountId, account_ref: account.account_ref ?? null }, candidate: { candidate_ref: candidate.candidate_ref, quote_ref: candidate.quote_ref ?? null, bid_ref: candidate.bid_ref ?? null }, body, steps, jd };
 }
 
 export function fixtureFrom({ minted, basis }) {

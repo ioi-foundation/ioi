@@ -1,0 +1,489 @@
+{
+  "schema": "ioi.spend-approval-lane-evidence.v1",
+  "mode": "full",
+  "started_at": "2026-09-20T23:42:40.266Z",
+  "drills": [
+    {
+      "name": "the acceptance's demands are bound: every executed clause names a real script with a pinned floor (app) or one of this runner's legs, every named failure carries its owner, the live legs are SCHEDULED with their exact prerequisite and ruling, clauses cover 1–12 exactly once",
+      "pass": true,
+      "detail": "bound",
+      "at": "2026-09-20T23:42:40.267Z"
+    },
+    {
+      "name": "PARK: a provider operation submitted through the lane goes to the daemon under the operator's identity and the refusal PARKS a run as the byte-derived card — the whole challenge, the exact request with the caller-supplied grant STRIPPED, the hashes, the audience, the receipt ref, no grant; the pane projection and the card harness are clean; a challenge without a preimage parks as a refusal that a second approve cannot sign and deny closes; a tier that mints nothing leaves the run parked; the handoff mints for exactly the card's hashes and audience, records the grant, retries the IDENTICAL request with the grant under the deciding operator's identity, and the daemon's typed refusal or its admission finalizes the run with the receipt, the grant ref and the lease — no grant bytes on the durable record, a second approve refused, an invalid submission and a non-challenge answer each typed",
+      "pass": true,
+      "detail": "6 runs driven in-process",
+      "at": "2026-09-20T23:42:40.334Z"
+    },
+    {
+      "name": "SOURCE: the serve exposes the lane behind the local-run cache admission and submits through it; the run module dispatches a parked provider operation to the provider-ops route with the identical request and the grant, strips a caller-supplied grant, refuses a non-byte-derived park, defaults to the deployment-local tier with exactly one mint call site and keeps only the grant id; the timeline projects the operation; the test signer mounts only under its flag",
+      "pass": true,
+      "detail": "pinned",
+      "at": "2026-09-20T23:42:40.339Z"
+    },
+    {
+      "name": "the verdict is a pure function of the clause rows: all executed green with no absence → PASS; a typed absence or a scheduled live leg → NAMED FAILURE; a scheduled leg without a ruling, a fabricated success row, a red gate, a reach beyond loopback or a missing clause → FAIL",
+      "pass": true,
+      "detail": "pass/named_failure/named_failure/fail/fail/fail/fail/fail",
+      "at": "2026-09-20T23:42:40.340Z"
+    },
+    {
+      "name": "canon binds the gate: core-clients-surfaces.md says a blocked provider operation submitted through the App parks the same way, hands off to the deployment's custody tier, and the App holds no grant and signs nothing on its own act; byo-provider-plane.md says the App retries the identical request; wallet-network/doctrine.md names the App a GuardianSurface projection under the deployment-local tier; all three name check:spend-approval-lane",
+      "pass": true,
+      "detail": "read from the three canon owners",
+      "at": "2026-09-20T23:42:40.349Z"
+    }
+  ],
+  "park": {
+    "findings": [],
+    "parked_run_id": "pop_muagoj2k0",
+    "runs_driven": 6
+  },
+  "source": [],
+  "lane_park": {
+    "findings": [],
+    "canonical_route": {
+      "status": 200,
+      "carries_card": false
+    },
+    "run_id": "pop_muagw5wt0",
+    "request_hash": "sha256:24d050dbc8afc483436e1ad67be10c9830e30231a98339f394d0a407603b1de9",
+    "audience": "93c1c73b8cba8f285f94b85afed8452a5082adcd2b15c537cf8c50b07bcf83b4",
+    "receipts": [
+      "proposal_not_admitted",
+      "authority_missing"
+    ],
+    "refusal": "provider_operation_proposal_ref_required",
+    "refusal_receipt_ref": "agentgres://provider-receipt/prc_18d72c558ace7280",
+    "approver": "deployment_local_operator",
+    "minted_at": "2026-09-20T23:48:42.785Z"
+  },
+  "lane_admit": {
+    "findings": [],
+    "run_id": "pop_muagyf6q1",
+    "delete_run_id": "pop_muah01kv2",
+    "receipt_ref": "agentgres://provider-receipt/prc_18d72c7e03712145",
+    "grant_ref": "wallet.network://grant/approval/aca8cb435debc85df8be02b6c5c8e8556a47c21b3a3578a45bf503b1a7f294df",
+    "lease_ref": "lease_7dd4866a25a760f0",
+    "dseq": "simdseq_18d72c7e036cfa50",
+    "exposure_after_create": "open",
+    "exposure_after_delete": "closed"
+  },
+  "clauses": [
+    {
+      "n": 1,
+      "demand": "the App submits a provider operation under the operator's own identity and PARKS the daemon's refusal as the byte-derived card: the whole challenge, the exact request, the hashes, the audience and the receipt ref — and no grant",
+      "executed": [
+        {
+          "script": "park (this runner)",
+          "status": 0,
+          "seconds": 0,
+          "isolation": "in-process",
+          "ledger": {
+            "attempts": 0,
+            "loopback": 0,
+            "reach": 0
+          },
+          "evidence": "../../../../../../tmp/ioi-sal-gate-kIbDvZ/self-legs.json",
+          "evidence_sha256": "sha256:17b6da3e576ba3fac9bd79226a8fda38ea3594ca771470de65a6fabc2bdc43c7",
+          "executed_assertions": null,
+          "floor_expected": null
+        },
+        {
+          "script": "lane-park (this runner)",
+          "status": 0,
+          "seconds": 0,
+          "isolation": "in-process",
+          "ledger": {
+            "attempts": 0,
+            "loopback": 0,
+            "reach": 0
+          },
+          "evidence": "../../../../../../tmp/ioi-sal-gate-kIbDvZ/self-legs.json",
+          "evidence_sha256": "sha256:17b6da3e576ba3fac9bd79226a8fda38ea3594ca771470de65a6fabc2bdc43c7",
+          "executed_assertions": null,
+          "floor_expected": null
+        }
+      ],
+      "absence": null,
+      "scheduled": null
+    },
+    {
+      "n": 2,
+      "demand": "the card on Work / Sessions and the SPA session pane is the daemon's own challenge, verbatim, with the decision endpoints",
+      "executed": [
+        {
+          "script": "park (this runner)",
+          "status": 0,
+          "seconds": 0,
+          "isolation": "in-process",
+          "ledger": {
+            "attempts": 0,
+            "loopback": 0,
+            "reach": 0
+          },
+          "evidence": "../../../../../../tmp/ioi-sal-gate-kIbDvZ/self-legs.json",
+          "evidence_sha256": "sha256:17b6da3e576ba3fac9bd79226a8fda38ea3594ca771470de65a6fabc2bdc43c7",
+          "executed_assertions": null,
+          "floor_expected": null
+        },
+        {
+          "script": "lane-park (this runner)",
+          "status": 0,
+          "seconds": 0,
+          "isolation": "in-process",
+          "ledger": {
+            "attempts": 0,
+            "loopback": 0,
+            "reach": 0
+          },
+          "evidence": "../../../../../../tmp/ioi-sal-gate-kIbDvZ/self-legs.json",
+          "evidence_sha256": "sha256:17b6da3e576ba3fac9bd79226a8fda38ea3594ca771470de65a6fabc2bdc43c7",
+          "executed_assertions": null,
+          "floor_expected": null
+        },
+        {
+          "script": "check:approval-card-facets",
+          "kind": "app",
+          "status": 0,
+          "seconds": 0,
+          "isolation": "refused_and_recorded",
+          "ledger": {
+            "attempts": 0,
+            "loopback": 0,
+            "reach": 0
+          },
+          "evidence": "../../../../../../tmp/ioi-sal-gate-kIbDvZ/census/2-approval-card-facets/approval-card-facets.json",
+          "evidence_sha256": "sha256:53b92acd9c62e3b87a850be5e4679c535034dcf21b16d30292aad25be549509d",
+          "executed_assertions": 11,
+          "floor_expected": 11
+        },
+        {
+          "script": "check:session-truth-rebind",
+          "kind": "app",
+          "status": 0,
+          "seconds": 5,
+          "isolation": "refused_and_recorded",
+          "ledger": {
+            "attempts": 18,
+            "loopback": 18,
+            "reach": 0
+          },
+          "evidence": "../../../../../../tmp/ioi-sal-gate-kIbDvZ/census/2-session-truth-rebind/session-truth-rebind.json",
+          "evidence_sha256": "sha256:d70e1d1ffa9fc64b6477090859644949e8822a9f2782e00cb54b68db95539ef9",
+          "executed_assertions": 11,
+          "floor_expected": 11
+        }
+      ],
+      "absence": null,
+      "scheduled": null
+    },
+    {
+      "n": 3,
+      "demand": "a challenge without a preimage parks as a refusal that can only be denied",
+      "executed": [
+        {
+          "script": "park (this runner)",
+          "status": 0,
+          "seconds": 0,
+          "isolation": "in-process",
+          "ledger": {
+            "attempts": 0,
+            "loopback": 0,
+            "reach": 0
+          },
+          "evidence": "../../../../../../tmp/ioi-sal-gate-kIbDvZ/self-legs.json",
+          "evidence_sha256": "sha256:17b6da3e576ba3fac9bd79226a8fda38ea3594ca771470de65a6fabc2bdc43c7",
+          "executed_assertions": null,
+          "floor_expected": null
+        }
+      ],
+      "absence": null,
+      "scheduled": null
+    },
+    {
+      "n": 4,
+      "demand": "the custody tier mints ONE one-use grant for exactly the card's hashes and the challenge's audience and records it on the authority node",
+      "executed": [
+        {
+          "script": "park (this runner)",
+          "status": 0,
+          "seconds": 0,
+          "isolation": "in-process",
+          "ledger": {
+            "attempts": 0,
+            "loopback": 0,
+            "reach": 0
+          },
+          "evidence": "../../../../../../tmp/ioi-sal-gate-kIbDvZ/self-legs.json",
+          "evidence_sha256": "sha256:17b6da3e576ba3fac9bd79226a8fda38ea3594ca771470de65a6fabc2bdc43c7",
+          "executed_assertions": null,
+          "floor_expected": null
+        },
+        {
+          "script": "lane-park (this runner)",
+          "status": 0,
+          "seconds": 0,
+          "isolation": "in-process",
+          "ledger": {
+            "attempts": 0,
+            "loopback": 0,
+            "reach": 0
+          },
+          "evidence": "../../../../../../tmp/ioi-sal-gate-kIbDvZ/self-legs.json",
+          "evidence_sha256": "sha256:17b6da3e576ba3fac9bd79226a8fda38ea3594ca771470de65a6fabc2bdc43c7",
+          "executed_assertions": null,
+          "floor_expected": null
+        }
+      ],
+      "absence": null,
+      "scheduled": null
+    },
+    {
+      "n": 5,
+      "demand": "the App retries the IDENTICAL request with the grant under the operator's identity, and the daemon's answer — admitted, or its typed refusal — finalizes the run",
+      "executed": [
+        {
+          "script": "park (this runner)",
+          "status": 0,
+          "seconds": 0,
+          "isolation": "in-process",
+          "ledger": {
+            "attempts": 0,
+            "loopback": 0,
+            "reach": 0
+          },
+          "evidence": "../../../../../../tmp/ioi-sal-gate-kIbDvZ/self-legs.json",
+          "evidence_sha256": "sha256:17b6da3e576ba3fac9bd79226a8fda38ea3594ca771470de65a6fabc2bdc43c7",
+          "executed_assertions": null,
+          "floor_expected": null
+        },
+        {
+          "script": "lane-park (this runner)",
+          "status": 0,
+          "seconds": 0,
+          "isolation": "in-process",
+          "ledger": {
+            "attempts": 0,
+            "loopback": 0,
+            "reach": 0
+          },
+          "evidence": "../../../../../../tmp/ioi-sal-gate-kIbDvZ/self-legs.json",
+          "evidence_sha256": "sha256:17b6da3e576ba3fac9bd79226a8fda38ea3594ca771470de65a6fabc2bdc43c7",
+          "executed_assertions": null,
+          "floor_expected": null
+        },
+        {
+          "script": "lane-admit (this runner)",
+          "status": 0,
+          "seconds": 0,
+          "isolation": "in-process",
+          "ledger": {
+            "attempts": 0,
+            "loopback": 0,
+            "reach": 0
+          },
+          "evidence": "../../../../../../tmp/ioi-sal-gate-kIbDvZ/self-legs.json",
+          "evidence_sha256": "sha256:17b6da3e576ba3fac9bd79226a8fda38ea3594ca771470de65a6fabc2bdc43c7",
+          "executed_assertions": null,
+          "floor_expected": null
+        }
+      ],
+      "absence": null,
+      "scheduled": null
+    },
+    {
+      "n": 6,
+      "demand": "the App holds no grant and signs nothing on its own act: a caller-supplied grant is stripped, the durable record carries the hashes and the grant id only, a tier that mints nothing leaves the run parked, a second approve is refused",
+      "executed": [
+        {
+          "script": "park (this runner)",
+          "status": 0,
+          "seconds": 0,
+          "isolation": "in-process",
+          "ledger": {
+            "attempts": 0,
+            "loopback": 0,
+            "reach": 0
+          },
+          "evidence": "../../../../../../tmp/ioi-sal-gate-kIbDvZ/self-legs.json",
+          "evidence_sha256": "sha256:17b6da3e576ba3fac9bd79226a8fda38ea3594ca771470de65a6fabc2bdc43c7",
+          "executed_assertions": null,
+          "floor_expected": null
+        },
+        {
+          "script": "source (this runner)",
+          "status": 0,
+          "seconds": 0,
+          "isolation": "in-process",
+          "ledger": {
+            "attempts": 0,
+            "loopback": 0,
+            "reach": 0
+          },
+          "evidence": "../../../../../../tmp/ioi-sal-gate-kIbDvZ/self-legs.json",
+          "evidence_sha256": "sha256:17b6da3e576ba3fac9bd79226a8fda38ea3594ca771470de65a6fabc2bdc43c7",
+          "executed_assertions": null,
+          "floor_expected": null
+        },
+        {
+          "script": "lane-park (this runner)",
+          "status": 0,
+          "seconds": 0,
+          "isolation": "in-process",
+          "ledger": {
+            "attempts": 0,
+            "loopback": 0,
+            "reach": 0
+          },
+          "evidence": "../../../../../../tmp/ioi-sal-gate-kIbDvZ/self-legs.json",
+          "evidence_sha256": "sha256:17b6da3e576ba3fac9bd79226a8fda38ea3594ca771470de65a6fabc2bdc43c7",
+          "executed_assertions": null,
+          "floor_expected": null
+        }
+      ],
+      "absence": null,
+      "scheduled": null
+    },
+    {
+      "n": 7,
+      "demand": "after admission the receipt, the admitted operation and the spend exposure are the daemon's, reflected on Operations and the reconciliation, and a parked-and-approved delete closes the exposure",
+      "executed": [
+        {
+          "script": "lane-admit (this runner)",
+          "status": 0,
+          "seconds": 0,
+          "isolation": "in-process",
+          "ledger": {
+            "attempts": 0,
+            "loopback": 0,
+            "reach": 0
+          },
+          "evidence": "../../../../../../tmp/ioi-sal-gate-kIbDvZ/self-legs.json",
+          "evidence_sha256": "sha256:17b6da3e576ba3fac9bd79226a8fda38ea3594ca771470de65a6fabc2bdc43c7",
+          "executed_assertions": null,
+          "floor_expected": null
+        }
+      ],
+      "absence": null,
+      "scheduled": null
+    },
+    {
+      "n": 8,
+      "demand": "deny records the operator's refusal and mints nothing",
+      "executed": [
+        {
+          "script": "park (this runner)",
+          "status": 0,
+          "seconds": 0,
+          "isolation": "in-process",
+          "ledger": {
+            "attempts": 0,
+            "loopback": 0,
+            "reach": 0
+          },
+          "evidence": "../../../../../../tmp/ioi-sal-gate-kIbDvZ/self-legs.json",
+          "evidence_sha256": "sha256:17b6da3e576ba3fac9bd79226a8fda38ea3594ca771470de65a6fabc2bdc43c7",
+          "executed_assertions": null,
+          "floor_expected": null
+        }
+      ],
+      "absence": {
+        "what": "a denial produces no signed receipt anywhere: the serve's deny mints nothing and writes no daemon receipt, and no deny act exists on the authority node or the wallet fixture",
+        "owner": "a follow-on slice of M03.9 (owner question, R-212)"
+      },
+      "scheduled": null
+    },
+    {
+      "n": 9,
+      "demand": "the handoff to a passkey step-up or a graduated wallet app",
+      "executed": [],
+      "absence": {
+        "what": "the alpha's custody tier is the deployment-local operator key (R-14): the App has no passkey prompt and the wallet-network prototype is a design mock; a passkey step-up or a graduated wallet app replaces the tier without changing the card",
+        "owner": "the graduated wallet app · the passkey tier (owner questions, R-212/R-213)"
+      },
+      "scheduled": null
+    },
+    {
+      "n": 10,
+      "demand": "the parked operation is reachable beside Governance / Approvals",
+      "executed": [],
+      "absence": {
+        "what": "a parked provider operation lives on Work / Sessions and the SPA session pane; no approvals-inbox plane reads the run record, so Governance / Approvals carries no row or link for it",
+        "owner": "a follow-on slice of M08.11 (owner question, R-213)"
+      },
+      "scheduled": null
+    },
+    {
+      "n": 11,
+      "demand": "the C4 proposal for a live create or redeploy is issued under the operator's session before the retry",
+      "executed": [],
+      "absence": {
+        "what": "the lane does not issue provider-operation proposals in this cut: the daemon's typed refusal (provider_operation_proposal_ref_required, receipt proposal_not_admitted) is the honest terminal of the live path here, reached before any provider is contacted",
+        "owner": "a follow-on slice of M08.11 (owner question, R-213); the live admission is scheduled (clause 12)"
+      },
+      "scheduled": null
+    },
+    {
+      "n": 12,
+      "demand": "the live deployment_intent admission through the lane, and the session-execute card live",
+      "executed": [],
+      "absence": null,
+      "scheduled": {
+        "what": "the live direct-Akash deployment_intent create parked, approved and ADMITTED through this lane with a daemon-issued proposal, reaching bid, lease, C6 readback, teardown and provider-confirmed settlement; and the session-execute card live under the deployment-local tier (check:alpha-journey, IOI_ALPHA_JOURNEY_AUTHORITY=deployment)",
+        "prerequisite": "an owner-authorized Akash account with a funded deposit (IOI_C7_EMAIL, IOI_C7_PASSWORD_FILE, IOI_WALLET_SECRET_PASS) for the live deployment_intent admission, and a local model (Ollama) with the deployment-local authority node for the session-execute card — each authorized leg by leg",
+        "ruling": "R-139 (2026-09-14) and R-213 (2026-09-20): a missing credential, model or authority node blocks a live RUN, never the unit; the lane is proven spend-free on the daemon's typed refusal and the simulator-mode admission"
+      }
+    }
+  ],
+  "verdict": {
+    "kind": "named_failure",
+    "failures": [],
+    "absences": [
+      {
+        "n": 8,
+        "what": "a denial produces no signed receipt anywhere: the serve's deny mints nothing and writes no daemon receipt, and no deny act exists on the authority node or the wallet fixture",
+        "owner": "a follow-on slice of M03.9 (owner question, R-212)"
+      },
+      {
+        "n": 9,
+        "what": "the alpha's custody tier is the deployment-local operator key (R-14): the App has no passkey prompt and the wallet-network prototype is a design mock; a passkey step-up or a graduated wallet app replaces the tier without changing the card",
+        "owner": "the graduated wallet app · the passkey tier (owner questions, R-212/R-213)"
+      },
+      {
+        "n": 10,
+        "what": "a parked provider operation lives on Work / Sessions and the SPA session pane; no approvals-inbox plane reads the run record, so Governance / Approvals carries no row or link for it",
+        "owner": "a follow-on slice of M08.11 (owner question, R-213)"
+      },
+      {
+        "n": 11,
+        "what": "the lane does not issue provider-operation proposals in this cut: the daemon's typed refusal (provider_operation_proposal_ref_required, receipt proposal_not_admitted) is the honest terminal of the live path here, reached before any provider is contacted",
+        "owner": "a follow-on slice of M08.11 (owner question, R-213); the live admission is scheduled (clause 12)"
+      },
+      {
+        "n": 12,
+        "what": "SCHEDULED-OUTSTANDING: the live direct-Akash deployment_intent create parked, approved and ADMITTED through this lane with a daemon-issued proposal, reaching bid, lease, C6 readback, teardown and provider-confirmed settlement; and the session-execute card live under the deployment-local tier (check:alpha-journey, IOI_ALPHA_JOURNEY_AUTHORITY=deployment)",
+        "owner": "prerequisite: an owner-authorized Akash account with a funded deposit (IOI_C7_EMAIL, IOI_C7_PASSWORD_FILE, IOI_WALLET_SECRET_PASS) for the live deployment_intent admission, and a local model (Ollama) with the deployment-local authority node for the session-execute card — each authorized leg by leg · R-139 (2026-09-14) and R-213 (2026-09-20): a missing credential, model or authority node blocks a live RUN, never the unit; the lane is proven spend-free on the daemon's typed refusal and the simulator-mode admission"
+      }
+    ]
+  },
+  "mutation": null,
+  "host": {
+    "isolation": "refused_and_recorded",
+    "strace": "strace -- version 6.8",
+    "load": [
+      "2.16",
+      "2.40",
+      "2.62"
+    ],
+    "daemon_binary": "/home/heathledger/Documents/ioi/repos/ioi/target/debug/hypervisor-daemon",
+    "work_dir": "/tmp/ioi-sal-gate-kIbDvZ",
+    "live_credentials_present": false
+  },
+  "fixture_ready_seconds": 296,
+  "finished_at": "2026-09-20T23:51:42.556Z",
+  "summary": {
+    "passed": 5,
+    "total": 5
+  }
+}

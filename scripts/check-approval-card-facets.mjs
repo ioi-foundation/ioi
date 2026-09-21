@@ -84,6 +84,7 @@ const CUSTODY = gate("check:custody-proven-private-routes", "custody-proven-priv
 const PROVENANCE = gate("check:provider-proposal-provenance", "provider-proposal-provenance", 30);
 const C8 = gate("check:c8-bounded-live-effect-certificate", "c8-bounded-live-effect-certificate", 20);
 const SESSION_TRUTH = gate("check:session-truth-rebind", "session-truth-rebind", 20);
+const LANE = gate("check:spend-approval-lane", "spend-approval-lane", 20);
 const self = (name) => ({ kind: "self", script: `${name} (this runner)` });
 const FIXTURE_LEG = self("fixture");
 const CARD = self("card");
@@ -91,7 +92,7 @@ const REFUSAL = self("refusal");
 const SPA = self("spa");
 const SOURCE = self("source");
 const FRESH = self("fresh challenge");
-const LANE_OWNER = "M08.11 (the spend-approval lane: parking a blocked provider operation as this card in the App and handing it to the custody tier — R-6 resolved by R-212: M03.9 owns the grammar and its oracle, M08.11 the routing)";
+const LANE_OWNER = "M08.11 (the spend-approval lane — landed 2026-09-20 as check:spend-approval-lane, R-213; R-6 resolved by R-212: M03.9 owns the grammar and its oracle, M08.11 the routing)";
 
 export const CLAUSES = [
   { n: 1, demand: "the challenge carries the exact bytes its commitment hashes cover — approval.request_preimage and approval.policy_preimage — and request_hash = sha256(request_preimage)", executed_by: [FIXTURE_LEG, SOURCE, FRESH] },
@@ -103,7 +104,7 @@ export const CLAUSES = [
   { n: 7, demand: "the resolved principal signs and the daemon admits the grant for exactly those facets", executed_by: [CUSTODY, C8, PROVENANCE], absence: { what: "a provider-operation admission AFTER a rendered card is driven by no isolated gate: a live create reaches the provider's console (never loopback, never spend-free), and the simulator-mode admission lives only in the shared-daemon adapter done-bar; the retained 2026-08-21 run's challenge → grant → admitted one-shot lease is replayed by check:c8-bounded-live-effect-certificate, and fresh admissions under the real wallet fixture by check:custody-proven-private-routes", owner: "M09.10's isolated form · the scheduled alpha journey (clause 12)" } },
   { n: 8, demand: "sign or refuse, each with a receipt", executed_by: [CUSTODY], absence: { what: "a denial produces no signed receipt anywhere: the serve's deny mints nothing and writes no daemon receipt, and no deny act exists on the authority node or the wallet fixture", owner: "a follow-on slice of M03.9 (owner question, R-212)" } },
   { n: 9, demand: "the grant is delivered back to the requesting surface", executed_by: [], absence: { what: "the in-process serve delivers the grant it mints for session execute (the alpha journey); a graduated wallet app's handoff to the requesting surface does not exist — the wallet-network prototype is a design mock", owner: "the graduated wallet app (owner question, R-212)" } },
-  { n: 10, demand: "the App parks a blocked provider operation as this card and hands it to the custody tier", executed_by: [], absence: { what: "no App lane creates a pendingApproval of kind provider_operation today; the renderer and the pane consume it when one does", owner: LANE_OWNER } },
+  { n: 10, demand: "the App parks a blocked provider operation as this card and hands it to the custody tier", executed_by: [LANE] },
   { n: 11, demand: "the facet lanes beyond the direct-Akash deployment_intent challenge (quote-gated adapters, storage archive operations) render byte-derived", executed_by: [], absence: { what: "the grammar reads any capability-lease preimage, but only the deployment_intent challenge is fixtured and drilled; the other lanes' members are not pinned", owner: "a follow-on slice of M03.9 (R-212(1))" } },
   { n: 12, demand: "the session-execute and custody cards live, under the deployment-local custody tier", executed_by: [], scheduled: { what: "check:alpha-journey with IOI_ALPHA_JOURNEY_AUTHORITY=deployment — the run parks on Work / Sessions and the SPA pane, the operator approves with the deployment-local key, the daemon admits and executes, the receipt binds", prerequisite: LIVE_PREREQ, ruling: LIVE_RULING } },
 ];

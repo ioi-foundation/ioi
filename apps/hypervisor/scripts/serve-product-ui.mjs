@@ -26,7 +26,7 @@ import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { WebSocketServer } from "ws";
 import * as adapter from "./ioi-api-adapter.mjs";
-import { getRun, listRuns, hydrateRunsFromDaemon, reconcileInFlightRuns, publishRunViaConnector, listRunsAwaitingApproval, decideRunApproval, listPendingCredentialBinds, startModelRouteCredentialBind, decideModelRouteCredentialBind } from "./ioi-agent-runs.mjs";
+import { getRun, listRuns, hydrateRunsFromDaemon, reconcileInFlightRuns, publishRunViaConnector, listRunsAwaitingApproval, decideRunApproval, listPendingCredentialBinds, startModelRouteCredentialBind, decideModelRouteCredentialBind, submitProviderOperation } from "./ioi-agent-runs.mjs";
 import { projectRunTimeline } from "./ioi-run-timeline.mjs";
 import { bpIcon, ONTOLOGY_APP_ICON_URI, APPROVALS_APP_ICON_URI, PIPELINE_APP_ICON_URI, ISSUES_APP_ICON_URI, EXPLORER_APP_ICON_URI, MODELS_APP_ICON_URI, AIP_GRADIENT_SVG_RAIL, AIP_GRADIENT_SVG_TOOLBAR } from "./bp-icons.mjs";
 import { MARKETPLACE_APP_ICON_URI, MK_GLOBE_URI, MK_HERO_URI, MK_STORE_ICON_URI, MK_PACKAGE_URI, MK_WIZ1_URI, MK_ARROW_URI, MK_WIZ2_URI, MK_WIZ3_URI } from "./marketplace-assets.mjs";
@@ -12624,6 +12624,23 @@ async function handleEstateRequest(req, res, body) {
       const returnTo = req.headers["x-ioi-canonical-route"] || "/work/sessions";
       res.writeHead(200, { "Content-Type": "text/html; charset=utf-8", "Cache-Control": "no-cache" });
       res.end(renderSessionsRoot(sessRes, envRes, listRunsAwaitingApproval(), returnTo));
+      return;
+    }
+    // M08.11 (R-213): a provider operation submitted THROUGH the App. The JSON body is the daemon's
+    // own provider-ops request; the caller's identity rides to the daemon; a refusal carrying the
+    // daemon's request preimage parks the run on Work / Sessions as the byte-derived card, and the
+    // operator's decision below hands it to the deployment's custody tier. The App signs nothing here.
+    if (pathname === "/__ioi/provider-ops" && req.method === "POST") {
+      const cacheAdmission = await localRunCacheAdmission(req);
+      if (!cacheAdmission.ok) {
+        refuseLocalRunCacheJson(res, cacheAdmission);
+        return;
+      }
+      let payload = null;
+      try { payload = JSON.parse(body.toString("utf8") || "null"); } catch { payload = null; }
+      const result = await submitProviderOperation({ body: payload, daemonHeaders: cacheAdmission.headers });
+      res.writeHead(result.status || (result.ok ? 200 : 409), { "Content-Type": "application/json", "Cache-Control": "no-cache" });
+      res.end(JSON.stringify(result));
       return;
     }
     // Operator decision on a parked run (ADR 0052). POST /__ioi/runs/:id/approve|deny — a form

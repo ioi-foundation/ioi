@@ -976,6 +976,15 @@ whole, and never re-states them; approval signs exactly the policy and request
 hashes those rendered bytes reproduce. The Hypervisor's gate for that rule is
 `check:approval-card-facets` (see `../hypervisor/byo-provider-plane.md`).
 
+**The Hypervisor App is a GuardianSurface projection under the
+`deployment_local_operator` tier (2026-09-20, M08.11, register R-213).** It
+displays and routes the challenge and hands the operator's decision to the
+custody tier, which signs one one-use grant for exactly the rendered hashes on
+that explicit act; the App holds no grant and signs nothing on its own. A passkey
+step-up or a graduated wallet app replaces the tier without changing the card;
+neither exists in the alpha and both are named absent. The Hypervisor's gate is
+`check:spend-approval-lane`.
+
 **Continuity is a successor, never a silent replacement.** A replaced or added
 device records a successor naming its predecessor on the same principal, so a
 device that is gone leaves a readable lineage rather than a gap. A successor

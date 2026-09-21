@@ -299,7 +299,14 @@ preimage is not signable byte-derived. The gate that proves this is
 `check:approval-card-facets`: the card grammar and its diff harness over a
 tracked daemon-minted challenge fixture and, in full mode, over a fresh
 challenge from an isolated daemon; the lane that parks a blocked provider
-operation as a card in the App is the spend-approval lane's own unit.
+operation as a card in the App is the spend-approval lane's own unit —
+`check:spend-approval-lane` (2026-09-20, M08.11, register R-213): the App parks
+the refused operation as the card, the custody tier signs one one-use grant, the
+App retries the identical request, and the receipt (outcome `ok`), the admitted
+`pop_*` record and the spend exposure are the daemon's, read back on Operations
+and the reconciliation; a live direct-marketplace create without a daemon-issued
+proposal ends at the daemon's typed refusal, and its live admission is scheduled
+behind owner credentials (R-139).
 
 ## Receipts — success AND failure
 

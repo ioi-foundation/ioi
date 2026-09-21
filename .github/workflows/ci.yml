@@ -988,6 +988,21 @@ jobs:
         if: ${{ !cancelled() && steps.rust_backed_daemon.outcome == 'success' }}
         run: npm run mutate:approval-card-facets --workspace=@ioi/hypervisor-app
 
+      # M08.11 (R-213). The App's spend-approval lane, CI-bound at its drills: a provider operation submitted
+      # through the App parks the daemon's refusal as the byte-derived card, the deployment-local tier mints
+      # one one-use grant for exactly the card's hashes, the App retries the identical request and holds no
+      # grant — driven in-process over the daemon-minted challenge fixture with the transport and the tier
+      # injected; source pins on the serve route and the dispatch. The real lane runs in the gate's full mode.
+      - name: Verify the App's spend-approval lane (M08.11, CI-bound drills)
+        if: ${{ !cancelled() && steps.rust_backed_daemon.outcome == 'success' }}
+        env:
+          IOI_VERIFIER_CENSUS_DIR: .artifacts/verifier-census
+        run: npm run check:spend-approval-lane --workspace=@ioi/hypervisor-app
+
+      - name: Drill the spend-approval lane oracles
+        if: ${{ !cancelled() && steps.rust_backed_daemon.outcome == 'success' }}
+        run: npm run mutate:spend-approval-lane --workspace=@ioi/hypervisor-app
+
       # M10.4 — the governed evaluation plane, driven against an ISOLATED daemon this job already
       # built: two deterministic ollama-dialect stub servers registered, probed, enabled and REALLY
       # invoked as routes A and B; released suite revisions, frozen and active epochs, admitted runs,

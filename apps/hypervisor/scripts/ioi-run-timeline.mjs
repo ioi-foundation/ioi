@@ -196,6 +196,20 @@ export function projectRunTimeline(run, extra = {}) {
       // (M03.9, R-212): the pane shows the same facts the card shows, whole, never re-stated.
       ...(run.pendingApproval.kind === PROVIDER_APPROVAL_KIND ? projectProviderApprovalForTimeline(run.pendingApproval) : {}),
     } : null,
+    // M08.11 (R-213): the daemon's answer to a provider operation submitted through the App — its
+    // receipt, outcome and grant ref after the operator's decision; never a grant.
+    providerOperation: run.providerOperation ? {
+      op: run.providerOperation.request?.op || null,
+      environmentRef: run.providerOperation.request?.environment_ref || null,
+      providerId: run.providerOperation.request?.provider_id || null,
+      status: run.providerOperation.status ?? null,
+      ok: run.providerOperation.ok ?? null,
+      outcome: run.providerOperation.outcome ?? null,
+      reason: run.providerOperation.reason ?? null,
+      receiptRef: run.providerOperation.receipt_ref ?? null,
+      grantRef: run.providerOperation.grant_ref ?? null,
+      capabilityLeaseRef: run.providerOperation.capability_lease_ref ?? null,
+    } : null,
     response: (run.status === "done" || run.status === "failed")
       ? { text: run.status === "failed" ? (run.error || "Run failed.") : (run.summary || "Run complete."), at: run.updatedAt, failed: run.status === "failed" }
       : null,

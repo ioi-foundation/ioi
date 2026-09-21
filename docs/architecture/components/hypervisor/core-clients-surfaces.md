@@ -3205,7 +3205,18 @@ inspection lane over the same daemon records; it is demoted from product
 navigation, not deleted. Verifier: `check:session-truth-rebind`
 (`apps/hypervisor/scripts/verify-hypervisor-session-truth-rebind.mjs`); the
 live approval card and the receipt binding after execution are asserted by
-`check:alpha-journey` (deployment mode). A run the App was driving when the
+`check:alpha-journey` (deployment mode). A blocked provider operation submitted
+through the App parks the same way (2026-09-20, M08.11, register R-213): the run
+carries the daemon's challenge whole, the card renders it byte-derived from the
+published preimage (`apps/hypervisor/scripts/lib/approval-card-facets.mjs`), and
+the operator's decision hands off to the deployment's custody tier — the
+deployment-local operator key today (R-14) — which mints one one-use grant for
+exactly the card's hashes and records it on the authority node before the App
+retries the identical request with `wallet_approval_grant`; the App holds no
+grant, signs nothing on its own act, and after admission renders the daemon's
+provider receipt, admitted operation and spend exposure. A live create without
+a daemon-issued proposal ends at the daemon's typed refusal before any provider
+is contacted. Verifier: `check:spend-approval-lane`. A run the App was driving when the
 serve restarted is reconciled at rehydration against the daemon session's
 execute receipt — the lane's verdict lives there, not in the App's memory — so
 a finished run reads done or failed with the harness's own error, never

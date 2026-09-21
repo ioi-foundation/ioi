@@ -55,7 +55,7 @@ function runDaemonHeaders(run, includeContentType = false) {
 
 // The durable subset of a run (the Run Timeline truth). Transcript is bounded — it's a view, not a
 // raw-context dump.
-function runRecord(run) {
+export function runRecord(run) {
   return {
     run_id: run.id,
     agent_id: run.agentId || null,
@@ -69,6 +69,7 @@ function runRecord(run) {
     summary: run.summary || null,
     authority: run.authority || null,
     pending_approval: run.pendingApproval || null,
+    provider_operation: run.providerOperation || null,
     capability_lease_ref: run.capabilityLeaseRef || null,
     proposal_ref: run.proposalRef || null,
     publication_proposal_ref: run.publicationProposalRef || null,
@@ -108,6 +109,7 @@ function recordToRun(r) {
     activityLog: r.activity_log || [],
     authority: r.authority || null,
     pendingApproval: r.pending_approval || null,
+    providerOperation: r.provider_operation || null,
     capabilityLeaseRef: r.capability_lease_ref || null,
     proposalRef: r.proposal_ref || null,
     publicationProposalRef: r.publication_proposal_ref || null,
@@ -854,13 +856,18 @@ async function executeRun(run, base, dj) {
 // grant for the parked challenge's exact policy/request hashes and resumes the daemon execute;
 // `deny` records the refusal and mints nothing. Both are the operator's own act (the caller's
 // daemon identity headers ride the resumed request), and both are durable through bump().
-export async function decideRunApproval({ runId, decision, reason = "", daemonHeaders = {} }) {
+export async function decideRunApproval({ runId, decision, reason = "", daemonHeaders = {}, minter = mintLocalApproverGrant, recorder = recordLocalApproverGrant, transport = daemonTransport }) {
   const run = runs.get(runId);
   if (!run) return { ok: false, status: 404, error: { code: "run_not_found", message: "unknown run" } };
   if (run.status !== "awaiting_operator_approval" || !run.pendingApproval) {
     return { ok: false, status: 409, error: { code: "run_not_awaiting_approval", message: `run is ${run.status}; nothing is awaiting a decision` } };
   }
   const pending = run.pendingApproval;
+  // M08.11 (R-213): a parked provider operation whose challenge carries no preimage cannot be shown as
+  // the bytes that would execute, so it cannot be approved here — the card is a refusal, deny only.
+  if (decision === "approve" && pending.kind === PROVIDER_OPERATION_KIND && pending.byte_derived === false) {
+    return { ok: false, status: 409, error: { code: "challenge_not_byte_derived", message: "the parked challenge carries no request preimage; it is not signable byte-derived and can only be denied" } };
+  }
   if (decision === "deny") {
     run.status = "denied";
     run.pendingApproval = { ...pending, decision: "denied", decided_at: nowIso(), reason: String(reason || "").slice(0, 400) };
@@ -873,7 +880,7 @@ export async function decideRunApproval({ runId, decision, reason = "", daemonHe
   }
   let grant;
   try {
-    grant = await mintLocalApproverGrant({ policyHash: pending.policy_hash, requestHash: pending.request_hash, audience: pending.audience });
+    grant = await minter({ policyHash: pending.policy_hash, requestHash: pending.request_hash, audience: pending.audience });
   } catch (error) {
     return { ok: false, status: 502, error: { code: "local_approver_mint_failed", message: String(error?.message || error) } };
   }
@@ -882,7 +889,7 @@ export async function decideRunApproval({ runId, decision, reason = "", daemonHe
   // recorded on wallet.network for the challenge's scope BEFORE the daemon is asked to consume
   // it (the daemon's preflight finds no state for an unrecorded grant and refuses).
   try {
-    const recorded = await recordLocalApproverGrant({ grant, targetScope: pending.target_scope });
+    const recorded = await recorder({ grant, targetScope: pending.target_scope });
     run.approvalRecord = recorded;
   } catch (error) {
     return { ok: false, status: 502, error: { code: "local_approver_record_failed", message: String(error?.message || error) } };
@@ -899,6 +906,22 @@ export async function decideRunApproval({ runId, decision, reason = "", daemonHe
     approver: "deployment_local_operator",
   };
   bump(run, "Approved by the operator — authorizing the run with the deployment approver key…");
+  // M08.11 (R-213): a parked PROVIDER OPERATION retries the IDENTICAL request the daemon refused,
+  // with the recorded one-use grant, under the operator's own identity; the daemon answers with its
+  // receipt (admitted, or its typed refusal — a live create without a daemon-issued proposal is
+  // refused before any provider is contacted). The App keeps the hashes and the grant id, never the grant.
+  if (pending.kind === PROVIDER_OPERATION_KIND) {
+    bump(run, "Retrying the identical provider operation with the recorded grant…");
+    void Promise.resolve()
+      .then(() => transport("POST", PROVIDER_OPS_PATH, { ...pending.request, wallet_approval_grant: grant }, runDaemonHeaders(run, true)))
+      .then((result) => finalizeProviderOperation(run, result))
+      .catch((error) => {
+        run.status = "failed";
+        run.error = String(error?.message || error);
+        bump(run, `Failed: ${run.error}`);
+      });
+    return { ok: true, status: 202, run_id: run.id, decision: "approved", kind: PROVIDER_OPERATION_KIND };
+  }
   const base = DAEMON;
   const dj = async (method, path, payload) => {
     const res = await fetch(base + path, {
@@ -927,6 +950,98 @@ export async function decideRunApproval({ runId, decision, reason = "", daemonHe
 
 export function listRunsAwaitingApproval() {
   return [...runs.values()].filter((run) => run.status === "awaiting_operator_approval" && run.pendingApproval);
+}
+
+// ---- M08.11 (R-213): the spend-approval lane ------------------------------------------------------------
+// A provider operation submitted through the App goes to the daemon under the operator's own identity.
+// A refusal that carries the daemon's request preimage PARKS a run on the operator's approval as the
+// byte-derived card (kind provider_operation; the whole secret-free challenge, its hashes, the audience,
+// the receipt_ref, and the exact request body). Approve hands the decision to the deployment's custody
+// tier (the deployment-local operator key, R-14), which mints ONE one-use grant for exactly the card's
+// hashes and records it on the authority node; the App then retries the IDENTICAL request with the grant.
+// The App never signs on its own act and holds no grant bytes; a caller-supplied grant is stripped —
+// authority enters the lane only through the operator's decision.
+export const PROVIDER_OPERATION_KIND = "provider_operation";
+export const PROVIDER_OPS_PATH = "/v1/hypervisor/provider-ops";
+async function daemonTransport(method, path, payload, headers) {
+  const res = await fetch(DAEMON + path, { method, headers, body: payload ? JSON.stringify(payload) : undefined });
+  const text = await res.text();
+  let parsed = {};
+  try { parsed = text ? JSON.parse(text) : {}; } catch { parsed = { _raw: text }; }
+  return { status: res.status, body: parsed };
+}
+export function providerOperationRequest(body) {
+  if (!body || typeof body !== "object" || Array.isArray(body)) return null;
+  const request = { ...body };
+  delete request.wallet_approval_grant;
+  if (typeof request.provider_id !== "string" || !request.provider_id || typeof request.op !== "string" || !request.op || typeof request.environment_ref !== "string" || !request.environment_ref) return null;
+  return request;
+}
+export async function submitProviderOperation({ body, daemonHeaders = {}, transport = daemonTransport }) {
+  const request = providerOperationRequest(body);
+  if (!request) return { ok: false, status: 400, error: { code: "provider_operation_request_invalid", message: "provider_id, op and environment_ref are required; a grant cannot be supplied through the lane" } };
+  const headers = boundedDaemonHeaders(daemonHeaders, true);
+  const reply = await transport("POST", PROVIDER_OPS_PATH, request, headers);
+  const id = genId("pop");
+  const run = {
+    id, agentId: null, envId: request.environment_ref, env: null, sessionRef: null, sessionStarted: false,
+    prompt: `provider ${request.op} on ${request.environment_ref}`, name: `Provider ${request.op}`,
+    status: "running", activity: null, iterations: 1, statusVersion: 1, createdAt: nowIso(), updatedAt: nowIso(),
+    transcript: [], changedFiles: [], publishReceipts: [], summary: null, error: null, activityLog: [],
+    authority: null, pendingApproval: null, daemonHeaders: boundedDaemonHeaders(daemonHeaders),
+    providerOperation: { kind: PROVIDER_OPERATION_KIND, request, status: null, ok: null, outcome: null, reason: null, receipt_ref: null, grant_ref: null, evidence: null },
+  };
+  runs.set(id, run);
+  const approval = reply?.body?.approval;
+  if ([403, 501].includes(Number(reply?.status)) && approval && typeof approval.request_hash === "string") {
+    const byteDerived = typeof approval.request_preimage === "string" && approval.request_preimage.length > 0;
+    run.status = "awaiting_operator_approval";
+    run.pendingApproval = {
+      kind: PROVIDER_OPERATION_KIND,
+      challenge: reply.body,
+      policy_hash: approval.policy_hash ?? null,
+      request_hash: approval.request_hash,
+      audience: approval.audience ?? null,
+      target_scope: approval.target_scope ?? null,
+      required_scopes: Array.isArray(reply.body.required_scopes) ? reply.body.required_scopes : [],
+      requested_at: nowIso(),
+      decision: null,
+      receipt_ref: reply.body.receipt_ref ?? null,
+      request,
+      byte_derived: byteDerived,
+    };
+    run.authority = { policyHash: approval.policy_hash ?? null, requestHash: approval.request_hash, grantId: null, expiresAt: null, mintedAt: null };
+    bump(run, byteDerived
+      ? "Waiting for your approval — the exact provider operation is on Work / Sessions"
+      : "Parked as a refusal: the daemon's challenge carries no request preimage, so it cannot be shown as the bytes that would execute; nothing to approve");
+    return { ok: true, status: 202, run_id: id, parked: true, byte_derived: byteDerived, request_hash: approval.request_hash, receipt_ref: reply.body.receipt_ref ?? null };
+  }
+  finalizeProviderOperation(run, reply);
+  return { ok: run.status === "done", status: Number(reply?.status) || 502, run_id: id, parked: false, outcome: run.providerOperation.outcome, reason: run.error, receipt_ref: run.providerOperation.receipt_ref };
+}
+function finalizeProviderOperation(run, result) {
+  const body = result?.body && typeof result.body === "object" ? result.body : {};
+  run.providerOperation = {
+    ...(run.providerOperation || { kind: PROVIDER_OPERATION_KIND }),
+    status: Number(result?.status) || null,
+    ok: body.ok === true,
+    outcome: body.outcome ?? null,
+    reason: body.reason ?? body.code ?? body.error?.code ?? body.admission_code ?? null,
+    receipt_ref: body.receipt_ref ?? null,
+    grant_ref: body.grant_ref ?? body.capability_lease?.grant_ref ?? null,
+    capability_lease_ref: body.capability_lease?.lease_id ?? null,
+    evidence: body.evidence ?? null,
+    decided_at: nowIso(),
+  };
+  if (body.ok === true) {
+    run.status = "done";
+    run.summary = `provider ${run.providerOperation.request?.op || "operation"} admitted — ${body.receipt_ref || "receipt pending"}`;
+    bump(run, run.summary);
+  } else {
+    run.status = "failed";
+    run.error = String(body.reason || body.code || body.error?.code || body.admission_code || `the daemon answered ${result?.status}`);
+    bump(run, `Refused by the daemon: ${run.error}`);
+  }
 }
 
 function finalize(run, result) {

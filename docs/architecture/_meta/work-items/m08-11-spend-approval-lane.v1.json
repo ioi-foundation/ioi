@@ -1,0 +1,96 @@
+{
+  "evidence_format": "ioi.program.work_item.v1",
+  "work_item_id": "m08-11-spend-approval-lane",
+  "stage_id": "M08",
+  "required_work": [
+    "M08.11"
+  ],
+  "status": "evidence_ready",
+  "objective": "Close M08.11 as an executable gate: the App displays and routes, the custody tier signs. A provider operation submitted through the App goes to the daemon under the operator's own identity; the daemon's refusal — carrying the exact bytes its commitment hashes cover — parks a run on the operator's approval as the byte-derived card; the operator's decision hands off to the deployment's custody tier (the deployment-local operator key, R-14), which mints ONE one-use grant for exactly the card's hashes and audience and records it on the authority node; the App retries the IDENTICAL request with the grant and renders the daemon's receipt, admitted operation and spend exposure. The App holds no grant bytes and signs nothing on its own act; a caller-supplied grant is stripped; a challenge without a preimage can only be denied.",
+  "falsifiable_claim": "npm run check:spend-approval-lane --workspace=@ioi/hypervisor-app (scripts/check-spend-approval-lane.mjs --drills) binds every clause to a floored app gate or one of the runner's own legs, requires the live legs to be scheduled with a prerequisite and a ruling, drives the lane's park and dispatch functions in-process over the tracked M03.9 challenge fixture with the daemon transport and the custody tier injected — the parked record whole and grant-free with the caller-supplied grant stripped, the pane projection and the card harness clean, the refusal park deny-only, a tier that mints nothing leaving the run parked, the handoff minting for exactly the card's hashes and audience and recording, the IDENTICAL request retried with the grant under the deciding operator's identity, the daemon's typed refusal and its admission each finalizing the run with the receipt, the grant ref and the lease, no grant bytes on the durable record, a second approve refused, an invalid submission and a non-challenge answer typed — pins the serve route behind the cache admission, the dispatch, the stripped grant, the byte-derived guard, exactly one mint call site, the pane projection and the test signer's flag, drills the verdict and requires the three canon owners to name the gate. mutate:spend-approval-lane plants thirteen defects and each goes red. The full gate runs the REAL lane (the wallet fixture beside an isolated daemon under its env, the runner's own serve with the fixture's approver seed as the deployment-local key): the live deployment_intent request parks WITH the daemon's audience, the card on Work / Sessions passes the diff harness against the durable record, approve mints and records one grant and the retry ends at the daemon's typed refusal before any provider is contacted with both receipts read back; the simulator-mode create parks, is approved and ADMITTED spend-free with the grant ref and the one-shot lease, the spend exposure opens on the reconciliation and Operations shows the receipt, and a parked-and-approved delete closes the exposure; then the composed gates run inside the isolated-egress harness; exit 0 only on a pass, 2 on a named failure, 1 on a fail.",
+  "canon_owners": [
+    "docs/architecture/components/hypervisor/core-clients-surfaces.md",
+    "docs/architecture/components/hypervisor/byo-provider-plane.md",
+    "docs/architecture/components/wallet-network/doctrine.md"
+  ],
+  "code_anchors": [
+    {
+      "path": "apps/hypervisor/scripts/ioi-agent-runs.mjs",
+      "must_contain": "export async function submitProviderOperation",
+      "present_when": "merged"
+    },
+    {
+      "path": "apps/hypervisor/scripts/ioi-agent-runs.mjs",
+      "must_contain": "delete request.wallet_approval_grant;",
+      "present_when": "merged"
+    },
+    {
+      "path": "apps/hypervisor/scripts/serve-product-ui.mjs",
+      "must_contain": "pathname === \"/__ioi/provider-ops\" && req.method === \"POST\"",
+      "present_when": "merged"
+    },
+    {
+      "path": "apps/hypervisor/scripts/ioi-run-timeline.mjs",
+      "must_contain": "providerOperation: run.providerOperation ? {",
+      "present_when": "merged"
+    },
+    {
+      "path": "scripts/lib/provider-challenge-fixture.mjs",
+      "must_contain": "export async function prepareSimulatorAccount",
+      "present_when": "merged"
+    },
+    {
+      "path": "scripts/check-spend-approval-lane.mjs",
+      "must_contain": "export async function parkLeg",
+      "present_when": "merged"
+    },
+    {
+      "path": "apps/hypervisor/verifier-floors.v1.json",
+      "must_contain": "\"id\": \"spend-approval-lane\"",
+      "present_when": "merged"
+    },
+    {
+      "path": ".github/workflows/ci.yml",
+      "must_contain": "npm run check:spend-approval-lane --workspace=@ioi/hypervisor-app",
+      "present_when": "merged"
+    },
+    {
+      "path": "scripts/check-acceptance-operator-workday.mjs",
+      "must_contain": "mutate:spend-approval-lane",
+      "present_when": "merged"
+    },
+    {
+      "path": "scripts/check-acceptance-authority-and-leases.mjs",
+      "must_contain": "mutate:spend-approval-lane",
+      "present_when": "merged"
+    },
+    {
+      "path": "docs/architecture/components/hypervisor/core-clients-surfaces.md",
+      "must_contain": "A blocked provider operation submitted\nthrough the App parks the same way (2026-09-20, M08.11, register R-213)",
+      "present_when": "merged"
+    },
+    {
+      "path": "docs/architecture/components/wallet-network/doctrine.md",
+      "must_contain": "The Hypervisor App is a GuardianSurface projection under the",
+      "present_when": "merged"
+    }
+  ],
+  "evidence_refs": [
+    "docs/architecture/_meta/evidence/m08-11-spend-approval-lane-2026-09-20.v1.json",
+    "docs/architecture/_meta/evidence/m03-9-provider-challenge-fixture-2026-09-20.v1.json",
+    "docs/architecture/_meta/canon-to-code-delta.md"
+  ],
+  "pr": null,
+  "adversarial_or_fault_proof": "mutate:spend-approval-lane plants a clause bound to a script that does not exist, the live legs scheduled without a ruling, the no-grant clause dropped, a challenge whose request hash does not match its preimage (refused inside the park by the card harness), a dispatch that retries a parked provider operation on the session-execute route, a lane that forwards a caller-supplied grant, a second mint call site, a run module that would approve a park without a preimage, a serve without the lane's route, a test signer that mounts without its flag, canon without the gate, and fabricated success rows — each must go red (13/13); the positive control (the in-process lane over the fixture) is asserted clean. Inside the drills a tier that mints nothing leaves the run parked and a second approve is refused.",
+  "remaining_nonclaims": [
+    "No live PASS is claimed: the live deployment_intent admission through the lane (a daemon-issued proposal, bid, lease, C6 readback, teardown, provider-confirmed settlement) is SCHEDULED behind owner credentials, and the session-execute card live is the alpha journey's deployment mode (R-139); in the gate the live path ends at the daemon's typed refusal provider_operation_proposal_ref_required, reached before any provider is contacted",
+    "The lane does not issue the daemon's C4 proposal for a live create or redeploy in this cut — an owner question (R-213)",
+    "The custody tier is the deployment-local operator key (R-14): the App has no passkey prompt and the wallet-network prototype is a design mock; a passkey step-up or a graduated wallet app replaces the tier without changing the card and both are named absent",
+    "A denial produces no signed receipt anywhere (R-212's owner question); the serve's deny records the operator's refusal on the run and mints nothing",
+    "A parked provider operation lives on Work / Sessions and the SPA session pane; no approvals-inbox plane reads the run record (owner question, R-213)",
+    "The admission proven spend-free is the simulator-mode quote-gated create (a simulated deployment, no provisioning run), not the acceptance's literal deployment_intent facet set, whose live admission is scheduled",
+    "The full gate is on demand, not CI-gated (the wallet fixture takes minutes to come up); CI executes the drills and the drill"
+  ],
+  "source_provenance": "Authored 2026-09-20 by the MVP finish-line program (R-213 ruled the shape after a read-only survey; R-212(3), R-14 and R-139 are its letter). Drills 5/5, mutation 13/13, M03.9's gate re-run with clause 10 bound to this one (11/11, battery 17/17), canon gates green (canon-document-residuals + its battery, source-neutral, architecture-docs), verifier floors green. NAMED FAILURE, exit 2 (isolation refused_and_recorded): the wallet fixture (Solo profile) ready in 296 s beside an isolated daemon under its env and the runner's own serve; LANE-PARK — the live deployment_intent request parked WITH the daemon's audience (the fixture's capability account), the card on the served Sessions readout passed the diff harness against the DURABLE record, approve minted and recorded one grant under the deployment-local tier and the retry ended at the daemon's typed refusal provider_operation_proposal_ref_required (status 403) with both receipts (authority_missing, proposal_not_admitted) read back from the daemon and no grant bytes on the record; LANE-ADMIT — the simulator-mode quote-gated create parked, was approved and ADMITTED (receipt ok with a wallet.network grant ref, the one-shot lease, a simdseq deployment with no provisioning run), the spend exposure opened on the reconciliation and Operations showed the environment, and the delete through the lane (not wallet-gated) closed the exposure; check:approval-card-facets --drills 11/11 (0 connects); check:session-truth-rebind 11/11 in 5 s (18 connects, all loopback, reach 0); the PARK and SOURCE legs in-process; 5 named entries. Recorded in canon-to-code-delta.md § Journey verification CXXII. ACC-3 and ACC-10 composed re-runs on this tree: ACC-3 PARTIAL, exit 2 — 30 executed clause checks green (was 28 after M03.9; clause 10 now executes the lane's drills 5/5 and battery 13/13 beside M03.9's), 3 typed absences, 8 multi-hour batteries not executed, 1 live leg scheduled-outstanding by ruling; ACC-10 PARTIAL, exit 2 — 29 executed clause checks green (its new clause 10 executes the drills and the battery), 4 typed absences, 0 batteries not executed, 1 live leg scheduled-outstanding by ruling, basis 8dcbc8716.",
+  "last_status_transaction": "2026-09-20"
+}
