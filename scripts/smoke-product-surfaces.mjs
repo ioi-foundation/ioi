@@ -729,6 +729,12 @@ try {
       path.join(root, target.dist),
       new Set(target.routes.map(normalizedRoute)),
     );
+    // A PORT IS PICKED FREE, NEVER FIXED. CI run 35546944025 (2026-09-20) died at
+    // `listen EADDRINUSE 127.0.0.1:44174` before the first measurement: the six targets carried
+    // fixed ports (44173–44179), and a fixed port answers whatever already holds it on the runner —
+    // the same defect class as a gate reading the shared dev daemon. Every target's port is now
+    // taken from the kernel immediately before its listener binds.
+    target.port = await freePort();
     await listen(server, target.port);
     servers.push(server);
     const unknown = await fetch(
@@ -746,6 +752,7 @@ try {
       path.join(os.tmpdir(), `ioi-${target.name}-browser-smoke-`),
     );
     applicationDataRoots.push(dataRoot);
+    target.port = await freePort();
     const application = spawn(
       process.execPath,
       [path.join(root, target.entry)],
@@ -1017,7 +1024,7 @@ try {
   ])];
   const hypervisorTarget = {
     name: "hypervisor-owned-served-ui",
-    port: 44173,
+    port: await freePort(),
     routes: hypervisorRoutes,
     // ADR 0052 Decision 5: a canonical route declared `serve.kind === "redirect"` lands on its
     // lane (the vendored SPA home, the login page); `serve.kind === "rewrite"` serves the lane's
