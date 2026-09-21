@@ -16480,9 +16480,47 @@ pub(crate) async fn handle_connector_register(
     )
 }
 
-/// GET /v1/hypervisor/connectors — list registered service connectors (NEVER includes credentials).
+/// One connector record as the estate may READ it: the sealed confidential-client secret withheld, and
+/// the only thing a surface legitimately needs from it — whether one is configured — published as a
+/// boolean in its place.
+///
+/// THE COMMENT ON THE LIST ROUTE SAID "NEVER INCLUDES CREDENTIALS" AND THE ROUTE SERVED THE RECORD DIR
+/// VERBATIM. A connector registered as a confidential BYO OAuth app carries `auth_profile
+/// .sealed_client_secret` (written at registration), so every caller of that list was handed sealed
+/// credential-binding contents — the class canon's authority invariant 18 names, and the class the M08
+/// module doc forbids an advanced view from rendering. The material is sealed at rest, so this is not a
+/// plaintext token on the wire; it is the estate handing around the thing it seals precisely so it does
+/// not have to. The SSO plane already had this exact redactor (`sso_public`) and the connector plane did
+/// not, which is how the two drifted.
+///
+/// A surface needs to say "confidential BYOA" versus "PKCE", and that is a PRESENCE fact, not the secret.
+fn connector_public(mut connector: Value) -> Value {
+    if let Some(auth_profile) = connector
+        .get_mut("auth_profile")
+        .and_then(Value::as_object_mut)
+    {
+        let configured = auth_profile
+            .get("sealed_client_secret")
+            .and_then(Value::as_str)
+            .is_some_and(|value| !value.is_empty());
+        auth_profile.remove("sealed_client_secret");
+        auth_profile.insert(
+            "confidential_client_configured".to_string(),
+            json!(configured),
+        );
+    }
+    connector
+}
+
+/// GET /v1/hypervisor/connectors — list registered service connectors. The sealed confidential-client
+/// secret is withheld and replaced by `auth_profile.confidential_client_configured`; the doc comment
+/// this route used to carry made that claim without the code behind it.
 pub(crate) async fn handle_connector_list(State(st): State<Arc<DaemonState>>) -> Json<Value> {
-    Json(json!({ "ok": true, "connectors": read_record_dir(&st.data_dir, "connectors") }))
+    let connectors: Vec<Value> = read_record_dir(&st.data_dir, "connectors")
+        .into_iter()
+        .map(connector_public)
+        .collect();
+    Json(json!({ "ok": true, "connectors": connectors }))
 }
 
 /// POST /v1/hypervisor/connectors/:id/credential — bind a sealed bearer credential to a connector.
@@ -29311,6 +29349,67 @@ mod launch_chain_composition_tests {
 /// policy-derived posture helpers, proven without a wallet: a bounded attach validates and an
 /// unbounded, revoked or expired one is not nameable; the lease binds every draw bound; and a
 /// refusal is classified by the bound it crossed.
+#[cfg(test)]
+mod connector_projection_tests {
+    use super::*;
+
+    /// The list route's doc comment claimed "NEVER includes credentials" while the route served the
+    /// record directory verbatim, and a confidential BYO OAuth connector carries a sealed client secret
+    /// in its `auth_profile`. The claim is now the code's, and this is the test that keeps it that way.
+    #[test]
+    fn the_connector_projection_withholds_the_sealed_secret_and_publishes_only_its_presence() {
+        let confidential = json!({
+            "connector_id": "cnx_a",
+            "auth_profile": {
+                "type": "oauth_authcode_pkce",
+                "client_id": "c1",
+                "sealed_client_secret": "sealed:abc",
+            },
+        });
+        let projected = connector_public(confidential);
+        let auth_profile = &projected["auth_profile"];
+        assert!(
+            auth_profile.get("sealed_client_secret").is_none(),
+            "the sealed secret reached a reader: {projected}"
+        );
+        assert_eq!(auth_profile["confidential_client_configured"], true);
+        assert_eq!(
+            auth_profile["client_id"], "c1",
+            "the projection is a redaction, not a rewrite"
+        );
+        assert!(
+            !serde_json::to_string(&projected)
+                .unwrap()
+                .contains("sealed:abc"),
+            "the sealed value survived somewhere else in the record"
+        );
+    }
+
+    /// A public client has no secret to withhold, and the presence flag must say so rather than being
+    /// absent — a missing flag and a false one read the same to a careless surface, and only one of them
+    /// is a fact.
+    #[test]
+    fn a_public_client_reads_as_configured_false_rather_than_as_a_missing_member() {
+        let public = json!({
+            "connector_id": "cnx_b",
+            "auth_profile": { "type": "oauth_authcode_pkce", "client_id": "c2" },
+        });
+        let projected = connector_public(public);
+        assert_eq!(
+            projected["auth_profile"]["confidential_client_configured"],
+            false
+        );
+    }
+
+    /// A connector with no auth profile at all passes through untouched: the redactor narrows what a
+    /// profile publishes and invents nothing where there is no profile.
+    #[test]
+    fn a_connector_without_an_auth_profile_is_unchanged() {
+        let bare = json!({ "connector_id": "cnx_c", "kind": "bearer" });
+        assert_eq!(connector_public(bare.clone()), bare);
+    }
+}
+
 #[cfg(test)]
 mod session_standing_lease_tests {
     use super::*;

@@ -543,7 +543,10 @@ function connectionCategory(c) {
 }
 function authDescriptor(c) {
   const ap = c.auth_profile || null;
-  if (ap && ap.type) return ap.type === "oauth_authcode_pkce" ? (ap.discovered ? "OAuth (auto-discovered + DCR)" : (ap.sealed_client_secret ? "OAuth (confidential BYOA)" : "OAuth + PKCE")) : ap.type;
+  // `confidential_client_configured` is a PRESENCE fact the daemon publishes in place of the sealed
+  // secret it used to serve. The label needs to know that a confidential client exists; it never needed
+  // the secret, and the route no longer offers one.
+  if (ap && ap.type) return ap.type === "oauth_authcode_pkce" ? (ap.discovered ? "OAuth (auto-discovered + DCR)" : (ap.confidential_client_configured ? "OAuth (confidential BYOA)" : "OAuth + PKCE")) : ap.type;
   if (c.kind === "aws-sigv4") return "AWS SigV4";
   if (c.kind === "service-account") return "Service account";
   if (c.kind === "oidc-workload") return "OIDC workload";
