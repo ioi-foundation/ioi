@@ -1,0 +1,103 @@
+{
+  "schema": "ioi.connected-access-cockpit-evidence.v1",
+  "mode": "full",
+  "started_at": "2026-09-21T20:58:52.619Z",
+  "drills": [
+    {
+      "name": "PURE — the oracle refuses every projection, rendering, action set and dependent that claims more than the daemon said, and accepts the clean shapes",
+      "pass": true,
+      "detail": "",
+      "at": "2026-09-21T20:58:52.621Z"
+    },
+    {
+      "name": "SOURCE — the cockpit reads the connection plane through the shared projection and derives no posture of its own, requested and returned scopes are kept apart, the daemon withholds the sealed secret and publishes its presence, and the fence still keys on binding and epoch",
+      "pass": true,
+      "detail": "",
+      "at": "2026-09-21T20:58:52.633Z"
+    },
+    {
+      "name": "BINDING — the gate is floored with an existing source and CI-bound, every clause is executed or named with an owner, and the twelve clauses are present",
+      "pass": true,
+      "detail": "",
+      "at": "2026-09-21T20:58:52.634Z"
+    },
+    {
+      "name": "VERDICT — a table missing eleven of its twelve rows is a FAIL, not a pass",
+      "pass": true,
+      "detail": "row_missing:2 ; row_missing:3",
+      "at": "2026-09-21T20:58:52.634Z"
+    },
+    {
+      "name": "VERDICT — twelve green rows with no absence is a PASS",
+      "pass": true,
+      "detail": "",
+      "at": "2026-09-21T20:58:52.634Z"
+    },
+    {
+      "name": "VERDICT — one named absence is a NAMED FAILURE, never a pass",
+      "pass": true,
+      "detail": "named_failure",
+      "at": "2026-09-21T20:58:52.635Z"
+    },
+    {
+      "name": "VERDICT — a gate that reports success without evidence is fabricated, not green",
+      "pass": true,
+      "detail": "clause_1_fabricated: x reports success without evidence",
+      "at": "2026-09-21T20:58:52.635Z"
+    },
+    {
+      "name": "VERDICT — a gate below its floor fails even at exit 0",
+      "pass": true,
+      "detail": "clause_1_below_floor: x 2 < 9",
+      "at": "2026-09-21T20:58:52.635Z"
+    }
+  ],
+  "pure": {
+    "findings": []
+  },
+  "source": {
+    "findings": []
+  },
+  "plane": {
+    "findings": [],
+    "seconds": 65
+  },
+  "clauses": [],
+  "verdict": {
+    "kind": "named_failure",
+    "failures": [],
+    "absences": [
+      {
+        "n": 7,
+        "what": "the product/System INTEGRATION binding does not exist as a record anywhere in the estate (no integration-binding family, no route, no contract), so 'keep integration distinct from connection' is enforced on the action set this gate can see and cannot yet be enforced against a record; provider-account DELETION likewise has no action on any surface",
+        "owner": "M08's integration binding and the provider-account lifecycle (owner question, R-221)"
+      },
+      {
+        "n": 8,
+        "what": "the daemon derives `/dependents` by filtering grants and sessions on CONNECTOR id rather than on connection ref or version, so a predecessor version's grants read as the successor's — and reconnect creates a successor version. The set also covers grants, sessions and obligations only, not installations, Systems, model routes, automations, environments or packages",
+        "owner": "M03.16's dependents derivation (owner question, R-221)"
+      },
+      {
+        "n": 9,
+        "what": "TWO OF THE THREE VIEWS DO NOT EXIST. Only the Hypervisor Connections cockpit exists and is re-plumbed here; there is no embedded product-settings connected-access view and no advanced wallet view (`packages/wallet-sdk` is a client library with no UI and does not speak M03.16). The parity oracle is executed over constructed views and the live comparison is named",
+        "owner": "M08's embedded settings surface and the advanced wallet view (owner question, R-221)"
+      },
+      {
+        "n": 11,
+        "what": "connection `receipt_refs` are SYNTHESISED strings (`receipt://wallet/provider-connection/...`) with five mint sites and zero readers, and the `provider-connection-evidence` records are write-only — no route resolves either. Rendering them as a receipt history would be manufacturing evidence, so the cockpit shows the refs it was given and claims no resolution",
+        "owner": "M06.1's receipt resolution for the connection family (owner question, R-221)"
+      },
+      {
+        "n": 12,
+        "what": "`verify-hypervisor-surface-parity.mjs` carries exactly that assertion and is bound to no npm script, no floor row and no CI job, so it has never executed; its sibling assertion also names a heading the cockpit stopped rendering. This gate executes the claim over the live rendered page instead, and the orphaned file is named rather than cited as coverage",
+        "owner": "M08.8's surface parity gate (owner question, R-221)"
+      }
+    ]
+  },
+  "mutation": null,
+  "finished_at": "2026-09-21T20:59:57.157Z",
+  "summary": {
+    "passed": 8,
+    "total": 8
+  }
+}

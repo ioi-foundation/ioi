@@ -1121,6 +1121,22 @@ jobs:
         if: ${{ !cancelled() && steps.rust_backed_daemon.outcome == 'success' }}
         run: npm run mutate:hypervisor-mcp-gateway-profile --workspace=@ioi/hypervisor-app
 
+      # M08.16 (R-221). Connected is not authorized: the cockpit renders the ADMITTED connection's posture
+      # rather than a credential-presence stamp, keeps provider reachability apart from delegated
+      # authority, separates the scopes a connector requested from the scopes a provider returned, and
+      # renders no sealed member. CI-bound at the drills — the oracle over constructed connections and the
+      # source pins that hold the surface to the connection plane. The live leg (an isolated daemon, a stub
+      # OAuth provider, a completed ceremony and the cockpit fetched and compared) is the gate's full mode.
+      - name: Verify the connected-access cockpit (M08.16, CI-bound drills)
+        if: ${{ !cancelled() && steps.rust_backed_daemon.outcome == 'success' }}
+        env:
+          IOI_VERIFIER_CENSUS_DIR: .artifacts/verifier-census
+        run: npm run check:connected-access-cockpit --workspace=@ioi/hypervisor-app
+
+      - name: Drill the connected-access oracle
+        if: ${{ !cancelled() && steps.rust_backed_daemon.outcome == 'success' }}
+        run: npm run mutate:connected-access-cockpit --workspace=@ioi/hypervisor-app
+
       # M10.4 — the governed evaluation plane, driven against an ISOLATED daemon this job already
       # built: two deterministic ollama-dialect stub servers registered, probed, enabled and REALLY
       # invoked as routes A and B; released suite revisions, frozen and active epochs, admitted runs,

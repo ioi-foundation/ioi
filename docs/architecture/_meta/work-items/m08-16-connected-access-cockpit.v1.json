@@ -1,0 +1,90 @@
+{
+  "evidence_format": "ioi.program.work_item.v1",
+  "work_item_id": "m08-16-connected-access-cockpit",
+  "stage_id": "M08",
+  "required_work": [
+    "M08.16"
+  ],
+  "status": "evidence_ready",
+  "objective": "Close M08.16 as an executable gate: make the connected-access surface render the ADMITTED connection's posture rather than a credential-presence stamp, derive that posture in exactly one place so views cannot disagree, keep provider reachability apart from delegated authority, keep the scopes a connector requested apart from the scopes a provider returned, keep connection, grant, integration and provider-account actions distinct, and render no sealed member — proven against a running daemon rather than by reading the source, because the defect it ends was exactly what its author intended and no source pin would have found it.",
+  "falsifiable_claim": "npm run check:connected-access-cockpit --workspace=@ioi/hypervisor-app (the root runner's --drills form) proves the shared oracle refuses every projection, rendering, action set and dependent that claims more than the daemon said: a posture that widens to active from any non-active status, a provider revocation or a degraded verification or a passed reauthorization deadline that fails to narrow an active connection, an expiry trusted from the record rather than derived, any of the twenty-one material members dropped or altered, a projection claiming authority or failing to disclaim that provider-granted scopes are not a grant or not saying which members each derived fact came from, a posture outside the seven declared statuses or a reachability outside the four verification statuses, a fence verdict disagreeing with the posture it came from, a wrong or missing next action for any status, the literal word connected beside a non-active record, an authorization claim with no capability lease behind it, provider-granted scopes under an authority heading, an action affecting two of the four distinct subjects or naming none, a missing lifecycle verb, any sealed member name in a rendering, a dependent bound to another connection version or naming no kind, and two views disagreeing on any member that decides what an operator does next. It further proves the cockpit reads the connection plane through that shared projection and derives no posture of its own, publishes the posture, reachability and epoch as data attributes, keeps requested and returned scopes apart by name, and that the daemon withholds the sealed confidential-client secret while publishing only its presence and the credential fence still keys on binding and epoch. npm run mutate:connected-access-cockpit drills those oracles with 28 planted defects. The gate's full mode drives one isolated daemon and a stub OAuth provider through a real ceremony, starts the serve against that daemon, fetches the cockpit and compares its rendered posture, reachability and epoch to the daemon's own record, then disconnects, requires the revocation epoch to advance, and reads the page again.",
+  "canon_owners": [
+    "docs/architecture/components/wallet-network/api-authority-scopes.md",
+    "docs/architecture/components/wallet-network/doctrine.md"
+  ],
+  "code_anchors": [
+    {
+      "path": "apps/hypervisor/scripts/lib/connected-access.mjs",
+      "must_contain": "export function projectConnection(",
+      "present_when": "merged"
+    },
+    {
+      "path": "apps/hypervisor/scripts/lib/connected-access.mjs",
+      "must_contain": "export function conflationFindings(",
+      "present_when": "merged"
+    },
+    {
+      "path": "apps/hypervisor/scripts/lib/connected-access.mjs",
+      "must_contain": "export function viewParityFindings(",
+      "present_when": "merged"
+    },
+    {
+      "path": "apps/hypervisor/scripts/serve-product-ui.mjs",
+      "must_contain": "/v1/hypervisor/auth/connections",
+      "present_when": "merged"
+    },
+    {
+      "path": "apps/hypervisor/scripts/serve-product-ui.mjs",
+      "must_contain": "data-ioi-connection-posture=",
+      "present_when": "merged"
+    },
+    {
+      "path": "apps/hypervisor/scripts/serve-product-ui.mjs",
+      "must_contain": "Scopes returned by the provider",
+      "present_when": "merged"
+    },
+    {
+      "path": "crates/node/src/bin/hypervisor_daemon_routes/lifecycle_routes.rs",
+      "must_contain": "fn connector_public(",
+      "present_when": "merged"
+    },
+    {
+      "path": "crates/node/src/bin/hypervisor_daemon_routes/lifecycle_routes.rs",
+      "must_contain": "confidential_client_configured",
+      "present_when": "merged"
+    },
+    {
+      "path": "scripts/lib/connected-access-plane.mjs",
+      "must_contain": "export async function planeLeg(",
+      "present_when": "merged"
+    },
+    {
+      "path": "scripts/check-connected-access-cockpit.mjs",
+      "must_contain": "export function sourceFindings(",
+      "present_when": "merged"
+    },
+    {
+      "path": "scripts/check-acceptance-authority-and-leases.mjs",
+      "must_contain": "check:connected-access-cockpit",
+      "present_when": "merged"
+    },
+    {
+      "path": "scripts/check-acceptance-operator-workday.mjs",
+      "must_contain": "check:connected-access-cockpit",
+      "present_when": "merged"
+    },
+    {
+      "path": "apps/hypervisor/verifier-floors.v1.json",
+      "must_contain": "\"id\": \"connected-access-cockpit\"",
+      "present_when": "merged"
+    },
+    {
+      "path": ".github/workflows/ci.yml",
+      "must_contain": "npm run check:connected-access-cockpit --workspace=@ioi/hypervisor-app",
+      "present_when": "merged"
+    }
+  ],
+  "evidence_refs": [
+    "docs/architecture/_meta/evidence/m08-16-connected-access-cockpit-2026-09-21.v1.json"
+  ]
+}

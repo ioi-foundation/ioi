@@ -195,7 +195,9 @@
     "check:orchestration-records": "node scripts/verify-hypervisor-orchestration-records.mjs",
     "mutate:orchestration-records": "node scripts/verify-hypervisor-orchestration-records.mjs --mutation",
     "check:hypervisor-mcp-gateway-profile": "node ../../scripts/check-hypervisor-mcp-gateway-profile.mjs --drills",
-    "mutate:hypervisor-mcp-gateway-profile": "node ../../scripts/check-hypervisor-mcp-gateway-profile.mjs --mutation"
+    "mutate:hypervisor-mcp-gateway-profile": "node ../../scripts/check-hypervisor-mcp-gateway-profile.mjs --mutation",
+    "check:connected-access-cockpit": "node ../../scripts/check-connected-access-cockpit.mjs --drills",
+    "mutate:connected-access-cockpit": "node ../../scripts/check-connected-access-cockpit.mjs --mutation"
   },
   "dependencies": {
     "@codemirror/commands": "^6.10.3",

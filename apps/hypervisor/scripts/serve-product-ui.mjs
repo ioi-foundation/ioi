@@ -29,6 +29,10 @@ import * as adapter from "./ioi-api-adapter.mjs";
 import { getRun, listRuns, hydrateRunsFromDaemon, reconcileInFlightRuns, publishRunViaConnector, listRunsAwaitingApproval, decideRunApproval, listPendingCredentialBinds, startModelRouteCredentialBind, decideModelRouteCredentialBind, submitProviderOperation } from "./ioi-agent-runs.mjs";
 import { projectRunTimeline } from "./ioi-run-timeline.mjs";
 import { MACHINES_API, MACHINES_ROUTE, MACHINE_LANE_PATH, PUBLIC_EXTENSION_READS, renderExtensionMachineReads, renderMachineDetail, renderMachineInventory } from "./lib/machine-product-composition.mjs";
+// M08.16 — the ONE place a connected-access posture, next action or dependent set is derived. Every view
+// imports it; none computes its own, because three views deriving separately disagree exactly when it
+// matters (mid-reauthorization, after a provider revocation, across a restart).
+import { projectConnection as CX_PROJECT_CONNECTION } from "./lib/connected-access.mjs";
 import { bpIcon, ONTOLOGY_APP_ICON_URI, APPROVALS_APP_ICON_URI, PIPELINE_APP_ICON_URI, ISSUES_APP_ICON_URI, EXPLORER_APP_ICON_URI, MODELS_APP_ICON_URI, AIP_GRADIENT_SVG_RAIL, AIP_GRADIENT_SVG_TOOLBAR } from "./bp-icons.mjs";
 import { MARKETPLACE_APP_ICON_URI, MK_GLOBE_URI, MK_HERO_URI, MK_STORE_ICON_URI, MK_PACKAGE_URI, MK_WIZ1_URI, MK_ARROW_URI, MK_WIZ2_URI, MK_WIZ3_URI } from "./marketplace-assets.mjs";
 import { DSG_APP_TILE_URI, DSG_ROW_DOC_URI, DSG_HERO_URI, DSG_AIP_ICON_URI, DSG_GALLERY_STRIP_URI } from "./designer-assets.mjs";
@@ -599,6 +603,20 @@ ${inner}</div></body></html>`;
 }
 function renderConnectionsCockpit(connectors, scmConnectors, leases, devFacts) {
   const leasesFor = (id) => (leases || []).filter((l) => String(l.backing_provider || "").includes(id) || String(l.resource_refs || "").includes(id));
+  // M08.16 — POSTURE COMES FROM THE CONNECTION, NOT FROM A CREDENTIAL STAMP. `auth_posture` says only
+  // that a credential is bound; it says nothing about whether the provider still answers, whether the
+  // connection was revoked, or whether a reauthorization is overdue. The projection below is the shared
+  // one every view uses, so no surface derives a posture for itself.
+  const nowIso = new Date().toISOString();
+  // The record names its connector as `connector://<id>`; the connector record's own id is bare.
+  // Comparing the two without stripping the scheme silently finds nothing, and a cockpit that finds
+  // no connection falls back to the credential stamp — the exact conflation this unit removes.
+  const bareConnector = (ref) => String(ref || "").replace(/^connector:\/\//u, "");
+  const connectionFor = (id) => (devFacts?.connections || []).find((x) => x && bareConnector(x.connector_ref) === id) || null;
+  const postureFor = (id) => {
+    const connection = connectionFor(id);
+    return connection ? CX_PROJECT_CONNECTION(connection, { now: nowIso }) : null;
+  };
   const groups = {};
   const push = (cat, html) => { (groups[cat] = groups[cat] || []).push(html); };
   // Registry embedded for the detail drawer (source shape: connector/tool registry WITH per-connector
@@ -620,15 +638,47 @@ function renderConnectionsCockpit(connectors, scmConnectors, leases, devFacts) {
     // Connect target: Slack w/o a client → its setup; OAuth-profile → launcher; else manage.
     const slackNoClient = c.service === "slack" && !(c.auth_profile && c.auth_profile.client_id);
     const connectHref = slackNoClient ? "/__ioi/slack/setup" : `/__ioi/integrations/connect/${encodeURIComponent(c.connector_id)}`;
-    const action = bound
-      ? `<span class="pill ok">connected</span>`
-      : `<a class="act" href="${connectHref}" target="_blank" rel="noopener" onclick="event.stopPropagation()">Connect ↗</a>`;
+    // THE POSTURE PILL IS THE CONNECTION'S, NOT THE CREDENTIAL STAMP'S. With a versioned connection the
+    // pill is its effective posture and the card carries the next action the operator owes. Without one
+    // the connector has a credential and no connection record, which is a REAL state (the legacy
+    // credential lane mints exactly that) and is said plainly rather than dressed as "connected" — a
+    // credential the fence never checks is not a connection.
+    const posture = postureFor(c.connector_id);
+    const postureClass = posture
+      ? (posture.effective_posture === "active" ? "ok" : posture.use_is_fenced ? "bad" : "warn")
+      : "warn";
+    const action = posture
+      ? `<span class="pill ${postureClass}" data-ioi-connection-posture="${CX_ESC(posture.effective_posture)}" data-ioi-connection-ref="${CX_ESC(posture.connection_ref || "")}" data-ioi-connection-version="${CX_ESC(String(posture.connection_version ?? ""))}" data-ioi-connection-epoch="${CX_ESC(String(posture.connection_revocation_epoch ?? ""))}" data-ioi-provider-reachability="${CX_ESC(posture.provider_reachability)}" data-ioi-use-fenced="${posture.use_is_fenced ? "1" : "0"}">${CX_ESC(posture.effective_posture.replace(/_/gu, " "))}</span>${posture.required_next_action ? `<span class="pill warn" data-ioi-next-action="${CX_ESC(posture.required_next_action)}">${CX_ESC(posture.required_next_action.replace(/_/gu, " "))}</span>` : ""}`
+      : bound
+        ? `<span class="pill warn" data-ioi-connection-posture="no_connection_record" data-ioi-use-fenced="0" title="A credential is bound and no versioned connection record exists; the credential fence keys on a connection and passes this one unchecked.">credential bound · no connection</span>`
+        : `<a class="act" href="${connectHref}" target="_blank" rel="noopener" onclick="event.stopPropagation()">Connect ↗</a>`;
     const i = reg.length;
     reg.push({
       t: "connector", connector_id: c.connector_id, name: c.name || c.service, service: c.service || "",
       kind: c.kind || "", base_url: c.base_url || "", auth: authDescriptor(c), auth_posture: c.auth_posture || "",
       bound, risk, requires_credential: c.requires_credential !== false,
-      scopes: (c.auth_profile && c.auth_profile.scopes) || [],
+      // REQUESTED versus RETURNED, kept apart by name. `requested_scopes` is what this connector asks a
+      // provider for; `provider_granted_scopes` is what the provider actually returned on the admitted
+      // connection. They are different facts, they routinely differ, and NEITHER is authority — canon
+      // says so of the second in as many words, which is why the drawer carries the disclaimer beside it.
+      requested_scopes: (c.auth_profile && c.auth_profile.scopes) || [],
+      provider_granted_scopes: posture ? (posture.provider_granted_scopes || []) : null,
+      scopes_are_not_authority: true,
+      connection: posture
+        ? {
+            connection_ref: posture.connection_ref,
+            connection_version: posture.connection_version,
+            status: posture.status,
+            effective_posture: posture.effective_posture,
+            provider_reachability: posture.provider_reachability,
+            connection_revocation_epoch: posture.connection_revocation_epoch,
+            reauthorization_required_at: posture.reauthorization_required_at,
+            last_provider_verification: posture.last_provider_verification,
+            required_next_action: posture.required_next_action,
+            use_is_fenced: posture.use_is_fenced,
+            derived_from: posture.derived_from,
+          }
+        : null,
       allowed_tools: (c.allowed_tools || []).map((t) => ({ name: t.name, method: t.method || "", path: t.path || "" })),
       org_allowed_tools: (c.org_policy && c.org_policy.allowed_tools) || null,
       connect_href: bound ? "" : connectHref,
@@ -655,14 +705,18 @@ function renderConnectionsCockpit(connectors, scmConnectors, leases, devFacts) {
       t: "scm", connector_id: c.connector_id || c.kind, name: c.name || c.kind, service: c.kind || "",
       kind: c.kind || "", base_url: c.host || c.remote_url || "", auth: "sealed host token (git-auth)",
       auth_posture: c.auth_posture || "", bound, risk: "standard", requires_credential: true,
-      scopes: [], allowed_tools: [], org_allowed_tools: null,
+      // The SCM lane holds a sealed host token, not an OAuth scope set, and it has no connection
+      // record: saying so is the point, because an empty scope list reads as 'no scopes granted'
+      // while the truth is that this lane never had any.
+      requested_scopes: [], provider_granted_scopes: null, scopes_are_not_authority: true,
+      connection: null, allowed_tools: [], org_allowed_tools: null,
       connected_login: c.connected_login || "", connect_href: bound ? "" : "/settings/runners?user-settings=git-authentications",
       leases: leasesFor(c.connector_id || "").map(leaseSlim),
     });
     push("Code / SCM", `<div class="card cncard" data-cn="${i}"><div class="main">
       <div class="name">${CX_ESC(c.name || c.kind)}${bound ? "" : '<span class="pill warn">needs auth</span>'}</div>
       <div class="meta">${CX_ESC(c.kind)} · <code>${CX_ESC(c.host || c.remote_url || "")}</code>${c.connected_login ? ` · @${CX_ESC(c.connected_login)}` : ""}</div>
-      </div>${bound ? '<span class="pill ok">connected</span>' : '<a class="act ghost" href="/settings/runners?user-settings=git-authentications" target="_blank" onclick="event.stopPropagation()">Git authentications ↗</a>'}</div>`);
+      </div>${bound ? '<span class="pill ok" data-ioi-scm-posture="token_bound" title="A sealed host token is bound. The SCM lane has no versioned connection record, so there is no provider posture to report.">token bound</span>' : '<a class="act ghost" href="/settings/runners?user-settings=git-authentications" target="_blank" onclick="event.stopPropagation()">Git authentications ↗</a>'}</div>`);
   }
   const order = ["MCP servers", "Communication channels", "Cloud roles", "Service accounts", "APIs & services", "Code / SCM"];
   const cats = Object.keys(groups).sort((a, b) => order.indexOf(a) - order.indexOf(b));
@@ -684,8 +738,9 @@ function renderConnectionsCockpit(connectors, scmConnectors, leases, devFacts) {
       var c=CN_REG[parseInt(card.getAttribute('data-cn'),10)];if(!c)return;
       document.querySelectorAll('.cncard').forEach(function(x){x.classList.toggle('sel',x===card);});
       var d=document.getElementById('cn-drawer');
-      var h='<h3>'+cnEsc(c.name)+' <span class="pill '+(c.bound?'ok':'warn')+'">'+(c.bound?'connected':'needs auth')+'</span></h3>';
-      h+='<h4>Binding</h4><div class="cngrid">'+cnRow('Connector','<code>'+cnEsc(c.connector_id)+'</code>')+cnRow('Kind',cnEsc(c.kind)+(c.service&&c.service!==c.kind?' · '+cnEsc(c.service):''))+cnRow('Endpoint','<code>'+cnEsc(c.base_url)+'</code>')+cnRow('Auth',cnEsc(c.auth))+cnRow('Posture','<code>'+cnEsc(c.auth_posture)+'</code>')+cnRow('Risk',cnEsc(c.risk))+(c.connected_login?cnRow('Identity','@'+cnEsc(c.connected_login)):'')+(c.scopes.length?cnRow('Scopes',cnEsc(c.scopes.join(', '))):'')+'</div>';
+      var cnP=c.connection||null;var cnCls=cnP?(cnP.effective_posture==='active'?'ok':(cnP.use_is_fenced?'bad':'warn')):(c.bound?'warn':'warn');var cnTxt=cnP?String(cnP.effective_posture).replace(/_/g,' '):(c.bound?'credential bound · no connection':'needs auth');
+      var h='<h3>'+cnEsc(c.name)+' <span class="pill '+cnCls+'" data-ioi-drawer-posture="'+cnEsc(cnP?cnP.effective_posture:(c.bound?'no_connection_record':'needs_auth'))+'">'+cnEsc(cnTxt)+'</span></h3>';
+      h+='<h4>Binding</h4><div class="cngrid">'+cnRow('Connector','<code>'+cnEsc(c.connector_id)+'</code>')+cnRow('Kind',cnEsc(c.kind)+(c.service&&c.service!==c.kind?' · '+cnEsc(c.service):''))+cnRow('Endpoint','<code>'+cnEsc(c.base_url)+'</code>')+cnRow('Auth',cnEsc(c.auth))+cnRow('Posture','<code>'+cnEsc(c.auth_posture)+'</code>')+cnRow('Risk',cnEsc(c.risk))+(c.connected_login?cnRow('Identity','@'+cnEsc(c.connected_login)):'')+(c.requested_scopes&&c.requested_scopes.length?cnRow('Scopes requested',cnEsc(c.requested_scopes.join(', '))):'')+(c.provider_granted_scopes?cnRow('Scopes returned by the provider',(c.provider_granted_scopes.length?cnEsc(c.provider_granted_scopes.join(', ')):'<em>none returned</em>')+'<div class="muted">Returned scopes describe what the provider credential could request. They are not a wallet authority grant.</div>'):'')+'</div>';
       h+='<div class="cnv" style="margin-top:8px;color:#6f7280;font-size:11.5px">Credential sealed in the daemon — never serialized to this page or any session.</div>';
       h+='<h4>Tool contracts ('+c.allowed_tools.length+')</h4>';
       if(c.allowed_tools.length){h+='<table><thead><tr><th>Tool</th><th>Method</th><th>Path</th></tr></thead><tbody>'+c.allowed_tools.map(function(t){return '<tr><td><code>'+cnEsc(t.name)+'</code></td><td>'+cnEsc(t.method)+'</td><td>'+cnEsc(t.path)+'</td></tr>';}).join('')+'</tbody></table><div style="color:#6f7280;font-size:11px;margin-top:4px">Only these declared tools can be used through the gateway'+(c.org_allowed_tools?' (org policy further restricts to: '+cnEsc(c.org_allowed_tools.join(', '))+')':'')+'.</div>';}
@@ -14203,19 +14258,37 @@ async function handleEstateRequest(req, res, body) {
     // ---- Connections cockpit — the owned full-control surface for the connector estate -----------
     if (pathname === "/__ioi/connections") {
       try {
-        const [c, s, l, mcpTools, authPol, scimStatus] = await Promise.all([
+        // M08.16: the CONNECTION plane is read here. Until this cut the cockpit read
+        // `/v1/hypervisor/connectors` and rendered `auth_posture` — a credential-PRESENCE stamp — as the
+        // literal word "connected", while M03.16's versioned connection binding, its status, its provider
+        // verification, its revocation epoch and the scopes the provider actually returned were served by
+        // the daemon and read by nobody. Posture comes from the connection record through the shared
+        // projection; the connector record keeps only what it owns (identity, endpoint, tool contracts).
+        const [c, s, l, mcpTools, authPol, scimStatus, conns] = await Promise.all([
           daemonFetch(`/v1/hypervisor/connectors`).then((r) => r.json()).catch(() => ({})),
           daemonFetch(`/v1/hypervisor/scm-connectors`).then((r) => r.json()).catch(() => ({})),
           daemonFetch(`/v1/hypervisor/capability-leases`).then((r) => r.json()).catch(() => ({})),
           daemonFetch(`/v1/hypervisor/mcp-gateway/tools`).then((r) => r.json()).catch(() => null),
           daemonFetch(`/v1/hypervisor/auth/policy`).then((r) => r.json()).catch(() => null),
           daemonFetch(`/scim/v2/ServiceProviderConfig`).then((r) => r.status).catch(() => 0),
+          daemonFetch(`/v1/hypervisor/auth/connections`).then((r) => r.json()).catch(() => ({})),
         ]);
+        // The LIST is a summary — six members, no provider verification and no returned scopes — so the
+        // detail route is read for each connection it names. The App fetches and projects; it does not
+        // reconstruct the members the summary omits, because a posture assembled from a summary is a
+        // posture the daemon did not state.
+        const connectionRecords = (await Promise.all(
+          (conns.connections || []).map((row) =>
+            daemonFetch(`/v1/hypervisor/auth/connections/${encodeURIComponent(row.connection_id || row.connection_ref || "")}`)
+              .then((r) => r.json())
+              .then((d) => d && d.current ? d.current : null)
+              .catch(() => null)),
+        )).filter(Boolean);
         res.writeHead(200, { "Content-Type": "text/html; charset=utf-8", "Cache-Control": "no-cache" });
         // A typed standing-envelope refusal from the attach pass renders verbatim (the custody-tier
         // refusal included) — the operator sees the daemon's/authority node's reason, never a blank.
         const leaseError = new URL(req.url, "http://x").searchParams.get("standing_lease_error") || "";
-        const page = renderConnectionsCockpit(c.connectors || [], s.connectors || [], l.leases || [], { mcpTools, authPol, scimStatus });
+        const page = renderConnectionsCockpit(c.connectors || [], s.connectors || [], l.leases || [], { mcpTools, authPol, scimStatus, connections: connectionRecords });
         res.end(leaseError ? page.replace(/<div class="add">/u, `<div class="empty" data-ioi-standing-lease-error="1" style="border-color:#5c4a23;color:#d6a13a">Limits not set — ${CX_ESC(leaseError)}</div><div class="add">`) : page);
       } catch (e) {
         res.writeHead(200, { "Content-Type": "text/html; charset=utf-8" });

@@ -199,7 +199,9 @@
     "package:hypervisor-alpha": "node scripts/package-hypervisor-alpha-release.mjs",
     "check:pre-push-gates": "node scripts/check-pre-push-gates.mjs",
     "check:hypervisor-mcp-gateway-profile": "node scripts/check-hypervisor-mcp-gateway-profile.mjs",
-    "mutate:hypervisor-mcp-gateway-profile": "node scripts/check-hypervisor-mcp-gateway-profile.mjs --mutation"
+    "mutate:hypervisor-mcp-gateway-profile": "node scripts/check-hypervisor-mcp-gateway-profile.mjs --mutation",
+    "check:connected-access-cockpit": "node scripts/check-connected-access-cockpit.mjs",
+    "mutate:connected-access-cockpit": "node scripts/check-connected-access-cockpit.mjs --mutation"
   },
   "devDependencies": {
     "@playwright/test": "^1.60.0",
