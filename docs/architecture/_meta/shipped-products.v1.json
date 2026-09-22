@@ -82,6 +82,7 @@
           "/__ioi/marketplace/listings",
           "/__ioi/missions",
           "/__ioi/missions/builds",
+          "/__ioi/missions/ecology",
           "/__ioi/missions/incidents",
           "/__ioi/missions/schedules",
           "/__ioi/ontology/explorer",
@@ -127,11 +128,11 @@
           "/work/reviews",
           "/work/sessions"
         ],
-        "expected_count": 69,
-        "sha256": "767489ba4d44bd772ed98b936bcb81fddb7b357eeb2645eab5b76a41b1a5c4a5",
+        "expected_count": 70,
+        "sha256": "a1840536cf6b900a49c4c560bac26a8687136dbdd00bae1134b1e20e112f3d35",
         "browser_verification_id": "served-surface-smoke",
         "derivation": "Union, deduplicated and sorted, of `/`, every non-`reserved` row of apps/hypervisor/scripts/v2-route-shell.mjs V2_ROUTE_TABLE, and every `route` plus `canonical_route` of apps/hypervisor/scripts/surface-registry.mjs SURFACES. Agreement with that live derivation is asserted EXACTLY (not as a subset) by scripts/smoke-product-surfaces.mjs assertManifestRoutes, run in CI as `npm run smoke:product-surfaces`; validate-shipped-products.mjs checks only this record's internal shape (sorted, unique, counted, digested) and must not be read as the agreement gate.",
-        "superseded_note": "2026-08-20 — E7-1 cockpit retirement (apps/hypervisor/reference-seed-adjudications.v1.json#e7-cockpit-retirement) removed the eight legacy daemon-projection cockpit rows and their /__ioi/* lanes (/__ioi/applications-launcher, /__ioi/automations-cockpit, /__ioi/home-cockpit, /__ioi/operations-cockpit, /__ioi/systems-workspace, /__ioi/work-cockpit, /__ioi/work-new-session, /__ioi/work-sessions); this inventory is re-derived from the post-E7-1 35-row registry (55 routes -> 65, the eight retired lanes out and eighteen registry mounts landed since the prior pass in)."
+        "superseded_note": "2026-09-22 (M08.17, R-232 follow-on) — 69 -> 70: `/__ioi/missions/ecology` joined the registry and is SERVED, so the derivation above produces it and this inventory had to declare it. The route was live for a day before this record caught up, and the only gate that can see the gap is `smoke:product-surfaces`, which renders every route against a serve it starts itself — neither the pre-push sweep nor validate-shipped-products.mjs can, because the latter checks only this record's internal shape and says so two fields up. Count and digest are the validator's own measurement, not a recomputation guessed here. Before that, 2026-08-20 — E7-1 cockpit retirement (apps/hypervisor/reference-seed-adjudications.v1.json#e7-cockpit-retirement) removed the eight legacy daemon-projection cockpit rows and their /__ioi/* lanes (/__ioi/applications-launcher, /__ioi/automations-cockpit, /__ioi/home-cockpit, /__ioi/operations-cockpit, /__ioi/systems-workspace, /__ioi/work-cockpit, /__ioi/work-new-session, /__ioi/work-sessions); this inventory is re-derived from the post-E7-1 35-row registry (55 routes -> 65, the eight retired lanes out and eighteen registry mounts landed since the prior pass in)."
       },
       "state_authority_mode": "daemon_authoritative_projection",
       "source_graph": {
