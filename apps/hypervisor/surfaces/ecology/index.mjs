@@ -23,7 +23,6 @@
 // and retire are the composition's verbs, executed by their owners through the ioi.ai composer; this
 // surface names them and links their coordinates. A surface that appeared to run them would be claiming an
 // authority no route backs.
-import { ioiGlobalRailHtml, IOI_GRAIL_CSS } from "../chrome.mjs";
 import { escHtml, selectionQuery } from "../kit.mjs";
 import { readJsonWithDeadline } from "../plane-read.mjs";
 import {
@@ -269,12 +268,15 @@ export function render(model, ctx) {
   const selectedId = selected ? selected.lineage_id : "";
   const count = (r) => (model.lineagePlane.ok ? model.projected.filter((p) => p.rung === r).length : "—");
   const filters = ["all", ...rungs].map((entry) => `<a role="tab" aria-selected="${entry === rung}" class="ec-filter${entry === rung ? " active" : ""}" href="${selectionQuery(ROUTE, { lineage: selectedId, rung: entry === "all" ? "" : entry })}">${escHtml(entry)}</a>`).join("");
-  const globalRail = ctx.embed ? "" : ioiGlobalRailHtml({ label: "Ecology", href: ROUTE, iconUri: ECOLOGY_APP_ICON_URI });
+  // NO GLOBAL RAIL, ON ANY DELIVERY. The rails ruling partitions the registry: the CERTIFIED reference
+  // ports keep their ported vendor rail on a bare delivery as pixel evidence, and EVERY later row is
+  // RAILLESS. This surface was modelled on `missions`, which is one of those certified ports, and it
+  // inherited the rail along with the layout — a fabricated vendor rail on a post-ruling surface is a
+  // regression, not fidelity, and only the live browser-smoke leg could see it.
   const CSS = `
     :root{color-scheme:dark;--surface-base:28 28 28;--surface-01:22 21 21;--surface-03:31 31 31;--surface-hover:255 255 255;--content-primary:250 250 250;--content-secondary:163 163 163;--content-muted:115 115 115;--content-link:139 171 252;--border-base:64 64 64;--border-brand:94 138 253;--status-ok:108 255 100;--status-warn:254 154 91;--status-danger:255 83 90}
     @media(prefers-color-scheme:light){:root{color-scheme:light;--surface-base:250 250 250;--surface-01:255 255 255;--surface-03:245 245 245;--surface-hover:0 0 0;--content-primary:31 31 31;--content-secondary:82 82 82;--content-muted:115 115 115;--content-link:0 72 255;--border-base:225 225 225;--border-brand:47 105 253;--status-ok:28 125 44;--status-warn:154 82 12;--status-danger:173 0 2}}
     *{box-sizing:border-box}body{margin:0;background:rgb(var(--surface-base));color:rgb(var(--content-primary));font:14px/1.45 "ABC Diatype",-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif}a{color:rgb(var(--content-link));text-decoration:none}code{font:11px/1.4 "ABC Diatype Mono",ui-monospace,monospace;color:rgb(var(--content-secondary));word-break:break-all}
-    ${IOI_GRAIL_CSS}
     .ec-shell{display:flex;min-height:100svh}.ec-main{flex:1;min-width:0}
     .ec-top{position:sticky;top:0;z-index:5;display:flex;align-items:center;justify-content:space-between;gap:20px;height:64px;padding:0 24px;border-bottom:1px solid rgb(var(--border-base));background:rgb(var(--surface-base)/.92);backdrop-filter:blur(16px)}
     .ec-title{display:flex;align-items:baseline;gap:10px}.ec-title h1{font-size:20px;line-height:1;margin:0;font-weight:500}.ec-title span{color:rgb(var(--content-muted));font-size:12px}
@@ -307,7 +309,7 @@ export function render(model, ctx) {
         ? `<div class="ec-run-list">${rows.map((r) => { const id = systemIdOf(r); return `<a class="ec-row" data-ioi-system="${escHtml(id)}" href="${selectionQuery(ROUTE, { system: id })}"><div class="ec-row-copy"><strong>${escHtml(shortRef(id))}</strong><span>persistent systems admitted under this System</span></div></a>`; }).join("")}</div>`
         : `<p class="ec-none" style="padding:18px">No System is admitted for this caller yet.</p>`)
       : `<p class="ec-none" style="padding:18px">The System picker could not be read — <code>${escHtml(model.systems.code || "unknown")}</code>. This does not mean there are none, and naming a System in the URL reads its ecology directly without the picker.</p>`;
-    return `<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Artifact Ecology · Hypervisor</title><style>${CSS}</style></head><body data-ioi-ecology-state="needs_system"><div class="ec-shell">${globalRail}<main class="ec-main" data-ioi-ecology="persistent-executable-lineage">
+    return `<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Artifact Ecology · Hypervisor</title><style>${CSS}</style></head><body data-ioi-ecology-state="needs_system"><div class="ec-shell"><main class="ec-main" data-ioi-ecology="persistent-executable-lineage">
       <header class="ec-top"><div class="ec-title"><h1>Artifact Ecology</h1><span>Name a System to read its persistent systems</span></div><div class="ec-actions"><a class="ec-action" href="/__ioi/missions">Missions</a></div></header>
       ${planeNotice("System picker", model.systems)}
       ${body}
@@ -315,7 +317,7 @@ export function render(model, ctx) {
     </main></div></body></html>`;
   }
 
-  return `<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Artifact Ecology · Hypervisor</title><style>${CSS}</style></head><body><div class="ec-shell">${globalRail}<main class="ec-main" data-ioi-ecology="persistent-executable-lineage">
+  return `<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Artifact Ecology · Hypervisor</title><style>${CSS}</style></head><body><div class="ec-shell"><main class="ec-main" data-ioi-ecology="persistent-executable-lineage">
     <header class="ec-top"><div class="ec-title"><h1>Artifact Ecology</h1><span>What persists, what is installed, and what is actually running</span></div><div class="ec-actions"><a class="ec-action" href="/__ioi/missions">Missions</a><a class="ec-action" href="/__ioi/operations">Operations substrate</a><a class="ec-action" href="${selectionQuery(ROUTE, { lineage: selectedId, rung: rung === "all" ? "" : rung })}" aria-label="Refresh ecology data">Refresh</a></div></header>
     <div class="ec-summary">${metric("lineages", model.lineagePlane.ok ? model.projected.length : "—")}${metric("stored", count("stored"))}${metric("installed", count("installed"))}${metric("running", count("running"))}${metric("coverage gaps", model.lineagePlane.ok ? model.coverage.length : "—", model.coverage.length ? "attention" : "")}</div>
     ${planeNotice("System record seam", model.lineagePlane)}${planeNotice("Qualification verdicts", model.verdictPlane)}
