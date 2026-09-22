@@ -1,0 +1,74 @@
+{
+  "evidence_format": "ioi.program.work_item.v1",
+  "work_item_id": "m06-10-jurisdiction-policy-audit-export",
+  "stage_id": "M06",
+  "required_work": [
+    "M06.10"
+  ],
+  "status": "evidence_ready",
+  "objective": "Close M06.10 as an executable gate: register the two objects canon already specifies member for member, pin canon's own refusal on the wire so a technical evaluator cannot express a legal verdict, and enforce in the daemon plane the pack-version law that a schema structurally cannot — because only the daemon holds the admitted pack to compare a decision's bound root and version against.",
+  "falsifiable_claim": "node scripts/check-jurisdiction-policy-audit-export.mjs proves twelve clauses over three registered contracts, a pure deriver and a live daemon plane. PURE: applicability comes from what the SUBJECT carries and never from its own claim; the decision grants nothing, performs nothing and cannot express a legal verdict; deadline arithmetic keeps its exact pack version, root and triggering timestamp; an obligation names an enforcing owner from the closed set and a ref to reach it by, a satisfied obligation cites evidence, and an absent evaluator never reads as a clean bill; the export names one audience, types every exclusion reason, carries no protected plaintext, never bypasses its own manifest, and a rejected evaluation mutates nothing. OFFLINE: ACC-18's eight mismatches are each caught ON ITS OWN by a relying party holding the bundle and its own expectations — wrong audience, subject, jurisdiction, reviewer, redaction and retention, a moved policy revision, and an evidence hash that is not the bundle that was generated — with no daemon, no clock and no network, and the verifier refuses to pass VACUOUSLY on an empty or non-object expectation. SEAM: legal_conformity_claim is const not_determined so a legal verdict is unrepresentable, canon's closed sets carry enforcing owners, exclusion reasons, audiences and clock-start instants, six never-clauses are consts, every material member is required so the projection cannot drop it, and a pack that reaches nothing is refused by the one invariant that can say so. SOURCE: the plane validates each registered contract at admission, refuses a decision whose bound pack root or version is not the admitted pack's, refuses a decision or export over records nobody holds, resolves identity BEFORE loading the record so an unauthenticated caller is never owed an existence oracle, scopes every read to the caller's tenant, and the deriver reaches no plane, file or clock. The gate's full mode drives one isolated daemon through all six routes and proves the six typed refusals fire live. --drills runs 10 drills; --mutation plants 34 defects in the deriver and catches all 34. Clause 12 is a NAMED ABSENCE with an owner and the gate exits 2: the compilation into wallet.network, Agentgres, the marketplace and sas.xyz is a correctly-typed pointer whose far end no verifier on this tree stands up, and no ACC-18 runner exists among the fourteen check-acceptance-* runners under scripts/.",
+  "canon_owners": [
+    "docs/architecture/foundations/ecosystem-assurance-certification-liability.md"
+  ],
+  "code_anchors": [
+    {
+      "path": "docs/architecture/_meta/schemas/jurisdiction-policy-pack.v1.schema.json",
+      "must_contain": "pack_root",
+      "present_when": "merged"
+    },
+    {
+      "path": "docs/architecture/_meta/schemas/jurisdiction-policy-decision.v1.schema.json",
+      "must_contain": "\"const\": \"not_determined\"",
+      "present_when": "merged"
+    },
+    {
+      "path": "docs/architecture/_meta/schemas/compliance-audit-export-bundle.v1.schema.json",
+      "must_contain": "carries_no_protected_plaintext",
+      "present_when": "merged"
+    },
+    {
+      "path": "apps/hypervisor/scripts/lib/jurisdiction-policy.mjs",
+      "must_contain": "export function offlineFindings(",
+      "present_when": "merged"
+    },
+    {
+      "path": "apps/hypervisor/scripts/lib/jurisdiction-policy.mjs",
+      "must_contain": "export const LEGAL_CONFORMITY_CLAIM = \"not_determined\";",
+      "present_when": "merged"
+    },
+    {
+      "path": "crates/node/src/bin/hypervisor_daemon_routes/jurisdiction_routes.rs",
+      "must_contain": "pack_content_moved",
+      "present_when": "merged"
+    },
+    {
+      "path": "crates/node/src/bin/hypervisor_daemon_routes/jurisdiction_routes.rs",
+      "must_contain": "recorder_authored",
+      "present_when": "merged"
+    },
+    {
+      "path": "scripts/lib/jurisdiction-policy-plane.mjs",
+      "must_contain": "export async function planeLeg(",
+      "present_when": "merged"
+    },
+    {
+      "path": "scripts/check-jurisdiction-policy-audit-export.mjs",
+      "must_contain": "export function sourceFindings(",
+      "present_when": "merged"
+    },
+    {
+      "path": "apps/hypervisor/verifier-floors.v1.json",
+      "must_contain": "\"id\": \"jurisdiction-policy-audit-export\"",
+      "present_when": "merged"
+    },
+    {
+      "path": ".github/workflows/ci.yml",
+      "must_contain": "npm run check:jurisdiction-policy-audit-export",
+      "present_when": "merged"
+    }
+  ],
+  "evidence_refs": [
+    "docs/architecture/_meta/evidence/m06-10-jurisdiction-policy-audit-export-2026-09-22.v1.json"
+  ]
+}

@@ -3,7 +3,7 @@
   "$id": "schema://ioi/foundations/jurisdiction-policy-decision/v1",
   "title": "JurisdictionPolicyDecision",
   "x-ioi-schema-version": "ioi.foundations.jurisdiction-policy-decision.v1",
-  "description": "WHAT A PACK SAID ABOUT ONE SUBJECT, AT ONE INSTANT, UNDER ONE EXACT PACK VERSION — and never a legal determination. Canon's sentence is unambiguous and nothing in the estate enforced it: \"Generated projections must always emit `legal_conformity_claim: not_determined`; no score, current deadline, attestation posture, submitted report, crypto-shredding receipt, certification, or policy-pack match is a legal determination.\" So `legal_conformity_claim` is `const not_determined` on the wire — a technical evaluator cannot express a legal verdict even by mistake, and the refusal sits where it cannot be argued with rather than in a checker that must remember to look. THE DECISION BINDS THE PACK'S ROOT, NOT ITS NAME. Canon requires that changing a deadline, clock-start rule, recipient, responsible party or accountable issuer take a NEW PACK VERSION and never rewrite an already-recorded reporting decision; binding `pack_root` is what makes that checkable, because an in-place edit breaks the binding instead of silently changing what this decision was taken against. AND IT DECIDES NOTHING ITSELF: the pack compiles into owners that already exist, so this record REPORTS which obligations were found to apply and which owner must enforce each one. It grants no authority, performs no action and refuses nothing on its own. Owner: foundations/ecosystem-assurance-certification-liability.md § JurisdictionPolicyPack (M06.10, R-228).",
+  "description": "WHAT A PACK SAID ABOUT ONE SUBJECT, AT ONE INSTANT, UNDER ONE EXACT PACK VERSION \u2014 and never a legal determination. Canon's sentence is unambiguous and nothing in the estate enforced it: \"Generated projections must always emit `legal_conformity_claim: not_determined`; no score, current deadline, attestation posture, submitted report, crypto-shredding receipt, certification, or policy-pack match is a legal determination.\" So `legal_conformity_claim` is `const not_determined` on the wire \u2014 a technical evaluator cannot express a legal verdict even by mistake, and the refusal sits where it cannot be argued with rather than in a checker that must remember to look. THE DECISION BINDS THE PACK'S ROOT, NOT ITS NAME. Canon requires that changing a deadline, clock-start rule, recipient, responsible party or accountable issuer take a NEW PACK VERSION and never rewrite an already-recorded reporting decision; binding `pack_root` is what makes that checkable, because an in-place edit breaks the binding instead of silently changing what this decision was taken against. AND IT DECIDES NOTHING ITSELF: the pack compiles into owners that already exist, so this record REPORTS which obligations were found to apply and which owner must enforce each one. It grants no authority, performs no action and refuses nothing on its own. Owner: foundations/ecosystem-assurance-certification-liability.md \u00a7 JurisdictionPolicyPack (M06.10, R-228).",
   "type": "object",
   "additionalProperties": false,
   "required": [
@@ -22,12 +22,22 @@
     "legal_conformity_claim",
     "grants_no_authority",
     "performs_no_action",
-    "decision_root"
+    "decision_root",
+    "recorded_by_ref"
   ],
   "properties": {
-    "schema_version": { "type": "string", "const": "ioi.foundations.jurisdiction-policy-decision.v1" },
-    "decision_id": { "type": "string", "pattern": "^jurisdiction_decision://[^\\s?#\\\\]{1,200}$" },
-    "pack_ref": { "type": "string", "pattern": "^jurisdiction_policy_pack://[^\\s?#\\\\]{1,200}$" },
+    "schema_version": {
+      "type": "string",
+      "const": "ioi.foundations.jurisdiction-policy-decision.v1"
+    },
+    "decision_id": {
+      "type": "string",
+      "pattern": "^jurisdiction_decision://[^\\s?#\\\\]{1,200}$"
+    },
+    "pack_ref": {
+      "type": "string",
+      "pattern": "^jurisdiction_policy_pack://[^\\s?#\\\\]{1,200}$"
+    },
     "pack_version": {
       "type": "string",
       "pattern": "^(?:0|[1-9][0-9]*)[.](?:0|[1-9][0-9]*)[.](?:0|[1-9][0-9]*)$",
@@ -36,46 +46,89 @@
     "pack_root": {
       "type": "string",
       "pattern": "^sha256:[0-9a-f]{64}$",
-      "description": "The pack's own seal at the instant this decision was taken. A pack edited in place no longer matches, so the decision cannot be quietly reinterpreted against content it was never read under — which is exactly the rewrite canon forbids."
+      "description": "The pack's own seal at the instant this decision was taken. A pack edited in place no longer matches, so the decision cannot be quietly reinterpreted against content it was never read under \u2014 which is exactly the rewrite canon forbids."
     },
     "subject_ref": {
       "type": "string",
       "pattern": "^[a-z][a-z0-9+.-]*://[^\\s]{1,400}$",
-      "description": "What was evaluated — a run, task, service, order, worker, runtime, domain or account. One decision, one subject."
+      "description": "What was evaluated \u2014 a run, task, service, order, worker, runtime, domain or account. One decision, one subject."
     },
-    "evaluated_at": { "$ref": "#/$defs/timestamp" },
+    "evaluated_at": {
+      "$ref": "#/$defs/timestamp"
+    },
     "clock_start_basis": {
       "anyOf": [
-        { "type": "string", "enum": ["detected_at", "confirmed_at", "materiality_determined_at", "authority_request_received_at"] },
-        { "type": "null" }
+        {
+          "type": "string",
+          "enum": [
+            "detected_at",
+            "confirmed_at",
+            "materiality_determined_at",
+            "authority_request_received_at"
+          ]
+        },
+        {
+          "type": "null"
+        }
       ],
       "description": "Which of the four instants any deadline in this decision runs from, or null when no deadline applies. The four are genuinely different moments and a window computed from the wrong one is wrong by however long detection, confirmation or materiality took."
     },
     "triggering_timestamp": {
-      "anyOf": [{ "$ref": "#/$defs/timestamp" }, { "type": "null" }],
+      "anyOf": [
+        {
+          "$ref": "#/$defs/timestamp"
+        },
+        {
+          "type": "null"
+        }
+      ],
       "description": "Canon: deadline arithmetic must retain the exact TRIGGERING TIMESTAMP. Null when no deadline applies; present and exact when one does, so the window can be recomputed by a reader rather than trusted."
     },
     "applicability": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["applies", "matched_classes", "basis"],
+      "required": [
+        "applies",
+        "matched_classes",
+        "basis"
+      ],
       "description": "Whether the pack reached this subject at all, and on what. A decision that says `applies: false` with no basis is indistinguishable from one nobody evaluated.",
       "properties": {
-        "applies": { "type": "boolean" },
+        "applies": {
+          "type": "boolean"
+        },
         "matched_classes": {
           "type": "array",
           "maxItems": 256,
           "items": {
             "type": "object",
             "additionalProperties": false,
-            "required": ["class_kind", "class_name"],
+            "required": [
+              "class_kind",
+              "class_name"
+            ],
             "properties": {
-              "class_kind": { "type": "string", "enum": ["action_class", "data_class", "service_class"] },
-              "class_name": { "type": "string", "minLength": 1, "maxLength": 200 }
+              "class_kind": {
+                "type": "string",
+                "enum": [
+                  "action_class",
+                  "data_class",
+                  "service_class"
+                ]
+              },
+              "class_name": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 200
+              }
             }
           }
         },
-        "basis": { "type": "string", "minLength": 12, "maxLength": 600 }
+        "basis": {
+          "type": "string",
+          "minLength": 12,
+          "maxLength": 600
+        }
       }
     },
     "obligations": {
@@ -85,29 +138,70 @@
       "items": {
         "type": "object",
         "additionalProperties": false,
-        "required": ["obligation_kind", "detail", "enforcing_owner", "owner_ref", "status"],
+        "required": [
+          "obligation_kind",
+          "detail",
+          "enforcing_owner",
+          "owner_ref",
+          "status"
+        ],
         "properties": {
           "obligation_kind": {
             "type": "string",
-            "enum": ["identity", "authority", "data_retention", "data_residency", "data_export", "prohibited_action", "approval_required", "disclosure_required", "audit_evidence", "incident_report", "erasure", "tax_or_commercial"]
+            "enum": [
+              "identity",
+              "authority",
+              "data_retention",
+              "data_residency",
+              "data_export",
+              "prohibited_action",
+              "approval_required",
+              "disclosure_required",
+              "audit_evidence",
+              "incident_report",
+              "erasure",
+              "tax_or_commercial"
+            ]
           },
-          "detail": { "type": "string", "minLength": 1, "maxLength": 600 },
+          "detail": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 600
+          },
           "enforcing_owner": {
             "type": "string",
-            "enum": ["wallet_network", "daemon_policy", "agentgres_retention", "marketplace_listing", "sas_service_obligation", "public_anchor"],
+            "enum": [
+              "wallet_network",
+              "daemon_policy",
+              "agentgres_retention",
+              "marketplace_listing",
+              "sas_service_obligation",
+              "public_anchor"
+            ],
             "description": "The owners canon names as the places a pack compiles INTO. This record enforces nothing; it says who does."
           },
-          "owner_ref": { "type": "string", "pattern": "^[a-z][a-z0-9+.-]*://[^\\s]{1,400}$" },
+          "owner_ref": {
+            "type": "string",
+            "pattern": "^[a-z][a-z0-9+.-]*://[^\\s]{1,400}$"
+          },
           "status": {
             "type": "string",
-            "enum": ["satisfied", "unsatisfied", "not_evaluated", "evidence_unavailable"],
+            "enum": [
+              "satisfied",
+              "unsatisfied",
+              "not_evaluated",
+              "evidence_unavailable"
+            ],
             "description": "`not_evaluated` and `evidence_unavailable` are distinct from `unsatisfied` on purpose: not looking and looking-and-not-finding are different facts, and collapsing them turns an absent evaluator into a clean bill."
           },
           "evidence_refs": {
             "type": "array",
             "maxItems": 128,
             "uniqueItems": true,
-            "items": { "type": "string", "pattern": "^[a-z][a-z0-9+.-]*://[^\\s]{1,400}$" }
+            "items": {
+              "type": "string",
+              "pattern": "^[a-z][a-z0-9+.-]*://[^\\s]{1,400}$"
+            }
           }
         }
       }
@@ -119,10 +213,26 @@
       "items": {
         "type": "object",
         "additionalProperties": false,
-        "required": ["missing", "reason"],
+        "required": [
+          "missing",
+          "reason"
+        ],
         "properties": {
-          "missing": { "type": "string", "enum": ["law", "contract", "qualification", "current_evidence", "processor_reference"] },
-          "reason": { "type": "string", "minLength": 12, "maxLength": 600 }
+          "missing": {
+            "type": "string",
+            "enum": [
+              "law",
+              "contract",
+              "qualification",
+              "current_evidence",
+              "processor_reference"
+            ]
+          },
+          "reason": {
+            "type": "string",
+            "minLength": 12,
+            "maxLength": 600
+          }
         }
       }
     },
@@ -131,7 +241,10 @@
       "const": "not_determined",
       "description": "CANON'S OWN WORD, PINNED ON THE WIRE. No score, current deadline, attestation posture, submitted report, crypto-shredding receipt, certification or policy-pack match is a legal determination. A technical evaluator that could express a legal verdict would be the defect this whole contract exists to prevent, so the only admissible value is this one."
     },
-    "grants_no_authority": { "type": "boolean", "const": true },
+    "grants_no_authority": {
+      "type": "boolean",
+      "const": true
+    },
     "performs_no_action": {
       "type": "boolean",
       "const": true,
@@ -140,7 +253,12 @@
     "decision_root": {
       "type": "string",
       "pattern": "^sha256:[0-9a-f]{64}$",
-      "description": "SHA-256 over JCS of every member except this one, so a recorded decision can be shown not to have moved — which is the other half of canon's rule that a new pack version must never rewrite one."
+      "description": "SHA-256 over JCS of every member except this one, so a recorded decision can be shown not to have moved \u2014 which is the other half of canon's rule that a new pack version must never rewrite one."
+    },
+    "recorded_by_ref": {
+      "type": "string",
+      "pattern": "^[a-z][a-z0-9+.-]*://[^\\s]{1,400}$",
+      "description": "THE RECORDER, STAMPED BY THE PLANE AND NEVER AUTHORED. This record is scoped to whoever recorded it, and without an owner it would admit successfully and then be readable by nobody \u2014 which is exactly what happened before this member existed, and what the unit's live leg caught. The plane refuses a caller-supplied value outright rather than correcting it and resolves the actor itself, so the scope a read is checked against is never one the caller chose. It is EXCLUDED from the root for the same reason a seam binding is: the caller seals the record before the server stamps it."
     }
   },
   "$defs": {

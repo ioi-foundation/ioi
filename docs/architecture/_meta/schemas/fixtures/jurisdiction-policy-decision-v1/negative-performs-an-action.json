@@ -55,5 +55,6 @@
   "legal_conformity_claim": "not_determined",
   "grants_no_authority": true,
   "performs_no_action": false,
-  "decision_root": "sha256:80fefb8cbf4d3ab3a594201c8589a7c84d704884ad49fe40114f41647c8a7abb"
+  "decision_root": "sha256:80fefb8cbf4d3ab3a594201c8589a7c84d704884ad49fe40114f41647c8a7abb",
+  "recorded_by_ref": "user://ioi/compliance-officer"
 }

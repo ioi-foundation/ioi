@@ -1,0 +1,245 @@
+{
+  "schema": "ioi.collective-controller-qualification-evidence.v1",
+  "mode": "full",
+  "started_at": "2026-09-22T00:20:06.182Z",
+  "drills": [
+    {
+      "name": "PURE — the oracle refuses every unmatched axis BY ITS NAME, a broken comparator, a declaration made after what it is read against, each of the four canon refuses, both directions of the result/continuity mix, an incomplete or over-claimed matrix, a knockout that activated something and an installation axis read through the posture — and accepts the clean shapes",
+      "pass": true,
+      "detail": "",
+      "at": "2026-09-22T00:20:06.186Z"
+    },
+    {
+      "name": "SEAM — three registered contracts carry the law on the wire: eight per-axis equality rules each comparing its own axis, a separate-roots rule, an admissible-basis enum that cannot NAME any of the four canon refuses, four never-clauses and the installation instrument pinned as consts, and a system_binding shaped as the seam's own derived object rather than one a caller could author",
+      "pass": true,
+      "detail": "",
+      "at": "2026-09-22T00:20:06.191Z"
+    },
+    {
+      "name": "SOURCE — the composition stays on the application side of the layer law and the Hypervisor evaluation plane references none of it, the knockouts run on a lane that plane already admits, canon states the positive control, the owner-read installation and evaluation-is-never-activation, and posture() still does not read installation_ref — the premise clause 8 rests on",
+      "pass": true,
+      "detail": "",
+      "at": "2026-09-22T00:20:06.192Z"
+    },
+    {
+      "name": "BINDING — the gate is floored with an existing source and CI-bound, every clause is executed or named with an owner, and the twelve clauses are present",
+      "pass": true,
+      "detail": "",
+      "at": "2026-09-22T00:20:06.193Z"
+    },
+    {
+      "name": "VERDICT — a table missing eleven of its twelve rows is a FAIL, not a pass",
+      "pass": true,
+      "detail": "row_missing:2 ; row_missing:3",
+      "at": "2026-09-22T00:20:06.193Z"
+    },
+    {
+      "name": "VERDICT — twelve green rows with no absence is a PASS",
+      "pass": true,
+      "detail": "",
+      "at": "2026-09-22T00:20:06.193Z"
+    },
+    {
+      "name": "VERDICT — one named absence is a NAMED FAILURE, never a pass",
+      "pass": true,
+      "detail": "named_failure",
+      "at": "2026-09-22T00:20:06.193Z"
+    },
+    {
+      "name": "VERDICT — a gate that reports success without evidence is fabricated, not green",
+      "pass": true,
+      "detail": "clause_1_fabricated: x reports success without evidence",
+      "at": "2026-09-22T00:20:06.193Z"
+    },
+    {
+      "name": "VERDICT — a gate below its floor fails even at exit 0",
+      "pass": true,
+      "detail": "clause_1_below_floor: x 2 < 9",
+      "at": "2026-09-22T00:20:06.194Z"
+    }
+  ],
+  "pure": {
+    "findings": []
+  },
+  "seam": {
+    "findings": []
+  },
+  "source": {
+    "findings": []
+  },
+  "plane": {
+    "blocked": false,
+    "findings": [],
+    "observed": {
+      "knockouts": [
+        {
+          "axis": "participant_exit",
+          "bit": true,
+          "detail": "a non-caretaker participant's exit returned null, moving nothing",
+          "records_before": 8,
+          "records_after": 8,
+          "records_written": false
+        },
+        {
+          "axis": "creator_session_removed",
+          "bit": true,
+          "detail": "transferred=false extended=false posture=active",
+          "records_before": 8,
+          "records_after": 8,
+          "records_written": false
+        },
+        {
+          "axis": "context_lease_revoked",
+          "bit": true,
+          "detail": "derived=stopped/authority_stale recorded=active",
+          "records_before": 8,
+          "records_after": 9,
+          "records_written": true
+        },
+        {
+          "axis": "dependency_retired",
+          "bit": true,
+          "detail": "dependencies_available=false recorded=reused",
+          "records_before": 9,
+          "records_after": 11,
+          "records_written": true
+        },
+        {
+          "axis": "artifact_ancestry_removed",
+          "bit": true,
+          "detail": "the fork still names its parent artifact (true) and its posture is unchanged (forked), so ancestry is a naming relation with no liveness edge",
+          "records_before": 11,
+          "records_after": 12,
+          "records_written": true
+        },
+        {
+          "axis": "caretaker_exit",
+          "bit": true,
+          "detail": "quarantined/caretaker_absent",
+          "records_before": 12,
+          "records_after": 12,
+          "records_written": false
+        },
+        {
+          "axis": "installation_unbound",
+          "bit": true,
+          "detail": "the owner served it before (true) and does not after (false); the posture read quarantined both times, which is why this axis is read from the owner",
+          "records_before": 12,
+          "records_after": 12,
+          "records_written": false
+        },
+        {
+          "axis": "controller_runtime_unserved",
+          "bit": true,
+          "detail": "the delegation is served (true); installing into the deleted automation is refused as lineage_installation_unbound",
+          "records_before": 12,
+          "records_after": 13,
+          "records_written": true
+        },
+        {
+          "axis": "lifecycle_stop",
+          "bit": true,
+          "detail": "stop → stopped",
+          "records_before": 13,
+          "records_after": 14,
+          "records_written": true
+        },
+        {
+          "axis": "lifecycle_quarantine",
+          "bit": true,
+          "detail": "quarantine → quarantined",
+          "records_before": 14,
+          "records_after": 15,
+          "records_written": true
+        },
+        {
+          "axis": "lifecycle_repair",
+          "bit": true,
+          "detail": "repair → repairing",
+          "records_before": 15,
+          "records_after": 16,
+          "records_written": true
+        },
+        {
+          "axis": "lifecycle_replacement",
+          "bit": true,
+          "detail": "replace → replaced",
+          "records_before": 16,
+          "records_after": 18,
+          "records_written": true
+        },
+        {
+          "axis": "lifecycle_retirement",
+          "bit": true,
+          "detail": "retire → retired",
+          "records_before": 18,
+          "records_after": 19,
+          "records_written": true
+        },
+        {
+          "axis": "verifier_invalidated",
+          "bit": true,
+          "detail": "the plane lowers a judgment to invalid on evaluator_not_active (true) and on nondeterminism_undeclared (true) — two independent mechanisms",
+          "records_before": 19,
+          "records_after": 19,
+          "records_written": false
+        },
+        {
+          "axis": "budget_exhausted",
+          "bit": true,
+          "detail": "a sealed-lane result with no exposure left is BLOCKED against the ledger head (true), and the block is receipted rather than asserted (true)",
+          "records_before": 19,
+          "records_after": 19,
+          "records_written": false
+        },
+        {
+          "axis": "crash_restart",
+          "bit": true,
+          "detail": "the pairing reads back at the same head and the same bytes after a restart (true)",
+          "records_before": 19,
+          "records_after": 19,
+          "records_written": false
+        }
+      ],
+      "installation": {
+        "read_through_posture": false,
+        "owner_serves_installation": false,
+        "posture_after_removal": "quarantined",
+        "served_before": true,
+        "delete_status": 200,
+        "posture_moved_for_another_reason": true
+      },
+      "seam": {
+        "estimand": true,
+        "axes_refused_by_name": true
+      },
+      "promotion": {
+        "recorded_posture": "quarantined",
+        "profiles_promoted_before": 0,
+        "profiles_promoted_after": 0,
+        "automations_alive": 5,
+        "records_in_the_system": 20,
+        "records_stamped_to_the_baseline_arm": 0
+      }
+    },
+    "seconds": 1624
+  },
+  "clauses": [],
+  "verdict": {
+    "kind": "named_failure",
+    "failures": [],
+    "absences": [
+      {
+        "n": 6,
+        "what": "FIVE AXES CANON NAMES CANNOT BE PERFORMED HERE, each for a measured reason and none for want of effort: the communication-edge knockout has no object to remove (no edge, channel or message-graph record exists anywhere; `coordination_topology` is a two-member admission-mode enum, not a graph); the role knockout has no RoleTopology record although `ContextCell.role` exists, and the composer refuses a topology-bound cell BY NAME rather than trusting one; lease EXPIRY has no writer at all (`expired` appears only in a terminal-status set and the daemon evaluates no TTL, which two independent non-claims already state) so only revocation is executable; and disclosure overhead and verification overhead have no measure — `verification_cost_class` on a suite revision is its author's declaration, not a measurement",
+        "owner": "M04.12's communication-edge and role-topology objects, M04.11's lease expiry, and a disclosure/verification cost measure with no owner today (owner question, R-222)"
+      }
+    ]
+  },
+  "mutation": null,
+  "finished_at": "2026-09-22T00:47:10.426Z",
+  "summary": {
+    "passed": 9,
+    "total": 9
+  }
+}

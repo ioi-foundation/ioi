@@ -1,0 +1,64 @@
+{
+  "evidence_format": "ioi.program.work_item.v1",
+  "work_item_id": "m08-17-collective-artifact-ecology",
+  "stage_id": "M08",
+  "required_work": [
+    "M08.17"
+  ],
+  "status": "evidence_ready",
+  "objective": "Close M08.17 as an executable gate: render the persistent artifact ecology from what a record BINDS rather than from the status word it carries, so a lineage recorded active with no runtime renders as STORED with the disagreement shown beside it — proven against a live daemon through a stop, because a view that keeps saying running after the runtime is gone is the whole defect and no source pin can see it.",
+  "falsifiable_claim": "node scripts/check-collective-artifact-ecology-surface.mjs proves twelve clauses over a pure rung deriver and the served bytes. The rung comes from installation_ref, runtime_ref and runtime_kind and NEVER from the status word; a record whose status disagrees with its bindings renders at the rung its bindings support, carries the disagreement, and the word running appears nowhere against it; the surface is a projection that owns nothing — actions is empty, the record count is unchanged by a render, and every read goes through the request-scoped ctx.daemonFetch that carries the caller's identity rather than a bare fetch that a loopback daemon would adjudicate as the operator; each plane that is unavailable renders an honest unavailable state rather than a zero; and the deep and embedded renderings agree on every member that decides what an operator does next. --drills runs 9 drills; --mutation plants 26 defects and catches all 26. The full mode admits three lineages on three rungs, renders {stored, installed, running}, STOPS the running one, refetches and renders {stored, installed, installed}. Clause 12 is a NAMED ABSENCE with an owner and the gate exits 2: no ioi.ai Goal Space surface exists anywhere in the estate to carry the unit's Collective mode, and ACC-9 has no runner.",
+  "canon_owners": [
+    "docs/architecture/domains/ioi-ai/collaborative-outcome-pattern.md"
+  ],
+  "code_anchors": [
+    {
+      "path": "apps/hypervisor/scripts/lib/artifact-ecology.mjs",
+      "must_contain": "export function rungOf(",
+      "present_when": "merged"
+    },
+    {
+      "path": "apps/hypervisor/surfaces/ecology/index.mjs",
+      "must_contain": "/__ioi/missions/ecology",
+      "present_when": "merged"
+    },
+    {
+      "path": "apps/hypervisor/scripts/surface-registry.mjs",
+      "must_contain": "bindSurface(\"ecology\"",
+      "present_when": "merged"
+    },
+    {
+      "path": "apps/hypervisor/application-operational-depth.json",
+      "must_contain": "reference_provenance",
+      "present_when": "merged"
+    },
+    {
+      "path": "apps/hypervisor/scripts/verify-hypervisor-operational-depth.mjs",
+      "must_contain": "const postAtlasRows =",
+      "present_when": "merged"
+    },
+    {
+      "path": "scripts/lib/artifact-ecology-plane.mjs",
+      "must_contain": "export async function planeLeg(",
+      "present_when": "merged"
+    },
+    {
+      "path": "scripts/check-collective-artifact-ecology-surface.mjs",
+      "must_contain": "export function sourceFindings(",
+      "present_when": "merged"
+    },
+    {
+      "path": "apps/hypervisor/verifier-floors.v1.json",
+      "must_contain": "\"id\": \"surface-modules\"",
+      "present_when": "merged"
+    },
+    {
+      "path": ".github/workflows/ci.yml",
+      "must_contain": "npm run check:collective-artifact-ecology-surface",
+      "present_when": "merged"
+    }
+  ],
+  "evidence_refs": [
+    "docs/architecture/_meta/evidence/m08-17-collective-artifact-ecology-2026-09-22.v1.json"
+  ]
+}

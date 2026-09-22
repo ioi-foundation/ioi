@@ -207,10 +207,23 @@ export function exportFindings(bundle, { where = "export" } = {}) {
  *
  * `expected` is what the relying party believes it asked for. Nothing in it comes from the bundle.
  */
+export const EXPECTED_MEMBERS = Object.freeze([
+  "audience", "subject_ref", "pack_ref", "pack_version",
+  "reviewer_ref", "redaction_profile_ref", "retention_lock_ref", "export_root",
+]);
+
 export function offlineFindings(bundle, expected, { where = "offline" } = {}) {
   const findings = [];
   if (!bundle || typeof bundle !== "object") return [`${where}: nothing to verify`];
   if (!expected || typeof expected !== "object") return [`${where}: the relying party stated no expectation, so nothing can fail`];
+  // AN EXPECTATION THAT STATES NOTHING IS NOT AN EXPECTATION. `{}` is an object and would sail past the
+  // guard above, leaving every check below skipped and the bundle reported clean — a relying party that
+  // asked for nothing would be told everything matched. A verifier that can pass vacuously is worse than
+  // none, because it produces a green a reader will cite.
+  const stated = EXPECTED_MEMBERS.filter((member) => expected[member] !== undefined && expected[member] !== null);
+  if (!stated.length) {
+    return [`${where}: the relying party stated no expectation at all — a bundle cannot satisfy a party that asked for nothing, and this check does not pass vacuously`];
+  }
 
   if (expected.audience && str(bundle, "audience") !== expected.audience) {
     findings.push(`${where}: WRONG AUDIENCE — built for ${str(bundle, "audience")}, presented to ${expected.audience}`);

@@ -1,0 +1,118 @@
+{
+  "schema": "ioi.collective-artifact-ecology-surface-evidence.v1",
+  "mode": "full",
+  "started_at": "2026-09-22T08:54:20.324Z",
+  "drills": [
+    {
+      "name": "PURE — the deriver reads the rung from what a record BINDS and never from its status word, so a lineage recorded active with no runtime is stored and reported; coverage, survival, dependents, leases by kind and the no-fabricated-evaluation rule each refuse their own defect and accept the clean shape",
+      "pass": true,
+      "detail": "",
+      "at": "2026-09-22T08:54:20.325Z"
+    },
+    {
+      "name": "RENDER — the served bytes carry every lineage's identity and rung, the liar renders as stored with its disagreement shown and the word running nowhere against it, a failed seam read names its code and renders no zero, the verbs are offered without a write control, and the embedded rendering resolves the same rungs as the direct one",
+      "pass": true,
+      "detail": "",
+      "at": "2026-09-22T08:54:20.333Z"
+    },
+    {
+      "name": "SOURCE — the surface reads the generic seam and no core rooms route, imports the shared deriver and derives no rung of its own, declares no actions and no handleAction at source and at runtime, is registered AND bound, and Missions still states the refusal this surface's existence rests on",
+      "pass": true,
+      "detail": "",
+      "at": "2026-09-22T08:54:20.335Z"
+    },
+    {
+      "name": "BINDING — the gate is floored with an existing source, CI-bound in the form the FLOORS GATE recognises rather than by its bare name, and every clause is executed or named with an owner",
+      "pass": true,
+      "detail": "",
+      "at": "2026-09-22T08:54:20.336Z"
+    },
+    {
+      "name": "VERDICT — a table missing eleven of its twelve rows is a FAIL, not a pass",
+      "pass": true,
+      "detail": "row_missing:2 ; row_missing:3",
+      "at": "2026-09-22T08:54:20.336Z"
+    },
+    {
+      "name": "VERDICT — twelve green rows with no absence is a PASS",
+      "pass": true,
+      "detail": "",
+      "at": "2026-09-22T08:54:20.336Z"
+    },
+    {
+      "name": "VERDICT — one named absence is a NAMED FAILURE, never a pass",
+      "pass": true,
+      "detail": "named_failure",
+      "at": "2026-09-22T08:54:20.336Z"
+    },
+    {
+      "name": "VERDICT — a gate that reports success without evidence is fabricated, not green",
+      "pass": true,
+      "detail": "clause_1_fabricated: x reports success without evidence",
+      "at": "2026-09-22T08:54:20.336Z"
+    },
+    {
+      "name": "VERDICT — a gate below its floor fails even at exit 0",
+      "pass": true,
+      "detail": "clause_1_below_floor: x 2 < 9",
+      "at": "2026-09-22T08:54:20.336Z"
+    }
+  ],
+  "pure": {
+    "findings": []
+  },
+  "render": {
+    "findings": []
+  },
+  "source": {
+    "findings": []
+  },
+  "plane": {
+    "blocked": false,
+    "findings": [],
+    "observed": {
+      "rungs": {
+        "lineage://m0817/installed": "installed",
+        "lineage://m0817/running": "running",
+        "lineage://m0817/stored": "stored"
+      },
+      "after_stop": {
+        "lineage://m0817/installed": "installed",
+        "lineage://m0817/running": "installed",
+        "lineage://m0817/stored": "stored"
+      },
+      "embedded": {
+        "lineage://m0817/installed": "installed",
+        "lineage://m0817/running": "installed",
+        "lineage://m0817/stored": "stored"
+      },
+      "writes": {
+        "records_before": 8,
+        "records_after": 8,
+        "stop_admitted": true
+      },
+      "read_ms": {
+        "systems_projection": 48993,
+        "lineage_records": 256
+      }
+    },
+    "seconds": 833
+  },
+  "verdict": {
+    "kind": "named_failure",
+    "failures": [],
+    "absences": [
+      {
+        "n": 12,
+        "what": "THE ioi.ai HALF OF THIS UNIT HAS NO SURFACE TO BE HALF OF. The unit asks for 'an explicit Collective mode in the ioi.ai Goal Space', and no Goal Space surface exists anywhere in this estate: `apps/ioi-ai/src/surfaces` contains three Slack files and nothing else, `apps/ioi-ai/src/api` carries zero goal or collective routes, and the core taxonomy's 29 first-party application registrations include no collective, rooms or ecology surface. The cross-view parity this clause names is therefore proven between the DEEP and EMBEDDED renderings of the one view that exists, and the ioi.ai comparison is named rather than constructed — the same call M08.16 made for its two absent views. ACC-9 additionally has no runner script at all (14 acceptance runners exist; `check-acceptance-collective-pursuit.mjs` is not among them), so this unit rebinds ACC-10's rows and ACC-9's remain unexecuted",
+        "owner": "the ioi.ai application's own client, and ACC-9's runner (owner question, R-224)"
+      }
+    ]
+  },
+  "mutation": null,
+  "finished_at": "2026-09-22T09:08:13.052Z",
+  "summary": {
+    "passed": 9,
+    "total": 9
+  }
+}

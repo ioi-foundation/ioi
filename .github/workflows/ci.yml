@@ -1172,6 +1172,22 @@ jobs:
 
       # The surface-module contract every served surface must satisfy. Bound here 2026-09-22: it had no
       # npm script, no CI step and no floor row, so it had never run anywhere but by hand.
+      # M06.10 — jurisdiction-policy decisions and privacy-filtered audit export. Canon specified both
+      # objects member for member and nothing registered them, so every obligation was a paragraph. The
+      # central refusal is canon's own word pinned as a const: technical evidence is never a legal
+      # determination. CI-bound at the drills — the deriver, the OFFLINE verifier ACC-18 turns on, the
+      # three contracts' wire-level refusals and the plane's source pins. The live leg (an isolated
+      # daemon, a pack edited in place and the next decision refused) is the gate's full mode.
+      - name: Verify jurisdiction policy and audit export (M06.10, CI-bound drills)
+        if: ${{ !cancelled() && steps.rust_backed_daemon.outcome == 'success' }}
+        env:
+          IOI_VERIFIER_CENSUS_DIR: .artifacts/verifier-census
+        run: npm run check:jurisdiction-policy-audit-export --workspace=@ioi/hypervisor-app
+
+      - name: Drill the jurisdiction-policy deriver
+        if: ${{ !cancelled() && steps.rust_backed_daemon.outcome == 'success' }}
+        run: npm run mutate:jurisdiction-policy-audit-export --workspace=@ioi/hypervisor-app
+
       - name: Verify the surface module contract
         if: ${{ !cancelled() && steps.rust_backed_daemon.outcome == 'success' }}
         env:

@@ -3,7 +3,7 @@
   "$id": "schema://ioi/foundations/compliance-audit-export-bundle/v1",
   "title": "ComplianceAuditExportBundle",
   "x-ioi-schema-version": "ioi.foundations.compliance-audit-export-bundle.v1",
-  "description": "AN EXPORT MANIFEST OVER EVIDENCE THAT ALREADY EXISTS, FOR ONE NAMED AUDIENCE — not a storage backend, not a screenshot bundle, not a legal opinion, and not a replacement for Agentgres truth. Canon requires an export to make THREE things obvious, and this shape makes each of them a member rather than a habit: what was included and why; what was redacted, withheld, protected or excluded AND WHY; and which policy, authority, retention, restricted-view, receipt and state-root refs support it. THE AUDIENCE IS A MEMBER BECAUSE THE WRONG ONE IS THE FAILURE MODE — ACC-18's first clause is that a wrong audience fails offline, so an export carries who it was built for and a reader can refuse it without asking anyone. EXCLUSION IS TYPED, NEVER SILENT: a ref that did not travel names the reason it did not, from a closed set, because a bundle that simply omits what it could not release is indistinguishable from one that had nothing to release. And a replay or proof view MUST NOT BYPASS THE MANIFEST: raw private payloads stay under storage, retention, restricted-view and authority policy, so `protected_payload_refs` names them and never carries them. Owner: foundations/ecosystem-assurance-certification-liability.md § ComplianceAuditExportBundle (M06.10, R-228).",
+  "description": "AN EXPORT MANIFEST OVER EVIDENCE THAT ALREADY EXISTS, FOR ONE NAMED AUDIENCE \u2014 not a storage backend, not a screenshot bundle, not a legal opinion, and not a replacement for Agentgres truth. Canon requires an export to make THREE things obvious, and this shape makes each of them a member rather than a habit: what was included and why; what was redacted, withheld, protected or excluded AND WHY; and which policy, authority, retention, restricted-view, receipt and state-root refs support it. THE AUDIENCE IS A MEMBER BECAUSE THE WRONG ONE IS THE FAILURE MODE \u2014 ACC-18's first clause is that a wrong audience fails offline, so an export carries who it was built for and a reader can refuse it without asking anyone. EXCLUSION IS TYPED, NEVER SILENT: a ref that did not travel names the reason it did not, from a closed set, because a bundle that simply omits what it could not release is indistinguishable from one that had nothing to release. And a replay or proof view MUST NOT BYPASS THE MANIFEST: raw private payloads stay under storage, retention, restricted-view and authority policy, so `protected_payload_refs` names them and never carries them. Owner: foundations/ecosystem-assurance-certification-liability.md \u00a7 ComplianceAuditExportBundle (M06.10, R-228).",
   "type": "object",
   "additionalProperties": false,
   "required": [
@@ -25,43 +25,80 @@
     "legal_conformity_claim",
     "carries_no_protected_plaintext",
     "bypasses_no_export_manifest",
-    "export_root"
+    "export_root",
+    "recorded_by_ref"
   ],
   "properties": {
-    "schema_version": { "type": "string", "const": "ioi.foundations.compliance-audit-export-bundle.v1" },
-    "export_id": { "type": "string", "pattern": "^audit_export://[^\\s?#\\\\]{1,200}$" },
+    "schema_version": {
+      "type": "string",
+      "const": "ioi.foundations.compliance-audit-export-bundle.v1"
+    },
+    "export_id": {
+      "type": "string",
+      "pattern": "^audit_export://[^\\s?#\\\\]{1,200}$"
+    },
     "export_type": {
       "type": "string",
-      "enum": ["customer_audit", "auditor_review", "regulator_request", "counterparty_dispute", "procurement_review", "internal_control", "tax_report", "sla_report", "incident_review"]
+      "enum": [
+        "customer_audit",
+        "auditor_review",
+        "regulator_request",
+        "counterparty_dispute",
+        "procurement_review",
+        "internal_control",
+        "tax_report",
+        "sla_report",
+        "incident_review"
+      ]
     },
     "subject_refs": {
       "type": "array",
       "minItems": 1,
       "maxItems": 512,
       "uniqueItems": true,
-      "items": { "$ref": "#/$defs/ref" },
+      "items": {
+        "$ref": "#/$defs/ref"
+      },
       "description": "What the export is ABOUT. An export over no subject is a document with no scope, and scope is what a reader checks an audience against."
     },
     "audience": {
       "type": "string",
-      "enum": ["customer", "external_auditor", "regulator", "counterparty", "insurer", "procurement", "internal_auditor", "public"],
+      "enum": [
+        "customer",
+        "external_auditor",
+        "regulator",
+        "counterparty",
+        "insurer",
+        "procurement",
+        "internal_auditor",
+        "public"
+      ],
       "description": "WHO IT WAS BUILT FOR, and the reason this is a member at all: ACC-18's first clause is that the WRONG AUDIENCE fails offline. A bundle whose audience is implicit can only be checked by asking its author."
     },
     "jurisdiction_policy_pack_refs": {
       "type": "array",
       "maxItems": 128,
       "uniqueItems": true,
-      "items": { "type": "string", "pattern": "^jurisdiction_policy_pack://[^\\s?#\\\\]{1,200}$" }
+      "items": {
+        "type": "string",
+        "pattern": "^jurisdiction_policy_pack://[^\\s?#\\\\]{1,200}$"
+      }
     },
-    "regulated_action_refs": { "$ref": "#/$defs/refList" },
+    "regulated_action_refs": {
+      "$ref": "#/$defs/refList"
+    },
     "policy_decision_refs": {
       "type": "array",
       "maxItems": 512,
       "uniqueItems": true,
-      "items": { "$ref": "#/$defs/ref" },
-      "description": "The decisions this export rests on — `jurisdiction_decision://`, a receipt, or the policy itself. Each one carries its own `legal_conformity_claim: not_determined`, and nothing here upgrades that."
+      "items": {
+        "$ref": "#/$defs/ref"
+      },
+      "description": "The decisions this export rests on \u2014 `jurisdiction_decision://`, a receipt, or the policy itself. Each one carries its own `legal_conformity_claim: not_determined`, and nothing here upgrades that."
     },
-    "approval_receipt_refs": { "$ref": "#/$defs/refList" },
+    "approval_receipt_refs": {
+      "$ref": "#/$defs/refList"
+    },
     "denial_receipt_refs": {
       "$ref": "#/$defs/refList",
       "description": "Denials travel WITH approvals. An export that carried only what was approved would be a selected record, and a selected record is the thing an audit exists to catch."
@@ -70,24 +107,51 @@
       "type": "array",
       "maxItems": 256,
       "uniqueItems": true,
-      "items": { "type": "string", "pattern": "^(?:authority|grant|lease)://[^\\s]{1,400}$" },
+      "items": {
+        "type": "string",
+        "pattern": "^(?:authority|grant|lease)://[^\\s]{1,400}$"
+      },
       "description": "Which authority supported the export itself. Canon: the manifest must name the authority refs that support it."
     },
-    "evidence_bundle_refs": { "$ref": "#/$defs/refList" },
-    "receipt_refs": { "$ref": "#/$defs/refList" },
-    "replay_refs": { "$ref": "#/$defs/refList" },
-    "retention_lock_refs": { "$ref": "#/$defs/refList" },
-    "restricted_view_refs": { "$ref": "#/$defs/refList" },
-    "redaction_profile_ref": { "$ref": "#/$defs/policyRef" },
-    "export_policy_ref": { "$ref": "#/$defs/policyRef" },
-    "declassification_refs": { "$ref": "#/$defs/refList" },
+    "evidence_bundle_refs": {
+      "$ref": "#/$defs/refList"
+    },
+    "receipt_refs": {
+      "$ref": "#/$defs/refList"
+    },
+    "replay_refs": {
+      "$ref": "#/$defs/refList"
+    },
+    "retention_lock_refs": {
+      "$ref": "#/$defs/refList"
+    },
+    "restricted_view_refs": {
+      "$ref": "#/$defs/refList"
+    },
+    "redaction_profile_ref": {
+      "$ref": "#/$defs/policyRef"
+    },
+    "export_policy_ref": {
+      "$ref": "#/$defs/policyRef"
+    },
+    "declassification_refs": {
+      "$ref": "#/$defs/refList"
+    },
     "export_manifest": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["included_refs", "redacted_refs", "protected_payload_refs", "excluded_refs", "exclusion_reasons"],
+      "required": [
+        "included_refs",
+        "redacted_refs",
+        "protected_payload_refs",
+        "excluded_refs",
+        "exclusion_reasons"
+      ],
       "description": "THE THREE THINGS CANON REQUIRES AN EXPORT TO MAKE OBVIOUS, as five members. Every list is present even when empty, because an omitted list and an empty list mean different things and only one of them is a statement.",
       "properties": {
-        "included_refs": { "$ref": "#/$defs/refList" },
+        "included_refs": {
+          "$ref": "#/$defs/refList"
+        },
         "redacted_refs": {
           "$ref": "#/$defs/refList",
           "description": "Travelled, with parts removed under the redaction profile."
@@ -96,7 +160,9 @@
           "$ref": "#/$defs/refList",
           "description": "NAMED BUT NOT CARRIED. Raw private payloads stay under storage, retention, restricted-view and authority policy; this list says they exist and where authority for them would be sought. An export that inlined one would be the bypass canon forbids."
         },
-        "excluded_refs": { "$ref": "#/$defs/refList" },
+        "excluded_refs": {
+          "$ref": "#/$defs/refList"
+        },
         "exclusion_reasons": {
           "type": "array",
           "maxItems": 512,
@@ -104,12 +170,25 @@
           "items": {
             "type": "object",
             "additionalProperties": false,
-            "required": ["excluded_ref", "reason"],
+            "required": [
+              "excluded_ref",
+              "reason"
+            ],
             "properties": {
-              "excluded_ref": { "$ref": "#/$defs/ref" },
+              "excluded_ref": {
+                "$ref": "#/$defs/ref"
+              },
               "reason": {
                 "type": "string",
-                "enum": ["retention_locked", "restricted_view", "no_export_authority", "protected_plaintext", "unrelated", "expired", "policy_blocked"]
+                "enum": [
+                  "retention_locked",
+                  "restricted_view",
+                  "no_export_authority",
+                  "protected_plaintext",
+                  "unrelated",
+                  "expired",
+                  "policy_blocked"
+                ]
               }
             }
           }
@@ -119,39 +198,98 @@
     "commercial_refs": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["invoice_refs", "cost_center_refs", "sla_report_refs", "tax_export_refs", "purchase_order_refs"],
+      "required": [
+        "invoice_refs",
+        "cost_center_refs",
+        "sla_report_refs",
+        "tax_export_refs",
+        "purchase_order_refs"
+      ],
       "properties": {
-        "invoice_refs": { "$ref": "#/$defs/refList" },
-        "cost_center_refs": { "$ref": "#/$defs/refList" },
-        "sla_report_refs": { "$ref": "#/$defs/refList" },
-        "tax_export_refs": { "$ref": "#/$defs/refList" },
-        "purchase_order_refs": { "$ref": "#/$defs/refList" }
+        "invoice_refs": {
+          "$ref": "#/$defs/refList"
+        },
+        "cost_center_refs": {
+          "$ref": "#/$defs/refList"
+        },
+        "sla_report_refs": {
+          "$ref": "#/$defs/refList"
+        },
+        "tax_export_refs": {
+          "$ref": "#/$defs/refList"
+        },
+        "purchase_order_refs": {
+          "$ref": "#/$defs/refList"
+        }
       }
     },
     "settlement_mode": {
       "type": "string",
-      "enum": ["local_domain", "bilateral", "invoice", "external_escrow", "external_chain", "ioi_l1"]
+      "enum": [
+        "local_domain",
+        "bilateral",
+        "invoice",
+        "external_escrow",
+        "external_chain",
+        "ioi_l1"
+      ]
     },
-    "settlement_profile_ref": { "$ref": "#/$defs/policyRef" },
+    "settlement_profile_ref": {
+      "$ref": "#/$defs/policyRef"
+    },
     "network_enrollment_ref": {
-      "anyOf": [{ "type": "string", "pattern": "^network-enrollment://[^\\s]{1,400}$" }, { "type": "null" }]
+      "anyOf": [
+        {
+          "type": "string",
+          "pattern": "^network-enrollment://[^\\s]{1,400}$"
+        },
+        {
+          "type": "null"
+        }
+      ]
     },
-    "public_commitment_policy_ref": { "anyOf": [{ "$ref": "#/$defs/policyRef" }, { "type": "null" }] },
-    "public_commitment_refs": { "$ref": "#/$defs/refList" },
+    "public_commitment_policy_ref": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/policyRef"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "public_commitment_refs": {
+      "$ref": "#/$defs/refList"
+    },
     "generated_by_ref": {
       "type": "string",
       "pattern": "^(?:agentgres|runtime)://[^\\s]{1,400}$",
       "description": "An operation or runtime that already exists. The export is generated BY the estate's own machinery, not by the bundle."
     },
-    "generated_at": { "$ref": "#/$defs/timestamp" },
+    "generated_at": {
+      "$ref": "#/$defs/timestamp"
+    },
     "validity": {
       "type": "string",
-      "enum": ["valid", "incomplete", "stale", "disputed", "revoked"],
+      "enum": [
+        "valid",
+        "incomplete",
+        "stale",
+        "disputed",
+        "revoked"
+      ],
       "description": "`incomplete` and `stale` are first-class, not failure states: an export built while evidence was unavailable says so, rather than presenting a partial record as a whole one."
     },
     "status": {
       "type": "string",
-      "enum": ["requested", "generated", "delivered", "revoked", "superseded", "expired"]
+      "enum": [
+        "requested",
+        "generated",
+        "delivered",
+        "revoked",
+        "superseded",
+        "expired"
+      ]
     },
     "legal_conformity_claim": {
       "type": "string",
@@ -171,17 +309,30 @@
     "export_root": {
       "type": "string",
       "pattern": "^sha256:[0-9a-f]{64}$",
-      "description": "SHA-256 over JCS of every member except this one, so a delivered bundle can be shown to be the one that was generated — which is what makes `revoked` and `superseded` mean anything."
+      "description": "SHA-256 over JCS of every member except this one, so a delivered bundle can be shown to be the one that was generated \u2014 which is what makes `revoked` and `superseded` mean anything."
+    },
+    "recorded_by_ref": {
+      "type": "string",
+      "pattern": "^[a-z][a-z0-9+.-]*://[^\\s]{1,400}$",
+      "description": "THE RECORDER, STAMPED BY THE PLANE AND NEVER AUTHORED. This record is scoped to whoever recorded it, and without an owner it would admit successfully and then be readable by nobody \u2014 which is exactly what happened before this member existed, and what the unit's live leg caught. The plane refuses a caller-supplied value outright rather than correcting it and resolves the actor itself, so the scope a read is checked against is never one the caller chose. It is EXCLUDED from the root for the same reason a seam binding is: the caller seals the record before the server stamps it."
     }
   },
   "$defs": {
-    "ref": { "type": "string", "pattern": "^[a-z][a-z0-9+._-]*://[^\\s]{1,400}$" },
-    "policyRef": { "type": "string", "pattern": "^policy://[^\\s]{1,400}$" },
+    "ref": {
+      "type": "string",
+      "pattern": "^[a-z][a-z0-9+._-]*://[^\\s]{1,400}$"
+    },
+    "policyRef": {
+      "type": "string",
+      "pattern": "^policy://[^\\s]{1,400}$"
+    },
     "refList": {
       "type": "array",
       "maxItems": 1024,
       "uniqueItems": true,
-      "items": { "$ref": "#/$defs/ref" }
+      "items": {
+        "$ref": "#/$defs/ref"
+      }
     },
     "timestamp": {
       "type": "string",

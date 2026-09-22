@@ -15079,6 +15079,7 @@ export type JurisdictionPolicyDecisionV1 = {
   grants_no_authority: true;
   performs_no_action: true;
   decision_root: string;
+  recorded_by_ref: string;
 };
 
 export type ComplianceAuditExportBundleV1 = {
@@ -15131,6 +15132,7 @@ export type ComplianceAuditExportBundleV1 = {
   carries_no_protected_plaintext: true;
   bypasses_no_export_manifest: true;
   export_root: string;
+  recorded_by_ref: string;
 };
 
 export const ARCHITECTURE_CONTRACT_REGISTRY_VERSION = "ioi.architecture-contract-registry.v1" as const;
@@ -36556,8 +36558,8 @@ export const ARCHITECTURE_CONTRACT_SCHEMA_HASHES = {
   "schema://ioi/applications/ioi-ai/collective-baseline-pairing/v1": "sha256:814d3ae058d3bbcebeeeb44342dee6ab4f347433b5b080dd55cc5bc83f6d807a",
   "schema://ioi/applications/ioi-ai/collective-qualification-verdict/v1": "sha256:94871ec7577b87e08a0122b70ba651f3ea87d056024f650d7ebac5215c90f5ed",
   "schema://ioi/foundations/jurisdiction-policy-pack/v1": "sha256:979e40fa740e5be13e609e22e4bdc803f1a6512fd7e2156b4b883fdfcc07a4af",
-  "schema://ioi/foundations/jurisdiction-policy-decision/v1": "sha256:507ea5521eadbb6c7de6b25032bf760fa6415e1e50190564edde9352f818f99a",
-  "schema://ioi/foundations/compliance-audit-export-bundle/v1": "sha256:cc0379a030deed159137902a99f760446ee9b064fd70e53c123555fa86cef1ef"
+  "schema://ioi/foundations/jurisdiction-policy-decision/v1": "sha256:c19636916b1d3fa98745844dfa2961cabfe1663065a1b2aab0159ec100d7251c",
+  "schema://ioi/foundations/compliance-audit-export-bundle/v1": "sha256:68e4e3a649bba90792b4a2c6031d7c8926111f9cae7993a9df2f4c143df8a85d"
 } as const;
 
 type JsonObject = Record<string, unknown>;
@@ -153067,7 +153069,8 @@ const CONTRACT_SCHEMAS: Record<string, JsonObject> = {
       "legal_conformity_claim",
       "grants_no_authority",
       "performs_no_action",
-      "decision_root"
+      "decision_root",
+      "recorded_by_ref"
     ],
     "properties": {
       "schema_version": {
@@ -153298,6 +153301,11 @@ const CONTRACT_SCHEMAS: Record<string, JsonObject> = {
         "type": "string",
         "pattern": "^sha256:[0-9a-f]{64}$",
         "description": "SHA-256 over JCS of every member except this one, so a recorded decision can be shown not to have moved — which is the other half of canon's rule that a new pack version must never rewrite one."
+      },
+      "recorded_by_ref": {
+        "type": "string",
+        "pattern": "^[a-z][a-z0-9+.-]*://[^\\s]{1,400}$",
+        "description": "THE RECORDER, STAMPED BY THE PLANE AND NEVER AUTHORED. This record is scoped to whoever recorded it, and without an owner it would admit successfully and then be readable by nobody — which is exactly what happened before this member existed, and what the unit's live leg caught. The plane refuses a caller-supplied value outright rather than correcting it and resolves the actor itself, so the scope a read is checked against is never one the caller chose. It is EXCLUDED from the root for the same reason a seam binding is: the caller seals the record before the server stamps it."
       }
     },
     "$defs": {
@@ -153334,7 +153342,8 @@ const CONTRACT_SCHEMAS: Record<string, JsonObject> = {
       "legal_conformity_claim",
       "carries_no_protected_plaintext",
       "bypasses_no_export_manifest",
-      "export_root"
+      "export_root",
+      "recorded_by_ref"
     ],
     "properties": {
       "schema_version": {
@@ -153618,6 +153627,11 @@ const CONTRACT_SCHEMAS: Record<string, JsonObject> = {
         "type": "string",
         "pattern": "^sha256:[0-9a-f]{64}$",
         "description": "SHA-256 over JCS of every member except this one, so a delivered bundle can be shown to be the one that was generated — which is what makes `revoked` and `superseded` mean anything."
+      },
+      "recorded_by_ref": {
+        "type": "string",
+        "pattern": "^[a-z][a-z0-9+.-]*://[^\\s]{1,400}$",
+        "description": "THE RECORDER, STAMPED BY THE PLANE AND NEVER AUTHORED. This record is scoped to whoever recorded it, and without an owner it would admit successfully and then be readable by nobody — which is exactly what happened before this member existed, and what the unit's live leg caught. The plane refuses a caller-supplied value outright rather than correcting it and resolves the actor itself, so the scope a read is checked against is never one the caller chose. It is EXCLUDED from the root for the same reason a seam binding is: the caller seals the record before the server stamps it."
       }
     },
     "$defs": {

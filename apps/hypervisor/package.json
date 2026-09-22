@@ -202,7 +202,9 @@
     "mutate:collective-controller-qualification": "node ../../scripts/check-collective-controller-qualification.mjs --mutation",
     "check:collective-artifact-ecology-surface": "node ../../scripts/check-collective-artifact-ecology-surface.mjs --drills",
     "mutate:collective-artifact-ecology-surface": "node ../../scripts/check-collective-artifact-ecology-surface.mjs --mutation",
-    "check:surface-modules": "node scripts/verify-hypervisor-surface-modules.mjs"
+    "check:surface-modules": "node scripts/verify-hypervisor-surface-modules.mjs",
+    "check:jurisdiction-policy-audit-export": "node ../../scripts/check-jurisdiction-policy-audit-export.mjs --drills",
+    "mutate:jurisdiction-policy-audit-export": "node ../../scripts/check-jurisdiction-policy-audit-export.mjs --mutation"
   },
   "dependencies": {
     "@codemirror/commands": "^6.10.3",

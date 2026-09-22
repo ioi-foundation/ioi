@@ -87,5 +87,6 @@
   "legal_conformity_claim": "not_determined",
   "carries_no_protected_plaintext": true,
   "bypasses_no_export_manifest": false,
-  "export_root": "sha256:0e18a3661fc9ada48e65f5775f6d8697691567cd10489fed4a548cfd69460fe0"
+  "export_root": "sha256:0e18a3661fc9ada48e65f5775f6d8697691567cd10489fed4a548cfd69460fe0",
+  "recorded_by_ref": "user://ioi/compliance-officer"
 }

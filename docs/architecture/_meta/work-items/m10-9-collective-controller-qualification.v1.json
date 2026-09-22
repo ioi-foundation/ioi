@@ -1,0 +1,59 @@
+{
+  "evidence_format": "ioi.program.work_item.v1",
+  "work_item_id": "m10-9-collective-controller-qualification",
+  "stage_id": "M10",
+  "required_work": [
+    "M10.9"
+  ],
+  "status": "evidence_ready",
+  "objective": "Close M10.9 as an executable gate: make a collective's qualification a comparison against a MATCHED arm under an estimand declared BEFORE either arm ran, keep the knockout matrix complete or name its gaps with owners, and read the installation axis from the owner that holds it — because the persistent posture is blind to it and binding a healthy runtime as evidence for a good result is exactly what the acceptance refuses.",
+  "falsifiable_claim": "node scripts/check-collective-controller-qualification.mjs proves twelve clauses over three registered contracts and a pure oracle, then drives them against a live isolated daemon. The estimand is declared with its arms, its matching basis and its knockout axes BEFORE either arm runs, and a verdict that cites an estimand whose declaration is later than either arm's start is refused; result robustness and controller continuity stay separate members with separate roots, so no posture scalar can make a surviving process into evidence that the collective qualified; a knockout matrix missing an axis is refused unless that axis is NAMED with an owner; and the baseline pairing binds a matched arm rather than a historical average. --drills runs 9 drills; --mutation plants 31 defects in the oracle and catches all 31. Clause 6 is a NAMED ABSENCE with an owner and the gate exits 2: five axes canon names cannot be performed on this tree — the communication-edge knockout has no object to remove, the role knockout has no RoleTopology record, lease EXPIRY has no writer at all, and disclosure and verification overhead have no measure.",
+  "canon_owners": [
+    "docs/architecture/domains/ioi-ai/collaborative-outcome-pattern.md"
+  ],
+  "code_anchors": [
+    {
+      "path": "docs/architecture/_meta/schemas/collective-qualification-estimand.v1.schema.json",
+      "must_contain": "knockout_axis_refs",
+      "present_when": "merged"
+    },
+    {
+      "path": "docs/architecture/_meta/schemas/collective-baseline-pairing.v1.schema.json",
+      "must_contain": "declared_match_axes",
+      "present_when": "merged"
+    },
+    {
+      "path": "docs/architecture/_meta/schemas/collective-qualification-verdict.v1.schema.json",
+      "must_contain": "estimand_ref",
+      "present_when": "merged"
+    },
+    {
+      "path": "apps/hypervisor/scripts/lib/collective-qualification.mjs",
+      "must_contain": "export function qualificationFindings(",
+      "present_when": "merged"
+    },
+    {
+      "path": "scripts/lib/collective-qualification-plane.mjs",
+      "must_contain": "export async function planeLeg(",
+      "present_when": "merged"
+    },
+    {
+      "path": "scripts/check-collective-controller-qualification.mjs",
+      "must_contain": "export function sourceFindings(",
+      "present_when": "merged"
+    },
+    {
+      "path": "apps/hypervisor/verifier-floors.v1.json",
+      "must_contain": "\"id\": \"collective-controller-qualification\"",
+      "present_when": "merged"
+    },
+    {
+      "path": ".github/workflows/ci.yml",
+      "must_contain": "npm run check:collective-controller-qualification",
+      "present_when": "merged"
+    }
+  ],
+  "evidence_refs": [
+    "docs/architecture/_meta/evidence/m10-9-collective-controller-qualification-2026-09-22.v1.json"
+  ]
+}

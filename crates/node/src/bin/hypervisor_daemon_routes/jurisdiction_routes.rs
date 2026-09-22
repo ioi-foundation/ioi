@@ -108,6 +108,14 @@ fn owner_of(record: &Value) -> String {
     text(record, "recorded_by_ref")
 }
 
+/// WHO HOLDS A RECORD. Two ways, and both are needed. A pack is scoped to the ORG that issued it, so the
+/// caller must hold that tenant. A decision or export is scoped to the PRINCIPAL that recorded it — and a
+/// principal is not one of its own tenants, so a tenant-only predicate would lock every recorder out of
+/// the records they just created. Checking only one of these admits records nobody can read.
+fn holds(identity: &super::substrate_store::RequestIdentity, owner: &str) -> bool {
+    !owner.is_empty() && (owner == identity.principal_ref || identity.authorizes_tenant(owner))
+}
+
 fn scope_refusal(error: super::substrate_store::RequestScopeRefusal) -> Reply {
     scope_refusal_reply(error)
 }
@@ -126,7 +134,7 @@ fn authorized(st: &DaemonState, headers: &HeaderMap, kind: &str, id: &str) -> Re
         ));
     };
     let owner = owner_of(&record);
-    if owner.is_empty() || !identity.authorizes_tenant(&owner) {
+    if !holds(&identity, &owner) {
         return Err(scope_refusal(
             super::substrate_store::RequestScopeRefusal::ResourceScopeRequired,
         ));
@@ -151,6 +159,21 @@ fn admit(
             "the record to admit is a JSON object",
         ));
     }
+    // THE RECORDER IS RESOLVED, NEVER ACCEPTED. A record scoped to an owner the caller chose is scoped to
+    // nothing, and a record with NO owner admits successfully and is then readable by nobody — which is
+    // what this plane did before the member existed, and what the unit's live leg caught. A caller-supplied
+    // value is refused outright rather than corrected, on the same principle as the record seam's binding.
+    let mut body = body.clone();
+    if body.get("recorded_by_ref").is_some_and(|v| !v.is_null()) {
+        return Err(refuse(
+            "recorder_authored",
+            "recorded_by_ref is resolved by this plane from the caller's own identity; a caller-authored recorder is refused, never corrected",
+        ));
+    }
+    if id_member != "pack_id" {
+        body["recorded_by_ref"] = json!(identity.principal_ref.clone());
+    }
+    let body = &body;
     // THE REGISTERED SHAPE DECIDES. Every refusal the contract can express — the `const
     // not_determined` legal-conformity claim, the typed exclusion reasons, the closed enforcing-owner
     // set, the sealed roots — is enforced here rather than restated.
@@ -167,8 +190,14 @@ fn admit(
             format!("{id_member} is the identity this plane admits under"),
         ));
     }
-    let owner = owner_of(body);
-    if !owner.is_empty() && !identity.authorizes_tenant(&owner) {
+    // Only a CALLER-AUTHORED owner is checked here. The recorder this plane stamped is the caller by
+    // construction, and re-checking it against the tenant set would refuse every record at the moment of
+    // its creation — a principal is not one of its own tenants.
+    let authored_owner = body
+        .pointer("/issuer/issuer_ref")
+        .and_then(Value::as_str)
+        .unwrap_or_default();
+    if !authored_owner.is_empty() && !identity.authorizes_tenant(authored_owner) {
         return Err(scope_refusal(
             super::substrate_store::RequestScopeRefusal::ResourceScopeRequired,
         ));

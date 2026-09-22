@@ -1,0 +1,121 @@
+{
+  "schema": "ioi.jurisdiction-policy-audit-export-evidence.v1",
+  "mode": "full",
+  "started_at": "2026-09-22T17:46:16.080Z",
+  "drills": [
+    {
+      "name": "PURE — applicability comes from what the SUBJECT carries and never from its own claim; the decision grants nothing, performs nothing and cannot express a legal verdict; deadline arithmetic keeps its exact version, root and triggering timestamp; the export names one audience, reasons every exclusion, never carries a protected payload and never bypasses its own manifest; and a rejected evaluation mutates nothing",
+      "pass": true,
+      "detail": "",
+      "at": "2026-09-22T17:46:16.082Z"
+    },
+    {
+      "name": "OFFLINE — ACC-18's eight, each caught ON ITS OWN by a relying party holding the bundle and its own expectations: wrong audience, subject, jurisdiction, reviewer, redaction and retention, a moved policy revision, and an evidence hash that is not the bundle that was generated — with no daemon, no clock and no network",
+      "pass": true,
+      "detail": "",
+      "at": "2026-09-22T17:46:16.083Z"
+    },
+    {
+      "name": "SEAM — three registered contracts carry the law on the wire: `legal_conformity_claim` pinned to not_determined so a legal verdict is UNREPRESENTABLE, canon's closed sets for enforcing owners, exclusion reasons, audiences and clock-start instants, six never-clauses as consts, every material member required so the projection cannot drop it, and a pack that reaches nothing refused by the one rule that can say so",
+      "pass": true,
+      "detail": "",
+      "at": "2026-09-22T17:46:16.086Z"
+    },
+    {
+      "name": "SOURCE — the plane validates each registered contract at admission, refuses a decision whose bound pack root or version is not the admitted pack's, refuses a decision or export over records nobody holds, resolves identity BEFORE loading the record, scopes every read to the caller's tenant — and the deriver reaches no plane, file or clock, so its offline verifier is genuinely offline",
+      "pass": true,
+      "detail": "",
+      "at": "2026-09-22T17:46:16.088Z"
+    },
+    {
+      "name": "BINDING — the gate is floored with an existing source, CI-bound in the form the FLOORS GATE recognises rather than by its bare name, and every clause is executed or named with an owner",
+      "pass": true,
+      "detail": "",
+      "at": "2026-09-22T17:46:16.089Z"
+    },
+    {
+      "name": "VERDICT — a table missing eleven of its twelve rows is a FAIL, not a pass",
+      "pass": true,
+      "detail": "row_missing:2 ; row_missing:3",
+      "at": "2026-09-22T17:46:16.089Z"
+    },
+    {
+      "name": "VERDICT — twelve green rows with no absence is a PASS",
+      "pass": true,
+      "detail": "",
+      "at": "2026-09-22T17:46:16.089Z"
+    },
+    {
+      "name": "VERDICT — one named absence is a NAMED FAILURE, never a pass",
+      "pass": true,
+      "detail": "named_failure",
+      "at": "2026-09-22T17:46:16.089Z"
+    },
+    {
+      "name": "VERDICT — a gate that reports success without evidence is fabricated, not green",
+      "pass": true,
+      "detail": "clause_1_fabricated: x reports success without evidence",
+      "at": "2026-09-22T17:46:16.089Z"
+    },
+    {
+      "name": "VERDICT — a gate below its floor fails even at exit 0",
+      "pass": true,
+      "detail": "clause_1_below_floor: x 2 < 9",
+      "at": "2026-09-22T17:46:16.089Z"
+    }
+  ],
+  "pure": {
+    "findings": []
+  },
+  "offline": {
+    "findings": []
+  },
+  "seam": {
+    "findings": []
+  },
+  "source": {
+    "findings": []
+  },
+  "plane": {
+    "blocked": false,
+    "findings": [],
+    "observed": {
+      "admitted": {
+        "pack": 200,
+        "decision": 200,
+        "export": 200
+      },
+      "refusals": {
+        "pack_content_moved": "hypervisor.jurisdiction.pack_content_moved",
+        "pack_version_moved": "hypervisor.jurisdiction.pack_version_moved",
+        "pack_unadmitted": "hypervisor.jurisdiction.pack_unadmitted",
+        "already_admitted": "hypervisor.jurisdiction.already_admitted",
+        "legal_verdict": "hypervisor.jurisdiction.not_registered_valid",
+        "decision_unadmitted": "hypervisor.jurisdiction.decision_unadmitted"
+      },
+      "identity": {
+        "anonymous_status": 401,
+        "anonymous_absent_status": 401,
+        "owner_status": 200
+      }
+    },
+    "seconds": 5
+  },
+  "verdict": {
+    "kind": "named_failure",
+    "failures": [],
+    "absences": [
+      {
+        "n": 12,
+        "what": "THE COMPILATION INTO OWNERS IS NAMED, NOT DRIVEN. Canon's sentence is that a pack compiles into wallet.network identity/eligibility/step-up gates, daemon policy checks, Agentgres retention and export validity, marketplace listing restrictions and sas.xyz SLA/refund/bond obligations. This gate proves every obligation NAMES one of those owners from the closed set and that this plane enforces none of them itself — it does NOT drive those owners and prove the obligation actually reaches them, because wallet.network and Agentgres are separate estates this verifier does not stand up, and sas.xyz and the marketplace have no obligation-consuming surface at all. An obligation naming `wallet_network` is therefore a correctly-typed pointer whose far end is unproven here. AND ACC-18 HAS NO RUNNER: fourteen `check-acceptance-*` runners exist under `scripts/` and none of them is this journey's, so the proposal/review/effect/response reconstruction has no executable form anywhere on this tree. This gate is the executable artifact for the EXPORT clauses — a relying party holding the bundle catches each of ACC-18's eight mismatches offline, with no daemon, clock or network — and what is owed is the runner that would replay the workflow which produced the bundle, not the verification of its contents",
+        "owner": "each named owner's own plane, a cross-estate obligation conformance leg, and ACC-18's own runner (owner question, R-228)"
+      }
+    ]
+  },
+  "mutation": null,
+  "finished_at": "2026-09-22T17:46:21.561Z",
+  "summary": {
+    "passed": 10,
+    "total": 10
+  }
+}
