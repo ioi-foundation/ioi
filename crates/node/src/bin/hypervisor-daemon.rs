@@ -118,6 +118,8 @@ mod improvement_campaign_routes;
 mod institutional_learning_boundary_routes;
 #[path = "hypervisor_daemon_routes/ioi_intelligence_routes.rs"]
 mod ioi_intelligence_routes;
+#[path = "hypervisor_daemon_routes/jurisdiction_routes.rs"]
+mod jurisdiction_routes;
 #[path = "hypervisor_daemon_routes/k8s_candidate_source.rs"]
 mod k8s_candidate_source;
 #[path = "hypervisor_daemon_routes/lambda_candidate_source.rs"]
@@ -3286,6 +3288,36 @@ async fn async_main() -> anyhow::Result<()> {
         .route(
             "/v1/hypervisor/autonomous-systems",
             get(system_genesis_routes::handle_get).post(system_genesis_routes::handle_admit),
+        )
+        // M06.10 — the jurisdiction-policy and compliance-audit-export plane. A pack DECLARES
+        // obligations and compiles into owners that already exist; a decision REPORTS what it said
+        // about one subject; an export is a MANIFEST over evidence that already exists. None of the
+        // three is a legal determination and none can express one. The decision route enforces the
+        // law only a plane can: a decision binds the pack's ROOT, so an in-place edit makes it
+        // unadmittable rather than silently reinterpreting what was decided.
+        .route(
+            "/v1/hypervisor/jurisdiction-policy-packs",
+            post(jurisdiction_routes::handle_pack_admit),
+        )
+        .route(
+            "/v1/hypervisor/jurisdiction-policy-packs/:id",
+            get(jurisdiction_routes::handle_pack_get),
+        )
+        .route(
+            "/v1/hypervisor/jurisdiction-policy-decisions",
+            post(jurisdiction_routes::handle_decision_admit),
+        )
+        .route(
+            "/v1/hypervisor/jurisdiction-policy-decisions/:id",
+            get(jurisdiction_routes::handle_decision_get),
+        )
+        .route(
+            "/v1/hypervisor/compliance-audit-exports",
+            post(jurisdiction_routes::handle_export_admit),
+        )
+        .route(
+            "/v1/hypervisor/compliance-audit-exports/:id",
+            get(jurisdiction_routes::handle_export_get),
         )
         .route(
             "/v1/hypervisor/autonomous-systems/projection",
