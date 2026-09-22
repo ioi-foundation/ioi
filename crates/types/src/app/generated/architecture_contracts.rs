@@ -388,7 +388,9 @@ pub const ARCHITECTURE_CONTRACT_SCHEMA_HASHES: &[(&str, &str)] = &[
     ("schema://ioi/components/connectors-tools/mcp-gateway-requirement-envelope/v1", "sha256:d0cfdf520f16cd5c159eee6ba539135f1a9487a86e7316a7a2bc67418ef3185a"),
     ("schema://ioi/components/connectors-tools/hypervisor-mcp-gateway-profile/v1", "sha256:b391979446fb6da9a75f40018188ccf70f33d4cd2acd5008e1c7ded69b8ef086"),
     ("schema://ioi/components/connectors-tools/hypervisor-mcp-gateway-profile/v2", "sha256:36c770c98e4e799359e479b3a6c0a8253a9889c5b0ee25f3865c802cb18d888b"),
-    ("schema://ioi/applications/ioi-ai/collective-qualification-estimand/v1", "sha256:dfaba07526e124f927f7d33e88df910df1142b8c051b6b1a0f84f587e8764723"),
+    ("schema://ioi/applications/ioi-ai/collective-qualification-estimand/v1", "sha256:ee74e3f3f4d626cdafdf44a50f443631c42db3596e1b6bb8c7364be0cc4c294d"),
+    ("schema://ioi/applications/ioi-ai/collective-baseline-pairing/v1", "sha256:814d3ae058d3bbcebeeeb44342dee6ab4f347433b5b080dd55cc5bc83f6d807a"),
+    ("schema://ioi/applications/ioi-ai/collective-qualification-verdict/v1", "sha256:94871ec7577b87e08a0122b70ba651f3ea87d056024f650d7ebac5215c90f5ed"),
 ];
 
 pub fn architecture_contract_schema_hash(contract_id: &str) -> Option<&'static str> {
@@ -165934,6 +165936,7 @@ pub enum HypervisorMcpGatewayProfileV2Status {
 #[derive(Debug, Clone, PartialEq, serde::Serialize)]
 pub struct CollectiveQualificationEstimandV1 {
     pub schema_version: CollectiveQualificationEstimandV1SchemaVersion,
+    pub estimand_id: String,
     pub estimand_ref: String,
     pub estimand_kind: CollectiveQualificationEstimandV1EstimandKind,
     pub quantity: CollectiveQualificationEstimandV1Quantity,
@@ -165941,14 +165944,14 @@ pub struct CollectiveQualificationEstimandV1 {
     pub minimum_effect: CollectiveQualificationEstimandV1MinimumEffect,
     pub cost_normalization: CollectiveQualificationEstimandV1CostNormalization,
     pub decision_rule: String,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub knockout_axis_refs: Option<Vec<String>>,
+    pub knockout_axis_refs: Vec<String>,
     pub declared_at: String,
     pub declared_before_epoch_freeze: CollectiveQualificationEstimandV1DeclaredBeforeEpochFreeze,
-    #[serde(skip_serializing_if = "Option::is_none")]
     pub epoch_ref: Option<String>,
-    pub system_binding: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub system_binding: Option<CollectiveQualificationEstimandV1SystemBinding>,
     pub qualifies_nothing_on_its_own: CollectiveQualificationEstimandV1QualifiesNothingOnItsOwn,
+    pub estimand_root: String,
 }
 
 impl<'de> serde::Deserialize<'de> for CollectiveQualificationEstimandV1 {
@@ -165959,7 +165962,7 @@ impl<'de> serde::Deserialize<'de> for CollectiveQualificationEstimandV1 {
         let value = <serde_json::Value as serde::Deserialize>::deserialize(deserializer)?;
         validate_projection_subschema(
             r#"schema://ioi/applications/ioi-ai/collective-qualification-estimand/v1"#,
-            r##"{"$schema":"https://json-schema.org/draft/2020-12/schema","$id":"schema://ioi/applications/ioi-ai/collective-qualification-estimand/v1","title":"CollectiveQualificationEstimand","x-ioi-schema-version":"ioi.ioi-ai.collective-qualification-estimand.v1","description":"WHAT A COLLECTIVE IS BEING ASKED TO PROVE, DECLARED BEFORE ANY ARM RUNS. Canon's rule is that collective machinery earns its complexity: a frozen epoch compares the exact collective composition against a matched cheaper baseline under a DECLARED estimand, and neither participant count, aggregate score, active artifact nor surviving process proves cooperation surplus, runtime continuity or authority. THE WORD ALREADY EXISTED AND MEANT ALMOST NOTHING: the evaluation epoch carries `confirmatory_estimand_and_minimum_effect_refs`, an unvalidated bounded list of refs that nothing in the estate dereferences — a `policy://` string satisfies it — frozen into the epoch's root so that it looks settled. This contract is the referent that list never had. It names the quantity, the direction, the minimum effect that counts as a difference and the decision rule, so that a result can be read as confirming or failing a claim someone made IN ADVANCE rather than as a number to interpret afterwards. A DECLARATION IS NOT A RESULT: this envelope grants nothing, promotes nothing and qualifies nothing on its own, and it must be declared before the epoch freezes because a frozen epoch refuses a moved member. Owner: domains/ioi-ai/collaborative-outcome-pattern.md § Collective qualification (M10.9, R-222).","type":"object","additionalProperties":false,"required":["schema_version","estimand_ref","estimand_kind","quantity","direction","minimum_effect","cost_normalization","decision_rule","declared_at","declared_before_epoch_freeze","system_binding","qualifies_nothing_on_its_own"],"properties":{"schema_version":{"type":"string","const":"ioi.ioi-ai.collective-qualification-estimand.v1"},"estimand_ref":{"$ref":"#/$defs/estimandRef"},"estimand_kind":{"type":"string","description":"COOPERATION SURPLUS is the claim that the collective beats a matched cheaper baseline on the declared quantity. RESILIENCE is the claim that it degrades less than the baseline under a named knockout. INDEPENDENCE is the claim that its result does not depend on a named participant, edge or artifact. They are different claims with different failure modes and a run proves at most the one declared here.","enum":["cooperation_surplus","resilience","independence"]},"quantity":{"type":"object","additionalProperties":false,"required":["metric_ref","unit","aggregation"],"description":"The exact thing measured. An aggregate with no named metric and no aggregation is a score, and canon refuses a score as proof.","properties":{"metric_ref":{"$ref":"#/$defs/ref"},"unit":{"type":"string","minLength":1,"maxLength":60},"aggregation":{"type":"string","enum":["mean","median","trimmed_mean","rate","count","max","min"]}}},"direction":{"type":"string","enum":["higher_is_better","lower_is_better"],"description":"Declared in advance, because a direction chosen after the numbers are in turns any result into a confirmation."},"minimum_effect":{"type":"object","additionalProperties":false,"required":["value","basis"],"description":"The smallest difference that counts. Without it, any non-zero difference reads as success and the comparison proves nothing it did not assume.","properties":{"value":{"type":"number"},"basis":{"type":"string","enum":["absolute","relative_to_baseline","standard_deviations"]}}},"cost_normalization":{"type":"string","description":"A collective that wins by spending more has not earned its complexity; canon's sentence is that the machinery must earn it. `none` is admissible and says plainly that cost is not being controlled for.","enum":["none","per_cost_unit","per_wall_second","per_verification_unit"]},"decision_rule":{"type":"string","minLength":24,"maxLength":600,"description":"In words, what reading of the two arms confirms the estimand and what reading fails it — written before the run, so the rule cannot be fitted to the outcome."},"knockout_axis_refs":{"type":"array","uniqueItems":true,"maxItems":64,"items":{"$ref":"#/$defs/ref"},"description":"For a resilience or independence estimand, the exact axes the claim is about. An estimand of those kinds with no axis is a claim about nothing."},"declared_at":{"$ref":"#/$defs/timestamp"},"declared_before_epoch_freeze":{"type":"boolean","const":true,"description":"Always true, and on the wire rather than implied. The epoch freezes this ref into its root and refuses a moved frozen member afterwards, so an estimand declared after the freeze could only ever be a second one — and a second estimand chosen once results exist is the defect this whole contract exists to refuse."},"epoch_ref":{"anyOf":[{"$ref":"#/$defs/ref"},{"type":"null"}],"description":"The frozen evaluation epoch this estimand was declared for, once one exists. Null while the epoch is still a draft — the estimand comes first."},"system_binding":{"$ref":"#/$defs/ref","description":"The ACTIVE System this record is admitted under. This is an application record on the generic System-record seam, not a Hypervisor family: the evaluation plane's layer law forbids a Hypervisor component from reading an orchestration application's records, and its own gate asserts so against a planted import."},"qualifies_nothing_on_its_own":{"type":"boolean","const":true,"description":"A declaration is not a result. Declaring an estimand promotes nothing, activates nothing and qualifies no collective; it only fixes what a later comparison will be read against."}},"allOf":[{"if":{"type":"object","properties":{"estimand_kind":{"type":"string","enum":["resilience","independence"]}},"required":["estimand_kind"]},"then":{"type":"object","description":"Resilience and independence are claims ABOUT something being removed. Without the axes named, there is no claim to confirm.","properties":{"knockout_axis_refs":{"type":"array","minItems":1}},"required":["knockout_axis_refs"]}}],"$defs":{"ref":{"type":"string","pattern":"^[a-z][a-z0-9+.-]*://[^ ]{1,480}$"},"estimandRef":{"type":"string","pattern":"^estimand://[^\\s?#\\\\]{1,200}$"},"timestamp":{"type":"string","pattern":"^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$"}}}"##,
+            r##"{"$schema":"https://json-schema.org/draft/2020-12/schema","$id":"schema://ioi/applications/ioi-ai/collective-qualification-estimand/v1","title":"CollectiveQualificationEstimand","x-ioi-schema-version":"ioi.ioi-ai.collective-qualification-estimand.v1","description":"WHAT A COLLECTIVE IS BEING ASKED TO PROVE, DECLARED BEFORE ANY ARM RUNS. Canon's rule is that collective machinery earns its complexity: a frozen epoch compares the exact collective composition against a matched cheaper baseline under a DECLARED estimand, and neither participant count, aggregate score, active artifact nor surviving process proves cooperation surplus, runtime continuity or authority. THE WORD ALREADY EXISTED AND MEANT ALMOST NOTHING: the evaluation epoch carries `confirmatory_estimand_and_minimum_effect_refs`, an unvalidated bounded list of refs that nothing in the estate dereferences — a `policy://` string satisfies it — frozen into the epoch's root so that it looks settled. This contract is the referent that list never had. It names the quantity, the direction, the minimum effect that counts as a difference and the decision rule, so that a result can be read as confirming or failing a claim someone made IN ADVANCE rather than as a number to interpret afterwards. A DECLARATION IS NOT A RESULT: this envelope grants nothing, promotes nothing and qualifies nothing on its own, and it must be declared before the epoch freezes because a frozen epoch refuses a moved member. Owner: domains/ioi-ai/collaborative-outcome-pattern.md § Collective qualification (M10.9, R-222).","type":"object","additionalProperties":false,"required":["schema_version","estimand_id","estimand_ref","estimand_kind","quantity","direction","minimum_effect","cost_normalization","decision_rule","declared_at","declared_before_epoch_freeze","qualifies_nothing_on_its_own","knockout_axis_refs","epoch_ref","estimand_root"],"properties":{"schema_version":{"type":"string","const":"ioi.ioi-ai.collective-qualification-estimand.v1"},"estimand_id":{"type":"string","pattern":"^estimand://[^\\s?#\\\\]{1,200}$","description":"THE IDENTITY THE RECORD SEAM ADMITS, and it must be a `*_id` member: the seam resolves a record's identity by finding the single member whose name ends in `_id` and whose value is the object_id it was posted under, and refuses the admission outright when none does. It is the same value as `estimand_ref`, which is the name every other record points at this one by, and the registered invariant holds the two equal so the pointer and the identity can never come apart."},"estimand_ref":{"$ref":"#/$defs/estimandRef"},"estimand_kind":{"type":"string","description":"COOPERATION SURPLUS is the claim that the collective beats a matched cheaper baseline on the declared quantity. RESILIENCE is the claim that it degrades less than the baseline under a named knockout. INDEPENDENCE is the claim that its result does not depend on a named participant, edge or artifact. They are different claims with different failure modes and a run proves at most the one declared here.","enum":["cooperation_surplus","resilience","independence"]},"quantity":{"type":"object","additionalProperties":false,"required":["metric_ref","unit","aggregation"],"description":"The exact thing measured. An aggregate with no named metric and no aggregation is a score, and canon refuses a score as proof.","properties":{"metric_ref":{"$ref":"#/$defs/ref"},"unit":{"type":"string","minLength":1,"maxLength":60},"aggregation":{"type":"string","enum":["mean","median","trimmed_mean","rate","count","max","min"]}}},"direction":{"type":"string","enum":["higher_is_better","lower_is_better"],"description":"Declared in advance, because a direction chosen after the numbers are in turns any result into a confirmation."},"minimum_effect":{"type":"object","additionalProperties":false,"required":["value","basis"],"description":"The smallest difference that counts. Without it, any non-zero difference reads as success and the comparison proves nothing it did not assume.","properties":{"value":{"type":"number"},"basis":{"type":"string","enum":["absolute","relative_to_baseline","standard_deviations"]}}},"cost_normalization":{"type":"string","description":"A collective that wins by spending more has not earned its complexity; canon's sentence is that the machinery must earn it. `none` is admissible and says plainly that cost is not being controlled for.","enum":["none","per_cost_unit","per_wall_second","per_verification_unit"]},"decision_rule":{"type":"string","minLength":24,"maxLength":600,"description":"In words, what reading of the two arms confirms the estimand and what reading fails it — written before the run, so the rule cannot be fitted to the outcome."},"knockout_axis_refs":{"type":"array","uniqueItems":true,"maxItems":64,"items":{"$ref":"#/$defs/ref"},"description":"For a resilience or independence estimand, the exact axes the claim is about. An estimand of those kinds with no axis is a claim about nothing."},"declared_at":{"$ref":"#/$defs/timestamp"},"declared_before_epoch_freeze":{"type":"boolean","const":true,"description":"Always true, and on the wire rather than implied. The epoch freezes this ref into its root and refuses a moved frozen member afterwards, so an estimand declared after the freeze could only ever be a second one — and a second estimand chosen once results exist is the defect this whole contract exists to refuse."},"epoch_ref":{"anyOf":[{"$ref":"#/$defs/ref"},{"type":"null"}],"description":"The frozen evaluation epoch this estimand was declared for, once one exists. Null while the epoch is still a draft — the estimand comes first."},"system_binding":{"$ref":"#/$defs/systemBinding","description":"DERIVED BY THE SEAM, NEVER AUTHORED. The record seam refuses a caller-supplied binding outright rather than correcting it, then stamps its own from the System, the parent scope and the resolved principal, and only then validates — so this member is absent on the wire the caller sends and an object on the record the seam admits. This is an application record on that generic seam, not a Hypervisor family: the evaluation plane's layer law forbids a Hypervisor component from reading an orchestration application's records, and its own gate asserts so against a planted import."},"qualifies_nothing_on_its_own":{"type":"boolean","const":true,"description":"A declaration is not a result. Declaring an estimand promotes nothing, activates nothing and qualifies no collective; it only fixes what a later comparison will be read against."},"estimand_root":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$","description":"SHA-256 over JCS of every member except this one and the seam binding. The declaration is the whole point of the object, so it is sealed: the epoch freezes the ref, and this root is what makes the ref's CONTENT unmovable rather than merely named."}},"allOf":[{"if":{"type":"object","properties":{"estimand_kind":{"type":"string","enum":["resilience","independence"]}},"required":["estimand_kind"]},"then":{"type":"object","description":"Resilience and independence are claims ABOUT something being removed. Without the axes named, there is no claim to confirm.","properties":{"knockout_axis_refs":{"type":"array","minItems":1}},"required":["knockout_axis_refs"]}}],"$defs":{"ref":{"type":"string","pattern":"^[a-z][a-z0-9+.-]*://[^ ]{1,480}$"},"estimandRef":{"type":"string","pattern":"^estimand://[^\\s?#\\\\]{1,200}$"},"systemBinding":{"type":"object","additionalProperties":false,"required":["schema_version","system_id","parent_scope_ref","proposed_or_issued_by_ref","payload_root","created_at","updated_at"],"properties":{"schema_version":{"const":"ioi.foundations.system-scoped-object-binding.v1"},"system_id":{"type":"string","pattern":"^system://[^\\s]{1,500}$"},"parent_scope_ref":{"type":"string","pattern":"^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"},"proposed_or_issued_by_ref":{"type":"string","pattern":"^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"},"payload_root":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"},"created_at":{"$ref":"#/$defs/timestamp"},"updated_at":{"anyOf":[{"$ref":"#/$defs/timestamp"},{"type":"null"}]}}},"timestamp":{"type":"string","pattern":"^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$"}}}"##,
             &value,
         )
             .map_err(serde::de::Error::custom)?;
@@ -165975,6 +165978,12 @@ impl<'de> serde::Deserialize<'de> for CollectiveQualificationEstimandV1 {
                         .ok_or_else(|| serde::de::Error::missing_field(r#"schema_version"#))?,
                 )
                 .map_err(serde::de::Error::custom)?,
+            estimand_id: serde_json::from_value::<String>(
+                object
+                    .remove(r#"estimand_id"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"estimand_id"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
             estimand_ref: serde_json::from_value::<String>(
                 object
                     .remove(r#"estimand_ref"#)
@@ -166020,11 +166029,12 @@ impl<'de> serde::Deserialize<'de> for CollectiveQualificationEstimandV1 {
                     .ok_or_else(|| serde::de::Error::missing_field(r#"decision_rule"#))?,
             )
             .map_err(serde::de::Error::custom)?,
-            knockout_axis_refs: match object.remove(r#"knockout_axis_refs"#) {
-                Some(field_value) => serde_json::from_value::<Option<Vec<String>>>(field_value)
-                    .map_err(serde::de::Error::custom)?,
-                None => None,
-            },
+            knockout_axis_refs: serde_json::from_value::<Vec<String>>(
+                object
+                    .remove(r#"knockout_axis_refs"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"knockout_axis_refs"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
             declared_at: serde_json::from_value::<String>(
                 object
                     .remove(r#"declared_at"#)
@@ -166041,17 +166051,19 @@ impl<'de> serde::Deserialize<'de> for CollectiveQualificationEstimandV1 {
                     })?,
             )
             .map_err(serde::de::Error::custom)?,
-            epoch_ref: match object.remove(r#"epoch_ref"#) {
-                Some(field_value) => serde_json::from_value::<Option<String>>(field_value)
-                    .map_err(serde::de::Error::custom)?,
-                None => None,
-            },
-            system_binding: serde_json::from_value::<String>(
+            epoch_ref: serde_json::from_value::<Option<String>>(
                 object
-                    .remove(r#"system_binding"#)
-                    .ok_or_else(|| serde::de::Error::missing_field(r#"system_binding"#))?,
+                    .remove(r#"epoch_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"epoch_ref"#))?,
             )
             .map_err(serde::de::Error::custom)?,
+            system_binding: match object.remove(r#"system_binding"#) {
+                Some(field_value) => serde_json::from_value::<
+                    Option<CollectiveQualificationEstimandV1SystemBinding>,
+                >(field_value)
+                .map_err(serde::de::Error::custom)?,
+                None => None,
+            },
             qualifies_nothing_on_its_own: serde_json::from_value::<
                 CollectiveQualificationEstimandV1QualifiesNothingOnItsOwn,
             >(
@@ -166060,6 +166072,12 @@ impl<'de> serde::Deserialize<'de> for CollectiveQualificationEstimandV1 {
                     .ok_or_else(|| {
                         serde::de::Error::missing_field(r#"qualifies_nothing_on_its_own"#)
                     })?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            estimand_root: serde_json::from_value::<String>(
+                object
+                    .remove(r#"estimand_root"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"estimand_root"#))?,
             )
             .map_err(serde::de::Error::custom)?,
         })
@@ -166245,6 +166263,90 @@ impl<'de> serde::Deserialize<'de> for CollectiveQualificationEstimandV1DeclaredB
     }
 }
 
+#[derive(Debug, Clone, PartialEq, serde::Serialize)]
+pub struct CollectiveQualificationEstimandV1SystemBinding {
+    pub schema_version: CollectiveQualificationEstimandV1SystemBindingSchemaVersion,
+    pub system_id: String,
+    pub parent_scope_ref: String,
+    pub proposed_or_issued_by_ref: String,
+    pub payload_root: String,
+    pub created_at: String,
+    pub updated_at: Option<String>,
+}
+
+impl<'de> serde::Deserialize<'de> for CollectiveQualificationEstimandV1SystemBinding {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let value = <serde_json::Value as serde::Deserialize>::deserialize(deserializer)?;
+        validate_projection_subschema(
+            r#"schema://ioi/applications/ioi-ai/collective-qualification-estimand/v1"#,
+            r##"{"type":"object","additionalProperties":false,"required":["schema_version","system_id","parent_scope_ref","proposed_or_issued_by_ref","payload_root","created_at","updated_at"],"properties":{"schema_version":{"const":"ioi.foundations.system-scoped-object-binding.v1"},"system_id":{"type":"string","pattern":"^system://[^\\s]{1,500}$"},"parent_scope_ref":{"type":"string","pattern":"^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"},"proposed_or_issued_by_ref":{"type":"string","pattern":"^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"},"payload_root":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"},"created_at":{"$ref":"#/$defs/timestamp"},"updated_at":{"anyOf":[{"$ref":"#/$defs/timestamp"},{"type":"null"}]}}}"##,
+            &value,
+        )
+            .map_err(serde::de::Error::custom)?;
+        let mut object = value
+            .as_object()
+            .cloned()
+            .ok_or_else(|| serde::de::Error::custom("validated projection is not an object"))?;
+        Ok(Self {
+            schema_version: serde_json::from_value::<
+                CollectiveQualificationEstimandV1SystemBindingSchemaVersion,
+            >(
+                object
+                    .remove(r#"schema_version"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"schema_version"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            system_id: serde_json::from_value::<String>(
+                object
+                    .remove(r#"system_id"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"system_id"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            parent_scope_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"parent_scope_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"parent_scope_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            proposed_or_issued_by_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"proposed_or_issued_by_ref"#)
+                    .ok_or_else(|| {
+                        serde::de::Error::missing_field(r#"proposed_or_issued_by_ref"#)
+                    })?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            payload_root: serde_json::from_value::<String>(
+                object
+                    .remove(r#"payload_root"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"payload_root"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            created_at: serde_json::from_value::<String>(
+                object
+                    .remove(r#"created_at"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"created_at"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            updated_at: serde_json::from_value::<Option<String>>(
+                object
+                    .remove(r#"updated_at"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"updated_at"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+        })
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum CollectiveQualificationEstimandV1SystemBindingSchemaVersion {
+    #[serde(rename = r#"ioi.foundations.system-scoped-object-binding.v1"#)]
+    IoiFoundationsSystemScopedObjectBindingV1,
+}
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum CollectiveQualificationEstimandV1QualifiesNothingOnItsOwn {
     True,
@@ -166271,6 +166373,1757 @@ impl<'de> serde::Deserialize<'de> for CollectiveQualificationEstimandV1Qualifies
             Err(serde::de::Error::custom(r#"expected boolean literal true"#))
         }
     }
+}
+
+#[derive(Debug, Clone, PartialEq, serde::Serialize)]
+pub struct CollectiveBaselinePairingV1 {
+    pub schema_version: CollectiveBaselinePairingV1SchemaVersion,
+    pub pairing_id: String,
+    pub pairing_ref: String,
+    pub estimand_ref: String,
+    pub collective_arm: CollectiveBaselinePairingV1CollectiveArm,
+    pub baseline_arm: CollectiveBaselinePairingV1BaselineArm,
+    pub declared_match_axes: Vec<CollectiveBaselinePairingV1DeclaredMatchAxesItem>,
+    pub axis_proofs: CollectiveBaselinePairingV1AxisProofs,
+    pub baseline_positive_control: CollectiveBaselinePairingV1BaselinePositiveControl,
+    pub cheaper_baseline_rationale: String,
+    pub declared_before_either_arm_ran: CollectiveBaselinePairingV1DeclaredBeforeEitherArmRan,
+    pub epoch_ref: Option<String>,
+    pub declared_at: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub system_binding: Option<CollectiveBaselinePairingV1SystemBinding>,
+    pub pairing_root: String,
+}
+
+impl<'de> serde::Deserialize<'de> for CollectiveBaselinePairingV1 {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let value = <serde_json::Value as serde::Deserialize>::deserialize(deserializer)?;
+        validate_projection_subschema(
+            r#"schema://ioi/applications/ioi-ai/collective-baseline-pairing/v1"#,
+            r##"{"$schema":"https://json-schema.org/draft/2020-12/schema","$id":"schema://ioi/applications/ioi-ai/collective-baseline-pairing/v1","title":"CollectiveBaselinePairing","x-ioi-schema-version":"ioi.ioi-ai.collective-baseline-pairing.v1","description":"THE TWO ARMS A COLLECTIVE CLAIM IS READ ACROSS, MATCHED AXIS BY AXIS AND DECLARED BEFORE EITHER RAN. Canon: the frozen epoch compares the exact collective composition against the cheapest adequate simpler baseline — normally a direct path or one GoalRun — under MATCHED task distribution, authority, context, tools, environment, budget, time and verifier posture. NO RECORD COULD NAME AN ARM BEFORE THIS ONE: `EvaluationRun.incumbent_ref` is a free label the plane never resolves, so \"the collective beat the incumbent\" named nothing in particular. This contract makes each arm a resolvable composition and each match axis a PROOF — one root per arm per axis, equal or the pairing is refused by the axis's own name, so a reader can tell \"the baseline had a different toolset\" from \"the baseline ran on a different day\". AND IT CARRIES A POSITIVE CONTROL, because a baseline that fails everything would make any collective look good: the cheapest way to manufacture a surplus is to break the comparator, and a pairing whose baseline passed none of the matched cases measures the breakage. A PAIRING IS NOT A RESULT: it grants nothing, runs nothing and qualifies nothing; it fixes what a later comparison is read across. Owner: domains/ioi-ai/collaborative-outcome-pattern.md § Collective qualification (M10.9, R-222).","type":"object","additionalProperties":false,"required":["schema_version","pairing_id","pairing_ref","estimand_ref","collective_arm","baseline_arm","declared_match_axes","axis_proofs","baseline_positive_control","cheaper_baseline_rationale","declared_before_either_arm_ran","declared_at","epoch_ref","pairing_root"],"properties":{"schema_version":{"type":"string","const":"ioi.ioi-ai.collective-baseline-pairing.v1"},"pairing_id":{"type":"string","pattern":"^pairing://[^\\s?#\\\\]{1,200}$","description":"THE IDENTITY THE RECORD SEAM ADMITS, and it must be a `*_id` member: the seam resolves a record's identity by finding the single member whose name ends in `_id` and whose value is the object_id it was posted under, and refuses the admission outright when none does. It is the same value as `pairing_ref`, which is the name every other record points at this one by, and the registered invariant holds the two equal so the pointer and the identity can never come apart."},"pairing_ref":{"type":"string","pattern":"^pairing://[^\\s?#\\\\]{1,200}$"},"estimand_ref":{"type":"string","pattern":"^estimand://[^\\s?#\\\\]{1,200}$","description":"The declared estimand this pairing is the comparison for. A pairing with no estimand is two arms and no claim."},"collective_arm":{"$ref":"#/$defs/arm","description":"The EXACT collective composition — its orchestration scope and the lineages it runs — not a description of one."},"baseline_arm":{"$ref":"#/$defs/arm","description":"The cheapest adequate simpler arm. Canon names the two shapes it normally takes: a direct path, or one GoalRun."},"declared_match_axes":{"type":"array","minItems":8,"maxItems":8,"uniqueItems":true,"items":{"type":"string","enum":["task","authority","context","tool","environment","budget","time","verifier_posture"]},"description":"All eight, always. An axis a pairing may omit is an axis on which the two arms may silently differ, and a comparison that does not state its match axes is a comparison of two different things."},"axis_proofs":{"type":"object","additionalProperties":false,"required":["task","authority","context","tool","environment","budget","time","verifier_posture"],"description":"One proof per axis, each carrying a root for EACH arm. Equality is asserted per axis by the registered invariants, so an unmatched pairing is refused at the seam by the failing axis's own rule name.","properties":{"task":{"$ref":"#/$defs/axisProof"},"authority":{"$ref":"#/$defs/axisProof"},"context":{"$ref":"#/$defs/axisProof"},"tool":{"$ref":"#/$defs/axisProof"},"environment":{"$ref":"#/$defs/axisProof"},"budget":{"$ref":"#/$defs/axisProof"},"time":{"$ref":"#/$defs/axisProof"},"verifier_posture":{"$ref":"#/$defs/axisProof"}}},"baseline_positive_control":{"type":"object","additionalProperties":false,"required":["matched_cases_total","matched_cases_passed","control_result_refs"],"description":"THE COMPARATOR WORKS. A degenerate baseline that fails everything makes any collective look good, so the baseline must have PASSED matched cases on its own before its losses mean anything. `matched_cases_passed` is at least one by schema and never exceeds the total by invariant.","properties":{"matched_cases_total":{"type":"integer","minimum":1,"maximum":1000000},"matched_cases_passed":{"type":"integer","minimum":1,"maximum":1000000},"control_result_refs":{"type":"array","minItems":1,"maxItems":256,"uniqueItems":true,"items":{"$ref":"#/$defs/ref"},"description":"The evaluation results the control is read from — the baseline's own passes, admitted through the evaluation plane like any other."}}},"cheaper_baseline_rationale":{"type":"string","minLength":24,"maxLength":600,"description":"In words, why this baseline is the CHEAPEST ADEQUATE one. Written before the run, because a baseline justified after the numbers are in is chosen for the numbers."},"declared_before_either_arm_ran":{"type":"boolean","const":true,"description":"Always true, and on the wire rather than implied. A pairing assembled once results exist is a pairing chosen for its results."},"epoch_ref":{"anyOf":[{"$ref":"#/$defs/ref"},{"type":"null"}],"description":"The frozen evaluation epoch this pairing was declared for, once one exists. Null while the epoch is still a draft — the pairing comes first, exactly as the estimand does."},"declared_at":{"$ref":"#/$defs/timestamp"},"system_binding":{"$ref":"#/$defs/systemBinding","description":"DERIVED BY THE SEAM, NEVER AUTHORED — absent on the wire the caller sends, an object on the record the seam admits. An ioi.ai application record on the generic System-record seam, never a Hypervisor family: the evaluation plane's layer law forbids a Hypervisor component from reading an orchestration application's records."},"pairing_root":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$","description":"SHA-256 over JCS of every member except this one and the seam binding."}},"$defs":{"ref":{"type":"string","pattern":"^[a-z][a-z0-9+.-]*://[^ ]{1,480}$"},"systemBinding":{"type":"object","additionalProperties":false,"required":["schema_version","system_id","parent_scope_ref","proposed_or_issued_by_ref","payload_root","created_at","updated_at"],"properties":{"schema_version":{"const":"ioi.foundations.system-scoped-object-binding.v1"},"system_id":{"type":"string","pattern":"^system://[^\\s]{1,500}$"},"parent_scope_ref":{"type":"string","pattern":"^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"},"proposed_or_issued_by_ref":{"type":"string","pattern":"^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"},"payload_root":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"},"created_at":{"$ref":"#/$defs/timestamp"},"updated_at":{"anyOf":[{"$ref":"#/$defs/timestamp"},{"type":"null"}]}}},"arm":{"type":"object","additionalProperties":false,"required":["arm_kind","composition_ref","lineage_refs","participant_count"],"properties":{"arm_kind":{"type":"string","enum":["collective","direct_path","single_goal_run"],"description":"`collective` is the arm under claim; `direct_path` and `single_goal_run` are the two simpler shapes canon names."},"composition_ref":{"type":"string","pattern":"^app-scope://ioi-ai/orchestration/[^\\s]{1,400}$","description":"The orchestration scope the arm runs under — resolvable, unlike the free label this replaces."},"lineage_refs":{"type":"array","maxItems":256,"uniqueItems":true,"items":{"type":"string","pattern":"^lineage://[^\\s]{1,400}$"},"description":"The persistent executable lineages the arm runs. Empty for a direct path that persists nothing."},"participant_count":{"type":"integer","minimum":0,"maximum":4096,"description":"Recorded because the comparison needs to say how many there were — and NEVER read as evidence. A count is an input; canon refuses it as proof, and the qualification verdict's own contract refuses a verdict resting on it."}}},"axisProof":{"type":"object","additionalProperties":false,"required":["collective_root","baseline_root","derived_from"],"properties":{"collective_root":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"},"baseline_root":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"},"derived_from":{"type":"string","minLength":8,"maxLength":240,"description":"What was hashed to get the two roots, so a reader can re-derive them instead of trusting them."}}},"timestamp":{"type":"string","pattern":"^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$"}}}"##,
+            &value,
+        )
+            .map_err(serde::de::Error::custom)?;
+        let mut object = value
+            .as_object()
+            .cloned()
+            .ok_or_else(|| serde::de::Error::custom("validated projection is not an object"))?;
+        Ok(Self {
+            schema_version: serde_json::from_value::<CollectiveBaselinePairingV1SchemaVersion>(
+                object
+                    .remove(r#"schema_version"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"schema_version"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            pairing_id: serde_json::from_value::<String>(
+                object
+                    .remove(r#"pairing_id"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"pairing_id"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            pairing_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"pairing_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"pairing_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            estimand_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"estimand_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"estimand_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            collective_arm: serde_json::from_value::<CollectiveBaselinePairingV1CollectiveArm>(
+                object
+                    .remove(r#"collective_arm"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"collective_arm"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            baseline_arm: serde_json::from_value::<CollectiveBaselinePairingV1BaselineArm>(
+                object
+                    .remove(r#"baseline_arm"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"baseline_arm"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            declared_match_axes: serde_json::from_value::<
+                Vec<CollectiveBaselinePairingV1DeclaredMatchAxesItem>,
+            >(
+                object
+                    .remove(r#"declared_match_axes"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"declared_match_axes"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            axis_proofs: serde_json::from_value::<CollectiveBaselinePairingV1AxisProofs>(
+                object
+                    .remove(r#"axis_proofs"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"axis_proofs"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            baseline_positive_control: serde_json::from_value::<
+                CollectiveBaselinePairingV1BaselinePositiveControl,
+            >(
+                object
+                    .remove(r#"baseline_positive_control"#)
+                    .ok_or_else(|| {
+                        serde::de::Error::missing_field(r#"baseline_positive_control"#)
+                    })?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            cheaper_baseline_rationale: serde_json::from_value::<String>(
+                object
+                    .remove(r#"cheaper_baseline_rationale"#)
+                    .ok_or_else(|| {
+                        serde::de::Error::missing_field(r#"cheaper_baseline_rationale"#)
+                    })?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            declared_before_either_arm_ran: serde_json::from_value::<
+                CollectiveBaselinePairingV1DeclaredBeforeEitherArmRan,
+            >(
+                object
+                    .remove(r#"declared_before_either_arm_ran"#)
+                    .ok_or_else(|| {
+                        serde::de::Error::missing_field(r#"declared_before_either_arm_ran"#)
+                    })?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            epoch_ref: serde_json::from_value::<Option<String>>(
+                object
+                    .remove(r#"epoch_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"epoch_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            declared_at: serde_json::from_value::<String>(
+                object
+                    .remove(r#"declared_at"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"declared_at"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            system_binding: match object.remove(r#"system_binding"#) {
+                Some(field_value) => serde_json::from_value::<
+                    Option<CollectiveBaselinePairingV1SystemBinding>,
+                >(field_value)
+                .map_err(serde::de::Error::custom)?,
+                None => None,
+            },
+            pairing_root: serde_json::from_value::<String>(
+                object
+                    .remove(r#"pairing_root"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"pairing_root"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+        })
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum CollectiveBaselinePairingV1SchemaVersion {
+    #[serde(rename = r#"ioi.ioi-ai.collective-baseline-pairing.v1"#)]
+    IoiIoiAiCollectiveBaselinePairingV1,
+}
+
+#[derive(Debug, Clone, PartialEq, serde::Serialize)]
+pub struct CollectiveBaselinePairingV1CollectiveArm {
+    pub arm_kind: CollectiveBaselinePairingV1CollectiveArmArmKind,
+    pub composition_ref: String,
+    pub lineage_refs: Vec<String>,
+    pub participant_count: ArchitectureContractInteger,
+}
+
+impl<'de> serde::Deserialize<'de> for CollectiveBaselinePairingV1CollectiveArm {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let value = <serde_json::Value as serde::Deserialize>::deserialize(deserializer)?;
+        validate_projection_subschema(
+            r#"schema://ioi/applications/ioi-ai/collective-baseline-pairing/v1"#,
+            r#"{"type":"object","additionalProperties":false,"required":["arm_kind","composition_ref","lineage_refs","participant_count"],"properties":{"arm_kind":{"type":"string","enum":["collective","direct_path","single_goal_run"],"description":"`collective` is the arm under claim; `direct_path` and `single_goal_run` are the two simpler shapes canon names."},"composition_ref":{"type":"string","pattern":"^app-scope://ioi-ai/orchestration/[^\\s]{1,400}$","description":"The orchestration scope the arm runs under — resolvable, unlike the free label this replaces."},"lineage_refs":{"type":"array","maxItems":256,"uniqueItems":true,"items":{"type":"string","pattern":"^lineage://[^\\s]{1,400}$"},"description":"The persistent executable lineages the arm runs. Empty for a direct path that persists nothing."},"participant_count":{"type":"integer","minimum":0,"maximum":4096,"description":"Recorded because the comparison needs to say how many there were — and NEVER read as evidence. A count is an input; canon refuses it as proof, and the qualification verdict's own contract refuses a verdict resting on it."}}}"#,
+            &value,
+        )
+            .map_err(serde::de::Error::custom)?;
+        let mut object = value
+            .as_object()
+            .cloned()
+            .ok_or_else(|| serde::de::Error::custom("validated projection is not an object"))?;
+        Ok(Self {
+            arm_kind: serde_json::from_value::<CollectiveBaselinePairingV1CollectiveArmArmKind>(
+                object
+                    .remove(r#"arm_kind"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"arm_kind"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            composition_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"composition_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"composition_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            lineage_refs: serde_json::from_value::<Vec<String>>(
+                object
+                    .remove(r#"lineage_refs"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"lineage_refs"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            participant_count: serde_json::from_value::<ArchitectureContractInteger>(
+                object
+                    .remove(r#"participant_count"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"participant_count"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+        })
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum CollectiveBaselinePairingV1CollectiveArmArmKind {
+    #[serde(rename = r#"collective"#)]
+    Collective,
+    #[serde(rename = r#"direct_path"#)]
+    DirectPath,
+    #[serde(rename = r#"single_goal_run"#)]
+    SingleGoalRun,
+}
+
+#[derive(Debug, Clone, PartialEq, serde::Serialize)]
+pub struct CollectiveBaselinePairingV1BaselineArm {
+    pub arm_kind: CollectiveBaselinePairingV1BaselineArmArmKind,
+    pub composition_ref: String,
+    pub lineage_refs: Vec<String>,
+    pub participant_count: ArchitectureContractInteger,
+}
+
+impl<'de> serde::Deserialize<'de> for CollectiveBaselinePairingV1BaselineArm {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let value = <serde_json::Value as serde::Deserialize>::deserialize(deserializer)?;
+        validate_projection_subschema(
+            r#"schema://ioi/applications/ioi-ai/collective-baseline-pairing/v1"#,
+            r#"{"type":"object","additionalProperties":false,"required":["arm_kind","composition_ref","lineage_refs","participant_count"],"properties":{"arm_kind":{"type":"string","enum":["collective","direct_path","single_goal_run"],"description":"`collective` is the arm under claim; `direct_path` and `single_goal_run` are the two simpler shapes canon names."},"composition_ref":{"type":"string","pattern":"^app-scope://ioi-ai/orchestration/[^\\s]{1,400}$","description":"The orchestration scope the arm runs under — resolvable, unlike the free label this replaces."},"lineage_refs":{"type":"array","maxItems":256,"uniqueItems":true,"items":{"type":"string","pattern":"^lineage://[^\\s]{1,400}$"},"description":"The persistent executable lineages the arm runs. Empty for a direct path that persists nothing."},"participant_count":{"type":"integer","minimum":0,"maximum":4096,"description":"Recorded because the comparison needs to say how many there were — and NEVER read as evidence. A count is an input; canon refuses it as proof, and the qualification verdict's own contract refuses a verdict resting on it."}}}"#,
+            &value,
+        )
+            .map_err(serde::de::Error::custom)?;
+        let mut object = value
+            .as_object()
+            .cloned()
+            .ok_or_else(|| serde::de::Error::custom("validated projection is not an object"))?;
+        Ok(Self {
+            arm_kind: serde_json::from_value::<CollectiveBaselinePairingV1BaselineArmArmKind>(
+                object
+                    .remove(r#"arm_kind"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"arm_kind"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            composition_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"composition_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"composition_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            lineage_refs: serde_json::from_value::<Vec<String>>(
+                object
+                    .remove(r#"lineage_refs"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"lineage_refs"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            participant_count: serde_json::from_value::<ArchitectureContractInteger>(
+                object
+                    .remove(r#"participant_count"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"participant_count"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+        })
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum CollectiveBaselinePairingV1BaselineArmArmKind {
+    #[serde(rename = r#"collective"#)]
+    Collective,
+    #[serde(rename = r#"direct_path"#)]
+    DirectPath,
+    #[serde(rename = r#"single_goal_run"#)]
+    SingleGoalRun,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum CollectiveBaselinePairingV1DeclaredMatchAxesItem {
+    #[serde(rename = r#"task"#)]
+    Task,
+    #[serde(rename = r#"authority"#)]
+    Authority,
+    #[serde(rename = r#"context"#)]
+    Context,
+    #[serde(rename = r#"tool"#)]
+    Tool,
+    #[serde(rename = r#"environment"#)]
+    Environment,
+    #[serde(rename = r#"budget"#)]
+    Budget,
+    #[serde(rename = r#"time"#)]
+    Time,
+    #[serde(rename = r#"verifier_posture"#)]
+    VerifierPosture,
+}
+
+#[derive(Debug, Clone, PartialEq, serde::Serialize)]
+pub struct CollectiveBaselinePairingV1AxisProofs {
+    pub task: CollectiveBaselinePairingV1AxisProofsTask,
+    pub authority: CollectiveBaselinePairingV1AxisProofsAuthority,
+    pub context: CollectiveBaselinePairingV1AxisProofsContext,
+    pub tool: CollectiveBaselinePairingV1AxisProofsTool,
+    pub environment: CollectiveBaselinePairingV1AxisProofsEnvironment,
+    pub budget: CollectiveBaselinePairingV1AxisProofsBudget,
+    pub time: CollectiveBaselinePairingV1AxisProofsTime,
+    pub verifier_posture: CollectiveBaselinePairingV1AxisProofsVerifierPosture,
+}
+
+impl<'de> serde::Deserialize<'de> for CollectiveBaselinePairingV1AxisProofs {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let value = <serde_json::Value as serde::Deserialize>::deserialize(deserializer)?;
+        validate_projection_subschema(
+            r#"schema://ioi/applications/ioi-ai/collective-baseline-pairing/v1"#,
+            r##"{"type":"object","additionalProperties":false,"required":["task","authority","context","tool","environment","budget","time","verifier_posture"],"description":"One proof per axis, each carrying a root for EACH arm. Equality is asserted per axis by the registered invariants, so an unmatched pairing is refused at the seam by the failing axis's own rule name.","properties":{"task":{"$ref":"#/$defs/axisProof"},"authority":{"$ref":"#/$defs/axisProof"},"context":{"$ref":"#/$defs/axisProof"},"tool":{"$ref":"#/$defs/axisProof"},"environment":{"$ref":"#/$defs/axisProof"},"budget":{"$ref":"#/$defs/axisProof"},"time":{"$ref":"#/$defs/axisProof"},"verifier_posture":{"$ref":"#/$defs/axisProof"}}}"##,
+            &value,
+        )
+            .map_err(serde::de::Error::custom)?;
+        let mut object = value
+            .as_object()
+            .cloned()
+            .ok_or_else(|| serde::de::Error::custom("validated projection is not an object"))?;
+        Ok(Self {
+            task: serde_json::from_value::<CollectiveBaselinePairingV1AxisProofsTask>(
+                object
+                    .remove(r#"task"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"task"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            authority: serde_json::from_value::<CollectiveBaselinePairingV1AxisProofsAuthority>(
+                object
+                    .remove(r#"authority"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"authority"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            context: serde_json::from_value::<CollectiveBaselinePairingV1AxisProofsContext>(
+                object
+                    .remove(r#"context"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"context"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            tool: serde_json::from_value::<CollectiveBaselinePairingV1AxisProofsTool>(
+                object
+                    .remove(r#"tool"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"tool"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            environment:
+                serde_json::from_value::<CollectiveBaselinePairingV1AxisProofsEnvironment>(
+                    object
+                        .remove(r#"environment"#)
+                        .ok_or_else(|| serde::de::Error::missing_field(r#"environment"#))?,
+                )
+                .map_err(serde::de::Error::custom)?,
+            budget: serde_json::from_value::<CollectiveBaselinePairingV1AxisProofsBudget>(
+                object
+                    .remove(r#"budget"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"budget"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            time: serde_json::from_value::<CollectiveBaselinePairingV1AxisProofsTime>(
+                object
+                    .remove(r#"time"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"time"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            verifier_posture: serde_json::from_value::<
+                CollectiveBaselinePairingV1AxisProofsVerifierPosture,
+            >(
+                object
+                    .remove(r#"verifier_posture"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"verifier_posture"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+        })
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, serde::Serialize)]
+pub struct CollectiveBaselinePairingV1AxisProofsTask {
+    pub collective_root: String,
+    pub baseline_root: String,
+    pub derived_from: String,
+}
+
+impl<'de> serde::Deserialize<'de> for CollectiveBaselinePairingV1AxisProofsTask {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let value = <serde_json::Value as serde::Deserialize>::deserialize(deserializer)?;
+        validate_projection_subschema(
+            r#"schema://ioi/applications/ioi-ai/collective-baseline-pairing/v1"#,
+            r#"{"type":"object","additionalProperties":false,"required":["collective_root","baseline_root","derived_from"],"properties":{"collective_root":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"},"baseline_root":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"},"derived_from":{"type":"string","minLength":8,"maxLength":240,"description":"What was hashed to get the two roots, so a reader can re-derive them instead of trusting them."}}}"#,
+            &value,
+        )
+            .map_err(serde::de::Error::custom)?;
+        let mut object = value
+            .as_object()
+            .cloned()
+            .ok_or_else(|| serde::de::Error::custom("validated projection is not an object"))?;
+        Ok(Self {
+            collective_root: serde_json::from_value::<String>(
+                object
+                    .remove(r#"collective_root"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"collective_root"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            baseline_root: serde_json::from_value::<String>(
+                object
+                    .remove(r#"baseline_root"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"baseline_root"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            derived_from: serde_json::from_value::<String>(
+                object
+                    .remove(r#"derived_from"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"derived_from"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+        })
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, serde::Serialize)]
+pub struct CollectiveBaselinePairingV1AxisProofsAuthority {
+    pub collective_root: String,
+    pub baseline_root: String,
+    pub derived_from: String,
+}
+
+impl<'de> serde::Deserialize<'de> for CollectiveBaselinePairingV1AxisProofsAuthority {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let value = <serde_json::Value as serde::Deserialize>::deserialize(deserializer)?;
+        validate_projection_subschema(
+            r#"schema://ioi/applications/ioi-ai/collective-baseline-pairing/v1"#,
+            r#"{"type":"object","additionalProperties":false,"required":["collective_root","baseline_root","derived_from"],"properties":{"collective_root":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"},"baseline_root":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"},"derived_from":{"type":"string","minLength":8,"maxLength":240,"description":"What was hashed to get the two roots, so a reader can re-derive them instead of trusting them."}}}"#,
+            &value,
+        )
+            .map_err(serde::de::Error::custom)?;
+        let mut object = value
+            .as_object()
+            .cloned()
+            .ok_or_else(|| serde::de::Error::custom("validated projection is not an object"))?;
+        Ok(Self {
+            collective_root: serde_json::from_value::<String>(
+                object
+                    .remove(r#"collective_root"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"collective_root"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            baseline_root: serde_json::from_value::<String>(
+                object
+                    .remove(r#"baseline_root"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"baseline_root"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            derived_from: serde_json::from_value::<String>(
+                object
+                    .remove(r#"derived_from"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"derived_from"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+        })
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, serde::Serialize)]
+pub struct CollectiveBaselinePairingV1AxisProofsContext {
+    pub collective_root: String,
+    pub baseline_root: String,
+    pub derived_from: String,
+}
+
+impl<'de> serde::Deserialize<'de> for CollectiveBaselinePairingV1AxisProofsContext {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let value = <serde_json::Value as serde::Deserialize>::deserialize(deserializer)?;
+        validate_projection_subschema(
+            r#"schema://ioi/applications/ioi-ai/collective-baseline-pairing/v1"#,
+            r#"{"type":"object","additionalProperties":false,"required":["collective_root","baseline_root","derived_from"],"properties":{"collective_root":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"},"baseline_root":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"},"derived_from":{"type":"string","minLength":8,"maxLength":240,"description":"What was hashed to get the two roots, so a reader can re-derive them instead of trusting them."}}}"#,
+            &value,
+        )
+            .map_err(serde::de::Error::custom)?;
+        let mut object = value
+            .as_object()
+            .cloned()
+            .ok_or_else(|| serde::de::Error::custom("validated projection is not an object"))?;
+        Ok(Self {
+            collective_root: serde_json::from_value::<String>(
+                object
+                    .remove(r#"collective_root"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"collective_root"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            baseline_root: serde_json::from_value::<String>(
+                object
+                    .remove(r#"baseline_root"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"baseline_root"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            derived_from: serde_json::from_value::<String>(
+                object
+                    .remove(r#"derived_from"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"derived_from"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+        })
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, serde::Serialize)]
+pub struct CollectiveBaselinePairingV1AxisProofsTool {
+    pub collective_root: String,
+    pub baseline_root: String,
+    pub derived_from: String,
+}
+
+impl<'de> serde::Deserialize<'de> for CollectiveBaselinePairingV1AxisProofsTool {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let value = <serde_json::Value as serde::Deserialize>::deserialize(deserializer)?;
+        validate_projection_subschema(
+            r#"schema://ioi/applications/ioi-ai/collective-baseline-pairing/v1"#,
+            r#"{"type":"object","additionalProperties":false,"required":["collective_root","baseline_root","derived_from"],"properties":{"collective_root":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"},"baseline_root":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"},"derived_from":{"type":"string","minLength":8,"maxLength":240,"description":"What was hashed to get the two roots, so a reader can re-derive them instead of trusting them."}}}"#,
+            &value,
+        )
+            .map_err(serde::de::Error::custom)?;
+        let mut object = value
+            .as_object()
+            .cloned()
+            .ok_or_else(|| serde::de::Error::custom("validated projection is not an object"))?;
+        Ok(Self {
+            collective_root: serde_json::from_value::<String>(
+                object
+                    .remove(r#"collective_root"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"collective_root"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            baseline_root: serde_json::from_value::<String>(
+                object
+                    .remove(r#"baseline_root"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"baseline_root"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            derived_from: serde_json::from_value::<String>(
+                object
+                    .remove(r#"derived_from"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"derived_from"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+        })
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, serde::Serialize)]
+pub struct CollectiveBaselinePairingV1AxisProofsEnvironment {
+    pub collective_root: String,
+    pub baseline_root: String,
+    pub derived_from: String,
+}
+
+impl<'de> serde::Deserialize<'de> for CollectiveBaselinePairingV1AxisProofsEnvironment {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let value = <serde_json::Value as serde::Deserialize>::deserialize(deserializer)?;
+        validate_projection_subschema(
+            r#"schema://ioi/applications/ioi-ai/collective-baseline-pairing/v1"#,
+            r#"{"type":"object","additionalProperties":false,"required":["collective_root","baseline_root","derived_from"],"properties":{"collective_root":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"},"baseline_root":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"},"derived_from":{"type":"string","minLength":8,"maxLength":240,"description":"What was hashed to get the two roots, so a reader can re-derive them instead of trusting them."}}}"#,
+            &value,
+        )
+            .map_err(serde::de::Error::custom)?;
+        let mut object = value
+            .as_object()
+            .cloned()
+            .ok_or_else(|| serde::de::Error::custom("validated projection is not an object"))?;
+        Ok(Self {
+            collective_root: serde_json::from_value::<String>(
+                object
+                    .remove(r#"collective_root"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"collective_root"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            baseline_root: serde_json::from_value::<String>(
+                object
+                    .remove(r#"baseline_root"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"baseline_root"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            derived_from: serde_json::from_value::<String>(
+                object
+                    .remove(r#"derived_from"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"derived_from"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+        })
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, serde::Serialize)]
+pub struct CollectiveBaselinePairingV1AxisProofsBudget {
+    pub collective_root: String,
+    pub baseline_root: String,
+    pub derived_from: String,
+}
+
+impl<'de> serde::Deserialize<'de> for CollectiveBaselinePairingV1AxisProofsBudget {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let value = <serde_json::Value as serde::Deserialize>::deserialize(deserializer)?;
+        validate_projection_subschema(
+            r#"schema://ioi/applications/ioi-ai/collective-baseline-pairing/v1"#,
+            r#"{"type":"object","additionalProperties":false,"required":["collective_root","baseline_root","derived_from"],"properties":{"collective_root":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"},"baseline_root":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"},"derived_from":{"type":"string","minLength":8,"maxLength":240,"description":"What was hashed to get the two roots, so a reader can re-derive them instead of trusting them."}}}"#,
+            &value,
+        )
+            .map_err(serde::de::Error::custom)?;
+        let mut object = value
+            .as_object()
+            .cloned()
+            .ok_or_else(|| serde::de::Error::custom("validated projection is not an object"))?;
+        Ok(Self {
+            collective_root: serde_json::from_value::<String>(
+                object
+                    .remove(r#"collective_root"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"collective_root"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            baseline_root: serde_json::from_value::<String>(
+                object
+                    .remove(r#"baseline_root"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"baseline_root"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            derived_from: serde_json::from_value::<String>(
+                object
+                    .remove(r#"derived_from"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"derived_from"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+        })
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, serde::Serialize)]
+pub struct CollectiveBaselinePairingV1AxisProofsTime {
+    pub collective_root: String,
+    pub baseline_root: String,
+    pub derived_from: String,
+}
+
+impl<'de> serde::Deserialize<'de> for CollectiveBaselinePairingV1AxisProofsTime {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let value = <serde_json::Value as serde::Deserialize>::deserialize(deserializer)?;
+        validate_projection_subschema(
+            r#"schema://ioi/applications/ioi-ai/collective-baseline-pairing/v1"#,
+            r#"{"type":"object","additionalProperties":false,"required":["collective_root","baseline_root","derived_from"],"properties":{"collective_root":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"},"baseline_root":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"},"derived_from":{"type":"string","minLength":8,"maxLength":240,"description":"What was hashed to get the two roots, so a reader can re-derive them instead of trusting them."}}}"#,
+            &value,
+        )
+            .map_err(serde::de::Error::custom)?;
+        let mut object = value
+            .as_object()
+            .cloned()
+            .ok_or_else(|| serde::de::Error::custom("validated projection is not an object"))?;
+        Ok(Self {
+            collective_root: serde_json::from_value::<String>(
+                object
+                    .remove(r#"collective_root"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"collective_root"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            baseline_root: serde_json::from_value::<String>(
+                object
+                    .remove(r#"baseline_root"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"baseline_root"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            derived_from: serde_json::from_value::<String>(
+                object
+                    .remove(r#"derived_from"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"derived_from"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+        })
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, serde::Serialize)]
+pub struct CollectiveBaselinePairingV1AxisProofsVerifierPosture {
+    pub collective_root: String,
+    pub baseline_root: String,
+    pub derived_from: String,
+}
+
+impl<'de> serde::Deserialize<'de> for CollectiveBaselinePairingV1AxisProofsVerifierPosture {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let value = <serde_json::Value as serde::Deserialize>::deserialize(deserializer)?;
+        validate_projection_subschema(
+            r#"schema://ioi/applications/ioi-ai/collective-baseline-pairing/v1"#,
+            r#"{"type":"object","additionalProperties":false,"required":["collective_root","baseline_root","derived_from"],"properties":{"collective_root":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"},"baseline_root":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"},"derived_from":{"type":"string","minLength":8,"maxLength":240,"description":"What was hashed to get the two roots, so a reader can re-derive them instead of trusting them."}}}"#,
+            &value,
+        )
+            .map_err(serde::de::Error::custom)?;
+        let mut object = value
+            .as_object()
+            .cloned()
+            .ok_or_else(|| serde::de::Error::custom("validated projection is not an object"))?;
+        Ok(Self {
+            collective_root: serde_json::from_value::<String>(
+                object
+                    .remove(r#"collective_root"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"collective_root"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            baseline_root: serde_json::from_value::<String>(
+                object
+                    .remove(r#"baseline_root"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"baseline_root"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            derived_from: serde_json::from_value::<String>(
+                object
+                    .remove(r#"derived_from"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"derived_from"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+        })
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, serde::Serialize)]
+pub struct CollectiveBaselinePairingV1BaselinePositiveControl {
+    pub matched_cases_total: ArchitectureContractInteger,
+    pub matched_cases_passed: ArchitectureContractInteger,
+    pub control_result_refs: Vec<String>,
+}
+
+impl<'de> serde::Deserialize<'de> for CollectiveBaselinePairingV1BaselinePositiveControl {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let value = <serde_json::Value as serde::Deserialize>::deserialize(deserializer)?;
+        validate_projection_subschema(
+            r#"schema://ioi/applications/ioi-ai/collective-baseline-pairing/v1"#,
+            r##"{"type":"object","additionalProperties":false,"required":["matched_cases_total","matched_cases_passed","control_result_refs"],"description":"THE COMPARATOR WORKS. A degenerate baseline that fails everything makes any collective look good, so the baseline must have PASSED matched cases on its own before its losses mean anything. `matched_cases_passed` is at least one by schema and never exceeds the total by invariant.","properties":{"matched_cases_total":{"type":"integer","minimum":1,"maximum":1000000},"matched_cases_passed":{"type":"integer","minimum":1,"maximum":1000000},"control_result_refs":{"type":"array","minItems":1,"maxItems":256,"uniqueItems":true,"items":{"$ref":"#/$defs/ref"},"description":"The evaluation results the control is read from — the baseline's own passes, admitted through the evaluation plane like any other."}}}"##,
+            &value,
+        )
+            .map_err(serde::de::Error::custom)?;
+        let mut object = value
+            .as_object()
+            .cloned()
+            .ok_or_else(|| serde::de::Error::custom("validated projection is not an object"))?;
+        Ok(Self {
+            matched_cases_total: serde_json::from_value::<ArchitectureContractInteger>(
+                object
+                    .remove(r#"matched_cases_total"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"matched_cases_total"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            matched_cases_passed: serde_json::from_value::<ArchitectureContractInteger>(
+                object
+                    .remove(r#"matched_cases_passed"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"matched_cases_passed"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            control_result_refs: serde_json::from_value::<Vec<String>>(
+                object
+                    .remove(r#"control_result_refs"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"control_result_refs"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+        })
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum CollectiveBaselinePairingV1DeclaredBeforeEitherArmRan {
+    True,
+}
+
+impl serde::Serialize for CollectiveBaselinePairingV1DeclaredBeforeEitherArmRan {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: serde::Serializer,
+    {
+        serializer.serialize_bool(true)
+    }
+}
+
+impl<'de> serde::Deserialize<'de> for CollectiveBaselinePairingV1DeclaredBeforeEitherArmRan {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let value = <bool as serde::Deserialize>::deserialize(deserializer)?;
+        if value == true {
+            Ok(Self::True)
+        } else {
+            Err(serde::de::Error::custom(r#"expected boolean literal true"#))
+        }
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, serde::Serialize)]
+pub struct CollectiveBaselinePairingV1SystemBinding {
+    pub schema_version: CollectiveBaselinePairingV1SystemBindingSchemaVersion,
+    pub system_id: String,
+    pub parent_scope_ref: String,
+    pub proposed_or_issued_by_ref: String,
+    pub payload_root: String,
+    pub created_at: String,
+    pub updated_at: Option<String>,
+}
+
+impl<'de> serde::Deserialize<'de> for CollectiveBaselinePairingV1SystemBinding {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let value = <serde_json::Value as serde::Deserialize>::deserialize(deserializer)?;
+        validate_projection_subschema(
+            r#"schema://ioi/applications/ioi-ai/collective-baseline-pairing/v1"#,
+            r##"{"type":"object","additionalProperties":false,"required":["schema_version","system_id","parent_scope_ref","proposed_or_issued_by_ref","payload_root","created_at","updated_at"],"properties":{"schema_version":{"const":"ioi.foundations.system-scoped-object-binding.v1"},"system_id":{"type":"string","pattern":"^system://[^\\s]{1,500}$"},"parent_scope_ref":{"type":"string","pattern":"^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"},"proposed_or_issued_by_ref":{"type":"string","pattern":"^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"},"payload_root":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"},"created_at":{"$ref":"#/$defs/timestamp"},"updated_at":{"anyOf":[{"$ref":"#/$defs/timestamp"},{"type":"null"}]}}}"##,
+            &value,
+        )
+            .map_err(serde::de::Error::custom)?;
+        let mut object = value
+            .as_object()
+            .cloned()
+            .ok_or_else(|| serde::de::Error::custom("validated projection is not an object"))?;
+        Ok(Self {
+            schema_version: serde_json::from_value::<
+                CollectiveBaselinePairingV1SystemBindingSchemaVersion,
+            >(
+                object
+                    .remove(r#"schema_version"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"schema_version"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            system_id: serde_json::from_value::<String>(
+                object
+                    .remove(r#"system_id"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"system_id"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            parent_scope_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"parent_scope_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"parent_scope_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            proposed_or_issued_by_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"proposed_or_issued_by_ref"#)
+                    .ok_or_else(|| {
+                        serde::de::Error::missing_field(r#"proposed_or_issued_by_ref"#)
+                    })?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            payload_root: serde_json::from_value::<String>(
+                object
+                    .remove(r#"payload_root"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"payload_root"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            created_at: serde_json::from_value::<String>(
+                object
+                    .remove(r#"created_at"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"created_at"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            updated_at: serde_json::from_value::<Option<String>>(
+                object
+                    .remove(r#"updated_at"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"updated_at"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+        })
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum CollectiveBaselinePairingV1SystemBindingSchemaVersion {
+    #[serde(rename = r#"ioi.foundations.system-scoped-object-binding.v1"#)]
+    IoiFoundationsSystemScopedObjectBindingV1,
+}
+
+#[derive(Debug, Clone, PartialEq, serde::Serialize)]
+pub struct CollectiveQualificationVerdictV1 {
+    pub schema_version: CollectiveQualificationVerdictV1SchemaVersion,
+    pub verdict_id: String,
+    pub verdict_ref: String,
+    pub estimand_ref: String,
+    pub pairing_ref: String,
+    pub epoch_ref: String,
+    pub outcome: CollectiveQualificationVerdictV1Outcome,
+    pub qualified_on: Vec<CollectiveQualificationVerdictV1QualifiedOnItem>,
+    pub result_evidence: CollectiveQualificationVerdictV1ResultEvidence,
+    pub controller_continuity: CollectiveQualificationVerdictV1ControllerContinuity,
+    pub knockouts: Vec<CollectiveQualificationVerdictV1KnockoutsItem>,
+    pub named_absent_knockout_axes:
+        Vec<CollectiveQualificationVerdictV1NamedAbsentKnockoutAxesItem>,
+    pub grants_no_authority: CollectiveQualificationVerdictV1GrantsNoAuthority,
+    pub promotes_nothing: CollectiveQualificationVerdictV1PromotesNothing,
+    pub activates_nothing: CollectiveQualificationVerdictV1ActivatesNothing,
+    pub rewrites_no_topology: CollectiveQualificationVerdictV1RewritesNoTopology,
+    pub judged_at: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub system_binding: Option<CollectiveQualificationVerdictV1SystemBinding>,
+    pub verdict_root: String,
+}
+
+impl<'de> serde::Deserialize<'de> for CollectiveQualificationVerdictV1 {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let value = <serde_json::Value as serde::Deserialize>::deserialize(deserializer)?;
+        validate_projection_subschema(
+            r#"schema://ioi/applications/ioi-ai/collective-qualification-verdict/v1"#,
+            r##"{"$schema":"https://json-schema.org/draft/2020-12/schema","$id":"schema://ioi/applications/ioi-ai/collective-qualification-verdict/v1","title":"CollectiveQualificationVerdict","x-ioi-schema-version":"ioi.ioi-ai.collective-qualification-verdict.v1","description":"WHAT THE TWO ARMS CAME TO, READ AGAINST A CLAIM MADE BEFORE THEY RAN — AND NOTHING ELSE. Canon: evaluation emits judgment only and cannot change topology, install an artifact, activate a controller, issue authority or promote the composition. So this record carries its four never-clauses ON THE WIRE as `const true`, and each knockout it reports carries the same: judgment evidence that reverted, changed nothing and promoted nothing. RESULT ROBUSTNESS AND CONTROLLER CONTINUITY ARE SEPARATE MEMBERS WITH SEPARATE ROOTS, and the registered invariant refuses a verdict whose two roots are equal. This is the conflation the unit exists to refuse and the one it could most easily have authored itself: the lineage's `posture.derived.status` is a single scalar bundling authority staleness, caretaker absence, dependency loss and runtime absence, and reading it as result evidence would make a healthy runtime into proof of a good answer. Canon states both halves — an accepted result may survive after a runtime must stop, and a healthy runtime proves neither result quality nor current authority. THE KNOCKOUT MATRIX IS COMPLETE OR IT IS NAMED: every axis this estate can perform is performed, and every axis canon names that it cannot is carried here with its reason and its owner, because an unperformable axis left out silently narrows the claim while an unperformable axis listed as done makes the bar unfalsifiable. Owner: domains/ioi-ai/collaborative-outcome-pattern.md § Collective qualification (M10.9, R-222).","type":"object","additionalProperties":false,"required":["schema_version","verdict_id","verdict_ref","estimand_ref","pairing_ref","epoch_ref","outcome","qualified_on","result_evidence","controller_continuity","knockouts","named_absent_knockout_axes","grants_no_authority","promotes_nothing","activates_nothing","rewrites_no_topology","judged_at","verdict_root"],"properties":{"schema_version":{"type":"string","const":"ioi.ioi-ai.collective-qualification-verdict.v1"},"verdict_id":{"type":"string","pattern":"^qualification://[^\\s?#\\\\]{1,200}$","description":"THE IDENTITY THE RECORD SEAM ADMITS, and it must be a `*_id` member: the seam resolves a record's identity by finding the single member whose name ends in `_id` and whose value is the object_id it was posted under, and refuses the admission outright when none does. It is the same value as `verdict_ref`, which is the name every other record points at this one by, and the registered invariant holds the two equal so the pointer and the identity can never come apart."},"verdict_ref":{"type":"string","pattern":"^qualification://[^\\s?#\\\\]{1,200}$"},"estimand_ref":{"type":"string","pattern":"^estimand://[^\\s?#\\\\]{1,200}$"},"pairing_ref":{"type":"string","pattern":"^pairing://[^\\s?#\\\\]{1,200}$"},"epoch_ref":{"$ref":"#/$defs/ref","description":"The FROZEN evaluation epoch. A verdict is read out of a frozen epoch or it is read out of nothing: the estimand and the pairing were declared before the freeze precisely so this record could not choose them afterwards."},"outcome":{"type":"string","enum":["qualified","not_qualified","inconclusive"],"description":"`qualified` says the declared estimand was confirmed under its own decision rule. It is a judgment about a claim, not a grant: the four never-clauses below hold at every outcome."},"qualified_on":{"type":"array","maxItems":16,"uniqueItems":true,"items":{"type":"string","enum":["matched_baseline_effect","knockout_degradation","independence_of_named_axis"]},"description":"THE ADMISSIBLE BASES, AND THEY ARE THE ONLY THREE. The four canon refuses — a participant count, an unmatched aggregate score, an ArtifactRef marked active and a surviving process — are not members of this enum, so a verdict cannot even name them as its basis. That is the refusal put where it cannot be argued with rather than in a checker that must remember to look."},"result_evidence":{"type":"object","additionalProperties":false,"required":["observed_effect","meets_minimum_effect","cost_normalized","result_refs","result_root"],"description":"The RESULT half. Its inputs are evaluation results and its root is its own; nothing here reads the controller's liveness.","properties":{"observed_effect":{"type":"number"},"meets_minimum_effect":{"type":"boolean"},"cost_normalized":{"type":"boolean","description":"Whether the observed effect was normalized as the estimand's `cost_normalization` declared. A collective that wins by spending more has not earned its complexity."},"result_refs":{"type":"array","maxItems":1024,"uniqueItems":true,"items":{"$ref":"#/$defs/ref"},"description":"The evaluation results the effect was read from, both arms."},"result_root":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"}}},"controller_continuity":{"type":"object","additionalProperties":false,"required":["lineage_ref","recorded_status","derived_status","orphan_reason","installation_read_from","continuity_root"],"description":"The CONTINUITY half. Its inputs are the lineage's own posture and its owners, its root is its own, and no reading of it changes the result above — canon: an accepted result may survive after a runtime must stop.","properties":{"lineage_ref":{"type":"string","pattern":"^lineage://[^\\s]{1,400}$"},"recorded_status":{"$ref":"#/$defs/lineageStatus"},"derived_status":{"$ref":"#/$defs/lineageStatus"},"orphan_reason":{"anyOf":[{"type":"string","enum":["owner_absent","caretaker_absent","dependency_unavailable","artifact_unavailable","health_stale","authority_stale"]},{"type":"null"}]},"installation_read_from":{"type":"string","const":"owner","description":"THE POSTURE CANNOT ANSWER THIS ONE. The lineage read model re-derives from the accountable subject, the caretaker, context leases, dependency lineages and `runtime_ref` — and not from `installation_ref`. An installation removed after binding therefore leaves a GREEN posture, so an installation knockout read through the posture would report success while measuring nothing. It is read from the owner, and the record says so."},"continuity_root":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"}}},"knockouts":{"type":"array","minItems":1,"maxItems":64,"description":"Every axis this estate can perform, each run on an admissible ablation lane and each reverted.","items":{"type":"object","additionalProperties":false,"required":["axis","lane","observation_ref","collective_degradation","baseline_degradation","reverted","changed_nothing"],"properties":{"axis":{"type":"string","enum":["participant_exit","caretaker_exit","dependency_retired","creator_session_removed","context_lease_revoked","artifact_ancestry_removed","controller_runtime_unserved","installation_unbound","verifier_invalidated","budget_exhausted","lifecycle_stop","lifecycle_quarantine","lifecycle_repair","lifecycle_replacement","lifecycle_retirement","crash_restart"]},"lane":{"type":"string","const":"cross_play_ablation","description":"The admissible ablation lane the evaluation plane already carries. A knockout does not need a lane of its own and does not get one."},"observation_ref":{"$ref":"#/$defs/ref"},"collective_degradation":{"type":"number"},"baseline_degradation":{"type":"number"},"reverted":{"type":"boolean","const":true,"description":"A knockout that did not revert left the tested topology in place, and the live composition is then the ablated one rather than the one under claim."},"changed_nothing":{"type":"boolean","const":true,"description":"Judgment evidence only: the knockout rewrote no topology, revoked no participant, activated no controller, installed no artifact and promoted no profile."}}}},"named_absent_knockout_axes":{"type":"array","maxItems":32,"description":"The axes canon names that this estate cannot perform, each with its reason and the owner who would make it performable. Naming them is what keeps the matrix honest in both directions.","items":{"type":"object","additionalProperties":false,"required":["axis","reason","owner_ref"],"properties":{"axis":{"type":"string","enum":["communication_edge","role_removed","lease_expired","disclosure_overhead","verification_overhead"]},"reason":{"type":"string","minLength":24,"maxLength":600},"owner_ref":{"$ref":"#/$defs/ref"}}}},"grants_no_authority":{"type":"boolean","const":true},"promotes_nothing":{"type":"boolean","const":true},"activates_nothing":{"type":"boolean","const":true},"rewrites_no_topology":{"type":"boolean","const":true},"judged_at":{"$ref":"#/$defs/timestamp"},"system_binding":{"$ref":"#/$defs/systemBinding","description":"DERIVED BY THE SEAM, NEVER AUTHORED — absent on the wire the caller sends, an object on the record the seam admits."},"verdict_root":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$","description":"SHA-256 over JCS of every member except this one and the seam binding. It seals the whole judgment; the result and continuity roots inside it seal their two halves SEPARATELY, so a reader can take either without the other."}},"$defs":{"ref":{"type":"string","pattern":"^[a-z][a-z0-9+.-]*://[^ ]{1,480}$"},"lineageStatus":{"type":"string","enum":["observed","reused","forked","installed","active","stopped","quarantined","repairing","replaced","retired"]},"systemBinding":{"type":"object","additionalProperties":false,"required":["schema_version","system_id","parent_scope_ref","proposed_or_issued_by_ref","payload_root","created_at","updated_at"],"properties":{"schema_version":{"const":"ioi.foundations.system-scoped-object-binding.v1"},"system_id":{"type":"string","pattern":"^system://[^\\s]{1,500}$"},"parent_scope_ref":{"type":"string","pattern":"^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"},"proposed_or_issued_by_ref":{"type":"string","pattern":"^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"},"payload_root":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"},"created_at":{"$ref":"#/$defs/timestamp"},"updated_at":{"anyOf":[{"$ref":"#/$defs/timestamp"},{"type":"null"}]}}},"timestamp":{"type":"string","pattern":"^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$"}}}"##,
+            &value,
+        )
+            .map_err(serde::de::Error::custom)?;
+        let mut object = value
+            .as_object()
+            .cloned()
+            .ok_or_else(|| serde::de::Error::custom("validated projection is not an object"))?;
+        Ok(Self {
+            schema_version:
+                serde_json::from_value::<CollectiveQualificationVerdictV1SchemaVersion>(
+                    object
+                        .remove(r#"schema_version"#)
+                        .ok_or_else(|| serde::de::Error::missing_field(r#"schema_version"#))?,
+                )
+                .map_err(serde::de::Error::custom)?,
+            verdict_id: serde_json::from_value::<String>(
+                object
+                    .remove(r#"verdict_id"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"verdict_id"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            verdict_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"verdict_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"verdict_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            estimand_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"estimand_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"estimand_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            pairing_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"pairing_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"pairing_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            epoch_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"epoch_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"epoch_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            outcome: serde_json::from_value::<CollectiveQualificationVerdictV1Outcome>(
+                object
+                    .remove(r#"outcome"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"outcome"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            qualified_on: serde_json::from_value::<
+                Vec<CollectiveQualificationVerdictV1QualifiedOnItem>,
+            >(
+                object
+                    .remove(r#"qualified_on"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"qualified_on"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            result_evidence:
+                serde_json::from_value::<CollectiveQualificationVerdictV1ResultEvidence>(
+                    object
+                        .remove(r#"result_evidence"#)
+                        .ok_or_else(|| serde::de::Error::missing_field(r#"result_evidence"#))?,
+                )
+                .map_err(serde::de::Error::custom)?,
+            controller_continuity: serde_json::from_value::<
+                CollectiveQualificationVerdictV1ControllerContinuity,
+            >(
+                object
+                    .remove(r#"controller_continuity"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"controller_continuity"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            knockouts:
+                serde_json::from_value::<Vec<CollectiveQualificationVerdictV1KnockoutsItem>>(
+                    object
+                        .remove(r#"knockouts"#)
+                        .ok_or_else(|| serde::de::Error::missing_field(r#"knockouts"#))?,
+                )
+                .map_err(serde::de::Error::custom)?,
+            named_absent_knockout_axes: serde_json::from_value::<
+                Vec<CollectiveQualificationVerdictV1NamedAbsentKnockoutAxesItem>,
+            >(
+                object
+                    .remove(r#"named_absent_knockout_axes"#)
+                    .ok_or_else(|| {
+                        serde::de::Error::missing_field(r#"named_absent_knockout_axes"#)
+                    })?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            grants_no_authority: serde_json::from_value::<
+                CollectiveQualificationVerdictV1GrantsNoAuthority,
+            >(
+                object
+                    .remove(r#"grants_no_authority"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"grants_no_authority"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            promotes_nothing: serde_json::from_value::<
+                CollectiveQualificationVerdictV1PromotesNothing,
+            >(
+                object
+                    .remove(r#"promotes_nothing"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"promotes_nothing"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            activates_nothing: serde_json::from_value::<
+                CollectiveQualificationVerdictV1ActivatesNothing,
+            >(
+                object
+                    .remove(r#"activates_nothing"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"activates_nothing"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            rewrites_no_topology: serde_json::from_value::<
+                CollectiveQualificationVerdictV1RewritesNoTopology,
+            >(
+                object
+                    .remove(r#"rewrites_no_topology"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"rewrites_no_topology"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            judged_at: serde_json::from_value::<String>(
+                object
+                    .remove(r#"judged_at"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"judged_at"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            system_binding: match object.remove(r#"system_binding"#) {
+                Some(field_value) => serde_json::from_value::<
+                    Option<CollectiveQualificationVerdictV1SystemBinding>,
+                >(field_value)
+                .map_err(serde::de::Error::custom)?,
+                None => None,
+            },
+            verdict_root: serde_json::from_value::<String>(
+                object
+                    .remove(r#"verdict_root"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"verdict_root"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+        })
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum CollectiveQualificationVerdictV1SchemaVersion {
+    #[serde(rename = r#"ioi.ioi-ai.collective-qualification-verdict.v1"#)]
+    IoiIoiAiCollectiveQualificationVerdictV1,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum CollectiveQualificationVerdictV1Outcome {
+    #[serde(rename = r#"qualified"#)]
+    Qualified,
+    #[serde(rename = r#"not_qualified"#)]
+    NotQualified,
+    #[serde(rename = r#"inconclusive"#)]
+    Inconclusive,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum CollectiveQualificationVerdictV1QualifiedOnItem {
+    #[serde(rename = r#"matched_baseline_effect"#)]
+    MatchedBaselineEffect,
+    #[serde(rename = r#"knockout_degradation"#)]
+    KnockoutDegradation,
+    #[serde(rename = r#"independence_of_named_axis"#)]
+    IndependenceOfNamedAxis,
+}
+
+#[derive(Debug, Clone, PartialEq, serde::Serialize)]
+pub struct CollectiveQualificationVerdictV1ResultEvidence {
+    pub observed_effect: f64,
+    pub meets_minimum_effect: bool,
+    pub cost_normalized: bool,
+    pub result_refs: Vec<String>,
+    pub result_root: String,
+}
+
+impl<'de> serde::Deserialize<'de> for CollectiveQualificationVerdictV1ResultEvidence {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let value = <serde_json::Value as serde::Deserialize>::deserialize(deserializer)?;
+        validate_projection_subschema(
+            r#"schema://ioi/applications/ioi-ai/collective-qualification-verdict/v1"#,
+            r##"{"type":"object","additionalProperties":false,"required":["observed_effect","meets_minimum_effect","cost_normalized","result_refs","result_root"],"description":"The RESULT half. Its inputs are evaluation results and its root is its own; nothing here reads the controller's liveness.","properties":{"observed_effect":{"type":"number"},"meets_minimum_effect":{"type":"boolean"},"cost_normalized":{"type":"boolean","description":"Whether the observed effect was normalized as the estimand's `cost_normalization` declared. A collective that wins by spending more has not earned its complexity."},"result_refs":{"type":"array","maxItems":1024,"uniqueItems":true,"items":{"$ref":"#/$defs/ref"},"description":"The evaluation results the effect was read from, both arms."},"result_root":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"}}}"##,
+            &value,
+        )
+            .map_err(serde::de::Error::custom)?;
+        let mut object = value
+            .as_object()
+            .cloned()
+            .ok_or_else(|| serde::de::Error::custom("validated projection is not an object"))?;
+        Ok(Self {
+            observed_effect: serde_json::from_value::<f64>(
+                object
+                    .remove(r#"observed_effect"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"observed_effect"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            meets_minimum_effect: serde_json::from_value::<bool>(
+                object
+                    .remove(r#"meets_minimum_effect"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"meets_minimum_effect"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            cost_normalized: serde_json::from_value::<bool>(
+                object
+                    .remove(r#"cost_normalized"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"cost_normalized"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            result_refs: serde_json::from_value::<Vec<String>>(
+                object
+                    .remove(r#"result_refs"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"result_refs"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            result_root: serde_json::from_value::<String>(
+                object
+                    .remove(r#"result_root"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"result_root"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+        })
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, serde::Serialize)]
+pub struct CollectiveQualificationVerdictV1ControllerContinuity {
+    pub lineage_ref: String,
+    pub recorded_status: CollectiveQualificationVerdictV1ControllerContinuityRecordedStatus,
+    pub derived_status: CollectiveQualificationVerdictV1ControllerContinuityDerivedStatus,
+    pub orphan_reason: Option<CollectiveQualificationVerdictV1ControllerContinuityOrphanReason>,
+    pub installation_read_from:
+        CollectiveQualificationVerdictV1ControllerContinuityInstallationReadFrom,
+    pub continuity_root: String,
+}
+
+impl<'de> serde::Deserialize<'de> for CollectiveQualificationVerdictV1ControllerContinuity {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let value = <serde_json::Value as serde::Deserialize>::deserialize(deserializer)?;
+        validate_projection_subschema(
+            r#"schema://ioi/applications/ioi-ai/collective-qualification-verdict/v1"#,
+            r##"{"type":"object","additionalProperties":false,"required":["lineage_ref","recorded_status","derived_status","orphan_reason","installation_read_from","continuity_root"],"description":"The CONTINUITY half. Its inputs are the lineage's own posture and its owners, its root is its own, and no reading of it changes the result above — canon: an accepted result may survive after a runtime must stop.","properties":{"lineage_ref":{"type":"string","pattern":"^lineage://[^\\s]{1,400}$"},"recorded_status":{"$ref":"#/$defs/lineageStatus"},"derived_status":{"$ref":"#/$defs/lineageStatus"},"orphan_reason":{"anyOf":[{"type":"string","enum":["owner_absent","caretaker_absent","dependency_unavailable","artifact_unavailable","health_stale","authority_stale"]},{"type":"null"}]},"installation_read_from":{"type":"string","const":"owner","description":"THE POSTURE CANNOT ANSWER THIS ONE. The lineage read model re-derives from the accountable subject, the caretaker, context leases, dependency lineages and `runtime_ref` — and not from `installation_ref`. An installation removed after binding therefore leaves a GREEN posture, so an installation knockout read through the posture would report success while measuring nothing. It is read from the owner, and the record says so."},"continuity_root":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"}}}"##,
+            &value,
+        )
+            .map_err(serde::de::Error::custom)?;
+        let mut object = value
+            .as_object()
+            .cloned()
+            .ok_or_else(|| serde::de::Error::custom("validated projection is not an object"))?;
+        Ok(Self {
+            lineage_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"lineage_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"lineage_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            recorded_status: serde_json::from_value::<
+                CollectiveQualificationVerdictV1ControllerContinuityRecordedStatus,
+            >(
+                object
+                    .remove(r#"recorded_status"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"recorded_status"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            derived_status: serde_json::from_value::<
+                CollectiveQualificationVerdictV1ControllerContinuityDerivedStatus,
+            >(
+                object
+                    .remove(r#"derived_status"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"derived_status"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            orphan_reason: serde_json::from_value::<
+                Option<CollectiveQualificationVerdictV1ControllerContinuityOrphanReason>,
+            >(
+                object
+                    .remove(r#"orphan_reason"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"orphan_reason"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            installation_read_from: serde_json::from_value::<
+                CollectiveQualificationVerdictV1ControllerContinuityInstallationReadFrom,
+            >(
+                object
+                    .remove(r#"installation_read_from"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"installation_read_from"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            continuity_root: serde_json::from_value::<String>(
+                object
+                    .remove(r#"continuity_root"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"continuity_root"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+        })
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum CollectiveQualificationVerdictV1ControllerContinuityRecordedStatus {
+    #[serde(rename = r#"observed"#)]
+    Observed,
+    #[serde(rename = r#"reused"#)]
+    Reused,
+    #[serde(rename = r#"forked"#)]
+    Forked,
+    #[serde(rename = r#"installed"#)]
+    Installed,
+    #[serde(rename = r#"active"#)]
+    Active,
+    #[serde(rename = r#"stopped"#)]
+    Stopped,
+    #[serde(rename = r#"quarantined"#)]
+    Quarantined,
+    #[serde(rename = r#"repairing"#)]
+    Repairing,
+    #[serde(rename = r#"replaced"#)]
+    Replaced,
+    #[serde(rename = r#"retired"#)]
+    Retired,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum CollectiveQualificationVerdictV1ControllerContinuityDerivedStatus {
+    #[serde(rename = r#"observed"#)]
+    Observed,
+    #[serde(rename = r#"reused"#)]
+    Reused,
+    #[serde(rename = r#"forked"#)]
+    Forked,
+    #[serde(rename = r#"installed"#)]
+    Installed,
+    #[serde(rename = r#"active"#)]
+    Active,
+    #[serde(rename = r#"stopped"#)]
+    Stopped,
+    #[serde(rename = r#"quarantined"#)]
+    Quarantined,
+    #[serde(rename = r#"repairing"#)]
+    Repairing,
+    #[serde(rename = r#"replaced"#)]
+    Replaced,
+    #[serde(rename = r#"retired"#)]
+    Retired,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum CollectiveQualificationVerdictV1ControllerContinuityOrphanReason {
+    #[serde(rename = r#"owner_absent"#)]
+    OwnerAbsent,
+    #[serde(rename = r#"caretaker_absent"#)]
+    CaretakerAbsent,
+    #[serde(rename = r#"dependency_unavailable"#)]
+    DependencyUnavailable,
+    #[serde(rename = r#"artifact_unavailable"#)]
+    ArtifactUnavailable,
+    #[serde(rename = r#"health_stale"#)]
+    HealthStale,
+    #[serde(rename = r#"authority_stale"#)]
+    AuthorityStale,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum CollectiveQualificationVerdictV1ControllerContinuityInstallationReadFrom {
+    #[serde(rename = r#"owner"#)]
+    Owner,
+}
+
+#[derive(Debug, Clone, PartialEq, serde::Serialize)]
+pub struct CollectiveQualificationVerdictV1KnockoutsItem {
+    pub axis: CollectiveQualificationVerdictV1KnockoutsItemAxis,
+    pub lane: CollectiveQualificationVerdictV1KnockoutsItemLane,
+    pub observation_ref: String,
+    pub collective_degradation: f64,
+    pub baseline_degradation: f64,
+    pub reverted: CollectiveQualificationVerdictV1KnockoutsItemReverted,
+    pub changed_nothing: CollectiveQualificationVerdictV1KnockoutsItemChangedNothing,
+}
+
+impl<'de> serde::Deserialize<'de> for CollectiveQualificationVerdictV1KnockoutsItem {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let value = <serde_json::Value as serde::Deserialize>::deserialize(deserializer)?;
+        validate_projection_subschema(
+            r#"schema://ioi/applications/ioi-ai/collective-qualification-verdict/v1"#,
+            r##"{"type":"object","additionalProperties":false,"required":["axis","lane","observation_ref","collective_degradation","baseline_degradation","reverted","changed_nothing"],"properties":{"axis":{"type":"string","enum":["participant_exit","caretaker_exit","dependency_retired","creator_session_removed","context_lease_revoked","artifact_ancestry_removed","controller_runtime_unserved","installation_unbound","verifier_invalidated","budget_exhausted","lifecycle_stop","lifecycle_quarantine","lifecycle_repair","lifecycle_replacement","lifecycle_retirement","crash_restart"]},"lane":{"type":"string","const":"cross_play_ablation","description":"The admissible ablation lane the evaluation plane already carries. A knockout does not need a lane of its own and does not get one."},"observation_ref":{"$ref":"#/$defs/ref"},"collective_degradation":{"type":"number"},"baseline_degradation":{"type":"number"},"reverted":{"type":"boolean","const":true,"description":"A knockout that did not revert left the tested topology in place, and the live composition is then the ablated one rather than the one under claim."},"changed_nothing":{"type":"boolean","const":true,"description":"Judgment evidence only: the knockout rewrote no topology, revoked no participant, activated no controller, installed no artifact and promoted no profile."}}}"##,
+            &value,
+        )
+            .map_err(serde::de::Error::custom)?;
+        let mut object = value
+            .as_object()
+            .cloned()
+            .ok_or_else(|| serde::de::Error::custom("validated projection is not an object"))?;
+        Ok(Self {
+            axis: serde_json::from_value::<CollectiveQualificationVerdictV1KnockoutsItemAxis>(
+                object
+                    .remove(r#"axis"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"axis"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            lane: serde_json::from_value::<CollectiveQualificationVerdictV1KnockoutsItemLane>(
+                object
+                    .remove(r#"lane"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"lane"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            observation_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"observation_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"observation_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            collective_degradation: serde_json::from_value::<f64>(
+                object
+                    .remove(r#"collective_degradation"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"collective_degradation"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            baseline_degradation: serde_json::from_value::<f64>(
+                object
+                    .remove(r#"baseline_degradation"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"baseline_degradation"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            reverted:
+                serde_json::from_value::<CollectiveQualificationVerdictV1KnockoutsItemReverted>(
+                    object
+                        .remove(r#"reverted"#)
+                        .ok_or_else(|| serde::de::Error::missing_field(r#"reverted"#))?,
+                )
+                .map_err(serde::de::Error::custom)?,
+            changed_nothing: serde_json::from_value::<
+                CollectiveQualificationVerdictV1KnockoutsItemChangedNothing,
+            >(
+                object
+                    .remove(r#"changed_nothing"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"changed_nothing"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+        })
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum CollectiveQualificationVerdictV1KnockoutsItemAxis {
+    #[serde(rename = r#"participant_exit"#)]
+    ParticipantExit,
+    #[serde(rename = r#"caretaker_exit"#)]
+    CaretakerExit,
+    #[serde(rename = r#"dependency_retired"#)]
+    DependencyRetired,
+    #[serde(rename = r#"creator_session_removed"#)]
+    CreatorSessionRemoved,
+    #[serde(rename = r#"context_lease_revoked"#)]
+    ContextLeaseRevoked,
+    #[serde(rename = r#"artifact_ancestry_removed"#)]
+    ArtifactAncestryRemoved,
+    #[serde(rename = r#"controller_runtime_unserved"#)]
+    ControllerRuntimeUnserved,
+    #[serde(rename = r#"installation_unbound"#)]
+    InstallationUnbound,
+    #[serde(rename = r#"verifier_invalidated"#)]
+    VerifierInvalidated,
+    #[serde(rename = r#"budget_exhausted"#)]
+    BudgetExhausted,
+    #[serde(rename = r#"lifecycle_stop"#)]
+    LifecycleStop,
+    #[serde(rename = r#"lifecycle_quarantine"#)]
+    LifecycleQuarantine,
+    #[serde(rename = r#"lifecycle_repair"#)]
+    LifecycleRepair,
+    #[serde(rename = r#"lifecycle_replacement"#)]
+    LifecycleReplacement,
+    #[serde(rename = r#"lifecycle_retirement"#)]
+    LifecycleRetirement,
+    #[serde(rename = r#"crash_restart"#)]
+    CrashRestart,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum CollectiveQualificationVerdictV1KnockoutsItemLane {
+    #[serde(rename = r#"cross_play_ablation"#)]
+    CrossPlayAblation,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum CollectiveQualificationVerdictV1KnockoutsItemReverted {
+    True,
+}
+
+impl serde::Serialize for CollectiveQualificationVerdictV1KnockoutsItemReverted {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: serde::Serializer,
+    {
+        serializer.serialize_bool(true)
+    }
+}
+
+impl<'de> serde::Deserialize<'de> for CollectiveQualificationVerdictV1KnockoutsItemReverted {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let value = <bool as serde::Deserialize>::deserialize(deserializer)?;
+        if value == true {
+            Ok(Self::True)
+        } else {
+            Err(serde::de::Error::custom(r#"expected boolean literal true"#))
+        }
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum CollectiveQualificationVerdictV1KnockoutsItemChangedNothing {
+    True,
+}
+
+impl serde::Serialize for CollectiveQualificationVerdictV1KnockoutsItemChangedNothing {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: serde::Serializer,
+    {
+        serializer.serialize_bool(true)
+    }
+}
+
+impl<'de> serde::Deserialize<'de> for CollectiveQualificationVerdictV1KnockoutsItemChangedNothing {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let value = <bool as serde::Deserialize>::deserialize(deserializer)?;
+        if value == true {
+            Ok(Self::True)
+        } else {
+            Err(serde::de::Error::custom(r#"expected boolean literal true"#))
+        }
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, serde::Serialize)]
+pub struct CollectiveQualificationVerdictV1NamedAbsentKnockoutAxesItem {
+    pub axis: CollectiveQualificationVerdictV1NamedAbsentKnockoutAxesItemAxis,
+    pub reason: String,
+    pub owner_ref: String,
+}
+
+impl<'de> serde::Deserialize<'de> for CollectiveQualificationVerdictV1NamedAbsentKnockoutAxesItem {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let value = <serde_json::Value as serde::Deserialize>::deserialize(deserializer)?;
+        validate_projection_subschema(
+            r#"schema://ioi/applications/ioi-ai/collective-qualification-verdict/v1"#,
+            r##"{"type":"object","additionalProperties":false,"required":["axis","reason","owner_ref"],"properties":{"axis":{"type":"string","enum":["communication_edge","role_removed","lease_expired","disclosure_overhead","verification_overhead"]},"reason":{"type":"string","minLength":24,"maxLength":600},"owner_ref":{"$ref":"#/$defs/ref"}}}"##,
+            &value,
+        )
+            .map_err(serde::de::Error::custom)?;
+        let mut object = value
+            .as_object()
+            .cloned()
+            .ok_or_else(|| serde::de::Error::custom("validated projection is not an object"))?;
+        Ok(Self {
+            axis: serde_json::from_value::<
+                CollectiveQualificationVerdictV1NamedAbsentKnockoutAxesItemAxis,
+            >(
+                object
+                    .remove(r#"axis"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"axis"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            reason: serde_json::from_value::<String>(
+                object
+                    .remove(r#"reason"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"reason"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            owner_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"owner_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"owner_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+        })
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum CollectiveQualificationVerdictV1NamedAbsentKnockoutAxesItemAxis {
+    #[serde(rename = r#"communication_edge"#)]
+    CommunicationEdge,
+    #[serde(rename = r#"role_removed"#)]
+    RoleRemoved,
+    #[serde(rename = r#"lease_expired"#)]
+    LeaseExpired,
+    #[serde(rename = r#"disclosure_overhead"#)]
+    DisclosureOverhead,
+    #[serde(rename = r#"verification_overhead"#)]
+    VerificationOverhead,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum CollectiveQualificationVerdictV1GrantsNoAuthority {
+    True,
+}
+
+impl serde::Serialize for CollectiveQualificationVerdictV1GrantsNoAuthority {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: serde::Serializer,
+    {
+        serializer.serialize_bool(true)
+    }
+}
+
+impl<'de> serde::Deserialize<'de> for CollectiveQualificationVerdictV1GrantsNoAuthority {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let value = <bool as serde::Deserialize>::deserialize(deserializer)?;
+        if value == true {
+            Ok(Self::True)
+        } else {
+            Err(serde::de::Error::custom(r#"expected boolean literal true"#))
+        }
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum CollectiveQualificationVerdictV1PromotesNothing {
+    True,
+}
+
+impl serde::Serialize for CollectiveQualificationVerdictV1PromotesNothing {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: serde::Serializer,
+    {
+        serializer.serialize_bool(true)
+    }
+}
+
+impl<'de> serde::Deserialize<'de> for CollectiveQualificationVerdictV1PromotesNothing {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let value = <bool as serde::Deserialize>::deserialize(deserializer)?;
+        if value == true {
+            Ok(Self::True)
+        } else {
+            Err(serde::de::Error::custom(r#"expected boolean literal true"#))
+        }
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum CollectiveQualificationVerdictV1ActivatesNothing {
+    True,
+}
+
+impl serde::Serialize for CollectiveQualificationVerdictV1ActivatesNothing {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: serde::Serializer,
+    {
+        serializer.serialize_bool(true)
+    }
+}
+
+impl<'de> serde::Deserialize<'de> for CollectiveQualificationVerdictV1ActivatesNothing {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let value = <bool as serde::Deserialize>::deserialize(deserializer)?;
+        if value == true {
+            Ok(Self::True)
+        } else {
+            Err(serde::de::Error::custom(r#"expected boolean literal true"#))
+        }
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum CollectiveQualificationVerdictV1RewritesNoTopology {
+    True,
+}
+
+impl serde::Serialize for CollectiveQualificationVerdictV1RewritesNoTopology {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: serde::Serializer,
+    {
+        serializer.serialize_bool(true)
+    }
+}
+
+impl<'de> serde::Deserialize<'de> for CollectiveQualificationVerdictV1RewritesNoTopology {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let value = <bool as serde::Deserialize>::deserialize(deserializer)?;
+        if value == true {
+            Ok(Self::True)
+        } else {
+            Err(serde::de::Error::custom(r#"expected boolean literal true"#))
+        }
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, serde::Serialize)]
+pub struct CollectiveQualificationVerdictV1SystemBinding {
+    pub schema_version: CollectiveQualificationVerdictV1SystemBindingSchemaVersion,
+    pub system_id: String,
+    pub parent_scope_ref: String,
+    pub proposed_or_issued_by_ref: String,
+    pub payload_root: String,
+    pub created_at: String,
+    pub updated_at: Option<String>,
+}
+
+impl<'de> serde::Deserialize<'de> for CollectiveQualificationVerdictV1SystemBinding {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let value = <serde_json::Value as serde::Deserialize>::deserialize(deserializer)?;
+        validate_projection_subschema(
+            r#"schema://ioi/applications/ioi-ai/collective-qualification-verdict/v1"#,
+            r##"{"type":"object","additionalProperties":false,"required":["schema_version","system_id","parent_scope_ref","proposed_or_issued_by_ref","payload_root","created_at","updated_at"],"properties":{"schema_version":{"const":"ioi.foundations.system-scoped-object-binding.v1"},"system_id":{"type":"string","pattern":"^system://[^\\s]{1,500}$"},"parent_scope_ref":{"type":"string","pattern":"^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"},"proposed_or_issued_by_ref":{"type":"string","pattern":"^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"},"payload_root":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"},"created_at":{"$ref":"#/$defs/timestamp"},"updated_at":{"anyOf":[{"$ref":"#/$defs/timestamp"},{"type":"null"}]}}}"##,
+            &value,
+        )
+            .map_err(serde::de::Error::custom)?;
+        let mut object = value
+            .as_object()
+            .cloned()
+            .ok_or_else(|| serde::de::Error::custom("validated projection is not an object"))?;
+        Ok(Self {
+            schema_version: serde_json::from_value::<
+                CollectiveQualificationVerdictV1SystemBindingSchemaVersion,
+            >(
+                object
+                    .remove(r#"schema_version"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"schema_version"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            system_id: serde_json::from_value::<String>(
+                object
+                    .remove(r#"system_id"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"system_id"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            parent_scope_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"parent_scope_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"parent_scope_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            proposed_or_issued_by_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"proposed_or_issued_by_ref"#)
+                    .ok_or_else(|| {
+                        serde::de::Error::missing_field(r#"proposed_or_issued_by_ref"#)
+                    })?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            payload_root: serde_json::from_value::<String>(
+                object
+                    .remove(r#"payload_root"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"payload_root"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            created_at: serde_json::from_value::<String>(
+                object
+                    .remove(r#"created_at"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"created_at"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            updated_at: serde_json::from_value::<Option<String>>(
+                object
+                    .remove(r#"updated_at"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"updated_at"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+        })
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum CollectiveQualificationVerdictV1SystemBindingSchemaVersion {
+    #[serde(rename = r#"ioi.foundations.system-scoped-object-binding.v1"#)]
+    IoiFoundationsSystemScopedObjectBindingV1,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -180846,6 +182699,14 @@ pub const ARCHITECTURE_CONTRACT_FIXTURES: &[GoldenFixture] = &[
     },
     GoldenFixture {
         contract_id: "schema://ioi/applications/ioi-ai/collective-qualification-estimand/v1",
+        path: "docs/architecture/_meta/schemas/fixtures/collective-qualification-estimand-v1/negative-identity-and-pointer-disagree.json",
+        expected_accept: false,
+        expected_schema_accept: true,
+        expected_failure: Some("invariant"),
+        expected_rule_id: None,
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/applications/ioi-ai/collective-qualification-estimand/v1",
         path: "docs/architecture/_meta/schemas/fixtures/collective-qualification-estimand-v1/negative-no-decision-rule.json",
         expected_accept: false,
         expected_schema_accept: false,
@@ -180870,6 +182731,14 @@ pub const ARCHITECTURE_CONTRACT_FIXTURES: &[GoldenFixture] = &[
     },
     GoldenFixture {
         contract_id: "schema://ioi/applications/ioi-ai/collective-qualification-estimand/v1",
+        path: "docs/architecture/_meta/schemas/fixtures/collective-qualification-estimand-v1/negative-root-does-not-recompute.json",
+        expected_accept: false,
+        expected_schema_accept: true,
+        expected_failure: Some("invariant"),
+        expected_rule_id: None,
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/applications/ioi-ai/collective-qualification-estimand/v1",
         path: "docs/architecture/_meta/schemas/fixtures/collective-qualification-estimand-v1/negative-unknown-estimand-kind.json",
         expected_accept: false,
         expected_schema_accept: false,
@@ -180879,6 +182748,302 @@ pub const ARCHITECTURE_CONTRACT_FIXTURES: &[GoldenFixture] = &[
     GoldenFixture {
         contract_id: "schema://ioi/applications/ioi-ai/collective-qualification-estimand/v1",
         path: "docs/architecture/_meta/schemas/fixtures/collective-qualification-estimand-v1/negative-unknown-member.json",
+        expected_accept: false,
+        expected_schema_accept: false,
+        expected_failure: Some("schema"),
+        expected_rule_id: None,
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/applications/ioi-ai/collective-baseline-pairing/v1",
+        path: "docs/architecture/_meta/schemas/fixtures/collective-baseline-pairing-v1/positive-matched-on-all-eight-axes.json",
+        expected_accept: true,
+        expected_schema_accept: true,
+        expected_failure: None,
+        expected_rule_id: None,
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/applications/ioi-ai/collective-baseline-pairing/v1",
+        path: "docs/architecture/_meta/schemas/fixtures/collective-baseline-pairing-v1/positive-one-goal-run-as-the-cheaper-arm.json",
+        expected_accept: true,
+        expected_schema_accept: true,
+        expected_failure: None,
+        expected_rule_id: None,
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/applications/ioi-ai/collective-baseline-pairing/v1",
+        path: "docs/architecture/_meta/schemas/fixtures/collective-baseline-pairing-v1/negative-a-caller-authored-system-binding.json",
+        expected_accept: false,
+        expected_schema_accept: false,
+        expected_failure: Some("schema"),
+        expected_rule_id: None,
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/applications/ioi-ai/collective-baseline-pairing/v1",
+        path: "docs/architecture/_meta/schemas/fixtures/collective-baseline-pairing-v1/negative-assembled-after-the-arms-ran.json",
+        expected_accept: false,
+        expected_schema_accept: false,
+        expected_failure: Some("schema"),
+        expected_rule_id: None,
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/applications/ioi-ai/collective-baseline-pairing/v1",
+        path: "docs/architecture/_meta/schemas/fixtures/collective-baseline-pairing-v1/negative-both-arms-are-one-composition.json",
+        expected_accept: false,
+        expected_schema_accept: true,
+        expected_failure: Some("invariant"),
+        expected_rule_id: None,
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/applications/ioi-ai/collective-baseline-pairing/v1",
+        path: "docs/architecture/_meta/schemas/fixtures/collective-baseline-pairing-v1/negative-identity-and-pointer-disagree.json",
+        expected_accept: false,
+        expected_schema_accept: true,
+        expected_failure: Some("invariant"),
+        expected_rule_id: None,
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/applications/ioi-ai/collective-baseline-pairing/v1",
+        path: "docs/architecture/_meta/schemas/fixtures/collective-baseline-pairing-v1/negative-no-baseline-positive-control.json",
+        expected_accept: false,
+        expected_schema_accept: false,
+        expected_failure: Some("schema"),
+        expected_rule_id: None,
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/applications/ioi-ai/collective-baseline-pairing/v1",
+        path: "docs/architecture/_meta/schemas/fixtures/collective-baseline-pairing-v1/negative-no-cheaper-baseline-rationale.json",
+        expected_accept: false,
+        expected_schema_accept: false,
+        expected_failure: Some("schema"),
+        expected_rule_id: None,
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/applications/ioi-ai/collective-baseline-pairing/v1",
+        path: "docs/architecture/_meta/schemas/fixtures/collective-baseline-pairing-v1/negative-only-seven-match-axes-declared.json",
+        expected_accept: false,
+        expected_schema_accept: false,
+        expected_failure: Some("schema"),
+        expected_rule_id: None,
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/applications/ioi-ai/collective-baseline-pairing/v1",
+        path: "docs/architecture/_meta/schemas/fixtures/collective-baseline-pairing-v1/negative-root-does-not-recompute.json",
+        expected_accept: false,
+        expected_schema_accept: true,
+        expected_failure: Some("invariant"),
+        expected_rule_id: None,
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/applications/ioi-ai/collective-baseline-pairing/v1",
+        path: "docs/architecture/_meta/schemas/fixtures/collective-baseline-pairing-v1/negative-the-baseline-passed-nothing-at-all.json",
+        expected_accept: false,
+        expected_schema_accept: false,
+        expected_failure: Some("schema"),
+        expected_rule_id: None,
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/applications/ioi-ai/collective-baseline-pairing/v1",
+        path: "docs/architecture/_meta/schemas/fixtures/collective-baseline-pairing-v1/negative-the-budget-axis-differs.json",
+        expected_accept: false,
+        expected_schema_accept: true,
+        expected_failure: Some("invariant"),
+        expected_rule_id: None,
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/applications/ioi-ai/collective-baseline-pairing/v1",
+        path: "docs/architecture/_meta/schemas/fixtures/collective-baseline-pairing-v1/negative-the-collective-arm-is-a-free-label.json",
+        expected_accept: false,
+        expected_schema_accept: false,
+        expected_failure: Some("schema"),
+        expected_rule_id: None,
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/applications/ioi-ai/collective-baseline-pairing/v1",
+        path: "docs/architecture/_meta/schemas/fixtures/collective-baseline-pairing-v1/negative-the-control-passed-more-cases-than-it-ran.json",
+        expected_accept: false,
+        expected_schema_accept: true,
+        expected_failure: Some("invariant"),
+        expected_rule_id: None,
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/applications/ioi-ai/collective-baseline-pairing/v1",
+        path: "docs/architecture/_meta/schemas/fixtures/collective-baseline-pairing-v1/negative-the-tool-axis-differs.json",
+        expected_accept: false,
+        expected_schema_accept: true,
+        expected_failure: Some("invariant"),
+        expected_rule_id: None,
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/applications/ioi-ai/collective-baseline-pairing/v1",
+        path: "docs/architecture/_meta/schemas/fixtures/collective-baseline-pairing-v1/negative-the-verifier-posture-axis-differs.json",
+        expected_accept: false,
+        expected_schema_accept: true,
+        expected_failure: Some("invariant"),
+        expected_rule_id: None,
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/applications/ioi-ai/collective-qualification-verdict/v1",
+        path: "docs/architecture/_meta/schemas/fixtures/collective-qualification-verdict-v1/positive-not-qualified-while-the-controller-is-perfectly-healthy.json",
+        expected_accept: true,
+        expected_schema_accept: true,
+        expected_failure: None,
+        expected_rule_id: None,
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/applications/ioi-ai/collective-qualification-verdict/v1",
+        path: "docs/architecture/_meta/schemas/fixtures/collective-qualification-verdict-v1/positive-qualified-while-the-controller-is-already-stopped.json",
+        expected_accept: true,
+        expected_schema_accept: true,
+        expected_failure: None,
+        expected_rule_id: None,
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/applications/ioi-ai/collective-qualification-verdict/v1",
+        path: "docs/architecture/_meta/schemas/fixtures/collective-qualification-verdict-v1/negative-a-knockout-on-a-lane-of-its-own.json",
+        expected_accept: false,
+        expected_schema_accept: false,
+        expected_failure: Some("schema"),
+        expected_rule_id: None,
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/applications/ioi-ai/collective-qualification-verdict/v1",
+        path: "docs/architecture/_meta/schemas/fixtures/collective-qualification-verdict-v1/negative-a-knockout-that-changed-the-live-composition.json",
+        expected_accept: false,
+        expected_schema_accept: false,
+        expected_failure: Some("schema"),
+        expected_rule_id: None,
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/applications/ioi-ai/collective-qualification-verdict/v1",
+        path: "docs/architecture/_meta/schemas/fixtures/collective-qualification-verdict-v1/negative-a-knockout-that-did-not-revert.json",
+        expected_accept: false,
+        expected_schema_accept: false,
+        expected_failure: Some("schema"),
+        expected_rule_id: None,
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/applications/ioi-ai/collective-qualification-verdict/v1",
+        path: "docs/architecture/_meta/schemas/fixtures/collective-qualification-verdict-v1/negative-an-unperformable-axis-reported-as-performed.json",
+        expected_accept: false,
+        expected_schema_accept: false,
+        expected_failure: Some("schema"),
+        expected_rule_id: None,
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/applications/ioi-ai/collective-qualification-verdict/v1",
+        path: "docs/architecture/_meta/schemas/fixtures/collective-qualification-verdict-v1/negative-identity-and-pointer-disagree.json",
+        expected_accept: false,
+        expected_schema_accept: true,
+        expected_failure: Some("invariant"),
+        expected_rule_id: None,
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/applications/ioi-ai/collective-qualification-verdict/v1",
+        path: "docs/architecture/_meta/schemas/fixtures/collective-qualification-verdict-v1/negative-one-absent-axis-named-twice.json",
+        expected_accept: false,
+        expected_schema_accept: true,
+        expected_failure: Some("invariant"),
+        expected_rule_id: None,
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/applications/ioi-ai/collective-qualification-verdict/v1",
+        path: "docs/architecture/_meta/schemas/fixtures/collective-qualification-verdict-v1/negative-one-axis-knocked-out-twice.json",
+        expected_accept: false,
+        expected_schema_accept: true,
+        expected_failure: Some("invariant"),
+        expected_rule_id: None,
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/applications/ioi-ai/collective-qualification-verdict/v1",
+        path: "docs/architecture/_meta/schemas/fixtures/collective-qualification-verdict-v1/negative-one-root-for-the-result-and-the-controller.json",
+        expected_accept: false,
+        expected_schema_accept: true,
+        expected_failure: Some("invariant"),
+        expected_rule_id: None,
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/applications/ioi-ai/collective-qualification-verdict/v1",
+        path: "docs/architecture/_meta/schemas/fixtures/collective-qualification-verdict-v1/negative-qualified-naming-no-results.json",
+        expected_accept: false,
+        expected_schema_accept: true,
+        expected_failure: Some("invariant"),
+        expected_rule_id: None,
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/applications/ioi-ai/collective-qualification-verdict/v1",
+        path: "docs/architecture/_meta/schemas/fixtures/collective-qualification-verdict-v1/negative-qualified-on-a-participant-count.json",
+        expected_accept: false,
+        expected_schema_accept: false,
+        expected_failure: Some("schema"),
+        expected_rule_id: None,
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/applications/ioi-ai/collective-qualification-verdict/v1",
+        path: "docs/architecture/_meta/schemas/fixtures/collective-qualification-verdict-v1/negative-qualified-on-a-surviving-process.json",
+        expected_accept: false,
+        expected_schema_accept: false,
+        expected_failure: Some("schema"),
+        expected_rule_id: None,
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/applications/ioi-ai/collective-qualification-verdict/v1",
+        path: "docs/architecture/_meta/schemas/fixtures/collective-qualification-verdict-v1/negative-qualified-on-an-active-artifact.json",
+        expected_accept: false,
+        expected_schema_accept: false,
+        expected_failure: Some("schema"),
+        expected_rule_id: None,
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/applications/ioi-ai/collective-qualification-verdict/v1",
+        path: "docs/architecture/_meta/schemas/fixtures/collective-qualification-verdict-v1/negative-qualified-on-an-unmatched-aggregate-score.json",
+        expected_accept: false,
+        expected_schema_accept: false,
+        expected_failure: Some("schema"),
+        expected_rule_id: None,
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/applications/ioi-ai/collective-qualification-verdict/v1",
+        path: "docs/architecture/_meta/schemas/fixtures/collective-qualification-verdict-v1/negative-qualified-with-no-basis-at-all.json",
+        expected_accept: false,
+        expected_schema_accept: true,
+        expected_failure: Some("invariant"),
+        expected_rule_id: None,
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/applications/ioi-ai/collective-qualification-verdict/v1",
+        path: "docs/architecture/_meta/schemas/fixtures/collective-qualification-verdict-v1/negative-root-does-not-recompute.json",
+        expected_accept: false,
+        expected_schema_accept: true,
+        expected_failure: Some("invariant"),
+        expected_rule_id: None,
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/applications/ioi-ai/collective-qualification-verdict/v1",
+        path: "docs/architecture/_meta/schemas/fixtures/collective-qualification-verdict-v1/negative-the-installation-axis-read-through-the-posture.json",
+        expected_accept: false,
+        expected_schema_accept: false,
+        expected_failure: Some("schema"),
+        expected_rule_id: None,
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/applications/ioi-ai/collective-qualification-verdict/v1",
+        path: "docs/architecture/_meta/schemas/fixtures/collective-qualification-verdict-v1/negative-the-verdict-activates-a-controller.json",
+        expected_accept: false,
+        expected_schema_accept: false,
+        expected_failure: Some("schema"),
+        expected_rule_id: None,
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/applications/ioi-ai/collective-qualification-verdict/v1",
+        path: "docs/architecture/_meta/schemas/fixtures/collective-qualification-verdict-v1/negative-the-verdict-grants-authority.json",
+        expected_accept: false,
+        expected_schema_accept: false,
+        expected_failure: Some("schema"),
+        expected_rule_id: None,
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/applications/ioi-ai/collective-qualification-verdict/v1",
+        path: "docs/architecture/_meta/schemas/fixtures/collective-qualification-verdict-v1/negative-the-verdict-promotes-the-composition.json",
         expected_accept: false,
         expected_schema_accept: false,
         expected_failure: Some("schema"),
@@ -202526,6 +204691,17 @@ pub const ARCHITECTURE_CONTRACT_DIFFERENTIAL_CASES: &[ArchitectureContractDiffer
         oracle_contract_accept: false,
     },
     ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/collective-qualification-estimand-v1/negative-identity-and-pointer-disagree.json"#,
+        contract_id: r#"schema://ioi/applications/ioi-ai/collective-qualification-estimand/v1"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/collective-qualification-estimand-v1/negative-identity-and-pointer-disagree.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: true,
+        oracle_contract_accept: false,
+    },
+    ArchitectureContractDifferentialCase {
         id: r#"fixture:docs/architecture/_meta/schemas/fixtures/collective-qualification-estimand-v1/negative-no-decision-rule.json"#,
         contract_id: r#"schema://ioi/applications/ioi-ai/collective-qualification-estimand/v1"#,
         source_fixture_path: Some(
@@ -202559,6 +204735,17 @@ pub const ARCHITECTURE_CONTRACT_DIFFERENTIAL_CASES: &[ArchitectureContractDiffer
         oracle_contract_accept: false,
     },
     ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/collective-qualification-estimand-v1/negative-root-does-not-recompute.json"#,
+        contract_id: r#"schema://ioi/applications/ioi-ai/collective-qualification-estimand/v1"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/collective-qualification-estimand-v1/negative-root-does-not-recompute.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: true,
+        oracle_contract_accept: false,
+    },
+    ArchitectureContractDifferentialCase {
         id: r#"fixture:docs/architecture/_meta/schemas/fixtures/collective-qualification-estimand-v1/negative-unknown-estimand-kind.json"#,
         contract_id: r#"schema://ioi/applications/ioi-ai/collective-qualification-estimand/v1"#,
         source_fixture_path: Some(
@@ -202574,6 +204761,413 @@ pub const ARCHITECTURE_CONTRACT_DIFFERENTIAL_CASES: &[ArchitectureContractDiffer
         contract_id: r#"schema://ioi/applications/ioi-ai/collective-qualification-estimand/v1"#,
         source_fixture_path: Some(
             r#"docs/architecture/_meta/schemas/fixtures/collective-qualification-estimand-v1/negative-unknown-member.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: false,
+        oracle_contract_accept: false,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/collective-baseline-pairing-v1/positive-matched-on-all-eight-axes.json"#,
+        contract_id: r#"schema://ioi/applications/ioi-ai/collective-baseline-pairing/v1"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/collective-baseline-pairing-v1/positive-matched-on-all-eight-axes.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: true,
+        oracle_contract_accept: true,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/collective-baseline-pairing-v1/positive-one-goal-run-as-the-cheaper-arm.json"#,
+        contract_id: r#"schema://ioi/applications/ioi-ai/collective-baseline-pairing/v1"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/collective-baseline-pairing-v1/positive-one-goal-run-as-the-cheaper-arm.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: true,
+        oracle_contract_accept: true,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/collective-baseline-pairing-v1/negative-a-caller-authored-system-binding.json"#,
+        contract_id: r#"schema://ioi/applications/ioi-ai/collective-baseline-pairing/v1"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/collective-baseline-pairing-v1/negative-a-caller-authored-system-binding.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: false,
+        oracle_contract_accept: false,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/collective-baseline-pairing-v1/negative-assembled-after-the-arms-ran.json"#,
+        contract_id: r#"schema://ioi/applications/ioi-ai/collective-baseline-pairing/v1"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/collective-baseline-pairing-v1/negative-assembled-after-the-arms-ran.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: false,
+        oracle_contract_accept: false,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/collective-baseline-pairing-v1/negative-both-arms-are-one-composition.json"#,
+        contract_id: r#"schema://ioi/applications/ioi-ai/collective-baseline-pairing/v1"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/collective-baseline-pairing-v1/negative-both-arms-are-one-composition.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: true,
+        oracle_contract_accept: false,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/collective-baseline-pairing-v1/negative-identity-and-pointer-disagree.json"#,
+        contract_id: r#"schema://ioi/applications/ioi-ai/collective-baseline-pairing/v1"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/collective-baseline-pairing-v1/negative-identity-and-pointer-disagree.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: true,
+        oracle_contract_accept: false,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/collective-baseline-pairing-v1/negative-no-baseline-positive-control.json"#,
+        contract_id: r#"schema://ioi/applications/ioi-ai/collective-baseline-pairing/v1"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/collective-baseline-pairing-v1/negative-no-baseline-positive-control.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: false,
+        oracle_contract_accept: false,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/collective-baseline-pairing-v1/negative-no-cheaper-baseline-rationale.json"#,
+        contract_id: r#"schema://ioi/applications/ioi-ai/collective-baseline-pairing/v1"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/collective-baseline-pairing-v1/negative-no-cheaper-baseline-rationale.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: false,
+        oracle_contract_accept: false,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/collective-baseline-pairing-v1/negative-only-seven-match-axes-declared.json"#,
+        contract_id: r#"schema://ioi/applications/ioi-ai/collective-baseline-pairing/v1"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/collective-baseline-pairing-v1/negative-only-seven-match-axes-declared.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: false,
+        oracle_contract_accept: false,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/collective-baseline-pairing-v1/negative-root-does-not-recompute.json"#,
+        contract_id: r#"schema://ioi/applications/ioi-ai/collective-baseline-pairing/v1"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/collective-baseline-pairing-v1/negative-root-does-not-recompute.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: true,
+        oracle_contract_accept: false,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/collective-baseline-pairing-v1/negative-the-baseline-passed-nothing-at-all.json"#,
+        contract_id: r#"schema://ioi/applications/ioi-ai/collective-baseline-pairing/v1"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/collective-baseline-pairing-v1/negative-the-baseline-passed-nothing-at-all.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: false,
+        oracle_contract_accept: false,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/collective-baseline-pairing-v1/negative-the-budget-axis-differs.json"#,
+        contract_id: r#"schema://ioi/applications/ioi-ai/collective-baseline-pairing/v1"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/collective-baseline-pairing-v1/negative-the-budget-axis-differs.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: true,
+        oracle_contract_accept: false,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/collective-baseline-pairing-v1/negative-the-collective-arm-is-a-free-label.json"#,
+        contract_id: r#"schema://ioi/applications/ioi-ai/collective-baseline-pairing/v1"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/collective-baseline-pairing-v1/negative-the-collective-arm-is-a-free-label.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: false,
+        oracle_contract_accept: false,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/collective-baseline-pairing-v1/negative-the-control-passed-more-cases-than-it-ran.json"#,
+        contract_id: r#"schema://ioi/applications/ioi-ai/collective-baseline-pairing/v1"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/collective-baseline-pairing-v1/negative-the-control-passed-more-cases-than-it-ran.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: true,
+        oracle_contract_accept: false,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/collective-baseline-pairing-v1/negative-the-tool-axis-differs.json"#,
+        contract_id: r#"schema://ioi/applications/ioi-ai/collective-baseline-pairing/v1"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/collective-baseline-pairing-v1/negative-the-tool-axis-differs.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: true,
+        oracle_contract_accept: false,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/collective-baseline-pairing-v1/negative-the-verifier-posture-axis-differs.json"#,
+        contract_id: r#"schema://ioi/applications/ioi-ai/collective-baseline-pairing/v1"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/collective-baseline-pairing-v1/negative-the-verifier-posture-axis-differs.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: true,
+        oracle_contract_accept: false,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/collective-qualification-verdict-v1/positive-not-qualified-while-the-controller-is-perfectly-healthy.json"#,
+        contract_id: r#"schema://ioi/applications/ioi-ai/collective-qualification-verdict/v1"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/collective-qualification-verdict-v1/positive-not-qualified-while-the-controller-is-perfectly-healthy.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: true,
+        oracle_contract_accept: true,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/collective-qualification-verdict-v1/positive-qualified-while-the-controller-is-already-stopped.json"#,
+        contract_id: r#"schema://ioi/applications/ioi-ai/collective-qualification-verdict/v1"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/collective-qualification-verdict-v1/positive-qualified-while-the-controller-is-already-stopped.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: true,
+        oracle_contract_accept: true,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/collective-qualification-verdict-v1/negative-a-knockout-on-a-lane-of-its-own.json"#,
+        contract_id: r#"schema://ioi/applications/ioi-ai/collective-qualification-verdict/v1"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/collective-qualification-verdict-v1/negative-a-knockout-on-a-lane-of-its-own.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: false,
+        oracle_contract_accept: false,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/collective-qualification-verdict-v1/negative-a-knockout-that-changed-the-live-composition.json"#,
+        contract_id: r#"schema://ioi/applications/ioi-ai/collective-qualification-verdict/v1"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/collective-qualification-verdict-v1/negative-a-knockout-that-changed-the-live-composition.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: false,
+        oracle_contract_accept: false,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/collective-qualification-verdict-v1/negative-a-knockout-that-did-not-revert.json"#,
+        contract_id: r#"schema://ioi/applications/ioi-ai/collective-qualification-verdict/v1"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/collective-qualification-verdict-v1/negative-a-knockout-that-did-not-revert.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: false,
+        oracle_contract_accept: false,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/collective-qualification-verdict-v1/negative-an-unperformable-axis-reported-as-performed.json"#,
+        contract_id: r#"schema://ioi/applications/ioi-ai/collective-qualification-verdict/v1"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/collective-qualification-verdict-v1/negative-an-unperformable-axis-reported-as-performed.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: false,
+        oracle_contract_accept: false,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/collective-qualification-verdict-v1/negative-identity-and-pointer-disagree.json"#,
+        contract_id: r#"schema://ioi/applications/ioi-ai/collective-qualification-verdict/v1"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/collective-qualification-verdict-v1/negative-identity-and-pointer-disagree.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: true,
+        oracle_contract_accept: false,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/collective-qualification-verdict-v1/negative-one-absent-axis-named-twice.json"#,
+        contract_id: r#"schema://ioi/applications/ioi-ai/collective-qualification-verdict/v1"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/collective-qualification-verdict-v1/negative-one-absent-axis-named-twice.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: true,
+        oracle_contract_accept: false,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/collective-qualification-verdict-v1/negative-one-axis-knocked-out-twice.json"#,
+        contract_id: r#"schema://ioi/applications/ioi-ai/collective-qualification-verdict/v1"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/collective-qualification-verdict-v1/negative-one-axis-knocked-out-twice.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: true,
+        oracle_contract_accept: false,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/collective-qualification-verdict-v1/negative-one-root-for-the-result-and-the-controller.json"#,
+        contract_id: r#"schema://ioi/applications/ioi-ai/collective-qualification-verdict/v1"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/collective-qualification-verdict-v1/negative-one-root-for-the-result-and-the-controller.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: true,
+        oracle_contract_accept: false,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/collective-qualification-verdict-v1/negative-qualified-naming-no-results.json"#,
+        contract_id: r#"schema://ioi/applications/ioi-ai/collective-qualification-verdict/v1"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/collective-qualification-verdict-v1/negative-qualified-naming-no-results.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: true,
+        oracle_contract_accept: false,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/collective-qualification-verdict-v1/negative-qualified-on-a-participant-count.json"#,
+        contract_id: r#"schema://ioi/applications/ioi-ai/collective-qualification-verdict/v1"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/collective-qualification-verdict-v1/negative-qualified-on-a-participant-count.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: false,
+        oracle_contract_accept: false,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/collective-qualification-verdict-v1/negative-qualified-on-a-surviving-process.json"#,
+        contract_id: r#"schema://ioi/applications/ioi-ai/collective-qualification-verdict/v1"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/collective-qualification-verdict-v1/negative-qualified-on-a-surviving-process.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: false,
+        oracle_contract_accept: false,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/collective-qualification-verdict-v1/negative-qualified-on-an-active-artifact.json"#,
+        contract_id: r#"schema://ioi/applications/ioi-ai/collective-qualification-verdict/v1"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/collective-qualification-verdict-v1/negative-qualified-on-an-active-artifact.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: false,
+        oracle_contract_accept: false,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/collective-qualification-verdict-v1/negative-qualified-on-an-unmatched-aggregate-score.json"#,
+        contract_id: r#"schema://ioi/applications/ioi-ai/collective-qualification-verdict/v1"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/collective-qualification-verdict-v1/negative-qualified-on-an-unmatched-aggregate-score.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: false,
+        oracle_contract_accept: false,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/collective-qualification-verdict-v1/negative-qualified-with-no-basis-at-all.json"#,
+        contract_id: r#"schema://ioi/applications/ioi-ai/collective-qualification-verdict/v1"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/collective-qualification-verdict-v1/negative-qualified-with-no-basis-at-all.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: true,
+        oracle_contract_accept: false,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/collective-qualification-verdict-v1/negative-root-does-not-recompute.json"#,
+        contract_id: r#"schema://ioi/applications/ioi-ai/collective-qualification-verdict/v1"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/collective-qualification-verdict-v1/negative-root-does-not-recompute.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: true,
+        oracle_contract_accept: false,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/collective-qualification-verdict-v1/negative-the-installation-axis-read-through-the-posture.json"#,
+        contract_id: r#"schema://ioi/applications/ioi-ai/collective-qualification-verdict/v1"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/collective-qualification-verdict-v1/negative-the-installation-axis-read-through-the-posture.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: false,
+        oracle_contract_accept: false,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/collective-qualification-verdict-v1/negative-the-verdict-activates-a-controller.json"#,
+        contract_id: r#"schema://ioi/applications/ioi-ai/collective-qualification-verdict/v1"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/collective-qualification-verdict-v1/negative-the-verdict-activates-a-controller.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: false,
+        oracle_contract_accept: false,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/collective-qualification-verdict-v1/negative-the-verdict-grants-authority.json"#,
+        contract_id: r#"schema://ioi/applications/ioi-ai/collective-qualification-verdict/v1"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/collective-qualification-verdict-v1/negative-the-verdict-grants-authority.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: false,
+        oracle_contract_accept: false,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/collective-qualification-verdict-v1/negative-the-verdict-promotes-the-composition.json"#,
+        contract_id: r#"schema://ioi/applications/ioi-ai/collective-qualification-verdict/v1"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/collective-qualification-verdict-v1/negative-the-verdict-promotes-the-composition.json"#,
         ),
         mutation_id: None,
         value_json: None,
@@ -204338,7 +206932,9 @@ const CONTRACT_SCHEMAS: &[(&str, &str)] = &[
     ("schema://ioi/components/connectors-tools/mcp-gateway-requirement-envelope/v1", r##"{"$schema":"https://json-schema.org/draft/2020-12/schema","$id":"schema://ioi/components/connectors-tools/mcp-gateway-requirement-envelope/v1","title":"McpGatewayRequirementEnvelope","x-ioi-schema-version":"ioi.mcp-gateway-requirement.v1","description":"WHAT AN MCP CONSUMER WOULD NEED, DECLARED IMMUTABLY AND GRANTING NOTHING. A Package, an application-surface release, an adapter manifest or a System manifest references this envelope when MCP compatibility is itself a requirement of the thing being shipped. It is a CEILING and a shopping list, never an issuance: packaging the requirement creates no gateway profile and grants none of the scopes it names, and admission is what resolves it — to native capabilities, to service modules, to connectors, or to exactly one concrete gateway profile. That separation is enforced structurally as well as here: the System MANIFEST carries requirements under `mcp-gateway-requirement://` and the System GENESIS carries live profiles under `mcp-gateway://`, and the manifest schema does not admit the profile member at all. The released body and its content hash are immutable; registry lifecycle and status are excluded projections, and any change to the declared body is a successor revision. Owner: components/connectors-tools/contracts.md § MCP Gateway Requirement (M01.11, ADR 0055).","type":"object","additionalProperties":false,"required":["schema_version","requirement_id","revision_ref","predecessor_revision_ref","content_hash","owner_ref","consumer_class_refs","required_runtime_tool_contract_refs","required_resource_projection_contract_refs","permitted_prompt_import_contract_refs","required_elicitation_contract_refs","external_task_compatibility_refs","extension_application_requirement_refs","maximum_risk_class","authority_scope_requirement_refs","privacy_budget_rate_and_retention_policy_refs","transport_and_protocol_compatibility_refs","allowed_override_schema_ref","provenance_and_evaluation_refs","registry_lifecycle_ref","registry_status"],"properties":{"schema_version":{"type":"string","const":"ioi.mcp-gateway-requirement.v1"},"requirement_id":{"$ref":"#/$defs/requirementId"},"revision_ref":{"$ref":"#/$defs/requirementRevisionRef","description":"The exact immutable revision. A consumer pins this plus `content_hash`, never the family id alone."},"predecessor_revision_ref":{"anyOf":[{"$ref":"#/$defs/requirementRevisionRef"},{"type":"null"}],"description":"Null only on the genesis revision. Any change to the declared body is a successor, so this is the whole lineage."},"content_hash":{"$ref":"#/$defs/sha256"},"owner_ref":{"$ref":"#/$defs/ref"},"consumer_class_refs":{"type":"array","uniqueItems":true,"maxItems":64,"items":{"$ref":"#/$defs/ref"},"description":"Which classes of consumer this requirement is written for. An empty list is the claim that it is written for none, which admission will refuse — it is not a wildcard."},"required_runtime_tool_contract_refs":{"$ref":"#/$defs/refList"},"required_resource_projection_contract_refs":{"$ref":"#/$defs/refList"},"permitted_prompt_import_contract_refs":{"$ref":"#/$defs/refList"},"required_elicitation_contract_refs":{"$ref":"#/$defs/refList"},"external_task_compatibility_refs":{"$ref":"#/$defs/refList"},"extension_application_requirement_refs":{"$ref":"#/$defs/refList"},"maximum_risk_class":{"$ref":"#/$defs/riskClass","description":"The CEILING a resolved profile may not exceed. It draws from the canonical risk-class ladder and defines no enum of its own."},"authority_scope_requirement_refs":{"type":"array","uniqueItems":true,"maxItems":128,"items":{"$ref":"#/$defs/scopeOrPolicyRef"},"description":"Scopes the consumer WOULD need. Naming a scope here grants nothing: the profile that resolves this requirement is admitted separately and may resolve fewer."},"privacy_budget_rate_and_retention_policy_refs":{"$ref":"#/$defs/refList"},"transport_and_protocol_compatibility_refs":{"$ref":"#/$defs/refList"},"allowed_override_schema_ref":{"anyOf":[{"$ref":"#/$defs/ref"},{"type":"null"}],"description":"The closed shape of the only overrides a consumer may propose at resolution. Null means no override is admissible, which is the safe default and not an absence of policy."},"provenance_and_evaluation_refs":{"$ref":"#/$defs/refList"},"registry_lifecycle_ref":{"$ref":"#/$defs/ref"},"registry_status":{"type":"string","enum":["draft","released","deprecated","revoked"],"description":"An EXCLUDED projection: it is not part of `content_hash`, because a status change must not mint a new identity for an unchanged body."}},"$defs":{"sha256":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"},"ref":{"type":"string","pattern":"^[a-z][a-z0-9+.-]*://[^ ]{1,480}$"},"refList":{"type":"array","uniqueItems":true,"maxItems":256,"items":{"$ref":"#/$defs/ref"}},"scopeOrPolicyRef":{"type":"string","pattern":"^(?:scope:[A-Za-z0-9_.:-]{1,160}|(?:policy|grant)://[^ ]{1,480})$"},"requirementId":{"type":"string","pattern":"^mcp-gateway-requirement://[^\\s?#\\\\]{1,160}$"},"requirementRevisionRef":{"type":"string","pattern":"^mcp-gateway-requirement://[^\\s?#\\\\]{1,160}/revision/sha256:[0-9a-f]{64}$"},"riskClass":{"type":"string","description":"The canonical ladder from foundations/canonical-enums.md § Risk Classes, lowest to highest required assurance, plus the peer top-tier class `physical_action` that sits outside the monotonic ladder and carries the Physical Action Safety envelope. This enum is a COPY of that ladder and defines nothing of its own; a member added there is added here.","enum":["read","draft","local_write","write_reversible","external_message","commerce","funds","credential_access","policy_widening","secret_export","identity_change","system_destructive","physical_action"]}}}"##),
     ("schema://ioi/components/connectors-tools/hypervisor-mcp-gateway-profile/v1", r##"{"$schema":"https://json-schema.org/draft/2020-12/schema","$id":"schema://ioi/components/connectors-tools/hypervisor-mcp-gateway-profile/v1","title":"HypervisorMcpGatewayProfileV1","x-ioi-schema-version":"ioi.hypervisor-mcp-gateway-profile.v1","description":"WHAT ONE MCP CONSUMER MAY DISCOVER, PREVIEW, PROPOSE OR EXECUTE — the contract that limits an outward gateway to one subject and one use. A profile grants no authority by itself: it BINDS an exposure manifest to wallet.network authority clients, daemon admission, policy and receipt obligations, and every effectful call still crosses at its owner's gateway. The admitted revision FREEZES its resolved requirement set, exposure manifest, subject, scope, policies and expiry. Status, revocation, quarantine advisories and last-use are EXCLUDED projections that bind the already-computed `profile_content_hash` rather than entering it, and they — like upstream policy, lease and connector state — may only REDUCE effective access. Any change to the declared body is a successor revision, and widening tools, resources, scopes, subjects, projects, sessions, risk ceiling, budget, retention or expiry additionally repeats admission. The seven profile kinds here are the v1 closed set and do not change; the v2 successor adds `capability_construction_eval` and nothing else, and the two versions refuse each other in both directions (ADR 0055). Owner: components/connectors-tools/contracts.md § Hypervisor MCP Gateway Profile (M01.11).","type":"object","additionalProperties":false,"required":["schema_version","gateway_profile_id","profile_revision_ref","predecessor_profile_revision_ref","profile_content_hash","resolved_requirement_revision_refs","resolved_requirement_set_hash","exposure_manifest_hash","display_name","audience","profile_kind","subject_ref","admission_basis","surface_refs","exposed_tools","exposed_resources","authority_client_ref","origin_binding_ref","authority_scope_refs","privacy_posture_ref","budget_policy_ref","rate_limit_ref","quarantine_policy_ref","issued_after_required_admission","prompt_only_proposal","expires_at","status","manifest_ref","admission_decision_ref","admission_receipt_ref"],"properties":{"schema_version":{"type":"string","const":"ioi.hypervisor-mcp-gateway-profile.v1"},"gateway_profile_id":{"$ref":"#/$defs/profileId"},"profile_revision_ref":{"$ref":"#/$defs/profileRevisionRef"},"predecessor_profile_revision_ref":{"anyOf":[{"$ref":"#/$defs/profileRevisionRef"},{"type":"null"}],"description":"Null only on the genesis revision. A narrowed successor and a widened successor are both successors; only the widened one repeats admission."},"profile_content_hash":{"$ref":"#/$defs/sha256"},"resolved_requirement_revision_refs":{"type":"array","uniqueItems":true,"maxItems":128,"items":{"$ref":"#/$defs/requirementRevisionRef"},"description":"The exact immutable requirement revisions this profile resolves. Resolving is an evaluation of a declared ceiling against one proposed use; the requirement issued nothing."},"resolved_requirement_set_hash":{"$ref":"#/$defs/sha256"},"exposure_manifest_hash":{"$ref":"#/$defs/sha256","description":"Frozen at admission over the exposed tool, resource, prompt, elicitation, task and App sets. A consumer that computes a different hash over what it was served has been served something else."},"display_name":{"type":"string","minLength":1,"maxLength":200},"audience":{"type":"string","enum":["external_agent","ci_agent","marketplace_worker","enterprise_agent","local_harness"]},"profile_kind":{"type":"string","description":"The v1 closed set of seven. `capability_construction_eval` is v2's and is refused here by name rather than ignored.","enum":["discovery_readonly","project_session","connector_preview","operator_proposal","effectful_approved","foundry_eval_training","receipts_replay_proof"]},"subject_ref":{"$ref":"#/$defs/ref"},"local_agent_pairing_session_ref":{"$ref":"#/$defs/nullableRef"},"candidate_public_key_ref":{"$ref":"#/$defs/nullableRef"},"project_refs":{"$ref":"#/$defs/refList"},"session_refs":{"$ref":"#/$defs/refList"},"outcome_room_ref":{"$ref":"#/$defs/nullableRef"},"room_participant_lease_ref":{"$ref":"#/$defs/nullableRef"},"room_admission_decision_ref":{"$ref":"#/$defs/nullableRef"},"worker_registration_ref":{"$ref":"#/$defs/nullableRef"},"admission_basis":{"type":"string","enum":["not_applicable","room_guest","registered_worker_invocation"]},"invocation_scope_refs":{"$ref":"#/$defs/refList"},"pairing_execution_posture":{"type":"string","enum":["not_applicable","instrumented_adapter","prompt_only"]},"pairing_contribution_lane":{"type":"string","enum":["not_applicable","instrumented_candidate","proposal_only"]},"surface_refs":{"$ref":"#/$defs/refList"},"exposed_tools":{"type":"array","maxItems":512,"items":{"$ref":"#/$defs/exposedTool"},"description":"An empty list is a real and common posture — a profile that exposes no tool. It is not a wildcard."},"exposed_resources":{"type":"array","maxItems":512,"items":{"$ref":"#/$defs/exposedResource"}},"exposed_prompt_import_contract_refs":{"$ref":"#/$defs/refList"},"elicitation_contract_refs":{"$ref":"#/$defs/refList"},"external_task_contract_refs":{"$ref":"#/$defs/refList"},"extension_application_refs":{"$ref":"#/$defs/refList"},"authority_client_ref":{"$ref":"#/$defs/ref"},"origin_binding_ref":{"$ref":"#/$defs/ref"},"authority_scope_refs":{"type":"array","uniqueItems":true,"maxItems":128,"items":{"$ref":"#/$defs/scopeRef"}},"privacy_posture_ref":{"$ref":"#/$defs/ref"},"budget_policy_ref":{"$ref":"#/$defs/ref"},"rate_limit_ref":{"$ref":"#/$defs/ref"},"quarantine_policy_ref":{"$ref":"#/$defs/ref"},"dependent_refs":{"$ref":"#/$defs/refList"},"issued_after_required_admission":{"type":"boolean","const":true,"description":"A profile that was not issued after its required admission is not a profile. The member exists so the claim is on the wire and hashed, not implied by the record's presence."},"prompt_only_proposal":{"type":"boolean"},"expires_at":{"type":"string","format":"date-time","pattern":"^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$"},"revocation_ref":{"$ref":"#/$defs/nullableRef"},"quarantine_advisory_refs":{"$ref":"#/$defs/refList"},"status":{"type":"string","enum":["active","expired","suspended","quarantined","revoked"],"description":"An EXCLUDED lifecycle projection. It binds the already-computed content hash rather than entering it, and it may only reduce effective access."},"last_use_ref":{"$ref":"#/$defs/nullableRef"},"manifest_ref":{"$ref":"#/$defs/ref"},"admission_decision_ref":{"$ref":"#/$defs/ref"},"admission_receipt_ref":{"$ref":"#/$defs/ref"},"receipt_refs":{"$ref":"#/$defs/refList"}},"allOf":[{"if":{"type":"object","properties":{"pairing_execution_posture":{"type":"string","const":"prompt_only"}},"required":["pairing_execution_posture"]},"then":{"type":"object","description":"A prompt-only pairing may only ever propose. The contribution lane and the proposal flag are not independent of the posture, and letting them drift is how a prompt-only harness acquires an instrumented lane.","properties":{"pairing_contribution_lane":{"type":"string","const":"proposal_only"},"prompt_only_proposal":{"type":"boolean","const":true}},"required":["pairing_contribution_lane","prompt_only_proposal"]}},{"if":{"type":"object","properties":{"profile_kind":{"type":"string","const":"discovery_readonly"}},"required":["profile_kind"]},"then":{"type":"object","description":"A read-only discovery profile that exposed an approval-requiring or effectful tool would be a contradiction admitted in writing.","properties":{"exposed_tools":{"type":"array","items":{"type":"object","properties":{"approval_required":{"type":"boolean","const":false},"effect_class":{"type":"string","enum":["read","draft"]}}}}}}}],"$defs":{"sha256":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"},"ref":{"type":"string","pattern":"^[a-z][a-z0-9+._-]*://[^ ]{1,480}$"},"nullableRef":{"anyOf":[{"$ref":"#/$defs/ref"},{"type":"null"}]},"refList":{"type":"array","uniqueItems":true,"maxItems":256,"items":{"$ref":"#/$defs/ref"}},"scopeRef":{"type":"string","pattern":"^scope:[A-Za-z0-9_.:-]{1,160}$"},"profileId":{"type":"string","pattern":"^mcp-gateway://[^\\s?#\\\\]{1,160}$"},"profileRevisionRef":{"type":"string","pattern":"^mcp-gateway://[^\\s?#\\\\]{1,160}/revision/sha256:[0-9a-f]{64}$"},"requirementRevisionRef":{"type":"string","pattern":"^mcp-gateway-requirement://[^\\s?#\\\\]{1,160}/revision/sha256:[0-9a-f]{64}$"},"riskClass":{"type":"string","description":"A copy of the canonical ladder in foundations/canonical-enums.md § Risk Classes, plus the peer top-tier `physical_action`.","enum":["read","draft","local_write","write_reversible","external_message","commerce","funds","credential_access","policy_widening","secret_export","identity_change","system_destructive","physical_action"]},"exposedTool":{"type":"object","additionalProperties":false,"required":["mcp_tool_name","backing_contract_revision_ref","backing_contract_content_hash","contract_kind","risk_class","effect_class","readiness","dry_run_required","approval_required","authority_scopes_required","receipt_obligations"],"description":"One exposed tool, bound to the EXACT backing contract revision and its content hash. A tool named without both is a tool nobody can check, and the name it carries on the wire is the consumer's only handle on it.","properties":{"mcp_tool_name":{"type":"string","minLength":1,"maxLength":200},"backing_contract_revision_ref":{"$ref":"#/$defs/ref"},"backing_contract_content_hash":{"$ref":"#/$defs/sha256"},"contract_kind":{"type":"string","enum":["runtime_tool_contract","surface_mcp_contract","operator_plane_contract"]},"risk_class":{"$ref":"#/$defs/riskClass"},"effect_class":{"$ref":"#/$defs/riskClass"},"readiness":{"type":"string","enum":["ready","not_connected","scope_insufficient","dry_run_required","approval_required","policy_blocked","degraded"],"description":"A profile may expose a tool as DISCOVERABLE while still refusing a particular operation; these are canon's own words for that refusal."},"dry_run_required":{"type":"boolean"},"approval_required":{"type":"boolean"},"authority_scopes_required":{"type":"array","uniqueItems":true,"maxItems":64,"items":{"$ref":"#/$defs/scopeRef"}},"receipt_obligations":{"type":"array","uniqueItems":true,"maxItems":32,"items":{"type":"string","minLength":1,"maxLength":120}}}},"exposedResource":{"type":"object","additionalProperties":false,"required":["mcp_resource_uri","backing_projection_ref","required_context_lease_ref","redaction_policy_ref"],"description":"One exposed resource. The lease is REQUIRED and not nullable: a resource URI is not access, and the thing that makes it access is the lease named here.","properties":{"mcp_resource_uri":{"type":"string","minLength":1,"maxLength":480},"backing_projection_ref":{"$ref":"#/$defs/ref"},"required_context_lease_ref":{"$ref":"#/$defs/ref"},"redaction_policy_ref":{"$ref":"#/$defs/ref"}}}}}"##),
     ("schema://ioi/components/connectors-tools/hypervisor-mcp-gateway-profile/v2", r##"{"$schema":"https://json-schema.org/draft/2020-12/schema","$id":"schema://ioi/components/connectors-tools/hypervisor-mcp-gateway-profile/v2","title":"HypervisorMcpGatewayProfileV2","x-ioi-schema-version":"ioi.hypervisor-mcp-gateway-profile.v2","description":"THE v1 PROFILE WITH EXACTLY ONE MORE KIND, AND NOTHING ELSE CHANGED. Every member, constraint and conditional of ioi.hypervisor-mcp-gateway-profile.v1 holds here unchanged; the single difference is that `profile_kind` also admits `capability_construction_eval`, the SOURCE-NEUTRAL builder surface. That kind claims one thing and it is the strongest claim this gateway makes: an external builder invocation admitted under it reaches the same RuntimeToolContract resolution, the same final invoker and the same receipt obligations as the native call, bound to one exact subject, candidate key, origin, admission basis, project, session and invocation ref — it can neither widen what the native path would allow nor execute what the native path would refuse. It trains nothing, promotes nothing and reads no first-party corpus; `foundry_eval_training` remains the separately admitted first-party training specialization and the two are never substitutable. VERSIONS DO NOT FALL BACK. A v1 profile presented to a v2 reader and a v2 profile presented to a v1 reader both refuse, with the version named: reading a v2 profile as a v1 by discarding the kind it does not recognise would admit the builder surface as whatever the v1 reader defaulted to, and a version boundary that degrades gracefully is one that grants silently. The schema version is part of the admitted body and therefore of `profile_content_hash`, so a version change is a successor revision that repeats admission exactly as a widening does. Owner: components/connectors-tools/contracts.md § Profile versions and the source-neutral builder kind (M01.11, ADR 0055).","type":"object","additionalProperties":false,"required":["schema_version","gateway_profile_id","profile_revision_ref","predecessor_profile_revision_ref","profile_content_hash","resolved_requirement_revision_refs","resolved_requirement_set_hash","exposure_manifest_hash","display_name","audience","profile_kind","subject_ref","admission_basis","surface_refs","exposed_tools","exposed_resources","authority_client_ref","origin_binding_ref","authority_scope_refs","privacy_posture_ref","budget_policy_ref","rate_limit_ref","quarantine_policy_ref","issued_after_required_admission","prompt_only_proposal","expires_at","status","manifest_ref","admission_decision_ref","admission_receipt_ref"],"properties":{"schema_version":{"type":"string","const":"ioi.hypervisor-mcp-gateway-profile.v2"},"gateway_profile_id":{"$ref":"#/$defs/profileId"},"profile_revision_ref":{"$ref":"#/$defs/profileRevisionRef"},"predecessor_profile_revision_ref":{"anyOf":[{"$ref":"#/$defs/profileRevisionRef"},{"type":"null"}],"description":"Null only on the genesis revision. A narrowed successor and a widened successor are both successors; only the widened one repeats admission."},"profile_content_hash":{"$ref":"#/$defs/sha256"},"resolved_requirement_revision_refs":{"type":"array","uniqueItems":true,"maxItems":128,"items":{"$ref":"#/$defs/requirementRevisionRef"},"description":"The exact immutable requirement revisions this profile resolves. Resolving is an evaluation of a declared ceiling against one proposed use; the requirement issued nothing."},"resolved_requirement_set_hash":{"$ref":"#/$defs/sha256"},"exposure_manifest_hash":{"$ref":"#/$defs/sha256","description":"Frozen at admission over the exposed tool, resource, prompt, elicitation, task and App sets. A consumer that computes a different hash over what it was served has been served something else."},"display_name":{"type":"string","minLength":1,"maxLength":200},"audience":{"type":"string","enum":["external_agent","ci_agent","marketplace_worker","enterprise_agent","local_harness"]},"profile_kind":{"type":"string","description":"The v2 closed set of eight: the seven v1 kinds, unchanged in meaning, plus the source-neutral builder surface. A v1 reader refuses this document rather than ignoring the member it does not know.","enum":["discovery_readonly","project_session","connector_preview","operator_proposal","effectful_approved","foundry_eval_training","receipts_replay_proof","capability_construction_eval"]},"subject_ref":{"$ref":"#/$defs/ref"},"local_agent_pairing_session_ref":{"$ref":"#/$defs/nullableRef"},"candidate_public_key_ref":{"$ref":"#/$defs/nullableRef"},"project_refs":{"$ref":"#/$defs/refList"},"session_refs":{"$ref":"#/$defs/refList"},"outcome_room_ref":{"$ref":"#/$defs/nullableRef"},"room_participant_lease_ref":{"$ref":"#/$defs/nullableRef"},"room_admission_decision_ref":{"$ref":"#/$defs/nullableRef"},"worker_registration_ref":{"$ref":"#/$defs/nullableRef"},"admission_basis":{"type":"string","enum":["not_applicable","room_guest","registered_worker_invocation"]},"invocation_scope_refs":{"$ref":"#/$defs/refList"},"pairing_execution_posture":{"type":"string","enum":["not_applicable","instrumented_adapter","prompt_only"]},"pairing_contribution_lane":{"type":"string","enum":["not_applicable","instrumented_candidate","proposal_only"]},"surface_refs":{"$ref":"#/$defs/refList"},"exposed_tools":{"type":"array","maxItems":512,"items":{"$ref":"#/$defs/exposedTool"},"description":"An empty list is a real and common posture — a profile that exposes no tool. It is not a wildcard."},"exposed_resources":{"type":"array","maxItems":512,"items":{"$ref":"#/$defs/exposedResource"}},"exposed_prompt_import_contract_refs":{"$ref":"#/$defs/refList"},"elicitation_contract_refs":{"$ref":"#/$defs/refList"},"external_task_contract_refs":{"$ref":"#/$defs/refList"},"extension_application_refs":{"$ref":"#/$defs/refList"},"authority_client_ref":{"$ref":"#/$defs/ref"},"origin_binding_ref":{"$ref":"#/$defs/ref"},"authority_scope_refs":{"type":"array","uniqueItems":true,"maxItems":128,"items":{"$ref":"#/$defs/scopeRef"}},"privacy_posture_ref":{"$ref":"#/$defs/ref"},"budget_policy_ref":{"$ref":"#/$defs/ref"},"rate_limit_ref":{"$ref":"#/$defs/ref"},"quarantine_policy_ref":{"$ref":"#/$defs/ref"},"dependent_refs":{"$ref":"#/$defs/refList"},"issued_after_required_admission":{"type":"boolean","const":true,"description":"A profile that was not issued after its required admission is not a profile. The member exists so the claim is on the wire and hashed, not implied by the record's presence."},"prompt_only_proposal":{"type":"boolean"},"expires_at":{"type":"string","format":"date-time","pattern":"^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$"},"revocation_ref":{"$ref":"#/$defs/nullableRef"},"quarantine_advisory_refs":{"$ref":"#/$defs/refList"},"status":{"type":"string","enum":["active","expired","suspended","quarantined","revoked"],"description":"An EXCLUDED lifecycle projection. It binds the already-computed content hash rather than entering it, and it may only reduce effective access."},"last_use_ref":{"$ref":"#/$defs/nullableRef"},"manifest_ref":{"$ref":"#/$defs/ref"},"admission_decision_ref":{"$ref":"#/$defs/ref"},"admission_receipt_ref":{"$ref":"#/$defs/ref"},"receipt_refs":{"$ref":"#/$defs/refList"}},"allOf":[{"if":{"type":"object","properties":{"pairing_execution_posture":{"type":"string","const":"prompt_only"}},"required":["pairing_execution_posture"]},"then":{"type":"object","description":"A prompt-only pairing may only ever propose. The contribution lane and the proposal flag are not independent of the posture, and letting them drift is how a prompt-only harness acquires an instrumented lane.","properties":{"pairing_contribution_lane":{"type":"string","const":"proposal_only"},"prompt_only_proposal":{"type":"boolean","const":true}},"required":["pairing_contribution_lane","prompt_only_proposal"]}},{"if":{"type":"object","properties":{"profile_kind":{"type":"string","const":"discovery_readonly"}},"required":["profile_kind"]},"then":{"type":"object","description":"A read-only discovery profile that exposed an approval-requiring or effectful tool would be a contradiction admitted in writing.","properties":{"exposed_tools":{"type":"array","items":{"type":"object","properties":{"approval_required":{"type":"boolean","const":false},"effect_class":{"type":"string","enum":["read","draft"]}}}}}}},{"if":{"type":"object","properties":{"profile_kind":{"type":"string","const":"capability_construction_eval"}},"required":["profile_kind"]},"then":{"type":"object","description":"SOURCE-NEUTRAL means the builder surface reads no first-party training corpus and mints no training artifact, and it is bound to ONE invocation rather than to every invocation its subject can reach — that binding is what makes the native-versus-MCP comparison a comparison of the same thing, and it is required here. The other half of source-neutrality, that no exposed tool requires a foundry, training or dataset-factory scope, is NOT expressible in this contract: it is a negative over an array member's string, and the portable schema keyword set this estate generates from admits no negation. It is therefore enforced and drilled in check:hypervisor-mcp-gateway-profile rather than asserted here in a form no validator would run. Saying which layer holds a rule is the point of writing it down.","properties":{"invocation_scope_refs":{"type":"array","minItems":1}},"required":["invocation_scope_refs"]}}],"$defs":{"sha256":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"},"ref":{"type":"string","pattern":"^[a-z][a-z0-9+._-]*://[^ ]{1,480}$"},"nullableRef":{"anyOf":[{"$ref":"#/$defs/ref"},{"type":"null"}]},"refList":{"type":"array","uniqueItems":true,"maxItems":256,"items":{"$ref":"#/$defs/ref"}},"scopeRef":{"type":"string","pattern":"^scope:[A-Za-z0-9_.:-]{1,160}$"},"profileId":{"type":"string","pattern":"^mcp-gateway://[^\\s?#\\\\]{1,160}$"},"profileRevisionRef":{"type":"string","pattern":"^mcp-gateway://[^\\s?#\\\\]{1,160}/revision/sha256:[0-9a-f]{64}$"},"requirementRevisionRef":{"type":"string","pattern":"^mcp-gateway-requirement://[^\\s?#\\\\]{1,160}/revision/sha256:[0-9a-f]{64}$"},"riskClass":{"type":"string","description":"A copy of the canonical ladder in foundations/canonical-enums.md § Risk Classes, plus the peer top-tier `physical_action`.","enum":["read","draft","local_write","write_reversible","external_message","commerce","funds","credential_access","policy_widening","secret_export","identity_change","system_destructive","physical_action"]},"exposedTool":{"type":"object","additionalProperties":false,"required":["mcp_tool_name","backing_contract_revision_ref","backing_contract_content_hash","contract_kind","risk_class","effect_class","readiness","dry_run_required","approval_required","authority_scopes_required","receipt_obligations"],"description":"One exposed tool, bound to the EXACT backing contract revision and its content hash. A tool named without both is a tool nobody can check, and the name it carries on the wire is the consumer's only handle on it.","properties":{"mcp_tool_name":{"type":"string","minLength":1,"maxLength":200},"backing_contract_revision_ref":{"$ref":"#/$defs/ref"},"backing_contract_content_hash":{"$ref":"#/$defs/sha256"},"contract_kind":{"type":"string","enum":["runtime_tool_contract","surface_mcp_contract","operator_plane_contract"]},"risk_class":{"$ref":"#/$defs/riskClass"},"effect_class":{"$ref":"#/$defs/riskClass"},"readiness":{"type":"string","enum":["ready","not_connected","scope_insufficient","dry_run_required","approval_required","policy_blocked","degraded"],"description":"A profile may expose a tool as DISCOVERABLE while still refusing a particular operation; these are canon's own words for that refusal."},"dry_run_required":{"type":"boolean"},"approval_required":{"type":"boolean"},"authority_scopes_required":{"type":"array","uniqueItems":true,"maxItems":64,"items":{"$ref":"#/$defs/scopeRef"}},"receipt_obligations":{"type":"array","uniqueItems":true,"maxItems":32,"items":{"type":"string","minLength":1,"maxLength":120}}}},"exposedResource":{"type":"object","additionalProperties":false,"required":["mcp_resource_uri","backing_projection_ref","required_context_lease_ref","redaction_policy_ref"],"description":"One exposed resource. The lease is REQUIRED and not nullable: a resource URI is not access, and the thing that makes it access is the lease named here.","properties":{"mcp_resource_uri":{"type":"string","minLength":1,"maxLength":480},"backing_projection_ref":{"$ref":"#/$defs/ref"},"required_context_lease_ref":{"$ref":"#/$defs/ref"},"redaction_policy_ref":{"$ref":"#/$defs/ref"}}}}}"##),
-    ("schema://ioi/applications/ioi-ai/collective-qualification-estimand/v1", r##"{"$schema":"https://json-schema.org/draft/2020-12/schema","$id":"schema://ioi/applications/ioi-ai/collective-qualification-estimand/v1","title":"CollectiveQualificationEstimand","x-ioi-schema-version":"ioi.ioi-ai.collective-qualification-estimand.v1","description":"WHAT A COLLECTIVE IS BEING ASKED TO PROVE, DECLARED BEFORE ANY ARM RUNS. Canon's rule is that collective machinery earns its complexity: a frozen epoch compares the exact collective composition against a matched cheaper baseline under a DECLARED estimand, and neither participant count, aggregate score, active artifact nor surviving process proves cooperation surplus, runtime continuity or authority. THE WORD ALREADY EXISTED AND MEANT ALMOST NOTHING: the evaluation epoch carries `confirmatory_estimand_and_minimum_effect_refs`, an unvalidated bounded list of refs that nothing in the estate dereferences — a `policy://` string satisfies it — frozen into the epoch's root so that it looks settled. This contract is the referent that list never had. It names the quantity, the direction, the minimum effect that counts as a difference and the decision rule, so that a result can be read as confirming or failing a claim someone made IN ADVANCE rather than as a number to interpret afterwards. A DECLARATION IS NOT A RESULT: this envelope grants nothing, promotes nothing and qualifies nothing on its own, and it must be declared before the epoch freezes because a frozen epoch refuses a moved member. Owner: domains/ioi-ai/collaborative-outcome-pattern.md § Collective qualification (M10.9, R-222).","type":"object","additionalProperties":false,"required":["schema_version","estimand_ref","estimand_kind","quantity","direction","minimum_effect","cost_normalization","decision_rule","declared_at","declared_before_epoch_freeze","system_binding","qualifies_nothing_on_its_own"],"properties":{"schema_version":{"type":"string","const":"ioi.ioi-ai.collective-qualification-estimand.v1"},"estimand_ref":{"$ref":"#/$defs/estimandRef"},"estimand_kind":{"type":"string","description":"COOPERATION SURPLUS is the claim that the collective beats a matched cheaper baseline on the declared quantity. RESILIENCE is the claim that it degrades less than the baseline under a named knockout. INDEPENDENCE is the claim that its result does not depend on a named participant, edge or artifact. They are different claims with different failure modes and a run proves at most the one declared here.","enum":["cooperation_surplus","resilience","independence"]},"quantity":{"type":"object","additionalProperties":false,"required":["metric_ref","unit","aggregation"],"description":"The exact thing measured. An aggregate with no named metric and no aggregation is a score, and canon refuses a score as proof.","properties":{"metric_ref":{"$ref":"#/$defs/ref"},"unit":{"type":"string","minLength":1,"maxLength":60},"aggregation":{"type":"string","enum":["mean","median","trimmed_mean","rate","count","max","min"]}}},"direction":{"type":"string","enum":["higher_is_better","lower_is_better"],"description":"Declared in advance, because a direction chosen after the numbers are in turns any result into a confirmation."},"minimum_effect":{"type":"object","additionalProperties":false,"required":["value","basis"],"description":"The smallest difference that counts. Without it, any non-zero difference reads as success and the comparison proves nothing it did not assume.","properties":{"value":{"type":"number"},"basis":{"type":"string","enum":["absolute","relative_to_baseline","standard_deviations"]}}},"cost_normalization":{"type":"string","description":"A collective that wins by spending more has not earned its complexity; canon's sentence is that the machinery must earn it. `none` is admissible and says plainly that cost is not being controlled for.","enum":["none","per_cost_unit","per_wall_second","per_verification_unit"]},"decision_rule":{"type":"string","minLength":24,"maxLength":600,"description":"In words, what reading of the two arms confirms the estimand and what reading fails it — written before the run, so the rule cannot be fitted to the outcome."},"knockout_axis_refs":{"type":"array","uniqueItems":true,"maxItems":64,"items":{"$ref":"#/$defs/ref"},"description":"For a resilience or independence estimand, the exact axes the claim is about. An estimand of those kinds with no axis is a claim about nothing."},"declared_at":{"$ref":"#/$defs/timestamp"},"declared_before_epoch_freeze":{"type":"boolean","const":true,"description":"Always true, and on the wire rather than implied. The epoch freezes this ref into its root and refuses a moved frozen member afterwards, so an estimand declared after the freeze could only ever be a second one — and a second estimand chosen once results exist is the defect this whole contract exists to refuse."},"epoch_ref":{"anyOf":[{"$ref":"#/$defs/ref"},{"type":"null"}],"description":"The frozen evaluation epoch this estimand was declared for, once one exists. Null while the epoch is still a draft — the estimand comes first."},"system_binding":{"$ref":"#/$defs/ref","description":"The ACTIVE System this record is admitted under. This is an application record on the generic System-record seam, not a Hypervisor family: the evaluation plane's layer law forbids a Hypervisor component from reading an orchestration application's records, and its own gate asserts so against a planted import."},"qualifies_nothing_on_its_own":{"type":"boolean","const":true,"description":"A declaration is not a result. Declaring an estimand promotes nothing, activates nothing and qualifies no collective; it only fixes what a later comparison will be read against."}},"allOf":[{"if":{"type":"object","properties":{"estimand_kind":{"type":"string","enum":["resilience","independence"]}},"required":["estimand_kind"]},"then":{"type":"object","description":"Resilience and independence are claims ABOUT something being removed. Without the axes named, there is no claim to confirm.","properties":{"knockout_axis_refs":{"type":"array","minItems":1}},"required":["knockout_axis_refs"]}}],"$defs":{"ref":{"type":"string","pattern":"^[a-z][a-z0-9+.-]*://[^ ]{1,480}$"},"estimandRef":{"type":"string","pattern":"^estimand://[^\\s?#\\\\]{1,200}$"},"timestamp":{"type":"string","pattern":"^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$"}}}"##),
+    ("schema://ioi/applications/ioi-ai/collective-qualification-estimand/v1", r##"{"$schema":"https://json-schema.org/draft/2020-12/schema","$id":"schema://ioi/applications/ioi-ai/collective-qualification-estimand/v1","title":"CollectiveQualificationEstimand","x-ioi-schema-version":"ioi.ioi-ai.collective-qualification-estimand.v1","description":"WHAT A COLLECTIVE IS BEING ASKED TO PROVE, DECLARED BEFORE ANY ARM RUNS. Canon's rule is that collective machinery earns its complexity: a frozen epoch compares the exact collective composition against a matched cheaper baseline under a DECLARED estimand, and neither participant count, aggregate score, active artifact nor surviving process proves cooperation surplus, runtime continuity or authority. THE WORD ALREADY EXISTED AND MEANT ALMOST NOTHING: the evaluation epoch carries `confirmatory_estimand_and_minimum_effect_refs`, an unvalidated bounded list of refs that nothing in the estate dereferences — a `policy://` string satisfies it — frozen into the epoch's root so that it looks settled. This contract is the referent that list never had. It names the quantity, the direction, the minimum effect that counts as a difference and the decision rule, so that a result can be read as confirming or failing a claim someone made IN ADVANCE rather than as a number to interpret afterwards. A DECLARATION IS NOT A RESULT: this envelope grants nothing, promotes nothing and qualifies nothing on its own, and it must be declared before the epoch freezes because a frozen epoch refuses a moved member. Owner: domains/ioi-ai/collaborative-outcome-pattern.md § Collective qualification (M10.9, R-222).","type":"object","additionalProperties":false,"required":["schema_version","estimand_id","estimand_ref","estimand_kind","quantity","direction","minimum_effect","cost_normalization","decision_rule","declared_at","declared_before_epoch_freeze","qualifies_nothing_on_its_own","knockout_axis_refs","epoch_ref","estimand_root"],"properties":{"schema_version":{"type":"string","const":"ioi.ioi-ai.collective-qualification-estimand.v1"},"estimand_id":{"type":"string","pattern":"^estimand://[^\\s?#\\\\]{1,200}$","description":"THE IDENTITY THE RECORD SEAM ADMITS, and it must be a `*_id` member: the seam resolves a record's identity by finding the single member whose name ends in `_id` and whose value is the object_id it was posted under, and refuses the admission outright when none does. It is the same value as `estimand_ref`, which is the name every other record points at this one by, and the registered invariant holds the two equal so the pointer and the identity can never come apart."},"estimand_ref":{"$ref":"#/$defs/estimandRef"},"estimand_kind":{"type":"string","description":"COOPERATION SURPLUS is the claim that the collective beats a matched cheaper baseline on the declared quantity. RESILIENCE is the claim that it degrades less than the baseline under a named knockout. INDEPENDENCE is the claim that its result does not depend on a named participant, edge or artifact. They are different claims with different failure modes and a run proves at most the one declared here.","enum":["cooperation_surplus","resilience","independence"]},"quantity":{"type":"object","additionalProperties":false,"required":["metric_ref","unit","aggregation"],"description":"The exact thing measured. An aggregate with no named metric and no aggregation is a score, and canon refuses a score as proof.","properties":{"metric_ref":{"$ref":"#/$defs/ref"},"unit":{"type":"string","minLength":1,"maxLength":60},"aggregation":{"type":"string","enum":["mean","median","trimmed_mean","rate","count","max","min"]}}},"direction":{"type":"string","enum":["higher_is_better","lower_is_better"],"description":"Declared in advance, because a direction chosen after the numbers are in turns any result into a confirmation."},"minimum_effect":{"type":"object","additionalProperties":false,"required":["value","basis"],"description":"The smallest difference that counts. Without it, any non-zero difference reads as success and the comparison proves nothing it did not assume.","properties":{"value":{"type":"number"},"basis":{"type":"string","enum":["absolute","relative_to_baseline","standard_deviations"]}}},"cost_normalization":{"type":"string","description":"A collective that wins by spending more has not earned its complexity; canon's sentence is that the machinery must earn it. `none` is admissible and says plainly that cost is not being controlled for.","enum":["none","per_cost_unit","per_wall_second","per_verification_unit"]},"decision_rule":{"type":"string","minLength":24,"maxLength":600,"description":"In words, what reading of the two arms confirms the estimand and what reading fails it — written before the run, so the rule cannot be fitted to the outcome."},"knockout_axis_refs":{"type":"array","uniqueItems":true,"maxItems":64,"items":{"$ref":"#/$defs/ref"},"description":"For a resilience or independence estimand, the exact axes the claim is about. An estimand of those kinds with no axis is a claim about nothing."},"declared_at":{"$ref":"#/$defs/timestamp"},"declared_before_epoch_freeze":{"type":"boolean","const":true,"description":"Always true, and on the wire rather than implied. The epoch freezes this ref into its root and refuses a moved frozen member afterwards, so an estimand declared after the freeze could only ever be a second one — and a second estimand chosen once results exist is the defect this whole contract exists to refuse."},"epoch_ref":{"anyOf":[{"$ref":"#/$defs/ref"},{"type":"null"}],"description":"The frozen evaluation epoch this estimand was declared for, once one exists. Null while the epoch is still a draft — the estimand comes first."},"system_binding":{"$ref":"#/$defs/systemBinding","description":"DERIVED BY THE SEAM, NEVER AUTHORED. The record seam refuses a caller-supplied binding outright rather than correcting it, then stamps its own from the System, the parent scope and the resolved principal, and only then validates — so this member is absent on the wire the caller sends and an object on the record the seam admits. This is an application record on that generic seam, not a Hypervisor family: the evaluation plane's layer law forbids a Hypervisor component from reading an orchestration application's records, and its own gate asserts so against a planted import."},"qualifies_nothing_on_its_own":{"type":"boolean","const":true,"description":"A declaration is not a result. Declaring an estimand promotes nothing, activates nothing and qualifies no collective; it only fixes what a later comparison will be read against."},"estimand_root":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$","description":"SHA-256 over JCS of every member except this one and the seam binding. The declaration is the whole point of the object, so it is sealed: the epoch freezes the ref, and this root is what makes the ref's CONTENT unmovable rather than merely named."}},"allOf":[{"if":{"type":"object","properties":{"estimand_kind":{"type":"string","enum":["resilience","independence"]}},"required":["estimand_kind"]},"then":{"type":"object","description":"Resilience and independence are claims ABOUT something being removed. Without the axes named, there is no claim to confirm.","properties":{"knockout_axis_refs":{"type":"array","minItems":1}},"required":["knockout_axis_refs"]}}],"$defs":{"ref":{"type":"string","pattern":"^[a-z][a-z0-9+.-]*://[^ ]{1,480}$"},"estimandRef":{"type":"string","pattern":"^estimand://[^\\s?#\\\\]{1,200}$"},"systemBinding":{"type":"object","additionalProperties":false,"required":["schema_version","system_id","parent_scope_ref","proposed_or_issued_by_ref","payload_root","created_at","updated_at"],"properties":{"schema_version":{"const":"ioi.foundations.system-scoped-object-binding.v1"},"system_id":{"type":"string","pattern":"^system://[^\\s]{1,500}$"},"parent_scope_ref":{"type":"string","pattern":"^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"},"proposed_or_issued_by_ref":{"type":"string","pattern":"^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"},"payload_root":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"},"created_at":{"$ref":"#/$defs/timestamp"},"updated_at":{"anyOf":[{"$ref":"#/$defs/timestamp"},{"type":"null"}]}}},"timestamp":{"type":"string","pattern":"^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$"}}}"##),
+    ("schema://ioi/applications/ioi-ai/collective-baseline-pairing/v1", r##"{"$schema":"https://json-schema.org/draft/2020-12/schema","$id":"schema://ioi/applications/ioi-ai/collective-baseline-pairing/v1","title":"CollectiveBaselinePairing","x-ioi-schema-version":"ioi.ioi-ai.collective-baseline-pairing.v1","description":"THE TWO ARMS A COLLECTIVE CLAIM IS READ ACROSS, MATCHED AXIS BY AXIS AND DECLARED BEFORE EITHER RAN. Canon: the frozen epoch compares the exact collective composition against the cheapest adequate simpler baseline — normally a direct path or one GoalRun — under MATCHED task distribution, authority, context, tools, environment, budget, time and verifier posture. NO RECORD COULD NAME AN ARM BEFORE THIS ONE: `EvaluationRun.incumbent_ref` is a free label the plane never resolves, so \"the collective beat the incumbent\" named nothing in particular. This contract makes each arm a resolvable composition and each match axis a PROOF — one root per arm per axis, equal or the pairing is refused by the axis's own name, so a reader can tell \"the baseline had a different toolset\" from \"the baseline ran on a different day\". AND IT CARRIES A POSITIVE CONTROL, because a baseline that fails everything would make any collective look good: the cheapest way to manufacture a surplus is to break the comparator, and a pairing whose baseline passed none of the matched cases measures the breakage. A PAIRING IS NOT A RESULT: it grants nothing, runs nothing and qualifies nothing; it fixes what a later comparison is read across. Owner: domains/ioi-ai/collaborative-outcome-pattern.md § Collective qualification (M10.9, R-222).","type":"object","additionalProperties":false,"required":["schema_version","pairing_id","pairing_ref","estimand_ref","collective_arm","baseline_arm","declared_match_axes","axis_proofs","baseline_positive_control","cheaper_baseline_rationale","declared_before_either_arm_ran","declared_at","epoch_ref","pairing_root"],"properties":{"schema_version":{"type":"string","const":"ioi.ioi-ai.collective-baseline-pairing.v1"},"pairing_id":{"type":"string","pattern":"^pairing://[^\\s?#\\\\]{1,200}$","description":"THE IDENTITY THE RECORD SEAM ADMITS, and it must be a `*_id` member: the seam resolves a record's identity by finding the single member whose name ends in `_id` and whose value is the object_id it was posted under, and refuses the admission outright when none does. It is the same value as `pairing_ref`, which is the name every other record points at this one by, and the registered invariant holds the two equal so the pointer and the identity can never come apart."},"pairing_ref":{"type":"string","pattern":"^pairing://[^\\s?#\\\\]{1,200}$"},"estimand_ref":{"type":"string","pattern":"^estimand://[^\\s?#\\\\]{1,200}$","description":"The declared estimand this pairing is the comparison for. A pairing with no estimand is two arms and no claim."},"collective_arm":{"$ref":"#/$defs/arm","description":"The EXACT collective composition — its orchestration scope and the lineages it runs — not a description of one."},"baseline_arm":{"$ref":"#/$defs/arm","description":"The cheapest adequate simpler arm. Canon names the two shapes it normally takes: a direct path, or one GoalRun."},"declared_match_axes":{"type":"array","minItems":8,"maxItems":8,"uniqueItems":true,"items":{"type":"string","enum":["task","authority","context","tool","environment","budget","time","verifier_posture"]},"description":"All eight, always. An axis a pairing may omit is an axis on which the two arms may silently differ, and a comparison that does not state its match axes is a comparison of two different things."},"axis_proofs":{"type":"object","additionalProperties":false,"required":["task","authority","context","tool","environment","budget","time","verifier_posture"],"description":"One proof per axis, each carrying a root for EACH arm. Equality is asserted per axis by the registered invariants, so an unmatched pairing is refused at the seam by the failing axis's own rule name.","properties":{"task":{"$ref":"#/$defs/axisProof"},"authority":{"$ref":"#/$defs/axisProof"},"context":{"$ref":"#/$defs/axisProof"},"tool":{"$ref":"#/$defs/axisProof"},"environment":{"$ref":"#/$defs/axisProof"},"budget":{"$ref":"#/$defs/axisProof"},"time":{"$ref":"#/$defs/axisProof"},"verifier_posture":{"$ref":"#/$defs/axisProof"}}},"baseline_positive_control":{"type":"object","additionalProperties":false,"required":["matched_cases_total","matched_cases_passed","control_result_refs"],"description":"THE COMPARATOR WORKS. A degenerate baseline that fails everything makes any collective look good, so the baseline must have PASSED matched cases on its own before its losses mean anything. `matched_cases_passed` is at least one by schema and never exceeds the total by invariant.","properties":{"matched_cases_total":{"type":"integer","minimum":1,"maximum":1000000},"matched_cases_passed":{"type":"integer","minimum":1,"maximum":1000000},"control_result_refs":{"type":"array","minItems":1,"maxItems":256,"uniqueItems":true,"items":{"$ref":"#/$defs/ref"},"description":"The evaluation results the control is read from — the baseline's own passes, admitted through the evaluation plane like any other."}}},"cheaper_baseline_rationale":{"type":"string","minLength":24,"maxLength":600,"description":"In words, why this baseline is the CHEAPEST ADEQUATE one. Written before the run, because a baseline justified after the numbers are in is chosen for the numbers."},"declared_before_either_arm_ran":{"type":"boolean","const":true,"description":"Always true, and on the wire rather than implied. A pairing assembled once results exist is a pairing chosen for its results."},"epoch_ref":{"anyOf":[{"$ref":"#/$defs/ref"},{"type":"null"}],"description":"The frozen evaluation epoch this pairing was declared for, once one exists. Null while the epoch is still a draft — the pairing comes first, exactly as the estimand does."},"declared_at":{"$ref":"#/$defs/timestamp"},"system_binding":{"$ref":"#/$defs/systemBinding","description":"DERIVED BY THE SEAM, NEVER AUTHORED — absent on the wire the caller sends, an object on the record the seam admits. An ioi.ai application record on the generic System-record seam, never a Hypervisor family: the evaluation plane's layer law forbids a Hypervisor component from reading an orchestration application's records."},"pairing_root":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$","description":"SHA-256 over JCS of every member except this one and the seam binding."}},"$defs":{"ref":{"type":"string","pattern":"^[a-z][a-z0-9+.-]*://[^ ]{1,480}$"},"systemBinding":{"type":"object","additionalProperties":false,"required":["schema_version","system_id","parent_scope_ref","proposed_or_issued_by_ref","payload_root","created_at","updated_at"],"properties":{"schema_version":{"const":"ioi.foundations.system-scoped-object-binding.v1"},"system_id":{"type":"string","pattern":"^system://[^\\s]{1,500}$"},"parent_scope_ref":{"type":"string","pattern":"^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"},"proposed_or_issued_by_ref":{"type":"string","pattern":"^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"},"payload_root":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"},"created_at":{"$ref":"#/$defs/timestamp"},"updated_at":{"anyOf":[{"$ref":"#/$defs/timestamp"},{"type":"null"}]}}},"arm":{"type":"object","additionalProperties":false,"required":["arm_kind","composition_ref","lineage_refs","participant_count"],"properties":{"arm_kind":{"type":"string","enum":["collective","direct_path","single_goal_run"],"description":"`collective` is the arm under claim; `direct_path` and `single_goal_run` are the two simpler shapes canon names."},"composition_ref":{"type":"string","pattern":"^app-scope://ioi-ai/orchestration/[^\\s]{1,400}$","description":"The orchestration scope the arm runs under — resolvable, unlike the free label this replaces."},"lineage_refs":{"type":"array","maxItems":256,"uniqueItems":true,"items":{"type":"string","pattern":"^lineage://[^\\s]{1,400}$"},"description":"The persistent executable lineages the arm runs. Empty for a direct path that persists nothing."},"participant_count":{"type":"integer","minimum":0,"maximum":4096,"description":"Recorded because the comparison needs to say how many there were — and NEVER read as evidence. A count is an input; canon refuses it as proof, and the qualification verdict's own contract refuses a verdict resting on it."}}},"axisProof":{"type":"object","additionalProperties":false,"required":["collective_root","baseline_root","derived_from"],"properties":{"collective_root":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"},"baseline_root":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"},"derived_from":{"type":"string","minLength":8,"maxLength":240,"description":"What was hashed to get the two roots, so a reader can re-derive them instead of trusting them."}}},"timestamp":{"type":"string","pattern":"^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$"}}}"##),
+    ("schema://ioi/applications/ioi-ai/collective-qualification-verdict/v1", r##"{"$schema":"https://json-schema.org/draft/2020-12/schema","$id":"schema://ioi/applications/ioi-ai/collective-qualification-verdict/v1","title":"CollectiveQualificationVerdict","x-ioi-schema-version":"ioi.ioi-ai.collective-qualification-verdict.v1","description":"WHAT THE TWO ARMS CAME TO, READ AGAINST A CLAIM MADE BEFORE THEY RAN — AND NOTHING ELSE. Canon: evaluation emits judgment only and cannot change topology, install an artifact, activate a controller, issue authority or promote the composition. So this record carries its four never-clauses ON THE WIRE as `const true`, and each knockout it reports carries the same: judgment evidence that reverted, changed nothing and promoted nothing. RESULT ROBUSTNESS AND CONTROLLER CONTINUITY ARE SEPARATE MEMBERS WITH SEPARATE ROOTS, and the registered invariant refuses a verdict whose two roots are equal. This is the conflation the unit exists to refuse and the one it could most easily have authored itself: the lineage's `posture.derived.status` is a single scalar bundling authority staleness, caretaker absence, dependency loss and runtime absence, and reading it as result evidence would make a healthy runtime into proof of a good answer. Canon states both halves — an accepted result may survive after a runtime must stop, and a healthy runtime proves neither result quality nor current authority. THE KNOCKOUT MATRIX IS COMPLETE OR IT IS NAMED: every axis this estate can perform is performed, and every axis canon names that it cannot is carried here with its reason and its owner, because an unperformable axis left out silently narrows the claim while an unperformable axis listed as done makes the bar unfalsifiable. Owner: domains/ioi-ai/collaborative-outcome-pattern.md § Collective qualification (M10.9, R-222).","type":"object","additionalProperties":false,"required":["schema_version","verdict_id","verdict_ref","estimand_ref","pairing_ref","epoch_ref","outcome","qualified_on","result_evidence","controller_continuity","knockouts","named_absent_knockout_axes","grants_no_authority","promotes_nothing","activates_nothing","rewrites_no_topology","judged_at","verdict_root"],"properties":{"schema_version":{"type":"string","const":"ioi.ioi-ai.collective-qualification-verdict.v1"},"verdict_id":{"type":"string","pattern":"^qualification://[^\\s?#\\\\]{1,200}$","description":"THE IDENTITY THE RECORD SEAM ADMITS, and it must be a `*_id` member: the seam resolves a record's identity by finding the single member whose name ends in `_id` and whose value is the object_id it was posted under, and refuses the admission outright when none does. It is the same value as `verdict_ref`, which is the name every other record points at this one by, and the registered invariant holds the two equal so the pointer and the identity can never come apart."},"verdict_ref":{"type":"string","pattern":"^qualification://[^\\s?#\\\\]{1,200}$"},"estimand_ref":{"type":"string","pattern":"^estimand://[^\\s?#\\\\]{1,200}$"},"pairing_ref":{"type":"string","pattern":"^pairing://[^\\s?#\\\\]{1,200}$"},"epoch_ref":{"$ref":"#/$defs/ref","description":"The FROZEN evaluation epoch. A verdict is read out of a frozen epoch or it is read out of nothing: the estimand and the pairing were declared before the freeze precisely so this record could not choose them afterwards."},"outcome":{"type":"string","enum":["qualified","not_qualified","inconclusive"],"description":"`qualified` says the declared estimand was confirmed under its own decision rule. It is a judgment about a claim, not a grant: the four never-clauses below hold at every outcome."},"qualified_on":{"type":"array","maxItems":16,"uniqueItems":true,"items":{"type":"string","enum":["matched_baseline_effect","knockout_degradation","independence_of_named_axis"]},"description":"THE ADMISSIBLE BASES, AND THEY ARE THE ONLY THREE. The four canon refuses — a participant count, an unmatched aggregate score, an ArtifactRef marked active and a surviving process — are not members of this enum, so a verdict cannot even name them as its basis. That is the refusal put where it cannot be argued with rather than in a checker that must remember to look."},"result_evidence":{"type":"object","additionalProperties":false,"required":["observed_effect","meets_minimum_effect","cost_normalized","result_refs","result_root"],"description":"The RESULT half. Its inputs are evaluation results and its root is its own; nothing here reads the controller's liveness.","properties":{"observed_effect":{"type":"number"},"meets_minimum_effect":{"type":"boolean"},"cost_normalized":{"type":"boolean","description":"Whether the observed effect was normalized as the estimand's `cost_normalization` declared. A collective that wins by spending more has not earned its complexity."},"result_refs":{"type":"array","maxItems":1024,"uniqueItems":true,"items":{"$ref":"#/$defs/ref"},"description":"The evaluation results the effect was read from, both arms."},"result_root":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"}}},"controller_continuity":{"type":"object","additionalProperties":false,"required":["lineage_ref","recorded_status","derived_status","orphan_reason","installation_read_from","continuity_root"],"description":"The CONTINUITY half. Its inputs are the lineage's own posture and its owners, its root is its own, and no reading of it changes the result above — canon: an accepted result may survive after a runtime must stop.","properties":{"lineage_ref":{"type":"string","pattern":"^lineage://[^\\s]{1,400}$"},"recorded_status":{"$ref":"#/$defs/lineageStatus"},"derived_status":{"$ref":"#/$defs/lineageStatus"},"orphan_reason":{"anyOf":[{"type":"string","enum":["owner_absent","caretaker_absent","dependency_unavailable","artifact_unavailable","health_stale","authority_stale"]},{"type":"null"}]},"installation_read_from":{"type":"string","const":"owner","description":"THE POSTURE CANNOT ANSWER THIS ONE. The lineage read model re-derives from the accountable subject, the caretaker, context leases, dependency lineages and `runtime_ref` — and not from `installation_ref`. An installation removed after binding therefore leaves a GREEN posture, so an installation knockout read through the posture would report success while measuring nothing. It is read from the owner, and the record says so."},"continuity_root":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"}}},"knockouts":{"type":"array","minItems":1,"maxItems":64,"description":"Every axis this estate can perform, each run on an admissible ablation lane and each reverted.","items":{"type":"object","additionalProperties":false,"required":["axis","lane","observation_ref","collective_degradation","baseline_degradation","reverted","changed_nothing"],"properties":{"axis":{"type":"string","enum":["participant_exit","caretaker_exit","dependency_retired","creator_session_removed","context_lease_revoked","artifact_ancestry_removed","controller_runtime_unserved","installation_unbound","verifier_invalidated","budget_exhausted","lifecycle_stop","lifecycle_quarantine","lifecycle_repair","lifecycle_replacement","lifecycle_retirement","crash_restart"]},"lane":{"type":"string","const":"cross_play_ablation","description":"The admissible ablation lane the evaluation plane already carries. A knockout does not need a lane of its own and does not get one."},"observation_ref":{"$ref":"#/$defs/ref"},"collective_degradation":{"type":"number"},"baseline_degradation":{"type":"number"},"reverted":{"type":"boolean","const":true,"description":"A knockout that did not revert left the tested topology in place, and the live composition is then the ablated one rather than the one under claim."},"changed_nothing":{"type":"boolean","const":true,"description":"Judgment evidence only: the knockout rewrote no topology, revoked no participant, activated no controller, installed no artifact and promoted no profile."}}}},"named_absent_knockout_axes":{"type":"array","maxItems":32,"description":"The axes canon names that this estate cannot perform, each with its reason and the owner who would make it performable. Naming them is what keeps the matrix honest in both directions.","items":{"type":"object","additionalProperties":false,"required":["axis","reason","owner_ref"],"properties":{"axis":{"type":"string","enum":["communication_edge","role_removed","lease_expired","disclosure_overhead","verification_overhead"]},"reason":{"type":"string","minLength":24,"maxLength":600},"owner_ref":{"$ref":"#/$defs/ref"}}}},"grants_no_authority":{"type":"boolean","const":true},"promotes_nothing":{"type":"boolean","const":true},"activates_nothing":{"type":"boolean","const":true},"rewrites_no_topology":{"type":"boolean","const":true},"judged_at":{"$ref":"#/$defs/timestamp"},"system_binding":{"$ref":"#/$defs/systemBinding","description":"DERIVED BY THE SEAM, NEVER AUTHORED — absent on the wire the caller sends, an object on the record the seam admits."},"verdict_root":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$","description":"SHA-256 over JCS of every member except this one and the seam binding. It seals the whole judgment; the result and continuity roots inside it seal their two halves SEPARATELY, so a reader can take either without the other."}},"$defs":{"ref":{"type":"string","pattern":"^[a-z][a-z0-9+.-]*://[^ ]{1,480}$"},"lineageStatus":{"type":"string","enum":["observed","reused","forked","installed","active","stopped","quarantined","repairing","replaced","retired"]},"systemBinding":{"type":"object","additionalProperties":false,"required":["schema_version","system_id","parent_scope_ref","proposed_or_issued_by_ref","payload_root","created_at","updated_at"],"properties":{"schema_version":{"const":"ioi.foundations.system-scoped-object-binding.v1"},"system_id":{"type":"string","pattern":"^system://[^\\s]{1,500}$"},"parent_scope_ref":{"type":"string","pattern":"^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"},"proposed_or_issued_by_ref":{"type":"string","pattern":"^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"},"payload_root":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"},"created_at":{"$ref":"#/$defs/timestamp"},"updated_at":{"anyOf":[{"$ref":"#/$defs/timestamp"},{"type":"null"}]}}},"timestamp":{"type":"string","pattern":"^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$"}}}"##),
 ];
 
 const CONTRACT_INVARIANTS: &[(&str, &str)] = &[
@@ -204687,7 +207283,9 @@ const CONTRACT_INVARIANTS: &[(&str, &str)] = &[
     ("schema://ioi/components/connectors-tools/mcp-gateway-requirement-envelope/v1", r#"[{"rule_id":"mcp_gateway_requirement_envelope.revision_belongs_to_its_own_family","description":"The revision ref is this requirement's own id plus a revision. A revision filed under another family's id is how a consumer pins requirement A and resolves requirement B's ceiling — and both documents look correct in isolation, which is why the schema cannot catch it and this rule must.","expression":{"operator":"field_starts_with_path","path":"$.revision_ref","prefix":"mcp-gateway-requirement://","expected_path":"$.requirement_id","strip_prefix":"mcp-gateway-requirement://","suffix":"/revision/"}},{"rule_id":"mcp_gateway_requirement_envelope.a_released_requirement_names_the_consumers_it_is_written_for","description":"A released requirement with no consumer class is a ceiling for nobody, and the natural reading of 'nobody' at an admission boundary is 'anybody'. A draft may still be incomplete; a released one may not.","expression":{"operator":"non_empty_when_in","path":"$.consumer_class_refs","when_path":"$.registry_status","values":["released","deprecated"]}},{"rule_id":"mcp_gateway_requirement_envelope.a_released_requirement_names_its_registry_lifecycle","description":"Status is an EXCLUDED projection — it does not enter the content hash — so the lifecycle ref is what ties a status to a record somewhere that can be read back. Without it, `released` is a word the document applied to itself.","expression":{"operator":"non_empty_when_in","path":"$.registry_lifecycle_ref","when_path":"$.registry_status","values":["released","deprecated","revoked"]}}]"#),
     ("schema://ioi/components/connectors-tools/hypervisor-mcp-gateway-profile/v1", r#"[{"rule_id":"hypervisor_mcp_gateway_profile.revision_belongs_to_its_own_family","description":"The revision ref is the profile's own identity plus a revision, not a ref that merely looks like one. A revision under a DIFFERENT family id is how a narrowed successor of profile A gets stored as a revision of profile B and then resolves for B's subject — a substitution no hash catches, because both documents are internally consistent. JSON Schema can enforce the shape of each member separately and cannot enforce that the two agree; this is the rule that makes them agree.","expression":{"operator":"field_starts_with_path","path":"$.profile_revision_ref","prefix":"mcp-gateway://","expected_path":"$.gateway_profile_id","strip_prefix":"mcp-gateway://","suffix":"/revision/"}},{"rule_id":"hypervisor_mcp_gateway_profile.an_admitted_profile_names_its_admission","description":"Canon's rule is that a profile is issued AFTER its required admission, and the boolean member that says so is only as good as the decision and receipt it points at. An admitted profile with no decision ref or no receipt ref is a profile that asserts its own admission — the exact shape of claim this estate refuses everywhere else.","expression":{"operator":"non_empty_when_in","path":"$.admission_decision_ref","when_path":"$.status","values":["active","suspended","quarantined","expired","revoked"]}},{"rule_id":"hypervisor_mcp_gateway_profile.an_admitted_profile_names_its_admission_receipt","description":"The receipt half of the same rule. A decision without a receipt is a record of intent; the receipt is what a relying party replays.","expression":{"operator":"non_empty_when_in","path":"$.admission_receipt_ref","when_path":"$.status","values":["active","suspended","quarantined","expired","revoked"]}},{"rule_id":"hypervisor_mcp_gateway_profile.a_revoked_profile_names_its_revocation","description":"Revocation is an excluded lifecycle projection, which is exactly why it must carry its own ref: the content hash does not move when a profile is revoked, so the revocation ref is the only thing on the document that distinguishes a revoked profile from the active one it used to be.","expression":{"operator":"non_empty_when_in","path":"$.revocation_ref","when_path":"$.status","values":["revoked"]}},{"rule_id":"hypervisor_mcp_gateway_profile.a_room_guest_names_the_room_that_admitted_it","description":"`admission_basis: room_guest` is a claim about WHERE the subject was admitted. Without the admission decision that admitted it, the basis is a word the profile chose for itself, and a subject with no room could carry it.","expression":{"operator":"non_empty_when_in","path":"$.room_admission_decision_ref","when_path":"$.admission_basis","values":["room_guest"]}},{"rule_id":"hypervisor_mcp_gateway_profile.a_registered_worker_invocation_names_its_registration","description":"The other half of the same split: `registered_worker_invocation` without a worker registration ref is an unregistered worker calling itself registered.","expression":{"operator":"non_empty_when_in","path":"$.worker_registration_ref","when_path":"$.admission_basis","values":["registered_worker_invocation"]}},{"rule_id":"hypervisor_mcp_gateway_profile.a_paired_local_harness_names_its_candidate_key","description":"A local-harness audience is admitted by a pairing proof, and the candidate public key is what binds the proof to the process that will call. An audience of `local_harness` with no candidate key is a pairing nobody can check.","expression":{"operator":"non_empty_when_in","path":"$.candidate_public_key_ref","when_path":"$.audience","values":["local_harness"]}},{"rule_id":"hypervisor_mcp_gateway_profile.a_paired_local_harness_names_its_pairing_session","description":"And the session the key was presented in. Canon requires the pairing session envelope; without its ref the key is a key with no occasion.","expression":{"operator":"non_empty_when_in","path":"$.local_agent_pairing_session_ref","when_path":"$.audience","values":["local_harness"]}},{"rule_id":"hypervisor_mcp_gateway_profile.exposed_tools_are_unique_by_wire_name","description":"The MCP tool name is the ONLY handle a consumer has on an exposed tool. Two entries under one name make the exposure manifest ambiguous at the exact point where it decides what a call resolves to, and the two may carry different risk classes, different backing revisions and different approval postures.","expression":{"operator":"array_unique_by_fields","fields":["mcp_tool_name"],"array_path":"$.exposed_tools"}},{"rule_id":"hypervisor_mcp_gateway_profile.exposed_resources_are_unique_by_uri","description":"The same rule one primitive over: two resource entries under one URI would let a redaction policy and a lease requirement depend on which entry a reader happened to find first.","expression":{"operator":"array_unique_by_fields","fields":["mcp_resource_uri"],"array_path":"$.exposed_resources"}}]"#),
     ("schema://ioi/components/connectors-tools/hypervisor-mcp-gateway-profile/v2", r#"[{"rule_id":"hypervisor_mcp_gateway_profile_v2.revision_belongs_to_its_own_family","description":"The revision ref is the profile's own identity plus a revision, not a ref that merely looks like one. A revision under a DIFFERENT family id is how a narrowed successor of profile A gets stored as a revision of profile B and then resolves for B's subject — a substitution no hash catches, because both documents are internally consistent. JSON Schema can enforce the shape of each member separately and cannot enforce that the two agree; this is the rule that makes them agree.","expression":{"operator":"field_starts_with_path","path":"$.profile_revision_ref","prefix":"mcp-gateway://","expected_path":"$.gateway_profile_id","strip_prefix":"mcp-gateway://","suffix":"/revision/"}},{"rule_id":"hypervisor_mcp_gateway_profile_v2.an_admitted_profile_names_its_admission","description":"Canon's rule is that a profile is issued AFTER its required admission, and the boolean member that says so is only as good as the decision and receipt it points at. An admitted profile with no decision ref or no receipt ref is a profile that asserts its own admission — the exact shape of claim this estate refuses everywhere else.","expression":{"operator":"non_empty_when_in","path":"$.admission_decision_ref","when_path":"$.status","values":["active","suspended","quarantined","expired","revoked"]}},{"rule_id":"hypervisor_mcp_gateway_profile_v2.an_admitted_profile_names_its_admission_receipt","description":"The receipt half of the same rule. A decision without a receipt is a record of intent; the receipt is what a relying party replays.","expression":{"operator":"non_empty_when_in","path":"$.admission_receipt_ref","when_path":"$.status","values":["active","suspended","quarantined","expired","revoked"]}},{"rule_id":"hypervisor_mcp_gateway_profile_v2.a_revoked_profile_names_its_revocation","description":"Revocation is an excluded lifecycle projection, which is exactly why it must carry its own ref: the content hash does not move when a profile is revoked, so the revocation ref is the only thing on the document that distinguishes a revoked profile from the active one it used to be.","expression":{"operator":"non_empty_when_in","path":"$.revocation_ref","when_path":"$.status","values":["revoked"]}},{"rule_id":"hypervisor_mcp_gateway_profile_v2.a_room_guest_names_the_room_that_admitted_it","description":"`admission_basis: room_guest` is a claim about WHERE the subject was admitted. Without the admission decision that admitted it, the basis is a word the profile chose for itself, and a subject with no room could carry it.","expression":{"operator":"non_empty_when_in","path":"$.room_admission_decision_ref","when_path":"$.admission_basis","values":["room_guest"]}},{"rule_id":"hypervisor_mcp_gateway_profile_v2.a_registered_worker_invocation_names_its_registration","description":"The other half of the same split: `registered_worker_invocation` without a worker registration ref is an unregistered worker calling itself registered.","expression":{"operator":"non_empty_when_in","path":"$.worker_registration_ref","when_path":"$.admission_basis","values":["registered_worker_invocation"]}},{"rule_id":"hypervisor_mcp_gateway_profile_v2.a_paired_local_harness_names_its_candidate_key","description":"A local-harness audience is admitted by a pairing proof, and the candidate public key is what binds the proof to the process that will call. An audience of `local_harness` with no candidate key is a pairing nobody can check.","expression":{"operator":"non_empty_when_in","path":"$.candidate_public_key_ref","when_path":"$.audience","values":["local_harness"]}},{"rule_id":"hypervisor_mcp_gateway_profile_v2.a_paired_local_harness_names_its_pairing_session","description":"And the session the key was presented in. Canon requires the pairing session envelope; without its ref the key is a key with no occasion.","expression":{"operator":"non_empty_when_in","path":"$.local_agent_pairing_session_ref","when_path":"$.audience","values":["local_harness"]}},{"rule_id":"hypervisor_mcp_gateway_profile_v2.exposed_tools_are_unique_by_wire_name","description":"The MCP tool name is the ONLY handle a consumer has on an exposed tool. Two entries under one name make the exposure manifest ambiguous at the exact point where it decides what a call resolves to, and the two may carry different risk classes, different backing revisions and different approval postures.","expression":{"operator":"array_unique_by_fields","fields":["mcp_tool_name"],"array_path":"$.exposed_tools"}},{"rule_id":"hypervisor_mcp_gateway_profile_v2.exposed_resources_are_unique_by_uri","description":"The same rule one primitive over: two resource entries under one URI would let a redaction policy and a lease requirement depend on which entry a reader happened to find first.","expression":{"operator":"array_unique_by_fields","fields":["mcp_resource_uri"],"array_path":"$.exposed_resources"}},{"rule_id":"hypervisor_mcp_gateway_profile_v2.the_builder_surface_names_the_invocation_it_runs_in","description":"`capability_construction_eval` is the one kind whose whole claim is equivalence with the native path FOR ONE INVOCATION. A builder profile with no invocation scope is scoped to every invocation the subject can reach, which is the widening the kind exists to prevent — and it is the member that makes the native-versus-MCP comparison a comparison of the same thing rather than of two runs.","expression":{"operator":"non_empty_when_in","path":"$.invocation_scope_refs","when_path":"$.profile_kind","values":["capability_construction_eval"]}}]"#),
-    ("schema://ioi/applications/ioi-ai/collective-qualification-estimand/v1", r#"[{"rule_id":"collective_qualification_estimand.a_resilience_or_independence_claim_names_its_axes","description":"Resilience and independence are claims ABOUT something being removed: that the collective degrades less than the baseline under a named knockout, or that its result does not depend on a named participant, edge or artifact. With no axis named there is no claim to confirm, and a run against such an estimand would confirm whatever it happened to measure. The JSON Schema enforces this too through its conditional branch; the portable rule is the same law in the language a consumer that does not run JSON Schema reads.","expression":{"operator":"non_empty_when_in","path":"$.knockout_axis_refs","when_path":"$.estimand_kind","values":["resilience","independence"]}},{"rule_id":"collective_qualification_estimand.the_decision_rule_is_written_out","description":"The decision rule is the whole point of declaring in advance: it says which reading of the two arms confirms the estimand and which fails it. A record that names a metric and a minimum effect but no rule leaves the reading to whoever holds the results, which is the fitting this contract exists to prevent.","expression":{"operator":"non_empty","path":"$.decision_rule"}},{"rule_id":"collective_qualification_estimand.the_estimand_names_the_system_it_was_admitted_under","description":"This is an application record on the generic System-record seam rather than a Hypervisor family, because the evaluation plane may not read an orchestration application's records. The System binding is what makes it resolvable at all, and an estimand admitted under no System is a declaration with no admitting authority behind it.","expression":{"operator":"non_empty","path":"$.system_binding"}}]"#),
+    ("schema://ioi/applications/ioi-ai/collective-qualification-estimand/v1", r#"[{"rule_id":"collective_qualification_estimand.identity.matches","description":"ONE RECORD, ONE IDENTITY. The record seam resolves a record's identity from the single member whose name ends in `_id` and whose value is the object_id it was posted under; every other record points at this one by `estimand_ref`. If the two could differ, a record could be admitted under one identity and pointed at by another, and the pointer would resolve to something the seam never admitted. This is the same law the collective-resolution receipt carries, for the same reason.","expression":{"operator":"fields_equal","paths":["$.estimand_id","$.estimand_ref"]}},{"rule_id":"collective_qualification_estimand.a_resilience_or_independence_claim_names_its_axes","description":"Resilience and independence are claims ABOUT something being removed: that the collective degrades less than the baseline under a named knockout, or that its result does not depend on a named participant, edge or artifact. With no axis named there is no claim to confirm, and a run against such an estimand would confirm whatever it happened to measure. The JSON Schema enforces this too through its conditional branch; the portable rule is the same law in the language a consumer that does not run JSON Schema reads.","expression":{"operator":"non_empty_when_in","path":"$.knockout_axis_refs","when_path":"$.estimand_kind","values":["resilience","independence"]}},{"rule_id":"collective_qualification_estimand.the_decision_rule_is_written_out","description":"The decision rule is the whole point of declaring in advance: it says which reading of the two arms confirms the estimand and which fails it. A record that names a metric and a minimum effect but no rule leaves the reading to whoever holds the results, which is the fitting this contract exists to prevent.","expression":{"operator":"non_empty","path":"$.decision_rule"}},{"rule_id":"collective_qualification_estimand.the_quantity_names_the_metric_it_measures","description":"An aggregation and a unit with no metric behind them describe the shape of a number and not the thing counted — 'the mean of something, per second'. The metric ref is what makes the estimand point at a measurement a later run can actually take, and a consumer that does not run JSON Schema must refuse its absence too.","expression":{"operator":"non_empty","path":"$.quantity.metric_ref"}},{"rule_id":"collective_qualification_estimand.root.recomputes","description":"DECLARING IN ADVANCE ONLY MEANS SOMETHING IF THE DECLARATION CANNOT MOVE. The epoch freezes the estimand's REF, which pins the name and not the content; this root pins the content, so an estimand whose minimum effect or decision rule was edited once results existed no longer recomputes and is refused by this rule's own name.","expression":{"operator":"jcs_sha256_equals","algorithm":"jcs_sha256","expected_path":"$.estimand_root","expected_encoding":"sha256_string","material_fields":{"schema_version":{"path":"$.schema_version"},"estimand_id":{"path":"$.estimand_id"},"estimand_ref":{"path":"$.estimand_ref"},"estimand_kind":{"path":"$.estimand_kind"},"quantity":{"path":"$.quantity"},"direction":{"path":"$.direction"},"minimum_effect":{"path":"$.minimum_effect"},"cost_normalization":{"path":"$.cost_normalization"},"decision_rule":{"path":"$.decision_rule"},"knockout_axis_refs":{"path":"$.knockout_axis_refs"},"declared_at":{"path":"$.declared_at"},"declared_before_epoch_freeze":{"path":"$.declared_before_epoch_freeze"},"epoch_ref":{"path":"$.epoch_ref"},"qualifies_nothing_on_its_own":{"path":"$.qualifies_nothing_on_its_own"}}}}]"#),
+    ("schema://ioi/applications/ioi-ai/collective-baseline-pairing/v1", r#"[{"rule_id":"collective_baseline_pairing.identity.matches","description":"ONE RECORD, ONE IDENTITY. The record seam resolves a record's identity from the single member whose name ends in `_id` and whose value is the object_id it was posted under; every other record points at this one by `pairing_ref`. If the two could differ, a record could be admitted under one identity and pointed at by another, and the pointer would resolve to something the seam never admitted. This is the same law the collective-resolution receipt carries, for the same reason.","expression":{"operator":"fields_equal","paths":["$.pairing_id","$.pairing_ref"]}},{"rule_id":"collective_baseline_pairing.axis_task.matches","description":"The two arms ran the same task distribution. Each match axis gets a rule of its OWN rather than one rule over all eight, because the name of the rule that fires is the finding: a reader learns that the baseline had a different task set, not merely that the pairing was 'unmatched'. JSON Schema cannot compare two of a record's own members, so this law exists only here — the schema can require the proofs, and only the invariant can require that they agree.","expression":{"operator":"fields_equal","paths":["$.axis_proofs.task.collective_root","$.axis_proofs.task.baseline_root"]}},{"rule_id":"collective_baseline_pairing.axis_authority.matches","description":"The two arms held the same authority. An arm with more authority than its comparator wins by permission rather than by cooperation, and the surplus measures the grant.","expression":{"operator":"fields_equal","paths":["$.axis_proofs.authority.collective_root","$.axis_proofs.authority.baseline_root"]}},{"rule_id":"collective_baseline_pairing.axis_context.matches","description":"The two arms were given the same context. Context is the cheapest axis to differ on by accident and among the most decisive, since a richer context makes a weaker method look stronger.","expression":{"operator":"fields_equal","paths":["$.axis_proofs.context.collective_root","$.axis_proofs.context.baseline_root"]}},{"rule_id":"collective_baseline_pairing.axis_tool.matches","description":"The two arms had the same tools. A collective holding a tool the baseline lacks is a comparison between toolsets wearing the name of a comparison between compositions.","expression":{"operator":"fields_equal","paths":["$.axis_proofs.tool.collective_root","$.axis_proofs.tool.baseline_root"]}},{"rule_id":"collective_baseline_pairing.axis_environment.matches","description":"The two arms ran in the same environment.","expression":{"operator":"fields_equal","paths":["$.axis_proofs.environment.collective_root","$.axis_proofs.environment.baseline_root"]}},{"rule_id":"collective_baseline_pairing.axis_budget.matches","description":"The two arms were given the same budget. This is the axis canon's 'earns its complexity' sentence turns on: a collective that simply spent more has demonstrated spending.","expression":{"operator":"fields_equal","paths":["$.axis_proofs.budget.collective_root","$.axis_proofs.budget.baseline_root"]}},{"rule_id":"collective_baseline_pairing.axis_time.matches","description":"The two arms were given the same time.","expression":{"operator":"fields_equal","paths":["$.axis_proofs.time.collective_root","$.axis_proofs.time.baseline_root"]}},{"rule_id":"collective_baseline_pairing.axis_verifier_posture.matches","description":"The two arms were judged under the same verifier posture. An arm graded by a laxer verifier scores better at nothing, and this is the axis where the difference is invisible in the arms themselves.","expression":{"operator":"fields_equal","paths":["$.axis_proofs.verifier_posture.collective_root","$.axis_proofs.verifier_posture.baseline_root"]}},{"rule_id":"collective_baseline_pairing.positive_control.passes_no_more_than_it_ran","description":"THE POSITIVE CONTROL IS A REAL MEASUREMENT, not a number chosen to clear the bar. The schema already requires at least one pass — a baseline that failed everything would make any collective look good, which is the cheapest way to manufacture a surplus — and this rule adds the other bound: it cannot have passed more cases than it ran.","expression":{"operator":"numbers_lte","paths":["$.baseline_positive_control.matched_cases_passed","$.baseline_positive_control.matched_cases_total"]}},{"rule_id":"collective_baseline_pairing.arms.are_not_one_composition","description":"A pairing whose two arms name the same orchestration scope compares a composition with itself, and every axis matches trivially. This is the degenerate pairing the eight axis rules cannot catch, because it satisfies all of them.","expression":{"operator":"fields_not_equal","paths":["$.collective_arm.composition_ref","$.baseline_arm.composition_ref"]}},{"rule_id":"collective_baseline_pairing.root.recomputes","description":"The pairing root commits the arms, every axis proof, the positive control and the rationale, so a relying party can recompute the declaration from the pairing alone and see that it did not move after the arms ran.","expression":{"operator":"jcs_sha256_equals","algorithm":"jcs_sha256","expected_path":"$.pairing_root","expected_encoding":"sha256_string","material_fields":{"schema_version":{"path":"$.schema_version"},"pairing_id":{"path":"$.pairing_id"},"pairing_ref":{"path":"$.pairing_ref"},"estimand_ref":{"path":"$.estimand_ref"},"collective_arm":{"path":"$.collective_arm"},"baseline_arm":{"path":"$.baseline_arm"},"declared_match_axes":{"path":"$.declared_match_axes"},"axis_proofs":{"path":"$.axis_proofs"},"baseline_positive_control":{"path":"$.baseline_positive_control"},"cheaper_baseline_rationale":{"path":"$.cheaper_baseline_rationale"},"declared_before_either_arm_ran":{"path":"$.declared_before_either_arm_ran"},"epoch_ref":{"path":"$.epoch_ref"},"declared_at":{"path":"$.declared_at"}}}}]"#),
+    ("schema://ioi/applications/ioi-ai/collective-qualification-verdict/v1", r#"[{"rule_id":"collective_qualification_verdict.identity.matches","description":"ONE RECORD, ONE IDENTITY. The record seam resolves a record's identity from the single member whose name ends in `_id` and whose value is the object_id it was posted under; every other record points at this one by `verdict_ref`. If the two could differ, a record could be admitted under one identity and pointed at by another, and the pointer would resolve to something the seam never admitted. This is the same law the collective-resolution receipt carries, for the same reason.","expression":{"operator":"fields_equal","paths":["$.verdict_id","$.verdict_ref"]}},{"rule_id":"collective_qualification_verdict.result_and_continuity.are_separately_rooted","description":"THE CONFLATION THIS UNIT EXISTS TO REFUSE, refused on the wire. Result robustness and controller continuity are two claims with two sources: the result is read from evaluation results, continuity from the lineage's posture and its owners. One root over both would mean neither could be taken without the other, and a healthy runtime would travel with a good answer. Canon says both halves out loud — an accepted result may survive after a runtime must stop, and a healthy runtime proves neither result quality nor current authority — so the two roots are never equal.","expression":{"operator":"fields_not_equal","paths":["$.result_evidence.result_root","$.controller_continuity.continuity_root"]}},{"rule_id":"collective_qualification_verdict.qualified.names_its_basis","description":"A verdict of `qualified` with no basis is a claim with no reason. The enum already forbids the four canon refuses — a participant count, an unmatched aggregate score, an active ArtifactRef and a surviving process — so this rule only has to require that SOMETHING admissible was named. The two refusals together are what make `qualified` mean anything.","expression":{"operator":"non_empty_when_in","path":"$.qualified_on","when_path":"$.outcome","values":["qualified"]}},{"rule_id":"collective_qualification_verdict.qualified.rests_on_results_it_names","description":"A qualified verdict names the evaluation results its effect was read from. Without them the observed effect is a number this record asserts about itself, which is the unmatched aggregate score under a different name.","expression":{"operator":"non_empty_when_in","path":"$.result_evidence.result_refs","when_path":"$.outcome","values":["qualified"]}},{"rule_id":"collective_qualification_verdict.knockouts.are_one_per_axis","description":"Each axis is knocked out once. Two entries for one axis let a failing run be reported beside a passing one and the matrix still read as complete.","expression":{"operator":"array_unique_by_fields","array_path":"$.knockouts","fields":["axis"]}},{"rule_id":"collective_qualification_verdict.absent_axes.are_named_once","description":"Each unperformable axis is named once, with its reason and its owner. A matrix that is honest about what it cannot do is what keeps the executable half from being read as the whole.","expression":{"operator":"array_unique_by_fields","array_path":"$.named_absent_knockout_axes","fields":["axis"]}},{"rule_id":"collective_qualification_verdict.root.recomputes","description":"The verdict root commits the estimand and pairing it was read against, the epoch it came out of, the outcome and its basis, both halves with their own roots, the whole knockout matrix in both directions and the four never-clauses — so a relying party can recompute the judgment from the verdict alone.","expression":{"operator":"jcs_sha256_equals","algorithm":"jcs_sha256","expected_path":"$.verdict_root","expected_encoding":"sha256_string","material_fields":{"schema_version":{"path":"$.schema_version"},"verdict_id":{"path":"$.verdict_id"},"verdict_ref":{"path":"$.verdict_ref"},"estimand_ref":{"path":"$.estimand_ref"},"pairing_ref":{"path":"$.pairing_ref"},"epoch_ref":{"path":"$.epoch_ref"},"outcome":{"path":"$.outcome"},"qualified_on":{"path":"$.qualified_on"},"result_evidence":{"path":"$.result_evidence"},"controller_continuity":{"path":"$.controller_continuity"},"knockouts":{"path":"$.knockouts"},"named_absent_knockout_axes":{"path":"$.named_absent_knockout_axes"},"grants_no_authority":{"path":"$.grants_no_authority"},"promotes_nothing":{"path":"$.promotes_nothing"},"activates_nothing":{"path":"$.activates_nothing"},"rewrites_no_topology":{"path":"$.rewrites_no_topology"},"judged_at":{"path":"$.judged_at"}}}}]"#),
 ];
 
 const CONTRACT_PATTERN_TRANSLATIONS: &[(&str, &str)] = &[
@@ -207487,6 +210085,10 @@ const CONTRACT_PATTERN_TRANSLATIONS: &[(&str, &str)] = &[
         r#"^lifecycle:[^\u{0009}-\u{000D}\u{0020}\u{00A0}\u{1680}\u{2000}-\u{200A}\u{2028}\u{2029}\u{202F}\u{205F}\u{3000}\u{FEFF}]{1,500}$"#,
     ),
     (
+        r#"^lineage://[^\s]{1,400}$"#,
+        r#"^lineage://[^\u{0009}-\u{000D}\u{0020}\u{00A0}\u{1680}\u{2000}-\u{200A}\u{2028}\u{2029}\u{202F}\u{205F}\u{3000}\u{FEFF}]{1,400}$"#,
+    ),
+    (
         r#"^lineage://\S+$"#,
         r#"^lineage://[^\u{0009}-\u{000D}\u{0020}\u{00A0}\u{1680}\u{2000}-\u{200A}\u{2028}\u{2029}\u{202F}\u{205F}\u{3000}\u{FEFF}]+$"#,
     ),
@@ -207887,6 +210489,10 @@ const CONTRACT_PATTERN_TRANSLATIONS: &[(&str, &str)] = &[
         r#"^packet://[^\u{0009}-\u{000D}\u{0020}\u{00A0}\u{1680}\u{2000}-\u{200A}\u{2028}\u{2029}\u{202F}\u{205F}\u{3000}\u{FEFF}]{1,500}$"#,
     ),
     (
+        r#"^pairing://[^\s?#\\]{1,200}$"#,
+        r#"^pairing://[^\u{0009}-\u{000D}\u{0020}\u{00A0}\u{1680}\u{2000}-\u{200A}\u{2028}\u{2029}\u{202F}\u{205F}\u{3000}\u{FEFF}?#\\]{1,200}$"#,
+    ),
+    (
         r#"^participant-lease://[^\s]{1,500}$"#,
         r#"^participant-lease://[^\u{0009}-\u{000D}\u{0020}\u{00A0}\u{1680}\u{2000}-\u{200A}\u{2028}\u{2029}\u{202F}\u{205F}\u{3000}\u{FEFF}]{1,500}$"#,
     ),
@@ -208057,6 +210663,10 @@ const CONTRACT_PATTERN_TRANSLATIONS: &[(&str, &str)] = &[
     (
         r#"^qualification-proposal://foundry/[^\s]{1,500}$"#,
         r#"^qualification-proposal://foundry/[^\u{0009}-\u{000D}\u{0020}\u{00A0}\u{1680}\u{2000}-\u{200A}\u{2028}\u{2029}\u{202F}\u{205F}\u{3000}\u{FEFF}]{1,500}$"#,
+    ),
+    (
+        r#"^qualification://[^\s?#\\]{1,200}$"#,
+        r#"^qualification://[^\u{0009}-\u{000D}\u{0020}\u{00A0}\u{1680}\u{2000}-\u{200A}\u{2028}\u{2029}\u{202F}\u{205F}\u{3000}\u{FEFF}?#\\]{1,200}$"#,
     ),
     (
         r#"^query://hypervisor/\S+$"#,
@@ -211836,11 +214446,50 @@ mod tests {
     ("docs/architecture/_meta/schemas/fixtures/collective-qualification-estimand-v1/negative-declared-after-the-freeze.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/collective-qualification-estimand-v1/negative-declared-after-the-freeze.json"))),
     ("docs/architecture/_meta/schemas/fixtures/collective-qualification-estimand-v1/negative-direction-outside-the-set.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/collective-qualification-estimand-v1/negative-direction-outside-the-set.json"))),
     ("docs/architecture/_meta/schemas/fixtures/collective-qualification-estimand-v1/negative-estimand-ref-off-scheme.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/collective-qualification-estimand-v1/negative-estimand-ref-off-scheme.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/collective-qualification-estimand-v1/negative-identity-and-pointer-disagree.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/collective-qualification-estimand-v1/negative-identity-and-pointer-disagree.json"))),
     ("docs/architecture/_meta/schemas/fixtures/collective-qualification-estimand-v1/negative-no-decision-rule.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/collective-qualification-estimand-v1/negative-no-decision-rule.json"))),
     ("docs/architecture/_meta/schemas/fixtures/collective-qualification-estimand-v1/negative-no-minimum-effect.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/collective-qualification-estimand-v1/negative-no-minimum-effect.json"))),
     ("docs/architecture/_meta/schemas/fixtures/collective-qualification-estimand-v1/negative-resilience-with-no-axis.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/collective-qualification-estimand-v1/negative-resilience-with-no-axis.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/collective-qualification-estimand-v1/negative-root-does-not-recompute.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/collective-qualification-estimand-v1/negative-root-does-not-recompute.json"))),
     ("docs/architecture/_meta/schemas/fixtures/collective-qualification-estimand-v1/negative-unknown-estimand-kind.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/collective-qualification-estimand-v1/negative-unknown-estimand-kind.json"))),
     ("docs/architecture/_meta/schemas/fixtures/collective-qualification-estimand-v1/negative-unknown-member.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/collective-qualification-estimand-v1/negative-unknown-member.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/collective-baseline-pairing-v1/positive-matched-on-all-eight-axes.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/collective-baseline-pairing-v1/positive-matched-on-all-eight-axes.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/collective-baseline-pairing-v1/positive-one-goal-run-as-the-cheaper-arm.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/collective-baseline-pairing-v1/positive-one-goal-run-as-the-cheaper-arm.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/collective-baseline-pairing-v1/negative-a-caller-authored-system-binding.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/collective-baseline-pairing-v1/negative-a-caller-authored-system-binding.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/collective-baseline-pairing-v1/negative-assembled-after-the-arms-ran.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/collective-baseline-pairing-v1/negative-assembled-after-the-arms-ran.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/collective-baseline-pairing-v1/negative-both-arms-are-one-composition.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/collective-baseline-pairing-v1/negative-both-arms-are-one-composition.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/collective-baseline-pairing-v1/negative-identity-and-pointer-disagree.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/collective-baseline-pairing-v1/negative-identity-and-pointer-disagree.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/collective-baseline-pairing-v1/negative-no-baseline-positive-control.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/collective-baseline-pairing-v1/negative-no-baseline-positive-control.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/collective-baseline-pairing-v1/negative-no-cheaper-baseline-rationale.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/collective-baseline-pairing-v1/negative-no-cheaper-baseline-rationale.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/collective-baseline-pairing-v1/negative-only-seven-match-axes-declared.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/collective-baseline-pairing-v1/negative-only-seven-match-axes-declared.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/collective-baseline-pairing-v1/negative-root-does-not-recompute.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/collective-baseline-pairing-v1/negative-root-does-not-recompute.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/collective-baseline-pairing-v1/negative-the-baseline-passed-nothing-at-all.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/collective-baseline-pairing-v1/negative-the-baseline-passed-nothing-at-all.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/collective-baseline-pairing-v1/negative-the-budget-axis-differs.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/collective-baseline-pairing-v1/negative-the-budget-axis-differs.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/collective-baseline-pairing-v1/negative-the-collective-arm-is-a-free-label.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/collective-baseline-pairing-v1/negative-the-collective-arm-is-a-free-label.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/collective-baseline-pairing-v1/negative-the-control-passed-more-cases-than-it-ran.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/collective-baseline-pairing-v1/negative-the-control-passed-more-cases-than-it-ran.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/collective-baseline-pairing-v1/negative-the-tool-axis-differs.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/collective-baseline-pairing-v1/negative-the-tool-axis-differs.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/collective-baseline-pairing-v1/negative-the-verifier-posture-axis-differs.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/collective-baseline-pairing-v1/negative-the-verifier-posture-axis-differs.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/collective-qualification-verdict-v1/positive-not-qualified-while-the-controller-is-perfectly-healthy.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/collective-qualification-verdict-v1/positive-not-qualified-while-the-controller-is-perfectly-healthy.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/collective-qualification-verdict-v1/positive-qualified-while-the-controller-is-already-stopped.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/collective-qualification-verdict-v1/positive-qualified-while-the-controller-is-already-stopped.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/collective-qualification-verdict-v1/negative-a-knockout-on-a-lane-of-its-own.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/collective-qualification-verdict-v1/negative-a-knockout-on-a-lane-of-its-own.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/collective-qualification-verdict-v1/negative-a-knockout-that-changed-the-live-composition.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/collective-qualification-verdict-v1/negative-a-knockout-that-changed-the-live-composition.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/collective-qualification-verdict-v1/negative-a-knockout-that-did-not-revert.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/collective-qualification-verdict-v1/negative-a-knockout-that-did-not-revert.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/collective-qualification-verdict-v1/negative-an-unperformable-axis-reported-as-performed.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/collective-qualification-verdict-v1/negative-an-unperformable-axis-reported-as-performed.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/collective-qualification-verdict-v1/negative-identity-and-pointer-disagree.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/collective-qualification-verdict-v1/negative-identity-and-pointer-disagree.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/collective-qualification-verdict-v1/negative-one-absent-axis-named-twice.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/collective-qualification-verdict-v1/negative-one-absent-axis-named-twice.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/collective-qualification-verdict-v1/negative-one-axis-knocked-out-twice.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/collective-qualification-verdict-v1/negative-one-axis-knocked-out-twice.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/collective-qualification-verdict-v1/negative-one-root-for-the-result-and-the-controller.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/collective-qualification-verdict-v1/negative-one-root-for-the-result-and-the-controller.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/collective-qualification-verdict-v1/negative-qualified-naming-no-results.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/collective-qualification-verdict-v1/negative-qualified-naming-no-results.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/collective-qualification-verdict-v1/negative-qualified-on-a-participant-count.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/collective-qualification-verdict-v1/negative-qualified-on-a-participant-count.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/collective-qualification-verdict-v1/negative-qualified-on-a-surviving-process.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/collective-qualification-verdict-v1/negative-qualified-on-a-surviving-process.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/collective-qualification-verdict-v1/negative-qualified-on-an-active-artifact.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/collective-qualification-verdict-v1/negative-qualified-on-an-active-artifact.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/collective-qualification-verdict-v1/negative-qualified-on-an-unmatched-aggregate-score.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/collective-qualification-verdict-v1/negative-qualified-on-an-unmatched-aggregate-score.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/collective-qualification-verdict-v1/negative-qualified-with-no-basis-at-all.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/collective-qualification-verdict-v1/negative-qualified-with-no-basis-at-all.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/collective-qualification-verdict-v1/negative-root-does-not-recompute.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/collective-qualification-verdict-v1/negative-root-does-not-recompute.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/collective-qualification-verdict-v1/negative-the-installation-axis-read-through-the-posture.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/collective-qualification-verdict-v1/negative-the-installation-axis-read-through-the-posture.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/collective-qualification-verdict-v1/negative-the-verdict-activates-a-controller.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/collective-qualification-verdict-v1/negative-the-verdict-activates-a-controller.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/collective-qualification-verdict-v1/negative-the-verdict-grants-authority.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/collective-qualification-verdict-v1/negative-the-verdict-grants-authority.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/collective-qualification-verdict-v1/negative-the-verdict-promotes-the-composition.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/collective-qualification-verdict-v1/negative-the-verdict-promotes-the-composition.json"))),
     ];
     const RAW_STRING_DELIMITER_REGRESSION_SCHEMA: &str =
         r####"{"const":"schema-controlled\"###literal"}"####;
@@ -213574,6 +216223,16 @@ mod tests {
         },
         "schema://ioi/applications/ioi-ai/collective-qualification-estimand/v1" => {
             serde_json::from_value::<CollectiveQualificationEstimandV1>(value.clone())
+                .map(|_| ())
+                .map_err(|error| error.to_string())
+        },
+        "schema://ioi/applications/ioi-ai/collective-baseline-pairing/v1" => {
+            serde_json::from_value::<CollectiveBaselinePairingV1>(value.clone())
+                .map(|_| ())
+                .map_err(|error| error.to_string())
+        },
+        "schema://ioi/applications/ioi-ai/collective-qualification-verdict/v1" => {
+            serde_json::from_value::<CollectiveQualificationVerdictV1>(value.clone())
                 .map(|_| ())
                 .map_err(|error| error.to_string())
         },
@@ -215313,6 +217972,16 @@ mod tests {
                 .map_err(|error| error.to_string())?;
             serde_json::to_value(projection).map_err(|error| error.to_string())
         },
+        "schema://ioi/applications/ioi-ai/collective-baseline-pairing/v1" => {
+            let projection = serde_json::from_value::<CollectiveBaselinePairingV1>(value.clone())
+                .map_err(|error| error.to_string())?;
+            serde_json::to_value(projection).map_err(|error| error.to_string())
+        },
+        "schema://ioi/applications/ioi-ai/collective-qualification-verdict/v1" => {
+            let projection = serde_json::from_value::<CollectiveQualificationVerdictV1>(value.clone())
+                .map_err(|error| error.to_string())?;
+            serde_json::to_value(projection).map_err(|error| error.to_string())
+        },
             _ => Err(format!("unknown projection: {contract_id}")),
         }
     }
@@ -215449,8 +218118,8 @@ mod tests {
     fn golden_fixtures_match_generated_rust_contracts() {
         assert_eq!(
             ARCHITECTURE_CONTRACT_FIXTURES.len(),
-            1825,
-            "the registered golden corpus must remain the explicit 1825-fixture bar",
+            1864,
+            "the registered golden corpus must remain the explicit 1864-fixture bar",
         );
         for fixture in ARCHITECTURE_CONTRACT_FIXTURES {
             let body = FIXTURE_BODIES
@@ -215692,7 +218361,7 @@ mod tests {
 
     #[test]
     fn registered_ecma_pattern_translations_compile_and_match_whitespace() {
-        assert_eq!(CONTRACT_PATTERN_TRANSLATIONS.len(), 1089,);
+        assert_eq!(CONTRACT_PATTERN_TRANSLATIONS.len(), 1092,);
         for (ecma, translated) in CONTRACT_PATTERN_TRANSLATIONS {
             Regex::new(translated).unwrap_or_else(|error| panic!("{ecma}: {error}"));
         }

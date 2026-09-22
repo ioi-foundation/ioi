@@ -1600,17 +1600,59 @@ second estimand chosen once results exist is the fitting this object prevents.
 Declaring it grants nothing, promotes nothing and qualifies no collective; it
 fixes what a later comparison will be read against.
 
+**The two arms are a declared object too, matched axis by axis.**
+[`CollectiveBaselinePairing`](../../_meta/schemas/collective-baseline-pairing.v1.schema.json)
+names each arm as a resolvable orchestration composition rather than a label,
+and carries one proof per match axis — task, authority, context, tool,
+environment, budget, time and verifier posture — with a root for each arm. The
+eight equalities are registered invariants, so a pairing whose arms differ is
+refused by the failing axis's own rule name: a reader learns that the baseline
+held a different toolset, not merely that something was "unmatched".
+
+**And the comparator must work.** A baseline that fails everything makes any
+collective look good, so the pairing carries a POSITIVE CONTROL: the matched
+cases the baseline passed on its own, and the results those passes are read
+from. Breaking the comparator is the cheapest way to manufacture a surplus, and
+a pairing that cannot show its baseline winning something is measuring the
+breakage. The cheapest adequate baseline is the bar; the cheapest baseline is
+not.
+
 **Result robustness and controller continuity are separate claims with separate
 evidence.** A healthy runtime says nothing about the quality of a collective
 result, and a good result does not entitle a controller to keep running. The
 persistent lineage's posture is a read model that only ever lowers an active
 controller to stopped or quarantined with a typed reason; it is not an input to
 an estimand, and binding it as one would create the conflation this section
-exists to refuse.
+exists to refuse. The two halves of
+[`CollectiveQualificationVerdict`](../../_meta/schemas/collective-qualification-verdict.v1.schema.json)
+therefore carry their own roots, and a verdict whose two roots are equal is
+refused: neither half could then be read without the other.
+
+**The knockout matrix is complete or its gaps are named.** Every axis this
+estate can perform is performed; every axis this section names that it cannot
+perform is carried in the verdict with the reason it cannot and the owner who
+would change that. A matrix that silently omits what it cannot do narrows the
+claim; one that reports an unperformable axis as done makes the bar
+unfalsifiable. The knockouts run on `cross_play_ablation`, the ablation lane the
+evaluation plane already admits — a knockout does not need a lane of its own.
+
+**The installation axis is read from the owner, never from the posture.** The
+lineage read model re-derives from the accountable subject, the caretaker,
+context leases, dependency lineages and the runtime ref — and not from
+`installation_ref`. An installation removed after binding therefore leaves a
+GREEN posture, so an installation knockout read through the posture reports
+success while measuring nothing. The verdict records which instrument answered.
 
 **Knockout results are judgment evidence only.** A knockout does not rewrite the
 live topology, revoke a participant, activate a controller, install an artifact
-or promote a profile. Evaluation is never activation.
+or promote a profile, and it reverts. Evaluation is never activation, and the
+verdict carries that as four clauses on the wire rather than as a convention.
+
+**"Controller" here means the runtime binding**: the persistent lineage's
+`runtime_ref` and `runtime_kind`. The `controller://` scheme elsewhere in canon
+is a different object — the embodied-runtime identity for robots, facilities,
+actuators and bridges — and knocking out a persistent controller means making
+its runtime unserved, not touching that scheme.
 
 **This is an application record.** It is admitted through the generic
 System-record seam under an ACTIVE System, not as a Hypervisor family: the

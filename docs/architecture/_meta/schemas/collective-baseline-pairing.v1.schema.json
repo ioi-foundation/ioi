@@ -1,0 +1,304 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "schema://ioi/applications/ioi-ai/collective-baseline-pairing/v1",
+  "title": "CollectiveBaselinePairing",
+  "x-ioi-schema-version": "ioi.ioi-ai.collective-baseline-pairing.v1",
+  "description": "THE TWO ARMS A COLLECTIVE CLAIM IS READ ACROSS, MATCHED AXIS BY AXIS AND DECLARED BEFORE EITHER RAN. Canon: the frozen epoch compares the exact collective composition against the cheapest adequate simpler baseline \u2014 normally a direct path or one GoalRun \u2014 under MATCHED task distribution, authority, context, tools, environment, budget, time and verifier posture. NO RECORD COULD NAME AN ARM BEFORE THIS ONE: `EvaluationRun.incumbent_ref` is a free label the plane never resolves, so \"the collective beat the incumbent\" named nothing in particular. This contract makes each arm a resolvable composition and each match axis a PROOF \u2014 one root per arm per axis, equal or the pairing is refused by the axis's own name, so a reader can tell \"the baseline had a different toolset\" from \"the baseline ran on a different day\". AND IT CARRIES A POSITIVE CONTROL, because a baseline that fails everything would make any collective look good: the cheapest way to manufacture a surplus is to break the comparator, and a pairing whose baseline passed none of the matched cases measures the breakage. A PAIRING IS NOT A RESULT: it grants nothing, runs nothing and qualifies nothing; it fixes what a later comparison is read across. Owner: domains/ioi-ai/collaborative-outcome-pattern.md \u00a7 Collective qualification (M10.9, R-222).",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "pairing_id",
+    "pairing_ref",
+    "estimand_ref",
+    "collective_arm",
+    "baseline_arm",
+    "declared_match_axes",
+    "axis_proofs",
+    "baseline_positive_control",
+    "cheaper_baseline_rationale",
+    "declared_before_either_arm_ran",
+    "declared_at",
+    "epoch_ref",
+    "pairing_root"
+  ],
+  "properties": {
+    "schema_version": {
+      "type": "string",
+      "const": "ioi.ioi-ai.collective-baseline-pairing.v1"
+    },
+    "pairing_id": {
+      "type": "string",
+      "pattern": "^pairing://[^\\s?#\\\\]{1,200}$",
+      "description": "THE IDENTITY THE RECORD SEAM ADMITS, and it must be a `*_id` member: the seam resolves a record's identity by finding the single member whose name ends in `_id` and whose value is the object_id it was posted under, and refuses the admission outright when none does. It is the same value as `pairing_ref`, which is the name every other record points at this one by, and the registered invariant holds the two equal so the pointer and the identity can never come apart."
+    },
+    "pairing_ref": {
+      "type": "string",
+      "pattern": "^pairing://[^\\s?#\\\\]{1,200}$"
+    },
+    "estimand_ref": {
+      "type": "string",
+      "pattern": "^estimand://[^\\s?#\\\\]{1,200}$",
+      "description": "The declared estimand this pairing is the comparison for. A pairing with no estimand is two arms and no claim."
+    },
+    "collective_arm": {
+      "$ref": "#/$defs/arm",
+      "description": "The EXACT collective composition \u2014 its orchestration scope and the lineages it runs \u2014 not a description of one."
+    },
+    "baseline_arm": {
+      "$ref": "#/$defs/arm",
+      "description": "The cheapest adequate simpler arm. Canon names the two shapes it normally takes: a direct path, or one GoalRun."
+    },
+    "declared_match_axes": {
+      "type": "array",
+      "minItems": 8,
+      "maxItems": 8,
+      "uniqueItems": true,
+      "items": {
+        "type": "string",
+        "enum": [
+          "task",
+          "authority",
+          "context",
+          "tool",
+          "environment",
+          "budget",
+          "time",
+          "verifier_posture"
+        ]
+      },
+      "description": "All eight, always. An axis a pairing may omit is an axis on which the two arms may silently differ, and a comparison that does not state its match axes is a comparison of two different things."
+    },
+    "axis_proofs": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "task",
+        "authority",
+        "context",
+        "tool",
+        "environment",
+        "budget",
+        "time",
+        "verifier_posture"
+      ],
+      "description": "One proof per axis, each carrying a root for EACH arm. Equality is asserted per axis by the registered invariants, so an unmatched pairing is refused at the seam by the failing axis's own rule name.",
+      "properties": {
+        "task": {
+          "$ref": "#/$defs/axisProof"
+        },
+        "authority": {
+          "$ref": "#/$defs/axisProof"
+        },
+        "context": {
+          "$ref": "#/$defs/axisProof"
+        },
+        "tool": {
+          "$ref": "#/$defs/axisProof"
+        },
+        "environment": {
+          "$ref": "#/$defs/axisProof"
+        },
+        "budget": {
+          "$ref": "#/$defs/axisProof"
+        },
+        "time": {
+          "$ref": "#/$defs/axisProof"
+        },
+        "verifier_posture": {
+          "$ref": "#/$defs/axisProof"
+        }
+      }
+    },
+    "baseline_positive_control": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "matched_cases_total",
+        "matched_cases_passed",
+        "control_result_refs"
+      ],
+      "description": "THE COMPARATOR WORKS. A degenerate baseline that fails everything makes any collective look good, so the baseline must have PASSED matched cases on its own before its losses mean anything. `matched_cases_passed` is at least one by schema and never exceeds the total by invariant.",
+      "properties": {
+        "matched_cases_total": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 1000000
+        },
+        "matched_cases_passed": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 1000000
+        },
+        "control_result_refs": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 256,
+          "uniqueItems": true,
+          "items": {
+            "$ref": "#/$defs/ref"
+          },
+          "description": "The evaluation results the control is read from \u2014 the baseline's own passes, admitted through the evaluation plane like any other."
+        }
+      }
+    },
+    "cheaper_baseline_rationale": {
+      "type": "string",
+      "minLength": 24,
+      "maxLength": 600,
+      "description": "In words, why this baseline is the CHEAPEST ADEQUATE one. Written before the run, because a baseline justified after the numbers are in is chosen for the numbers."
+    },
+    "declared_before_either_arm_ran": {
+      "type": "boolean",
+      "const": true,
+      "description": "Always true, and on the wire rather than implied. A pairing assembled once results exist is a pairing chosen for its results."
+    },
+    "epoch_ref": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/ref"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "description": "The frozen evaluation epoch this pairing was declared for, once one exists. Null while the epoch is still a draft \u2014 the pairing comes first, exactly as the estimand does."
+    },
+    "declared_at": {
+      "$ref": "#/$defs/timestamp"
+    },
+    "system_binding": {
+      "$ref": "#/$defs/systemBinding",
+      "description": "DERIVED BY THE SEAM, NEVER AUTHORED \u2014 absent on the wire the caller sends, an object on the record the seam admits. An ioi.ai application record on the generic System-record seam, never a Hypervisor family: the evaluation plane's layer law forbids a Hypervisor component from reading an orchestration application's records."
+    },
+    "pairing_root": {
+      "type": "string",
+      "pattern": "^sha256:[0-9a-f]{64}$",
+      "description": "SHA-256 over JCS of every member except this one and the seam binding."
+    }
+  },
+  "$defs": {
+    "ref": {
+      "type": "string",
+      "pattern": "^[a-z][a-z0-9+.-]*://[^ ]{1,480}$"
+    },
+    "systemBinding": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "schema_version",
+        "system_id",
+        "parent_scope_ref",
+        "proposed_or_issued_by_ref",
+        "payload_root",
+        "created_at",
+        "updated_at"
+      ],
+      "properties": {
+        "schema_version": {
+          "const": "ioi.foundations.system-scoped-object-binding.v1"
+        },
+        "system_id": {
+          "type": "string",
+          "pattern": "^system://[^\\s]{1,500}$"
+        },
+        "parent_scope_ref": {
+          "type": "string",
+          "pattern": "^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"
+        },
+        "proposed_or_issued_by_ref": {
+          "type": "string",
+          "pattern": "^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"
+        },
+        "payload_root": {
+          "type": "string",
+          "pattern": "^sha256:[0-9a-f]{64}$"
+        },
+        "created_at": {
+          "$ref": "#/$defs/timestamp"
+        },
+        "updated_at": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/timestamp"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      }
+    },
+    "arm": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "arm_kind",
+        "composition_ref",
+        "lineage_refs",
+        "participant_count"
+      ],
+      "properties": {
+        "arm_kind": {
+          "type": "string",
+          "enum": [
+            "collective",
+            "direct_path",
+            "single_goal_run"
+          ],
+          "description": "`collective` is the arm under claim; `direct_path` and `single_goal_run` are the two simpler shapes canon names."
+        },
+        "composition_ref": {
+          "type": "string",
+          "pattern": "^app-scope://ioi-ai/orchestration/[^\\s]{1,400}$",
+          "description": "The orchestration scope the arm runs under \u2014 resolvable, unlike the free label this replaces."
+        },
+        "lineage_refs": {
+          "type": "array",
+          "maxItems": 256,
+          "uniqueItems": true,
+          "items": {
+            "type": "string",
+            "pattern": "^lineage://[^\\s]{1,400}$"
+          },
+          "description": "The persistent executable lineages the arm runs. Empty for a direct path that persists nothing."
+        },
+        "participant_count": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 4096,
+          "description": "Recorded because the comparison needs to say how many there were \u2014 and NEVER read as evidence. A count is an input; canon refuses it as proof, and the qualification verdict's own contract refuses a verdict resting on it."
+        }
+      }
+    },
+    "axisProof": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "collective_root",
+        "baseline_root",
+        "derived_from"
+      ],
+      "properties": {
+        "collective_root": {
+          "type": "string",
+          "pattern": "^sha256:[0-9a-f]{64}$"
+        },
+        "baseline_root": {
+          "type": "string",
+          "pattern": "^sha256:[0-9a-f]{64}$"
+        },
+        "derived_from": {
+          "type": "string",
+          "minLength": 8,
+          "maxLength": 240,
+          "description": "What was hashed to get the two roots, so a reader can re-derive them instead of trusting them."
+        }
+      }
+    },
+    "timestamp": {
+      "type": "string",
+      "pattern": "^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$"
+    }
+  }
+}

@@ -20278,6 +20278,10 @@
           "expected_failure": "schema"
         },
         {
+          "path": "fixtures/collective-qualification-estimand-v1/negative-identity-and-pointer-disagree.json",
+          "expected_failure": "invariant"
+        },
+        {
           "path": "fixtures/collective-qualification-estimand-v1/negative-no-decision-rule.json",
           "expected_failure": "schema"
         },
@@ -20290,11 +20294,237 @@
           "expected_failure": "schema"
         },
         {
+          "path": "fixtures/collective-qualification-estimand-v1/negative-root-does-not-recompute.json",
+          "expected_failure": "invariant"
+        },
+        {
           "path": "fixtures/collective-qualification-estimand-v1/negative-unknown-estimand-kind.json",
           "expected_failure": "schema"
         },
         {
           "path": "fixtures/collective-qualification-estimand-v1/negative-unknown-member.json",
+          "expected_failure": "schema"
+        }
+      ]
+    },
+    {
+      "contract_id": "schema://ioi/applications/ioi-ai/collective-baseline-pairing/v1",
+      "canonical_name": "CollectiveBaselinePairing",
+      "canonical_owner_ref": "canon://docs/architecture/domains/ioi-ai/collaborative-outcome-pattern.md#collective-qualification",
+      "schema_version": "ioi.ioi-ai.collective-baseline-pairing.v1",
+      "maturity": "partial",
+      "stability": "provisional",
+      "wire_format": "json",
+      "canonical_encoding_profile_ref": "encoding-profile://ioi/jcs-json/v1",
+      "evolution": {
+        "successor_of": null,
+        "successor_contract_id": null,
+        "compatibility": "initial",
+        "migration_policy": "none",
+        "predecessor_remains_valid": false,
+        "wire_mutation_policy": "forbidden",
+        "hash_impact": "signature_preimage_changed"
+      },
+      "schema_ref": "collective-baseline-pairing.v1.schema.json",
+      "cross_field_invariant_refs": [
+        {
+          "invariant_id": "invariant://ioi/applications/ioi-ai/collective-baseline-pairing/matched-or-refused-by-the-axis-that-differs/v1",
+          "path": "invariants/collective-baseline-pairing.v1.invariants.json"
+        }
+      ],
+      "compatibility_aliases": [],
+      "generated_targets": [
+        {
+          "kind": "typescript_projection",
+          "path": "packages/hypervisor-workbench/src/runtime/generated/architecture-contracts.ts",
+          "symbol": "CollectiveBaselinePairingV1"
+        },
+        {
+          "kind": "rust_projection",
+          "path": "crates/types/src/app/generated/architecture_contracts.rs",
+          "symbol": "CollectiveBaselinePairingV1"
+        }
+      ],
+      "positive_fixture_refs": [
+        "fixtures/collective-baseline-pairing-v1/positive-matched-on-all-eight-axes.json",
+        "fixtures/collective-baseline-pairing-v1/positive-one-goal-run-as-the-cheaper-arm.json"
+      ],
+      "negative_fixture_refs": [
+        {
+          "path": "fixtures/collective-baseline-pairing-v1/negative-a-caller-authored-system-binding.json",
+          "expected_failure": "schema"
+        },
+        {
+          "path": "fixtures/collective-baseline-pairing-v1/negative-assembled-after-the-arms-ran.json",
+          "expected_failure": "schema"
+        },
+        {
+          "path": "fixtures/collective-baseline-pairing-v1/negative-both-arms-are-one-composition.json",
+          "expected_failure": "invariant"
+        },
+        {
+          "path": "fixtures/collective-baseline-pairing-v1/negative-identity-and-pointer-disagree.json",
+          "expected_failure": "invariant"
+        },
+        {
+          "path": "fixtures/collective-baseline-pairing-v1/negative-no-baseline-positive-control.json",
+          "expected_failure": "schema"
+        },
+        {
+          "path": "fixtures/collective-baseline-pairing-v1/negative-no-cheaper-baseline-rationale.json",
+          "expected_failure": "schema"
+        },
+        {
+          "path": "fixtures/collective-baseline-pairing-v1/negative-only-seven-match-axes-declared.json",
+          "expected_failure": "schema"
+        },
+        {
+          "path": "fixtures/collective-baseline-pairing-v1/negative-root-does-not-recompute.json",
+          "expected_failure": "invariant"
+        },
+        {
+          "path": "fixtures/collective-baseline-pairing-v1/negative-the-baseline-passed-nothing-at-all.json",
+          "expected_failure": "schema"
+        },
+        {
+          "path": "fixtures/collective-baseline-pairing-v1/negative-the-budget-axis-differs.json",
+          "expected_failure": "invariant"
+        },
+        {
+          "path": "fixtures/collective-baseline-pairing-v1/negative-the-collective-arm-is-a-free-label.json",
+          "expected_failure": "schema"
+        },
+        {
+          "path": "fixtures/collective-baseline-pairing-v1/negative-the-control-passed-more-cases-than-it-ran.json",
+          "expected_failure": "invariant"
+        },
+        {
+          "path": "fixtures/collective-baseline-pairing-v1/negative-the-tool-axis-differs.json",
+          "expected_failure": "invariant"
+        },
+        {
+          "path": "fixtures/collective-baseline-pairing-v1/negative-the-verifier-posture-axis-differs.json",
+          "expected_failure": "invariant"
+        }
+      ]
+    },
+    {
+      "contract_id": "schema://ioi/applications/ioi-ai/collective-qualification-verdict/v1",
+      "canonical_name": "CollectiveQualificationVerdict",
+      "canonical_owner_ref": "canon://docs/architecture/domains/ioi-ai/collaborative-outcome-pattern.md#collective-qualification",
+      "schema_version": "ioi.ioi-ai.collective-qualification-verdict.v1",
+      "maturity": "partial",
+      "stability": "provisional",
+      "wire_format": "json",
+      "canonical_encoding_profile_ref": "encoding-profile://ioi/jcs-json/v1",
+      "evolution": {
+        "successor_of": null,
+        "successor_contract_id": null,
+        "compatibility": "initial",
+        "migration_policy": "none",
+        "predecessor_remains_valid": false,
+        "wire_mutation_policy": "forbidden",
+        "hash_impact": "signature_preimage_changed"
+      },
+      "schema_ref": "collective-qualification-verdict.v1.schema.json",
+      "cross_field_invariant_refs": [
+        {
+          "invariant_id": "invariant://ioi/applications/ioi-ai/collective-qualification-verdict/judgment-only-and-never-conflated/v1",
+          "path": "invariants/collective-qualification-verdict.v1.invariants.json"
+        }
+      ],
+      "compatibility_aliases": [],
+      "generated_targets": [
+        {
+          "kind": "typescript_projection",
+          "path": "packages/hypervisor-workbench/src/runtime/generated/architecture-contracts.ts",
+          "symbol": "CollectiveQualificationVerdictV1"
+        },
+        {
+          "kind": "rust_projection",
+          "path": "crates/types/src/app/generated/architecture_contracts.rs",
+          "symbol": "CollectiveQualificationVerdictV1"
+        }
+      ],
+      "positive_fixture_refs": [
+        "fixtures/collective-qualification-verdict-v1/positive-not-qualified-while-the-controller-is-perfectly-healthy.json",
+        "fixtures/collective-qualification-verdict-v1/positive-qualified-while-the-controller-is-already-stopped.json"
+      ],
+      "negative_fixture_refs": [
+        {
+          "path": "fixtures/collective-qualification-verdict-v1/negative-a-knockout-on-a-lane-of-its-own.json",
+          "expected_failure": "schema"
+        },
+        {
+          "path": "fixtures/collective-qualification-verdict-v1/negative-a-knockout-that-changed-the-live-composition.json",
+          "expected_failure": "schema"
+        },
+        {
+          "path": "fixtures/collective-qualification-verdict-v1/negative-a-knockout-that-did-not-revert.json",
+          "expected_failure": "schema"
+        },
+        {
+          "path": "fixtures/collective-qualification-verdict-v1/negative-an-unperformable-axis-reported-as-performed.json",
+          "expected_failure": "schema"
+        },
+        {
+          "path": "fixtures/collective-qualification-verdict-v1/negative-identity-and-pointer-disagree.json",
+          "expected_failure": "invariant"
+        },
+        {
+          "path": "fixtures/collective-qualification-verdict-v1/negative-one-absent-axis-named-twice.json",
+          "expected_failure": "invariant"
+        },
+        {
+          "path": "fixtures/collective-qualification-verdict-v1/negative-one-axis-knocked-out-twice.json",
+          "expected_failure": "invariant"
+        },
+        {
+          "path": "fixtures/collective-qualification-verdict-v1/negative-one-root-for-the-result-and-the-controller.json",
+          "expected_failure": "invariant"
+        },
+        {
+          "path": "fixtures/collective-qualification-verdict-v1/negative-qualified-naming-no-results.json",
+          "expected_failure": "invariant"
+        },
+        {
+          "path": "fixtures/collective-qualification-verdict-v1/negative-qualified-on-a-participant-count.json",
+          "expected_failure": "schema"
+        },
+        {
+          "path": "fixtures/collective-qualification-verdict-v1/negative-qualified-on-a-surviving-process.json",
+          "expected_failure": "schema"
+        },
+        {
+          "path": "fixtures/collective-qualification-verdict-v1/negative-qualified-on-an-active-artifact.json",
+          "expected_failure": "schema"
+        },
+        {
+          "path": "fixtures/collective-qualification-verdict-v1/negative-qualified-on-an-unmatched-aggregate-score.json",
+          "expected_failure": "schema"
+        },
+        {
+          "path": "fixtures/collective-qualification-verdict-v1/negative-qualified-with-no-basis-at-all.json",
+          "expected_failure": "invariant"
+        },
+        {
+          "path": "fixtures/collective-qualification-verdict-v1/negative-root-does-not-recompute.json",
+          "expected_failure": "invariant"
+        },
+        {
+          "path": "fixtures/collective-qualification-verdict-v1/negative-the-installation-axis-read-through-the-posture.json",
+          "expected_failure": "schema"
+        },
+        {
+          "path": "fixtures/collective-qualification-verdict-v1/negative-the-verdict-activates-a-controller.json",
+          "expected_failure": "schema"
+        },
+        {
+          "path": "fixtures/collective-qualification-verdict-v1/negative-the-verdict-grants-authority.json",
+          "expected_failure": "schema"
+        },
+        {
+          "path": "fixtures/collective-qualification-verdict-v1/negative-the-verdict-promotes-the-composition.json",
           "expected_failure": "schema"
         }
       ]

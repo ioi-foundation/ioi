@@ -44,6 +44,16 @@ const EVALUATION_PLANE_DRILL = app("mutate:governed-evaluation-plane");
 // refused without the exposure ledger's records, and the archive kept whatever Authority decided.
 const ROLES = app("check:improvement-role-separation");
 const ROLES_DRILL = app("mutate:improvement-role-separation");
+// Since 2026-09-21 M10.9's own gate (check:collective-controller-qualification) composes clause 13 and
+// negative N4, which were absences until it existed: three registered contracts put the law on the wire —
+// eight per-axis `fields_equal` rules so an unmatched pairing is refused BY THE FAILING AXIS'S OWN NAME, a
+// separate-roots rule for result robustness and controller continuity, and an admissible-basis enum that
+// cannot even NAME a participant count, an unmatched aggregate score, an active ArtifactRef or a surviving
+// process. The CI-bound half is the drills; the live leg (two arms on one isolated daemon, the three
+// records admitted through the seam, sixteen knockouts performed and the installation axis read from the
+// OWNER because the posture is blind to it) is the gate's full mode.
+const QUALIFICATION = app("check:collective-controller-qualification");
+const QUALIFICATION_DRILL = app("mutate:collective-controller-qualification");
 
 const CLAUSES = [
   { id: "1", clause: "The direct path still works: a one-shot bounded change goes through UpgradeProposal with no campaign anywhere near it (the apply-time gates: simulation, approval, release control)", unit: "M10.1", checks: [SPINE, SPINE_DRILL], absences: [{ what: `the high-impact half of the direct gate (approval_required, release_control_not_open over a saved high-impact simulation) lives in verify-hypervisor-improvement-governance-gates.mjs — ${NOT_ISOLATED}`, owner: "M12.5" }] },
@@ -58,11 +68,11 @@ const CLAUSES = [
   { id: "10", clause: "Optimization is a subordinate receipted cycle: each CapabilityConstructionCycle freezes target owner, baseline, component snapshot, policies, budgets and stop rule; preserves parented trials; turns a finding into a new candidate", unit: "M10.8", absences: [absent("M10.8", "check:capability-construction-cycle", "CapabilityConstructionCycleEnvelope and OptimizationTargetAdapter have zero artifacts and no accepted tracked decision")] },
   { id: "11", clause: "Campaign and GoalRun refs are conditional: a campaign-coordinated cycle binds its frozen EvaluationEpoch; an ordinary bounded cycle may leave them null while still binding the released evaluation contract", unit: "M10.8", absences: [absent("M10.8", "check:capability-construction-cycle", "the conditional-ref rule")] },
   { id: "12", clause: "Mounted cognition is replaceable: optimizer_ref is a worker, conductor or runtime actor; changing the model behind it cannot rewrite target, evidence, authority, budget or evaluator identity", unit: "M10.8", absences: [absent("M10.8", "check:capability-construction-cycle", "mounted-cognition substitution")] },
-  { id: "13", clause: "Collective machinery earns its complexity: a frozen epoch compares the exact collective composition against a matched cheaper baseline under declared estimands with the full knockout matrix", unit: "M10.9", absences: [absent("M10.9", "check:collective-controller-qualification", "matched baseline, estimand and knockout matrix — zero lines exist")] },
+  { id: "13", clause: "Collective machinery earns its complexity: a frozen epoch compares the exact collective composition against a matched cheaper baseline under declared estimands with the full knockout matrix", unit: "M10.9", checks: [QUALIFICATION, QUALIFICATION_DRILL] },
   { id: "N1", negative: true, clause: "No Foundry surface claims a family whose wire contract is unregistered", unit: "M10.5", checks: [app("check:foundry-spec-contracts")] },
   { id: "N2", negative: true, clause: "No performance claim ships without its complete model/recipe/software/hardware/topology fingerprint set and time-to-quality evidence", unit: "M10.5", provenBy: "N1" },
   { id: "N3", negative: true, clause: "No optimizer evaluates, promotes, activates, publishes or authorizes its own output; no failed/inconclusive trial disappears; an exhausted cycle ends as honest bounded non-success", unit: "M10.8", absences: [absent("M10.8", "check:capability-construction-cycle", "the optimizer negatives")] },
-  { id: "N4", negative: true, clause: "No participant count, unmatched aggregate score, active ArtifactRef or surviving process qualifies Collective mode or persistent authority", unit: "M10.9", absences: [absent("M10.9", "check:collective-controller-qualification", "the qualification negatives")] },
+  { id: "N4", negative: true, clause: "No participant count, unmatched aggregate score, active ArtifactRef or surviving process qualifies Collective mode or persistent authority", unit: "M10.9", provenBy: "13" },
   { id: "E", clause: "Journey evidence: architecture contracts and docs, work items, the daemon suite", unit: "M10 · M12.5", checks: [rootScript("check:architecture-contracts"), rootScript("check:architecture-docs"), rootScript("check:work-items"), DAEMON_SUITE], absences: [{ what: `verify-hypervisor-improvement-simulation-replay.mjs (M12.5's partial evidence) — ${NOT_ISOLATED}`, owner: "M12.5" }] },
 ];
 

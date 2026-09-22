@@ -1,0 +1,368 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "schema://ioi/applications/ioi-ai/collective-qualification-verdict/v1",
+  "title": "CollectiveQualificationVerdict",
+  "x-ioi-schema-version": "ioi.ioi-ai.collective-qualification-verdict.v1",
+  "description": "WHAT THE TWO ARMS CAME TO, READ AGAINST A CLAIM MADE BEFORE THEY RAN \u2014 AND NOTHING ELSE. Canon: evaluation emits judgment only and cannot change topology, install an artifact, activate a controller, issue authority or promote the composition. So this record carries its four never-clauses ON THE WIRE as `const true`, and each knockout it reports carries the same: judgment evidence that reverted, changed nothing and promoted nothing. RESULT ROBUSTNESS AND CONTROLLER CONTINUITY ARE SEPARATE MEMBERS WITH SEPARATE ROOTS, and the registered invariant refuses a verdict whose two roots are equal. This is the conflation the unit exists to refuse and the one it could most easily have authored itself: the lineage's `posture.derived.status` is a single scalar bundling authority staleness, caretaker absence, dependency loss and runtime absence, and reading it as result evidence would make a healthy runtime into proof of a good answer. Canon states both halves \u2014 an accepted result may survive after a runtime must stop, and a healthy runtime proves neither result quality nor current authority. THE KNOCKOUT MATRIX IS COMPLETE OR IT IS NAMED: every axis this estate can perform is performed, and every axis canon names that it cannot is carried here with its reason and its owner, because an unperformable axis left out silently narrows the claim while an unperformable axis listed as done makes the bar unfalsifiable. Owner: domains/ioi-ai/collaborative-outcome-pattern.md \u00a7 Collective qualification (M10.9, R-222).",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "verdict_id",
+    "verdict_ref",
+    "estimand_ref",
+    "pairing_ref",
+    "epoch_ref",
+    "outcome",
+    "qualified_on",
+    "result_evidence",
+    "controller_continuity",
+    "knockouts",
+    "named_absent_knockout_axes",
+    "grants_no_authority",
+    "promotes_nothing",
+    "activates_nothing",
+    "rewrites_no_topology",
+    "judged_at",
+    "verdict_root"
+  ],
+  "properties": {
+    "schema_version": {
+      "type": "string",
+      "const": "ioi.ioi-ai.collective-qualification-verdict.v1"
+    },
+    "verdict_id": {
+      "type": "string",
+      "pattern": "^qualification://[^\\s?#\\\\]{1,200}$",
+      "description": "THE IDENTITY THE RECORD SEAM ADMITS, and it must be a `*_id` member: the seam resolves a record's identity by finding the single member whose name ends in `_id` and whose value is the object_id it was posted under, and refuses the admission outright when none does. It is the same value as `verdict_ref`, which is the name every other record points at this one by, and the registered invariant holds the two equal so the pointer and the identity can never come apart."
+    },
+    "verdict_ref": {
+      "type": "string",
+      "pattern": "^qualification://[^\\s?#\\\\]{1,200}$"
+    },
+    "estimand_ref": {
+      "type": "string",
+      "pattern": "^estimand://[^\\s?#\\\\]{1,200}$"
+    },
+    "pairing_ref": {
+      "type": "string",
+      "pattern": "^pairing://[^\\s?#\\\\]{1,200}$"
+    },
+    "epoch_ref": {
+      "$ref": "#/$defs/ref",
+      "description": "The FROZEN evaluation epoch. A verdict is read out of a frozen epoch or it is read out of nothing: the estimand and the pairing were declared before the freeze precisely so this record could not choose them afterwards."
+    },
+    "outcome": {
+      "type": "string",
+      "enum": [
+        "qualified",
+        "not_qualified",
+        "inconclusive"
+      ],
+      "description": "`qualified` says the declared estimand was confirmed under its own decision rule. It is a judgment about a claim, not a grant: the four never-clauses below hold at every outcome."
+    },
+    "qualified_on": {
+      "type": "array",
+      "maxItems": 16,
+      "uniqueItems": true,
+      "items": {
+        "type": "string",
+        "enum": [
+          "matched_baseline_effect",
+          "knockout_degradation",
+          "independence_of_named_axis"
+        ]
+      },
+      "description": "THE ADMISSIBLE BASES, AND THEY ARE THE ONLY THREE. The four canon refuses \u2014 a participant count, an unmatched aggregate score, an ArtifactRef marked active and a surviving process \u2014 are not members of this enum, so a verdict cannot even name them as its basis. That is the refusal put where it cannot be argued with rather than in a checker that must remember to look."
+    },
+    "result_evidence": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "observed_effect",
+        "meets_minimum_effect",
+        "cost_normalized",
+        "result_refs",
+        "result_root"
+      ],
+      "description": "The RESULT half. Its inputs are evaluation results and its root is its own; nothing here reads the controller's liveness.",
+      "properties": {
+        "observed_effect": {
+          "type": "number"
+        },
+        "meets_minimum_effect": {
+          "type": "boolean"
+        },
+        "cost_normalized": {
+          "type": "boolean",
+          "description": "Whether the observed effect was normalized as the estimand's `cost_normalization` declared. A collective that wins by spending more has not earned its complexity."
+        },
+        "result_refs": {
+          "type": "array",
+          "maxItems": 1024,
+          "uniqueItems": true,
+          "items": {
+            "$ref": "#/$defs/ref"
+          },
+          "description": "The evaluation results the effect was read from, both arms."
+        },
+        "result_root": {
+          "type": "string",
+          "pattern": "^sha256:[0-9a-f]{64}$"
+        }
+      }
+    },
+    "controller_continuity": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "lineage_ref",
+        "recorded_status",
+        "derived_status",
+        "orphan_reason",
+        "installation_read_from",
+        "continuity_root"
+      ],
+      "description": "The CONTINUITY half. Its inputs are the lineage's own posture and its owners, its root is its own, and no reading of it changes the result above \u2014 canon: an accepted result may survive after a runtime must stop.",
+      "properties": {
+        "lineage_ref": {
+          "type": "string",
+          "pattern": "^lineage://[^\\s]{1,400}$"
+        },
+        "recorded_status": {
+          "$ref": "#/$defs/lineageStatus"
+        },
+        "derived_status": {
+          "$ref": "#/$defs/lineageStatus"
+        },
+        "orphan_reason": {
+          "anyOf": [
+            {
+              "type": "string",
+              "enum": [
+                "owner_absent",
+                "caretaker_absent",
+                "dependency_unavailable",
+                "artifact_unavailable",
+                "health_stale",
+                "authority_stale"
+              ]
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "installation_read_from": {
+          "type": "string",
+          "const": "owner",
+          "description": "THE POSTURE CANNOT ANSWER THIS ONE. The lineage read model re-derives from the accountable subject, the caretaker, context leases, dependency lineages and `runtime_ref` \u2014 and not from `installation_ref`. An installation removed after binding therefore leaves a GREEN posture, so an installation knockout read through the posture would report success while measuring nothing. It is read from the owner, and the record says so."
+        },
+        "continuity_root": {
+          "type": "string",
+          "pattern": "^sha256:[0-9a-f]{64}$"
+        }
+      }
+    },
+    "knockouts": {
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 64,
+      "description": "Every axis this estate can perform, each run on an admissible ablation lane and each reverted.",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "axis",
+          "lane",
+          "observation_ref",
+          "collective_degradation",
+          "baseline_degradation",
+          "reverted",
+          "changed_nothing"
+        ],
+        "properties": {
+          "axis": {
+            "type": "string",
+            "enum": [
+              "participant_exit",
+              "caretaker_exit",
+              "dependency_retired",
+              "creator_session_removed",
+              "context_lease_revoked",
+              "artifact_ancestry_removed",
+              "controller_runtime_unserved",
+              "installation_unbound",
+              "verifier_invalidated",
+              "budget_exhausted",
+              "lifecycle_stop",
+              "lifecycle_quarantine",
+              "lifecycle_repair",
+              "lifecycle_replacement",
+              "lifecycle_retirement",
+              "crash_restart"
+            ]
+          },
+          "lane": {
+            "type": "string",
+            "const": "cross_play_ablation",
+            "description": "The admissible ablation lane the evaluation plane already carries. A knockout does not need a lane of its own and does not get one."
+          },
+          "observation_ref": {
+            "$ref": "#/$defs/ref"
+          },
+          "collective_degradation": {
+            "type": "number"
+          },
+          "baseline_degradation": {
+            "type": "number"
+          },
+          "reverted": {
+            "type": "boolean",
+            "const": true,
+            "description": "A knockout that did not revert left the tested topology in place, and the live composition is then the ablated one rather than the one under claim."
+          },
+          "changed_nothing": {
+            "type": "boolean",
+            "const": true,
+            "description": "Judgment evidence only: the knockout rewrote no topology, revoked no participant, activated no controller, installed no artifact and promoted no profile."
+          }
+        }
+      }
+    },
+    "named_absent_knockout_axes": {
+      "type": "array",
+      "maxItems": 32,
+      "description": "The axes canon names that this estate cannot perform, each with its reason and the owner who would make it performable. Naming them is what keeps the matrix honest in both directions.",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "axis",
+          "reason",
+          "owner_ref"
+        ],
+        "properties": {
+          "axis": {
+            "type": "string",
+            "enum": [
+              "communication_edge",
+              "role_removed",
+              "lease_expired",
+              "disclosure_overhead",
+              "verification_overhead"
+            ]
+          },
+          "reason": {
+            "type": "string",
+            "minLength": 24,
+            "maxLength": 600
+          },
+          "owner_ref": {
+            "$ref": "#/$defs/ref"
+          }
+        }
+      }
+    },
+    "grants_no_authority": {
+      "type": "boolean",
+      "const": true
+    },
+    "promotes_nothing": {
+      "type": "boolean",
+      "const": true
+    },
+    "activates_nothing": {
+      "type": "boolean",
+      "const": true
+    },
+    "rewrites_no_topology": {
+      "type": "boolean",
+      "const": true
+    },
+    "judged_at": {
+      "$ref": "#/$defs/timestamp"
+    },
+    "system_binding": {
+      "$ref": "#/$defs/systemBinding",
+      "description": "DERIVED BY THE SEAM, NEVER AUTHORED \u2014 absent on the wire the caller sends, an object on the record the seam admits."
+    },
+    "verdict_root": {
+      "type": "string",
+      "pattern": "^sha256:[0-9a-f]{64}$",
+      "description": "SHA-256 over JCS of every member except this one and the seam binding. It seals the whole judgment; the result and continuity roots inside it seal their two halves SEPARATELY, so a reader can take either without the other."
+    }
+  },
+  "$defs": {
+    "ref": {
+      "type": "string",
+      "pattern": "^[a-z][a-z0-9+.-]*://[^ ]{1,480}$"
+    },
+    "lineageStatus": {
+      "type": "string",
+      "enum": [
+        "observed",
+        "reused",
+        "forked",
+        "installed",
+        "active",
+        "stopped",
+        "quarantined",
+        "repairing",
+        "replaced",
+        "retired"
+      ]
+    },
+    "systemBinding": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "schema_version",
+        "system_id",
+        "parent_scope_ref",
+        "proposed_or_issued_by_ref",
+        "payload_root",
+        "created_at",
+        "updated_at"
+      ],
+      "properties": {
+        "schema_version": {
+          "const": "ioi.foundations.system-scoped-object-binding.v1"
+        },
+        "system_id": {
+          "type": "string",
+          "pattern": "^system://[^\\s]{1,500}$"
+        },
+        "parent_scope_ref": {
+          "type": "string",
+          "pattern": "^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"
+        },
+        "proposed_or_issued_by_ref": {
+          "type": "string",
+          "pattern": "^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"
+        },
+        "payload_root": {
+          "type": "string",
+          "pattern": "^sha256:[0-9a-f]{64}$"
+        },
+        "created_at": {
+          "$ref": "#/$defs/timestamp"
+        },
+        "updated_at": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/timestamp"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      }
+    },
+    "timestamp": {
+      "type": "string",
+      "pattern": "^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$"
+    }
+  }
+}

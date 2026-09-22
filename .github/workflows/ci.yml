@@ -1137,6 +1137,23 @@ jobs:
         if: ${{ !cancelled() && steps.rust_backed_daemon.outcome == 'success' }}
         run: npm run mutate:connected-access-cockpit --workspace=@ioi/hypervisor-app
 
+      # M10.9 — collective and persistent-controller qualification. Collective machinery earns its
+      # complexity: a frozen epoch compares the exact composition against a MATCHED cheaper baseline under
+      # an estimand declared before either arm ran, with the full knockout matrix, and neither participant
+      # count, aggregate score, active ArtifactRef nor surviving process qualifies anything. CI-bound at
+      # the drills — the oracle over the registered fixtures, the three contracts' wire-level refusals and
+      # the source pins. The live leg (an isolated daemon, two arms, the three records admitted through the
+      # seam and sixteen knockouts performed) is the gate's full mode.
+      - name: Verify collective and persistent-controller qualification (M10.9, CI-bound drills)
+        if: ${{ !cancelled() && steps.rust_backed_daemon.outcome == 'success' }}
+        env:
+          IOI_VERIFIER_CENSUS_DIR: .artifacts/verifier-census
+        run: npm run check:collective-controller-qualification --workspace=@ioi/hypervisor-app
+
+      - name: Drill the collective-qualification oracle
+        if: ${{ !cancelled() && steps.rust_backed_daemon.outcome == 'success' }}
+        run: npm run mutate:collective-controller-qualification --workspace=@ioi/hypervisor-app
+
       # M10.4 — the governed evaluation plane, driven against an ISOLATED daemon this job already
       # built: two deterministic ollama-dialect stub servers registered, probed, enabled and REALLY
       # invoked as routes A and B; released suite revisions, frozen and active epochs, admitted runs,

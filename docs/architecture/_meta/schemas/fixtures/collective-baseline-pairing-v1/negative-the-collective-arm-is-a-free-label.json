@@ -1,0 +1,85 @@
+{
+  "schema_version": "ioi.ioi-ai.collective-baseline-pairing.v1",
+  "pairing_id": "pairing://collective/etl/free-label/1",
+  "pairing_ref": "pairing://collective/etl/free-label/1",
+  "estimand_ref": "estimand://collective/cooperation-surplus/1",
+  "collective_arm": {
+    "arm_kind": "collective",
+    "composition_ref": "incumbent://the-current-way",
+    "lineage_refs": [
+      "lineage://etl/extract",
+      "lineage://etl/load"
+    ],
+    "participant_count": 4
+  },
+  "baseline_arm": {
+    "arm_kind": "direct_path",
+    "composition_ref": "app-scope://ioi-ai/orchestration/orc_direct_etl",
+    "lineage_refs": [],
+    "participant_count": 1
+  },
+  "declared_match_axes": [
+    "task",
+    "authority",
+    "context",
+    "tool",
+    "environment",
+    "budget",
+    "time",
+    "verifier_posture"
+  ],
+  "axis_proofs": {
+    "task": {
+      "collective_root": "sha256:1111111111111111111111111111111111111111111111111111111111111111",
+      "baseline_root": "sha256:1111111111111111111111111111111111111111111111111111111111111111",
+      "derived_from": "JCS over the frozen case commitments of the epoch's task distribution"
+    },
+    "authority": {
+      "collective_root": "sha256:2222222222222222222222222222222222222222222222222222222222222222",
+      "baseline_root": "sha256:2222222222222222222222222222222222222222222222222222222222222222",
+      "derived_from": "JCS over the sorted authority scope refs both arms were issued"
+    },
+    "context": {
+      "collective_root": "sha256:3333333333333333333333333333333333333333333333333333333333333333",
+      "baseline_root": "sha256:3333333333333333333333333333333333333333333333333333333333333333",
+      "derived_from": "JCS over the context cells' projection refs and their information-flow labels"
+    },
+    "tool": {
+      "collective_root": "sha256:4444444444444444444444444444444444444444444444444444444444444444",
+      "baseline_root": "sha256:4444444444444444444444444444444444444444444444444444444444444444",
+      "derived_from": "JCS over the sorted tool descriptor refs admitted to each arm"
+    },
+    "environment": {
+      "collective_root": "sha256:5555555555555555555555555555555555555555555555555555555555555555",
+      "baseline_root": "sha256:5555555555555555555555555555555555555555555555555555555555555555",
+      "derived_from": "JCS over the environment descriptor and its pinned image digest"
+    },
+    "budget": {
+      "collective_root": "sha256:6666666666666666666666666666666666666666666666666666666666666666",
+      "baseline_root": "sha256:6666666666666666666666666666666666666666666666666666666666666666",
+      "derived_from": "JCS over the exposure budget units and the budget lease refs"
+    },
+    "time": {
+      "collective_root": "sha256:7777777777777777777777777777777777777777777777777777777777777777",
+      "baseline_root": "sha256:7777777777777777777777777777777777777777777777777777777777777777",
+      "derived_from": "JCS over the wall-second ceiling and the deadline policy ref"
+    },
+    "verifier_posture": {
+      "collective_root": "sha256:8888888888888888888888888888888888888888888888888888888888888888",
+      "baseline_root": "sha256:8888888888888888888888888888888888888888888888888888888888888888",
+      "derived_from": "JCS over the suite revision, its required lanes and the evaluator's validity status"
+    }
+  },
+  "baseline_positive_control": {
+    "matched_cases_total": 120,
+    "matched_cases_passed": 83,
+    "control_result_refs": [
+      "evaluation-result://etl/baseline/control/1"
+    ]
+  },
+  "cheaper_baseline_rationale": "The direct path runs one implementer against the same cases with no coordination overhead at all, and it already passes 83 of the 120 matched cases, so it is both the cheapest arm available and an adequate comparator rather than a straw one.",
+  "declared_before_either_arm_ran": true,
+  "epoch_ref": null,
+  "declared_at": "2026-09-21T12:00:00Z",
+  "pairing_root": "sha256:1af0d5230676fd80b146acfe4731808cc920dcd592e1b84bec8c21f9b6be4b61"
+}

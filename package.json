@@ -201,7 +201,9 @@
     "check:hypervisor-mcp-gateway-profile": "node scripts/check-hypervisor-mcp-gateway-profile.mjs",
     "mutate:hypervisor-mcp-gateway-profile": "node scripts/check-hypervisor-mcp-gateway-profile.mjs --mutation",
     "check:connected-access-cockpit": "node scripts/check-connected-access-cockpit.mjs",
-    "mutate:connected-access-cockpit": "node scripts/check-connected-access-cockpit.mjs --mutation"
+    "mutate:connected-access-cockpit": "node scripts/check-connected-access-cockpit.mjs --mutation",
+    "check:collective-controller-qualification": "node scripts/check-collective-controller-qualification.mjs",
+    "mutate:collective-controller-qualification": "node scripts/check-collective-controller-qualification.mjs --mutation"
   },
   "devDependencies": {
     "@playwright/test": "^1.60.0",

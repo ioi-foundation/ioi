@@ -1,0 +1,138 @@
+{
+  "$id": "invariant://ioi/applications/ioi-ai/collective-qualification-verdict/judgment-only-and-never-conflated/v1",
+  "language": "ioi.portable-invariants.v1",
+  "contract_id": "schema://ioi/applications/ioi-ai/collective-qualification-verdict/v1",
+  "rules": [
+    {
+      "rule_id": "collective_qualification_verdict.identity.matches",
+      "description": "ONE RECORD, ONE IDENTITY. The record seam resolves a record's identity from the single member whose name ends in `_id` and whose value is the object_id it was posted under; every other record points at this one by `verdict_ref`. If the two could differ, a record could be admitted under one identity and pointed at by another, and the pointer would resolve to something the seam never admitted. This is the same law the collective-resolution receipt carries, for the same reason.",
+      "expression": {
+        "operator": "fields_equal",
+        "paths": [
+          "$.verdict_id",
+          "$.verdict_ref"
+        ]
+      }
+    },
+    {
+      "rule_id": "collective_qualification_verdict.result_and_continuity.are_separately_rooted",
+      "description": "THE CONFLATION THIS UNIT EXISTS TO REFUSE, refused on the wire. Result robustness and controller continuity are two claims with two sources: the result is read from evaluation results, continuity from the lineage's posture and its owners. One root over both would mean neither could be taken without the other, and a healthy runtime would travel with a good answer. Canon says both halves out loud \u2014 an accepted result may survive after a runtime must stop, and a healthy runtime proves neither result quality nor current authority \u2014 so the two roots are never equal.",
+      "expression": {
+        "operator": "fields_not_equal",
+        "paths": [
+          "$.result_evidence.result_root",
+          "$.controller_continuity.continuity_root"
+        ]
+      }
+    },
+    {
+      "rule_id": "collective_qualification_verdict.qualified.names_its_basis",
+      "description": "A verdict of `qualified` with no basis is a claim with no reason. The enum already forbids the four canon refuses \u2014 a participant count, an unmatched aggregate score, an active ArtifactRef and a surviving process \u2014 so this rule only has to require that SOMETHING admissible was named. The two refusals together are what make `qualified` mean anything.",
+      "expression": {
+        "operator": "non_empty_when_in",
+        "path": "$.qualified_on",
+        "when_path": "$.outcome",
+        "values": [
+          "qualified"
+        ]
+      }
+    },
+    {
+      "rule_id": "collective_qualification_verdict.qualified.rests_on_results_it_names",
+      "description": "A qualified verdict names the evaluation results its effect was read from. Without them the observed effect is a number this record asserts about itself, which is the unmatched aggregate score under a different name.",
+      "expression": {
+        "operator": "non_empty_when_in",
+        "path": "$.result_evidence.result_refs",
+        "when_path": "$.outcome",
+        "values": [
+          "qualified"
+        ]
+      }
+    },
+    {
+      "rule_id": "collective_qualification_verdict.knockouts.are_one_per_axis",
+      "description": "Each axis is knocked out once. Two entries for one axis let a failing run be reported beside a passing one and the matrix still read as complete.",
+      "expression": {
+        "operator": "array_unique_by_fields",
+        "array_path": "$.knockouts",
+        "fields": [
+          "axis"
+        ]
+      }
+    },
+    {
+      "rule_id": "collective_qualification_verdict.absent_axes.are_named_once",
+      "description": "Each unperformable axis is named once, with its reason and its owner. A matrix that is honest about what it cannot do is what keeps the executable half from being read as the whole.",
+      "expression": {
+        "operator": "array_unique_by_fields",
+        "array_path": "$.named_absent_knockout_axes",
+        "fields": [
+          "axis"
+        ]
+      }
+    },
+    {
+      "rule_id": "collective_qualification_verdict.root.recomputes",
+      "description": "The verdict root commits the estimand and pairing it was read against, the epoch it came out of, the outcome and its basis, both halves with their own roots, the whole knockout matrix in both directions and the four never-clauses \u2014 so a relying party can recompute the judgment from the verdict alone.",
+      "expression": {
+        "operator": "jcs_sha256_equals",
+        "algorithm": "jcs_sha256",
+        "expected_path": "$.verdict_root",
+        "expected_encoding": "sha256_string",
+        "material_fields": {
+          "schema_version": {
+            "path": "$.schema_version"
+          },
+          "verdict_id": {
+            "path": "$.verdict_id"
+          },
+          "verdict_ref": {
+            "path": "$.verdict_ref"
+          },
+          "estimand_ref": {
+            "path": "$.estimand_ref"
+          },
+          "pairing_ref": {
+            "path": "$.pairing_ref"
+          },
+          "epoch_ref": {
+            "path": "$.epoch_ref"
+          },
+          "outcome": {
+            "path": "$.outcome"
+          },
+          "qualified_on": {
+            "path": "$.qualified_on"
+          },
+          "result_evidence": {
+            "path": "$.result_evidence"
+          },
+          "controller_continuity": {
+            "path": "$.controller_continuity"
+          },
+          "knockouts": {
+            "path": "$.knockouts"
+          },
+          "named_absent_knockout_axes": {
+            "path": "$.named_absent_knockout_axes"
+          },
+          "grants_no_authority": {
+            "path": "$.grants_no_authority"
+          },
+          "promotes_nothing": {
+            "path": "$.promotes_nothing"
+          },
+          "activates_nothing": {
+            "path": "$.activates_nothing"
+          },
+          "rewrites_no_topology": {
+            "path": "$.rewrites_no_topology"
+          },
+          "judged_at": {
+            "path": "$.judged_at"
+          }
+        }
+      }
+    }
+  ]
+}

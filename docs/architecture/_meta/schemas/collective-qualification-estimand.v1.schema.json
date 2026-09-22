@@ -3,11 +3,12 @@
   "$id": "schema://ioi/applications/ioi-ai/collective-qualification-estimand/v1",
   "title": "CollectiveQualificationEstimand",
   "x-ioi-schema-version": "ioi.ioi-ai.collective-qualification-estimand.v1",
-  "description": "WHAT A COLLECTIVE IS BEING ASKED TO PROVE, DECLARED BEFORE ANY ARM RUNS. Canon's rule is that collective machinery earns its complexity: a frozen epoch compares the exact collective composition against a matched cheaper baseline under a DECLARED estimand, and neither participant count, aggregate score, active artifact nor surviving process proves cooperation surplus, runtime continuity or authority. THE WORD ALREADY EXISTED AND MEANT ALMOST NOTHING: the evaluation epoch carries `confirmatory_estimand_and_minimum_effect_refs`, an unvalidated bounded list of refs that nothing in the estate dereferences — a `policy://` string satisfies it — frozen into the epoch's root so that it looks settled. This contract is the referent that list never had. It names the quantity, the direction, the minimum effect that counts as a difference and the decision rule, so that a result can be read as confirming or failing a claim someone made IN ADVANCE rather than as a number to interpret afterwards. A DECLARATION IS NOT A RESULT: this envelope grants nothing, promotes nothing and qualifies nothing on its own, and it must be declared before the epoch freezes because a frozen epoch refuses a moved member. Owner: domains/ioi-ai/collaborative-outcome-pattern.md § Collective qualification (M10.9, R-222).",
+  "description": "WHAT A COLLECTIVE IS BEING ASKED TO PROVE, DECLARED BEFORE ANY ARM RUNS. Canon's rule is that collective machinery earns its complexity: a frozen epoch compares the exact collective composition against a matched cheaper baseline under a DECLARED estimand, and neither participant count, aggregate score, active artifact nor surviving process proves cooperation surplus, runtime continuity or authority. THE WORD ALREADY EXISTED AND MEANT ALMOST NOTHING: the evaluation epoch carries `confirmatory_estimand_and_minimum_effect_refs`, an unvalidated bounded list of refs that nothing in the estate dereferences \u2014 a `policy://` string satisfies it \u2014 frozen into the epoch's root so that it looks settled. This contract is the referent that list never had. It names the quantity, the direction, the minimum effect that counts as a difference and the decision rule, so that a result can be read as confirming or failing a claim someone made IN ADVANCE rather than as a number to interpret afterwards. A DECLARATION IS NOT A RESULT: this envelope grants nothing, promotes nothing and qualifies nothing on its own, and it must be declared before the epoch freezes because a frozen epoch refuses a moved member. Owner: domains/ioi-ai/collaborative-outcome-pattern.md \u00a7 Collective qualification (M10.9, R-222).",
   "type": "object",
   "additionalProperties": false,
   "required": [
     "schema_version",
+    "estimand_id",
     "estimand_ref",
     "estimand_kind",
     "quantity",
@@ -17,105 +18,242 @@
     "decision_rule",
     "declared_at",
     "declared_before_epoch_freeze",
-    "system_binding",
-    "qualifies_nothing_on_its_own"
+    "qualifies_nothing_on_its_own",
+    "knockout_axis_refs",
+    "epoch_ref",
+    "estimand_root"
   ],
   "properties": {
-    "schema_version": { "type": "string", "const": "ioi.ioi-ai.collective-qualification-estimand.v1" },
-    "estimand_ref": { "$ref": "#/$defs/estimandRef" },
+    "schema_version": {
+      "type": "string",
+      "const": "ioi.ioi-ai.collective-qualification-estimand.v1"
+    },
+    "estimand_id": {
+      "type": "string",
+      "pattern": "^estimand://[^\\s?#\\\\]{1,200}$",
+      "description": "THE IDENTITY THE RECORD SEAM ADMITS, and it must be a `*_id` member: the seam resolves a record's identity by finding the single member whose name ends in `_id` and whose value is the object_id it was posted under, and refuses the admission outright when none does. It is the same value as `estimand_ref`, which is the name every other record points at this one by, and the registered invariant holds the two equal so the pointer and the identity can never come apart."
+    },
+    "estimand_ref": {
+      "$ref": "#/$defs/estimandRef"
+    },
     "estimand_kind": {
       "type": "string",
       "description": "COOPERATION SURPLUS is the claim that the collective beats a matched cheaper baseline on the declared quantity. RESILIENCE is the claim that it degrades less than the baseline under a named knockout. INDEPENDENCE is the claim that its result does not depend on a named participant, edge or artifact. They are different claims with different failure modes and a run proves at most the one declared here.",
-      "enum": ["cooperation_surplus", "resilience", "independence"]
+      "enum": [
+        "cooperation_surplus",
+        "resilience",
+        "independence"
+      ]
     },
     "quantity": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["metric_ref", "unit", "aggregation"],
+      "required": [
+        "metric_ref",
+        "unit",
+        "aggregation"
+      ],
       "description": "The exact thing measured. An aggregate with no named metric and no aggregation is a score, and canon refuses a score as proof.",
       "properties": {
-        "metric_ref": { "$ref": "#/$defs/ref" },
-        "unit": { "type": "string", "minLength": 1, "maxLength": 60 },
+        "metric_ref": {
+          "$ref": "#/$defs/ref"
+        },
+        "unit": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 60
+        },
         "aggregation": {
           "type": "string",
-          "enum": ["mean", "median", "trimmed_mean", "rate", "count", "max", "min"]
+          "enum": [
+            "mean",
+            "median",
+            "trimmed_mean",
+            "rate",
+            "count",
+            "max",
+            "min"
+          ]
         }
       }
     },
     "direction": {
       "type": "string",
-      "enum": ["higher_is_better", "lower_is_better"],
+      "enum": [
+        "higher_is_better",
+        "lower_is_better"
+      ],
       "description": "Declared in advance, because a direction chosen after the numbers are in turns any result into a confirmation."
     },
     "minimum_effect": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["value", "basis"],
+      "required": [
+        "value",
+        "basis"
+      ],
       "description": "The smallest difference that counts. Without it, any non-zero difference reads as success and the comparison proves nothing it did not assume.",
       "properties": {
-        "value": { "type": "number" },
+        "value": {
+          "type": "number"
+        },
         "basis": {
           "type": "string",
-          "enum": ["absolute", "relative_to_baseline", "standard_deviations"]
+          "enum": [
+            "absolute",
+            "relative_to_baseline",
+            "standard_deviations"
+          ]
         }
       }
     },
     "cost_normalization": {
       "type": "string",
       "description": "A collective that wins by spending more has not earned its complexity; canon's sentence is that the machinery must earn it. `none` is admissible and says plainly that cost is not being controlled for.",
-      "enum": ["none", "per_cost_unit", "per_wall_second", "per_verification_unit"]
+      "enum": [
+        "none",
+        "per_cost_unit",
+        "per_wall_second",
+        "per_verification_unit"
+      ]
     },
     "decision_rule": {
       "type": "string",
       "minLength": 24,
       "maxLength": 600,
-      "description": "In words, what reading of the two arms confirms the estimand and what reading fails it — written before the run, so the rule cannot be fitted to the outcome."
+      "description": "In words, what reading of the two arms confirms the estimand and what reading fails it \u2014 written before the run, so the rule cannot be fitted to the outcome."
     },
     "knockout_axis_refs": {
       "type": "array",
       "uniqueItems": true,
       "maxItems": 64,
-      "items": { "$ref": "#/$defs/ref" },
+      "items": {
+        "$ref": "#/$defs/ref"
+      },
       "description": "For a resilience or independence estimand, the exact axes the claim is about. An estimand of those kinds with no axis is a claim about nothing."
     },
-    "declared_at": { "$ref": "#/$defs/timestamp" },
+    "declared_at": {
+      "$ref": "#/$defs/timestamp"
+    },
     "declared_before_epoch_freeze": {
       "type": "boolean",
       "const": true,
-      "description": "Always true, and on the wire rather than implied. The epoch freezes this ref into its root and refuses a moved frozen member afterwards, so an estimand declared after the freeze could only ever be a second one — and a second estimand chosen once results exist is the defect this whole contract exists to refuse."
+      "description": "Always true, and on the wire rather than implied. The epoch freezes this ref into its root and refuses a moved frozen member afterwards, so an estimand declared after the freeze could only ever be a second one \u2014 and a second estimand chosen once results exist is the defect this whole contract exists to refuse."
     },
     "epoch_ref": {
-      "anyOf": [{ "$ref": "#/$defs/ref" }, { "type": "null" }],
-      "description": "The frozen evaluation epoch this estimand was declared for, once one exists. Null while the epoch is still a draft — the estimand comes first."
+      "anyOf": [
+        {
+          "$ref": "#/$defs/ref"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "description": "The frozen evaluation epoch this estimand was declared for, once one exists. Null while the epoch is still a draft \u2014 the estimand comes first."
     },
     "system_binding": {
-      "$ref": "#/$defs/ref",
-      "description": "The ACTIVE System this record is admitted under. This is an application record on the generic System-record seam, not a Hypervisor family: the evaluation plane's layer law forbids a Hypervisor component from reading an orchestration application's records, and its own gate asserts so against a planted import."
+      "$ref": "#/$defs/systemBinding",
+      "description": "DERIVED BY THE SEAM, NEVER AUTHORED. The record seam refuses a caller-supplied binding outright rather than correcting it, then stamps its own from the System, the parent scope and the resolved principal, and only then validates \u2014 so this member is absent on the wire the caller sends and an object on the record the seam admits. This is an application record on that generic seam, not a Hypervisor family: the evaluation plane's layer law forbids a Hypervisor component from reading an orchestration application's records, and its own gate asserts so against a planted import."
     },
     "qualifies_nothing_on_its_own": {
       "type": "boolean",
       "const": true,
       "description": "A declaration is not a result. Declaring an estimand promotes nothing, activates nothing and qualifies no collective; it only fixes what a later comparison will be read against."
+    },
+    "estimand_root": {
+      "type": "string",
+      "pattern": "^sha256:[0-9a-f]{64}$",
+      "description": "SHA-256 over JCS of every member except this one and the seam binding. The declaration is the whole point of the object, so it is sealed: the epoch freezes the ref, and this root is what makes the ref's CONTENT unmovable rather than merely named."
     }
   },
   "allOf": [
     {
       "if": {
         "type": "object",
-        "properties": { "estimand_kind": { "type": "string", "enum": ["resilience", "independence"] } },
-        "required": ["estimand_kind"]
+        "properties": {
+          "estimand_kind": {
+            "type": "string",
+            "enum": [
+              "resilience",
+              "independence"
+            ]
+          }
+        },
+        "required": [
+          "estimand_kind"
+        ]
       },
       "then": {
         "type": "object",
         "description": "Resilience and independence are claims ABOUT something being removed. Without the axes named, there is no claim to confirm.",
-        "properties": { "knockout_axis_refs": { "type": "array", "minItems": 1 } },
-        "required": ["knockout_axis_refs"]
+        "properties": {
+          "knockout_axis_refs": {
+            "type": "array",
+            "minItems": 1
+          }
+        },
+        "required": [
+          "knockout_axis_refs"
+        ]
       }
     }
   ],
   "$defs": {
-    "ref": { "type": "string", "pattern": "^[a-z][a-z0-9+.-]*://[^ ]{1,480}$" },
-    "estimandRef": { "type": "string", "pattern": "^estimand://[^\\s?#\\\\]{1,200}$" },
+    "ref": {
+      "type": "string",
+      "pattern": "^[a-z][a-z0-9+.-]*://[^ ]{1,480}$"
+    },
+    "estimandRef": {
+      "type": "string",
+      "pattern": "^estimand://[^\\s?#\\\\]{1,200}$"
+    },
+    "systemBinding": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "schema_version",
+        "system_id",
+        "parent_scope_ref",
+        "proposed_or_issued_by_ref",
+        "payload_root",
+        "created_at",
+        "updated_at"
+      ],
+      "properties": {
+        "schema_version": {
+          "const": "ioi.foundations.system-scoped-object-binding.v1"
+        },
+        "system_id": {
+          "type": "string",
+          "pattern": "^system://[^\\s]{1,500}$"
+        },
+        "parent_scope_ref": {
+          "type": "string",
+          "pattern": "^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"
+        },
+        "proposed_or_issued_by_ref": {
+          "type": "string",
+          "pattern": "^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"
+        },
+        "payload_root": {
+          "type": "string",
+          "pattern": "^sha256:[0-9a-f]{64}$"
+        },
+        "created_at": {
+          "$ref": "#/$defs/timestamp"
+        },
+        "updated_at": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/timestamp"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      }
+    },
     "timestamp": {
       "type": "string",
       "pattern": "^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$"

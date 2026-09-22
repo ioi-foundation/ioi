@@ -1,0 +1,210 @@
+{
+  "schema_version": "ioi.ioi-ai.collective-qualification-verdict.v1",
+  "verdict_id": "qualification://collective/etl/grants-authority",
+  "verdict_ref": "qualification://collective/etl/grants-authority",
+  "estimand_ref": "estimand://collective/cooperation-surplus/1",
+  "pairing_ref": "pairing://collective/etl/direct-path/1",
+  "epoch_ref": "evaluation-epoch://etl/2026-09-21/frozen",
+  "outcome": "qualified",
+  "qualified_on": [
+    "matched_baseline_effect",
+    "knockout_degradation"
+  ],
+  "result_evidence": {
+    "observed_effect": 0.12,
+    "meets_minimum_effect": true,
+    "cost_normalized": true,
+    "result_refs": [
+      "evaluation-result://etl/collective/1",
+      "evaluation-result://etl/baseline/1"
+    ],
+    "result_root": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+  },
+  "controller_continuity": {
+    "lineage_ref": "lineage://etl/extract",
+    "recorded_status": "active",
+    "derived_status": "stopped",
+    "orphan_reason": "authority_stale",
+    "installation_read_from": "owner",
+    "continuity_root": "sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+  },
+  "knockouts": [
+    {
+      "axis": "participant_exit",
+      "lane": "cross_play_ablation",
+      "observation_ref": "evaluation-result://etl/knockout/participant-exit",
+      "collective_degradation": 0.04,
+      "baseline_degradation": 0.21,
+      "reverted": true,
+      "changed_nothing": true
+    },
+    {
+      "axis": "caretaker_exit",
+      "lane": "cross_play_ablation",
+      "observation_ref": "evaluation-result://etl/knockout/caretaker-exit",
+      "collective_degradation": 0.02,
+      "baseline_degradation": 0.18,
+      "reverted": true,
+      "changed_nothing": true
+    },
+    {
+      "axis": "dependency_retired",
+      "lane": "cross_play_ablation",
+      "observation_ref": "evaluation-result://etl/knockout/dependency-retired",
+      "collective_degradation": 0.11,
+      "baseline_degradation": 0.33,
+      "reverted": true,
+      "changed_nothing": true
+    },
+    {
+      "axis": "creator_session_removed",
+      "lane": "cross_play_ablation",
+      "observation_ref": "evaluation-result://etl/knockout/creator-session-removed",
+      "collective_degradation": 0,
+      "baseline_degradation": 0,
+      "reverted": true,
+      "changed_nothing": true
+    },
+    {
+      "axis": "context_lease_revoked",
+      "lane": "cross_play_ablation",
+      "observation_ref": "evaluation-result://etl/knockout/context-lease-revoked",
+      "collective_degradation": 0.09,
+      "baseline_degradation": 0.27,
+      "reverted": true,
+      "changed_nothing": true
+    },
+    {
+      "axis": "artifact_ancestry_removed",
+      "lane": "cross_play_ablation",
+      "observation_ref": "evaluation-result://etl/knockout/artifact-ancestry-removed",
+      "collective_degradation": 0.03,
+      "baseline_degradation": 0.05,
+      "reverted": true,
+      "changed_nothing": true
+    },
+    {
+      "axis": "controller_runtime_unserved",
+      "lane": "cross_play_ablation",
+      "observation_ref": "evaluation-result://etl/knockout/controller-runtime-unserved",
+      "collective_degradation": 0.14,
+      "baseline_degradation": 0.4,
+      "reverted": true,
+      "changed_nothing": true
+    },
+    {
+      "axis": "installation_unbound",
+      "lane": "cross_play_ablation",
+      "observation_ref": "evaluation-result://etl/knockout/installation-unbound",
+      "collective_degradation": 0.12,
+      "baseline_degradation": 0.35,
+      "reverted": true,
+      "changed_nothing": true
+    },
+    {
+      "axis": "verifier_invalidated",
+      "lane": "cross_play_ablation",
+      "observation_ref": "evaluation-result://etl/knockout/verifier-invalidated",
+      "collective_degradation": 1,
+      "baseline_degradation": 1,
+      "reverted": true,
+      "changed_nothing": true
+    },
+    {
+      "axis": "budget_exhausted",
+      "lane": "cross_play_ablation",
+      "observation_ref": "evaluation-result://etl/knockout/budget-exhausted",
+      "collective_degradation": 0.51,
+      "baseline_degradation": 0.62,
+      "reverted": true,
+      "changed_nothing": true
+    },
+    {
+      "axis": "lifecycle_stop",
+      "lane": "cross_play_ablation",
+      "observation_ref": "evaluation-result://etl/knockout/lifecycle-stop",
+      "collective_degradation": 0.22,
+      "baseline_degradation": 0.45,
+      "reverted": true,
+      "changed_nothing": true
+    },
+    {
+      "axis": "lifecycle_quarantine",
+      "lane": "cross_play_ablation",
+      "observation_ref": "evaluation-result://etl/knockout/lifecycle-quarantine",
+      "collective_degradation": 0.26,
+      "baseline_degradation": 0.48,
+      "reverted": true,
+      "changed_nothing": true
+    },
+    {
+      "axis": "lifecycle_repair",
+      "lane": "cross_play_ablation",
+      "observation_ref": "evaluation-result://etl/knockout/lifecycle-repair",
+      "collective_degradation": 0.07,
+      "baseline_degradation": 0.15,
+      "reverted": true,
+      "changed_nothing": true
+    },
+    {
+      "axis": "lifecycle_replacement",
+      "lane": "cross_play_ablation",
+      "observation_ref": "evaluation-result://etl/knockout/lifecycle-replacement",
+      "collective_degradation": 0.05,
+      "baseline_degradation": 0.12,
+      "reverted": true,
+      "changed_nothing": true
+    },
+    {
+      "axis": "lifecycle_retirement",
+      "lane": "cross_play_ablation",
+      "observation_ref": "evaluation-result://etl/knockout/lifecycle-retirement",
+      "collective_degradation": 0.31,
+      "baseline_degradation": 0.55,
+      "reverted": true,
+      "changed_nothing": true
+    },
+    {
+      "axis": "crash_restart",
+      "lane": "cross_play_ablation",
+      "observation_ref": "evaluation-result://etl/knockout/crash-restart",
+      "collective_degradation": 0.01,
+      "baseline_degradation": 0.02,
+      "reverted": true,
+      "changed_nothing": true
+    }
+  ],
+  "named_absent_knockout_axes": [
+    {
+      "axis": "communication_edge",
+      "reason": "No edge, channel or message-graph object exists anywhere in the estate; `coordination_topology` is a two-member admission-mode enum, not a graph, so there is no edge to remove.",
+      "owner_ref": "canon://docs/architecture/domains/ioi-ai/collaborative-outcome-pattern.md#collective-qualification"
+    },
+    {
+      "axis": "role_removed",
+      "reason": "`ContextCell.role` exists but no RoleTopology record does, and the context composer refuses a topology-bound cell by name rather than trusting one, so a role cannot be removed from a topology that is never recorded.",
+      "owner_ref": "canon://docs/architecture/domains/ioi-ai/collaborative-outcome-pattern.md#collective-qualification"
+    },
+    {
+      "axis": "lease_expired",
+      "reason": "`expired` appears only in the lease module's terminal-status set and no writer anywhere ever sets it; only revocation is executable, and two independent non-claims already say the daemon evaluates no TTL.",
+      "owner_ref": "canon://docs/architecture/domains/ioi-ai/collaborative-outcome-pattern.md#collective-qualification"
+    },
+    {
+      "axis": "disclosure_overhead",
+      "reason": "No measure of disclosure cost exists anywhere in the estate, so the overhead a collective pays to share context cannot be subtracted from its surplus.",
+      "owner_ref": "canon://docs/architecture/domains/ioi-ai/collaborative-outcome-pattern.md#collective-qualification"
+    },
+    {
+      "axis": "verification_overhead",
+      "reason": "`verification_cost_class` on a suite revision is a declaration chosen by its author, not a measurement, so it cannot stand in for what verification actually cost either arm.",
+      "owner_ref": "canon://docs/architecture/domains/ioi-ai/collaborative-outcome-pattern.md#collective-qualification"
+    }
+  ],
+  "grants_no_authority": false,
+  "promotes_nothing": true,
+  "activates_nothing": true,
+  "rewrites_no_topology": true,
+  "judged_at": "2026-09-21T18:00:00Z",
+  "verdict_root": "sha256:816d6d587f67e000ca9873e0acd061e72cd9141659db226907513d7c662b866a"
+}

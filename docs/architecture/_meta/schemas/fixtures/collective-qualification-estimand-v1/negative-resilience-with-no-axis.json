@@ -1,5 +1,6 @@
 {
   "schema_version": "ioi.ioi-ai.collective-qualification-estimand.v1",
+  "estimand_id": "estimand://collective/cooperation-surplus/1",
   "estimand_ref": "estimand://collective/cooperation-surplus/1",
   "estimand_kind": "resilience",
   "quantity": {
@@ -17,7 +18,7 @@
   "declared_at": "2026-09-21T12:00:00Z",
   "declared_before_epoch_freeze": true,
   "epoch_ref": null,
-  "system_binding": "autonomous-system://ioi-ai/1",
   "qualifies_nothing_on_its_own": true,
-  "knockout_axis_refs": []
+  "knockout_axis_refs": [],
+  "estimand_root": "sha256:8fe4de70be065c6e1671d1a98d4b8c2467402084fdecde61f31d89fde9ca2335"
 }

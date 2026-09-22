@@ -1,0 +1,179 @@
+{
+  "$id": "invariant://ioi/applications/ioi-ai/collective-baseline-pairing/matched-or-refused-by-the-axis-that-differs/v1",
+  "language": "ioi.portable-invariants.v1",
+  "contract_id": "schema://ioi/applications/ioi-ai/collective-baseline-pairing/v1",
+  "rules": [
+    {
+      "rule_id": "collective_baseline_pairing.identity.matches",
+      "description": "ONE RECORD, ONE IDENTITY. The record seam resolves a record's identity from the single member whose name ends in `_id` and whose value is the object_id it was posted under; every other record points at this one by `pairing_ref`. If the two could differ, a record could be admitted under one identity and pointed at by another, and the pointer would resolve to something the seam never admitted. This is the same law the collective-resolution receipt carries, for the same reason.",
+      "expression": {
+        "operator": "fields_equal",
+        "paths": [
+          "$.pairing_id",
+          "$.pairing_ref"
+        ]
+      }
+    },
+    {
+      "rule_id": "collective_baseline_pairing.axis_task.matches",
+      "description": "The two arms ran the same task distribution. Each match axis gets a rule of its OWN rather than one rule over all eight, because the name of the rule that fires is the finding: a reader learns that the baseline had a different task set, not merely that the pairing was 'unmatched'. JSON Schema cannot compare two of a record's own members, so this law exists only here \u2014 the schema can require the proofs, and only the invariant can require that they agree.",
+      "expression": {
+        "operator": "fields_equal",
+        "paths": [
+          "$.axis_proofs.task.collective_root",
+          "$.axis_proofs.task.baseline_root"
+        ]
+      }
+    },
+    {
+      "rule_id": "collective_baseline_pairing.axis_authority.matches",
+      "description": "The two arms held the same authority. An arm with more authority than its comparator wins by permission rather than by cooperation, and the surplus measures the grant.",
+      "expression": {
+        "operator": "fields_equal",
+        "paths": [
+          "$.axis_proofs.authority.collective_root",
+          "$.axis_proofs.authority.baseline_root"
+        ]
+      }
+    },
+    {
+      "rule_id": "collective_baseline_pairing.axis_context.matches",
+      "description": "The two arms were given the same context. Context is the cheapest axis to differ on by accident and among the most decisive, since a richer context makes a weaker method look stronger.",
+      "expression": {
+        "operator": "fields_equal",
+        "paths": [
+          "$.axis_proofs.context.collective_root",
+          "$.axis_proofs.context.baseline_root"
+        ]
+      }
+    },
+    {
+      "rule_id": "collective_baseline_pairing.axis_tool.matches",
+      "description": "The two arms had the same tools. A collective holding a tool the baseline lacks is a comparison between toolsets wearing the name of a comparison between compositions.",
+      "expression": {
+        "operator": "fields_equal",
+        "paths": [
+          "$.axis_proofs.tool.collective_root",
+          "$.axis_proofs.tool.baseline_root"
+        ]
+      }
+    },
+    {
+      "rule_id": "collective_baseline_pairing.axis_environment.matches",
+      "description": "The two arms ran in the same environment.",
+      "expression": {
+        "operator": "fields_equal",
+        "paths": [
+          "$.axis_proofs.environment.collective_root",
+          "$.axis_proofs.environment.baseline_root"
+        ]
+      }
+    },
+    {
+      "rule_id": "collective_baseline_pairing.axis_budget.matches",
+      "description": "The two arms were given the same budget. This is the axis canon's 'earns its complexity' sentence turns on: a collective that simply spent more has demonstrated spending.",
+      "expression": {
+        "operator": "fields_equal",
+        "paths": [
+          "$.axis_proofs.budget.collective_root",
+          "$.axis_proofs.budget.baseline_root"
+        ]
+      }
+    },
+    {
+      "rule_id": "collective_baseline_pairing.axis_time.matches",
+      "description": "The two arms were given the same time.",
+      "expression": {
+        "operator": "fields_equal",
+        "paths": [
+          "$.axis_proofs.time.collective_root",
+          "$.axis_proofs.time.baseline_root"
+        ]
+      }
+    },
+    {
+      "rule_id": "collective_baseline_pairing.axis_verifier_posture.matches",
+      "description": "The two arms were judged under the same verifier posture. An arm graded by a laxer verifier scores better at nothing, and this is the axis where the difference is invisible in the arms themselves.",
+      "expression": {
+        "operator": "fields_equal",
+        "paths": [
+          "$.axis_proofs.verifier_posture.collective_root",
+          "$.axis_proofs.verifier_posture.baseline_root"
+        ]
+      }
+    },
+    {
+      "rule_id": "collective_baseline_pairing.positive_control.passes_no_more_than_it_ran",
+      "description": "THE POSITIVE CONTROL IS A REAL MEASUREMENT, not a number chosen to clear the bar. The schema already requires at least one pass \u2014 a baseline that failed everything would make any collective look good, which is the cheapest way to manufacture a surplus \u2014 and this rule adds the other bound: it cannot have passed more cases than it ran.",
+      "expression": {
+        "operator": "numbers_lte",
+        "paths": [
+          "$.baseline_positive_control.matched_cases_passed",
+          "$.baseline_positive_control.matched_cases_total"
+        ]
+      }
+    },
+    {
+      "rule_id": "collective_baseline_pairing.arms.are_not_one_composition",
+      "description": "A pairing whose two arms name the same orchestration scope compares a composition with itself, and every axis matches trivially. This is the degenerate pairing the eight axis rules cannot catch, because it satisfies all of them.",
+      "expression": {
+        "operator": "fields_not_equal",
+        "paths": [
+          "$.collective_arm.composition_ref",
+          "$.baseline_arm.composition_ref"
+        ]
+      }
+    },
+    {
+      "rule_id": "collective_baseline_pairing.root.recomputes",
+      "description": "The pairing root commits the arms, every axis proof, the positive control and the rationale, so a relying party can recompute the declaration from the pairing alone and see that it did not move after the arms ran.",
+      "expression": {
+        "operator": "jcs_sha256_equals",
+        "algorithm": "jcs_sha256",
+        "expected_path": "$.pairing_root",
+        "expected_encoding": "sha256_string",
+        "material_fields": {
+          "schema_version": {
+            "path": "$.schema_version"
+          },
+          "pairing_id": {
+            "path": "$.pairing_id"
+          },
+          "pairing_ref": {
+            "path": "$.pairing_ref"
+          },
+          "estimand_ref": {
+            "path": "$.estimand_ref"
+          },
+          "collective_arm": {
+            "path": "$.collective_arm"
+          },
+          "baseline_arm": {
+            "path": "$.baseline_arm"
+          },
+          "declared_match_axes": {
+            "path": "$.declared_match_axes"
+          },
+          "axis_proofs": {
+            "path": "$.axis_proofs"
+          },
+          "baseline_positive_control": {
+            "path": "$.baseline_positive_control"
+          },
+          "cheaper_baseline_rationale": {
+            "path": "$.cheaper_baseline_rationale"
+          },
+          "declared_before_either_arm_ran": {
+            "path": "$.declared_before_either_arm_ran"
+          },
+          "epoch_ref": {
+            "path": "$.epoch_ref"
+          },
+          "declared_at": {
+            "path": "$.declared_at"
+          }
+        }
+      }
+    }
+  ]
+}

@@ -4,13 +4,27 @@
   "contract_id": "schema://ioi/applications/ioi-ai/collective-qualification-estimand/v1",
   "rules": [
     {
+      "rule_id": "collective_qualification_estimand.identity.matches",
+      "description": "ONE RECORD, ONE IDENTITY. The record seam resolves a record's identity from the single member whose name ends in `_id` and whose value is the object_id it was posted under; every other record points at this one by `estimand_ref`. If the two could differ, a record could be admitted under one identity and pointed at by another, and the pointer would resolve to something the seam never admitted. This is the same law the collective-resolution receipt carries, for the same reason.",
+      "expression": {
+        "operator": "fields_equal",
+        "paths": [
+          "$.estimand_id",
+          "$.estimand_ref"
+        ]
+      }
+    },
+    {
       "rule_id": "collective_qualification_estimand.a_resilience_or_independence_claim_names_its_axes",
       "description": "Resilience and independence are claims ABOUT something being removed: that the collective degrades less than the baseline under a named knockout, or that its result does not depend on a named participant, edge or artifact. With no axis named there is no claim to confirm, and a run against such an estimand would confirm whatever it happened to measure. The JSON Schema enforces this too through its conditional branch; the portable rule is the same law in the language a consumer that does not run JSON Schema reads.",
       "expression": {
         "operator": "non_empty_when_in",
         "path": "$.knockout_axis_refs",
         "when_path": "$.estimand_kind",
-        "values": ["resilience", "independence"]
+        "values": [
+          "resilience",
+          "independence"
+        ]
       }
     },
     {
@@ -22,11 +36,65 @@
       }
     },
     {
-      "rule_id": "collective_qualification_estimand.the_estimand_names_the_system_it_was_admitted_under",
-      "description": "This is an application record on the generic System-record seam rather than a Hypervisor family, because the evaluation plane may not read an orchestration application's records. The System binding is what makes it resolvable at all, and an estimand admitted under no System is a declaration with no admitting authority behind it.",
+      "rule_id": "collective_qualification_estimand.the_quantity_names_the_metric_it_measures",
+      "description": "An aggregation and a unit with no metric behind them describe the shape of a number and not the thing counted \u2014 'the mean of something, per second'. The metric ref is what makes the estimand point at a measurement a later run can actually take, and a consumer that does not run JSON Schema must refuse its absence too.",
       "expression": {
         "operator": "non_empty",
-        "path": "$.system_binding"
+        "path": "$.quantity.metric_ref"
+      }
+    },
+    {
+      "rule_id": "collective_qualification_estimand.root.recomputes",
+      "description": "DECLARING IN ADVANCE ONLY MEANS SOMETHING IF THE DECLARATION CANNOT MOVE. The epoch freezes the estimand's REF, which pins the name and not the content; this root pins the content, so an estimand whose minimum effect or decision rule was edited once results existed no longer recomputes and is refused by this rule's own name.",
+      "expression": {
+        "operator": "jcs_sha256_equals",
+        "algorithm": "jcs_sha256",
+        "expected_path": "$.estimand_root",
+        "expected_encoding": "sha256_string",
+        "material_fields": {
+          "schema_version": {
+            "path": "$.schema_version"
+          },
+          "estimand_id": {
+            "path": "$.estimand_id"
+          },
+          "estimand_ref": {
+            "path": "$.estimand_ref"
+          },
+          "estimand_kind": {
+            "path": "$.estimand_kind"
+          },
+          "quantity": {
+            "path": "$.quantity"
+          },
+          "direction": {
+            "path": "$.direction"
+          },
+          "minimum_effect": {
+            "path": "$.minimum_effect"
+          },
+          "cost_normalization": {
+            "path": "$.cost_normalization"
+          },
+          "decision_rule": {
+            "path": "$.decision_rule"
+          },
+          "knockout_axis_refs": {
+            "path": "$.knockout_axis_refs"
+          },
+          "declared_at": {
+            "path": "$.declared_at"
+          },
+          "declared_before_epoch_freeze": {
+            "path": "$.declared_before_epoch_freeze"
+          },
+          "epoch_ref": {
+            "path": "$.epoch_ref"
+          },
+          "qualifies_nothing_on_its_own": {
+            "path": "$.qualifies_nothing_on_its_own"
+          }
+        }
       }
     }
   ]

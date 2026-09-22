@@ -1,5 +1,6 @@
 {
   "schema_version": "ioi.ioi-ai.collective-qualification-estimand.v1",
+  "estimand_id": "estimand://collective/cooperation-surplus/1",
   "estimand_ref": "estimand://collective/cooperation-surplus/1",
   "estimand_kind": "cooperation_surplus",
   "quantity": {
@@ -17,6 +18,7 @@
   "declared_at": "2026-09-21T12:00:00Z",
   "declared_before_epoch_freeze": false,
   "epoch_ref": null,
-  "system_binding": "autonomous-system://ioi-ai/1",
-  "qualifies_nothing_on_its_own": true
+  "qualifies_nothing_on_its_own": true,
+  "knockout_axis_refs": [],
+  "estimand_root": "sha256:70717b99ef19fdd7ae8f6a1ca76fcf0f56e4a134bf90494e0d818a644cf25db9"
 }
