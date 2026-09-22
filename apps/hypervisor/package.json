@@ -199,7 +199,10 @@
     "check:connected-access-cockpit": "node ../../scripts/check-connected-access-cockpit.mjs --drills",
     "mutate:connected-access-cockpit": "node ../../scripts/check-connected-access-cockpit.mjs --mutation",
     "check:collective-controller-qualification": "node ../../scripts/check-collective-controller-qualification.mjs --drills",
-    "mutate:collective-controller-qualification": "node ../../scripts/check-collective-controller-qualification.mjs --mutation"
+    "mutate:collective-controller-qualification": "node ../../scripts/check-collective-controller-qualification.mjs --mutation",
+    "check:collective-artifact-ecology-surface": "node ../../scripts/check-collective-artifact-ecology-surface.mjs --drills",
+    "mutate:collective-artifact-ecology-surface": "node ../../scripts/check-collective-artifact-ecology-surface.mjs --mutation",
+    "check:surface-modules": "node scripts/verify-hypervisor-surface-modules.mjs"
   },
   "dependencies": {
     "@codemirror/commands": "^6.10.3",

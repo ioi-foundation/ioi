@@ -1154,6 +1154,30 @@ jobs:
         if: ${{ !cancelled() && steps.rust_backed_daemon.outcome == 'success' }}
         run: npm run mutate:collective-controller-qualification --workspace=@ioi/hypervisor-app
 
+      # M08.17 — the persistent artifact-ecology surface. Canon's view is what persists, what is
+      # installed and what is ACTUALLY RUNNING, kept visibly apart: an ArtifactRef marked active is not
+      # evidence that any runtime exists. CI-bound at the drills — the deriver over constructed lineages,
+      # the served bytes, and the source pins that hold the surface to the generic seam. The live leg (an
+      # isolated daemon, a real composition admitted, the serve started and the page compared to the
+      # daemon's own records) is the gate's full mode.
+      - name: Verify the collective artifact-ecology surface (M08.17, CI-bound drills)
+        if: ${{ !cancelled() && steps.rust_backed_daemon.outcome == 'success' }}
+        env:
+          IOI_VERIFIER_CENSUS_DIR: .artifacts/verifier-census
+        run: npm run check:collective-artifact-ecology-surface --workspace=@ioi/hypervisor-app
+
+      - name: Drill the artifact-ecology deriver
+        if: ${{ !cancelled() && steps.rust_backed_daemon.outcome == 'success' }}
+        run: npm run mutate:collective-artifact-ecology-surface --workspace=@ioi/hypervisor-app
+
+      # The surface-module contract every served surface must satisfy. Bound here 2026-09-22: it had no
+      # npm script, no CI step and no floor row, so it had never run anywhere but by hand.
+      - name: Verify the surface module contract
+        if: ${{ !cancelled() && steps.rust_backed_daemon.outcome == 'success' }}
+        env:
+          IOI_VERIFIER_CENSUS_DIR: .artifacts/verifier-census
+        run: npm run check:surface-modules --workspace=@ioi/hypervisor-app
+
       # M10.4 — the governed evaluation plane, driven against an ISOLATED daemon this job already
       # built: two deterministic ollama-dialect stub servers registered, probed, enabled and REALLY
       # invoked as routes A and B; released suite revisions, frozen and active epochs, admitted runs,

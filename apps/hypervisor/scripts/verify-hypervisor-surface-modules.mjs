@@ -18,6 +18,10 @@ import { readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { dirname, join } from "node:path";
 import { SURFACES, boundSurface, surfaceBySlug } from "./surface-registry.mjs";
+// A gate must measure its own process: without a census this verifier could pass with any number of
+// assertions and no floor could ever certify it. Bound and floored 2026-09-22 (M08.17) — it had an npm
+// script, a CI step, a floor row and a sweep entry between them of exactly none.
+import { emitVerifierCensus } from "./lib/verifier-census.mjs";
 import * as pipeline from "../surfaces/pipeline/index.mjs";
 import * as ontologyManager from "../surfaces/ontology-manager/index.mjs";
 import * as objectExplorer from "../surfaces/object-explorer/index.mjs";
@@ -484,6 +488,7 @@ run().then(() => {
   const fails = results.filter((r) => !r.pass);
   for (const r of results) console.log(`${r.pass ? "PASS" : "FAIL"}  ${r.name}${r.detail ? ` — ${r.detail}` : ""}`);
   console.log(`\n${results.length - fails.length}/${results.length} passed`);
+  emitVerifierCensus({ verifierId: "surface-modules", sourceUrl: import.meta.url, results });
   if (fails.length) process.exit(1);
   console.log("surface-modules: OK");
 }).catch((e) => {

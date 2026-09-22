@@ -7809,6 +7809,12 @@ function safeReturnPath(raw, fallback) {
 // is a contract breach worth surfacing, and the runtime already contains a thrown module action as
 // a route-local 500 with zero mutation. The module still never sees the request, the headers, the
 // cookie, or a principal string — it cannot name a caller, only act as the one already admitted.
+// The per-read deadline handed to bound surface modules. Unset means each module keeps its own
+// product default; the value is clamped by the modules themselves.
+const SURFACE_PLANE_TIMEOUT_MS = Number(process.env.IOI_SURFACE_PLANE_TIMEOUT_MS) > 0
+  ? Number(process.env.IOI_SURFACE_PLANE_TIMEOUT_MS)
+  : undefined;
+
 function moduleActionDaemonCapability() {
   const boundReq = reqCtx.getStore()?.req || null;
   // Fail closed on an unbound scope. An identity-less daemon call is not "anonymous" in effect:
@@ -13686,7 +13692,11 @@ async function handleEstateRequest(req, res, body) {
         // the ambient daemonFetch, so this closes the same gap for bound modules. Anonymous
         // stays anonymous: the capability carries the request's identity or nothing, so a
         // signed-out render shows the family's typed refusal, never another caller's truth.
-        const ctx = { url, daemon: DAEMON, embed: url.searchParams.get("embed") === "1", daemonFetch: moduleActionDaemonCapability() };
+        // `planeTimeoutMs` is the per-read deadline surfaces already honour and nothing ever set —
+        // a dead knob in two modules until 2026-09-22 (M08.17). The default stays the product one;
+        // a deployment on slow storage, or a verifier driving a debug daemon on a loaded box, can
+        // raise it rather than have every surface render an honest-but-useless timeout notice.
+        const ctx = { url, daemon: DAEMON, embed: url.searchParams.get("embed") === "1", daemonFetch: moduleActionDaemonCapability(), planeTimeoutMs: SURFACE_PLANE_TIMEOUT_MS };
         const model = hit.impl.load ? await hit.impl.load(ctx) : null;
         const rendered = hit.impl.render(model, ctx);
         // ctx.embed gates the module's own rail emission; the estate-wide embed choke point

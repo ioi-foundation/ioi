@@ -37,6 +37,9 @@ import {
 
 const ROUTE = "/__ioi/missions/ecology";
 const DEFAULT_PLANE_TIMEOUT_MS = 3_000;
+// The System picker gets a deadline of its own: the projection route re-verifies every genesis
+// admission on every read, so it must never be able to hold up the ecology it only helps you find.
+const PICKER_TIMEOUT_MS = 2_000;
 
 export const ECOLOGY_APP_ICON_URI = `data:image/svg+xml,${encodeURIComponent(
   '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="#8babfc" stroke-width="1.6"><circle cx="12" cy="5" r="2.4"/><circle cx="5" cy="18" r="2.4"/><circle cx="19" cy="18" r="2.4"/><path d="M12 7.4v4.2M12 11.6 6.6 16M12 11.6 17.4 16"/></svg>',
@@ -55,10 +58,10 @@ const unavailablePlane = (status, code) => ({ ok: false, status, code, rows: [] 
  * One seam read. A plane that did not answer is NOT an empty plane, and every count says so — a timeout
  * and a refusal are different outcomes and neither is zero.
  */
-async function readRecords(fetchImpl, daemon, systemId, contractId, timeoutMs) {
+async function readRecords({ fetchImpl, base }, systemId, contractId, timeoutMs) {
   const path = `/v1/hypervisor/autonomous-systems/${encodeURIComponent(systemId)}/records?contract_id=${encodeURIComponent(contractId)}`;
   try {
-    const { response, payload } = await readJsonWithDeadline(fetchImpl, `${daemon}${path}`, timeoutMs);
+    const { response, payload } = await readJsonWithDeadline(fetchImpl, `${base}${path}`, timeoutMs);
     if (!response.ok) return unavailablePlane(response.status, payload?.error?.code || "plane_unavailable");
     if (!Array.isArray(payload?.records)) return unavailablePlane(response.status, "plane_payload_invalid");
     return { ok: true, status: response.status, code: "", rows: payload.records.map((entry) => entry?.current).filter(Boolean) };
@@ -67,66 +70,79 @@ async function readRecords(fetchImpl, daemon, systemId, contractId, timeoutMs) {
   }
 }
 
-async function readSystems(fetchImpl, daemon, timeoutMs) {
+/**
+ * WHICH SYSTEMS THIS CALLER MAY SEE. `/autonomous-systems` is a get-BY-ID and refuses without one
+ * (`system_genesis_system_id_required`); the enumeration is `/autonomous-systems/projection`, which
+ * filters rows by the caller's own scopes BEFORE answering — so this surface never sees a System the
+ * caller could not already read, and an empty answer is `honest_empty` rather than a hidden refusal.
+ */
+async function readSystems({ fetchImpl, base }, timeoutMs) {
   try {
-    const { response, payload } = await readJsonWithDeadline(fetchImpl, `${daemon}/v1/hypervisor/autonomous-systems`, timeoutMs);
+    const { response, payload } = await readJsonWithDeadline(fetchImpl, `${base}/v1/hypervisor/autonomous-systems/projection`, timeoutMs);
     if (!response.ok) return unavailablePlane(response.status, payload?.error?.code || "plane_unavailable");
-    const rows = Array.isArray(payload?.systems)
-      ? payload.systems
-      : Array.isArray(payload?.autonomous_systems)
-        ? payload.autonomous_systems
-        : null;
-    if (!rows) return unavailablePlane(response.status, "plane_payload_invalid");
-    return { ok: true, status: response.status, code: "", rows };
+    if (!Array.isArray(payload?.systems)) return unavailablePlane(response.status, "plane_payload_invalid");
+    return { ok: true, status: response.status, code: "", rows: payload.systems, state: payload.state ?? "" };
   } catch (error) {
     return unavailablePlane(0, error?.code === "plane_timeout" ? "plane_timeout" : "daemon_unavailable");
   }
 }
 
 const systemIdOf = (row) => String(row?.system_id ?? row?.id ?? row?.system?.system_id ?? "");
+const PROJECTION_ROUTE = "/v1/hypervisor/autonomous-systems/projection";
 
 export async function load(ctx) {
-  const fetchImpl = ctx.fetch || globalThis.fetch;
+  // THE SEAM IS IDENTITY-FIRST, so this surface speaks to it through the request-scoped capability the
+  // serve hands bound modules and never through a bare fetch. `daemonFetch` carries the CALLER's
+  // identity and refuses any destination that is not daemon-relative, so the caller's envelope cannot
+  // leave the daemon. An identity-less call here would not read as "anonymous": under local-development
+  // posture the daemon adjudicates a loopback call as the operator, so a bare fetch would silently
+  // PROMOTE this read. The plain-fetch branch exists for tests that inject their own transport.
+  const transport = typeof ctx.daemonFetch === "function"
+    ? { fetchImpl: ctx.daemonFetch, base: "" }
+    : { fetchImpl: ctx.fetch || globalThis.fetch, base: ctx.daemon || "" };
   const requested = Number(ctx.planeTimeoutMs);
   const timeoutMs = Number.isFinite(requested) && requested > 0 ? Math.min(Math.floor(requested), 30_000) : DEFAULT_PLANE_TIMEOUT_MS;
 
-  const systems = await readSystems(fetchImpl, ctx.daemon, timeoutMs);
-  const ids = systems.ok ? systems.rows.map(systemIdOf).filter(Boolean) : [];
+  // THE ECOLOGY IS SCOPED TO A SYSTEM THE CALLER NAMES, and that is not a shortcut. The daemon itself
+  // refuses to answer `/autonomous-systems` without a `system_id`, and the one route that DOES enumerate
+  // — `/autonomous-systems/projection` — cryptographically re-verifies every System's genesis admission
+  // on every GET (`projection_source: verified_owner_reconstruction`). Measured against an isolated
+  // daemon holding one System: the projection took 48.5 SECONDS while the seam's own record read took
+  // 259ms. So the ecology reads the records route directly for the named System and never waits on the
+  // projection; the System PICKER asks the projection on a short deadline of its own and degrades to a
+  // typed notice, because a slow picker must not be able to blank a fast ecology.
+  const namedSystem = String(ctx.url?.searchParams?.get("system") ?? "").trim();
 
-  const lineagePlanes = [];
-  const verdictPlanes = [];
-  const receiptPlanes = [];
-  for (const id of ids) {
-    // Sequential on purpose: the seam authorizes per resource, and a fan-out over every System would
-    // make a slow plane look like a fast one that returned nothing.
-    lineagePlanes.push([id, await readRecords(fetchImpl, ctx.daemon, id, CONTRACTS.lineage, timeoutMs)]);
-    verdictPlanes.push([id, await readRecords(fetchImpl, ctx.daemon, id, CONTRACTS.verdict, timeoutMs)]);
-    receiptPlanes.push([id, await readRecords(fetchImpl, ctx.daemon, id, CONTRACTS.receipt, timeoutMs)]);
+  if (!namedSystem) {
+    const systems = await readSystems(transport, Math.min(timeoutMs, PICKER_TIMEOUT_MS));
+    return {
+      needs_system: true,
+      systems,
+      lineagePlane: { ok: systems.ok, code: systems.code },
+      verdictPlane: { ok: systems.ok, code: systems.code },
+      lineages: [], projected: [], verdicts: [], coverage: [], survival: [],
+    };
   }
 
-  const collect = (planes) => planes.flatMap(([id, plane]) => (plane.ok ? plane.rows.map((row) => ({ ...row, __system: id })) : []));
-  const anyFailed = (planes) => planes.some(([, plane]) => !plane.ok);
-  const firstCode = (planes) => (planes.find(([, plane]) => !plane.ok)?.[1]?.code) ?? "";
-
-  const lineages = collect(lineagePlanes);
-  const verdicts = collect(verdictPlanes);
-  const receipts = collect(receiptPlanes);
+  const lineagePlane = await readRecords(transport, namedSystem, CONTRACTS.lineage, timeoutMs);
+  const verdictPlane = await readRecords(transport, namedSystem, CONTRACTS.verdict, timeoutMs);
+  const lineages = lineagePlane.ok ? lineagePlane.rows : [];
 
   // THE DERIVER IS THE ONLY DERIVER. This module computes no rung, posture or coverage itself.
   const projected = lineages.map((lineage) => ({
     ...projectLineage(lineage, { dependents: dependentsOf(String(lineage.lineage_id ?? ""), lineages) }),
-    system_id: lineage.__system,
+    system_id: namedSystem,
   }));
 
   return {
-    systems,
-    lineagePlane: { ok: !anyFailed(lineagePlanes) && systems.ok, code: systems.ok ? firstCode(lineagePlanes) : systems.code },
-    verdictPlane: { ok: !anyFailed(verdictPlanes) && systems.ok, code: systems.ok ? firstCode(verdictPlanes) : systems.code },
-    receiptPlane: { ok: !anyFailed(receiptPlanes) && systems.ok, code: systems.ok ? firstCode(receiptPlanes) : systems.code },
+    needs_system: false,
+    system_id: namedSystem,
+    systems: { ok: true, code: "", rows: [] },
+    lineagePlane,
+    verdictPlane,
     lineages,
     projected,
-    verdicts,
-    receipts,
+    verdicts: verdictPlane.ok ? verdictPlane.rows : [],
     coverage: projected.flatMap((p) => coverageFindings(p)),
     survival: projected.map((p) => survivesRemoval(p)),
   };
@@ -284,6 +300,21 @@ export function render(model, ctx) {
     @media(prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
     @media(max-width:980px){.ec-workspace{grid-template-columns:1fr}.ec-sidebar{border-right:0}.ec-detail{padding:22px 18px}.ec-facts{grid-template-columns:repeat(2,minmax(0,1fr))}.ec-grid,.ec-two-col{grid-template-columns:1fr}.ec-summary{overflow-x:auto}}
     @media(max-width:640px){.ec-top{height:auto;min-height:64px;padding:12px 14px;flex-wrap:wrap;gap:8px}.ec-title span{display:none}.ec-summary,.ec-tabs{padding-left:14px;padding-right:14px}.ec-detail-head{flex-direction:column}}`;
+  if (model.needs_system) {
+    const rows = model.systems.ok ? model.systems.rows : [];
+    const body = model.systems.ok
+      ? (rows.length
+        ? `<div class="ec-run-list">${rows.map((r) => { const id = systemIdOf(r); return `<a class="ec-row" data-ioi-system="${escHtml(id)}" href="${selectionQuery(ROUTE, { system: id })}"><div class="ec-row-copy"><strong>${escHtml(shortRef(id))}</strong><span>persistent systems admitted under this System</span></div></a>`; }).join("")}</div>`
+        : `<p class="ec-none" style="padding:18px">No System is admitted for this caller yet.</p>`)
+      : `<p class="ec-none" style="padding:18px">The System picker could not be read — <code>${escHtml(model.systems.code || "unknown")}</code>. This does not mean there are none, and naming a System in the URL reads its ecology directly without the picker.</p>`;
+    return `<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Artifact Ecology · Hypervisor</title><style>${CSS}</style></head><body data-ioi-ecology-state="needs_system"><div class="ec-shell">${globalRail}<main class="ec-main" data-ioi-ecology="persistent-executable-lineage">
+      <header class="ec-top"><div class="ec-title"><h1>Artifact Ecology</h1><span>Name a System to read its persistent systems</span></div><div class="ec-actions"><a class="ec-action" href="/__ioi/missions">Missions</a></div></header>
+      ${planeNotice("System picker", model.systems)}
+      ${body}
+      <p class="ec-boundary" style="padding:18px">The ecology is scoped to one System because the daemon refuses to enumerate them cheaply: <code>/autonomous-systems</code> requires a <code>system_id</code>, and the projection that does enumerate re-verifies every genesis admission on every read. The picker asks it on a short deadline of its own so a slow enumeration can never blank a fast ecology.</p>
+    </main></div></body></html>`;
+  }
+
   return `<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Artifact Ecology · Hypervisor</title><style>${CSS}</style></head><body><div class="ec-shell">${globalRail}<main class="ec-main" data-ioi-ecology="persistent-executable-lineage">
     <header class="ec-top"><div class="ec-title"><h1>Artifact Ecology</h1><span>What persists, what is installed, and what is actually running</span></div><div class="ec-actions"><a class="ec-action" href="/__ioi/missions">Missions</a><a class="ec-action" href="/__ioi/operations">Operations substrate</a><a class="ec-action" href="${selectionQuery(ROUTE, { lineage: selectedId, rung: rung === "all" ? "" : rung })}" aria-label="Refresh ecology data">Refresh</a></div></header>
     <div class="ec-summary">${metric("lineages", model.lineagePlane.ok ? model.projected.length : "—")}${metric("stored", count("stored"))}${metric("installed", count("installed"))}${metric("running", count("running"))}${metric("coverage gaps", model.lineagePlane.ok ? model.coverage.length : "—", model.coverage.length ? "attention" : "")}</div>
