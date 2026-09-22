@@ -29,6 +29,7 @@ import * as objectExplorerModule from "../surfaces/object-explorer/index.mjs";
 import * as approvalsModule from "../surfaces/approvals/index.mjs";
 import * as sourcesModule from "../surfaces/sources/index.mjs";
 import * as missionsModule from "../surfaces/missions/index.mjs";
+import * as ecologyModule from "../surfaces/ecology/index.mjs";
 import * as studioModule from "../surfaces/studio/index.mjs";
 import * as packagesModule from "../surfaces/packages/index.mjs";
 
@@ -98,6 +99,12 @@ export const SURFACES = [
   // state root). Sixteen run/build planes are classified live into four states. The build VERBS
   // stay on Automations and are linked, never duplicated; /__ioi/missions — the read_only_by_contract
   // substrate — is untouched and this is a sibling lane beside it, not a replacement.
+  // M08.17 (R-224/R-226): the persistent artifact ecology. APPLICATION-CONTRIBUTED, not a core
+  // enumeration — Missions organizes generic work results by work SUBJECT and resolves no application
+  // ref behind one, which is exactly what this view does, so it reads the ioi.ai composition through
+  // the generic System-record seam. Read-only by contract: the composition's verbs (stop, quarantine,
+  // repair, replace, retire) belong to the ioi.ai composer and the daemon serves no route for them.
+  { slug: "ecology", owner: "Missions", title: "Artifact Ecology", icon: ecologyModule.ECOLOGY_APP_ICON_URI, route: "/__ioi/missions/ecology", verifier: "scripts/check-collective-artifact-ecology-surface.mjs", certification: "n/a", capabilities: ["browse", "filter", "select", "inspect", "proof"], operational_state: "read_only_by_contract", embedded_shell_state: "native_single_rail", interaction_parity_state: "none" },
   { slug: "jobs", owner: "Missions", title: "Builds", icon: missionsModule.MISSIONS_APP_ICON_URI, route: "/__ioi/missions/builds", verifier: "scripts/verify-hypervisor-app-parity-domain-landings.mjs", certification: "n/a", capabilities: ["browse"], operational_state: "browse", embedded_shell_state: "native_single_rail", interaction_parity_state: "none" },
   // SCH-1 (remediation v2): the live-tenant-sourced Build Schedules port — a READ-ONLY projection
   // of the estate's ONLY cadence: the automation records carrying a schedule_spec. Fifteen
@@ -282,6 +289,7 @@ bindSurface("explorer", objectExplorerModule);
 bindSurface("approvals", approvalsModule);
 bindSurface("sources", sourcesModule);
 bindSurface("missions", missionsModule);
+bindSurface("ecology", ecologyModule);
 bindSurface("studio-home", studioModule);
 // Packages: BOTH rows bind the one module — the module branches on the served pathname (the
 // marketplace mounts render the read-first mode); ownership markers stay per-row truthful.
