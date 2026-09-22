@@ -350,6 +350,17 @@ export function sourceFindings({ surface, missions, registry, router, canon, lib
   // registered and bound
   if (!/slug: "ecology"/u.test(registry)) f.push("the surface is not in the registry");
   if (!/bindSurface\("ecology", ecologyModule\);/u.test(registry)) f.push("the surface is registered but not bound, so its route serves nothing");
+  // A REGISTRY ROW'S PATHS RESOLVE FROM THE APP, NOT THE REPO ROOT. `check:app-runtime-safety` asserts
+  // `existsSync(join(APP, row.verifier))`, so a root-runner gate must be named app-relatively or the row
+  // points at nothing — the same wrong-base defect a floor row shipped as R-218. And a
+  // `read_only_by_contract` surface must carry committed catalog evidence that the operational-depth
+  // atlas actually holds, or it is a registry addition with no evidence for its class.
+  if (!/verifier: "\.\.\/\.\.\/scripts\/check-collective-artifact-ecology-surface\.mjs"/u.test(registry)) {
+    f.push("the registry row's verifier is not app-relative, so check:app-runtime-safety cannot resolve it on disk");
+  }
+  if (!/catalog_evidence: \{ schema: "ioi\.hypervisor\.catalog-contract-evidence\.v1"/u.test(registry)) {
+    f.push("the registry row carries no catalog evidence, so a read_only_by_contract surface has none for its class");
+  }
   // canon's binding
   const section = canon.slice(canon.indexOf("### The ecology surface is a projection"));
   if (!section) f.push("canon carries no ecology-surface section");

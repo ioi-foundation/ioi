@@ -48,7 +48,7 @@ export const ECOLOGY_APP_ICON_URI = `data:image/svg+xml,${encodeURIComponent(
 export const meta = {
   slug: "ecology",
   route: ROUTE,
-  verifier: "scripts/check-collective-artifact-ecology-surface.mjs",
+  verifier: "../../scripts/check-collective-artifact-ecology-surface.mjs",
   certification: "n/a",
 };
 
