@@ -293,6 +293,46 @@ their ancestry and dependents, who can maintain or stop them, their current
 authority and budget, and what remains operational when participants and
 Sessions are removed.
 
+### The ecology surface is a projection, and it owns nothing
+
+**It is an application-contributed surface, never a core enumeration.** The
+Hypervisor serves no room, collective, lineage or caretaker route and must not
+grow one: goal runs and rooms are this application's domain, and core's Work
+read model publishes no reader for them and mints no route for them. The
+operational read model core does own — Missions — organizes generic work
+results by the work SUBJECT each names and deliberately resolves no application
+ref behind a subject. Resolving the composition behind a subject is exactly what
+this surface does, which is why it belongs to ioi.ai and is registered through
+the product-surface registration family rather than added to core.
+
+**It reads the same seam the composition was admitted through.** The collective
+resolution receipt, the persistent executable lineages and the qualification
+records are records of a bounded System, so the surface reads them by contract
+id through the generic System-record routes. A projection over admitted owners
+is the only thing it may be; a surface that kept its own copy would be a second
+truth about what is running.
+
+**The three rungs stay visibly apart.** A stored, eligible artifact, an
+installed definition and an actually-running healthy instance are three
+different facts, and the default presentation must let a reader tell them apart
+without inference. An `ArtifactRef` marked `active` is not evidence that any
+runtime exists or that its authority is current — the same sentence that makes a
+surviving process inadmissible as qualification evidence makes "active"
+inadmissible as a claim that something is running. Persistent systems and
+blockers come first; one chat bubble per participant is not the view.
+
+**Every intervention routes through its existing owner.** Stop, revoke,
+quarantine, repair, replace and retire are the composition's own verbs and the
+owners' own operations. The surface offers them, resolves what they would affect
+and shows their receipts; it writes nothing itself, mints no acceptance, verdict
+or authority, and renders no evaluation result it did not read from the
+evaluation plane.
+
+**Direct and embedded renderings resolve identically.** A deep route and the
+same view embedded in another surface must answer the same refs, versions,
+state, offered actions and receipts, because an operator who sees two answers
+has to decide which one is the system.
+
 ## Owns
 
 ioi.ai owns the user-facing coordination of:
@@ -1052,9 +1092,22 @@ private room-database state.
 ## Goal Space Projection
 
 A simple question, direct run, ordinary automation, or single-session task
-stays direct. For persistent collective pursuit, ioi.ai Goal Space and
-Hypervisor Work / Rooms render the same OutcomeRoom through graph-first product
-lenses. A Mission label may be shown as presentation language, but it creates no
+stays direct. For persistent collective pursuit, the lenses below are rendered
+over the composition through graph-first product views.
+
+> **Retyped 2026-09-22 (R-226).** This paragraph read "ioi.ai Goal Space and
+> Hypervisor Work / Rooms render the same OutcomeRoom", which named a Hypervisor
+> surface that does not exist: R-192 ruled goal runs and outcome rooms out of the
+> Hypervisor entirely, S4c/S4d retired the room planes end to end, and the
+> daemon serves no room route at all. `OutcomeRoom` survives in code only as two
+> comments recording its own retirement. The composition these lenses project is
+> the collective resolution receipt and its persistent executable lineages,
+> admitted through the System-record seam by this application; where a Hypervisor
+> view of it exists, it is an application-CONTRIBUTED surface and never a core
+> enumeration of rooms. A lens that cannot be rendered over an object the estate
+> admits is a requirement on nothing.
+
+A Mission label may be shown as presentation language, but it creates no
 separate identity or state:
 
 1. objective, acceptance criteria, constraints, deadline, budget, visibility,
