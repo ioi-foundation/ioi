@@ -381,7 +381,17 @@ export function bindingFindings({ rootPkg, appPkg, floors, ci }) {
     else if (!/^[0-9a-f]{64}$/u.test(row.assertion_names_sha256 ?? "")) f.push(`floor_row_without_a_name_digest:${id}`);
     else if (!fs.existsSync(path.resolve(ROOT, row.source))) f.push(`floor_row_source_missing:${id}`);
   }
-  if (!/check:collective-controller-qualification/u.test(ci)) f.push("gate_not_ci_bound");
+  // CI-BOUND MEANS WHAT THE FLOORS GATE MEANS BY IT, not what a grep for the name would accept. A floor
+  // row on a verifier CI does not run proves nothing, and `check:verifier-floors` decides that from an
+  // explicit allow-list of non-`verify-*` script basenames it recognises — so a gate can be named in
+  // ci.yml, pinned, and still be reported as gating nothing. This assertion was a bare name test and
+  // passed while CI went red on exactly that; it now reads the floors gate's own recognizer.
+  if (!/check:collective-controller-qualification --workspace=@ioi\/hypervisor-app/u.test(ci)) f.push("gate_not_ci_bound_in_the_hypervisor_workspace");
+  if (!/mutate:collective-controller-qualification --workspace=@ioi\/hypervisor-app/u.test(ci)) f.push("battery_not_ci_bound");
+  const floorsGate = readText(path.join(APP_DIR, "scripts", "check-verifier-floors.mjs"));
+  if (!floorsGate.includes("check-collective-controller-qualification")) {
+    f.push("floors_gate_does_not_recognise_this_verifier: the floor would gate nothing and check:verifier-floors goes red");
+  }
   const seen = new Set();
   for (const c of CLAUSES) {
     seen.add(c.n);
