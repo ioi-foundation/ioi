@@ -1,0 +1,54 @@
+{
+  "schema_version": "ioi.foundations.jurisdiction-policy-decision.v1",
+  "decision_id": "jurisdiction_decision://eu/applies-but-matched-nothing",
+  "pack_ref": "jurisdiction_policy_pack://eu/ai-act/serious-incident/v1",
+  "pack_version": "1.0.0",
+  "pack_root": "sha256:1111111111111111111111111111111111111111111111111111111111111111",
+  "subject_ref": "run://ioi/inference/1",
+  "evaluated_at": "2026-10-02T09:00:00Z",
+  "clock_start_basis": "detected_at",
+  "triggering_timestamp": "2026-10-02T08:30:00Z",
+  "applicability": {
+    "applies": true,
+    "matched_classes": [],
+    "basis": "the subject performed a high-risk model inference on personal data within the EU"
+  },
+  "obligations": [
+    {
+      "obligation_kind": "incident_report",
+      "detail": "initial notice to the AI Office within 72 hours of detection",
+      "enforcing_owner": "daemon_policy",
+      "owner_ref": "policy://ioi/incident/eu",
+      "status": "unsatisfied",
+      "evidence_refs": []
+    },
+    {
+      "obligation_kind": "identity",
+      "detail": "KYC and sanctions screening on the accountable principal",
+      "enforcing_owner": "wallet_network",
+      "owner_ref": "authority://ioi/identity",
+      "status": "satisfied",
+      "evidence_refs": [
+        "receipt://ioi/kyc/1"
+      ]
+    },
+    {
+      "obligation_kind": "data_retention",
+      "detail": "retain inference evidence under the EU retention policy",
+      "enforcing_owner": "agentgres_retention",
+      "owner_ref": "policy://ioi/retention/eu-ai",
+      "status": "evidence_unavailable",
+      "evidence_refs": []
+    }
+  ],
+  "unmet_evidence": [
+    {
+      "missing": "current_evidence",
+      "reason": "the runtime attestation is older than the freshness this pack requires"
+    }
+  ],
+  "legal_conformity_claim": "not_determined",
+  "grants_no_authority": true,
+  "performs_no_action": true,
+  "decision_root": "sha256:cd01f8c0f9eee254c456edd5c5da0cb11c684fc52211b10fd08e1fd807b6523e"
+}

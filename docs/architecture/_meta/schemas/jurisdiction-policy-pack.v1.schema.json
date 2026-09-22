@@ -1,0 +1,522 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "schema://ioi/foundations/jurisdiction-policy-pack/v1",
+  "title": "JurisdictionPolicyPack",
+  "x-ioi-schema-version": "ioi.foundations.jurisdiction-policy-pack.v1",
+  "description": "JURISDICTION, ELIGIBILITY, RETENTION, REGULATED-ACTION, TAX AND EXPORT OBLIGATIONS IN A MACHINE-READABLE SHAPE \u2014 and nothing that reads as a legal determination. Canon has specified this object member for member since the assurance foundation was written (foundations/ecosystem-assurance-certification-liability.md \u00a7 JurisdictionPolicyPack) and nothing in the estate registered it, so every one of those obligations was a paragraph rather than a shape anything could refuse. THE PACK GRANTS NOTHING AND DECIDES NOTHING: it compiles into owners that already exist \u2014 wallet.network identity, eligibility, payment, step-up and authority gates; daemon policy checks and runtime fail-closed behaviour; Agentgres retention, receipt, state-root and export validity; marketplace listing restrictions; sas.xyz SLA, refund, bond and provider obligations. It is not legal advice and not a substitute for domain-specific review. TWO LAWS CANON STATES THAT THIS SHAPE MAKES CHECKABLE: deadline arithmetic retains the EXACT pack version and triggering timestamp, and changing a deadline, clock-start rule, recipient, responsible party or accountable issuer requires a NEW PACK VERSION and must never rewrite an already-recorded reporting decision \u2014 so the pack is sealed by `pack_root`, and a decision binds that root rather than the pack's name. Owner: foundations/ecosystem-assurance-certification-liability.md \u00a7 JurisdictionPolicyPack (M06.10, R-228).",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "pack_id",
+    "version",
+    "issued_at",
+    "effective_at",
+    "supersedes_ref",
+    "issuer",
+    "jurisdiction",
+    "applies_to",
+    "identity_requirements",
+    "authority_requirements",
+    "data_requirements",
+    "regulated_action_rules",
+    "tax_and_commercial_refs",
+    "audit_requirements",
+    "incident_reporting",
+    "erasure_requirements",
+    "grants_no_authority",
+    "is_not_legal_advice",
+    "pack_root"
+  ],
+  "properties": {
+    "schema_version": {
+      "type": "string",
+      "const": "ioi.foundations.jurisdiction-policy-pack.v1"
+    },
+    "pack_id": {
+      "$ref": "#/$defs/packRef"
+    },
+    "version": {
+      "type": "string",
+      "pattern": "^(?:0|[1-9][0-9]*)[.](?:0|[1-9][0-9]*)[.](?:0|[1-9][0-9]*)$",
+      "description": "Semver, and load-bearing rather than decorative: canon requires a NEW VERSION for any change to a deadline, clock-start rule, recipient, responsible party or accountable issuer, and a recorded decision names the version it was taken under."
+    },
+    "issued_at": {
+      "$ref": "#/$defs/timestamp"
+    },
+    "effective_at": {
+      "$ref": "#/$defs/timestamp",
+      "description": "When the obligations begin to apply, which is not when the pack was issued. A decision taken before this instant was taken under the predecessor."
+    },
+    "supersedes_ref": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/packRef"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "description": "The pack this one replaces, or null for a first issue. Supersession is a CHAIN, not an edit: the superseded pack keeps standing behind every decision already taken under it."
+    },
+    "issuer": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "issuer_ref",
+        "responsible_ref",
+        "accountable_ref"
+      ],
+      "description": "Who issued it, who is responsible and who is accountable \u2014 three refs because they are routinely three parties, and an obligation with no accountable party behind it is a document.",
+      "properties": {
+        "issuer_ref": {
+          "type": "string",
+          "pattern": "^(?:org|domain|governance)://[^\\s]{1,400}$"
+        },
+        "responsible_ref": {
+          "$ref": "#/$defs/actorRef"
+        },
+        "accountable_ref": {
+          "$ref": "#/$defs/actorRef"
+        }
+      }
+    },
+    "jurisdiction": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "country",
+        "region",
+        "sector"
+      ],
+      "description": "All three members are present and any may be null. A pack that omitted the axis it does not constrain would be indistinguishable from one whose author forgot it.",
+      "properties": {
+        "country": {
+          "anyOf": [
+            {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 120
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "region": {
+          "anyOf": [
+            {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 120
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "sector": {
+          "anyOf": [
+            {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 120
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      }
+    },
+    "applies_to": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "action_classes",
+        "data_classes",
+        "service_classes"
+      ],
+      "description": "What the pack reaches, in canon's own three kinds. All three lists are present and any may be empty; that a pack must reach SOMETHING is a portable invariant rather than a schema shape, because JSON Schema can only say it with an anyOf of same-typed branches and the Rust projection refuses those \u2014 a limit worth stating rather than working around by renaming what canon calls these.",
+      "properties": {
+        "action_classes": {
+          "type": "array",
+          "maxItems": 256,
+          "uniqueItems": true,
+          "items": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 200
+          }
+        },
+        "data_classes": {
+          "type": "array",
+          "maxItems": 256,
+          "uniqueItems": true,
+          "items": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 200
+          }
+        },
+        "service_classes": {
+          "type": "array",
+          "maxItems": 256,
+          "uniqueItems": true,
+          "items": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 200
+          }
+        }
+      }
+    },
+    "identity_requirements": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "kyc_required",
+        "business_verification_required",
+        "sanctions_screening_required",
+        "accredited_or_professional_status_required"
+      ],
+      "description": "Declared, and enforced by wallet.network's own gates. Every member is present so that `false` is a stated posture rather than an omission.",
+      "properties": {
+        "kyc_required": {
+          "type": "boolean"
+        },
+        "business_verification_required": {
+          "type": "boolean"
+        },
+        "sanctions_screening_required": {
+          "type": "boolean"
+        },
+        "accredited_or_professional_status_required": {
+          "type": "boolean"
+        }
+      }
+    },
+    "authority_requirements": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "required_scopes",
+        "step_up_required",
+        "guardian_required"
+      ],
+      "properties": {
+        "required_scopes": {
+          "type": "array",
+          "maxItems": 256,
+          "uniqueItems": true,
+          "items": {
+            "type": "string",
+            "pattern": "^scope:[a-z][a-z0-9._:-]{0,200}$"
+          },
+          "description": "Scopes the pack REQUIRES, never scopes it grants. The pack is an obligation, and an obligation that could mint authority would be a grant wearing a policy's name."
+        },
+        "step_up_required": {
+          "type": "boolean"
+        },
+        "guardian_required": {
+          "type": "boolean"
+        }
+      }
+    },
+    "data_requirements": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "retention_policy_ref",
+        "deletion_policy_ref",
+        "export_policy_ref",
+        "residency_policy_ref"
+      ],
+      "description": "Pointers at the policies that already own these decisions. The pack names them; it does not restate them, because a restated policy is a second copy that can drift.",
+      "properties": {
+        "retention_policy_ref": {
+          "$ref": "#/$defs/policyRef"
+        },
+        "deletion_policy_ref": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/policyRef"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "export_policy_ref": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/policyRef"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "residency_policy_ref": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/policyRef"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      }
+    },
+    "regulated_action_rules": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "prohibited_actions",
+        "approval_required_actions",
+        "disclosure_required_actions"
+      ],
+      "description": "Three lists that mean three different things: what may not happen, what needs an approval first, and what must be disclosed when it does. Collapsing them would lose the difference between a refusal and a receipt.",
+      "properties": {
+        "prohibited_actions": {
+          "$ref": "#/$defs/actionList"
+        },
+        "approval_required_actions": {
+          "$ref": "#/$defs/actionList"
+        },
+        "disclosure_required_actions": {
+          "$ref": "#/$defs/actionList"
+        }
+      }
+    },
+    "tax_and_commercial_refs": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "tax_profile_ref",
+        "invoice_profile_ref"
+      ],
+      "properties": {
+        "tax_profile_ref": {
+          "anyOf": [
+            {
+              "type": "string",
+              "pattern": "^tax://[^\\s]{1,400}$"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "invoice_profile_ref": {
+          "anyOf": [
+            {
+              "type": "string",
+              "pattern": "^invoice://[^\\s]{1,400}$"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      }
+    },
+    "audit_requirements": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "evidence_profile_refs"
+      ],
+      "properties": {
+        "evidence_profile_refs": {
+          "type": "array",
+          "maxItems": 128,
+          "uniqueItems": true,
+          "items": {
+            "$ref": "#/$defs/assuranceProfileRef"
+          }
+        }
+      }
+    },
+    "incident_reporting": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "rules_version",
+        "deadlines"
+      ],
+      "description": "THE PART WHERE ARITHMETIC MEETS OBLIGATION. Each deadline names the incident class it applies to, the CLOCK START it runs from, the windows, who receives the notice, what evidence projection accompanies it, and who is responsible and accountable. Canon: deadline arithmetic must retain the exact pack version and triggering timestamp, and changing any of these requires a new pack version.",
+      "properties": {
+        "rules_version": {
+          "type": "string",
+          "pattern": "^(?:0|[1-9][0-9]*)[.](?:0|[1-9][0-9]*)[.](?:0|[1-9][0-9]*)$"
+        },
+        "deadlines": {
+          "type": "array",
+          "maxItems": 128,
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "incident_class",
+              "clock_start",
+              "initial_notice_within_ms",
+              "full_report_within_ms",
+              "recipient_ref",
+              "evidence_projection_profile_ref",
+              "responsible_ref",
+              "accountable_ref"
+            ],
+            "properties": {
+              "incident_class": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 200
+              },
+              "clock_start": {
+                "type": "string",
+                "enum": [
+                  "detected_at",
+                  "confirmed_at",
+                  "materiality_determined_at",
+                  "authority_request_received_at"
+                ],
+                "description": "WHICH INSTANT THE WINDOW RUNS FROM, and the four are genuinely different moments. A deadline computed from the wrong one is wrong by however long detection, confirmation and materiality took."
+              },
+              "initial_notice_within_ms": {
+                "anyOf": [
+                  {
+                    "type": "integer",
+                    "minimum": 0,
+                    "maximum": 315360000000
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "full_report_within_ms": {
+                "anyOf": [
+                  {
+                    "type": "integer",
+                    "minimum": 0,
+                    "maximum": 315360000000
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "recipient_ref": {
+                "type": "string",
+                "pattern": "^(?:authority|regulator|counterparty)://[^\\s]{1,400}$"
+              },
+              "evidence_projection_profile_ref": {
+                "$ref": "#/$defs/assuranceProfileRef"
+              },
+              "responsible_ref": {
+                "$ref": "#/$defs/actorRef"
+              },
+              "accountable_ref": {
+                "$ref": "#/$defs/actorRef"
+              }
+            }
+          }
+        }
+      }
+    },
+    "erasure_requirements": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "crypto_shredding_eligible",
+        "crypto_shredding_policy_ref",
+        "erasure_verification_profile_ref",
+        "exception_policy_ref"
+      ],
+      "properties": {
+        "crypto_shredding_eligible": {
+          "type": "boolean"
+        },
+        "crypto_shredding_policy_ref": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/policyRef"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "erasure_verification_profile_ref": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/assuranceProfileRef"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "exception_policy_ref": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/policyRef"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      }
+    },
+    "grants_no_authority": {
+      "type": "boolean",
+      "const": true,
+      "description": "On the wire, because the pack names required scopes and a reader could take that for a grant. It requires; it never issues."
+    },
+    "is_not_legal_advice": {
+      "type": "boolean",
+      "const": true,
+      "description": "Canon's own sentence, carried as a member rather than left in prose: the pack is not legal advice and not a substitute for domain-specific review."
+    },
+    "pack_root": {
+      "type": "string",
+      "pattern": "^sha256:[0-9a-f]{64}$",
+      "description": "SHA-256 over JCS of every member except this one. THIS IS WHAT MAKES CANON'S IMMUTABILITY LAW CHECKABLE: a decision binds the root, not the name, so editing a deadline in place breaks every decision already taken under the pack instead of silently rewriting what they were decided against. A change that should be a new version cannot pass as the same one."
+    }
+  },
+  "$defs": {
+    "packRef": {
+      "type": "string",
+      "pattern": "^jurisdiction_policy_pack://[^\\s?#\\\\]{1,200}$"
+    },
+    "policyRef": {
+      "type": "string",
+      "pattern": "^policy://[^\\s]{1,400}$"
+    },
+    "assuranceProfileRef": {
+      "type": "string",
+      "pattern": "^assurance_profile://[^\\s]{1,400}$"
+    },
+    "actorRef": {
+      "type": "string",
+      "pattern": "^(?:principal|role)://[^\\s]{1,400}$"
+    },
+    "actionList": {
+      "type": "array",
+      "maxItems": 256,
+      "uniqueItems": true,
+      "items": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 200
+      }
+    },
+    "timestamp": {
+      "type": "string",
+      "pattern": "^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$"
+    }
+  }
+}

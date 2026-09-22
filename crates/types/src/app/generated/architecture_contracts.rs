@@ -391,6 +391,9 @@ pub const ARCHITECTURE_CONTRACT_SCHEMA_HASHES: &[(&str, &str)] = &[
     ("schema://ioi/applications/ioi-ai/collective-qualification-estimand/v1", "sha256:ee74e3f3f4d626cdafdf44a50f443631c42db3596e1b6bb8c7364be0cc4c294d"),
     ("schema://ioi/applications/ioi-ai/collective-baseline-pairing/v1", "sha256:814d3ae058d3bbcebeeeb44342dee6ab4f347433b5b080dd55cc5bc83f6d807a"),
     ("schema://ioi/applications/ioi-ai/collective-qualification-verdict/v1", "sha256:94871ec7577b87e08a0122b70ba651f3ea87d056024f650d7ebac5215c90f5ed"),
+    ("schema://ioi/foundations/jurisdiction-policy-pack/v1", "sha256:979e40fa740e5be13e609e22e4bdc803f1a6512fd7e2156b4b883fdfcc07a4af"),
+    ("schema://ioi/foundations/jurisdiction-policy-decision/v1", "sha256:507ea5521eadbb6c7de6b25032bf760fa6415e1e50190564edde9352f818f99a"),
+    ("schema://ioi/foundations/compliance-audit-export-bundle/v1", "sha256:cc0379a030deed159137902a99f760446ee9b064fd70e53c123555fa86cef1ef"),
 ];
 
 pub fn architecture_contract_schema_hash(contract_id: &str) -> Option<&'static str> {
@@ -168126,6 +168129,1992 @@ pub enum CollectiveQualificationVerdictV1SystemBindingSchemaVersion {
     IoiFoundationsSystemScopedObjectBindingV1,
 }
 
+#[derive(Debug, Clone, PartialEq, serde::Serialize)]
+pub struct JurisdictionPolicyPackV1 {
+    pub schema_version: JurisdictionPolicyPackV1SchemaVersion,
+    pub pack_id: String,
+    pub version: String,
+    pub issued_at: String,
+    pub effective_at: String,
+    pub supersedes_ref: Option<String>,
+    pub issuer: JurisdictionPolicyPackV1Issuer,
+    pub jurisdiction: JurisdictionPolicyPackV1Jurisdiction,
+    pub applies_to: JurisdictionPolicyPackV1AppliesTo,
+    pub identity_requirements: JurisdictionPolicyPackV1IdentityRequirements,
+    pub authority_requirements: JurisdictionPolicyPackV1AuthorityRequirements,
+    pub data_requirements: JurisdictionPolicyPackV1DataRequirements,
+    pub regulated_action_rules: JurisdictionPolicyPackV1RegulatedActionRules,
+    pub tax_and_commercial_refs: JurisdictionPolicyPackV1TaxAndCommercialRefs,
+    pub audit_requirements: JurisdictionPolicyPackV1AuditRequirements,
+    pub incident_reporting: JurisdictionPolicyPackV1IncidentReporting,
+    pub erasure_requirements: JurisdictionPolicyPackV1ErasureRequirements,
+    pub grants_no_authority: JurisdictionPolicyPackV1GrantsNoAuthority,
+    pub is_not_legal_advice: JurisdictionPolicyPackV1IsNotLegalAdvice,
+    pub pack_root: String,
+}
+
+impl<'de> serde::Deserialize<'de> for JurisdictionPolicyPackV1 {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let value = <serde_json::Value as serde::Deserialize>::deserialize(deserializer)?;
+        validate_projection_subschema(
+            r#"schema://ioi/foundations/jurisdiction-policy-pack/v1"#,
+            r##"{"$schema":"https://json-schema.org/draft/2020-12/schema","$id":"schema://ioi/foundations/jurisdiction-policy-pack/v1","title":"JurisdictionPolicyPack","x-ioi-schema-version":"ioi.foundations.jurisdiction-policy-pack.v1","description":"JURISDICTION, ELIGIBILITY, RETENTION, REGULATED-ACTION, TAX AND EXPORT OBLIGATIONS IN A MACHINE-READABLE SHAPE — and nothing that reads as a legal determination. Canon has specified this object member for member since the assurance foundation was written (foundations/ecosystem-assurance-certification-liability.md § JurisdictionPolicyPack) and nothing in the estate registered it, so every one of those obligations was a paragraph rather than a shape anything could refuse. THE PACK GRANTS NOTHING AND DECIDES NOTHING: it compiles into owners that already exist — wallet.network identity, eligibility, payment, step-up and authority gates; daemon policy checks and runtime fail-closed behaviour; Agentgres retention, receipt, state-root and export validity; marketplace listing restrictions; sas.xyz SLA, refund, bond and provider obligations. It is not legal advice and not a substitute for domain-specific review. TWO LAWS CANON STATES THAT THIS SHAPE MAKES CHECKABLE: deadline arithmetic retains the EXACT pack version and triggering timestamp, and changing a deadline, clock-start rule, recipient, responsible party or accountable issuer requires a NEW PACK VERSION and must never rewrite an already-recorded reporting decision — so the pack is sealed by `pack_root`, and a decision binds that root rather than the pack's name. Owner: foundations/ecosystem-assurance-certification-liability.md § JurisdictionPolicyPack (M06.10, R-228).","type":"object","additionalProperties":false,"required":["schema_version","pack_id","version","issued_at","effective_at","supersedes_ref","issuer","jurisdiction","applies_to","identity_requirements","authority_requirements","data_requirements","regulated_action_rules","tax_and_commercial_refs","audit_requirements","incident_reporting","erasure_requirements","grants_no_authority","is_not_legal_advice","pack_root"],"properties":{"schema_version":{"type":"string","const":"ioi.foundations.jurisdiction-policy-pack.v1"},"pack_id":{"$ref":"#/$defs/packRef"},"version":{"type":"string","pattern":"^(?:0|[1-9][0-9]*)[.](?:0|[1-9][0-9]*)[.](?:0|[1-9][0-9]*)$","description":"Semver, and load-bearing rather than decorative: canon requires a NEW VERSION for any change to a deadline, clock-start rule, recipient, responsible party or accountable issuer, and a recorded decision names the version it was taken under."},"issued_at":{"$ref":"#/$defs/timestamp"},"effective_at":{"$ref":"#/$defs/timestamp","description":"When the obligations begin to apply, which is not when the pack was issued. A decision taken before this instant was taken under the predecessor."},"supersedes_ref":{"anyOf":[{"$ref":"#/$defs/packRef"},{"type":"null"}],"description":"The pack this one replaces, or null for a first issue. Supersession is a CHAIN, not an edit: the superseded pack keeps standing behind every decision already taken under it."},"issuer":{"type":"object","additionalProperties":false,"required":["issuer_ref","responsible_ref","accountable_ref"],"description":"Who issued it, who is responsible and who is accountable — three refs because they are routinely three parties, and an obligation with no accountable party behind it is a document.","properties":{"issuer_ref":{"type":"string","pattern":"^(?:org|domain|governance)://[^\\s]{1,400}$"},"responsible_ref":{"$ref":"#/$defs/actorRef"},"accountable_ref":{"$ref":"#/$defs/actorRef"}}},"jurisdiction":{"type":"object","additionalProperties":false,"required":["country","region","sector"],"description":"All three members are present and any may be null. A pack that omitted the axis it does not constrain would be indistinguishable from one whose author forgot it.","properties":{"country":{"anyOf":[{"type":"string","minLength":1,"maxLength":120},{"type":"null"}]},"region":{"anyOf":[{"type":"string","minLength":1,"maxLength":120},{"type":"null"}]},"sector":{"anyOf":[{"type":"string","minLength":1,"maxLength":120},{"type":"null"}]}}},"applies_to":{"type":"object","additionalProperties":false,"required":["action_classes","data_classes","service_classes"],"description":"What the pack reaches, in canon's own three kinds. All three lists are present and any may be empty; that a pack must reach SOMETHING is a portable invariant rather than a schema shape, because JSON Schema can only say it with an anyOf of same-typed branches and the Rust projection refuses those — a limit worth stating rather than working around by renaming what canon calls these.","properties":{"action_classes":{"type":"array","maxItems":256,"uniqueItems":true,"items":{"type":"string","minLength":1,"maxLength":200}},"data_classes":{"type":"array","maxItems":256,"uniqueItems":true,"items":{"type":"string","minLength":1,"maxLength":200}},"service_classes":{"type":"array","maxItems":256,"uniqueItems":true,"items":{"type":"string","minLength":1,"maxLength":200}}}},"identity_requirements":{"type":"object","additionalProperties":false,"required":["kyc_required","business_verification_required","sanctions_screening_required","accredited_or_professional_status_required"],"description":"Declared, and enforced by wallet.network's own gates. Every member is present so that `false` is a stated posture rather than an omission.","properties":{"kyc_required":{"type":"boolean"},"business_verification_required":{"type":"boolean"},"sanctions_screening_required":{"type":"boolean"},"accredited_or_professional_status_required":{"type":"boolean"}}},"authority_requirements":{"type":"object","additionalProperties":false,"required":["required_scopes","step_up_required","guardian_required"],"properties":{"required_scopes":{"type":"array","maxItems":256,"uniqueItems":true,"items":{"type":"string","pattern":"^scope:[a-z][a-z0-9._:-]{0,200}$"},"description":"Scopes the pack REQUIRES, never scopes it grants. The pack is an obligation, and an obligation that could mint authority would be a grant wearing a policy's name."},"step_up_required":{"type":"boolean"},"guardian_required":{"type":"boolean"}}},"data_requirements":{"type":"object","additionalProperties":false,"required":["retention_policy_ref","deletion_policy_ref","export_policy_ref","residency_policy_ref"],"description":"Pointers at the policies that already own these decisions. The pack names them; it does not restate them, because a restated policy is a second copy that can drift.","properties":{"retention_policy_ref":{"$ref":"#/$defs/policyRef"},"deletion_policy_ref":{"anyOf":[{"$ref":"#/$defs/policyRef"},{"type":"null"}]},"export_policy_ref":{"anyOf":[{"$ref":"#/$defs/policyRef"},{"type":"null"}]},"residency_policy_ref":{"anyOf":[{"$ref":"#/$defs/policyRef"},{"type":"null"}]}}},"regulated_action_rules":{"type":"object","additionalProperties":false,"required":["prohibited_actions","approval_required_actions","disclosure_required_actions"],"description":"Three lists that mean three different things: what may not happen, what needs an approval first, and what must be disclosed when it does. Collapsing them would lose the difference between a refusal and a receipt.","properties":{"prohibited_actions":{"$ref":"#/$defs/actionList"},"approval_required_actions":{"$ref":"#/$defs/actionList"},"disclosure_required_actions":{"$ref":"#/$defs/actionList"}}},"tax_and_commercial_refs":{"type":"object","additionalProperties":false,"required":["tax_profile_ref","invoice_profile_ref"],"properties":{"tax_profile_ref":{"anyOf":[{"type":"string","pattern":"^tax://[^\\s]{1,400}$"},{"type":"null"}]},"invoice_profile_ref":{"anyOf":[{"type":"string","pattern":"^invoice://[^\\s]{1,400}$"},{"type":"null"}]}}},"audit_requirements":{"type":"object","additionalProperties":false,"required":["evidence_profile_refs"],"properties":{"evidence_profile_refs":{"type":"array","maxItems":128,"uniqueItems":true,"items":{"$ref":"#/$defs/assuranceProfileRef"}}}},"incident_reporting":{"type":"object","additionalProperties":false,"required":["rules_version","deadlines"],"description":"THE PART WHERE ARITHMETIC MEETS OBLIGATION. Each deadline names the incident class it applies to, the CLOCK START it runs from, the windows, who receives the notice, what evidence projection accompanies it, and who is responsible and accountable. Canon: deadline arithmetic must retain the exact pack version and triggering timestamp, and changing any of these requires a new pack version.","properties":{"rules_version":{"type":"string","pattern":"^(?:0|[1-9][0-9]*)[.](?:0|[1-9][0-9]*)[.](?:0|[1-9][0-9]*)$"},"deadlines":{"type":"array","maxItems":128,"items":{"type":"object","additionalProperties":false,"required":["incident_class","clock_start","initial_notice_within_ms","full_report_within_ms","recipient_ref","evidence_projection_profile_ref","responsible_ref","accountable_ref"],"properties":{"incident_class":{"type":"string","minLength":1,"maxLength":200},"clock_start":{"type":"string","enum":["detected_at","confirmed_at","materiality_determined_at","authority_request_received_at"],"description":"WHICH INSTANT THE WINDOW RUNS FROM, and the four are genuinely different moments. A deadline computed from the wrong one is wrong by however long detection, confirmation and materiality took."},"initial_notice_within_ms":{"anyOf":[{"type":"integer","minimum":0,"maximum":315360000000},{"type":"null"}]},"full_report_within_ms":{"anyOf":[{"type":"integer","minimum":0,"maximum":315360000000},{"type":"null"}]},"recipient_ref":{"type":"string","pattern":"^(?:authority|regulator|counterparty)://[^\\s]{1,400}$"},"evidence_projection_profile_ref":{"$ref":"#/$defs/assuranceProfileRef"},"responsible_ref":{"$ref":"#/$defs/actorRef"},"accountable_ref":{"$ref":"#/$defs/actorRef"}}}}}},"erasure_requirements":{"type":"object","additionalProperties":false,"required":["crypto_shredding_eligible","crypto_shredding_policy_ref","erasure_verification_profile_ref","exception_policy_ref"],"properties":{"crypto_shredding_eligible":{"type":"boolean"},"crypto_shredding_policy_ref":{"anyOf":[{"$ref":"#/$defs/policyRef"},{"type":"null"}]},"erasure_verification_profile_ref":{"anyOf":[{"$ref":"#/$defs/assuranceProfileRef"},{"type":"null"}]},"exception_policy_ref":{"anyOf":[{"$ref":"#/$defs/policyRef"},{"type":"null"}]}}},"grants_no_authority":{"type":"boolean","const":true,"description":"On the wire, because the pack names required scopes and a reader could take that for a grant. It requires; it never issues."},"is_not_legal_advice":{"type":"boolean","const":true,"description":"Canon's own sentence, carried as a member rather than left in prose: the pack is not legal advice and not a substitute for domain-specific review."},"pack_root":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$","description":"SHA-256 over JCS of every member except this one. THIS IS WHAT MAKES CANON'S IMMUTABILITY LAW CHECKABLE: a decision binds the root, not the name, so editing a deadline in place breaks every decision already taken under the pack instead of silently rewriting what they were decided against. A change that should be a new version cannot pass as the same one."}},"$defs":{"packRef":{"type":"string","pattern":"^jurisdiction_policy_pack://[^\\s?#\\\\]{1,200}$"},"policyRef":{"type":"string","pattern":"^policy://[^\\s]{1,400}$"},"assuranceProfileRef":{"type":"string","pattern":"^assurance_profile://[^\\s]{1,400}$"},"actorRef":{"type":"string","pattern":"^(?:principal|role)://[^\\s]{1,400}$"},"actionList":{"type":"array","maxItems":256,"uniqueItems":true,"items":{"type":"string","minLength":1,"maxLength":200}},"timestamp":{"type":"string","pattern":"^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$"}}}"##,
+            &value,
+        )
+            .map_err(serde::de::Error::custom)?;
+        let mut object = value
+            .as_object()
+            .cloned()
+            .ok_or_else(|| serde::de::Error::custom("validated projection is not an object"))?;
+        Ok(Self {
+            schema_version: serde_json::from_value::<JurisdictionPolicyPackV1SchemaVersion>(
+                object
+                    .remove(r#"schema_version"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"schema_version"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            pack_id: serde_json::from_value::<String>(
+                object
+                    .remove(r#"pack_id"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"pack_id"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            version: serde_json::from_value::<String>(
+                object
+                    .remove(r#"version"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"version"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            issued_at: serde_json::from_value::<String>(
+                object
+                    .remove(r#"issued_at"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"issued_at"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            effective_at: serde_json::from_value::<String>(
+                object
+                    .remove(r#"effective_at"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"effective_at"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            supersedes_ref: serde_json::from_value::<Option<String>>(
+                object
+                    .remove(r#"supersedes_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"supersedes_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            issuer: serde_json::from_value::<JurisdictionPolicyPackV1Issuer>(
+                object
+                    .remove(r#"issuer"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"issuer"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            jurisdiction: serde_json::from_value::<JurisdictionPolicyPackV1Jurisdiction>(
+                object
+                    .remove(r#"jurisdiction"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"jurisdiction"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            applies_to: serde_json::from_value::<JurisdictionPolicyPackV1AppliesTo>(
+                object
+                    .remove(r#"applies_to"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"applies_to"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            identity_requirements: serde_json::from_value::<
+                JurisdictionPolicyPackV1IdentityRequirements,
+            >(
+                object
+                    .remove(r#"identity_requirements"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"identity_requirements"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            authority_requirements: serde_json::from_value::<
+                JurisdictionPolicyPackV1AuthorityRequirements,
+            >(
+                object
+                    .remove(r#"authority_requirements"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"authority_requirements"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            data_requirements: serde_json::from_value::<JurisdictionPolicyPackV1DataRequirements>(
+                object
+                    .remove(r#"data_requirements"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"data_requirements"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            regulated_action_rules: serde_json::from_value::<
+                JurisdictionPolicyPackV1RegulatedActionRules,
+            >(
+                object
+                    .remove(r#"regulated_action_rules"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"regulated_action_rules"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            tax_and_commercial_refs: serde_json::from_value::<
+                JurisdictionPolicyPackV1TaxAndCommercialRefs,
+            >(
+                object
+                    .remove(r#"tax_and_commercial_refs"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"tax_and_commercial_refs"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            audit_requirements:
+                serde_json::from_value::<JurisdictionPolicyPackV1AuditRequirements>(
+                    object
+                        .remove(r#"audit_requirements"#)
+                        .ok_or_else(|| serde::de::Error::missing_field(r#"audit_requirements"#))?,
+                )
+                .map_err(serde::de::Error::custom)?,
+            incident_reporting:
+                serde_json::from_value::<JurisdictionPolicyPackV1IncidentReporting>(
+                    object
+                        .remove(r#"incident_reporting"#)
+                        .ok_or_else(|| serde::de::Error::missing_field(r#"incident_reporting"#))?,
+                )
+                .map_err(serde::de::Error::custom)?,
+            erasure_requirements: serde_json::from_value::<
+                JurisdictionPolicyPackV1ErasureRequirements,
+            >(
+                object
+                    .remove(r#"erasure_requirements"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"erasure_requirements"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            grants_no_authority:
+                serde_json::from_value::<JurisdictionPolicyPackV1GrantsNoAuthority>(
+                    object
+                        .remove(r#"grants_no_authority"#)
+                        .ok_or_else(|| serde::de::Error::missing_field(r#"grants_no_authority"#))?,
+                )
+                .map_err(serde::de::Error::custom)?,
+            is_not_legal_advice:
+                serde_json::from_value::<JurisdictionPolicyPackV1IsNotLegalAdvice>(
+                    object
+                        .remove(r#"is_not_legal_advice"#)
+                        .ok_or_else(|| serde::de::Error::missing_field(r#"is_not_legal_advice"#))?,
+                )
+                .map_err(serde::de::Error::custom)?,
+            pack_root: serde_json::from_value::<String>(
+                object
+                    .remove(r#"pack_root"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"pack_root"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+        })
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum JurisdictionPolicyPackV1SchemaVersion {
+    #[serde(rename = r#"ioi.foundations.jurisdiction-policy-pack.v1"#)]
+    IoiFoundationsJurisdictionPolicyPackV1,
+}
+
+#[derive(Debug, Clone, PartialEq, serde::Serialize)]
+pub struct JurisdictionPolicyPackV1Issuer {
+    pub issuer_ref: String,
+    pub responsible_ref: String,
+    pub accountable_ref: String,
+}
+
+impl<'de> serde::Deserialize<'de> for JurisdictionPolicyPackV1Issuer {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let value = <serde_json::Value as serde::Deserialize>::deserialize(deserializer)?;
+        validate_projection_subschema(
+            r#"schema://ioi/foundations/jurisdiction-policy-pack/v1"#,
+            r##"{"type":"object","additionalProperties":false,"required":["issuer_ref","responsible_ref","accountable_ref"],"description":"Who issued it, who is responsible and who is accountable — three refs because they are routinely three parties, and an obligation with no accountable party behind it is a document.","properties":{"issuer_ref":{"type":"string","pattern":"^(?:org|domain|governance)://[^\\s]{1,400}$"},"responsible_ref":{"$ref":"#/$defs/actorRef"},"accountable_ref":{"$ref":"#/$defs/actorRef"}}}"##,
+            &value,
+        )
+            .map_err(serde::de::Error::custom)?;
+        let mut object = value
+            .as_object()
+            .cloned()
+            .ok_or_else(|| serde::de::Error::custom("validated projection is not an object"))?;
+        Ok(Self {
+            issuer_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"issuer_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"issuer_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            responsible_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"responsible_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"responsible_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            accountable_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"accountable_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"accountable_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+        })
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, serde::Serialize)]
+pub struct JurisdictionPolicyPackV1Jurisdiction {
+    pub country: Option<String>,
+    pub region: Option<String>,
+    pub sector: Option<String>,
+}
+
+impl<'de> serde::Deserialize<'de> for JurisdictionPolicyPackV1Jurisdiction {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let value = <serde_json::Value as serde::Deserialize>::deserialize(deserializer)?;
+        validate_projection_subschema(
+            r#"schema://ioi/foundations/jurisdiction-policy-pack/v1"#,
+            r#"{"type":"object","additionalProperties":false,"required":["country","region","sector"],"description":"All three members are present and any may be null. A pack that omitted the axis it does not constrain would be indistinguishable from one whose author forgot it.","properties":{"country":{"anyOf":[{"type":"string","minLength":1,"maxLength":120},{"type":"null"}]},"region":{"anyOf":[{"type":"string","minLength":1,"maxLength":120},{"type":"null"}]},"sector":{"anyOf":[{"type":"string","minLength":1,"maxLength":120},{"type":"null"}]}}}"#,
+            &value,
+        )
+            .map_err(serde::de::Error::custom)?;
+        let mut object = value
+            .as_object()
+            .cloned()
+            .ok_or_else(|| serde::de::Error::custom("validated projection is not an object"))?;
+        Ok(Self {
+            country: serde_json::from_value::<Option<String>>(
+                object
+                    .remove(r#"country"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"country"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            region: serde_json::from_value::<Option<String>>(
+                object
+                    .remove(r#"region"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"region"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            sector: serde_json::from_value::<Option<String>>(
+                object
+                    .remove(r#"sector"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"sector"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+        })
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, serde::Serialize)]
+pub struct JurisdictionPolicyPackV1AppliesTo {
+    pub action_classes: Vec<String>,
+    pub data_classes: Vec<String>,
+    pub service_classes: Vec<String>,
+}
+
+impl<'de> serde::Deserialize<'de> for JurisdictionPolicyPackV1AppliesTo {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let value = <serde_json::Value as serde::Deserialize>::deserialize(deserializer)?;
+        validate_projection_subschema(
+            r#"schema://ioi/foundations/jurisdiction-policy-pack/v1"#,
+            r#"{"type":"object","additionalProperties":false,"required":["action_classes","data_classes","service_classes"],"description":"What the pack reaches, in canon's own three kinds. All three lists are present and any may be empty; that a pack must reach SOMETHING is a portable invariant rather than a schema shape, because JSON Schema can only say it with an anyOf of same-typed branches and the Rust projection refuses those — a limit worth stating rather than working around by renaming what canon calls these.","properties":{"action_classes":{"type":"array","maxItems":256,"uniqueItems":true,"items":{"type":"string","minLength":1,"maxLength":200}},"data_classes":{"type":"array","maxItems":256,"uniqueItems":true,"items":{"type":"string","minLength":1,"maxLength":200}},"service_classes":{"type":"array","maxItems":256,"uniqueItems":true,"items":{"type":"string","minLength":1,"maxLength":200}}}}"#,
+            &value,
+        )
+            .map_err(serde::de::Error::custom)?;
+        let mut object = value
+            .as_object()
+            .cloned()
+            .ok_or_else(|| serde::de::Error::custom("validated projection is not an object"))?;
+        Ok(Self {
+            action_classes: serde_json::from_value::<Vec<String>>(
+                object
+                    .remove(r#"action_classes"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"action_classes"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            data_classes: serde_json::from_value::<Vec<String>>(
+                object
+                    .remove(r#"data_classes"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"data_classes"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            service_classes: serde_json::from_value::<Vec<String>>(
+                object
+                    .remove(r#"service_classes"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"service_classes"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+        })
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, serde::Serialize)]
+pub struct JurisdictionPolicyPackV1IdentityRequirements {
+    pub kyc_required: bool,
+    pub business_verification_required: bool,
+    pub sanctions_screening_required: bool,
+    pub accredited_or_professional_status_required: bool,
+}
+
+impl<'de> serde::Deserialize<'de> for JurisdictionPolicyPackV1IdentityRequirements {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let value = <serde_json::Value as serde::Deserialize>::deserialize(deserializer)?;
+        validate_projection_subschema(
+            r#"schema://ioi/foundations/jurisdiction-policy-pack/v1"#,
+            r#"{"type":"object","additionalProperties":false,"required":["kyc_required","business_verification_required","sanctions_screening_required","accredited_or_professional_status_required"],"description":"Declared, and enforced by wallet.network's own gates. Every member is present so that `false` is a stated posture rather than an omission.","properties":{"kyc_required":{"type":"boolean"},"business_verification_required":{"type":"boolean"},"sanctions_screening_required":{"type":"boolean"},"accredited_or_professional_status_required":{"type":"boolean"}}}"#,
+            &value,
+        )
+            .map_err(serde::de::Error::custom)?;
+        let mut object = value
+            .as_object()
+            .cloned()
+            .ok_or_else(|| serde::de::Error::custom("validated projection is not an object"))?;
+        Ok(Self {
+            kyc_required: serde_json::from_value::<bool>(
+                object
+                    .remove(r#"kyc_required"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"kyc_required"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            business_verification_required: serde_json::from_value::<bool>(
+                object
+                    .remove(r#"business_verification_required"#)
+                    .ok_or_else(|| {
+                        serde::de::Error::missing_field(r#"business_verification_required"#)
+                    })?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            sanctions_screening_required: serde_json::from_value::<bool>(
+                object
+                    .remove(r#"sanctions_screening_required"#)
+                    .ok_or_else(|| {
+                        serde::de::Error::missing_field(r#"sanctions_screening_required"#)
+                    })?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            accredited_or_professional_status_required: serde_json::from_value::<bool>(
+                object
+                    .remove(r#"accredited_or_professional_status_required"#)
+                    .ok_or_else(|| {
+                        serde::de::Error::missing_field(
+                            r#"accredited_or_professional_status_required"#,
+                        )
+                    })?,
+            )
+            .map_err(serde::de::Error::custom)?,
+        })
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, serde::Serialize)]
+pub struct JurisdictionPolicyPackV1AuthorityRequirements {
+    pub required_scopes: Vec<String>,
+    pub step_up_required: bool,
+    pub guardian_required: bool,
+}
+
+impl<'de> serde::Deserialize<'de> for JurisdictionPolicyPackV1AuthorityRequirements {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let value = <serde_json::Value as serde::Deserialize>::deserialize(deserializer)?;
+        validate_projection_subschema(
+            r#"schema://ioi/foundations/jurisdiction-policy-pack/v1"#,
+            r#"{"type":"object","additionalProperties":false,"required":["required_scopes","step_up_required","guardian_required"],"properties":{"required_scopes":{"type":"array","maxItems":256,"uniqueItems":true,"items":{"type":"string","pattern":"^scope:[a-z][a-z0-9._:-]{0,200}$"},"description":"Scopes the pack REQUIRES, never scopes it grants. The pack is an obligation, and an obligation that could mint authority would be a grant wearing a policy's name."},"step_up_required":{"type":"boolean"},"guardian_required":{"type":"boolean"}}}"#,
+            &value,
+        )
+            .map_err(serde::de::Error::custom)?;
+        let mut object = value
+            .as_object()
+            .cloned()
+            .ok_or_else(|| serde::de::Error::custom("validated projection is not an object"))?;
+        Ok(Self {
+            required_scopes: serde_json::from_value::<Vec<String>>(
+                object
+                    .remove(r#"required_scopes"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"required_scopes"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            step_up_required: serde_json::from_value::<bool>(
+                object
+                    .remove(r#"step_up_required"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"step_up_required"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            guardian_required: serde_json::from_value::<bool>(
+                object
+                    .remove(r#"guardian_required"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"guardian_required"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+        })
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, serde::Serialize)]
+pub struct JurisdictionPolicyPackV1DataRequirements {
+    pub retention_policy_ref: String,
+    pub deletion_policy_ref: Option<String>,
+    pub export_policy_ref: Option<String>,
+    pub residency_policy_ref: Option<String>,
+}
+
+impl<'de> serde::Deserialize<'de> for JurisdictionPolicyPackV1DataRequirements {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let value = <serde_json::Value as serde::Deserialize>::deserialize(deserializer)?;
+        validate_projection_subschema(
+            r#"schema://ioi/foundations/jurisdiction-policy-pack/v1"#,
+            r##"{"type":"object","additionalProperties":false,"required":["retention_policy_ref","deletion_policy_ref","export_policy_ref","residency_policy_ref"],"description":"Pointers at the policies that already own these decisions. The pack names them; it does not restate them, because a restated policy is a second copy that can drift.","properties":{"retention_policy_ref":{"$ref":"#/$defs/policyRef"},"deletion_policy_ref":{"anyOf":[{"$ref":"#/$defs/policyRef"},{"type":"null"}]},"export_policy_ref":{"anyOf":[{"$ref":"#/$defs/policyRef"},{"type":"null"}]},"residency_policy_ref":{"anyOf":[{"$ref":"#/$defs/policyRef"},{"type":"null"}]}}}"##,
+            &value,
+        )
+            .map_err(serde::de::Error::custom)?;
+        let mut object = value
+            .as_object()
+            .cloned()
+            .ok_or_else(|| serde::de::Error::custom("validated projection is not an object"))?;
+        Ok(Self {
+            retention_policy_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"retention_policy_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"retention_policy_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            deletion_policy_ref: serde_json::from_value::<Option<String>>(
+                object
+                    .remove(r#"deletion_policy_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"deletion_policy_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            export_policy_ref: serde_json::from_value::<Option<String>>(
+                object
+                    .remove(r#"export_policy_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"export_policy_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            residency_policy_ref: serde_json::from_value::<Option<String>>(
+                object
+                    .remove(r#"residency_policy_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"residency_policy_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+        })
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, serde::Serialize)]
+pub struct JurisdictionPolicyPackV1RegulatedActionRules {
+    pub prohibited_actions: Vec<String>,
+    pub approval_required_actions: Vec<String>,
+    pub disclosure_required_actions: Vec<String>,
+}
+
+impl<'de> serde::Deserialize<'de> for JurisdictionPolicyPackV1RegulatedActionRules {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let value = <serde_json::Value as serde::Deserialize>::deserialize(deserializer)?;
+        validate_projection_subschema(
+            r#"schema://ioi/foundations/jurisdiction-policy-pack/v1"#,
+            r##"{"type":"object","additionalProperties":false,"required":["prohibited_actions","approval_required_actions","disclosure_required_actions"],"description":"Three lists that mean three different things: what may not happen, what needs an approval first, and what must be disclosed when it does. Collapsing them would lose the difference between a refusal and a receipt.","properties":{"prohibited_actions":{"$ref":"#/$defs/actionList"},"approval_required_actions":{"$ref":"#/$defs/actionList"},"disclosure_required_actions":{"$ref":"#/$defs/actionList"}}}"##,
+            &value,
+        )
+            .map_err(serde::de::Error::custom)?;
+        let mut object = value
+            .as_object()
+            .cloned()
+            .ok_or_else(|| serde::de::Error::custom("validated projection is not an object"))?;
+        Ok(Self {
+            prohibited_actions: serde_json::from_value::<Vec<String>>(
+                object
+                    .remove(r#"prohibited_actions"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"prohibited_actions"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            approval_required_actions: serde_json::from_value::<Vec<String>>(
+                object
+                    .remove(r#"approval_required_actions"#)
+                    .ok_or_else(|| {
+                        serde::de::Error::missing_field(r#"approval_required_actions"#)
+                    })?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            disclosure_required_actions: serde_json::from_value::<Vec<String>>(
+                object
+                    .remove(r#"disclosure_required_actions"#)
+                    .ok_or_else(|| {
+                        serde::de::Error::missing_field(r#"disclosure_required_actions"#)
+                    })?,
+            )
+            .map_err(serde::de::Error::custom)?,
+        })
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, serde::Serialize)]
+pub struct JurisdictionPolicyPackV1TaxAndCommercialRefs {
+    pub tax_profile_ref: Option<String>,
+    pub invoice_profile_ref: Option<String>,
+}
+
+impl<'de> serde::Deserialize<'de> for JurisdictionPolicyPackV1TaxAndCommercialRefs {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let value = <serde_json::Value as serde::Deserialize>::deserialize(deserializer)?;
+        validate_projection_subschema(
+            r#"schema://ioi/foundations/jurisdiction-policy-pack/v1"#,
+            r#"{"type":"object","additionalProperties":false,"required":["tax_profile_ref","invoice_profile_ref"],"properties":{"tax_profile_ref":{"anyOf":[{"type":"string","pattern":"^tax://[^\\s]{1,400}$"},{"type":"null"}]},"invoice_profile_ref":{"anyOf":[{"type":"string","pattern":"^invoice://[^\\s]{1,400}$"},{"type":"null"}]}}}"#,
+            &value,
+        )
+            .map_err(serde::de::Error::custom)?;
+        let mut object = value
+            .as_object()
+            .cloned()
+            .ok_or_else(|| serde::de::Error::custom("validated projection is not an object"))?;
+        Ok(Self {
+            tax_profile_ref: serde_json::from_value::<Option<String>>(
+                object
+                    .remove(r#"tax_profile_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"tax_profile_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            invoice_profile_ref: serde_json::from_value::<Option<String>>(
+                object
+                    .remove(r#"invoice_profile_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"invoice_profile_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+        })
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, serde::Serialize)]
+pub struct JurisdictionPolicyPackV1AuditRequirements {
+    pub evidence_profile_refs: Vec<String>,
+}
+
+impl<'de> serde::Deserialize<'de> for JurisdictionPolicyPackV1AuditRequirements {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let value = <serde_json::Value as serde::Deserialize>::deserialize(deserializer)?;
+        validate_projection_subschema(
+            r#"schema://ioi/foundations/jurisdiction-policy-pack/v1"#,
+            r##"{"type":"object","additionalProperties":false,"required":["evidence_profile_refs"],"properties":{"evidence_profile_refs":{"type":"array","maxItems":128,"uniqueItems":true,"items":{"$ref":"#/$defs/assuranceProfileRef"}}}}"##,
+            &value,
+        )
+            .map_err(serde::de::Error::custom)?;
+        let mut object = value
+            .as_object()
+            .cloned()
+            .ok_or_else(|| serde::de::Error::custom("validated projection is not an object"))?;
+        Ok(Self {
+            evidence_profile_refs: serde_json::from_value::<Vec<String>>(
+                object
+                    .remove(r#"evidence_profile_refs"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"evidence_profile_refs"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+        })
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, serde::Serialize)]
+pub struct JurisdictionPolicyPackV1IncidentReporting {
+    pub rules_version: String,
+    pub deadlines: Vec<JurisdictionPolicyPackV1IncidentReportingDeadlinesItem>,
+}
+
+impl<'de> serde::Deserialize<'de> for JurisdictionPolicyPackV1IncidentReporting {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let value = <serde_json::Value as serde::Deserialize>::deserialize(deserializer)?;
+        validate_projection_subschema(
+            r#"schema://ioi/foundations/jurisdiction-policy-pack/v1"#,
+            r##"{"type":"object","additionalProperties":false,"required":["rules_version","deadlines"],"description":"THE PART WHERE ARITHMETIC MEETS OBLIGATION. Each deadline names the incident class it applies to, the CLOCK START it runs from, the windows, who receives the notice, what evidence projection accompanies it, and who is responsible and accountable. Canon: deadline arithmetic must retain the exact pack version and triggering timestamp, and changing any of these requires a new pack version.","properties":{"rules_version":{"type":"string","pattern":"^(?:0|[1-9][0-9]*)[.](?:0|[1-9][0-9]*)[.](?:0|[1-9][0-9]*)$"},"deadlines":{"type":"array","maxItems":128,"items":{"type":"object","additionalProperties":false,"required":["incident_class","clock_start","initial_notice_within_ms","full_report_within_ms","recipient_ref","evidence_projection_profile_ref","responsible_ref","accountable_ref"],"properties":{"incident_class":{"type":"string","minLength":1,"maxLength":200},"clock_start":{"type":"string","enum":["detected_at","confirmed_at","materiality_determined_at","authority_request_received_at"],"description":"WHICH INSTANT THE WINDOW RUNS FROM, and the four are genuinely different moments. A deadline computed from the wrong one is wrong by however long detection, confirmation and materiality took."},"initial_notice_within_ms":{"anyOf":[{"type":"integer","minimum":0,"maximum":315360000000},{"type":"null"}]},"full_report_within_ms":{"anyOf":[{"type":"integer","minimum":0,"maximum":315360000000},{"type":"null"}]},"recipient_ref":{"type":"string","pattern":"^(?:authority|regulator|counterparty)://[^\\s]{1,400}$"},"evidence_projection_profile_ref":{"$ref":"#/$defs/assuranceProfileRef"},"responsible_ref":{"$ref":"#/$defs/actorRef"},"accountable_ref":{"$ref":"#/$defs/actorRef"}}}}}}"##,
+            &value,
+        )
+            .map_err(serde::de::Error::custom)?;
+        let mut object = value
+            .as_object()
+            .cloned()
+            .ok_or_else(|| serde::de::Error::custom("validated projection is not an object"))?;
+        Ok(Self {
+            rules_version: serde_json::from_value::<String>(
+                object
+                    .remove(r#"rules_version"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"rules_version"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            deadlines: serde_json::from_value::<
+                Vec<JurisdictionPolicyPackV1IncidentReportingDeadlinesItem>,
+            >(
+                object
+                    .remove(r#"deadlines"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"deadlines"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+        })
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, serde::Serialize)]
+pub struct JurisdictionPolicyPackV1IncidentReportingDeadlinesItem {
+    pub incident_class: String,
+    pub clock_start: JurisdictionPolicyPackV1IncidentReportingDeadlinesItemClockStart,
+    pub initial_notice_within_ms: Option<ArchitectureContractInteger>,
+    pub full_report_within_ms: Option<ArchitectureContractInteger>,
+    pub recipient_ref: String,
+    pub evidence_projection_profile_ref: String,
+    pub responsible_ref: String,
+    pub accountable_ref: String,
+}
+
+impl<'de> serde::Deserialize<'de> for JurisdictionPolicyPackV1IncidentReportingDeadlinesItem {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let value = <serde_json::Value as serde::Deserialize>::deserialize(deserializer)?;
+        validate_projection_subschema(
+            r#"schema://ioi/foundations/jurisdiction-policy-pack/v1"#,
+            r##"{"type":"object","additionalProperties":false,"required":["incident_class","clock_start","initial_notice_within_ms","full_report_within_ms","recipient_ref","evidence_projection_profile_ref","responsible_ref","accountable_ref"],"properties":{"incident_class":{"type":"string","minLength":1,"maxLength":200},"clock_start":{"type":"string","enum":["detected_at","confirmed_at","materiality_determined_at","authority_request_received_at"],"description":"WHICH INSTANT THE WINDOW RUNS FROM, and the four are genuinely different moments. A deadline computed from the wrong one is wrong by however long detection, confirmation and materiality took."},"initial_notice_within_ms":{"anyOf":[{"type":"integer","minimum":0,"maximum":315360000000},{"type":"null"}]},"full_report_within_ms":{"anyOf":[{"type":"integer","minimum":0,"maximum":315360000000},{"type":"null"}]},"recipient_ref":{"type":"string","pattern":"^(?:authority|regulator|counterparty)://[^\\s]{1,400}$"},"evidence_projection_profile_ref":{"$ref":"#/$defs/assuranceProfileRef"},"responsible_ref":{"$ref":"#/$defs/actorRef"},"accountable_ref":{"$ref":"#/$defs/actorRef"}}}"##,
+            &value,
+        )
+            .map_err(serde::de::Error::custom)?;
+        let mut object = value
+            .as_object()
+            .cloned()
+            .ok_or_else(|| serde::de::Error::custom("validated projection is not an object"))?;
+        Ok(Self {
+            incident_class: serde_json::from_value::<String>(
+                object
+                    .remove(r#"incident_class"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"incident_class"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            clock_start: serde_json::from_value::<
+                JurisdictionPolicyPackV1IncidentReportingDeadlinesItemClockStart,
+            >(
+                object
+                    .remove(r#"clock_start"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"clock_start"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            initial_notice_within_ms:
+                serde_json::from_value::<Option<ArchitectureContractInteger>>(
+                    object
+                        .remove(r#"initial_notice_within_ms"#)
+                        .ok_or_else(|| {
+                            serde::de::Error::missing_field(r#"initial_notice_within_ms"#)
+                        })?,
+                )
+                .map_err(serde::de::Error::custom)?,
+            full_report_within_ms: serde_json::from_value::<Option<ArchitectureContractInteger>>(
+                object
+                    .remove(r#"full_report_within_ms"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"full_report_within_ms"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            recipient_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"recipient_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"recipient_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            evidence_projection_profile_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"evidence_projection_profile_ref"#)
+                    .ok_or_else(|| {
+                        serde::de::Error::missing_field(r#"evidence_projection_profile_ref"#)
+                    })?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            responsible_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"responsible_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"responsible_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            accountable_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"accountable_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"accountable_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+        })
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum JurisdictionPolicyPackV1IncidentReportingDeadlinesItemClockStart {
+    #[serde(rename = r#"detected_at"#)]
+    DetectedAt,
+    #[serde(rename = r#"confirmed_at"#)]
+    ConfirmedAt,
+    #[serde(rename = r#"materiality_determined_at"#)]
+    MaterialityDeterminedAt,
+    #[serde(rename = r#"authority_request_received_at"#)]
+    AuthorityRequestReceivedAt,
+}
+
+#[derive(Debug, Clone, PartialEq, serde::Serialize)]
+pub struct JurisdictionPolicyPackV1ErasureRequirements {
+    pub crypto_shredding_eligible: bool,
+    pub crypto_shredding_policy_ref: Option<String>,
+    pub erasure_verification_profile_ref: Option<String>,
+    pub exception_policy_ref: Option<String>,
+}
+
+impl<'de> serde::Deserialize<'de> for JurisdictionPolicyPackV1ErasureRequirements {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let value = <serde_json::Value as serde::Deserialize>::deserialize(deserializer)?;
+        validate_projection_subschema(
+            r#"schema://ioi/foundations/jurisdiction-policy-pack/v1"#,
+            r##"{"type":"object","additionalProperties":false,"required":["crypto_shredding_eligible","crypto_shredding_policy_ref","erasure_verification_profile_ref","exception_policy_ref"],"properties":{"crypto_shredding_eligible":{"type":"boolean"},"crypto_shredding_policy_ref":{"anyOf":[{"$ref":"#/$defs/policyRef"},{"type":"null"}]},"erasure_verification_profile_ref":{"anyOf":[{"$ref":"#/$defs/assuranceProfileRef"},{"type":"null"}]},"exception_policy_ref":{"anyOf":[{"$ref":"#/$defs/policyRef"},{"type":"null"}]}}}"##,
+            &value,
+        )
+            .map_err(serde::de::Error::custom)?;
+        let mut object = value
+            .as_object()
+            .cloned()
+            .ok_or_else(|| serde::de::Error::custom("validated projection is not an object"))?;
+        Ok(Self {
+            crypto_shredding_eligible: serde_json::from_value::<bool>(
+                object
+                    .remove(r#"crypto_shredding_eligible"#)
+                    .ok_or_else(|| {
+                        serde::de::Error::missing_field(r#"crypto_shredding_eligible"#)
+                    })?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            crypto_shredding_policy_ref: serde_json::from_value::<Option<String>>(
+                object
+                    .remove(r#"crypto_shredding_policy_ref"#)
+                    .ok_or_else(|| {
+                        serde::de::Error::missing_field(r#"crypto_shredding_policy_ref"#)
+                    })?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            erasure_verification_profile_ref: serde_json::from_value::<Option<String>>(
+                object
+                    .remove(r#"erasure_verification_profile_ref"#)
+                    .ok_or_else(|| {
+                        serde::de::Error::missing_field(r#"erasure_verification_profile_ref"#)
+                    })?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            exception_policy_ref: serde_json::from_value::<Option<String>>(
+                object
+                    .remove(r#"exception_policy_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"exception_policy_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+        })
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum JurisdictionPolicyPackV1GrantsNoAuthority {
+    True,
+}
+
+impl serde::Serialize for JurisdictionPolicyPackV1GrantsNoAuthority {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: serde::Serializer,
+    {
+        serializer.serialize_bool(true)
+    }
+}
+
+impl<'de> serde::Deserialize<'de> for JurisdictionPolicyPackV1GrantsNoAuthority {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let value = <bool as serde::Deserialize>::deserialize(deserializer)?;
+        if value == true {
+            Ok(Self::True)
+        } else {
+            Err(serde::de::Error::custom(r#"expected boolean literal true"#))
+        }
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum JurisdictionPolicyPackV1IsNotLegalAdvice {
+    True,
+}
+
+impl serde::Serialize for JurisdictionPolicyPackV1IsNotLegalAdvice {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: serde::Serializer,
+    {
+        serializer.serialize_bool(true)
+    }
+}
+
+impl<'de> serde::Deserialize<'de> for JurisdictionPolicyPackV1IsNotLegalAdvice {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let value = <bool as serde::Deserialize>::deserialize(deserializer)?;
+        if value == true {
+            Ok(Self::True)
+        } else {
+            Err(serde::de::Error::custom(r#"expected boolean literal true"#))
+        }
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, serde::Serialize)]
+pub struct JurisdictionPolicyDecisionV1 {
+    pub schema_version: JurisdictionPolicyDecisionV1SchemaVersion,
+    pub decision_id: String,
+    pub pack_ref: String,
+    pub pack_version: String,
+    pub pack_root: String,
+    pub subject_ref: String,
+    pub evaluated_at: String,
+    pub clock_start_basis: Option<JurisdictionPolicyDecisionV1ClockStartBasis>,
+    pub triggering_timestamp: Option<String>,
+    pub applicability: JurisdictionPolicyDecisionV1Applicability,
+    pub obligations: Vec<JurisdictionPolicyDecisionV1ObligationsItem>,
+    pub unmet_evidence: Vec<JurisdictionPolicyDecisionV1UnmetEvidenceItem>,
+    pub legal_conformity_claim: JurisdictionPolicyDecisionV1LegalConformityClaim,
+    pub grants_no_authority: JurisdictionPolicyDecisionV1GrantsNoAuthority,
+    pub performs_no_action: JurisdictionPolicyDecisionV1PerformsNoAction,
+    pub decision_root: String,
+}
+
+impl<'de> serde::Deserialize<'de> for JurisdictionPolicyDecisionV1 {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let value = <serde_json::Value as serde::Deserialize>::deserialize(deserializer)?;
+        validate_projection_subschema(
+            r#"schema://ioi/foundations/jurisdiction-policy-decision/v1"#,
+            r##"{"$schema":"https://json-schema.org/draft/2020-12/schema","$id":"schema://ioi/foundations/jurisdiction-policy-decision/v1","title":"JurisdictionPolicyDecision","x-ioi-schema-version":"ioi.foundations.jurisdiction-policy-decision.v1","description":"WHAT A PACK SAID ABOUT ONE SUBJECT, AT ONE INSTANT, UNDER ONE EXACT PACK VERSION — and never a legal determination. Canon's sentence is unambiguous and nothing in the estate enforced it: \"Generated projections must always emit `legal_conformity_claim: not_determined`; no score, current deadline, attestation posture, submitted report, crypto-shredding receipt, certification, or policy-pack match is a legal determination.\" So `legal_conformity_claim` is `const not_determined` on the wire — a technical evaluator cannot express a legal verdict even by mistake, and the refusal sits where it cannot be argued with rather than in a checker that must remember to look. THE DECISION BINDS THE PACK'S ROOT, NOT ITS NAME. Canon requires that changing a deadline, clock-start rule, recipient, responsible party or accountable issuer take a NEW PACK VERSION and never rewrite an already-recorded reporting decision; binding `pack_root` is what makes that checkable, because an in-place edit breaks the binding instead of silently changing what this decision was taken against. AND IT DECIDES NOTHING ITSELF: the pack compiles into owners that already exist, so this record REPORTS which obligations were found to apply and which owner must enforce each one. It grants no authority, performs no action and refuses nothing on its own. Owner: foundations/ecosystem-assurance-certification-liability.md § JurisdictionPolicyPack (M06.10, R-228).","type":"object","additionalProperties":false,"required":["schema_version","decision_id","pack_ref","pack_version","pack_root","subject_ref","evaluated_at","clock_start_basis","triggering_timestamp","applicability","obligations","unmet_evidence","legal_conformity_claim","grants_no_authority","performs_no_action","decision_root"],"properties":{"schema_version":{"type":"string","const":"ioi.foundations.jurisdiction-policy-decision.v1"},"decision_id":{"type":"string","pattern":"^jurisdiction_decision://[^\\s?#\\\\]{1,200}$"},"pack_ref":{"type":"string","pattern":"^jurisdiction_policy_pack://[^\\s?#\\\\]{1,200}$"},"pack_version":{"type":"string","pattern":"^(?:0|[1-9][0-9]*)[.](?:0|[1-9][0-9]*)[.](?:0|[1-9][0-9]*)$","description":"Canon: deadline arithmetic must retain the EXACT pack version. Carried here rather than resolved later, because resolving it later means resolving it against whatever the pack says by then."},"pack_root":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$","description":"The pack's own seal at the instant this decision was taken. A pack edited in place no longer matches, so the decision cannot be quietly reinterpreted against content it was never read under — which is exactly the rewrite canon forbids."},"subject_ref":{"type":"string","pattern":"^[a-z][a-z0-9+.-]*://[^\\s]{1,400}$","description":"What was evaluated — a run, task, service, order, worker, runtime, domain or account. One decision, one subject."},"evaluated_at":{"$ref":"#/$defs/timestamp"},"clock_start_basis":{"anyOf":[{"type":"string","enum":["detected_at","confirmed_at","materiality_determined_at","authority_request_received_at"]},{"type":"null"}],"description":"Which of the four instants any deadline in this decision runs from, or null when no deadline applies. The four are genuinely different moments and a window computed from the wrong one is wrong by however long detection, confirmation or materiality took."},"triggering_timestamp":{"anyOf":[{"$ref":"#/$defs/timestamp"},{"type":"null"}],"description":"Canon: deadline arithmetic must retain the exact TRIGGERING TIMESTAMP. Null when no deadline applies; present and exact when one does, so the window can be recomputed by a reader rather than trusted."},"applicability":{"type":"object","additionalProperties":false,"required":["applies","matched_classes","basis"],"description":"Whether the pack reached this subject at all, and on what. A decision that says `applies: false` with no basis is indistinguishable from one nobody evaluated.","properties":{"applies":{"type":"boolean"},"matched_classes":{"type":"array","maxItems":256,"items":{"type":"object","additionalProperties":false,"required":["class_kind","class_name"],"properties":{"class_kind":{"type":"string","enum":["action_class","data_class","service_class"]},"class_name":{"type":"string","minLength":1,"maxLength":200}}}},"basis":{"type":"string","minLength":12,"maxLength":600}}},"obligations":{"type":"array","maxItems":512,"description":"EACH OBLIGATION NAMES THE OWNER THAT ENFORCES IT. The pack compiles into owners that already exist, so a decision that stated an obligation without naming its enforcer would be asserting one of its own.","items":{"type":"object","additionalProperties":false,"required":["obligation_kind","detail","enforcing_owner","owner_ref","status"],"properties":{"obligation_kind":{"type":"string","enum":["identity","authority","data_retention","data_residency","data_export","prohibited_action","approval_required","disclosure_required","audit_evidence","incident_report","erasure","tax_or_commercial"]},"detail":{"type":"string","minLength":1,"maxLength":600},"enforcing_owner":{"type":"string","enum":["wallet_network","daemon_policy","agentgres_retention","marketplace_listing","sas_service_obligation","public_anchor"],"description":"The owners canon names as the places a pack compiles INTO. This record enforces nothing; it says who does."},"owner_ref":{"type":"string","pattern":"^[a-z][a-z0-9+.-]*://[^\\s]{1,400}$"},"status":{"type":"string","enum":["satisfied","unsatisfied","not_evaluated","evidence_unavailable"],"description":"`not_evaluated` and `evidence_unavailable` are distinct from `unsatisfied` on purpose: not looking and looking-and-not-finding are different facts, and collapsing them turns an absent evaluator into a clean bill."},"evidence_refs":{"type":"array","maxItems":128,"uniqueItems":true,"items":{"type":"string","pattern":"^[a-z][a-z0-9+.-]*://[^\\s]{1,400}$"}}}}},"unmet_evidence":{"type":"array","maxItems":256,"description":"WHAT COULD NOT BE ESTABLISHED, named rather than omitted. Canon requires refusal on missing law, contract, qualification or current evidence; a decision that silently dropped what it could not check would read as a stronger result than it is.","items":{"type":"object","additionalProperties":false,"required":["missing","reason"],"properties":{"missing":{"type":"string","enum":["law","contract","qualification","current_evidence","processor_reference"]},"reason":{"type":"string","minLength":12,"maxLength":600}}}},"legal_conformity_claim":{"type":"string","const":"not_determined","description":"CANON'S OWN WORD, PINNED ON THE WIRE. No score, current deadline, attestation posture, submitted report, crypto-shredding receipt, certification or policy-pack match is a legal determination. A technical evaluator that could express a legal verdict would be the defect this whole contract exists to prevent, so the only admissible value is this one."},"grants_no_authority":{"type":"boolean","const":true},"performs_no_action":{"type":"boolean","const":true,"description":"The decision reports. Stopping, refusing, escalating and reporting are their owners' operations, and a record that performed one would be an actor."},"decision_root":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$","description":"SHA-256 over JCS of every member except this one, so a recorded decision can be shown not to have moved — which is the other half of canon's rule that a new pack version must never rewrite one."}},"$defs":{"timestamp":{"type":"string","pattern":"^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$"}}}"##,
+            &value,
+        )
+            .map_err(serde::de::Error::custom)?;
+        let mut object = value
+            .as_object()
+            .cloned()
+            .ok_or_else(|| serde::de::Error::custom("validated projection is not an object"))?;
+        Ok(Self {
+            schema_version: serde_json::from_value::<JurisdictionPolicyDecisionV1SchemaVersion>(
+                object
+                    .remove(r#"schema_version"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"schema_version"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            decision_id: serde_json::from_value::<String>(
+                object
+                    .remove(r#"decision_id"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"decision_id"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            pack_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"pack_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"pack_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            pack_version: serde_json::from_value::<String>(
+                object
+                    .remove(r#"pack_version"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"pack_version"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            pack_root: serde_json::from_value::<String>(
+                object
+                    .remove(r#"pack_root"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"pack_root"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            subject_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"subject_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"subject_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            evaluated_at: serde_json::from_value::<String>(
+                object
+                    .remove(r#"evaluated_at"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"evaluated_at"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            clock_start_basis: serde_json::from_value::<
+                Option<JurisdictionPolicyDecisionV1ClockStartBasis>,
+            >(
+                object
+                    .remove(r#"clock_start_basis"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"clock_start_basis"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            triggering_timestamp: serde_json::from_value::<Option<String>>(
+                object
+                    .remove(r#"triggering_timestamp"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"triggering_timestamp"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            applicability: serde_json::from_value::<JurisdictionPolicyDecisionV1Applicability>(
+                object
+                    .remove(r#"applicability"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"applicability"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            obligations:
+                serde_json::from_value::<Vec<JurisdictionPolicyDecisionV1ObligationsItem>>(
+                    object
+                        .remove(r#"obligations"#)
+                        .ok_or_else(|| serde::de::Error::missing_field(r#"obligations"#))?,
+                )
+                .map_err(serde::de::Error::custom)?,
+            unmet_evidence: serde_json::from_value::<
+                Vec<JurisdictionPolicyDecisionV1UnmetEvidenceItem>,
+            >(
+                object
+                    .remove(r#"unmet_evidence"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"unmet_evidence"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            legal_conformity_claim: serde_json::from_value::<
+                JurisdictionPolicyDecisionV1LegalConformityClaim,
+            >(
+                object
+                    .remove(r#"legal_conformity_claim"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"legal_conformity_claim"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            grants_no_authority: serde_json::from_value::<
+                JurisdictionPolicyDecisionV1GrantsNoAuthority,
+            >(
+                object
+                    .remove(r#"grants_no_authority"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"grants_no_authority"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            performs_no_action: serde_json::from_value::<
+                JurisdictionPolicyDecisionV1PerformsNoAction,
+            >(
+                object
+                    .remove(r#"performs_no_action"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"performs_no_action"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            decision_root: serde_json::from_value::<String>(
+                object
+                    .remove(r#"decision_root"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"decision_root"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+        })
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum JurisdictionPolicyDecisionV1SchemaVersion {
+    #[serde(rename = r#"ioi.foundations.jurisdiction-policy-decision.v1"#)]
+    IoiFoundationsJurisdictionPolicyDecisionV1,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum JurisdictionPolicyDecisionV1ClockStartBasis {
+    #[serde(rename = r#"detected_at"#)]
+    DetectedAt,
+    #[serde(rename = r#"confirmed_at"#)]
+    ConfirmedAt,
+    #[serde(rename = r#"materiality_determined_at"#)]
+    MaterialityDeterminedAt,
+    #[serde(rename = r#"authority_request_received_at"#)]
+    AuthorityRequestReceivedAt,
+}
+
+#[derive(Debug, Clone, PartialEq, serde::Serialize)]
+pub struct JurisdictionPolicyDecisionV1Applicability {
+    pub applies: bool,
+    pub matched_classes: Vec<JurisdictionPolicyDecisionV1ApplicabilityMatchedClassesItem>,
+    pub basis: String,
+}
+
+impl<'de> serde::Deserialize<'de> for JurisdictionPolicyDecisionV1Applicability {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let value = <serde_json::Value as serde::Deserialize>::deserialize(deserializer)?;
+        validate_projection_subschema(
+            r#"schema://ioi/foundations/jurisdiction-policy-decision/v1"#,
+            r#"{"type":"object","additionalProperties":false,"required":["applies","matched_classes","basis"],"description":"Whether the pack reached this subject at all, and on what. A decision that says `applies: false` with no basis is indistinguishable from one nobody evaluated.","properties":{"applies":{"type":"boolean"},"matched_classes":{"type":"array","maxItems":256,"items":{"type":"object","additionalProperties":false,"required":["class_kind","class_name"],"properties":{"class_kind":{"type":"string","enum":["action_class","data_class","service_class"]},"class_name":{"type":"string","minLength":1,"maxLength":200}}}},"basis":{"type":"string","minLength":12,"maxLength":600}}}"#,
+            &value,
+        )
+            .map_err(serde::de::Error::custom)?;
+        let mut object = value
+            .as_object()
+            .cloned()
+            .ok_or_else(|| serde::de::Error::custom("validated projection is not an object"))?;
+        Ok(Self {
+            applies: serde_json::from_value::<bool>(
+                object
+                    .remove(r#"applies"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"applies"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            matched_classes: serde_json::from_value::<
+                Vec<JurisdictionPolicyDecisionV1ApplicabilityMatchedClassesItem>,
+            >(
+                object
+                    .remove(r#"matched_classes"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"matched_classes"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            basis: serde_json::from_value::<String>(
+                object
+                    .remove(r#"basis"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"basis"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+        })
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, serde::Serialize)]
+pub struct JurisdictionPolicyDecisionV1ApplicabilityMatchedClassesItem {
+    pub class_kind: JurisdictionPolicyDecisionV1ApplicabilityMatchedClassesItemClassKind,
+    pub class_name: String,
+}
+
+impl<'de> serde::Deserialize<'de> for JurisdictionPolicyDecisionV1ApplicabilityMatchedClassesItem {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let value = <serde_json::Value as serde::Deserialize>::deserialize(deserializer)?;
+        validate_projection_subschema(
+            r#"schema://ioi/foundations/jurisdiction-policy-decision/v1"#,
+            r#"{"type":"object","additionalProperties":false,"required":["class_kind","class_name"],"properties":{"class_kind":{"type":"string","enum":["action_class","data_class","service_class"]},"class_name":{"type":"string","minLength":1,"maxLength":200}}}"#,
+            &value,
+        )
+            .map_err(serde::de::Error::custom)?;
+        let mut object = value
+            .as_object()
+            .cloned()
+            .ok_or_else(|| serde::de::Error::custom("validated projection is not an object"))?;
+        Ok(Self {
+            class_kind: serde_json::from_value::<
+                JurisdictionPolicyDecisionV1ApplicabilityMatchedClassesItemClassKind,
+            >(
+                object
+                    .remove(r#"class_kind"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"class_kind"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            class_name: serde_json::from_value::<String>(
+                object
+                    .remove(r#"class_name"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"class_name"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+        })
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum JurisdictionPolicyDecisionV1ApplicabilityMatchedClassesItemClassKind {
+    #[serde(rename = r#"action_class"#)]
+    ActionClass,
+    #[serde(rename = r#"data_class"#)]
+    DataClass,
+    #[serde(rename = r#"service_class"#)]
+    ServiceClass,
+}
+
+#[derive(Debug, Clone, PartialEq, serde::Serialize)]
+pub struct JurisdictionPolicyDecisionV1ObligationsItem {
+    pub obligation_kind: JurisdictionPolicyDecisionV1ObligationsItemObligationKind,
+    pub detail: String,
+    pub enforcing_owner: JurisdictionPolicyDecisionV1ObligationsItemEnforcingOwner,
+    pub owner_ref: String,
+    pub status: JurisdictionPolicyDecisionV1ObligationsItemStatus,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub evidence_refs: Option<Vec<String>>,
+}
+
+impl<'de> serde::Deserialize<'de> for JurisdictionPolicyDecisionV1ObligationsItem {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let value = <serde_json::Value as serde::Deserialize>::deserialize(deserializer)?;
+        validate_projection_subschema(
+            r#"schema://ioi/foundations/jurisdiction-policy-decision/v1"#,
+            r#"{"type":"object","additionalProperties":false,"required":["obligation_kind","detail","enforcing_owner","owner_ref","status"],"properties":{"obligation_kind":{"type":"string","enum":["identity","authority","data_retention","data_residency","data_export","prohibited_action","approval_required","disclosure_required","audit_evidence","incident_report","erasure","tax_or_commercial"]},"detail":{"type":"string","minLength":1,"maxLength":600},"enforcing_owner":{"type":"string","enum":["wallet_network","daemon_policy","agentgres_retention","marketplace_listing","sas_service_obligation","public_anchor"],"description":"The owners canon names as the places a pack compiles INTO. This record enforces nothing; it says who does."},"owner_ref":{"type":"string","pattern":"^[a-z][a-z0-9+.-]*://[^\\s]{1,400}$"},"status":{"type":"string","enum":["satisfied","unsatisfied","not_evaluated","evidence_unavailable"],"description":"`not_evaluated` and `evidence_unavailable` are distinct from `unsatisfied` on purpose: not looking and looking-and-not-finding are different facts, and collapsing them turns an absent evaluator into a clean bill."},"evidence_refs":{"type":"array","maxItems":128,"uniqueItems":true,"items":{"type":"string","pattern":"^[a-z][a-z0-9+.-]*://[^\\s]{1,400}$"}}}}"#,
+            &value,
+        )
+            .map_err(serde::de::Error::custom)?;
+        let mut object = value
+            .as_object()
+            .cloned()
+            .ok_or_else(|| serde::de::Error::custom("validated projection is not an object"))?;
+        Ok(Self {
+            obligation_kind: serde_json::from_value::<
+                JurisdictionPolicyDecisionV1ObligationsItemObligationKind,
+            >(
+                object
+                    .remove(r#"obligation_kind"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"obligation_kind"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            detail: serde_json::from_value::<String>(
+                object
+                    .remove(r#"detail"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"detail"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            enforcing_owner: serde_json::from_value::<
+                JurisdictionPolicyDecisionV1ObligationsItemEnforcingOwner,
+            >(
+                object
+                    .remove(r#"enforcing_owner"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"enforcing_owner"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            owner_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"owner_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"owner_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            status: serde_json::from_value::<JurisdictionPolicyDecisionV1ObligationsItemStatus>(
+                object
+                    .remove(r#"status"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"status"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            evidence_refs: match object.remove(r#"evidence_refs"#) {
+                Some(field_value) => serde_json::from_value::<Option<Vec<String>>>(field_value)
+                    .map_err(serde::de::Error::custom)?,
+                None => None,
+            },
+        })
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum JurisdictionPolicyDecisionV1ObligationsItemObligationKind {
+    #[serde(rename = r#"identity"#)]
+    Identity,
+    #[serde(rename = r#"authority"#)]
+    Authority,
+    #[serde(rename = r#"data_retention"#)]
+    DataRetention,
+    #[serde(rename = r#"data_residency"#)]
+    DataResidency,
+    #[serde(rename = r#"data_export"#)]
+    DataExport,
+    #[serde(rename = r#"prohibited_action"#)]
+    ProhibitedAction,
+    #[serde(rename = r#"approval_required"#)]
+    ApprovalRequired,
+    #[serde(rename = r#"disclosure_required"#)]
+    DisclosureRequired,
+    #[serde(rename = r#"audit_evidence"#)]
+    AuditEvidence,
+    #[serde(rename = r#"incident_report"#)]
+    IncidentReport,
+    #[serde(rename = r#"erasure"#)]
+    Erasure,
+    #[serde(rename = r#"tax_or_commercial"#)]
+    TaxOrCommercial,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum JurisdictionPolicyDecisionV1ObligationsItemEnforcingOwner {
+    #[serde(rename = r#"wallet_network"#)]
+    WalletNetwork,
+    #[serde(rename = r#"daemon_policy"#)]
+    DaemonPolicy,
+    #[serde(rename = r#"agentgres_retention"#)]
+    AgentgresRetention,
+    #[serde(rename = r#"marketplace_listing"#)]
+    MarketplaceListing,
+    #[serde(rename = r#"sas_service_obligation"#)]
+    SasServiceObligation,
+    #[serde(rename = r#"public_anchor"#)]
+    PublicAnchor,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum JurisdictionPolicyDecisionV1ObligationsItemStatus {
+    #[serde(rename = r#"satisfied"#)]
+    Satisfied,
+    #[serde(rename = r#"unsatisfied"#)]
+    Unsatisfied,
+    #[serde(rename = r#"not_evaluated"#)]
+    NotEvaluated,
+    #[serde(rename = r#"evidence_unavailable"#)]
+    EvidenceUnavailable,
+}
+
+#[derive(Debug, Clone, PartialEq, serde::Serialize)]
+pub struct JurisdictionPolicyDecisionV1UnmetEvidenceItem {
+    pub missing: JurisdictionPolicyDecisionV1UnmetEvidenceItemMissing,
+    pub reason: String,
+}
+
+impl<'de> serde::Deserialize<'de> for JurisdictionPolicyDecisionV1UnmetEvidenceItem {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let value = <serde_json::Value as serde::Deserialize>::deserialize(deserializer)?;
+        validate_projection_subschema(
+            r#"schema://ioi/foundations/jurisdiction-policy-decision/v1"#,
+            r#"{"type":"object","additionalProperties":false,"required":["missing","reason"],"properties":{"missing":{"type":"string","enum":["law","contract","qualification","current_evidence","processor_reference"]},"reason":{"type":"string","minLength":12,"maxLength":600}}}"#,
+            &value,
+        )
+            .map_err(serde::de::Error::custom)?;
+        let mut object = value
+            .as_object()
+            .cloned()
+            .ok_or_else(|| serde::de::Error::custom("validated projection is not an object"))?;
+        Ok(Self {
+            missing:
+                serde_json::from_value::<JurisdictionPolicyDecisionV1UnmetEvidenceItemMissing>(
+                    object
+                        .remove(r#"missing"#)
+                        .ok_or_else(|| serde::de::Error::missing_field(r#"missing"#))?,
+                )
+                .map_err(serde::de::Error::custom)?,
+            reason: serde_json::from_value::<String>(
+                object
+                    .remove(r#"reason"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"reason"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+        })
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum JurisdictionPolicyDecisionV1UnmetEvidenceItemMissing {
+    #[serde(rename = r#"law"#)]
+    Law,
+    #[serde(rename = r#"contract"#)]
+    Contract,
+    #[serde(rename = r#"qualification"#)]
+    Qualification,
+    #[serde(rename = r#"current_evidence"#)]
+    CurrentEvidence,
+    #[serde(rename = r#"processor_reference"#)]
+    ProcessorReference,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum JurisdictionPolicyDecisionV1LegalConformityClaim {
+    #[serde(rename = r#"not_determined"#)]
+    NotDetermined,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum JurisdictionPolicyDecisionV1GrantsNoAuthority {
+    True,
+}
+
+impl serde::Serialize for JurisdictionPolicyDecisionV1GrantsNoAuthority {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: serde::Serializer,
+    {
+        serializer.serialize_bool(true)
+    }
+}
+
+impl<'de> serde::Deserialize<'de> for JurisdictionPolicyDecisionV1GrantsNoAuthority {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let value = <bool as serde::Deserialize>::deserialize(deserializer)?;
+        if value == true {
+            Ok(Self::True)
+        } else {
+            Err(serde::de::Error::custom(r#"expected boolean literal true"#))
+        }
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum JurisdictionPolicyDecisionV1PerformsNoAction {
+    True,
+}
+
+impl serde::Serialize for JurisdictionPolicyDecisionV1PerformsNoAction {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: serde::Serializer,
+    {
+        serializer.serialize_bool(true)
+    }
+}
+
+impl<'de> serde::Deserialize<'de> for JurisdictionPolicyDecisionV1PerformsNoAction {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let value = <bool as serde::Deserialize>::deserialize(deserializer)?;
+        if value == true {
+            Ok(Self::True)
+        } else {
+            Err(serde::de::Error::custom(r#"expected boolean literal true"#))
+        }
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, serde::Serialize)]
+pub struct ComplianceAuditExportBundleV1 {
+    pub schema_version: ComplianceAuditExportBundleV1SchemaVersion,
+    pub export_id: String,
+    pub export_type: ComplianceAuditExportBundleV1ExportType,
+    pub subject_refs: Vec<String>,
+    pub audience: ComplianceAuditExportBundleV1Audience,
+    pub jurisdiction_policy_pack_refs: Vec<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub regulated_action_refs: Option<Vec<String>>,
+    pub policy_decision_refs: Vec<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub approval_receipt_refs: Option<Vec<String>>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub denial_receipt_refs: Option<Vec<String>>,
+    pub authority_refs: Vec<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub evidence_bundle_refs: Option<Vec<String>>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub receipt_refs: Option<Vec<String>>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub replay_refs: Option<Vec<String>>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub retention_lock_refs: Option<Vec<String>>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub restricted_view_refs: Option<Vec<String>>,
+    pub redaction_profile_ref: String,
+    pub export_policy_ref: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub declassification_refs: Option<Vec<String>>,
+    pub export_manifest: ComplianceAuditExportBundleV1ExportManifest,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub commercial_refs: Option<ComplianceAuditExportBundleV1CommercialRefs>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub settlement_mode: Option<ComplianceAuditExportBundleV1SettlementMode>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub settlement_profile_ref: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub network_enrollment_ref: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub public_commitment_policy_ref: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub public_commitment_refs: Option<Vec<String>>,
+    pub generated_by_ref: String,
+    pub generated_at: String,
+    pub validity: ComplianceAuditExportBundleV1Validity,
+    pub status: ComplianceAuditExportBundleV1Status,
+    pub legal_conformity_claim: ComplianceAuditExportBundleV1LegalConformityClaim,
+    pub carries_no_protected_plaintext: ComplianceAuditExportBundleV1CarriesNoProtectedPlaintext,
+    pub bypasses_no_export_manifest: ComplianceAuditExportBundleV1BypassesNoExportManifest,
+    pub export_root: String,
+}
+
+impl<'de> serde::Deserialize<'de> for ComplianceAuditExportBundleV1 {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let value = <serde_json::Value as serde::Deserialize>::deserialize(deserializer)?;
+        validate_projection_subschema(
+            r#"schema://ioi/foundations/compliance-audit-export-bundle/v1"#,
+            r##"{"$schema":"https://json-schema.org/draft/2020-12/schema","$id":"schema://ioi/foundations/compliance-audit-export-bundle/v1","title":"ComplianceAuditExportBundle","x-ioi-schema-version":"ioi.foundations.compliance-audit-export-bundle.v1","description":"AN EXPORT MANIFEST OVER EVIDENCE THAT ALREADY EXISTS, FOR ONE NAMED AUDIENCE — not a storage backend, not a screenshot bundle, not a legal opinion, and not a replacement for Agentgres truth. Canon requires an export to make THREE things obvious, and this shape makes each of them a member rather than a habit: what was included and why; what was redacted, withheld, protected or excluded AND WHY; and which policy, authority, retention, restricted-view, receipt and state-root refs support it. THE AUDIENCE IS A MEMBER BECAUSE THE WRONG ONE IS THE FAILURE MODE — ACC-18's first clause is that a wrong audience fails offline, so an export carries who it was built for and a reader can refuse it without asking anyone. EXCLUSION IS TYPED, NEVER SILENT: a ref that did not travel names the reason it did not, from a closed set, because a bundle that simply omits what it could not release is indistinguishable from one that had nothing to release. And a replay or proof view MUST NOT BYPASS THE MANIFEST: raw private payloads stay under storage, retention, restricted-view and authority policy, so `protected_payload_refs` names them and never carries them. Owner: foundations/ecosystem-assurance-certification-liability.md § ComplianceAuditExportBundle (M06.10, R-228).","type":"object","additionalProperties":false,"required":["schema_version","export_id","export_type","subject_refs","audience","jurisdiction_policy_pack_refs","policy_decision_refs","authority_refs","redaction_profile_ref","export_policy_ref","export_manifest","generated_by_ref","generated_at","validity","status","legal_conformity_claim","carries_no_protected_plaintext","bypasses_no_export_manifest","export_root"],"properties":{"schema_version":{"type":"string","const":"ioi.foundations.compliance-audit-export-bundle.v1"},"export_id":{"type":"string","pattern":"^audit_export://[^\\s?#\\\\]{1,200}$"},"export_type":{"type":"string","enum":["customer_audit","auditor_review","regulator_request","counterparty_dispute","procurement_review","internal_control","tax_report","sla_report","incident_review"]},"subject_refs":{"type":"array","minItems":1,"maxItems":512,"uniqueItems":true,"items":{"$ref":"#/$defs/ref"},"description":"What the export is ABOUT. An export over no subject is a document with no scope, and scope is what a reader checks an audience against."},"audience":{"type":"string","enum":["customer","external_auditor","regulator","counterparty","insurer","procurement","internal_auditor","public"],"description":"WHO IT WAS BUILT FOR, and the reason this is a member at all: ACC-18's first clause is that the WRONG AUDIENCE fails offline. A bundle whose audience is implicit can only be checked by asking its author."},"jurisdiction_policy_pack_refs":{"type":"array","maxItems":128,"uniqueItems":true,"items":{"type":"string","pattern":"^jurisdiction_policy_pack://[^\\s?#\\\\]{1,200}$"}},"regulated_action_refs":{"$ref":"#/$defs/refList"},"policy_decision_refs":{"type":"array","maxItems":512,"uniqueItems":true,"items":{"$ref":"#/$defs/ref"},"description":"The decisions this export rests on — `jurisdiction_decision://`, a receipt, or the policy itself. Each one carries its own `legal_conformity_claim: not_determined`, and nothing here upgrades that."},"approval_receipt_refs":{"$ref":"#/$defs/refList"},"denial_receipt_refs":{"$ref":"#/$defs/refList","description":"Denials travel WITH approvals. An export that carried only what was approved would be a selected record, and a selected record is the thing an audit exists to catch."},"authority_refs":{"type":"array","maxItems":256,"uniqueItems":true,"items":{"type":"string","pattern":"^(?:authority|grant|lease)://[^\\s]{1,400}$"},"description":"Which authority supported the export itself. Canon: the manifest must name the authority refs that support it."},"evidence_bundle_refs":{"$ref":"#/$defs/refList"},"receipt_refs":{"$ref":"#/$defs/refList"},"replay_refs":{"$ref":"#/$defs/refList"},"retention_lock_refs":{"$ref":"#/$defs/refList"},"restricted_view_refs":{"$ref":"#/$defs/refList"},"redaction_profile_ref":{"$ref":"#/$defs/policyRef"},"export_policy_ref":{"$ref":"#/$defs/policyRef"},"declassification_refs":{"$ref":"#/$defs/refList"},"export_manifest":{"type":"object","additionalProperties":false,"required":["included_refs","redacted_refs","protected_payload_refs","excluded_refs","exclusion_reasons"],"description":"THE THREE THINGS CANON REQUIRES AN EXPORT TO MAKE OBVIOUS, as five members. Every list is present even when empty, because an omitted list and an empty list mean different things and only one of them is a statement.","properties":{"included_refs":{"$ref":"#/$defs/refList"},"redacted_refs":{"$ref":"#/$defs/refList","description":"Travelled, with parts removed under the redaction profile."},"protected_payload_refs":{"$ref":"#/$defs/refList","description":"NAMED BUT NOT CARRIED. Raw private payloads stay under storage, retention, restricted-view and authority policy; this list says they exist and where authority for them would be sought. An export that inlined one would be the bypass canon forbids."},"excluded_refs":{"$ref":"#/$defs/refList"},"exclusion_reasons":{"type":"array","maxItems":512,"description":"ONE TYPED REASON PER EXCLUDED REF, from the closed set canon names. A bundle that omitted what it could not release without saying why is indistinguishable from one that had nothing to release.","items":{"type":"object","additionalProperties":false,"required":["excluded_ref","reason"],"properties":{"excluded_ref":{"$ref":"#/$defs/ref"},"reason":{"type":"string","enum":["retention_locked","restricted_view","no_export_authority","protected_plaintext","unrelated","expired","policy_blocked"]}}}}}},"commercial_refs":{"type":"object","additionalProperties":false,"required":["invoice_refs","cost_center_refs","sla_report_refs","tax_export_refs","purchase_order_refs"],"properties":{"invoice_refs":{"$ref":"#/$defs/refList"},"cost_center_refs":{"$ref":"#/$defs/refList"},"sla_report_refs":{"$ref":"#/$defs/refList"},"tax_export_refs":{"$ref":"#/$defs/refList"},"purchase_order_refs":{"$ref":"#/$defs/refList"}}},"settlement_mode":{"type":"string","enum":["local_domain","bilateral","invoice","external_escrow","external_chain","ioi_l1"]},"settlement_profile_ref":{"$ref":"#/$defs/policyRef"},"network_enrollment_ref":{"anyOf":[{"type":"string","pattern":"^network-enrollment://[^\\s]{1,400}$"},{"type":"null"}]},"public_commitment_policy_ref":{"anyOf":[{"$ref":"#/$defs/policyRef"},{"type":"null"}]},"public_commitment_refs":{"$ref":"#/$defs/refList"},"generated_by_ref":{"type":"string","pattern":"^(?:agentgres|runtime)://[^\\s]{1,400}$","description":"An operation or runtime that already exists. The export is generated BY the estate's own machinery, not by the bundle."},"generated_at":{"$ref":"#/$defs/timestamp"},"validity":{"type":"string","enum":["valid","incomplete","stale","disputed","revoked"],"description":"`incomplete` and `stale` are first-class, not failure states: an export built while evidence was unavailable says so, rather than presenting a partial record as a whole one."},"status":{"type":"string","enum":["requested","generated","delivered","revoked","superseded","expired"]},"legal_conformity_claim":{"type":"string","const":"not_determined","description":"The same word the decision carries, for the same reason. Composing many decisions, receipts and evidence bundles into one package does not add up to a legal determination, and an export is exactly where someone would expect it to."},"carries_no_protected_plaintext":{"type":"boolean","const":true,"description":"On the wire: protected payloads are NAMED in the manifest and never inlined here."},"bypasses_no_export_manifest":{"type":"boolean","const":true,"description":"Canon: a replay or proof view must not bypass the export manifest. An export that offered a replay ref as a way around its own redactions would be a hole shaped exactly like a feature."},"export_root":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$","description":"SHA-256 over JCS of every member except this one, so a delivered bundle can be shown to be the one that was generated — which is what makes `revoked` and `superseded` mean anything."}},"$defs":{"ref":{"type":"string","pattern":"^[a-z][a-z0-9+._-]*://[^\\s]{1,400}$"},"policyRef":{"type":"string","pattern":"^policy://[^\\s]{1,400}$"},"refList":{"type":"array","maxItems":1024,"uniqueItems":true,"items":{"$ref":"#/$defs/ref"}},"timestamp":{"type":"string","pattern":"^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$"}}}"##,
+            &value,
+        )
+            .map_err(serde::de::Error::custom)?;
+        let mut object = value
+            .as_object()
+            .cloned()
+            .ok_or_else(|| serde::de::Error::custom("validated projection is not an object"))?;
+        Ok(Self {
+            schema_version: serde_json::from_value::<ComplianceAuditExportBundleV1SchemaVersion>(
+                object
+                    .remove(r#"schema_version"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"schema_version"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            export_id: serde_json::from_value::<String>(
+                object
+                    .remove(r#"export_id"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"export_id"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            export_type: serde_json::from_value::<ComplianceAuditExportBundleV1ExportType>(
+                object
+                    .remove(r#"export_type"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"export_type"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            subject_refs: serde_json::from_value::<Vec<String>>(
+                object
+                    .remove(r#"subject_refs"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"subject_refs"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            audience: serde_json::from_value::<ComplianceAuditExportBundleV1Audience>(
+                object
+                    .remove(r#"audience"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"audience"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            jurisdiction_policy_pack_refs: serde_json::from_value::<Vec<String>>(
+                object
+                    .remove(r#"jurisdiction_policy_pack_refs"#)
+                    .ok_or_else(|| {
+                        serde::de::Error::missing_field(r#"jurisdiction_policy_pack_refs"#)
+                    })?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            regulated_action_refs: match object.remove(r#"regulated_action_refs"#) {
+                Some(field_value) => serde_json::from_value::<Option<Vec<String>>>(field_value)
+                    .map_err(serde::de::Error::custom)?,
+                None => None,
+            },
+            policy_decision_refs: serde_json::from_value::<Vec<String>>(
+                object
+                    .remove(r#"policy_decision_refs"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"policy_decision_refs"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            approval_receipt_refs: match object.remove(r#"approval_receipt_refs"#) {
+                Some(field_value) => serde_json::from_value::<Option<Vec<String>>>(field_value)
+                    .map_err(serde::de::Error::custom)?,
+                None => None,
+            },
+            denial_receipt_refs: match object.remove(r#"denial_receipt_refs"#) {
+                Some(field_value) => serde_json::from_value::<Option<Vec<String>>>(field_value)
+                    .map_err(serde::de::Error::custom)?,
+                None => None,
+            },
+            authority_refs: serde_json::from_value::<Vec<String>>(
+                object
+                    .remove(r#"authority_refs"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"authority_refs"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            evidence_bundle_refs: match object.remove(r#"evidence_bundle_refs"#) {
+                Some(field_value) => serde_json::from_value::<Option<Vec<String>>>(field_value)
+                    .map_err(serde::de::Error::custom)?,
+                None => None,
+            },
+            receipt_refs: match object.remove(r#"receipt_refs"#) {
+                Some(field_value) => serde_json::from_value::<Option<Vec<String>>>(field_value)
+                    .map_err(serde::de::Error::custom)?,
+                None => None,
+            },
+            replay_refs: match object.remove(r#"replay_refs"#) {
+                Some(field_value) => serde_json::from_value::<Option<Vec<String>>>(field_value)
+                    .map_err(serde::de::Error::custom)?,
+                None => None,
+            },
+            retention_lock_refs: match object.remove(r#"retention_lock_refs"#) {
+                Some(field_value) => serde_json::from_value::<Option<Vec<String>>>(field_value)
+                    .map_err(serde::de::Error::custom)?,
+                None => None,
+            },
+            restricted_view_refs: match object.remove(r#"restricted_view_refs"#) {
+                Some(field_value) => serde_json::from_value::<Option<Vec<String>>>(field_value)
+                    .map_err(serde::de::Error::custom)?,
+                None => None,
+            },
+            redaction_profile_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"redaction_profile_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"redaction_profile_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            export_policy_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"export_policy_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"export_policy_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            declassification_refs: match object.remove(r#"declassification_refs"#) {
+                Some(field_value) => serde_json::from_value::<Option<Vec<String>>>(field_value)
+                    .map_err(serde::de::Error::custom)?,
+                None => None,
+            },
+            export_manifest: serde_json::from_value::<ComplianceAuditExportBundleV1ExportManifest>(
+                object
+                    .remove(r#"export_manifest"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"export_manifest"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            commercial_refs: match object.remove(r#"commercial_refs"#) {
+                Some(field_value) => serde_json::from_value::<
+                    Option<ComplianceAuditExportBundleV1CommercialRefs>,
+                >(field_value)
+                .map_err(serde::de::Error::custom)?,
+                None => None,
+            },
+            settlement_mode: match object.remove(r#"settlement_mode"#) {
+                Some(field_value) => serde_json::from_value::<
+                    Option<ComplianceAuditExportBundleV1SettlementMode>,
+                >(field_value)
+                .map_err(serde::de::Error::custom)?,
+                None => None,
+            },
+            settlement_profile_ref: match object.remove(r#"settlement_profile_ref"#) {
+                Some(field_value) => serde_json::from_value::<Option<String>>(field_value)
+                    .map_err(serde::de::Error::custom)?,
+                None => None,
+            },
+            network_enrollment_ref: match object.remove(r#"network_enrollment_ref"#) {
+                Some(field_value) => serde_json::from_value::<Option<String>>(field_value)
+                    .map_err(serde::de::Error::custom)?,
+                None => None,
+            },
+            public_commitment_policy_ref: match object.remove(r#"public_commitment_policy_ref"#) {
+                Some(field_value) => serde_json::from_value::<Option<String>>(field_value)
+                    .map_err(serde::de::Error::custom)?,
+                None => None,
+            },
+            public_commitment_refs: match object.remove(r#"public_commitment_refs"#) {
+                Some(field_value) => serde_json::from_value::<Option<Vec<String>>>(field_value)
+                    .map_err(serde::de::Error::custom)?,
+                None => None,
+            },
+            generated_by_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"generated_by_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"generated_by_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            generated_at: serde_json::from_value::<String>(
+                object
+                    .remove(r#"generated_at"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"generated_at"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            validity: serde_json::from_value::<ComplianceAuditExportBundleV1Validity>(
+                object
+                    .remove(r#"validity"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"validity"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            status: serde_json::from_value::<ComplianceAuditExportBundleV1Status>(
+                object
+                    .remove(r#"status"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"status"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            legal_conformity_claim: serde_json::from_value::<
+                ComplianceAuditExportBundleV1LegalConformityClaim,
+            >(
+                object
+                    .remove(r#"legal_conformity_claim"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"legal_conformity_claim"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            carries_no_protected_plaintext: serde_json::from_value::<
+                ComplianceAuditExportBundleV1CarriesNoProtectedPlaintext,
+            >(
+                object
+                    .remove(r#"carries_no_protected_plaintext"#)
+                    .ok_or_else(|| {
+                        serde::de::Error::missing_field(r#"carries_no_protected_plaintext"#)
+                    })?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            bypasses_no_export_manifest: serde_json::from_value::<
+                ComplianceAuditExportBundleV1BypassesNoExportManifest,
+            >(
+                object
+                    .remove(r#"bypasses_no_export_manifest"#)
+                    .ok_or_else(|| {
+                        serde::de::Error::missing_field(r#"bypasses_no_export_manifest"#)
+                    })?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            export_root: serde_json::from_value::<String>(
+                object
+                    .remove(r#"export_root"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"export_root"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+        })
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum ComplianceAuditExportBundleV1SchemaVersion {
+    #[serde(rename = r#"ioi.foundations.compliance-audit-export-bundle.v1"#)]
+    IoiFoundationsComplianceAuditExportBundleV1,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum ComplianceAuditExportBundleV1ExportType {
+    #[serde(rename = r#"customer_audit"#)]
+    CustomerAudit,
+    #[serde(rename = r#"auditor_review"#)]
+    AuditorReview,
+    #[serde(rename = r#"regulator_request"#)]
+    RegulatorRequest,
+    #[serde(rename = r#"counterparty_dispute"#)]
+    CounterpartyDispute,
+    #[serde(rename = r#"procurement_review"#)]
+    ProcurementReview,
+    #[serde(rename = r#"internal_control"#)]
+    InternalControl,
+    #[serde(rename = r#"tax_report"#)]
+    TaxReport,
+    #[serde(rename = r#"sla_report"#)]
+    SlaReport,
+    #[serde(rename = r#"incident_review"#)]
+    IncidentReview,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum ComplianceAuditExportBundleV1Audience {
+    #[serde(rename = r#"customer"#)]
+    Customer,
+    #[serde(rename = r#"external_auditor"#)]
+    ExternalAuditor,
+    #[serde(rename = r#"regulator"#)]
+    Regulator,
+    #[serde(rename = r#"counterparty"#)]
+    Counterparty,
+    #[serde(rename = r#"insurer"#)]
+    Insurer,
+    #[serde(rename = r#"procurement"#)]
+    Procurement,
+    #[serde(rename = r#"internal_auditor"#)]
+    InternalAuditor,
+    #[serde(rename = r#"public"#)]
+    Public,
+}
+
+#[derive(Debug, Clone, PartialEq, serde::Serialize)]
+pub struct ComplianceAuditExportBundleV1ExportManifest {
+    pub included_refs: Vec<String>,
+    pub redacted_refs: Vec<String>,
+    pub protected_payload_refs: Vec<String>,
+    pub excluded_refs: Vec<String>,
+    pub exclusion_reasons: Vec<ComplianceAuditExportBundleV1ExportManifestExclusionReasonsItem>,
+}
+
+impl<'de> serde::Deserialize<'de> for ComplianceAuditExportBundleV1ExportManifest {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let value = <serde_json::Value as serde::Deserialize>::deserialize(deserializer)?;
+        validate_projection_subschema(
+            r#"schema://ioi/foundations/compliance-audit-export-bundle/v1"#,
+            r##"{"type":"object","additionalProperties":false,"required":["included_refs","redacted_refs","protected_payload_refs","excluded_refs","exclusion_reasons"],"description":"THE THREE THINGS CANON REQUIRES AN EXPORT TO MAKE OBVIOUS, as five members. Every list is present even when empty, because an omitted list and an empty list mean different things and only one of them is a statement.","properties":{"included_refs":{"$ref":"#/$defs/refList"},"redacted_refs":{"$ref":"#/$defs/refList","description":"Travelled, with parts removed under the redaction profile."},"protected_payload_refs":{"$ref":"#/$defs/refList","description":"NAMED BUT NOT CARRIED. Raw private payloads stay under storage, retention, restricted-view and authority policy; this list says they exist and where authority for them would be sought. An export that inlined one would be the bypass canon forbids."},"excluded_refs":{"$ref":"#/$defs/refList"},"exclusion_reasons":{"type":"array","maxItems":512,"description":"ONE TYPED REASON PER EXCLUDED REF, from the closed set canon names. A bundle that omitted what it could not release without saying why is indistinguishable from one that had nothing to release.","items":{"type":"object","additionalProperties":false,"required":["excluded_ref","reason"],"properties":{"excluded_ref":{"$ref":"#/$defs/ref"},"reason":{"type":"string","enum":["retention_locked","restricted_view","no_export_authority","protected_plaintext","unrelated","expired","policy_blocked"]}}}}}}"##,
+            &value,
+        )
+            .map_err(serde::de::Error::custom)?;
+        let mut object = value
+            .as_object()
+            .cloned()
+            .ok_or_else(|| serde::de::Error::custom("validated projection is not an object"))?;
+        Ok(Self {
+            included_refs: serde_json::from_value::<Vec<String>>(
+                object
+                    .remove(r#"included_refs"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"included_refs"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            redacted_refs: serde_json::from_value::<Vec<String>>(
+                object
+                    .remove(r#"redacted_refs"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"redacted_refs"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            protected_payload_refs: serde_json::from_value::<Vec<String>>(
+                object
+                    .remove(r#"protected_payload_refs"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"protected_payload_refs"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            excluded_refs: serde_json::from_value::<Vec<String>>(
+                object
+                    .remove(r#"excluded_refs"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"excluded_refs"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            exclusion_reasons: serde_json::from_value::<
+                Vec<ComplianceAuditExportBundleV1ExportManifestExclusionReasonsItem>,
+            >(
+                object
+                    .remove(r#"exclusion_reasons"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"exclusion_reasons"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+        })
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, serde::Serialize)]
+pub struct ComplianceAuditExportBundleV1ExportManifestExclusionReasonsItem {
+    pub excluded_ref: String,
+    pub reason: ComplianceAuditExportBundleV1ExportManifestExclusionReasonsItemReason,
+}
+
+impl<'de> serde::Deserialize<'de>
+    for ComplianceAuditExportBundleV1ExportManifestExclusionReasonsItem
+{
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let value = <serde_json::Value as serde::Deserialize>::deserialize(deserializer)?;
+        validate_projection_subschema(
+            r#"schema://ioi/foundations/compliance-audit-export-bundle/v1"#,
+            r##"{"type":"object","additionalProperties":false,"required":["excluded_ref","reason"],"properties":{"excluded_ref":{"$ref":"#/$defs/ref"},"reason":{"type":"string","enum":["retention_locked","restricted_view","no_export_authority","protected_plaintext","unrelated","expired","policy_blocked"]}}}"##,
+            &value,
+        )
+            .map_err(serde::de::Error::custom)?;
+        let mut object = value
+            .as_object()
+            .cloned()
+            .ok_or_else(|| serde::de::Error::custom("validated projection is not an object"))?;
+        Ok(Self {
+            excluded_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"excluded_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"excluded_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            reason: serde_json::from_value::<
+                ComplianceAuditExportBundleV1ExportManifestExclusionReasonsItemReason,
+            >(
+                object
+                    .remove(r#"reason"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"reason"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+        })
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum ComplianceAuditExportBundleV1ExportManifestExclusionReasonsItemReason {
+    #[serde(rename = r#"retention_locked"#)]
+    RetentionLocked,
+    #[serde(rename = r#"restricted_view"#)]
+    RestrictedView,
+    #[serde(rename = r#"no_export_authority"#)]
+    NoExportAuthority,
+    #[serde(rename = r#"protected_plaintext"#)]
+    ProtectedPlaintext,
+    #[serde(rename = r#"unrelated"#)]
+    Unrelated,
+    #[serde(rename = r#"expired"#)]
+    Expired,
+    #[serde(rename = r#"policy_blocked"#)]
+    PolicyBlocked,
+}
+
+#[derive(Debug, Clone, PartialEq, serde::Serialize)]
+pub struct ComplianceAuditExportBundleV1CommercialRefs {
+    pub invoice_refs: Vec<String>,
+    pub cost_center_refs: Vec<String>,
+    pub sla_report_refs: Vec<String>,
+    pub tax_export_refs: Vec<String>,
+    pub purchase_order_refs: Vec<String>,
+}
+
+impl<'de> serde::Deserialize<'de> for ComplianceAuditExportBundleV1CommercialRefs {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let value = <serde_json::Value as serde::Deserialize>::deserialize(deserializer)?;
+        validate_projection_subschema(
+            r#"schema://ioi/foundations/compliance-audit-export-bundle/v1"#,
+            r##"{"type":"object","additionalProperties":false,"required":["invoice_refs","cost_center_refs","sla_report_refs","tax_export_refs","purchase_order_refs"],"properties":{"invoice_refs":{"$ref":"#/$defs/refList"},"cost_center_refs":{"$ref":"#/$defs/refList"},"sla_report_refs":{"$ref":"#/$defs/refList"},"tax_export_refs":{"$ref":"#/$defs/refList"},"purchase_order_refs":{"$ref":"#/$defs/refList"}}}"##,
+            &value,
+        )
+            .map_err(serde::de::Error::custom)?;
+        let mut object = value
+            .as_object()
+            .cloned()
+            .ok_or_else(|| serde::de::Error::custom("validated projection is not an object"))?;
+        Ok(Self {
+            invoice_refs: serde_json::from_value::<Vec<String>>(
+                object
+                    .remove(r#"invoice_refs"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"invoice_refs"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            cost_center_refs: serde_json::from_value::<Vec<String>>(
+                object
+                    .remove(r#"cost_center_refs"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"cost_center_refs"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            sla_report_refs: serde_json::from_value::<Vec<String>>(
+                object
+                    .remove(r#"sla_report_refs"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"sla_report_refs"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            tax_export_refs: serde_json::from_value::<Vec<String>>(
+                object
+                    .remove(r#"tax_export_refs"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"tax_export_refs"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            purchase_order_refs: serde_json::from_value::<Vec<String>>(
+                object
+                    .remove(r#"purchase_order_refs"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"purchase_order_refs"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+        })
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum ComplianceAuditExportBundleV1SettlementMode {
+    #[serde(rename = r#"local_domain"#)]
+    LocalDomain,
+    #[serde(rename = r#"bilateral"#)]
+    Bilateral,
+    #[serde(rename = r#"invoice"#)]
+    Invoice,
+    #[serde(rename = r#"external_escrow"#)]
+    ExternalEscrow,
+    #[serde(rename = r#"external_chain"#)]
+    ExternalChain,
+    #[serde(rename = r#"ioi_l1"#)]
+    IoiL1,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum ComplianceAuditExportBundleV1Validity {
+    #[serde(rename = r#"valid"#)]
+    Valid,
+    #[serde(rename = r#"incomplete"#)]
+    Incomplete,
+    #[serde(rename = r#"stale"#)]
+    Stale,
+    #[serde(rename = r#"disputed"#)]
+    Disputed,
+    #[serde(rename = r#"revoked"#)]
+    Revoked,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum ComplianceAuditExportBundleV1Status {
+    #[serde(rename = r#"requested"#)]
+    Requested,
+    #[serde(rename = r#"generated"#)]
+    Generated,
+    #[serde(rename = r#"delivered"#)]
+    Delivered,
+    #[serde(rename = r#"revoked"#)]
+    Revoked,
+    #[serde(rename = r#"superseded"#)]
+    Superseded,
+    #[serde(rename = r#"expired"#)]
+    Expired,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum ComplianceAuditExportBundleV1LegalConformityClaim {
+    #[serde(rename = r#"not_determined"#)]
+    NotDetermined,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum ComplianceAuditExportBundleV1CarriesNoProtectedPlaintext {
+    True,
+}
+
+impl serde::Serialize for ComplianceAuditExportBundleV1CarriesNoProtectedPlaintext {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: serde::Serializer,
+    {
+        serializer.serialize_bool(true)
+    }
+}
+
+impl<'de> serde::Deserialize<'de> for ComplianceAuditExportBundleV1CarriesNoProtectedPlaintext {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let value = <bool as serde::Deserialize>::deserialize(deserializer)?;
+        if value == true {
+            Ok(Self::True)
+        } else {
+            Err(serde::de::Error::custom(r#"expected boolean literal true"#))
+        }
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum ComplianceAuditExportBundleV1BypassesNoExportManifest {
+    True,
+}
+
+impl serde::Serialize for ComplianceAuditExportBundleV1BypassesNoExportManifest {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: serde::Serializer,
+    {
+        serializer.serialize_bool(true)
+    }
+}
+
+impl<'de> serde::Deserialize<'de> for ComplianceAuditExportBundleV1BypassesNoExportManifest {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let value = <bool as serde::Deserialize>::deserialize(deserializer)?;
+        if value == true {
+            Ok(Self::True)
+        } else {
+            Err(serde::de::Error::custom(r#"expected boolean literal true"#))
+        }
+    }
+}
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct GoldenFixture {
     pub contract_id: &'static str,
@@ -183047,6 +185036,326 @@ pub const ARCHITECTURE_CONTRACT_FIXTURES: &[GoldenFixture] = &[
         expected_accept: false,
         expected_schema_accept: false,
         expected_failure: Some("schema"),
+        expected_rule_id: None,
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/foundations/jurisdiction-policy-pack/v1",
+        path: "docs/architecture/_meta/schemas/fixtures/jurisdiction-policy-pack-v1/positive-disclosure-only-no-deadlines.json",
+        expected_accept: true,
+        expected_schema_accept: true,
+        expected_failure: None,
+        expected_rule_id: None,
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/foundations/jurisdiction-policy-pack/v1",
+        path: "docs/architecture/_meta/schemas/fixtures/jurisdiction-policy-pack-v1/positive-eu-serious-incident.json",
+        expected_accept: true,
+        expected_schema_accept: true,
+        expected_failure: None,
+        expected_rule_id: None,
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/foundations/jurisdiction-policy-pack/v1",
+        path: "docs/architecture/_meta/schemas/fixtures/jurisdiction-policy-pack-v1/negative-a-deadline-with-no-accountable-party.json",
+        expected_accept: false,
+        expected_schema_accept: false,
+        expected_failure: Some("schema"),
+        expected_rule_id: None,
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/foundations/jurisdiction-policy-pack/v1",
+        path: "docs/architecture/_meta/schemas/fixtures/jurisdiction-policy-pack-v1/negative-a-required-scope-that-is-a-grant.json",
+        expected_accept: false,
+        expected_schema_accept: false,
+        expected_failure: Some("schema"),
+        expected_rule_id: None,
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/foundations/jurisdiction-policy-pack/v1",
+        path: "docs/architecture/_meta/schemas/fixtures/jurisdiction-policy-pack-v1/negative-a-version-that-is-not-semver.json",
+        expected_accept: false,
+        expected_schema_accept: false,
+        expected_failure: Some("schema"),
+        expected_rule_id: None,
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/foundations/jurisdiction-policy-pack/v1",
+        path: "docs/architecture/_meta/schemas/fixtures/jurisdiction-policy-pack-v1/negative-an-invented-clock-start.json",
+        expected_accept: false,
+        expected_schema_accept: false,
+        expected_failure: Some("schema"),
+        expected_rule_id: None,
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/foundations/jurisdiction-policy-pack/v1",
+        path: "docs/architecture/_meta/schemas/fixtures/jurisdiction-policy-pack-v1/negative-applies-to-nothing.json",
+        expected_accept: false,
+        expected_schema_accept: true,
+        expected_failure: Some("invariant"),
+        expected_rule_id: None,
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/foundations/jurisdiction-policy-pack/v1",
+        path: "docs/architecture/_meta/schemas/fixtures/jurisdiction-policy-pack-v1/negative-claims-to-be-legal-advice.json",
+        expected_accept: false,
+        expected_schema_accept: false,
+        expected_failure: Some("schema"),
+        expected_rule_id: None,
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/foundations/jurisdiction-policy-pack/v1",
+        path: "docs/architecture/_meta/schemas/fixtures/jurisdiction-policy-pack-v1/negative-claims-to-grant-authority.json",
+        expected_accept: false,
+        expected_schema_accept: false,
+        expected_failure: Some("schema"),
+        expected_rule_id: None,
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/foundations/jurisdiction-policy-pack/v1",
+        path: "docs/architecture/_meta/schemas/fixtures/jurisdiction-policy-pack-v1/negative-jurisdiction-omits-an-axis.json",
+        expected_accept: false,
+        expected_schema_accept: false,
+        expected_failure: Some("schema"),
+        expected_rule_id: None,
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/foundations/jurisdiction-policy-pack/v1",
+        path: "docs/architecture/_meta/schemas/fixtures/jurisdiction-policy-pack-v1/negative-root-does-not-recompute.json",
+        expected_accept: false,
+        expected_schema_accept: true,
+        expected_failure: Some("invariant"),
+        expected_rule_id: None,
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/foundations/jurisdiction-policy-pack/v1",
+        path: "docs/architecture/_meta/schemas/fixtures/jurisdiction-policy-pack-v1/negative-supersedes-itself.json",
+        expected_accept: false,
+        expected_schema_accept: true,
+        expected_failure: Some("invariant"),
+        expected_rule_id: None,
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/foundations/jurisdiction-policy-decision/v1",
+        path: "docs/architecture/_meta/schemas/fixtures/jurisdiction-policy-decision-v1/positive-applies-with-an-open-obligation.json",
+        expected_accept: true,
+        expected_schema_accept: true,
+        expected_failure: None,
+        expected_rule_id: None,
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/foundations/jurisdiction-policy-decision/v1",
+        path: "docs/architecture/_meta/schemas/fixtures/jurisdiction-policy-decision-v1/positive-does-not-apply-and-says-why.json",
+        expected_accept: true,
+        expected_schema_accept: true,
+        expected_failure: None,
+        expected_rule_id: None,
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/foundations/jurisdiction-policy-decision/v1",
+        path: "docs/architecture/_meta/schemas/fixtures/jurisdiction-policy-decision-v1/negative-a-deadline-basis-with-no-triggering-timestamp.json",
+        expected_accept: false,
+        expected_schema_accept: true,
+        expected_failure: Some("invariant"),
+        expected_rule_id: None,
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/foundations/jurisdiction-policy-decision/v1",
+        path: "docs/architecture/_meta/schemas/fixtures/jurisdiction-policy-decision-v1/negative-a-legal-verdict.json",
+        expected_accept: false,
+        expected_schema_accept: false,
+        expected_failure: Some("schema"),
+        expected_rule_id: None,
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/foundations/jurisdiction-policy-decision/v1",
+        path: "docs/architecture/_meta/schemas/fixtures/jurisdiction-policy-decision-v1/negative-an-obligation-with-no-enforcing-owner.json",
+        expected_accept: false,
+        expected_schema_accept: false,
+        expected_failure: Some("schema"),
+        expected_rule_id: None,
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/foundations/jurisdiction-policy-decision/v1",
+        path: "docs/architecture/_meta/schemas/fixtures/jurisdiction-policy-decision-v1/negative-an-untyped-missing-evidence-kind.json",
+        expected_accept: false,
+        expected_schema_accept: false,
+        expected_failure: Some("schema"),
+        expected_rule_id: None,
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/foundations/jurisdiction-policy-decision/v1",
+        path: "docs/architecture/_meta/schemas/fixtures/jurisdiction-policy-decision-v1/negative-an-untyped-obligation-status.json",
+        expected_accept: false,
+        expected_schema_accept: false,
+        expected_failure: Some("schema"),
+        expected_rule_id: None,
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/foundations/jurisdiction-policy-decision/v1",
+        path: "docs/architecture/_meta/schemas/fixtures/jurisdiction-policy-decision-v1/negative-applies-but-matched-nothing.json",
+        expected_accept: false,
+        expected_schema_accept: true,
+        expected_failure: Some("invariant"),
+        expected_rule_id: None,
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/foundations/jurisdiction-policy-decision/v1",
+        path: "docs/architecture/_meta/schemas/fixtures/jurisdiction-policy-decision-v1/negative-grants-authority.json",
+        expected_accept: false,
+        expected_schema_accept: false,
+        expected_failure: Some("schema"),
+        expected_rule_id: None,
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/foundations/jurisdiction-policy-decision/v1",
+        path: "docs/architecture/_meta/schemas/fixtures/jurisdiction-policy-decision-v1/negative-one-missing-kind-named-twice.json",
+        expected_accept: false,
+        expected_schema_accept: true,
+        expected_failure: Some("invariant"),
+        expected_rule_id: None,
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/foundations/jurisdiction-policy-decision/v1",
+        path: "docs/architecture/_meta/schemas/fixtures/jurisdiction-policy-decision-v1/negative-performs-an-action.json",
+        expected_accept: false,
+        expected_schema_accept: false,
+        expected_failure: Some("schema"),
+        expected_rule_id: None,
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/foundations/jurisdiction-policy-decision/v1",
+        path: "docs/architecture/_meta/schemas/fixtures/jurisdiction-policy-decision-v1/negative-root-does-not-recompute.json",
+        expected_accept: false,
+        expected_schema_accept: true,
+        expected_failure: Some("invariant"),
+        expected_rule_id: None,
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/foundations/jurisdiction-policy-decision/v1",
+        path: "docs/architecture/_meta/schemas/fixtures/jurisdiction-policy-decision-v1/negative-this-record-enforces-it.json",
+        expected_accept: false,
+        expected_schema_accept: false,
+        expected_failure: Some("schema"),
+        expected_rule_id: None,
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/foundations/jurisdiction-policy-decision/v1",
+        path: "docs/architecture/_meta/schemas/fixtures/jurisdiction-policy-decision-v1/negative-two-obligations-for-one-kind-and-owner.json",
+        expected_accept: false,
+        expected_schema_accept: true,
+        expected_failure: Some("invariant"),
+        expected_rule_id: None,
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/foundations/compliance-audit-export-bundle/v1",
+        path: "docs/architecture/_meta/schemas/fixtures/compliance-audit-export-bundle-v1/positive-incomplete-and-says-so.json",
+        expected_accept: true,
+        expected_schema_accept: true,
+        expected_failure: None,
+        expected_rule_id: None,
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/foundations/compliance-audit-export-bundle/v1",
+        path: "docs/architecture/_meta/schemas/fixtures/compliance-audit-export-bundle-v1/positive-regulator-request.json",
+        expected_accept: true,
+        expected_schema_accept: true,
+        expected_failure: None,
+        expected_rule_id: None,
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/foundations/compliance-audit-export-bundle/v1",
+        path: "docs/architecture/_meta/schemas/fixtures/compliance-audit-export-bundle-v1/negative-a-legal-verdict.json",
+        expected_accept: false,
+        expected_schema_accept: false,
+        expected_failure: Some("schema"),
+        expected_rule_id: None,
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/foundations/compliance-audit-export-bundle/v1",
+        path: "docs/architecture/_meta/schemas/fixtures/compliance-audit-export-bundle-v1/negative-a-manifest-missing-a-list.json",
+        expected_accept: false,
+        expected_schema_accept: false,
+        expected_failure: Some("schema"),
+        expected_rule_id: None,
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/foundations/compliance-audit-export-bundle/v1",
+        path: "docs/architecture/_meta/schemas/fixtures/compliance-audit-export-bundle-v1/negative-a-replay-bypasses-the-manifest.json",
+        expected_accept: false,
+        expected_schema_accept: false,
+        expected_failure: Some("schema"),
+        expected_rule_id: None,
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/foundations/compliance-audit-export-bundle/v1",
+        path: "docs/architecture/_meta/schemas/fixtures/compliance-audit-export-bundle-v1/negative-an-invented-audience.json",
+        expected_accept: false,
+        expected_schema_accept: false,
+        expected_failure: Some("schema"),
+        expected_rule_id: None,
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/foundations/compliance-audit-export-bundle/v1",
+        path: "docs/architecture/_meta/schemas/fixtures/compliance-audit-export-bundle-v1/negative-an-untyped-exclusion-reason.json",
+        expected_accept: false,
+        expected_schema_accept: false,
+        expected_failure: Some("schema"),
+        expected_rule_id: None,
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/foundations/compliance-audit-export-bundle/v1",
+        path: "docs/architecture/_meta/schemas/fixtures/compliance-audit-export-bundle-v1/negative-an-untyped-validity.json",
+        expected_accept: false,
+        expected_schema_accept: false,
+        expected_failure: Some("schema"),
+        expected_rule_id: None,
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/foundations/compliance-audit-export-bundle/v1",
+        path: "docs/architecture/_meta/schemas/fixtures/compliance-audit-export-bundle-v1/negative-carries-protected-plaintext.json",
+        expected_accept: false,
+        expected_schema_accept: false,
+        expected_failure: Some("schema"),
+        expected_rule_id: None,
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/foundations/compliance-audit-export-bundle/v1",
+        path: "docs/architecture/_meta/schemas/fixtures/compliance-audit-export-bundle-v1/negative-excluded-with-no-reason.json",
+        expected_accept: false,
+        expected_schema_accept: true,
+        expected_failure: Some("invariant"),
+        expected_rule_id: None,
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/foundations/compliance-audit-export-bundle/v1",
+        path: "docs/architecture/_meta/schemas/fixtures/compliance-audit-export-bundle-v1/negative-generated-with-no-supporting-authority.json",
+        expected_accept: false,
+        expected_schema_accept: true,
+        expected_failure: Some("invariant"),
+        expected_rule_id: None,
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/foundations/compliance-audit-export-bundle/v1",
+        path: "docs/architecture/_meta/schemas/fixtures/compliance-audit-export-bundle-v1/negative-no-subject.json",
+        expected_accept: false,
+        expected_schema_accept: false,
+        expected_failure: Some("schema"),
+        expected_rule_id: None,
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/foundations/compliance-audit-export-bundle/v1",
+        path: "docs/architecture/_meta/schemas/fixtures/compliance-audit-export-bundle-v1/negative-root-does-not-recompute.json",
+        expected_accept: false,
+        expected_schema_accept: true,
+        expected_failure: Some("invariant"),
+        expected_rule_id: None,
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/foundations/compliance-audit-export-bundle/v1",
+        path: "docs/architecture/_meta/schemas/fixtures/compliance-audit-export-bundle-v1/negative-two-reasons-for-one-excluded-ref.json",
+        expected_accept: false,
+        expected_schema_accept: true,
+        expected_failure: Some("invariant"),
         expected_rule_id: None,
     },
 ];
@@ -205175,6 +207484,446 @@ pub const ARCHITECTURE_CONTRACT_DIFFERENTIAL_CASES: &[ArchitectureContractDiffer
         oracle_contract_accept: false,
     },
     ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/jurisdiction-policy-pack-v1/positive-disclosure-only-no-deadlines.json"#,
+        contract_id: r#"schema://ioi/foundations/jurisdiction-policy-pack/v1"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/jurisdiction-policy-pack-v1/positive-disclosure-only-no-deadlines.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: true,
+        oracle_contract_accept: true,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/jurisdiction-policy-pack-v1/positive-eu-serious-incident.json"#,
+        contract_id: r#"schema://ioi/foundations/jurisdiction-policy-pack/v1"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/jurisdiction-policy-pack-v1/positive-eu-serious-incident.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: true,
+        oracle_contract_accept: true,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/jurisdiction-policy-pack-v1/negative-a-deadline-with-no-accountable-party.json"#,
+        contract_id: r#"schema://ioi/foundations/jurisdiction-policy-pack/v1"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/jurisdiction-policy-pack-v1/negative-a-deadline-with-no-accountable-party.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: false,
+        oracle_contract_accept: false,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/jurisdiction-policy-pack-v1/negative-a-required-scope-that-is-a-grant.json"#,
+        contract_id: r#"schema://ioi/foundations/jurisdiction-policy-pack/v1"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/jurisdiction-policy-pack-v1/negative-a-required-scope-that-is-a-grant.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: false,
+        oracle_contract_accept: false,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/jurisdiction-policy-pack-v1/negative-a-version-that-is-not-semver.json"#,
+        contract_id: r#"schema://ioi/foundations/jurisdiction-policy-pack/v1"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/jurisdiction-policy-pack-v1/negative-a-version-that-is-not-semver.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: false,
+        oracle_contract_accept: false,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/jurisdiction-policy-pack-v1/negative-an-invented-clock-start.json"#,
+        contract_id: r#"schema://ioi/foundations/jurisdiction-policy-pack/v1"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/jurisdiction-policy-pack-v1/negative-an-invented-clock-start.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: false,
+        oracle_contract_accept: false,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/jurisdiction-policy-pack-v1/negative-applies-to-nothing.json"#,
+        contract_id: r#"schema://ioi/foundations/jurisdiction-policy-pack/v1"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/jurisdiction-policy-pack-v1/negative-applies-to-nothing.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: true,
+        oracle_contract_accept: false,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/jurisdiction-policy-pack-v1/negative-claims-to-be-legal-advice.json"#,
+        contract_id: r#"schema://ioi/foundations/jurisdiction-policy-pack/v1"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/jurisdiction-policy-pack-v1/negative-claims-to-be-legal-advice.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: false,
+        oracle_contract_accept: false,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/jurisdiction-policy-pack-v1/negative-claims-to-grant-authority.json"#,
+        contract_id: r#"schema://ioi/foundations/jurisdiction-policy-pack/v1"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/jurisdiction-policy-pack-v1/negative-claims-to-grant-authority.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: false,
+        oracle_contract_accept: false,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/jurisdiction-policy-pack-v1/negative-jurisdiction-omits-an-axis.json"#,
+        contract_id: r#"schema://ioi/foundations/jurisdiction-policy-pack/v1"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/jurisdiction-policy-pack-v1/negative-jurisdiction-omits-an-axis.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: false,
+        oracle_contract_accept: false,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/jurisdiction-policy-pack-v1/negative-root-does-not-recompute.json"#,
+        contract_id: r#"schema://ioi/foundations/jurisdiction-policy-pack/v1"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/jurisdiction-policy-pack-v1/negative-root-does-not-recompute.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: true,
+        oracle_contract_accept: false,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/jurisdiction-policy-pack-v1/negative-supersedes-itself.json"#,
+        contract_id: r#"schema://ioi/foundations/jurisdiction-policy-pack/v1"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/jurisdiction-policy-pack-v1/negative-supersedes-itself.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: true,
+        oracle_contract_accept: false,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/jurisdiction-policy-decision-v1/positive-applies-with-an-open-obligation.json"#,
+        contract_id: r#"schema://ioi/foundations/jurisdiction-policy-decision/v1"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/jurisdiction-policy-decision-v1/positive-applies-with-an-open-obligation.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: true,
+        oracle_contract_accept: true,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/jurisdiction-policy-decision-v1/positive-does-not-apply-and-says-why.json"#,
+        contract_id: r#"schema://ioi/foundations/jurisdiction-policy-decision/v1"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/jurisdiction-policy-decision-v1/positive-does-not-apply-and-says-why.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: true,
+        oracle_contract_accept: true,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/jurisdiction-policy-decision-v1/negative-a-deadline-basis-with-no-triggering-timestamp.json"#,
+        contract_id: r#"schema://ioi/foundations/jurisdiction-policy-decision/v1"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/jurisdiction-policy-decision-v1/negative-a-deadline-basis-with-no-triggering-timestamp.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: true,
+        oracle_contract_accept: false,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/jurisdiction-policy-decision-v1/negative-a-legal-verdict.json"#,
+        contract_id: r#"schema://ioi/foundations/jurisdiction-policy-decision/v1"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/jurisdiction-policy-decision-v1/negative-a-legal-verdict.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: false,
+        oracle_contract_accept: false,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/jurisdiction-policy-decision-v1/negative-an-obligation-with-no-enforcing-owner.json"#,
+        contract_id: r#"schema://ioi/foundations/jurisdiction-policy-decision/v1"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/jurisdiction-policy-decision-v1/negative-an-obligation-with-no-enforcing-owner.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: false,
+        oracle_contract_accept: false,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/jurisdiction-policy-decision-v1/negative-an-untyped-missing-evidence-kind.json"#,
+        contract_id: r#"schema://ioi/foundations/jurisdiction-policy-decision/v1"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/jurisdiction-policy-decision-v1/negative-an-untyped-missing-evidence-kind.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: false,
+        oracle_contract_accept: false,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/jurisdiction-policy-decision-v1/negative-an-untyped-obligation-status.json"#,
+        contract_id: r#"schema://ioi/foundations/jurisdiction-policy-decision/v1"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/jurisdiction-policy-decision-v1/negative-an-untyped-obligation-status.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: false,
+        oracle_contract_accept: false,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/jurisdiction-policy-decision-v1/negative-applies-but-matched-nothing.json"#,
+        contract_id: r#"schema://ioi/foundations/jurisdiction-policy-decision/v1"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/jurisdiction-policy-decision-v1/negative-applies-but-matched-nothing.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: true,
+        oracle_contract_accept: false,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/jurisdiction-policy-decision-v1/negative-grants-authority.json"#,
+        contract_id: r#"schema://ioi/foundations/jurisdiction-policy-decision/v1"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/jurisdiction-policy-decision-v1/negative-grants-authority.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: false,
+        oracle_contract_accept: false,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/jurisdiction-policy-decision-v1/negative-one-missing-kind-named-twice.json"#,
+        contract_id: r#"schema://ioi/foundations/jurisdiction-policy-decision/v1"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/jurisdiction-policy-decision-v1/negative-one-missing-kind-named-twice.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: true,
+        oracle_contract_accept: false,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/jurisdiction-policy-decision-v1/negative-performs-an-action.json"#,
+        contract_id: r#"schema://ioi/foundations/jurisdiction-policy-decision/v1"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/jurisdiction-policy-decision-v1/negative-performs-an-action.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: false,
+        oracle_contract_accept: false,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/jurisdiction-policy-decision-v1/negative-root-does-not-recompute.json"#,
+        contract_id: r#"schema://ioi/foundations/jurisdiction-policy-decision/v1"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/jurisdiction-policy-decision-v1/negative-root-does-not-recompute.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: true,
+        oracle_contract_accept: false,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/jurisdiction-policy-decision-v1/negative-this-record-enforces-it.json"#,
+        contract_id: r#"schema://ioi/foundations/jurisdiction-policy-decision/v1"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/jurisdiction-policy-decision-v1/negative-this-record-enforces-it.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: false,
+        oracle_contract_accept: false,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/jurisdiction-policy-decision-v1/negative-two-obligations-for-one-kind-and-owner.json"#,
+        contract_id: r#"schema://ioi/foundations/jurisdiction-policy-decision/v1"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/jurisdiction-policy-decision-v1/negative-two-obligations-for-one-kind-and-owner.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: true,
+        oracle_contract_accept: false,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/compliance-audit-export-bundle-v1/positive-incomplete-and-says-so.json"#,
+        contract_id: r#"schema://ioi/foundations/compliance-audit-export-bundle/v1"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/compliance-audit-export-bundle-v1/positive-incomplete-and-says-so.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: true,
+        oracle_contract_accept: true,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/compliance-audit-export-bundle-v1/positive-regulator-request.json"#,
+        contract_id: r#"schema://ioi/foundations/compliance-audit-export-bundle/v1"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/compliance-audit-export-bundle-v1/positive-regulator-request.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: true,
+        oracle_contract_accept: true,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/compliance-audit-export-bundle-v1/negative-a-legal-verdict.json"#,
+        contract_id: r#"schema://ioi/foundations/compliance-audit-export-bundle/v1"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/compliance-audit-export-bundle-v1/negative-a-legal-verdict.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: false,
+        oracle_contract_accept: false,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/compliance-audit-export-bundle-v1/negative-a-manifest-missing-a-list.json"#,
+        contract_id: r#"schema://ioi/foundations/compliance-audit-export-bundle/v1"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/compliance-audit-export-bundle-v1/negative-a-manifest-missing-a-list.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: false,
+        oracle_contract_accept: false,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/compliance-audit-export-bundle-v1/negative-a-replay-bypasses-the-manifest.json"#,
+        contract_id: r#"schema://ioi/foundations/compliance-audit-export-bundle/v1"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/compliance-audit-export-bundle-v1/negative-a-replay-bypasses-the-manifest.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: false,
+        oracle_contract_accept: false,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/compliance-audit-export-bundle-v1/negative-an-invented-audience.json"#,
+        contract_id: r#"schema://ioi/foundations/compliance-audit-export-bundle/v1"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/compliance-audit-export-bundle-v1/negative-an-invented-audience.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: false,
+        oracle_contract_accept: false,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/compliance-audit-export-bundle-v1/negative-an-untyped-exclusion-reason.json"#,
+        contract_id: r#"schema://ioi/foundations/compliance-audit-export-bundle/v1"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/compliance-audit-export-bundle-v1/negative-an-untyped-exclusion-reason.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: false,
+        oracle_contract_accept: false,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/compliance-audit-export-bundle-v1/negative-an-untyped-validity.json"#,
+        contract_id: r#"schema://ioi/foundations/compliance-audit-export-bundle/v1"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/compliance-audit-export-bundle-v1/negative-an-untyped-validity.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: false,
+        oracle_contract_accept: false,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/compliance-audit-export-bundle-v1/negative-carries-protected-plaintext.json"#,
+        contract_id: r#"schema://ioi/foundations/compliance-audit-export-bundle/v1"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/compliance-audit-export-bundle-v1/negative-carries-protected-plaintext.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: false,
+        oracle_contract_accept: false,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/compliance-audit-export-bundle-v1/negative-excluded-with-no-reason.json"#,
+        contract_id: r#"schema://ioi/foundations/compliance-audit-export-bundle/v1"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/compliance-audit-export-bundle-v1/negative-excluded-with-no-reason.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: true,
+        oracle_contract_accept: false,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/compliance-audit-export-bundle-v1/negative-generated-with-no-supporting-authority.json"#,
+        contract_id: r#"schema://ioi/foundations/compliance-audit-export-bundle/v1"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/compliance-audit-export-bundle-v1/negative-generated-with-no-supporting-authority.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: true,
+        oracle_contract_accept: false,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/compliance-audit-export-bundle-v1/negative-no-subject.json"#,
+        contract_id: r#"schema://ioi/foundations/compliance-audit-export-bundle/v1"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/compliance-audit-export-bundle-v1/negative-no-subject.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: false,
+        oracle_contract_accept: false,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/compliance-audit-export-bundle-v1/negative-root-does-not-recompute.json"#,
+        contract_id: r#"schema://ioi/foundations/compliance-audit-export-bundle/v1"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/compliance-audit-export-bundle-v1/negative-root-does-not-recompute.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: true,
+        oracle_contract_accept: false,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/compliance-audit-export-bundle-v1/negative-two-reasons-for-one-excluded-ref.json"#,
+        contract_id: r#"schema://ioi/foundations/compliance-audit-export-bundle/v1"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/compliance-audit-export-bundle-v1/negative-two-reasons-for-one-excluded-ref.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: true,
+        oracle_contract_accept: false,
+    },
+    ArchitectureContractDifferentialCase {
         id: r#"mutation:sequence-zero-receipt-timestamp-detached"#,
         contract_id: r#"schema://ioi/foundations/autonomous-system-sequence-zero-materialization-receipt/v2"#,
         source_fixture_path: None,
@@ -206935,6 +209684,9 @@ const CONTRACT_SCHEMAS: &[(&str, &str)] = &[
     ("schema://ioi/applications/ioi-ai/collective-qualification-estimand/v1", r##"{"$schema":"https://json-schema.org/draft/2020-12/schema","$id":"schema://ioi/applications/ioi-ai/collective-qualification-estimand/v1","title":"CollectiveQualificationEstimand","x-ioi-schema-version":"ioi.ioi-ai.collective-qualification-estimand.v1","description":"WHAT A COLLECTIVE IS BEING ASKED TO PROVE, DECLARED BEFORE ANY ARM RUNS. Canon's rule is that collective machinery earns its complexity: a frozen epoch compares the exact collective composition against a matched cheaper baseline under a DECLARED estimand, and neither participant count, aggregate score, active artifact nor surviving process proves cooperation surplus, runtime continuity or authority. THE WORD ALREADY EXISTED AND MEANT ALMOST NOTHING: the evaluation epoch carries `confirmatory_estimand_and_minimum_effect_refs`, an unvalidated bounded list of refs that nothing in the estate dereferences — a `policy://` string satisfies it — frozen into the epoch's root so that it looks settled. This contract is the referent that list never had. It names the quantity, the direction, the minimum effect that counts as a difference and the decision rule, so that a result can be read as confirming or failing a claim someone made IN ADVANCE rather than as a number to interpret afterwards. A DECLARATION IS NOT A RESULT: this envelope grants nothing, promotes nothing and qualifies nothing on its own, and it must be declared before the epoch freezes because a frozen epoch refuses a moved member. Owner: domains/ioi-ai/collaborative-outcome-pattern.md § Collective qualification (M10.9, R-222).","type":"object","additionalProperties":false,"required":["schema_version","estimand_id","estimand_ref","estimand_kind","quantity","direction","minimum_effect","cost_normalization","decision_rule","declared_at","declared_before_epoch_freeze","qualifies_nothing_on_its_own","knockout_axis_refs","epoch_ref","estimand_root"],"properties":{"schema_version":{"type":"string","const":"ioi.ioi-ai.collective-qualification-estimand.v1"},"estimand_id":{"type":"string","pattern":"^estimand://[^\\s?#\\\\]{1,200}$","description":"THE IDENTITY THE RECORD SEAM ADMITS, and it must be a `*_id` member: the seam resolves a record's identity by finding the single member whose name ends in `_id` and whose value is the object_id it was posted under, and refuses the admission outright when none does. It is the same value as `estimand_ref`, which is the name every other record points at this one by, and the registered invariant holds the two equal so the pointer and the identity can never come apart."},"estimand_ref":{"$ref":"#/$defs/estimandRef"},"estimand_kind":{"type":"string","description":"COOPERATION SURPLUS is the claim that the collective beats a matched cheaper baseline on the declared quantity. RESILIENCE is the claim that it degrades less than the baseline under a named knockout. INDEPENDENCE is the claim that its result does not depend on a named participant, edge or artifact. They are different claims with different failure modes and a run proves at most the one declared here.","enum":["cooperation_surplus","resilience","independence"]},"quantity":{"type":"object","additionalProperties":false,"required":["metric_ref","unit","aggregation"],"description":"The exact thing measured. An aggregate with no named metric and no aggregation is a score, and canon refuses a score as proof.","properties":{"metric_ref":{"$ref":"#/$defs/ref"},"unit":{"type":"string","minLength":1,"maxLength":60},"aggregation":{"type":"string","enum":["mean","median","trimmed_mean","rate","count","max","min"]}}},"direction":{"type":"string","enum":["higher_is_better","lower_is_better"],"description":"Declared in advance, because a direction chosen after the numbers are in turns any result into a confirmation."},"minimum_effect":{"type":"object","additionalProperties":false,"required":["value","basis"],"description":"The smallest difference that counts. Without it, any non-zero difference reads as success and the comparison proves nothing it did not assume.","properties":{"value":{"type":"number"},"basis":{"type":"string","enum":["absolute","relative_to_baseline","standard_deviations"]}}},"cost_normalization":{"type":"string","description":"A collective that wins by spending more has not earned its complexity; canon's sentence is that the machinery must earn it. `none` is admissible and says plainly that cost is not being controlled for.","enum":["none","per_cost_unit","per_wall_second","per_verification_unit"]},"decision_rule":{"type":"string","minLength":24,"maxLength":600,"description":"In words, what reading of the two arms confirms the estimand and what reading fails it — written before the run, so the rule cannot be fitted to the outcome."},"knockout_axis_refs":{"type":"array","uniqueItems":true,"maxItems":64,"items":{"$ref":"#/$defs/ref"},"description":"For a resilience or independence estimand, the exact axes the claim is about. An estimand of those kinds with no axis is a claim about nothing."},"declared_at":{"$ref":"#/$defs/timestamp"},"declared_before_epoch_freeze":{"type":"boolean","const":true,"description":"Always true, and on the wire rather than implied. The epoch freezes this ref into its root and refuses a moved frozen member afterwards, so an estimand declared after the freeze could only ever be a second one — and a second estimand chosen once results exist is the defect this whole contract exists to refuse."},"epoch_ref":{"anyOf":[{"$ref":"#/$defs/ref"},{"type":"null"}],"description":"The frozen evaluation epoch this estimand was declared for, once one exists. Null while the epoch is still a draft — the estimand comes first."},"system_binding":{"$ref":"#/$defs/systemBinding","description":"DERIVED BY THE SEAM, NEVER AUTHORED. The record seam refuses a caller-supplied binding outright rather than correcting it, then stamps its own from the System, the parent scope and the resolved principal, and only then validates — so this member is absent on the wire the caller sends and an object on the record the seam admits. This is an application record on that generic seam, not a Hypervisor family: the evaluation plane's layer law forbids a Hypervisor component from reading an orchestration application's records, and its own gate asserts so against a planted import."},"qualifies_nothing_on_its_own":{"type":"boolean","const":true,"description":"A declaration is not a result. Declaring an estimand promotes nothing, activates nothing and qualifies no collective; it only fixes what a later comparison will be read against."},"estimand_root":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$","description":"SHA-256 over JCS of every member except this one and the seam binding. The declaration is the whole point of the object, so it is sealed: the epoch freezes the ref, and this root is what makes the ref's CONTENT unmovable rather than merely named."}},"allOf":[{"if":{"type":"object","properties":{"estimand_kind":{"type":"string","enum":["resilience","independence"]}},"required":["estimand_kind"]},"then":{"type":"object","description":"Resilience and independence are claims ABOUT something being removed. Without the axes named, there is no claim to confirm.","properties":{"knockout_axis_refs":{"type":"array","minItems":1}},"required":["knockout_axis_refs"]}}],"$defs":{"ref":{"type":"string","pattern":"^[a-z][a-z0-9+.-]*://[^ ]{1,480}$"},"estimandRef":{"type":"string","pattern":"^estimand://[^\\s?#\\\\]{1,200}$"},"systemBinding":{"type":"object","additionalProperties":false,"required":["schema_version","system_id","parent_scope_ref","proposed_or_issued_by_ref","payload_root","created_at","updated_at"],"properties":{"schema_version":{"const":"ioi.foundations.system-scoped-object-binding.v1"},"system_id":{"type":"string","pattern":"^system://[^\\s]{1,500}$"},"parent_scope_ref":{"type":"string","pattern":"^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"},"proposed_or_issued_by_ref":{"type":"string","pattern":"^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"},"payload_root":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"},"created_at":{"$ref":"#/$defs/timestamp"},"updated_at":{"anyOf":[{"$ref":"#/$defs/timestamp"},{"type":"null"}]}}},"timestamp":{"type":"string","pattern":"^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$"}}}"##),
     ("schema://ioi/applications/ioi-ai/collective-baseline-pairing/v1", r##"{"$schema":"https://json-schema.org/draft/2020-12/schema","$id":"schema://ioi/applications/ioi-ai/collective-baseline-pairing/v1","title":"CollectiveBaselinePairing","x-ioi-schema-version":"ioi.ioi-ai.collective-baseline-pairing.v1","description":"THE TWO ARMS A COLLECTIVE CLAIM IS READ ACROSS, MATCHED AXIS BY AXIS AND DECLARED BEFORE EITHER RAN. Canon: the frozen epoch compares the exact collective composition against the cheapest adequate simpler baseline — normally a direct path or one GoalRun — under MATCHED task distribution, authority, context, tools, environment, budget, time and verifier posture. NO RECORD COULD NAME AN ARM BEFORE THIS ONE: `EvaluationRun.incumbent_ref` is a free label the plane never resolves, so \"the collective beat the incumbent\" named nothing in particular. This contract makes each arm a resolvable composition and each match axis a PROOF — one root per arm per axis, equal or the pairing is refused by the axis's own name, so a reader can tell \"the baseline had a different toolset\" from \"the baseline ran on a different day\". AND IT CARRIES A POSITIVE CONTROL, because a baseline that fails everything would make any collective look good: the cheapest way to manufacture a surplus is to break the comparator, and a pairing whose baseline passed none of the matched cases measures the breakage. A PAIRING IS NOT A RESULT: it grants nothing, runs nothing and qualifies nothing; it fixes what a later comparison is read across. Owner: domains/ioi-ai/collaborative-outcome-pattern.md § Collective qualification (M10.9, R-222).","type":"object","additionalProperties":false,"required":["schema_version","pairing_id","pairing_ref","estimand_ref","collective_arm","baseline_arm","declared_match_axes","axis_proofs","baseline_positive_control","cheaper_baseline_rationale","declared_before_either_arm_ran","declared_at","epoch_ref","pairing_root"],"properties":{"schema_version":{"type":"string","const":"ioi.ioi-ai.collective-baseline-pairing.v1"},"pairing_id":{"type":"string","pattern":"^pairing://[^\\s?#\\\\]{1,200}$","description":"THE IDENTITY THE RECORD SEAM ADMITS, and it must be a `*_id` member: the seam resolves a record's identity by finding the single member whose name ends in `_id` and whose value is the object_id it was posted under, and refuses the admission outright when none does. It is the same value as `pairing_ref`, which is the name every other record points at this one by, and the registered invariant holds the two equal so the pointer and the identity can never come apart."},"pairing_ref":{"type":"string","pattern":"^pairing://[^\\s?#\\\\]{1,200}$"},"estimand_ref":{"type":"string","pattern":"^estimand://[^\\s?#\\\\]{1,200}$","description":"The declared estimand this pairing is the comparison for. A pairing with no estimand is two arms and no claim."},"collective_arm":{"$ref":"#/$defs/arm","description":"The EXACT collective composition — its orchestration scope and the lineages it runs — not a description of one."},"baseline_arm":{"$ref":"#/$defs/arm","description":"The cheapest adequate simpler arm. Canon names the two shapes it normally takes: a direct path, or one GoalRun."},"declared_match_axes":{"type":"array","minItems":8,"maxItems":8,"uniqueItems":true,"items":{"type":"string","enum":["task","authority","context","tool","environment","budget","time","verifier_posture"]},"description":"All eight, always. An axis a pairing may omit is an axis on which the two arms may silently differ, and a comparison that does not state its match axes is a comparison of two different things."},"axis_proofs":{"type":"object","additionalProperties":false,"required":["task","authority","context","tool","environment","budget","time","verifier_posture"],"description":"One proof per axis, each carrying a root for EACH arm. Equality is asserted per axis by the registered invariants, so an unmatched pairing is refused at the seam by the failing axis's own rule name.","properties":{"task":{"$ref":"#/$defs/axisProof"},"authority":{"$ref":"#/$defs/axisProof"},"context":{"$ref":"#/$defs/axisProof"},"tool":{"$ref":"#/$defs/axisProof"},"environment":{"$ref":"#/$defs/axisProof"},"budget":{"$ref":"#/$defs/axisProof"},"time":{"$ref":"#/$defs/axisProof"},"verifier_posture":{"$ref":"#/$defs/axisProof"}}},"baseline_positive_control":{"type":"object","additionalProperties":false,"required":["matched_cases_total","matched_cases_passed","control_result_refs"],"description":"THE COMPARATOR WORKS. A degenerate baseline that fails everything makes any collective look good, so the baseline must have PASSED matched cases on its own before its losses mean anything. `matched_cases_passed` is at least one by schema and never exceeds the total by invariant.","properties":{"matched_cases_total":{"type":"integer","minimum":1,"maximum":1000000},"matched_cases_passed":{"type":"integer","minimum":1,"maximum":1000000},"control_result_refs":{"type":"array","minItems":1,"maxItems":256,"uniqueItems":true,"items":{"$ref":"#/$defs/ref"},"description":"The evaluation results the control is read from — the baseline's own passes, admitted through the evaluation plane like any other."}}},"cheaper_baseline_rationale":{"type":"string","minLength":24,"maxLength":600,"description":"In words, why this baseline is the CHEAPEST ADEQUATE one. Written before the run, because a baseline justified after the numbers are in is chosen for the numbers."},"declared_before_either_arm_ran":{"type":"boolean","const":true,"description":"Always true, and on the wire rather than implied. A pairing assembled once results exist is a pairing chosen for its results."},"epoch_ref":{"anyOf":[{"$ref":"#/$defs/ref"},{"type":"null"}],"description":"The frozen evaluation epoch this pairing was declared for, once one exists. Null while the epoch is still a draft — the pairing comes first, exactly as the estimand does."},"declared_at":{"$ref":"#/$defs/timestamp"},"system_binding":{"$ref":"#/$defs/systemBinding","description":"DERIVED BY THE SEAM, NEVER AUTHORED — absent on the wire the caller sends, an object on the record the seam admits. An ioi.ai application record on the generic System-record seam, never a Hypervisor family: the evaluation plane's layer law forbids a Hypervisor component from reading an orchestration application's records."},"pairing_root":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$","description":"SHA-256 over JCS of every member except this one and the seam binding."}},"$defs":{"ref":{"type":"string","pattern":"^[a-z][a-z0-9+.-]*://[^ ]{1,480}$"},"systemBinding":{"type":"object","additionalProperties":false,"required":["schema_version","system_id","parent_scope_ref","proposed_or_issued_by_ref","payload_root","created_at","updated_at"],"properties":{"schema_version":{"const":"ioi.foundations.system-scoped-object-binding.v1"},"system_id":{"type":"string","pattern":"^system://[^\\s]{1,500}$"},"parent_scope_ref":{"type":"string","pattern":"^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"},"proposed_or_issued_by_ref":{"type":"string","pattern":"^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"},"payload_root":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"},"created_at":{"$ref":"#/$defs/timestamp"},"updated_at":{"anyOf":[{"$ref":"#/$defs/timestamp"},{"type":"null"}]}}},"arm":{"type":"object","additionalProperties":false,"required":["arm_kind","composition_ref","lineage_refs","participant_count"],"properties":{"arm_kind":{"type":"string","enum":["collective","direct_path","single_goal_run"],"description":"`collective` is the arm under claim; `direct_path` and `single_goal_run` are the two simpler shapes canon names."},"composition_ref":{"type":"string","pattern":"^app-scope://ioi-ai/orchestration/[^\\s]{1,400}$","description":"The orchestration scope the arm runs under — resolvable, unlike the free label this replaces."},"lineage_refs":{"type":"array","maxItems":256,"uniqueItems":true,"items":{"type":"string","pattern":"^lineage://[^\\s]{1,400}$"},"description":"The persistent executable lineages the arm runs. Empty for a direct path that persists nothing."},"participant_count":{"type":"integer","minimum":0,"maximum":4096,"description":"Recorded because the comparison needs to say how many there were — and NEVER read as evidence. A count is an input; canon refuses it as proof, and the qualification verdict's own contract refuses a verdict resting on it."}}},"axisProof":{"type":"object","additionalProperties":false,"required":["collective_root","baseline_root","derived_from"],"properties":{"collective_root":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"},"baseline_root":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"},"derived_from":{"type":"string","minLength":8,"maxLength":240,"description":"What was hashed to get the two roots, so a reader can re-derive them instead of trusting them."}}},"timestamp":{"type":"string","pattern":"^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$"}}}"##),
     ("schema://ioi/applications/ioi-ai/collective-qualification-verdict/v1", r##"{"$schema":"https://json-schema.org/draft/2020-12/schema","$id":"schema://ioi/applications/ioi-ai/collective-qualification-verdict/v1","title":"CollectiveQualificationVerdict","x-ioi-schema-version":"ioi.ioi-ai.collective-qualification-verdict.v1","description":"WHAT THE TWO ARMS CAME TO, READ AGAINST A CLAIM MADE BEFORE THEY RAN — AND NOTHING ELSE. Canon: evaluation emits judgment only and cannot change topology, install an artifact, activate a controller, issue authority or promote the composition. So this record carries its four never-clauses ON THE WIRE as `const true`, and each knockout it reports carries the same: judgment evidence that reverted, changed nothing and promoted nothing. RESULT ROBUSTNESS AND CONTROLLER CONTINUITY ARE SEPARATE MEMBERS WITH SEPARATE ROOTS, and the registered invariant refuses a verdict whose two roots are equal. This is the conflation the unit exists to refuse and the one it could most easily have authored itself: the lineage's `posture.derived.status` is a single scalar bundling authority staleness, caretaker absence, dependency loss and runtime absence, and reading it as result evidence would make a healthy runtime into proof of a good answer. Canon states both halves — an accepted result may survive after a runtime must stop, and a healthy runtime proves neither result quality nor current authority. THE KNOCKOUT MATRIX IS COMPLETE OR IT IS NAMED: every axis this estate can perform is performed, and every axis canon names that it cannot is carried here with its reason and its owner, because an unperformable axis left out silently narrows the claim while an unperformable axis listed as done makes the bar unfalsifiable. Owner: domains/ioi-ai/collaborative-outcome-pattern.md § Collective qualification (M10.9, R-222).","type":"object","additionalProperties":false,"required":["schema_version","verdict_id","verdict_ref","estimand_ref","pairing_ref","epoch_ref","outcome","qualified_on","result_evidence","controller_continuity","knockouts","named_absent_knockout_axes","grants_no_authority","promotes_nothing","activates_nothing","rewrites_no_topology","judged_at","verdict_root"],"properties":{"schema_version":{"type":"string","const":"ioi.ioi-ai.collective-qualification-verdict.v1"},"verdict_id":{"type":"string","pattern":"^qualification://[^\\s?#\\\\]{1,200}$","description":"THE IDENTITY THE RECORD SEAM ADMITS, and it must be a `*_id` member: the seam resolves a record's identity by finding the single member whose name ends in `_id` and whose value is the object_id it was posted under, and refuses the admission outright when none does. It is the same value as `verdict_ref`, which is the name every other record points at this one by, and the registered invariant holds the two equal so the pointer and the identity can never come apart."},"verdict_ref":{"type":"string","pattern":"^qualification://[^\\s?#\\\\]{1,200}$"},"estimand_ref":{"type":"string","pattern":"^estimand://[^\\s?#\\\\]{1,200}$"},"pairing_ref":{"type":"string","pattern":"^pairing://[^\\s?#\\\\]{1,200}$"},"epoch_ref":{"$ref":"#/$defs/ref","description":"The FROZEN evaluation epoch. A verdict is read out of a frozen epoch or it is read out of nothing: the estimand and the pairing were declared before the freeze precisely so this record could not choose them afterwards."},"outcome":{"type":"string","enum":["qualified","not_qualified","inconclusive"],"description":"`qualified` says the declared estimand was confirmed under its own decision rule. It is a judgment about a claim, not a grant: the four never-clauses below hold at every outcome."},"qualified_on":{"type":"array","maxItems":16,"uniqueItems":true,"items":{"type":"string","enum":["matched_baseline_effect","knockout_degradation","independence_of_named_axis"]},"description":"THE ADMISSIBLE BASES, AND THEY ARE THE ONLY THREE. The four canon refuses — a participant count, an unmatched aggregate score, an ArtifactRef marked active and a surviving process — are not members of this enum, so a verdict cannot even name them as its basis. That is the refusal put where it cannot be argued with rather than in a checker that must remember to look."},"result_evidence":{"type":"object","additionalProperties":false,"required":["observed_effect","meets_minimum_effect","cost_normalized","result_refs","result_root"],"description":"The RESULT half. Its inputs are evaluation results and its root is its own; nothing here reads the controller's liveness.","properties":{"observed_effect":{"type":"number"},"meets_minimum_effect":{"type":"boolean"},"cost_normalized":{"type":"boolean","description":"Whether the observed effect was normalized as the estimand's `cost_normalization` declared. A collective that wins by spending more has not earned its complexity."},"result_refs":{"type":"array","maxItems":1024,"uniqueItems":true,"items":{"$ref":"#/$defs/ref"},"description":"The evaluation results the effect was read from, both arms."},"result_root":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"}}},"controller_continuity":{"type":"object","additionalProperties":false,"required":["lineage_ref","recorded_status","derived_status","orphan_reason","installation_read_from","continuity_root"],"description":"The CONTINUITY half. Its inputs are the lineage's own posture and its owners, its root is its own, and no reading of it changes the result above — canon: an accepted result may survive after a runtime must stop.","properties":{"lineage_ref":{"type":"string","pattern":"^lineage://[^\\s]{1,400}$"},"recorded_status":{"$ref":"#/$defs/lineageStatus"},"derived_status":{"$ref":"#/$defs/lineageStatus"},"orphan_reason":{"anyOf":[{"type":"string","enum":["owner_absent","caretaker_absent","dependency_unavailable","artifact_unavailable","health_stale","authority_stale"]},{"type":"null"}]},"installation_read_from":{"type":"string","const":"owner","description":"THE POSTURE CANNOT ANSWER THIS ONE. The lineage read model re-derives from the accountable subject, the caretaker, context leases, dependency lineages and `runtime_ref` — and not from `installation_ref`. An installation removed after binding therefore leaves a GREEN posture, so an installation knockout read through the posture would report success while measuring nothing. It is read from the owner, and the record says so."},"continuity_root":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"}}},"knockouts":{"type":"array","minItems":1,"maxItems":64,"description":"Every axis this estate can perform, each run on an admissible ablation lane and each reverted.","items":{"type":"object","additionalProperties":false,"required":["axis","lane","observation_ref","collective_degradation","baseline_degradation","reverted","changed_nothing"],"properties":{"axis":{"type":"string","enum":["participant_exit","caretaker_exit","dependency_retired","creator_session_removed","context_lease_revoked","artifact_ancestry_removed","controller_runtime_unserved","installation_unbound","verifier_invalidated","budget_exhausted","lifecycle_stop","lifecycle_quarantine","lifecycle_repair","lifecycle_replacement","lifecycle_retirement","crash_restart"]},"lane":{"type":"string","const":"cross_play_ablation","description":"The admissible ablation lane the evaluation plane already carries. A knockout does not need a lane of its own and does not get one."},"observation_ref":{"$ref":"#/$defs/ref"},"collective_degradation":{"type":"number"},"baseline_degradation":{"type":"number"},"reverted":{"type":"boolean","const":true,"description":"A knockout that did not revert left the tested topology in place, and the live composition is then the ablated one rather than the one under claim."},"changed_nothing":{"type":"boolean","const":true,"description":"Judgment evidence only: the knockout rewrote no topology, revoked no participant, activated no controller, installed no artifact and promoted no profile."}}}},"named_absent_knockout_axes":{"type":"array","maxItems":32,"description":"The axes canon names that this estate cannot perform, each with its reason and the owner who would make it performable. Naming them is what keeps the matrix honest in both directions.","items":{"type":"object","additionalProperties":false,"required":["axis","reason","owner_ref"],"properties":{"axis":{"type":"string","enum":["communication_edge","role_removed","lease_expired","disclosure_overhead","verification_overhead"]},"reason":{"type":"string","minLength":24,"maxLength":600},"owner_ref":{"$ref":"#/$defs/ref"}}}},"grants_no_authority":{"type":"boolean","const":true},"promotes_nothing":{"type":"boolean","const":true},"activates_nothing":{"type":"boolean","const":true},"rewrites_no_topology":{"type":"boolean","const":true},"judged_at":{"$ref":"#/$defs/timestamp"},"system_binding":{"$ref":"#/$defs/systemBinding","description":"DERIVED BY THE SEAM, NEVER AUTHORED — absent on the wire the caller sends, an object on the record the seam admits."},"verdict_root":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$","description":"SHA-256 over JCS of every member except this one and the seam binding. It seals the whole judgment; the result and continuity roots inside it seal their two halves SEPARATELY, so a reader can take either without the other."}},"$defs":{"ref":{"type":"string","pattern":"^[a-z][a-z0-9+.-]*://[^ ]{1,480}$"},"lineageStatus":{"type":"string","enum":["observed","reused","forked","installed","active","stopped","quarantined","repairing","replaced","retired"]},"systemBinding":{"type":"object","additionalProperties":false,"required":["schema_version","system_id","parent_scope_ref","proposed_or_issued_by_ref","payload_root","created_at","updated_at"],"properties":{"schema_version":{"const":"ioi.foundations.system-scoped-object-binding.v1"},"system_id":{"type":"string","pattern":"^system://[^\\s]{1,500}$"},"parent_scope_ref":{"type":"string","pattern":"^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"},"proposed_or_issued_by_ref":{"type":"string","pattern":"^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"},"payload_root":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"},"created_at":{"$ref":"#/$defs/timestamp"},"updated_at":{"anyOf":[{"$ref":"#/$defs/timestamp"},{"type":"null"}]}}},"timestamp":{"type":"string","pattern":"^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$"}}}"##),
+    ("schema://ioi/foundations/jurisdiction-policy-pack/v1", r##"{"$schema":"https://json-schema.org/draft/2020-12/schema","$id":"schema://ioi/foundations/jurisdiction-policy-pack/v1","title":"JurisdictionPolicyPack","x-ioi-schema-version":"ioi.foundations.jurisdiction-policy-pack.v1","description":"JURISDICTION, ELIGIBILITY, RETENTION, REGULATED-ACTION, TAX AND EXPORT OBLIGATIONS IN A MACHINE-READABLE SHAPE — and nothing that reads as a legal determination. Canon has specified this object member for member since the assurance foundation was written (foundations/ecosystem-assurance-certification-liability.md § JurisdictionPolicyPack) and nothing in the estate registered it, so every one of those obligations was a paragraph rather than a shape anything could refuse. THE PACK GRANTS NOTHING AND DECIDES NOTHING: it compiles into owners that already exist — wallet.network identity, eligibility, payment, step-up and authority gates; daemon policy checks and runtime fail-closed behaviour; Agentgres retention, receipt, state-root and export validity; marketplace listing restrictions; sas.xyz SLA, refund, bond and provider obligations. It is not legal advice and not a substitute for domain-specific review. TWO LAWS CANON STATES THAT THIS SHAPE MAKES CHECKABLE: deadline arithmetic retains the EXACT pack version and triggering timestamp, and changing a deadline, clock-start rule, recipient, responsible party or accountable issuer requires a NEW PACK VERSION and must never rewrite an already-recorded reporting decision — so the pack is sealed by `pack_root`, and a decision binds that root rather than the pack's name. Owner: foundations/ecosystem-assurance-certification-liability.md § JurisdictionPolicyPack (M06.10, R-228).","type":"object","additionalProperties":false,"required":["schema_version","pack_id","version","issued_at","effective_at","supersedes_ref","issuer","jurisdiction","applies_to","identity_requirements","authority_requirements","data_requirements","regulated_action_rules","tax_and_commercial_refs","audit_requirements","incident_reporting","erasure_requirements","grants_no_authority","is_not_legal_advice","pack_root"],"properties":{"schema_version":{"type":"string","const":"ioi.foundations.jurisdiction-policy-pack.v1"},"pack_id":{"$ref":"#/$defs/packRef"},"version":{"type":"string","pattern":"^(?:0|[1-9][0-9]*)[.](?:0|[1-9][0-9]*)[.](?:0|[1-9][0-9]*)$","description":"Semver, and load-bearing rather than decorative: canon requires a NEW VERSION for any change to a deadline, clock-start rule, recipient, responsible party or accountable issuer, and a recorded decision names the version it was taken under."},"issued_at":{"$ref":"#/$defs/timestamp"},"effective_at":{"$ref":"#/$defs/timestamp","description":"When the obligations begin to apply, which is not when the pack was issued. A decision taken before this instant was taken under the predecessor."},"supersedes_ref":{"anyOf":[{"$ref":"#/$defs/packRef"},{"type":"null"}],"description":"The pack this one replaces, or null for a first issue. Supersession is a CHAIN, not an edit: the superseded pack keeps standing behind every decision already taken under it."},"issuer":{"type":"object","additionalProperties":false,"required":["issuer_ref","responsible_ref","accountable_ref"],"description":"Who issued it, who is responsible and who is accountable — three refs because they are routinely three parties, and an obligation with no accountable party behind it is a document.","properties":{"issuer_ref":{"type":"string","pattern":"^(?:org|domain|governance)://[^\\s]{1,400}$"},"responsible_ref":{"$ref":"#/$defs/actorRef"},"accountable_ref":{"$ref":"#/$defs/actorRef"}}},"jurisdiction":{"type":"object","additionalProperties":false,"required":["country","region","sector"],"description":"All three members are present and any may be null. A pack that omitted the axis it does not constrain would be indistinguishable from one whose author forgot it.","properties":{"country":{"anyOf":[{"type":"string","minLength":1,"maxLength":120},{"type":"null"}]},"region":{"anyOf":[{"type":"string","minLength":1,"maxLength":120},{"type":"null"}]},"sector":{"anyOf":[{"type":"string","minLength":1,"maxLength":120},{"type":"null"}]}}},"applies_to":{"type":"object","additionalProperties":false,"required":["action_classes","data_classes","service_classes"],"description":"What the pack reaches, in canon's own three kinds. All three lists are present and any may be empty; that a pack must reach SOMETHING is a portable invariant rather than a schema shape, because JSON Schema can only say it with an anyOf of same-typed branches and the Rust projection refuses those — a limit worth stating rather than working around by renaming what canon calls these.","properties":{"action_classes":{"type":"array","maxItems":256,"uniqueItems":true,"items":{"type":"string","minLength":1,"maxLength":200}},"data_classes":{"type":"array","maxItems":256,"uniqueItems":true,"items":{"type":"string","minLength":1,"maxLength":200}},"service_classes":{"type":"array","maxItems":256,"uniqueItems":true,"items":{"type":"string","minLength":1,"maxLength":200}}}},"identity_requirements":{"type":"object","additionalProperties":false,"required":["kyc_required","business_verification_required","sanctions_screening_required","accredited_or_professional_status_required"],"description":"Declared, and enforced by wallet.network's own gates. Every member is present so that `false` is a stated posture rather than an omission.","properties":{"kyc_required":{"type":"boolean"},"business_verification_required":{"type":"boolean"},"sanctions_screening_required":{"type":"boolean"},"accredited_or_professional_status_required":{"type":"boolean"}}},"authority_requirements":{"type":"object","additionalProperties":false,"required":["required_scopes","step_up_required","guardian_required"],"properties":{"required_scopes":{"type":"array","maxItems":256,"uniqueItems":true,"items":{"type":"string","pattern":"^scope:[a-z][a-z0-9._:-]{0,200}$"},"description":"Scopes the pack REQUIRES, never scopes it grants. The pack is an obligation, and an obligation that could mint authority would be a grant wearing a policy's name."},"step_up_required":{"type":"boolean"},"guardian_required":{"type":"boolean"}}},"data_requirements":{"type":"object","additionalProperties":false,"required":["retention_policy_ref","deletion_policy_ref","export_policy_ref","residency_policy_ref"],"description":"Pointers at the policies that already own these decisions. The pack names them; it does not restate them, because a restated policy is a second copy that can drift.","properties":{"retention_policy_ref":{"$ref":"#/$defs/policyRef"},"deletion_policy_ref":{"anyOf":[{"$ref":"#/$defs/policyRef"},{"type":"null"}]},"export_policy_ref":{"anyOf":[{"$ref":"#/$defs/policyRef"},{"type":"null"}]},"residency_policy_ref":{"anyOf":[{"$ref":"#/$defs/policyRef"},{"type":"null"}]}}},"regulated_action_rules":{"type":"object","additionalProperties":false,"required":["prohibited_actions","approval_required_actions","disclosure_required_actions"],"description":"Three lists that mean three different things: what may not happen, what needs an approval first, and what must be disclosed when it does. Collapsing them would lose the difference between a refusal and a receipt.","properties":{"prohibited_actions":{"$ref":"#/$defs/actionList"},"approval_required_actions":{"$ref":"#/$defs/actionList"},"disclosure_required_actions":{"$ref":"#/$defs/actionList"}}},"tax_and_commercial_refs":{"type":"object","additionalProperties":false,"required":["tax_profile_ref","invoice_profile_ref"],"properties":{"tax_profile_ref":{"anyOf":[{"type":"string","pattern":"^tax://[^\\s]{1,400}$"},{"type":"null"}]},"invoice_profile_ref":{"anyOf":[{"type":"string","pattern":"^invoice://[^\\s]{1,400}$"},{"type":"null"}]}}},"audit_requirements":{"type":"object","additionalProperties":false,"required":["evidence_profile_refs"],"properties":{"evidence_profile_refs":{"type":"array","maxItems":128,"uniqueItems":true,"items":{"$ref":"#/$defs/assuranceProfileRef"}}}},"incident_reporting":{"type":"object","additionalProperties":false,"required":["rules_version","deadlines"],"description":"THE PART WHERE ARITHMETIC MEETS OBLIGATION. Each deadline names the incident class it applies to, the CLOCK START it runs from, the windows, who receives the notice, what evidence projection accompanies it, and who is responsible and accountable. Canon: deadline arithmetic must retain the exact pack version and triggering timestamp, and changing any of these requires a new pack version.","properties":{"rules_version":{"type":"string","pattern":"^(?:0|[1-9][0-9]*)[.](?:0|[1-9][0-9]*)[.](?:0|[1-9][0-9]*)$"},"deadlines":{"type":"array","maxItems":128,"items":{"type":"object","additionalProperties":false,"required":["incident_class","clock_start","initial_notice_within_ms","full_report_within_ms","recipient_ref","evidence_projection_profile_ref","responsible_ref","accountable_ref"],"properties":{"incident_class":{"type":"string","minLength":1,"maxLength":200},"clock_start":{"type":"string","enum":["detected_at","confirmed_at","materiality_determined_at","authority_request_received_at"],"description":"WHICH INSTANT THE WINDOW RUNS FROM, and the four are genuinely different moments. A deadline computed from the wrong one is wrong by however long detection, confirmation and materiality took."},"initial_notice_within_ms":{"anyOf":[{"type":"integer","minimum":0,"maximum":315360000000},{"type":"null"}]},"full_report_within_ms":{"anyOf":[{"type":"integer","minimum":0,"maximum":315360000000},{"type":"null"}]},"recipient_ref":{"type":"string","pattern":"^(?:authority|regulator|counterparty)://[^\\s]{1,400}$"},"evidence_projection_profile_ref":{"$ref":"#/$defs/assuranceProfileRef"},"responsible_ref":{"$ref":"#/$defs/actorRef"},"accountable_ref":{"$ref":"#/$defs/actorRef"}}}}}},"erasure_requirements":{"type":"object","additionalProperties":false,"required":["crypto_shredding_eligible","crypto_shredding_policy_ref","erasure_verification_profile_ref","exception_policy_ref"],"properties":{"crypto_shredding_eligible":{"type":"boolean"},"crypto_shredding_policy_ref":{"anyOf":[{"$ref":"#/$defs/policyRef"},{"type":"null"}]},"erasure_verification_profile_ref":{"anyOf":[{"$ref":"#/$defs/assuranceProfileRef"},{"type":"null"}]},"exception_policy_ref":{"anyOf":[{"$ref":"#/$defs/policyRef"},{"type":"null"}]}}},"grants_no_authority":{"type":"boolean","const":true,"description":"On the wire, because the pack names required scopes and a reader could take that for a grant. It requires; it never issues."},"is_not_legal_advice":{"type":"boolean","const":true,"description":"Canon's own sentence, carried as a member rather than left in prose: the pack is not legal advice and not a substitute for domain-specific review."},"pack_root":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$","description":"SHA-256 over JCS of every member except this one. THIS IS WHAT MAKES CANON'S IMMUTABILITY LAW CHECKABLE: a decision binds the root, not the name, so editing a deadline in place breaks every decision already taken under the pack instead of silently rewriting what they were decided against. A change that should be a new version cannot pass as the same one."}},"$defs":{"packRef":{"type":"string","pattern":"^jurisdiction_policy_pack://[^\\s?#\\\\]{1,200}$"},"policyRef":{"type":"string","pattern":"^policy://[^\\s]{1,400}$"},"assuranceProfileRef":{"type":"string","pattern":"^assurance_profile://[^\\s]{1,400}$"},"actorRef":{"type":"string","pattern":"^(?:principal|role)://[^\\s]{1,400}$"},"actionList":{"type":"array","maxItems":256,"uniqueItems":true,"items":{"type":"string","minLength":1,"maxLength":200}},"timestamp":{"type":"string","pattern":"^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$"}}}"##),
+    ("schema://ioi/foundations/jurisdiction-policy-decision/v1", r##"{"$schema":"https://json-schema.org/draft/2020-12/schema","$id":"schema://ioi/foundations/jurisdiction-policy-decision/v1","title":"JurisdictionPolicyDecision","x-ioi-schema-version":"ioi.foundations.jurisdiction-policy-decision.v1","description":"WHAT A PACK SAID ABOUT ONE SUBJECT, AT ONE INSTANT, UNDER ONE EXACT PACK VERSION — and never a legal determination. Canon's sentence is unambiguous and nothing in the estate enforced it: \"Generated projections must always emit `legal_conformity_claim: not_determined`; no score, current deadline, attestation posture, submitted report, crypto-shredding receipt, certification, or policy-pack match is a legal determination.\" So `legal_conformity_claim` is `const not_determined` on the wire — a technical evaluator cannot express a legal verdict even by mistake, and the refusal sits where it cannot be argued with rather than in a checker that must remember to look. THE DECISION BINDS THE PACK'S ROOT, NOT ITS NAME. Canon requires that changing a deadline, clock-start rule, recipient, responsible party or accountable issuer take a NEW PACK VERSION and never rewrite an already-recorded reporting decision; binding `pack_root` is what makes that checkable, because an in-place edit breaks the binding instead of silently changing what this decision was taken against. AND IT DECIDES NOTHING ITSELF: the pack compiles into owners that already exist, so this record REPORTS which obligations were found to apply and which owner must enforce each one. It grants no authority, performs no action and refuses nothing on its own. Owner: foundations/ecosystem-assurance-certification-liability.md § JurisdictionPolicyPack (M06.10, R-228).","type":"object","additionalProperties":false,"required":["schema_version","decision_id","pack_ref","pack_version","pack_root","subject_ref","evaluated_at","clock_start_basis","triggering_timestamp","applicability","obligations","unmet_evidence","legal_conformity_claim","grants_no_authority","performs_no_action","decision_root"],"properties":{"schema_version":{"type":"string","const":"ioi.foundations.jurisdiction-policy-decision.v1"},"decision_id":{"type":"string","pattern":"^jurisdiction_decision://[^\\s?#\\\\]{1,200}$"},"pack_ref":{"type":"string","pattern":"^jurisdiction_policy_pack://[^\\s?#\\\\]{1,200}$"},"pack_version":{"type":"string","pattern":"^(?:0|[1-9][0-9]*)[.](?:0|[1-9][0-9]*)[.](?:0|[1-9][0-9]*)$","description":"Canon: deadline arithmetic must retain the EXACT pack version. Carried here rather than resolved later, because resolving it later means resolving it against whatever the pack says by then."},"pack_root":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$","description":"The pack's own seal at the instant this decision was taken. A pack edited in place no longer matches, so the decision cannot be quietly reinterpreted against content it was never read under — which is exactly the rewrite canon forbids."},"subject_ref":{"type":"string","pattern":"^[a-z][a-z0-9+.-]*://[^\\s]{1,400}$","description":"What was evaluated — a run, task, service, order, worker, runtime, domain or account. One decision, one subject."},"evaluated_at":{"$ref":"#/$defs/timestamp"},"clock_start_basis":{"anyOf":[{"type":"string","enum":["detected_at","confirmed_at","materiality_determined_at","authority_request_received_at"]},{"type":"null"}],"description":"Which of the four instants any deadline in this decision runs from, or null when no deadline applies. The four are genuinely different moments and a window computed from the wrong one is wrong by however long detection, confirmation or materiality took."},"triggering_timestamp":{"anyOf":[{"$ref":"#/$defs/timestamp"},{"type":"null"}],"description":"Canon: deadline arithmetic must retain the exact TRIGGERING TIMESTAMP. Null when no deadline applies; present and exact when one does, so the window can be recomputed by a reader rather than trusted."},"applicability":{"type":"object","additionalProperties":false,"required":["applies","matched_classes","basis"],"description":"Whether the pack reached this subject at all, and on what. A decision that says `applies: false` with no basis is indistinguishable from one nobody evaluated.","properties":{"applies":{"type":"boolean"},"matched_classes":{"type":"array","maxItems":256,"items":{"type":"object","additionalProperties":false,"required":["class_kind","class_name"],"properties":{"class_kind":{"type":"string","enum":["action_class","data_class","service_class"]},"class_name":{"type":"string","minLength":1,"maxLength":200}}}},"basis":{"type":"string","minLength":12,"maxLength":600}}},"obligations":{"type":"array","maxItems":512,"description":"EACH OBLIGATION NAMES THE OWNER THAT ENFORCES IT. The pack compiles into owners that already exist, so a decision that stated an obligation without naming its enforcer would be asserting one of its own.","items":{"type":"object","additionalProperties":false,"required":["obligation_kind","detail","enforcing_owner","owner_ref","status"],"properties":{"obligation_kind":{"type":"string","enum":["identity","authority","data_retention","data_residency","data_export","prohibited_action","approval_required","disclosure_required","audit_evidence","incident_report","erasure","tax_or_commercial"]},"detail":{"type":"string","minLength":1,"maxLength":600},"enforcing_owner":{"type":"string","enum":["wallet_network","daemon_policy","agentgres_retention","marketplace_listing","sas_service_obligation","public_anchor"],"description":"The owners canon names as the places a pack compiles INTO. This record enforces nothing; it says who does."},"owner_ref":{"type":"string","pattern":"^[a-z][a-z0-9+.-]*://[^\\s]{1,400}$"},"status":{"type":"string","enum":["satisfied","unsatisfied","not_evaluated","evidence_unavailable"],"description":"`not_evaluated` and `evidence_unavailable` are distinct from `unsatisfied` on purpose: not looking and looking-and-not-finding are different facts, and collapsing them turns an absent evaluator into a clean bill."},"evidence_refs":{"type":"array","maxItems":128,"uniqueItems":true,"items":{"type":"string","pattern":"^[a-z][a-z0-9+.-]*://[^\\s]{1,400}$"}}}}},"unmet_evidence":{"type":"array","maxItems":256,"description":"WHAT COULD NOT BE ESTABLISHED, named rather than omitted. Canon requires refusal on missing law, contract, qualification or current evidence; a decision that silently dropped what it could not check would read as a stronger result than it is.","items":{"type":"object","additionalProperties":false,"required":["missing","reason"],"properties":{"missing":{"type":"string","enum":["law","contract","qualification","current_evidence","processor_reference"]},"reason":{"type":"string","minLength":12,"maxLength":600}}}},"legal_conformity_claim":{"type":"string","const":"not_determined","description":"CANON'S OWN WORD, PINNED ON THE WIRE. No score, current deadline, attestation posture, submitted report, crypto-shredding receipt, certification or policy-pack match is a legal determination. A technical evaluator that could express a legal verdict would be the defect this whole contract exists to prevent, so the only admissible value is this one."},"grants_no_authority":{"type":"boolean","const":true},"performs_no_action":{"type":"boolean","const":true,"description":"The decision reports. Stopping, refusing, escalating and reporting are their owners' operations, and a record that performed one would be an actor."},"decision_root":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$","description":"SHA-256 over JCS of every member except this one, so a recorded decision can be shown not to have moved — which is the other half of canon's rule that a new pack version must never rewrite one."}},"$defs":{"timestamp":{"type":"string","pattern":"^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$"}}}"##),
+    ("schema://ioi/foundations/compliance-audit-export-bundle/v1", r##"{"$schema":"https://json-schema.org/draft/2020-12/schema","$id":"schema://ioi/foundations/compliance-audit-export-bundle/v1","title":"ComplianceAuditExportBundle","x-ioi-schema-version":"ioi.foundations.compliance-audit-export-bundle.v1","description":"AN EXPORT MANIFEST OVER EVIDENCE THAT ALREADY EXISTS, FOR ONE NAMED AUDIENCE — not a storage backend, not a screenshot bundle, not a legal opinion, and not a replacement for Agentgres truth. Canon requires an export to make THREE things obvious, and this shape makes each of them a member rather than a habit: what was included and why; what was redacted, withheld, protected or excluded AND WHY; and which policy, authority, retention, restricted-view, receipt and state-root refs support it. THE AUDIENCE IS A MEMBER BECAUSE THE WRONG ONE IS THE FAILURE MODE — ACC-18's first clause is that a wrong audience fails offline, so an export carries who it was built for and a reader can refuse it without asking anyone. EXCLUSION IS TYPED, NEVER SILENT: a ref that did not travel names the reason it did not, from a closed set, because a bundle that simply omits what it could not release is indistinguishable from one that had nothing to release. And a replay or proof view MUST NOT BYPASS THE MANIFEST: raw private payloads stay under storage, retention, restricted-view and authority policy, so `protected_payload_refs` names them and never carries them. Owner: foundations/ecosystem-assurance-certification-liability.md § ComplianceAuditExportBundle (M06.10, R-228).","type":"object","additionalProperties":false,"required":["schema_version","export_id","export_type","subject_refs","audience","jurisdiction_policy_pack_refs","policy_decision_refs","authority_refs","redaction_profile_ref","export_policy_ref","export_manifest","generated_by_ref","generated_at","validity","status","legal_conformity_claim","carries_no_protected_plaintext","bypasses_no_export_manifest","export_root"],"properties":{"schema_version":{"type":"string","const":"ioi.foundations.compliance-audit-export-bundle.v1"},"export_id":{"type":"string","pattern":"^audit_export://[^\\s?#\\\\]{1,200}$"},"export_type":{"type":"string","enum":["customer_audit","auditor_review","regulator_request","counterparty_dispute","procurement_review","internal_control","tax_report","sla_report","incident_review"]},"subject_refs":{"type":"array","minItems":1,"maxItems":512,"uniqueItems":true,"items":{"$ref":"#/$defs/ref"},"description":"What the export is ABOUT. An export over no subject is a document with no scope, and scope is what a reader checks an audience against."},"audience":{"type":"string","enum":["customer","external_auditor","regulator","counterparty","insurer","procurement","internal_auditor","public"],"description":"WHO IT WAS BUILT FOR, and the reason this is a member at all: ACC-18's first clause is that the WRONG AUDIENCE fails offline. A bundle whose audience is implicit can only be checked by asking its author."},"jurisdiction_policy_pack_refs":{"type":"array","maxItems":128,"uniqueItems":true,"items":{"type":"string","pattern":"^jurisdiction_policy_pack://[^\\s?#\\\\]{1,200}$"}},"regulated_action_refs":{"$ref":"#/$defs/refList"},"policy_decision_refs":{"type":"array","maxItems":512,"uniqueItems":true,"items":{"$ref":"#/$defs/ref"},"description":"The decisions this export rests on — `jurisdiction_decision://`, a receipt, or the policy itself. Each one carries its own `legal_conformity_claim: not_determined`, and nothing here upgrades that."},"approval_receipt_refs":{"$ref":"#/$defs/refList"},"denial_receipt_refs":{"$ref":"#/$defs/refList","description":"Denials travel WITH approvals. An export that carried only what was approved would be a selected record, and a selected record is the thing an audit exists to catch."},"authority_refs":{"type":"array","maxItems":256,"uniqueItems":true,"items":{"type":"string","pattern":"^(?:authority|grant|lease)://[^\\s]{1,400}$"},"description":"Which authority supported the export itself. Canon: the manifest must name the authority refs that support it."},"evidence_bundle_refs":{"$ref":"#/$defs/refList"},"receipt_refs":{"$ref":"#/$defs/refList"},"replay_refs":{"$ref":"#/$defs/refList"},"retention_lock_refs":{"$ref":"#/$defs/refList"},"restricted_view_refs":{"$ref":"#/$defs/refList"},"redaction_profile_ref":{"$ref":"#/$defs/policyRef"},"export_policy_ref":{"$ref":"#/$defs/policyRef"},"declassification_refs":{"$ref":"#/$defs/refList"},"export_manifest":{"type":"object","additionalProperties":false,"required":["included_refs","redacted_refs","protected_payload_refs","excluded_refs","exclusion_reasons"],"description":"THE THREE THINGS CANON REQUIRES AN EXPORT TO MAKE OBVIOUS, as five members. Every list is present even when empty, because an omitted list and an empty list mean different things and only one of them is a statement.","properties":{"included_refs":{"$ref":"#/$defs/refList"},"redacted_refs":{"$ref":"#/$defs/refList","description":"Travelled, with parts removed under the redaction profile."},"protected_payload_refs":{"$ref":"#/$defs/refList","description":"NAMED BUT NOT CARRIED. Raw private payloads stay under storage, retention, restricted-view and authority policy; this list says they exist and where authority for them would be sought. An export that inlined one would be the bypass canon forbids."},"excluded_refs":{"$ref":"#/$defs/refList"},"exclusion_reasons":{"type":"array","maxItems":512,"description":"ONE TYPED REASON PER EXCLUDED REF, from the closed set canon names. A bundle that omitted what it could not release without saying why is indistinguishable from one that had nothing to release.","items":{"type":"object","additionalProperties":false,"required":["excluded_ref","reason"],"properties":{"excluded_ref":{"$ref":"#/$defs/ref"},"reason":{"type":"string","enum":["retention_locked","restricted_view","no_export_authority","protected_plaintext","unrelated","expired","policy_blocked"]}}}}}},"commercial_refs":{"type":"object","additionalProperties":false,"required":["invoice_refs","cost_center_refs","sla_report_refs","tax_export_refs","purchase_order_refs"],"properties":{"invoice_refs":{"$ref":"#/$defs/refList"},"cost_center_refs":{"$ref":"#/$defs/refList"},"sla_report_refs":{"$ref":"#/$defs/refList"},"tax_export_refs":{"$ref":"#/$defs/refList"},"purchase_order_refs":{"$ref":"#/$defs/refList"}}},"settlement_mode":{"type":"string","enum":["local_domain","bilateral","invoice","external_escrow","external_chain","ioi_l1"]},"settlement_profile_ref":{"$ref":"#/$defs/policyRef"},"network_enrollment_ref":{"anyOf":[{"type":"string","pattern":"^network-enrollment://[^\\s]{1,400}$"},{"type":"null"}]},"public_commitment_policy_ref":{"anyOf":[{"$ref":"#/$defs/policyRef"},{"type":"null"}]},"public_commitment_refs":{"$ref":"#/$defs/refList"},"generated_by_ref":{"type":"string","pattern":"^(?:agentgres|runtime)://[^\\s]{1,400}$","description":"An operation or runtime that already exists. The export is generated BY the estate's own machinery, not by the bundle."},"generated_at":{"$ref":"#/$defs/timestamp"},"validity":{"type":"string","enum":["valid","incomplete","stale","disputed","revoked"],"description":"`incomplete` and `stale` are first-class, not failure states: an export built while evidence was unavailable says so, rather than presenting a partial record as a whole one."},"status":{"type":"string","enum":["requested","generated","delivered","revoked","superseded","expired"]},"legal_conformity_claim":{"type":"string","const":"not_determined","description":"The same word the decision carries, for the same reason. Composing many decisions, receipts and evidence bundles into one package does not add up to a legal determination, and an export is exactly where someone would expect it to."},"carries_no_protected_plaintext":{"type":"boolean","const":true,"description":"On the wire: protected payloads are NAMED in the manifest and never inlined here."},"bypasses_no_export_manifest":{"type":"boolean","const":true,"description":"Canon: a replay or proof view must not bypass the export manifest. An export that offered a replay ref as a way around its own redactions would be a hole shaped exactly like a feature."},"export_root":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$","description":"SHA-256 over JCS of every member except this one, so a delivered bundle can be shown to be the one that was generated — which is what makes `revoked` and `superseded` mean anything."}},"$defs":{"ref":{"type":"string","pattern":"^[a-z][a-z0-9+._-]*://[^\\s]{1,400}$"},"policyRef":{"type":"string","pattern":"^policy://[^\\s]{1,400}$"},"refList":{"type":"array","maxItems":1024,"uniqueItems":true,"items":{"$ref":"#/$defs/ref"}},"timestamp":{"type":"string","pattern":"^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$"}}}"##),
 ];
 
 const CONTRACT_INVARIANTS: &[(&str, &str)] = &[
@@ -207286,6 +210038,9 @@ const CONTRACT_INVARIANTS: &[(&str, &str)] = &[
     ("schema://ioi/applications/ioi-ai/collective-qualification-estimand/v1", r#"[{"rule_id":"collective_qualification_estimand.identity.matches","description":"ONE RECORD, ONE IDENTITY. The record seam resolves a record's identity from the single member whose name ends in `_id` and whose value is the object_id it was posted under; every other record points at this one by `estimand_ref`. If the two could differ, a record could be admitted under one identity and pointed at by another, and the pointer would resolve to something the seam never admitted. This is the same law the collective-resolution receipt carries, for the same reason.","expression":{"operator":"fields_equal","paths":["$.estimand_id","$.estimand_ref"]}},{"rule_id":"collective_qualification_estimand.a_resilience_or_independence_claim_names_its_axes","description":"Resilience and independence are claims ABOUT something being removed: that the collective degrades less than the baseline under a named knockout, or that its result does not depend on a named participant, edge or artifact. With no axis named there is no claim to confirm, and a run against such an estimand would confirm whatever it happened to measure. The JSON Schema enforces this too through its conditional branch; the portable rule is the same law in the language a consumer that does not run JSON Schema reads.","expression":{"operator":"non_empty_when_in","path":"$.knockout_axis_refs","when_path":"$.estimand_kind","values":["resilience","independence"]}},{"rule_id":"collective_qualification_estimand.the_decision_rule_is_written_out","description":"The decision rule is the whole point of declaring in advance: it says which reading of the two arms confirms the estimand and which fails it. A record that names a metric and a minimum effect but no rule leaves the reading to whoever holds the results, which is the fitting this contract exists to prevent.","expression":{"operator":"non_empty","path":"$.decision_rule"}},{"rule_id":"collective_qualification_estimand.the_quantity_names_the_metric_it_measures","description":"An aggregation and a unit with no metric behind them describe the shape of a number and not the thing counted — 'the mean of something, per second'. The metric ref is what makes the estimand point at a measurement a later run can actually take, and a consumer that does not run JSON Schema must refuse its absence too.","expression":{"operator":"non_empty","path":"$.quantity.metric_ref"}},{"rule_id":"collective_qualification_estimand.root.recomputes","description":"DECLARING IN ADVANCE ONLY MEANS SOMETHING IF THE DECLARATION CANNOT MOVE. The epoch freezes the estimand's REF, which pins the name and not the content; this root pins the content, so an estimand whose minimum effect or decision rule was edited once results existed no longer recomputes and is refused by this rule's own name.","expression":{"operator":"jcs_sha256_equals","algorithm":"jcs_sha256","expected_path":"$.estimand_root","expected_encoding":"sha256_string","material_fields":{"schema_version":{"path":"$.schema_version"},"estimand_id":{"path":"$.estimand_id"},"estimand_ref":{"path":"$.estimand_ref"},"estimand_kind":{"path":"$.estimand_kind"},"quantity":{"path":"$.quantity"},"direction":{"path":"$.direction"},"minimum_effect":{"path":"$.minimum_effect"},"cost_normalization":{"path":"$.cost_normalization"},"decision_rule":{"path":"$.decision_rule"},"knockout_axis_refs":{"path":"$.knockout_axis_refs"},"declared_at":{"path":"$.declared_at"},"declared_before_epoch_freeze":{"path":"$.declared_before_epoch_freeze"},"epoch_ref":{"path":"$.epoch_ref"},"qualifies_nothing_on_its_own":{"path":"$.qualifies_nothing_on_its_own"}}}}]"#),
     ("schema://ioi/applications/ioi-ai/collective-baseline-pairing/v1", r#"[{"rule_id":"collective_baseline_pairing.identity.matches","description":"ONE RECORD, ONE IDENTITY. The record seam resolves a record's identity from the single member whose name ends in `_id` and whose value is the object_id it was posted under; every other record points at this one by `pairing_ref`. If the two could differ, a record could be admitted under one identity and pointed at by another, and the pointer would resolve to something the seam never admitted. This is the same law the collective-resolution receipt carries, for the same reason.","expression":{"operator":"fields_equal","paths":["$.pairing_id","$.pairing_ref"]}},{"rule_id":"collective_baseline_pairing.axis_task.matches","description":"The two arms ran the same task distribution. Each match axis gets a rule of its OWN rather than one rule over all eight, because the name of the rule that fires is the finding: a reader learns that the baseline had a different task set, not merely that the pairing was 'unmatched'. JSON Schema cannot compare two of a record's own members, so this law exists only here — the schema can require the proofs, and only the invariant can require that they agree.","expression":{"operator":"fields_equal","paths":["$.axis_proofs.task.collective_root","$.axis_proofs.task.baseline_root"]}},{"rule_id":"collective_baseline_pairing.axis_authority.matches","description":"The two arms held the same authority. An arm with more authority than its comparator wins by permission rather than by cooperation, and the surplus measures the grant.","expression":{"operator":"fields_equal","paths":["$.axis_proofs.authority.collective_root","$.axis_proofs.authority.baseline_root"]}},{"rule_id":"collective_baseline_pairing.axis_context.matches","description":"The two arms were given the same context. Context is the cheapest axis to differ on by accident and among the most decisive, since a richer context makes a weaker method look stronger.","expression":{"operator":"fields_equal","paths":["$.axis_proofs.context.collective_root","$.axis_proofs.context.baseline_root"]}},{"rule_id":"collective_baseline_pairing.axis_tool.matches","description":"The two arms had the same tools. A collective holding a tool the baseline lacks is a comparison between toolsets wearing the name of a comparison between compositions.","expression":{"operator":"fields_equal","paths":["$.axis_proofs.tool.collective_root","$.axis_proofs.tool.baseline_root"]}},{"rule_id":"collective_baseline_pairing.axis_environment.matches","description":"The two arms ran in the same environment.","expression":{"operator":"fields_equal","paths":["$.axis_proofs.environment.collective_root","$.axis_proofs.environment.baseline_root"]}},{"rule_id":"collective_baseline_pairing.axis_budget.matches","description":"The two arms were given the same budget. This is the axis canon's 'earns its complexity' sentence turns on: a collective that simply spent more has demonstrated spending.","expression":{"operator":"fields_equal","paths":["$.axis_proofs.budget.collective_root","$.axis_proofs.budget.baseline_root"]}},{"rule_id":"collective_baseline_pairing.axis_time.matches","description":"The two arms were given the same time.","expression":{"operator":"fields_equal","paths":["$.axis_proofs.time.collective_root","$.axis_proofs.time.baseline_root"]}},{"rule_id":"collective_baseline_pairing.axis_verifier_posture.matches","description":"The two arms were judged under the same verifier posture. An arm graded by a laxer verifier scores better at nothing, and this is the axis where the difference is invisible in the arms themselves.","expression":{"operator":"fields_equal","paths":["$.axis_proofs.verifier_posture.collective_root","$.axis_proofs.verifier_posture.baseline_root"]}},{"rule_id":"collective_baseline_pairing.positive_control.passes_no_more_than_it_ran","description":"THE POSITIVE CONTROL IS A REAL MEASUREMENT, not a number chosen to clear the bar. The schema already requires at least one pass — a baseline that failed everything would make any collective look good, which is the cheapest way to manufacture a surplus — and this rule adds the other bound: it cannot have passed more cases than it ran.","expression":{"operator":"numbers_lte","paths":["$.baseline_positive_control.matched_cases_passed","$.baseline_positive_control.matched_cases_total"]}},{"rule_id":"collective_baseline_pairing.arms.are_not_one_composition","description":"A pairing whose two arms name the same orchestration scope compares a composition with itself, and every axis matches trivially. This is the degenerate pairing the eight axis rules cannot catch, because it satisfies all of them.","expression":{"operator":"fields_not_equal","paths":["$.collective_arm.composition_ref","$.baseline_arm.composition_ref"]}},{"rule_id":"collective_baseline_pairing.root.recomputes","description":"The pairing root commits the arms, every axis proof, the positive control and the rationale, so a relying party can recompute the declaration from the pairing alone and see that it did not move after the arms ran.","expression":{"operator":"jcs_sha256_equals","algorithm":"jcs_sha256","expected_path":"$.pairing_root","expected_encoding":"sha256_string","material_fields":{"schema_version":{"path":"$.schema_version"},"pairing_id":{"path":"$.pairing_id"},"pairing_ref":{"path":"$.pairing_ref"},"estimand_ref":{"path":"$.estimand_ref"},"collective_arm":{"path":"$.collective_arm"},"baseline_arm":{"path":"$.baseline_arm"},"declared_match_axes":{"path":"$.declared_match_axes"},"axis_proofs":{"path":"$.axis_proofs"},"baseline_positive_control":{"path":"$.baseline_positive_control"},"cheaper_baseline_rationale":{"path":"$.cheaper_baseline_rationale"},"declared_before_either_arm_ran":{"path":"$.declared_before_either_arm_ran"},"epoch_ref":{"path":"$.epoch_ref"},"declared_at":{"path":"$.declared_at"}}}}]"#),
     ("schema://ioi/applications/ioi-ai/collective-qualification-verdict/v1", r#"[{"rule_id":"collective_qualification_verdict.identity.matches","description":"ONE RECORD, ONE IDENTITY. The record seam resolves a record's identity from the single member whose name ends in `_id` and whose value is the object_id it was posted under; every other record points at this one by `verdict_ref`. If the two could differ, a record could be admitted under one identity and pointed at by another, and the pointer would resolve to something the seam never admitted. This is the same law the collective-resolution receipt carries, for the same reason.","expression":{"operator":"fields_equal","paths":["$.verdict_id","$.verdict_ref"]}},{"rule_id":"collective_qualification_verdict.result_and_continuity.are_separately_rooted","description":"THE CONFLATION THIS UNIT EXISTS TO REFUSE, refused on the wire. Result robustness and controller continuity are two claims with two sources: the result is read from evaluation results, continuity from the lineage's posture and its owners. One root over both would mean neither could be taken without the other, and a healthy runtime would travel with a good answer. Canon says both halves out loud — an accepted result may survive after a runtime must stop, and a healthy runtime proves neither result quality nor current authority — so the two roots are never equal.","expression":{"operator":"fields_not_equal","paths":["$.result_evidence.result_root","$.controller_continuity.continuity_root"]}},{"rule_id":"collective_qualification_verdict.qualified.names_its_basis","description":"A verdict of `qualified` with no basis is a claim with no reason. The enum already forbids the four canon refuses — a participant count, an unmatched aggregate score, an active ArtifactRef and a surviving process — so this rule only has to require that SOMETHING admissible was named. The two refusals together are what make `qualified` mean anything.","expression":{"operator":"non_empty_when_in","path":"$.qualified_on","when_path":"$.outcome","values":["qualified"]}},{"rule_id":"collective_qualification_verdict.qualified.rests_on_results_it_names","description":"A qualified verdict names the evaluation results its effect was read from. Without them the observed effect is a number this record asserts about itself, which is the unmatched aggregate score under a different name.","expression":{"operator":"non_empty_when_in","path":"$.result_evidence.result_refs","when_path":"$.outcome","values":["qualified"]}},{"rule_id":"collective_qualification_verdict.knockouts.are_one_per_axis","description":"Each axis is knocked out once. Two entries for one axis let a failing run be reported beside a passing one and the matrix still read as complete.","expression":{"operator":"array_unique_by_fields","array_path":"$.knockouts","fields":["axis"]}},{"rule_id":"collective_qualification_verdict.absent_axes.are_named_once","description":"Each unperformable axis is named once, with its reason and its owner. A matrix that is honest about what it cannot do is what keeps the executable half from being read as the whole.","expression":{"operator":"array_unique_by_fields","array_path":"$.named_absent_knockout_axes","fields":["axis"]}},{"rule_id":"collective_qualification_verdict.root.recomputes","description":"The verdict root commits the estimand and pairing it was read against, the epoch it came out of, the outcome and its basis, both halves with their own roots, the whole knockout matrix in both directions and the four never-clauses — so a relying party can recompute the judgment from the verdict alone.","expression":{"operator":"jcs_sha256_equals","algorithm":"jcs_sha256","expected_path":"$.verdict_root","expected_encoding":"sha256_string","material_fields":{"schema_version":{"path":"$.schema_version"},"verdict_id":{"path":"$.verdict_id"},"verdict_ref":{"path":"$.verdict_ref"},"estimand_ref":{"path":"$.estimand_ref"},"pairing_ref":{"path":"$.pairing_ref"},"epoch_ref":{"path":"$.epoch_ref"},"outcome":{"path":"$.outcome"},"qualified_on":{"path":"$.qualified_on"},"result_evidence":{"path":"$.result_evidence"},"controller_continuity":{"path":"$.controller_continuity"},"knockouts":{"path":"$.knockouts"},"named_absent_knockout_axes":{"path":"$.named_absent_knockout_axes"},"grants_no_authority":{"path":"$.grants_no_authority"},"promotes_nothing":{"path":"$.promotes_nothing"},"activates_nothing":{"path":"$.activates_nothing"},"rewrites_no_topology":{"path":"$.rewrites_no_topology"},"judged_at":{"path":"$.judged_at"}}}}]"#),
+    ("schema://ioi/foundations/jurisdiction-policy-pack/v1", r#"[{"rule_id":"jurisdiction_policy_pack.applies_to_something","description":"A pack that reaches no action class, no data class and no service class constrains nothing — it is a document that looks like a policy. JSON Schema cannot state this without an anyOf of same-typed branches, which the Rust projection refuses, so the law lives here where it can be said plainly and every consumer reads it.","expression":{"operator":"any_non_empty","paths":["$.applies_to.action_classes","$.applies_to.data_classes","$.applies_to.service_classes"]}},{"rule_id":"jurisdiction_policy_pack.does_not_supersede_itself","description":"A pack that names itself as the one it supersedes has turned a CHAIN into an edit. Canon's law is that changing a deadline, clock-start rule, recipient, responsible party or accountable issuer requires a new pack VERSION and must never rewrite an already-recorded reporting decision; self-supersession is how that law is broken while still looking like it was followed.","expression":{"operator":"fields_not_equal","paths":["$.pack_id","$.supersedes_ref"]}},{"rule_id":"jurisdiction_policy_pack.root.recomputes","description":"THE SEAL THAT MAKES THE IMMUTABILITY LAW CHECKABLE. A decision binds this root rather than the pack's name, so a deadline edited in place no longer recomputes and every decision taken under the pack breaks its binding instead of being silently reinterpreted against content it was never read under. A change that should have been a new version cannot pass as the same one.","expression":{"operator":"jcs_sha256_equals","algorithm":"jcs_sha256","expected_path":"$.pack_root","expected_encoding":"sha256_string","material_fields":{"schema_version":{"path":"$.schema_version"},"pack_id":{"path":"$.pack_id"},"version":{"path":"$.version"},"issued_at":{"path":"$.issued_at"},"effective_at":{"path":"$.effective_at"},"supersedes_ref":{"path":"$.supersedes_ref"},"issuer":{"path":"$.issuer"},"jurisdiction":{"path":"$.jurisdiction"},"applies_to":{"path":"$.applies_to"},"identity_requirements":{"path":"$.identity_requirements"},"authority_requirements":{"path":"$.authority_requirements"},"data_requirements":{"path":"$.data_requirements"},"regulated_action_rules":{"path":"$.regulated_action_rules"},"tax_and_commercial_refs":{"path":"$.tax_and_commercial_refs"},"audit_requirements":{"path":"$.audit_requirements"},"incident_reporting":{"path":"$.incident_reporting"},"erasure_requirements":{"path":"$.erasure_requirements"},"grants_no_authority":{"path":"$.grants_no_authority"},"is_not_legal_advice":{"path":"$.is_not_legal_advice"}}}}]"#),
+    ("schema://ioi/foundations/jurisdiction-policy-decision/v1", r#"[{"rule_id":"jurisdiction_policy_decision.a_deadline_retains_its_triggering_timestamp","description":"CANON'S ARITHMETIC RULE, IN THE LANGUAGE A CONSUMER THAT DOES NOT RUN JSON SCHEMA READS: deadline arithmetic must retain the exact pack version and triggering timestamp. When a decision names the instant its window runs from, it must also carry the instant itself — a clock-start basis with no timestamp behind it is a rule with nothing to apply it to, and the window it implies cannot be recomputed by anyone reading the record.","expression":{"operator":"non_empty_when_in","path":"$.triggering_timestamp","when_path":"$.clock_start_basis","values":["detected_at","confirmed_at","materiality_determined_at","authority_request_received_at"]}},{"rule_id":"jurisdiction_policy_decision.an_applicable_decision_names_what_it_matched","description":"A decision that says the pack APPLIES must name the classes it matched on. Without them the applicability is an assertion about itself, and a reader cannot tell a considered match from a default.","expression":{"operator":"non_empty_when_in","path":"$.applicability.matched_classes","when_path":"$.applicability.applies","values":[true]}},{"rule_id":"jurisdiction_policy_decision.obligations_are_one_per_kind_and_owner","description":"One obligation per kind per enforcing owner. Two entries for the same pair let a satisfied reading sit beside an unsatisfied one and the decision still read as complete — the same defect a duplicated knockout axis is, in a different plane.","expression":{"operator":"array_unique_by_fields","array_path":"$.obligations","fields":["obligation_kind","enforcing_owner"]}},{"rule_id":"jurisdiction_policy_decision.unmet_evidence_is_named_once_per_kind","description":"Each kind of missing evidence is named once. A record that could list `current_evidence` twice with two reasons lets a reader take whichever one they preferred.","expression":{"operator":"array_unique_by_fields","array_path":"$.unmet_evidence","fields":["missing"]}},{"rule_id":"jurisdiction_policy_decision.root.recomputes","description":"The decision root seals what was decided, against which pack version and pack root, from which triggering timestamp. Canon's other half — that a new pack version must never rewrite an already-recorded decision — needs the decision to be unmovable too, not only the pack.","expression":{"operator":"jcs_sha256_equals","algorithm":"jcs_sha256","expected_path":"$.decision_root","expected_encoding":"sha256_string","material_fields":{"schema_version":{"path":"$.schema_version"},"decision_id":{"path":"$.decision_id"},"pack_ref":{"path":"$.pack_ref"},"pack_version":{"path":"$.pack_version"},"pack_root":{"path":"$.pack_root"},"subject_ref":{"path":"$.subject_ref"},"evaluated_at":{"path":"$.evaluated_at"},"clock_start_basis":{"path":"$.clock_start_basis"},"triggering_timestamp":{"path":"$.triggering_timestamp"},"applicability":{"path":"$.applicability"},"obligations":{"path":"$.obligations"},"unmet_evidence":{"path":"$.unmet_evidence"},"legal_conformity_claim":{"path":"$.legal_conformity_claim"},"grants_no_authority":{"path":"$.grants_no_authority"},"performs_no_action":{"path":"$.performs_no_action"}}}}]"#),
+    ("schema://ioi/foundations/compliance-audit-export-bundle/v1", r#"[{"rule_id":"compliance_audit_export_bundle.every_exclusion_is_reasoned","description":"CANON'S SECOND OBLIGATION, MADE COUNTABLE: an export must make obvious what was redacted, withheld, protected or excluded AND WHY. The schema can require both lists; only this rule can require that they correspond. An export with excluded refs and no reasons has withheld evidence silently, which is indistinguishable from having had none — and that is precisely the reading an audit exists to prevent.","expression":{"operator":"non_empty_when_in","path":"$.export_manifest.exclusion_reasons","when_path":"$.status","values":["generated","delivered"]}},{"rule_id":"compliance_audit_export_bundle.one_reason_per_excluded_ref","description":"Each excluded ref carries exactly one typed reason. Two reasons for one ref let a reader choose the more comfortable one, and `retention_locked` and `no_export_authority` are very different statements about the same withheld artifact.","expression":{"operator":"array_unique_by_fields","array_path":"$.export_manifest.exclusion_reasons","fields":["excluded_ref"]}},{"rule_id":"compliance_audit_export_bundle.a_generated_export_names_its_supporting_authority","description":"Canon: the manifest must name which policy, authority, retention, restricted-view, receipt and state-root refs SUPPORT the export. A generated bundle with no authority behind it is a package somebody assembled, and the question an auditor asks first is who was allowed to assemble it.","expression":{"operator":"non_empty_when_in","path":"$.authority_refs","when_path":"$.status","values":["generated","delivered"]}},{"rule_id":"compliance_audit_export_bundle.root.recomputes","description":"The export root seals the manifest, the audience and the decisions it rests on, so a DELIVERED bundle can be shown to be the one that was GENERATED. Without it `revoked` and `superseded` are labels on something that could have changed underneath them.","expression":{"operator":"jcs_sha256_equals","algorithm":"jcs_sha256","expected_path":"$.export_root","expected_encoding":"sha256_string","material_fields":{"schema_version":{"path":"$.schema_version"},"export_id":{"path":"$.export_id"},"export_type":{"path":"$.export_type"},"subject_refs":{"path":"$.subject_refs"},"audience":{"path":"$.audience"},"jurisdiction_policy_pack_refs":{"path":"$.jurisdiction_policy_pack_refs"},"policy_decision_refs":{"path":"$.policy_decision_refs"},"authority_refs":{"path":"$.authority_refs"},"redaction_profile_ref":{"path":"$.redaction_profile_ref"},"export_policy_ref":{"path":"$.export_policy_ref"},"export_manifest":{"path":"$.export_manifest"},"generated_by_ref":{"path":"$.generated_by_ref"},"generated_at":{"path":"$.generated_at"},"validity":{"path":"$.validity"},"status":{"path":"$.status"},"legal_conformity_claim":{"path":"$.legal_conformity_claim"},"carries_no_protected_plaintext":{"path":"$.carries_no_protected_plaintext"},"bypasses_no_export_manifest":{"path":"$.bypasses_no_export_manifest"}}}}]"#),
 ];
 
 const CONTRACT_PATTERN_TRANSLATIONS: &[(&str, &str)] = &[
@@ -207359,6 +210114,10 @@ const CONTRACT_PATTERN_TRANSLATIONS: &[(&str, &str)] = &[
     ),
     (r#"^(?:0|[1-9][0-9]*)$"#, r#"^(?:0|[1-9][0-9]*)$"#),
     (
+        r#"^(?:0|[1-9][0-9]*)[.](?:0|[1-9][0-9]*)[.](?:0|[1-9][0-9]*)$"#,
+        r#"^(?:0|[1-9][0-9]*)[.](?:0|[1-9][0-9]*)[.](?:0|[1-9][0-9]*)$"#,
+    ),
+    (
         r#"^(?:[0-9]+[.][0-9]+[.][0-9]+|[0-9]+[.][0-9]+[.][0-9]+-[0-9A-Za-z.-]+|sha256:[0-9a-f]{64})$"#,
         r#"^(?:[0-9]+[.][0-9]+[.][0-9]+|[0-9]+[.][0-9]+[.][0-9]+-[0-9A-Za-z.-]+|sha256:[0-9a-f]{64})$"#,
     ),
@@ -207389,6 +210148,10 @@ const CONTRACT_PATTERN_TRANSLATIONS: &[(&str, &str)] = &[
     (
         r#"^(?:agentgres|event)://[^\s]{1,248}$"#,
         r#"^(?:agentgres|event)://[^\u{0009}-\u{000D}\u{0020}\u{00A0}\u{1680}\u{2000}-\u{200A}\u{2028}\u{2029}\u{202F}\u{205F}\u{3000}\u{FEFF}]{1,248}$"#,
+    ),
+    (
+        r#"^(?:agentgres|runtime)://[^\s]{1,400}$"#,
+        r#"^(?:agentgres|runtime)://[^\u{0009}-\u{000D}\u{0020}\u{00A0}\u{1680}\u{2000}-\u{200A}\u{2028}\u{2029}\u{202F}\u{205F}\u{3000}\u{FEFF}]{1,400}$"#,
     ),
     (
         r#"^(?:agentgres|wallet|service)://[^\s]{1,248}$"#,
@@ -207507,8 +210270,16 @@ const CONTRACT_PATTERN_TRANSLATIONS: &[(&str, &str)] = &[
         r#"^(?:auth_factor|guardian)://[^\u{0009}-\u{000D}\u{0020}\u{00A0}\u{1680}\u{2000}-\u{200A}\u{2028}\u{2029}\u{202F}\u{205F}\u{3000}\u{FEFF}]{1,500}$"#,
     ),
     (
+        r#"^(?:authority|grant|lease)://[^\s]{1,400}$"#,
+        r#"^(?:authority|grant|lease)://[^\u{0009}-\u{000D}\u{0020}\u{00A0}\u{1680}\u{2000}-\u{200A}\u{2028}\u{2029}\u{202F}\u{205F}\u{3000}\u{FEFF}]{1,400}$"#,
+    ),
+    (
         r#"^(?:authority|policy)://\S+$"#,
         r#"^(?:authority|policy)://[^\u{0009}-\u{000D}\u{0020}\u{00A0}\u{1680}\u{2000}-\u{200A}\u{2028}\u{2029}\u{202F}\u{205F}\u{3000}\u{FEFF}]+$"#,
+    ),
+    (
+        r#"^(?:authority|regulator|counterparty)://[^\s]{1,400}$"#,
+        r#"^(?:authority|regulator|counterparty)://[^\u{0009}-\u{000D}\u{0020}\u{00A0}\u{1680}\u{2000}-\u{200A}\u{2028}\u{2029}\u{202F}\u{205F}\u{3000}\u{FEFF}]{1,400}$"#,
     ),
     (
         r#"^(?:benchmark|rubric|gate|policy)://[^\s]{1,500}$"#,
@@ -207915,6 +210686,10 @@ const CONTRACT_PATTERN_TRANSLATIONS: &[(&str, &str)] = &[
         r#"^(?:ontology|semantic-profile|ontology-mapping|ontology-action|action_schema)://[^\u{0009}-\u{000D}\u{0020}\u{00A0}\u{1680}\u{2000}-\u{200A}\u{2028}\u{2029}\u{202F}\u{205F}\u{3000}\u{FEFF}]{1,500}$"#,
     ),
     (
+        r#"^(?:org|domain|governance)://[^\s]{1,400}$"#,
+        r#"^(?:org|domain|governance)://[^\u{0009}-\u{000D}\u{0020}\u{00A0}\u{1680}\u{2000}-\u{200A}\u{2028}\u{2029}\u{202F}\u{205F}\u{3000}\u{FEFF}]{1,400}$"#,
+    ),
+    (
         r#"^(?:org|project)://[A-Za-z0-9][A-Za-z0-9._~:@/-]*$"#,
         r#"^(?:org|project)://[A-Za-z0-9][A-Za-z0-9._~:@/-]*$"#,
     ),
@@ -208097,6 +210872,10 @@ const CONTRACT_PATTERN_TRANSLATIONS: &[(&str, &str)] = &[
     (
         r#"^(?:prim:[a-z][a-z0-9._-]*|[a-z][a-z0-9+._-]*://[^\s]{1,500})$"#,
         r#"^(?:prim:[a-z][a-z0-9._-]*|[a-z][a-z0-9+._-]*://[^\u{0009}-\u{000D}\u{0020}\u{00A0}\u{1680}\u{2000}-\u{200A}\u{2028}\u{2029}\u{202F}\u{205F}\u{3000}\u{FEFF}]{1,500})$"#,
+    ),
+    (
+        r#"^(?:principal|role)://[^\s]{1,400}$"#,
+        r#"^(?:principal|role)://[^\u{0009}-\u{000D}\u{0020}\u{00A0}\u{1680}\u{2000}-\u{200A}\u{2028}\u{2029}\u{202F}\u{205F}\u{3000}\u{FEFF}]{1,400}$"#,
     ),
     (
         r#"^(?:principal|wallet|organization|org)://[^\s]{1,248}$"#,
@@ -208791,6 +211570,10 @@ const CONTRACT_PATTERN_TRANSLATIONS: &[(&str, &str)] = &[
         r#"^[a-z][a-z0-9+.-]*://[^\u{0009}-\u{000D}\u{0020}\u{00A0}\u{1680}\u{2000}-\u{200A}\u{2028}\u{2029}\u{202F}\u{205F}\u{3000}\u{FEFF}]{1,248}$"#,
     ),
     (
+        r#"^[a-z][a-z0-9+.-]*://[^\s]{1,400}$"#,
+        r#"^[a-z][a-z0-9+.-]*://[^\u{0009}-\u{000D}\u{0020}\u{00A0}\u{1680}\u{2000}-\u{200A}\u{2028}\u{2029}\u{202F}\u{205F}\u{3000}\u{FEFF}]{1,400}$"#,
+    ),
+    (
         r#"^[a-z][a-z0-9+.-]*://[^\s]{1,500}$"#,
         r#"^[a-z][a-z0-9+.-]*://[^\u{0009}-\u{000D}\u{0020}\u{00A0}\u{1680}\u{2000}-\u{200A}\u{2028}\u{2029}\u{202F}\u{205F}\u{3000}\u{FEFF}]{1,500}$"#,
     ),
@@ -208801,6 +211584,10 @@ const CONTRACT_PATTERN_TRANSLATIONS: &[(&str, &str)] = &[
     (
         r#"^[a-z][a-z0-9+._-]*://[^ ]{1,480}$"#,
         r#"^[a-z][a-z0-9+._-]*://[^ ]{1,480}$"#,
+    ),
+    (
+        r#"^[a-z][a-z0-9+._-]*://[^\s]{1,400}$"#,
+        r#"^[a-z][a-z0-9+._-]*://[^\u{0009}-\u{000D}\u{0020}\u{00A0}\u{1680}\u{2000}-\u{200A}\u{2028}\u{2029}\u{202F}\u{205F}\u{3000}\u{FEFF}]{1,400}$"#,
     ),
     (
         r#"^[a-z][a-z0-9+._-]*://[^\s]{1,500}$"#,
@@ -209142,12 +211929,20 @@ const CONTRACT_PATTERN_TRANSLATIONS: &[(&str, &str)] = &[
         r#"^assurance-transition://[a-z][a-z0-9_]{0,63}/[^\u{0009}-\u{000D}\u{0020}\u{00A0}\u{1680}\u{2000}-\u{200A}\u{2028}\u{2029}\u{202F}\u{205F}\u{3000}\u{FEFF}]{1,380}/transition/[1-6]$"#,
     ),
     (
+        r#"^assurance_profile://[^\s]{1,400}$"#,
+        r#"^assurance_profile://[^\u{0009}-\u{000D}\u{0020}\u{00A0}\u{1680}\u{2000}-\u{200A}\u{2028}\u{2029}\u{202F}\u{205F}\u{3000}\u{FEFF}]{1,400}$"#,
+    ),
+    (
         r#"^attempt://[^\s]{1,240}$"#,
         r#"^attempt://[^\u{0009}-\u{000D}\u{0020}\u{00A0}\u{1680}\u{2000}-\u{200A}\u{2028}\u{2029}\u{202F}\u{205F}\u{3000}\u{FEFF}]{1,240}$"#,
     ),
     (
         r#"^attempt://[^\s]{1,500}$"#,
         r#"^attempt://[^\u{0009}-\u{000D}\u{0020}\u{00A0}\u{1680}\u{2000}-\u{200A}\u{2028}\u{2029}\u{202F}\u{205F}\u{3000}\u{FEFF}]{1,500}$"#,
+    ),
+    (
+        r#"^audit_export://[^\s?#\\]{1,200}$"#,
+        r#"^audit_export://[^\u{0009}-\u{000D}\u{0020}\u{00A0}\u{1680}\u{2000}-\u{200A}\u{2028}\u{2029}\u{202F}\u{205F}\u{3000}\u{FEFF}?#\\]{1,200}$"#,
     ),
     (
         r#"^auth_factor://[^\s]{1,500}$"#,
@@ -209993,12 +212788,24 @@ const CONTRACT_PATTERN_TRANSLATIONS: &[(&str, &str)] = &[
         r#"^invariant://[^\u{0009}-\u{000D}\u{0020}\u{00A0}\u{1680}\u{2000}-\u{200A}\u{2028}\u{2029}\u{202F}\u{205F}\u{3000}\u{FEFF}]{1,248}$"#,
     ),
     (
+        r#"^invoice://[^\s]{1,400}$"#,
+        r#"^invoice://[^\u{0009}-\u{000D}\u{0020}\u{00A0}\u{1680}\u{2000}-\u{200A}\u{2028}\u{2029}\u{202F}\u{205F}\u{3000}\u{FEFF}]{1,400}$"#,
+    ),
+    (
         r#"^ioi://publisher/[^\s]{1,224}$"#,
         r#"^ioi://publisher/[^\u{0009}-\u{000D}\u{0020}\u{00A0}\u{1680}\u{2000}-\u{200A}\u{2028}\u{2029}\u{202F}\u{205F}\u{3000}\u{FEFF}]{1,224}$"#,
     ),
     (
         r#"^jurisdiction://[a-z0-9][a-z0-9._/-]{0,190}$"#,
         r#"^jurisdiction://[a-z0-9][a-z0-9._/-]{0,190}$"#,
+    ),
+    (
+        r#"^jurisdiction_decision://[^\s?#\\]{1,200}$"#,
+        r#"^jurisdiction_decision://[^\u{0009}-\u{000D}\u{0020}\u{00A0}\u{1680}\u{2000}-\u{200A}\u{2028}\u{2029}\u{202F}\u{205F}\u{3000}\u{FEFF}?#\\]{1,200}$"#,
+    ),
+    (
+        r#"^jurisdiction_policy_pack://[^\s?#\\]{1,200}$"#,
+        r#"^jurisdiction_policy_pack://[^\u{0009}-\u{000D}\u{0020}\u{00A0}\u{1680}\u{2000}-\u{200A}\u{2028}\u{2029}\u{202F}\u{205F}\u{3000}\u{FEFF}?#\\]{1,200}$"#,
     ),
     (
         r#"^key://[^\s]+$"#,
@@ -210268,6 +213075,10 @@ const CONTRACT_PATTERN_TRANSLATIONS: &[(&str, &str)] = &[
     (
         r#"^network-enrollment://[^\s]{1,248}$"#,
         r#"^network-enrollment://[^\u{0009}-\u{000D}\u{0020}\u{00A0}\u{1680}\u{2000}-\u{200A}\u{2028}\u{2029}\u{202F}\u{205F}\u{3000}\u{FEFF}]{1,248}$"#,
+    ),
+    (
+        r#"^network-enrollment://[^\s]{1,400}$"#,
+        r#"^network-enrollment://[^\u{0009}-\u{000D}\u{0020}\u{00A0}\u{1680}\u{2000}-\u{200A}\u{2028}\u{2029}\u{202F}\u{205F}\u{3000}\u{FEFF}]{1,400}$"#,
     ),
     (
         r#"^network-enrollment://[^\s]{1,500}$"#,
@@ -210549,6 +213360,10 @@ const CONTRACT_PATTERN_TRANSLATIONS: &[(&str, &str)] = &[
     (
         r#"^policy://[^\s]{1,248}$"#,
         r#"^policy://[^\u{0009}-\u{000D}\u{0020}\u{00A0}\u{1680}\u{2000}-\u{200A}\u{2028}\u{2029}\u{202F}\u{205F}\u{3000}\u{FEFF}]{1,248}$"#,
+    ),
+    (
+        r#"^policy://[^\s]{1,400}$"#,
+        r#"^policy://[^\u{0009}-\u{000D}\u{0020}\u{00A0}\u{1680}\u{2000}-\u{200A}\u{2028}\u{2029}\u{202F}\u{205F}\u{3000}\u{FEFF}]{1,400}$"#,
     ),
     (
         r#"^policy://[^\s]{1,460}$"#,
@@ -210971,6 +213786,10 @@ const CONTRACT_PATTERN_TRANSLATIONS: &[(&str, &str)] = &[
         r#"^scope:[a-z][a-z0-9._-]{0,127}$"#,
     ),
     (
+        r#"^scope:[a-z][a-z0-9._:-]{0,200}$"#,
+        r#"^scope:[a-z][a-z0-9._:-]{0,200}$"#,
+    ),
+    (
         r#"^scope:autonomous_system[.]lifecycle[.][a-z][a-z0-9_]{1,80}$"#,
         r#"^scope:autonomous_system[.]lifecycle[.][a-z][a-z0-9_]{1,80}$"#,
     ),
@@ -211232,6 +214051,10 @@ const CONTRACT_PATTERN_TRANSLATIONS: &[(&str, &str)] = &[
     (
         r#"^task://[^\s]+$"#,
         r#"^task://[^\u{0009}-\u{000D}\u{0020}\u{00A0}\u{1680}\u{2000}-\u{200A}\u{2028}\u{2029}\u{202F}\u{205F}\u{3000}\u{FEFF}]+$"#,
+    ),
+    (
+        r#"^tax://[^\s]{1,400}$"#,
+        r#"^tax://[^\u{0009}-\u{000D}\u{0020}\u{00A0}\u{1680}\u{2000}-\u{200A}\u{2028}\u{2029}\u{202F}\u{205F}\u{3000}\u{FEFF}]{1,400}$"#,
     ),
     (
         r#"^temporal-evaluation://[^\s]{1,248}$"#,
@@ -214490,6 +217313,46 @@ mod tests {
     ("docs/architecture/_meta/schemas/fixtures/collective-qualification-verdict-v1/negative-the-verdict-activates-a-controller.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/collective-qualification-verdict-v1/negative-the-verdict-activates-a-controller.json"))),
     ("docs/architecture/_meta/schemas/fixtures/collective-qualification-verdict-v1/negative-the-verdict-grants-authority.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/collective-qualification-verdict-v1/negative-the-verdict-grants-authority.json"))),
     ("docs/architecture/_meta/schemas/fixtures/collective-qualification-verdict-v1/negative-the-verdict-promotes-the-composition.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/collective-qualification-verdict-v1/negative-the-verdict-promotes-the-composition.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/jurisdiction-policy-pack-v1/positive-disclosure-only-no-deadlines.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/jurisdiction-policy-pack-v1/positive-disclosure-only-no-deadlines.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/jurisdiction-policy-pack-v1/positive-eu-serious-incident.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/jurisdiction-policy-pack-v1/positive-eu-serious-incident.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/jurisdiction-policy-pack-v1/negative-a-deadline-with-no-accountable-party.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/jurisdiction-policy-pack-v1/negative-a-deadline-with-no-accountable-party.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/jurisdiction-policy-pack-v1/negative-a-required-scope-that-is-a-grant.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/jurisdiction-policy-pack-v1/negative-a-required-scope-that-is-a-grant.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/jurisdiction-policy-pack-v1/negative-a-version-that-is-not-semver.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/jurisdiction-policy-pack-v1/negative-a-version-that-is-not-semver.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/jurisdiction-policy-pack-v1/negative-an-invented-clock-start.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/jurisdiction-policy-pack-v1/negative-an-invented-clock-start.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/jurisdiction-policy-pack-v1/negative-applies-to-nothing.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/jurisdiction-policy-pack-v1/negative-applies-to-nothing.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/jurisdiction-policy-pack-v1/negative-claims-to-be-legal-advice.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/jurisdiction-policy-pack-v1/negative-claims-to-be-legal-advice.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/jurisdiction-policy-pack-v1/negative-claims-to-grant-authority.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/jurisdiction-policy-pack-v1/negative-claims-to-grant-authority.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/jurisdiction-policy-pack-v1/negative-jurisdiction-omits-an-axis.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/jurisdiction-policy-pack-v1/negative-jurisdiction-omits-an-axis.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/jurisdiction-policy-pack-v1/negative-root-does-not-recompute.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/jurisdiction-policy-pack-v1/negative-root-does-not-recompute.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/jurisdiction-policy-pack-v1/negative-supersedes-itself.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/jurisdiction-policy-pack-v1/negative-supersedes-itself.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/jurisdiction-policy-decision-v1/positive-applies-with-an-open-obligation.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/jurisdiction-policy-decision-v1/positive-applies-with-an-open-obligation.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/jurisdiction-policy-decision-v1/positive-does-not-apply-and-says-why.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/jurisdiction-policy-decision-v1/positive-does-not-apply-and-says-why.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/jurisdiction-policy-decision-v1/negative-a-deadline-basis-with-no-triggering-timestamp.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/jurisdiction-policy-decision-v1/negative-a-deadline-basis-with-no-triggering-timestamp.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/jurisdiction-policy-decision-v1/negative-a-legal-verdict.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/jurisdiction-policy-decision-v1/negative-a-legal-verdict.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/jurisdiction-policy-decision-v1/negative-an-obligation-with-no-enforcing-owner.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/jurisdiction-policy-decision-v1/negative-an-obligation-with-no-enforcing-owner.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/jurisdiction-policy-decision-v1/negative-an-untyped-missing-evidence-kind.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/jurisdiction-policy-decision-v1/negative-an-untyped-missing-evidence-kind.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/jurisdiction-policy-decision-v1/negative-an-untyped-obligation-status.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/jurisdiction-policy-decision-v1/negative-an-untyped-obligation-status.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/jurisdiction-policy-decision-v1/negative-applies-but-matched-nothing.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/jurisdiction-policy-decision-v1/negative-applies-but-matched-nothing.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/jurisdiction-policy-decision-v1/negative-grants-authority.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/jurisdiction-policy-decision-v1/negative-grants-authority.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/jurisdiction-policy-decision-v1/negative-one-missing-kind-named-twice.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/jurisdiction-policy-decision-v1/negative-one-missing-kind-named-twice.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/jurisdiction-policy-decision-v1/negative-performs-an-action.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/jurisdiction-policy-decision-v1/negative-performs-an-action.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/jurisdiction-policy-decision-v1/negative-root-does-not-recompute.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/jurisdiction-policy-decision-v1/negative-root-does-not-recompute.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/jurisdiction-policy-decision-v1/negative-this-record-enforces-it.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/jurisdiction-policy-decision-v1/negative-this-record-enforces-it.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/jurisdiction-policy-decision-v1/negative-two-obligations-for-one-kind-and-owner.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/jurisdiction-policy-decision-v1/negative-two-obligations-for-one-kind-and-owner.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/compliance-audit-export-bundle-v1/positive-incomplete-and-says-so.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/compliance-audit-export-bundle-v1/positive-incomplete-and-says-so.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/compliance-audit-export-bundle-v1/positive-regulator-request.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/compliance-audit-export-bundle-v1/positive-regulator-request.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/compliance-audit-export-bundle-v1/negative-a-legal-verdict.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/compliance-audit-export-bundle-v1/negative-a-legal-verdict.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/compliance-audit-export-bundle-v1/negative-a-manifest-missing-a-list.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/compliance-audit-export-bundle-v1/negative-a-manifest-missing-a-list.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/compliance-audit-export-bundle-v1/negative-a-replay-bypasses-the-manifest.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/compliance-audit-export-bundle-v1/negative-a-replay-bypasses-the-manifest.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/compliance-audit-export-bundle-v1/negative-an-invented-audience.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/compliance-audit-export-bundle-v1/negative-an-invented-audience.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/compliance-audit-export-bundle-v1/negative-an-untyped-exclusion-reason.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/compliance-audit-export-bundle-v1/negative-an-untyped-exclusion-reason.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/compliance-audit-export-bundle-v1/negative-an-untyped-validity.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/compliance-audit-export-bundle-v1/negative-an-untyped-validity.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/compliance-audit-export-bundle-v1/negative-carries-protected-plaintext.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/compliance-audit-export-bundle-v1/negative-carries-protected-plaintext.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/compliance-audit-export-bundle-v1/negative-excluded-with-no-reason.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/compliance-audit-export-bundle-v1/negative-excluded-with-no-reason.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/compliance-audit-export-bundle-v1/negative-generated-with-no-supporting-authority.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/compliance-audit-export-bundle-v1/negative-generated-with-no-supporting-authority.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/compliance-audit-export-bundle-v1/negative-no-subject.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/compliance-audit-export-bundle-v1/negative-no-subject.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/compliance-audit-export-bundle-v1/negative-root-does-not-recompute.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/compliance-audit-export-bundle-v1/negative-root-does-not-recompute.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/compliance-audit-export-bundle-v1/negative-two-reasons-for-one-excluded-ref.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/compliance-audit-export-bundle-v1/negative-two-reasons-for-one-excluded-ref.json"))),
     ];
     const RAW_STRING_DELIMITER_REGRESSION_SCHEMA: &str =
         r####"{"const":"schema-controlled\"###literal"}"####;
@@ -216233,6 +219096,21 @@ mod tests {
         },
         "schema://ioi/applications/ioi-ai/collective-qualification-verdict/v1" => {
             serde_json::from_value::<CollectiveQualificationVerdictV1>(value.clone())
+                .map(|_| ())
+                .map_err(|error| error.to_string())
+        },
+        "schema://ioi/foundations/jurisdiction-policy-pack/v1" => {
+            serde_json::from_value::<JurisdictionPolicyPackV1>(value.clone())
+                .map(|_| ())
+                .map_err(|error| error.to_string())
+        },
+        "schema://ioi/foundations/jurisdiction-policy-decision/v1" => {
+            serde_json::from_value::<JurisdictionPolicyDecisionV1>(value.clone())
+                .map(|_| ())
+                .map_err(|error| error.to_string())
+        },
+        "schema://ioi/foundations/compliance-audit-export-bundle/v1" => {
+            serde_json::from_value::<ComplianceAuditExportBundleV1>(value.clone())
                 .map(|_| ())
                 .map_err(|error| error.to_string())
         },
@@ -217982,6 +220860,21 @@ mod tests {
                 .map_err(|error| error.to_string())?;
             serde_json::to_value(projection).map_err(|error| error.to_string())
         },
+        "schema://ioi/foundations/jurisdiction-policy-pack/v1" => {
+            let projection = serde_json::from_value::<JurisdictionPolicyPackV1>(value.clone())
+                .map_err(|error| error.to_string())?;
+            serde_json::to_value(projection).map_err(|error| error.to_string())
+        },
+        "schema://ioi/foundations/jurisdiction-policy-decision/v1" => {
+            let projection = serde_json::from_value::<JurisdictionPolicyDecisionV1>(value.clone())
+                .map_err(|error| error.to_string())?;
+            serde_json::to_value(projection).map_err(|error| error.to_string())
+        },
+        "schema://ioi/foundations/compliance-audit-export-bundle/v1" => {
+            let projection = serde_json::from_value::<ComplianceAuditExportBundleV1>(value.clone())
+                .map_err(|error| error.to_string())?;
+            serde_json::to_value(projection).map_err(|error| error.to_string())
+        },
             _ => Err(format!("unknown projection: {contract_id}")),
         }
     }
@@ -218118,8 +221011,8 @@ mod tests {
     fn golden_fixtures_match_generated_rust_contracts() {
         assert_eq!(
             ARCHITECTURE_CONTRACT_FIXTURES.len(),
-            1864,
-            "the registered golden corpus must remain the explicit 1864-fixture bar",
+            1904,
+            "the registered golden corpus must remain the explicit 1904-fixture bar",
         );
         for fixture in ARCHITECTURE_CONTRACT_FIXTURES {
             let body = FIXTURE_BODIES
@@ -218361,7 +221254,7 @@ mod tests {
 
     #[test]
     fn registered_ecma_pattern_translations_compile_and_match_whitespace() {
-        assert_eq!(CONTRACT_PATTERN_TRANSLATIONS.len(), 1092,);
+        assert_eq!(CONTRACT_PATTERN_TRANSLATIONS.len(), 1109,);
         for (ecma, translated) in CONTRACT_PATTERN_TRANSLATIONS {
             Regex::new(translated).unwrap_or_else(|error| panic!("{ecma}: {error}"));
         }

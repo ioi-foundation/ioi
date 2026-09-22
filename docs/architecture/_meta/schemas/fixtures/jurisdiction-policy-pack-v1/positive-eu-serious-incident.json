@@ -1,0 +1,92 @@
+{
+  "schema_version": "ioi.foundations.jurisdiction-policy-pack.v1",
+  "pack_id": "jurisdiction_policy_pack://eu/ai-act/serious-incident/v1",
+  "version": "1.0.0",
+  "issued_at": "2026-09-01T00:00:00Z",
+  "effective_at": "2026-10-01T00:00:00Z",
+  "supersedes_ref": null,
+  "issuer": {
+    "issuer_ref": "org://ioi-labs",
+    "responsible_ref": "role://compliance-lead",
+    "accountable_ref": "principal://officer/1"
+  },
+  "jurisdiction": {
+    "country": "EU",
+    "region": null,
+    "sector": "ai_systems"
+  },
+  "applies_to": {
+    "action_classes": [
+      "high_risk_model_inference"
+    ],
+    "data_classes": [
+      "personal_data"
+    ],
+    "service_classes": []
+  },
+  "identity_requirements": {
+    "kyc_required": true,
+    "business_verification_required": true,
+    "sanctions_screening_required": true,
+    "accredited_or_professional_status_required": false
+  },
+  "authority_requirements": {
+    "required_scopes": [
+      "scope:effect.execute",
+      "scope:evidence.export"
+    ],
+    "step_up_required": true,
+    "guardian_required": false
+  },
+  "data_requirements": {
+    "retention_policy_ref": "policy://ioi/retention/eu-ai",
+    "deletion_policy_ref": "policy://ioi/deletion/eu",
+    "export_policy_ref": "policy://ioi/export/eu",
+    "residency_policy_ref": "policy://ioi/residency/eu"
+  },
+  "regulated_action_rules": {
+    "prohibited_actions": [
+      "biometric_categorisation",
+      "social_scoring"
+    ],
+    "approval_required_actions": [
+      "high_risk_deployment"
+    ],
+    "disclosure_required_actions": [
+      "automated_decision_affecting_a_person"
+    ]
+  },
+  "tax_and_commercial_refs": {
+    "tax_profile_ref": null,
+    "invoice_profile_ref": null
+  },
+  "audit_requirements": {
+    "evidence_profile_refs": [
+      "assurance_profile://ioi/eu-ai-act/evidence"
+    ]
+  },
+  "incident_reporting": {
+    "rules_version": "1.0.0",
+    "deadlines": [
+      {
+        "incident_class": "serious_incident",
+        "clock_start": "detected_at",
+        "initial_notice_within_ms": 259200000,
+        "full_report_within_ms": 1209600000,
+        "recipient_ref": "regulator://eu/ai-office",
+        "evidence_projection_profile_ref": "assurance_profile://ioi/eu-ai-act/incident",
+        "responsible_ref": "role://compliance-lead",
+        "accountable_ref": "principal://officer/1"
+      }
+    ]
+  },
+  "erasure_requirements": {
+    "crypto_shredding_eligible": true,
+    "crypto_shredding_policy_ref": "policy://ioi/crypto-shred",
+    "erasure_verification_profile_ref": "assurance_profile://ioi/erasure",
+    "exception_policy_ref": null
+  },
+  "grants_no_authority": true,
+  "is_not_legal_advice": true,
+  "pack_root": "sha256:bd7e6787a3639e0fbf821cbcccb8d5c6c781824c3d3d7b02347a7777b3be6d38"
+}

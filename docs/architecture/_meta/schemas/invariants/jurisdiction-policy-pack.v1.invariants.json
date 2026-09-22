@@ -1,0 +1,99 @@
+{
+  "$id": "invariant://ioi/foundations/jurisdiction-policy-pack/a-new-version-never-an-edit/v1",
+  "language": "ioi.portable-invariants.v1",
+  "contract_id": "schema://ioi/foundations/jurisdiction-policy-pack/v1",
+  "rules": [
+    {
+      "rule_id": "jurisdiction_policy_pack.applies_to_something",
+      "description": "A pack that reaches no action class, no data class and no service class constrains nothing \u2014 it is a document that looks like a policy. JSON Schema cannot state this without an anyOf of same-typed branches, which the Rust projection refuses, so the law lives here where it can be said plainly and every consumer reads it.",
+      "expression": {
+        "operator": "any_non_empty",
+        "paths": [
+          "$.applies_to.action_classes",
+          "$.applies_to.data_classes",
+          "$.applies_to.service_classes"
+        ]
+      }
+    },
+    {
+      "rule_id": "jurisdiction_policy_pack.does_not_supersede_itself",
+      "description": "A pack that names itself as the one it supersedes has turned a CHAIN into an edit. Canon's law is that changing a deadline, clock-start rule, recipient, responsible party or accountable issuer requires a new pack VERSION and must never rewrite an already-recorded reporting decision; self-supersession is how that law is broken while still looking like it was followed.",
+      "expression": {
+        "operator": "fields_not_equal",
+        "paths": [
+          "$.pack_id",
+          "$.supersedes_ref"
+        ]
+      }
+    },
+    {
+      "rule_id": "jurisdiction_policy_pack.root.recomputes",
+      "description": "THE SEAL THAT MAKES THE IMMUTABILITY LAW CHECKABLE. A decision binds this root rather than the pack's name, so a deadline edited in place no longer recomputes and every decision taken under the pack breaks its binding instead of being silently reinterpreted against content it was never read under. A change that should have been a new version cannot pass as the same one.",
+      "expression": {
+        "operator": "jcs_sha256_equals",
+        "algorithm": "jcs_sha256",
+        "expected_path": "$.pack_root",
+        "expected_encoding": "sha256_string",
+        "material_fields": {
+          "schema_version": {
+            "path": "$.schema_version"
+          },
+          "pack_id": {
+            "path": "$.pack_id"
+          },
+          "version": {
+            "path": "$.version"
+          },
+          "issued_at": {
+            "path": "$.issued_at"
+          },
+          "effective_at": {
+            "path": "$.effective_at"
+          },
+          "supersedes_ref": {
+            "path": "$.supersedes_ref"
+          },
+          "issuer": {
+            "path": "$.issuer"
+          },
+          "jurisdiction": {
+            "path": "$.jurisdiction"
+          },
+          "applies_to": {
+            "path": "$.applies_to"
+          },
+          "identity_requirements": {
+            "path": "$.identity_requirements"
+          },
+          "authority_requirements": {
+            "path": "$.authority_requirements"
+          },
+          "data_requirements": {
+            "path": "$.data_requirements"
+          },
+          "regulated_action_rules": {
+            "path": "$.regulated_action_rules"
+          },
+          "tax_and_commercial_refs": {
+            "path": "$.tax_and_commercial_refs"
+          },
+          "audit_requirements": {
+            "path": "$.audit_requirements"
+          },
+          "incident_reporting": {
+            "path": "$.incident_reporting"
+          },
+          "erasure_requirements": {
+            "path": "$.erasure_requirements"
+          },
+          "grants_no_authority": {
+            "path": "$.grants_no_authority"
+          },
+          "is_not_legal_advice": {
+            "path": "$.is_not_legal_advice"
+          }
+        }
+      }
+    }
+  ]
+}

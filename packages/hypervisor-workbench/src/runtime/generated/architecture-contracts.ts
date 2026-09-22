@@ -14970,6 +14970,169 @@ export type CollectiveQualificationVerdictV1 = {
   verdict_root: string;
 };
 
+export type JurisdictionPolicyPackV1 = {
+  schema_version: "ioi.foundations.jurisdiction-policy-pack.v1";
+  pack_id: string;
+  version: string;
+  issued_at: string;
+  effective_at: string;
+  supersedes_ref: string | null;
+  issuer: {
+      issuer_ref: string;
+      responsible_ref: string;
+      accountable_ref: string;
+    };
+  jurisdiction: {
+      country: string | null;
+      region: string | null;
+      sector: string | null;
+    };
+  applies_to: {
+      action_classes: Array<string>;
+      data_classes: Array<string>;
+      service_classes: Array<string>;
+    };
+  identity_requirements: {
+      kyc_required: boolean;
+      business_verification_required: boolean;
+      sanctions_screening_required: boolean;
+      accredited_or_professional_status_required: boolean;
+    };
+  authority_requirements: {
+      required_scopes: Array<string>;
+      step_up_required: boolean;
+      guardian_required: boolean;
+    };
+  data_requirements: {
+      retention_policy_ref: string;
+      deletion_policy_ref: string | null;
+      export_policy_ref: string | null;
+      residency_policy_ref: string | null;
+    };
+  regulated_action_rules: {
+      prohibited_actions: Array<string>;
+      approval_required_actions: Array<string>;
+      disclosure_required_actions: Array<string>;
+    };
+  tax_and_commercial_refs: {
+      tax_profile_ref: string | null;
+      invoice_profile_ref: string | null;
+    };
+  audit_requirements: {
+      evidence_profile_refs: Array<string>;
+    };
+  incident_reporting: {
+      rules_version: string;
+      deadlines: Array<{
+              incident_class: string;
+              clock_start: "detected_at" | "confirmed_at" | "materiality_determined_at" | "authority_request_received_at";
+              initial_notice_within_ms: number | null;
+              full_report_within_ms: number | null;
+              recipient_ref: string;
+              evidence_projection_profile_ref: string;
+              responsible_ref: string;
+              accountable_ref: string;
+            }>;
+    };
+  erasure_requirements: {
+      crypto_shredding_eligible: boolean;
+      crypto_shredding_policy_ref: string | null;
+      erasure_verification_profile_ref: string | null;
+      exception_policy_ref: string | null;
+    };
+  grants_no_authority: true;
+  is_not_legal_advice: true;
+  pack_root: string;
+};
+
+export type JurisdictionPolicyDecisionV1 = {
+  schema_version: "ioi.foundations.jurisdiction-policy-decision.v1";
+  decision_id: string;
+  pack_ref: string;
+  pack_version: string;
+  pack_root: string;
+  subject_ref: string;
+  evaluated_at: string;
+  clock_start_basis: "detected_at" | "confirmed_at" | "materiality_determined_at" | "authority_request_received_at" | null;
+  triggering_timestamp: string | null;
+  applicability: {
+      applies: boolean;
+      matched_classes: Array<{
+              class_kind: "action_class" | "data_class" | "service_class";
+              class_name: string;
+            }>;
+      basis: string;
+    };
+  obligations: Array<{
+        obligation_kind: "identity" | "authority" | "data_retention" | "data_residency" | "data_export" | "prohibited_action" | "approval_required" | "disclosure_required" | "audit_evidence" | "incident_report" | "erasure" | "tax_or_commercial";
+        detail: string;
+        enforcing_owner: "wallet_network" | "daemon_policy" | "agentgres_retention" | "marketplace_listing" | "sas_service_obligation" | "public_anchor";
+        owner_ref: string;
+        status: "satisfied" | "unsatisfied" | "not_evaluated" | "evidence_unavailable";
+        evidence_refs?: Array<string>;
+      }>;
+  unmet_evidence: Array<{
+        missing: "law" | "contract" | "qualification" | "current_evidence" | "processor_reference";
+        reason: string;
+      }>;
+  legal_conformity_claim: "not_determined";
+  grants_no_authority: true;
+  performs_no_action: true;
+  decision_root: string;
+};
+
+export type ComplianceAuditExportBundleV1 = {
+  schema_version: "ioi.foundations.compliance-audit-export-bundle.v1";
+  export_id: string;
+  export_type: "customer_audit" | "auditor_review" | "regulator_request" | "counterparty_dispute" | "procurement_review" | "internal_control" | "tax_report" | "sla_report" | "incident_review";
+  subject_refs: Array<string>;
+  audience: "customer" | "external_auditor" | "regulator" | "counterparty" | "insurer" | "procurement" | "internal_auditor" | "public";
+  jurisdiction_policy_pack_refs: Array<string>;
+  regulated_action_refs?: Array<string>;
+  policy_decision_refs: Array<string>;
+  approval_receipt_refs?: Array<string>;
+  denial_receipt_refs?: Array<string>;
+  authority_refs: Array<string>;
+  evidence_bundle_refs?: Array<string>;
+  receipt_refs?: Array<string>;
+  replay_refs?: Array<string>;
+  retention_lock_refs?: Array<string>;
+  restricted_view_refs?: Array<string>;
+  redaction_profile_ref: string;
+  export_policy_ref: string;
+  declassification_refs?: Array<string>;
+  export_manifest: {
+      included_refs: Array<string>;
+      redacted_refs: Array<string>;
+      protected_payload_refs: Array<string>;
+      excluded_refs: Array<string>;
+      exclusion_reasons: Array<{
+              excluded_ref: string;
+              reason: "retention_locked" | "restricted_view" | "no_export_authority" | "protected_plaintext" | "unrelated" | "expired" | "policy_blocked";
+            }>;
+    };
+  commercial_refs?: {
+      invoice_refs: Array<string>;
+      cost_center_refs: Array<string>;
+      sla_report_refs: Array<string>;
+      tax_export_refs: Array<string>;
+      purchase_order_refs: Array<string>;
+    };
+  settlement_mode?: "local_domain" | "bilateral" | "invoice" | "external_escrow" | "external_chain" | "ioi_l1";
+  settlement_profile_ref?: string;
+  network_enrollment_ref?: string | null;
+  public_commitment_policy_ref?: string | null;
+  public_commitment_refs?: Array<string>;
+  generated_by_ref: string;
+  generated_at: string;
+  validity: "valid" | "incomplete" | "stale" | "disputed" | "revoked";
+  status: "requested" | "generated" | "delivered" | "revoked" | "superseded" | "expired";
+  legal_conformity_claim: "not_determined";
+  carries_no_protected_plaintext: true;
+  bypasses_no_export_manifest: true;
+  export_root: string;
+};
+
 export const ARCHITECTURE_CONTRACT_REGISTRY_VERSION = "ioi.architecture-contract-registry.v1" as const;
 
 export const ARCHITECTURE_CONTRACT_PORTABLE_INTEGER_MINIMUM = 0 as const;
@@ -29891,6 +30054,326 @@ export const ARCHITECTURE_CONTRACT_FIXTURES = [
     "expected_schema_accept": false,
     "expected_failure": "schema",
     "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/foundations/jurisdiction-policy-pack/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/jurisdiction-policy-pack-v1/positive-disclosure-only-no-deadlines.json",
+    "expected": "accept",
+    "expected_schema_accept": true,
+    "expected_failure": null,
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/foundations/jurisdiction-policy-pack/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/jurisdiction-policy-pack-v1/positive-eu-serious-incident.json",
+    "expected": "accept",
+    "expected_schema_accept": true,
+    "expected_failure": null,
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/foundations/jurisdiction-policy-pack/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/jurisdiction-policy-pack-v1/negative-a-deadline-with-no-accountable-party.json",
+    "expected": "reject",
+    "expected_schema_accept": false,
+    "expected_failure": "schema",
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/foundations/jurisdiction-policy-pack/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/jurisdiction-policy-pack-v1/negative-a-required-scope-that-is-a-grant.json",
+    "expected": "reject",
+    "expected_schema_accept": false,
+    "expected_failure": "schema",
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/foundations/jurisdiction-policy-pack/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/jurisdiction-policy-pack-v1/negative-a-version-that-is-not-semver.json",
+    "expected": "reject",
+    "expected_schema_accept": false,
+    "expected_failure": "schema",
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/foundations/jurisdiction-policy-pack/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/jurisdiction-policy-pack-v1/negative-an-invented-clock-start.json",
+    "expected": "reject",
+    "expected_schema_accept": false,
+    "expected_failure": "schema",
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/foundations/jurisdiction-policy-pack/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/jurisdiction-policy-pack-v1/negative-applies-to-nothing.json",
+    "expected": "reject",
+    "expected_schema_accept": true,
+    "expected_failure": "invariant",
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/foundations/jurisdiction-policy-pack/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/jurisdiction-policy-pack-v1/negative-claims-to-be-legal-advice.json",
+    "expected": "reject",
+    "expected_schema_accept": false,
+    "expected_failure": "schema",
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/foundations/jurisdiction-policy-pack/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/jurisdiction-policy-pack-v1/negative-claims-to-grant-authority.json",
+    "expected": "reject",
+    "expected_schema_accept": false,
+    "expected_failure": "schema",
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/foundations/jurisdiction-policy-pack/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/jurisdiction-policy-pack-v1/negative-jurisdiction-omits-an-axis.json",
+    "expected": "reject",
+    "expected_schema_accept": false,
+    "expected_failure": "schema",
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/foundations/jurisdiction-policy-pack/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/jurisdiction-policy-pack-v1/negative-root-does-not-recompute.json",
+    "expected": "reject",
+    "expected_schema_accept": true,
+    "expected_failure": "invariant",
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/foundations/jurisdiction-policy-pack/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/jurisdiction-policy-pack-v1/negative-supersedes-itself.json",
+    "expected": "reject",
+    "expected_schema_accept": true,
+    "expected_failure": "invariant",
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/foundations/jurisdiction-policy-decision/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/jurisdiction-policy-decision-v1/positive-applies-with-an-open-obligation.json",
+    "expected": "accept",
+    "expected_schema_accept": true,
+    "expected_failure": null,
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/foundations/jurisdiction-policy-decision/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/jurisdiction-policy-decision-v1/positive-does-not-apply-and-says-why.json",
+    "expected": "accept",
+    "expected_schema_accept": true,
+    "expected_failure": null,
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/foundations/jurisdiction-policy-decision/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/jurisdiction-policy-decision-v1/negative-a-deadline-basis-with-no-triggering-timestamp.json",
+    "expected": "reject",
+    "expected_schema_accept": true,
+    "expected_failure": "invariant",
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/foundations/jurisdiction-policy-decision/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/jurisdiction-policy-decision-v1/negative-a-legal-verdict.json",
+    "expected": "reject",
+    "expected_schema_accept": false,
+    "expected_failure": "schema",
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/foundations/jurisdiction-policy-decision/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/jurisdiction-policy-decision-v1/negative-an-obligation-with-no-enforcing-owner.json",
+    "expected": "reject",
+    "expected_schema_accept": false,
+    "expected_failure": "schema",
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/foundations/jurisdiction-policy-decision/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/jurisdiction-policy-decision-v1/negative-an-untyped-missing-evidence-kind.json",
+    "expected": "reject",
+    "expected_schema_accept": false,
+    "expected_failure": "schema",
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/foundations/jurisdiction-policy-decision/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/jurisdiction-policy-decision-v1/negative-an-untyped-obligation-status.json",
+    "expected": "reject",
+    "expected_schema_accept": false,
+    "expected_failure": "schema",
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/foundations/jurisdiction-policy-decision/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/jurisdiction-policy-decision-v1/negative-applies-but-matched-nothing.json",
+    "expected": "reject",
+    "expected_schema_accept": true,
+    "expected_failure": "invariant",
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/foundations/jurisdiction-policy-decision/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/jurisdiction-policy-decision-v1/negative-grants-authority.json",
+    "expected": "reject",
+    "expected_schema_accept": false,
+    "expected_failure": "schema",
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/foundations/jurisdiction-policy-decision/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/jurisdiction-policy-decision-v1/negative-one-missing-kind-named-twice.json",
+    "expected": "reject",
+    "expected_schema_accept": true,
+    "expected_failure": "invariant",
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/foundations/jurisdiction-policy-decision/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/jurisdiction-policy-decision-v1/negative-performs-an-action.json",
+    "expected": "reject",
+    "expected_schema_accept": false,
+    "expected_failure": "schema",
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/foundations/jurisdiction-policy-decision/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/jurisdiction-policy-decision-v1/negative-root-does-not-recompute.json",
+    "expected": "reject",
+    "expected_schema_accept": true,
+    "expected_failure": "invariant",
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/foundations/jurisdiction-policy-decision/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/jurisdiction-policy-decision-v1/negative-this-record-enforces-it.json",
+    "expected": "reject",
+    "expected_schema_accept": false,
+    "expected_failure": "schema",
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/foundations/jurisdiction-policy-decision/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/jurisdiction-policy-decision-v1/negative-two-obligations-for-one-kind-and-owner.json",
+    "expected": "reject",
+    "expected_schema_accept": true,
+    "expected_failure": "invariant",
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/foundations/compliance-audit-export-bundle/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/compliance-audit-export-bundle-v1/positive-incomplete-and-says-so.json",
+    "expected": "accept",
+    "expected_schema_accept": true,
+    "expected_failure": null,
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/foundations/compliance-audit-export-bundle/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/compliance-audit-export-bundle-v1/positive-regulator-request.json",
+    "expected": "accept",
+    "expected_schema_accept": true,
+    "expected_failure": null,
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/foundations/compliance-audit-export-bundle/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/compliance-audit-export-bundle-v1/negative-a-legal-verdict.json",
+    "expected": "reject",
+    "expected_schema_accept": false,
+    "expected_failure": "schema",
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/foundations/compliance-audit-export-bundle/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/compliance-audit-export-bundle-v1/negative-a-manifest-missing-a-list.json",
+    "expected": "reject",
+    "expected_schema_accept": false,
+    "expected_failure": "schema",
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/foundations/compliance-audit-export-bundle/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/compliance-audit-export-bundle-v1/negative-a-replay-bypasses-the-manifest.json",
+    "expected": "reject",
+    "expected_schema_accept": false,
+    "expected_failure": "schema",
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/foundations/compliance-audit-export-bundle/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/compliance-audit-export-bundle-v1/negative-an-invented-audience.json",
+    "expected": "reject",
+    "expected_schema_accept": false,
+    "expected_failure": "schema",
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/foundations/compliance-audit-export-bundle/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/compliance-audit-export-bundle-v1/negative-an-untyped-exclusion-reason.json",
+    "expected": "reject",
+    "expected_schema_accept": false,
+    "expected_failure": "schema",
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/foundations/compliance-audit-export-bundle/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/compliance-audit-export-bundle-v1/negative-an-untyped-validity.json",
+    "expected": "reject",
+    "expected_schema_accept": false,
+    "expected_failure": "schema",
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/foundations/compliance-audit-export-bundle/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/compliance-audit-export-bundle-v1/negative-carries-protected-plaintext.json",
+    "expected": "reject",
+    "expected_schema_accept": false,
+    "expected_failure": "schema",
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/foundations/compliance-audit-export-bundle/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/compliance-audit-export-bundle-v1/negative-excluded-with-no-reason.json",
+    "expected": "reject",
+    "expected_schema_accept": true,
+    "expected_failure": "invariant",
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/foundations/compliance-audit-export-bundle/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/compliance-audit-export-bundle-v1/negative-generated-with-no-supporting-authority.json",
+    "expected": "reject",
+    "expected_schema_accept": true,
+    "expected_failure": "invariant",
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/foundations/compliance-audit-export-bundle/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/compliance-audit-export-bundle-v1/negative-no-subject.json",
+    "expected": "reject",
+    "expected_schema_accept": false,
+    "expected_failure": "schema",
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/foundations/compliance-audit-export-bundle/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/compliance-audit-export-bundle-v1/negative-root-does-not-recompute.json",
+    "expected": "reject",
+    "expected_schema_accept": true,
+    "expected_failure": "invariant",
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/foundations/compliance-audit-export-bundle/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/compliance-audit-export-bundle-v1/negative-two-reasons-for-one-excluded-ref.json",
+    "expected": "reject",
+    "expected_schema_accept": true,
+    "expected_failure": "invariant",
+    "expected_rule_id": null
   }
 ] as const;
 
@@ -34408,6 +34891,46 @@ export const ARCHITECTURE_CONTRACT_DIFFERENTIAL_CASES: ReadonlyArray<Architectur
   differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/collective-qualification-verdict-v1/negative-the-verdict-activates-a-controller.json","contract_id":"schema://ioi/applications/ioi-ai/collective-qualification-verdict/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/collective-qualification-verdict-v1/negative-the-verdict-activates-a-controller.json","mutation_id":null,"value_json":null}),
   differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/collective-qualification-verdict-v1/negative-the-verdict-grants-authority.json","contract_id":"schema://ioi/applications/ioi-ai/collective-qualification-verdict/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/collective-qualification-verdict-v1/negative-the-verdict-grants-authority.json","mutation_id":null,"value_json":null}),
   differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/collective-qualification-verdict-v1/negative-the-verdict-promotes-the-composition.json","contract_id":"schema://ioi/applications/ioi-ai/collective-qualification-verdict/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/collective-qualification-verdict-v1/negative-the-verdict-promotes-the-composition.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/jurisdiction-policy-pack-v1/positive-disclosure-only-no-deadlines.json","contract_id":"schema://ioi/foundations/jurisdiction-policy-pack/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/jurisdiction-policy-pack-v1/positive-disclosure-only-no-deadlines.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/jurisdiction-policy-pack-v1/positive-eu-serious-incident.json","contract_id":"schema://ioi/foundations/jurisdiction-policy-pack/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/jurisdiction-policy-pack-v1/positive-eu-serious-incident.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/jurisdiction-policy-pack-v1/negative-a-deadline-with-no-accountable-party.json","contract_id":"schema://ioi/foundations/jurisdiction-policy-pack/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/jurisdiction-policy-pack-v1/negative-a-deadline-with-no-accountable-party.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/jurisdiction-policy-pack-v1/negative-a-required-scope-that-is-a-grant.json","contract_id":"schema://ioi/foundations/jurisdiction-policy-pack/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/jurisdiction-policy-pack-v1/negative-a-required-scope-that-is-a-grant.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/jurisdiction-policy-pack-v1/negative-a-version-that-is-not-semver.json","contract_id":"schema://ioi/foundations/jurisdiction-policy-pack/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/jurisdiction-policy-pack-v1/negative-a-version-that-is-not-semver.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/jurisdiction-policy-pack-v1/negative-an-invented-clock-start.json","contract_id":"schema://ioi/foundations/jurisdiction-policy-pack/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/jurisdiction-policy-pack-v1/negative-an-invented-clock-start.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/jurisdiction-policy-pack-v1/negative-applies-to-nothing.json","contract_id":"schema://ioi/foundations/jurisdiction-policy-pack/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/jurisdiction-policy-pack-v1/negative-applies-to-nothing.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/jurisdiction-policy-pack-v1/negative-claims-to-be-legal-advice.json","contract_id":"schema://ioi/foundations/jurisdiction-policy-pack/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/jurisdiction-policy-pack-v1/negative-claims-to-be-legal-advice.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/jurisdiction-policy-pack-v1/negative-claims-to-grant-authority.json","contract_id":"schema://ioi/foundations/jurisdiction-policy-pack/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/jurisdiction-policy-pack-v1/negative-claims-to-grant-authority.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/jurisdiction-policy-pack-v1/negative-jurisdiction-omits-an-axis.json","contract_id":"schema://ioi/foundations/jurisdiction-policy-pack/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/jurisdiction-policy-pack-v1/negative-jurisdiction-omits-an-axis.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/jurisdiction-policy-pack-v1/negative-root-does-not-recompute.json","contract_id":"schema://ioi/foundations/jurisdiction-policy-pack/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/jurisdiction-policy-pack-v1/negative-root-does-not-recompute.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/jurisdiction-policy-pack-v1/negative-supersedes-itself.json","contract_id":"schema://ioi/foundations/jurisdiction-policy-pack/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/jurisdiction-policy-pack-v1/negative-supersedes-itself.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/jurisdiction-policy-decision-v1/positive-applies-with-an-open-obligation.json","contract_id":"schema://ioi/foundations/jurisdiction-policy-decision/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/jurisdiction-policy-decision-v1/positive-applies-with-an-open-obligation.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/jurisdiction-policy-decision-v1/positive-does-not-apply-and-says-why.json","contract_id":"schema://ioi/foundations/jurisdiction-policy-decision/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/jurisdiction-policy-decision-v1/positive-does-not-apply-and-says-why.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/jurisdiction-policy-decision-v1/negative-a-deadline-basis-with-no-triggering-timestamp.json","contract_id":"schema://ioi/foundations/jurisdiction-policy-decision/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/jurisdiction-policy-decision-v1/negative-a-deadline-basis-with-no-triggering-timestamp.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/jurisdiction-policy-decision-v1/negative-a-legal-verdict.json","contract_id":"schema://ioi/foundations/jurisdiction-policy-decision/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/jurisdiction-policy-decision-v1/negative-a-legal-verdict.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/jurisdiction-policy-decision-v1/negative-an-obligation-with-no-enforcing-owner.json","contract_id":"schema://ioi/foundations/jurisdiction-policy-decision/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/jurisdiction-policy-decision-v1/negative-an-obligation-with-no-enforcing-owner.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/jurisdiction-policy-decision-v1/negative-an-untyped-missing-evidence-kind.json","contract_id":"schema://ioi/foundations/jurisdiction-policy-decision/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/jurisdiction-policy-decision-v1/negative-an-untyped-missing-evidence-kind.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/jurisdiction-policy-decision-v1/negative-an-untyped-obligation-status.json","contract_id":"schema://ioi/foundations/jurisdiction-policy-decision/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/jurisdiction-policy-decision-v1/negative-an-untyped-obligation-status.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/jurisdiction-policy-decision-v1/negative-applies-but-matched-nothing.json","contract_id":"schema://ioi/foundations/jurisdiction-policy-decision/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/jurisdiction-policy-decision-v1/negative-applies-but-matched-nothing.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/jurisdiction-policy-decision-v1/negative-grants-authority.json","contract_id":"schema://ioi/foundations/jurisdiction-policy-decision/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/jurisdiction-policy-decision-v1/negative-grants-authority.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/jurisdiction-policy-decision-v1/negative-one-missing-kind-named-twice.json","contract_id":"schema://ioi/foundations/jurisdiction-policy-decision/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/jurisdiction-policy-decision-v1/negative-one-missing-kind-named-twice.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/jurisdiction-policy-decision-v1/negative-performs-an-action.json","contract_id":"schema://ioi/foundations/jurisdiction-policy-decision/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/jurisdiction-policy-decision-v1/negative-performs-an-action.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/jurisdiction-policy-decision-v1/negative-root-does-not-recompute.json","contract_id":"schema://ioi/foundations/jurisdiction-policy-decision/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/jurisdiction-policy-decision-v1/negative-root-does-not-recompute.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/jurisdiction-policy-decision-v1/negative-this-record-enforces-it.json","contract_id":"schema://ioi/foundations/jurisdiction-policy-decision/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/jurisdiction-policy-decision-v1/negative-this-record-enforces-it.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/jurisdiction-policy-decision-v1/negative-two-obligations-for-one-kind-and-owner.json","contract_id":"schema://ioi/foundations/jurisdiction-policy-decision/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/jurisdiction-policy-decision-v1/negative-two-obligations-for-one-kind-and-owner.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/compliance-audit-export-bundle-v1/positive-incomplete-and-says-so.json","contract_id":"schema://ioi/foundations/compliance-audit-export-bundle/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/compliance-audit-export-bundle-v1/positive-incomplete-and-says-so.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/compliance-audit-export-bundle-v1/positive-regulator-request.json","contract_id":"schema://ioi/foundations/compliance-audit-export-bundle/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/compliance-audit-export-bundle-v1/positive-regulator-request.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/compliance-audit-export-bundle-v1/negative-a-legal-verdict.json","contract_id":"schema://ioi/foundations/compliance-audit-export-bundle/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/compliance-audit-export-bundle-v1/negative-a-legal-verdict.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/compliance-audit-export-bundle-v1/negative-a-manifest-missing-a-list.json","contract_id":"schema://ioi/foundations/compliance-audit-export-bundle/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/compliance-audit-export-bundle-v1/negative-a-manifest-missing-a-list.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/compliance-audit-export-bundle-v1/negative-a-replay-bypasses-the-manifest.json","contract_id":"schema://ioi/foundations/compliance-audit-export-bundle/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/compliance-audit-export-bundle-v1/negative-a-replay-bypasses-the-manifest.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/compliance-audit-export-bundle-v1/negative-an-invented-audience.json","contract_id":"schema://ioi/foundations/compliance-audit-export-bundle/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/compliance-audit-export-bundle-v1/negative-an-invented-audience.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/compliance-audit-export-bundle-v1/negative-an-untyped-exclusion-reason.json","contract_id":"schema://ioi/foundations/compliance-audit-export-bundle/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/compliance-audit-export-bundle-v1/negative-an-untyped-exclusion-reason.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/compliance-audit-export-bundle-v1/negative-an-untyped-validity.json","contract_id":"schema://ioi/foundations/compliance-audit-export-bundle/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/compliance-audit-export-bundle-v1/negative-an-untyped-validity.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/compliance-audit-export-bundle-v1/negative-carries-protected-plaintext.json","contract_id":"schema://ioi/foundations/compliance-audit-export-bundle/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/compliance-audit-export-bundle-v1/negative-carries-protected-plaintext.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/compliance-audit-export-bundle-v1/negative-excluded-with-no-reason.json","contract_id":"schema://ioi/foundations/compliance-audit-export-bundle/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/compliance-audit-export-bundle-v1/negative-excluded-with-no-reason.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/compliance-audit-export-bundle-v1/negative-generated-with-no-supporting-authority.json","contract_id":"schema://ioi/foundations/compliance-audit-export-bundle/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/compliance-audit-export-bundle-v1/negative-generated-with-no-supporting-authority.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/compliance-audit-export-bundle-v1/negative-no-subject.json","contract_id":"schema://ioi/foundations/compliance-audit-export-bundle/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/compliance-audit-export-bundle-v1/negative-no-subject.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/compliance-audit-export-bundle-v1/negative-root-does-not-recompute.json","contract_id":"schema://ioi/foundations/compliance-audit-export-bundle/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/compliance-audit-export-bundle-v1/negative-root-does-not-recompute.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/compliance-audit-export-bundle-v1/negative-two-reasons-for-one-excluded-ref.json","contract_id":"schema://ioi/foundations/compliance-audit-export-bundle/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/compliance-audit-export-bundle-v1/negative-two-reasons-for-one-excluded-ref.json","mutation_id":null,"value_json":null}),
   differentialCase({"id":"mutation:sequence-zero-receipt-timestamp-detached","contract_id":"schema://ioi/foundations/autonomous-system-sequence-zero-materialization-receipt/v2","source_fixture_path":null,"mutation_id":"sequence-zero-receipt-timestamp-detached","value_json":null}),
   differentialCase({"id":"mutation:sequence-zero-receipt-authorized-materialization-id-detached","contract_id":"schema://ioi/foundations/autonomous-system-sequence-zero-materialization-receipt/v2","source_fixture_path":null,"mutation_id":"sequence-zero-receipt-authorized-materialization-id-detached","value_json":null}),
   differentialCase({"id":"mutation:sequence-zero-receipt-authority-principal-detached","contract_id":"schema://ioi/foundations/autonomous-system-sequence-zero-materialization-receipt/v2","source_fixture_path":null,"mutation_id":"sequence-zero-receipt-authority-principal-detached","value_json":null}),
@@ -34590,6 +35113,7 @@ export const ARCHITECTURE_CONTRACT_PATTERN_SOURCES = [
   "^(?:(?:worker|service|org|domain|wallet|runtime)://|agentgres://domain/)[A-Za-z0-9](?:[A-Za-z0-9._~:@-]*[A-Za-z0-9]|)(?:/[A-Za-z0-9](?:[A-Za-z0-9._~:@-]*[A-Za-z0-9]|))*$",
   "^(?:/sessions|/missions|/__ioi\\S*)$",
   "^(?:0|[1-9][0-9]*)$",
+  "^(?:0|[1-9][0-9]*)[.](?:0|[1-9][0-9]*)[.](?:0|[1-9][0-9]*)$",
   "^(?:[0-9]+[.][0-9]+[.][0-9]+|[0-9]+[.][0-9]+[.][0-9]+-[0-9A-Za-z.-]+|sha256:[0-9a-f]{64})$",
   "^(?:[a-z][a-z0-9+._-]*://[^\\s]{1,500}|scope:[a-z0-9*._-]{1,200})$",
   "^(?:acceptance|decision|receipt)://[^\\s]{1,500}$",
@@ -34598,6 +35122,7 @@ export const ARCHITECTURE_CONTRACT_PATTERN_SOURCES = [
   "^(?:agentgres|decision)://[^\\s]{1,500}$",
   "^(?:agentgres|deployment-profile|artifact)://[^\\s]{1,248}$",
   "^(?:agentgres|event)://[^\\s]{1,248}$",
+  "^(?:agentgres|runtime)://[^\\s]{1,400}$",
   "^(?:agentgres|wallet|service)://[^\\s]{1,248}$",
   "^(?:agent|worker)://[^\\s]{1,248}$",
   "^(?:ai|package|capability)://[^\\s]{1,500}$",
@@ -34627,7 +35152,9 @@ export const ARCHITECTURE_CONTRACT_PATTERN_SOURCES = [
   "^(?:attempt|observation|participant-lease|domain)://[^\\s]{1,500}$",
   "^(?:attempt|work-result|evidence|receipt)://[^\\s]{1,500}$",
   "^(?:auth_factor|guardian)://[^\\s]{1,500}$",
+  "^(?:authority|grant|lease)://[^\\s]{1,400}$",
   "^(?:authority|policy)://\\S+$",
+  "^(?:authority|regulator|counterparty)://[^\\s]{1,400}$",
   "^(?:benchmark|rubric|gate|policy)://[^\\s]{1,500}$",
   "^(?:blocker|handoff|proposal)://[^\\s]{1,500}$",
   "^(?:budget|spend|allocation)://[^\\s]{1,500}$",
@@ -34729,6 +35256,7 @@ export const ARCHITECTURE_CONTRACT_PATTERN_SOURCES = [
   "^(?:ontology|benchmark|capability|service)://[^\\s]{1,500}$",
   "^(?:ontology|semantic-profile|ontology-mapping)://[^\\s]{1,500}$",
   "^(?:ontology|semantic-profile|ontology-mapping|ontology-action|action_schema)://[^\\s]{1,500}$",
+  "^(?:org|domain|governance)://[^\\s]{1,400}$",
   "^(?:org|project)://[A-Za-z0-9][A-Za-z0-9._~:@/-]*$",
   "^(?:org|project)://[^\\s?#\\\\]+$",
   "^(?:org|project)://[^\\s]{1,240}$",
@@ -34775,6 +35303,7 @@ export const ARCHITECTURE_CONTRACT_PATTERN_SOURCES = [
   "^(?:policy|settlement-intent|dispute)://[^\\s]{1,500}$",
   "^(?:policy|storage-policy)(?:://|:)[^\\s]{1,500}$",
   "^(?:prim:[a-z][a-z0-9._-]*|[a-z][a-z0-9+._-]*://[^\\s]{1,500})$",
+  "^(?:principal|role)://[^\\s]{1,400}$",
   "^(?:principal|wallet|organization|org)://[^\\s]{1,248}$",
   "^(?:privacy_posture|custody|policy)://[^\\s]{1,500}$",
   "^(?:privacy_posture|quote|benchmark|sla)://[^\\s]{1,500}$",
@@ -34960,9 +35489,11 @@ export const ARCHITECTURE_CONTRACT_PATTERN_SOURCES = [
   "^[a-z][a-z0-9+.-]*(?:://|:)[^\\s]{1,248}$",
   "^[a-z][a-z0-9+.-]*://[^ ]{1,480}$",
   "^[a-z][a-z0-9+.-]*://[^\\s]{1,248}$",
+  "^[a-z][a-z0-9+.-]*://[^\\s]{1,400}$",
   "^[a-z][a-z0-9+.-]*://[^\\s]{1,500}$",
   "^[a-z][a-z0-9+.-]*://\\S+$",
   "^[a-z][a-z0-9+._-]*://[^ ]{1,480}$",
+  "^[a-z][a-z0-9+._-]*://[^\\s]{1,400}$",
   "^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$",
   "^[a-z][a-z0-9+._-]*://\\S+$",
   "^[a-z][a-z0-9-]*(?:://|:)[^\\s]+$",
@@ -35056,8 +35587,10 @@ export const ARCHITECTURE_CONTRACT_PATTERN_SOURCES = [
   "^assurance-profile://[^\\s]{1,248}$",
   "^assurance-transition://[^\\s]{1,460}$",
   "^assurance-transition://[a-z][a-z0-9_]{0,63}/[^\\s]{1,380}/transition/[1-6]$",
+  "^assurance_profile://[^\\s]{1,400}$",
   "^attempt://[^\\s]{1,240}$",
   "^attempt://[^\\s]{1,500}$",
+  "^audit_export://[^\\s?#\\\\]{1,200}$",
   "^auth_factor://[^\\s]{1,500}$",
   "^authority-gateway://[^\\s]{1,500}$",
   "^authority-provider://[^\\s]{1,500}$",
@@ -35274,8 +35807,11 @@ export const ARCHITECTURE_CONTRACT_PATTERN_SOURCES = [
   "^installation://[A-Za-z0-9][A-Za-z0-9._/-]{0,190}$",
   "^invariant://[^\\s]{1,240}$",
   "^invariant://[^\\s]{1,248}$",
+  "^invoice://[^\\s]{1,400}$",
   "^ioi://publisher/[^\\s]{1,224}$",
   "^jurisdiction://[a-z0-9][a-z0-9._/-]{0,190}$",
+  "^jurisdiction_decision://[^\\s?#\\\\]{1,200}$",
+  "^jurisdiction_policy_pack://[^\\s?#\\\\]{1,200}$",
   "^key://[^\\s]+$",
   "^key://[^\\s]{1,248}$",
   "^key://[^\\s]{1,500}$",
@@ -35344,6 +35880,7 @@ export const ARCHITECTURE_CONTRACT_PATTERN_SOURCES = [
   "^mount-receipt://mrcpt_[0-9a-f]{16}$",
   "^mrcpt_[0-9a-f]{1,32}$",
   "^network-enrollment://[^\\s]{1,248}$",
+  "^network-enrollment://[^\\s]{1,400}$",
   "^network-enrollment://[^\\s]{1,500}$",
   "^node-enforcement-observation://[A-Za-z0-9][A-Za-z0-9._:/-]*$",
   "^node-enforcement-observation://[A-Za-z0-9][A-Za-z0-9._:/-]*/revision/[0-9]+$",
@@ -35418,6 +35955,7 @@ export const ARCHITECTURE_CONTRACT_PATTERN_SOURCES = [
   "^policy://[^\\s]+$",
   "^policy://[^\\s]{1,240}$",
   "^policy://[^\\s]{1,248}$",
+  "^policy://[^\\s]{1,400}$",
   "^policy://[^\\s]{1,460}$",
   "^policy://[^\\s]{1,500}$",
   "^policy://\\S+$",
@@ -35529,6 +36067,7 @@ export const ARCHITECTURE_CONTRACT_PATTERN_SOURCES = [
   "^scope:[a-z0-9_.:-]{1,120}$",
   "^scope:[a-z][a-z0-9._-]*$",
   "^scope:[a-z][a-z0-9._-]{0,127}$",
+  "^scope:[a-z][a-z0-9._:-]{0,200}$",
   "^scope:autonomous_system[.]lifecycle[.][a-z][a-z0-9_]{1,80}$",
   "^scope:autonomous_system[.]membership[.][a-z_]{1,64}$",
   "^sd_[0-9a-f]{17}$",
@@ -35597,6 +36136,7 @@ export const ARCHITECTURE_CONTRACT_PATTERN_SOURCES = [
   "^target-binding:[^\\s]{1,240}$",
   "^task-class://[a-z0-9][a-z0-9._/-]{0,190}$",
   "^task://[^\\s]+$",
+  "^tax://[^\\s]{1,400}$",
   "^temporal-evaluation://[^\\s]{1,248}$",
   "^tenant-membership://hypervisor/[0-9a-f]{64}/revision/[1-9][0-9]*$",
   "^tenant://[A-Za-z0-9][A-Za-z0-9._-]{0,127}$",
@@ -36014,7 +36554,10 @@ export const ARCHITECTURE_CONTRACT_SCHEMA_HASHES = {
   "schema://ioi/components/connectors-tools/hypervisor-mcp-gateway-profile/v2": "sha256:36c770c98e4e799359e479b3a6c0a8253a9889c5b0ee25f3865c802cb18d888b",
   "schema://ioi/applications/ioi-ai/collective-qualification-estimand/v1": "sha256:ee74e3f3f4d626cdafdf44a50f443631c42db3596e1b6bb8c7364be0cc4c294d",
   "schema://ioi/applications/ioi-ai/collective-baseline-pairing/v1": "sha256:814d3ae058d3bbcebeeeb44342dee6ab4f347433b5b080dd55cc5bc83f6d807a",
-  "schema://ioi/applications/ioi-ai/collective-qualification-verdict/v1": "sha256:94871ec7577b87e08a0122b70ba651f3ea87d056024f650d7ebac5215c90f5ed"
+  "schema://ioi/applications/ioi-ai/collective-qualification-verdict/v1": "sha256:94871ec7577b87e08a0122b70ba651f3ea87d056024f650d7ebac5215c90f5ed",
+  "schema://ioi/foundations/jurisdiction-policy-pack/v1": "sha256:979e40fa740e5be13e609e22e4bdc803f1a6512fd7e2156b4b883fdfcc07a4af",
+  "schema://ioi/foundations/jurisdiction-policy-decision/v1": "sha256:507ea5521eadbb6c7de6b25032bf760fa6415e1e50190564edde9352f818f99a",
+  "schema://ioi/foundations/compliance-audit-export-bundle/v1": "sha256:cc0379a030deed159137902a99f760446ee9b064fd70e53c123555fa86cef1ef"
 } as const;
 
 type JsonObject = Record<string, unknown>;
@@ -151977,6 +152520,1128 @@ const CONTRACT_SCHEMAS: Record<string, JsonObject> = {
         "pattern": "^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$"
       }
     }
+  },
+  "schema://ioi/foundations/jurisdiction-policy-pack/v1": {
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "$id": "schema://ioi/foundations/jurisdiction-policy-pack/v1",
+    "title": "JurisdictionPolicyPack",
+    "x-ioi-schema-version": "ioi.foundations.jurisdiction-policy-pack.v1",
+    "description": "JURISDICTION, ELIGIBILITY, RETENTION, REGULATED-ACTION, TAX AND EXPORT OBLIGATIONS IN A MACHINE-READABLE SHAPE — and nothing that reads as a legal determination. Canon has specified this object member for member since the assurance foundation was written (foundations/ecosystem-assurance-certification-liability.md § JurisdictionPolicyPack) and nothing in the estate registered it, so every one of those obligations was a paragraph rather than a shape anything could refuse. THE PACK GRANTS NOTHING AND DECIDES NOTHING: it compiles into owners that already exist — wallet.network identity, eligibility, payment, step-up and authority gates; daemon policy checks and runtime fail-closed behaviour; Agentgres retention, receipt, state-root and export validity; marketplace listing restrictions; sas.xyz SLA, refund, bond and provider obligations. It is not legal advice and not a substitute for domain-specific review. TWO LAWS CANON STATES THAT THIS SHAPE MAKES CHECKABLE: deadline arithmetic retains the EXACT pack version and triggering timestamp, and changing a deadline, clock-start rule, recipient, responsible party or accountable issuer requires a NEW PACK VERSION and must never rewrite an already-recorded reporting decision — so the pack is sealed by `pack_root`, and a decision binds that root rather than the pack's name. Owner: foundations/ecosystem-assurance-certification-liability.md § JurisdictionPolicyPack (M06.10, R-228).",
+    "type": "object",
+    "additionalProperties": false,
+    "required": [
+      "schema_version",
+      "pack_id",
+      "version",
+      "issued_at",
+      "effective_at",
+      "supersedes_ref",
+      "issuer",
+      "jurisdiction",
+      "applies_to",
+      "identity_requirements",
+      "authority_requirements",
+      "data_requirements",
+      "regulated_action_rules",
+      "tax_and_commercial_refs",
+      "audit_requirements",
+      "incident_reporting",
+      "erasure_requirements",
+      "grants_no_authority",
+      "is_not_legal_advice",
+      "pack_root"
+    ],
+    "properties": {
+      "schema_version": {
+        "type": "string",
+        "const": "ioi.foundations.jurisdiction-policy-pack.v1"
+      },
+      "pack_id": {
+        "$ref": "#/$defs/packRef"
+      },
+      "version": {
+        "type": "string",
+        "pattern": "^(?:0|[1-9][0-9]*)[.](?:0|[1-9][0-9]*)[.](?:0|[1-9][0-9]*)$",
+        "description": "Semver, and load-bearing rather than decorative: canon requires a NEW VERSION for any change to a deadline, clock-start rule, recipient, responsible party or accountable issuer, and a recorded decision names the version it was taken under."
+      },
+      "issued_at": {
+        "$ref": "#/$defs/timestamp"
+      },
+      "effective_at": {
+        "$ref": "#/$defs/timestamp",
+        "description": "When the obligations begin to apply, which is not when the pack was issued. A decision taken before this instant was taken under the predecessor."
+      },
+      "supersedes_ref": {
+        "anyOf": [
+          {
+            "$ref": "#/$defs/packRef"
+          },
+          {
+            "type": "null"
+          }
+        ],
+        "description": "The pack this one replaces, or null for a first issue. Supersession is a CHAIN, not an edit: the superseded pack keeps standing behind every decision already taken under it."
+      },
+      "issuer": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "issuer_ref",
+          "responsible_ref",
+          "accountable_ref"
+        ],
+        "description": "Who issued it, who is responsible and who is accountable — three refs because they are routinely three parties, and an obligation with no accountable party behind it is a document.",
+        "properties": {
+          "issuer_ref": {
+            "type": "string",
+            "pattern": "^(?:org|domain|governance)://[^\\s]{1,400}$"
+          },
+          "responsible_ref": {
+            "$ref": "#/$defs/actorRef"
+          },
+          "accountable_ref": {
+            "$ref": "#/$defs/actorRef"
+          }
+        }
+      },
+      "jurisdiction": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "country",
+          "region",
+          "sector"
+        ],
+        "description": "All three members are present and any may be null. A pack that omitted the axis it does not constrain would be indistinguishable from one whose author forgot it.",
+        "properties": {
+          "country": {
+            "anyOf": [
+              {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 120
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "region": {
+            "anyOf": [
+              {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 120
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "sector": {
+            "anyOf": [
+              {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 120
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        }
+      },
+      "applies_to": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "action_classes",
+          "data_classes",
+          "service_classes"
+        ],
+        "description": "What the pack reaches, in canon's own three kinds. All three lists are present and any may be empty; that a pack must reach SOMETHING is a portable invariant rather than a schema shape, because JSON Schema can only say it with an anyOf of same-typed branches and the Rust projection refuses those — a limit worth stating rather than working around by renaming what canon calls these.",
+        "properties": {
+          "action_classes": {
+            "type": "array",
+            "maxItems": 256,
+            "uniqueItems": true,
+            "items": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 200
+            }
+          },
+          "data_classes": {
+            "type": "array",
+            "maxItems": 256,
+            "uniqueItems": true,
+            "items": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 200
+            }
+          },
+          "service_classes": {
+            "type": "array",
+            "maxItems": 256,
+            "uniqueItems": true,
+            "items": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 200
+            }
+          }
+        }
+      },
+      "identity_requirements": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "kyc_required",
+          "business_verification_required",
+          "sanctions_screening_required",
+          "accredited_or_professional_status_required"
+        ],
+        "description": "Declared, and enforced by wallet.network's own gates. Every member is present so that `false` is a stated posture rather than an omission.",
+        "properties": {
+          "kyc_required": {
+            "type": "boolean"
+          },
+          "business_verification_required": {
+            "type": "boolean"
+          },
+          "sanctions_screening_required": {
+            "type": "boolean"
+          },
+          "accredited_or_professional_status_required": {
+            "type": "boolean"
+          }
+        }
+      },
+      "authority_requirements": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "required_scopes",
+          "step_up_required",
+          "guardian_required"
+        ],
+        "properties": {
+          "required_scopes": {
+            "type": "array",
+            "maxItems": 256,
+            "uniqueItems": true,
+            "items": {
+              "type": "string",
+              "pattern": "^scope:[a-z][a-z0-9._:-]{0,200}$"
+            },
+            "description": "Scopes the pack REQUIRES, never scopes it grants. The pack is an obligation, and an obligation that could mint authority would be a grant wearing a policy's name."
+          },
+          "step_up_required": {
+            "type": "boolean"
+          },
+          "guardian_required": {
+            "type": "boolean"
+          }
+        }
+      },
+      "data_requirements": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "retention_policy_ref",
+          "deletion_policy_ref",
+          "export_policy_ref",
+          "residency_policy_ref"
+        ],
+        "description": "Pointers at the policies that already own these decisions. The pack names them; it does not restate them, because a restated policy is a second copy that can drift.",
+        "properties": {
+          "retention_policy_ref": {
+            "$ref": "#/$defs/policyRef"
+          },
+          "deletion_policy_ref": {
+            "anyOf": [
+              {
+                "$ref": "#/$defs/policyRef"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "export_policy_ref": {
+            "anyOf": [
+              {
+                "$ref": "#/$defs/policyRef"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "residency_policy_ref": {
+            "anyOf": [
+              {
+                "$ref": "#/$defs/policyRef"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        }
+      },
+      "regulated_action_rules": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "prohibited_actions",
+          "approval_required_actions",
+          "disclosure_required_actions"
+        ],
+        "description": "Three lists that mean three different things: what may not happen, what needs an approval first, and what must be disclosed when it does. Collapsing them would lose the difference between a refusal and a receipt.",
+        "properties": {
+          "prohibited_actions": {
+            "$ref": "#/$defs/actionList"
+          },
+          "approval_required_actions": {
+            "$ref": "#/$defs/actionList"
+          },
+          "disclosure_required_actions": {
+            "$ref": "#/$defs/actionList"
+          }
+        }
+      },
+      "tax_and_commercial_refs": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "tax_profile_ref",
+          "invoice_profile_ref"
+        ],
+        "properties": {
+          "tax_profile_ref": {
+            "anyOf": [
+              {
+                "type": "string",
+                "pattern": "^tax://[^\\s]{1,400}$"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "invoice_profile_ref": {
+            "anyOf": [
+              {
+                "type": "string",
+                "pattern": "^invoice://[^\\s]{1,400}$"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        }
+      },
+      "audit_requirements": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "evidence_profile_refs"
+        ],
+        "properties": {
+          "evidence_profile_refs": {
+            "type": "array",
+            "maxItems": 128,
+            "uniqueItems": true,
+            "items": {
+              "$ref": "#/$defs/assuranceProfileRef"
+            }
+          }
+        }
+      },
+      "incident_reporting": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "rules_version",
+          "deadlines"
+        ],
+        "description": "THE PART WHERE ARITHMETIC MEETS OBLIGATION. Each deadline names the incident class it applies to, the CLOCK START it runs from, the windows, who receives the notice, what evidence projection accompanies it, and who is responsible and accountable. Canon: deadline arithmetic must retain the exact pack version and triggering timestamp, and changing any of these requires a new pack version.",
+        "properties": {
+          "rules_version": {
+            "type": "string",
+            "pattern": "^(?:0|[1-9][0-9]*)[.](?:0|[1-9][0-9]*)[.](?:0|[1-9][0-9]*)$"
+          },
+          "deadlines": {
+            "type": "array",
+            "maxItems": 128,
+            "items": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "incident_class",
+                "clock_start",
+                "initial_notice_within_ms",
+                "full_report_within_ms",
+                "recipient_ref",
+                "evidence_projection_profile_ref",
+                "responsible_ref",
+                "accountable_ref"
+              ],
+              "properties": {
+                "incident_class": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 200
+                },
+                "clock_start": {
+                  "type": "string",
+                  "enum": [
+                    "detected_at",
+                    "confirmed_at",
+                    "materiality_determined_at",
+                    "authority_request_received_at"
+                  ],
+                  "description": "WHICH INSTANT THE WINDOW RUNS FROM, and the four are genuinely different moments. A deadline computed from the wrong one is wrong by however long detection, confirmation and materiality took."
+                },
+                "initial_notice_within_ms": {
+                  "anyOf": [
+                    {
+                      "type": "integer",
+                      "minimum": 0,
+                      "maximum": 315360000000
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                },
+                "full_report_within_ms": {
+                  "anyOf": [
+                    {
+                      "type": "integer",
+                      "minimum": 0,
+                      "maximum": 315360000000
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                },
+                "recipient_ref": {
+                  "type": "string",
+                  "pattern": "^(?:authority|regulator|counterparty)://[^\\s]{1,400}$"
+                },
+                "evidence_projection_profile_ref": {
+                  "$ref": "#/$defs/assuranceProfileRef"
+                },
+                "responsible_ref": {
+                  "$ref": "#/$defs/actorRef"
+                },
+                "accountable_ref": {
+                  "$ref": "#/$defs/actorRef"
+                }
+              }
+            }
+          }
+        }
+      },
+      "erasure_requirements": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "crypto_shredding_eligible",
+          "crypto_shredding_policy_ref",
+          "erasure_verification_profile_ref",
+          "exception_policy_ref"
+        ],
+        "properties": {
+          "crypto_shredding_eligible": {
+            "type": "boolean"
+          },
+          "crypto_shredding_policy_ref": {
+            "anyOf": [
+              {
+                "$ref": "#/$defs/policyRef"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "erasure_verification_profile_ref": {
+            "anyOf": [
+              {
+                "$ref": "#/$defs/assuranceProfileRef"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "exception_policy_ref": {
+            "anyOf": [
+              {
+                "$ref": "#/$defs/policyRef"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        }
+      },
+      "grants_no_authority": {
+        "type": "boolean",
+        "const": true,
+        "description": "On the wire, because the pack names required scopes and a reader could take that for a grant. It requires; it never issues."
+      },
+      "is_not_legal_advice": {
+        "type": "boolean",
+        "const": true,
+        "description": "Canon's own sentence, carried as a member rather than left in prose: the pack is not legal advice and not a substitute for domain-specific review."
+      },
+      "pack_root": {
+        "type": "string",
+        "pattern": "^sha256:[0-9a-f]{64}$",
+        "description": "SHA-256 over JCS of every member except this one. THIS IS WHAT MAKES CANON'S IMMUTABILITY LAW CHECKABLE: a decision binds the root, not the name, so editing a deadline in place breaks every decision already taken under the pack instead of silently rewriting what they were decided against. A change that should be a new version cannot pass as the same one."
+      }
+    },
+    "$defs": {
+      "packRef": {
+        "type": "string",
+        "pattern": "^jurisdiction_policy_pack://[^\\s?#\\\\]{1,200}$"
+      },
+      "policyRef": {
+        "type": "string",
+        "pattern": "^policy://[^\\s]{1,400}$"
+      },
+      "assuranceProfileRef": {
+        "type": "string",
+        "pattern": "^assurance_profile://[^\\s]{1,400}$"
+      },
+      "actorRef": {
+        "type": "string",
+        "pattern": "^(?:principal|role)://[^\\s]{1,400}$"
+      },
+      "actionList": {
+        "type": "array",
+        "maxItems": 256,
+        "uniqueItems": true,
+        "items": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 200
+        }
+      },
+      "timestamp": {
+        "type": "string",
+        "pattern": "^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$"
+      }
+    }
+  },
+  "schema://ioi/foundations/jurisdiction-policy-decision/v1": {
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "$id": "schema://ioi/foundations/jurisdiction-policy-decision/v1",
+    "title": "JurisdictionPolicyDecision",
+    "x-ioi-schema-version": "ioi.foundations.jurisdiction-policy-decision.v1",
+    "description": "WHAT A PACK SAID ABOUT ONE SUBJECT, AT ONE INSTANT, UNDER ONE EXACT PACK VERSION — and never a legal determination. Canon's sentence is unambiguous and nothing in the estate enforced it: \"Generated projections must always emit `legal_conformity_claim: not_determined`; no score, current deadline, attestation posture, submitted report, crypto-shredding receipt, certification, or policy-pack match is a legal determination.\" So `legal_conformity_claim` is `const not_determined` on the wire — a technical evaluator cannot express a legal verdict even by mistake, and the refusal sits where it cannot be argued with rather than in a checker that must remember to look. THE DECISION BINDS THE PACK'S ROOT, NOT ITS NAME. Canon requires that changing a deadline, clock-start rule, recipient, responsible party or accountable issuer take a NEW PACK VERSION and never rewrite an already-recorded reporting decision; binding `pack_root` is what makes that checkable, because an in-place edit breaks the binding instead of silently changing what this decision was taken against. AND IT DECIDES NOTHING ITSELF: the pack compiles into owners that already exist, so this record REPORTS which obligations were found to apply and which owner must enforce each one. It grants no authority, performs no action and refuses nothing on its own. Owner: foundations/ecosystem-assurance-certification-liability.md § JurisdictionPolicyPack (M06.10, R-228).",
+    "type": "object",
+    "additionalProperties": false,
+    "required": [
+      "schema_version",
+      "decision_id",
+      "pack_ref",
+      "pack_version",
+      "pack_root",
+      "subject_ref",
+      "evaluated_at",
+      "clock_start_basis",
+      "triggering_timestamp",
+      "applicability",
+      "obligations",
+      "unmet_evidence",
+      "legal_conformity_claim",
+      "grants_no_authority",
+      "performs_no_action",
+      "decision_root"
+    ],
+    "properties": {
+      "schema_version": {
+        "type": "string",
+        "const": "ioi.foundations.jurisdiction-policy-decision.v1"
+      },
+      "decision_id": {
+        "type": "string",
+        "pattern": "^jurisdiction_decision://[^\\s?#\\\\]{1,200}$"
+      },
+      "pack_ref": {
+        "type": "string",
+        "pattern": "^jurisdiction_policy_pack://[^\\s?#\\\\]{1,200}$"
+      },
+      "pack_version": {
+        "type": "string",
+        "pattern": "^(?:0|[1-9][0-9]*)[.](?:0|[1-9][0-9]*)[.](?:0|[1-9][0-9]*)$",
+        "description": "Canon: deadline arithmetic must retain the EXACT pack version. Carried here rather than resolved later, because resolving it later means resolving it against whatever the pack says by then."
+      },
+      "pack_root": {
+        "type": "string",
+        "pattern": "^sha256:[0-9a-f]{64}$",
+        "description": "The pack's own seal at the instant this decision was taken. A pack edited in place no longer matches, so the decision cannot be quietly reinterpreted against content it was never read under — which is exactly the rewrite canon forbids."
+      },
+      "subject_ref": {
+        "type": "string",
+        "pattern": "^[a-z][a-z0-9+.-]*://[^\\s]{1,400}$",
+        "description": "What was evaluated — a run, task, service, order, worker, runtime, domain or account. One decision, one subject."
+      },
+      "evaluated_at": {
+        "$ref": "#/$defs/timestamp"
+      },
+      "clock_start_basis": {
+        "anyOf": [
+          {
+            "type": "string",
+            "enum": [
+              "detected_at",
+              "confirmed_at",
+              "materiality_determined_at",
+              "authority_request_received_at"
+            ]
+          },
+          {
+            "type": "null"
+          }
+        ],
+        "description": "Which of the four instants any deadline in this decision runs from, or null when no deadline applies. The four are genuinely different moments and a window computed from the wrong one is wrong by however long detection, confirmation or materiality took."
+      },
+      "triggering_timestamp": {
+        "anyOf": [
+          {
+            "$ref": "#/$defs/timestamp"
+          },
+          {
+            "type": "null"
+          }
+        ],
+        "description": "Canon: deadline arithmetic must retain the exact TRIGGERING TIMESTAMP. Null when no deadline applies; present and exact when one does, so the window can be recomputed by a reader rather than trusted."
+      },
+      "applicability": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "applies",
+          "matched_classes",
+          "basis"
+        ],
+        "description": "Whether the pack reached this subject at all, and on what. A decision that says `applies: false` with no basis is indistinguishable from one nobody evaluated.",
+        "properties": {
+          "applies": {
+            "type": "boolean"
+          },
+          "matched_classes": {
+            "type": "array",
+            "maxItems": 256,
+            "items": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "class_kind",
+                "class_name"
+              ],
+              "properties": {
+                "class_kind": {
+                  "type": "string",
+                  "enum": [
+                    "action_class",
+                    "data_class",
+                    "service_class"
+                  ]
+                },
+                "class_name": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 200
+                }
+              }
+            }
+          },
+          "basis": {
+            "type": "string",
+            "minLength": 12,
+            "maxLength": 600
+          }
+        }
+      },
+      "obligations": {
+        "type": "array",
+        "maxItems": 512,
+        "description": "EACH OBLIGATION NAMES THE OWNER THAT ENFORCES IT. The pack compiles into owners that already exist, so a decision that stated an obligation without naming its enforcer would be asserting one of its own.",
+        "items": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "obligation_kind",
+            "detail",
+            "enforcing_owner",
+            "owner_ref",
+            "status"
+          ],
+          "properties": {
+            "obligation_kind": {
+              "type": "string",
+              "enum": [
+                "identity",
+                "authority",
+                "data_retention",
+                "data_residency",
+                "data_export",
+                "prohibited_action",
+                "approval_required",
+                "disclosure_required",
+                "audit_evidence",
+                "incident_report",
+                "erasure",
+                "tax_or_commercial"
+              ]
+            },
+            "detail": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 600
+            },
+            "enforcing_owner": {
+              "type": "string",
+              "enum": [
+                "wallet_network",
+                "daemon_policy",
+                "agentgres_retention",
+                "marketplace_listing",
+                "sas_service_obligation",
+                "public_anchor"
+              ],
+              "description": "The owners canon names as the places a pack compiles INTO. This record enforces nothing; it says who does."
+            },
+            "owner_ref": {
+              "type": "string",
+              "pattern": "^[a-z][a-z0-9+.-]*://[^\\s]{1,400}$"
+            },
+            "status": {
+              "type": "string",
+              "enum": [
+                "satisfied",
+                "unsatisfied",
+                "not_evaluated",
+                "evidence_unavailable"
+              ],
+              "description": "`not_evaluated` and `evidence_unavailable` are distinct from `unsatisfied` on purpose: not looking and looking-and-not-finding are different facts, and collapsing them turns an absent evaluator into a clean bill."
+            },
+            "evidence_refs": {
+              "type": "array",
+              "maxItems": 128,
+              "uniqueItems": true,
+              "items": {
+                "type": "string",
+                "pattern": "^[a-z][a-z0-9+.-]*://[^\\s]{1,400}$"
+              }
+            }
+          }
+        }
+      },
+      "unmet_evidence": {
+        "type": "array",
+        "maxItems": 256,
+        "description": "WHAT COULD NOT BE ESTABLISHED, named rather than omitted. Canon requires refusal on missing law, contract, qualification or current evidence; a decision that silently dropped what it could not check would read as a stronger result than it is.",
+        "items": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "missing",
+            "reason"
+          ],
+          "properties": {
+            "missing": {
+              "type": "string",
+              "enum": [
+                "law",
+                "contract",
+                "qualification",
+                "current_evidence",
+                "processor_reference"
+              ]
+            },
+            "reason": {
+              "type": "string",
+              "minLength": 12,
+              "maxLength": 600
+            }
+          }
+        }
+      },
+      "legal_conformity_claim": {
+        "type": "string",
+        "const": "not_determined",
+        "description": "CANON'S OWN WORD, PINNED ON THE WIRE. No score, current deadline, attestation posture, submitted report, crypto-shredding receipt, certification or policy-pack match is a legal determination. A technical evaluator that could express a legal verdict would be the defect this whole contract exists to prevent, so the only admissible value is this one."
+      },
+      "grants_no_authority": {
+        "type": "boolean",
+        "const": true
+      },
+      "performs_no_action": {
+        "type": "boolean",
+        "const": true,
+        "description": "The decision reports. Stopping, refusing, escalating and reporting are their owners' operations, and a record that performed one would be an actor."
+      },
+      "decision_root": {
+        "type": "string",
+        "pattern": "^sha256:[0-9a-f]{64}$",
+        "description": "SHA-256 over JCS of every member except this one, so a recorded decision can be shown not to have moved — which is the other half of canon's rule that a new pack version must never rewrite one."
+      }
+    },
+    "$defs": {
+      "timestamp": {
+        "type": "string",
+        "pattern": "^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$"
+      }
+    }
+  },
+  "schema://ioi/foundations/compliance-audit-export-bundle/v1": {
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "$id": "schema://ioi/foundations/compliance-audit-export-bundle/v1",
+    "title": "ComplianceAuditExportBundle",
+    "x-ioi-schema-version": "ioi.foundations.compliance-audit-export-bundle.v1",
+    "description": "AN EXPORT MANIFEST OVER EVIDENCE THAT ALREADY EXISTS, FOR ONE NAMED AUDIENCE — not a storage backend, not a screenshot bundle, not a legal opinion, and not a replacement for Agentgres truth. Canon requires an export to make THREE things obvious, and this shape makes each of them a member rather than a habit: what was included and why; what was redacted, withheld, protected or excluded AND WHY; and which policy, authority, retention, restricted-view, receipt and state-root refs support it. THE AUDIENCE IS A MEMBER BECAUSE THE WRONG ONE IS THE FAILURE MODE — ACC-18's first clause is that a wrong audience fails offline, so an export carries who it was built for and a reader can refuse it without asking anyone. EXCLUSION IS TYPED, NEVER SILENT: a ref that did not travel names the reason it did not, from a closed set, because a bundle that simply omits what it could not release is indistinguishable from one that had nothing to release. And a replay or proof view MUST NOT BYPASS THE MANIFEST: raw private payloads stay under storage, retention, restricted-view and authority policy, so `protected_payload_refs` names them and never carries them. Owner: foundations/ecosystem-assurance-certification-liability.md § ComplianceAuditExportBundle (M06.10, R-228).",
+    "type": "object",
+    "additionalProperties": false,
+    "required": [
+      "schema_version",
+      "export_id",
+      "export_type",
+      "subject_refs",
+      "audience",
+      "jurisdiction_policy_pack_refs",
+      "policy_decision_refs",
+      "authority_refs",
+      "redaction_profile_ref",
+      "export_policy_ref",
+      "export_manifest",
+      "generated_by_ref",
+      "generated_at",
+      "validity",
+      "status",
+      "legal_conformity_claim",
+      "carries_no_protected_plaintext",
+      "bypasses_no_export_manifest",
+      "export_root"
+    ],
+    "properties": {
+      "schema_version": {
+        "type": "string",
+        "const": "ioi.foundations.compliance-audit-export-bundle.v1"
+      },
+      "export_id": {
+        "type": "string",
+        "pattern": "^audit_export://[^\\s?#\\\\]{1,200}$"
+      },
+      "export_type": {
+        "type": "string",
+        "enum": [
+          "customer_audit",
+          "auditor_review",
+          "regulator_request",
+          "counterparty_dispute",
+          "procurement_review",
+          "internal_control",
+          "tax_report",
+          "sla_report",
+          "incident_review"
+        ]
+      },
+      "subject_refs": {
+        "type": "array",
+        "minItems": 1,
+        "maxItems": 512,
+        "uniqueItems": true,
+        "items": {
+          "$ref": "#/$defs/ref"
+        },
+        "description": "What the export is ABOUT. An export over no subject is a document with no scope, and scope is what a reader checks an audience against."
+      },
+      "audience": {
+        "type": "string",
+        "enum": [
+          "customer",
+          "external_auditor",
+          "regulator",
+          "counterparty",
+          "insurer",
+          "procurement",
+          "internal_auditor",
+          "public"
+        ],
+        "description": "WHO IT WAS BUILT FOR, and the reason this is a member at all: ACC-18's first clause is that the WRONG AUDIENCE fails offline. A bundle whose audience is implicit can only be checked by asking its author."
+      },
+      "jurisdiction_policy_pack_refs": {
+        "type": "array",
+        "maxItems": 128,
+        "uniqueItems": true,
+        "items": {
+          "type": "string",
+          "pattern": "^jurisdiction_policy_pack://[^\\s?#\\\\]{1,200}$"
+        }
+      },
+      "regulated_action_refs": {
+        "$ref": "#/$defs/refList"
+      },
+      "policy_decision_refs": {
+        "type": "array",
+        "maxItems": 512,
+        "uniqueItems": true,
+        "items": {
+          "$ref": "#/$defs/ref"
+        },
+        "description": "The decisions this export rests on — `jurisdiction_decision://`, a receipt, or the policy itself. Each one carries its own `legal_conformity_claim: not_determined`, and nothing here upgrades that."
+      },
+      "approval_receipt_refs": {
+        "$ref": "#/$defs/refList"
+      },
+      "denial_receipt_refs": {
+        "$ref": "#/$defs/refList",
+        "description": "Denials travel WITH approvals. An export that carried only what was approved would be a selected record, and a selected record is the thing an audit exists to catch."
+      },
+      "authority_refs": {
+        "type": "array",
+        "maxItems": 256,
+        "uniqueItems": true,
+        "items": {
+          "type": "string",
+          "pattern": "^(?:authority|grant|lease)://[^\\s]{1,400}$"
+        },
+        "description": "Which authority supported the export itself. Canon: the manifest must name the authority refs that support it."
+      },
+      "evidence_bundle_refs": {
+        "$ref": "#/$defs/refList"
+      },
+      "receipt_refs": {
+        "$ref": "#/$defs/refList"
+      },
+      "replay_refs": {
+        "$ref": "#/$defs/refList"
+      },
+      "retention_lock_refs": {
+        "$ref": "#/$defs/refList"
+      },
+      "restricted_view_refs": {
+        "$ref": "#/$defs/refList"
+      },
+      "redaction_profile_ref": {
+        "$ref": "#/$defs/policyRef"
+      },
+      "export_policy_ref": {
+        "$ref": "#/$defs/policyRef"
+      },
+      "declassification_refs": {
+        "$ref": "#/$defs/refList"
+      },
+      "export_manifest": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "included_refs",
+          "redacted_refs",
+          "protected_payload_refs",
+          "excluded_refs",
+          "exclusion_reasons"
+        ],
+        "description": "THE THREE THINGS CANON REQUIRES AN EXPORT TO MAKE OBVIOUS, as five members. Every list is present even when empty, because an omitted list and an empty list mean different things and only one of them is a statement.",
+        "properties": {
+          "included_refs": {
+            "$ref": "#/$defs/refList"
+          },
+          "redacted_refs": {
+            "$ref": "#/$defs/refList",
+            "description": "Travelled, with parts removed under the redaction profile."
+          },
+          "protected_payload_refs": {
+            "$ref": "#/$defs/refList",
+            "description": "NAMED BUT NOT CARRIED. Raw private payloads stay under storage, retention, restricted-view and authority policy; this list says they exist and where authority for them would be sought. An export that inlined one would be the bypass canon forbids."
+          },
+          "excluded_refs": {
+            "$ref": "#/$defs/refList"
+          },
+          "exclusion_reasons": {
+            "type": "array",
+            "maxItems": 512,
+            "description": "ONE TYPED REASON PER EXCLUDED REF, from the closed set canon names. A bundle that omitted what it could not release without saying why is indistinguishable from one that had nothing to release.",
+            "items": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "excluded_ref",
+                "reason"
+              ],
+              "properties": {
+                "excluded_ref": {
+                  "$ref": "#/$defs/ref"
+                },
+                "reason": {
+                  "type": "string",
+                  "enum": [
+                    "retention_locked",
+                    "restricted_view",
+                    "no_export_authority",
+                    "protected_plaintext",
+                    "unrelated",
+                    "expired",
+                    "policy_blocked"
+                  ]
+                }
+              }
+            }
+          }
+        }
+      },
+      "commercial_refs": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "invoice_refs",
+          "cost_center_refs",
+          "sla_report_refs",
+          "tax_export_refs",
+          "purchase_order_refs"
+        ],
+        "properties": {
+          "invoice_refs": {
+            "$ref": "#/$defs/refList"
+          },
+          "cost_center_refs": {
+            "$ref": "#/$defs/refList"
+          },
+          "sla_report_refs": {
+            "$ref": "#/$defs/refList"
+          },
+          "tax_export_refs": {
+            "$ref": "#/$defs/refList"
+          },
+          "purchase_order_refs": {
+            "$ref": "#/$defs/refList"
+          }
+        }
+      },
+      "settlement_mode": {
+        "type": "string",
+        "enum": [
+          "local_domain",
+          "bilateral",
+          "invoice",
+          "external_escrow",
+          "external_chain",
+          "ioi_l1"
+        ]
+      },
+      "settlement_profile_ref": {
+        "$ref": "#/$defs/policyRef"
+      },
+      "network_enrollment_ref": {
+        "anyOf": [
+          {
+            "type": "string",
+            "pattern": "^network-enrollment://[^\\s]{1,400}$"
+          },
+          {
+            "type": "null"
+          }
+        ]
+      },
+      "public_commitment_policy_ref": {
+        "anyOf": [
+          {
+            "$ref": "#/$defs/policyRef"
+          },
+          {
+            "type": "null"
+          }
+        ]
+      },
+      "public_commitment_refs": {
+        "$ref": "#/$defs/refList"
+      },
+      "generated_by_ref": {
+        "type": "string",
+        "pattern": "^(?:agentgres|runtime)://[^\\s]{1,400}$",
+        "description": "An operation or runtime that already exists. The export is generated BY the estate's own machinery, not by the bundle."
+      },
+      "generated_at": {
+        "$ref": "#/$defs/timestamp"
+      },
+      "validity": {
+        "type": "string",
+        "enum": [
+          "valid",
+          "incomplete",
+          "stale",
+          "disputed",
+          "revoked"
+        ],
+        "description": "`incomplete` and `stale` are first-class, not failure states: an export built while evidence was unavailable says so, rather than presenting a partial record as a whole one."
+      },
+      "status": {
+        "type": "string",
+        "enum": [
+          "requested",
+          "generated",
+          "delivered",
+          "revoked",
+          "superseded",
+          "expired"
+        ]
+      },
+      "legal_conformity_claim": {
+        "type": "string",
+        "const": "not_determined",
+        "description": "The same word the decision carries, for the same reason. Composing many decisions, receipts and evidence bundles into one package does not add up to a legal determination, and an export is exactly where someone would expect it to."
+      },
+      "carries_no_protected_plaintext": {
+        "type": "boolean",
+        "const": true,
+        "description": "On the wire: protected payloads are NAMED in the manifest and never inlined here."
+      },
+      "bypasses_no_export_manifest": {
+        "type": "boolean",
+        "const": true,
+        "description": "Canon: a replay or proof view must not bypass the export manifest. An export that offered a replay ref as a way around its own redactions would be a hole shaped exactly like a feature."
+      },
+      "export_root": {
+        "type": "string",
+        "pattern": "^sha256:[0-9a-f]{64}$",
+        "description": "SHA-256 over JCS of every member except this one, so a delivered bundle can be shown to be the one that was generated — which is what makes `revoked` and `superseded` mean anything."
+      }
+    },
+    "$defs": {
+      "ref": {
+        "type": "string",
+        "pattern": "^[a-z][a-z0-9+._-]*://[^\\s]{1,400}$"
+      },
+      "policyRef": {
+        "type": "string",
+        "pattern": "^policy://[^\\s]{1,400}$"
+      },
+      "refList": {
+        "type": "array",
+        "maxItems": 1024,
+        "uniqueItems": true,
+        "items": {
+          "$ref": "#/$defs/ref"
+        }
+      },
+      "timestamp": {
+        "type": "string",
+        "pattern": "^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$"
+      }
+    }
   }
 };
 const CONTRACT_INVARIANTS: Record<string, Array<JsonObject>> = {
@@ -173291,6 +174956,314 @@ const CONTRACT_INVARIANTS: Record<string, Array<JsonObject>> = {
         }
       }
     }
+  ],
+  "schema://ioi/foundations/jurisdiction-policy-pack/v1": [
+    {
+      "rule_id": "jurisdiction_policy_pack.applies_to_something",
+      "description": "A pack that reaches no action class, no data class and no service class constrains nothing — it is a document that looks like a policy. JSON Schema cannot state this without an anyOf of same-typed branches, which the Rust projection refuses, so the law lives here where it can be said plainly and every consumer reads it.",
+      "expression": {
+        "operator": "any_non_empty",
+        "paths": [
+          "$.applies_to.action_classes",
+          "$.applies_to.data_classes",
+          "$.applies_to.service_classes"
+        ]
+      }
+    },
+    {
+      "rule_id": "jurisdiction_policy_pack.does_not_supersede_itself",
+      "description": "A pack that names itself as the one it supersedes has turned a CHAIN into an edit. Canon's law is that changing a deadline, clock-start rule, recipient, responsible party or accountable issuer requires a new pack VERSION and must never rewrite an already-recorded reporting decision; self-supersession is how that law is broken while still looking like it was followed.",
+      "expression": {
+        "operator": "fields_not_equal",
+        "paths": [
+          "$.pack_id",
+          "$.supersedes_ref"
+        ]
+      }
+    },
+    {
+      "rule_id": "jurisdiction_policy_pack.root.recomputes",
+      "description": "THE SEAL THAT MAKES THE IMMUTABILITY LAW CHECKABLE. A decision binds this root rather than the pack's name, so a deadline edited in place no longer recomputes and every decision taken under the pack breaks its binding instead of being silently reinterpreted against content it was never read under. A change that should have been a new version cannot pass as the same one.",
+      "expression": {
+        "operator": "jcs_sha256_equals",
+        "algorithm": "jcs_sha256",
+        "expected_path": "$.pack_root",
+        "expected_encoding": "sha256_string",
+        "material_fields": {
+          "schema_version": {
+            "path": "$.schema_version"
+          },
+          "pack_id": {
+            "path": "$.pack_id"
+          },
+          "version": {
+            "path": "$.version"
+          },
+          "issued_at": {
+            "path": "$.issued_at"
+          },
+          "effective_at": {
+            "path": "$.effective_at"
+          },
+          "supersedes_ref": {
+            "path": "$.supersedes_ref"
+          },
+          "issuer": {
+            "path": "$.issuer"
+          },
+          "jurisdiction": {
+            "path": "$.jurisdiction"
+          },
+          "applies_to": {
+            "path": "$.applies_to"
+          },
+          "identity_requirements": {
+            "path": "$.identity_requirements"
+          },
+          "authority_requirements": {
+            "path": "$.authority_requirements"
+          },
+          "data_requirements": {
+            "path": "$.data_requirements"
+          },
+          "regulated_action_rules": {
+            "path": "$.regulated_action_rules"
+          },
+          "tax_and_commercial_refs": {
+            "path": "$.tax_and_commercial_refs"
+          },
+          "audit_requirements": {
+            "path": "$.audit_requirements"
+          },
+          "incident_reporting": {
+            "path": "$.incident_reporting"
+          },
+          "erasure_requirements": {
+            "path": "$.erasure_requirements"
+          },
+          "grants_no_authority": {
+            "path": "$.grants_no_authority"
+          },
+          "is_not_legal_advice": {
+            "path": "$.is_not_legal_advice"
+          }
+        }
+      }
+    }
+  ],
+  "schema://ioi/foundations/jurisdiction-policy-decision/v1": [
+    {
+      "rule_id": "jurisdiction_policy_decision.a_deadline_retains_its_triggering_timestamp",
+      "description": "CANON'S ARITHMETIC RULE, IN THE LANGUAGE A CONSUMER THAT DOES NOT RUN JSON SCHEMA READS: deadline arithmetic must retain the exact pack version and triggering timestamp. When a decision names the instant its window runs from, it must also carry the instant itself — a clock-start basis with no timestamp behind it is a rule with nothing to apply it to, and the window it implies cannot be recomputed by anyone reading the record.",
+      "expression": {
+        "operator": "non_empty_when_in",
+        "path": "$.triggering_timestamp",
+        "when_path": "$.clock_start_basis",
+        "values": [
+          "detected_at",
+          "confirmed_at",
+          "materiality_determined_at",
+          "authority_request_received_at"
+        ]
+      }
+    },
+    {
+      "rule_id": "jurisdiction_policy_decision.an_applicable_decision_names_what_it_matched",
+      "description": "A decision that says the pack APPLIES must name the classes it matched on. Without them the applicability is an assertion about itself, and a reader cannot tell a considered match from a default.",
+      "expression": {
+        "operator": "non_empty_when_in",
+        "path": "$.applicability.matched_classes",
+        "when_path": "$.applicability.applies",
+        "values": [
+          true
+        ]
+      }
+    },
+    {
+      "rule_id": "jurisdiction_policy_decision.obligations_are_one_per_kind_and_owner",
+      "description": "One obligation per kind per enforcing owner. Two entries for the same pair let a satisfied reading sit beside an unsatisfied one and the decision still read as complete — the same defect a duplicated knockout axis is, in a different plane.",
+      "expression": {
+        "operator": "array_unique_by_fields",
+        "array_path": "$.obligations",
+        "fields": [
+          "obligation_kind",
+          "enforcing_owner"
+        ]
+      }
+    },
+    {
+      "rule_id": "jurisdiction_policy_decision.unmet_evidence_is_named_once_per_kind",
+      "description": "Each kind of missing evidence is named once. A record that could list `current_evidence` twice with two reasons lets a reader take whichever one they preferred.",
+      "expression": {
+        "operator": "array_unique_by_fields",
+        "array_path": "$.unmet_evidence",
+        "fields": [
+          "missing"
+        ]
+      }
+    },
+    {
+      "rule_id": "jurisdiction_policy_decision.root.recomputes",
+      "description": "The decision root seals what was decided, against which pack version and pack root, from which triggering timestamp. Canon's other half — that a new pack version must never rewrite an already-recorded decision — needs the decision to be unmovable too, not only the pack.",
+      "expression": {
+        "operator": "jcs_sha256_equals",
+        "algorithm": "jcs_sha256",
+        "expected_path": "$.decision_root",
+        "expected_encoding": "sha256_string",
+        "material_fields": {
+          "schema_version": {
+            "path": "$.schema_version"
+          },
+          "decision_id": {
+            "path": "$.decision_id"
+          },
+          "pack_ref": {
+            "path": "$.pack_ref"
+          },
+          "pack_version": {
+            "path": "$.pack_version"
+          },
+          "pack_root": {
+            "path": "$.pack_root"
+          },
+          "subject_ref": {
+            "path": "$.subject_ref"
+          },
+          "evaluated_at": {
+            "path": "$.evaluated_at"
+          },
+          "clock_start_basis": {
+            "path": "$.clock_start_basis"
+          },
+          "triggering_timestamp": {
+            "path": "$.triggering_timestamp"
+          },
+          "applicability": {
+            "path": "$.applicability"
+          },
+          "obligations": {
+            "path": "$.obligations"
+          },
+          "unmet_evidence": {
+            "path": "$.unmet_evidence"
+          },
+          "legal_conformity_claim": {
+            "path": "$.legal_conformity_claim"
+          },
+          "grants_no_authority": {
+            "path": "$.grants_no_authority"
+          },
+          "performs_no_action": {
+            "path": "$.performs_no_action"
+          }
+        }
+      }
+    }
+  ],
+  "schema://ioi/foundations/compliance-audit-export-bundle/v1": [
+    {
+      "rule_id": "compliance_audit_export_bundle.every_exclusion_is_reasoned",
+      "description": "CANON'S SECOND OBLIGATION, MADE COUNTABLE: an export must make obvious what was redacted, withheld, protected or excluded AND WHY. The schema can require both lists; only this rule can require that they correspond. An export with excluded refs and no reasons has withheld evidence silently, which is indistinguishable from having had none — and that is precisely the reading an audit exists to prevent.",
+      "expression": {
+        "operator": "non_empty_when_in",
+        "path": "$.export_manifest.exclusion_reasons",
+        "when_path": "$.status",
+        "values": [
+          "generated",
+          "delivered"
+        ]
+      }
+    },
+    {
+      "rule_id": "compliance_audit_export_bundle.one_reason_per_excluded_ref",
+      "description": "Each excluded ref carries exactly one typed reason. Two reasons for one ref let a reader choose the more comfortable one, and `retention_locked` and `no_export_authority` are very different statements about the same withheld artifact.",
+      "expression": {
+        "operator": "array_unique_by_fields",
+        "array_path": "$.export_manifest.exclusion_reasons",
+        "fields": [
+          "excluded_ref"
+        ]
+      }
+    },
+    {
+      "rule_id": "compliance_audit_export_bundle.a_generated_export_names_its_supporting_authority",
+      "description": "Canon: the manifest must name which policy, authority, retention, restricted-view, receipt and state-root refs SUPPORT the export. A generated bundle with no authority behind it is a package somebody assembled, and the question an auditor asks first is who was allowed to assemble it.",
+      "expression": {
+        "operator": "non_empty_when_in",
+        "path": "$.authority_refs",
+        "when_path": "$.status",
+        "values": [
+          "generated",
+          "delivered"
+        ]
+      }
+    },
+    {
+      "rule_id": "compliance_audit_export_bundle.root.recomputes",
+      "description": "The export root seals the manifest, the audience and the decisions it rests on, so a DELIVERED bundle can be shown to be the one that was GENERATED. Without it `revoked` and `superseded` are labels on something that could have changed underneath them.",
+      "expression": {
+        "operator": "jcs_sha256_equals",
+        "algorithm": "jcs_sha256",
+        "expected_path": "$.export_root",
+        "expected_encoding": "sha256_string",
+        "material_fields": {
+          "schema_version": {
+            "path": "$.schema_version"
+          },
+          "export_id": {
+            "path": "$.export_id"
+          },
+          "export_type": {
+            "path": "$.export_type"
+          },
+          "subject_refs": {
+            "path": "$.subject_refs"
+          },
+          "audience": {
+            "path": "$.audience"
+          },
+          "jurisdiction_policy_pack_refs": {
+            "path": "$.jurisdiction_policy_pack_refs"
+          },
+          "policy_decision_refs": {
+            "path": "$.policy_decision_refs"
+          },
+          "authority_refs": {
+            "path": "$.authority_refs"
+          },
+          "redaction_profile_ref": {
+            "path": "$.redaction_profile_ref"
+          },
+          "export_policy_ref": {
+            "path": "$.export_policy_ref"
+          },
+          "export_manifest": {
+            "path": "$.export_manifest"
+          },
+          "generated_by_ref": {
+            "path": "$.generated_by_ref"
+          },
+          "generated_at": {
+            "path": "$.generated_at"
+          },
+          "validity": {
+            "path": "$.validity"
+          },
+          "status": {
+            "path": "$.status"
+          },
+          "legal_conformity_claim": {
+            "path": "$.legal_conformity_claim"
+          },
+          "carries_no_protected_plaintext": {
+            "path": "$.carries_no_protected_plaintext"
+          },
+          "bypasses_no_export_manifest": {
+            "path": "$.bypasses_no_export_manifest"
+          }
+        }
+      }
+    }
   ]
 };
 
@@ -176250,4 +178223,22 @@ export function validateCollectiveQualificationVerdictV1(
   value: unknown,
 ): value is CollectiveQualificationVerdictV1 {
   return validateArchitectureContract("schema://ioi/applications/ioi-ai/collective-qualification-verdict/v1", value).ok;
+}
+
+export function validateJurisdictionPolicyPackV1(
+  value: unknown,
+): value is JurisdictionPolicyPackV1 {
+  return validateArchitectureContract("schema://ioi/foundations/jurisdiction-policy-pack/v1", value).ok;
+}
+
+export function validateJurisdictionPolicyDecisionV1(
+  value: unknown,
+): value is JurisdictionPolicyDecisionV1 {
+  return validateArchitectureContract("schema://ioi/foundations/jurisdiction-policy-decision/v1", value).ok;
+}
+
+export function validateComplianceAuditExportBundleV1(
+  value: unknown,
+): value is ComplianceAuditExportBundleV1 {
+  return validateArchitectureContract("schema://ioi/foundations/compliance-audit-export-bundle/v1", value).ok;
 }

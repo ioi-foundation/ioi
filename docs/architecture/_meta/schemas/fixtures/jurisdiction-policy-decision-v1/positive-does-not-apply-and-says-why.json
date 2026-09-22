@@ -1,0 +1,22 @@
+{
+  "schema_version": "ioi.foundations.jurisdiction-policy-decision.v1",
+  "decision_id": "jurisdiction_decision://eu/run-2",
+  "pack_ref": "jurisdiction_policy_pack://eu/ai-act/serious-incident/v1",
+  "pack_version": "1.0.0",
+  "pack_root": "sha256:1111111111111111111111111111111111111111111111111111111111111111",
+  "subject_ref": "run://ioi/batch/2",
+  "evaluated_at": "2026-10-02T09:00:00Z",
+  "clock_start_basis": null,
+  "triggering_timestamp": null,
+  "applicability": {
+    "applies": false,
+    "matched_classes": [],
+    "basis": "the subject touched no regulated action or data class in this jurisdiction"
+  },
+  "obligations": [],
+  "unmet_evidence": [],
+  "legal_conformity_claim": "not_determined",
+  "grants_no_authority": true,
+  "performs_no_action": true,
+  "decision_root": "sha256:0dc1056f52c56fd507e234f89e047ec8b9e61620b509118a4a0a24cc9af057d8"
+}

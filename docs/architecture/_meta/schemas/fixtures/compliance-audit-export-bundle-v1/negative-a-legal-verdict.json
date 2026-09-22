@@ -1,0 +1,91 @@
+{
+  "schema_version": "ioi.foundations.compliance-audit-export-bundle.v1",
+  "export_id": "audit_export://eu/a-legal-verdict",
+  "export_type": "regulator_request",
+  "subject_refs": [
+    "run://ioi/inference/1"
+  ],
+  "audience": "regulator",
+  "jurisdiction_policy_pack_refs": [
+    "jurisdiction_policy_pack://eu/ai-act/serious-incident/v1"
+  ],
+  "regulated_action_refs": [
+    "action://ioi/inference/1"
+  ],
+  "policy_decision_refs": [
+    "jurisdiction_decision://eu/run-1"
+  ],
+  "approval_receipt_refs": [
+    "receipt://ioi/approval/1"
+  ],
+  "denial_receipt_refs": [
+    "receipt://ioi/denial/1"
+  ],
+  "authority_refs": [
+    "grant://ioi/export/regulator/1"
+  ],
+  "evidence_bundle_refs": [
+    "assurance_evidence://ioi/eu/1"
+  ],
+  "receipt_refs": [
+    "receipt://ioi/effect/1"
+  ],
+  "replay_refs": [
+    "replay://ioi/run/1"
+  ],
+  "retention_lock_refs": [
+    "retention_lock://ioi/eu/1"
+  ],
+  "restricted_view_refs": [
+    "restricted_view://ioi/personal/1"
+  ],
+  "redaction_profile_ref": "policy://ioi/redaction/regulator",
+  "export_policy_ref": "policy://ioi/export/eu",
+  "declassification_refs": [],
+  "export_manifest": {
+    "included_refs": [
+      "receipt://ioi/effect/1",
+      "assurance_evidence://ioi/eu/1"
+    ],
+    "redacted_refs": [
+      "trace://ioi/run/1"
+    ],
+    "protected_payload_refs": [
+      "artifact://ioi/personal/1"
+    ],
+    "excluded_refs": [
+      "artifact://ioi/unrelated/1",
+      "artifact://ioi/locked/1"
+    ],
+    "exclusion_reasons": [
+      {
+        "excluded_ref": "artifact://ioi/unrelated/1",
+        "reason": "unrelated"
+      },
+      {
+        "excluded_ref": "artifact://ioi/locked/1",
+        "reason": "retention_locked"
+      }
+    ]
+  },
+  "commercial_refs": {
+    "invoice_refs": [],
+    "cost_center_refs": [],
+    "sla_report_refs": [],
+    "tax_export_refs": [],
+    "purchase_order_refs": []
+  },
+  "settlement_mode": "local_domain",
+  "settlement_profile_ref": "policy://ioi/settlement/local",
+  "network_enrollment_ref": null,
+  "public_commitment_policy_ref": null,
+  "public_commitment_refs": [],
+  "generated_by_ref": "agentgres://operation/export-1",
+  "generated_at": "2026-10-03T12:00:00Z",
+  "validity": "valid",
+  "status": "generated",
+  "legal_conformity_claim": "compliant",
+  "carries_no_protected_plaintext": true,
+  "bypasses_no_export_manifest": true,
+  "export_root": "sha256:b406c2fc34e58124e9ab001b3d111370ed52da8e04dfb3a068c2949be1cf9a06"
+}

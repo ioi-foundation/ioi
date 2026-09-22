@@ -1,0 +1,66 @@
+{
+  "$id": "invariant://ioi/foundations/compliance-audit-export-bundle/what-was-withheld-and-why/v1",
+  "language": "ioi.portable-invariants.v1",
+  "contract_id": "schema://ioi/foundations/compliance-audit-export-bundle/v1",
+  "rules": [
+    {
+      "rule_id": "compliance_audit_export_bundle.every_exclusion_is_reasoned",
+      "description": "CANON'S SECOND OBLIGATION, MADE COUNTABLE: an export must make obvious what was redacted, withheld, protected or excluded AND WHY. The schema can require both lists; only this rule can require that they correspond. An export with excluded refs and no reasons has withheld evidence silently, which is indistinguishable from having had none — and that is precisely the reading an audit exists to prevent.",
+      "expression": {
+        "operator": "non_empty_when_in",
+        "path": "$.export_manifest.exclusion_reasons",
+        "when_path": "$.status",
+        "values": ["generated", "delivered"]
+      }
+    },
+    {
+      "rule_id": "compliance_audit_export_bundle.one_reason_per_excluded_ref",
+      "description": "Each excluded ref carries exactly one typed reason. Two reasons for one ref let a reader choose the more comfortable one, and `retention_locked` and `no_export_authority` are very different statements about the same withheld artifact.",
+      "expression": {
+        "operator": "array_unique_by_fields",
+        "array_path": "$.export_manifest.exclusion_reasons",
+        "fields": ["excluded_ref"]
+      }
+    },
+    {
+      "rule_id": "compliance_audit_export_bundle.a_generated_export_names_its_supporting_authority",
+      "description": "Canon: the manifest must name which policy, authority, retention, restricted-view, receipt and state-root refs SUPPORT the export. A generated bundle with no authority behind it is a package somebody assembled, and the question an auditor asks first is who was allowed to assemble it.",
+      "expression": {
+        "operator": "non_empty_when_in",
+        "path": "$.authority_refs",
+        "when_path": "$.status",
+        "values": ["generated", "delivered"]
+      }
+    },
+    {
+      "rule_id": "compliance_audit_export_bundle.root.recomputes",
+      "description": "The export root seals the manifest, the audience and the decisions it rests on, so a DELIVERED bundle can be shown to be the one that was GENERATED. Without it `revoked` and `superseded` are labels on something that could have changed underneath them.",
+      "expression": {
+        "operator": "jcs_sha256_equals",
+        "algorithm": "jcs_sha256",
+        "expected_path": "$.export_root",
+        "expected_encoding": "sha256_string",
+        "material_fields": {
+          "schema_version": { "path": "$.schema_version" },
+          "export_id": { "path": "$.export_id" },
+          "export_type": { "path": "$.export_type" },
+          "subject_refs": { "path": "$.subject_refs" },
+          "audience": { "path": "$.audience" },
+          "jurisdiction_policy_pack_refs": { "path": "$.jurisdiction_policy_pack_refs" },
+          "policy_decision_refs": { "path": "$.policy_decision_refs" },
+          "authority_refs": { "path": "$.authority_refs" },
+          "redaction_profile_ref": { "path": "$.redaction_profile_ref" },
+          "export_policy_ref": { "path": "$.export_policy_ref" },
+          "export_manifest": { "path": "$.export_manifest" },
+          "generated_by_ref": { "path": "$.generated_by_ref" },
+          "generated_at": { "path": "$.generated_at" },
+          "validity": { "path": "$.validity" },
+          "status": { "path": "$.status" },
+          "legal_conformity_claim": { "path": "$.legal_conformity_claim" },
+          "carries_no_protected_plaintext": { "path": "$.carries_no_protected_plaintext" },
+          "bypasses_no_export_manifest": { "path": "$.bypasses_no_export_manifest" }
+        }
+      }
+    }
+  ]
+}

@@ -20528,6 +20528,277 @@
           "expected_failure": "schema"
         }
       ]
+    },
+    {
+      "contract_id": "schema://ioi/foundations/jurisdiction-policy-pack/v1",
+      "canonical_name": "JurisdictionPolicyPack",
+      "canonical_owner_ref": "canon://docs/architecture/foundations/ecosystem-assurance-certification-liability.md",
+      "schema_version": "ioi.foundations.jurisdiction-policy-pack.v1",
+      "maturity": "partial",
+      "stability": "provisional",
+      "wire_format": "json",
+      "canonical_encoding_profile_ref": "encoding-profile://ioi/jcs-json/v1",
+      "evolution": {
+        "successor_of": null,
+        "successor_contract_id": null,
+        "compatibility": "initial",
+        "migration_policy": "none",
+        "predecessor_remains_valid": false,
+        "wire_mutation_policy": "forbidden",
+        "hash_impact": "signature_preimage_changed"
+      },
+      "schema_ref": "jurisdiction-policy-pack.v1.schema.json",
+      "cross_field_invariant_refs": [
+        {
+          "invariant_id": "invariant://ioi/foundations/jurisdiction-policy-pack/a-new-version-never-an-edit/v1",
+          "path": "invariants/jurisdiction-policy-pack.v1.invariants.json"
+        }
+      ],
+      "compatibility_aliases": [],
+      "generated_targets": [
+        {
+          "kind": "typescript_projection",
+          "path": "packages/hypervisor-workbench/src/runtime/generated/architecture-contracts.ts",
+          "symbol": "JurisdictionPolicyPackV1"
+        },
+        {
+          "kind": "rust_projection",
+          "path": "crates/types/src/app/generated/architecture_contracts.rs",
+          "symbol": "JurisdictionPolicyPackV1"
+        }
+      ],
+      "positive_fixture_refs": [
+        "fixtures/jurisdiction-policy-pack-v1/positive-disclosure-only-no-deadlines.json",
+        "fixtures/jurisdiction-policy-pack-v1/positive-eu-serious-incident.json"
+      ],
+      "negative_fixture_refs": [
+        {
+          "path": "fixtures/jurisdiction-policy-pack-v1/negative-a-deadline-with-no-accountable-party.json",
+          "expected_failure": "schema"
+        },
+        {
+          "path": "fixtures/jurisdiction-policy-pack-v1/negative-a-required-scope-that-is-a-grant.json",
+          "expected_failure": "schema"
+        },
+        {
+          "path": "fixtures/jurisdiction-policy-pack-v1/negative-a-version-that-is-not-semver.json",
+          "expected_failure": "schema"
+        },
+        {
+          "path": "fixtures/jurisdiction-policy-pack-v1/negative-an-invented-clock-start.json",
+          "expected_failure": "schema"
+        },
+        {
+          "path": "fixtures/jurisdiction-policy-pack-v1/negative-applies-to-nothing.json",
+          "expected_failure": "invariant"
+        },
+        {
+          "path": "fixtures/jurisdiction-policy-pack-v1/negative-claims-to-be-legal-advice.json",
+          "expected_failure": "schema"
+        },
+        {
+          "path": "fixtures/jurisdiction-policy-pack-v1/negative-claims-to-grant-authority.json",
+          "expected_failure": "schema"
+        },
+        {
+          "path": "fixtures/jurisdiction-policy-pack-v1/negative-jurisdiction-omits-an-axis.json",
+          "expected_failure": "schema"
+        },
+        {
+          "path": "fixtures/jurisdiction-policy-pack-v1/negative-root-does-not-recompute.json",
+          "expected_failure": "invariant"
+        },
+        {
+          "path": "fixtures/jurisdiction-policy-pack-v1/negative-supersedes-itself.json",
+          "expected_failure": "invariant"
+        }
+      ]
+    },
+    {
+      "contract_id": "schema://ioi/foundations/jurisdiction-policy-decision/v1",
+      "canonical_name": "JurisdictionPolicyDecision",
+      "canonical_owner_ref": "canon://docs/architecture/foundations/ecosystem-assurance-certification-liability.md",
+      "schema_version": "ioi.foundations.jurisdiction-policy-decision.v1",
+      "maturity": "partial",
+      "stability": "provisional",
+      "wire_format": "json",
+      "canonical_encoding_profile_ref": "encoding-profile://ioi/jcs-json/v1",
+      "evolution": {
+        "successor_of": null,
+        "successor_contract_id": null,
+        "compatibility": "initial",
+        "migration_policy": "none",
+        "predecessor_remains_valid": false,
+        "wire_mutation_policy": "forbidden",
+        "hash_impact": "signature_preimage_changed"
+      },
+      "schema_ref": "jurisdiction-policy-decision.v1.schema.json",
+      "cross_field_invariant_refs": [
+        {
+          "invariant_id": "invariant://ioi/foundations/jurisdiction-policy-decision/technical-evidence-is-never-a-legal-determination/v1",
+          "path": "invariants/jurisdiction-policy-decision.v1.invariants.json"
+        }
+      ],
+      "compatibility_aliases": [],
+      "generated_targets": [
+        {
+          "kind": "typescript_projection",
+          "path": "packages/hypervisor-workbench/src/runtime/generated/architecture-contracts.ts",
+          "symbol": "JurisdictionPolicyDecisionV1"
+        },
+        {
+          "kind": "rust_projection",
+          "path": "crates/types/src/app/generated/architecture_contracts.rs",
+          "symbol": "JurisdictionPolicyDecisionV1"
+        }
+      ],
+      "positive_fixture_refs": [
+        "fixtures/jurisdiction-policy-decision-v1/positive-applies-with-an-open-obligation.json",
+        "fixtures/jurisdiction-policy-decision-v1/positive-does-not-apply-and-says-why.json"
+      ],
+      "negative_fixture_refs": [
+        {
+          "path": "fixtures/jurisdiction-policy-decision-v1/negative-a-deadline-basis-with-no-triggering-timestamp.json",
+          "expected_failure": "invariant"
+        },
+        {
+          "path": "fixtures/jurisdiction-policy-decision-v1/negative-a-legal-verdict.json",
+          "expected_failure": "schema"
+        },
+        {
+          "path": "fixtures/jurisdiction-policy-decision-v1/negative-an-obligation-with-no-enforcing-owner.json",
+          "expected_failure": "schema"
+        },
+        {
+          "path": "fixtures/jurisdiction-policy-decision-v1/negative-an-untyped-missing-evidence-kind.json",
+          "expected_failure": "schema"
+        },
+        {
+          "path": "fixtures/jurisdiction-policy-decision-v1/negative-an-untyped-obligation-status.json",
+          "expected_failure": "schema"
+        },
+        {
+          "path": "fixtures/jurisdiction-policy-decision-v1/negative-applies-but-matched-nothing.json",
+          "expected_failure": "invariant"
+        },
+        {
+          "path": "fixtures/jurisdiction-policy-decision-v1/negative-grants-authority.json",
+          "expected_failure": "schema"
+        },
+        {
+          "path": "fixtures/jurisdiction-policy-decision-v1/negative-one-missing-kind-named-twice.json",
+          "expected_failure": "invariant"
+        },
+        {
+          "path": "fixtures/jurisdiction-policy-decision-v1/negative-performs-an-action.json",
+          "expected_failure": "schema"
+        },
+        {
+          "path": "fixtures/jurisdiction-policy-decision-v1/negative-root-does-not-recompute.json",
+          "expected_failure": "invariant"
+        },
+        {
+          "path": "fixtures/jurisdiction-policy-decision-v1/negative-this-record-enforces-it.json",
+          "expected_failure": "schema"
+        },
+        {
+          "path": "fixtures/jurisdiction-policy-decision-v1/negative-two-obligations-for-one-kind-and-owner.json",
+          "expected_failure": "invariant"
+        }
+      ]
+    },
+    {
+      "contract_id": "schema://ioi/foundations/compliance-audit-export-bundle/v1",
+      "canonical_name": "ComplianceAuditExportBundle",
+      "canonical_owner_ref": "canon://docs/architecture/foundations/ecosystem-assurance-certification-liability.md",
+      "schema_version": "ioi.foundations.compliance-audit-export-bundle.v1",
+      "maturity": "partial",
+      "stability": "provisional",
+      "wire_format": "json",
+      "canonical_encoding_profile_ref": "encoding-profile://ioi/jcs-json/v1",
+      "evolution": {
+        "successor_of": null,
+        "successor_contract_id": null,
+        "compatibility": "initial",
+        "migration_policy": "none",
+        "predecessor_remains_valid": false,
+        "wire_mutation_policy": "forbidden",
+        "hash_impact": "signature_preimage_changed"
+      },
+      "schema_ref": "compliance-audit-export-bundle.v1.schema.json",
+      "cross_field_invariant_refs": [
+        {
+          "invariant_id": "invariant://ioi/foundations/compliance-audit-export-bundle/what-was-withheld-and-why/v1",
+          "path": "invariants/compliance-audit-export-bundle.v1.invariants.json"
+        }
+      ],
+      "compatibility_aliases": [],
+      "generated_targets": [
+        {
+          "kind": "typescript_projection",
+          "path": "packages/hypervisor-workbench/src/runtime/generated/architecture-contracts.ts",
+          "symbol": "ComplianceAuditExportBundleV1"
+        },
+        {
+          "kind": "rust_projection",
+          "path": "crates/types/src/app/generated/architecture_contracts.rs",
+          "symbol": "ComplianceAuditExportBundleV1"
+        }
+      ],
+      "positive_fixture_refs": [
+        "fixtures/compliance-audit-export-bundle-v1/positive-incomplete-and-says-so.json",
+        "fixtures/compliance-audit-export-bundle-v1/positive-regulator-request.json"
+      ],
+      "negative_fixture_refs": [
+        {
+          "path": "fixtures/compliance-audit-export-bundle-v1/negative-a-legal-verdict.json",
+          "expected_failure": "schema"
+        },
+        {
+          "path": "fixtures/compliance-audit-export-bundle-v1/negative-a-manifest-missing-a-list.json",
+          "expected_failure": "schema"
+        },
+        {
+          "path": "fixtures/compliance-audit-export-bundle-v1/negative-a-replay-bypasses-the-manifest.json",
+          "expected_failure": "schema"
+        },
+        {
+          "path": "fixtures/compliance-audit-export-bundle-v1/negative-an-invented-audience.json",
+          "expected_failure": "schema"
+        },
+        {
+          "path": "fixtures/compliance-audit-export-bundle-v1/negative-an-untyped-exclusion-reason.json",
+          "expected_failure": "schema"
+        },
+        {
+          "path": "fixtures/compliance-audit-export-bundle-v1/negative-an-untyped-validity.json",
+          "expected_failure": "schema"
+        },
+        {
+          "path": "fixtures/compliance-audit-export-bundle-v1/negative-carries-protected-plaintext.json",
+          "expected_failure": "schema"
+        },
+        {
+          "path": "fixtures/compliance-audit-export-bundle-v1/negative-excluded-with-no-reason.json",
+          "expected_failure": "invariant"
+        },
+        {
+          "path": "fixtures/compliance-audit-export-bundle-v1/negative-generated-with-no-supporting-authority.json",
+          "expected_failure": "invariant"
+        },
+        {
+          "path": "fixtures/compliance-audit-export-bundle-v1/negative-no-subject.json",
+          "expected_failure": "schema"
+        },
+        {
+          "path": "fixtures/compliance-audit-export-bundle-v1/negative-root-does-not-recompute.json",
+          "expected_failure": "invariant"
+        },
+        {
+          "path": "fixtures/compliance-audit-export-bundle-v1/negative-two-reasons-for-one-excluded-ref.json",
+          "expected_failure": "invariant"
+        }
+      ]
     }
   ]
 }

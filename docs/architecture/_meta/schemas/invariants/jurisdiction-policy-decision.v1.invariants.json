@@ -1,0 +1,72 @@
+{
+  "$id": "invariant://ioi/foundations/jurisdiction-policy-decision/technical-evidence-is-never-a-legal-determination/v1",
+  "language": "ioi.portable-invariants.v1",
+  "contract_id": "schema://ioi/foundations/jurisdiction-policy-decision/v1",
+  "rules": [
+    {
+      "rule_id": "jurisdiction_policy_decision.a_deadline_retains_its_triggering_timestamp",
+      "description": "CANON'S ARITHMETIC RULE, IN THE LANGUAGE A CONSUMER THAT DOES NOT RUN JSON SCHEMA READS: deadline arithmetic must retain the exact pack version and triggering timestamp. When a decision names the instant its window runs from, it must also carry the instant itself — a clock-start basis with no timestamp behind it is a rule with nothing to apply it to, and the window it implies cannot be recomputed by anyone reading the record.",
+      "expression": {
+        "operator": "non_empty_when_in",
+        "path": "$.triggering_timestamp",
+        "when_path": "$.clock_start_basis",
+        "values": ["detected_at", "confirmed_at", "materiality_determined_at", "authority_request_received_at"]
+      }
+    },
+    {
+      "rule_id": "jurisdiction_policy_decision.an_applicable_decision_names_what_it_matched",
+      "description": "A decision that says the pack APPLIES must name the classes it matched on. Without them the applicability is an assertion about itself, and a reader cannot tell a considered match from a default.",
+      "expression": {
+        "operator": "non_empty_when_in",
+        "path": "$.applicability.matched_classes",
+        "when_path": "$.applicability.applies",
+        "values": [true]
+      }
+    },
+    {
+      "rule_id": "jurisdiction_policy_decision.obligations_are_one_per_kind_and_owner",
+      "description": "One obligation per kind per enforcing owner. Two entries for the same pair let a satisfied reading sit beside an unsatisfied one and the decision still read as complete — the same defect a duplicated knockout axis is, in a different plane.",
+      "expression": {
+        "operator": "array_unique_by_fields",
+        "array_path": "$.obligations",
+        "fields": ["obligation_kind", "enforcing_owner"]
+      }
+    },
+    {
+      "rule_id": "jurisdiction_policy_decision.unmet_evidence_is_named_once_per_kind",
+      "description": "Each kind of missing evidence is named once. A record that could list `current_evidence` twice with two reasons lets a reader take whichever one they preferred.",
+      "expression": {
+        "operator": "array_unique_by_fields",
+        "array_path": "$.unmet_evidence",
+        "fields": ["missing"]
+      }
+    },
+    {
+      "rule_id": "jurisdiction_policy_decision.root.recomputes",
+      "description": "The decision root seals what was decided, against which pack version and pack root, from which triggering timestamp. Canon's other half — that a new pack version must never rewrite an already-recorded decision — needs the decision to be unmovable too, not only the pack.",
+      "expression": {
+        "operator": "jcs_sha256_equals",
+        "algorithm": "jcs_sha256",
+        "expected_path": "$.decision_root",
+        "expected_encoding": "sha256_string",
+        "material_fields": {
+          "schema_version": { "path": "$.schema_version" },
+          "decision_id": { "path": "$.decision_id" },
+          "pack_ref": { "path": "$.pack_ref" },
+          "pack_version": { "path": "$.pack_version" },
+          "pack_root": { "path": "$.pack_root" },
+          "subject_ref": { "path": "$.subject_ref" },
+          "evaluated_at": { "path": "$.evaluated_at" },
+          "clock_start_basis": { "path": "$.clock_start_basis" },
+          "triggering_timestamp": { "path": "$.triggering_timestamp" },
+          "applicability": { "path": "$.applicability" },
+          "obligations": { "path": "$.obligations" },
+          "unmet_evidence": { "path": "$.unmet_evidence" },
+          "legal_conformity_claim": { "path": "$.legal_conformity_claim" },
+          "grants_no_authority": { "path": "$.grants_no_authority" },
+          "performs_no_action": { "path": "$.performs_no_action" }
+        }
+      }
+    }
+  ]
+}
