@@ -7334,9 +7334,18 @@
         "verifier": "../../scripts/check-collective-artifact-ecology-surface.mjs",
         "status": "verified"
       },
-      "existing_daemon": "the generic System-record seam: GET /v1/hypervisor/autonomous-systems/{id}/records?contract_id=\u2026 for the ioi.ai persistent-executable-lineage and collective-qualification-verdict contracts, and /autonomous-systems/projection for the picker. The daemon serves NO room, collective, lineage or caretaker route (R-192) and this surface asks it for none.",
+      "existing_daemon": {
+        "routes": [
+          "GET /v1/hypervisor/autonomous-systems/:id/records",
+          "GET /v1/hypervisor/autonomous-systems/projection"
+        ],
+        "actions": [],
+        "receipts": [
+          "none minted here: the composition's verbs (stop, quarantine, repair, replace, retire) belong to the ioi.ai composer and the daemon serves no collective, lineage or caretaker route at all (R-192), so this surface names them and executes none"
+        ]
+      },
       "missing_authority_contracts": [],
-      "security_credential_implications": "Reads run through the request-scoped `ctx.daemonFetch`, which carries the caller's identity envelope and refuses any destination that is not daemon-relative. A bare fetch here would not read as anonymous: under local-development posture the daemon adjudicates a loopback call as the operator, so it would silently promote the read.",
+      "security_credential_implications": "Reads run through the request-scoped `ctx.daemonFetch`, which carries the caller's identity envelope and refuses any destination that is not daemon-relative. A bare fetch here would not read as anonymous: under local-development posture the daemon adjudicates a loopback call as the operator, so it would silently promote the read. The System enumeration is policy-filtered by the caller's own scopes before it answers.",
       "classification_confidence": "high",
       "blockers": [],
       "screenshots": [],
