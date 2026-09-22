@@ -130,9 +130,9 @@
       "id": "native-shell",
       "npm_script": "check:native-shell",
       "source": "apps/hypervisor/scripts/verify-hypervisor-native-shell-integration.mjs",
-      "runtime_assertions": 118,
-      "note": "117 -> 118 (2026-09-12): the embed claim was SPLIT into two, because it conjoined a form the surface always emits with row onclicks that exist only once the estate holds object types, and this gate runs against a freshly created isolated daemon. One assertion became two with different subjects. The pin should have moved in that commit and did not; the floor caught it, which is what it is for. M08.2 closure: the complete 35-surface standalone, embedded, two-hop reachability, and real-browser single-slot navigation contract now emits a source-bound runtime census.",
-      "assertion_names_sha256": "d253cc49e5481ee75544c183a0bb5c258be3238414b18057a78096e81cf8aed0"
+      "runtime_assertions": 120,
+      "note": "117 -> 118 (2026-09-12): the embed claim was SPLIT into two, because it conjoined a form the surface always emits with row onclicks that exist only once the estate holds object types, and this gate runs against a freshly created isolated daemon. One assertion became two with different subjects. The pin should have moved in that commit and did not; the floor caught it, which is what it is for. M08.2 closure: the complete 35-surface standalone, embedded, two-hop reachability, and real-browser single-slot navigation contract now emits a source-bound runtime census. Raised 118 \u2192 120 on 2026-09-22 (M08.17): the gate walks every REGISTERED surface, so adding the artifact-ecology surface added two assertions to it. A pin raised in a later commit than the assertions is a slack floor, and a slack floor is where a later deletion hides.",
+      "assertion_names_sha256": "8803bbe47c5fcec4ffe3bf5677462dbb1da65ca598fa16c8ecfcb36eab93a361"
     },
     {
       "id": "odk-contract-and-domainapp",

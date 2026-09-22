@@ -137,6 +137,10 @@ async function run() {
   // work-new-session. They are removed rather than kept, because the assertion below rejects a
   // stale name: a list that can name a surface the registry lacks is a list that absorbs coverage.
   const REFERENCELESS_SURFACES = {
+    // M08.17 (R-227): the artifact ecology is post-atlas by construction — it renders the ioi.ai
+    // composition through the generic System-record seam and no reference capture of it exists or
+    // could, because the donor estate had no such view.
+    ecology: { provenance_id: "work", class: "post-atlas" },
     contour: { provenance_id: "studio", class: "post-atlas" },
     devconsole: { provenance_id: "developer-console", class: "post-atlas" },
     fusion: { provenance_id: "studio", class: "post-atlas" },
