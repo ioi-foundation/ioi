@@ -137,10 +137,6 @@ async function run() {
   // work-new-session. They are removed rather than kept, because the assertion below rejects a
   // stale name: a list that can name a surface the registry lacks is a list that absorbs coverage.
   const REFERENCELESS_SURFACES = {
-    // M08.17 (R-227): the artifact ecology is post-atlas by construction — it renders the ioi.ai
-    // composition through the generic System-record seam and no reference capture of it exists or
-    // could, because the donor estate had no such view.
-    ecology: { provenance_id: "work", class: "post-atlas" },
     contour: { provenance_id: "studio", class: "post-atlas" },
     devconsole: { provenance_id: "developer-console", class: "post-atlas" },
     fusion: { provenance_id: "studio", class: "post-atlas" },
@@ -204,16 +200,30 @@ async function run() {
   // classification with no gate noise, while the comment above implied `post-atlas` was a recognized
   // value. It was recognized by nothing. That is this gate's own subject at small scale.
   const CLASSES = ["greenfield", "post-atlas"];
-  const misclassified = Object.entries(REFERENCELESS_SURFACES).filter(([, entry]) => {
+  const classDisagrees = (entry) => {
     if (!CLASSES.includes(entry.class)) return true;
     const record = provenanceById.get(entry.provenance_id);
     if (!record) return true;
     const greenfield = record.baseline_status === "blocked-no-valid-seed" && Boolean(record.greenfield_authorization);
     return entry.class === "greenfield" ? !greenfield : greenfield;
-  });
+  };
+  const misclassified = Object.entries(REFERENCELESS_SURFACES).filter(([, entry]) => classDisagrees(entry));
   ok("every reference-less entry names a CLASS from the closed vocabulary and that class agrees with the tracked seed-provenance ledger — greenfield means the ledger says no valid seed and an owner authorized the lane, and nothing else may claim it",
     misclassified.length === 0,
     misclassified.map(([slug, entry]) => `${slug}:${entry.class}`).join(", ") || `${Object.keys(REFERENCELESS_SURFACES).length} classified against the ledger`);
+
+  // A SURFACE WITHOUT A REFERENCE CAN STILL NEED AN ATLAS ROW, and the two lists are disjoint.
+  // `read_only_by_contract` registry surfaces are admitted by `contractCatalogAdmission`, which
+  // resolves its evidence out of THIS artifact — so such a surface must carry an atlas row even
+  // when nothing in the donor estate was ported into it. The reference-less list cannot hold it
+  // (the assertion above forbids an entry the atlas already audits), so the post-atlas claim moves
+  // ONTO THE ROW as `reference_provenance`, checked against the same ledger by the same predicate.
+  // Without that, "no reference controls" would be a bare absence the row asserts about itself.
+  const postAtlasRows = Object.entries(rows).filter(([, r]) => r.reference_provenance);
+  const rowMisclassified = postAtlasRows.filter(([, r]) => classDisagrees(r.reference_provenance));
+  ok("every ATLAS row claiming post-atlas provenance names a class from the SAME closed vocabulary and agrees with the SAME tracked ledger — a row cannot mint its own exemption from the control taxonomy",
+    rowMisclassified.length === 0,
+    rowMisclassified.map(([slug, r]) => `${slug}:${r.reference_provenance.class}`).join(", ") || `${postAtlasRows.length} rows classified against the ledger`);
 
   // THE JOIN. Every per-surface loop below walks this, so a missing atlas row is a CLASSIFIED FACT
   // rather than a TypeError. The crash that made this file gate nothing was `rows[s.slug]` returning
@@ -231,7 +241,13 @@ async function run() {
     const census = r.reference_control_census || [];
     const ids = census.map((c) => c.id);
     const uniqueIds = new Set(ids).size === ids.length;
-    const everyClassified = census.length > 0 && census.every((c) => OUTCOMES.includes(c.outcome));
+    // A post-atlas row has NO reference to enumerate, so demanding a non-empty census would force
+    // an invented one. The exemption is not free: the row must be ledger-confirmed above AND carry
+    // BOTH censuses empty, so the class cannot be used to park a port's unclassified controls.
+    const postAtlas = Boolean(r.reference_provenance);
+    const everyClassified = postAtlas
+      ? census.length === 0 && (r.implemented_control_census || []).length === 0
+      : census.length > 0 && census.every((c) => OUTCOMES.includes(c.outcome));
     const reasonsNamed = census.filter((c) => REASON_OUTCOMES.includes(c.outcome)).every((c) => typeof c.reason === "string" && c.reason.trim().length >= 12);
     const bindingsNamed = census.filter((c) => BINDING_OUTCOMES.includes(c.outcome)).every((c) => typeof c.binding === "string" && c.binding.trim().length >= 3);
     ok(`${s.slug}: every reference control classified once into the 6-outcome taxonomy (unique ids)`, uniqueIds && everyClassified, `${census.length} controls`);
