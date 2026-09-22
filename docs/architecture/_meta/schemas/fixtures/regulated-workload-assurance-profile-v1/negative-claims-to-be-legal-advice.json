@@ -1,0 +1,47 @@
+{
+  "schema_version": "ioi.foundations.regulated-workload-assurance-profile.v1",
+  "profile_id": "regulated_workload_assurance_profile://acme/claims-adjudication/v3",
+  "version": "3.1.0",
+  "issued_at": "2026-09-22T10:00:00Z",
+  "supersedes_ref": "regulated_workload_assurance_profile://acme/claims-adjudication/v2",
+  "subject": {
+    "workload_ref": "worker://acme/claims-adjudication-assistant",
+    "declared_purpose": "Adjudicate submitted health claims against the member's own plan terms and produce a reviewable determination packet.",
+    "privacy_class": "regulated"
+  },
+  "policy_bindings": {
+    "jurisdiction_policy_pack_ref": "jurisdiction_policy_pack://acme/us-hipaa/v4",
+    "jurisdiction_policy_pack_version": "4.2.0",
+    "policy_bound_data_view_ref": "policy_bound_data_view://acme/claims-member-scope",
+    "policy_bound_data_view_revision_ref": "revision://acme/claims-member-scope/17"
+  },
+  "route_bindings": {
+    "model_route_revision_refs": [
+      "model_route_revision://acme/adjudication-primary/9"
+    ],
+    "tool_contract_revision_refs": [
+      "runtime_tool_contract_revision://acme/plan-terms-lookup/4"
+    ]
+  },
+  "custody_bindings": {
+    "credential_custody_profile_ref": "credential_custody_profile://acme/brokered-phi/v2",
+    "process_custody": "brokered",
+    "locality_and_custody_refs": [
+      "policy://acme/data-locality/us-only"
+    ]
+  },
+  "operational_bindings": {
+    "incident_hold_policy_ref": "policy://acme/incident-hold/phi",
+    "backup_policy_ref": "policy://acme/backup/regulated",
+    "retention_class_ref": "retention_class://acme/phi-seven-year"
+  },
+  "unowned_bindings": {
+    "data_processor_terms_ref": "data_processor_terms://acme/baa/2026",
+    "key_control_ref": "key_control://acme/phi-cmk",
+    "access_log_binding_ref": "access_log_binding://acme/phi-read-log"
+  },
+  "grants_no_authority": true,
+  "is_not_legal_advice": false,
+  "recorded_by_ref": "principal://acme/compliance-engineering",
+  "profile_root": "sha256:db1532e6fff6f6afda6ab3c2d7dd03f39339bb6c9c25bb80cb93ce5c9f3df6b9"
+}

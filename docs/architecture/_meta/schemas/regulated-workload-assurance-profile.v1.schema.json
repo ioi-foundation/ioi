@@ -1,0 +1,263 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "schema://ioi/foundations/regulated-workload-assurance-profile/v1",
+  "title": "RegulatedWorkloadAssuranceProfile",
+  "x-ioi-schema-version": "ioi.foundations.regulated-workload-assurance-profile.v1",
+  "description": "WHAT A REGULATED OR SENSITIVE WORKLOAD MUST BIND BEFORE IT MAY RUN — as refs at revisions, and nothing restated. This object is a COMPOSITION, not a declaration: residency, retention, deletion and export are owned by the bound JurisdictionPolicyPack's `data_requirements`, and purpose, allowed uses, data classes, redaction, retention-and-hold and destination-and-egress are owned by the bound PolicyBoundDataView revision. A member copied inline here would be a second copy of a rule, free to drift from the policy it was copied from, which is the second spine the estate's structural law forbids. TWO WORDS THAT NAME SEVERAL OBJECTS ARE DELIBERATELY NOT USED BARE: `custody` spans credential custody, process custody, data locality and custody tier, and `egress` spans a tool contract's egress_policy, a view's destination_and_egress and a connectivity profile's no_egress scope — so every binding below names the exact member of the exact owner, because a profile requiring a bare `custody` would bind whichever of them its reader assumed and a gate would go green on the wrong object. `unowned_bindings` ARE REQUIRED AND NOTHING IN THE ESTATE RESOLVES THEM: data-processor terms, key control and access logging are obligations canon places on a regulated workload, and a profile that omitted them would let such a workload be admitted with no access log at all. A required ref with no resolver states the obligation and refuses the admission until the owner exists. Owner: foundations/ecosystem-assurance-certification-liability.md § RegulatedWorkloadAssuranceProfile (M09.9, R-230/R-231).",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "profile_id",
+    "version",
+    "issued_at",
+    "supersedes_ref",
+    "subject",
+    "policy_bindings",
+    "route_bindings",
+    "custody_bindings",
+    "operational_bindings",
+    "unowned_bindings",
+    "grants_no_authority",
+    "is_not_legal_advice",
+    "recorded_by_ref",
+    "profile_root"
+  ],
+  "properties": {
+    "schema_version": {
+      "type": "string",
+      "const": "ioi.foundations.regulated-workload-assurance-profile.v1"
+    },
+    "profile_id": {
+      "$ref": "#/$defs/profileRef"
+    },
+    "version": {
+      "type": "string",
+      "pattern": "^(?:0|[1-9][0-9]*)[.](?:0|[1-9][0-9]*)[.](?:0|[1-9][0-9]*)$",
+      "description": "Semver, and load-bearing: an admission case names the exact profile version it was evaluated under, so a changed binding cannot pass as the profile that was already admitted against."
+    },
+    "issued_at": {
+      "$ref": "#/$defs/timestamp"
+    },
+    "supersedes_ref": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/profileRef"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "description": "The profile this one replaces, or null for the first. Explicit rather than omitted, so a successor chain is a fact on the wire instead of an inference from timestamps."
+    },
+    "subject": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "workload_ref",
+        "declared_purpose",
+        "privacy_class"
+      ],
+      "description": "The workload this profile governs and the purpose it declared. `declared_purpose` is one half of the comparison that decides `binding_broader_than_purpose`; the other half is the bound view's own `allowed_uses`.",
+      "properties": {
+        "workload_ref": {
+          "type": "string",
+          "pattern": "^(?:worker|task|workflow)://[^\\s?#\\\\]{1,200}$"
+        },
+        "declared_purpose": {
+          "type": "string",
+          "minLength": 12,
+          "maxLength": 400,
+          "description": "Stated by the workload's owner and never derived from what the workload happens to do. A purpose short enough to be a label cannot be compared against a view's allowed uses, so a floor is enforced here rather than left to a reviewer."
+        },
+        "privacy_class": {
+          "type": "string",
+          "enum": [
+            "confidential",
+            "restricted",
+            "regulated",
+            "safety_critical"
+          ],
+          "description": "The four TaskEnvelope privacy classes that require this profile. `public` and `internal` are absent deliberately: a profile for a workload that needs none is a profile that means nothing."
+        }
+      }
+    },
+    "policy_bindings": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "jurisdiction_policy_pack_ref",
+        "jurisdiction_policy_pack_version",
+        "policy_bound_data_view_ref",
+        "policy_bound_data_view_revision_ref"
+      ],
+      "description": "The two owners that already hold most of this unit's obligations. The pack carries residency, retention, deletion and export; the view carries purpose, allowed uses, data classes, redaction, retention-and-hold and destination-and-egress. Both are bound at an EXACT version or revision, because binding a name rather than a revision is what makes `binding_stale` and `binding_substituted` undetectable.",
+      "properties": {
+        "jurisdiction_policy_pack_ref": {
+          "type": "string",
+          "pattern": "^jurisdiction_policy_pack://[^\\s?#\\\\]{1,200}$"
+        },
+        "jurisdiction_policy_pack_version": {
+          "type": "string",
+          "pattern": "^(?:0|[1-9][0-9]*)[.](?:0|[1-9][0-9]*)[.](?:0|[1-9][0-9]*)$"
+        },
+        "policy_bound_data_view_ref": {
+          "type": "string",
+          "pattern": "^policy_bound_data_view://[^\\s?#\\\\]{1,200}$"
+        },
+        "policy_bound_data_view_revision_ref": {
+          "type": "string",
+          "pattern": "^revision://[^\\s?#\\\\]{1,200}$"
+        }
+      }
+    },
+    "route_bindings": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "model_route_revision_refs",
+        "tool_contract_revision_refs"
+      ],
+      "description": "Every model or tool route the workload may use, at the revision it may use. A list that may be empty is honest for a workload that invokes neither; a list that names a route the estate never admitted is what `binding_substituted` refuses.",
+      "properties": {
+        "model_route_revision_refs": {
+          "type": "array",
+          "maxItems": 64,
+          "items": {
+            "type": "string",
+            "pattern": "^model_route_revision://[^\\s?#\\\\]{1,200}$"
+          }
+        },
+        "tool_contract_revision_refs": {
+          "type": "array",
+          "maxItems": 64,
+          "items": {
+            "type": "string",
+            "pattern": "^runtime_tool_contract_revision://[^\\s?#\\\\]{1,200}$"
+          }
+        }
+      }
+    },
+    "custody_bindings": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "credential_custody_profile_ref",
+        "process_custody",
+        "locality_and_custody_refs"
+      ],
+      "description": "Three DISTINCT custody facts, named separately because they are separate objects with separate owners. Collapsing them into one `custody` member is the conflation this profile exists to avoid.",
+      "properties": {
+        "credential_custody_profile_ref": {
+          "anyOf": [
+            {
+              "type": "string",
+              "pattern": "^credential_custody_profile://[^\\s?#\\\\]{1,200}$"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "Null when the workload holds no credential at all — which is a stated fact, not an omission."
+        },
+        "process_custody": {
+          "type": "string",
+          "enum": [
+            "local",
+            "brokered",
+            "delegated_attested"
+          ]
+        },
+        "locality_and_custody_refs": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 32,
+          "items": {
+            "type": "string",
+            "pattern": "^(?:policy|custody)://[^\\s?#\\\\]{1,400}$"
+          }
+        }
+      }
+    },
+    "operational_bindings": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "incident_hold_policy_ref",
+        "backup_policy_ref",
+        "retention_class_ref"
+      ],
+      "description": "Incident handling, backup and retention class. Each is a ref to the plane that owns it; none is restated here.",
+      "properties": {
+        "incident_hold_policy_ref": {
+          "$ref": "#/$defs/policyRef"
+        },
+        "backup_policy_ref": {
+          "$ref": "#/$defs/policyRef"
+        },
+        "retention_class_ref": {
+          "type": "string",
+          "pattern": "^retention_class://[^\\s?#\\\\]{1,200}$"
+        }
+      }
+    },
+    "unowned_bindings": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "data_processor_terms_ref",
+        "key_control_ref",
+        "access_log_binding_ref"
+      ],
+      "description": "REQUIRED REFS WITH NO RESOLVER. Measured 2026-09-22: `data_processor`/`subprocessor`/`processor_terms`, `key_control`/`key_custody`/`kms`/`hsm` and `access_log`/`audit_log`/`read_log`/`access_record` return zero hits in the 351-schema registry and zero in the daemon route modules, under every one of those names. They are required anyway, because canon places these obligations on a regulated workload and a profile that dropped them would admit such a workload with no access log. The plane refuses `binding_owner_absent` naming which one, and that refusal is this unit's named absence rather than a gap in it. Removing a member here is a governed act.",
+      "properties": {
+        "data_processor_terms_ref": {
+          "type": "string",
+          "pattern": "^data_processor_terms://[^\\s?#\\\\]{1,200}$"
+        },
+        "key_control_ref": {
+          "type": "string",
+          "pattern": "^key_control://[^\\s?#\\\\]{1,200}$"
+        },
+        "access_log_binding_ref": {
+          "type": "string",
+          "pattern": "^access_log_binding://[^\\s?#\\\\]{1,200}$"
+        }
+      }
+    },
+    "grants_no_authority": {
+      "type": "boolean",
+      "const": true,
+      "description": "On the wire, because the profile names routes, custody and scopes-adjacent policy and a reader could take that for a grant. It requires; it never issues."
+    },
+    "is_not_legal_advice": {
+      "type": "boolean",
+      "const": true,
+      "description": "On the wire for the same reason the pack carries it: this object is adjacent enough to regulatory obligation that the disclaimer belongs in the shape rather than in a document someone may not read."
+    },
+    "recorded_by_ref": {
+      "type": "string",
+      "pattern": "^[a-z][a-z0-9+.-]*://[^\\s]{1,400}$",
+      "description": "THE RECORDER, STAMPED BY THE PLANE AND NEVER AUTHORED. This profile is scoped to whoever recorded it; without an owner it would admit successfully and then be readable by nobody, which is the defect M06.10's live leg caught one unit earlier. The plane refuses a caller-supplied value outright rather than correcting it, and resolves the actor itself, so the scope a read is checked against is never one the caller chose. EXCLUDED from the root, because the caller seals the profile before the server stamps it."
+    },
+    "profile_root": {
+      "type": "string",
+      "pattern": "^sha256:[0-9a-f]{64}$",
+      "description": "SHA-256 over JCS of every member except this one and `recorded_by_ref`. An admission case binds this root rather than the profile's name, so editing a binding in place breaks every case already recorded against the profile instead of silently rewriting what they were evaluated against."
+    }
+  },
+  "$defs": {
+    "profileRef": {
+      "type": "string",
+      "pattern": "^regulated_workload_assurance_profile://[^\\s?#\\\\]{1,200}$"
+    },
+    "policyRef": {
+      "type": "string",
+      "pattern": "^policy://[^\\s]{1,400}$"
+    },
+    "timestamp": {
+      "type": "string",
+      "pattern": "^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$"
+    }
+  }
+}

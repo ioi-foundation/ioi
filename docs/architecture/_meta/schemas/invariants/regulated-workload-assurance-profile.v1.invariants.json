@@ -1,0 +1,69 @@
+{
+  "$id": "invariant://ioi/foundations/regulated-workload-assurance-profile/binds-owners-never-restates-them/v1",
+  "language": "ioi.portable-invariants.v1",
+  "contract_id": "schema://ioi/foundations/regulated-workload-assurance-profile/v1",
+  "rules": [
+    {
+      "rule_id": "regulated_workload_assurance_profile.does_not_supersede_itself",
+      "description": "A profile that names itself as the one it supersedes has turned a CHAIN into an edit. An admission case binds the profile root, so self-supersession is how a changed binding is made to look like the same profile that was already admitted against.",
+      "expression": {
+        "operator": "fields_not_equal",
+        "paths": [
+          "$.profile_id",
+          "$.supersedes_ref"
+        ]
+      }
+    },
+    {
+      "rule_id": "regulated_workload_assurance_profile.root.recomputes",
+      "description": "THE SEAL. An admission case binds this root rather than the profile's name, so a binding edited in place no longer recomputes and every case already recorded against the profile breaks its binding instead of being silently reinterpreted against content it was never evaluated under. This is what makes `binding_substituted` mean something at the profile level as well as the plane level.",
+      "expression": {
+        "operator": "jcs_sha256_equals",
+        "algorithm": "jcs_sha256",
+        "expected_path": "$.profile_root",
+        "expected_encoding": "sha256_string",
+        "material_fields": {
+          "schema_version": {
+            "path": "$.schema_version"
+          },
+          "profile_id": {
+            "path": "$.profile_id"
+          },
+          "version": {
+            "path": "$.version"
+          },
+          "issued_at": {
+            "path": "$.issued_at"
+          },
+          "supersedes_ref": {
+            "path": "$.supersedes_ref"
+          },
+          "subject": {
+            "path": "$.subject"
+          },
+          "policy_bindings": {
+            "path": "$.policy_bindings"
+          },
+          "route_bindings": {
+            "path": "$.route_bindings"
+          },
+          "custody_bindings": {
+            "path": "$.custody_bindings"
+          },
+          "operational_bindings": {
+            "path": "$.operational_bindings"
+          },
+          "unowned_bindings": {
+            "path": "$.unowned_bindings"
+          },
+          "grants_no_authority": {
+            "path": "$.grants_no_authority"
+          },
+          "is_not_legal_advice": {
+            "path": "$.is_not_legal_advice"
+          }
+        }
+      }
+    }
+  ]
+}

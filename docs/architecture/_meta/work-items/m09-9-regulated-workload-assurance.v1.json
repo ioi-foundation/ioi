@@ -1,0 +1,84 @@
+{
+  "evidence_format": "ioi.program.work_item.v1",
+  "work_item_id": "m09-9-regulated-workload-assurance",
+  "stage_id": "M09",
+  "required_work": [
+    "M09.9"
+  ],
+  "status": "evidence_ready",
+  "objective": "Close M09.9 as an executable gate: make a regulated or sensitive workload BIND the owners that already hold its obligations rather than restate them, refuse admission when any binding is missing, stale, substituted or broader than the workload's declared purpose, and refuse it by name while three of the obligations canon requires have no owner in this estate at all — because a regulated workload should be refused while the estate cannot log access to it, and a green profile that admits an unauditable workload is the outcome the requirement exists to prevent.",
+  "falsifiable_claim": "node scripts/check-regulated-workload-assurance.mjs proves twelve clauses over two registered contracts, a pure deriver and a live daemon plane. PURE: the profile grants nothing, claims no legal advice, restates none of the eleven members another owner holds AND names the owner it would duplicate, pins every binding to an exact revision, requires the three unowned bindings, and the case determines no question of law, acts on nothing, carries only typed refusals that name their member, and never records one reason twice for one member; the evaluation is exact over missing, stale and broader-than-purpose. OFFLINE: a relying party holding the case, the profile it names and its own admitted records recomputes BOTH roots and RE-DERIVES the refusals and the verdict rather than believing the ones the case carries, with no daemon, no clock and no network — and an empty, null or non-object expectation is refused rather than satisfied. SEAM: legal_conformity_claim is const not_determined inherited from M06.10, grants_no_authority and performs_no_action are const true, the refusal-reason and privacy-class sets are closed, the three unowned bindings are required, no bare `custody` member exists, no member the bound pack already owns appears, every member material to a root is required so the projection cannot drop it, and the server-stamped recorder sits outside the root the caller seals. SOURCE: the plane validates each registered contract at admission, DERIVES the verdict instead of accepting one, refuses a caller-authored recorder and a caller-authored verdict, recomputes the profile root rather than trusting it, resolves identity BEFORE loading the record, scopes every read to the caller's tenant, and writes to neither owner it reads. --drills runs 10 drills; --mutation plants 43 defects in the deriver and catches all 43. The full mode drives one isolated daemon: a real jurisdiction pack admitted, a profile bound to it at its exact version, a case DERIVED carrying exactly three binding_owner_absent refusals and none about the current pack, a caller-authored verdict refused verdict_authored, a profile binding a pack nobody holds refused binding_missing, one pinning a version the admitted pack no longer carries refused binding_stale, re-admission refused already_admitted, the pack store byte-identical afterwards, and an unauthenticated read answered without an existence oracle. Clause 12 is a NAMED ABSENCE with owners and the gate exits 2: route-revision currentness is required and not driven, the three unowned refs have no owner, and ACC-18 has no runner.",
+  "canon_owners": [
+    "docs/architecture/foundations/ecosystem-assurance-certification-liability.md"
+  ],
+  "code_anchors": [
+    {
+      "path": "docs/architecture/_meta/schemas/regulated-workload-assurance-profile.v1.schema.json",
+      "must_contain": "unowned_bindings",
+      "present_when": "merged"
+    },
+    {
+      "path": "docs/architecture/_meta/schemas/regulated-workload-admission-case.v1.schema.json",
+      "must_contain": "\"const\": \"not_determined\"",
+      "present_when": "merged"
+    },
+    {
+      "path": "docs/architecture/_meta/schemas/invariants/regulated-workload-admission-case.v1.invariants.json",
+      "must_contain": "regulated_workload_admission_case.refused_says_why",
+      "present_when": "merged"
+    },
+    {
+      "path": "apps/hypervisor/scripts/lib/regulated-workload-assurance.mjs",
+      "must_contain": "export function relyingPartyFindings(",
+      "present_when": "merged"
+    },
+    {
+      "path": "apps/hypervisor/scripts/lib/regulated-workload-assurance.mjs",
+      "must_contain": "export const OWNED_ELSEWHERE",
+      "present_when": "merged"
+    },
+    {
+      "path": "crates/node/src/bin/hypervisor_daemon_routes/regulated_workload_routes.rs",
+      "must_contain": "binding_owner_absent",
+      "present_when": "merged"
+    },
+    {
+      "path": "crates/node/src/bin/hypervisor_daemon_routes/regulated_workload_routes.rs",
+      "must_contain": "verdict_authored",
+      "present_when": "merged"
+    },
+    {
+      "path": "crates/node/src/bin/hypervisor-daemon.rs",
+      "must_contain": "/v1/hypervisor/regulated-workload-admission-cases",
+      "present_when": "merged"
+    },
+    {
+      "path": "scripts/lib/regulated-workload-plane.mjs",
+      "must_contain": "export async function planeLeg(",
+      "present_when": "merged"
+    },
+    {
+      "path": "scripts/check-regulated-workload-assurance.mjs",
+      "must_contain": "export function sourceFindings(",
+      "present_when": "merged"
+    },
+    {
+      "path": "apps/hypervisor/verifier-floors.v1.json",
+      "must_contain": "\"id\": \"regulated-workload-assurance\"",
+      "present_when": "merged"
+    },
+    {
+      "path": "apps/hypervisor/scripts/check-verifier-floors.mjs",
+      "must_contain": "check-regulated-workload-assurance",
+      "present_when": "merged"
+    },
+    {
+      "path": ".github/workflows/ci.yml",
+      "must_contain": "npm run check:regulated-workload-assurance --workspace=@ioi/hypervisor-app",
+      "present_when": "merged"
+    }
+  ],
+  "evidence_refs": [
+    "docs/architecture/_meta/evidence/m09-9-regulated-workload-assurance-2026-09-22.v1.json"
+  ]
+}

@@ -1,0 +1,15 @@
+{
+  "schema_version": "ioi.foundations.regulated-workload-admission-case.v1",
+  "case_id": "regulated_workload_admission_case://acme/claims-adjudication/2026-09-22-01",
+  "profile_ref": "regulated_workload_assurance_profile://acme/claims-adjudication/v3",
+  "profile_version": "3.1.0",
+  "profile_root": "sha256:97bfcf218b711bfa98aa3491b4268e8a242831b346216e9bc3df2f5d34ea12dc",
+  "evaluated_at": "2026-09-22T10:05:00Z",
+  "verdict": "admitted",
+  "refusals": [],
+  "legal_conformity_claim": "",
+  "grants_no_authority": true,
+  "performs_no_action": true,
+  "recorded_by_ref": "principal://acme/compliance-engineering",
+  "case_root": "sha256:29aa58d29a1a3d37d1309635c862cd70aae58b6c128fd0b5f6b1c9b4d2c7d842"
+}

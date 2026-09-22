@@ -20799,6 +20799,212 @@
           "expected_failure": "invariant"
         }
       ]
+    },
+    {
+      "contract_id": "schema://ioi/foundations/regulated-workload-assurance-profile/v1",
+      "canonical_name": "RegulatedWorkloadAssuranceProfile",
+      "canonical_owner_ref": "canon://docs/architecture/foundations/ecosystem-assurance-certification-liability.md",
+      "schema_version": "ioi.foundations.regulated-workload-assurance-profile.v1",
+      "maturity": "partial",
+      "stability": "provisional",
+      "wire_format": "json",
+      "canonical_encoding_profile_ref": "encoding-profile://ioi/jcs-json/v1",
+      "evolution": {
+        "successor_of": null,
+        "successor_contract_id": null,
+        "compatibility": "initial",
+        "migration_policy": "none",
+        "predecessor_remains_valid": false,
+        "wire_mutation_policy": "forbidden",
+        "hash_impact": "signature_preimage_changed"
+      },
+      "schema_ref": "regulated-workload-assurance-profile.v1.schema.json",
+      "cross_field_invariant_refs": [
+        {
+          "invariant_id": "invariant://ioi/foundations/regulated-workload-assurance-profile/binds-owners-never-restates-them/v1",
+          "path": "invariants/regulated-workload-assurance-profile.v1.invariants.json"
+        }
+      ],
+      "compatibility_aliases": [],
+      "generated_targets": [
+        {
+          "kind": "typescript_projection",
+          "path": "packages/hypervisor-workbench/src/runtime/generated/architecture-contracts.ts",
+          "symbol": "RegulatedWorkloadAssuranceProfileV1"
+        },
+        {
+          "kind": "rust_projection",
+          "path": "crates/types/src/app/generated/architecture_contracts.rs",
+          "symbol": "RegulatedWorkloadAssuranceProfileV1"
+        }
+      ],
+      "positive_fixture_refs": [
+        "fixtures/regulated-workload-assurance-profile-v1/positive-a-regulated-claims-workload.json",
+        "fixtures/regulated-workload-assurance-profile-v1/positive-holds-no-credential-and-invokes-nothing.json"
+      ],
+      "negative_fixture_refs": [
+        {
+          "path": "fixtures/regulated-workload-assurance-profile-v1/negative-a-bare-custody-member.json",
+          "expected_failure": "schema"
+        },
+        {
+          "path": "fixtures/regulated-workload-assurance-profile-v1/negative-a-public-workload-needs-no-profile.json",
+          "expected_failure": "schema"
+        },
+        {
+          "path": "fixtures/regulated-workload-assurance-profile-v1/negative-a-purpose-too-short-to-compare.json",
+          "expected_failure": "schema"
+        },
+        {
+          "path": "fixtures/regulated-workload-assurance-profile-v1/negative-a-recorder-that-is-not-a-ref.json",
+          "expected_failure": "schema"
+        },
+        {
+          "path": "fixtures/regulated-workload-assurance-profile-v1/negative-a-version-that-is-not-semver.json",
+          "expected_failure": "schema"
+        },
+        {
+          "path": "fixtures/regulated-workload-assurance-profile-v1/negative-an-invented-process-custody.json",
+          "expected_failure": "schema"
+        },
+        {
+          "path": "fixtures/regulated-workload-assurance-profile-v1/negative-binds-a-pack-by-name-with-no-version.json",
+          "expected_failure": "schema"
+        },
+        {
+          "path": "fixtures/regulated-workload-assurance-profile-v1/negative-binds-a-view-with-no-revision.json",
+          "expected_failure": "schema"
+        },
+        {
+          "path": "fixtures/regulated-workload-assurance-profile-v1/negative-claims-to-be-legal-advice.json",
+          "expected_failure": "schema"
+        },
+        {
+          "path": "fixtures/regulated-workload-assurance-profile-v1/negative-claims-to-grant-authority.json",
+          "expected_failure": "schema"
+        },
+        {
+          "path": "fixtures/regulated-workload-assurance-profile-v1/negative-drops-data-processor-terms.json",
+          "expected_failure": "schema"
+        },
+        {
+          "path": "fixtures/regulated-workload-assurance-profile-v1/negative-drops-key-control.json",
+          "expected_failure": "schema"
+        },
+        {
+          "path": "fixtures/regulated-workload-assurance-profile-v1/negative-drops-the-access-log-binding.json",
+          "expected_failure": "schema"
+        },
+        {
+          "path": "fixtures/regulated-workload-assurance-profile-v1/negative-names-no-locality-or-custody-policy.json",
+          "expected_failure": "schema"
+        },
+        {
+          "path": "fixtures/regulated-workload-assurance-profile-v1/negative-restates-residency-the-pack-owns.json",
+          "expected_failure": "schema"
+        },
+        {
+          "path": "fixtures/regulated-workload-assurance-profile-v1/negative-root-does-not-recompute.json",
+          "expected_failure": "invariant"
+        },
+        {
+          "path": "fixtures/regulated-workload-assurance-profile-v1/negative-supersedes-itself.json",
+          "expected_failure": "invariant"
+        }
+      ]
+    },
+    {
+      "contract_id": "schema://ioi/foundations/regulated-workload-admission-case/v1",
+      "canonical_name": "RegulatedWorkloadAdmissionCase",
+      "canonical_owner_ref": "canon://docs/architecture/foundations/ecosystem-assurance-certification-liability.md",
+      "schema_version": "ioi.foundations.regulated-workload-admission-case.v1",
+      "maturity": "partial",
+      "stability": "provisional",
+      "wire_format": "json",
+      "canonical_encoding_profile_ref": "encoding-profile://ioi/jcs-json/v1",
+      "evolution": {
+        "successor_of": null,
+        "successor_contract_id": null,
+        "compatibility": "initial",
+        "migration_policy": "none",
+        "predecessor_remains_valid": false,
+        "wire_mutation_policy": "forbidden",
+        "hash_impact": "signature_preimage_changed"
+      },
+      "schema_ref": "regulated-workload-admission-case.v1.schema.json",
+      "cross_field_invariant_refs": [
+        {
+          "invariant_id": "invariant://ioi/foundations/regulated-workload-admission-case/a-refusal-names-what-it-refused/v1",
+          "path": "invariants/regulated-workload-admission-case.v1.invariants.json"
+        }
+      ],
+      "compatibility_aliases": [],
+      "generated_targets": [
+        {
+          "kind": "typescript_projection",
+          "path": "packages/hypervisor-workbench/src/runtime/generated/architecture-contracts.ts",
+          "symbol": "RegulatedWorkloadAdmissionCaseV1"
+        },
+        {
+          "kind": "rust_projection",
+          "path": "crates/types/src/app/generated/architecture_contracts.rs",
+          "symbol": "RegulatedWorkloadAdmissionCaseV1"
+        }
+      ],
+      "positive_fixture_refs": [
+        "fixtures/regulated-workload-admission-case-v1/positive-admitted-with-every-binding-current.json",
+        "fixtures/regulated-workload-admission-case-v1/positive-refused-and-names-each-member.json"
+      ],
+      "negative_fixture_refs": [
+        {
+          "path": "fixtures/regulated-workload-admission-case-v1/negative-a-legal-verdict.json",
+          "expected_failure": "schema"
+        },
+        {
+          "path": "fixtures/regulated-workload-admission-case-v1/negative-a-recorder-that-is-not-a-ref.json",
+          "expected_failure": "schema"
+        },
+        {
+          "path": "fixtures/regulated-workload-admission-case-v1/negative-a-refusal-that-acts-on-the-workload.json",
+          "expected_failure": "schema"
+        },
+        {
+          "path": "fixtures/regulated-workload-admission-case-v1/negative-a-refusal-that-names-no-member.json",
+          "expected_failure": "schema"
+        },
+        {
+          "path": "fixtures/regulated-workload-admission-case-v1/negative-an-empty-legal-conformity-claim.json",
+          "expected_failure": "schema"
+        },
+        {
+          "path": "fixtures/regulated-workload-admission-case-v1/negative-an-invented-refusal-reason.json",
+          "expected_failure": "schema"
+        },
+        {
+          "path": "fixtures/regulated-workload-admission-case-v1/negative-an-invented-verdict.json",
+          "expected_failure": "schema"
+        },
+        {
+          "path": "fixtures/regulated-workload-admission-case-v1/negative-binds-a-profile-by-name-with-no-root.json",
+          "expected_failure": "schema"
+        },
+        {
+          "path": "fixtures/regulated-workload-admission-case-v1/negative-claims-to-grant-authority.json",
+          "expected_failure": "schema"
+        },
+        {
+          "path": "fixtures/regulated-workload-admission-case-v1/negative-one-reason-twice-for-one-member.json",
+          "expected_failure": "invariant"
+        },
+        {
+          "path": "fixtures/regulated-workload-admission-case-v1/negative-refuses-and-says-nothing.json",
+          "expected_failure": "invariant"
+        },
+        {
+          "path": "fixtures/regulated-workload-admission-case-v1/negative-root-does-not-recompute.json",
+          "expected_failure": "invariant"
+        }
+      ]
     }
   ]
 }

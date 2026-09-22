@@ -371,6 +371,119 @@ Changing a deadline, clock-start rule, recipient, responsible party, or
 accountable issuer requires a new pack version; it must not rewrite an
 already-recorded reporting decision.
 
+### `RegulatedWorkloadAssuranceProfile`
+
+`RegulatedWorkloadAssuranceProfile` declares what a regulated or sensitive
+workload must bind before it may run. It is source-neutral, it mints no
+authority of its own, and it restates nothing another owner already holds: every
+member below is a ref at a revision, and the obligations behind those refs stay
+with the planes that own them. A profile that copied a residency or retention
+rule inline would be a second copy of that rule, free to drift from the policy
+it was copied from.
+
+```yaml
+RegulatedWorkloadAssuranceProfile:
+  profile_id: regulated_workload_assurance_profile://...
+  version: semver
+  issued_at: timestamp
+  supersedes_ref: regulated_workload_assurance_profile://... | null
+  subject:
+    workload_ref: worker://... | task://... | workflow://...
+    declared_purpose: string
+    privacy_class: confidential | restricted | regulated | safety_critical
+  policy_bindings:
+    jurisdiction_policy_pack_ref: jurisdiction_policy_pack://...
+    jurisdiction_policy_pack_version: semver
+    policy_bound_data_view_ref: policy_bound_data_view://...
+    policy_bound_data_view_revision_ref: revision://...
+  route_bindings:
+    model_route_revision_refs:
+      - model_route_revision://...
+    tool_contract_revision_refs:
+      - runtime_tool_contract_revision://...
+  custody_bindings:
+    credential_custody_profile_ref: credential_custody_profile://... | null
+    process_custody: local | brokered | delegated_attested
+    locality_and_custody_refs:
+      - policy://... | custody://...
+  operational_bindings:
+    incident_hold_policy_ref: policy://...
+    backup_policy_ref: policy://...
+    retention_class_ref: retention_class://...
+  unowned_bindings:
+    data_processor_terms_ref: data_processor_terms://...
+    key_control_ref: key_control://...
+    access_log_binding_ref: access_log_binding://...
+  grants_no_authority: true
+  is_not_legal_advice: true
+  profile_root: sha256
+```
+
+Residency, retention, deletion and export are NOT members of this profile. They
+are owned by the bound `JurisdictionPolicyPack`, whose `data_requirements`
+already requires `retention_policy_ref`, `deletion_policy_ref`,
+`export_policy_ref` and `residency_policy_ref`. Purpose, allowed uses, data
+classes, redaction, retention-and-hold and destination-and-egress are likewise
+owned by the bound `PolicyBoundDataView` revision. This profile names them; it
+does not restate them.
+
+`custody` and `egress` are words that name several different objects in this
+estate — credential custody, process custody, data locality and custody tier are
+distinct, and so are a tool contract's `egress_policy`, a view's
+`destination_and_egress` and a connectivity profile's `no_egress` scope. A
+profile that required a bare `custody` would bind whichever of them its reader
+assumed. Each binding above therefore names the exact member of the exact owner.
+
+`unowned_bindings` are required and, at the time this section was written, no
+plane in the estate resolves any of them. That is deliberate: data-processor
+terms, key control and access logging are obligations canon places on a
+regulated workload, and a profile that omitted them would let such a workload be
+admitted with no access log at all. A required ref with no resolver states the
+obligation and refuses the admission until the owner exists. Removing one of
+these members is a governed act, not a convenience.
+
+### `RegulatedWorkloadAdmissionCase`
+
+`RegulatedWorkloadAdmissionCase` records one evaluation of one workload against
+one profile revision. It is technical assurance evidence and never a legal
+determination: like every generated projection in this document, it carries
+`legal_conformity_claim: not_determined`, and it inherits that constant from the
+assurance canon rather than restating the rule.
+
+```yaml
+RegulatedWorkloadAdmissionCase:
+  case_id: regulated_workload_admission_case://...
+  profile_ref: regulated_workload_assurance_profile://...
+  profile_version: semver
+  profile_root: sha256
+  evaluated_at: timestamp
+  verdict: admitted | refused
+  refusals:
+    - reason:
+        binding_missing | binding_stale | binding_substituted |
+        binding_broader_than_purpose | binding_owner_absent
+      member: string
+      detail: string
+  legal_conformity_claim: not_determined
+  grants_no_authority: true
+  performs_no_action: true
+  case_root: sha256
+```
+
+Admission fails when any required binding is missing, stale, substituted, or
+broader than the workload's declared purpose. `binding_missing` and
+`binding_broader_than_purpose` are decidable from the shapes themselves, because
+the bound view carries both the declared purpose and the allowed uses. The other
+two are not: `binding_stale` and `binding_substituted` require the admitted
+revision to compare against, which only the daemon holds. A profile naming a
+pack, view or route revision the estate never admitted, or one its owner has
+since superseded, is refused there and nowhere else.
+
+A refused evaluation mutates nothing. It does not quarantine the workload,
+revoke a lease, or narrow a policy; those verbs belong to the owners this
+profile binds, and a refusal is a statement about evidence, not an action taken
+against a subject.
+
 ### `AssuranceEvidenceBundle`
 
 `AssuranceEvidenceBundle` packages evidence refs without becoming payload

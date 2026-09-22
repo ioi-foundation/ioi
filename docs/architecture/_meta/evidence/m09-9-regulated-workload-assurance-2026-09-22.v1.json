@@ -1,0 +1,128 @@
+{
+  "schema": "ioi.regulated-workload-assurance-evidence.v1",
+  "mode": "full",
+  "started_at": "2026-09-22T19:42:53.654Z",
+  "drills": [
+    {
+      "name": "PURE — the profile binds owners and restates none of them, every binding is pinned to a revision, the three unowned bindings are required, the case determines no question of law and acts on nothing, every refusal is typed and names its member, and the evaluation is exact",
+      "pass": true,
+      "detail": "",
+      "at": "2026-09-22T19:42:53.657Z"
+    },
+    {
+      "name": "OFFLINE — a relying party holding the case, the profile it names and its own admitted records recomputes both roots and RE-DERIVES the refusals rather than believing them, with no daemon, no clock and no network — and an empty, null or non-object expectation is REFUSED rather than satisfied",
+      "pass": true,
+      "detail": "",
+      "at": "2026-09-22T19:42:53.658Z"
+    },
+    {
+      "name": "SEAM — two registered contracts carry the law on the wire: `legal_conformity_claim` const not_determined inherited from M06.10, the closed refusal-reason and privacy-class sets, the three unowned bindings required, no bare `custody` and no member the bound pack already owns, every material member required so the projection cannot drop it, and the server-stamped recorder outside the root the caller seals",
+      "pass": true,
+      "detail": "",
+      "at": "2026-09-22T19:42:53.661Z"
+    },
+    {
+      "name": "SOURCE — the plane validates each registered contract at admission, DERIVES the verdict instead of accepting one, refuses a caller-authored recorder, recomputes the profile root rather than trusting it, resolves identity BEFORE the record, scopes every read to the caller's tenant, writes to neither owner it reads — and the deriver reaches no plane, file or clock",
+      "pass": true,
+      "detail": "",
+      "at": "2026-09-22T19:42:53.662Z"
+    },
+    {
+      "name": "BINDING — the gate is floored with an existing source, CI-bound in the form the FLOORS GATE recognises rather than by its bare name, and every clause is executed or named with an owner",
+      "pass": true,
+      "detail": "",
+      "at": "2026-09-22T19:42:53.663Z"
+    },
+    {
+      "name": "VERDICT — a table missing eleven of its twelve rows is a FAIL, not a pass",
+      "pass": true,
+      "detail": "row_missing:2 ; row_missing:3",
+      "at": "2026-09-22T19:42:53.664Z"
+    },
+    {
+      "name": "VERDICT — twelve green rows with no absence is a PASS",
+      "pass": true,
+      "detail": "",
+      "at": "2026-09-22T19:42:53.664Z"
+    },
+    {
+      "name": "VERDICT — one named absence is a NAMED FAILURE, never a pass",
+      "pass": true,
+      "detail": "named_failure",
+      "at": "2026-09-22T19:42:53.664Z"
+    },
+    {
+      "name": "VERDICT — a gate that reports success without evidence is fabricated, not green",
+      "pass": true,
+      "detail": "",
+      "at": "2026-09-22T19:42:53.664Z"
+    },
+    {
+      "name": "VERDICT — a gate below its floor fails even at exit 0",
+      "pass": true,
+      "detail": "",
+      "at": "2026-09-22T19:42:53.664Z"
+    }
+  ],
+  "pure": [],
+  "offline": [],
+  "seam": [],
+  "source": [],
+  "plane": {
+    "findings": [],
+    "seconds": 5,
+    "observed": {
+      "admitted": {
+        "pack": 200,
+        "profile": 200,
+        "case": 200
+      },
+      "refusals": {
+        "recorder_authored": "hypervisor.regulated-workload.recorder_authored",
+        "verdict_authored": "hypervisor.regulated-workload.verdict_authored",
+        "binding_missing": [
+          "binding_missing"
+        ],
+        "binding_stale": [
+          "binding_stale"
+        ],
+        "profile_unadmitted": "hypervisor.regulated-workload.profile_unadmitted",
+        "already_admitted": "hypervisor.regulated-workload.already_admitted"
+      },
+      "derived": {
+        "verdict": "refused",
+        "reasons": [
+          "binding_missing:policy_bindings.policy_bound_data_view_ref",
+          "binding_owner_absent:unowned_bindings.data_processor_terms_ref",
+          "binding_owner_absent:unowned_bindings.key_control_ref",
+          "binding_owner_absent:unowned_bindings.access_log_binding_ref"
+        ]
+      },
+      "writes": {
+        "pack_dir_before": 1,
+        "pack_dir_after": 1
+      },
+      "identity": {
+        "anonymous_status": 401,
+        "anonymous_code": ""
+      }
+    }
+  },
+  "verdict": {
+    "kind": "named_failure",
+    "failures": [],
+    "absences": [
+      {
+        "n": 12,
+        "what": "TWO BINDINGS ARE REQUIRED AND NOT DRIVEN, and the difference between them matters. (1) THE THREE UNOWNED REFS have no resolver anywhere in this estate — measured 2026-09-22 across the 353-schema registry and every daemon route module, `data_processor`/`subprocessor`/`processor_terms`, `key_control`/`key_custody`/`kms`/`hsm` and `access_log`/`audit_log`/`read_log`/`access_record` return zero hits under every one of those names. That absence is DRIVEN as a refusal: every regulated admission is refused `binding_owner_absent` naming which one, which is the gate working rather than a gap in it. (2) ROUTE-REVISION CURRENTNESS IS NOT DRIVEN AT ALL. `route_bindings.model_route_revision_refs` and `.tool_contract_revision_refs` are required and pinned on the profile, and this plane does not compare them against what the model-route and tool-contract planes admitted, because those stores' revision semantics were not measured and R-230's own finding is that a binding which exists is not a binding this unit may require until it has been read. A profile may therefore pin a route revision the estate never admitted and this gate will not say so. THIRD, ACC-18 HAS NO RUNNER: fourteen `check-acceptance-*` runners exist under `scripts/` and none is this journey's",
+        "owner": "the model-route and runtime-tool-contract planes for revision currentness; a data-processor-terms owner, a key-control owner and an access-log owner for the three unresolved refs; and ACC-18's own runner (owner question, R-231)"
+      }
+    ]
+  },
+  "mutation": null,
+  "finished_at": "2026-09-22T19:42:58.559Z",
+  "summary": {
+    "passed": 10,
+    "total": 10
+  }
+}

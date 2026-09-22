@@ -1,0 +1,76 @@
+{
+  "$id": "invariant://ioi/foundations/regulated-workload-admission-case/a-refusal-names-what-it-refused/v1",
+  "language": "ioi.portable-invariants.v1",
+  "contract_id": "schema://ioi/foundations/regulated-workload-admission-case/v1",
+  "rules": [
+    {
+      "rule_id": "regulated_workload_admission_case.refused_says_why",
+      "description": "A case that refuses and lists no refusal is the worst shape this object can take: it stops a regulated workload and tells nobody which binding failed, so the owner cannot fix it and a reader cannot tell a real refusal from a bug. JSON Schema cannot tie an array's emptiness to another member's value without a conditional the Rust projection will not carry, so the law lives here where every consumer reads it.",
+      "expression": {
+        "operator": "non_empty_when_in",
+        "path": "$.refusals",
+        "when_path": "$.verdict",
+        "values": [
+          "refused"
+        ]
+      }
+    },
+    {
+      "rule_id": "regulated_workload_admission_case.one_reason_per_member",
+      "description": "The same reason recorded twice against the same member turns a count of problems into a count of entries. A member that is both stale and substituted is two DIFFERENT reasons and both belong; the same reason twice is a duplicate, and a profile with fifteen bindings should never produce forty refusals.",
+      "expression": {
+        "operator": "array_unique_by_fields",
+        "fields": [
+          "reason",
+          "member"
+        ],
+        "array_path": "$.refusals"
+      }
+    },
+    {
+      "rule_id": "regulated_workload_admission_case.root.recomputes",
+      "description": "THE SEAL over the evaluation. The case names the profile version AND the profile root it was evaluated against, and seals its own verdict and refusals, so neither the question asked nor the answer given can be edited after the fact while still reading as the case that was recorded.",
+      "expression": {
+        "operator": "jcs_sha256_equals",
+        "algorithm": "jcs_sha256",
+        "expected_path": "$.case_root",
+        "expected_encoding": "sha256_string",
+        "material_fields": {
+          "schema_version": {
+            "path": "$.schema_version"
+          },
+          "case_id": {
+            "path": "$.case_id"
+          },
+          "profile_ref": {
+            "path": "$.profile_ref"
+          },
+          "profile_version": {
+            "path": "$.profile_version"
+          },
+          "profile_root": {
+            "path": "$.profile_root"
+          },
+          "evaluated_at": {
+            "path": "$.evaluated_at"
+          },
+          "verdict": {
+            "path": "$.verdict"
+          },
+          "refusals": {
+            "path": "$.refusals"
+          },
+          "legal_conformity_claim": {
+            "path": "$.legal_conformity_claim"
+          },
+          "grants_no_authority": {
+            "path": "$.grants_no_authority"
+          },
+          "performs_no_action": {
+            "path": "$.performs_no_action"
+          }
+        }
+      }
+    }
+  ]
+}

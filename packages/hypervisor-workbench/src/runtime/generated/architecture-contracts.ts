@@ -15135,6 +15135,68 @@ export type ComplianceAuditExportBundleV1 = {
   recorded_by_ref: string;
 };
 
+export type RegulatedWorkloadAssuranceProfileV1 = {
+  schema_version: "ioi.foundations.regulated-workload-assurance-profile.v1";
+  profile_id: string;
+  version: string;
+  issued_at: string;
+  supersedes_ref: string | null;
+  subject: {
+      workload_ref: string;
+      declared_purpose: string;
+      privacy_class: "confidential" | "restricted" | "regulated" | "safety_critical";
+    };
+  policy_bindings: {
+      jurisdiction_policy_pack_ref: string;
+      jurisdiction_policy_pack_version: string;
+      policy_bound_data_view_ref: string;
+      policy_bound_data_view_revision_ref: string;
+    };
+  route_bindings: {
+      model_route_revision_refs: Array<string>;
+      tool_contract_revision_refs: Array<string>;
+    };
+  custody_bindings: {
+      credential_custody_profile_ref: string | null;
+      process_custody: "local" | "brokered" | "delegated_attested";
+      locality_and_custody_refs: Array<string>;
+    };
+  operational_bindings: {
+      incident_hold_policy_ref: string;
+      backup_policy_ref: string;
+      retention_class_ref: string;
+    };
+  unowned_bindings: {
+      data_processor_terms_ref: string;
+      key_control_ref: string;
+      access_log_binding_ref: string;
+    };
+  grants_no_authority: true;
+  is_not_legal_advice: true;
+  recorded_by_ref: string;
+  profile_root: string;
+};
+
+export type RegulatedWorkloadAdmissionCaseV1 = {
+  schema_version: "ioi.foundations.regulated-workload-admission-case.v1";
+  case_id: string;
+  profile_ref: string;
+  profile_version: string;
+  profile_root: string;
+  evaluated_at: string;
+  verdict: "admitted" | "refused";
+  refusals: Array<{
+        reason: "binding_missing" | "binding_stale" | "binding_substituted" | "binding_broader_than_purpose" | "binding_owner_absent";
+        member: string;
+        detail: string;
+      }>;
+  legal_conformity_claim: "not_determined";
+  grants_no_authority: true;
+  performs_no_action: true;
+  recorded_by_ref: string;
+  case_root: string;
+};
+
 export const ARCHITECTURE_CONTRACT_REGISTRY_VERSION = "ioi.architecture-contract-registry.v1" as const;
 
 export const ARCHITECTURE_CONTRACT_PORTABLE_INTEGER_MINIMUM = 0 as const;
@@ -30376,6 +30438,270 @@ export const ARCHITECTURE_CONTRACT_FIXTURES = [
     "expected_schema_accept": true,
     "expected_failure": "invariant",
     "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/foundations/regulated-workload-assurance-profile/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/regulated-workload-assurance-profile-v1/positive-a-regulated-claims-workload.json",
+    "expected": "accept",
+    "expected_schema_accept": true,
+    "expected_failure": null,
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/foundations/regulated-workload-assurance-profile/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/regulated-workload-assurance-profile-v1/positive-holds-no-credential-and-invokes-nothing.json",
+    "expected": "accept",
+    "expected_schema_accept": true,
+    "expected_failure": null,
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/foundations/regulated-workload-assurance-profile/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/regulated-workload-assurance-profile-v1/negative-a-bare-custody-member.json",
+    "expected": "reject",
+    "expected_schema_accept": false,
+    "expected_failure": "schema",
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/foundations/regulated-workload-assurance-profile/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/regulated-workload-assurance-profile-v1/negative-a-public-workload-needs-no-profile.json",
+    "expected": "reject",
+    "expected_schema_accept": false,
+    "expected_failure": "schema",
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/foundations/regulated-workload-assurance-profile/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/regulated-workload-assurance-profile-v1/negative-a-purpose-too-short-to-compare.json",
+    "expected": "reject",
+    "expected_schema_accept": false,
+    "expected_failure": "schema",
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/foundations/regulated-workload-assurance-profile/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/regulated-workload-assurance-profile-v1/negative-a-recorder-that-is-not-a-ref.json",
+    "expected": "reject",
+    "expected_schema_accept": false,
+    "expected_failure": "schema",
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/foundations/regulated-workload-assurance-profile/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/regulated-workload-assurance-profile-v1/negative-a-version-that-is-not-semver.json",
+    "expected": "reject",
+    "expected_schema_accept": false,
+    "expected_failure": "schema",
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/foundations/regulated-workload-assurance-profile/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/regulated-workload-assurance-profile-v1/negative-an-invented-process-custody.json",
+    "expected": "reject",
+    "expected_schema_accept": false,
+    "expected_failure": "schema",
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/foundations/regulated-workload-assurance-profile/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/regulated-workload-assurance-profile-v1/negative-binds-a-pack-by-name-with-no-version.json",
+    "expected": "reject",
+    "expected_schema_accept": false,
+    "expected_failure": "schema",
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/foundations/regulated-workload-assurance-profile/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/regulated-workload-assurance-profile-v1/negative-binds-a-view-with-no-revision.json",
+    "expected": "reject",
+    "expected_schema_accept": false,
+    "expected_failure": "schema",
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/foundations/regulated-workload-assurance-profile/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/regulated-workload-assurance-profile-v1/negative-claims-to-be-legal-advice.json",
+    "expected": "reject",
+    "expected_schema_accept": false,
+    "expected_failure": "schema",
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/foundations/regulated-workload-assurance-profile/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/regulated-workload-assurance-profile-v1/negative-claims-to-grant-authority.json",
+    "expected": "reject",
+    "expected_schema_accept": false,
+    "expected_failure": "schema",
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/foundations/regulated-workload-assurance-profile/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/regulated-workload-assurance-profile-v1/negative-drops-data-processor-terms.json",
+    "expected": "reject",
+    "expected_schema_accept": false,
+    "expected_failure": "schema",
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/foundations/regulated-workload-assurance-profile/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/regulated-workload-assurance-profile-v1/negative-drops-key-control.json",
+    "expected": "reject",
+    "expected_schema_accept": false,
+    "expected_failure": "schema",
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/foundations/regulated-workload-assurance-profile/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/regulated-workload-assurance-profile-v1/negative-drops-the-access-log-binding.json",
+    "expected": "reject",
+    "expected_schema_accept": false,
+    "expected_failure": "schema",
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/foundations/regulated-workload-assurance-profile/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/regulated-workload-assurance-profile-v1/negative-names-no-locality-or-custody-policy.json",
+    "expected": "reject",
+    "expected_schema_accept": false,
+    "expected_failure": "schema",
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/foundations/regulated-workload-assurance-profile/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/regulated-workload-assurance-profile-v1/negative-restates-residency-the-pack-owns.json",
+    "expected": "reject",
+    "expected_schema_accept": false,
+    "expected_failure": "schema",
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/foundations/regulated-workload-assurance-profile/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/regulated-workload-assurance-profile-v1/negative-root-does-not-recompute.json",
+    "expected": "reject",
+    "expected_schema_accept": true,
+    "expected_failure": "invariant",
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/foundations/regulated-workload-assurance-profile/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/regulated-workload-assurance-profile-v1/negative-supersedes-itself.json",
+    "expected": "reject",
+    "expected_schema_accept": true,
+    "expected_failure": "invariant",
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/foundations/regulated-workload-admission-case/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/regulated-workload-admission-case-v1/positive-admitted-with-every-binding-current.json",
+    "expected": "accept",
+    "expected_schema_accept": true,
+    "expected_failure": null,
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/foundations/regulated-workload-admission-case/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/regulated-workload-admission-case-v1/positive-refused-and-names-each-member.json",
+    "expected": "accept",
+    "expected_schema_accept": true,
+    "expected_failure": null,
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/foundations/regulated-workload-admission-case/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/regulated-workload-admission-case-v1/negative-a-legal-verdict.json",
+    "expected": "reject",
+    "expected_schema_accept": false,
+    "expected_failure": "schema",
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/foundations/regulated-workload-admission-case/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/regulated-workload-admission-case-v1/negative-a-recorder-that-is-not-a-ref.json",
+    "expected": "reject",
+    "expected_schema_accept": false,
+    "expected_failure": "schema",
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/foundations/regulated-workload-admission-case/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/regulated-workload-admission-case-v1/negative-a-refusal-that-acts-on-the-workload.json",
+    "expected": "reject",
+    "expected_schema_accept": false,
+    "expected_failure": "schema",
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/foundations/regulated-workload-admission-case/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/regulated-workload-admission-case-v1/negative-a-refusal-that-names-no-member.json",
+    "expected": "reject",
+    "expected_schema_accept": false,
+    "expected_failure": "schema",
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/foundations/regulated-workload-admission-case/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/regulated-workload-admission-case-v1/negative-an-empty-legal-conformity-claim.json",
+    "expected": "reject",
+    "expected_schema_accept": false,
+    "expected_failure": "schema",
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/foundations/regulated-workload-admission-case/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/regulated-workload-admission-case-v1/negative-an-invented-refusal-reason.json",
+    "expected": "reject",
+    "expected_schema_accept": false,
+    "expected_failure": "schema",
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/foundations/regulated-workload-admission-case/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/regulated-workload-admission-case-v1/negative-an-invented-verdict.json",
+    "expected": "reject",
+    "expected_schema_accept": false,
+    "expected_failure": "schema",
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/foundations/regulated-workload-admission-case/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/regulated-workload-admission-case-v1/negative-binds-a-profile-by-name-with-no-root.json",
+    "expected": "reject",
+    "expected_schema_accept": false,
+    "expected_failure": "schema",
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/foundations/regulated-workload-admission-case/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/regulated-workload-admission-case-v1/negative-claims-to-grant-authority.json",
+    "expected": "reject",
+    "expected_schema_accept": false,
+    "expected_failure": "schema",
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/foundations/regulated-workload-admission-case/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/regulated-workload-admission-case-v1/negative-one-reason-twice-for-one-member.json",
+    "expected": "reject",
+    "expected_schema_accept": true,
+    "expected_failure": "invariant",
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/foundations/regulated-workload-admission-case/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/regulated-workload-admission-case-v1/negative-refuses-and-says-nothing.json",
+    "expected": "reject",
+    "expected_schema_accept": true,
+    "expected_failure": "invariant",
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/foundations/regulated-workload-admission-case/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/regulated-workload-admission-case-v1/negative-root-does-not-recompute.json",
+    "expected": "reject",
+    "expected_schema_accept": true,
+    "expected_failure": "invariant",
+    "expected_rule_id": null
   }
 ] as const;
 
@@ -34933,6 +35259,39 @@ export const ARCHITECTURE_CONTRACT_DIFFERENTIAL_CASES: ReadonlyArray<Architectur
   differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/compliance-audit-export-bundle-v1/negative-no-subject.json","contract_id":"schema://ioi/foundations/compliance-audit-export-bundle/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/compliance-audit-export-bundle-v1/negative-no-subject.json","mutation_id":null,"value_json":null}),
   differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/compliance-audit-export-bundle-v1/negative-root-does-not-recompute.json","contract_id":"schema://ioi/foundations/compliance-audit-export-bundle/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/compliance-audit-export-bundle-v1/negative-root-does-not-recompute.json","mutation_id":null,"value_json":null}),
   differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/compliance-audit-export-bundle-v1/negative-two-reasons-for-one-excluded-ref.json","contract_id":"schema://ioi/foundations/compliance-audit-export-bundle/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/compliance-audit-export-bundle-v1/negative-two-reasons-for-one-excluded-ref.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/regulated-workload-assurance-profile-v1/positive-a-regulated-claims-workload.json","contract_id":"schema://ioi/foundations/regulated-workload-assurance-profile/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/regulated-workload-assurance-profile-v1/positive-a-regulated-claims-workload.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/regulated-workload-assurance-profile-v1/positive-holds-no-credential-and-invokes-nothing.json","contract_id":"schema://ioi/foundations/regulated-workload-assurance-profile/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/regulated-workload-assurance-profile-v1/positive-holds-no-credential-and-invokes-nothing.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/regulated-workload-assurance-profile-v1/negative-a-bare-custody-member.json","contract_id":"schema://ioi/foundations/regulated-workload-assurance-profile/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/regulated-workload-assurance-profile-v1/negative-a-bare-custody-member.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/regulated-workload-assurance-profile-v1/negative-a-public-workload-needs-no-profile.json","contract_id":"schema://ioi/foundations/regulated-workload-assurance-profile/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/regulated-workload-assurance-profile-v1/negative-a-public-workload-needs-no-profile.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/regulated-workload-assurance-profile-v1/negative-a-purpose-too-short-to-compare.json","contract_id":"schema://ioi/foundations/regulated-workload-assurance-profile/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/regulated-workload-assurance-profile-v1/negative-a-purpose-too-short-to-compare.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/regulated-workload-assurance-profile-v1/negative-a-recorder-that-is-not-a-ref.json","contract_id":"schema://ioi/foundations/regulated-workload-assurance-profile/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/regulated-workload-assurance-profile-v1/negative-a-recorder-that-is-not-a-ref.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/regulated-workload-assurance-profile-v1/negative-a-version-that-is-not-semver.json","contract_id":"schema://ioi/foundations/regulated-workload-assurance-profile/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/regulated-workload-assurance-profile-v1/negative-a-version-that-is-not-semver.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/regulated-workload-assurance-profile-v1/negative-an-invented-process-custody.json","contract_id":"schema://ioi/foundations/regulated-workload-assurance-profile/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/regulated-workload-assurance-profile-v1/negative-an-invented-process-custody.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/regulated-workload-assurance-profile-v1/negative-binds-a-pack-by-name-with-no-version.json","contract_id":"schema://ioi/foundations/regulated-workload-assurance-profile/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/regulated-workload-assurance-profile-v1/negative-binds-a-pack-by-name-with-no-version.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/regulated-workload-assurance-profile-v1/negative-binds-a-view-with-no-revision.json","contract_id":"schema://ioi/foundations/regulated-workload-assurance-profile/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/regulated-workload-assurance-profile-v1/negative-binds-a-view-with-no-revision.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/regulated-workload-assurance-profile-v1/negative-claims-to-be-legal-advice.json","contract_id":"schema://ioi/foundations/regulated-workload-assurance-profile/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/regulated-workload-assurance-profile-v1/negative-claims-to-be-legal-advice.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/regulated-workload-assurance-profile-v1/negative-claims-to-grant-authority.json","contract_id":"schema://ioi/foundations/regulated-workload-assurance-profile/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/regulated-workload-assurance-profile-v1/negative-claims-to-grant-authority.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/regulated-workload-assurance-profile-v1/negative-drops-data-processor-terms.json","contract_id":"schema://ioi/foundations/regulated-workload-assurance-profile/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/regulated-workload-assurance-profile-v1/negative-drops-data-processor-terms.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/regulated-workload-assurance-profile-v1/negative-drops-key-control.json","contract_id":"schema://ioi/foundations/regulated-workload-assurance-profile/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/regulated-workload-assurance-profile-v1/negative-drops-key-control.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/regulated-workload-assurance-profile-v1/negative-drops-the-access-log-binding.json","contract_id":"schema://ioi/foundations/regulated-workload-assurance-profile/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/regulated-workload-assurance-profile-v1/negative-drops-the-access-log-binding.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/regulated-workload-assurance-profile-v1/negative-names-no-locality-or-custody-policy.json","contract_id":"schema://ioi/foundations/regulated-workload-assurance-profile/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/regulated-workload-assurance-profile-v1/negative-names-no-locality-or-custody-policy.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/regulated-workload-assurance-profile-v1/negative-restates-residency-the-pack-owns.json","contract_id":"schema://ioi/foundations/regulated-workload-assurance-profile/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/regulated-workload-assurance-profile-v1/negative-restates-residency-the-pack-owns.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/regulated-workload-assurance-profile-v1/negative-root-does-not-recompute.json","contract_id":"schema://ioi/foundations/regulated-workload-assurance-profile/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/regulated-workload-assurance-profile-v1/negative-root-does-not-recompute.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/regulated-workload-assurance-profile-v1/negative-supersedes-itself.json","contract_id":"schema://ioi/foundations/regulated-workload-assurance-profile/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/regulated-workload-assurance-profile-v1/negative-supersedes-itself.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/regulated-workload-admission-case-v1/positive-admitted-with-every-binding-current.json","contract_id":"schema://ioi/foundations/regulated-workload-admission-case/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/regulated-workload-admission-case-v1/positive-admitted-with-every-binding-current.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/regulated-workload-admission-case-v1/positive-refused-and-names-each-member.json","contract_id":"schema://ioi/foundations/regulated-workload-admission-case/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/regulated-workload-admission-case-v1/positive-refused-and-names-each-member.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/regulated-workload-admission-case-v1/negative-a-legal-verdict.json","contract_id":"schema://ioi/foundations/regulated-workload-admission-case/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/regulated-workload-admission-case-v1/negative-a-legal-verdict.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/regulated-workload-admission-case-v1/negative-a-recorder-that-is-not-a-ref.json","contract_id":"schema://ioi/foundations/regulated-workload-admission-case/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/regulated-workload-admission-case-v1/negative-a-recorder-that-is-not-a-ref.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/regulated-workload-admission-case-v1/negative-a-refusal-that-acts-on-the-workload.json","contract_id":"schema://ioi/foundations/regulated-workload-admission-case/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/regulated-workload-admission-case-v1/negative-a-refusal-that-acts-on-the-workload.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/regulated-workload-admission-case-v1/negative-a-refusal-that-names-no-member.json","contract_id":"schema://ioi/foundations/regulated-workload-admission-case/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/regulated-workload-admission-case-v1/negative-a-refusal-that-names-no-member.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/regulated-workload-admission-case-v1/negative-an-empty-legal-conformity-claim.json","contract_id":"schema://ioi/foundations/regulated-workload-admission-case/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/regulated-workload-admission-case-v1/negative-an-empty-legal-conformity-claim.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/regulated-workload-admission-case-v1/negative-an-invented-refusal-reason.json","contract_id":"schema://ioi/foundations/regulated-workload-admission-case/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/regulated-workload-admission-case-v1/negative-an-invented-refusal-reason.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/regulated-workload-admission-case-v1/negative-an-invented-verdict.json","contract_id":"schema://ioi/foundations/regulated-workload-admission-case/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/regulated-workload-admission-case-v1/negative-an-invented-verdict.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/regulated-workload-admission-case-v1/negative-binds-a-profile-by-name-with-no-root.json","contract_id":"schema://ioi/foundations/regulated-workload-admission-case/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/regulated-workload-admission-case-v1/negative-binds-a-profile-by-name-with-no-root.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/regulated-workload-admission-case-v1/negative-claims-to-grant-authority.json","contract_id":"schema://ioi/foundations/regulated-workload-admission-case/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/regulated-workload-admission-case-v1/negative-claims-to-grant-authority.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/regulated-workload-admission-case-v1/negative-one-reason-twice-for-one-member.json","contract_id":"schema://ioi/foundations/regulated-workload-admission-case/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/regulated-workload-admission-case-v1/negative-one-reason-twice-for-one-member.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/regulated-workload-admission-case-v1/negative-refuses-and-says-nothing.json","contract_id":"schema://ioi/foundations/regulated-workload-admission-case/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/regulated-workload-admission-case-v1/negative-refuses-and-says-nothing.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/regulated-workload-admission-case-v1/negative-root-does-not-recompute.json","contract_id":"schema://ioi/foundations/regulated-workload-admission-case/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/regulated-workload-admission-case-v1/negative-root-does-not-recompute.json","mutation_id":null,"value_json":null}),
   differentialCase({"id":"mutation:sequence-zero-receipt-timestamp-detached","contract_id":"schema://ioi/foundations/autonomous-system-sequence-zero-materialization-receipt/v2","source_fixture_path":null,"mutation_id":"sequence-zero-receipt-timestamp-detached","value_json":null}),
   differentialCase({"id":"mutation:sequence-zero-receipt-authorized-materialization-id-detached","contract_id":"schema://ioi/foundations/autonomous-system-sequence-zero-materialization-receipt/v2","source_fixture_path":null,"mutation_id":"sequence-zero-receipt-authorized-materialization-id-detached","value_json":null}),
   differentialCase({"id":"mutation:sequence-zero-receipt-authority-principal-detached","contract_id":"schema://ioi/foundations/autonomous-system-sequence-zero-materialization-receipt/v2","source_fixture_path":null,"mutation_id":"sequence-zero-receipt-authority-principal-detached","value_json":null}),
@@ -35288,6 +35647,7 @@ export const ARCHITECTURE_CONTRACT_PATTERN_SOURCES = [
   "^(?:policy|auth_factor|guardian)://[^\\s]{1,500}$",
   "^(?:policy|budget)://[^\\s]{1,500}$",
   "^(?:policy|conformance_profile|certification_claim)://[^\\s]{1,500}$",
+  "^(?:policy|custody)://[^\\s?#\\\\]{1,400}$",
   "^(?:policy|decision)://[^\\s]{1,248}$",
   "^(?:policy|event)://[^\\s]{1,500}$",
   "^(?:policy|event)://\\S+$",
@@ -35444,6 +35804,7 @@ export const ARCHITECTURE_CONTRACT_PATTERN_SOURCES = [
   "^(?:worker|service|org|domain|system)://[^\\s]{1,500}$",
   "^(?:worker|service|org|domain|wallet|agentgres)://[^\\s]{1,248}$",
   "^(?:worker|service|system)://[^\\s]{1,500}$",
+  "^(?:worker|task|workflow)://[^\\s?#\\\\]{1,200}$",
   "^(?:workflow|workflow-template)://[^\\s]{1,248}$",
   "^(?:workload-isolation-binding|binding)://[^\\s]{1,500}$",
   "^/(?:[A-Za-z0-9._-]|~0|~1)(?:(?:[A-Za-z0-9._/-]|~0|~1){0,254})$",
@@ -35519,6 +35880,7 @@ export const ARCHITECTURE_CONTRACT_PATTERN_SOURCES = [
   "^[a-z][a-z0-9_]{2,63}$",
   "^aai_[0-9a-f]+$",
   "^acceptance://[^\\s]+$",
+  "^access_log_binding://[^\\s?#\\\\]{1,200}$",
   "^action-request://[^\\s]{1,500}$",
   "^action-schema://[^\\s]+$",
   "^action://goal-run/activate/[^\\s]{1,500}$",
@@ -35663,6 +36025,7 @@ export const ARCHITECTURE_CONTRACT_PATTERN_SOURCES = [
   "^controller-binding://[^\\s]+$",
   "^corpus-census://[a-z0-9][a-z0-9._-]{0,127}/[0-9a-f]{64}$",
   "^credential://[A-Za-z0-9][A-Za-z0-9._:/-]*@[0-9]+$",
+  "^credential_custody_profile://[^\\s?#\\\\]{1,200}$",
   "^custody-profile://[A-Za-z0-9][A-Za-z0-9._:/@-]*$",
   "^dapp_[0-9a-f]{16}$",
   "^dartm_[0-9a-f]{1,32}$",
@@ -35671,6 +36034,7 @@ export const ARCHITECTURE_CONTRACT_PATTERN_SOURCES = [
   "^data-recipe://[^\\s]{1,500}$",
   "^data-recipe://[a-z0-9][a-z0-9._-]{0,127}$",
   "^data-recipe://[a-z0-9][a-z0-9._-]{0,127}/revision/[1-9][0-9]{0,8}$",
+  "^data_processor_terms://[^\\s?#\\\\]{1,200}$",
   "^dataset-snapshot://[^\\s]{1,500}$",
   "^dataset-snapshot://foundry/[0-9a-f]{64}$",
   "^decision://[A-Za-z0-9._:/-]+$",
@@ -35817,6 +36181,7 @@ export const ARCHITECTURE_CONTRACT_PATTERN_SOURCES = [
   "^key://[^\\s]+$",
   "^key://[^\\s]{1,248}$",
   "^key://[^\\s]{1,500}$",
+  "^key_control://[^\\s?#\\\\]{1,200}$",
   "^keyset://[^\\s]+$",
   "^keyset://[^\\s]{1,500}$",
   "^label-class://[a-z0-9][a-z0-9._/-]{0,190}$",
@@ -35877,6 +36242,7 @@ export const ARCHITECTURE_CONTRACT_PATTERN_SOURCES = [
   "^model-route:[A-Za-z0-9][A-Za-z0-9._-]{0,127}$",
   "^model-route:[^\\s]{1,240}$",
   "^model-swap-continuity-report://[a-z0-9][a-z0-9._-]{0,127}$",
+  "^model_route_revision://[^\\s?#\\\\]{1,200}$",
   "^mount-receipt://[A-Za-z0-9][A-Za-z0-9._-]{0,127}$",
   "^mount-receipt://mrcpt_[0-9a-f]{1,32}$",
   "^mount-receipt://mrcpt_[0-9a-f]{16}$",
@@ -35961,6 +36327,7 @@ export const ARCHITECTURE_CONTRACT_PATTERN_SOURCES = [
   "^policy://[^\\s]{1,460}$",
   "^policy://[^\\s]{1,500}$",
   "^policy://\\S+$",
+  "^policy_bound_data_view://[^\\s?#\\\\]{1,200}$",
   "^preference://hypervisor/\\S+$",
   "^prim:[^\\s]{1,120}$",
   "^prim:[a-z0-9._-]+$",
@@ -36018,6 +36385,8 @@ export const ARCHITECTURE_CONTRACT_PATTERN_SOURCES = [
   "^recipe_[0-9a-f]{1,32}$",
   "^recipe_[0-9a-f]{16}$",
   "^reference://[^\\s]{1,248}$",
+  "^regulated_workload_admission_case://[^\\s?#\\\\]{1,200}$",
+  "^regulated_workload_assurance_profile://[^\\s?#\\\\]{1,200}$",
   "^release-control://[A-Za-z0-9][A-Za-z0-9._-]{0,127}$",
   "^release://[^\\s]{1,500}$",
   "^repository://[^\\s]{1,224}$",
@@ -36026,7 +36395,9 @@ export const ARCHITECTURE_CONTRACT_PATTERN_SOURCES = [
   "^resource-offer://[^\\s]{1,500}$",
   "^restore-[^\\s]{1,500}$",
   "^retention-disposition://[A-Za-z0-9._:-]+$",
+  "^retention_class://[^\\s?#\\\\]{1,200}$",
   "^review://[^\\s]{1,500}$",
+  "^revision://[^\\s?#\\\\]{1,200}$",
   "^role-topology://\\S+/revision/\\S+$",
   "^room-discovery://[^\\s]{1,500}$",
   "^route-assurance://[A-Za-z0-9][A-Za-z0-9._:/-]*$",
@@ -36041,6 +36412,7 @@ export const ARCHITECTURE_CONTRACT_PATTERN_SOURCES = [
   "^runtime://[^\\s]{1,248}$",
   "^runtime://[^\\s]{1,500}$",
   "^runtime://\\S*$",
+  "^runtime_tool_contract_revision://[^\\s?#\\\\]{1,200}$",
   "^safety://[^\\s]+$",
   "^safety://[^\\s]{1,240}$",
   "^sao_[0-9a-f]+$",
@@ -36559,7 +36931,9 @@ export const ARCHITECTURE_CONTRACT_SCHEMA_HASHES = {
   "schema://ioi/applications/ioi-ai/collective-qualification-verdict/v1": "sha256:94871ec7577b87e08a0122b70ba651f3ea87d056024f650d7ebac5215c90f5ed",
   "schema://ioi/foundations/jurisdiction-policy-pack/v1": "sha256:979e40fa740e5be13e609e22e4bdc803f1a6512fd7e2156b4b883fdfcc07a4af",
   "schema://ioi/foundations/jurisdiction-policy-decision/v1": "sha256:c19636916b1d3fa98745844dfa2961cabfe1663065a1b2aab0159ec100d7251c",
-  "schema://ioi/foundations/compliance-audit-export-bundle/v1": "sha256:68e4e3a649bba90792b4a2c6031d7c8926111f9cae7993a9df2f4c143df8a85d"
+  "schema://ioi/foundations/compliance-audit-export-bundle/v1": "sha256:68e4e3a649bba90792b4a2c6031d7c8926111f9cae7993a9df2f4c143df8a85d",
+  "schema://ioi/foundations/regulated-workload-assurance-profile/v1": "sha256:15918815c79b453e159983579426cf438a6f5f9cddf6f67fe4f36b918d0bd5e3",
+  "schema://ioi/foundations/regulated-workload-admission-case/v1": "sha256:b831562b81c011d5f19b81e523fc61f38c4426a2bcc5b45171fc160e444e5969"
 } as const;
 
 type JsonObject = Record<string, unknown>;
@@ -153656,6 +154030,393 @@ const CONTRACT_SCHEMAS: Record<string, JsonObject> = {
         "pattern": "^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$"
       }
     }
+  },
+  "schema://ioi/foundations/regulated-workload-assurance-profile/v1": {
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "$id": "schema://ioi/foundations/regulated-workload-assurance-profile/v1",
+    "title": "RegulatedWorkloadAssuranceProfile",
+    "x-ioi-schema-version": "ioi.foundations.regulated-workload-assurance-profile.v1",
+    "description": "WHAT A REGULATED OR SENSITIVE WORKLOAD MUST BIND BEFORE IT MAY RUN — as refs at revisions, and nothing restated. This object is a COMPOSITION, not a declaration: residency, retention, deletion and export are owned by the bound JurisdictionPolicyPack's `data_requirements`, and purpose, allowed uses, data classes, redaction, retention-and-hold and destination-and-egress are owned by the bound PolicyBoundDataView revision. A member copied inline here would be a second copy of a rule, free to drift from the policy it was copied from, which is the second spine the estate's structural law forbids. TWO WORDS THAT NAME SEVERAL OBJECTS ARE DELIBERATELY NOT USED BARE: `custody` spans credential custody, process custody, data locality and custody tier, and `egress` spans a tool contract's egress_policy, a view's destination_and_egress and a connectivity profile's no_egress scope — so every binding below names the exact member of the exact owner, because a profile requiring a bare `custody` would bind whichever of them its reader assumed and a gate would go green on the wrong object. `unowned_bindings` ARE REQUIRED AND NOTHING IN THE ESTATE RESOLVES THEM: data-processor terms, key control and access logging are obligations canon places on a regulated workload, and a profile that omitted them would let such a workload be admitted with no access log at all. A required ref with no resolver states the obligation and refuses the admission until the owner exists. Owner: foundations/ecosystem-assurance-certification-liability.md § RegulatedWorkloadAssuranceProfile (M09.9, R-230/R-231).",
+    "type": "object",
+    "additionalProperties": false,
+    "required": [
+      "schema_version",
+      "profile_id",
+      "version",
+      "issued_at",
+      "supersedes_ref",
+      "subject",
+      "policy_bindings",
+      "route_bindings",
+      "custody_bindings",
+      "operational_bindings",
+      "unowned_bindings",
+      "grants_no_authority",
+      "is_not_legal_advice",
+      "recorded_by_ref",
+      "profile_root"
+    ],
+    "properties": {
+      "schema_version": {
+        "type": "string",
+        "const": "ioi.foundations.regulated-workload-assurance-profile.v1"
+      },
+      "profile_id": {
+        "$ref": "#/$defs/profileRef"
+      },
+      "version": {
+        "type": "string",
+        "pattern": "^(?:0|[1-9][0-9]*)[.](?:0|[1-9][0-9]*)[.](?:0|[1-9][0-9]*)$",
+        "description": "Semver, and load-bearing: an admission case names the exact profile version it was evaluated under, so a changed binding cannot pass as the profile that was already admitted against."
+      },
+      "issued_at": {
+        "$ref": "#/$defs/timestamp"
+      },
+      "supersedes_ref": {
+        "anyOf": [
+          {
+            "$ref": "#/$defs/profileRef"
+          },
+          {
+            "type": "null"
+          }
+        ],
+        "description": "The profile this one replaces, or null for the first. Explicit rather than omitted, so a successor chain is a fact on the wire instead of an inference from timestamps."
+      },
+      "subject": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "workload_ref",
+          "declared_purpose",
+          "privacy_class"
+        ],
+        "description": "The workload this profile governs and the purpose it declared. `declared_purpose` is one half of the comparison that decides `binding_broader_than_purpose`; the other half is the bound view's own `allowed_uses`.",
+        "properties": {
+          "workload_ref": {
+            "type": "string",
+            "pattern": "^(?:worker|task|workflow)://[^\\s?#\\\\]{1,200}$"
+          },
+          "declared_purpose": {
+            "type": "string",
+            "minLength": 12,
+            "maxLength": 400,
+            "description": "Stated by the workload's owner and never derived from what the workload happens to do. A purpose short enough to be a label cannot be compared against a view's allowed uses, so a floor is enforced here rather than left to a reviewer."
+          },
+          "privacy_class": {
+            "type": "string",
+            "enum": [
+              "confidential",
+              "restricted",
+              "regulated",
+              "safety_critical"
+            ],
+            "description": "The four TaskEnvelope privacy classes that require this profile. `public` and `internal` are absent deliberately: a profile for a workload that needs none is a profile that means nothing."
+          }
+        }
+      },
+      "policy_bindings": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "jurisdiction_policy_pack_ref",
+          "jurisdiction_policy_pack_version",
+          "policy_bound_data_view_ref",
+          "policy_bound_data_view_revision_ref"
+        ],
+        "description": "The two owners that already hold most of this unit's obligations. The pack carries residency, retention, deletion and export; the view carries purpose, allowed uses, data classes, redaction, retention-and-hold and destination-and-egress. Both are bound at an EXACT version or revision, because binding a name rather than a revision is what makes `binding_stale` and `binding_substituted` undetectable.",
+        "properties": {
+          "jurisdiction_policy_pack_ref": {
+            "type": "string",
+            "pattern": "^jurisdiction_policy_pack://[^\\s?#\\\\]{1,200}$"
+          },
+          "jurisdiction_policy_pack_version": {
+            "type": "string",
+            "pattern": "^(?:0|[1-9][0-9]*)[.](?:0|[1-9][0-9]*)[.](?:0|[1-9][0-9]*)$"
+          },
+          "policy_bound_data_view_ref": {
+            "type": "string",
+            "pattern": "^policy_bound_data_view://[^\\s?#\\\\]{1,200}$"
+          },
+          "policy_bound_data_view_revision_ref": {
+            "type": "string",
+            "pattern": "^revision://[^\\s?#\\\\]{1,200}$"
+          }
+        }
+      },
+      "route_bindings": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "model_route_revision_refs",
+          "tool_contract_revision_refs"
+        ],
+        "description": "Every model or tool route the workload may use, at the revision it may use. A list that may be empty is honest for a workload that invokes neither; a list that names a route the estate never admitted is what `binding_substituted` refuses.",
+        "properties": {
+          "model_route_revision_refs": {
+            "type": "array",
+            "maxItems": 64,
+            "items": {
+              "type": "string",
+              "pattern": "^model_route_revision://[^\\s?#\\\\]{1,200}$"
+            }
+          },
+          "tool_contract_revision_refs": {
+            "type": "array",
+            "maxItems": 64,
+            "items": {
+              "type": "string",
+              "pattern": "^runtime_tool_contract_revision://[^\\s?#\\\\]{1,200}$"
+            }
+          }
+        }
+      },
+      "custody_bindings": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "credential_custody_profile_ref",
+          "process_custody",
+          "locality_and_custody_refs"
+        ],
+        "description": "Three DISTINCT custody facts, named separately because they are separate objects with separate owners. Collapsing them into one `custody` member is the conflation this profile exists to avoid.",
+        "properties": {
+          "credential_custody_profile_ref": {
+            "anyOf": [
+              {
+                "type": "string",
+                "pattern": "^credential_custody_profile://[^\\s?#\\\\]{1,200}$"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Null when the workload holds no credential at all — which is a stated fact, not an omission."
+          },
+          "process_custody": {
+            "type": "string",
+            "enum": [
+              "local",
+              "brokered",
+              "delegated_attested"
+            ]
+          },
+          "locality_and_custody_refs": {
+            "type": "array",
+            "minItems": 1,
+            "maxItems": 32,
+            "items": {
+              "type": "string",
+              "pattern": "^(?:policy|custody)://[^\\s?#\\\\]{1,400}$"
+            }
+          }
+        }
+      },
+      "operational_bindings": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "incident_hold_policy_ref",
+          "backup_policy_ref",
+          "retention_class_ref"
+        ],
+        "description": "Incident handling, backup and retention class. Each is a ref to the plane that owns it; none is restated here.",
+        "properties": {
+          "incident_hold_policy_ref": {
+            "$ref": "#/$defs/policyRef"
+          },
+          "backup_policy_ref": {
+            "$ref": "#/$defs/policyRef"
+          },
+          "retention_class_ref": {
+            "type": "string",
+            "pattern": "^retention_class://[^\\s?#\\\\]{1,200}$"
+          }
+        }
+      },
+      "unowned_bindings": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "data_processor_terms_ref",
+          "key_control_ref",
+          "access_log_binding_ref"
+        ],
+        "description": "REQUIRED REFS WITH NO RESOLVER. Measured 2026-09-22: `data_processor`/`subprocessor`/`processor_terms`, `key_control`/`key_custody`/`kms`/`hsm` and `access_log`/`audit_log`/`read_log`/`access_record` return zero hits in the 351-schema registry and zero in the daemon route modules, under every one of those names. They are required anyway, because canon places these obligations on a regulated workload and a profile that dropped them would admit such a workload with no access log. The plane refuses `binding_owner_absent` naming which one, and that refusal is this unit's named absence rather than a gap in it. Removing a member here is a governed act.",
+        "properties": {
+          "data_processor_terms_ref": {
+            "type": "string",
+            "pattern": "^data_processor_terms://[^\\s?#\\\\]{1,200}$"
+          },
+          "key_control_ref": {
+            "type": "string",
+            "pattern": "^key_control://[^\\s?#\\\\]{1,200}$"
+          },
+          "access_log_binding_ref": {
+            "type": "string",
+            "pattern": "^access_log_binding://[^\\s?#\\\\]{1,200}$"
+          }
+        }
+      },
+      "grants_no_authority": {
+        "type": "boolean",
+        "const": true,
+        "description": "On the wire, because the profile names routes, custody and scopes-adjacent policy and a reader could take that for a grant. It requires; it never issues."
+      },
+      "is_not_legal_advice": {
+        "type": "boolean",
+        "const": true,
+        "description": "On the wire for the same reason the pack carries it: this object is adjacent enough to regulatory obligation that the disclaimer belongs in the shape rather than in a document someone may not read."
+      },
+      "recorded_by_ref": {
+        "type": "string",
+        "pattern": "^[a-z][a-z0-9+.-]*://[^\\s]{1,400}$",
+        "description": "THE RECORDER, STAMPED BY THE PLANE AND NEVER AUTHORED. This profile is scoped to whoever recorded it; without an owner it would admit successfully and then be readable by nobody, which is the defect M06.10's live leg caught one unit earlier. The plane refuses a caller-supplied value outright rather than correcting it, and resolves the actor itself, so the scope a read is checked against is never one the caller chose. EXCLUDED from the root, because the caller seals the profile before the server stamps it."
+      },
+      "profile_root": {
+        "type": "string",
+        "pattern": "^sha256:[0-9a-f]{64}$",
+        "description": "SHA-256 over JCS of every member except this one and `recorded_by_ref`. An admission case binds this root rather than the profile's name, so editing a binding in place breaks every case already recorded against the profile instead of silently rewriting what they were evaluated against."
+      }
+    },
+    "$defs": {
+      "profileRef": {
+        "type": "string",
+        "pattern": "^regulated_workload_assurance_profile://[^\\s?#\\\\]{1,200}$"
+      },
+      "policyRef": {
+        "type": "string",
+        "pattern": "^policy://[^\\s]{1,400}$"
+      },
+      "timestamp": {
+        "type": "string",
+        "pattern": "^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$"
+      }
+    }
+  },
+  "schema://ioi/foundations/regulated-workload-admission-case/v1": {
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "$id": "schema://ioi/foundations/regulated-workload-admission-case/v1",
+    "title": "RegulatedWorkloadAdmissionCase",
+    "x-ioi-schema-version": "ioi.foundations.regulated-workload-admission-case.v1",
+    "description": "ONE EVALUATION OF ONE WORKLOAD AGAINST ONE PROFILE REVISION — technical assurance evidence, and never a legal determination. `legal_conformity_claim` is pinned to the constant `not_determined` on the wire, inherited from the rule M06.10 put there rather than restated: no binding check, no admitted verdict and no complete profile is a legal conclusion about the workload. THE FOUR REFUSALS CANON NAMES, AND WHICH LAYER CAN MAKE EACH: `binding_missing` and `binding_broader_than_purpose` are decidable from the shapes themselves, because the bound view carries both the declared purpose and the allowed uses, so this contract can refuse them. `binding_stale` and `binding_substituted` are NOT — they need the ADMITTED revision to compare against, which only the daemon holds, so a profile naming a pack, view or route revision the estate never admitted, or one its owner has since superseded, is refused by the plane and by nothing else. `binding_owner_absent` is the fifth and is this unit's named absence: the profile's three unowned bindings have no resolver anywhere, so a regulated admission is refused by name until each owner lands. A REFUSED EVALUATION MUTATES NOTHING — it does not quarantine the workload, revoke a lease or narrow a policy, because those verbs belong to the owners the profile binds and a refusal is a statement about evidence, not an action against a subject. Owner: foundations/ecosystem-assurance-certification-liability.md § RegulatedWorkloadAdmissionCase (M09.9, R-230/R-231).",
+    "type": "object",
+    "additionalProperties": false,
+    "required": [
+      "schema_version",
+      "case_id",
+      "profile_ref",
+      "profile_version",
+      "profile_root",
+      "evaluated_at",
+      "verdict",
+      "refusals",
+      "legal_conformity_claim",
+      "grants_no_authority",
+      "performs_no_action",
+      "recorded_by_ref",
+      "case_root"
+    ],
+    "properties": {
+      "schema_version": {
+        "type": "string",
+        "const": "ioi.foundations.regulated-workload-admission-case.v1"
+      },
+      "case_id": {
+        "type": "string",
+        "pattern": "^regulated_workload_admission_case://[^\\s?#\\\\]{1,200}$"
+      },
+      "profile_ref": {
+        "type": "string",
+        "pattern": "^regulated_workload_assurance_profile://[^\\s?#\\\\]{1,200}$"
+      },
+      "profile_version": {
+        "type": "string",
+        "pattern": "^(?:0|[1-9][0-9]*)[.](?:0|[1-9][0-9]*)[.](?:0|[1-9][0-9]*)$"
+      },
+      "profile_root": {
+        "type": "string",
+        "pattern": "^sha256:[0-9a-f]{64}$",
+        "description": "The exact profile content this case was evaluated against. Binding the root rather than the name is what stops an in-place edit of a binding from silently rewriting what an already-recorded case decided."
+      },
+      "evaluated_at": {
+        "$ref": "#/$defs/timestamp"
+      },
+      "verdict": {
+        "type": "string",
+        "enum": [
+          "admitted",
+          "refused"
+        ]
+      },
+      "refusals": {
+        "type": "array",
+        "maxItems": 64,
+        "description": "Empty exactly when the verdict is `admitted`. Every entry names the member it is about, so a refusal is actionable rather than a mood.",
+        "items": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "reason",
+            "member",
+            "detail"
+          ],
+          "properties": {
+            "reason": {
+              "type": "string",
+              "enum": [
+                "binding_missing",
+                "binding_stale",
+                "binding_substituted",
+                "binding_broader_than_purpose",
+                "binding_owner_absent"
+              ]
+            },
+            "member": {
+              "type": "string",
+              "minLength": 3,
+              "maxLength": 200,
+              "description": "The exact profile member this refusal is about, dotted from the profile root — for example `policy_bindings.policy_bound_data_view_revision_ref`. A refusal that cannot say which member it means cannot be acted on."
+            },
+            "detail": {
+              "type": "string",
+              "minLength": 12,
+              "maxLength": 600
+            }
+          }
+        }
+      },
+      "legal_conformity_claim": {
+        "type": "string",
+        "const": "not_determined",
+        "description": "CANON'S OWN WORD, PINNED SO A LEGAL VERDICT IS UNREPRESENTABLE. No score, admitted verdict, complete binding set or current evidence is a legal determination. Inherited from the rule M06.10 registered; this object consumes that refusal rather than restating it."
+      },
+      "grants_no_authority": {
+        "type": "boolean",
+        "const": true
+      },
+      "performs_no_action": {
+        "type": "boolean",
+        "const": true,
+        "description": "A refused evaluation quarantines nothing, revokes nothing and narrows nothing. Those verbs belong to the owners the profile binds."
+      },
+      "recorded_by_ref": {
+        "type": "string",
+        "pattern": "^[a-z][a-z0-9+.-]*://[^\\s]{1,400}$",
+        "description": "THE RECORDER, STAMPED BY THE PLANE AND NEVER AUTHORED. This case is scoped to whoever recorded it; without an owner it would admit successfully and then be readable by nobody, which is the defect M06.10's live leg caught one unit earlier. EXCLUDED from the root, because the caller seals the case before the server stamps it."
+      },
+      "case_root": {
+        "type": "string",
+        "pattern": "^sha256:[0-9a-f]{64}$",
+        "description": "SHA-256 over JCS of every member except this one and `recorded_by_ref`."
+      }
+    },
+    "$defs": {
+      "timestamp": {
+        "type": "string",
+        "pattern": "^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$"
+      }
+    }
   }
 };
 const CONTRACT_INVARIANTS: Record<string, Array<JsonObject>> = {
@@ -175278,6 +176039,141 @@ const CONTRACT_INVARIANTS: Record<string, Array<JsonObject>> = {
         }
       }
     }
+  ],
+  "schema://ioi/foundations/regulated-workload-assurance-profile/v1": [
+    {
+      "rule_id": "regulated_workload_assurance_profile.does_not_supersede_itself",
+      "description": "A profile that names itself as the one it supersedes has turned a CHAIN into an edit. An admission case binds the profile root, so self-supersession is how a changed binding is made to look like the same profile that was already admitted against.",
+      "expression": {
+        "operator": "fields_not_equal",
+        "paths": [
+          "$.profile_id",
+          "$.supersedes_ref"
+        ]
+      }
+    },
+    {
+      "rule_id": "regulated_workload_assurance_profile.root.recomputes",
+      "description": "THE SEAL. An admission case binds this root rather than the profile's name, so a binding edited in place no longer recomputes and every case already recorded against the profile breaks its binding instead of being silently reinterpreted against content it was never evaluated under. This is what makes `binding_substituted` mean something at the profile level as well as the plane level.",
+      "expression": {
+        "operator": "jcs_sha256_equals",
+        "algorithm": "jcs_sha256",
+        "expected_path": "$.profile_root",
+        "expected_encoding": "sha256_string",
+        "material_fields": {
+          "schema_version": {
+            "path": "$.schema_version"
+          },
+          "profile_id": {
+            "path": "$.profile_id"
+          },
+          "version": {
+            "path": "$.version"
+          },
+          "issued_at": {
+            "path": "$.issued_at"
+          },
+          "supersedes_ref": {
+            "path": "$.supersedes_ref"
+          },
+          "subject": {
+            "path": "$.subject"
+          },
+          "policy_bindings": {
+            "path": "$.policy_bindings"
+          },
+          "route_bindings": {
+            "path": "$.route_bindings"
+          },
+          "custody_bindings": {
+            "path": "$.custody_bindings"
+          },
+          "operational_bindings": {
+            "path": "$.operational_bindings"
+          },
+          "unowned_bindings": {
+            "path": "$.unowned_bindings"
+          },
+          "grants_no_authority": {
+            "path": "$.grants_no_authority"
+          },
+          "is_not_legal_advice": {
+            "path": "$.is_not_legal_advice"
+          }
+        }
+      }
+    }
+  ],
+  "schema://ioi/foundations/regulated-workload-admission-case/v1": [
+    {
+      "rule_id": "regulated_workload_admission_case.refused_says_why",
+      "description": "A case that refuses and lists no refusal is the worst shape this object can take: it stops a regulated workload and tells nobody which binding failed, so the owner cannot fix it and a reader cannot tell a real refusal from a bug. JSON Schema cannot tie an array's emptiness to another member's value without a conditional the Rust projection will not carry, so the law lives here where every consumer reads it.",
+      "expression": {
+        "operator": "non_empty_when_in",
+        "path": "$.refusals",
+        "when_path": "$.verdict",
+        "values": [
+          "refused"
+        ]
+      }
+    },
+    {
+      "rule_id": "regulated_workload_admission_case.one_reason_per_member",
+      "description": "The same reason recorded twice against the same member turns a count of problems into a count of entries. A member that is both stale and substituted is two DIFFERENT reasons and both belong; the same reason twice is a duplicate, and a profile with fifteen bindings should never produce forty refusals.",
+      "expression": {
+        "operator": "array_unique_by_fields",
+        "fields": [
+          "reason",
+          "member"
+        ],
+        "array_path": "$.refusals"
+      }
+    },
+    {
+      "rule_id": "regulated_workload_admission_case.root.recomputes",
+      "description": "THE SEAL over the evaluation. The case names the profile version AND the profile root it was evaluated against, and seals its own verdict and refusals, so neither the question asked nor the answer given can be edited after the fact while still reading as the case that was recorded.",
+      "expression": {
+        "operator": "jcs_sha256_equals",
+        "algorithm": "jcs_sha256",
+        "expected_path": "$.case_root",
+        "expected_encoding": "sha256_string",
+        "material_fields": {
+          "schema_version": {
+            "path": "$.schema_version"
+          },
+          "case_id": {
+            "path": "$.case_id"
+          },
+          "profile_ref": {
+            "path": "$.profile_ref"
+          },
+          "profile_version": {
+            "path": "$.profile_version"
+          },
+          "profile_root": {
+            "path": "$.profile_root"
+          },
+          "evaluated_at": {
+            "path": "$.evaluated_at"
+          },
+          "verdict": {
+            "path": "$.verdict"
+          },
+          "refusals": {
+            "path": "$.refusals"
+          },
+          "legal_conformity_claim": {
+            "path": "$.legal_conformity_claim"
+          },
+          "grants_no_authority": {
+            "path": "$.grants_no_authority"
+          },
+          "performs_no_action": {
+            "path": "$.performs_no_action"
+          }
+        }
+      }
+    }
   ]
 };
 
@@ -178255,4 +179151,16 @@ export function validateComplianceAuditExportBundleV1(
   value: unknown,
 ): value is ComplianceAuditExportBundleV1 {
   return validateArchitectureContract("schema://ioi/foundations/compliance-audit-export-bundle/v1", value).ok;
+}
+
+export function validateRegulatedWorkloadAssuranceProfileV1(
+  value: unknown,
+): value is RegulatedWorkloadAssuranceProfileV1 {
+  return validateArchitectureContract("schema://ioi/foundations/regulated-workload-assurance-profile/v1", value).ok;
+}
+
+export function validateRegulatedWorkloadAdmissionCaseV1(
+  value: unknown,
+): value is RegulatedWorkloadAdmissionCaseV1 {
+  return validateArchitectureContract("schema://ioi/foundations/regulated-workload-admission-case/v1", value).ok;
 }

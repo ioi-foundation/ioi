@@ -198,6 +198,8 @@ mod provider_transport;
 mod recipe_routes;
 #[path = "hypervisor_daemon_routes/record_material.rs"]
 mod record_material;
+#[path = "hypervisor_daemon_routes/regulated_workload_routes.rs"]
+mod regulated_workload_routes;
 #[path = "hypervisor_daemon_routes/release_change_plan_routes.rs"]
 mod release_change_plan_routes;
 #[path = "hypervisor_daemon_routes/resource_routes.rs"]
@@ -3318,6 +3320,27 @@ async fn async_main() -> anyhow::Result<()> {
         .route(
             "/v1/hypervisor/compliance-audit-exports/:id",
             get(jurisdiction_routes::handle_export_get),
+        )
+        // M09.9 — the regulated-workload assurance plane. A profile BINDS the owners above rather
+        // than restating them, and the admission case is DERIVED here: the caller supplies only a
+        // profile_ref, because a caller-authored verdict is the subject grading its own homework.
+        // Its `binding_owner_absent` refusals are the unit's named absence and are unconditional,
+        // since nothing in this estate resolves processor terms, key control or an access log.
+        .route(
+            "/v1/hypervisor/regulated-workload-assurance-profiles",
+            post(regulated_workload_routes::handle_profile_admit),
+        )
+        .route(
+            "/v1/hypervisor/regulated-workload-assurance-profiles/:id",
+            get(regulated_workload_routes::handle_profile_get),
+        )
+        .route(
+            "/v1/hypervisor/regulated-workload-admission-cases",
+            post(regulated_workload_routes::handle_case_admit),
+        )
+        .route(
+            "/v1/hypervisor/regulated-workload-admission-cases/:id",
+            get(regulated_workload_routes::handle_case_get),
         )
         .route(
             "/v1/hypervisor/autonomous-systems/projection",

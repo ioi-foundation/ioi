@@ -1,0 +1,124 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "schema://ioi/foundations/regulated-workload-admission-case/v1",
+  "title": "RegulatedWorkloadAdmissionCase",
+  "x-ioi-schema-version": "ioi.foundations.regulated-workload-admission-case.v1",
+  "description": "ONE EVALUATION OF ONE WORKLOAD AGAINST ONE PROFILE REVISION — technical assurance evidence, and never a legal determination. `legal_conformity_claim` is pinned to the constant `not_determined` on the wire, inherited from the rule M06.10 put there rather than restated: no binding check, no admitted verdict and no complete profile is a legal conclusion about the workload. THE FOUR REFUSALS CANON NAMES, AND WHICH LAYER CAN MAKE EACH: `binding_missing` and `binding_broader_than_purpose` are decidable from the shapes themselves, because the bound view carries both the declared purpose and the allowed uses, so this contract can refuse them. `binding_stale` and `binding_substituted` are NOT — they need the ADMITTED revision to compare against, which only the daemon holds, so a profile naming a pack, view or route revision the estate never admitted, or one its owner has since superseded, is refused by the plane and by nothing else. `binding_owner_absent` is the fifth and is this unit's named absence: the profile's three unowned bindings have no resolver anywhere, so a regulated admission is refused by name until each owner lands. A REFUSED EVALUATION MUTATES NOTHING — it does not quarantine the workload, revoke a lease or narrow a policy, because those verbs belong to the owners the profile binds and a refusal is a statement about evidence, not an action against a subject. Owner: foundations/ecosystem-assurance-certification-liability.md § RegulatedWorkloadAdmissionCase (M09.9, R-230/R-231).",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "case_id",
+    "profile_ref",
+    "profile_version",
+    "profile_root",
+    "evaluated_at",
+    "verdict",
+    "refusals",
+    "legal_conformity_claim",
+    "grants_no_authority",
+    "performs_no_action",
+    "recorded_by_ref",
+    "case_root"
+  ],
+  "properties": {
+    "schema_version": {
+      "type": "string",
+      "const": "ioi.foundations.regulated-workload-admission-case.v1"
+    },
+    "case_id": {
+      "type": "string",
+      "pattern": "^regulated_workload_admission_case://[^\\s?#\\\\]{1,200}$"
+    },
+    "profile_ref": {
+      "type": "string",
+      "pattern": "^regulated_workload_assurance_profile://[^\\s?#\\\\]{1,200}$"
+    },
+    "profile_version": {
+      "type": "string",
+      "pattern": "^(?:0|[1-9][0-9]*)[.](?:0|[1-9][0-9]*)[.](?:0|[1-9][0-9]*)$"
+    },
+    "profile_root": {
+      "type": "string",
+      "pattern": "^sha256:[0-9a-f]{64}$",
+      "description": "The exact profile content this case was evaluated against. Binding the root rather than the name is what stops an in-place edit of a binding from silently rewriting what an already-recorded case decided."
+    },
+    "evaluated_at": {
+      "$ref": "#/$defs/timestamp"
+    },
+    "verdict": {
+      "type": "string",
+      "enum": [
+        "admitted",
+        "refused"
+      ]
+    },
+    "refusals": {
+      "type": "array",
+      "maxItems": 64,
+      "description": "Empty exactly when the verdict is `admitted`. Every entry names the member it is about, so a refusal is actionable rather than a mood.",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "reason",
+          "member",
+          "detail"
+        ],
+        "properties": {
+          "reason": {
+            "type": "string",
+            "enum": [
+              "binding_missing",
+              "binding_stale",
+              "binding_substituted",
+              "binding_broader_than_purpose",
+              "binding_owner_absent"
+            ]
+          },
+          "member": {
+            "type": "string",
+            "minLength": 3,
+            "maxLength": 200,
+            "description": "The exact profile member this refusal is about, dotted from the profile root — for example `policy_bindings.policy_bound_data_view_revision_ref`. A refusal that cannot say which member it means cannot be acted on."
+          },
+          "detail": {
+            "type": "string",
+            "minLength": 12,
+            "maxLength": 600
+          }
+        }
+      }
+    },
+    "legal_conformity_claim": {
+      "type": "string",
+      "const": "not_determined",
+      "description": "CANON'S OWN WORD, PINNED SO A LEGAL VERDICT IS UNREPRESENTABLE. No score, admitted verdict, complete binding set or current evidence is a legal determination. Inherited from the rule M06.10 registered; this object consumes that refusal rather than restating it."
+    },
+    "grants_no_authority": {
+      "type": "boolean",
+      "const": true
+    },
+    "performs_no_action": {
+      "type": "boolean",
+      "const": true,
+      "description": "A refused evaluation quarantines nothing, revokes nothing and narrows nothing. Those verbs belong to the owners the profile binds."
+    },
+    "recorded_by_ref": {
+      "type": "string",
+      "pattern": "^[a-z][a-z0-9+.-]*://[^\\s]{1,400}$",
+      "description": "THE RECORDER, STAMPED BY THE PLANE AND NEVER AUTHORED. This case is scoped to whoever recorded it; without an owner it would admit successfully and then be readable by nobody, which is the defect M06.10's live leg caught one unit earlier. EXCLUDED from the root, because the caller seals the case before the server stamps it."
+    },
+    "case_root": {
+      "type": "string",
+      "pattern": "^sha256:[0-9a-f]{64}$",
+      "description": "SHA-256 over JCS of every member except this one and `recorded_by_ref`."
+    }
+  },
+  "$defs": {
+    "timestamp": {
+      "type": "string",
+      "pattern": "^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$"
+    }
+  }
+}

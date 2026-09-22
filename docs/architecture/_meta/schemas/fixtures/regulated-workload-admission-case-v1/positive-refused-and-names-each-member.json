@@ -1,0 +1,31 @@
+{
+  "schema_version": "ioi.foundations.regulated-workload-admission-case.v1",
+  "case_id": "regulated_workload_admission_case://acme/claims-adjudication/2026-09-22-02",
+  "profile_ref": "regulated_workload_assurance_profile://acme/claims-adjudication/v3",
+  "profile_version": "3.1.0",
+  "profile_root": "sha256:97bfcf218b711bfa98aa3491b4268e8a242831b346216e9bc3df2f5d34ea12dc",
+  "evaluated_at": "2026-09-22T10:05:00Z",
+  "verdict": "refused",
+  "refusals": [
+    {
+      "reason": "binding_owner_absent",
+      "member": "unowned_bindings.access_log_binding_ref",
+      "detail": "no plane in this estate resolves an access_log_binding, so read access to the bound view cannot be logged"
+    },
+    {
+      "reason": "binding_stale",
+      "member": "policy_bindings.policy_bound_data_view_revision_ref",
+      "detail": "revision 17 was superseded by revision 18 before this evaluation ran"
+    },
+    {
+      "reason": "binding_broader_than_purpose",
+      "member": "policy_bindings.policy_bound_data_view_ref",
+      "detail": "the view allows secondary analytics use and the workload declared adjudication only"
+    }
+  ],
+  "legal_conformity_claim": "not_determined",
+  "grants_no_authority": true,
+  "performs_no_action": true,
+  "recorded_by_ref": "principal://acme/compliance-engineering",
+  "case_root": "sha256:a2404301742e994b44b510eb30d1073d13394edef737e1405503e8132c0e9def"
+}

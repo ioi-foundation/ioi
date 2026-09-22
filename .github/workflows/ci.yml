@@ -1188,6 +1188,21 @@ jobs:
         if: ${{ !cancelled() && steps.rust_backed_daemon.outcome == 'success' }}
         run: npm run mutate:jurisdiction-policy-audit-export --workspace=@ioi/hypervisor-app
 
+      # M09.9 — the regulated-workload assurance profile. A COMPOSITION unit: the profile binds the
+      # pack above and a PolicyBoundDataView revision rather than restating residency, retention,
+      # purpose or egress, because a restated rule is a second copy free to drift. Its three
+      # unowned bindings are required refs with no resolver anywhere, so every regulated admission
+      # is refused by name until each owner lands — the gate working, not a gap in it.
+      - name: Verify the regulated-workload assurance profile (M09.9, CI-bound drills)
+        if: ${{ !cancelled() && steps.rust_backed_daemon.outcome == 'success' }}
+        env:
+          IOI_VERIFIER_CENSUS_DIR: .artifacts/verifier-census
+        run: npm run check:regulated-workload-assurance --workspace=@ioi/hypervisor-app
+
+      - name: Drill the regulated-workload deriver
+        if: ${{ !cancelled() && steps.rust_backed_daemon.outcome == 'success' }}
+        run: npm run mutate:regulated-workload-assurance --workspace=@ioi/hypervisor-app
+
       - name: Verify the surface module contract
         if: ${{ !cancelled() && steps.rust_backed_daemon.outcome == 'success' }}
         env:
