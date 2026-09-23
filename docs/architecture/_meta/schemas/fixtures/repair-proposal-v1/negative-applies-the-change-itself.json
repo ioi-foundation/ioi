@@ -9,5 +9,6 @@
   "change_kind": "rubric",
   "proposed_change_ref": "proposal://acme/rubric/tighter-contact-match",
   "applies_nothing": false,
-  "rationale": "Both failures scored the same false-positive class against ambiguous contact rows, so the rubric and not the mapping is what drew the boundary in the wrong place."
+  "rationale": "Both failures scored the same false-positive class against ambiguous contact rows, so the rubric and not the mapping is what drew the boundary in the wrong place.",
+  "content_hash": "sha256:c52c0eb68c2e1d84ef89c896d72c66101dce6f7f9b12d323deeac7e6fe75d922"
 }

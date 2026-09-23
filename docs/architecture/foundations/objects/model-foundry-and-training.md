@@ -860,6 +860,7 @@ CapabilityConstructionCycleEnvelope:
   optimizer_is_not_a_model: true
   receipt_root: hash
   status: planned | running | stopped | proposed_for_review | failed | rejected
+  content_hash: hash
 ```
 
 **`optimizer_ref` IS AN ACTOR, NEVER A MODEL.** It is exactly `worker://`,
@@ -901,6 +902,7 @@ RepairProposalEnvelope:
   proposed_change_ref: artifact://... | proposal://...
   applies_nothing: true
   rationale: string
+  content_hash: hash
 ```
 
 `change_kind` is canon's own closed set of seven and not an open label.
@@ -927,6 +929,7 @@ OptimizationTargetAdapter:
       canonical_key: string
       canonical_value: string | null
   owner_ref: string
+  content_hash: hash
 ```
 
 Three refusals define it, and each names a different way a target could slip in
@@ -943,6 +946,22 @@ The first normalization is one canon has already specified: the deprecated
 normalizes it to `target_ref` with `target_class: training_pipeline`, and
 **canonical state does not emit both**. A record carrying the deprecated key and
 the canonical pair together has not been normalized; it has been annotated.
+
+### All three carry the estate's own commitment, not a new one
+
+Each of the three records ends in `content_hash`: SHA-256 over the JCS encoding
+of `{domain, ...every other member}`, derived by the shared family spine and
+re-derived on every read. The member is not decoration and it is not a second
+mechanism. The estate already has ONE owner-scoped admission-and-mutation chain,
+and the spine that serves it requires a record to commit to itself; a family
+that carried its own commitment instead would be a second spine doing the same
+job, which this architecture does not permit.
+
+Nothing is excluded from the material. For the cycle in particular that is the
+point: the four disposition lists are only preserved if dropping one changes the
+record's hash. `receipt_root` sits beside `content_hash` and is a different
+claim — it commits the cycle's *receipts*, while `content_hash` commits the
+cycle's *statement about itself*.
 
 ### A builder-created asset cannot judge its own family
 

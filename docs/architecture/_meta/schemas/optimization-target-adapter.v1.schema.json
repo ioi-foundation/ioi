@@ -14,7 +14,8 @@
     "accepts_envelope_schema",
     "emits_envelope_schema",
     "normalizations",
-    "owner_ref"
+    "owner_ref",
+    "content_hash"
   ],
   "properties": {
     "schema_version": {
@@ -88,6 +89,11 @@
       "type": "string",
       "minLength": 1,
       "maxLength": 400
+    },
+    "content_hash": {
+      "type": "string",
+      "pattern": "^sha256:[0-9a-f]{64}$",
+      "description": "SHA-256 over JCS of `{domain, ...material_fields}`, derived by the shared family spine and re-derived on every read. This member exists so the record can live on the estate's EXISTING owner-scoped mutation chain rather than beside it: the spine requires it, and a family that carried its own commitment instead would be a second spine for the same job."
     }
   }
 }

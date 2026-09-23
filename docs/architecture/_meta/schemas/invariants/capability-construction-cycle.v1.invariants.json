@@ -1,0 +1,100 @@
+{
+  "$id": "invariant://ioi/foundations/capability-construction-cycle/bounded-cycle-content-commitment/v1",
+  "language": "ioi.portable-invariants.v1",
+  "contract_id": "schema://ioi/foundations/capability-construction-cycle/v1",
+  "rules": [
+    {
+      "rule_id": "capability_construction_cycle.content_hash.commits_the_whole_bounded_cycle",
+      "description": "The content hash commits EVERY member of the cycle: its identity and target, the baseline it improved on, the resolved component snapshot, the optimizer, all five governing policy refs, the campaign and epoch it ran under, the trials, all four disposition lists, the repair proposals, both constant laws, the receipt root and the status. Nothing is excluded. A cycle is a claim about what was tried and what was decided, so a member that could change without changing the hash would be a disposition the record could quietly lose — which is the exact failure the four separate lists exist to prevent.",
+      "expression": {
+        "operator": "jcs_sha256_equals",
+        "algorithm": "jcs_sha256",
+        "material_fields": {
+          "domain": {
+            "value": "ioi.capability-construction-cycle-content-commitment-jcs-sha256.v1"
+          },
+          "schema_version": {
+            "path": "$.schema_version"
+          },
+          "construction_cycle_id": {
+            "path": "$.construction_cycle_id"
+          },
+          "target_ref": {
+            "path": "$.target_ref"
+          },
+          "target_class": {
+            "path": "$.target_class"
+          },
+          "target_owner_ref": {
+            "path": "$.target_owner_ref"
+          },
+          "baseline_target_ref": {
+            "path": "$.baseline_target_ref"
+          },
+          "baseline_target_root": {
+            "path": "$.baseline_target_root"
+          },
+          "resolved_component_snapshot_ref": {
+            "path": "$.resolved_component_snapshot_ref"
+          },
+          "optimizer_ref": {
+            "path": "$.optimizer_ref"
+          },
+          "search_policy_ref": {
+            "path": "$.search_policy_ref"
+          },
+          "objective_and_guardrail_policy_ref": {
+            "path": "$.objective_and_guardrail_policy_ref"
+          },
+          "resource_normalization_ref": {
+            "path": "$.resource_normalization_ref"
+          },
+          "budget_policy_ref": {
+            "path": "$.budget_policy_ref"
+          },
+          "stop_policy_ref": {
+            "path": "$.stop_policy_ref"
+          },
+          "improvement_campaign_ref": {
+            "path": "$.improvement_campaign_ref"
+          },
+          "evaluation_epoch_ref": {
+            "path": "$.evaluation_epoch_ref"
+          },
+          "trial_refs": {
+            "path": "$.trial_refs"
+          },
+          "accepted_change_refs": {
+            "path": "$.accepted_change_refs"
+          },
+          "rejected_change_refs": {
+            "path": "$.rejected_change_refs"
+          },
+          "inconclusive_change_refs": {
+            "path": "$.inconclusive_change_refs"
+          },
+          "exploit_or_invalid_change_refs": {
+            "path": "$.exploit_or_invalid_change_refs"
+          },
+          "repair_proposal_refs": {
+            "path": "$.repair_proposal_refs"
+          },
+          "selection_confers_eligibility_only": {
+            "path": "$.selection_confers_eligibility_only"
+          },
+          "optimizer_is_not_a_model": {
+            "path": "$.optimizer_is_not_a_model"
+          },
+          "receipt_root": {
+            "path": "$.receipt_root"
+          },
+          "status": {
+            "path": "$.status"
+          }
+        },
+        "expected_path": "$.content_hash",
+        "expected_encoding": "sha256_string"
+      }
+    }
+  ]
+}

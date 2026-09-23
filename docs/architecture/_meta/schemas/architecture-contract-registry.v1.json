@@ -21227,7 +21227,12 @@
         "hash_impact": "signature_preimage_changed"
       },
       "schema_ref": "capability-construction-cycle.v1.schema.json",
-      "cross_field_invariant_refs": [],
+      "cross_field_invariant_refs": [
+        {
+          "invariant_id": "invariant://ioi/foundations/capability-construction-cycle/bounded-cycle-content-commitment/v1",
+          "path": "invariants/capability-construction-cycle.v1.invariants.json"
+        }
+      ],
       "compatibility_aliases": [],
       "generated_targets": [
         {
@@ -21249,6 +21254,10 @@
         {
           "path": "fixtures/capability-construction-cycle-v1/negative-a-disposition-collapsed-into-a-status.json",
           "expected_failure": "schema"
+        },
+        {
+          "path": "fixtures/capability-construction-cycle-v1/negative-a-disposition-dropped-under-a-sealed-hash.json",
+          "expected_failure": "invariant"
         },
         {
           "path": "fixtures/capability-construction-cycle-v1/negative-an-invented-status.json",
@@ -21315,7 +21324,12 @@
         "hash_impact": "signature_preimage_changed"
       },
       "schema_ref": "repair-proposal.v1.schema.json",
-      "cross_field_invariant_refs": [],
+      "cross_field_invariant_refs": [
+        {
+          "invariant_id": "invariant://ioi/foundations/repair-proposal/suggestion-content-commitment/v1",
+          "path": "invariants/repair-proposal.v1.invariants.json"
+        }
+      ],
       "compatibility_aliases": [],
       "generated_targets": [
         {
@@ -21357,6 +21371,10 @@
         {
           "path": "fixtures/repair-proposal-v1/negative-parented-by-nothing.json",
           "expected_failure": "schema"
+        },
+        {
+          "path": "fixtures/repair-proposal-v1/negative-the-cluster-swapped-under-a-sealed-hash.json",
+          "expected_failure": "invariant"
         }
       ]
     },
@@ -21379,7 +21397,12 @@
         "hash_impact": "signature_preimage_changed"
       },
       "schema_ref": "optimization-target-adapter.v1.schema.json",
-      "cross_field_invariant_refs": [],
+      "cross_field_invariant_refs": [
+        {
+          "invariant_id": "invariant://ioi/foundations/optimization-target-adapter/translation-content-commitment/v1",
+          "path": "invariants/optimization-target-adapter.v1.invariants.json"
+        }
+      ],
       "compatibility_aliases": [],
       "generated_targets": [
         {
@@ -21425,6 +21448,10 @@
         {
           "path": "fixtures/optimization-target-adapter-v1/negative-no-target-class.json",
           "expected_failure": "schema"
+        },
+        {
+          "path": "fixtures/optimization-target-adapter-v1/negative-the-translation-emptied-under-a-sealed-hash.json",
+          "expected_failure": "invariant"
         }
       ]
     }

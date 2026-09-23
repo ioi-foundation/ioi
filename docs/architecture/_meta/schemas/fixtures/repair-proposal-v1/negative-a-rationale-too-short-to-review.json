@@ -9,5 +9,6 @@
   "change_kind": "rubric",
   "proposed_change_ref": "proposal://acme/rubric/tighter-contact-match",
   "applies_nothing": true,
-  "rationale": "tighten it"
+  "rationale": "tighten it",
+  "content_hash": "sha256:7e4e12e00745051cebe315b97d0d2c6972e0851f670311fc029f6b605dda3fe0"
 }

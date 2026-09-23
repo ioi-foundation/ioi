@@ -15383,6 +15383,7 @@ export type CapabilityConstructionCycleEnvelopeV1 = {
   optimizer_is_not_a_model: true;
   receipt_root: string;
   status: "planned" | "running" | "stopped" | "proposed_for_review" | "failed" | "rejected";
+  content_hash: string;
 };
 
 export type RepairProposalEnvelopeV1 = {
@@ -15394,6 +15395,7 @@ export type RepairProposalEnvelopeV1 = {
   proposed_change_ref: string;
   applies_nothing: true;
   rationale: string;
+  content_hash: string;
 };
 
 export type OptimizationTargetAdapterV1 = {
@@ -15409,6 +15411,7 @@ export type OptimizationTargetAdapterV1 = {
         canonical_value: string | null;
       }>;
   owner_ref: string;
+  content_hash: string;
 };
 
 export const ARCHITECTURE_CONTRACT_REGISTRY_VERSION = "ioi.architecture-contract-registry.v1" as const;
@@ -31215,6 +31218,14 @@ export const ARCHITECTURE_CONTRACT_FIXTURES = [
   },
   {
     "contract_id": "schema://ioi/foundations/capability-construction-cycle/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/capability-construction-cycle-v1/negative-a-disposition-dropped-under-a-sealed-hash.json",
+    "expected": "reject",
+    "expected_schema_accept": true,
+    "expected_failure": "invariant",
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/foundations/capability-construction-cycle/v1",
     "path": "docs/architecture/_meta/schemas/fixtures/capability-construction-cycle-v1/negative-an-invented-status.json",
     "expected": "reject",
     "expected_schema_accept": false,
@@ -31366,6 +31377,14 @@ export const ARCHITECTURE_CONTRACT_FIXTURES = [
     "expected_rule_id": null
   },
   {
+    "contract_id": "schema://ioi/foundations/repair-proposal/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/repair-proposal-v1/negative-the-cluster-swapped-under-a-sealed-hash.json",
+    "expected": "reject",
+    "expected_schema_accept": true,
+    "expected_failure": "invariant",
+    "expected_rule_id": null
+  },
+  {
     "contract_id": "schema://ioi/foundations/optimization-target-adapter/v1",
     "path": "docs/architecture/_meta/schemas/fixtures/optimization-target-adapter-v1/positive-normalizes-the-deprecated-pipeline-key.json",
     "expected": "accept",
@@ -31435,6 +31454,14 @@ export const ARCHITECTURE_CONTRACT_FIXTURES = [
     "expected": "reject",
     "expected_schema_accept": false,
     "expected_failure": "schema",
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/foundations/optimization-target-adapter/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/optimization-target-adapter-v1/negative-the-translation-emptied-under-a-sealed-hash.json",
+    "expected": "reject",
+    "expected_schema_accept": true,
+    "expected_failure": "invariant",
     "expected_rule_id": null
   }
 ] as const;
@@ -36063,6 +36090,7 @@ export const ARCHITECTURE_CONTRACT_DIFFERENTIAL_CASES: ReadonlyArray<Architectur
   differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/capability-construction-cycle-v1/positive-bounded-cycle-with-every-disposition.json","contract_id":"schema://ioi/foundations/capability-construction-cycle/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/capability-construction-cycle-v1/positive-bounded-cycle-with-every-disposition.json","mutation_id":null,"value_json":null}),
   differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/capability-construction-cycle-v1/positive-campaign-coordinated-under-a-frozen-epoch.json","contract_id":"schema://ioi/foundations/capability-construction-cycle/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/capability-construction-cycle-v1/positive-campaign-coordinated-under-a-frozen-epoch.json","mutation_id":null,"value_json":null}),
   differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/capability-construction-cycle-v1/negative-a-disposition-collapsed-into-a-status.json","contract_id":"schema://ioi/foundations/capability-construction-cycle/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/capability-construction-cycle-v1/negative-a-disposition-collapsed-into-a-status.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/capability-construction-cycle-v1/negative-a-disposition-dropped-under-a-sealed-hash.json","contract_id":"schema://ioi/foundations/capability-construction-cycle/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/capability-construction-cycle-v1/negative-a-disposition-dropped-under-a-sealed-hash.json","mutation_id":null,"value_json":null}),
   differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/capability-construction-cycle-v1/negative-an-invented-status.json","contract_id":"schema://ioi/foundations/capability-construction-cycle/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/capability-construction-cycle-v1/negative-an-invented-status.json","mutation_id":null,"value_json":null}),
   differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/capability-construction-cycle-v1/negative-an-optimizer-that-is-a-model.json","contract_id":"schema://ioi/foundations/capability-construction-cycle/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/capability-construction-cycle-v1/negative-an-optimizer-that-is-a-model.json","mutation_id":null,"value_json":null}),
   differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/capability-construction-cycle-v1/negative-an-optimizer-that-is-a-route.json","contract_id":"schema://ioi/foundations/capability-construction-cycle/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/capability-construction-cycle-v1/negative-an-optimizer-that-is-a-route.json","mutation_id":null,"value_json":null}),
@@ -36082,6 +36110,7 @@ export const ARCHITECTURE_CONTRACT_DIFFERENTIAL_CASES: ReadonlyArray<Architectur
   differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/repair-proposal-v1/negative-clusters-something-that-is-not-a-trial.json","contract_id":"schema://ioi/foundations/repair-proposal/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/repair-proposal-v1/negative-clusters-something-that-is-not-a-trial.json","mutation_id":null,"value_json":null}),
   differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/repair-proposal-v1/negative-no-clustered-failures.json","contract_id":"schema://ioi/foundations/repair-proposal/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/repair-proposal-v1/negative-no-clustered-failures.json","mutation_id":null,"value_json":null}),
   differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/repair-proposal-v1/negative-parented-by-nothing.json","contract_id":"schema://ioi/foundations/repair-proposal/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/repair-proposal-v1/negative-parented-by-nothing.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/repair-proposal-v1/negative-the-cluster-swapped-under-a-sealed-hash.json","contract_id":"schema://ioi/foundations/repair-proposal/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/repair-proposal-v1/negative-the-cluster-swapped-under-a-sealed-hash.json","mutation_id":null,"value_json":null}),
   differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/optimization-target-adapter-v1/positive-normalizes-the-deprecated-pipeline-key.json","contract_id":"schema://ioi/foundations/optimization-target-adapter/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/optimization-target-adapter-v1/positive-normalizes-the-deprecated-pipeline-key.json","mutation_id":null,"value_json":null}),
   differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/optimization-target-adapter-v1/positive-nothing-to-normalize-and-says-so.json","contract_id":"schema://ioi/foundations/optimization-target-adapter/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/optimization-target-adapter-v1/positive-nothing-to-normalize-and-says-so.json","mutation_id":null,"value_json":null}),
   differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/optimization-target-adapter-v1/negative-a-normalization-with-no-canonical-key.json","contract_id":"schema://ioi/foundations/optimization-target-adapter/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/optimization-target-adapter-v1/negative-a-normalization-with-no-canonical-key.json","mutation_id":null,"value_json":null}),
@@ -36091,6 +36120,7 @@ export const ARCHITECTURE_CONTRACT_DIFFERENTIAL_CASES: ReadonlyArray<Architectur
   differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/optimization-target-adapter-v1/negative-no-emitted-schema.json","contract_id":"schema://ioi/foundations/optimization-target-adapter/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/optimization-target-adapter-v1/negative-no-emitted-schema.json","mutation_id":null,"value_json":null}),
   differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/optimization-target-adapter-v1/negative-no-owner.json","contract_id":"schema://ioi/foundations/optimization-target-adapter/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/optimization-target-adapter-v1/negative-no-owner.json","mutation_id":null,"value_json":null}),
   differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/optimization-target-adapter-v1/negative-no-target-class.json","contract_id":"schema://ioi/foundations/optimization-target-adapter/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/optimization-target-adapter-v1/negative-no-target-class.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/optimization-target-adapter-v1/negative-the-translation-emptied-under-a-sealed-hash.json","contract_id":"schema://ioi/foundations/optimization-target-adapter/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/optimization-target-adapter-v1/negative-the-translation-emptied-under-a-sealed-hash.json","mutation_id":null,"value_json":null}),
   differentialCase({"id":"mutation:sequence-zero-receipt-timestamp-detached","contract_id":"schema://ioi/foundations/autonomous-system-sequence-zero-materialization-receipt/v2","source_fixture_path":null,"mutation_id":"sequence-zero-receipt-timestamp-detached","value_json":null}),
   differentialCase({"id":"mutation:sequence-zero-receipt-authorized-materialization-id-detached","contract_id":"schema://ioi/foundations/autonomous-system-sequence-zero-materialization-receipt/v2","source_fixture_path":null,"mutation_id":"sequence-zero-receipt-authorized-materialization-id-detached","value_json":null}),
   differentialCase({"id":"mutation:sequence-zero-receipt-authority-principal-detached","contract_id":"schema://ioi/foundations/autonomous-system-sequence-zero-materialization-receipt/v2","source_fixture_path":null,"mutation_id":"sequence-zero-receipt-authority-principal-detached","value_json":null}),
@@ -37755,9 +37785,9 @@ export const ARCHITECTURE_CONTRACT_SCHEMA_HASHES = {
   "schema://ioi/foundations/regulated-workload-admission-case/v1": "sha256:b831562b81c011d5f19b81e523fc61f38c4426a2bcc5b45171fc160e444e5969",
   "schema://ioi/hypervisor/cross-substrate-portability-certificate/v1": "sha256:dc7b20b83da02a296d10c93951f3677ac88de227a58ce190e1cce864e534e7f4",
   "schema://ioi/components/hypervisor/foundry-training-program/v2": "sha256:f261acbcd539c7f930eaf442b342678f6b18198aa5fc1dea0279e5569c1126e1",
-  "schema://ioi/foundations/capability-construction-cycle/v1": "sha256:bcfc19a1b3d0846845012e8f4f00ed4ad39998963f437016031fb5ec4a13e788",
-  "schema://ioi/foundations/repair-proposal/v1": "sha256:0151513340a5b2d5ceb0d132c6bcb12f76a04d430d4e484e6592a39b1d52b865",
-  "schema://ioi/foundations/optimization-target-adapter/v1": "sha256:2cd6c1e305e8fa34fa5af64c54f8ebc26d12016c60da30c808fbba2974aefb6d"
+  "schema://ioi/foundations/capability-construction-cycle/v1": "sha256:2c141485a9bc3b8842e162788d07c561b4a0e6951d61747d19ac5a7d283e5817",
+  "schema://ioi/foundations/repair-proposal/v1": "sha256:39656db67952268a3d9af42147f82977c6dd5d23577d41b18e99bda9d052e727",
+  "schema://ioi/foundations/optimization-target-adapter/v1": "sha256:c270a38b3a0638ccab87700ce75d2573cd3000af8f968d0eb29d7757f6a8f6fc"
 } as const;
 
 type JsonObject = Record<string, unknown>;
@@ -156178,7 +156208,8 @@ const CONTRACT_SCHEMAS: Record<string, JsonObject> = {
       "selection_confers_eligibility_only",
       "optimizer_is_not_a_model",
       "receipt_root",
-      "status"
+      "status",
+      "content_hash"
     ],
     "properties": {
       "schema_version": {
@@ -156339,6 +156370,11 @@ const CONTRACT_SCHEMAS: Record<string, JsonObject> = {
           "failed",
           "rejected"
         ]
+      },
+      "content_hash": {
+        "type": "string",
+        "pattern": "^sha256:[0-9a-f]{64}$",
+        "description": "SHA-256 over JCS of `{domain, ...material_fields}`, derived by the shared family spine and re-derived on every read. This member exists so the record can live on the estate's EXISTING owner-scoped mutation chain rather than beside it: the spine requires it, and a family that carried its own commitment instead would be a second spine for the same job. The `receipt_root` beside it is canon's own second commitment over the cycle's receipts and is not this."
       }
     }
   },
@@ -156358,7 +156394,8 @@ const CONTRACT_SCHEMAS: Record<string, JsonObject> = {
       "change_kind",
       "proposed_change_ref",
       "applies_nothing",
-      "rationale"
+      "rationale",
+      "content_hash"
     ],
     "properties": {
       "schema_version": {
@@ -156408,6 +156445,11 @@ const CONTRACT_SCHEMAS: Record<string, JsonObject> = {
         "minLength": 20,
         "maxLength": 2000,
         "description": "Why these failures cluster together and why this change follows. A floor is enforced because a proposal whose rationale is a phrase cannot be reviewed, and review is the only thing standing between a suggestion and a change."
+      },
+      "content_hash": {
+        "type": "string",
+        "pattern": "^sha256:[0-9a-f]{64}$",
+        "description": "SHA-256 over JCS of `{domain, ...material_fields}`, derived by the shared family spine and re-derived on every read. This member exists so the record can live on the estate's EXISTING owner-scoped mutation chain rather than beside it: the spine requires it, and a family that carried its own commitment instead would be a second spine for the same job."
       }
     }
   },
@@ -156427,7 +156469,8 @@ const CONTRACT_SCHEMAS: Record<string, JsonObject> = {
       "accepts_envelope_schema",
       "emits_envelope_schema",
       "normalizations",
-      "owner_ref"
+      "owner_ref",
+      "content_hash"
     ],
     "properties": {
       "schema_version": {
@@ -156501,6 +156544,11 @@ const CONTRACT_SCHEMAS: Record<string, JsonObject> = {
         "type": "string",
         "minLength": 1,
         "maxLength": 400
+      },
+      "content_hash": {
+        "type": "string",
+        "pattern": "^sha256:[0-9a-f]{64}$",
+        "description": "SHA-256 over JCS of `{domain, ...material_fields}`, derived by the shared family spine and re-derived on every read. This member exists so the record can live on the estate's EXISTING owner-scoped mutation chain rather than beside it: the spine requires it, and a family that carried its own commitment instead would be a second spine for the same job."
       }
     }
   }
@@ -178342,9 +178390,183 @@ const CONTRACT_INVARIANTS: Record<string, Array<JsonObject>> = {
     }
   ],
   "schema://ioi/components/hypervisor/foundry-training-program/v2": [],
-  "schema://ioi/foundations/capability-construction-cycle/v1": [],
-  "schema://ioi/foundations/repair-proposal/v1": [],
-  "schema://ioi/foundations/optimization-target-adapter/v1": []
+  "schema://ioi/foundations/capability-construction-cycle/v1": [
+    {
+      "rule_id": "capability_construction_cycle.content_hash.commits_the_whole_bounded_cycle",
+      "description": "The content hash commits EVERY member of the cycle: its identity and target, the baseline it improved on, the resolved component snapshot, the optimizer, all five governing policy refs, the campaign and epoch it ran under, the trials, all four disposition lists, the repair proposals, both constant laws, the receipt root and the status. Nothing is excluded. A cycle is a claim about what was tried and what was decided, so a member that could change without changing the hash would be a disposition the record could quietly lose — which is the exact failure the four separate lists exist to prevent.",
+      "expression": {
+        "operator": "jcs_sha256_equals",
+        "algorithm": "jcs_sha256",
+        "material_fields": {
+          "domain": {
+            "value": "ioi.capability-construction-cycle-content-commitment-jcs-sha256.v1"
+          },
+          "schema_version": {
+            "path": "$.schema_version"
+          },
+          "construction_cycle_id": {
+            "path": "$.construction_cycle_id"
+          },
+          "target_ref": {
+            "path": "$.target_ref"
+          },
+          "target_class": {
+            "path": "$.target_class"
+          },
+          "target_owner_ref": {
+            "path": "$.target_owner_ref"
+          },
+          "baseline_target_ref": {
+            "path": "$.baseline_target_ref"
+          },
+          "baseline_target_root": {
+            "path": "$.baseline_target_root"
+          },
+          "resolved_component_snapshot_ref": {
+            "path": "$.resolved_component_snapshot_ref"
+          },
+          "optimizer_ref": {
+            "path": "$.optimizer_ref"
+          },
+          "search_policy_ref": {
+            "path": "$.search_policy_ref"
+          },
+          "objective_and_guardrail_policy_ref": {
+            "path": "$.objective_and_guardrail_policy_ref"
+          },
+          "resource_normalization_ref": {
+            "path": "$.resource_normalization_ref"
+          },
+          "budget_policy_ref": {
+            "path": "$.budget_policy_ref"
+          },
+          "stop_policy_ref": {
+            "path": "$.stop_policy_ref"
+          },
+          "improvement_campaign_ref": {
+            "path": "$.improvement_campaign_ref"
+          },
+          "evaluation_epoch_ref": {
+            "path": "$.evaluation_epoch_ref"
+          },
+          "trial_refs": {
+            "path": "$.trial_refs"
+          },
+          "accepted_change_refs": {
+            "path": "$.accepted_change_refs"
+          },
+          "rejected_change_refs": {
+            "path": "$.rejected_change_refs"
+          },
+          "inconclusive_change_refs": {
+            "path": "$.inconclusive_change_refs"
+          },
+          "exploit_or_invalid_change_refs": {
+            "path": "$.exploit_or_invalid_change_refs"
+          },
+          "repair_proposal_refs": {
+            "path": "$.repair_proposal_refs"
+          },
+          "selection_confers_eligibility_only": {
+            "path": "$.selection_confers_eligibility_only"
+          },
+          "optimizer_is_not_a_model": {
+            "path": "$.optimizer_is_not_a_model"
+          },
+          "receipt_root": {
+            "path": "$.receipt_root"
+          },
+          "status": {
+            "path": "$.status"
+          }
+        },
+        "expected_path": "$.content_hash",
+        "expected_encoding": "sha256_string"
+      }
+    }
+  ],
+  "schema://ioi/foundations/repair-proposal/v1": [
+    {
+      "rule_id": "repair_proposal.content_hash.commits_the_cluster_and_the_suggestion",
+      "description": "The content hash commits the parent cycle, the failure cluster, the change kind, the proposed change, the applies-nothing law and the rationale. The CLUSTER is why this matters more than it looks: a proposal whose evidence could be swapped after the fact would let a reviewer approve one suggestion and a different one be applied, and the clustering is the only thing separating this object from an opinion.",
+      "expression": {
+        "operator": "jcs_sha256_equals",
+        "algorithm": "jcs_sha256",
+        "material_fields": {
+          "domain": {
+            "value": "ioi.repair-proposal-content-commitment-jcs-sha256.v1"
+          },
+          "schema_version": {
+            "path": "$.schema_version"
+          },
+          "repair_proposal_id": {
+            "path": "$.repair_proposal_id"
+          },
+          "parent_cycle_ref": {
+            "path": "$.parent_cycle_ref"
+          },
+          "clustered_failure_refs": {
+            "path": "$.clustered_failure_refs"
+          },
+          "change_kind": {
+            "path": "$.change_kind"
+          },
+          "proposed_change_ref": {
+            "path": "$.proposed_change_ref"
+          },
+          "applies_nothing": {
+            "path": "$.applies_nothing"
+          },
+          "rationale": {
+            "path": "$.rationale"
+          }
+        },
+        "expected_path": "$.content_hash",
+        "expected_encoding": "sha256_string"
+      }
+    }
+  ],
+  "schema://ioi/foundations/optimization-target-adapter/v1": [
+    {
+      "rule_id": "optimization_target_adapter.content_hash.commits_the_translation_it_performs",
+      "description": "The content hash commits the target class, the adapter version, both envelope schemas and every normalization. An adapter IS its translation, so a normalization list that could change under a stable identity would mean two records disagreeing about what the same adapter did to the same envelope — and the three refusals (missing_adapter, cross_version, downgrade) are all decided by reading exactly these members.",
+      "expression": {
+        "operator": "jcs_sha256_equals",
+        "algorithm": "jcs_sha256",
+        "material_fields": {
+          "domain": {
+            "value": "ioi.optimization-target-adapter-content-commitment-jcs-sha256.v1"
+          },
+          "schema_version": {
+            "path": "$.schema_version"
+          },
+          "adapter_id": {
+            "path": "$.adapter_id"
+          },
+          "target_class": {
+            "path": "$.target_class"
+          },
+          "adapter_version": {
+            "path": "$.adapter_version"
+          },
+          "accepts_envelope_schema": {
+            "path": "$.accepts_envelope_schema"
+          },
+          "emits_envelope_schema": {
+            "path": "$.emits_envelope_schema"
+          },
+          "normalizations": {
+            "path": "$.normalizations"
+          },
+          "owner_ref": {
+            "path": "$.owner_ref"
+          }
+        },
+        "expected_path": "$.content_hash",
+        "expected_encoding": "sha256_string"
+      }
+    }
+  ]
 };
 
 export function architectureContractSchemaHash(contractId: string): string | null {

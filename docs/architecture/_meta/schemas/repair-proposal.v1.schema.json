@@ -14,7 +14,8 @@
     "change_kind",
     "proposed_change_ref",
     "applies_nothing",
-    "rationale"
+    "rationale",
+    "content_hash"
   ],
   "properties": {
     "schema_version": {
@@ -64,6 +65,11 @@
       "minLength": 20,
       "maxLength": 2000,
       "description": "Why these failures cluster together and why this change follows. A floor is enforced because a proposal whose rationale is a phrase cannot be reviewed, and review is the only thing standing between a suggestion and a change."
+    },
+    "content_hash": {
+      "type": "string",
+      "pattern": "^sha256:[0-9a-f]{64}$",
+      "description": "SHA-256 over JCS of `{domain, ...material_fields}`, derived by the shared family spine and re-derived on every read. This member exists so the record can live on the estate's EXISTING owner-scoped mutation chain rather than beside it: the spine requires it, and a family that carried its own commitment instead would be a second spine for the same job."
     }
   }
 }

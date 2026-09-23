@@ -3,12 +3,11 @@
   "repair_proposal_id": "repair-proposal://acme/7/rubric-1",
   "parent_cycle_ref": "constrcycle://acme/connector-mapping-tuning/7",
   "clustered_failure_refs": [
-    "trial://acme/7/2",
-    "trial://acme/7/3"
+    "trial://acme/7/9"
   ],
-  "change_kind": "vibes",
+  "change_kind": "rubric",
   "proposed_change_ref": "proposal://acme/rubric/tighter-contact-match",
   "applies_nothing": true,
   "rationale": "Both failures scored the same false-positive class against ambiguous contact rows, so the rubric and not the mapping is what drew the boundary in the wrong place.",
-  "content_hash": "sha256:3c7cea359364f2af480dbed6986afa1136de934ae598224c11c50995ad504670"
+  "content_hash": "sha256:c61ee541674b6b8b11375e31ef3f36faa095335e1139761030354412fd57f872"
 }

@@ -32,7 +32,8 @@
     "selection_confers_eligibility_only",
     "optimizer_is_not_a_model",
     "receipt_root",
-    "status"
+    "status",
+    "content_hash"
   ],
   "properties": {
     "schema_version": {
@@ -193,6 +194,11 @@
         "failed",
         "rejected"
       ]
+    },
+    "content_hash": {
+      "type": "string",
+      "pattern": "^sha256:[0-9a-f]{64}$",
+      "description": "SHA-256 over JCS of `{domain, ...material_fields}`, derived by the shared family spine and re-derived on every read. This member exists so the record can live on the estate's EXISTING owner-scoped mutation chain rather than beside it: the spine requires it, and a family that carried its own commitment instead would be a second spine for the same job. The `receipt_root` beside it is canon's own second commitment over the cycle's receipts and is not this."
     }
   }
 }

@@ -1,0 +1,46 @@
+{
+  "$id": "invariant://ioi/foundations/repair-proposal/suggestion-content-commitment/v1",
+  "language": "ioi.portable-invariants.v1",
+  "contract_id": "schema://ioi/foundations/repair-proposal/v1",
+  "rules": [
+    {
+      "rule_id": "repair_proposal.content_hash.commits_the_cluster_and_the_suggestion",
+      "description": "The content hash commits the parent cycle, the failure cluster, the change kind, the proposed change, the applies-nothing law and the rationale. The CLUSTER is why this matters more than it looks: a proposal whose evidence could be swapped after the fact would let a reviewer approve one suggestion and a different one be applied, and the clustering is the only thing separating this object from an opinion.",
+      "expression": {
+        "operator": "jcs_sha256_equals",
+        "algorithm": "jcs_sha256",
+        "material_fields": {
+          "domain": {
+            "value": "ioi.repair-proposal-content-commitment-jcs-sha256.v1"
+          },
+          "schema_version": {
+            "path": "$.schema_version"
+          },
+          "repair_proposal_id": {
+            "path": "$.repair_proposal_id"
+          },
+          "parent_cycle_ref": {
+            "path": "$.parent_cycle_ref"
+          },
+          "clustered_failure_refs": {
+            "path": "$.clustered_failure_refs"
+          },
+          "change_kind": {
+            "path": "$.change_kind"
+          },
+          "proposed_change_ref": {
+            "path": "$.proposed_change_ref"
+          },
+          "applies_nothing": {
+            "path": "$.applies_nothing"
+          },
+          "rationale": {
+            "path": "$.rationale"
+          }
+        },
+        "expected_path": "$.content_hash",
+        "expected_encoding": "sha256_string"
+      }
+    }
+  ]
+}

@@ -16,5 +16,6 @@
       "canonical_key": "target_class",
       "canonical_value": "training_pipeline"
     }
-  ]
+  ],
+  "content_hash": "sha256:9ea0f22d16f850ce2a63559ec15abc1f3b83cb0fd94e378df709b712b588ffa0"
 }

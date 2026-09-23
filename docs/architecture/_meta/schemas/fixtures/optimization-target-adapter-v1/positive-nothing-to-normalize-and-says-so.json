@@ -6,5 +6,6 @@
   "accepts_envelope_schema": "ioi.foundations.capability-construction-cycle.v1",
   "emits_envelope_schema": "ioi.foundations.capability-construction-cycle.v1",
   "normalizations": [],
-  "owner_ref": "org://ioi/foundry"
+  "owner_ref": "org://ioi/foundry",
+  "content_hash": "sha256:ab5cc2be4984a929b907cb33ffd4b25c4c9e7b922422ee70db838ebc6226cdf0"
 }

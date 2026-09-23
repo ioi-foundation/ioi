@@ -16,5 +16,6 @@
       "canonical_value": "training_pipeline"
     }
   ],
-  "owner_ref": "org://ioi/foundry"
+  "owner_ref": "org://ioi/foundry",
+  "content_hash": "sha256:e053729ead393450f90d8df013fde94608b0804b9910aa80bd1f38f10b959d16"
 }

@@ -37,5 +37,6 @@
   "selection_confers_eligibility_only": true,
   "optimizer_is_not_a_model": true,
   "receipt_root": "sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
-  "status": "proposed_for_review"
+  "status": "proposed_for_review",
+  "content_hash": "sha256:b477f90fe32ad3a2daa78162fab0cae90caf4017526ddd4b84e353893295ae70"
 }
