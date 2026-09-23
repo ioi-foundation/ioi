@@ -976,6 +976,87 @@ target. Proof validity and serving fitness remain separate: a slow valid proof
 is valid, while missing or stale performance evidence is a named route-
 qualification gap.
 
+## The Production Capability-Build Pipeline
+
+One eligible, immutable snapshot goes through a registered spec and run plan,
+isolated training, checkpoint and resume, artifact and cost lineage, and an
+independent evaluation. **Success produces a governed worker CANDIDATE and
+stops.** Foundry cannot publish, install, grant authority or promote what it
+built, and a resumed run must be equivalent to an uninterrupted one under its
+declared determinism class. Torn or unavailable inputs fail closed; they are
+never recreated from mutable source.
+
+**Most of that is already structure, and the pipeline says so rather than
+claiming it as proof.** `FoundryTrainingProgram` already binds the dataset
+content hash, the recipe content hash, the trainer backend profile, the `seed`,
+the rights and authority grants and the data cursor; `FoundryCheckpointArtifact`
+adds `rng_state`, `data_cursor` and `global_step`. `verify-restore` already
+fails closed six ways — an incomplete checkpoint, destroyed material,
+unavailable material, bytes whose digest is not the admitted artifact hash, a
+checkpoint whose program fingerprints disagree, and one whose status, cursor or
+token count disagree with the projection. And `qualification.promotion_boundary`
+already pins `proposal_only`, `governance_approval_required` and
+`runtime_activation_performed` as constants, so a Foundry run that promoted its
+own output is unrepresentable rather than merely forbidden.
+
+What follows is therefore only what is missing.
+
+### The determinism class, and the comparison it makes possible
+
+`verify_checkpoint_projection` computes and returns `model_state_hash`,
+`optimizer_state_hash`, `scheduler_state_hash` and `rng_state_hash` — the exact
+four digests an equivalence claim needs — and **compares none of them**. It
+publishes them. Nothing anywhere asks whether a resumed run reached the state an
+uninterrupted one would have reached, which is the one thing the resume
+guarantee actually asserts.
+
+A program therefore declares its determinism class, and the class says which of
+those four must match:
+
+```text
+determinism_class
+  bitwise          all four digests identical; the run is reproducible to the byte
+  state_equivalent model, optimizer and scheduler identical; rng may advance differently
+  statistical      none required to match; equivalence is an evaluation claim, not a state claim
+```
+
+The class is DECLARED before the run, not chosen after it, because a class
+selected once the hashes are known is a description of what happened rather than
+a commitment the run can fail. A resumed run is equivalent when every digest its
+class names matches the uninterrupted run's; when one does not, the program is
+`resume_divergent` and the artifact it produced is not a candidate. A
+`statistical` program makes no state claim at all, and must say so in advance
+rather than falling back to it.
+
+### The two bindings every output owes
+
+Every output binds the exact `PolicyBoundDataView` revision it read through and
+the retention policy its artifacts fall under. Neither is restated here: the view
+already owns purpose, allowed uses, data classes, redaction and egress, and the
+retention class already owns hold and destruction. Foundry names them at an exact
+revision and carries neither rule inline, because a restated policy is a second
+copy free to drift from the one it was copied from.
+
+A training artifact whose view revision has since been superseded is not
+invalid — it is evidence about what was read at the revision it names, which is
+why the binding is to a revision and not to the view.
+
+### Spend is part of the artifact, not beside it
+
+Every external training resource carries an admitted spend reservation, a
+reconciled outcome and a cleanup obligation. **A successful artifact with unknown
+spend, or with a live orphan resource, is a FAILED run** — not a successful run
+with an accounting note. This is the one obligation in this section with no
+structure behind it today: the program's `reconciliation` member is
+`{status, checkpoint_ref}`, the interrupted-run resume pointer, and names no
+spend at all.
+
+The distinction that matters: a run may legitimately end with spend it cannot
+determine, and that is a typed outcome (`spend_unreconciled`) which forbids the
+candidate rather than a note attached to one. Unknown spend and zero spend are
+different facts, and a pipeline that cannot tell them apart is one that will
+report the second when it means the first.
+
 ## Autonomous Experiment Optimizer
 
 Foundry may run an autonomous experiment optimizer as a subordinate execution
