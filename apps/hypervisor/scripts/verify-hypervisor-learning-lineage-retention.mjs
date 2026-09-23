@@ -188,7 +188,20 @@ const recipeBody = (seeds, key, over = {}) => ({
 });
 const ROWS = [{ text: "  alpha   beta  ", source: "fixture-a" }, { text: "alpha beta", source: "fixture-a" }, { text: "gamma delta", source: "fixture-b" }];
 const runFoundry = (recipe, key, rows = ROWS) => post(`${FOUNDRY}/recipes/${enc(recipe.recipe_id)}/runs`, { expected_recipe_head: recipe.agentgres.head, expected_recipe_content_hash: recipe.content_hash, rights_grant_refs: ["rights-grant://acme/training-v1"], input_rows: rows, splits: { train: 10_000, validation: 0, test: 0 }, idempotency_key: key });
-const programBody = (programId, snapshot, recipe, key, seed = 23) => ({ program_id: programId, owner_ref: OWNER, foundry_spec_ref: null, dataset_snapshot_ref: snapshot.dataset_snapshot_ref, expected_recipe_content_hash: recipe.content_hash, training_mode: "sft", trainer_backend_profile_ref: "trainer-backend://ioi/reference-token-frequency/v1", text_field: "text", checkpoint_every_rows: 2, seed, authority_grant_refs: ["grant://acme/foundry-run"], rights_grant_refs: ["rights-grant://acme/training-v1"], idempotency_key: key });
+// M10.6 made four bindings REQUIRED on the program create (the policy-bound view at its exact
+// revision, the retention class, the declared determinism class, and spend accounting). They are
+// required rather than optional on purpose: a regulated training run that could omit any of them is
+// the run that unit exists to refuse. This gate trains real programs, so it states them.
+const programBody = (programId, snapshot, recipe, key, seed = 23) => ({ program_id: programId, owner_ref: OWNER,
+  policy_bound_data_view_ref: "policy_bound_data_view://ioi/learning-lineage-retention",
+  policy_bound_data_view_revision_ref: "revision://ioi/learning-lineage-retention/1",
+  retention_class_ref: "retention_class://ioi/learning-lineage-artifacts",
+  determinism_class: "bitwise",
+  spend: {
+    reservation_ref: "spend_reservation://ioi/learning-lineage-retention",
+    reconciled_outcome: "reconciled_exact",
+    cleanup_obligation_ref: "cleanup_obligation://ioi/learning-lineage-retention",
+  }, foundry_spec_ref: null, dataset_snapshot_ref: snapshot.dataset_snapshot_ref, expected_recipe_content_hash: recipe.content_hash, training_mode: "sft", trainer_backend_profile_ref: "trainer-backend://ioi/reference-token-frequency/v1", text_field: "text", checkpoint_every_rows: 2, seed, authority_grant_refs: ["grant://acme/foundry-run"], rights_grant_refs: ["rights-grant://acme/training-v1"], idempotency_key: key });
 async function trainProgram(programId, snapshot, recipe, key) {
   const created = await post(`${FOUNDRY}/programs`, programBody(programId, snapshot, recipe, `${key}-create`));
   const started = await post(`${FOUNDRY}/programs/${enc(programId)}/start`, { expected_head: created.body?.program?.agentgres?.head, idempotency_key: `${key}-start` });
