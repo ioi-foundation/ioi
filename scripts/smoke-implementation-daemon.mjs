@@ -627,6 +627,19 @@ async function run() {
         seed: 23,
         authority_grant_refs: ["grant://implementation-smoke/foundry-run"],
         rights_grant_refs: ["rights-grant://implementation-smoke/training-v1"],
+        // M10.6: the four bindings the v2 successor requires. They are REQUIRED rather than
+        // optional on purpose — a regulated training run that could omit its view, its retention
+        // class, its determinism class or its spend accounting is exactly the run this unit exists
+        // to refuse, so every caller now states them.
+        policy_bound_data_view_ref: "policy_bound_data_view://implementation-smoke/training-corpus",
+        policy_bound_data_view_revision_ref: "revision://implementation-smoke/training-corpus/1",
+        retention_class_ref: "retention_class://implementation-smoke/model-artifacts",
+        determinism_class: "bitwise",
+        spend: {
+          reservation_ref: "spend_reservation://implementation-smoke/foundry-run",
+          reconciled_outcome: "reconciled_exact",
+          cleanup_obligation_ref: "cleanup_obligation://implementation-smoke/foundry-run",
+        },
         idempotency_key: "implementation-smoke-program-create-v1",
       },
     );
