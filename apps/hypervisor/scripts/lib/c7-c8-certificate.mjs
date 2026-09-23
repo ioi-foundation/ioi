@@ -259,3 +259,157 @@ export function validateCertificate(certificate) {
   if (secretPatterns.some((pattern) => pattern.test(serialized))) fail("secret_bearing_artifact", "$", "certificate contains credential or bearer material");
   return { ok: failures.length === 0, failures };
 }
+
+// ---- cross-substrate portability (M09.10, register R-233) --------------------------------------------------
+//
+// ONE WORKLOAD, TWO SUBSTRATE FAMILIES, AND THE RECORD OF WHAT AGREED. This pair lives beside the
+// no-qualified-bid branch above rather than in a library of its own, because a second certificate
+// spine is the thing the estate's structural law forbids: same `stableStringify`, same discipline
+// that a certificate may not be assembled over what was not observed.
+//
+// WHY THE DIFF AND NOT SIX ASSERTIONS. Measured 2026-09-22: the reconciliation receipt has no member
+// that can name a provider, the boundary that writes it names none in production, and the eight
+// candidate sources share one operation vocabulary. Asserting provider-neutrality against those
+// would be asserting something that cannot fail. What CAN fail is that two legs disagree — and two
+// independently-correct legs are exactly the case a per-leg assertion passes twice.
+
+/** The six members that must be IDENTICAL across the legs. Read from each leg's own receipt. */
+export const PORTABILITY_INVARIANT_MEMBERS = [
+  "request_hash",
+  "disposition",
+  "observed_phase",
+  "cleanup_verified",
+  "original_effect_reinvoked",
+  "offline_verifier_verdict",
+];
+
+const PORTABILITY_MATERIAL = [
+  "schema_version", "certificate_id", "workload_ref", "workload_content_hash", "result_policy_ref",
+  "legs", "invariant_members", "permitted_differences", "substrate_families_differ",
+  "grants_no_authority", "qualifies_no_other_provider",
+];
+
+export function portabilityCertificateRoot(certificate) {
+  const material = {};
+  for (const member of PORTABILITY_MATERIAL) material[member] = certificate?.[member] ?? null;
+  return `sha256:${crypto.createHash("sha256").update(stableStringify(material)).digest("hex")}`;
+}
+
+/**
+ * THE DIFF. Returns one row per invariant member the two legs did NOT agree on. An empty result is
+ * the only state in which a certificate may be assembled; a disagreement is a finding, never a note
+ * carried inside a certificate that still calls itself one.
+ */
+export function portabilityDisagreements(left, right) {
+  const rows = [];
+  for (const member of PORTABILITY_INVARIANT_MEMBERS) {
+    const a = left?.[member];
+    const b = right?.[member];
+    if (a === undefined || b === undefined) {
+      rows.push({ member, left: a ?? null, right: b ?? null, why: "a leg did not report this member at all, so agreement on it was never observed" });
+      continue;
+    }
+    if (!same(a, b)) rows.push({ member, left: a, right: b, why: "the two legs reported different values above the provider binding" });
+  }
+  return rows;
+}
+
+/**
+ * Assemble, or refuse. `legs` are two `{ substrate_family, provider_binding_ref, capability_ref,
+ * isolation_binding_ref, reconciliation_receipt_ref, certificate_ref, observed }` records, where
+ * `observed` holds that leg's six invariant values as it actually reported them.
+ */
+export function assembleCrossSubstratePortability({ certificateId, workloadRef, workloadContentHash, resultPolicyRef, legs, permittedDifferences }) {
+  const failures = [];
+  const fail = (code, detail) => failures.push({ code, detail });
+
+  if (!Array.isArray(legs) || legs.length !== 2) {
+    fail("legs_not_a_pair", `a crossing is exactly two legs, got ${Array.isArray(legs) ? legs.length : typeof legs}`);
+    return { ok: false, failures, certificate: null };
+  }
+  const [left, right] = legs;
+  if (left?.substrate_family && left.substrate_family === right?.substrate_family) {
+    fail("same_substrate_family", `both legs ran ${left.substrate_family}; a certificate over one family twice reads as a crossing and proves nothing`);
+  }
+  if (left?.provider_binding_ref && left.provider_binding_ref === right?.provider_binding_ref) {
+    fail("same_provider_binding", "both legs name one provider binding, so this is one leg recorded twice");
+  }
+
+  const disagreements = portabilityDisagreements(left?.observed, right?.observed);
+  for (const row of disagreements) {
+    fail("legs_disagree", `${row.member}: ${stableStringify(row.left)} vs ${stableStringify(row.right)} — ${row.why}`);
+  }
+
+  // A permitted difference with no reason is where a real divergence hides, so the assembler
+  // refuses one rather than emitting a certificate a reader would have to audit by hand.
+  const differences = Array.isArray(permittedDifferences) ? permittedDifferences : [];
+  if (differences.length === 0) fail("no_permitted_differences", "the lease and isolation refs always differ across two real legs, so an empty list means this was not assembled from two of them");
+  const seen = new Set();
+  for (const entry of differences) {
+    if (!entry?.member || typeof entry.reason !== "string" || entry.reason.trim().length < 20) {
+      fail("unreasoned_difference", `${entry?.member ?? "(unnamed)"} is permitted to differ with no reason a reader can check`);
+    }
+    if (seen.has(entry?.member)) fail("difference_named_twice", `${entry.member} carries two reasons, which lets a weaker one ride in behind a reviewed first`);
+    seen.add(entry?.member);
+  }
+
+  if (failures.length) return { ok: false, failures, certificate: null };
+
+  const certificate = {
+    schema_version: "ioi.hypervisor.cross-substrate-portability-certificate.v1",
+    certificate_id: certificateId,
+    workload_ref: workloadRef,
+    workload_content_hash: workloadContentHash,
+    result_policy_ref: resultPolicyRef,
+    legs: legs.map(({ observed: _observed, ...leg }) => ({ ...leg, certificate_ref: leg.certificate_ref ?? null })),
+    invariant_members: Object.fromEntries(PORTABILITY_INVARIANT_MEMBERS.map((m) => [m, left.observed[m]])),
+    permitted_differences: differences.map(({ member, reason }) => ({ member, reason })),
+    substrate_families_differ: true,
+    grants_no_authority: true,
+    qualifies_no_other_provider: true,
+  };
+  certificate.certificate_root = portabilityCertificateRoot(certificate);
+  return { ok: true, failures: [], certificate };
+}
+
+/** Read a certificate back the way a relying party would, believing none of its own claims. */
+export function validateCrossSubstratePortabilityCertificate(certificate) {
+  const failures = [];
+  const fail = (code, detail) => failures.push({ code, detail });
+
+  if (certificate?.schema_version !== "ioi.hypervisor.cross-substrate-portability-certificate.v1") {
+    fail("wrong_schema_version", String(certificate?.schema_version));
+  }
+  if (certificate?.grants_no_authority !== true) fail("claims_authority", "the certificate claims authority");
+  if (certificate?.qualifies_no_other_provider !== true) fail("qualifies_another_provider", "the certificate reaches past the two families it crossed");
+  if (certificate?.substrate_families_differ !== true) fail("families_not_declared_different", "the certificate does not declare that the families differ");
+
+  const legs = Array.isArray(certificate?.legs) ? certificate.legs : [];
+  if (legs.length !== 2) fail("legs_not_a_pair", `${legs.length} leg(s)`);
+  else {
+    // The CONST is an assertion the document makes about itself; this checks it against the legs.
+    if (legs[0]?.substrate_family === legs[1]?.substrate_family) fail("same_substrate_family", String(legs[0]?.substrate_family));
+    if (legs[0]?.provider_binding_ref === legs[1]?.provider_binding_ref) fail("same_provider_binding", String(legs[0]?.provider_binding_ref));
+  }
+
+  for (const member of PORTABILITY_INVARIANT_MEMBERS) {
+    if (certificate?.invariant_members?.[member] === undefined) fail("invariant_member_absent", member);
+  }
+  if (!hash(certificate?.workload_content_hash)) fail("no_workload_content_hash", "the exact workload that ran is not content-addressed here");
+  if (!hash(certificate?.invariant_members?.request_hash)) fail("no_request_hash", "the agreed request hash is not a hash");
+
+  const differences = Array.isArray(certificate?.permitted_differences) ? certificate.permitted_differences : [];
+  if (differences.length === 0) fail("no_permitted_differences", "two real legs always differ somewhere");
+  const seen = new Set();
+  for (const entry of differences) {
+    if (typeof entry?.reason !== "string" || entry.reason.trim().length < 20) fail("unreasoned_difference", String(entry?.member));
+    if (seen.has(entry?.member)) fail("difference_named_twice", String(entry?.member));
+    seen.add(entry?.member);
+  }
+
+  // THE SEAL LAST, so a reader sees what is wrong with the content before being told the bytes moved.
+  if (portabilityCertificateRoot(certificate) !== certificate?.certificate_root) {
+    fail("root_does_not_recompute", "the certificate's content is not the content it was sealed over");
+  }
+  return { ok: failures.length === 0, failures };
+}

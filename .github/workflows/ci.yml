@@ -1203,6 +1203,21 @@ jobs:
         if: ${{ !cancelled() && steps.rust_backed_daemon.outcome == 'success' }}
         run: npm run mutate:regulated-workload-assurance --workspace=@ioi/hypervisor-app
 
+      # M09.10 — cross-substrate authority and reconciliation portability. Three of this unit's four
+      # natural assertions are already true by construction (the receipt cannot name a provider, the
+      # effect boundary names none, the eight adapters share one vocabulary), so the gate asserts
+      # those as a TRIPWIRE and proves the one thing that can fail: that two legs AGREE. Two
+      # independently-correct legs are exactly what a per-leg assertion passes twice.
+      - name: Verify cross-substrate portability (M09.10, CI-bound drills)
+        if: ${{ !cancelled() && steps.rust_backed_daemon.outcome == 'success' }}
+        env:
+          IOI_VERIFIER_CENSUS_DIR: .artifacts/verifier-census
+        run: npm run check:cross-substrate-portability --workspace=@ioi/hypervisor-app
+
+      - name: Drill the cross-substrate certificate pair
+        if: ${{ !cancelled() && steps.rust_backed_daemon.outcome == 'success' }}
+        run: npm run mutate:cross-substrate-portability --workspace=@ioi/hypervisor-app
+
       - name: Verify the surface module contract
         if: ${{ !cancelled() && steps.rust_backed_daemon.outcome == 'success' }}
         env:

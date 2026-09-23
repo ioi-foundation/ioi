@@ -206,7 +206,9 @@
     "check:jurisdiction-policy-audit-export": "node ../../scripts/check-jurisdiction-policy-audit-export.mjs --drills",
     "mutate:jurisdiction-policy-audit-export": "node ../../scripts/check-jurisdiction-policy-audit-export.mjs --mutation",
     "check:regulated-workload-assurance": "node ../../scripts/check-regulated-workload-assurance.mjs --drills",
-    "mutate:regulated-workload-assurance": "node ../../scripts/check-regulated-workload-assurance.mjs --mutation"
+    "mutate:regulated-workload-assurance": "node ../../scripts/check-regulated-workload-assurance.mjs --mutation",
+    "check:cross-substrate-portability": "node ../../scripts/check-cross-substrate-portability.mjs --drills",
+    "mutate:cross-substrate-portability": "node ../../scripts/check-cross-substrate-portability.mjs --mutation"
   },
   "dependencies": {
     "@codemirror/commands": "^6.10.3",

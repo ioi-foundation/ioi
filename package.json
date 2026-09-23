@@ -209,7 +209,9 @@
     "check:jurisdiction-policy-audit-export": "node scripts/check-jurisdiction-policy-audit-export.mjs",
     "mutate:jurisdiction-policy-audit-export": "node scripts/check-jurisdiction-policy-audit-export.mjs --mutation",
     "check:regulated-workload-assurance": "node scripts/check-regulated-workload-assurance.mjs",
-    "mutate:regulated-workload-assurance": "node scripts/check-regulated-workload-assurance.mjs --mutation"
+    "mutate:regulated-workload-assurance": "node scripts/check-regulated-workload-assurance.mjs --mutation",
+    "check:cross-substrate-portability": "node scripts/check-cross-substrate-portability.mjs",
+    "mutate:cross-substrate-portability": "node scripts/check-cross-substrate-portability.mjs --mutation"
   },
   "devDependencies": {
     "@playwright/test": "^1.60.0",

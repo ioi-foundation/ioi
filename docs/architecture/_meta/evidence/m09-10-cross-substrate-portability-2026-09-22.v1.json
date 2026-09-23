@@ -1,0 +1,87 @@
+{
+  "schema": "ioi.cross-substrate-portability-evidence.v1",
+  "mode": "full",
+  "started_at": "2026-09-23T02:04:01.507Z",
+  "drills": [
+    {
+      "name": "PURE — the diff is the assertion: six members identical across the legs or NO certificate is assembled, each member isolated so no case masks another; one family twice, one binding twice and a single leg are each refused by their own code; a difference permitted with no reason a reader can check is refused; and the validator reads a certificate back believing none of its own claims",
+      "pass": true,
+      "detail": "",
+      "at": "2026-09-23T02:04:01.510Z"
+    },
+    {
+      "name": "SEAM — the registered contract carries the law: exactly two legs, the six agreed members required, a 20-character floor on every permitted difference's reason, three consts on the wire, `substrate_family` left open because the families are modules and not an enum, every material member required so the projection cannot drop it, and the two laws a schema CANNOT state registered as portable invariants",
+      "pass": true,
+      "detail": "",
+      "at": "2026-09-23T02:04:01.513Z"
+    },
+    {
+      "name": "SOURCE — the three structural facts, read from source as a TRIPWIRE rather than as proof: the reconciliation receipt has no member that can name a provider, the effect boundary names none in production (test fixtures excluded deliberately), and all eight candidate sources export the one vocabulary with the dispatch reaching every one — plus the single certificate spine and canon's own record that these facts are structure",
+      "pass": true,
+      "detail": "",
+      "at": "2026-09-23T02:04:01.517Z"
+    },
+    {
+      "name": "BINDING — the gate is floored with an existing source, CI-bound in the form the FLOORS GATE recognises, the gate it COMPOSES is itself floored so clause 6 does not delegate to something unpinned, and every clause is executed or named with an owner",
+      "pass": true,
+      "detail": "",
+      "at": "2026-09-23T02:04:01.518Z"
+    },
+    {
+      "name": "VERDICT — a table missing eleven of its twelve rows is a FAIL, not a pass",
+      "pass": true,
+      "detail": "",
+      "at": "2026-09-23T02:04:01.518Z"
+    },
+    {
+      "name": "VERDICT — twelve green rows with no absence is a PASS",
+      "pass": true,
+      "detail": "",
+      "at": "2026-09-23T02:04:01.518Z"
+    },
+    {
+      "name": "VERDICT — one named absence is a NAMED FAILURE, never a pass",
+      "pass": true,
+      "detail": "",
+      "at": "2026-09-23T02:04:01.518Z"
+    },
+    {
+      "name": "VERDICT — a gate that reports success without evidence is fabricated, not green",
+      "pass": true,
+      "detail": "",
+      "at": "2026-09-23T02:04:01.518Z"
+    },
+    {
+      "name": "VERDICT — a gate below its floor fails even at exit 0",
+      "pass": true,
+      "detail": "",
+      "at": "2026-09-23T02:04:01.518Z"
+    }
+  ],
+  "pure": [],
+  "seam": [],
+  "source": [],
+  "lane": {
+    "status": 0,
+    "timed_out": false,
+    "named_absence_ok": false,
+    "stderr": ""
+  },
+  "verdict": {
+    "kind": "named_failure",
+    "failures": [],
+    "absences": [
+      {
+        "n": 12,
+        "what": "THE LIVE CROSSING IS SCHEDULED, AND THE TRAIT CANON CLAIMS IS ABSENT. (1) THE CROSSING. The deterministic lane here drives the certificate pair over registered fixtures and the composed lane gate; it does NOT stand up two substrates and run one workload across them, because that needs two separately authorized provider accounts and a funded deposit on at least one, authorized leg by leg. A missing credential blocks that RUN and never the unit (R-139), and M09.6's own scheduled live branch is in exactly this state — so this unit's scheduled check is the fresh two-substrate crossing with provider-native terminal readback on both sides, every resource and exposure closed, and the same offline verifier over each bundle. (2) THE TRAIT. `byo-provider-plane.md` describes \"one operation vocabulary over eight adapters behind one trait\", and there is no such trait: the dispatch in `cloud_candidate_routes.rs` is eight hardcoded `super::<family>_candidate_source::normalize_offers(` calls, and the only `*Provider*` traits in the tree are `ProviderTransport` (the inference seam, Ollama-only), `ProviderStrategy` and `ProviderClient`. Clause 11 asserts the vocabulary holds TODAY across all eight; it cannot make it structural, and extracting a trait across eight adapter families is not this unit's licence to take",
+        "owner": "two separately authorized provider accounts with a funded deposit for the live crossing, and the cloud-candidate plane's owner for the absent adapter trait (owner question, R-233)"
+      }
+    ]
+  },
+  "mutation": null,
+  "finished_at": "2026-09-23T02:04:01.629Z",
+  "summary": {
+    "passed": 9,
+    "total": 9
+  }
+}

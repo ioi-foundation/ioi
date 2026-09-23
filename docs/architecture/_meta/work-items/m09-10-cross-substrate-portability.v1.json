@@ -1,0 +1,74 @@
+{
+  "evidence_format": "ioi.program.work_item.v1",
+  "work_item_id": "m09-10-cross-substrate-portability",
+  "stage_id": "M09",
+  "required_work": [
+    "M09.10"
+  ],
+  "status": "evidence_ready",
+  "objective": "Close M09.10 as an executable gate: prove that one exact content-addressed workload crossing two genuinely different substrate families changes nothing above the provider binding — and prove the one thing that can actually fail, which is that the two legs AGREE, because three of this unit's four natural assertions turned out to be true by construction and a gate asserting those would be a gate that cannot fail.",
+  "falsifiable_claim": "node scripts/check-cross-substrate-portability.mjs proves twelve clauses over one registered contract, the certificate pair in the existing certificate library, and M09.6's composed lane gate. PURE: the diff is the assertion — each of the six invariant members (request hash, disposition, observed phase, cleanup verified, original effect reinvoked, offline verifier verdict) is disagreed on ONE AT A TIME so no case masks another, and each disagreement refuses by its own code with certificate null; a member a leg never reported is refused as non-agreement BY MESSAGE rather than by the value comparison that would also catch it; one family twice, one provider binding twice and a single leg are each refused by their own code; a permitted difference whose reason is under twenty characters, an empty difference list, and one member carrying two reasons are each refused; and the validator reads a certificate back believing none of its own claims, with every spoiled case RE-SEALED so only the check it is named for can catch it. SEAM: the registered contract admits exactly two legs, requires all six agreed members, floors every reason at twenty characters, pins substrate_families_differ, grants_no_authority and qualifies_no_other_provider as consts, leaves substrate_family open because the eight families are modules rather than an enum, requires every member material to the root so the projection cannot drop it, and registers as portable invariants the two laws a schema cannot state — that the families differ and the bindings differ. SOURCE: the reconciliation receipt carries no member that can name a provider, workload_effect_boundary.rs names none in production with test fixtures deliberately excluded, all eight candidate sources export the one vocabulary and the dispatch reaches every one, the certificate pair lives in the single library beside M09.6's branch, and canon itself records that these facts are structure and not proof. --drills runs 9 drills; --mutation plants 20 defects in the certificate pair and catches all 20. The full mode COMPOSES M09.6's floored check:provider-neutral-live-transaction in its CI-bound form for the twelve lane clauses, treating that gate's own exit 2 as it working and a timeout as red. Clause 12 is a NAMED ABSENCE with owners and the gate exits 2: the live two-substrate crossing is scheduled behind two separately authorized provider accounts and a funded deposit, and the adapter trait canon claims exists does not.",
+  "canon_owners": [
+    "docs/architecture/components/hypervisor/byo-provider-plane.md"
+  ],
+  "code_anchors": [
+    {
+      "path": "docs/architecture/_meta/schemas/cross-substrate-portability-certificate.v1.schema.json",
+      "must_contain": "qualifies_no_other_provider",
+      "present_when": "merged"
+    },
+    {
+      "path": "docs/architecture/_meta/schemas/invariants/cross-substrate-portability-certificate.v1.invariants.json",
+      "must_contain": "cross_substrate_portability_certificate.the_two_families_differ",
+      "present_when": "merged"
+    },
+    {
+      "path": "apps/hypervisor/scripts/lib/c7-c8-certificate.mjs",
+      "must_contain": "export function assembleCrossSubstratePortability(",
+      "present_when": "merged"
+    },
+    {
+      "path": "apps/hypervisor/scripts/lib/c7-c8-certificate.mjs",
+      "must_contain": "export function portabilityDisagreements(",
+      "present_when": "merged"
+    },
+    {
+      "path": "apps/hypervisor/scripts/lib/c7-c8-certificate.mjs",
+      "must_contain": "export function sealCertificate(",
+      "present_when": "merged"
+    },
+    {
+      "path": "scripts/check-cross-substrate-portability.mjs",
+      "must_contain": "export function sourceFindings(",
+      "present_when": "merged"
+    },
+    {
+      "path": "scripts/check-cross-substrate-portability.mjs",
+      "must_contain": "composed_gate_unfloored",
+      "present_when": "merged"
+    },
+    {
+      "path": "docs/architecture/components/hypervisor/byo-provider-plane.md",
+      "must_contain": "Cross-Substrate Authority And Reconciliation Portability",
+      "present_when": "merged"
+    },
+    {
+      "path": "apps/hypervisor/verifier-floors.v1.json",
+      "must_contain": "\"id\": \"cross-substrate-portability\"",
+      "present_when": "merged"
+    },
+    {
+      "path": "apps/hypervisor/scripts/check-verifier-floors.mjs",
+      "must_contain": "check-cross-substrate-portability",
+      "present_when": "merged"
+    },
+    {
+      "path": ".github/workflows/ci.yml",
+      "must_contain": "npm run check:cross-substrate-portability --workspace=@ioi/hypervisor-app",
+      "present_when": "merged"
+    }
+  ],
+  "evidence_refs": [
+    "docs/architecture/_meta/evidence/m09-10-cross-substrate-portability-2026-09-22.v1.json"
+  ]
+}
