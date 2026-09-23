@@ -981,6 +981,38 @@ fn recipes_create_core(
     }
 }
 
+/// PROGRAM READS SPAN BOTH VERSIONS. M10.6's successor emits v2, and v1 remains valid for every
+/// program already admitted under it — so a read that filtered on one version would make the other
+/// invisible, which is not a migration but a disappearance. `list_heads` takes a single schema by
+/// design and is shared with recipes, snapshots and intents, so widening it would change reads this
+/// unit has no business touching; the merge happens here instead. A program's head carries exactly
+/// one schema version, so the two lists are disjoint and no deduplication is needed.
+fn list_program_heads(
+    data_dir: &str,
+    identity: &super::substrate_store::RequestIdentity,
+    owner_field: Option<&str>,
+) -> Result<Vec<Value>, Reply> {
+    let mut rows = list_heads(
+        data_dir,
+        identity,
+        "program.",
+        "ioi.foundry-training-program.v2",
+        PROGRAM_SCOPE_KIND,
+        "program_id",
+        owner_field,
+    )?;
+    rows.extend(list_heads(
+        data_dir,
+        identity,
+        "program.",
+        "ioi.foundry-training-program.v1",
+        PROGRAM_SCOPE_KIND,
+        "program_id",
+        owner_field,
+    )?);
+    Ok(rows)
+}
+
 fn list_heads(
     data_dir: &str,
     identity: &super::substrate_store::RequestIdentity,
@@ -1578,6 +1610,18 @@ struct ProgramCreateRequest {
     seed: u64,
     authority_grant_refs: Vec<String>,
     rights_grant_refs: Vec<String>,
+    /// M10.6: the view this program reads through, bound at its EXACT revision. A view bound by
+    /// name cannot be found superseded, which is why the revision is a separate required member.
+    policy_bound_data_view_ref: String,
+    policy_bound_data_view_revision_ref: String,
+    /// M10.6: the retention class the artifacts fall under, named at its owner and never restated.
+    retention_class_ref: String,
+    /// M10.6: which digests a resume must reproduce. DECLARED BEFORE THE RUN — a class chosen once
+    /// the hashes are known describes what happened instead of committing to something that can fail.
+    determinism_class: String,
+    /// M10.6: the reservation, outcome and cleanup obligation for external training resources. A
+    /// successful artifact with unknown spend, or a live orphan, is a FAILED run.
+    spend: Value,
     idempotency_key: String,
 }
 
@@ -1690,7 +1734,7 @@ pub(crate) async fn handle_program_create(
         );
     }
     let payload = json!({
-        "schema_version":"ioi.foundry-training-program.v1",
+        "schema_version":"ioi.foundry-training-program.v2",
         "program_id":request.program_id,
         "owner_ref":request.owner_ref,
         "foundry_spec_ref":request.foundry_spec_ref,
@@ -1715,6 +1759,14 @@ pub(crate) async fn handle_program_create(
         "current_checkpoint":Value::Null,
         "restore_verification":Value::Null,
         "qualification":Value::Null,
+        "policy_bound_data_view_ref":request.policy_bound_data_view_ref,
+        "policy_bound_data_view_revision_ref":request.policy_bound_data_view_revision_ref,
+        "retention_class_ref":request.retention_class_ref,
+        "determinism_class":request.determinism_class,
+        "spend":request.spend,
+        // Null at create by construction: a program that has not been interrupted has no two runs
+        // to compare, and that is a stated fact rather than an omission.
+        "resume_equivalence":Value::Null,
         "last_action_idempotency_key":request.idempotency_key,
     });
     let tail = hash_tail("program", &request.program_id);
@@ -1798,15 +1850,7 @@ pub(crate) async fn handle_programs_list(
         Ok(identity) => identity,
         Err(reply) => return reply,
     };
-    match list_heads(
-        &st.data_dir,
-        &identity,
-        "program.",
-        "ioi.foundry-training-program.v1",
-        PROGRAM_SCOPE_KIND,
-        "program_id",
-        Some("owner_ref"),
-    ) {
+    match list_program_heads(&st.data_dir, &identity, Some("owner_ref")) {
         Ok(programs) => (StatusCode::OK, Json(json!({"ok":true,"programs":programs}))),
         Err(reply) => reply,
     }
@@ -2859,15 +2903,7 @@ pub(crate) async fn handle_qualification_proposals_list(
         Ok(identity) => identity,
         Err(reply) => return reply,
     };
-    let programs = match list_heads(
-        &st.data_dir,
-        &identity,
-        "program.",
-        "ioi.foundry-training-program.v1",
-        PROGRAM_SCOPE_KIND,
-        "program_id",
-        Some("owner_ref"),
-    ) {
+    let programs = match list_program_heads(&st.data_dir, &identity, Some("owner_ref")) {
         Ok(programs) => programs,
         Err(reply) => return reply,
     };
@@ -3198,15 +3234,7 @@ pub(crate) fn lineage_heads(
         "dataset_snapshot_ref",
         None,
     )?;
-    let mut programs = list_heads(
-        data_dir,
-        identity,
-        "program.",
-        "ioi.foundry-training-program.v1",
-        PROGRAM_SCOPE_KIND,
-        "program_id",
-        Some("owner_ref"),
-    )?;
+    let mut programs = list_program_heads(data_dir, identity, Some("owner_ref"))?;
     for program in programs.iter_mut() {
         let program_id = program["program_id"]
             .as_str()
@@ -3542,6 +3570,12 @@ mod tests {
                     "authorize_scope(",
                     "authorized_refs(",
                     "list_heads(",
+                    // M10.6: the version-spanning program reader. It is not an exemption — it calls
+                    // `list_heads` twice, which calls `authorized_refs` with the program scope kind,
+                    // so the scope check this test is really about happens exactly as before. Only
+                    // the call's NAME changed, and a literal list of names cannot see through a
+                    // wrapper.
+                    "list_program_heads(",
                     "bind_scope("
                 ]
                 .iter()
