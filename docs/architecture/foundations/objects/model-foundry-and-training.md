@@ -821,6 +821,142 @@ Foundry documentation may use the owner-qualified label
 `FoundryExperimentOptimizationCycle`; the shared wire envelope and Agentgres
 object class remain `ExperimentOptimizationCycle`.
 
+## CapabilityConstructionCycleEnvelope
+
+`ExperimentOptimizationCycleEnvelope` above is Foundry's OWN specialized cycle,
+and it stays that. `CapabilityConstructionCycleEnvelope` is the generic
+subordinate cycle the same machinery serves for every other admitted target:
+training code, preprocessors, model and runtime artifacts and conversions,
+`DataRecipe`, `ConnectorMapping`, governed `VerticalOntologyPack` and mapping
+candidates, GoalRun/Workflow/Harness/Skill profiles, `RuntimeToolContract`
+bindings, `IntegrationSurfaceProfile` and `ContactDeliveryChannel` requirement
+candidates, routes, evaluator assets, worlds and simulators. Foundry's cycle is
+not the generic owner and not a prerequisite for one.
+
+```yaml
+CapabilityConstructionCycleEnvelope:
+  construction_cycle_id: constrcycle://...
+  target_ref: string
+  target_class: string            # the owning plane's own class name
+  target_owner_ref: string
+  baseline_target_ref: string
+  baseline_target_root: hash
+  resolved_component_snapshot_ref: artifact://...
+  optimizer_ref: worker://... | conductor://... | runtime://...
+  search_policy_ref: policy://...
+  objective_and_guardrail_policy_ref: policy://...
+  resource_normalization_ref: policy://... | budget://...
+  budget_policy_ref: policy://...
+  stop_policy_ref: policy://...
+  improvement_campaign_ref: improvement-campaign://... | null
+  evaluation_epoch_ref: evaluation-epoch://... | null
+  trial_refs: [trial://...]
+  accepted_change_refs: [artifact://...]
+  rejected_change_refs: [artifact://...]
+  inconclusive_change_refs: [artifact://...]
+  exploit_or_invalid_change_refs: [artifact://...]
+  repair_proposal_refs: [repair-proposal://...]
+  selection_confers_eligibility_only: true
+  optimizer_is_not_a_model: true
+  receipt_root: hash
+  status: planned | running | stopped | proposed_for_review | failed | rejected
+```
+
+**`optimizer_ref` IS AN ACTOR, NEVER A MODEL.** It is exactly `worker://`,
+`conductor://` or `runtime://`. A frontier, open or local model is *replaceable
+cognition* mounted through that actor's `HarnessInvocation` and `ModelRoute` — it
+is never the optimizer identity and never a truth owner. Swapping the model
+behind an optimizer changes nothing about who ran the cycle, which is the whole
+point of the distinction, so `optimizer_is_not_a_model` is on the wire as a
+constant rather than left to a reader to infer from a URI scheme.
+
+**SELECTION CONFERS ELIGIBILITY AND NOTHING ELSE.** The optimizer cannot
+evaluate or promote itself, activate, publish, authorize, or rewrite the target
+envelope. `best_candidate_ref` on Foundry's cycle is an experiment-local
+selection under declared policies — not campaign nomination, not evaluation
+truth, not release authority — and the generic cycle carries the same boundary as
+a constant.
+
+**EVERY TRIAL SURVIVES ITS OWN VERDICT.** Failed, rejected, inconclusive and
+exploit-or-invalid trials are each preserved in their own list. A cycle that
+kept only what worked would be a cycle whose own record cannot explain how it
+got there, and the four lists are separate rather than one list with a status
+because collapsing them makes "we did not try that" and "we tried it and it
+failed" the same sentence.
+
+### RepairProposalEnvelope
+
+Canon's Iteration Loop "clusters failures and **suggests** the next data,
+recipe, gate, rubric, tool, model, or workflow change before the next training
+run" (`../worker-training-lifecycle.md`). That verb is the boundary: a repair
+proposal is a SUGGESTION, and applying one is a separate governed act by the
+target's own owner.
+
+```yaml
+RepairProposalEnvelope:
+  repair_proposal_id: repair-proposal://...
+  parent_cycle_ref: constrcycle://... | optcycle://...
+  clustered_failure_refs: [trial://...]
+  change_kind: data | recipe | gate | rubric | tool | model | workflow
+  proposed_change_ref: artifact://... | proposal://...
+  applies_nothing: true
+  rationale: string
+```
+
+`change_kind` is canon's own closed set of seven and not an open label.
+`clustered_failure_refs` is non-empty by construction: a repair proposal with no
+failures behind it is a suggestion with no evidence, and the clustering is the
+only thing that distinguishes it from an opinion.
+
+### OptimizationTargetAdapter
+
+A target owner's plane participates through an explicit VERSIONED adapter, never
+by having its shape absorbed into the cycle. The adapter is what lets Foundry's
+existing `ExperimentOptimizationCycleEnvelope` take part without either object
+being rewritten.
+
+```yaml
+OptimizationTargetAdapter:
+  adapter_id: optadapter://...
+  target_class: string
+  adapter_version: semver
+  accepts_envelope_schema: string       # the exact schema_version it reads
+  emits_envelope_schema: string         # the exact schema_version it produces
+  normalizations:
+    - deprecated_key: string
+      canonical_key: string
+      canonical_value: string | null
+  owner_ref: string
+```
+
+Three refusals define it, and each names a different way a target could slip in
+unadapted. **`missing_adapter`**: a target class with no registered adapter
+cannot enter a cycle at all — an unadapted target is not a target this estate
+can reason about. **`cross_version`**: an adapter whose `accepts_envelope_schema`
+is not the envelope actually offered is refused rather than tried, because an
+adapter that guesses is a translator inventing meaning. **`downgrade`**: an
+adapter emitting an older schema than it accepted is refused, since a cycle that
+silently lowers its own wire version loses whatever the newer one added.
+
+The first normalization is one canon has already specified: the deprecated
+`target_training_pipeline_ref` key is accepted only by a versioned adapter that
+normalizes it to `target_ref` with `target_class: training_pipeline`, and
+**canonical state does not emit both**. A record carrying the deprecated key and
+the canonical pair together has not been normalized; it has been annotated.
+
+### A builder-created asset cannot judge its own family
+
+An evaluator, world, simulator or scoring asset produced BY a cycle remains a
+**candidate**. It may not judge its parent or any sibling in the cycle that
+produced it; it may not enter a judging epoch until Evaluations separately
+validates, custodies, affiliation-checks, releases and freezes it; and it may not
+retroactively judge that producing cycle even after it is released.
+
+The third is the one a shape alone cannot catch, because it is about ORDER
+rather than identity: a released evaluator is a legitimate judge everywhere
+except backwards over the cycle that built it. An estate that checked only "is
+this evaluator released?" would admit exactly that.
+
 ## ArtifactConversionRunEnvelope
 
 ```yaml
