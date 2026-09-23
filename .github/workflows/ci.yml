@@ -1218,6 +1218,21 @@ jobs:
         if: ${{ !cancelled() && steps.rust_backed_daemon.outcome == 'success' }}
         run: npm run mutate:cross-substrate-portability --workspace=@ioi/hypervisor-app
 
+      # M10.6 — the Foundry capability-build pipeline. Most of what canon asks was already built
+      # (the lineage bindings, six fail-closed checkpoint refusals, the promotion boundary's three
+      # constants), so those clauses are TRIPWIRES. What was missing is one comparison: the daemon
+      # has always computed four state digests on restore and compared none of them, so a resumed
+      # run's equivalence to an uninterrupted one was asserted and never checked.
+      - name: Verify the Foundry capability-build pipeline (M10.6, CI-bound drills)
+        if: ${{ !cancelled() && steps.rust_backed_daemon.outcome == 'success' }}
+        env:
+          IOI_VERIFIER_CENSUS_DIR: .artifacts/verifier-census
+        run: npm run check:foundry-capability-build --workspace=@ioi/hypervisor-app
+
+      - name: Drill the Foundry capability-build deriver
+        if: ${{ !cancelled() && steps.rust_backed_daemon.outcome == 'success' }}
+        run: npm run mutate:foundry-capability-build --workspace=@ioi/hypervisor-app
+
       - name: Verify the surface module contract
         if: ${{ !cancelled() && steps.rust_backed_daemon.outcome == 'success' }}
         env:

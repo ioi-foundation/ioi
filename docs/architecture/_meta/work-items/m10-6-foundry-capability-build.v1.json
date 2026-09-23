@@ -1,0 +1,84 @@
+{
+  "evidence_format": "ioi.program.work_item.v1",
+  "work_item_id": "m10-6-foundry-capability-build",
+  "stage_id": "M10",
+  "required_work": [
+    "M10.6"
+  ],
+  "status": "evidence_ready",
+  "objective": "Close M10.6 as an executable gate: make a resumed training run's equivalence to an uninterrupted one something the estate CHECKS rather than asserts, and bind the four things every Foundry output owed and none carried — because the daemon had been computing the four state digests on every restore and comparing none of them, and because a training program could name no policy-bound view, no retention class, no determinism class and no spend accounting at all.",
+  "falsifiable_claim": "node scripts/check-foundry-capability-build.mjs proves twelve clauses over one registered successor, a pure deriver and a live daemon. PURE: the three laws the contract could not carry — a resume_divergent program carries the comparison that produced it AND a measured divergence that did not move the status is a divergence ignored; class_satisfied agrees with the digests the DECLARED class selects, asserted in both directions so a check proving bitwise catches an rng change is not satisfied by every class catching it; an unreconciled or exceeded spend forbids a candidate while the same outcome WITHOUT a candidate is legitimately not a finding. Every case that could be masked by another check is isolated by asserting its message. SEAM: v2 requires all four bindings and v1 required none of them, the determinism class is the closed set of three, the spend outcomes can express unknown spend, the status can express a terminal divergence, the succession points both ways with v1 still valid, and the contract RECORDS why it carries no cross-field invariants. SOURCE: the plane's class arms are read one at a time rather than through a character window, the verdict is derived with a typed refusal for a caller-authored one, an unsatisfied class moves the program to the terminal status, the six fail-closed checkpoint refusals are intact, program reads span BOTH schema versions, and the deriver reaches no plane, file or clock. --drills runs 9 drills; --mutation plants 22 defects and catches all 22. THE LIVE LEG IS THE PROOF: a recipe admitted, a snapshot materialized from it, a v2 program admitted against that exact snapshot, and THE SAME rng difference judged by two declared classes with OPPOSITE verdicts — bitwise class_satisfied false and terminal, state_equivalent class_satisfied true and admitted. Clause 12 is a NAMED ABSENCE with owners and the gate exits 2.",
+  "canon_owners": [
+    "docs/architecture/components/hypervisor/foundry.md"
+  ],
+  "code_anchors": [
+    {
+      "path": "docs/architecture/_meta/schemas/foundry-training-program.v2.schema.json",
+      "must_contain": "resume_equivalence",
+      "present_when": "merged"
+    },
+    {
+      "path": "docs/architecture/_meta/schemas/foundry-training-program.v2.schema.json",
+      "must_contain": "could not be satisfied by any record at all",
+      "present_when": "merged"
+    },
+    {
+      "path": "apps/hypervisor/scripts/lib/foundry-capability-build.mjs",
+      "must_contain": "export const DIGESTS_BY_CLASS",
+      "present_when": "merged"
+    },
+    {
+      "path": "apps/hypervisor/scripts/lib/foundry-capability-build.mjs",
+      "must_contain": "export const SPEND_FORBIDS_CANDIDATE",
+      "present_when": "merged"
+    },
+    {
+      "path": "crates/node/src/bin/hypervisor_daemon_routes/foundry_execution_routes.rs",
+      "must_contain": "fn digests_for_class",
+      "present_when": "merged"
+    },
+    {
+      "path": "crates/node/src/bin/hypervisor_daemon_routes/foundry_execution_routes.rs",
+      "must_contain": "foundry_program_resume_verdict_authored",
+      "present_when": "merged"
+    },
+    {
+      "path": "crates/node/src/bin/hypervisor_daemon_routes/foundry_execution_routes.rs",
+      "must_contain": "fn list_program_heads",
+      "present_when": "merged"
+    },
+    {
+      "path": "scripts/lib/foundry-capability-build-plane.mjs",
+      "must_contain": "export async function planeLeg(",
+      "present_when": "merged"
+    },
+    {
+      "path": "scripts/check-foundry-capability-build.mjs",
+      "must_contain": "export function sourceFindings(",
+      "present_when": "merged"
+    },
+    {
+      "path": "docs/architecture/components/hypervisor/foundry.md",
+      "must_contain": "The Production Capability-Build Pipeline",
+      "present_when": "merged"
+    },
+    {
+      "path": "apps/hypervisor/verifier-floors.v1.json",
+      "must_contain": "\"id\": \"foundry-capability-build\"",
+      "present_when": "merged"
+    },
+    {
+      "path": "apps/hypervisor/scripts/check-verifier-floors.mjs",
+      "must_contain": "check-foundry-capability-build",
+      "present_when": "merged"
+    },
+    {
+      "path": ".github/workflows/ci.yml",
+      "must_contain": "npm run check:foundry-capability-build --workspace=@ioi/hypervisor-app",
+      "present_when": "merged"
+    }
+  ],
+  "evidence_refs": [
+    "docs/architecture/_meta/evidence/m10-6-foundry-capability-build-2026-09-23.v1.json"
+  ]
+}

@@ -96,11 +96,13 @@ export function equivalenceFindings(program) {
   if (!claimed && mismatched.length === 0) {
     findings.push(`program: claims the ${declared} class was NOT satisfied while every digest that class selects matches — a divergence the declared class does not actually see`);
   }
-  // A `statistical` program selects no digests, so it can never legitimately report a STATE
-  // divergence. Saying it did means the class was chosen after the fact, which is the thing
-  // declaring it in advance exists to prevent.
-  if (declared === "statistical" && !claimed) {
-    findings.push("program: declares the statistical class, which makes no state claim, and then reports a state divergence — the class was chosen after the digests were known");
+  // A `statistical` program selects NO digests, so `mismatched` is always empty for it and the rule
+  // above already catches an unsatisfied statistical claim. Repeating that here would be a second
+  // rule that can never fire on its own — which a mutation proved by surviving the deletion of one
+  // while the other still caught it. What only THIS rule can say is about the STATUS: a class that
+  // makes no state claim cannot go terminal over state, whatever its comparison recorded.
+  if (declared === "statistical" && str(program, "status") === "resume_divergent") {
+    findings.push("program: declares the statistical class, which makes no state claim at all, and then went terminal on a state divergence — the class was chosen after the digests were known");
   }
   return findings;
 }

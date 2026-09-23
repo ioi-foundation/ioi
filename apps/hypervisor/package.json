@@ -208,7 +208,9 @@
     "check:regulated-workload-assurance": "node ../../scripts/check-regulated-workload-assurance.mjs --drills",
     "mutate:regulated-workload-assurance": "node ../../scripts/check-regulated-workload-assurance.mjs --mutation",
     "check:cross-substrate-portability": "node ../../scripts/check-cross-substrate-portability.mjs --drills",
-    "mutate:cross-substrate-portability": "node ../../scripts/check-cross-substrate-portability.mjs --mutation"
+    "mutate:cross-substrate-portability": "node ../../scripts/check-cross-substrate-portability.mjs --mutation",
+    "check:foundry-capability-build": "node ../../scripts/check-foundry-capability-build.mjs --drills",
+    "mutate:foundry-capability-build": "node ../../scripts/check-foundry-capability-build.mjs --mutation"
   },
   "dependencies": {
     "@codemirror/commands": "^6.10.3",

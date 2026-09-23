@@ -1,0 +1,112 @@
+{
+  "schema": "ioi.foundry-capability-build-evidence.v1",
+  "mode": "full",
+  "started_at": "2026-09-23T12:17:13.036Z",
+  "drills": [
+    {
+      "name": "PURE — the three laws the registered contract could not carry: a divergence carries the comparison that produced it and a measured divergence is acted on; the DECLARED class selects which digests must match, so the same rng change is a divergence under bitwise and equivalence under state_equivalent; and an unreconciled or exceeded spend forbids a candidate while the same outcome WITHOUT a candidate is not itself a finding",
+      "pass": true,
+      "detail": "",
+      "at": "2026-09-23T12:17:13.039Z"
+    },
+    {
+      "name": "SEAM — the successor requires all four bindings and v1 required none of them, the determinism class is the closed set of three, the spend outcomes can express unknown spend, the status can express a terminal divergence, the succession points BOTH ways with v1 still valid, and the contract RECORDS why it carries no invariants rather than leaving the silence to be read as an oversight",
+      "pass": true,
+      "detail": "",
+      "at": "2026-09-23T12:17:13.042Z"
+    },
+    {
+      "name": "SOURCE — the plane's class table does not let state_equivalent select rng and does not let statistical claim state, the verdict is derived with a typed refusal for a caller-authored one, an unsatisfied class moves the program to the terminal status, the six fail-closed checkpoint refusals are intact, program reads span BOTH schema versions, and the deriver reaches no plane, file or clock",
+      "pass": true,
+      "detail": "",
+      "at": "2026-09-23T12:17:13.044Z"
+    },
+    {
+      "name": "BINDING — the gate is floored with an existing source, CI-bound in the form the FLOORS GATE recognises, and every clause is executed or named with an owner",
+      "pass": true,
+      "detail": "",
+      "at": "2026-09-23T12:17:13.045Z"
+    },
+    {
+      "name": "VERDICT — a table missing eleven of its twelve rows is a FAIL, not a pass",
+      "pass": true,
+      "detail": "",
+      "at": "2026-09-23T12:17:13.045Z"
+    },
+    {
+      "name": "VERDICT — twelve green rows with no absence is a PASS",
+      "pass": true,
+      "detail": "",
+      "at": "2026-09-23T12:17:13.046Z"
+    },
+    {
+      "name": "VERDICT — one named absence is a NAMED FAILURE, never a pass",
+      "pass": true,
+      "detail": "",
+      "at": "2026-09-23T12:17:13.046Z"
+    },
+    {
+      "name": "VERDICT — a gate that reports success without evidence is fabricated, not green",
+      "pass": true,
+      "detail": "",
+      "at": "2026-09-23T12:17:13.046Z"
+    },
+    {
+      "name": "VERDICT — a gate below its floor fails even at exit 0",
+      "pass": true,
+      "detail": "",
+      "at": "2026-09-23T12:17:13.046Z"
+    }
+  ],
+  "pure": [],
+  "seam": [],
+  "source": [],
+  "plane": {
+    "findings": [],
+    "seconds": 5,
+    "observed": {
+      "admitted": {
+        "program": 201,
+        "bitwise_attest": 200
+      },
+      "refusals": {
+        "verdict_authored": "foundry_program_resume_verdict_authored",
+        "incomplete": "foundry_program_resume_equivalence_incomplete"
+      },
+      "classes": {
+        "bitwise": {
+          "satisfied": false,
+          "status": "resume_divergent"
+        },
+        "state_equivalent": {
+          "satisfied": true,
+          "status": "admitted"
+        }
+      },
+      "versions": {
+        "created": "ioi.foundry-training-program.v2",
+        "listed": [
+          "ioi.foundry-training-program.v2",
+          "ioi.foundry-training-program.v2"
+        ]
+      }
+    }
+  },
+  "verdict": {
+    "kind": "named_failure",
+    "failures": [],
+    "absences": [
+      {
+        "n": 12,
+        "what": "THE INDEPENDENT EVALUATION IS NAMED, NOT DRIVEN, AND M10.5's GATE IS PINNED BY NOTHING. (1) Canon asks this pipeline for 'an independent evaluation' of the candidate it produces. The evaluator plane is M10.4's — five registered evaluation contracts with their own determinism vocabulary — and this gate does not stand it up or drive a candidate through it, so the evaluation half is a correctly-typed pointer whose far end is unproven here. (2) MEASURED 2026-09-22, and it is a finding about the layer below this unit: `verify-hypervisor-foundry-spec-contracts.mjs` is M10.5's gate, it HAS an npm script (`check:foundry-spec-contracts`), and it has NO floor row and ZERO hits in ci.yml. Its only executor is `check-acceptance-bounded-improvement.mjs` clause N1, and no acceptance runner is CI-bound either — which is by design, since the ACC runners are this program's hand-run verdict table. So a unit gate's only path to execution is a hand-run composer and nothing pins its assertion count. It is M10.5's gate, not this unit's, so it is named rather than adopted: binding another unit's gate silently changes what that unit claims",
+        "owner": "M10.4's evaluator plane for the independent evaluation, and M10.5's owner for whether its spec-contract gate should be floored and CI-bound (owner question, R-235)"
+      }
+    ]
+  },
+  "mutation": null,
+  "finished_at": "2026-09-23T12:17:18.149Z",
+  "summary": {
+    "passed": 9,
+    "total": 9
+  }
+}
