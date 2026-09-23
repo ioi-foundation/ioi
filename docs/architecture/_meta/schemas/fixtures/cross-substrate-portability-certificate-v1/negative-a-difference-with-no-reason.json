@@ -1,0 +1,51 @@
+{
+  "schema_version": "ioi.hypervisor.cross-substrate-portability-certificate.v1",
+  "certificate_id": "cross_substrate_portability://acme/render-batch/2026-09-22",
+  "workload_ref": "workload://acme/render-batch",
+  "workload_content_hash": "sha256:7777777777777777777777777777777777777777777777777777777777777777",
+  "result_policy_ref": "policy://acme/render-result/v2",
+  "legs": [
+    {
+      "substrate_family": "k8s",
+      "provider_binding_ref": "provider_binding://acme/sovereign-k8s",
+      "capability_ref": "capability://acme/render/k8s-1",
+      "isolation_binding_ref": "isolation_binding://acme/render/k8s-1",
+      "reconciliation_receipt_ref": "receipt://acme/render/k8s-1",
+      "certificate_ref": null
+    },
+    {
+      "substrate_family": "akash",
+      "provider_binding_ref": "provider_binding://acme/akash-mainnet",
+      "capability_ref": "capability://acme/render/akash-1",
+      "isolation_binding_ref": "isolation_binding://acme/render/akash-1",
+      "reconciliation_receipt_ref": "receipt://acme/render/akash-1",
+      "certificate_ref": "c8_certificate://acme/render/akash-1"
+    }
+  ],
+  "invariant_members": {
+    "request_hash": "sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+    "disposition": "cleanup_succeeded",
+    "observed_phase": "terminal",
+    "cleanup_verified": true,
+    "original_effect_reinvoked": false,
+    "offline_verifier_verdict": "accepted"
+  },
+  "permitted_differences": [
+    {
+      "member": "legs[].capability_ref",
+      "reason": "differs"
+    },
+    {
+      "member": "legs[].isolation_binding_ref",
+      "reason": "each substrate admits its own isolation binding, so the refs differ by construction"
+    },
+    {
+      "member": "provider_operations_before/after",
+      "reason": "the counts describe operations against two different providers and are not comparable across them"
+    }
+  ],
+  "substrate_families_differ": true,
+  "grants_no_authority": true,
+  "qualifies_no_other_provider": true,
+  "certificate_root": "sha256:c8d8477c4baafa6f111fd739a694af2651bff21aebf96881023dea613359f388"
+}

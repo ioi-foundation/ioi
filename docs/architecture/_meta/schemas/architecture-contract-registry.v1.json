@@ -21005,6 +21005,111 @@
           "expected_failure": "invariant"
         }
       ]
+    },
+    {
+      "contract_id": "schema://ioi/hypervisor/cross-substrate-portability-certificate/v1",
+      "canonical_name": "CrossSubstratePortabilityCertificate",
+      "canonical_owner_ref": "canon://docs/architecture/components/hypervisor/byo-provider-plane.md",
+      "schema_version": "ioi.hypervisor.cross-substrate-portability-certificate.v1",
+      "maturity": "partial",
+      "stability": "provisional",
+      "wire_format": "json",
+      "canonical_encoding_profile_ref": "encoding-profile://ioi/jcs-json/v1",
+      "evolution": {
+        "successor_of": null,
+        "successor_contract_id": null,
+        "compatibility": "initial",
+        "migration_policy": "none",
+        "predecessor_remains_valid": false,
+        "wire_mutation_policy": "forbidden",
+        "hash_impact": "signature_preimage_changed"
+      },
+      "schema_ref": "cross-substrate-portability-certificate.v1.schema.json",
+      "cross_field_invariant_refs": [
+        {
+          "invariant_id": "invariant://ioi/hypervisor/cross-substrate-portability-certificate/two-families-and-one-agreement/v1",
+          "path": "invariants/cross-substrate-portability-certificate.v1.invariants.json"
+        }
+      ],
+      "compatibility_aliases": [],
+      "generated_targets": [
+        {
+          "kind": "typescript_projection",
+          "path": "packages/hypervisor-workbench/src/runtime/generated/architecture-contracts.ts",
+          "symbol": "CrossSubstratePortabilityCertificateV1"
+        },
+        {
+          "kind": "rust_projection",
+          "path": "crates/types/src/app/generated/architecture_contracts.rs",
+          "symbol": "CrossSubstratePortabilityCertificateV1"
+        }
+      ],
+      "positive_fixture_refs": [
+        "fixtures/cross-substrate-portability-certificate-v1/positive-sovereign-local-and-live-external.json",
+        "fixtures/cross-substrate-portability-certificate-v1/positive-two-live-lanes-that-observed-no-effect.json"
+      ],
+      "negative_fixture_refs": [
+        {
+          "path": "fixtures/cross-substrate-portability-certificate-v1/negative-a-difference-with-no-reason.json",
+          "expected_failure": "schema"
+        },
+        {
+          "path": "fixtures/cross-substrate-portability-certificate-v1/negative-a-third-leg.json",
+          "expected_failure": "schema"
+        },
+        {
+          "path": "fixtures/cross-substrate-portability-certificate-v1/negative-an-invariant-member-dropped.json",
+          "expected_failure": "schema"
+        },
+        {
+          "path": "fixtures/cross-substrate-portability-certificate-v1/negative-an-invented-disposition.json",
+          "expected_failure": "schema"
+        },
+        {
+          "path": "fixtures/cross-substrate-portability-certificate-v1/negative-an-invented-verifier-verdict.json",
+          "expected_failure": "schema"
+        },
+        {
+          "path": "fixtures/cross-substrate-portability-certificate-v1/negative-both-legs-the-same-binding.json",
+          "expected_failure": "invariant"
+        },
+        {
+          "path": "fixtures/cross-substrate-portability-certificate-v1/negative-both-legs-the-same-family.json",
+          "expected_failure": "invariant"
+        },
+        {
+          "path": "fixtures/cross-substrate-portability-certificate-v1/negative-claims-authority.json",
+          "expected_failure": "schema"
+        },
+        {
+          "path": "fixtures/cross-substrate-portability-certificate-v1/negative-no-permitted-differences-at-all.json",
+          "expected_failure": "schema"
+        },
+        {
+          "path": "fixtures/cross-substrate-portability-certificate-v1/negative-no-workload-content-hash.json",
+          "expected_failure": "schema"
+        },
+        {
+          "path": "fixtures/cross-substrate-portability-certificate-v1/negative-one-member-two-reasons.json",
+          "expected_failure": "invariant"
+        },
+        {
+          "path": "fixtures/cross-substrate-portability-certificate-v1/negative-only-one-leg.json",
+          "expected_failure": "schema"
+        },
+        {
+          "path": "fixtures/cross-substrate-portability-certificate-v1/negative-qualifies-another-provider.json",
+          "expected_failure": "schema"
+        },
+        {
+          "path": "fixtures/cross-substrate-portability-certificate-v1/negative-root-does-not-recompute.json",
+          "expected_failure": "invariant"
+        },
+        {
+          "path": "fixtures/cross-substrate-portability-certificate-v1/negative-says-the-families-are-the-same.json",
+          "expected_failure": "schema"
+        }
+      ]
     }
   ]
 }

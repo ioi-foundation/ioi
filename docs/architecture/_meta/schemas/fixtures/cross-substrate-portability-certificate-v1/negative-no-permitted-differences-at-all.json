@@ -1,0 +1,38 @@
+{
+  "schema_version": "ioi.hypervisor.cross-substrate-portability-certificate.v1",
+  "certificate_id": "cross_substrate_portability://acme/render-batch/2026-09-22",
+  "workload_ref": "workload://acme/render-batch",
+  "workload_content_hash": "sha256:7777777777777777777777777777777777777777777777777777777777777777",
+  "result_policy_ref": "policy://acme/render-result/v2",
+  "legs": [
+    {
+      "substrate_family": "k8s",
+      "provider_binding_ref": "provider_binding://acme/sovereign-k8s",
+      "capability_ref": "capability://acme/render/k8s-1",
+      "isolation_binding_ref": "isolation_binding://acme/render/k8s-1",
+      "reconciliation_receipt_ref": "receipt://acme/render/k8s-1",
+      "certificate_ref": null
+    },
+    {
+      "substrate_family": "akash",
+      "provider_binding_ref": "provider_binding://acme/akash-mainnet",
+      "capability_ref": "capability://acme/render/akash-1",
+      "isolation_binding_ref": "isolation_binding://acme/render/akash-1",
+      "reconciliation_receipt_ref": "receipt://acme/render/akash-1",
+      "certificate_ref": "c8_certificate://acme/render/akash-1"
+    }
+  ],
+  "invariant_members": {
+    "request_hash": "sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+    "disposition": "cleanup_succeeded",
+    "observed_phase": "terminal",
+    "cleanup_verified": true,
+    "original_effect_reinvoked": false,
+    "offline_verifier_verdict": "accepted"
+  },
+  "permitted_differences": [],
+  "substrate_families_differ": true,
+  "grants_no_authority": true,
+  "qualifies_no_other_provider": true,
+  "certificate_root": "sha256:7670642b5af3e108715a252ee8077c8e5d2498f50791cb16df2bfb86973b4322"
+}

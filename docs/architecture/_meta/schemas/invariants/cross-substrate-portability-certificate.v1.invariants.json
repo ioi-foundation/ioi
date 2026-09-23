@@ -1,0 +1,85 @@
+{
+  "$id": "invariant://ioi/hypervisor/cross-substrate-portability-certificate/two-families-and-one-agreement/v1",
+  "language": "ioi.portable-invariants.v1",
+  "contract_id": "schema://ioi/hypervisor/cross-substrate-portability-certificate/v1",
+  "rules": [
+    {
+      "rule_id": "cross_substrate_portability_certificate.the_two_families_differ",
+      "description": "THE CLAIM IS VACUOUS IF BOTH LEGS RAN THE SAME FAMILY. `substrate_families_differ` is const true on the wire, but a const is an assertion the document makes about itself and nothing in JSON Schema can check it against the legs actually present — comparing two array elements is beyond what the projection carries. So the law lives here, where it can be said plainly: leg one's family and leg two's family are not the same string. A certificate over one family twice would otherwise satisfy every other rule in this file and still prove nothing about portability.",
+      "expression": {
+        "operator": "fields_not_equal",
+        "paths": [
+          "$.legs[0].substrate_family",
+          "$.legs[1].substrate_family"
+        ]
+      }
+    },
+    {
+      "rule_id": "cross_substrate_portability_certificate.the_legs_are_distinct_bindings",
+      "description": "Two legs naming the same provider binding are one leg recorded twice. The families differing is not enough on its own: a mislabelled family over a single binding would pass the rule above while the crossing never happened.",
+      "expression": {
+        "operator": "fields_not_equal",
+        "paths": [
+          "$.legs[0].provider_binding_ref",
+          "$.legs[1].provider_binding_ref"
+        ]
+      }
+    },
+    {
+      "rule_id": "cross_substrate_portability_certificate.each_permitted_difference_is_named_once",
+      "description": "The same member listed twice with two reasons turns a reviewed exception into a pair of them, and lets a second, weaker reason ride in behind a first that a reader already accepted. One member, one reason.",
+      "expression": {
+        "operator": "array_unique_by_fields",
+        "fields": [
+          "member"
+        ],
+        "array_path": "$.permitted_differences"
+      }
+    },
+    {
+      "rule_id": "cross_substrate_portability_certificate.root.recomputes",
+      "description": "THE SEAL. The certificate records that two legs agreed on six members; if those recorded values can be edited after the fact, the agreement it reports is not the agreement that was observed. Sealing the legs together with the invariants is what stops a later hand from moving one leg's disposition to match the other's.",
+      "expression": {
+        "operator": "jcs_sha256_equals",
+        "algorithm": "jcs_sha256",
+        "expected_path": "$.certificate_root",
+        "expected_encoding": "sha256_string",
+        "material_fields": {
+          "schema_version": {
+            "path": "$.schema_version"
+          },
+          "certificate_id": {
+            "path": "$.certificate_id"
+          },
+          "workload_ref": {
+            "path": "$.workload_ref"
+          },
+          "workload_content_hash": {
+            "path": "$.workload_content_hash"
+          },
+          "result_policy_ref": {
+            "path": "$.result_policy_ref"
+          },
+          "legs": {
+            "path": "$.legs"
+          },
+          "invariant_members": {
+            "path": "$.invariant_members"
+          },
+          "permitted_differences": {
+            "path": "$.permitted_differences"
+          },
+          "substrate_families_differ": {
+            "path": "$.substrate_families_differ"
+          },
+          "grants_no_authority": {
+            "path": "$.grants_no_authority"
+          },
+          "qualifies_no_other_provider": {
+            "path": "$.qualifies_no_other_provider"
+          }
+        }
+      }
+    }
+  ]
+}

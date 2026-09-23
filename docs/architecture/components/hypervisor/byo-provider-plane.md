@@ -475,3 +475,86 @@ from a fresh live crossing is the unit's scheduled check behind owner
 credentials and a funded deposit, authorized leg by leg. The verdict is a pass
 only with zero named failures and the fresh crossing executed; today it is the
 named failure, and no fresh bounded-live-effect pass is claimed.
+
+## Cross-Substrate Authority And Reconciliation Portability
+
+One exact content-addressed workload and result policy runs through two
+genuinely different substrate adapter families — one may be sovereign-local and
+at least one must be a separately authorized external live lane — and **nothing
+above the provider binding changes**. Each leg has its own provider account,
+route, quote, resource and billing identity; both bind the same admitted
+workload, the same policy, the same bounded authority shape and the same
+relying-party claim. A provider-specific status never becomes canonical success,
+and a provider-specific field never reaches a source-neutral authority decision.
+
+**Most of that is already structural, and saying so is what keeps this claim
+honest.** `HypervisorWorkloadEffectReconciliationReceipt` has no member that can
+name a provider — its operation counts are integers and its disposition is a
+closed pair — so a provider-specific field cannot leak into it. The workload
+effect boundary that writes it names no provider in production at all, and its
+own header states the rule: provider credentials and signing material are not
+inputs to that module and never enter the guest envelope. The candidate sources
+share one operation vocabulary across eight families. **A portability claim that
+rested on those three facts would be unfalsifiable**, because none of them can
+fail while the code is shaped as it is.
+
+**What can fail is agreement.** Two legs can each produce a perfectly neutral
+receipt and still disagree, and two independently-correct legs are exactly the
+case a per-leg assertion cannot see. So portability is a DIFF over the two legs,
+and the object that records it is a `CrossSubstratePortabilityCertificate`:
+
+```yaml
+CrossSubstratePortabilityCertificate:
+  certificate_id: cross_substrate_portability://...
+  workload_ref: workload://...
+  workload_content_hash: sha256
+  result_policy_ref: policy://...
+  legs:
+    - substrate_family: string      # the adapter family, exactly as the estate names it
+      provider_binding_ref: provider_binding://...
+      capability_ref: capability://...
+      isolation_binding_ref: isolation_binding://...
+      reconciliation_receipt_ref: receipt://...
+      certificate_ref: c8_certificate://... | null
+  invariant_members:                # IDENTICAL across both legs, or this certificate fails
+    request_hash: sha256
+    disposition: no_effect_observed | cleanup_succeeded
+    observed_phase: string
+    cleanup_verified: boolean
+    original_effect_reinvoked: boolean
+    offline_verifier_verdict: accepted | rejected
+  permitted_differences:            # each one named WITH ITS REASON
+    - member: string
+      reason: string
+  substrate_families_differ: true
+  grants_no_authority: true
+  qualifies_no_other_provider: true
+  certificate_root: sha256
+```
+
+`invariant_members` carries the values the two legs agreed on, and a certificate
+may only be assembled when they did — a disagreement is a typed non-success
+report, never a certificate with a note. `permitted_differences` is the opposite
+discipline: a member that legitimately differs is listed **with the reason it
+differs**, because a permitted difference with no reason is where a real
+divergence hides. The lease and isolation refs differ because each leg holds its
+own lease; the provider-native identifiers and the operation counts differ
+because they describe different providers; nothing else may appear there without
+a reason a reader can check.
+
+`substrate_families_differ` is on the wire as a const because the whole claim is
+vacuous if both legs ran the same family, and a certificate over one family
+twice would otherwise read as a crossing. `qualifies_no_other_provider` is on the
+wire for the same reason the pack carries its disclaimers: this object qualifies
+substrate PORTABILITY, it does not make either provider an authority owner and it
+does not claim that every registered provider is live-qualified.
+
+The deterministic lane runs two independently implemented adapters and mutates
+provider labels, route and account identity, quotes, outcomes, readback,
+teardown, receipts and cross-substrate replay; each mutation must break the
+certificate by its own name. **The scheduled lane is the live crossing** — the
+exact campaign on distinct substrate and custody roots, provider-native terminal
+readback on both sides, every resource and exposure closed, and the same offline
+verifier accepting or rejecting each bundle with no provider-specific code path.
+Live spend is authorized leg by leg, and a missing credential blocks that run and
+never the unit.

@@ -15197,6 +15197,38 @@ export type RegulatedWorkloadAdmissionCaseV1 = {
   case_root: string;
 };
 
+export type CrossSubstratePortabilityCertificateV1 = {
+  schema_version: "ioi.hypervisor.cross-substrate-portability-certificate.v1";
+  certificate_id: string;
+  workload_ref: string;
+  workload_content_hash: string;
+  result_policy_ref: string;
+  legs: Array<{
+        substrate_family: string;
+        provider_binding_ref: string;
+        capability_ref: string;
+        isolation_binding_ref: string;
+        reconciliation_receipt_ref: string;
+        certificate_ref: string | null;
+      }>;
+  invariant_members: {
+      request_hash: string;
+      disposition: "no_effect_observed" | "cleanup_succeeded";
+      observed_phase: string;
+      cleanup_verified: boolean;
+      original_effect_reinvoked: boolean;
+      offline_verifier_verdict: "accepted" | "rejected";
+    };
+  permitted_differences: Array<{
+        member: string;
+        reason: string;
+      }>;
+  substrate_families_differ: true;
+  grants_no_authority: true;
+  qualifies_no_other_provider: true;
+  certificate_root: string;
+};
+
 export const ARCHITECTURE_CONTRACT_REGISTRY_VERSION = "ioi.architecture-contract-registry.v1" as const;
 
 export const ARCHITECTURE_CONTRACT_PORTABLE_INTEGER_MINIMUM = 0 as const;
@@ -30702,6 +30734,142 @@ export const ARCHITECTURE_CONTRACT_FIXTURES = [
     "expected_schema_accept": true,
     "expected_failure": "invariant",
     "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/hypervisor/cross-substrate-portability-certificate/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/cross-substrate-portability-certificate-v1/positive-sovereign-local-and-live-external.json",
+    "expected": "accept",
+    "expected_schema_accept": true,
+    "expected_failure": null,
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/hypervisor/cross-substrate-portability-certificate/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/cross-substrate-portability-certificate-v1/positive-two-live-lanes-that-observed-no-effect.json",
+    "expected": "accept",
+    "expected_schema_accept": true,
+    "expected_failure": null,
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/hypervisor/cross-substrate-portability-certificate/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/cross-substrate-portability-certificate-v1/negative-a-difference-with-no-reason.json",
+    "expected": "reject",
+    "expected_schema_accept": false,
+    "expected_failure": "schema",
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/hypervisor/cross-substrate-portability-certificate/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/cross-substrate-portability-certificate-v1/negative-a-third-leg.json",
+    "expected": "reject",
+    "expected_schema_accept": false,
+    "expected_failure": "schema",
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/hypervisor/cross-substrate-portability-certificate/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/cross-substrate-portability-certificate-v1/negative-an-invariant-member-dropped.json",
+    "expected": "reject",
+    "expected_schema_accept": false,
+    "expected_failure": "schema",
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/hypervisor/cross-substrate-portability-certificate/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/cross-substrate-portability-certificate-v1/negative-an-invented-disposition.json",
+    "expected": "reject",
+    "expected_schema_accept": false,
+    "expected_failure": "schema",
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/hypervisor/cross-substrate-portability-certificate/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/cross-substrate-portability-certificate-v1/negative-an-invented-verifier-verdict.json",
+    "expected": "reject",
+    "expected_schema_accept": false,
+    "expected_failure": "schema",
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/hypervisor/cross-substrate-portability-certificate/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/cross-substrate-portability-certificate-v1/negative-both-legs-the-same-binding.json",
+    "expected": "reject",
+    "expected_schema_accept": true,
+    "expected_failure": "invariant",
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/hypervisor/cross-substrate-portability-certificate/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/cross-substrate-portability-certificate-v1/negative-both-legs-the-same-family.json",
+    "expected": "reject",
+    "expected_schema_accept": true,
+    "expected_failure": "invariant",
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/hypervisor/cross-substrate-portability-certificate/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/cross-substrate-portability-certificate-v1/negative-claims-authority.json",
+    "expected": "reject",
+    "expected_schema_accept": false,
+    "expected_failure": "schema",
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/hypervisor/cross-substrate-portability-certificate/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/cross-substrate-portability-certificate-v1/negative-no-permitted-differences-at-all.json",
+    "expected": "reject",
+    "expected_schema_accept": false,
+    "expected_failure": "schema",
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/hypervisor/cross-substrate-portability-certificate/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/cross-substrate-portability-certificate-v1/negative-no-workload-content-hash.json",
+    "expected": "reject",
+    "expected_schema_accept": false,
+    "expected_failure": "schema",
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/hypervisor/cross-substrate-portability-certificate/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/cross-substrate-portability-certificate-v1/negative-one-member-two-reasons.json",
+    "expected": "reject",
+    "expected_schema_accept": true,
+    "expected_failure": "invariant",
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/hypervisor/cross-substrate-portability-certificate/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/cross-substrate-portability-certificate-v1/negative-only-one-leg.json",
+    "expected": "reject",
+    "expected_schema_accept": false,
+    "expected_failure": "schema",
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/hypervisor/cross-substrate-portability-certificate/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/cross-substrate-portability-certificate-v1/negative-qualifies-another-provider.json",
+    "expected": "reject",
+    "expected_schema_accept": false,
+    "expected_failure": "schema",
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/hypervisor/cross-substrate-portability-certificate/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/cross-substrate-portability-certificate-v1/negative-root-does-not-recompute.json",
+    "expected": "reject",
+    "expected_schema_accept": true,
+    "expected_failure": "invariant",
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/hypervisor/cross-substrate-portability-certificate/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/cross-substrate-portability-certificate-v1/negative-says-the-families-are-the-same.json",
+    "expected": "reject",
+    "expected_schema_accept": false,
+    "expected_failure": "schema",
+    "expected_rule_id": null
   }
 ] as const;
 
@@ -35292,6 +35460,23 @@ export const ARCHITECTURE_CONTRACT_DIFFERENTIAL_CASES: ReadonlyArray<Architectur
   differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/regulated-workload-admission-case-v1/negative-one-reason-twice-for-one-member.json","contract_id":"schema://ioi/foundations/regulated-workload-admission-case/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/regulated-workload-admission-case-v1/negative-one-reason-twice-for-one-member.json","mutation_id":null,"value_json":null}),
   differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/regulated-workload-admission-case-v1/negative-refuses-and-says-nothing.json","contract_id":"schema://ioi/foundations/regulated-workload-admission-case/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/regulated-workload-admission-case-v1/negative-refuses-and-says-nothing.json","mutation_id":null,"value_json":null}),
   differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/regulated-workload-admission-case-v1/negative-root-does-not-recompute.json","contract_id":"schema://ioi/foundations/regulated-workload-admission-case/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/regulated-workload-admission-case-v1/negative-root-does-not-recompute.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/cross-substrate-portability-certificate-v1/positive-sovereign-local-and-live-external.json","contract_id":"schema://ioi/hypervisor/cross-substrate-portability-certificate/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/cross-substrate-portability-certificate-v1/positive-sovereign-local-and-live-external.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/cross-substrate-portability-certificate-v1/positive-two-live-lanes-that-observed-no-effect.json","contract_id":"schema://ioi/hypervisor/cross-substrate-portability-certificate/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/cross-substrate-portability-certificate-v1/positive-two-live-lanes-that-observed-no-effect.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/cross-substrate-portability-certificate-v1/negative-a-difference-with-no-reason.json","contract_id":"schema://ioi/hypervisor/cross-substrate-portability-certificate/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/cross-substrate-portability-certificate-v1/negative-a-difference-with-no-reason.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/cross-substrate-portability-certificate-v1/negative-a-third-leg.json","contract_id":"schema://ioi/hypervisor/cross-substrate-portability-certificate/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/cross-substrate-portability-certificate-v1/negative-a-third-leg.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/cross-substrate-portability-certificate-v1/negative-an-invariant-member-dropped.json","contract_id":"schema://ioi/hypervisor/cross-substrate-portability-certificate/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/cross-substrate-portability-certificate-v1/negative-an-invariant-member-dropped.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/cross-substrate-portability-certificate-v1/negative-an-invented-disposition.json","contract_id":"schema://ioi/hypervisor/cross-substrate-portability-certificate/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/cross-substrate-portability-certificate-v1/negative-an-invented-disposition.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/cross-substrate-portability-certificate-v1/negative-an-invented-verifier-verdict.json","contract_id":"schema://ioi/hypervisor/cross-substrate-portability-certificate/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/cross-substrate-portability-certificate-v1/negative-an-invented-verifier-verdict.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/cross-substrate-portability-certificate-v1/negative-both-legs-the-same-binding.json","contract_id":"schema://ioi/hypervisor/cross-substrate-portability-certificate/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/cross-substrate-portability-certificate-v1/negative-both-legs-the-same-binding.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/cross-substrate-portability-certificate-v1/negative-both-legs-the-same-family.json","contract_id":"schema://ioi/hypervisor/cross-substrate-portability-certificate/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/cross-substrate-portability-certificate-v1/negative-both-legs-the-same-family.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/cross-substrate-portability-certificate-v1/negative-claims-authority.json","contract_id":"schema://ioi/hypervisor/cross-substrate-portability-certificate/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/cross-substrate-portability-certificate-v1/negative-claims-authority.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/cross-substrate-portability-certificate-v1/negative-no-permitted-differences-at-all.json","contract_id":"schema://ioi/hypervisor/cross-substrate-portability-certificate/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/cross-substrate-portability-certificate-v1/negative-no-permitted-differences-at-all.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/cross-substrate-portability-certificate-v1/negative-no-workload-content-hash.json","contract_id":"schema://ioi/hypervisor/cross-substrate-portability-certificate/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/cross-substrate-portability-certificate-v1/negative-no-workload-content-hash.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/cross-substrate-portability-certificate-v1/negative-one-member-two-reasons.json","contract_id":"schema://ioi/hypervisor/cross-substrate-portability-certificate/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/cross-substrate-portability-certificate-v1/negative-one-member-two-reasons.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/cross-substrate-portability-certificate-v1/negative-only-one-leg.json","contract_id":"schema://ioi/hypervisor/cross-substrate-portability-certificate/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/cross-substrate-portability-certificate-v1/negative-only-one-leg.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/cross-substrate-portability-certificate-v1/negative-qualifies-another-provider.json","contract_id":"schema://ioi/hypervisor/cross-substrate-portability-certificate/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/cross-substrate-portability-certificate-v1/negative-qualifies-another-provider.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/cross-substrate-portability-certificate-v1/negative-root-does-not-recompute.json","contract_id":"schema://ioi/hypervisor/cross-substrate-portability-certificate/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/cross-substrate-portability-certificate-v1/negative-root-does-not-recompute.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/cross-substrate-portability-certificate-v1/negative-says-the-families-are-the-same.json","contract_id":"schema://ioi/hypervisor/cross-substrate-portability-certificate/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/cross-substrate-portability-certificate-v1/negative-says-the-families-are-the-same.json","mutation_id":null,"value_json":null}),
   differentialCase({"id":"mutation:sequence-zero-receipt-timestamp-detached","contract_id":"schema://ioi/foundations/autonomous-system-sequence-zero-materialization-receipt/v2","source_fixture_path":null,"mutation_id":"sequence-zero-receipt-timestamp-detached","value_json":null}),
   differentialCase({"id":"mutation:sequence-zero-receipt-authorized-materialization-id-detached","contract_id":"schema://ioi/foundations/autonomous-system-sequence-zero-materialization-receipt/v2","source_fixture_path":null,"mutation_id":"sequence-zero-receipt-authorized-materialization-id-detached","value_json":null}),
   differentialCase({"id":"mutation:sequence-zero-receipt-authority-principal-detached","contract_id":"schema://ioi/foundations/autonomous-system-sequence-zero-materialization-receipt/v2","source_fixture_path":null,"mutation_id":"sequence-zero-receipt-authority-principal-detached","value_json":null}),
@@ -35973,10 +36158,12 @@ export const ARCHITECTURE_CONTRACT_PATTERN_SOURCES = [
   "^budget://[^\\s]{1,248}$",
   "^budget://\\S+$",
   "^build://[^\\s]+$",
+  "^c8_certificate://[^\\s?#\\\\]{1,200}$",
   "^caip10:[-a-z0-9]{3,8}:[-_a-zA-Z0-9]{1,32}:[-.%a-zA-Z0-9]{1,128}$",
   "^caip2:[-a-z0-9]{3,8}:[-_a-zA-Z0-9]{1,32}$",
   "^canon://docs/architecture/[^\\s]{1,240}$",
   "^capability-offer://[^\\s]{1,500}$",
+  "^capability://[^\\s?#\\\\]{1,200}$",
   "^caveat://[^\\s]+$",
   "^caveat://[^\\s]{1,500}$",
   "^chain-successor-claim://sha256:[0-9a-f]{64}$",
@@ -36026,6 +36213,7 @@ export const ARCHITECTURE_CONTRACT_PATTERN_SOURCES = [
   "^corpus-census://[a-z0-9][a-z0-9._-]{0,127}/[0-9a-f]{64}$",
   "^credential://[A-Za-z0-9][A-Za-z0-9._:/-]*@[0-9]+$",
   "^credential_custody_profile://[^\\s?#\\\\]{1,200}$",
+  "^cross_substrate_portability://[^\\s?#\\\\]{1,200}$",
   "^custody-profile://[A-Za-z0-9][A-Za-z0-9._:/@-]*$",
   "^dapp_[0-9a-f]{16}$",
   "^dartm_[0-9a-f]{1,32}$",
@@ -36175,6 +36363,7 @@ export const ARCHITECTURE_CONTRACT_PATTERN_SOURCES = [
   "^invariant://[^\\s]{1,248}$",
   "^invoice://[^\\s]{1,400}$",
   "^ioi://publisher/[^\\s]{1,224}$",
+  "^isolation_binding://[^\\s?#\\\\]{1,200}$",
   "^jurisdiction://[a-z0-9][a-z0-9._/-]{0,190}$",
   "^jurisdiction_decision://[^\\s?#\\\\]{1,200}$",
   "^jurisdiction_policy_pack://[^\\s?#\\\\]{1,200}$",
@@ -36354,6 +36543,7 @@ export const ARCHITECTURE_CONTRACT_PATTERN_SOURCES = [
   "^protocol://[^\\s]{1,248}$",
   "^provenance://[^\\s]{1,248}$",
   "^provider-profile://[A-Za-z0-9][A-Za-z0-9._:/-]*@sha256:[0-9a-f]{64}$",
+  "^provider_binding://[^\\s?#\\\\]{1,200}$",
   "^qualification-proposal://foundry/[^\\s]{1,500}$",
   "^qualification://[^\\s?#\\\\]{1,200}$",
   "^query://hypervisor/\\S+$",
@@ -36366,6 +36556,7 @@ export const ARCHITECTURE_CONTRACT_PATTERN_SOURCES = [
   "^receipt-preview:[^\\s]{1,240}$",
   "^receipt://[A-Za-z0-9._:/-]+$",
   "^receipt://[A-Za-z0-9._~:/-]+$",
+  "^receipt://[^\\s?#\\\\]{1,200}$",
   "^receipt://[^\\s]+$",
   "^receipt://[^\\s]{1,240}$",
   "^receipt://[^\\s]{1,248}$",
@@ -36574,6 +36765,7 @@ export const ARCHITECTURE_CONTRACT_PATTERN_SOURCES = [
   "^workflow-template://[^\\s/?#\\\\]{1,160}$",
   "^workflow-template://[^\\s/?#\\\\]{1,160}/revision/sha256:[0-9a-f]{64}$",
   "^workflow-template://[^\\s?#\\\\]{1,160}/revision/sha256:[0-9a-f]{64}$",
+  "^workload://[^\\s?#\\\\]{1,200}$",
   "^workload://[^\\s]{1,248}$",
   "^workspace://[^\\s]{1,240}$",
   "^writer-transition://[^\\s]{1,248}$",
@@ -36933,7 +37125,8 @@ export const ARCHITECTURE_CONTRACT_SCHEMA_HASHES = {
   "schema://ioi/foundations/jurisdiction-policy-decision/v1": "sha256:c19636916b1d3fa98745844dfa2961cabfe1663065a1b2aab0159ec100d7251c",
   "schema://ioi/foundations/compliance-audit-export-bundle/v1": "sha256:68e4e3a649bba90792b4a2c6031d7c8926111f9cae7993a9df2f4c143df8a85d",
   "schema://ioi/foundations/regulated-workload-assurance-profile/v1": "sha256:15918815c79b453e159983579426cf438a6f5f9cddf6f67fe4f36b918d0bd5e3",
-  "schema://ioi/foundations/regulated-workload-admission-case/v1": "sha256:b831562b81c011d5f19b81e523fc61f38c4426a2bcc5b45171fc160e444e5969"
+  "schema://ioi/foundations/regulated-workload-admission-case/v1": "sha256:b831562b81c011d5f19b81e523fc61f38c4426a2bcc5b45171fc160e444e5969",
+  "schema://ioi/hypervisor/cross-substrate-portability-certificate/v1": "sha256:dc7b20b83da02a296d10c93951f3677ac88de227a58ce190e1cce864e534e7f4"
 } as const;
 
 type JsonObject = Record<string, unknown>;
@@ -154417,6 +154610,200 @@ const CONTRACT_SCHEMAS: Record<string, JsonObject> = {
         "pattern": "^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$"
       }
     }
+  },
+  "schema://ioi/hypervisor/cross-substrate-portability-certificate/v1": {
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "$id": "schema://ioi/hypervisor/cross-substrate-portability-certificate/v1",
+    "title": "CrossSubstratePortabilityCertificate",
+    "x-ioi-schema-version": "ioi.hypervisor.cross-substrate-portability-certificate.v1",
+    "description": "ONE EXACT WORKLOAD ACROSS TWO SUBSTRATE FAMILIES, AND THE RECORD OF WHAT AGREED. Measured 2026-09-22, three of this unit's four natural assertions are already true by construction and therefore unfalsifiable: `HypervisorWorkloadEffectReconciliationReceipt` has no member that can name a provider (its operation counts are integers, its disposition a closed pair), `workload_effect_boundary.rs` names no provider in production at all, and the eight candidate sources share one operation vocabulary. A certificate resting on those would prove nothing. WHAT CAN FAIL IS AGREEMENT, so this object is a DIFF: `invariant_members` carries the values BOTH legs produced and may only be assembled when they matched, and `permitted_differences` names each member that legitimately differs TOGETHER WITH ITS REASON — because a permitted difference with no reason is exactly where a real divergence hides. `substrate_families_differ` is const true because a certificate over one family twice would read as a crossing while proving nothing, and `qualifies_no_other_provider` is const true because this object qualifies substrate portability and does NOT make either provider an authority owner or claim any other registered provider is live-qualified. Owner: components/hypervisor/byo-provider-plane.md § Cross-Substrate Authority And Reconciliation Portability (M09.10, R-233).",
+    "type": "object",
+    "additionalProperties": false,
+    "required": [
+      "schema_version",
+      "certificate_id",
+      "workload_ref",
+      "workload_content_hash",
+      "result_policy_ref",
+      "legs",
+      "invariant_members",
+      "permitted_differences",
+      "substrate_families_differ",
+      "grants_no_authority",
+      "qualifies_no_other_provider",
+      "certificate_root"
+    ],
+    "properties": {
+      "schema_version": {
+        "type": "string",
+        "const": "ioi.hypervisor.cross-substrate-portability-certificate.v1"
+      },
+      "certificate_id": {
+        "type": "string",
+        "pattern": "^cross_substrate_portability://[^\\s?#\\\\]{1,200}$"
+      },
+      "workload_ref": {
+        "type": "string",
+        "pattern": "^workload://[^\\s?#\\\\]{1,200}$",
+        "description": "ONE workload, named once. Both legs bind this same ref; a certificate cannot be assembled over two different workloads that merely resemble each other."
+      },
+      "workload_content_hash": {
+        "type": "string",
+        "pattern": "^sha256:[0-9a-f]{64}$",
+        "description": "The content address of what actually ran. The unit's demand is ONE EXACT content-addressed workload through two families, so this is the member that makes \"exact\" checkable rather than asserted — two legs whose workload hashes differ did not run the same thing, however alike their refs look."
+      },
+      "result_policy_ref": {
+        "type": "string",
+        "pattern": "^policy://[^\\s]{1,400}$"
+      },
+      "legs": {
+        "type": "array",
+        "minItems": 2,
+        "maxItems": 2,
+        "description": "Exactly two. Not \"at least two\": a third leg would make the diff below ambiguous about which pair it compared, and this certificate's whole content is one comparison.",
+        "items": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "substrate_family",
+            "provider_binding_ref",
+            "capability_ref",
+            "isolation_binding_ref",
+            "reconciliation_receipt_ref",
+            "certificate_ref"
+          ],
+          "properties": {
+            "substrate_family": {
+              "type": "string",
+              "minLength": 2,
+              "maxLength": 64,
+              "description": "The adapter family exactly as the estate names it. Deliberately NOT a closed enum: the eight families are a naming convention over eight modules and not a trait, so an enum here would be a second list to drift from the first. The invariant that the two differ is stated separately and checked."
+            },
+            "provider_binding_ref": {
+              "type": "string",
+              "pattern": "^provider_binding://[^\\s?#\\\\]{1,200}$"
+            },
+            "capability_ref": {
+              "type": "string",
+              "pattern": "^capability://[^\\s?#\\\\]{1,200}$"
+            },
+            "isolation_binding_ref": {
+              "type": "string",
+              "pattern": "^isolation_binding://[^\\s?#\\\\]{1,200}$"
+            },
+            "reconciliation_receipt_ref": {
+              "type": "string",
+              "pattern": "^receipt://[^\\s?#\\\\]{1,200}$"
+            },
+            "certificate_ref": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "pattern": "^c8_certificate://[^\\s?#\\\\]{1,200}$"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "The leg's own bounded-live-effect certificate when the leg was live, and null when it was the sovereign-local lane. Null is a stated fact about which lane ran, never an omission."
+            }
+          }
+        }
+      },
+      "invariant_members": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "request_hash",
+          "disposition",
+          "observed_phase",
+          "cleanup_verified",
+          "original_effect_reinvoked",
+          "offline_verifier_verdict"
+        ],
+        "description": "THE VALUES BOTH LEGS PRODUCED. This object exists only when they matched — a disagreement is a typed non-success report and never a certificate carrying a note about it. Each member is read from the leg's own reconciliation receipt, not restated by the assembler.",
+        "properties": {
+          "request_hash": {
+            "type": "string",
+            "pattern": "^sha256:[0-9a-f]{64}$"
+          },
+          "disposition": {
+            "type": "string",
+            "enum": [
+              "no_effect_observed",
+              "cleanup_succeeded"
+            ],
+            "description": "The reconciliation receipt's own closed pair, carried here unchanged rather than re-derived."
+          },
+          "observed_phase": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 64
+          },
+          "cleanup_verified": {
+            "type": "boolean"
+          },
+          "original_effect_reinvoked": {
+            "type": "boolean",
+            "description": "Must agree across the legs like everything else here. A crossing where one substrate re-invoked the original effect and the other did not is the clearest possible portability failure, and it is one a per-leg assertion would pass twice."
+          },
+          "offline_verifier_verdict": {
+            "type": "string",
+            "enum": [
+              "accepted",
+              "rejected"
+            ],
+            "description": "The SAME offline verifier over each leg's bundle, with no provider-specific code path. Carried as an invariant because a verifier that accepts one leg and rejects the other has found the divergence this certificate exists to catch."
+          }
+        }
+      },
+      "permitted_differences": {
+        "type": "array",
+        "minItems": 1,
+        "maxItems": 32,
+        "description": "Every member that legitimately differs between the legs, each WITH THE REASON it differs. Non-empty by construction: the lease and isolation refs always differ because each leg holds its own, so a certificate claiming nothing differed has not been assembled from two real legs.",
+        "items": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "member",
+            "reason"
+          ],
+          "properties": {
+            "member": {
+              "type": "string",
+              "minLength": 3,
+              "maxLength": 200
+            },
+            "reason": {
+              "type": "string",
+              "minLength": 20,
+              "maxLength": 400,
+              "description": "Why this member may differ without the crossing being a failure. A floor is enforced because \"differs\" is not a reason, and an unreasoned entry here is how a real divergence would be parked."
+            }
+          }
+        }
+      },
+      "substrate_families_differ": {
+        "type": "boolean",
+        "const": true,
+        "description": "On the wire, because the entire claim is vacuous if both legs ran the same family and a certificate over one family twice would still read as a crossing."
+      },
+      "grants_no_authority": {
+        "type": "boolean",
+        "const": true
+      },
+      "qualifies_no_other_provider": {
+        "type": "boolean",
+        "const": true,
+        "description": "This object qualifies substrate PORTABILITY for the two families it names. It does not make either provider an authority owner, and it says nothing about any registered provider it did not cross."
+      },
+      "certificate_root": {
+        "type": "string",
+        "pattern": "^sha256:[0-9a-f]{64}$",
+        "description": "SHA-256 over JCS of every member except this one."
+      }
+    }
   }
 };
 const CONTRACT_INVARIANTS: Record<string, Array<JsonObject>> = {
@@ -176174,6 +176561,86 @@ const CONTRACT_INVARIANTS: Record<string, Array<JsonObject>> = {
         }
       }
     }
+  ],
+  "schema://ioi/hypervisor/cross-substrate-portability-certificate/v1": [
+    {
+      "rule_id": "cross_substrate_portability_certificate.the_two_families_differ",
+      "description": "THE CLAIM IS VACUOUS IF BOTH LEGS RAN THE SAME FAMILY. `substrate_families_differ` is const true on the wire, but a const is an assertion the document makes about itself and nothing in JSON Schema can check it against the legs actually present — comparing two array elements is beyond what the projection carries. So the law lives here, where it can be said plainly: leg one's family and leg two's family are not the same string. A certificate over one family twice would otherwise satisfy every other rule in this file and still prove nothing about portability.",
+      "expression": {
+        "operator": "fields_not_equal",
+        "paths": [
+          "$.legs[0].substrate_family",
+          "$.legs[1].substrate_family"
+        ]
+      }
+    },
+    {
+      "rule_id": "cross_substrate_portability_certificate.the_legs_are_distinct_bindings",
+      "description": "Two legs naming the same provider binding are one leg recorded twice. The families differing is not enough on its own: a mislabelled family over a single binding would pass the rule above while the crossing never happened.",
+      "expression": {
+        "operator": "fields_not_equal",
+        "paths": [
+          "$.legs[0].provider_binding_ref",
+          "$.legs[1].provider_binding_ref"
+        ]
+      }
+    },
+    {
+      "rule_id": "cross_substrate_portability_certificate.each_permitted_difference_is_named_once",
+      "description": "The same member listed twice with two reasons turns a reviewed exception into a pair of them, and lets a second, weaker reason ride in behind a first that a reader already accepted. One member, one reason.",
+      "expression": {
+        "operator": "array_unique_by_fields",
+        "fields": [
+          "member"
+        ],
+        "array_path": "$.permitted_differences"
+      }
+    },
+    {
+      "rule_id": "cross_substrate_portability_certificate.root.recomputes",
+      "description": "THE SEAL. The certificate records that two legs agreed on six members; if those recorded values can be edited after the fact, the agreement it reports is not the agreement that was observed. Sealing the legs together with the invariants is what stops a later hand from moving one leg's disposition to match the other's.",
+      "expression": {
+        "operator": "jcs_sha256_equals",
+        "algorithm": "jcs_sha256",
+        "expected_path": "$.certificate_root",
+        "expected_encoding": "sha256_string",
+        "material_fields": {
+          "schema_version": {
+            "path": "$.schema_version"
+          },
+          "certificate_id": {
+            "path": "$.certificate_id"
+          },
+          "workload_ref": {
+            "path": "$.workload_ref"
+          },
+          "workload_content_hash": {
+            "path": "$.workload_content_hash"
+          },
+          "result_policy_ref": {
+            "path": "$.result_policy_ref"
+          },
+          "legs": {
+            "path": "$.legs"
+          },
+          "invariant_members": {
+            "path": "$.invariant_members"
+          },
+          "permitted_differences": {
+            "path": "$.permitted_differences"
+          },
+          "substrate_families_differ": {
+            "path": "$.substrate_families_differ"
+          },
+          "grants_no_authority": {
+            "path": "$.grants_no_authority"
+          },
+          "qualifies_no_other_provider": {
+            "path": "$.qualifies_no_other_provider"
+          }
+        }
+      }
+    }
   ]
 };
 
@@ -179163,4 +179630,10 @@ export function validateRegulatedWorkloadAdmissionCaseV1(
   value: unknown,
 ): value is RegulatedWorkloadAdmissionCaseV1 {
   return validateArchitectureContract("schema://ioi/foundations/regulated-workload-admission-case/v1", value).ok;
+}
+
+export function validateCrossSubstratePortabilityCertificateV1(
+  value: unknown,
+): value is CrossSubstratePortabilityCertificateV1 {
+  return validateArchitectureContract("schema://ioi/hypervisor/cross-substrate-portability-certificate/v1", value).ok;
 }

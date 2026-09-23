@@ -1,0 +1,194 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "schema://ioi/hypervisor/cross-substrate-portability-certificate/v1",
+  "title": "CrossSubstratePortabilityCertificate",
+  "x-ioi-schema-version": "ioi.hypervisor.cross-substrate-portability-certificate.v1",
+  "description": "ONE EXACT WORKLOAD ACROSS TWO SUBSTRATE FAMILIES, AND THE RECORD OF WHAT AGREED. Measured 2026-09-22, three of this unit's four natural assertions are already true by construction and therefore unfalsifiable: `HypervisorWorkloadEffectReconciliationReceipt` has no member that can name a provider (its operation counts are integers, its disposition a closed pair), `workload_effect_boundary.rs` names no provider in production at all, and the eight candidate sources share one operation vocabulary. A certificate resting on those would prove nothing. WHAT CAN FAIL IS AGREEMENT, so this object is a DIFF: `invariant_members` carries the values BOTH legs produced and may only be assembled when they matched, and `permitted_differences` names each member that legitimately differs TOGETHER WITH ITS REASON — because a permitted difference with no reason is exactly where a real divergence hides. `substrate_families_differ` is const true because a certificate over one family twice would read as a crossing while proving nothing, and `qualifies_no_other_provider` is const true because this object qualifies substrate portability and does NOT make either provider an authority owner or claim any other registered provider is live-qualified. Owner: components/hypervisor/byo-provider-plane.md § Cross-Substrate Authority And Reconciliation Portability (M09.10, R-233).",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "certificate_id",
+    "workload_ref",
+    "workload_content_hash",
+    "result_policy_ref",
+    "legs",
+    "invariant_members",
+    "permitted_differences",
+    "substrate_families_differ",
+    "grants_no_authority",
+    "qualifies_no_other_provider",
+    "certificate_root"
+  ],
+  "properties": {
+    "schema_version": {
+      "type": "string",
+      "const": "ioi.hypervisor.cross-substrate-portability-certificate.v1"
+    },
+    "certificate_id": {
+      "type": "string",
+      "pattern": "^cross_substrate_portability://[^\\s?#\\\\]{1,200}$"
+    },
+    "workload_ref": {
+      "type": "string",
+      "pattern": "^workload://[^\\s?#\\\\]{1,200}$",
+      "description": "ONE workload, named once. Both legs bind this same ref; a certificate cannot be assembled over two different workloads that merely resemble each other."
+    },
+    "workload_content_hash": {
+      "type": "string",
+      "pattern": "^sha256:[0-9a-f]{64}$",
+      "description": "The content address of what actually ran. The unit's demand is ONE EXACT content-addressed workload through two families, so this is the member that makes \"exact\" checkable rather than asserted — two legs whose workload hashes differ did not run the same thing, however alike their refs look."
+    },
+    "result_policy_ref": {
+      "type": "string",
+      "pattern": "^policy://[^\\s]{1,400}$"
+    },
+    "legs": {
+      "type": "array",
+      "minItems": 2,
+      "maxItems": 2,
+      "description": "Exactly two. Not \"at least two\": a third leg would make the diff below ambiguous about which pair it compared, and this certificate's whole content is one comparison.",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "substrate_family",
+          "provider_binding_ref",
+          "capability_ref",
+          "isolation_binding_ref",
+          "reconciliation_receipt_ref",
+          "certificate_ref"
+        ],
+        "properties": {
+          "substrate_family": {
+            "type": "string",
+            "minLength": 2,
+            "maxLength": 64,
+            "description": "The adapter family exactly as the estate names it. Deliberately NOT a closed enum: the eight families are a naming convention over eight modules and not a trait, so an enum here would be a second list to drift from the first. The invariant that the two differ is stated separately and checked."
+          },
+          "provider_binding_ref": {
+            "type": "string",
+            "pattern": "^provider_binding://[^\\s?#\\\\]{1,200}$"
+          },
+          "capability_ref": {
+            "type": "string",
+            "pattern": "^capability://[^\\s?#\\\\]{1,200}$"
+          },
+          "isolation_binding_ref": {
+            "type": "string",
+            "pattern": "^isolation_binding://[^\\s?#\\\\]{1,200}$"
+          },
+          "reconciliation_receipt_ref": {
+            "type": "string",
+            "pattern": "^receipt://[^\\s?#\\\\]{1,200}$"
+          },
+          "certificate_ref": {
+            "anyOf": [
+              {
+                "type": "string",
+                "pattern": "^c8_certificate://[^\\s?#\\\\]{1,200}$"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "The leg's own bounded-live-effect certificate when the leg was live, and null when it was the sovereign-local lane. Null is a stated fact about which lane ran, never an omission."
+          }
+        }
+      }
+    },
+    "invariant_members": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "request_hash",
+        "disposition",
+        "observed_phase",
+        "cleanup_verified",
+        "original_effect_reinvoked",
+        "offline_verifier_verdict"
+      ],
+      "description": "THE VALUES BOTH LEGS PRODUCED. This object exists only when they matched — a disagreement is a typed non-success report and never a certificate carrying a note about it. Each member is read from the leg's own reconciliation receipt, not restated by the assembler.",
+      "properties": {
+        "request_hash": {
+          "type": "string",
+          "pattern": "^sha256:[0-9a-f]{64}$"
+        },
+        "disposition": {
+          "type": "string",
+          "enum": [
+            "no_effect_observed",
+            "cleanup_succeeded"
+          ],
+          "description": "The reconciliation receipt's own closed pair, carried here unchanged rather than re-derived."
+        },
+        "observed_phase": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 64
+        },
+        "cleanup_verified": {
+          "type": "boolean"
+        },
+        "original_effect_reinvoked": {
+          "type": "boolean",
+          "description": "Must agree across the legs like everything else here. A crossing where one substrate re-invoked the original effect and the other did not is the clearest possible portability failure, and it is one a per-leg assertion would pass twice."
+        },
+        "offline_verifier_verdict": {
+          "type": "string",
+          "enum": [
+            "accepted",
+            "rejected"
+          ],
+          "description": "The SAME offline verifier over each leg's bundle, with no provider-specific code path. Carried as an invariant because a verifier that accepts one leg and rejects the other has found the divergence this certificate exists to catch."
+        }
+      }
+    },
+    "permitted_differences": {
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 32,
+      "description": "Every member that legitimately differs between the legs, each WITH THE REASON it differs. Non-empty by construction: the lease and isolation refs always differ because each leg holds its own, so a certificate claiming nothing differed has not been assembled from two real legs.",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "member",
+          "reason"
+        ],
+        "properties": {
+          "member": {
+            "type": "string",
+            "minLength": 3,
+            "maxLength": 200
+          },
+          "reason": {
+            "type": "string",
+            "minLength": 20,
+            "maxLength": 400,
+            "description": "Why this member may differ without the crossing being a failure. A floor is enforced because \"differs\" is not a reason, and an unreasoned entry here is how a real divergence would be parked."
+          }
+        }
+      }
+    },
+    "substrate_families_differ": {
+      "type": "boolean",
+      "const": true,
+      "description": "On the wire, because the entire claim is vacuous if both legs ran the same family and a certificate over one family twice would still read as a crossing."
+    },
+    "grants_no_authority": {
+      "type": "boolean",
+      "const": true
+    },
+    "qualifies_no_other_provider": {
+      "type": "boolean",
+      "const": true,
+      "description": "This object qualifies substrate PORTABILITY for the two families it names. It does not make either provider an authority owner, and it says nothing about any registered provider it did not cross."
+    },
+    "certificate_root": {
+      "type": "string",
+      "pattern": "^sha256:[0-9a-f]{64}$",
+      "description": "SHA-256 over JCS of every member except this one."
+    }
+  }
+}

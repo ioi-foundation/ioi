@@ -396,6 +396,7 @@ pub const ARCHITECTURE_CONTRACT_SCHEMA_HASHES: &[(&str, &str)] = &[
     ("schema://ioi/foundations/compliance-audit-export-bundle/v1", "sha256:68e4e3a649bba90792b4a2c6031d7c8926111f9cae7993a9df2f4c143df8a85d"),
     ("schema://ioi/foundations/regulated-workload-assurance-profile/v1", "sha256:15918815c79b453e159983579426cf438a6f5f9cddf6f67fe4f36b918d0bd5e3"),
     ("schema://ioi/foundations/regulated-workload-admission-case/v1", "sha256:b831562b81c011d5f19b81e523fc61f38c4426a2bcc5b45171fc160e444e5969"),
+    ("schema://ioi/hypervisor/cross-substrate-portability-certificate/v1", "sha256:dc7b20b83da02a296d10c93951f3677ac88de227a58ce190e1cce864e534e7f4"),
 ];
 
 pub fn architecture_contract_schema_hash(contract_id: &str) -> Option<&'static str> {
@@ -170920,6 +170921,427 @@ impl<'de> serde::Deserialize<'de> for RegulatedWorkloadAdmissionCaseV1PerformsNo
     }
 }
 
+#[derive(Debug, Clone, PartialEq, serde::Serialize)]
+pub struct CrossSubstratePortabilityCertificateV1 {
+    pub schema_version: CrossSubstratePortabilityCertificateV1SchemaVersion,
+    pub certificate_id: String,
+    pub workload_ref: String,
+    pub workload_content_hash: String,
+    pub result_policy_ref: String,
+    pub legs: Vec<CrossSubstratePortabilityCertificateV1LegsItem>,
+    pub invariant_members: CrossSubstratePortabilityCertificateV1InvariantMembers,
+    pub permitted_differences: Vec<CrossSubstratePortabilityCertificateV1PermittedDifferencesItem>,
+    pub substrate_families_differ: CrossSubstratePortabilityCertificateV1SubstrateFamiliesDiffer,
+    pub grants_no_authority: CrossSubstratePortabilityCertificateV1GrantsNoAuthority,
+    pub qualifies_no_other_provider: CrossSubstratePortabilityCertificateV1QualifiesNoOtherProvider,
+    pub certificate_root: String,
+}
+
+impl<'de> serde::Deserialize<'de> for CrossSubstratePortabilityCertificateV1 {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let value = <serde_json::Value as serde::Deserialize>::deserialize(deserializer)?;
+        validate_projection_subschema(
+            r#"schema://ioi/hypervisor/cross-substrate-portability-certificate/v1"#,
+            r#"{"$schema":"https://json-schema.org/draft/2020-12/schema","$id":"schema://ioi/hypervisor/cross-substrate-portability-certificate/v1","title":"CrossSubstratePortabilityCertificate","x-ioi-schema-version":"ioi.hypervisor.cross-substrate-portability-certificate.v1","description":"ONE EXACT WORKLOAD ACROSS TWO SUBSTRATE FAMILIES, AND THE RECORD OF WHAT AGREED. Measured 2026-09-22, three of this unit's four natural assertions are already true by construction and therefore unfalsifiable: `HypervisorWorkloadEffectReconciliationReceipt` has no member that can name a provider (its operation counts are integers, its disposition a closed pair), `workload_effect_boundary.rs` names no provider in production at all, and the eight candidate sources share one operation vocabulary. A certificate resting on those would prove nothing. WHAT CAN FAIL IS AGREEMENT, so this object is a DIFF: `invariant_members` carries the values BOTH legs produced and may only be assembled when they matched, and `permitted_differences` names each member that legitimately differs TOGETHER WITH ITS REASON — because a permitted difference with no reason is exactly where a real divergence hides. `substrate_families_differ` is const true because a certificate over one family twice would read as a crossing while proving nothing, and `qualifies_no_other_provider` is const true because this object qualifies substrate portability and does NOT make either provider an authority owner or claim any other registered provider is live-qualified. Owner: components/hypervisor/byo-provider-plane.md § Cross-Substrate Authority And Reconciliation Portability (M09.10, R-233).","type":"object","additionalProperties":false,"required":["schema_version","certificate_id","workload_ref","workload_content_hash","result_policy_ref","legs","invariant_members","permitted_differences","substrate_families_differ","grants_no_authority","qualifies_no_other_provider","certificate_root"],"properties":{"schema_version":{"type":"string","const":"ioi.hypervisor.cross-substrate-portability-certificate.v1"},"certificate_id":{"type":"string","pattern":"^cross_substrate_portability://[^\\s?#\\\\]{1,200}$"},"workload_ref":{"type":"string","pattern":"^workload://[^\\s?#\\\\]{1,200}$","description":"ONE workload, named once. Both legs bind this same ref; a certificate cannot be assembled over two different workloads that merely resemble each other."},"workload_content_hash":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$","description":"The content address of what actually ran. The unit's demand is ONE EXACT content-addressed workload through two families, so this is the member that makes \"exact\" checkable rather than asserted — two legs whose workload hashes differ did not run the same thing, however alike their refs look."},"result_policy_ref":{"type":"string","pattern":"^policy://[^\\s]{1,400}$"},"legs":{"type":"array","minItems":2,"maxItems":2,"description":"Exactly two. Not \"at least two\": a third leg would make the diff below ambiguous about which pair it compared, and this certificate's whole content is one comparison.","items":{"type":"object","additionalProperties":false,"required":["substrate_family","provider_binding_ref","capability_ref","isolation_binding_ref","reconciliation_receipt_ref","certificate_ref"],"properties":{"substrate_family":{"type":"string","minLength":2,"maxLength":64,"description":"The adapter family exactly as the estate names it. Deliberately NOT a closed enum: the eight families are a naming convention over eight modules and not a trait, so an enum here would be a second list to drift from the first. The invariant that the two differ is stated separately and checked."},"provider_binding_ref":{"type":"string","pattern":"^provider_binding://[^\\s?#\\\\]{1,200}$"},"capability_ref":{"type":"string","pattern":"^capability://[^\\s?#\\\\]{1,200}$"},"isolation_binding_ref":{"type":"string","pattern":"^isolation_binding://[^\\s?#\\\\]{1,200}$"},"reconciliation_receipt_ref":{"type":"string","pattern":"^receipt://[^\\s?#\\\\]{1,200}$"},"certificate_ref":{"anyOf":[{"type":"string","pattern":"^c8_certificate://[^\\s?#\\\\]{1,200}$"},{"type":"null"}],"description":"The leg's own bounded-live-effect certificate when the leg was live, and null when it was the sovereign-local lane. Null is a stated fact about which lane ran, never an omission."}}}},"invariant_members":{"type":"object","additionalProperties":false,"required":["request_hash","disposition","observed_phase","cleanup_verified","original_effect_reinvoked","offline_verifier_verdict"],"description":"THE VALUES BOTH LEGS PRODUCED. This object exists only when they matched — a disagreement is a typed non-success report and never a certificate carrying a note about it. Each member is read from the leg's own reconciliation receipt, not restated by the assembler.","properties":{"request_hash":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"},"disposition":{"type":"string","enum":["no_effect_observed","cleanup_succeeded"],"description":"The reconciliation receipt's own closed pair, carried here unchanged rather than re-derived."},"observed_phase":{"type":"string","minLength":1,"maxLength":64},"cleanup_verified":{"type":"boolean"},"original_effect_reinvoked":{"type":"boolean","description":"Must agree across the legs like everything else here. A crossing where one substrate re-invoked the original effect and the other did not is the clearest possible portability failure, and it is one a per-leg assertion would pass twice."},"offline_verifier_verdict":{"type":"string","enum":["accepted","rejected"],"description":"The SAME offline verifier over each leg's bundle, with no provider-specific code path. Carried as an invariant because a verifier that accepts one leg and rejects the other has found the divergence this certificate exists to catch."}}},"permitted_differences":{"type":"array","minItems":1,"maxItems":32,"description":"Every member that legitimately differs between the legs, each WITH THE REASON it differs. Non-empty by construction: the lease and isolation refs always differ because each leg holds its own, so a certificate claiming nothing differed has not been assembled from two real legs.","items":{"type":"object","additionalProperties":false,"required":["member","reason"],"properties":{"member":{"type":"string","minLength":3,"maxLength":200},"reason":{"type":"string","minLength":20,"maxLength":400,"description":"Why this member may differ without the crossing being a failure. A floor is enforced because \"differs\" is not a reason, and an unreasoned entry here is how a real divergence would be parked."}}}},"substrate_families_differ":{"type":"boolean","const":true,"description":"On the wire, because the entire claim is vacuous if both legs ran the same family and a certificate over one family twice would still read as a crossing."},"grants_no_authority":{"type":"boolean","const":true},"qualifies_no_other_provider":{"type":"boolean","const":true,"description":"This object qualifies substrate PORTABILITY for the two families it names. It does not make either provider an authority owner, and it says nothing about any registered provider it did not cross."},"certificate_root":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$","description":"SHA-256 over JCS of every member except this one."}}}"#,
+            &value,
+        )
+            .map_err(serde::de::Error::custom)?;
+        let mut object = value
+            .as_object()
+            .cloned()
+            .ok_or_else(|| serde::de::Error::custom("validated projection is not an object"))?;
+        Ok(Self {
+            schema_version: serde_json::from_value::<
+                CrossSubstratePortabilityCertificateV1SchemaVersion,
+            >(
+                object
+                    .remove(r#"schema_version"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"schema_version"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            certificate_id: serde_json::from_value::<String>(
+                object
+                    .remove(r#"certificate_id"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"certificate_id"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            workload_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"workload_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"workload_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            workload_content_hash: serde_json::from_value::<String>(
+                object
+                    .remove(r#"workload_content_hash"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"workload_content_hash"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            result_policy_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"result_policy_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"result_policy_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            legs: serde_json::from_value::<Vec<CrossSubstratePortabilityCertificateV1LegsItem>>(
+                object
+                    .remove(r#"legs"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"legs"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            invariant_members: serde_json::from_value::<
+                CrossSubstratePortabilityCertificateV1InvariantMembers,
+            >(
+                object
+                    .remove(r#"invariant_members"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"invariant_members"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            permitted_differences: serde_json::from_value::<
+                Vec<CrossSubstratePortabilityCertificateV1PermittedDifferencesItem>,
+            >(
+                object
+                    .remove(r#"permitted_differences"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"permitted_differences"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            substrate_families_differ: serde_json::from_value::<
+                CrossSubstratePortabilityCertificateV1SubstrateFamiliesDiffer,
+            >(
+                object
+                    .remove(r#"substrate_families_differ"#)
+                    .ok_or_else(|| {
+                        serde::de::Error::missing_field(r#"substrate_families_differ"#)
+                    })?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            grants_no_authority: serde_json::from_value::<
+                CrossSubstratePortabilityCertificateV1GrantsNoAuthority,
+            >(
+                object
+                    .remove(r#"grants_no_authority"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"grants_no_authority"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            qualifies_no_other_provider: serde_json::from_value::<
+                CrossSubstratePortabilityCertificateV1QualifiesNoOtherProvider,
+            >(
+                object
+                    .remove(r#"qualifies_no_other_provider"#)
+                    .ok_or_else(|| {
+                        serde::de::Error::missing_field(r#"qualifies_no_other_provider"#)
+                    })?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            certificate_root: serde_json::from_value::<String>(
+                object
+                    .remove(r#"certificate_root"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"certificate_root"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+        })
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum CrossSubstratePortabilityCertificateV1SchemaVersion {
+    #[serde(rename = r#"ioi.hypervisor.cross-substrate-portability-certificate.v1"#)]
+    IoiHypervisorCrossSubstratePortabilityCertificateV1,
+}
+
+#[derive(Debug, Clone, PartialEq, serde::Serialize)]
+pub struct CrossSubstratePortabilityCertificateV1LegsItem {
+    pub substrate_family: String,
+    pub provider_binding_ref: String,
+    pub capability_ref: String,
+    pub isolation_binding_ref: String,
+    pub reconciliation_receipt_ref: String,
+    pub certificate_ref: Option<String>,
+}
+
+impl<'de> serde::Deserialize<'de> for CrossSubstratePortabilityCertificateV1LegsItem {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let value = <serde_json::Value as serde::Deserialize>::deserialize(deserializer)?;
+        validate_projection_subschema(
+            r#"schema://ioi/hypervisor/cross-substrate-portability-certificate/v1"#,
+            r#"{"type":"object","additionalProperties":false,"required":["substrate_family","provider_binding_ref","capability_ref","isolation_binding_ref","reconciliation_receipt_ref","certificate_ref"],"properties":{"substrate_family":{"type":"string","minLength":2,"maxLength":64,"description":"The adapter family exactly as the estate names it. Deliberately NOT a closed enum: the eight families are a naming convention over eight modules and not a trait, so an enum here would be a second list to drift from the first. The invariant that the two differ is stated separately and checked."},"provider_binding_ref":{"type":"string","pattern":"^provider_binding://[^\\s?#\\\\]{1,200}$"},"capability_ref":{"type":"string","pattern":"^capability://[^\\s?#\\\\]{1,200}$"},"isolation_binding_ref":{"type":"string","pattern":"^isolation_binding://[^\\s?#\\\\]{1,200}$"},"reconciliation_receipt_ref":{"type":"string","pattern":"^receipt://[^\\s?#\\\\]{1,200}$"},"certificate_ref":{"anyOf":[{"type":"string","pattern":"^c8_certificate://[^\\s?#\\\\]{1,200}$"},{"type":"null"}],"description":"The leg's own bounded-live-effect certificate when the leg was live, and null when it was the sovereign-local lane. Null is a stated fact about which lane ran, never an omission."}}}"#,
+            &value,
+        )
+            .map_err(serde::de::Error::custom)?;
+        let mut object = value
+            .as_object()
+            .cloned()
+            .ok_or_else(|| serde::de::Error::custom("validated projection is not an object"))?;
+        Ok(Self {
+            substrate_family: serde_json::from_value::<String>(
+                object
+                    .remove(r#"substrate_family"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"substrate_family"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            provider_binding_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"provider_binding_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"provider_binding_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            capability_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"capability_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"capability_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            isolation_binding_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"isolation_binding_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"isolation_binding_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            reconciliation_receipt_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"reconciliation_receipt_ref"#)
+                    .ok_or_else(|| {
+                        serde::de::Error::missing_field(r#"reconciliation_receipt_ref"#)
+                    })?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            certificate_ref: serde_json::from_value::<Option<String>>(
+                object
+                    .remove(r#"certificate_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"certificate_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+        })
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, serde::Serialize)]
+pub struct CrossSubstratePortabilityCertificateV1InvariantMembers {
+    pub request_hash: String,
+    pub disposition: CrossSubstratePortabilityCertificateV1InvariantMembersDisposition,
+    pub observed_phase: String,
+    pub cleanup_verified: bool,
+    pub original_effect_reinvoked: bool,
+    pub offline_verifier_verdict:
+        CrossSubstratePortabilityCertificateV1InvariantMembersOfflineVerifierVerdict,
+}
+
+impl<'de> serde::Deserialize<'de> for CrossSubstratePortabilityCertificateV1InvariantMembers {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let value = <serde_json::Value as serde::Deserialize>::deserialize(deserializer)?;
+        validate_projection_subschema(
+            r#"schema://ioi/hypervisor/cross-substrate-portability-certificate/v1"#,
+            r#"{"type":"object","additionalProperties":false,"required":["request_hash","disposition","observed_phase","cleanup_verified","original_effect_reinvoked","offline_verifier_verdict"],"description":"THE VALUES BOTH LEGS PRODUCED. This object exists only when they matched — a disagreement is a typed non-success report and never a certificate carrying a note about it. Each member is read from the leg's own reconciliation receipt, not restated by the assembler.","properties":{"request_hash":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"},"disposition":{"type":"string","enum":["no_effect_observed","cleanup_succeeded"],"description":"The reconciliation receipt's own closed pair, carried here unchanged rather than re-derived."},"observed_phase":{"type":"string","minLength":1,"maxLength":64},"cleanup_verified":{"type":"boolean"},"original_effect_reinvoked":{"type":"boolean","description":"Must agree across the legs like everything else here. A crossing where one substrate re-invoked the original effect and the other did not is the clearest possible portability failure, and it is one a per-leg assertion would pass twice."},"offline_verifier_verdict":{"type":"string","enum":["accepted","rejected"],"description":"The SAME offline verifier over each leg's bundle, with no provider-specific code path. Carried as an invariant because a verifier that accepts one leg and rejects the other has found the divergence this certificate exists to catch."}}}"#,
+            &value,
+        )
+            .map_err(serde::de::Error::custom)?;
+        let mut object = value
+            .as_object()
+            .cloned()
+            .ok_or_else(|| serde::de::Error::custom("validated projection is not an object"))?;
+        Ok(Self {
+            request_hash: serde_json::from_value::<String>(
+                object
+                    .remove(r#"request_hash"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"request_hash"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            disposition: serde_json::from_value::<
+                CrossSubstratePortabilityCertificateV1InvariantMembersDisposition,
+            >(
+                object
+                    .remove(r#"disposition"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"disposition"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            observed_phase: serde_json::from_value::<String>(
+                object
+                    .remove(r#"observed_phase"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"observed_phase"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            cleanup_verified: serde_json::from_value::<bool>(
+                object
+                    .remove(r#"cleanup_verified"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"cleanup_verified"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            original_effect_reinvoked: serde_json::from_value::<bool>(
+                object
+                    .remove(r#"original_effect_reinvoked"#)
+                    .ok_or_else(|| {
+                        serde::de::Error::missing_field(r#"original_effect_reinvoked"#)
+                    })?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            offline_verifier_verdict: serde_json::from_value::<
+                CrossSubstratePortabilityCertificateV1InvariantMembersOfflineVerifierVerdict,
+            >(
+                object
+                    .remove(r#"offline_verifier_verdict"#)
+                    .ok_or_else(|| {
+                        serde::de::Error::missing_field(r#"offline_verifier_verdict"#)
+                    })?,
+            )
+            .map_err(serde::de::Error::custom)?,
+        })
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum CrossSubstratePortabilityCertificateV1InvariantMembersDisposition {
+    #[serde(rename = r#"no_effect_observed"#)]
+    NoEffectObserved,
+    #[serde(rename = r#"cleanup_succeeded"#)]
+    CleanupSucceeded,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum CrossSubstratePortabilityCertificateV1InvariantMembersOfflineVerifierVerdict {
+    #[serde(rename = r#"accepted"#)]
+    Accepted,
+    #[serde(rename = r#"rejected"#)]
+    Rejected,
+}
+
+#[derive(Debug, Clone, PartialEq, serde::Serialize)]
+pub struct CrossSubstratePortabilityCertificateV1PermittedDifferencesItem {
+    pub member: String,
+    pub reason: String,
+}
+
+impl<'de> serde::Deserialize<'de>
+    for CrossSubstratePortabilityCertificateV1PermittedDifferencesItem
+{
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let value = <serde_json::Value as serde::Deserialize>::deserialize(deserializer)?;
+        validate_projection_subschema(
+            r#"schema://ioi/hypervisor/cross-substrate-portability-certificate/v1"#,
+            r#"{"type":"object","additionalProperties":false,"required":["member","reason"],"properties":{"member":{"type":"string","minLength":3,"maxLength":200},"reason":{"type":"string","minLength":20,"maxLength":400,"description":"Why this member may differ without the crossing being a failure. A floor is enforced because \"differs\" is not a reason, and an unreasoned entry here is how a real divergence would be parked."}}}"#,
+            &value,
+        )
+            .map_err(serde::de::Error::custom)?;
+        let mut object = value
+            .as_object()
+            .cloned()
+            .ok_or_else(|| serde::de::Error::custom("validated projection is not an object"))?;
+        Ok(Self {
+            member: serde_json::from_value::<String>(
+                object
+                    .remove(r#"member"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"member"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            reason: serde_json::from_value::<String>(
+                object
+                    .remove(r#"reason"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"reason"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+        })
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum CrossSubstratePortabilityCertificateV1SubstrateFamiliesDiffer {
+    True,
+}
+
+impl serde::Serialize for CrossSubstratePortabilityCertificateV1SubstrateFamiliesDiffer {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: serde::Serializer,
+    {
+        serializer.serialize_bool(true)
+    }
+}
+
+impl<'de> serde::Deserialize<'de>
+    for CrossSubstratePortabilityCertificateV1SubstrateFamiliesDiffer
+{
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let value = <bool as serde::Deserialize>::deserialize(deserializer)?;
+        if value == true {
+            Ok(Self::True)
+        } else {
+            Err(serde::de::Error::custom(r#"expected boolean literal true"#))
+        }
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum CrossSubstratePortabilityCertificateV1GrantsNoAuthority {
+    True,
+}
+
+impl serde::Serialize for CrossSubstratePortabilityCertificateV1GrantsNoAuthority {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: serde::Serializer,
+    {
+        serializer.serialize_bool(true)
+    }
+}
+
+impl<'de> serde::Deserialize<'de> for CrossSubstratePortabilityCertificateV1GrantsNoAuthority {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let value = <bool as serde::Deserialize>::deserialize(deserializer)?;
+        if value == true {
+            Ok(Self::True)
+        } else {
+            Err(serde::de::Error::custom(r#"expected boolean literal true"#))
+        }
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum CrossSubstratePortabilityCertificateV1QualifiesNoOtherProvider {
+    True,
+}
+
+impl serde::Serialize for CrossSubstratePortabilityCertificateV1QualifiesNoOtherProvider {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: serde::Serializer,
+    {
+        serializer.serialize_bool(true)
+    }
+}
+
+impl<'de> serde::Deserialize<'de>
+    for CrossSubstratePortabilityCertificateV1QualifiesNoOtherProvider
+{
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let value = <bool as serde::Deserialize>::deserialize(deserializer)?;
+        if value == true {
+            Ok(Self::True)
+        } else {
+            Err(serde::de::Error::custom(r#"expected boolean literal true"#))
+        }
+    }
+}
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct GoldenFixture {
     pub contract_id: &'static str,
@@ -186425,6 +186847,142 @@ pub const ARCHITECTURE_CONTRACT_FIXTURES: &[GoldenFixture] = &[
         expected_accept: false,
         expected_schema_accept: true,
         expected_failure: Some("invariant"),
+        expected_rule_id: None,
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/hypervisor/cross-substrate-portability-certificate/v1",
+        path: "docs/architecture/_meta/schemas/fixtures/cross-substrate-portability-certificate-v1/positive-sovereign-local-and-live-external.json",
+        expected_accept: true,
+        expected_schema_accept: true,
+        expected_failure: None,
+        expected_rule_id: None,
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/hypervisor/cross-substrate-portability-certificate/v1",
+        path: "docs/architecture/_meta/schemas/fixtures/cross-substrate-portability-certificate-v1/positive-two-live-lanes-that-observed-no-effect.json",
+        expected_accept: true,
+        expected_schema_accept: true,
+        expected_failure: None,
+        expected_rule_id: None,
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/hypervisor/cross-substrate-portability-certificate/v1",
+        path: "docs/architecture/_meta/schemas/fixtures/cross-substrate-portability-certificate-v1/negative-a-difference-with-no-reason.json",
+        expected_accept: false,
+        expected_schema_accept: false,
+        expected_failure: Some("schema"),
+        expected_rule_id: None,
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/hypervisor/cross-substrate-portability-certificate/v1",
+        path: "docs/architecture/_meta/schemas/fixtures/cross-substrate-portability-certificate-v1/negative-a-third-leg.json",
+        expected_accept: false,
+        expected_schema_accept: false,
+        expected_failure: Some("schema"),
+        expected_rule_id: None,
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/hypervisor/cross-substrate-portability-certificate/v1",
+        path: "docs/architecture/_meta/schemas/fixtures/cross-substrate-portability-certificate-v1/negative-an-invariant-member-dropped.json",
+        expected_accept: false,
+        expected_schema_accept: false,
+        expected_failure: Some("schema"),
+        expected_rule_id: None,
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/hypervisor/cross-substrate-portability-certificate/v1",
+        path: "docs/architecture/_meta/schemas/fixtures/cross-substrate-portability-certificate-v1/negative-an-invented-disposition.json",
+        expected_accept: false,
+        expected_schema_accept: false,
+        expected_failure: Some("schema"),
+        expected_rule_id: None,
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/hypervisor/cross-substrate-portability-certificate/v1",
+        path: "docs/architecture/_meta/schemas/fixtures/cross-substrate-portability-certificate-v1/negative-an-invented-verifier-verdict.json",
+        expected_accept: false,
+        expected_schema_accept: false,
+        expected_failure: Some("schema"),
+        expected_rule_id: None,
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/hypervisor/cross-substrate-portability-certificate/v1",
+        path: "docs/architecture/_meta/schemas/fixtures/cross-substrate-portability-certificate-v1/negative-both-legs-the-same-binding.json",
+        expected_accept: false,
+        expected_schema_accept: true,
+        expected_failure: Some("invariant"),
+        expected_rule_id: None,
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/hypervisor/cross-substrate-portability-certificate/v1",
+        path: "docs/architecture/_meta/schemas/fixtures/cross-substrate-portability-certificate-v1/negative-both-legs-the-same-family.json",
+        expected_accept: false,
+        expected_schema_accept: true,
+        expected_failure: Some("invariant"),
+        expected_rule_id: None,
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/hypervisor/cross-substrate-portability-certificate/v1",
+        path: "docs/architecture/_meta/schemas/fixtures/cross-substrate-portability-certificate-v1/negative-claims-authority.json",
+        expected_accept: false,
+        expected_schema_accept: false,
+        expected_failure: Some("schema"),
+        expected_rule_id: None,
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/hypervisor/cross-substrate-portability-certificate/v1",
+        path: "docs/architecture/_meta/schemas/fixtures/cross-substrate-portability-certificate-v1/negative-no-permitted-differences-at-all.json",
+        expected_accept: false,
+        expected_schema_accept: false,
+        expected_failure: Some("schema"),
+        expected_rule_id: None,
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/hypervisor/cross-substrate-portability-certificate/v1",
+        path: "docs/architecture/_meta/schemas/fixtures/cross-substrate-portability-certificate-v1/negative-no-workload-content-hash.json",
+        expected_accept: false,
+        expected_schema_accept: false,
+        expected_failure: Some("schema"),
+        expected_rule_id: None,
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/hypervisor/cross-substrate-portability-certificate/v1",
+        path: "docs/architecture/_meta/schemas/fixtures/cross-substrate-portability-certificate-v1/negative-one-member-two-reasons.json",
+        expected_accept: false,
+        expected_schema_accept: true,
+        expected_failure: Some("invariant"),
+        expected_rule_id: None,
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/hypervisor/cross-substrate-portability-certificate/v1",
+        path: "docs/architecture/_meta/schemas/fixtures/cross-substrate-portability-certificate-v1/negative-only-one-leg.json",
+        expected_accept: false,
+        expected_schema_accept: false,
+        expected_failure: Some("schema"),
+        expected_rule_id: None,
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/hypervisor/cross-substrate-portability-certificate/v1",
+        path: "docs/architecture/_meta/schemas/fixtures/cross-substrate-portability-certificate-v1/negative-qualifies-another-provider.json",
+        expected_accept: false,
+        expected_schema_accept: false,
+        expected_failure: Some("schema"),
+        expected_rule_id: None,
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/hypervisor/cross-substrate-portability-certificate/v1",
+        path: "docs/architecture/_meta/schemas/fixtures/cross-substrate-portability-certificate-v1/negative-root-does-not-recompute.json",
+        expected_accept: false,
+        expected_schema_accept: true,
+        expected_failure: Some("invariant"),
+        expected_rule_id: None,
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/hypervisor/cross-substrate-portability-certificate/v1",
+        path: "docs/architecture/_meta/schemas/fixtures/cross-substrate-portability-certificate-v1/negative-says-the-families-are-the-same.json",
+        expected_accept: false,
+        expected_schema_accept: false,
+        expected_failure: Some("schema"),
         expected_rule_id: None,
     },
 ];
@@ -209356,6 +209914,193 @@ pub const ARCHITECTURE_CONTRACT_DIFFERENTIAL_CASES: &[ArchitectureContractDiffer
         oracle_contract_accept: false,
     },
     ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/cross-substrate-portability-certificate-v1/positive-sovereign-local-and-live-external.json"#,
+        contract_id: r#"schema://ioi/hypervisor/cross-substrate-portability-certificate/v1"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/cross-substrate-portability-certificate-v1/positive-sovereign-local-and-live-external.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: true,
+        oracle_contract_accept: true,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/cross-substrate-portability-certificate-v1/positive-two-live-lanes-that-observed-no-effect.json"#,
+        contract_id: r#"schema://ioi/hypervisor/cross-substrate-portability-certificate/v1"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/cross-substrate-portability-certificate-v1/positive-two-live-lanes-that-observed-no-effect.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: true,
+        oracle_contract_accept: true,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/cross-substrate-portability-certificate-v1/negative-a-difference-with-no-reason.json"#,
+        contract_id: r#"schema://ioi/hypervisor/cross-substrate-portability-certificate/v1"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/cross-substrate-portability-certificate-v1/negative-a-difference-with-no-reason.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: false,
+        oracle_contract_accept: false,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/cross-substrate-portability-certificate-v1/negative-a-third-leg.json"#,
+        contract_id: r#"schema://ioi/hypervisor/cross-substrate-portability-certificate/v1"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/cross-substrate-portability-certificate-v1/negative-a-third-leg.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: false,
+        oracle_contract_accept: false,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/cross-substrate-portability-certificate-v1/negative-an-invariant-member-dropped.json"#,
+        contract_id: r#"schema://ioi/hypervisor/cross-substrate-portability-certificate/v1"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/cross-substrate-portability-certificate-v1/negative-an-invariant-member-dropped.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: false,
+        oracle_contract_accept: false,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/cross-substrate-portability-certificate-v1/negative-an-invented-disposition.json"#,
+        contract_id: r#"schema://ioi/hypervisor/cross-substrate-portability-certificate/v1"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/cross-substrate-portability-certificate-v1/negative-an-invented-disposition.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: false,
+        oracle_contract_accept: false,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/cross-substrate-portability-certificate-v1/negative-an-invented-verifier-verdict.json"#,
+        contract_id: r#"schema://ioi/hypervisor/cross-substrate-portability-certificate/v1"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/cross-substrate-portability-certificate-v1/negative-an-invented-verifier-verdict.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: false,
+        oracle_contract_accept: false,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/cross-substrate-portability-certificate-v1/negative-both-legs-the-same-binding.json"#,
+        contract_id: r#"schema://ioi/hypervisor/cross-substrate-portability-certificate/v1"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/cross-substrate-portability-certificate-v1/negative-both-legs-the-same-binding.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: true,
+        oracle_contract_accept: false,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/cross-substrate-portability-certificate-v1/negative-both-legs-the-same-family.json"#,
+        contract_id: r#"schema://ioi/hypervisor/cross-substrate-portability-certificate/v1"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/cross-substrate-portability-certificate-v1/negative-both-legs-the-same-family.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: true,
+        oracle_contract_accept: false,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/cross-substrate-portability-certificate-v1/negative-claims-authority.json"#,
+        contract_id: r#"schema://ioi/hypervisor/cross-substrate-portability-certificate/v1"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/cross-substrate-portability-certificate-v1/negative-claims-authority.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: false,
+        oracle_contract_accept: false,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/cross-substrate-portability-certificate-v1/negative-no-permitted-differences-at-all.json"#,
+        contract_id: r#"schema://ioi/hypervisor/cross-substrate-portability-certificate/v1"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/cross-substrate-portability-certificate-v1/negative-no-permitted-differences-at-all.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: false,
+        oracle_contract_accept: false,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/cross-substrate-portability-certificate-v1/negative-no-workload-content-hash.json"#,
+        contract_id: r#"schema://ioi/hypervisor/cross-substrate-portability-certificate/v1"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/cross-substrate-portability-certificate-v1/negative-no-workload-content-hash.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: false,
+        oracle_contract_accept: false,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/cross-substrate-portability-certificate-v1/negative-one-member-two-reasons.json"#,
+        contract_id: r#"schema://ioi/hypervisor/cross-substrate-portability-certificate/v1"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/cross-substrate-portability-certificate-v1/negative-one-member-two-reasons.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: true,
+        oracle_contract_accept: false,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/cross-substrate-portability-certificate-v1/negative-only-one-leg.json"#,
+        contract_id: r#"schema://ioi/hypervisor/cross-substrate-portability-certificate/v1"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/cross-substrate-portability-certificate-v1/negative-only-one-leg.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: false,
+        oracle_contract_accept: false,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/cross-substrate-portability-certificate-v1/negative-qualifies-another-provider.json"#,
+        contract_id: r#"schema://ioi/hypervisor/cross-substrate-portability-certificate/v1"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/cross-substrate-portability-certificate-v1/negative-qualifies-another-provider.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: false,
+        oracle_contract_accept: false,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/cross-substrate-portability-certificate-v1/negative-root-does-not-recompute.json"#,
+        contract_id: r#"schema://ioi/hypervisor/cross-substrate-portability-certificate/v1"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/cross-substrate-portability-certificate-v1/negative-root-does-not-recompute.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: true,
+        oracle_contract_accept: false,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/cross-substrate-portability-certificate-v1/negative-says-the-families-are-the-same.json"#,
+        contract_id: r#"schema://ioi/hypervisor/cross-substrate-portability-certificate/v1"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/cross-substrate-portability-certificate-v1/negative-says-the-families-are-the-same.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: false,
+        oracle_contract_accept: false,
+    },
+    ArchitectureContractDifferentialCase {
         id: r#"mutation:sequence-zero-receipt-timestamp-detached"#,
         contract_id: r#"schema://ioi/foundations/autonomous-system-sequence-zero-materialization-receipt/v2"#,
         source_fixture_path: None,
@@ -211121,6 +211866,7 @@ const CONTRACT_SCHEMAS: &[(&str, &str)] = &[
     ("schema://ioi/foundations/compliance-audit-export-bundle/v1", r##"{"$schema":"https://json-schema.org/draft/2020-12/schema","$id":"schema://ioi/foundations/compliance-audit-export-bundle/v1","title":"ComplianceAuditExportBundle","x-ioi-schema-version":"ioi.foundations.compliance-audit-export-bundle.v1","description":"AN EXPORT MANIFEST OVER EVIDENCE THAT ALREADY EXISTS, FOR ONE NAMED AUDIENCE — not a storage backend, not a screenshot bundle, not a legal opinion, and not a replacement for Agentgres truth. Canon requires an export to make THREE things obvious, and this shape makes each of them a member rather than a habit: what was included and why; what was redacted, withheld, protected or excluded AND WHY; and which policy, authority, retention, restricted-view, receipt and state-root refs support it. THE AUDIENCE IS A MEMBER BECAUSE THE WRONG ONE IS THE FAILURE MODE — ACC-18's first clause is that a wrong audience fails offline, so an export carries who it was built for and a reader can refuse it without asking anyone. EXCLUSION IS TYPED, NEVER SILENT: a ref that did not travel names the reason it did not, from a closed set, because a bundle that simply omits what it could not release is indistinguishable from one that had nothing to release. And a replay or proof view MUST NOT BYPASS THE MANIFEST: raw private payloads stay under storage, retention, restricted-view and authority policy, so `protected_payload_refs` names them and never carries them. Owner: foundations/ecosystem-assurance-certification-liability.md § ComplianceAuditExportBundle (M06.10, R-228).","type":"object","additionalProperties":false,"required":["schema_version","export_id","export_type","subject_refs","audience","jurisdiction_policy_pack_refs","policy_decision_refs","authority_refs","redaction_profile_ref","export_policy_ref","export_manifest","generated_by_ref","generated_at","validity","status","legal_conformity_claim","carries_no_protected_plaintext","bypasses_no_export_manifest","export_root","recorded_by_ref"],"properties":{"schema_version":{"type":"string","const":"ioi.foundations.compliance-audit-export-bundle.v1"},"export_id":{"type":"string","pattern":"^audit_export://[^\\s?#\\\\]{1,200}$"},"export_type":{"type":"string","enum":["customer_audit","auditor_review","regulator_request","counterparty_dispute","procurement_review","internal_control","tax_report","sla_report","incident_review"]},"subject_refs":{"type":"array","minItems":1,"maxItems":512,"uniqueItems":true,"items":{"$ref":"#/$defs/ref"},"description":"What the export is ABOUT. An export over no subject is a document with no scope, and scope is what a reader checks an audience against."},"audience":{"type":"string","enum":["customer","external_auditor","regulator","counterparty","insurer","procurement","internal_auditor","public"],"description":"WHO IT WAS BUILT FOR, and the reason this is a member at all: ACC-18's first clause is that the WRONG AUDIENCE fails offline. A bundle whose audience is implicit can only be checked by asking its author."},"jurisdiction_policy_pack_refs":{"type":"array","maxItems":128,"uniqueItems":true,"items":{"type":"string","pattern":"^jurisdiction_policy_pack://[^\\s?#\\\\]{1,200}$"}},"regulated_action_refs":{"$ref":"#/$defs/refList"},"policy_decision_refs":{"type":"array","maxItems":512,"uniqueItems":true,"items":{"$ref":"#/$defs/ref"},"description":"The decisions this export rests on — `jurisdiction_decision://`, a receipt, or the policy itself. Each one carries its own `legal_conformity_claim: not_determined`, and nothing here upgrades that."},"approval_receipt_refs":{"$ref":"#/$defs/refList"},"denial_receipt_refs":{"$ref":"#/$defs/refList","description":"Denials travel WITH approvals. An export that carried only what was approved would be a selected record, and a selected record is the thing an audit exists to catch."},"authority_refs":{"type":"array","maxItems":256,"uniqueItems":true,"items":{"type":"string","pattern":"^(?:authority|grant|lease)://[^\\s]{1,400}$"},"description":"Which authority supported the export itself. Canon: the manifest must name the authority refs that support it."},"evidence_bundle_refs":{"$ref":"#/$defs/refList"},"receipt_refs":{"$ref":"#/$defs/refList"},"replay_refs":{"$ref":"#/$defs/refList"},"retention_lock_refs":{"$ref":"#/$defs/refList"},"restricted_view_refs":{"$ref":"#/$defs/refList"},"redaction_profile_ref":{"$ref":"#/$defs/policyRef"},"export_policy_ref":{"$ref":"#/$defs/policyRef"},"declassification_refs":{"$ref":"#/$defs/refList"},"export_manifest":{"type":"object","additionalProperties":false,"required":["included_refs","redacted_refs","protected_payload_refs","excluded_refs","exclusion_reasons"],"description":"THE THREE THINGS CANON REQUIRES AN EXPORT TO MAKE OBVIOUS, as five members. Every list is present even when empty, because an omitted list and an empty list mean different things and only one of them is a statement.","properties":{"included_refs":{"$ref":"#/$defs/refList"},"redacted_refs":{"$ref":"#/$defs/refList","description":"Travelled, with parts removed under the redaction profile."},"protected_payload_refs":{"$ref":"#/$defs/refList","description":"NAMED BUT NOT CARRIED. Raw private payloads stay under storage, retention, restricted-view and authority policy; this list says they exist and where authority for them would be sought. An export that inlined one would be the bypass canon forbids."},"excluded_refs":{"$ref":"#/$defs/refList"},"exclusion_reasons":{"type":"array","maxItems":512,"description":"ONE TYPED REASON PER EXCLUDED REF, from the closed set canon names. A bundle that omitted what it could not release without saying why is indistinguishable from one that had nothing to release.","items":{"type":"object","additionalProperties":false,"required":["excluded_ref","reason"],"properties":{"excluded_ref":{"$ref":"#/$defs/ref"},"reason":{"type":"string","enum":["retention_locked","restricted_view","no_export_authority","protected_plaintext","unrelated","expired","policy_blocked"]}}}}}},"commercial_refs":{"type":"object","additionalProperties":false,"required":["invoice_refs","cost_center_refs","sla_report_refs","tax_export_refs","purchase_order_refs"],"properties":{"invoice_refs":{"$ref":"#/$defs/refList"},"cost_center_refs":{"$ref":"#/$defs/refList"},"sla_report_refs":{"$ref":"#/$defs/refList"},"tax_export_refs":{"$ref":"#/$defs/refList"},"purchase_order_refs":{"$ref":"#/$defs/refList"}}},"settlement_mode":{"type":"string","enum":["local_domain","bilateral","invoice","external_escrow","external_chain","ioi_l1"]},"settlement_profile_ref":{"$ref":"#/$defs/policyRef"},"network_enrollment_ref":{"anyOf":[{"type":"string","pattern":"^network-enrollment://[^\\s]{1,400}$"},{"type":"null"}]},"public_commitment_policy_ref":{"anyOf":[{"$ref":"#/$defs/policyRef"},{"type":"null"}]},"public_commitment_refs":{"$ref":"#/$defs/refList"},"generated_by_ref":{"type":"string","pattern":"^(?:agentgres|runtime)://[^\\s]{1,400}$","description":"An operation or runtime that already exists. The export is generated BY the estate's own machinery, not by the bundle."},"generated_at":{"$ref":"#/$defs/timestamp"},"validity":{"type":"string","enum":["valid","incomplete","stale","disputed","revoked"],"description":"`incomplete` and `stale` are first-class, not failure states: an export built while evidence was unavailable says so, rather than presenting a partial record as a whole one."},"status":{"type":"string","enum":["requested","generated","delivered","revoked","superseded","expired"]},"legal_conformity_claim":{"type":"string","const":"not_determined","description":"The same word the decision carries, for the same reason. Composing many decisions, receipts and evidence bundles into one package does not add up to a legal determination, and an export is exactly where someone would expect it to."},"carries_no_protected_plaintext":{"type":"boolean","const":true,"description":"On the wire: protected payloads are NAMED in the manifest and never inlined here."},"bypasses_no_export_manifest":{"type":"boolean","const":true,"description":"Canon: a replay or proof view must not bypass the export manifest. An export that offered a replay ref as a way around its own redactions would be a hole shaped exactly like a feature."},"export_root":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$","description":"SHA-256 over JCS of every member except this one, so a delivered bundle can be shown to be the one that was generated — which is what makes `revoked` and `superseded` mean anything."},"recorded_by_ref":{"type":"string","pattern":"^[a-z][a-z0-9+.-]*://[^\\s]{1,400}$","description":"THE RECORDER, STAMPED BY THE PLANE AND NEVER AUTHORED. This record is scoped to whoever recorded it, and without an owner it would admit successfully and then be readable by nobody — which is exactly what happened before this member existed, and what the unit's live leg caught. The plane refuses a caller-supplied value outright rather than correcting it and resolves the actor itself, so the scope a read is checked against is never one the caller chose. It is EXCLUDED from the root for the same reason a seam binding is: the caller seals the record before the server stamps it."}},"$defs":{"ref":{"type":"string","pattern":"^[a-z][a-z0-9+._-]*://[^\\s]{1,400}$"},"policyRef":{"type":"string","pattern":"^policy://[^\\s]{1,400}$"},"refList":{"type":"array","maxItems":1024,"uniqueItems":true,"items":{"$ref":"#/$defs/ref"}},"timestamp":{"type":"string","pattern":"^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$"}}}"##),
     ("schema://ioi/foundations/regulated-workload-assurance-profile/v1", r##"{"$schema":"https://json-schema.org/draft/2020-12/schema","$id":"schema://ioi/foundations/regulated-workload-assurance-profile/v1","title":"RegulatedWorkloadAssuranceProfile","x-ioi-schema-version":"ioi.foundations.regulated-workload-assurance-profile.v1","description":"WHAT A REGULATED OR SENSITIVE WORKLOAD MUST BIND BEFORE IT MAY RUN — as refs at revisions, and nothing restated. This object is a COMPOSITION, not a declaration: residency, retention, deletion and export are owned by the bound JurisdictionPolicyPack's `data_requirements`, and purpose, allowed uses, data classes, redaction, retention-and-hold and destination-and-egress are owned by the bound PolicyBoundDataView revision. A member copied inline here would be a second copy of a rule, free to drift from the policy it was copied from, which is the second spine the estate's structural law forbids. TWO WORDS THAT NAME SEVERAL OBJECTS ARE DELIBERATELY NOT USED BARE: `custody` spans credential custody, process custody, data locality and custody tier, and `egress` spans a tool contract's egress_policy, a view's destination_and_egress and a connectivity profile's no_egress scope — so every binding below names the exact member of the exact owner, because a profile requiring a bare `custody` would bind whichever of them its reader assumed and a gate would go green on the wrong object. `unowned_bindings` ARE REQUIRED AND NOTHING IN THE ESTATE RESOLVES THEM: data-processor terms, key control and access logging are obligations canon places on a regulated workload, and a profile that omitted them would let such a workload be admitted with no access log at all. A required ref with no resolver states the obligation and refuses the admission until the owner exists. Owner: foundations/ecosystem-assurance-certification-liability.md § RegulatedWorkloadAssuranceProfile (M09.9, R-230/R-231).","type":"object","additionalProperties":false,"required":["schema_version","profile_id","version","issued_at","supersedes_ref","subject","policy_bindings","route_bindings","custody_bindings","operational_bindings","unowned_bindings","grants_no_authority","is_not_legal_advice","recorded_by_ref","profile_root"],"properties":{"schema_version":{"type":"string","const":"ioi.foundations.regulated-workload-assurance-profile.v1"},"profile_id":{"$ref":"#/$defs/profileRef"},"version":{"type":"string","pattern":"^(?:0|[1-9][0-9]*)[.](?:0|[1-9][0-9]*)[.](?:0|[1-9][0-9]*)$","description":"Semver, and load-bearing: an admission case names the exact profile version it was evaluated under, so a changed binding cannot pass as the profile that was already admitted against."},"issued_at":{"$ref":"#/$defs/timestamp"},"supersedes_ref":{"anyOf":[{"$ref":"#/$defs/profileRef"},{"type":"null"}],"description":"The profile this one replaces, or null for the first. Explicit rather than omitted, so a successor chain is a fact on the wire instead of an inference from timestamps."},"subject":{"type":"object","additionalProperties":false,"required":["workload_ref","declared_purpose","privacy_class"],"description":"The workload this profile governs and the purpose it declared. `declared_purpose` is one half of the comparison that decides `binding_broader_than_purpose`; the other half is the bound view's own `allowed_uses`.","properties":{"workload_ref":{"type":"string","pattern":"^(?:worker|task|workflow)://[^\\s?#\\\\]{1,200}$"},"declared_purpose":{"type":"string","minLength":12,"maxLength":400,"description":"Stated by the workload's owner and never derived from what the workload happens to do. A purpose short enough to be a label cannot be compared against a view's allowed uses, so a floor is enforced here rather than left to a reviewer."},"privacy_class":{"type":"string","enum":["confidential","restricted","regulated","safety_critical"],"description":"The four TaskEnvelope privacy classes that require this profile. `public` and `internal` are absent deliberately: a profile for a workload that needs none is a profile that means nothing."}}},"policy_bindings":{"type":"object","additionalProperties":false,"required":["jurisdiction_policy_pack_ref","jurisdiction_policy_pack_version","policy_bound_data_view_ref","policy_bound_data_view_revision_ref"],"description":"The two owners that already hold most of this unit's obligations. The pack carries residency, retention, deletion and export; the view carries purpose, allowed uses, data classes, redaction, retention-and-hold and destination-and-egress. Both are bound at an EXACT version or revision, because binding a name rather than a revision is what makes `binding_stale` and `binding_substituted` undetectable.","properties":{"jurisdiction_policy_pack_ref":{"type":"string","pattern":"^jurisdiction_policy_pack://[^\\s?#\\\\]{1,200}$"},"jurisdiction_policy_pack_version":{"type":"string","pattern":"^(?:0|[1-9][0-9]*)[.](?:0|[1-9][0-9]*)[.](?:0|[1-9][0-9]*)$"},"policy_bound_data_view_ref":{"type":"string","pattern":"^policy_bound_data_view://[^\\s?#\\\\]{1,200}$"},"policy_bound_data_view_revision_ref":{"type":"string","pattern":"^revision://[^\\s?#\\\\]{1,200}$"}}},"route_bindings":{"type":"object","additionalProperties":false,"required":["model_route_revision_refs","tool_contract_revision_refs"],"description":"Every model or tool route the workload may use, at the revision it may use. A list that may be empty is honest for a workload that invokes neither; a list that names a route the estate never admitted is what `binding_substituted` refuses.","properties":{"model_route_revision_refs":{"type":"array","maxItems":64,"items":{"type":"string","pattern":"^model_route_revision://[^\\s?#\\\\]{1,200}$"}},"tool_contract_revision_refs":{"type":"array","maxItems":64,"items":{"type":"string","pattern":"^runtime_tool_contract_revision://[^\\s?#\\\\]{1,200}$"}}}},"custody_bindings":{"type":"object","additionalProperties":false,"required":["credential_custody_profile_ref","process_custody","locality_and_custody_refs"],"description":"Three DISTINCT custody facts, named separately because they are separate objects with separate owners. Collapsing them into one `custody` member is the conflation this profile exists to avoid.","properties":{"credential_custody_profile_ref":{"anyOf":[{"type":"string","pattern":"^credential_custody_profile://[^\\s?#\\\\]{1,200}$"},{"type":"null"}],"description":"Null when the workload holds no credential at all — which is a stated fact, not an omission."},"process_custody":{"type":"string","enum":["local","brokered","delegated_attested"]},"locality_and_custody_refs":{"type":"array","minItems":1,"maxItems":32,"items":{"type":"string","pattern":"^(?:policy|custody)://[^\\s?#\\\\]{1,400}$"}}}},"operational_bindings":{"type":"object","additionalProperties":false,"required":["incident_hold_policy_ref","backup_policy_ref","retention_class_ref"],"description":"Incident handling, backup and retention class. Each is a ref to the plane that owns it; none is restated here.","properties":{"incident_hold_policy_ref":{"$ref":"#/$defs/policyRef"},"backup_policy_ref":{"$ref":"#/$defs/policyRef"},"retention_class_ref":{"type":"string","pattern":"^retention_class://[^\\s?#\\\\]{1,200}$"}}},"unowned_bindings":{"type":"object","additionalProperties":false,"required":["data_processor_terms_ref","key_control_ref","access_log_binding_ref"],"description":"REQUIRED REFS WITH NO RESOLVER. Measured 2026-09-22: `data_processor`/`subprocessor`/`processor_terms`, `key_control`/`key_custody`/`kms`/`hsm` and `access_log`/`audit_log`/`read_log`/`access_record` return zero hits in the 351-schema registry and zero in the daemon route modules, under every one of those names. They are required anyway, because canon places these obligations on a regulated workload and a profile that dropped them would admit such a workload with no access log. The plane refuses `binding_owner_absent` naming which one, and that refusal is this unit's named absence rather than a gap in it. Removing a member here is a governed act.","properties":{"data_processor_terms_ref":{"type":"string","pattern":"^data_processor_terms://[^\\s?#\\\\]{1,200}$"},"key_control_ref":{"type":"string","pattern":"^key_control://[^\\s?#\\\\]{1,200}$"},"access_log_binding_ref":{"type":"string","pattern":"^access_log_binding://[^\\s?#\\\\]{1,200}$"}}},"grants_no_authority":{"type":"boolean","const":true,"description":"On the wire, because the profile names routes, custody and scopes-adjacent policy and a reader could take that for a grant. It requires; it never issues."},"is_not_legal_advice":{"type":"boolean","const":true,"description":"On the wire for the same reason the pack carries it: this object is adjacent enough to regulatory obligation that the disclaimer belongs in the shape rather than in a document someone may not read."},"recorded_by_ref":{"type":"string","pattern":"^[a-z][a-z0-9+.-]*://[^\\s]{1,400}$","description":"THE RECORDER, STAMPED BY THE PLANE AND NEVER AUTHORED. This profile is scoped to whoever recorded it; without an owner it would admit successfully and then be readable by nobody, which is the defect M06.10's live leg caught one unit earlier. The plane refuses a caller-supplied value outright rather than correcting it, and resolves the actor itself, so the scope a read is checked against is never one the caller chose. EXCLUDED from the root, because the caller seals the profile before the server stamps it."},"profile_root":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$","description":"SHA-256 over JCS of every member except this one and `recorded_by_ref`. An admission case binds this root rather than the profile's name, so editing a binding in place breaks every case already recorded against the profile instead of silently rewriting what they were evaluated against."}},"$defs":{"profileRef":{"type":"string","pattern":"^regulated_workload_assurance_profile://[^\\s?#\\\\]{1,200}$"},"policyRef":{"type":"string","pattern":"^policy://[^\\s]{1,400}$"},"timestamp":{"type":"string","pattern":"^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$"}}}"##),
     ("schema://ioi/foundations/regulated-workload-admission-case/v1", r##"{"$schema":"https://json-schema.org/draft/2020-12/schema","$id":"schema://ioi/foundations/regulated-workload-admission-case/v1","title":"RegulatedWorkloadAdmissionCase","x-ioi-schema-version":"ioi.foundations.regulated-workload-admission-case.v1","description":"ONE EVALUATION OF ONE WORKLOAD AGAINST ONE PROFILE REVISION — technical assurance evidence, and never a legal determination. `legal_conformity_claim` is pinned to the constant `not_determined` on the wire, inherited from the rule M06.10 put there rather than restated: no binding check, no admitted verdict and no complete profile is a legal conclusion about the workload. THE FOUR REFUSALS CANON NAMES, AND WHICH LAYER CAN MAKE EACH: `binding_missing` and `binding_broader_than_purpose` are decidable from the shapes themselves, because the bound view carries both the declared purpose and the allowed uses, so this contract can refuse them. `binding_stale` and `binding_substituted` are NOT — they need the ADMITTED revision to compare against, which only the daemon holds, so a profile naming a pack, view or route revision the estate never admitted, or one its owner has since superseded, is refused by the plane and by nothing else. `binding_owner_absent` is the fifth and is this unit's named absence: the profile's three unowned bindings have no resolver anywhere, so a regulated admission is refused by name until each owner lands. A REFUSED EVALUATION MUTATES NOTHING — it does not quarantine the workload, revoke a lease or narrow a policy, because those verbs belong to the owners the profile binds and a refusal is a statement about evidence, not an action against a subject. Owner: foundations/ecosystem-assurance-certification-liability.md § RegulatedWorkloadAdmissionCase (M09.9, R-230/R-231).","type":"object","additionalProperties":false,"required":["schema_version","case_id","profile_ref","profile_version","profile_root","evaluated_at","verdict","refusals","legal_conformity_claim","grants_no_authority","performs_no_action","recorded_by_ref","case_root"],"properties":{"schema_version":{"type":"string","const":"ioi.foundations.regulated-workload-admission-case.v1"},"case_id":{"type":"string","pattern":"^regulated_workload_admission_case://[^\\s?#\\\\]{1,200}$"},"profile_ref":{"type":"string","pattern":"^regulated_workload_assurance_profile://[^\\s?#\\\\]{1,200}$"},"profile_version":{"type":"string","pattern":"^(?:0|[1-9][0-9]*)[.](?:0|[1-9][0-9]*)[.](?:0|[1-9][0-9]*)$"},"profile_root":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$","description":"The exact profile content this case was evaluated against. Binding the root rather than the name is what stops an in-place edit of a binding from silently rewriting what an already-recorded case decided."},"evaluated_at":{"$ref":"#/$defs/timestamp"},"verdict":{"type":"string","enum":["admitted","refused"]},"refusals":{"type":"array","maxItems":64,"description":"Empty exactly when the verdict is `admitted`. Every entry names the member it is about, so a refusal is actionable rather than a mood.","items":{"type":"object","additionalProperties":false,"required":["reason","member","detail"],"properties":{"reason":{"type":"string","enum":["binding_missing","binding_stale","binding_substituted","binding_broader_than_purpose","binding_owner_absent"]},"member":{"type":"string","minLength":3,"maxLength":200,"description":"The exact profile member this refusal is about, dotted from the profile root — for example `policy_bindings.policy_bound_data_view_revision_ref`. A refusal that cannot say which member it means cannot be acted on."},"detail":{"type":"string","minLength":12,"maxLength":600}}}},"legal_conformity_claim":{"type":"string","const":"not_determined","description":"CANON'S OWN WORD, PINNED SO A LEGAL VERDICT IS UNREPRESENTABLE. No score, admitted verdict, complete binding set or current evidence is a legal determination. Inherited from the rule M06.10 registered; this object consumes that refusal rather than restating it."},"grants_no_authority":{"type":"boolean","const":true},"performs_no_action":{"type":"boolean","const":true,"description":"A refused evaluation quarantines nothing, revokes nothing and narrows nothing. Those verbs belong to the owners the profile binds."},"recorded_by_ref":{"type":"string","pattern":"^[a-z][a-z0-9+.-]*://[^\\s]{1,400}$","description":"THE RECORDER, STAMPED BY THE PLANE AND NEVER AUTHORED. This case is scoped to whoever recorded it; without an owner it would admit successfully and then be readable by nobody, which is the defect M06.10's live leg caught one unit earlier. EXCLUDED from the root, because the caller seals the case before the server stamps it."},"case_root":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$","description":"SHA-256 over JCS of every member except this one and `recorded_by_ref`."}},"$defs":{"timestamp":{"type":"string","pattern":"^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$"}}}"##),
+    ("schema://ioi/hypervisor/cross-substrate-portability-certificate/v1", r#"{"$schema":"https://json-schema.org/draft/2020-12/schema","$id":"schema://ioi/hypervisor/cross-substrate-portability-certificate/v1","title":"CrossSubstratePortabilityCertificate","x-ioi-schema-version":"ioi.hypervisor.cross-substrate-portability-certificate.v1","description":"ONE EXACT WORKLOAD ACROSS TWO SUBSTRATE FAMILIES, AND THE RECORD OF WHAT AGREED. Measured 2026-09-22, three of this unit's four natural assertions are already true by construction and therefore unfalsifiable: `HypervisorWorkloadEffectReconciliationReceipt` has no member that can name a provider (its operation counts are integers, its disposition a closed pair), `workload_effect_boundary.rs` names no provider in production at all, and the eight candidate sources share one operation vocabulary. A certificate resting on those would prove nothing. WHAT CAN FAIL IS AGREEMENT, so this object is a DIFF: `invariant_members` carries the values BOTH legs produced and may only be assembled when they matched, and `permitted_differences` names each member that legitimately differs TOGETHER WITH ITS REASON — because a permitted difference with no reason is exactly where a real divergence hides. `substrate_families_differ` is const true because a certificate over one family twice would read as a crossing while proving nothing, and `qualifies_no_other_provider` is const true because this object qualifies substrate portability and does NOT make either provider an authority owner or claim any other registered provider is live-qualified. Owner: components/hypervisor/byo-provider-plane.md § Cross-Substrate Authority And Reconciliation Portability (M09.10, R-233).","type":"object","additionalProperties":false,"required":["schema_version","certificate_id","workload_ref","workload_content_hash","result_policy_ref","legs","invariant_members","permitted_differences","substrate_families_differ","grants_no_authority","qualifies_no_other_provider","certificate_root"],"properties":{"schema_version":{"type":"string","const":"ioi.hypervisor.cross-substrate-portability-certificate.v1"},"certificate_id":{"type":"string","pattern":"^cross_substrate_portability://[^\\s?#\\\\]{1,200}$"},"workload_ref":{"type":"string","pattern":"^workload://[^\\s?#\\\\]{1,200}$","description":"ONE workload, named once. Both legs bind this same ref; a certificate cannot be assembled over two different workloads that merely resemble each other."},"workload_content_hash":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$","description":"The content address of what actually ran. The unit's demand is ONE EXACT content-addressed workload through two families, so this is the member that makes \"exact\" checkable rather than asserted — two legs whose workload hashes differ did not run the same thing, however alike their refs look."},"result_policy_ref":{"type":"string","pattern":"^policy://[^\\s]{1,400}$"},"legs":{"type":"array","minItems":2,"maxItems":2,"description":"Exactly two. Not \"at least two\": a third leg would make the diff below ambiguous about which pair it compared, and this certificate's whole content is one comparison.","items":{"type":"object","additionalProperties":false,"required":["substrate_family","provider_binding_ref","capability_ref","isolation_binding_ref","reconciliation_receipt_ref","certificate_ref"],"properties":{"substrate_family":{"type":"string","minLength":2,"maxLength":64,"description":"The adapter family exactly as the estate names it. Deliberately NOT a closed enum: the eight families are a naming convention over eight modules and not a trait, so an enum here would be a second list to drift from the first. The invariant that the two differ is stated separately and checked."},"provider_binding_ref":{"type":"string","pattern":"^provider_binding://[^\\s?#\\\\]{1,200}$"},"capability_ref":{"type":"string","pattern":"^capability://[^\\s?#\\\\]{1,200}$"},"isolation_binding_ref":{"type":"string","pattern":"^isolation_binding://[^\\s?#\\\\]{1,200}$"},"reconciliation_receipt_ref":{"type":"string","pattern":"^receipt://[^\\s?#\\\\]{1,200}$"},"certificate_ref":{"anyOf":[{"type":"string","pattern":"^c8_certificate://[^\\s?#\\\\]{1,200}$"},{"type":"null"}],"description":"The leg's own bounded-live-effect certificate when the leg was live, and null when it was the sovereign-local lane. Null is a stated fact about which lane ran, never an omission."}}}},"invariant_members":{"type":"object","additionalProperties":false,"required":["request_hash","disposition","observed_phase","cleanup_verified","original_effect_reinvoked","offline_verifier_verdict"],"description":"THE VALUES BOTH LEGS PRODUCED. This object exists only when they matched — a disagreement is a typed non-success report and never a certificate carrying a note about it. Each member is read from the leg's own reconciliation receipt, not restated by the assembler.","properties":{"request_hash":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"},"disposition":{"type":"string","enum":["no_effect_observed","cleanup_succeeded"],"description":"The reconciliation receipt's own closed pair, carried here unchanged rather than re-derived."},"observed_phase":{"type":"string","minLength":1,"maxLength":64},"cleanup_verified":{"type":"boolean"},"original_effect_reinvoked":{"type":"boolean","description":"Must agree across the legs like everything else here. A crossing where one substrate re-invoked the original effect and the other did not is the clearest possible portability failure, and it is one a per-leg assertion would pass twice."},"offline_verifier_verdict":{"type":"string","enum":["accepted","rejected"],"description":"The SAME offline verifier over each leg's bundle, with no provider-specific code path. Carried as an invariant because a verifier that accepts one leg and rejects the other has found the divergence this certificate exists to catch."}}},"permitted_differences":{"type":"array","minItems":1,"maxItems":32,"description":"Every member that legitimately differs between the legs, each WITH THE REASON it differs. Non-empty by construction: the lease and isolation refs always differ because each leg holds its own, so a certificate claiming nothing differed has not been assembled from two real legs.","items":{"type":"object","additionalProperties":false,"required":["member","reason"],"properties":{"member":{"type":"string","minLength":3,"maxLength":200},"reason":{"type":"string","minLength":20,"maxLength":400,"description":"Why this member may differ without the crossing being a failure. A floor is enforced because \"differs\" is not a reason, and an unreasoned entry here is how a real divergence would be parked."}}}},"substrate_families_differ":{"type":"boolean","const":true,"description":"On the wire, because the entire claim is vacuous if both legs ran the same family and a certificate over one family twice would still read as a crossing."},"grants_no_authority":{"type":"boolean","const":true},"qualifies_no_other_provider":{"type":"boolean","const":true,"description":"This object qualifies substrate PORTABILITY for the two families it names. It does not make either provider an authority owner, and it says nothing about any registered provider it did not cross."},"certificate_root":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$","description":"SHA-256 over JCS of every member except this one."}}}"#),
 ];
 
 const CONTRACT_INVARIANTS: &[(&str, &str)] = &[
@@ -211477,6 +212223,7 @@ const CONTRACT_INVARIANTS: &[(&str, &str)] = &[
     ("schema://ioi/foundations/compliance-audit-export-bundle/v1", r#"[{"rule_id":"compliance_audit_export_bundle.every_exclusion_is_reasoned","description":"CANON'S SECOND OBLIGATION, MADE COUNTABLE: an export must make obvious what was redacted, withheld, protected or excluded AND WHY. The schema can require both lists; only this rule can require that they correspond. An export with excluded refs and no reasons has withheld evidence silently, which is indistinguishable from having had none — and that is precisely the reading an audit exists to prevent.","expression":{"operator":"non_empty_when_in","path":"$.export_manifest.exclusion_reasons","when_path":"$.status","values":["generated","delivered"]}},{"rule_id":"compliance_audit_export_bundle.one_reason_per_excluded_ref","description":"Each excluded ref carries exactly one typed reason. Two reasons for one ref let a reader choose the more comfortable one, and `retention_locked` and `no_export_authority` are very different statements about the same withheld artifact.","expression":{"operator":"array_unique_by_fields","array_path":"$.export_manifest.exclusion_reasons","fields":["excluded_ref"]}},{"rule_id":"compliance_audit_export_bundle.a_generated_export_names_its_supporting_authority","description":"Canon: the manifest must name which policy, authority, retention, restricted-view, receipt and state-root refs SUPPORT the export. A generated bundle with no authority behind it is a package somebody assembled, and the question an auditor asks first is who was allowed to assemble it.","expression":{"operator":"non_empty_when_in","path":"$.authority_refs","when_path":"$.status","values":["generated","delivered"]}},{"rule_id":"compliance_audit_export_bundle.root.recomputes","description":"The export root seals the manifest, the audience and the decisions it rests on, so a DELIVERED bundle can be shown to be the one that was GENERATED. Without it `revoked` and `superseded` are labels on something that could have changed underneath them.","expression":{"operator":"jcs_sha256_equals","algorithm":"jcs_sha256","expected_path":"$.export_root","expected_encoding":"sha256_string","material_fields":{"schema_version":{"path":"$.schema_version"},"export_id":{"path":"$.export_id"},"export_type":{"path":"$.export_type"},"subject_refs":{"path":"$.subject_refs"},"audience":{"path":"$.audience"},"jurisdiction_policy_pack_refs":{"path":"$.jurisdiction_policy_pack_refs"},"policy_decision_refs":{"path":"$.policy_decision_refs"},"authority_refs":{"path":"$.authority_refs"},"redaction_profile_ref":{"path":"$.redaction_profile_ref"},"export_policy_ref":{"path":"$.export_policy_ref"},"export_manifest":{"path":"$.export_manifest"},"generated_by_ref":{"path":"$.generated_by_ref"},"generated_at":{"path":"$.generated_at"},"validity":{"path":"$.validity"},"status":{"path":"$.status"},"legal_conformity_claim":{"path":"$.legal_conformity_claim"},"carries_no_protected_plaintext":{"path":"$.carries_no_protected_plaintext"},"bypasses_no_export_manifest":{"path":"$.bypasses_no_export_manifest"}}}}]"#),
     ("schema://ioi/foundations/regulated-workload-assurance-profile/v1", r#"[{"rule_id":"regulated_workload_assurance_profile.does_not_supersede_itself","description":"A profile that names itself as the one it supersedes has turned a CHAIN into an edit. An admission case binds the profile root, so self-supersession is how a changed binding is made to look like the same profile that was already admitted against.","expression":{"operator":"fields_not_equal","paths":["$.profile_id","$.supersedes_ref"]}},{"rule_id":"regulated_workload_assurance_profile.root.recomputes","description":"THE SEAL. An admission case binds this root rather than the profile's name, so a binding edited in place no longer recomputes and every case already recorded against the profile breaks its binding instead of being silently reinterpreted against content it was never evaluated under. This is what makes `binding_substituted` mean something at the profile level as well as the plane level.","expression":{"operator":"jcs_sha256_equals","algorithm":"jcs_sha256","expected_path":"$.profile_root","expected_encoding":"sha256_string","material_fields":{"schema_version":{"path":"$.schema_version"},"profile_id":{"path":"$.profile_id"},"version":{"path":"$.version"},"issued_at":{"path":"$.issued_at"},"supersedes_ref":{"path":"$.supersedes_ref"},"subject":{"path":"$.subject"},"policy_bindings":{"path":"$.policy_bindings"},"route_bindings":{"path":"$.route_bindings"},"custody_bindings":{"path":"$.custody_bindings"},"operational_bindings":{"path":"$.operational_bindings"},"unowned_bindings":{"path":"$.unowned_bindings"},"grants_no_authority":{"path":"$.grants_no_authority"},"is_not_legal_advice":{"path":"$.is_not_legal_advice"}}}}]"#),
     ("schema://ioi/foundations/regulated-workload-admission-case/v1", r#"[{"rule_id":"regulated_workload_admission_case.refused_says_why","description":"A case that refuses and lists no refusal is the worst shape this object can take: it stops a regulated workload and tells nobody which binding failed, so the owner cannot fix it and a reader cannot tell a real refusal from a bug. JSON Schema cannot tie an array's emptiness to another member's value without a conditional the Rust projection will not carry, so the law lives here where every consumer reads it.","expression":{"operator":"non_empty_when_in","path":"$.refusals","when_path":"$.verdict","values":["refused"]}},{"rule_id":"regulated_workload_admission_case.one_reason_per_member","description":"The same reason recorded twice against the same member turns a count of problems into a count of entries. A member that is both stale and substituted is two DIFFERENT reasons and both belong; the same reason twice is a duplicate, and a profile with fifteen bindings should never produce forty refusals.","expression":{"operator":"array_unique_by_fields","fields":["reason","member"],"array_path":"$.refusals"}},{"rule_id":"regulated_workload_admission_case.root.recomputes","description":"THE SEAL over the evaluation. The case names the profile version AND the profile root it was evaluated against, and seals its own verdict and refusals, so neither the question asked nor the answer given can be edited after the fact while still reading as the case that was recorded.","expression":{"operator":"jcs_sha256_equals","algorithm":"jcs_sha256","expected_path":"$.case_root","expected_encoding":"sha256_string","material_fields":{"schema_version":{"path":"$.schema_version"},"case_id":{"path":"$.case_id"},"profile_ref":{"path":"$.profile_ref"},"profile_version":{"path":"$.profile_version"},"profile_root":{"path":"$.profile_root"},"evaluated_at":{"path":"$.evaluated_at"},"verdict":{"path":"$.verdict"},"refusals":{"path":"$.refusals"},"legal_conformity_claim":{"path":"$.legal_conformity_claim"},"grants_no_authority":{"path":"$.grants_no_authority"},"performs_no_action":{"path":"$.performs_no_action"}}}}]"#),
+    ("schema://ioi/hypervisor/cross-substrate-portability-certificate/v1", r#"[{"rule_id":"cross_substrate_portability_certificate.the_two_families_differ","description":"THE CLAIM IS VACUOUS IF BOTH LEGS RAN THE SAME FAMILY. `substrate_families_differ` is const true on the wire, but a const is an assertion the document makes about itself and nothing in JSON Schema can check it against the legs actually present — comparing two array elements is beyond what the projection carries. So the law lives here, where it can be said plainly: leg one's family and leg two's family are not the same string. A certificate over one family twice would otherwise satisfy every other rule in this file and still prove nothing about portability.","expression":{"operator":"fields_not_equal","paths":["$.legs[0].substrate_family","$.legs[1].substrate_family"]}},{"rule_id":"cross_substrate_portability_certificate.the_legs_are_distinct_bindings","description":"Two legs naming the same provider binding are one leg recorded twice. The families differing is not enough on its own: a mislabelled family over a single binding would pass the rule above while the crossing never happened.","expression":{"operator":"fields_not_equal","paths":["$.legs[0].provider_binding_ref","$.legs[1].provider_binding_ref"]}},{"rule_id":"cross_substrate_portability_certificate.each_permitted_difference_is_named_once","description":"The same member listed twice with two reasons turns a reviewed exception into a pair of them, and lets a second, weaker reason ride in behind a first that a reader already accepted. One member, one reason.","expression":{"operator":"array_unique_by_fields","fields":["member"],"array_path":"$.permitted_differences"}},{"rule_id":"cross_substrate_portability_certificate.root.recomputes","description":"THE SEAL. The certificate records that two legs agreed on six members; if those recorded values can be edited after the fact, the agreement it reports is not the agreement that was observed. Sealing the legs together with the invariants is what stops a later hand from moving one leg's disposition to match the other's.","expression":{"operator":"jcs_sha256_equals","algorithm":"jcs_sha256","expected_path":"$.certificate_root","expected_encoding":"sha256_string","material_fields":{"schema_version":{"path":"$.schema_version"},"certificate_id":{"path":"$.certificate_id"},"workload_ref":{"path":"$.workload_ref"},"workload_content_hash":{"path":"$.workload_content_hash"},"result_policy_ref":{"path":"$.result_policy_ref"},"legs":{"path":"$.legs"},"invariant_members":{"path":"$.invariant_members"},"permitted_differences":{"path":"$.permitted_differences"},"substrate_families_differ":{"path":"$.substrate_families_differ"},"grants_no_authority":{"path":"$.grants_no_authority"},"qualifies_no_other_provider":{"path":"$.qualifies_no_other_provider"}}}}]"#),
 ];
 
 const CONTRACT_PATTERN_TRANSLATIONS: &[(&str, &str)] = &[
@@ -213465,6 +214212,10 @@ const CONTRACT_PATTERN_TRANSLATIONS: &[(&str, &str)] = &[
         r#"^build://[^\u{0009}-\u{000D}\u{0020}\u{00A0}\u{1680}\u{2000}-\u{200A}\u{2028}\u{2029}\u{202F}\u{205F}\u{3000}\u{FEFF}]+$"#,
     ),
     (
+        r#"^c8_certificate://[^\s?#\\]{1,200}$"#,
+        r#"^c8_certificate://[^\u{0009}-\u{000D}\u{0020}\u{00A0}\u{1680}\u{2000}-\u{200A}\u{2028}\u{2029}\u{202F}\u{205F}\u{3000}\u{FEFF}?#\\]{1,200}$"#,
+    ),
+    (
         r#"^caip10:[-a-z0-9]{3,8}:[-_a-zA-Z0-9]{1,32}:[-.%a-zA-Z0-9]{1,128}$"#,
         r#"^caip10:[-a-z0-9]{3,8}:[-_a-zA-Z0-9]{1,32}:[-.%a-zA-Z0-9]{1,128}$"#,
     ),
@@ -213479,6 +214230,10 @@ const CONTRACT_PATTERN_TRANSLATIONS: &[(&str, &str)] = &[
     (
         r#"^capability-offer://[^\s]{1,500}$"#,
         r#"^capability-offer://[^\u{0009}-\u{000D}\u{0020}\u{00A0}\u{1680}\u{2000}-\u{200A}\u{2028}\u{2029}\u{202F}\u{205F}\u{3000}\u{FEFF}]{1,500}$"#,
+    ),
+    (
+        r#"^capability://[^\s?#\\]{1,200}$"#,
+        r#"^capability://[^\u{0009}-\u{000D}\u{0020}\u{00A0}\u{1680}\u{2000}-\u{200A}\u{2028}\u{2029}\u{202F}\u{205F}\u{3000}\u{FEFF}?#\\]{1,200}$"#,
     ),
     (
         r#"^caveat://[^\s]+$"#,
@@ -213669,6 +214424,10 @@ const CONTRACT_PATTERN_TRANSLATIONS: &[(&str, &str)] = &[
     (
         r#"^credential_custody_profile://[^\s?#\\]{1,200}$"#,
         r#"^credential_custody_profile://[^\u{0009}-\u{000D}\u{0020}\u{00A0}\u{1680}\u{2000}-\u{200A}\u{2028}\u{2029}\u{202F}\u{205F}\u{3000}\u{FEFF}?#\\]{1,200}$"#,
+    ),
+    (
+        r#"^cross_substrate_portability://[^\s?#\\]{1,200}$"#,
+        r#"^cross_substrate_portability://[^\u{0009}-\u{000D}\u{0020}\u{00A0}\u{1680}\u{2000}-\u{200A}\u{2028}\u{2029}\u{202F}\u{205F}\u{3000}\u{FEFF}?#\\]{1,200}$"#,
     ),
     (
         r#"^custody-profile://[A-Za-z0-9][A-Za-z0-9._:/@-]*$"#,
@@ -214250,6 +215009,10 @@ const CONTRACT_PATTERN_TRANSLATIONS: &[(&str, &str)] = &[
     (
         r#"^ioi://publisher/[^\s]{1,224}$"#,
         r#"^ioi://publisher/[^\u{0009}-\u{000D}\u{0020}\u{00A0}\u{1680}\u{2000}-\u{200A}\u{2028}\u{2029}\u{202F}\u{205F}\u{3000}\u{FEFF}]{1,224}$"#,
+    ),
+    (
+        r#"^isolation_binding://[^\s?#\\]{1,200}$"#,
+        r#"^isolation_binding://[^\u{0009}-\u{000D}\u{0020}\u{00A0}\u{1680}\u{2000}-\u{200A}\u{2028}\u{2029}\u{202F}\u{205F}\u{3000}\u{FEFF}?#\\]{1,200}$"#,
     ),
     (
         r#"^jurisdiction://[a-z0-9][a-z0-9._/-]{0,190}$"#,
@@ -214944,6 +215707,10 @@ const CONTRACT_PATTERN_TRANSLATIONS: &[(&str, &str)] = &[
         r#"^provider-profile://[A-Za-z0-9][A-Za-z0-9._:/-]*@sha256:[0-9a-f]{64}$"#,
     ),
     (
+        r#"^provider_binding://[^\s?#\\]{1,200}$"#,
+        r#"^provider_binding://[^\u{0009}-\u{000D}\u{0020}\u{00A0}\u{1680}\u{2000}-\u{200A}\u{2028}\u{2029}\u{202F}\u{205F}\u{3000}\u{FEFF}?#\\]{1,200}$"#,
+    ),
+    (
         r#"^qualification-proposal://foundry/[^\s]{1,500}$"#,
         r#"^qualification-proposal://foundry/[^\u{0009}-\u{000D}\u{0020}\u{00A0}\u{1680}\u{2000}-\u{200A}\u{2028}\u{2029}\u{202F}\u{205F}\u{3000}\u{FEFF}]{1,500}$"#,
     ),
@@ -214990,6 +215757,10 @@ const CONTRACT_PATTERN_TRANSLATIONS: &[(&str, &str)] = &[
     (
         r#"^receipt://[A-Za-z0-9._~:/-]+$"#,
         r#"^receipt://[A-Za-z0-9._~:/-]+$"#,
+    ),
+    (
+        r#"^receipt://[^\s?#\\]{1,200}$"#,
+        r#"^receipt://[^\u{0009}-\u{000D}\u{0020}\u{00A0}\u{1680}\u{2000}-\u{200A}\u{2028}\u{2029}\u{202F}\u{205F}\u{3000}\u{FEFF}?#\\]{1,200}$"#,
     ),
     (
         r#"^receipt://[^\s]+$"#,
@@ -215786,6 +216557,10 @@ const CONTRACT_PATTERN_TRANSLATIONS: &[(&str, &str)] = &[
     (
         r#"^workflow-template://[^\s?#\\]{1,160}/revision/sha256:[0-9a-f]{64}$"#,
         r#"^workflow-template://[^\u{0009}-\u{000D}\u{0020}\u{00A0}\u{1680}\u{2000}-\u{200A}\u{2028}\u{2029}\u{202F}\u{205F}\u{3000}\u{FEFF}?#\\]{1,160}/revision/sha256:[0-9a-f]{64}$"#,
+    ),
+    (
+        r#"^workload://[^\s?#\\]{1,200}$"#,
+        r#"^workload://[^\u{0009}-\u{000D}\u{0020}\u{00A0}\u{1680}\u{2000}-\u{200A}\u{2028}\u{2029}\u{202F}\u{205F}\u{3000}\u{FEFF}?#\\]{1,200}$"#,
     ),
     (
         r#"^workload://[^\s]{1,248}$"#,
@@ -218874,6 +219649,23 @@ mod tests {
     ("docs/architecture/_meta/schemas/fixtures/regulated-workload-admission-case-v1/negative-one-reason-twice-for-one-member.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/regulated-workload-admission-case-v1/negative-one-reason-twice-for-one-member.json"))),
     ("docs/architecture/_meta/schemas/fixtures/regulated-workload-admission-case-v1/negative-refuses-and-says-nothing.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/regulated-workload-admission-case-v1/negative-refuses-and-says-nothing.json"))),
     ("docs/architecture/_meta/schemas/fixtures/regulated-workload-admission-case-v1/negative-root-does-not-recompute.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/regulated-workload-admission-case-v1/negative-root-does-not-recompute.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/cross-substrate-portability-certificate-v1/positive-sovereign-local-and-live-external.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/cross-substrate-portability-certificate-v1/positive-sovereign-local-and-live-external.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/cross-substrate-portability-certificate-v1/positive-two-live-lanes-that-observed-no-effect.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/cross-substrate-portability-certificate-v1/positive-two-live-lanes-that-observed-no-effect.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/cross-substrate-portability-certificate-v1/negative-a-difference-with-no-reason.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/cross-substrate-portability-certificate-v1/negative-a-difference-with-no-reason.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/cross-substrate-portability-certificate-v1/negative-a-third-leg.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/cross-substrate-portability-certificate-v1/negative-a-third-leg.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/cross-substrate-portability-certificate-v1/negative-an-invariant-member-dropped.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/cross-substrate-portability-certificate-v1/negative-an-invariant-member-dropped.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/cross-substrate-portability-certificate-v1/negative-an-invented-disposition.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/cross-substrate-portability-certificate-v1/negative-an-invented-disposition.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/cross-substrate-portability-certificate-v1/negative-an-invented-verifier-verdict.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/cross-substrate-portability-certificate-v1/negative-an-invented-verifier-verdict.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/cross-substrate-portability-certificate-v1/negative-both-legs-the-same-binding.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/cross-substrate-portability-certificate-v1/negative-both-legs-the-same-binding.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/cross-substrate-portability-certificate-v1/negative-both-legs-the-same-family.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/cross-substrate-portability-certificate-v1/negative-both-legs-the-same-family.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/cross-substrate-portability-certificate-v1/negative-claims-authority.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/cross-substrate-portability-certificate-v1/negative-claims-authority.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/cross-substrate-portability-certificate-v1/negative-no-permitted-differences-at-all.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/cross-substrate-portability-certificate-v1/negative-no-permitted-differences-at-all.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/cross-substrate-portability-certificate-v1/negative-no-workload-content-hash.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/cross-substrate-portability-certificate-v1/negative-no-workload-content-hash.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/cross-substrate-portability-certificate-v1/negative-one-member-two-reasons.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/cross-substrate-portability-certificate-v1/negative-one-member-two-reasons.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/cross-substrate-portability-certificate-v1/negative-only-one-leg.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/cross-substrate-portability-certificate-v1/negative-only-one-leg.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/cross-substrate-portability-certificate-v1/negative-qualifies-another-provider.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/cross-substrate-portability-certificate-v1/negative-qualifies-another-provider.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/cross-substrate-portability-certificate-v1/negative-root-does-not-recompute.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/cross-substrate-portability-certificate-v1/negative-root-does-not-recompute.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/cross-substrate-portability-certificate-v1/negative-says-the-families-are-the-same.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/cross-substrate-portability-certificate-v1/negative-says-the-families-are-the-same.json"))),
     ];
     const RAW_STRING_DELIMITER_REGRESSION_SCHEMA: &str =
         r####"{"const":"schema-controlled\"###literal"}"####;
@@ -220642,6 +221434,11 @@ mod tests {
         },
         "schema://ioi/foundations/regulated-workload-admission-case/v1" => {
             serde_json::from_value::<RegulatedWorkloadAdmissionCaseV1>(value.clone())
+                .map(|_| ())
+                .map_err(|error| error.to_string())
+        },
+        "schema://ioi/hypervisor/cross-substrate-portability-certificate/v1" => {
+            serde_json::from_value::<CrossSubstratePortabilityCertificateV1>(value.clone())
                 .map(|_| ())
                 .map_err(|error| error.to_string())
         },
@@ -222416,6 +223213,11 @@ mod tests {
                 .map_err(|error| error.to_string())?;
             serde_json::to_value(projection).map_err(|error| error.to_string())
         },
+        "schema://ioi/hypervisor/cross-substrate-portability-certificate/v1" => {
+            let projection = serde_json::from_value::<CrossSubstratePortabilityCertificateV1>(value.clone())
+                .map_err(|error| error.to_string())?;
+            serde_json::to_value(projection).map_err(|error| error.to_string())
+        },
             _ => Err(format!("unknown projection: {contract_id}")),
         }
     }
@@ -222552,8 +223354,8 @@ mod tests {
     fn golden_fixtures_match_generated_rust_contracts() {
         assert_eq!(
             ARCHITECTURE_CONTRACT_FIXTURES.len(),
-            1937,
-            "the registered golden corpus must remain the explicit 1937-fixture bar",
+            1954,
+            "the registered golden corpus must remain the explicit 1954-fixture bar",
         );
         for fixture in ARCHITECTURE_CONTRACT_FIXTURES {
             let body = FIXTURE_BODIES
@@ -222795,7 +223597,7 @@ mod tests {
 
     #[test]
     fn registered_ecma_pattern_translations_compile_and_match_whitespace() {
-        assert_eq!(CONTRACT_PATTERN_TRANSLATIONS.len(), 1122,);
+        assert_eq!(CONTRACT_PATTERN_TRANSLATIONS.len(), 1129,);
         for (ecma, translated) in CONTRACT_PATTERN_TRANSLATIONS {
             Regex::new(translated).unwrap_or_else(|error| panic!("{ecma}: {error}"));
         }
