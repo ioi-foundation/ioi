@@ -1,0 +1,93 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "schema://ioi/foundations/optimization-target-adapter/v1",
+  "title": "OptimizationTargetAdapter",
+  "x-ioi-schema-version": "ioi.foundations.optimization-target-adapter.v1",
+  "description": "HOW A TARGET OWNER'S PLANE PARTICIPATES WITHOUT ITS SHAPE BEING ABSORBED. The adapter is what lets Foundry's existing `ExperimentOptimizationCycleEnvelope` take part while neither object is rewritten. THREE REFUSALS DEFINE IT, each naming a different way an unadapted target could slip in: `missing_adapter` — a target class with no registered adapter cannot enter a cycle at all, because an unadapted target is not one this estate can reason about; `cross_version` — an adapter whose `accepts_envelope_schema` is not the envelope actually offered is refused rather than tried, because an adapter that guesses is a translator inventing meaning; `downgrade` — an adapter emitting an older schema than it accepted is refused, since a cycle that silently lowers its own wire version loses whatever the newer one added. THE FIRST NORMALIZATION IS ONE CANON ALREADY SPECIFIED: the deprecated `target_training_pipeline_ref` is accepted only by a versioned adapter that normalizes it to `target_ref` with `target_class: training_pipeline`, and CANONICAL STATE DOES NOT EMIT BOTH — a record carrying the deprecated key and the canonical pair together has not been normalized, it has been annotated. That last law is a cross-member conditional the portable operator set cannot express, so it lives in the deriver and is named there. Owner: foundations/objects/model-foundry-and-training.md § OptimizationTargetAdapter (M10.8, R-237).",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "adapter_id",
+    "target_class",
+    "adapter_version",
+    "accepts_envelope_schema",
+    "emits_envelope_schema",
+    "normalizations",
+    "owner_ref"
+  ],
+  "properties": {
+    "schema_version": {
+      "type": "string",
+      "const": "ioi.foundations.optimization-target-adapter.v1"
+    },
+    "adapter_id": {
+      "type": "string",
+      "pattern": "^optadapter://[^\\s?#\\\\]{1,200}$"
+    },
+    "target_class": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 400
+    },
+    "adapter_version": {
+      "type": "string",
+      "pattern": "^(?:0|[1-9][0-9]*)[.](?:0|[1-9][0-9]*)[.](?:0|[1-9][0-9]*)$"
+    },
+    "accepts_envelope_schema": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 400,
+      "description": "The EXACT schema_version this adapter reads. Exact rather than a range, because a range is how an adapter comes to guess."
+    },
+    "emits_envelope_schema": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 400
+    },
+    "normalizations": {
+      "type": "array",
+      "maxItems": 64,
+      "description": "Empty is legitimate: an adapter for a class whose envelope already speaks the canonical shape normalizes nothing and exists to declare that.",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "deprecated_key",
+          "canonical_key",
+          "canonical_value"
+        ],
+        "properties": {
+          "deprecated_key": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 400
+          },
+          "canonical_key": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 400
+          },
+          "canonical_value": {
+            "anyOf": [
+              {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 200
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "The value the canonical key takes when this normalization fires, or null when the deprecated key's own value carries over unchanged."
+          }
+        }
+      }
+    },
+    "owner_ref": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 400
+    }
+  }
+}

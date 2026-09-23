@@ -1,0 +1,198 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "schema://ioi/foundations/capability-construction-cycle/v1",
+  "title": "CapabilityConstructionCycleEnvelope",
+  "x-ioi-schema-version": "ioi.foundations.capability-construction-cycle.v1",
+  "description": "THE GENERIC SUBORDINATE CYCLE, beside Foundry's own specialized one. `ExperimentOptimizationCycleEnvelope` stays Foundry-owned and is neither the generic owner nor a prerequisite for one; it participates here only through a versioned `OptimizationTargetAdapter`. TWO LAWS ARE ON THE WIRE AS CONSTANTS RATHER THAN LEFT TO A READER. `optimizer_is_not_a_model`: `optimizer_ref` is exactly `worker://`, `conductor://` or `runtime://`, and a frontier, open or local model is REPLACEABLE COGNITION mounted through that actor's HarnessInvocation and ModelRoute — never the optimizer identity and never a truth owner, because swapping the model behind an optimizer must change nothing about who ran the cycle. `selection_confers_eligibility_only`: the optimizer cannot evaluate or promote itself, activate, publish, authorize, or rewrite the target envelope; a selection is an experiment-local result under declared policies and not campaign nomination, evaluation truth or release authority. FOUR SEPARATE DISPOSITION LISTS, not one list with a status member: collapsing them makes \"we did not try that\" and \"we tried it and it failed\" the same sentence, and canon requires every failed, rejected, inconclusive and exploit trial to survive its own verdict. Owner: foundations/objects/model-foundry-and-training.md § CapabilityConstructionCycleEnvelope (M10.8, R-237).",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "construction_cycle_id",
+    "target_ref",
+    "target_class",
+    "target_owner_ref",
+    "baseline_target_ref",
+    "baseline_target_root",
+    "resolved_component_snapshot_ref",
+    "optimizer_ref",
+    "search_policy_ref",
+    "objective_and_guardrail_policy_ref",
+    "resource_normalization_ref",
+    "budget_policy_ref",
+    "stop_policy_ref",
+    "improvement_campaign_ref",
+    "evaluation_epoch_ref",
+    "trial_refs",
+    "accepted_change_refs",
+    "rejected_change_refs",
+    "inconclusive_change_refs",
+    "exploit_or_invalid_change_refs",
+    "repair_proposal_refs",
+    "selection_confers_eligibility_only",
+    "optimizer_is_not_a_model",
+    "receipt_root",
+    "status"
+  ],
+  "properties": {
+    "schema_version": {
+      "type": "string",
+      "const": "ioi.foundations.capability-construction-cycle.v1"
+    },
+    "construction_cycle_id": {
+      "type": "string",
+      "pattern": "^constrcycle://[^\\s?#\\\\]{1,200}$"
+    },
+    "target_ref": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 400
+    },
+    "target_class": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 400,
+      "description": "The OWNING PLANE's own class name, deliberately not a closed enum here: canon lists a dozen valid targets and names more as they land, so an enum in this contract would be a second list to drift from the owners'. The adapter is what makes a class admissible, and a class with no registered adapter is refused there."
+    },
+    "target_owner_ref": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 400
+    },
+    "baseline_target_ref": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 400
+    },
+    "baseline_target_root": {
+      "type": "string",
+      "pattern": "^sha256:[0-9a-f]{64}$"
+    },
+    "resolved_component_snapshot_ref": {
+      "type": "string",
+      "pattern": "^artifact://[^\\s?#\\\\]{1,200}$"
+    },
+    "optimizer_ref": {
+      "type": "string",
+      "pattern": "^(?:worker|conductor|runtime)://[^\\s?#\\\\]{1,200}$",
+      "description": "AN ACTOR, NEVER A MODEL. The three schemes are the whole vocabulary: a model named here would be a truth owner, and it is not one."
+    },
+    "search_policy_ref": {
+      "type": "string",
+      "pattern": "^(?:policy|budget)://[^\\s]{1,400}$"
+    },
+    "objective_and_guardrail_policy_ref": {
+      "type": "string",
+      "pattern": "^(?:policy|budget)://[^\\s]{1,400}$"
+    },
+    "resource_normalization_ref": {
+      "type": "string",
+      "pattern": "^(?:policy|budget)://[^\\s]{1,400}$"
+    },
+    "budget_policy_ref": {
+      "type": "string",
+      "pattern": "^(?:policy|budget)://[^\\s]{1,400}$"
+    },
+    "stop_policy_ref": {
+      "type": "string",
+      "pattern": "^(?:policy|budget)://[^\\s]{1,400}$"
+    },
+    "improvement_campaign_ref": {
+      "anyOf": [
+        {
+          "type": "string",
+          "pattern": "^improvement-campaign://[^\\s?#\\\\]{1,200}$"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "description": "Null for an ordinary bounded cycle. A cycle may run without a campaign; when present it names the frozen contract that admitted the cycle and its evaluation."
+    },
+    "evaluation_epoch_ref": {
+      "anyOf": [
+        {
+          "type": "string",
+          "pattern": "^evaluation-epoch://[^\\s?#\\\\]{1,200}$"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "trial_refs": {
+      "type": "array",
+      "maxItems": 4096,
+      "items": {
+        "type": "string",
+        "pattern": "^trial://[^\\s?#\\\\]{1,200}$"
+      }
+    },
+    "accepted_change_refs": {
+      "type": "array",
+      "maxItems": 512,
+      "items": {
+        "type": "string",
+        "pattern": "^(?:artifact|proposal)://[^\\s?#\\\\]{1,200}$"
+      }
+    },
+    "rejected_change_refs": {
+      "type": "array",
+      "maxItems": 512,
+      "items": {
+        "type": "string",
+        "pattern": "^(?:artifact|proposal)://[^\\s?#\\\\]{1,200}$"
+      },
+      "description": "PRESERVED, not discarded. A cycle that kept only what worked cannot explain how it got there."
+    },
+    "inconclusive_change_refs": {
+      "type": "array",
+      "maxItems": 512,
+      "items": {
+        "type": "string",
+        "pattern": "^(?:artifact|proposal)://[^\\s?#\\\\]{1,200}$"
+      },
+      "description": "Distinct from rejected: a trial that could not be decided is not a trial that failed."
+    },
+    "exploit_or_invalid_change_refs": {
+      "type": "array",
+      "maxItems": 512,
+      "items": {
+        "type": "string",
+        "pattern": "^(?:artifact|proposal)://[^\\s?#\\\\]{1,200}$"
+      },
+      "description": "A trial that gamed the objective rather than satisfying it. Kept separate because an exploit is evidence about the OBJECTIVE, not about the target."
+    },
+    "repair_proposal_refs": {
+      "type": "array",
+      "maxItems": 512,
+      "items": {
+        "type": "string",
+        "pattern": "^repair-proposal://[^\\s?#\\\\]{1,200}$"
+      }
+    },
+    "selection_confers_eligibility_only": {
+      "type": "boolean",
+      "const": true
+    },
+    "optimizer_is_not_a_model": {
+      "type": "boolean",
+      "const": true
+    },
+    "receipt_root": {
+      "type": "string",
+      "pattern": "^sha256:[0-9a-f]{64}$"
+    },
+    "status": {
+      "type": "string",
+      "enum": [
+        "planned",
+        "running",
+        "stopped",
+        "proposed_for_review",
+        "failed",
+        "rejected"
+      ]
+    }
+  }
+}

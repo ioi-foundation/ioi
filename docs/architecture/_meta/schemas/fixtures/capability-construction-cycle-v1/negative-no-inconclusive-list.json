@@ -1,0 +1,39 @@
+{
+  "schema_version": "ioi.foundations.capability-construction-cycle.v1",
+  "construction_cycle_id": "constrcycle://acme/connector-mapping-tuning/7",
+  "target_ref": "connector-mapping://acme/salesforce-contacts",
+  "target_class": "connector_mapping",
+  "target_owner_ref": "org://acme/integrations",
+  "baseline_target_ref": "connector-mapping://acme/salesforce-contacts@11",
+  "baseline_target_root": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+  "resolved_component_snapshot_ref": "artifact://acme/snapshot/7",
+  "optimizer_ref": "worker://acme/mapping-optimizer",
+  "search_policy_ref": "policy://acme/search/bounded",
+  "objective_and_guardrail_policy_ref": "policy://acme/objective/mapping-f1",
+  "resource_normalization_ref": "budget://acme/normalization/cpu-seconds",
+  "budget_policy_ref": "policy://acme/budget/tuning",
+  "stop_policy_ref": "policy://acme/stop/48-trials",
+  "improvement_campaign_ref": null,
+  "evaluation_epoch_ref": null,
+  "trial_refs": [
+    "trial://acme/7/1",
+    "trial://acme/7/2",
+    "trial://acme/7/3"
+  ],
+  "accepted_change_refs": [
+    "artifact://acme/change/accepted-1"
+  ],
+  "rejected_change_refs": [
+    "artifact://acme/change/rejected-1"
+  ],
+  "exploit_or_invalid_change_refs": [
+    "artifact://acme/change/exploit-1"
+  ],
+  "repair_proposal_refs": [
+    "repair-proposal://acme/7/rubric-1"
+  ],
+  "selection_confers_eligibility_only": true,
+  "optimizer_is_not_a_model": true,
+  "receipt_root": "sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+  "status": "proposed_for_review"
+}

@@ -1,0 +1,12 @@
+{
+  "schema_version": "ioi.foundations.repair-proposal.v1",
+  "repair_proposal_id": "repair-proposal://acme/7/rubric-1",
+  "clustered_failure_refs": [
+    "trial://acme/7/2",
+    "trial://acme/7/3"
+  ],
+  "change_kind": "rubric",
+  "proposed_change_ref": "proposal://acme/rubric/tighter-contact-match",
+  "applies_nothing": true,
+  "rationale": "Both failures scored the same false-positive class against ambiguous contact rows, so the rubric and not the mapping is what drew the boundary in the wrong place."
+}

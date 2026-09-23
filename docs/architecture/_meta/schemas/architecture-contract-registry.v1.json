@@ -21207,6 +21207,226 @@
           "expected_failure": "schema"
         }
       ]
+    },
+    {
+      "contract_id": "schema://ioi/foundations/capability-construction-cycle/v1",
+      "canonical_name": "CapabilityConstructionCycleEnvelope",
+      "canonical_owner_ref": "canon://docs/architecture/foundations/objects/model-foundry-and-training.md",
+      "schema_version": "ioi.foundations.capability-construction-cycle.v1",
+      "maturity": "partial",
+      "stability": "provisional",
+      "wire_format": "json",
+      "canonical_encoding_profile_ref": "encoding-profile://ioi/jcs-json/v1",
+      "evolution": {
+        "successor_of": null,
+        "successor_contract_id": null,
+        "compatibility": "initial",
+        "migration_policy": "none",
+        "predecessor_remains_valid": false,
+        "wire_mutation_policy": "forbidden",
+        "hash_impact": "signature_preimage_changed"
+      },
+      "schema_ref": "capability-construction-cycle.v1.schema.json",
+      "cross_field_invariant_refs": [],
+      "compatibility_aliases": [],
+      "generated_targets": [
+        {
+          "kind": "typescript_projection",
+          "path": "packages/hypervisor-workbench/src/runtime/generated/architecture-contracts.ts",
+          "symbol": "CapabilityConstructionCycleEnvelopeV1"
+        },
+        {
+          "kind": "rust_projection",
+          "path": "crates/types/src/app/generated/architecture_contracts.rs",
+          "symbol": "CapabilityConstructionCycleEnvelopeV1"
+        }
+      ],
+      "positive_fixture_refs": [
+        "fixtures/capability-construction-cycle-v1/positive-bounded-cycle-with-every-disposition.json",
+        "fixtures/capability-construction-cycle-v1/positive-campaign-coordinated-under-a-frozen-epoch.json"
+      ],
+      "negative_fixture_refs": [
+        {
+          "path": "fixtures/capability-construction-cycle-v1/negative-a-disposition-collapsed-into-a-status.json",
+          "expected_failure": "schema"
+        },
+        {
+          "path": "fixtures/capability-construction-cycle-v1/negative-an-invented-status.json",
+          "expected_failure": "schema"
+        },
+        {
+          "path": "fixtures/capability-construction-cycle-v1/negative-an-optimizer-that-is-a-model.json",
+          "expected_failure": "schema"
+        },
+        {
+          "path": "fixtures/capability-construction-cycle-v1/negative-an-optimizer-that-is-a-route.json",
+          "expected_failure": "schema"
+        },
+        {
+          "path": "fixtures/capability-construction-cycle-v1/negative-claims-the-optimizer-may-be-a-model.json",
+          "expected_failure": "schema"
+        },
+        {
+          "path": "fixtures/capability-construction-cycle-v1/negative-no-baseline-root.json",
+          "expected_failure": "schema"
+        },
+        {
+          "path": "fixtures/capability-construction-cycle-v1/negative-no-exploit-list.json",
+          "expected_failure": "schema"
+        },
+        {
+          "path": "fixtures/capability-construction-cycle-v1/negative-no-inconclusive-list.json",
+          "expected_failure": "schema"
+        },
+        {
+          "path": "fixtures/capability-construction-cycle-v1/negative-no-receipt-root.json",
+          "expected_failure": "schema"
+        },
+        {
+          "path": "fixtures/capability-construction-cycle-v1/negative-no-rejected-list.json",
+          "expected_failure": "schema"
+        },
+        {
+          "path": "fixtures/capability-construction-cycle-v1/negative-no-stop-policy.json",
+          "expected_failure": "schema"
+        },
+        {
+          "path": "fixtures/capability-construction-cycle-v1/negative-selection-claims-more-than-eligibility.json",
+          "expected_failure": "schema"
+        }
+      ]
+    },
+    {
+      "contract_id": "schema://ioi/foundations/repair-proposal/v1",
+      "canonical_name": "RepairProposalEnvelope",
+      "canonical_owner_ref": "canon://docs/architecture/foundations/objects/model-foundry-and-training.md",
+      "schema_version": "ioi.foundations.repair-proposal.v1",
+      "maturity": "partial",
+      "stability": "provisional",
+      "wire_format": "json",
+      "canonical_encoding_profile_ref": "encoding-profile://ioi/jcs-json/v1",
+      "evolution": {
+        "successor_of": null,
+        "successor_contract_id": null,
+        "compatibility": "initial",
+        "migration_policy": "none",
+        "predecessor_remains_valid": false,
+        "wire_mutation_policy": "forbidden",
+        "hash_impact": "signature_preimage_changed"
+      },
+      "schema_ref": "repair-proposal.v1.schema.json",
+      "cross_field_invariant_refs": [],
+      "compatibility_aliases": [],
+      "generated_targets": [
+        {
+          "kind": "typescript_projection",
+          "path": "packages/hypervisor-workbench/src/runtime/generated/architecture-contracts.ts",
+          "symbol": "RepairProposalEnvelopeV1"
+        },
+        {
+          "kind": "rust_projection",
+          "path": "crates/types/src/app/generated/architecture_contracts.rs",
+          "symbol": "RepairProposalEnvelopeV1"
+        }
+      ],
+      "positive_fixture_refs": [
+        "fixtures/repair-proposal-v1/positive-clustered-rubric-suggestion.json",
+        "fixtures/repair-proposal-v1/positive-parented-by-foundrys-own-cycle.json"
+      ],
+      "negative_fixture_refs": [
+        {
+          "path": "fixtures/repair-proposal-v1/negative-a-rationale-too-short-to-review.json",
+          "expected_failure": "schema"
+        },
+        {
+          "path": "fixtures/repair-proposal-v1/negative-an-invented-change-kind.json",
+          "expected_failure": "schema"
+        },
+        {
+          "path": "fixtures/repair-proposal-v1/negative-applies-the-change-itself.json",
+          "expected_failure": "schema"
+        },
+        {
+          "path": "fixtures/repair-proposal-v1/negative-clusters-something-that-is-not-a-trial.json",
+          "expected_failure": "schema"
+        },
+        {
+          "path": "fixtures/repair-proposal-v1/negative-no-clustered-failures.json",
+          "expected_failure": "schema"
+        },
+        {
+          "path": "fixtures/repair-proposal-v1/negative-parented-by-nothing.json",
+          "expected_failure": "schema"
+        }
+      ]
+    },
+    {
+      "contract_id": "schema://ioi/foundations/optimization-target-adapter/v1",
+      "canonical_name": "OptimizationTargetAdapter",
+      "canonical_owner_ref": "canon://docs/architecture/foundations/objects/model-foundry-and-training.md",
+      "schema_version": "ioi.foundations.optimization-target-adapter.v1",
+      "maturity": "partial",
+      "stability": "provisional",
+      "wire_format": "json",
+      "canonical_encoding_profile_ref": "encoding-profile://ioi/jcs-json/v1",
+      "evolution": {
+        "successor_of": null,
+        "successor_contract_id": null,
+        "compatibility": "initial",
+        "migration_policy": "none",
+        "predecessor_remains_valid": false,
+        "wire_mutation_policy": "forbidden",
+        "hash_impact": "signature_preimage_changed"
+      },
+      "schema_ref": "optimization-target-adapter.v1.schema.json",
+      "cross_field_invariant_refs": [],
+      "compatibility_aliases": [],
+      "generated_targets": [
+        {
+          "kind": "typescript_projection",
+          "path": "packages/hypervisor-workbench/src/runtime/generated/architecture-contracts.ts",
+          "symbol": "OptimizationTargetAdapterV1"
+        },
+        {
+          "kind": "rust_projection",
+          "path": "crates/types/src/app/generated/architecture_contracts.rs",
+          "symbol": "OptimizationTargetAdapterV1"
+        }
+      ],
+      "positive_fixture_refs": [
+        "fixtures/optimization-target-adapter-v1/positive-normalizes-the-deprecated-pipeline-key.json",
+        "fixtures/optimization-target-adapter-v1/positive-nothing-to-normalize-and-says-so.json"
+      ],
+      "negative_fixture_refs": [
+        {
+          "path": "fixtures/optimization-target-adapter-v1/negative-a-normalization-with-no-canonical-key.json",
+          "expected_failure": "schema"
+        },
+        {
+          "path": "fixtures/optimization-target-adapter-v1/negative-a-version-that-is-not-semver.json",
+          "expected_failure": "schema"
+        },
+        {
+          "path": "fixtures/optimization-target-adapter-v1/negative-an-unversioned-adapter.json",
+          "expected_failure": "schema"
+        },
+        {
+          "path": "fixtures/optimization-target-adapter-v1/negative-no-accepted-schema.json",
+          "expected_failure": "schema"
+        },
+        {
+          "path": "fixtures/optimization-target-adapter-v1/negative-no-emitted-schema.json",
+          "expected_failure": "schema"
+        },
+        {
+          "path": "fixtures/optimization-target-adapter-v1/negative-no-owner.json",
+          "expected_failure": "schema"
+        },
+        {
+          "path": "fixtures/optimization-target-adapter-v1/negative-no-target-class.json",
+          "expected_failure": "schema"
+        }
+      ]
     }
   ]
 }

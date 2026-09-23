@@ -15356,6 +15356,61 @@ export type FoundryTrainingProgramV2 = {
     } | null;
 };
 
+export type CapabilityConstructionCycleEnvelopeV1 = {
+  schema_version: "ioi.foundations.capability-construction-cycle.v1";
+  construction_cycle_id: string;
+  target_ref: string;
+  target_class: string;
+  target_owner_ref: string;
+  baseline_target_ref: string;
+  baseline_target_root: string;
+  resolved_component_snapshot_ref: string;
+  optimizer_ref: string;
+  search_policy_ref: string;
+  objective_and_guardrail_policy_ref: string;
+  resource_normalization_ref: string;
+  budget_policy_ref: string;
+  stop_policy_ref: string;
+  improvement_campaign_ref: string | null;
+  evaluation_epoch_ref: string | null;
+  trial_refs: Array<string>;
+  accepted_change_refs: Array<string>;
+  rejected_change_refs: Array<string>;
+  inconclusive_change_refs: Array<string>;
+  exploit_or_invalid_change_refs: Array<string>;
+  repair_proposal_refs: Array<string>;
+  selection_confers_eligibility_only: true;
+  optimizer_is_not_a_model: true;
+  receipt_root: string;
+  status: "planned" | "running" | "stopped" | "proposed_for_review" | "failed" | "rejected";
+};
+
+export type RepairProposalEnvelopeV1 = {
+  schema_version: "ioi.foundations.repair-proposal.v1";
+  repair_proposal_id: string;
+  parent_cycle_ref: string;
+  clustered_failure_refs: Array<string>;
+  change_kind: "data" | "recipe" | "gate" | "rubric" | "tool" | "model" | "workflow";
+  proposed_change_ref: string;
+  applies_nothing: true;
+  rationale: string;
+};
+
+export type OptimizationTargetAdapterV1 = {
+  schema_version: "ioi.foundations.optimization-target-adapter.v1";
+  adapter_id: string;
+  target_class: string;
+  adapter_version: string;
+  accepts_envelope_schema: string;
+  emits_envelope_schema: string;
+  normalizations: Array<{
+        deprecated_key: string;
+        canonical_key: string;
+        canonical_value: string | null;
+      }>;
+  owner_ref: string;
+};
+
 export const ARCHITECTURE_CONTRACT_REGISTRY_VERSION = "ioi.architecture-contract-registry.v1" as const;
 
 export const ARCHITECTURE_CONTRACT_PORTABLE_INTEGER_MINIMUM = 0 as const;
@@ -31133,6 +31188,254 @@ export const ARCHITECTURE_CONTRACT_FIXTURES = [
     "expected_schema_accept": false,
     "expected_failure": "schema",
     "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/foundations/capability-construction-cycle/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/capability-construction-cycle-v1/positive-bounded-cycle-with-every-disposition.json",
+    "expected": "accept",
+    "expected_schema_accept": true,
+    "expected_failure": null,
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/foundations/capability-construction-cycle/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/capability-construction-cycle-v1/positive-campaign-coordinated-under-a-frozen-epoch.json",
+    "expected": "accept",
+    "expected_schema_accept": true,
+    "expected_failure": null,
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/foundations/capability-construction-cycle/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/capability-construction-cycle-v1/negative-a-disposition-collapsed-into-a-status.json",
+    "expected": "reject",
+    "expected_schema_accept": false,
+    "expected_failure": "schema",
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/foundations/capability-construction-cycle/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/capability-construction-cycle-v1/negative-an-invented-status.json",
+    "expected": "reject",
+    "expected_schema_accept": false,
+    "expected_failure": "schema",
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/foundations/capability-construction-cycle/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/capability-construction-cycle-v1/negative-an-optimizer-that-is-a-model.json",
+    "expected": "reject",
+    "expected_schema_accept": false,
+    "expected_failure": "schema",
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/foundations/capability-construction-cycle/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/capability-construction-cycle-v1/negative-an-optimizer-that-is-a-route.json",
+    "expected": "reject",
+    "expected_schema_accept": false,
+    "expected_failure": "schema",
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/foundations/capability-construction-cycle/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/capability-construction-cycle-v1/negative-claims-the-optimizer-may-be-a-model.json",
+    "expected": "reject",
+    "expected_schema_accept": false,
+    "expected_failure": "schema",
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/foundations/capability-construction-cycle/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/capability-construction-cycle-v1/negative-no-baseline-root.json",
+    "expected": "reject",
+    "expected_schema_accept": false,
+    "expected_failure": "schema",
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/foundations/capability-construction-cycle/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/capability-construction-cycle-v1/negative-no-exploit-list.json",
+    "expected": "reject",
+    "expected_schema_accept": false,
+    "expected_failure": "schema",
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/foundations/capability-construction-cycle/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/capability-construction-cycle-v1/negative-no-inconclusive-list.json",
+    "expected": "reject",
+    "expected_schema_accept": false,
+    "expected_failure": "schema",
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/foundations/capability-construction-cycle/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/capability-construction-cycle-v1/negative-no-receipt-root.json",
+    "expected": "reject",
+    "expected_schema_accept": false,
+    "expected_failure": "schema",
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/foundations/capability-construction-cycle/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/capability-construction-cycle-v1/negative-no-rejected-list.json",
+    "expected": "reject",
+    "expected_schema_accept": false,
+    "expected_failure": "schema",
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/foundations/capability-construction-cycle/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/capability-construction-cycle-v1/negative-no-stop-policy.json",
+    "expected": "reject",
+    "expected_schema_accept": false,
+    "expected_failure": "schema",
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/foundations/capability-construction-cycle/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/capability-construction-cycle-v1/negative-selection-claims-more-than-eligibility.json",
+    "expected": "reject",
+    "expected_schema_accept": false,
+    "expected_failure": "schema",
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/foundations/repair-proposal/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/repair-proposal-v1/positive-clustered-rubric-suggestion.json",
+    "expected": "accept",
+    "expected_schema_accept": true,
+    "expected_failure": null,
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/foundations/repair-proposal/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/repair-proposal-v1/positive-parented-by-foundrys-own-cycle.json",
+    "expected": "accept",
+    "expected_schema_accept": true,
+    "expected_failure": null,
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/foundations/repair-proposal/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/repair-proposal-v1/negative-a-rationale-too-short-to-review.json",
+    "expected": "reject",
+    "expected_schema_accept": false,
+    "expected_failure": "schema",
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/foundations/repair-proposal/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/repair-proposal-v1/negative-an-invented-change-kind.json",
+    "expected": "reject",
+    "expected_schema_accept": false,
+    "expected_failure": "schema",
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/foundations/repair-proposal/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/repair-proposal-v1/negative-applies-the-change-itself.json",
+    "expected": "reject",
+    "expected_schema_accept": false,
+    "expected_failure": "schema",
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/foundations/repair-proposal/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/repair-proposal-v1/negative-clusters-something-that-is-not-a-trial.json",
+    "expected": "reject",
+    "expected_schema_accept": false,
+    "expected_failure": "schema",
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/foundations/repair-proposal/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/repair-proposal-v1/negative-no-clustered-failures.json",
+    "expected": "reject",
+    "expected_schema_accept": false,
+    "expected_failure": "schema",
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/foundations/repair-proposal/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/repair-proposal-v1/negative-parented-by-nothing.json",
+    "expected": "reject",
+    "expected_schema_accept": false,
+    "expected_failure": "schema",
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/foundations/optimization-target-adapter/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/optimization-target-adapter-v1/positive-normalizes-the-deprecated-pipeline-key.json",
+    "expected": "accept",
+    "expected_schema_accept": true,
+    "expected_failure": null,
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/foundations/optimization-target-adapter/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/optimization-target-adapter-v1/positive-nothing-to-normalize-and-says-so.json",
+    "expected": "accept",
+    "expected_schema_accept": true,
+    "expected_failure": null,
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/foundations/optimization-target-adapter/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/optimization-target-adapter-v1/negative-a-normalization-with-no-canonical-key.json",
+    "expected": "reject",
+    "expected_schema_accept": false,
+    "expected_failure": "schema",
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/foundations/optimization-target-adapter/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/optimization-target-adapter-v1/negative-a-version-that-is-not-semver.json",
+    "expected": "reject",
+    "expected_schema_accept": false,
+    "expected_failure": "schema",
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/foundations/optimization-target-adapter/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/optimization-target-adapter-v1/negative-an-unversioned-adapter.json",
+    "expected": "reject",
+    "expected_schema_accept": false,
+    "expected_failure": "schema",
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/foundations/optimization-target-adapter/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/optimization-target-adapter-v1/negative-no-accepted-schema.json",
+    "expected": "reject",
+    "expected_schema_accept": false,
+    "expected_failure": "schema",
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/foundations/optimization-target-adapter/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/optimization-target-adapter-v1/negative-no-emitted-schema.json",
+    "expected": "reject",
+    "expected_schema_accept": false,
+    "expected_failure": "schema",
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/foundations/optimization-target-adapter/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/optimization-target-adapter-v1/negative-no-owner.json",
+    "expected": "reject",
+    "expected_schema_accept": false,
+    "expected_failure": "schema",
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/foundations/optimization-target-adapter/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/optimization-target-adapter-v1/negative-no-target-class.json",
+    "expected": "reject",
+    "expected_schema_accept": false,
+    "expected_failure": "schema",
+    "expected_rule_id": null
   }
 ] as const;
 
@@ -35757,6 +36060,37 @@ export const ARCHITECTURE_CONTRACT_DIFFERENTIAL_CASES: ReadonlyArray<Architectur
   differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/foundry-training-program-v2/negative-spend-with-no-cleanup-obligation.json","contract_id":"schema://ioi/components/hypervisor/foundry-training-program/v2","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/foundry-training-program-v2/negative-spend-with-no-cleanup-obligation.json","mutation_id":null,"value_json":null}),
   differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/foundry-training-program-v2/negative-spend-with-no-reservation.json","contract_id":"schema://ioi/components/hypervisor/foundry-training-program/v2","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/foundry-training-program-v2/negative-spend-with-no-reservation.json","mutation_id":null,"value_json":null}),
   differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/foundry-training-program-v2/negative-still-declares-v1.json","contract_id":"schema://ioi/components/hypervisor/foundry-training-program/v2","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/foundry-training-program-v2/negative-still-declares-v1.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/capability-construction-cycle-v1/positive-bounded-cycle-with-every-disposition.json","contract_id":"schema://ioi/foundations/capability-construction-cycle/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/capability-construction-cycle-v1/positive-bounded-cycle-with-every-disposition.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/capability-construction-cycle-v1/positive-campaign-coordinated-under-a-frozen-epoch.json","contract_id":"schema://ioi/foundations/capability-construction-cycle/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/capability-construction-cycle-v1/positive-campaign-coordinated-under-a-frozen-epoch.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/capability-construction-cycle-v1/negative-a-disposition-collapsed-into-a-status.json","contract_id":"schema://ioi/foundations/capability-construction-cycle/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/capability-construction-cycle-v1/negative-a-disposition-collapsed-into-a-status.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/capability-construction-cycle-v1/negative-an-invented-status.json","contract_id":"schema://ioi/foundations/capability-construction-cycle/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/capability-construction-cycle-v1/negative-an-invented-status.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/capability-construction-cycle-v1/negative-an-optimizer-that-is-a-model.json","contract_id":"schema://ioi/foundations/capability-construction-cycle/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/capability-construction-cycle-v1/negative-an-optimizer-that-is-a-model.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/capability-construction-cycle-v1/negative-an-optimizer-that-is-a-route.json","contract_id":"schema://ioi/foundations/capability-construction-cycle/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/capability-construction-cycle-v1/negative-an-optimizer-that-is-a-route.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/capability-construction-cycle-v1/negative-claims-the-optimizer-may-be-a-model.json","contract_id":"schema://ioi/foundations/capability-construction-cycle/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/capability-construction-cycle-v1/negative-claims-the-optimizer-may-be-a-model.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/capability-construction-cycle-v1/negative-no-baseline-root.json","contract_id":"schema://ioi/foundations/capability-construction-cycle/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/capability-construction-cycle-v1/negative-no-baseline-root.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/capability-construction-cycle-v1/negative-no-exploit-list.json","contract_id":"schema://ioi/foundations/capability-construction-cycle/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/capability-construction-cycle-v1/negative-no-exploit-list.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/capability-construction-cycle-v1/negative-no-inconclusive-list.json","contract_id":"schema://ioi/foundations/capability-construction-cycle/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/capability-construction-cycle-v1/negative-no-inconclusive-list.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/capability-construction-cycle-v1/negative-no-receipt-root.json","contract_id":"schema://ioi/foundations/capability-construction-cycle/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/capability-construction-cycle-v1/negative-no-receipt-root.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/capability-construction-cycle-v1/negative-no-rejected-list.json","contract_id":"schema://ioi/foundations/capability-construction-cycle/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/capability-construction-cycle-v1/negative-no-rejected-list.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/capability-construction-cycle-v1/negative-no-stop-policy.json","contract_id":"schema://ioi/foundations/capability-construction-cycle/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/capability-construction-cycle-v1/negative-no-stop-policy.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/capability-construction-cycle-v1/negative-selection-claims-more-than-eligibility.json","contract_id":"schema://ioi/foundations/capability-construction-cycle/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/capability-construction-cycle-v1/negative-selection-claims-more-than-eligibility.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/repair-proposal-v1/positive-clustered-rubric-suggestion.json","contract_id":"schema://ioi/foundations/repair-proposal/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/repair-proposal-v1/positive-clustered-rubric-suggestion.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/repair-proposal-v1/positive-parented-by-foundrys-own-cycle.json","contract_id":"schema://ioi/foundations/repair-proposal/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/repair-proposal-v1/positive-parented-by-foundrys-own-cycle.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/repair-proposal-v1/negative-a-rationale-too-short-to-review.json","contract_id":"schema://ioi/foundations/repair-proposal/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/repair-proposal-v1/negative-a-rationale-too-short-to-review.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/repair-proposal-v1/negative-an-invented-change-kind.json","contract_id":"schema://ioi/foundations/repair-proposal/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/repair-proposal-v1/negative-an-invented-change-kind.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/repair-proposal-v1/negative-applies-the-change-itself.json","contract_id":"schema://ioi/foundations/repair-proposal/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/repair-proposal-v1/negative-applies-the-change-itself.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/repair-proposal-v1/negative-clusters-something-that-is-not-a-trial.json","contract_id":"schema://ioi/foundations/repair-proposal/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/repair-proposal-v1/negative-clusters-something-that-is-not-a-trial.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/repair-proposal-v1/negative-no-clustered-failures.json","contract_id":"schema://ioi/foundations/repair-proposal/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/repair-proposal-v1/negative-no-clustered-failures.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/repair-proposal-v1/negative-parented-by-nothing.json","contract_id":"schema://ioi/foundations/repair-proposal/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/repair-proposal-v1/negative-parented-by-nothing.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/optimization-target-adapter-v1/positive-normalizes-the-deprecated-pipeline-key.json","contract_id":"schema://ioi/foundations/optimization-target-adapter/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/optimization-target-adapter-v1/positive-normalizes-the-deprecated-pipeline-key.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/optimization-target-adapter-v1/positive-nothing-to-normalize-and-says-so.json","contract_id":"schema://ioi/foundations/optimization-target-adapter/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/optimization-target-adapter-v1/positive-nothing-to-normalize-and-says-so.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/optimization-target-adapter-v1/negative-a-normalization-with-no-canonical-key.json","contract_id":"schema://ioi/foundations/optimization-target-adapter/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/optimization-target-adapter-v1/negative-a-normalization-with-no-canonical-key.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/optimization-target-adapter-v1/negative-a-version-that-is-not-semver.json","contract_id":"schema://ioi/foundations/optimization-target-adapter/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/optimization-target-adapter-v1/negative-a-version-that-is-not-semver.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/optimization-target-adapter-v1/negative-an-unversioned-adapter.json","contract_id":"schema://ioi/foundations/optimization-target-adapter/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/optimization-target-adapter-v1/negative-an-unversioned-adapter.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/optimization-target-adapter-v1/negative-no-accepted-schema.json","contract_id":"schema://ioi/foundations/optimization-target-adapter/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/optimization-target-adapter-v1/negative-no-accepted-schema.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/optimization-target-adapter-v1/negative-no-emitted-schema.json","contract_id":"schema://ioi/foundations/optimization-target-adapter/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/optimization-target-adapter-v1/negative-no-emitted-schema.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/optimization-target-adapter-v1/negative-no-owner.json","contract_id":"schema://ioi/foundations/optimization-target-adapter/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/optimization-target-adapter-v1/negative-no-owner.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/optimization-target-adapter-v1/negative-no-target-class.json","contract_id":"schema://ioi/foundations/optimization-target-adapter/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/optimization-target-adapter-v1/negative-no-target-class.json","mutation_id":null,"value_json":null}),
   differentialCase({"id":"mutation:sequence-zero-receipt-timestamp-detached","contract_id":"schema://ioi/foundations/autonomous-system-sequence-zero-materialization-receipt/v2","source_fixture_path":null,"mutation_id":"sequence-zero-receipt-timestamp-detached","value_json":null}),
   differentialCase({"id":"mutation:sequence-zero-receipt-authorized-materialization-id-detached","contract_id":"schema://ioi/foundations/autonomous-system-sequence-zero-materialization-receipt/v2","source_fixture_path":null,"mutation_id":"sequence-zero-receipt-authorized-materialization-id-detached","value_json":null}),
   differentialCase({"id":"mutation:sequence-zero-receipt-authority-principal-detached","contract_id":"schema://ioi/foundations/autonomous-system-sequence-zero-materialization-receipt/v2","source_fixture_path":null,"mutation_id":"sequence-zero-receipt-authority-principal-detached","value_json":null}),
@@ -35965,6 +36299,7 @@ export const ARCHITECTURE_CONTRACT_PATTERN_SOURCES = [
   "^(?:artifact|mapping)://[^\\s]{1,240}$",
   "^(?:artifact|patch|mapping|state-delta)://[^\\s]{1,500}$",
   "^(?:artifact|payload)://[^\\s]{1,248}$",
+  "^(?:artifact|proposal)://[^\\s?#\\\\]{1,200}$",
   "^(?:artifact|receipt)://[^\\s]{1,248}$",
   "^(?:artifact|receipt|ledger|trace)://[^\\s]{1,500}$",
   "^(?:artifact|restricted-view|redacted-summary|evidence|replay)://[^\\s]{1,500}$",
@@ -35995,6 +36330,7 @@ export const ARCHITECTURE_CONTRACT_PATTERN_SOURCES = [
   "^(?:commitment|settlement|tx)://[^\\s]{1,248}$",
   "^(?:config-revision|artifact)://[^\\s]{1,500}$",
   "^(?:constraint|policy|budget)://[^\\s]{1,500}$",
+  "^(?:constrcycle|optcycle)://[^\\s?#\\\\]{1,200}$",
   "^(?:context-cell|harness-invocation)://\\S+$",
   "^(?:context-lease|authority-lease|resource-lease|budget-lease)://\\S+$",
   "^(?:context_lease|grant|authority)://[^\\s]{1,500}$",
@@ -36110,6 +36446,7 @@ export const ARCHITECTURE_CONTRACT_PATTERN_SOURCES = [
   "^(?:policy|artifact)://[^\\s]{1,248}$",
   "^(?:policy|auth_factor)://[^\\s]{1,500}$",
   "^(?:policy|auth_factor|guardian)://[^\\s]{1,500}$",
+  "^(?:policy|budget)://[^\\s]{1,400}$",
   "^(?:policy|budget)://[^\\s]{1,500}$",
   "^(?:policy|conformance_profile|certification_claim)://[^\\s]{1,500}$",
   "^(?:policy|custody)://[^\\s?#\\\\]{1,400}$",
@@ -36263,6 +36600,7 @@ export const ARCHITECTURE_CONTRACT_PATTERN_SOURCES = [
   "^(?:work-run|run)://[^\\s]{1,500}$",
   "^(?:worker-package|package)://[^\\s]{1,500}$",
   "^(?:worker|agent)://[^\\s]{1,500}$",
+  "^(?:worker|conductor|runtime)://[^\\s?#\\\\]{1,200}$",
   "^(?:worker|harness-profile|agent-harness-adapter|model_route|runtime|node)://[^\\s]{1,500}$",
   "^(?:worker|model_route|harness-profile|agent-harness-adapter|tool|runtime)://[^\\s]{1,500}$",
   "^(?:worker|service|org|domain|agentgres)://[^\\s]{1,248}$",
@@ -36404,6 +36742,7 @@ export const ARCHITECTURE_CONTRACT_PATTERN_SOURCES = [
   "^artifact-availability-incident://aai_[0-9a-f]+$",
   "^artifact-repair-receipt://arr_[0-9a-f]+$",
   "^artifact://(?:foundry-dataset|foundry-checkpoint)/[0-9a-f]{64}$",
+  "^artifact://[^\\s?#\\\\]{1,200}$",
   "^artifact://[^\\s]+$",
   "^artifact://[^\\s]{1,240}$",
   "^artifact://[^\\s]{1,248}$",
@@ -36484,6 +36823,7 @@ export const ARCHITECTURE_CONTRACT_PATTERN_SOURCES = [
   "^constitution://[A-Za-z0-9._:/-]+$",
   "^constitution://[^\\s]{1,248}$",
   "^constitution://[^\\s]{1,500}$",
+  "^constrcycle://[^\\s?#\\\\]{1,200}$",
   "^context-cell://\\S+$",
   "^context-lease://[^\\s]{1,500}$",
   "^context-lease://\\S+$",
@@ -36558,6 +36898,7 @@ export const ARCHITECTURE_CONTRACT_PATTERN_SOURCES = [
   "^estimand://[^\\s?#\\\\]{1,200}$",
   "^estop://[^\\s]+$",
   "^eval-suite://[A-Za-z0-9][A-Za-z0-9._-]{0,127}$",
+  "^evaluation-epoch://[^\\s?#\\\\]{1,200}$",
   "^evaluation-epoch://[a-z0-9][a-z0-9._-]{0,127}$",
   "^evaluation-exposure://[a-z0-9][a-z0-9._-]{0,127}$",
   "^evaluation-exposure://[a-z0-9][a-z0-9._-]{0,127}/entry/[1-9][0-9]{0,6}$",
@@ -36626,6 +36967,7 @@ export const ARCHITECTURE_CONTRACT_PATTERN_SOURCES = [
   "^ifc-label://\\S+$",
   "^improvement-agenda://[a-z0-9][a-z0-9._-]{0,127}$",
   "^improvement-agenda://[a-z0-9][a-z0-9._-]{0,127}/revision/[1-9][0-9]{0,8}$",
+  "^improvement-campaign://[^\\s?#\\\\]{1,200}$",
   "^improvement-campaign://[a-z0-9][a-z0-9._-]{0,127}$",
   "^improvement-campaign://[a-z0-9][a-z0-9._-]{0,127}/revision/[1-9][0-9]{0,8}$",
   "^improvement-governance-profile://[^\\s?#\\\\]{1,160}/revision/sha256:[0-9a-f]{64}$",
@@ -36752,6 +37094,7 @@ export const ARCHITECTURE_CONTRACT_PATTERN_SOURCES = [
   "^ontology://[a-z0-9][a-z0-9-]{0,62}/[a-z0-9][a-z0-9-]{0,62}/overlay/[a-z0-9][a-z0-9-]{0,62}/term/[a-z0-9][a-z0-9-]{0,62}$",
   "^ontology://[a-z0-9][a-z0-9-]{0,62}/[a-z0-9][a-z0-9-]{0,62}/revision/[1-9][0-9]{0,8}$",
   "^ontology://[a-z0-9][a-z0-9-]{0,62}/[a-z0-9][a-z0-9-]{0,62}/term/[a-z0-9][a-z0-9-]{0,62}$",
+  "^optadapter://[^\\s?#\\\\]{1,200}$",
   "^oracle-evidence-profile://[^\\s]{1,240}$",
   "^oracle-evidence-profile://[^\\s]{1,248}$",
   "^oracle-evidence-profile://[^\\s]{1,500}$",
@@ -36861,6 +37204,7 @@ export const ARCHITECTURE_CONTRACT_PATTERN_SOURCES = [
   "^regulated_workload_assurance_profile://[^\\s?#\\\\]{1,200}$",
   "^release-control://[A-Za-z0-9][A-Za-z0-9._-]{0,127}$",
   "^release://[^\\s]{1,500}$",
+  "^repair-proposal://[^\\s?#\\\\]{1,200}$",
   "^repository://[^\\s]{1,224}$",
   "^reso_[0-9a-f]{1,32}$",
   "^resource-lease://[^\\s]+$",
@@ -37001,6 +37345,7 @@ export const ARCHITECTURE_CONTRACT_PATTERN_SOURCES = [
   "^transformation-run://trun_[0-9a-f]{12,32}$",
   "^transition://[^\\s]{1,248}$",
   "^transition://state-transition/sha256:[0-9a-f]{64}$",
+  "^trial://[^\\s?#\\\\]{1,200}$",
   "^trun_[0-9a-f]{12,32}$",
   "^user://[^\\s/?#\\\\]+$",
   "^user://[^\\s/?#\\\\]{1,480}$",
@@ -37409,7 +37754,10 @@ export const ARCHITECTURE_CONTRACT_SCHEMA_HASHES = {
   "schema://ioi/foundations/regulated-workload-assurance-profile/v1": "sha256:15918815c79b453e159983579426cf438a6f5f9cddf6f67fe4f36b918d0bd5e3",
   "schema://ioi/foundations/regulated-workload-admission-case/v1": "sha256:b831562b81c011d5f19b81e523fc61f38c4426a2bcc5b45171fc160e444e5969",
   "schema://ioi/hypervisor/cross-substrate-portability-certificate/v1": "sha256:dc7b20b83da02a296d10c93951f3677ac88de227a58ce190e1cce864e534e7f4",
-  "schema://ioi/components/hypervisor/foundry-training-program/v2": "sha256:f261acbcd539c7f930eaf442b342678f6b18198aa5fc1dea0279e5569c1126e1"
+  "schema://ioi/components/hypervisor/foundry-training-program/v2": "sha256:f261acbcd539c7f930eaf442b342678f6b18198aa5fc1dea0279e5569c1126e1",
+  "schema://ioi/foundations/capability-construction-cycle/v1": "sha256:bcfc19a1b3d0846845012e8f4f00ed4ad39998963f437016031fb5ec4a13e788",
+  "schema://ioi/foundations/repair-proposal/v1": "sha256:0151513340a5b2d5ceb0d132c6bcb12f76a04d430d4e484e6592a39b1d52b865",
+  "schema://ioi/foundations/optimization-target-adapter/v1": "sha256:2cd6c1e305e8fa34fa5af64c54f8ebc26d12016c60da30c808fbba2974aefb6d"
 } as const;
 
 type JsonObject = Record<string, unknown>;
@@ -155795,6 +156143,366 @@ const CONTRACT_SCHEMAS: Record<string, JsonObject> = {
         }
       }
     }
+  },
+  "schema://ioi/foundations/capability-construction-cycle/v1": {
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "$id": "schema://ioi/foundations/capability-construction-cycle/v1",
+    "title": "CapabilityConstructionCycleEnvelope",
+    "x-ioi-schema-version": "ioi.foundations.capability-construction-cycle.v1",
+    "description": "THE GENERIC SUBORDINATE CYCLE, beside Foundry's own specialized one. `ExperimentOptimizationCycleEnvelope` stays Foundry-owned and is neither the generic owner nor a prerequisite for one; it participates here only through a versioned `OptimizationTargetAdapter`. TWO LAWS ARE ON THE WIRE AS CONSTANTS RATHER THAN LEFT TO A READER. `optimizer_is_not_a_model`: `optimizer_ref` is exactly `worker://`, `conductor://` or `runtime://`, and a frontier, open or local model is REPLACEABLE COGNITION mounted through that actor's HarnessInvocation and ModelRoute — never the optimizer identity and never a truth owner, because swapping the model behind an optimizer must change nothing about who ran the cycle. `selection_confers_eligibility_only`: the optimizer cannot evaluate or promote itself, activate, publish, authorize, or rewrite the target envelope; a selection is an experiment-local result under declared policies and not campaign nomination, evaluation truth or release authority. FOUR SEPARATE DISPOSITION LISTS, not one list with a status member: collapsing them makes \"we did not try that\" and \"we tried it and it failed\" the same sentence, and canon requires every failed, rejected, inconclusive and exploit trial to survive its own verdict. Owner: foundations/objects/model-foundry-and-training.md § CapabilityConstructionCycleEnvelope (M10.8, R-237).",
+    "type": "object",
+    "additionalProperties": false,
+    "required": [
+      "schema_version",
+      "construction_cycle_id",
+      "target_ref",
+      "target_class",
+      "target_owner_ref",
+      "baseline_target_ref",
+      "baseline_target_root",
+      "resolved_component_snapshot_ref",
+      "optimizer_ref",
+      "search_policy_ref",
+      "objective_and_guardrail_policy_ref",
+      "resource_normalization_ref",
+      "budget_policy_ref",
+      "stop_policy_ref",
+      "improvement_campaign_ref",
+      "evaluation_epoch_ref",
+      "trial_refs",
+      "accepted_change_refs",
+      "rejected_change_refs",
+      "inconclusive_change_refs",
+      "exploit_or_invalid_change_refs",
+      "repair_proposal_refs",
+      "selection_confers_eligibility_only",
+      "optimizer_is_not_a_model",
+      "receipt_root",
+      "status"
+    ],
+    "properties": {
+      "schema_version": {
+        "type": "string",
+        "const": "ioi.foundations.capability-construction-cycle.v1"
+      },
+      "construction_cycle_id": {
+        "type": "string",
+        "pattern": "^constrcycle://[^\\s?#\\\\]{1,200}$"
+      },
+      "target_ref": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 400
+      },
+      "target_class": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 400,
+        "description": "The OWNING PLANE's own class name, deliberately not a closed enum here: canon lists a dozen valid targets and names more as they land, so an enum in this contract would be a second list to drift from the owners'. The adapter is what makes a class admissible, and a class with no registered adapter is refused there."
+      },
+      "target_owner_ref": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 400
+      },
+      "baseline_target_ref": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 400
+      },
+      "baseline_target_root": {
+        "type": "string",
+        "pattern": "^sha256:[0-9a-f]{64}$"
+      },
+      "resolved_component_snapshot_ref": {
+        "type": "string",
+        "pattern": "^artifact://[^\\s?#\\\\]{1,200}$"
+      },
+      "optimizer_ref": {
+        "type": "string",
+        "pattern": "^(?:worker|conductor|runtime)://[^\\s?#\\\\]{1,200}$",
+        "description": "AN ACTOR, NEVER A MODEL. The three schemes are the whole vocabulary: a model named here would be a truth owner, and it is not one."
+      },
+      "search_policy_ref": {
+        "type": "string",
+        "pattern": "^(?:policy|budget)://[^\\s]{1,400}$"
+      },
+      "objective_and_guardrail_policy_ref": {
+        "type": "string",
+        "pattern": "^(?:policy|budget)://[^\\s]{1,400}$"
+      },
+      "resource_normalization_ref": {
+        "type": "string",
+        "pattern": "^(?:policy|budget)://[^\\s]{1,400}$"
+      },
+      "budget_policy_ref": {
+        "type": "string",
+        "pattern": "^(?:policy|budget)://[^\\s]{1,400}$"
+      },
+      "stop_policy_ref": {
+        "type": "string",
+        "pattern": "^(?:policy|budget)://[^\\s]{1,400}$"
+      },
+      "improvement_campaign_ref": {
+        "anyOf": [
+          {
+            "type": "string",
+            "pattern": "^improvement-campaign://[^\\s?#\\\\]{1,200}$"
+          },
+          {
+            "type": "null"
+          }
+        ],
+        "description": "Null for an ordinary bounded cycle. A cycle may run without a campaign; when present it names the frozen contract that admitted the cycle and its evaluation."
+      },
+      "evaluation_epoch_ref": {
+        "anyOf": [
+          {
+            "type": "string",
+            "pattern": "^evaluation-epoch://[^\\s?#\\\\]{1,200}$"
+          },
+          {
+            "type": "null"
+          }
+        ]
+      },
+      "trial_refs": {
+        "type": "array",
+        "maxItems": 4096,
+        "items": {
+          "type": "string",
+          "pattern": "^trial://[^\\s?#\\\\]{1,200}$"
+        }
+      },
+      "accepted_change_refs": {
+        "type": "array",
+        "maxItems": 512,
+        "items": {
+          "type": "string",
+          "pattern": "^(?:artifact|proposal)://[^\\s?#\\\\]{1,200}$"
+        }
+      },
+      "rejected_change_refs": {
+        "type": "array",
+        "maxItems": 512,
+        "items": {
+          "type": "string",
+          "pattern": "^(?:artifact|proposal)://[^\\s?#\\\\]{1,200}$"
+        },
+        "description": "PRESERVED, not discarded. A cycle that kept only what worked cannot explain how it got there."
+      },
+      "inconclusive_change_refs": {
+        "type": "array",
+        "maxItems": 512,
+        "items": {
+          "type": "string",
+          "pattern": "^(?:artifact|proposal)://[^\\s?#\\\\]{1,200}$"
+        },
+        "description": "Distinct from rejected: a trial that could not be decided is not a trial that failed."
+      },
+      "exploit_or_invalid_change_refs": {
+        "type": "array",
+        "maxItems": 512,
+        "items": {
+          "type": "string",
+          "pattern": "^(?:artifact|proposal)://[^\\s?#\\\\]{1,200}$"
+        },
+        "description": "A trial that gamed the objective rather than satisfying it. Kept separate because an exploit is evidence about the OBJECTIVE, not about the target."
+      },
+      "repair_proposal_refs": {
+        "type": "array",
+        "maxItems": 512,
+        "items": {
+          "type": "string",
+          "pattern": "^repair-proposal://[^\\s?#\\\\]{1,200}$"
+        }
+      },
+      "selection_confers_eligibility_only": {
+        "type": "boolean",
+        "const": true
+      },
+      "optimizer_is_not_a_model": {
+        "type": "boolean",
+        "const": true
+      },
+      "receipt_root": {
+        "type": "string",
+        "pattern": "^sha256:[0-9a-f]{64}$"
+      },
+      "status": {
+        "type": "string",
+        "enum": [
+          "planned",
+          "running",
+          "stopped",
+          "proposed_for_review",
+          "failed",
+          "rejected"
+        ]
+      }
+    }
+  },
+  "schema://ioi/foundations/repair-proposal/v1": {
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "$id": "schema://ioi/foundations/repair-proposal/v1",
+    "title": "RepairProposalEnvelope",
+    "x-ioi-schema-version": "ioi.foundations.repair-proposal.v1",
+    "description": "A CLUSTER OF FAILURES AND A SUGGESTION, and the suggestion applies nothing. Canon's Iteration Loop (foundations/worker-training-lifecycle.md) \"clusters failures and SUGGESTS the next data, recipe, gate, rubric, tool, model, or workflow change before the next training run\" — that verb is the boundary, and `applies_nothing` is on the wire as a const because applying a proposal is a separate governed act by the target's own owner. `change_kind` is CANON'S OWN CLOSED SET of seven and not a label chosen here. `clustered_failure_refs` is non-empty by construction: a repair proposal with no failures behind it is a suggestion with no evidence, and the clustering is the only thing separating it from an opinion. Owner: foundations/objects/model-foundry-and-training.md § RepairProposalEnvelope (M10.8, R-237).",
+    "type": "object",
+    "additionalProperties": false,
+    "required": [
+      "schema_version",
+      "repair_proposal_id",
+      "parent_cycle_ref",
+      "clustered_failure_refs",
+      "change_kind",
+      "proposed_change_ref",
+      "applies_nothing",
+      "rationale"
+    ],
+    "properties": {
+      "schema_version": {
+        "type": "string",
+        "const": "ioi.foundations.repair-proposal.v1"
+      },
+      "repair_proposal_id": {
+        "type": "string",
+        "pattern": "^repair-proposal://[^\\s?#\\\\]{1,200}$"
+      },
+      "parent_cycle_ref": {
+        "type": "string",
+        "pattern": "^(?:constrcycle|optcycle)://[^\\s?#\\\\]{1,200}$",
+        "description": "PARENTED, because a proposal that names no cycle is a suggestion from nowhere. Either cycle kind may parent one — Foundry's specialized cycle and the generic one both cluster failures."
+      },
+      "clustered_failure_refs": {
+        "type": "array",
+        "minItems": 1,
+        "maxItems": 4096,
+        "items": {
+          "type": "string",
+          "pattern": "^trial://[^\\s?#\\\\]{1,200}$"
+        }
+      },
+      "change_kind": {
+        "type": "string",
+        "enum": [
+          "data",
+          "recipe",
+          "gate",
+          "rubric",
+          "tool",
+          "model",
+          "workflow"
+        ]
+      },
+      "proposed_change_ref": {
+        "type": "string",
+        "pattern": "^(?:artifact|proposal)://[^\\s?#\\\\]{1,200}$"
+      },
+      "applies_nothing": {
+        "type": "boolean",
+        "const": true
+      },
+      "rationale": {
+        "type": "string",
+        "minLength": 20,
+        "maxLength": 2000,
+        "description": "Why these failures cluster together and why this change follows. A floor is enforced because a proposal whose rationale is a phrase cannot be reviewed, and review is the only thing standing between a suggestion and a change."
+      }
+    }
+  },
+  "schema://ioi/foundations/optimization-target-adapter/v1": {
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "$id": "schema://ioi/foundations/optimization-target-adapter/v1",
+    "title": "OptimizationTargetAdapter",
+    "x-ioi-schema-version": "ioi.foundations.optimization-target-adapter.v1",
+    "description": "HOW A TARGET OWNER'S PLANE PARTICIPATES WITHOUT ITS SHAPE BEING ABSORBED. The adapter is what lets Foundry's existing `ExperimentOptimizationCycleEnvelope` take part while neither object is rewritten. THREE REFUSALS DEFINE IT, each naming a different way an unadapted target could slip in: `missing_adapter` — a target class with no registered adapter cannot enter a cycle at all, because an unadapted target is not one this estate can reason about; `cross_version` — an adapter whose `accepts_envelope_schema` is not the envelope actually offered is refused rather than tried, because an adapter that guesses is a translator inventing meaning; `downgrade` — an adapter emitting an older schema than it accepted is refused, since a cycle that silently lowers its own wire version loses whatever the newer one added. THE FIRST NORMALIZATION IS ONE CANON ALREADY SPECIFIED: the deprecated `target_training_pipeline_ref` is accepted only by a versioned adapter that normalizes it to `target_ref` with `target_class: training_pipeline`, and CANONICAL STATE DOES NOT EMIT BOTH — a record carrying the deprecated key and the canonical pair together has not been normalized, it has been annotated. That last law is a cross-member conditional the portable operator set cannot express, so it lives in the deriver and is named there. Owner: foundations/objects/model-foundry-and-training.md § OptimizationTargetAdapter (M10.8, R-237).",
+    "type": "object",
+    "additionalProperties": false,
+    "required": [
+      "schema_version",
+      "adapter_id",
+      "target_class",
+      "adapter_version",
+      "accepts_envelope_schema",
+      "emits_envelope_schema",
+      "normalizations",
+      "owner_ref"
+    ],
+    "properties": {
+      "schema_version": {
+        "type": "string",
+        "const": "ioi.foundations.optimization-target-adapter.v1"
+      },
+      "adapter_id": {
+        "type": "string",
+        "pattern": "^optadapter://[^\\s?#\\\\]{1,200}$"
+      },
+      "target_class": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 400
+      },
+      "adapter_version": {
+        "type": "string",
+        "pattern": "^(?:0|[1-9][0-9]*)[.](?:0|[1-9][0-9]*)[.](?:0|[1-9][0-9]*)$"
+      },
+      "accepts_envelope_schema": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 400,
+        "description": "The EXACT schema_version this adapter reads. Exact rather than a range, because a range is how an adapter comes to guess."
+      },
+      "emits_envelope_schema": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 400
+      },
+      "normalizations": {
+        "type": "array",
+        "maxItems": 64,
+        "description": "Empty is legitimate: an adapter for a class whose envelope already speaks the canonical shape normalizes nothing and exists to declare that.",
+        "items": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "deprecated_key",
+            "canonical_key",
+            "canonical_value"
+          ],
+          "properties": {
+            "deprecated_key": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 400
+            },
+            "canonical_key": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 400
+            },
+            "canonical_value": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 200
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "The value the canonical key takes when this normalization fires, or null when the deprecated key's own value carries over unchanged."
+            }
+          }
+        }
+      },
+      "owner_ref": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 400
+      }
+    }
   }
 };
 const CONTRACT_INVARIANTS: Record<string, Array<JsonObject>> = {
@@ -177633,7 +178341,10 @@ const CONTRACT_INVARIANTS: Record<string, Array<JsonObject>> = {
       }
     }
   ],
-  "schema://ioi/components/hypervisor/foundry-training-program/v2": []
+  "schema://ioi/components/hypervisor/foundry-training-program/v2": [],
+  "schema://ioi/foundations/capability-construction-cycle/v1": [],
+  "schema://ioi/foundations/repair-proposal/v1": [],
+  "schema://ioi/foundations/optimization-target-adapter/v1": []
 };
 
 export function architectureContractSchemaHash(contractId: string): string | null {
@@ -180634,4 +181345,22 @@ export function validateFoundryTrainingProgramV2(
   value: unknown,
 ): value is FoundryTrainingProgramV2 {
   return validateArchitectureContract("schema://ioi/components/hypervisor/foundry-training-program/v2", value).ok;
+}
+
+export function validateCapabilityConstructionCycleEnvelopeV1(
+  value: unknown,
+): value is CapabilityConstructionCycleEnvelopeV1 {
+  return validateArchitectureContract("schema://ioi/foundations/capability-construction-cycle/v1", value).ok;
+}
+
+export function validateRepairProposalEnvelopeV1(
+  value: unknown,
+): value is RepairProposalEnvelopeV1 {
+  return validateArchitectureContract("schema://ioi/foundations/repair-proposal/v1", value).ok;
+}
+
+export function validateOptimizationTargetAdapterV1(
+  value: unknown,
+): value is OptimizationTargetAdapterV1 {
+  return validateArchitectureContract("schema://ioi/foundations/optimization-target-adapter/v1", value).ok;
 }

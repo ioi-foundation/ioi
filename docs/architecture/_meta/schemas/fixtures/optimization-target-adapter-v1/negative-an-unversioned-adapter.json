@@ -1,0 +1,20 @@
+{
+  "schema_version": "ioi.foundations.optimization-target-adapter.v1",
+  "adapter_id": "optadapter://acme/training-pipeline/v1",
+  "target_class": "training_pipeline",
+  "accepts_envelope_schema": "ioi.foundry-experiment-optimization-cycle.v1",
+  "emits_envelope_schema": "ioi.foundations.capability-construction-cycle.v1",
+  "normalizations": [
+    {
+      "deprecated_key": "target_training_pipeline_ref",
+      "canonical_key": "target_ref",
+      "canonical_value": null
+    },
+    {
+      "deprecated_key": "target_training_pipeline_ref",
+      "canonical_key": "target_class",
+      "canonical_value": "training_pipeline"
+    }
+  ],
+  "owner_ref": "org://ioi/foundry"
+}

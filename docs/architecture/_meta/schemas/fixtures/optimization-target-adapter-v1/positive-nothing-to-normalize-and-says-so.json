@@ -1,0 +1,10 @@
+{
+  "schema_version": "ioi.foundations.optimization-target-adapter.v1",
+  "adapter_id": "optadapter://acme/connector-mapping/v1",
+  "target_class": "connector_mapping",
+  "adapter_version": "1.0.0",
+  "accepts_envelope_schema": "ioi.foundations.capability-construction-cycle.v1",
+  "emits_envelope_schema": "ioi.foundations.capability-construction-cycle.v1",
+  "normalizations": [],
+  "owner_ref": "org://ioi/foundry"
+}
