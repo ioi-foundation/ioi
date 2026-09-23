@@ -825,13 +825,38 @@ object class remain `ExperimentOptimizationCycle`.
 
 `ExperimentOptimizationCycleEnvelope` above is Foundry's OWN specialized cycle,
 and it stays that. `CapabilityConstructionCycleEnvelope` is the generic
-subordinate cycle the same machinery serves for every other admitted target:
-training code, preprocessors, model and runtime artifacts and conversions,
-`DataRecipe`, `ConnectorMapping`, governed `VerticalOntologyPack` and mapping
-candidates, GoalRun/Workflow/Harness/Skill profiles, `RuntimeToolContract`
-bindings, `IntegrationSurfaceProfile` and `ContactDeliveryChannel` requirement
-candidates, routes, evaluator assets, worlds and simulators. Foundry's cycle is
-not the generic owner and not a prerequisite for one.
+subordinate cycle the same machinery serves for every other admitted target.
+Foundry's cycle is not the generic owner and not a prerequisite for one.
+
+**THE `target_class` VOCABULARY IS CLOSED, and these twenty-three are it.**
+
+```
+training_pipeline                       runtime_tool_contract_binding
+training_code                           integration_surface_profile
+foundry_spec                            contact_delivery_channel_requirement
+run_plan                                model_route_policy
+preprocessor                            evaluator_asset
+model_artifact                          eval_world
+runtime_artifact                        simulator
+artifact_conversion                     goal_run_profile
+data_recipe                             workflow_template
+connector_mapping                       harness_profile
+vertical_ontology_pack                  skill_manifest
+ontology_mapping_candidate
+```
+
+Closed rather than open, and the reason is the failure an open list produces: a
+cycle naming a class nobody owns runs against a target no plane will accept the
+result for, and it discovers that at the END. A class this estate does not
+recognise is refused before the first trial.
+
+**THE VOCABULARY AND THE ADAPTER ARE TWO DIFFERENT GATES, and a target must
+pass both.** Being in the list makes a class *nameable*; only a registered
+`OptimizationTargetAdapter` for that class makes it *enterable*. The list is
+what canon recognises; the adapter registry is what this deployment can actually
+translate, and it is always the smaller set. `missing_adapter` is therefore not
+a redundant second spelling of "unknown class" — it is the refusal for a class
+canon knows and this estate cannot yet serve.
 
 ```yaml
 CapabilityConstructionCycleEnvelope:
@@ -950,12 +975,16 @@ the canonical pair together has not been normalized; it has been annotated.
 ### All three carry the estate's own commitment, not a new one
 
 Each of the three records ends in `content_hash`: SHA-256 over the JCS encoding
-of `{domain, ...every other member}`, derived by the shared family spine and
-re-derived on every read. The member is not decoration and it is not a second
-mechanism. The estate already has ONE owner-scoped admission-and-mutation chain,
-and the spine that serves it requires a record to commit to itself; a family
-that carried its own commitment instead would be a second spine doing the same
-job, which this architecture does not permit.
+of `{domain, ...every other member}`, registered as a `jcs_sha256_equals`
+invariant so a record whose content drifts from its own hash is refused at
+validation. The shape is not chosen here — it is the SAME commitment every
+spine-served family in this estate carries, because the estate has ONE
+owner-scoped admission-and-mutation chain and the spine that serves it derives
+exactly this digest. A family that minted its own commitment instead would be a
+second spine doing the same job, which this architecture does not permit. The
+member is therefore what makes these three admissible on the existing chain
+whenever an owning plane binds them, rather than something a later plane would
+have to retrofit.
 
 Nothing is excluded from the material. For the cycle in particular that is the
 point: the four disposition lists are only preserved if dropping one changes the

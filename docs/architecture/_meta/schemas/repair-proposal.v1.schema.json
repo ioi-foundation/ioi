@@ -69,7 +69,7 @@
     "content_hash": {
       "type": "string",
       "pattern": "^sha256:[0-9a-f]{64}$",
-      "description": "SHA-256 over JCS of `{domain, ...material_fields}`, derived by the shared family spine and re-derived on every read. This member exists so the record can live on the estate's EXISTING owner-scoped mutation chain rather than beside it: the spine requires it, and a family that carried its own commitment instead would be a second spine for the same job."
+      "description": "SHA-256 over JCS of `{domain, ...every other member}`, registered as a `jcs_sha256_equals` invariant so a record whose content drifts from its own hash is refused at validation. The shape is the estate's ONE commitment mechanism — the same digest the shared family spine derives for every family it serves — so this record is admissible on the existing owner-scoped chain whenever an owning plane binds it, rather than carrying a second commitment of its own."
     }
   }
 }

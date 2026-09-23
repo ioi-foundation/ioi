@@ -213,7 +213,9 @@
     "check:cross-substrate-portability": "node scripts/check-cross-substrate-portability.mjs",
     "mutate:cross-substrate-portability": "node scripts/check-cross-substrate-portability.mjs --mutation",
     "check:foundry-capability-build": "node scripts/check-foundry-capability-build.mjs",
-    "mutate:foundry-capability-build": "node scripts/check-foundry-capability-build.mjs --mutation"
+    "mutate:foundry-capability-build": "node scripts/check-foundry-capability-build.mjs --mutation",
+    "check:capability-construction-cycle": "node scripts/check-capability-construction-cycle.mjs",
+    "mutate:capability-construction-cycle": "node scripts/check-capability-construction-cycle.mjs --mutation"
   },
   "devDependencies": {
     "@playwright/test": "^1.60.0",

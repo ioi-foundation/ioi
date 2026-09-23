@@ -1,0 +1,88 @@
+{
+  "schema": "ioi.capability-construction-cycle-evidence.v1",
+  "mode": "full",
+  "started_at": "2026-09-23T18:50:50.449Z",
+  "drills": [
+    {
+      "name": "PURE — the five laws no registered contract could carry: the optimizer is an actor and a model named there would be a truth owner; the four dispositions stay four and a cycle that disposed of nothing cannot explain itself; the three adapter refusals are each reachable and an unknown class is a fourth thing; canonical state does not emit the deprecated key beside the canonical pair; and a builder-created asset may not judge its parent even after release",
+      "pass": true,
+      "detail": "",
+      "at": "2026-09-23T18:50:50.452Z"
+    },
+    {
+      "name": "SEAM — three contracts registered against the canon section that owns them, projected into both surfaces, the two laws carried as wire constants, all four disposition lists required, NO member the cycle could name a model or an authority in, one commitment per family covering every required member, and Foundry's own canon-only cycle left where canon put it, with none of its five distinct members migrated onto the generic one",
+      "pass": true,
+      "detail": "",
+      "at": "2026-09-23T18:50:50.456Z"
+    },
+    {
+      "name": "SOURCE — canon still carries all three objects and the four laws it states in its own words, the closed twenty-three are IDENTICAL in canon, both contract enums and the deriver, and the deriver reaches no plane, file, clock or socket so a relying party can re-derive every answer offline",
+      "pass": true,
+      "detail": "",
+      "at": "2026-09-23T18:50:50.457Z"
+    },
+    {
+      "name": "CONFORMANCE — a registered-valid cycle for every one of the 23 classes, six compact cycles spanning canon's shape groups including an honest bounded non-success, a failed-trial repair parented back to the trials its parent actually ran, and the commitment proved by editing three records underneath their own seals",
+      "pass": true,
+      "detail": "",
+      "at": "2026-09-23T18:50:50.506Z"
+    },
+    {
+      "name": "BINDING — the gate is floored with an existing source, CI-bound in the form the FLOORS GATE recognises, and every clause is executed or named with an owner",
+      "pass": true,
+      "detail": "",
+      "at": "2026-09-23T18:50:50.506Z"
+    },
+    {
+      "name": "VERDICT — a table missing eleven of its twelve rows is a FAIL, not a pass",
+      "pass": true,
+      "detail": "",
+      "at": "2026-09-23T18:50:50.507Z"
+    },
+    {
+      "name": "VERDICT — twelve green rows with no absence is a PASS",
+      "pass": true,
+      "detail": "",
+      "at": "2026-09-23T18:50:50.507Z"
+    },
+    {
+      "name": "VERDICT — one named absence is a NAMED FAILURE, never a pass",
+      "pass": true,
+      "detail": "",
+      "at": "2026-09-23T18:50:50.507Z"
+    },
+    {
+      "name": "VERDICT — a gate that reports success without evidence is fabricated, not green",
+      "pass": true,
+      "detail": "",
+      "at": "2026-09-23T18:50:50.507Z"
+    },
+    {
+      "name": "VERDICT — a gate below its floor fails even at exit 0",
+      "pass": true,
+      "detail": "",
+      "at": "2026-09-23T18:50:50.507Z"
+    }
+  ],
+  "pure": [],
+  "seam": [],
+  "source": [],
+  "conformance": [],
+  "verdict": {
+    "kind": "named_failure",
+    "failures": [],
+    "absences": [
+      {
+        "n": 12,
+        "what": "NO OWNING PLANE ADMITS A CAPABILITY-CONSTRUCTION CYCLE, SO NOTHING ON THIS ESTATE HAS EVER RUN ONE. This unit registers three contracts and enforces the five laws none of them could carry; it does not stand up a route that admits a cycle, and it therefore cannot prove four things the unit's own scope names. (1) CRASH AND RESUME: the status vocabulary can EXPRESS a stopped cycle and conformance instantiates one, but no run was interrupted and resumed. (2) BUDGET AND CUTOFF ENFORCEMENT: `budget_policy_ref` and `stop_policy_ref` are required and bound, and an honest bounded non-success is instantiated, but no budget was consumed and no cutoff fired. (3) INDEPENDENT RE-EVALUATION OF EVERY SELECTED CANDIDATE: the cycle binds `evaluation_epoch_ref` and carries `selection_confers_eligibility_only`, and M10.4's five evaluation contracts are the far end — this gate does not drive a candidate through them. (4) ZERO PUBLICATION, ACTIVATION, AUTHORITY OR EVALUATOR WRITES FROM THE OPTIMIZER: proved here STRUCTURALLY — the envelope has no member for a model, a publication, an activation or a grant, so the claim is unrepresentable rather than unperformed — but a live optimizer writing nothing is a plane observation and no plane exists. ALSO: `missing_adapter` is the refusal for a class canon knows and this deployment cannot translate, and this estate registers NO production adapter for any of the twenty-three. That is the correct state for a registration unit and it is why the conformance leg proves the protocol with fixture adapters and claims no production adapter exists",
+        "owner": "the owning plane for CapabilityConstructionCycle admission, and M10.4's evaluator plane for the independent re-evaluation half (owner question, R-237)"
+      }
+    ]
+  },
+  "mutation": null,
+  "finished_at": "2026-09-23T18:50:50.507Z",
+  "summary": {
+    "passed": 10,
+    "total": 10
+  }
+}

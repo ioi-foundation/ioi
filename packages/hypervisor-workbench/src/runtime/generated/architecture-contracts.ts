@@ -15360,7 +15360,7 @@ export type CapabilityConstructionCycleEnvelopeV1 = {
   schema_version: "ioi.foundations.capability-construction-cycle.v1";
   construction_cycle_id: string;
   target_ref: string;
-  target_class: string;
+  target_class: "training_pipeline" | "training_code" | "foundry_spec" | "run_plan" | "preprocessor" | "model_artifact" | "runtime_artifact" | "artifact_conversion" | "data_recipe" | "connector_mapping" | "vertical_ontology_pack" | "ontology_mapping_candidate" | "goal_run_profile" | "workflow_template" | "harness_profile" | "skill_manifest" | "runtime_tool_contract_binding" | "integration_surface_profile" | "contact_delivery_channel_requirement" | "model_route_policy" | "evaluator_asset" | "eval_world" | "simulator";
   target_owner_ref: string;
   baseline_target_ref: string;
   baseline_target_root: string;
@@ -15401,7 +15401,7 @@ export type RepairProposalEnvelopeV1 = {
 export type OptimizationTargetAdapterV1 = {
   schema_version: "ioi.foundations.optimization-target-adapter.v1";
   adapter_id: string;
-  target_class: string;
+  target_class: "training_pipeline" | "training_code" | "foundry_spec" | "run_plan" | "preprocessor" | "model_artifact" | "runtime_artifact" | "artifact_conversion" | "data_recipe" | "connector_mapping" | "vertical_ontology_pack" | "ontology_mapping_candidate" | "goal_run_profile" | "workflow_template" | "harness_profile" | "skill_manifest" | "runtime_tool_contract_binding" | "integration_surface_profile" | "contact_delivery_channel_requirement" | "model_route_policy" | "evaluator_asset" | "eval_world" | "simulator";
   adapter_version: string;
   accepts_envelope_schema: string;
   emits_envelope_schema: string;
@@ -31226,6 +31226,14 @@ export const ARCHITECTURE_CONTRACT_FIXTURES = [
   },
   {
     "contract_id": "schema://ioi/foundations/capability-construction-cycle/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/capability-construction-cycle-v1/negative-a-target-class-canon-does-not-recognise.json",
+    "expected": "reject",
+    "expected_schema_accept": false,
+    "expected_failure": "schema",
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/foundations/capability-construction-cycle/v1",
     "path": "docs/architecture/_meta/schemas/fixtures/capability-construction-cycle-v1/negative-an-invented-status.json",
     "expected": "reject",
     "expected_schema_accept": false,
@@ -31411,6 +31419,14 @@ export const ARCHITECTURE_CONTRACT_FIXTURES = [
   {
     "contract_id": "schema://ioi/foundations/optimization-target-adapter/v1",
     "path": "docs/architecture/_meta/schemas/fixtures/optimization-target-adapter-v1/negative-a-version-that-is-not-semver.json",
+    "expected": "reject",
+    "expected_schema_accept": false,
+    "expected_failure": "schema",
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/foundations/optimization-target-adapter/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/optimization-target-adapter-v1/negative-adapts-a-class-canon-does-not-recognise.json",
     "expected": "reject",
     "expected_schema_accept": false,
     "expected_failure": "schema",
@@ -36091,6 +36107,7 @@ export const ARCHITECTURE_CONTRACT_DIFFERENTIAL_CASES: ReadonlyArray<Architectur
   differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/capability-construction-cycle-v1/positive-campaign-coordinated-under-a-frozen-epoch.json","contract_id":"schema://ioi/foundations/capability-construction-cycle/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/capability-construction-cycle-v1/positive-campaign-coordinated-under-a-frozen-epoch.json","mutation_id":null,"value_json":null}),
   differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/capability-construction-cycle-v1/negative-a-disposition-collapsed-into-a-status.json","contract_id":"schema://ioi/foundations/capability-construction-cycle/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/capability-construction-cycle-v1/negative-a-disposition-collapsed-into-a-status.json","mutation_id":null,"value_json":null}),
   differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/capability-construction-cycle-v1/negative-a-disposition-dropped-under-a-sealed-hash.json","contract_id":"schema://ioi/foundations/capability-construction-cycle/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/capability-construction-cycle-v1/negative-a-disposition-dropped-under-a-sealed-hash.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/capability-construction-cycle-v1/negative-a-target-class-canon-does-not-recognise.json","contract_id":"schema://ioi/foundations/capability-construction-cycle/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/capability-construction-cycle-v1/negative-a-target-class-canon-does-not-recognise.json","mutation_id":null,"value_json":null}),
   differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/capability-construction-cycle-v1/negative-an-invented-status.json","contract_id":"schema://ioi/foundations/capability-construction-cycle/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/capability-construction-cycle-v1/negative-an-invented-status.json","mutation_id":null,"value_json":null}),
   differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/capability-construction-cycle-v1/negative-an-optimizer-that-is-a-model.json","contract_id":"schema://ioi/foundations/capability-construction-cycle/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/capability-construction-cycle-v1/negative-an-optimizer-that-is-a-model.json","mutation_id":null,"value_json":null}),
   differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/capability-construction-cycle-v1/negative-an-optimizer-that-is-a-route.json","contract_id":"schema://ioi/foundations/capability-construction-cycle/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/capability-construction-cycle-v1/negative-an-optimizer-that-is-a-route.json","mutation_id":null,"value_json":null}),
@@ -36115,6 +36132,7 @@ export const ARCHITECTURE_CONTRACT_DIFFERENTIAL_CASES: ReadonlyArray<Architectur
   differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/optimization-target-adapter-v1/positive-nothing-to-normalize-and-says-so.json","contract_id":"schema://ioi/foundations/optimization-target-adapter/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/optimization-target-adapter-v1/positive-nothing-to-normalize-and-says-so.json","mutation_id":null,"value_json":null}),
   differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/optimization-target-adapter-v1/negative-a-normalization-with-no-canonical-key.json","contract_id":"schema://ioi/foundations/optimization-target-adapter/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/optimization-target-adapter-v1/negative-a-normalization-with-no-canonical-key.json","mutation_id":null,"value_json":null}),
   differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/optimization-target-adapter-v1/negative-a-version-that-is-not-semver.json","contract_id":"schema://ioi/foundations/optimization-target-adapter/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/optimization-target-adapter-v1/negative-a-version-that-is-not-semver.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/optimization-target-adapter-v1/negative-adapts-a-class-canon-does-not-recognise.json","contract_id":"schema://ioi/foundations/optimization-target-adapter/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/optimization-target-adapter-v1/negative-adapts-a-class-canon-does-not-recognise.json","mutation_id":null,"value_json":null}),
   differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/optimization-target-adapter-v1/negative-an-unversioned-adapter.json","contract_id":"schema://ioi/foundations/optimization-target-adapter/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/optimization-target-adapter-v1/negative-an-unversioned-adapter.json","mutation_id":null,"value_json":null}),
   differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/optimization-target-adapter-v1/negative-no-accepted-schema.json","contract_id":"schema://ioi/foundations/optimization-target-adapter/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/optimization-target-adapter-v1/negative-no-accepted-schema.json","mutation_id":null,"value_json":null}),
   differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/optimization-target-adapter-v1/negative-no-emitted-schema.json","contract_id":"schema://ioi/foundations/optimization-target-adapter/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/optimization-target-adapter-v1/negative-no-emitted-schema.json","mutation_id":null,"value_json":null}),
@@ -37785,9 +37803,9 @@ export const ARCHITECTURE_CONTRACT_SCHEMA_HASHES = {
   "schema://ioi/foundations/regulated-workload-admission-case/v1": "sha256:b831562b81c011d5f19b81e523fc61f38c4426a2bcc5b45171fc160e444e5969",
   "schema://ioi/hypervisor/cross-substrate-portability-certificate/v1": "sha256:dc7b20b83da02a296d10c93951f3677ac88de227a58ce190e1cce864e534e7f4",
   "schema://ioi/components/hypervisor/foundry-training-program/v2": "sha256:f261acbcd539c7f930eaf442b342678f6b18198aa5fc1dea0279e5569c1126e1",
-  "schema://ioi/foundations/capability-construction-cycle/v1": "sha256:2c141485a9bc3b8842e162788d07c561b4a0e6951d61747d19ac5a7d283e5817",
-  "schema://ioi/foundations/repair-proposal/v1": "sha256:39656db67952268a3d9af42147f82977c6dd5d23577d41b18e99bda9d052e727",
-  "schema://ioi/foundations/optimization-target-adapter/v1": "sha256:c270a38b3a0638ccab87700ce75d2573cd3000af8f968d0eb29d7757f6a8f6fc"
+  "schema://ioi/foundations/capability-construction-cycle/v1": "sha256:a54e8588a79dbb24ae504f04383dcfacb533890acd5bf951251f97720c3612aa",
+  "schema://ioi/foundations/repair-proposal/v1": "sha256:47f6fe0cc590e3f5f376cb2954cea8f1d8199d3e6f8f069db738feda77e19c06",
+  "schema://ioi/foundations/optimization-target-adapter/v1": "sha256:991acf470e55ab6007d489e396f5925c4b8a5cac46124be1affe29771dd5b031"
 } as const;
 
 type JsonObject = Record<string, unknown>;
@@ -156227,9 +156245,32 @@ const CONTRACT_SCHEMAS: Record<string, JsonObject> = {
       },
       "target_class": {
         "type": "string",
-        "minLength": 1,
-        "maxLength": 400,
-        "description": "The OWNING PLANE's own class name, deliberately not a closed enum here: canon lists a dozen valid targets and names more as they land, so an enum in this contract would be a second list to drift from the owners'. The adapter is what makes a class admissible, and a class with no registered adapter is refused there."
+        "enum": [
+          "training_pipeline",
+          "training_code",
+          "foundry_spec",
+          "run_plan",
+          "preprocessor",
+          "model_artifact",
+          "runtime_artifact",
+          "artifact_conversion",
+          "data_recipe",
+          "connector_mapping",
+          "vertical_ontology_pack",
+          "ontology_mapping_candidate",
+          "goal_run_profile",
+          "workflow_template",
+          "harness_profile",
+          "skill_manifest",
+          "runtime_tool_contract_binding",
+          "integration_surface_profile",
+          "contact_delivery_channel_requirement",
+          "model_route_policy",
+          "evaluator_asset",
+          "eval_world",
+          "simulator"
+        ],
+        "description": "CANON'S CLOSED TWENTY-THREE, verbatim and in canon's own order (foundations/objects/model-foundry-and-training.md § CapabilityConstructionCycleEnvelope). Closed rather than open because an open list lets a cycle run against a target no plane will accept the result for and discover it at the END. THE ENUM AND THE ADAPTER ARE TWO DIFFERENT GATES: being in this list makes a class nameable, and only a registered OptimizationTargetAdapter makes it enterable — the adapter registry is always the smaller set, which is why `missing_adapter` is not a second spelling of an unknown class."
       },
       "target_owner_ref": {
         "type": "string",
@@ -156374,7 +156415,7 @@ const CONTRACT_SCHEMAS: Record<string, JsonObject> = {
       "content_hash": {
         "type": "string",
         "pattern": "^sha256:[0-9a-f]{64}$",
-        "description": "SHA-256 over JCS of `{domain, ...material_fields}`, derived by the shared family spine and re-derived on every read. This member exists so the record can live on the estate's EXISTING owner-scoped mutation chain rather than beside it: the spine requires it, and a family that carried its own commitment instead would be a second spine for the same job. The `receipt_root` beside it is canon's own second commitment over the cycle's receipts and is not this."
+        "description": "SHA-256 over JCS of `{domain, ...every other member}`, registered as a `jcs_sha256_equals` invariant so a record whose content drifts from its own hash is refused at validation. The shape is the estate's ONE commitment mechanism — the same digest the shared family spine derives for every family it serves — so this record is admissible on the existing owner-scoped chain whenever an owning plane binds it, rather than carrying a second commitment of its own. The `receipt_root` beside it is canon's own second commitment over the cycle's receipts and is not this."
       }
     }
   },
@@ -156449,7 +156490,7 @@ const CONTRACT_SCHEMAS: Record<string, JsonObject> = {
       "content_hash": {
         "type": "string",
         "pattern": "^sha256:[0-9a-f]{64}$",
-        "description": "SHA-256 over JCS of `{domain, ...material_fields}`, derived by the shared family spine and re-derived on every read. This member exists so the record can live on the estate's EXISTING owner-scoped mutation chain rather than beside it: the spine requires it, and a family that carried its own commitment instead would be a second spine for the same job."
+        "description": "SHA-256 over JCS of `{domain, ...every other member}`, registered as a `jcs_sha256_equals` invariant so a record whose content drifts from its own hash is refused at validation. The shape is the estate's ONE commitment mechanism — the same digest the shared family spine derives for every family it serves — so this record is admissible on the existing owner-scoped chain whenever an owning plane binds it, rather than carrying a second commitment of its own."
       }
     }
   },
@@ -156483,8 +156524,32 @@ const CONTRACT_SCHEMAS: Record<string, JsonObject> = {
       },
       "target_class": {
         "type": "string",
-        "minLength": 1,
-        "maxLength": 400
+        "enum": [
+          "training_pipeline",
+          "training_code",
+          "foundry_spec",
+          "run_plan",
+          "preprocessor",
+          "model_artifact",
+          "runtime_artifact",
+          "artifact_conversion",
+          "data_recipe",
+          "connector_mapping",
+          "vertical_ontology_pack",
+          "ontology_mapping_candidate",
+          "goal_run_profile",
+          "workflow_template",
+          "harness_profile",
+          "skill_manifest",
+          "runtime_tool_contract_binding",
+          "integration_surface_profile",
+          "contact_delivery_channel_requirement",
+          "model_route_policy",
+          "evaluator_asset",
+          "eval_world",
+          "simulator"
+        ],
+        "description": "The class this adapter translates, from the SAME closed twenty-three the cycle carries. An adapter for a class canon does not recognise would make the vocabulary open again through the back door."
       },
       "adapter_version": {
         "type": "string",
@@ -156548,7 +156613,7 @@ const CONTRACT_SCHEMAS: Record<string, JsonObject> = {
       "content_hash": {
         "type": "string",
         "pattern": "^sha256:[0-9a-f]{64}$",
-        "description": "SHA-256 over JCS of `{domain, ...material_fields}`, derived by the shared family spine and re-derived on every read. This member exists so the record can live on the estate's EXISTING owner-scoped mutation chain rather than beside it: the spine requires it, and a family that carried its own commitment instead would be a second spine for the same job."
+        "description": "SHA-256 over JCS of `{domain, ...every other member}`, registered as a `jcs_sha256_equals` invariant so a record whose content drifts from its own hash is refused at validation. The shape is the estate's ONE commitment mechanism — the same digest the shared family spine derives for every family it serves — so this record is admissible on the existing owner-scoped chain whenever an owning plane binds it, rather than carrying a second commitment of its own."
       }
     }
   }

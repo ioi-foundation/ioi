@@ -51,9 +51,32 @@
     },
     "target_class": {
       "type": "string",
-      "minLength": 1,
-      "maxLength": 400,
-      "description": "The OWNING PLANE's own class name, deliberately not a closed enum here: canon lists a dozen valid targets and names more as they land, so an enum in this contract would be a second list to drift from the owners'. The adapter is what makes a class admissible, and a class with no registered adapter is refused there."
+      "enum": [
+        "training_pipeline",
+        "training_code",
+        "foundry_spec",
+        "run_plan",
+        "preprocessor",
+        "model_artifact",
+        "runtime_artifact",
+        "artifact_conversion",
+        "data_recipe",
+        "connector_mapping",
+        "vertical_ontology_pack",
+        "ontology_mapping_candidate",
+        "goal_run_profile",
+        "workflow_template",
+        "harness_profile",
+        "skill_manifest",
+        "runtime_tool_contract_binding",
+        "integration_surface_profile",
+        "contact_delivery_channel_requirement",
+        "model_route_policy",
+        "evaluator_asset",
+        "eval_world",
+        "simulator"
+      ],
+      "description": "CANON'S CLOSED TWENTY-THREE, verbatim and in canon's own order (foundations/objects/model-foundry-and-training.md § CapabilityConstructionCycleEnvelope). Closed rather than open because an open list lets a cycle run against a target no plane will accept the result for and discover it at the END. THE ENUM AND THE ADAPTER ARE TWO DIFFERENT GATES: being in this list makes a class nameable, and only a registered OptimizationTargetAdapter makes it enterable — the adapter registry is always the smaller set, which is why `missing_adapter` is not a second spelling of an unknown class."
     },
     "target_owner_ref": {
       "type": "string",
@@ -198,7 +221,7 @@
     "content_hash": {
       "type": "string",
       "pattern": "^sha256:[0-9a-f]{64}$",
-      "description": "SHA-256 over JCS of `{domain, ...material_fields}`, derived by the shared family spine and re-derived on every read. This member exists so the record can live on the estate's EXISTING owner-scoped mutation chain rather than beside it: the spine requires it, and a family that carried its own commitment instead would be a second spine for the same job. The `receipt_root` beside it is canon's own second commitment over the cycle's receipts and is not this."
+      "description": "SHA-256 over JCS of `{domain, ...every other member}`, registered as a `jcs_sha256_equals` invariant so a record whose content drifts from its own hash is refused at validation. The shape is the estate's ONE commitment mechanism — the same digest the shared family spine derives for every family it serves — so this record is admissible on the existing owner-scoped chain whenever an owning plane binds it, rather than carrying a second commitment of its own. The `receipt_root` beside it is canon's own second commitment over the cycle's receipts and is not this."
     }
   }
 }

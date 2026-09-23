@@ -21260,6 +21260,10 @@
           "expected_failure": "invariant"
         },
         {
+          "path": "fixtures/capability-construction-cycle-v1/negative-a-target-class-canon-does-not-recognise.json",
+          "expected_failure": "schema"
+        },
+        {
           "path": "fixtures/capability-construction-cycle-v1/negative-an-invented-status.json",
           "expected_failure": "schema"
         },
@@ -21427,6 +21431,10 @@
         },
         {
           "path": "fixtures/optimization-target-adapter-v1/negative-a-version-that-is-not-semver.json",
+          "expected_failure": "schema"
+        },
+        {
+          "path": "fixtures/optimization-target-adapter-v1/negative-adapts-a-class-canon-does-not-recognise.json",
           "expected_failure": "schema"
         },
         {

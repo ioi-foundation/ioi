@@ -1233,6 +1233,21 @@ jobs:
         if: ${{ !cancelled() && steps.rust_backed_daemon.outcome == 'success' }}
         run: npm run mutate:foundry-capability-build --workspace=@ioi/hypervisor-app
 
+      # M10.8 — the GENERIC subordinate cycle beside Foundry's own specialized one. Three registered
+      # contracts and the five laws none of them could carry: three are comparisons BETWEEN an
+      # adapter and the envelope offered to it, one is a NOT-BOTH over two spellings of one fact,
+      # and one is about ORDER rather than shape — a released evaluator is a legitimate judge
+      # everywhere except backwards over the cycle that built it.
+      - name: Verify the capability-construction cycle (M10.8, CI-bound drills)
+        if: ${{ !cancelled() && steps.rust_backed_daemon.outcome == 'success' }}
+        env:
+          IOI_VERIFIER_CENSUS_DIR: .artifacts/verifier-census
+        run: npm run check:capability-construction-cycle --workspace=@ioi/hypervisor-app
+
+      - name: Drill the capability-construction-cycle deriver
+        if: ${{ !cancelled() && steps.rust_backed_daemon.outcome == 'success' }}
+        run: npm run mutate:capability-construction-cycle --workspace=@ioi/hypervisor-app
+
       - name: Verify the surface module contract
         if: ${{ !cancelled() && steps.rust_backed_daemon.outcome == 'success' }}
         env:

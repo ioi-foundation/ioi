@@ -1,0 +1,94 @@
+{
+  "evidence_format": "ioi.program.work_item.v1",
+  "work_item_id": "m10-8-capability-construction-cycle",
+  "stage_id": "M10",
+  "required_work": [
+    "M10.8"
+  ],
+  "status": "evidence_ready",
+  "objective": "Close M10.8 as an executable gate: give the estate a GENERIC subordinate construction cycle beside Foundry's own specialized one, so that twenty-three admitted target classes can be improved under declared policies without Foundry becoming their owner — and enforce the five laws none of the three registered contracts could hold, because three of them are comparisons BETWEEN records, one is a NOT-BOTH over two spellings of one fact, and one is about ORDER rather than shape.",
+  "falsifiable_claim": "node scripts/check-capability-construction-cycle.mjs proves twelve clauses over three registered contracts, a pure deriver and a deterministic conformance leg. PURE: the five laws the portable invariant operator set has no form for — the optimizer is an actor (worker/conductor/runtime) and a model named there would be a truth owner; the four disposition lists stay four and a cycle that ran trials and disposed of nothing cannot explain how it got where it is; the three adapter refusals (missing_adapter, cross_version, downgrade) are each reachable and each isolated, with an UNKNOWN CLASS reported as a fourth thing rather than folded into the first; canonical state does not emit the deprecated target_training_pipeline_ref beside the canonical pair; and a builder-created evaluator may not judge its parent EVEN AFTER RELEASE, which is why the check needs the judging event and not just the asset. Every case that another check could mask is isolated by asserting its message. SEAM: three contracts registered against the canon section that owns them and projected into both surfaces, the two laws carried as wire constants, all four disposition lists required, NO member the cycle could name a model or an authority in, one jcs_sha256_equals per family covering EVERY required member, and Foundry's canon-only ExperimentOptimizationCycleEnvelope left where canon put it with none of its five distinct members migrated onto the generic one. SOURCE: canon's four laws in its own words, and the closed twenty-three target classes IDENTICAL in canon's block, both contract enums and the deriver. CONFORMANCE: a registered-valid cycle for every one of the 23 classes, six compact cycles spanning canon's shape groups including an honest bounded non-success, a failed-trial repair parented back to trials its parent actually ran, and the commitment proved by editing three records underneath their own seals. --drills runs 10 drills; --mutation plants 35 defects and catches all 35. Clause 12 is a NAMED ABSENCE with owners and the gate exits 2: no owning plane admits a CapabilityConstructionCycle, so crash/resume, budget consumption, independent re-evaluation and a live optimizer's zero writes are named rather than claimed.",
+  "canon_owners": [
+    "docs/architecture/foundations/objects/model-foundry-and-training.md"
+  ],
+  "code_anchors": [
+    {
+      "path": "docs/architecture/_meta/schemas/capability-construction-cycle.v1.schema.json",
+      "must_contain": "selection_confers_eligibility_only",
+      "present_when": "merged"
+    },
+    {
+      "path": "docs/architecture/_meta/schemas/capability-construction-cycle.v1.schema.json",
+      "must_contain": "exploit_or_invalid_change_refs",
+      "present_when": "merged"
+    },
+    {
+      "path": "docs/architecture/_meta/schemas/repair-proposal.v1.schema.json",
+      "must_contain": "applies_nothing",
+      "present_when": "merged"
+    },
+    {
+      "path": "docs/architecture/_meta/schemas/optimization-target-adapter.v1.schema.json",
+      "must_contain": "accepts_envelope_schema",
+      "present_when": "merged"
+    },
+    {
+      "path": "docs/architecture/_meta/schemas/invariants/capability-construction-cycle.v1.invariants.json",
+      "must_contain": "jcs_sha256_equals",
+      "present_when": "merged"
+    },
+    {
+      "path": "apps/hypervisor/scripts/lib/capability-construction-cycle.mjs",
+      "must_contain": "export const TARGET_CLASSES",
+      "present_when": "merged"
+    },
+    {
+      "path": "apps/hypervisor/scripts/lib/capability-construction-cycle.mjs",
+      "must_contain": "export const ADAPTER_REFUSALS",
+      "present_when": "merged"
+    },
+    {
+      "path": "apps/hypervisor/scripts/lib/capability-construction-cycle.mjs",
+      "must_contain": "export function judgingFindings(",
+      "present_when": "merged"
+    },
+    {
+      "path": "scripts/check-capability-construction-cycle.mjs",
+      "must_contain": "export async function conformanceFindings(",
+      "present_when": "merged"
+    },
+    {
+      "path": "scripts/check-capability-construction-cycle.mjs",
+      "must_contain": "export function sourceFindings(",
+      "present_when": "merged"
+    },
+    {
+      "path": "docs/architecture/foundations/objects/model-foundry-and-training.md",
+      "must_contain": "THE `target_class` VOCABULARY IS CLOSED",
+      "present_when": "merged"
+    },
+    {
+      "path": "docs/architecture/foundations/objects/model-foundry-and-training.md",
+      "must_contain": "A builder-created asset cannot judge its own family",
+      "present_when": "merged"
+    },
+    {
+      "path": "apps/hypervisor/verifier-floors.v1.json",
+      "must_contain": "\"id\": \"capability-construction-cycle\"",
+      "present_when": "merged"
+    },
+    {
+      "path": "apps/hypervisor/scripts/check-verifier-floors.mjs",
+      "must_contain": "check-capability-construction-cycle",
+      "present_when": "merged"
+    },
+    {
+      "path": ".github/workflows/ci.yml",
+      "must_contain": "npm run check:capability-construction-cycle --workspace=@ioi/hypervisor-app",
+      "present_when": "merged"
+    }
+  ],
+  "evidence_refs": [
+    "docs/architecture/_meta/evidence/m10-8-capability-construction-cycle-2026-09-23.v1.json"
+  ]
+}
