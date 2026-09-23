@@ -15229,6 +15229,133 @@ export type CrossSubstratePortabilityCertificateV1 = {
   certificate_root: string;
 };
 
+export type FoundryTrainingProgramV2 = {
+  schema_version: "ioi.foundry-training-program.v2";
+  program_id: string;
+  owner_ref: string;
+  foundry_spec_ref: string | null;
+  dataset_snapshot_ref: string;
+  dataset_content_hash: string;
+  recipe_content_hash: string;
+  training_mode: "sft" | "adapter";
+  trainer_backend_profile_ref: "trainer-backend://ioi/reference-token-frequency/v1";
+  backend_scope: "bounded_reference_pipeline_only";
+  text_field: string;
+  checkpoint_every_rows: number;
+  seed: number;
+  authority_grant_refs: Array<string>;
+  rights_grant_refs: Array<string>;
+  revision: number;
+  status: "admitted" | "running" | "paused" | "completed" | "cancelled" | "resume_divergent";
+  data_cursor: number;
+  processed_rows: number;
+  processed_tokens: number;
+  token_counts: Array<{
+        token: string;
+        count: number;
+      }>;
+  checkpoint_refs: Array<string>;
+  current_checkpoint: {
+      checkpoint_ref: string;
+      artifact_ref: string;
+      artifact_hash: string;
+      data_cursor: number;
+      global_step: number;
+      token_count: number;
+      complete: true;
+      restore_verified: boolean;
+    } | null;
+  restore_verification: {
+      verified: true;
+      checkpoint_ref: string;
+      artifact_hash: string;
+      data_cursor: number;
+      model_state_hash: string;
+      optimizer_state_hash: string;
+      scheduler_state_hash: string;
+      rng_state_hash: string;
+    } | null;
+  qualification: {
+      schema_version: "ioi.foundry-qualified-measurement.v1";
+      verdict: "qualified" | "rejected";
+      quality: {
+            token_coverage: number;
+            mean_negative_log_likelihood: number;
+            gate: {
+                    minimum_token_coverage: number;
+                    maximum_mean_negative_log_likelihood: number;
+                  };
+          };
+      measurement: {
+            phase: "evaluation";
+            token_numerator: "loss_bearing";
+            denominator: "full_wall_clock";
+            scope: "daemon_cpu_process";
+            raw_tokens: number;
+            effective_tokens: number;
+            elapsed_nanoseconds: number;
+            tokens_per_second: number;
+            includes_compilation: false;
+            includes_loading: true;
+            includes_evaluation: true;
+            includes_checkpoint: false;
+            includes_failure_and_recovery: false;
+            hardware_software_topology_fingerprint: {
+                    runtime_node_ref: string;
+                    environment_ref: string;
+                    trainer_backend_profile_ref: "trainer-backend://ioi/reference-token-frequency/v1";
+                    hardware_architecture: "x86_64" | "aarch64";
+                    logical_cpu_count: number;
+                    memory_bytes: number;
+                    operating_system: "linux" | "macos" | "windows";
+                    daemon_release_ref: string;
+                  };
+            cost_basis_ref: string;
+            failure_schedule_ref: string;
+          };
+      promotion_boundary: {
+            proposal_only: true;
+            governance_approval_required: true;
+            runtime_activation_performed: false;
+          };
+    } | null;
+  last_action_idempotency_key: string;
+  last_action_request?: {
+      action: "start" | "step" | "pause" | "resume" | "cancel" | "reconcile";
+      max_rows: number | null;
+    };
+  reconciliation?: {
+      status: "satisfied";
+      checkpoint_ref: string | null;
+    };
+  qualification_proposal_ref?: string;
+  policy_bound_data_view_ref: string;
+  policy_bound_data_view_revision_ref: string;
+  retention_class_ref: string;
+  determinism_class: "bitwise" | "state_equivalent" | "statistical";
+  spend: {
+      reservation_ref: string;
+      reconciled_outcome: "reconciled_exact" | "reconciled_within_reservation" | "spend_unreconciled" | "spend_exceeded_reservation";
+      cleanup_obligation_ref: string;
+    };
+  resume_equivalence: {
+      compared_at_global_step: number;
+      uninterrupted: {
+            model_state_hash: string;
+            optimizer_state_hash: string;
+            scheduler_state_hash: string;
+            rng_state_hash: string;
+          };
+      resumed: {
+            model_state_hash: string;
+            optimizer_state_hash: string;
+            scheduler_state_hash: string;
+            rng_state_hash: string;
+          };
+      class_satisfied: boolean;
+    } | null;
+};
+
 export const ARCHITECTURE_CONTRACT_REGISTRY_VERSION = "ioi.architecture-contract-registry.v1" as const;
 
 export const ARCHITECTURE_CONTRACT_PORTABLE_INTEGER_MINIMUM = 0 as const;
@@ -30870,6 +30997,142 @@ export const ARCHITECTURE_CONTRACT_FIXTURES = [
     "expected_schema_accept": false,
     "expected_failure": "schema",
     "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/components/hypervisor/foundry-training-program/v2",
+    "path": "docs/architecture/_meta/schemas/fixtures/foundry-training-program-v2/positive-never-interrupted.json",
+    "expected": "accept",
+    "expected_schema_accept": true,
+    "expected_failure": null,
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/components/hypervisor/foundry-training-program/v2",
+    "path": "docs/architecture/_meta/schemas/fixtures/foundry-training-program-v2/positive-resume-divergent-and-measured.json",
+    "expected": "accept",
+    "expected_schema_accept": true,
+    "expected_failure": null,
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/components/hypervisor/foundry-training-program/v2",
+    "path": "docs/architecture/_meta/schemas/fixtures/foundry-training-program-v2/positive-resumed-and-equivalent.json",
+    "expected": "accept",
+    "expected_schema_accept": true,
+    "expected_failure": null,
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/components/hypervisor/foundry-training-program/v2",
+    "path": "docs/architecture/_meta/schemas/fixtures/foundry-training-program-v2/negative-a-reconciliation-member-standing-in-for-spend.json",
+    "expected": "reject",
+    "expected_schema_accept": false,
+    "expected_failure": "schema",
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/components/hypervisor/foundry-training-program/v2",
+    "path": "docs/architecture/_meta/schemas/fixtures/foundry-training-program-v2/negative-a-view-bound-without-a-revision.json",
+    "expected": "reject",
+    "expected_schema_accept": false,
+    "expected_failure": "schema",
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/components/hypervisor/foundry-training-program/v2",
+    "path": "docs/architecture/_meta/schemas/fixtures/foundry-training-program-v2/negative-an-equivalence-missing-one-side.json",
+    "expected": "reject",
+    "expected_schema_accept": false,
+    "expected_failure": "schema",
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/components/hypervisor/foundry-training-program/v2",
+    "path": "docs/architecture/_meta/schemas/fixtures/foundry-training-program-v2/negative-an-equivalence-with-a-partial-digest-set.json",
+    "expected": "reject",
+    "expected_schema_accept": false,
+    "expected_failure": "schema",
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/components/hypervisor/foundry-training-program/v2",
+    "path": "docs/architecture/_meta/schemas/fixtures/foundry-training-program-v2/negative-an-equivalence-with-no-verdict.json",
+    "expected": "reject",
+    "expected_schema_accept": false,
+    "expected_failure": "schema",
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/components/hypervisor/foundry-training-program/v2",
+    "path": "docs/architecture/_meta/schemas/fixtures/foundry-training-program-v2/negative-an-invented-determinism-class.json",
+    "expected": "reject",
+    "expected_schema_accept": false,
+    "expected_failure": "schema",
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/components/hypervisor/foundry-training-program/v2",
+    "path": "docs/architecture/_meta/schemas/fixtures/foundry-training-program-v2/negative-an-invented-spend-outcome.json",
+    "expected": "reject",
+    "expected_schema_accept": false,
+    "expected_failure": "schema",
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/components/hypervisor/foundry-training-program/v2",
+    "path": "docs/architecture/_meta/schemas/fixtures/foundry-training-program-v2/negative-no-determinism-class.json",
+    "expected": "reject",
+    "expected_schema_accept": false,
+    "expected_failure": "schema",
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/components/hypervisor/foundry-training-program/v2",
+    "path": "docs/architecture/_meta/schemas/fixtures/foundry-training-program-v2/negative-no-policy-bound-view.json",
+    "expected": "reject",
+    "expected_schema_accept": false,
+    "expected_failure": "schema",
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/components/hypervisor/foundry-training-program/v2",
+    "path": "docs/architecture/_meta/schemas/fixtures/foundry-training-program-v2/negative-no-retention-class.json",
+    "expected": "reject",
+    "expected_schema_accept": false,
+    "expected_failure": "schema",
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/components/hypervisor/foundry-training-program/v2",
+    "path": "docs/architecture/_meta/schemas/fixtures/foundry-training-program-v2/negative-no-spend-at-all.json",
+    "expected": "reject",
+    "expected_schema_accept": false,
+    "expected_failure": "schema",
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/components/hypervisor/foundry-training-program/v2",
+    "path": "docs/architecture/_meta/schemas/fixtures/foundry-training-program-v2/negative-spend-with-no-cleanup-obligation.json",
+    "expected": "reject",
+    "expected_schema_accept": false,
+    "expected_failure": "schema",
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/components/hypervisor/foundry-training-program/v2",
+    "path": "docs/architecture/_meta/schemas/fixtures/foundry-training-program-v2/negative-spend-with-no-reservation.json",
+    "expected": "reject",
+    "expected_schema_accept": false,
+    "expected_failure": "schema",
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/components/hypervisor/foundry-training-program/v2",
+    "path": "docs/architecture/_meta/schemas/fixtures/foundry-training-program-v2/negative-still-declares-v1.json",
+    "expected": "reject",
+    "expected_schema_accept": false,
+    "expected_failure": "schema",
+    "expected_rule_id": null
   }
 ] as const;
 
@@ -35477,6 +35740,23 @@ export const ARCHITECTURE_CONTRACT_DIFFERENTIAL_CASES: ReadonlyArray<Architectur
   differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/cross-substrate-portability-certificate-v1/negative-qualifies-another-provider.json","contract_id":"schema://ioi/hypervisor/cross-substrate-portability-certificate/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/cross-substrate-portability-certificate-v1/negative-qualifies-another-provider.json","mutation_id":null,"value_json":null}),
   differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/cross-substrate-portability-certificate-v1/negative-root-does-not-recompute.json","contract_id":"schema://ioi/hypervisor/cross-substrate-portability-certificate/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/cross-substrate-portability-certificate-v1/negative-root-does-not-recompute.json","mutation_id":null,"value_json":null}),
   differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/cross-substrate-portability-certificate-v1/negative-says-the-families-are-the-same.json","contract_id":"schema://ioi/hypervisor/cross-substrate-portability-certificate/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/cross-substrate-portability-certificate-v1/negative-says-the-families-are-the-same.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/foundry-training-program-v2/positive-never-interrupted.json","contract_id":"schema://ioi/components/hypervisor/foundry-training-program/v2","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/foundry-training-program-v2/positive-never-interrupted.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/foundry-training-program-v2/positive-resume-divergent-and-measured.json","contract_id":"schema://ioi/components/hypervisor/foundry-training-program/v2","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/foundry-training-program-v2/positive-resume-divergent-and-measured.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/foundry-training-program-v2/positive-resumed-and-equivalent.json","contract_id":"schema://ioi/components/hypervisor/foundry-training-program/v2","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/foundry-training-program-v2/positive-resumed-and-equivalent.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/foundry-training-program-v2/negative-a-reconciliation-member-standing-in-for-spend.json","contract_id":"schema://ioi/components/hypervisor/foundry-training-program/v2","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/foundry-training-program-v2/negative-a-reconciliation-member-standing-in-for-spend.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/foundry-training-program-v2/negative-a-view-bound-without-a-revision.json","contract_id":"schema://ioi/components/hypervisor/foundry-training-program/v2","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/foundry-training-program-v2/negative-a-view-bound-without-a-revision.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/foundry-training-program-v2/negative-an-equivalence-missing-one-side.json","contract_id":"schema://ioi/components/hypervisor/foundry-training-program/v2","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/foundry-training-program-v2/negative-an-equivalence-missing-one-side.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/foundry-training-program-v2/negative-an-equivalence-with-a-partial-digest-set.json","contract_id":"schema://ioi/components/hypervisor/foundry-training-program/v2","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/foundry-training-program-v2/negative-an-equivalence-with-a-partial-digest-set.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/foundry-training-program-v2/negative-an-equivalence-with-no-verdict.json","contract_id":"schema://ioi/components/hypervisor/foundry-training-program/v2","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/foundry-training-program-v2/negative-an-equivalence-with-no-verdict.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/foundry-training-program-v2/negative-an-invented-determinism-class.json","contract_id":"schema://ioi/components/hypervisor/foundry-training-program/v2","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/foundry-training-program-v2/negative-an-invented-determinism-class.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/foundry-training-program-v2/negative-an-invented-spend-outcome.json","contract_id":"schema://ioi/components/hypervisor/foundry-training-program/v2","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/foundry-training-program-v2/negative-an-invented-spend-outcome.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/foundry-training-program-v2/negative-no-determinism-class.json","contract_id":"schema://ioi/components/hypervisor/foundry-training-program/v2","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/foundry-training-program-v2/negative-no-determinism-class.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/foundry-training-program-v2/negative-no-policy-bound-view.json","contract_id":"schema://ioi/components/hypervisor/foundry-training-program/v2","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/foundry-training-program-v2/negative-no-policy-bound-view.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/foundry-training-program-v2/negative-no-retention-class.json","contract_id":"schema://ioi/components/hypervisor/foundry-training-program/v2","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/foundry-training-program-v2/negative-no-retention-class.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/foundry-training-program-v2/negative-no-spend-at-all.json","contract_id":"schema://ioi/components/hypervisor/foundry-training-program/v2","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/foundry-training-program-v2/negative-no-spend-at-all.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/foundry-training-program-v2/negative-spend-with-no-cleanup-obligation.json","contract_id":"schema://ioi/components/hypervisor/foundry-training-program/v2","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/foundry-training-program-v2/negative-spend-with-no-cleanup-obligation.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/foundry-training-program-v2/negative-spend-with-no-reservation.json","contract_id":"schema://ioi/components/hypervisor/foundry-training-program/v2","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/foundry-training-program-v2/negative-spend-with-no-reservation.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/foundry-training-program-v2/negative-still-declares-v1.json","contract_id":"schema://ioi/components/hypervisor/foundry-training-program/v2","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/foundry-training-program-v2/negative-still-declares-v1.json","mutation_id":null,"value_json":null}),
   differentialCase({"id":"mutation:sequence-zero-receipt-timestamp-detached","contract_id":"schema://ioi/foundations/autonomous-system-sequence-zero-materialization-receipt/v2","source_fixture_path":null,"mutation_id":"sequence-zero-receipt-timestamp-detached","value_json":null}),
   differentialCase({"id":"mutation:sequence-zero-receipt-authorized-materialization-id-detached","contract_id":"schema://ioi/foundations/autonomous-system-sequence-zero-materialization-receipt/v2","source_fixture_path":null,"mutation_id":"sequence-zero-receipt-authorized-materialization-id-detached","value_json":null}),
   differentialCase({"id":"mutation:sequence-zero-receipt-authority-principal-detached","contract_id":"schema://ioi/foundations/autonomous-system-sequence-zero-materialization-receipt/v2","source_fixture_path":null,"mutation_id":"sequence-zero-receipt-authority-principal-detached","value_json":null}),
@@ -36175,6 +36455,7 @@ export const ARCHITECTURE_CONTRACT_PATTERN_SOURCES = [
   "^checkpoint://[^\\s]{1,500}$",
   "^checkpoint://foundry/[^\\s]{1,500}$",
   "^cleanup-obligation://[^\\s]{1,240}$",
+  "^cleanup_obligation://[^\\s?#\\\\]{1,200}$",
   "^cmap_[0-9a-f]{12,32}$",
   "^collaboration-terms://[^\\s]{1,240}$",
   "^collaboration://[^\\s]{1,500}$",
@@ -36655,6 +36936,7 @@ export const ARCHITECTURE_CONTRACT_PATTERN_SOURCES = [
   "^snapshot://[^\\s]+$",
   "^snapshot://[^\\s]{1,248}$",
   "^snapshot://[^\\s]{1,500}$",
+  "^spend_reservation://[^\\s?#\\\\]{1,200}$",
   "^split-manifest://[a-z0-9][a-z0-9._-]{0,127}$",
   "^split-manifest://[a-z0-9][a-z0-9._-]{0,127}/revision/[1-9][0-9]{0,8}$",
   "^staged-effect://[^\\s]+$",
@@ -37126,7 +37408,8 @@ export const ARCHITECTURE_CONTRACT_SCHEMA_HASHES = {
   "schema://ioi/foundations/compliance-audit-export-bundle/v1": "sha256:68e4e3a649bba90792b4a2c6031d7c8926111f9cae7993a9df2f4c143df8a85d",
   "schema://ioi/foundations/regulated-workload-assurance-profile/v1": "sha256:15918815c79b453e159983579426cf438a6f5f9cddf6f67fe4f36b918d0bd5e3",
   "schema://ioi/foundations/regulated-workload-admission-case/v1": "sha256:b831562b81c011d5f19b81e523fc61f38c4426a2bcc5b45171fc160e444e5969",
-  "schema://ioi/hypervisor/cross-substrate-portability-certificate/v1": "sha256:dc7b20b83da02a296d10c93951f3677ac88de227a58ce190e1cce864e534e7f4"
+  "schema://ioi/hypervisor/cross-substrate-portability-certificate/v1": "sha256:dc7b20b83da02a296d10c93951f3677ac88de227a58ce190e1cce864e534e7f4",
+  "schema://ioi/components/hypervisor/foundry-training-program/v2": "sha256:f261acbcd539c7f930eaf442b342678f6b18198aa5fc1dea0279e5569c1126e1"
 } as const;
 
 type JsonObject = Record<string, unknown>;
@@ -154804,6 +155087,714 @@ const CONTRACT_SCHEMAS: Record<string, JsonObject> = {
         "description": "SHA-256 over JCS of every member except this one."
       }
     }
+  },
+  "schema://ioi/components/hypervisor/foundry-training-program/v2": {
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "$id": "schema://ioi/components/hypervisor/foundry-training-program/v2",
+    "title": "FoundryTrainingProgram",
+    "description": "THE PRODUCTION CAPABILITY-BUILD PIPELINE'S PROGRAM — v1 plus the four bindings it owed and the one comparison it could not make. v1 already binds the dataset content hash, the recipe content hash, the trainer backend profile, the `seed`, the rights and authority grants and the data cursor, and `verify-restore` already fails closed six ways, and `qualification.promotion_boundary` already pins `proposal_only`, `governance_approval_required` and `runtime_activation_performed` as constants — so a Foundry run that promoted its own output is already unrepresentable. WHAT v1 COULD NOT DO. `verify_checkpoint_projection` computes `model_state_hash`, `optimizer_state_hash`, `scheduler_state_hash` and `rng_state_hash` — the exact four digests an equivalence claim needs — and COMPARES NONE OF THEM. Nothing asked whether a resumed run reached the state an uninterrupted one would have, which is the only thing the resume guarantee actually asserts. `determinism_class` says which of those digests must match, and it is DECLARED BEFORE THE RUN because a class chosen once the hashes are known describes what happened instead of committing to something the run can fail. AND THREE BINDINGS WERE SIMPLY ABSENT, measured 2026-09-22 across every foundry-* contract: `policy_bound_data_view` returned false on all four objects, retention returned false on all four, and `spend`/`reservation`/`budget`/`cleanup`/`orphan` returned false against the program. The member named `reconciliation` in v1 is NOT spend reconciliation — it is `{status, checkpoint_ref}`, the interrupted-run resume pointer, and a reader matching on the word alone would take this unit's hardest obligation for satisfied. `spend` is therefore a separate member with its own name. v1 REMAINS VALID for programs already admitted under it; this is a successor, not a correction. Owner: components/hypervisor/foundry.md § The Production Capability-Build Pipeline (M10.6, R-235). THIS CONTRACT REGISTERS NO CROSS-FIELD INVARIANTS, and that is a measured limit rather than an oversight. Its three cross-member laws are: a `resume_divergent` status must carry the comparison that produced it; an unreconciled or exceeded spend forbids a candidate; and `class_satisfied` must agree with the digests the declared class selects. None is expressible in the portable operator set. `non_empty` is satisfied by a non-empty array, a non-empty string or a finite number and NEVER by an object, so a rule requiring `resume_equivalence` could not be satisfied by any record at all — the golden oracle caught exactly that, rejecting this contract's own positive fixture. Pointing the rule at a required scalar INSIDE that object then failed differently: an invariant path must resolve through every reachable schema alternative, and `resume_equivalence` is nullable, so no path reaches into it. The remaining two laws are conditional comparisons — \"this member must be EMPTY when that one reads X\", and \"compare these digests, but only the ones this enum selects\" — and the operator set has no form for either. Making `resume_equivalence` non-nullable, or adding a member shaped to fit an operator, would bend a canonical shape for codegen, which the estate forbids. All three are therefore enforced by the deriver and the plane and NAMED there, where a reader can find them.",
+    "x-ioi-schema-version": "ioi.foundry-training-program.v2",
+    "type": "object",
+    "additionalProperties": false,
+    "required": [
+      "schema_version",
+      "program_id",
+      "owner_ref",
+      "foundry_spec_ref",
+      "dataset_snapshot_ref",
+      "dataset_content_hash",
+      "recipe_content_hash",
+      "training_mode",
+      "trainer_backend_profile_ref",
+      "backend_scope",
+      "text_field",
+      "checkpoint_every_rows",
+      "seed",
+      "authority_grant_refs",
+      "rights_grant_refs",
+      "revision",
+      "status",
+      "data_cursor",
+      "processed_rows",
+      "processed_tokens",
+      "token_counts",
+      "checkpoint_refs",
+      "current_checkpoint",
+      "restore_verification",
+      "qualification",
+      "last_action_idempotency_key",
+      "policy_bound_data_view_ref",
+      "policy_bound_data_view_revision_ref",
+      "retention_class_ref",
+      "determinism_class",
+      "spend",
+      "resume_equivalence"
+    ],
+    "properties": {
+      "schema_version": {
+        "type": "string",
+        "const": "ioi.foundry-training-program.v2"
+      },
+      "program_id": {
+        "type": "string",
+        "pattern": "^trainpipe://[^\\s]{1,500}$"
+      },
+      "owner_ref": {
+        "type": "string",
+        "pattern": "^(?:wallet|org|project)://[^\\s]{1,500}$"
+      },
+      "foundry_spec_ref": {
+        "$ref": "#/$defs/nullableRef"
+      },
+      "dataset_snapshot_ref": {
+        "type": "string",
+        "pattern": "^dataset-snapshot://[^\\s]{1,500}$"
+      },
+      "dataset_content_hash": {
+        "$ref": "#/$defs/hash"
+      },
+      "recipe_content_hash": {
+        "$ref": "#/$defs/hash"
+      },
+      "training_mode": {
+        "enum": [
+          "sft",
+          "adapter"
+        ]
+      },
+      "trainer_backend_profile_ref": {
+        "const": "trainer-backend://ioi/reference-token-frequency/v1"
+      },
+      "backend_scope": {
+        "const": "bounded_reference_pipeline_only"
+      },
+      "text_field": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 500
+      },
+      "checkpoint_every_rows": {
+        "$ref": "#/$defs/positiveInteger"
+      },
+      "seed": {
+        "$ref": "#/$defs/nonnegativeInteger"
+      },
+      "authority_grant_refs": {
+        "type": "array",
+        "minItems": 1,
+        "items": {
+          "$ref": "#/$defs/nonempty"
+        }
+      },
+      "rights_grant_refs": {
+        "type": "array",
+        "minItems": 1,
+        "items": {
+          "$ref": "#/$defs/nonempty"
+        }
+      },
+      "revision": {
+        "$ref": "#/$defs/positiveInteger"
+      },
+      "status": {
+        "enum": [
+          "admitted",
+          "running",
+          "paused",
+          "completed",
+          "cancelled",
+          "resume_divergent"
+        ]
+      },
+      "data_cursor": {
+        "$ref": "#/$defs/nonnegativeInteger"
+      },
+      "processed_rows": {
+        "$ref": "#/$defs/nonnegativeInteger"
+      },
+      "processed_tokens": {
+        "$ref": "#/$defs/nonnegativeInteger"
+      },
+      "token_counts": {
+        "$ref": "#/$defs/tokenCountRows"
+      },
+      "checkpoint_refs": {
+        "type": "array",
+        "items": {
+          "type": "string",
+          "pattern": "^checkpoint://[^\\s]{1,500}$"
+        }
+      },
+      "current_checkpoint": {
+        "anyOf": [
+          {
+            "$ref": "#/$defs/checkpointProjection"
+          },
+          {
+            "type": "null"
+          }
+        ]
+      },
+      "restore_verification": {
+        "anyOf": [
+          {
+            "$ref": "#/$defs/restoreVerification"
+          },
+          {
+            "type": "null"
+          }
+        ]
+      },
+      "qualification": {
+        "anyOf": [
+          {
+            "$ref": "#/$defs/qualification"
+          },
+          {
+            "type": "null"
+          }
+        ]
+      },
+      "last_action_idempotency_key": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 500
+      },
+      "last_action_request": {
+        "$ref": "#/$defs/actionRequest"
+      },
+      "reconciliation": {
+        "$ref": "#/$defs/reconciliation"
+      },
+      "qualification_proposal_ref": {
+        "type": "string",
+        "pattern": "^qualification-proposal://foundry/[^\\s]{1,500}$"
+      },
+      "policy_bound_data_view_ref": {
+        "type": "string",
+        "pattern": "^policy_bound_data_view://[^\\s?#\\\\]{1,200}$",
+        "description": "The view this program read through. Named, never restated: the view already owns purpose, allowed uses, data classes, redaction and egress, and a copy of any of those here would be a second one free to drift."
+      },
+      "policy_bound_data_view_revision_ref": {
+        "type": "string",
+        "pattern": "^revision://[^\\s?#\\\\]{1,200}$",
+        "description": "The EXACT revision read. Binding the view by name rather than by revision is what makes a superseded view undetectable; a program whose revision has since been superseded is not invalid, it is evidence about what was read at the revision it names."
+      },
+      "retention_class_ref": {
+        "type": "string",
+        "pattern": "^retention_class://[^\\s?#\\\\]{1,200}$",
+        "description": "The retention class this program's artifacts fall under, named at its owner and not restated — hold and destruction belong to the retention owner."
+      },
+      "determinism_class": {
+        "type": "string",
+        "enum": [
+          "bitwise",
+          "state_equivalent",
+          "statistical"
+        ],
+        "description": "WHICH DIGESTS A RESUME MUST REPRODUCE. `bitwise`: all four of model, optimizer, scheduler and rng identical. `state_equivalent`: model, optimizer and scheduler identical, rng may advance differently. `statistical`: no state claim at all — equivalence is an evaluation claim and the program must SAY SO IN ADVANCE rather than fall back to it once the hashes disagree. Declared before the run; a class selected after the digests are known is a description of what happened rather than a commitment the run can fail."
+      },
+      "spend": {
+        "$ref": "#/$defs/spendAccounting"
+      },
+      "resume_equivalence": {
+        "anyOf": [
+          {
+            "$ref": "#/$defs/resumeEquivalence"
+          },
+          {
+            "type": "null"
+          }
+        ],
+        "description": "Null for a program that was never interrupted — a stated fact about this run, not an omission. Non-null is required once the program claims `resume_divergent`, because a divergence nobody measured is not a finding."
+      }
+    },
+    "$defs": {
+      "hash": {
+        "type": "string",
+        "pattern": "^sha256:[0-9a-f]{64}$"
+      },
+      "nonempty": {
+        "type": "string",
+        "minLength": 1
+      },
+      "ref": {
+        "type": "string",
+        "pattern": "^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"
+      },
+      "nullableRef": {
+        "anyOf": [
+          {
+            "$ref": "#/$defs/ref"
+          },
+          {
+            "type": "null"
+          }
+        ]
+      },
+      "nonnegativeInteger": {
+        "type": "integer",
+        "minimum": 0,
+        "maximum": 9007199254740991
+      },
+      "positiveInteger": {
+        "type": "integer",
+        "minimum": 1,
+        "maximum": 9007199254740991
+      },
+      "tokenCountRows": {
+        "type": "array",
+        "uniqueItems": true,
+        "items": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "token",
+            "count"
+          ],
+          "properties": {
+            "token": {
+              "type": "string",
+              "minLength": 1
+            },
+            "count": {
+              "$ref": "#/$defs/positiveInteger"
+            }
+          }
+        }
+      },
+      "checkpointProjection": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "checkpoint_ref",
+          "artifact_ref",
+          "artifact_hash",
+          "data_cursor",
+          "global_step",
+          "token_count",
+          "complete",
+          "restore_verified"
+        ],
+        "properties": {
+          "checkpoint_ref": {
+            "type": "string",
+            "pattern": "^checkpoint://foundry/[^\\s]{1,500}$"
+          },
+          "artifact_ref": {
+            "type": "string",
+            "pattern": "^artifact://foundry-checkpoint/[0-9a-f]{64}$"
+          },
+          "artifact_hash": {
+            "$ref": "#/$defs/hash"
+          },
+          "data_cursor": {
+            "$ref": "#/$defs/nonnegativeInteger"
+          },
+          "global_step": {
+            "$ref": "#/$defs/nonnegativeInteger"
+          },
+          "token_count": {
+            "$ref": "#/$defs/nonnegativeInteger"
+          },
+          "complete": {
+            "const": true
+          },
+          "restore_verified": {
+            "type": "boolean"
+          }
+        }
+      },
+      "restoreVerification": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "verified",
+          "checkpoint_ref",
+          "artifact_hash",
+          "data_cursor",
+          "model_state_hash",
+          "optimizer_state_hash",
+          "scheduler_state_hash",
+          "rng_state_hash"
+        ],
+        "properties": {
+          "verified": {
+            "const": true
+          },
+          "checkpoint_ref": {
+            "type": "string",
+            "pattern": "^checkpoint://foundry/[^\\s]{1,500}$"
+          },
+          "artifact_hash": {
+            "$ref": "#/$defs/hash"
+          },
+          "data_cursor": {
+            "$ref": "#/$defs/nonnegativeInteger"
+          },
+          "model_state_hash": {
+            "$ref": "#/$defs/hash"
+          },
+          "optimizer_state_hash": {
+            "$ref": "#/$defs/hash"
+          },
+          "scheduler_state_hash": {
+            "$ref": "#/$defs/hash"
+          },
+          "rng_state_hash": {
+            "$ref": "#/$defs/hash"
+          }
+        }
+      },
+      "actionRequest": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "action",
+          "max_rows"
+        ],
+        "properties": {
+          "action": {
+            "enum": [
+              "start",
+              "step",
+              "pause",
+              "resume",
+              "cancel",
+              "reconcile"
+            ]
+          },
+          "max_rows": {
+            "anyOf": [
+              {
+                "$ref": "#/$defs/positiveInteger"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        }
+      },
+      "reconciliation": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "status",
+          "checkpoint_ref"
+        ],
+        "properties": {
+          "status": {
+            "const": "satisfied"
+          },
+          "checkpoint_ref": {
+            "anyOf": [
+              {
+                "type": "string",
+                "pattern": "^checkpoint://foundry/[^\\s]{1,500}$"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        }
+      },
+      "workloadFingerprint": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "runtime_node_ref",
+          "environment_ref",
+          "trainer_backend_profile_ref",
+          "hardware_architecture",
+          "logical_cpu_count",
+          "memory_bytes",
+          "operating_system",
+          "daemon_release_ref"
+        ],
+        "properties": {
+          "runtime_node_ref": {
+            "type": "string",
+            "pattern": "^runtime://[^\\s]{1,500}$"
+          },
+          "environment_ref": {
+            "type": "string",
+            "pattern": "^environment://[^\\s]{1,500}$"
+          },
+          "trainer_backend_profile_ref": {
+            "const": "trainer-backend://ioi/reference-token-frequency/v1"
+          },
+          "hardware_architecture": {
+            "enum": [
+              "x86_64",
+              "aarch64"
+            ]
+          },
+          "logical_cpu_count": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 65535
+          },
+          "memory_bytes": {
+            "$ref": "#/$defs/positiveInteger"
+          },
+          "operating_system": {
+            "enum": [
+              "linux",
+              "macos",
+              "windows"
+            ]
+          },
+          "daemon_release_ref": {
+            "type": "string",
+            "pattern": "^release://[^\\s]{1,500}$"
+          }
+        }
+      },
+      "qualification": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "schema_version",
+          "verdict",
+          "quality",
+          "measurement",
+          "promotion_boundary"
+        ],
+        "properties": {
+          "schema_version": {
+            "const": "ioi.foundry-qualified-measurement.v1"
+          },
+          "verdict": {
+            "enum": [
+              "qualified",
+              "rejected"
+            ]
+          },
+          "quality": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "token_coverage",
+              "mean_negative_log_likelihood",
+              "gate"
+            ],
+            "properties": {
+              "token_coverage": {
+                "type": "number",
+                "minimum": 0,
+                "maximum": 1
+              },
+              "mean_negative_log_likelihood": {
+                "type": "number",
+                "minimum": 0,
+                "maximum": 1000000000000
+              },
+              "gate": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                  "minimum_token_coverage",
+                  "maximum_mean_negative_log_likelihood"
+                ],
+                "properties": {
+                  "minimum_token_coverage": {
+                    "type": "number",
+                    "minimum": 0,
+                    "maximum": 1
+                  },
+                  "maximum_mean_negative_log_likelihood": {
+                    "type": "number",
+                    "minimum": 0,
+                    "maximum": 1000000000000
+                  }
+                }
+              }
+            }
+          },
+          "measurement": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "phase",
+              "token_numerator",
+              "denominator",
+              "scope",
+              "raw_tokens",
+              "effective_tokens",
+              "elapsed_nanoseconds",
+              "tokens_per_second",
+              "includes_compilation",
+              "includes_loading",
+              "includes_evaluation",
+              "includes_checkpoint",
+              "includes_failure_and_recovery",
+              "hardware_software_topology_fingerprint",
+              "cost_basis_ref",
+              "failure_schedule_ref"
+            ],
+            "properties": {
+              "phase": {
+                "const": "evaluation"
+              },
+              "token_numerator": {
+                "const": "loss_bearing"
+              },
+              "denominator": {
+                "const": "full_wall_clock"
+              },
+              "scope": {
+                "const": "daemon_cpu_process"
+              },
+              "raw_tokens": {
+                "$ref": "#/$defs/positiveInteger"
+              },
+              "effective_tokens": {
+                "$ref": "#/$defs/positiveInteger"
+              },
+              "elapsed_nanoseconds": {
+                "$ref": "#/$defs/positiveInteger"
+              },
+              "tokens_per_second": {
+                "type": "number",
+                "minimum": 0,
+                "maximum": 1000000000000000
+              },
+              "includes_compilation": {
+                "const": false
+              },
+              "includes_loading": {
+                "const": true
+              },
+              "includes_evaluation": {
+                "const": true
+              },
+              "includes_checkpoint": {
+                "const": false
+              },
+              "includes_failure_and_recovery": {
+                "const": false
+              },
+              "hardware_software_topology_fingerprint": {
+                "$ref": "#/$defs/workloadFingerprint"
+              },
+              "cost_basis_ref": {
+                "type": "string",
+                "pattern": "^(?:cost|ledger|policy)://[^\\s]{1,500}$"
+              },
+              "failure_schedule_ref": {
+                "type": "string",
+                "pattern": "^(?:schedule|policy|artifact)://[^\\s]{1,500}$"
+              }
+            }
+          },
+          "promotion_boundary": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "proposal_only",
+              "governance_approval_required",
+              "runtime_activation_performed"
+            ],
+            "properties": {
+              "proposal_only": {
+                "const": true
+              },
+              "governance_approval_required": {
+                "const": true
+              },
+              "runtime_activation_performed": {
+                "const": false
+              }
+            }
+          }
+        }
+      },
+      "spendAccounting": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "reservation_ref",
+          "reconciled_outcome",
+          "cleanup_obligation_ref"
+        ],
+        "description": "EVERY EXTERNAL TRAINING RESOURCE CARRIES ALL THREE. Canon: a successful artifact with unknown spend, or with a live orphan resource, is a FAILED run — not a successful run with an accounting note. This member exists separately from `reconciliation` because that one is the interrupted-run resume pointer and shares nothing with spend but the word.",
+        "properties": {
+          "reservation_ref": {
+            "type": "string",
+            "pattern": "^spend_reservation://[^\\s?#\\\\]{1,200}$",
+            "description": "The ADMITTED reservation the run drew against. A run with no reservation did not have unknown spend; it had unauthorized spend, and the reservation is required so the two cannot be confused."
+          },
+          "reconciled_outcome": {
+            "type": "string",
+            "enum": [
+              "reconciled_exact",
+              "reconciled_within_reservation",
+              "spend_unreconciled",
+              "spend_exceeded_reservation"
+            ],
+            "description": "UNKNOWN SPEND AND ZERO SPEND ARE DIFFERENT FACTS. `spend_unreconciled` is a typed outcome that forbids the candidate, not a note attached to one — a pipeline that cannot tell the two apart will report zero when it means unknown. `spend_exceeded_reservation` is likewise terminal: the run drew past what was authorized."
+          },
+          "cleanup_obligation_ref": {
+            "type": "string",
+            "pattern": "^cleanup_obligation://[^\\s?#\\\\]{1,200}$",
+            "description": "The obligation that closes the external resource. Required even when the outcome reconciled exactly, because a settled bill over a resource still running is a live orphan."
+          }
+        }
+      },
+      "digestSet": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "model_state_hash",
+          "optimizer_state_hash",
+          "scheduler_state_hash",
+          "rng_state_hash"
+        ],
+        "description": "The four digests `verify_checkpoint_projection` already computes, recorded for one run at one step.",
+        "properties": {
+          "model_state_hash": {
+            "$ref": "#/$defs/hash"
+          },
+          "optimizer_state_hash": {
+            "$ref": "#/$defs/hash"
+          },
+          "scheduler_state_hash": {
+            "$ref": "#/$defs/hash"
+          },
+          "rng_state_hash": {
+            "$ref": "#/$defs/hash"
+          }
+        }
+      },
+      "resumeEquivalence": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "compared_at_global_step",
+          "uninterrupted",
+          "resumed",
+          "class_satisfied"
+        ],
+        "description": "ONE COMPARISON OF TWO RUNS AT ONE STEP. Both sides are recorded rather than a verdict alone, because a verdict with no digests behind it is a claim its reader cannot check — and because which digests had to match depends on the declared class, so a later reader needs the inputs to re-derive the same answer.",
+        "properties": {
+          "compared_at_global_step": {
+            "$ref": "#/$defs/nonnegativeInteger"
+          },
+          "uninterrupted": {
+            "$ref": "#/$defs/digestSet"
+          },
+          "resumed": {
+            "$ref": "#/$defs/digestSet"
+          },
+          "class_satisfied": {
+            "type": "boolean",
+            "description": "Whether every digest the program's `determinism_class` names matched. False is terminal: the status is `resume_divergent` and the artifact is not a candidate."
+          }
+        }
+      }
+    }
   }
 };
 const CONTRACT_INVARIANTS: Record<string, Array<JsonObject>> = {
@@ -176641,7 +177632,8 @@ const CONTRACT_INVARIANTS: Record<string, Array<JsonObject>> = {
         }
       }
     }
-  ]
+  ],
+  "schema://ioi/components/hypervisor/foundry-training-program/v2": []
 };
 
 export function architectureContractSchemaHash(contractId: string): string | null {
@@ -179636,4 +180628,10 @@ export function validateCrossSubstratePortabilityCertificateV1(
   value: unknown,
 ): value is CrossSubstratePortabilityCertificateV1 {
   return validateArchitectureContract("schema://ioi/hypervisor/cross-substrate-portability-certificate/v1", value).ok;
+}
+
+export function validateFoundryTrainingProgramV2(
+  value: unknown,
+): value is FoundryTrainingProgramV2 {
+  return validateArchitectureContract("schema://ioi/components/hypervisor/foundry-training-program/v2", value).ok;
 }

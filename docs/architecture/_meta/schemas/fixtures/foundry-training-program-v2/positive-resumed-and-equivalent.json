@@ -1,0 +1,57 @@
+{
+  "schema_version": "ioi.foundry-training-program.v2",
+  "program_id": "trainpipe://acme/reference-v1",
+  "owner_ref": "project://acme/foundry",
+  "foundry_spec_ref": null,
+  "dataset_snapshot_ref": "dataset-snapshot://foundry/2222222222222222222222222222222222222222222222222222222222222222",
+  "dataset_content_hash": "sha256:2222222222222222222222222222222222222222222222222222222222222222",
+  "recipe_content_hash": "sha256:1111111111111111111111111111111111111111111111111111111111111111",
+  "training_mode": "sft",
+  "trainer_backend_profile_ref": "trainer-backend://ioi/reference-token-frequency/v1",
+  "backend_scope": "bounded_reference_pipeline_only",
+  "text_field": "text",
+  "checkpoint_every_rows": 2,
+  "seed": 23,
+  "authority_grant_refs": [
+    "grant://acme/foundry-run"
+  ],
+  "rights_grant_refs": [
+    "rights-grant://acme/training-v1"
+  ],
+  "revision": 1,
+  "status": "completed",
+  "data_cursor": 0,
+  "processed_rows": 0,
+  "processed_tokens": 0,
+  "token_counts": [],
+  "checkpoint_refs": [],
+  "current_checkpoint": null,
+  "restore_verification": null,
+  "qualification": null,
+  "last_action_idempotency_key": "program-create-v1",
+  "policy_bound_data_view_ref": "policy_bound_data_view://acme/training-corpus",
+  "policy_bound_data_view_revision_ref": "revision://acme/training-corpus/9",
+  "retention_class_ref": "retention_class://acme/model-artifacts-3y",
+  "determinism_class": "bitwise",
+  "spend": {
+    "reservation_ref": "spend_reservation://acme/foundry/run-771",
+    "reconciled_outcome": "reconciled_exact",
+    "cleanup_obligation_ref": "cleanup_obligation://acme/foundry/run-771"
+  },
+  "resume_equivalence": {
+    "compared_at_global_step": 4096,
+    "uninterrupted": {
+      "model_state_hash": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "optimizer_state_hash": "sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+      "scheduler_state_hash": "sha256:cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+      "rng_state_hash": "sha256:dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd"
+    },
+    "resumed": {
+      "model_state_hash": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "optimizer_state_hash": "sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+      "scheduler_state_hash": "sha256:cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+      "rng_state_hash": "sha256:dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd"
+    },
+    "class_satisfied": true
+  }
+}

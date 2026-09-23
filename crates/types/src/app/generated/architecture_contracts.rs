@@ -397,6 +397,7 @@ pub const ARCHITECTURE_CONTRACT_SCHEMA_HASHES: &[(&str, &str)] = &[
     ("schema://ioi/foundations/regulated-workload-assurance-profile/v1", "sha256:15918815c79b453e159983579426cf438a6f5f9cddf6f67fe4f36b918d0bd5e3"),
     ("schema://ioi/foundations/regulated-workload-admission-case/v1", "sha256:b831562b81c011d5f19b81e523fc61f38c4426a2bcc5b45171fc160e444e5969"),
     ("schema://ioi/hypervisor/cross-substrate-portability-certificate/v1", "sha256:dc7b20b83da02a296d10c93951f3677ac88de227a58ce190e1cce864e534e7f4"),
+    ("schema://ioi/components/hypervisor/foundry-training-program/v2", "sha256:f261acbcd539c7f930eaf442b342678f6b18198aa5fc1dea0279e5569c1126e1"),
 ];
 
 pub fn architecture_contract_schema_hash(contract_id: &str) -> Option<&'static str> {
@@ -171342,6 +171343,1700 @@ impl<'de> serde::Deserialize<'de>
     }
 }
 
+#[derive(Debug, Clone, PartialEq, serde::Serialize)]
+pub struct FoundryTrainingProgramV2 {
+    pub schema_version: FoundryTrainingProgramV2SchemaVersion,
+    pub program_id: String,
+    pub owner_ref: String,
+    pub foundry_spec_ref: Option<String>,
+    pub dataset_snapshot_ref: String,
+    pub dataset_content_hash: String,
+    pub recipe_content_hash: String,
+    pub training_mode: FoundryTrainingProgramV2TrainingMode,
+    pub trainer_backend_profile_ref: FoundryTrainingProgramV2TrainerBackendProfileRef,
+    pub backend_scope: FoundryTrainingProgramV2BackendScope,
+    pub text_field: String,
+    pub checkpoint_every_rows: ArchitectureContractInteger,
+    pub seed: ArchitectureContractInteger,
+    pub authority_grant_refs: Vec<String>,
+    pub rights_grant_refs: Vec<String>,
+    pub revision: ArchitectureContractInteger,
+    pub status: FoundryTrainingProgramV2Status,
+    pub data_cursor: ArchitectureContractInteger,
+    pub processed_rows: ArchitectureContractInteger,
+    pub processed_tokens: ArchitectureContractInteger,
+    pub token_counts: Vec<FoundryTrainingProgramV2TokenCountsItem>,
+    pub checkpoint_refs: Vec<String>,
+    pub current_checkpoint: Option<FoundryTrainingProgramV2CurrentCheckpoint>,
+    pub restore_verification: Option<FoundryTrainingProgramV2RestoreVerification>,
+    pub qualification: Option<FoundryTrainingProgramV2Qualification>,
+    pub last_action_idempotency_key: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub last_action_request: Option<FoundryTrainingProgramV2LastActionRequest>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub reconciliation: Option<FoundryTrainingProgramV2Reconciliation>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub qualification_proposal_ref: Option<String>,
+    pub policy_bound_data_view_ref: String,
+    pub policy_bound_data_view_revision_ref: String,
+    pub retention_class_ref: String,
+    pub determinism_class: FoundryTrainingProgramV2DeterminismClass,
+    pub spend: FoundryTrainingProgramV2Spend,
+    pub resume_equivalence: Option<FoundryTrainingProgramV2ResumeEquivalence>,
+}
+
+impl<'de> serde::Deserialize<'de> for FoundryTrainingProgramV2 {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let value = <serde_json::Value as serde::Deserialize>::deserialize(deserializer)?;
+        validate_projection_subschema(
+            r#"schema://ioi/components/hypervisor/foundry-training-program/v2"#,
+            r##"{"$schema":"https://json-schema.org/draft/2020-12/schema","$id":"schema://ioi/components/hypervisor/foundry-training-program/v2","title":"FoundryTrainingProgram","description":"THE PRODUCTION CAPABILITY-BUILD PIPELINE'S PROGRAM — v1 plus the four bindings it owed and the one comparison it could not make. v1 already binds the dataset content hash, the recipe content hash, the trainer backend profile, the `seed`, the rights and authority grants and the data cursor, and `verify-restore` already fails closed six ways, and `qualification.promotion_boundary` already pins `proposal_only`, `governance_approval_required` and `runtime_activation_performed` as constants — so a Foundry run that promoted its own output is already unrepresentable. WHAT v1 COULD NOT DO. `verify_checkpoint_projection` computes `model_state_hash`, `optimizer_state_hash`, `scheduler_state_hash` and `rng_state_hash` — the exact four digests an equivalence claim needs — and COMPARES NONE OF THEM. Nothing asked whether a resumed run reached the state an uninterrupted one would have, which is the only thing the resume guarantee actually asserts. `determinism_class` says which of those digests must match, and it is DECLARED BEFORE THE RUN because a class chosen once the hashes are known describes what happened instead of committing to something the run can fail. AND THREE BINDINGS WERE SIMPLY ABSENT, measured 2026-09-22 across every foundry-* contract: `policy_bound_data_view` returned false on all four objects, retention returned false on all four, and `spend`/`reservation`/`budget`/`cleanup`/`orphan` returned false against the program. The member named `reconciliation` in v1 is NOT spend reconciliation — it is `{status, checkpoint_ref}`, the interrupted-run resume pointer, and a reader matching on the word alone would take this unit's hardest obligation for satisfied. `spend` is therefore a separate member with its own name. v1 REMAINS VALID for programs already admitted under it; this is a successor, not a correction. Owner: components/hypervisor/foundry.md § The Production Capability-Build Pipeline (M10.6, R-235). THIS CONTRACT REGISTERS NO CROSS-FIELD INVARIANTS, and that is a measured limit rather than an oversight. Its three cross-member laws are: a `resume_divergent` status must carry the comparison that produced it; an unreconciled or exceeded spend forbids a candidate; and `class_satisfied` must agree with the digests the declared class selects. None is expressible in the portable operator set. `non_empty` is satisfied by a non-empty array, a non-empty string or a finite number and NEVER by an object, so a rule requiring `resume_equivalence` could not be satisfied by any record at all — the golden oracle caught exactly that, rejecting this contract's own positive fixture. Pointing the rule at a required scalar INSIDE that object then failed differently: an invariant path must resolve through every reachable schema alternative, and `resume_equivalence` is nullable, so no path reaches into it. The remaining two laws are conditional comparisons — \"this member must be EMPTY when that one reads X\", and \"compare these digests, but only the ones this enum selects\" — and the operator set has no form for either. Making `resume_equivalence` non-nullable, or adding a member shaped to fit an operator, would bend a canonical shape for codegen, which the estate forbids. All three are therefore enforced by the deriver and the plane and NAMED there, where a reader can find them.","x-ioi-schema-version":"ioi.foundry-training-program.v2","type":"object","additionalProperties":false,"required":["schema_version","program_id","owner_ref","foundry_spec_ref","dataset_snapshot_ref","dataset_content_hash","recipe_content_hash","training_mode","trainer_backend_profile_ref","backend_scope","text_field","checkpoint_every_rows","seed","authority_grant_refs","rights_grant_refs","revision","status","data_cursor","processed_rows","processed_tokens","token_counts","checkpoint_refs","current_checkpoint","restore_verification","qualification","last_action_idempotency_key","policy_bound_data_view_ref","policy_bound_data_view_revision_ref","retention_class_ref","determinism_class","spend","resume_equivalence"],"properties":{"schema_version":{"type":"string","const":"ioi.foundry-training-program.v2"},"program_id":{"type":"string","pattern":"^trainpipe://[^\\s]{1,500}$"},"owner_ref":{"type":"string","pattern":"^(?:wallet|org|project)://[^\\s]{1,500}$"},"foundry_spec_ref":{"$ref":"#/$defs/nullableRef"},"dataset_snapshot_ref":{"type":"string","pattern":"^dataset-snapshot://[^\\s]{1,500}$"},"dataset_content_hash":{"$ref":"#/$defs/hash"},"recipe_content_hash":{"$ref":"#/$defs/hash"},"training_mode":{"enum":["sft","adapter"]},"trainer_backend_profile_ref":{"const":"trainer-backend://ioi/reference-token-frequency/v1"},"backend_scope":{"const":"bounded_reference_pipeline_only"},"text_field":{"type":"string","minLength":1,"maxLength":500},"checkpoint_every_rows":{"$ref":"#/$defs/positiveInteger"},"seed":{"$ref":"#/$defs/nonnegativeInteger"},"authority_grant_refs":{"type":"array","minItems":1,"items":{"$ref":"#/$defs/nonempty"}},"rights_grant_refs":{"type":"array","minItems":1,"items":{"$ref":"#/$defs/nonempty"}},"revision":{"$ref":"#/$defs/positiveInteger"},"status":{"enum":["admitted","running","paused","completed","cancelled","resume_divergent"]},"data_cursor":{"$ref":"#/$defs/nonnegativeInteger"},"processed_rows":{"$ref":"#/$defs/nonnegativeInteger"},"processed_tokens":{"$ref":"#/$defs/nonnegativeInteger"},"token_counts":{"$ref":"#/$defs/tokenCountRows"},"checkpoint_refs":{"type":"array","items":{"type":"string","pattern":"^checkpoint://[^\\s]{1,500}$"}},"current_checkpoint":{"anyOf":[{"$ref":"#/$defs/checkpointProjection"},{"type":"null"}]},"restore_verification":{"anyOf":[{"$ref":"#/$defs/restoreVerification"},{"type":"null"}]},"qualification":{"anyOf":[{"$ref":"#/$defs/qualification"},{"type":"null"}]},"last_action_idempotency_key":{"type":"string","minLength":1,"maxLength":500},"last_action_request":{"$ref":"#/$defs/actionRequest"},"reconciliation":{"$ref":"#/$defs/reconciliation"},"qualification_proposal_ref":{"type":"string","pattern":"^qualification-proposal://foundry/[^\\s]{1,500}$"},"policy_bound_data_view_ref":{"type":"string","pattern":"^policy_bound_data_view://[^\\s?#\\\\]{1,200}$","description":"The view this program read through. Named, never restated: the view already owns purpose, allowed uses, data classes, redaction and egress, and a copy of any of those here would be a second one free to drift."},"policy_bound_data_view_revision_ref":{"type":"string","pattern":"^revision://[^\\s?#\\\\]{1,200}$","description":"The EXACT revision read. Binding the view by name rather than by revision is what makes a superseded view undetectable; a program whose revision has since been superseded is not invalid, it is evidence about what was read at the revision it names."},"retention_class_ref":{"type":"string","pattern":"^retention_class://[^\\s?#\\\\]{1,200}$","description":"The retention class this program's artifacts fall under, named at its owner and not restated — hold and destruction belong to the retention owner."},"determinism_class":{"type":"string","enum":["bitwise","state_equivalent","statistical"],"description":"WHICH DIGESTS A RESUME MUST REPRODUCE. `bitwise`: all four of model, optimizer, scheduler and rng identical. `state_equivalent`: model, optimizer and scheduler identical, rng may advance differently. `statistical`: no state claim at all — equivalence is an evaluation claim and the program must SAY SO IN ADVANCE rather than fall back to it once the hashes disagree. Declared before the run; a class selected after the digests are known is a description of what happened rather than a commitment the run can fail."},"spend":{"$ref":"#/$defs/spendAccounting"},"resume_equivalence":{"anyOf":[{"$ref":"#/$defs/resumeEquivalence"},{"type":"null"}],"description":"Null for a program that was never interrupted — a stated fact about this run, not an omission. Non-null is required once the program claims `resume_divergent`, because a divergence nobody measured is not a finding."}},"$defs":{"hash":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"},"nonempty":{"type":"string","minLength":1},"ref":{"type":"string","pattern":"^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"},"nullableRef":{"anyOf":[{"$ref":"#/$defs/ref"},{"type":"null"}]},"nonnegativeInteger":{"type":"integer","minimum":0,"maximum":9007199254740991},"positiveInteger":{"type":"integer","minimum":1,"maximum":9007199254740991},"tokenCountRows":{"type":"array","uniqueItems":true,"items":{"type":"object","additionalProperties":false,"required":["token","count"],"properties":{"token":{"type":"string","minLength":1},"count":{"$ref":"#/$defs/positiveInteger"}}}},"checkpointProjection":{"type":"object","additionalProperties":false,"required":["checkpoint_ref","artifact_ref","artifact_hash","data_cursor","global_step","token_count","complete","restore_verified"],"properties":{"checkpoint_ref":{"type":"string","pattern":"^checkpoint://foundry/[^\\s]{1,500}$"},"artifact_ref":{"type":"string","pattern":"^artifact://foundry-checkpoint/[0-9a-f]{64}$"},"artifact_hash":{"$ref":"#/$defs/hash"},"data_cursor":{"$ref":"#/$defs/nonnegativeInteger"},"global_step":{"$ref":"#/$defs/nonnegativeInteger"},"token_count":{"$ref":"#/$defs/nonnegativeInteger"},"complete":{"const":true},"restore_verified":{"type":"boolean"}}},"restoreVerification":{"type":"object","additionalProperties":false,"required":["verified","checkpoint_ref","artifact_hash","data_cursor","model_state_hash","optimizer_state_hash","scheduler_state_hash","rng_state_hash"],"properties":{"verified":{"const":true},"checkpoint_ref":{"type":"string","pattern":"^checkpoint://foundry/[^\\s]{1,500}$"},"artifact_hash":{"$ref":"#/$defs/hash"},"data_cursor":{"$ref":"#/$defs/nonnegativeInteger"},"model_state_hash":{"$ref":"#/$defs/hash"},"optimizer_state_hash":{"$ref":"#/$defs/hash"},"scheduler_state_hash":{"$ref":"#/$defs/hash"},"rng_state_hash":{"$ref":"#/$defs/hash"}}},"actionRequest":{"type":"object","additionalProperties":false,"required":["action","max_rows"],"properties":{"action":{"enum":["start","step","pause","resume","cancel","reconcile"]},"max_rows":{"anyOf":[{"$ref":"#/$defs/positiveInteger"},{"type":"null"}]}}},"reconciliation":{"type":"object","additionalProperties":false,"required":["status","checkpoint_ref"],"properties":{"status":{"const":"satisfied"},"checkpoint_ref":{"anyOf":[{"type":"string","pattern":"^checkpoint://foundry/[^\\s]{1,500}$"},{"type":"null"}]}}},"workloadFingerprint":{"type":"object","additionalProperties":false,"required":["runtime_node_ref","environment_ref","trainer_backend_profile_ref","hardware_architecture","logical_cpu_count","memory_bytes","operating_system","daemon_release_ref"],"properties":{"runtime_node_ref":{"type":"string","pattern":"^runtime://[^\\s]{1,500}$"},"environment_ref":{"type":"string","pattern":"^environment://[^\\s]{1,500}$"},"trainer_backend_profile_ref":{"const":"trainer-backend://ioi/reference-token-frequency/v1"},"hardware_architecture":{"enum":["x86_64","aarch64"]},"logical_cpu_count":{"type":"integer","minimum":1,"maximum":65535},"memory_bytes":{"$ref":"#/$defs/positiveInteger"},"operating_system":{"enum":["linux","macos","windows"]},"daemon_release_ref":{"type":"string","pattern":"^release://[^\\s]{1,500}$"}}},"qualification":{"type":"object","additionalProperties":false,"required":["schema_version","verdict","quality","measurement","promotion_boundary"],"properties":{"schema_version":{"const":"ioi.foundry-qualified-measurement.v1"},"verdict":{"enum":["qualified","rejected"]},"quality":{"type":"object","additionalProperties":false,"required":["token_coverage","mean_negative_log_likelihood","gate"],"properties":{"token_coverage":{"type":"number","minimum":0,"maximum":1},"mean_negative_log_likelihood":{"type":"number","minimum":0,"maximum":1000000000000},"gate":{"type":"object","additionalProperties":false,"required":["minimum_token_coverage","maximum_mean_negative_log_likelihood"],"properties":{"minimum_token_coverage":{"type":"number","minimum":0,"maximum":1},"maximum_mean_negative_log_likelihood":{"type":"number","minimum":0,"maximum":1000000000000}}}}},"measurement":{"type":"object","additionalProperties":false,"required":["phase","token_numerator","denominator","scope","raw_tokens","effective_tokens","elapsed_nanoseconds","tokens_per_second","includes_compilation","includes_loading","includes_evaluation","includes_checkpoint","includes_failure_and_recovery","hardware_software_topology_fingerprint","cost_basis_ref","failure_schedule_ref"],"properties":{"phase":{"const":"evaluation"},"token_numerator":{"const":"loss_bearing"},"denominator":{"const":"full_wall_clock"},"scope":{"const":"daemon_cpu_process"},"raw_tokens":{"$ref":"#/$defs/positiveInteger"},"effective_tokens":{"$ref":"#/$defs/positiveInteger"},"elapsed_nanoseconds":{"$ref":"#/$defs/positiveInteger"},"tokens_per_second":{"type":"number","minimum":0,"maximum":1000000000000000},"includes_compilation":{"const":false},"includes_loading":{"const":true},"includes_evaluation":{"const":true},"includes_checkpoint":{"const":false},"includes_failure_and_recovery":{"const":false},"hardware_software_topology_fingerprint":{"$ref":"#/$defs/workloadFingerprint"},"cost_basis_ref":{"type":"string","pattern":"^(?:cost|ledger|policy)://[^\\s]{1,500}$"},"failure_schedule_ref":{"type":"string","pattern":"^(?:schedule|policy|artifact)://[^\\s]{1,500}$"}}},"promotion_boundary":{"type":"object","additionalProperties":false,"required":["proposal_only","governance_approval_required","runtime_activation_performed"],"properties":{"proposal_only":{"const":true},"governance_approval_required":{"const":true},"runtime_activation_performed":{"const":false}}}}},"spendAccounting":{"type":"object","additionalProperties":false,"required":["reservation_ref","reconciled_outcome","cleanup_obligation_ref"],"description":"EVERY EXTERNAL TRAINING RESOURCE CARRIES ALL THREE. Canon: a successful artifact with unknown spend, or with a live orphan resource, is a FAILED run — not a successful run with an accounting note. This member exists separately from `reconciliation` because that one is the interrupted-run resume pointer and shares nothing with spend but the word.","properties":{"reservation_ref":{"type":"string","pattern":"^spend_reservation://[^\\s?#\\\\]{1,200}$","description":"The ADMITTED reservation the run drew against. A run with no reservation did not have unknown spend; it had unauthorized spend, and the reservation is required so the two cannot be confused."},"reconciled_outcome":{"type":"string","enum":["reconciled_exact","reconciled_within_reservation","spend_unreconciled","spend_exceeded_reservation"],"description":"UNKNOWN SPEND AND ZERO SPEND ARE DIFFERENT FACTS. `spend_unreconciled` is a typed outcome that forbids the candidate, not a note attached to one — a pipeline that cannot tell the two apart will report zero when it means unknown. `spend_exceeded_reservation` is likewise terminal: the run drew past what was authorized."},"cleanup_obligation_ref":{"type":"string","pattern":"^cleanup_obligation://[^\\s?#\\\\]{1,200}$","description":"The obligation that closes the external resource. Required even when the outcome reconciled exactly, because a settled bill over a resource still running is a live orphan."}}},"digestSet":{"type":"object","additionalProperties":false,"required":["model_state_hash","optimizer_state_hash","scheduler_state_hash","rng_state_hash"],"description":"The four digests `verify_checkpoint_projection` already computes, recorded for one run at one step.","properties":{"model_state_hash":{"$ref":"#/$defs/hash"},"optimizer_state_hash":{"$ref":"#/$defs/hash"},"scheduler_state_hash":{"$ref":"#/$defs/hash"},"rng_state_hash":{"$ref":"#/$defs/hash"}}},"resumeEquivalence":{"type":"object","additionalProperties":false,"required":["compared_at_global_step","uninterrupted","resumed","class_satisfied"],"description":"ONE COMPARISON OF TWO RUNS AT ONE STEP. Both sides are recorded rather than a verdict alone, because a verdict with no digests behind it is a claim its reader cannot check — and because which digests had to match depends on the declared class, so a later reader needs the inputs to re-derive the same answer.","properties":{"compared_at_global_step":{"$ref":"#/$defs/nonnegativeInteger"},"uninterrupted":{"$ref":"#/$defs/digestSet"},"resumed":{"$ref":"#/$defs/digestSet"},"class_satisfied":{"type":"boolean","description":"Whether every digest the program's `determinism_class` names matched. False is terminal: the status is `resume_divergent` and the artifact is not a candidate."}}}}}"##,
+            &value,
+        )
+            .map_err(serde::de::Error::custom)?;
+        let mut object = value
+            .as_object()
+            .cloned()
+            .ok_or_else(|| serde::de::Error::custom("validated projection is not an object"))?;
+        Ok(Self {
+            schema_version: serde_json::from_value::<FoundryTrainingProgramV2SchemaVersion>(
+                object
+                    .remove(r#"schema_version"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"schema_version"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            program_id: serde_json::from_value::<String>(
+                object
+                    .remove(r#"program_id"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"program_id"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            owner_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"owner_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"owner_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            foundry_spec_ref: serde_json::from_value::<Option<String>>(
+                object
+                    .remove(r#"foundry_spec_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"foundry_spec_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            dataset_snapshot_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"dataset_snapshot_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"dataset_snapshot_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            dataset_content_hash: serde_json::from_value::<String>(
+                object
+                    .remove(r#"dataset_content_hash"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"dataset_content_hash"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            recipe_content_hash: serde_json::from_value::<String>(
+                object
+                    .remove(r#"recipe_content_hash"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"recipe_content_hash"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            training_mode: serde_json::from_value::<FoundryTrainingProgramV2TrainingMode>(
+                object
+                    .remove(r#"training_mode"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"training_mode"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            trainer_backend_profile_ref: serde_json::from_value::<
+                FoundryTrainingProgramV2TrainerBackendProfileRef,
+            >(
+                object
+                    .remove(r#"trainer_backend_profile_ref"#)
+                    .ok_or_else(|| {
+                        serde::de::Error::missing_field(r#"trainer_backend_profile_ref"#)
+                    })?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            backend_scope: serde_json::from_value::<FoundryTrainingProgramV2BackendScope>(
+                object
+                    .remove(r#"backend_scope"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"backend_scope"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            text_field: serde_json::from_value::<String>(
+                object
+                    .remove(r#"text_field"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"text_field"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            checkpoint_every_rows: serde_json::from_value::<ArchitectureContractInteger>(
+                object
+                    .remove(r#"checkpoint_every_rows"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"checkpoint_every_rows"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            seed: serde_json::from_value::<ArchitectureContractInteger>(
+                object
+                    .remove(r#"seed"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"seed"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            authority_grant_refs: serde_json::from_value::<Vec<String>>(
+                object
+                    .remove(r#"authority_grant_refs"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"authority_grant_refs"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            rights_grant_refs: serde_json::from_value::<Vec<String>>(
+                object
+                    .remove(r#"rights_grant_refs"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"rights_grant_refs"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            revision: serde_json::from_value::<ArchitectureContractInteger>(
+                object
+                    .remove(r#"revision"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"revision"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            status: serde_json::from_value::<FoundryTrainingProgramV2Status>(
+                object
+                    .remove(r#"status"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"status"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            data_cursor: serde_json::from_value::<ArchitectureContractInteger>(
+                object
+                    .remove(r#"data_cursor"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"data_cursor"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            processed_rows: serde_json::from_value::<ArchitectureContractInteger>(
+                object
+                    .remove(r#"processed_rows"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"processed_rows"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            processed_tokens: serde_json::from_value::<ArchitectureContractInteger>(
+                object
+                    .remove(r#"processed_tokens"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"processed_tokens"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            token_counts: serde_json::from_value::<Vec<FoundryTrainingProgramV2TokenCountsItem>>(
+                object
+                    .remove(r#"token_counts"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"token_counts"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            checkpoint_refs: serde_json::from_value::<Vec<String>>(
+                object
+                    .remove(r#"checkpoint_refs"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"checkpoint_refs"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            current_checkpoint: serde_json::from_value::<
+                Option<FoundryTrainingProgramV2CurrentCheckpoint>,
+            >(
+                object
+                    .remove(r#"current_checkpoint"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"current_checkpoint"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            restore_verification: serde_json::from_value::<
+                Option<FoundryTrainingProgramV2RestoreVerification>,
+            >(
+                object
+                    .remove(r#"restore_verification"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"restore_verification"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            qualification: serde_json::from_value::<Option<FoundryTrainingProgramV2Qualification>>(
+                object
+                    .remove(r#"qualification"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"qualification"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            last_action_idempotency_key: serde_json::from_value::<String>(
+                object
+                    .remove(r#"last_action_idempotency_key"#)
+                    .ok_or_else(|| {
+                        serde::de::Error::missing_field(r#"last_action_idempotency_key"#)
+                    })?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            last_action_request: match object.remove(r#"last_action_request"#) {
+                Some(field_value) => serde_json::from_value::<
+                    Option<FoundryTrainingProgramV2LastActionRequest>,
+                >(field_value)
+                .map_err(serde::de::Error::custom)?,
+                None => None,
+            },
+            reconciliation: match object.remove(r#"reconciliation"#) {
+                Some(field_value) => serde_json::from_value::<
+                    Option<FoundryTrainingProgramV2Reconciliation>,
+                >(field_value)
+                .map_err(serde::de::Error::custom)?,
+                None => None,
+            },
+            qualification_proposal_ref: match object.remove(r#"qualification_proposal_ref"#) {
+                Some(field_value) => serde_json::from_value::<Option<String>>(field_value)
+                    .map_err(serde::de::Error::custom)?,
+                None => None,
+            },
+            policy_bound_data_view_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"policy_bound_data_view_ref"#)
+                    .ok_or_else(|| {
+                        serde::de::Error::missing_field(r#"policy_bound_data_view_ref"#)
+                    })?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            policy_bound_data_view_revision_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"policy_bound_data_view_revision_ref"#)
+                    .ok_or_else(|| {
+                        serde::de::Error::missing_field(r#"policy_bound_data_view_revision_ref"#)
+                    })?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            retention_class_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"retention_class_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"retention_class_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            determinism_class: serde_json::from_value::<FoundryTrainingProgramV2DeterminismClass>(
+                object
+                    .remove(r#"determinism_class"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"determinism_class"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            spend: serde_json::from_value::<FoundryTrainingProgramV2Spend>(
+                object
+                    .remove(r#"spend"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"spend"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            resume_equivalence: serde_json::from_value::<
+                Option<FoundryTrainingProgramV2ResumeEquivalence>,
+            >(
+                object
+                    .remove(r#"resume_equivalence"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"resume_equivalence"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+        })
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum FoundryTrainingProgramV2SchemaVersion {
+    #[serde(rename = r#"ioi.foundry-training-program.v2"#)]
+    IoiFoundryTrainingProgramV2,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum FoundryTrainingProgramV2TrainingMode {
+    #[serde(rename = r#"sft"#)]
+    Sft,
+    #[serde(rename = r#"adapter"#)]
+    Adapter,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum FoundryTrainingProgramV2TrainerBackendProfileRef {
+    #[serde(rename = r#"trainer-backend://ioi/reference-token-frequency/v1"#)]
+    TrainerBackendIoiReferenceTokenFrequencyV1,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum FoundryTrainingProgramV2BackendScope {
+    #[serde(rename = r#"bounded_reference_pipeline_only"#)]
+    BoundedReferencePipelineOnly,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum FoundryTrainingProgramV2Status {
+    #[serde(rename = r#"admitted"#)]
+    Admitted,
+    #[serde(rename = r#"running"#)]
+    Running,
+    #[serde(rename = r#"paused"#)]
+    Paused,
+    #[serde(rename = r#"completed"#)]
+    Completed,
+    #[serde(rename = r#"cancelled"#)]
+    Cancelled,
+    #[serde(rename = r#"resume_divergent"#)]
+    ResumeDivergent,
+}
+
+#[derive(Debug, Clone, PartialEq, serde::Serialize)]
+pub struct FoundryTrainingProgramV2TokenCountsItem {
+    pub token: String,
+    pub count: ArchitectureContractInteger,
+}
+
+impl<'de> serde::Deserialize<'de> for FoundryTrainingProgramV2TokenCountsItem {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let value = <serde_json::Value as serde::Deserialize>::deserialize(deserializer)?;
+        validate_projection_subschema(
+            r#"schema://ioi/components/hypervisor/foundry-training-program/v2"#,
+            r##"{"type":"object","additionalProperties":false,"required":["token","count"],"properties":{"token":{"type":"string","minLength":1},"count":{"$ref":"#/$defs/positiveInteger"}}}"##,
+            &value,
+        )
+            .map_err(serde::de::Error::custom)?;
+        let mut object = value
+            .as_object()
+            .cloned()
+            .ok_or_else(|| serde::de::Error::custom("validated projection is not an object"))?;
+        Ok(Self {
+            token: serde_json::from_value::<String>(
+                object
+                    .remove(r#"token"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"token"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            count: serde_json::from_value::<ArchitectureContractInteger>(
+                object
+                    .remove(r#"count"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"count"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+        })
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, serde::Serialize)]
+pub struct FoundryTrainingProgramV2CurrentCheckpoint {
+    pub checkpoint_ref: String,
+    pub artifact_ref: String,
+    pub artifact_hash: String,
+    pub data_cursor: ArchitectureContractInteger,
+    pub global_step: ArchitectureContractInteger,
+    pub token_count: ArchitectureContractInteger,
+    pub complete: FoundryTrainingProgramV2CurrentCheckpointComplete,
+    pub restore_verified: bool,
+}
+
+impl<'de> serde::Deserialize<'de> for FoundryTrainingProgramV2CurrentCheckpoint {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let value = <serde_json::Value as serde::Deserialize>::deserialize(deserializer)?;
+        validate_projection_subschema(
+            r#"schema://ioi/components/hypervisor/foundry-training-program/v2"#,
+            r##"{"type":"object","additionalProperties":false,"required":["checkpoint_ref","artifact_ref","artifact_hash","data_cursor","global_step","token_count","complete","restore_verified"],"properties":{"checkpoint_ref":{"type":"string","pattern":"^checkpoint://foundry/[^\\s]{1,500}$"},"artifact_ref":{"type":"string","pattern":"^artifact://foundry-checkpoint/[0-9a-f]{64}$"},"artifact_hash":{"$ref":"#/$defs/hash"},"data_cursor":{"$ref":"#/$defs/nonnegativeInteger"},"global_step":{"$ref":"#/$defs/nonnegativeInteger"},"token_count":{"$ref":"#/$defs/nonnegativeInteger"},"complete":{"const":true},"restore_verified":{"type":"boolean"}}}"##,
+            &value,
+        )
+            .map_err(serde::de::Error::custom)?;
+        let mut object = value
+            .as_object()
+            .cloned()
+            .ok_or_else(|| serde::de::Error::custom("validated projection is not an object"))?;
+        Ok(Self {
+            checkpoint_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"checkpoint_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"checkpoint_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            artifact_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"artifact_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"artifact_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            artifact_hash: serde_json::from_value::<String>(
+                object
+                    .remove(r#"artifact_hash"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"artifact_hash"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            data_cursor: serde_json::from_value::<ArchitectureContractInteger>(
+                object
+                    .remove(r#"data_cursor"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"data_cursor"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            global_step: serde_json::from_value::<ArchitectureContractInteger>(
+                object
+                    .remove(r#"global_step"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"global_step"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            token_count: serde_json::from_value::<ArchitectureContractInteger>(
+                object
+                    .remove(r#"token_count"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"token_count"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            complete: serde_json::from_value::<FoundryTrainingProgramV2CurrentCheckpointComplete>(
+                object
+                    .remove(r#"complete"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"complete"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            restore_verified: serde_json::from_value::<bool>(
+                object
+                    .remove(r#"restore_verified"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"restore_verified"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+        })
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum FoundryTrainingProgramV2CurrentCheckpointComplete {
+    True,
+}
+
+impl serde::Serialize for FoundryTrainingProgramV2CurrentCheckpointComplete {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: serde::Serializer,
+    {
+        serializer.serialize_bool(true)
+    }
+}
+
+impl<'de> serde::Deserialize<'de> for FoundryTrainingProgramV2CurrentCheckpointComplete {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let value = <bool as serde::Deserialize>::deserialize(deserializer)?;
+        if value == true {
+            Ok(Self::True)
+        } else {
+            Err(serde::de::Error::custom(r#"expected boolean literal true"#))
+        }
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, serde::Serialize)]
+pub struct FoundryTrainingProgramV2RestoreVerification {
+    pub verified: FoundryTrainingProgramV2RestoreVerificationVerified,
+    pub checkpoint_ref: String,
+    pub artifact_hash: String,
+    pub data_cursor: ArchitectureContractInteger,
+    pub model_state_hash: String,
+    pub optimizer_state_hash: String,
+    pub scheduler_state_hash: String,
+    pub rng_state_hash: String,
+}
+
+impl<'de> serde::Deserialize<'de> for FoundryTrainingProgramV2RestoreVerification {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let value = <serde_json::Value as serde::Deserialize>::deserialize(deserializer)?;
+        validate_projection_subschema(
+            r#"schema://ioi/components/hypervisor/foundry-training-program/v2"#,
+            r##"{"type":"object","additionalProperties":false,"required":["verified","checkpoint_ref","artifact_hash","data_cursor","model_state_hash","optimizer_state_hash","scheduler_state_hash","rng_state_hash"],"properties":{"verified":{"const":true},"checkpoint_ref":{"type":"string","pattern":"^checkpoint://foundry/[^\\s]{1,500}$"},"artifact_hash":{"$ref":"#/$defs/hash"},"data_cursor":{"$ref":"#/$defs/nonnegativeInteger"},"model_state_hash":{"$ref":"#/$defs/hash"},"optimizer_state_hash":{"$ref":"#/$defs/hash"},"scheduler_state_hash":{"$ref":"#/$defs/hash"},"rng_state_hash":{"$ref":"#/$defs/hash"}}}"##,
+            &value,
+        )
+            .map_err(serde::de::Error::custom)?;
+        let mut object = value
+            .as_object()
+            .cloned()
+            .ok_or_else(|| serde::de::Error::custom("validated projection is not an object"))?;
+        Ok(Self {
+            verified:
+                serde_json::from_value::<FoundryTrainingProgramV2RestoreVerificationVerified>(
+                    object
+                        .remove(r#"verified"#)
+                        .ok_or_else(|| serde::de::Error::missing_field(r#"verified"#))?,
+                )
+                .map_err(serde::de::Error::custom)?,
+            checkpoint_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"checkpoint_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"checkpoint_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            artifact_hash: serde_json::from_value::<String>(
+                object
+                    .remove(r#"artifact_hash"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"artifact_hash"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            data_cursor: serde_json::from_value::<ArchitectureContractInteger>(
+                object
+                    .remove(r#"data_cursor"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"data_cursor"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            model_state_hash: serde_json::from_value::<String>(
+                object
+                    .remove(r#"model_state_hash"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"model_state_hash"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            optimizer_state_hash: serde_json::from_value::<String>(
+                object
+                    .remove(r#"optimizer_state_hash"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"optimizer_state_hash"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            scheduler_state_hash: serde_json::from_value::<String>(
+                object
+                    .remove(r#"scheduler_state_hash"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"scheduler_state_hash"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            rng_state_hash: serde_json::from_value::<String>(
+                object
+                    .remove(r#"rng_state_hash"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"rng_state_hash"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+        })
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum FoundryTrainingProgramV2RestoreVerificationVerified {
+    True,
+}
+
+impl serde::Serialize for FoundryTrainingProgramV2RestoreVerificationVerified {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: serde::Serializer,
+    {
+        serializer.serialize_bool(true)
+    }
+}
+
+impl<'de> serde::Deserialize<'de> for FoundryTrainingProgramV2RestoreVerificationVerified {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let value = <bool as serde::Deserialize>::deserialize(deserializer)?;
+        if value == true {
+            Ok(Self::True)
+        } else {
+            Err(serde::de::Error::custom(r#"expected boolean literal true"#))
+        }
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, serde::Serialize)]
+pub struct FoundryTrainingProgramV2Qualification {
+    pub schema_version: FoundryTrainingProgramV2QualificationSchemaVersion,
+    pub verdict: FoundryTrainingProgramV2QualificationVerdict,
+    pub quality: FoundryTrainingProgramV2QualificationQuality,
+    pub measurement: FoundryTrainingProgramV2QualificationMeasurement,
+    pub promotion_boundary: FoundryTrainingProgramV2QualificationPromotionBoundary,
+}
+
+impl<'de> serde::Deserialize<'de> for FoundryTrainingProgramV2Qualification {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let value = <serde_json::Value as serde::Deserialize>::deserialize(deserializer)?;
+        validate_projection_subschema(
+            r#"schema://ioi/components/hypervisor/foundry-training-program/v2"#,
+            r##"{"type":"object","additionalProperties":false,"required":["schema_version","verdict","quality","measurement","promotion_boundary"],"properties":{"schema_version":{"const":"ioi.foundry-qualified-measurement.v1"},"verdict":{"enum":["qualified","rejected"]},"quality":{"type":"object","additionalProperties":false,"required":["token_coverage","mean_negative_log_likelihood","gate"],"properties":{"token_coverage":{"type":"number","minimum":0,"maximum":1},"mean_negative_log_likelihood":{"type":"number","minimum":0,"maximum":1000000000000},"gate":{"type":"object","additionalProperties":false,"required":["minimum_token_coverage","maximum_mean_negative_log_likelihood"],"properties":{"minimum_token_coverage":{"type":"number","minimum":0,"maximum":1},"maximum_mean_negative_log_likelihood":{"type":"number","minimum":0,"maximum":1000000000000}}}}},"measurement":{"type":"object","additionalProperties":false,"required":["phase","token_numerator","denominator","scope","raw_tokens","effective_tokens","elapsed_nanoseconds","tokens_per_second","includes_compilation","includes_loading","includes_evaluation","includes_checkpoint","includes_failure_and_recovery","hardware_software_topology_fingerprint","cost_basis_ref","failure_schedule_ref"],"properties":{"phase":{"const":"evaluation"},"token_numerator":{"const":"loss_bearing"},"denominator":{"const":"full_wall_clock"},"scope":{"const":"daemon_cpu_process"},"raw_tokens":{"$ref":"#/$defs/positiveInteger"},"effective_tokens":{"$ref":"#/$defs/positiveInteger"},"elapsed_nanoseconds":{"$ref":"#/$defs/positiveInteger"},"tokens_per_second":{"type":"number","minimum":0,"maximum":1000000000000000},"includes_compilation":{"const":false},"includes_loading":{"const":true},"includes_evaluation":{"const":true},"includes_checkpoint":{"const":false},"includes_failure_and_recovery":{"const":false},"hardware_software_topology_fingerprint":{"$ref":"#/$defs/workloadFingerprint"},"cost_basis_ref":{"type":"string","pattern":"^(?:cost|ledger|policy)://[^\\s]{1,500}$"},"failure_schedule_ref":{"type":"string","pattern":"^(?:schedule|policy|artifact)://[^\\s]{1,500}$"}}},"promotion_boundary":{"type":"object","additionalProperties":false,"required":["proposal_only","governance_approval_required","runtime_activation_performed"],"properties":{"proposal_only":{"const":true},"governance_approval_required":{"const":true},"runtime_activation_performed":{"const":false}}}}}"##,
+            &value,
+        )
+            .map_err(serde::de::Error::custom)?;
+        let mut object = value
+            .as_object()
+            .cloned()
+            .ok_or_else(|| serde::de::Error::custom("validated projection is not an object"))?;
+        Ok(Self {
+            schema_version: serde_json::from_value::<
+                FoundryTrainingProgramV2QualificationSchemaVersion,
+            >(
+                object
+                    .remove(r#"schema_version"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"schema_version"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            verdict: serde_json::from_value::<FoundryTrainingProgramV2QualificationVerdict>(
+                object
+                    .remove(r#"verdict"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"verdict"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            quality: serde_json::from_value::<FoundryTrainingProgramV2QualificationQuality>(
+                object
+                    .remove(r#"quality"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"quality"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            measurement:
+                serde_json::from_value::<FoundryTrainingProgramV2QualificationMeasurement>(
+                    object
+                        .remove(r#"measurement"#)
+                        .ok_or_else(|| serde::de::Error::missing_field(r#"measurement"#))?,
+                )
+                .map_err(serde::de::Error::custom)?,
+            promotion_boundary: serde_json::from_value::<
+                FoundryTrainingProgramV2QualificationPromotionBoundary,
+            >(
+                object
+                    .remove(r#"promotion_boundary"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"promotion_boundary"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+        })
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum FoundryTrainingProgramV2QualificationSchemaVersion {
+    #[serde(rename = r#"ioi.foundry-qualified-measurement.v1"#)]
+    IoiFoundryQualifiedMeasurementV1,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum FoundryTrainingProgramV2QualificationVerdict {
+    #[serde(rename = r#"qualified"#)]
+    Qualified,
+    #[serde(rename = r#"rejected"#)]
+    Rejected,
+}
+
+#[derive(Debug, Clone, PartialEq, serde::Serialize)]
+pub struct FoundryTrainingProgramV2QualificationQuality {
+    pub token_coverage: f64,
+    pub mean_negative_log_likelihood: f64,
+    pub gate: FoundryTrainingProgramV2QualificationQualityGate,
+}
+
+impl<'de> serde::Deserialize<'de> for FoundryTrainingProgramV2QualificationQuality {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let value = <serde_json::Value as serde::Deserialize>::deserialize(deserializer)?;
+        validate_projection_subschema(
+            r#"schema://ioi/components/hypervisor/foundry-training-program/v2"#,
+            r#"{"type":"object","additionalProperties":false,"required":["token_coverage","mean_negative_log_likelihood","gate"],"properties":{"token_coverage":{"type":"number","minimum":0,"maximum":1},"mean_negative_log_likelihood":{"type":"number","minimum":0,"maximum":1000000000000},"gate":{"type":"object","additionalProperties":false,"required":["minimum_token_coverage","maximum_mean_negative_log_likelihood"],"properties":{"minimum_token_coverage":{"type":"number","minimum":0,"maximum":1},"maximum_mean_negative_log_likelihood":{"type":"number","minimum":0,"maximum":1000000000000}}}}}"#,
+            &value,
+        )
+            .map_err(serde::de::Error::custom)?;
+        let mut object = value
+            .as_object()
+            .cloned()
+            .ok_or_else(|| serde::de::Error::custom("validated projection is not an object"))?;
+        Ok(Self {
+            token_coverage: serde_json::from_value::<f64>(
+                object
+                    .remove(r#"token_coverage"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"token_coverage"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            mean_negative_log_likelihood: serde_json::from_value::<f64>(
+                object
+                    .remove(r#"mean_negative_log_likelihood"#)
+                    .ok_or_else(|| {
+                        serde::de::Error::missing_field(r#"mean_negative_log_likelihood"#)
+                    })?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            gate: serde_json::from_value::<FoundryTrainingProgramV2QualificationQualityGate>(
+                object
+                    .remove(r#"gate"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"gate"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+        })
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, serde::Serialize)]
+pub struct FoundryTrainingProgramV2QualificationQualityGate {
+    pub minimum_token_coverage: f64,
+    pub maximum_mean_negative_log_likelihood: f64,
+}
+
+impl<'de> serde::Deserialize<'de> for FoundryTrainingProgramV2QualificationQualityGate {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let value = <serde_json::Value as serde::Deserialize>::deserialize(deserializer)?;
+        validate_projection_subschema(
+            r#"schema://ioi/components/hypervisor/foundry-training-program/v2"#,
+            r#"{"type":"object","additionalProperties":false,"required":["minimum_token_coverage","maximum_mean_negative_log_likelihood"],"properties":{"minimum_token_coverage":{"type":"number","minimum":0,"maximum":1},"maximum_mean_negative_log_likelihood":{"type":"number","minimum":0,"maximum":1000000000000}}}"#,
+            &value,
+        )
+            .map_err(serde::de::Error::custom)?;
+        let mut object = value
+            .as_object()
+            .cloned()
+            .ok_or_else(|| serde::de::Error::custom("validated projection is not an object"))?;
+        Ok(Self {
+            minimum_token_coverage: serde_json::from_value::<f64>(
+                object
+                    .remove(r#"minimum_token_coverage"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"minimum_token_coverage"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            maximum_mean_negative_log_likelihood: serde_json::from_value::<f64>(
+                object
+                    .remove(r#"maximum_mean_negative_log_likelihood"#)
+                    .ok_or_else(|| {
+                        serde::de::Error::missing_field(r#"maximum_mean_negative_log_likelihood"#)
+                    })?,
+            )
+            .map_err(serde::de::Error::custom)?,
+        })
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, serde::Serialize)]
+pub struct FoundryTrainingProgramV2QualificationMeasurement {
+    pub phase: FoundryTrainingProgramV2QualificationMeasurementPhase,
+    pub token_numerator: FoundryTrainingProgramV2QualificationMeasurementTokenNumerator,
+    pub denominator: FoundryTrainingProgramV2QualificationMeasurementDenominator,
+    pub scope: FoundryTrainingProgramV2QualificationMeasurementScope,
+    pub raw_tokens: ArchitectureContractInteger,
+    pub effective_tokens: ArchitectureContractInteger,
+    pub elapsed_nanoseconds: ArchitectureContractInteger,
+    pub tokens_per_second: f64,
+    pub includes_compilation: FoundryTrainingProgramV2QualificationMeasurementIncludesCompilation,
+    pub includes_loading: FoundryTrainingProgramV2QualificationMeasurementIncludesLoading,
+    pub includes_evaluation: FoundryTrainingProgramV2QualificationMeasurementIncludesEvaluation,
+    pub includes_checkpoint: FoundryTrainingProgramV2QualificationMeasurementIncludesCheckpoint,
+    pub includes_failure_and_recovery:
+        FoundryTrainingProgramV2QualificationMeasurementIncludesFailureAndRecovery,
+    pub hardware_software_topology_fingerprint:
+        FoundryTrainingProgramV2QualificationMeasurementHardwareSoftwareTopologyFingerprint,
+    pub cost_basis_ref: String,
+    pub failure_schedule_ref: String,
+}
+
+impl<'de> serde::Deserialize<'de> for FoundryTrainingProgramV2QualificationMeasurement {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let value = <serde_json::Value as serde::Deserialize>::deserialize(deserializer)?;
+        validate_projection_subschema(
+            r#"schema://ioi/components/hypervisor/foundry-training-program/v2"#,
+            r##"{"type":"object","additionalProperties":false,"required":["phase","token_numerator","denominator","scope","raw_tokens","effective_tokens","elapsed_nanoseconds","tokens_per_second","includes_compilation","includes_loading","includes_evaluation","includes_checkpoint","includes_failure_and_recovery","hardware_software_topology_fingerprint","cost_basis_ref","failure_schedule_ref"],"properties":{"phase":{"const":"evaluation"},"token_numerator":{"const":"loss_bearing"},"denominator":{"const":"full_wall_clock"},"scope":{"const":"daemon_cpu_process"},"raw_tokens":{"$ref":"#/$defs/positiveInteger"},"effective_tokens":{"$ref":"#/$defs/positiveInteger"},"elapsed_nanoseconds":{"$ref":"#/$defs/positiveInteger"},"tokens_per_second":{"type":"number","minimum":0,"maximum":1000000000000000},"includes_compilation":{"const":false},"includes_loading":{"const":true},"includes_evaluation":{"const":true},"includes_checkpoint":{"const":false},"includes_failure_and_recovery":{"const":false},"hardware_software_topology_fingerprint":{"$ref":"#/$defs/workloadFingerprint"},"cost_basis_ref":{"type":"string","pattern":"^(?:cost|ledger|policy)://[^\\s]{1,500}$"},"failure_schedule_ref":{"type":"string","pattern":"^(?:schedule|policy|artifact)://[^\\s]{1,500}$"}}}"##,
+            &value,
+        )
+            .map_err(serde::de::Error::custom)?;
+        let mut object = value
+            .as_object()
+            .cloned()
+            .ok_or_else(|| serde::de::Error::custom("validated projection is not an object"))?;
+        Ok(Self {
+            phase: serde_json::from_value::<FoundryTrainingProgramV2QualificationMeasurementPhase>(
+                object
+                    .remove(r#"phase"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"phase"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            token_numerator: serde_json::from_value::<
+                FoundryTrainingProgramV2QualificationMeasurementTokenNumerator,
+            >(
+                object
+                    .remove(r#"token_numerator"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"token_numerator"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            denominator: serde_json::from_value::<
+                FoundryTrainingProgramV2QualificationMeasurementDenominator,
+            >(
+                object
+                    .remove(r#"denominator"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"denominator"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            scope: serde_json::from_value::<FoundryTrainingProgramV2QualificationMeasurementScope>(
+                object
+                    .remove(r#"scope"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"scope"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            raw_tokens: serde_json::from_value::<ArchitectureContractInteger>(
+                object
+                    .remove(r#"raw_tokens"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"raw_tokens"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            effective_tokens: serde_json::from_value::<ArchitectureContractInteger>(
+                object
+                    .remove(r#"effective_tokens"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"effective_tokens"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            elapsed_nanoseconds: serde_json::from_value::<ArchitectureContractInteger>(
+                object
+                    .remove(r#"elapsed_nanoseconds"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"elapsed_nanoseconds"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            tokens_per_second: serde_json::from_value::<f64>(
+                object
+                    .remove(r#"tokens_per_second"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"tokens_per_second"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            includes_compilation: serde_json::from_value::<
+                FoundryTrainingProgramV2QualificationMeasurementIncludesCompilation,
+            >(
+                object
+                    .remove(r#"includes_compilation"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"includes_compilation"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            includes_loading: serde_json::from_value::<
+                FoundryTrainingProgramV2QualificationMeasurementIncludesLoading,
+            >(
+                object
+                    .remove(r#"includes_loading"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"includes_loading"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            includes_evaluation: serde_json::from_value::<
+                FoundryTrainingProgramV2QualificationMeasurementIncludesEvaluation,
+            >(
+                object
+                    .remove(r#"includes_evaluation"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"includes_evaluation"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            includes_checkpoint: serde_json::from_value::<
+                FoundryTrainingProgramV2QualificationMeasurementIncludesCheckpoint,
+            >(
+                object
+                    .remove(r#"includes_checkpoint"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"includes_checkpoint"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            includes_failure_and_recovery: serde_json::from_value::<
+                FoundryTrainingProgramV2QualificationMeasurementIncludesFailureAndRecovery,
+            >(
+                object
+                    .remove(r#"includes_failure_and_recovery"#)
+                    .ok_or_else(|| {
+                        serde::de::Error::missing_field(r#"includes_failure_and_recovery"#)
+                    })?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            hardware_software_topology_fingerprint: serde_json::from_value::<
+                FoundryTrainingProgramV2QualificationMeasurementHardwareSoftwareTopologyFingerprint,
+            >(
+                object
+                    .remove(r#"hardware_software_topology_fingerprint"#)
+                    .ok_or_else(|| {
+                        serde::de::Error::missing_field(r#"hardware_software_topology_fingerprint"#)
+                    })?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            cost_basis_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"cost_basis_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"cost_basis_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            failure_schedule_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"failure_schedule_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"failure_schedule_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+        })
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum FoundryTrainingProgramV2QualificationMeasurementPhase {
+    #[serde(rename = r#"evaluation"#)]
+    Evaluation,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum FoundryTrainingProgramV2QualificationMeasurementTokenNumerator {
+    #[serde(rename = r#"loss_bearing"#)]
+    LossBearing,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum FoundryTrainingProgramV2QualificationMeasurementDenominator {
+    #[serde(rename = r#"full_wall_clock"#)]
+    FullWallClock,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum FoundryTrainingProgramV2QualificationMeasurementScope {
+    #[serde(rename = r#"daemon_cpu_process"#)]
+    DaemonCpuProcess,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum FoundryTrainingProgramV2QualificationMeasurementIncludesCompilation {
+    False,
+}
+
+impl serde::Serialize for FoundryTrainingProgramV2QualificationMeasurementIncludesCompilation {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: serde::Serializer,
+    {
+        serializer.serialize_bool(false)
+    }
+}
+
+impl<'de> serde::Deserialize<'de>
+    for FoundryTrainingProgramV2QualificationMeasurementIncludesCompilation
+{
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let value = <bool as serde::Deserialize>::deserialize(deserializer)?;
+        if value == false {
+            Ok(Self::False)
+        } else {
+            Err(serde::de::Error::custom(
+                r#"expected boolean literal false"#,
+            ))
+        }
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum FoundryTrainingProgramV2QualificationMeasurementIncludesLoading {
+    True,
+}
+
+impl serde::Serialize for FoundryTrainingProgramV2QualificationMeasurementIncludesLoading {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: serde::Serializer,
+    {
+        serializer.serialize_bool(true)
+    }
+}
+
+impl<'de> serde::Deserialize<'de>
+    for FoundryTrainingProgramV2QualificationMeasurementIncludesLoading
+{
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let value = <bool as serde::Deserialize>::deserialize(deserializer)?;
+        if value == true {
+            Ok(Self::True)
+        } else {
+            Err(serde::de::Error::custom(r#"expected boolean literal true"#))
+        }
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum FoundryTrainingProgramV2QualificationMeasurementIncludesEvaluation {
+    True,
+}
+
+impl serde::Serialize for FoundryTrainingProgramV2QualificationMeasurementIncludesEvaluation {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: serde::Serializer,
+    {
+        serializer.serialize_bool(true)
+    }
+}
+
+impl<'de> serde::Deserialize<'de>
+    for FoundryTrainingProgramV2QualificationMeasurementIncludesEvaluation
+{
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let value = <bool as serde::Deserialize>::deserialize(deserializer)?;
+        if value == true {
+            Ok(Self::True)
+        } else {
+            Err(serde::de::Error::custom(r#"expected boolean literal true"#))
+        }
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum FoundryTrainingProgramV2QualificationMeasurementIncludesCheckpoint {
+    False,
+}
+
+impl serde::Serialize for FoundryTrainingProgramV2QualificationMeasurementIncludesCheckpoint {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: serde::Serializer,
+    {
+        serializer.serialize_bool(false)
+    }
+}
+
+impl<'de> serde::Deserialize<'de>
+    for FoundryTrainingProgramV2QualificationMeasurementIncludesCheckpoint
+{
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let value = <bool as serde::Deserialize>::deserialize(deserializer)?;
+        if value == false {
+            Ok(Self::False)
+        } else {
+            Err(serde::de::Error::custom(
+                r#"expected boolean literal false"#,
+            ))
+        }
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum FoundryTrainingProgramV2QualificationMeasurementIncludesFailureAndRecovery {
+    False,
+}
+
+impl serde::Serialize
+    for FoundryTrainingProgramV2QualificationMeasurementIncludesFailureAndRecovery
+{
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: serde::Serializer,
+    {
+        serializer.serialize_bool(false)
+    }
+}
+
+impl<'de> serde::Deserialize<'de>
+    for FoundryTrainingProgramV2QualificationMeasurementIncludesFailureAndRecovery
+{
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let value = <bool as serde::Deserialize>::deserialize(deserializer)?;
+        if value == false {
+            Ok(Self::False)
+        } else {
+            Err(serde::de::Error::custom(
+                r#"expected boolean literal false"#,
+            ))
+        }
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, serde::Serialize)]
+pub struct FoundryTrainingProgramV2QualificationMeasurementHardwareSoftwareTopologyFingerprint {
+    pub runtime_node_ref: String,
+    pub environment_ref: String,
+    pub trainer_backend_profile_ref: FoundryTrainingProgramV2QualificationMeasurementHardwareSoftwareTopologyFingerprintTrainerBackendProfileRef,
+    pub hardware_architecture: FoundryTrainingProgramV2QualificationMeasurementHardwareSoftwareTopologyFingerprintHardwareArchitecture,
+    pub logical_cpu_count: ArchitectureContractInteger,
+    pub memory_bytes: ArchitectureContractInteger,
+    pub operating_system: FoundryTrainingProgramV2QualificationMeasurementHardwareSoftwareTopologyFingerprintOperatingSystem,
+    pub daemon_release_ref: String,
+}
+
+impl<'de> serde::Deserialize<'de>
+    for FoundryTrainingProgramV2QualificationMeasurementHardwareSoftwareTopologyFingerprint
+{
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let value = <serde_json::Value as serde::Deserialize>::deserialize(deserializer)?;
+        validate_projection_subschema(
+            r#"schema://ioi/components/hypervisor/foundry-training-program/v2"#,
+            r##"{"type":"object","additionalProperties":false,"required":["runtime_node_ref","environment_ref","trainer_backend_profile_ref","hardware_architecture","logical_cpu_count","memory_bytes","operating_system","daemon_release_ref"],"properties":{"runtime_node_ref":{"type":"string","pattern":"^runtime://[^\\s]{1,500}$"},"environment_ref":{"type":"string","pattern":"^environment://[^\\s]{1,500}$"},"trainer_backend_profile_ref":{"const":"trainer-backend://ioi/reference-token-frequency/v1"},"hardware_architecture":{"enum":["x86_64","aarch64"]},"logical_cpu_count":{"type":"integer","minimum":1,"maximum":65535},"memory_bytes":{"$ref":"#/$defs/positiveInteger"},"operating_system":{"enum":["linux","macos","windows"]},"daemon_release_ref":{"type":"string","pattern":"^release://[^\\s]{1,500}$"}}}"##,
+            &value,
+        )
+            .map_err(serde::de::Error::custom)?;
+        let mut object = value
+            .as_object()
+            .cloned()
+            .ok_or_else(|| serde::de::Error::custom("validated projection is not an object"))?;
+        Ok(Self {
+            runtime_node_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"runtime_node_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"runtime_node_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            environment_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"environment_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"environment_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            trainer_backend_profile_ref: serde_json::from_value::<FoundryTrainingProgramV2QualificationMeasurementHardwareSoftwareTopologyFingerprintTrainerBackendProfileRef>(
+                object
+                    .remove(r#"trainer_backend_profile_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"trainer_backend_profile_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            hardware_architecture: serde_json::from_value::<FoundryTrainingProgramV2QualificationMeasurementHardwareSoftwareTopologyFingerprintHardwareArchitecture>(
+                object
+                    .remove(r#"hardware_architecture"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"hardware_architecture"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            logical_cpu_count: serde_json::from_value::<ArchitectureContractInteger>(
+                object
+                    .remove(r#"logical_cpu_count"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"logical_cpu_count"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            memory_bytes: serde_json::from_value::<ArchitectureContractInteger>(
+                object
+                    .remove(r#"memory_bytes"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"memory_bytes"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            operating_system: serde_json::from_value::<FoundryTrainingProgramV2QualificationMeasurementHardwareSoftwareTopologyFingerprintOperatingSystem>(
+                object
+                    .remove(r#"operating_system"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"operating_system"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            daemon_release_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"daemon_release_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"daemon_release_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+        })
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum FoundryTrainingProgramV2QualificationMeasurementHardwareSoftwareTopologyFingerprintTrainerBackendProfileRef
+{
+    #[serde(rename = r#"trainer-backend://ioi/reference-token-frequency/v1"#)]
+    TrainerBackendIoiReferenceTokenFrequencyV1,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum FoundryTrainingProgramV2QualificationMeasurementHardwareSoftwareTopologyFingerprintHardwareArchitecture
+{
+    #[serde(rename = r#"x86_64"#)]
+    X8664,
+    #[serde(rename = r#"aarch64"#)]
+    Aarch64,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum FoundryTrainingProgramV2QualificationMeasurementHardwareSoftwareTopologyFingerprintOperatingSystem
+{
+    #[serde(rename = r#"linux"#)]
+    Linux,
+    #[serde(rename = r#"macos"#)]
+    Macos,
+    #[serde(rename = r#"windows"#)]
+    Windows,
+}
+
+#[derive(Debug, Clone, PartialEq, serde::Serialize)]
+pub struct FoundryTrainingProgramV2QualificationPromotionBoundary {
+    pub proposal_only: FoundryTrainingProgramV2QualificationPromotionBoundaryProposalOnly,
+    pub governance_approval_required:
+        FoundryTrainingProgramV2QualificationPromotionBoundaryGovernanceApprovalRequired,
+    pub runtime_activation_performed:
+        FoundryTrainingProgramV2QualificationPromotionBoundaryRuntimeActivationPerformed,
+}
+
+impl<'de> serde::Deserialize<'de> for FoundryTrainingProgramV2QualificationPromotionBoundary {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let value = <serde_json::Value as serde::Deserialize>::deserialize(deserializer)?;
+        validate_projection_subschema(
+            r#"schema://ioi/components/hypervisor/foundry-training-program/v2"#,
+            r#"{"type":"object","additionalProperties":false,"required":["proposal_only","governance_approval_required","runtime_activation_performed"],"properties":{"proposal_only":{"const":true},"governance_approval_required":{"const":true},"runtime_activation_performed":{"const":false}}}"#,
+            &value,
+        )
+            .map_err(serde::de::Error::custom)?;
+        let mut object = value
+            .as_object()
+            .cloned()
+            .ok_or_else(|| serde::de::Error::custom("validated projection is not an object"))?;
+        Ok(Self {
+            proposal_only: serde_json::from_value::<
+                FoundryTrainingProgramV2QualificationPromotionBoundaryProposalOnly,
+            >(
+                object
+                    .remove(r#"proposal_only"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"proposal_only"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            governance_approval_required: serde_json::from_value::<
+                FoundryTrainingProgramV2QualificationPromotionBoundaryGovernanceApprovalRequired,
+            >(
+                object
+                    .remove(r#"governance_approval_required"#)
+                    .ok_or_else(|| {
+                        serde::de::Error::missing_field(r#"governance_approval_required"#)
+                    })?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            runtime_activation_performed: serde_json::from_value::<
+                FoundryTrainingProgramV2QualificationPromotionBoundaryRuntimeActivationPerformed,
+            >(
+                object
+                    .remove(r#"runtime_activation_performed"#)
+                    .ok_or_else(|| {
+                        serde::de::Error::missing_field(r#"runtime_activation_performed"#)
+                    })?,
+            )
+            .map_err(serde::de::Error::custom)?,
+        })
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum FoundryTrainingProgramV2QualificationPromotionBoundaryProposalOnly {
+    True,
+}
+
+impl serde::Serialize for FoundryTrainingProgramV2QualificationPromotionBoundaryProposalOnly {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: serde::Serializer,
+    {
+        serializer.serialize_bool(true)
+    }
+}
+
+impl<'de> serde::Deserialize<'de>
+    for FoundryTrainingProgramV2QualificationPromotionBoundaryProposalOnly
+{
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let value = <bool as serde::Deserialize>::deserialize(deserializer)?;
+        if value == true {
+            Ok(Self::True)
+        } else {
+            Err(serde::de::Error::custom(r#"expected boolean literal true"#))
+        }
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum FoundryTrainingProgramV2QualificationPromotionBoundaryGovernanceApprovalRequired {
+    True,
+}
+
+impl serde::Serialize
+    for FoundryTrainingProgramV2QualificationPromotionBoundaryGovernanceApprovalRequired
+{
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: serde::Serializer,
+    {
+        serializer.serialize_bool(true)
+    }
+}
+
+impl<'de> serde::Deserialize<'de>
+    for FoundryTrainingProgramV2QualificationPromotionBoundaryGovernanceApprovalRequired
+{
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let value = <bool as serde::Deserialize>::deserialize(deserializer)?;
+        if value == true {
+            Ok(Self::True)
+        } else {
+            Err(serde::de::Error::custom(r#"expected boolean literal true"#))
+        }
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum FoundryTrainingProgramV2QualificationPromotionBoundaryRuntimeActivationPerformed {
+    False,
+}
+
+impl serde::Serialize
+    for FoundryTrainingProgramV2QualificationPromotionBoundaryRuntimeActivationPerformed
+{
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: serde::Serializer,
+    {
+        serializer.serialize_bool(false)
+    }
+}
+
+impl<'de> serde::Deserialize<'de>
+    for FoundryTrainingProgramV2QualificationPromotionBoundaryRuntimeActivationPerformed
+{
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let value = <bool as serde::Deserialize>::deserialize(deserializer)?;
+        if value == false {
+            Ok(Self::False)
+        } else {
+            Err(serde::de::Error::custom(
+                r#"expected boolean literal false"#,
+            ))
+        }
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, serde::Serialize)]
+pub struct FoundryTrainingProgramV2LastActionRequest {
+    pub action: FoundryTrainingProgramV2LastActionRequestAction,
+    pub max_rows: Option<ArchitectureContractInteger>,
+}
+
+impl<'de> serde::Deserialize<'de> for FoundryTrainingProgramV2LastActionRequest {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let value = <serde_json::Value as serde::Deserialize>::deserialize(deserializer)?;
+        validate_projection_subschema(
+            r#"schema://ioi/components/hypervisor/foundry-training-program/v2"#,
+            r##"{"type":"object","additionalProperties":false,"required":["action","max_rows"],"properties":{"action":{"enum":["start","step","pause","resume","cancel","reconcile"]},"max_rows":{"anyOf":[{"$ref":"#/$defs/positiveInteger"},{"type":"null"}]}}}"##,
+            &value,
+        )
+            .map_err(serde::de::Error::custom)?;
+        let mut object = value
+            .as_object()
+            .cloned()
+            .ok_or_else(|| serde::de::Error::custom("validated projection is not an object"))?;
+        Ok(Self {
+            action: serde_json::from_value::<FoundryTrainingProgramV2LastActionRequestAction>(
+                object
+                    .remove(r#"action"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"action"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            max_rows: serde_json::from_value::<Option<ArchitectureContractInteger>>(
+                object
+                    .remove(r#"max_rows"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"max_rows"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+        })
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum FoundryTrainingProgramV2LastActionRequestAction {
+    #[serde(rename = r#"start"#)]
+    Start,
+    #[serde(rename = r#"step"#)]
+    Step,
+    #[serde(rename = r#"pause"#)]
+    Pause,
+    #[serde(rename = r#"resume"#)]
+    Resume,
+    #[serde(rename = r#"cancel"#)]
+    Cancel,
+    #[serde(rename = r#"reconcile"#)]
+    Reconcile,
+}
+
+#[derive(Debug, Clone, PartialEq, serde::Serialize)]
+pub struct FoundryTrainingProgramV2Reconciliation {
+    pub status: FoundryTrainingProgramV2ReconciliationStatus,
+    pub checkpoint_ref: Option<String>,
+}
+
+impl<'de> serde::Deserialize<'de> for FoundryTrainingProgramV2Reconciliation {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let value = <serde_json::Value as serde::Deserialize>::deserialize(deserializer)?;
+        validate_projection_subschema(
+            r#"schema://ioi/components/hypervisor/foundry-training-program/v2"#,
+            r#"{"type":"object","additionalProperties":false,"required":["status","checkpoint_ref"],"properties":{"status":{"const":"satisfied"},"checkpoint_ref":{"anyOf":[{"type":"string","pattern":"^checkpoint://foundry/[^\\s]{1,500}$"},{"type":"null"}]}}}"#,
+            &value,
+        )
+            .map_err(serde::de::Error::custom)?;
+        let mut object = value
+            .as_object()
+            .cloned()
+            .ok_or_else(|| serde::de::Error::custom("validated projection is not an object"))?;
+        Ok(Self {
+            status: serde_json::from_value::<FoundryTrainingProgramV2ReconciliationStatus>(
+                object
+                    .remove(r#"status"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"status"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            checkpoint_ref: serde_json::from_value::<Option<String>>(
+                object
+                    .remove(r#"checkpoint_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"checkpoint_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+        })
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum FoundryTrainingProgramV2ReconciliationStatus {
+    #[serde(rename = r#"satisfied"#)]
+    Satisfied,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum FoundryTrainingProgramV2DeterminismClass {
+    #[serde(rename = r#"bitwise"#)]
+    Bitwise,
+    #[serde(rename = r#"state_equivalent"#)]
+    StateEquivalent,
+    #[serde(rename = r#"statistical"#)]
+    Statistical,
+}
+
+#[derive(Debug, Clone, PartialEq, serde::Serialize)]
+pub struct FoundryTrainingProgramV2Spend {
+    pub reservation_ref: String,
+    pub reconciled_outcome: FoundryTrainingProgramV2SpendReconciledOutcome,
+    pub cleanup_obligation_ref: String,
+}
+
+impl<'de> serde::Deserialize<'de> for FoundryTrainingProgramV2Spend {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let value = <serde_json::Value as serde::Deserialize>::deserialize(deserializer)?;
+        validate_projection_subschema(
+            r#"schema://ioi/components/hypervisor/foundry-training-program/v2"#,
+            r#"{"type":"object","additionalProperties":false,"required":["reservation_ref","reconciled_outcome","cleanup_obligation_ref"],"description":"EVERY EXTERNAL TRAINING RESOURCE CARRIES ALL THREE. Canon: a successful artifact with unknown spend, or with a live orphan resource, is a FAILED run — not a successful run with an accounting note. This member exists separately from `reconciliation` because that one is the interrupted-run resume pointer and shares nothing with spend but the word.","properties":{"reservation_ref":{"type":"string","pattern":"^spend_reservation://[^\\s?#\\\\]{1,200}$","description":"The ADMITTED reservation the run drew against. A run with no reservation did not have unknown spend; it had unauthorized spend, and the reservation is required so the two cannot be confused."},"reconciled_outcome":{"type":"string","enum":["reconciled_exact","reconciled_within_reservation","spend_unreconciled","spend_exceeded_reservation"],"description":"UNKNOWN SPEND AND ZERO SPEND ARE DIFFERENT FACTS. `spend_unreconciled` is a typed outcome that forbids the candidate, not a note attached to one — a pipeline that cannot tell the two apart will report zero when it means unknown. `spend_exceeded_reservation` is likewise terminal: the run drew past what was authorized."},"cleanup_obligation_ref":{"type":"string","pattern":"^cleanup_obligation://[^\\s?#\\\\]{1,200}$","description":"The obligation that closes the external resource. Required even when the outcome reconciled exactly, because a settled bill over a resource still running is a live orphan."}}}"#,
+            &value,
+        )
+            .map_err(serde::de::Error::custom)?;
+        let mut object = value
+            .as_object()
+            .cloned()
+            .ok_or_else(|| serde::de::Error::custom("validated projection is not an object"))?;
+        Ok(Self {
+            reservation_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"reservation_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"reservation_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            reconciled_outcome: serde_json::from_value::<
+                FoundryTrainingProgramV2SpendReconciledOutcome,
+            >(
+                object
+                    .remove(r#"reconciled_outcome"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"reconciled_outcome"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            cleanup_obligation_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"cleanup_obligation_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"cleanup_obligation_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+        })
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum FoundryTrainingProgramV2SpendReconciledOutcome {
+    #[serde(rename = r#"reconciled_exact"#)]
+    ReconciledExact,
+    #[serde(rename = r#"reconciled_within_reservation"#)]
+    ReconciledWithinReservation,
+    #[serde(rename = r#"spend_unreconciled"#)]
+    SpendUnreconciled,
+    #[serde(rename = r#"spend_exceeded_reservation"#)]
+    SpendExceededReservation,
+}
+
+#[derive(Debug, Clone, PartialEq, serde::Serialize)]
+pub struct FoundryTrainingProgramV2ResumeEquivalence {
+    pub compared_at_global_step: ArchitectureContractInteger,
+    pub uninterrupted: FoundryTrainingProgramV2ResumeEquivalenceUninterrupted,
+    pub resumed: FoundryTrainingProgramV2ResumeEquivalenceResumed,
+    pub class_satisfied: bool,
+}
+
+impl<'de> serde::Deserialize<'de> for FoundryTrainingProgramV2ResumeEquivalence {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let value = <serde_json::Value as serde::Deserialize>::deserialize(deserializer)?;
+        validate_projection_subschema(
+            r#"schema://ioi/components/hypervisor/foundry-training-program/v2"#,
+            r##"{"type":"object","additionalProperties":false,"required":["compared_at_global_step","uninterrupted","resumed","class_satisfied"],"description":"ONE COMPARISON OF TWO RUNS AT ONE STEP. Both sides are recorded rather than a verdict alone, because a verdict with no digests behind it is a claim its reader cannot check — and because which digests had to match depends on the declared class, so a later reader needs the inputs to re-derive the same answer.","properties":{"compared_at_global_step":{"$ref":"#/$defs/nonnegativeInteger"},"uninterrupted":{"$ref":"#/$defs/digestSet"},"resumed":{"$ref":"#/$defs/digestSet"},"class_satisfied":{"type":"boolean","description":"Whether every digest the program's `determinism_class` names matched. False is terminal: the status is `resume_divergent` and the artifact is not a candidate."}}}"##,
+            &value,
+        )
+            .map_err(serde::de::Error::custom)?;
+        let mut object = value
+            .as_object()
+            .cloned()
+            .ok_or_else(|| serde::de::Error::custom("validated projection is not an object"))?;
+        Ok(Self {
+            compared_at_global_step: serde_json::from_value::<ArchitectureContractInteger>(
+                object
+                    .remove(r#"compared_at_global_step"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"compared_at_global_step"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            uninterrupted: serde_json::from_value::<
+                FoundryTrainingProgramV2ResumeEquivalenceUninterrupted,
+            >(
+                object
+                    .remove(r#"uninterrupted"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"uninterrupted"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            resumed: serde_json::from_value::<FoundryTrainingProgramV2ResumeEquivalenceResumed>(
+                object
+                    .remove(r#"resumed"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"resumed"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            class_satisfied: serde_json::from_value::<bool>(
+                object
+                    .remove(r#"class_satisfied"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"class_satisfied"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+        })
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, serde::Serialize)]
+pub struct FoundryTrainingProgramV2ResumeEquivalenceUninterrupted {
+    pub model_state_hash: String,
+    pub optimizer_state_hash: String,
+    pub scheduler_state_hash: String,
+    pub rng_state_hash: String,
+}
+
+impl<'de> serde::Deserialize<'de> for FoundryTrainingProgramV2ResumeEquivalenceUninterrupted {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let value = <serde_json::Value as serde::Deserialize>::deserialize(deserializer)?;
+        validate_projection_subschema(
+            r#"schema://ioi/components/hypervisor/foundry-training-program/v2"#,
+            r##"{"type":"object","additionalProperties":false,"required":["model_state_hash","optimizer_state_hash","scheduler_state_hash","rng_state_hash"],"description":"The four digests `verify_checkpoint_projection` already computes, recorded for one run at one step.","properties":{"model_state_hash":{"$ref":"#/$defs/hash"},"optimizer_state_hash":{"$ref":"#/$defs/hash"},"scheduler_state_hash":{"$ref":"#/$defs/hash"},"rng_state_hash":{"$ref":"#/$defs/hash"}}}"##,
+            &value,
+        )
+            .map_err(serde::de::Error::custom)?;
+        let mut object = value
+            .as_object()
+            .cloned()
+            .ok_or_else(|| serde::de::Error::custom("validated projection is not an object"))?;
+        Ok(Self {
+            model_state_hash: serde_json::from_value::<String>(
+                object
+                    .remove(r#"model_state_hash"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"model_state_hash"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            optimizer_state_hash: serde_json::from_value::<String>(
+                object
+                    .remove(r#"optimizer_state_hash"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"optimizer_state_hash"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            scheduler_state_hash: serde_json::from_value::<String>(
+                object
+                    .remove(r#"scheduler_state_hash"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"scheduler_state_hash"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            rng_state_hash: serde_json::from_value::<String>(
+                object
+                    .remove(r#"rng_state_hash"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"rng_state_hash"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+        })
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, serde::Serialize)]
+pub struct FoundryTrainingProgramV2ResumeEquivalenceResumed {
+    pub model_state_hash: String,
+    pub optimizer_state_hash: String,
+    pub scheduler_state_hash: String,
+    pub rng_state_hash: String,
+}
+
+impl<'de> serde::Deserialize<'de> for FoundryTrainingProgramV2ResumeEquivalenceResumed {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let value = <serde_json::Value as serde::Deserialize>::deserialize(deserializer)?;
+        validate_projection_subschema(
+            r#"schema://ioi/components/hypervisor/foundry-training-program/v2"#,
+            r##"{"type":"object","additionalProperties":false,"required":["model_state_hash","optimizer_state_hash","scheduler_state_hash","rng_state_hash"],"description":"The four digests `verify_checkpoint_projection` already computes, recorded for one run at one step.","properties":{"model_state_hash":{"$ref":"#/$defs/hash"},"optimizer_state_hash":{"$ref":"#/$defs/hash"},"scheduler_state_hash":{"$ref":"#/$defs/hash"},"rng_state_hash":{"$ref":"#/$defs/hash"}}}"##,
+            &value,
+        )
+            .map_err(serde::de::Error::custom)?;
+        let mut object = value
+            .as_object()
+            .cloned()
+            .ok_or_else(|| serde::de::Error::custom("validated projection is not an object"))?;
+        Ok(Self {
+            model_state_hash: serde_json::from_value::<String>(
+                object
+                    .remove(r#"model_state_hash"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"model_state_hash"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            optimizer_state_hash: serde_json::from_value::<String>(
+                object
+                    .remove(r#"optimizer_state_hash"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"optimizer_state_hash"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            scheduler_state_hash: serde_json::from_value::<String>(
+                object
+                    .remove(r#"scheduler_state_hash"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"scheduler_state_hash"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            rng_state_hash: serde_json::from_value::<String>(
+                object
+                    .remove(r#"rng_state_hash"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"rng_state_hash"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+        })
+    }
+}
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct GoldenFixture {
     pub contract_id: &'static str,
@@ -186980,6 +188675,142 @@ pub const ARCHITECTURE_CONTRACT_FIXTURES: &[GoldenFixture] = &[
     GoldenFixture {
         contract_id: "schema://ioi/hypervisor/cross-substrate-portability-certificate/v1",
         path: "docs/architecture/_meta/schemas/fixtures/cross-substrate-portability-certificate-v1/negative-says-the-families-are-the-same.json",
+        expected_accept: false,
+        expected_schema_accept: false,
+        expected_failure: Some("schema"),
+        expected_rule_id: None,
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/components/hypervisor/foundry-training-program/v2",
+        path: "docs/architecture/_meta/schemas/fixtures/foundry-training-program-v2/positive-never-interrupted.json",
+        expected_accept: true,
+        expected_schema_accept: true,
+        expected_failure: None,
+        expected_rule_id: None,
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/components/hypervisor/foundry-training-program/v2",
+        path: "docs/architecture/_meta/schemas/fixtures/foundry-training-program-v2/positive-resume-divergent-and-measured.json",
+        expected_accept: true,
+        expected_schema_accept: true,
+        expected_failure: None,
+        expected_rule_id: None,
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/components/hypervisor/foundry-training-program/v2",
+        path: "docs/architecture/_meta/schemas/fixtures/foundry-training-program-v2/positive-resumed-and-equivalent.json",
+        expected_accept: true,
+        expected_schema_accept: true,
+        expected_failure: None,
+        expected_rule_id: None,
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/components/hypervisor/foundry-training-program/v2",
+        path: "docs/architecture/_meta/schemas/fixtures/foundry-training-program-v2/negative-a-reconciliation-member-standing-in-for-spend.json",
+        expected_accept: false,
+        expected_schema_accept: false,
+        expected_failure: Some("schema"),
+        expected_rule_id: None,
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/components/hypervisor/foundry-training-program/v2",
+        path: "docs/architecture/_meta/schemas/fixtures/foundry-training-program-v2/negative-a-view-bound-without-a-revision.json",
+        expected_accept: false,
+        expected_schema_accept: false,
+        expected_failure: Some("schema"),
+        expected_rule_id: None,
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/components/hypervisor/foundry-training-program/v2",
+        path: "docs/architecture/_meta/schemas/fixtures/foundry-training-program-v2/negative-an-equivalence-missing-one-side.json",
+        expected_accept: false,
+        expected_schema_accept: false,
+        expected_failure: Some("schema"),
+        expected_rule_id: None,
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/components/hypervisor/foundry-training-program/v2",
+        path: "docs/architecture/_meta/schemas/fixtures/foundry-training-program-v2/negative-an-equivalence-with-a-partial-digest-set.json",
+        expected_accept: false,
+        expected_schema_accept: false,
+        expected_failure: Some("schema"),
+        expected_rule_id: None,
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/components/hypervisor/foundry-training-program/v2",
+        path: "docs/architecture/_meta/schemas/fixtures/foundry-training-program-v2/negative-an-equivalence-with-no-verdict.json",
+        expected_accept: false,
+        expected_schema_accept: false,
+        expected_failure: Some("schema"),
+        expected_rule_id: None,
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/components/hypervisor/foundry-training-program/v2",
+        path: "docs/architecture/_meta/schemas/fixtures/foundry-training-program-v2/negative-an-invented-determinism-class.json",
+        expected_accept: false,
+        expected_schema_accept: false,
+        expected_failure: Some("schema"),
+        expected_rule_id: None,
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/components/hypervisor/foundry-training-program/v2",
+        path: "docs/architecture/_meta/schemas/fixtures/foundry-training-program-v2/negative-an-invented-spend-outcome.json",
+        expected_accept: false,
+        expected_schema_accept: false,
+        expected_failure: Some("schema"),
+        expected_rule_id: None,
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/components/hypervisor/foundry-training-program/v2",
+        path: "docs/architecture/_meta/schemas/fixtures/foundry-training-program-v2/negative-no-determinism-class.json",
+        expected_accept: false,
+        expected_schema_accept: false,
+        expected_failure: Some("schema"),
+        expected_rule_id: None,
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/components/hypervisor/foundry-training-program/v2",
+        path: "docs/architecture/_meta/schemas/fixtures/foundry-training-program-v2/negative-no-policy-bound-view.json",
+        expected_accept: false,
+        expected_schema_accept: false,
+        expected_failure: Some("schema"),
+        expected_rule_id: None,
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/components/hypervisor/foundry-training-program/v2",
+        path: "docs/architecture/_meta/schemas/fixtures/foundry-training-program-v2/negative-no-retention-class.json",
+        expected_accept: false,
+        expected_schema_accept: false,
+        expected_failure: Some("schema"),
+        expected_rule_id: None,
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/components/hypervisor/foundry-training-program/v2",
+        path: "docs/architecture/_meta/schemas/fixtures/foundry-training-program-v2/negative-no-spend-at-all.json",
+        expected_accept: false,
+        expected_schema_accept: false,
+        expected_failure: Some("schema"),
+        expected_rule_id: None,
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/components/hypervisor/foundry-training-program/v2",
+        path: "docs/architecture/_meta/schemas/fixtures/foundry-training-program-v2/negative-spend-with-no-cleanup-obligation.json",
+        expected_accept: false,
+        expected_schema_accept: false,
+        expected_failure: Some("schema"),
+        expected_rule_id: None,
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/components/hypervisor/foundry-training-program/v2",
+        path: "docs/architecture/_meta/schemas/fixtures/foundry-training-program-v2/negative-spend-with-no-reservation.json",
+        expected_accept: false,
+        expected_schema_accept: false,
+        expected_failure: Some("schema"),
+        expected_rule_id: None,
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/components/hypervisor/foundry-training-program/v2",
+        path: "docs/architecture/_meta/schemas/fixtures/foundry-training-program-v2/negative-still-declares-v1.json",
         expected_accept: false,
         expected_schema_accept: false,
         expected_failure: Some("schema"),
@@ -210101,6 +211932,193 @@ pub const ARCHITECTURE_CONTRACT_DIFFERENTIAL_CASES: &[ArchitectureContractDiffer
         oracle_contract_accept: false,
     },
     ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/foundry-training-program-v2/positive-never-interrupted.json"#,
+        contract_id: r#"schema://ioi/components/hypervisor/foundry-training-program/v2"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/foundry-training-program-v2/positive-never-interrupted.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: true,
+        oracle_contract_accept: true,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/foundry-training-program-v2/positive-resume-divergent-and-measured.json"#,
+        contract_id: r#"schema://ioi/components/hypervisor/foundry-training-program/v2"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/foundry-training-program-v2/positive-resume-divergent-and-measured.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: true,
+        oracle_contract_accept: true,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/foundry-training-program-v2/positive-resumed-and-equivalent.json"#,
+        contract_id: r#"schema://ioi/components/hypervisor/foundry-training-program/v2"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/foundry-training-program-v2/positive-resumed-and-equivalent.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: true,
+        oracle_contract_accept: true,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/foundry-training-program-v2/negative-a-reconciliation-member-standing-in-for-spend.json"#,
+        contract_id: r#"schema://ioi/components/hypervisor/foundry-training-program/v2"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/foundry-training-program-v2/negative-a-reconciliation-member-standing-in-for-spend.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: false,
+        oracle_contract_accept: false,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/foundry-training-program-v2/negative-a-view-bound-without-a-revision.json"#,
+        contract_id: r#"schema://ioi/components/hypervisor/foundry-training-program/v2"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/foundry-training-program-v2/negative-a-view-bound-without-a-revision.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: false,
+        oracle_contract_accept: false,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/foundry-training-program-v2/negative-an-equivalence-missing-one-side.json"#,
+        contract_id: r#"schema://ioi/components/hypervisor/foundry-training-program/v2"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/foundry-training-program-v2/negative-an-equivalence-missing-one-side.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: false,
+        oracle_contract_accept: false,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/foundry-training-program-v2/negative-an-equivalence-with-a-partial-digest-set.json"#,
+        contract_id: r#"schema://ioi/components/hypervisor/foundry-training-program/v2"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/foundry-training-program-v2/negative-an-equivalence-with-a-partial-digest-set.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: false,
+        oracle_contract_accept: false,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/foundry-training-program-v2/negative-an-equivalence-with-no-verdict.json"#,
+        contract_id: r#"schema://ioi/components/hypervisor/foundry-training-program/v2"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/foundry-training-program-v2/negative-an-equivalence-with-no-verdict.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: false,
+        oracle_contract_accept: false,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/foundry-training-program-v2/negative-an-invented-determinism-class.json"#,
+        contract_id: r#"schema://ioi/components/hypervisor/foundry-training-program/v2"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/foundry-training-program-v2/negative-an-invented-determinism-class.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: false,
+        oracle_contract_accept: false,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/foundry-training-program-v2/negative-an-invented-spend-outcome.json"#,
+        contract_id: r#"schema://ioi/components/hypervisor/foundry-training-program/v2"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/foundry-training-program-v2/negative-an-invented-spend-outcome.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: false,
+        oracle_contract_accept: false,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/foundry-training-program-v2/negative-no-determinism-class.json"#,
+        contract_id: r#"schema://ioi/components/hypervisor/foundry-training-program/v2"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/foundry-training-program-v2/negative-no-determinism-class.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: false,
+        oracle_contract_accept: false,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/foundry-training-program-v2/negative-no-policy-bound-view.json"#,
+        contract_id: r#"schema://ioi/components/hypervisor/foundry-training-program/v2"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/foundry-training-program-v2/negative-no-policy-bound-view.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: false,
+        oracle_contract_accept: false,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/foundry-training-program-v2/negative-no-retention-class.json"#,
+        contract_id: r#"schema://ioi/components/hypervisor/foundry-training-program/v2"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/foundry-training-program-v2/negative-no-retention-class.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: false,
+        oracle_contract_accept: false,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/foundry-training-program-v2/negative-no-spend-at-all.json"#,
+        contract_id: r#"schema://ioi/components/hypervisor/foundry-training-program/v2"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/foundry-training-program-v2/negative-no-spend-at-all.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: false,
+        oracle_contract_accept: false,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/foundry-training-program-v2/negative-spend-with-no-cleanup-obligation.json"#,
+        contract_id: r#"schema://ioi/components/hypervisor/foundry-training-program/v2"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/foundry-training-program-v2/negative-spend-with-no-cleanup-obligation.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: false,
+        oracle_contract_accept: false,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/foundry-training-program-v2/negative-spend-with-no-reservation.json"#,
+        contract_id: r#"schema://ioi/components/hypervisor/foundry-training-program/v2"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/foundry-training-program-v2/negative-spend-with-no-reservation.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: false,
+        oracle_contract_accept: false,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/foundry-training-program-v2/negative-still-declares-v1.json"#,
+        contract_id: r#"schema://ioi/components/hypervisor/foundry-training-program/v2"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/foundry-training-program-v2/negative-still-declares-v1.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: false,
+        oracle_contract_accept: false,
+    },
+    ArchitectureContractDifferentialCase {
         id: r#"mutation:sequence-zero-receipt-timestamp-detached"#,
         contract_id: r#"schema://ioi/foundations/autonomous-system-sequence-zero-materialization-receipt/v2"#,
         source_fixture_path: None,
@@ -211867,6 +213885,7 @@ const CONTRACT_SCHEMAS: &[(&str, &str)] = &[
     ("schema://ioi/foundations/regulated-workload-assurance-profile/v1", r##"{"$schema":"https://json-schema.org/draft/2020-12/schema","$id":"schema://ioi/foundations/regulated-workload-assurance-profile/v1","title":"RegulatedWorkloadAssuranceProfile","x-ioi-schema-version":"ioi.foundations.regulated-workload-assurance-profile.v1","description":"WHAT A REGULATED OR SENSITIVE WORKLOAD MUST BIND BEFORE IT MAY RUN — as refs at revisions, and nothing restated. This object is a COMPOSITION, not a declaration: residency, retention, deletion and export are owned by the bound JurisdictionPolicyPack's `data_requirements`, and purpose, allowed uses, data classes, redaction, retention-and-hold and destination-and-egress are owned by the bound PolicyBoundDataView revision. A member copied inline here would be a second copy of a rule, free to drift from the policy it was copied from, which is the second spine the estate's structural law forbids. TWO WORDS THAT NAME SEVERAL OBJECTS ARE DELIBERATELY NOT USED BARE: `custody` spans credential custody, process custody, data locality and custody tier, and `egress` spans a tool contract's egress_policy, a view's destination_and_egress and a connectivity profile's no_egress scope — so every binding below names the exact member of the exact owner, because a profile requiring a bare `custody` would bind whichever of them its reader assumed and a gate would go green on the wrong object. `unowned_bindings` ARE REQUIRED AND NOTHING IN THE ESTATE RESOLVES THEM: data-processor terms, key control and access logging are obligations canon places on a regulated workload, and a profile that omitted them would let such a workload be admitted with no access log at all. A required ref with no resolver states the obligation and refuses the admission until the owner exists. Owner: foundations/ecosystem-assurance-certification-liability.md § RegulatedWorkloadAssuranceProfile (M09.9, R-230/R-231).","type":"object","additionalProperties":false,"required":["schema_version","profile_id","version","issued_at","supersedes_ref","subject","policy_bindings","route_bindings","custody_bindings","operational_bindings","unowned_bindings","grants_no_authority","is_not_legal_advice","recorded_by_ref","profile_root"],"properties":{"schema_version":{"type":"string","const":"ioi.foundations.regulated-workload-assurance-profile.v1"},"profile_id":{"$ref":"#/$defs/profileRef"},"version":{"type":"string","pattern":"^(?:0|[1-9][0-9]*)[.](?:0|[1-9][0-9]*)[.](?:0|[1-9][0-9]*)$","description":"Semver, and load-bearing: an admission case names the exact profile version it was evaluated under, so a changed binding cannot pass as the profile that was already admitted against."},"issued_at":{"$ref":"#/$defs/timestamp"},"supersedes_ref":{"anyOf":[{"$ref":"#/$defs/profileRef"},{"type":"null"}],"description":"The profile this one replaces, or null for the first. Explicit rather than omitted, so a successor chain is a fact on the wire instead of an inference from timestamps."},"subject":{"type":"object","additionalProperties":false,"required":["workload_ref","declared_purpose","privacy_class"],"description":"The workload this profile governs and the purpose it declared. `declared_purpose` is one half of the comparison that decides `binding_broader_than_purpose`; the other half is the bound view's own `allowed_uses`.","properties":{"workload_ref":{"type":"string","pattern":"^(?:worker|task|workflow)://[^\\s?#\\\\]{1,200}$"},"declared_purpose":{"type":"string","minLength":12,"maxLength":400,"description":"Stated by the workload's owner and never derived from what the workload happens to do. A purpose short enough to be a label cannot be compared against a view's allowed uses, so a floor is enforced here rather than left to a reviewer."},"privacy_class":{"type":"string","enum":["confidential","restricted","regulated","safety_critical"],"description":"The four TaskEnvelope privacy classes that require this profile. `public` and `internal` are absent deliberately: a profile for a workload that needs none is a profile that means nothing."}}},"policy_bindings":{"type":"object","additionalProperties":false,"required":["jurisdiction_policy_pack_ref","jurisdiction_policy_pack_version","policy_bound_data_view_ref","policy_bound_data_view_revision_ref"],"description":"The two owners that already hold most of this unit's obligations. The pack carries residency, retention, deletion and export; the view carries purpose, allowed uses, data classes, redaction, retention-and-hold and destination-and-egress. Both are bound at an EXACT version or revision, because binding a name rather than a revision is what makes `binding_stale` and `binding_substituted` undetectable.","properties":{"jurisdiction_policy_pack_ref":{"type":"string","pattern":"^jurisdiction_policy_pack://[^\\s?#\\\\]{1,200}$"},"jurisdiction_policy_pack_version":{"type":"string","pattern":"^(?:0|[1-9][0-9]*)[.](?:0|[1-9][0-9]*)[.](?:0|[1-9][0-9]*)$"},"policy_bound_data_view_ref":{"type":"string","pattern":"^policy_bound_data_view://[^\\s?#\\\\]{1,200}$"},"policy_bound_data_view_revision_ref":{"type":"string","pattern":"^revision://[^\\s?#\\\\]{1,200}$"}}},"route_bindings":{"type":"object","additionalProperties":false,"required":["model_route_revision_refs","tool_contract_revision_refs"],"description":"Every model or tool route the workload may use, at the revision it may use. A list that may be empty is honest for a workload that invokes neither; a list that names a route the estate never admitted is what `binding_substituted` refuses.","properties":{"model_route_revision_refs":{"type":"array","maxItems":64,"items":{"type":"string","pattern":"^model_route_revision://[^\\s?#\\\\]{1,200}$"}},"tool_contract_revision_refs":{"type":"array","maxItems":64,"items":{"type":"string","pattern":"^runtime_tool_contract_revision://[^\\s?#\\\\]{1,200}$"}}}},"custody_bindings":{"type":"object","additionalProperties":false,"required":["credential_custody_profile_ref","process_custody","locality_and_custody_refs"],"description":"Three DISTINCT custody facts, named separately because they are separate objects with separate owners. Collapsing them into one `custody` member is the conflation this profile exists to avoid.","properties":{"credential_custody_profile_ref":{"anyOf":[{"type":"string","pattern":"^credential_custody_profile://[^\\s?#\\\\]{1,200}$"},{"type":"null"}],"description":"Null when the workload holds no credential at all — which is a stated fact, not an omission."},"process_custody":{"type":"string","enum":["local","brokered","delegated_attested"]},"locality_and_custody_refs":{"type":"array","minItems":1,"maxItems":32,"items":{"type":"string","pattern":"^(?:policy|custody)://[^\\s?#\\\\]{1,400}$"}}}},"operational_bindings":{"type":"object","additionalProperties":false,"required":["incident_hold_policy_ref","backup_policy_ref","retention_class_ref"],"description":"Incident handling, backup and retention class. Each is a ref to the plane that owns it; none is restated here.","properties":{"incident_hold_policy_ref":{"$ref":"#/$defs/policyRef"},"backup_policy_ref":{"$ref":"#/$defs/policyRef"},"retention_class_ref":{"type":"string","pattern":"^retention_class://[^\\s?#\\\\]{1,200}$"}}},"unowned_bindings":{"type":"object","additionalProperties":false,"required":["data_processor_terms_ref","key_control_ref","access_log_binding_ref"],"description":"REQUIRED REFS WITH NO RESOLVER. Measured 2026-09-22: `data_processor`/`subprocessor`/`processor_terms`, `key_control`/`key_custody`/`kms`/`hsm` and `access_log`/`audit_log`/`read_log`/`access_record` return zero hits in the 351-schema registry and zero in the daemon route modules, under every one of those names. They are required anyway, because canon places these obligations on a regulated workload and a profile that dropped them would admit such a workload with no access log. The plane refuses `binding_owner_absent` naming which one, and that refusal is this unit's named absence rather than a gap in it. Removing a member here is a governed act.","properties":{"data_processor_terms_ref":{"type":"string","pattern":"^data_processor_terms://[^\\s?#\\\\]{1,200}$"},"key_control_ref":{"type":"string","pattern":"^key_control://[^\\s?#\\\\]{1,200}$"},"access_log_binding_ref":{"type":"string","pattern":"^access_log_binding://[^\\s?#\\\\]{1,200}$"}}},"grants_no_authority":{"type":"boolean","const":true,"description":"On the wire, because the profile names routes, custody and scopes-adjacent policy and a reader could take that for a grant. It requires; it never issues."},"is_not_legal_advice":{"type":"boolean","const":true,"description":"On the wire for the same reason the pack carries it: this object is adjacent enough to regulatory obligation that the disclaimer belongs in the shape rather than in a document someone may not read."},"recorded_by_ref":{"type":"string","pattern":"^[a-z][a-z0-9+.-]*://[^\\s]{1,400}$","description":"THE RECORDER, STAMPED BY THE PLANE AND NEVER AUTHORED. This profile is scoped to whoever recorded it; without an owner it would admit successfully and then be readable by nobody, which is the defect M06.10's live leg caught one unit earlier. The plane refuses a caller-supplied value outright rather than correcting it, and resolves the actor itself, so the scope a read is checked against is never one the caller chose. EXCLUDED from the root, because the caller seals the profile before the server stamps it."},"profile_root":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$","description":"SHA-256 over JCS of every member except this one and `recorded_by_ref`. An admission case binds this root rather than the profile's name, so editing a binding in place breaks every case already recorded against the profile instead of silently rewriting what they were evaluated against."}},"$defs":{"profileRef":{"type":"string","pattern":"^regulated_workload_assurance_profile://[^\\s?#\\\\]{1,200}$"},"policyRef":{"type":"string","pattern":"^policy://[^\\s]{1,400}$"},"timestamp":{"type":"string","pattern":"^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$"}}}"##),
     ("schema://ioi/foundations/regulated-workload-admission-case/v1", r##"{"$schema":"https://json-schema.org/draft/2020-12/schema","$id":"schema://ioi/foundations/regulated-workload-admission-case/v1","title":"RegulatedWorkloadAdmissionCase","x-ioi-schema-version":"ioi.foundations.regulated-workload-admission-case.v1","description":"ONE EVALUATION OF ONE WORKLOAD AGAINST ONE PROFILE REVISION — technical assurance evidence, and never a legal determination. `legal_conformity_claim` is pinned to the constant `not_determined` on the wire, inherited from the rule M06.10 put there rather than restated: no binding check, no admitted verdict and no complete profile is a legal conclusion about the workload. THE FOUR REFUSALS CANON NAMES, AND WHICH LAYER CAN MAKE EACH: `binding_missing` and `binding_broader_than_purpose` are decidable from the shapes themselves, because the bound view carries both the declared purpose and the allowed uses, so this contract can refuse them. `binding_stale` and `binding_substituted` are NOT — they need the ADMITTED revision to compare against, which only the daemon holds, so a profile naming a pack, view or route revision the estate never admitted, or one its owner has since superseded, is refused by the plane and by nothing else. `binding_owner_absent` is the fifth and is this unit's named absence: the profile's three unowned bindings have no resolver anywhere, so a regulated admission is refused by name until each owner lands. A REFUSED EVALUATION MUTATES NOTHING — it does not quarantine the workload, revoke a lease or narrow a policy, because those verbs belong to the owners the profile binds and a refusal is a statement about evidence, not an action against a subject. Owner: foundations/ecosystem-assurance-certification-liability.md § RegulatedWorkloadAdmissionCase (M09.9, R-230/R-231).","type":"object","additionalProperties":false,"required":["schema_version","case_id","profile_ref","profile_version","profile_root","evaluated_at","verdict","refusals","legal_conformity_claim","grants_no_authority","performs_no_action","recorded_by_ref","case_root"],"properties":{"schema_version":{"type":"string","const":"ioi.foundations.regulated-workload-admission-case.v1"},"case_id":{"type":"string","pattern":"^regulated_workload_admission_case://[^\\s?#\\\\]{1,200}$"},"profile_ref":{"type":"string","pattern":"^regulated_workload_assurance_profile://[^\\s?#\\\\]{1,200}$"},"profile_version":{"type":"string","pattern":"^(?:0|[1-9][0-9]*)[.](?:0|[1-9][0-9]*)[.](?:0|[1-9][0-9]*)$"},"profile_root":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$","description":"The exact profile content this case was evaluated against. Binding the root rather than the name is what stops an in-place edit of a binding from silently rewriting what an already-recorded case decided."},"evaluated_at":{"$ref":"#/$defs/timestamp"},"verdict":{"type":"string","enum":["admitted","refused"]},"refusals":{"type":"array","maxItems":64,"description":"Empty exactly when the verdict is `admitted`. Every entry names the member it is about, so a refusal is actionable rather than a mood.","items":{"type":"object","additionalProperties":false,"required":["reason","member","detail"],"properties":{"reason":{"type":"string","enum":["binding_missing","binding_stale","binding_substituted","binding_broader_than_purpose","binding_owner_absent"]},"member":{"type":"string","minLength":3,"maxLength":200,"description":"The exact profile member this refusal is about, dotted from the profile root — for example `policy_bindings.policy_bound_data_view_revision_ref`. A refusal that cannot say which member it means cannot be acted on."},"detail":{"type":"string","minLength":12,"maxLength":600}}}},"legal_conformity_claim":{"type":"string","const":"not_determined","description":"CANON'S OWN WORD, PINNED SO A LEGAL VERDICT IS UNREPRESENTABLE. No score, admitted verdict, complete binding set or current evidence is a legal determination. Inherited from the rule M06.10 registered; this object consumes that refusal rather than restating it."},"grants_no_authority":{"type":"boolean","const":true},"performs_no_action":{"type":"boolean","const":true,"description":"A refused evaluation quarantines nothing, revokes nothing and narrows nothing. Those verbs belong to the owners the profile binds."},"recorded_by_ref":{"type":"string","pattern":"^[a-z][a-z0-9+.-]*://[^\\s]{1,400}$","description":"THE RECORDER, STAMPED BY THE PLANE AND NEVER AUTHORED. This case is scoped to whoever recorded it; without an owner it would admit successfully and then be readable by nobody, which is the defect M06.10's live leg caught one unit earlier. EXCLUDED from the root, because the caller seals the case before the server stamps it."},"case_root":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$","description":"SHA-256 over JCS of every member except this one and `recorded_by_ref`."}},"$defs":{"timestamp":{"type":"string","pattern":"^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$"}}}"##),
     ("schema://ioi/hypervisor/cross-substrate-portability-certificate/v1", r#"{"$schema":"https://json-schema.org/draft/2020-12/schema","$id":"schema://ioi/hypervisor/cross-substrate-portability-certificate/v1","title":"CrossSubstratePortabilityCertificate","x-ioi-schema-version":"ioi.hypervisor.cross-substrate-portability-certificate.v1","description":"ONE EXACT WORKLOAD ACROSS TWO SUBSTRATE FAMILIES, AND THE RECORD OF WHAT AGREED. Measured 2026-09-22, three of this unit's four natural assertions are already true by construction and therefore unfalsifiable: `HypervisorWorkloadEffectReconciliationReceipt` has no member that can name a provider (its operation counts are integers, its disposition a closed pair), `workload_effect_boundary.rs` names no provider in production at all, and the eight candidate sources share one operation vocabulary. A certificate resting on those would prove nothing. WHAT CAN FAIL IS AGREEMENT, so this object is a DIFF: `invariant_members` carries the values BOTH legs produced and may only be assembled when they matched, and `permitted_differences` names each member that legitimately differs TOGETHER WITH ITS REASON — because a permitted difference with no reason is exactly where a real divergence hides. `substrate_families_differ` is const true because a certificate over one family twice would read as a crossing while proving nothing, and `qualifies_no_other_provider` is const true because this object qualifies substrate portability and does NOT make either provider an authority owner or claim any other registered provider is live-qualified. Owner: components/hypervisor/byo-provider-plane.md § Cross-Substrate Authority And Reconciliation Portability (M09.10, R-233).","type":"object","additionalProperties":false,"required":["schema_version","certificate_id","workload_ref","workload_content_hash","result_policy_ref","legs","invariant_members","permitted_differences","substrate_families_differ","grants_no_authority","qualifies_no_other_provider","certificate_root"],"properties":{"schema_version":{"type":"string","const":"ioi.hypervisor.cross-substrate-portability-certificate.v1"},"certificate_id":{"type":"string","pattern":"^cross_substrate_portability://[^\\s?#\\\\]{1,200}$"},"workload_ref":{"type":"string","pattern":"^workload://[^\\s?#\\\\]{1,200}$","description":"ONE workload, named once. Both legs bind this same ref; a certificate cannot be assembled over two different workloads that merely resemble each other."},"workload_content_hash":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$","description":"The content address of what actually ran. The unit's demand is ONE EXACT content-addressed workload through two families, so this is the member that makes \"exact\" checkable rather than asserted — two legs whose workload hashes differ did not run the same thing, however alike their refs look."},"result_policy_ref":{"type":"string","pattern":"^policy://[^\\s]{1,400}$"},"legs":{"type":"array","minItems":2,"maxItems":2,"description":"Exactly two. Not \"at least two\": a third leg would make the diff below ambiguous about which pair it compared, and this certificate's whole content is one comparison.","items":{"type":"object","additionalProperties":false,"required":["substrate_family","provider_binding_ref","capability_ref","isolation_binding_ref","reconciliation_receipt_ref","certificate_ref"],"properties":{"substrate_family":{"type":"string","minLength":2,"maxLength":64,"description":"The adapter family exactly as the estate names it. Deliberately NOT a closed enum: the eight families are a naming convention over eight modules and not a trait, so an enum here would be a second list to drift from the first. The invariant that the two differ is stated separately and checked."},"provider_binding_ref":{"type":"string","pattern":"^provider_binding://[^\\s?#\\\\]{1,200}$"},"capability_ref":{"type":"string","pattern":"^capability://[^\\s?#\\\\]{1,200}$"},"isolation_binding_ref":{"type":"string","pattern":"^isolation_binding://[^\\s?#\\\\]{1,200}$"},"reconciliation_receipt_ref":{"type":"string","pattern":"^receipt://[^\\s?#\\\\]{1,200}$"},"certificate_ref":{"anyOf":[{"type":"string","pattern":"^c8_certificate://[^\\s?#\\\\]{1,200}$"},{"type":"null"}],"description":"The leg's own bounded-live-effect certificate when the leg was live, and null when it was the sovereign-local lane. Null is a stated fact about which lane ran, never an omission."}}}},"invariant_members":{"type":"object","additionalProperties":false,"required":["request_hash","disposition","observed_phase","cleanup_verified","original_effect_reinvoked","offline_verifier_verdict"],"description":"THE VALUES BOTH LEGS PRODUCED. This object exists only when they matched — a disagreement is a typed non-success report and never a certificate carrying a note about it. Each member is read from the leg's own reconciliation receipt, not restated by the assembler.","properties":{"request_hash":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"},"disposition":{"type":"string","enum":["no_effect_observed","cleanup_succeeded"],"description":"The reconciliation receipt's own closed pair, carried here unchanged rather than re-derived."},"observed_phase":{"type":"string","minLength":1,"maxLength":64},"cleanup_verified":{"type":"boolean"},"original_effect_reinvoked":{"type":"boolean","description":"Must agree across the legs like everything else here. A crossing where one substrate re-invoked the original effect and the other did not is the clearest possible portability failure, and it is one a per-leg assertion would pass twice."},"offline_verifier_verdict":{"type":"string","enum":["accepted","rejected"],"description":"The SAME offline verifier over each leg's bundle, with no provider-specific code path. Carried as an invariant because a verifier that accepts one leg and rejects the other has found the divergence this certificate exists to catch."}}},"permitted_differences":{"type":"array","minItems":1,"maxItems":32,"description":"Every member that legitimately differs between the legs, each WITH THE REASON it differs. Non-empty by construction: the lease and isolation refs always differ because each leg holds its own, so a certificate claiming nothing differed has not been assembled from two real legs.","items":{"type":"object","additionalProperties":false,"required":["member","reason"],"properties":{"member":{"type":"string","minLength":3,"maxLength":200},"reason":{"type":"string","minLength":20,"maxLength":400,"description":"Why this member may differ without the crossing being a failure. A floor is enforced because \"differs\" is not a reason, and an unreasoned entry here is how a real divergence would be parked."}}}},"substrate_families_differ":{"type":"boolean","const":true,"description":"On the wire, because the entire claim is vacuous if both legs ran the same family and a certificate over one family twice would still read as a crossing."},"grants_no_authority":{"type":"boolean","const":true},"qualifies_no_other_provider":{"type":"boolean","const":true,"description":"This object qualifies substrate PORTABILITY for the two families it names. It does not make either provider an authority owner, and it says nothing about any registered provider it did not cross."},"certificate_root":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$","description":"SHA-256 over JCS of every member except this one."}}}"#),
+    ("schema://ioi/components/hypervisor/foundry-training-program/v2", r##"{"$schema":"https://json-schema.org/draft/2020-12/schema","$id":"schema://ioi/components/hypervisor/foundry-training-program/v2","title":"FoundryTrainingProgram","description":"THE PRODUCTION CAPABILITY-BUILD PIPELINE'S PROGRAM — v1 plus the four bindings it owed and the one comparison it could not make. v1 already binds the dataset content hash, the recipe content hash, the trainer backend profile, the `seed`, the rights and authority grants and the data cursor, and `verify-restore` already fails closed six ways, and `qualification.promotion_boundary` already pins `proposal_only`, `governance_approval_required` and `runtime_activation_performed` as constants — so a Foundry run that promoted its own output is already unrepresentable. WHAT v1 COULD NOT DO. `verify_checkpoint_projection` computes `model_state_hash`, `optimizer_state_hash`, `scheduler_state_hash` and `rng_state_hash` — the exact four digests an equivalence claim needs — and COMPARES NONE OF THEM. Nothing asked whether a resumed run reached the state an uninterrupted one would have, which is the only thing the resume guarantee actually asserts. `determinism_class` says which of those digests must match, and it is DECLARED BEFORE THE RUN because a class chosen once the hashes are known describes what happened instead of committing to something the run can fail. AND THREE BINDINGS WERE SIMPLY ABSENT, measured 2026-09-22 across every foundry-* contract: `policy_bound_data_view` returned false on all four objects, retention returned false on all four, and `spend`/`reservation`/`budget`/`cleanup`/`orphan` returned false against the program. The member named `reconciliation` in v1 is NOT spend reconciliation — it is `{status, checkpoint_ref}`, the interrupted-run resume pointer, and a reader matching on the word alone would take this unit's hardest obligation for satisfied. `spend` is therefore a separate member with its own name. v1 REMAINS VALID for programs already admitted under it; this is a successor, not a correction. Owner: components/hypervisor/foundry.md § The Production Capability-Build Pipeline (M10.6, R-235). THIS CONTRACT REGISTERS NO CROSS-FIELD INVARIANTS, and that is a measured limit rather than an oversight. Its three cross-member laws are: a `resume_divergent` status must carry the comparison that produced it; an unreconciled or exceeded spend forbids a candidate; and `class_satisfied` must agree with the digests the declared class selects. None is expressible in the portable operator set. `non_empty` is satisfied by a non-empty array, a non-empty string or a finite number and NEVER by an object, so a rule requiring `resume_equivalence` could not be satisfied by any record at all — the golden oracle caught exactly that, rejecting this contract's own positive fixture. Pointing the rule at a required scalar INSIDE that object then failed differently: an invariant path must resolve through every reachable schema alternative, and `resume_equivalence` is nullable, so no path reaches into it. The remaining two laws are conditional comparisons — \"this member must be EMPTY when that one reads X\", and \"compare these digests, but only the ones this enum selects\" — and the operator set has no form for either. Making `resume_equivalence` non-nullable, or adding a member shaped to fit an operator, would bend a canonical shape for codegen, which the estate forbids. All three are therefore enforced by the deriver and the plane and NAMED there, where a reader can find them.","x-ioi-schema-version":"ioi.foundry-training-program.v2","type":"object","additionalProperties":false,"required":["schema_version","program_id","owner_ref","foundry_spec_ref","dataset_snapshot_ref","dataset_content_hash","recipe_content_hash","training_mode","trainer_backend_profile_ref","backend_scope","text_field","checkpoint_every_rows","seed","authority_grant_refs","rights_grant_refs","revision","status","data_cursor","processed_rows","processed_tokens","token_counts","checkpoint_refs","current_checkpoint","restore_verification","qualification","last_action_idempotency_key","policy_bound_data_view_ref","policy_bound_data_view_revision_ref","retention_class_ref","determinism_class","spend","resume_equivalence"],"properties":{"schema_version":{"type":"string","const":"ioi.foundry-training-program.v2"},"program_id":{"type":"string","pattern":"^trainpipe://[^\\s]{1,500}$"},"owner_ref":{"type":"string","pattern":"^(?:wallet|org|project)://[^\\s]{1,500}$"},"foundry_spec_ref":{"$ref":"#/$defs/nullableRef"},"dataset_snapshot_ref":{"type":"string","pattern":"^dataset-snapshot://[^\\s]{1,500}$"},"dataset_content_hash":{"$ref":"#/$defs/hash"},"recipe_content_hash":{"$ref":"#/$defs/hash"},"training_mode":{"enum":["sft","adapter"]},"trainer_backend_profile_ref":{"const":"trainer-backend://ioi/reference-token-frequency/v1"},"backend_scope":{"const":"bounded_reference_pipeline_only"},"text_field":{"type":"string","minLength":1,"maxLength":500},"checkpoint_every_rows":{"$ref":"#/$defs/positiveInteger"},"seed":{"$ref":"#/$defs/nonnegativeInteger"},"authority_grant_refs":{"type":"array","minItems":1,"items":{"$ref":"#/$defs/nonempty"}},"rights_grant_refs":{"type":"array","minItems":1,"items":{"$ref":"#/$defs/nonempty"}},"revision":{"$ref":"#/$defs/positiveInteger"},"status":{"enum":["admitted","running","paused","completed","cancelled","resume_divergent"]},"data_cursor":{"$ref":"#/$defs/nonnegativeInteger"},"processed_rows":{"$ref":"#/$defs/nonnegativeInteger"},"processed_tokens":{"$ref":"#/$defs/nonnegativeInteger"},"token_counts":{"$ref":"#/$defs/tokenCountRows"},"checkpoint_refs":{"type":"array","items":{"type":"string","pattern":"^checkpoint://[^\\s]{1,500}$"}},"current_checkpoint":{"anyOf":[{"$ref":"#/$defs/checkpointProjection"},{"type":"null"}]},"restore_verification":{"anyOf":[{"$ref":"#/$defs/restoreVerification"},{"type":"null"}]},"qualification":{"anyOf":[{"$ref":"#/$defs/qualification"},{"type":"null"}]},"last_action_idempotency_key":{"type":"string","minLength":1,"maxLength":500},"last_action_request":{"$ref":"#/$defs/actionRequest"},"reconciliation":{"$ref":"#/$defs/reconciliation"},"qualification_proposal_ref":{"type":"string","pattern":"^qualification-proposal://foundry/[^\\s]{1,500}$"},"policy_bound_data_view_ref":{"type":"string","pattern":"^policy_bound_data_view://[^\\s?#\\\\]{1,200}$","description":"The view this program read through. Named, never restated: the view already owns purpose, allowed uses, data classes, redaction and egress, and a copy of any of those here would be a second one free to drift."},"policy_bound_data_view_revision_ref":{"type":"string","pattern":"^revision://[^\\s?#\\\\]{1,200}$","description":"The EXACT revision read. Binding the view by name rather than by revision is what makes a superseded view undetectable; a program whose revision has since been superseded is not invalid, it is evidence about what was read at the revision it names."},"retention_class_ref":{"type":"string","pattern":"^retention_class://[^\\s?#\\\\]{1,200}$","description":"The retention class this program's artifacts fall under, named at its owner and not restated — hold and destruction belong to the retention owner."},"determinism_class":{"type":"string","enum":["bitwise","state_equivalent","statistical"],"description":"WHICH DIGESTS A RESUME MUST REPRODUCE. `bitwise`: all four of model, optimizer, scheduler and rng identical. `state_equivalent`: model, optimizer and scheduler identical, rng may advance differently. `statistical`: no state claim at all — equivalence is an evaluation claim and the program must SAY SO IN ADVANCE rather than fall back to it once the hashes disagree. Declared before the run; a class selected after the digests are known is a description of what happened rather than a commitment the run can fail."},"spend":{"$ref":"#/$defs/spendAccounting"},"resume_equivalence":{"anyOf":[{"$ref":"#/$defs/resumeEquivalence"},{"type":"null"}],"description":"Null for a program that was never interrupted — a stated fact about this run, not an omission. Non-null is required once the program claims `resume_divergent`, because a divergence nobody measured is not a finding."}},"$defs":{"hash":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"},"nonempty":{"type":"string","minLength":1},"ref":{"type":"string","pattern":"^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"},"nullableRef":{"anyOf":[{"$ref":"#/$defs/ref"},{"type":"null"}]},"nonnegativeInteger":{"type":"integer","minimum":0,"maximum":9007199254740991},"positiveInteger":{"type":"integer","minimum":1,"maximum":9007199254740991},"tokenCountRows":{"type":"array","uniqueItems":true,"items":{"type":"object","additionalProperties":false,"required":["token","count"],"properties":{"token":{"type":"string","minLength":1},"count":{"$ref":"#/$defs/positiveInteger"}}}},"checkpointProjection":{"type":"object","additionalProperties":false,"required":["checkpoint_ref","artifact_ref","artifact_hash","data_cursor","global_step","token_count","complete","restore_verified"],"properties":{"checkpoint_ref":{"type":"string","pattern":"^checkpoint://foundry/[^\\s]{1,500}$"},"artifact_ref":{"type":"string","pattern":"^artifact://foundry-checkpoint/[0-9a-f]{64}$"},"artifact_hash":{"$ref":"#/$defs/hash"},"data_cursor":{"$ref":"#/$defs/nonnegativeInteger"},"global_step":{"$ref":"#/$defs/nonnegativeInteger"},"token_count":{"$ref":"#/$defs/nonnegativeInteger"},"complete":{"const":true},"restore_verified":{"type":"boolean"}}},"restoreVerification":{"type":"object","additionalProperties":false,"required":["verified","checkpoint_ref","artifact_hash","data_cursor","model_state_hash","optimizer_state_hash","scheduler_state_hash","rng_state_hash"],"properties":{"verified":{"const":true},"checkpoint_ref":{"type":"string","pattern":"^checkpoint://foundry/[^\\s]{1,500}$"},"artifact_hash":{"$ref":"#/$defs/hash"},"data_cursor":{"$ref":"#/$defs/nonnegativeInteger"},"model_state_hash":{"$ref":"#/$defs/hash"},"optimizer_state_hash":{"$ref":"#/$defs/hash"},"scheduler_state_hash":{"$ref":"#/$defs/hash"},"rng_state_hash":{"$ref":"#/$defs/hash"}}},"actionRequest":{"type":"object","additionalProperties":false,"required":["action","max_rows"],"properties":{"action":{"enum":["start","step","pause","resume","cancel","reconcile"]},"max_rows":{"anyOf":[{"$ref":"#/$defs/positiveInteger"},{"type":"null"}]}}},"reconciliation":{"type":"object","additionalProperties":false,"required":["status","checkpoint_ref"],"properties":{"status":{"const":"satisfied"},"checkpoint_ref":{"anyOf":[{"type":"string","pattern":"^checkpoint://foundry/[^\\s]{1,500}$"},{"type":"null"}]}}},"workloadFingerprint":{"type":"object","additionalProperties":false,"required":["runtime_node_ref","environment_ref","trainer_backend_profile_ref","hardware_architecture","logical_cpu_count","memory_bytes","operating_system","daemon_release_ref"],"properties":{"runtime_node_ref":{"type":"string","pattern":"^runtime://[^\\s]{1,500}$"},"environment_ref":{"type":"string","pattern":"^environment://[^\\s]{1,500}$"},"trainer_backend_profile_ref":{"const":"trainer-backend://ioi/reference-token-frequency/v1"},"hardware_architecture":{"enum":["x86_64","aarch64"]},"logical_cpu_count":{"type":"integer","minimum":1,"maximum":65535},"memory_bytes":{"$ref":"#/$defs/positiveInteger"},"operating_system":{"enum":["linux","macos","windows"]},"daemon_release_ref":{"type":"string","pattern":"^release://[^\\s]{1,500}$"}}},"qualification":{"type":"object","additionalProperties":false,"required":["schema_version","verdict","quality","measurement","promotion_boundary"],"properties":{"schema_version":{"const":"ioi.foundry-qualified-measurement.v1"},"verdict":{"enum":["qualified","rejected"]},"quality":{"type":"object","additionalProperties":false,"required":["token_coverage","mean_negative_log_likelihood","gate"],"properties":{"token_coverage":{"type":"number","minimum":0,"maximum":1},"mean_negative_log_likelihood":{"type":"number","minimum":0,"maximum":1000000000000},"gate":{"type":"object","additionalProperties":false,"required":["minimum_token_coverage","maximum_mean_negative_log_likelihood"],"properties":{"minimum_token_coverage":{"type":"number","minimum":0,"maximum":1},"maximum_mean_negative_log_likelihood":{"type":"number","minimum":0,"maximum":1000000000000}}}}},"measurement":{"type":"object","additionalProperties":false,"required":["phase","token_numerator","denominator","scope","raw_tokens","effective_tokens","elapsed_nanoseconds","tokens_per_second","includes_compilation","includes_loading","includes_evaluation","includes_checkpoint","includes_failure_and_recovery","hardware_software_topology_fingerprint","cost_basis_ref","failure_schedule_ref"],"properties":{"phase":{"const":"evaluation"},"token_numerator":{"const":"loss_bearing"},"denominator":{"const":"full_wall_clock"},"scope":{"const":"daemon_cpu_process"},"raw_tokens":{"$ref":"#/$defs/positiveInteger"},"effective_tokens":{"$ref":"#/$defs/positiveInteger"},"elapsed_nanoseconds":{"$ref":"#/$defs/positiveInteger"},"tokens_per_second":{"type":"number","minimum":0,"maximum":1000000000000000},"includes_compilation":{"const":false},"includes_loading":{"const":true},"includes_evaluation":{"const":true},"includes_checkpoint":{"const":false},"includes_failure_and_recovery":{"const":false},"hardware_software_topology_fingerprint":{"$ref":"#/$defs/workloadFingerprint"},"cost_basis_ref":{"type":"string","pattern":"^(?:cost|ledger|policy)://[^\\s]{1,500}$"},"failure_schedule_ref":{"type":"string","pattern":"^(?:schedule|policy|artifact)://[^\\s]{1,500}$"}}},"promotion_boundary":{"type":"object","additionalProperties":false,"required":["proposal_only","governance_approval_required","runtime_activation_performed"],"properties":{"proposal_only":{"const":true},"governance_approval_required":{"const":true},"runtime_activation_performed":{"const":false}}}}},"spendAccounting":{"type":"object","additionalProperties":false,"required":["reservation_ref","reconciled_outcome","cleanup_obligation_ref"],"description":"EVERY EXTERNAL TRAINING RESOURCE CARRIES ALL THREE. Canon: a successful artifact with unknown spend, or with a live orphan resource, is a FAILED run — not a successful run with an accounting note. This member exists separately from `reconciliation` because that one is the interrupted-run resume pointer and shares nothing with spend but the word.","properties":{"reservation_ref":{"type":"string","pattern":"^spend_reservation://[^\\s?#\\\\]{1,200}$","description":"The ADMITTED reservation the run drew against. A run with no reservation did not have unknown spend; it had unauthorized spend, and the reservation is required so the two cannot be confused."},"reconciled_outcome":{"type":"string","enum":["reconciled_exact","reconciled_within_reservation","spend_unreconciled","spend_exceeded_reservation"],"description":"UNKNOWN SPEND AND ZERO SPEND ARE DIFFERENT FACTS. `spend_unreconciled` is a typed outcome that forbids the candidate, not a note attached to one — a pipeline that cannot tell the two apart will report zero when it means unknown. `spend_exceeded_reservation` is likewise terminal: the run drew past what was authorized."},"cleanup_obligation_ref":{"type":"string","pattern":"^cleanup_obligation://[^\\s?#\\\\]{1,200}$","description":"The obligation that closes the external resource. Required even when the outcome reconciled exactly, because a settled bill over a resource still running is a live orphan."}}},"digestSet":{"type":"object","additionalProperties":false,"required":["model_state_hash","optimizer_state_hash","scheduler_state_hash","rng_state_hash"],"description":"The four digests `verify_checkpoint_projection` already computes, recorded for one run at one step.","properties":{"model_state_hash":{"$ref":"#/$defs/hash"},"optimizer_state_hash":{"$ref":"#/$defs/hash"},"scheduler_state_hash":{"$ref":"#/$defs/hash"},"rng_state_hash":{"$ref":"#/$defs/hash"}}},"resumeEquivalence":{"type":"object","additionalProperties":false,"required":["compared_at_global_step","uninterrupted","resumed","class_satisfied"],"description":"ONE COMPARISON OF TWO RUNS AT ONE STEP. Both sides are recorded rather than a verdict alone, because a verdict with no digests behind it is a claim its reader cannot check — and because which digests had to match depends on the declared class, so a later reader needs the inputs to re-derive the same answer.","properties":{"compared_at_global_step":{"$ref":"#/$defs/nonnegativeInteger"},"uninterrupted":{"$ref":"#/$defs/digestSet"},"resumed":{"$ref":"#/$defs/digestSet"},"class_satisfied":{"type":"boolean","description":"Whether every digest the program's `determinism_class` names matched. False is terminal: the status is `resume_divergent` and the artifact is not a candidate."}}}}}"##),
 ];
 
 const CONTRACT_INVARIANTS: &[(&str, &str)] = &[
@@ -212224,6 +214243,7 @@ const CONTRACT_INVARIANTS: &[(&str, &str)] = &[
     ("schema://ioi/foundations/regulated-workload-assurance-profile/v1", r#"[{"rule_id":"regulated_workload_assurance_profile.does_not_supersede_itself","description":"A profile that names itself as the one it supersedes has turned a CHAIN into an edit. An admission case binds the profile root, so self-supersession is how a changed binding is made to look like the same profile that was already admitted against.","expression":{"operator":"fields_not_equal","paths":["$.profile_id","$.supersedes_ref"]}},{"rule_id":"regulated_workload_assurance_profile.root.recomputes","description":"THE SEAL. An admission case binds this root rather than the profile's name, so a binding edited in place no longer recomputes and every case already recorded against the profile breaks its binding instead of being silently reinterpreted against content it was never evaluated under. This is what makes `binding_substituted` mean something at the profile level as well as the plane level.","expression":{"operator":"jcs_sha256_equals","algorithm":"jcs_sha256","expected_path":"$.profile_root","expected_encoding":"sha256_string","material_fields":{"schema_version":{"path":"$.schema_version"},"profile_id":{"path":"$.profile_id"},"version":{"path":"$.version"},"issued_at":{"path":"$.issued_at"},"supersedes_ref":{"path":"$.supersedes_ref"},"subject":{"path":"$.subject"},"policy_bindings":{"path":"$.policy_bindings"},"route_bindings":{"path":"$.route_bindings"},"custody_bindings":{"path":"$.custody_bindings"},"operational_bindings":{"path":"$.operational_bindings"},"unowned_bindings":{"path":"$.unowned_bindings"},"grants_no_authority":{"path":"$.grants_no_authority"},"is_not_legal_advice":{"path":"$.is_not_legal_advice"}}}}]"#),
     ("schema://ioi/foundations/regulated-workload-admission-case/v1", r#"[{"rule_id":"regulated_workload_admission_case.refused_says_why","description":"A case that refuses and lists no refusal is the worst shape this object can take: it stops a regulated workload and tells nobody which binding failed, so the owner cannot fix it and a reader cannot tell a real refusal from a bug. JSON Schema cannot tie an array's emptiness to another member's value without a conditional the Rust projection will not carry, so the law lives here where every consumer reads it.","expression":{"operator":"non_empty_when_in","path":"$.refusals","when_path":"$.verdict","values":["refused"]}},{"rule_id":"regulated_workload_admission_case.one_reason_per_member","description":"The same reason recorded twice against the same member turns a count of problems into a count of entries. A member that is both stale and substituted is two DIFFERENT reasons and both belong; the same reason twice is a duplicate, and a profile with fifteen bindings should never produce forty refusals.","expression":{"operator":"array_unique_by_fields","fields":["reason","member"],"array_path":"$.refusals"}},{"rule_id":"regulated_workload_admission_case.root.recomputes","description":"THE SEAL over the evaluation. The case names the profile version AND the profile root it was evaluated against, and seals its own verdict and refusals, so neither the question asked nor the answer given can be edited after the fact while still reading as the case that was recorded.","expression":{"operator":"jcs_sha256_equals","algorithm":"jcs_sha256","expected_path":"$.case_root","expected_encoding":"sha256_string","material_fields":{"schema_version":{"path":"$.schema_version"},"case_id":{"path":"$.case_id"},"profile_ref":{"path":"$.profile_ref"},"profile_version":{"path":"$.profile_version"},"profile_root":{"path":"$.profile_root"},"evaluated_at":{"path":"$.evaluated_at"},"verdict":{"path":"$.verdict"},"refusals":{"path":"$.refusals"},"legal_conformity_claim":{"path":"$.legal_conformity_claim"},"grants_no_authority":{"path":"$.grants_no_authority"},"performs_no_action":{"path":"$.performs_no_action"}}}}]"#),
     ("schema://ioi/hypervisor/cross-substrate-portability-certificate/v1", r#"[{"rule_id":"cross_substrate_portability_certificate.the_two_families_differ","description":"THE CLAIM IS VACUOUS IF BOTH LEGS RAN THE SAME FAMILY. `substrate_families_differ` is const true on the wire, but a const is an assertion the document makes about itself and nothing in JSON Schema can check it against the legs actually present — comparing two array elements is beyond what the projection carries. So the law lives here, where it can be said plainly: leg one's family and leg two's family are not the same string. A certificate over one family twice would otherwise satisfy every other rule in this file and still prove nothing about portability.","expression":{"operator":"fields_not_equal","paths":["$.legs[0].substrate_family","$.legs[1].substrate_family"]}},{"rule_id":"cross_substrate_portability_certificate.the_legs_are_distinct_bindings","description":"Two legs naming the same provider binding are one leg recorded twice. The families differing is not enough on its own: a mislabelled family over a single binding would pass the rule above while the crossing never happened.","expression":{"operator":"fields_not_equal","paths":["$.legs[0].provider_binding_ref","$.legs[1].provider_binding_ref"]}},{"rule_id":"cross_substrate_portability_certificate.each_permitted_difference_is_named_once","description":"The same member listed twice with two reasons turns a reviewed exception into a pair of them, and lets a second, weaker reason ride in behind a first that a reader already accepted. One member, one reason.","expression":{"operator":"array_unique_by_fields","fields":["member"],"array_path":"$.permitted_differences"}},{"rule_id":"cross_substrate_portability_certificate.root.recomputes","description":"THE SEAL. The certificate records that two legs agreed on six members; if those recorded values can be edited after the fact, the agreement it reports is not the agreement that was observed. Sealing the legs together with the invariants is what stops a later hand from moving one leg's disposition to match the other's.","expression":{"operator":"jcs_sha256_equals","algorithm":"jcs_sha256","expected_path":"$.certificate_root","expected_encoding":"sha256_string","material_fields":{"schema_version":{"path":"$.schema_version"},"certificate_id":{"path":"$.certificate_id"},"workload_ref":{"path":"$.workload_ref"},"workload_content_hash":{"path":"$.workload_content_hash"},"result_policy_ref":{"path":"$.result_policy_ref"},"legs":{"path":"$.legs"},"invariant_members":{"path":"$.invariant_members"},"permitted_differences":{"path":"$.permitted_differences"},"substrate_families_differ":{"path":"$.substrate_families_differ"},"grants_no_authority":{"path":"$.grants_no_authority"},"qualifies_no_other_provider":{"path":"$.qualifies_no_other_provider"}}}}]"#),
+    ("schema://ioi/components/hypervisor/foundry-training-program/v2", r#"[]"#),
 ];
 
 const CONTRACT_PATTERN_TRANSLATIONS: &[(&str, &str)] = &[
@@ -214279,6 +216299,10 @@ const CONTRACT_PATTERN_TRANSLATIONS: &[(&str, &str)] = &[
         r#"^cleanup-obligation://[^\s]{1,240}$"#,
         r#"^cleanup-obligation://[^\u{0009}-\u{000D}\u{0020}\u{00A0}\u{1680}\u{2000}-\u{200A}\u{2028}\u{2029}\u{202F}\u{205F}\u{3000}\u{FEFF}]{1,240}$"#,
     ),
+    (
+        r#"^cleanup_obligation://[^\s?#\\]{1,200}$"#,
+        r#"^cleanup_obligation://[^\u{0009}-\u{000D}\u{0020}\u{00A0}\u{1680}\u{2000}-\u{200A}\u{2028}\u{2029}\u{202F}\u{205F}\u{3000}\u{FEFF}?#\\]{1,200}$"#,
+    ),
     (r#"^cmap_[0-9a-f]{12,32}$"#, r#"^cmap_[0-9a-f]{12,32}$"#),
     (
         r#"^collaboration-terms://[^\s]{1,240}$"#,
@@ -216126,6 +218150,10 @@ const CONTRACT_PATTERN_TRANSLATIONS: &[(&str, &str)] = &[
     (
         r#"^snapshot://[^\s]{1,500}$"#,
         r#"^snapshot://[^\u{0009}-\u{000D}\u{0020}\u{00A0}\u{1680}\u{2000}-\u{200A}\u{2028}\u{2029}\u{202F}\u{205F}\u{3000}\u{FEFF}]{1,500}$"#,
+    ),
+    (
+        r#"^spend_reservation://[^\s?#\\]{1,200}$"#,
+        r#"^spend_reservation://[^\u{0009}-\u{000D}\u{0020}\u{00A0}\u{1680}\u{2000}-\u{200A}\u{2028}\u{2029}\u{202F}\u{205F}\u{3000}\u{FEFF}?#\\]{1,200}$"#,
     ),
     (
         r#"^split-manifest://[a-z0-9][a-z0-9._-]{0,127}$"#,
@@ -219666,6 +221694,23 @@ mod tests {
     ("docs/architecture/_meta/schemas/fixtures/cross-substrate-portability-certificate-v1/negative-qualifies-another-provider.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/cross-substrate-portability-certificate-v1/negative-qualifies-another-provider.json"))),
     ("docs/architecture/_meta/schemas/fixtures/cross-substrate-portability-certificate-v1/negative-root-does-not-recompute.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/cross-substrate-portability-certificate-v1/negative-root-does-not-recompute.json"))),
     ("docs/architecture/_meta/schemas/fixtures/cross-substrate-portability-certificate-v1/negative-says-the-families-are-the-same.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/cross-substrate-portability-certificate-v1/negative-says-the-families-are-the-same.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/foundry-training-program-v2/positive-never-interrupted.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/foundry-training-program-v2/positive-never-interrupted.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/foundry-training-program-v2/positive-resume-divergent-and-measured.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/foundry-training-program-v2/positive-resume-divergent-and-measured.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/foundry-training-program-v2/positive-resumed-and-equivalent.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/foundry-training-program-v2/positive-resumed-and-equivalent.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/foundry-training-program-v2/negative-a-reconciliation-member-standing-in-for-spend.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/foundry-training-program-v2/negative-a-reconciliation-member-standing-in-for-spend.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/foundry-training-program-v2/negative-a-view-bound-without-a-revision.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/foundry-training-program-v2/negative-a-view-bound-without-a-revision.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/foundry-training-program-v2/negative-an-equivalence-missing-one-side.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/foundry-training-program-v2/negative-an-equivalence-missing-one-side.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/foundry-training-program-v2/negative-an-equivalence-with-a-partial-digest-set.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/foundry-training-program-v2/negative-an-equivalence-with-a-partial-digest-set.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/foundry-training-program-v2/negative-an-equivalence-with-no-verdict.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/foundry-training-program-v2/negative-an-equivalence-with-no-verdict.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/foundry-training-program-v2/negative-an-invented-determinism-class.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/foundry-training-program-v2/negative-an-invented-determinism-class.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/foundry-training-program-v2/negative-an-invented-spend-outcome.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/foundry-training-program-v2/negative-an-invented-spend-outcome.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/foundry-training-program-v2/negative-no-determinism-class.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/foundry-training-program-v2/negative-no-determinism-class.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/foundry-training-program-v2/negative-no-policy-bound-view.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/foundry-training-program-v2/negative-no-policy-bound-view.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/foundry-training-program-v2/negative-no-retention-class.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/foundry-training-program-v2/negative-no-retention-class.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/foundry-training-program-v2/negative-no-spend-at-all.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/foundry-training-program-v2/negative-no-spend-at-all.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/foundry-training-program-v2/negative-spend-with-no-cleanup-obligation.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/foundry-training-program-v2/negative-spend-with-no-cleanup-obligation.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/foundry-training-program-v2/negative-spend-with-no-reservation.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/foundry-training-program-v2/negative-spend-with-no-reservation.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/foundry-training-program-v2/negative-still-declares-v1.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/foundry-training-program-v2/negative-still-declares-v1.json"))),
     ];
     const RAW_STRING_DELIMITER_REGRESSION_SCHEMA: &str =
         r####"{"const":"schema-controlled\"###literal"}"####;
@@ -221439,6 +223484,11 @@ mod tests {
         },
         "schema://ioi/hypervisor/cross-substrate-portability-certificate/v1" => {
             serde_json::from_value::<CrossSubstratePortabilityCertificateV1>(value.clone())
+                .map(|_| ())
+                .map_err(|error| error.to_string())
+        },
+        "schema://ioi/components/hypervisor/foundry-training-program/v2" => {
+            serde_json::from_value::<FoundryTrainingProgramV2>(value.clone())
                 .map(|_| ())
                 .map_err(|error| error.to_string())
         },
@@ -223218,6 +225268,11 @@ mod tests {
                 .map_err(|error| error.to_string())?;
             serde_json::to_value(projection).map_err(|error| error.to_string())
         },
+        "schema://ioi/components/hypervisor/foundry-training-program/v2" => {
+            let projection = serde_json::from_value::<FoundryTrainingProgramV2>(value.clone())
+                .map_err(|error| error.to_string())?;
+            serde_json::to_value(projection).map_err(|error| error.to_string())
+        },
             _ => Err(format!("unknown projection: {contract_id}")),
         }
     }
@@ -223354,8 +225409,8 @@ mod tests {
     fn golden_fixtures_match_generated_rust_contracts() {
         assert_eq!(
             ARCHITECTURE_CONTRACT_FIXTURES.len(),
-            1954,
-            "the registered golden corpus must remain the explicit 1954-fixture bar",
+            1971,
+            "the registered golden corpus must remain the explicit 1971-fixture bar",
         );
         for fixture in ARCHITECTURE_CONTRACT_FIXTURES {
             let body = FIXTURE_BODIES
@@ -223597,7 +225652,7 @@ mod tests {
 
     #[test]
     fn registered_ecma_pattern_translations_compile_and_match_whitespace() {
-        assert_eq!(CONTRACT_PATTERN_TRANSLATIONS.len(), 1129,);
+        assert_eq!(CONTRACT_PATTERN_TRANSLATIONS.len(), 1131,);
         for (ecma, translated) in CONTRACT_PATTERN_TRANSLATIONS {
             Regex::new(translated).unwrap_or_else(|error| panic!("{ecma}: {error}"));
         }

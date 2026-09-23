@@ -13022,10 +13022,10 @@
       "canonical_encoding_profile_ref": "encoding-profile://ioi/jcs-json/v1",
       "evolution": {
         "successor_of": null,
-        "successor_contract_id": null,
+        "successor_contract_id": "schema://ioi/components/hypervisor/foundry-training-program/v2",
         "compatibility": "initial",
         "migration_policy": "explicit_adapter_required",
-        "predecessor_remains_valid": false,
+        "predecessor_remains_valid": true,
         "wire_mutation_policy": "forbidden",
         "hash_impact": "signature_preimage_changed"
       },
@@ -21107,6 +21107,103 @@
         },
         {
           "path": "fixtures/cross-substrate-portability-certificate-v1/negative-says-the-families-are-the-same.json",
+          "expected_failure": "schema"
+        }
+      ]
+    },
+    {
+      "contract_id": "schema://ioi/components/hypervisor/foundry-training-program/v2",
+      "canonical_name": "FoundryTrainingProgram",
+      "canonical_owner_ref": "canon://docs/architecture/components/hypervisor/foundry.md",
+      "schema_version": "ioi.foundry-training-program.v2",
+      "maturity": "partial",
+      "stability": "provisional",
+      "wire_format": "json",
+      "canonical_encoding_profile_ref": "encoding-profile://ioi/jcs-json/v1",
+      "evolution": {
+        "successor_of": "schema://ioi/components/hypervisor/foundry-training-program/v1",
+        "successor_contract_id": null,
+        "compatibility": "breaking",
+        "migration_policy": "successor_only",
+        "predecessor_remains_valid": true,
+        "wire_mutation_policy": "forbidden",
+        "hash_impact": "none"
+      },
+      "schema_ref": "foundry-training-program.v2.schema.json",
+      "cross_field_invariant_refs": [],
+      "compatibility_aliases": [],
+      "generated_targets": [
+        {
+          "kind": "typescript_projection",
+          "path": "packages/hypervisor-workbench/src/runtime/generated/architecture-contracts.ts",
+          "symbol": "FoundryTrainingProgramV2"
+        },
+        {
+          "kind": "rust_projection",
+          "path": "crates/types/src/app/generated/architecture_contracts.rs",
+          "symbol": "FoundryTrainingProgramV2"
+        }
+      ],
+      "positive_fixture_refs": [
+        "fixtures/foundry-training-program-v2/positive-never-interrupted.json",
+        "fixtures/foundry-training-program-v2/positive-resume-divergent-and-measured.json",
+        "fixtures/foundry-training-program-v2/positive-resumed-and-equivalent.json"
+      ],
+      "negative_fixture_refs": [
+        {
+          "path": "fixtures/foundry-training-program-v2/negative-a-reconciliation-member-standing-in-for-spend.json",
+          "expected_failure": "schema"
+        },
+        {
+          "path": "fixtures/foundry-training-program-v2/negative-a-view-bound-without-a-revision.json",
+          "expected_failure": "schema"
+        },
+        {
+          "path": "fixtures/foundry-training-program-v2/negative-an-equivalence-missing-one-side.json",
+          "expected_failure": "schema"
+        },
+        {
+          "path": "fixtures/foundry-training-program-v2/negative-an-equivalence-with-a-partial-digest-set.json",
+          "expected_failure": "schema"
+        },
+        {
+          "path": "fixtures/foundry-training-program-v2/negative-an-equivalence-with-no-verdict.json",
+          "expected_failure": "schema"
+        },
+        {
+          "path": "fixtures/foundry-training-program-v2/negative-an-invented-determinism-class.json",
+          "expected_failure": "schema"
+        },
+        {
+          "path": "fixtures/foundry-training-program-v2/negative-an-invented-spend-outcome.json",
+          "expected_failure": "schema"
+        },
+        {
+          "path": "fixtures/foundry-training-program-v2/negative-no-determinism-class.json",
+          "expected_failure": "schema"
+        },
+        {
+          "path": "fixtures/foundry-training-program-v2/negative-no-policy-bound-view.json",
+          "expected_failure": "schema"
+        },
+        {
+          "path": "fixtures/foundry-training-program-v2/negative-no-retention-class.json",
+          "expected_failure": "schema"
+        },
+        {
+          "path": "fixtures/foundry-training-program-v2/negative-no-spend-at-all.json",
+          "expected_failure": "schema"
+        },
+        {
+          "path": "fixtures/foundry-training-program-v2/negative-spend-with-no-cleanup-obligation.json",
+          "expected_failure": "schema"
+        },
+        {
+          "path": "fixtures/foundry-training-program-v2/negative-spend-with-no-reservation.json",
+          "expected_failure": "schema"
+        },
+        {
+          "path": "fixtures/foundry-training-program-v2/negative-still-declares-v1.json",
           "expected_failure": "schema"
         }
       ]
