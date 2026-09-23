@@ -4062,6 +4062,23 @@ function renderDesignerPort(lists, selectedId) {
     .dsg-pill.gap{background:rgba(143,153,168,.15);color:#1c2127}
     .dsg-open{display:inline-flex;align-items:center;gap:8px;height:30px;margin-left:auto;padding:0 8px;border-radius:4px;color:#1c2127;font-size:14px;line-height:16.1px;cursor:default}
     .dsg-open svg{color:#5f6b7c}
+    /* A NAMED GAP HAS TO READ AS ONE. The "gap" marker class had NO definition on this surface, so
+       New Diagram kept its "success" fill and rendered as the page's primary call to action while
+       carrying aria-disabled="true" — a green Go button that silently does nothing. Measured
+       2026-09-23 across all 36 surfaces: 18 declared-unavailable controls render as primary actions
+       and 68 of 272 carry a cursor that says "clickable". The treatment is not invented here; it is
+       the estate's own already-shipped convention (.vtx-hbtn.gap, .vtx-view.gap, .mon-frow.gap and
+       .mnc-tab.gap are muted grey + not-allowed; .dsg-pill.gap is a low-alpha grey fill), applied to
+       the four designer controls that were given the marker and never given a rule.
+       THE FILL IS NEUTRALISED RATHER THAN DIMMED WITH opacity: opacity would fade the text against
+       the page and drop contrast below legibility, and the reason for the gap lives in the title
+       attribute, which a person has to be able to read the label to go looking for. Geometry is
+       untouched, so nothing reflows.
+       (No backticks in this comment: the whole block lives inside a JS template literal.) */
+    .dsg-hbtn.gap,.dsg-planbtn.gap,.dsg-browse.gap,.dsg-open.gap,.dsg-pill.gap{cursor:not-allowed}
+    .dsg-hbtn.success.gap,.dsg-planbtn.gap{background:rgba(143,153,168,.15);color:#8f99a8;box-shadow:inset 0 0 0 1px rgba(17,20,24,.12)}
+    .dsg-hbtn.outlined.gap,.dsg-browse.gap,.dsg-open.gap{color:#a8b2be}
+    .dsg-hbtn.gap svg,.dsg-planbtn.gap svg,.dsg-browse.gap svg,.dsg-open.gap svg{color:#a8b2be}
     .dsg-table{margin-top:10px;min-height:714px;background:#fff;border-radius:4px;box-shadow:0 0 0 1px rgba(17,20,24,.15)}
     .dsg-thead{display:flex;height:30px;box-shadow:inset 0 -1px 0 #dcdcdd}
     .dsg-th{width:16.667%;padding:8px 0 0 11px;font-size:12px;line-height:15.43px;color:#5f6b7c;text-transform:uppercase}

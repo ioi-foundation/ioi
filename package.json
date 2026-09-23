@@ -215,7 +215,9 @@
     "check:foundry-capability-build": "node scripts/check-foundry-capability-build.mjs",
     "mutate:foundry-capability-build": "node scripts/check-foundry-capability-build.mjs --mutation",
     "check:capability-construction-cycle": "node scripts/check-capability-construction-cycle.mjs",
-    "mutate:capability-construction-cycle": "node scripts/check-capability-construction-cycle.mjs --mutation"
+    "mutate:capability-construction-cycle": "node scripts/check-capability-construction-cycle.mjs --mutation",
+    "check:named-gap-perception": "node scripts/check-named-gap-perception.mjs",
+    "mutate:named-gap-perception": "node scripts/check-named-gap-perception.mjs --mutation"
   },
   "devDependencies": {
     "@playwright/test": "^1.60.0",

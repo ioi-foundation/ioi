@@ -1248,6 +1248,22 @@ jobs:
         if: ${{ !cancelled() && steps.rust_backed_daemon.outcome == 'success' }}
         run: npm run mutate:capability-construction-cycle --workspace=@ioi/hypervisor-app
 
+      # A control the estate declares UNAVAILABLE must read as unavailable to the person looking at
+      # it. Every surface parity verifier asserts `aria-disabled` plus a "named gap" title, and both
+      # were true of a solid green primary button that silently did nothing — an attribute assertion
+      # cannot see a missing CSS rule. The CI-bound form is the drills subset: the classifier, the
+      # marker vocabulary read out of the serve source, and the binding. The browser leg that sweeps
+      # all 36 surfaces against the gate's own serve is the full mode.
+      - name: Verify named-gap perception (R-239, CI-bound drills)
+        if: ${{ !cancelled() && steps.rust_backed_daemon.outcome == 'success' }}
+        env:
+          IOI_VERIFIER_CENSUS_DIR: .artifacts/verifier-census
+        run: npm run check:named-gap-perception --workspace=@ioi/hypervisor-app
+
+      - name: Drill the named-gap perception classifier
+        if: ${{ !cancelled() && steps.rust_backed_daemon.outcome == 'success' }}
+        run: npm run mutate:named-gap-perception --workspace=@ioi/hypervisor-app
+
       - name: Verify the surface module contract
         if: ${{ !cancelled() && steps.rust_backed_daemon.outcome == 'success' }}
         env:
