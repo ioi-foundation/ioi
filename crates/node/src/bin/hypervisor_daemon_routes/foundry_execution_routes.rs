@@ -1894,6 +1894,15 @@ struct ProgramActionRequest {
     expected_head: String,
     idempotency_key: String,
     max_rows: Option<u64>,
+    /// M10.6, `attest-resume-equivalence` only: the digests an UNINTERRUPTED run reached and the
+    /// digests the RESUMED run reached, at the same step. `class_satisfied` is deliberately absent
+    /// — the plane derives it, because a caller that states its own verdict is grading itself.
+    #[serde(default)]
+    compared_at_global_step: Option<u64>,
+    #[serde(default)]
+    uninterrupted: Option<Value>,
+    #[serde(default)]
+    resumed: Option<Value>,
 }
 
 fn program_action_op_kind(action: &str) -> Option<&'static str> {
@@ -1904,7 +1913,65 @@ fn program_action_op_kind(action: &str) -> Option<&'static str> {
         "resume" => Some("event_stream.foundry_program_resumed"),
         "cancel" => Some("event_stream.foundry_program_cancelled"),
         "reconcile" => Some("event_stream.foundry_program_reconciled"),
+        // M10.6: the resume-equivalence attestation. THE INPUTS COME FROM OUTSIDE BY NECESSITY,
+        // not by preference: equivalence is a claim about two runs reaching the same state, and
+        // the uninterrupted one did not happen here — no record this daemon holds contains it.
+        // Recomputing digests from the restored bytes would compare them against themselves,
+        // because `verify_checkpoint_projection` has already proved those bytes hash to the
+        // admitted artifact. So the caller submits both digest sets and the PLANE derives the
+        // verdict from the declared class; a caller-authored verdict is refused.
+        "attest-resume-equivalence" => {
+            Some("event_stream.foundry_program_resume_equivalence_attested")
+        }
         _ => None,
+    }
+}
+
+/// WHICH DIGESTS A CLASS SELECTS. `statistical` selects none: it makes no state claim at all, which
+/// is why it must be declared in advance rather than retreated to once the digests disagree. This
+/// is the table no portable invariant operator could carry, because WHICH members to compare is
+/// chosen by an enum value.
+fn digests_for_class(class: &str) -> Option<&'static [&'static str]> {
+    match class {
+        "bitwise" => Some(&[
+            "model_state_hash",
+            "optimizer_state_hash",
+            "scheduler_state_hash",
+            "rng_state_hash",
+        ]),
+        "state_equivalent" => Some(&[
+            "model_state_hash",
+            "optimizer_state_hash",
+            "scheduler_state_hash",
+        ]),
+        "statistical" => Some(&[]),
+        _ => None,
+    }
+}
+
+#[cfg(test)]
+mod m106_determinism_class_tests {
+    use super::digests_for_class;
+
+    #[test]
+    fn bitwise_selects_every_digest_and_state_equivalent_excludes_rng() {
+        // THE WHOLE CONTENT OF THE LAW NO PORTABLE OPERATOR COULD CARRY: which digests matter is
+        // chosen by an enum value. If `state_equivalent` ever started selecting rng, a resume that
+        // legitimately advanced the generator would read as a divergence.
+        assert_eq!(digests_for_class("bitwise").unwrap().len(), 4);
+        let state = digests_for_class("state_equivalent").unwrap();
+        assert_eq!(state.len(), 3);
+        assert!(!state.contains(&"rng_state_hash"));
+    }
+
+    #[test]
+    fn statistical_selects_nothing_and_an_unknown_class_selects_no_set_at_all() {
+        // `statistical` makes no state claim, so it selects an EMPTY set — which is different from
+        // an unknown class, where the plane has no table to evaluate and must refuse rather than
+        // silently compare nothing.
+        assert_eq!(digests_for_class("statistical").unwrap().len(), 0);
+        assert!(digests_for_class("mostly_the_same").is_none());
+        assert!(digests_for_class("").is_none());
     }
 }
 
@@ -2059,6 +2126,22 @@ pub(crate) async fn handle_program_action(
     if let Err(reply) = authorize_scope(&st.data_dir, &identity, PROGRAM_SCOPE_KIND, &id, None) {
         return reply;
     }
+    // Read from the RAW body, before the typed parse. `deny_unknown_fields` would reject
+    // `class_satisfied` anyway, but as a generic invalid-request error — and a caller that graded
+    // its own comparison deserves to be told exactly that rather than handed a parse failure to
+    // guess at. The typed refusal is the whole point of the rule.
+    // A caller-authored verdict is refused BY ITS OWN NAME, here, before the typed parse.
+    // `deny_unknown_fields` would reject `class_satisfied` anyway — but as a generic invalid-request
+    // error, and a caller that graded its own comparison deserves to be told exactly that rather
+    // than handed a parse failure to guess at. Deriving the verdict is the whole point of the rule,
+    // so the refusal says so.
+    if action == "attest-resume-equivalence" && body.get("class_satisfied").is_some() {
+        return bad(
+            StatusCode::UNPROCESSABLE_ENTITY,
+            "foundry_program_resume_verdict_authored",
+            "class_satisfied is derived by this plane from the declared determinism class; a caller-authored verdict is refused, never corrected",
+        );
+    }
     let request: ProgramActionRequest = match parse(body, "foundry_program_action_invalid") {
         Ok(request) => request,
         Err(reply) => return reply,
@@ -2185,6 +2268,64 @@ fn program_action_core(
         "resume" if status == "paused" => {
             next["status"] = json!("running");
             "event_stream.foundry_program_resumed"
+        }
+        // M10.6 — THE COMPARISON THE DAEMON PUBLISHED EVIDENCE FOR AND NEVER MADE.
+        // `verify_checkpoint_projection` has always returned model, optimizer, scheduler and rng
+        // digests and compared none of them. Here the two runs' digest sets meet, the DECLARED
+        // class says which must match, and a class that is not satisfied moves the program to the
+        // terminal `resume_divergent` — the artifact is not a candidate.
+        "attest-resume-equivalence" => {
+            let class = next["determinism_class"].as_str().unwrap_or_default();
+            let Some(selected) = digests_for_class(class) else {
+                return bad(
+                    StatusCode::CONFLICT,
+                    "foundry_program_determinism_class_unknown",
+                    "the program declares no determinism class this plane can evaluate",
+                );
+            };
+            let (Some(step), Some(left), Some(right)) = (
+                request.compared_at_global_step,
+                request.uninterrupted.clone(),
+                request.resumed.clone(),
+            ) else {
+                return bad(
+                    StatusCode::BAD_REQUEST,
+                    "foundry_program_resume_equivalence_incomplete",
+                    "a comparison needs a step and BOTH runs' digests; one side is not a comparison",
+                );
+            };
+            let mut mismatched: Vec<&str> = Vec::new();
+            for digest in selected {
+                let a = left
+                    .get(*digest)
+                    .and_then(Value::as_str)
+                    .unwrap_or_default();
+                let b = right
+                    .get(*digest)
+                    .and_then(Value::as_str)
+                    .unwrap_or_default();
+                if a.is_empty() || b.is_empty() {
+                    return bad(
+                        StatusCode::BAD_REQUEST,
+                        "foundry_program_resume_equivalence_incomplete",
+                        "a digest the declared class selects is absent from one of the two runs",
+                    );
+                }
+                if a != b {
+                    mismatched.push(digest);
+                }
+            }
+            let satisfied = mismatched.is_empty();
+            next["resume_equivalence"] = json!({
+                "compared_at_global_step": step,
+                "uninterrupted": left,
+                "resumed": right,
+                "class_satisfied": satisfied,
+            });
+            if !satisfied {
+                next["status"] = json!("resume_divergent");
+            }
+            "event_stream.foundry_program_resume_equivalence_attested"
         }
         "cancel" if matches!(status, "admitted" | "running" | "paused") => {
             next["status"] = json!("cancelled");
@@ -4075,6 +4216,10 @@ mod tests {
         let start = |key: &str, max_rows: Option<u64>, expected_head: &str| -> Reply {
             let (tail, current) = program_head(data_dir, program_id).unwrap();
             let request = ProgramActionRequest {
+                // Not an attestation action, so the comparison inputs are absent by construction.
+                compared_at_global_step: None,
+                uninterrupted: None,
+                resumed: None,
                 expected_head: expected_head.to_owned(),
                 idempotency_key: key.to_owned(),
                 max_rows,
@@ -4663,6 +4808,10 @@ mod tests {
             &recipe_content_hash,
         );
         let request = ProgramActionRequest {
+            // Not an attestation action, so the comparison inputs are absent by construction.
+            compared_at_global_step: None,
+            uninterrupted: None,
+            resumed: None,
             expected_head: program_head.head.clone(),
             idempotency_key: "step-key".into(),
             max_rows: None,
