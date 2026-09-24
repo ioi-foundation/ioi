@@ -231,7 +231,7 @@
     nativeSessionBusy = true;
     syncNativeSessionButton();
     try {
-      const response = await fetch("/api/gitpod.v1.AgentService/CreateAgentSession", {
+      const response = await fetch("/api/ioi.v1.AgentService/CreateAgentSession", {
         method: "POST",
         headers: { "content-type": "application/json", "connect-protocol-version": "1" },
         body: JSON.stringify({ initialInput: { inputs: [{ text: { content: prompt } }] } }),

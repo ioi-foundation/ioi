@@ -619,6 +619,11 @@ async function handleImpl(pathname, bodyText) {
         // connection in the composer's authority profile, say) keeps its own status; anything else
         // is reported as an honest 500 naming what threw.
         const typed = Boolean(error?.code && error?.status);
+        // A daemon 401 on the environment create is "sign in", not a failure: reported as a 500
+        // `agent_session_create_failed` it hid the composer's sign-in path (R-240).
+        if (!typed && /\(401\)/.test(String(error?.message || ""))) {
+          return jsonStatus(401, { error: { code: "request_principal_required", message: "an authenticated session is required to start a Session — sign in first" } });
+        }
         return {
           status: typed ? error.status : 500,
           contentType: "application/json",
