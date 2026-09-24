@@ -45,6 +45,39 @@
       row.innerHTML = '<span class="ioi-oar-ico">' + icon + '</span><span class="ioi-oar-txt"><span class="ioi-oar-l">Open Application</span><span class="ioi-oar-n">' + esc(name) + '</span></span><button class="ioi-oar-x" title="Close">✕</button>';
     }
   }
+  // Signed-out honesty (R-240). A local browser reads as the local operator — whoami answers with that
+  // display principal AND `authenticated: false` — while the daemon lists and admits Sessions only for
+  // an authenticated principal. The adapter used to report that refusal as the daemon "not answering",
+  // so the rail's Sessions skeleton spun forever; now that it is a typed refusal, the section would
+  // simply read as empty. One row under the Sessions header says what is true, and where to go.
+  let ioiSignedIn = null; // null unknown · "pending" · true · false — whoami is asked once per page load
+  function updateSignedOutRail() {
+    if (ioiSignedIn === null) {
+      ioiSignedIn = "pending";
+      fetch("/v1/hypervisor/auth/whoami", { credentials: "same-origin" })
+        .then((r) => r.json())
+        .then((w) => { ioiSignedIn = !(w && w.authenticated === false); updateSignedOutRail(); })
+        .catch(() => { ioiSignedIn = true; }); // unknown: say nothing rather than guess
+      return;
+    }
+    let row = document.getElementById("ioi-signedout-rail");
+    if (ioiSignedIn !== false) { if (row) row.remove(); return; }
+    const label = Array.prototype.find.call(document.querySelectorAll("span"), (e) => {
+      if (e.children.length || e.textContent.trim() !== "Sessions") return false;
+      const r = e.getBoundingClientRect(); return r.width > 0 && r.left < 320;
+    });
+    const header = label && label.closest("div.justify-between");
+    if (!header) { if (row) row.remove(); return; }
+    if (!row) {
+      row = document.createElement("a");
+      row.id = "ioi-signedout-rail";
+      row.className = "ioi-openapp-rail";
+      row.setAttribute("href", "/__ioi/login");
+      row.setAttribute("target", "_top");
+      row.innerHTML = '<span class="ioi-oar-ico">🔒</span><span class="ioi-oar-txt"><span class="ioi-oar-l">Signed out</span><span class="ioi-oar-n">Sign in to see and start Sessions</span></span>';
+    }
+    if (row.previousElementSibling !== header) header.insertAdjacentElement("afterend", row);
+  }
   function closeApplication() {
     const el = document.getElementById("ioi-open-app");
     if (el) el.style.display = "none";

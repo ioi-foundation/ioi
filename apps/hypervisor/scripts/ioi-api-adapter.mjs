@@ -75,6 +75,18 @@ const jsonStatus = (status, payload) => ({ contentType: "application/json", body
 // degraded state; nothing fabricates rows, names, or silent successes in its place.
 const unavailableRpc = (gap, message, status = 503) =>
   jsonStatus(status, { code: "unavailable", message: `${gap}: ${message}` });
+// A daemon that ANSWERED with a refusal did answer. Seven catch sites below reported every daemon
+// error as "the daemon … did not answer" (503 unavailable) — including a 401. Unavailable is a
+// RETRYABLE code, so a signed-out browser watched the rail's Sessions skeleton spin forever while
+// the daemon kept saying, correctly, "sign in" (R-240). A 401 is `unauthenticated` and a 403 is
+// `permission_denied` — both terminal, both naming the real reason; only no answer at all is
+// `unavailable`.
+const daemonRefusalRpc = (gap, e, unavailableMessage) => {
+  const m = String(e?.message || "");
+  if (/-> 401$/.test(m)) return jsonStatus(401, { code: "unauthenticated", message: `${gap}: the daemon refused this read — sign in (/__ioi/login) to see it` });
+  if (/-> 403$/.test(m)) return jsonStatus(403, { code: "permission_denied", message: `${gap}: the daemon refused this read for the signed-in principal` });
+  return unavailableRpc(gap, unavailableMessage);
+};
 // Connect *streaming* refusal: HTTP 200 + an end-stream frame carrying the typed error (the
 // streaming protocol conveys errors in-band; a bare non-2xx JSON body would surface as a parse
 // failure instead of the named gap).
@@ -445,7 +457,7 @@ async function handleImpl(pathname, bodyText) {
       const org = r.organization || {};
       return json({ organization: { id: LOCAL_SCOPE.orgId, name: org.display_name || "" } });
     } catch (e) {
-      return unavailableRpc("org_identity_daemon_unavailable", `the daemon organization read did not answer (${e.message}); no fabricated organization is served`);
+      return daemonRefusalRpc("org_identity_daemon_unavailable", e, `the daemon organization read did not answer (${e.message}); no fabricated organization is served`);
     }
   }
   if (pathname === "/api/ioi.v1.OrganizationService/GetTermsOfService") {
@@ -569,7 +581,7 @@ async function handleImpl(pathname, bodyText) {
     // live environment plane (fixture rows presented as environments would be placeholder data).
     console.error("[ioi-api-adapter] daemon env call failed closed:", e.message);
     if (/-> 404$/.test(e.message)) return jsonStatus(404, { code: "not_found", message: "the daemon has no such environment" });
-    return unavailableRpc("environment_daemon_unavailable", `the daemon environment plane did not answer (${e.message}); no fixture environments are served`);
+    return daemonRefusalRpc("environment_daemon_unavailable", e, `the daemon environment plane did not answer (${e.message}); no fixture environments are served`);
   }
 
   // ---- AgentService: real IOI daemon threads/turns (Session) ----
@@ -742,7 +754,7 @@ async function handleImpl(pathname, bodyText) {
     try {
       return json({ pagination: {}, runners: await listProjectedRunners() });
     } catch (e) {
-      return unavailableRpc("runner_daemon_unavailable", `the daemon provider plane did not answer (${e.message}); runner availability is unknown, not empty`);
+      return daemonRefusalRpc("runner_daemon_unavailable", e, `the daemon provider plane did not answer (${e.message}); runner availability is unknown, not empty`);
     }
   }
   if (pathname === "/api/ioi.v1.RunnerService/GetRunner") {
@@ -754,7 +766,7 @@ async function handleImpl(pathname, bodyText) {
       if (!runner) return jsonStatus(404, { code: "not_found", message: `runner ${runnerId} is not a daemon provider` });
       return json({ runner });
     } catch (e) {
-      return unavailableRpc("runner_daemon_unavailable", `the daemon provider plane did not answer (${e.message})`);
+      return daemonRefusalRpc("runner_daemon_unavailable", e, `the daemon provider plane did not answer (${e.message})`);
     }
   }
   if (pathname === "/api/ioi.v1.RunnerService/CreateRunner") {
@@ -766,7 +778,7 @@ async function handleImpl(pathname, bodyText) {
       if (!runner) return unavailableRpc("runner_provider_unavailable", "no daemon provider reports available; no runner is fabricated");
       return json({ runner });
     } catch (e) {
-      return unavailableRpc("runner_daemon_unavailable", `the daemon provider plane did not answer (${e.message})`);
+      return daemonRefusalRpc("runner_daemon_unavailable", e, `the daemon provider plane did not answer (${e.message})`);
     }
   }
   if (pathname === "/api/ioi.v1.RunnerService/ParseContextURL") {
@@ -1026,7 +1038,7 @@ async function handleImpl(pathname, bodyText) {
         issuerUrl: `https://${host}`, oauthClientId: "", pat: true,
       }] });
     } catch (e) {
-      return unavailableRpc("scm_connector_daemon_unavailable", `the daemon SCM connector plane did not answer (${e.message}); no hand-written integration row is served`);
+      return daemonRefusalRpc("scm_connector_daemon_unavailable", e, `the daemon SCM connector plane did not answer (${e.message}); no hand-written integration row is served`);
     }
   }
   if (pathname === "/api/ioi.v1.RunnerConfigurationService/GetEnvironmentClass") {
@@ -1039,7 +1051,7 @@ async function handleImpl(pathname, bodyText) {
       if (!c) return jsonStatus(404, { code: "not_found", message: `environment class ${classId || "(unspecified)"} is not in the daemon catalog` });
       return json({ environmentClass: daemonClassToIOI(c) });
     } catch (e) {
-      return unavailableRpc("environment_class_daemon_unavailable", `the daemon substrate catalog did not answer (${e.message}); no fixture class is served`);
+      return daemonRefusalRpc("environment_class_daemon_unavailable", e, `the daemon substrate catalog did not answer (${e.message}); no fixture class is served`);
     }
   }
   if (pathname.startsWith("/api/ioi.v1.InsightsService/")) {
