@@ -81,12 +81,26 @@ const LIVE = self("live");
 // defects. `.spl-hbtn.gap{opacity:.62}` and its siblings had already dimmed them, and a first build
 // of the classifier could not see it because opacity does not change backgroundColor. The four that
 // remain are genuinely undressed: machinery, evalsuites, incidents and explorer.
+//
+// RE-PINNED 2026-09-24 (R-240), every unit accounted for: 624 → 629 labelled, 594 → 593
+// unreachable. The Designer's Open Diagram stopped being a gap — it was a labelled bare span, so
+// both counts lose one. The census now also walks the STATES a link reaches (`SURFACE_STATES`), and
+// the Open Diagram selector's own declared gaps count once: four scopes, Select and Show hidden are
+// labelled (+6); the tags wrapper has no text. None of the six is unreachable — each carries a role
+// and tabindex or wraps an already-declared control. Two first measurements of this re-pin were
+// wrong, both about counting a state: a DOM-path key re-counted the landing behind the dialog (the
+// dialog renumbers every sibling), and a per-state budget re-counted the first state's dialog in the
+// second. Controls are now keyed on what they ARE, as a multiset accumulated across a surface's
+// states. The map moved too — its geography rows went 200 → 24 when the venue card stopped
+// embedding expired candidates — and was restored by reading the candidate plane's own history
+// route rather than by moving this pin: a pinned count can hide a data coupling.
 export const PINNED = Object.freeze({
   surfaces_probed: 36,
-  labelled: 624,
+  states_probed: 2,
+  labelled: 629,
   primary_fill: 4,
   cursor_not_disabled: 62,
-  unreachable_control: 594,
+  unreachable_control: 593,
   unmarked_gap: 0,
 });
 
@@ -334,7 +348,7 @@ async function liveLeg() {
   let browser = null;
   try {
     const { chromium } = await import("playwright");
-    const { SURFACES } = await import(pathToFileURL(path.join(APP, "scripts", "surface-registry.mjs")).href);
+    const { SURFACES, SURFACE_STATES } = await import(pathToFileURL(path.join(APP, "scripts", "surface-registry.mjs")).href);
     // THIS GATE STARTS ITS OWN SERVE. A fixed port, or the :4173 a developer happens to be running,
     // can answer a gate that started neither — and then the gate is measuring somebody else's build.
     const port = await freePort();
@@ -354,11 +368,16 @@ async function liveLeg() {
 
     browser = await chromium.launch({ headless: true });
     const page = await browser.newPage({ viewport: { width: 1600, height: 1000 } });
-    const list = Object.values(SURFACES);
+    // Registered surfaces, then the STATES of one that only a link reaches (R-240): the Open Diagram
+    // selector's scope and Select gaps exist only at `?open=`, and a census of canonical routes would
+    // never police them. States are counted apart so the surface count keeps its meaning.
+    const list = [...Object.values(SURFACES).map((s) => ({ ...s, state: false })), ...(SURFACE_STATES || []).map((x) => ({ slug: x.slug, route: x.route, state: true }))];
     const controls = [];
     let probed = 0;
+    let statesProbed = 0;
+    const seenBySlug = new Map();
     for (const s of list) {
-      const route = s.canonical_route || s.route;
+      const route = s.state ? s.route : (s.canonical_route || s.route);
       try {
         await page.goto(base + route, { waitUntil: "domcontentloaded", timeout: 90000 });
         // SETTLING PROVED STABILITY, NOT COMPLETENESS — and that was still wrong.
@@ -372,7 +391,7 @@ async function liveLeg() {
         // refuse it by name rather than let it contribute a number nobody can reproduce.
         await page.waitForLoadState("networkidle", { timeout: 20000 }).catch(() => {});
       } catch { findings.push(`route_unreachable: ${route}`); continue; }
-      probed += 1;
+      if (s.state) statesProbed += 1; else probed += 1;
 
       // THE PAGE MUST SETTLE BEFORE IT IS COUNTED, and settling is PROVED rather than waited for.
       // A first build sampled 500ms after domcontentloaded and measured 272 labelled controls on one
@@ -404,11 +423,32 @@ async function liveLeg() {
         previous = next;
       }
       if (settled === null) { findings.push(`route_never_settled: ${route} — sampled six times 500ms apart and the control set kept changing, so no count from it can be pinned`); continue; }
-      for (const c of settled) controls.push({ surface: s.slug, route, ...c });
+      // A STATE ADDS A STATE, NEVER A SURFACE: the Designer landing renders behind the Open Diagram
+      // dialog, so a control already counted on the owning surface is not counted again (R-240).
+      // Keyed on what a control IS, as a MULTISET, not on where it sits: the dialog appends a second
+      // <div> to <body>, which renumbers every landing element's DOM path, and a path key counted
+      // the landing's five labelled gaps a second time (measured). A state counts only the controls
+      // its surface does not already have.
+      const key = (c) => `${c.tag}|${c.className}|${c.role}|${c.text}`;
+      if (!seenBySlug.has(s.slug)) seenBySlug.set(s.slug, new Map());
+      const seen = seenBySlug.get(s.slug);
+      if (!s.state) {
+        for (const c of settled) { seen.set(key(c), (seen.get(key(c)) || 0) + 1); controls.push({ surface: s.slug, route, ...c }); }
+      } else {
+        const budget = new Map(seen);
+        for (const c of settled) {
+          const left = budget.get(key(c)) || 0;
+          if (left > 0) { budget.set(key(c), left - 1); continue; }
+          // New to this surface: counted once, and remembered, so a SECOND state carrying the same
+          // dialog does not count it again (measured: `?open=objects` re-counted `?open=recent`'s six).
+          seen.set(key(c), (seen.get(key(c)) || 0) + 1);
+          controls.push({ surface: s.slug, route, ...c });
+        }
+      }
     }
 
     const totals = LIB.censusTotals(controls);
-    const measured = { surfaces_probed: probed, ...totals };
+    const measured = { surfaces_probed: probed, states_probed: statesProbed, ...totals };
     for (const key of Object.keys(PINNED)) {
       if (measured[key] !== PINNED[key]) {
         findings.push(`${key}: measured ${measured[key]}, pinned ${PINNED[key]} — ${measured[key] > PINNED[key] ? "a NEW defect landed" : "a repair landed and the pin must come down with it"}`);

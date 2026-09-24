@@ -214,7 +214,9 @@
     "check:capability-construction-cycle": "node ../../scripts/check-capability-construction-cycle.mjs --drills",
     "mutate:capability-construction-cycle": "node ../../scripts/check-capability-construction-cycle.mjs --mutation",
     "check:named-gap-perception": "node ../../scripts/check-named-gap-perception.mjs --drills",
-    "mutate:named-gap-perception": "node ../../scripts/check-named-gap-perception.mjs --mutation"
+    "mutate:named-gap-perception": "node ../../scripts/check-named-gap-perception.mjs --mutation",
+    "check:dead-controls": "node ../../scripts/check-dead-controls.mjs --drills",
+    "mutate:dead-controls": "node ../../scripts/check-dead-controls.mjs --mutation"
   },
   "dependencies": {
     "@codemirror/commands": "^6.10.3",

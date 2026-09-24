@@ -235,6 +235,15 @@ export function canonicalSurfaceRoute(pathname) {
 // a registry surface embedded). The embed rewrite threads the flag only through links that land
 // on one of these routes.
 export const EMBED_THREAD_ROUTES = ["/__ioi/lineage", "/__ioi/vertex", "/__ioi/work-ledger", "/__ioi/operations"];
+
+// STATES of a registered surface that are reachable ONLY through a link on it — a query-string state
+// that renders controls its canonical route does not (R-240). A census that loads canonical routes
+// alone never sees them, so the perception and dead-control censuses walk these as well. Each one
+// is still its owning surface: it adds a state, never a surface.
+export const SURFACE_STATES = [
+  { slug: "designer", route: "/__ioi/studio/designer?open=recent", note: "Open Diagram — the resource selector on its Recent files scope" },
+  { slug: "designer", route: "/__ioi/studio/designer?open=objects", note: "Open Diagram — the resource selector on its Object datasources scope" },
+];
 export function embeddableRoutes() {
   return new Set([...SURFACES.map((s) => s.route), ...SURFACES.filter((s) => s.canonical_route).map((s) => s.canonical_route), ...EMBED_THREAD_ROUTES]);
 }

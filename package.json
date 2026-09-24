@@ -217,7 +217,9 @@
     "check:capability-construction-cycle": "node scripts/check-capability-construction-cycle.mjs",
     "mutate:capability-construction-cycle": "node scripts/check-capability-construction-cycle.mjs --mutation",
     "check:named-gap-perception": "node scripts/check-named-gap-perception.mjs",
-    "mutate:named-gap-perception": "node scripts/check-named-gap-perception.mjs --mutation"
+    "mutate:named-gap-perception": "node scripts/check-named-gap-perception.mjs --mutation",
+    "check:dead-controls": "node scripts/check-dead-controls.mjs",
+    "mutate:dead-controls": "node scripts/check-dead-controls.mjs --mutation"
   },
   "devDependencies": {
     "@playwright/test": "^1.60.0",

@@ -3873,9 +3873,11 @@ function renderVertex(lists, selectedId, vSel, wrap = automationsShell) {
 // components · materialized-set/domain-app resources). Nothing authors/saves here: New Diagram,
 // Open Diagram, Browse all, AIP Architect planning, favorites are NAMED GAPS (disabled in place).
 // Owner: Studio (/__ioi/agent-studio); dedicated daemon-bound surface, no route rename.
-function renderDesignerPort(lists, selectedId) {
+function renderDesignerPort(lists, selectedId, openState = null) {
   const esc = CX_ESC;
   const enc = (s) => encodeURIComponent(String(s || ""));
+  // Every Open Diagram state is its own address, so Back, Forward, a reload and a shared link all work.
+  const openHref = (scope, extra = {}) => `/__ioi/studio/designer?${new URLSearchParams({ open: scope, ...extra })}`;
   const ontologies = Array.isArray(lists.ontologies) ? lists.ontologies : [];
   const mappings = Array.isArray(lists.connector_mappings) ? lists.connector_mappings : [];
   const policyViews = Array.isArray(lists.policy_views) ? lists.policy_views : [];
@@ -3963,7 +3965,7 @@ function renderDesignerPort(lists, selectedId) {
         ${resourceCount && !myApps.length ? `<p class="dsg-gapnote">Surface descriptors: none — no domain-app surfaces generated yet (named gap).</p>` : ""}
       </div>
     </div>
-    <p class="dsg-foot">This is a <b>read-only design map</b> over real composition truth. Unsupported Designer lanes — in-canvas authoring, New Diagram / Open Diagram, save/open, drag-to-reference, AIP Architect planning, favorites, template Browse all — are <b>named gaps</b> (disabled in place above), not silently hidden. Sibling Studio seeds stay reference-only: the <a href="/__apps/machinery">machinery</a> process/state-machine graph (data lanes unbound), the <a href="/__apps/workshop">workshop</a> and module builders. Owner: <a href="/__ioi/agent-studio">Agent Studio</a> · siblings: <a href="/__ioi/studio/machinery">Machinery</a> · <a href="${managerLink({ ontology: oid })}">Ontology Manager</a> (<a href="/__ioi/odk?ontology=${enc(oid)}">ODK substrate</a>) · <a href="/__ioi/pipeline?ontology=${enc(oid)}">Pipeline Builder</a>. Reference: the origin-aligned <a href="http://localhost:9225/workspace/solution-design/" rel="noopener">Solution Designer capture</a> — the <a href="/__apps/designer">/__apps/designer proxy lane ↗</a> is documented insufficient (cross-origin :9225 chunk fetches manufacture CORS noise + a favorites-load failure; #44 sweep evidence).</p>
+    <p class="dsg-foot">This is a <b>read-only design map</b> over real composition truth. Unsupported Designer lanes — in-canvas authoring, New Diagram, save, drag-to-reference, AIP Architect planning, favorites, template Browse all — are <b>named gaps</b> (disabled in place above), not silently hidden. <b>Open Diagram</b> opens the resource selector over these same designs: Recent files and Object datasources are live, and Favorites, All projects, Data Catalog and Shared with you each name the record the ODK plane does not keep. Sibling Studio seeds stay reference-only: the <a href="/__apps/machinery">machinery</a> process/state-machine graph (data lanes unbound), the <a href="/__apps/workshop">workshop</a> and module builders. Owner: <a href="/__ioi/agent-studio">Agent Studio</a> · siblings: <a href="/__ioi/studio/machinery">Machinery</a> · <a href="${managerLink({ ontology: oid })}">Ontology Manager</a> (<a href="/__ioi/odk?ontology=${enc(oid)}">ODK substrate</a>) · <a href="/__ioi/pipeline?ontology=${enc(oid)}">Pipeline Builder</a>. Reference: the origin-aligned <a href="http://localhost:9225/workspace/solution-design/" rel="noopener">Solution Designer capture</a> — the <a href="/__apps/designer">/__apps/designer proxy lane ↗</a> is documented insufficient (cross-origin :9225 chunk fetches manufacture CORS noise + a favorites-load failure; #44 sweep evidence).</p>
   </section>` : `<section class="dsg-truth" id="designer-truth"><p class="dsg-gapnote">No ontologies to design over yet — create one in the <a href="/__ioi/ontology/manager?section=create">Ontology Manager</a>. This canvas renders real composition truth; it never fabricates concepts. Owner: <a href="/__ioi/agent-studio">Agent Studio</a>.</p></section>`;
 
   const globalRail = ioiGlobalRailHtml({ label: "Solution Designer", href: "/__ioi/studio/designer", iconUri: DSG_APP_TILE_URI, railVariant: "rv-pipe rv-dsg", viewAll: true, star: false, badges: true, aipGradient: true, acctMuted: true });
@@ -4007,8 +4009,98 @@ function renderDesignerPort(lists, selectedId) {
     <span class="dsg-viewlbl">View</span>
     <span class="dsg-pill on">Recents</span>
     <span class="dsg-pill gap" aria-disabled="true" title="Favorites are not recorded on the ODK object plane (named gap)" data-ioi-disabled-reason="Favorites are not recorded on the ODK object plane (named gap)">Favorites</span>
-    <span class="dsg-open gap" aria-disabled="true" title="Diagram open is a reference-only lane — rows below select a composition instead (named gap)" data-ioi-disabled-reason="Diagram open is a reference-only lane — rows below select a composition instead (named gap)">${bpIcon("folder-open")}<span>Open Diagram</span></span>
+    <a class="dsg-open" href="${esc(openHref("recent"))}" title="Open a design — the resource selector over the same designs this table lists">${bpIcon("folder-open")}<span>Open Diagram</span></a>
   </div>`;
+
+  // ---- OPEN DIAGRAM — the reference's resource selector, ported over daemon truth (R-240).
+  //
+  // It was a named gap ("rows below select a composition instead") while the owner's tenant showed
+  // what the lane actually is: not a file-open box but a SIX-SCOPE browser — Recent files ·
+  // Favorites · All projects · Data Catalog · Object datasources · Shared with you — with Type and
+  // Tags facets, Created / Last Modified ranges under All projects, a breadcrumb, a Show-hidden
+  // toggle, in-dialog history, search, and a Select that stays disabled until a row is picked.
+  // Harvested read-only from the live tenant; structure and measurements are the component's own
+  // (workspace-resource-selector: 1000x600, a 250px scope column, 8px row padding, the #8f99a833
+  // selection tone), the data is the estate's.
+  //
+  // EACH SCOPE BINDS TO WHAT THE DAEMON ACTUALLY RECORDS, and says so when it records nothing:
+  //   Recent files       — every design, newest-updated first (the Recents table's own order; the
+  //                        ODK plane keeps no VIEW history, so "recent" means recently changed).
+  //   Object datasources — every object type any design declares, under its ontology; picking one
+  //                        picks the design that declares it.
+  //   Favorites · All projects · Data Catalog · Shared with you — declared gaps, each naming the
+  //                        record the plane does not keep. No ontology carries a project, a tag, a
+  //                        favourite or a sharing principal (measured 2026-09-24, all seven).
+  // Every control is a GET over the same page. Select is a link to `?ontology=`, the view the
+  // Recents rows already open. Nothing is written.
+  const OPEN_SCOPES = [
+    { key: "recent", label: "Recent files", icon: bpIcon("history") },
+    { key: "favorites", label: "Favorites", icon: bpIcon("star"), gap: "Favorites are not recorded on the ODK object plane (named gap)" },
+    { key: "projects", label: "All projects", icon: bpIcon("projects"), gap: "No design is filed under a project — an ODK ontology carries no project reference (named gap)" },
+    { key: "catalog", label: "Data Catalog", icon: bpIcon("folder-open"), gap: "This estate has no catalog-collection plane to browse (named gap)" },
+    { key: "objects", label: "Object datasources", icon: `<span class="dsg-rs-otico" aria-hidden="true">${bpIcon("cube", 12)}</span>` },
+    { key: "shared", label: "Shared with you", icon: bpIcon("people"), gap: "Designs are not shared between principals on the ODK object plane (named gap)" },
+  ];
+  const gapAttrs = (why) => `aria-disabled="true" title="${esc(why)}" data-ioi-disabled-reason="${esc(why)}"`;
+  let openDialog = "";
+  if (openState) {
+    const scope = OPEN_SCOPES.find((s) => s.key === openState.scope && !s.gap) || OPEN_SCOPES[0];
+    const q = String(openState.q || "").trim();
+    const qn = q.toLowerCase();
+    const hit = (...xs) => !qn || xs.some((x) => String(x || "").toLowerCase().includes(qn));
+    const pickOnt = ontologies.find((o) => o.id === openState.pick) || null;
+    const rowsFor = scope.key === "objects"
+      ? recent.flatMap((o) => (Array.isArray(o.canonical_object_model?.object_types) ? o.canonical_object_model.object_types : []).map((ot) => ({ o, ot })))
+        .filter(({ o, ot }) => hit(ot.name, ot.id, o.domain))
+      : recent.filter((o) => hit(o.domain, o.id, o.ref)).map((o) => ({ o }));
+    const isOn = ({ o, ot }) => pickOnt && o.id === pickOnt.id && (scope.key !== "objects" || (ot && ot.id === openState.ot));
+    const rowHtml = (r) => {
+      const { o, ot } = r;
+      const extra = { pick: o.id, ...(ot ? { ot: ot.id } : {}) };
+      return `<a class="dsg-rs-row${isOn(r) ? " on" : ""}" href="${esc(openHref(scope.key, { ...(q ? { q } : {}), ...extra }))}"${isOn(r) ? ` aria-current="true"` : ""}>
+        <span class="dsg-rs-ico">${ot ? `<span class="dsg-rs-otico">${bpIcon("cube", 12)}</span>` : `<span class="dsg-rowico"></span>`}</span>
+        <span class="dsg-rs-text"><span class="dsg-rs-name">${esc(ot ? (ot.name || ot.id) : (o.domain || o.id))}</span><span class="dsg-rs-path">${ot ? `${esc(o.domain || o.id)} ontology · <code>${esc(ot.id)}</code>` : `${esc(o.ref)} · updated ${fdate(o.updated_at)}`}</span></span>
+      </a>`;
+    };
+    const empty = scope.key === "objects"
+      ? (q ? `No object type matches “${esc(q)}”.` : "No design declares an object type yet.")
+      : (q ? `No design matches “${esc(q)}”.` : `There are no solution designs yet — create one in the <a href="/__ioi/ontology/manager?section=create">Ontology Manager</a>.`);
+    const list = rowsFor.length ? rowsFor.map(rowHtml).join("") : `<div class="dsg-rs-empty">${bpIcon(scope.key === "objects" ? "cube" : "history", 40)}<div>${empty}</div></div>`;
+    const typeFacet = scope.key === "recent" ? `<div class="dsg-rs-facet"><div class="dsg-rs-ftitle">Type</div>${rowsFor.length
+      ? `<div class="dsg-rs-typerow"><span class="dsg-rs-typebar" style="width:100%"></span><span class="dsg-rs-typelbl">Solution design</span><span class="dsg-rs-typen">${rowsFor.length}</span></div>`
+      : `<span class="dsg-rs-nores">No results to filter</span>`}</div>
+      <div class="dsg-rs-facet"><div class="dsg-rs-ftitle">Tags</div><div class="dsg-rs-tags gap" data-ioi-disabled-reason="Tags are not recorded on the ODK object plane (named gap)" title="Tags are not recorded on the ODK object plane (named gap)">${bpIcon("tag")}<input disabled placeholder="Click to search for tags…" aria-label="Search for tags"></div></div>` : "";
+    const menu = OPEN_SCOPES.map((s) => s.gap
+      ? `<li role="none"><span class="dsg-rs-scope gap" role="menuitem" tabindex="0" ${gapAttrs(s.gap)}><span class="dsg-rs-sico">${s.icon}</span><span>${esc(s.label)}</span></span></li>`
+      : `<li role="none"><a class="dsg-rs-scope${s.key === scope.key ? " on" : ""}" role="menuitem" href="${esc(openHref(s.key, q ? { q } : {}))}"${s.key === scope.key ? ` aria-current="true"` : ""}><span class="dsg-rs-sico">${s.icon}</span><span>${esc(s.label)}</span></a></li>`).join("");
+    const closeHref = `/__ioi/studio/designer${selectedId ? `?ontology=${enc(selectedId)}` : ""}`;
+    const select = pickOnt
+      ? `<a class="dsg-rs-select" href="/__ioi/studio/designer?ontology=${enc(pickOnt.id)}" title="Open ${esc(pickOnt.domain || pickOnt.id)}">Select</a>`
+      : `<span class="dsg-rs-select gap" role="button" tabindex="0" ${gapAttrs("Pick a design in the list first")}>Select</span>`;
+    openDialog = `<div class="dsg-rs-backdrop"></div>
+    <section class="dsg-rs" role="dialog" aria-modal="true" aria-labelledby="dsg-rs-title" id="open-diagram">
+      <div class="dsg-rs-head">
+        <div class="dsg-rs-side1"><h2 class="dsg-rs-title" id="dsg-rs-title">Select Solution Designer</h2>
+          <span class="dsg-rs-hist"><button type="button" disabled title="In-dialog history is not kept — each scope is its own address, so the browser's Back works">${bpIcon("arrow-left")}</button><button type="button" disabled title="In-dialog history is not kept — each scope is its own address, so the browser's Forward works">${bpIcon("arrow-right")}</button></span></div>
+        <form class="dsg-rs-search${q ? "" : " empty"}" method="get" action="/__ioi/studio/designer" role="search">
+          <input type="hidden" name="open" value="${esc(scope.key)}">
+          <input class="dsg-rs-q" type="text" name="q" value="${esc(q)}" placeholder="Search files…" aria-label="Search ${esc(scope.label.toLowerCase())}" autofocus>
+          ${q ? `<a class="dsg-rs-clear" href="${esc(openHref(scope.key))}">Clear</a>` : ""}
+        </form>
+        <div class="dsg-rs-side2"><a class="dsg-rs-x" href="${esc(closeHref)}" aria-label="Close" title="Close without opening anything">${bpIcon("cross")}</a></div>
+      </div>
+      <div class="dsg-rs-body">
+        <aside class="dsg-rs-side"><ul class="dsg-rs-menu" role="menu">${menu}</ul>${typeFacet ? `<div class="dsg-rs-divider"></div>${typeFacet}` : ""}</aside>
+        <div class="dsg-rs-main">
+          <div class="dsg-rs-crumbs"><span class="dsg-rs-crumb">All</span>${bpIcon("chevron-right")}<span class="dsg-rs-crumb cur">${esc(scope.label)}</span>
+            <label class="dsg-rs-hidden gap" title="Nothing on the ODK object plane is hidden, so there is nothing to reveal (named gap)" data-ioi-disabled-reason="Nothing on the ODK object plane is hidden, so there is nothing to reveal (named gap)"><span>Show hidden</span><input type="checkbox" disabled aria-label="Show hidden"></label></div>
+          <div class="dsg-rs-list">${list}</div>
+          <div class="dsg-rs-foot"><a class="dsg-rs-cancel" href="${esc(closeHref)}">Cancel</a>${select}</div>
+        </div>
+      </div>
+    </section>
+    <script>addEventListener("keydown",function(e){if(e.key==="Escape"){location.href=${JSON.stringify(closeHref)};}});</script>`;
+  }
 
   const table = `<div class="dsg-table">
     <div class="dsg-thead"><span class="dsg-th name">Diagram</span><span class="dsg-th">Creator</span><span class="dsg-th">Last edited by</span><span class="dsg-th">Last viewed</span></div>
@@ -4060,8 +4152,73 @@ function renderDesignerPort(lists, selectedId) {
     .dsg-pill{display:inline-flex;align-items:center;height:30px;margin-left:10px;padding:6px 10px;border-radius:30px;font-size:14px;line-height:18px;cursor:default}
     .dsg-pill.on{background:rgba(45,114,210,.3);color:#184a90;font-weight:600}
     .dsg-pill.gap{background:rgba(143,153,168,.15);color:#1c2127}
-    .dsg-open{display:inline-flex;align-items:center;gap:8px;height:30px;margin-left:auto;padding:0 8px;border-radius:4px;color:#1c2127;font-size:14px;line-height:16.1px;cursor:default}
+    .dsg-open{display:inline-flex;align-items:center;gap:8px;height:30px;margin-left:auto;padding:0 8px;border-radius:4px;color:#1c2127;font-size:14px;line-height:16.1px;cursor:pointer}
+    a.dsg-open:hover{background:rgba(143,153,168,.15)}
     .dsg-open svg{color:#5f6b7c}
+    /* OPEN DIAGRAM — the workspace-resource-selector, ported (R-240). Measurements are the
+       component's own rules, read out of the harvested stylesheet: a 1000x600 dialog, a
+       10px 10px 10px 15px header around a 340px search, a 250px scope column, 8px row padding
+       inside a 5px/10px inset, the #8f99a833 selection tone, 12px/600 facet titles. */
+    .dsg-rs-backdrop{position:fixed;inset:0;background:rgba(17,20,24,.7);z-index:40}
+    .dsg-rs{position:fixed;left:50%;top:50%;transform:translate(-50%,-50%);z-index:41;width:calc(100vw - 40px);max-width:1000px;height:600px;display:flex;flex-direction:column;background:#fff;border-radius:4px;box-shadow:0 0 0 1px rgba(17,20,24,.1),0 2px 4px rgba(17,20,24,.2),0 8px 24px rgba(17,20,24,.2)}
+    .dsg-rs-head{display:flex;align-items:center;column-gap:10px;padding:10px 10px 10px 15px}
+    .dsg-rs-side1,.dsg-rs-side2{flex:1;display:flex;justify-content:space-between;align-items:center;min-width:0}
+    .dsg-rs-side2{justify-content:flex-end}
+    .dsg-rs-title{margin:0;font-size:14px;font-weight:600;line-height:18px;color:#1c2127}
+    .dsg-rs-hist{display:inline-flex}
+    .dsg-rs-hist button,.dsg-rs-x{width:30px;height:30px;border:0;padding:0;background:none;border-radius:4px;display:inline-flex;align-items:center;justify-content:center}
+    .dsg-rs-hist button{color:rgba(95,107,124,.6);cursor:not-allowed}
+    .dsg-rs-x{color:#5f6b7c}.dsg-rs-x:hover{background:rgba(143,153,168,.15)}
+    .dsg-rs-search{flex:0 0 340px;position:relative;display:flex;align-items:center;margin:0}
+    .dsg-rs-q{width:100%;height:30px;padding:0 10px;border:0;border-radius:4px;font:inherit;color:#1c2127;background:#fff;box-shadow:inset 0 0 0 1px rgba(17,20,24,.2),inset 0 1px 1px rgba(17,20,24,.3)}
+    .dsg-rs-q:focus{outline:0;box-shadow:inset 0 0 0 1px #2d72d2,0 0 0 2px rgba(45,114,210,.3)}
+    .dsg-rs-search.empty .dsg-rs-q:not(:focus){background:#f6f7f9;box-shadow:0 0 0 1px rgba(17,20,24,.15)}
+    .dsg-rs-search.empty .dsg-rs-q:not(:focus)::placeholder{text-align:center;font-style:italic;color:rgba(95,107,124,.6)}
+    .dsg-rs-clear{position:absolute;right:3px;top:3px;height:24px;padding:0 7px;border-radius:3px;line-height:24px;color:#1c2127}
+    .dsg-rs-clear:hover{background:rgba(143,153,168,.15)}
+    .dsg-rs-body{flex:1;min-height:0;display:flex;border-top:1px solid rgba(17,20,24,.15)}
+    .dsg-rs-side{width:250px;min-width:250px;border-right:1px solid rgba(17,20,24,.15);padding:10px;overflow-y:auto}
+    .dsg-rs-menu{list-style:none;margin:10px 0 0;padding:0}
+    .dsg-rs-scope{display:flex;align-items:center;gap:7px;min-height:30px;padding:5px 7px;border-radius:2px;color:#1c2127;line-height:20px}
+    a.dsg-rs-scope:hover{background:rgba(143,153,168,.15)}
+    .dsg-rs-scope.on,a.dsg-rs-scope.on:hover{background:rgba(143,153,168,.2)}
+    .dsg-rs-sico{width:16px;height:16px;flex:0 0 16px;display:inline-flex;align-items:center;justify-content:center;color:#5f6b7c}
+    .dsg-rs-scope.gap{color:#a8b2be;cursor:not-allowed}
+    .dsg-rs-scope.gap .dsg-rs-sico{color:#c5cbd3}
+    .dsg-rs-otico{width:16px;height:16px;border-radius:2px;background:rgba(102,158,255,.1);box-shadow:inset -1px 0 rgba(102,158,255,.25);color:#215db0;display:inline-flex;align-items:center;justify-content:center}
+    .dsg-rs-divider{margin:10px -10px;border-top:1px solid rgba(17,20,24,.15)}
+    .dsg-rs-facet{margin-top:15px;padding:0 7px}
+    .dsg-rs-ftitle{margin-bottom:5px;color:#5f6b7c;font-size:12px;font-weight:600}
+    .dsg-rs-nores{color:#abb3bf}
+    .dsg-rs-typerow{position:relative;display:flex;align-items:center;gap:6px;height:24px;padding:0 6px}
+    .dsg-rs-typebar{position:absolute;left:0;top:0;bottom:0;background:rgba(45,114,210,.15);border-radius:3px}
+    .dsg-rs-typelbl,.dsg-rs-typen{position:relative}.dsg-rs-typen{margin-left:auto;color:#5f6b7c}
+    .dsg-rs-tags{display:flex;align-items:center;gap:6px;height:30px;padding:0 8px;border-radius:4px;background:#fff;box-shadow:inset 0 0 0 1px rgba(17,20,24,.2),inset 0 1px 1px rgba(17,20,24,.3);color:#a8b2be;cursor:not-allowed}
+    .dsg-rs-tags input{flex:1;min-width:0;border:0;background:none;font:inherit;cursor:not-allowed}
+    .dsg-rs-tags input::placeholder{color:#a8b2be}
+    .dsg-rs-main{flex:1;min-width:0;display:flex;flex-direction:column}
+    .dsg-rs-crumbs{display:flex;align-items:center;gap:6px;height:35px;padding:0 10px 0 20px;border-bottom:1px solid rgba(17,20,24,.15)}
+    .dsg-rs-crumbs svg{color:#5f6b7c}
+    .dsg-rs-crumb{color:#5f6b7c}.dsg-rs-crumb.cur{color:#1c2127}
+    .dsg-rs-hidden{margin-left:auto;display:inline-flex;align-items:center;gap:8px;color:#a8b2be;cursor:not-allowed}
+    .dsg-rs-hidden input{margin:0;cursor:not-allowed}
+    .dsg-rs-list{flex:1;min-height:0;overflow-y:auto;padding:5px 0}
+    .dsg-rs-row{display:flex;align-items:flex-start;margin:0 5px;padding:8px 10px;border-radius:4px;color:#1c2127;cursor:pointer}
+    .dsg-rs-row:hover{background:rgba(143,153,168,.15)}
+    .dsg-rs-row.on,.dsg-rs-row.on:hover{background:rgba(143,153,168,.2)}
+    .dsg-rs-ico{width:18px;height:18px;flex:0 0 18px;margin-right:6px;display:flex;align-items:center;color:#5f6b7c}
+    .dsg-rs-ico .dsg-rowico{margin-top:0}
+    .dsg-rs-text{flex:auto;min-width:0}
+    .dsg-rs-name{display:block;line-height:18px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+    .dsg-rs-path{display:block;font-size:12px;line-height:15px;color:#5f6b7c;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+    .dsg-rs-path code{font-size:11px}
+    .dsg-rs-empty{min-height:100%;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:14px;padding:20px;color:#5f6b7c;text-align:center}
+    .dsg-rs-empty svg{color:#abb3bf}
+    .dsg-rs-foot{display:flex;justify-content:flex-end;gap:8px;padding:8px;border-top:1px solid rgba(17,20,24,.15)}
+    .dsg-rs-cancel,.dsg-rs-select{display:inline-flex;align-items:center;height:30px;padding:0 10px;border-radius:4px;box-shadow:inset 0 0 0 1px rgba(17,20,24,.2),0 1px 2px rgba(17,20,24,.1)}
+    .dsg-rs-cancel{background:#f6f7f9;color:#1c2127}.dsg-rs-cancel:hover{background:#edeff2}
+    .dsg-rs-select{background:#2d72d2;color:#fff}a.dsg-rs-select:hover{background:#215db0}
+    .dsg-rs-select.gap{opacity:.5;cursor:not-allowed}
     /* A NAMED GAP HAS TO READ AS ONE. The "gap" marker class had NO definition on this surface, so
        New Diagram kept its "success" fill and rendered as the page's primary call to action while
        carrying aria-disabled="true" — a green Go button that silently does nothing. Measured
@@ -4075,10 +4232,10 @@ function renderDesignerPort(lists, selectedId) {
        attribute, which a person has to be able to read the label to go looking for. Geometry is
        untouched, so nothing reflows.
        (No backticks in this comment: the whole block lives inside a JS template literal.) */
-    .dsg-hbtn.gap,.dsg-planbtn.gap,.dsg-browse.gap,.dsg-open.gap,.dsg-pill.gap{cursor:not-allowed}
+    .dsg-hbtn.gap,.dsg-planbtn.gap,.dsg-browse.gap,.dsg-pill.gap{cursor:not-allowed}
     .dsg-hbtn.success.gap,.dsg-planbtn.gap{background:rgba(143,153,168,.15);color:#8f99a8;box-shadow:inset 0 0 0 1px rgba(17,20,24,.12)}
-    .dsg-hbtn.outlined.gap,.dsg-browse.gap,.dsg-open.gap{color:#a8b2be}
-    .dsg-hbtn.gap svg,.dsg-planbtn.gap svg,.dsg-browse.gap svg,.dsg-open.gap svg{color:#a8b2be}
+    .dsg-hbtn.outlined.gap,.dsg-browse.gap{color:#a8b2be}
+    .dsg-hbtn.gap svg,.dsg-planbtn.gap svg,.dsg-browse.gap svg{color:#a8b2be}
     .dsg-table{margin-top:10px;min-height:714px;background:#fff;border-radius:4px;box-shadow:0 0 0 1px rgba(17,20,24,.15)}
     .dsg-thead{display:flex;height:30px;box-shadow:inset 0 -1px 0 #dcdcdd}
     .dsg-th{width:16.667%;padding:8px 0 0 11px;font-size:12px;line-height:15.43px;color:#5f6b7c;text-transform:uppercase}
@@ -4126,10 +4283,15 @@ function renderDesignerPort(lists, selectedId) {
       .dsg-row{min-height:57px;height:auto}.dsg-rowpath{white-space:normal;padding-bottom:8px}
       .dsg-trutht{line-height:1.25}.dsg-truthsub{display:block;margin:6px 0 0}.dsg-truthcols{flex-direction:column}.dsg-truthcol{width:100%}
       .dsg-foot{overflow-wrap:anywhere}
+      .dsg-rs{width:calc(100vw - 16px);height:calc(100svh - 32px)}
+      .dsg-rs-head{flex-wrap:wrap;row-gap:8px;padding:10px}.dsg-rs-search{order:3;flex:1 1 100%}
+      .dsg-rs-body{flex-direction:column}.dsg-rs-side{width:auto;min-width:0;border-right:0;border-bottom:1px solid rgba(17,20,24,.15);padding:6px;overflow:visible}
+      .dsg-rs-menu{display:flex;gap:4px;margin:0;overflow-x:auto}.dsg-rs-scope{white-space:nowrap}.dsg-rs-divider,.dsg-rs-facet{display:none}
+      .dsg-rs-crumbs{padding-left:12px}.dsg-rs-hidden span{display:none}
     }`;
 
   return `<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Solution Designer</title><style>${css}</style></head>
-    <body><div class="dsg-shell">${globalRail}<div class="dsg-main">${header}<div class="dsg-body">${hero}<main class="dsg-content">${aipCard}${gallery}${viewRow}${table}${truth}</main></div></div></div></body></html>`;
+    <body><div class="dsg-shell">${globalRail}<div class="dsg-main">${header}<div class="dsg-body">${hero}<main class="dsg-content">${aipCard}${gallery}${viewRow}${table}${truth}</main></div></div></div>${openDialog}</body></html>`;
 }
 
 // ============================ EVALUATIONS · EVALSUITES (AIP Evals landing — suite-library port, #54)
@@ -13531,7 +13693,13 @@ async function handleEstateRequest(req, res, body) {
         J("/v1/hypervisor/odk/materialized-object-sets"),
         J("/v1/hypervisor/domain-apps"),
       ]);
-      const selectedOntology = new URL(req.url, "http://x").searchParams.get("ontology") || "";
+      const dsgParams = new URL(req.url, "http://x").searchParams;
+      const selectedOntology = dsgParams.get("ontology") || "";
+      // Open Diagram is a state of this page, not a second route: `?open=<scope>` renders the
+      // resource selector over the same daemon reads, `pick`/`ot` select a row, `q` filters.
+      const openState = dsgParams.has("open")
+        ? { scope: dsgParams.get("open") || "recent", pick: dsgParams.get("pick") || "", ot: dsgParams.get("ot") || "", q: dsgParams.get("q") || "" }
+        : null;
       sendOwnedSurfaceHtml(res, "designer", renderDesignerPort({
         ontologies: o.ontologies || [],
         connector_mappings: cm.connector_mappings || [],
@@ -13539,7 +13707,7 @@ async function handleEstateRequest(req, res, body) {
         projections: op.ontology_projections || [],
         materialized_sets: ms.materialized_object_sets || [],
         domain_apps: da.domain_apps || da.apps || [],
-      }, selectedOntology));
+      }, selectedOntology, openState));
       return;
     }
     // ---- Studio · Machinery — read-only process/state-machine DEFINITION view. Owner: agent-studio.

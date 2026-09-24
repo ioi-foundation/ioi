@@ -364,6 +364,12 @@ function renderObjectExplorerPort(ov, lists, opts) {
   const savedResult = (opts && opts.result)
     ? `<p class="oe-ssok" role="status">Saved — <code>saved-object-set://${esc(String(opts.result))}</code></p>`
     : ((opts && opts.refusalCode) ? `<p class="oe-ssrefusal" role="alert">Refused — <code>${esc(String(opts.refusalCode))}</code>. Nothing was saved.</p>` : "");
+  // With nothing selected the form cannot submit, and the fields must say so too. They used to stay
+  // editable beside a disabled Save: Enter could not submit through a disabled default button, and
+  // the only way to enable Save — selecting a type — is a navigation that discards whatever was
+  // typed. A field whose every exit is closed is a dead control that looks like a promise; the
+  // dead-control census found these two by typing into them (R-240).
+  const unsaveable = saveTypeId || selQ ? "" : ` disabled title="A saved set stores a SELECTION — search for objects or select a type first"`;
   const savedSetsHtml = `<div class="oe-savedbox">
     <div class="oe-savedhead"><b>Saved object sets</b> <span class="oe-setsub">your explorations, from GET /v1/hypervisor/odk/saved-object-sets</span></div>
     ${savedResult}
@@ -373,9 +379,9 @@ function renderObjectExplorerPort(ov, lists, opts) {
       <input type="hidden" name="ontology_ref" value="${esc(scopedRef)}">
       <input type="hidden" name="object_type_id" value="${esc(String(saveTypeId))}">
       <input type="hidden" name="q" value="${esc(String(selQ))}">
-      <label class="oe-savelbl">Name <input class="oe-savename" name="name" required maxlength="200" placeholder="Name this exploration" aria-label="Name for the saved object set"></label>
-      <label class="oe-savelbl">Description <input class="oe-savedesc" name="description" maxlength="2000" placeholder="Optional" aria-label="Description for the saved object set"></label>
-      <button class="oe-savebtn" type="submit"${saveTypeId || selQ ? "" : ` disabled title="A saved set stores a SELECTION — search for objects or select a type first"`}>Save this selection</button>
+      <label class="oe-savelbl">Name <input class="oe-savename" name="name" required maxlength="200" placeholder="Name this exploration" aria-label="Name for the saved object set"${unsaveable}></label>
+      <label class="oe-savelbl">Description <input class="oe-savedesc" name="description" maxlength="2000" placeholder="Optional" aria-label="Description for the saved object set"${unsaveable}></label>
+      <button class="oe-savebtn" type="submit"${unsaveable}>Save this selection</button>
       <span class="oe-savewhat">${saveTypeId || selQ ? `saves ${esc([saveTypeId ? `type ${saveTypeId}` : "", selQ ? `q “${selQ}”` : ""].filter(Boolean).join(" · "))}` : "nothing selected yet"}</span>
     </form>` : `<p class="oe-savegap">No ontology is in scope, so there is no selection to save — saved sets belong to one ontology.</p>`}
   </div>`;

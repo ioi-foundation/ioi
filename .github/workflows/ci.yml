@@ -1264,6 +1264,20 @@ jobs:
         if: ${{ !cancelled() && steps.rust_backed_daemon.outcome == 'success' }}
         run: npm run mutate:named-gap-perception --workspace=@ioi/hypervisor-app
 
+      # R-240 — a control that LOOKS live must DO something. The drills are CI-bound: the classifier
+      # over records measured verbatim from the live estate, the census's refusal of every write read
+      # out of its own source, and the binding. The browser leg that exercises every control on all
+      # 36 surfaces against the gate's own serve is the full mode.
+      - name: Verify dead controls (R-240, CI-bound drills)
+        if: ${{ !cancelled() && steps.rust_backed_daemon.outcome == 'success' }}
+        env:
+          IOI_VERIFIER_CENSUS_DIR: .artifacts/verifier-census
+        run: npm run check:dead-controls --workspace=@ioi/hypervisor-app
+
+      - name: Drill the dead-control classifier
+        if: ${{ !cancelled() && steps.rust_backed_daemon.outcome == 'success' }}
+        run: npm run mutate:dead-controls --workspace=@ioi/hypervisor-app
+
       - name: Verify the surface module contract
         if: ${{ !cancelled() && steps.rust_backed_daemon.outcome == 'success' }}
         env:

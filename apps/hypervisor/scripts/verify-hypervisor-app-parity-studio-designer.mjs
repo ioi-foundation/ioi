@@ -168,9 +168,27 @@ async function run() {
 
   // 4. NO AUTHORING — read-only; unsupported lanes DISABLED IN PLACE (named gaps), never hidden.
   ok("the surface is READ-ONLY (no authoring form posts to /__ioi/studio/designer)", !/action="\/__ioi\/studio\/designer/.test(t));
-  const gapControls = ["New Diagram", "Help", "Start planning", "Browse all", "Favorites", "Open Diagram"];
-  ok("unsupported controls are DISABLED IN PLACE with named-gap titles (New Diagram · Help · Start planning · Browse all · Favorites · Open Diagram · gallery arrow)", gapControls.every((c) => new RegExp(`aria-disabled="true"[^>]*title="[^"]*named gap[^"]*"[^>]*>(?:<[^>]+>)*(?:<span>)?${c}|${c}(?:</span>)?(?:<svg[\\s\\S]{0,600}?)?</span>`).test(t)) && (t.match(/aria-disabled="true"/g) || []).length >= 7 && /dsg-galarrow gap/.test(t), `${(t.match(/aria-disabled="true"/g) || []).length} disabled controls`);
-  ok("named gaps prose: in-canvas authoring / New-Open Diagram / save-open / drag-to-reference / AIP planning / favorites / Browse all", /in-canvas authoring/.test(t) && /save\/open/.test(t) && /drag-to-reference/.test(t) && /AIP Architect planning/.test(t));
+  const gapControls = ["New Diagram", "Help", "Start planning", "Browse all", "Favorites"];
+  ok("unsupported controls are DISABLED IN PLACE with named-gap titles (New Diagram · Help · Start planning · Browse all · Favorites · gallery arrow)", gapControls.every((c) => new RegExp(`aria-disabled="true"[^>]*title="[^"]*named gap[^"]*"[^>]*>(?:<[^>]+>)*(?:<span>)?${c}|${c}(?:</span>)?(?:<svg[\\s\\S]{0,600}?)?</span>`).test(t)) && (t.match(/aria-disabled="true"/g) || []).length >= 7 && /dsg-galarrow gap/.test(t), `${(t.match(/aria-disabled="true"/g) || []).length} disabled controls`);
+  ok("named gaps prose: in-canvas authoring / New Diagram / save / drag-to-reference / AIP planning / favorites / Browse all — and Open Diagram is named as LIVE, not as a gap", /in-canvas authoring/.test(t) && /drag-to-reference/.test(t) && /AIP Architect planning/.test(t) && /<b>Open Diagram<\/b> opens the resource selector/.test(t) && !/New Diagram \/ Open Diagram/.test(t));
+
+  // 4b. OPEN DIAGRAM IS LIVE (R-240). It was a named gap while the owner's tenant showed what the lane
+  // is: a six-scope resource selector. Two scopes bind to daemon truth, four name the record the ODK
+  // plane does not keep, and Select opens the picked design. Every state is a GET; nothing is written.
+  ok("Open Diagram is a LIVE control — a link into the resource selector, no longer a declared gap", /<a class="dsg-open" href="\/__ioi\/studio\/designer\?open=recent"/.test(t) && !/class="dsg-open gap"/.test(t));
+  const od = (await page(`${SERVE}/__ioi/studio/designer?open=recent`)).text;
+  const scopesInOrder = ["Recent files", "Favorites", "All projects", "Data Catalog", "Object datasources", "Shared with you"];
+  ok("the selector renders as a modal dialog with the reference's SIX scopes in the reference's order", /role="dialog" aria-modal="true"/.test(od) && /Select Solution Designer/.test(od) && scopesInOrder.every((x, i) => od.indexOf(`<span>${x}</span>`) > (i ? od.indexOf(`<span>${scopesInOrder[i - 1]}</span>`) : -1)));
+  ok("Recent files and Object datasources are LIVE scopes; Favorites / All projects / Data Catalog / Shared with you are declared gaps naming the record the plane does not keep", /<a class="dsg-rs-scope on" role="menuitem" href="\/__ioi\/studio\/designer\?open=recent"/.test(od) && /<a class="dsg-rs-scope" role="menuitem" href="\/__ioi\/studio\/designer\?open=objects"/.test(od) && ["Favorites", "All projects", "Data Catalog", "Shared with you"].every((x) => new RegExp(`class="dsg-rs-scope gap" role="menuitem" tabindex="0" aria-disabled="true" title="[^"]*named gap[^"]*"[^>]*><span class="dsg-rs-sico">(?:(?!dsg-rs-scope)[\\s\\S])*?<span>${x}</span>`).test(od)));
+  ok("Recent files lists the REAL fixture design (name + ref) and Select is a declared gap until a row is picked", od.includes("dsg-parity") && od.includes(ont.ref) && /class="dsg-rs-select gap" role="button" tabindex="0" aria-disabled="true"/.test(od));
+  const picked = (await page(`${SERVE}/__ioi/studio/designer?open=recent&pick=${encodeURIComponent(ont.id)}`)).text;
+  ok("picking a row marks it current and turns Select into a link to that design's composition view", new RegExp(`class="dsg-rs-row on" href="[^"]*pick=${ont.id}"[^>]*aria-current="true"`).test(picked) && picked.includes(`<a class="dsg-rs-select" href="/__ioi/studio/designer?ontology=${encodeURIComponent(ont.id)}"`));
+  const objs = (await page(`${SERVE}/__ioi/studio/designer?open=objects`)).text;
+  ok("Object datasources lists the fixture's REAL object type under its ontology, and picking it picks the design that declares it", /<span class="dsg-rs-name">Loan<\/span>/.test(objs) && objs.includes("dsg-parity ontology") && new RegExp(`href="/__ioi/studio/designer\\?open=objects&amp;pick=${ont.id}&amp;ot=loan"`).test(objs));
+  const hit = (await page(`${SERVE}/__ioi/studio/designer?open=recent&q=dsg-parity`)).text;
+  const miss = (await page(`${SERVE}/__ioi/studio/designer?open=recent&q=zz-no-such-design`)).text;
+  ok("search filters the scope over the same daemon read, and a miss says so rather than rendering blank", hit.includes(ont.ref) && !/class="dsg-rs-empty"/.test(hit) && /No design matches “zz-no-such-design”/.test(miss) && /No results to filter/.test(miss));
+  ok("Cancel and the close control return to the landing, and the selector posts nothing", /<a class="dsg-rs-cancel" href="\/__ioi\/studio\/designer">Cancel<\/a>/.test(od) && /class="dsg-rs-x" href="\/__ioi\/studio\/designer"/.test(od) && !/method="post"/i.test(od));
 
   // 5. Honest empty — a fresh ontology has concepts but NO components/resources (no fabrication).
   const fresh = (await jd("POST", "/v1/hypervisor/odk/domain-ontologies", { domain: "dsg-parity-fresh", canonical_object_model: { object_types: [{ id: "a", name: "Alpha", title_property: "t", properties: [{ id: "t", name: "T", value_type: "string" }] }], action_types: [{ id: "x", name: "X", kind: "modify_object", applies_to: "a" }] } })).j.ontology?.id;
