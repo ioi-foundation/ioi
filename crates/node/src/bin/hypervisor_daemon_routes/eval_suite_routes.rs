@@ -32,8 +32,10 @@ const KIND_EVAL_SUITE: &str = "eval-suites";
 const SUBJECT_KINDS: &[&str] = &[
     "mission_run",
     "failed_run",
-    "goal_run",
-    "goal_run_blocker",
+    // goal_run / goal_run_blocker left with the GoalRun plane (R-192): goal runs are ioi.ai
+    // compositions, and no Hypervisor plane produces either subject. The platform record of the
+    // same trouble — a WorkResult that failed or is blocked — is what a suite can assess instead.
+    "work_result",
     "feedback_entry",
     "session",
     "domain_app",

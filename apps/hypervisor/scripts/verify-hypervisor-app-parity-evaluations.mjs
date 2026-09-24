@@ -70,7 +70,7 @@ async function run() {
   ok("reference baseline /__apps/evalsuites boots the eval-suite library grammar", ref.status === 200 && /<title>[^<]*(Eval|Suite)/i.test(ref.text));
 
   // 2. INERT DAEMON CONTRACT — declaration + fail-closed gates + no execution.
-  const good = await jd("POST", "/v1/hypervisor/eval-suites", { name: "parity-suite", subject_scope: ["failed_run", "goal_run_blocker"], evidence_requirements: ["proof_ref", "timeline_ref"], consent_requirements: ["synthetic_only", "org_policy"], rubric_refs: ["rubric://parity"], candidate_refs: ["eval://c1", "feedback://f1"] });
+  const good = await jd("POST", "/v1/hypervisor/eval-suites", { name: "parity-suite", subject_scope: ["failed_run", "work_result"], evidence_requirements: ["proof_ref", "timeline_ref"], consent_requirements: ["synthetic_only", "org_policy"], rubric_refs: ["rubric://parity"], candidate_refs: ["eval://c1", "feedback://f1"] });
   const suite = good.j.eval_suite;
   if (suite?.id) cleanup.push(["DELETE", `/v1/hypervisor/eval-suites/${suite.id}`]);
   ok("create declares a suite (201, ref, status=draft, health=declared)", good.status === 201 && suite?.ref?.startsWith("eval-suite://") && suite?.status === "draft" && suite?.health === "declared");
@@ -93,12 +93,10 @@ async function run() {
   ok("the created suite renders with its real ref, subject scope, consent + evidence requirements, health", suite && t.includes(suite.ref) && t.includes("parity-suite") && t.includes("failed_run") && t.includes("synthetic_only") && t.includes("proof_ref") && />declared</.test(t));
   // Real assessment subjects from the Missions plane appear in scope.
   const ops = await jd("GET", "/v1/hypervisor/operations");
-  const gr = (await jd("GET", "/v1/goal-orchestration/goal-runs")).j.goal_runs || [];
-  const blocked = gr.filter((r) => Array.isArray(r.blockers) && r.blockers.length);
-  const sampleSubject = blocked[0];
-  // The proof must render as an actual ANCHOR in the Evidence cell — not plain text (guards the
-  // subjRow arg-order regression where the URL leaked into the When column and Evidence showed "—").
-  ok("assessment SUBJECTS lane renders a real blocker's proof as an <a href> link in the Evidence cell", /id="eval-subjects"/.test(t) && (!sampleSubject || t.includes(`<a href="/__ioi/run-timeline/goal-run/${sampleSubject.goal_run_id}" target="_blank" rel="noopener">proof ↗</a>`)), sampleSubject ? sampleSubject.goal_run_id : "no blockers (honest ok)");
+  // R-192: goal-run blockers left with the GoalRun plane; the subjects are failed runs and
+  // failed or blocked WorkResults, and a failed run's proof renders as an anchor.
+  const failedRun = ((ops.j.runs || {}).failures || []).find((r) => r && r.timeline_ref);
+  ok("assessment SUBJECTS lane renders a real failed run's proof as an <a href> link in the Evidence cell (or none failed)", /id="eval-subjects"/.test(t) && (!failedRun || /<td><a href="[^"]+" target="_blank" rel="noopener">proof ↗<\/a><\/td>/.test(t)) && !/goal_run_blocker/.test(t), failedRun ? failedRun.execution_id : "no failed runs (honest ok)");
   ok("the consent ladder is shown as the admission gate", /Consent ladder/.test(t) && t.includes("never_train") && t.includes("org_policy"));
 
   // 4. No false coverage — named gaps + brand-clean.

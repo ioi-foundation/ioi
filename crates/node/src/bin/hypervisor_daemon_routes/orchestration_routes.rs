@@ -178,7 +178,7 @@ fn automation_scope_refusal(
 /// dispatch is NOT a session: the run executes as the spec's stored `executor_identity`
 /// (the delegated durable authority), never as an ambient operator.
 /// `pub(crate)` since the #246 session-write gate: the Session write lane admits the daemon's
-/// own orchestration dispatches (ioi-agent launch, goal-run candidate sessions) through this
+/// own orchestration dispatches (ioi-agent launch) through this
 /// same per-boot token instead of a session — one token, one predicate, no second lane.
 pub(crate) fn internal_dispatch_authorized(st: &DaemonState, headers: &HeaderMap) -> bool {
     headers
@@ -937,50 +937,10 @@ pub(crate) async fn handle_work_ledger(
             "implementation_result": g(&out, "implementation_result"),
         }));
     }
-    // GoalRun proofs — multi-harness orchestration. Each role invocation and the reconciliation
-    // posted an agent-run-transcript (tamper-evident state_root); the run record itself carries
-    // the topology + continuation state. All three become first-class ledger entries so the
-    // whole orchestration (invocations → verifier evidence → reconciliation → final files) is
-    // reachable from one proof stream.
-    for t in by_run.values() {
-        let op = t.get("op").and_then(|v| v.as_str()).unwrap_or("");
-        if op != "goal_run_execute" && op != "goal_run_reconciliation" {
-            continue;
-        }
-        let out = t
-            .get("step_results")
-            .and_then(|v| v.as_array())
-            .and_then(|a| a.first())
-            .and_then(|s| s.get("output"))
-            .cloned()
-            .unwrap_or(Value::Null);
-        let run_id = t.get("run_id").and_then(|v| v.as_str()).unwrap_or("");
-        if op == "goal_run_execute" {
-            entries.push(json!({
-                "id": run_id, "kind": "goal_run_invocation", "timestamp": g(t, "recorded_at"),
-                "status": g(&out, "exit_status"), "harness": g(&out, "harness"),
-                "role_key": g(&out, "role_key"), "goal_run_ref": g(&out, "goal_run_ref"),
-                "session_ref": g(&out, "session_ref"), "profile_ref": g(t, "profile_ref"),
-                "files_written": g(&out, "files_written"),
-                "state_root": g(t, "state_root"), "run_ref": run_id,
-                "timeline_ref": format!("/__ioi/run-timeline/{run_id}"),
-                "receipt_ref": g(&out, "receipt_ref"),
-                "implementation_result": g(&out, "implementation_result"),
-            }));
-        } else {
-            entries.push(json!({
-                "id": run_id, "kind": "goal_run_reconciliation", "timestamp": g(t, "recorded_at"),
-                "status": g(&out, "merge_strategy"), "goal_run_ref": g(&out, "goal_run_ref"),
-                "merge_strategy": g(&out, "merge_strategy"), "reason_code": g(&out, "reason_code"),
-                "selected_candidate_refs": g(&out, "selected_candidate_refs"),
-                "final_changed_files": g(&out, "final_changed_files"),
-                "verifier_evidence_refs": g(&out, "verifier_evidence_refs"),
-                "state_root": g(t, "state_root"), "run_ref": run_id,
-                "timeline_ref": format!("/__ioi/run-timeline/{run_id}"),
-                "receipt_ref": g(&out, "receipt_ref"),
-            }));
-        }
-    }
+    // R-192 (S5-1), swept 2026-09-24: goal runs are an ioi.ai composition over the thread
+    // orchestration primitives, not a Hypervisor object. The ledger no longer synthesises
+    // goal-run, invocation or reconciliation entries from the retired plane's traces and records;
+    // those records stay on disk untouched, and ioi.ai reads its own compositions.
     // Intelligence projections — the scoped memory a harness invocation actually received
     // (refs + counts only; private bodies never enter the ledger).
     for r in read_record_dir(&st.data_dir, "memory-projections") {
@@ -1051,22 +1011,6 @@ pub(crate) async fn handle_work_ledger(
             "from_quality_state": g(&r, "from_quality_state"), "to_quality_state": g(&r, "to_quality_state"),
             "reason": g(&r, "reason"), "superseded_by_ref": g(&r, "superseded_by_ref"),
             "receipt_ref": g(&r, "id"),
-        }));
-    }
-    for r in read_record_dir(&st.data_dir, "goal-runs") {
-        entries.push(json!({
-            "id": g(&r, "goal_run_id"), "kind": "goal_run", "timestamp": g(&r, "updated_at"),
-            "status": g(&r, "status"), "goal_run_ref": g(&r, "goal_ref"),
-            "normalized_goal": g(&r, "normalized_goal"),
-            "orchestration_policy": g(&r, "orchestration_policy"),
-            "continuation_state": g(&r, "continuation_state"),
-            "partial_result": g(&r, "partial_result"),
-            "session_ref": g(&r, "target_session_ref"),
-            "invocation_refs": g(&r, "invocation_refs"),
-            "reconciliation_ref": g(&r, "reconciliation_ref"),
-            "policy_ref": g(&r, "policy_ref"),
-            "final_changed_files": g(&r, "final_changed_files"),
-            "receipt_ref": r.pointer("/admission/receipt_refs/0").cloned().unwrap_or(Value::Null),
         }));
     }
     // Governed-lifecycle proofs — domain-app mount/serve/unmount/kill, marketplace publish, and

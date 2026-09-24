@@ -79,7 +79,7 @@ async function run() {
   ok("the /__apps/evalsuites proxy lane still serves (kept as the familiar baseline; documented insufficient — never silently removed)", ref.status === 200);
 
   // 2. Fixture through the EXISTING daemon route (the same inert contract the substrate uses).
-  const good = await jd("POST", "/v1/hypervisor/eval-suites", { name: "evalsuites-port-parity", subject_scope: ["failed_run", "goal_run_blocker"], evidence_requirements: ["proof_ref", "timeline_ref"], consent_requirements: ["synthetic_only", "org_policy"], rubric_refs: ["rubric://port-parity"], candidate_refs: ["eval://port-c1", "feedback://port-f1"] });
+  const good = await jd("POST", "/v1/hypervisor/eval-suites", { name: "evalsuites-port-parity", subject_scope: ["failed_run", "work_result"], evidence_requirements: ["proof_ref", "timeline_ref"], consent_requirements: ["synthetic_only", "org_policy"], rubric_refs: ["rubric://port-parity"], candidate_refs: ["eval://port-c1", "feedback://port-f1"] });
   const suite = good.j.eval_suite;
   if (suite?.id) cleanup.push(suite.id);
   ok("fixture: a suite declares through the existing daemon route (201, eval-suite:// ref, draft, declared health)", good.status === 201 && suite?.ref?.startsWith("eval-suite://") && suite?.status === "draft" && suite?.health === "declared", suite?.ref);
@@ -100,7 +100,7 @@ async function run() {
   ok("the port renders the faithful AIP Evals landing shell (header + hero + View row + table + examples + truth)", ep.status === 200 && /class="evl-htitle">AIP Evals</.test(t) && /Create evaluation suites for LLM-backed use-cases/.test(t) && /class="evl-viewrow"/.test(t) && /class="evl-thead"/.test(t) && /Explore reference examples/.test(t) && /id="evalsuites-truth"/.test(t));
   ok("all matrix reference landmarks render on the port", (row.reference_landmarks || []).every((l) => t.toLowerCase().includes(String(l).toLowerCase())), (row.reference_landmarks || []).filter((l) => !t.toLowerCase().includes(String(l).toLowerCase())).join(" · ") || "10/10");
   ok("the suite-library count equals the daemon plane", new RegExp(`Suite library truth <span class="evl-count">${suites.length}</span>`).test(t), `plane=${suites.length}`);
-  ok("the fixture suite renders as a live row (name + ref + subject scopes + declared health in the row path)", t.includes("evalsuites-port-parity") && t.includes(suite.ref) && /subjects failed_run\/goal_run_blocker · declared · draft/.test(t));
+  ok("the fixture suite renders as a live row (name + ref + subject scopes + declared health in the row path)", t.includes("evalsuites-port-parity") && t.includes(suite.ref) && /subjects failed_run\/work_result · declared · draft/.test(t));
   ok("rendered rows equal the plane after the declared cap (newest 12)", (t.match(/class="evl-row"/g) || []).length === Math.min(12, suites.length), `${(t.match(/class="evl-row"/g) || []).length} rows vs ${Math.min(12, suites.length)}`);
   ok("rubric/evidence/consent/candidate refs render VERBATIM below the fold (real declaration records)", t.includes("rubric://port-parity") && t.includes("proof_ref, timeline_ref") && t.includes("synthetic_only, org_policy") && t.includes("eval://port-c1, feedback://port-f1"));
   ok("health renders as DECLARED-COMPLETENESS, never a score (the boundary band says so; no score/verdict text anywhere)", /DECLARED-COMPLETENESS \(declared\/complete\), <b>never a score<\/b>/.test(t) && !/scorecard value|verdict:/.test(t));
@@ -110,7 +110,9 @@ async function run() {
   ok("the surface is READ-ONLY (no forms; no run/score/judge affordance)", !/<form/.test(t) && !/action="[^"]*\/(run|score|judge|execute|promote)"/.test(t));
   ok("the boundary is declared in place: EvalRun execution / scoring / verdicts / judge runs / scorecards / auto-mining / promotion = named gaps", /EvalRun execution, scoring, verdicts, judge runs, scorecards, auto-mining and promotion are <b>named gaps<\/b>/.test(t));
   ok("candidate refs declared LOCAL allowlisted schemes on the surface (the plane rejects external URLs fail-closed)", /Candidate refs are LOCAL allowlisted schemes only/.test(t));
-  ok("unsupported controls are DISABLED IN PLACE with named-gap titles (New suite · Help · Favorites · example installs)", (t.match(/aria-disabled="true"/g) || []).length >= 5 && /Suite authoring from this surface is a reference-only lane/.test(t) && /Favorites are not recorded on the eval-suite plane/.test(t) && /Marketplace example installs are a reference-only lane/.test(t), `${(t.match(/aria-disabled="true"/g) || []).length} disabled controls`);
+  // R-240: New suite is a LINK to the owner surface's declare form (it was disabled in place while
+  // the Evaluations owner surface already declared suites); the rest stay disabled and named.
+  ok("New suite goes where suites are declared; the unsupported controls stay DISABLED IN PLACE with named-gap titles (Help · Favorites · example installs)", /<a class="evl-hbtn success" href="\/__ioi\/evaluations#new-suite"/.test(t) && (t.match(/aria-disabled="true"/g) || []).length >= 4 && /Favorites are not recorded on the eval-suite plane/.test(t) && /Marketplace example installs are a reference-only lane/.test(t), `${(t.match(/aria-disabled="true"/g) || []).length} disabled controls`);
   ok("the examples band is verbatim capture chrome (declared)", /verbatim capture chrome/.test(t));
 
   // 6. Owner discoverability + brand.

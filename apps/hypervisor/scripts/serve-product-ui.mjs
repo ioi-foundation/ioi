@@ -1327,7 +1327,7 @@ function renderFeedbackQueue(ov, entries, flash) {
 // capture (/__apps/evalsuites, /workspace/evals/) is the familiar eval-suite library baseline; this
 // IOI-owned owner surface renders the SAME table/list grammar over REAL daemon truth: the inert
 // eval-suite contract (a suite DECLARES what it would assess + under what admissibility — never how
-// it scores), the real assessment SUBJECTS available (mission runs / failed runs / GoalRun blockers,
+// it scores), the real assessment SUBJECTS available (mission runs / failed runs / failed or blocked WorkResults,
 // from the Missions plane), the consent ladder + feedback candidate source, and Foundry model_eval
 // draft specs as adjacent inputs. NOTHING is scored/executed here — EvalRun execution, verdicts,
 // judges, scorecards, auto-mining, the analysis/Quiver canvases, and promotion are NAMED GAPS.
@@ -1336,7 +1336,7 @@ function renderEvaluations(suites, suiteOv, subjects, foundryEvalSpecs, feedback
   const enc = encodeURIComponent;
   const list = Array.isArray(suites) ? suites : [];
   const ov = suiteOv || {};
-  const subjectKinds = ov.subject_kinds || ["mission_run", "failed_run", "goal_run", "goal_run_blocker", "feedback_entry", "session", "domain_app", "surface_object"];
+  const subjectKinds = ov.subject_kinds || ["mission_run", "failed_run", "work_result", "feedback_entry", "session", "domain_app", "surface_object"];
   const evidenceKinds = ov.evidence_kinds || ["proof_ref", "timeline_ref", "receipt_ref", "source_hash", "state_root", "transcript_ref"];
   const ladder = ov.consent_ladder || (feedbackOv || {}).consent_ladder || ["never_train", "synthetic_only", "redacted_opt_in", "full_private_opt_in", "org_policy"];
   const byHealth = ov.by_health || {};
@@ -1382,18 +1382,18 @@ function renderEvaluations(suites, suiteOv, subjects, foundryEvalSpecs, feedback
       ? `<table><thead><tr><th>Suite</th><th>Subject scope</th><th>Consent required</th><th>Evidence required</th><th>Candidates</th><th>Status</th><th></th></tr></thead><tbody>${list.map(suiteRow).join("")}</tbody></table>`
       : omBoundaryNote(`<b>No eval suites declared yet</b> — declare one above. A suite is an inert declaration (subject scope · admissibility · candidate handoffs); it never scores or executes. This library reads the real daemon eval-suite contract; nothing is fabricated.`));
 
-  // Assessment subjects in scope — REAL Missions execution truth (mission runs / failures / blockers).
+  // Assessment subjects in scope — REAL Missions execution truth (mission runs / failures / failed or blocked results).
   const subjRow = (kind, label, when, proof) => `<tr><td><span class="pill muted" style="margin:0">${CX_ESC(kind)}</span></td><td>${CX_ESC(label)}</td><td class="sub" style="margin:0">${CX_ESC(when || "")}</td><td>${timelineLink(proof, "proof ↗")}</td></tr>`;
   const subjRows = [
     ...missionRuns.slice(0, 6).map((r) => subjRow("mission_run", r.name || r.execution_id || "—", r.started_at, r.timeline_ref)),
     ...failedRuns.slice(0, 6).map((r) => subjRow("failed_run", r.name || r.execution_id || "—", r.finished_at, r.timeline_ref)),
-    ...blockers.slice(0, 6).map((r) => subjRow("goal_run_blocker", (r.normalized_goal || r.goal_ref || r.goal_run_id || "—"), r.updated_at, r.goal_run_id ? `/__ioi/run-timeline/goal-run/${enc(r.goal_run_id)}` : "")),
+    ...blockers.slice(0, 6).map((r) => subjRow("work_result", `${r.work_subject_ref || r.work_result_id || "—"} · ${r.status || ""}`, r.recorded_at || r.created_at, "")),
   ].join("");
   const totalSubjects = missionRuns.length + failedRuns.length + blockers.length;
   const subjectsPane = `<h2 id="eval-subjects">Assessment subjects in scope ${sub(`— real execution truth a suite can draw on (${totalSubjects})`)}</h2>`
     + (totalSubjects
       ? `<table><thead><tr><th>Kind</th><th>Subject</th><th>When</th><th>Evidence</th></tr></thead><tbody>${subjRows}</tbody></table><p class="sub" style="margin:6px 0 0">Subjects come from <a href="/__ioi/missions">Missions</a>; each carries its own proof/timeline as admissible evidence.</p>`
-      : omBoundaryNote(`No mission runs or blockers to assess yet — subjects appear as <a href="/__ioi/missions">Missions</a> produces real runs.`));
+      : omBoundaryNote(`No mission runs or failed results to assess yet — subjects appear as <a href="/__ioi/missions">Missions</a> produces real runs.`));
 
   // Consent + candidate inputs (feedback plane) and Foundry model_eval drafts (adjacent, not execution).
   const fbTotal = (feedbackOv || {}).total || 0;
@@ -1657,11 +1657,11 @@ function renderWorkLedger(entries, scopedProject, selCtx) {
   const projects = [...new Set(entries.map((e) => e.project_id).filter(Boolean))];
   const chip = (f, v, label) => `<button class="chip" data-facet="${f}" data-val="${v}" onclick="wlChip(this)">${label}</button>`;
   const filters = `<div class="chips">
-    <span class="chiplabel">kind</span>${chip("kind", "run", "Runs")}${chip("kind", "harness_execution", "Harness runs")}${chip("kind", "goal_run", "IOI Agent coordination")}${chip("kind", "goal_run_invocation", "Agent invocations")}${chip("kind", "goal_run_reconciliation", "Reconciliations")}${chip("kind", "memory_lifecycle", "Memory lifecycle")}${chip("kind", "simulation_report", "Simulations")}${chip("kind", "policy_rollout", "Rollouts")}${chip("kind", "rollout_enforcement", "Rollout enforcement")}${chip("kind", "provider_crossing", "Provider crossings")}${chip("kind", "storage_custody", "Storage custody")}${chip("kind", "odk_materialization", "Materializations")}${chip("kind", "trigger", "Trigger events")}${chip("kind", "marketplace_publish", "Publishes")}${chip("kind", "kill_enforcement", "Kill enforcements")}
+    <span class="chiplabel">kind</span>${chip("kind", "run", "Runs")}${chip("kind", "harness_execution", "Harness runs")}${chip("kind", "memory_lifecycle", "Memory lifecycle")}${chip("kind", "simulation_report", "Simulations")}${chip("kind", "policy_rollout", "Rollouts")}${chip("kind", "rollout_enforcement", "Rollout enforcement")}${chip("kind", "provider_crossing", "Provider crossings")}${chip("kind", "storage_custody", "Storage custody")}${chip("kind", "odk_materialization", "Materializations")}${chip("kind", "trigger", "Trigger events")}${chip("kind", "marketplace_publish", "Publishes")}${chip("kind", "kill_enforcement", "Kill enforcements")}
     <span class="chiplabel">status</span>${chip("status", "done", "Done")}${chip("status", "success", "Success")}${chip("status", "registered", "Registered")}${chip("status", "failed", "Failed")}${chip("status", "failure", "Failure")}${chip("status", "accepted", "Accepted")}${chip("status", "rejected", "Rejected")}
     <span class="chiplabel">project</span><select id="wl-project" onchange="wlFilter()"><option value="">all</option>${projects.map((p) => `<option value="${CX_ESC(p)}">${CX_ESC(p)}</option>`).join("")}</select>
   </div>`;
-  const icon = (k) => (k === "run" ? "▶" : k === "harness_execution" ? "🤖" : k === "goal_run" ? "🎯" : k === "goal_run_invocation" ? "🤝" : k === "goal_run_reconciliation" ? "⚖" : k === "memory_lifecycle" ? "🧬" : k === "simulation_report" ? "🔮" : k === "policy_rollout" ? "🚦" : k === "rollout_enforcement" ? "🚫" : k === "improvement_applied" ? "📈" : k === "memory_projection" ? "🧠" : k === "marketplace_publish" ? "🛒" : k === "domain_app_runtime" ? "🧩" : k === "kill_enforcement" ? "🛑" : k === "provider_crossing" ? "🔌" : k === "storage_custody" ? "🗄" : k === "odk_materialization" ? "📦" : "🪝");
+  const icon = (k) => (k === "run" ? "▶" : k === "harness_execution" ? "🤖" : k === "memory_lifecycle" ? "🧬" : k === "simulation_report" ? "🔮" : k === "policy_rollout" ? "🚦" : k === "rollout_enforcement" ? "🚫" : k === "improvement_applied" ? "📈" : k === "memory_projection" ? "🧠" : k === "marketplace_publish" ? "🛒" : k === "domain_app_runtime" ? "🧩" : k === "kill_enforcement" ? "🛑" : k === "provider_crossing" ? "🔌" : k === "storage_custody" ? "🗄" : k === "odk_materialization" ? "📦" : "🪝");
   // A ledger row's headline: automation name for runs, else the harness/session/subject it proves.
   const title = (e) => e.kind === "provider_crossing"
     ? `provider ${CX_ESC(e.op || "op")} · ${CX_ESC(e.provider || "")} ${CX_ESC(String(e.account_ref || e.environment_ref || "").slice(-22))}`
@@ -1669,9 +1669,6 @@ function renderWorkLedger(entries, scopedProject, selCtx) {
     ? `archive ${CX_ESC(e.op || "op")} · ${CX_ESC(e.backend || "")} ${CX_ESC(String(e.archive_ref || e.material_ref || "").slice(-22))}`
     : e.kind === "harness_execution"
     ? `${CX_ESC(e.harness || "harness")} → ${CX_ESC(e.session_ref || "session")}`
-    : e.kind === "goal_run" ? `IOI Agent coordination · ${CX_ESC(String(e.normalized_goal || "").slice(0, 48))}`
-    : e.kind === "goal_run_invocation" ? `IOI Agent · ${CX_ESC(e.role_key || "role")} · ${CX_ESC(e.harness || "")}`
-    : e.kind === "goal_run_reconciliation" ? `IOI Agent reconcile · ${CX_ESC(e.merge_strategy || "")}`
     : e.kind === "memory_lifecycle" ? `memory ${CX_ESC(e.status || "")} · ${CX_ESC(String(e.record_ref || "").slice(-18))} (${CX_ESC(e.from_quality_state || "")} → ${CX_ESC(e.to_quality_state || "")})`
     : e.kind === "memory_projection" ? `intelligence projected · ${CX_ESC(String(e.harness_profile_ref || "").replace("harness-profile:hp_", ""))}`
     : e.kind === "marketplace_publish" ? `publish ${CX_ESC(e.listing_id || e.candidate_ref || "")}`
@@ -1742,7 +1739,6 @@ function renderWorkLedger(entries, scopedProject, selCtx) {
       if(e.projection_ref){links+=bl('Projection explain',e.projection_ref,'/__ioi/intelligence/projections/'+String(e.projection_ref).replace('memory-projection://','')+'/explain');}
       if(e.simulation_ref){links+=bl('Simulation report',e.simulation_ref,'/__ioi/intelligence/simulations/'+String(e.simulation_ref).replace('simulation-report://',''));}
       if(e.kind==='policy_rollout'){links+=bl('Learned policy',e.policy_ref,'/__ioi/agent-studio#launch-policies')+bl('Base policy',e.base_policy_ref,'/__ioi/agent-studio#launch-policies');}
-      if(e.goal_run_ref){links+=bl('GoalRun',e.goal_run_ref,'/__ioi/run-timeline/goal-run/'+String(e.goal_run_ref).replace('goal://',''));}
       if(e.session_ref){links+=bl('Session',e.session_ref,'/__ioi/workbench#sessions');}
       if(e.profile_ref){links+=bl('Harness profile',e.profile_ref,'/__ioi/agent-studio#harness-profiles');}
       if(e.domain_app_ref){links+=bl('Domain app',e.domain_app_ref,'/__ioi/domain-apps');}
@@ -1910,7 +1906,7 @@ function renderOperations(ops, authpol, prov, provReceipts, spendRecon, storageB
     ? `${jobsIncompleteNote}${jobsChips}<table><thead><tr><th>Job</th><th>Type</th><th>Project</th><th>Status</th><th>When</th><th>Proof</th></tr></thead><tbody id="jobs-body">${jobRows}</tbody></table><div class="empty" id="jobs-empty" style="display:none">No jobs of this type in the available projections.</div>`
     : jobsIncomplete
       ? `<div class="empty">Job projections are incomplete — no empty-state claim is made.</div>`
-    : `<div class="empty">No jobs yet — automation runs, harness executions, IOI Agent coordination, and failover recovery land here as they happen.</div>`;
+    : `<div class="empty">No jobs yet — automation runs, harness executions, and failover recovery land here as they happen.</div>`;
   const jobsScript = `<script>
     function jobsChip(b){
       document.querySelectorAll('#jobs-chips .chip').forEach(function(x){x.classList.toggle('on',x===b);});
@@ -2094,7 +2090,7 @@ function renderOperations(ops, authpol, prov, provReceipts, spendRecon, storageB
     <p class="sub" style="margin:4px 0 0">${improvementPosture} · capture operator judgment in <a href="/__ioi/feedback">Feedback &amp; Annotations →</a></p></div>`;
   const inner = `<h1>Operations</h1><p class="sub">Substrate &amp; infrastructure — scheduler health, providers, placement/failover, storage custody, capacity, spend. Select an automation run to inspect and act on it in place. Suite/run work — the mission run queue + incident inbox — lives in <a href="/__ioi/missions">Missions →</a>. <a href="/__ioi/work-ledger">Open Provenance →</a></p>
     ${availabilityNotice}
-    <div id="ops-jobs"><h2>Jobs <span class="sub" style="text-transform:none;letter-spacing:0;font-weight:400">— automation runs · harness executions · IOI Agent coordination · failover recovery, newest first</span></h2>${jobsSection}${jobsScript}</div>
+    <div id="ops-jobs"><h2>Jobs <span class="sub" style="text-transform:none;letter-spacing:0;font-weight:400">— automation runs · harness executions · failover recovery, newest first</span></h2>${jobsSection}${jobsScript}</div>
     ${workAnalytics}
     <h2>Scheduler</h2>${schedSection}
     <div class="wlwrap"><div>
@@ -9047,7 +9043,7 @@ async function handleEstateRequest(req, res, body) {
         if (gqlOp && gqlOp.operationName === "JobTypeFilterQuery" && String(gqlOp.query || "").includes("jobTypes")) {
           // The job-type filter dropdown carries OUR real run kinds, not the reference
           // platform's build-worker registry.
-          return sendJson({ data: { jobTypes: ["goal-run", "session", "automation-run"], transformTypes: [], __typename: "Query" } });
+          return sendJson({ data: { jobTypes: ["session", "automation-run"], transformTypes: [], __typename: "Query" } });
         }
         // REBIND (Foundry model-catalog seed): the model-catalog home lists PALANTIR_PROVIDED
         // reference models from the capture; the serve answers ModelCatalogHomeQuery with the
@@ -12893,10 +12889,10 @@ async function handleEstateRequest(req, res, body) {
       const infAutomations = infRowsOf("automations");
       const infProfiles = infRowsOf("harness_profiles");
       // THE INVOCATION PREDICATE, named where it is used: a ledger entry counts as an invocation of
-      // a model when its KIND is one of the two the ledger publishes for harness/goal-run model
-      // calls. The predicate is a property of the records; it is not a re-derivation of any daemon
+      // a model when its KIND is the one the ledger publishes for harness model calls (goal-run
+      // invocations left the ledger with the GoalRun plane, R-192). The predicate is a property of the records; it is not a re-derivation of any daemon
       // filter, and the page says which it is beside every number.
-      const INF_INVOCATION_KINDS = ["goal_run_invocation", "harness_execution"];
+      const INF_INVOCATION_KINDS = ["harness_execution"];
       const infInvRows = infLedger.filter((e) => INF_INVOCATION_KINDS.includes(String(e?.kind || "")));
       const infModelOf = (e) => istr(e?.implementation_result?.model);
       const infEndpointOf = (e) => istr(e?.implementation_result?.model_endpoint);
@@ -13180,7 +13176,7 @@ async function handleEstateRequest(req, res, body) {
           <h2 class="inf-h">What this estate has actually inferred — every number with its predicate and its window</h2>
           <div class="inf-call">
             <h3>The gate is empty; the estate behind it is not</h3>
-            <p><b>${infInvRows.length}</b> recorded invocations. <i>Predicate:</i> a work-ledger entry whose <code>kind</code> is one of ${INF_INVOCATION_KINDS.map((k) => `<code>${esc(k)}</code>`).join(" or ")} — the two kinds the ledger publishes for harness and goal-run model calls. <i>Window:</i> ${infInvWindow.n ? `<code>${esc(infInvWindow.from)}</code> → <code>${esc(infInvWindow.to)}</code>` : "no timestamped invocation row on this render"}, inside a ledger whose own window is ${infLedgerWindow.n ? `<code>${esc(infLedgerWindow.from)}</code> → <code>${esc(infLedgerWindow.to)}</code>` : "empty on this render"} across <b>${infLedger.length}</b> entries. This is a RETENTION window, not a business period: it is whatever the ledger still holds, and no claim is made here about what fell out of it.</p>
+            <p><b>${infInvRows.length}</b> recorded invocations. <i>Predicate:</i> a work-ledger entry whose <code>kind</code> is ${INF_INVOCATION_KINDS.map((k) => `<code>${esc(k)}</code>`).join(" or ")} — the kind the ledger publishes for a harness's model calls. <i>Window:</i> ${infInvWindow.n ? `<code>${esc(infInvWindow.from)}</code> → <code>${esc(infInvWindow.to)}</code>` : "no timestamped invocation row on this render"}, inside a ledger whose own window is ${infLedgerWindow.n ? `<code>${esc(infLedgerWindow.from)}</code> → <code>${esc(infLedgerWindow.to)}</code>` : "empty on this render"} across <b>${infLedger.length}</b> entries. This is a RETENTION window, not a business period: it is whatever the ledger still holds, and no claim is made here about what fell out of it.</p>
             <p><b>${infInvWithModel.length}</b> of those <b>${infInvRows.length}</b> name the model they ran. <i>Predicate:</i> a non-empty <code>implementation_result.model</code> on the entry itself. The models named are ${infInvModels.length ? infInvModels.map((m) => `<code>${esc(m)}</code>`).join(" · ") : "none on this render"}, reached at ${infInvEndpoints.length ? infInvEndpoints.map((e) => `<code>${esc(e)}</code>`).join(" · ") : "no recorded endpoint"}. <b>${infInvSucceeded}</b> report <code>status: success</code> — <i>predicate:</i> the entry's own status field, which is a self-report about that record and is not joined to anything here, so it is printed as what the record SAYS and never as what the estate verified.</p>
             <p><b>${infModelInvReceipts.length}</b> receipts of kind <code>model_invocation</code> on the model-mount receipt store, out of <b>${infMountReceipts.length}</b> receipts of every kind. <i>Predicate:</i> <code>receipt.kind === "model_invocation"</code>. <i>Window:</i> ${infReceiptStamps.length ? `<code>${esc(infReceiptStamps[0])}</code> → <code>${esc(infReceiptStamps[infReceiptStamps.length - 1])}</code>` : "no timestamped receipt on this render"}. They carry <b>${infReceiptTokens}</b> total tokens between them (<i>predicate:</i> summed <code>details.tokenCount.total_tokens</code>, absent fields contributing nothing rather than zero) over ${infReceiptModels.length ? infReceiptModels.map((m) => `<code>${esc(m)}</code>`).join(" · ") : "no named model"}. Beside them the metered runtime lane holds <b>${infUsage.length}</b> usage records, scoped by run, thread and turn.</p>
             <p><b>${infModelRoutes.length}</b> registered model route${infModelRoutes.length === 1 ? "" : "s"} and <b>${infBindings.length}</b> admitted session binding${infBindings.length === 1 ? "" : "s"} — which is the estate's OWN answer to what scoped inference means here. It scopes a route to a SESSION, not to a space, and that is why the gate above is a gap rather than an unbuilt feature: the noun the reference selects by is not the noun this estate binds by. The registry states its own limits, quoted rather than paraphrased:</p>
@@ -15555,14 +15551,13 @@ async function handleEstateRequest(req, res, body) {
           const tr = tRes?.run || (tRes?.run_id ? tRes : null);
           if (tr && tr.run_id === runId) {
             const out = (tr.step_results || [])[0]?.output || {};
-            const isAgentRun = String(tr.op || "").startsWith("goal_run");
             const files = out.files_written || out.final_changed_files || [];
             const timeline = {
               schema_version: "ioi.hypervisor.run-timeline.v1",
               runId,
               environmentId: null,
               sessionRef: out.session_ref || null,
-              title: isAgentRun ? "IOI Agent coordination" : `Harness run · ${out.harness || tr.profile_ref || ""}`,
+              title: `Harness run · ${out.harness || tr.profile_ref || ""}`,
               status: tr.status || "done",
               phase: tr.status === "failed" ? "AGENT_EXECUTION_PHASE_FAILED" : "AGENT_EXECUTION_PHASE_STOPPED",
               activeStatus: null,

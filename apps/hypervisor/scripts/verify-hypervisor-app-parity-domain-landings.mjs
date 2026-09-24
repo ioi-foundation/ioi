@@ -839,7 +839,7 @@ for (const [slug, route, title, absentPhrase, ownerLink] of [
   const iUsage = iBy["/v1/usage"].rows;
   const iRoutes = iBy["/v1/hypervisor/model-routes"].rows;
   const iBindings = iBy["/v1/hypervisor/model-route-session-bindings"].rows;
-  const INV_KINDS = ["goal_run_invocation", "harness_execution"];
+  const INV_KINDS = ["harness_execution"];
   const iInv = iLedger.filter((e) => INV_KINDS.includes(String(e?.kind || "")));
   const iInvWithModel = iInv.filter((e) => str(e?.implementation_result?.model) !== "");
   const iInvSucceeded = iInv.filter((e) => String(e?.status || "") === "success").length;
