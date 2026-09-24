@@ -44,9 +44,12 @@
       el.id = panelId;
       document.body.appendChild(el);
     }
+    // Bottom-RIGHT, below the bundle's dialogs. It sat bottom-left at the maximum z-index — exactly on
+    // the rail's footer — so Organization settings, the account menu and What's new were hidden and
+    // took no clicks on every project page: dead by occlusion, found by clicking them (R-240).
     el.setAttribute(
       "style",
-      `position:fixed;left:14px;bottom:14px;z-index:2147483646;width:300px;max-height:60vh;overflow:auto;background:${t.bg};color:${t.fg};border:1px solid ${t.line};border-radius:10px;box-shadow:0 8px 30px rgba(0,0,0,.35);font:12px/1.5 system-ui,sans-serif`,
+      `position:fixed;right:14px;bottom:14px;z-index:40;width:300px;max-height:60vh;overflow:auto;background:${t.bg};color:${t.fg};border:1px solid ${t.line};border-radius:10px;box-shadow:0 8px 30px rgba(0,0,0,.35);font:12px/1.5 system-ui,sans-serif`,
     );
     const list = (data.automations || [])
       .map(
