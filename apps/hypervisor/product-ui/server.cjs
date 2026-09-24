@@ -1216,8 +1216,14 @@ function mirrorBootGuard() {
     });
     const pendingTextNodes = [];
     while (walker.nextNode()) pendingTextNodes.push(walker.currentNode);
+    // Write only a CHANGED value (R-240): assigning nodeValue — even to the same text — is a
+    // characterData mutation, the observer below reschedules this pass on it, and every text node
+    // containing the brand name was rewritten on every animation frame (~1,000 writes/s on
+    // /settings and /projects) for as long as a tab stayed open.
     pendingTextNodes.forEach((node) => {
-      node.nodeValue = brandText(node.nodeValue || '');
+      const current = node.nodeValue || '';
+      const next = brandText(current);
+      if (next !== current) node.nodeValue = next;
     });
   };
   let hypervisorBrandingScheduled = false;
