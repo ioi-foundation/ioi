@@ -34,12 +34,28 @@
     } else if (frame.getAttribute("src") !== want) {
       frame.setAttribute("src", want); // env changed (SPA nav) → repoint
     }
-    // Full replacement: hide ALL seeded pane children (transcript + the SPA's empty-state hero +
-    // its composer), leaving only our owned timeline. The owned surface carries its own follow-up
-    // composer, so it owns the whole conversation (transcript + send). Re-applied each tick because
+    // Replace ONLY the conversation body (transcript + the SPA's empty-state hero + its composer) —
+    // the owned timeline carries its own follow-up composer, so it owns the conversation. The pane's
+    // HEADER (the Conversation / Code tabs and the editor split-button: open in VS Code, Cursor, the
+    // browser IDE) and the Code tab's own panel stay the bundle's. This used to hide EVERY child, which
+    // hid the session's only way to open an editor — found by looking for the reference's editor
+    // picker on our session view and finding it at 0x0 (R-240). The timeline follows the body's own
+    // visibility, so switching to the Code tab still swaps the views. Re-applied each tick because
     // React re-creates these children on its own renders.
+    let body = C.querySelector(":scope > [data-ioi-conv-body]");
+    if (!body) {
+      body = Array.prototype.find.call(C.children, function (ch) {
+        return ch !== frame && !ch.querySelector('[role="tab"], [aria-label="Expand editor selection"]') &&
+          (ch.querySelector('[data-testid="prompt-input-textarea"], textarea') || /get done today/i.test(ch.textContent || ""));
+      });
+      if (body) body.setAttribute("data-ioi-conv-body", "");
+    }
     Array.prototype.forEach.call(C.children, function (ch) {
-      ch.style.display = ch === frame ? "" : "none";
+      if (ch !== frame && ch !== body && ch.style.display === "none") ch.style.display = ""; // undo an earlier full takeover
     });
+    if (body) {
+      body.style.display = "none";
+      frame.style.display = body.classList.contains("hidden") ? "none" : ""; // Code tab active → the bundle hides the body
+    }
   }
 
