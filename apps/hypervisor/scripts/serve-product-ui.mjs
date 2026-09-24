@@ -7555,6 +7555,8 @@ const HELP_SURFACES = [
   [/^docs\/ioi\/organizations\/policies/, "/__ioi/governance", "Governance — the policies this deployment enforces"],
   [/^docs\/ioi\/runners/, "/__ioi/environments", "Environments — providers, placement and runners"],
 ];
+// Support is not documentation: a self-hosted deployment has no vendor support desk behind it.
+const HELP_SUPPORT = /^support$/;
 const HELP_NOT_HERE = [/^(pricing|careers|contact\/sales|legal\/)/, "This is a page about the hosted product's commercial or legal terms; a self-hosted deployment has none of its own to show here."];
 
 function proxyToProductUi(req, res, body) {
@@ -8298,6 +8300,30 @@ async function handleEstateRequest(req, res, body) {
       // markdown and shows "Try it" for `actionUrl`; the link to every entry is appended here, so an
       // entry's prose carries none.
       res.end(JSON.stringify({ date: whatsNewDate(entry.date), title: entry.title, description: `${entry.description}\n\n[All release notes](/changelog#${entry.date})`, link: `/changelog#${entry.date}`, ...(entry.action_url ? { actionUrl: entry.action_url } : {}) }));
+      return;
+    }
+    // "JOIN OR CREATE AN ORGANIZATION" OPENED A BLANK PAGE (R-240). The account menu links every user
+    // to /join-organization; the captured bundle registers the path but carries no page for it, so the
+    // shell drew an empty layout. A deployment hosts ONE organization (GET /v1/hypervisor/organization)
+    // and people join it by an administrator's invitation (/v1/hypervisor/org-invite, accepted at
+    // /__ioi/invite/:id) — this page says so. The shell augmentation sends the menu's client-side link
+    // here as a full navigation.
+    if (pathname === "/join-organization" && req.method === "GET") {
+      res.writeHead(200, { "Content-Type": "text/html; charset=utf-8", "Cache-Control": "no-cache" });
+      res.end(`<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Organizations</title><style>
+        :root{--bg:#fff;--fg:#1c2127;--muted:#5f6b7c;--line:#e5e8eb;--card:#f6f7f9;--link:#215db0}
+        @media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg:#111418;--fg:#e6e7ea;--muted:#abb3bf;--line:#2a2c33;--card:#1c2127;--link:#8abbff}}
+        :root[data-theme="dark"]{--bg:#111418;--fg:#e6e7ea;--muted:#abb3bf;--line:#2a2c33;--card:#1c2127;--link:#8abbff}
+        *{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--fg);font:15px/1.55 system-ui,sans-serif}
+        main{max-width:680px;margin:0 auto;padding:48px 16px}h1{font-size:22px;margin:0 0 12px}
+        .k{font-size:12px;letter-spacing:.06em;text-transform:uppercase;color:var(--muted)}.card{margin-top:18px;padding:14px 16px;border:1px solid var(--line);border-radius:10px;background:var(--card)}a{color:var(--link)}
+      </style></head><body><main>
+        <div class="k">IOI Hypervisor</div><h1>Organizations</h1>
+        <p>This deployment hosts <b>one organization</b>, so there is no other organization to join here and no second one to create.</p>
+        <div class="card">To join it, ask an administrator for an <b>invitation link</b>. Opening the link creates your member account and signs you in.</div>
+        <div class="card">Administrators invite people from <a href="/settings/members">Organization settings → Members</a>.</div>
+        <p><a href="/ai">Back to Home</a></p>
+      </main></body></html>`);
       return;
     }
     // The panel's "Learn more" lands here — every entry, newest first. The route was the SPA's
@@ -9155,10 +9181,12 @@ async function handleEstateRequest(req, res, body) {
         a{color:var(--link)}code{font-size:13px;overflow-wrap:anywhere}
       </style></head><body><main>
         <div class="k">Help</div><h1>${esc(title)}</h1>
-        <p>This documentation is <b>not published for this deployment</b>. The link pointed at a public documentation site that has no page for it, so rather than send you to a “not found” page, it lands here.</p>
+        ${HELP_SUPPORT.test(topic)
+          ? `<p>Support for this deployment comes from <b>the people who operate it</b>. It is self-hosted, so no vendor support desk or chat stands behind it, and it publishes no support channel of its own yet.</p><div class="card">What the product can tell you itself: <a href="/__ioi/operations">Operations</a> for runs and their failures, and <a href="/changelog">What's new</a> for what changed.</div>`
+          : `<p>This documentation is <b>not published for this deployment</b>. The link pointed at a public documentation site that has no page for it, so rather than send you to a “not found” page, it lands here.</p>`}
         ${surface ? `<div class="card">Where this lives in your deployment: <a href="${surface[1]}">${esc(surface[2])}</a>.</div>` : ""}
         ${notHere ? `<div class="card">${esc(notHere)}</div>` : ""}
-        ${!surface && !notHere ? `<div class="card">No surface in this deployment covers this topic yet.</div>` : ""}
+        ${!surface && !notHere && !HELP_SUPPORT.test(topic) ? `<div class="card">No surface in this deployment covers this topic yet.</div>` : ""}
         <p class="k" style="margin-top:28px">Topic <code>${esc(topic || "(none)")}</code></p>
       </main></body></html>`);
       return;
@@ -9305,6 +9333,16 @@ async function handleEstateRequest(req, res, body) {
       try { await daemonFetch(`/v1/hypervisor/auth/logout`, { method: "POST", headers: { Cookie: req.headers.cookie || "" } }); } catch { /* best-effort */ }
       res.writeHead(302, { "Set-Cookie": "ioi_session=; HttpOnly; SameSite=Lax; Path=/; Max-Age=0", Location: "/__ioi/login" });
       res.end();
+      return;
+    }
+    // THE SHELL'S "LOG OUT" SIGNED NOBODY OUT (R-240). The account menu POSTs the vendor's
+    // /auth/oidc/logout; nothing here handled it, the mock server answered 200, the bundle navigated
+    // away — and the ioi_session cookie stayed valid, so a person who logged out on a shared machine
+    // was still signed in. It now does what /__ioi/logout does: revoke at the daemon, clear the cookie.
+    if (pathname === "/auth/oidc/logout" && req.method === "POST") {
+      try { await daemonFetch(`/v1/hypervisor/auth/logout`, { method: "POST", headers: { Cookie: req.headers.cookie || "" } }); } catch { /* the cookie is cleared regardless */ }
+      res.writeHead(200, { "Set-Cookie": "ioi_session=; HttpOnly; SameSite=Lax; Path=/; Max-Age=0", "Content-Type": "application/json", "Cache-Control": "no-store" });
+      res.end("{}");
       return;
     }
     // ---- Page gate: when auth enforcement is ON, redirect unauthenticated HTML navigations to login

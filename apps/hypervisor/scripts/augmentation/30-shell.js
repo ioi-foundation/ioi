@@ -45,6 +45,24 @@
       row.innerHTML = '<span class="ioi-oar-ico">' + icon + '</span><span class="ioi-oar-txt"><span class="ioi-oar-l">Open Application</span><span class="ioi-oar-n">' + esc(name) + '</span></span><button class="ioi-oar-x" title="Close">✕</button>';
     }
   }
+  // THE ACCOUNT MENU'S "Support" DID NOTHING (R-240). It calls `window.Pylon("show")`, a vendor
+  // support-chat widget this product never loads; the product-ui server pins `window.Pylon` to a no-op
+  // (a getter, and a setter that discards writes — so a plain assignment here is silently ignored) so
+  // the call cannot throw, and the click only closed the menu. The property is configurable, so it is
+  // redefined: "show" opens the help page's support topic in a new tab, the way "Docs" opens help.
+  (function () {
+    const showSupport = function () { window.open("/__ioi/help?topic=support", "_blank", "noopener"); };
+    const pylon = Object.assign(function (command) { if (command === "show") showSupport(); }, { boot() {}, update() {}, shutdown() {}, hide() {}, show: showSupport });
+    try { Object.defineProperty(window, "Pylon", { configurable: true, get: () => pylon, set: () => {} }); } catch (e) { /* a non-configurable stub keeps its no-op */ }
+  })();
+  // "Join or create an organization" is a client-side link to a path the captured bundle has no page
+  // for (a blank layout). Send it to the serve's page for that path as a full navigation (R-240).
+  document.addEventListener("click", function (e) {
+    const a = e.target && e.target.closest && e.target.closest('a[href="/join-organization"]');
+    if (!a || e.defaultPrevented || e.button !== 0 || e.metaKey || e.ctrlKey || e.shiftKey || e.altKey) return;
+    e.preventDefault(); e.stopPropagation();
+    window.location.assign("/join-organization");
+  }, true);
   // Signed-out honesty (R-240). A local browser reads as the local operator — whoami answers with that
   // display principal AND `authenticated: false` — while the daemon lists and admits Sessions only for
   // an authenticated principal. The adapter used to report that refusal as the daemon "not answering",
