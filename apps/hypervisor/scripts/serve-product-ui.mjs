@@ -5870,7 +5870,25 @@ function renderIncidentsPort(ops, workResults, lane) {
 // Compare models, name search, facet filtering, model detail pages, fine-tuning / playground /
 // inference / deployment — are named gaps disabled in place. Route ADMINISTRATION (enable /
 // probe / select-default) lives in Agent Studio (linked); this surface is read-only truth.
-function renderModelCatalogPort(routesJson, view = "provided") {
+// REGISTER A MODEL (R-240). "Import model" was a named gap: model-ASSET import (weights) has no
+// plane, but what a person running models means — "use the model I already run" — is route
+// registration, which the daemon owns and no surface offered. Three governed calls, each
+// receipted: create (declared), enable (active), probe (available against the provider itself).
+function modelRegisterPanel(reg) {
+  const esc = CX_ESC;
+  const note = reg && reg.notice ? `<p class="mc-regnote ${reg.notice.kind}" role="${reg.notice.kind === "err" ? "alert" : "status"}">${esc(reg.notice.text)}</p>` : "";
+  return `${note}<details class="mc-register" id="register"${reg && reg.open ? " open" : ""}><summary>+ Register a model</summary>
+    <form class="mc-regform" method="post" action="/__ioi/foundry/models/register">
+      <label>Provider<select name="transport"><option value="ollama">Ollama (runs on this machine or your network)</option><option value="openai_compatible">OpenAI-compatible API</option></select></label>
+      <label>Base URL<input name="base_url" value="http://127.0.0.1:11434" required maxlength="400"></label>
+      <label>Model<input name="model_id" required maxlength="200" placeholder="e.g. qwen3:8b"><span class="hint">The model's own name at the provider</span></label>
+      <label>Display name<input name="display_name" maxlength="200" placeholder="optional"></label>
+      <label class="full">Credential environment variable<input name="env_key_name" maxlength="120" placeholder="only for a hosted API — e.g. OPENAI_API_KEY"><span class="hint">The NAME of the variable holding the key on the daemon's machine — a key itself is never accepted here.</span></label>
+      <button type="submit">Register, enable and check</button>
+    </form></details>`;
+}
+
+function renderModelCatalogPort(routesJson, view = "provided", reg = null) {
   const esc = CX_ESC;
   const routes = (routesJson && routesJson.routes) || [];
   const cap = (s2) => String(s2 || "").replace(/\b\w/g, (c) => c.toUpperCase());
@@ -5998,7 +6016,7 @@ function renderModelCatalogPort(routesJson, view = "provided") {
   // gap ON the lane (route registration ≠ asset import).
   const regRows = routes.map((r) => `<div class="mc-regrow">
       <span><b>${esc(r.display_name || r.route_id)}</b><code class="mc-regref">${esc(r.route_ref || r.route_id)}</code></span>
-      <span>${esc(((r.model || {}).id) || ((r.model || {}).name) || "—")}</span>
+      <span>${esc(((r.model || {}).model_id) || ((r.model || {}).id) || ((r.model || {}).name) || "—")}</span>
       <span title="the registry's own origin field, verbatim">${esc(r.origin || "—")}</span>
       <span>${esc((r.availability || {}).state || "unknown")}</span>
       <span>${r.default_route ? "default" : "—"}</span>
@@ -6006,7 +6024,7 @@ function renderModelCatalogPort(routesJson, view = "provided") {
   const registeredLane = `<main class="mc-reglane">
     <h2 class="mc-h1">Registered models</h2>
     <p class="mc-regsub">The model-route registry BY ORIGIN — every row is a REGISTERED route (the registry's own origin field, verbatim). ${routes.length} route${routes.length === 1 ? "" : "s"}.</p>
-    <span class="mc-import gap" aria-disabled="true" title="External model-ASSET import is a reference-only lane — no import plane exists (route registration via POST /v1/hypervisor/model-routes is a different verb, owned by Agent Studio); typed absence" data-ioi-disabled-reason="External model-ASSET import is a reference-only lane — no import plane exists (route registration via POST /v1/hypervisor/model-routes is a different verb, owned by Agent Studio); typed absence">Import model</span>
+    ${modelRegisterPanel(reg)}
     <div class="mc-reghead"><span>Route</span><span>Model</span><span>Origin</span><span>Availability</span><span>Default</span></div>
     <div class="mc-regrows">${regRows || `<div class="mc-empty">No registered routes — this lane renders the real registry and never fabricates rows.</div>`}</div>
     <p class="mc-foot">FOU-1 (remediation v2): the reference's Registered-models tab as a LIVE lane over the SAME route registry, keyed on the registry's own origin field. Route administration stays in <a href="/__ioi/agent-studio">Agent Studio</a>. Evidence: reference-seed-adjudications.v1.json#models-registered · reference-family-atlas.v1.json (models tabs state).</p>
@@ -6015,6 +6033,14 @@ function renderModelCatalogPort(routesJson, view = "provided") {
   return `<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Model Catalog</title><style>${css}
     .mc-reglane{flex:1;overflow-y:auto;padding:20px 28px 40px}
     .mc-regsub{font-size:13px;color:#5f6b7c;margin:4px 0 10px}
+    .mc-register{margin:0 0 12px}.mc-register>summary{list-style:none;cursor:pointer;display:inline-flex;height:28px;align-items:center;padding:0 10px;border:1px solid rgba(17,20,24,.2);border-radius:4px;font-size:13px;font-weight:600;color:#215db0;background:#fff}
+    .mc-register>summary::-webkit-details-marker{display:none}.mc-register[open]>summary{background:#f6f7f9}
+    .mc-regform{margin-top:10px;display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;max-width:760px;padding:14px;border:1px solid #d3d8de;border-radius:6px;background:#fff}
+    .mc-regform label{display:flex;flex-direction:column;gap:4px;font-size:12px;font-weight:600;color:#404854}.mc-regform .full{grid-column:1/-1}
+    .mc-regform input,.mc-regform select{font-family:inherit;font-size:13px;font-weight:400;border:1px solid rgba(17,20,24,.25);border-radius:3px;padding:6px 8px}
+    .mc-regform button{justify-self:start;background:#2d72d2;color:#fff;border:0;border-radius:3px;padding:6px 14px;font-weight:600;cursor:pointer}
+    .mc-regform .hint{font-weight:400;color:#5f6b7c}
+    .mc-regnote{margin:0 0 12px;padding:10px 12px;border-radius:4px;font-size:13px;max-width:760px}.mc-regnote.ok{background:#f3f8f5;border:1px solid rgba(35,133,81,.3);color:#1c6e42}.mc-regnote.err{background:#fcf1f1;border:1px solid rgba(172,47,51,.3);color:#8e292c}
     .mc-import{display:inline-flex;height:28px;align-items:center;padding:0 10px;border:1px solid rgba(95,107,124,.25);border-radius:4px;font-size:13px;color:#a8b2be;cursor:not-allowed;margin:0 0 14px}
     .mc-reghead{display:grid;grid-template-columns:2fr 1.2fr 1fr 1fr 90px;gap:8px;font-size:11px;font-weight:600;letter-spacing:.04em;text-transform:uppercase;color:#5f6b7c;padding:6px 10px;border-bottom:1px solid #e5e8eb}
     .mc-regrow{display:grid;grid-template-columns:2fr 1.2fr 1fr 1fr 90px;gap:8px;align-items:center;padding:8px 10px;border-bottom:1px solid #f0f2f5;font-size:14px}
@@ -13557,11 +13583,40 @@ async function handleEstateRequest(req, res, body) {
       sendOwnedSurfaceHtml(res, "listings", renderMarketplaceBrowsePort(listingsJson));
       return;
     }
+    if (pathname === "/__ioi/foundry/models/register" && req.method === "POST") {
+      const f = new URLSearchParams(body.toString());
+      const back = (ok, text) => { res.writeHead(303, { Location: `/__ioi/foundry/models?tab=registered&reg_ok=${ok ? 1 : 0}&reg_note=${encodeURIComponent(text)}#register`, "Cache-Control": "no-store" }); res.end(); };
+      const who = await daemonFetch("/v1/hypervisor/auth/whoami").then((x) => x.json()).catch(() => ({}));
+      const owner = callerOwnerRef(who);
+      if (!owner) return back(false, "Not registered: your sign-in belongs to no organization of this deployment, so the route would have no owner.");
+      const nonce = crypto.randomUUID();
+      const post = (path, bodyObj) => daemonFetch(path, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(bodyObj) })
+        .then(async (x) => ({ status: x.status, j: await x.json().catch(() => ({})) })).catch(() => ({ status: 0, j: {} }));
+      const why = (r) => (r.j.error && r.j.error.message) || r.j.message || r.j.reason || (r.status ? `the daemon answered HTTP ${r.status}` : "the daemon did not answer");
+      const modelId = (f.get("model_id") || "").trim().slice(0, 200);
+      const created = await post("/v1/hypervisor/model-routes", {
+        owner_ref: owner, idempotency_key: `mr-${nonce}`, model_id: modelId, transport: (f.get("transport") || "ollama").trim(),
+        base_url: (f.get("base_url") || "").trim().slice(0, 400), display_name: (f.get("display_name") || "").trim().slice(0, 200) || modelId,
+        ...((f.get("env_key_name") || "").trim() ? { env_key_name: f.get("env_key_name").trim().slice(0, 120) } : {}),
+      });
+      const route = created.j.route || created.j.model_route || created.j.record || {};
+      const routeId = route.route_id || created.j.route_id;
+      if (!(created.status >= 200 && created.status < 300) || !routeId) return back(false, `Not registered: ${why(created)}`);
+      const enabled = await post(`/v1/hypervisor/model-routes/${encodeURIComponent(routeId)}/enable`, { owner_ref: owner, idempotency_key: `mr-enable-${nonce}` });
+      if (!(enabled.status >= 200 && enabled.status < 300)) return back(false, `Registered ${modelId} (${routeId}) but it could not be enabled: ${why(enabled)}`);
+      const probed = await post(`/v1/hypervisor/model-routes/${encodeURIComponent(routeId)}/probe`, { owner_ref: owner, idempotency_key: `mr-probe-${nonce}` });
+      const state = probed.j?.availability?.state;
+      if (state === "available") return back(true, `Registered ${modelId} — enabled, and the provider answered: it is available to Inference and the Architect.`);
+      return back(false, `Registered and enabled ${modelId} (${routeId}), but the provider did not confirm it: ${probed.status >= 200 && probed.status < 300 ? `availability is ${state || "unknown"}` : why(probed)}. Check the model name and that the provider is running, then check it again from Agent Studio.`);
+    }
     if (pathname === "/__ioi/foundry/models" && req.method === "GET") {
       const routesJson = await daemonFetch(`/v1/hypervisor/model-routes`).then((x) => x.json()).catch(() => ({}));
       // FOU-1 (remediation v2): ?tab=registered = the registry-by-origin lane (live).
-      const mcView = new URL(req.url, "http://x").searchParams.get("tab") === "registered" ? "registered" : "provided";
-      sendOwnedSurfaceHtml(res, "models", renderModelCatalogPort(routesJson, mcView));
+      const mcQ = new URL(req.url, "http://x").searchParams;
+      const mcView = mcQ.get("tab") === "registered" ? "registered" : "provided";
+      const regText = (mcQ.get("reg_note") || "").slice(0, 400);
+      const reg = regText ? { notice: { kind: mcQ.get("reg_ok") === "1" ? "ok" : "err", text: regText }, open: mcQ.get("reg_ok") !== "1" } : null;
+      sendOwnedSurfaceHtml(res, "models", renderModelCatalogPort(routesJson, mcView, reg));
       return;
     }
     if (pathname === "/__ioi/missions/incidents" && req.method === "GET") {
