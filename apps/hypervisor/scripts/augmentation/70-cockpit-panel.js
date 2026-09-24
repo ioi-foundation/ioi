@@ -64,7 +64,11 @@
   .ioi-ns-field select,.ioi-ns-field input,.ioi-ns-field textarea{width:100%;box-sizing:border-box;background:#0c0d10;border:1px solid #2a2c33;color:#e6e7ea;border-radius:8px;padding:7px 10px;font:12.5px system-ui,sans-serif;resize:vertical;}
   .ioi-ns-grid{display:grid;grid-template-columns:1fr 1fr;gap:0 14px;}
   .ioi-ns-cx-list{display:flex;flex-direction:column;gap:4px;border:1px solid #2a2c33;border-radius:8px;background:#0c0d10;padding:6px 10px;max-height:140px;overflow:auto;}
-  .ioi-ns-cx{display:flex;gap:8px;align-items:baseline;font-size:12.5px;color:#c9ccd4;cursor:pointer;text-transform:none;letter-spacing:0;}
+  /* Scoped under .ioi-ns-field so these OUTRANK the field-label and field-input rules above — at
+     class-only specificity they lost, and every row rendered as an uppercase field label with its
+     checkbox stretched to 100% on a line of its own (R-240). */
+  .ioi-ns-field label.ioi-ns-cx{display:flex;gap:8px;align-items:baseline;font-size:12.5px;color:#c9ccd4;cursor:pointer;text-transform:none;letter-spacing:0;font-weight:400;margin-bottom:0;}
+  .ioi-ns-field input.ioi-ns-cx-box{width:auto;flex:0 0 auto;margin:0;padding:0;border:0;background:none;}
   .ioi-ns-cx span{color:#878a93;font-size:11.5px;}
   .ioi-ns-cx-off{opacity:.6;cursor:not-allowed;}
   .ioi-ns-cx-empty{font-size:12px;color:#878a93;padding:2px 0;}
