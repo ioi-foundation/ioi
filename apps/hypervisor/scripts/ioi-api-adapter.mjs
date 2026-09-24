@@ -1430,6 +1430,12 @@ async function handleImpl(pathname, bodyText) {
     const integ = (await mcpConnectorsAsIntegrations()).find((i) => i.id === connector.connector_id) || { id: connector.connector_id, integrationDefinitionId: connector.connector_id, name, enabled: true, capabilities: { mcp: { url: mcpUrl } } };
     return json({ integration: integ });
   }
+  if (pathname === "/api/ioi.v1.IntegrationService/UpdateIntegration") {
+    // The switch beside each integration had no lane (a generic unmatched-RPC 501). A daemon
+    // connector has no enabled flag — its org policy narrows TOOLS, which is not the same promise as
+    // "off" — so this refuses by name and says where the connector is actually managed (R-240).
+    return jsonStatus(412, { code: "failed_precondition", message: "Not saved: this deployment cannot switch an integration off for the organization. Narrow its tools or remove it under Connections (/__ioi/connections)." });
+  }
   if (pathname === "/api/ioi.v1.IntegrationService/ValidateIntegration") {
     // Validate an integration = confirm it resolves to a real registered connector (our MCP
     // integrations ARE daemon connectors). Unknown id → invalid; daemon transient → lenient (valid).

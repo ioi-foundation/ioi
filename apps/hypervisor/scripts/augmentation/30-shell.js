@@ -96,6 +96,27 @@
     }
     if (row.previousElementSibling !== header) header.insertAdjacentElement("afterend", row);
   }
+  // Organization settings are read for a signed-in administrator; the bundle draws a REFUSED read as
+  // an EMPTY one — signed out, Sessions said "It's quiet here · there are no environments in your
+  // organization" over a daemon holding dozens (R-240). The layout says what is true above the pane.
+  function updateSignedOutSettings() {
+    let bar = document.getElementById("ioi-signedout-settings");
+    const main = /^\/settings(\/|$)/.test(location.pathname) ? document.querySelector("main") : null;
+    if (ioiSignedIn !== false || !main) { if (bar) bar.remove(); return; }
+    if (!bar) {
+      bar = document.createElement("div");
+      bar.id = "ioi-signedout-settings";
+      bar.setAttribute("role", "status");
+      bar.style.cssText = "margin:0 0 16px;padding:10px 14px;border:1px solid rgba(209,152,11,.5);border-radius:8px;background:rgba(209,152,11,.08);color:inherit;font-size:13px;line-height:1.5";
+    }
+    const next = encodeURIComponent(location.pathname + location.search);
+    if (bar.getAttribute("data-next") !== next) { // rewrite only on a route change — every write re-fires the observer
+      bar.setAttribute("data-next", next);
+      bar.innerHTML = "<b>Signed out.</b> The daemon shows organization settings only to a signed-in administrator, so an empty list on this page is not an empty organization. " +
+        '<a href="/__ioi/login?next=' + next + '" target="_top" style="text-decoration:underline">Sign in</a>';
+    }
+    if (main.firstElementChild !== bar) main.insertBefore(bar, main.firstElementChild);
+  }
   function closeApplication() {
     const el = document.getElementById("ioi-open-app");
     if (el) el.style.display = "none";
