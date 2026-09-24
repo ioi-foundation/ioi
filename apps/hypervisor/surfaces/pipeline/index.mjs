@@ -643,9 +643,9 @@ function renderPipelineBuilder(lists, sel, embed) {
     <div class="pb-htitles">
       <div class="pb-crumbrow"><span class="pb-crumb">${oname} <span class="pb-cx">›</span> <b>Pipeline Builder</b>${selected ? ` <span class="pb-cxt">— ${instances > 0 ? `<span class="pb-live">built</span>` : `<span class="pb-declared">not built</span>`} · ${nodes.filter((n) => n.cls === "live").length}/${nodes.length} stages live</span>` : ""}</span><span class="pb-star">${bpIcon("star-empty")}</span></div>
       <div class="pb-menurow">
-        <span class="pb-menu gap" title="File menu is a reference-only lane (named gap)">File ${bpIcon("caret-down", 16)}</span>
-        <span class="pb-menu gap" title="named gap">Settings ${bpIcon("caret-down", 16)}</span>
-        <span class="pb-menu gap" title="named gap">Help ${bpIcon("caret-down", 16)}</span>
+        <span class="pb-menu gap" role="button" tabindex="0" aria-disabled="true" title="File menu is a reference-only lane (named gap)" data-ioi-disabled-reason="File menu is a reference-only lane (named gap)">File ${bpIcon("caret-down", 16)}</span>
+        <span class="pb-menu gap" role="button" tabindex="0" aria-disabled="true" title="Settings menu is a reference-only lane (named gap)" data-ioi-disabled-reason="Settings menu is a reference-only lane (named gap)">Settings ${bpIcon("caret-down", 16)}</span>
+        <span class="pb-menu gap" role="button" tabindex="0" aria-disabled="true" title="Help menu is a reference-only lane (named gap)" data-ioi-disabled-reason="Help menu is a reference-only lane (named gap)">Help ${bpIcon("caret-down", 16)}</span>
         <span class="pb-menudiv"></span>
         <span class="pb-batch">${bpIcon("office", 16)}<span class="pb-batchn">1</span></span>
         <span class="pb-menudiv d2"></span>
@@ -661,9 +661,9 @@ function renderPipelineBuilder(lists, sel, embed) {
       <a class="pb-btn link" href="${managerLink({ ontology: oid })}">Ontology Manager</a>
     </div>
     <div class="pb-hright">
-      <span class="pb-hbtn gap" title="Actions menu is a reference-only lane (named gap)">Actions ${bpIcon("caret-down")}</span>
+      <span class="pb-hbtn gap" role="button" tabindex="0" aria-disabled="true" title="Actions menu is a reference-only lane (named gap)" data-ioi-disabled-reason="Actions menu is a reference-only lane (named gap)">Actions ${bpIcon("caret-down")}</span>
       <span class="pb-hdrdiv"></span>
-      <span class="pb-hbtn gap" title="Sharing is a reference-only lane (named gap)">${bpIcon("people")} Share</span>
+      <span class="pb-hbtn gap" role="button" tabindex="0" aria-disabled="true" title="Sharing is a reference-only lane (named gap)" data-ioi-disabled-reason="Sharing is a reference-only lane (named gap)">${bpIcon("people")} Share</span>
       <span class="pb-hico gap" title="Panel layout toggle — named gap">${bpIcon("properties")}</span>
     </div>
   </header>`;

@@ -60,12 +60,19 @@ const LIVE = self("live");
 // the labelled subset consistent with the other four counts. The larger number was not wrong, it
 // was a different population, and mixing the two would make the pin uncomparable with itself.
 //
-// AND THE FIRST CENSUS UNDER-COUNTED THIS ONE BY MORE THAN HALF. It sampled 600ms after
-// domcontentloaded and reported 272 labelled / 242 unreachable; the settled truth is 624 / 594,
-// because several surfaces hydrate their rows from the daemon after that. The three counts it got
-// RIGHT — primary_fill, cursor_not_disabled, unmarked_gap — are the ones living in statically
-// rendered header chrome, which is present immediately. That is why the live leg now proves
-// settlement instead of waiting a fixed interval.
+// AND THE FIRST CENSUS UNDER-COUNTED THIS ONE BY MORE THAN HALF, TWICE, FOR THE SAME REASON.
+// It first sampled 600ms after domcontentloaded and reported 272 labelled. Proving SETTLEMENT — two
+// agreeing samples 500ms apart — looked like the fix and was not: the environments map renders ~72
+// controls of static chrome immediately, holds steady well past 500ms, and only then paints the 424
+// it has once its daemon-backed rows arrive. Two samples agreed on a half-drawn page and the leg
+// reported 272 again. STABILITY IS NOT COMPLETENESS. The leg now waits for the network to go quiet
+// before it starts sampling, which is what distinguishes "nothing is changing yet" from "nothing is
+// changing any more", and only then requires two agreeing samples. `unmarked_gap` is 0 because the
+// 18 undeclared spans were repaired; the other four counts are the settled truth.
+//
+// The three counts that were RIGHT at 600ms — primary_fill, cursor_not_disabled, unmarked_gap — are
+// the ones living in statically rendered header chrome, present immediately. That is the tell: when
+// one count moves with page timing and another does not, the moving one is not yet measured.
 //
 // `primary_fill` and `cursor_not_disabled` are BELOW the first census (18 and 68) for two separate
 // reasons, and only one of them is a repair. The Designer's six controls were fixed as the worked
@@ -80,7 +87,7 @@ export const PINNED = Object.freeze({
   primary_fill: 4,
   cursor_not_disabled: 62,
   unreachable_control: 594,
-  unmarked_gap: 18,
+  unmarked_gap: 0,
 });
 
 export const CLAUSES = [
@@ -88,7 +95,7 @@ export const CLAUSES = [
   { n: 2, demand: "THE CURSOR IS THE FASTEST SIGNAL A PERSON GETS and `default` says \"not clickable, not refused\" — which is the one thing this control is. A declared gap renders `cursor: not-allowed` or the pointer is lying", executed_by: [PURE, LIVE] },
   { n: 3, demand: "A DECLARED GAP IS NEVER STYLED AS THE THING TO CLICK: a saturated opaque fill on an unavailable control is not a subtle defect, it is the most prominent promise on the surface. Saturation AND alpha are both required, because the estate's own gap fill is grey and nearly transparent and either test alone would condemn the convention it exists to protect", executed_by: [PURE, LIVE] },
   { n: 4, demand: "`aria-disabled` ON A BARE SPAN IS AN ATTRIBUTE ON A NON-CONTROL — assistive technology has nothing to describe as disabled, and with no tabindex a keyboard user cannot reach it to be told anything at all. A declared gap carries a role and is focusable, or its declaration reaches nobody who needs it", executed_by: [PURE, LIVE] },
-  { n: 5, demand: "A MARKER CLASS WITHOUT `aria-disabled` IS INVISIBLE TO EVERY GATE IN THIS ESTATE, because every one of them keys on the attribute it lacks — and a screen reader announces it as an ordinary enabled control, actively vouching for it. Measured: 25 labelled such controls. FIVE more were first counted here in error: they carry the NATIVE `disabled` attribute, which is stronger than `aria-disabled` — not clickable, not focusable, and correctly announced as disabled", executed_by: [PURE, LIVE] },
+  { n: 5, demand: "A MARKER CLASS WITHOUT `aria-disabled` IS INVISIBLE TO EVERY GATE IN THIS ESTATE, because every one of them keys on the attribute it lacks — and a screen reader announces it as an ordinary enabled control, actively vouching for it. Measured: 18 labelled such controls, ALL NOW REPAIRED (the pin is 0). FIVE more were first counted here in error: they carry the NATIVE `disabled` attribute, which is stronger than `aria-disabled` — not clickable, not focusable, and correctly announced as disabled", executed_by: [PURE, LIVE] },
   { n: 6, demand: "PROSE IS NOT A CONTROL: `*-gapnote` carries the EXPLANATION of what is unavailable and why, so dimming or refusing it would hide the one thing on the surface doing its job. Excluded by name rather than by a pattern, because a pattern that guessed would eventually swallow a control", executed_by: [PURE, SOURCE] },
   { n: 7, demand: "ONE CONVENTION MUST NOT HAVE ELEVEN SPELLINGS. `gap` is the shared marker and ten surfaces each minted a private one; a convention nobody can apply by habit is a convention that will be forgotten, which is exactly how 33 surfaces acquired this debt. The vocabulary is read from the SERVE SOURCE and compared against the classifier's list, so a twelfth spelling is red", executed_by: [SOURCE] },
   { n: 8, demand: "THE POPULATION IS PINNED EXACTLY AND MEASURED BY THIS GATE'S OWN SERVE — not the shared :4173 a developer happens to be running, which would let a gate pass on a process it did not start. A new defect is red on the day it is written; a repair that lowers the count must lower the pin with it", executed_by: [LIVE], absence: { what: "THE DEBT IS RECORDED, NOT REPAIRED. 33 of 36 surfaces carry it and this gate does not fix them: the shared `.gap` rule family, the `role`/`tabindex` additions and the 25 missing declarations are a separate cut, because they change visible output on 33 surfaces and the pixel-certification and parity baselines must be re-frozen in the same commit that moves them. ONE SURFACE IS PARTIALLY REPAIRED as the worked example — the Solution Designer's six controls now render muted with `not-allowed` — and it is only PARTIAL: they remain bare spans, so clause 4 still finds them unreachable. The treatment itself is the owner's call and has not been approved estate-wide", owner: `the Hypervisor app owner for the gap treatment and the baseline re-freeze (${OWNER_Q})` } },
@@ -354,6 +361,16 @@ async function liveLeg() {
       const route = s.canonical_route || s.route;
       try {
         await page.goto(base + route, { waitUntil: "domcontentloaded", timeout: 90000 });
+        // SETTLING PROVED STABILITY, NOT COMPLETENESS — and that was still wrong.
+        //
+        // The environments map renders ~72 controls from static chrome immediately, HOLDS STEADY for
+        // well over 500ms, and only then paints the 424 it has once its daemon-backed rows arrive.
+        // Two agreeing samples therefore agreed on a half-drawn page, and the leg reported 272 where
+        // the true population is 624. Waiting for the network to go quiet is what distinguishes
+        // "nothing is changing yet" from "nothing is changing any more". The wait is tolerant: a
+        // surface that never reaches idle still goes through the sample loop below, which will
+        // refuse it by name rather than let it contribute a number nobody can reproduce.
+        await page.waitForLoadState("networkidle", { timeout: 20000 }).catch(() => {});
       } catch { findings.push(`route_unreachable: ${route}`); continue; }
       probed += 1;
 

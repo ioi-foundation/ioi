@@ -5394,7 +5394,7 @@ function renderIncidentsPort(ops, workResults, lane) {
       : kind === "box"
         ? `<input class="in-fbox" placeholder="${label === "Labels" ? "Type a label name…" : "Type a support type name..."}" disabled aria-label="${esc(label)} filter (reference-only, not wired)">`
         : `<span class="in-dates"><input class="in-fdate" placeholder="Start date" disabled aria-label="${esc(label)} start (reference-only)"><input class="in-fdate" placeholder="End date" disabled aria-label="${esc(label)} end (reference-only)"></span>`;
-    const inc = kind === "dates" ? "" : `<span class="in-finc gap" title="include/exclude toggle — a reference-only lane (named gap)">include ${bpIcon("caret-down")}</span>`;
+    const inc = kind === "dates" ? "" : `<span class="in-finc gap" role="button" tabindex="0" title="include/exclude toggle — a reference-only lane (named gap)" aria-disabled="true" data-ioi-disabled-reason="include/exclude toggle — a reference-only lane (named gap)">include ${bpIcon("caret-down")}</span>`;
     return `<div class="in-facet ${slot}"><div class="in-frow"><span class="in-flabel">${esc(label)}</span>${inc}</div>${input}</div>`;
   };
   const prio = (label, color, slot) => `<label class="in-prio ${slot} gap" title="Priority filtering is a reference-only lane — the daemon records no incident priorities (named gap)" data-ioi-disabled-reason="Priority filtering is a reference-only lane — the daemon records no incident priorities (named gap)"><span class="in-cb" role="checkbox" aria-checked="false" aria-disabled="true" title="Priority filtering is a reference-only lane — the daemon records no incident priorities (named gap)" data-ioi-disabled-reason="Priority filtering is a reference-only lane — the daemon records no incident priorities (named gap)"></span><span class="in-ppill" style="background:${color}33"><span class="in-pdot" style="color:${color}">${bpIcon("issue-dot")}</span>${label}</span></label>`;
@@ -5421,7 +5421,7 @@ function renderIncidentsPort(ops, workResults, lane) {
     ${laneRow("open", "Open", open.length, "l1")}
     ${laneRow("closed", "Closed", closed.length, "l2")}
     ${laneRow("all", "All", incidents.length, "l3")}
-    <div class="in-fhead"><span class="in-ftitle">Filters</span><span class="in-fclear gap" title="No filters are wired yet — reference-only lanes (named gap)">Clear filters</span></div>
+    <div class="in-fhead"><span class="in-ftitle">Filters</span><span class="in-fclear gap" role="button" tabindex="0" title="No filters are wired yet — reference-only lanes (named gap)" aria-disabled="true" data-ioi-disabled-reason="No filters are wired yet — reference-only lanes (named gap)">Clear filters</span></div>
     <div class="in-flabel in-fprio">Priority</div>
     ${prio("High", "#ff9980", "p1")}
     ${prio("Medium", "#f0b726", "p2")}
@@ -5440,8 +5440,8 @@ function renderIncidentsPort(ops, workResults, lane) {
       <span class="in-cb hd" role="checkbox" aria-checked="false" aria-disabled="true" title="Bulk selection — a reference-only lane (named gap)" data-ioi-disabled-reason="Bulk selection — a reference-only lane (named gap)"></span>
       <span class="in-lcounttxt">${shown.length < rows.length ? `${shown.length} of ${rows.length}` : rows.length} ${lane === "all" ? "" : lane + " "}issue${rows.length === 1 ? "" : "s"}</span>
       <span class="in-lmut">filtered by</span>
-      <span class="in-lsel gap" title="Saved filters are a reference-only lane (named gap)">select filter ${bpIcon("caret-down")}</span>
-      <span class="in-lsort"><span class="in-lmut">Sort by</span> <span class="in-lsortv gap" title="Sort options are a reference-only lane — rows are honestly ordered by most recent update">Most recently updated ${bpIcon("caret-down")}</span></span>
+      <span class="in-lsel gap" role="button" tabindex="0" title="Saved filters are a reference-only lane (named gap)" aria-disabled="true" data-ioi-disabled-reason="Saved filters are a reference-only lane (named gap)">select filter ${bpIcon("caret-down")}</span>
+      <span class="in-lsort"><span class="in-lmut">Sort by</span> <span class="in-lsortv gap" role="button" tabindex="0" title="Sort options are a reference-only lane — rows are honestly ordered by most recent update" aria-disabled="true" data-ioi-disabled-reason="Sort options are a reference-only lane — rows are honestly ordered by most recent update">Most recently updated ${bpIcon("caret-down")}</span></span>
     </div>
     <div class="in-rows" id="incident-rows">${shown.length ? shown.map(rowHtml).join("") : emptyLane}</div>
   </main>`;

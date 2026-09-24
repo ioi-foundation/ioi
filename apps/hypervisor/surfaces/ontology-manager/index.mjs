@@ -350,7 +350,7 @@ function renderOntologyManagerPort(ov, lists, selectedId, opts) {
       || `${label} is a reference-only lane — no authority contract yet (named gap).`;
     return href
       ? `<a class="${cls}" href="${href}">${inner}</a>`
-      : `<span class="${cls} gap" title="${esc(gapReason)}">${inner}</span>`;
+      : `<span class="${cls} gap" role="link" tabindex="0" aria-disabled="true" title="${esc(gapReason)}" data-ioi-disabled-reason="${esc(gapReason)}">${inner}</span>`;
   };
   // Rail section links carry the Manager section (real navigation) while keeping the certified
   // markup (href-only change — pixels unaffected). Named-gap lanes stay disabled in place.

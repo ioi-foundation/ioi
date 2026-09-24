@@ -176,7 +176,7 @@ function renderApprovalsPort(records, statusFilter, opts) {
   // is wired to ?status=; the rest are faithful faceted controls disabled as named gaps).
   const QF_ICON = { "Your inbox": "inbox", "Created by you": "follower", "All requests": "form" };
   const qf = (label, count, href, on, gap) => gap
-    ? `<span class="ap-qf gap" title="${esc(label)} needs a per-user creator/identity plane — named gap (no count)"><span class="ap-qfi">${bpIcon(QF_ICON[label] || "form")}</span>${esc(label)}<span class="ap-qfc">—</span></span>`
+    ? `<span class="ap-qf gap" role="button" tabindex="0" aria-disabled="true" title="${esc(label)} needs a per-user creator/identity plane — named gap (no count)" data-ioi-disabled-reason="${esc(label)} needs a per-user creator/identity plane — named gap (no count)"><span class="ap-qfi">${bpIcon(QF_ICON[label] || "form")}</span>${esc(label)}<span class="ap-qfc">—</span></span>`
     : `<a class="ap-qf${on ? " on" : ""}" href="${href}"><span class="ap-qfi">${bpIcon(QF_ICON[label] || "form")}</span>${esc(label)}<span class="ap-qfc">${count}</span></a>`;
   const statusOpt = (v, label) => `<option value="${v}"${v === view ? " selected" : ""}>${esc(label)}</option>`;
   const facets = `<aside class="ap-facets">
