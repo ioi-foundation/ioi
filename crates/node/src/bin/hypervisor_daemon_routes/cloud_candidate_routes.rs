@@ -1173,10 +1173,78 @@ pub(crate) async fn handle_candidate_sources(
 /// Deterministic, explained advisory over the ACTIVE eligible candidates — recommends among
 /// run_local / verified BYO SSH / provider-capable venues. NOT smart routing: rank by
 /// (full_lifecycle > conformance local) then stable by ref; every choice carries reason codes.
+/// A READ MUST NOT WAIT ON A PROVIDER SWEEP (R-240). Every 15 minutes the active cohort expires and
+/// the next venues read re-quoted synchronously — provider APIs and all — so whoever opened the
+/// Environments surface first paid 30-47 s. A read now starts ONE background re-quote per intent and
+/// answers at once; it still never ranks a stale quote (canon): with the cohort expired nothing is
+/// eligible, current quotes predating an account change are held back, and the card says a re-quote
+/// is running (or what the last one failed with). Callers that ACT on the advisory — a decision, a
+/// persisted advisory, failover — keep the blocking re-quote.
+fn requote_state() -> &'static std::sync::Mutex<(
+    std::collections::HashSet<String>,
+    std::collections::HashMap<String, String>,
+)> {
+    static S: std::sync::OnceLock<
+        std::sync::Mutex<(
+            std::collections::HashSet<String>,
+            std::collections::HashMap<String, String>,
+        )>,
+    > = std::sync::OnceLock::new();
+    S.get_or_init(Default::default)
+}
+
+fn spawn_requote(st: &Arc<DaemonState>, intent: &Value, inbound: &axum::http::HeaderMap) -> Value {
+    let key = text(intent, "intent_ref").to_string();
+    let (started, last_error) = {
+        let mut g = requote_state().lock().unwrap_or_else(|e| e.into_inner());
+        (g.0.insert(key.clone()), g.1.get(&key).cloned())
+    };
+    if started {
+        let (st, intent, inbound) = (st.clone(), intent.clone(), inbound.clone());
+        tokio::spawn(async move {
+            let outcome = refresh_candidates(&st, &intent, DEFAULT_TTL_SECS, &inbound).await;
+            let mut g = requote_state().lock().unwrap_or_else(|e| e.into_inner());
+            g.0.remove(&key);
+            match outcome {
+                Ok(_) => {
+                    g.1.remove(&key);
+                }
+                Err(e) => {
+                    g.1.insert(key, format!("the background re-quote failed: {e}"));
+                }
+            }
+        });
+    }
+    json!({
+        "state": "in_progress",
+        "note": "the quotes are stale, so none is ranked; a fresh sweep is running in the background — read again for new prices",
+        "last_error": last_error,
+    })
+}
+
 pub(crate) async fn advisory_for(
     st: &Arc<DaemonState>,
     intent: &Value,
     persist: bool,
+    inbound: &axum::http::HeaderMap,
+) -> Result<Value, (String, String)> {
+    advisory_for_mode(st, intent, persist, false, inbound).await
+}
+
+/// The venue card and the placement preview: a stale cohort re-quotes in the background.
+pub(crate) async fn advisory_for_read(
+    st: &Arc<DaemonState>,
+    intent: &Value,
+    inbound: &axum::http::HeaderMap,
+) -> Result<Value, (String, String)> {
+    advisory_for_mode(st, intent, false, true, inbound).await
+}
+
+async fn advisory_for_mode(
+    st: &Arc<DaemonState>,
+    intent: &Value,
+    persist: bool,
+    background: bool,
     inbound: &axum::http::HeaderMap,
 ) -> Result<Value, (String, String)> {
     let intent_ref = text(intent, "intent_ref").to_string();
@@ -1197,7 +1265,19 @@ pub(crate) async fn advisory_for(
             text(a, "updated_at") > latest_observed.as_str()
                 || text(a, "created_at") > latest_observed.as_str()
         });
-    if !active_exists || facts_changed {
+    let mut requote = Value::Null;
+    if (!active_exists || facts_changed) && background {
+        requote = spawn_requote(st, intent, inbound);
+        if facts_changed {
+            // Quotes observed before an account change are stale too: held back, not ranked.
+            for c in candidates.iter_mut() {
+                if c["status"] == "active" {
+                    c["placement_eligible"] = json!(false);
+                    c["requote_pending"] = json!(true);
+                }
+            }
+        }
+    } else if !active_exists || facts_changed {
         // W1.2 / MEF-GAP-008 — stale coverage cannot advise silently; a failed candidate refresh
         // must surface, never rank stale quotes.
         let (fresh, _) = refresh_candidates(st, intent, DEFAULT_TTL_SECS, &inbound)
@@ -1323,6 +1403,7 @@ pub(crate) async fn advisory_for(
             "history_route": format!("/v1/hypervisor/cloud-candidates/candidates?intent_ref={intent_ref}"),
             "note": "only ACTIVE candidates can be ranked, so only they are embedded; `considered` counts every candidate known for this intent, and each one remains a durable record at the history route",
         },
+        "requote": requote,
         "recommendation": recommendation.clone().unwrap_or(Value::Null),
         "no_eligible_candidate": if recommendation.is_none() {
             json!("no_eligible_candidate — no active placement-eligible candidate satisfies this intent; effective venue stays run_local")

@@ -2273,6 +2273,8 @@ pub(crate) fn attach_choose_advisory(venues: &mut [Value], advisory: &Value) {
             .get("candidate_selection")
             .cloned()
             .unwrap_or(Value::Null);
+        // A card read while the quotes are stale says a re-quote is running, not just "none".
+        card["requote"] = advisory.get("requote").cloned().unwrap_or(Value::Null);
         card["recommendation"] = advisory
             .get("recommendation")
             .cloned()
@@ -2321,7 +2323,7 @@ pub(crate) async fn handle_placement_venues(
     // W1.2 / MEF-GAP-008 — advisory_for refreshes candidates durably; surface a write failure rather
     // than composing venues over a silently-failed refresh.
     let advisory =
-        match super::cloud_candidate_routes::advisory_for(&st, &intent, false, &inbound).await {
+        match super::cloud_candidate_routes::advisory_for_read(&st, &intent, &inbound).await {
             Ok(a) => a,
             Err((code, message)) => {
                 return (
@@ -2570,7 +2572,7 @@ pub(crate) async fn handle_placement_preview(
     // than previewing over a silently-failed refresh.
     let advisory = if venue == "hypervisor_choose" {
         let intent = super::cloud_candidate_routes::ensure_default_intent(&st.data_dir);
-        match super::cloud_candidate_routes::advisory_for(&st, &intent, false, &inbound).await {
+        match super::cloud_candidate_routes::advisory_for_read(&st, &intent, &inbound).await {
             Ok(a) => a,
             Err((code, message)) => {
                 return (
