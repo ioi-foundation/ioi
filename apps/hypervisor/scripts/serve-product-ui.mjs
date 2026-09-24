@@ -13115,7 +13115,7 @@ async function handleEstateRequest(req, res, body) {
         slug: "studio/workshop", routeOverride: "/__ioi/studio/workshop", title: "Workshop",
         appTileUri: DSG_APP_TILE_URI, chipTintRgba: "rgba(45,114,210,.08)",
         newLabel: "New module",
-        newGapReason: "Application/module authoring is an authority-crossing cut not yet bound on this surface — modules are composed on the ODK plane (named gap; the donor reference's New-module entry is recorded in reference-family-atlas.v1.json)",
+        newGapReason: "A module is composed from a surface descriptor, and a descriptor binds a PUBLISHED ontology revision — publishing a revision is not available in this product yet, so no module can be composed here (the Ontology Manager edits drafts only)",
         heroTitle: "Workshop",
         heroDesc: "Build and manage application modules — this landing renders the estate's REAL composition truth: DomainApp records and ODK surface descriptors, read-first.",
         favoritesGapReason: "No favorites plane exists on the estate (typed absence)",
