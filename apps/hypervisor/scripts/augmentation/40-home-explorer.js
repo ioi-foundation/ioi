@@ -201,7 +201,7 @@
       statusHtml("Input", prompt) +
       statusHtml("Environment", payload.environment_ref || "—") +
       statusHtml("Provision receipt", payload.receipt_ref || "—") +
-      statusHtml("Goal activation", payload.goal_run_activation_ref === null && payload.goal_run_ref === null ? "not performed" : "—") +
+      statusHtml("Goal activation", payload.goal_run_activation_ref == null && payload.goal_run_ref == null ? "not performed" : "—") +
       '<div class="text-xs" style="margin-top:10px"><a href="/__ioi/sessions">Sessions →</a></div></div>';
   }
   function renderNativeSessionError(status, payload) {
@@ -209,7 +209,15 @@
     const panel = sessionPanel();
     if (!panel) return;
     panel.style.display = "block";
-    panel.innerHTML = '<div class="rounded-lg border border-border-error bg-surface-01 text-sm text-content-negative" style="padding:12px"><b>Session creation refused</b><br><code>' + esc(error.code || (status ? "HTTP " + status : "session_unavailable")) + '</code><br><span class="text-content-secondary">' + esc(error.message || "The daemon did not admit a bounded Session.") + "</span></div>";
+    panel.innerHTML = '<div class="rounded-lg border border-border-error bg-surface-01 text-sm text-content-negative" style="padding:12px"><b>Session creation refused</b><br><code>' + esc(error.code || (status ? "HTTP " + status : "session_unavailable")) + '</code><br><span class="text-content-secondary">' + esc(error.message || "The daemon did not admit a bounded Session.") + "</span>" + signInHint(error.code) + "</div>";
+  }
+  // A local browser reads as the local operator, but the daemon admits a Session only for an
+  // authenticated principal — and in local development nothing ever sends a person to sign in. The
+  // refusal is the one moment they need the way there, so it carries it (R-240).
+  function signInHint(code) {
+    return code === "request_principal_required"
+      ? '<br><a href="/__ioi/login" target="_top" style="text-decoration:underline">Sign in</a> <span class="text-content-secondary">to start Sessions, then submit again.</span>'
+      : "";
   }
   function syncNativeSessionButton() {
     const button = document.querySelector('[data-testid="prompt-input-submit-button"]');
@@ -229,7 +237,12 @@
     try {
       const response = await fetch("/v1/hypervisor/sessions", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ initial_input: prompt }) });
       const payload = await response.json().catch(() => ({}));
-      if (!response.ok || !payload.session_ref || payload.initial_input_projection?.disposition !== "session_only_non_goal" || payload.goal_run_activation_ref !== null || payload.goal_run_ref !== null) { renderNativeSessionError(response.status, payload); return; }
+      // The guard refuses a Session that ACTIVATED a goal run. It used to demand the two GoalRun
+      // fields be present and null — and since R-192 the daemon omits them, so `undefined !== null`
+      // turned EVERY admitted Session into "Session creation refused": the Session existed, the
+      // person was told it did not, and a retry made another (R-240). Absent or null both mean "no
+      // goal run"; only a present ref is one.
+      if (!response.ok || !payload.session_ref || payload.initial_input_projection?.disposition !== "session_only_non_goal" || payload.goal_run_activation_ref != null || payload.goal_run_ref != null) { renderNativeSessionError(response.status, payload); return; }
       renderNativeSession(payload, prompt);
     } catch (error) {
       renderNativeSessionError(0, { error: { code: "session_daemon_unavailable", message: String(error?.message || error) } });

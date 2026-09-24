@@ -361,7 +361,10 @@
         result.style.display = "block";
         if (status >= 400 || (j.error && j.error.code)) {
           const err = j.error || {};
-          result.innerHTML = '<div class="ioi-ns-err"><b>Launch rejected fail-closed</b> — <code>' + esc(err.code || "HTTP " + status) + "</code>" + (err.message ? "<br>" + esc(err.message) : "") + "</div>";
+          // The refusal a local browser hits first: it reads as the local operator, but a Session is
+          // admitted only for an authenticated principal — so the refusal carries the way to sign in.
+          result.innerHTML = '<div class="ioi-ns-err"><b>Launch rejected fail-closed</b> — <code>' + esc(err.code || "HTTP " + status) + "</code>" + (err.message ? "<br>" + esc(err.message) : "") +
+            (err.code === "request_principal_required" ? '<br><a href="/__ioi/login" target="_top" style="text-decoration:underline">Sign in</a> to start sessions, then press Start again.' : "") + "</div>";
           return;
         }
         const hb = j.harness_binding;
