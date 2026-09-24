@@ -5,15 +5,13 @@
   // gap in product language so the degraded state is explicit, not a bare failure. Zero
   // placeholder data; self-removes off-route. --------------------------------------------------
   const SETTINGS_GAP_BANNERS = {
+    // Only when the roster is actually empty: an administrator's roster renders (R-240), and a banner
+    // claiming "the roster renders empty" above a listed roster was false.
     "members": {
       code: "org_roster_admin_gated",
-      title: "The member roster is org-admin gated",
-      text: "The daemon's principals plane exists but requires an authenticated org-admin session — this unauthenticated local session is refused, so the roster renders empty (the organization's real member count is disclosed separately; nothing here is fabricated and the empty list is a refusal, not a zero).",
-    },
-    "manage-organization": {
-      code: "org_display_identity_absent",
-      title: "Organization identity is a daemon projection",
-      text: "This pane projects the daemon organization read; no display-name/tier record exists in the daemon yet, so those fields render empty (named absent, never fabricated) and the organization update action refuses typed.",
+      title: "The member roster is readable by administrators only",
+      text: "The daemon's principals plane answers the roster to an organization administrator; this session is not one, so the list below is a refusal, not an empty organization.",
+      when: () => !document.querySelector("main tbody tr"),
     },
     "terms-of-service": {
       code: "terms_of_service_unowned",
@@ -36,10 +34,41 @@
       text: "Runner rows project live daemon providers. Runner managers and runner log tokens have no daemon routes and refuse typed.",
     },
   };
+  // Manage organization, self-hosted (R-240). The vendor pane offers a commercial Tier (Core vs
+  // Enterprise, "Request free trial") and "Delete this organization". A self-hosted deployment has no
+  // tier and no trial, and hosts ONE organization that is removed with the deployment — the delete
+  // RPC has no lane and refused with an adapter message. The tier cards become one line saying so;
+  // the delete button is disabled with its reason, in place.
+  function updateManageOrganization() {
+    if (!/^\/settings\/manage-organization\/?$/.test(location.pathname)) return;
+    const main = document.querySelector("main"); if (!main) return;
+    const label = Array.prototype.find.call(main.querySelectorAll("*"), (e) => !e.children.length && e.textContent.trim() === "Tier");
+    // "Tier" labels a row of its own; the cards and the "Under Billing…" line are the rows that follow
+    // it, up to the Organization ID row.
+    const row = label && (label.parentElement && label.parentElement.children.length <= 2 ? label.parentElement : label);
+    if (row && !document.getElementById("ioi-selfhosted-tier")) {
+      for (let n = row.nextElementSibling; n && !/Organization ID/.test(n.textContent || ""); n = n.nextElementSibling) n.style.display = "none";
+      const note = document.createElement("p");
+      note.id = "ioi-selfhosted-tier";
+      note.style.cssText = "margin:6px 0 16px;font-size:14px;opacity:.8";
+      note.textContent = "Self-hosted — this deployment runs every capability it has; there is no commercial tier and nothing to upgrade or trial.";
+      row.insertAdjacentElement("afterend", note);
+    }
+    const del = Array.prototype.find.call(main.querySelectorAll("button"), (b) => b.textContent.trim() === "Delete this organization");
+    if (del && !del.hasAttribute("data-ioi-disabled-reason")) {
+      const why = "This deployment hosts one organization; it is removed with the deployment itself, not from this page.";
+      del.disabled = true; del.setAttribute("aria-disabled", "true"); del.setAttribute("title", why); del.setAttribute("data-ioi-disabled-reason", why);
+      del.style.cursor = "not-allowed"; del.style.opacity = ".5";
+      const note = document.createElement("p"); note.style.cssText = "margin:8px 0 0;font-size:13px;opacity:.75"; note.textContent = why;
+      del.insertAdjacentElement("afterend", note);
+    }
+  }
   function mountSettingsGapBanner() {
     const bannerId = "ioi-settings-gap-banner";
     const m = location.pathname.match(/^\/settings\/([^/?#]+)/);
-    const gap = m && SETTINGS_GAP_BANNERS[m[1]];
+    const entry = m && SETTINGS_GAP_BANNERS[m[1]];
+    // An entry with a `when` names a state, not a page: it mounts only while that state holds.
+    const gap = entry && (!entry.when || entry.when()) ? entry : null;
     const existing = document.getElementById(bannerId);
     if (!gap) {
       if (existing) existing.remove();
