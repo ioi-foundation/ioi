@@ -99,7 +99,16 @@ export const REQUIRED_CONSUMERS = Object.freeze([
   "The recipe's page names the manifest that bundles it",
   "Object Explorer lists the saved set",
   "Insight names the saved set's type",
+  // R-240's third pass: the lanes that replaced disabled "New…" buttons.
+  "Model Catalog lists the registered model",
+  "Inference offers the registered model",
+  "Designer Recents lists the saved diagram",
+  "Studio's blueprints list the saved diagram",
+  "Machinery lists the saved process graph",
 ]);
+
+// The editors whose script submits their own form — driven through their UI by the LIVE leg.
+export const DRIVERS = Object.freeze(["diagram-editor", "machinery-editor"]);
 
 async function actionsOfModules() {
   const out = {};
@@ -113,7 +122,7 @@ export function pureFindings(lib, actions) {
   const f = [];
   const expect = (what, got, want) => { if (got !== want) f.push(`${what}: got ${JSON.stringify(got)}, want ${JSON.stringify(want)}`); };
   // The matrix as shipped.
-  for (const x of lib.matrixFindings({ writes: lib.WRITES, reads: lib.READS, actionsOf: (m) => actions[m] })) f.push(`matrix: ${x}`);
+  for (const x of lib.matrixFindings({ writes: lib.WRITES, reads: lib.READS, actionsOf: (m) => actions[m], drivers: DRIVERS })) f.push(`matrix: ${x}`);
   const named = new Set(lib.READS.map((r) => r.consumer));
   for (const c of REQUIRED_CONSUMERS) if (!named.has(c)) f.push(`matrix: the required consumer '${c}' is not read`);
   // THE NEEDLE THAT PASSED ON ABSENCE: the no-mapping notes print "backing datasource".
@@ -124,6 +133,7 @@ export function pureFindings(lib, actions) {
   expect("matrix/undeclared-action-refused", lib.matrixFindings({ writes: [{ id: "w", module: "m", action: "nope", route: "/r" }], reads: [{ after: "w", consumer: "c", route: "/x", needle: "{tag}-v" }], actionsOf: () => ["a"] }).length > 0, true);
   expect("matrix/orphan-read-refused", lib.matrixFindings({ writes: [{ id: "w", module: "m", action: "a", route: "/r" }], reads: [{ after: "nothing", consumer: "c", route: "/x", needle: "{tag}-v" }], actionsOf: () => ["a"] }).length > 0, true);
   expect("matrix/empty-reads-refused", lib.matrixFindings({ writes: [{ id: "w", module: "m", action: "a", route: "/r" }], reads: [], actionsOf: () => ["a"] }).length > 0, true);
+  expect("matrix/undriven-drive-refused", lib.matrixFindings({ writes: [{ id: "w", drive: "no-such-editor", route: "/r" }], reads: [{ after: "w", consumer: "c", route: "/x", needle: "{tag}-v" }], actionsOf: () => [], drivers: ["diagram-editor"] }).length > 0, true);
   expect("matrix/clean", lib.matrixFindings({ writes: [{ id: "w", module: "m", action: "a", route: "/r" }], reads: [{ after: "w", consumer: "c", route: "/x", needle: "{tag}-v" }], actionsOf: () => ["a"] }).length, 0);
   // Reads, judged.
   expect("read/shown", lib.readVerdict({ status: 200, html: "<b>Loan xs1 backing datasource</b>", needle: "Loan xs1 backing datasource" }).verdict, "shown");
@@ -255,7 +265,7 @@ async function liveLeg() {
       await Promise.all([page.waitForNavigation({ timeout: 30000 }), form.locator('button[type="submit"]').first().click()]);
       const u = new URL(page.url());
       // A module action lands with `refused=`; the ODK form handler answers its failure page instead.
-      const failed = w.form ? ((await page.locator("body").innerText()).match(/(?:Create|Save) failed: ([^\n]{0,200})/u) || [])[1] : null;
+      const failed = w.form ? ((await page.locator("body").innerText()).match(/(?:(?:Create|Save) failed|Not registered): ([^\n]{0,200})/u) || [])[1] : null;
       const row = { id: w.id, action: w.action || w.form, refused: u.searchParams.get("refused") || (failed ? "odk_form_refused" : null), reason: u.searchParams.get("reason") || failed, landed: u.pathname + u.search.slice(0, 120) };
       writes.push(row);
       if (row.refused) throw new Error(`write ${w.id} REFUSED ${row.refused}: ${row.reason}`);
@@ -295,6 +305,22 @@ async function liveLeg() {
     });
     // A saved exploration in Object Explorer, over the object type the matrix made.
     await submit(W["saved-set"], async (f) => { await f.locator('[name="name"]').fill(`saved-${vars.tag}`); });
+    // A model route registered on the Model Catalog (the provider need not answer: the registration is
+    // what must reach the surfaces that list routes).
+    await submit(W.model, async (f) => { await page.locator(".mc-register > summary").click(); await f.locator('[name="model_id"]').fill(`probe-${vars.tag}:1b`); });
+    // The two editors, driven as a person draws: one node, a name, Save.
+    const drive = async (w, draw) => {
+      await page.goto(base + w.route, { waitUntil: "networkidle" });
+      await draw();
+      await Promise.all([page.waitForNavigation({ timeout: 30000 }), page.locator("#dg-save").click()]);
+      const u = new URL(page.url());
+      const err = await page.locator(".dg-toast.err").first().innerText().catch(() => "");
+      const row = { id: w.id, action: w.drive, refused: err ? "editor_save_refused" : null, reason: err || null, landed: u.pathname + u.search.slice(0, 120) };
+      writes.push(row);
+      if (row.refused) throw new Error(`write ${w.id} REFUSED: ${err}`);
+    };
+    await drive(W.diagram, async () => { await page.click("#dg-t-concept"); await page.locator('#dg-pop [data-pick="0"]').click(); await page.fill("#dg-name", `diagram-${vars.tag}`); });
+    await drive(W.graph, async () => { await page.locator('[data-welcome="initial"]').click(); await page.fill("#dg-name", `process-${vars.tag}`); });
 
     for (const r of LIB.READS) {
       const route = LIB.fill(r.route, vars);

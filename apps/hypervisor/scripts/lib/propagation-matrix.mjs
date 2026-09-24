@@ -9,8 +9,9 @@
 export const TAG = "{tag}";
 
 // The writes, in order, each through the form its owning surface renders: a module action (`module` +
-// `action`) or a serve-rendered form named by its exact `form` action. `capture` names the variable the
-// landed URL's last path segment fills (the created record's id).
+// `action`), a serve-rendered form named by its exact `form` action, or a `drive` — an editor whose
+// script submits its own form, driven through its UI by a driver the gate names. `capture` names the
+// variable the landed URL's last path segment fills (the created record's id).
 export const WRITES = Object.freeze([
   { id: "ontology", module: "ontology-manager", action: "create-ontology", route: "/__ioi/ontology/manager?section=create" },
   { id: "object-type", module: "ontology-manager", action: "upsert-object-type", route: "/__ioi/ontology/manager?ontology={ontology}&section=create&newKind=object-type" },
@@ -25,6 +26,10 @@ export const WRITES = Object.freeze([
   { id: "manifest", form: "/__ioi/odk/manifests", route: "/__ioi/odk/manifests/new", capture: "manifest" },
   // R-240: Insight read a saved set's type from the top level; the writer nests it under `selection`.
   { id: "saved-set", module: "object-explorer", action: "save-object-set", route: "/__ioi/ontology/explorer?ontology={ontology}&objectType=loan" },
+  // R-240: the lanes that replaced disabled "New…" buttons — each must reach the surfaces that list it.
+  { id: "model", form: "/__ioi/foundry/models/register", route: "/__ioi/foundry/models?tab=registered" },
+  { id: "diagram", drive: "diagram-editor", route: "/__ioi/studio/designer/diagram" },
+  { id: "graph", drive: "machinery-editor", route: "/__ioi/studio/machinery/graph" },
 ]);
 
 // The reads: every surface that must show what the writes made, by the value's OWN name.
@@ -47,6 +52,11 @@ export const READS = Object.freeze([
   { after: "manifest", consumer: "The recipe's page names the manifest that bundles it", route: "/__ioi/odk/data-recipes/{recipe}", needle: "manifest-{tag}" },
   { after: "saved-set", consumer: "Object Explorer lists the saved set", route: "/__ioi/ontology/explorer?ontology={ontology}", needle: "saved-{tag}" },
   { after: "saved-set", consumer: "Insight names the saved set's type", route: "/__ioi/evaluations/insight", needle: "saved-{tag}</b></span><span>loan<" },
+  { after: "model", consumer: "Model Catalog lists the registered model", route: "/__ioi/foundry/models?tab=registered", needle: "probe-{tag}:1b" },
+  { after: "model", consumer: "Inference offers the registered model", route: "/__ioi/foundry/inference", needle: "probe-{tag}:1b" },
+  { after: "diagram", consumer: "Designer Recents lists the saved diagram", route: "/__ioi/studio/designer", needle: "diagram-{tag}" },
+  { after: "diagram", consumer: "Studio's blueprints list the saved diagram", route: "/__ioi/studio/workbench?view=blueprints", needle: "diagram-{tag}" },
+  { after: "graph", consumer: "Machinery lists the saved process graph", route: "/__ioi/studio/machinery", needle: "process-{tag}" },
 ]);
 
 // A needle is SPECIFIC only if it carries the run's tag. "backing datasource" alone is printed by the
@@ -61,12 +71,14 @@ export function fill(template, vars) {
 
 // The matrix's own shape: every read follows a declared write, names a consumer once, and is specific;
 // every write names a module and an action. `actionsOf(module)` returns that module's declared ids.
-export function matrixFindings({ writes, reads, actionsOf }) {
+export function matrixFindings({ writes, reads, actionsOf, drivers = [] }) {
   const f = [];
   const writeIds = new Set(writes.map((w) => w.id));
   for (const w of writes) {
     if (!w.route) f.push(`write ${w.id}: incomplete`);
-    else if (w.form !== undefined) {
+    else if (w.drive !== undefined) {
+      if (!drivers.includes(w.drive) || w.module || w.action || w.form) f.push(`write ${w.id}: drives '${w.drive}', which the gate has no driver for`);
+    } else if (w.form !== undefined) {
       // A serve-rendered form is named by the exact action it posts to, on the product's own path.
       if (typeof w.form !== "string" || !w.form.startsWith("/__ioi/") || w.module || w.action) f.push(`write ${w.id}: a form write names one /__ioi/ form action and no module`);
     } else if (!w.module || !w.action) f.push(`write ${w.id}: incomplete`);
