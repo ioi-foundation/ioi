@@ -219,7 +219,9 @@
     "check:named-gap-perception": "node scripts/check-named-gap-perception.mjs",
     "mutate:named-gap-perception": "node scripts/check-named-gap-perception.mjs --mutation",
     "check:dead-controls": "node scripts/check-dead-controls.mjs",
-    "mutate:dead-controls": "node scripts/check-dead-controls.mjs --mutation"
+    "mutate:dead-controls": "node scripts/check-dead-controls.mjs --mutation",
+    "check:cross-surface-propagation": "node scripts/check-cross-surface-propagation.mjs",
+    "mutate:cross-surface-propagation": "node scripts/check-cross-surface-propagation.mjs --mutation"
   },
   "devDependencies": {
     "@playwright/test": "^1.60.0",

@@ -216,7 +216,9 @@
     "check:named-gap-perception": "node ../../scripts/check-named-gap-perception.mjs --drills",
     "mutate:named-gap-perception": "node ../../scripts/check-named-gap-perception.mjs --mutation",
     "check:dead-controls": "node ../../scripts/check-dead-controls.mjs --drills",
-    "mutate:dead-controls": "node ../../scripts/check-dead-controls.mjs --mutation"
+    "mutate:dead-controls": "node ../../scripts/check-dead-controls.mjs --mutation",
+    "check:cross-surface-propagation": "node ../../scripts/check-cross-surface-propagation.mjs --drills",
+    "mutate:cross-surface-propagation": "node ../../scripts/check-cross-surface-propagation.mjs --mutation"
   },
   "dependencies": {
     "@codemirror/commands": "^6.10.3",

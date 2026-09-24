@@ -1278,6 +1278,20 @@ jobs:
         if: ${{ !cancelled() && steps.rust_backed_daemon.outcome == 'success' }}
         run: npm run mutate:dead-controls --workspace=@ioi/hypervisor-app
 
+      # R-240: a value written on one surface must appear on every surface that reads it. The drills
+      # hold the matrix (every write an action its module declares, every read specific to the run and
+      # the consumers the goal names all covered), the live leg's ownership of its daemon, serve and
+      # operator read out of its own source, and the binding. The drive itself is the full mode.
+      - name: Verify cross-surface propagation (R-240, CI-bound drills)
+        if: ${{ !cancelled() && steps.rust_backed_daemon.outcome == 'success' }}
+        env:
+          IOI_VERIFIER_CENSUS_DIR: .artifacts/verifier-census
+        run: npm run check:cross-surface-propagation --workspace=@ioi/hypervisor-app
+
+      - name: Drill the cross-surface propagation matrix
+        if: ${{ !cancelled() && steps.rust_backed_daemon.outcome == 'success' }}
+        run: npm run mutate:cross-surface-propagation --workspace=@ioi/hypervisor-app
+
       - name: Verify the surface module contract
         if: ${{ !cancelled() && steps.rust_backed_daemon.outcome == 'success' }}
         env:
