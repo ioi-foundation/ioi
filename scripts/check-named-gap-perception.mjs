@@ -80,7 +80,7 @@ const LIVE = self("live");
 // to work around. The much larger drop, 16 to 4, is a CORRECTION: twelve of those were never
 // defects. `.spl-hbtn.gap{opacity:.62}` and its siblings had already dimmed them, and a first build
 // of the classifier could not see it because opacity does not change backgroundColor. The four that
-// remain are genuinely undressed: machinery, evalsuites, incidents and explorer.
+// remained were genuinely undressed: machinery, evalsuites, incidents and explorer (all four since resolved — see below).
 //
 // RE-PINNED 2026-09-24 (R-240), every unit accounted for: 624 → 629 labelled, 594 → 593
 // unreachable. The Designer's Open Diagram stopped being a gap — it was a labelled bare span, so
@@ -94,13 +94,23 @@ const LIVE = self("live");
 // states. The map moved too — its geography rows went 200 → 24 when the venue card stopped
 // embedding expired candidates — and was restored by reading the candidate plane's own history
 // route rather than by moving this pin: a pinned count can hide a data coupling.
+//
+// RE-PINNED AGAIN 2026-09-24 (R-240, the disabled-primary sweep), measured on the final tree:
+// states 2 → 4 (the Designer editor and its reference panel joined `SURFACE_STATES`); labelled
+// 629 → 612, primary_fill 4 → 0, cursor 62 → 58, unreachable 593 → 577. Every primary action that
+// was declared unavailable was sorted: a lane that existed elsewhere became a LINK there (Machinery
+// New graph, Evals New suite, Schedules, Packages, Code Workspaces, Fusion, HyperAuto…), a missing
+// but daemon-backed lane was BUILT (the diagram and process-graph editors, AIP planning, model
+// registration, Issues' New over SupportIncidentLink), and Object Explorer's "All" stopped being a
+// gap — it is the view already shown. The last two primary fills were "All" (a bare span, so it also
+// leaves cursor and unreachable) and Incidents' natively disabled New (labelled and filled only).
 export const PINNED = Object.freeze({
   surfaces_probed: 36,
-  states_probed: 2,
-  labelled: 629,
-  primary_fill: 4,
-  cursor_not_disabled: 62,
-  unreachable_control: 593,
+  states_probed: 4,
+  labelled: 612,
+  primary_fill: 0,
+  cursor_not_disabled: 58,
+  unreachable_control: 577,
   unmarked_gap: 0,
 });
 

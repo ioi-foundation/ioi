@@ -290,6 +290,41 @@ pub(crate) async fn handle_incident_get(
     )
 }
 
+/// GET /v1/hypervisor/support-incidents — the caller's tenant's incident links, most recently
+/// updated first. The plane could be written and read one id at a time, but nothing could LIST
+/// it, so an inbox had no way to show what a person had filed (R-240).
+pub(crate) async fn handle_incident_list(
+    State(st): State<Arc<DaemonState>>,
+    headers: HeaderMap,
+) -> Reply {
+    let identity = match super::substrate_store::resolve_request_identity(&st.data_dir, &headers) {
+        Ok(identity) => identity,
+        Err(error) => return scope_refusal_reply(error),
+    };
+    let mut incidents: Vec<Value> = read_record_dir(&st.data_dir, KIND_INCIDENT)
+        .into_iter()
+        .filter(|incident| {
+            incident["owner_ref"]
+                .as_str()
+                .is_some_and(|owner_ref| identity.authorizes_tenant(owner_ref))
+        })
+        .collect();
+    incidents.sort_by(|a, b| {
+        let key = |r: &Value| {
+            format!(
+                "{}|{}",
+                r["updated_at"].as_str().unwrap_or(""),
+                r["incident_id"].as_str().unwrap_or("")
+            )
+        };
+        key(b).cmp(&key(a))
+    });
+    (
+        StatusCode::OK,
+        Json(json!({ "ok": true, "support_incidents": incidents })),
+    )
+}
+
 // ================================ audit trail ==================================================
 
 #[derive(serde::Deserialize)]

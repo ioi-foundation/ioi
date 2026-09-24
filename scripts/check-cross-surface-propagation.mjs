@@ -105,6 +105,8 @@ export const REQUIRED_CONSUMERS = Object.freeze([
   "Designer Recents lists the saved diagram",
   "Studio's blueprints list the saved diagram",
   "Machinery lists the saved process graph",
+  "Issues lists the filed issue in its open lane",
+  "Missions counts the filed issue among its incidents",
 ]);
 
 // The editors whose script submits their own form — driven through their UI by the LIVE leg.
@@ -265,7 +267,7 @@ async function liveLeg() {
       await Promise.all([page.waitForNavigation({ timeout: 30000 }), form.locator('button[type="submit"]').first().click()]);
       const u = new URL(page.url());
       // A module action lands with `refused=`; the ODK form handler answers its failure page instead.
-      const failed = w.form ? ((await page.locator("body").innerText()).match(/(?:(?:Create|Save) failed|Not registered): ([^\n]{0,200})/u) || [])[1] : null;
+      const failed = w.form ? ((await page.locator("body").innerText()).match(/(?:(?:Create|Save) failed|Not registered|Not filed): ([^\n]{0,200})/u) || [])[1] : null;
       const row = { id: w.id, action: w.action || w.form, refused: u.searchParams.get("refused") || (failed ? "odk_form_refused" : null), reason: u.searchParams.get("reason") || failed, landed: u.pathname + u.search.slice(0, 120) };
       writes.push(row);
       if (row.refused) throw new Error(`write ${w.id} REFUSED ${row.refused}: ${row.reason}`);
@@ -308,6 +310,9 @@ async function liveLeg() {
     // A model route registered on the Model Catalog (the provider need not answer: the registration is
     // what must reach the surfaces that list routes).
     await submit(W.model, async (f) => { await page.locator(".mc-register > summary").click(); await f.locator('[name="model_id"]').fill(`probe-${vars.tag}:1b`); });
+    // An issue filed from Issues' New dialog, against an object named by reference (the gate's own
+    // daemon has no projects to pick from).
+    await submit(W.issue, async (f) => { await f.locator('[name="title"]').fill(`issue-${vars.tag}`); await f.locator('[name="affected"]').selectOption("__other"); await f.locator('[name="affected_ref"]').fill(`env://propagation-${vars.tag}`); });
     // The two editors, driven as a person draws: one node, a name, Save.
     const drive = async (w, draw) => {
       await page.goto(base + w.route, { waitUntil: "networkidle" });

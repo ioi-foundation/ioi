@@ -1709,7 +1709,8 @@ async fn async_main() -> anyhow::Result<()> {
         // nothing) + the paginated audit trail over the durable evidence families.
         .route(
             "/v1/hypervisor/support-incidents",
-            post(operations_support_routes::handle_incident_create),
+            post(operations_support_routes::handle_incident_create)
+                .get(operations_support_routes::handle_incident_list),
         )
         .route(
             "/v1/hypervisor/support-incidents/:id",

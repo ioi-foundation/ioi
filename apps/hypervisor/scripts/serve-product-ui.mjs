@@ -5658,17 +5658,34 @@ function renderDataLineage(lists, selectedId, objectSetSel, wrap = automationsSh
 // (functional-runtime wave) — the first app module; the surface registry mounts it. The INCIDENTS
 // banner below is the next inline surface awaiting extraction.
 // ============================ INCIDENTS (#45 — the Missions incident inbox as a faithful
-// reference port of the issues-app capture, over REAL daemon truth: run failures + GoalRun
-// blockers). Status-lane grammar: open = blockers on non-terminal mission runs + failed runs
-// (needing remediation) · closed = blockers recorded on runs that reached a terminal state
-// (the blocker no longer blocks) · all = both. Every row is a real goal-run/run: id, reason
-// code, timestamps, and a proof link into its own run timeline. Nothing is fabricated — no
-// priorities/assignees/SLA are invented (those reference lanes are named gaps disabled in
-// place); empty lanes render an honest empty state. Shell geometry is glyph-anchored to the
+// reference port of the issues-app capture, over REAL daemon truth: failed runs, failed or
+// blocked WorkResults, and the issues people file (SupportIncidentLink). Status-lane grammar:
+// open = failed runs + non-terminal failed/blocked results + filed issues that are open or
+// mitigated · closed = results that reached a terminal state + filed issues resolved or closed ·
+// all = both. Every row is a real record with its own id and timestamps. Nothing is fabricated —
+// derived rows carry no priority/assignee/SLA (filed issues carry the severity and assignee their
+// reporter chose); empty lanes render an honest empty state. There is no goal-run lane here: a
+// goal run is an ioi.ai composition over thread primitives, not a Hypervisor object (R-192). Shell geometry is glyph-anchored to the
 // reference capture (/__apps/incidents, Closed lane); the row LIST is the live body (excluded
 // from shell-pixel certification, verified semantically by the incidents verifier).
-function renderIncidentsPort(ops, workResults, lane) {
+// FILED ISSUES (R-240). "New" was disabled as "incidents are DERIVED, never authored here" while the
+// daemon owns an AUTHORED incident plane — SupportIncidentLink (/v1/hypervisor/support-incidents:
+// title, severity, affected objects, reporter-declared redacted diagnostics, status open → mitigated
+// → resolved → closed under CAS). The inbox now files into it and lists what was filed beside the
+// derived rows; the reporter is resolved by the daemon from the sign-in, never sent by the page.
+const IN_SEVERITIES = Object.freeze([
+  ["informational", "Informational — nothing broken"],
+  ["minor", "Minor — work continues"],
+  ["major", "Major — blocks some people"],
+  ["critical", "Critical — blocks everyone"],
+]);
+const IN_STATUS_ACTIONS = Object.freeze({ open: [["mitigated", "Mark mitigated"], ["resolved", "Resolve"], ["closed", "Close"]], mitigated: [["resolved", "Resolve"], ["closed", "Close"], ["open", "Reopen"]], resolved: [["closed", "Close"], ["open", "Reopen"]], closed: [["open", "Reopen"]] });
+const inIssueId = (ref) => String(ref || "").replace(/^support-incident:\/\//u, "");
+
+function renderIncidentsPort(ops, workResults, lane, extra = {}) {
   const esc = CX_ESC;
+  const filed = Array.isArray(extra.filed) ? extra.filed : [];
+  const q = String(extra.q || "").trim().slice(0, 200);
   const runs = (ops && ops.runs) || {};
   const failures = Array.isArray(runs.failures) ? runs.failures : [];
   const wr = Array.isArray(workResults) ? workResults : [];
@@ -5697,10 +5714,20 @@ function renderIncidentsPort(ops, workResults, lane) {
     created: r.started_at || "", updated: r.finished_at || r.started_at || "",
     closed: false, proof: canonicalTimelineRef(r.timeline_ref) || "/__ioi/work-ledger", detail: r.project_id || "",
   });
-  const incidents = wr.filter((r) => ["failed", "blocked"].includes(String(r.status || "").toLowerCase())).map(resultIncident)
+  const filedIncident = (r) => ({
+    kind: "Filed issue", id: r.incident_id || "", title: r.title || "(untitled)",
+    created: r.created_at || "", updated: r.updated_at || r.created_at || "",
+    closed: ["resolved", "closed"].includes(String(r.status || "")),
+    proof: `/__ioi/missions/incidents?lane=${lane}&issue=${encodeURIComponent(inIssueId(r.incident_id))}${q ? `&q=${encodeURIComponent(q)}` : ""}`,
+    detail: [r.affected && r.affected.product, ((r.affected && r.affected.object_refs) || [])[0]].filter(Boolean).join(" · "),
+    severity: r.severity || "", status: r.status || "", filed: true,
+  });
+  const incidents = filed.map(filedIncident)
+    .concat(wr.filter((r) => ["failed", "blocked"].includes(String(r.status || "").toLowerCase())).map(resultIncident))
     .concat(failures.map(failureIncident));
   const open = incidents.filter((i) => !i.closed), closed = incidents.filter((i) => i.closed);
-  const rowsAll = { open, closed, all: incidents }[lane] || open;
+  const qn = q.toLowerCase();
+  const rowsAll = ({ open, closed, all: incidents }[lane] || open).filter((i) => !qn || `${i.title} ${i.id} ${i.detail} ${i.kind}`.toLowerCase().includes(qn));
   const rows = rowsAll.slice().sort((a, b) => String(b.updated).localeCompare(String(a.updated)));
   const CAP = 50;
   const shown = rows.slice(0, CAP);
@@ -5715,22 +5742,22 @@ function renderIncidentsPort(ops, workResults, lane) {
     const inc = kind === "dates" ? "" : `<span class="in-finc gap" role="button" tabindex="0" title="include/exclude toggle — a reference-only lane (named gap)" aria-disabled="true" data-ioi-disabled-reason="include/exclude toggle — a reference-only lane (named gap)">include ${bpIcon("caret-down")}</span>`;
     return `<div class="in-facet ${slot}"><div class="in-frow"><span class="in-flabel">${esc(label)}</span>${inc}</div>${input}</div>`;
   };
-  const prio = (label, color, slot) => `<label class="in-prio ${slot} gap" title="Priority filtering is a reference-only lane — the daemon records no incident priorities (named gap)" data-ioi-disabled-reason="Priority filtering is a reference-only lane — the daemon records no incident priorities (named gap)"><span class="in-cb" role="checkbox" aria-checked="false" aria-disabled="true" title="Priority filtering is a reference-only lane — the daemon records no incident priorities (named gap)" data-ioi-disabled-reason="Priority filtering is a reference-only lane — the daemon records no incident priorities (named gap)"></span><span class="in-ppill" style="background:${color}33"><span class="in-pdot" style="color:${color}">${bpIcon("issue-dot")}</span>${label}</span></label>`;
+  const prio = (label, color, slot) => `<label class="in-prio ${slot} gap" title="Filtering by priority is not offered: derived incidents carry no priority, and filed issues carry a severity (informational to critical, shown on each row) rather than High, Medium or Low" data-ioi-disabled-reason="Filtering by priority is not offered: derived incidents carry no priority, and filed issues carry a severity (informational to critical, shown on each row) rather than High, Medium or Low"><span class="in-cb" role="checkbox" aria-checked="false" aria-disabled="true" title="Filtering by priority is not offered: derived incidents carry no priority, and filed issues carry a severity (informational to critical, shown on each row) rather than High, Medium or Low" data-ioi-disabled-reason="Filtering by priority is not offered: derived incidents carry no priority, and filed issues carry a severity (informational to critical, shown on each row) rather than High, Medium or Low"></span><span class="in-ppill" style="background:${color}33"><span class="in-pdot" style="color:${color}">${bpIcon("issue-dot")}</span>${label}</span></label>`;
 
   const rowHtml = (i) => `<div class="in-row">
     <span class="in-cb fill" role="checkbox" aria-checked="false" aria-disabled="true" title="Bulk incident actions are a reference-only lane (named gap)" data-ioi-disabled-reason="Bulk incident actions are a reference-only lane (named gap)"></span>
     <span class="in-rico">${bpIcon(i.closed ? "issue-closed" : "warning-sign")}</span>
-    <div class="in-rmain"><a class="in-rtitle" href="${esc(i.proof)}">${esc(i.title)}</a><div class="in-rsub">Created&nbsp;&nbsp;${esc(ago(i.created) || "—")} · <a href="${esc(i.proof)}">proof ↗</a>${i.detail ? ` · ${esc(i.detail)}` : ""}</div></div>
-    <div class="in-rright"><span class="in-rpill${i.kind === "Blocker" ? "" : " fail"}"><span class="in-pdot">${bpIcon("issue-dot")}</span>${esc(i.kind)}</span><div class="in-rkind">Kind</div></div>
+    <div class="in-rmain"><a class="in-rtitle" href="${esc(i.proof)}">${esc(i.title)}</a><div class="in-rsub">${i.filed ? "Filed" : "Created"}&nbsp;&nbsp;${esc(ago(i.created) || "—")} · <a href="${esc(i.proof)}">${i.filed ? "details" : "proof ↗"}</a>${i.detail ? ` · ${esc(i.detail)}` : ""}</div></div>
+    <div class="in-rright"><span class="in-rpill${i.filed ? ` filed sev-${esc(i.severity)}` : i.kind === "Blocker" ? "" : " fail"}"><span class="in-pdot">${bpIcon("issue-dot")}</span>${esc(i.filed ? `${i.severity} · ${i.status}` : i.kind)}</span><div class="in-rkind">${i.filed ? "Severity · status" : "Kind"}</div></div>
   </div>`;
-  const emptyLane = `<div class="in-empty"><b>No ${lane === "all" ? "" : lane + " "}incidents</b> — ${lane === "closed" ? "no mission blocker has been resolved by a terminal run yet" : "no failed mission runs and no blocked mission runs right now"}. This inbox reads real run failures + GoalRun blockers from the daemon; it never fabricates incidents. <a href="/__ioi/missions">Missions overview →</a></div>`;
+  const emptyLane = q ? `<div class="in-empty"><b>No ${lane === "all" ? "" : lane + " "}issues match “${esc(q)}”</b> — the search reads titles, ids and details. <a href="/__ioi/missions/incidents?lane=${lane}">Clear the search</a></div>` : `<div class="in-empty"><b>No ${lane === "all" ? "" : lane + " "}incidents</b> — ${lane === "closed" ? "no filed issue has been resolved and no failed result has reached a terminal state yet" : "no failed runs, no failed or blocked results, and no open filed issues right now"}. This inbox reads failed runs, work results and filed issues from the daemon; it never fabricates incidents. Use <b>New</b> to file one. <a href="/__ioi/missions">Missions overview →</a></div>`;
 
   const header = `<header class="in-header">
     <span class="in-hchip"></span>
     <h1 class="in-htitle">Issues</h1>
     <div class="in-hright">
-      <div class="in-search" title="Issue search is a reference-only lane (named gap)">${bpIcon("search")}<input placeholder="Search issues…" disabled aria-label="Search issues (reference-only, not wired)"></div>
-      <button class="in-new gap" disabled title="Creating incidents is a reference-only lane — incidents are DERIVED from real run failures + blockers, never authored here (named gap)">${bpIcon("plus")} New</button>
+      <form class="in-search" method="get" action="/__ioi/missions/incidents" role="search">${bpIcon("search")}<input type="hidden" name="lane" value="${esc(lane)}"><input name="q" value="${esc(q)}" placeholder="Search issues…" aria-label="Search issues by title, id or detail"></form>
+      <a class="in-new" href="/__ioi/missions/incidents?lane=${lane}&new=1" title="File an issue against something in this deployment">${bpIcon("plus")} New</a>
       <span class="in-cog gap" title="Issue settings — a reference-only lane (named gap)">${bpIcon("cog")}</span>
     </div>
   </header>`;
@@ -5756,13 +5783,71 @@ function renderIncidentsPort(ops, workResults, lane) {
   const list = `<main class="in-list">
     <div class="in-lhead">
       <span class="in-cb hd" role="checkbox" aria-checked="false" aria-disabled="true" title="Bulk selection — a reference-only lane (named gap)" data-ioi-disabled-reason="Bulk selection — a reference-only lane (named gap)"></span>
-      <span class="in-lcounttxt">${shown.length < rows.length ? `${shown.length} of ${rows.length}` : rows.length} ${lane === "all" ? "" : lane + " "}issue${rows.length === 1 ? "" : "s"}</span>
+      <span class="in-lcounttxt">${shown.length < rows.length ? `${shown.length} of ${rows.length}` : rows.length} ${lane === "all" ? "" : lane + " "}issue${rows.length === 1 ? "" : "s"}</span>${q ? `<span class="in-lq">matching “${esc(q)}” · <a href="/__ioi/missions/incidents?lane=${lane}">clear</a></span>` : ""}
       <span class="in-lmut">filtered by</span>
       <span class="in-lsel gap" role="button" tabindex="0" title="Saved filters are a reference-only lane (named gap)" aria-disabled="true" data-ioi-disabled-reason="Saved filters are a reference-only lane (named gap)">select filter ${bpIcon("caret-down")}</span>
       <span class="in-lsort"><span class="in-lmut">Sort by</span> <span class="in-lsortv gap" role="button" tabindex="0" title="Sort options are a reference-only lane — rows are honestly ordered by most recent update" aria-disabled="true" data-ioi-disabled-reason="Sort options are a reference-only lane — rows are honestly ordered by most recent update">Most recently updated ${bpIcon("caret-down")}</span></span>
     </div>
+    ${extra.filedDown ? `<p class="in-filedown" role="status">Filed issues could not be read: ${esc(extra.filedDown)}. The rows below are the derived incidents only.</p>` : ""}
     <div class="in-rows" id="incident-rows">${shown.length ? shown.map(rowHtml).join("") : emptyLane}</div>
   </main>`;
+
+  const back = `/__ioi/missions/incidents?lane=${lane}${q ? `&q=${encodeURIComponent(q)}` : ""}`;
+  const dlg = extra.dialog || null;
+  const dv = (dlg && dlg.values) || {};
+  const opt = (value, label, picked) => `<option value="${esc(value)}"${picked ? " selected" : ""}>${esc(label)}</option>`;
+  const cands = (dlg && dlg.candidates) || [];
+  const groups = [...new Set(cands.map((c) => c.group))];
+  const dialogHtml = dlg ? `<div class="in-overlay"><div class="in-dialog" role="dialog" aria-modal="true" aria-labelledby="in-dtitle">
+    <div class="in-dhead"><h2 id="in-dtitle">Submit issue</h2><a class="in-dclose" href="${esc(back)}" aria-label="Close">${bpIcon("cross")}</a></div>
+    <form class="in-dform" id="in-dform" method="post" action="/__ioi/missions/incidents/new">
+      <input type="hidden" name="nonce" value="${esc(dv.nonce || crypto.randomUUID())}"><input type="hidden" name="lane" value="${esc(lane)}">
+      ${dlg.error ? `<p class="in-derr" role="alert"><b>Not filed:</b> ${esc(dlg.error)}</p>` : ""}
+      <p class="in-derr" id="in-dhint" role="alert" hidden>Fill in the fields marked * — the issue needs a title and something it affects.</p>
+      <label>Application<select name="product">${opt("", "Not specific to one application", !dv.product)}${(dlg.apps || []).map((a) => opt(a, a, dv.product === a)).join("")}</select><span class="in-dhint">Which part of IOI the issue is in</span></label>
+      <label>Title*<input name="title" required maxlength="200" value="${esc(dv.title || "")}" placeholder="What do you need help with?"></label>
+      <label>Description<textarea name="redacted_diagnostics" rows="5" maxlength="4000" placeholder="What happened, what you expected, and what you tried">${esc(dv.redacted_diagnostics || "")}</textarea><span class="in-dhint">Stored exactly as written and readable by your organization — never paste a secret, token or password.</span></label>
+      <div class="in-drow">
+        <label>Severity<select name="severity">${IN_SEVERITIES.map(([v, l]) => opt(v, l, (dv.severity || "minor") === v)).join("")}</select></label>
+        <label>Assignee<select name="assigned_owner_ref">${opt("", "Unassigned", !dv.assigned_owner_ref)}${(dlg.people || []).map((m) => opt(m.ref, m.label, dv.assigned_owner_ref === m.ref)).join("")}</select></label>
+      </div>
+      <label>Affected resource*<select name="affected" required>${opt("", "Select what this affects", !dv.affected)}${groups.map((g) => `<optgroup label="${esc(g)}">${cands.filter((c) => c.group === g).map((c) => opt(c.ref, c.label, dv.affected === c.ref)).join("")}</optgroup>`).join("")}${opt("__other", "Something else — name it below", dv.affected === "__other")}</select>
+        <input name="affected_ref" maxlength="300" value="${esc(dv.affected_ref || "")}" placeholder="or name another object, e.g. env://… or artifact://…" aria-label="Another affected object reference"></label>
+      <div class="in-dinfo">Organization <b>${esc(dlg.orgName || "—")}</b> — only people in your organization can read this issue. The daemon records you as the reporter from your sign-in.</div>
+      <div class="in-dfoot"><a class="in-dcancel" href="${esc(back)}">Cancel</a><button type="submit" class="in-dsubmit">Submit</button></div>
+    </form>
+    <script>(() => { const f = document.getElementById("in-dform"), h = document.getElementById("in-dhint"); if (!f || !h) return;
+      const other = f.elements.affected_ref, sel = f.elements.affected;
+      const sync = () => { sel.required = !other.value.trim(); };
+      other.addEventListener("input", sync); sync();
+      f.addEventListener("invalid", () => { h.hidden = false; }, true);
+      f.addEventListener("input", () => { if (f.checkValidity()) h.hidden = true; }); })();</script>
+  </div></div>` : "";
+
+  const iss = extra.issue || null;
+  const issueHtml = iss ? (() => {
+    if (iss.error) return `<aside class="in-drawer" role="dialog" aria-label="Issue"><div class="in-dhead"><h2>Issue</h2><a class="in-dclose" href="${esc(back)}" aria-label="Close">${bpIcon("cross")}</a></div><p class="in-derr" role="alert">${esc(iss.error)}</p></aside>`;
+    const r = iss.record; const sid = inIssueId(r.incident_id);
+    const acts = (IN_STATUS_ACTIONS[r.status] || []).map(([to, label]) => `<button type="submit" name="status" value="${esc(to)}" class="in-sact${to === "open" ? " re" : ""}">${esc(label)}</button>`).join("");
+    const aff = r.affected || {};
+    return `<aside class="in-drawer" role="dialog" aria-labelledby="in-itl">
+      <div class="in-dhead"><h2 id="in-itl">${esc(r.title || "(untitled)")}</h2><a class="in-dclose" href="${esc(back)}" aria-label="Close">${bpIcon("cross")}</a></div>
+      ${iss.notice ? `<p class="in-dnote ${iss.notice.kind}" role="${iss.notice.kind === "err" ? "alert" : "status"}">${esc(iss.notice.text)}</p>` : ""}
+      <div class="in-ipills"><span class="in-rpill filed sev-${esc(r.severity)}"><span class="in-pdot">${bpIcon("issue-dot")}</span>${esc(r.severity)}</span><span class="in-istatus">${esc(r.status)}</span></div>
+      <form class="in-iacts" method="post" action="/__ioi/missions/incidents/status"><input type="hidden" name="id" value="${esc(sid)}"><input type="hidden" name="lane" value="${esc(lane)}"><input type="hidden" name="nonce" value="${esc(crypto.randomUUID())}">${acts}</form>
+      <dl class="in-idl">
+        <dt>Application</dt><dd>${esc(aff.product || "Not specific to one application")}</dd>
+        <dt>Affects</dt><dd>${(aff.object_refs || []).map((x) => `<code>${esc(x)}</code>`).join("<br>") || "—"}</dd>
+        <dt>Assignee</dt><dd>${r.assigned_owner_ref ? `<code>${esc(r.assigned_owner_ref)}</code>` : "Unassigned"}</dd>
+        <dt>Reported by</dt><dd><code>${esc(r.reported_by || "—")}</code></dd>
+        <dt>Filed</dt><dd>${esc(r.created_at || "—")}</dd>
+        <dt>Updated</dt><dd>${esc(r.updated_at || "—")}</dd>
+        <dt>Issue</dt><dd><code>${esc(r.incident_id)}</code></dd>
+      </dl>
+      <div class="in-idesc"><div class="in-idesch">Description</div>${r.redacted_diagnostics ? `<div class="in-idesct">${esc(r.redacted_diagnostics)}</div>` : `<div class="in-idesct none">No description was given.</div>`}</div>
+      <p class="in-ifoot">A filed issue links an incident to what it affects. It grants nothing and blocks nothing; each status change is an admitted, receipted write.</p>
+    </aside>`;
+  })() : "";
 
   const globalRail = ioiGlobalRailHtml({ label: "Issues", href: "/__ioi/missions/incidents", iconUri: ISSUES_APP_ICON_URI, railVariant: "rv-pipe", viewAll: false, star: false, badges: true, aipGradient: true, acctMuted: true });
 
@@ -5780,7 +5865,8 @@ function renderIncidentsPort(ops, workResults, lane) {
     .in-search{display:flex;align-items:center;gap:7px;width:400px;height:30px;border-radius:4px;background:#fff;padding:0 7px;color:#5f6b7c;box-shadow:inset 0 0 0 1px rgba(17,20,24,.2),inset 0 1px 1px rgba(17,20,24,.3)}
     .in-search input{flex:1;border:0;background:transparent;font:inherit;font-size:14px;color:#1c2127;outline:none;padding:0}
     .in-search input::placeholder{color:#5f6b7c}
-    .in-new{display:inline-flex;align-items:center;gap:8px;height:30px;margin-left:15px;padding:0 15px 0 8px;border:0;border-radius:4px;background:#2d72d2;color:#fff;font:inherit;font-size:14px;line-height:16.1px;cursor:not-allowed}
+    .in-new{display:inline-flex;align-items:center;gap:8px;height:30px;margin-left:15px;padding:0 15px 0 8px;border:0;border-radius:4px;background:#2d72d2;color:#fff;font:inherit;font-size:14px;line-height:16.1px;cursor:pointer}
+    .in-new:hover{background:#215db0;color:#fff}
     .in-new svg{color:#fff}
     .in-cog{display:inline-flex;align-items:center;justify-content:center;width:30px;height:30px;margin-left:5px;border-radius:4px;color:#5f6b7c;cursor:default}
     .in-work{flex:1 1 auto;display:flex;min-height:0}
@@ -5840,11 +5926,44 @@ function renderIncidentsPort(ops, workResults, lane) {
     .in-rpill.fail{background:rgba(205,66,70,.18)}.in-rpill.fail .in-pdot{color:#cd4246}
     .in-rkind{font-size:12px;line-height:15.4297px;color:#8f99a8;margin-top:4px}
     .in-empty{margin:24px;padding:16px 18px;border:1px dashed #d3d8de;border-radius:8px;background:#fbfbfc;color:#5f6b7c;max-width:640px}
+    .in-lq{font-size:13px;color:#5f6b7c;margin-left:8px}
+    .in-filedown{margin:10px 24px 0;padding:8px 12px;border-radius:4px;background:#fbf3e6;border:1px solid rgba(200,118,25,.35);color:#77450d;font-size:13px}
+    .in-rpill.filed{background:rgba(45,114,210,.12)}.in-rpill.filed .in-pdot{color:#2d72d2}
+    .in-rpill.sev-major{background:rgba(236,154,60,.22)}.in-rpill.sev-major .in-pdot{color:#c87619}
+    .in-rpill.sev-critical{background:rgba(205,66,70,.18)}.in-rpill.sev-critical .in-pdot{color:#cd4246}
+    .in-overlay{position:fixed;inset:0;background:rgba(17,20,24,.55);display:flex;align-items:flex-start;justify-content:center;padding:6vh 16px;overflow-y:auto;z-index:40}
+    .in-dialog{width:560px;max-width:100%;background:#fff;border-radius:6px;box-shadow:0 18px 46px rgba(17,20,24,.35)}
+    .in-dhead{display:flex;align-items:center;gap:8px;min-height:44px;padding:0 8px 0 18px;border-bottom:1px solid #dce0e5}
+    .in-dhead h2{flex:1;margin:0;font-size:16px;font-weight:600;color:#1c2127;overflow:hidden;text-overflow:ellipsis}
+    .in-dclose{display:inline-flex;align-items:center;justify-content:center;width:30px;height:30px;border-radius:4px;color:#5f6b7c}.in-dclose:hover{background:rgba(143,153,168,.15)}
+    .in-dform{display:flex;flex-direction:column;gap:12px;padding:16px 18px 14px}
+    .in-dform label{display:flex;flex-direction:column;gap:4px;font-size:13px;font-weight:600;color:#1c2127;min-width:0}
+    .in-dform input:not([type=hidden]),.in-dform select,.in-dform textarea{font:inherit;font-size:14px;font-weight:400;color:#1c2127;background:#fff;border:0;border-radius:4px;padding:6px 8px;box-shadow:inset 0 0 0 1px rgba(17,20,24,.2),inset 0 1px 1px rgba(17,20,24,.3);min-width:0}
+    .in-dform textarea{resize:vertical;line-height:1.4}
+    .in-dform input[name=affected_ref]{margin-top:4px}
+    .in-dhint{font-size:12px;font-weight:400;color:#5f6b7c}
+    .in-drow{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+    .in-dinfo{font-size:12px;color:#5f6b7c;background:#f6f7f9;border-radius:4px;padding:8px 10px}
+    .in-derr{margin:0;padding:8px 10px;border-radius:4px;background:#fcf1f1;border:1px solid rgba(172,47,51,.3);color:#8e292c;font-size:13px}
+    .in-dfoot{display:flex;justify-content:flex-end;align-items:center;gap:8px;margin-top:2px}
+    .in-dcancel{display:inline-flex;align-items:center;height:30px;padding:0 12px;border-radius:4px;color:#1c2127;box-shadow:inset 0 0 0 1px rgba(17,20,24,.2)}
+    .in-dsubmit{height:30px;padding:0 14px;border:0;border-radius:4px;background:#2d72d2;color:#fff;font:inherit;font-weight:600;cursor:pointer}.in-dsubmit:hover{background:#215db0}
+    .in-drawer{position:fixed;top:0;right:0;bottom:0;width:440px;max-width:100vw;background:#fff;box-shadow:-8px 0 30px rgba(17,20,24,.25);z-index:40;overflow-y:auto;display:flex;flex-direction:column}
+    .in-dnote{margin:12px 18px 0;padding:8px 10px;border-radius:4px;font-size:13px}.in-dnote.ok{background:#f3f8f5;border:1px solid rgba(35,133,81,.3);color:#1c6e42}.in-dnote.err{background:#fcf1f1;border:1px solid rgba(172,47,51,.3);color:#8e292c}
+    .in-drawer>.in-derr{margin:12px 18px}
+    .in-ipills{display:flex;align-items:center;gap:8px;padding:14px 18px 0}
+    .in-istatus{font-size:12px;font-weight:600;text-transform:uppercase;letter-spacing:.3px;color:#404854;background:rgba(143,153,168,.15);border-radius:4px;padding:2px 8px}
+    .in-iacts{display:flex;flex-wrap:wrap;gap:6px;padding:12px 18px 0}
+    .in-sact{height:28px;padding:0 12px;border:0;border-radius:4px;background:#2d72d2;color:#fff;font:inherit;font-size:13px;font-weight:600;cursor:pointer}.in-sact:hover{background:#215db0}
+    .in-sact.re{background:#fff;color:#1c2127;box-shadow:inset 0 0 0 1px rgba(17,20,24,.2)}.in-sact.re:hover{background:#f6f7f9}
+    .in-idl{display:grid;grid-template-columns:110px 1fr;gap:8px 12px;margin:16px 18px 0;font-size:13px}.in-idl dt{color:#5f6b7c}.in-idl dd{margin:0;min-width:0;overflow-wrap:anywhere}
+    .in-idesc{margin:16px 18px 0}.in-idesch{font-size:12px;font-weight:600;color:#5f6b7c;margin-bottom:4px}.in-idesct{white-space:pre-wrap;font-size:14px;line-height:1.45;background:#f6f7f9;border-radius:4px;padding:10px 12px}.in-idesct.none{color:#5f6b7c}
+    .in-ifoot{margin:auto 18px 16px;padding-top:16px;font-size:12px;color:#8f99a8}
     @media(max-width:700px){
       .in-main{height:100svh}.in-header{position:relative;flex:0 0 88px;height:88px;padding-bottom:37px}
       .in-hchip{width:42px;flex-basis:42px}.in-htitle{margin-left:9px;font-size:15px}
       .in-hright{position:absolute;left:0;right:0;bottom:0;height:38px;padding:0 10px}.in-hright>*{margin-top:4px}
-      .in-search{width:auto;flex:1}.in-new,.in-cog{display:none}
+      .in-search{width:auto;flex:1}.in-cog{display:none}.in-new{margin-left:8px;padding:0 10px 0 6px}
       .in-work{flex-direction:column;overflow-y:auto;overflow-x:hidden}
       .in-side{width:100%;flex:0 0 auto;position:relative;overflow:visible;padding:10px 12px 12px;display:grid;grid-template-columns:repeat(6,minmax(0,1fr));gap:8px;border-right:0;border-bottom:1px solid rgba(16,22,26,.15)}
       .in-lane{position:static;grid-column:span 2;height:32px;padding:0 8px;border-radius:4px}.in-fhead{position:static;grid-column:1/-1;margin-top:3px}
@@ -5853,11 +5972,11 @@ function renderIncidentsPort(ops, workResults, lane) {
       .in-fuline,.in-fbox{width:100%;min-width:0}.in-dates{width:100%}.in-fdate{width:50%;min-width:0;font-size:12px;padding:0 5px}
       .in-list{width:100%;flex:0 0 auto;min-height:380px}.in-lhead{height:41px}.in-lmut,.in-lsel,.in-lsort{display:none}.in-lcounttxt{left:47px;max-width:none}
       .in-row{height:auto;min-height:78px;padding:10px 12px}.in-rico{margin-left:10px}.in-rsub{white-space:normal}.in-rright{width:78px;margin-left:8px}.in-rpill{max-width:78px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.in-rkind{display:none}
-      .in-empty{margin:14px}
+      .in-empty{margin:14px}.in-drow{grid-template-columns:1fr}.in-drawer{width:100vw}
     }`;
 
   return `<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Issues — incidents inbox</title><style>${css}</style></head>
-    <body><div class="in-shell">${globalRail}<div class="in-main">${header}<div class="in-work">${sidebar}${list}</div></div></div></body></html>`;
+    <body><div class="in-shell">${globalRail}<div class="in-main">${header}<div class="in-work">${sidebar}${list}</div></div></div>${dialogHtml}${issueHtml}</body></html>`;
 }
 
 // ============================ MODEL CATALOG (#47 — the Foundry models seed as a faithful
@@ -6037,7 +6156,7 @@ function renderModelCatalogPort(routesJson, view = "provided", reg = null) {
     .mc-register>summary::-webkit-details-marker{display:none}.mc-register[open]>summary{background:#f6f7f9}
     .mc-regform{margin-top:10px;display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;max-width:760px;padding:14px;border:1px solid #d3d8de;border-radius:6px;background:#fff}
     .mc-regform label{display:flex;flex-direction:column;gap:4px;font-size:12px;font-weight:600;color:#404854}.mc-regform .full{grid-column:1/-1}
-    .mc-regform input,.mc-regform select{font-family:inherit;font-size:13px;font-weight:400;border:1px solid rgba(17,20,24,.25);border-radius:3px;padding:6px 8px}
+    .mc-regform input,.mc-regform select{font-family:inherit;font-size:13px;font-weight:400;border:1px solid rgba(17,20,24,.25);border-radius:3px;padding:6px 8px;background:#fff;color:#1c2127}
     .mc-regform button{justify-self:start;background:#2d72d2;color:#fff;border:0;border-radius:3px;padding:6px 14px;font-weight:600;cursor:pointer}
     .mc-regform .hint{font-weight:400;color:#5f6b7c}
     .mc-regnote{margin:0 0 12px;padding:10px 12px;border-radius:4px;font-size:13px;max-width:760px}.mc-regnote.ok{background:#f3f8f5;border:1px solid rgba(35,133,81,.3);color:#1c6e42}.mc-regnote.err{background:#fcf1f1;border:1px solid rgba(172,47,51,.3);color:#8e292c}
@@ -12735,20 +12854,34 @@ async function handleEstateRequest(req, res, body) {
             result = `<div class="inf-runres err" role="alert"><p><b>Not run:</b> ${esc(infRun.error?.message || "the call was refused")} <code>${esc(infRun.error?.code || "")}</code></p>${checkedNote}</div>`;
           }
         }
+        // A sole route is not a choice: a one-option select opens onto nothing. It is stated, and the
+        // way to add another is one link away.
+        const sole = routes.length === 1 ? routes[0] : null;
+        const routeField = sole
+          ? `<div class="inf-runfixed"><span class="inf-runlbl">Model route</span><span>${esc(istr(sole.model?.model_id) || istr(sole.model_id) || istr(sole.route_id))} · <code>${esc(istr(sole.route_id))}</code> · ${esc(istr(sole.availability?.state) || "unknown")}${sole.availability?.stale ? " (stale — it is checked before the call)" : ""} <a href="/__ioi/foundry/models?register=1#register">Register another model</a></span><input type="hidden" name="route_id" value="${esc(istr(sole.route_id))}"></div>`
+          : `<label>Model route<select name="route_id" required>${routes.map(routeOpt).join("")}</select></label>`;
+        // An empty prompt is refused by the browser before anything is sent; its bubble vanishes on the
+        // next keystroke, so the reason is also written under the field, where it stays until it is fixed.
         const form = routes.length
-          ? `<form method="post" action="/__ioi/foundry/inference#run" class="inf-runform">
+          ? `<form method="post" action="/__ioi/foundry/inference#run" class="inf-runform" id="inf-runform">
               <input type="hidden" name="nonce" value="${esc(crypto.randomUUID())}">
-              <label>Model route<select name="route_id" required>${routes.map(routeOpt).join("")}</select></label>
+              ${routeField}
               <label>Prompt<textarea name="prompt" required maxlength="8000" rows="4" placeholder="Ask the model something…">${esc(infRun ? infRun.prompt : "")}</textarea></label>
+              <p class="inf-runhint" id="inf-runhint" role="alert" hidden>Write a prompt first — there is nothing to send the model yet.</p>
               <div><button type="submit">Run</button></div>
-            </form>`
-          : `<p class="inf-runnote">No model route is registered in this deployment, so there is nothing to run a prompt against. Register one in the <a href="/__ioi/foundry/models">Model Catalog</a>.</p>`;
+            </form>
+            <script>(() => { const f = document.getElementById("inf-runform"), h = document.getElementById("inf-runhint"); if (!f || !h) return;
+              f.addEventListener("invalid", () => { h.hidden = false; }, true);
+              f.addEventListener("input", () => { if (f.checkValidity()) h.hidden = true; }); })();</script>`
+          : `<p class="inf-runnote">No model route is registered in this deployment, so there is nothing to run a prompt against. <a href="/__ioi/foundry/models?register=1#register">Register one in the Model Catalog</a>.</p>`;
         return `<section class="inf-run" id="run" aria-label="Run an inference"><style>
             .inf-run{background:#fff;border:1px solid #d3d8de;border-radius:6px;padding:18px 20px;margin:0 0 18px;max-width:880px}
             .inf-run h2{margin:0 0 4px;font-size:18px}.inf-run .inf-runsub{margin:0 0 12px;color:#5f6b7c;font-size:13px}
             .inf-runform{display:flex;flex-direction:column;gap:10px}.inf-runform label{display:flex;flex-direction:column;gap:4px;font-size:12px;font-weight:600;color:#404854}
             .inf-runform select,.inf-runform textarea{font-family:inherit;font-size:14px;line-height:1.4;font-weight:400;color:#1c2127;border:1px solid rgba(17,20,24,.25);border-radius:3px;padding:6px 8px;background:#fff}
             .inf-runform button{background:#2d72d2;color:#fff;border:0;border-radius:3px;padding:6px 16px;font:inherit;font-weight:600;cursor:pointer}.inf-runform button:hover{background:#215db0}
+            .inf-runfixed{display:flex;flex-direction:column;gap:4px;font-size:14px;color:#1c2127}.inf-runfixed .inf-runlbl{font-size:12px;font-weight:600;color:#404854}.inf-runfixed a{margin-left:8px;font-size:13px}
+            .inf-runhint{margin:-4px 0 0;font-size:13px;color:#ac2f33}
             .inf-runres{margin-top:14px;border-radius:4px;padding:12px 14px}.inf-runres.ok{background:#f3f8f5;border:1px solid rgba(35,133,81,.3)}.inf-runres.err{background:#fcf1f1;border:1px solid rgba(172,47,51,.3)}
             .inf-runans{white-space:pre-wrap;font-size:15px;line-height:1.5;color:#1c2127}.inf-runmeta,.inf-runnote{margin:8px 0 0;font-size:12px;color:#5f6b7c}
           </style>
@@ -13616,21 +13749,112 @@ async function handleEstateRequest(req, res, body) {
       const routesJson = await daemonFetch(`/v1/hypervisor/model-routes`).then((x) => x.json()).catch(() => ({}));
       // FOU-1 (remediation v2): ?tab=registered = the registry-by-origin lane (live).
       const mcQ = new URL(req.url, "http://x").searchParams;
-      const mcView = mcQ.get("tab") === "registered" ? "registered" : "provided";
+      // ?register=1 is the deep link other surfaces use: the register panel lives on the Registered tab.
+      const mcView = mcQ.get("tab") === "registered" || mcQ.get("register") === "1" ? "registered" : "provided";
       const regText = (mcQ.get("reg_note") || "").slice(0, 400);
-      const reg = regText ? { notice: { kind: mcQ.get("reg_ok") === "1" ? "ok" : "err", text: regText }, open: mcQ.get("reg_ok") !== "1" } : null;
+      const reg = regText ? { notice: { kind: mcQ.get("reg_ok") === "1" ? "ok" : "err", text: regText }, open: mcQ.get("reg_ok") !== "1" } : (mcQ.get("register") === "1" ? { open: true } : null);
       sendOwnedSurfaceHtml(res, "models", renderModelCatalogPort(routesJson, mcView, reg));
       return;
     }
-    if (pathname === "/__ioi/missions/incidents" && req.method === "GET") {
-      const [opsRes, wrRes] = await Promise.all([
+    // THE ISSUES INBOX (R-240): derived incidents + the issues people FILED (SupportIncidentLink).
+    // `extra` carries what only some requests need — the Submit issue dialog (?new=1, or a refused
+    // POST re-rendered with its values) and one issue's drawer (?issue=<id>).
+    const incidentsPage = async (qp, over = {}) => {
+      const lane = ["open", "closed", "all"].includes(qp.get("lane")) ? qp.get("lane") : "open";
+      const readJ = (path) => daemonFetch(path).then(async (x) => ({ status: x.status, j: await x.json().catch(() => ({})) })).catch(() => ({ status: 0, j: {} }));
+      const why = (r) => (r.j.error && r.j.error.message) || r.j.message || (r.status ? `the daemon answered HTTP ${r.status}` : "the daemon did not answer");
+      const wantDialog = qp.get("new") === "1" || !!over.dialog;
+      const issueId = String(qp.get("issue") || "").slice(0, 200);
+      const [opsRes, wrRes, filedR, whoR, projR, peopleR, issueR, orgR] = await Promise.all([
         daemonFetch(`/v1/hypervisor/operations`).then((x) => x.json()).catch(() => ({})),
         daemonFetch(`/v1/hypervisor/work-results`).then((x) => x.json()).catch(() => ({})),
+        readJ("/v1/hypervisor/support-incidents"),
+        wantDialog ? readJ("/v1/hypervisor/auth/whoami") : null,
+        wantDialog ? readJ("/v1/hypervisor/projects") : null,
+        wantDialog ? readJ("/v1/hypervisor/principals") : null,
+        issueId ? readJ(`/v1/hypervisor/support-incidents/${encodeURIComponent(issueId)}`) : null,
+        wantDialog ? readJ("/v1/hypervisor/organization") : null,
       ]);
-      const qp = new URL(req.url, "http://x").searchParams;
-      const lane = ["open", "closed", "all"].includes(qp.get("lane")) ? qp.get("lane") : "open";
-      sendOwnedSurfaceHtml(res, "incidents", renderIncidentsPort(opsRes, wrRes.work_results || [], lane));
+      const filedOk = filedR.status === 200 && Array.isArray(filedR.j.support_incidents);
+      const extra = {
+        q: qp.get("q") || "",
+        filed: filedOk ? filedR.j.support_incidents : [],
+        filedDown: filedOk ? "" : (filedR.status === 405 ? "this daemon build serves no list of filed issues (HTTP 405) — restart it on a current build" : why(filedR)),
+      };
+      if (wantDialog) {
+        const who = whoR.j || {};
+        const me = who.principal || (who.payload && who.payload.principal) || {};
+        const orgRef = callerOwnerRef(who);
+        const org = orgR.j.organization || {};
+        const people = (Array.isArray(peopleR.j.principals) ? peopleR.j.principals : [])
+          .filter((x) => x && x.principal_ref && x.status !== "disabled")
+          .map((x) => ({ ref: x.principal_ref, label: `${x.name || x.email || x.principal_ref}${x.principal_ref === me.principal_ref ? " (you)" : ""}` }));
+        if (!people.length && me.principal_ref) people.push({ ref: me.principal_ref, label: `${me.name || me.email || "Me"} (you)` });
+        const wrs = Array.isArray(wrRes.work_results) ? wrRes.work_results : [];
+        const fails = Array.isArray(opsRes?.runs?.failures) ? opsRes.runs.failures : [];
+        const candidates = [
+          ...(Array.isArray(projR.j.projects) ? projR.j.projects : []).filter((x) => x && x.project_id).map((x) => ({ group: "Projects", ref: `project://${String(x.project_id).replace(/^project:/u, "")}`, label: x.name || x.project_id })),
+          ...fails.filter((x) => x && x.execution_id).slice(0, 25).map((x) => ({ group: "Failed runs", ref: `execution://${x.execution_id}`, label: `${x.name || x.execution_id} · ${x.status || "failed"}` })),
+          ...wrs.filter((x) => x && ["failed", "blocked"].includes(String(x.status || "").toLowerCase())).slice(0, 25).map((x) => ({ group: "Failed or blocked results", ref: x.work_subject_ref || `work-result://${x.work_result_id}`, label: `${x.work_subject_ref || x.work_result_id} · ${x.status}` })),
+        ];
+        extra.dialog = {
+          ...(over.dialog || {}),
+          orgName: (typeof org.display_name === "string" && org.display_name.trim()) || String(org.org_ref || orgRef || "").replace(/^[a-z]+:\/\//u, ""),
+          apps: [...new Set(SURFACES.map((s) => s.title).filter(Boolean))].sort((a, b) => a.localeCompare(b)),
+          people, candidates,
+        };
+      }
+      if (issueId) {
+        const note = (qp.get("note") || "").slice(0, 400);
+        extra.issue = issueR.status === 200 && issueR.j.incident
+          ? { record: issueR.j.incident, notice: note ? { kind: qp.get("ok") === "1" ? "ok" : "err", text: note } : null }
+          : { error: issueR.status === 404 ? "No filed issue has this id." : `The issue could not be read: ${why(issueR)}.` };
+      }
+      return renderIncidentsPort(opsRes, wrRes.work_results || [], lane, extra);
+    };
+    if (pathname === "/__ioi/missions/incidents" && req.method === "GET") {
+      sendOwnedSurfaceHtml(res, "incidents", await incidentsPage(new URL(req.url, "http://x").searchParams));
       return;
+    }
+    if (pathname === "/__ioi/missions/incidents/new" && req.method === "POST") {
+      const f = new URLSearchParams(body.toString());
+      const lane = ["open", "closed", "all"].includes(f.get("lane")) ? f.get("lane") : "open";
+      const values = Object.fromEntries(["nonce", "product", "title", "redacted_diagnostics", "severity", "assigned_owner_ref", "affected", "affected_ref"].map((k) => [k, (f.get(k) || "").slice(0, k === "redacted_diagnostics" ? 4000 : 300)]));
+      const refuse = async (error) => sendOwnedSurfaceHtml(res, "incidents", await incidentsPage(new URLSearchParams({ lane }), { dialog: { error, values } }));
+      const other = values.affected_ref.trim();
+      const affected = values.affected === "__other" || !values.affected ? other : values.affected;
+      if (!values.title.trim()) return refuse("give the issue a title.");
+      if (!affected) return refuse("name what the issue affects — pick a resource, or write another object's reference.");
+      const who = await daemonFetch("/v1/hypervisor/auth/whoami").then((x) => x.json()).catch(() => ({}));
+      const owner = callerOwnerRef(who);
+      if (!owner) return refuse("your sign-in belongs to no organization of this deployment, so the issue would have no owner.");
+      const created = await daemonFetch("/v1/hypervisor/support-incidents", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({
+        owner_ref: owner, idempotency_key: `issue-${values.nonce || crypto.randomUUID()}`,
+        title: values.title.trim(), severity: values.severity || "minor", affected_object_refs: [affected],
+        product: values.product.trim(), redacted_diagnostics: values.redacted_diagnostics, assigned_owner_ref: values.assigned_owner_ref.trim(),
+      }) }).then(async (x) => ({ status: x.status, j: await x.json().catch(() => ({})) })).catch(() => ({ status: 0, j: {} }));
+      if (!(created.status >= 200 && created.status < 300) || !created.j.incident) {
+        return refuse((created.j.error && created.j.error.message) || created.j.message || (created.status ? `the daemon answered HTTP ${created.status}` : "the daemon did not answer"));
+      }
+      const sid = String(created.j.incident.incident_id || "").replace(/^support-incident:\/\//u, "");
+      const note = created.j.replayed ? "This issue was already filed — the same form was submitted twice, so nothing new was written." : `Filed. Your organization can see it in the open lane.`;
+      res.writeHead(303, { Location: `/__ioi/missions/incidents?lane=open&issue=${encodeURIComponent(sid)}&ok=1&note=${encodeURIComponent(note)}`, "Cache-Control": "no-store" });
+      res.end();
+      return;
+    }
+    if (pathname === "/__ioi/missions/incidents/status" && req.method === "POST") {
+      const f = new URLSearchParams(body.toString());
+      const lane = ["open", "closed", "all"].includes(f.get("lane")) ? f.get("lane") : "open";
+      const id = (f.get("id") || "").slice(0, 200);
+      const to = (f.get("status") || "").slice(0, 40);
+      const back = (ok, note) => { res.writeHead(303, { Location: `/__ioi/missions/incidents?lane=${lane}&issue=${encodeURIComponent(id)}&ok=${ok ? 1 : 0}&note=${encodeURIComponent(note)}`, "Cache-Control": "no-store" }); res.end(); };
+      const who = await daemonFetch("/v1/hypervisor/auth/whoami").then((x) => x.json()).catch(() => ({}));
+      const owner = callerOwnerRef(who);
+      if (!owner) return back(false, "Not changed: your sign-in belongs to no organization of this deployment.");
+      const r = await daemonFetch(`/v1/hypervisor/support-incidents/${encodeURIComponent(id)}/status`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ owner_ref: owner, idempotency_key: `issue-status-${f.get("nonce") || crypto.randomUUID()}`, status: to }) })
+        .then(async (x) => ({ status: x.status, j: await x.json().catch(() => ({})) })).catch(() => ({ status: 0, j: {} }));
+      if (r.status >= 200 && r.status < 300) return back(true, `Status is now ${r.j.incident?.status || to}.`);
+      return back(false, `Not changed: ${(r.j.error && r.j.error.message) || r.j.message || (r.status ? `the daemon answered HTTP ${r.status}` : "the daemon did not answer")}.`);
     }
     if (pathname === "/__ioi/operations" && req.method === "GET") {
       const [r, authpol, prov, provReceipts, spendRecon, storageB, storageInc, akashDepin, failoverRuns, failoverPlans2, workResultsRes, ledgerRes] = await Promise.all([

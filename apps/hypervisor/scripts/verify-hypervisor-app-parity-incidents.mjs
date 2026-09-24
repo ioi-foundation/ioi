@@ -8,10 +8,11 @@
 //   2. VISUAL PARITY: the hardened harness certifies theme + IA landmarks +
 //      region geometry against the /__apps/incidents reference (whose data sits
 //      one status-lane click deep — the pre-capture hook clicks status UI only).
-//   3. DAEMON TRUTH: rendered incidents are REAL GoalRun blockers + run
-//      failures — counts cross-checked against the daemon after the same lane
-//      filters, at least one real id/reason/proof link renders, empty lanes
-//      stay honest, nothing fabricated (no priorities/assignees invented).
+//   3. DAEMON TRUTH: rendered incidents are REAL failed runs, failed/blocked
+//      WorkResults and FILED issues (SupportIncidentLink) — counts cross-checked
+//      against the daemon after the same lane filters, empty lanes stay honest,
+//      nothing fabricated (derived rows carry no priority/assignee). No goal-run
+//      lane: goal runs are ioi.ai compositions, not Hypervisor objects (R-192).
 //   4. SHELL-PIXEL CERTIFICATION: committed non-pinned 2-viewport evidence
 //      under the calibrated budgets; the row list is the excluded live body —
 //      NO full-body pixel claim is made anywhere.
@@ -32,8 +33,8 @@ const page = (url) => fetch(url).then(async (r) => ({ status: r.status, text: aw
 const jd = (p) => fetch(`${DAEMON}${p}`).then((r) => r.json()).catch(() => ({}));
 
 async function run() {
-  const up = await fetch(`${DAEMON}/v1/goal-orchestration/goal-runs`).then((r) => r.ok).catch(() => false);
-  if (!up) { console.error("BLOCKED: daemon goal-run plane not reachable at " + DAEMON); process.exit(2); }
+  const up = await fetch(`${DAEMON}/v1/hypervisor/operations`).then((r) => r.ok).catch(() => false);
+  if (!up) { console.error("BLOCKED: daemon operations plane not reachable at " + DAEMON); process.exit(2); }
 
   // 1. MATRIX — daemon_wired incidents over a data_clean reference, certified, deep-link declared.
   const check = spawnSync("node", [path.join(here, "build-app-parity-matrix.mjs"), "--check"], { encoding: "utf8" });
@@ -57,37 +58,45 @@ async function run() {
   ok("BOTH sides VALID: the reference (post status-lane click) is not errored + the port is not errored", hp && hp.reference_valid === true && hp.reference_errored === false && hp.ioi_valid === true && hp.ioi_errored === false);
 
   // 3. DAEMON TRUTH — counts, identity, proof links, lane logic, honest empties, no fabrication.
-  const [grRes, opsRes] = await Promise.all([jd("/v1/goal-orchestration/goal-runs"), jd("/v1/hypervisor/operations")]);
+  const [wrRes, opsRes, filedRes] = await Promise.all([jd("/v1/hypervisor/work-results"), jd("/v1/hypervisor/operations"), jd("/v1/hypervisor/support-incidents")]);
   const TERMINAL = new Set(["complete", "completed", "done", "succeeded", "failed", "cancelled", "canceled"]);
-  const blocked = (grRes.goal_runs || []).filter((r) => Array.isArray(r.blockers) && r.blockers.length);
+  const results3 = (wrRes.work_results || []).filter((r) => ["failed", "blocked"].includes(String(r.status || "").toLowerCase()));
   const failures = ((opsRes.runs || {}).failures) || [];
-  const expClosed = blocked.filter((r) => TERMINAL.has(String(r.status || "").toLowerCase())).length;
-  const expOpen = blocked.length - expClosed + failures.length;
-  const expAll = blocked.length + failures.length;
+  const filed = filedRes.support_incidents || [];
+  const filedClosed = filed.filter((r) => ["resolved", "closed"].includes(r.status)).length;
+  const expClosed = results3.filter((r) => TERMINAL.has(String(r.status || "").toLowerCase())).length + filedClosed;
+  const expAll = results3.length + failures.length + filed.length;
+  const expOpen = expAll - expClosed;
   const CAP = 50;
   const lanePage = async (lane) => page(`${SERVE}/__ioi/missions/incidents?lane=${lane}`);
   const [pOpen, pClosed, pAll] = await Promise.all([lanePage("open"), lanePage("closed"), lanePage("all")]);
   const countOf = (t, lane) => { const m = t.match(new RegExp(`>(?:(\\d+) of )?(\\d+) ${lane === "all" ? "" : lane + " "}issues?<`)); return m ? { shown: Number(m[1] || m[2]), total: Number(m[2]) } : null; };
   const rowsOf = (t) => (t.match(/class="in-row"/g) || []).length;
   const cOpen = countOf(pOpen.text, "open"), cClosed = countOf(pClosed.text, "closed"), cAll = countOf(pAll.text, "all");
-  ok(`OPEN lane count = daemon truth after the lane filter (${expOpen} = non-terminal blockers + run failures)`, cOpen && cOpen.total === expOpen && rowsOf(pOpen.text) === Math.min(expOpen, CAP), `rendered ${cOpen ? cOpen.total : "?"} rows ${rowsOf(pOpen.text)} vs daemon ${expOpen}`);
-  ok(`CLOSED lane count = daemon truth (${expClosed} = blockers recorded on terminal runs — resolved incidents)`, cClosed && cClosed.total === expClosed && rowsOf(pClosed.text) === Math.min(expClosed, CAP), `rendered ${cClosed ? cClosed.total : "?"} rows ${rowsOf(pClosed.text)} vs daemon ${expClosed}`);
+  ok(`OPEN lane count = daemon truth after the lane filter (${expOpen} = run failures + non-terminal results + open/mitigated filed issues)`, cOpen && cOpen.total === expOpen && rowsOf(pOpen.text) === Math.min(expOpen, CAP), `rendered ${cOpen ? cOpen.total : "?"} rows ${rowsOf(pOpen.text)} vs daemon ${expOpen}`);
+  ok(`CLOSED lane count = daemon truth (${expClosed} = terminal results + resolved/closed filed issues)`, cClosed && cClosed.total === expClosed && rowsOf(pClosed.text) === Math.min(expClosed, CAP), `rendered ${cClosed ? cClosed.total : "?"} rows ${rowsOf(pClosed.text)} vs daemon ${expClosed}`);
   ok(`ALL lane count = open + closed (${expAll})`, cAll && cAll.total === expAll, `rendered ${cAll ? cAll.total : "?"} vs daemon ${expAll}`);
   ok("the three lane count TAGS carry the same daemon numbers on every lane page", [pOpen, pClosed, pAll].every((p2) => p2.text.includes(`>${expOpen}</span>`) && p2.text.includes(`>${expClosed}</span>`) && p2.text.includes(`>${expAll}</span>`)));
-  // identity: at least one REAL incident renders with id + reason + proof link into its own timeline
-  const sample = blocked.find((r) => TERMINAL.has(String(r.status || "").toLowerCase())) || blocked[0];
-  const lanePageOfSample = sample && TERMINAL.has(String(sample.status || "").toLowerCase()) ? pClosed : pOpen;
-  ok("at least one REAL incident renders: goal-run id + blocker reason code in the row title, proof link into ITS OWN run timeline", sample && lanePageOfSample.text.includes(sample.goal_run_id) && lanePageOfSample.text.includes((sample.blockers[0] || {}).reason_code || "blocked") && lanePageOfSample.text.includes(`/__ioi/run-timeline/goal-run/${encodeURIComponent(sample.goal_run_id)}`), sample ? `${sample.goal_run_id} (${(sample.blockers[0] || {}).reason_code})` : "no blocked goal runs in daemon");
+  // identity: a filed issue renders by title and opens its own drawer; a run failure renders by its id.
+  const fSample = filed[0];
+  const fPage = fSample && ["resolved", "closed"].includes(fSample.status) ? pClosed : pOpen;
+  const fId = fSample ? String(fSample.incident_id || "").replace(/^support-incident:\/\//u, "") : "";
+  ok("a FILED issue renders by its own title with a link to its own drawer (or none are filed)", !fSample || (fPage.text.includes(String(fSample.title).replace(/&/g, "&amp;").replace(/</g, "&lt;")) && fPage.text.includes(`issue=${encodeURIComponent(fId)}`)), fSample ? fId : "none filed");
+  const drawer = fSample ? await page(`${SERVE}/__ioi/missions/incidents?issue=${encodeURIComponent(fId)}`) : null;
+  ok("the drawer reads the issue back from the daemon and offers only the status moves its status allows (or none are filed)", !fSample || (drawer.status === 200 && /class="in-drawer"/.test(drawer.text) && /class="in-sact/.test(drawer.text)), fSample ? fSample.status : "none filed");
   // honest empties: any lane the daemon says is empty must SAY so, never render rows
   const laneFacts = [["open", expOpen, pOpen], ["closed", expClosed, pClosed], ["all", expAll, pAll]];
   ok("empty lanes stay HONEST (empty-state copy, zero rows) — and non-empty lanes never render the empty state", laneFacts.every(([lane, n, p2]) => n === 0 ? (p2.text.includes('class="in-empty"') && rowsOf(p2.text) === 0) : (!p2.text.includes('class="in-empty"') && rowsOf(p2.text) > 0)), laneFacts.map(([l, n]) => `${l}:${n}`).join(" "));
-  ok("nothing fabricated: no priority/assignee/SLA values are attached to incidents (the reference's Priority pills are DATA the daemon does not record — the port shows the honest incident KIND instead)", !/in-rpill[^>]*>(?:(?!<\/div>).)*?(High|Medium|Low)</s.test(pClosed.text) && /in-rpill/.test(pClosed.text) && /Blocker|Run failure/.test(pClosed.text));
+  ok("nothing fabricated: no High/Medium/Low priority is attached to any row — derived rows show their KIND, filed issues the severity their reporter chose", ![pOpen, pClosed, pAll].some((p2) => /in-rpill[^>]*>(?:(?!<\/div>).)*?(High|Medium|Low)</s.test(p2.text)));
 
   // 4. PORT SHELL SEMANTICS — gaps disabled IN PLACE and NAMED, discoverability, substrate intact.
-  ok("unsupported reference controls are DISABLED IN PLACE + named as gaps (New · search · facet inputs · checkboxes), never hidden", (pClosed.text.match(/disabled/g) || []).length >= 10 && /named gap/.test(pClosed.text) && /reference-only/.test(pClosed.text) && /aria-disabled="true"/.test(pClosed.text));
+  ok("New and search are LIVE (R-240): New opens the Submit issue dialog over SupportIncidentLink, search is a GET filter", /<a class="in-new" href="\/__ioi\/missions\/incidents\?lane=[a-z]+&new=1"/.test(pClosed.text) && /<form class="in-search" method="get"/.test(pClosed.text) && !/<button class="in-new[^"]*" disabled/.test(pClosed.text));
+  const dialog = await page(`${SERVE}/__ioi/missions/incidents?new=1`);
+  ok("the Submit issue dialog posts to the serve's lane and asks for a title and an affected resource", dialog.status === 200 && /action="\/__ioi\/missions\/incidents\/new"/.test(dialog.text) && /name="title" required/.test(dialog.text) && /name="affected" required/.test(dialog.text));
+  ok("the remaining unsupported reference controls stay DISABLED IN PLACE + named (facet inputs · checkboxes · saved filters), never hidden", (pClosed.text.match(/disabled/g) || []).length >= 10 && /named gap/.test(pClosed.text) && /reference-only/.test(pClosed.text) && /aria-disabled="true"/.test(pClosed.text));
   ok("the filter sidebar renders the full reference facet set as chrome (Priority · Assignees · Reporters · Mentions · Labels · Support types · date ranges)", ["Priority", "Assignees", "Reporters", "Mentions", "Labels", "Support types", "Reported on", "Last updated", "Clear filters"].every((l) => pClosed.text.includes(l)));
   const missions = await page(`${SERVE}/__ioi/missions`);
-  ok("owner discoverability: /__ioi/missions links the incidents inbox first-class AND keeps its own incidents lane intact", missions.status === 200 && missions.text.includes("/__ioi/missions/incidents") && /Incidents (&amp;|&) blockers/.test(missions.text));
+  ok("owner discoverability: /__ioi/missions links the incidents inbox first-class AND keeps its own incidents lane intact", missions.status === 200 && missions.text.includes("/__ioi/missions/incidents") && /Incidents (&amp;|&) failures/.test(missions.text));
   ok("brand/reference clean: reference capture linked nowhere as a rebound surface; no Palantir branding", !/\bPalantir\b/.test(pClosed.text) && !/\bFoundry\b/.test(pClosed.text));
 
   // 5. SHELL-PIXEL CERTIFICATION — committed non-pinned evidence; body excluded by design.

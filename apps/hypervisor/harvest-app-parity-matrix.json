@@ -1146,7 +1146,7 @@
       "capture_state": "boots_table_list",
       "reference_capture": "/__apps/incidents",
       "reference_workspace": "/workspace/issues-app/",
-      "note": "TRUE parity (#45) under the HARDENED gate: light status-lane issues-inbox reference-faithful shell at /__ioi/missions/incidents, over REAL daemon incidents (never the capture's example rows); honest empty lanes; creating/assigning incidents, priorities, SLA, comments, saved filters, facet filtering, bulk selection = named gaps disabled in place; the /__ioi/missions substrate overview stays intact and links the inbox first-class; substrate/infra incidents (storage repair, provider failover) stay in Operations",
+      "note": "TRUE parity (#45) under the HARDENED gate: light status-lane issues-inbox reference-faithful shell at /__ioi/missions/incidents, over REAL daemon incidents (never the capture's example rows); honest empty lanes; filing an issue (severity, assignee, affected resource) and search are live over SupportIncidentLink (R-240); priorities, SLA, comments, saved filters, facet filtering, bulk selection = named gaps disabled in place; the /__ioi/missions substrate overview stays intact and links the inbox first-class; substrate/infra incidents (storage repair, provider failover) stay in Operations",
       "reference_clean_state": "data_clean",
       "reference_clean_reason": "shell regions [rail, header, body] + data evidence (rows 5/0 · nodes 0 · cards 0 · lists 0 · lines 26) — clicked the 'Closed' status lane (the default Open lane is honestly empty; the capture carries 5 real closed incidents)",
       "reference_clean_artifact": "reference-clean-sweep.json",

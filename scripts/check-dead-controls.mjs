@@ -71,9 +71,15 @@ const LIVE = self("live");
 // including two selects and five text fields; a click on a field focuses it and moves nothing, so
 // all seven read as dead. Choosing a select and typing into a field (then Enter) found that five of
 // them work. The two that remained were real. The practice that caught it is clause 2.
+//
+// states_probed 2 → 4 (R-240): the Solution Designer's diagram editor and its reference panel joined
+// `SURFACE_STATES`. Their first census found two defects on the new Inference Run panel, both
+// repaired before this repin: Run with an empty prompt moved no signal (the browser's validation
+// bubble is not one), so the reason is now written under the field; and a one-route select opened
+// onto nothing, so a sole route renders as stated text.
 export const PINNED = Object.freeze({
   surfaces_probed: 36,
-  states_probed: 2,
+  states_probed: 4,
   dead: 0,
   click_failed: 0,
   bad_landing: 0,

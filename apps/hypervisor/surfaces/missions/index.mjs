@@ -66,6 +66,13 @@ const rowValidators = {
     && RESULT_STATUS.has(row.status),
 };
 
+// A filed issue (SupportIncidentLink, R-240): the Issues inbox files it; this surface counts the
+// ones still open beside run failures and failed results, and links each to its own drawer.
+const FILED_OPEN = new Set(["open", "mitigated"]);
+const filedIssueValid = (row) => isRecord(row)
+  && nonEmptyString(row.incident_id) && nonEmptyString(row.title)
+  && nonEmptyString(row.severity) && nonEmptyString(row.status);
+
 const operationRunValid = (row) => isRecord(row)
   && nonEmptyString(row.execution_id)
   && nonEmptyString(row.status)
@@ -146,11 +153,16 @@ export async function load(ctx) {
   const timeoutMs = Number.isFinite(requestedTimeout) && requestedTimeout > 0
     ? Math.min(Math.floor(requestedTimeout), 30_000)
     : DEFAULT_PLANE_TIMEOUT_MS;
-  const [results, operations] = await Promise.all([
+  // Filed issues are tenant-scoped: the list refuses an anonymous caller, so it rides the
+  // request-scoped daemon capability (the caller's own session), never the bare fetch.
+  const [results, operations, filed] = await Promise.all([
     readCollection(fetchImpl, ctx.daemon, "/v1/hypervisor/work-results", "work_results", rowValidators.work_results, timeoutMs),
     readOperations(fetchImpl, ctx.daemon, timeoutMs),
+    typeof ctx.daemonFetch === "function"
+      ? readCollection(ctx.daemonFetch, "", "/v1/hypervisor/support-incidents", "support_incidents", filedIssueValid, timeoutMs)
+      : Promise.resolve(unavailablePlane(0, "session_capability_absent")),
   ]);
-  return validateModelRelationships({ results, operations });
+  return validateModelRelationships({ results, operations, filed });
 }
 
 const value = (record, key, fallback = "") => String(record?.[key] ?? fallback);
@@ -266,13 +278,15 @@ function renderLegacyOperations(model) {
   const failedResults = model.results.ok
     ? model.results.rows.filter((row) => String(row.status) === "failed")
     : [];
-  const incidentCount = failures.length + failedResults.length;
+  const filedOpen = model.filed && model.filed.ok ? model.filed.rows.filter((row) => FILED_OPEN.has(String(row.status))) : [];
+  const incidentCount = failures.length + failedResults.length + filedOpen.length;
   const incidentsReady = model.operations.ok && model.results.ok;
   const runRows = recent.map((run) => {
     const timeline = canonicalTimelineRef(run.timeline_ref);
     return `<div class="ms-op-row"><span><b>${escHtml(run.name || run.execution_id || "mission run")}</b><small>${escHtml(shortRef(run.project_id || ""))}</small></span>${statusPill(run.status)}<time>${escHtml(timestamp(run.started_at))}</time>${timeline ? proofLink({ href: timeline, label: "Timeline", external: true }) : "<span>—</span>"}</div>`;
   }).join("");
   const incidentRows = [
+    ...filedOpen.slice(0, 50).map((row) => ({ kind: "filed issue", subject: value(row, "title"), reason: value(row, "severity"), time: value(row, "updated_at", value(row, "created_at", "")), proof: `/__ioi/missions/incidents?issue=${encodeURIComponent(value(row, "incident_id").replace(/^support-incident:\/\//u, ""))}`, label: "Open" })),
     ...failures.map((run) => ({ kind: "run failure", subject: run.name || run.execution_id, reason: run.status, time: run.finished_at || run.started_at, proof: canonicalTimelineRef(run.timeline_ref) })),
     ...failedResults.slice(0, 50).map((row) => ({ kind: "failed result", subject: shortRef(value(row, "work_subject_ref")), reason: value(row, "outcome_class", "failed"), time: value(row, "recorded_at", value(row, "created_at", "")), proof: "" })),
   ];
@@ -281,10 +295,10 @@ function renderLegacyOperations(model) {
     : "";
   return `<div class="ms-legacy">
     <div class="ms-section"><div class="ms-section-title"><h3 id="missions-queue">Run queue</h3><span>${model.operations.ok ? `recent mission runs (${recent.length} of ${runs.total || 0})` : "run count unavailable"}</span></div>${model.operations.ok ? (runRows || `<div class="ms-empty compact"><b>No mission runs yet.</b><span>The daemon run queue is honestly empty.</span></div>`) : planeNotice("Operations run queue", model.operations)}</div>
-    <div class="ms-section"><div class="ms-section-title"><h3 id="missions-incidents">Incidents &amp; failures</h3><span>run failures + failed work results needing remediation (${incidentsReady ? incidentCount : "unknown"})${capDisclosure} · <a href="/__ioi/missions/incidents">Open incident inbox</a></span></div>
-      ${!incidentsReady ? planeNotice("Mission incidents", !model.operations.ok ? model.operations : model.results) : incidentRows.length ? `<div class="ms-op-list">${incidentRows.map((incident) => `<div class="ms-op-row"><span><b>${escHtml(incident.kind)}</b><small>${escHtml(incident.subject || "—")}</small></span>${statusPill(incident.reason)}<time>${escHtml(timestamp(incident.time))}</time>${incident.proof ? proofLink({ href: incident.proof, label: "Proof", external: true }) : "<span>—</span>"}</div>`).join("")}</div>` : `<div class="ms-empty compact"><b>No incidents.</b><span>No failed mission runs and no failed work results right now.</span></div>`}
+    <div class="ms-section"><div class="ms-section-title"><h3 id="missions-incidents">Incidents &amp; failures</h3><span>open filed issues + run failures + failed work results needing remediation (${incidentsReady ? incidentCount : "unknown"})${capDisclosure}${model.filed && !model.filed.ok ? ` · filed issues could not be read (<code>${escHtml(model.filed.code || "unavailable")}</code>)` : ""} · <a href="/__ioi/missions/incidents">Open incident inbox</a></span></div>
+      ${!incidentsReady ? planeNotice("Mission incidents", !model.operations.ok ? model.operations : model.results) : incidentRows.length ? `<div class="ms-op-list">${incidentRows.map((incident) => `<div class="ms-op-row"><span><b>${escHtml(incident.kind)}</b><small>${escHtml(incident.subject || "—")}</small></span>${statusPill(incident.reason)}<time>${escHtml(timestamp(incident.time))}</time>${incident.proof ? (incident.label ? `<a href="${escHtml(incident.proof)}">${escHtml(incident.label)}</a>` : proofLink({ href: incident.proof, label: "Proof", external: true })) : "<span>—</span>"}</div>`).join("")}</div>` : `<div class="ms-empty compact"><b>No incidents.</b><span>No open filed issues, no failed mission runs and no failed work results right now.</span></div>`}
     </div>
-    <footer class="ms-contract"><b>Operational boundary.</b> Hosted admission only; this surface grants no acceptance, verdict, settlement, execution, or federation authority. Unsupported reference lanes — creating/assigning incidents, editing job/build definitions, board/kanban views, SLA and escalation policy, comments, and assignees — remain named gaps. Substrate/infra incidents (storage repair, provider failover) live in <a href="/__ioi/operations">Operations</a>. Reference captures remain secondary baselines: <a href="/__apps/jobs">Builds</a> · <a href="/__apps/incidents">Issues</a>.</footer>
+    <footer class="ms-contract"><b>Operational boundary.</b> Hosted admission only; this surface grants no acceptance, verdict, settlement, execution, or federation authority. Filing an issue — with a severity, an assignee and what it affects — is live in the <a href="/__ioi/missions/incidents?new=1">Issues</a> inbox. Unsupported reference lanes — editing job/build definitions, board/kanban views, SLA and escalation policy, and comments — remain named gaps. Substrate/infra incidents (storage repair, provider failover) live in <a href="/__ioi/operations">Operations</a>. Reference captures remain secondary baselines: <a href="/__apps/jobs">Builds</a> · <a href="/__apps/incidents">Issues</a>.</footer>
   </div>`;
 }
 

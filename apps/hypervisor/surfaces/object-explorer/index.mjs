@@ -391,10 +391,10 @@ function renderObjectExplorerPort(ov, lists, opts) {
     <span class="oe-setlabel">Object set catalog <span class="oe-setsub">(explorations and lists)</span></span>
     <span class="oe-setlanes">
       <form class="oe-setfilter" method="get" action="${esc(basePath)}">${sel.ontology ? `<input type="hidden" name="ontology" value="${esc(sel.ontology)}">` : ""}<input class="oe-setsearch" name="setq" value="${esc(setQuery)}" placeholder="Search explorations..." aria-label="Filter saved object sets by name" title="Filters the saved object sets below, read from GET /v1/hypervisor/odk/saved-object-sets"></form>
-      <span class="oe-slane on gap" aria-disabled="true" title="named gap" data-ioi-disabled-reason="named gap">All</span>
+      <span class="oe-slane on" aria-current="true" title="Every object set in the catalog is listed below">All</span>
       <span class="oe-slane gap" aria-disabled="true" title="Per-user lanes over the MATERIALIZED set catalog are reference-only (named gap) — that catalog records no per-user ownership; saved object sets are a different store and are scoped per principal" data-ioi-disabled-reason="Per-user lanes over the MATERIALIZED set catalog are reference-only (named gap) — that catalog records no per-user ownership; saved object sets are a different store and are scoped per principal">Created by me</span>
-      <span class="oe-slane gap" aria-disabled="true" title="named gap" data-ioi-disabled-reason="named gap">Shared with me</span>
-      <span class="oe-slane gap" aria-disabled="true" title="named gap" data-ioi-disabled-reason="named gap">Favorites</span>
+      <span class="oe-slane gap" aria-disabled="true" title="Object sets are not shared one person to another — the catalog records no share grants, so there is nothing to list here" data-ioi-disabled-reason="Object sets are not shared one person to another — the catalog records no share grants, so there is nothing to list here">Shared with me</span>
+      <span class="oe-slane gap" aria-disabled="true" title="No record keeps favorite object sets, so there is nothing to list here" data-ioi-disabled-reason="No record keeps favorite object sets, so there is nothing to list here">Favorites</span>
     </span>
   </div>
   ${savedSetsHtml}

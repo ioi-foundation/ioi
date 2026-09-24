@@ -30,6 +30,8 @@ export const WRITES = Object.freeze([
   { id: "model", form: "/__ioi/foundry/models/register", route: "/__ioi/foundry/models?tab=registered" },
   { id: "diagram", drive: "diagram-editor", route: "/__ioi/studio/designer/diagram" },
   { id: "graph", drive: "machinery-editor", route: "/__ioi/studio/machinery/graph" },
+  // R-240: Issues' "New" was disabled while the daemon owned an authored incident plane.
+  { id: "issue", form: "/__ioi/missions/incidents/new", route: "/__ioi/missions/incidents?new=1" },
 ]);
 
 // The reads: every surface that must show what the writes made, by the value's OWN name.
@@ -57,6 +59,8 @@ export const READS = Object.freeze([
   { after: "diagram", consumer: "Designer Recents lists the saved diagram", route: "/__ioi/studio/designer", needle: "diagram-{tag}" },
   { after: "diagram", consumer: "Studio's blueprints list the saved diagram", route: "/__ioi/studio/workbench?view=blueprints", needle: "diagram-{tag}" },
   { after: "graph", consumer: "Machinery lists the saved process graph", route: "/__ioi/studio/machinery", needle: "process-{tag}" },
+  { after: "issue", consumer: "Issues lists the filed issue in its open lane", route: "/__ioi/missions/incidents?lane=open", needle: "issue-{tag}" },
+  { after: "issue", consumer: "Missions counts the filed issue among its incidents", route: "/__ioi/missions", needle: "issue-{tag}" },
 ]);
 
 // A needle is SPECIFIC only if it carries the run's tag. "backing datasource" alone is printed by the
