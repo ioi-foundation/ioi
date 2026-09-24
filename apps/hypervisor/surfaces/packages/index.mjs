@@ -61,7 +61,7 @@
 //     what is still missing (surface_serving_binding_absent / _not_serving), rendered verbatim.
 //     There is no standalone enable verb by design. A launcher-feed entry is INVENTORY presence;
 //     launchability is the compiled join's derivation over release, installation and serving.
-import { escHtml, GRE1_LIGHT, GRE1_LIGHT_FONT_FACES } from "../kit.mjs";
+import { escHtml, GRE1_LIGHT, GRE1_LIGHT_FONT_FACES, callerOwnerRef } from "../kit.mjs";
 
 const esc = escHtml;
 const enc = encodeURIComponent;
@@ -119,6 +119,7 @@ export async function load(ctx) {
   const results = await client.readMany({
     packages: PACKAGES_PLANE,
     domain_apps: "/v1/hypervisor/domain-apps",
+    whoami: "/v1/hypervisor/auth/whoami",
   });
   const model = { mode: "registry", results };
   const pkg = (sp.get("pkg") || "").trim();
@@ -388,7 +389,7 @@ function catalogView(model, base) {
       ? `<form class="aform" method="post" action="${LEGACY_ROUTE}/actions/admit-candidate">
           <input type="hidden" name="idempotency_key" value="${esc(mintKey())}">
           <input type="hidden" name="return" value="${esc(LEGACY_ROUTE)}">
-          <label class="fl">Owner (org://…)<input name="owner_ref" placeholder="org://…" required title="The single org:// that owns this package. The daemon admits the candidate under it and refuses a caller who holds no authority over it."></label>
+          <label class="fl">Owner (org://…)<input name="owner_ref" value="${esc(callerOwnerRef(model.results.whoami))}" placeholder="org://…" required title="The single org:// that owns this package. The daemon admits the candidate under it and refuses a caller who holds no authority over it."></label>
           <label class="fl">Package id (globally unique, lowercase)<input name="package_id" maxlength="128" pattern="[a-z0-9][a-z0-9._-]*" required></label>
           <label class="fl">DomainApp (draft, with ODK manifest + descriptor bound)<select name="domain_app_ref">${appOptions.map((d) => `<option value="${esc(d.domain_app_ref || "")}">${esc(d.name || d.domain_app_ref || "")}</option>`).join("")}</select></label>
           <button class="act" type="submit">Admit candidate</button>

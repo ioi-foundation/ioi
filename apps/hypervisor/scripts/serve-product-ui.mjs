@@ -42,7 +42,7 @@ import { CHG_APP_TILE_URI } from "./changes-assets.mjs";
 import { EVL_APP_TILE_URI, EVL_HERO_URI } from "./evalsuites-assets.mjs";
 import { compileProductSurfaces } from "./surface-compiler.mjs";
 import { SURFACES, bindSurface, boundSurface, boundActionRoute, canonicalSurfaceRoute, embeddableRoutes, surfaceBySlug } from "./surface-registry.mjs";
-import { canonicalTimelineRef, escHtml, GRE1_LIGHT, GRE1_LIGHT_BODY_CSS, refusalCodeOf, refusalMessageOf, refusalKind, REFUSAL_LEAD, SIGN_IN_LINK } from "../surfaces/kit.mjs";
+import { canonicalTimelineRef, escHtml, GRE1_LIGHT, GRE1_LIGHT_BODY_CSS, refusalCodeOf, refusalMessageOf, refusalKind, REFUSAL_LEAD, SIGN_IN_LINK, callerOwnerRef } from "../surfaces/kit.mjs";
 import { readJsonWithDeadline } from "../surfaces/plane-read.mjs";
 import { managerLink, managerResourceLink, objectSetLink, sourcesLink, pipelineNodeLink, lineageLink as semLineageLink, vertexLink as semVertexLink, provenanceReceiptLink, provenanceSetLink, semanticBreadcrumb } from "../surfaces/ontology-context.mjs";
 import { ioiGlobalRailHtml, IOI_GRAIL_CSS } from "../surfaces/chrome.mjs";
@@ -6939,7 +6939,7 @@ function renderMarketplaceListingForm(existing, opts) {
 // field is a declaration the server adjudicates, never a grant.
 const MP_OWNER_HINT = "The single org:// or project:// that owns this review. The daemon admits the write under it and refuses a caller who holds no authority over it.";
 const MP_OWNER_INPUT_STYLE = "padding:8px;border-radius:8px;border:1px solid #2a2c33;background:#0e0f13;color:#e6e7ea;font:inherit";
-const mpOwnerInput = (extraStyle) => `<input name="owner_ref" placeholder="org://… or project://…" required title="${CX_ESC(MP_OWNER_HINT)}" style="${MP_OWNER_INPUT_STYLE}${extraStyle || ""}">`;
+const mpOwnerInput = (extraStyle, owner = "") => `<input name="owner_ref" value="${CX_ESC(owner)}" placeholder="org://… or project://…" required title="${CX_ESC(MP_OWNER_HINT)}" style="${MP_OWNER_INPUT_STYLE}${extraStyle || ""}">`;
 // Content-derived, mirroring the daemon's own rule: `replay_stable_id` mints the review id from
 // (owner_ref, idempotency_key), so a wall-clock key would make a double-submitted form two reviews.
 // Create and delete hash DIFFERENT material on purpose — both admit onto ONE event stream, where a
@@ -7013,7 +7013,7 @@ function mpMutationRefusal(title, result, back) {
     html: automationsShell(title, `<div class="empty" data-error-code="${CX_ESC(code)}"><b>${CX_ESC(title)}</b>${code ? ` — <code>${CX_ESC(code)}</code>` : ""}<div style="margin-top:6px">${CX_ESC(message || "the daemon refused the request and returned no message")}</div>${blocked ? `<div style="margin-top:6px">${CX_ESC(blocked)}</div>` : ""}</div><p><a href="${CX_ESC(back)}">← back</a></p>`),
   };
 }
-function renderMarketplaceListingDetail(listing, candidates, reviewsByCandidate, offers, gov) {
+function renderMarketplaceListingDetail(listing, candidates, reviewsByCandidate, offers, gov, owner = "") {
   const enc = encodeURIComponent; const l = listing || {};
   const lid = l.id || ""; const st = mpStoreOf(l.listing_kind);
   const govChips = (g) => g ? `<span class="pill ${g.auth_enforced ? "ok" : "muted"}">auth ${g.auth_enforced ? "enforced" : "not enforced"}</span> <span class="pill ${(g.governance_gaps || 0) > 0 ? "warn" : "ok"}">gaps: ${g.governance_gaps ?? "—"}</span>` : "—";
@@ -7049,7 +7049,7 @@ function renderMarketplaceListingDetail(listing, candidates, reviewsByCandidate,
          <div class="chips" style="margin:0 0 10px"><span class="chiplabel">Governance @ candidacy</span>${govChips(g)}</div>`;
     const reviewForm = published ? "" : `<form method="post" action="/__ioi/marketplace/candidates/${enc(c.id)}/reviews" class="row" style="gap:8px;margin-top:8px;flex-wrap:wrap"><input type="hidden" name="listing_id" value="${enc(lid)}">
         <select name="decision" style="${MP_OWNER_INPUT_STYLE}"><option value="pending">pending</option><option value="needs_changes">needs_changes</option><option value="admitted">admitted</option><option value="rejected">rejected</option></select>
-        ${mpOwnerInput(";min-width:220px")}
+        ${mpOwnerInput(";min-width:220px", owner)}
         <button class="act ghost" type="submit">Submit admission review</button>
         <div class="sub" style="margin:0;flex-basis:100%">${CX_ESC(MP_OWNER_HINT)} No reviewer is asked for — the daemon records the principal it authenticated for this submission.</div></form>`;
     const publishBtn = (!published && c.publishable) ? `<form class="inline" method="post" action="/__ioi/marketplace/candidates/${enc(c.id)}/publish"><input type="hidden" name="listing_id" value="${enc(lid)}"><button class="act" type="submit">Publish (runtime-backed)</button></form>` : "";
@@ -11940,10 +11940,10 @@ async function handleEstateRequest(req, res, body) {
       // The reference's control set. One app control, one facet group, four dialogs, one in-body
       // link — each answered, and each reason written for ITS control.
       const ingControls = [
-        { ref: "Create pipeline (header verb)", bound: false, field: "",
+        { ref: "Create pipeline (header verb)", bound: true, field: "Pipeline Builder — /__ioi/pipeline",
           gap: "The estate mints no pipeline OBJECT to create. Building one is thirteen separate authority-crossing POSTs in order — mapping, policy view, transformation, dry-run, projection, lease plan, materializing run, lease, session, open, execute, release, release — each owned by the Pipeline Builder and the Connections lease gate. Re-minting that ladder here would be a second mutation spine over another surface's authority",
-          copy: "Answered as a REFUSAL, not hidden. The verb the reference offers is one click; the estate's equivalent is a thirteen-crossing ladder that already has an owner surface, so this page links it and mints none of it." },
-        { ref: "Create pipeline (card verb)", bound: false, field: "",
+          copy: "Bound by a link: the verb the reference offers is one click; the estate's equivalent is a thirteen-crossing ladder owned by Pipeline Builder, so the button opens it (R-240) and this page mints none of it." },
+        { ref: "Create pipeline (card verb)", bound: true, field: "Pipeline Builder — /__ioi/pipeline",
           gap: "The same crossing offered a second time in the card header. A second entrance to a ladder this surface does not own is still not this surface's verb — and the reference's own empty copy sends the reader to the source application for it, which is exactly where this page sends them",
           copy: "The reference offers the verb twice — header and card. Both are answered the same way, and neither is quietly dropped." },
         { ref: "Go to Data Connection Application (empty-state link)", bound: true, field: "/__ioi/data/sources",
@@ -11960,7 +11960,6 @@ async function handleEstateRequest(req, res, body) {
         + `<span><b>${esc(c.ref)}</b></span>`
         + `<span>${c.bound ? `<code class="ing-ref">${esc(c.field)}</code>` : `<span class="ing-nolane">no estate lane</span>`}</span>`
         + `<span class="ing-ccopy">${c.copy}</span></div>`).join("");
-      const ingVerbGap = ingControls[0].gap;
       const ingFoot = `ING-1 (remediation v2): the HYPERAUTO port. The replay-scoped verdict was absent_confirmed (#ingest — "HyperAuto expresses no IA at any recorded state"); the owner-authorized live sweep OVERTURNED it and recorded a real landing titled <b>HyperAuto</b>: one centred card, "HyperAuto Pipelines" with a <b>Create pipeline</b> verb, an APPLICATIONS facet group, four dialogs and <b>0 rows</b> — the live tenant's own pipeline list is genuinely empty, so the EMPTY-STATE IA is the seed, and its own copy sends the reader to the source application to create one. That supersession is recorded in reference-seed-adjudications.v1.json#ingest-port and the reference record stands as history. <b>${ingRead.length}</b> ingestion-chain and ingestion-adjacent planes were probed live on this render and answered in four states — <b>${ingCount("live")} LIVE</b> · <b>${ingCount("empty")} EMPTY</b> · <b>${ingCount("refused")} REFUSED</b> · <b>${ingCount("no_read_route")} NO READ ROUTE</b>. READ-ONLY: all ${ingChainVerbs.length} chain crossings stay on <a href="/__ioi/pipeline">Pipeline Builder</a> and the <a href="/__ioi/connections">Connections</a> lease gate; the source plane is rendered by <a href="/__ioi/data/sources">Data Connection</a> and the runs by its Syncs lane, both linked and neither re-listed; the extracted objects belong to the <a href="/__ioi/ontology/explorer">Object Explorer</a>. Evidence: reference-seed-adjudications.v1.json#ingest-port · reference-live-tenant-deep-atlas.v1.json#ingest (landing) · .artifacts/live-tenant-atlas/deep/ingest-landing.png. Owner: <a href="/data">Data family</a>.`;
       sendOwnedSurfaceHtml(res, "ingest", `<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>HyperAuto</title><style>
         :root{color-scheme:light}*{box-sizing:border-box}body{margin:0;background:#f5f8fa;color:#1c2127;font:14px/1.28581 Source-Sans-Pro,Helvetica,sans-serif}a{color:#215db0;text-decoration:none}
@@ -12033,13 +12032,13 @@ async function handleEstateRequest(req, res, body) {
           <span class="ing-hchip" aria-hidden="true" style="background-image:url('${PIPELINE_APP_ICON_URI}')"></span>
           <h1 class="ing-title">HyperAuto</h1>
           <div class="ing-hright">
-            ${igap("ing-chip", "＋ Create pipeline", ingVerbGap)}
+            <a class="ing-chip" href="/__ioi/pipeline" title="A pipeline is built on Pipeline Builder, the ladder's owner — this opens it">＋ Create pipeline</a>
             <a class="ing-link" href="/__ioi/data/sources">Data Connection →</a>
           </div>
         </header>
         <div class="ing-field">
           <div class="ing-card">
-            <div class="ing-chead"><span class="ing-cname">HyperAuto Pipelines</span><span class="ing-cverb">${igap("ing-chip", "＋ Create pipeline", ingControls[1].gap)}</span></div>
+            <div class="ing-chead"><span class="ing-cname">HyperAuto Pipelines</span><span class="ing-cverb"><a class="ing-chip" href="/__ioi/pipeline" title="A pipeline is built on Pipeline Builder, the ladder's owner — this opens it">＋ Create pipeline</a></span></div>
             <div class="ing-cbody">
               ${ingChains.length ? `<p class="ing-note">Every row is a REAL ingestion chain on this estate, counted on this render by the <b>declared</b> predicate: a <code>connector-mapping</code> record exists. ${ingChains.length > ING_ROW_CAP ? `The first <b>${ING_ROW_CAP}</b> of <b>${ingChains.length}</b> render here (cap NAMED, never silent).` : `All <b>${ingChains.length}</b> render here.`} The <b>Declared state</b> column is the record's OWN <code>health.status</code> field; the <b>Did data move?</b> column is derived from the OUTPUT records instead — and the two columns disagree, which is the finding this page exists to state.</p>
               <div class="ing-thead"><span>Pipeline</span><span>Source</span><span>Declared state</span><span>Did data move?</span><span>Chain — each stage's own status</span><span>Owner</span></div>
@@ -15040,7 +15039,9 @@ async function handleEstateRequest(req, res, body) {
         const offers = (oRes.managed_instance_offers || []).filter((o) => o.subject_ref === listing.subject_ref);
         const gov = (gRes.governance_posture) || null;
         res.writeHead(200, HTMLH);
-        res.end(renderMarketplaceListingDetail(listing, candidates, reviewsByCandidate, offers, gov));
+        // The owner field is prefilled with the caller's own organization (R-240) — still editable.
+        const mpWho = await daemonFetch("/v1/hypervisor/auth/whoami").then((x) => x.json()).catch(() => ({}));
+        res.end(renderMarketplaceListingDetail(listing, candidates, reviewsByCandidate, offers, gov, callerOwnerRef(mpWho)));
         return;
       }
     }

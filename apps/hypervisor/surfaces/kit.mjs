@@ -14,6 +14,15 @@
 
 // THE canonical HTML escaper — one definition estate-wide (moved from the serve's CX_ESC;
 // serve and every surface module alias this).
+// The organization a signed-in caller acts for, read from its whoami answer: the deployment's own
+// org:// first, then any org, then a project scope. A form that asked a person to TYPE this was
+// refused for any guess but the exact ref (R-240); it is prefilled instead and stays editable.
+export function callerOwnerRef(who) {
+  const p = who && (who.payload || who);
+  const tenants = Array.isArray(p?.principal?.tenant_refs) ? p.principal.tenant_refs.map(String) : [];
+  return tenants.find((x) => x === "org://local") || tenants.find((x) => x.startsWith("org://")) || tenants.find((x) => x.startsWith("project://")) || "";
+}
+
 export const escHtml = (s) => String(s == null ? "" : s).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
 
 const TIMELINE_COMPONENT = /^[A-Za-z0-9._~-]+$/;

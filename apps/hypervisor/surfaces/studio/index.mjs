@@ -29,7 +29,7 @@
 // the daemon's reply carries the family's admission evidence — `receipt_ref` plus the record under
 // the declared schema_version. A 2xx without that evidence FAILS CLOSED. Typed refusals render
 // verbatim; a CAS head conflict adds the one honest remedy (re-open the record for the fresh head).
-import { escHtml } from "../kit.mjs";
+import { escHtml, callerOwnerRef } from "../kit.mjs";
 
 const esc = escHtml;
 const enc = encodeURIComponent;
@@ -146,6 +146,7 @@ export async function load(ctx) {
     descriptors: DESCRIPTOR_PLANE,
     ontology_families: ONTOLOGY_VERSION_PLANE,
     blueprints: BLUEPRINT_PLANE,
+    whoami: "/v1/hypervisor/auth/whoami",
   });
   const model = { results };
   // The admitted ontology REVISIONS this caller may bind. The family inventory names families
@@ -518,7 +519,7 @@ function blueprintsView(model, sp) {
   const rows = rowsOf(listResult, "blueprints");
   const selectedId = (sp.get("bp") || "").trim();
   const mintKey = () => `studio-ui-${globalThis.crypto.randomUUID()}`;
-  const ownerField = `<label class="fl">Owner (org:// or project://)<input name="owner_ref" placeholder="org://… or project://…" required title="The single org:// or project:// that owns this record. The daemon admits the write under it and refuses a caller who holds no authority over it."></label>`;
+  const ownerField = `<label class="fl">Owner (org:// or project://)<input name="owner_ref" value="${esc(callerOwnerRef(model.results.whoami))}" placeholder="org://… or project://…" required title="The single org:// or project:// that owns this record. The daemon admits the write under it and refuses a caller who holds no authority over it."></label>`;
   const list = rows === null
     ? degraded(listResult)
     : (rows.length
@@ -624,7 +625,7 @@ function descriptorsView(model, sp) {
     <form class="aform" method="post" action="${LEGACY_ROUTE}/actions/create-descriptor">
       <input type="hidden" name="idempotency_key" value="${esc(mintKey())}">
       <input type="hidden" name="return" value="${esc(`${LEGACY_ROUTE}?view=descriptors`)}">
-      <label class="fl">Owner (org:// or project://)<input name="owner_ref" placeholder="org://… or project://…" required title="The single org:// or project:// that owns this record. The daemon admits the write under it and refuses a caller who holds no authority over it."></label>
+      <label class="fl">Owner (org:// or project://)<input name="owner_ref" value="${esc(callerOwnerRef(model.results.whoami))}" placeholder="org://… or project://…" required title="The single org:// or project:// that owns this record. The daemon admits the write under it and refuses a caller who holds no authority over it."></label>
       <label class="fl">Display name<input name="display_name" maxlength="160" required></label>
       <label class="fl">Surface ref<input name="surface_ref" maxlength="250" placeholder="surface://…" required></label>
       <label class="fl">Composition pattern<select name="composition_pattern">${patternOpts("")}</select></label>

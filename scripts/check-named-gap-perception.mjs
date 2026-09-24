@@ -356,7 +356,9 @@ async function liveLeg() {
     const base = `http://127.0.0.1:${port}`;
     serve = spawn(process.execPath, [SERVE_SRC], {
       cwd: APP,
-      env: { ...process.env, PORT: String(port), PRODUCT_UI_PORT: String(uiPort), IOI_PRODUCT_UI_PUBLIC: path.join(APP, "product-ui", "owned", "public") },
+      // The census reads declared-unavailable controls, not sign-in: without the explicit opt-out every
+      // surface answered with the sign-in page and it measured zero of everything (R-240).
+      env: { ...process.env, PORT: String(port), PRODUCT_UI_PORT: String(uiPort), IOI_PRODUCT_UI_PUBLIC: path.join(APP, "product-ui", "owned", "public"), IOI_PRODUCT_SIGNIN_REQUIRED: "0" },
       stdio: ["ignore", "pipe", "pipe"],
     });
     const deadline = Date.now() + 60000;
