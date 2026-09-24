@@ -13260,7 +13260,10 @@ async function handleEstateRequest(req, res, body) {
     if (pathname === "/__ioi/api/new-session/launch" && req.method === "POST") {
       let b = {}; try { b = JSON.parse(body.toString() || "{}"); } catch { /* fail-closed below */ }
       const sessionBody = {};
-      for (const k of ["project_ref", "context_url", "environment_id", "harness_profile_ref", "model_route_ref", "editor_target_ref", "session_ref"]) {
+      // `initial_input` is the session's first instruction — the same field the composer's own prompt
+      // sends to the daemon — so the modal's "what should this session do?" reaches the LIVE create
+      // instead of the retired IOI Agent lane (R-240).
+      for (const k of ["project_ref", "context_url", "environment_id", "harness_profile_ref", "model_route_ref", "editor_target_ref", "session_ref", "initial_input"]) {
         if (b[k]) sessionBody[k] = b[k];
       }
       // ADR 0052 Decision 3 / M13.2: the session's CLOSED authority profile — the connections

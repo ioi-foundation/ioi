@@ -4,6 +4,15 @@
   // silent admission failure), and a launch preview naming the admission, receipts, isolation,
   // and restore path BEFORE the effectful call. Launch = daemon session create (harness selection
   // admitted before provisioning) + the capability-admitted knob binding.
+  //
+  // R-240: the modal carried the IOI Agent goal-pursuit lane — a goal box, a launch policy, an
+  // execution strategy (auto / direct / compare / private-local), an on-failure choice, and a preview
+  // and launch that called the IOI Agent routes. R-192 took goal pursuit out of the Hypervisor and
+  // those routes answer 410, so typing a goal turned Start into "Launch rejected fail-closed" and the
+  // chosen VENUE stopped appearing in any preview. The strategy controls are gone; the "what should it
+  // do" box stays and becomes the session's first instruction (`initial_input`, the same field the
+  // composer's own prompt sends); and the preview reads the daemon's placement preview, so the venue,
+  // fee basis, advisory and venue receipts are named before launch again.
   let nsCtx = null;
   function nsProfile() {
     const sel = document.getElementById("ioi-ns-harness");
@@ -27,7 +36,7 @@
     if (!el) {
       el = document.createElement("div");
       el.id = "ioi-ns-modal";
-      el.innerHTML = '<div class="ioi-modal ioi-ns"><div class="ioi-mh"><span>New Session — IOI Agent</span><button title="Close">✕</button></div><div id="ioi-ns-body"><div class="ioi-ns-empty">Loading daemon context…</div></div></div>';
+      el.innerHTML = '<div class="ioi-modal ioi-ns"><div class="ioi-mh"><span>New Session</span><button title="Close">✕</button></div><div id="ioi-ns-body"><div class="ioi-ns-empty">Loading daemon context…</div></div></div>';
       document.body.appendChild(el);
       el.addEventListener("click", (e) => {
         if (e.target === el || e.target.closest(".ioi-mh button")) { el.classList.remove("open"); return; }
@@ -41,16 +50,8 @@
       });
       el.addEventListener("change", (e) => {
         if (!e.target || !e.target.id) return;
-        if (e.target.id === "ioi-ns-harness") { nsHarnessTouched = true; renderNsKnobs(); }
+        if (e.target.id === "ioi-ns-harness") renderNsKnobs();
         if (e.target.id === "ioi-ns-venue-provider") { nsChooseVenue(nsCurrentVenue()); return; }
-        if (e.target.id === "ioi-ns-strategy") nsStrategyTouched = true;
-        if (e.target.id === "ioi-ns-policy") {
-          // The policy sets the strategy default (still user-overridable afterwards).
-          var pol = nsPolicy();
-          var strat = document.getElementById("ioi-ns-strategy");
-          if (pol && strat && pol.strategy_preference) { strat.value = pol.strategy_preference; }
-          nsStrategyTouched = false;
-        }
         if (e.target.id.indexOf("ioi-ns-") === 0) renderNsPreview();
       });
       el.addEventListener("input", (e) => { if (e.target && (e.target.id === "ioi-ns-url" || e.target.id === "ioi-ns-goal")) renderNsPreview(); });
@@ -114,22 +115,7 @@
       return '<option value="editor-target:' + esc(t.target_id) + '"' + (t.openable ? "" : " disabled") + (t.target_id === "workbench-native" ? " selected" : "") + ">" + esc(label) + "</option>";
     }).join("");
     body.innerHTML =
-      '<div class="ioi-ns-field"><label>What should IOI Agent do?</label><textarea id="ioi-ns-goal" rows="2" placeholder="Describe the goal — IOI Agent will coordinate the work. Leave empty to only create a session."></textarea></div>' +
-      '<div class="ioi-ns-grid" style="grid-template-columns:1fr 1fr">' +
-      '<div class="ioi-ns-field"><label>Launch policy (saved preset)</label><select id="ioi-ns-policy">' +
-      '<option value="">No policy — manual choices</option>' +
-      (nsCtx.launch_policies || []).map(function (p) {
-        return '<option value="' + esc(p.policy_ref) + '"' + (p.policy_id === "pol_auto_default" ? " selected" : "") + ">" + esc(p.display_name) + " — " + esc(p.strategy_preference) + (p.protected ? " · default" : "") + "</option>";
-      }).join("") +
-      "</select></div>" +
-      '<div class="ioi-ns-field"><label>Execution strategy</label><select id="ioi-ns-strategy">' +
-      '<option value="auto" selected>Auto — IOI Agent decides</option>' +
-      '<option value="direct">Direct — one harness</option>' +
-      '<option value="compare">Compare — multiple harnesses, reconciled</option>' +
-      '<option value="private_local">Private local — local models and harnesses only</option>' +
-      "</select></div>" +
-      '<div class="ioi-ns-field"><label>On failure</label><select id="ioi-ns-failure"><option value="continue_partial" selected>Continue with explicit partial result</option><option value="block">Block and report</option></select></div>' +
-      "</div>" +
+      '<div class="ioi-ns-field"><label>What should this session do? <span style="font-weight:400;opacity:.75">(optional — becomes the session\'s first instruction)</span></label><textarea id="ioi-ns-goal" rows="2" placeholder="Describe the task. Leave empty to only create a session."></textarea></div>' +
       nsVenueSection() +
       '<div class="ioi-ns-tabs"><button class="ioi-ns-tab" data-ns-branch="project">Start from project</button><button class="ioi-ns-tab" data-ns-branch="url">Start from URL</button><button class="ioi-ns-tab" data-ns-branch="scratch">Start from scratch</button></div>' +
       '<div class="ioi-ns-pane project"><div class="ioi-ns-field"><label>Project</label><select id="ioi-ns-project">' + projOpts + "</select></div></div>" +
@@ -144,13 +130,12 @@
       "</div>" +
       nsConnectionsSection() +
       '<div class="ioi-ns-preview" id="ioi-ns-preview"></div>' +
-      '<button class="ioi-ns-btn" id="ioi-ns-launch">Start with IOI Agent</button>' +
+      '<button class="ioi-ns-btn" id="ioi-ns-launch">Start session</button>' +
       '<div id="ioi-ns-result" style="display:none"></div>';
     // Preselect the registry default profile when it is actually selectable.
     const hp = document.getElementById("ioi-ns-harness");
     const def = profiles.find((p) => p.default && !nsHarnessReason(p));
     if (def) hp.value = def.profile_ref;
-    nsHarnessTouched = false;
     nsRenderVenueDetail();
     renderNsKnobs();
   }
@@ -280,84 +265,35 @@
     }
     renderNsPreview();
   }
-  var nsPreviewTimer = null;
   var nsPreviewSeq = 0;
-  // The preferred-harness select auto-preselects the registry default for the legacy
-  // create-session path; that is NOT a user preference for IOI Agent (it would silently
-  // force direct-native and starve Auto/Compare). Only an explicit user selection counts.
-  var nsHarnessTouched = false;
-  // Strategy is sent only when the user explicitly picked one — otherwise the selected
-  // policy's preference (or auto) decides daemon-side.
-  var nsStrategyTouched = false;
-  function nsPolicy() {
-    var sel = document.getElementById("ioi-ns-policy");
-    if (!sel || !sel.value) return null;
-    return (nsCtx.launch_policies || []).find(function (p) { return p.policy_ref === sel.value; }) || null;
-  }
   function nsGoal() { var g = document.getElementById("ioi-ns-goal"); return g ? g.value.trim() : ""; }
-  function nsStrategy() { var sel = document.getElementById("ioi-ns-strategy"); return sel && sel.value ? sel.value : "auto"; }
-  function renderNsAgentPreview() {
-    // Daemon-backed IOI Agent preview — the plan (direct vs internal coordination), eligible/
-    // excluded harnesses with reasons, isolation and receipt classes. Never fabricated locally.
-    var box = document.getElementById("ioi-ns-preview");
-    if (!box) return;
-    var seq = ++nsPreviewSeq;
-    var payload = { goal: nsGoal() };
-    if (nsStrategyTouched) payload.strategy = nsStrategy();
-    var pol = nsPolicy();
-    if (pol) payload.policy_ref = pol.policy_ref;
-    var routeSel = document.getElementById("ioi-ns-model");
-    if (routeSel && routeSel.value) payload.model_route_ref = routeSel.value;
-    var hp = nsProfile();
-    if (nsHarnessTouched && hp) payload.preferred_harness_refs = [hp.profile_ref];
-    fetch("/__ioi/api/ioi-agent/preview", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(payload) })
-      .then(function (r) { return r.json(); })
-      .then(function (j) {
-        if (seq !== nsPreviewSeq) return;
-        if (j.error) { box.innerHTML = '<span class="nsp-k nsp-warn">Preview</span> <span class="nsp-warn">' + esc(j.error.code || "unavailable") + (j.error.message ? " — " + esc(j.error.message) : "") + "</span>"; return; }
-        var lines = [];
-        lines.push('<span class="nsp-k">IOI Agent</span> <b>' + esc(j.coordination || "IOI Agent will coordinate this work") + "</b>");
-        if (j.policy_rollout) lines.push('<span class="nsp-k">Rollout</span> policy via <b>' + esc((j.policy_rollout.rollout_mode || "") + (j.policy_rollout.rollout_state === "promoted" ? " (promoted)" : "")) + '</b> overlay ' + esc(String(j.policy_rollout.variant_policy_ref || "").replace("ioi-agent-policy://", "")) + (j.policy_rollout.cohort_display_name ? ' for cohort <b>' + esc(j.policy_rollout.cohort_display_name) + '</b>' : '') + ' <span style="color:#6f7280">(' + esc(j.policy_rollout.reason_code || "") + ' · context: ' + esc(j.policy_rollout.rollout_context_source || "") + (j.policy_rollout.override ? ' — EXPLICIT OVERRIDE, not authenticated identity' : '') + ' · base ' + esc(String(j.policy_rollout.base_policy_ref || "").replace("ioi-agent-policy://", "")) + ')</span>');
-        if (!j.policy_rollout && (j.policy_rollout_skipped || []).length) lines.push('<span class="nsp-k">Rollout</span> <span style="color:#6f7280">not applied — ' + esc(j.policy_rollout_skipped.map(function (x) { return String(x.variant_policy_ref || "").replace("ioi-agent-policy://", "") + ": " + (x.reason_code || ""); }).join("; ")) + ' (context: ' + esc(j.rollout_context_source || "") + ')</span>' + (j.policy_rollout_skipped.some(function (x) { return x.reason_code === "rollout_explicit_override_disallowed"; }) ? ' <span class="nsp-warn">explicit override rejected — not valid outside local development</span>' : ''));
-        if (j.deployment_auth_posture === "local_development" && j.rollout_context_source === "anonymous") lines.push('<span class="nsp-k">Identity</span> <span style="color:#6f7280">deterministic local principal — <b>local-development posture only</b>; exposed deployments require authenticated identity</span>');
-        if (j.policy_effective_summary) lines.push('<span class="nsp-k">Policy</span> ' + esc(j.policy_effective_summary) + ((j.policy_constraints_applied || []).length ? ' <span style="color:#6f7280">(applies: ' + esc(j.policy_constraints_applied.join(", ")) + ")</span>" : "") + ((j.policy_constraints_relaxed_or_blocked || []).length ? ' <span class="nsp-warn">relaxed: ' + esc(j.policy_constraints_relaxed_or_blocked.join(", ")) + "</span>" : ""));
-        lines.push('<span class="nsp-k">Plan</span> strategy <b>' + esc(j.strategy) + "</b> → " + (j.planned_execution_kind === "goal_run" ? "<b>compare across harnesses, verified and reconciled</b>" : "<b>direct — one admitted harness</b>") + ' <span style="color:#6f7280">(' + esc((j.reason_codes || []).join(", ")) + ")</span>");
-        lines.push('<span class="nsp-k">Harnesses</span> ' + (j.eligible_harnesses || []).map(function (r) { return "<code>" + esc(String(r).replace("harness-profile:hp_", "")) + "</code>"; }).join(" ") + ((j.excluded_harnesses || []).length ? ' · excluded: ' + j.excluded_harnesses.map(function (x) { return '<span class="nsp-warn">' + esc(x.harness || x.profile_ref || "") + " (" + esc(x.reason_code || "") + ")</span>"; }).join(", ") : ""));
-        lines.push('<span class="nsp-k">Model route</span> <code>' + esc(j.model_route_ref || "") + "</code> · " + esc(j.model_route_state || ""));
-        if (j.remote_slots_disabled) lines.push('<span class="nsp-k">Privacy</span> private local — remote/provider-gated slots disabled');
-        var intel = j.intelligence_projection_preview;
-        if (intel && intel.counts) {
-          var aff = intel.automation_affinity_match;
-          lines.push('<span class="nsp-k">Intelligence</span> memory space <code>' + esc((j.memory_space_refs || [])[0] || "") + '</code> — ' + intel.counts.included_entries + ' entr' + (intel.counts.included_entries === 1 ? "y" : "ies") + ' + ' + intel.counts.included_skills + ' skill' + (intel.counts.included_skills === 1 ? "" : "s") + ' projected · ' + intel.counts.redacted + ' redacted · ' + intel.counts.excluded + ' excluded' + ((intel.connector_context_refs || []).length ? ' · connector context: ' + intel.connector_context_refs.length + ' ref(s)' : ' · no connector context') + (aff ? ' · affinity: <b>' + esc(aff.title || "") + '</b>' : ""));
-        }
-        lines.push('<span class="nsp-k">Isolation</span> ' + esc(j.expected_isolation || ""));
-        if (j.placement) {
-          var pf = j.placement.fee || {};
-          lines.push('<span class="nsp-k">Placement</span> venue <b>' + esc(j.placement.venue || "run_local") + "</b>"
-            + (j.placement.provider_account_ref ? " · pinned <code>" + esc(j.placement.provider_account_ref) + "</code>" : "")
-            + (j.placement.advisory ? ' <span class="nsp-warn">(advisory placeholder — effective venue ' + esc(j.placement.effective_venue || "run_local") + ")</span>" : "")
-            + ' · fee basis <b>' + esc(pf.fee_basis || "none") + "</b> <span style=\"color:#6f7280\">(" + esc(pf.fee_explanation || "") + ")</span>");
-          if (j.placement.decision_mode) lines.push('<span class="nsp-k">Placement</span> ' + (j.placement.decision_mode.mode === "decision_available" ? '<b>decision</b> <code>' + esc(String(j.placement.decision_mode.decision_ref || "").slice(0, 44)) + "</code>" : "advisory mode (no explicit decision yet)"));
-          if (j.placement.advisory_ref) lines.push('<span class="nsp-k">Advisory</span> <code>' + esc(j.placement.advisory_ref) + "</code>" + (j.placement.advisory_recommendation ? " → <b>" + esc(j.placement.advisory_recommendation.venue || "") + "</b>" : "") + ((j.placement.advisory_candidate_refs || []).length ? " · candidates " + j.placement.advisory_candidate_refs.map(function (r) { return "<code>" + esc(String(r).slice(0, 46)) + "</code>"; }).join(" ") : "") + (j.placement.no_eligible_candidate ? ' <span class="nsp-warn">' + esc(j.placement.no_eligible_candidate) + "</span>" : ""));
-          if ((j.placement.receipts_expected || []).length) lines.push('<span class="nsp-k">Venue receipts</span> ' + j.placement.receipts_expected.map(function (r) { return "<code>" + esc(r) + "</code>"; }).join(" "));
-        }
-        lines.push('<span class="nsp-k">Receipts</span> ' + (j.expected_receipt_refs || []).map(function (r) { return "<code>" + esc(r) + "</code>"; }).join(" "));
-        lines.push('<span class="nsp-k">Admission</span> ' + esc(((j.admission_preview || {}).kinds || []).join(" · ")) + " — " + esc((j.admission_preview || {}).authority || ""));
-        box.innerHTML = lines.join("<br>");
-      })
-      .catch(function () { if (seq === nsPreviewSeq) box.innerHTML = '<span class="nsp-k nsp-warn">Preview</span> <span class="nsp-warn">daemon unavailable</span>'; });
+  // The chosen venue, read back from the daemon's placement preview — DAEMON truth, never composed
+  // here. Appended to the session preview so the venue, fee basis, advisory and venue receipts are
+  // named BEFORE the effectful call.
+  function renderNsPlacementPreview(box, seq) {
+    fetch("/v1/hypervisor/placement/preview").then(function (r) { return r.json(); }).then(function (j) {
+      if (seq !== nsPreviewSeq || !box) return;
+      var pol = j.policy || {};
+      var f = j.fee || {};
+      var lines = [];
+      lines.push('<span class="nsp-k">Placement</span> venue <b>' + esc(j.venue || pol.venue || "run_local") + "</b>"
+        + (pol.provider_account_ref ? " · pinned <code>" + esc(pol.provider_account_ref) + "</code>" : "")
+        + (pol.advisory ? ' <span class="nsp-warn">(advisory — effective venue ' + esc(pol.effective_venue || "run_local") + ")</span>" : "")
+        + " · fee basis <b>" + esc(f.fee_basis || "none") + '</b> <span style="color:#6f7280">(' + esc(f.fee_explanation || "") + ")</span>");
+      if (pol.advisory_ref) lines.push('<span class="nsp-k">Advisory</span> <code>' + esc(pol.advisory_ref) + "</code>" + (pol.advisory_recommendation ? " → <b>" + esc(pol.advisory_recommendation.venue || "") + "</b>" : "") + ((pol.advisory_candidate_refs || []).length ? " · candidates " + pol.advisory_candidate_refs.map(function (r) { return "<code>" + esc(String(r).slice(0, 46)) + "</code>"; }).join(" ") : ""));
+      if ((j.receipts_expected || []).length) lines.push('<span class="nsp-k">Venue receipts</span> ' + j.receipts_expected.map(function (r) { return "<code>" + esc(r) + "</code>"; }).join(" "));
+      var slot = box.querySelector("[data-nsp-placement]");
+      if (slot) slot.innerHTML = lines.join("<br>");
+    }).catch(function () {
+      var slot = box && box.querySelector("[data-nsp-placement]");
+      if (seq === nsPreviewSeq && slot) slot.innerHTML = '<span class="nsp-k nsp-warn">Placement</span> <span class="nsp-warn">the daemon placement preview did not answer — the launch still applies the durable venue policy</span>';
+    });
   }
   function renderNsPreview() {
     const box = document.getElementById("ioi-ns-preview");
     const el = document.getElementById("ioi-ns-modal");
     if (!box || !el) return;
-    if (nsGoal().length >= 4) {
-      // IOI Agent path: the preview is DAEMON truth (debounced).
-      if (nsPreviewTimer) clearTimeout(nsPreviewTimer);
-      box.innerHTML = '<span class="nsp-k">IOI Agent</span> planning…';
-      nsPreviewTimer = setTimeout(renderNsAgentPreview, 250);
-      return;
-    }
+    var seq = ++nsPreviewSeq;
     const branch = el.getAttribute("data-branch") || "project";
     const p = nsProfile();
     const routeSel = document.getElementById("ioi-ns-model");
@@ -382,75 +318,16 @@
       lines.push('<span class="nsp-k">Harness</span> none — the session records no binding; execution uses the daemon\'s Lane A default at execute time');
       lines.push('<span class="nsp-k">Receipts</span> <code>receipt://hypervisor/session-provision/*</code>');
     }
+    if (nsGoal()) lines.push('<span class="nsp-k">Instruction</span> the session starts with: <i>' + esc(nsGoal().slice(0, 160)) + (nsGoal().length > 160 ? "…" : "") + "</i>");
     lines.push('<span class="nsp-k">Restore</span> the session persists in the daemon estate; reopen it from Workbench — nothing here is UI-only state');
-    box.innerHTML = lines.join("<br>");
-  }
-  function nsAgentLaunch(result, btn) {
-    // IOI Agent launch: serve composes the daemon's two-phase wallet contract (challenge →
-    // grant → execute) and returns the coordinated result with proof links.
-    var el = document.getElementById("ioi-ns-modal");
-    var branch = el.getAttribute("data-branch") || "project";
-    var body = { goal: nsGoal() };
-    if (nsStrategyTouched) body.strategy = nsStrategy();
-    var pol = nsPolicy();
-    if (pol) body.policy_ref = pol.policy_ref;
-    if (branch === "project") { var pv = (document.getElementById("ioi-ns-project") || {}).value; if (pv) body.project_ref = pv; }
-    if (branch === "url") {
-      var u = ((document.getElementById("ioi-ns-url") || {}).value || "").trim();
-      if (u && !/^https?:\/\/.+/.test(u)) { result.style.display = "block"; result.innerHTML = '<div class="ioi-ns-err">Enter a valid http(s) repository / PR / issue URL.</div>'; return; }
-      if (u) body.context_url = u;
-    }
-    if (branch === "scratch") { var ev = (document.getElementById("ioi-ns-env") || {}).value; if (ev) body.environment_id = ev; }
-    var etSel = document.getElementById("ioi-ns-editor");
-    if (etSel && etSel.value) body.editor_target_ref = etSel.value;
-    var routeSel = document.getElementById("ioi-ns-model");
-    if (routeSel && routeSel.value) body.model_route_ref = routeSel.value;
-    var hp = nsProfile();
-    if (nsHarnessTouched && hp) body.preferred_harness_refs = [hp.profile_ref];
-    var failSel = document.getElementById("ioi-ns-failure");
-    if (failSel && failSel.value) body.failure_policy = failSel.value;
-    if (btn) { btn.disabled = true; btn.textContent = "IOI Agent working…"; }
-    fetch("/__ioi/api/ioi-agent/launch", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(body) })
-      .then(function (r) { return r.json().then(function (j) { return { status: r.status, j: j }; }); })
-      .then(function (rr) {
-        var j = rr.j || {};
-        result.style.display = "block";
-        if (rr.status >= 400 || (j.error && j.error.code)) {
-          var err = j.error || {};
-          result.innerHTML = '<div class="ioi-ns-err"><b>Launch rejected fail-closed</b> — <code>' + esc(err.code || "HTTP " + rr.status) + "</code>" + (err.message ? "<br>" + esc(err.message) : "") + "</div>";
-          return;
-        }
-        var files = (j.final_changed_files || []).map(function (f) { return "<code>" + esc(f) + "</code>"; }).join(" ") || "—";
-        var adv = j.advanced || {};
-        result.innerHTML =
-          '<div class="ioi-ns-ok"><b>' + esc(j.headline || "IOI Agent coordinated this work") + "</b>" +
-          (j.partial_result ? ' <span class="nsp-warn">(explicit partial — see blockers in proof)</span>' : "") +
-          "<br>Changed files: " + files +
-          '<br><a href="' + esc((j.links || {}).workbench_url || "/__ioi/workbench") + '" target="_top">Open Workbench →</a> · ' +
-          '<a href="' + esc((j.links || {}).run_timeline_url || "#") + '" target="_blank" rel="noopener">Run Timeline ↗</a> · ' +
-          '<a href="' + esc((j.links || {}).work_ledger_url || "/__ioi/work-ledger") + '" target="_top">Provenance →</a>' +
-          '<details style="margin-top:8px"><summary style="cursor:pointer">Advanced / proof details</summary>' +
-          '<div style="font-size:12px;margin-top:6px">execution: <code>' + esc(j.execution_kind || "") + "</code> · strategy <code>" + esc(j.strategy || "") + "</code>" +
-          "<br>session: <code>" + esc(j.session_ref || "") + "</code>" +
-          (adv.policy_ref ? "<br>launch policy: <code>" + esc(adv.policy_ref) + "</code>" : "") +
-          ((adv.memory_projection_refs || []).length ? "<br>memory projections: " + adv.memory_projection_refs.map(function (r) { return "<code>" + esc(r) + "</code>"; }).join(" ") : "") +
-          (adv.goal_run_ref ? "<br>GoalRun (internal orchestration): <code>" + esc(adv.goal_run_ref) + "</code>" : "") +
-          (adv.harness_profile_ref ? "<br>harness: <code>" + esc(adv.harness_profile_ref) + "</code>" : "") +
-          (adv.model_route_ref ? "<br>model route: <code>" + esc(adv.model_route_ref) + "</code>" : "") +
-          "</div></details></div>";
-      })
-      .catch(function () {
-        result.style.display = "block";
-        result.innerHTML = '<div class="ioi-ns-err">IOI Agent launch failed — the daemon did not answer.</div>';
-      })
-      .finally(function () { if (btn) { btn.disabled = false; btn.textContent = "Start with IOI Agent"; } });
+    box.innerHTML = lines.join("<br>") + '<div data-nsp-placement><span class="nsp-k">Placement</span> reading the venue policy…</div>';
+    renderNsPlacementPreview(box, seq);
   }
   function nsLaunch() {
     const el = document.getElementById("ioi-ns-modal");
     const result = document.getElementById("ioi-ns-result");
     const btn = document.getElementById("ioi-ns-launch");
     if (!el || !result) return;
-    if (nsGoal().length >= 4) { nsAgentLaunch(result, btn); return; }
     const branch = el.getAttribute("data-branch") || "project";
     const body = {};
     if (branch === "project") {
@@ -467,6 +344,7 @@
     var editorSel = document.getElementById("ioi-ns-editor");
     if (editorSel && editorSel.value) body.editor_target_ref = editorSel.value;
     body.authority_profile = { connection_refs: nsSelectedConnections() };
+    if (nsGoal()) body.initial_input = nsGoal();
     const p = nsProfile();
     if (p) {
       body.harness_profile_ref = p.profile_ref;
