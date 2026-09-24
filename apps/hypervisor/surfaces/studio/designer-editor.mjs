@@ -210,6 +210,69 @@ export function compositionDiagram(ontology, lists) {
   return normalizeDiagramGraph({ nodes, edges }).graph;
 }
 
+// ---- AIP Architect: plan a workflow with a model ------------------------------------------------
+// The reference asks a few questions and has a model propose a workflow summary and graph. Here the
+// proposal comes from a governed model call (the daemon's invoke), constrained to IOI's own
+// applications, and it lands on the canvas as a SUGGESTION the person reviews — the model's JSON is
+// parsed strictly and anything that is not the asked-for shape is refused, never guessed at.
+export function planPrompt({ problem, data, users, applications }) {
+  const fam = {}; (applications || []).forEach((a) => { (fam[a.owner] = fam[a.owner] || []).push(a.title); });
+  const apps = Object.entries(fam).map(([owner, titles]) => `${owner}: ${titles.join(", ")}`).join("\n");
+  return [
+    "You are a solution architect for the IOI platform. Design the workflow below as a graph.",
+    "Reply with ONLY one JSON object and nothing else, in this shape:",
+    '{"summary": "2-3 sentences", "nodes": [{"key": "short-id", "kind": "concept|component|resource", "title": "...", "type": "...", "description": "one sentence"}], "edges": [{"from": "key", "to": "key", "label": "verb"}]}',
+    "Rules: 4 to 10 nodes. kind \"component\" means an IOI application, and its title must be EXACTLY one of these:",
+    apps,
+    'kind "concept" types: Analytics, Application Building, Data Processing, Data Sourcing, Modeling.',
+    'kind "resource" types: Data source, Object type, Action, File.',
+    "Edges follow the flow of data and work, from sources to the people who act.",
+    "",
+    `Problem: ${String(problem || "").slice(0, 1500)}`,
+    `Data available: ${String(data || "").slice(0, 1500)}`,
+    `Who uses the result, and what they do: ${String(users || "").slice(0, 1500)}`,
+  ].join("\n");
+}
+
+export function planToGraph(text, applications) {
+  const s = String(text || "");
+  const a = s.indexOf("{"), z = s.lastIndexOf("}");
+  if (a < 0 || z <= a) return { ok: false, reason: "the model did not answer with a JSON object" };
+  let doc;
+  try { doc = JSON.parse(s.slice(a, z + 1)); } catch { return { ok: false, reason: "the model's answer was not valid JSON" }; }
+  const raw = Array.isArray(doc.nodes) ? doc.nodes.slice(0, 16) : [];
+  if (raw.length < 2) return { ok: false, reason: "the model proposed fewer than two nodes" };
+  const byTitle = new Map((applications || []).map((x) => [String(x.title).toLowerCase(), x]));
+  const keys = new Map();
+  const nodes = raw.map((n, i) => {
+    const key = String(n.key || n.id || n.title || `n${i}`);
+    const id = `p${i}`; keys.set(key, id);
+    let kind = ["concept", "component", "resource"].includes(n.kind) ? n.kind : "concept";
+    let title = String(n.title || key).slice(0, 200);
+    // A model often echoes the list's decoration ("Pipeline Builder (Data)"); the application is still named.
+    const bare = title.replace(/\s*[(\[][^)\]]*[)\]]\s*$/u, "").trim().toLowerCase();
+    const app = byTitle.get(title.toLowerCase()) || byTitle.get(bare) || null;
+    if (app && kind !== "component") kind = "component";
+    if (kind === "component" && !app) kind = "concept"; // an application IOI does not have is a concept, not a link
+    const res = kind === "resource" ? RESOURCE_TYPES.find((r) => r.type.toLowerCase() === String(n.type || "").toLowerCase()) : null;
+    if (app) title = app.title;
+    return { id, kind, title, type: app ? app.owner : String(res ? res.type : n.type || (kind === "concept" ? "Concept" : "Resource")).slice(0, 80), description: String(n.description || "").slice(0, 600), ...(app ? { href: app.route } : {}), ...(res ? { icon: res.icon } : {}), x: 0, y: 0 };
+  });
+  const edges = (Array.isArray(doc.edges) ? doc.edges : []).map((e) => ({ source: keys.get(String(e.from)), target: keys.get(String(e.to)), label: String(e.label || "").slice(0, 60) })).filter((e) => e.source && e.target && e.source !== e.target);
+  // Layered layout: depth from the nodes nothing points at.
+  const depth = {}; const incoming = new Set(edges.map((e) => e.target));
+  const roots = nodes.filter((n) => !incoming.has(n.id)).map((n) => n.id);
+  (roots.length ? roots : [nodes[0].id]).forEach((r) => { depth[r] = 0; });
+  for (let pass = 0; pass < nodes.length; pass++) edges.forEach((e) => { if (depth[e.source] !== undefined && (depth[e.target] === undefined || depth[e.target] < depth[e.source] + 1) && depth[e.source] < nodes.length) depth[e.target] = depth[e.source] + 1; });
+  // A long chain wraps after four columns, so "fit" keeps the proposal legible instead of shrinking a
+  // single row until the cards cannot be read.
+  const rows = {}; const band = Math.max(1, ...Object.values(nodes.reduce((acc, n) => { const d = depth[n.id] ?? 0; acc[d] = (acc[d] || 0) + 1; return acc; }, {})));
+  nodes.forEach((n) => { const d = depth[n.id] ?? 0; const r = (rows[d] = (rows[d] ?? -1) + 1); n.x = (d % 4) * 400; n.y = Math.floor(d / 4) * (band * 180 + 120) + r * 180; });
+  const norm = normalizeDiagramGraph({ nodes, edges });
+  if (!norm.ok) return { ok: false, reason: norm.reason };
+  return { ok: true, summary: String(doc.summary || "").slice(0, 1200), graph: norm.graph };
+}
+
 // ---- Machinery: a process graph is a state-machine DEFINITION ---------------------------------
 // The daemon's state-machine plane holds states (exactly one initial; normal; final) and transitions
 // (from, to, event, guard). The editor draws the same grammar: a state node per state, a connection
@@ -309,6 +372,7 @@ export function renderDesignerEditor(model) {
       resource: RESOURCE_TYPES,
     },
     records,
+    modelRoutes: m.modelRoutes || [],
     compositions: machinery ? [] : compositions,
     templates: machinery ? mTemplates : templates,
     icons,
@@ -470,6 +534,7 @@ export function renderDesignerEditor(model) {
   <div class="dg-work">
     <nav class="dg-rail" aria-label="Diagram panels">
       ${railBtn("info", "properties", machinery ? "Graph Information" : "Diagram Information")}
+      ${machinery ? "" : railBtn("architect", "aip-logo", "AIP Architect")}
       ${machinery ? railBtn("linter", "warning-sign", "Linter") : ""}
       ${railBtn("reference", "manual", machinery ? "Process templates" : "Reference Diagrams")}
       ${railBtn("settings", "cog", "Graph Settings")}
@@ -615,7 +680,9 @@ function designerClient() {
     }
     w.innerHTML = `<h2>Welcome to Solution Designer</h2><p>Get started by adding nodes, loading a graph from your composition, or exploring reference examples</p>
       <div class="dg-wcards">
-        <div class="dg-wcard" aria-disabled="true" title="Planning with a model is not wired to the editor yet — describe the workflow with Concept nodes, or start from a reference example" data-ioi-disabled-reason="Planning with a model is not wired to the editor yet — describe the workflow with Concept nodes, or start from a reference example"><span class="dg-wico">${BOOT.icons.lightbulb}</span><b>Start planning</b><span>Planning with a model is not wired to the editor yet — start from an example or your composition</span></div>
+        ${BOOT.modelRoutes.length
+          ? `<div class="dg-wcard" role="button" tabindex="0" data-welcome="architect"><span class="dg-wico">${BOOT.icons.lightbulb}</span><b>Start planning</b><span>Answer a few questions and a model proposes a workflow graph</span></div>`
+          : `<div class="dg-wcard" aria-disabled="true" title="No model route is registered in this deployment — register one in the Model Catalog to plan with a model" data-ioi-disabled-reason="No model route is registered in this deployment — register one in the Model Catalog to plan with a model"><span class="dg-wico">${BOOT.icons.lightbulb}</span><b>Start planning</b><span>No model route is registered — add one in the Model Catalog</span></div>`}
         <div class="dg-wcard" role="button" tabindex="0" data-welcome="reference"><span class="dg-wico">${BOOT.icons["layout-grid"]}</span><b>Start with a reference example</b><span>Choose from IOI's reference architectures</span></div>
         <div class="dg-wcard" role="button" tabindex="0" data-welcome="lineage"><span class="dg-wico">${BOOT.icons["join-table"]}</span><b>Load from Data Lineage</b><span>Import the composition an ontology already has — sources, mappings, object types</span></div>
       </div>`;
@@ -869,6 +936,7 @@ function designerClient() {
   $("#dg-welcome").addEventListener("click", (e) => {
     const c = e.target.closest("[data-welcome]"); if (!c) return;
     if (c.dataset.welcome === "reference") openPanel("reference");
+    else if (c.dataset.welcome === "architect") openPanel("architect");
     else if (c.dataset.welcome === "initial") addNode({ kind: "state", stateKind: "initial", type: "Initial state", title: "Start" });
     else openLineage();
   });
@@ -1065,6 +1133,23 @@ function designerClient() {
         ${Object.keys(cats).map((c) => `<div class="dg-plabel">${esc(c)} (${cats[c].length})</div>${cats[c].map(([t, i]) => card(t.title, t.description, t.graph, `t:${i}`)).join("")}`).join("")}
         ${BOOT.variant === "machinery" ? "" : `<div class="dg-plabel">From your composition (${BOOT.compositions.length})</div>`}${BOOT.variant === "machinery" ? "" : BOOT.compositions.length ? BOOT.compositions.map((c, i) => card(c.title, `The lineage the daemon holds for ${c.title}`, c.graph, `c:${i}`)).join("") : `<div style="color:#5f6b7c;font-size:13px">No ontology has a composition yet.</div>`}</div>`;
       $("#dg-rsearch").addEventListener("input", (e) => { const q = e.target.value.trim().toLowerCase(); $$(".dg-tcard", p).forEach((c) => { c.style.display = !q || c.dataset.title.includes(q) ? "" : "none"; }); });
+    } else if (S.panel === "architect") {
+      if (p.dataset.panel === "architect" && p.contains(document.activeElement)) return;
+      const A = S.architect || (S.architect = { problem: "", data: "", users: "", route: (BOOT.modelRoutes[0] || {}).id || "", busy: false, result: null, error: "" });
+      const res = A.result ? `<div class="dg-plabel">Proposed workflow</div><div style="font-size:13px;line-height:1.5">${esc(A.result.summary || "")}</div>${miniSvg(A.result.graph)}
+          <div style="color:#5f6b7c;font-size:12px">Suggested by ${esc(A.result.model)} in ${esc(String(A.result.latency_ms ?? "—"))} ms${A.result.checked ? " (the route's availability was checked first)" : ""} — a proposal to review, not a decision. ${A.result.graph.nodes.length} nodes · ${A.result.graph.edges.length} connections; IOI applications are linked.</div>
+          <div style="display:flex;gap:8px"><button type="button" class="dg-btn primary" data-plan="add">Add to graph</button><button type="button" class="dg-btn" data-plan="replace">Replace graph</button></div>` : "";
+      p.innerHTML = `${head("AIP Architect")}<div class="dg-pbody">
+        ${BOOT.modelRoutes.length ? "" : `<div class="dg-lint warn"><span>No model route is registered in this deployment. <a href="/__ioi/foundry/models" target="_top">Register one in the Model Catalog →</a></span></div>`}
+        <div class="dg-plabel">What problem are you solving?</div><textarea id="dg-a-problem" maxlength="1500" placeholder="e.g. Loan officers miss applications that sit too long in review">${esc(A.problem)}</textarea>
+        <div class="dg-plabel">What data do you have?</div><textarea id="dg-a-data" maxlength="1500" placeholder="e.g. A CRM export of applications, and a nightly file of credit scores">${esc(A.data)}</textarea>
+        <div class="dg-plabel">Who uses the result, and what do they do?</div><textarea id="dg-a-users" maxlength="1500" placeholder="e.g. Officers get an alert and approve or escalate">${esc(A.users)}</textarea>
+        <div class="dg-plabel">Model</div><select id="dg-a-route" style="width:100%;border:1px solid rgba(17,20,24,.2);border-radius:3px;padding:6px 8px">${BOOT.modelRoutes.map((r) => `<option value="${esc(r.id)}"${r.id === A.route ? " selected" : ""}>${esc(r.model)} · ${esc(r.availability)}${r.stale ? " (stale)" : ""}</option>`).join("")}</select>
+        <div><button type="button" class="dg-btn primary" data-plan="go"${A.busy || !BOOT.modelRoutes.length ? " disabled" : ""}>${A.busy ? "Planning…" : "Generate a plan"}</button></div>
+        ${A.error ? `<div class="dg-lint err"><span>${esc(A.error)}</span></div>` : ""}
+        ${res}</div>`;
+      ["problem", "data", "users"].forEach((k) => { const el = $(`#dg-a-${k}`, p); el.addEventListener("input", () => { A[k] = el.value; }); });
+      $("#dg-a-route", p)?.addEventListener("change", (e) => { A.route = e.target.value; });
     } else if (S.panel === "linter") {
       const issues = lint();
       p.innerHTML = `${head("Linter")}<div class="dg-pbody">${issues.length ? issues.map((x) => `<div class="dg-lint ${x.level}">${BOOT.icons[x.level === "err" ? "warning-sign" : "warning-sign"]}<span>${esc(x.text)}</span></div>`).join("") : `<div class="dg-lint ok">${BOOT.icons.tick}<span>No lint issues found</span></div>`}
@@ -1087,6 +1172,23 @@ function designerClient() {
     const src = k === "t" ? BOOT.templates[+i] : BOOT.compositions[+i];
     addGraph(src.graph, false); toast("ok", `Added ${src.title}`);
   });
+  $("#dg-panel").addEventListener("click", async (e) => {
+    const b = e.target.closest("[data-plan]"); if (!b) return;
+    const A = S.architect;
+    if (b.dataset.plan === "go") {
+      A.busy = true; A.error = ""; A.result = null; p_render();
+      try {
+        const r = await fetch("/__ioi/studio/designer/diagram/plan", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ route_id: A.route, problem: A.problem, data: A.data, users: A.users }) });
+        const j = await r.json().catch(() => ({}));
+        if (j.ok) A.result = j; else A.error = `No plan: ${(j.error && j.error.message) || `the planner answered HTTP ${r.status}`}`;
+      } catch (err) { A.error = "No plan: the planner did not answer"; }
+      A.busy = false; p_render();
+    } else if (A && A.result) {
+      addGraph(A.result.graph, b.dataset.plan === "replace");
+      toast("ok", b.dataset.plan === "replace" ? "Replaced the graph with the proposal" : "Added the proposal to the graph");
+    }
+  });
+  const p_render = () => { const p = $("#dg-panel"); p.dataset.panel = ""; renderPanel(); };
   $("#dg-panel").addEventListener("change", (e) => {
     const s = e.target.dataset.setting; if (!s) return;
     mutate(() => { S.g.settings[s] = e.target.checked; });

@@ -2820,22 +2820,48 @@ function automationProjectParam(reqUrl) {
   return raw && !raw.includes(":") ? `project:${raw}` : raw;
 }
 
+// ONE governed model call for every surface that runs a prompt (Inference, the Designer's planner):
+// the caller's organization owns it (read from whoami, never chosen by a page), the daemon's invoke
+// runs it — identity first, the route's own executable predicate, the provider, a typed receipt —
+// and a route whose availability went stale gets its own governed check once, then one retry, and
+// the caller is told. The answer returns on the reply only; the record keeps its hash (R-240).
+async function governedInvoke({ routeId, prompt, nonce, keyPrefix = "inf" }) {
+  const who = await daemonFetch("/v1/hypervisor/auth/whoami").then((x) => x.json()).catch(() => ({}));
+  const tenants = Array.isArray(who?.principal?.tenant_refs) ? who.principal.tenant_refs.map(String) : [];
+  const owner = tenants.find((x) => x === "org://local") || tenants.find((x) => x.startsWith("org://")) || tenants.find((x) => x.startsWith("project://")) || "";
+  if (!routeId || !String(prompt || "").trim()) return { ok: false, error: { code: "inference_input_required", message: "choose a model route and write a prompt" } };
+  if (!owner) return { ok: false, error: { code: "inference_owner_required", message: "your sign-in belongs to no organization of this deployment, so the call would have no owner" } };
+  const call = (verb, bodyObj) => daemonFetch(`/v1/hypervisor/model-routes/${encodeURIComponent(routeId)}/${verb}`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(bodyObj) })
+    .then(async (x) => ({ status: x.status, j: await x.json().catch(() => ({})) })).catch(() => ({ status: 0, j: {} }));
+  let r = await call("invoke", { owner_ref: owner, idempotency_key: `${keyPrefix}-${nonce}`, prompt });
+  let checked = null;
+  if (r.j?.error?.code === "model_route_not_executable") {
+    checked = await call("probe", { owner_ref: owner, idempotency_key: `${keyPrefix}-probe-${nonce}` });
+    if (checked.status >= 200 && checked.status < 300 && checked.j?.availability?.state === "available") r = await call("invoke", { owner_ref: owner, idempotency_key: `${keyPrefix}-${nonce}`, prompt });
+  }
+  return { checked, status: r.status, ok: r.j?.ok === true, output: typeof r.j?.output === "string" ? r.j.output : null, invocation: r.j?.invocation || null, error: r.j?.error || (r.j?.ok === true ? null : { code: r.j?.code || `http_${r.status}`, message: r.j?.message || r.j?.reason || "the daemon did not answer" }) };
+}
+
 // The daemon reads the Solution Designer's editor renders over: the records a node can link, the
 // compositions "Load from Data Lineage" offers, and — for a saved diagram — its blueprint and head.
 async function designerEditorContext(bpId) {
   const J = (p) => daemonFetch(p).then((r) => r.json()).catch(() => ({}));
-  const [o, cm, ds, bp] = await Promise.all([
+  const [o, cm, ds, bp, mr] = await Promise.all([
     J("/v1/hypervisor/odk/domain-ontologies"),
     J("/v1/hypervisor/odk/connector-mappings"),
     J("/v1/hypervisor/data-sources"),
     bpId ? J(`/v1/hypervisor/studio/blueprints/${encodeURIComponent(bpId)}`) : Promise.resolve(null),
+    J("/v1/hypervisor/model-routes"),
   ]);
   const ontologies = o.ontologies || [];
   const lists = { connector_mappings: cm.connector_mappings || [], data_sources: ds.data_sources || [] };
   const blueprint = bp && bp.ok && bp.blueprint ? bp.blueprint : null;
   return {
     ontologies, lists, blueprint,
-    model: { surfaces: SURFACES.filter((s) => s.route !== "/__ioi/studio/designer"), ontologies, ...lists, blueprint, head: blueprint ? bp.admitted_head || "" : "" },
+    model: {
+      surfaces: SURFACES.filter((s) => s.route !== "/__ioi/studio/designer"), ontologies, ...lists, blueprint, head: blueprint ? bp.admitted_head || "" : "",
+      modelRoutes: (mr.model_routes || mr.routes || []).filter((r) => r && r.route_id).map((r) => ({ id: r.route_id, model: r.model?.model_id || r.route_id, availability: r.availability?.state || "unknown", stale: !!r.availability?.stale })),
+    },
   };
 }
 
@@ -4095,7 +4121,7 @@ function renderDesignerPort(lists, selectedId, openState = null) {
         ${resourceCount && !myApps.length ? `<p class="dsg-gapnote">Surface descriptors: none — no domain-app surfaces generated yet (named gap).</p>` : ""}
       </div>
     </div>
-    <p class="dsg-foot"><b>New Diagram</b> opens the diagram editor: concept, component and resource nodes, connections, reference architectures, and <b>Load from Data Lineage</b> over the composition below; a saved diagram is a Studio blueprint owned by your organization, listed at the top of Recents. Still not bound: AIP Architect planning (no model-backed planner is wired to the Designer) and favorites (no record keeps them) — disabled in place above. <b>Open Diagram</b> opens the resource selector over these same designs: Recent files and Object datasources are live, and Favorites, All projects, Data Catalog and Shared with you each name the record the ODK plane does not keep. Sibling Studio seeds stay reference-only: the <a href="/__apps/machinery">machinery</a> process/state-machine graph (data lanes unbound), the <a href="/__apps/workshop">workshop</a> and module builders. Owner: <a href="/__ioi/agent-studio">Agent Studio</a> · siblings: <a href="/__ioi/studio/machinery">Machinery</a> · <a href="${managerLink({ ontology: oid })}">Ontology Manager</a> (<a href="/__ioi/odk?ontology=${enc(oid)}">ODK substrate</a>) · <a href="/__ioi/pipeline?ontology=${enc(oid)}">Pipeline Builder</a>. Reference: the origin-aligned <span class="ref-capture" title="Reference capture — development evidence only; this deployment does not serve it">Solution Designer capture (<code>http://localhost:9225/workspace/solution-design/</code>)</span> — the <a href="/__apps/designer">/__apps/designer proxy lane ↗</a> is documented insufficient (cross-origin :9225 chunk fetches manufacture CORS noise + a favorites-load failure; #44 sweep evidence).</p>
+    <p class="dsg-foot"><b>New Diagram</b> opens the diagram editor: concept, component and resource nodes, connections, reference architectures, and <b>Load from Data Lineage</b> over the composition below; a saved diagram is a Studio blueprint owned by your organization, listed at the top of Recents. <b>Start planning</b> asks three questions and a governed model call proposes a workflow graph, added as a suggestion. Still not bound: favorites (no record keeps them) — disabled in place above. <b>Open Diagram</b> opens the resource selector over these same designs: Recent files and Object datasources are live, and Favorites, All projects, Data Catalog and Shared with you each name the record the ODK plane does not keep. Sibling Studio seeds stay reference-only: the <a href="/__apps/machinery">machinery</a> process/state-machine graph (data lanes unbound), the <a href="/__apps/workshop">workshop</a> and module builders. Owner: <a href="/__ioi/agent-studio">Agent Studio</a> · siblings: <a href="/__ioi/studio/machinery">Machinery</a> · <a href="${managerLink({ ontology: oid })}">Ontology Manager</a> (<a href="/__ioi/odk?ontology=${enc(oid)}">ODK substrate</a>) · <a href="/__ioi/pipeline?ontology=${enc(oid)}">Pipeline Builder</a>. Reference: the origin-aligned <span class="ref-capture" title="Reference capture — development evidence only; this deployment does not serve it">Solution Designer capture (<code>http://localhost:9225/workspace/solution-design/</code>)</span> — the <a href="/__apps/designer">/__apps/designer proxy lane ↗</a> is documented insufficient (cross-origin :9225 chunk fetches manufacture CORS noise + a favorites-load failure; #44 sweep evidence).</p>
   </section>` : `<section class="dsg-truth" id="designer-truth"><p class="dsg-gapnote">No ontologies to design over yet — create one in the <a href="/__ioi/ontology/manager?section=create">Ontology Manager</a>. This canvas renders real composition truth; it never fabricates concepts. Owner: <a href="/__ioi/agent-studio">Agent Studio</a>.</p></section>`;
 
   const globalRail = ioiGlobalRailHtml({ label: "Solution Designer", href: "/__ioi/studio/designer", iconUri: DSG_APP_TILE_URI, railVariant: "rv-pipe rv-dsg", viewAll: true, star: false, badges: true, aipGradient: true, acctMuted: true });
@@ -4123,7 +4149,7 @@ function renderDesignerPort(lists, selectedId, openState = null) {
       <h4 class="dsg-aipt">Have a workflow in mind? Use AIP Architect to help you plan it.</h4>
       <div class="dsg-aipsub">Answer a few questions to get AIP suggestions on how to implement your workflow in Foundry.</div>
     </div>
-    <span class="dsg-planbtn gap" aria-disabled="true" title="AIP Architect planning is a reference-only lane — no planning assistant is bound to this surface (named gap)" data-ioi-disabled-reason="AIP Architect planning is a reference-only lane — no planning assistant is bound to this surface (named gap)"><span>Start planning</span>${bpIcon("arrow-right")}</span>
+    <a class="dsg-planbtn" href="/__ioi/studio/designer/diagram?panel=architect" title="Answer a few questions and a model proposes a workflow graph"><span>Start planning</span>${bpIcon("arrow-right")}</a>
   </div>`;
 
   // The template gallery is the reference's own static template-library strip (vendor chrome, not
@@ -12514,26 +12540,7 @@ async function handleEstateRequest(req, res, body) {
         const routeId = (f.get("route_id") || "").trim();
         const prompt = (f.get("prompt") || "").slice(0, 8000);
         const nonce = (f.get("nonce") || "").replace(/[^A-Za-z0-9_-]/g, "").slice(0, 64) || crypto.randomUUID();
-        const who = await daemonFetch("/v1/hypervisor/auth/whoami").then((x) => x.json()).catch(() => ({}));
-        const tenants = Array.isArray(who?.principal?.tenant_refs) ? who.principal.tenant_refs.map(String) : [];
-        const owner = tenants.find((x) => x === "org://local") || tenants.find((x) => x.startsWith("org://")) || tenants.find((x) => x.startsWith("project://")) || "";
-        const call = (verb, bodyObj) => daemonFetch(`/v1/hypervisor/model-routes/${encodeURIComponent(routeId)}/${verb}`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(bodyObj) })
-          .then(async (x) => ({ status: x.status, j: await x.json().catch(() => ({})) })).catch(() => ({ status: 0, j: {} }));
-        if (!routeId || !prompt.trim()) {
-          infRun = { routeId, prompt, error: { code: "inference_input_required", message: "choose a model route and write a prompt" } };
-        } else if (!owner) {
-          infRun = { routeId, prompt, error: { code: "inference_owner_required", message: "your sign-in belongs to no organization of this deployment, so the call would have no owner" } };
-        } else {
-          let r = await call("invoke", { owner_ref: owner, idempotency_key: `inf-${nonce}`, prompt });
-          let checked = null;
-          // A route whose availability is stale or merely declared is not executable. Its own
-          // governed availability check runs once, and the call is retried — and the page says so.
-          if (r.j?.error?.code === "model_route_not_executable") {
-            checked = await call("probe", { owner_ref: owner, idempotency_key: `inf-probe-${nonce}` });
-            if (checked.status >= 200 && checked.status < 300 && checked.j?.availability?.state === "available") r = await call("invoke", { owner_ref: owner, idempotency_key: `inf-${nonce}`, prompt });
-          }
-          infRun = { routeId, prompt, checked, status: r.status, ok: r.j?.ok === true, output: typeof r.j?.output === "string" ? r.j.output : null, invocation: r.j?.invocation || null, error: r.j?.error || (r.j?.ok === true ? null : { code: r.j?.code || `http_${r.status}`, message: r.j?.message || r.j?.reason || "the daemon did not answer" }) };
-        }
+        infRun = { routeId, prompt, ...(await governedInvoke({ routeId, prompt, nonce })) };
       }
       const istr = (v) => (typeof v === "string" && v.trim() !== "" ? v : "");
       const infProbe = async (p) => {
@@ -14200,8 +14207,23 @@ async function handleEstateRequest(req, res, body) {
         const ont = ctx.ontologies.find((x) => x.id === load.slice("ontology:".length));
         if (ont) { graph = compositionDiagram(ont, ctx.lists); dirty = true; }
       }
-      sendOwnedSurfaceHtml(res, "designer", renderDesignerEditor({ ...ctx.model, graph, dirty, notice, panel: ["info", "reference", "settings", "shortcuts"].includes(sp.get("panel")) ? sp.get("panel") : "" }));
+      sendOwnedSurfaceHtml(res, "designer", renderDesignerEditor({ ...ctx.model, graph, dirty, notice, panel: ["info", "architect", "reference", "settings", "shortcuts"].includes(sp.get("panel")) ? sp.get("panel") : "" }));
       return;
+    }
+    // AIP ARCHITECT (R-240): three answers → a governed model call → a proposed workflow graph the
+    // editor adds as a suggestion. JSON in, JSON out; the page does the rest.
+    if (pathname === "/__ioi/studio/designer/diagram/plan" && req.method === "POST") {
+      let q = {};
+      try { q = JSON.parse(body.toString() || "{}"); } catch { q = {}; }
+      const { planPrompt, planToGraph } = await import("../surfaces/studio/designer-editor.mjs");
+      const applications = SURFACES.filter((s) => s.route && s.title && s.route !== "/__ioi/studio/designer").map((s) => ({ title: s.title, owner: s.owner, route: s.route }));
+      const send = (status, obj) => { res.writeHead(status, { "Content-Type": "application/json; charset=utf-8", "Cache-Control": "no-store" }); res.end(JSON.stringify(obj)); };
+      if (![q.problem, q.data, q.users].some((x) => String(x || "").trim())) return send(400, { ok: false, error: { code: "plan_input_required", message: "answer at least the first question" } });
+      const run = await governedInvoke({ routeId: String(q.route_id || ""), prompt: planPrompt({ problem: q.problem, data: q.data, users: q.users, applications }), nonce: crypto.randomUUID(), keyPrefix: "plan" });
+      if (!run.ok || run.output === null) return send(run.status >= 400 && run.status < 500 ? run.status : 502, { ok: false, error: run.error || { code: "plan_no_answer", message: "the model gave no answer" }, checked: !!run.checked });
+      const plan = planToGraph(run.output, applications);
+      if (!plan.ok) return send(422, { ok: false, error: { code: "plan_unusable", message: `${plan.reason} — try again, or rephrase the answers` } });
+      return send(200, { ok: true, summary: plan.summary, graph: plan.graph, model: run.invocation?.model_id || "", invocation_id: run.invocation?.invocation_id || "", latency_ms: run.invocation?.evidence?.latency?.total_ms ?? null, checked: !!run.checked });
     }
     if (pathname === "/__ioi/studio/designer/diagram/save" && req.method === "POST") {
       const f = new URLSearchParams(body.toString());
