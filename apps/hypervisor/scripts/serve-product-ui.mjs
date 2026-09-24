@@ -7594,8 +7594,12 @@ function stripCapturedOpenPortals(html) {
   const rootEnd = balancedDivEnd(html, rootAt);
   if (rootEnd < 0) return html;
   let head = html.slice(0, rootEnd), tail = html.slice(rootEnd);
+  // Everything after the root is a captured PORTAL, which React never renders from this document and
+  // never removes: open ones blocked the page, and a CLOSED popper stayed in every page too — the
+  // vendor's "What's new" preview ("User budgets for AI usage"), invisible until something opened it
+  // (R-240). Both go.
   for (let guard = 0; guard < 20; guard++) {
-    const m = /<div\b[^>]*\bdata-state="open"[^>]*>/.exec(tail);
+    const m = /<div\b[^>]*\b(?:data-state="open"|data-radix-popper-content-wrapper)[^>]*>/.exec(tail);
     if (!m) break;
     const end = balancedDivEnd(tail, m.index);
     if (end < 0) break;

@@ -32,10 +32,20 @@ const PRODUCT_UI_IDENTITY = Object.freeze({
 
 const chunkMap = {};
 
+// The last-seen "What's new" title is this product's own newest release note (whats-new.v1.json):
+// the preference store is fixed, so naming the reference vendor's note here made every newer entry
+// read as unseen on every load (R-240).
+const newestWhatsNewTitle = (() => {
+  try {
+    const entries = JSON.parse(fs.readFileSync(path.join(__dirname, '..', 'whats-new.v1.json'), 'utf8')).entries;
+    return (Array.isArray(entries) && entries[0] && entries[0].title) || '';
+  } catch { return ''; }
+})();
+
 const preferenceMocks = new Map([
   ['IS_ONA_ONBOARDED', 'true'],
   ['PREFERRED_AGENT', '00000000-0000-0000-0000-000000007800'],
-  ['changelog_last_seen_title', 'User budgets for AI usage'],
+  ['changelog_last_seen_title', newestWhatsNewTitle],
   ['ENVIRONMENT_START_COUNT', '1'],
   ['PREFERRED_ENVIRONMENT_CLASS_ID_PER_PROJECT', '[]'],
   ['CONTEXT_URLS', '[]'],
