@@ -59,6 +59,9 @@ export function render(model, ctx) {
     declare: sp.get("declare") === "1",
     lane: sp.get("lane") || "",
     kind: sp.get("kind") || "",
+    // The name typed before a Kind change (which reloads to re-derive the endpoint rule). Only the
+    // NAME rides the URL — never the endpoint, which could carry credential material.
+    declName: (sp.get("name") || "").slice(0, 120),
     overview: model.overview,
     degraded: model.degraded || {},
     banner: {
@@ -190,10 +193,12 @@ function renderSourcesPort(sources, mruns, srcMappings, dataSourceSel, opts) {
       const postures = ov.credential_postures || [];
       const selKind = kinds.some((k) => k.kind === opts.kind) ? opts.kind : kinds[0] ? kinds[0].kind : "";
       const selReq = (kinds.find((k) => k.kind === selKind) || {}).requires_endpoint === true;
-      const kindNav = `location.href='/__ioi/data/sources?declare=1${embed ? "&embed=1" : ""}&kind='+encodeURIComponent(this.value)`;
+      // Choosing a Kind reloads to re-derive the endpoint requirement; it used to discard the Name
+      // already typed (R-240, found driving the declare form as a person fills it). The name rides.
+      const kindNav = `location.href='/__ioi/data/sources?declare=1${embed ? "&embed=1" : ""}&kind='+encodeURIComponent(this.value)+'&name='+encodeURIComponent(this.form.name.value)`;
       return `<form class="src-decform" method="post" action="/__ioi/data/sources/actions/declare">
       <input type="hidden" name="return" value="/__ioi/data/sources?declare=1${selKind ? `&kind=${esc(selKind)}` : ""}">
-      <label class="src-declabel">Name <input class="src-decinp" type="text" name="name" maxlength="120" required placeholder="A display name for the declared source"></label>
+      <label class="src-declabel">Name <input class="src-decinp" type="text" name="name" maxlength="120" required placeholder="A display name for the declared source" value="${esc(opts.declName || "")}"></label>
       <label class="src-declabel">Kind <select class="src-decsel" name="kind" onchange="${kindNav}" title="The kind vocabulary is daemon truth (overview.source_kinds); picking a kind re-derives the endpoint requirement">${kinds.map((k) => `<option value="${esc(k.kind)}"${k.kind === selKind ? " selected" : ""}>${esc(k.kind)} — ${k.requires_endpoint ? "endpoint required" : "no endpoint (local)"}</option>`).join("")}</select></label>
       <label class="src-declabel">Endpoint <input class="src-decinp" type="text" name="endpoint" maxlength="2000"${selReq ? " required" : ""} placeholder="${selReq ? "required for this kind — scheme://host/path, no userinfo, no credential query params" : "not required for this local kind"}"> <span class="src-dechint">${selReq ? "required" : "optional"} for <code>${esc(selKind)}</code> (daemon truth) — a credential-bearing endpoint is refused typed</span></label>
       <label class="src-declabel">Credential posture <select class="src-decsel" name="credential_posture" title="A declared posture from the daemon vocabulary — never a credential value">${postures.map((p) => `<option value="${esc(p)}">${esc(p)}</option>`).join("")}</select></label>
