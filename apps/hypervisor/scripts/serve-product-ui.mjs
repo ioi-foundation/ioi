@@ -7502,6 +7502,41 @@ function renameApiTokens(js) {
 }
 const SETTINGS_BUNDLE_RE = /SegmentProvider-[^/]+\.js/;
 
+// DEAD DOCUMENTATION LINKS (R-240). The rebrand pointed every vendor docs URL at `https://ioi.com/…`
+// — 54 unique URLs across 25 owned assets: every "Learn more", the editor menu's Troubleshoot,
+// Contact sales, pricing, legal. Probed 2026-09-24: all 54 answer 404. Each now opens this serve's
+// /__ioi/help, which names the topic, says plainly it is not published for this deployment, and
+// links the estate surface that holds the truth where one exists. Rewritten at serve time — the
+// owned seed's bytes are untouched — and only in the assets that carry the dead origin, indexed once
+// at startup so an asset added later with the same origin is caught without a code change.
+const DEAD_DOCS_ORIGIN = "https://ioi.com/";
+const HELP_ROUTE = "/__ioi/help?topic=";
+const DEAD_DOCS_ASSETS = (() => {
+  const set = new Set();
+  const root = process.env.IOI_PRODUCT_UI_PUBLIC || join(HERE, "..", "product-ui", "owned", "public");
+  try {
+    for (const f of readdirSync(join(root, "static", "assets"))) {
+      if (!f.endsWith(".js")) continue;
+      if (readFileSync(join(root, "static", "assets", f), "utf8").includes(DEAD_DOCS_ORIGIN)) set.add(`/static/assets/${f}`);
+    }
+  } catch { /* no owned tree — nothing to rewrite */ }
+  return set;
+})();
+function rewriteDeadDocs(js) {
+  return js.split(DEAD_DOCS_ORIGIN).join(HELP_ROUTE);
+}
+// Where the truth for a documentation topic lives in THIS deployment, when anywhere.
+const HELP_SURFACES = [
+  [/^docs\/ioi\/editors/, "/__ioi/workbench#editor-targets", "the editor registry — every editor with its probed availability on this host, and why an editor is or is not offered"],
+  [/^docs\/ioi\/projects/, "/projects", "Projects — settings, session classes, secrets and prebuilds"],
+  [/^docs\/ioi\/agents/, "/__ioi/agent-studio", "Agent Studio — agents, model routes and runtime posture"],
+  [/^docs\/ioi\/(automations|configuration\/automations)/, "/automations", "Automate — automations and their runs"],
+  [/^docs\/ioi\/(mcp|source-control|integrations)/, "/__ioi/connections", "Connections — every capability binding, SCM hosts and MCP"],
+  [/^docs\/ioi\/organizations\/policies/, "/__ioi/governance", "Governance — the policies this deployment enforces"],
+  [/^docs\/ioi\/runners/, "/__ioi/environments", "Environments — providers, placement and runners"],
+];
+const HELP_NOT_HERE = [/^(pricing|careers|contact\/sales|legal\/)/, "This is a page about the hosted product's commercial or legal terms; a self-hosted deployment has none of its own to show here."];
+
 function proxyToProductUi(req, res, body) {
   // Drop accept-encoding so the productUi returns plain text we can rewrite.
   const headers = { ...req.headers };
@@ -7513,7 +7548,9 @@ function proxyToProductUi(req, res, body) {
       // Only buffer + rewrite text payloads (HTML pages + JSON fixtures). Stream the rest
       // (the JS/wasm/font/image bundle) untouched — EXCEPT the one settings bundle that carries
       // the "Personal access tokens" copy, which we buffer to rename → "API access tokens".
-      const renameJs = ct.includes("javascript") && SETTINGS_BUNDLE_RE.test(req.url || "");
+      const reqPath = String(req.url || "").split("?")[0];
+      const deadDocsJs = ct.includes("javascript") && DEAD_DOCS_ASSETS.has(reqPath);
+      const renameJs = ct.includes("javascript") && (SETTINGS_BUNDLE_RE.test(req.url || "") || deadDocsJs);
       const rewritable = ct.includes("text/html") || ct.startsWith("application/json");
       if (!rewritable && !renameJs) {
         res.writeHead(r.statusCode || 502, r.headers);
@@ -7525,6 +7562,7 @@ function proxyToProductUi(req, res, body) {
       r.on("end", () => {
         let text = Buffer.concat(parts).toString("utf8");
         if (renameJs) text = renameApiTokens(text); // JS bundle: rename only, no HTML rewrite
+        if (deadDocsJs) text = rewriteDeadDocs(text); // 404 docs links → this deployment's /__ioi/help
         if (!renameJs && ct.includes("text/html")) text = augmentHtml(localizeExternalMedia(localizeAssetBase(stripCapturedDemoIdentity(text)))); // demo-identity residue deleted + localize captured media/CDN base + WS-I inject
         if (!renameJs && ct.startsWith("application/json")) text = localizeExternalMedia(text);
         const out = Buffer.from(text, "utf8");
@@ -9016,6 +9054,36 @@ async function handleEstateRequest(req, res, body) {
       fallthrough.clear();
       res.writeHead(200, { "Content-Type": "application/json" });
       res.end(JSON.stringify({ ok: true }));
+      return;
+    }
+    // ---- Help — where every documentation link in the owned bundle now lands (R-240). ----
+    // The links pointed at a docs site with no page for any of them (54 of 54 answered 404). This
+    // page tells the truth about the topic instead: not published for this deployment, and — where
+    // one exists — the surface that holds the real state. It invents no documentation.
+    if (pathname === "/__ioi/help" && req.method === "GET") {
+      const topic = String(new URL(req.url, "http://x").searchParams.get("topic") || "").replace(/[^A-Za-z0-9/_.#-]/g, "").slice(0, 200);
+      const words = topic.replace(/^docs\/ioi\//, "").replace(/^docs\/?/, "").split(/[/#]/).filter(Boolean).map((w) => w.replace(/-/g, " "));
+      const title = words.length ? words.join(" › ") : "Documentation";
+      const surface = HELP_SURFACES.find(([re]) => re.test(topic));
+      const notHere = HELP_NOT_HERE[0].test(topic) ? HELP_NOT_HERE[1] : "";
+      const esc = CX_ESC;
+      res.writeHead(200, { "Content-Type": "text/html; charset=utf-8", "Cache-Control": "no-cache" });
+      res.end(`<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Help · ${esc(title)}</title><style>
+        :root{--bg:#fff;--fg:#1c2127;--muted:#5f6b7c;--line:#e5e8eb;--card:#f6f7f9;--link:#215db0}
+        @media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg:#111418;--fg:#e6e7ea;--muted:#abb3bf;--line:#2a2c33;--card:#1c2127;--link:#8abbff}}
+        :root[data-theme="dark"]{--bg:#111418;--fg:#e6e7ea;--muted:#abb3bf;--line:#2a2c33;--card:#1c2127;--link:#8abbff}
+        *{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--fg);font:15px/1.55 system-ui,sans-serif}
+        main{max-width:680px;margin:0 auto;padding:48px 16px}h1{font-size:22px;margin:0 0 6px;text-transform:capitalize}
+        .k{font-size:12px;letter-spacing:.06em;text-transform:uppercase;color:var(--muted)}.card{margin-top:18px;padding:14px 16px;border:1px solid var(--line);border-radius:10px;background:var(--card)}
+        a{color:var(--link)}code{font-size:13px;overflow-wrap:anywhere}
+      </style></head><body><main>
+        <div class="k">Help</div><h1>${esc(title)}</h1>
+        <p>This documentation is <b>not published for this deployment</b>. The link pointed at a public documentation site that has no page for it, so rather than send you to a “not found” page, it lands here.</p>
+        ${surface ? `<div class="card">Where this lives in your deployment: <a href="${surface[1]}">${esc(surface[2])}</a>.</div>` : ""}
+        ${notHere ? `<div class="card">${esc(notHere)}</div>` : ""}
+        ${!surface && !notHere ? `<div class="card">No surface in this deployment covers this topic yet.</div>` : ""}
+        <p class="k" style="margin-top:28px">Topic <code>${esc(topic || "(none)")}</code></p>
+      </main></body></html>`);
       return;
     }
     // ---- Identity & Auth (multi-user IdP): login / logout + session cookie ----
