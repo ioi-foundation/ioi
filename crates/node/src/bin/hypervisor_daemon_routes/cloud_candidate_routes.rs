@@ -31,6 +31,81 @@ use super::{iso_now, persist_record, read_record_dir, DaemonState};
 
 const INTENT_KIND: &str = "cloud-resource-intents";
 const CANDIDATE_KIND: &str = "cloud-resource-candidates";
+/// SUPERSEDED CANDIDATES LEAVE THE HOT DIRECTORY (R-240). A refresh marks every earlier batch
+/// `superseded` for good — it can never be ranked again — yet every venues read parsed all of them:
+/// 101,628 records, 778 MB, 9 s warm and 44 s under load, for a card that ranks a few dozen. Once its
+/// quote expired more than `CANDIDATE_ARCHIVE_AFTER_SECS` ago, a superseded record MOVES (a rename,
+/// byte-identical) into this archive: still evidence, read on an explicit `?archived=true`, counted in
+/// `considered`, and consulted by provisioning for an honest refusal of an archived quote.
+pub(crate) const CANDIDATE_ARCHIVE_KIND: &str = "cloud-resource-candidates-archive";
+const CANDIDATE_ARCHIVE_AFTER_SECS: u64 = 7 * 86_400;
+const CANDIDATE_ARCHIVE_COUNTS: &str = "cloud-resource-candidates-archive.counts.json";
+
+fn archived_counts(data_dir: &str) -> serde_json::Map<String, Value> {
+    std::fs::read(std::path::Path::new(data_dir).join(CANDIDATE_ARCHIVE_COUNTS))
+        .ok()
+        .and_then(|b| serde_json::from_slice::<Value>(&b).ok())
+        .and_then(|v| v.as_object().cloned())
+        .unwrap_or_default()
+}
+
+/// How many candidates of this intent live in the archive.
+pub(crate) fn archived_count(data_dir: &str, intent_ref: &str) -> usize {
+    archived_counts(data_dir)
+        .get(intent_ref)
+        .and_then(Value::as_u64)
+        .unwrap_or(0) as usize
+}
+
+/// Move every superseded candidate whose quote expired more than the window ago into the archive.
+/// `records` is the hot directory as the caller already read it — no second read.
+fn archive_superseded(data_dir: &str, records: &[Value]) -> std::io::Result<usize> {
+    let now = epoch_secs();
+    let hot = std::path::Path::new(data_dir).join(CANDIDATE_KIND);
+    let arch = std::path::Path::new(data_dir).join(CANDIDATE_ARCHIVE_KIND);
+    let mut counts = archived_counts(data_dir);
+    let mut moved = 0usize;
+    for c in records {
+        if c.get("status").and_then(Value::as_str) != Some("superseded") {
+            continue;
+        }
+        let expires = c.get("expires_epoch").and_then(Value::as_u64).unwrap_or(0);
+        if expires.saturating_add(CANDIDATE_ARCHIVE_AFTER_SECS) > now {
+            continue;
+        }
+        let safe = text(c, "candidate_id").replace(
+            |ch: char| !ch.is_ascii_alphanumeric() && ch != '-' && ch != '_',
+            "_",
+        );
+        if safe.is_empty() {
+            continue;
+        }
+        if moved == 0 {
+            std::fs::create_dir_all(&arch)?;
+        }
+        if std::fs::rename(
+            hot.join(format!("{safe}.json")),
+            arch.join(format!("{safe}.json")),
+        )
+        .is_ok()
+        {
+            moved += 1;
+            let key = text(c, "intent_ref").to_string();
+            let n = counts.get(&key).and_then(Value::as_u64).unwrap_or(0);
+            counts.insert(key, json!(n + 1));
+        }
+    }
+    if moved > 0 {
+        let path = std::path::Path::new(data_dir).join(CANDIDATE_ARCHIVE_COUNTS);
+        let tmp = path.with_extension("json.tmp");
+        std::fs::write(
+            &tmp,
+            serde_json::to_vec(&Value::Object(counts)).unwrap_or_default(),
+        )?;
+        std::fs::rename(&tmp, &path)?;
+    }
+    Ok(moved)
+}
 const ADVISORY_KIND: &str = "placement-advisories";
 const DEFAULT_TTL_SECS: u64 = 900;
 
@@ -759,7 +834,8 @@ async fn refresh_candidates(
     let batch = format!("batch_{:x}", nanos());
     let intent_ref = text(intent, "intent_ref");
     // Supersede prior batch records (they remain on disk as evidence, no longer eligible).
-    for mut old in read_record_dir(&st.data_dir, CANDIDATE_KIND) {
+    let hot = read_record_dir(&st.data_dir, CANDIDATE_KIND);
+    for mut old in hot.iter().cloned() {
         if text(&old, "intent_ref") == intent_ref
             && old.get("status").and_then(Value::as_str) != Some("superseded")
         {
@@ -797,6 +873,9 @@ async fn refresh_candidates(
     for c in &candidates {
         persist_record(&st.data_dir, CANDIDATE_KIND, text(c, "candidate_id"), c)?;
     }
+    // Long-superseded history leaves the directory every read parses (the snapshot above, so records
+    // superseded in THIS refresh wait out the window like any other).
+    archive_superseded(&st.data_dir, &hot)?;
     Ok((candidates, rejected))
 }
 
@@ -906,8 +985,19 @@ pub(crate) async fn handle_candidates_list(
         },
         None => ensure_default_intent(&st.data_dir),
     };
-    let all = candidates_for(&st.data_dir, text(&intent, "intent_ref"));
-    let considered = all.len();
+    let mut all = candidates_for(&st.data_dir, text(&intent, "intent_ref"));
+    let archived_n = archived_count(&st.data_dir, text(&intent, "intent_ref"));
+    let considered = all.len() + archived_n;
+    // `?archived=true` — the full history, archive included (slow by nature: it parses it).
+    let with_archive = matches!(q.get("archived").map(String::as_str), Some("true" | "1"));
+    if with_archive {
+        all.extend(
+            read_record_dir(&st.data_dir, CANDIDATE_ARCHIVE_KIND)
+                .into_iter()
+                .filter(|c| text(c, "intent_ref") == text(&intent, "intent_ref"))
+                .map(with_read_status),
+        );
+    }
 
     // ── `?latest=true` — the newest BATCH only, and nothing older. ──
     //
@@ -985,6 +1075,8 @@ pub(crate) async fn handle_candidates_list(
                 "returned": candidates.len(),
                 "matching": matching,
                 "considered": considered,
+                "archived": archived_n,
+                "archive_included": with_archive,
                 "note": if latest || geo_only || recent.is_some() || limit.is_some() {
                     "a subset was returned; `considered` is how many exist for this intent"
                 } else {
@@ -1219,7 +1311,7 @@ pub(crate) async fn advisory_for(
         "advisory_id": advisory_id,
         "advisory_ref": format!("placement-advisory://{advisory_id}"),
         "intent_ref": intent_ref,
-        "considered": candidates.len(),
+        "considered": candidates.len() + archived_count(&st.data_dir, &intent_ref),
         "eligible": eligible.len(),
         "candidate_refs": eligible.iter().map(|c| c["candidate_ref"].clone()).collect::<Vec<_>>(),
         "candidates": embedded,

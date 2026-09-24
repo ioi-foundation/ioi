@@ -9325,9 +9325,19 @@ async fn handle_provider_op_internal(
                             ),
                         );
                     }
+                    // An archived (long-superseded) quote is found too, so it is refused as what it
+                    // is rather than as unknown (R-240 candidate archive).
                     let candidate = read_record_dir(data_dir, "cloud-resource-candidates")
                         .into_iter()
-                        .find(|c| text(c, "candidate_ref") == candidate_ref);
+                        .find(|c| text(c, "candidate_ref") == candidate_ref)
+                        .or_else(|| {
+                            read_record_dir(
+                                data_dir,
+                                super::cloud_candidate_routes::CANDIDATE_ARCHIVE_KIND,
+                            )
+                            .into_iter()
+                            .find(|c| text(c, "candidate_ref") == candidate_ref)
+                        });
                     let refuse = |code: &str, detail: String| {
                         let receipt = provider_receipt_ext(
                             data_dir,
