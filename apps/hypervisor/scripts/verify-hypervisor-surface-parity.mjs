@@ -121,7 +121,7 @@ async function run() {
     await page.waitForFunction(() => /Open with/.test(document.getElementById("wb-drawer")?.textContent || ""), null, { timeout: 10000 });
     const wbText = await page.locator("#wb-drawer").innerText();
     ok("selected env composes bound sessions (admitted harness bindings)", /Sessions bound/i.test(wbText));
-    ok("selected env composes the probed editor-target open matrix", /Open with/i.test(wbText) && (await page.locator('#wb-drawer a[href^="/workspaces/"]').count()) >= 1);
+    ok("selected env composes the probed editor-target open matrix", /Open with/i.test(wbText) && (await page.locator('#wb-drawer a[href^="/details/"]').count()) >= 1);
   } else {
     ok("(skipped) env selection — no active environments", true);
     ok("(skipped) editor matrix", true);

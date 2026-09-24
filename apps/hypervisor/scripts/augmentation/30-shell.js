@@ -55,13 +55,22 @@
     const pylon = Object.assign(function (command) { if (command === "show") showSupport(); }, { boot() {}, update() {}, shutdown() {}, hide() {}, show: showSupport });
     try { Object.defineProperty(window, "Pylon", { configurable: true, get: () => pylon, set: () => {} }); } catch (e) { /* a non-configurable stub keeps its no-op */ }
   })();
-  // "Join or create an organization" is a client-side link to a path the captured bundle has no page
-  // for (a blank layout). Send it to the serve's page for that path as a full navigation (R-240).
+  // A SERVE-RENDERED PAGE IS NOT A SHELL ROUTE (R-240). The shell routes its links client-side, and
+  // for a path the serve renders — /join-organization, /changelog, any /__ioi/ surface, the sign-in
+  // page — that draws the shell's not-found page (or, for Join, a blank layout). Settings' "Back to
+  // IOI" links to wherever you were before, which after signing in with a `next` IS the sign-in page.
+  // Such a link gets a full navigation; a "Back to" link that would return to sign-in goes Home.
+  const SERVE_RENDERED = /^\/(__ioi|__apps|v1|api|auth|scim|changelog|join-organization)(\/|$|\?)/;
   document.addEventListener("click", function (e) {
-    const a = e.target && e.target.closest && e.target.closest('a[href="/join-organization"]');
+    const a = e.target && e.target.closest && e.target.closest("a[href]");
     if (!a || e.defaultPrevented || e.button !== 0 || e.metaKey || e.ctrlKey || e.shiftKey || e.altKey) return;
+    if (a.target && a.target !== "_self") return; // a new tab or the top frame is already a full navigation
+    let u;
+    try { u = new URL(a.getAttribute("href"), location.href); } catch (err) { return; }
+    if (u.origin !== location.origin || !SERVE_RENDERED.test(u.pathname)) return;
     e.preventDefault(); e.stopPropagation();
-    window.location.assign("/join-organization");
+    const backToSignIn = /^Back to\b/.test((a.innerText || "").trim()) && /^\/__ioi\/(login|bootstrap|logout)/.test(u.pathname);
+    window.location.assign(backToSignIn ? "/ai" : u.pathname + u.search + u.hash);
   }, true);
   // Signed-out honesty (R-240). A local browser reads as the local operator — whoami answers with that
   // display principal AND `authenticated: false` — while the daemon lists and admits Sessions only for

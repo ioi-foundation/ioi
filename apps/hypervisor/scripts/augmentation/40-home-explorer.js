@@ -97,7 +97,10 @@
       return hbListRow('<span class="font-mono" style="font-size:12.5px">' + esc(s.session_ref || "") + "</span>",
         esc((s.project_ref || "no project") + " · " + (s.created_at || "")),
         hbPill(s.lifecycle_state || "—", "border-border-base text-content-secondary") +
-        (envId ? ' <a href="/workspaces/' + encodeURIComponent(envId) + '" class="text-content-secondary hover:text-content-primary" style="text-decoration:none">workbench</a> <a href="/__ioi/run-timeline/env/' + encodeURIComponent(envId) + '" target="_blank" rel="noopener" class="text-content-secondary hover:text-content-primary" style="text-decoration:none">timeline ↗</a>' : ""));
+        // "workbench" opens the session view — the ported session landing (M13.4). It linked
+        // /workspaces/<env>, a route this shell does not have: every recent session's workbench link
+        // opened "This page doesn't exist" (R-240, found by check:dead-controls' shell leg).
+        (envId ? ' <a href="/details/' + encodeURIComponent(envId) + '" class="text-content-secondary hover:text-content-primary" style="text-decoration:none">workbench</a> <a href="/__ioi/run-timeline/env/' + encodeURIComponent(envId) + '" target="_blank" rel="noopener" class="text-content-secondary hover:text-content-primary" style="text-decoration:none">timeline ↗</a>' : ""));
     });
     return rows.length ? rows.join("") : '<div class="px-1 text-sm text-content-tertiary" style="padding:14px 4px">No sessions yet — start one and resume it from here.</div>';
   }
@@ -115,7 +118,9 @@
     const summary = allNull ? "" :
       '<span>' + (parked ? parked.length : "?") + " blocked</span><span aria-hidden=\"true\"> · </span><span>" + (pend ? pend.length : "?") + " waiting on you</span><span aria-hidden=\"true\"> · </span><span>" + (ledN === null ? "?" : ledN) + " receipts</span>";
     const tabChip = (key, label) =>
-      '<button data-hb-tab="' + key + '" class="rounded-full border text-xs ' + (hbTab === key ? "border-border-strong text-content-primary bg-surface-hover" : "border-border-base text-content-secondary") + '" style="padding:3px 12px;background:' + (hbTab === key ? "" : "transparent") + ';cursor:pointer">' + label + "</button>";
+      // A tab says it is one, and which is current — without role/aria-selected neither assistive
+      // technology nor check:dead-controls could tell the current tab from a control that did nothing.
+      '<button role="tab" aria-selected="' + (hbTab === key ? "true" : "false") + '" data-hb-tab="' + key + '" class="rounded-full border text-xs ' + (hbTab === key ? "border-border-strong text-content-primary bg-surface-hover" : "border-border-base text-content-secondary") + '" style="padding:3px 12px;background:' + (hbTab === key ? "" : "transparent") + ';cursor:pointer">' + label + "</button>";
     let gov;
     if (allNull) {
       gov = '<div class="rounded-xl border border-border-warning bg-surface-warning-subtle px-4 py-3 text-sm text-content-warning">Daemon unreachable — governed-work status unavailable. Nothing is shown rather than fixtures.</div>';
@@ -158,7 +163,7 @@
       hbActCard('href="/automations"', "⟳", "Automations", "Recurring governed work on the daemon") +
       "</div>" +
       hbSection("Governed work", '<a href="/__ioi/home" class="text-xs text-content-secondary hover:text-content-primary" style="text-decoration:none">Full readout →</a>') + gov +
-      hbSection("Recent", '<span class="flex items-center gap-2">' + tabChip("sessions", "Sessions") + tabChip("projects", "Projects") + tabChip("runs", "Runs") + "</span>") +
+      hbSection("Recent", '<span class="flex items-center gap-2" role="tablist" aria-label="Recent">' + tabChip("sessions", "Sessions") + tabChip("projects", "Projects") + tabChip("runs", "Runs") + "</span>") +
       '<div id="ioi-hb-recent">' + hbRecentBody() + "</div>" +
       hbSection("Applications", '<a href="#applications" class="text-xs text-content-secondary hover:text-content-primary" style="text-decoration:none">View all →</a>') +
       (portedApps

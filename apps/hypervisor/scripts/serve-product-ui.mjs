@@ -1246,7 +1246,7 @@ function renderHome(ops, ledger, sessions, approvals, failoverRuns) {
       <td><code>${CX_ESC(s.session_ref || "")}</code><div style="color:#878a93;font-size:11px;margin-top:1px">${CX_ESC(s.project_ref || "—")} · ${CX_ESC(s.created_at || "")}</div></td>
       <td><span class="pill muted">${CX_ESC(s.lifecycle_state || "—")}</span></td>
       <td>${hb && hb.profile_ref ? `<span class="pill ok">${CX_ESC(hb.harness || "harness")}</span>` : `<span class="pill muted" title="no harness binding recorded at create">execute-time default</span>`}</td>
-      <td>${envId ? `<a href="/workspaces/${enc(envId)}" target="_top">workbench</a> · <a href="/__ioi/run-timeline/env/${enc(envId)}" target="_blank" rel="noopener">timeline ↗</a>` : "—"}</td>
+      <td>${envId ? `<a href="/details/${enc(envId)}" target="_top">session</a> · <a href="/__ioi/run-timeline/env/${enc(envId)}" target="_blank" rel="noopener">timeline ↗</a>` : "—"}</td>
     </tr>`;
   };
   const runRow = (r) => `<tr>
@@ -1508,7 +1508,7 @@ function renderSessionsRoot(sessionsRes, envSummary, pendingRuns = [], returnTo 
       <td><span class="pill muted">${CX_ESC(s.lifecycle_state || "—")}</span></td>
       <td>${hb && hb.profile_ref ? `<span class="pill ok">${CX_ESC(hb.harness || "harness")}</span> <code style="font-size:10px">${CX_ESC(hb.model_route_ref || "")}</code><div style="color:#878a93;font-size:10.5px;margin-top:1px" title="${CX_ESC(hb.admission_id || "")}">admitted at create</div>` : `<span class="pill muted" title="no harness binding recorded at create; execution uses the daemon default lane">execute-time default</span>`}</td>
       <td>${envId ? `<code style="font-size:10.5px">${CX_ESC(envId)}</code>${envPhase[envId] ? ` <span class="pill ${envPhase[envId] === "running" ? "ok" : "muted"}">${CX_ESC(envPhase[envId])}</span>` : ""}` : "—"}</td>
-      <td>${envId ? `<a href="/workspaces/${enc(envId)}" target="_top">workbench</a> · <a href="/details/${enc(envId)}" target="_top">session</a> · <a href="/__ioi/run-timeline/env/${enc(envId)}" target="_blank" rel="noopener">timeline ↗</a>` : "—"}</td>
+      <td>${envId ? `<a href="/details/${enc(envId)}" target="_top">session</a> · <a href="/__ioi/run-timeline/env/${enc(envId)}" target="_blank" rel="noopener">timeline ↗</a>` : "—"}</td>
     </tr>`;
   }).join("");
   const inner = `<h1>Sessions</h1><p class="sub">Every governed session with its lifecycle facts and ADMITTED harness binding — selection is session truth recorded at create, never UI state. New work starts from the rail's New Session; replay lives in <a href="/__ioi/run-replay">Run Replay</a>. <a href="/__ioi/missions">Jobs (Missions substrate) →</a> · <a href="/__ioi/missions/incidents">Issues (certified inbox) →</a></p>
@@ -2270,7 +2270,7 @@ function renderEnvironments(summary, classes, providerAccounts, venuesRes, polic
       <td>${CX_ESC(e.project_id || "—")}</td>
       <td>${CX_ESC(e.environment_class_id || "—")} · ${CX_ESC(e.substrate || "")}</td>
       <td>${e.ports_count || 0}p · ${e.services_count || 0}s · ${e.tasks_count || 0}t</td>
-      <td onclick="event.stopPropagation()"><a href="/details/${enc(id)}" target="_top">session</a> · <a href="/workspaces/${enc(id)}" target="_top">workbench</a> · <a href="/__ioi/run-timeline/env/${enc(id)}" target="_blank" rel="noopener">timeline ↗</a></td>
+      <td onclick="event.stopPropagation()"><a href="/details/${enc(id)}" target="_top">session</a> · <a href="/__ioi/run-timeline/env/${enc(id)}" target="_blank" rel="noopener">timeline ↗</a></td>
     </tr>`;
   }).join("");
   const pager = envPager("/__ioi/environments", summary);
@@ -2301,7 +2301,7 @@ function renderEnvironments(summary, classes, providerAccounts, venuesRes, polic
         var obs=(e.lifecycle_observations||[]).slice(-8).reverse();
         h+='<div class="envd-k">Lifecycle observations ('+(e.lifecycle_observations||[]).length+')</div>';
         h+=obs.map(function(o){return '<div class="envd-obs"><span class="pill '+envPhaseCls(o.condition_kind==='admitted'||o.condition_kind==='ready'?'ready':o.condition_kind)+'">'+envEsc(o.component||'')+' · '+envEsc(o.condition_kind||'')+'</span><div style="color:#5f6b7c;margin-top:2px">'+envEsc(o.message||'')+'</div><div style="color:#7b8494;font-size:11px">'+envEsc(o.at||'')+'</div></div>';}).join('')||'<div class="sub" style="margin:0">—</div>';
-        h+='<div class="envd-k">Open</div><div><a class="act" href="/workspaces/'+encodeURIComponent(id)+'" target="_top">Workbench</a> <a class="act ghost" href="/details/'+encodeURIComponent(id)+'" target="_top">Session</a> <a href="/__ioi/run-timeline/env/'+encodeURIComponent(id)+'" target="_blank" rel="noopener">timeline ↗</a></div>';
+        h+='<div class="envd-k">Open</div><div><a class="act" href="/details/'+encodeURIComponent(id)+'" target="_top">Session</a> <a href="/__ioi/run-timeline/env/'+encodeURIComponent(id)+'" target="_blank" rel="noopener">timeline ↗</a></div>';
         h+='<details style="margin-top:10px"><summary class="sub" style="cursor:pointer">Raw record (advanced)</summary><pre style="white-space:pre-wrap;word-break:break-all;font-size:11px">'+envEsc(JSON.stringify(e,null,2).slice(0,4000))+'</pre></details>';
         d.innerHTML=h;
       }).catch(function(){d.innerHTML='<div class="ioi-ns-err">Could not load the environment record.</div>';});
@@ -2324,7 +2324,8 @@ function renderEnvironments(summary, classes, providerAccounts, venuesRes, polic
 
 // ---- Workbench — a LAUNCHER into an environment's live console (files/terminal/ports/tasks).
 // Reads the daemon env-summary projection (paged); "Open Workbench" navigates top-level to
-// /workspaces/:id (the real console; NOT iframed here). No owned terminal/editor.
+// /details/:id (the session view; NOT iframed here — /workspaces/:id, named here before, is a route
+// this shell does not have, R-240). No owned terminal/editor.
 function renderWorkbench(summary, editorTargets, sessionsRes) {
   summary = summary || {};
   const enc = encodeURIComponent;
@@ -2370,7 +2371,7 @@ function renderWorkbench(summary, editorTargets, sessionsRes) {
       <td><code>${CX_ESC(id)}</code><div class="meta" style="color:#878a93;font-size:11.5px;margin-top:2px">${CX_ESC(e.project_id || "—")} · ${CX_ESC(e.environment_class_id || "")}</div></td>
       <td><span class="pill ${envPhasePill(e.phase)}">${CX_ESC(e.phase || "—")}</span> ${CX_ESC(e.readiness_mode || "")}</td>
       <td>${e.ports_count || 0}p · ${e.services_count || 0}s · ${e.tasks_count || 0}t</td>
-      <td onclick="event.stopPropagation()"><a class="act" href="/workspaces/${enc(id)}" target="_top">Open Workbench</a>${vbLink} <a class="act ghost" href="/details/${enc(id)}" target="_top">Session</a> <a href="/__ioi/run-timeline/env/${enc(id)}" target="_blank" rel="noopener">timeline ↗</a></td>
+      <td onclick="event.stopPropagation()"><a class="act" href="/details/${enc(id)}" target="_top">Open Session</a>${vbLink} <a href="/__ioi/run-timeline/env/${enc(id)}" target="_blank" rel="noopener">timeline ↗</a></td>
     </tr>`;
   }).join("");
   const pager = envPager("/__ioi/workbench", summary);
@@ -2411,7 +2412,7 @@ function renderWorkbench(summary, editorTargets, sessionsRes) {
       h+='<h4>Sessions bound ('+sess.length+')</h4>';
       h+=sess.length?sess.map(function(s){return '<div style="border:1px solid #1b1d23;border-radius:8px;padding:8px;margin:0 0 6px"><div><code>'+wbEsc(s.session_ref)+'</code> <span class="pill muted">'+wbEsc(s.lifecycle_state)+'</span></div><div style="color:#878a93;font-size:11.5px;margin-top:3px">'+(s.harness?('<span class="pill ok">'+wbEsc(s.harness.harness)+'</span> <code style="font-size:10.5px">'+wbEsc(s.harness.model_route_ref)+'</code><div style="margin-top:2px" title="'+wbEsc(s.harness.admission_id)+'">admitted harness binding</div>'):'execute-time default harness')+'</div></div>';}).join(''):'<div class="sub" style="margin:0">No session bound to this environment yet.</div>';
       h+='<h4>Open with</h4>'+WB_TGT.map(function(t){
-        if(t.target_id==='workbench-native'){return '<div style="display:flex;justify-content:space-between;align-items:center;padding:4px 0;border-bottom:1px solid #16181d"><span>'+wbEsc(t.name)+'</span><a class="act" style="padding:4px 10px" href="/workspaces/'+encodeURIComponent(id)+'" target="_top">Open</a></div>';}
+        if(t.target_id==='workbench-native'){return '<div style="display:flex;justify-content:space-between;align-items:center;padding:4px 0;border-bottom:1px solid #16181d"><span>'+wbEsc(t.name)+'</span><a class="act" style="padding:4px 10px" href="/details/'+encodeURIComponent(id)+'" target="_top">Open</a></div>';}
         if(t.target_id==='vscode-browser'&&t.openable){return '<div style="display:flex;justify-content:space-between;align-items:center;padding:4px 0;border-bottom:1px solid #16181d"><span>'+wbEsc(t.name)+'</span><a class="act ghost" style="padding:4px 10px" href="/__ioi/editor/open?environmentId='+encodeURIComponent(id)+'" target="_blank" rel="noopener">Open ↗</a></div>';}
         return '<div style="display:flex;justify-content:space-between;align-items:center;padding:4px 0;border-bottom:1px solid #16181d"><span>'+wbEsc(t.name)+'</span>'+(t.openable?'<span class="pill ok" title="opens from the environment session surface">'+wbEsc(t.open_kind||'openable')+'</span>':'<span class="pill muted" title="'+wbEsc(t.reason)+'">not openable</span>')+'</div>';
       }).join('');
@@ -2438,7 +2439,7 @@ function renderWorkbenchSessions(sessionsRes) {
       <td><code>${CX_ESC(s.session_ref || "")}</code><div class="meta" style="color:#878a93;font-size:11.5px;margin-top:2px">${CX_ESC(s.project_ref || "—")} · ${CX_ESC(s.created_at || "")}</div></td>
       <td><span class="pill muted">${CX_ESC(s.lifecycle_state || "—")}</span></td>
       <td>${binding}</td>
-      <td>${envId ? `<a class="act ghost" href="/workspaces/${encodeURIComponent(envId)}" target="_top">Open</a>` : "—"}</td>
+      <td>${envId ? `<a class="act ghost" href="/details/${encodeURIComponent(envId)}" target="_top">Open</a>` : "—"}</td>
     </tr>`;
   }).join("");
   return `<h2 id="sessions">Sessions</h2><p class="sub" style="margin:-4px 0 12px">Daemon session records (newest first) with their admitted harness bindings — the selection made at create is receipted daemon truth, shown here, never UI-only state.</p><table><thead><tr><th>Session</th><th>Lifecycle</th><th>Harness binding</th><th>Open</th></tr></thead><tbody>${rows}</tbody></table>`;
@@ -13108,7 +13109,7 @@ async function handleEstateRequest(req, res, body) {
           { name: "Domain apps", items: (da.domain_apps || []).filter((a) => hit(a.name, a.domain_app_id, a.surface_descriptor_ref)).map((a) => ({ label: a.name || a.domain_app_id, meta: a.visibility || "", href: `/__ioi/domain-apps/${enc2(a.domain_app_id || "")}` })) },
           { name: "Approval requests", items: (ap.approval_requests || []).filter((a) => hit(a.subject_ref, a.request_kind, a.id, a.status)).map((a) => ({ label: `${a.request_kind || "approval"} · ${a.subject_ref || ""}`, meta: a.status || "", href: "/__ioi/governance?tab=approvals" })) },
           { name: "Failover runs", items: (fo.runs || []).filter((r) => hit(r.run_ref, r.failure_condition, r.status, r.environment_ref)).map((r) => ({ label: r.run_ref, meta: `${r.status || ""} · ${r.failure_condition || ""}`, href: "/__ioi/operations" })) },
-          { name: "Environments", items: ((ev.environments) || []).filter((e) => hit(e.id, e.project_id, e.phase)).map((e) => ({ label: e.id, meta: `${e.phase || ""} · ${e.project_id || ""}`, href: `/workspaces/${enc2(e.id)}`, top: true })) },
+          { name: "Environments", items: ((ev.environments) || []).filter((e) => hit(e.id, e.project_id, e.phase)).map((e) => ({ label: e.id, meta: `${e.phase || ""} · ${e.project_id || ""}`, href: `/details/${enc2(e.id)}`, top: true })) },
         ];
       }
       res.writeHead(200, { "Content-Type": "text/html; charset=utf-8", "Cache-Control": "no-cache" });
