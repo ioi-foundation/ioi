@@ -7465,6 +7465,34 @@ const CAPTURED_DEMO_IDENTITY_STRINGS = [
   "Levi Josman",
   "josmanlevi",
 ];
+// A CAPTURED MODAL IS NOT A MODAL (R-240). Captured pages froze whatever was open when they were
+// taken, and Radix renders dialogs OUTSIDE #root — so /settings/login shipped the reference's
+// "Access all IOI features … upgrade to Enterprise" dialog with its full-screen overlay, open, over
+// every control on the page, for every visitor. The running app never rendered it and can never
+// close it. Any open-state element after #root's balanced end is that residue and is dropped.
+function balancedDivEnd(html, start) {
+  const re = /<div\b|<\/div>/g; re.lastIndex = start; let depth = 0, m;
+  while ((m = re.exec(html))) { depth += m[0] === "</div>" ? -1 : 1; if (depth === 0) return re.lastIndex; }
+  return -1;
+}
+function stripCapturedOpenPortals(html) {
+  // The modal's body lock was captured too (`pointer-events: none` + `data-scroll-locked`): with the
+  // dialog gone it would still leave the whole page unclickable. Nothing is open on first render.
+  html = html.replace(/<body\b[^>]*>/, (tag) => tag.replace(/\sdata-scroll-locked="[^"]*"/, "").replace(/pointer-events:\s*none;?\s*/, "").replace(/\sstyle="\s*"/, ""));
+  const rootAt = html.indexOf('<div id="root"');
+  if (rootAt < 0) return html;
+  const rootEnd = balancedDivEnd(html, rootAt);
+  if (rootEnd < 0) return html;
+  let head = html.slice(0, rootEnd), tail = html.slice(rootEnd);
+  for (let guard = 0; guard < 20; guard++) {
+    const m = /<div\b[^>]*\bdata-state="open"[^>]*>/.exec(tail);
+    if (!m) break;
+    const end = balancedDivEnd(tail, m.index);
+    if (end < 0) break;
+    tail = tail.slice(0, m.index) + tail.slice(end);
+  }
+  return head + tail;
+}
 function stripCapturedDemoIdentity(html) {
   let out = html;
   for (const s of CAPTURED_DEMO_IDENTITY_STRINGS) out = out.split(s).join("");
@@ -7545,6 +7573,16 @@ const DEAD_DOCS_ASSETS = (() => {
 function rewriteDeadDocs(js) {
   return js.split(DEAD_DOCS_ORIGIN).join(HELP_ROUTE).split(DEAD_DOCS_BASE).join("``");
 }
+// A SELF-HOSTED DEPLOYMENT HAS NO COMMERCIAL TIER, AND TWO PAGES HID WORKING LANES BEHIND ONE (R-240).
+// Login Configuration and SCIM render their management UI only when `organization.tier ===
+// ENTERPRISE`; W0.5 rightly stopped the adapter from inventing a tier, so both have shown "Upgrade to
+// Enterprise tier" ever since — over lanes the daemon already serves: SSO configurations, custom
+// domain, domain verification, the organization invite link and SCIM provisioning, each a real
+// adapter→daemon route (an RPC the adapter does not own refuses typed; nothing falls to a mock). The
+// gate is lifted in exactly these two chunks. Pages whose lanes are NOT proven (OIDC tokens,
+// organization secrets, billing) keep theirs.
+const TIER_GATE_LIFTED_RE = /^\/static\/assets\/(LoginAndSecurityPage|SCIMPage)-[A-Za-z0-9_-]+\.js$/;
+const TIER_GATE_CHECK = /\b[A-Za-z_$][\w$]*\.tier === [A-Za-z_$][\w$]*\.ENTERPRISE/g;
 // Where the truth for a documentation topic lives in THIS deployment, when anywhere.
 const HELP_SURFACES = [
   [/^docs\/ioi\/editors/, "/__ioi/workbench#editor-targets", "the editor registry — every editor with its probed availability on this host, and why an editor is or is not offered"],
@@ -7572,7 +7610,8 @@ function proxyToProductUi(req, res, body) {
       // the "Personal access tokens" copy, which we buffer to rename → "API access tokens".
       const reqPath = String(req.url || "").split("?")[0];
       const deadDocsJs = ct.includes("javascript") && DEAD_DOCS_ASSETS.has(reqPath);
-      const renameJs = ct.includes("javascript") && (SETTINGS_BUNDLE_RE.test(req.url || "") || deadDocsJs);
+      const tierGateJs = ct.includes("javascript") && TIER_GATE_LIFTED_RE.test(reqPath);
+      const renameJs = ct.includes("javascript") && (SETTINGS_BUNDLE_RE.test(req.url || "") || deadDocsJs || tierGateJs);
       const rewritable = ct.includes("text/html") || ct.startsWith("application/json");
       if (!rewritable && !renameJs) {
         res.writeHead(r.statusCode || 502, r.headers);
@@ -7585,7 +7624,8 @@ function proxyToProductUi(req, res, body) {
         let text = Buffer.concat(parts).toString("utf8");
         if (renameJs) text = renameApiTokens(text); // JS bundle: rename only, no HTML rewrite
         if (deadDocsJs) text = rewriteDeadDocs(text); // 404 docs links → this deployment's /__ioi/help
-        if (!renameJs && ct.includes("text/html")) text = rewriteDeadDocs(augmentHtml(localizeExternalMedia(localizeAssetBase(stripCapturedDemoIdentity(text))))); // demo-identity residue deleted + localize captured media/CDN base + WS-I inject
+        if (tierGateJs) text = text.replace(TIER_GATE_CHECK, "!0"); // no commercial tier gates a daemon-backed lane
+        if (!renameJs && ct.includes("text/html")) text = rewriteDeadDocs(augmentHtml(localizeExternalMedia(localizeAssetBase(stripCapturedDemoIdentity(stripCapturedOpenPortals(text)))))); // demo-identity residue deleted + localize captured media/CDN base + WS-I inject
         if (!renameJs && ct.startsWith("application/json")) text = rewriteDeadDocs(localizeExternalMedia(text)); // captured HTML/JSON carry the dead docs origin too
         const out = Buffer.from(text, "utf8");
         const outHeaders = { ...r.headers, "content-length": String(out.length) };
@@ -7811,6 +7851,7 @@ function loginNextFrom(req, url) {
   } catch { /* no usable referer */ }
   return "";
 }
+const SSO_CALLBACK_PATH = "/auth/oidc/callback";
 function loginShell(error, ssoConfigs = [], next = "") {
   const ssoButtons = (ssoConfigs || []).map((c) =>
     `<a class="sso" href="/__ioi/login/sso/${encodeURIComponent(c.sso_id || c.id)}">Sign in with ${String(c.display_name || c.issuer_url || "SSO").replace(/[<>]/g, "")}</a>`
@@ -9269,9 +9310,21 @@ async function handleEstateRequest(req, res, body) {
       return;
     }
     // SSO login start — build the PKCE authorize URL via the daemon, redirect to the IdP.
+    // ONE SSO CALLBACK, THE ONE THE ADMIN IS TOLD TO REGISTER (R-240). Login Configuration's "Copy
+    // callback URL" hands the admin `/auth/oidc/callback` and its "Save & test" opens
+    // `/auth/oidc/start?ssoId=…`; this serve started flows with `/__ioi/login/sso/callback` and had no
+    // `/auth/oidc/*` route at all — so an IdP registered as instructed would reject the redirect, and
+    // the test tab landed nowhere. Flows now start with the path the UI hands out; the old callback
+    // still completes a flow begun under it (each exchange names the redirect it began with).
+    if (pathname === "/auth/oidc/start" && req.method === "GET") {
+      const ssoId = String(new URL(req.url, "http://x").searchParams.get("ssoId") || "");
+      res.writeHead(302, { Location: ssoId ? `/__ioi/login/sso/${encodeURIComponent(ssoId)}` : "/__ioi/login" });
+      res.end();
+      return;
+    }
     if (pathname.startsWith("/__ioi/login/sso/") && pathname !== "/__ioi/login/sso/callback") {
       const configId = decodeURIComponent(pathname.slice("/__ioi/login/sso/".length).split("/")[0]);
-      const redirectUri = `${publicBase(req)}/__ioi/login/sso/callback`;
+      const redirectUri = `${publicBase(req)}${SSO_CALLBACK_PATH}`;
       try {
         const r = await daemonFetch(`/v1/hypervisor/auth/oidc/start`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ config_id: configId, redirect_uri: redirectUri }) });
         const d = await r.json().catch(() => ({}));
@@ -9285,9 +9338,9 @@ async function handleEstateRequest(req, res, body) {
       return;
     }
     // SSO login callback — exchange the code for a session, set the cookie.
-    if (pathname === "/__ioi/login/sso/callback") {
+    if (pathname === SSO_CALLBACK_PATH || pathname === "/__ioi/login/sso/callback") {
       const q = new URLSearchParams((req.url || "").split("?")[1] || "");
-      const redirectUri = `${publicBase(req)}/__ioi/login/sso/callback`;
+      const redirectUri = `${publicBase(req)}${pathname}`;
       try {
         const r = await daemonFetch(`/v1/hypervisor/auth/oidc/callback`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ code: q.get("code") || "", state: q.get("state") || "", redirect_uri: redirectUri }) });
         const d = await r.json().catch(() => ({}));

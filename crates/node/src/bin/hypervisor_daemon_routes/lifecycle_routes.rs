@@ -22540,7 +22540,10 @@ pub(crate) async fn handle_scim_config_create(
             Json(json!({ "ok": false, "code": "hypervisor.scim_configuration_request_invalid" })),
         );
     };
-    let allowed = ["scim_id", "base_url"];
+    // `name` and the linked SSO connection are the admin's own declaration (R-240): Settings → SCIM
+    // requires both, and with only `scim_id`/`base_url` allowed every creation from the product was
+    // refused. The link must name an SSO connection this deployment holds.
+    let allowed = ["scim_id", "base_url", "name", "sso_configuration_id"];
     if let Some(field) = request
         .keys()
         .find(|field| !allowed.contains(&field.as_str()))
@@ -22565,9 +22568,41 @@ pub(crate) async fn handle_scim_config_create(
         .and_then(Value::as_str)
         .unwrap_or("/scim/v2")
         .to_string();
+    let name = body
+        .get("name")
+        .and_then(Value::as_str)
+        .map(str::trim)
+        .unwrap_or("");
+    if name.len() > 120 || name.chars().any(char::is_control) {
+        return (
+            StatusCode::BAD_REQUEST,
+            Json(
+                json!({ "ok": false, "code": "hypervisor.scim_configuration_name_invalid", "message": "name must be a printable string of at most 120 characters" }),
+            ),
+        );
+    }
+    let sso_configuration_id = body
+        .get("sso_configuration_id")
+        .and_then(Value::as_str)
+        .map(str::trim)
+        .unwrap_or("");
+    if !sso_configuration_id.is_empty()
+        && !read_record_dir(&st.data_dir, "sso-configurations")
+            .iter()
+            .any(|c| c.get("sso_id").and_then(Value::as_str) == Some(sso_configuration_id))
+    {
+        return (
+            StatusCode::BAD_REQUEST,
+            Json(
+                json!({ "ok": false, "code": "hypervisor.scim_configuration_sso_unknown", "message": format!("sso_configuration_id '{sso_configuration_id}' does not name an SSO connection this deployment holds") }),
+            ),
+        );
+    }
     let now = iso_now();
     let rec = json!({
         "schema_version": "ioi.hypervisor.scim-config.v1", "scim_id": id, "base_url": base_url,
+        "name": if name.is_empty() { "SCIM provisioning" } else { name },
+        "sso_configuration_id": sso_configuration_id,
         "token_hash": sha256_hex_str(&token), "enabled": true, "created_at": now, "updated_at": now,
         "issued_by_principal_ref": actor["principal_ref"],
     });

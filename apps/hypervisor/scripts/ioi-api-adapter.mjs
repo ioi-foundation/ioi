@@ -119,7 +119,14 @@ async function daemon(method, path, body) {
     body: body ? JSON.stringify(body) : undefined,
     signal: AbortSignal.timeout(8000),
   });
-  if (!res.ok) throw new Error(`daemon ${method} ${path} -> ${res.status}`);
+  if (!res.ok) {
+    // The message format is matched elsewhere (`/-> 401$/`), so it stays; the daemon's typed code
+    // rides on the error instead — "-> 503" alone told an admin nothing (R-240).
+    const err = new Error(`daemon ${method} ${path} -> ${res.status}`);
+    err.status = res.status;
+    try { const b = JSON.parse(await res.text()); err.code = b.code || b.error?.code || b.reason || ""; err.daemonMessage = b.message || b.error?.message || ""; } catch { /* untyped body */ }
+    throw err;
+  }
   const text = await res.text();
   return text ? JSON.parse(text) : {};
 }
@@ -1226,14 +1233,20 @@ async function handleImpl(pathname, bodyText) {
       return jsonStatus(502, { code: "unavailable", message: `failed to update OIDC config: ${e.message}` });
     }
   }
+  // An SSO connection an administrator configured is ProviderType CUSTOM (UNSPECIFIED=0, BUILTIN=1,
+  // CUSTOM=2). The adapter answered "PROVIDER_TYPE_OIDC", which is no value of that enum, and Login
+  // Configuration lists only CUSTOM — so a connection the daemon held and the sign-in page offered
+  // read as "No custom SSO configurations yet" (R-240). Sent as its number: the value names live only
+  // in the bundle's encoded descriptor, and protobuf JSON accepts the integer.
+  const SSO_PROVIDER_TYPE_CUSTOM = 2;
   if (pathname === "/api/ioi.v1.OrganizationService/ListSSOConfigurations") {
     // Real SSO/OIDC login connections, projected from the daemon (no secrets surface here).
     try {
       const r = await daemon("GET", "/v1/hypervisor/sso-configurations");
       const cfgs = (r.sso_configurations || []).map((c) => ({
-        id: c.sso_id, organizationId: LOCAL_SCOPE.orgId, issuerUrl: c.issuer_url,
+        id: c.sso_id, organizationId: LOCAL_SCOPE.orgId, issuerUrl: c.issuer_url, clientId: c.client_id || "",
         state: c.state === "active" ? "SSO_CONFIGURATION_STATE_ACTIVE" : "SSO_CONFIGURATION_STATE_INACTIVE",
-        providerType: "PROVIDER_TYPE_OIDC", displayName: c.display_name, emailDomain: c.email_domain || "",
+        providerType: SSO_PROVIDER_TYPE_CUSTOM, displayName: c.display_name, emailDomain: c.email_domain || "",
       }));
       return json({ pagination: {}, ssoConfigurations: cfgs });
     } catch {
@@ -1244,13 +1257,29 @@ async function handleImpl(pathname, bodyText) {
     const issuerUrl = body.issuerUrl || body.issuer_url || "";
     const clientId = body.clientId || body.client_id || "";
     if (!issuerUrl || !clientId) return jsonStatus(400, { code: "invalid_argument", message: "issuerUrl and clientId are required" });
+    // A CLAIMS EXPRESSION IS AN ACCESS RESTRICTION, AND THE DAEMON HOLDS NONE (R-240). Its SSO record
+    // carries issuer, client, secret, display name and email domain — no scopes, no claims. This used
+    // to drop both silently, so an admin who wrote `claims.email.endsWith("@acme.com")` got a
+    // connection that admits anyone the IdP vouches for. They refuse by name instead.
+    const scopes = Array.isArray(body.additionalScopes) ? body.additionalScopes.filter((x) => String(x).trim()) : [];
+    const claims = typeof body.claimsExpression === "string" ? body.claimsExpression.trim() : "";
+    if (scopes.length || claims) {
+      const named = [claims && "a claims expression (sign-in would NOT be restricted as written)", scopes.length && "additional scopes"].filter(Boolean).join(" and ");
+      return jsonStatus(412, { code: "failed_precondition", message: `Not saved: this deployment cannot apply ${named} yet. Leave ${claims && scopes.length ? "them" : "it"} empty to create the connection.` });
+    }
     try {
       const r = await daemon("POST", "/v1/hypervisor/sso-configurations", { issuer_url: issuerUrl, client_id: clientId, client_secret: body.clientSecret || body.client_secret || "", email_domain: body.emailDomain || body.email_domain || "", display_name: body.displayName || body.display_name || issuerUrl });
       const c = r.sso_configuration || {};
-      return json({ ssoConfiguration: { id: c.sso_id, organizationId: LOCAL_SCOPE.orgId, issuerUrl: c.issuer_url, state: "SSO_CONFIGURATION_STATE_ACTIVE", providerType: "PROVIDER_TYPE_OIDC", displayName: c.display_name, emailDomain: c.email_domain || "" } });
+      return json({ ssoConfiguration: { id: c.sso_id, organizationId: LOCAL_SCOPE.orgId, issuerUrl: c.issuer_url, clientId: c.client_id || "", state: "SSO_CONFIGURATION_STATE_ACTIVE", providerType: SSO_PROVIDER_TYPE_CUSTOM, displayName: c.display_name, emailDomain: c.email_domain || "" } });
     } catch (e) {
-      return jsonStatus(502, { code: "unavailable", message: `failed to create SSO configuration: ${e.message}` });
+      if (e.code === "hypervisor.sso_client_secret_seal_failed") return jsonStatus(412, { code: "failed_precondition", message: "Not saved: the daemon cannot seal the client secret — no custody key is configured for this deployment, and a secret is never stored in the clear." });
+      if (e.status === 401 || e.status === 403) return jsonStatus(e.status, { code: e.status === 401 ? "unauthenticated" : "permission_denied", message: `Not saved: ${e.daemonMessage || e.code || "an organization administrator must be signed in"}` });
+      return jsonStatus(502, { code: "unavailable", message: `failed to create SSO configuration: ${e.message}${e.code ? ` (${e.code})` : ""}` });
     }
+  }
+  if (pathname === "/api/ioi.v1.OrganizationService/UpdateSSOConfiguration") {
+    // The daemon holds no SSO update (list, create and delete only); say so in the form's own error.
+    return jsonStatus(412, { code: "failed_precondition", message: "Not saved: this deployment cannot edit an SSO connection in place — delete it and create it again." });
   }
   if (pathname === "/api/ioi.v1.OrganizationService/DeleteSSOConfiguration") {
     const id = body.ssoConfigurationId || body.id;
@@ -1273,18 +1302,34 @@ async function handleImpl(pathname, bodyText) {
     try {
       const r = await daemon("POST", "/v1/hypervisor/scim-configurations", { scim_id: "scim-config", name: body.name || "SCIM provisioning", sso_configuration_id: body.ssoConfigurationId || "" });
       const c = r.scim_configuration || {};
-      return json({ scimConfiguration: { id: c.scim_id, organizationId: LOCAL_SCOPE.orgId, name: c.name || body.name || "SCIM provisioning", baseUrl: c.base_url || "/scim/v2", enabled: true, ssoConfigurationId: body.ssoConfigurationId || "", bearerToken: r.token } });
+      // The one-time token is the response's own `token` (the page reads `response.token`). It was
+      // nested as an invented `bearerToken` field, which the bundle's decoder rejects — so every
+      // successful create read as "Failed to create SCIM configuration" and the token was lost (R-240).
+      return json({ scimConfiguration: { id: c.scim_id, organizationId: LOCAL_SCOPE.orgId, name: c.name || body.name || "SCIM provisioning", baseUrl: c.base_url || "/scim/v2", enabled: true, ssoConfigurationId: c.sso_configuration_id || body.ssoConfigurationId || "" }, token: r.token });
     } catch (e) {
-      return jsonStatus(502, { code: "unavailable", message: `failed to create SCIM configuration: ${e.message}` });
+      if (e.status >= 400 && e.status < 500) return jsonStatus(e.status === 401 ? 401 : e.status === 403 ? 403 : 412, { code: e.status === 401 ? "unauthenticated" : e.status === 403 ? "permission_denied" : "failed_precondition", message: `Not saved: ${e.daemonMessage || e.code || `the daemon refused (${e.status})`}` });
+      return jsonStatus(502, { code: "unavailable", message: `failed to create SCIM configuration: ${e.message}${e.code ? ` (${e.code})` : ""}` });
     }
   }
   if (pathname === "/api/ioi.v1.OrganizationService/UpdateSCIMConfiguration") {
+    // The daemon holds no SCIM update (its routes are list, create and delete). This used to read the
+    // record and echo the requested `enabled` back as if saved — a success that persisted nothing
+    // (R-240). It refuses by name, so the page's error says what to do instead.
+    return jsonStatus(412, { code: "failed_precondition", message: "Not saved: this deployment cannot edit a SCIM configuration in place — delete it and set it up again." });
+  }
+  if (pathname === "/api/ioi.v1.OrganizationService/RegenerateSCIMToken") {
+    // "Regenerate Token" had no lane (a typed 501). The daemon's create re-issues a configuration
+    // under the same id with a fresh token hash, so re-issuing it with the stored name and SSO link
+    // IS the rotation: the old token stops working the moment this returns (R-240).
     try {
-      const r = await daemon("GET", "/v1/hypervisor/scim-configurations");
-      const c = (r.scim_configurations || [])[0] || {};
-      return json({ scimConfiguration: { id: c.scim_id || body.scimConfigurationId, organizationId: LOCAL_SCOPE.orgId, name: body.name || c.name || "SCIM provisioning", baseUrl: c.base_url || "/scim/v2", enabled: body.enabled !== false, ssoConfigurationId: body.ssoConfigurationId || "" } });
-    } catch {
-      return json({ scimConfiguration: { id: body.scimConfigurationId, enabled: body.enabled !== false } });
+      const r0 = await daemon("GET", "/v1/hypervisor/scim-configurations");
+      const id = body.scimConfigurationId || body.id || "scim-config";
+      const cur = (r0.scim_configurations || []).find((c) => c.scim_id === id);
+      if (!cur) return jsonStatus(404, { code: "not_found", message: "no SCIM configuration to rotate a token for" });
+      const r = await daemon("POST", "/v1/hypervisor/scim-configurations", { scim_id: cur.scim_id, base_url: cur.base_url || "/scim/v2", name: cur.name || "SCIM provisioning", sso_configuration_id: cur.sso_configuration_id || "" });
+      return json({ token: r.token });
+    } catch (e) {
+      return jsonStatus(e.status >= 400 && e.status < 500 ? 412 : 502, { code: e.status >= 400 && e.status < 500 ? "failed_precondition" : "unavailable", message: `Token not rotated: ${e.daemonMessage || e.code || e.message}` });
     }
   }
   if (pathname === "/api/ioi.v1.OrganizationService/DeleteSCIMConfiguration") {
