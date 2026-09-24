@@ -222,7 +222,19 @@ function augmentationBundle() {
 }
 // WS-I: injected IOI-native surface tag (mounted beside the cockpit; never edits the seeded SPA's DOM).
 const AUG_TAG = '<script src="/ioi-augmentation.js" defer></script>';
-const FEATURE_FLAG_TAG = '<script>try{localStorage.setItem("feature_flag_supervisor_watch_enabled","true")}catch(e){}</script>';
+// Local flag overrides the ported bundle reads (`feature_flag_<key>` in localStorage, one per flag).
+//
+// The IOI AI composer — New Session, the product's primary action — is gated in the bundle on its
+// harvested `onaAIEnabled` flag OR an organization tier of FREE/CORE. W0.5 (e5e960b48) correctly
+// stopped the adapter fabricating an organization tier, and that silently turned the whole composer
+// off: every New Session since has landed on "IOI AI is not yet available to you.", hiding the prompt,
+// the harness/venue/project/environment pickers and the Advanced launch modal, and every verifier that
+// drives New Session has timed out on `#ioi-ns-advanced` without anyone reading why (R-240). Whether
+// the composer exists is a capability of THIS deployment, not a fact about an organization — so it
+// is answered here, as the capability flag it is, and the tier stays honestly absent. What the
+// composer may actually LAUNCH is still decided by the daemon at launch time (harness admission,
+// venue policy, grants), never by this flag.
+const FEATURE_FLAG_TAG = '<script>try{localStorage.setItem("feature_flag_supervisor_watch_enabled","true");localStorage.setItem("feature_flag_onaAIEnabled","true")}catch(e){}</script>';
 // Only inject into a real HTML document (one with a </body>). The productUi mislabels some JSON
 // endpoints (/segment/*, /changelog/*) as text/html; appending the tag to those corrupts the
 // body the SPA later parses with Response.json() — so never append when there's no </body>.
