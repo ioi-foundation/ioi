@@ -1687,9 +1687,12 @@ const server = http.createServer((req, res) => {
     return;
   }
 
-  // SPA Routing Fallback
-  if (!fs.existsSync(filePath) || fs.lstatSync(filePath).isDirectory()) {
-    if (!path.extname(filePath)) {
+  // SPA Routing Fallback. A DIRECTORY is resolved through its index.html whatever its name looks
+  // like — a captured directory named `index.html` (workspaces/workspaces/index.html/) has an
+  // extension, skipped this branch, was read as a file and killed the server with EISDIR (R-240).
+  const isDir = fs.existsSync(filePath) && fs.lstatSync(filePath).isDirectory();
+  if (!fs.existsSync(filePath) || isDir) {
+    if (isDir || !path.extname(filePath)) {
       const pathWithIndex = path.join(filePath, 'index.html');
       if (fs.existsSync(pathWithIndex)) {
         filePath = pathWithIndex;
@@ -1702,7 +1705,7 @@ const server = http.createServer((req, res) => {
     }
   }
 
-  if (!fs.existsSync(filePath)) {
+  if (!fs.existsSync(filePath) || fs.lstatSync(filePath).isDirectory()) {
     res.statusCode = 404;
     res.setHeader('Content-Type', 'text/plain');
     res.end('404 Not Found');
@@ -1727,17 +1730,25 @@ const server = http.createServer((req, res) => {
     contentType = 'application/json';
   }
 
+  // A read that fails answers this one request; it never takes the whole server down (R-240).
+  try {
+    if (contentType === 'text/html') {
+      const html = sanitizeHtml(fs.readFileSync(filePath, 'utf8'));
+      res.statusCode = 200; res.setHeader('Content-Type', contentType); res.end(html);
+      return;
+    }
+    if (contentType === 'application/javascript') {
+      const js = transformJavaScript(fs.readFileSync(filePath, 'utf8'), pathname);
+      res.statusCode = 200; res.setHeader('Content-Type', contentType); res.end(js);
+      return;
+    }
+  } catch (e) {
+    res.statusCode = 500; res.setHeader('Content-Type', 'text/plain'); res.end('500 static read failed');
+    return;
+  }
   res.statusCode = 200;
   res.setHeader('Content-Type', contentType);
-  if (contentType === 'text/html') {
-    res.end(sanitizeHtml(fs.readFileSync(filePath, 'utf8')));
-    return;
-  }
-  if (contentType === 'application/javascript') {
-    res.end(transformJavaScript(fs.readFileSync(filePath, 'utf8'), pathname));
-    return;
-  }
-  fs.createReadStream(filePath).pipe(res);
+  fs.createReadStream(filePath).on('error', () => { if (!res.headersSent) res.statusCode = 500; res.end(); }).pipe(res);
 });
 
 server.listen(PORT, () => {
