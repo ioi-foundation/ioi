@@ -900,7 +900,13 @@ async function handleImpl(pathname, bodyText) {
           daemon("GET", `/v1/hypervisor/projects/${encodeURIComponent(id)}`).catch(() => ({})),
           daemon("GET", "/v1/hypervisor/environment-classes"),
         ]);
-        const bound = Array.isArray(proj.project?.environment_class_refs) ? proj.project.environment_class_refs.filter(Boolean) : [];
+        // The record carries the binding in TWO fields: `environment_class_ids` is what the receipted
+        // binding write (PATCH …/environment-classes, receipt `environment_classes_bound`) stores, and
+        // `environment_class_refs` is what project create seeded. The receipted write is the truth of
+        // what is bound now; the seed answers only when nothing has been bound since. Measured: a bind
+        // persisted in `environment_class_ids` while a read of `environment_class_refs` stayed empty.
+        const pick = (v) => (Array.isArray(v) ? v.filter(Boolean) : []);
+        const bound = pick(proj.project?.environment_class_ids).length ? pick(proj.project.environment_class_ids) : pick(proj.project?.environment_class_refs);
         const ids = bound.length ? bound : (cat.environmentClasses || []).map((c) => c.id);
         return json({ pagination: {}, projectEnvironmentClasses: ids.map((environmentClassId, order) => ({ environmentClassId, order })) });
       } catch {
