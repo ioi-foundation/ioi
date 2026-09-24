@@ -196,10 +196,23 @@ export const V2_ROUTE_TABLE = [
     rule: "core workspace; panes project canonical owner records",
     waves: "W0.5 · W4",
     build_state: "shell-only at the root (W0.1) — the vendored Settings sections keep serving at /settings/<section>; W0.5 lands identity truth, Wave 4 completes the workspace (surfaces/settings.md §5)",
+    // The settings navigation's own sections (R-240). The list named three, one of them
+    // `/settings/security` — a path with no page ("This page doesn't exist"); the section lives at
+    // /settings/security/oidc. Each page states its own gaps, so each note says what the page is for.
     serving_today: [
-      { href: "/settings/members", label: "Settings · Members", note: "vendored section, adapter-backed — keeps serving untouched" },
-      { href: "/settings/policies", label: "Settings · Policies", note: "vendored section, adapter-backed — keeps serving untouched" },
-      { href: "/settings/security", label: "Settings · Security", note: "vendored section, adapter-backed — keeps serving untouched" },
+      { href: "/settings/manage-organization", label: "General", note: "the organization's identity, as the daemon records it" },
+      { href: "/settings/members", label: "Members", note: "who belongs to the organization (administrators)" },
+      { href: "/settings/organization-secrets", label: "Secrets", note: "organization-wide secrets" },
+      { href: "/settings/org-integrations", label: "Integrations", note: "MCP integrations available to members" },
+      { href: "/settings/policies", label: "Policies", note: "organization policy defaults" },
+      { href: "/settings/runners", label: "Runners", note: "where sessions run" },
+      { href: "/settings/environments", label: "Sessions", note: "every running and stopped session in the organization" },
+      { href: "/settings/agent-policies", label: "Agent policies", note: "defaults for agents" },
+      { href: "/settings/agent-skills", label: "Skills", note: "workflows the agent can discover and use" },
+      { href: "/settings/login", label: "Login Configuration", note: "SSO connections, login domains and the organization's invite link" },
+      { href: "/settings/scim", label: "SCIM", note: "user and group provisioning from your identity provider" },
+      { href: "/settings/security/oidc", label: "OIDC tokens", note: "OIDC token settings" },
+      { href: "/settings/terms-of-service", label: "Terms of Service", note: "the organization's terms, where one is defined" },
     ],
   },
   {
