@@ -7,7 +7,7 @@
 // reassignment/delegation/comments/bulk actions are declared.
 import { bpIcon, APPROVALS_APP_ICON_URI } from "../../scripts/bp-icons.mjs";
 import { ioiGlobalRailHtml, IOI_GRAIL_CSS } from "../chrome.mjs";
-import { escHtml } from "../kit.mjs";
+import { escHtml, refusalCodeOf, refusalMessageOf } from "../kit.mjs";
 
 const CX_ESC = escHtml; // local alias so the moved block stays byte-identical to its serve original
 // Local transition-form builder (the serve's govTform, module-local so the moved block renders
@@ -134,11 +134,12 @@ export async function handleAction({ action, id, daemonFetch }) {
   if (typeof daemonFetch !== "function") {
     return { kind: "failure", http: 500, code: "identity_capability_missing", message: "the action runtime supplied no request-scoped daemon capability — refusing to transition without the caller's identity" };
   }
-  const r = await daemonFetch(`/v1/hypervisor/governance/approval-requests/${encodeURIComponent(id)}`, {
+  const answered = await daemonFetch(`/v1/hypervisor/governance/approval-requests/${encodeURIComponent(id)}`, {
     method: "PATCH", headers: { "content-type": "application/json" }, body: JSON.stringify({ transition: action.transition }),
-  }).then((x) => x.json()).catch(() => null);
-  if (!r) return { kind: "failure", http: 502, code: "daemon_unavailable", message: "the daemon did not answer — nothing was changed" };
-  if (r.ok !== true) return { kind: "refusal", http: 409, code: (r.error && r.error.code) || "governance_refused", message: (r.error && r.error.message) || r.reason || "refused — state unchanged" };
+  }).then(async (x) => ({ http: x.status, body: await x.json().catch(() => ({})) })).catch(() => null);
+  if (!answered) return { kind: "failure", http: 502, code: "daemon_unavailable", message: "the daemon did not answer — nothing was changed" };
+  const r = answered.body;
+  if (r.ok !== true) return { kind: "refusal", http: answered.http >= 400 ? answered.http : 409, code: refusalCodeOf(r, answered.http), message: refusalMessageOf(r) || r.reason || "refused — state unchanged" };
   const receipt = r.transition_receipt;
   if (!receipt || !receipt.receipt_ref || receipt.schema_version !== action.receipt) {
     return { kind: "failure", http: 502, code: "receipt_missing", message: "the transition returned no declared receipt — failing closed (do not trust the mutation)" };

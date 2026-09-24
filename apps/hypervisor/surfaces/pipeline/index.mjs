@@ -53,7 +53,7 @@ export async function load(ctx) {
     connector_sessions: P("cs").connector_sessions || [],
     materialized_sets: P("ms").materialized_object_sets || [],
     connectors: P("cn").connectors || [],
-    degraded: Object.fromEntries(Object.entries(r).filter(([, x]) => !x.ok).map(([k, x]) => [k, { code: x.code, message: x.message }])),
+    degraded: Object.fromEntries(Object.entries(r).filter(([, x]) => !x.ok).map(([k, x]) => [k, { code: x.code, message: x.message, status: x.status }])),
   };
 }
 

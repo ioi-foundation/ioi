@@ -16,7 +16,7 @@ import { SRC_APP_TILE_URI, SRC_HERO_URI, SRC_SETUP_STRIP_URI } from "../../scrip
 import { MCH_STORE_ICON_URI, MCH_EXAMPLES_STRIP_URI } from "../../scripts/machinery-assets.mjs";
 import { DSG_ROW_DOC_URI } from "../../scripts/designer-assets.mjs";
 import { ioiGlobalRailHtml, IOI_GRAIL_CSS } from "../chrome.mjs";
-import { escHtml, degradedNotice } from "../kit.mjs";
+import { escHtml, degradedNotice, refusalCodeOf, refusalMessageOf, refusalKind, REFUSAL_LEAD, SIGN_IN_LINK } from "../kit.mjs";
 import { managerLink, managerResourceLink, pipelineNodeLink } from "../ontology-context.mjs";
 
 const CX_ESC = escHtml; // local alias so the moved block stays aligned with its serve original
@@ -48,7 +48,7 @@ export async function load(ctx) {
     mappings: (P("cm") && P("cm").connector_mappings) || [],
     // The declaration vocabulary is DAEMON TRUTH: null when unreachable — the form fails closed.
     overview: ov && Array.isArray(ov.source_kinds) ? ov : null,
-    degraded: Object.fromEntries(Object.entries(r).filter(([, x]) => !x.ok).map(([k, x]) => [k, { code: x.code, message: x.message }])),
+    degraded: Object.fromEntries(Object.entries(r).filter(([, x]) => !x.ok).map(([k, x]) => [k, { code: x.code, message: x.message, status: x.status }])),
   };
 }
 
@@ -101,7 +101,7 @@ export async function handleAction({ fields, daemon }) {
     method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(payload),
   }).then(async (x) => ({ status: x.status, j: await x.json().catch(() => ({})) })).catch(() => null);
   if (!r) return { kind: "failure", http: 502, code: "daemon_unavailable", message: "the daemon did not answer — nothing was declared", redirect: paneRedirect };
-  if (r.j && r.j.error) return { kind: "refusal", http: r.status || 400, code: r.j.error.code || "data_source_refused", message: r.j.error.message || "refused — state unchanged", redirect: paneRedirect };
+  if (r.status >= 400) return { kind: "refusal", http: r.status, code: refusalCodeOf(r.j, r.status), message: refusalMessageOf(r.j) || "refused — state unchanged", redirect: paneRedirect };
   const rec = r.j && r.j.data_source;
   const receipt = r.j && r.j.data_source_receipt;
   if (r.status !== 201 || !rec || !rec.source_id) {
@@ -151,7 +151,7 @@ function renderSourcesPort(sources, mruns, srcMappings, dataSourceSel, opts) {
       <span class="src-cell">${gapDash("No principal is recorded on the data-source registry (named gap)")}</span>
       <span class="src-cell">${gapDash("No edit principal is recorded on the data-source registry (named gap)")}</span>
       <span class="src-cell">${gapDash("View tracking is not recorded on the data-source registry (named gap)")}</span>
-    </div>`).join("") : (opts.degraded && opts.degraded.ds) ? `<div class="src-empty">The data-source registry was <b>not read</b> — the daemon did not answer (<code>${esc(opts.degraded.ds.code || "unavailable")}</code>). This is not an empty registry.</div>` : `<div class="src-empty">No data sources declared yet — this table renders the real DataSource registry and never fabricates rows. Declare one with <a href="/__ioi/data/sources?declare=1">New source</a> (a receipted registry record), or through the <a href="/__ioi/pipeline">Data ladder</a>.</div>`;
+    </div>`).join("") : (opts.degraded && opts.degraded.ds) ? `<div class="src-empty">The data-source registry was <b>not read</b> — it ${esc(REFUSAL_LEAD[refusalKind(opts.degraded.ds.code, opts.degraded.ds.status)])} <code>${esc(opts.degraded.ds.code || "unavailable")}</code>. This is not an empty registry.${refusalKind(opts.degraded.ds.code, opts.degraded.ds.status) === "signed_out" ? ` ${SIGN_IN_LINK}` : ""}</div>` : `<div class="src-empty">No data sources declared yet — this table renders the real DataSource registry and never fabricates rows. Declare one with <a href="/__ioi/data/sources?declare=1">New source</a> (a receipted registry record), or through the <a href="/__ioi/pipeline">Data ladder</a>.</div>`;
 
   // Declared-catalog census (below the fold): kinds + credential postures + the wired:false boundary.
   const byKind = {}; const byPosture = {};

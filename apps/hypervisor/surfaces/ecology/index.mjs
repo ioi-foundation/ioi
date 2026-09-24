@@ -23,7 +23,7 @@
 // and retire are the composition's verbs, executed by their owners through the ioi.ai composer; this
 // surface names them and links their coordinates. A surface that appeared to run them would be claiming an
 // authority no route backs.
-import { escHtml, selectionQuery } from "../kit.mjs";
+import { escHtml, selectionQuery, refusalCodeOf, refusalKind, REFUSAL_LEAD, SIGN_IN_LINK } from "../kit.mjs";
 import { readJsonWithDeadline } from "../plane-read.mjs";
 import {
   CONTRACTS,
@@ -61,7 +61,7 @@ async function readRecords({ fetchImpl, base }, systemId, contractId, timeoutMs)
   const path = `/v1/hypervisor/autonomous-systems/${encodeURIComponent(systemId)}/records?contract_id=${encodeURIComponent(contractId)}`;
   try {
     const { response, payload } = await readJsonWithDeadline(fetchImpl, `${base}${path}`, timeoutMs);
-    if (!response.ok) return unavailablePlane(response.status, payload?.error?.code || "plane_unavailable");
+    if (!response.ok) return unavailablePlane(response.status, refusalCodeOf(payload, response.status));
     if (!Array.isArray(payload?.records)) return unavailablePlane(response.status, "plane_payload_invalid");
     return { ok: true, status: response.status, code: "", rows: payload.records.map((entry) => entry?.current).filter(Boolean) };
   } catch (error) {
@@ -78,7 +78,7 @@ async function readRecords({ fetchImpl, base }, systemId, contractId, timeoutMs)
 async function readSystems({ fetchImpl, base }, timeoutMs) {
   try {
     const { response, payload } = await readJsonWithDeadline(fetchImpl, `${base}/v1/hypervisor/autonomous-systems/projection`, timeoutMs);
-    if (!response.ok) return unavailablePlane(response.status, payload?.error?.code || "plane_unavailable");
+    if (!response.ok) return unavailablePlane(response.status, refusalCodeOf(payload, response.status));
     if (!Array.isArray(payload?.systems)) return unavailablePlane(response.status, "plane_payload_invalid");
     return { ok: true, status: response.status, code: "", rows: payload.systems, state: payload.state ?? "" };
   } catch (error) {
@@ -160,7 +160,11 @@ const RUNG_MEANS = {
 };
 const rungTone = (rung) => (rung === "running" ? "ok" : rung === "installed" ? "warn" : "muted");
 const pill = (text, tone) => `<span class="ec-pill ${tone}">${escHtml(text)}</span>`;
-const planeNotice = (name, plane) => (plane.ok ? "" : `<div class="ec-plane-error" role="status"><b>${escHtml(name)}</b> unavailable — <code>${escHtml(plane.code || "unknown")}</code>. Counts for this plane are not treated as zero.</div>`);
+const planeNotice = (name, plane) => {
+  if (plane.ok) return "";
+  const kind = refusalKind(plane.code, plane.status);
+  return `<div class="ec-plane-error" role="status"><b>${escHtml(name)}</b> ${escHtml(REFUSAL_LEAD[kind])} <code>${escHtml(plane.code || "unknown")}</code>. Counts for this plane are not treated as zero.${kind === "signed_out" ? ` ${SIGN_IN_LINK}` : ""}</div>`;
+};
 const metric = (label, value, tone = "") => `<div class="ec-metric ${tone}"><strong>${escHtml(String(value))}</strong><span>${escHtml(label)}</span></div>`;
 const refList = (refs, empty) => (refs.length
   ? `<ul class="ec-refs">${refs.map((r) => `<li><code>${escHtml(shortRef(r))}</code></li>`).join("")}</ul>`
@@ -308,7 +312,7 @@ export function render(model, ctx) {
       ? (rows.length
         ? `<div class="ec-run-list">${rows.map((r) => { const id = systemIdOf(r); return `<a class="ec-row" data-ioi-system="${escHtml(id)}" href="${selectionQuery(ROUTE, { system: id })}"><div class="ec-row-copy"><strong>${escHtml(shortRef(id))}</strong><span>persistent systems admitted under this System</span></div></a>`; }).join("")}</div>`
         : `<p class="ec-none" style="padding:18px">No System is admitted for this caller yet.</p>`)
-      : `<p class="ec-none" style="padding:18px">The System picker could not be read — <code>${escHtml(model.systems.code || "unknown")}</code>. This does not mean there are none, and naming a System in the URL reads its ecology directly without the picker.</p>`;
+      : `<p class="ec-none" style="padding:18px">The System picker could not be read, which does not mean there are none — naming a System in the URL reads its ecology directly without the picker.</p>`;
     return `<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Artifact Ecology · Hypervisor</title><style>${CSS}</style></head><body data-ioi-ecology-state="needs_system"><div class="ec-shell"><main class="ec-main" data-ioi-ecology="persistent-executable-lineage">
       <header class="ec-top"><div class="ec-title"><h1>Artifact Ecology</h1><span>Name a System to read its persistent systems</span></div><div class="ec-actions"><a class="ec-action" href="/__ioi/missions">Missions</a></div></header>
       ${planeNotice("System picker", model.systems)}

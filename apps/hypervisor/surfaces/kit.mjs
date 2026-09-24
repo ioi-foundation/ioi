@@ -18,8 +18,6 @@ export const escHtml = (s) => String(s == null ? "" : s).replace(/&/g, "&amp;").
 
 const TIMELINE_COMPONENT = /^[A-Za-z0-9._~-]+$/;
 
-// Daemon-owned timeline refs are navigable only when they name an exact internal timeline path.
-// Keep this stricter than generic URL parsing: parsing would normalize traversal before validation.
 // A PLANE THAT DID NOT ANSWER IS NOT AN EMPTY PLANE (R-240). Loaders carry each read's typed outcome
 // on `degraded` "so a pane can name WHY, not just render absence" — and the panes never read it: with
 // the daemon stopped, Data sources said "No data sources declared yet" about a registry it never
@@ -27,10 +25,42 @@ const TIMELINE_COMPONENT = /^[A-Za-z0-9._~-]+$/;
 export function degradedNotice(degraded, labels = {}) {
   const keys = Object.keys(degraded || {});
   if (!keys.length) return "";
-  const items = keys.map((k) => `<li><b>${escHtml(labels[k] || k)}</b> — <code>${escHtml((degraded[k] && degraded[k].code) || "unavailable")}</code>${degraded[k] && degraded[k].message ? ` ${escHtml(String(degraded[k].message).slice(0, 160))}` : ""}</li>`).join("");
-  return `<div role="status" data-testid="degraded-notice" style="margin:12px 0;padding:10px 14px;border:1px solid #d1980b;border-radius:6px;background:rgba(209,152,11,.08);color:inherit;font-size:13px;line-height:1.5"><b>The daemon did not answer every read on this page.</b> What follows may be incomplete, and an empty list below is not an empty registry:<ul style="margin:6px 0 0 18px;padding:0">${items}</ul></div>`;
+  const kinds = keys.map((k) => refusalKind(degraded[k] && degraded[k].code, degraded[k] && degraded[k].status));
+  const items = keys.map((k, i) => `<li><b>${escHtml(labels[k] || k)}</b> — ${escHtml(REFUSAL_LEAD[kinds[i]])} <code>${escHtml((degraded[k] && degraded[k].code) || "unavailable")}</code>${degraded[k] && degraded[k].message ? ` ${escHtml(String(degraded[k].message).slice(0, 160))}` : ""}</li>`).join("");
+  const head = kinds.every((k) => k === "unavailable") ? "The daemon did not answer every read on this page." : "Not every read on this page came back.";
+  return `<div role="status" data-testid="degraded-notice" style="margin:12px 0;padding:10px 14px;border:1px solid #d1980b;border-radius:6px;background:rgba(209,152,11,.08);color:inherit;font-size:13px;line-height:1.5"><b>${head}</b> What follows may be incomplete, and an empty list below is not an empty registry:<ul style="margin:6px 0 0 18px;padding:0">${items}</ul>${kinds.includes("signed_out") ? `<div style="margin-top:6px">${SIGN_IN_LINK}</div>` : ""}</div>`;
 }
 
+// A REFUSAL IS NOT AN OUTAGE (R-240). The daemon answers a signed-out caller 401
+// `request_principal_required` in a FLAT `{code, message}` body; other planes nest `{error:{code}}`
+// or answer `{reason}`. Surfaces that read only `error.code` called a signed-out visitor's refusal
+// `plane_unavailable`, and the ones that did read it still printed "did not answer" — a page that
+// tells you the daemon is down when the answer is "sign in" sends you to the wrong fix.
+export function refusalCodeOf(payload, status) {
+  return payload?.error?.code || payload?.reason || payload?.code || (status ? `http_${status}` : "daemon_unavailable");
+}
+export function refusalMessageOf(payload) {
+  return String(payload?.error?.message || payload?.message || "").slice(0, 300);
+}
+// Only a 4xx is a refusal; a 5xx, a timeout, an unreachable daemon or a payload off its contract is
+// an outage, and says "unavailable".
+export function refusalKind(code, status) {
+  const c = String(code || "");
+  if (status === 401 || c === "request_principal_required" || c === "unauthenticated") return "signed_out";
+  if (status === 403 || c === "permission_denied") return "denied";
+  if (status >= 400 && status < 500) return "refused";
+  return "unavailable";
+}
+export const REFUSAL_LEAD = {
+  signed_out: "answers signed-in callers only, and you are signed out —",
+  denied: "refused this caller —",
+  refused: "refused the read —",
+  unavailable: "unavailable —",
+};
+export const SIGN_IN_LINK = `<a href="/__ioi/login" target="_top">Sign in</a> to read it.`;
+
+// Daemon-owned timeline refs are navigable only when they name an exact internal timeline path.
+// Keep this stricter than generic URL parsing: parsing would normalize traversal before validation.
 export function canonicalTimelineRef(reference) {
   if (typeof reference !== "string" || reference.length === 0 || reference.length > 512) return "";
   const prefix = "/__ioi/run-timeline/";

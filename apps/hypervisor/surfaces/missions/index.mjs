@@ -20,7 +20,7 @@
 // before it reached a unit test. `check:surface-modules` now asserts the row directly. The serve
 // layer appends embed=1 to every `/__ioi/*` href in an embedded render, so these stay bare here.
 import { ioiGlobalRailHtml, IOI_GRAIL_CSS } from "../chrome.mjs";
-import { canonicalTimelineRef, escHtml, proofLink, selectionQuery } from "../kit.mjs";
+import { canonicalTimelineRef, escHtml, proofLink, selectionQuery, refusalCodeOf, refusalKind, REFUSAL_LEAD, SIGN_IN_LINK } from "../kit.mjs";
 import { readJsonWithDeadline } from "../plane-read.mjs";
 
 const ROUTE = "/__ioi/missions";
@@ -75,7 +75,7 @@ async function readCollection(fetchImpl, daemon, path, key, validateRow, timeout
   try {
     const { response, payload } = await readJsonWithDeadline(fetchImpl, `${daemon}${path}`, timeoutMs);
     if (!response.ok) {
-      return unavailablePlane(response.status, payload?.error?.code || "plane_unavailable");
+      return unavailablePlane(response.status, refusalCodeOf(payload, response.status));
     }
     if (!Array.isArray(payload?.[key]) || !payload[key].every(validateRow)) {
       return unavailablePlane(response.status, "plane_payload_invalid");
@@ -90,7 +90,7 @@ async function readOperations(fetchImpl, daemon, timeoutMs) {
   try {
     const { response, payload } = await readJsonWithDeadline(fetchImpl, `${daemon}/v1/hypervisor/operations`, timeoutMs);
     if (!response.ok) {
-      return unavailablePlane(response.status, payload?.error?.code || "plane_unavailable");
+      return unavailablePlane(response.status, refusalCodeOf(payload, response.status));
     }
     if (!payload || typeof payload !== "object" || Array.isArray(payload)
       || !payload.runs || typeof payload.runs !== "object" || Array.isArray(payload.runs)
@@ -178,7 +178,8 @@ const subjectLabel = (group) => shortRef(group.subject_ref);
 
 function planeNotice(name, plane) {
   if (plane.ok) return "";
-  return `<div class="ms-plane-error" role="status"><b>${escHtml(name)}</b> unavailable — <code>${escHtml(plane.code)}</code>. Counts for this plane are not treated as zero.</div>`;
+  const kind = refusalKind(plane.code, plane.status);
+  return `<div class="ms-plane-error" role="status"><b>${escHtml(name)}</b> ${escHtml(REFUSAL_LEAD[kind])} <code>${escHtml(plane.code)}</code>. Counts for this plane are not treated as zero.${kind === "signed_out" ? ` ${SIGN_IN_LINK}` : ""}</div>`;
 }
 
 const planeCount = (plane, rows = plane.rows) => plane.ok ? rows.length : "—";

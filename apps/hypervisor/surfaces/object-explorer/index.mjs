@@ -4,7 +4,7 @@
 // certified shell (pixel-certifications/explorer.json) — pixels are frozen by the harness gate.
 import { bpIcon, EXPLORER_APP_ICON_URI } from "../../scripts/bp-icons.mjs";
 import { ioiGlobalRailHtml, IOI_GRAIL_CSS } from "../chrome.mjs";
-import { escHtml } from "../kit.mjs";
+import { escHtml, refusalCodeOf, refusalMessageOf, refusalKind, REFUSAL_LEAD, SIGN_IN_LINK } from "../kit.mjs";
 import { loadOntologyModel, parseOntologyContext, managerLink, managerResourceLink, objectTypeLink, objectSetLink, pipelineNodeLink, lineageLink, vertexLink, provenanceSetLink, semanticBreadcrumb, semanticInspectorShell, disabledSemanticAction, formatRef } from "../ontology-context.mjs";
 import { createReadClient } from "../read-client.mjs";
 
@@ -42,7 +42,7 @@ async function loadInstanceSearch(ctx, client) {
   const r = await client.read(SEARCH_PLANE, {
     method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(body),
   });
-  if (!r.ok) return { q, objectTypeId, refused: { code: r.code || "search_unavailable", message: r.message || "the search plane did not answer" } };
+  if (!r.ok) return { q, objectTypeId, refused: { code: r.code || "search_unavailable", status: r.status, message: r.message || "the search plane did not answer" } };
   return { q, objectTypeId, payload: r.payload };
 }
 
@@ -59,7 +59,7 @@ export async function load(ctx) {
   // The saved-set catalog is scoped per principal by the daemon; a refusal is reported, never
   // rendered as an empty catalog — an empty list and an unanswered read are different facts.
   model.savedSets = saved.ok ? (saved.payload.saved_object_sets || []) : null;
-  model.savedSetsRefusal = saved.ok ? null : { code: saved.code || "saved_sets_unavailable", message: saved.message || "the saved-set plane did not answer" };
+  model.savedSetsRefusal = saved.ok ? null : { code: saved.code || "saved_sets_unavailable", status: saved.status, message: saved.message || "the saved-set plane did not answer" };
   return model;
 }
 
@@ -129,7 +129,7 @@ export async function handleAction({ action, fields, daemonFetch, url }) {
     method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(body),
   }).then(async (x) => ({ status: x.status, j: await x.json().catch(() => ({})) })).catch(() => null);
   if (!r) return { kind: "failure", http: 502, code: "daemon_unavailable", message: "the daemon did not answer — nothing was saved", redirect: back };
-  if (r.j && r.j.error) return { kind: "refusal", http: r.status || 400, code: r.j.error.code || "saved_object_set_refused", message: r.j.error.message || "refused — state unchanged", redirect: back };
+  if (r.status >= 400) return { kind: "refusal", http: r.status, code: refusalCodeOf(r.j, r.status), message: refusalMessageOf(r.j) || "refused — state unchanged", redirect: back };
   const rec = r.j && r.j.saved_object_set;
   // A 2xx WITHOUT the declared record fails CLOSED. A surface that reports success on a shape it
   // cannot recognise is guessing, and the guess is always in the optimistic direction.
@@ -179,7 +179,8 @@ export async function handleAction({ action, fields, daemonFetch, url }) {
 function renderSearchResults(search, esc) {
   if (!search) return "";
   if (search.refused) {
-    return `<div class="oe-sres oe-sres-refused" role="status"><b>The object-instance search plane did not answer.</b> <code>${esc(search.refused.code)}</code> — ${esc(search.refused.message)}. Nothing below is a search result.</div>`;
+    const kind = refusalKind(search.refused.code, search.refused.status);
+    return `<div class="oe-sres oe-sres-refused" role="status"><b>The object-instance search plane ${esc(REFUSAL_LEAD[kind].replace(/ —$/, ""))}.</b> <code>${esc(search.refused.code)}</code> — ${esc(search.refused.message)}. Nothing below is a search result.${kind === "signed_out" ? ` ${SIGN_IN_LINK}` : ""}</div>`;
   }
   const p = search.payload || {};
   const rows = Array.isArray(p.results) ? p.results : [];
@@ -359,7 +360,7 @@ function renderObjectExplorerPort(ov, lists, opts) {
     return `<tr><td class="oe-ssname">${esc(String(s.name || s.id || ""))}</td><td class="oe-sssel">${esc(what)}</td><td class="oe-ssref">${esc(String(s.ref || ""))}</td></tr>`;
   }).join("");
   const savedBody = savedRefusal
-    ? `<tr><td class="oe-none oe-ssrefused">The saved-object-set plane did not answer — <code>${esc(savedRefusal.code)}</code> ${esc(savedRefusal.message)}. This is not an empty catalog.</td></tr>`
+    ? `<tr><td class="oe-none oe-ssrefused">The saved-object-set plane ${esc(REFUSAL_LEAD[refusalKind(savedRefusal.code, savedRefusal.status)])} <code>${esc(savedRefusal.code)}</code> ${esc(savedRefusal.message)}. This is not an empty catalog.${refusalKind(savedRefusal.code, savedRefusal.status) === "signed_out" ? ` ${SIGN_IN_LINK}` : ""}</td></tr>`
     : (savedRows || `<tr><td class="oe-none">No saved object sets yet${setQuery ? " matching this filter" : ""} — save the selection you are looking at to create one.</td></tr>`);
   const savedResult = (opts && opts.result)
     ? `<p class="oe-ssok" role="status">Saved — <code>saved-object-set://${esc(String(opts.result))}</code></p>`
