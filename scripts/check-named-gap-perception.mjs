@@ -80,7 +80,7 @@ export const PINNED = Object.freeze({
   primary_fill: 4,
   cursor_not_disabled: 62,
   unreachable_control: 594,
-  unmarked_gap: 30,
+  unmarked_gap: 18,
 });
 
 export const CLAUSES = [
@@ -88,10 +88,10 @@ export const CLAUSES = [
   { n: 2, demand: "THE CURSOR IS THE FASTEST SIGNAL A PERSON GETS and `default` says \"not clickable, not refused\" — which is the one thing this control is. A declared gap renders `cursor: not-allowed` or the pointer is lying", executed_by: [PURE, LIVE] },
   { n: 3, demand: "A DECLARED GAP IS NEVER STYLED AS THE THING TO CLICK: a saturated opaque fill on an unavailable control is not a subtle defect, it is the most prominent promise on the surface. Saturation AND alpha are both required, because the estate's own gap fill is grey and nearly transparent and either test alone would condemn the convention it exists to protect", executed_by: [PURE, LIVE] },
   { n: 4, demand: "`aria-disabled` ON A BARE SPAN IS AN ATTRIBUTE ON A NON-CONTROL — assistive technology has nothing to describe as disabled, and with no tabindex a keyboard user cannot reach it to be told anything at all. A declared gap carries a role and is focusable, or its declaration reaches nobody who needs it", executed_by: [PURE, LIVE] },
-  { n: 5, demand: "A MARKER CLASS WITHOUT `aria-disabled` IS INVISIBLE TO EVERY GATE IN THIS ESTATE, because every one of them keys on the attribute it lacks — and a screen reader announces it as an ordinary enabled control, actively vouching for it. Measured: 30 labelled such controls, including a real `<button>` styled solid blue", executed_by: [PURE, LIVE] },
+  { n: 5, demand: "A MARKER CLASS WITHOUT `aria-disabled` IS INVISIBLE TO EVERY GATE IN THIS ESTATE, because every one of them keys on the attribute it lacks — and a screen reader announces it as an ordinary enabled control, actively vouching for it. Measured: 25 labelled such controls. FIVE more were first counted here in error: they carry the NATIVE `disabled` attribute, which is stronger than `aria-disabled` — not clickable, not focusable, and correctly announced as disabled", executed_by: [PURE, LIVE] },
   { n: 6, demand: "PROSE IS NOT A CONTROL: `*-gapnote` carries the EXPLANATION of what is unavailable and why, so dimming or refusing it would hide the one thing on the surface doing its job. Excluded by name rather than by a pattern, because a pattern that guessed would eventually swallow a control", executed_by: [PURE, SOURCE] },
   { n: 7, demand: "ONE CONVENTION MUST NOT HAVE ELEVEN SPELLINGS. `gap` is the shared marker and ten surfaces each minted a private one; a convention nobody can apply by habit is a convention that will be forgotten, which is exactly how 33 surfaces acquired this debt. The vocabulary is read from the SERVE SOURCE and compared against the classifier's list, so a twelfth spelling is red", executed_by: [SOURCE] },
-  { n: 8, demand: "THE POPULATION IS PINNED EXACTLY AND MEASURED BY THIS GATE'S OWN SERVE — not the shared :4173 a developer happens to be running, which would let a gate pass on a process it did not start. A new defect is red on the day it is written; a repair that lowers the count must lower the pin with it", executed_by: [LIVE], absence: { what: "THE DEBT IS RECORDED, NOT REPAIRED. 33 of 36 surfaces carry it and this gate does not fix them: the shared `.gap` rule family, the `role`/`tabindex` additions and the 30 missing `aria-disabled` attributes are a separate cut, because they change visible output on 33 surfaces and the pixel-certification and parity baselines must be re-frozen in the same commit that moves them. ONE SURFACE IS PARTIALLY REPAIRED as the worked example — the Solution Designer's six controls now render muted with `not-allowed` — and it is only PARTIAL: they remain bare spans, so clause 4 still finds them unreachable. The treatment itself is the owner's call and has not been approved estate-wide", owner: `the Hypervisor app owner for the gap treatment and the baseline re-freeze (${OWNER_Q})` } },
+  { n: 8, demand: "THE POPULATION IS PINNED EXACTLY AND MEASURED BY THIS GATE'S OWN SERVE — not the shared :4173 a developer happens to be running, which would let a gate pass on a process it did not start. A new defect is red on the day it is written; a repair that lowers the count must lower the pin with it", executed_by: [LIVE], absence: { what: "THE DEBT IS RECORDED, NOT REPAIRED. 33 of 36 surfaces carry it and this gate does not fix them: the shared `.gap` rule family, the `role`/`tabindex` additions and the 25 missing declarations are a separate cut, because they change visible output on 33 surfaces and the pixel-certification and parity baselines must be re-frozen in the same commit that moves them. ONE SURFACE IS PARTIALLY REPAIRED as the worked example — the Solution Designer's six controls now render muted with `not-allowed` — and it is only PARTIAL: they remain bare spans, so clause 4 still finds them unreachable. The treatment itself is the owner's call and has not been approved estate-wide", owner: `the Hypervisor app owner for the gap treatment and the baseline re-freeze (${OWNER_Q})` } },
 ];
 
 const results = [];
@@ -176,6 +176,26 @@ export function pureFindings(lib) {
 
   // THE MARKER WITHOUT THE ATTRIBUTE, and it must NOT also be called unreachable: it is a real
   // <button>, keyboard-reachable, and saying otherwise would be a second false sentence.
+  // A NATIVELY DISABLED BUTTON IS DECLARED, AND IS NOT UNREACHABLE. Found by measuring: five
+  // controls carry `<button disabled>`, which is not clickable, not focusable and IS announced as
+  // disabled — everything the aria-disabled + role + tabindex triple reconstructs. A first build
+  // called them undeclared and said assistive technology announced them as enabled, which was the
+  // exact opposite of true.
+  const nativeBtn = lib.perceptionFindings({ ...INCIDENTS_NEW, nativeDisabled: true, cursor: "not-allowed", opacity: "0.62" });
+  if (nativeBtn.length !== 0) f.push(`native-disabled: a dimmed <button disabled> was still reported — ${nativeBtn[0]}`);
+  const nativeUndressed = lib.perceptionFindings({ ...INCIDENTS_NEW, nativeDisabled: true, cursor: "not-allowed", opacity: "1" });
+  has("native-disabled/undressed", nativeUndressed, "primary_fill");
+  if (nativeUndressed.some((l) => l.startsWith("unreachable_control:"))) f.push("native-disabled: a <button disabled> was called unreachable — it is correctly not focusable, and demanding a tabindex of it would be demanding it stop being a button");
+
+  // A WRAPPER AROUND A DECLARED CONTROL IS NOT ITSELF UNDECLARED, and must not be told to become a
+  // button — the estate wraps a disabled checkbox in a styled <label> and a disabled <input> in a
+  // styled <div>, and both are correct.
+  const wrapper = lib.perceptionFindings({ text: "High", className: "in-prio p1 gap", tag: "LABEL", role: null, tabindex: null, ariaDisabled: false, wrapsDeclared: true, cursor: "not-allowed", backgroundColor: "rgba(0,0,0,0)", opacity: "1" });
+  if (wrapper.length !== 0) f.push(`wrapper: a styled wrapper around an already-declared control was reported — ${wrapper[0]}`);
+  // But a wrapper that contains NOTHING declared is still undeclared.
+  const hollow = lib.perceptionFindings({ text: "High", className: "in-prio p1 gap", tag: "LABEL", role: null, tabindex: null, ariaDisabled: false, wrapsDeclared: false, cursor: "not-allowed", backgroundColor: "rgba(0,0,0,0)", opacity: "1" });
+  has("wrapper/hollow", hollow, "unmarked_gap");
+
   const unmarked = lib.perceptionFindings(INCIDENTS_NEW);
   has("incidents/new", unmarked, "unmarked_gap");
   has("incidents/new", unmarked, "primary_fill");
@@ -352,7 +372,7 @@ async function liveLeg() {
               const cs = getComputedStyle(el);
               return { text: (el.textContent || "").trim().replace(/\s+/gu, " ").slice(0, 40), className: String(el.className || ""),
                 tag: el.tagName, role: el.getAttribute("role"), tabindex: el.getAttribute("tabindex"),
-                ariaDisabled: el.getAttribute("aria-disabled") === "true", cursor: cs.cursor, backgroundColor: cs.backgroundColor, opacity: cs.opacity };
+                ariaDisabled: el.getAttribute("aria-disabled") === "true", nativeDisabled: el.hasAttribute("disabled"), wrapsDeclared: !!el.querySelector("[aria-disabled=true],[disabled]"), cursor: cs.cursor, backgroundColor: cs.backgroundColor, opacity: cs.opacity };
             })));
           } catch { /* a frame can navigate mid-evaluate; the others still count */ }
         }
@@ -439,9 +459,13 @@ async function mutation() {
   await mutate("FILL — opacity stops being read, so a deliberate dim is condemned", (t) => t.replace("  if (Number.isFinite(alpha) && alpha <= DIMMED_OPACITY_CEILING) return false;", ""));
   await mutate("FILL — the dim ceiling rises past full strength, so nothing is ever primary", (t) => t.replace("export const DIMMED_OPACITY_CEILING = 0.8;", "export const DIMMED_OPACITY_CEILING = 1;"));
   await mutate("REACH — the finding is never emitted", (t) => t.replace("  if (missing.length) {", "  if (false) {"));
-  await mutate("REACH — a role alone is enough, unfocusable", (t) => t.replace('if (declared && control?.tabindex == null) missing.push("no tabindex");', ""));
-  await mutate("REACH — a tabindex alone is enough, announced as nothing", (t) => t.replace('if (declared && !control?.role) missing.push("no role");', ""));
+  await mutate("REACH — a role alone is enough, unfocusable", (t) => t.replace('if (declared && !native && !wraps && control?.tabindex == null) missing.push("no tabindex");', ""));
+  await mutate("REACH — a tabindex alone is enough, announced as nothing", (t) => t.replace('if (declared && !native && !wraps && !control?.role) missing.push("no role");', ""));
   await mutate("UNMARKED — a marker with no attribute is accepted", (t) => t.replace("if (marked && !declared) {", "if (false) {"));
+  await mutate("NATIVE — the native disabled attribute stops counting as a declaration", (t) => t.replace("const native = control?.nativeDisabled === true;", "const native = false;"));
+  await mutate("WRAPPER — a styled wrapper is treated as an undeclared control", (t) => t.replace("const wraps = control?.wrapsDeclared === true;", "const wraps = false;"));
+  await mutate("WRAPPER — everything counts as a wrapper, so nothing is ever undeclared", (t) => t.replace("const wraps = control?.wrapsDeclared === true;", "const wraps = true;"));
+  await mutate("NATIVE — a <button disabled> is demanded to carry a role and tabindex", (t) => t.replace("if (declared && !native && !wraps && !control?.role) missing.push(\"no role\");", "if (declared && !wraps && !control?.role) missing.push(\"no role\");"));
   await mutate("MARKER — the shared `gap` token drops out of the vocabulary", (t) => t.replace('"gap", "mst-gap"', '"mst-gap"'));
   await mutate("MARKER — a private spelling drops out", (t) => t.replace('"fus-gap", ', ""));
   await mutate("MARKER — prose notes become controls", (t) => t.replace("if (tokens.some((t) => NOT_CONTROL_MARKERS.includes(t))) return false;", ""));

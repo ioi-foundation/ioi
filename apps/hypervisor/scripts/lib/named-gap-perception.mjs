@@ -97,19 +97,36 @@ export function hasGapMarker(className) {
  * THE FOUR FINDINGS, each independent so one cannot mask another.
  *
  * `control` is a plain record: { text, className, tag, role, tabindex, ariaDisabled, cursor,
- * backgroundColor, opacity }. `tabindex` is the attribute value or null; `opacity` defaults to 1.
+ * backgroundColor, opacity, nativeDisabled, wrapsDeclared }. `tabindex` is the attribute value or null; `opacity`
+ * defaults to 1; `nativeDisabled` is the presence of the native `disabled` attribute.
  */
 export function perceptionFindings(control) {
   const findings = [];
   const marked = hasGapMarker(control?.className);
-  const declared = control?.ariaDisabled === true;
+  // THE NATIVE `disabled` ATTRIBUTE IS A DECLARATION TOO, AND A STRONGER ONE.
+  //
+  // MEASURED 2026-09-23, and this was a real defect in a first build of this file: five controls
+  // were reported as undeclared while carrying `<button disabled>`. A natively disabled button is
+  // not clickable, is removed from the tab order, and IS announced as disabled — everything
+  // `aria-disabled` plus a role plus a tabindex is trying to reconstruct. Reporting it as
+  // "assistive technology announces it as enabled" was the exact opposite of true.
+  const native = control?.nativeDisabled === true;
+  // A WRAPPER IS NOT AN UNDECLARED CONTROL. Measured 2026-09-23, the fourth over-report this
+  // classifier made: seven elements carry the marker for STYLING and contain the real control,
+  // already correctly declared — `<label class="in-prio gap" data-ioi-disabled-reason="...">` around
+  // `<span role="checkbox" aria-disabled="true">`, and `<div class="chg-search gap">` around a
+  // natively disabled `<input>`. The declaration is present exactly where it belongs. Demanding it
+  // on the wrapper too would be demanding a second, redundant announcement of the same fact — and
+  // making that label a button would be worse than the defect.
+  const wraps = control?.wrapsDeclared === true;
+  const declared = control?.ariaDisabled === true || native || wraps;
   if (!marked && !declared) return findings; // not a gap at all; this judgement does not reach it
 
-  // UNMARKED — carries the marker class and no `aria-disabled`. The worst of the four, because it
-  // is invisible to every gate in the estate: they all key on the attribute this one lacks. A
-  // screen reader announces it as an ordinary enabled control and actively vouches for it.
+  // UNMARKED — carries the marker class and declares nothing, by either mechanism. Invisible to
+  // every gate in the estate: they all key on `aria-disabled`, and this control has neither that
+  // nor the native attribute, so assistive technology announces it as an ordinary enabled control.
   if (marked && !declared) {
-    findings.push(`unmarked_gap: \`${control.text || "(no label)"}\` carries a gap marker and no aria-disabled, so every existing parity check is blind to it and assistive technology announces it as enabled`);
+    findings.push(`unmarked_gap: \`${control.text || "(no label)"}\` carries a gap marker and declares nothing — no aria-disabled and no native disabled — so every existing parity check is blind to it and assistive technology announces it as enabled`);
   }
 
   // CURSOR — the pointer is the fastest signal a person gets, and `default` says "not clickable
@@ -130,9 +147,12 @@ export function perceptionFindings(control) {
   // why lives in the `title`. A role with no tabindex is announced correctly and can never be
   // reached to be announced; a tabindex with no role is reachable and announced as nothing. Either
   // alone defeats the choice, so either alone is the finding.
+  // A NATIVELY DISABLED CONTROL IS EXEMPT: `disabled` on a real <button> is the conventional,
+  // correct thing, and it is deliberately NOT focusable. Demanding a role and a tabindex of it
+  // would be demanding that it stop being a button.
   const missing = [];
-  if (declared && !control?.role) missing.push("no role");
-  if (declared && control?.tabindex == null) missing.push("no tabindex");
+  if (declared && !native && !wraps && !control?.role) missing.push("no role");
+  if (declared && !native && !wraps && control?.tabindex == null) missing.push("no tabindex");
   if (missing.length) {
     findings.push(`unreachable_control: \`${control.text || "(no label)"}\` is aria-disabled on a <${String(control?.tag ?? "?").toLowerCase()}> with ${missing.join(" and ")} — aria-disabled is chosen over disabled so the control stays perceivable, and ${missing.length === 2 ? "it is neither announced nor reachable" : missing[0] === "no role" ? "assistive technology is told a non-control is disabled" : "a keyboard user cannot reach it to be told anything"}`);
   }
