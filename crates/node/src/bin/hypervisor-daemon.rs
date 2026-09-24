@@ -1528,6 +1528,7 @@ async fn async_main() -> anyhow::Result<()> {
         .route(
             "/v1/hypervisor/projects/:id",
             get(environment_routes::handle_project_get)
+                .patch(environment_routes::handle_project_metadata_patch)
                 .delete(environment_routes::handle_project_delete),
         )
         // OQ-5 saga step 2: environment-class binding as its own receipted, CAS-guarded,

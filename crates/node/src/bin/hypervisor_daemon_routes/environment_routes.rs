@@ -3159,6 +3159,191 @@ pub(crate) async fn handle_project_delete(
     Json(json!({ "ok": removed, "removed": removed, "project_id": id }))
 }
 
+/// PATCH /v1/hypervisor/projects/:id — edit a project's METADATA: its display `name` and the
+/// `repository_branch` new work clones. R-240: the settings page's Display name and Branch saved on
+/// blur through UpdateProject, which had no daemon lane — the edit stayed in the field, no error was
+/// shown, and a reload put the old value back. Same contract as the environment-class binding:
+/// identity first, `expected_revision` CAS, bounded fields, record-first receipt-second with
+/// restore-on-failure, and an identical edit replays rather than minting a second receipt. Only
+/// fields the record already holds are editable; the repository URL is not (changing it is a
+/// different project, not an edit), and unknown fields are refused by name rather than dropped.
+pub(crate) async fn handle_project_metadata_patch(
+    State(st): State<Arc<DaemonState>>,
+    AxumPath(id): AxumPath<String>,
+    headers: HeaderMap,
+    Json(body): Json<Value>,
+) -> (StatusCode, Json<Value>) {
+    let identity = match super::substrate_store::resolve_request_identity(&st.data_dir, &headers) {
+        Ok(identity) => identity,
+        Err(error) => return super::lifecycle_routes::planner_scope_refusal(error),
+    };
+    const EDITABLE: [&str; 2] = ["name", "repository_branch"];
+    let Some(obj) = body.as_object() else {
+        return (
+            StatusCode::BAD_REQUEST,
+            Json(
+                json!({ "ok": false, "code": "project_metadata_body_invalid",
+                "message": "the body must be a JSON object" }),
+            ),
+        );
+    };
+    let unknown: Vec<&String> = obj
+        .keys()
+        .filter(|k| !EDITABLE.contains(&k.as_str()) && k.as_str() != "expected_revision")
+        .collect();
+    if !unknown.is_empty() {
+        return (
+            StatusCode::UNPROCESSABLE_ENTITY,
+            Json(
+                json!({ "ok": false, "code": "project_metadata_field_not_editable",
+                "message": format!("not an editable project field: {unknown:?} — editable: {EDITABLE:?}"),
+                "editable": EDITABLE }),
+            ),
+        );
+    }
+    let mut changes: Vec<(&str, String)> = Vec::new();
+    for key in EDITABLE {
+        let Some(v) = obj.get(key) else { continue };
+        let bound = if key == "name" { 120 } else { 200 };
+        match v.as_str().map(str::trim) {
+            Some(t)
+                if !t.is_empty()
+                    && t.chars().count() <= bound
+                    && !(key == "repository_branch" && t.chars().any(char::is_whitespace)) =>
+            {
+                changes.push((key, t.to_string()));
+            }
+            _ => {
+                return (
+                    StatusCode::BAD_REQUEST,
+                    Json(json!({ "ok": false, "code": "project_field_type_invalid",
+                        "message": format!("`{key}` must be a non-empty string of at most {bound} characters{}",
+                            if key == "repository_branch" { " with no whitespace" } else { "" }) })),
+                );
+            }
+        }
+    }
+    if changes.is_empty() {
+        return (
+            StatusCode::BAD_REQUEST,
+            Json(json!({ "ok": false, "code": "project_metadata_empty",
+                "message": format!("name at least one of {EDITABLE:?}") })),
+        );
+    }
+    let Some(prev) = read_record_dir(&st.data_dir, "projects")
+        .into_iter()
+        .find(|p| p.get("project_id").and_then(|v| v.as_str()) == Some(id.as_str()))
+    else {
+        return (
+            StatusCode::NOT_FOUND,
+            Json(json!({ "ok": false, "code": "project_not_found",
+                "message": format!("project {id} not found") })),
+        );
+    };
+    let current_rev = prev.get("revision").and_then(|v| v.as_u64()).unwrap_or(1);
+    if let Some(expected) = body.get("expected_revision") {
+        let Some(expected) = expected.as_u64() else {
+            return (
+                StatusCode::BAD_REQUEST,
+                Json(json!({ "ok": false, "code": "project_field_type_invalid",
+                    "message": "`expected_revision` must be an unsigned integer" })),
+            );
+        };
+        if expected != current_rev {
+            return (
+                StatusCode::CONFLICT,
+                Json(json!({ "ok": false, "code": "project_revision_conflict",
+                    "message": "the project changed since it was read — re-read and retry",
+                    "current_revision": current_rev })),
+            );
+        }
+    }
+    // Idempotent replay: nothing differs, so nothing is recorded again.
+    if changes
+        .iter()
+        .all(|(k, v)| prev.get(*k).and_then(|x| x.as_str()) == Some(v.as_str()))
+    {
+        return (
+            StatusCode::OK,
+            Json(json!({ "ok": true, "replayed": true, "project": prev,
+                "receipt": prev.get("last_metadata_receipt").cloned().unwrap_or(Value::Null) })),
+        );
+    }
+    let now = iso_now();
+    let rev = current_rev + 1;
+    let slug = id.strip_prefix("project:").unwrap_or(&id);
+    let receipt_id = format!("prjrcpt_{slug}_{rev}");
+    let changed: serde_json::Map<String, Value> = changes
+        .iter()
+        .map(|(k, v)| {
+            (
+                (*k).to_string(),
+                json!({ "from": prev.get(*k).cloned().unwrap_or(Value::Null), "to": v }),
+            )
+        })
+        .collect();
+    let receipt = json!({
+        "schema_version": "ioi.hypervisor.project.metadata-receipt.v1",
+        "receipt_id": receipt_id,
+        "receipt_ref": format!("agentgres://project-receipts/{receipt_id}"),
+        "project_id": id,
+        "op": "project_metadata_edited",
+        "changes": changed,
+        "revision": rev,
+        "recorded_at": now,
+        "acting_principal_ref": identity.principal_ref,
+    });
+    let mut next = prev.clone();
+    for (k, v) in &changes {
+        next[*k] = json!(v);
+    }
+    next["revision"] = json!(rev);
+    next["updated_at"] = json!(now.clone());
+    next["last_metadata_receipt"] = receipt.clone();
+    let mut hist = next
+        .get("history")
+        .and_then(|v| v.as_array())
+        .cloned()
+        .unwrap_or_default();
+    hist.push(
+        json!({ "revision": rev, "op": "project_metadata_edited", "at": now,
+        "receipt_ref": receipt.get("receipt_ref").cloned().unwrap_or(Value::Null) }),
+    );
+    let len = hist.len();
+    if len > 20 {
+        hist = hist[len - 20..].to_vec();
+    }
+    next["history"] = json!(hist);
+    if persist_record(&st.data_dir, "projects", &id, &next).is_err() {
+        return (
+            StatusCode::INTERNAL_SERVER_ERROR,
+            Json(
+                json!({ "ok": false, "code": "project_record_persistence_failed",
+                "message": "the edit did not commit — the project is unchanged" }),
+            ),
+        );
+    }
+    if persist_record(&st.data_dir, "project-receipts", &receipt_id, &receipt).is_err() {
+        let restored = persist_record(&st.data_dir, "projects", &id, &prev).is_ok();
+        return (
+            StatusCode::INTERNAL_SERVER_ERROR,
+            Json(
+                json!({ "ok": false, "code": "project_receipt_persistence_failed",
+                "restored": restored,
+                "message": if restored {
+                    "the receipt did not commit — the edit was restored to its prior state"
+                } else {
+                    "the receipt did not commit AND the restore failed — the record may hold the edit without its receipt; re-read before retrying"
+                } }),
+            ),
+        );
+    }
+    (
+        StatusCode::OK,
+        Json(json!({ "ok": true, "project": next, "receipt": receipt })),
+    )
+}
+
 /// PATCH /v1/hypervisor/projects/:id/environment-classes — the second durable step of the
 /// project-creation saga (OQ-5 ruling: an explicit resumable saga, never an atomic pretense —
 /// the live audit watched CreateProject 200 then this step 501 leave a stuck form). Identity

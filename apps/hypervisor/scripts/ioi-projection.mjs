@@ -178,7 +178,10 @@ export function daemonProjectToIOI(p, orgId) {
       : repoUrl
         ? { specs: [{ git: { remoteUri: repoUrl, cloneTarget: branch } }] }
         : { specs: [] };
-  const refs = Array.isArray(p.environment_class_refs) ? p.environment_class_refs : [];
+  // The receipted binding write stores `environment_class_ids`; create seeds `environment_class_refs`.
+  // The binding is what is true now, the seed only until something is bound (R-240).
+  const boundIds = Array.isArray(p.environment_class_ids) ? p.environment_class_ids.filter(Boolean) : [];
+  const refs = boundIds.length ? boundIds : (Array.isArray(p.environment_class_refs) ? p.environment_class_refs : []);
   const environmentClasses =
     p.environmentClasses ||
     p.environment_classes ||

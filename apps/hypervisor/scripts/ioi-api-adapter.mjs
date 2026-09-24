@@ -958,8 +958,45 @@ async function handleImpl(pathname, bodyText) {
           message: `the daemon did not answer the binding step (${e.message}); the created project keeps its exact durable partial state` });
       }
     }
-    // UpdateProject is an edit flow the daemon has no write plane for yet — it falls through
-    // (not fabricated here), and is not exercised by read navigation.
+    if (op === "UpdateProject") {
+      // R-240: the settings page saves each field on blur through this RPC, and it had no daemon
+      // lane — the edit stayed in the field, no error showed, and a reload put the old value back.
+      // Display name and Branch are fields the project record holds, so they go to the receipted
+      // PATCH /v1/hypervisor/projects/:id. Everything else the form can send has no field or no
+      // runner behind it and is REFUSED BY NAME, so the form's own error toast says why nothing
+      // saved instead of the edit silently evaporating.
+      const id = projectIdFromBody(body);
+      const git = body.initializer?.specs?.[0]?.git || null;
+      const patch = {};
+      if (typeof body.name === "string") patch.name = body.name;
+      if (git && typeof git.cloneTarget === "string") patch.repository_branch = git.cloneTarget;
+      const refused = [];
+      if (body.devcontainerFilePath !== undefined) refused.push("the dev container file path (the project record has no such field)");
+      if (body.automationsFilePath !== undefined) refused.push("the automations file path (the project record has no such field)");
+      if (body.prebuildConfiguration !== undefined) refused.push("prebuilds (no prebuild runner exists in this deployment)");
+      if (git && git.remoteUri) {
+        try {
+          const cur = await daemon("GET", `/v1/hypervisor/projects/${encodeURIComponent(id)}`);
+          if (cur.project?.repository_url && git.remoteUri !== cur.project.repository_url) refused.push("the repository URL (changing it is a different project, not an edit)");
+        } catch { /* the PATCH below answers for the project's existence */ }
+      }
+      if (refused.length) return jsonStatus(412, { code: "failed_precondition", message: `Not saved: ${refused.join("; ")}.` });
+      if (!Object.keys(patch).length) return jsonStatus(412, { code: "failed_precondition", message: "Not saved: this edit names no field the project record holds." });
+      try {
+        const res = await fetch(`${DAEMON}/v1/hypervisor/projects/${encodeURIComponent(id)}`, {
+          method: "PATCH",
+          headers: currentDaemonHeaders({ includeContentType: true }),
+          body: JSON.stringify(patch),
+          signal: AbortSignal.timeout(8000),
+        });
+        const r = await res.json().catch(() => ({}));
+        if (res.ok && r?.ok === true) return json({ project: daemonProjectToIOI(r.project, LOCAL_SCOPE.orgId) });
+        if (res.status === 401) return jsonStatus(401, { code: "unauthenticated", message: "Not saved: sign in (/__ioi/login) to edit projects." });
+        return jsonStatus(res.status >= 400 ? res.status : 409, { code: r?.code === "project_revision_conflict" ? "aborted" : "failed_precondition", message: `Not saved: ${r?.message || "the daemon refused the edit"}` });
+      } catch (e) {
+        return unavailableRpc("project_metadata_unavailable", `the daemon did not answer the edit (${e.message}); nothing was saved`);
+      }
+    }
   }
 
   // ---- Local-deployment projections: honest local posture for planes the daemon does not yet
