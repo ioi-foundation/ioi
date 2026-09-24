@@ -2269,6 +2269,10 @@ pub(crate) fn attach_choose_advisory(venues: &mut [Value], advisory: &Value) {
         card["available"] = json!(eligible > 0);
         card["advisory_ref"] = advisory.get("advisory_ref").cloned().unwrap_or(Value::Null);
         card["candidates"] = advisory.get("candidates").cloned().unwrap_or(json!([]));
+        card["candidate_selection"] = advisory
+            .get("candidate_selection")
+            .cloned()
+            .unwrap_or(Value::Null);
         card["recommendation"] = advisory
             .get("recommendation")
             .cloned()

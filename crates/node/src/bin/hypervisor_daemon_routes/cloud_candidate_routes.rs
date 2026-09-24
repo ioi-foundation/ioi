@@ -890,17 +890,21 @@ pub(crate) async fn handle_candidates_list(
     State(st): State<Arc<DaemonState>>,
     Query(q): Query<HashMap<String, String>>,
 ) -> (StatusCode, Json<Value>) {
-    let Some(intent_ref) = q.get("intent_ref") else {
-        return (
-            StatusCode::UNPROCESSABLE_ENTITY,
-            Json(json!({ "ok": false, "error": { "code": "intent_ref_required" } })),
-        );
-    };
-    let Some(intent) = load_intent(&st.data_dir, intent_ref) else {
-        return (
-            StatusCode::NOT_FOUND,
-            Json(json!({ "ok": false, "error": { "code": "cloud_resource_intent_not_found" } })),
-        );
+    // Without `intent_ref` the standing default intent answers — the same rule the sibling
+    // placement-advisory route already follows, so a surface reading "the plane" needs no id.
+    let intent = match q.get("intent_ref") {
+        Some(intent_ref) => match load_intent(&st.data_dir, intent_ref) {
+            Some(i) => i,
+            None => {
+                return (
+                    StatusCode::NOT_FOUND,
+                    Json(
+                        json!({ "ok": false, "error": { "code": "cloud_resource_intent_not_found" } }),
+                    ),
+                )
+            }
+        },
+        None => ensure_default_intent(&st.data_dir),
     };
     let all = candidates_for(&st.data_dir, text(&intent, "intent_ref"));
     let considered = all.len();
@@ -933,6 +937,31 @@ pub(crate) async fn handle_candidates_list(
         all
     };
 
+    // ── `?geo=true` and `?recent=N` — the Environments map's exact question. ──
+    //
+    // The map shows the newest 200 candidates that carry placement GEOGRAPHY (a non-empty region,
+    // location, zone or az), across every sweep. It used to get them by reading the candidates the
+    // `hypervisor_choose` venue card embedded — every candidate ever swept, 220 MB — and filtering
+    // in the browser's server. R-240 bounded the card to the cohort it ranks, so the map asks the
+    // plane that owns the history instead, and gets back only what it draws.
+    let geo_only = matches!(q.get("geo").map(String::as_str), Some("true" | "1"));
+    if geo_only {
+        candidates.retain(|c| {
+            ["region", "location", "zone", "az"].iter().any(|k| {
+                c.get(*k)
+                    .and_then(Value::as_str)
+                    .map(|s| !s.trim().is_empty())
+                    .unwrap_or(false)
+            })
+        });
+    }
+    let matching = candidates.len();
+    let recent = q.get("recent").and_then(|v| v.parse::<usize>().ok());
+    if let Some(n) = recent {
+        candidates.sort_by(|a, b| text(b, "observed_at").cmp(text(a, "observed_at")));
+        candidates.truncate(n);
+    }
+
     // `?limit=N` truncates AFTER cohort selection, so a limit can never mix batches.
     let limit = q.get("limit").and_then(|v| v.parse::<usize>().ok());
     if let Some(n) = limit {
@@ -950,10 +979,13 @@ pub(crate) async fn handle_candidates_list(
             // wrong one.
             "selection": {
                 "latest_batch_only": latest,
+                "geo_only": geo_only,
+                "recent": recent,
                 "limit": limit,
                 "returned": candidates.len(),
+                "matching": matching,
                 "considered": considered,
-                "note": if latest || limit.is_some() {
+                "note": if latest || geo_only || recent.is_some() || limit.is_some() {
                     "a subset was returned; `considered` is how many exist for this intent"
                 } else {
                     "every candidate known for this intent, across all sweeps"
@@ -1127,6 +1159,26 @@ pub(crate) async fn advisory_for(
         "baremetal_ssh" => "use_my_infrastructure",
         _ => "pick_provider",
     };
+    // THE ADVISORY EMBEDS THE COHORT IT RANKED OVER, AND COUNTS THE REST.
+    //
+    // It used to embed `candidates` — every candidate ever written for the intent, across every
+    // sweep. A requote writes a fresh batch whenever nothing is active, so on a long-lived intent
+    // that list only grows: `cri_default` reached 54,454 candidates, 54,421 of them expired, and
+    // one embedded copy weighed 220 MB. The venues GET attached that copy to the
+    // `hypervisor_choose` card, so the Environments page took 22 s to render and opening New Session
+    // shipped 221 MB to the browser; and every PERSISTED advisory wrote another copy to disk —
+    // 3,140 of them, 327 GB. Only ACTIVE candidates can be ranked (an expired one is never
+    // placement-eligible — `with_read_status`), so the expired ones were never an input to this
+    // record; they were ballast. Every one of them is still its own durable record under
+    // `cloud-resource-candidates`, readable at the history route named below — the list route
+    // already answered its own 3,750-candidate version of this with `?latest=true`, and this is the
+    // second consumer that fix never reached.
+    let embedded: Vec<Value> = candidates
+        .iter()
+        .filter(|c| c["status"] == "active")
+        .cloned()
+        .collect();
+    let set_aside = candidates.len() - embedded.len();
     let advisory_id = format!("adv_{:x}", nanos());
     let recommendation = ranked.first().map(|c| {
         // Reason codes derive from the winning candidate's LABELS, not the score value — a
@@ -1170,7 +1222,15 @@ pub(crate) async fn advisory_for(
         "considered": candidates.len(),
         "eligible": eligible.len(),
         "candidate_refs": eligible.iter().map(|c| c["candidate_ref"].clone()).collect::<Vec<_>>(),
-        "candidates": candidates,
+        "candidates": embedded,
+        // Say what was set aside, so an embedded cohort is never mistaken for the whole plane.
+        "candidate_selection": {
+            "embedded": "active_only",
+            "returned": embedded.len(),
+            "set_aside_inactive": set_aside,
+            "history_route": format!("/v1/hypervisor/cloud-candidates/candidates?intent_ref={intent_ref}"),
+            "note": "only ACTIVE candidates can be ranked, so only they are embedded; `considered` counts every candidate known for this intent, and each one remains a durable record at the history route",
+        },
         "recommendation": recommendation.clone().unwrap_or(Value::Null),
         "no_eligible_candidate": if recommendation.is_none() {
             json!("no_eligible_candidate — no active placement-eligible candidate satisfies this intent; effective venue stays run_local")

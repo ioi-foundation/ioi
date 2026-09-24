@@ -114,9 +114,13 @@ for (const [slug, route, title, absentPhrase, ownerLink] of [
   const D = process.env.IOI_HYPERVISOR_DAEMON_URL || "http://127.0.0.1:8765";
   const GEO_KEYS = ["region", "location", "zone", "az"];
   const str = (v) => (typeof v === "string" && v.trim() !== "" ? v : "");
-  const venues = await fetch(`${D}/v1/hypervisor/placement/venues`).then((r) => r.json()).then((j) => j.venues || []).catch(() => []);
-  const cands = venues.flatMap((v) => (Array.isArray(v.candidates) ? v.candidates : []));
-  const geoCands = cands.filter((c) => GEO_KEYS.some((k) => str(c[k])));
+  // R-240: the lane reads the candidate plane's own bounded history route, never the venue card
+  // (which now embeds only the cohort it ranks). `geoCands` is what renders; the plane's counts
+  // come from the same response's `selection`.
+  const candJ = await fetch(`${D}/v1/hypervisor/cloud-candidates/candidates?geo=true&recent=200`).then((r) => r.json()).catch(() => ({}));
+  const candTotal = Number(candJ.selection?.considered) || 0;
+  const geoTotal = Number(candJ.selection?.matching) || 0;
+  const geoCands = (Array.isArray(candJ.candidates) ? candJ.candidates : []).filter((c) => GEO_KEYS.some((k) => str(c[k]))).slice(0, 200);
   const geoRegion = geoCands.filter((c) => str(c.region)).length;
   const geoLocation = geoCands.filter((c) => !str(c.region) && str(c.location)).length;
   const geoExpired = geoCands.filter((c) => String(c.status || "") === "expired").length;
@@ -141,9 +145,9 @@ for (const [slug, route, title, absentPhrase, ownerLink] of [
   // number drifts from the plane AND if a geospatial route ever lands (which would make the whole
   // absence copy false and force a re-adjudication rather than quietly aging into a lie).
   ok("map: the geo-plane census is COUNTED from the daemon's route index on render, and it is still ZERO", geoRoutes === 0 && new RegExp(`publishes <b>${routes.length}</b> routes and <b>0</b> of them are geospatial`).test(t) && new RegExp(`fetched all ${readRoutes} param-free GET routes`).test(t), `routes=${routes.length} geo=${geoRoutes} paramFreeGET=${readRoutes}`);
-  ok("map: the location lane is rows == the REAL placement plane EXACTLY, and is labelled NOT a map", (t.match(/class="mapp-row"/g) || []).length === Math.min(200, geoCands.length) && /NOT a map layer/.test(t) && /not coordinates/.test(t) && new RegExp(`${geoCands.length} of ${cands.length} REAL cloud-resource-candidate`).test(t), `rows=${(t.match(/class="mapp-row"/g) || []).length} plane=${geoCands.length}/${cands.length}`);
+  ok("map: the location lane is rows == the REAL placement plane EXACTLY, and is labelled NOT a map", (t.match(/class="mapp-row"/g) || []).length === geoCands.length && geoTotal >= geoCands.length && candTotal >= geoTotal && /NOT a map layer/.test(t) && /not coordinates/.test(t) && new RegExp(`${geoTotal} of ${candTotal} REAL cloud-resource-candidate`).test(t), `rows=${(t.match(/class="mapp-row"/g) || []).length} plane=${geoTotal}/${candTotal} shown=${geoCands.length}`);
   ok("map: every row NAMES which field its value came from — a value is never shown under a header it does not belong to", (t.match(/field: region/g) || []).length === geoRegion && (t.match(/field: location/g) || []).length === geoLocation && geoCands.every((c) => t.includes(str(c.region) || str(c.location))), `region=${geoRegion} location=${geoLocation}`);
-  ok("map: each row carries the RECORD'S OWN state — expired + not-live-supply counted from the records, never glossed", new RegExp(`<b>${geoExpired} of ${geoCands.length}</b> of these records are status <b>expired</b>`).test(t) && new RegExp(`<b>${geoNotLive}</b> carry a`).test(t) && (geoNotLive === 0 || /_evidence_not_live_supply/.test(t)), `expired=${geoExpired} notLive=${geoNotLive}`);
+  ok("map: each row carries the RECORD'S OWN state — expired + not-live-supply counted from the records, never glossed", new RegExp(`<b>${geoExpired} of the ${geoCands.length}</b> rendered records are status <b>expired</b>`).test(t) && new RegExp(`<b>${geoNotLive}</b> carry a`).test(t) && (geoNotLive === 0 || /_evidence_not_live_supply/.test(t)), `expired=${geoExpired} notLive=${geoNotLive}`);
   ok("map: the SECOND geography lane is NAMED with live counts, not silently dropped", new RegExp(`<b>${opsGeo.length} of ${ops.length}</b> operations — ${opsGeoSim} of those ${opsGeo.length} carry`).test(t), `ops=${opsGeo.length}/${ops.length} sim=${opsGeoSim}`);
   ok("map: every gap carries the UNIFIED contract (aria === data-ioi count) and there are real absences", (t.match(/aria-disabled="true"/g) || []).length >= 20 && (t.match(/aria-disabled="true"/g) || []).length === (t.match(/data-ioi-disabled-reason=/g) || []).length, `${(t.match(/aria-disabled="true"/g) || []).length} gaps`);
   ok("map: no chrome reason is BOILERPLATE — every control's reason is written for that control (all distinct)", gapReasons.length >= 20 && new Set(gapReasons).size === gapReasons.length, `${gapReasons.length} chrome gaps, ${new Set(gapReasons).size} distinct`);

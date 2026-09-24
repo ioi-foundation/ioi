@@ -9812,13 +9812,17 @@ async function handleEstateRequest(req, res, body) {
     // The one lane that IS live is deliberately NOT a map: the estate's placement plane records
     // provider PLACEMENT GEOGRAPHY as coarse strings (region · location · zone · az) on cloud
     // resource candidates. Those rows render verbatim beneath the absence — with the daemon's own
-    // status / coverage_state / risk-label wording on every row, because every one of them is an
-    // EXPIRED candidate carrying simulator-or-fixture evidence the daemon itself marks "not live
-    // supply". A region string is not a coordinate and this list is not a layer; the surface says
-    // both.
+    // status / coverage_state / risk-label wording on every row, because most of them are EXPIRED
+    // candidates, many carrying evidence the daemon itself marks "not live supply" — the rows are the
+    // newest 200 across every sweep, read from the candidate plane's own history route (R-240). A
+    // region string is not a coordinate and this list is not a layer; the surface says both.
     if (pathname === "/__ioi/environments/map" && req.method === "GET") {
-      const [mapVenuesJson, mapOpsJson, mapIndexJson] = await Promise.all([
-        daemonFetch(`/v1/hypervisor/placement/venues`).then((r) => r.json()).catch(() => ({})),
+      // The geography lane reads the candidate plane's OWN history route, bounded to exactly what it
+      // draws: the newest 200 geography-bearing records, plus the plane's counts. It used to read the
+      // `hypervisor_choose` venue card, which embedded every candidate ever swept (220 MB, 20s); R-240
+      // bounded that card to the cohort it ranks, and the map never needed the card at all.
+      const [mapCandJson, mapOpsJson, mapIndexJson] = await Promise.all([
+        daemonFetch(`/v1/hypervisor/cloud-candidates/candidates?geo=true&recent=200`).then((r) => r.json()).catch(() => ({})),
         daemonFetch(`/v1/hypervisor/provider-operations`).then((r) => r.json()).catch(() => ({})),
         daemonFetch(`/v1`).then((r) => r.json()).catch(() => ({})),
       ]);
@@ -9841,13 +9845,14 @@ async function handleEstateRequest(req, res, body) {
       const mdash = (reason) => `<span class="mapp-dash" aria-disabled="true" title="${esc(reason)}" data-ioi-disabled-reason="${esc(reason)}">—</span>`;
       // ---- the ONE live lane: placement geography on the estate's REAL candidate plane.
       const MAPP_GEO_KEYS = ["region", "location", "zone", "az"];
-      const mapVenues = Array.isArray(mapVenuesJson.venues) ? mapVenuesJson.venues : [];
-      const mapCands = mapVenues.flatMap((v) => (Array.isArray(v.candidates) ? v.candidates : []));
+      const mapSel = mapCandJson.selection || {};
+      const mapTotal = Number(mapSel.considered) || 0; // every candidate the plane knows for the intent
+      const mapGeoTotal = Number(mapSel.matching) || 0; // those carrying a placement-geography field
       const mapStr = (v) => (typeof v === "string" && v.trim() !== "" ? v : "");
-      const mapGeoCands = mapCands.filter((c) => MAPP_GEO_KEYS.some((k) => mapStr(c[k])));
       const MAPP_GEO_CAP = 200;
-      const mapGeoSorted = [...mapGeoCands].sort((a, b) => String(b.observed_at || "").localeCompare(String(a.observed_at || "")));
-      const mapGeoShown = mapGeoSorted.slice(0, MAPP_GEO_CAP);
+      // Newest-first and geography-bearing already (the daemon's `geo=true&recent=200`); re-filtered
+      // here only so a row can never render without the field it is shown under.
+      const mapGeoShown = (Array.isArray(mapCandJson.candidates) ? mapCandJson.candidates : []).filter((c) => MAPP_GEO_KEYS.some((k) => mapStr(c[k]))).slice(0, MAPP_GEO_CAP);
       const mapGeoRows = mapGeoShown.map((c) => {
         const primaryKey = mapStr(c.region) ? "region" : "location";
         const primary = mapStr(c[primaryKey]);
@@ -9870,8 +9875,8 @@ async function handleEstateRequest(req, res, body) {
       // The recorded state of the rendered lane, counted from the records themselves so the claim
       // cannot rot into a stale number: an EXPIRED candidate carrying not-live-supply evidence is
       // not a place where anything runs, and this surface says so in the daemon's own vocabulary.
-      const mapGeoExpired = mapGeoCands.filter((c) => String(c.status || "") === "expired").length;
-      const mapGeoNotLive = mapGeoCands.filter((c) => (Array.isArray(c.risk_labels) ? c.risk_labels : []).some((l) => /_evidence_not_live_supply$/.test(String(l)))).length;
+      const mapGeoExpired = mapGeoShown.filter((c) => String(c.status || "") === "expired").length;
+      const mapGeoNotLive = mapGeoShown.filter((c) => (Array.isArray(c.risk_labels) ? c.risk_labels : []).some((l) => /_evidence_not_live_supply$/.test(String(l)))).length;
       // ---- the reference's own control inventory, every one of it a typed absence with ITS reason
       const mapPanelTabs = [
         ["Search", "No geographic search index exists on the estate — nothing here can geocode a place name or search by map extent (typed absence)"],
@@ -9897,7 +9902,7 @@ async function handleEstateRequest(req, res, body) {
         ["Zoom out", "Zoom-out is that same missing camera in the other direction: the estate serves no tiles at any zoom level (typed absence)"],
       ].map(([label, reason]) => mgap("mapp-zoom", label, reason)).join("");
       const mapCanvasReason = "No map canvas — NOT an empty map but a MISSING PLANE: the estate has no geospatial plane at all, so there is nothing to pan, zoom, or draw on (typed absence)";
-      const mapFoot = `MAP-1 (remediation v2): the CANVAS-grammar port — the leg where honesty is a REFUSAL to draw. The reference capture was blocked_missing_capture (replay-scoped verdict: absent_confirmed); the owner-authorized live sweep OVERTURNED it and recorded a real geospatial workbench (title "New map" · heading "No layers" · 20 controls · TWO canvas surfaces over a live basemap). TYPED ABSENT here: the canvas itself and every control the reference hangs on it — the estate publishes ${mapRoutes.length} daemon routes and ${mapGeoRoutes.length} are geospatial, re-counted from the daemon\u0027s route index on every render (no coordinates, no geometry, no tiles, no geocoder, no layer store; the field sweep of ${mapReadRoutes.length} param-free GET routes is recorded in the adjudication). A drawn map would have been a fabricated reference, so none is drawn. LIVE here, and deliberately NOT a map: <b>${mapGeoCands.length} of ${mapCands.length}</b> REAL cloud-resource-candidate records carry placement geography (region · location · zone · az) — rendered verbatim with the daemon's own status, coverage_state and risk wording. Also recorded and NAMED but not rendered (one location lane per surface): the provider-operations plane carries the same fields on <b>${mapOpsGeo.length} of ${mapOps.length}</b> operations \u2014 ${mapOpsGeoSim.length} of those ${mapOpsGeo.length} carry the daemon\u0027s own "simulated_control_plane" marker in their evidence. Evidence: reference-seed-adjudications.v1.json#map-port · reference-live-tenant-deep-atlas.v1.json#map (landing) · reference-live-tenant-atlas.v1.json#map. Owner: <a href="/__ioi/environments">Environments</a> · truth: <a href="/__ioi/environments">placement venues + candidates</a> · <a href="/__ioi/operations">provider operations</a>.`;
+      const mapFoot = `MAP-1 (remediation v2): the CANVAS-grammar port — the leg where honesty is a REFUSAL to draw. The reference capture was blocked_missing_capture (replay-scoped verdict: absent_confirmed); the owner-authorized live sweep OVERTURNED it and recorded a real geospatial workbench (title "New map" · heading "No layers" · 20 controls · TWO canvas surfaces over a live basemap). TYPED ABSENT here: the canvas itself and every control the reference hangs on it — the estate publishes ${mapRoutes.length} daemon routes and ${mapGeoRoutes.length} are geospatial, re-counted from the daemon\u0027s route index on every render (no coordinates, no geometry, no tiles, no geocoder, no layer store; the field sweep of ${mapReadRoutes.length} param-free GET routes is recorded in the adjudication). A drawn map would have been a fabricated reference, so none is drawn. LIVE here, and deliberately NOT a map: <b>${mapGeoTotal} of ${mapTotal}</b> REAL cloud-resource-candidate records carry placement geography (region · location · zone · az) — rendered verbatim with the daemon's own status, coverage_state and risk wording. Also recorded and NAMED but not rendered (one location lane per surface): the provider-operations plane carries the same fields on <b>${mapOpsGeo.length} of ${mapOps.length}</b> operations \u2014 ${mapOpsGeoSim.length} of those ${mapOpsGeo.length} carry the daemon\u0027s own "simulated_control_plane" marker in their evidence. Evidence: reference-seed-adjudications.v1.json#map-port · reference-live-tenant-deep-atlas.v1.json#map (landing) · reference-live-tenant-atlas.v1.json#map. Owner: <a href="/__ioi/environments">Environments</a> · truth: <a href="/__ioi/environments">placement venues + candidates</a> · <a href="/__ioi/operations">provider operations</a>.`;
       sendOwnedSurfaceHtml(res, "map", `<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Map</title><style>
         :root{color-scheme:light}*{box-sizing:border-box}body{margin:0;background:#fff;color:#1c2127;font:14px/1.28581 Source-Sans-Pro,Helvetica,sans-serif}a{color:#215db0;text-decoration:none}
         .mapp-shell{display:flex;flex-direction:column;min-height:100vh}
@@ -9976,7 +9981,7 @@ async function handleEstateRequest(req, res, body) {
         </div>
         <div class="mapp-geo">
           <h2 class="mapp-h">Placement geography — the estate's only location-bearing records</h2>
-          <p class="mapp-note">This is <b>NOT a map layer</b> and these are <b>not coordinates</b>. ${mapGeoCands.length} of ${mapCands.length} REAL cloud-resource-candidate records on the estate's placement plane carry a placement-geography field (region · location · zone · az) — coarse provider placement labels that cannot be plotted without a geocoding plane the estate does not have; the other ${mapCands.length - mapGeoCands.length} carry none${mapGeoCands.length > MAPP_GEO_CAP ? `, and the newest ${MAPP_GEO_CAP} of the ${mapGeoCands.length} render below (cap NAMED, never silent)` : ""}. Every row names WHICH field its value came from, so a value is never shown under a header it does not belong to, and every row carries the daemon's own recorded state verbatim — read them: an <b>expired</b> candidate whose evidence the daemon marks <b>not live supply</b> is not a place where anything is running. Read the recorded state before reading the geography: <b>${mapGeoExpired} of ${mapGeoCands.length}</b> of these records are status <b>expired</b> and <b>${mapGeoNotLive}</b> carry a <code>*_evidence_not_live_supply</code> risk label \u2014 the daemon\u0027s own vocabulary, not this surface\u0027s gloss. Rows open the owner surface.</p>
+          <p class="mapp-note">This is <b>NOT a map layer</b> and these are <b>not coordinates</b>. ${mapGeoTotal} of ${mapTotal} REAL cloud-resource-candidate records on the estate's placement plane carry a placement-geography field (region · location · zone · az) — coarse provider placement labels that cannot be plotted without a geocoding plane the estate does not have; the other ${mapTotal - mapGeoTotal} carry none${mapGeoTotal > mapGeoShown.length ? `, and the newest ${mapGeoShown.length} of the ${mapGeoTotal} render below (cap NAMED, never silent)` : ""}. Every row names WHICH field its value came from, so a value is never shown under a header it does not belong to, and every row carries the daemon's own recorded state verbatim — read them: an <b>expired</b> candidate whose evidence the daemon marks <b>not live supply</b> is not a place where anything is running. Read the recorded state before reading the geography: <b>${mapGeoExpired} of the ${mapGeoShown.length}</b> rendered records are status <b>expired</b> and <b>${mapGeoNotLive}</b> carry a <code>*_evidence_not_live_supply</code> risk label \u2014 the daemon\u0027s own vocabulary, not this surface\u0027s gloss. Rows open the owner surface.</p>
           <div class="mapp-thead"><span>Candidate</span><span>Provider</span><span>Placement geography</span><span>Zone / AZ</span><span>Recorded state</span><span>Evidence class</span><span>Observed</span></div>
           ${mapGeoRows || `<div class="mapp-empty">No location-bearing records — this table renders the real placement-candidate plane and never fabricates rows.</div>`}
           <p class="mapp-foot">${mapFoot}</p>

@@ -178,6 +178,20 @@ async function run() {
     chooseCard.status === "advisory" && chooseCard.available === true
     && (chooseCard.candidates || []).some((c) => c.placement_eligible)
     && chooseCard.recommendation?.venue === "use_my_infrastructure");
+  // R-240: the card and every persisted advisory used to embed EVERY candidate ever swept — on the
+  // owner's intent 54,454 of them, 54,421 expired, 220 MB per copy, 327 GB of advisories on disk.
+  // Only ACTIVE candidates can be ranked, so only they are embedded, and the rest are COUNTED.
+  const sel = advisory.candidate_selection || {};
+  ok("the advisory embeds ONLY the cohort it ranks over — active candidates — and counts what it set aside",
+    (advisory.candidates || []).length > 0 && (advisory.candidates || []).every((c) => c.status === "active")
+    && sel.embedded === "active_only" && sel.returned === (advisory.candidates || []).length
+    && sel.returned + sel.set_aside_inactive === advisory.considered
+    && /\/v1\/hypervisor\/cloud-candidates\/candidates\?intent_ref=/.test(sel.history_route || ""),
+    JSON.stringify(sel));
+  ok("the venue card carries the same selection, so a bounded card is never read as the whole plane",
+    (chooseCard.candidates || []).every((c) => c.status === "active")
+    && chooseCard.candidate_selection?.embedded === "active_only"
+    && chooseCard.candidate_selection?.returned === (chooseCard.candidates || []).length);
   const pp = (await jd("GET", "/v1/hypervisor/placement/preview")).j;
   ok("placement preview names advisory + candidate refs BEFORE launch",
     !!pp.advisory && (pp.advisory.candidate_refs || []).length >= 2
