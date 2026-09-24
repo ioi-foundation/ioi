@@ -231,9 +231,13 @@ async function run() {
       await new Promise((r) => setTimeout(r, 500));
       deg = await sGet("/__ioi/home", `http://127.0.0.1:${DEGRADED_PORT}`).catch(() => null);
     }
-    ok("degraded serve reachable", !!deg && deg.status === 200, deg ? `status ${deg.status}` : "never came up");
-    ok("degraded banner names the outage", !!deg && deg.text.includes("home-degraded") && deg.text.includes("Daemon unreachable"));
-    ok("degraded page fabricates nothing", !!deg && deg.text.includes("nothing rather than fixtures"));
+    // With the daemon wholly unreachable the serve's posture admission answers FIRST and fails closed
+    // (it cannot confirm local development), so the page is its 503, not the home's own banner — which
+    // still renders on a partial outage, when admission passes and a later read fails (R-240: this leg
+    // had expected the banner behind a gate that always preempts it).
+    ok("degraded serve reachable and fails closed", !!deg && deg.status === 503, deg ? `status ${deg.status}` : "never came up");
+    ok("degraded page names the outage", !!deg && deg.text.includes("Daemon not answering") && deg.text.includes("The daemon is not answering"));
+    ok("degraded page fabricates nothing", !!deg && deg.text.includes("Nothing is shown rather than a guess") && !deg.text.includes("Welcome back"));
   } finally {
     child.kill("SIGTERM");
   }

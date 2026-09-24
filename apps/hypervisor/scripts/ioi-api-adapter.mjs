@@ -415,9 +415,15 @@ async function handleImpl(pathname, bodyText) {
   // local-constant operator identity is gone; RPCs whose backing record has no daemon route
   // (organization record, ToS, org policy defaults — byte-verified absent from the daemon router)
   // refuse typed until the backend build adds the route.
+  // A SIGNED-OUT CALLER IS NOBODY (R-240). whoami answers an unauthenticated browser with the
+  // deployment's local-operator DISPLAY principal and `authenticated: false`; on a daemon nobody has
+  // bootstrapped that record is the seeded placeholder "John Doe", and the shell greeted every
+  // signed-out visitor as him ("Welcome back, John", the account button). The shell still needs the
+  // principal's id to boot, so the id stays; the name and email a person reads as "you" do not.
   const whoamiPrincipal = async () => {
     const w = await daemon("GET", "/v1/hypervisor/auth/whoami");
-    return w.principal && w.principal.principal_id ? w.principal : null;
+    if (!(w.principal && w.principal.principal_id)) return null;
+    return w.authenticated === true ? w.principal : { ...w.principal, name: "", email: "" };
   };
   const identityRefusal = (e) =>
     /-> 401$/.test(String(e?.message || ""))

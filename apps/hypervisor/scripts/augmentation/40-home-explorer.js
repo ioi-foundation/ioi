@@ -106,7 +106,9 @@
     if (!root) return;
     if (!hbData) { root.innerHTML = '<div class="px-1 text-sm text-content-tertiary" style="padding:24px 4px">Loading daemon truth…</div>'; return; }
     const { appr, fo, ops, led, who } = hbData;
-    const name = who && who.principal && who.principal.name ? String(who.principal.name).split(" ")[0] : "";
+    // Only a signed-in principal is greeted by name — whoami's authenticated:false display principal
+    // is the deployment's placeholder, not the visitor (R-240).
+    const name = who && who.authenticated === true && who.principal && who.principal.name ? String(who.principal.name).split(" ")[0] : "";
     const { rows: govRows, pend, parked, fails } = hbGovernedRows();
     const ledN = led ? (led.entries || []).length : null;
     const allNull = !appr && !fo && !ops && !led;
