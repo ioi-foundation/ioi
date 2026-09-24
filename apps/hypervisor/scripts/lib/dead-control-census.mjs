@@ -62,6 +62,9 @@ export function exerciseFor(el) {
     if (/^javascript:/iu.test(el.href)) return "click";
     return "fetch";
   }
+  // A handle whose cursor says RESIZE is exercised by DRAGGING it: the shell's sidebar handle clicked
+  // moved nothing and read dead, exactly as a clicked text field did before clause 2.
+  if (/^(ew|ns|col|row|e|w|n|s)-resize$/u.test(el.cursor || "")) return "drag";
   if (el.tag === "SELECT") return "select";
   if (el.tag === "TEXTAREA" || (el.tag === "INPUT" && TEXT_TYPES.includes(el.type || ""))) return "type";
   if (el.tag === "INPUT" && (el.type === "checkbox" || el.type === "radio")) return "toggle";
@@ -83,6 +86,7 @@ export function exerciseVerdict(el, outcome) {
   if (moved.length) return { verdict: "alive", why: moved.join(",") };
   const field = ["select", "type", "toggle"].includes(exerciseFor(el));
   if (field && el.formCanSubmit === true) return { verdict: "alive_by_form", why: "its form has an enabled submit" };
+  if (!field && isSelfControl(el)) return { verdict: "self", why: "it points at where you already are" };
   return { verdict: "dead", why: field ? "a field whose change moves nothing and whose form cannot submit" : "activated, and none of the five signals moved" };
 }
 
@@ -102,6 +106,74 @@ export function landingVerdict(link, serveOrigin) {
 // the capture server running it is a browser error page, not even the serve's honest 503.
 export function isRawCaptureHref(abs) {
   try { const u = new URL(abs); return u.port === CAPTURE_PORT; } catch { return false; }
+}
+
+// ---- THE OWNED SHELL (clause 8, R-240) ----------------------------------------------------------
+// The shell is a single-page app, and three things a server-rendered surface never does break the
+// census there unless they are judged here.
+
+// 1. ITS READS ARE POSTS. Connect calls go out as POST /api/<pkg>.v1.<Service>/<Method>; refusing every
+// non-GET would stop the shell booting. A request is a READ when its verb is, or when it is a Connect
+// call whose method NAME is a read — and a read-looking name that carries a write verb is not.
+export const READ_RPC = /^(Get|List|Watch|Check|Resolve|Validate|Parse|Search|Describe|Count|Is|Preview)[A-Z]/u;
+export const WRITE_VERB = /(Create|Update|Delete|Start|Stop|Set|Mark|Reset|Regenerate|Send|Accept|Join|Remove|Revoke|Cancel)/u;
+export function isReadRequest(method, url) {
+  if (["GET", "HEAD", "OPTIONS"].includes(method)) return true;
+  if (method !== "POST") return false;
+  let pathname;
+  try { pathname = new URL(url).pathname; } catch { return false; }
+  const m = /^\/api\/[a-z]+\.v1\.[A-Za-z]+\/([A-Za-z]+)$/u.exec(pathname);
+  return !!m && READ_RPC.test(m[1]) && !WRITE_VERB.test(m[1]);
+}
+
+// 2. IT NEVER GOES QUIET: it polls, streams and animates, so "a request fired" or "a node mutated"
+// would call every control alive. Its signals are measured against the page AT REST — a request is
+// the control's only if its key was not already heard while nobody touched anything, and the DOM
+// moved only if what a person can READ changed (visible text, or an overlay opened or closed). And
+// a menu item is judged against the page BEFORE its menu opened: an item whose only effect is its own
+// menu closing did nothing — the account menu's Support was exactly that, and read as alive.
+export function requestKey(method, url) {
+  try { const u = new URL(url); return `${method} ${u.pathname}`; } catch { return `${method} ${url}`; }
+}
+export function spaSignals(m) {
+  const rest = new Set(m.restKeys || []);
+  return {
+    url: m.urlBefore !== m.urlAfter,
+    dom: m.textBefore !== m.textAfter || m.overlaysBefore !== m.overlaysAfter,
+    network: (m.blocked || 0) > 0 || (m.requestKeys || []).some((k) => !rest.has(k)),
+    state: m.stateMoved === true,
+    other: (m.other || 0) > 0,
+  };
+}
+
+// 3. EVERY PATH ANSWERS 200. The shell serves itself for any route, so fetching a link proves nothing
+// (/changelog answered 200 and rendered "This page doesn't exist"). Its links are CLICKED, and a route
+// the click opened must render something.
+export const SPA_NOT_FOUND = /looked everywhere|this page doesn.t exist/iu;
+export const SPA_MIN_TEXT = 40;
+export function spaLandingVerdict({ urlChanged, text }) {
+  if (!urlChanged) return null;
+  const t = String(text || "").trim();
+  if (t.length < SPA_MIN_TEXT) return { verdict: "bad_landing", why: "the route it opened rendered nothing" };
+  if (SPA_NOT_FOUND.test(t)) return { verdict: "bad_landing", why: "the route it opened is the shell's not-found page" };
+  return null;
+}
+
+// Which same-origin paths does the SHELL answer? Everything the serve does not render itself. A link
+// from a registered surface into one of them is FETCHED as 200 whatever the shell then draws —
+// "Open Workbench" on the Environments surface linked /workspaces/<id>, the shell's not-found page, on
+// every row, and the fetch called it alive. Such a link must be RENDERED and read.
+export const SERVE_RENDERED = /^\/(__ioi|__apps|v1|api|auth|scim|static|assets|changelog|join-organization|ioi-augmentation\.js)(\/|$|\?)/u;
+export function isShellPath(pathname) {
+  const p = String(pathname || "");
+  if (!p.startsWith("/") || SERVE_RENDERED.test(p)) return false;
+  return !/\.[a-z0-9]{2,5}$/iu.test(p); // a file, not a route
+}
+
+// A control that moved nothing because it points at WHERE YOU ALREADY ARE is not dead: the link to the
+// page you are on, the tab already selected. "Login Configuration" in its own settings nav was one.
+export function isSelfControl(el) {
+  return el?.selfLink === true || el?.current === true;
 }
 
 export function censusTotals(rows) {
