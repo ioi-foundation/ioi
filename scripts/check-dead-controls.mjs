@@ -420,7 +420,9 @@ async function liveLeg() {
     const base = `http://127.0.0.1:${port}`;
     serve = spawn(process.execPath, [SERVE_SRC], {
       cwd: APP,
-      env: { ...process.env, PORT: String(port), PRODUCT_UI_PORT: String(uiPort), IOI_PRODUCT_UI_PUBLIC: path.join(APP, "product-ui", "owned", "public") },
+      // The census exercises controls, not sign-in: it browses without an account, so it opts out of
+      // the product's sign-in gate explicitly (R-240).
+      env: { ...process.env, PORT: String(port), PRODUCT_UI_PORT: String(uiPort), IOI_PRODUCT_UI_PUBLIC: path.join(APP, "product-ui", "owned", "public"), IOI_PRODUCT_SIGNIN_REQUIRED: "0" },
       stdio: ["ignore", "pipe", "pipe"],
     });
     const deadline = Date.now() + 60000;

@@ -140,6 +140,7 @@ export function sourceFindings({ gate, lib }) {
   if (!/IOI_HYPERVISOR_DATA_DIR: dataDir/u.test(gate) || !/fs\.mkdtempSync\(/u.test(gate)) f.push("the LIVE leg no longer runs its daemon on a FRESH data directory of its own");
   if (/127\.0\.0\.1:8765|\.ioi\/hypervisor\/data/u.test(gate.replace(/\/\/[^\n]*/gu, ""))) f.push("the LIVE leg names the owner's daemon or data directory");
   if (!/spawn\(process\.execPath, \[SERVE_SRC\]/u.test(gate)) f.push("the LIVE leg no longer starts its own serve");
+  if (!/IOI_PRODUCT_SIGNIN_REQUIRED: "1"/u.test(gate)) f.push("the LIVE leg no longer measures the product with its sign-in gate on");
   if (!/\/__ioi\/bootstrap/u.test(gate) || !/ioi_bootstrap_/u.test(gate)) f.push("the LIVE leg no longer bootstraps its own operator from the daemon's one-boot token");
   if (/fetch\([^)]*\/v1\/hypervisor\/(odk|data-sources)[^)]*method:\s*"POST"/u.test(gate)) f.push("the LIVE leg writes through the daemon API instead of the surface's form");
   if (/fetch\(|readFileSync|Date\.now\(|new Date\(|document\.|window\./u.test(lib)) f.push("the matrix rules reach a browser, a file, a clock or a network");
@@ -221,10 +222,15 @@ async function liveLeg() {
     const base = `http://127.0.0.1:${port}`;
     serve = spawn(process.execPath, [SERVE_SRC], {
       cwd: APP,
-      env: { ...process.env, PORT: String(port), PRODUCT_UI_PORT: String(uiPort), IOI_HYPERVISOR_DAEMON_URL: `http://127.0.0.1:${daemonPort}`, IOI_PRODUCT_UI_PUBLIC: path.join(APP, "product-ui", "owned", "public") },
+      env: { ...process.env, PORT: String(port), PRODUCT_UI_PORT: String(uiPort), IOI_HYPERVISOR_DAEMON_URL: `http://127.0.0.1:${daemonPort}`, IOI_PRODUCT_UI_PUBLIC: path.join(APP, "product-ui", "owned", "public"), IOI_PRODUCT_SIGNIN_REQUIRED: "1" },
       stdio: ["ignore", "pipe", "pipe"],
     });
     await waitFor(`${base}/`, 60000, "this gate's own serve");
+    // The product is measured WITH its sign-in gate on: before anyone exists, a page navigation is
+    // sent to first-run setup, never served to a stranger (R-240).
+    const gated = await fetch(`${base}/projects`, { redirect: "manual", headers: { accept: "text/html" } }).catch(() => null);
+    const gatedTo = gated ? gated.headers.get("location") || "" : "";
+    if (!gated || gated.status !== 302 || !gatedTo.startsWith("/__ioi/bootstrap")) findings.push({ on: "setup", text: `sign-in gate: a signed-out navigation to /projects answered ${gated ? gated.status : "nothing"}${gatedTo ? ` → ${gatedTo}` : ""}, not first-run setup` });
     const token = (daemonOut.match(/ioi_bootstrap_[A-Za-z0-9_-]+/u) || [])[0];
     if (!token) throw new Error("the daemon printed no one-boot bootstrap token");
 

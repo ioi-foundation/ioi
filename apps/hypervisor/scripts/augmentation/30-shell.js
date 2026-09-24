@@ -126,6 +126,60 @@
     }
     if (main.firstElementChild !== bar) main.insertBefore(bar, main.firstElementChild);
   }
+  // The account menu, signed out (R-240). The bundle draws it for a signed-in member whatever the
+  // session says: an empty name header with a user-settings gear, "Organizations" with a blank "?"
+  // row carrying a checkmark, "Join or create an organization", and "Log out" — which signs nobody
+  // out, because nobody is signed in — directly under a rail that says SIGNED OUT. A signed-out
+  // visitor belongs to no organization and has no account to open, so the menu says that, and its
+  // last item is the way in. Patched as the menu mounts, so the member's version never flashes.
+  const SIGNIN_ITEM_ATTR = "data-ioi-signin";
+  function signInHref() { return "/__ioi/login?next=" + encodeURIComponent(location.pathname + location.search + location.hash); }
+  function updateSignedOutAccountMenu() {
+    if (ioiSignedIn !== false) return;
+    const menu = Array.prototype.find.call(document.querySelectorAll('[role="menu"][data-radix-menu-content]'), (m) =>
+      m.querySelector('[data-tracking-id="org-switcher-user-settings"]') || Array.prototype.some.call(m.querySelectorAll('[role="menuitem"]'), (i) => i.textContent.trim() === "Log out"));
+    if (!menu || menu.getAttribute("data-ioi-signedout") === "1") return;
+    menu.setAttribute("data-ioi-signedout", "1");
+    const gear = menu.querySelector('[data-tracking-id="org-switcher-user-settings"]');
+    const header = gear ? gear.parentElement : null;
+    if (header) {
+      const note = document.createElement("div");
+      note.id = "ioi-signedout-menu-head";
+      note.style.cssText = "display:flex;flex-direction:column;gap:2px;padding:2px 0";
+      note.innerHTML = '<span style="font-weight:600">Signed out</span><span style="font-size:12px;opacity:.7">Sign in to see your account and organization</span>';
+      header.replaceChildren(note);
+    }
+    // "Organizations", the organization row and "Join or create an organization" — nothing a signed-out
+    // visitor is a member of or can act on.
+    for (const el of Array.prototype.slice.call(menu.children)) {
+      const isLabel = !el.getAttribute("role") && el.textContent.trim() === "Organizations";
+      const isOrgRow = el.getAttribute("role") === "menuitem" && (el.hasAttribute("aria-current") || /organization/i.test(el.getAttribute("aria-label") || ""));
+      if (isLabel || isOrgRow) el.style.display = "none";
+    }
+    const logout = Array.prototype.find.call(menu.querySelectorAll('[role="menuitem"]'), (i) => i.textContent.trim() === "Log out");
+    if (logout) {
+      logout.setAttribute(SIGNIN_ITEM_ATTR, "1");
+      const label = Array.prototype.find.call(logout.querySelectorAll("*"), (e) => !e.children.length && e.textContent.trim() === "Log out");
+      if (label) label.textContent = "Sign in"; else logout.textContent = "Sign in";
+    }
+    // The separator the hidden organization block leaves doubled.
+    const seps = menu.querySelectorAll(':scope > [role="separator"]');
+    if (seps.length > 1) seps[0].style.display = "none";
+  }
+  // The item keeps the bundle's menu semantics (focus, keyboard) but its action is navigation: every
+  // event Radix would select on is taken before the bundle sees it.
+  ["pointerdown", "pointerup", "click"].forEach((type) => document.addEventListener(type, (e) => {
+    const item = e.target && e.target.closest && e.target.closest("[" + SIGNIN_ITEM_ATTR + "]");
+    if (!item) return;
+    e.preventDefault(); e.stopImmediatePropagation();
+    if (type === "click") window.top.location.assign(signInHref());
+  }, true));
+  document.addEventListener("keydown", (e) => {
+    if ((e.key !== "Enter" && e.key !== " ") || !document.activeElement || !document.activeElement.closest("[" + SIGNIN_ITEM_ATTR + "]")) return;
+    e.preventDefault(); e.stopImmediatePropagation();
+    window.top.location.assign(signInHref());
+  }, true);
+  new MutationObserver(() => updateSignedOutAccountMenu()).observe(document.documentElement, { childList: true, subtree: true });
   function closeApplication() {
     const el = document.getElementById("ioi-open-app");
     if (el) el.style.display = "none";

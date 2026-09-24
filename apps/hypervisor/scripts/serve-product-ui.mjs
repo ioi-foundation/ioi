@@ -8304,6 +8304,38 @@ async function runSurfaceAction(hit, res, body) {
   }
 }
 
+// ---- SIGN-IN GATE (R-240). The product is used by a signed-in person: Sessions, projects and every
+// application are the daemon's to show only to an authenticated principal. A signed-out browser used
+// to get the whole shell anyway — an empty organization, a "Log out" for nobody, and a row under
+// Sessions asking it to sign in — which the owner read, rightly, as broken. Every page navigation
+// now goes to sign-in first (or to first-run setup when no operator exists yet) and comes back to
+// the page it asked for. What a signed-out person must reach stays open: sign-in, setup, joining an
+// organization, the auth callbacks, help, assets and the API (whose own answers are typed refusals).
+// Automation that browses the product without an account opts out explicitly:
+// IOI_PRODUCT_SIGNIN_REQUIRED=0.
+const SIGNIN_REQUIRED = process.env.IOI_PRODUCT_SIGNIN_REQUIRED !== "0";
+const SIGNIN_PUBLIC = /^\/(?:__ioi\/(?:login|logout|bootstrap|join-organization|help|assets)(?:[/?]|$)|join-organization(?:[/?]|$)|auth\/|changelog(?:[/?]|$)|api\/|v1\/|scim\/|static\/|releases\/|__apps\/|ioi-augmentation\.js$)/u;
+async function signInGate(req, res, pathname) {
+  if (!SIGNIN_REQUIRED || req.method !== "GET") return false;
+  if (!String(req.headers.accept || "").includes("text/html")) return false;
+  if (SIGNIN_PUBLIC.test(pathname) || /\.[a-z0-9]{2,5}$/iu.test(pathname)) return false;
+  const who = await daemonFetch("/v1/hypervisor/auth/whoami").then((r) => r.json()).catch(() => null);
+  // The daemon not answering is its own state, and the pages say so ("Daemon not answering").
+  if (!who || who.authenticated === true) return false;
+  const status = await daemonFetch("/v1/hypervisor/auth/bootstrap-status").then((r) => r.json()).catch(() => ({}));
+  const next = (req.url || pathname).startsWith("/") ? (req.url || pathname) : pathname;
+  const target = status.needs_bootstrap === true ? "/__ioi/bootstrap" : `/__ioi/login?next=${encodeURIComponent(next)}`;
+  // An application page inside the shell's frame leaves the frame: sign-in is the whole window.
+  if (req.headers["sec-fetch-dest"] === "iframe") {
+    res.writeHead(200, { "Content-Type": "text/html; charset=utf-8", "Cache-Control": "no-store" });
+    res.end(`<!doctype html><meta charset="utf-8"><title>Sign in</title><script>top.location.assign(${JSON.stringify(status.needs_bootstrap === true ? "/__ioi/bootstrap" : "/__ioi/login?next=")} + ${status.needs_bootstrap === true ? '""' : "encodeURIComponent(top.location.pathname + top.location.search + top.location.hash)"});</script><p>Sign in to continue — <a href="${CX_ESC(target)}" target="_top">sign in</a>.</p>`);
+    return true;
+  }
+  res.writeHead(302, { Location: target, "Cache-Control": "no-store" });
+  res.end();
+  return true;
+}
+
 async function handleEstateRequest(req, res, body) {
     let pathname = (req.url || "").split("?")[0];
     // Wire bridge: the served SPA's RPC package name is baked into its (immutable) protobuf
@@ -8325,6 +8357,7 @@ async function handleEstateRequest(req, res, body) {
     if (remoteAddress && !LOOPBACK_REMOTE_ADDRESSES.has(remoteAddress)) {
       req.headers["x-ioi-forwarded"] ||= "product-shell";
     }
+    if (await signInGate(req, res, pathname)) return;
     // ---- Native container contract (#65): ONE choke point renders the embedded mode for EVERY
     // estate surface — flat handlers and bound modules alike. Any /__ioi/* GET carrying embed=1
     // has its final whole-document HTML rewritten (structural global-rail removal + embed

@@ -111,6 +111,14 @@ const LOCAL_SCOPE = {
   seedTime: "2026-01-01T00:00:00.000Z",
 };
 
+// The organization's name as the daemon knows it: the display name an administrator set, else the
+// name segment of its own ref (`org://local` → "local") — an identifier, never an invented label.
+function orgDisplayName(org) {
+  const set = typeof org.display_name === "string" ? org.display_name.trim() : "";
+  if (set) return set;
+  return String(org.org_ref || "").replace(/^[a-z]+:\/\//u, "");
+}
+
 async function daemon(method, path, body) {
   const headers = currentDaemonHeaders({ includeContentType: Boolean(body) });
   const res = await fetch(DAEMON + path, {
@@ -446,13 +454,15 @@ async function handleImpl(pathname, bodyText) {
     }
   }
   if (pathname === "/api/ioi.v1.AccountService/GetAccount") {
-    // Account = the whoami principal. The membership row carries only structural refs — the
-    // organization display fields (name, tier) are OMITTED, not fabricated: the W0.6 org read
-    // (GET /v1/hypervisor/organization) itself serves display_name null with the gap named.
+    // Account = the whoami principal. The membership row names its organization the way
+    // GetOrganization does (orgDisplayName) — the org switcher and account menu read the name from
+    // HERE, not from GetOrganization, so an omitted name drew every one of them as a blank "?" and
+    // "Personal workspace" even after the organization was named (R-240). Tier stays omitted.
     try {
       const p = await whoamiPrincipal();
       if (!p) return unavailableRpc("identity_principal_unresolved", "whoami returned no principal; no local-constant account is served");
-      return json({ account: { id: p.principal_id, name: p.name || "", avatarUrl: "", email: p.email || "", createdAt: p.created_at || "", updatedAt: p.updated_at || p.created_at || "", memberships: [{ userId: p.principal_id, userRole: p.role === "admin" ? "ORGANIZATION_ROLE_ADMIN" : "ORGANIZATION_ROLE_MEMBER", organizationId: LOCAL_SCOPE.orgId }], publicEmailProvider: false } });
+      const org = await daemon("GET", "/v1/hypervisor/organization").then((r) => r.organization || {}).catch(() => ({}));
+      return json({ account: { id: p.principal_id, name: p.name || "", avatarUrl: "", email: p.email || "", createdAt: p.created_at || "", updatedAt: p.updated_at || p.created_at || "", memberships: [{ userId: p.principal_id, userRole: p.role === "admin" ? "ORGANIZATION_ROLE_ADMIN" : "ORGANIZATION_ROLE_MEMBER", organizationId: LOCAL_SCOPE.orgId, organizationName: orgDisplayName(org) }], publicEmailProvider: false } });
     } catch (e) {
       return identityRefusal(e);
     }
@@ -462,15 +472,33 @@ async function handleImpl(pathname, bodyText) {
   }
   if (pathname === "/api/ioi.v1.OrganizationService/GetOrganization") {
     // Daemon-backed (W0.6 landed GET /v1/hypervisor/organization): projects only what the daemon
-    // persists about the org scope. display_name is null at the daemon with the gap NAMED (no org
-    // display-name/tier record exists), so name renders as honest absence — never the former
-    // "IOI Workspace"/tier constant. tier/createdAt/inviteDomains are omitted (nothing backs them).
+    // persists about the org scope — never the former "IOI Workspace"/tier constant. The name is the
+    // display name an administrator set (PATCH /v1/hypervisor/organization); until one is set it is
+    // the organization's own ref name (`org://local` → "local"). An empty name drew every account
+    // menu and org chip as a blank "?" avatar beside a checkmark (R-240). tier/createdAt/inviteDomains
+    // are omitted (nothing backs them).
     try {
       const r = await daemon("GET", "/v1/hypervisor/organization");
       const org = r.organization || {};
-      return json({ organization: { id: LOCAL_SCOPE.orgId, name: org.display_name || "" } });
+      return json({ organization: { id: LOCAL_SCOPE.orgId, name: orgDisplayName(org) } });
     } catch (e) {
       return daemonRefusalRpc("org_identity_daemon_unavailable", e, `the daemon organization read did not answer (${e.message}); no fabricated organization is served`);
+    }
+  }
+  if (pathname === "/api/ioi.v1.OrganizationService/UpdateOrganization") {
+    // Settings → Organization renames the organization through this call; it had no lane at all, so
+    // "Save" failed for everyone (R-240). Only the display name has a record — invite domains are
+    // managed through domain verification, so a request carrying them is refused by name rather than
+    // having the name saved and the domains silently dropped.
+    if (body.inviteDomains !== undefined && body.inviteDomains !== null) {
+      return jsonStatus(412, { code: "failed_precondition", message: "Not saved: invite domains are managed under Settings → Domain verification, not here." });
+    }
+    try {
+      const r = await daemon("PATCH", "/v1/hypervisor/organization", { display_name: String(body.name || "") });
+      return json({ organization: { id: LOCAL_SCOPE.orgId, name: orgDisplayName(r.organization || {}) } });
+    } catch (e) {
+      if (e.status >= 400 && e.status < 500) return jsonStatus(e.status === 401 ? 401 : e.status === 403 ? 403 : 412, { code: e.status === 401 ? "unauthenticated" : e.status === 403 ? "permission_denied" : "failed_precondition", message: `Not saved: ${e.daemonMessage || e.code || `the daemon refused (${e.status})`}` });
+      return jsonStatus(502, { code: "unavailable", message: `failed to rename the organization: ${e.message}` });
     }
   }
   if (pathname === "/api/ioi.v1.OrganizationService/GetTermsOfService") {

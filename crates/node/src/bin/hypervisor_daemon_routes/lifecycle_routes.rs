@@ -23143,12 +23143,19 @@ pub(crate) async fn handle_organization_get(State(st): State<Arc<DaemonState>>) 
         .find(|record| record["id"].as_str() == Some("custom-domain"))
         .and_then(|record| record["domain"].as_str().map(String::from));
     let invite_configured = load_org_invite(&st.data_dir).is_some();
+    let display_name = organization_display_name(&st.data_dir);
+    let mut gaps = vec![json!(
+        "org://local is the daemon's only organization scope; multi-org records do not exist"
+    )];
+    if display_name.is_none() {
+        gaps.insert(0, json!("no organization display name has been set — an administrator names the organization with PATCH /v1/hypervisor/organization; tier and billing identity have no record"));
+    }
     Json(json!({
         "ok": true,
         "schema_version": "ioi.hypervisor.organization-identity.v1",
         "organization": {
             "org_ref": "org://local",
-            "display_name": Value::Null,
+            "display_name": display_name,
             "custom_domain": custom_domain,
             "verified_domains": verified_domains,
             "domain_verifications_total": domain_verifications.len(),
@@ -23161,12 +23168,95 @@ pub(crate) async fn handle_organization_get(State(st): State<Arc<DaemonState>>) 
             "invite_link_configured": invite_configured,
             "auth_policy_mode": auth_policy(&st.data_dir).get("mode").cloned().unwrap_or(Value::Null)
         },
-        "gaps": [
-            "no org display-name/tier/billing-identity record exists in the daemon — display_name is null because nothing real backs it",
-            "org://local is the daemon's only organization scope; multi-org records do not exist"
-        ],
+        "gaps": gaps,
         "runtimeTruthSource": "daemon-runtime"
     }))
+}
+
+/// The organization's display name, set by an administrator (R-240). Until one is set the read
+/// answers null and names the gap — there was no record at all before, so every surface drew the
+/// organization as a blank avatar.
+const ORGANIZATION_PROFILE_KIND: &str = "organization-profile";
+const ORGANIZATION_DISPLAY_NAME_MAX: usize = 100;
+
+fn organization_display_name(data_dir: &str) -> Option<String> {
+    read_record_dir(data_dir, ORGANIZATION_PROFILE_KIND)
+        .into_iter()
+        .find(|record| record["id"].as_str() == Some(ORGANIZATION_PROFILE_KIND))
+        .and_then(|record| record["display_name"].as_str().map(str::to_string))
+        .filter(|name| !name.is_empty())
+}
+
+/// PATCH /v1/hypervisor/organization {display_name} — name the organization. An authenticated
+/// administrator of `org://local` only; the name is one trimmed line of 1–100 characters, and the
+/// record keeps who set it and when.
+pub(crate) async fn handle_organization_patch(
+    State(st): State<Arc<DaemonState>>,
+    headers: HeaderMap,
+    Json(body): Json<Value>,
+) -> (StatusCode, Json<Value>) {
+    let actor = match require_authenticated_org_admin(&st.data_dir, &headers) {
+        Ok(actor) => actor,
+        Err(response) => return response,
+    };
+    if let Some(object) = body.as_object() {
+        if let Some(unknown) = object.keys().find(|key| key.as_str() != "display_name") {
+            return (
+                StatusCode::BAD_REQUEST,
+                Json(
+                    json!({ "ok": false, "code": "organization_field_unsupported",
+                    "message": format!("'{unknown}' is not a field of an organization update; only display_name can be set") }),
+                ),
+            );
+        }
+    }
+    let name = body
+        .get("display_name")
+        .and_then(Value::as_str)
+        .unwrap_or("")
+        .trim()
+        .to_string();
+    if name.is_empty()
+        || name.chars().count() > ORGANIZATION_DISPLAY_NAME_MAX
+        || name.chars().any(char::is_control)
+    {
+        return (
+            StatusCode::BAD_REQUEST,
+            Json(
+                json!({ "ok": false, "code": "organization_display_name_invalid",
+                "message": format!("display_name must be one line of 1 to {ORGANIZATION_DISPLAY_NAME_MAX} characters") }),
+            ),
+        );
+    }
+    let record = json!({
+        "id": ORGANIZATION_PROFILE_KIND,
+        "org_ref": "org://local",
+        "display_name": name,
+        "updated_at": iso_now(),
+        "updated_by": actor.get("principal_id").cloned().unwrap_or(Value::Null),
+    });
+    if persist_record(
+        &st.data_dir,
+        ORGANIZATION_PROFILE_KIND,
+        ORGANIZATION_PROFILE_KIND,
+        &record,
+    )
+    .is_err()
+    {
+        return (
+            StatusCode::INTERNAL_SERVER_ERROR,
+            Json(
+                json!({ "ok": false, "code": "organization_profile_persistence_failed",
+                "message": "the organization name did NOT commit" }),
+            ),
+        );
+    }
+    (
+        StatusCode::OK,
+        Json(
+            json!({ "ok": true, "organization": { "org_ref": "org://local", "display_name": name } }),
+        ),
+    )
 }
 /// POST /v1/hypervisor/org-invite/accept {invite_id, email, name, password} — provision a member +
 /// issue a session. Fails closed if the invite id doesn't match the current link.

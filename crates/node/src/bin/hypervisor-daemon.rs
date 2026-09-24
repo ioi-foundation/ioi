@@ -4782,7 +4782,8 @@ async fn async_main() -> anyhow::Result<()> {
         // domains, member/IdP posture; absent fields named, never fabricated).
         .route(
             "/v1/hypervisor/organization",
-            get(lifecycle_routes::handle_organization_get),
+            get(lifecycle_routes::handle_organization_get)
+                .patch(lifecycle_routes::handle_organization_patch),
         )
         .route(
             "/v1/hypervisor/org-invite",

@@ -9,6 +9,10 @@ on:
 
 env:
   CARGO_TERM_COLOR: always
+  # The product requires sign-in (R-240): every page navigation goes to /__ioi/login first. Most CI
+  # verifiers browse the product without an account, so the serves CI starts opt out; the gates that
+  # measure sign-in itself (check:cross-surface-propagation) turn it back on for their own serve.
+  IOI_PRODUCT_SIGNIN_REQUIRED: "0"
 
 # Cancel superseded runs of the same ref (e.g. a PR force-push) so stale runs
 # don't pile up. Runners are GitHub-hosted (isolated VMs), so this is queue
