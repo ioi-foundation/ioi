@@ -42,7 +42,7 @@ import { CHG_APP_TILE_URI } from "./changes-assets.mjs";
 import { EVL_APP_TILE_URI, EVL_HERO_URI } from "./evalsuites-assets.mjs";
 import { compileProductSurfaces } from "./surface-compiler.mjs";
 import { SURFACES, bindSurface, boundSurface, boundActionRoute, canonicalSurfaceRoute, embeddableRoutes, surfaceBySlug } from "./surface-registry.mjs";
-import { canonicalTimelineRef, escHtml, GRE1_LIGHT, GRE1_LIGHT_BODY_CSS } from "../surfaces/kit.mjs";
+import { canonicalTimelineRef, escHtml, GRE1_LIGHT, GRE1_LIGHT_BODY_CSS, refusalCodeOf, refusalMessageOf, refusalKind, REFUSAL_LEAD, SIGN_IN_LINK } from "../surfaces/kit.mjs";
 import { readJsonWithDeadline } from "../surfaces/plane-read.mjs";
 import { managerLink, managerResourceLink, objectSetLink, sourcesLink, pipelineNodeLink, lineageLink as semLineageLink, vertexLink as semVertexLink, provenanceReceiptLink, provenanceSetLink, semanticBreadcrumb } from "../surfaces/ontology-context.mjs";
 import { ioiGlobalRailHtml, IOI_GRAIL_CSS } from "../surfaces/chrome.mjs";
@@ -4560,7 +4560,7 @@ function renderChangesPort(proposals, lane, filter) {
 
   const truth = `<div class="chg-truth" id="changes-truth">
       <h6 class="chg-trutht">Improvement-plane truth <span class="chg-truthsub">${all.length} proposal${all.length === 1 ? "" : "s"} · ${pendingReview.length} pending review · ${all.filter((p) => p.state === "approved").length} approved · ${all.filter((p) => p.state === "applied").length} applied · ${archived.length} rejected — real records, nothing invented</span></h6>
-      <p class="chg-truthp">Kinds: ${Object.entries(kinds).map(([k, n]) => `${esc(k)} (${n})`).join(" · ")}. Every row carries its real proof trail — gate posture, approval-request ref, release-control ref, simulation ref/hash. This surface is a <b>read-only projection</b>: proposing, simulating, approving/rejecting, applying and release-gate control all live on the <a href="/__ioi/agent-studio#improvement-proposals">owner surface (Agent Studio) →</a>; nothing here mutates, applies, deploys or releases. Reference: the origin-aligned <a href="http://localhost:9225/workspace/upgrade-assistant/" rel="noopener">Upgrade Assistant capture</a> — the <a href="/__apps/changes">/__apps/changes proxy lane ↗</a> is documented insufficient (renders thin data; #44 sweep evidence). Sort is a named gap (no due dates); rows order by update recency.</p>
+      <p class="chg-truthp">Kinds: ${Object.entries(kinds).map(([k, n]) => `${esc(k)} (${n})`).join(" · ") || "none — the plane holds no proposal"}. Every row carries its real proof trail — gate posture, approval-request ref, release-control ref, simulation ref/hash. This surface is a <b>read-only projection</b>: proposing, simulating, approving/rejecting, applying and release-gate control all live on the <a href="/__ioi/agent-studio#improvement-proposals">owner surface (Agent Studio) →</a>; nothing here mutates, applies, deploys or releases. Reference: the origin-aligned <a href="http://localhost:9225/workspace/upgrade-assistant/" rel="noopener">Upgrade Assistant capture</a> — the <a href="/__apps/changes">/__apps/changes proxy lane ↗</a> is documented insufficient (renders thin data; #44 sweep evidence). Sort is a named gap (no due dates); rows order by update recency.</p>
     </div>`;
 
   const globalRail = ioiGlobalRailHtml({ label: "Upgrade Assistant", href: "/__ioi/improvement/changes", iconUri: CHG_APP_TILE_URI, railVariant: "rv-pipe rv-dsg", viewAll: true, star: false, badges: true, aipGradient: true, acctMuted: true });
@@ -7775,7 +7775,28 @@ async function handleSupervisorStream(route, req, res, body) {
 
 // Owned login surface (Identity & Auth plane). Posts to the daemon auth plane; the session token
 // comes back and is set as an HttpOnly cookie. SSO buttons are injected in Phase 2.
-function loginShell(error, ssoConfigs = []) {
+// WHERE A SIGN-IN RETURNS (R-240). Surfaces now answer a signed-out read with a "Sign in" link; a
+// sign-in that always lands on /ai loses the page that asked. Only a same-origin path is honoured —
+// an absolute or protocol-relative target would make this page an open redirect.
+function safeLoginNext(raw) {
+  const v = String(raw || "");
+  if (!v.startsWith("/") || v.startsWith("//") || v.startsWith("/\\")) return "";
+  try {
+    const u = new URL(v, "http://login.invalid");
+    if (u.origin !== "http://login.invalid" || u.pathname.startsWith("/__ioi/login") || u.pathname.startsWith("/__ioi/bootstrap")) return "";
+    return u.pathname + u.search;
+  } catch { return ""; }
+}
+function loginNextFrom(req, url) {
+  const q = safeLoginNext(url.searchParams.get("next"));
+  if (q) return q;
+  try {
+    const ref = new URL(String(req.headers.referer || ""));
+    if (ref.host === String(req.headers.host || "")) return safeLoginNext(ref.pathname + ref.search);
+  } catch { /* no usable referer */ }
+  return "";
+}
+function loginShell(error, ssoConfigs = [], next = "") {
   const ssoButtons = (ssoConfigs || []).map((c) =>
     `<a class="sso" href="/__ioi/login/sso/${encodeURIComponent(c.sso_id || c.id)}">Sign in with ${String(c.display_name || c.issuer_url || "SSO").replace(/[<>]/g, "")}</a>`
   ).join("");
@@ -7794,6 +7815,7 @@ button{width:100%;margin-top:18px;padding:11px;border:0;border-radius:9px;backgr
 <div class="brand">IOI Hypervisor</div><h1>Sign in</h1>
 <label>Email</label><input name="email" type="email" autocomplete="username" autofocus placeholder="you@org.com">
 <label>Password</label><input name="password" type="password" autocomplete="current-password" placeholder="••••••••">
+${next ? `<input type="hidden" name="next" value="${escHtml(next)}">` : ""}
 <button type="submit">Sign in</button>
 ${error ? `<div class="err">${error}</div>` : ""}
 ${ssoButtons ? `<div class="div"><span>or</span></div>${ssoButtons}` : ""}
@@ -9101,12 +9123,12 @@ async function handleEstateRequest(req, res, body) {
           const r = await daemonFetch(`/v1/hypervisor/auth/login`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ email: form.get("email") || "", password: form.get("password") || "" }) });
           const d = await r.json().catch(() => ({}));
           if (r.ok && d.ok && d.session_token) {
-            res.writeHead(302, { "Set-Cookie": `ioi_session=${d.session_token}; HttpOnly; SameSite=Lax; Path=/; Max-Age=604800`, Location: "/ai" });
+            res.writeHead(302, { "Set-Cookie": `ioi_session=${d.session_token}; HttpOnly; SameSite=Lax; Path=/; Max-Age=604800`, Location: safeLoginNext(form.get("next")) || "/ai" });
             res.end();
             return;
           }
           res.writeHead(401, { "Content-Type": "text/html; charset=utf-8" });
-          res.end(loginShell("Invalid email or password."));
+          res.end(loginShell("Invalid email or password.", [], safeLoginNext(form.get("next"))));
         } catch (e) {
           res.writeHead(502, { "Content-Type": "text/html; charset=utf-8" });
           res.end(loginShell(`Login service unavailable: ${e.message}`));
@@ -9126,7 +9148,7 @@ async function handleEstateRequest(req, res, body) {
       let cfgs = [];
       try { const r = await daemonFetch(`/v1/hypervisor/sso-configurations`); const d = await r.json(); cfgs = d.sso_configurations || []; } catch { /* none */ }
       res.writeHead(200, { "Content-Type": "text/html; charset=utf-8" });
-      res.end(loginShell("", cfgs));
+      res.end(loginShell("", cfgs, loginNextFrom(req, new URL(req.url, "http://x"))));
       return;
     }
     // Operator bootstrap (first run). POST → daemon one-time bootstrap → operator session cookie.
@@ -9684,15 +9706,22 @@ async function handleEstateRequest(req, res, body) {
     // Workbooks = typed absence (no workbook plane).
     if (pathname === "/__ioi/evaluations/insight" && req.method === "GET") {
       const [ms, ss] = await Promise.all([
-        daemonFetch(`/v1/hypervisor/odk/materialized-object-sets`).then((r) => r.json()).catch(() => ({})),
-        daemonFetch(`/v1/hypervisor/odk/saved-object-sets`).then((r) => r.json()).catch(() => ({})),
+        daemonFetch(`/v1/hypervisor/odk/materialized-object-sets`).then(async (r) => ({ http: r.status, ...(await r.json().catch(() => ({}))) })).catch(() => ({ http: 0 })),
+        daemonFetch(`/v1/hypervisor/odk/saved-object-sets`).then(async (r) => ({ http: r.status, ...(await r.json().catch(() => ({}))) })).catch(() => ({ http: 0 })),
       ]);
+      // A plane that refused or did not answer is not an empty plane (R-240): each band names its
+      // own outcome, and a signed-out refusal says "sign in" rather than "unavailable".
+      const insRefusal = (label, body) => {
+        const code = refusalCodeOf(body, body.http);
+        const kind = refusalKind(code, body.http);
+        return `<div class="ins-degraded" title="the daemon's own answer, verbatim">${esc(label)} ${esc(REFUSAL_LEAD[kind])} <code>${esc(code)}</code>${refusalMessageOf(body) ? ` ${esc(refusalMessageOf(body))}` : ""}. This is not an empty list.${kind === "signed_out" ? ` ${SIGN_IN_LINK}` : ""}</div>`;
+      };
       const esc = CX_ESC;
       const msets = ms.materialized_object_sets || [];
       const saved = ss.saved_object_sets || null;
       const savedBand = Array.isArray(saved)
         ? (saved.length ? saved.map((s2) => `<div class="ins-row"><span><b>${esc(s2.name || s2.id)}</b></span><span>${esc(s2.object_type_id || "—")}</span><span>—</span><span>—</span></div>`).join("") : `<div class="ins-note">No saved object sets — real plane, honest empty.</div>`)
-        : `<div class="ins-degraded" title="the daemon's own fail-closed answer, verbatim">saved-object-sets: <code>${esc(ss.code || "unavailable")}</code> — ${esc(ss.message || "the control plane did not answer")} (typed degradation — the plane requires an authenticated principal; nothing is masked)</div>`;
+        : insRefusal("The saved-object-set plane", ss);
       const rows = msets.map((m) => `<a class="ins-row" href="/__ioi/ontology/explorer" title="a REAL materialized object set — explore it on Object Explorer"><span><b>${esc(m.object_type_id || m.id)}</b><code class="ins-ref">${esc(m.id)}</code></span><span>${m.count ?? (m.objects || []).length} object${(m.count ?? (m.objects || []).length) === 1 ? "" : "s"}</span><span><code class="ins-ref">${esc(m.materializing_run_ref || "—")}</code></span><span><code class="ins-ref">${esc(m.capability_lease_plan_ref || "—")}</code></span></a>`).join("");
       const gap = (label, reason) => `<span class="ins-gap" aria-disabled="true" title="${esc(reason)}" data-ioi-disabled-reason="${esc(reason)}">${esc(label)}</span>`;
       const grail = ""; // owner ruling 2026-08-20: railless
@@ -9723,7 +9752,7 @@ async function handleEstateRequest(req, res, body) {
           <h2 class="ins-h">Object sets</h2>
           <p class="ins-note">${msets.length} REAL materialized object set${msets.length === 1 ? "" : "s"} — each with its materializing-run and lease-plan refs (the proof trail).</p>
           <div class="ins-thead"><span>Object type</span><span>Objects</span><span>Materializing run</span><span>Lease plan</span></div>
-          ${rows || `<div class="ins-note">No materialized sets — real plane, honest empty.</div>`}
+          ${rows || (Array.isArray(ms.materialized_object_sets) ? `<div class="ins-note">No materialized sets — real plane, honest empty.</div>` : insRefusal("The materialized-object-set plane", ms))}
           <h3>Saved object sets</h3>
           ${savedBand}
           <p class="ins-foot">EVA-2.build (remediation v2): the Insight landing — Object-sets LIVE over the real ODK planes; Workbooks a typed absence. Evidence: reference-seed-adjudications.v1.json#analysis · reference-family-atlas.v1.json (Workbooks/Object-sets tab states). Family: <a href="/__ioi/evaluations">Evaluations</a> · certified sibling <a href="/__ioi/evaluations/evalsuites">AIP Evals</a>.</p>
@@ -11488,6 +11517,10 @@ async function handleEstateRequest(req, res, body) {
       // COUNT 1 — the DECLARED predicate: a connector-mapping record exists. This is what a
       // "do you have a pipeline?" question answers with if it reads the mapping plane alone.
       const ingDeclared = ingChains.length;
+      // An empty estate has no two records to disagree, so the findings below would assert contradictions
+      // over zero rows (R-240: "The receipt says it answered HTTP 200" with no receipt). Both planes must
+      // have ANSWERED — a refused plane is unknown, not empty.
+      const ingNothingToReconcile = ingBy.data_sources.state === "empty" && ingBy.mappings.state === "empty";
       // COUNT 2 — the MOVED predicate: some record in this chain reports source_contacted:true or
       // registers a materialized object set. A different test over the same six pipelines.
       const ingMoved = ingChains.filter((c) => c.moved);
@@ -11701,7 +11734,10 @@ async function handleEstateRequest(req, res, body) {
                   <p><a href="/__ioi/data/sources">Go to Data Connection Application</a></p></div>`}
             </div>
           </div>
-          <h2 class="ing-h">A self-report is about the record that carries it, never about the estate</h2>
+          ${ingNothingToReconcile
+            ? `<h2 class="ing-h">A self-report is about the record that carries it, never about the estate</h2>
+          <div class="ing-call"><h3>Nothing to reconcile yet</h3><p>Both planes answered and both hold none: <b>0</b> declared sources and <b>0</b> pipelines. The findings this section draws — a source that says it is not wired beside a receipt that says it answered, a mapping that reads <code>ready</code> while holding nothing, a contract list naming contracts that exist — are each a disagreement between two records, and there are no records yet to disagree. They appear here once a source is declared and read.</p></div>`
+            : `          <h2 class="ing-h">A self-report is about the record that carries it, never about the estate</h2>
           <div class="ing-call">
             <h3>The source says it is not wired. The receipt says it answered HTTP 200.</h3>
             <p>Counted from the planes on this render, never pasted. The source plane holds <b>${ingSources.length}</b> declared source${ingSources.length === 1 ? "" : "s"}, and <b>${ingWiredTrue.length}</b> of them carry <code>ingestion.wired: true</code>. Yet <b>${ingContactedSrcIds.size}</b> source${ingContactedSrcIds.size === 1 ? " has" : "s have"} a materializing run reporting <code>execution.source_contacted: true</code>, and <b>${ingRowsLanded}</b> row${ingRowsLanded === 1 ? "" : "s"} landed in <b>${ingSets.length}</b> materialized object set${ingSets.length === 1 ? "" : "s"} carrying a verbatim contact receipt — an endpoint, an HTTP status and an elapsed time.</p>
@@ -11725,7 +11761,7 @@ async function handleEstateRequest(req, res, body) {
             <h3>Two planes, one crossing, opposite answers</h3>
             <p><b>${ingSessDisagree.length}</b> connector session${ingSessDisagree.length === 1 ? "" : "s"} on this render report <code>execution.data_moved: false</code> and <code>rows_extracted: 0</code> while the materializing run ${ingSessDisagree.length === 1 ? "it belongs" : "they belong"} to reports <code>source_contacted: true</code> — and the object set that holds the extracted rows names <b>that same session</b> in its <code>connector_session_ref</code> as the provenance the rows came through. The estate published both records and joins neither.</p>
             <p>This page does not adjudicate between them. It counts what LANDED — from the output records, which are the only ones carrying a verbatim contact receipt — and it names the disagreement here rather than quietly preferring the record that agrees with its own column header. Picking a winner would be this surface deciding a question the estate never answered; hiding it would be worse.</p>
-          </div>
+          </div>`}
           <h2 class="ing-h">The "auto" in HyperAuto — a typed absence, counted from the route index</h2>
           <div class="ing-absent">
             <p>HyperAuto's premise is that connecting a source BUILDS the pipeline. The estate publishes <b>${ingOdkRoutes.length}</b> ODK-family routes and <b>${ingAutoRoutes.length}</b> of them accept a source and return a built chain. Getting from a declared source to a materialized object set is <b>${ingChainVerbs.length}</b> separate authority-crossing POSTs, in order, every one of them confirmed against the daemon's own route index on this render: ${ingChainVerbs.map(([label, p]) => `<b>${esc(label)}</b> <code>${esc(p)}</code>`).join(" → ")}.</p>
