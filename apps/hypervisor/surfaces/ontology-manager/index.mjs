@@ -30,6 +30,10 @@ export async function load(ctx) {
   base.lists.policy_views = base.degraded && base.degraded.policy_views ? null : base.lists.policy_views;
   // The proposal list is scoped by the daemon to the caller; a degraded plane stays NULL so the
   // pane can say "did not answer" rather than render an unanswered read as an empty review queue.
+  // The declared sources an object type can be backed by (R-240: the mapping lane). NULL when the
+  // plane did not answer — the form then says so instead of offering an empty choice.
+  const ds = await createReadClient({ daemon: ctx.daemon }).read("/v1/hypervisor/data-sources");
+  base.lists.data_sources = ds.ok ? (Array.isArray(ds.payload.data_sources) ? ds.payload.data_sources : []) : null;
   const pr = await createReadClient({ daemon: ctx.daemon }).read("/v1/hypervisor/odk/ontology-proposals");
   base.lists.ontology_proposals = pr.ok ? (Array.isArray(pr.payload.ontology_proposals) ? pr.payload.ontology_proposals : []) : null;
   base.vocab = (base.overview && base.overview.odk_vocabulary) || { base_value_types: ["string", "integer", "double", "boolean", "timestamp", "enum"], link_cardinalities: ["one_to_one", "one_to_many", "many_to_many"], action_kinds: ["create_object", "modify_object", "delete_object", "function"] };
@@ -57,6 +61,11 @@ export function render(model, ctx) {
 // object-instance editing, and action/function execution stay disabled named gaps.
 const ONT_AUTHORITY = { plane: "odk.domain-ontology", operation: "POST|PATCH /v1/hypervisor/odk/domain-ontologies" };
 const ONT_RECEIPT = "ioi.hypervisor.odk.ontology-receipt.v1";
+const MAP_ROWS = 16; // properties mappable in one form; more are named, not silently dropped
+const MAP_RECEIPT = "ioi.hypervisor.odk.connector-mapping-receipt.v1";
+// The daemon's source types and which property base types each can feed (connector_mapping_routes.rs
+// value_compatible) — the form offers only a compatible type, so a row cannot be refused for it.
+const SOURCE_TYPES_FOR_BASE = { string: ["string"], markdown: ["string", "json"], enum: ["string"], integer: ["integer"], double: ["double", "integer"], boolean: ["boolean"], timestamp: ["timestamp", "date"], date: ["date"], attachment: ["json"], geo_point: ["json"] };
 const mkAction = (id, fields, extra) => ({ id, method: "POST", route: "/actions/" + id, fields: [...fields, "wallet_approval_grant"], fieldMax: 8192, context: ["ontology"], authority: ONT_AUTHORITY, receipt: ONT_RECEIPT, confirm: false, success: "return-to-surface", refusal: "typed-banner", ...(extra || {}) });
 export const actions = [
   mkAction("create-ontology", ["domain", "version", "description"], { context: [] }),
@@ -71,6 +80,16 @@ export const actions = [
   // ordinary governed mutation against an existing contract: same authority client as every other
   // authoring crossing, no wallet requirement introduced, no second admission path.
   mkAction("create-proposal", ["title", "rationale", "change_domain", "change_version", "change_description"]),
+  // R-240 — ADD A BACKING DATASOURCE. The reference binds a dataset to an object type on the object
+  // type's own Datasources view (harvested read-only from the owner's tenant: a backing-datasource card
+  // and "Add new backing datasource"; each property backed by a column, one the primary key, one the
+  // title). The estate's ConnectorMapping is that binding, receipted and validated by the daemon —
+  // and until this action no surface could author one: three surfaces pointed at each other (CXLIII).
+  // One row per property, as declared fields (the runtime forwards only what an action declares).
+  { ...mkAction("map-backing-datasource", ["object_type_id", "data_source_id", "name", "key_property",
+    ...Array.from({ length: MAP_ROWS }, (_, i) => [`prop_${i}`, `src_${i}`, `typ_${i}`]).flat()]),
+    authority: { plane: "odk.connector-mappings", operation: "POST /v1/hypervisor/odk/connector-mappings" },
+    receipt: MAP_RECEIPT },
 ];
 
 const bounded = (v, max) => (typeof v === "string" ? v.slice(0, max) : "");
@@ -147,6 +166,53 @@ export async function handleAction({ action, fields, daemonFetch, url }) {
   }
   // Every other action edits an existing ontology under optimistic concurrency.
   const ontId = url.searchParams.get("ontology") || fields.ontology || "";
+  if (action.id === "map-backing-datasource") {
+    const cur = await reader.read(`/v1/hypervisor/odk/domain-ontologies/${encodeURIComponent(ontId)}`);
+    const ont = cur.ok && cur.payload && cur.payload.ontology ? cur.payload.ontology : null;
+    if (!ont) return { kind: "refusal", http: 404, code: "odk_ontology_not_found", message: "select an existing ontology first" };
+    const otId = bounded(fields.object_type_id, 64).trim();
+    const ot = ((ont.canonical_object_model || {}).object_types || []).find((t) => t.id === otId);
+    if (!ot) return { kind: "refusal", http: 400, code: "ontology_ref_unresolved", message: `object type '${otId}' not found` };
+    const dataSourceId = bounded(fields.data_source_id, 128).trim();
+    if (!dataSourceId) return { kind: "refusal", http: 400, code: "connector_mapping_data_source_required", message: "choose the data source that backs this object type" };
+    const props = new Set((ot.properties || []).map((p) => p.id));
+    const rows = Array.from({ length: MAP_ROWS }, (_, i) => ({ prop: bounded(fields[`prop_${i}`], 64).trim(), src: bounded(fields[`src_${i}`], 200).trim(), typ: bounded(fields[`typ_${i}`], 32).trim() || "string" }))
+      .filter((r) => r.prop && props.has(r.prop) && r.src);
+    const keyProp = bounded(fields.key_property, 64).trim();
+    const keyRow = rows.find((r) => r.prop === keyProp);
+    const titleRow = rows.find((r) => r.prop === ot.title_property);
+    // Refused HERE by name, so the form keeps its rows and says which one is missing.
+    if (!keyRow) return { kind: "refusal", http: 400, code: "connector_mapping_key_mapping_required", message: "mark one property as the primary key and give it a source field" };
+    if (!ot.title_property) return { kind: "refusal", http: 400, code: "connector_mapping_title_mapping_required", message: "this object type declares no title property — set one under Edit object type first" };
+    if (!titleRow) return { kind: "refusal", http: 400, code: "connector_mapping_title_mapping_required", message: `give the title property '${ot.title_property}' a source field` };
+    if (keyRow === titleRow) return { kind: "refusal", http: 400, code: "connector_mapping_duplicate_target", message: "the primary key and the title must be different properties" };
+    const m = (r) => ({ source_field: r.src, property_id: r.prop, source_type: r.typ, source_cardinality: "one" });
+    const body = {
+      name: bounded(fields.name, 200).trim() || `${ot.name || ot.id} backing datasource`,
+      data_source_id: dataSourceId, ontology_ref: ont.ref || ontId, object_type_id: ot.id,
+      key_mapping: m(keyRow), title_mapping: m(titleRow),
+      field_mappings: rows.filter((r) => r !== keyRow && r !== titleRow).map(m),
+    };
+    // THE MAPPING IS OWNED BY THE CALLER'S ORGANIZATION. The daemon binds exactly one org:// (or
+    // project://) owner and admits only a tenant the caller's own identity authorizes, so the owner is
+    // read from the caller's whoami — never chosen by the form.
+    const who = await reader.read("/v1/hypervisor/auth/whoami");
+    const tenants = (who.ok && who.payload && who.payload.principal && Array.isArray(who.payload.principal.tenant_refs)) ? who.payload.principal.tenant_refs.map(String) : [];
+    const owner = tenants.find((x) => x === "org://local") || tenants.find((x) => x.startsWith("org://")) || tenants.find((x) => x.startsWith("project://"));
+    if (!owner) return { kind: "refusal", http: 403, code: "connector_mapping_owner_ref_required", message: "your sign-in belongs to no organization of this deployment, so the mapping would have no owner — sign in as a member" };
+    body.owner_ref = owner;
+    // The daemon requires an idempotency key so a retried write cannot apply twice. Derived from what
+    // the form SAYS: submitting the same form again replays the one mapping; a changed form is a new one.
+    const { createHash } = await import("node:crypto");
+    body.idempotency_key = `odk-map-${createHash("sha256").update(JSON.stringify(body)).digest("hex")}`;
+    const crossed = await authority.cross("/v1/hypervisor/odk/connector-mappings", {
+      method: "POST",
+      body,
+      grant: fields.wallet_approval_grant,
+      extractReceiptRef: (payload) => (payload && payload.ok === true && payload.connector_mapping ? String(payload.receipt_ref || "") : ""),
+    });
+    return fromCrossing(crossed, (c) => ({ kind: "success", created: c.payload.connector_mapping.id, receipt_ref: c.receipt_ref, redirect: ontologyContextQuery("/__ioi/ontology/manager", { ontology: ontId, section: "object-types", definitionKind: "object-type", definitionId: ot.id }) }));
+  }
   if (action.id === "create-proposal") {
     const title = bounded(fields.title, 200).trim();
     if (!title) return { kind: "refusal", http: 400, code: "odk_field_required", message: "a proposal needs a title — it is how a reviewer finds it" };
@@ -404,6 +470,48 @@ function renderOntologyManagerPort(ov, lists, selectedId, opts) {
   const opt = (list, cur) => list.map((v) => `<option value="${esc(v)}"${v === cur ? " selected" : ""}>${esc(v)}</option>`).join("");
   const RET = `<input type="hidden" name="ontology" value="${esc(oid)}">${sel.embed ? `<input type="hidden" name="embed" value="1">` : ""}`;
   const aForm = (id, inner) => `<form class="og-form" method="post" action="/__ioi/ontology/manager/actions/${id}">${RET}${inner}<button class="og-save" type="submit">Save</button></form>`;
+  // R-240 — THE OBJECT TYPE'S BACKING DATASOURCE: the reference's Datasources view, bound to the
+  // daemon's ConnectorMapping plane. Existing bindings first, then "Add new backing datasource".
+  const backingBlock = (t) => {
+    const plane = lists.connector_mappings;
+    const srcs = lists.data_sources;
+    const srcOf = (id) => (srcs || []).find((d) => d.source_id === id);
+    const mine = (plane || []).filter((x) => x.ontology_ref === selected.ref && x.object_type_id === t.id);
+    const cards = plane === null
+      ? ihint("The connector-mapping plane did not answer, so what backs this object type is unknown — not absent.", true)
+      : mine.length
+        ? mine.map((x) => {
+          const d = srcOf(x.data_source_id);
+          const k = x.key_mapping || {}, ti = x.title_mapping || {};
+          return `<div class="og-dsrc" data-ioi-backing="${esc(x.id)}"><div class="og-dsrc-hd"><a href="${managerResourceLink(oid, "connector-mapping", x.id)}">${esc(x.name || x.id)}</a><span class="om-pill muted">${esc((x.health && x.health.status) || x.status || "declared")}</span></div>` +
+            `<div class="og-dsrc-src">${sourcesLink(x.data_source_id) ? `<a href="${sourcesLink(x.data_source_id)}">${esc(d ? d.name || x.data_source_id : x.data_source_id)}</a>` : esc(x.data_source_id || "—")}${d ? ` · ${esc(d.kind || "")}` : ""}</div>` +
+            `<div class="og-dsrc-map">key <code>${esc(k.property_id || "—")}</code> ← <code>${esc(k.source_field || "—")}</code> · title <code>${esc(ti.property_id || "—")}</code> ← <code>${esc(ti.source_field || "—")}</code> · ${(x.field_mappings || []).length} more field${(x.field_mappings || []).length === 1 ? "" : "s"}</div></div>`;
+        }).join("")
+        : ihint("Nothing backs this object type yet. A backing datasource binds it to a declared source, property by property; the binding is a validated declaration, and nothing is read or moved until a materializing run executes it in the Pipeline.");
+    const props = (t.properties || []);
+    let form;
+    if (srcs === null) form = ihint("The data-source registry did not answer, so there is nothing to choose from — the form is withheld rather than offered empty.", true);
+    else if (!srcs.length) form = ihint(`No data source is declared yet. Declare one in <a href="/__ioi/data/sources?declare=1">Data Connection</a>, then back this object type with it.`);
+    else if (!props.length) form = ihint("This object type has no properties to map yet — add one below first.");
+    else {
+      const newest = srcs.slice().sort((a, b) => String(b.created_at || "").localeCompare(String(a.created_at || ""))).slice(0, 200);
+      const baseOf = (p) => { const v = vts.find((x) => x.id === p.value_type); return (v && v.base) || p.value_type || "string"; };
+      const keyGuess = (props.find((p) => p.id !== t.title_property && /(^id$|_id$)/.test(p.id)) || props.find((p) => p.id !== t.title_property) || {}).id;
+      const rows = props.slice(0, MAP_ROWS).map((p, i) => `<tr><td>${esc(p.name || p.id)} <code>${esc(p.id)}</code>${p.id === t.title_property ? ' <span class="om-pill muted">title</span>' : ""}<input type="hidden" name="prop_${i}" value="${esc(p.id)}"></td>` +
+        `<td><input name="src_${i}" maxlength="200" placeholder="source field" aria-label="Source field for ${esc(p.name || p.id)}"></td>` +
+        `<td><select name="typ_${i}" aria-label="Source type for ${esc(p.name || p.id)}">${opt(SOURCE_TYPES_FOR_BASE[baseOf(p)] || ["string"], "")}</select></td>` +
+        `<td>${p.id === t.title_property ? "" : `<input type="radio" name="key_property" value="${esc(p.id)}"${p.id === keyGuess ? " checked" : ""} aria-label="${esc(p.name || p.id)} is the primary key">`}</td></tr>`).join("");
+      form = `<details class="og-adddsrc"><summary>Add new backing datasource</summary>` + aForm("map-backing-datasource",
+        `<input type="hidden" name="object_type_id" value="${esc(t.id)}">` +
+        `<label class="og-fl">Data source<select name="data_source_id" required><option value="">Choose a declared source…</option>${newest.map((d) => `<option value="${esc(d.source_id)}">${esc(d.name || d.source_id)} · ${esc(d.kind || "")}</option>`).join("")}</select></label>` +
+        (srcs.length > newest.length ? `<div class="og-ihint">The newest ${newest.length} of ${srcs.length} declared sources are offered here.</div>` : "") +
+        `<label class="og-fl">Name<input name="name" maxlength="200" placeholder="${esc(`${t.name || t.id} backing datasource`)}"></label>` +
+        `<table class="og-itable og-maptbl"><thead><tr><th>property</th><th>source field</th><th>source type</th><th>key</th></tr></thead><tbody>${rows}</tbody></table>` +
+        (props.length > MAP_ROWS ? `<div class="og-ihint og-warnhint">This form maps the first ${MAP_ROWS} of ${props.length} properties; the rest stay unmapped.</div>` : "") +
+        `<div class="og-ihint">Give the primary key and the title property a source field; any other property left empty is not mapped.</div>`) + `</details>`;
+    }
+    return cards + form;
+  };
   const otOptions = ots.map((t) => t.id);
   const findOt = (id) => ots.find((t) => t.id === id);
   // Resolve the selected definition to a real record (or null → honest fail-closed inspector).
@@ -468,6 +576,8 @@ function renderOntologyManagerPort(ov, lists, selectedId, opts) {
         irow("links", lts.filter((l) => l.from === t.id || l.to === t.id).map((l) => `<a href="${defHref("link-type", l.id, { section: "link-types" })}">${esc(l.name || l.id)}</a>`).join(", ") || "none"),
         irow("actions", ats.filter((a) => a.applies_to === t.id).map((a) => `<a href="${defHref(a.kind === "function" ? "function" : "action-type", a.id)}">${esc(a.name || a.id)}</a>`).join(", ") || "none"),
         irow("open in", `<a href="${objectTypeLink(oid, t.id)}">Explorer</a> · <a href="${pipelineNodeLink(oid, "mapping")}">Pipeline</a>`),
+        `<h4 class="og-fhd">Backing datasource</h4>`,
+        backingBlock(t),
         `<h4 class="og-fhd">Edit object type</h4>`,
         aForm("upsert-object-type", `<input type="hidden" name="def_id" value="${esc(t.id)}"><label class="og-fl">Name<input name="name" maxlength="200" value="${esc(t.name || "")}" required></label><label class="og-fl">Description<input name="description" maxlength="2000" value="${esc(t.description || "")}"></label><label class="og-fl">Title property<select name="title_property"><option value="">— none —</option>${opt(props.map((p) => p.id), t.title_property || "")}</select></label>`),
         `<h4 class="og-fhd">Add a property</h4>`,
@@ -758,6 +868,8 @@ function renderOntologyManagerPort(ov, lists, selectedId, opts) {
     .ioi-ref{font-family:ui-monospace,monospace;font-size:10.5px;background:#f1f3f6;border-radius:3px;padding:1px 4px;word-break:break-all}
     .og-ihint{margin:6px 0 10px;padding:8px 10px;border:1px solid #e5e7eb;border-radius:6px;background:#f7f8fa;color:#5b6270;font-size:11.5px;line-height:1.55}
     .og-warnhint{border-color:#e8c48d;background:#fdf7ec;color:#935610}
+    .og-dsrc{border:1px solid #e2e4e8;border-radius:6px;padding:8px 10px;margin:0 0 8px;font-size:11.5px;line-height:1.5}.og-dsrc-hd{display:flex;justify-content:space-between;gap:8px;font-weight:600}.og-dsrc-src,.og-dsrc-map{color:#5f6b7c}
+    .og-adddsrc{margin:0 0 12px}.og-adddsrc>summary{cursor:pointer;color:#215db0;font-size:12px;font-weight:600;padding:4px 0}.og-maptbl input,.og-maptbl select{width:100%;font-size:11.5px}
     .og-itable{border-collapse:collapse;width:100%;font-size:11.5px;margin:0 0 10px}.og-itable th{text-align:left;color:#7b8494;font-weight:600;padding:3px 8px 3px 0;border-bottom:1px solid #e2e4e8}.og-itable td{padding:3px 8px 3px 0;border-bottom:1px solid #f0f1f4}
     .og-fhd{font-size:12px;margin:14px 0 8px;color:#1c2127}
     .og-form{display:flex;flex-direction:column;gap:8px;border:1px solid #e5e7eb;border-radius:8px;padding:10px;background:#fbfcfd;margin:0 0 10px}
