@@ -7746,10 +7746,13 @@ function rewriteDeadDocs(js) {
 // Enterprise tier" ever since — over lanes the daemon already serves: SSO configurations, custom
 // domain, domain verification, the organization invite link and SCIM provisioning, each a real
 // adapter→daemon route (an RPC the adapter does not own refuses typed; nothing falls to a mock). The
-// gate is lifted in exactly these two chunks. Pages whose lanes are NOT proven (OIDC tokens,
-// organization secrets, billing) keep theirs.
-const TIER_GATE_LIFTED_RE = /^\/static\/assets\/(LoginAndSecurityPage|SCIMPage)-[A-Za-z0-9_-]+\.js$/;
-const TIER_GATE_CHECK = /\b[A-Za-z_$][\w$]*\.tier === [A-Za-z_$][\w$]*\.ENTERPRISE/g;
+// gate is lifted in exactly these chunks. Organization Secrets joined them once its lane was driven:
+// list, create, update and delete are adapter→daemon routes (/v1/hypervisor/secrets). Pages whose
+// lanes are NOT proven (OIDC tokens, billing) keep theirs.
+const TIER_GATE_LIFTED_RE = /^\/static\/assets\/(LoginAndSecurityPage|SCIMPage|OrganizationSecretsPage)-[A-Za-z0-9_-]+\.js$/;
+// `?.` included: Organization Secrets writes `e?.tier === v.ENTERPRISE`, which the plain `.tier`
+// pattern never matched, so lifting its chunk changed nothing (measured, R-240).
+const TIER_GATE_CHECK = /\b[A-Za-z_$][\w$]*\??\.tier === [A-Za-z_$][\w$]*\.ENTERPRISE/g;
 // Where the truth for a documentation topic lives in THIS deployment, when anywhere.
 const HELP_SURFACES = [
   [/^docs\/ioi\/editors/, "/__ioi/workbench#editor-targets", "the editor registry — every editor with its probed availability on this host, and why an editor is or is not offered"],
