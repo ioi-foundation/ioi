@@ -973,5 +973,8 @@ function designerClient() {
   requestAnimationFrame(() => { renderEdges(); if (S.g.nodes.length) fit(); else applyView(); });
   if (BOOT.notice) toast(BOOT.notice.kind === "ok" ? "ok" : "err", BOOT.notice.text);
   if (BOOT.panel) openPanel(BOOT.panel);
+  // A refused save answers the POST itself; the address goes back to the diagram's own, so a reload
+  // cannot re-submit (the unsaved drawing is still guarded by the leave warning).
+  if (history.replaceState && /\/diagram\/save$/.test(location.pathname)) history.replaceState(null, "", S.bp ? `/__ioi/studio/designer/diagram?bp=${encodeURIComponent(S.bp.id)}` : "/__ioi/studio/designer/diagram");
   if (history.replaceState && /[?&]saved=1/.test(location.search)) history.replaceState(null, "", location.pathname + location.search.replace(/([?&])saved=1(&|$)/, (m, a, b) => (b ? a : "")));
 }

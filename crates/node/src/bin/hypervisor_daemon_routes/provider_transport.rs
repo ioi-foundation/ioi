@@ -2254,9 +2254,17 @@ pub(crate) async fn handle_model_route_invoke(
         );
     }
 
+    // THE ANSWER GOES TO ITS CALLER AND NOWHERE ELSE (R-240). The record keeps the output's HASH,
+    // never its text, so a person who ran an inference had no way to read what the model said. The
+    // text rides on this reply only — it is never persisted — and a replay, which spends no provider
+    // call, answers without it.
+    let output = match &result {
+        Ok(success) => Value::String(success.output.clone()),
+        Err(_) => Value::Null,
+    };
     (
         http_status,
-        Json(json!({ "ok": outcome_state == "succeeded", "invocation": record })),
+        Json(json!({ "ok": outcome_state == "succeeded", "invocation": record, "output": output })),
     )
 }
 

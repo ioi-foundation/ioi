@@ -1128,7 +1128,7 @@ function renderAutomationDetail(a, runs, projectsById, webhook) {
     ${canvasScript}`;
   return automationsShell(a.name || "Automation", inner);
 }
-function renderAutomationNewForm(projectId, projects) {
+function renderAutomationNewForm(projectId, projects, schedule = "manual") {
   const opts = (projects || []).map((p) => `<option value="${CX_ESC(p.project_id)}"${p.project_id === projectId ? " selected" : ""}>${CX_ESC(p.name || p.project_id)}</option>`).join("");
   const tzOptions = ["UTC", "-08:00", "-07:00", "-06:00", "-05:00", "-04:00", "+01:00", "+02:00", "+05:30", "+08:00", "+09:00", "+10:00"]
     .map((z) => `<option value="${z}">${z === "UTC" ? "UTC (+00:00)" : "UTC" + z}</option>`).join("");
@@ -1143,9 +1143,9 @@ function renderAutomationNewForm(projectId, projects) {
       <div class="field"><label>Description</label><input name="description" placeholder="What this automation does"></div>
       <div class="field"><label>Schedule</label>
         <select name="schedule_type" id="ioi-sched-type" onchange="ioiSchedToggle()">
-          <option value="manual">Manual only</option>
-          <option value="interval">Interval</option>
-          <option value="cron">Cron</option>
+          <option value="manual"${schedule === "manual" ? " selected" : ""}>Manual only</option>
+          <option value="interval"${schedule === "interval" ? " selected" : ""}>Interval</option>
+          <option value="cron"${schedule === "cron" ? " selected" : ""}>Cron</option>
         </select>
       </div>
       <div id="ioi-sched-interval" style="display:none">
@@ -1183,6 +1183,7 @@ function renderAutomationNewForm(projectId, projects) {
     </form>
     <script>
       function ioiSchedToggle(){var t=document.getElementById('ioi-sched-type').value;document.getElementById('ioi-sched-interval').style.display=(t==='interval')?'block':'none';document.getElementById('ioi-sched-cron').style.display=(t==='cron')?'block':'none';}
+      ioiSchedToggle();
       function ioiCronPreview(){var c=document.getElementById('ioi-cron-expr').value.trim(),tz=document.getElementById('ioi-cron-tz').value,el=document.getElementById('ioi-cron-preview');if(!c){el.textContent='enter a cron expression…';return;}fetch('/__ioi/automations/cron-preview?cron='+encodeURIComponent(c)+'&tz='+encodeURIComponent(tz)+'&n=3').then(function(r){return r.json();}).then(function(d){el.textContent=d.ok?('next: '+d.runs.join('  ·  ')):('⚠ '+d.error);}).catch(function(){el.textContent='preview unavailable';});}
     </script>`;
   return automationsShell("New automation", inner);
@@ -1356,7 +1357,7 @@ function renderEvaluations(suites, suiteOv, subjects, foundryEvalSpecs, feedback
   // Declare form — inert: it records a DECLARATION (no run button, no scoring).
   const checks = (name, opts, cls) => opts.map((o) => `<label style="display:inline-flex;align-items:center;gap:4px;margin:0 10px 4px 0;font-size:12px;color:#c7c9d1"><input type="checkbox" name="${name}" value="${o}"> ${CX_ESC(o)}${cls === "consent" && o === "never_train" ? " ⚠" : ""}</label>`).join("");
   const form = `<details style="margin:0 0 16px"><summary style="cursor:pointer;color:#9ea1ab;font-size:13px">Declare an eval suite <span class="sub" style="margin:0">(inert — records what would be assessed; no scoring/execution)</span></summary>
-    <form method="post" action="/__ioi/evaluations"><div class="card" style="display:block;margin-top:8px">
+    <form method="post" action="/__ioi/evaluations" id="new-suite"><div class="card" style="display:block;margin-top:8px">
     <div class="field"><label>Name (required)</label><input name="name" style="width:100%;padding:8px 10px;border-radius:8px;border:1px solid #2a2c33;background:#0e0f13;color:#e6e7ea;font:inherit" placeholder="e.g. Failed-run triage rubric v1"></div>
     <div class="field"><label>Subject scope (required — the real subject kinds this suite assesses)</label><div>${checks("subject_scope", subjectKinds, "subject")}</div></div>
     <div class="field"><label>Consent requirements (required — admissible evidence-eligibility rungs; never_train alone fails closed)</label><div>${checks("consent_requirements", ladder, "consent")}</div></div>
@@ -4474,7 +4475,7 @@ function renderEvalsuitesPort(suitesJson) {
       <div class="evl-truthcol"><h3>By health <span class="evl-meta">(declared-completeness)</span></h3><div class="evl-chips">${chips(byHealth)}</div><h3 style="margin-top:12px">By status</h3><div class="evl-chips">${chips(byStatus)}</div></div>
       <div class="evl-truthcol"><h3>Declared suites <span class="evl-meta">(${list.length}, full records)</span></h3>${list.length ? `<ul>${list.slice(0, 8).map(suiteDetail).join("")}</ul>${list.length > 8 ? `<p class="evl-gapnote">…and ${list.length - 8} more on the substrate.</p>` : ""}` : `<p class="evl-gapnote">No suites declared — honest empty, nothing fabricated.</p>`}</div>
     </div>
-    <p class="evl-foot">Unsupported reference lanes — New evaluation suite here, favorites, marketplace example installs — are <b>named gaps disabled in place</b>, never hidden. Sibling reference ports: <a href="/__ioi/evaluations/insight">Insight →</a> · <a href="/__ioi/evaluations/quiver">Quiver →</a>. Suites are declared/edited on the <a href="/__ioi/evaluations">Evaluations owner surface →</a> (with the consent ladder + feedback candidate source at <a href="/__ioi/feedback">Feedback &amp; Annotations</a>); assessment subjects come from real Missions runs/failures/blockers. Reference: the origin-aligned <span class="ref-capture" title="Reference capture — development evidence only; this deployment does not serve it">AIP Evals capture (<code>http://localhost:9225/workspace/evals/</code>)</span> — the <a href="/__apps/evalsuites">/__apps/evalsuites proxy lane ↗</a> is documented insufficient (renders no data; #44 sweep evidence).</p>
+    <p class="evl-foot"><b>New evaluation suite</b> opens the suite form on the Evaluations owner surface. Unsupported reference lanes — favorites, marketplace example installs — are <b>named gaps disabled in place</b>, never hidden. Sibling reference ports: <a href="/__ioi/evaluations/insight">Insight →</a> · <a href="/__ioi/evaluations/quiver">Quiver →</a>. Suites are declared/edited on the <a href="/__ioi/evaluations">Evaluations owner surface →</a> (with the consent ladder + feedback candidate source at <a href="/__ioi/feedback">Feedback &amp; Annotations</a>); assessment subjects come from real Missions runs/failures/blockers. Reference: the origin-aligned <span class="ref-capture" title="Reference capture — development evidence only; this deployment does not serve it">AIP Evals capture (<code>http://localhost:9225/workspace/evals/</code>)</span> — the <a href="/__apps/evalsuites">/__apps/evalsuites proxy lane ↗</a> is documented insufficient (renders no data; #44 sweep evidence).</p>
   </section>`;
 
   const globalRail = ioiGlobalRailHtml({ label: "AIP Evals", href: "/__ioi/evaluations/evalsuites", iconUri: EVL_APP_TILE_URI, railVariant: "rv-pipe rv-dsg", viewAll: true, star: false, badges: true, aipGradient: true, acctMuted: true });
@@ -4483,7 +4484,7 @@ function renderEvalsuitesPort(suitesJson) {
     <span class="evl-hchip" aria-hidden="true"></span>
     <h1 class="evl-htitle">AIP Evals</h1>
     <div class="evl-hright">
-      <span class="evl-hbtn success gap" aria-disabled="true" title="Suite authoring from this surface is a reference-only lane — suites are declared on the Evaluations substrate (named gap)" data-ioi-disabled-reason="Suite authoring from this surface is a reference-only lane — suites are declared on the Evaluations substrate (named gap)">${bpIcon("plus")}<span>New evaluation suite</span></span>
+      <a class="evl-hbtn success" href="/__ioi/evaluations#new-suite" title="Declare a suite on the Evaluations owner surface">${bpIcon("plus")}<span>New evaluation suite</span></a>
       <span class="evl-hbtn outlined gap" aria-disabled="true" title="Reference help lane (named gap)" data-ioi-disabled-reason="Reference help lane (named gap)"><span>Help</span>${bpIcon("help")}</span>
     </div>
   </header>`;
@@ -8433,8 +8434,8 @@ async function handleEstateRequest(req, res, body) {
     const FAMILY_LANDINGS = {
       "/data": { title: "Data", hero: "Supply the world-model — the Data family's shipped surfaces over real daemon truth.", newLabel: "New source", newHref: "/__ioi/data/sources?declare=1", newTitle: "Declare a data source — the governed receipted lane on Data Connection", rows: [["Data Connection", "sources · syncs (live materializing-runs lane) · governed declare", "/__ioi/data/sources"], ["Pipeline Builder", "the certified pipeline canvas (atlas-verified interaction)", "/__ioi/pipeline"], ["HyperAuto", "the ingestion CHAIN joined end to end — each stage's own claim beside what the chain actually did", "/__ioi/data/ingest"]] },
       "/ontology": { title: "Ontology", hero: "The semantic world-model — the Ontology family's certified surfaces.", newLabel: "New object type", newHref: "/__ioi/ontology/manager", newTitle: "Author types on the certified Ontology Manager", rows: [["Ontology Manager", "types · functions · health · history (certified)", "/__ioi/ontology/manager"], ["Object Explorer", "objects · saved sets · exploration (certified)", "/__ioi/ontology/explorer"], ["ODK plane", "the composition substrate (ontologies · recipes · descriptors)", "/__ioi/odk"]] },
-      "/studio": { title: "Studio", hero: "Compose systems & agents — the Studio family in the Designer grammar; the agent estate and composition truth live one row away.", newLabel: "New Diagram", newGapReason: "In-canvas authoring is the adjudicated later authority-crossing cut (reference-seed-adjudications.v1.json#designer, portable-backlogged); browse the certified canvas meanwhile", rows: [["Solution Designer", "the certified light canvas over real ODK composition truth", "/__ioi/studio/designer"], ["Machinery", "certified state-machine definitions (definition-only boundary)", "/__ioi/studio/machinery"], ["Workshop", "the D6 combined-seed app over domain-apps + surface descriptors", "/__ioi/studio/workshop"], ["Agent Studio", "the agent estate — agents · model routes · launch policies (owner surface)", "/__ioi/agent-studio"], ["Blueprints & system-design map", "content-addressed composition drafts + the design map (legacy workbench views)", "/__ioi/studio/workbench?view=blueprints"]] },
-      "/developer-workspace": { title: "Workbench", hero: "The developer workbench — workspaces, documents, and repository bindings over real planes.", newLabel: "New workspace", newGapReason: "Workspace creation is the governed environment ladder (owner surface); named gap", rows: [["Code Workspaces", "the real environments plane (newest 15, cap named)", "/__ioi/developer-workspace/workspaces"], ["Notepad", "landing over a typed-absent document plane", "/__ioi/developer-workspace/notepad"], ["Code Repositories", "the real SCM connector bindings (donor-ported)", "/__ioi/developer-workspace/repositories"]] },
+      "/studio": { title: "Studio", hero: "Compose systems & agents — the Studio family in the Designer grammar; the agent estate and composition truth live one row away.", newLabel: "New Diagram", newHref: "/__ioi/studio/designer/diagram", newTitle: "Draw a new solution design diagram", rows: [["Solution Designer", "the certified light canvas over real ODK composition truth", "/__ioi/studio/designer"], ["Machinery", "certified state-machine definitions (definition-only boundary)", "/__ioi/studio/machinery"], ["Workshop", "the D6 combined-seed app over domain-apps + surface descriptors", "/__ioi/studio/workshop"], ["Agent Studio", "the agent estate — agents · model routes · launch policies (owner surface)", "/__ioi/agent-studio"], ["Blueprints & system-design map", "content-addressed composition drafts + the design map (legacy workbench views)", "/__ioi/studio/workbench?view=blueprints"]] },
+      "/developer-workspace": { title: "Workbench", hero: "The developer workbench — workspaces, documents, and repository bindings over real planes.", newLabel: "New workspace", newHref: "/ai#new-session", newTitle: "A workspace is an environment — New Session creates one through the governed environment ladder", rows: [["Code Workspaces", "the real environments plane (newest 15, cap named)", "/__ioi/developer-workspace/workspaces"], ["Notepad", "landing over a typed-absent document plane", "/__ioi/developer-workspace/notepad"], ["Code Repositories", "the real SCM connector bindings (donor-ported)", "/__ioi/developer-workspace/repositories"]] },
     };
     if (FAMILY_LANDINGS[pathname] && req.method === "GET") {
       const fl = FAMILY_LANDINGS[pathname];
@@ -9869,7 +9870,8 @@ async function handleEstateRequest(req, res, body) {
       const projectId = automationProjectParam(req.url);
       const pRes = await daemonFetch(`/v1/hypervisor/projects`).then((r) => r.json()).catch(() => ({}));
       res.writeHead(200, { "Content-Type": "text/html; charset=utf-8", "Cache-Control": "no-cache" });
-      res.end(renderAutomationNewForm(projectId, pRes.projects || []));
+      const schedPreset = new URL(req.url, "http://x").searchParams.get("schedule");
+      res.end(renderAutomationNewForm(projectId, pRes.projects || [], ["manual", "interval", "cron"].includes(schedPreset) ? schedPreset : "manual"));
       return;
     }
     if (pathname === "/__ioi/automations/cron-preview" && req.method === "GET") {
@@ -10113,7 +10115,10 @@ async function handleEstateRequest(req, res, body) {
         slug: "developer-workspace/workspaces", routeOverride: pathname, title: "Code Workspaces",
         appTileUri: DSG_APP_TILE_URI, chipTintRgba: "rgba(45,114,210,.08)",
         newLabel: "New workspace",
-        newGapReason: "Workspace creation is the governed environment ladder (New Environment on the owner surface) — not re-minted here; the reference create lanes are dead in the reference replay (atlas); named gap",
+        // A workspace IS an environment, created by New Session through the governed ladder: the
+        // button goes there instead of explaining that it could (R-240).
+        newHref: "/ai#new-session",
+        newTitle: "A workspace is an environment — New Session creates one through the governed environment ladder",
         heroTitle: "Code Workspaces",
         heroDesc: `The estate's REAL workspace substrate — ${envs.length} environment record${envs.length === 1 ? "" : "s"}; the newest 15 render below (cap named, never silent).`,
         columns: ["Workspace", "Class", "Status", "Created"],
@@ -10346,7 +10351,7 @@ async function handleEstateRequest(req, res, body) {
             ${tabLink("Data Catalog", "/__ioi/domain-apps/fusion?tab=data-catalog", fusTab === "data-catalog")}
             ${fgap("fus-tab", "Trash", "No soft-delete/trash plane exists on the estate — deletion is a governed verb on the owner surface with no recoverable bin behind it (typed absence)")}
           </nav>
-          <div class="fus-hright">${fgap("fus-new", "+ New", "Project creation is the governed estate ladder on its owner surface (Projects / Work · New session) — a ported read landing never re-mints an authority-crossing verb (typed absence)")}</div>
+          <div class="fus-hright"><a class="fus-new" href="/projects?new=1" target="_top" title="Create a project — opens New project on Projects, the owner surface">+ New</a></div>
         </header>
         <div class="fus-body">
           ${fusTab === "data-catalog" ? catalogBody : allFilesBody}
@@ -10825,7 +10830,7 @@ async function handleEstateRequest(req, res, body) {
               ${rgap("rgy-tchip", "✕ —", "The reference's third counter tallies artifact operations that FAILED; the estate's nearest plane, artifact-availability-incidents, is published POST-only and cannot be read at all — a 0 here would convert an unreadable plane into a clean bill of health (typed absence)")}
             </span>
             ${rgap("rgy-chip", "Help", "No help or in-product documentation plane exists on the estate — the reference's Help control opens vendor-hosted guidance this estate has no binding to, and borrowing one would imply an authority relationship that does not exist (typed absence)")}
-            ${rgap("rgy-create", "+ Create artifact repository", "Repository creation is a REAL estate verb and it is NOT missing — it lives on the Packages owner surface as candidate admission (POST /v1/hypervisor/packages, identity-first, owner-scoped, idempotency-keyed). This is a read-only projection and a ported read landing never re-mints another surface's authority-crossing verb: open Packages to run it (typed absence by DESIGN, not by gap)")}
+            <a class="rgy-create" href="/__ioi/packages/registry#catalog" title="Repository creation is candidate admission on Packages, the owner surface — this opens it">+ Create artifact repository</a>
           </div>
         </header>
         <section class="rgy-hero">
@@ -11456,8 +11461,8 @@ async function handleEstateRequest(req, res, body) {
       // landing whose result set is EMPTY; every control it offers is answered here with the
       // estate lane that binds it or the typed refusal that does not.
       const schControls = [
-        { ref: "Create schedule", bound: false,
-          copy: `Refused by DESIGN, not by gap. The estate mints no schedule OBJECT: a schedule is a <code>schedule_spec</code> field on an automation record, so "create a schedule" is "create or patch an automation" — <code>POST /v1/hypervisor/automations</code> (which refuses with the daemon's own typed <code>automation_project_ref_required</code> unless a project is declared, because the project is the automation's durable container) or <code>PATCH /v1/hypervisor/automations/:id</code>. Both are owned by <a href="/__ioi/automations">Automations</a> and a read-only projection never re-mints another surface's authority-crossing verb.`,
+        { ref: "Create schedule", bound: true, field: "POST /v1/hypervisor/automations · schedule_spec",
+          copy: `Bound: a schedule is a <code>schedule_spec</code> field on an automation, so Create schedule opens <a href="/__ioi/automations/new?schedule=cron">New automation</a> with a cron schedule selected — the automation is created, and the schedule with it, by the automations plane.`,
           gap: ["Create schedule", "The reference's Create-schedule button opens a schedule authoring flow. The estate has no schedule object to create: a schedule is a schedule_spec FIELD on an automation, so the real verbs are POST /v1/hypervisor/automations (refused with the typed code automation_project_ref_required unless a project_ref is declared — the project is the automation's durable container) and PATCH /v1/hypervisor/automations/:id, both owned by Automations. Minting a create form here would be a second mutation spine over someone else's plane (typed absence by DESIGN)"] },
         { ref: "Set search parameters", bound: false,
           copy: `The reference's search-parameter panel builds a server-side query. The daemon's automations route accepts NO query parameters at all — this surface reads the whole plane and counts it — so a parameter panel here could only ever filter a set that is already fully rendered, while looking like it had asked the plane a question.`,
@@ -11569,7 +11574,7 @@ async function handleEstateRequest(req, res, body) {
               <span class="sch-tchip" data-ioi-tray="fired_dispatches" title="dispatches the loop fired on its LAST TICK ONLY — a ${esc(String(schPosture.tick_interval_secs ?? schHeart.tick_interval_secs ?? "?"))}-second window, NOT a lifetime total. The estate keeps no lifetime dispatch counter; the fires themselves live on the work ledger and are rendered by Builds">✓ <b>${schNum(schHeart.fired_dispatches) === null ? "—" : schNum(schHeart.fired_dispatches)}</b></span>
               <span class="sch-tchip" data-ioi-tray="misfire_skips" title="occurrences the loop skipped on its LAST TICK ONLY because the automation was already at its concurrency cap — the same single-tick window as the dispatch counter beside it, and not a running total of missed fires">✕ <b>${schNum(schHeart.misfire_skips) === null ? "—" : schNum(schHeart.misfire_skips)}</b></span>
             </span>
-            ${sgap("sch-chip", "＋ Create schedule ↗", schControls[0].gap[1])}
+            <a class="sch-chip" href="/__ioi/automations/new?schedule=cron" title="A schedule is an automation's trigger — this opens New automation with a cron schedule">＋ Create schedule</a>
             <a class="sch-link" href="/__ioi/automations">Automations →</a>
           </div>
         </header>
@@ -12495,8 +12500,41 @@ async function handleEstateRequest(req, res, body) {
     //
     // THE FINDING this leg returns: A SELECTION THE ROUTE ACCEPTS IS STILL A GAP WHEN THE KEY IT
     // FILTERS ON IS NEVER WRITTEN BY THE RECORDS IT IS MEANT TO SCOPE.
-    if (pathname === "/__ioi/foundry/inference" && req.method === "GET") {
+    if (pathname === "/__ioi/foundry/inference" && (req.method === "GET" || req.method === "POST")) {
       const esc = CX_ESC;
+      // ---- RUN AN INFERENCE (R-240). The page named the governed model call and kept it disabled;
+      // the reference route turned out to be a different product entirely (the Sensitive Data
+      // Scanner behind a space gate), so there was no lane to port — and this surface's canonical
+      // journey is running a model. A POST runs one prompt through the daemon's invoke (identity
+      // first, the route's own executable predicate, then the provider, then a typed receipt) and
+      // renders this page with the answer. The answer is shown once: the record keeps its hash.
+      let infRun = null;
+      if (req.method === "POST") {
+        const f = new URLSearchParams(body.toString());
+        const routeId = (f.get("route_id") || "").trim();
+        const prompt = (f.get("prompt") || "").slice(0, 8000);
+        const nonce = (f.get("nonce") || "").replace(/[^A-Za-z0-9_-]/g, "").slice(0, 64) || crypto.randomUUID();
+        const who = await daemonFetch("/v1/hypervisor/auth/whoami").then((x) => x.json()).catch(() => ({}));
+        const tenants = Array.isArray(who?.principal?.tenant_refs) ? who.principal.tenant_refs.map(String) : [];
+        const owner = tenants.find((x) => x === "org://local") || tenants.find((x) => x.startsWith("org://")) || tenants.find((x) => x.startsWith("project://")) || "";
+        const call = (verb, bodyObj) => daemonFetch(`/v1/hypervisor/model-routes/${encodeURIComponent(routeId)}/${verb}`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(bodyObj) })
+          .then(async (x) => ({ status: x.status, j: await x.json().catch(() => ({})) })).catch(() => ({ status: 0, j: {} }));
+        if (!routeId || !prompt.trim()) {
+          infRun = { routeId, prompt, error: { code: "inference_input_required", message: "choose a model route and write a prompt" } };
+        } else if (!owner) {
+          infRun = { routeId, prompt, error: { code: "inference_owner_required", message: "your sign-in belongs to no organization of this deployment, so the call would have no owner" } };
+        } else {
+          let r = await call("invoke", { owner_ref: owner, idempotency_key: `inf-${nonce}`, prompt });
+          let checked = null;
+          // A route whose availability is stale or merely declared is not executable. Its own
+          // governed availability check runs once, and the call is retried — and the page says so.
+          if (r.j?.error?.code === "model_route_not_executable") {
+            checked = await call("probe", { owner_ref: owner, idempotency_key: `inf-probe-${nonce}` });
+            if (checked.status >= 200 && checked.status < 300 && checked.j?.availability?.state === "available") r = await call("invoke", { owner_ref: owner, idempotency_key: `inf-${nonce}`, prompt });
+          }
+          infRun = { routeId, prompt, checked, status: r.status, ok: r.j?.ok === true, output: typeof r.j?.output === "string" ? r.j.output : null, invocation: r.j?.invocation || null, error: r.j?.error || (r.j?.ok === true ? null : { code: r.j?.code || `http_${r.status}`, message: r.j?.message || r.j?.reason || "the daemon did not answer" }) };
+        }
+      }
       const istr = (v) => (typeof v === "string" && v.trim() !== "" ? v : "");
       const infProbe = async (p) => {
         try {
@@ -12640,6 +12678,49 @@ async function handleEstateRequest(req, res, body) {
       const infMountReceipts = infRowsOf("mount_receipts");
       const infUsage = infRowsOf("runtime_usage");
       const infModelRoutes = infRowsOf("model_routes");
+      const infRunPanel = (() => {
+        const routeOpt = (r) => {
+          const id = istr(r.route_id); const model = istr(r.model?.model_id) || istr(r.model_id);
+          const avail = istr(r.availability?.state) || "unknown";
+          const picked = infRun ? infRun.routeId === id : false;
+          return `<option value="${esc(id)}"${picked ? " selected" : ""}>${esc(model || id)} · ${esc(id)} · ${esc(avail)}${r.availability?.stale ? " (stale)" : ""}</option>`;
+        };
+        const routes = infModelRoutes.filter((r) => istr(r.route_id));
+        let result = "";
+        if (infRun) {
+          const inv = infRun.invocation || {}; const ev = inv.evidence || {}; const tm = ev.token_mix || {};
+          const checkedNote = infRun.checked ? `<p class="inf-runnote">The route's availability was ${infRun.checked.j?.availability?.state === "available" ? "checked first (it had gone stale) — the provider answered" : `checked first and the provider did not answer (<code>${esc(infRun.checked.j?.error?.code || `http_${infRun.checked.status}`)}</code>)`}.</p>` : "";
+          if (infRun.ok && infRun.output !== null) {
+            result = `<div class="inf-runres ok" role="status"><div class="inf-runans">${esc(infRun.output)}</div>
+              <p class="inf-runmeta">${esc(inv.model_id || "")} · route <code>${esc(inv.route_id || infRun.routeId)}</code> · ${esc(String(ev.latency?.total_ms ?? "—"))} ms · ${esc(String(tm.input ?? "—"))} in / ${esc(String(tm.output ?? "—"))} out tokens · invocation <code>${esc(inv.invocation_id || "")}</code></p>
+              <p class="inf-runnote">Receipted. The record keeps the prompt's and the answer's hashes — never their text — so this answer is shown once, here.</p>${checkedNote}</div>`;
+          } else if (infRun.ok) {
+            result = `<div class="inf-runres ok" role="status"><p><b>Already answered.</b> This exact run was recorded (invocation <code>${esc(inv.invocation_id || "")}</code>); answers are shown once and never stored, so a resubmitted form does not spend a second model call. Write the prompt again to run it anew.</p></div>`;
+          } else {
+            result = `<div class="inf-runres err" role="alert"><p><b>Not run:</b> ${esc(infRun.error?.message || "the call was refused")} <code>${esc(infRun.error?.code || "")}</code></p>${checkedNote}</div>`;
+          }
+        }
+        const form = routes.length
+          ? `<form method="post" action="/__ioi/foundry/inference#run" class="inf-runform">
+              <input type="hidden" name="nonce" value="${esc(crypto.randomUUID())}">
+              <label>Model route<select name="route_id" required>${routes.map(routeOpt).join("")}</select></label>
+              <label>Prompt<textarea name="prompt" required maxlength="8000" rows="4" placeholder="Ask the model something…">${esc(infRun ? infRun.prompt : "")}</textarea></label>
+              <div><button type="submit">Run</button></div>
+            </form>`
+          : `<p class="inf-runnote">No model route is registered in this deployment, so there is nothing to run a prompt against. Register one in the <a href="/__ioi/foundry/models">Model Catalog</a>.</p>`;
+        return `<section class="inf-run" id="run" aria-label="Run an inference"><style>
+            .inf-run{background:#fff;border:1px solid #d3d8de;border-radius:6px;padding:18px 20px;margin:0 0 18px;max-width:880px}
+            .inf-run h2{margin:0 0 4px;font-size:18px}.inf-run .inf-runsub{margin:0 0 12px;color:#5f6b7c;font-size:13px}
+            .inf-runform{display:flex;flex-direction:column;gap:10px}.inf-runform label{display:flex;flex-direction:column;gap:4px;font-size:12px;font-weight:600;color:#404854}
+            .inf-runform select,.inf-runform textarea{font-family:inherit;font-size:14px;line-height:1.4;font-weight:400;color:#1c2127;border:1px solid rgba(17,20,24,.25);border-radius:3px;padding:6px 8px;background:#fff}
+            .inf-runform button{background:#2d72d2;color:#fff;border:0;border-radius:3px;padding:6px 16px;font:inherit;font-weight:600;cursor:pointer}.inf-runform button:hover{background:#215db0}
+            .inf-runres{margin-top:14px;border-radius:4px;padding:12px 14px}.inf-runres.ok{background:#f3f8f5;border:1px solid rgba(35,133,81,.3)}.inf-runres.err{background:#fcf1f1;border:1px solid rgba(172,47,51,.3)}
+            .inf-runans{white-space:pre-wrap;font-size:15px;line-height:1.5;color:#1c2127}.inf-runmeta,.inf-runnote{margin:8px 0 0;font-size:12px;color:#5f6b7c}
+          </style>
+          <h2>Run an inference</h2>
+          <p class="inf-runsub">Send a prompt to a model route through the daemon's governed call — your identity first, then the route's own availability, then the provider — and read the answer here.</p>
+          ${form}${result}</section>`;
+      })();
       const infBindings = infRowsOf("session_bindings");
       const infAutomations = infRowsOf("automations");
       const infProfiles = infRowsOf("harness_profiles");
@@ -12895,6 +12976,7 @@ async function handleEstateRequest(req, res, body) {
           </div>
         </header>
         <div class="inf-field">
+          ${infRunPanel}
           <div class="inf-stage">
             <section class="inf-gate" aria-label="Please select a space">
               <h2 class="inf-gateh">Please select a space</h2>
@@ -12953,7 +13035,7 @@ async function handleEstateRequest(req, res, body) {
             <div class="inf-vrow" data-ioi-invoke-field="economics.commercial_posture" data-ioi-invoke-field-space="no"><span><b>economics.commercial_posture</b></span><span><span class="inf-nolane">no</span></span><span class="inf-vcopy">Required alongside the quote. The charged QUANTITY is refused from the caller outright — it is the token mix the daemon read off the provider response, never a number a client may set.</span></div>
           </div>
           <div class="inf-absent">
-            ${igap("inf-chip", "Run an inference in this space", `Executing a model call is an authority crossing the daemon owns at ${INF_INVOKE_ROUTE} — identity first, then the registry's own executable predicate, then the provider, then a typed ModelInvocationReceipt admitted through the shared write path. Re-minting it here would be a second mutation spine over that route. And it could not be space-scoped in any case: not one of the ${INF_INVOKE_BODY_FIELDS.length} body fields the verb accepts names a project, a space or a tenant, and the record it writes carries no such field either, so a space chosen above would be dropped on submit`)}
+            <a class="inf-chip" href="#run" title="Run a prompt through the daemon's governed model call — the panel at the top of this page">Run an inference →</a>
             ${igap("inf-chip", "Show this space's inference history", `There is no such object in this estate. The invocation family publishes no collection route at all, the ${infInvRows.length} ledger rows that name a model carry no space key, and the ${infModelInvReceipts.length} readable invocation receipts carry no space field — so a per-space history is a MISSING relation, not an unpopulated one, and no count could ever fill it`)}
             <b>EMPTY is not MISSING.</b> The reference tenant's gate is EMPTY — a real chooser awaiting a pick. The estate's space plane is LIVE and holds <b>${infProjects.length}</b> records. What is <b>MISSING</b> is the relation between them: a space that could contain an inference. Those are three different states about one screen and this page renders all three rather than letting any of them stand in for another.
           </div>
@@ -14133,10 +14215,10 @@ async function handleEstateRequest(req, res, body) {
       try { posted = JSON.parse(f.get("graph_json") || "{}"); } catch { posted = null; }
       const norm = normalizeDiagramGraph(posted);
       // A refused save re-renders the editor with what the person drew — never a page that loses it.
-      const keep = async (text, status) => {
+      const keep = async (text, status, { adoptCurrentHead = false } = {}) => {
         const ctx = await designerEditorContext(bpId);
         res.writeHead(status, HTMLH);
-        res.end(renderDesignerEditor({ ...ctx.model, head: head || ctx.model.head, name, description, graph: norm.ok ? norm.graph : null, dirty: true, draft, notice: { kind: "err", text } }));
+        res.end(renderDesignerEditor({ ...ctx.model, head: adoptCurrentHead ? ctx.model.head : head || ctx.model.head, name, description, graph: norm.ok ? norm.graph : null, dirty: true, draft, notice: { kind: "err", text } }));
       };
       if (!norm.ok) return keep(`Not saved: ${norm.reason}`, 400);
       const sha = (v) => crypto.createHash("sha256").update(JSON.stringify(v)).digest("hex");
@@ -14159,7 +14241,14 @@ async function handleEstateRequest(req, res, body) {
         res.writeHead(303, { Location: `/__ioi/studio/designer/diagram?bp=${encodeURIComponent(saved.id)}&saved=1`, "Cache-Control": "no-store" });
         return res.end();
       }
+      const code = String((rr.j.error && rr.j.error.code) || rr.j.code || "");
       const why = (rr.j.error && rr.j.error.message) || rr.j.message || rr.j.reason || (rr.status ? `the daemon answered HTTP ${rr.status}` : "the daemon did not answer");
+      // SOMEONE SAVED IT AFTER YOU OPENED IT. The compare-and-swap refuses the stale head; the person
+      // is told that in their terms, keeps their drawing, and the page adopts the CURRENT head — so a
+      // second Save deliberately replaces the other version, and nothing is overwritten silently.
+      if (bpId && (/head[_ ]conflict|expected_head/iu.test(`${code} ${why}`) || rr.status === 409)) {
+        return keep(`Not saved: this diagram was saved somewhere else after you opened it. Your drawing is still here — Save again to replace that version with yours, or open ${`/__ioi/studio/designer/diagram?bp=${bpId}`} in another tab to compare first.`, 409, { adoptCurrentHead: true });
+      }
       return keep(`Not saved: ${why}`, rr.status >= 400 && rr.status < 500 ? rr.status : 502);
     }
     if (pathname === "/__ioi/studio/designer" && req.method === "GET") {

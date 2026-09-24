@@ -180,6 +180,19 @@
     window.top.location.assign(signInHref());
   }, true);
   new MutationObserver(() => updateSignedOutAccountMenu()).observe(document.documentElement, { childList: true, subtree: true });
+  // /projects?new=1 opens New project (R-240). Other surfaces' "+ New" for a project point here, and
+  // the bundle's create dialog has no address of its own; the page's own button is pressed once and
+  // the parameter dropped, so Back and a reload do not reopen it.
+  let ioiNewProjectOpened = false;
+  function openNewProjectFromUrl() {
+    if (ioiNewProjectOpened || location.pathname !== "/projects" || new URLSearchParams(location.search).get("new") !== "1") return;
+    const btn = document.querySelector('[data-tracking-id="new-project-projects-page"]');
+    if (!btn) return;
+    ioiNewProjectOpened = true;
+    const u = new URL(location.href); u.searchParams.delete("new");
+    history.replaceState(history.state, "", u.pathname + u.search + u.hash);
+    btn.click();
+  }
   function closeApplication() {
     const el = document.getElementById("ioi-open-app");
     if (el) el.style.display = "none";

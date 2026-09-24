@@ -243,6 +243,8 @@ export const EMBED_THREAD_ROUTES = ["/__ioi/lineage", "/__ioi/vertex", "/__ioi/w
 export const SURFACE_STATES = [
   { slug: "designer", route: "/__ioi/studio/designer?open=recent", note: "Open Diagram — the resource selector on its Recent files scope" },
   { slug: "designer", route: "/__ioi/studio/designer?open=objects", note: "Open Diagram — the resource selector on its Object datasources scope" },
+  { slug: "designer", route: "/__ioi/studio/designer/diagram", note: "New Diagram — the diagram editor, empty (R-240)" },
+  { slug: "designer", route: "/__ioi/studio/designer/diagram?panel=reference", note: "Browse all — the diagram editor with Reference Diagrams open (R-240)" },
 ];
 export function embeddableRoutes() {
   return new Set([...SURFACES.map((s) => s.route), ...SURFACES.filter((s) => s.canonical_route).map((s) => s.canonical_route), ...EMBED_THREAD_ROUTES]);

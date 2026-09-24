@@ -448,7 +448,14 @@ async function liveLeg() {
     // A page this gate opens itself (the shell-landing renderer) is not a popup the control opened.
     let openingOwnPage = false;
     context.on("page", (p) => { if (openingOwnPage) return; other.push(`popup ${p.url()}`); p.close().catch(() => {}); });
-    page.on("dialog", (d) => { other.push(`dialog ${d.type()}`); d.dismiss().catch(() => {}); });
+    page.on("dialog", (d) => {
+      // "Leave this page?" is raised by the census's OWN navigation away from a page holding unsaved
+      // work (the diagram editor after a node was added) — a person leaving confirms it, and it is not
+      // a signal from any control. Dismissing it kept the census on the page and aborted every later
+      // load of it (measured, R-240). Every other dialog is the control's, recorded and dismissed.
+      if (d.type() === "beforeunload") { d.accept().catch(() => {}); return; }
+      other.push(`dialog ${d.type()}`); d.dismiss().catch(() => {});
+    });
     page.on("download", (d) => other.push(`download ${d.suggestedFilename()}`));
 
     const landings = new Map(); // abs → { status, failure, ms } — measured once, counted per surface

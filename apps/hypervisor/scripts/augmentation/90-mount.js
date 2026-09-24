@@ -9,6 +9,7 @@
     updateOpenAppRail(); // reflect the Open Application slot state in the rail
     updateSignedOutRail(); // a signed-out browser is told so where its Sessions would be (R-240)
     updateSignedOutSettings(); // …and on organization settings, where a refused read draws as empty
+    openNewProjectFromUrl(); // /projects?new=1 — other surfaces' "+ New" project lands in the dialog
   }
   function mount() {
     style();
