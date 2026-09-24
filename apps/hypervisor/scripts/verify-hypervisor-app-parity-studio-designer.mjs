@@ -166,11 +166,17 @@ async function run() {
   ok("RESOURCES render the real materialized object set (ref + object count)", setRec?.ref && t.includes(setRec.ref) && new RegExp(`${setRec.count || 2} obj`).test(t));
   ok("RESOURCES render the real DomainApp surface descriptor (domain-app ref + surface-descriptor ref)", dapp?.domain_app_ref && t.includes(dapp.domain_app_ref) && sd?.ref && t.includes(sd.ref), dapp?.domain_app_ref || "no domain app");
 
-  // 4. NO AUTHORING — read-only; unsupported lanes DISABLED IN PLACE (named gaps), never hidden.
-  ok("the surface is READ-ONLY (no authoring form posts to /__ioi/studio/designer)", !/action="\/__ioi\/studio\/designer/.test(t));
-  const gapControls = ["New Diagram", "Help", "Start planning", "Browse all", "Favorites"];
-  ok("unsupported controls are DISABLED IN PLACE with named-gap titles (New Diagram · Help · Start planning · Browse all · Favorites · gallery arrow)", gapControls.every((c) => new RegExp(`aria-disabled="true"[^>]*title="[^"]*named gap[^"]*"[^>]*>(?:<[^>]+>)*(?:<span>)?${c}|${c}(?:</span>)?(?:<svg[\\s\\S]{0,600}?)?</span>`).test(t)) && (t.match(/aria-disabled="true"/g) || []).length >= 7 && /dsg-galarrow gap/.test(t), `${(t.match(/aria-disabled="true"/g) || []).length} disabled controls`);
-  ok("named gaps prose: in-canvas authoring / New Diagram / save / drag-to-reference / AIP planning / favorites / Browse all — and Open Diagram is named as LIVE, not as a gap", /in-canvas authoring/.test(t) && /drag-to-reference/.test(t) && /AIP Architect planning/.test(t) && /<b>Open Diagram<\/b> opens the resource selector/.test(t) && !/New Diagram \/ Open Diagram/.test(t));
+  // 4. AUTHORING IS LIVE (R-240): New Diagram opens the diagram editor, Browse all and the template
+  //    strip open its Reference Diagrams panel, Help opens the help page. Planning and favorites stay
+  //    declared gaps, disabled in place — never hidden.
+  ok("the landing itself posts no authoring form (the editor is its own route)", !/action="\/__ioi\/studio\/designer"/.test(t));
+  ok("New Diagram is a LIVE link into the diagram editor", /<a class="dsg-hbtn success" href="\/__ioi\/studio\/designer\/diagram"[^>]*>[\s\S]{0,800}?<span>New Diagram<\/span><\/a>/.test(t) && !/dsg-hbtn success gap/.test(t));
+  ok("Browse all, the template strip and its arrow open the editor's Reference Diagrams panel; Help opens the help page", /<a class="dsg-browse" href="\/__ioi\/studio\/designer\/diagram\?panel=reference"/.test(t) && /<a class="dsg-galarrow" href="\/__ioi\/studio\/designer\/diagram\?panel=reference"/.test(t) && /<a class="dsg-hbtn outlined" href="\/__ioi\/help\?topic=studio\/solution-designer"/.test(t));
+  ok("AIP Architect planning and Favorites stay DISABLED IN PLACE with named-gap titles", ["Start planning", "Favorites"].every((c) => new RegExp(`aria-disabled="true"[^>]*title="[^"]*named gap[^"]*"[^>]*>(?:<[^>]+>)*(?:<span>)?${c}`).test(t)));
+  ok("the footer names what is live (New Diagram, Load from Data Lineage, blueprints) and what is not (AIP Architect planning, favorites), and Open Diagram as live", /<b>New Diagram<\/b> opens the diagram editor/.test(t) && /Load from Data Lineage/.test(t) && /AIP Architect planning/.test(t) && /<b>Open Diagram<\/b> opens the resource selector/.test(t));
+  // 4a. THE EDITOR renders its lanes: toolbar, panels, welcome, save form.
+  const ed = await fetch(`${SERVE}/__ioi/studio/designer/diagram`).then((r) => r.text()).catch(() => "");
+  ok("the diagram editor renders: Concept/Component/Resource/Group/Text tools, the four panels, the three welcome starts and a save form posting to the editor's own save route", ["dg-t-concept", "dg-t-component", "dg-t-resource", "dg-t-group", "dg-t-text"].every((id) => ed.includes(`id="${id}"`)) && ["info", "reference", "settings", "shortcuts"].every((pn) => ed.includes(`data-panel="${pn}"`)) && /action="\/__ioi\/studio\/designer\/diagram\/save"/.test(ed) && ed.includes('"templates"') && ed.includes('"compositions"'));
 
   // 4b. OPEN DIAGRAM IS LIVE (R-240). It was a named gap while the owner's tenant showed what the lane
   // is: a six-scope resource selector. Two scopes bind to daemon truth, four name the record the ODK

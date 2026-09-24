@@ -2819,6 +2819,25 @@ function automationProjectParam(reqUrl) {
   return raw && !raw.includes(":") ? `project:${raw}` : raw;
 }
 
+// The daemon reads the Solution Designer's editor renders over: the records a node can link, the
+// compositions "Load from Data Lineage" offers, and — for a saved diagram — its blueprint and head.
+async function designerEditorContext(bpId) {
+  const J = (p) => daemonFetch(p).then((r) => r.json()).catch(() => ({}));
+  const [o, cm, ds, bp] = await Promise.all([
+    J("/v1/hypervisor/odk/domain-ontologies"),
+    J("/v1/hypervisor/odk/connector-mappings"),
+    J("/v1/hypervisor/data-sources"),
+    bpId ? J(`/v1/hypervisor/studio/blueprints/${encodeURIComponent(bpId)}`) : Promise.resolve(null),
+  ]);
+  const ontologies = o.ontologies || [];
+  const lists = { connector_mappings: cm.connector_mappings || [], data_sources: ds.data_sources || [] };
+  const blueprint = bp && bp.ok && bp.blueprint ? bp.blueprint : null;
+  return {
+    ontologies, lists, blueprint,
+    model: { surfaces: SURFACES.filter((s) => s.route !== "/__ioi/studio/designer"), ontologies, ...lists, blueprint, head: blueprint ? bp.admitted_head || "" : "" },
+  };
+}
+
 // ---- System designs (Studio) — the daemon-backed lane behind the /__apps/designer solution-design
 // canvas seed. The captured canvas teaches the composition grammar (typed concept/component/resource
 // nodes, save/actions/open, AIP critique, load-from-lineage); here the OWNER surface binds the parts
@@ -3960,8 +3979,9 @@ function renderVertex(lists, selectedId, vSel, wrap = automationsShell) {
 // daemon composition truth: one row per domain ontology (the estate's solution designs), each
 // carrying its ref, created/updated dates and its concept/component/resource census. Below the fold
 // the full composition truth renders with real refs (COM concepts · mapping/policy-view/projection
-// components · materialized-set/domain-app resources). Nothing authors/saves here: New Diagram,
-// Open Diagram, Browse all, AIP Architect planning, favorites are NAMED GAPS (disabled in place).
+// components · materialized-set/domain-app resources). New Diagram, Browse all and the template
+// strip open the diagram editor (surfaces/studio/designer-editor.mjs, R-240); AIP Architect planning
+// and favorites stay NAMED GAPS (disabled in place).
 // Owner: Studio (/__ioi/agent-studio); dedicated daemon-bound surface, no route rename.
 function renderDesignerPort(lists, selectedId, openState = null) {
   const esc = CX_ESC;
@@ -3974,6 +3994,7 @@ function renderDesignerPort(lists, selectedId, openState = null) {
   const projections = Array.isArray(lists.projections) ? lists.projections : [];
   const sets = Array.isArray(lists.materialized_sets) ? lists.materialized_sets : [];
   const domainApps = Array.isArray(lists.domain_apps) ? lists.domain_apps : [];
+  const diagrams = Array.isArray(lists.diagrams) ? lists.diagrams : [];
 
   const composed = new Set(mappings.map((m) => m.ontology_ref));
   const selected = ontologies.find((x) => x.id === selectedId) || ontologies.find((x) => composed.has(x.ref)) || ontologies[0] || null;
@@ -4001,7 +4022,24 @@ function renderDesignerPort(lists, selectedId, openState = null) {
   // no principal and no view tracking — named gaps, never invented values.
   const recent = [...ontologies].sort((a, b) => String(b.updated_at || "").localeCompare(String(a.updated_at || "")));
   const gapDash = (why) => `<span class="dsg-dash" title="${esc(why)}">—</span>`;
-  const rowsHtml = recent.length ? recent.map((o) => {
+  // Saved diagrams are Studio blueprints the editor wrote (R-240); they head the table, newest first.
+  const diagramRows = diagrams.map((d) => {
+    const g = d.graph && typeof d.graph === "object" ? d.graph : {};
+    const nn = Array.isArray(g.nodes) ? g.nodes.length : 0, ne = Array.isArray(g.edges) ? g.edges.length : 0;
+    // Studio admissions stamp their rows from an operation time the substrate leaves at zero, so the
+    // row reads 1970; a date that says nothing is left out rather than printed.
+    const at = Date.parse(d.updated_at || d.created_at || ""); const when = at > 86400000 ? ` · updated ${fdate(d.updated_at || d.created_at)}` : "";
+    return `<a class="dsg-row" href="/__ioi/studio/designer/diagram?bp=${enc(d.id)}" title="Open this diagram in the editor">
+      <span class="dsg-cell name"><span class="dsg-rowico" aria-hidden="true"></span><span class="dsg-rowdata">
+        <span class="dsg-rowname">${esc(d.name || d.id)}<span class="dsg-selpill">diagram</span></span>
+        <span class="dsg-rowpath">${esc(d.ref || d.id)}${when} · ${nn} node${nn === 1 ? "" : "s"} · ${ne} connection${ne === 1 ? "" : "s"}</span>
+      </span></span>
+      <span class="dsg-cell">${gapDash("A blueprint records its owning organization, not the person who drew it")}</span>
+      <span class="dsg-cell">${gapDash("A blueprint records its owning organization, not the person who drew it")}</span>
+      <span class="dsg-cell">${gapDash("View tracking is not recorded")}</span>
+    </a>`;
+  }).join("");
+  const ontologyRows = recent.map((o) => {
     const c = censusOf(o);
     return `<a class="dsg-row" href="/__ioi/studio/designer?ontology=${enc(o.id)}" title="Select this design — its composition truth renders below">
       <span class="dsg-cell name">
@@ -4015,7 +4053,8 @@ function renderDesignerPort(lists, selectedId, openState = null) {
       <span class="dsg-cell">${gapDash("No principal is recorded on the ODK object plane (named gap)")}</span>
       <span class="dsg-cell">${gapDash("View tracking is not recorded on the ODK object plane (named gap)")}</span>
     </a>`;
-  }).join("") : `<div class="dsg-empty">No ontologies yet — there are no solution designs to list. Create one in the <a href="/__ioi/odk">Ontology Manager</a>; this table renders real composition truth and never fabricates rows.</div>`;
+  }).join("");
+  const rowsHtml = diagramRows + ontologyRows || `<div class="dsg-empty">No diagrams or ontologies yet. <a href="/__ioi/studio/designer/diagram">Draw a new diagram</a>, or define an ontology in the <a href="/__ioi/ontology/manager">Ontology Manager</a> and open its composition here.</div>`;
 
   // ---- Below-the-fold: full composition truth for the selected ontology (real refs, no invention).
   const com = (selected && selected.canonical_object_model) || {};
@@ -4038,7 +4077,7 @@ function renderDesignerPort(lists, selectedId, openState = null) {
   const switcher = ontologies.length > 1 ? `<div class="dsg-switch">${ontologies.map((x) => `<a class="dsg-schip${selected && x.id === selected.id ? " on" : ""}" href="/__ioi/studio/designer?ontology=${enc(x.id)}">${esc(x.domain || x.id)}${composed.has(x.ref) ? " · composed" : ""}</a>`).join("")}</div>` : "";
 
   const truth = selected ? `<section class="dsg-truth" id="designer-truth">
-    <h2 class="dsg-trutht">Composition truth — <b>${esc(selected.domain || selected.id)}</b> <span class="dsg-truthsub">${conceptCount} concept${conceptCount === 1 ? "" : "s"} · ${componentCount} component${componentCount === 1 ? "" : "s"} · ${resourceCount} resource${resourceCount === 1 ? "" : "s"} · real refs from the daemon ODK plane, nothing invented</span></h2>
+    <h2 class="dsg-trutht">Composition truth — <b>${esc(selected.domain || selected.id)}</b> <span class="dsg-truthsub">${conceptCount} concept${conceptCount === 1 ? "" : "s"} · ${componentCount} component${componentCount === 1 ? "" : "s"} · ${resourceCount} resource${resourceCount === 1 ? "" : "s"} · real refs from the daemon ODK plane, nothing invented</span> <a class="dsg-truthsub" href="/__ioi/studio/designer/diagram?load=ontology:${enc(selected.id)}" title="Open this composition in the diagram editor — sources, mappings, object types">Open as diagram →</a></h2>
     ${switcher}
     <div class="dsg-truthcols">
       <div class="dsg-truthcol" id="designer-concepts"><h3>Concepts <span class="dsg-meta">(${ots.length} object · ${vts.length} value · ${ats.length} action · ${lts.length} link types)</span></h3>
@@ -4055,7 +4094,7 @@ function renderDesignerPort(lists, selectedId, openState = null) {
         ${resourceCount && !myApps.length ? `<p class="dsg-gapnote">Surface descriptors: none — no domain-app surfaces generated yet (named gap).</p>` : ""}
       </div>
     </div>
-    <p class="dsg-foot">This is a <b>read-only design map</b> over real composition truth. Unsupported Designer lanes — in-canvas authoring, New Diagram, save, drag-to-reference, AIP Architect planning, favorites, template Browse all — are <b>named gaps</b> (disabled in place above), not silently hidden. <b>Open Diagram</b> opens the resource selector over these same designs: Recent files and Object datasources are live, and Favorites, All projects, Data Catalog and Shared with you each name the record the ODK plane does not keep. Sibling Studio seeds stay reference-only: the <a href="/__apps/machinery">machinery</a> process/state-machine graph (data lanes unbound), the <a href="/__apps/workshop">workshop</a> and module builders. Owner: <a href="/__ioi/agent-studio">Agent Studio</a> · siblings: <a href="/__ioi/studio/machinery">Machinery</a> · <a href="${managerLink({ ontology: oid })}">Ontology Manager</a> (<a href="/__ioi/odk?ontology=${enc(oid)}">ODK substrate</a>) · <a href="/__ioi/pipeline?ontology=${enc(oid)}">Pipeline Builder</a>. Reference: the origin-aligned <span class="ref-capture" title="Reference capture — development evidence only; this deployment does not serve it">Solution Designer capture (<code>http://localhost:9225/workspace/solution-design/</code>)</span> — the <a href="/__apps/designer">/__apps/designer proxy lane ↗</a> is documented insufficient (cross-origin :9225 chunk fetches manufacture CORS noise + a favorites-load failure; #44 sweep evidence).</p>
+    <p class="dsg-foot"><b>New Diagram</b> opens the diagram editor: concept, component and resource nodes, connections, reference architectures, and <b>Load from Data Lineage</b> over the composition below; a saved diagram is a Studio blueprint owned by your organization, listed at the top of Recents. Still not bound: AIP Architect planning (no model-backed planner is wired to the Designer) and favorites (no record keeps them) — disabled in place above. <b>Open Diagram</b> opens the resource selector over these same designs: Recent files and Object datasources are live, and Favorites, All projects, Data Catalog and Shared with you each name the record the ODK plane does not keep. Sibling Studio seeds stay reference-only: the <a href="/__apps/machinery">machinery</a> process/state-machine graph (data lanes unbound), the <a href="/__apps/workshop">workshop</a> and module builders. Owner: <a href="/__ioi/agent-studio">Agent Studio</a> · siblings: <a href="/__ioi/studio/machinery">Machinery</a> · <a href="${managerLink({ ontology: oid })}">Ontology Manager</a> (<a href="/__ioi/odk?ontology=${enc(oid)}">ODK substrate</a>) · <a href="/__ioi/pipeline?ontology=${enc(oid)}">Pipeline Builder</a>. Reference: the origin-aligned <span class="ref-capture" title="Reference capture — development evidence only; this deployment does not serve it">Solution Designer capture (<code>http://localhost:9225/workspace/solution-design/</code>)</span> — the <a href="/__apps/designer">/__apps/designer proxy lane ↗</a> is documented insufficient (cross-origin :9225 chunk fetches manufacture CORS noise + a favorites-load failure; #44 sweep evidence).</p>
   </section>` : `<section class="dsg-truth" id="designer-truth"><p class="dsg-gapnote">No ontologies to design over yet — create one in the <a href="/__ioi/ontology/manager?section=create">Ontology Manager</a>. This canvas renders real composition truth; it never fabricates concepts. Owner: <a href="/__ioi/agent-studio">Agent Studio</a>.</p></section>`;
 
   const globalRail = ioiGlobalRailHtml({ label: "Solution Designer", href: "/__ioi/studio/designer", iconUri: DSG_APP_TILE_URI, railVariant: "rv-pipe rv-dsg", viewAll: true, star: false, badges: true, aipGradient: true, acctMuted: true });
@@ -4064,8 +4103,8 @@ function renderDesignerPort(lists, selectedId, openState = null) {
     <span class="dsg-hchip" aria-hidden="true"></span>
     <h1 class="dsg-htitle">Solution Designer</h1>
     <div class="dsg-hright">
-      <span class="dsg-hbtn success gap" aria-disabled="true" title="Diagram authoring is a reference-only lane — nothing is authored or saved on this surface (named gap)" data-ioi-disabled-reason="Diagram authoring is a reference-only lane — nothing is authored or saved on this surface (named gap)">${bpIcon("plus")}<span>New Diagram</span></span>
-      <span class="dsg-hbtn outlined gap" aria-disabled="true" title="Reference help lane (named gap)" data-ioi-disabled-reason="Reference help lane (named gap)"><span>Help</span>${bpIcon("help")}</span>
+      <a class="dsg-hbtn success" href="/__ioi/studio/designer/diagram" title="Draw a new solution design diagram">${bpIcon("plus")}<span>New Diagram</span></a>
+      <a class="dsg-hbtn outlined" href="/__ioi/help?topic=studio/solution-designer" title="How the Solution Designer works"><span>Help</span>${bpIcon("help")}</a>
     </div>
   </header>`;
 
@@ -4090,9 +4129,9 @@ function renderDesignerPort(lists, selectedId, openState = null) {
   // estate data) — embedded VERBATIM from the capture, like the #48 marketplace hero. The next-arrow
   // is a real (disabled) control overlaid transparently on its verbatim pixels.
   const gallery = `<div class="dsg-gallery">
-    <div class="dsg-galhead"><span class="dsg-galt">Explore our library of reference solution architecture diagrams</span><span class="dsg-browse gap" aria-disabled="true" title="Template browsing is a reference-only lane (named gap)" data-ioi-disabled-reason="Template browsing is a reference-only lane (named gap)">${bpIcon("manual")}<span>Browse all</span></span></div>
-    <img class="dsg-strip" src="${DSG_GALLERY_STRIP_URI}" width="961" height="202" alt="Reference solution-architecture template previews (verbatim capture chrome)">
-    <span class="dsg-galarrow gap" aria-disabled="true" title="Template pagination is a reference-only lane (named gap)" data-ioi-disabled-reason="Template pagination is a reference-only lane (named gap)"></span>
+    <div class="dsg-galhead"><span class="dsg-galt">Explore our library of reference solution architecture diagrams</span><a class="dsg-browse" href="/__ioi/studio/designer/diagram?panel=reference" title="Browse reference diagrams in the editor">${bpIcon("manual")}<span>Browse all</span></a></div>
+    <a href="/__ioi/studio/designer/diagram?panel=reference" title="Open the reference diagrams in the editor"><img class="dsg-strip" src="${DSG_GALLERY_STRIP_URI}" width="961" height="202" alt="Reference solution-architecture diagrams — open them in the editor"></a>
+    <a class="dsg-galarrow" href="/__ioi/studio/designer/diagram?panel=reference" aria-label="More reference diagrams" title="More reference diagrams"></a>
   </div>`;
 
   const viewRow = `<div class="dsg-viewrow">
@@ -14052,15 +14091,83 @@ async function handleEstateRequest(req, res, body) {
     // ---- ODK — controlled builder over the daemon ODK object plane (estate surface #5).
     // ---- Studio · Designer — the system-design canvas (designer seed). Read-only typed map over
     // real ODK composition (concepts/components) + generated resources. Owner: /__ioi/agent-studio.
+    // ---- Solution Designer · the DIAGRAM EDITOR (R-240) — surfaces/studio/designer-editor.mjs.
+    // New Diagram was a disabled "named gap"; the reference's editor lane authors client-side and
+    // needs the platform only to save, to link records and to load lineage — each bound here.
+    if (pathname === "/__ioi/studio/designer/diagram" && req.method === "GET") {
+      const sp = new URL(req.url, "http://x").searchParams;
+      const bpId = sp.get("bp") || "";
+      const ctx = await designerEditorContext(bpId);
+      if (bpId && !ctx.blueprint) {
+        res.writeHead(404, HTMLH);
+        return res.end(automationsShell("Diagram not found", `<div class="empty">No saved diagram <code>${CX_ESC(bpId)}</code> is visible to you. <a href="/__ioi/studio/designer?open=recent">Open another diagram →</a></div>`));
+      }
+      const { renderDesignerEditor, normalizeDiagramGraph, compositionDiagram } = await import("../surfaces/studio/designer-editor.mjs");
+      let graph = null; let dirty = false; let notice = sp.get("saved") === "1" ? { kind: "ok", text: "Saved" } : null;
+      if (ctx.blueprint) {
+        const norm = normalizeDiagramGraph(ctx.blueprint.graph || {});
+        graph = norm.ok ? norm.graph : null;
+        if (!norm.ok) notice = { kind: "err", text: `This blueprint's graph is not a diagram this editor can open (${norm.reason}); saving replaces it.` };
+      }
+      const load = sp.get("load") || "";
+      if (!ctx.blueprint && load.startsWith("ontology:")) {
+        const ont = ctx.ontologies.find((x) => x.id === load.slice("ontology:".length));
+        if (ont) { graph = compositionDiagram(ont, ctx.lists); dirty = true; }
+      }
+      sendOwnedSurfaceHtml(res, "designer", renderDesignerEditor({ ...ctx.model, graph, dirty, notice, panel: ["info", "reference", "settings", "shortcuts"].includes(sp.get("panel")) ? sp.get("panel") : "" }));
+      return;
+    }
+    if (pathname === "/__ioi/studio/designer/diagram/save" && req.method === "POST") {
+      const f = new URLSearchParams(body.toString());
+      const { renderDesignerEditor, normalizeDiagramGraph } = await import("../surfaces/studio/designer-editor.mjs");
+      const bpId = (f.get("bp") || "").trim();
+      const head = (f.get("head") || "").trim();
+      const draft = (f.get("draft") || "").trim().slice(0, 64);
+      const name = (f.get("name") || "").trim().slice(0, 200) || "Untitled diagram";
+      const description = (f.get("description") || "").slice(0, 2000);
+      let posted = null;
+      try { posted = JSON.parse(f.get("graph_json") || "{}"); } catch { posted = null; }
+      const norm = normalizeDiagramGraph(posted);
+      // A refused save re-renders the editor with what the person drew — never a page that loses it.
+      const keep = async (text, status) => {
+        const ctx = await designerEditorContext(bpId);
+        res.writeHead(status, HTMLH);
+        res.end(renderDesignerEditor({ ...ctx.model, head: head || ctx.model.head, name, description, graph: norm.ok ? norm.graph : null, dirty: true, draft, notice: { kind: "err", text } }));
+      };
+      if (!norm.ok) return keep(`Not saved: ${norm.reason}`, 400);
+      const sha = (v) => crypto.createHash("sha256").update(JSON.stringify(v)).digest("hex");
+      let rr;
+      if (bpId) {
+        // A diagram already saved is a successor revision, compare-and-swapped against the head it opened with.
+        rr = await daemonFetch(`/v1/hypervisor/studio/blueprints/${encodeURIComponent(bpId)}`, { method: "PATCH", headers: { "content-type": "application/json" }, body: JSON.stringify({ idempotency_key: `dsg-upd-${sha([bpId, head, name, description, norm.graph]).slice(0, 40)}`, expected_head: head, name, description, graph: norm.graph }) })
+          .then(async (x) => ({ status: x.status, j: await x.json().catch(() => ({})) })).catch(() => ({ status: 0, j: {} }));
+      } else {
+        // A new diagram is owned by the caller's organization — read from whoami, never chosen by the page.
+        const who = await daemonFetch("/v1/hypervisor/auth/whoami").then((x) => x.json()).catch(() => ({}));
+        const tenants = Array.isArray(who?.principal?.tenant_refs) ? who.principal.tenant_refs.map(String) : [];
+        const owner = tenants.find((x) => x === "org://local") || tenants.find((x) => x.startsWith("org://")) || tenants.find((x) => x.startsWith("project://"));
+        if (!owner) return keep("Not saved: your sign-in belongs to no organization of this deployment, so the diagram would have no owner.", 403);
+        rr = await daemonFetch("/v1/hypervisor/studio/blueprints", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ owner_ref: owner, idempotency_key: `dsg-${draft || "draft"}-${sha([name, description, norm.graph]).slice(0, 24)}`, name, description, graph: norm.graph }) })
+          .then(async (x) => ({ status: x.status, j: await x.json().catch(() => ({})) })).catch(() => ({ status: 0, j: {} }));
+      }
+      const saved = rr.j && rr.j.blueprint;
+      if (rr.status >= 200 && rr.status < 300 && rr.j.ok !== false && saved && saved.id) {
+        res.writeHead(303, { Location: `/__ioi/studio/designer/diagram?bp=${encodeURIComponent(saved.id)}&saved=1`, "Cache-Control": "no-store" });
+        return res.end();
+      }
+      const why = (rr.j.error && rr.j.error.message) || rr.j.message || rr.j.reason || (rr.status ? `the daemon answered HTTP ${rr.status}` : "the daemon did not answer");
+      return keep(`Not saved: ${why}`, rr.status >= 400 && rr.status < 500 ? rr.status : 502);
+    }
     if (pathname === "/__ioi/studio/designer" && req.method === "GET") {
       const J = (p) => daemonFetch(`${p}`).then((r) => r.json()).catch(() => ({}));
-      const [o, cm, pv, op, ms, da] = await Promise.all([
+      const [o, cm, pv, op, ms, da, bps] = await Promise.all([
         J("/v1/hypervisor/odk/domain-ontologies"),
         J("/v1/hypervisor/odk/connector-mappings"),
         J("/v1/hypervisor/odk/policy-bound-data-views"),
         J("/v1/hypervisor/odk/ontology-projections"),
         J("/v1/hypervisor/odk/materialized-object-sets"),
         J("/v1/hypervisor/domain-apps"),
+        J("/v1/hypervisor/studio/blueprints"),
       ]);
       const dsgParams = new URL(req.url, "http://x").searchParams;
       const selectedOntology = dsgParams.get("ontology") || "";
@@ -14076,6 +14183,8 @@ async function handleEstateRequest(req, res, body) {
         projections: op.ontology_projections || [],
         materialized_sets: ms.materialized_object_sets || [],
         domain_apps: da.domain_apps || da.apps || [],
+        // Only the blueprints this editor wrote are diagrams; other blueprints keep their Studio lane.
+        diagrams: (bps.blueprints || []).filter((b) => b && b.graph && b.graph.schema === "ioi.studio.solution-diagram.v1"),
       }, selectedOntology, openState));
       return;
     }
