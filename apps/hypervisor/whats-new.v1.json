@@ -1,0 +1,12 @@
+{
+  "schema": "ioi.hypervisor.whats-new.v1",
+  "doctrine": "The shell's What's new panel reads the newest entry here (served at /changelog/latest; every entry is listed at /changelog, the panel's Learn more dialog links to — the serve appends that link, so an entry's prose carries none; `action_url` becomes the dialog's Try it). Every entry names a change this product actually shipped, on the date it shipped, and links only to a surface that exists. The captured feed announced a reference-vendor feature (per-user AI budgets, Settings > Usage, CSV exports) that this product does not have; an empty feed is not the fix either, because the panel's button then opens nothing (R-240).",
+  "entries": [
+    {
+      "date": "2026-09-24",
+      "title": "New Session starts the work",
+      "description": "Describe a task in New Session and the session starts: the environment is created, the session is bound to it and the run begins, then the session view opens with its conversation, Code tab and editor picker.\n\nProject settings now save Display name and Branch, and a field this deployment cannot hold says why instead of quietly reverting. Pages you cannot read while signed out now say so, with a Sign in link that brings you back to the same page.",
+      "action_url": "/ai"
+    }
+  ]
+}

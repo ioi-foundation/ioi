@@ -7480,6 +7480,14 @@ function stripCapturedDemoIdentity(html) {
 const ASSET_CDN_BASE = "https://app.ioi.io/static/";
 const CHANGELOG_IMAGE_URL = "https://docs.ioi.com/images/changelog/user-budgets.webp";
 const CHANGELOG_IMAGE_PATH = "/__ioi/assets/changelog-user-budgets.svg";
+// The product's own release notes (R-240) — the What's new panel and the /changelog page read them.
+function readWhatsNew() {
+  try {
+    const entries = JSON.parse(readFileSync(join(HERE, "..", "whats-new.v1.json"), "utf8")).entries;
+    return Array.isArray(entries) ? entries.filter((e) => e && /^\d{4}-\d{2}-\d{2}$/.test(String(e.date)) && e.title) : [];
+  } catch { return []; }
+}
+const whatsNewDate = (d) => new Date(`${d}T00:00:00Z`).toLocaleDateString("en-US", { year: "numeric", month: "long", day: "numeric", timeZone: "UTC" });
 function localizeAssetBase(html) {
   return html.split(ASSET_CDN_BASE).join("/static/");
 }
@@ -7518,19 +7526,24 @@ const SETTINGS_BUNDLE_RE = /SegmentProvider-[^/]+\.js/;
 // at startup so an asset added later with the same origin is caught without a code change.
 const DEAD_DOCS_ORIGIN = "https://ioi.com/";
 const HELP_ROUTE = "/__ioi/help?topic=";
+// The changelog dialog builds its header link as `${base}/changelog` from one constant naming the
+// vendor docs host (rebranded, and equally dead). An empty base makes it this serve's /changelog —
+// the product's own release notes. Matched with its backticks so only the constant is touched.
+const DEAD_DOCS_BASE = "`https://docs.ioi.com`";
 const DEAD_DOCS_ASSETS = (() => {
   const set = new Set();
   const root = process.env.IOI_PRODUCT_UI_PUBLIC || join(HERE, "..", "product-ui", "owned", "public");
   try {
     for (const f of readdirSync(join(root, "static", "assets"))) {
       if (!f.endsWith(".js")) continue;
-      if (readFileSync(join(root, "static", "assets", f), "utf8").includes(DEAD_DOCS_ORIGIN)) set.add(`/static/assets/${f}`);
+      const text = readFileSync(join(root, "static", "assets", f), "utf8");
+      if (text.includes(DEAD_DOCS_ORIGIN) || text.includes(DEAD_DOCS_BASE)) set.add(`/static/assets/${f}`);
     }
   } catch { /* no owned tree — nothing to rewrite */ }
   return set;
 })();
 function rewriteDeadDocs(js) {
-  return js.split(DEAD_DOCS_ORIGIN).join(HELP_ROUTE);
+  return js.split(DEAD_DOCS_ORIGIN).join(HELP_ROUTE).split(DEAD_DOCS_BASE).join("``");
 }
 // Where the truth for a documentation topic lives in THIS deployment, when anywhere.
 const HELP_SURFACES = [
@@ -8272,6 +8285,41 @@ async function handleEstateRequest(req, res, body) {
     if (pathname === TERMINAL_CHUNK_PATH) {
       res.writeHead(200, { "Content-Type": "application/javascript; charset=utf-8", "Cache-Control": "no-cache" });
       res.end(TERMINAL_CHUNK);
+      return;
+    }
+    // WHAT'S NEW IS THIS PRODUCT'S NEWS (R-240). The captured feed announced a reference-vendor
+    // feature this product does not have; an empty answer leaves the panel's button opening nothing.
+    // The newest entry of the tracked whats-new.v1.json is served in the shape the bundle decodes.
+    if (pathname === "/changelog/latest" && req.method === "GET") {
+      const entry = readWhatsNew()[0];
+      if (!entry) { res.writeHead(404, { "Content-Type": "application/json" }); res.end("{}"); return; }
+      res.writeHead(200, { "Content-Type": "application/json; charset=utf-8", "Cache-Control": "no-cache" });
+      // The panel's "Learn more" opens the bundle's full-entry dialog, which renders the description as
+      // markdown and shows "Try it" for `actionUrl`; the link to every entry is appended here, so an
+      // entry's prose carries none.
+      res.end(JSON.stringify({ date: whatsNewDate(entry.date), title: entry.title, description: `${entry.description}\n\n[All release notes](/changelog#${entry.date})`, link: `/changelog#${entry.date}`, ...(entry.action_url ? { actionUrl: entry.action_url } : {}) }));
+      return;
+    }
+    // The panel's "Learn more" lands here — every entry, newest first. The route was the SPA's
+    // "This page doesn't exist" before, and the captured feed linked to it.
+    if (pathname === "/changelog" && req.method === "GET") {
+      const esc = CX_ESC;
+      const para = (text) => String(text || "").split(/\n\n+/).map((b) => `<p>${esc(b).replace(/\[([^\]]+)\]\((\/[^)\s]*)\)/g, (_, t, h) => (h.startsWith("//") ? t : `<a href="${h}">${t}</a>`))}</p>`).join("");
+      const entries = readWhatsNew();
+      res.writeHead(200, { "Content-Type": "text/html; charset=utf-8", "Cache-Control": "no-cache" });
+      res.end(`<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>What's new</title><style>
+        :root{--bg:#fff;--fg:#1c2127;--muted:#5f6b7c;--line:#e5e8eb;--card:#f6f7f9;--link:#215db0}
+        @media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg:#111418;--fg:#e6e7ea;--muted:#abb3bf;--line:#2a2c33;--card:#1c2127;--link:#8abbff}}
+        :root[data-theme="dark"]{--bg:#111418;--fg:#e6e7ea;--muted:#abb3bf;--line:#2a2c33;--card:#1c2127;--link:#8abbff}
+        *{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--fg);font:15px/1.55 system-ui,sans-serif}
+        main{max-width:680px;margin:0 auto;padding:48px 16px}h1{font-size:22px;margin:0 0 18px}h2{font-size:17px;margin:0}
+        .k{font-size:12px;letter-spacing:.06em;text-transform:uppercase;color:var(--muted)}article{padding:18px 0;border-top:1px solid var(--line)}
+        time{display:block;font-size:13px;color:var(--muted);margin:2px 0 8px}a{color:var(--link)}
+      </style></head><body><main>
+        <div class="k">IOI Hypervisor</div><h1>What's new</h1>
+        ${entries.length ? entries.map((e) => `<article id="${esc(e.date)}"><h2>${esc(e.title)}</h2><time datetime="${esc(e.date)}">${esc(whatsNewDate(e.date))}</time>${para(e.description)}</article>`).join("") : "<p>No release notes are published for this deployment yet.</p>"}
+        <p><a href="/ai">Back to Home</a></p>
+      </main></body></html>`);
       return;
     }
     if (pathname === CHANGELOG_IMAGE_PATH && req.method === "GET") {
