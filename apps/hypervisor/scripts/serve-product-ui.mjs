@@ -5300,7 +5300,7 @@ function renderMachineryPort(machines, selectedId) {
 
   const truth = selected ? `<section class="mch-truth" id="machinery-truth">
     <h2 class="mch-trutht">Definition truth — <b>${esc(m.name || m.id)}</b> <span class="mch-truthsub">${esc(m.status || "draft")} · health ${esc(m.health || "empty")} · <code class="mch-ref-inline">${esc(m.ref || "")}</code> · ${states.length} state${states.length === 1 ? "" : "s"} · ${transitions.length} transition${transitions.length === 1 ? "" : "s"} · ${guards.length} guard${guards.length === 1 ? "" : "s"} — real records from the daemon state-machine plane, nothing invented</span></h2>
-    <p class="mch-authnote">${esc(m.authority_note || "inert definition — no run/step/execution, no scheduling, no automation binding")}</p>
+    <p class="mch-authnote">${esc(m.authority_note || "inert definition — no run/step/execution, no scheduling, no automation binding")} · <a href="/__ioi/studio/machinery/graph?sm=${enc(m.id)}" title="Open this definition in the process graph editor">Edit graph →</a></p>
     ${switcher}
     <div class="mch-truthcols">
       <div class="mch-truthcol" id="machinery-states"><h3>States <span class="mch-meta">(${states.length})</span></h3>
@@ -5328,8 +5328,8 @@ function renderMachineryPort(machines, selectedId) {
     <h1 class="mch-htitle">Machinery</h1>
     <div class="mch-hright">
       <span class="mch-hbtn store gap" aria-disabled="true" title="Recent installations — marketplace install lanes are not bound to this surface (named gap)" data-ioi-disabled-reason="Recent installations — marketplace install lanes are not bound to this surface (named gap)"><span class="mch-storeico" aria-hidden="true"></span>${bpIcon("caret-down")}</span>
-      <span class="mch-hbtn success gap" aria-disabled="true" title="Graph authoring is a reference-only lane — no process graph is authored, saved, or executed on this surface (named gap)" data-ioi-disabled-reason="Graph authoring is a reference-only lane — no process graph is authored, saved, or executed on this surface (named gap)">${bpIcon("plus")}<span>New graph</span></span>
-      <span class="mch-hbtn outlined gap" aria-disabled="true" title="Reference help lane (named gap)" data-ioi-disabled-reason="Reference help lane (named gap)"><span>Help</span>${bpIcon("help")}</span>
+      <a class="mch-hbtn success" href="/__ioi/studio/machinery/graph" title="Draw a new process graph">${bpIcon("plus")}<span>New graph</span></a>
+      <a class="mch-hbtn outlined" href="/__ioi/help?topic=studio/machinery" title="How Machinery works"><span>Help</span>${bpIcon("help")}</a>
     </div>
   </header>`;
 
@@ -14280,6 +14280,56 @@ async function handleEstateRequest(req, res, body) {
         diagrams: (bps.blueprints || []).filter((b) => b && b.graph && b.graph.schema === "ioi.studio.solution-diagram.v1"),
       }, selectedOntology, openState));
       return;
+    }
+    // ---- Machinery · the PROCESS GRAPH EDITOR (R-240) — the diagram editor's machinery variant.
+    // "New graph" was a disabled named gap. The reference editor draws a process as states joined by
+    // actions; the daemon's state-machine plane holds exactly that grammar (states: one initial,
+    // normal, final; transitions: from, to, event). The plane keeps no layout, so a reopened graph is
+    // laid out from its definition.
+    if (pathname === "/__ioi/studio/machinery/graph" && req.method === "GET") {
+      const smId = new URL(req.url, "http://x").searchParams.get("sm") || "";
+      const saved = new URL(req.url, "http://x").searchParams.get("saved") === "1";
+      const { renderDesignerEditor, stateMachineToGraph } = await import("../surfaces/studio/designer-editor.mjs");
+      let sm = null;
+      if (smId) {
+        const r = await daemonFetch(`/v1/hypervisor/state-machines/${encodeURIComponent(smId)}`).then((x) => x.json()).catch(() => ({}));
+        sm = r && r.ok && r.state_machine ? r.state_machine : null;
+        if (!sm) { res.writeHead(404, HTMLH); return res.end(automationsShell("Graph not found", `<div class="empty">No process graph <code>${CX_ESC(smId)}</code> exists. <a href="/__ioi/studio/machinery">Back to Machinery →</a></div>`)); }
+      }
+      sendOwnedSurfaceHtml(res, "machinery", renderDesignerEditor({
+        variant: "machinery", surfaces: [], ontologies: [],
+        blueprint: sm ? { id: sm.id, ref: sm.ref, name: sm.name, description: sm.description } : null,
+        graph: sm ? stateMachineToGraph(sm) : null,
+        notice: saved ? { kind: "ok", text: "Saved" } : null,
+        panel: sm ? "" : "",
+      }));
+      return;
+    }
+    if (pathname === "/__ioi/studio/machinery/graph/save" && req.method === "POST") {
+      const f = new URLSearchParams(body.toString());
+      const { renderDesignerEditor, normalizeDiagramGraph, graphToStateMachine } = await import("../surfaces/studio/designer-editor.mjs");
+      const smId = (f.get("bp") || "").trim();
+      const name = (f.get("name") || "").trim().slice(0, 200) || "Untitled process";
+      const description = (f.get("description") || "").slice(0, 2000);
+      let posted = null;
+      try { posted = JSON.parse(f.get("graph_json") || "{}"); } catch { posted = null; }
+      const norm = normalizeDiagramGraph(posted);
+      const keep = (text, status) => {
+        res.writeHead(status, HTMLH);
+        res.end(renderDesignerEditor({ variant: "machinery", surfaces: [], ontologies: [], blueprint: smId ? { id: smId, ref: `state-machine://${smId}` } : null, name, description, graph: norm.ok ? norm.graph : null, dirty: true, draft: (f.get("draft") || "").slice(0, 64), notice: { kind: "err", text } }));
+      };
+      if (!norm.ok) return keep(`Not saved: ${norm.reason}`, 400);
+      const def = graphToStateMachine(norm.graph);
+      const payload = { name, description, states: def.states, transitions: def.transitions };
+      const rr = await daemonFetch(smId ? `/v1/hypervisor/state-machines/${encodeURIComponent(smId)}` : "/v1/hypervisor/state-machines", { method: smId ? "PATCH" : "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(payload) })
+        .then(async (x) => ({ status: x.status, j: await x.json().catch(() => ({})) })).catch(() => ({ status: 0, j: {} }));
+      const rec = rr.j && rr.j.state_machine;
+      if (rr.status >= 200 && rr.status < 300 && rr.j.ok !== false && rec && rec.id) {
+        res.writeHead(303, { Location: `/__ioi/studio/machinery/graph?sm=${encodeURIComponent(rec.id)}&saved=1`, "Cache-Control": "no-store" });
+        return res.end();
+      }
+      const why = (rr.j.error && rr.j.error.message) || rr.j.message || rr.j.reason || (rr.status ? `the daemon answered HTTP ${rr.status}` : "the daemon did not answer");
+      return keep(`Not saved: ${why}`, rr.status >= 400 && rr.status < 500 ? rr.status : 502);
     }
     // ---- Studio · Machinery — read-only process/state-machine DEFINITION view. Owner: agent-studio.
     if (pathname === "/__ioi/studio/machinery" && req.method === "GET") {

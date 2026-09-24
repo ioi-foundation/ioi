@@ -19,10 +19,12 @@
 import { ioiGlobalRailHtml, IOI_GRAIL_CSS } from "../chrome.mjs";
 import { bpIcon } from "../../scripts/bp-icons.mjs";
 import { DSG_APP_TILE_URI } from "../../scripts/designer-assets.mjs";
+import { MCH_APP_TILE_URI } from "../../scripts/machinery-assets.mjs";
 import { escHtml } from "../kit.mjs";
 
 export const DIAGRAM_SCHEMA = "ioi.studio.solution-diagram.v1";
-export const DIAGRAM_KINDS = Object.freeze(["concept", "component", "resource", "text", "group"]);
+export const DIAGRAM_KINDS = Object.freeze(["concept", "component", "resource", "text", "group", "state"]);
+export const STATE_KINDS = Object.freeze(["initial", "normal", "final"]);
 const MAX_NODES = 400;
 const MAX_EDGES = 800;
 
@@ -157,6 +159,7 @@ export function normalizeDiagramGraph(raw) {
     const ref = str(n.ref, 400); if (ref) node.ref = ref;
     const href = str(n.href, 400); if (href && href.startsWith("/") && !href.startsWith("//")) node.href = href;
     const icon = str(n.icon, 40); if (icon) node.icon = icon;
+    if (kind === "state") node.stateKind = STATE_KINDS.includes(n.stateKind) ? n.stateKind : "normal";
     nodes.push(node);
   }
   const edges = [];
@@ -207,6 +210,62 @@ export function compositionDiagram(ontology, lists) {
   return normalizeDiagramGraph({ nodes, edges }).graph;
 }
 
+// ---- Machinery: a process graph is a state-machine DEFINITION ---------------------------------
+// The daemon's state-machine plane holds states (exactly one initial; normal; final) and transitions
+// (from, to, event, guard). The editor draws the same grammar: a state node per state, a connection
+// per transition whose label is its event. The plane keeps no layout, so a reopened graph is laid
+// out from the definition itself — breadth-first from the initial state.
+const slug = (s, fallback) => (String(s || "").toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "").slice(0, 60) || fallback);
+
+export function stateMachineToGraph(sm) {
+  const states = Array.isArray(sm?.states) ? sm.states : [];
+  const transitions = Array.isArray(sm?.transitions) ? sm.transitions : [];
+  const depth = {}; const start = states.find((s) => s.kind === "initial") || states[0];
+  if (start) {
+    depth[start.id] = 0; const queue = [start.id];
+    while (queue.length) { const at = queue.shift(); for (const t of transitions.filter((x) => x.from === at)) if (depth[t.to] === undefined) { depth[t.to] = depth[at] + 1; queue.push(t.to); } }
+  }
+  const maxDepth = Math.max(0, ...Object.values(depth));
+  states.forEach((s) => { if (depth[s.id] === undefined) depth[s.id] = maxDepth + 1; });
+  const rows = {};
+  const nodes = states.map((s) => {
+    const col = depth[s.id]; const row = (rows[col] = (rows[col] ?? -1) + 1);
+    return { id: `s_${s.id}`, kind: "state", stateKind: STATE_KINDS.includes(s.kind) ? s.kind : "normal", type: s.kind === "initial" ? "Initial state" : s.kind === "final" ? "Final state" : "State", title: s.name || s.id, description: "", ref: s.id, x: col * 420, y: row * 190 };
+  });
+  const edges = transitions.map((t) => ({ id: `t_${t.id}`, source: `s_${t.from}`, target: `s_${t.to}`, label: t.event || "" }));
+  return normalizeDiagramGraph({ nodes, edges }).graph;
+}
+
+// The definition a drawn graph declares. A state keeps the id it was loaded with; a new state's id is
+// its title as a slug, made unique. A transition's event is its connection's label.
+export function graphToStateMachine(graph) {
+  const nodes = (graph?.nodes || []).filter((n) => n.kind === "state");
+  const used = new Set(); const idOf = {};
+  const unique = (base) => { let id = base; let i = 2; while (used.has(id)) id = `${base}-${i++}`; used.add(id); return id; };
+  const states = nodes.map((n) => { const id = unique(slug(n.ref, "") || slug(n.title, "state")); idOf[n.id] = id; return { id, name: String(n.title || id).slice(0, 200), kind: STATE_KINDS.includes(n.stateKind) ? n.stateKind : "normal" }; });
+  const tused = new Set();
+  const transitions = (graph?.edges || []).filter((e) => idOf[e.source] && idOf[e.target]).map((e) => {
+    let id = slug(e.label, "") || `${idOf[e.source]}-to-${idOf[e.target]}`; let base = id; let i = 2; while (tused.has(id)) id = `${base}-${i++}`; tused.add(id);
+    const tr = { id, from: idOf[e.source], to: idOf[e.target] };
+    if (e.label) tr.event = String(e.label).slice(0, 200);
+    return tr;
+  });
+  return { states, transitions };
+}
+
+const S_ = (id, stateKind, title, x, y) => ({ id, kind: "state", stateKind, type: stateKind === "initial" ? "Initial state" : stateKind === "final" ? "Final state" : "State", title, description: "", x, y });
+export const MACHINERY_TEMPLATES = Object.freeze([
+  { id: "approval", category: "Process patterns", title: "Approval", description: "A request is drafted, reviewed, and approved or rejected; a rejected request can be revised.",
+    nodes: [S_("draft", "initial", "Draft", 0, 0), S_("review", "normal", "In review", 420, 0), S_("approved", "final", "Approved", 840, -120), S_("rejected", "normal", "Rejected", 840, 120)],
+    edges: [E("draft", "review", "submit"), E("review", "approved", "approve"), E("review", "rejected", "reject"), E("rejected", "draft", "revise")] },
+  { id: "incident", category: "Process patterns", title: "Incident", description: "An incident is opened, investigated, mitigated and resolved; it can be reopened.",
+    nodes: [S_("open", "initial", "Open", 0, 0), S_("investigating", "normal", "Investigating", 420, 0), S_("mitigated", "normal", "Mitigated", 840, 0), S_("resolved", "final", "Resolved", 1260, 0)],
+    edges: [E("open", "investigating", "triage"), E("investigating", "mitigated", "mitigate"), E("mitigated", "resolved", "resolve"), E("resolved", "open", "reopen")] },
+  { id: "order", category: "Process patterns", title: "Order fulfilment", description: "An order is placed, paid, shipped and delivered, or cancelled before it ships.",
+    nodes: [S_("placed", "initial", "Placed", 0, 0), S_("paid", "normal", "Paid", 420, 0), S_("shipped", "normal", "Shipped", 840, 0), S_("delivered", "final", "Delivered", 1260, 0), S_("cancelled", "final", "Cancelled", 420, 200)],
+    edges: [E("placed", "paid", "pay"), E("paid", "shipped", "ship"), E("shipped", "delivered", "deliver"), E("placed", "cancelled", "cancel"), E("paid", "cancelled", "cancel")] },
+]);
+
 // ---- render ------------------------------------------------------------------------------------
 
 export function renderDesignerEditor(model) {
@@ -230,10 +289,14 @@ export function renderDesignerEditor(model) {
     });
     return { id: t.id, category: t.category, title: t.title, description: t.description, graph: normalizeDiagramGraph({ nodes, edges: t.edges }).graph };
   });
-  const icons = Object.fromEntries(["lightbulb", "cube", "globe-network", "join-table", "cubes", "endnote", "take-action", "layout-grid", "new-text-box", "group-objects", "office", "cross", "arrow-left", "arrow-right", "tag"].map((n) => [n, bpIcon(n, 16)]));
+  const machinery = m.variant === "machinery";
+  const mTemplates = MACHINERY_TEMPLATES.map((tp) => ({ id: tp.id, category: tp.category, title: tp.title, description: tp.description, graph: normalizeDiagramGraph({ nodes: tp.nodes, edges: tp.edges }).graph }));
+  const icons = Object.fromEntries(["lightbulb", "cube", "globe-network", "join-table", "cubes", "endnote", "take-action", "layout-grid", "new-text-box", "group-objects", "office", "cross", "arrow-left", "arrow-right", "tag", "tick", "warning-sign", "circle-arrow-right", "selection-box"].map((n) => [n, bpIcon(n, 16)]));
   const boot = {
     bp: m.blueprint ? { id: m.blueprint.id, ref: m.blueprint.ref, head: m.head || "" } : null,
-    name: m.name || (m.blueprint && m.blueprint.name) || "New solution design diagram",
+    variant: machinery ? "machinery" : "designer",
+    recordPath: machinery ? "/__ioi/studio/machinery/graph?sm=" : "/__ioi/studio/designer/diagram?bp=",
+    name: m.name || (m.blueprint && m.blueprint.name) || (machinery ? "New process graph" : "New solution design diagram"),
     description: m.description ?? (m.blueprint && m.blueprint.description) ?? "",
     graph: m.graph || normalizeDiagramGraph({ nodes: [], edges: [] }).graph,
     dirty: !!m.dirty,
@@ -246,13 +309,16 @@ export function renderDesignerEditor(model) {
       resource: RESOURCE_TYPES,
     },
     records,
-    compositions,
-    templates,
+    compositions: machinery ? [] : compositions,
+    templates: machinery ? mTemplates : templates,
     icons,
     appIcons: Object.fromEntries(surfaces.map((s) => [s.route, s.icon || ""])),
   };
   const bootJson = JSON.stringify(boot).replace(/</g, "\\u003c");
-  const rail = ioiGlobalRailHtml({ label: "Solution Designer", href: "/__ioi/studio/designer", iconUri: DSG_APP_TILE_URI, railVariant: "rv-pipe rv-dsg", viewAll: true, star: false, badges: true, aipGradient: true, acctMuted: true });
+  const app = machinery
+    ? { label: "Machinery", home: "/__ioi/studio/machinery", tile: MCH_APP_TILE_URI, save: "/__ioi/studio/machinery/graph/save", open: "/__ioi/studio/machinery", title: "Machinery" }
+    : { label: "Solution Designer", home: "/__ioi/studio/designer", tile: DSG_APP_TILE_URI, save: "/__ioi/studio/designer/diagram/save", open: "/__ioi/studio/designer?open=recent", title: "Solution Designer" };
+  const rail = ioiGlobalRailHtml({ label: app.label, href: app.home, iconUri: app.tile, railVariant: "rv-pipe rv-dsg", viewAll: true, star: false, badges: true, aipGradient: true, acctMuted: true });
   const tb = (id, icon, label, extra = "") => `<button type="button" class="dg-tool" id="${id}" title="${esc(label)}"${extra}>${bpIcon(icon, 18)}<span>${esc(label)}</span></button>`;
   const railBtn = (panel, icon, label) => `<button type="button" class="dg-rbtn" data-panel="${panel}" aria-label="${esc(label)}" title="${esc(label)}">${bpIcon(icon, 16)}</button>`;
   const css = `:root{color-scheme:light}*{box-sizing:border-box}
@@ -262,7 +328,7 @@ export function renderDesignerEditor(model) {
     ${IOI_GRAIL_CSS}
     .dg-main{flex:1;min-width:0;display:flex;flex-direction:column;height:100vh}
     .dg-head{flex:0 0 51px;display:flex;align-items:center;gap:10px;background:#fff;box-shadow:0 1px 0 0 #d3d8de;z-index:8;padding-right:16px}
-    .dg-hchip{width:50px;height:50px;flex:0 0 50px;background:rgba(63,166,218,.1) url('${DSG_APP_TILE_URI}') center/24px no-repeat;box-shadow:inset -1px 0 0 0 rgba(63,166,218,.25)}
+    .dg-hchip{width:50px;height:50px;flex:0 0 50px;background:rgba(63,166,218,.1) url('${app.tile}') center/24px no-repeat;box-shadow:inset -1px 0 0 0 rgba(63,166,218,.25)}
     .dg-name{font-size:16px;font-weight:600;color:#1c2127;border:1px solid transparent;border-radius:3px;padding:3px 6px;min-width:120px;max-width:48ch;background:transparent;font-family:inherit}
     .dg-name:hover{border-color:rgba(17,20,24,.15)} .dg-name:focus{outline:none;border-color:#2d72d2;box-shadow:0 0 0 1px #2d72d2}
     .dg-badge{font-size:12px;font-weight:600;padding:1px 6px;border-radius:2px}
@@ -330,6 +396,10 @@ export function renderDesignerEditor(model) {
     .dg-ndel svg{width:10px;height:10px}
     .dg-qa{position:absolute;top:50%;margin-top:-17px;width:34px;height:34px;border-radius:4px;border:0;background:#fff;box-shadow:0 0 0 1px rgba(17,20,24,.15),0 2px 4px rgba(17,20,24,.1);color:#215db0;cursor:pointer;display:flex;align-items:center;justify-content:center;z-index:3}
     .dg-qa.l{left:-64px}.dg-qa.r{right:-64px}
+    .dg-k-state .dg-card{border-left:4px solid #8f99a8}.dg-st-initial .dg-card{border-left-color:#238551}.dg-st-final .dg-card{border-left-color:#2d72d2;box-shadow:0 0 0 1px rgba(0,0,0,.15),0 0 0 4px #fff,0 0 0 5px rgba(45,114,210,.45)}
+    .dg-node.sel.dg-st-final .dg-card{box-shadow:0 0 0 2px #2d72d2,0 0 0 4px rgba(45,114,210,.2)}
+    .dg-k-state .dg-ico{color:#5f6b7c}.dg-st-initial .dg-ico{color:#238551}.dg-st-final .dg-ico{color:#2d72d2}
+    .dg-lint{display:flex;gap:8px;align-items:flex-start;padding:8px 10px;border-radius:4px;font-size:13px}.dg-lint.err{background:#fcf1f1;color:#8e292c}.dg-lint.warn{background:#fdf6ec;color:#935610}.dg-lint.ok{background:#f3f8f5;color:#1c6e42}
     .dg-group{background:rgba(45,114,210,.04);border:1px dashed rgba(45,114,210,.45);border-radius:6px;cursor:grab}
     .dg-group.sel{border:2px solid #2d72d2}
     .dg-group .dg-title{position:absolute;left:12px;top:8px;color:#215db0}
@@ -383,10 +453,10 @@ export function renderDesignerEditor(model) {
     .dg-toast.ok{background:#e8f4ee;color:#1c6e42}.dg-toast.err{background:#fcebeb;color:#8e292c}
     .dg-toast button{border:0;background:none;cursor:pointer;color:inherit;padding:0 0 0 6px}
     @media (max-width:900px){.dg-panel{position:absolute;left:48px;top:0;bottom:0;z-index:9;width:calc(100vw - 64px);flex-basis:auto}.dg-name{max-width:40vw}.dg-toolbar{flex-wrap:wrap;right:10px}.dg-wcards{flex-direction:column;align-items:center}.dg-wcard{min-height:0}.dg-insp{left:10px;right:10px;width:auto}.dsg-shell .og-grail{display:none}}`;
-  return `<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Solution Designer</title><style>${css}</style></head>
+  return `<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>${esc(app.title)}</title><style>${css}</style></head>
 <body><div class="dsg-shell">${rail}<div class="dg-main">
   <header class="dg-head">
-    <a class="dg-hchip" href="/__ioi/studio/designer" title="Solution Designer home" aria-label="Solution Designer home"></a>
+    <a class="dg-hchip" href="${app.home}" title="${esc(app.label)} home" aria-label="${esc(app.label)} home"></a>
     <input class="dg-name" id="dg-name" aria-label="Diagram name" maxlength="200">
     <span class="dg-badge" id="dg-status"></span>
     <div class="dg-hright">
@@ -394,13 +464,14 @@ export function renderDesignerEditor(model) {
       <button type="button" class="dg-ibtn" id="dg-redo" title="Redo (Ctrl+Y)" aria-label="Redo">${bpIcon("redo", 16)}</button>
       <button type="button" class="dg-btn primary" id="dg-save">${bpIcon("tick", 14)}<span>Save</span></button>
       <button type="button" class="dg-btn" id="dg-actions" aria-haspopup="menu">Actions ${bpIcon("caret-down", 12)}</button>
-      <a class="dg-btn" href="/__ioi/studio/designer?open=recent">${bpIcon("folder-open", 14)}<span>Open diagram</span></a>
+      <a class="dg-btn" href="${app.open}">${bpIcon("folder-open", 14)}<span>${machinery ? "Open graph" : "Open diagram"}</span></a>
     </div>
   </header>
   <div class="dg-work">
     <nav class="dg-rail" aria-label="Diagram panels">
-      ${railBtn("info", "properties", "Diagram Information")}
-      ${railBtn("reference", "manual", "Reference Diagrams")}
+      ${railBtn("info", "properties", machinery ? "Graph Information" : "Diagram Information")}
+      ${machinery ? railBtn("linter", "warning-sign", "Linter") : ""}
+      ${railBtn("reference", "manual", machinery ? "Process templates" : "Reference Diagrams")}
       ${railBtn("settings", "cog", "Graph Settings")}
       <button type="button" class="dg-rbtn bottom" data-panel="shortcuts" aria-label="Shortcuts" title="Shortcuts">⌘</button>
     </nav>
@@ -408,8 +479,12 @@ export function renderDesignerEditor(model) {
     <div class="dg-canvas" id="dg-canvas" tabindex="0" aria-label="Diagram canvas">
       <div class="dg-world" id="dg-world"><svg class="dg-edges" id="dg-edges"><defs><marker id="dg-arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0,0 L10,5 L0,10 z" fill="#8f99a8"></path></marker><marker id="dg-arrow-sel" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0,0 L10,5 L0,10 z" fill="#2d72d2"></path></marker></defs><g id="dg-edge-g"></g><path id="dg-temp" class="dg-eline" d="" style="display:none"></path></svg><div id="dg-nodes"></div></div>
       <div class="dg-toolbar" role="toolbar" aria-label="Add to the diagram">
-        <div class="dg-tgroup">${tb("dg-t-concept", "lightbulb", "Concept")}${tb("dg-t-component", "office", "Component")}${tb("dg-t-resource", "cube", "Resource")}</div>
-        <div class="dg-tgroup">${tb("dg-t-group", "group-objects", "Group", ' data-sq="1"')}${tb("dg-t-text", "new-text-box", "Text", ' data-sq="1"')}</div>
+        ${machinery
+          // No Text tool: the state-machine plane keeps states and transitions only, so a note would be
+          // dropped on save without a word.
+          ? `<div class="dg-tgroup">${tb("dg-t-state", "selection-box", "State")}</div>`
+          : `<div class="dg-tgroup">${tb("dg-t-concept", "lightbulb", "Concept")}${tb("dg-t-component", "office", "Component")}${tb("dg-t-resource", "cube", "Resource")}</div>
+        <div class="dg-tgroup">${tb("dg-t-group", "group-objects", "Group", ' data-sq="1"')}${tb("dg-t-text", "new-text-box", "Text", ' data-sq="1"')}</div>`}
         <div class="dg-tgroup">${tb("dg-t-pan", "move", "Pan view", ' data-sq="1"')}${tb("dg-t-move", "select", "Move nodes", ' data-sq="1"')}</div>
       </div>
       <div class="dg-controls" aria-label="View">
@@ -426,7 +501,7 @@ export function renderDesignerEditor(model) {
   </div>
 </div></div>
 <div class="dg-modal" id="dg-modal" role="dialog" aria-modal="true"><div class="dg-dialog" id="dg-dialog"></div></div>
-<form id="dg-saveform" method="post" action="/__ioi/studio/designer/diagram/save" hidden>
+<form id="dg-saveform" method="post" action="${app.save}" hidden>
   <input type="hidden" name="bp"><input type="hidden" name="head"><input type="hidden" name="draft"><input type="hidden" name="name"><input type="hidden" name="description"><input type="hidden" name="graph_json">
 </form>
 <script type="application/json" id="dg-boot">${bootJson}</script>
@@ -464,6 +539,7 @@ function designerClient() {
   function iconFor(n) {
     if (n.kind === "component") { const uri = BOOT.appIcons[n.href] || ""; return uri ? `<img src="${esc(uri)}" alt="">` : BOOT.icons.office; }
     if (n.kind === "concept") return BOOT.icons.lightbulb;
+    if (n.kind === "state") return BOOT.icons[n.stateKind === "initial" ? "circle-arrow-right" : n.stateKind === "final" ? "tick" : "selection-box"];
     if (n.kind === "resource") return BOOT.icons[n.icon || RES_ICON[n.type] || "cube"] || BOOT.icons.cube;
     return "";
   }
@@ -476,9 +552,9 @@ function designerClient() {
     const extras = single ? `<button type="button" class="dg-ndel" data-act="delete" title="Delete (Backspace)" aria-label="Delete node">${BOOT.icons.cross}</button>` : "";
     if (n.kind === "group") return `<div class="dg-node dg-group${sel}" data-id="${esc(n.id)}" style="${pos};width:${n.w || 640}px;height:${n.h || 360}px"><div class="dg-title" data-edit="title">${esc(n.title || "Group")}</div>${extras}</div>`;
     if (n.kind === "text") return `<div class="dg-node dg-textn${sel}" data-id="${esc(n.id)}" style="${pos}"><div class="dg-title" data-edit="title">${esc(n.title || "Text")}</div><span class="dg-h l" data-h="in"></span><span class="dg-h r" data-h="out"></span>${extras}</div>`;
-    const linked = n.ref || (n.kind === "component" && n.href) ? `<span class="dg-linked" title="Linked to ${esc(n.ref || n.href)}">${BOOT.icons.tag}linked</span>` : "";
-    const bar = single ? `<div class="dg-nbar"><button type="button" data-act="link">${BOOT.icons.tag}<span>${n.ref || n.href ? "Linked resource" : "Link resource"}</span></button></div><button type="button" class="dg-qa l" data-act="qa-left" title="Add a node before this one" aria-label="Add a node before">${BOOT.icons["arrow-left"]}</button><button type="button" class="dg-qa r" data-act="qa-right" title="Add a node after this one" aria-label="Add a node after">${BOOT.icons["arrow-right"]}</button>` : "";
-    return `<div class="dg-node dg-k-${esc(n.kind)}${sel}${S.g.settings.iconsOnly ? " dg-iconsonly" : ""}" data-id="${esc(n.id)}" style="${pos}">
+    const linked = n.kind !== "state" && (n.ref || (n.kind === "component" && n.href)) ? `<span class="dg-linked" title="Linked to ${esc(n.ref || n.href)}">${BOOT.icons.tag}linked</span>` : "";
+    const bar = single ? `${n.kind === "state" ? "" : `<div class="dg-nbar"><button type="button" data-act="link">${BOOT.icons.tag}<span>${n.ref || n.href ? "Linked resource" : "Link resource"}</span></button></div>`}<button type="button" class="dg-qa l" data-act="qa-left" title="Add a node before this one" aria-label="Add a node before">${BOOT.icons["arrow-left"]}</button><button type="button" class="dg-qa r" data-act="qa-right" title="Add a node after this one" aria-label="Add a node after">${BOOT.icons["arrow-right"]}</button>` : "";
+    return `<div class="dg-node dg-k-${esc(n.kind)}${n.kind === "state" ? ` dg-st-${esc(n.stateKind || "normal")}` : ""}${sel}${S.g.settings.iconsOnly ? " dg-iconsonly" : ""}" data-id="${esc(n.id)}" style="${pos}">
       <div class="dg-card"><div class="dg-top"><span class="dg-ico">${iconFor(n)}</span><div class="dg-hd"><div class="dg-title" data-edit="title">${esc(n.title || "Untitled")}</div><div class="dg-type">${esc(n.type || n.kind)}</div></div>${linked}</div><div class="dg-desc">${esc(n.description || "")}</div></div>
       <span class="dg-h l" data-h="in" title="Drop a connection here"></span><span class="dg-h r" data-h="out" title="Drag to connect"></span>${bar}${extras}</div>`;
   }
@@ -520,7 +596,7 @@ function designerClient() {
     $("#dg-t-pan").classList.toggle("on", S.mode === "pan"); $("#dg-t-move").classList.toggle("on", S.mode === "move");
     canvas.classList.toggle("pan", S.mode === "pan");
     renderWelcome(); renderInspector();
-    if (S.panel === "info") renderPanel();
+    if (S.panel === "info" || S.panel === "linter") renderPanel();
   }
   function render() { renderNodes(); renderEdges(); applyView(); renderChrome(); }
 
@@ -529,6 +605,14 @@ function designerClient() {
     const w = $("#dg-welcome");
     if (S.g.nodes.length) { w.innerHTML = ""; w.style.display = "none"; return; }
     w.style.display = "flex";
+    if (BOOT.variant === "machinery") {
+      w.innerHTML = `<h2>Build a process graph</h2><p>Add a state to get started — connect states with transitions, and the linter checks the process as you draw</p>
+        <div class="dg-wcards">
+          <div class="dg-wcard" role="button" tabindex="0" data-welcome="initial"><span class="dg-wico">${BOOT.icons["circle-arrow-right"]}</span><b>Add the initial state</b><span>Where every instance of the process starts</span></div>
+          <div class="dg-wcard" role="button" tabindex="0" data-welcome="reference"><span class="dg-wico">${BOOT.icons["layout-grid"]}</span><b>Start from a template</b><span>Approval, incident or order fulfilment</span></div>
+        </div>`;
+      return;
+    }
     w.innerHTML = `<h2>Welcome to Solution Designer</h2><p>Get started by adding nodes, loading a graph from your composition, or exploring reference examples</p>
       <div class="dg-wcards">
         <div class="dg-wcard" aria-disabled="true" title="Planning with a model is not wired to the editor yet — describe the workflow with Concept nodes, or start from a reference example" data-ioi-disabled-reason="Planning with a model is not wired to the editor yet — describe the workflow with Concept nodes, or start from a reference example"><span class="dg-wico">${BOOT.icons.lightbulb}</span><b>Start planning</b><span>Planning with a model is not wired to the editor yet — start from an example or your composition</span></div>
@@ -541,6 +625,22 @@ function designerClient() {
   function renderInspector() {
     const box = $("#dg-insp");
     const n = S.sel.size === 1 ? byId([...S.sel][0]) : null;
+    const edge = !n && S.edgeSel ? S.g.edges.find((x) => x.id === S.edgeSel) : null;
+    if (edge) {
+      if (box.dataset.for === edge.id && box.contains(document.activeElement)) return;
+      box.dataset.for = edge.id; box.classList.add("on");
+      const a = byId(edge.source), z = byId(edge.target);
+      const isT = BOOT.variant === "machinery";
+      box.innerHTML = `<div class="dg-ihead"><span>${isT ? "Transition" : "Connection"}</span><button type="button" class="dg-ibtn" data-act="deselect" aria-label="Close">${BOOT.icons.cross}</button></div>
+        <div style="color:#5f6b7c;font-size:13px;margin-top:6px">${esc(a ? a.title : "?")} → ${esc(z ? z.title : "?")}</div>
+        <label for="dg-i-elabel">${isT ? "Event — what moves the process along this transition" : "Label"}</label><input id="dg-i-elabel" value="${esc(edge.label || "")}" maxlength="120" placeholder="${isT ? "e.g. approve" : "e.g. feeds"}">
+        <div><button type="button" class="dg-danger" data-act="delete-edge">Delete ${isT ? "transition" : "connection"}</button></div>`;
+      const inp = $("#dg-i-elabel", box); let before = null;
+      inp.addEventListener("focus", () => { before = snap(); });
+      inp.addEventListener("input", () => { edge.label = inp.value; S.dirty = true; renderEdges(); renderChrome(); });
+      inp.addEventListener("change", () => { if (before !== null && before !== snap()) { S.undo.push(before); S.redo = []; } before = snap(); renderChrome(); });
+      return;
+    }
     if (!n) { box.classList.remove("on"); box.innerHTML = ""; box.dataset.for = ""; return; }
     if (box.dataset.for === n.id && box.contains(document.activeElement)) return; // do not steal the caret
     box.dataset.for = n.id; box.classList.add("on");
@@ -555,6 +655,7 @@ function designerClient() {
     const open = n.href ? `<a class="dg-open" href="${esc(n.href)}" target="_top">Open ${esc(n.kind === "component" ? n.title : "the linked record")} →</a>` : "";
     box.innerHTML = `<div class="dg-ihead"><span>${esc(n.kind === "text" ? "Text" : n.kind === "group" ? "Group" : n.type || n.kind)}</span><button type="button" class="dg-ibtn" data-act="deselect" aria-label="Close">${BOOT.icons.cross}</button></div>
       <label for="dg-i-title">${n.kind === "text" ? "Text" : "Title"}</label>${n.kind === "text" ? `<textarea id="dg-i-title">${esc(n.title)}</textarea>` : `<input id="dg-i-title" value="${esc(n.title)}" maxlength="200">`}
+      ${n.kind === "state" ? `<label for="dg-i-skind">Kind</label><select id="dg-i-skind">${[["initial", "Initial — where the process starts"], ["normal", "State"], ["final", "Final — where it ends"]].map(([k, l]) => `<option value="${k}"${(n.stateKind || "normal") === k ? " selected" : ""}>${l}</option>`).join("")}</select>` : ""}
       ${n.kind === "concept" || n.kind === "component" || n.kind === "resource" ? `<label for="dg-i-type">Type</label><input id="dg-i-type" value="${esc(n.type)}" maxlength="80"><label for="dg-i-desc">Description</label><textarea id="dg-i-desc" maxlength="2000">${esc(n.description)}</textarea>` : ""}
       ${link}${open}
       <div><button type="button" class="dg-danger" data-act="delete">Delete</button></div>`;
@@ -566,6 +667,8 @@ function designerClient() {
       el.addEventListener("change", () => { if (before !== null && before !== snap()) { S.undo.push(before); S.redo = []; } before = snap(); renderChrome(); });
     };
     bindField("#dg-i-title", "title"); bindField("#dg-i-type", "type"); bindField("#dg-i-desc", "description");
+    const sk = $("#dg-i-skind", box);
+    if (sk) sk.addEventListener("change", () => mutate(() => { n.stateKind = sk.value; n.type = sk.value === "initial" ? "Initial state" : sk.value === "final" ? "Final state" : "State"; box.dataset.for = ""; }));
     const ls = $("#dg-i-link", box);
     if (ls) ls.addEventListener("change", () => mutate(() => {
       const rt = BOOT.palette.resource.find((r) => r.type === n.type); const r = (BOOT.records[rt.record] || [])[+ls.value];
@@ -635,7 +738,9 @@ function designerClient() {
   function quickAdd(id, side) {
     const n = byId(id); if (!n) return;
     const el = nodeEl(id); const w = el ? el.offsetWidth : NODE_W;
-    const spec = { kind: n.kind === "text" ? "concept" : n.kind, type: n.kind === "component" ? "" : n.type, title: n.kind === "component" ? "New component" : `New ${String(n.type || n.kind).toLowerCase()}`, description: "", icon: n.icon };
+    const spec = n.kind === "state"
+      ? { kind: "state", stateKind: "normal", type: "State", title: "New state", description: "" }
+      : { kind: n.kind === "text" ? "concept" : n.kind, type: n.kind === "component" ? "" : n.type, title: n.kind === "component" ? "New component" : `New ${String(n.type || n.kind).toLowerCase()}`, description: "", icon: n.icon };
     const before = snap();
     const m = Object.assign({ id: uid("n") }, spec, { x: side === "right" ? n.x + w + 120 : n.x - w - 120, y: n.y });
     S.g.nodes.push(m);
@@ -758,11 +863,14 @@ function designerClient() {
     if (act === "delete") { if (id) { S.sel = new Set([id]); S.edgeSel = null; } deleteSelection(); }
     else if (act === "qa-left" || act === "qa-right") quickAdd(id, act === "qa-left" ? "left" : "right");
     else if (act === "link") { renderInspector(); const f = $("#dg-i-link") || $("#dg-i-app"); if (f) f.focus(); }
-    else if (act === "deselect") { S.sel = new Set(); render(); }
+    else if (act === "deselect") { S.sel = new Set(); S.edgeSel = null; render(); }
+    else if (act === "delete-edge") { if (S.edgeSel) deleteSelection(); }
   });
   $("#dg-welcome").addEventListener("click", (e) => {
     const c = e.target.closest("[data-welcome]"); if (!c) return;
-    if (c.dataset.welcome === "reference") openPanel("reference"); else openLineage();
+    if (c.dataset.welcome === "reference") openPanel("reference");
+    else if (c.dataset.welcome === "initial") addNode({ kind: "state", stateKind: "initial", type: "Initial state", title: "Start" });
+    else openLineage();
   });
   $("#dg-welcome").addEventListener("keydown", (e) => { if ((e.key === "Enter" || e.key === " ") && e.target.dataset.welcome) { e.preventDefault(); e.target.click(); } });
 
@@ -793,8 +901,17 @@ function designerClient() {
   $("#dg-name").addEventListener("keydown", (e) => { if (e.key === "Enter") { e.preventDefault(); e.target.blur(); } });
   $("#dg-t-pan").addEventListener("click", () => { S.mode = "pan"; renderChrome(); });
   $("#dg-t-move").addEventListener("click", () => { S.mode = "move"; renderChrome(); });
-  $("#dg-t-text").addEventListener("click", () => addNode({ kind: "text", title: "Text" }));
-  $("#dg-t-group").addEventListener("click", () => addNode({ kind: "group", title: "Group" }));
+  const onTool = (sel, fn) => { const el = $(sel); if (el) el.addEventListener("click", fn); };
+  onTool("#dg-t-group", () => addNode({ kind: "group", title: "Group" }));
+  onTool("#dg-t-text", () => addNode({ kind: "text", title: "Text" }));
+  // Machinery: a state is initial, normal or final — exactly one initial, which the linter and the
+  // daemon both hold the graph to.
+  onTool("#dg-t-state", (e) => {
+    const hasInitial = S.g.nodes.some((n) => n.kind === "state" && n.stateKind === "initial");
+    const kinds = [["initial", "Initial state", "Where the process starts — exactly one"], ["normal", "State", "A step the process can be in"], ["final", "Final state", "Where the process ends"]];
+    openPop(e.currentTarget, `<div class="dg-psec">States</div>${kinds.map(([k, label, sub]) => item(k, BOOT.icons[k === "initial" ? "circle-arrow-right" : k === "final" ? "tick" : "selection-box"], label, k === "initial" && hasInitial ? "the graph already has one — a second is a lint error" : sub)).join("")}`,
+      (k) => addNode({ kind: "state", stateKind: k, type: k === "initial" ? "Initial state" : k === "final" ? "Final state" : "State", title: k === "initial" ? "Start" : k === "final" ? "Done" : "New state" }));
+  });
 
   // ---- popovers (palettes, Actions)
   const pop = $("#dg-pop");
@@ -817,13 +934,13 @@ function designerClient() {
     if (e.key === "Escape") { e.preventDefault(); const a = popFor; closePop(); if (a) a.focus(); }
   });
   const item = (key, icon, title, sub, disabled) => `<button type="button" class="dg-pitem" role="menuitem" data-pick="${esc(key)}"${disabled ? ` disabled title="${esc(disabled)}"` : ""}><span class="dg-ico">${icon}</span><span><b>${esc(title)}</b>${sub ? `<small>${esc(sub)}</small>` : ""}</span></button>`;
-  $("#dg-t-concept").addEventListener("click", (e) => openPop(e.currentTarget,
+  onTool("#dg-t-concept", (e) => openPop(e.currentTarget,
     `<div class="dg-psec">Concepts</div>${BOOT.palette.concept.map((c, i) => item(i, BOOT.icons.lightbulb, c.type, c.description)).join("")}`,
     (k) => { const c = BOOT.palette.concept[+k]; addNode({ kind: "concept", type: c.type, title: c.type, description: c.description }); }));
-  $("#dg-t-component").addEventListener("click", (e) => openPop(e.currentTarget,
+  onTool("#dg-t-component", (e) => openPop(e.currentTarget,
     `<div class="dg-psec">IOI applications</div>${BOOT.palette.component.map((c, i) => item(i, c.iconUri ? `<img src="${esc(c.iconUri)}" alt="">` : BOOT.icons.office, c.title, c.type)).join("")}`,
     (k) => { const c = BOOT.palette.component[+k]; addNode({ kind: "component", type: c.type, title: c.title, description: "", href: c.href }); }));
-  $("#dg-t-resource").addEventListener("click", (e) => {
+  onTool("#dg-t-resource", (e) => {
     const secs = BOOT.palette.resource.map((r, ri) => {
       if (!r.record) return item(`u:${ri}`, BOOT.icons[r.icon], `New ${r.type.toLowerCase()} node`, "not linked to a record");
       const recs = BOOT.records[r.record] || [];
@@ -847,7 +964,7 @@ function designerClient() {
       else if (k === "import-lineage") openLineage();
       else if (k === "export-file") { const blob = new Blob([JSON.stringify(exportDoc(), null, 2)], { type: "application/json" }); const a = document.createElement("a"); a.href = URL.createObjectURL(blob); a.download = `${(S.name || "diagram").replace(/[^\w.-]+/g, "-")}.json`; document.body.appendChild(a); a.click(); a.remove(); setTimeout(() => URL.revokeObjectURL(a.href), 1000); toast("ok", "Saved the diagram as a JSON file"); }
       else if (k === "export-copy") copyText(JSON.stringify(exportDoc(), null, 2), "Copied the diagram as JSON");
-      else if (k === "share-link") copyText(`${location.origin}/__ioi/studio/designer/diagram?bp=${encodeURIComponent(S.bp.id)}`, "Copied the diagram's link");
+      else if (k === "share-link") copyText(`${location.origin}${BOOT.recordPath}${encodeURIComponent(S.bp.id)}`, "Copied the link");
       else if (k === "clear") { if (confirm("Clear every node and connection from this diagram? Undo brings them back.")) mutate(() => { S.g.nodes = []; S.g.edges = []; S.sel = new Set(); S.edgeSel = null; }); }
     });
   });
@@ -904,6 +1021,27 @@ function designerClient() {
     const nodes = g.nodes.map((n) => `<rect x="${n.x}" y="${n.y}" width="${NODE_W}" height="120" rx="8" fill="#fff" stroke="#c5cbd3" stroke-width="4"/><rect x="${n.x + 20}" y="${n.y + 22}" width="${NODE_W * 0.55}" height="18" rx="6" fill="#404854"/><rect x="${n.x + 20}" y="${n.y + 70}" width="${NODE_W * 0.75}" height="12" rx="6" fill="#c5cbd3"/>`).join("");
     return `<svg class="dg-mini" viewBox="${x1 - pad} ${y1 - pad} ${W} ${H}" preserveAspectRatio="xMidYMid meet">${edges}${nodes}</svg>`;
   }
+  // What the daemon's state-machine plane will refuse, and what reads as a mistake, checked as you draw.
+  function lint() {
+    const out = [];
+    const states = S.g.nodes.filter((n) => n.kind === "state");
+    if (!states.length) return [{ level: "warn", text: "Add a state — a process needs at least its initial state" }];
+    const initials = states.filter((n) => n.stateKind === "initial");
+    if (initials.length === 0) out.push({ level: "err", text: "No initial state — exactly one state must be where the process starts" });
+    if (initials.length > 1) out.push({ level: "err", text: `${initials.length} initial states (${initials.map((n) => n.title).join(", ")}) — exactly one is allowed` });
+    const names = {}; states.forEach((n) => { const k = String(n.title || "").trim().toLowerCase(); names[k] = (names[k] || 0) + 1; });
+    Object.entries(names).filter(([, c]) => c > 1).forEach(([k]) => out.push({ level: "warn", text: `Two states are named "${k}" — give each state its own name` }));
+    const tr = S.g.edges.filter((e) => byId(e.source)?.kind === "state" && byId(e.target)?.kind === "state");
+    if (initials.length === 1) {
+      const seen = new Set([initials[0].id]); const q = [initials[0].id];
+      while (q.length) { const at = q.shift(); tr.filter((e) => e.source === at).forEach((e) => { if (!seen.has(e.target)) { seen.add(e.target); q.push(e.target); } }); }
+      states.filter((n) => !seen.has(n.id)).forEach((n) => out.push({ level: "warn", text: `"${n.title}" can never be reached from the initial state` }));
+    }
+    states.filter((n) => n.stateKind === "final" && tr.some((e) => e.source === n.id)).forEach((n) => out.push({ level: "warn", text: `"${n.title}" is final but has a transition out of it` }));
+    states.filter((n) => n.stateKind !== "final" && !tr.some((e) => e.source === n.id)).forEach((n) => { if (states.length > 1) out.push({ level: "warn", text: `"${n.title}" is not final and has no way out — mark it final or add a transition` }); });
+    tr.filter((e) => !String(e.label || "").trim()).forEach((e) => out.push({ level: "warn", text: `The transition ${byId(e.source).title} → ${byId(e.target).title} has no event — select it to name what moves the process` }));
+    return out;
+  }
   function openPanel(name) { S.panel = S.panel === name ? "" : name; renderPanel(); }
   function renderPanel() {
     const p = $("#dg-panel");
@@ -915,16 +1053,22 @@ function designerClient() {
       if (p.dataset.panel === "info" && p.contains(document.activeElement)) return;
       p.innerHTML = `${head("Diagram Information")}<div class="dg-pbody"><div class="dg-plabel">Diagram description</div><textarea id="dg-desc" maxlength="2000" placeholder="Enter description…">${esc(S.description)}</textarea>
         <div class="dg-plabel">Contents</div><div>${S.g.nodes.length} node${S.g.nodes.length === 1 ? "" : "s"} · ${S.g.edges.length} connection${S.g.edges.length === 1 ? "" : "s"} · ${S.g.nodes.filter((n) => n.ref || (n.kind === "component" && n.href)).length} linked to a record</div>
-        <div class="dg-plabel">Where it is saved</div><div>${S.bp ? `Studio blueprint <code>${esc(S.bp.ref || S.bp.id)}</code> — owned by your organization. <a href="/__ioi/studio/workbench?view=blueprints&amp;bp=${encodeURIComponent(S.bp.id)}" target="_top">Open in Studio →</a>` : "Not saved yet. Save stores the diagram as a Studio blueprint owned by your organization."}</div></div>`;
+        <div class="dg-plabel">Where it is saved</div><div>${BOOT.variant === "machinery"
+          ? (S.bp ? `State-machine definition <code>${esc(S.bp.ref || S.bp.id)}</code> — states and transitions, inert: nothing runs. <a href="/__ioi/studio/machinery?machine=${encodeURIComponent(S.bp.id)}" target="_top">Open in Machinery →</a>` : "Not saved yet. Save stores the graph as a state-machine definition — its states and transitions; the definition is inert and nothing runs.")
+          : (S.bp ? `Studio blueprint <code>${esc(S.bp.ref || S.bp.id)}</code> — owned by your organization. <a href="/__ioi/studio/workbench?view=blueprints&amp;bp=${encodeURIComponent(S.bp.id)}" target="_top">Open in Studio →</a>` : "Not saved yet. Save stores the diagram as a Studio blueprint owned by your organization.")}</div></div>`;
       $("#dg-desc").addEventListener("input", (e) => { S.description = e.target.value; S.dirty = true; renderChrome(); });
     } else if (S.panel === "reference") {
       const cats = {};
       BOOT.templates.forEach((t, i) => { (cats[t.category] = cats[t.category] || []).push([t, i]); });
       const card = (title, desc, g, key) => `<div class="dg-tcard" data-title="${esc(title.toLowerCase())}">${miniSvg(g)}<div class="dg-tbody"><b>${esc(title)}</b><p>${esc(desc)}</p><button type="button" class="dg-add" data-add="${key}">Click to add to graph</button></div></div>`;
-      p.innerHTML = `${head("Reference Diagrams")}<div class="dg-pbody"><input type="search" id="dg-rsearch" placeholder="Search…" aria-label="Search reference diagrams">
+      p.innerHTML = `${head(BOOT.variant === "machinery" ? "Process templates" : "Reference Diagrams")}<div class="dg-pbody"><input type="search" id="dg-rsearch" placeholder="Search…" aria-label="Search reference diagrams">
         ${Object.keys(cats).map((c) => `<div class="dg-plabel">${esc(c)} (${cats[c].length})</div>${cats[c].map(([t, i]) => card(t.title, t.description, t.graph, `t:${i}`)).join("")}`).join("")}
-        <div class="dg-plabel">From your composition (${BOOT.compositions.length})</div>${BOOT.compositions.length ? BOOT.compositions.map((c, i) => card(c.title, `The lineage the daemon holds for ${c.title}`, c.graph, `c:${i}`)).join("") : `<div style="color:#5f6b7c;font-size:13px">No ontology has a composition yet.</div>`}</div>`;
+        ${BOOT.variant === "machinery" ? "" : `<div class="dg-plabel">From your composition (${BOOT.compositions.length})</div>`}${BOOT.variant === "machinery" ? "" : BOOT.compositions.length ? BOOT.compositions.map((c, i) => card(c.title, `The lineage the daemon holds for ${c.title}`, c.graph, `c:${i}`)).join("") : `<div style="color:#5f6b7c;font-size:13px">No ontology has a composition yet.</div>`}</div>`;
       $("#dg-rsearch").addEventListener("input", (e) => { const q = e.target.value.trim().toLowerCase(); $$(".dg-tcard", p).forEach((c) => { c.style.display = !q || c.dataset.title.includes(q) ? "" : "none"; }); });
+    } else if (S.panel === "linter") {
+      const issues = lint();
+      p.innerHTML = `${head("Linter")}<div class="dg-pbody">${issues.length ? issues.map((x) => `<div class="dg-lint ${x.level}">${BOOT.icons[x.level === "err" ? "warning-sign" : "warning-sign"]}<span>${esc(x.text)}</span></div>`).join("") : `<div class="dg-lint ok">${BOOT.icons.tick}<span>No lint issues found</span></div>`}
+        <div style="color:#5f6b7c;font-size:12px">The daemon holds a saved definition to the same rules and refuses one that breaks them; the linter shows it as you draw.</div></div>`;
     } else if (S.panel === "settings") {
       const st = S.g.settings;
       const tg = (key, title, sub) => `<label class="dg-toggle"><span><b>${esc(title)}</b><span>${esc(sub)}</span></span><input type="checkbox" data-setting="${key}"${st[key] ? " checked" : ""}></label>`;
@@ -975,6 +1119,6 @@ function designerClient() {
   if (BOOT.panel) openPanel(BOOT.panel);
   // A refused save answers the POST itself; the address goes back to the diagram's own, so a reload
   // cannot re-submit (the unsaved drawing is still guarded by the leave warning).
-  if (history.replaceState && /\/diagram\/save$/.test(location.pathname)) history.replaceState(null, "", S.bp ? `/__ioi/studio/designer/diagram?bp=${encodeURIComponent(S.bp.id)}` : "/__ioi/studio/designer/diagram");
+  if (history.replaceState && /\/(?:diagram|graph)\/save$/.test(location.pathname)) history.replaceState(null, "", S.bp ? `${BOOT.recordPath}${encodeURIComponent(S.bp.id)}` : BOOT.recordPath.split("?")[0]);
   if (history.replaceState && /[?&]saved=1/.test(location.search)) history.replaceState(null, "", location.pathname + location.search.replace(/([?&])saved=1(&|$)/, (m, a, b) => (b ? a : "")));
 }
