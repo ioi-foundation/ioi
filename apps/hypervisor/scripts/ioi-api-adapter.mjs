@@ -795,6 +795,9 @@ async function handleImpl(pathname, bodyText) {
       "vscode-browser": "/__ioi/editor/open?environmentId={{.EnvironmentId}}",
       vscode: "vscode://ioi.ioi-flex/connect?environmentId={{.EnvironmentId}}",
       "vscode-insiders": "vscode-insiders://ioi.ioi-flex/connect?environmentId={{.EnvironmentId}}",
+      // Cursor is a VS Code-family host running the SAME adapter extension, and the daemon states its
+      // open route in those terms ("deep link into the local cursor host (adapter extension)").
+      cursor: "cursor://ioi.ioi-flex/connect?environmentId={{.EnvironmentId}}",
     };
     const labels = { vscode: "VS Code", "vscode-insiders": "VS Code Insiders", "vscode-browser": "VS Code (Browser)" };
     try {
@@ -805,7 +808,11 @@ async function handleImpl(pathname, bodyText) {
       const openable = r.openable_targets || r.active_targets || [];
       let active = openable.filter((t) => t !== "workbench-native"); // the SPA console IS the native surface
       active = ["vscode-browser", ...active.filter((t) => t !== "vscode-browser")].filter((t) => openable.includes(t));
-      const editors = active.map((t) => ({ id: t, name: labels[t] || t, alias: t, urlTemplate: URL_TEMPLATES[t] || "", installationInstructions: "" }));
+      // An editor with no open route is a dead option: picking it opens nothing. Cursor and SSH were
+      // both offered with an empty urlTemplate (R-240); SSH stays out until the daemon publishes the
+      // host and port an ssh:// link needs. Names come from the daemon profile, not the raw target id.
+      const byId = Object.fromEntries((r.targets || []).map((t) => [t.target_id, t]));
+      const editors = active.filter((t) => URL_TEMPLATES[t]).map((t) => ({ id: t, name: labels[t] || byId[t]?.profile?.displayName || t, alias: t, urlTemplate: URL_TEMPLATES[t], installationInstructions: "" }));
       return json({ editors });
     } catch {
       return json({ editors: [{ id: "vscode-browser", name: "VS Code (Browser)", alias: "vscode-browser", urlTemplate: URL_TEMPLATES["vscode-browser"], installationInstructions: "" }] });
