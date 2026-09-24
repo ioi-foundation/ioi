@@ -191,19 +191,6 @@
   function statusHtml(label, value) {
     return '<div class="flex items-start justify-between gap-3" style="padding:3px 0"><span class="text-xs text-content-tertiary">' + esc(label) + '</span><code class="text-xs text-content-primary" style="max-width:68%;overflow-wrap:anywhere;text-align:right">' + esc(value || "—") + "</code></div>";
   }
-  function renderNativeSession(payload, prompt) {
-    const panel = sessionPanel();
-    if (!panel) return;
-    panel.style.display = "block";
-    panel.innerHTML = '<div class="rounded-xl border border-border-base bg-surface-01 text-sm text-content-primary" style="padding:14px;text-align:left">' +
-      '<div class="font-medium">Session ready</div><div class="text-xs text-content-secondary" style="margin:4px 0 10px">The native composer created bounded Session truth only. The input is attached to that Session; no GoalRun or Goal Space was activated.</div>' +
-      statusHtml("Session", payload.session_ref || "—") +
-      statusHtml("Input", prompt) +
-      statusHtml("Environment", payload.environment_ref || "—") +
-      statusHtml("Provision receipt", payload.receipt_ref || "—") +
-      statusHtml("Goal activation", payload.goal_run_activation_ref == null && payload.goal_run_ref == null ? "not performed" : "—") +
-      '<div class="text-xs" style="margin-top:10px"><a href="/__ioi/sessions">Sessions →</a></div></div>';
-  }
   function renderNativeSessionError(status, payload) {
     const error = (payload && payload.error) || {};
     const panel = sessionPanel();
@@ -228,6 +215,15 @@
     button.setAttribute("aria-busy", nativeSessionBusy ? "true" : "false");
     button.setAttribute("data-ioi-session-rebound", "true");
   }
+  // R-240: THE COMPOSER STARTS THE WORK AND LANDS ON THE SESSION VIEW. It used to POST a bare daemon
+  // Session — which attaches the prompt and runs NOTHING — and show "Session ready" beside a link to the
+  // /__ioi/sessions readout that M13.4 took out of product navigation. The session never appeared in
+  // the rail's Sessions and had no session view to open. It now calls the ported bundle's OWN submit,
+  // AgentService/CreateAgentSession — a real environment, a bound Session, the harness run — and goes
+  // where the bundle goes after it: /details/:environmentId, the reference-ported session view M13.4
+  // designates. The ONLY thing this intercept still skips is the vendor's payment-method verification
+  // gate, which a self-hosted deployment has no billing to satisfy. CreateAgentSession activates no
+  // goal run; nothing here turns a session into a pursuit.
   async function submitNativeSession() {
     if (nativeSessionBusy) return;
     const prompt = composerPrompt();
@@ -235,15 +231,19 @@
     nativeSessionBusy = true;
     syncNativeSessionButton();
     try {
-      const response = await fetch("/v1/hypervisor/sessions", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ initial_input: prompt }) });
+      const response = await fetch("/api/gitpod.v1.AgentService/CreateAgentSession", {
+        method: "POST",
+        headers: { "content-type": "application/json", "connect-protocol-version": "1" },
+        body: JSON.stringify({ initialInput: { inputs: [{ text: { content: prompt } }] } }),
+      });
       const payload = await response.json().catch(() => ({}));
-      // The guard refuses a Session that ACTIVATED a goal run. It used to demand the two GoalRun
-      // fields be present and null — and since R-192 the daemon omits them, so `undefined !== null`
-      // turned EVERY admitted Session into "Session creation refused": the Session existed, the
-      // person was told it did not, and a retry made another (R-240). Absent or null both mean "no
-      // goal run"; only a present ref is one.
-      if (!response.ok || !payload.session_ref || payload.initial_input_projection?.disposition !== "session_only_non_goal" || payload.goal_run_activation_ref != null || payload.goal_run_ref != null) { renderNativeSessionError(response.status, payload); return; }
-      renderNativeSession(payload, prompt);
+      const envId = payload && payload.environment && payload.environment.id;
+      if (!response.ok || !envId) {
+        const error = payload.error || (payload.code ? { code: payload.code, message: payload.message } : {});
+        renderNativeSessionError(response.status, { error });
+        return;
+      }
+      location.assign("/details/" + encodeURIComponent(envId));
     } catch (error) {
       renderNativeSessionError(0, { error: { code: "session_daemon_unavailable", message: String(error?.message || error) } });
     } finally {
