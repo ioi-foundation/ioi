@@ -20,6 +20,17 @@ const TIMELINE_COMPONENT = /^[A-Za-z0-9._~-]+$/;
 
 // Daemon-owned timeline refs are navigable only when they name an exact internal timeline path.
 // Keep this stricter than generic URL parsing: parsing would normalize traversal before validation.
+// A PLANE THAT DID NOT ANSWER IS NOT AN EMPTY PLANE (R-240). Loaders carry each read's typed outcome
+// on `degraded` "so a pane can name WHY, not just render absence" — and the panes never read it: with
+// the daemon stopped, Data sources said "No data sources declared yet" about a registry it never
+// read. This renders the outcome where a surface would otherwise draw absence as "none yet".
+export function degradedNotice(degraded, labels = {}) {
+  const keys = Object.keys(degraded || {});
+  if (!keys.length) return "";
+  const items = keys.map((k) => `<li><b>${escHtml(labels[k] || k)}</b> — <code>${escHtml((degraded[k] && degraded[k].code) || "unavailable")}</code>${degraded[k] && degraded[k].message ? ` ${escHtml(String(degraded[k].message).slice(0, 160))}` : ""}</li>`).join("");
+  return `<div role="status" data-testid="degraded-notice" style="margin:12px 0;padding:10px 14px;border:1px solid #d1980b;border-radius:6px;background:rgba(209,152,11,.08);color:inherit;font-size:13px;line-height:1.5"><b>The daemon did not answer every read on this page.</b> What follows may be incomplete, and an empty list below is not an empty registry:<ul style="margin:6px 0 0 18px;padding:0">${items}</ul></div>`;
+}
+
 export function canonicalTimelineRef(reference) {
   if (typeof reference !== "string" || reference.length === 0 || reference.length > 512) return "";
   const prefix = "/__ioi/run-timeline/";

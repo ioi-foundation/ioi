@@ -335,7 +335,9 @@ async function run() {
     } else {
       ok("dead-daemon posture: internal surfaces fail CLOSED (503 refusal names the unrebound boundary, no surface renders)",
         deadChildExit === null && !!deadUp && deadUp.status === 503
-          && deadUp.text.includes("unavailable outside local development"),
+          // R-240: the refusal must name the REAL cause. It used to say "unavailable outside local
+          // development" here, on a local-development box whose daemon was simply down.
+          && deadUp.text.includes("daemon is not answering") && !deadUp.text.includes("unavailable outside local development"),
         deadUp ? `status ${deadUp.status}${deadChildExit === null ? "" : ` (child exited ${deadChildExit})`}` : "never came up");
     }
   } finally {

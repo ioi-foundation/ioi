@@ -441,8 +441,15 @@ async function unreboundInternalSurfaceAdmission(req) {
   return { ok: true, status: 200, code: null };
 }
 function refuseUnreboundInternalSurface(req, res, admission) {
-  const message =
-    "This unrebound internal surface has no principal-scoped projection and is unavailable outside local development.";
+  // Two different refusals, two different truths (R-240). The admission already tells them apart —
+  // 403 when the deployment is NOT local development, 503 when the daemon could not be asked at all
+  // — but one message served both, so with the daemon stopped 32 surfaces claimed to be "unavailable
+  // outside local development" on a local-development box. A reason that names the wrong cause sends
+  // the reader to fix the wrong thing.
+  const daemonDown = admission.status >= 500;
+  const message = daemonDown
+    ? "The daemon is not answering, so this surface cannot confirm the deployment posture it needs before it renders. Nothing is shown rather than a guess — start the daemon and reload."
+    : "This unrebound internal surface has no principal-scoped projection and is unavailable outside local development.";
   if (String(req.headers.accept || "").includes("application/json")) {
     res.writeHead(admission.status, {
       "Content-Type": "application/json",
@@ -458,7 +465,7 @@ function refuseUnreboundInternalSurface(req, res, admission) {
     "Content-Type": "text/html; charset=utf-8",
     "Cache-Control": "no-cache",
   });
-  res.end(`<!doctype html><meta charset="utf-8"><main data-error-code="${CX_ESC(admission.code)}"><h1>Surface unavailable</h1><p>${CX_ESC(message)}</p></main>`);
+  res.end(`<!doctype html><meta charset="utf-8"><main data-error-code="${CX_ESC(admission.code)}"><h1>${daemonDown ? "Daemon not answering" : "Surface unavailable"}</h1><p>${CX_ESC(message)}</p></main>`);
 }
 const unavailableOperationsPlane = (code, status = 0) => ({
   __ioi_plane_unavailable: true,

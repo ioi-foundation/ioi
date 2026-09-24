@@ -16,7 +16,7 @@ import { SRC_APP_TILE_URI, SRC_HERO_URI, SRC_SETUP_STRIP_URI } from "../../scrip
 import { MCH_STORE_ICON_URI, MCH_EXAMPLES_STRIP_URI } from "../../scripts/machinery-assets.mjs";
 import { DSG_ROW_DOC_URI } from "../../scripts/designer-assets.mjs";
 import { ioiGlobalRailHtml, IOI_GRAIL_CSS } from "../chrome.mjs";
-import { escHtml } from "../kit.mjs";
+import { escHtml, degradedNotice } from "../kit.mjs";
 import { managerLink, managerResourceLink, pipelineNodeLink } from "../ontology-context.mjs";
 
 const CX_ESC = escHtml; // local alias so the moved block stays aligned with its serve original
@@ -60,6 +60,7 @@ export function render(model, ctx) {
     lane: sp.get("lane") || "",
     kind: sp.get("kind") || "",
     overview: model.overview,
+    degraded: model.degraded || {},
     banner: {
       acted: sp.get("acted") || "",
       receipt: sp.get("receipt") || "",
@@ -150,7 +151,7 @@ function renderSourcesPort(sources, mruns, srcMappings, dataSourceSel, opts) {
       <span class="src-cell">${gapDash("No principal is recorded on the data-source registry (named gap)")}</span>
       <span class="src-cell">${gapDash("No edit principal is recorded on the data-source registry (named gap)")}</span>
       <span class="src-cell">${gapDash("View tracking is not recorded on the data-source registry (named gap)")}</span>
-    </div>`).join("") : `<div class="src-empty">No data sources declared yet — this table renders the real DataSource registry and never fabricates rows. Declare one with <a href="/__ioi/data/sources?declare=1">New source</a> (a receipted registry record), or through the <a href="/__ioi/pipeline">Data ladder</a>.</div>`;
+    </div>`).join("") : (opts.degraded && opts.degraded.ds) ? `<div class="src-empty">The data-source registry was <b>not read</b> — the daemon did not answer (<code>${esc(opts.degraded.ds.code || "unavailable")}</code>). This is not an empty registry.</div>` : `<div class="src-empty">No data sources declared yet — this table renders the real DataSource registry and never fabricates rows. Declare one with <a href="/__ioi/data/sources?declare=1">New source</a> (a receipted registry record), or through the <a href="/__ioi/pipeline">Data ladder</a>.</div>`;
 
   // Declared-catalog census (below the fold): kinds + credential postures + the wired:false boundary.
   const byKind = {}; const byPosture = {};
@@ -465,5 +466,5 @@ function renderSourcesPort(sources, mruns, srcMappings, dataSourceSel, opts) {
   </main>`;
 
   return `<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Data Connection</title><style>${css}</style></head>
-    <body><div class="src-shell">${globalRail}<div class="src-main">${header}<div class="src-body">${opts.lane === "syncs" ? syncsLane : `${hero}<main class="src-content">${looseBanner}${declarePane}${setup}${viewRow}${table}${examples}${truth}</main>`}</div></div></div></body></html>`;
+    <body><div class="src-shell">${globalRail}<div class="src-main">${header}<div class="src-body">${opts.lane === "syncs" ? syncsLane : `${hero}<main class="src-content">${degradedNotice(opts.degraded, { ds: "Data sources", mr: "Materializing runs", cm: "Connector mappings", ov: "Source kinds (the declaration vocabulary)" })}${looseBanner}${declarePane}${setup}${viewRow}${table}${examples}${truth}</main>`}</div></div></div></body></html>`;
 }
