@@ -11,6 +11,12 @@ const CX_ESC = escHtml; // local alias so the moved block stays byte-identical t
 // measured spec: 230px · rgb(37,42,49) · items y61 @32px pitch · APPLICATIONS section y369 · active app
 // row h36 with the extracted app-icon chip · bottom cluster AIP/Support/Account y794/826/858). Used by
 // every shell-pixel-certified port (schema #41, approvals #42, …) so the rail is aligned ONCE.
+// THE ACCOUNT CHIP NAMES THE CALLER, OR NOBODY (R-240). The captured rail printed the reference
+// tenant's initials ("LJ") on every railed surface for every visitor, signed in or not. The chip now
+// renders empty and asks whoami once: a signed-in principal gets its own initials; a signed-out
+// visitor gets "Signed out" and a way to sign in. whoami's local-operator DISPLAY principal
+// (authenticated:false) is never shown as the caller.
+const ACCOUNT_CHIP_JS = `(function(){var c=document.currentScript&&document.currentScript.previousElementSibling;if(!c||!c.hasAttribute("data-ioi-account-chip"))return;fetch("/v1/hypervisor/auth/whoami",{credentials:"same-origin"}).then(function(r){return r.json()}).then(function(w){var p=w&&w.authenticated===true&&w.principal;if(p){var n=String(p.name||String(p.email||"").split("@")[0]||"").trim(),parts=n.split(/\\s+/).filter(Boolean),ini=parts.length>1?parts[0][0]+parts[parts.length-1][0]:(parts[0]||"").slice(0,1);c.querySelector("[data-ioi-account-initials]").textContent=ini.toUpperCase();c.title=n;return}if(w&&w.authenticated===false){var a=document.createElement("a");a.className="og-gitem og-gaccount";a.href="/__ioi/login";a.target="_top";a.setAttribute("data-ioi-account-chip","");a.title="Signed out \\u2014 sign in";a.innerHTML=c.innerHTML;a.querySelector(".og-glabel").textContent="Sign in";c.replaceWith(a)}}).catch(function(){})})();`;
 function ioiGlobalRailHtml(active) {
   // Per-reference rail variant: each certified surface reproduces ITS reference capture's rail state
   // (badges / View-all / star / gradient AIP / account-chip style differ across captures). Defaults
@@ -37,7 +43,8 @@ function ioiGlobalRailHtml(active) {
     <div class="og-gspacer"></div>
     ${gi(active.aipGradient ? "@aip-grad" : "aip-logo", "AIP Assist", { kbd: "ctrl + shift + U" })}
     ${gi("help", "Support", {})}
-    <span class="og-gitem muted og-gaccount"><span class="og-gavatar${active.acctMuted ? " alt" : ""}">LJ</span><span class="og-glabel">Account</span></span>
+    <span class="og-gitem muted og-gaccount" data-ioi-account-chip><span class="og-gavatar${active.acctMuted ? " alt" : ""}" data-ioi-account-initials></span><span class="og-glabel">Account</span></span>
+    <script>${ACCOUNT_CHIP_JS}</script>
   </aside>`;
 }
 const IOI_GRAIL_CSS = `
