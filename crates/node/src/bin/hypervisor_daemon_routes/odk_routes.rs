@@ -1425,11 +1425,37 @@ pub(crate) async fn handle_odk_recipe_create(
     )
 }
 
+/// GET /v1/hypervisor/odk/data-recipes/:id — the stored record, plus the chain's `admitted_head`
+/// when the caller's identity resolves it.
+///
+/// A PATCH compare-and-swaps against the exact admitted head, and this read was the only place a
+/// client could learn it — yet it returned the bare file record, so no client could ever edit a
+/// recipe: every save was refused `mutation_successor_expected_head_required` (R-240). The head is
+/// ADDED, never substituted: the record stays exactly what this route always returned, and a caller
+/// the chain does not resolve gets that record without a head rather than a new refusal.
 pub(crate) async fn handle_odk_recipe_get(
     State(st): State<Arc<DaemonState>>,
     AxumPath(id): AxumPath<String>,
+    headers: HeaderMap,
 ) -> Json<Value> {
-    json_get(&st.data_dir, KIND_RECIPE, "data_recipe", &id)
+    let Json(mut reply) = json_get(&st.data_dir, KIND_RECIPE, "data_recipe", &id);
+    if reply.get("ok").and_then(Value::as_bool) == Some(true) {
+        if let Ok(identity) =
+            super::substrate_store::resolve_request_identity(&st.data_dir, &headers)
+        {
+            if let Ok(resolved) = resolve_stored_odk_data_recipe_v1(
+                &st.data_dir,
+                &identity,
+                None,
+                &format!("{ODK_DATA_RECIPE_STORED_SCHEME}://{id}"),
+                None,
+            ) {
+                reply["admitted_head"] = json!(resolved.admitted_head);
+                reply["content_hash"] = json!(resolved.content_hash);
+            }
+        }
+    }
+    Json(reply)
 }
 
 pub(crate) async fn handle_odk_recipe_patch(

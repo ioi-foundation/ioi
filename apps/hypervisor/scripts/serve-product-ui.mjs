@@ -1445,9 +1445,11 @@ function renderCodeRepositories(projectsRes, scmRes, publicationEffects) {
     : `<div class="empty">No SCM hosts bound — bind one via <a href="/settings/runners?user-settings=git-authentications" target="_blank">Git authentications ↗</a> to enable governed publish lanes (sealed host token, wallet-authorized crossings).</div>`;
   const repoCard = (p) => {
     const pid = String(p.project_id || "").replace(/^project:/, "");
-    return `<div class="card"><div class="main"><div class="name">${CX_ESC(p.project_name || pid || "project")}</div>
+    // The daemon's project record keeps the name as `name`; `project_name` is only the CREATE
+    // request's field, so reading it here printed the slug for every project (R-240).
+    return `<div class="card"><div class="main"><div class="name">${CX_ESC(p.name || p.project_name || pid || "project")}</div>
       <div class="meta"><code>${CX_ESC(p.repository_url || "no repository_url")}</code> · <code style="font-size:10px">${CX_ESC(p.project_id || "")}</code></div></div>
-      <span><a class="act ghost" href="/projects/${enc(p.project_id || pid)}" target="_top">Project →</a> <a class="act ghost" href="/__ioi/automations?project=${enc(pid)}">Automations →</a></span></div>`;
+      <span><a class="act ghost" href="/projects/${enc(p.project_id || pid)}" target="_top">Project →</a> <a class="act ghost" href="/__ioi/automations?project=${enc(p.project_id || pid)}">Automations →</a></span></div>`;
   };
   const pubRows = publishes.slice(0, 10).map((e) => `<tr><td>${CX_ESC(e.kind || e.op || "")}</td><td><span class="pill ${(e.status === "done" || e.status === "published" || e.status === "success") ? "ok" : "muted"}">${CX_ESC(e.status || "—")}</span></td><td>${CX_ESC(e.timestamp || "")}</td><td><code style="font-size:10px">${CX_ESC((e.state_root || "").slice(0, 18) || "—")}</code></td></tr>`).join("");
   const inner = `<h1>Code Repositories</h1><p class="sub">Repository-backed work as first-class truth — every project's repo, the SCM host bindings with their sealed-credential posture, and the governed-publish trail. Publishing is a wallet-authorized crossing; nothing on this page mutates a repository. <a href="/__ioi/workbench">Workbench →</a></p>
@@ -2810,6 +2812,13 @@ function renderLaunchPolicies(policies, profiles) {
   return `<h2 id="launch-policies">Launch policies</h2><p class="sub" style="margin:-4px 0 12px">Saved IOI Agent strategy presets — the daemon planner composes a policy with live registry facts, authority, privacy posture, budget, and failure policy at launch. Seeded defaults are protected; clone to customize.</p>${policies.length ? cards : `<div class="empty">No launch policies yet.</div>`}${form}`;
 }
 
+// A project's daemon id is always `project:<slug>` and automations are stored against that id, so a
+// bare slug (an older link) is read as the id it names instead of filtering the list to nothing.
+function automationProjectParam(reqUrl) {
+  const raw = (new URL(reqUrl, "http://x").searchParams.get("project") || "").trim();
+  return raw && !raw.includes(":") ? `project:${raw}` : raw;
+}
+
 // ---- System designs (Studio) — the daemon-backed lane behind the /__apps/designer solution-design
 // canvas seed. The captured canvas teaches the composition grammar (typed concept/component/resource
 // nodes, save/actions/open, AIP critique, load-from-lineage); here the OWNER surface binds the parts
@@ -3225,6 +3234,31 @@ function odkRefLink(ref) {
   const fam = { ontology: "ontologies", recipe: "data-recipes", "surface-descriptor": "surface-descriptors", odk: "manifests" }[m[1]];
   return fam ? `<a href="/__ioi/odk/${fam}/${encodeURIComponent(m[2])}"><code>${CX_ESC(ref)}</code></a>` : `<code>${CX_ESC(ref)}</code>`;
 }
+// v1 and v2 ODK records spell the same facts differently. A v2 surface descriptor (Studio's
+// authoring lane) carries `surface_descriptor_id` (`surface-descriptor://sd_…`), `display_name` and
+// `ontology_refs`/`data_recipe_refs`; a v2 manifest carries `odk_manifest_id` (`odk://…`) and
+// `data_recipe_refs`. v1 spelled them `id`/`ref`, `name`, `ontology_ref`, `recipe_refs`. Every reader
+// in this file keyed on v1, so a v2 record was unlabeled, linked to `undefined`, unselectable in a
+// picker and filtered out of every ontology-bound list (R-240). These read either spelling and never
+// rewrite the record.
+function odkDescriptorView(d) {
+  if (!d || typeof d !== "object") return d;
+  const ref = d.ref || d.surface_descriptor_id || "";
+  const id = d.id || String(ref).replace(/^surface-descriptor:\/\//u, "");
+  const ontology_refs = Array.isArray(d.ontology_refs) ? d.ontology_refs : (d.ontology_ref ? [d.ontology_ref] : []);
+  return { ...d, id, ref, name: d.name || d.display_name || id, ontology_refs, recipe_refs: d.recipe_refs || d.data_recipe_refs || [] };
+}
+function odkManifestView(row) {
+  if (!row || typeof row !== "object") return row;
+  // A v2 manifest's list row is a projection ENVELOPE — `{schema_version, manifest: {…}, created_at,
+  // updated_at}` — while a v1 row is the record itself; read the record either way.
+  const m = row.manifest && typeof row.manifest === "object" ? { ...row.manifest, created_at: row.created_at, updated_at: row.updated_at } : row;
+  const ref = m.ref || m.odk_manifest_id || "";
+  return { ...m, ref, id: m.id || String(ref).replace(/^odk:\/\//u, ""), recipe_refs: m.recipe_refs || m.data_recipe_refs || [] };
+}
+const ODK_RECORD_VIEW = { "surface-descriptors": odkDescriptorView, manifests: odkManifestView };
+const odkView = (family, rec) => (ODK_RECORD_VIEW[family] ? ODK_RECORD_VIEW[family](rec) : rec);
+
 async function odkPickers() {
   const J = (p) => daemonFetch(`${p}`).then((r) => r.json()).catch(() => ({}));
   const [o, r, d] = await Promise.all([
@@ -3234,10 +3268,13 @@ async function odkPickers() {
   return {
     ontologies: (o.ontologies || []).map((x) => opt(x, "domain")),
     recipes: (r.data_recipes || []).map((x) => opt(x, "name")),
-    descriptors: (d.surface_descriptors || []).map((x) => opt(x, "name")),
+    descriptors: (d.surface_descriptors || []).map(odkDescriptorView).map((x) => opt(x, "name")),
   };
 }
 // ---- payload builders (form -> daemon JSON), shared by create + patch.
+// A patch compare-and-swaps against the exact admitted head, which the edit form carries forward from
+// the record's envelope; a create carries none. Without it every save was refused (R-240).
+const odkExpectedHead = (p) => { const h = (p.get("expected_head") || "").trim(); return h ? { expected_head: h } : {}; };
 function odkOntologyPayload(p) {
   // The typed CanonicalObjectModel is authored as JSON; a parse failure is marked so the daemon
   // rejects it with a clean error (never silently dropped to an empty model).
@@ -3258,6 +3295,7 @@ function odkRecipePayload(p) {
     source_refs: csv("source_refs"), connector_mappings: csv("connector_mappings"), policy_bound_views: csv("policy_bound_views"),
     projection_refs: csv("projection_refs"), evaluation_dataset_refs: csv("evaluation_dataset_refs"),
     worker_plan_refs: csv("worker_plan_refs"), workflow_schema_refs: csv("workflow_schema_refs"),
+    ...odkExpectedHead(p),
   };
 }
 function odkDescriptorPayload(p) {
@@ -3279,14 +3317,40 @@ function odkDescriptorPayload(p) {
   return { ...shape, owner_ref, idempotency_key, ...(expected_head ? { expected_head } : {}) };
 }
 function odkManifestPayload(p) {
+  // The manifest is authored at its v2 successor. v1 folded three pairs of different objects into
+  // single lists (`eval_refs`, `mcp_operator_contracts`) and spelled recipes unqualified
+  // (`recipe_refs`); the daemon refuses each of those names rather than guessing the split, so the
+  // form asks for each member by its own name. Every submission of the v1 spellings was refused (R-240).
   const csv = (k) => (p.get(k) || "").split(",").map((s) => s.trim()).filter(Boolean);
+  const all = (k) => p.getAll(k).map((s) => s.trim()).filter(Boolean);
   return {
-    name: (p.get("name") || "odk-manifest").trim(), description: (p.get("description") || "").trim(),
-    ontology_refs: p.getAll("ontology_refs").map((s) => s.trim()).filter(Boolean),
-    recipe_refs: p.getAll("recipe_refs").map((s) => s.trim()).filter(Boolean),
-    surface_descriptor_refs: p.getAll("surface_descriptor_refs").map((s) => s.trim()).filter(Boolean),
-    eval_refs: csv("eval_refs"), worker_plan_refs: csv("worker_plan_refs"), mcp_operator_contracts: csv("mcp_operator_contracts"),
+    name: (p.get("name") || "odk-manifest").trim(),
+    ontology_refs: all("ontology_refs"),
+    data_recipe_refs: all("data_recipe_refs"),
+    surface_descriptor_refs: all("surface_descriptor_refs"),
+    evaluation_dataset_refs: csv("evaluation_dataset_refs"), benchmark_profile_refs: csv("benchmark_profile_refs"),
+    worker_plan_refs: csv("worker_plan_refs"),
+    operator_contract_refs: csv("operator_contract_refs"), mcp_contract_refs: csv("mcp_contract_refs"),
+    ...odkExpectedHead(p),
   };
+}
+// Data recipes and manifests admit through the owner-scoped mutation foundation: exactly one
+// org:// or project:// owner that the caller's own identity authorizes, and an idempotency key so a
+// resubmitted form replays one record. Neither form carried either, so every create was refused
+// (R-240). The owner is read from the caller's whoami — never chosen by the form — and the key is
+// derived from what the form says: the same form again is the same record, a changed one a new one.
+const ODK_OWNED_FAMILIES = new Set(["data-recipes", "manifests"]);
+async function odkOwnedPayload(family, payload, id = "") {
+  if (!ODK_OWNED_FAMILIES.has(family)) return payload;
+  const out = { ...payload };
+  if (!id && !out.owner_ref) {
+    const who = await daemonFetch("/v1/hypervisor/auth/whoami").then((x) => x.json()).catch(() => ({}));
+    const tenants = Array.isArray(who?.principal?.tenant_refs) ? who.principal.tenant_refs.map(String) : [];
+    const owner = tenants.find((x) => x === "org://local") || tenants.find((x) => x.startsWith("org://")) || tenants.find((x) => x.startsWith("project://"));
+    if (owner) out.owner_ref = owner;
+  }
+  if (!out.idempotency_key) out.idempotency_key = `odk-${family}:${crypto.createHash("sha256").update(JSON.stringify([id, out.owner_ref || "", payload])).digest("hex").slice(0, 32)}`;
+  return out;
 }
 function odkDetailActions(family, id) {
   const e = encodeURIComponent;
@@ -3322,6 +3386,7 @@ function renderOdkRecipeForm(existing, pk, outputKinds) {
   const inner = `<p><a href="/__ioi/odk">← ODK</a></p><h1>${isEdit ? "Edit" : "New"} Data Recipe</h1>
     <p class="sub">A repeatable transformation recipe bound to an ontology. Draft-only — no transformation runs.</p>
     <form method="post" action="${action}">
+      ${ex.admitted_head ? `<input type="hidden" name="expected_head" value="${CX_ESC(ex.admitted_head)}">` : ""}
       ${odkField("Name", "name", ex.name, "loan-ingest")}
       ${odkArea("Description", "description", ex.description)}
       <div class="two">${odkSelectField("Ontology (required)", "ontology_ref", pk.ontologies, ex.ontology_ref, "no ontologies yet — create one first")}${odkSelectField("Output kind", "output_kind", okOpts, ex.output_kind || "ontology_objects")}</div>
@@ -3360,14 +3425,15 @@ function renderOdkManifestForm(existing, pk) {
   const inner = `<p><a href="/__ioi/odk">← ODK</a></p><h1>${isEdit ? "Edit" : "New"} ODK Manifest</h1>
     <p class="sub">A builder/conformance bundle. Requires at least one ontology. Draft-only.</p>
     <form method="post" action="${action}">
+      ${ex.admitted_head ? `<input type="hidden" name="expected_head" value="${CX_ESC(ex.admitted_head)}">` : ""}
       ${odkField("Name", "name", ex.name, "lending odk")}
-      ${odkArea("Description", "description", ex.description)}
       ${odkChecks("Ontology refs (required)", "ontology_refs", pk.ontologies, ex.ontology_refs)}
-      ${odkChecks("Recipe refs", "recipe_refs", pk.recipes, ex.recipe_refs)}
+      ${odkChecks("Data recipe refs", "data_recipe_refs", pk.recipes, ex.data_recipe_refs || ex.recipe_refs)}
       ${odkChecks("Surface descriptor refs", "surface_descriptor_refs", pk.descriptors, ex.surface_descriptor_refs)}
       <h2>Named contract refs</h2>
-      <div class="two">${odkCsvField("Eval refs", "eval_refs", ex.eval_refs)}${odkCsvField("Worker plan refs", "worker_plan_refs", ex.worker_plan_refs)}</div>
-      ${odkCsvField("MCP / operator contracts", "mcp_operator_contracts", ex.mcp_operator_contracts)}
+      <div class="two">${odkCsvField("Evaluation dataset refs", "evaluation_dataset_refs", ex.evaluation_dataset_refs)}${odkCsvField("Benchmark profile refs", "benchmark_profile_refs", ex.benchmark_profile_refs)}</div>
+      <div class="two">${odkCsvField("Operator contract refs", "operator_contract_refs", ex.operator_contract_refs)}${odkCsvField("MCP contract refs", "mcp_contract_refs", ex.mcp_contract_refs)}</div>
+      ${odkCsvField("Worker plan refs", "worker_plan_refs", ex.worker_plan_refs)}
       <div class="row"><button class="act" type="submit">${isEdit ? "Save draft" : "Create draft manifest"}</button> <a class="act ghost" href="/__ioi/odk">Cancel</a></div>
     </form>`;
   return automationsShell(`${isEdit ? "Edit" : "New"} ODK Manifest`, inner);
@@ -3383,11 +3449,11 @@ function odkReferencedBy(rec, lists, family) {
   const hits = [];
   if (family === "ontologies") {
     for (const r of lists.data_recipes || []) if (r.ontology_ref === ref) hits.push(["Data Recipe", "data-recipes", r]);
-    for (const d of lists.surface_descriptors || []) if (d.ontology_ref === ref) hits.push(["Surface Descriptor", "surface-descriptors", d]);
+    for (const d of lists.surface_descriptors || []) if (has(d.ontology_refs, ref) || d.ontology_ref === ref) hits.push(["Surface Descriptor", "surface-descriptors", d]);
     for (const m of lists.manifests || []) if (has(m.ontology_refs, ref)) hits.push(["ODK Manifest", "manifests", m]);
   } else if (family === "data-recipes") {
     for (const d of lists.surface_descriptors || []) if (has(d.recipe_refs, ref)) hits.push(["Surface Descriptor", "surface-descriptors", d]);
-    for (const m of lists.manifests || []) if (has(m.recipe_refs, ref)) hits.push(["ODK Manifest", "manifests", m]);
+    for (const m of lists.manifests || []) if (has(m.recipe_refs, ref) || has(m.data_recipe_refs, ref)) hits.push(["ODK Manifest", "manifests", m]);
   } else if (family === "surface-descriptors") {
     for (const m of lists.manifests || []) if (has(m.surface_descriptor_refs, ref)) hits.push(["ODK Manifest", "manifests", m]);
   } else {
@@ -3517,16 +3583,20 @@ function renderOdkDescriptorDetail(d, lists) {
   return automationsShell(d.name || "Surface Descriptor", `<p><a href="/__ioi/odk">← ODK</a></p><h1>${CX_ESC(d.name || d.id)}</h1><p class="sub">OntologySurfaceDescriptor · draft.</p>${odkDetailActions("surface-descriptors", d.id)}${grid}${odkReferencedBy(d, lists, "surface-descriptors")}${odkProofCitations(d, lists)}`);
 }
 function renderOdkManifestDetail(m) {
+  const v2 = String(m.schema_version || "") === "ioi.ontology-development-kit-manifest.v2";
   const refrow = (label, arr) => `<dt>${label}</dt><dd>${(arr && arr.length) ? arr.map((x) => odkRefLink(x)).join(" ") : "—"}</dd>`;
   const strrow = (label, arr) => `<dt>${label}</dt><dd>${(arr && arr.length) ? arr.map((x) => `<code>${CX_ESC(typeof x === "string" ? x : JSON.stringify(x))}</code>`).join(" ") : "—"}</dd>`;
   const grid = `<dl class="grid">
     <dt>Id</dt><dd><code>${CX_ESC(m.id)}</code></dd><dt>Ref</dt><dd><code>${CX_ESC(m.ref)}</code></dd>
     <dt>Status</dt><dd><span class="pill warn">${CX_ESC(m.status || "draft")}</span></dd>
-    ${refrow("Ontology refs", m.ontology_refs)}${refrow("Recipe refs", m.recipe_refs)}${refrow("Surface descriptor refs", m.surface_descriptor_refs)}
-    ${strrow("Eval refs", m.eval_refs)}${strrow("Worker plan refs", m.worker_plan_refs)}${strrow("MCP / operator contracts", m.mcp_operator_contracts)}
+    ${refrow("Ontology refs", m.ontology_refs)}${refrow("Surface descriptor refs", m.surface_descriptor_refs)}
+    ${v2
+      // v2 names each member separately; v1 folded three pairs into single lists (read as stored).
+      ? `${refrow("Data recipe refs", m.data_recipe_refs)}${strrow("Evaluation dataset refs", m.evaluation_dataset_refs)}${strrow("Benchmark profile refs", m.benchmark_profile_refs)}${strrow("Worker plan refs", m.worker_plan_refs)}${strrow("Operator contract refs", m.operator_contract_refs)}${strrow("MCP contract refs", m.mcp_contract_refs)}`
+      : `${refrow("Recipe refs", m.recipe_refs)}${strrow("Eval refs", m.eval_refs)}${strrow("Worker plan refs", m.worker_plan_refs)}${strrow("MCP / operator contracts", m.mcp_operator_contracts)}`}
     <dt>Created · updated</dt><dd>${CX_ESC(m.created_at || "")}<br><span class="sub" style="margin:0">${CX_ESC(m.updated_at || "")}</span></dd>
   </dl>`;
-  return automationsShell(m.name || "ODK Manifest", `<p><a href="/__ioi/odk">← ODK</a></p><h1>${CX_ESC(m.name || m.id)}</h1><p class="sub">OntologyDevelopmentKitManifest · draft.</p>${odkDetailActions("manifests", m.id)}${grid}`);
+  return automationsShell(m.name || "ODK Manifest", `<p><a href="/__ioi/odk">← ODK</a></p><h1>${CX_ESC(m.name || m.id)}</h1><p class="sub">OntologyDevelopmentKitManifest ${v2 ? "v2" : "v1 (read-only — a v1 is migrated by an explicit act, never edited into v2)"} · ${CX_ESC(m.status || "draft")}.</p>${odkDetailActions("manifests", m.id)}${grid}`);
 }
 function odkCard(family, rec, nameKey) {
   const e = encodeURIComponent;
@@ -6106,7 +6176,7 @@ function renderOntologyManager(ov, lists, selectedId) {
   //      + Data plane.
   const boundRef = selected ? selected.ref : "__none__";
   const recs = (lists.data_recipes || []).filter((r) => r.ontology_ref === boundRef);
-  const descs = (lists.surface_descriptors || []).filter((d) => d.ontology_ref === boundRef);
+  const descs = (lists.surface_descriptors || []).filter((d) => (d.ontology_refs || []).includes(boundRef) || d.ontology_ref === boundRef);
   const mans = (lists.manifests || []).filter((m) => (m.ontology_refs || []).includes(boundRef));
   const maps = (lists.connector_mappings || []).filter((m) => m.ontology_ref === boundRef);
   const pviews = (lists.policy_views || []).filter((v) => v.ontology_ref === boundRef);
@@ -6192,12 +6262,12 @@ const DOMAIN_APP_VIS = ["private", "org", "marketplace_candidate"];
 async function domainAppPickers(descriptorRefForManifestFilter) {
   const J = (p) => daemonFetch(`${p}`).then((r) => r.json()).catch(() => ({}));
   const [sd, man] = await Promise.all([J("/v1/hypervisor/odk/surface-descriptors"), J("/v1/hypervisor/odk/manifests")]);
-  const descriptors = (sd.surface_descriptors || [])
+  const descriptors = (sd.surface_descriptors || []).map(odkDescriptorView)
     .filter((d) => d.composition_pattern === "domain_app")
     .map((d) => ({ v: d.ref, l: d.name || d.id }));
   let manifests = man.manifests || [];
   if (descriptorRefForManifestFilter) manifests = manifests.filter((m) => (m.surface_descriptor_refs || []).includes(descriptorRefForManifestFilter));
-  return { descriptors, manifests: manifests.map((m) => ({ v: m.ref, l: m.name || m.id })) };
+  return { descriptors, manifests: manifests.map(odkManifestView).map((m) => ({ v: m.ref, l: m.name || m.id })) };
 }
 function renderDomainAppForm(existing, pk) {
   const ex = existing || {}; const isEdit = !!existing;
@@ -9694,7 +9764,7 @@ async function handleEstateRequest(req, res, body) {
     }
     // ---- Automations cockpit — the owned PROJECT-FIRST surface (daemon HypervisorAutomationSpec) --
     if (pathname === "/__ioi/automations" && req.method === "GET") {
-      const projectId = new URL(req.url, "http://x").searchParams.get("project") || "";
+      const projectId = automationProjectParam(req.url);
       try {
         const [aRes, pRes] = await Promise.all([
           daemonFetch(`/v1/hypervisor/automations${projectId ? "?project_ref=" + encodeURIComponent(projectId) : ""}`).then((r) => r.json()).catch(() => ({})),
@@ -9712,7 +9782,7 @@ async function handleEstateRequest(req, res, body) {
     }
     if (pathname === "/__ioi/automations.json" && req.method === "GET") {
       // JSON feed for the project-detail panel (the augmentation script fetches this).
-      const projectId = new URL(req.url, "http://x").searchParams.get("project") || "";
+      const projectId = automationProjectParam(req.url);
       const aRes = await daemonFetch(`/v1/hypervisor/automations${projectId ? "?project_ref=" + encodeURIComponent(projectId) : ""}`).then((r) => r.json()).catch(() => ({}));
       const automations = (aRes.automations || []).map((a) => ({ automation_id: a.automation_id, name: a.name, trigger_kind: a.trigger_kind || "manual", enabled: a.enabled !== false, model: a.model || null, steps: Array.isArray(a.steps) ? a.steps.length : 0 }));
       res.writeHead(200, { "Content-Type": "application/json; charset=utf-8", "Cache-Control": "no-cache" });
@@ -9720,7 +9790,7 @@ async function handleEstateRequest(req, res, body) {
       return;
     }
     if (pathname === "/__ioi/automations/new" && req.method === "GET") {
-      const projectId = new URL(req.url, "http://x").searchParams.get("project") || "";
+      const projectId = automationProjectParam(req.url);
       const pRes = await daemonFetch(`/v1/hypervisor/projects`).then((r) => r.json()).catch(() => ({}));
       res.writeHead(200, { "Content-Type": "text/html; charset=utf-8", "Cache-Control": "no-cache" });
       res.end(renderAutomationNewForm(projectId, pRes.projects || []));
@@ -9860,7 +9930,7 @@ async function handleEstateRequest(req, res, body) {
       const msets = ms.materialized_object_sets || [];
       const saved = ss.saved_object_sets || null;
       const savedBand = Array.isArray(saved)
-        ? (saved.length ? saved.map((s2) => `<div class="ins-row"><span><b>${esc(s2.name || s2.id)}</b></span><span>${esc(s2.object_type_id || "—")}</span><span>—</span><span>—</span></div>`).join("") : `<div class="ins-note">No saved object sets — real plane, honest empty.</div>`)
+        ? (saved.length ? saved.map((s2) => `<div class="ins-row"><span><b>${esc(s2.name || s2.id)}</b></span><span>${esc((s2.selection || {}).object_type_id || s2.object_type_id || ((s2.selection || {}).q ? `search “${(s2.selection || {}).q}”` : "—"))}</span><span>—</span><span>—</span></div>`).join("") : `<div class="ins-note">No saved object sets — real plane, honest empty.</div>`)
         : insRefusal("The saved-object-set plane", ss);
       const rows = msets.map((m) => `<a class="ins-row" href="/__ioi/ontology/explorer" title="a REAL materialized object set — explore it on Object Explorer"><span><b>${esc(m.object_type_id || m.id)}</b><code class="ins-ref">${esc(m.id)}</code></span><span>${m.count ?? (m.objects || []).length} object${(m.count ?? (m.objects || []).length) === 1 ? "" : "s"}</span><span><code class="ins-ref">${esc(m.materializing_run_ref || "—")}</code></span><span><code class="ins-ref">${esc(m.capability_lease_plan_ref || "—")}</code></span></a>`).join("");
       const gap = (label, reason) => `<span class="ins-gap" aria-disabled="true" title="${esc(reason)}" data-ioi-disabled-reason="${esc(reason)}">${esc(label)}</span>`;
@@ -12841,7 +12911,7 @@ async function handleEstateRequest(req, res, body) {
     if (pathname === "/__ioi/studio/workshop" && req.method === "GET") {
       const [da, sd] = await Promise.all([
         daemonFetch(`/v1/hypervisor/domain-apps`).then((r) => r.json()).then((j) => j.domain_apps || []).catch(() => []),
-        daemonFetch(`/v1/hypervisor/odk/surface-descriptors`).then((r) => r.json()).then((j) => j.surface_descriptors || []).catch(() => []),
+        daemonFetch(`/v1/hypervisor/odk/surface-descriptors`).then((r) => r.json()).then((j) => (j.surface_descriptors || []).map(odkDescriptorView)).catch(() => []),
       ]);
       const fdt = (iso) => { const d2 = new Date(iso || 0); return isNaN(d2) ? "—" : d2.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" }); };
       const rowsHtml = [
@@ -13097,14 +13167,14 @@ async function handleEstateRequest(req, res, body) {
         const hit = (...fields) => fields.some((f) => String(f || "").toLowerCase().includes(q));
         const enc2 = encodeURIComponent;
         groups = [
-          { name: "Projects", items: (pj.projects || []).filter((p) => hit(p.project_name, p.project_id, p.repository_url)).map((p) => ({ label: p.project_name || p.project_id, meta: p.repository_url || "", href: `/projects/${enc2(p.project_id || "")}`, top: true })) },
+          { name: "Projects", items: (pj.projects || []).filter((p) => hit(p.name || p.project_name, p.project_id, p.repository_url)).map((p) => ({ label: p.name || p.project_name || p.project_id, meta: p.repository_url || "", href: `/projects/${enc2(p.project_id || "")}`, top: true })) },
           { name: "Sessions", items: (se.sessions || []).filter((s) => hit(s.session_ref, s.project_ref, s.lifecycle_state)).map((s) => ({ label: s.session_ref, meta: `${s.lifecycle_state || ""} · ${s.project_ref || "no project"}`, href: "/__ioi/sessions" })) },
           { name: "Automations", items: (au.automations || []).filter((a) => hit(a.name, a.automation_id, a.trigger_kind)).map((a) => ({ label: a.name || a.automation_id, meta: a.trigger_kind || "", href: `/__ioi/automations/${enc2(a.automation_id)}` })) },
           { name: "Model routes", items: (mr.routes || []).filter((r) => hit(r.display_name, r.route_id, r.route_ref)).map((r) => ({ label: r.display_name || r.route_id, meta: `${(r.availability || {}).state || ""} · ${(r.custody || {}).weight_class || ""}`, href: "/__ioi/foundry" })) },
           { name: "Connectors", items: (cn.connectors || []).filter((c) => hit(c.name, c.connector_id, c.kind)).map((c) => ({ label: c.name || c.connector_id, meta: c.kind || "", href: "/__ioi/connections" })) },
           { name: "Ontologies", items: (on.ontologies || on.domain_ontologies || []).filter((o) => hit(o.domain, o.id, o.ref)).map((o) => ({ label: o.domain || o.id, meta: o.ref || "", href: `/__ioi/odk/ontologies/${enc2(o.id || "")}` })) },
           { name: "Data recipes", items: (rc.data_recipes || []).filter((r) => hit(r.name, r.id, r.ref)).map((r) => ({ label: r.name || r.id, meta: r.output_kind || "", href: `/__ioi/odk/data-recipes/${enc2(r.id || "")}` })) },
-          { name: "Surface descriptors", items: (sd.surface_descriptors || []).filter((d) => hit(d.name, d.id, d.composition_pattern)).map((d) => ({ label: d.name || d.id, meta: d.composition_pattern || "", href: `/__ioi/odk/surface-descriptors/${enc2(d.id || "")}` })) },
+          { name: "Surface descriptors", items: (sd.surface_descriptors || []).map(odkDescriptorView).filter((d) => hit(d.name, d.id, d.composition_pattern)).map((d) => ({ label: d.name || d.id, meta: d.composition_pattern || "", href: `/__ioi/odk/surface-descriptors/${enc2(d.id || "")}` })) },
           { name: "Manifests", items: (mf.manifests || []).filter((m) => hit(m.name, m.id, m.ref)).map((m) => ({ label: m.name || m.id, meta: m.ref || "", href: `/__ioi/odk/manifests/${enc2(m.id || "")}` })) },
           { name: "Domain apps", items: (da.domain_apps || []).filter((a) => hit(a.name, a.domain_app_id, a.surface_descriptor_ref)).map((a) => ({ label: a.name || a.domain_app_id, meta: a.visibility || "", href: `/__ioi/domain-apps/${enc2(a.domain_app_id || "")}` })) },
           { name: "Approval requests", items: (ap.approval_requests || []).filter((a) => hit(a.subject_ref, a.request_kind, a.id, a.status)).map((a) => ({ label: `${a.request_kind || "approval"} · ${a.subject_ref || ""}`, meta: a.status || "", href: "/__ioi/governance?tab=approvals" })) },
@@ -13595,7 +13665,7 @@ async function handleEstateRequest(req, res, body) {
         q,
         mr.routes || [],
         lp.policies || [],
-        { entries: me.entries || [], skills: sk.skills || [], affinities: af.affinities || [], connectors: cn.connectors || [], leases: cl.leases || [], proposals: mp.proposals || [], projections: (mprj.projections || []).slice(0, 20), review: (rq.items || []).slice(0, 20), mining: (om.candidates || []).slice(0, 10), improvements: (imp.proposals || []).slice(0, 15), systemDesigns: { compositionPatterns: (odkov || {}).composition_patterns || [], surfaceDescriptors: (odksd || {}).surface_descriptors || (odksd || {}).descriptors || [] } },
+        { entries: me.entries || [], skills: sk.skills || [], affinities: af.affinities || [], connectors: cn.connectors || [], leases: cl.leases || [], proposals: mp.proposals || [], projections: (mprj.projections || []).slice(0, 20), review: (rq.items || []).slice(0, 20), mining: (om.candidates || []).slice(0, 10), improvements: (imp.proposals || []).slice(0, 15), systemDesigns: { compositionPatterns: (odkov || {}).composition_patterns || [], surfaceDescriptors: ((odksd || {}).surface_descriptors || (odksd || {}).descriptors || []).map(odkDescriptorView) } },
       ));
       return;
     }
@@ -14196,8 +14266,8 @@ async function handleEstateRequest(req, res, body) {
       res.end(renderOntologyManager(ov, {
         ontologies: o.ontologies || [],
         data_recipes: r.data_recipes || [],
-        surface_descriptors: d.surface_descriptors || [],
-        manifests: m.manifests || [],
+        surface_descriptors: (d.surface_descriptors || []).map(odkDescriptorView),
+        manifests: (m.manifests || []).map(odkManifestView),
         data_sources: ds.data_sources || [],
         connector_mappings: cm.connector_mappings || [],
         policy_views: pv.policy_bound_data_views || [],
@@ -14218,6 +14288,15 @@ async function handleEstateRequest(req, res, body) {
         const api = `/v1/hypervisor/odk/${cfg.api}`;
         const seg1 = segs[1] || "";
         const seg2 = segs[2] || "";
+        // A SURFACE DESCRIPTOR IS AUTHORED IN STUDIO. Its v2 contract refuses the v1 spellings this
+        // form posted (`name`, `description`, `ontology_ref`, `recipe_refs`), so every submission here
+        // was refused (R-240); Studio's descriptor lane authors the v2 record, and one contract keeps
+        // one authoring form.
+        if (family === "surface-descriptors" && req.method === "GET" && (seg1 === "new" || seg2 === "edit")) {
+          const sd = seg2 === "edit" ? `&sd=${encodeURIComponent(decodeURIComponent(seg1))}` : "";
+          res.writeHead(303, { Location: `/__ioi/studio/workbench?view=descriptors${sd}`, "Cache-Control": "no-cache" });
+          return res.end();
+        }
         // new form
         if (seg1 === "new" && req.method === "GET") {
           const [pk, ov] = await Promise.all([odkPickers(), daemonFetch(`/v1/hypervisor/odk/overview`).then((x) => x.json()).catch(() => ({}))]);
@@ -14227,9 +14306,9 @@ async function handleEstateRequest(req, res, body) {
         }
         // create (POST to family root)
         if (!seg1 && req.method === "POST") {
-          const payload = cfg.payload(new URLSearchParams(body.toString()));
+          const payload = await odkOwnedPayload(family, cfg.payload(new URLSearchParams(body.toString())));
           const rr = await daemonFetch(`${api}`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(payload) }).then((x) => x.json()).catch(() => ({}));
-          if (rr && rr.ok) { res.writeHead(302, { Location: `/__ioi/odk/${family}/${encodeURIComponent(rr[cfg.key].id)}`, "Cache-Control": "no-cache" }); return res.end(); }
+          if (rr && rr.ok) { res.writeHead(302, { Location: `/__ioi/odk/${family}/${encodeURIComponent(odkView(family, rr[cfg.key]).id)}`, "Cache-Control": "no-cache" }); return res.end(); }
           res.writeHead(200, HTMLH);
           res.end(automationsShell(`New ${cfg.label}`, `<div class="empty">Create failed: ${CX_ESC((rr.error && rr.error.message) || "invalid")}</div><p><a href="/__ioi/odk/${family}/new">← back</a></p>`));
           return;
@@ -14247,13 +14326,13 @@ async function handleEstateRequest(req, res, body) {
             // admitted_head rides on the envelope, not the record: merge it so the edit form can
             // carry it forward as expected_head for the compare-and-swap.
             const editing = rec.ok
-              ? (rec.admitted_head ? { ...rec[cfg.key], admitted_head: rec.admitted_head } : rec[cfg.key])
+              ? (rec.admitted_head ? { ...odkView(family, rec[cfg.key]), admitted_head: rec.admitted_head } : odkView(family, rec[cfg.key]))
               : null;
             res.end(rec.ok ? cfg.form(editing, pk, ov) : automationsShell("Not found", `<div class="empty">Not found.</div><p><a href="/__ioi/odk">← ODK</a></p>`));
             return;
           }
           if (seg2 === "patch" && req.method === "POST") {
-            const payload = cfg.payload(new URLSearchParams(body.toString()));
+            const payload = await odkOwnedPayload(family, cfg.payload(new URLSearchParams(body.toString())), id);
             const rr = await daemonFetch(`${api}/${encodeURIComponent(id)}`, { method: "PATCH", headers: { "content-type": "application/json" }, body: JSON.stringify(payload) }).then((x) => x.json()).catch(() => ({}));
             if (rr && rr.ok) { res.writeHead(302, { Location: `/__ioi/odk/${family}/${encodeURIComponent(id)}`, "Cache-Control": "no-cache" }); return res.end(); }
             res.writeHead(200, HTMLH);
@@ -14261,9 +14340,13 @@ async function handleEstateRequest(req, res, body) {
             return;
           }
           if (seg2 === "delete" && req.method === "POST") {
-            await daemonFetch(`${api}/${encodeURIComponent(id)}`, { method: "DELETE" }).catch(() => {});
-            res.writeHead(302, { Location: "/__ioi/odk", "Cache-Control": "no-cache" });
-            return res.end();
+            // A refused delete must not land on the landing page as though the record were gone.
+            const dr = await daemonFetch(`${api}/${encodeURIComponent(id)}`, { method: "DELETE" }).then(async (x) => ({ status: x.status, j: await x.json().catch(() => ({})) })).catch(() => ({ status: 0, j: {} }));
+            if (dr.status >= 200 && dr.status < 300 && dr.j.ok !== false) { res.writeHead(302, { Location: "/__ioi/odk", "Cache-Control": "no-cache" }); return res.end(); }
+            const why = (dr.j.error && dr.j.error.message) || dr.j.message || (dr.status ? `HTTP ${dr.status}` : "the daemon did not answer");
+            res.writeHead(200, HTMLH);
+            res.end(automationsShell(`Delete ${cfg.label}`, `<div class="empty">Delete refused: ${CX_ESC(why)}</div><p><a href="/__ioi/odk/${family}/${encodeURIComponent(id)}">← back</a></p>`));
+            return;
           }
           if (!seg2 && req.method === "GET") {
             // Detail also loads the sibling family lists (same endpoints the landing uses) so the
@@ -14279,11 +14362,11 @@ async function handleEstateRequest(req, res, body) {
             ]);
             const lists = {
               ontologies: oL.ontologies || [], data_recipes: rL.data_recipes || [],
-              surface_descriptors: dL.surface_descriptors || [], manifests: mL.manifests || [],
+              surface_descriptors: (dL.surface_descriptors || []).map(odkDescriptorView), manifests: (mL.manifests || []).map(odkManifestView),
               ledger: wl.entries || [],
             };
             res.writeHead(200, HTMLH);
-            res.end(rec.ok ? cfg.detail(rec[cfg.key], lists) : automationsShell("Not found", `<div class="empty">Not found.</div><p><a href="/__ioi/odk">← ODK</a></p>`));
+            res.end(rec.ok ? cfg.detail(odkView(family, rec[cfg.key]), lists) : automationsShell("Not found", `<div class="empty">Not found.</div><p><a href="/__ioi/odk">← ODK</a></p>`));
             return;
           }
         }

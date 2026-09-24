@@ -51,8 +51,8 @@ const SOURCE = self("source");
 const LIVE = self("live");
 
 export const CLAUSES = [
-  { n: 1, demand: "A VALUE WRITTEN ON ONE SURFACE APPEARS ON EVERY SURFACE THAT READS IT. An ontology admitted in the Ontology Manager is offered by Object Explorer, the Solution Designer (and its Open Diagram · Recent), the Pipeline's picker and the ODK; a declared source is listed by Data sources; a backing datasource shows on its object type, in the Designer's composition, on the Pipeline's mapping node and under its source", executed_by: [PURE, LIVE] },
-  { n: 2, demand: "EVERY WRITE GOES THROUGH THE FORM ITS OWNING SURFACE RENDERS — never the daemon API — so the write path a person uses is the one measured. Each write names an action its module declares", executed_by: [PURE, SOURCE, LIVE] },
+  { n: 1, demand: "A VALUE WRITTEN ON ONE SURFACE APPEARS ON EVERY SURFACE THAT READS IT. An ontology admitted in the Ontology Manager is offered by Object Explorer, the Solution Designer (and its Open Diagram · Recent), the Pipeline's picker and the ODK; a declared source is listed by Data sources; a backing datasource shows on its object type, in the Designer's composition, on the Pipeline's mapping node and under its source; a data recipe and a manifest authored on the ODK are listed there and name each other, an edited recipe shows its new name, and a saved set is listed by Object Explorer and named with its type by Insight", executed_by: [PURE, LIVE] },
+  { n: 2, demand: "EVERY WRITE GOES THROUGH THE FORM ITS OWNING SURFACE RENDERS — never the daemon API — so the write path a person uses is the one measured. Each write names an action its module declares, or the exact /__ioi/ form action a serve-rendered surface posts to", executed_by: [PURE, SOURCE, LIVE] },
   { n: 3, demand: "A CONSUMER IS JUDGED BY THE WRITTEN VALUE'S OWN NAME. Every needle carries the run's tag: \"backing datasource\" alone is printed by the very notes that say no mapping exists, so a check on it passes on the absence it is testing (measured, R-240). A consumer that did not render is UNRENDERED, never read as missing or present", executed_by: [PURE, LIVE] },
   { n: 4, demand: "THE GATE OWNS ITS DAEMON AND ITS OPERATOR: a fresh data directory, its own serve on free ports, an operator bootstrapped with the daemon's one-boot token. The owner's data is never read or written, and no shared serve can answer for it", executed_by: [SOURCE, LIVE] },
   { n: 5, demand: "EVERY WRITE IS RECEIPTED OR REFUSED BY NAME. A write whose landing carries `refused` fails the leg with the daemon's own code; a write that lands nowhere fails it too", executed_by: [LIVE] },
@@ -92,11 +92,18 @@ export const REQUIRED_CONSUMERS = Object.freeze([
   "Pipeline's mapping node shows it",
   "Pipeline's datasource node carries the source",
   "Data sources shows the source's mapping",
+  // R-240's second pass: the ODK write lanes and a saved set's type.
+  "ODK lists the data recipe",
+  "The recipe's page shows its edited name",
+  "ODK lists the manifest",
+  "The recipe's page names the manifest that bundles it",
+  "Object Explorer lists the saved set",
+  "Insight names the saved set's type",
 ]);
 
 async function actionsOfModules() {
   const out = {};
-  for (const m of ["ontology-manager", "sources"]) {
+  for (const m of ["ontology-manager", "sources", "object-explorer"]) {
     const mod = await import(pathToFileURL(path.join(APP, "surfaces", m, "index.mjs")).href);
     out[m] = (mod.actions || []).map((a) => a.id);
   }
@@ -232,18 +239,21 @@ async function liveLeg() {
     const who = await page.request.get(`${base}/v1/hypervisor/auth/whoami`).then((r) => r.json()).catch(() => ({}));
     if (who.authenticated !== true) throw new Error("the bootstrapped operator is not signed in");
 
-    const vars = { tag: `xs${Date.now().toString(36).slice(-6)}`, ontology: null, source: null };
+    const vars = { tag: `xs${Date.now().toString(36).slice(-6)}`, ontology: null, source: null, recipe: null, manifest: null };
     const W = Object.fromEntries(LIB.WRITES.map((w) => [w.id, w]));
     const submit = async (w, fillForm) => {
       await page.goto(base + LIB.fill(w.route, vars), { waitUntil: "networkidle" });
-      const form = page.locator(`form[action$="/actions/${w.action}"]`).first();
-      if (!(await form.count())) throw new Error(`write ${w.id}: no '${w.action}' form rendered at ${LIB.fill(w.route, vars)}`);
+      const form = page.locator(w.form ? `form[action="${LIB.fill(w.form, vars)}"]` : `form[action$="/actions/${w.action}"]`).first();
+      if (!(await form.count())) throw new Error(`write ${w.id}: no '${w.form ? LIB.fill(w.form, vars) : w.action}' form rendered at ${LIB.fill(w.route, vars)}`);
       await fillForm(form);
       await Promise.all([page.waitForNavigation({ timeout: 30000 }), form.locator('button[type="submit"]').first().click()]);
       const u = new URL(page.url());
-      const row = { id: w.id, action: w.action, refused: u.searchParams.get("refused"), reason: u.searchParams.get("reason"), landed: u.pathname + u.search.slice(0, 120) };
+      // A module action lands with `refused=`; the ODK form handler answers its failure page instead.
+      const failed = w.form ? ((await page.locator("body").innerText()).match(/(?:Create|Save) failed: ([^\n]{0,200})/u) || [])[1] : null;
+      const row = { id: w.id, action: w.action || w.form, refused: u.searchParams.get("refused") || (failed ? "odk_form_refused" : null), reason: u.searchParams.get("reason") || failed, landed: u.pathname + u.search.slice(0, 120) };
       writes.push(row);
       if (row.refused) throw new Error(`write ${w.id} REFUSED ${row.refused}: ${row.reason}`);
+      if (w.capture) vars[w.capture] = decodeURIComponent(u.pathname.split("/").filter(Boolean).pop() || "");
       return u;
     };
     const u1 = await submit(W.ontology, async (f) => { await f.locator('[name="domain"]').fill(`${vars.tag}-lending`); });
@@ -269,6 +279,16 @@ async function liveLeg() {
       for (const [i, prop] of rows.entries()) await f.locator(`input[name="src_${i}"]`).fill({ loan_id: "id", title: "title", amount: "amt" }[prop] || "");
       await f.locator('input[name="key_property"][value="loan_id"]').check();
     });
+    // The ODK's own forms: a recipe bound to the ontology, edited once; a manifest bundling both.
+    await submit(W.recipe, async (f) => { await f.locator('[name="name"]').fill(`recipe-${vars.tag}`); await f.locator('select[name="ontology_ref"]').selectOption(`ontology://${vars.ontology}`); });
+    await submit(W["recipe-edit"], async (f) => { await f.locator('[name="name"]').fill(`recipe-${vars.tag}-v2`); });
+    await submit(W.manifest, async (f) => {
+      await f.locator('[name="name"]').fill(`manifest-${vars.tag}`);
+      await f.locator(`input[name="ontology_refs"][value="ontology://${vars.ontology}"]`).check();
+      await f.locator(`input[name="data_recipe_refs"][value="recipe://${vars.recipe}"]`).check();
+    });
+    // A saved exploration in Object Explorer, over the object type the matrix made.
+    await submit(W["saved-set"], async (f) => { await f.locator('[name="name"]').fill(`saved-${vars.tag}`); });
 
     for (const r of LIB.READS) {
       const route = LIB.fill(r.route, vars);
