@@ -7563,8 +7563,8 @@ function proxyToProductUi(req, res, body) {
         let text = Buffer.concat(parts).toString("utf8");
         if (renameJs) text = renameApiTokens(text); // JS bundle: rename only, no HTML rewrite
         if (deadDocsJs) text = rewriteDeadDocs(text); // 404 docs links → this deployment's /__ioi/help
-        if (!renameJs && ct.includes("text/html")) text = augmentHtml(localizeExternalMedia(localizeAssetBase(stripCapturedDemoIdentity(text)))); // demo-identity residue deleted + localize captured media/CDN base + WS-I inject
-        if (!renameJs && ct.startsWith("application/json")) text = localizeExternalMedia(text);
+        if (!renameJs && ct.includes("text/html")) text = rewriteDeadDocs(augmentHtml(localizeExternalMedia(localizeAssetBase(stripCapturedDemoIdentity(text))))); // demo-identity residue deleted + localize captured media/CDN base + WS-I inject
+        if (!renameJs && ct.startsWith("application/json")) text = rewriteDeadDocs(localizeExternalMedia(text)); // captured HTML/JSON carry the dead docs origin too
         const out = Buffer.from(text, "utf8");
         const outHeaders = { ...r.headers, "content-length": String(out.length) };
         // We send a fixed-length body, so drop any chunked/encoding headers from upstream
