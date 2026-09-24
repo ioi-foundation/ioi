@@ -878,21 +878,40 @@ async function handleImpl(pathname, bodyText) {
       }
     }
     if (op === "ListProjectEnvironmentClasses") {
-      // The env classes a project can launch into (the detail page's class picker). Honest = the
-      // daemon substrate catalog (same EnvironmentClass shape as EnvironmentService/ListEnvironmentClasses).
+      // The env classes a project can launch into (the create-environment dialog's "Session Class"
+      // and the detail page's class list). R-240: this answered the WRONG MESSAGE — full
+      // EnvironmentClass objects under `environmentClasses` — while the bundle reads
+      // `projectEnvironmentClasses`, each a oneof `{ environmentClassId, order }` that it resolves
+      // against the enabled catalog. Every project's picker was therefore empty ("No available
+      // environment classes"), and the create went out with class "(unspecified)", which the daemon
+      // refused. Daemon truth, per project: the classes bound on the record (`environment_class_refs`);
+      // when none are bound, every catalog class — the daemon admits an environment against its
+      // catalog, never against a per-project list, so an unbound project can launch into any of them.
       try {
-        const r = await daemon("GET", "/v1/hypervisor/environment-classes");
-        return json({ pagination: {}, environmentClasses: (r.environmentClasses || []).map(daemonClassToIOI) });
+        const id = projectIdFromBody(body);
+        const [proj, cat] = await Promise.all([
+          daemon("GET", `/v1/hypervisor/projects/${encodeURIComponent(id)}`).catch(() => ({})),
+          daemon("GET", "/v1/hypervisor/environment-classes"),
+        ]);
+        const bound = Array.isArray(proj.project?.environment_class_refs) ? proj.project.environment_class_refs.filter(Boolean) : [];
+        const ids = bound.length ? bound : (cat.environmentClasses || []).map((c) => c.id);
+        return json({ pagination: {}, projectEnvironmentClasses: ids.map((environmentClassId, order) => ({ environmentClassId, order })) });
       } catch {
-        return json({ pagination: {}, environmentClasses: [] });
+        return json({ pagination: {}, projectEnvironmentClasses: [] });
       }
     }
     if (op === "UpdateProjectEnvironmentClasses") {
       // OQ-5 saga step 2 — the write plane exists now (PATCH :id/environment-classes). The
       // response always names the exact durable state; a refusal never claims rollback.
       const id = projectIdFromBody(body);
-      const ids = (body.environmentClassIds || body.environment_class_ids ||
-        (Array.isArray(body.environmentClasses) ? body.environmentClasses.map((c) => c?.id || c) : []) || [])
+      // The bundle sends `projectEnvironmentClasses: [{ environmentClassId, order }]` (a oneof,
+      // flattened in Connect JSON). This read only the three older spellings, so every binding the
+      // setup flow made was PATCHed as an empty list and silently dropped (R-240).
+      const pec = Array.isArray(body.projectEnvironmentClasses) ? body.projectEnvironmentClasses : [];
+      const ids = (pec.length
+        ? [...pec].sort((a, b) => (a?.order || 0) - (b?.order || 0)).map((c) => c?.environmentClassId || c?.environmentClass?.value)
+        : (body.environmentClassIds || body.environment_class_ids ||
+          (Array.isArray(body.environmentClasses) ? body.environmentClasses.map((c) => c?.id || c) : []) || []))
         .filter((x) => typeof x === "string" && x.trim());
       try {
         // Status-tolerant call: a typed refusal (401/404/409/422) is saga truth to surface
