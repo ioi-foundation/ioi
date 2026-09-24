@@ -223,7 +223,7 @@ function renderSourcesPort(sources, mruns, srcMappings, dataSourceSel, opts) {
     }).join("");
     return `<h2 class="src-trutht">Selected source — ${esc(selSrc.name || selSrc.source_id)} <span class="src-truthsub">${esc(selSrc.source_ref || "")} · ${esc(selSrc.kind || "")} · ${esc(selSrc.credential_posture || "")}</span></h2>
     ${selGaps}
-    ${sm.length ? `<ul class="src-maplist">${smRows}</ul>` : `<p class="src-gapnote">No semantic mapping declared for this source — nothing is invented. Declare one through the <a href="/__ioi/pipeline">ODK ladder</a>.</p>`}`;
+    ${sm.length ? `<ul class="src-maplist">${smRows}</ul>` : `<p class="src-gapnote">No semantic mapping declared for this source — nothing is invented. The product cannot author a mapping yet: the <a href="/__ioi/pipeline">Pipeline Builder</a> builds and previews the mappings the daemon already holds, and has no mapping editor (named gap). This note used to send you there to declare one, which it cannot do.</p>`}`;
   })() : `<p class="src-gapnote">No declared source matches <code>${esc(dataSourceSel)}</code> — nothing selected (fail-closed).</p>`}</section>`;
 
   const truth = `${selPanel}<section class="src-truth" id="sources-catalog">
