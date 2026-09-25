@@ -21518,6 +21518,117 @@
           "expected_failure": "invariant"
         }
       ]
+    },
+    {
+      "contract_id": "schema://ioi/components/hypervisor/notification-subscription/v1",
+      "canonical_name": "HypervisorNotificationSubscription",
+      "canonical_owner_ref": "canon://docs/architecture/components/hypervisor/core-clients-surfaces.md#minimal-implementation-objects",
+      "schema_version": "ioi.hypervisor.notification-subscription.v1",
+      "maturity": "target",
+      "stability": "provisional",
+      "wire_format": "json",
+      "canonical_encoding_profile_ref": "encoding-profile://ioi/jcs-json/v1",
+      "evolution": {
+        "successor_of": null,
+        "successor_contract_id": null,
+        "compatibility": "initial",
+        "migration_policy": "none",
+        "predecessor_remains_valid": false,
+        "wire_mutation_policy": "forbidden",
+        "hash_impact": "none"
+      },
+      "schema_ref": "hypervisor-notification-subscription.v1.schema.json",
+      "cross_field_invariant_refs": [],
+      "compatibility_aliases": [],
+      "generated_targets": [
+        {
+          "kind": "typescript_projection",
+          "path": "packages/hypervisor-workbench/src/runtime/generated/architecture-contracts.ts",
+          "symbol": "HypervisorNotificationSubscriptionV1"
+        },
+        {
+          "kind": "rust_projection",
+          "path": "crates/types/src/app/generated/architecture_contracts.rs",
+          "symbol": "HypervisorNotificationSubscriptionV1"
+        }
+      ],
+      "positive_fixture_refs": [
+        "fixtures/hypervisor-notification-subscription-v1/positive-approvals-and-issues.json"
+      ],
+      "negative_fixture_refs": [
+        {
+          "path": "fixtures/hypervisor-notification-subscription-v1/negative-unknown-field.json",
+          "expected_failure": "schema"
+        },
+        {
+          "path": "fixtures/hypervisor-notification-subscription-v1/negative-family-outside-canon.json",
+          "expected_failure": "schema"
+        },
+        {
+          "path": "fixtures/hypervisor-notification-subscription-v1/negative-no-channel.json",
+          "expected_failure": "schema"
+        },
+        {
+          "path": "fixtures/hypervisor-notification-subscription-v1/negative-revision-zero.json",
+          "expected_failure": "schema"
+        }
+      ]
+    },
+    {
+      "contract_id": "schema://ioi/components/hypervisor/notification-projection/v1",
+      "canonical_name": "HypervisorNotificationProjection",
+      "canonical_owner_ref": "canon://docs/architecture/components/hypervisor/core-clients-surfaces.md#minimal-implementation-objects",
+      "schema_version": "ioi.hypervisor.notification-projection.v1",
+      "maturity": "target",
+      "stability": "provisional",
+      "wire_format": "json",
+      "canonical_encoding_profile_ref": "encoding-profile://ioi/jcs-json/v1",
+      "evolution": {
+        "successor_of": null,
+        "successor_contract_id": null,
+        "compatibility": "initial",
+        "migration_policy": "none",
+        "predecessor_remains_valid": false,
+        "wire_mutation_policy": "forbidden",
+        "hash_impact": "none"
+      },
+      "schema_ref": "hypervisor-notification-projection.v1.schema.json",
+      "cross_field_invariant_refs": [],
+      "compatibility_aliases": [],
+      "generated_targets": [
+        {
+          "kind": "typescript_projection",
+          "path": "packages/hypervisor-workbench/src/runtime/generated/architecture-contracts.ts",
+          "symbol": "HypervisorNotificationProjectionV1"
+        },
+        {
+          "kind": "rust_projection",
+          "path": "crates/types/src/app/generated/architecture_contracts.rs",
+          "symbol": "HypervisorNotificationProjectionV1"
+        }
+      ],
+      "positive_fixture_refs": [
+        "fixtures/hypervisor-notification-projection-v1/positive-approval-requested.json",
+        "fixtures/hypervisor-notification-projection-v1/positive-issue-opened-with-body.json"
+      ],
+      "negative_fixture_refs": [
+        {
+          "path": "fixtures/hypervisor-notification-projection-v1/negative-carries-read-state.json",
+          "expected_failure": "schema"
+        },
+        {
+          "path": "fixtures/hypervisor-notification-projection-v1/negative-not-read-model-only.json",
+          "expected_failure": "schema"
+        },
+        {
+          "path": "fixtures/hypervisor-notification-projection-v1/negative-detail-route-absolute-url.json",
+          "expected_failure": "schema"
+        },
+        {
+          "path": "fixtures/hypervisor-notification-projection-v1/negative-undotted-event-kind.json",
+          "expected_failure": "schema"
+        }
+      ]
     }
   ]
 }

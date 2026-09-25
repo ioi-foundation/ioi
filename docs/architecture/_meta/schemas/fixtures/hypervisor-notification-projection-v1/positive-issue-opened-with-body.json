@@ -1,0 +1,15 @@
+{
+  "schema_version": "ioi.hypervisor.notification-projection.v1",
+  "notification_projection_id": "projection://hypervisor/notification/owner_event/si-1/op-9/incident.opened",
+  "owner_event_family": "owner_event",
+  "event_kind": "incident.opened",
+  "owner_ref": "support-incident://si-1",
+  "owner_revision": "agentgres://operation/op-9",
+  "occurred_at": "2026-09-25T15:04:05Z",
+  "title": "Issue filed: Orders feed stopped syncing",
+  "canonical_detail_route": "/operations/issues?issue=si-1",
+  "source_projection_ref": "notification_routes::project_for_request",
+  "policy_decision_refs": [],
+  "read_model_only": true,
+  "body": "Filed against data-source:ds_1."
+}

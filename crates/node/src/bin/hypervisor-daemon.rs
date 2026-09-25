@@ -156,6 +156,8 @@ mod model_routes;
 mod mutation_event_foundation;
 #[path = "hypervisor_daemon_routes/mutation_ordering.rs"]
 mod mutation_ordering;
+#[path = "hypervisor_daemon_routes/notification_routes.rs"]
+mod notification_routes;
 #[path = "hypervisor_daemon_routes/odk_routes.rs"]
 mod odk_routes;
 #[path = "hypervisor_daemon_routes/ontology_action_contract_routes.rs"]
@@ -2908,6 +2910,13 @@ async fn async_main() -> anyhow::Result<()> {
         .route(
             "/v1/hypervisor/work-projection",
             get(work_projection_routes::handle_work_projection),
+        )
+        // ADR 0056 P1 — the notification inbox: a projection of owner events (sessions, automation runs,
+        // support incidents, approval requests) through their owners' readers, one link back per item,
+        // nothing stored and nothing cached.
+        .route(
+            "/v1/hypervisor/notifications",
+            get(notification_routes::handle_notifications),
         )
         .route(
             "/v1/hypervisor/work-lifecycle/status",

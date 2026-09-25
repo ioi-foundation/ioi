@@ -1,0 +1,15 @@
+{
+  "schema_version": "ioi.hypervisor.notification-projection.v1",
+  "notification_projection_id": "projection://hypervisor/notification/approval/ar-7/rev-2/approval.requested",
+  "owner_event_family": "approval",
+  "event_kind": "approval.requested",
+  "owner_ref": "approval-request://ar-7",
+  "owner_revision": "agentgres://operation/op-42",
+  "occurred_at": "2026-09-25T15:04:05Z",
+  "title": "Approval requested: publish release 1.2.0",
+  "canonical_detail_route": "/governance/approvals?request=ar-7",
+  "source_projection_ref": "notification_routes::project_for_request",
+  "policy_decision_refs": [],
+  "read_model_only": true,
+  "read": false
+}

@@ -187,6 +187,14 @@
       "assertion_names_sha256": "466f001b4c9367f4d2159af51070158c37d3dd8e8b57e2d11aa44eed3b1ab83d"
     },
     {
+      "id": "notification-inbox",
+      "npm_script": "check:notification-inbox",
+      "source": "apps/hypervisor/scripts/verify-hypervisor-notification-inbox.mjs",
+      "runtime_assertions": 11,
+      "note": "New 2026-09-25 (ADR 0056 P1): the notification inbox as a projection of owner events on the verifier's own daemon — identity first, one registered item with one link back per owner event, transitions re-derived, the envelope's typed absences, typed refusals, and nothing stored (no file written by the read; the same items after a restart). Measured with IOI_VERIFIER_CENSUS_DIR.",
+      "assertion_names_sha256": "17e0b42b18c8f25bc9e2979020c1bac0f30a7b9c6ee380d46bc0739a222dc022"
+    },
+    {
       "id": "systems-work-projections",
       "npm_script": "check:systems-work-projections",
       "source": "apps/hypervisor/scripts/verify-hypervisor-systems-work-projections.mjs",

@@ -267,6 +267,44 @@ persisted: a restart re-derives the same rows. Refusals: `work_projection_view_u
 `work_projection_subject_kind_unknown`, and `work_projection_row_contract_invalid`
 (a row that fails its contract fails the whole read closed, naming the family).
 
+```http
+GET /v1/hypervisor/notifications
+```
+
+Query: optional `family` (one of `owner_event | work_run | automation_run |
+session | lease | approval | operation`) and `limit` (1–50, default 25).
+
+**Built 2026-09-25 (ADR 0056 P1).** The notification inbox is a projection. Canon
+says notifications are projections of their owner's records and introduce no
+notification-event truth plane (`core-clients-surfaces.md`), so the daemon
+derives every item on every read and stores nothing. Items come from the owners'
+published readers: Sessions, AutomationRuns and the Operations-owned support
+incidents, each filtered by its owner's policy for the request identity. It also
+reads governance approval requests under that plane's own read policy. Each item
+is a registered `ioi.hypervisor.notification-projection.v1` record
+(`schema://ioi/components/hypervisor/notification-projection/v1`) carrying:
+
+- the owner-event family and the owner's own dotted transition (such as
+  `approval.requested`, `run.failed` or `incident.opened`);
+- the owner ref, and the revision at which the event happened;
+- one canonical link back to the object that changed;
+- `read_model_only: true`.
+
+Items carry no read state and no delivery state. Only terminal transitions
+count: a run still in flight is not an event. The window is the last 30 days,
+newest first, and the envelope names its cap (`counts.total` against
+`counts.shown`).
+
+Three families are typed absences in every answer: lease events (the
+capability-lease list is not filtered by principal), provider-operation events,
+and health-check events (P2). Email delivery is named as absent, because no
+delivery-channel plane exists. A signed-out caller gets the owners' refusal,
+never an inbox.
+
+Refusals: `notification_family_unknown`, `hypervisor.page_size_out_of_bounds`,
+and `notification_item_contract_invalid` (an item that fails its contract fails
+the whole read closed).
+
 `GET /v1/hypervisor/autonomous-systems/projection?view=compact|advanced` (the
 Systems read model, § *Autonomous-System Control APIs* below) resolves the request
 identity BEFORE rows on the same date: a System is visible to its genesis

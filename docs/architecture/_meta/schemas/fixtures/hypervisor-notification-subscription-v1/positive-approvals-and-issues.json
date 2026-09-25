@@ -1,0 +1,16 @@
+{
+  "schema_version": "ioi.hypervisor.notification-subscription.v1",
+  "subscription_ref": "notification-subscription://org-acme/u-1/approvals",
+  "principal_ref": "user://u-1",
+  "org_ref": "org://acme",
+  "owner_event_family_refs": [
+    "event-family://hypervisor/approval",
+    "event-family://hypervisor/owner_event/support-incidents"
+  ],
+  "delivery_channel_refs": [
+    "delivery-channel://in-platform"
+  ],
+  "filter": {},
+  "revision": 1,
+  "agentgres_operation_ref": "agentgres://operation/op-1"
+}

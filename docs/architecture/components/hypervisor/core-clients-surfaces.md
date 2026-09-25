@@ -4531,6 +4531,21 @@ HypervisorNotificationSubscription:
   revision: uint64
   agentgres_operation_ref: agentgres://operation/...
 
+# A projection, never stored: one owner record's event with one link back to it
+# (ADR 0056 P1). Read state and delivery state are not part of it.
+HypervisorNotificationProjection:
+  notification_projection_id: projection://hypervisor/notification/...
+  owner_event_family: owner_event | work_run | automation_run | session | lease | approval | operation
+  event_kind: string # the owner's own dotted transition, e.g. approval.requested
+  owner_ref: string
+  owner_revision: string
+  occurred_at: timestamp
+  title: string
+  body: string | null
+  canonical_detail_route: string # the one link back to the object that changed
+  policy_decision_refs: [decision://...]
+  read_model_only: true
+
 HypervisorCanvasLayout:
   layout_ref: canvas-layout://...
   owner_object_ref: string

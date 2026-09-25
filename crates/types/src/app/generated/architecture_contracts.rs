@@ -402,6 +402,8 @@ pub const ARCHITECTURE_CONTRACT_SCHEMA_HASHES: &[(&str, &str)] = &[
     ("schema://ioi/foundations/capability-construction-cycle/v1", "sha256:a54e8588a79dbb24ae504f04383dcfacb533890acd5bf951251f97720c3612aa"),
     ("schema://ioi/foundations/repair-proposal/v1", "sha256:47f6fe0cc590e3f5f376cb2954cea8f1d8199d3e6f8f069db738feda77e19c06"),
     ("schema://ioi/foundations/optimization-target-adapter/v1", "sha256:991acf470e55ab6007d489e396f5925c4b8a5cac46124be1affe29771dd5b031"),
+    ("schema://ioi/components/hypervisor/notification-subscription/v1", "sha256:45e93217cbd14d2a60a34a674d85b8bc7729cbb8953c71fa0ee4fd72c4f1f1dd"),
+    ("schema://ioi/components/hypervisor/notification-projection/v1", "sha256:6edeb66e0a835287a9851bd781e2a6f0136df868db2f10b16cf1e40ff671d557"),
 ];
 
 pub fn architecture_contract_schema_hash(contract_id: &str) -> Option<&'static str> {
@@ -173927,6 +173929,277 @@ impl<'de> serde::Deserialize<'de> for OptimizationTargetAdapterV1NormalizationsI
     }
 }
 
+#[derive(Debug, Clone, PartialEq, serde::Serialize)]
+pub struct HypervisorNotificationSubscriptionV1 {
+    pub schema_version: HypervisorNotificationSubscriptionV1SchemaVersion,
+    pub subscription_ref: String,
+    pub principal_ref: String,
+    pub org_ref: String,
+    pub owner_event_family_refs: Vec<String>,
+    pub delivery_channel_refs: Vec<String>,
+    pub filter: serde_json::Value,
+    pub revision: ArchitectureContractInteger,
+    pub agentgres_operation_ref: String,
+}
+
+impl<'de> serde::Deserialize<'de> for HypervisorNotificationSubscriptionV1 {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let value = <serde_json::Value as serde::Deserialize>::deserialize(deserializer)?;
+        validate_projection_subschema(
+            r#"schema://ioi/components/hypervisor/notification-subscription/v1"#,
+            r#"{"$schema":"https://json-schema.org/draft/2020-12/schema","$id":"schema://ioi/components/hypervisor/notification-subscription/v1","title":"HypervisorNotificationSubscription","x-ioi-schema-version":"ioi.hypervisor.notification-subscription.v1","description":"The one durable notification object (core-clients-surfaces.md § HypervisorNotificationSubscription): which owner-event families a principal wants delivered, on which channels, narrowed by a filter. It never stores an event — notifications are projections of their owner's records (ADR 0056 P1). Fields are canon's, verbatim; an owner-event family ref names one of the canon families and may narrow it to one owner (event-family://hypervisor/<family>[/<owner>]).","type":"object","additionalProperties":false,"required":["schema_version","subscription_ref","principal_ref","org_ref","owner_event_family_refs","delivery_channel_refs","filter","revision","agentgres_operation_ref"],"properties":{"schema_version":{"const":"ioi.hypervisor.notification-subscription.v1"},"subscription_ref":{"type":"string","pattern":"^notification-subscription://\\S+$"},"principal_ref":{"type":"string","pattern":"^(?:user|wallet)://\\S+$"},"org_ref":{"type":"string","pattern":"^org://\\S+$"},"owner_event_family_refs":{"type":"array","minItems":1,"uniqueItems":true,"items":{"type":"string","pattern":"^event-family://hypervisor/(?:owner_event|work_run|automation_run|session|lease|approval|operation)(?:/[a-z0-9][a-z0-9_.-]*){0,1}$"}},"delivery_channel_refs":{"type":"array","minItems":1,"uniqueItems":true,"items":{"type":"string","pattern":"^delivery-channel://\\S+$"}},"filter":{"type":"object","description":"Owner-defined narrowing, applied AFTER policy: a filter can only remove events the principal may already see, never widen them."},"revision":{"type":"integer","minimum":1,"maximum":9007199254740991},"agentgres_operation_ref":{"type":"string","pattern":"^agentgres://operation/\\S+$"}}}"#,
+            &value,
+        )
+            .map_err(serde::de::Error::custom)?;
+        let mut object = value
+            .as_object()
+            .cloned()
+            .ok_or_else(|| serde::de::Error::custom("validated projection is not an object"))?;
+        Ok(Self {
+            schema_version: serde_json::from_value::<
+                HypervisorNotificationSubscriptionV1SchemaVersion,
+            >(
+                object
+                    .remove(r#"schema_version"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"schema_version"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            subscription_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"subscription_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"subscription_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            principal_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"principal_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"principal_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            org_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"org_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"org_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            owner_event_family_refs: serde_json::from_value::<Vec<String>>(
+                object
+                    .remove(r#"owner_event_family_refs"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"owner_event_family_refs"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            delivery_channel_refs: serde_json::from_value::<Vec<String>>(
+                object
+                    .remove(r#"delivery_channel_refs"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"delivery_channel_refs"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            filter: serde_json::from_value::<serde_json::Value>(
+                object
+                    .remove(r#"filter"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"filter"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            revision: serde_json::from_value::<ArchitectureContractInteger>(
+                object
+                    .remove(r#"revision"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"revision"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            agentgres_operation_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"agentgres_operation_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"agentgres_operation_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+        })
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum HypervisorNotificationSubscriptionV1SchemaVersion {
+    #[serde(rename = r#"ioi.hypervisor.notification-subscription.v1"#)]
+    IoiHypervisorNotificationSubscriptionV1,
+}
+
+#[derive(Debug, Clone, PartialEq, serde::Serialize)]
+pub struct HypervisorNotificationProjectionV1 {
+    pub schema_version: HypervisorNotificationProjectionV1SchemaVersion,
+    pub notification_projection_id: String,
+    pub owner_event_family: HypervisorNotificationProjectionV1OwnerEventFamily,
+    pub event_kind: String,
+    pub owner_ref: String,
+    pub owner_revision: String,
+    pub occurred_at: String,
+    pub title: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub body: Option<String>,
+    pub canonical_detail_route: String,
+    pub source_projection_ref: String,
+    pub policy_decision_refs: Vec<String>,
+    pub read_model_only: HypervisorNotificationProjectionV1ReadModelOnly,
+}
+
+impl<'de> serde::Deserialize<'de> for HypervisorNotificationProjectionV1 {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let value = <serde_json::Value as serde::Deserialize>::deserialize(deserializer)?;
+        validate_projection_subschema(
+            r#"schema://ioi/components/hypervisor/notification-projection/v1"#,
+            r#"{"$schema":"https://json-schema.org/draft/2020-12/schema","$id":"schema://ioi/components/hypervisor/notification-projection/v1","title":"HypervisorNotificationProjection","x-ioi-schema-version":"ioi.hypervisor.notification-projection.v1","description":"One inbox item: a policy-filtered projection of ONE owner record's event, with ONE deep link back to the object that changed (core-clients-surfaces.md: notifications are projections of their owner event, WorkRun, AutomationRun, Session, lease, approval or operation records and introduce no notification-event truth plane; ADR 0056 P1). It carries no read state and no delivery state — nothing here is stored; the item is re-derived from the owner's record on every read, and work happens at the owner, never in the inbox.","type":"object","additionalProperties":false,"required":["schema_version","notification_projection_id","owner_event_family","event_kind","owner_ref","owner_revision","occurred_at","title","canonical_detail_route","source_projection_ref","policy_decision_refs","read_model_only"],"properties":{"schema_version":{"const":"ioi.hypervisor.notification-projection.v1"},"notification_projection_id":{"type":"string","pattern":"^projection://hypervisor/notification/\\S+$","description":"Derived, stable: the same owner record at the same revision and event kind always projects the same id."},"owner_event_family":{"enum":["owner_event","work_run","automation_run","session","lease","approval","operation"]},"event_kind":{"type":"string","pattern":"^[a-z][a-z0-9_]*(?:[.][a-z][a-z0-9_]*)+$","maxLength":120,"description":"The owner's own transition, verbatim and dotted (e.g. approval.requested, run.failed)."},"owner_ref":{"type":"string","pattern":"^[a-z][a-z0-9_-]*://\\S+$","description":"The record whose event this is."},"owner_revision":{"type":"string","minLength":1,"maxLength":300,"description":"The owner record's revision or operation ref at which the event happened."},"occurred_at":{"type":"string","pattern":"^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}(?:[.][0-9]+){0,1}(?:Z|[+-][0-9]{2}:[0-9]{2})$"},"title":{"type":"string","minLength":1,"maxLength":300},"body":{"type":"string","minLength":1,"maxLength":2000},"canonical_detail_route":{"type":"string","pattern":"^/\\S*$","description":"The one link back to the object that changed."},"source_projection_ref":{"type":"string","minLength":1,"maxLength":500},"policy_decision_refs":{"type":"array","uniqueItems":true,"items":{"type":"string","pattern":"^decision://\\S+$"}},"read_model_only":{"const":true}}}"#,
+            &value,
+        )
+            .map_err(serde::de::Error::custom)?;
+        let mut object = value
+            .as_object()
+            .cloned()
+            .ok_or_else(|| serde::de::Error::custom("validated projection is not an object"))?;
+        Ok(Self {
+            schema_version:
+                serde_json::from_value::<HypervisorNotificationProjectionV1SchemaVersion>(
+                    object
+                        .remove(r#"schema_version"#)
+                        .ok_or_else(|| serde::de::Error::missing_field(r#"schema_version"#))?,
+                )
+                .map_err(serde::de::Error::custom)?,
+            notification_projection_id: serde_json::from_value::<String>(
+                object
+                    .remove(r#"notification_projection_id"#)
+                    .ok_or_else(|| {
+                        serde::de::Error::missing_field(r#"notification_projection_id"#)
+                    })?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            owner_event_family: serde_json::from_value::<
+                HypervisorNotificationProjectionV1OwnerEventFamily,
+            >(
+                object
+                    .remove(r#"owner_event_family"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"owner_event_family"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            event_kind: serde_json::from_value::<String>(
+                object
+                    .remove(r#"event_kind"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"event_kind"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            owner_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"owner_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"owner_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            owner_revision: serde_json::from_value::<String>(
+                object
+                    .remove(r#"owner_revision"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"owner_revision"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            occurred_at: serde_json::from_value::<String>(
+                object
+                    .remove(r#"occurred_at"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"occurred_at"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            title: serde_json::from_value::<String>(
+                object
+                    .remove(r#"title"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"title"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            body: match object.remove(r#"body"#) {
+                Some(field_value) => serde_json::from_value::<Option<String>>(field_value)
+                    .map_err(serde::de::Error::custom)?,
+                None => None,
+            },
+            canonical_detail_route: serde_json::from_value::<String>(
+                object
+                    .remove(r#"canonical_detail_route"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"canonical_detail_route"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            source_projection_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"source_projection_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"source_projection_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            policy_decision_refs: serde_json::from_value::<Vec<String>>(
+                object
+                    .remove(r#"policy_decision_refs"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"policy_decision_refs"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            read_model_only: serde_json::from_value::<
+                HypervisorNotificationProjectionV1ReadModelOnly,
+            >(
+                object
+                    .remove(r#"read_model_only"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"read_model_only"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+        })
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum HypervisorNotificationProjectionV1SchemaVersion {
+    #[serde(rename = r#"ioi.hypervisor.notification-projection.v1"#)]
+    IoiHypervisorNotificationProjectionV1,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum HypervisorNotificationProjectionV1OwnerEventFamily {
+    #[serde(rename = r#"owner_event"#)]
+    OwnerEvent,
+    #[serde(rename = r#"work_run"#)]
+    WorkRun,
+    #[serde(rename = r#"automation_run"#)]
+    AutomationRun,
+    #[serde(rename = r#"session"#)]
+    Session,
+    #[serde(rename = r#"lease"#)]
+    Lease,
+    #[serde(rename = r#"approval"#)]
+    Approval,
+    #[serde(rename = r#"operation"#)]
+    Operation,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum HypervisorNotificationProjectionV1ReadModelOnly {
+    True,
+}
+
+impl serde::Serialize for HypervisorNotificationProjectionV1ReadModelOnly {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: serde::Serializer,
+    {
+        serializer.serialize_bool(true)
+    }
+}
+
+impl<'de> serde::Deserialize<'de> for HypervisorNotificationProjectionV1ReadModelOnly {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let value = <bool as serde::Deserialize>::deserialize(deserializer)?;
+        if value == true {
+            Ok(Self::True)
+        } else {
+            Err(serde::de::Error::custom(r#"expected boolean literal true"#))
+        }
+    }
+}
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct GoldenFixture {
     pub contract_id: &'static str,
@@ -190040,6 +190313,94 @@ pub const ARCHITECTURE_CONTRACT_FIXTURES: &[GoldenFixture] = &[
         expected_accept: false,
         expected_schema_accept: true,
         expected_failure: Some("invariant"),
+        expected_rule_id: None,
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/components/hypervisor/notification-subscription/v1",
+        path: "docs/architecture/_meta/schemas/fixtures/hypervisor-notification-subscription-v1/positive-approvals-and-issues.json",
+        expected_accept: true,
+        expected_schema_accept: true,
+        expected_failure: None,
+        expected_rule_id: None,
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/components/hypervisor/notification-subscription/v1",
+        path: "docs/architecture/_meta/schemas/fixtures/hypervisor-notification-subscription-v1/negative-unknown-field.json",
+        expected_accept: false,
+        expected_schema_accept: false,
+        expected_failure: Some("schema"),
+        expected_rule_id: None,
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/components/hypervisor/notification-subscription/v1",
+        path: "docs/architecture/_meta/schemas/fixtures/hypervisor-notification-subscription-v1/negative-family-outside-canon.json",
+        expected_accept: false,
+        expected_schema_accept: false,
+        expected_failure: Some("schema"),
+        expected_rule_id: None,
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/components/hypervisor/notification-subscription/v1",
+        path: "docs/architecture/_meta/schemas/fixtures/hypervisor-notification-subscription-v1/negative-no-channel.json",
+        expected_accept: false,
+        expected_schema_accept: false,
+        expected_failure: Some("schema"),
+        expected_rule_id: None,
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/components/hypervisor/notification-subscription/v1",
+        path: "docs/architecture/_meta/schemas/fixtures/hypervisor-notification-subscription-v1/negative-revision-zero.json",
+        expected_accept: false,
+        expected_schema_accept: false,
+        expected_failure: Some("schema"),
+        expected_rule_id: None,
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/components/hypervisor/notification-projection/v1",
+        path: "docs/architecture/_meta/schemas/fixtures/hypervisor-notification-projection-v1/positive-approval-requested.json",
+        expected_accept: true,
+        expected_schema_accept: true,
+        expected_failure: None,
+        expected_rule_id: None,
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/components/hypervisor/notification-projection/v1",
+        path: "docs/architecture/_meta/schemas/fixtures/hypervisor-notification-projection-v1/positive-issue-opened-with-body.json",
+        expected_accept: true,
+        expected_schema_accept: true,
+        expected_failure: None,
+        expected_rule_id: None,
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/components/hypervisor/notification-projection/v1",
+        path: "docs/architecture/_meta/schemas/fixtures/hypervisor-notification-projection-v1/negative-carries-read-state.json",
+        expected_accept: false,
+        expected_schema_accept: false,
+        expected_failure: Some("schema"),
+        expected_rule_id: None,
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/components/hypervisor/notification-projection/v1",
+        path: "docs/architecture/_meta/schemas/fixtures/hypervisor-notification-projection-v1/negative-not-read-model-only.json",
+        expected_accept: false,
+        expected_schema_accept: false,
+        expected_failure: Some("schema"),
+        expected_rule_id: None,
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/components/hypervisor/notification-projection/v1",
+        path: "docs/architecture/_meta/schemas/fixtures/hypervisor-notification-projection-v1/negative-detail-route-absolute-url.json",
+        expected_accept: false,
+        expected_schema_accept: false,
+        expected_failure: Some("schema"),
+        expected_rule_id: None,
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/components/hypervisor/notification-projection/v1",
+        path: "docs/architecture/_meta/schemas/fixtures/hypervisor-notification-projection-v1/negative-undotted-event-kind.json",
+        expected_accept: false,
+        expected_schema_accept: false,
+        expected_failure: Some("schema"),
         expected_rule_id: None,
     },
 ];
@@ -213807,6 +214168,127 @@ pub const ARCHITECTURE_CONTRACT_DIFFERENTIAL_CASES: &[ArchitectureContractDiffer
         oracle_contract_accept: false,
     },
     ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/hypervisor-notification-subscription-v1/positive-approvals-and-issues.json"#,
+        contract_id: r#"schema://ioi/components/hypervisor/notification-subscription/v1"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/hypervisor-notification-subscription-v1/positive-approvals-and-issues.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: true,
+        oracle_contract_accept: true,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/hypervisor-notification-subscription-v1/negative-unknown-field.json"#,
+        contract_id: r#"schema://ioi/components/hypervisor/notification-subscription/v1"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/hypervisor-notification-subscription-v1/negative-unknown-field.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: false,
+        oracle_contract_accept: false,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/hypervisor-notification-subscription-v1/negative-family-outside-canon.json"#,
+        contract_id: r#"schema://ioi/components/hypervisor/notification-subscription/v1"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/hypervisor-notification-subscription-v1/negative-family-outside-canon.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: false,
+        oracle_contract_accept: false,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/hypervisor-notification-subscription-v1/negative-no-channel.json"#,
+        contract_id: r#"schema://ioi/components/hypervisor/notification-subscription/v1"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/hypervisor-notification-subscription-v1/negative-no-channel.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: false,
+        oracle_contract_accept: false,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/hypervisor-notification-subscription-v1/negative-revision-zero.json"#,
+        contract_id: r#"schema://ioi/components/hypervisor/notification-subscription/v1"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/hypervisor-notification-subscription-v1/negative-revision-zero.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: false,
+        oracle_contract_accept: false,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/hypervisor-notification-projection-v1/positive-approval-requested.json"#,
+        contract_id: r#"schema://ioi/components/hypervisor/notification-projection/v1"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/hypervisor-notification-projection-v1/positive-approval-requested.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: true,
+        oracle_contract_accept: true,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/hypervisor-notification-projection-v1/positive-issue-opened-with-body.json"#,
+        contract_id: r#"schema://ioi/components/hypervisor/notification-projection/v1"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/hypervisor-notification-projection-v1/positive-issue-opened-with-body.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: true,
+        oracle_contract_accept: true,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/hypervisor-notification-projection-v1/negative-carries-read-state.json"#,
+        contract_id: r#"schema://ioi/components/hypervisor/notification-projection/v1"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/hypervisor-notification-projection-v1/negative-carries-read-state.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: false,
+        oracle_contract_accept: false,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/hypervisor-notification-projection-v1/negative-not-read-model-only.json"#,
+        contract_id: r#"schema://ioi/components/hypervisor/notification-projection/v1"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/hypervisor-notification-projection-v1/negative-not-read-model-only.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: false,
+        oracle_contract_accept: false,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/hypervisor-notification-projection-v1/negative-detail-route-absolute-url.json"#,
+        contract_id: r#"schema://ioi/components/hypervisor/notification-projection/v1"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/hypervisor-notification-projection-v1/negative-detail-route-absolute-url.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: false,
+        oracle_contract_accept: false,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/hypervisor-notification-projection-v1/negative-undotted-event-kind.json"#,
+        contract_id: r#"schema://ioi/components/hypervisor/notification-projection/v1"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/hypervisor-notification-projection-v1/negative-undotted-event-kind.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: false,
+        oracle_contract_accept: false,
+    },
+    ArchitectureContractDifferentialCase {
         id: r#"mutation:sequence-zero-receipt-timestamp-detached"#,
         contract_id: r#"schema://ioi/foundations/autonomous-system-sequence-zero-materialization-receipt/v2"#,
         source_fixture_path: None,
@@ -215578,6 +216060,8 @@ const CONTRACT_SCHEMAS: &[(&str, &str)] = &[
     ("schema://ioi/foundations/capability-construction-cycle/v1", r#"{"$schema":"https://json-schema.org/draft/2020-12/schema","$id":"schema://ioi/foundations/capability-construction-cycle/v1","title":"CapabilityConstructionCycleEnvelope","x-ioi-schema-version":"ioi.foundations.capability-construction-cycle.v1","description":"THE GENERIC SUBORDINATE CYCLE, beside Foundry's own specialized one. `ExperimentOptimizationCycleEnvelope` stays Foundry-owned and is neither the generic owner nor a prerequisite for one; it participates here only through a versioned `OptimizationTargetAdapter`. TWO LAWS ARE ON THE WIRE AS CONSTANTS RATHER THAN LEFT TO A READER. `optimizer_is_not_a_model`: `optimizer_ref` is exactly `worker://`, `conductor://` or `runtime://`, and a frontier, open or local model is REPLACEABLE COGNITION mounted through that actor's HarnessInvocation and ModelRoute — never the optimizer identity and never a truth owner, because swapping the model behind an optimizer must change nothing about who ran the cycle. `selection_confers_eligibility_only`: the optimizer cannot evaluate or promote itself, activate, publish, authorize, or rewrite the target envelope; a selection is an experiment-local result under declared policies and not campaign nomination, evaluation truth or release authority. FOUR SEPARATE DISPOSITION LISTS, not one list with a status member: collapsing them makes \"we did not try that\" and \"we tried it and it failed\" the same sentence, and canon requires every failed, rejected, inconclusive and exploit trial to survive its own verdict. Owner: foundations/objects/model-foundry-and-training.md § CapabilityConstructionCycleEnvelope (M10.8, R-237).","type":"object","additionalProperties":false,"required":["schema_version","construction_cycle_id","target_ref","target_class","target_owner_ref","baseline_target_ref","baseline_target_root","resolved_component_snapshot_ref","optimizer_ref","search_policy_ref","objective_and_guardrail_policy_ref","resource_normalization_ref","budget_policy_ref","stop_policy_ref","improvement_campaign_ref","evaluation_epoch_ref","trial_refs","accepted_change_refs","rejected_change_refs","inconclusive_change_refs","exploit_or_invalid_change_refs","repair_proposal_refs","selection_confers_eligibility_only","optimizer_is_not_a_model","receipt_root","status","content_hash"],"properties":{"schema_version":{"type":"string","const":"ioi.foundations.capability-construction-cycle.v1"},"construction_cycle_id":{"type":"string","pattern":"^constrcycle://[^\\s?#\\\\]{1,200}$"},"target_ref":{"type":"string","minLength":1,"maxLength":400},"target_class":{"type":"string","enum":["training_pipeline","training_code","foundry_spec","run_plan","preprocessor","model_artifact","runtime_artifact","artifact_conversion","data_recipe","connector_mapping","vertical_ontology_pack","ontology_mapping_candidate","goal_run_profile","workflow_template","harness_profile","skill_manifest","runtime_tool_contract_binding","integration_surface_profile","contact_delivery_channel_requirement","model_route_policy","evaluator_asset","eval_world","simulator"],"description":"CANON'S CLOSED TWENTY-THREE, verbatim and in canon's own order (foundations/objects/model-foundry-and-training.md § CapabilityConstructionCycleEnvelope). Closed rather than open because an open list lets a cycle run against a target no plane will accept the result for and discover it at the END. THE ENUM AND THE ADAPTER ARE TWO DIFFERENT GATES: being in this list makes a class nameable, and only a registered OptimizationTargetAdapter makes it enterable — the adapter registry is always the smaller set, which is why `missing_adapter` is not a second spelling of an unknown class."},"target_owner_ref":{"type":"string","minLength":1,"maxLength":400},"baseline_target_ref":{"type":"string","minLength":1,"maxLength":400},"baseline_target_root":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"},"resolved_component_snapshot_ref":{"type":"string","pattern":"^artifact://[^\\s?#\\\\]{1,200}$"},"optimizer_ref":{"type":"string","pattern":"^(?:worker|conductor|runtime)://[^\\s?#\\\\]{1,200}$","description":"AN ACTOR, NEVER A MODEL. The three schemes are the whole vocabulary: a model named here would be a truth owner, and it is not one."},"search_policy_ref":{"type":"string","pattern":"^(?:policy|budget)://[^\\s]{1,400}$"},"objective_and_guardrail_policy_ref":{"type":"string","pattern":"^(?:policy|budget)://[^\\s]{1,400}$"},"resource_normalization_ref":{"type":"string","pattern":"^(?:policy|budget)://[^\\s]{1,400}$"},"budget_policy_ref":{"type":"string","pattern":"^(?:policy|budget)://[^\\s]{1,400}$"},"stop_policy_ref":{"type":"string","pattern":"^(?:policy|budget)://[^\\s]{1,400}$"},"improvement_campaign_ref":{"anyOf":[{"type":"string","pattern":"^improvement-campaign://[^\\s?#\\\\]{1,200}$"},{"type":"null"}],"description":"Null for an ordinary bounded cycle. A cycle may run without a campaign; when present it names the frozen contract that admitted the cycle and its evaluation."},"evaluation_epoch_ref":{"anyOf":[{"type":"string","pattern":"^evaluation-epoch://[^\\s?#\\\\]{1,200}$"},{"type":"null"}]},"trial_refs":{"type":"array","maxItems":4096,"items":{"type":"string","pattern":"^trial://[^\\s?#\\\\]{1,200}$"}},"accepted_change_refs":{"type":"array","maxItems":512,"items":{"type":"string","pattern":"^(?:artifact|proposal)://[^\\s?#\\\\]{1,200}$"}},"rejected_change_refs":{"type":"array","maxItems":512,"items":{"type":"string","pattern":"^(?:artifact|proposal)://[^\\s?#\\\\]{1,200}$"},"description":"PRESERVED, not discarded. A cycle that kept only what worked cannot explain how it got there."},"inconclusive_change_refs":{"type":"array","maxItems":512,"items":{"type":"string","pattern":"^(?:artifact|proposal)://[^\\s?#\\\\]{1,200}$"},"description":"Distinct from rejected: a trial that could not be decided is not a trial that failed."},"exploit_or_invalid_change_refs":{"type":"array","maxItems":512,"items":{"type":"string","pattern":"^(?:artifact|proposal)://[^\\s?#\\\\]{1,200}$"},"description":"A trial that gamed the objective rather than satisfying it. Kept separate because an exploit is evidence about the OBJECTIVE, not about the target."},"repair_proposal_refs":{"type":"array","maxItems":512,"items":{"type":"string","pattern":"^repair-proposal://[^\\s?#\\\\]{1,200}$"}},"selection_confers_eligibility_only":{"type":"boolean","const":true},"optimizer_is_not_a_model":{"type":"boolean","const":true},"receipt_root":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"},"status":{"type":"string","enum":["planned","running","stopped","proposed_for_review","failed","rejected"]},"content_hash":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$","description":"SHA-256 over JCS of `{domain, ...every other member}`, registered as a `jcs_sha256_equals` invariant so a record whose content drifts from its own hash is refused at validation. The shape is the estate's ONE commitment mechanism — the same digest the shared family spine derives for every family it serves — so this record is admissible on the existing owner-scoped chain whenever an owning plane binds it, rather than carrying a second commitment of its own. The `receipt_root` beside it is canon's own second commitment over the cycle's receipts and is not this."}}}"#),
     ("schema://ioi/foundations/repair-proposal/v1", r#"{"$schema":"https://json-schema.org/draft/2020-12/schema","$id":"schema://ioi/foundations/repair-proposal/v1","title":"RepairProposalEnvelope","x-ioi-schema-version":"ioi.foundations.repair-proposal.v1","description":"A CLUSTER OF FAILURES AND A SUGGESTION, and the suggestion applies nothing. Canon's Iteration Loop (foundations/worker-training-lifecycle.md) \"clusters failures and SUGGESTS the next data, recipe, gate, rubric, tool, model, or workflow change before the next training run\" — that verb is the boundary, and `applies_nothing` is on the wire as a const because applying a proposal is a separate governed act by the target's own owner. `change_kind` is CANON'S OWN CLOSED SET of seven and not a label chosen here. `clustered_failure_refs` is non-empty by construction: a repair proposal with no failures behind it is a suggestion with no evidence, and the clustering is the only thing separating it from an opinion. Owner: foundations/objects/model-foundry-and-training.md § RepairProposalEnvelope (M10.8, R-237).","type":"object","additionalProperties":false,"required":["schema_version","repair_proposal_id","parent_cycle_ref","clustered_failure_refs","change_kind","proposed_change_ref","applies_nothing","rationale","content_hash"],"properties":{"schema_version":{"type":"string","const":"ioi.foundations.repair-proposal.v1"},"repair_proposal_id":{"type":"string","pattern":"^repair-proposal://[^\\s?#\\\\]{1,200}$"},"parent_cycle_ref":{"type":"string","pattern":"^(?:constrcycle|optcycle)://[^\\s?#\\\\]{1,200}$","description":"PARENTED, because a proposal that names no cycle is a suggestion from nowhere. Either cycle kind may parent one — Foundry's specialized cycle and the generic one both cluster failures."},"clustered_failure_refs":{"type":"array","minItems":1,"maxItems":4096,"items":{"type":"string","pattern":"^trial://[^\\s?#\\\\]{1,200}$"}},"change_kind":{"type":"string","enum":["data","recipe","gate","rubric","tool","model","workflow"]},"proposed_change_ref":{"type":"string","pattern":"^(?:artifact|proposal)://[^\\s?#\\\\]{1,200}$"},"applies_nothing":{"type":"boolean","const":true},"rationale":{"type":"string","minLength":20,"maxLength":2000,"description":"Why these failures cluster together and why this change follows. A floor is enforced because a proposal whose rationale is a phrase cannot be reviewed, and review is the only thing standing between a suggestion and a change."},"content_hash":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$","description":"SHA-256 over JCS of `{domain, ...every other member}`, registered as a `jcs_sha256_equals` invariant so a record whose content drifts from its own hash is refused at validation. The shape is the estate's ONE commitment mechanism — the same digest the shared family spine derives for every family it serves — so this record is admissible on the existing owner-scoped chain whenever an owning plane binds it, rather than carrying a second commitment of its own."}}}"#),
     ("schema://ioi/foundations/optimization-target-adapter/v1", r#"{"$schema":"https://json-schema.org/draft/2020-12/schema","$id":"schema://ioi/foundations/optimization-target-adapter/v1","title":"OptimizationTargetAdapter","x-ioi-schema-version":"ioi.foundations.optimization-target-adapter.v1","description":"HOW A TARGET OWNER'S PLANE PARTICIPATES WITHOUT ITS SHAPE BEING ABSORBED. The adapter is what lets Foundry's existing `ExperimentOptimizationCycleEnvelope` take part while neither object is rewritten. THREE REFUSALS DEFINE IT, each naming a different way an unadapted target could slip in: `missing_adapter` — a target class with no registered adapter cannot enter a cycle at all, because an unadapted target is not one this estate can reason about; `cross_version` — an adapter whose `accepts_envelope_schema` is not the envelope actually offered is refused rather than tried, because an adapter that guesses is a translator inventing meaning; `downgrade` — an adapter emitting an older schema than it accepted is refused, since a cycle that silently lowers its own wire version loses whatever the newer one added. THE FIRST NORMALIZATION IS ONE CANON ALREADY SPECIFIED: the deprecated `target_training_pipeline_ref` is accepted only by a versioned adapter that normalizes it to `target_ref` with `target_class: training_pipeline`, and CANONICAL STATE DOES NOT EMIT BOTH — a record carrying the deprecated key and the canonical pair together has not been normalized, it has been annotated. That last law is a cross-member conditional the portable operator set cannot express, so it lives in the deriver and is named there. Owner: foundations/objects/model-foundry-and-training.md § OptimizationTargetAdapter (M10.8, R-237).","type":"object","additionalProperties":false,"required":["schema_version","adapter_id","target_class","adapter_version","accepts_envelope_schema","emits_envelope_schema","normalizations","owner_ref","content_hash"],"properties":{"schema_version":{"type":"string","const":"ioi.foundations.optimization-target-adapter.v1"},"adapter_id":{"type":"string","pattern":"^optadapter://[^\\s?#\\\\]{1,200}$"},"target_class":{"type":"string","enum":["training_pipeline","training_code","foundry_spec","run_plan","preprocessor","model_artifact","runtime_artifact","artifact_conversion","data_recipe","connector_mapping","vertical_ontology_pack","ontology_mapping_candidate","goal_run_profile","workflow_template","harness_profile","skill_manifest","runtime_tool_contract_binding","integration_surface_profile","contact_delivery_channel_requirement","model_route_policy","evaluator_asset","eval_world","simulator"],"description":"The class this adapter translates, from the SAME closed twenty-three the cycle carries. An adapter for a class canon does not recognise would make the vocabulary open again through the back door."},"adapter_version":{"type":"string","pattern":"^(?:0|[1-9][0-9]*)[.](?:0|[1-9][0-9]*)[.](?:0|[1-9][0-9]*)$"},"accepts_envelope_schema":{"type":"string","minLength":1,"maxLength":400,"description":"The EXACT schema_version this adapter reads. Exact rather than a range, because a range is how an adapter comes to guess."},"emits_envelope_schema":{"type":"string","minLength":1,"maxLength":400},"normalizations":{"type":"array","maxItems":64,"description":"Empty is legitimate: an adapter for a class whose envelope already speaks the canonical shape normalizes nothing and exists to declare that.","items":{"type":"object","additionalProperties":false,"required":["deprecated_key","canonical_key","canonical_value"],"properties":{"deprecated_key":{"type":"string","minLength":1,"maxLength":400},"canonical_key":{"type":"string","minLength":1,"maxLength":400},"canonical_value":{"anyOf":[{"type":"string","minLength":1,"maxLength":200},{"type":"null"}],"description":"The value the canonical key takes when this normalization fires, or null when the deprecated key's own value carries over unchanged."}}}},"owner_ref":{"type":"string","minLength":1,"maxLength":400},"content_hash":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$","description":"SHA-256 over JCS of `{domain, ...every other member}`, registered as a `jcs_sha256_equals` invariant so a record whose content drifts from its own hash is refused at validation. The shape is the estate's ONE commitment mechanism — the same digest the shared family spine derives for every family it serves — so this record is admissible on the existing owner-scoped chain whenever an owning plane binds it, rather than carrying a second commitment of its own."}}}"#),
+    ("schema://ioi/components/hypervisor/notification-subscription/v1", r#"{"$schema":"https://json-schema.org/draft/2020-12/schema","$id":"schema://ioi/components/hypervisor/notification-subscription/v1","title":"HypervisorNotificationSubscription","x-ioi-schema-version":"ioi.hypervisor.notification-subscription.v1","description":"The one durable notification object (core-clients-surfaces.md § HypervisorNotificationSubscription): which owner-event families a principal wants delivered, on which channels, narrowed by a filter. It never stores an event — notifications are projections of their owner's records (ADR 0056 P1). Fields are canon's, verbatim; an owner-event family ref names one of the canon families and may narrow it to one owner (event-family://hypervisor/<family>[/<owner>]).","type":"object","additionalProperties":false,"required":["schema_version","subscription_ref","principal_ref","org_ref","owner_event_family_refs","delivery_channel_refs","filter","revision","agentgres_operation_ref"],"properties":{"schema_version":{"const":"ioi.hypervisor.notification-subscription.v1"},"subscription_ref":{"type":"string","pattern":"^notification-subscription://\\S+$"},"principal_ref":{"type":"string","pattern":"^(?:user|wallet)://\\S+$"},"org_ref":{"type":"string","pattern":"^org://\\S+$"},"owner_event_family_refs":{"type":"array","minItems":1,"uniqueItems":true,"items":{"type":"string","pattern":"^event-family://hypervisor/(?:owner_event|work_run|automation_run|session|lease|approval|operation)(?:/[a-z0-9][a-z0-9_.-]*){0,1}$"}},"delivery_channel_refs":{"type":"array","minItems":1,"uniqueItems":true,"items":{"type":"string","pattern":"^delivery-channel://\\S+$"}},"filter":{"type":"object","description":"Owner-defined narrowing, applied AFTER policy: a filter can only remove events the principal may already see, never widen them."},"revision":{"type":"integer","minimum":1,"maximum":9007199254740991},"agentgres_operation_ref":{"type":"string","pattern":"^agentgres://operation/\\S+$"}}}"#),
+    ("schema://ioi/components/hypervisor/notification-projection/v1", r#"{"$schema":"https://json-schema.org/draft/2020-12/schema","$id":"schema://ioi/components/hypervisor/notification-projection/v1","title":"HypervisorNotificationProjection","x-ioi-schema-version":"ioi.hypervisor.notification-projection.v1","description":"One inbox item: a policy-filtered projection of ONE owner record's event, with ONE deep link back to the object that changed (core-clients-surfaces.md: notifications are projections of their owner event, WorkRun, AutomationRun, Session, lease, approval or operation records and introduce no notification-event truth plane; ADR 0056 P1). It carries no read state and no delivery state — nothing here is stored; the item is re-derived from the owner's record on every read, and work happens at the owner, never in the inbox.","type":"object","additionalProperties":false,"required":["schema_version","notification_projection_id","owner_event_family","event_kind","owner_ref","owner_revision","occurred_at","title","canonical_detail_route","source_projection_ref","policy_decision_refs","read_model_only"],"properties":{"schema_version":{"const":"ioi.hypervisor.notification-projection.v1"},"notification_projection_id":{"type":"string","pattern":"^projection://hypervisor/notification/\\S+$","description":"Derived, stable: the same owner record at the same revision and event kind always projects the same id."},"owner_event_family":{"enum":["owner_event","work_run","automation_run","session","lease","approval","operation"]},"event_kind":{"type":"string","pattern":"^[a-z][a-z0-9_]*(?:[.][a-z][a-z0-9_]*)+$","maxLength":120,"description":"The owner's own transition, verbatim and dotted (e.g. approval.requested, run.failed)."},"owner_ref":{"type":"string","pattern":"^[a-z][a-z0-9_-]*://\\S+$","description":"The record whose event this is."},"owner_revision":{"type":"string","minLength":1,"maxLength":300,"description":"The owner record's revision or operation ref at which the event happened."},"occurred_at":{"type":"string","pattern":"^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}(?:[.][0-9]+){0,1}(?:Z|[+-][0-9]{2}:[0-9]{2})$"},"title":{"type":"string","minLength":1,"maxLength":300},"body":{"type":"string","minLength":1,"maxLength":2000},"canonical_detail_route":{"type":"string","pattern":"^/\\S*$","description":"The one link back to the object that changed."},"source_projection_ref":{"type":"string","minLength":1,"maxLength":500},"policy_decision_refs":{"type":"array","uniqueItems":true,"items":{"type":"string","pattern":"^decision://\\S+$"}},"read_model_only":{"const":true}}}"#),
 ];
 
 const CONTRACT_INVARIANTS: &[(&str, &str)] = &[
@@ -215940,6 +216424,8 @@ const CONTRACT_INVARIANTS: &[(&str, &str)] = &[
     ("schema://ioi/foundations/capability-construction-cycle/v1", r#"[{"rule_id":"capability_construction_cycle.content_hash.commits_the_whole_bounded_cycle","description":"The content hash commits EVERY member of the cycle: its identity and target, the baseline it improved on, the resolved component snapshot, the optimizer, all five governing policy refs, the campaign and epoch it ran under, the trials, all four disposition lists, the repair proposals, both constant laws, the receipt root and the status. Nothing is excluded. A cycle is a claim about what was tried and what was decided, so a member that could change without changing the hash would be a disposition the record could quietly lose — which is the exact failure the four separate lists exist to prevent.","expression":{"operator":"jcs_sha256_equals","algorithm":"jcs_sha256","material_fields":{"domain":{"value":"ioi.capability-construction-cycle-content-commitment-jcs-sha256.v1"},"schema_version":{"path":"$.schema_version"},"construction_cycle_id":{"path":"$.construction_cycle_id"},"target_ref":{"path":"$.target_ref"},"target_class":{"path":"$.target_class"},"target_owner_ref":{"path":"$.target_owner_ref"},"baseline_target_ref":{"path":"$.baseline_target_ref"},"baseline_target_root":{"path":"$.baseline_target_root"},"resolved_component_snapshot_ref":{"path":"$.resolved_component_snapshot_ref"},"optimizer_ref":{"path":"$.optimizer_ref"},"search_policy_ref":{"path":"$.search_policy_ref"},"objective_and_guardrail_policy_ref":{"path":"$.objective_and_guardrail_policy_ref"},"resource_normalization_ref":{"path":"$.resource_normalization_ref"},"budget_policy_ref":{"path":"$.budget_policy_ref"},"stop_policy_ref":{"path":"$.stop_policy_ref"},"improvement_campaign_ref":{"path":"$.improvement_campaign_ref"},"evaluation_epoch_ref":{"path":"$.evaluation_epoch_ref"},"trial_refs":{"path":"$.trial_refs"},"accepted_change_refs":{"path":"$.accepted_change_refs"},"rejected_change_refs":{"path":"$.rejected_change_refs"},"inconclusive_change_refs":{"path":"$.inconclusive_change_refs"},"exploit_or_invalid_change_refs":{"path":"$.exploit_or_invalid_change_refs"},"repair_proposal_refs":{"path":"$.repair_proposal_refs"},"selection_confers_eligibility_only":{"path":"$.selection_confers_eligibility_only"},"optimizer_is_not_a_model":{"path":"$.optimizer_is_not_a_model"},"receipt_root":{"path":"$.receipt_root"},"status":{"path":"$.status"}},"expected_path":"$.content_hash","expected_encoding":"sha256_string"}}]"#),
     ("schema://ioi/foundations/repair-proposal/v1", r#"[{"rule_id":"repair_proposal.content_hash.commits_the_cluster_and_the_suggestion","description":"The content hash commits the parent cycle, the failure cluster, the change kind, the proposed change, the applies-nothing law and the rationale. The CLUSTER is why this matters more than it looks: a proposal whose evidence could be swapped after the fact would let a reviewer approve one suggestion and a different one be applied, and the clustering is the only thing separating this object from an opinion.","expression":{"operator":"jcs_sha256_equals","algorithm":"jcs_sha256","material_fields":{"domain":{"value":"ioi.repair-proposal-content-commitment-jcs-sha256.v1"},"schema_version":{"path":"$.schema_version"},"repair_proposal_id":{"path":"$.repair_proposal_id"},"parent_cycle_ref":{"path":"$.parent_cycle_ref"},"clustered_failure_refs":{"path":"$.clustered_failure_refs"},"change_kind":{"path":"$.change_kind"},"proposed_change_ref":{"path":"$.proposed_change_ref"},"applies_nothing":{"path":"$.applies_nothing"},"rationale":{"path":"$.rationale"}},"expected_path":"$.content_hash","expected_encoding":"sha256_string"}}]"#),
     ("schema://ioi/foundations/optimization-target-adapter/v1", r#"[{"rule_id":"optimization_target_adapter.content_hash.commits_the_translation_it_performs","description":"The content hash commits the target class, the adapter version, both envelope schemas and every normalization. An adapter IS its translation, so a normalization list that could change under a stable identity would mean two records disagreeing about what the same adapter did to the same envelope — and the three refusals (missing_adapter, cross_version, downgrade) are all decided by reading exactly these members.","expression":{"operator":"jcs_sha256_equals","algorithm":"jcs_sha256","material_fields":{"domain":{"value":"ioi.optimization-target-adapter-content-commitment-jcs-sha256.v1"},"schema_version":{"path":"$.schema_version"},"adapter_id":{"path":"$.adapter_id"},"target_class":{"path":"$.target_class"},"adapter_version":{"path":"$.adapter_version"},"accepts_envelope_schema":{"path":"$.accepts_envelope_schema"},"emits_envelope_schema":{"path":"$.emits_envelope_schema"},"normalizations":{"path":"$.normalizations"},"owner_ref":{"path":"$.owner_ref"}},"expected_path":"$.content_hash","expected_encoding":"sha256_string"}}]"#),
+    ("schema://ioi/components/hypervisor/notification-subscription/v1", r#"[]"#),
+    ("schema://ioi/components/hypervisor/notification-projection/v1", r#"[]"#),
 ];
 
 const CONTRACT_PATTERN_TRANSLATIONS: &[(&str, &str)] = &[
@@ -217399,6 +217885,10 @@ const CONTRACT_PATTERN_TRANSLATIONS: &[(&str, &str)] = &[
         r#"^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$"#,
     ),
     (
+        r#"^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}(?:[.][0-9]+){0,1}(?:Z|[+-][0-9]{2}:[0-9]{2})$"#,
+        r#"^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}(?:[.][0-9]+){0,1}(?:Z|[+-][0-9]{2}:[0-9]{2})$"#,
+    ),
+    (
         r#"^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}[.0-9]*Z$"#,
         r#"^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}[.0-9]*Z$"#,
     ),
@@ -217571,6 +218061,10 @@ const CONTRACT_PATTERN_TRANSLATIONS: &[(&str, &str)] = &[
     ),
     (r#"^[a-z][a-z0-9_-]{0,127}$"#, r#"^[a-z][a-z0-9_-]{0,127}$"#),
     (r#"^[a-z][a-z0-9_]*$"#, r#"^[a-z][a-z0-9_]*$"#),
+    (
+        r#"^[a-z][a-z0-9_]*(?:[.][a-z][a-z0-9_]*)+$"#,
+        r#"^[a-z][a-z0-9_]*(?:[.][a-z][a-z0-9_]*)+$"#,
+    ),
     (r#"^[a-z][a-z0-9_]{0,159}$"#, r#"^[a-z][a-z0-9_]{0,159}$"#),
     (
         r#"^[a-z][a-z0-9_]{0,63}::[a-z][a-z0-9_]{0,63}$"#,
@@ -218244,6 +218738,10 @@ const CONTRACT_PATTERN_TRANSLATIONS: &[(&str, &str)] = &[
         r#"^delegation://[^\u{0009}-\u{000D}\u{0020}\u{00A0}\u{1680}\u{2000}-\u{200A}\u{2028}\u{2029}\u{202F}\u{205F}\u{3000}\u{FEFF}]{1,500}$"#,
     ),
     (
+        r#"^delivery-channel://\S+$"#,
+        r#"^delivery-channel://[^\u{0009}-\u{000D}\u{0020}\u{00A0}\u{1680}\u{2000}-\u{200A}\u{2028}\u{2029}\u{202F}\u{205F}\u{3000}\u{FEFF}]+$"#,
+    ),
+    (
         r#"^deployment-profile://[A-Za-z0-9._:/-]+$"#,
         r#"^deployment-profile://[A-Za-z0-9._:/-]+$"#,
     ),
@@ -218462,6 +218960,10 @@ const CONTRACT_PATTERN_TRANSLATIONS: &[(&str, &str)] = &[
     (
         r#"^evaluator://[a-z0-9][a-z0-9._-]{0,127}/revision/[1-9][0-9]{0,8}$"#,
         r#"^evaluator://[a-z0-9][a-z0-9._-]{0,127}/revision/[1-9][0-9]{0,8}$"#,
+    ),
+    (
+        r#"^event-family://hypervisor/(?:owner_event|work_run|automation_run|session|lease|approval|operation)(?:/[a-z0-9][a-z0-9_.-]*){0,1}$"#,
+        r#"^event-family://hypervisor/(?:owner_event|work_run|automation_run|session|lease|approval|operation)(?:/[a-z0-9][a-z0-9_.-]*){0,1}$"#,
     ),
     (
         r#"^event-stream://[a-z0-9][a-z0-9._-]*/[A-Za-z0-9._:-]+$"#,
@@ -219092,6 +219594,10 @@ const CONTRACT_PATTERN_TRANSLATIONS: &[(&str, &str)] = &[
         r#"^node://[^\u{0009}-\u{000D}\u{0020}\u{00A0}\u{1680}\u{2000}-\u{200A}\u{2028}\u{2029}\u{202F}\u{205F}\u{3000}\u{FEFF}]{1,248}$"#,
     ),
     (
+        r#"^notification-subscription://\S+$"#,
+        r#"^notification-subscription://[^\u{0009}-\u{000D}\u{0020}\u{00A0}\u{1680}\u{2000}-\u{200A}\u{2028}\u{2029}\u{202F}\u{205F}\u{3000}\u{FEFF}]+$"#,
+    ),
+    (
         r#"^object-model://[A-Za-z0-9][A-Za-z0-9._-]{0,190}#[A-Za-z0-9][A-Za-z0-9._-]{0,127}$"#,
         r#"^object-model://[A-Za-z0-9][A-Za-z0-9._-]{0,190}#[A-Za-z0-9][A-Za-z0-9._-]{0,127}$"#,
     ),
@@ -219425,6 +219931,10 @@ const CONTRACT_PATTERN_TRANSLATIONS: &[(&str, &str)] = &[
     (
         r#"^projection://\S+$"#,
         r#"^projection://[^\u{0009}-\u{000D}\u{0020}\u{00A0}\u{1680}\u{2000}-\u{200A}\u{2028}\u{2029}\u{202F}\u{205F}\u{3000}\u{FEFF}]+$"#,
+    ),
+    (
+        r#"^projection://hypervisor/notification/\S+$"#,
+        r#"^projection://hypervisor/notification/[^\u{0009}-\u{000D}\u{0020}\u{00A0}\u{1680}\u{2000}-\u{200A}\u{2028}\u{2029}\u{202F}\u{205F}\u{3000}\u{FEFF}]+$"#,
     ),
     (
         r#"^projection://hypervisor/product-surface/\S*$"#,
@@ -223497,6 +224007,17 @@ mod tests {
     ("docs/architecture/_meta/schemas/fixtures/optimization-target-adapter-v1/negative-no-owner.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/optimization-target-adapter-v1/negative-no-owner.json"))),
     ("docs/architecture/_meta/schemas/fixtures/optimization-target-adapter-v1/negative-no-target-class.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/optimization-target-adapter-v1/negative-no-target-class.json"))),
     ("docs/architecture/_meta/schemas/fixtures/optimization-target-adapter-v1/negative-the-translation-emptied-under-a-sealed-hash.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/optimization-target-adapter-v1/negative-the-translation-emptied-under-a-sealed-hash.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/hypervisor-notification-subscription-v1/positive-approvals-and-issues.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/hypervisor-notification-subscription-v1/positive-approvals-and-issues.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/hypervisor-notification-subscription-v1/negative-unknown-field.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/hypervisor-notification-subscription-v1/negative-unknown-field.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/hypervisor-notification-subscription-v1/negative-family-outside-canon.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/hypervisor-notification-subscription-v1/negative-family-outside-canon.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/hypervisor-notification-subscription-v1/negative-no-channel.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/hypervisor-notification-subscription-v1/negative-no-channel.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/hypervisor-notification-subscription-v1/negative-revision-zero.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/hypervisor-notification-subscription-v1/negative-revision-zero.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/hypervisor-notification-projection-v1/positive-approval-requested.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/hypervisor-notification-projection-v1/positive-approval-requested.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/hypervisor-notification-projection-v1/positive-issue-opened-with-body.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/hypervisor-notification-projection-v1/positive-issue-opened-with-body.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/hypervisor-notification-projection-v1/negative-carries-read-state.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/hypervisor-notification-projection-v1/negative-carries-read-state.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/hypervisor-notification-projection-v1/negative-not-read-model-only.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/hypervisor-notification-projection-v1/negative-not-read-model-only.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/hypervisor-notification-projection-v1/negative-detail-route-absolute-url.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/hypervisor-notification-projection-v1/negative-detail-route-absolute-url.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/hypervisor-notification-projection-v1/negative-undotted-event-kind.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/hypervisor-notification-projection-v1/negative-undotted-event-kind.json"))),
     ];
     const RAW_STRING_DELIMITER_REGRESSION_SCHEMA: &str =
         r####"{"const":"schema-controlled\"###literal"}"####;
@@ -225295,6 +225816,16 @@ mod tests {
         },
         "schema://ioi/foundations/optimization-target-adapter/v1" => {
             serde_json::from_value::<OptimizationTargetAdapterV1>(value.clone())
+                .map(|_| ())
+                .map_err(|error| error.to_string())
+        },
+        "schema://ioi/components/hypervisor/notification-subscription/v1" => {
+            serde_json::from_value::<HypervisorNotificationSubscriptionV1>(value.clone())
+                .map(|_| ())
+                .map_err(|error| error.to_string())
+        },
+        "schema://ioi/components/hypervisor/notification-projection/v1" => {
+            serde_json::from_value::<HypervisorNotificationProjectionV1>(value.clone())
                 .map(|_| ())
                 .map_err(|error| error.to_string())
         },
@@ -227099,6 +227630,16 @@ mod tests {
                 .map_err(|error| error.to_string())?;
             serde_json::to_value(projection).map_err(|error| error.to_string())
         },
+        "schema://ioi/components/hypervisor/notification-subscription/v1" => {
+            let projection = serde_json::from_value::<HypervisorNotificationSubscriptionV1>(value.clone())
+                .map_err(|error| error.to_string())?;
+            serde_json::to_value(projection).map_err(|error| error.to_string())
+        },
+        "schema://ioi/components/hypervisor/notification-projection/v1" => {
+            let projection = serde_json::from_value::<HypervisorNotificationProjectionV1>(value.clone())
+                .map_err(|error| error.to_string())?;
+            serde_json::to_value(projection).map_err(|error| error.to_string())
+        },
             _ => Err(format!("unknown projection: {contract_id}")),
         }
     }
@@ -227235,8 +227776,8 @@ mod tests {
     fn golden_fixtures_match_generated_rust_contracts() {
         assert_eq!(
             ARCHITECTURE_CONTRACT_FIXTURES.len(),
-            2013,
-            "the registered golden corpus must remain the explicit 2013-fixture bar",
+            2024,
+            "the registered golden corpus must remain the explicit 2024-fixture bar",
         );
         for fixture in ARCHITECTURE_CONTRACT_FIXTURES {
             let body = FIXTURE_BODIES
@@ -227478,7 +228019,7 @@ mod tests {
 
     #[test]
     fn registered_ecma_pattern_translations_compile_and_match_whitespace() {
-        assert_eq!(CONTRACT_PATTERN_TRANSLATIONS.len(), 1143,);
+        assert_eq!(CONTRACT_PATTERN_TRANSLATIONS.len(), 1149,);
         for (ecma, translated) in CONTRACT_PATTERN_TRANSLATIONS {
             Regex::new(translated).unwrap_or_else(|error| panic!("{ecma}: {error}"));
         }

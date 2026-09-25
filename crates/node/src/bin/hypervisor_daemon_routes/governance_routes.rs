@@ -602,6 +602,13 @@ pub(crate) fn approval_requests_for_subjects(
         .collect()
 }
 
+/// THE GOVERNANCE PLANE'S PUBLISHED READER FOR THE NOTIFICATION INBOX (ADR 0056 P1): every approval
+/// request, unshaped, under the plane's own read policy (its list route answers any caller); the inbox
+/// projects each into one event with a link back here, and converts none of them.
+pub(crate) fn approval_requests_all(data_dir: &str) -> Vec<Value> {
+    read_record_dir(data_dir, KIND_APPROVAL)
+}
+
 pub(crate) async fn handle_approval_list(
     State(st): State<Arc<DaemonState>>,
     Query(q): Query<HashMap<String, String>>,

@@ -1967,6 +1967,14 @@ jobs:
           IOI_VERIFIER_CENSUS_DIR: .artifacts/verifier-census
         run: npm run check:agent-studio-write-lanes --workspace=@ioi/hypervisor-app
 
+      # ADR 0056 P1: the notification inbox as a projection of owner events — identity first, one link back
+      # per item, transitions re-derived, nothing stored (the same items after a restart).
+      - name: Verify against an isolated live daemon — notification-inbox
+        if: ${{ !cancelled() && steps.daemon_artifact.outcome == 'success' }}
+        env:
+          IOI_VERIFIER_CENSUS_DIR: .artifacts/verifier-census
+        run: npm run check:notification-inbox --workspace=@ioi/hypervisor-app
+
       # M08.9 — the Systems and Work read models: typed rows through the owners' published
       # readers, policy before search/counts/recents, nonmutation, rebuild, and the canonical
       # /work* and /systems routes rendered from them. Floor-pinned like every sibling here.

@@ -92,6 +92,7 @@
     "check:owned-product-ui": "node scripts/verify-owned-product-ui.mjs",
     "check:packages-journey": "node scripts/verify-hypervisor-packages-journey.mjs",
     "check:agent-studio-write-lanes": "node scripts/verify-hypervisor-agent-studio-write-lanes.mjs",
+    "check:notification-inbox": "node scripts/verify-hypervisor-notification-inbox.mjs",
     "check:policy-bound-data-view": "node scripts/verify-hypervisor-policy-bound-data-view-runtime.mjs",
     "check:policy-bound-media-datasets": "node scripts/verify-hypervisor-policy-bound-media-datasets.mjs",
     "check:ported-seed": "node scripts/verify-hypervisor-ported-seed-invariant.mjs",

@@ -1,0 +1,96 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "schema://ioi/components/hypervisor/notification-projection/v1",
+  "title": "HypervisorNotificationProjection",
+  "x-ioi-schema-version": "ioi.hypervisor.notification-projection.v1",
+  "description": "One inbox item: a policy-filtered projection of ONE owner record's event, with ONE deep link back to the object that changed (core-clients-surfaces.md: notifications are projections of their owner event, WorkRun, AutomationRun, Session, lease, approval or operation records and introduce no notification-event truth plane; ADR 0056 P1). It carries no read state and no delivery state — nothing here is stored; the item is re-derived from the owner's record on every read, and work happens at the owner, never in the inbox.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "notification_projection_id",
+    "owner_event_family",
+    "event_kind",
+    "owner_ref",
+    "owner_revision",
+    "occurred_at",
+    "title",
+    "canonical_detail_route",
+    "source_projection_ref",
+    "policy_decision_refs",
+    "read_model_only"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": "ioi.hypervisor.notification-projection.v1"
+    },
+    "notification_projection_id": {
+      "type": "string",
+      "pattern": "^projection://hypervisor/notification/\\S+$",
+      "description": "Derived, stable: the same owner record at the same revision and event kind always projects the same id."
+    },
+    "owner_event_family": {
+      "enum": [
+        "owner_event",
+        "work_run",
+        "automation_run",
+        "session",
+        "lease",
+        "approval",
+        "operation"
+      ]
+    },
+    "event_kind": {
+      "type": "string",
+      "pattern": "^[a-z][a-z0-9_]*(?:[.][a-z][a-z0-9_]*)+$",
+      "maxLength": 120,
+      "description": "The owner's own transition, verbatim and dotted (e.g. approval.requested, run.failed)."
+    },
+    "owner_ref": {
+      "type": "string",
+      "pattern": "^[a-z][a-z0-9_-]*://\\S+$",
+      "description": "The record whose event this is."
+    },
+    "owner_revision": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 300,
+      "description": "The owner record's revision or operation ref at which the event happened."
+    },
+    "occurred_at": {
+      "type": "string",
+      "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}(?:[.][0-9]+){0,1}(?:Z|[+-][0-9]{2}:[0-9]{2})$"
+    },
+    "title": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 300
+    },
+    "body": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 2000
+    },
+    "canonical_detail_route": {
+      "type": "string",
+      "pattern": "^/\\S*$",
+      "description": "The one link back to the object that changed."
+    },
+    "source_projection_ref": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 500
+    },
+    "policy_decision_refs": {
+      "type": "array",
+      "uniqueItems": true,
+      "items": {
+        "type": "string",
+        "pattern": "^decision://\\S+$"
+      }
+    },
+    "read_model_only": {
+      "const": true
+    }
+  }
+}

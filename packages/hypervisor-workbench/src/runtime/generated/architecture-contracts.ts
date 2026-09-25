@@ -15431,6 +15431,34 @@ export type OptimizationTargetAdapterV1 = {
   content_hash: string;
 };
 
+export type HypervisorNotificationSubscriptionV1 = {
+  schema_version: "ioi.hypervisor.notification-subscription.v1";
+  subscription_ref: string;
+  principal_ref: string;
+  org_ref: string;
+  owner_event_family_refs: Array<string>;
+  delivery_channel_refs: Array<string>;
+  filter: Record<string, unknown>;
+  revision: number;
+  agentgres_operation_ref: string;
+};
+
+export type HypervisorNotificationProjectionV1 = {
+  schema_version: "ioi.hypervisor.notification-projection.v1";
+  notification_projection_id: string;
+  owner_event_family: "owner_event" | "work_run" | "automation_run" | "session" | "lease" | "approval" | "operation";
+  event_kind: string;
+  owner_ref: string;
+  owner_revision: string;
+  occurred_at: string;
+  title: string;
+  body?: string;
+  canonical_detail_route: string;
+  source_projection_ref: string;
+  policy_decision_refs: Array<string>;
+  read_model_only: true;
+};
+
 export const ARCHITECTURE_CONTRACT_REGISTRY_VERSION = "ioi.architecture-contract-registry.v1" as const;
 
 export const ARCHITECTURE_CONTRACT_PORTABLE_INTEGER_MINIMUM = 0 as const;
@@ -31544,6 +31572,94 @@ export const ARCHITECTURE_CONTRACT_FIXTURES = [
     "expected_schema_accept": true,
     "expected_failure": "invariant",
     "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/components/hypervisor/notification-subscription/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/hypervisor-notification-subscription-v1/positive-approvals-and-issues.json",
+    "expected": "accept",
+    "expected_schema_accept": true,
+    "expected_failure": null,
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/components/hypervisor/notification-subscription/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/hypervisor-notification-subscription-v1/negative-unknown-field.json",
+    "expected": "reject",
+    "expected_schema_accept": false,
+    "expected_failure": "schema",
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/components/hypervisor/notification-subscription/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/hypervisor-notification-subscription-v1/negative-family-outside-canon.json",
+    "expected": "reject",
+    "expected_schema_accept": false,
+    "expected_failure": "schema",
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/components/hypervisor/notification-subscription/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/hypervisor-notification-subscription-v1/negative-no-channel.json",
+    "expected": "reject",
+    "expected_schema_accept": false,
+    "expected_failure": "schema",
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/components/hypervisor/notification-subscription/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/hypervisor-notification-subscription-v1/negative-revision-zero.json",
+    "expected": "reject",
+    "expected_schema_accept": false,
+    "expected_failure": "schema",
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/components/hypervisor/notification-projection/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/hypervisor-notification-projection-v1/positive-approval-requested.json",
+    "expected": "accept",
+    "expected_schema_accept": true,
+    "expected_failure": null,
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/components/hypervisor/notification-projection/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/hypervisor-notification-projection-v1/positive-issue-opened-with-body.json",
+    "expected": "accept",
+    "expected_schema_accept": true,
+    "expected_failure": null,
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/components/hypervisor/notification-projection/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/hypervisor-notification-projection-v1/negative-carries-read-state.json",
+    "expected": "reject",
+    "expected_schema_accept": false,
+    "expected_failure": "schema",
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/components/hypervisor/notification-projection/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/hypervisor-notification-projection-v1/negative-not-read-model-only.json",
+    "expected": "reject",
+    "expected_schema_accept": false,
+    "expected_failure": "schema",
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/components/hypervisor/notification-projection/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/hypervisor-notification-projection-v1/negative-detail-route-absolute-url.json",
+    "expected": "reject",
+    "expected_schema_accept": false,
+    "expected_failure": "schema",
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/components/hypervisor/notification-projection/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/hypervisor-notification-projection-v1/negative-undotted-event-kind.json",
+    "expected": "reject",
+    "expected_schema_accept": false,
+    "expected_failure": "schema",
+    "expected_rule_id": null
   }
 ] as const;
 
@@ -36210,6 +36326,17 @@ export const ARCHITECTURE_CONTRACT_DIFFERENTIAL_CASES: ReadonlyArray<Architectur
   differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/optimization-target-adapter-v1/negative-no-owner.json","contract_id":"schema://ioi/foundations/optimization-target-adapter/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/optimization-target-adapter-v1/negative-no-owner.json","mutation_id":null,"value_json":null}),
   differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/optimization-target-adapter-v1/negative-no-target-class.json","contract_id":"schema://ioi/foundations/optimization-target-adapter/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/optimization-target-adapter-v1/negative-no-target-class.json","mutation_id":null,"value_json":null}),
   differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/optimization-target-adapter-v1/negative-the-translation-emptied-under-a-sealed-hash.json","contract_id":"schema://ioi/foundations/optimization-target-adapter/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/optimization-target-adapter-v1/negative-the-translation-emptied-under-a-sealed-hash.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/hypervisor-notification-subscription-v1/positive-approvals-and-issues.json","contract_id":"schema://ioi/components/hypervisor/notification-subscription/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/hypervisor-notification-subscription-v1/positive-approvals-and-issues.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/hypervisor-notification-subscription-v1/negative-unknown-field.json","contract_id":"schema://ioi/components/hypervisor/notification-subscription/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/hypervisor-notification-subscription-v1/negative-unknown-field.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/hypervisor-notification-subscription-v1/negative-family-outside-canon.json","contract_id":"schema://ioi/components/hypervisor/notification-subscription/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/hypervisor-notification-subscription-v1/negative-family-outside-canon.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/hypervisor-notification-subscription-v1/negative-no-channel.json","contract_id":"schema://ioi/components/hypervisor/notification-subscription/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/hypervisor-notification-subscription-v1/negative-no-channel.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/hypervisor-notification-subscription-v1/negative-revision-zero.json","contract_id":"schema://ioi/components/hypervisor/notification-subscription/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/hypervisor-notification-subscription-v1/negative-revision-zero.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/hypervisor-notification-projection-v1/positive-approval-requested.json","contract_id":"schema://ioi/components/hypervisor/notification-projection/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/hypervisor-notification-projection-v1/positive-approval-requested.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/hypervisor-notification-projection-v1/positive-issue-opened-with-body.json","contract_id":"schema://ioi/components/hypervisor/notification-projection/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/hypervisor-notification-projection-v1/positive-issue-opened-with-body.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/hypervisor-notification-projection-v1/negative-carries-read-state.json","contract_id":"schema://ioi/components/hypervisor/notification-projection/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/hypervisor-notification-projection-v1/negative-carries-read-state.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/hypervisor-notification-projection-v1/negative-not-read-model-only.json","contract_id":"schema://ioi/components/hypervisor/notification-projection/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/hypervisor-notification-projection-v1/negative-not-read-model-only.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/hypervisor-notification-projection-v1/negative-detail-route-absolute-url.json","contract_id":"schema://ioi/components/hypervisor/notification-projection/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/hypervisor-notification-projection-v1/negative-detail-route-absolute-url.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/hypervisor-notification-projection-v1/negative-undotted-event-kind.json","contract_id":"schema://ioi/components/hypervisor/notification-projection/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/hypervisor-notification-projection-v1/negative-undotted-event-kind.json","mutation_id":null,"value_json":null}),
   differentialCase({"id":"mutation:sequence-zero-receipt-timestamp-detached","contract_id":"schema://ioi/foundations/autonomous-system-sequence-zero-materialization-receipt/v2","source_fixture_path":null,"mutation_id":"sequence-zero-receipt-timestamp-detached","value_json":null}),
   differentialCase({"id":"mutation:sequence-zero-receipt-authorized-materialization-id-detached","contract_id":"schema://ioi/foundations/autonomous-system-sequence-zero-materialization-receipt/v2","source_fixture_path":null,"mutation_id":"sequence-zero-receipt-authorized-materialization-id-detached","value_json":null}),
   differentialCase({"id":"mutation:sequence-zero-receipt-authority-principal-detached","contract_id":"schema://ioi/foundations/autonomous-system-sequence-zero-materialization-receipt/v2","source_fixture_path":null,"mutation_id":"sequence-zero-receipt-authority-principal-detached","value_json":null}),
@@ -36740,6 +36867,7 @@ export const ARCHITECTURE_CONTRACT_PATTERN_SOURCES = [
   "^[0-9A-Za-z][0-9A-Za-z.+_-]{0,63}$",
   "^[0-9]+[.][0-9]+[.][0-9]+[-+A-Za-z0-9.]{0,128}$",
   "^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$",
+  "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}(?:[.][0-9]+){0,1}(?:Z|[+-][0-9]{2}:[0-9]{2})$",
   "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}[.0-9]*Z$",
   "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[^\\s]+Z$",
   "^[0-9a-f]{128}$",
@@ -36796,6 +36924,7 @@ export const ARCHITECTURE_CONTRACT_PATTERN_SOURCES = [
   "^[a-z][a-z0-9_-]*:\\S+$",
   "^[a-z][a-z0-9_-]{0,127}$",
   "^[a-z][a-z0-9_]*$",
+  "^[a-z][a-z0-9_]*(?:[.][a-z][a-z0-9_]*)+$",
   "^[a-z][a-z0-9_]{0,159}$",
   "^[a-z][a-z0-9_]{0,63}::[a-z][a-z0-9_]{0,63}$",
   "^[a-z][a-z0-9_]{0,80}$",
@@ -36973,6 +37102,7 @@ export const ARCHITECTURE_CONTRACT_PATTERN_SOURCES = [
   "^decision://\\S+$",
   "^delegation://[^\\s/]{1,200}/[^\\s/]{1,200}$",
   "^delegation://[^\\s]{1,500}$",
+  "^delivery-channel://\\S+$",
   "^deployment-profile://[A-Za-z0-9._:/-]+$",
   "^deployment-profile://[^\\s?#\\\\]{1,160}$",
   "^deployment-profile://[^\\s?#\\\\]{1,160}/revision/sha256:[0-9a-f]{64}$",
@@ -37028,6 +37158,7 @@ export const ARCHITECTURE_CONTRACT_PATTERN_SOURCES = [
   "^evaluation-suite://[a-z0-9][a-z0-9._-]{0,127}/revision/[1-9][0-9]{0,8}$",
   "^evaluator://[a-z0-9][a-z0-9._-]{0,127}$",
   "^evaluator://[a-z0-9][a-z0-9._-]{0,127}/revision/[1-9][0-9]{0,8}$",
+  "^event-family://hypervisor/(?:owner_event|work_run|automation_run|session|lease|approval|operation)(?:/[a-z0-9][a-z0-9_.-]*){0,1}$",
   "^event-stream://[a-z0-9][a-z0-9._-]*/[A-Za-z0-9._:-]+$",
   "^evidence://[^\\s]{1,240}$",
   "^evidence://[^\\s]{1,248}$",
@@ -37188,6 +37319,7 @@ export const ARCHITECTURE_CONTRACT_PATTERN_SOURCES = [
   "^node-enforcement://[^\\s]{1,248}$",
   "^node-membership://[^\\s]{1,248}$",
   "^node://[^\\s]{1,248}$",
+  "^notification-subscription://\\S+$",
   "^object-model://[A-Za-z0-9][A-Za-z0-9._-]{0,190}#[A-Za-z0-9][A-Za-z0-9._-]{0,127}$",
   "^object-model://[A-Za-z0-9][A-Za-z0-9._-]{0,190}$",
   "^object-model://[^\\s]{1,240}$",
@@ -37277,6 +37409,7 @@ export const ARCHITECTURE_CONTRACT_PATTERN_SOURCES = [
   "^project:[^\\s]{1,200}$",
   "^projection://[^\\s]{1,240}$",
   "^projection://\\S+$",
+  "^projection://hypervisor/notification/\\S+$",
   "^projection://hypervisor/product-surface/\\S*$",
   "^projection://hypervisor/work-facet/\\S+$",
   "^proof://[^\\s]+$",
@@ -37878,7 +38011,9 @@ export const ARCHITECTURE_CONTRACT_SCHEMA_HASHES = {
   "schema://ioi/components/hypervisor/foundry-training-program/v2": "sha256:f261acbcd539c7f930eaf442b342678f6b18198aa5fc1dea0279e5569c1126e1",
   "schema://ioi/foundations/capability-construction-cycle/v1": "sha256:a54e8588a79dbb24ae504f04383dcfacb533890acd5bf951251f97720c3612aa",
   "schema://ioi/foundations/repair-proposal/v1": "sha256:47f6fe0cc590e3f5f376cb2954cea8f1d8199d3e6f8f069db738feda77e19c06",
-  "schema://ioi/foundations/optimization-target-adapter/v1": "sha256:991acf470e55ab6007d489e396f5925c4b8a5cac46124be1affe29771dd5b031"
+  "schema://ioi/foundations/optimization-target-adapter/v1": "sha256:991acf470e55ab6007d489e396f5925c4b8a5cac46124be1affe29771dd5b031",
+  "schema://ioi/components/hypervisor/notification-subscription/v1": "sha256:45e93217cbd14d2a60a34a674d85b8bc7729cbb8953c71fa0ee4fd72c4f1f1dd",
+  "schema://ioi/components/hypervisor/notification-projection/v1": "sha256:6edeb66e0a835287a9851bd781e2a6f0136df868db2f10b16cf1e40ff671d557"
 } as const;
 
 type JsonObject = Record<string, unknown>;
@@ -156820,6 +156955,170 @@ const CONTRACT_SCHEMAS: Record<string, JsonObject> = {
         "description": "SHA-256 over JCS of `{domain, ...every other member}`, registered as a `jcs_sha256_equals` invariant so a record whose content drifts from its own hash is refused at validation. The shape is the estate's ONE commitment mechanism — the same digest the shared family spine derives for every family it serves — so this record is admissible on the existing owner-scoped chain whenever an owning plane binds it, rather than carrying a second commitment of its own."
       }
     }
+  },
+  "schema://ioi/components/hypervisor/notification-subscription/v1": {
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "$id": "schema://ioi/components/hypervisor/notification-subscription/v1",
+    "title": "HypervisorNotificationSubscription",
+    "x-ioi-schema-version": "ioi.hypervisor.notification-subscription.v1",
+    "description": "The one durable notification object (core-clients-surfaces.md § HypervisorNotificationSubscription): which owner-event families a principal wants delivered, on which channels, narrowed by a filter. It never stores an event — notifications are projections of their owner's records (ADR 0056 P1). Fields are canon's, verbatim; an owner-event family ref names one of the canon families and may narrow it to one owner (event-family://hypervisor/<family>[/<owner>]).",
+    "type": "object",
+    "additionalProperties": false,
+    "required": [
+      "schema_version",
+      "subscription_ref",
+      "principal_ref",
+      "org_ref",
+      "owner_event_family_refs",
+      "delivery_channel_refs",
+      "filter",
+      "revision",
+      "agentgres_operation_ref"
+    ],
+    "properties": {
+      "schema_version": {
+        "const": "ioi.hypervisor.notification-subscription.v1"
+      },
+      "subscription_ref": {
+        "type": "string",
+        "pattern": "^notification-subscription://\\S+$"
+      },
+      "principal_ref": {
+        "type": "string",
+        "pattern": "^(?:user|wallet)://\\S+$"
+      },
+      "org_ref": {
+        "type": "string",
+        "pattern": "^org://\\S+$"
+      },
+      "owner_event_family_refs": {
+        "type": "array",
+        "minItems": 1,
+        "uniqueItems": true,
+        "items": {
+          "type": "string",
+          "pattern": "^event-family://hypervisor/(?:owner_event|work_run|automation_run|session|lease|approval|operation)(?:/[a-z0-9][a-z0-9_.-]*){0,1}$"
+        }
+      },
+      "delivery_channel_refs": {
+        "type": "array",
+        "minItems": 1,
+        "uniqueItems": true,
+        "items": {
+          "type": "string",
+          "pattern": "^delivery-channel://\\S+$"
+        }
+      },
+      "filter": {
+        "type": "object",
+        "description": "Owner-defined narrowing, applied AFTER policy: a filter can only remove events the principal may already see, never widen them."
+      },
+      "revision": {
+        "type": "integer",
+        "minimum": 1,
+        "maximum": 9007199254740991
+      },
+      "agentgres_operation_ref": {
+        "type": "string",
+        "pattern": "^agentgres://operation/\\S+$"
+      }
+    }
+  },
+  "schema://ioi/components/hypervisor/notification-projection/v1": {
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "$id": "schema://ioi/components/hypervisor/notification-projection/v1",
+    "title": "HypervisorNotificationProjection",
+    "x-ioi-schema-version": "ioi.hypervisor.notification-projection.v1",
+    "description": "One inbox item: a policy-filtered projection of ONE owner record's event, with ONE deep link back to the object that changed (core-clients-surfaces.md: notifications are projections of their owner event, WorkRun, AutomationRun, Session, lease, approval or operation records and introduce no notification-event truth plane; ADR 0056 P1). It carries no read state and no delivery state — nothing here is stored; the item is re-derived from the owner's record on every read, and work happens at the owner, never in the inbox.",
+    "type": "object",
+    "additionalProperties": false,
+    "required": [
+      "schema_version",
+      "notification_projection_id",
+      "owner_event_family",
+      "event_kind",
+      "owner_ref",
+      "owner_revision",
+      "occurred_at",
+      "title",
+      "canonical_detail_route",
+      "source_projection_ref",
+      "policy_decision_refs",
+      "read_model_only"
+    ],
+    "properties": {
+      "schema_version": {
+        "const": "ioi.hypervisor.notification-projection.v1"
+      },
+      "notification_projection_id": {
+        "type": "string",
+        "pattern": "^projection://hypervisor/notification/\\S+$",
+        "description": "Derived, stable: the same owner record at the same revision and event kind always projects the same id."
+      },
+      "owner_event_family": {
+        "enum": [
+          "owner_event",
+          "work_run",
+          "automation_run",
+          "session",
+          "lease",
+          "approval",
+          "operation"
+        ]
+      },
+      "event_kind": {
+        "type": "string",
+        "pattern": "^[a-z][a-z0-9_]*(?:[.][a-z][a-z0-9_]*)+$",
+        "maxLength": 120,
+        "description": "The owner's own transition, verbatim and dotted (e.g. approval.requested, run.failed)."
+      },
+      "owner_ref": {
+        "type": "string",
+        "pattern": "^[a-z][a-z0-9_-]*://\\S+$",
+        "description": "The record whose event this is."
+      },
+      "owner_revision": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 300,
+        "description": "The owner record's revision or operation ref at which the event happened."
+      },
+      "occurred_at": {
+        "type": "string",
+        "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}(?:[.][0-9]+){0,1}(?:Z|[+-][0-9]{2}:[0-9]{2})$"
+      },
+      "title": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 300
+      },
+      "body": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 2000
+      },
+      "canonical_detail_route": {
+        "type": "string",
+        "pattern": "^/\\S*$",
+        "description": "The one link back to the object that changed."
+      },
+      "source_projection_ref": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 500
+      },
+      "policy_decision_refs": {
+        "type": "array",
+        "uniqueItems": true,
+        "items": {
+          "type": "string",
+          "pattern": "^decision://\\S+$"
+        }
+      },
+      "read_model_only": {
+        "const": true
+      }
+    }
   }
 };
 const CONTRACT_INVARIANTS: Record<string, Array<JsonObject>> = {
@@ -178836,7 +179135,9 @@ const CONTRACT_INVARIANTS: Record<string, Array<JsonObject>> = {
         "expected_encoding": "sha256_string"
       }
     }
-  ]
+  ],
+  "schema://ioi/components/hypervisor/notification-subscription/v1": [],
+  "schema://ioi/components/hypervisor/notification-projection/v1": []
 };
 
 export function architectureContractSchemaHash(contractId: string): string | null {
@@ -181861,4 +182162,16 @@ export function validateOptimizationTargetAdapterV1(
   value: unknown,
 ): value is OptimizationTargetAdapterV1 {
   return validateArchitectureContract("schema://ioi/foundations/optimization-target-adapter/v1", value).ok;
+}
+
+export function validateHypervisorNotificationSubscriptionV1(
+  value: unknown,
+): value is HypervisorNotificationSubscriptionV1 {
+  return validateArchitectureContract("schema://ioi/components/hypervisor/notification-subscription/v1", value).ok;
+}
+
+export function validateHypervisorNotificationProjectionV1(
+  value: unknown,
+): value is HypervisorNotificationProjectionV1 {
+  return validateArchitectureContract("schema://ioi/components/hypervisor/notification-projection/v1", value).ok;
 }
