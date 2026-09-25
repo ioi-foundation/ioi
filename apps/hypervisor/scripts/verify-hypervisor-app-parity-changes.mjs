@@ -99,9 +99,11 @@ async function run() {
   ok("the Archived lane renders the REJECTED proposals (terminal, never applied)", archived.text.includes("Archived upgrades") && (rejected.length ? archived.text.includes(rejected[0].proposal_ref) : /No .* archived proposals/.test(archived.text)), `rejected=${rejected.length}`);
 
   // 5. NO EXECUTION SEMANTICS — the hard line.
-  ok("the surface is READ-ONLY (no forms; no apply/approve/reject/deploy/release affordance)", !/<form/.test(t) && !/action="[^"]*\/(apply|approve|reject|deploy|release|open)"/.test(t));
+  // R-240: the one form is the name search, a GET over the page's own rows — it writes nothing.
+  ok("the surface is READ-ONLY (its only form is the GET name search; no apply/approve/reject/deploy/release affordance)", !/<form(?![^>]*class="chg-search" method="get")/.test(t) && !/method="post"/i.test(t) && !/action="[^"]*\/(apply|approve|reject|deploy|release|open)"/.test(t));
   ok("the boundary is declared in place: read-only projection, nothing mutates/applies/deploys/releases", /read-only projection/.test(t) && /nothing here mutates, applies, deploys or releases/.test(t));
-  ok("unsupported controls are DISABLED IN PLACE with named-gap titles (org · Admin/Assignee view · Help · search · type facets · sort)", (t.match(/aria-disabled="true"/g) || []).length >= 10 && /Organization scoping is a named gap/.test(t) && /Name search is a reference-only lane/.test(t) && /upgrade-type taxonomy is a named gap/.test(t) && /Due-date sorting is a named gap/.test(t), `${(t.match(/aria-disabled="true"/g) || []).length} disabled controls`);
+  // R-240: name search is LIVE — a GET filter over each row's name, kind, ref and target.
+  ok("name search is a live GET filter; the other unsupported controls stay DISABLED IN PLACE with reasons (org · Admin/Assignee view · Help · type facets · sort)", /<form class="chg-search" method="get" action="\/__ioi\/improvement\/changes"/.test(t) && (t.match(/aria-disabled="true"/g) || []).length >= 9 && /Organization scoping is a named gap/.test(t) && /upgrade-type taxonomy is a named gap/.test(t) && /Due-date sorting is a named gap/.test(t), `${(t.match(/aria-disabled="true"/g) || []).length} disabled controls`);
 
   // 6. Owner discoverability + brand.
   const owner = await page(`${SERVE}/__ioi/agent-studio`);

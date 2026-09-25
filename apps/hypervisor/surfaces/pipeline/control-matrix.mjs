@@ -28,9 +28,9 @@ export const CONTROL_MATRIX = [
   { id: "hdr.propose", region: "header", label: "Propose", reference: "opens proposal flow", outcome: "unsupported", reason: "no PIPELINE proposal plane — the ontology proposal plane landed in next-legs XIII and is a different subject" },
   { id: "hdr.deploy-icon", region: "header", label: "Deploy (icon)", reference: "deploy drawer", outcome: "disabled_reason", reason: "no pipeline deploy exists yet — a named gap", binding: "command:deploy" },
   { id: "hdr.build-settings-icon", region: "header", label: "Modify build settings", reference: "build settings drawer", outcome: "unsupported", reason: "no build-settings plane; Build itself is the governed ODK ladder (see command:build)" },
-  { id: "hdr.actions", region: "header", label: "Actions menu", reference: "explore data lineage etc.", outcome: "disabled_reason", reason: "Actions menu is a reference-only lane (named gap)" },
-  { id: "hdr.share", region: "header", label: "Share", reference: "sharing dialog", outcome: "disabled_reason", reason: "Sharing is a reference-only lane (named gap)" },
-  { id: "hdr.panel-toggle", region: "header", label: "Panel layout toggle", reference: "layout toggle", outcome: "disabled_reason", reason: "Panel layout toggle — named gap" },
+  { id: "hdr.actions", region: "header", label: "Actions menu", reference: "explore data lineage etc.", outcome: "disabled_reason", reason: "No builder actions are offered beyond the toolbar" },
+  { id: "hdr.share", region: "header", label: "Share", reference: "sharing dialog", outcome: "disabled_reason", reason: "Pipelines are not shared person to person — access follows the organization" },
+  { id: "hdr.panel-toggle", region: "header", label: "Panel layout toggle", reference: "layout toggle", outcome: "disabled_reason", reason: "Panel layout toggle — the builder has one panel layout, so there is nothing to toggle" },
 
   // ---- Command cluster (IOI's real commands live in the reference's masked session-state zone) --
   { id: "cmd.build", region: "commands", label: "Build", reference: "runs the pipeline build", outcome: "daemon_action", binding: "href:?pane=build", proof: "the governed ladder workflow — MaterializingRun → wallet-approved lease (403 challenge → externally signed grant) → sealed ConnectorSession → ONE bounded execute; every stage a declared receipted action, resumable from record status; header disabled with the missing rungs named until the ladder is coherent-ready" },
@@ -51,11 +51,11 @@ export const CONTROL_MATRIX = [
   { id: "tool.canvas-search", region: "toolbar", label: "Canvas search", reference: "swaps right panel + legend into search mode", outcome: "local_view", binding: "href:?panel=search", note: "the right panel becomes the real pipeline-record search; the reference additionally reflows the toolcard/legend into search-mode chrome — a recorded divergence (IOI keeps standard canvas chrome)" },
   { id: "tool.collapse-colors", region: "toolbar", label: "Collapse colors", reference: "collapse-by-color popover", outcome: "disabled_reason", reason: "color grouping is a reference-only lane (named gap)" },
   { id: "tool.add-data", region: "toolbar", label: "Add data", reference: "add data menu (4 lanes)", outcome: "daemon_action", binding: "href:/__ioi/odk?ontology=", note: "routes to the real ODK authoring ladder" },
-  { id: "tool.reusables", region: "toolbar", label: "Reusables", reference: "parameters/expressions/UDFs/models", outcome: "disabled_reason", reason: "Reusable transforms library — a named gap" },
+  { id: "tool.reusables", region: "toolbar", label: "Reusables", reference: "parameters/expressions/UDFs/models", outcome: "disabled_reason", reason: "No library of reusable transforms exists" },
   { id: "tool.transform", region: "toolbar", label: "Transform", reference: "authors a transform on selection (the reference ENABLES the strip when a node is selected)", outcome: "disabled_reason", reason: "transform authoring requires a TransformationRun authoring authority — a named gap; the declared plan is inspectable on the Transform plan node (recorded divergence: IOI keeps the strip disabled on selection)" },
   { id: "tool.join", region: "toolbar", label: "Join", reference: "join tables", outcome: "disabled_reason", reason: "join authoring — named gap (no authoring authority)" },
-  { id: "tool.union", region: "toolbar", label: "Union", reference: "union tables", outcome: "disabled_reason", reason: "union authoring — named gap" },
-  { id: "tool.split", region: "toolbar", label: "Split", reference: "split table", outcome: "disabled_reason", reason: "split authoring — named gap" },
+  { id: "tool.union", region: "toolbar", label: "Union", reference: "union tables", outcome: "disabled_reason", reason: "union authoring requires the same TransformationRun authoring authority as Transform — a named gap" },
+  { id: "tool.split", region: "toolbar", label: "Split", reference: "split table", outcome: "disabled_reason", reason: "split authoring requires the same TransformationRun authoring authority as Transform — a named gap" },
   { id: "tool.import-model", region: "toolbar", label: "Import trained model", reference: "apply model", outcome: "disabled_reason", reason: "model application — named gap (model routes live in the Model Catalog)" },
   { id: "tool.use-llm", region: "toolbar", label: "Use LLM", reference: "LLM transform", outcome: "disabled_reason", reason: "AIP transform lanes are reference-only (named gap)" },
   { id: "tool.aip-generate", region: "toolbar", label: "Generate (AIP)", reference: "NL pipeline generation", outcome: "disabled_reason", reason: "AIP generation is a reference-only lane (named gap)" },
@@ -65,7 +65,7 @@ export const CONTROL_MATRIX = [
   // ---- Legend ----------------------------------------------------------------------------------
   { id: "legend.toggle", region: "legend", label: "Legend collapse/expand", reference: "collapses the legend card", outcome: "local_view", binding: "client:pb-legend-toggle" },
   { id: "legend.eye", region: "legend", label: "Category eye (hide color)", reference: "hides nodes of a color", outcome: "local_view", binding: "client:pb-legeye", note: "hides that category's nodes in the SVG; persisted as ?hide= via replaceState" },
-  { id: "legend.add-color", region: "legend", label: "Add color", reference: "color authoring picker", outcome: "disabled_reason", reason: "Legend color authoring — a named gap" },
+  { id: "legend.add-color", region: "legend", label: "Add color", reference: "color authoring picker", outcome: "disabled_reason", reason: "Legend colors are fixed — no record stores custom colors" },
 
   // ---- Canvas / graph --------------------------------------------------------------------------
   { id: "canvas.node-select", region: "canvas", label: "Node click select", reference: "selection ring + header card + quick strip + enables transform strip + Preview tab", outcome: "daemon_action", binding: "href:?node=<key>", note: "URL-state selection; the tray Selection-preview panel renders the node's real record" },
@@ -94,7 +94,7 @@ export const CONTROL_MATRIX = [
   { id: "out.search", region: "outputs", label: "Search outputs", reference: "filters output cards", outcome: "local_view", binding: "client:pb-outsearch" },
   { id: "out.card-select", region: "outputs", label: "Output card select", reference: "card enters edit-affordance state", outcome: "local_view", binding: "href:?output=<id>", note: "selection only — the projection's real detail renders in the tray; authoring stays a gap" },
   { id: "out.gear", region: "outputs", label: "Outputs gear menu", reference: "Build/Output/Packaging settings, Replace with objects", outcome: "disabled_reason", reason: "output settings lanes are authored in the ODK substrate — named gap here" },
-  { id: "out.panel-table-icon", region: "outputs", label: "Outputs panel-table icon", reference: "list layout toggle", outcome: "disabled_reason", reason: "layout toggle — named gap" },
+  { id: "out.panel-table-icon", region: "outputs", label: "Outputs panel-table icon", reference: "list layout toggle", outcome: "disabled_reason", reason: "layout toggle — the outputs panel has one layout, so there is nothing to toggle" },
   { id: "out.add", region: "outputs", label: "Add output", reference: "adds an output", outcome: "disabled_reason", reason: "Adding outputs is authored in the ODK substrate — a named gap here" },
   { id: "out.lineage-btn", region: "outputs", label: "View lineage (header icon)", reference: "opens lineage in new window", outcome: "daemon_action", binding: "href:/__ioi/lineage?ontology=", note: "covered by the command cluster's Lineage link" },
   { id: "out.more-options", region: "outputs", label: "More options (Reset ontology changes)", reference: "reset menu", outcome: "disabled_reason", reason: "reset is a daemon authority (named gap; deletion lanes are the governed-build PR)" },

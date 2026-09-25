@@ -112,7 +112,7 @@ async function run() {
   ok("candidate refs declared LOCAL allowlisted schemes on the surface (the plane rejects external URLs fail-closed)", /Candidate refs are LOCAL allowlisted schemes only/.test(t));
   // R-240: New suite is a LINK to the owner surface's declare form (it was disabled in place while
   // the Evaluations owner surface already declared suites); the rest stay disabled and named.
-  ok("New suite goes where suites are declared; the unsupported controls stay DISABLED IN PLACE with named-gap titles (Help · Favorites · example installs)", /<a class="evl-hbtn success" href="\/__ioi\/evaluations#new-suite"/.test(t) && (t.match(/aria-disabled="true"/g) || []).length >= 4 && /Favorites are not recorded on the eval-suite plane/.test(t) && /Marketplace example installs are a reference-only lane/.test(t), `${(t.match(/aria-disabled="true"/g) || []).length} disabled controls`);
+  ok("New suite goes where suites are declared; the unsupported controls stay DISABLED IN PLACE with named-gap titles (Help · Favorites · example installs)", /<a class="evl-hbtn success" href="\/__ioi\/evaluations#new-suite"/.test(t) && (t.match(/aria-disabled="true"/g) || []).length >= 4 && /Favorites are not recorded on the eval-suite plane/.test(t) && /No example catalog is published to this deployment/.test(t), `${(t.match(/aria-disabled="true"/g) || []).length} disabled controls`);
   ok("the examples band is verbatim capture chrome (declared)", /verbatim capture chrome/.test(t));
 
   // 6. Owner discoverability + brand.

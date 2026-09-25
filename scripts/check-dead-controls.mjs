@@ -716,14 +716,33 @@ async function liveLeg() {
             // detach the element between finding and clicking (measured: a project card, clickable
             // every time alone, timed out once in a full run) — so a timed-out click finds the control
             // again by what it IS and tries once more before it counts as a failure.
+            //
+            // ONE IMMEDIATE RETRY WAS NOT ENOUGH (R-240, measured twice more): a shell Home "timeline ↗"
+            // link and a Projects card each timed out once in a full run and clicked in <80ms every
+            // time alone — the shell was still moving under the click (streamed rows, re-sorting
+            // cards). So a timed-out click waits a second and tries again, up to three times, finding
+            // the control by what it IS each time. An element COVERED by another (Playwright reports
+            // "intercepts pointer events") is what a person would hit too, so that fails at once.
+            const moving = (e) => /Timeout/u.test(String(e.message)) && !/intercepts pointer events/u.test(String(e.message));
             try { await loc.click({ timeout: 3000, noWaitAfter: true }); } catch (first) {
-              if (!/Timeout/u.test(String(first.message))) throw first;
-              const again = (await shellEnumerate()).find((el) => el.ident === target.ident && el.occ === target.occ);
-              if (!again) throw first;
-              await page.locator(again.css).first().click({ timeout: 3000, noWaitAfter: true });
+              if (!moving(first)) throw first;
+              let last = first;
+              for (let attempt = 0; attempt < 3 && last; attempt += 1) {
+                await page.waitForTimeout(1000);
+                const again = (await shellEnumerate()).find((el) => el.ident === target.ident && el.occ === target.occ);
+                if (!again) break;
+                try { await page.locator(again.css).first().click({ timeout: 3000, noWaitAfter: true }); last = null; } catch (e) { last = e; if (!moving(e)) break; }
+              }
+              if (last) throw last;
             }
           }
-        } catch (e) { error = String(e.message).split("\n")[0].slice(0, 160); }
+        } catch (e) {
+          // The call log says WHY a click never happened (covered, not stable, not visible, detached);
+          // the first line alone ("Timeout 3000ms exceeded") named nothing a person could act on.
+          const lines = String(e.message).split("\n");
+          const cause = lines.find((l) => /intercepts pointer events|not stable|not visible|detached|outside of the viewport|not enabled/u.test(l));
+          error = `${lines[0]}${cause ? ` — ${cause.trim()}` : ""}`.slice(0, 240);
+        }
         await page.waitForTimeout(1500);
         const after = await page.evaluate(PAGE_READ).catch(() => ({ url: "(navigated away)", text: "", overlays: 0, main: "" }));
         const r = await page.evaluate(READ).catch(() => null);
@@ -736,8 +755,17 @@ async function liveLeg() {
         });
         let judged = LIB.exerciseVerdict(now, { signals, error });
         if (judged.verdict === "alive" && signals.url) {
+          // A LANDING IS READ ONCE IT HAS LOADED, AND "EMPTY" MUST BE SEEN TWICE (R-240, measured): the
+          // settings sidebar's "Back to IOI" is a history-back, which can cross into a full document
+          // load; a single read 1.5s later caught the sign-in page half-loaded and called a real page
+          // "rendered nothing". An empty read waits for the document and reads again before it counts.
           await page.waitForTimeout(1500);
-          const landed = await page.evaluate(PAGE_READ).catch(() => ({ main: "" }));
+          let landed = await page.evaluate(PAGE_READ).catch(() => ({ main: "" }));
+          if (!String(landed.main || "").trim()) {
+            await page.waitForLoadState("domcontentloaded", { timeout: 10000 }).catch(() => {});
+            await page.waitForTimeout(1500);
+            landed = await page.evaluate(PAGE_READ).catch(() => ({ main: "" }));
+          }
           judged = LIB.spaLandingVerdict({ urlChanged: true, text: landed.main }) || judged;
         }
         shellRows.push({ kind: "click", surface: `shell:${t.key}`, tag: now.tag, text: now.text, href: now.href, cls: now.cls, cursor: now.cursor, exercise: LIB.exerciseFor(now), signals, blocked: newBlocked.slice(0, 3), ...judged });

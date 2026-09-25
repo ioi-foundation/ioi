@@ -66,7 +66,7 @@ export async function load(ctx) {
 export function render(model, ctx) {
   const sp = ctx.url.searchParams;
   return renderApprovalsPort(model.records, sp.get("status") || "", {
-    selected: sp.get("req") || "", embed: ctx.embed,
+    selected: sp.get("req") || "", embed: ctx.embed, kind: sp.get("kind") || "",
     inbox: model.inbox, inboxDegraded: model.inboxDegraded,
     banner: {
       acted: sp.get("acted") || "",
@@ -163,7 +163,11 @@ function renderApprovalsPort(records, statusFilter, opts) {
   const byStatus = { pending: 0, approved: 0, rejected: 0, revoked: 0 };
   for (const a of all) if (byStatus[a.status] != null) byStatus[a.status]++;
   const view = ["pending", "approved", "rejected", "revoked", "all"].includes(statusFilter) ? statusFilter : "pending";
-  const rows = view === "all" ? all : all.filter((a) => a.status === view);
+  // Request type (R-240): the kinds are whatever the requests themselves record, so the facet offers
+  // exactly those — a filter over a vocabulary it did not invent.
+  const kinds = [...new Set(all.map((a) => String(a.request_kind || "").trim()).filter(Boolean))].sort();
+  const kind = kinds.includes(String((opts && opts.kind) || "")) ? opts.kind : "";
+  const rows = (view === "all" ? all : all.filter((a) => a.status === view)).filter((a) => !kind || String(a.request_kind || "").trim() === kind);
   const selected = (opts && opts.selected) ? all.find((a) => a.id === opts.selected) : null;
   const svg = (p) => `<svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">${p}</svg>`;
   const CHECK = '<rect x="3" y="3" width="18" height="18" rx="4"/><path d="M8 12l3 3 5-6"/>';
@@ -192,24 +196,24 @@ function renderApprovalsPort(records, statusFilter, opts) {
     <div class="ap-fsec">Additional filters <a class="ap-clear" href="/__ioi/governance/approvals">Clear</a></div>
     <form class="ap-ff" method="GET" action="/__ioi/governance/approvals">
       <label class="ap-flabel">Request type</label>
-      <select class="ap-fsel" disabled title="Request-type facet is a named gap"><option>Access requests</option></select>
+      <select class="ap-fsel" name="kind" onchange="this.form.submit()" aria-label="Request type"><option value="">All request types</option>${kinds.map((k) => `<option value="${esc(k)}"${k === kind ? " selected" : ""}>${esc(k)}</option>`).join("")}</select>
       <label class="ap-flabel">Status</label>
       <select class="ap-fsel" name="status" onchange="this.form.submit()">${statusOpt("all", "All requests")}${STATUSES.map(([v, l]) => statusOpt(v, l)).join("")}</select>
       <label class="ap-flabel">Created by</label>
-      <select class="ap-fsel" disabled title="named gap"><option>Select user</option></select>
-      <label class="ap-fcheck gap" title="named gap"><input type="checkbox" disabled> Assigned to you</label>
+      <select class="ap-fsel" disabled title="Approval requests record no requester, so there is nobody to filter by" aria-label="Created by — approval requests record no requester"><option>Select user</option></select>
+      <label class="ap-fcheck gap" title="Requests are not assigned — the reviewer is recorded only when a request is decided" data-ioi-disabled-reason="Requests are not assigned — the reviewer is recorded only when a request is decided"><input type="checkbox" disabled aria-label="Assigned to you — requests are not assigned; the reviewer is recorded only when a request is decided"> Assigned to you</label>
       <label class="ap-flabel">Project requested to</label>
-      <select class="ap-fsel" disabled title="named gap"><option>Select project</option></select>
+      <select class="ap-fsel" disabled title="Approval requests name a subject, not a project, so there is no project to filter by" aria-label="Project requested to — approval requests name no project"><option>Select project</option></select>
       <label class="ap-flabel">Users or groups in request</label>
-      <select class="ap-fsel" disabled title="named gap"><option>Select user or group</option></select>
+      <select class="ap-fsel" disabled title="Approval requests record no users or groups" aria-label="Users or groups in request — approval requests record none"><option>Select user or group</option></select>
       <label class="ap-flabel">Groups requested to</label>
-      <select class="ap-fsel" disabled title="named gap"><option>Select group</option></select>
+      <select class="ap-fsel" disabled title="No record ties an approval request to a group" aria-label="Groups requested to — no record ties a request to a group"><option>Select group</option></select>
     </form>
   </aside>`;
 
   const statusPill = (s) => `<span class="ap-pill ${s === "approved" ? "ok" : s === "pending" ? "warn" : "muted"}">${esc(s === "pending" ? "Pending approval" : ((s || "").charAt(0).toUpperCase() + (s || "").slice(1)))}</span>`;
   const subjShort = (r) => { const s = String(r || ""); return esc(s.length > 46 ? s.slice(0, 46) + "…" : s); };
-  const rowHref = (a) => `/__ioi/governance/approvals?${view ? `status=${view}&` : ""}req=${enc(a.id)}`;
+  const rowHref = (a) => `/__ioi/governance/approvals?${view ? `status=${view}&` : ""}${kind ? `kind=${enc(kind)}&` : ""}req=${enc(a.id)}`;
   const listHeading = view === "pending" ? "Your inbox" : view === "all" ? "All requests" : (STATUSES.find(([v]) => v === view) || [, "Requests"])[1];
   const list = `<main class="ap-list" role="main">
     ${crossPlaneBand(opts.inbox, opts.inboxDegraded, esc)}

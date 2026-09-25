@@ -392,7 +392,7 @@ function renderOntologyManagerPort(ov, lists, selectedId, opts) {
   const header = `<header class="og-header">
     <span class="og-hchip"></span>
     <h5 class="og-htitle">Ontology Manager</h5>
-    <div class="og-search" title="Search + ctrl+K command palette are reference-only — not wired (named gap)"><span class="og-sico">${bpIcon("search")}</span><input placeholder="Search resources…" disabled aria-label="Search resources (reference-only, not wired)"><span class="og-skbd">ctrl + K</span></div>
+    <form class="og-search" method="GET" action="/__ioi/ontology/manager" role="search" title="Search this ontology's typed definitions by name or id (ctrl+K focuses it)"><span class="og-sico">${bpIcon("search")}</span>${oid ? `<input type="hidden" name="ontology" value="${esc(oid)}">` : ""}${opts.embed ? `<input type="hidden" name="embed" value="1">` : ""}<input type="hidden" name="section" value="${esc(section && section !== "create" && section !== "health" && section !== "configuration" && section !== "proposals" ? section : "object-types")}"><input name="q" value="${esc(q)}" placeholder="Search resources…" aria-label="Search typed definitions by name or id"><span class="og-skbd">ctrl + K</span></form><script>document.addEventListener("keydown",function(e){if((e.ctrlKey||e.metaKey)&&!e.altKey&&(e.key==="k"||e.key==="K")){var i=document.querySelector(".og-search input[name=q]");if(i){e.preventDefault();i.focus();i.select();}}});</script>
     <div class="og-headright">
       <span class="og-branch" title="Branching is a reference-only lane — no authority contract yet (named gap).">${bpIcon("git-branch")}<span class="og-branchname">Main</span>${bpIcon("caret-down")}</span>
       <a class="og-new" href="${ontologyContextQuery("/__ioi/ontology/manager", { ontology: oid, section: "create", ...(sel.embed ? { embed: sel.embed } : {}) })}">New ${bpIcon("caret-down")}</a>
@@ -742,7 +742,7 @@ function renderOntologyManagerPort(ov, lists, selectedId, opts) {
     ? `<div id="ap-result" class="og-banner og-ok" tabindex="-1"><b>${esc(bn.acted)}</b> recorded${bn.result ? ` — <b>${esc(bn.result)}</b>` : ""} · receipt <code>${esc(bn.receipt)}</code> · <a href="/__ioi/work-ledger">proof stream</a></div>`
     : bn.refused ? `<div id="ap-result" class="og-banner og-no" tabindex="-1">refused: <code>${esc(bn.refused)}</code>${bn.reason ? ` — ${esc(bn.reason)}` : ""} · <b>state unchanged</b></div>` : "";
   const filterNote = q && def && !def.missing ? ihint(`Filtered by “${esc(q)}”. <a href="${defHref(selD.kind, selD.id)}">Clear filter</a> to see the full list.`) : "";
-  const searchForm = section ? `<form class="og-searchbody" method="GET" action="/__ioi/ontology/manager">${RET}${section ? `<input type="hidden" name="section" value="${esc(section)}">` : ""}${selD.kind ? `<input type="hidden" name="definitionKind" value="${esc(selD.kind)}"><input type="hidden" name="definitionId" value="${esc(selD.id)}">` : ""}<input name="q" value="${esc(q)}" placeholder="Search resources…" aria-label="Search typed definitions (live)"><button type="submit">Filter</button></form>` : "";
+  const searchForm = section ? `<form class="og-searchbody" method="GET" action="/__ioi/ontology/manager">${RET}${section ? `<input type="hidden" name="section" value="${esc(section)}">` : ""}${selD.kind ? `<input type="hidden" name="definitionKind" value="${esc(selD.kind)}"><input type="hidden" name="definitionId" value="${esc(selD.id)}">` : ""}<input name="q" value="${esc(q)}" placeholder="Search resources…" aria-label="Search typed definitions (live)"><button type="submit">Filter</button>${q ? ` <span class="og-qnote">Filtered by “${esc(q)}” — counts are the unfiltered totals · <a href="/__ioi/ontology/manager?ontology=${enc(oid)}&section=${enc(section)}${sel.embed ? "&embed=1" : ""}">Clear</a></span>` : ""}</form>` : "";
 
   const body = `<main class="og-body" role="main">${banner}${badSection ? ihint(`Unknown section — showing Discover.`, true) : ""}${searchForm}${filterNote}${selected ? `
     <section id="og-discover" class="og-discover">
@@ -793,6 +793,7 @@ function renderOntologyManagerPort(ov, lists, selectedId, opts) {
     .og-ontoitem:hover{background:#f1f3f6}.og-ontoitem.on{background:#eef2fb;color:#1a1d21;font-weight:600}
     .og-search{position:absolute;left:50%;top:10px;transform:translateX(-50%);width:350px;height:30px;display:flex;align-items:center;background:#f6f7f9;border-radius:4px;padding:0 10px 0 7px}
     .og-sico{display:inline-flex;color:#5f6b7c;flex:0 0 16px;margin-right:1px}
+    .og-qnote{font-size:12px;color:#5f6b7c;margin-left:6px}
     .og-search input{flex:1;border:0;background:transparent;font:inherit;font-size:14px;line-height:16px;height:16px;padding:0;color:#1c2127;outline:none}
     .og-search input::placeholder{color:#5f6b7c}
     .og-skbd{font-size:14px;line-height:16px;color:#5f6b7c;white-space:nowrap}

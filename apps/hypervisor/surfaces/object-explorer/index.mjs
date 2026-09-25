@@ -314,9 +314,9 @@ function renderObjectExplorerPort(ov, lists, opts) {
     <span class="oe-shlabel">Shortcuts</span>
     <span class="oe-lanes">
       <span class="oe-lane on gap" aria-disabled="true" title="Recents are a reference-only per-user lane (named gap) — the cards below are the real top materialized sets" data-ioi-disabled-reason="Recents are a reference-only per-user lane (named gap) — the cards below are the real top materialized sets">Recents</span>
-      <span class="oe-lane gap" aria-disabled="true" title="Favorites are a reference-only per-user lane (named gap)" data-ioi-disabled-reason="Favorites are a reference-only per-user lane (named gap)">Favorites</span>
+      <span class="oe-lane gap" aria-disabled="true" title="No record keeps favorite object sets, so there is nothing to list here" data-ioi-disabled-reason="No record keeps favorite object sets, so there is nothing to list here">Favorites</span>
       <span class="oe-lane gap" aria-disabled="true" title="Your object sets — the real materialized sets render in the catalog below" data-ioi-disabled-reason="Your object sets — the real materialized sets render in the catalog below">Your object sets</span>
-      <span class="oe-shchev gap" aria-disabled="true">${bpIcon("chevron-right")}</span>
+      <span class="oe-shchev" aria-hidden="true">${bpIcon("chevron-right")}</span>
     </span>
   </div>
   <div class="oe-cards">${cards || `<div class="oe-cardempty">No materialized sets yet — run a materializing run to populate shortcuts. This row reads real daemon sets; nothing is fabricated.</div>`}</div>`;
@@ -326,9 +326,9 @@ function renderObjectExplorerPort(ov, lists, opts) {
     <form class="oe-filterform" method="GET" action="${esc(basePath)}">${bpIcon("filter-funnel")}<input name="q" value="${esc(q)}" placeholder="Filter for an object type..." aria-label="Filter for an object type (live)">${sel.ontology ? `<input type="hidden" name="ontology" value="${esc(sel.ontology)}">` : ""}${sel.objectType ? `<input type="hidden" name="objectType" value="${esc(sel.objectType)}">` : ""}${sel.objectSet ? `<input type="hidden" name="objectSet" value="${esc(sel.objectSet)}">` : ""}<span class="oe-count">${catalog.length} of ${allTypes.length}</span></form>
     <span class="oe-sortlanes">
       <span class="oe-sort gap" aria-disabled="true" title="Relevancy sorting is a reference-only lane — rows are ordered by ontology then name (named gap)" data-ioi-disabled-reason="Relevancy sorting is a reference-only lane — rows are ordered by ontology then name (named gap)">${bpIcon("sort-desc")}<span class="oe-sortt">Relevancy</span>${bpIcon("caret-down")}</span>
-      <span class="oe-lane on gap" aria-disabled="true" title="named gap" data-ioi-disabled-reason="named gap">All</span>
+      <span class="oe-lane on" aria-current="true" title="Every object type in scope is listed below">All</span>
       <span class="oe-lane gap" aria-disabled="true" title="Type groups are a reference-only lane — the daemon records none (named gap)" data-ioi-disabled-reason="Type groups are a reference-only lane — the daemon records none (named gap)">Type group</span>
-      <span class="oe-lane gap" aria-disabled="true" title="Application scoping is a reference-only lane (named gap)" data-ioi-disabled-reason="Application scoping is a reference-only lane (named gap)">Application</span>
+      <span class="oe-lane gap" aria-disabled="true" title="Scoping object types by application is not offered — no record ties an object type to an application" data-ioi-disabled-reason="Scoping object types by application is not offered — no record ties an object type to an application">Application</span>
     </span>
   </div>
   <div class="oe-tablebox">

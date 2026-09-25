@@ -104,13 +104,19 @@ const LIVE = self("live");
 // registration, Issues' New over SupportIncidentLink), and Object Explorer's "All" stopped being a
 // gap — it is the view already shown. The last two primary fills were "All" (a bare span, so it also
 // leaves cursor and unreachable) and Incidents' natively disabled New (labelled and filled only).
+//
+// 2026-09-24 (R-240, weak reasons): labelled 612 → 611, cursor 58 → 57, unreachable 577 → 576 — the
+// Object Explorer's SECOND "All" (the object-type catalog's lane, a bare span) is the view shown, not
+// a gap. The same cut rewrote reasons that said only "named gap" and wired four dead inputs (product
+// and store search, the Ontology Manager's header search, Approvals' request type); none of those
+// four carried a gap marker, so they move no count here.
 export const PINNED = Object.freeze({
   surfaces_probed: 36,
   states_probed: 4,
-  labelled: 612,
+  labelled: 611,
   primary_fill: 0,
-  cursor_not_disabled: 58,
-  unreachable_control: 577,
+  cursor_not_disabled: 57,
+  unreachable_control: 576,
   unmarked_gap: 0,
 });
 

@@ -142,8 +142,10 @@ async function run() {
 
   // 6. THE HARD BOUNDARY — definitions only, no execution semantics anywhere on the surface.
   ok("the surface is READ-ONLY with NO execution affordance (no run/step/execute form, no current-state value, definitions-not-processes named)", !/action="[^"]*\/(run|step|execute)"/.test(t) && /definitions, not running processes/.test(t) && !/current_state/.test(t));
-  ok("named gaps: run/step/execute · scheduling · Automations/Missions/ODK binding · simulation · versioning · graph authoring", /run\/step\/execute/.test(t) && /scheduling/.test(t) && /Automations\/Missions\/ODK binding/.test(t) && /simulation/.test(t) && /versioning/.test(t) && /Graph authoring is a reference-only lane/.test(t));
-  ok("unsupported controls are DISABLED IN PLACE with named-gap titles (store dropdown · New graph · Help · Favorites · example-card overlays)", (t.match(/aria-disabled="true"/g) || []).length >= 6 && /Recent installations — marketplace install lanes/.test(t) && /Graph authoring is a reference-only lane/.test(t) && /Favorites are not recorded on the state-machine plane/.test(t) && /Marketplace example installs are a reference-only lane/.test(t), `${(t.match(/aria-disabled="true"/g) || []).length} disabled controls`);
+  // R-240: graph authoring is LIVE — New graph and Help are links into the process-graph editor
+  // (designer-editor.mjs, variant machinery) over /v1/hypervisor/state-machines.
+  ok("named gaps: run/step/execute · scheduling · Automations/Missions/ODK binding · simulation · versioning; graph authoring is live", /run\/step\/execute/.test(t) && /scheduling/.test(t) && /Automations\/Missions\/ODK binding/.test(t) && /simulation/.test(t) && /versioning/.test(t) && /href="\/__ioi\/studio\/machinery\/graph"/.test(t));
+  ok("New graph goes to the editor; the unsupported controls stay DISABLED IN PLACE with reasons (store dropdown · Favorites · example-card overlays)", (t.match(/aria-disabled="true"/g) || []).length >= 4 && /Recent installations — marketplace install lanes/.test(t) && /Favorites are not recorded on the state-machine plane/.test(t) && /No example catalog is published to this deployment/.test(t), `${(t.match(/aria-disabled="true"/g) || []).length} disabled controls`);
   ok("the examples band is declared verbatim capture chrome (vendor examples, never estate process truth)", /verbatim capture chrome/.test(t) && /not estate process truth/.test(t));
 
   // 7. Honest empty/incomplete — no fabrication.

@@ -643,9 +643,9 @@ function renderPipelineBuilder(lists, sel, embed) {
     <div class="pb-htitles">
       <div class="pb-crumbrow"><span class="pb-crumb">${oname} <span class="pb-cx">›</span> <b>Pipeline Builder</b>${selected ? ` <span class="pb-cxt">— ${instances > 0 ? `<span class="pb-live">built</span>` : `<span class="pb-declared">not built</span>`} · ${nodes.filter((n) => n.cls === "live").length}/${nodes.length} stages live</span>` : ""}</span><span class="pb-star">${bpIcon("star-empty")}</span></div>
       <div class="pb-menurow">
-        <span class="pb-menu gap" role="button" tabindex="0" aria-disabled="true" title="File menu is a reference-only lane (named gap)" data-ioi-disabled-reason="File menu is a reference-only lane (named gap)">File ${bpIcon("caret-down", 16)}</span>
-        <span class="pb-menu gap" role="button" tabindex="0" aria-disabled="true" title="Settings menu is a reference-only lane (named gap)" data-ioi-disabled-reason="Settings menu is a reference-only lane (named gap)">Settings ${bpIcon("caret-down", 16)}</span>
-        <span class="pb-menu gap" role="button" tabindex="0" aria-disabled="true" title="Help menu is a reference-only lane (named gap)" data-ioi-disabled-reason="Help menu is a reference-only lane (named gap)">Help ${bpIcon("caret-down", 16)}</span>
+        <span class="pb-menu gap" role="button" tabindex="0" aria-disabled="true" title="The builder has no file operations — the pipeline's declaration is read from the daemon" data-ioi-disabled-reason="The builder has no file operations — the pipeline's declaration is read from the daemon">File ${bpIcon("caret-down", 16)}</span>
+        <span class="pb-menu gap" role="button" tabindex="0" aria-disabled="true" title="The builder has no settings of its own" data-ioi-disabled-reason="The builder has no settings of its own">Settings ${bpIcon("caret-down", 16)}</span>
+        <span class="pb-menu gap" role="button" tabindex="0" aria-disabled="true" title="No help is published for this deployment" data-ioi-disabled-reason="No help is published for this deployment">Help ${bpIcon("caret-down", 16)}</span>
         <span class="pb-menudiv"></span>
         <span class="pb-batch">${bpIcon("office", 16)}<span class="pb-batchn">1</span></span>
         <span class="pb-menudiv d2"></span>
@@ -661,10 +661,10 @@ function renderPipelineBuilder(lists, sel, embed) {
       <a class="pb-btn link" href="${managerLink({ ontology: oid })}">Ontology Manager</a>
     </div>
     <div class="pb-hright">
-      <span class="pb-hbtn gap" role="button" tabindex="0" aria-disabled="true" title="Actions menu is a reference-only lane (named gap)" data-ioi-disabled-reason="Actions menu is a reference-only lane (named gap)">Actions ${bpIcon("caret-down")}</span>
+      <span class="pb-hbtn gap" role="button" tabindex="0" aria-disabled="true" title="No builder actions are offered beyond the toolbar" data-ioi-disabled-reason="No builder actions are offered beyond the toolbar">Actions ${bpIcon("caret-down")}</span>
       <span class="pb-hdrdiv"></span>
-      <span class="pb-hbtn gap" role="button" tabindex="0" aria-disabled="true" title="Sharing is a reference-only lane (named gap)" data-ioi-disabled-reason="Sharing is a reference-only lane (named gap)">${bpIcon("people")} Share</span>
-      <span class="pb-hico gap" title="Panel layout toggle — named gap">${bpIcon("properties")}</span>
+      <span class="pb-hbtn gap" role="button" tabindex="0" aria-disabled="true" title="Pipelines are not shared person to person — access follows the organization" data-ioi-disabled-reason="Pipelines are not shared person to person — access follows the organization">${bpIcon("people")} Share</span>
+      <span class="pb-hico gap" title="Panel layout toggle — the builder has one panel layout, so there is nothing to toggle">${bpIcon("properties")}</span>
     </div>
   </header>`;
 
@@ -689,10 +689,10 @@ function renderPipelineBuilder(lists, sel, embed) {
     </div>
     <div class="pb-tg pb-tg2">
       <a class="pb-twide" href="/__ioi/odk?ontology=${enc(oid)}" title="Add data — routes to the real ODK authoring ladder">${bpIcon("import")} Add data ${bpIcon("caret-down")}</a>
-      <button class="pb-twide" disabled title="Reusable transforms library — a named gap">${bpIcon("repeat")} Reusables ${bpIcon("caret-down")}</button>
+      <button class="pb-twide" disabled title="No library of reusable transforms exists">${bpIcon("repeat")} Reusables ${bpIcon("caret-down")}</button>
     </div>
     <div class="pb-tg pb-tg3">
-      <div class="pb-tgrow">${seg(tbtn("path", { look: "dim", tint: "blue", title: "transform authoring requires a TransformationRun authoring authority — a named gap; the declared plan is inspectable on the Transform plan node" }), tbtn("join-table", { look: "dim", tint: "cyan", title: "join authoring — named gap (no authoring authority)" }), tbtn("add-row-bottom", { look: "dim", tint: "rose", title: "union authoring — named gap" }), tbtn("split-columns", { look: "dim", tint: "green", title: "split authoring — named gap" }), tbtn("model", { look: "dim", tint: "violet", title: "model application — named gap (model routes live in the Model Catalog)" }))}${seg(tbtn("@aip-grad", { look: "dim", title: "AIP transform lanes are reference-only (named gap)" }), tbtn("clean", { tint: "violet", title: "AIP generation is a reference-only lane (named gap)" }), tbtn("lightbulb", { tint: "violet", title: "AIP explanation is a reference-only lane (named gap)" }))}${seg(tbtn("edit", { look: "dim", title: "transform editing — named gap (no authoring authority)" }))}</div>
+      <div class="pb-tgrow">${seg(tbtn("path", { look: "dim", tint: "blue", title: "transform authoring requires a TransformationRun authoring authority — a named gap; the declared plan is inspectable on the Transform plan node" }), tbtn("join-table", { look: "dim", tint: "cyan", title: "join authoring — named gap (no authoring authority)" }), tbtn("add-row-bottom", { look: "dim", tint: "rose", title: "union authoring requires the same TransformationRun authoring authority as Transform — a named gap" }), tbtn("split-columns", { look: "dim", tint: "green", title: "split authoring requires the same TransformationRun authoring authority as Transform — a named gap" }), tbtn("model", { look: "dim", tint: "violet", title: "model application — named gap (model routes live in the Model Catalog)" }))}${seg(tbtn("@aip-grad", { look: "dim", title: "AIP transform lanes are reference-only (named gap)" }), tbtn("clean", { tint: "violet", title: "AIP generation is a reference-only lane (named gap)" }), tbtn("lightbulb", { tint: "violet", title: "AIP explanation is a reference-only lane (named gap)" }))}${seg(tbtn("edit", { look: "dim", title: "transform editing — named gap (no authoring authority)" }))}</div>
       <div class="pb-tghints"><span style="left:45.9px">Transform</span><span style="left:195.3px">AIP</span><span style="left:268.7px">Edit</span></div>
     </div>
   </div>`;
@@ -707,7 +707,7 @@ function renderPipelineBuilder(lists, sel, embed) {
     <div class="pb-leggrid">
       ${legendGroups.map(([g, c, n, catKey]) => `<div class="pb-legrow${hiddenCats.includes(catKey) ? " off" : ""}" data-cat="${catKey}"><span class="pb-legchip" style="background:${c}"></span><span class="pb-legname">${esc(g)}</span> <b>(${n})</b> <button type="button" class="pb-legeye" data-cat="${catKey}" title="${hiddenCats.includes(catKey) ? "Show this color" : "Hide this color"}">${bpIcon("eye-open", 14)}</button></div>`).join("")}
     </div>
-    <button class="pb-addcolor" disabled title="Legend color authoring — a named gap" data-ioi-disabled-reason="Legend color authoring — a named gap">${bpIcon("plus")} Add color</button>
+    <button class="pb-addcolor" disabled title="Legend colors are fixed — no record stores custom colors" data-ioi-disabled-reason="Legend colors are fixed — no record stores custom colors">${bpIcon("plus")} Add color</button>
   </div>`;
 
   // ---- TRAY CONTENT (#66) — one body per tab, all real truth or honest named gaps.
@@ -891,7 +891,7 @@ function renderPipelineBuilder(lists, sel, embed) {
     : outputSel ? outputDetailPanel
     : selectionEmpty;
   const gapnote = `<div class="pb-gapnote">Freeform canvas authoring — drag-connect nodes, transform code editor, scheduling, deploy — are <b>reference-only lanes disabled above</b>, not yet wired. Author stages in the <a href="${managerLink({ ontology: oid })}">Ontology Manager</a> (<a href="/__ioi/odk?ontology=${enc(oid)}">ODK substrate</a>); execute via a materializing run. Reference: <a href="/__apps/pipeline">Pipeline Builder capture ↗</a>.</div>`;
-  const trayTabLink = (key, icon2, label, extraCls) => `<a class="pb-tab${extraCls ? " " + extraCls : ""}${trayTabKey === key && !paneKey ? " on" : ""}" data-traytab="${key}" href="${stateHref({ tab: key === "selection" ? "" : key, pane: "", run: "", session: "" })}">${bpIcon(icon2)} ${label}${key === "suggestions" ? `<span class="pb-tabpill" title="suggestions count — reference-only lane"></span>` : ""}</a>`;
+  const trayTabLink = (key, icon2, label, extraCls) => `<a class="pb-tab${extraCls ? " " + extraCls : ""}${trayTabKey === key && !paneKey ? " on" : ""}" data-traytab="${key}" href="${stateHref({ tab: key === "selection" ? "" : key, pane: "", run: "", session: "" })}">${bpIcon(icon2)} ${label}${key === "suggestions" ? `<span class="pb-tabpill" title="No suggestions are generated for a pipeline, so there is nothing to count"></span>` : ""}</a>`;
 
   // Node quick-action strip + header card (reference on-selection chrome) — rendered in the
   // excluded canvas body, positioned by the client beside the selected node; every action is
@@ -903,7 +903,7 @@ function renderPipelineBuilder(lists, sel, embed) {
     <div class="pb-nfcard"><span class="pb-nficon">${selNode.icon}</span><div><div class="pb-nfname">${esc(selNode.label)}</div><div class="pb-nfsub">${esc(String(selNode.count))} record${selNode.count === 1 ? "" : "s"}</div></div></div>
     <button class="pb-snappill" disabled title="sampling strategies have no daemon plane — preview rows are the set's real bounded objects (named gap)" data-ioi-disabled-reason="sampling strategies have no daemon plane — preview rows are the set's real bounded objects (named gap)">Snapshot ${bpIcon("caret-down", 12)}</button>
     </div>
-    <div class="pb-quickstrip">${qbtn("path", "green", "Transform", "transform authoring requires a TransformationRun authoring authority — a named gap")}${qbtn("split-columns", "green", "Split", "split authoring — named gap")}${qbtn("join-table", "cyan", "Join", "join authoring — named gap (no authoring authority)")}${qbtn("add-row-bottom", "rose", "Union", "union authoring — named gap")}${qbtn("@aip-grad", "", "Use LLM", "AIP transform lanes are reference-only (named gap)")}${qbtn("clean", "violet", "Generate", "AIP generation is a reference-only lane (named gap)")}${qbtn("lightbulb", "violet", "Explain", "AIP explanation is a reference-only lane (named gap)")}${qbtn("add", "gold", "Add", "adding downstream nodes is authoring — a named gap")}</div>
+    <div class="pb-quickstrip">${qbtn("path", "green", "Transform", "transform authoring requires a TransformationRun authoring authority — a named gap")}${qbtn("split-columns", "green", "Split", "split authoring requires the same TransformationRun authoring authority as Transform — a named gap")}${qbtn("join-table", "cyan", "Join", "join authoring — named gap (no authoring authority)")}${qbtn("add-row-bottom", "rose", "Union", "union authoring requires the same TransformationRun authoring authority as Transform — a named gap")}${qbtn("@aip-grad", "", "Use LLM", "AIP transform lanes are reference-only (named gap)")}${qbtn("clean", "violet", "Generate", "AIP generation is a reference-only lane (named gap)")}${qbtn("lightbulb", "violet", "Explain", "AIP explanation is a reference-only lane (named gap)")}${qbtn("add", "gold", "Add", "adding downstream nodes is authoring — a named gap")}</div>
   </div>` : "";
   const ctxMenu = `<div class="pb-ctxmenu" id="pb-ctxmenu" hidden>
     <button type="button" id="pb-ctx-open">Open</button>
@@ -967,7 +967,7 @@ function renderPipelineBuilder(lists, sel, embed) {
     return `<a class="pb-outcard${on ? " pb-outsel" : ""}" data-output="${esc(p2.id)}"${on ? ' aria-current="true"' : ""} href="${stateHref({ output: on ? "" : p2.id, node: "", tab: "" })}"><div class="pb-outcode">${bpIcon("panel-table")} ${esc(p2.name || p2.id)}</div><div class="pb-outsub">${esc(selected ? (selected.domain || selected.id) : "")} · read projection · ${icode(p2.status || "—")}</div><div class="pb-outmapped">✓ ${nCols}/${nCols} column${nCols === 1 ? "" : "s"} mapped</div></a>`;
   }).join("") : `<div class="pb-empty">No read projection on this pipeline yet.</div>`;
   const outputsMain = `<div class="pb-rmain">
-      <div class="pb-righthd"><span class="pb-righttitle">Pipeline outputs</span><span class="pb-rhdico gap" title="output settings lanes are authored in the ODK substrate — named gap here" data-ioi-disabled-reason="output settings lanes are authored in the ODK substrate — named gap here">${bpIcon("cog")}</span><span class="pb-rhdico gap" title="layout toggle — named gap" data-ioi-disabled-reason="layout toggle — named gap">${bpIcon("panel-table")}</span><button class="pb-addbtn" disabled title="Adding outputs is authored in the ODK substrate — a named gap here" data-ioi-disabled-reason="Adding outputs is authored in the ODK substrate — a named gap here">${bpIcon("plus")} Add</button></div>
+      <div class="pb-righthd"><span class="pb-righttitle">Pipeline outputs</span><span class="pb-rhdico gap" title="output settings lanes are authored in the ODK substrate — named gap here" data-ioi-disabled-reason="output settings lanes are authored in the ODK substrate — named gap here">${bpIcon("cog")}</span><span class="pb-rhdico gap" title="layout toggle — the outputs panel has one layout, so there is nothing to toggle" data-ioi-disabled-reason="layout toggle — the outputs panel has one layout, so there is nothing to toggle">${bpIcon("panel-table")}</span><button class="pb-addbtn" disabled title="Adding outputs is authored in the ODK substrate — a named gap here" data-ioi-disabled-reason="Adding outputs is authored in the ODK substrate — a named gap here">${bpIcon("plus")} Add</button></div>
       <div class="pb-rsearch">${bpIcon("search")}<input id="pb-outsearch" placeholder="Search outputs…" aria-label="Search outputs (client-side filter)"></div>
       ${outCards}
       <div class="pb-outstat">${instances} object instance${instances === 1 ? "" : "s"} materialized · ${nodes.filter((n) => n.cls === "missing").length ? nodes.filter((n) => n.cls === "missing").map((n) => esc(n.label) + " not built").join(" · ") : "all ladder stages present"}</div>

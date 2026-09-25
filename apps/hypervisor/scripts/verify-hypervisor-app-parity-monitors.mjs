@@ -116,7 +116,7 @@ async function run() {
   ok("the projection declares itself + no scheduler/execution semantics were added", /read-only projection over the real automation plane/.test(t) && /no scheduler or execution semantics were added/.test(t));
   // RE-AIMED by AUT-2: New automation ×2 became LIVE in-shell create links (a gap became a
   // function); the remaining census is store dropdown · Help · template docs ×3 · example installs ×2.
-  ok("unsupported controls are DISABLED IN PLACE with named-gap titles (store dropdown · Help · template docs ×3 · example installs ×2); New automation is LIVE", (t.match(/aria-disabled="true"/g) || []).length >= 7 && !/Automation authoring from this surface is a reference-only lane/.test(t) && t.includes("?tab=automations&view=new") && /Template docs are a reference-only lane/.test(t) && /Marketplace example installs are a reference-only lane/.test(t), `${(t.match(/aria-disabled="true"/g) || []).length} disabled controls`);
+  ok("unsupported controls are DISABLED IN PLACE with named-gap titles (store dropdown · Help · template docs ×3 · example installs ×2); New automation is LIVE", (t.match(/aria-disabled="true"/g) || []).length >= 7 && !/Automation authoring from this surface is a reference-only lane/.test(t) && t.includes("?tab=automations&view=new") && /No template documentation is published for this deployment/.test(t) && /No example catalog is published to this deployment/.test(t), `${(t.match(/aria-disabled="true"/g) || []).length} disabled controls`);
   ok("the verbatim strips are declared capture chrome (vendor content, never estate data)", /verbatim capture chrome/.test(t) && /never estate data/.test(t));
 
   // 5. Owner discoverability + brand.

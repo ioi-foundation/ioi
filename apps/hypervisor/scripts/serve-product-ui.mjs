@@ -1285,7 +1285,7 @@ function renderHome(ops, ledger, sessions, approvals, failoverRuns) {
   return automationsShell("Governed Work Readout", inner);
 }
 
-function renderFeedbackQueue(ov, entries, flash) {
+function renderFeedbackQueue(ov, entries, flash, subjects = []) {
   const enc = encodeURIComponent;
   const byStatus = (ov || {}).by_status || {};
   const ladder = (ov || {}).consent_ladder || ["never_train", "synthetic_only", "redacted_opt_in", "full_private_opt_in", "org_policy"];
@@ -1307,7 +1307,7 @@ function renderFeedbackQueue(ov, entries, flash) {
     </tr>`;
   };
   const form = `<h2>New entry</h2><form method="post" action="/__ioi/feedback"><div class="card" style="display:block">
-    <div class="two"><div class="field"><label>Subject ref (required — run/session/app/object; local refs must resolve)</label><input name="subject_ref" style="width:100%;padding:8px 10px;border-radius:8px;border:1px solid #2a2c33;background:#0e0f13;color:#e6e7ea;font:inherit" placeholder="domain-app://… · session:… · authority-action://…"></div>
+    <div class="two"><div class="field"><label>Subject ref (required — run/session/app/object; local refs must resolve)</label><input name="subject_ref" list="fb-subjects" autocomplete="off" style="width:100%;padding:8px 10px;border-radius:8px;border:1px solid #2a2c33;background:#0e0f13;color:#e6e7ea;font:inherit" placeholder="pick what this is about — or type a session:… / authority-action://… ref"><datalist id="fb-subjects">${subjects.map(([v, l]) => `<option value="${CX_ESC(v)}" label="${CX_ESC(l)}">${CX_ESC(l)}</option>`).join("")}</datalist></div>
     <div class="field"><label>Kind</label><select name="entry_kind" style="width:100%;padding:8px 10px;border-radius:8px;border:1px solid #2a2c33;background:#0e0f13;color:#e6e7ea;font:inherit"><option value="feedback">feedback</option><option value="annotation">annotation</option></select></div></div>
     <div class="field"><label>Body</label><textarea name="body" style="width:100%;padding:8px 10px;border-radius:8px;border:1px solid #2a2c33;background:#0e0f13;color:#e6e7ea;font:inherit" placeholder="What happened / what should be learned."></textarea></div>
     <div class="field"><label>Consent (evidence eligibility — never_train fails conversion closed, by design)</label><select name="consent" style="width:100%;padding:8px 10px;border-radius:8px;border:1px solid #2a2c33;background:#0e0f13;color:#e6e7ea;font:inherit">${ladder.map((c) => `<option value="${c}">${c}</option>`).join("")}</select></div>
@@ -3659,7 +3659,7 @@ function renderDataSourcesSection(dataSources) {
     <td><span class="pill muted">${CX_ESC(d.kind || "—")}</span></td>
     <td>${d.endpoint ? `<code style="font-size:11px">${CX_ESC(d.endpoint)}</code>` : "<span class=\"sub\" style=\"margin:0\">local</span>"}</td>
     <td><span class="pill muted">${CX_ESC(d.credential_posture || "—")}</span></td>
-    <td><span class="pill ${(d.lifecycle || {}).status === "declared" ? "muted" : "ok"}">${CX_ESC((d.lifecycle || {}).status || "declared")}</span> <span class="pill warn" title="ingestion is not wired — declaration only">not ingesting</span></td>
+    <td><span class="pill ${(d.lifecycle || {}).status === "declared" ? "muted" : "ok"}">${CX_ESC((d.lifecycle || {}).status || "declared")}</span> <span class="pill warn" title="This source is declared only — nothing extracts or ingests its data">not ingesting</span></td>
   </tr>`).join("");
   const table = dataSources.length
     ? `<table><thead><tr><th>Source</th><th>Kind</th><th>Endpoint</th><th>Credential</th><th>Status</th></tr></thead><tbody>${rows}</tbody></table>`
@@ -4507,7 +4507,7 @@ function renderEvalsuitesPort(suitesJson) {
     <h1 class="evl-htitle">AIP Evals</h1>
     <div class="evl-hright">
       <a class="evl-hbtn success" href="/__ioi/evaluations#new-suite" title="Declare a suite on the Evaluations owner surface">${bpIcon("plus")}<span>New evaluation suite</span></a>
-      <span class="evl-hbtn outlined gap" aria-disabled="true" title="Reference help lane (named gap)" data-ioi-disabled-reason="Reference help lane (named gap)"><span>Help</span>${bpIcon("help")}</span>
+      <span class="evl-hbtn outlined gap" aria-disabled="true" title="No help is published for this app — the deployment is self-hosted and ships no documentation site" data-ioi-disabled-reason="No help is published for this app — the deployment is self-hosted and ships no documentation site"><span>Help</span>${bpIcon("help")}</span>
     </div>
   </header>`;
 
@@ -4535,8 +4535,8 @@ function renderEvalsuitesPort(suitesJson) {
     <div class="evl-exsub">See how AIP Evals can be used to evaluate any AI system.</div>
     <div class="evl-exstripwrap">
       <img class="evl-exstrip" src="${MCH_EXAMPLES_STRIP_URI}" width="562" height="272" alt="Reference marketplace example cards (verbatim capture chrome)">
-      <span class="evl-excard c1 gap" aria-disabled="true" title="Marketplace example installs are a reference-only lane (named gap)" data-ioi-disabled-reason="Marketplace example installs are a reference-only lane (named gap)"></span>
-      <span class="evl-excard c2 gap" aria-disabled="true" title="Marketplace example installs are a reference-only lane (named gap)" data-ioi-disabled-reason="Marketplace example installs are a reference-only lane (named gap)"></span>
+      <span class="evl-excard c1 gap" aria-disabled="true" title="No example catalog is published to this deployment, so there is nothing to install" data-ioi-disabled-reason="No example catalog is published to this deployment, so there is nothing to install"></span>
+      <span class="evl-excard c2 gap" aria-disabled="true" title="No example catalog is published to this deployment, so there is nothing to install" data-ioi-disabled-reason="No example catalog is published to this deployment, so there is nothing to install"></span>
     </div>
   </div>`;
 
@@ -4640,7 +4640,7 @@ function renderEvalsuitesPort(suitesJson) {
 // EMPTY lane (no due-date concept on the plane). READ-ONLY: no apply, no approve/reject, no
 // deploy, no release-gate mutation — those lanes live on the owner surface
 // (/__ioi/agent-studio#improvement-proposals, linked first-class both ways).
-function renderChangesPort(proposals, lane, filter) {
+function renderChangesPort(proposals, lane, filter, q = "") {
   const esc = CX_ESC;
   const all = Array.isArray(proposals) ? proposals : [];
   const fdate = (iso) => { const d = new Date(iso || 0); return isNaN(d) ? "—" : d.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" }); };
@@ -4653,7 +4653,9 @@ function renderChangesPort(proposals, lane, filter) {
   const active = all.filter((p) => p.state !== "rejected");
   const archived = all.filter((p) => p.state === "rejected");
   const pendingReview = all.filter((p) => p.state === "pending");
-  const laneSet = lane === "archived" ? archived : lane === "pastdue" ? [] : active;
+  // Name search (R-240): over what each row shows as its name and ref.
+  const qn = String(q || "").trim().toLowerCase();
+  const laneSet = (lane === "archived" ? archived : lane === "pastdue" ? [] : active).filter((p) => !qn || `${p.signal || ""} ${p.proposal_kind || ""} ${p.improvement_id || ""} ${p.proposal_ref || ""} ${p.target_ref || ""}`.toLowerCase().includes(qn));
   // The "requiring my action" facet (pending review) scopes the ACTIVE lane only — Archived is
   // terminal (rejected proposals, never pending) and shows its full set regardless of the facet.
   const shown = (lane === "active" && filter !== "all") ? laneSet.filter((p) => p.state === "pending") : laneSet;
@@ -4705,7 +4707,7 @@ function renderChangesPort(proposals, lane, filter) {
       <span class="chg-orgbtn gap" aria-disabled="true" title="Organization scoping is a named gap — the estate is a single deployment; the list below is its full improvement truth" data-ioi-disabled-reason="Organization scoping is a named gap — the estate is a single deployment; the list below is its full improvement truth">${bpIcon("office")}<span>1 organization</span>${bpIcon("caret-down")}</span>
       <span class="chg-adminview gap" aria-disabled="true" title="Admin/assignee principal scoping is a named gap — no assignment concept on the improvement plane" data-ioi-disabled-reason="Admin/assignee principal scoping is a named gap — no assignment concept on the improvement plane">Admin view</span>
       <span class="chg-hbtn outlined gap" aria-disabled="true" title="Reference view toggle (named gap) — the list renders the estate's full improvement truth" data-ioi-disabled-reason="Reference view toggle (named gap) — the list renders the estate's full improvement truth">Assignee view</span>
-      <span class="chg-hbtn outlined helpbtn gap" aria-disabled="true" title="Reference help lane (named gap)" data-ioi-disabled-reason="Reference help lane (named gap)">${bpIcon("help")}<span>Help</span>${bpIcon("caret-down")}</span>
+      <span class="chg-hbtn outlined helpbtn gap" aria-disabled="true" title="No help is published for this app — the deployment is self-hosted and ships no documentation site" data-ioi-disabled-reason="No help is published for this app — the deployment is self-hosted and ships no documentation site">${bpIcon("help")}<span>Help</span>${bpIcon("caret-down")}</span>
     </div>
   </header>`;
 
@@ -4719,8 +4721,8 @@ function renderChangesPort(proposals, lane, filter) {
 
   const qs = (f) => `/__ioi/improvement/changes?lane=${lane}${f === "all" ? "&filter=all" : ""}`;
   const sidebar = `<aside class="chg-sidebar">
-    <div class="chg-fhead"><h6>Filters</h6><span class="chg-fcollapse gap" aria-disabled="true" title="Sidebar collapse is a reference-only lane (named gap)" data-ioi-disabled-reason="Sidebar collapse is a reference-only lane (named gap)">${bpIcon("menu-closed")}</span></div>
-    <div class="chg-search gap" title="Name search is a reference-only lane (named gap)">${bpIcon("search")}<input placeholder="Search by upgrade name…" disabled aria-label="Search by upgrade name (reference-only, not wired)"></div>
+    <div class="chg-fhead"><h6>Filters</h6><span class="chg-fcollapse gap" aria-disabled="true" title="The filter sidebar does not collapse — it holds the lanes this page reads" data-ioi-disabled-reason="The filter sidebar does not collapse — it holds the lanes this page reads">${bpIcon("menu-closed")}</span></div>
+    <form class="chg-search" method="get" action="/__ioi/improvement/changes" role="search" title="Search upgrades by name, kind, ref or target">${bpIcon("search")}<input type="hidden" name="lane" value="${esc(lane)}">${filter === "all" ? `<input type="hidden" name="filter" value="all">` : ""}<input name="q" value="${esc(String(q || ""))}" placeholder="Search by upgrade name…" aria-label="Search upgrades by name, kind, ref or target"></form>
     <div class="chg-fdiv"></div>
     <h6 class="chg-fsec">Upgrade progress</h6>
     <a class="chg-radio${filter !== "all" ? "" : " sel"}" href="${qs("all")}"><span class="chg-rdot${filter === "all" ? " on" : ""}"></span><span class="chg-rlabel">All upgrades</span><span class="chg-rcount">${laneSet.length}</span></a>
@@ -4946,7 +4948,7 @@ function renderMonitorsPort(automations, runsById, view = "overview", flt = {}) 
     <div class="mon-hright">
       <span class="mon-hbtn outlined store gap" aria-disabled="true" title="Recent installations — marketplace install lanes are not bound to this surface (named gap)" data-ioi-disabled-reason="Recent installations — marketplace install lanes are not bound to this surface (named gap)"><span class="mon-storeico" aria-hidden="true"></span>${bpIcon("caret-down")}</span>
       <a class="mon-hbtn success" href="/__ioi/automations/monitors?tab=automations&view=new" title="New automation — the in-shell create form posting the seed create lane (AUT-2; same lane, re-chromed)">${bpIcon("add")}<span>New automation</span></a>
-      <span class="mon-hbtn outlined gap" aria-disabled="true" title="Reference help lane (named gap)" data-ioi-disabled-reason="Reference help lane (named gap)">${bpIcon("help")}<span>Help</span></span>
+      <span class="mon-hbtn outlined gap" aria-disabled="true" title="No help is published for this app — the deployment is self-hosted and ships no documentation site" data-ioi-disabled-reason="No help is published for this app — the deployment is self-hosted and ships no documentation site">${bpIcon("help")}<span>Help</span></span>
     </div>
   </header>`;
 
@@ -4971,17 +4973,17 @@ function renderMonitorsPort(automations, runsById, view = "overview", flt = {}) 
   </div>
   <div class="mon-cardswrap">
     <img class="mon-cardsstrip" src="${MON_CARDS_STRIP_URI}" width="902" height="319" alt="Reference automation template cards (verbatim capture chrome — vendor templates, not estate data)">
-    <span class="mon-tplcard c1 gap" aria-disabled="true" title="Template docs are a reference-only lane (named gap)" data-ioi-disabled-reason="Template docs are a reference-only lane (named gap)"></span>
-    <span class="mon-tplcard c2 gap" aria-disabled="true" title="Template docs are a reference-only lane (named gap)" data-ioi-disabled-reason="Template docs are a reference-only lane (named gap)"></span>
-    <span class="mon-tplcard c3 gap" aria-disabled="true" title="Template docs are a reference-only lane (named gap)" data-ioi-disabled-reason="Template docs are a reference-only lane (named gap)"></span>
+    <span class="mon-tplcard c1 gap" aria-disabled="true" title="No template documentation is published for this deployment" data-ioi-disabled-reason="No template documentation is published for this deployment"></span>
+    <span class="mon-tplcard c2 gap" aria-disabled="true" title="No template documentation is published for this deployment" data-ioi-disabled-reason="No template documentation is published for this deployment"></span>
+    <span class="mon-tplcard c3 gap" aria-disabled="true" title="No template documentation is published for this deployment" data-ioi-disabled-reason="No template documentation is published for this deployment"></span>
   </div>
   <div class="mon-examples">
     <h5 class="mon-exh">Explore reference examples</h5>
     <div class="mon-exsub">Learn how to build automated use cases using example Automations from Marketplace</div>
     <div class="mon-exstripwrap">
       <img class="mon-exstrip" src="${MCH_EXAMPLES_STRIP_URI}" width="562" height="272" alt="Reference marketplace example cards (verbatim capture chrome)">
-      <span class="mon-excard c1 gap" aria-disabled="true" title="Marketplace example installs are a reference-only lane (named gap)" data-ioi-disabled-reason="Marketplace example installs are a reference-only lane (named gap)"></span>
-      <span class="mon-excard c2 gap" aria-disabled="true" title="Marketplace example installs are a reference-only lane (named gap)" data-ioi-disabled-reason="Marketplace example installs are a reference-only lane (named gap)"></span>
+      <span class="mon-excard c1 gap" aria-disabled="true" title="No example catalog is published to this deployment, so there is nothing to install" data-ioi-disabled-reason="No example catalog is published to this deployment, so there is nothing to install"></span>
+      <span class="mon-excard c2 gap" aria-disabled="true" title="No example catalog is published to this deployment, so there is nothing to install" data-ioi-disabled-reason="No example catalog is published to this deployment, so there is nothing to install"></span>
     </div>
   </div>`;
 
@@ -5382,8 +5384,8 @@ function renderMachineryPort(machines, selectedId) {
     <div class="mch-exsub">Learn how to build industrial solutions using example workflows with Marketplace.</div>
     <div class="mch-exstripwrap">
       <img class="mch-exstrip" src="${MCH_EXAMPLES_STRIP_URI}" width="562" height="272" alt="Reference marketplace example-resource cards (verbatim capture chrome — vendor examples, not estate process truth)">
-      <span class="mch-excard c1 gap" aria-disabled="true" title="Marketplace example installs are a reference-only lane (named gap)" data-ioi-disabled-reason="Marketplace example installs are a reference-only lane (named gap)"></span>
-      <span class="mch-excard c2 gap" aria-disabled="true" title="Marketplace example installs are a reference-only lane (named gap)" data-ioi-disabled-reason="Marketplace example installs are a reference-only lane (named gap)"></span>
+      <span class="mch-excard c1 gap" aria-disabled="true" title="No example catalog is published to this deployment, so there is nothing to install" data-ioi-disabled-reason="No example catalog is published to this deployment, so there is nothing to install"></span>
+      <span class="mch-excard c2 gap" aria-disabled="true" title="No example catalog is published to this deployment, so there is nothing to install" data-ioi-disabled-reason="No example catalog is published to this deployment, so there is nothing to install"></span>
     </div>
   </div>`;
 
@@ -5729,19 +5731,31 @@ function renderIncidentsPort(ops, workResults, lane, extra = {}) {
   const shown = rows.slice(0, CAP);
 
   const laneRow = (key, label, n, slot) => `<a class="in-lane ${slot}${lane === key ? " on" : ""}${key === "all" ? " alt" : ""}" href="/__ioi/missions/incidents?lane=${key}"><span class="in-lname">${label}</span><span class="in-lcount">${n}</span></a>`;
+  // What each facet would need, said plainly (R-240): the reason is the control's accessible name
+  // and its tooltip, so it must survive being read.
+  const FACET_WHY = {
+    Assignees: "Filtering by assignee is not offered — derived incidents have no assignee; a filed issue's assignee is shown in its drawer",
+    Reporters: "Filtering by reporter is not offered — derived incidents have no reporter; a filed issue's reporter is shown in its drawer",
+    Mentions: "Issues carry no comments, so there are no mentions to filter by",
+    Labels: "No record keeps issue labels, so there is nothing to filter by",
+    "Support types": "Filtering by application is not offered — a filed issue's application is shown on its row",
+    "Reported on": "Filtering by date is not offered — rows are ordered by most recent update",
+    "Last updated": "Filtering by date is not offered — rows are ordered by most recent update",
+  };
   const facet = (label, kind, slot) => {
+    const why = esc(FACET_WHY[label] || `${label} filtering is not offered`);
     const input = kind === "underline"
-      ? `<input class="in-fuline" placeholder="Type a name…" disabled aria-label="${esc(label)} filter (reference-only, not wired)">`
+      ? `<input class="in-fuline" placeholder="Type a name…" disabled aria-label="${why}" title="${why}">`
       : kind === "box"
-        ? `<input class="in-fbox" placeholder="${label === "Labels" ? "Type a label name…" : "Type a support type name..."}" disabled aria-label="${esc(label)} filter (reference-only, not wired)">`
-        : `<span class="in-dates"><input class="in-fdate" placeholder="Start date" disabled aria-label="${esc(label)} start (reference-only)"><input class="in-fdate" placeholder="End date" disabled aria-label="${esc(label)} end (reference-only)"></span>`;
-    const inc = kind === "dates" ? "" : `<span class="in-finc gap" role="button" tabindex="0" title="include/exclude toggle — a reference-only lane (named gap)" aria-disabled="true" data-ioi-disabled-reason="include/exclude toggle — a reference-only lane (named gap)">include ${bpIcon("caret-down")}</span>`;
+        ? `<input class="in-fbox" placeholder="${label === "Labels" ? "Type a label name…" : "Type a support type name..."}" disabled aria-label="${why}" title="${why}">`
+        : `<span class="in-dates" title="${why}"><input class="in-fdate" placeholder="Start date" disabled aria-label="${why}"><input class="in-fdate" placeholder="End date" disabled aria-label="${why}"></span>`;
+    const inc = kind === "dates" ? "" : `<span class="in-finc gap" role="button" tabindex="0" title="Include/exclude applies to a facet filter, and this facet cannot filter" aria-disabled="true" data-ioi-disabled-reason="Include/exclude applies to a facet filter, and this facet cannot filter">include ${bpIcon("caret-down")}</span>`;
     return `<div class="in-facet ${slot}"><div class="in-frow"><span class="in-flabel">${esc(label)}</span>${inc}</div>${input}</div>`;
   };
   const prio = (label, color, slot) => `<label class="in-prio ${slot} gap" title="Filtering by priority is not offered: derived incidents carry no priority, and filed issues carry a severity (informational to critical, shown on each row) rather than High, Medium or Low" data-ioi-disabled-reason="Filtering by priority is not offered: derived incidents carry no priority, and filed issues carry a severity (informational to critical, shown on each row) rather than High, Medium or Low"><span class="in-cb" role="checkbox" aria-checked="false" aria-disabled="true" title="Filtering by priority is not offered: derived incidents carry no priority, and filed issues carry a severity (informational to critical, shown on each row) rather than High, Medium or Low" data-ioi-disabled-reason="Filtering by priority is not offered: derived incidents carry no priority, and filed issues carry a severity (informational to critical, shown on each row) rather than High, Medium or Low"></span><span class="in-ppill" style="background:${color}33"><span class="in-pdot" style="color:${color}">${bpIcon("issue-dot")}</span>${label}</span></label>`;
 
   const rowHtml = (i) => `<div class="in-row">
-    <span class="in-cb fill" role="checkbox" aria-checked="false" aria-disabled="true" title="Bulk incident actions are a reference-only lane (named gap)" data-ioi-disabled-reason="Bulk incident actions are a reference-only lane (named gap)"></span>
+    <span class="in-cb fill" role="checkbox" aria-checked="false" aria-disabled="true" title="Incidents are not acted on in bulk — a filed issue changes status in its own drawer, and a derived incident changes when its run or result does" data-ioi-disabled-reason="Incidents are not acted on in bulk — a filed issue changes status in its own drawer, and a derived incident changes when its run or result does"></span>
     <span class="in-rico">${bpIcon(i.closed ? "issue-closed" : "warning-sign")}</span>
     <div class="in-rmain"><a class="in-rtitle" href="${esc(i.proof)}">${esc(i.title)}</a><div class="in-rsub">${i.filed ? "Filed" : "Created"}&nbsp;&nbsp;${esc(ago(i.created) || "—")} · <a href="${esc(i.proof)}">${i.filed ? "details" : "proof ↗"}</a>${i.detail ? ` · ${esc(i.detail)}` : ""}</div></div>
     <div class="in-rright"><span class="in-rpill${i.filed ? ` filed sev-${esc(i.severity)}` : i.kind === "Blocker" ? "" : " fail"}"><span class="in-pdot">${bpIcon("issue-dot")}</span>${esc(i.filed ? `${i.severity} · ${i.status}` : i.kind)}</span><div class="in-rkind">${i.filed ? "Severity · status" : "Kind"}</div></div>
@@ -5754,7 +5768,7 @@ function renderIncidentsPort(ops, workResults, lane, extra = {}) {
     <div class="in-hright">
       <form class="in-search" method="get" action="/__ioi/missions/incidents" role="search">${bpIcon("search")}<input type="hidden" name="lane" value="${esc(lane)}"><input name="q" value="${esc(q)}" placeholder="Search issues…" aria-label="Search issues by title, id or detail"></form>
       <a class="in-new" href="/__ioi/missions/incidents?lane=${lane}&new=1" title="File an issue against something in this deployment">${bpIcon("plus")} New</a>
-      <span class="in-cog gap" title="Issue settings — a reference-only lane (named gap)">${bpIcon("cog")}</span>
+      <span class="in-cog gap" title="Issues have no settings to change">${bpIcon("cog")}</span>
     </div>
   </header>`;
 
@@ -5778,10 +5792,10 @@ function renderIncidentsPort(ops, workResults, lane, extra = {}) {
 
   const list = `<main class="in-list">
     <div class="in-lhead">
-      <span class="in-cb hd" role="checkbox" aria-checked="false" aria-disabled="true" title="Bulk selection — a reference-only lane (named gap)" data-ioi-disabled-reason="Bulk selection — a reference-only lane (named gap)"></span>
+      <span class="in-cb hd" role="checkbox" aria-checked="false" aria-disabled="true" title="Nothing acts on several issues at once, so there is nothing to select them for" data-ioi-disabled-reason="Nothing acts on several issues at once, so there is nothing to select them for"></span>
       <span class="in-lcounttxt">${shown.length < rows.length ? `${shown.length} of ${rows.length}` : rows.length} ${lane === "all" ? "" : lane + " "}issue${rows.length === 1 ? "" : "s"}</span>${q ? `<span class="in-lq">matching “${esc(q)}” · <a href="/__ioi/missions/incidents?lane=${lane}">clear</a></span>` : ""}
       <span class="in-lmut">filtered by</span>
-      <span class="in-lsel gap" role="button" tabindex="0" title="Saved filters are a reference-only lane (named gap)" aria-disabled="true" data-ioi-disabled-reason="Saved filters are a reference-only lane (named gap)">select filter ${bpIcon("caret-down")}</span>
+      <span class="in-lsel gap" role="button" tabindex="0" title="No record keeps saved filters" aria-disabled="true" data-ioi-disabled-reason="No record keeps saved filters">select filter ${bpIcon("caret-down")}</span>
       <span class="in-lsort"><span class="in-lmut">Sort by</span> <span class="in-lsortv gap" role="button" tabindex="0" title="Sort options are a reference-only lane — rows are honestly ordered by most recent update" aria-disabled="true" data-ioi-disabled-reason="Sort options are a reference-only lane — rows are honestly ordered by most recent update">Most recently updated ${bpIcon("caret-down")}</span></span>
     </div>
     ${extra.filedDown ? `<p class="in-filedown" role="status">Filed issues could not be read: ${esc(extra.filedDown)}. The rows below are the derived incidents only.</p>` : ""}
@@ -6049,7 +6063,7 @@ function renderModelCatalogPort(routesJson, view = "provided", reg = null) {
   const hero = `<section class="mc-hero">
     <h2 class="mc-h1">IOI-provided models</h2>
     <p class="mc-sub">Browse large language models in Foundry</p>
-    <button class="mc-compare gap" disabled title="Model comparison is a reference-only lane (named gap)">${bpIcon("split-view")}<span>Compare models</span></button>
+    <button class="mc-compare gap" disabled title="Comparing models side by side is not offered here">${bpIcon("split-view")}<span>Compare models</span></button>
   </section>`;
 
   const filters = `<aside class="mc-filters">
@@ -6172,13 +6186,17 @@ function renderModelCatalogPort(routesJson, view = "provided", reg = null) {
 // band are compared shell. Publish/install/hire/settle/runtime semantics do NOT exist here —
 // the install wizard is reference chrome (named gap); drafting/publish/admission stay on the
 // /__ioi/marketplace substrate (linked first-class). No fake marketplace products, ever.
-function renderMarketplaceBrowsePort(listingsJson) {
+function renderMarketplaceBrowsePort(listingsJson, storeQuery = "") {
   const esc = CX_ESC;
   const listings = (listingsJson && listingsJson.listings) || [];
   // The store's product count = PUBLISHED (installable) listings — the same wire semantics
   // as the reference's rebound Stores lane (drafts and in-review listings do not count).
   const published = listings.filter((l) => l.public_state === "published");
   const products = published.length;
+  // Store search filters the store rows this page lists, by what each row says about itself.
+  const sq = String(storeQuery || "").trim().slice(0, 120);
+  const STORE_ROW_TEXT = "Estate Marketplace — governed listing plane · Listings drafted over real substrate";
+  const storeShown = !sq || STORE_ROW_TEXT.toLowerCase().includes(sq.toLowerCase());
 
   const globalRail = ioiGlobalRailHtml({ label: "Marketplace", href: "/__ioi/marketplace/listings", iconUri: MARKETPLACE_APP_ICON_URI, railVariant: "rv-pipe", viewAll: false, star: false, badges: true, aipGradient: true, acctMuted: true });
 
@@ -6186,9 +6204,9 @@ function renderMarketplaceBrowsePort(listingsJson) {
     <span class="mk-hchip"></span>
     <h1 class="mk-htitle">Marketplace</h1>
     <div class="mk-hright">
-      <div class="mk-search" title="Product search is a reference-only lane — the store table below is the real registry (named gap)">${bpIcon("search")}<input placeholder="Search products..." disabled aria-label="Search products (reference-only, not wired)"></div>
+      <form class="mk-search" method="get" action="/__ioi/marketplace" role="search" title="Search listings by name, subject or kind on the governed listing plane">${bpIcon("search")}<input name="q" placeholder="Search products..." aria-label="Search products by name, subject or kind"></form>
       <span class="mk-hbtn gap" aria-disabled="true" title="Installations are a reference-only lane — nothing installs from this surface (named gap)" data-ioi-disabled-reason="Installations are a reference-only lane — nothing installs from this surface (named gap)"><img src="${MK_GLOBE_URI}" width="16" height="16" alt="">Installations</span>
-      <span class="mk-hbtn ring gap" aria-disabled="true" title="Reference help lane (named gap)" data-ioi-disabled-reason="Reference help lane (named gap)">Help ${bpIcon("help")}</span>
+      <span class="mk-hbtn ring gap" aria-disabled="true" title="No help is published for this app — the deployment is self-hosted and ships no documentation site" data-ioi-disabled-reason="No help is published for this app — the deployment is self-hosted and ships no documentation site">Help ${bpIcon("help")}</span>
     </div>
   </header>`;
 
@@ -6199,15 +6217,15 @@ function renderMarketplaceBrowsePort(listingsJson) {
   </section>`;
 
   const stores = `<div class="mk-content">
-    <div class="mk-storeshead"><h3 class="mk-storest">Stores</h3><div class="mk-search mk-storesearch" title="Store search is a reference-only lane (named gap)">${bpIcon("search")}<input placeholder="Search stores..." disabled aria-label="Search stores (reference-only, not wired)"></div></div>
+    <div class="mk-storeshead"><h3 class="mk-storest">Stores</h3><form class="mk-search mk-storesearch" method="get" action="/__ioi/marketplace/listings" role="search" title="Filter the stores below by name">${bpIcon("search")}<input name="sq" value="${CX_ESC(sq)}" placeholder="Search stores..." aria-label="Filter stores by name"></form></div>
     <div class="mk-card mk-storecard">
-      <div class="mk-thead"><span class="mk-thname">Name</span><span class="mk-thprod">Products<span class="mk-sortico gap" title="Store sorting is a reference-only lane (named gap)">${bpIcon("sort-desc")}</span></span></div>
+      <div class="mk-thead"><span class="mk-thname">Name</span><span class="mk-thprod">Products<span class="mk-sortico gap" title="There is one store, so there is nothing to sort">${bpIcon("sort-desc")}</span></span></div>
       <div class="mk-rows">
-        <a class="mk-row" href="/__ioi/marketplace" title="The estate's governed listing plane — draft listings, publish candidates, admission reviews (the real substrate)">
+        ${storeShown ? `        <a class="mk-row" href="/__ioi/marketplace" title="The estate's governed listing plane — draft listings, publish candidates, admission reviews (the real substrate)">
           <span class="mk-rowico" style="background-image:url('${MK_STORE_ICON_URI}')"></span>
           <span class="mk-rowmain"><span class="mk-rowname">Estate Marketplace — governed listing plane</span><span class="mk-rowsub">Listings drafted over real substrate. Publish is the governed path: admitted review + open release control + serving runtime, never a hidden lane.</span></span>
-          <span class="mk-rowright"><span class="mk-rowcount"><img src="${MK_PACKAGE_URI}" width="16" height="16" alt="">${products} product${products === 1 ? "" : "s"}</span><span class="mk-rowshare gap" title="Store sharing is a reference-only lane (named gap)">${bpIcon("share")}</span></span>
-        </a>
+          <span class="mk-rowright"><span class="mk-rowcount"><img src="${MK_PACKAGE_URI}" width="16" height="16" alt="">${products} product${products === 1 ? "" : "s"}</span><span class="mk-rowshare gap" title="Stores are not shared — the listing plane belongs to the organization">${bpIcon("share")}</span></span>
+        </a>` : `<div class="mk-row mk-nostore">No store matches “${esc(sq)}”. <a href="/__ioi/marketplace/listings">Clear the search</a></div>`}
       </div>
     </div>
     <div class="mk-card mk-wizcard">
@@ -6243,6 +6261,7 @@ function renderMarketplaceBrowsePort(listingsJson) {
     .mk-search{display:flex;align-items:center;gap:4px;width:315px;height:30px;border-radius:4px;background:#fff;padding:0 8px;color:#5f6b7c;box-shadow:inset 0 0 0 1px rgba(17,20,24,.2),inset 0 1px 1px rgba(17,20,24,.3)}
     .mk-search input{flex:1;border:0;background:transparent;font:inherit;font-size:14px;color:#1c2127;outline:none;padding:0}
     .mk-search input::placeholder{color:#5f6b7c}
+    .mk-nostore{display:block;padding:14px 16px;color:#5f6b7c;font-size:14px}
     .mk-hbtn{display:inline-flex;align-items:center;gap:5px;height:30px;margin-left:17px;padding:0 8px;border-radius:4px;font-size:14px;line-height:16.1px;color:#1c2127;cursor:default}
     .mk-hbtn.ring{margin-left:8px;padding:0 8px 0 9px;background:#fff;box-shadow:inset 0 0 0 1px rgba(64,72,84,.33),0 1px 2px rgba(17,20,24,.1)}
     .mk-hbtn.ring svg{color:#5f6b7c;margin-left:-1px}
@@ -6772,13 +6791,25 @@ function govApprovalsQueue(records) {
   </script>`;
   return inbox + table + gaps + dataTag + script;
 }
+// THE TARGET A GOVERNANCE CONTROL NAMES IS PICKED, NOT RECALLED (R-240). Every one of these forms asked
+// a person to type a raw ref — `marketplace-publish://…`, `frun_…` — that nothing on the page showed.
+// The page already reads the real subjects, so the field offers them (and still accepts a typed ref).
+function govSubjectDatalist(joins) {
+  const j = joins || {};
+  const rows = [
+    ...(j.domain_apps || []).filter((d) => d && d.domain_app_ref).map((d) => [d.domain_app_ref, `Domain app · ${d.name || d.domain_app_id || ""}`]),
+    ...(j.publish_candidates || []).filter((c) => c && c.ref).map((c) => [c.ref, `Publish candidate · ${String(c.listing_ref || "").replace(/^marketplace-listing:\/\//u, "")} · ${c.status || ""}`]),
+    ...(j.foundry_plans || []).filter((r) => r && r.id).map((r) => [r.id, `Foundry run plan · ${r.name || r.id}`]),
+  ];
+  return `<datalist id="gov-subjects">${rows.map(([v, l]) => `<option value="${CX_ESC(v)}" label="${CX_ESC(l)}">${CX_ESC(l)}</option>`).join("")}</datalist>`;
+}
 function govControlTab(fam, records, cohorts, joins) {
   const forms = {
-    "approvals": `<div class="two">${`<div class="field"><label>Target ref (required)</label><input name="subject_ref" ${GOV_INP} placeholder="marketplace-publish://… · domain-app://… · frun_… · authority-action://…"></div>`}<div class="field"><label>Request kind</label><input name="request_kind" ${GOV_INP} placeholder="crossing / publish / mount"></div></div><div class="field"><label>Reason</label><input name="reason" ${GOV_INP}></div><div class="field"><label>Required authority refs (comma-sep)</label><input name="required_authority_refs" ${GOV_INP}></div>`,
-    "releases": `<div class="field"><label>Release target ref (required)</label><input name="release_target_ref" ${GOV_INP} placeholder="frun_… · improvement-proposal://… · domain-app://… · marketplace-publish://…"></div>
+    "approvals": `<div class="two">${`<div class="field"><label>Target ref (required)</label><input name="subject_ref" list="gov-subjects" autocomplete="off" ${GOV_INP} placeholder="pick a domain app, publish candidate or run plan — or type a ref"></div>`}<div class="field"><label>Request kind</label><input name="request_kind" ${GOV_INP} placeholder="crossing / publish / mount"></div></div><div class="field"><label>Reason</label><input name="reason" ${GOV_INP}></div><div class="field"><label>Required authority refs (comma-sep)</label><input name="required_authority_refs" ${GOV_INP}></div>`,
+    "releases": `<div class="field"><label>Release target ref (required)</label><input name="release_target_ref" list="gov-subjects" autocomplete="off" ${GOV_INP} placeholder="pick a run plan, domain app or publish candidate — or type a ref"></div>
       <div class="two"><div class="field"><label>Rollout mode</label><select name="rollout_mode" ${GOV_INP}><option value="full">full — everyone behind the gate</option><option value="canary">canary — deterministic percentage</option><option value="cohort">cohort — named cohort objects</option></select></div><div class="field"><label>Canary percent (0–100)</label><input name="canary_percent" ${GOV_INP} placeholder="25"></div></div>
       <div class="field"><label>Cohorts (rollout audience — durable cohort:// objects)</label><select name="cohort_refs" multiple size="3" ${GOV_INP}>${(cohorts || []).map((c) => `<option value="${CX_ESC(c.ref)}">${CX_ESC(c.display_name)} · ${CX_ESC(c.scope)} · ${CX_ESC(c.status)}</option>`).join("")}</select>${(cohorts || []).length ? "" : `<div class="sub" style="margin:4px 0 0">No cohorts yet — create one in the Cohorts tab.</div>`}</div>`,
-    "kill-switches": `<div class="two"><div class="field"><label>Revocable subject ref (required)</label><input name="subject_ref" ${GOV_INP} placeholder="lease:… · connector:… · agent id · domain-app://…"></div><div class="field"><label>Revoke path (named, not called)</label><input name="revoke_path" ${GOV_INP} placeholder="/v1/hypervisor/authority/revoke"></div></div>`,
+    "kill-switches": `<div class="two"><div class="field"><label>Revocable subject ref (required)</label><input name="subject_ref" list="gov-subjects" autocomplete="off" ${GOV_INP} placeholder="pick a domain app — or type a lease, connector or agent ref"></div><div class="field"><label>Revoke path (named, not called)</label><input name="revoke_path" ${GOV_INP} placeholder="/v1/hypervisor/authority/revoke"></div></div>`,
     "cohorts": `<div class="two"><div class="field"><label>Display name (required)</label><input name="display_name" ${GOV_INP} placeholder="Canary team"></div><div class="field"><label>Scope</label><select name="scope" ${GOV_INP}><option value="project">project</option><option value="personal">personal</option><option value="org">org</option></select></div></div><div class="field"><label>Member refs (comma-sep: principal:// · project:// · org:// · environment:// · ioi-agent-policy://)</label><input name="member_refs" ${GOV_INP} placeholder="principal://usr_… , project://project:…"></div><div class="field"><label>Description</label><input name="description" ${GOV_INP}></div>`,
     "gates": `<div class="field"><label>Subject ref (required — Foundry spec/run-plan or named)</label><input name="subject_ref" ${GOV_INP} placeholder="fspec_… · frun_… · eval://…"></div><div class="two"><div class="field"><label>Max iterations</label><input name="max_iterations" ${GOV_INP}></div><div class="field"><label>Eval threshold</label><input name="eval_threshold" ${GOV_INP}></div></div><div class="field"><label>Privacy posture</label><input name="privacy_posture" ${GOV_INP} placeholder="local_only"></div>`,
   };
@@ -6832,7 +6863,7 @@ function govControlTab(fam, records, cohorts, joins) {
   const list = fam === "approvals" ? govApprovalsQueue(records)
     : fam === "releases" ? lifecycleMatrix + (records.length ? records.map(cardFn).join("") : `<div class="empty">Control present · empty — no ${CX_ESC(label.toLowerCase())} recorded yet.</div>`)
     : records.length ? records.map(cardFn).join("") : `<div class="empty">Control present · empty — no ${CX_ESC(label.toLowerCase())} recorded yet.</div>`;
-  return `<h2>New ${CX_ESC(label.replace(/s$/, ""))}</h2><form method="post" action="/__ioi/governance/${fam}"><div class="card" style="display:block">${forms[fam]}<div class="row" style="margin-top:6px"><button class="act" type="submit">Create (record-only)</button></div></div></form>
+  return `<h2>New ${CX_ESC(label.replace(/s$/, ""))}</h2>${govSubjectDatalist(joins)}<form method="post" action="/__ioi/governance/${fam}"><div class="card" style="display:block">${forms[fam]}<div class="row" style="margin-top:6px"><button class="act" type="submit">Create (record-only)</button></div></div></form>
     <h2>${CX_ESC(label)} (${records.length})</h2>${list}
     <p class="sub" style="margin-top:14px">Transitions record durable governance state. Effectful enforcement exists today for <b>KillSwitch</b> (Enforce, after trip) over domain-app runtimes; other control effects (lease/grant/connector/env revocation) remain later authority-gated crossings.</p>`;
 }
@@ -7006,11 +7037,12 @@ async function marketplaceSubjectOptions() {
   const opts = [];
   for (const a of (Array.isArray(ag) ? ag : [])) opts.push({ kind: "agent", v: a.id, l: `${(a.id || "").slice(0, 20)} · ${a.model_id || a.modelId || "agent"}` });
   for (const d of ((da && da.domain_apps) || [])) opts.push({ kind: "domain_app", v: d.domain_app_ref, l: d.name || d.domain_app_id });
-  for (const m of ((man && man.manifests) || [])) opts.push({ kind: "ontology_pack", v: m.ref, l: m.name || m.id });
+  // v2 manifest rows are envelopes — read the record, or every ODK pack rendered as a blank, selected option.
+  for (const m of ((man && man.manifests) || []).map(odkManifestView)) opts.push({ kind: "ontology_pack", v: m.ref, l: m.name || m.id });
   for (const r of ((rec && rec.data_recipes) || [])) opts.push({ kind: "data_recipe", v: r.ref, l: r.name || r.id });
   for (const s of ((fs && fs.specs) || [])) opts.push({ kind: "foundry_capability", v: s.id, l: `${s.name || s.id} (spec)` });
   for (const p of ((fr && fr.run_plans) || [])) opts.push({ kind: "foundry_capability", v: p.id, l: `${p.name || p.id} (run-plan)` });
-  return opts;
+  return opts.filter((o) => o.v);
 }
 function marketplacePayloadFromForm(p) {
   const csv = (k) => (p.get(k) || "").split(",").map((s) => s.trim()).filter(Boolean);
@@ -7048,10 +7080,11 @@ function renderMarketplaceListingForm(existing, opts) {
   const enc = encodeURIComponent; const ex = existing || {}; const isEdit = !!existing;
   const action = isEdit ? `/__ioi/marketplace/listings/${enc(ex.id)}/patch` : `/__ioi/marketplace/listings`;
   const kindOpts = MP_STORES.map((s) => `<option value="${s.kind}" ${ex.listing_kind === s.kind ? "selected" : ""}>${CX_ESC(s.label)}</option>`).join("");
-  const subjOpts = opts.map((o) => `<option value="${CX_ESC(o.v)}" data-kind="${o.kind}" ${ex.subject_ref === o.v ? "selected" : ""}>${CX_ESC(o.l)}</option>`).join("");
+  const subjOpts = opts.map((o) => `<option value="${CX_ESC(o.v)}" data-kind="${o.kind}" ${ex.subject_ref && ex.subject_ref === o.v ? "selected" : ""}>${CX_ESC(o.l)}</option>`).join("");
   const inner = `<p><a href="/__ioi/marketplace">← Marketplace</a></p><h1>${isEdit ? "Edit" : "Draft"} listing</h1>
     <p class="sub">List a real subject as a marketplace product. It stays a draft (<code>unlisted</code>) — nothing is published here.</p>
     <form method="post" action="${action}">
+      <input type="hidden" name="nonce" value="${CX_ESC(crypto.randomUUID())}">
       ${odkField("Name", "name", ex.name, "Coder agent")}
       ${odkArea("Description", "description", ex.description)}
       <div class="two">
@@ -7061,7 +7094,8 @@ function renderMarketplaceListingForm(existing, opts) {
       ${odkCsvField("Evidence refs (comma-sep — receipts / eval / state-root / local scheme refs)", "evidence_refs", ex.evidence_refs)}
       <div class="row"><button class="act" type="submit">${isEdit ? "Save draft" : "Create draft listing"}</button> <a class="act ghost" href="/__ioi/marketplace">Cancel</a></div>
     </form>
-    <script>(function(){var k=document.getElementById('mp-kind'),s=document.getElementById('mp-subject');if(!k||!s)return;function f(){var kk=k.value;Array.prototype.forEach.call(s.options,function(o){if(!o.value){return;}o.hidden=(o.getAttribute('data-kind')!==kk);});var cur=s.options[s.selectedIndex];if(!cur||cur.hidden){for(var i=0;i<s.options.length;i++){if(s.options[i].value&&!s.options[i].hidden){s.selectedIndex=i;return;}}}}k.addEventListener('change',f);f();})();</script>`;
+    <p class="sub" id="mp-none" hidden style="margin:-6px 0 10px">Nothing of this kind exists yet to list — pick another store, or create the subject first.</p>
+    <script>(function(){var k=document.getElementById('mp-kind'),s=document.getElementById('mp-subject'),n=document.getElementById('mp-none');if(!k||!s)return;function f(){var kk=k.value,any=false;Array.prototype.forEach.call(s.options,function(o){if(!o.value){return;}o.hidden=(o.getAttribute('data-kind')!==kk);if(!o.hidden)any=true;});if(n)n.hidden=any;s.disabled=!any;var cur=s.options[s.selectedIndex];if(!cur||cur.hidden){s.selectedIndex=-1;for(var i=0;i<s.options.length;i++){if(s.options[i].value&&!s.options[i].hidden){s.selectedIndex=i;return;}}}}k.addEventListener('change',f);f();})();</script>`;
   return automationsShell(`${isEdit ? "Edit" : "Draft"} listing`, inner, { theme: "light" });
 }
 // ---- admission-review callers (P-MKT-CALL-1) ---------------------------------------------------
@@ -7116,9 +7150,9 @@ function mpReviewIdempotencyKey(command) {
 // `ok:true`), so no call site here changes — the keys are now load-bearing by REPLAY rather than by
 // refusal, which is the behaviour these callers were written against.
 //
-// STILL NONCLAIMED, and still reported rather than hidden: the sibling marketplace mutations
-// (candidate create/publish, listing/candidate/offer delete) carry the same two defect classes and
-// have no replay; two SIMULTANEOUS submissions of one key still leave the loser a 409
+// The sibling marketplace mutations (candidate create/publish/delete, offer create, listing delete)
+// carried the same two defect classes — no owner, no key, reply ignored — and are CLOSED by
+// `mpOwnedWrite` below (R-240). STILL NONCLAIMED, and still reported rather than hidden: two SIMULTANEOUS submissions of one key still leave the loser a 409
 // `event_stream_expected_head_conflict` that converges only on its own retry; and a substrate read
 // failure during the replay probe surfaces as 409 rather than 503.
 
@@ -7153,6 +7187,22 @@ function mpMutationRefusal(title, result, back) {
     status: result.status >= 400 && result.status <= 599 ? result.status : 502,
     html: automationsShell(title, `<div class="empty" data-error-code="${CX_ESC(code)}"><b>${CX_ESC(title)}</b>${code ? ` — <code>${CX_ESC(code)}</code>` : ""}<div style="margin-top:6px">${CX_ESC(message || "the daemon refused the request and returned no message")}</div>${blocked ? `<div style="margin-top:6px">${CX_ESC(blocked)}</div>` : ""}</div><p><a href="${CX_ESC(back)}">← back</a></p>`),
   };
+}
+// THE SIBLING MUTATIONS, CLOSED (R-240). Candidate create/publish/delete, offer create and listing
+// delete posted without an owner or a retry key and IGNORED the reply, redirecting as if the write had
+// landed: every one was refused ("owner_ref is required") and the page said nothing. Each now carries
+// the caller's own tenant (from the session, never typed) and a content-derived key — the same
+// command replays, a different one is new — and a refusal renders in the daemon's words.
+// A create or publish is keyed by the FORM's nonce: these routes do not replay a repeated key (a key
+// re-presented with any different admitted bytes is a 409), so a content-derived key made a second,
+// deliberate click an error in jargon. One rendered form is one command; a double-submit of that same
+// form presents the same key. A delete keys on what it removes.
+async function mpOwnedWrite(path, method, fields, op, nonce = "") {
+  const who = await daemonFetch("/v1/hypervisor/auth/whoami").then((x) => x.json()).catch(() => ({}));
+  const owner_ref = callerOwnerRef(who);
+  const command = { op, owner_ref, path, ...fields };
+  const idempotency_key = nonce ? `${op}:${String(nonce).slice(0, 80)}` : `${op}:${crypto.createHash("sha256").update(JSON.stringify(command)).digest("hex").slice(0, 32)}`;
+  return mpDaemonMutation(path, { method, headers: { "content-type": "application/json" }, body: JSON.stringify({ ...fields, owner_ref, idempotency_key }) });
 }
 function renderMarketplaceListingDetail(listing, candidates, reviewsByCandidate, offers, gov, owner = "") {
   const enc = encodeURIComponent; const l = listing || {};
@@ -7193,7 +7243,7 @@ function renderMarketplaceListingDetail(listing, candidates, reviewsByCandidate,
         ${mpOwnerInput(";min-width:220px", owner)}
         <button class="act ghost" type="submit">Submit admission review</button>
         <div class="sub" style="margin:0;flex-basis:100%">${CX_ESC(MP_OWNER_HINT)} No reviewer is asked for — the daemon records the principal it authenticated for this submission.</div></form>`;
-    const publishBtn = (!published && c.publishable) ? `<form class="inline" method="post" action="/__ioi/marketplace/candidates/${enc(c.id)}/publish"><input type="hidden" name="listing_id" value="${enc(lid)}"><button class="act" type="submit">Publish (runtime-backed)</button></form>` : "";
+    const publishBtn = (!published && c.publishable) ? `<form class="inline" method="post" action="/__ioi/marketplace/candidates/${enc(c.id)}/publish"><input type="hidden" name="nonce" value="${CX_ESC(crypto.randomUUID())}"><input type="hidden" name="listing_id" value="${enc(lid)}"><button class="act" type="submit">Publish (runtime-backed)</button></form>` : "";
     return `<div class="card" style="display:block">
       <div class="row" style="justify-content:space-between;margin:0 0 8px"><div><b>Publish candidate</b> <code>${CX_ESC(c.id)}</code> <span class="pill muted">publish_state: ${CX_ESC(c.publish_state || "candidate")}</span> ${pubPill}</div>
         ${published ? "" : `<form class="inline" method="post" action="/__ioi/marketplace/candidates/${enc(c.id)}/delete"><input type="hidden" name="listing_id" value="${enc(lid)}"><button class="act ghost" type="submit">Delete candidate</button></form>`}</div>
@@ -7205,14 +7255,14 @@ function renderMarketplaceListingDetail(listing, candidates, reviewsByCandidate,
   }).join("");
   const admission = `<h2>Publish admission <span class="sub" style="text-transform:none;letter-spacing:0;font-weight:400">— publishes only with admitted review + open ReleaseControl + a mounted&amp;serving runtime</span></h2>
     ${candidates.length ? candBlocks : `<div class="empty">No publish candidate yet.</div>`}
-    <form method="post" action="/__ioi/marketplace/listings/${enc(lid)}/candidates" style="margin-top:10px"><button class="act ghost" type="submit">Create publish candidate</button></form>`;
+    <form method="post" action="/__ioi/marketplace/listings/${enc(lid)}/candidates" style="margin-top:10px"><input type="hidden" name="nonce" value="${CX_ESC(crypto.randomUUID())}"><button class="act ghost" type="submit">Create publish candidate</button></form>`;
 
   // Managed instance offers (agent / domain_app only) — always uninstantiated.
   const offerable = l.listing_kind === "agent" || l.listing_kind === "domain_app";
   const offerRows = offers.map((o) => `<tr><td><code>${CX_ESC(o.id)}</code> ${CX_ESC(o.name || "")}</td><td><span class="pill muted">instantiated: ${o.runtime_posture && o.runtime_posture.instantiated ? "true" : "false"}</span></td><td><form class="inline" method="post" action="/__ioi/marketplace/offers/${enc(o.id)}/delete"><input type="hidden" name="listing_id" value="${enc(lid)}"><button class="act ghost" type="submit">✕</button></form></td></tr>`).join("");
   const offersSection = `<h2>Managed instance offers <span class="sub" style="text-transform:none;letter-spacing:0;font-weight:400">— draft offers; never instantiated/hired</span></h2>
     ${offers.length ? `<table><tbody>${offerRows}</tbody></table>` : `<div class="empty">No managed offers.</div>`}
-    ${offerable ? `<form method="post" action="/__ioi/marketplace/listings/${enc(lid)}/offers" style="margin-top:10px"><button class="act" type="submit">Create managed offering (draft)</button></form>` : `<p class="sub" style="margin:8px 0 0">Managed offerings apply to agent / domain_app listings only.</p>`}`;
+    ${offerable ? `<form method="post" action="/__ioi/marketplace/listings/${enc(lid)}/offers" style="margin-top:10px"><input type="hidden" name="nonce" value="${CX_ESC(crypto.randomUUID())}"><button class="act" type="submit">Create managed offering (draft)</button></form>` : `<p class="sub" style="margin:8px 0 0">Managed offerings apply to agent / domain_app listings only.</p>`}`;
 
   const handoffs = `<p class="sub" style="margin-top:20px">Resource graph: ${marketplaceSubjectLink(l.listing_kind, l.subject_ref)} · <a href="/__ioi/governance">Governance blockers</a> · <a href="/__ioi/work-ledger">Work Ledger (proof)</a></p>`;
   // Listing-level admission readiness (source shape: the product detail carries its install/
@@ -8152,7 +8202,7 @@ button{width:100%;margin-top:18px;padding:11px;border:0;border-radius:9px;backgr
 .err{margin-top:14px;color:#ff9b9b;font-size:13px}.hint{margin-top:16px;color:#6a7080;font-size:12px;text-align:center}
 .sso{display:block;margin-top:10px;padding:11px;border:1px solid #2c313c;border-radius:9px;background:#1b1e25;color:#e7e9ee;font-size:14px;font-weight:600;text-align:center;text-decoration:none}
 .div{margin:18px 0 4px;border-top:1px solid #262a33;text-align:center}.div span{position:relative;top:-10px;background:#15171c;padding:0 10px;color:#6a7080;font-size:12px}
-</style></head><body><form class="card" method="POST" action="/__ioi/login">
+</style></head><body><main><form class="card" method="POST" action="/__ioi/login">
 <div class="brand">IOI Hypervisor</div><h1>Sign in</h1>
 <label>Email</label><input name="email" type="email" autocomplete="username" autofocus placeholder="you@org.com">
 <label>Password</label><input name="password" type="password" autocomplete="current-password" placeholder="••••••••">
@@ -8161,7 +8211,7 @@ ${next ? `<input type="hidden" name="next" value="${escHtml(next)}">` : ""}
 ${error ? `<div class="err">${error}</div>` : ""}
 ${ssoButtons ? `<div class="div"><span>or</span></div>${ssoButtons}` : ""}
 <div class="hint">Authenticated by the Hypervisor identity plane · sessions are sealed</div>
-</form></body></html>`;
+</form></main></body></html>`;
 }
 
 // Owned first-run bootstrap surface — the sign-in page while the deployment has no operator yet.
@@ -8178,7 +8228,7 @@ input{width:100%;padding:10px 12px;border-radius:9px;border:1px solid #2c313c;ba
 button{width:100%;margin-top:18px;padding:11px;border:0;border-radius:9px;background:#5b7cfa;color:#fff;font-size:14px;font-weight:600;cursor:pointer}
 .err{margin-top:14px;color:#ff9b9b;font-size:13px}.hint{margin-top:16px;color:#6a7080;font-size:12px;line-height:1.5}
 code{font-family:ui-monospace,monospace;font-size:12px;color:#c9ccd4}
-</style></head><body><form class="card" method="POST" action="/__ioi/bootstrap" data-ioi-first-run="1">
+</style></head><body><main><form class="card" method="POST" action="/__ioi/bootstrap" data-ioi-first-run="1">
 <div class="brand">IOI Hypervisor</div><h1>Set up the operator account</h1>
 <div class="sub">This deployment has no operator yet. Enter the one-time bootstrap token the daemon printed when it started (the line beginning <code>ioi_bootstrap_</code>), then choose how you sign in.</div>
 <label>Bootstrap token</label><input name="token" autocomplete="off" autofocus placeholder="ioi_bootstrap_…" required>
@@ -8188,7 +8238,7 @@ code{font-family:ui-monospace,monospace;font-size:12px;color:#c9ccd4}
 <button type="submit">Create operator account</button>
 ${error ? `<div class="err">${String(error).replace(/[<>]/g, "")}</div>` : ""}
 <div class="hint">The token can be used once. Authentication is the identity plane only; it grants no execution authority — every consequential action is still approved separately.</div>
-</form></body></html>`;
+</form></main></body></html>`;
 }
 
 // Owned invite-acceptance surface — provisions a member account from the org invite link.
@@ -8203,14 +8253,14 @@ h1{font-size:20px;margin:0 0 4px}.sub{color:#8a90a0;font-size:13px;margin-bottom
 input{width:100%;padding:10px 12px;border-radius:9px;border:1px solid #2c313c;background:#0e1014;color:#e7e9ee;font-size:14px}
 button{width:100%;margin-top:18px;padding:11px;border:0;border-radius:9px;background:#5b7cfa;color:#fff;font-size:14px;font-weight:600;cursor:pointer}
 .err{margin-top:14px;color:#ff9b9b;font-size:13px}
-</style></head><body><form class="card" method="POST" action="/__ioi/invite/${safe}">
+</style></head><body><main><form class="card" method="POST" action="/__ioi/invite/${safe}">
 <div class="brand">IOI Hypervisor</div><h1>Join the organization</h1><div class="sub">You've been invited. Create your account.</div>
 <label>Full name</label><input name="name" autocomplete="name" autofocus placeholder="Your name">
 <label>Email</label><input name="email" type="email" autocomplete="email" placeholder="you@org.com">
 <label>Password</label><input name="password" type="password" autocomplete="new-password" placeholder="Choose a password">
 <button type="submit">Create account &amp; join</button>
 ${error ? `<div class="err">${error}</div>` : ""}
-</form></body></html>`;
+</form></main></body></html>`;
 }
 
 // 2) Front server: IOI /api adapter first, proxy everything else to the productUi.
@@ -8351,6 +8401,18 @@ function withOwnedSurfaceNarrowRules(html) {
   // rule set is never silently skipped for a surface that renders an unusual shell.
   if (/<\/head>/i.test(html)) return html.replace(/<\/head>/i, `${OWNED_SURFACE_NARROW_RULES}</head>`);
   return html.replace(/<body\b/i, `${OWNED_SURFACE_NARROW_RULES}<body`);
+}
+
+// WHY A WRITE WAS REFUSED, in the daemon's own words (R-240). Thirteen create/save handlers read only
+// `error.message`, but many daemon routes answer a flat {code, message} — so their real reason was
+// replaced by the word "invalid", and a page that could say "at least one ontology_ref is required"
+// said nothing. An empty reply is not "invalid" either: it is a daemon that did not answer.
+function whyRefused(reply) {
+  const msg = refusalMessageOf(reply);
+  if (msg) return msg;
+  const code = reply && (reply.code || (reply.error && reply.error.code));
+  if (code) return String(code);
+  return reply && typeof reply === "object" && Object.keys(reply).length ? "the daemon refused without a reason" : "the daemon did not answer";
 }
 
 function sendOwnedSurfaceHtml(res, surfaceOrSlug, rendered, headers = {}, servedRoute = null) {
@@ -10114,7 +10176,7 @@ async function handleEstateRequest(req, res, body) {
       const qp = new URL(req.url, "http://x").searchParams;
       const lane = ["active", "pastdue", "archived"].includes(qp.get("lane")) ? qp.get("lane") : "active";
       const filter = qp.get("filter") === "all" ? "all" : "action";
-      sendOwnedSurfaceHtml(res, "changes", renderChangesPort((pj.proposals || []).sort((a, b) => String(b.updated_at || "").localeCompare(String(a.updated_at || ""))), lane, filter));
+      sendOwnedSurfaceHtml(res, "changes", renderChangesPort((pj.proposals || []).sort((a, b) => String(b.updated_at || "").localeCompare(String(a.updated_at || ""))), lane, filter, (qp.get("q") || "").slice(0, 200)));
       return;
     }
     // ---- Workbench · Code Repositories — WOR-2 (remediation v2): D6 DONOR port. The
@@ -13399,19 +13461,29 @@ async function handleEstateRequest(req, res, body) {
     // ---- Feedback & Annotations — the queue over the daemon feedback plane.
     if (pathname === "/__ioi/feedback" && req.method === "GET") {
       const flash = new URL(req.url, "http://x").searchParams.get("refused") || "";
-      const [ov, li] = await Promise.all([
-        daemonFetch(`/v1/hypervisor/feedback/overview`).then((x) => x.json()).catch(() => ({})),
-        daemonFetch(`/v1/hypervisor/feedback-entries`).then((x) => x.json()).catch(() => ({})),
+      const FJ = (p) => daemonFetch(p).then((x) => x.json()).catch(() => ({}));
+      const [ov, li, fda, fml, fbp, fsp, frp] = await Promise.all([
+        FJ(`/v1/hypervisor/feedback/overview`), FJ(`/v1/hypervisor/feedback-entries`),
+        FJ("/v1/hypervisor/domain-apps"), FJ("/v1/hypervisor/marketplace/listings"), FJ("/v1/hypervisor/studio/blueprints"),
+        FJ("/v1/hypervisor/foundry/specs"), FJ("/v1/hypervisor/foundry/run-plans"),
       ]);
+      // The subjects feedback can name that resolve locally — offered, so nobody has to recall a ref (R-240).
+      const subjects = [
+        ...(fda.domain_apps || []).filter((d) => d && d.domain_app_ref).map((d) => [d.domain_app_ref, `Domain app · ${d.name || d.domain_app_id || ""}`]),
+        ...(fml.listings || []).filter((l) => l && l.ref).map((l) => [l.ref, `Marketplace listing · ${l.name || l.id}`]),
+        ...(fbp.blueprints || []).filter((b) => b && (b.ref || b.blueprint_id)).map((b) => [b.ref || `blueprint://${b.blueprint_id}`, `Blueprint · ${b.name || b.blueprint_id}`]),
+        ...(fsp.specs || []).filter((s) => s && s.id).map((s) => [s.id, `Foundry spec · ${s.name || s.id}`]),
+        ...(frp.run_plans || []).filter((r) => r && r.id).map((r) => [r.id, `Foundry run plan · ${r.name || r.id}`]),
+      ].slice(0, 200);
       res.writeHead(200, { "Content-Type": "text/html; charset=utf-8", "Cache-Control": "no-cache" });
-      res.end(renderFeedbackQueue(ov, li.feedback_entries || [], flash));
+      res.end(renderFeedbackQueue(ov, li.feedback_entries || [], flash, subjects));
       return;
     }
     if (pathname === "/__ioi/feedback" && req.method === "POST") {
       const f = new URLSearchParams(body.toString("utf8"));
       const r = await daemonFetch(`/v1/hypervisor/feedback-entries`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ subject_ref: f.get("subject_ref") || "", entry_kind: f.get("entry_kind") || "feedback", body: f.get("body") || "", consent: f.get("consent") || "never_train" }) });
       const j = await r.json().catch(() => ({}));
-      res.writeHead(302, { Location: r.ok ? "/__ioi/feedback" : `/__ioi/feedback?refused=${encodeURIComponent((j.error && j.error.message) || "invalid")}`, "Cache-Control": "no-cache" });
+      res.writeHead(302, { Location: r.ok ? "/__ioi/feedback" : `/__ioi/feedback?refused=${encodeURIComponent(whyRefused(j))}`, "Cache-Control": "no-cache" });
       return res.end();
     }
     if (pathname.startsWith("/__ioi/feedback/") && pathname.endsWith("/transition") && req.method === "POST") {
@@ -13421,7 +13493,7 @@ async function handleEstateRequest(req, res, body) {
       if (f.get("converted_to_ref")) payload.converted_to_ref = f.get("converted_to_ref");
       const r = await daemonFetch(`/v1/hypervisor/feedback-entries/${encodeURIComponent(fid)}`, { method: "PATCH", headers: { "content-type": "application/json" }, body: JSON.stringify(payload) });
       const j = await r.json().catch(() => ({}));
-      res.writeHead(302, { Location: r.ok ? "/__ioi/feedback" : `/__ioi/feedback?refused=${encodeURIComponent((j.error && j.error.message) || "invalid")}`, "Cache-Control": "no-cache" });
+      res.writeHead(302, { Location: r.ok ? "/__ioi/feedback" : `/__ioi/feedback?refused=${encodeURIComponent(whyRefused(j))}`, "Cache-Control": "no-cache" });
       return res.end();
     }
     // ---- Evaluations — owner surface for the Evaluations family (eval-suite library). Renders the
@@ -13463,7 +13535,7 @@ async function handleEstateRequest(req, res, body) {
       };
       const r = await daemonFetch(`/v1/hypervisor/eval-suites`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(payload) });
       const j = await r.json().catch(() => ({}));
-      res.writeHead(302, { Location: r.ok ? "/__ioi/evaluations" : `/__ioi/evaluations?refused=${encodeURIComponent((j.error && j.error.message) || "invalid")}`, "Cache-Control": "no-cache" });
+      res.writeHead(302, { Location: r.ok ? "/__ioi/evaluations" : `/__ioi/evaluations?refused=${encodeURIComponent(whyRefused(j))}`, "Cache-Control": "no-cache" });
       return res.end();
     }
     if (pathname.startsWith("/__ioi/evaluations/") && pathname.endsWith("/delete") && req.method === "POST") {
@@ -13707,12 +13779,11 @@ async function handleEstateRequest(req, res, body) {
       return;
     }
     // ---- Operations — execution health over the automation substrate (estate surface #9).
-    // ---- Missions — owner surface for suite/run work (jobs + incidents seeds). Reads the real
-    // operations run queue + goal-runs; renders the run/job queue and the mission-level incident
-    // inbox (run failures + GoalRun blockers). Operations stays substrate/infra (separate route).
+    // ---- Marketplace browse (the listings port). Product search hands off to the governed listing
+    // plane's own filter; store search filters the store rows this page lists (R-240).
     if (pathname === "/__ioi/marketplace/listings" && req.method === "GET") {
       const listingsJson = await daemonFetch(`/v1/hypervisor/marketplace/listings`).then((x) => x.json()).catch(() => ({}));
-      sendOwnedSurfaceHtml(res, "listings", renderMarketplaceBrowsePort(listingsJson));
+      sendOwnedSurfaceHtml(res, "listings", renderMarketplaceBrowsePort(listingsJson, new URL(req.url, "http://x").searchParams.get("sq") || ""));
       return;
     }
     if (pathname === "/__ioi/foundry/models/register" && req.method === "POST") {
@@ -14387,7 +14458,7 @@ async function handleEstateRequest(req, res, body) {
       const r = await daemonFetch(`/v1/hypervisor/foundry/specs`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(payload) }).then((x) => x.json()).catch(() => ({}));
       if (r && r.ok) { res.writeHead(302, { Location: `/__ioi/foundry/specs/${encodeURIComponent(r.spec.id)}`, "Cache-Control": "no-cache" }); return res.end(); }
       res.writeHead(200, HTMLH);
-      res.end(automationsShell("New FoundrySpec", `<div class="empty">Create failed: ${CX_ESC((r.error && r.error.message) || "invalid")}</div><p><a href="/__ioi/foundry/specs/new">← back</a></p>`));
+      res.end(automationsShell("New FoundrySpec", `<div class="empty">Create failed: ${CX_ESC(whyRefused(r))}</div><p><a href="/__ioi/foundry/specs/new">← back</a></p>`));
       return;
     }
     if (pathname.startsWith("/__ioi/foundry/specs/")) {
@@ -14404,7 +14475,7 @@ async function handleEstateRequest(req, res, body) {
         const r = await daemonFetch(`/v1/hypervisor/foundry/specs/${encodeURIComponent(id)}`, { method: "PATCH", headers: { "content-type": "application/json" }, body: JSON.stringify(payload) }).then((x) => x.json()).catch(() => ({}));
         if (r && r.ok) { res.writeHead(302, { Location: `/__ioi/foundry/specs/${encodeURIComponent(id)}`, "Cache-Control": "no-cache" }); return res.end(); }
         res.writeHead(200, HTMLH);
-        res.end(automationsShell("Edit FoundrySpec", `<div class="empty">Save failed: ${CX_ESC((r.error && r.error.message) || "invalid")}</div><p><a href="/__ioi/foundry/specs/${encodeURIComponent(id)}/edit">← back</a></p>`));
+        res.end(automationsShell("Edit FoundrySpec", `<div class="empty">Save failed: ${CX_ESC(whyRefused(r))}</div><p><a href="/__ioi/foundry/specs/${encodeURIComponent(id)}/edit">← back</a></p>`));
         return;
       }
       if (action === "delete" && req.method === "POST") {
@@ -14438,7 +14509,7 @@ async function handleEstateRequest(req, res, body) {
       const r = await daemonFetch(`/v1/hypervisor/foundry/run-plans`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(payload) }).then((x) => x.json()).catch(() => ({}));
       if (r && r.ok) { res.writeHead(302, { Location: `/__ioi/foundry/run-plans/${encodeURIComponent(r.run_plan.id)}`, "Cache-Control": "no-cache" }); return res.end(); }
       res.writeHead(200, HTMLH);
-      res.end(automationsShell("New FoundryRunPlan", `<div class="empty">Create failed: ${CX_ESC((r.error && r.error.message) || "invalid")}</div><p><a href="/__ioi/foundry">← Foundry</a></p>`));
+      res.end(automationsShell("New FoundryRunPlan", `<div class="empty">Create failed: ${CX_ESC(whyRefused(r))}</div><p><a href="/__ioi/foundry">← Foundry</a></p>`));
       return;
     }
     if (pathname.startsWith("/__ioi/foundry/run-plans/")) {
@@ -14894,7 +14965,7 @@ async function handleEstateRequest(req, res, body) {
           const rr = await daemonFetch(`${api}`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(payload) }).then((x) => x.json()).catch(() => ({}));
           if (rr && rr.ok) { res.writeHead(302, { Location: `/__ioi/odk/${family}/${encodeURIComponent(odkView(family, rr[cfg.key]).id)}`, "Cache-Control": "no-cache" }); return res.end(); }
           res.writeHead(200, HTMLH);
-          res.end(automationsShell(`New ${cfg.label}`, `<div class="empty">Create failed: ${CX_ESC((rr.error && rr.error.message) || "invalid")}</div><p><a href="/__ioi/odk/${family}/new">← back</a></p>`));
+          res.end(automationsShell(`New ${cfg.label}`, `<div class="empty">Create failed: ${CX_ESC(whyRefused(rr))}</div><p><a href="/__ioi/odk/${family}/new">← back</a></p>`));
           return;
         }
         // item-scoped (seg1 = id)
@@ -14920,7 +14991,7 @@ async function handleEstateRequest(req, res, body) {
             const rr = await daemonFetch(`${api}/${encodeURIComponent(id)}`, { method: "PATCH", headers: { "content-type": "application/json" }, body: JSON.stringify(payload) }).then((x) => x.json()).catch(() => ({}));
             if (rr && rr.ok) { res.writeHead(302, { Location: `/__ioi/odk/${family}/${encodeURIComponent(id)}`, "Cache-Control": "no-cache" }); return res.end(); }
             res.writeHead(200, HTMLH);
-            res.end(automationsShell(`Edit ${cfg.label}`, `<div class="empty">Save failed: ${CX_ESC((rr.error && rr.error.message) || "invalid")}</div><p><a href="/__ioi/odk/${family}/${encodeURIComponent(id)}/edit">← back</a></p>`));
+            res.end(automationsShell(`Edit ${cfg.label}`, `<div class="empty">Save failed: ${CX_ESC(whyRefused(rr))}</div><p><a href="/__ioi/odk/${family}/${encodeURIComponent(id)}/edit">← back</a></p>`));
             return;
           }
           if (seg2 === "delete" && req.method === "POST") {
@@ -15095,7 +15166,7 @@ async function handleEstateRequest(req, res, body) {
       const rr = await daemonFetch(`/v1/hypervisor/domain-apps`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(payload) }).then((x) => x.json()).catch(() => ({}));
       if (rr && rr.ok) { res.writeHead(302, { Location: `/__ioi/domain-apps/${encodeURIComponent(rr.domain_app.domain_app_id)}`, "Cache-Control": "no-cache" }); return res.end(); }
       res.writeHead(200, HTMLH);
-      res.end(automationsShell("New Domain App", `<div class="empty">Create failed: ${CX_ESC((rr.error && rr.error.message) || "invalid")}</div><p><a href="/__ioi/domain-apps/new">← back</a></p>`));
+      res.end(automationsShell("New Domain App", `<div class="empty">Create failed: ${CX_ESC(whyRefused(rr))}</div><p><a href="/__ioi/domain-apps/new">← back</a></p>`));
       return;
     }
     if (pathname.startsWith("/__ioi/domain-apps/")) {
@@ -15114,7 +15185,7 @@ async function handleEstateRequest(req, res, body) {
         const rr = await daemonFetch(`/v1/hypervisor/domain-apps/${encodeURIComponent(id)}`, { method: "PATCH", headers: { "content-type": "application/json" }, body: JSON.stringify(payload) }).then((x) => x.json()).catch(() => ({}));
         if (rr && rr.ok) { res.writeHead(302, { Location: `/__ioi/domain-apps/${encodeURIComponent(id)}`, "Cache-Control": "no-cache" }); return res.end(); }
         res.writeHead(200, HTMLH);
-        res.end(automationsShell("Edit Domain App", `<div class="empty">Save failed: ${CX_ESC((rr.error && rr.error.message) || "invalid")}</div><p><a href="/__ioi/domain-apps/${encodeURIComponent(id)}/edit">← back</a></p>`));
+        res.end(automationsShell("Edit Domain App", `<div class="empty">Save failed: ${CX_ESC(whyRefused(rr))}</div><p><a href="/__ioi/domain-apps/${encodeURIComponent(id)}/edit">← back</a></p>`));
         return;
       }
       if (action === "delete" && req.method === "POST") {
@@ -15216,7 +15287,7 @@ async function handleEstateRequest(req, res, body) {
           const r = await daemonFetch(`${api}`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(payload) }).then((x) => x.json()).catch(() => ({}));
           if (r && r.ok) { res.writeHead(302, { Location: back, "Cache-Control": "no-cache" }); return res.end(); }
           res.writeHead(200, HTMLH);
-          res.end(automationsShell("Governance", `<div class="empty">Create failed: ${CX_ESC((r.error && r.error.message) || "invalid")}</div><p><a href="${CX_ESC(back)}">← back</a></p>`));
+          res.end(automationsShell("Governance", `<div class="empty">Create failed: ${CX_ESC(whyRefused(r))}</div><p><a href="${CX_ESC(back)}">← back</a></p>`));
           return;
         }
         const id = decodeURIComponent(segs[1]);
@@ -15259,11 +15330,15 @@ async function handleEstateRequest(req, res, body) {
       return;
     }
     if (pathname === "/__ioi/marketplace/listings" && req.method === "POST") {
-      const payload = marketplacePayloadFromForm(new URLSearchParams(body.toString()));
+      // R-240: every submission was refused — the plane admits through the owner-scoped write
+      // boundary, and this form sent neither an owner nor an idempotency key.
+      const mpForm = new URLSearchParams(body.toString());
+      const mpWho = await daemonFetch("/v1/hypervisor/auth/whoami").then((x) => x.json()).catch(() => ({}));
+      const payload = { ...marketplacePayloadFromForm(mpForm), owner_ref: callerOwnerRef(mpWho), idempotency_key: `mp-listing-${mpForm.get("nonce") || crypto.randomUUID()}` };
       const rr = await daemonFetch(`/v1/hypervisor/marketplace/listings`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(payload) }).then((x) => x.json()).catch(() => ({}));
       if (rr && rr.ok) { res.writeHead(302, { Location: `/__ioi/marketplace/listings/${encodeURIComponent(rr.listing.id)}`, "Cache-Control": "no-cache" }); return res.end(); }
       res.writeHead(200, HTMLH);
-      res.end(automationsShell("Draft listing", `<div class="empty">Create failed: ${CX_ESC((rr.error && rr.error.message) || "invalid")}</div><p><a href="/__ioi/marketplace/listings/new">← back</a></p>`));
+      res.end(automationsShell("Draft listing", `<div class="empty">Create failed: ${CX_ESC(whyRefused(rr))}</div><p><a href="/__ioi/marketplace/listings/new">← back</a></p>`));
       return;
     }
     if (pathname.startsWith("/__ioi/marketplace/listings/")) {
@@ -15277,29 +15352,34 @@ async function handleEstateRequest(req, res, body) {
         return;
       }
       if (action === "patch" && req.method === "POST") {
-        const payload = marketplacePayloadFromForm(new URLSearchParams(body.toString()));
+        const mpForm = new URLSearchParams(body.toString());
+        const mpWho = await daemonFetch("/v1/hypervisor/auth/whoami").then((x) => x.json()).catch(() => ({}));
+        const payload = { ...marketplacePayloadFromForm(mpForm), owner_ref: callerOwnerRef(mpWho), idempotency_key: `mp-listing-edit-${mpForm.get("nonce") || crypto.randomUUID()}` };
         const rr = await daemonFetch(`${listingApi}`, { method: "PATCH", headers: { "content-type": "application/json" }, body: JSON.stringify(payload) }).then((x) => x.json()).catch(() => ({}));
         if (rr && rr.ok) { res.writeHead(302, { Location: `/__ioi/marketplace/listings/${encodeURIComponent(id)}`, "Cache-Control": "no-cache" }); return res.end(); }
         res.writeHead(200, HTMLH);
-        res.end(automationsShell("Edit listing", `<div class="empty">Save failed: ${CX_ESC((rr.error && rr.error.message) || "invalid")}</div><p><a href="/__ioi/marketplace/listings/${encodeURIComponent(id)}/edit">← back</a></p>`));
+        res.end(automationsShell("Edit listing", `<div class="empty">Save failed: ${CX_ESC(whyRefused(rr))}</div><p><a href="/__ioi/marketplace/listings/${encodeURIComponent(id)}/edit">← back</a></p>`));
         return;
       }
+      const listingBack = `/__ioi/marketplace/listings/${encodeURIComponent(id)}`;
+      const answer = (title, result, landedAt, back) => {
+        if (mpMutationLanded(result)) { res.writeHead(302, { Location: landedAt, "Cache-Control": "no-cache" }); return res.end(); }
+        const refusal = mpMutationRefusal(title, result, back);
+        res.writeHead(refusal.status, HTMLH); return res.end(refusal.html);
+      };
       if (action === "delete" && req.method === "POST") {
-        await daemonFetch(`${listingApi}`, { method: "DELETE" }).catch(() => {});
-        res.writeHead(302, { Location: "/__ioi/marketplace", "Cache-Control": "no-cache" });
-        return res.end();
+        return answer("Listing not deleted", await mpOwnedWrite(listingApi, "DELETE", {}, "marketplace.listing.delete"), "/__ioi/marketplace", listingBack);
       }
       if (action === "candidates" && req.method === "POST") {
         const lr = await daemonFetch(`${listingApi}`).then((x) => x.json()).catch(() => ({}));
-        if (lr.ok) await daemonFetch(`/v1/hypervisor/marketplace/publish-candidates`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ listing_ref: lr.listing.ref }) }).catch(() => {});
-        res.writeHead(302, { Location: `/__ioi/marketplace/listings/${encodeURIComponent(id)}`, "Cache-Control": "no-cache" });
-        return res.end();
+        if (!lr.ok) return answer("Publish candidate not created", { status: 404, body: { code: "listing_not_found", message: "this listing could not be read" } }, listingBack, listingBack);
+        const nonce = new URLSearchParams(body.toString()).get("nonce") || crypto.randomUUID();
+        return answer("Publish candidate not created", await mpOwnedWrite(`/v1/hypervisor/marketplace/publish-candidates`, "POST", { listing_ref: lr.listing.ref }, "marketplace.candidate.create", nonce), listingBack, listingBack);
       }
       if (action === "offers" && req.method === "POST") {
         const lr = await daemonFetch(`${listingApi}`).then((x) => x.json()).catch(() => ({}));
-        if (lr.ok) await daemonFetch(`/v1/hypervisor/marketplace/instance-offers`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ offer_kind: lr.listing.listing_kind, subject_ref: lr.listing.subject_ref, listing_ref: lr.listing.ref, name: `${lr.listing.name || "offer"} (offer)` }) }).catch(() => {});
-        res.writeHead(302, { Location: `/__ioi/marketplace/listings/${encodeURIComponent(id)}`, "Cache-Control": "no-cache" });
-        return res.end();
+        if (!lr.ok) return answer("Offer not created", { status: 404, body: { code: "listing_not_found", message: "this listing could not be read" } }, listingBack, listingBack);
+        return answer("Offer not created", await mpOwnedWrite(`/v1/hypervisor/marketplace/instance-offers`, "POST", { offer_kind: lr.listing.listing_kind, subject_ref: lr.listing.subject_ref, listing_ref: lr.listing.ref, name: `${lr.listing.name || "offer"} (offer)` }, "marketplace.offer.create", new URLSearchParams(body.toString()).get("nonce") || crypto.randomUUID()), listingBack, listingBack);
       }
       if (!action && req.method === "GET") {
         const lr = await daemonFetch(`${listingApi}`).then((x) => x.json()).catch(() => ({}));
@@ -15329,7 +15409,8 @@ async function handleEstateRequest(req, res, body) {
       const p = new URLSearchParams(body.toString());
       const back = `/__ioi/marketplace/listings/${encodeURIComponent(p.get("listing_id") || "")}`;
       if (action === "delete") {
-        await daemonFetch(`/v1/hypervisor/marketplace/publish-candidates/${encodeURIComponent(id)}`, { method: "DELETE" }).catch(() => {});
+        const result = await mpOwnedWrite(`/v1/hypervisor/marketplace/publish-candidates/${encodeURIComponent(id)}`, "DELETE", {}, "marketplace.candidate.delete");
+        if (!mpMutationLanded(result)) { const refusal = mpMutationRefusal("Publish candidate not deleted", result, back); res.writeHead(refusal.status, HTMLH); res.end(refusal.html); return; }
       } else if (action === "reviews") {
         // P-MKT-CALL-1. The body is the DECISION plus the owner scope and the retry key the
         // owner-scoped mutation contract requires — and nothing about identity: the caller is the
@@ -15348,13 +15429,8 @@ async function handleEstateRequest(req, res, body) {
           return;
         }
       } else if (action === "publish") {
-        const r = await daemonFetch(`/v1/hypervisor/marketplace/publish-candidates/${encodeURIComponent(id)}/publish`, { method: "POST", headers: { "content-type": "application/json" }, body: "{}" }).then((x) => x.json()).catch(() => ({}));
-        if (r && r.ok === false && r.error) {
-          const reasons = (r.error.blocked_reasons || []).join(", ");
-          res.writeHead(200, HTMLH);
-          res.end(automationsShell("Marketplace", `<div class="empty">Publish blocked: ${CX_ESC(r.error.message || "")}${reasons ? " — " + CX_ESC(reasons) : ""}</div><p><a href="${CX_ESC(back)}">← back</a></p>`));
-          return;
-        }
+        const result = await mpOwnedWrite(`/v1/hypervisor/marketplace/publish-candidates/${encodeURIComponent(id)}/publish`, "POST", {}, "marketplace.candidate.publish", p.get("nonce") || crypto.randomUUID());
+        if (!mpMutationLanded(result)) { const refusal = mpMutationRefusal("Publish blocked", result, back); res.writeHead(refusal.status, HTMLH); res.end(refusal.html); return; }
       }
       res.writeHead(302, { Location: back, "Cache-Control": "no-cache" });
       return res.end();
@@ -15386,8 +15462,10 @@ async function handleEstateRequest(req, res, body) {
       const [rawId] = pathname.slice("/__ioi/marketplace/offers/".length).split("/");
       const id = decodeURIComponent(rawId);
       const p = new URLSearchParams(body.toString());
-      await daemonFetch(`/v1/hypervisor/marketplace/instance-offers/${encodeURIComponent(id)}`, { method: "DELETE" }).catch(() => {});
-      res.writeHead(302, { Location: `/__ioi/marketplace/listings/${encodeURIComponent(p.get("listing_id") || "")}`, "Cache-Control": "no-cache" });
+      const offerBack = `/__ioi/marketplace/listings/${encodeURIComponent(p.get("listing_id") || "")}`;
+      const result = await mpOwnedWrite(`/v1/hypervisor/marketplace/instance-offers/${encodeURIComponent(id)}`, "DELETE", {}, "marketplace.offer.delete");
+      if (!mpMutationLanded(result)) { const refusal = mpMutationRefusal("Offer not deleted", result, offerBack); res.writeHead(refusal.status, HTMLH); return res.end(refusal.html); }
+      res.writeHead(302, { Location: offerBack, "Cache-Control": "no-cache" });
       return res.end();
     }
     // ---- Connections cockpit — the owned full-control surface for the connector estate -----------
