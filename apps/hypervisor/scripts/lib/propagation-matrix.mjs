@@ -62,6 +62,8 @@ export const READS = Object.freeze([
   { after: "issue", consumer: "Issues lists the filed issue in its open lane", route: "/__ioi/missions/incidents?lane=open", needle: "issue-{tag}" },
   // ADR 0056: Issues is Operations' tool at /operations/issues; the Missions root this consumer read retires.
   { after: "issue", consumer: "Issues at its Operations route lists the filed issue", route: "/operations/issues?lane=open", needle: "issue-{tag}" },
+  // ADR 0056 M3: Work / Incidents points at the Operations-owned link — the facet carries the issue's own title.
+  { after: "issue", consumer: "Work / Incidents points at the filed issue", route: "/__ioi/work-projection/incidents", needle: "issue-{tag}" },
 ]);
 
 // A needle is SPECIFIC only if it carries the run's tag. "backing datasource" alone is printed by the

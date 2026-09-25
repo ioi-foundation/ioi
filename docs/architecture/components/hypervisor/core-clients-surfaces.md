@@ -1820,8 +1820,10 @@ Source-neutral tool placement is canonical at the owner boundary:
 | Evaluation Suites (legacy AIP Evals) | Evaluations / Suites |
 
 `Work / Incidents` and `Work / Reviews` are workspace views, not tool
-registrations and not truth owners. The legacy Issues route resolves to
-`Work / Incidents`. Each row keeps its typed work subject; incident and review
+registrations and not truth owners. Issues is an Operations tool at
+`/operations/issues` (Operations owns `SupportIncidentLink`;
+[ADR 0056](../../../decisions/0056-organize-the-hypervisor-application-estate-by-four-axes-and-retire-missions.md)),
+and `Work / Incidents` points at its links. Each row keeps its typed work subject; incident and review
 refs remain facets owned by the applicable domain or owner application, and
 detail actions route there. This prevents a core workspace from masquerading
 as a tool's primary owner.
@@ -2211,8 +2213,12 @@ a contributed family and mints no route for it.
 | `orchestration` | contributed | ioi.ai orchestration application ([`collaborative-outcome-pattern.md`](../../domains/ioi-ai/collaborative-outcome-pattern.md#the-application-contributed-orchestrations-view)) | a Session attachment, or the contributed Work / Rooms view at `/work/rooms` |
 
 Reviews are `HypervisorWorkFacetProjection` pointers at the approval requests
-the caller holds (Governance owns them); incidents are a typed absence until an
-incident owner publishes a reader. The `subject_kind` enum in the registered row
+the caller holds (Governance owns them). Incidents are v2 pointers at the
+`SupportIncidentLink`s the caller's tenants may see, read through the Operations
+plane's published reader; a pointer takes the first affected object that is a
+Work subject, or else carries the affected ref verbatim as `affected_object`, and
+routes its detail to Operations / Issues. A resolved or closed link is not a Work
+incident. The `subject_kind` enum in the registered row
 shape keeps every kind above, because a contributed row must still be typed
 when it arrives. The compatibility `/__ioi/missions` readout renders the room
 graph and is therefore the contribution seam's to replace, not core's to

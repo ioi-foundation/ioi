@@ -107,6 +107,7 @@ export const REQUIRED_CONSUMERS = Object.freeze([
   "Machinery lists the saved process graph",
   "Issues lists the filed issue in its open lane",
   "Issues at its Operations route lists the filed issue",
+  "Work / Incidents points at the filed issue",
 ]);
 
 // The editors whose script submits their own form — driven through their UI by the LIVE leg.

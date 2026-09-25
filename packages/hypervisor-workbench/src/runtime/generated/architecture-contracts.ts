@@ -4026,6 +4026,23 @@ export type HypervisorWorkFacetProjectionV1 = {
   read_model_only: true;
 };
 
+export type HypervisorWorkFacetProjectionV2 = {
+  schema_version: "ioi.hypervisor.work-facet-projection.v2";
+  facet_projection_id: string;
+  facet_kind: "review" | "incident";
+  facet_type: string;
+  facet_ref: string;
+  owner_ref: string;
+  subject_kind: "goal_run" | "outcome_room" | "automation_run" | "session" | "work_queue" | "work_item" | "work_run" | "affected_object";
+  subject_ref: string;
+  label?: string;
+  owner_status?: string;
+  canonical_detail_route: string;
+  source_projection_ref: string;
+  policy_decision_refs: Array<string>;
+  read_model_only: true;
+};
+
 export type HypervisorSystemInterfaceBindingV1 = {
   schema_version: "ioi.hypervisor.system_interface_binding.v1";
   system_binding_ref: string;
@@ -19657,6 +19674,54 @@ export const ARCHITECTURE_CONTRACT_FIXTURES = [
     "expected_rule_id": null
   },
   {
+    "contract_id": "schema://ioi/components/hypervisor/work-facet-projection/v2",
+    "path": "docs/architecture/_meta/schemas/fixtures/hypervisor-work-facet-projection-v2/positive-incident-facet.json",
+    "expected": "accept",
+    "expected_schema_accept": true,
+    "expected_failure": null,
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/components/hypervisor/work-facet-projection/v2",
+    "path": "docs/architecture/_meta/schemas/fixtures/hypervisor-work-facet-projection-v2/positive-review-facet.json",
+    "expected": "accept",
+    "expected_schema_accept": true,
+    "expected_failure": null,
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/components/hypervisor/work-facet-projection/v2",
+    "path": "docs/architecture/_meta/schemas/fixtures/hypervisor-work-facet-projection-v2/negative-unknown-field.json",
+    "expected": "reject",
+    "expected_schema_accept": false,
+    "expected_failure": "schema",
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/components/hypervisor/work-facet-projection/v2",
+    "path": "docs/architecture/_meta/schemas/fixtures/hypervisor-work-facet-projection-v2/negative-affected-ref-without-scheme.json",
+    "expected": "reject",
+    "expected_schema_accept": false,
+    "expected_failure": "schema",
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/components/hypervisor/work-facet-projection/v2",
+    "path": "docs/architecture/_meta/schemas/fixtures/hypervisor-work-facet-projection-v2/negative-core-kind-foreign-ref.json",
+    "expected": "reject",
+    "expected_schema_accept": false,
+    "expected_failure": "schema",
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/components/hypervisor/work-facet-projection/v2",
+    "path": "docs/architecture/_meta/schemas/fixtures/hypervisor-work-facet-projection-v2/negative-facet-kind-outside-enum.json",
+    "expected": "reject",
+    "expected_schema_accept": false,
+    "expected_failure": "schema",
+    "expected_rule_id": null
+  },
+  {
     "contract_id": "schema://ioi/components/hypervisor/system-interface-binding/v1",
     "path": "docs/architecture/_meta/schemas/fixtures/hypervisor-system-interface-binding-v1/positive-minimal.json",
     "expected": "accept",
@@ -34661,6 +34726,12 @@ export const ARCHITECTURE_CONTRACT_DIFFERENTIAL_CASES: ReadonlyArray<Architectur
   differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/hypervisor-work-facet-projection-v1/negative-unknown-field.json","contract_id":"schema://ioi/components/hypervisor/work-facet-projection/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/hypervisor-work-facet-projection-v1/negative-unknown-field.json","mutation_id":null,"value_json":null}),
   differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/hypervisor-work-facet-projection-v1/negative-facet-kind-outside-enum.json","contract_id":"schema://ioi/components/hypervisor/work-facet-projection/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/hypervisor-work-facet-projection-v1/negative-facet-kind-outside-enum.json","mutation_id":null,"value_json":null}),
   differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/hypervisor-work-facet-projection-v1/negative-owner-scheme.json","contract_id":"schema://ioi/components/hypervisor/work-facet-projection/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/hypervisor-work-facet-projection-v1/negative-owner-scheme.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/hypervisor-work-facet-projection-v2/positive-incident-facet.json","contract_id":"schema://ioi/components/hypervisor/work-facet-projection/v2","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/hypervisor-work-facet-projection-v2/positive-incident-facet.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/hypervisor-work-facet-projection-v2/positive-review-facet.json","contract_id":"schema://ioi/components/hypervisor/work-facet-projection/v2","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/hypervisor-work-facet-projection-v2/positive-review-facet.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/hypervisor-work-facet-projection-v2/negative-unknown-field.json","contract_id":"schema://ioi/components/hypervisor/work-facet-projection/v2","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/hypervisor-work-facet-projection-v2/negative-unknown-field.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/hypervisor-work-facet-projection-v2/negative-affected-ref-without-scheme.json","contract_id":"schema://ioi/components/hypervisor/work-facet-projection/v2","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/hypervisor-work-facet-projection-v2/negative-affected-ref-without-scheme.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/hypervisor-work-facet-projection-v2/negative-core-kind-foreign-ref.json","contract_id":"schema://ioi/components/hypervisor/work-facet-projection/v2","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/hypervisor-work-facet-projection-v2/negative-core-kind-foreign-ref.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/hypervisor-work-facet-projection-v2/negative-facet-kind-outside-enum.json","contract_id":"schema://ioi/components/hypervisor/work-facet-projection/v2","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/hypervisor-work-facet-projection-v2/negative-facet-kind-outside-enum.json","mutation_id":null,"value_json":null}),
   differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/hypervisor-system-interface-binding-v1/positive-minimal.json","contract_id":"schema://ioi/components/hypervisor/system-interface-binding/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/hypervisor-system-interface-binding-v1/positive-minimal.json","mutation_id":null,"value_json":null}),
   differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/hypervisor-system-interface-binding-v1/negative-unknown-field.json","contract_id":"schema://ioi/components/hypervisor/system-interface-binding/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/hypervisor-system-interface-binding-v1/negative-unknown-field.json","mutation_id":null,"value_json":null}),
   differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/hypervisor-virtual-machine-state-payload-v1/positive-kernel-boot.json","contract_id":"schema://ioi/components/hypervisor/virtual-machine-state-payload/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/hypervisor-virtual-machine-state-payload-v1/positive-kernel-boot.json","mutation_id":null,"value_json":null}),
@@ -36722,6 +36793,7 @@ export const ARCHITECTURE_CONTRACT_PATTERN_SOURCES = [
   "^[a-z][a-z0-9]*(?:[._-][a-z0-9]+)*$",
   "^[a-z][a-z0-9_-]*(?:://|:)[^\\s]{1,240}$",
   "^[a-z][a-z0-9_-]*://\\S+$",
+  "^[a-z][a-z0-9_-]*:\\S+$",
   "^[a-z][a-z0-9_-]{0,127}$",
   "^[a-z][a-z0-9_]*$",
   "^[a-z][a-z0-9_]{0,159}$",
@@ -37563,6 +37635,7 @@ export const ARCHITECTURE_CONTRACT_SCHEMA_HASHES = {
   "schema://ioi/components/hypervisor/systems-projection/v1": "sha256:fc17abc7e5fe1a9abcf4aa007d87d1da229efcd82fb2c3ee6efdfd7181b40911",
   "schema://ioi/components/hypervisor/work-subject-projection/v1": "sha256:8a5daf7884c37a7811e5f020c0f6d4b8f588c5c5ffd2eabc462570f849837fec",
   "schema://ioi/components/hypervisor/work-facet-projection/v1": "sha256:2bc8eb32a870de6d8c040324dec29fb85ee699a3148aa05ef9441aa7d5b7877c",
+  "schema://ioi/components/hypervisor/work-facet-projection/v2": "sha256:c9d143cfdbf2878bd4da542aa4008e3714696fc7c0e96511a95181950159eb24",
   "schema://ioi/components/hypervisor/system-interface-binding/v1": "sha256:ff915fa4df2bb8ae9ae10fcd07e2d6c31d76cc416e2ce3d007de83d9571c1edd",
   "schema://ioi/components/hypervisor/virtual-machine-state-payload/v1": "sha256:41941f22cda75b5df2df3a1dff3b7eed796426476bac65b68ceb6a99957c7ad8",
   "schema://ioi/components/hypervisor/vm-enforcement-declaration/v1": "sha256:e6d7d16368856bbf8a0e293e6e0deb37b19503a91bb0af0da987485f293a141b",
@@ -69038,6 +69111,137 @@ const CONTRACT_SCHEMAS: Record<string, JsonObject> = {
         "const": true
       }
     }
+  },
+  "schema://ioi/components/hypervisor/work-facet-projection/v2": {
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "$id": "schema://ioi/components/hypervisor/work-facet-projection/v2",
+    "title": "HypervisorWorkFacetProjection",
+    "x-ioi-schema-version": "ioi.hypervisor.work-facet-projection.v2",
+    "description": "A policy-filtered cross-owner pointer from Work to a review or incident owned elsewhere (core-clients-surfaces.md § Hypervisor Work). It converts nothing into a universal Review or Incident truth object. v2 (ADR 0056 M3) lets an incident facet point at what an owner's incident AFFECTS when that is not one of the seven Work subject kinds: `subject_kind: affected_object` carries the owner's affected ref verbatim, in any scheme. It may also carry the owner's own label and status for display; both are read from the owner's record and neither is Work truth.",
+    "type": "object",
+    "additionalProperties": false,
+    "required": [
+      "schema_version",
+      "facet_projection_id",
+      "facet_kind",
+      "facet_type",
+      "facet_ref",
+      "owner_ref",
+      "subject_kind",
+      "subject_ref",
+      "canonical_detail_route",
+      "source_projection_ref",
+      "policy_decision_refs",
+      "read_model_only"
+    ],
+    "properties": {
+      "schema_version": {
+        "const": "ioi.hypervisor.work-facet-projection.v2"
+      },
+      "facet_projection_id": {
+        "type": "string",
+        "pattern": "^projection://hypervisor/work-facet/\\S+$"
+      },
+      "facet_kind": {
+        "enum": [
+          "review",
+          "incident"
+        ]
+      },
+      "facet_type": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 500
+      },
+      "facet_ref": {
+        "type": "string",
+        "pattern": "^[a-z][a-z0-9_-]*://\\S+$"
+      },
+      "owner_ref": {
+        "type": "string",
+        "pattern": "^(?:surface|agentgres|wallet|system|org)://\\S+$"
+      },
+      "subject_kind": {
+        "enum": [
+          "goal_run",
+          "outcome_room",
+          "automation_run",
+          "session",
+          "work_queue",
+          "work_item",
+          "work_run",
+          "affected_object"
+        ]
+      },
+      "subject_ref": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 1000,
+        "description": "The owner's canonical subject identity, carried verbatim — one of the Work subject forms, or for `affected_object` the owner's affected ref in any scheme."
+      },
+      "label": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 500,
+        "description": "The owning record's own title, for display; never Work truth."
+      },
+      "owner_status": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 80,
+        "description": "The owning record's own status, verbatim; Work writes no common status back."
+      },
+      "canonical_detail_route": {
+        "type": "string",
+        "pattern": "^/\\S*$"
+      },
+      "source_projection_ref": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 500
+      },
+      "policy_decision_refs": {
+        "type": "array",
+        "uniqueItems": true,
+        "items": {
+          "type": "string",
+          "pattern": "^decision://\\S+$"
+        }
+      },
+      "read_model_only": {
+        "const": true
+      }
+    },
+    "allOf": [
+      {
+        "if": {
+          "properties": {
+            "subject_kind": {
+              "const": "affected_object"
+            }
+          },
+          "required": [
+            "subject_kind"
+          ]
+        },
+        "then": {
+          "properties": {
+            "subject_ref": {
+              "type": "string",
+              "pattern": "^[a-z][a-z0-9_-]*:\\S+$"
+            }
+          }
+        },
+        "else": {
+          "properties": {
+            "subject_ref": {
+              "type": "string",
+              "pattern": "^(?:(?:goal|goal-run|outcome-room|automation-run|session|work_queue|work_item|work_run)://\\S+|session:\\S+)$"
+            }
+          }
+        }
+      }
+    ]
   },
   "schema://ioi/components/hypervisor/system-interface-binding/v1": {
     "$schema": "https://json-schema.org/draft/2020-12/schema",
@@ -160682,6 +160886,7 @@ const CONTRACT_INVARIANTS: Record<string, Array<JsonObject>> = {
   "schema://ioi/components/hypervisor/systems-projection/v1": [],
   "schema://ioi/components/hypervisor/work-subject-projection/v1": [],
   "schema://ioi/components/hypervisor/work-facet-projection/v1": [],
+  "schema://ioi/components/hypervisor/work-facet-projection/v2": [],
   "schema://ioi/components/hypervisor/system-interface-binding/v1": [],
   "schema://ioi/components/hypervisor/virtual-machine-state-payload/v1": [],
   "schema://ioi/components/hypervisor/vm-enforcement-declaration/v1": [],
@@ -180192,6 +180397,12 @@ export function validateHypervisorWorkFacetProjectionV1(
   value: unknown,
 ): value is HypervisorWorkFacetProjectionV1 {
   return validateArchitectureContract("schema://ioi/components/hypervisor/work-facet-projection/v1", value).ok;
+}
+
+export function validateHypervisorWorkFacetProjectionV2(
+  value: unknown,
+): value is HypervisorWorkFacetProjectionV2 {
+  return validateArchitectureContract("schema://ioi/components/hypervisor/work-facet-projection/v2", value).ok;
 }
 
 export function validateHypervisorSystemInterfaceBindingV1(

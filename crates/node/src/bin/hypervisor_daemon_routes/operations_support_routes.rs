@@ -297,10 +297,26 @@ pub(crate) async fn handle_incident_list(
     State(st): State<Arc<DaemonState>>,
     headers: HeaderMap,
 ) -> Reply {
-    let identity = match super::substrate_store::resolve_request_identity(&st.data_dir, &headers) {
-        Ok(identity) => identity,
-        Err(error) => return scope_refusal_reply(error),
+    let incidents = match incidents_for_request(&st, &headers) {
+        Ok(incidents) => incidents,
+        Err(reply) => return reply,
     };
+    (
+        StatusCode::OK,
+        Json(json!({ "ok": true, "support_incidents": incidents })),
+    )
+}
+
+/// THE PUBLISHED READER (ADR 0056 M3). The incident links the caller's tenants may see, most
+/// recently updated first — the one rule this plane applies to a read, applied before any other
+/// consumer sees a record. The Work projection reads incidents through this and nothing else, so
+/// Work / Incidents can never show a link the owner would not.
+pub(crate) fn incidents_for_request(
+    st: &DaemonState,
+    headers: &HeaderMap,
+) -> Result<Vec<Value>, Reply> {
+    let identity = super::substrate_store::resolve_request_identity(&st.data_dir, headers)
+        .map_err(scope_refusal_reply)?;
     let mut incidents: Vec<Value> = read_record_dir(&st.data_dir, KIND_INCIDENT)
         .into_iter()
         .filter(|incident| {
@@ -319,10 +335,7 @@ pub(crate) async fn handle_incident_list(
         };
         key(b).cmp(&key(a))
     });
-    (
-        StatusCode::OK,
-        Json(json!({ "ok": true, "support_incidents": incidents })),
-    )
+    Ok(incidents)
 }
 
 // ================================ audit trail ==================================================

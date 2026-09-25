@@ -47,6 +47,24 @@ const SUBJECT_SCHEMA: &str = "ioi.hypervisor.work-subject-projection.v1";
 const SUBJECT_CONTRACT_ID: &str = "schema://ioi/components/hypervisor/work-subject-projection/v1";
 const FACET_SCHEMA: &str = "ioi.hypervisor.work-facet-projection.v1";
 const FACET_CONTRACT_ID: &str = "schema://ioi/components/hypervisor/work-facet-projection/v1";
+/// Incident facets (ADR 0056 M3) are v2: an incident's affected object is often not a Work subject.
+const FACET_SCHEMA_V2: &str = "ioi.hypervisor.work-facet-projection.v2";
+const FACET_V2_CONTRACT_ID: &str = "schema://ioi/components/hypervisor/work-facet-projection/v2";
+/// An `affected_object` ref: any scheme, carried verbatim (the v2 contract's own pattern).
+fn is_scheme_ref(value: &str) -> bool {
+    let Some((scheme, rest)) = value.split_once(':') else {
+        return false;
+    };
+    !rest.is_empty()
+        && !rest.chars().any(char::is_whitespace)
+        && scheme
+            .chars()
+            .next()
+            .is_some_and(|c| c.is_ascii_lowercase())
+        && scheme
+            .chars()
+            .all(|c| c.is_ascii_lowercase() || c.is_ascii_digit() || c == '_' || c == '-')
+}
 /// The typed views canon routes (`/work` → active, then one per view). Closed: an unknown view
 /// refuses rather than answering the nearest one.
 const VIEWS: &[&str] = &[
@@ -312,6 +330,10 @@ fn assemble(
             *counts.get_mut("reviews").unwrap() += 1;
         }
     }
+    *counts.get_mut("incidents").unwrap() = facets
+        .iter()
+        .filter(|facet| facet["facet_kind"] == "incident")
+        .count();
     // Recents over the same set, newest first, before search.
     let mut by_recency: Vec<&Derived> = derived.iter().collect();
     by_recency.sort_by(|left, right| right.updated_at.cmp(&left.updated_at));
@@ -387,6 +409,17 @@ fn assemble(
         "incidents" => facets
             .iter()
             .filter(|facet| facet["facet_kind"] == "incident")
+            .filter(|facet| {
+                query.as_deref().is_none_or(|needle| {
+                    ["label", "subject_ref", "owner_status"].iter().any(|key| {
+                        facet[*key]
+                            .as_str()
+                            .unwrap_or("")
+                            .to_lowercase()
+                            .contains(needle)
+                    })
+                })
+            })
             .cloned()
             .collect(),
         _ => Vec::new(),
@@ -411,7 +444,7 @@ fn assemble(
             "not_projected": FAMILIES_NOT_PROJECTED.iter().map(|(kind, reason)| json!({ "subject_kind": kind, "reason": reason })).collect::<Vec<_>>(),
             "contributed": CONTRIBUTED_FAMILIES.iter().map(|(kind, seam)| json!({ "subject_kind": kind, "seam": seam })).collect::<Vec<_>>(),
             "registry": "core Work enumerates only substrate-owned families in session vocabulary; a contributed family arrives through a Session's typed subject attachment or a registered application-contributed view, never through a core reader (core-clients-surfaces.md § Hypervisor Work, Work subject registry)",
-            "incident_facets": { "state": "absent", "reason": "no incident owner publishes a reader this projection can point at yet; a Work incident is a typed pointer, never a minted incident" }
+            "incident_facets": { "state": "projected", "reader": "operations_support_routes::incidents_for_request", "facet_contract_id": FACET_V2_CONTRACT_ID, "note": "a Work incident is a typed pointer at an Operations-owned SupportIncidentLink, never a minted incident; resolved and closed links are not shown" }
         },
         "migration": {
             "from": ["/__ioi/sessions (the Sessions root)", "/__ioi/missions/incidents (issue/blocker aggregates)", "/__ioi/work-ledger"],
@@ -541,6 +574,73 @@ pub(crate) async fn handle_work_projection(
         }
         facets.push(facet);
     }
+    // INCIDENT FACETS (ADR 0056 M3) — pointers at the Operations plane's incident links, read
+    // through its published reader, so Work shows exactly the links the owner would show this caller.
+    // A resolved or closed link needs nobody's attention and is not a Work incident. The pointer's
+    // subject is the first affected object that is a Work subject (then it attaches to that row) or
+    // at least a scheme ref; a link that names neither stays visible on Operations / Issues only.
+    let incidents = match super::operations_support_routes::incidents_for_request(&st, &headers) {
+        Ok(records) => records,
+        Err(reply) => return reply,
+    };
+    for incident in &incidents {
+        let owner_status = text(incident, "status");
+        if matches!(owner_status, "resolved" | "closed") {
+            continue;
+        }
+        let incident_ref = text(incident, "incident_id");
+        let Some(tail) = incident_ref.strip_prefix("support-incident://") else {
+            continue;
+        };
+        let affected = incident
+            .pointer("/affected/object_refs")
+            .and_then(Value::as_array)
+            .map(|refs| refs.iter().filter_map(Value::as_str).collect::<Vec<_>>())
+            .unwrap_or_default();
+        let Some((subject_kind, subject_ref)) = affected
+            .iter()
+            .find_map(|r| subject_kind_for_ref(r).map(|kind| (kind, *r)))
+            .or_else(|| {
+                affected
+                    .iter()
+                    .find(|r| is_scheme_ref(r))
+                    .map(|r| ("affected_object", *r))
+            })
+        else {
+            continue;
+        };
+        let facet_id = format!("projection://hypervisor/work-facet/incident/{tail}");
+        let mut facet = json!({
+            "schema_version": FACET_SCHEMA_V2,
+            "facet_projection_id": facet_id,
+            "facet_kind": "incident",
+            "facet_type": "support_incident",
+            "facet_ref": incident_ref,
+            "owner_ref": "surface://hypervisor/operations",
+            "subject_kind": subject_kind,
+            "subject_ref": subject_ref,
+            "owner_status": owner_status,
+            "canonical_detail_route": format!("/operations/issues?issue={tail}"),
+            "source_projection_ref": "operations_support_routes::incidents_for_request",
+            "policy_decision_refs": [],
+            "read_model_only": true,
+        });
+        let label = text(incident, "title");
+        if !label.is_empty() {
+            facet["label"] = json!(label.chars().take(500).collect::<String>());
+        }
+        if let Err(reply) = validate(FACET_V2_CONTRACT_ID, "incident facet", &facet) {
+            return reply;
+        }
+        for item in derived.iter_mut() {
+            if item.row["subject_ref"] == subject_ref {
+                if let Some(refs) = item.row["incident_facet_projection_refs"].as_array_mut() {
+                    refs.push(json!(facet_id));
+                }
+            }
+        }
+        facets.push(facet);
+    }
     for item in &derived {
         if let Err(reply) = validate(
             SUBJECT_CONTRACT_ID,
@@ -553,6 +653,7 @@ pub(crate) async fn handle_work_projection(
     let readers = vec![
         json!({ "family": "session", "reader": "lifecycle_routes::sessions_for_request", "rows": sessions.len() }),
         json!({ "family": "automation_run", "reader": "automation_contract_routes::automation_runs_for_request", "rows": automation_runs.len() }),
+        json!({ "family": "support_incident", "reader": "operations_support_routes::incidents_for_request", "rows": incidents.len(), "facet_kind": "incident" }),
     ];
     match assemble(view, &params, derived, facets, readers) {
         Ok(projection) => (StatusCode::OK, Json(projection)),
@@ -566,6 +667,38 @@ mod work_projection_tests {
 
     fn refusal_code(reply: &Reply) -> String {
         reply.1 .0.to_string()
+    }
+
+    #[test]
+    fn an_incident_facet_is_a_registered_v2_pointer_at_what_the_incident_affects() {
+        assert!(is_scheme_ref("data-source:ds_1"));
+        assert!(is_scheme_ref("session://acme/s1"));
+        assert!(!is_scheme_ref("orders feed"));
+        assert!(!is_scheme_ref("Data-source:x"));
+        assert!(!is_scheme_ref("data-source:"));
+        let facet = json!({
+            "schema_version": FACET_SCHEMA_V2,
+            "facet_projection_id": "projection://hypervisor/work-facet/incident/sil_1",
+            "facet_kind": "incident",
+            "facet_type": "support_incident",
+            "facet_ref": "support-incident://sil_1",
+            "owner_ref": "surface://hypervisor/operations",
+            "subject_kind": "affected_object",
+            "subject_ref": "data-source:ds_1",
+            "owner_status": "open",
+            "label": "Orders feed stopped syncing",
+            "canonical_detail_route": "/operations/issues?issue=sil_1",
+            "source_projection_ref": "operations_support_routes::incidents_for_request",
+            "policy_decision_refs": [],
+            "read_model_only": true,
+        });
+        assert!(validate(FACET_V2_CONTRACT_ID, "incident facet", &facet).is_ok());
+        let mut foreign = facet.clone();
+        foreign["subject_kind"] = json!("session");
+        assert!(
+            validate(FACET_V2_CONTRACT_ID, "incident facet", &foreign).is_err(),
+            "a core subject kind still demands a Work subject ref"
+        );
     }
 
     #[test]

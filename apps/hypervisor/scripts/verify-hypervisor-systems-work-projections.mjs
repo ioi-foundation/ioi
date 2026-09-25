@@ -108,7 +108,7 @@ function fingerprint(dirs) {
 // The owners core Work reads (Work subject registry, 2026-09-14): Sessions, approvals, automation
 // runs. Goal runs and rooms are CONTRIBUTED families with no core reader, so they are not owners of
 // this projection and are not in its nonmutation claim.
-const OWNER_DIRS = ["sessions", "governance-approval-requests", "canonical-automation-runs"];
+const OWNER_DIRS = ["sessions", "governance-approval-requests", "canonical-automation-runs", "support-incidents"];
 
 function cleanup() {
   try { serve?.kill("SIGTERM"); } catch { /* gone */ }
@@ -144,7 +144,7 @@ async function run() {
       && Array.isArray(empty.body.rows) && empty.body.rows.length === 0
       && ["active", "sessions", "queues", "reviews", "incidents", "history"].every((v) => empty.body.counts?.[v] === 0)
       && (empty.body.families?.not_projected || []).map((f) => f.subject_kind).sort().join(",") === "work_item,work_queue,work_run"
-      && empty.body.families?.incident_facets?.state === "absent"
+      && empty.body.families?.incident_facets?.state === "projected" && empty.body.families?.incident_facets?.reader === "operations_support_routes::incidents_for_request"
       && Array.isArray(empty.body.migration?.from) && typeof empty.body.rebuild === "string"
       && empty.body.policy?.applied_before?.[0] === "search",
     JSON.stringify(empty.body).slice(0, 200));
@@ -155,7 +155,7 @@ async function run() {
     JSON.stringify(empty.body.families?.projected) === JSON.stringify(["session", "automation_run"])
       && contributed.map((f) => f.subject_kind).join(",") === "goal_run,orchestration"
       && contributed.every((f) => /subject attachment/u.test(f.seam) && /application-contributed Work \/ (?:Goals|Rooms) view/u.test(f.seam) && /no reader/u.test(f.seam))
-      && (empty.body.policy?.readers || []).map((r) => r.family).sort().join(",") === "automation_run,session"
+      && (empty.body.policy?.readers || []).map((r) => r.family).sort().join(",") === "automation_run,session,support_incident"
       && !JSON.stringify(empty.body).includes("/work/goals") && !JSON.stringify(empty.body).includes("/work/rooms")
       && typeof empty.body.families?.registry === "string",
     JSON.stringify({ projected: empty.body.families?.projected, contributed: contributed.map((f) => f.subject_kind), readers: (empty.body.policy?.readers || []).map((r) => r.family) }));
@@ -206,6 +206,32 @@ async function run() {
       && !!reviewRow && (reviewRow.review_facet_projection_refs || []).includes(facet.facet_projection_id)
       && reviews.body?.counts?.reviews === 1,
     JSON.stringify(facet ?? reviews.body).slice(0, 240));
+
+  // -- an Operations incident link becomes ONE incident facet that POINTS (ADR 0056 M3) ------------
+  // Filed through the Operations owner's own route, over the session AND a non-Work object: the facet
+  // takes the Work subject (so the session row lists it), is a v2 pointer at the Operations-owned link,
+  // routes its detail to Operations / Issues, and leaves Work once the owner resolves the link.
+  const tenant = (who.principal?.tenant_refs || []).find((x) => String(x).startsWith("org://")) || (who.principal?.tenant_refs || [])[0] || "";
+  const filed = await jd("/v1/hypervisor/support-incidents", { method: "POST", body: JSON.stringify({ owner_ref: tenant, idempotency_key: "systems-work-incident-1", title: "Session stalled at provisioning", severity: "major", product: "Sessions", affected_object_refs: ["data-source:ds_swp", sessionRef] }) });
+  const incidentRef = filed.body?.incident?.incident_id || "";
+  const incidentTail = incidentRef.replace(/^support-incident:\/\//u, "");
+  ok("an incident link is filed through the Operations owner's own route", filed.status === 201 && incidentRef.startsWith("support-incident://"), `${filed.status} ${incidentRef} ${JSON.stringify(filed.body).slice(0, 160)}`);
+  const incidents = await projection("view=incidents");
+  const ifacet = (incidents.body?.facets || []).find((f) => f.facet_ref === incidentRef) || null;
+  const incidentRow = (incidents.body?.rows || []).find((r) => r.subject_ref === sessionRef) || null;
+  ok("/work/incidents carries ONE v2 incident facet pointing at the Operations-owned link — the Work subject it affects, the owner's title and status verbatim, detail routed to Operations / Issues — and the session row lists it; counted, nothing minted",
+    !!ifacet && ifacet.schema_version === "ioi.hypervisor.work-facet-projection.v2" && ifacet.facet_kind === "incident" && ifacet.facet_type === "support_incident"
+      && ifacet.owner_ref === "surface://hypervisor/operations" && ifacet.subject_kind === "session" && ifacet.subject_ref === sessionRef
+      && ifacet.label === "Session stalled at provisioning" && ifacet.owner_status === "open"
+      && ifacet.canonical_detail_route === `/operations/issues?issue=${incidentTail}`
+      && !!incidentRow && (incidentRow.incident_facet_projection_refs || []).includes(ifacet.facet_projection_id)
+      && incidents.body?.counts?.incidents === 1,
+    JSON.stringify(ifacet ?? incidents.body).slice(0, 240));
+  const resolved = await jd(`/v1/hypervisor/support-incidents/${encodeURIComponent(incidentTail)}/status`, { method: "POST", body: JSON.stringify({ owner_ref: tenant, idempotency_key: "systems-work-incident-1-resolve", status: "resolved" }) });
+  const afterResolve = await projection("view=incidents");
+  ok("once the owner resolves the link it leaves Work / Incidents — the view shows what needs attention, and the resolution is the OWNER's write, never Work's",
+    resolved.status >= 200 && resolved.status < 300 && !(afterResolve.body?.facets || []).some((f) => f.facet_ref === incidentRef) && afterResolve.body?.counts?.incidents === 0,
+    `${resolved.status} ${JSON.stringify(resolved.body).slice(0, 120)}`);
 
   // -- malformed / ambiguous refusals, by name ----------------------------------------------------
   const badView = await projection("view=everything");

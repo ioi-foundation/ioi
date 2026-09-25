@@ -1,0 +1,16 @@
+{
+  "schema_version": "ioi.hypervisor.work-facet-projection.v2",
+  "facet_projection_id": "projection://hypervisor/work-facet/incident/si-1",
+  "facet_kind": "incident",
+  "facet_type": "support_incident",
+  "facet_ref": "support-incident://si-1",
+  "owner_ref": "surface://hypervisor/operations",
+  "subject_kind": "affected_object",
+  "subject_ref": "data-source:ds_1",
+  "label": "Orders feed stopped syncing",
+  "owner_status": "open",
+  "canonical_detail_route": "/operations/issues?issue=si-1",
+  "source_projection_ref": "operations_support_routes::incidents_for_request",
+  "policy_decision_refs": [],
+  "read_model_only": true
+}
