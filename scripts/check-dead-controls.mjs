@@ -520,6 +520,11 @@ async function liveLeg() {
         for (let attempt = 0; ; attempt += 1) {
           try { await page.goto(base + route, { waitUntil: "domcontentloaded", timeout: 90000 }); break; } catch (e) {
             if (attempt >= 4 || !/interrupted by another navigation/u.test(String(e.message))) throw e;
+            // The interrupting navigation is still in flight, and waiting for "load" answers at once
+            // from the document it is about to replace — so five retries were spent in a second and
+            // lost to the same slow request (measured twice: an Ontology picker's GET that answers in
+            // ~5 s under load, R-240). Let it land, longer each time, before asking again.
+            await page.waitForTimeout(1000 * 2 ** attempt);
             await page.waitForLoadState("load", { timeout: 15000 }).catch(() => {});
           }
         }
