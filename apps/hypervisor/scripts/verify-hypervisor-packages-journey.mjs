@@ -47,6 +47,7 @@ import path from "node:path";
 import net from "node:net";
 import { fileURLToPath } from "node:url";
 import { emitVerifierCensus } from "./lib/verifier-census.mjs";
+import { SURFACES } from "./surface-registry.mjs";
 
 const HERE = path.dirname(fileURLToPath(import.meta.url));
 const APP = path.resolve(HERE, "..");
@@ -246,27 +247,39 @@ async function run() {
   ok("an ANONYMOUS /packages render shows the family's typed identity refusal, never fabricated rows (identity-first reads)",
     anonLanding.text.includes("request_principal_required") && anonLanding.text.includes("Packages"),
     "");
-  // GRE-2 (owner go 2026-08-20): canonical /packages/marketplace is a TRANSFER to the certified
-  // Marketplace port; the Packages-owned marketplace MODE keeps serving on its legacy mount.
+  // ADR 0056 M6b: the certified Marketplace port (listings) is SERVED at canonical /packages/marketplace
+  // — the GRE-2 transfer is gone — and the Packages module's duplicate Marketplace mode retired at its
+  // legacy mount, its code kept in the module as a seed.
   const mktRaw = await fetch(`${SERVE}/packages/marketplace`, { redirect: "manual" }).then((r) => ({ status: r.status, loc: r.headers.get("location") })).catch(() => ({ status: 0 }));
-  ok("canonical /packages/marketplace is the GRE-2 transfer: 302 → the certified Marketplace port",
-    mktRaw.status === 302 && mktRaw.loc === "/__ioi/marketplace/listings", `status ${mktRaw.status} loc ${mktRaw.loc}`);
-  const mkt = await pageText("/__ioi/packages/marketplace", { authenticated: false });
-  ok("the Packages marketplace MODE keeps serving on its legacy mount (read-first, single-owner doctrine intact)",
-    mkt.status === 200 && mkt.text.includes("Packages / Marketplace") && mkt.text.includes("never becomes a second package owner"),
-    `status ${mkt.status}`);
-  ok("the marketplace mode is HONEST-EMPTY over the empty substrate (no fixture listings) with the ladder named to its owner lane",
-    mkt.text.includes("No marketplace listings") && mkt.text.includes('data-ioi-disabled-reason='),
-    "");
+  const mkt = await pageText("/packages/marketplace", { authenticated: false });
+  ok("canonical /packages/marketplace is SERVED by the certified Marketplace port with its canonical ownership marker — no transfer, no second package owner",
+    mktRaw.status === 200 && !mktRaw.loc && mkt.status === 200 && mkt.headers.get("x-ioi-surface-route") === "/packages/marketplace"
+      && mkt.text.includes('data-ioi-surface-route="/packages/marketplace"') && mkt.text.includes('data-ioi-surface-owner="Packages"') && mkt.text.includes("<h1"),
+    `status ${mktRaw.status} loc ${mktRaw.loc} route ${mkt.headers.get("x-ioi-surface-route")}`);
+  ok("the Marketplace served at the canonical route keeps a person there: its own self-links name /packages/marketplace, never the legacy lane",
+    !/href="\/__ioi\/marketplace\/listings(?=[?"#])/.test(mkt.text), "");
+  const legacyMktJson = await fetch(`${SERVE}/__ioi/packages/marketplace`, { headers: { accept: "application/json" } }).then(async (r) => ({ status: r.status, body: await r.json().catch(() => ({})) })).catch(() => ({ status: 0, body: {} }));
+  // The browser arm carries the session: this serve requires sign-in, and a signed-out HTML request is
+  // answered by the sign-in page before any route (the JSON arm needs no session to be refused).
+  const legacyMkt = await fetch(`${SERVE}/__ioi/packages/marketplace`, { headers: { accept: "text/html", ...(SESSION ? { cookie: `ioi_session=${SESSION}` } : {}) } }).then(async (r) => ({ status: r.status, text: await r.text() })).catch(() => ({ status: 0, text: "" }));
+  ok("the module's duplicate Marketplace mode is RETIRED at its legacy mount: the typed 410 refusal (nothing read, nothing written) and a page that names and links the Marketplace",
+    legacyMktJson.status === 410 && legacyMktJson.body.code === "hypervisor.route_retired" && legacyMktJson.body.canonical_replacement_route === null
+      && legacyMktJson.body.read_performed === false && legacyMktJson.body.mutation_performed === false
+      && legacyMkt.status === 410 && legacyMkt.text.includes('href="/packages/marketplace"'),
+    `json ${legacyMktJson.status} html ${legacyMkt.status}`);
+  const pkgSrc = fs.readFileSync(path.join(APP, "surfaces", "packages", "index.mjs"), "utf8");
+  ok("the retired mode is a PRESERVED SEED — its rendering code stays in the module, bound to no row",
+    /function marketplaceView\(/.test(pkgSrc) && pkgSrc.includes('LEGACY_MARKETPLACE_ROUTE = "/__ioi/packages/marketplace"')
+      && !SURFACES.some((s) => s.route === "/__ioi/packages/marketplace"), "");
   const legacyRegistry = await pageText(LANE, { authenticated: false });
-  const legacyMkt = await pageText("/__ioi/packages/marketplace", { authenticated: false });
-  ok("the fresh legacy lanes serve the same module with their own truthful markers",
+  ok("the fresh legacy registry lane serves the module with its own truthful marker, and the Packages nav's Marketplace tab leads to the canonical Marketplace on both mounts",
     legacyRegistry.status === 200 && legacyRegistry.headers.get("x-ioi-surface-route") === LANE
-      && legacyMkt.status === 200 && legacyMkt.headers.get("x-ioi-surface-route") === "/__ioi/packages/marketplace",
+      && legacyRegistry.text.includes('href="/packages/marketplace"') && anonLanding.text.includes('href="/packages/marketplace"')
+      && !legacyRegistry.text.includes('href="/__ioi/packages/marketplace"'),
     "");
   const seedListings = await pageText("/__ioi/marketplace/listings", { authenticated: false });
   ok("the /__ioi/marketplace/listings seed lane keeps serving untouched (seed preservation)",
-    seedListings.status === 200, `status ${seedListings.status}`);
+    seedListings.status === 200 && seedListings.headers.get("x-ioi-surface-route") === "/__ioi/marketplace/listings", `status ${seedListings.status}`);
 
   // -- ODK source mesh fixtures (direct daemon setup — the packaging lane's admission inputs) --
   //

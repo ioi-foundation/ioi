@@ -16,13 +16,6 @@
       "route": "/__ioi/packages/registry",
       "canonical_route": "/packages",
       "verifier_source": "scripts/verify-hypervisor-packages-journey.mjs"
-    },
-    {
-      "slug": "packages-marketplace",
-      "owner": "Packages",
-      "route": "/__ioi/packages/marketplace",
-      "canonical_route": "/packages/marketplace",
-      "verifier_source": "scripts/verify-hypervisor-packages-journey.mjs"
     }
   ]
 }

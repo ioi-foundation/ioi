@@ -363,7 +363,6 @@ const GRE2_TRANSFERS = {
   "/provenance": "/__ioi/lineage",
   "/improvement": "/__ioi/improvement/changes",
   "/governance": "/__ioi/governance/approvals",
-  "/packages/marketplace": "/__ioi/marketplace/listings",
 };
 
 // GRE-2 build-class family landings (serve-product-ui.mjs FAMILY_LANDINGS): served AT the canonical

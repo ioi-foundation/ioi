@@ -167,11 +167,13 @@ test("retirement: the Missions ROOT alone is retired toward /work — the tool l
   assert.equal(retiredUiRouteFor("/sessions/abc")?.replacement, "/work/sessions/abc", "the subtree retirements are unchanged");
 });
 
-test("retirement: a duplicate merged into its canon owner retires with NO replacement and names its successor on the page, never as a redirect (ADR 0056 M6)", () => {
+test("retirement: a duplicate merged into its canon owner retires with NO replacement and names its successor on the page, never as a redirect (ADR 0056 M6a/M6b)", () => {
   for (const [route, successor, label] of [
     ["/__ioi/foundry/model-studio", "/__ioi/foundry/specs/new", "the Foundry spec builder"],
     ["/__ioi/evaluations/insight", "/__ioi/ontology/explorer", "Object Explorer"],
     ["/__ioi/environments/map", "/__ioi/environments", "Environments"],
+    ["/__ioi/packages/marketplace", "/packages/marketplace", "the Marketplace"],
+    ["/__ioi/marketplace/artifacts", "/packages?tab=artifacts", "the Packages Artifacts tab"],
   ]) {
     const retired = retiredUiRouteFor(route);
     assert.deepEqual(retired, { requested: route, replacement: null, successor, successorLabel: label });

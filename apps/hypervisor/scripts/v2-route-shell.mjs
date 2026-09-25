@@ -361,8 +361,8 @@ export const V2_ROUTE_TABLE = [
     build_state:
       "route resolves as of W1.3 (DEF-ROUTE-1 closed: the ledger rule named this path without a route behind it). The marketplace object plane serves admission-only draft listings today; the mode re-files over the package registry in Wave 3",
     serving_today: [
+      { href: "/packages/marketplace", label: "Marketplace", note: "ADR 0056 M6b: the certified Marketplace port (protected, daemon-wired) is served AT this route with its canonical ownership marker; its legacy lane /__ioi/marketplace/listings keeps serving; the Packages module's duplicate mode retired" },
       { href: "/__ioi/marketplace", label: "Marketplace readout", note: "draft listing/publish/admission object plane (admission-only)" },
-      { href: "/__ioi/marketplace/listings", label: "Marketplace listings", note: "protected ported seed (daemon-wired); re-files over the registry in Wave 3" },
     ],
   },
   {
@@ -448,6 +448,8 @@ export const RETIRED_UI_EXACT = {
   "/__ioi/foundry/model-studio": { replacement: null, successor: "/__ioi/foundry/specs/new", successorLabel: "the Foundry spec builder" },
   "/__ioi/evaluations/insight": { replacement: null, successor: "/__ioi/ontology/explorer", successorLabel: "Object Explorer" },
   "/__ioi/environments/map": { replacement: null, successor: "/__ioi/environments", successorLabel: "Environments" },
+  "/__ioi/packages/marketplace": { replacement: null, successor: "/packages/marketplace", successorLabel: "the Marketplace" },
+  "/__ioi/marketplace/artifacts": { replacement: null, successor: "/packages?tab=artifacts", successorLabel: "the Packages Artifacts tab" },
 };
 
 const BY_ROUTE = new Map(V2_ROUTE_TABLE.map((r) => [r.route, r]));
@@ -697,7 +699,7 @@ export function renderRetiredUiRoutePage(requested, replacement, merged = null) 
       "Route retired",
       `<div class="brand">IOI Hypervisor · typed route retirement</div>
     <h1>410 · <code>${esc(requested)}</code> is retired</h1>
-    <p class="sub">This page duplicated a surface that already carries its lane, so it was merged into <a href="${esc(merged.successor)}">${esc(merged.successorLabel)}</a> (ADR 0056: duplicates collapse into their canon owner). There are no compatibility aliases, so the path answers a typed refusal rather than redirecting.</p>
+    <p class="sub">What this page showed now lives in <a href="${esc(merged.successor)}">${esc(merged.successorLabel)}</a>. ADR 0056 collapses each duplicate into its canon owner, and ports any lane the owner lacked before the page retires. There are no compatibility aliases, so the path answers a typed refusal rather than redirecting.</p>
     <h2>Refusal record (daemon semantics)</h2>
     <pre>${esc(JSON.stringify(refusal, null, 2))}</pre>
     <div class="foot"><a href="${esc(merged.successor)}">Go to ${esc(merged.successorLabel)} →</a> · <a href="/ai">← Home</a></div>`,

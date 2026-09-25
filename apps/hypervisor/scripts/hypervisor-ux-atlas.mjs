@@ -191,7 +191,7 @@ if (STAGE === "stage5") {
   // (mobile_not_supported recorded in pixel certs) — those are audited at tablet only.
   const KEY = ["/automations", "/studio", "/data", "/ontology", "/developer-workspace",
     "/__ioi/data/sources?lane=syncs", "/__ioi/lineage?tab=history", "/__ioi/vertex",
-    "/__ioi/domain-apps/fusion", "/__ioi/marketplace/artifacts",
+    "/__ioi/domain-apps/fusion", "/packages?tab=artifacts",
     "/__ioi/developer-console", "/__ioi/studio/workshop",
     "/__ioi/missions/schedules", "/__ioi/data/ingest", "/__ioi/foundry/specs/new",
     "/__ioi/foundry/inference", "/__ioi/operations", "/__ioi/environments"];

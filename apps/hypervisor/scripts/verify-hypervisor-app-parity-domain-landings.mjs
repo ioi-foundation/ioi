@@ -144,7 +144,9 @@ for (const [slug, route, title, absentPhrase, ownerLink] of [
   const mktRoutes = routes.filter((r) => String(r.path || "").startsWith("/v1/hypervisor/marketplace")).length;
   const searchRoutes = routes.filter((r) => /(search|\/query|index)/i.test(String(r.path || "")));
   const artifactSearchRoutes = searchRoutes.filter((r) => /(package|artifact|release|listing|registry|marketplace)/i.test(String(r.path || ""))).length;
-  const p = await page(`${SERVE}/__ioi/marketplace/artifacts`);
+  // ADR 0056 M6c: the port moved verbatim into the Packages Artifacts tab; its page shell (header,
+  // task-tray counters, Help) is the Packages page's now, and every plane is read as the caller.
+  const p = await page(`${SERVE}/packages?tab=artifacts`);
   const t = p.text;
   const planeRow = (path) => {
     const i = t.indexOf(`data-ioi-plane="${path}"`);
@@ -155,8 +157,8 @@ for (const [slug, route, title, absentPhrase, ownerLink] of [
   };
   const gapReasons = [...t.matchAll(/<span class="[^"]*rgy-gap[^"]*"[^>]*data-ioi-disabled-reason="([^"]*)"/g)].map((m) => m[1]);
   const liveRows = derived.filter((d) => d.state === "live").flatMap((d) => d.rows.map((rec) => ({ d, rec })));
-  ok("registry: matrix reference_ported at /__ioi/marketplace/artifacts with the live-atlas evidence carried", bySlug.registry?.parity_class === "reference_ported" && bySlug.registry?.candidate_surface === "/__ioi/marketplace/artifacts" && bySlug.registry?.remediation_state === "live_ia_recorded" && /#registry-port/.test(bySlug.registry?.adjudication_ref || "") && /reference-live-tenant-deep-atlas/.test(bySlug.registry?.live_reference_evidence || ""), bySlug.registry?.parity_class);
-  ok("registry: renders 200 with the LIVE-tenant artifact-registry landing grammar, RAILLESS (owner ruling 2026-08-20)", p.status === 200 && !t.includes("og-grail") && ["Artifacts", "Explore artifacts", "Create artifact repository", "Help", "Search artifacts…", "Learn about artifacts", "Go to documentation", "Core concepts", "Publish an artifact", "Search an artifact", "Recall an artifact"].every((k) => t.includes(k)), String(p.status));
+  ok("registry: the matrix no longer claims the Artifacts port at its own route — it moved into the Packages Artifacts tab — and carries both adjudications", bySlug.registry?.parity_class === "reference_capture" && !bySlug.registry?.candidate_surface && bySlug.registry?.remediation_state === "live_ia_recorded" && /#registry-port/.test(bySlug.registry?.adjudication_ref || "") && /ADR 0056 M6c/.test(bySlug.registry?.adjudication_ref || ""), bySlug.registry?.parity_class);
+  ok("registry: renders 200 with the LIVE-tenant artifact-registry landing grammar, RAILLESS (owner ruling 2026-08-20)", p.status === 200 && !t.includes("og-grail") && ["Packages / Artifacts", "Explore artifacts", "Create artifact repository", "Search artifacts…", "Learn about artifacts", "Go to documentation", "Core concepts", "Publish an artifact", "Search an artifact", "Recall an artifact"].every((k) => t.includes(k)), String(p.status));
   // The load-bearing gate: every plane's rendered state is re-derived from the daemon on THIS run
   // and must match exactly. A pasted state, a stale state, or a state copied from a sibling plane
   // all fail here rather than aging quietly into a lie.
@@ -173,12 +175,16 @@ for (const [slug, route, title, absentPhrase, ownerLink] of [
   ok("registry: record rows == the READABLE planes exactly (never more than the planes hold), cap NAMED", (t.match(/class="rgy-row"/g) || []).length === Math.min(50, liveRows.length) && new RegExp(`${liveRows.length} REAL record${liveRows.length === 1 ? "" : "s"} across ${derived.filter((d) => d.state === "live").length} live plane`).test(t), `rows=${(t.match(/class="rgy-row"/g) || []).length} plane=${liveRows.length}`);
   ok("registry: a sampled REAL record renders verbatim — its id, its ref and its schema_version, under the plane it came from", liveRows.length === 0 || liveRows.every(({ d, rec }) => { const id = rec.id || rec.listing_id || rec.candidate_id || ""; const ref = rec.ref || rec.candidate_ref || rec.subject_ref || ""; return (!id || t.includes(id)) && (!ref || t.includes(ref)) && (!rec.schema_version || t.includes(rec.schema_version)) && t.includes(d.path); }), `${liveRows.length} records`);
   ok("registry: the taxonomy + substrate censuses are the daemon's OWN keys read live, and publishable material is never rendered as an artifact row", kinds.length > 0 && kinds.every((k) => t.includes(`data-ioi-registry-kind="${k}"`)) && Object.keys(substrate).every((k) => t.includes(`data-ioi-substrate-key="${k}"`) && new RegExp(`data-ioi-substrate-key="${k}"[^>]*><code>${k}</code><b>${substrate[k]}</b>`).test(t)) && /NOT published artifacts/.test(t) && !/class="rgy-row"[^>]*>[^<]*<span><b>agents<\/b>/.test(t), `kinds=${kinds.length} substrate=${Object.keys(substrate).length}`);
-  ok("registry: every gap carries the UNIFIED contract (aria === data-ioi count) and there are real absences", (t.match(/aria-disabled="true"/g) || []).length >= 9 && (t.match(/aria-disabled="true"/g) || []).length === (t.match(/data-ioi-disabled-reason=/g) || []).length, `${(t.match(/aria-disabled="true"/g) || []).length} gaps`);
-  ok("registry: no chrome reason is BOILERPLATE — every control's reason is written for that control (all distinct)", gapReasons.length >= 9 && new Set(gapReasons).size === gapReasons.length, `${gapReasons.length} chrome gaps, ${new Set(gapReasons).size} distinct`);
+  // >= 4, not 9 (ADR 0056 M6c): the task-tray counters and Help were page chrome and stayed with the
+  // retired page; the tab always carries its four chrome gaps, plus a dash per field a record lacks.
+  ok("registry: every gap carries the UNIFIED contract (aria === data-ioi count) and there are real absences", (t.match(/aria-disabled="true"/g) || []).length >= 4 && (t.match(/aria-disabled="true"/g) || []).length === (t.match(/data-ioi-disabled-reason=/g) || []).length, `${(t.match(/aria-disabled="true"/g) || []).length} gaps`);
+  // The page chrome (task tray, Help) stayed with the retired page, so four chrome gaps remain: the
+  // ecosystem scope, the search input, the card's search and the documentation link.
+  ok("registry: no chrome reason is BOILERPLATE — every control's reason is written for that control (all distinct)", gapReasons.length >= 4 && new Set(gapReasons).size === gapReasons.length, `${gapReasons.length} chrome gaps, ${new Set(gapReasons).size} distinct`);
   // This port sits next to a surface that DOES own these verbs. Duplicating them would mint a
   // second registry owner, so the gate is: no form, no write path, and the verb's absence reason
   // must name the owner surface the verb actually lives on.
-  ok("registry: READ-ONLY projection — no verb is re-minted; the Create-repository absence NAMES the owner surface and the page links there", !t.includes("<form") && !/action="\/__ioi\/(packages|marketplace)/.test(t) && /Repository creation is a REAL estate verb and it is NOT missing/.test(t) && t.includes("/__ioi/packages/registry") && t.includes("/__ioi/marketplace/listings"), String(!t.includes("<form")));
+  ok("registry: READ-ONLY projection — no verb is re-minted; the Create-repository absence NAMES the owner surface and the page links there", !t.includes("<form") && !/action="\/__ioi\/(packages|marketplace)/.test(t) && t.includes('href="/packages#catalog"') && /Repository creation is candidate admission on Packages, the owner surface/.test(t) && t.includes('href="/packages/marketplace"'), String(!t.includes("<form")));
   ok("registry: evidence cited (adjudication #registry-port + the LIVE deep atlas) and brand-clean — no vendor brand and no borrowed package-ecosystem name", /reference-seed-adjudications\.v1\.json#registry-port/.test(t) && /reference-live-tenant-deep-atlas\.v1\.json#registry/.test(t) && !/\bPalantir\b/i.test(t) && !/palantirfoundry/i.test(t) && !/\bconda\b/i.test(t) && !/\b(npm|maven|pypi|docker hub)\b/i.test(t));
 }
 // JOB-1: jobs — the BUILDS port, and the leg whose finding is that NO SINGLE PLANE lists every

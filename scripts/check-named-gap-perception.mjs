@@ -120,13 +120,22 @@ const LIVE = self("live");
 // counted 424 declared-gap elements on the Map port (one typed-absence chip per placement row — the
 // same 424 the settling note above describes), 7 on Model Studio and 1 on Insight: 432 elements,
 // 431 of them labelled and one with an ordinary cursor. No surviving surface's count moved.
+//
+// 2026-09-25 (ADR 0056 M6b+c): surfaces 32 → 30, states 4 → 5, labelled 179 → 173, unreachable
+// 145 → 139, cursor 55 → 53 — measured element by element (same selector, a HEAD checkout's serve
+// against this tree's). The retired Artifacts page carried 9 labelled gaps; its lanes' new home, the
+// Packages Artifacts tab, carries 5 (four chrome gaps and one dash) and is probed as a STATE of
+// Packages. The other 2 were a double count at HEAD: the Marketplace-mode row was probed at its
+// canonical route, which TRANSFERRED to the listings page, so the listings page's two labelled gaps
+// (Installations and Help, both with an ordinary cursor) were counted under two rows — and the mode's
+// own page was never measured at all. −9 + 5 − 2 = −6; the cursor count loses the double-counted two.
 export const PINNED = Object.freeze({
-  surfaces_probed: 32, // ADR 0056 M6a: Model Studio, Insight and Map merged into their owners (M5 retired the Missions root)
-  states_probed: 4,
-  labelled: 179,
+  surfaces_probed: 30, // ADR 0056 M6: M6a merged Model Studio, Insight and Map; M6b the Packages Marketplace mode; M6c moved Artifacts into a Packages tab
+  states_probed: 5, // ADR 0056 M6c: the Packages Artifacts tab
+  labelled: 173,
   primary_fill: 0,
-  cursor_not_disabled: 55,
-  unreachable_control: 145,
+  cursor_not_disabled: 53,
+  unreachable_control: 139,
   unmarked_gap: 0,
 });
 

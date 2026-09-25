@@ -70,7 +70,7 @@ export const SURFACES = [
   { slug: "approvals", owner: "Governance", title: "Approvals", icon: APPROVALS_APP_ICON_URI, route: "/__ioi/governance/approvals", canonical_route: "/governance/approvals", verifier: "scripts/verify-hypervisor-app-parity-approvals.mjs", certification: "pixel-certifications/approvals.json", capabilities: ["browse", "filter", "select", "inspect", "transition"], operational_state: "act", embedded_shell_state: "native_single_rail", interaction_parity_state: "none" },
   { slug: "incidents", owner: "Operations", title: "Issues", icon: ISSUES_APP_ICON_URI, route: "/__ioi/missions/incidents", canonical_route: "/operations/issues", verifier: "scripts/verify-hypervisor-app-parity-incidents.mjs", certification: "pixel-certifications/incidents.json", capabilities: ["browse", "filter", "proof"], operational_state: "browse", embedded_shell_state: "native_single_rail", interaction_parity_state: "none" },
   { slug: "models", owner: "Foundry", title: "Model Catalog", icon: MODELS_APP_ICON_URI, route: "/__ioi/foundry/models", verifier: "scripts/verify-hypervisor-app-parity-foundry-models.mjs", certification: "pixel-certifications/models.json", capabilities: ["browse"], operational_state: "browse", embedded_shell_state: "native_single_rail", interaction_parity_state: "none" },
-  { slug: "listings", owner: "Packages", title: "Marketplace", icon: MARKETPLACE_APP_ICON_URI, route: "/__ioi/marketplace/listings", verifier: "scripts/verify-hypervisor-app-parity-listings.mjs", certification: "pixel-certifications/listings.json", capabilities: ["browse"], operational_state: "browse", embedded_shell_state: "native_single_rail", interaction_parity_state: "none" },
+  { slug: "listings", owner: "Packages", title: "Marketplace", icon: MARKETPLACE_APP_ICON_URI, route: "/__ioi/marketplace/listings", canonical_route: "/packages/marketplace", verifier: "scripts/verify-hypervisor-app-parity-listings.mjs", certification: "pixel-certifications/listings.json", capabilities: ["browse"], operational_state: "browse", embedded_shell_state: "native_single_rail", interaction_parity_state: "none" },
   { slug: "designer", owner: "Studio", title: "Solution Designer", icon: DSG_APP_TILE_URI, route: "/__ioi/studio/designer", verifier: "scripts/verify-hypervisor-app-parity-studio-designer.mjs", certification: "pixel-certifications/designer.json", capabilities: ["browse"], operational_state: "browse", embedded_shell_state: "native_single_rail", interaction_parity_state: "none" },
   // W2.1 next-legs II Leg 1b: the Studio surface packet. A FRESH legacy action lane
   // (/__ioi/studio/workbench) — the /__ioi/agent-studio flat readout keeps serving untouched
@@ -99,7 +99,8 @@ export const SURFACES = [
   // · SCM publication), classified live into four states (LIVE / EMPTY / REFUSED / NO READ
   // ROUTE). The verbs stay on the Packages + Marketplace owner surfaces and are linked, never
   // duplicated here.
-  { slug: "registry", owner: "Packages", title: "Artifacts", icon: MARKETPLACE_APP_ICON_URI, route: "/__ioi/marketplace/artifacts", verifier: "scripts/verify-hypervisor-app-parity-domain-landings.mjs", certification: "n/a", capabilities: ["browse"], operational_state: "browse", embedded_shell_state: "native_single_rail", interaction_parity_state: "none" },
+  // ADR 0056 M6c: `registry` (Artifacts, /__ioi/marketplace/artifacts) was PORTED into Packages as its Artifacts tab
+  // (surfaces/packages/artifacts.mjs, /packages?tab=artifacts) and retired with a typed refusal naming the tab.
   // JOB-1 (remediation v2): the live-tenant-sourced Builds port — a READ-ONLY projection of the
   // estate's build plane (the work ledger's `run` lane, the exact UNION of the transcript and
   // per-automation projections and the only plane carrying both the acting authority and the
@@ -159,13 +160,13 @@ export const SURFACES = [
   // W2.3 (next-legs II Leg 2): the Packages surface packet — ONE module, two mounts, over the
   // CLOSED /v1/hypervisor/packages daemon family. A FRESH legacy action lane
   // (/__ioi/packages/registry — the /__ioi/marketplace* seed lanes keep serving untouched until
-  // their W4 cutover) plus the canonical /packages mount. The second row is the OPTIONAL
-  // Marketplace mode at its canonical /packages/marketplace route (canon: "Packages /
-  // Marketplace" — a mode of the Packages owner, never a second package owner; owner stays
-  // "Packages", the module is the same, and the row exists so the canonical mode route is
-  // module-served with truthful ownership markers). Evidence: the packages journey verifier.
+  // their W4 cutover) plus the canonical /packages mount. Evidence: the packages journey verifier.
+  // The OPTIONAL Marketplace mode (canon: "Packages / Marketplace", a mode of the Packages owner) is
+  // served at /packages/marketplace by the certified listings port above (ADR 0056 M6b).
   { slug: "packages", owner: "Packages", title: "Packages", icon: MARKETPLACE_APP_ICON_URI, route: "/__ioi/packages/registry", canonical_route: "/packages", verifier: "scripts/verify-hypervisor-packages-journey.mjs", certification: "n/a", capabilities: ["browse", "select", "inspect", "create", "transition"], operational_state: "act", embedded_shell_state: "native_single_rail", interaction_parity_state: "none" },
-  { slug: "packages-marketplace", owner: "Packages", title: "Packages / Marketplace", icon: MARKETPLACE_APP_ICON_URI, route: "/__ioi/packages/marketplace", canonical_route: "/packages/marketplace", verifier: "scripts/verify-hypervisor-packages-journey.mjs", certification: "n/a", capabilities: ["browse"], operational_state: "browse", embedded_shell_state: "native_single_rail", interaction_parity_state: "none" },
+  // ADR 0056 M6b: `packages-marketplace` (the module's Marketplace mode at /__ioi/packages/marketplace) left —
+  // the certified Marketplace port (`listings`) serves canonical /packages/marketplace; the mode's code
+  // stays in the module as a seed and its legacy mount answers a typed retirement naming the Marketplace.
   // E7 COCKPIT RETIREMENT (2026-08-20, owner go recorded in reference-remediation-ledger.v1.json):
   // the eight legacy daemon-projection cockpit rows that used to sit here — applications ·
   // systems · automations · work · work-sessions · work-new-session · home · operations, on the
@@ -255,6 +256,7 @@ export const SURFACE_STATES = [
   { slug: "designer", route: "/__ioi/studio/designer?open=objects", note: "Open Diagram — the resource selector on its Object datasources scope" },
   { slug: "designer", route: "/__ioi/studio/designer/diagram", note: "New Diagram — the diagram editor, empty (R-240)" },
   { slug: "designer", route: "/__ioi/studio/designer/diagram?panel=reference", note: "Browse all — the diagram editor with Reference Diagrams open (R-240)" },
+  { slug: "packages", route: "/packages?tab=artifacts", note: "Artifacts — the registry ladder's ten-plane census, ported from the retired Artifacts page (ADR 0056 M6c)" },
 ];
 export function embeddableRoutes() {
   return new Set([...SURFACES.map((s) => s.route), ...SURFACES.filter((s) => s.canonical_route).map((s) => s.canonical_route), ...EMBED_THREAD_ROUTES]);
@@ -311,10 +313,9 @@ bindSurface("approvals", approvalsModule);
 bindSurface("sources", sourcesModule);
 bindSurface("ecology", ecologyModule);
 bindSurface("studio-home", studioModule);
-// Packages: BOTH rows bind the one module — the module branches on the served pathname (the
-// marketplace mounts render the read-first mode); ownership markers stay per-row truthful.
+// Packages: the module keeps its marketplace-mode branch as a seed; no row binds a marketplace mount
+// to it since ADR 0056 M6b (the listings port serves /packages/marketplace).
 bindSurface("packages", packagesModule);
-bindSurface("packages-marketplace", packagesModule);
 // E7 (2026-08-20): the eight legacy cockpit bindings were removed with their rows and modules.
 
 // Test-only fault surface (NEVER without the runtime-test flag): gives the action-runtime

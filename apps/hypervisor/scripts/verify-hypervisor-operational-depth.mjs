@@ -137,7 +137,9 @@ async function run() {
   // work-new-session. They are removed rather than kept, because the assertion below rejects a
   // stale name: a list that can name a surface the registry lacks is a list that absorbs coverage.
   // ADR 0056 M6 (2026-09-25): insight · map · modelstudio left with their registry rows, merged into
-  // Object Explorer, Environments and the Foundry spec builder.
+  // Object Explorer, Environments and the Foundry spec builder; packages-marketplace left when the
+  // certified Marketplace port took /packages/marketplace (M6b); registry left when its port moved into the
+  // Packages Artifacts tab (M6c).
   const REFERENCELESS_SURFACES = {
     contour: { provenance_id: "studio", class: "post-atlas" },
     devconsole: { provenance_id: "developer-console", class: "post-atlas" },
@@ -148,9 +150,7 @@ async function run() {
     logic: { provenance_id: "studio", class: "post-atlas" },
     notepad: { provenance_id: "developer-workspace", class: "post-atlas" },
     packages: { provenance_id: "packages", class: "post-atlas" },
-    "packages-marketplace": { provenance_id: "packages", class: "post-atlas" },
     quiver: { provenance_id: "evaluations", class: "post-atlas" },
-    registry: { provenance_id: "packages", class: "post-atlas" },
     repositories: { provenance_id: "developer-workspace", class: "post-atlas" },
     scheduler: { provenance_id: "operations", class: "post-atlas" },
     "studio-home": { provenance_id: "studio", class: "post-atlas" },

@@ -226,7 +226,10 @@ async function run() {
       // reachability contract below now binds EVERY registry row with no exclusion of any kind: a
       // surface that cannot be reached from the native shell within two link hops fails here, and
       // the only way to satisfy it is to link the surface or to remove it.
-      const unreachable = SURFACES.filter((s) => !reached.has(s.route)).map((s) => s.route);
+      // A surface REACHED AT ITS CANONICAL ROUTE is reached (ADR 0056): the canonical route serves the same
+      // module or handler, and the estate's links move to canonical routes as each tool is re-parented —
+      // since M6b the Marketplace readout and the Artifacts tab link Packages at /packages, not its legacy lane.
+      const unreachable = SURFACES.filter((s) => !reached.has(s.route) && !(s.canonical_route && reached.has(s.canonical_route))).map((s) => s.route);
       ok("every registry surface is reachable from the native shell within two link hops (launcher row, shell-wired target, GRE-2 transfer, or landing/document link)", unreachable.length === 0, unreachable.length ? `unreachable: ${unreachable.join(" ")}` : `${SURFACES.length} surfaces via ${launchUniverse.length} shell targets`);
       ok("the launcher never offers the /__ioi/odk substrate as a catalog row (it stays linked from within owner surfaces)", !rowTargets.includes("/__ioi/odk"));
       // The row harvest left the modal open; close it so the click-drive loop can reopen it per surface.

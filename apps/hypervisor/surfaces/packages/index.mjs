@@ -12,7 +12,9 @@
 //                  rendered with their FORCED-DISABLED truth verbatim: surface_enablement_state
 //                  "disabled", launch_eligible:false, and the daemon's exact
 //                  disabled_reason_codes — never a launchability claim.
-//   marketplace  — /packages/marketplace (+ /__ioi/packages/marketplace): the OPTIONAL Packages
+//   marketplace  — SEED since ADR 0056 M6b: no row binds a marketplace mount to this module; the
+//                  certified Marketplace port serves /packages/marketplace and the legacy mount
+//                  retired. As shipped: /packages/marketplace (+ /__ioi/packages/marketplace): the OPTIONAL Packages
 //                  mode (canon: a Marketplace entry point resolves to "Packages / Marketplace"
 //                  and never becomes a second package owner). READ-FIRST in this packet: the
 //                  daemon's marketplace overview + listing plane rendered honestly (honest-empty
@@ -62,6 +64,8 @@
 //     There is no standalone enable verb by design. A launcher-feed entry is INVENTORY presence;
 //     launchability is the compiled join's derivation over release, installation and serving.
 import { escHtml, GRE1_LIGHT, GRE1_LIGHT_FONT_FACES, callerOwnerRef } from "../kit.mjs";
+// ADR 0056 M6c: the Artifacts registry port, adopted from the serve as this module's Artifacts tab.
+import { loadArtifacts, renderArtifactsTab } from "./artifacts.mjs";
 
 const esc = escHtml;
 const enc = encodeURIComponent;
@@ -115,6 +119,13 @@ export async function load(ctx) {
       listings: "/v1/hypervisor/marketplace/listings",
     });
     return { mode: "marketplace", results };
+  }
+  // ADR 0056 M6c: the Artifacts tab — the registry ladder's ten-plane read-state census, read as THIS
+  // caller (the request-scoped capability), classified per plane from its own response.
+  if (sp.get("tab") === "artifacts") {
+    const fetchImpl = typeof ctx.daemonFetch === "function" ? ctx.daemonFetch : (p) => fetch(`${ctx.daemon}${p}`);
+    const owner = ctx.url.pathname.startsWith("/__ioi/") ? LEGACY_ROUTE : CANONICAL_ROUTE;
+    return { mode: "artifacts", artifacts: await loadArtifacts(fetchImpl, owner) };
   }
   const results = await client.readMany({
     packages: PACKAGES_PLANE,
@@ -665,15 +676,27 @@ export function render(model, ctx) {
   const sp = ctx.url.searchParams;
   const onLegacyMount = ctx.url.pathname.startsWith("/__ioi/");
   const registryBase = onLegacyMount ? LEGACY_ROUTE : CANONICAL_ROUTE;
-  const marketplaceBase = onLegacyMount ? LEGACY_MARKETPLACE_ROUTE : CANONICAL_MARKETPLACE_ROUTE;
+  // ADR 0056 M6b: the Marketplace is the certified listings port at the canonical route on BOTH mounts;
+  // the legacy marketplace mount retired (the mode branch below stays as a seed, reached by no row).
+  const marketplaceBase = CANONICAL_MARKETPLACE_ROUTE;
   const marketplace = model.mode === "marketplace";
+  const artifactsTab = model.mode === "artifacts";
   const nav = `<nav class="tabs" aria-label="Packages">
-    <a class="tab${marketplace ? "" : " active"}" href="${registryBase}">Registry</a>
+    <a class="tab${marketplace || artifactsTab ? "" : " active"}" href="${registryBase}">Registry</a>
+    <a class="tab${artifactsTab ? " active" : ""}" href="${registryBase}?tab=artifacts">Artifacts</a>
     <a class="tab${marketplace ? " active" : ""}" href="${marketplaceBase}">Marketplace</a>
   </nav>`;
   let bodyHtml = "";
   let title = "Packages";
-  if (marketplace) {
+  let tabCss = "";
+  if (artifactsTab) {
+    title = "Packages / Artifacts";
+    const tab = renderArtifactsTab(model.artifacts, { esc, registryBase });
+    tabCss = tab.css;
+    bodyHtml = `<h1>Packages / Artifacts</h1>
+      <p class="sub">The registry ladder of the <a href="${registryBase}">Packages</a> owner, read live: what material exists, what has been proposed, admitted, released and published — every plane classified from its own answer to you, and every verb left on the surface that owns it.</p>
+      ${tab.html}`;
+  } else if (marketplace) {
     title = "Packages / Marketplace";
     bodyHtml = `<h1>Packages / Marketplace</h1>
       <p class="sub">Optional mode of the <a href="${registryBase}">Packages</a> owner application — browse the real listing plane; package admission, releases, and installs live in the registry.</p>
@@ -727,6 +750,6 @@ export function render(model, ctx) {
   .ok-banner{border:1px solid ${G.okBorder};background:${G.okBg};color:${G.okText}}
   .no-banner{border:1px solid ${G.warnBorder};background:${G.warnBg};color:${G.warnText}}
   @media(max-width:760px){.grid{grid-template-columns:130px 1fr}table{display:block;overflow-x:auto;max-width:100%}}`;
-  return `<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>${esc(title)} · Hypervisor</title><style>${css}</style></head>
+  return `<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>${esc(title)} · Hypervisor</title><style>${css}${tabCss}</style></head>
 <body><div class="wrap">${nav}${banner(sp)}${bodyHtml}</div></body></html>`;
 }

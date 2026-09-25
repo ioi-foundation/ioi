@@ -35,6 +35,10 @@ if (!reachable.status) { console.error(`BLOCKED: no serve at ${SERVE}`); process
 const matrix = JSON.parse(fs.readFileSync(path.join(APP, "harvest-app-parity-matrix.json"), "utf8"));
 const bySeed = Object.fromEntries((matrix.seeds || []).map((s) => [s.slug, s]));
 const serveSrc = fs.readFileSync(path.join(HERE, "serve-product-ui.mjs"), "utf8");
+const packagesSrc = fs.readFileSync(path.join(APP, "surfaces", "packages", "index.mjs"), "utf8");
+const artifactsSrc = fs.readFileSync(path.join(APP, "surfaces", "packages", "artifacts.mjs"), "utf8");
+// A duplicate served by a flat serve branch keeps that branch; one served by a module keeps its code there.
+const flatSeed = (route) => serveSrc.includes(`if (pathname === "${route}" && req.method === "GET")`);
 
 // One row per merge. `lane` is what the duplicate showed; `carries` proves the survivor renders it;
 // `linkers` are the pages that linked the duplicate before the merge.
@@ -60,6 +64,29 @@ const MERGED = [
     carries: (t) => /id="env-placement-venues"/.test(t) && /<h2>Placement<\/h2>/.test(t),
     linkers: ["/__ioi/environments", "/__ioi/environments/machines"],
   },
+  {
+    // ADR 0056 M6b: the Packages module's Marketplace MODE duplicated the certified Marketplace port.
+    // It had no parity-matrix row of its own (a module mount, not a harvested seed), so the matrix
+    // check asks only that no row claims the mount.
+    slug: "packages-marketplace", seed: null, route: "/__ioi/packages/marketplace",
+    successor: "/packages/marketplace", label: "the Marketplace",
+    lane: "the listing plane (search, stores, listing rows) as the certified Marketplace port, stamped with the canonical route and the Packages owner, one hop from the counts readout",
+    carries: (t) => t.includes('data-ioi-surface-route="/packages/marketplace"') && t.includes('data-ioi-surface-owner="Packages"') && /<h1 class="mk-htitle">Marketplace/.test(t) && /class="mk-search/.test(t) && t.includes('href="/__ioi/marketplace"'),
+    linkers: ["/__ioi/marketplace", "/packages", "/__ioi/packages/registry"],
+    preserved: () => /function marketplaceView\(/.test(packagesSrc) && packagesSrc.includes('LEGACY_MARKETPLACE_ROUTE = "/__ioi/packages/marketplace"'),
+  },
+  {
+    // ADR 0056 M6c: the one merge that needed a PORT first. Packages lacked most of the Artifacts page, so
+    // the page's rendering code MOVED verbatim into surfaces/packages/artifacts.mjs as a Packages tab, and
+    // only then did the route retire. The seed is that adopted code, now reading as the caller.
+    slug: "registry", seed: "registry", route: "/__ioi/marketplace/artifacts",
+    successor: "/packages?tab=artifacts", label: "the Packages Artifacts tab",
+    lane: "the registry ladder — ten planes each classified from its own answer, the cross-plane record table, the package-registry panel, the taxonomy and substrate lanes and the route-counted cards",
+    carries: (t) => (t.match(/data-ioi-plane="/g) || []).length === 10 && (t.match(/data-ioi-plane-state="(live|empty|refused|write_only|unreadable)"/g) || []).length === 10
+      && t.includes("Registry records") && t.includes("Publishable material") && t.includes("Learn about artifacts") && t.includes('data-ioi-surface-owner="Packages"'),
+    linkers: ["/__ioi/marketplace", "/packages", "/__ioi/packages/registry"],
+    preserved: () => artifactsSrc.includes("const rgyClassify = (pr) => {") && artifactsSrc.includes("export function renderArtifactsTab(") && !serveSrc.includes('pathname === "/__ioi/marketplace/artifacts"'),
+  },
 ];
 
 for (const m of MERGED) {
@@ -81,10 +108,14 @@ for (const m of MERGED) {
   ok(`${m.slug}: NO FALLBACK — no registry row, no bound module, no canonical yield; the route shell names ${m.successor} as the successor`,
     !SURFACES.some((s) => s.slug === m.slug || s.route === m.route) && !boundSurface(m.route, "GET") && !canonicalSurfaceRoute(m.route)
       && retired?.replacement === null && retired?.successor === m.successor);
-  const row = bySeed[m.seed];
-  ok(`${m.slug}: NO FALLBACK — the parity matrix no longer claims the port (seed \`${m.seed}\`) and adjudicates the merge`,
-    row && row.parity_class !== "reference_ported" && row.candidate_surface !== m.route && /ADR 0056 M6/.test(row.adjudication_ref || ""),
-    `${row?.parity_class} ${row?.candidate_surface || ""}`);
+  if (m.seed) {
+    const row = bySeed[m.seed];
+    ok(`${m.slug}: NO FALLBACK — the parity matrix no longer claims the port (seed \`${m.seed}\`) and adjudicates the merge`,
+      row && row.parity_class !== "reference_ported" && row.candidate_surface !== m.route && /ADR 0056 M6/.test(row.adjudication_ref || ""),
+      `${row?.parity_class} ${row?.candidate_surface || ""}`);
+  } else {
+    ok(`${m.slug}: NO FALLBACK — no parity-matrix row claims the retired mount`, !(matrix.seeds || []).some((s) => (s.candidate_surface || "").split("?")[0] === m.route));
+  }
 
   // 3. The survivor carries the lane.
   const surv = await get(m.successor, "text/html");
@@ -99,8 +130,8 @@ for (const m of MERGED) {
   ok(`${m.slug}: NOTHING LEADS THERE — no page that linked ${m.route} still does`, linking.length === 0, linking.join(" "));
 
   // 5. The seed is preserved.
-  ok(`${m.slug}: THE SEED IS PRESERVED — its rendering code stays in the serve, bound to nothing (seeds are never mass-deleted)`,
-    serveSrc.includes(`if (pathname === "${m.route}" && req.method === "GET")`));
+  ok(`${m.slug}: THE SEED IS PRESERVED — its rendering code stays where it was (the serve, or its module), bound to nothing (seeds are never mass-deleted)`,
+    m.preserved ? m.preserved() : flatSeed(m.route));
 }
 
 const passed = results.filter((r) => r.pass).length;

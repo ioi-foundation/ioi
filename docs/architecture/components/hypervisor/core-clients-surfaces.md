@@ -1824,8 +1824,12 @@ beside it
 ([ADR 0056](../../../decisions/0056-organize-the-hypervisor-application-estate-by-four-axes-and-retire-missions.md)
 M6). Insight's object sets are Object Explorer's, Model Studio's create entry is
 the Foundry spec builder, and the placement map is the Placement section of
-Environments. Each merged route answers a typed retirement that names its
-successor, and never redirects to it.
+Environments. The Marketplace mode at `/packages/marketplace` is the certified
+Marketplace port; the Packages module's duplicate of it retired. The Artifacts
+registry page moved into Packages as its Artifacts tab, reading every registry
+plane as the signed-in caller. Each merged
+route answers a typed retirement that names its successor, and never redirects
+to it.
 
 `Work / Incidents` and `Work / Reviews` are workspace views, not tool
 registrations and not truth owners. Issues is an Operations tool at
