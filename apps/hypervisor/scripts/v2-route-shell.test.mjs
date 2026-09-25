@@ -139,7 +139,9 @@ test("ledger: the developer route ledger carries every row's waves, build state,
     assert.ok(html.includes(row.waves.slice(0, 12)), `${row.route} waves missing from the ledger`);
   }
   assert.match(html, /302 → \/ai/);
-  assert.match(html, /serves \/__ioi\/sessions at the canonical route/);
+  // /work/sessions has served the Work projection lane since M08.9; the old /__ioi/sessions readout
+  // is no longer what the canonical route serves, and the ledger says so.
+  assert.match(html, /serves \/__ioi\/work-projection\/sessions at the canonical route/);
   assert.match(html, /data-ioi-surface-route="\/__ioi\/route-ledger"/);
 });
 

@@ -1041,7 +1041,8 @@ try {
     // document AT the canonical route, so the heading asserted is the one the lane really
     // renders (declared in the route table), never a fabricated title.
     expectedPaths: {
-      "/": "/projects",
+      // The root lands on the Explorer Home at /ai (the Home graft), no longer on the Projects list.
+      "/": "/ai",
       ...GRE2_TRANSFERS,
       ...Object.fromEntries(
         canonicalSurfaceRows
@@ -1052,7 +1053,7 @@ try {
     // A transferred or redirected root lands on its lane's own document, whose wording the lane
     // owns; only a document rendered AT the canonical route carries a route-level semantic.
     semantics: Object.fromEntries([
-      ["/", ["Projects"]],
+      ["/", ["New Session"]],
       ...canonicalSurfaceRows.map((surface) => [
         surface.route,
         [
