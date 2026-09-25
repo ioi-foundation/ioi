@@ -407,7 +407,9 @@ const H_BASELINE = [
   "ioi_intelligence_routes.rs::handle_proposals_create",
   "ioi_intelligence_routes.rs::handle_spaces_create",
   "ioi_intelligence_routes.rs::handle_vault_import",
-  "lifecycle_routes.rs::handle_agent_create",
+  // "lifecycle_routes.rs::handle_agent_create" — LEFT the baseline 2026-09-25 (R-240): agent create now
+  // resolves RequestIdentity FIRST (no loopback exemption) and stamps `created_by_principal_ref` on the
+  // record. The disappearance is the intended ratchet shrink.
   "lifecycle_routes.rs::handle_approval_request",
   "lifecycle_routes.rs::handle_artifact_create",
   "lifecycle_routes.rs::handle_auth_bootstrap",

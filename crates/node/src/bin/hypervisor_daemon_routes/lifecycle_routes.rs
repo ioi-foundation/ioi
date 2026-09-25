@@ -600,10 +600,35 @@ pub(crate) async fn handle_thread_delete(
 /// POST /v1/agents — create an agent (no thread) via plan_agent_create_state_update.
 pub(crate) async fn handle_agent_create(
     State(st): State<Arc<DaemonState>>,
+    headers: HeaderMap,
     Json(body): Json<Value>,
-) -> Result<Json<Value>, AppError> {
+) -> Response {
+    // IDENTITY FIRST (R-240): this route took no headers, so any caller that could reach the daemon —
+    // including through a sign-in-required serve, whose /v1/* pass-through relies on the daemon to
+    // refuse — persisted an unowned agent record. An anonymous caller is owed the typed refusal before
+    // anything is built (loopback is not an identity for governed writes), and the record names who
+    // created it. Session launch never came through here: no daemon code calls this route.
+    let identity = match super::substrate_store::resolve_request_identity(&st.data_dir, &headers) {
+        Ok(identity) => identity,
+        Err(error) => return super::odk_routes::odk_scope_refusal(error).into_response(),
+    };
     let options = body.get("options").cloned().unwrap_or_else(|| json!({}));
     let agent = build_agent_candidate(&st, &options);
+    match plan_and_persist_agent(st.data_dir.as_str(), &identity.principal_ref, agent) {
+        Ok(planned) => Json(planned).into_response(),
+        Err(error) => error.into_response(),
+    }
+}
+
+/// Stamp the creator on an agent candidate, plan it through the kernel, and persist the planned
+/// record. The stamp is set after the candidate is built from scratch, so a caller's `options` cannot
+/// supply or override it; the planner carries extra fields through unchanged.
+fn plan_and_persist_agent(
+    data_dir: &str,
+    created_by_principal_ref: &str,
+    mut agent: Value,
+) -> Result<Value, AppError> {
+    agent["created_by_principal_ref"] = json!(created_by_principal_ref);
     let agent_id = agent
         .get("id")
         .and_then(|v| v.as_str())
@@ -617,9 +642,9 @@ pub(crate) async fn handle_agent_create(
     let planned = RuntimeKernelService::new()
         .plan_agent_create_state_update(&plan_request)
         .map_err(|error| AppError(StatusCode::BAD_GATEWAY, debug_string(error)))?;
-    persist_record(st.data_dir.as_str(), "agents", &agent_id, &planned.agent)
+    persist_record(data_dir, "agents", &agent_id, &planned.agent)
         .map_err(|error| AppError(StatusCode::INTERNAL_SERVER_ERROR, error.to_string()))?;
-    Ok(Json(planned.agent))
+    Ok(planned.agent)
 }
 
 /// GET /v1/agents — list persisted agent records.
@@ -1833,6 +1858,54 @@ fn live_mcp_server_candidates(servers: &[Value]) -> Result<Vec<(String, Value)>,
         candidates.push((label.to_string(), config.clone()));
     }
     Ok(candidates)
+}
+
+#[cfg(test)]
+mod agent_create_identity_tests {
+    use super::*;
+
+    #[test]
+    fn an_agent_names_its_creator_and_persists_it() {
+        let dir =
+            std::env::temp_dir().join(format!("agent-create-identity-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&dir);
+        std::fs::create_dir_all(&dir).unwrap();
+        let data_dir = dir.to_string_lossy().to_string();
+        // A caller cannot pre-set the creator: the candidate's own field is overwritten by the stamp.
+        // The kernel planner's own minimal agent (thread_lifecycle.rs agent_create_state_update_request).
+        let candidate = json!({
+            "id": "agent_identity_one",
+            "status": "active",
+            "runtime": "local",
+            "cwd": "/workspace",
+            "modelId": "local-model",
+            "runtimeControls": { "mode": "agent", "approvalMode": "suggest" },
+            "createdAt": "2026-09-25T12:00:00.000Z",
+            "updatedAt": "2026-09-25T12:00:00.000Z",
+            "created_by_principal_ref": "user://forged"
+        });
+        let planned = match plan_and_persist_agent(&data_dir, "user://alpha", candidate) {
+            Ok(planned) => planned,
+            Err(error) => panic!(
+                "the agent was not planned and persisted: {} {}",
+                error.0, error.1
+            ),
+        };
+        assert_eq!(
+            planned["created_by_principal_ref"], "user://alpha",
+            "the reply names the creator"
+        );
+        let persisted = read_record_dir(&data_dir, "agents");
+        let record = persisted
+            .iter()
+            .find(|r| r["id"] == "agent_identity_one")
+            .expect("persisted");
+        assert_eq!(
+            record["created_by_principal_ref"], "user://alpha",
+            "the persisted record names the creator"
+        );
+        let _ = std::fs::remove_dir_all(&dir);
+    }
 }
 
 #[cfg(test)]

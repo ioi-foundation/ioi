@@ -51,7 +51,15 @@ test("Rust hypervisor-daemon satisfies the canonical lifecycle contract via the 
   const stateDir = fs.mkdtempSync(path.join(os.tmpdir(), "ioi-rust-contract-state-"));
   const daemon = await startRustHypervisorDaemon({ stateDir });
   try {
-    const client = createRuntimeSubstrateClient({ endpoint: daemon.endpoint });
+    // Agent create is identity-first (R-240): an anonymous SDK client is refused in the SDK's own
+    // vocabulary, and the contract runs as a bootstrapped operator.
+    const anonymous = createRuntimeSubstrateClient({ endpoint: daemon.endpoint });
+    await assert.rejects(
+      Agent.create({ local: { cwd }, substrateClient: anonymous }),
+      (error) => error?.code === "auth" || /request_principal_required/.test(String(error?.message || "")),
+      "an anonymous Agent.create is refused, never persisted",
+    );
+    const client = createRuntimeSubstrateClient({ endpoint: daemon.endpoint, apiKey: await daemon.operatorSession() });
 
     // --- Agent.create -> agent.send (the SDK send path = POST /v1/agents/:id/runs) ---
     const agent = await Agent.create({ local: { cwd }, substrateClient: client });

@@ -260,7 +260,9 @@ export const DOC_PAGES: DocPage[] = [
             </p>
             <p>
               Start the daemon in one terminal, then copy the printed
-              <code> IOI_DAEMON_ENDPOINT</code> into the terminal where you run SDK code.
+              <code> IOI_DAEMON_ENDPOINT</code> and <code>IOI_DAEMON_TOKEN</code> into the
+              terminal where you run SDK code. Creating an agent is a governed write, so the
+              daemon asks who you are: the token is the operator session its first run issues.
             </p>
             <CodeBlock
               isDark={isDark}
@@ -273,6 +275,7 @@ const daemon = await startRustHypervisorDaemon({
 });
 
 console.log("IOI_DAEMON_ENDPOINT=" + daemon.endpoint);
+console.log("IOI_DAEMON_TOKEN=" + (await daemon.operatorSession()));
 console.log("Leave this process running while you use the SDK.");
 
 process.on("SIGINT", async () => {

@@ -1942,6 +1942,14 @@ protocol actor remains the worker package/version; the agent instance binds that
 worker to an owner, runtime assignment, persistence profile, memory/archive
 policy, and interaction surface.
 
+`POST /v1/agents` is identity-first (2026-09-25, R-240). A caller without a
+session or API token gets the typed `request_principal_required` refusal before
+anything is built; loopback is not an identity for this write. The persisted
+record names its creator in `created_by_principal_ref`. SDK callers supply a
+token through `apiKey` or `IOI_DAEMON_TOKEN`: a fresh local daemon issues one
+through its one-boot bootstrap. The list is not yet filtered by creator, because
+thread-launched agents are not stamped yet.
+
 ```http
 POST /v1/agents
 GET  /v1/agents
