@@ -151,10 +151,29 @@
   // Organization settings are read for a signed-in administrator; the bundle draws a REFUSED read as
   // an EMPTY one — signed out, Sessions said "It's quiet here · there are no environments in your
   // organization" over a daemon holding dozens (R-240). The layout says what is true above the pane.
+  // A FILTER OVER A REFUSED LIST IS A DEAD CONTROL (R-240, the M6b+c census): signed out, the Sessions
+  // pane still offered live project / environment / status filters — populated from reads that answer
+  // anyone — over a list the daemon refused, so choosing one moved nothing. While signed out the pane's
+  // filters are disabled with a reason that says why and what to do; signing in restores them.
+  const SIGNEDOUT_FILTER_ATTR = "data-ioi-signedout-filter";
+  const SIGNEDOUT_FILTER_REASON = "Sign in to filter: the daemon lists organization settings only to a signed-in administrator, so there is nothing here to filter yet";
+  function releaseSignedOutFilters() {
+    Array.prototype.forEach.call(document.querySelectorAll("[" + SIGNEDOUT_FILTER_ATTR + "]"), (s) => {
+      s.disabled = false; s.removeAttribute("aria-disabled"); s.removeAttribute("data-ioi-disabled-reason"); s.removeAttribute("title"); s.removeAttribute(SIGNEDOUT_FILTER_ATTR);
+    });
+  }
+  function holdSignedOutFilters(main) {
+    Array.prototype.forEach.call(main.querySelectorAll("select"), (s) => {
+      if (s.getAttribute(SIGNEDOUT_FILTER_ATTR) === "1" && s.disabled) return;
+      s.disabled = true; s.setAttribute("aria-disabled", "true"); s.setAttribute("title", SIGNEDOUT_FILTER_REASON);
+      s.setAttribute("data-ioi-disabled-reason", SIGNEDOUT_FILTER_REASON); s.setAttribute(SIGNEDOUT_FILTER_ATTR, "1");
+    });
+  }
   function updateSignedOutSettings() {
     let bar = document.getElementById("ioi-signedout-settings");
     const main = /^\/settings(\/|$)/.test(location.pathname) ? document.querySelector("main") : null;
-    if (ioiSignedIn !== false || !main) { if (bar) bar.remove(); return; }
+    if (ioiSignedIn !== false || !main) { if (bar) bar.remove(); releaseSignedOutFilters(); return; }
+    holdSignedOutFilters(main);
     if (!bar) {
       bar = document.createElement("div");
       bar.id = "ioi-signedout-settings";

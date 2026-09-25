@@ -85,7 +85,7 @@ export const PINNED = Object.freeze({
   bad_landing: 0,
   dead_anchor: 0,
   slow_landing: 0,
-  reference_lane: 16, // ADR 0056 M5: the retired Missions page carried two reference-lane links
+  reference_lane: 15, // ADR 0056 M5: the retired Missions page carried two reference-lane links; M6b: the listings page's capture link had been counted twice (the Marketplace-mode row was probed at its canonical route, which transferred to listings)
   raw_capture_href: 0,
 });
 

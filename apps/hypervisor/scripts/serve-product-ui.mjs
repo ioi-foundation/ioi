@@ -14152,6 +14152,208 @@ async function handleEstateRequest(req, res, body) {
       res.end();
       return;
     }
+    // ---- RESTORED 2026-09-25 (R-240): the Agent Studio write lanes S5-1 removed as collateral. S5-1
+    // (6e48f8874) took goal pursuit out of the Hypervisor and deleted this block with it, but none of these
+    // lanes is goal pursuit: every daemon route they relay to still exists (improvement proposals and their
+    // governance gates, memory/skill lifecycle, the portable vault, memory-mutation proposals), and the
+    // Agent Studio page kept rendering their forms — Approve, Reject, Apply, Request approval, Create
+    // release gate, the lifecycle transitions, vault import — so every one of those buttons posted into
+    // nothing. The census could not see it (it aborts every write, so a form refused on every submit reads
+    // alive). Restored verbatim from 6e48f8874^ with one change: the projection explain page no longer lists
+    // a goal-run binding (GoalRun left the Hypervisor). The improvement lanes still land on
+    // #launch-policies — the Agent Studio tab that renders the improvement proposals.
+    // The daemon refuses in two shapes — nested {error:{code,message}} and flat {code,message} (identity-first
+    // refusals are flat) — and a page that reads only one reports the other as an outage (R-240).
+    const refusalCodeOf = (j) => (j && ((j.error && j.error.code) || j.code || j.reason)) || "daemon unavailable";
+    const refusalMessageText = (j) => (j && ((j.error && j.error.message) || j.message)) || "";
+    // ---- Improvement governance gate lanes (controls created/bound through the daemon).
+    {
+      const govBind = pathname.match(/^\/__ioi\/agent-studio\/improvements\/([^/]+)\/governance\/(request-approval|open-release|attach)$/);
+      if (govBind && req.method === "POST") {
+        const [, iid, act] = govBind;
+        const failPage = (j, label) => {
+          res.writeHead(200, { "Content-Type": "text/html; charset=utf-8" });
+          res.end(automationsShell("Governance", `<div class="empty"><b>${CX_ESC(label)}</b> rejected fail-closed: <code>${CX_ESC(refusalCodeOf(j))}</code></div><p><a href="/__ioi/agent-studio#launch-policies">← Studio</a></p>`));
+        };
+        const pr = await daemonFetch(`/v1/hypervisor/intelligence/improvement-proposals/${encodeURIComponent(iid)}`).then((r) => r.json()).catch(() => ({}));
+        const proposalRef = (pr.proposal || {}).proposal_ref || "";
+        const attach = {};
+        if (act === "request-approval") {
+          const r = await daemonFetch(`/v1/hypervisor/governance/approval-requests`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ subject_ref: proposalRef, request_kind: "improvement_apply", reason: "gate a high-impact learned improvement" }) }).catch(() => null);
+          const j = r ? await r.json().catch(() => ({})) : {};
+          if (!r || r.status >= 400 || !(j.approval_request || {}).ref) { failPage(j, "request approval"); return; }
+          attach.approval_request_ref = j.approval_request.ref;
+        } else if (act === "open-release") {
+          const r = await daemonFetch(`/v1/hypervisor/governance/release-controls`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ release_target_ref: proposalRef, reason: "release gate for a high-impact learned improvement" }) }).catch(() => null);
+          const j = r ? await r.json().catch(() => ({})) : {};
+          if (!r || r.status >= 400 || !(j.release_control || {}).ref) { failPage(j, "create release gate"); return; }
+          attach.release_control_ref = j.release_control.ref;
+        } else {
+          const form = new URLSearchParams(body.toString());
+          for (const key of ["approval_request_ref", "release_control_ref"]) {
+            const v = (form.get(key) || "").trim();
+            if (v) attach[key] = v;
+          }
+        }
+        const r2 = await daemonFetch(`/v1/hypervisor/intelligence/improvement-proposals/${encodeURIComponent(iid)}`, { method: "PATCH", headers: { "content-type": "application/json" }, body: JSON.stringify(attach) }).catch(() => null);
+        const j2 = r2 ? await r2.json().catch(() => ({})) : {};
+        if (!r2 || r2.status >= 400) { failPage(j2, "bind governance refs"); return; }
+        res.writeHead(302, { Location: "/__ioi/agent-studio#launch-policies", "Cache-Control": "no-cache" });
+        res.end();
+        return;
+      }
+    }
+    {
+      const govAct = pathname.match(/^\/__ioi\/agent-studio\/governance\/(approvals|releases)\/([^/]+)\/(approve|reject|open|close)$/);
+      if (govAct && req.method === "POST") {
+        const [, family, gid, transition] = govAct;
+        const path = family === "approvals" ? "approval-requests" : "release-controls";
+        // The body is the transition and nothing else (P-IDENT-1A). This used to assert
+        // `reviewer_ref: "principal://operator"` — a constant standing in for whoever happened to
+        // be clicking, which attributed every Studio decision to a principal nobody authenticated.
+        // `daemonFetch` already carries the real caller's envelope; the daemon attributes from that.
+        const r = await daemonFetch(`/v1/hypervisor/governance/${path}/${encodeURIComponent(gid)}`, { method: "PATCH", headers: { "content-type": "application/json" }, body: JSON.stringify({ transition }) }).catch(() => null);
+        const j = r ? await r.json().catch(() => ({})) : {};
+        if (!r || j.ok === false) {
+          res.writeHead(200, { "Content-Type": "text/html; charset=utf-8" });
+          res.end(automationsShell("Governance", `<div class="empty"><b>${CX_ESC(transition)}</b> rejected fail-closed: <code>${CX_ESC(refusalCodeOf(j))}</code></div><p><a href="/__ioi/agent-studio#launch-policies">← Studio</a></p>`));
+          return;
+        }
+        res.writeHead(302, { Location: "/__ioi/agent-studio#launch-policies", "Cache-Control": "no-cache" });
+        res.end();
+        return;
+      }
+    }
+    {
+      const impAction = pathname.match(/^\/__ioi\/agent-studio\/improvements\/([^/]+)\/(approve|reject|apply)$/);
+      if (impAction && req.method === "POST") {
+        const [, iid, act] = impAction;
+        const r = await daemonFetch(`/v1/hypervisor/intelligence/improvement-proposals/${encodeURIComponent(iid)}/${act}`, { method: "POST", headers: { "content-type": "application/json" }, body: act === "reject" ? JSON.stringify({ reason: "operator rejected" }) : "{}" }).catch(() => null);
+        const j = r ? await r.json().catch(() => ({})) : {};
+        if (!r || r.status >= 400) {
+          res.writeHead(200, { "Content-Type": "text/html; charset=utf-8" });
+          res.end(automationsShell("Improvement", `<div class="empty"><b>${CX_ESC(act)}</b> rejected fail-closed: <code>${CX_ESC(refusalCodeOf(j))}</code>${refusalMessageText(j) ? `<br>${CX_ESC(refusalMessageText(j))}` : ""}</div><p><a href="/__ioi/agent-studio#launch-policies">← Studio</a></p>`));
+          return;
+        }
+        res.writeHead(302, { Location: "/__ioi/agent-studio#launch-policies", "Cache-Control": "no-cache" });
+        res.end();
+        return;
+      }
+    }
+    // ---- Memory lifecycle transitions + review queue lanes.
+    {
+      const lcAction = pathname.match(/^\/__ioi\/agent-studio\/intel\/(memory|skills)\/([^/]+)\/lifecycle$/);
+      if (lcAction && req.method === "POST") {
+        const [, family, rid] = lcAction;
+        const form = new URLSearchParams(body.toString());
+        const api = family === "memory" ? "memory-entries" : "skill-entries";
+        const payload = { transition: form.get("transition") || "", reason: form.get("reason") || "operator action from Agent Studio" };
+        if (form.get("superseded_by_ref")) payload.superseded_by_ref = form.get("superseded_by_ref");
+        const r = await daemonFetch(`/v1/hypervisor/${api}/${encodeURIComponent(rid)}/lifecycle`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(payload) }).catch(() => null);
+        const j = r ? await r.json().catch(() => ({})) : {};
+        if (!r || r.status >= 400) {
+          res.writeHead(200, { "Content-Type": "text/html; charset=utf-8" });
+          res.end(automationsShell("Memory lifecycle", `<div class="empty">Transition rejected fail-closed: <code>${CX_ESC(refusalCodeOf(j))}</code>${refusalMessageText(j) ? `<br>${CX_ESC(refusalMessageText(j))}` : ""}</div><p><a href="/__ioi/agent-studio#memory">← Studio</a></p>`));
+          return;
+        }
+        res.writeHead(302, { Location: "/__ioi/agent-studio#memory", "Cache-Control": "no-cache" });
+        res.end();
+        return;
+      }
+    }
+    // ---- Memory graph (derived, read-only) + projection explainability lanes.
+    if (pathname === "/__ioi/agent-studio/intel/graph" && req.method === "GET") {
+      const q = new URL(req.url, "http://x").searchParams.get("q") || "";
+      const r = await daemonFetch(`/v1/hypervisor/intelligence/graph${q ? "?q=" + encodeURIComponent(q) : ""}`).catch(() => null);
+      const j = r ? await r.json().catch(() => ({})) : { ok: false };
+      res.writeHead(200, { "Content-Type": "application/json", "Cache-Control": "no-cache" });
+      res.end(JSON.stringify(j));
+      return;
+    }
+    {
+      const explainMatch = pathname.match(/^\/__ioi\/intelligence\/projections\/([^/]+)\/explain$/);
+      if (explainMatch && req.method === "GET") {
+        const r = await daemonFetch(`/v1/hypervisor/intelligence/projections/${encodeURIComponent(explainMatch[1])}/explain`).catch(() => null);
+        const j = r ? await r.json().catch(() => ({})) : {};
+        if (!r || r.status >= 400) {
+          res.writeHead(404, { "Content-Type": "text/html; charset=utf-8" });
+          res.end(automationsShell("Projection", `<div class="empty">Projection not found.</div><p><a href="/__ioi/agent-studio#memory">← Studio</a></p>`));
+          return;
+        }
+        const ctx = j.context || {};
+        const dec = j.decisions || {};
+        const row = (d) => `<tr><td><b>${CX_ESC((d.meta || {}).title || "")}</b><div style="color:#878a93;font-size:10.5px"><code>${CX_ESC(d.ref)}</code></div></td>
+          <td><span class="pill muted">${CX_ESC((d.meta || {}).kind || "")}</span></td>
+          <td><span class="pill ${(d.meta || {}).quality_state === "accepted" ? "ok" : "muted"}">${CX_ESC((d.meta || {}).quality_state || "—")}</span></td>
+          <td><span class="pill ${(d.meta || {}).sensitivity === "secret" || (d.meta || {}).sensitivity === "private" ? "warn" : "muted"}">${CX_ESC((d.meta || {}).sensitivity || "—")}</span></td>
+          <td><span class="pill ${d.decision === "included" ? "ok" : "warn"}">${CX_ESC(d.decision)}</span>${d.reason_code ? ` <code style="font-size:10.5px">${CX_ESC(d.reason_code)}</code>` : ""}</td>
+          <td style="font-size:11px;color:#878a93">${d.checks ? d.checks.map((c) => `${c.pass ? "✓" : "✗"} ${CX_ESC(c.check)}`).join("<br>") : "—"}</td></tr>`;
+        const table = (title, list) => `<h2>${title} (${(list || []).length})</h2>${(list || []).length ? `<table><thead><tr><th>Record</th><th>Kind</th><th>Quality</th><th>Sensitivity</th><th>Decision</th><th>Checks</th></tr></thead><tbody>${list.map(row).join("")}</tbody></table>` : `<div class="empty">none</div>`}`;
+        res.writeHead(200, { "Content-Type": "text/html; charset=utf-8", "Cache-Control": "no-cache" });
+        res.end(automationsShell("Projection explain", `<p><a href="/__ioi/agent-studio#memory">← Agent Studio · Memory</a></p>
+          <h1>🧠 Projection explain <span class="pill ok">deterministic</span></h1>
+          <p class="sub">Vault truth → harness prompt, decision by decision. ${CX_ESC(j.body_disclosure || "")}</p>
+          <dl class="grid">
+            <dt>Projection</dt><dd><code>${CX_ESC(j.projection_ref || "")}</code></dd>
+            <dt>Memory space</dt><dd><code>${CX_ESC(j.memory_space_ref || "")}</code></dd>
+            <dt>Harness · route</dt><dd><code>${CX_ESC(ctx.harness_profile_ref || "")}</code> · <code>${CX_ESC(ctx.model_route_ref || "")}</code></dd>
+            <dt>Privacy · policy</dt><dd>${CX_ESC(ctx.privacy_posture || "")} · ${ctx.policy_ref ? `<code>${CX_ESC(ctx.policy_ref)}</code>` : "no policy"}</dd>
+            <dt>Bound to</dt><dd>${["session_ref", "launch_ref"].map((k) => ctx[k] ? `<code>${CX_ESC(ctx[k])}</code>` : "").filter(Boolean).join(" · ") || "—"}</dd>
+            <dt>Receipts</dt><dd>${(j.receipt_refs || []).map((r2) => `<code>${CX_ESC(r2)}</code>`).join(" ")}</dd>
+          </dl>
+          ${table("Included", dec.included)}${table("Redacted", dec.redacted)}${table("Excluded", dec.excluded)}`));
+        return;
+      }
+    }
+    // ---- Agent Studio portable-vault + mutation-proposal lanes (daemon proxies).
+    if (pathname === "/__ioi/agent-studio/vault/export" && req.method === "GET") {
+      const r = await daemonFetch(`/v1/hypervisor/intelligence/spaces/ms_workspace_default/export`).catch(() => null);
+      const j = r ? await r.json().catch(() => ({})) : {};
+      res.writeHead(r && r.status < 400 ? 200 : 502, {
+        "Content-Type": "application/json",
+        "Content-Disposition": 'attachment; filename="ioi-memory-vault.json"',
+        "Cache-Control": "no-store",
+      });
+      res.end(JSON.stringify(j.vault || j, null, 2));
+      return;
+    }
+    if (pathname === "/__ioi/agent-studio/vault/import" && req.method === "POST") {
+      let bundle = {};
+      try {
+        const form = new URLSearchParams(body.toString());
+        bundle = JSON.parse(form.get("vault_json") || body.toString());
+      } catch { bundle = {}; }
+      const r = await daemonFetch(`/v1/hypervisor/intelligence/spaces/import`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(bundle.vault ? bundle : { vault: bundle }) }).catch(() => null);
+      const j = r ? await r.json().catch(() => ({})) : {};
+      res.writeHead(200, { "Content-Type": "text/html; charset=utf-8" });
+      if (!r || r.status >= 400) {
+        res.end(automationsShell("Vault import", `<div class="empty">Import rejected fail-closed: <code>${CX_ESC(refusalCodeOf(j))}</code>${refusalMessageText(j) ? `<br>${CX_ESC(refusalMessageText(j))}` : ""}</div><p><a href="/__ioi/agent-studio#memory">← Studio</a></p>`));
+        return;
+      }
+      res.end(automationsShell("Vault import", `<h1>Vault imported</h1><dl class="grid">
+        <dt>Imported</dt><dd>${CX_ESC(JSON.stringify(j.imported))}</dd>
+        <dt>Unchanged (idempotent)</dt><dd>${CX_ESC(String(j.unchanged))}</dd>
+        <dt>Conflicts (skipped, explicit)</dt><dd>${(j.conflicts || []).length ? (j.conflicts || []).map((c) => `<code>${CX_ESC(c.ref || c.path)}</code> ${CX_ESC(c.reason_code)}`).join("<br>") : "none"}</dd>
+        <dt>Rejected</dt><dd>${(j.rejected || []).length ? (j.rejected || []).map((c) => `<code>${CX_ESC(c.path)}</code> ${CX_ESC(c.reason_code)}`).join("<br>") : "none"}</dd>
+      </dl><p><a class="act" href="/__ioi/agent-studio#memory">Back to Memory</a></p>`));
+      return;
+    }
+    {
+      const propAction = pathname.match(/^\/__ioi\/agent-studio\/proposals\/([^/]+)\/(approve|reject)$/);
+      if (propAction && req.method === "POST") {
+        const [, pid, act] = propAction;
+        const r = await daemonFetch(`/v1/hypervisor/memory-mutation-proposals/${encodeURIComponent(pid)}/${act}`, { method: "POST", headers: { "content-type": "application/json" }, body: act === "reject" ? JSON.stringify({ reason: new URLSearchParams(body.toString()).get("reason") || "operator rejected" }) : "{}" }).catch(() => null);
+        const j = r ? await r.json().catch(() => ({})) : {};
+        if (!r || r.status >= 400) {
+          res.writeHead(200, { "Content-Type": "text/html; charset=utf-8" });
+          res.end(automationsShell("Proposal", `<div class="empty">Rejected fail-closed: <code>${CX_ESC(refusalCodeOf(j))}</code></div><p><a href="/__ioi/agent-studio#memory">← Studio</a></p>`));
+          return;
+        }
+        res.writeHead(302, { Location: "/__ioi/agent-studio#memory", "Cache-Control": "no-cache" });
+        res.end();
+        return;
+      }
+    }
     // ---- Learned-policy rollout lanes — RETIRED 2026-09-18 (R-192, S5-1). Promote-to-full and
     // roll-back-to-base drove the IOI-Agent launch-policy plane, which is goal-pursuit policy and
     // left the daemon with goal pursuit. The lane answers a typed refusal instead of relaying.

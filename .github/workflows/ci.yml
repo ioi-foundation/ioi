@@ -1959,6 +1959,14 @@ jobs:
           IOI_VERIFIER_CENSUS_DIR: .artifacts/verifier-census
         run: npm run check:packages-journey --workspace=@ioi/hypervisor-app
 
+      # R-240: the Agent Studio write lanes S5-1 orphaned, submitted for real as a bootstrapped operator
+      # and judged by the daemon's recorded state (a census that aborts writes cannot see a dead form).
+      - name: Verify against an isolated live daemon — agent-studio-write-lanes
+        if: ${{ !cancelled() && steps.daemon_artifact.outcome == 'success' }}
+        env:
+          IOI_VERIFIER_CENSUS_DIR: .artifacts/verifier-census
+        run: npm run check:agent-studio-write-lanes --workspace=@ioi/hypervisor-app
+
       # M08.9 — the Systems and Work read models: typed rows through the owners' published
       # readers, policy before search/counts/recents, nonmutation, rebuild, and the canonical
       # /work* and /systems routes rendered from them. Floor-pinned like every sibling here.

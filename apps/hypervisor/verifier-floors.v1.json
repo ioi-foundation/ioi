@@ -179,6 +179,14 @@
       "assertion_names_sha256": "2b7d9d6c2771365ebfcfe825674eeb5f9c1cc056449bc840e313cc356d92caef"
     },
     {
+      "id": "agent-studio-write-lanes",
+      "npm_script": "check:agent-studio-write-lanes",
+      "source": "apps/hypervisor/scripts/verify-hypervisor-agent-studio-write-lanes.mjs",
+      "runtime_assertions": 15,
+      "note": "New 2026-09-25 (R-240): the seven Agent Studio write lanes S5-1 orphaned (improvement approve/reject/apply and governance gates, memory lifecycle, vault export/import, the memory-mutation proposal inbox), submitted for real by a bootstrapped operator on the verifier's own daemon and serve and judged by the daemon's recorded state. Mutation-tested against the unfixed serve: 10 of 15 red. Measured with IOI_VERIFIER_CENSUS_DIR.",
+      "assertion_names_sha256": "466f001b4c9367f4d2159af51070158c37d3dd8e8b57e2d11aa44eed3b1ab83d"
+    },
+    {
       "id": "systems-work-projections",
       "npm_script": "check:systems-work-projections",
       "source": "apps/hypervisor/scripts/verify-hypervisor-systems-work-projections.mjs",
