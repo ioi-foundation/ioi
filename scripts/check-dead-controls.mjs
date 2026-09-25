@@ -78,7 +78,7 @@ const LIVE = self("live");
 // bubble is not one), so the reason is now written under the field; and a one-route select opened
 // onto nothing, so a sole route renders as stated text.
 export const PINNED = Object.freeze({
-  surfaces_probed: 35, // ADR 0056 M5: the Missions root left the registry
+  surfaces_probed: 32, // ADR 0056 M5 retired the Missions root; M6 merged Model Studio, Insight and Map into their owners
   states_probed: 4,
   dead: 0,
   click_failed: 0,
@@ -745,12 +745,21 @@ async function liveLeg() {
               // Applications launcher opened its dialog, and the retry then found that dialog covering
               // the launcher and called it a failed click. Before trying again, a page that has already
               // moved its URL or opened an overlay since the click counts as clicked.
-              const landed = await page.evaluate(PAGE_READ).catch(() => null);
-              if (landed && (landed.url !== before.url || landed.overlays > before.overlays)) last = null;
+              const moved = async () => {
+                const now = await page.evaluate(PAGE_READ).catch(() => null);
+                return !!now && (now.url !== before.url || now.overlays > before.overlays);
+              };
+              if (await moved()) last = null;
               for (let attempt = 0; attempt < 3 && last; attempt += 1) {
                 await page.waitForTimeout(1000);
                 const again = (await shellEnumerate()).find((el) => el.ident === target.ident && el.occ === target.occ);
-                if (!again) break;
+                // A CLICK CAN LAND LATER THAN THE CHECK ABOVE (R-240, ADR 0056 M6a census, load 15–17):
+                // a Projects card's first click timed out, the SPA navigated a moment AFTER the landed
+                // check, and the card was gone from the next enumeration — so the retries and the DOM
+                // fallback both found nothing and the click was reported failed with no cause. A
+                // control that has vanished from a page that has MOVED since the click was clicked;
+                // whether it is alive is still decided below, from the signals, not from this.
+                if (!again) { if (await moved()) last = null; break; }
                 try { await page.locator(again.css).first().click({ timeout: 3000, noWaitAfter: true }); last = null; } catch (e) { last = e; if (!moving(e)) break; }
               }
               // A control the shell keeps RE-CREATING (the call log says "element was detached from the
@@ -770,6 +779,7 @@ async function liveLeg() {
                   x.click(); return true;
                 }).catch(() => false);
                 if (clicked) last = null;
+                else if (!found && await moved()) last = null;
               }
               if (last) throw last;
             }

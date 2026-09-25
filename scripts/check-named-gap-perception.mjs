@@ -113,13 +113,20 @@ const LIVE = self("live");
 //
 // 2026-09-25 (R-240, the Issues facets): labelled 611 → 610, cursor 57 → 56 — Issues' "Clear filters"
 // was a declared gap with an ordinary cursor; the facets that have data now filter, so it is a link.
+//
+// 2026-09-25 (ADR 0056 M6a): surfaces 35 → 32, labelled 610 → 179, unreachable 576 → 145, cursor
+// 56 → 55. Model Studio, Insight and Map merged into their owners and left the registry. The drop is
+// theirs, and was MEASURED rather than inferred: the same selector over a HEAD checkout's serve
+// counted 424 declared-gap elements on the Map port (one typed-absence chip per placement row — the
+// same 424 the settling note above describes), 7 on Model Studio and 1 on Insight: 432 elements,
+// 431 of them labelled and one with an ordinary cursor. No surviving surface's count moved.
 export const PINNED = Object.freeze({
-  surfaces_probed: 35, // ADR 0056 M5: the Missions root left the registry; it carried no declared gap, so no other count moved
+  surfaces_probed: 32, // ADR 0056 M6a: Model Studio, Insight and Map merged into their owners (M5 retired the Missions root)
   states_probed: 4,
-  labelled: 610,
+  labelled: 179,
   primary_fill: 0,
-  cursor_not_disabled: 56,
-  unreachable_control: 576,
+  cursor_not_disabled: 55,
+  unreachable_control: 145,
   unmarked_gap: 0,
 });
 

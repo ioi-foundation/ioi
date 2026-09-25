@@ -18,8 +18,8 @@
   "total_seeds": 39,
   "by_parity_class": {
     "daemon_wired": 13,
-    "reference_capture": 6,
-    "reference_ported": 20
+    "reference_capture": 9,
+    "reference_ported": 17
   },
   "legend": {
     "reference_capture": "the /__apps/<slug> reference baseline serves; no IOI port exists",
@@ -529,27 +529,16 @@
       "capture_base": "/workspace/insight/",
       "grammar": "editor_canvas",
       "tier": "high_value",
-      "parity_class": "reference_ported",
+      "parity_class": "reference_capture",
       "capture_state": "shell_only",
       "reference_capture": "/__apps/analysis",
       "reference_workspace": "/workspace/insight/",
-      "note": "EVA-2.build: both reference tabs adjudicated — one bound, one absent-named (#analysis)",
+      "note": "object-set-first analysis canvas; unbound",
       "reference_clean_state": "shell_clean_only",
       "reference_clean_reason": "shell renders a WELCOME/empty landing (cards 4 · lines 19, no row/node data) — clean chrome, no real data to port against (proxy lane renders no data (score 0); the origin lane is the readable one)",
       "reference_clean_artifact": "reference-clean-sweep.json",
       "remediation_state": "ia_bearing_empty",
-      "adjudication_ref": "reference-seed-adjudications.v1.json#analysis",
-      "port_surface": "/__ioi/evaluations/insight",
-      "surface_name": "Ontology",
-      "reference_url_override": "http://localhost:9225/workspace/insight/",
-      "reference_landmarks": [
-        "Insight",
-        "Workbooks",
-        "Object sets"
-      ],
-      "binding": "Object-sets lane LIVE over the real ODK planes (materialized sets open-read with run/lease proof refs; saved sets render the plane's principal-required refusal VERBATIM as typed degradation); Workbooks typed-absent (no workbook plane)",
-      "candidate_surface": "/__ioi/evaluations/insight",
-      "shell_pixel_certified": false
+      "adjudication_ref": "reference-seed-adjudications.v1.json#analysis + ADR 0056 M6 (the port merged into Object Explorer)"
     },
     {
       "owner": "Evaluations",
@@ -624,33 +613,16 @@
       "capture_base": "/workspace/model-studio/",
       "grammar": "editor_canvas",
       "tier": "high_value",
-      "parity_class": "reference_ported",
+      "parity_class": "reference_capture",
       "capture_state": "shell_only",
       "reference_capture": "/__apps/modelstudio",
       "reference_workspace": "/workspace/model-studio/",
-      "note": "MS-1: live_ia_recorded → ported, superseding the mirror-scoped capture_broken_no_donor (#modelstudio) which stands as history. The finding is that a VERB WHOSE ROUTE EXISTS IS STILL A GAP WHEN THE FORM'S FIELDS AND THE ROUTE'S REQUIRED FIELDS DO NOT INTERSECT. The estate DOES publish POST /v1/hypervisor/foundry/specs — a real durable draft-spec create — so the easy conclusion ('the route exists, wire Save') is available and wrong. The record it writes carries no location field of any kind, no project record carries a spec field and no published project write route would accept one, so the containment edge the dialog exists to author is absent in BOTH directions; and the route's own admission test refuses any spec resolving neither a model route nor a provider, a binding the dialog offers no control for. The two field sets intersect in exactly one field, the name. Wiring Save would mean silently supplying an argument nobody chose and silently discarding the one thing the dialog is named for, so Save is a typed absence and no second mutation spine is minted over the daemon's create route",
+      "note": "model studio; unbound",
       "reference_clean_state": "data_failed",
       "reference_clean_reason": "shell boots but the body reports a data failure (\"Page not found\") with captured (non-404) lanes",
       "reference_clean_artifact": "reference-clean-sweep.json",
       "remediation_state": "live_ia_recorded",
-      "adjudication_ref": "reference-seed-adjudications.v1.json#modelstudio + reference-seed-adjudications.v1.json#modelstudio-port + reference-live-tenant-atlas.v1.json#modelstudio + reference-live-tenant-deep-atlas.v1.json#modelstudio",
-      "port_surface": "/__ioi/foundry/model-studio",
-      "surface_name": "Foundry",
-      "live_reference_evidence": "reference-live-tenant-deep-atlas.v1.json#modelstudio (landing + create-attempt, url /workspace/model-studio/, title \"Model studio\", heading \"Choose file location\", 13 controls, 1 input, 1 facet group APPLICATIONS, 7 dialogs, 0 rows) + .artifacts/live-tenant-atlas/deep/modelstudio-landing.png + .artifacts/live-tenant-atlas/deep/modelstudio-create-attempt.png",
-      "reference_landmarks": [
-        "Model Studio",
-        "Choose file location",
-        "File name",
-        "New Model Studio (",
-        "Location",
-        "Browse",
-        "Cancel",
-        "Save",
-        "APPLICATIONS"
-      ],
-      "binding": "the live-tenant MODEL-STUDIO landing grammar, which is a CREATION-ENTRY DIALOG rather than a canvas or a list: the app admits you by creating a Model Studio file in a chosen location, and the tenant holds none, so the dialog IS the landing and there is no browse root to port. The dialog renders as the centrepiece (a header carrying the app name and its Save-to-a-location typed absence · \"Choose file location\" with its close control · a pre-filled File name field · a Location folder selector · Browse · Cancel · Save) over the estate's REAL planes: the LOCATION selector reads the projects plane record by record (id, custody posture, created stamp, cap 25 NAMED), and the FILE half reads the Foundry draft-spec and run-plan planes. Twenty-two file-, location-, binding- and authoring-adjacent planes are probed on every render and classified live into FOUR states (LIVE / EMPTY / REFUSED / NO READ ROUTE, the last decided from the daemon's own route index), each stamped with the HALF of the dialog it answers for so an adjacent authoring lane is never read as the file, the location or the binding. The pre-filled name is DERIVED at render exactly as the reference derives it at dialog-open (the two recorded reference states are byte-identical except that stamp) and is marked as stored nowhere; the validity badge keeps its predicate NAMED as well-formedness and explicitly refuses the availability reading, because no plane indexes names inside a location. EMPTY and MISSING are rendered side by side about the same dialog: the spec plane is an EMPTY plane waiting for a record, while the file-in-a-location RELATION is MISSING and could never fill. Read-only: the draft-spec create verb stays where the daemon owns it, the model routes and providers a spec must bind stay on Model Catalog and Agent Studio, and the locations stay on Fusion — all linked, none re-rendered",
-      "candidate_surface": "/__ioi/foundry/model-studio",
-      "shell_pixel_certified": false
+      "adjudication_ref": "reference-seed-adjudications.v1.json#modelstudio + reference-seed-adjudications.v1.json#modelstudio-port + reference-live-tenant-atlas.v1.json#modelstudio + reference-live-tenant-deep-atlas.v1.json#modelstudio + ADR 0056 M6 (the port merged into the Foundry spec builder)"
     },
     {
       "owner": "Foundry",
@@ -954,35 +926,16 @@
       "capture_base": "/workspace/map/",
       "grammar": "editor_canvas",
       "tier": "aux",
-      "parity_class": "reference_ported",
+      "parity_class": "reference_capture",
       "capture_state": "blocked_missing_capture",
       "reference_capture": "/__apps/map",
       "reference_workspace": "/workspace/map/",
-      "note": "MAP-1: live_ia_recorded → ported. A map CANVAS cannot be honestly faked, so the canvas is a named absence that distinguishes MISSING from the reference's own EMPTY layer list — and the estate's only location-bearing records render beneath it as an explicitly NON-map list",
+      "note": "geospatial map canvas; unbound",
       "reference_clean_state": "shell_clean_only",
       "reference_clean_reason": "shell renders a WELCOME/empty landing (cards 4 · lines 15, no row/node data) — clean chrome, no real data to port against (proxy lane renders no data (score 0); the origin lane is the readable one)",
       "reference_clean_artifact": "reference-clean-sweep.json",
       "remediation_state": "live_ia_recorded",
-      "adjudication_ref": "reference-seed-adjudications.v1.json#map + reference-seed-adjudications.v1.json#map-port + reference-live-tenant-atlas.v1.json#map + reference-live-tenant-deep-atlas.v1.json#map",
-      "port_surface": "/__ioi/environments/map",
-      "surface_name": "Environments",
-      "live_reference_evidence": "reference-live-tenant-deep-atlas.v1.json#map (landing) + reference-live-tenant-atlas.v1.json#map",
-      "reference_landmarks": [
-        "Map",
-        "Add to map",
-        "No layers",
-        "Layers",
-        "Legend",
-        "Histogram",
-        "Timeline",
-        "Select",
-        "Search Around",
-        "Selection",
-        "Save as…"
-      ],
-      "binding": "the live-tenant MAP workbench grammar (header + Save-as · left layer panel with its tab strip, Add-to-map and basemap footer · select/search-around + six draw tools · selection tray · zoom + timeline under-bar) over a canvas region that is a TYPED ABSENCE: the estate has NO geospatial plane (no coordinates, geometry, tiles, geocoder or layer store in 753 daemon routes; sweep of 247 param-free GET routes recorded in #map-port), so nothing map-shaped is drawn — no canvas element, no rendered geometry, no borrowed vendor basemap. The one LIVE lane is deliberately NOT a map: the REAL placement plane's cloud-resource candidates that carry placement geography (region · location · zone · az), each row naming WHICH field its value came from and carrying the daemon's own status / coverage_state / not-live-supply risk wording verbatim",
-      "candidate_surface": "/__ioi/environments/map",
-      "shell_pixel_certified": false
+      "adjudication_ref": "reference-seed-adjudications.v1.json#map + reference-seed-adjudications.v1.json#map-port + reference-live-tenant-atlas.v1.json#map + reference-live-tenant-deep-atlas.v1.json#map + ADR 0056 M6 (the port merged into Environments)"
     },
     {
       "owner": "Domain Apps",

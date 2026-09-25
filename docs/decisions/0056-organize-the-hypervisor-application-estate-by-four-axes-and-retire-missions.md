@@ -257,6 +257,43 @@ pins from the gate's own count.
   rebinding (answer 5) beside planes 1–5.
 - **M9** Catalog family grouping in the launcher.
 
+## Amendment 2 (2026-09-25, owner-delegated): M6 execution rulings
+
+The owner delegated these decisions ("I authorize you to make the decision(s)"). They apply
+M6's rule literally: a duplicate retires only once its survivor carries every lane it
+showed, or once the lane has been ported into the survivor from the duplicate's own code.
+
+1. **A merged route names its successor on the page, never in the refusal.** The registered
+   refusal admits only Work routes or null as `canonical_replacement_route`. So a merged
+   duplicate retires with a null replacement, and the page a browser gets names and links
+   the survivor. There is no redirect alias. When a duplicate's lanes land in more than one
+   survivor, the page names each one.
+2. **M6a needed no port.** Insight's lanes are Object Explorer's. Model Studio's one verb is
+   the Foundry spec builder's (`/__ioi/foundry/specs/new`; the bare `/specs` path has no
+   page). The Map port's live lane is the Placement section of Environments.
+3. **Fusion retires in M8, not M6.** Three of its lanes survive elsewhere: its project list in
+   Projects, its materialized sets in Object Explorer, and its declared sources in Data
+   Connection. Two columns of its project table survive nowhere: each project's custody
+   posture and its artifact-reference count. Porting them into the vendored Projects app
+   would re-author a vendored surface. Their owner is the planned Provenance / Custody &
+   Jurisdiction lane, which adopts Fusion's project-row code as its per-project table. Fusion
+   retires in that cut, naming all three survivors. The difference in the source list's cap
+   (Data Connection shows the newest 12, Fusion showed 20 of the same catalog) is not a lane:
+   both name their cap, and neither lists the whole catalog.
+4. **Artifacts needs a port before it retires.** Packages lacks most of the Artifacts page: its
+   ten-plane read-state census (release controls and the SCM publication ladder among them),
+   its cross-plane record table, and its taxonomy, substrate and route-count lanes. The inline
+   block that renders them is extracted verbatim into a Packages tab (`/packages?tab=artifacts`),
+   and only then does the route retire. The adopted census reads as the signed-in caller, like
+   every other module read, rather than as the serve. Its classifications are re-derived under
+   that identity, because canon filters collections by principal before it counts them.
+5. **Marketplace needs no port.** The listings port takes the canonical route
+   `/packages/marketplace`. The Packages module's Marketplace mode retires at its legacy mount,
+   and its code stays in the module as a seed. Its counts and listing table are already rendered
+   by the listings family, one hop from the landing.
+
+The M6 order is therefore M6a (done), Marketplace, Artifacts after the port, and Fusion with M8.
+
 ## Consequences
 
 - The catalog reads as four jobs a buyer recognizes, and each owner application keeps

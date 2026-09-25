@@ -98,7 +98,7 @@ export const REFERENCE_DIAGRAMS = Object.freeze([
     nodes: [
       R("td", "Data source", "Training data", "Labeled history the model learns from", 0, 0),
       C("pb", "/__ioi/pipeline", "Pipeline Builder", "Shape features from the source", 400, 0),
-      C("ms", "/__ioi/foundry/model-studio", "Model Studio", "Train and compare model runs", 800, 0),
+      C("ms", "/__ioi/foundry/specs/new", "Foundry spec builder", "Train and compare model runs", 800, 0),
       C("mc", "/__ioi/foundry/models", "Model Catalog", "The approved model route", 1200, 0),
       C("inf", "/__ioi/foundry/inference", "Inference", "Serve predictions under a lease", 1600, 0),
       C("ws", "/__ioi/studio/workshop", "Workshop", "The app people act from", 2000, 0),
@@ -114,7 +114,7 @@ export const REFERENCE_DIAGRAMS = Object.freeze([
       C("pb", "/__ioi/pipeline", "Pipeline Builder", "Join changelog and current state", 400, 100),
       R("case", "Object type", "Case", "One object per process instance", 800, 100),
       C("mach", "/__ioi/studio/machinery", "Machinery", "The process as a state machine", 1200, 0),
-      C("ins", "/__ioi/evaluations/insight", "Insight", "Cycle times and bottlenecks", 1200, 200),
+      C("ins", "/__ioi/ontology/explorer", "Object Explorer", "Cycle times and bottlenecks", 1200, 200),
     ],
     edges: [E("cl", "pb"), E("cs", "pb"), E("pb", "case"), E("case", "mach", "runs"), E("case", "ins", "measured by")],
   },
@@ -124,7 +124,7 @@ export const REFERENCE_DIAGRAMS = Object.freeze([
     nodes: [
       C("mc", "/__ioi/foundry/models", "Model Catalog", "The model routes under evaluation", 0, 0),
       C("ev", "/__ioi/evaluations/evalsuites", "AIP Evals", "Suites of graded cases", 400, 0),
-      C("ins", "/__ioi/evaluations/insight", "Insight", "Analyze results over saved object sets", 800, 0),
+      C("ins", "/__ioi/ontology/explorer", "Object Explorer", "Analyze results over saved object sets", 800, 0),
       C("ua", "/__ioi/improvement/changes", "Upgrade Assistant", "Propose and gate the improvement", 1200, 0),
     ],
     edges: [E("mc", "ev"), E("ev", "ins"), E("ins", "ua"), E("ua", "mc", "promotes")],

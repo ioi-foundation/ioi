@@ -98,7 +98,7 @@ export const REQUIRED_CONSUMERS = Object.freeze([
   "ODK lists the manifest",
   "The recipe's page names the manifest that bundles it",
   "Object Explorer lists the saved set",
-  "Insight names the saved set's type",
+  "Object Explorer names the saved set's type",
   // R-240's third pass: the lanes that replaced disabled "New…" buttons.
   "Model Catalog lists the registered model",
   "Inference offers the registered model",

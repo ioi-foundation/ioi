@@ -442,6 +442,12 @@ export const RETIRED_UI_ROUTES = {
 // (Ruling 7) — a subtree retirement here would have taken all four down with it.
 export const RETIRED_UI_EXACT = {
   "/__ioi/missions": "/work",
+  // ADR 0056 M6 — duplicates collapsed into their canon owner. The registered refusal's
+  // canonical_replacement_route admits only the Work routes (or null), so these carry null there and
+  // name their SUCCESSOR on the page: where the lane lives now, a link, never a redirect alias.
+  "/__ioi/foundry/model-studio": { replacement: null, successor: "/__ioi/foundry/specs/new", successorLabel: "the Foundry spec builder" },
+  "/__ioi/evaluations/insight": { replacement: null, successor: "/__ioi/ontology/explorer", successorLabel: "Object Explorer" },
+  "/__ioi/environments/map": { replacement: null, successor: "/__ioi/environments", successorLabel: "Environments" },
 };
 
 const BY_ROUTE = new Map(V2_ROUTE_TABLE.map((r) => [r.route, r]));
@@ -484,7 +490,12 @@ export function resolveV2Route(pathname) {
 // as /sessions, with the deep link carried onto the canonical replacement. A link, never a
 // redirect alias.
 export function retiredUiRouteFor(pathname) {
-  if (Object.hasOwn(RETIRED_UI_EXACT, pathname)) return { requested: pathname, replacement: RETIRED_UI_EXACT[pathname] };
+  if (Object.hasOwn(RETIRED_UI_EXACT, pathname)) {
+    const entry = RETIRED_UI_EXACT[pathname];
+    return typeof entry === "string"
+      ? { requested: pathname, replacement: entry }
+      : { requested: pathname, replacement: entry.replacement, successor: entry.successor, successorLabel: entry.successorLabel };
+  }
   for (const [retired, replacement] of Object.entries(RETIRED_UI_ROUTES)) {
     if (pathname === retired) return { requested: pathname, replacement };
     if (pathname.startsWith(`${retired}/`)) {
@@ -652,7 +663,9 @@ export function renderRouteLedgerPage(compiled) {
       <td>${(row.serving_today || []).map((s) => `<div><a href="${esc(s.href)}"><code>${esc(s.href)}</code></a> — ${esc(s.label)}</div>`).join("") || "<span class=\"meta\">none</span>"}</td>
       <td><div class="meta">${esc(row.waves)}</div>${esc(row.build_state)}</td>
     </tr>`).join("");
-  const retired = [...Object.entries(RETIRED_UI_ROUTES), ...Object.entries(RETIRED_UI_EXACT)].map(([from, to]) => `<div><code>${esc(from)}</code> → typed 410, canonical replacement <code>${esc(to)}</code></div>`).join("");
+  const retired = [...Object.entries(RETIRED_UI_ROUTES), ...Object.entries(RETIRED_UI_EXACT)].map(([from, to]) => typeof to === "string"
+    ? `<div><code>${esc(from)}</code> → typed 410, canonical replacement <code>${esc(to)}</code></div>`
+    : `<div><code>${esc(from)}</code> → typed 410, merged into <code>${esc(to.successor)}</code> (${esc(to.successorLabel)})</div>`).join("");
   return pageShell(
     "Route ledger",
     `<main data-ioi-surface-route="/__ioi/route-ledger" data-ioi-surface-owner="developer diagnostics" style="max-width:none">
@@ -674,9 +687,22 @@ export function renderRouteLedgerPage(compiled) {
 
 // Typed-410 page for a retired UI route — surfaces the daemon's refusal semantics verbatim and
 // points (a link, never a redirect) at the canonical replacement.
-export function renderRetiredUiRoutePage(requested, replacement) {
+export function renderRetiredUiRoutePage(requested, replacement, merged = null) {
   const esc = escHtml;
   const refusal = retiredUiRouteRefusal(requested, replacement);
+  // A duplicate retired INTO a surviving surface (ADR 0056 M6): the refusal carries no replacement
+  // route, and the page names where the lane lives now.
+  if (!replacement && merged?.successor) {
+    return pageShell(
+      "Route retired",
+      `<div class="brand">IOI Hypervisor · typed route retirement</div>
+    <h1>410 · <code>${esc(requested)}</code> is retired</h1>
+    <p class="sub">This page duplicated a surface that already carries its lane, so it was merged into <a href="${esc(merged.successor)}">${esc(merged.successorLabel)}</a> (ADR 0056: duplicates collapse into their canon owner). There are no compatibility aliases, so the path answers a typed refusal rather than redirecting.</p>
+    <h2>Refusal record (daemon semantics)</h2>
+    <pre>${esc(JSON.stringify(refusal, null, 2))}</pre>
+    <div class="foot"><a href="${esc(merged.successor)}">Go to ${esc(merged.successorLabel)} →</a> · <a href="/ai">← Home</a></div>`,
+    );
+  }
   return pageShell(
     "Route retired",
     `<div class="brand">IOI Hypervisor · typed route retirement</div>

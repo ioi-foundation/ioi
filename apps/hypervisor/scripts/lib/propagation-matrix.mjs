@@ -53,7 +53,8 @@ export const READS = Object.freeze([
   { after: "manifest", consumer: "ODK lists the manifest", route: "/__ioi/odk?ontology={ontology}", needle: "manifest-{tag}" },
   { after: "manifest", consumer: "The recipe's page names the manifest that bundles it", route: "/__ioi/odk/data-recipes/{recipe}", needle: "manifest-{tag}" },
   { after: "saved-set", consumer: "Object Explorer lists the saved set", route: "/__ioi/ontology/explorer?ontology={ontology}", needle: "saved-{tag}" },
-  { after: "saved-set", consumer: "Insight names the saved set's type", route: "/__ioi/evaluations/insight", needle: "saved-{tag}</b></span><span>loan<" },
+  // ADR 0056 M6: Insight merged into Object Explorer, which names a saved set's type beside its name.
+  { after: "saved-set", consumer: "Object Explorer names the saved set's type", route: "/__ioi/ontology/explorer?ontology={ontology}", needle: 'saved-{tag}</td><td class="oe-sssel">type loan' },
   { after: "model", consumer: "Model Catalog lists the registered model", route: "/__ioi/foundry/models?tab=registered", needle: "probe-{tag}:1b" },
   { after: "model", consumer: "Inference offers the registered model", route: "/__ioi/foundry/inference", needle: "probe-{tag}:1b" },
   { after: "diagram", consumer: "Designer Recents lists the saved diagram", route: "/__ioi/studio/designer", needle: "diagram-{tag}" },

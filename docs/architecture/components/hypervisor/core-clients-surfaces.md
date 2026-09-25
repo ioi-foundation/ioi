@@ -1819,6 +1819,14 @@ Source-neutral tool placement is canonical at the owner boundary:
 | Change Inbox (legacy Upgrade Assistant) | Improvement / Changes |
 | Evaluation Suites (legacy AIP Evals) | Evaluations / Suites |
 
+A tool that duplicates an owner's lane is merged into that owner, not placed
+beside it
+([ADR 0056](../../../decisions/0056-organize-the-hypervisor-application-estate-by-four-axes-and-retire-missions.md)
+M6). Insight's object sets are Object Explorer's, Model Studio's create entry is
+the Foundry spec builder, and the placement map is the Placement section of
+Environments. Each merged route answers a typed retirement that names its
+successor, and never redirects to it.
+
 `Work / Incidents` and `Work / Reviews` are workspace views, not tool
 registrations and not truth owners. Issues is an Operations tool at
 `/operations/issues` (Operations owns `SupportIncidentLink`;

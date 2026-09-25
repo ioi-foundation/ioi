@@ -93,7 +93,7 @@ export const SURFACES = [
   // estate cannot honestly render. No geospatial plane exists in the daemon's 753 routes, so the
   // canvas region is a TYPED ABSENCE (missing, not empty) and the one live lane is deliberately
   // NOT a map: the placement plane's region/location/zone/az strings, rendered verbatim.
-  { slug: "map", owner: "Environments", title: "Map", icon: DSG_APP_TILE_URI, route: "/__ioi/environments/map", verifier: "scripts/verify-hypervisor-app-parity-domain-landings.mjs", certification: "n/a", capabilities: ["browse"], operational_state: "browse", embedded_shell_state: "native_single_rail", interaction_parity_state: "none" },
+  // ADR 0056 M6: `map` (/__ioi/environments/map) merged into Environments (/__ioi/environments) — retired with a typed refusal; its handler stays in the serve as a preserved seed.
   // REG-1 (remediation v2): the live-tenant-sourced Artifacts port — a READ-ONLY projection
   // of the estate's registry LADDER (packages · marketplace publish ladder · release controls
   // · SCM publication), classified live into four states (LIVE / EMPTY / REFUSED / NO READ
@@ -136,7 +136,7 @@ export const SURFACES = [
   // the form's fields and the route's required fields do not intersect — POST foundry/specs is
   // published and real, carries no location field at all, and demands a model-route/provider
   // binding the dialog never asks for, so Save is a typed absence and no second spine is minted.
-  { slug: "modelstudio", owner: "Foundry", title: "Model Studio", icon: MODELS_APP_ICON_URI, route: "/__ioi/foundry/model-studio", verifier: "scripts/verify-hypervisor-app-parity-domain-landings.mjs", certification: "n/a", capabilities: ["browse"], operational_state: "browse", embedded_shell_state: "native_single_rail", interaction_parity_state: "none" },
+  // ADR 0056 M6: `modelstudio` (/__ioi/foundry/model-studio) merged into the Foundry spec builder (/__ioi/foundry/specs/new) — retired with a typed refusal; its handler stays in the serve as a preserved seed.
   // INF-1 (remediation v2): the live-tenant-sourced Inference port, and the LAST leg of the
   // live-tenant port backlog. The seed's live ROOT is a SPACE GATE — heading "Please select a
   // space" over ONE app control, "Select a space…", rows 0, no space picked — and the capture's
@@ -152,7 +152,7 @@ export const SURFACES = [
   { slug: "workspaces", owner: "Developer Workspace", title: "Code Workspaces", icon: DSG_APP_TILE_URI, route: "/__ioi/developer-workspace/workspaces", verifier: "scripts/verify-hypervisor-app-parity-domain-landings.mjs", certification: "n/a", capabilities: ["browse"], operational_state: "browse", embedded_shell_state: "native_single_rail", interaction_parity_state: "none" },
   { slug: "notepad", owner: "Developer Workspace", title: "Notepad", icon: DSG_APP_TILE_URI, route: "/__ioi/developer-workspace/notepad", verifier: "scripts/verify-hypervisor-app-parity-domain-landings.mjs", certification: "n/a", capabilities: ["browse"], operational_state: "browse", embedded_shell_state: "native_single_rail", interaction_parity_state: "none" },
   { slug: "devconsole", owner: "Developer Console", title: "Developer Console", icon: DSG_APP_TILE_URI, route: "/__ioi/developer-console", verifier: "scripts/verify-hypervisor-app-parity-domain-landings.mjs", certification: "n/a", capabilities: ["browse"], operational_state: "browse", embedded_shell_state: "native_single_rail", interaction_parity_state: "none" },
-  { slug: "insight", owner: "Ontology", title: "Insight", icon: EVL_APP_TILE_URI, route: "/__ioi/evaluations/insight", verifier: "scripts/verify-hypervisor-app-parity-domain-landings.mjs", certification: "n/a", capabilities: ["browse"], operational_state: "browse", embedded_shell_state: "native_single_rail", interaction_parity_state: "none" },
+  // ADR 0056 M6: `insight` (/__ioi/evaluations/insight) merged into Object Explorer (/__ioi/ontology/explorer) — retired with a typed refusal; its handler stays in the serve as a preserved seed.
   { slug: "repositories", owner: "Developer Workspace", title: "Code Repositories", icon: DSG_APP_TILE_URI, route: "/__ioi/developer-workspace/repositories", verifier: "scripts/verify-hypervisor-app-parity-domain-landings.mjs", certification: "n/a", capabilities: ["browse"], operational_state: "browse", embedded_shell_state: "native_single_rail", interaction_parity_state: "none" },
   { slug: "quiver", owner: "Evaluations", title: "Quiver", icon: EVL_APP_TILE_URI, route: "/__ioi/evaluations/quiver", verifier: "scripts/verify-hypervisor-app-parity-domain-landings.mjs", certification: "n/a", capabilities: ["browse"], operational_state: "browse", embedded_shell_state: "native_single_rail", interaction_parity_state: "none" },
   { slug: "machinery", owner: "Automations", title: "Machinery", icon: MCH_APP_TILE_URI, route: "/__ioi/studio/machinery", verifier: "scripts/verify-hypervisor-app-parity-studio-machinery.mjs", certification: "pixel-certifications/machinery.json", capabilities: ["browse"], operational_state: "browse", embedded_shell_state: "native_single_rail", interaction_parity_state: "none" },

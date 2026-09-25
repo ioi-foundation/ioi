@@ -136,17 +136,16 @@ async function run() {
   // home · systems · applications · automations · operations · work · work-sessions ·
   // work-new-session. They are removed rather than kept, because the assertion below rejects a
   // stale name: a list that can name a surface the registry lacks is a list that absorbs coverage.
+  // ADR 0056 M6 (2026-09-25): insight · map · modelstudio left with their registry rows, merged into
+  // Object Explorer, Environments and the Foundry spec builder.
   const REFERENCELESS_SURFACES = {
     contour: { provenance_id: "studio", class: "post-atlas" },
     devconsole: { provenance_id: "developer-console", class: "post-atlas" },
     fusion: { provenance_id: "studio", class: "post-atlas" },
     inference: { provenance_id: "data", class: "post-atlas" },
     ingest: { provenance_id: "data", class: "post-atlas" },
-    insight: { provenance_id: "evaluations", class: "post-atlas" },
     jobs: { provenance_id: "work", class: "post-atlas" },
     logic: { provenance_id: "studio", class: "post-atlas" },
-    map: { provenance_id: "environments", class: "post-atlas" },
-    modelstudio: { provenance_id: "foundry", class: "post-atlas" },
     notepad: { provenance_id: "developer-workspace", class: "post-atlas" },
     packages: { provenance_id: "packages", class: "post-atlas" },
     "packages-marketplace": { provenance_id: "packages", class: "post-atlas" },

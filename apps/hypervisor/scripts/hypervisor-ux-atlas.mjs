@@ -23,10 +23,10 @@ const SURFACES = [
   "/__ioi/automations/monitors", "/__ioi/automations/monitors?tab=automations",
   "/__ioi/data/sources", "/__ioi/data/sources?lane=syncs", "/__ioi/pipeline",
   "/__ioi/ontology/manager", "/__ioi/ontology/explorer",
-  "/__ioi/governance/approvals", "/__ioi/missions", "/__ioi/missions/incidents",
+  "/__ioi/governance/approvals", "/operations/issues", "/__ioi/missions/incidents",
   "/__ioi/foundry/models", "/__ioi/foundry/models?tab=registered", "/__ioi/marketplace/listings",
   "/__ioi/studio/designer", "/__ioi/studio/machinery", "/__ioi/studio/workshop",
-  "/__ioi/evaluations/evalsuites", "/__ioi/evaluations/insight", "/__ioi/evaluations/quiver",
+  "/__ioi/evaluations/evalsuites", "/__ioi/evaluations/quiver",
   "/__ioi/improvement/changes", "/__ioi/lineage", "/__ioi/lineage?tab=history", "/__ioi/lineage?tab=timeline",
   "/__ioi/vertex", "/__ioi/developer-console", "/__ioi/developer-console/widgets",
   "/__ioi/developer-workspace/workspaces", "/__ioi/developer-workspace/notepad", "/__ioi/developer-workspace/repositories",
@@ -108,7 +108,6 @@ if (STAGE === "stage3") {
     { app: "/__ioi/data/sources", steps: ["link:Syncs"] },
     { app: "/provenance", steps: ["tab:History", "tab:Build timeline", "tab:Preview"] },
     { app: "/foundry", steps: ["link:Registered models", "link:IOI-provided models"] },
-    { app: "/__ioi/evaluations/insight", steps: [] },
     { app: "/__ioi/domain-apps/fusion", steps: ["tab:Data Catalog", "tab:All files"] },
     { app: "/studio", steps: ["row:first"] },
     { app: "/__ioi/vertex", steps: ["row:first", "back:← All graphs"] },
@@ -192,9 +191,9 @@ if (STAGE === "stage5") {
   // (mobile_not_supported recorded in pixel certs) — those are audited at tablet only.
   const KEY = ["/automations", "/studio", "/data", "/ontology", "/developer-workspace",
     "/__ioi/data/sources?lane=syncs", "/__ioi/lineage?tab=history", "/__ioi/vertex",
-    "/__ioi/domain-apps/fusion", "/__ioi/environments/map", "/__ioi/marketplace/artifacts",
-    "/__ioi/developer-console", "/__ioi/evaluations/insight", "/__ioi/studio/workshop",
-    "/__ioi/missions/schedules", "/__ioi/data/ingest", "/__ioi/foundry/model-studio",
+    "/__ioi/domain-apps/fusion", "/__ioi/marketplace/artifacts",
+    "/__ioi/developer-console", "/__ioi/studio/workshop",
+    "/__ioi/missions/schedules", "/__ioi/data/ingest", "/__ioi/foundry/specs/new",
     "/__ioi/foundry/inference", "/__ioi/operations", "/__ioi/environments"];
   for (const vp of [{ w: 1024, h: 768, tag: "tablet" }, { w: 390, h: 844, tag: "phone" }]) {
     const pg5 = await browser.newPage({ viewport: { width: vp.w, height: vp.h } });

@@ -12,6 +12,7 @@ import {
   renderV2RouteShellPage,
   renderRouteLedgerPage,
   retiredUiRouteRefusal,
+  renderRetiredUiRoutePage,
 } from "./v2-route-shell.mjs";
 
 // ------------------------------ DEF-ROUTE-1 ------------------------------
@@ -164,6 +165,23 @@ test("retirement: the Missions ROOT alone is retired toward /work — the tool l
     assert.equal(retiredUiRouteFor(lane), null, `${lane} must not be retired with the root`);
   }
   assert.equal(retiredUiRouteFor("/sessions/abc")?.replacement, "/work/sessions/abc", "the subtree retirements are unchanged");
+});
+
+test("retirement: a duplicate merged into its canon owner retires with NO replacement and names its successor on the page, never as a redirect (ADR 0056 M6)", () => {
+  for (const [route, successor, label] of [
+    ["/__ioi/foundry/model-studio", "/__ioi/foundry/specs/new", "the Foundry spec builder"],
+    ["/__ioi/evaluations/insight", "/__ioi/ontology/explorer", "Object Explorer"],
+    ["/__ioi/environments/map", "/__ioi/environments", "Environments"],
+  ]) {
+    const retired = retiredUiRouteFor(route);
+    assert.deepEqual(retired, { requested: route, replacement: null, successor, successorLabel: label });
+    assert.equal(retiredUiRouteFor(`${route}/deeper`), null, "an exact retirement never takes a subtree");
+    // The registered refusal admits only Work replacements (or null): the successor is not smuggled in.
+    assert.equal(retiredUiRouteRefusal(route, retired.replacement).canonical_replacement_route, null);
+    const page = renderRetiredUiRoutePage(route, retired.replacement, retired);
+    assert.ok(page.includes(`href="${successor}"`) && page.includes(label), "the page links the survivor");
+    assert.ok(!/http-equiv="refresh"/i.test(page), "never a redirect alias");
+  }
 });
 
 // ------------------------------ table integrity ------------------------------
