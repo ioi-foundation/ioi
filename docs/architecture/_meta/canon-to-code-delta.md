@@ -1375,6 +1375,13 @@ landed. Correct every copy, or the ones left behind go on reading as evidence.
 | **Two readings made deliberately, both recorded.** "Delete" means ARCHIVE — there is no DELETE verb on a memory entry, and reading the acceptance literally would have invented one. And skills and affinities keep their direct verbs, because the unit's scope is the memory-entry and memory-mutation owners. | the verifier's nonclaims | recorded |
 | **The census caught the cut adding a production writer, and the buckets are what mattered.** `check:ontology-admission-census` went red on the writer-call population. The FAMILY writer bucket (57), family mentions (285), the non-ODK literal bucket (243) and raw filesystem calls (234) were all unchanged; only the runtime-parameter bucket moved, by exactly the two added calls, both writing a LITERAL family. Had the family bucket moved it would have meant a new admitter. Re-pinned with that reasoning beside the numbers. | `check:ontology-admission-census` 27/27 | repaired |
 
+### Journey verification CLVIII (2026-09-25, R-240 — the empty and stale axes)
+
+| Delta | Evidence | Disposition |
+|---|---|---|
+| **EMPTY: A FRESH DEPLOYMENT READS HONESTLY.** A new daemon on an empty data directory, first-run through its own bootstrap page (which names where the one-time token is: "the line beginning ioi_bootstrap_" in the daemon's output), then all 36 registered surfaces and ten write pages signed in as the new operator. No page was blank, errored or answered 5xx; every word the scan flagged ("0 failed", a facet reading "Unavailable 1", "REFUSED is not EMPTY…") was empty-state copy saying what it read. Cosmetic, not fixed: Artifacts, Builds and Schedules put dense developer prose about read states in front of end users. | 46 pages read after bootstrap. | measured |
+| **STALE: A SAVE THAT LOST A RACE SAID "EVENT STREAM AGENTGRES HEAD CONFLICT".** Two tabs on one ODK recipe; the second save was correctly refused, in the daemon's words. The compare-and-swap refusals are a family of `*_expected_head_conflict` codes; `plainRefusal` says any of them as "this changed since you opened it — someone saved a newer version. Reload it and make your change again" (and a same-key-different-bytes replay as "already submitted with different contents"), in `whyRefused` and the marketplace refusal page. | Driven with two tabs: tab 2 reads the new sentence, its back link reopens the edit page at the current version. | **LANDED** |
+
 ### Journey verification CLVII (2026-09-25, R-240 — the denied axis: a member is told the rule, not the daemon's jargon)
 
 | Delta | Evidence | Disposition |
