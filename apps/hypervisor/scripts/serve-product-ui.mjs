@@ -8396,7 +8396,25 @@ function surfaceErrorBoundary(req, res, err) {
 // GRE-2 (owner ruling 2026-08-20): the designated CANONICAL paths participate in the embed
 // contract — the intercept arms on them and the rewriter carries embed=1 through them, so the
 // session rail is never lost to an in-frame canonical hop (the second-rail leak the owner caught).
-const CANONICAL_EMBED_PATHS = new Set(["/automations", "/evaluations", "/foundry", "/provenance", "/improvement", "/governance", "/packages/marketplace", "/studio", "/data", "/ontology", "/developer-workspace"]);
+const CANONICAL_EMBED_PATHS = new Set(["/automations", "/evaluations", "/foundry", "/provenance", "/improvement", "/governance", "/packages/marketplace", "/studio", "/data", "/ontology", "/developer-workspace", "/operations/issues", "/automations/runs", "/automations/schedules", "/systems/ecology"]);
+// A TOOL SERVED AT ITS CANONICAL ROUTE KEEPS A PERSON THERE (ADR 0056 M2). Its GET self-links — lane
+// tabs, search, filters, Clear — name the route that served the page; its POST endpoints stay on the
+// legacy lane (which keeps serving until the tool's cutover) and carry the served route back, so the
+// redirect after a write returns where the person started.
+const ISSUES_ROUTES = ["/__ioi/missions/incidents", "/operations/issues"];
+// The re-parented tools' legacy lanes and their owners' routes. A page served at a canonical route
+// links its SIBLINGS canonically too (Build Schedules' "Builds" links go to /automations/runs), so a
+// person moving between the owner's tools never drops back onto a Missions-rooted path.
+const CANONICAL_TOOL_ROUTES = { "/__ioi/missions/incidents": "/operations/issues", "/__ioi/missions/builds": "/automations/runs", "/__ioi/missions/schedules": "/automations/schedules", "/__ioi/missions/ecology": "/systems/ecology" };
+const reLit = (s) => s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+function servedAt(route, legacy, html) {
+  if (!route || route === legacy) return html;
+  let out = String(html);
+  for (const [lane, canonical] of Object.entries(CANONICAL_TOOL_ROUTES)) out = out.replace(new RegExp(`${reLit(lane)}(?=[?"#])`, "g"), canonical);
+  return out
+    .replace(new RegExp(`${reLit(legacy)}(?=[?"#])`, "g"), route)
+    .replace(new RegExp(`(<form\\b[^>]*method="post"[^>]*action="${reLit(legacy)}/[^"]*"[^>]*>)`, "gi"), `$1<input type="hidden" name="base" value="${route}">`);
+}
 
 function embedSurfaceHtml(html) {
   const routes = embeddableRoutes();
@@ -8485,6 +8503,11 @@ function whyRefused(reply) {
   const code = reply && (reply.code || (reply.error && reply.error.code));
   if (code) return String(code);
   return reply && typeof reply === "object" && Object.keys(reply).length ? "the daemon refused without a reason" : "the daemon did not answer";
+}
+
+// The owned render at the route that served it, with the page's own GET links following that route.
+function sendOwnedSurfaceHtmlAt(res, slug, servedRoute, legacyRoute, rendered) {
+  return sendOwnedSurfaceHtml(res, slug, servedAt(servedRoute, legacyRoute, rendered), {}, servedRoute);
 }
 
 function sendOwnedSurfaceHtml(res, surfaceOrSlug, rendered, headers = {}, servedRoute = null) {
@@ -11229,7 +11252,7 @@ async function handleEstateRequest(req, res, body) {
     // a DIFFERENT noun. So this table uses the estate's own column names and states the refusal
     // rather than putting different truth under a reference header — and it never relabels a STEP
     // as a "job", because `job` is a live estate noun on /v1/jobs and it is not this one.
-    if (pathname === "/__ioi/missions/builds" && req.method === "GET") {
+    if ((pathname === "/__ioi/missions/builds" || pathname === "/automations/runs") && req.method === "GET") {
       const esc = CX_ESC;
       const bstr = (v) => (typeof v === "string" && v.trim() !== "" ? v : "");
       // Probe every candidate run/build plane EXACTLY as this surface's identity sees it, keeping
@@ -11433,7 +11456,7 @@ async function handleEstateRequest(req, res, body) {
         + `<span class="bld-scopy">${bldStateCopy(r)}</span>`
         + `<span><a href="${esc(r.owner)}">${esc(r.ownerLabel)} →</a></span></div>`).join("");
       const bldFoot = `JOB-1 (remediation v2): the BUILDS port — the leg whose finding is that <b>no single plane lists every build</b>. The replay-scoped verdict was absent_confirmed (#jobs, MIS-1.recon — "no Builds grammar expresses at any recorded state; the substrate STANDS as the surface"); the owner-authorized live sweep OVERTURNED it and recorded a real build tracker (title "Your builds · Builds" · <b>14 controls</b> · a left Search-by/Filter-by panel · an All/Running/Finished segmented control · a six-column build table over REAL rows). Of those 14, <b>9 are the vendor global rail</b> (railless here) and the <b>5 app controls</b> port as counted census chips or typed absences. That supersession is recorded in reference-seed-adjudications.v1.json#jobs-port and the reference record stands as history; <a href="/__ioi/missions">the Missions substrate</a> is untouched — this is a sibling lane, not a replacement. <b>${bldRead.length}</b> run/build planes were probed live on this render and answered in four states — <b>${bldCount("live")} LIVE</b> · <b>${bldCount("empty")} EMPTY</b> · <b>${bldCount("refused")} REFUSED</b> · <b>${bldCount("no_read_route")} NO READ ROUTE</b>. READ-ONLY: the build verbs (start an execution · cancel one) belong to <a href="/__ioi/automations">Automations</a> and are not re-minted here. Evidence: reference-seed-adjudications.v1.json#jobs-port · reference-live-tenant-atlas.v1.json#jobs (landing) · .artifacts/live-tenant-atlas/jobs-landing.png. Owner: <a href="/__ioi/missions">Missions</a> · truth: <a href="/__ioi/work-ledger">the work ledger</a> · <a href="/__ioi/lineage?tab=timeline">Build timeline</a> · <a href="/__ioi/operations">Operations</a>.`;
-      sendOwnedSurfaceHtml(res, "jobs", `<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Builds</title><style>
+      sendOwnedSurfaceHtmlAt(res, "jobs", pathname, "/__ioi/missions/builds", `<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Builds</title><style>
         :root{color-scheme:light}*{box-sizing:border-box}body{margin:0;background:#fff;color:#1c2127;font:14px/1.28581 Source-Sans-Pro,Helvetica,sans-serif}a{color:#215db0;text-decoration:none}
         .bld-shell{display:flex;flex-direction:column;min-height:100vh}
         .bld-header{flex:0 0 50px;display:flex;align-items:center;gap:14px;background:#fff;box-shadow:0 1px 0 #d1d1d1,0 3px 4px rgba(0,0,0,.04);z-index:6}
@@ -11583,7 +11606,7 @@ async function handleEstateRequest(req, res, body) {
     // automation the loop fires on a cron — and that two of the three schedule counts the estate
     // publishes are produced by DIFFERENT PREDICATES over DIFFERENT WINDOWS. Every count here is
     // re-derived on the render and each one names the predicate that produced it.
-    if (pathname === "/__ioi/missions/schedules" && req.method === "GET") {
+    if ((pathname === "/__ioi/missions/schedules" || pathname === "/automations/schedules") && req.method === "GET") {
       const esc = CX_ESC;
       const sstr = (v) => (typeof v === "string" && v.trim() !== "" ? v : "");
       const schProbe = async (p) => {
@@ -11821,7 +11844,7 @@ async function handleEstateRequest(req, res, body) {
         + `<span><a href="${esc(r.owner)}">${esc(r.ownerLabel)} →</a></span></div>`).join("");
       const schDispatchPath = sstr(schPosture.dispatch_path);
       const schFoot = `SCH-1 (remediation v2): the BUILD SCHEDULES port. The replay-scoped verdict was absent_confirmed (#scheduler — "no expressed IA at any atlas state; the Operations boundary stands"); the owner-authorized live sweep OVERTURNED it and recorded a real find/list landing (title "Build Schedules" · a Create-schedule header verb · Set-search-parameters · a sort control · a selection tray · a "Filter by name or rid…" input · an APPLICATIONS facet group · <b>0 rows</b> — the live tenant's own result set is genuinely empty, so the EMPTY-STATE IA is the seed). That supersession is recorded in reference-seed-adjudications.v1.json#scheduler-port and the reference record stands as history. <b>${schRead.length}</b> schedule-bearing and cadence-adjacent planes were probed live on this render and answered in four states — <b>${schCount("live")} LIVE</b> · <b>${schCount("empty")} EMPTY</b> · <b>${schCount("refused")} REFUSED</b> · <b>${schCount("no_read_route")} NO READ ROUTE</b>. READ-ONLY: the schedule verbs (create or patch the automation that carries the schedule_spec, pause it, run it now) belong to <a href="/__ioi/automations">Automations</a> and are not re-minted here; the fires themselves are already rendered by <a href="/__ioi/missions/builds">Builds</a> and are linked, never re-listed. Evidence: reference-seed-adjudications.v1.json#scheduler-port · reference-live-tenant-deep-atlas.v1.json#scheduler (landing) · .artifacts/live-tenant-atlas/deep/scheduler-landing.png. Owner: <a href="/__ioi/missions">Missions</a> · loop health: <a href="/__ioi/operations">Operations</a> · the plane: <a href="/__ioi/automations/monitors">Automate</a>.`;
-      sendOwnedSurfaceHtml(res, "scheduler", `<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Build Schedules</title><style>
+      sendOwnedSurfaceHtmlAt(res, "scheduler", pathname, "/__ioi/missions/schedules", `<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Build Schedules</title><style>
         :root{color-scheme:light}*{box-sizing:border-box}body{margin:0;background:#fff;color:#1c2127;font:14px/1.28581 Source-Sans-Pro,Helvetica,sans-serif}a{color:#215db0;text-decoration:none}
         .sch-shell{display:flex;flex-direction:column;min-height:100vh}
         .sch-header{flex:0 0 50px;display:flex;align-items:center;gap:14px;background:#fff;box-shadow:0 1px 0 #d1d1d1,0 3px 4px rgba(0,0,0,.04);z-index:6}
@@ -13991,15 +14014,16 @@ async function handleEstateRequest(req, res, body) {
       }
       return renderIncidentsPort(opsRes, wrRes.work_results || [], lane, extra);
     };
-    if (pathname === "/__ioi/missions/incidents" && req.method === "GET") {
-      sendOwnedSurfaceHtml(res, "incidents", await incidentsPage(new URL(req.url, "http://x").searchParams));
+    if (ISSUES_ROUTES.includes(pathname) && req.method === "GET") {
+      sendOwnedSurfaceHtmlAt(res, "incidents", pathname, ISSUES_ROUTES[0], await incidentsPage(new URL(req.url, "http://x").searchParams));
       return;
     }
     if (pathname === "/__ioi/missions/incidents/new" && req.method === "POST") {
       const f = new URLSearchParams(body.toString());
       const lane = ["open", "closed", "all"].includes(f.get("lane")) ? f.get("lane") : "open";
       const values = Object.fromEntries(["nonce", "product", "title", "redacted_diagnostics", "severity", "assigned_owner_ref", "affected", "affected_ref"].map((k) => [k, (f.get(k) || "").slice(0, k === "redacted_diagnostics" ? 4000 : 300)]));
-      const refuse = async (error) => sendOwnedSurfaceHtml(res, "incidents", await incidentsPage(new URLSearchParams({ lane }), { dialog: { error, values } }));
+      const base = ISSUES_ROUTES.includes(f.get("base")) ? f.get("base") : ISSUES_ROUTES[0];
+      const refuse = async (error) => sendOwnedSurfaceHtmlAt(res, "incidents", base, ISSUES_ROUTES[0], await incidentsPage(new URLSearchParams({ lane }), { dialog: { error, values } }));
       const other = values.affected_ref.trim();
       const affected = values.affected === "__other" || !values.affected ? other : values.affected;
       if (!values.title.trim()) return refuse("give the issue a title.");
@@ -14017,7 +14041,7 @@ async function handleEstateRequest(req, res, body) {
       }
       const sid = String(created.j.incident.incident_id || "").replace(/^support-incident:\/\//u, "");
       const note = created.j.replayed ? "This issue was already filed — the same form was submitted twice, so nothing new was written." : `Filed. Your organization can see it in the open lane.`;
-      res.writeHead(303, { Location: `/__ioi/missions/incidents?lane=open&issue=${encodeURIComponent(sid)}&ok=1&note=${encodeURIComponent(note)}`, "Cache-Control": "no-store" });
+      res.writeHead(303, { Location: `${base}?lane=open&issue=${encodeURIComponent(sid)}&ok=1&note=${encodeURIComponent(note)}`, "Cache-Control": "no-store" });
       res.end();
       return;
     }
@@ -14026,7 +14050,8 @@ async function handleEstateRequest(req, res, body) {
       const lane = ["open", "closed", "all"].includes(f.get("lane")) ? f.get("lane") : "open";
       const id = (f.get("id") || "").slice(0, 200);
       const to = (f.get("status") || "").slice(0, 40);
-      const back = (ok, note) => { res.writeHead(303, { Location: `/__ioi/missions/incidents?lane=${lane}&issue=${encodeURIComponent(id)}&ok=${ok ? 1 : 0}&note=${encodeURIComponent(note)}`, "Cache-Control": "no-store" }); res.end(); };
+      const base = ISSUES_ROUTES.includes(f.get("base")) ? f.get("base") : ISSUES_ROUTES[0];
+      const back = (ok, note) => { res.writeHead(303, { Location: `${base}?lane=${lane}&issue=${encodeURIComponent(id)}&ok=${ok ? 1 : 0}&note=${encodeURIComponent(note)}`, "Cache-Control": "no-store" }); res.end(); };
       const who = await daemonFetch("/v1/hypervisor/auth/whoami").then((x) => x.json()).catch(() => ({}));
       const owner = callerOwnerRef(who);
       if (!owner) return back(false, "Not changed: your sign-in belongs to no organization of this deployment.");
@@ -14994,7 +15019,10 @@ async function handleEstateRequest(req, res, body) {
         const rendered = hit.impl.render(model, ctx);
         // ctx.embed gates the module's own rail emission; the estate-wide embed choke point
         // (handleEstateRequest head) owns link threading — applying it here too would double it.
-        sendOwnedSurfaceHtml(res, hit.surface, rendered, {}, pathname);
+        // A module mounted at a re-parented tool's canonical route follows it (ADR 0056 M2) — the
+        // Ecology module builds its links from its legacy lane.
+        const toolCanonical = CANONICAL_TOOL_ROUTES[hit.surface.route] === pathname;
+        sendOwnedSurfaceHtml(res, hit.surface, toolCanonical ? servedAt(pathname, hit.surface.route, rendered) : rendered, {}, pathname);
         return;
       }
     }

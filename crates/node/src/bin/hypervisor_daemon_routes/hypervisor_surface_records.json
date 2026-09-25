@@ -892,6 +892,241 @@
       "declared_object_contract_refs": [],
       "declared_action_contract_refs": [],
       "context_route_resolver_refs": []
+    },
+    {
+      "schema_version": "ioi.hypervisor.application_surface_registration.v2",
+      "surface_ref": "surface://hypervisor/jobs",
+      "surface_key": "jobs",
+      "surface_class": "tool_surface",
+      "display_name": "Builds",
+      "surface_availability": "available",
+      "canonical_route": "/__ioi/missions/builds",
+      "canonical_owner_doc_ref": "doc://architecture/hypervisor/automations",
+      "effect_boundary": "inspect_only",
+      "surface_origin": "first_party",
+      "surface_creation_method": "adapted",
+      "supported_placements": [
+        "applications_catalog",
+        "open_application"
+      ],
+      "launch_modes": [
+        "direct",
+        "open_application",
+        "command_palette",
+        "contextual"
+      ],
+      "supported_context_kinds": [
+        "organization",
+        "automation_run"
+      ],
+      "declared_object_contract_refs": [],
+      "declared_action_contract_refs": [],
+      "context_route_resolver_refs": []
+    },
+    {
+      "schema_version": "ioi.hypervisor.application_surface_registration.v2",
+      "surface_ref": "surface://hypervisor/scheduler",
+      "surface_key": "scheduler",
+      "surface_class": "tool_surface",
+      "display_name": "Build Schedules",
+      "surface_availability": "available",
+      "canonical_route": "/__ioi/missions/schedules",
+      "canonical_owner_doc_ref": "doc://architecture/hypervisor/automations",
+      "effect_boundary": "inspect_only",
+      "surface_origin": "first_party",
+      "surface_creation_method": "adapted",
+      "supported_placements": [
+        "applications_catalog",
+        "open_application"
+      ],
+      "launch_modes": [
+        "direct",
+        "open_application",
+        "command_palette",
+        "contextual"
+      ],
+      "supported_context_kinds": [
+        "organization"
+      ],
+      "declared_object_contract_refs": [],
+      "declared_action_contract_refs": [],
+      "context_route_resolver_refs": []
+    },
+    {
+      "schema_version": "ioi.hypervisor.application_surface_registration.v2",
+      "surface_ref": "surface://hypervisor/ecology",
+      "surface_key": "ecology",
+      "surface_class": "extension_application",
+      "display_name": "Artifact Ecology",
+      "surface_availability": "available",
+      "canonical_route": "/__ioi/missions/ecology",
+      "canonical_owner_doc_ref": "doc://architecture/hypervisor/systems",
+      "effect_boundary": "inspect_only",
+      "surface_origin": "first_party",
+      "surface_creation_method": "adapted",
+      "supported_placements": [
+        "applications_catalog",
+        "open_application"
+      ],
+      "launch_modes": [
+        "direct",
+        "open_application",
+        "command_palette",
+        "contextual"
+      ],
+      "supported_context_kinds": [
+        "system"
+      ],
+      "declared_object_contract_refs": [],
+      "declared_action_contract_refs": [],
+      "context_route_resolver_refs": []
+    },
+    {
+      "schema_version": "ioi.hypervisor.application_surface_registration.v2",
+      "surface_ref": "surface://hypervisor/ingest",
+      "surface_key": "ingest",
+      "surface_class": "tool_surface",
+      "display_name": "HyperAuto",
+      "surface_availability": "available",
+      "canonical_route": "/__ioi/data/ingest",
+      "canonical_owner_doc_ref": "doc://architecture/hypervisor/data",
+      "effect_boundary": "inspect_only",
+      "surface_origin": "first_party",
+      "surface_creation_method": "adapted",
+      "supported_placements": [
+        "applications_catalog",
+        "open_application"
+      ],
+      "launch_modes": [
+        "direct",
+        "open_application",
+        "command_palette",
+        "contextual"
+      ],
+      "supported_context_kinds": [
+        "organization"
+      ],
+      "declared_object_contract_refs": [],
+      "declared_action_contract_refs": [],
+      "context_route_resolver_refs": []
+    },
+    {
+      "schema_version": "ioi.hypervisor.application_surface_registration.v2",
+      "surface_ref": "surface://hypervisor/workshop",
+      "surface_key": "workshop",
+      "surface_class": "tool_surface",
+      "display_name": "Workshop",
+      "surface_availability": "available",
+      "canonical_route": "/__ioi/studio/workshop",
+      "canonical_owner_doc_ref": "doc://architecture/hypervisor/studio",
+      "effect_boundary": "inspect_only",
+      "surface_origin": "first_party",
+      "surface_creation_method": "adapted",
+      "supported_placements": [
+        "applications_catalog",
+        "open_application"
+      ],
+      "launch_modes": [
+        "direct",
+        "open_application",
+        "command_palette",
+        "contextual"
+      ],
+      "supported_context_kinds": [
+        "organization"
+      ],
+      "declared_object_contract_refs": [],
+      "declared_action_contract_refs": [],
+      "context_route_resolver_refs": []
+    },
+    {
+      "schema_version": "ioi.hypervisor.application_surface_registration.v2",
+      "surface_ref": "surface://hypervisor/workspaces",
+      "surface_key": "workspaces",
+      "surface_class": "tool_surface",
+      "display_name": "Code Workspaces",
+      "surface_availability": "available",
+      "canonical_route": "/__ioi/developer-workspace/workspaces",
+      "canonical_owner_doc_ref": "doc://architecture/hypervisor/developer-workspace",
+      "effect_boundary": "inspect_only",
+      "surface_origin": "first_party",
+      "surface_creation_method": "adapted",
+      "supported_placements": [
+        "applications_catalog",
+        "open_application"
+      ],
+      "launch_modes": [
+        "direct",
+        "open_application",
+        "command_palette",
+        "contextual"
+      ],
+      "supported_context_kinds": [
+        "organization",
+        "project"
+      ],
+      "declared_object_contract_refs": [],
+      "declared_action_contract_refs": [],
+      "context_route_resolver_refs": []
+    },
+    {
+      "schema_version": "ioi.hypervisor.application_surface_registration.v2",
+      "surface_ref": "surface://hypervisor/repositories",
+      "surface_key": "repositories",
+      "surface_class": "tool_surface",
+      "display_name": "Code Repositories",
+      "surface_availability": "available",
+      "canonical_route": "/__ioi/developer-workspace/repositories",
+      "canonical_owner_doc_ref": "doc://architecture/hypervisor/developer-workspace",
+      "effect_boundary": "inspect_only",
+      "surface_origin": "first_party",
+      "surface_creation_method": "adapted",
+      "supported_placements": [
+        "applications_catalog",
+        "open_application"
+      ],
+      "launch_modes": [
+        "direct",
+        "open_application",
+        "command_palette",
+        "contextual"
+      ],
+      "supported_context_kinds": [
+        "organization",
+        "project"
+      ],
+      "declared_object_contract_refs": [],
+      "declared_action_contract_refs": [],
+      "context_route_resolver_refs": []
+    },
+    {
+      "schema_version": "ioi.hypervisor.application_surface_registration.v2",
+      "surface_ref": "surface://hypervisor/inference",
+      "surface_key": "inference",
+      "surface_class": "tool_surface",
+      "display_name": "Inference",
+      "surface_availability": "available",
+      "canonical_route": "/__ioi/foundry/inference",
+      "canonical_owner_doc_ref": "doc://architecture/hypervisor/foundry",
+      "effect_boundary": "inspect_only",
+      "surface_origin": "first_party",
+      "surface_creation_method": "adapted",
+      "supported_placements": [
+        "applications_catalog",
+        "open_application"
+      ],
+      "launch_modes": [
+        "direct",
+        "open_application",
+        "command_palette",
+        "contextual"
+      ],
+      "supported_context_kinds": [
+        "organization"
+      ],
+      "declared_object_contract_refs": [],
+      "declared_action_contract_refs": [],
+      "context_route_resolver_refs": []
     }
   ],
   "releases": [
@@ -1314,6 +1549,126 @@
       "evidence_refs": [
         "evidence://implementation/hypervisor/source-owned-app/runtime-contract"
       ]
+    },
+    {
+      "schema_version": "ioi.hypervisor.surface_release_record.v1",
+      "release_ref": "package://hypervisor/jobs/release/source-owned-v1",
+      "surface_ref": "surface://hypervisor/jobs",
+      "package_ref": "package://hypervisor/jobs",
+      "surface_distribution": "bundled",
+      "surface_admission_state": "admitted",
+      "surface_package_disposition": "active",
+      "surface_capability_depth": "browse",
+      "object_contract_refs": [],
+      "action_contract_refs": [],
+      "evidence_refs": [
+        "evidence://implementation/hypervisor/source-owned-app/runtime-contract"
+      ]
+    },
+    {
+      "schema_version": "ioi.hypervisor.surface_release_record.v1",
+      "release_ref": "package://hypervisor/scheduler/release/source-owned-v1",
+      "surface_ref": "surface://hypervisor/scheduler",
+      "package_ref": "package://hypervisor/scheduler",
+      "surface_distribution": "bundled",
+      "surface_admission_state": "admitted",
+      "surface_package_disposition": "active",
+      "surface_capability_depth": "browse",
+      "object_contract_refs": [],
+      "action_contract_refs": [],
+      "evidence_refs": [
+        "evidence://implementation/hypervisor/source-owned-app/runtime-contract"
+      ]
+    },
+    {
+      "schema_version": "ioi.hypervisor.surface_release_record.v1",
+      "release_ref": "package://hypervisor/ecology/release/source-owned-v1",
+      "surface_ref": "surface://hypervisor/ecology",
+      "package_ref": "package://hypervisor/ecology",
+      "surface_distribution": "bundled",
+      "surface_admission_state": "admitted",
+      "surface_package_disposition": "active",
+      "surface_capability_depth": "browse",
+      "object_contract_refs": [],
+      "action_contract_refs": [],
+      "evidence_refs": [
+        "evidence://implementation/hypervisor/source-owned-app/runtime-contract"
+      ]
+    },
+    {
+      "schema_version": "ioi.hypervisor.surface_release_record.v1",
+      "release_ref": "package://hypervisor/ingest/release/source-owned-v1",
+      "surface_ref": "surface://hypervisor/ingest",
+      "package_ref": "package://hypervisor/ingest",
+      "surface_distribution": "bundled",
+      "surface_admission_state": "admitted",
+      "surface_package_disposition": "active",
+      "surface_capability_depth": "browse",
+      "object_contract_refs": [],
+      "action_contract_refs": [],
+      "evidence_refs": [
+        "evidence://implementation/hypervisor/source-owned-app/runtime-contract"
+      ]
+    },
+    {
+      "schema_version": "ioi.hypervisor.surface_release_record.v1",
+      "release_ref": "package://hypervisor/workshop/release/source-owned-v1",
+      "surface_ref": "surface://hypervisor/workshop",
+      "package_ref": "package://hypervisor/workshop",
+      "surface_distribution": "bundled",
+      "surface_admission_state": "admitted",
+      "surface_package_disposition": "active",
+      "surface_capability_depth": "browse",
+      "object_contract_refs": [],
+      "action_contract_refs": [],
+      "evidence_refs": [
+        "evidence://implementation/hypervisor/source-owned-app/runtime-contract"
+      ]
+    },
+    {
+      "schema_version": "ioi.hypervisor.surface_release_record.v1",
+      "release_ref": "package://hypervisor/workspaces/release/source-owned-v1",
+      "surface_ref": "surface://hypervisor/workspaces",
+      "package_ref": "package://hypervisor/workspaces",
+      "surface_distribution": "bundled",
+      "surface_admission_state": "admitted",
+      "surface_package_disposition": "active",
+      "surface_capability_depth": "browse",
+      "object_contract_refs": [],
+      "action_contract_refs": [],
+      "evidence_refs": [
+        "evidence://implementation/hypervisor/source-owned-app/runtime-contract"
+      ]
+    },
+    {
+      "schema_version": "ioi.hypervisor.surface_release_record.v1",
+      "release_ref": "package://hypervisor/repositories/release/source-owned-v1",
+      "surface_ref": "surface://hypervisor/repositories",
+      "package_ref": "package://hypervisor/repositories",
+      "surface_distribution": "bundled",
+      "surface_admission_state": "admitted",
+      "surface_package_disposition": "active",
+      "surface_capability_depth": "browse",
+      "object_contract_refs": [],
+      "action_contract_refs": [],
+      "evidence_refs": [
+        "evidence://implementation/hypervisor/source-owned-app/runtime-contract"
+      ]
+    },
+    {
+      "schema_version": "ioi.hypervisor.surface_release_record.v1",
+      "release_ref": "package://hypervisor/inference/release/source-owned-v1",
+      "surface_ref": "surface://hypervisor/inference",
+      "package_ref": "package://hypervisor/inference",
+      "surface_distribution": "bundled",
+      "surface_admission_state": "admitted",
+      "surface_package_disposition": "active",
+      "surface_capability_depth": "browse",
+      "object_contract_refs": [],
+      "action_contract_refs": [],
+      "evidence_refs": [
+        "evidence://implementation/hypervisor/source-owned-app/runtime-contract"
+      ]
     }
   ],
   "installations": [
@@ -1700,6 +2055,118 @@
       "installation_ref": "install://hypervisor/designer/local",
       "surface_ref": "surface://hypervisor/designer",
       "release_ref": "package://hypervisor/designer/release/source-owned-v1",
+      "org_ref": "org://local",
+      "project_ref": null,
+      "surface_installation_state": "installed",
+      "surface_enablement_state": "enabled",
+      "visibility": "organization",
+      "allowed_object_contract_refs": [],
+      "allowed_action_refs": [],
+      "revision": 1
+    },
+    {
+      "schema_version": "ioi.hypervisor.surface_installation_binding.v1",
+      "installation_ref": "install://hypervisor/jobs/local",
+      "surface_ref": "surface://hypervisor/jobs",
+      "release_ref": "package://hypervisor/jobs/release/source-owned-v1",
+      "org_ref": "org://local",
+      "project_ref": null,
+      "surface_installation_state": "installed",
+      "surface_enablement_state": "enabled",
+      "visibility": "organization",
+      "allowed_object_contract_refs": [],
+      "allowed_action_refs": [],
+      "revision": 1
+    },
+    {
+      "schema_version": "ioi.hypervisor.surface_installation_binding.v1",
+      "installation_ref": "install://hypervisor/scheduler/local",
+      "surface_ref": "surface://hypervisor/scheduler",
+      "release_ref": "package://hypervisor/scheduler/release/source-owned-v1",
+      "org_ref": "org://local",
+      "project_ref": null,
+      "surface_installation_state": "installed",
+      "surface_enablement_state": "enabled",
+      "visibility": "organization",
+      "allowed_object_contract_refs": [],
+      "allowed_action_refs": [],
+      "revision": 1
+    },
+    {
+      "schema_version": "ioi.hypervisor.surface_installation_binding.v1",
+      "installation_ref": "install://hypervisor/ecology/local",
+      "surface_ref": "surface://hypervisor/ecology",
+      "release_ref": "package://hypervisor/ecology/release/source-owned-v1",
+      "org_ref": "org://local",
+      "project_ref": null,
+      "surface_installation_state": "installed",
+      "surface_enablement_state": "enabled",
+      "visibility": "organization",
+      "allowed_object_contract_refs": [],
+      "allowed_action_refs": [],
+      "revision": 1
+    },
+    {
+      "schema_version": "ioi.hypervisor.surface_installation_binding.v1",
+      "installation_ref": "install://hypervisor/ingest/local",
+      "surface_ref": "surface://hypervisor/ingest",
+      "release_ref": "package://hypervisor/ingest/release/source-owned-v1",
+      "org_ref": "org://local",
+      "project_ref": null,
+      "surface_installation_state": "installed",
+      "surface_enablement_state": "enabled",
+      "visibility": "organization",
+      "allowed_object_contract_refs": [],
+      "allowed_action_refs": [],
+      "revision": 1
+    },
+    {
+      "schema_version": "ioi.hypervisor.surface_installation_binding.v1",
+      "installation_ref": "install://hypervisor/workshop/local",
+      "surface_ref": "surface://hypervisor/workshop",
+      "release_ref": "package://hypervisor/workshop/release/source-owned-v1",
+      "org_ref": "org://local",
+      "project_ref": null,
+      "surface_installation_state": "installed",
+      "surface_enablement_state": "enabled",
+      "visibility": "organization",
+      "allowed_object_contract_refs": [],
+      "allowed_action_refs": [],
+      "revision": 1
+    },
+    {
+      "schema_version": "ioi.hypervisor.surface_installation_binding.v1",
+      "installation_ref": "install://hypervisor/workspaces/local",
+      "surface_ref": "surface://hypervisor/workspaces",
+      "release_ref": "package://hypervisor/workspaces/release/source-owned-v1",
+      "org_ref": "org://local",
+      "project_ref": null,
+      "surface_installation_state": "installed",
+      "surface_enablement_state": "enabled",
+      "visibility": "organization",
+      "allowed_object_contract_refs": [],
+      "allowed_action_refs": [],
+      "revision": 1
+    },
+    {
+      "schema_version": "ioi.hypervisor.surface_installation_binding.v1",
+      "installation_ref": "install://hypervisor/repositories/local",
+      "surface_ref": "surface://hypervisor/repositories",
+      "release_ref": "package://hypervisor/repositories/release/source-owned-v1",
+      "org_ref": "org://local",
+      "project_ref": null,
+      "surface_installation_state": "installed",
+      "surface_enablement_state": "enabled",
+      "visibility": "organization",
+      "allowed_object_contract_refs": [],
+      "allowed_action_refs": [],
+      "revision": 1
+    },
+    {
+      "schema_version": "ioi.hypervisor.surface_installation_binding.v1",
+      "installation_ref": "install://hypervisor/inference/local",
+      "surface_ref": "surface://hypervisor/inference",
+      "release_ref": "package://hypervisor/inference/release/source-owned-v1",
       "org_ref": "org://local",
       "project_ref": null,
       "surface_installation_state": "installed",
@@ -2098,6 +2565,118 @@
       "installation_ref": "install://hypervisor/designer/local",
       "system_binding_ref": null,
       "resolved_route": "/__ioi/studio/designer",
+      "runtime_ref": "runtime://hypervisor/source-owned-app",
+      "surface_operational_state": "serving",
+      "health_observation_refs": [
+        "observation://hypervisor/source-owned-app/build-and-contract"
+      ]
+    },
+    {
+      "schema_version": "ioi.hypervisor.surface_serving_binding.v1",
+      "serving_binding_ref": "surface-serving://hypervisor/jobs/source-owned-app",
+      "surface_ref": "surface://hypervisor/jobs",
+      "release_ref": "package://hypervisor/jobs/release/source-owned-v1",
+      "installation_ref": "install://hypervisor/jobs/local",
+      "system_binding_ref": null,
+      "resolved_route": "/__ioi/missions/builds",
+      "runtime_ref": "runtime://hypervisor/source-owned-app",
+      "surface_operational_state": "serving",
+      "health_observation_refs": [
+        "observation://hypervisor/source-owned-app/build-and-contract"
+      ]
+    },
+    {
+      "schema_version": "ioi.hypervisor.surface_serving_binding.v1",
+      "serving_binding_ref": "surface-serving://hypervisor/scheduler/source-owned-app",
+      "surface_ref": "surface://hypervisor/scheduler",
+      "release_ref": "package://hypervisor/scheduler/release/source-owned-v1",
+      "installation_ref": "install://hypervisor/scheduler/local",
+      "system_binding_ref": null,
+      "resolved_route": "/__ioi/missions/schedules",
+      "runtime_ref": "runtime://hypervisor/source-owned-app",
+      "surface_operational_state": "serving",
+      "health_observation_refs": [
+        "observation://hypervisor/source-owned-app/build-and-contract"
+      ]
+    },
+    {
+      "schema_version": "ioi.hypervisor.surface_serving_binding.v1",
+      "serving_binding_ref": "surface-serving://hypervisor/ecology/source-owned-app",
+      "surface_ref": "surface://hypervisor/ecology",
+      "release_ref": "package://hypervisor/ecology/release/source-owned-v1",
+      "installation_ref": "install://hypervisor/ecology/local",
+      "system_binding_ref": null,
+      "resolved_route": "/__ioi/missions/ecology",
+      "runtime_ref": "runtime://hypervisor/source-owned-app",
+      "surface_operational_state": "serving",
+      "health_observation_refs": [
+        "observation://hypervisor/source-owned-app/build-and-contract"
+      ]
+    },
+    {
+      "schema_version": "ioi.hypervisor.surface_serving_binding.v1",
+      "serving_binding_ref": "surface-serving://hypervisor/ingest/source-owned-app",
+      "surface_ref": "surface://hypervisor/ingest",
+      "release_ref": "package://hypervisor/ingest/release/source-owned-v1",
+      "installation_ref": "install://hypervisor/ingest/local",
+      "system_binding_ref": null,
+      "resolved_route": "/__ioi/data/ingest",
+      "runtime_ref": "runtime://hypervisor/source-owned-app",
+      "surface_operational_state": "serving",
+      "health_observation_refs": [
+        "observation://hypervisor/source-owned-app/build-and-contract"
+      ]
+    },
+    {
+      "schema_version": "ioi.hypervisor.surface_serving_binding.v1",
+      "serving_binding_ref": "surface-serving://hypervisor/workshop/source-owned-app",
+      "surface_ref": "surface://hypervisor/workshop",
+      "release_ref": "package://hypervisor/workshop/release/source-owned-v1",
+      "installation_ref": "install://hypervisor/workshop/local",
+      "system_binding_ref": null,
+      "resolved_route": "/__ioi/studio/workshop",
+      "runtime_ref": "runtime://hypervisor/source-owned-app",
+      "surface_operational_state": "serving",
+      "health_observation_refs": [
+        "observation://hypervisor/source-owned-app/build-and-contract"
+      ]
+    },
+    {
+      "schema_version": "ioi.hypervisor.surface_serving_binding.v1",
+      "serving_binding_ref": "surface-serving://hypervisor/workspaces/source-owned-app",
+      "surface_ref": "surface://hypervisor/workspaces",
+      "release_ref": "package://hypervisor/workspaces/release/source-owned-v1",
+      "installation_ref": "install://hypervisor/workspaces/local",
+      "system_binding_ref": null,
+      "resolved_route": "/__ioi/developer-workspace/workspaces",
+      "runtime_ref": "runtime://hypervisor/source-owned-app",
+      "surface_operational_state": "serving",
+      "health_observation_refs": [
+        "observation://hypervisor/source-owned-app/build-and-contract"
+      ]
+    },
+    {
+      "schema_version": "ioi.hypervisor.surface_serving_binding.v1",
+      "serving_binding_ref": "surface-serving://hypervisor/repositories/source-owned-app",
+      "surface_ref": "surface://hypervisor/repositories",
+      "release_ref": "package://hypervisor/repositories/release/source-owned-v1",
+      "installation_ref": "install://hypervisor/repositories/local",
+      "system_binding_ref": null,
+      "resolved_route": "/__ioi/developer-workspace/repositories",
+      "runtime_ref": "runtime://hypervisor/source-owned-app",
+      "surface_operational_state": "serving",
+      "health_observation_refs": [
+        "observation://hypervisor/source-owned-app/build-and-contract"
+      ]
+    },
+    {
+      "schema_version": "ioi.hypervisor.surface_serving_binding.v1",
+      "serving_binding_ref": "surface-serving://hypervisor/inference/source-owned-app",
+      "surface_ref": "surface://hypervisor/inference",
+      "release_ref": "package://hypervisor/inference/release/source-owned-v1",
+      "installation_ref": "install://hypervisor/inference/local",
+      "system_binding_ref": null,
+      "resolved_route": "/__ioi/foundry/inference",
       "runtime_ref": "runtime://hypervisor/source-owned-app",
       "surface_operational_state": "serving",
       "health_observation_refs": [

@@ -67,7 +67,7 @@ export const SURFACES = [
   { slug: "schema", owner: "Ontology", title: "Ontology Manager", icon: ONTOLOGY_APP_ICON_URI, route: "/__ioi/ontology/manager", canonical_route: "/ontology/schema", verifier: "scripts/verify-hypervisor-app-parity-ontology-manager.mjs", certification: "pixel-certifications/schema.json", capabilities: ["browse", "filter", "select", "inspect", "create", "update", "proof"], operational_state: "act", embedded_shell_state: "native_single_rail", interaction_parity_state: "none" },
   { slug: "explorer", owner: "Ontology", title: "Object Explorer", icon: EXPLORER_APP_ICON_URI, route: "/__ioi/ontology/explorer", canonical_route: "/ontology/explore", verifier: "scripts/verify-hypervisor-app-parity-object-explorer.mjs", certification: "pixel-certifications/explorer.json", capabilities: ["browse", "filter", "select", "inspect", "proof", "create"], operational_state: "act", embedded_shell_state: "native_single_rail", interaction_parity_state: "none" },
   { slug: "approvals", owner: "Governance", title: "Approvals", icon: APPROVALS_APP_ICON_URI, route: "/__ioi/governance/approvals", canonical_route: "/governance/approvals", verifier: "scripts/verify-hypervisor-app-parity-approvals.mjs", certification: "pixel-certifications/approvals.json", capabilities: ["browse", "filter", "select", "inspect", "transition"], operational_state: "act", embedded_shell_state: "native_single_rail", interaction_parity_state: "none" },
-  { slug: "incidents", owner: "Operations", title: "Issues", icon: ISSUES_APP_ICON_URI, route: "/__ioi/missions/incidents", verifier: "scripts/verify-hypervisor-app-parity-incidents.mjs", certification: "pixel-certifications/incidents.json", capabilities: ["browse", "filter", "proof"], operational_state: "browse", embedded_shell_state: "native_single_rail", interaction_parity_state: "none" },
+  { slug: "incidents", owner: "Operations", title: "Issues", icon: ISSUES_APP_ICON_URI, route: "/__ioi/missions/incidents", canonical_route: "/operations/issues", verifier: "scripts/verify-hypervisor-app-parity-incidents.mjs", certification: "pixel-certifications/incidents.json", capabilities: ["browse", "filter", "proof"], operational_state: "browse", embedded_shell_state: "native_single_rail", interaction_parity_state: "none" },
   { slug: "models", owner: "Foundry", title: "Model Catalog", icon: MODELS_APP_ICON_URI, route: "/__ioi/foundry/models", verifier: "scripts/verify-hypervisor-app-parity-foundry-models.mjs", certification: "pixel-certifications/models.json", capabilities: ["browse"], operational_state: "browse", embedded_shell_state: "native_single_rail", interaction_parity_state: "none" },
   { slug: "listings", owner: "Packages", title: "Marketplace", icon: MARKETPLACE_APP_ICON_URI, route: "/__ioi/marketplace/listings", verifier: "scripts/verify-hypervisor-app-parity-listings.mjs", certification: "pixel-certifications/listings.json", capabilities: ["browse"], operational_state: "browse", embedded_shell_state: "native_single_rail", interaction_parity_state: "none" },
   { slug: "designer", owner: "Studio", title: "Solution Designer", icon: DSG_APP_TILE_URI, route: "/__ioi/studio/designer", verifier: "scripts/verify-hypervisor-app-parity-studio-designer.mjs", certification: "pixel-certifications/designer.json", capabilities: ["browse"], operational_state: "browse", embedded_shell_state: "native_single_rail", interaction_parity_state: "none" },
@@ -110,15 +110,15 @@ export const SURFACES = [
   // ref behind one, which is exactly what this view does, so it reads the ioi.ai composition through
   // the generic System-record seam. Read-only by contract: the composition's verbs (stop, quarantine,
   // repair, replace, retire) belong to the ioi.ai composer and the daemon serves no route for them.
-  { slug: "ecology", owner: "Systems", title: "Artifact Ecology", icon: ecologyModule.ECOLOGY_APP_ICON_URI, route: "/__ioi/missions/ecology", verifier: "../../scripts/check-collective-artifact-ecology-surface.mjs", certification: "n/a", catalog_evidence: { schema: "ioi.hypervisor.catalog-contract-evidence.v1", artifact: "application-operational-depth.json", evidence_key: "ecology", module: "surfaces/ecology/index.mjs", verifier: "../../scripts/check-collective-artifact-ecology-surface.mjs" }, capabilities: ["browse", "filter", "select", "inspect", "proof"], operational_state: "read_only_by_contract", embedded_shell_state: "native_single_rail", interaction_parity_state: "none" },
-  { slug: "jobs", owner: "Automations", title: "Builds", icon: missionsModule.MISSIONS_APP_ICON_URI, route: "/__ioi/missions/builds", verifier: "scripts/verify-hypervisor-app-parity-domain-landings.mjs", certification: "n/a", capabilities: ["browse"], operational_state: "browse", embedded_shell_state: "native_single_rail", interaction_parity_state: "none" },
+  { slug: "ecology", owner: "Systems", title: "Artifact Ecology", icon: ecologyModule.ECOLOGY_APP_ICON_URI, route: "/__ioi/missions/ecology", canonical_route: "/systems/ecology", verifier: "../../scripts/check-collective-artifact-ecology-surface.mjs", certification: "n/a", catalog_evidence: { schema: "ioi.hypervisor.catalog-contract-evidence.v1", artifact: "application-operational-depth.json", evidence_key: "ecology", module: "surfaces/ecology/index.mjs", verifier: "../../scripts/check-collective-artifact-ecology-surface.mjs" }, capabilities: ["browse", "filter", "select", "inspect", "proof"], operational_state: "read_only_by_contract", embedded_shell_state: "native_single_rail", interaction_parity_state: "none" },
+  { slug: "jobs", owner: "Automations", title: "Builds", icon: missionsModule.MISSIONS_APP_ICON_URI, route: "/__ioi/missions/builds", canonical_route: "/automations/runs", verifier: "scripts/verify-hypervisor-app-parity-domain-landings.mjs", certification: "n/a", capabilities: ["browse"], operational_state: "browse", embedded_shell_state: "native_single_rail", interaction_parity_state: "none" },
   // SCH-1 (remediation v2): the live-tenant-sourced Build Schedules port — a READ-ONLY projection
   // of the estate's ONLY cadence: the automation records carrying a schedule_spec. Fifteen
   // schedule/cadence-adjacent planes are classified live into four states (and three shapes: a
   // collection, a status singleton, a pure computation). The schedule VERBS stay on Automations
   // (a schedule is a FIELD on an automation, so "create a schedule" is create/patch an automation)
   // and the fires themselves stay on Builds — both linked, neither re-rendered here.
-  { slug: "scheduler", owner: "Automations", title: "Build Schedules", icon: missionsModule.MISSIONS_APP_ICON_URI, route: "/__ioi/missions/schedules", verifier: "scripts/verify-hypervisor-app-parity-domain-landings.mjs", certification: "n/a", capabilities: ["browse"], operational_state: "browse", embedded_shell_state: "native_single_rail", interaction_parity_state: "none" },
+  { slug: "scheduler", owner: "Automations", title: "Build Schedules", icon: missionsModule.MISSIONS_APP_ICON_URI, route: "/__ioi/missions/schedules", canonical_route: "/automations/schedules", verifier: "scripts/verify-hypervisor-app-parity-domain-landings.mjs", certification: "n/a", capabilities: ["browse"], operational_state: "browse", embedded_shell_state: "native_single_rail", interaction_parity_state: "none" },
   // ING-1 (remediation v2): the live-tenant-sourced HyperAuto port — a READ-ONLY projection of the
   // estate's ingestion CHAIN, joined end to end from the keys the records themselves carry
   // (connector_mapping_id · data_source_id · materializing_run_id · ontology_projection_id). Twenty-one
@@ -224,12 +224,15 @@ export function boundSurface(pathname, method) {
   return null;
 }
 
-// The v2 shell dispatch consults this to YIELD canonical paths a bound module owns: the shell
-// page must never shadow a rehomed surface, and an UNBOUND canonical route falls back to the
-// honest shell rather than a 404 — registration stays additive.
+// The v2 shell dispatch consults this to YIELD a canonical path a registered surface serves: the
+// shell page must never shadow it. A bound module serves its canonical route through registry
+// dispatch; a flat handler serves its own (ADR 0056 M2: Issues at /operations/issues, Builds and
+// Build Schedules at /automations/runs and /automations/schedules — re-parented tools keep their
+// ported page and gain their owner's route). A path no surface declares still falls back to the
+// honest shell rather than a 404.
 export function canonicalSurfaceRoute(pathname) {
   for (const s of SURFACES) {
-    if (s.canonical_route && s.canonical_route === pathname && bound.get(s.slug)) return s;
+    if (s.canonical_route && s.canonical_route === pathname) return s;
   }
   return null;
 }
