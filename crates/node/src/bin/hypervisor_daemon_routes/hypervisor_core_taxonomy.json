@@ -934,40 +934,6 @@
       ]
     },
     {
-      "surface_ref": "surface://hypervisor/missions",
-      "surface_key": "missions",
-      "display_name": "Missions",
-      "surface_class": "tool_surface",
-      "surface_availability": "available",
-      "canonical_route": "/__ioi/missions",
-      "canonical_owner_doc_ref": "doc://architecture/hypervisor/missions",
-      "effect_boundary": "inspect_only",
-      "surface_origin": "first_party",
-      "surface_creation_method": "adapted",
-      "surface_distribution": "bundled",
-      "surface_admission_state": "admitted",
-      "surface_package_disposition": "active",
-      "surface_capability_depth": "inspect",
-      "surface_installation_state": "installed",
-      "surface_enablement_state": "enabled",
-      "surface_operational_state": "serving",
-      "visibility": "organization",
-      "supported_placements": [
-        "applications_catalog",
-        "open_application"
-      ],
-      "launch_modes": [
-        "direct",
-        "open_application",
-        "command_palette",
-        "contextual"
-      ],
-      "supported_context_kinds": [
-        "work_queue",
-        "work_item"
-      ]
-    },
-    {
       "surface_ref": "surface://hypervisor/explorer",
       "surface_key": "explorer",
       "display_name": "Object Explorer",

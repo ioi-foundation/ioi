@@ -28,7 +28,6 @@ import * as ontologyManagerModule from "../surfaces/ontology-manager/index.mjs";
 import * as objectExplorerModule from "../surfaces/object-explorer/index.mjs";
 import * as approvalsModule from "../surfaces/approvals/index.mjs";
 import * as sourcesModule from "../surfaces/sources/index.mjs";
-import * as missionsModule from "../surfaces/missions/index.mjs";
 import * as ecologyModule from "../surfaces/ecology/index.mjs";
 import * as studioModule from "../surfaces/studio/index.mjs";
 import * as packagesModule from "../surfaces/packages/index.mjs";
@@ -58,10 +57,12 @@ export const INTERACTION_PARITY_STATES = ["none", "atlas_verified"];
 // "Workbench" named no canon owner: Issues is Operations' (it owns SupportIncidentLink), Builds and
 // Build Schedules are Automations' (run history and schedules), Artifact Ecology is a System-scoped
 // contributed view, Marketplace and Artifacts are Packages', the code lanes are Developer Workspace's
-// and Insight is Ontology's. Routes do not move here — M2 adds canonical routes; the Missions root
-// keeps its label until it is retired (M5).
+// and Insight is Ontology's. M2 added the tools' canonical routes; M5 retired the Missions root.
 export const SURFACES = [
-  { slug: "missions", owner: "Missions", title: "Missions", icon: missionsModule.MISSIONS_APP_ICON_URI, route: "/__ioi/missions", verifier: "scripts/verify-hypervisor-app-parity-missions.mjs", certification: "n/a", catalog_evidence: { schema: "ioi.hypervisor.catalog-contract-evidence.v1", artifact: "application-operational-depth.json", evidence_key: "missions", module: "surfaces/missions/index.mjs", verifier: "scripts/verify-hypervisor-app-parity-missions.mjs" }, capabilities: ["browse", "filter", "select", "inspect", "proof"], operational_state: "read_only_by_contract", embedded_shell_state: "native_single_rail", interaction_parity_state: "none" },
+  // ADR 0056 M5 (2026-09-25): the Missions ROOT (/__ioi/missions) is retired — it answers the typed
+  // route-retirement refusal toward /work (v2-route-shell RETIRED_UI_EXACT). Missions owned no object
+  // once goal pursuit left (R-192/S5-1); its tools answer to their owners at their own routes. The
+  // seed module (surfaces/missions) is preserved in the tree, bound to no route.
   { slug: "pipeline", owner: "Data", title: "Pipeline Builder", icon: PIPELINE_APP_ICON_URI, route: "/__ioi/pipeline", canonical_route: "/data/recipes", verifier: "scripts/verify-hypervisor-app-parity-pipeline.mjs", certification: "pixel-certifications/pipeline.json", capabilities: ["browse", "select", "inspect", "create", "transition", "execute", "proof"], operational_state: "workflow_complete", embedded_shell_state: "native_single_rail", interaction_parity_state: "atlas_verified" },
   { slug: "sources", owner: "Data", title: "Data Connection", icon: SRC_APP_TILE_URI, route: "/__ioi/data/sources", canonical_route: "/data/sources", verifier: "scripts/verify-hypervisor-app-parity-sources.mjs", certification: "pixel-certifications/sources.json", capabilities: ["browse", "select", "create"], operational_state: "act", embedded_shell_state: "native_single_rail", interaction_parity_state: "none" },
   { slug: "schema", owner: "Ontology", title: "Ontology Manager", icon: ONTOLOGY_APP_ICON_URI, route: "/__ioi/ontology/manager", canonical_route: "/ontology/schema", verifier: "scripts/verify-hypervisor-app-parity-ontology-manager.mjs", certification: "pixel-certifications/schema.json", capabilities: ["browse", "filter", "select", "inspect", "create", "update", "proof"], operational_state: "act", embedded_shell_state: "native_single_rail", interaction_parity_state: "none" },
@@ -111,14 +112,14 @@ export const SURFACES = [
   // the generic System-record seam. Read-only by contract: the composition's verbs (stop, quarantine,
   // repair, replace, retire) belong to the ioi.ai composer and the daemon serves no route for them.
   { slug: "ecology", owner: "Systems", title: "Artifact Ecology", icon: ecologyModule.ECOLOGY_APP_ICON_URI, route: "/__ioi/missions/ecology", canonical_route: "/systems/ecology", verifier: "../../scripts/check-collective-artifact-ecology-surface.mjs", certification: "n/a", catalog_evidence: { schema: "ioi.hypervisor.catalog-contract-evidence.v1", artifact: "application-operational-depth.json", evidence_key: "ecology", module: "surfaces/ecology/index.mjs", verifier: "../../scripts/check-collective-artifact-ecology-surface.mjs" }, capabilities: ["browse", "filter", "select", "inspect", "proof"], operational_state: "read_only_by_contract", embedded_shell_state: "native_single_rail", interaction_parity_state: "none" },
-  { slug: "jobs", owner: "Automations", title: "Builds", icon: missionsModule.MISSIONS_APP_ICON_URI, route: "/__ioi/missions/builds", canonical_route: "/automations/runs", verifier: "scripts/verify-hypervisor-app-parity-domain-landings.mjs", certification: "n/a", capabilities: ["browse"], operational_state: "browse", embedded_shell_state: "native_single_rail", interaction_parity_state: "none" },
+  { slug: "jobs", owner: "Automations", title: "Builds", icon: MON_APP_TILE_URI, route: "/__ioi/missions/builds", canonical_route: "/automations/runs", verifier: "scripts/verify-hypervisor-app-parity-domain-landings.mjs", certification: "n/a", capabilities: ["browse"], operational_state: "browse", embedded_shell_state: "native_single_rail", interaction_parity_state: "none" },
   // SCH-1 (remediation v2): the live-tenant-sourced Build Schedules port — a READ-ONLY projection
   // of the estate's ONLY cadence: the automation records carrying a schedule_spec. Fifteen
   // schedule/cadence-adjacent planes are classified live into four states (and three shapes: a
   // collection, a status singleton, a pure computation). The schedule VERBS stay on Automations
   // (a schedule is a FIELD on an automation, so "create a schedule" is create/patch an automation)
   // and the fires themselves stay on Builds — both linked, neither re-rendered here.
-  { slug: "scheduler", owner: "Automations", title: "Build Schedules", icon: missionsModule.MISSIONS_APP_ICON_URI, route: "/__ioi/missions/schedules", canonical_route: "/automations/schedules", verifier: "scripts/verify-hypervisor-app-parity-domain-landings.mjs", certification: "n/a", capabilities: ["browse"], operational_state: "browse", embedded_shell_state: "native_single_rail", interaction_parity_state: "none" },
+  { slug: "scheduler", owner: "Automations", title: "Build Schedules", icon: MON_APP_TILE_URI, route: "/__ioi/missions/schedules", canonical_route: "/automations/schedules", verifier: "scripts/verify-hypervisor-app-parity-domain-landings.mjs", certification: "n/a", capabilities: ["browse"], operational_state: "browse", embedded_shell_state: "native_single_rail", interaction_parity_state: "none" },
   // ING-1 (remediation v2): the live-tenant-sourced HyperAuto port — a READ-ONLY projection of the
   // estate's ingestion CHAIN, joined end to end from the keys the records themselves carry
   // (connector_mapping_id · data_source_id · materializing_run_id · ontology_projection_id). Twenty-one
@@ -308,7 +309,6 @@ bindSurface("schema", ontologyManagerModule);
 bindSurface("explorer", objectExplorerModule);
 bindSurface("approvals", approvalsModule);
 bindSurface("sources", sourcesModule);
-bindSurface("missions", missionsModule);
 bindSurface("ecology", ecologyModule);
 bindSurface("studio-home", studioModule);
 // Packages: BOTH rows bind the one module — the module branches on the served pathname (the

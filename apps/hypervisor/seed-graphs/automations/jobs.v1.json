@@ -1,0 +1,1334 @@
+{
+  "schema_version": "ioi.hypervisor.seed-interaction-route-graph.v1",
+  "surface": "automations",
+  "slug": "jobs",
+  "owned_route": "/__ioi/missions/builds",
+  "capture_route": null,
+  "runtime": {
+    "serve_url": "http://127.0.0.1:36173",
+    "capture_url": null
+  },
+  "captured_at": "2026-09-25T12:48:04.846Z",
+  "quarantine": {
+    "network_policy": "local-only",
+    "corpus_mutation": "denied",
+    "html_injection": "denied",
+    "spa_fallback": "denied",
+    "allowed_origins": [
+      "http://127.0.0.1:36173",
+      "http://localhost:36173",
+      "http://127.0.0.1:9225",
+      "http://localhost:9225"
+    ],
+    "violations": []
+  },
+  "nodes": [
+    {
+      "id": "n0",
+      "kind": "route",
+      "signature": "/__ioi/missions/builds#open=0#fc=0#hf=124#sv=0|H1:Builds|H2:Your builds|H2:No single plane lists every build|H3:Three planes project the same builds, and two of them are in|H2:The reference's six columns, answered one by one|H2:Run & build planes — read live, classified into four states|H3:The session registry — LIVE",
+      "url": "/__ioi/missions/builds",
+      "title": "Builds",
+      "entry_edge": null,
+      "controls": 90,
+      "disabled_controls": 0,
+      "screenshot": {
+        "sha256": "ec889eadcbd795d3019e7d872be1d26b3c38a9c277eab0f8299aeeedbb9e1a0d",
+        "posture": "1440x900-light"
+      },
+      "console_errors": [],
+      "posture_matrix": [
+        {
+          "sha256": "ec889eadcbd795d3019e7d872be1d26b3c38a9c277eab0f8299aeeedbb9e1a0d",
+          "posture": "1440x900-dark"
+        },
+        {
+          "sha256": "9642e7e8587035e5369aef5b3c2a0d2be152da0e3865c31307f6b7156b8a7a90",
+          "posture": "390x844-light-reduced-motion"
+        }
+      ]
+    }
+  ],
+  "edges": [
+    {
+      "from": "n0",
+      "to": null,
+      "control": {
+        "index": 0,
+        "tag": "a",
+        "role": null,
+        "href": "/__ioi/run-timeline/aex_18d126d314d68770",
+        "disabled": false,
+        "label": "run timeline ↗"
+      },
+      "action": "goto",
+      "outcome": "boundary-off-allowlist"
+    },
+    {
+      "from": "n0",
+      "to": null,
+      "control": {
+        "index": 1,
+        "tag": "a",
+        "role": null,
+        "href": "/__ioi/run-timeline/aex_18d0d83c09cc3784",
+        "disabled": false,
+        "label": "run timeline ↗"
+      },
+      "action": "goto",
+      "outcome": "boundary-off-allowlist"
+    },
+    {
+      "from": "n0",
+      "to": null,
+      "control": {
+        "index": 2,
+        "tag": "a",
+        "role": null,
+        "href": "/__ioi/run-timeline/aex_18cfec7e5711ca80",
+        "disabled": false,
+        "label": "run timeline ↗"
+      },
+      "action": "goto",
+      "outcome": "boundary-off-allowlist"
+    },
+    {
+      "from": "n0",
+      "to": null,
+      "control": {
+        "index": 3,
+        "tag": "a",
+        "role": null,
+        "href": "/__ioi/run-timeline/aex_18cf9debad8a36b0",
+        "disabled": false,
+        "label": "run timeline ↗"
+      },
+      "action": "goto",
+      "outcome": "boundary-off-allowlist"
+    },
+    {
+      "from": "n0",
+      "to": null,
+      "control": {
+        "index": 4,
+        "tag": "a",
+        "role": null,
+        "href": "/__ioi/run-timeline/aex_18cf4f555ac5b18b",
+        "disabled": false,
+        "label": "run timeline ↗"
+      },
+      "action": "goto",
+      "outcome": "boundary-off-allowlist"
+    },
+    {
+      "from": "n0",
+      "to": null,
+      "control": {
+        "index": 5,
+        "tag": "a",
+        "role": null,
+        "href": "/__ioi/run-timeline/aex_18cf00c152b41be9",
+        "disabled": false,
+        "label": "run timeline ↗"
+      },
+      "action": "goto",
+      "outcome": "boundary-off-allowlist"
+    },
+    {
+      "from": "n0",
+      "to": null,
+      "control": {
+        "index": 6,
+        "tag": "a",
+        "role": null,
+        "href": "/__ioi/run-timeline/aex_18ceb22e77f4e297",
+        "disabled": false,
+        "label": "run timeline ↗"
+      },
+      "action": "goto",
+      "outcome": "boundary-off-allowlist"
+    },
+    {
+      "from": "n0",
+      "to": null,
+      "control": {
+        "index": 7,
+        "tag": "a",
+        "role": null,
+        "href": "/__ioi/run-timeline/aex_18cdc67007ff127a",
+        "disabled": false,
+        "label": "run timeline ↗"
+      },
+      "action": "goto",
+      "outcome": "boundary-off-allowlist"
+    },
+    {
+      "from": "n0",
+      "to": null,
+      "control": {
+        "index": 8,
+        "tag": "a",
+        "role": null,
+        "href": "/__ioi/run-timeline/aex_18cd77db8dd2f5a8",
+        "disabled": false,
+        "label": "run timeline ↗"
+      },
+      "action": "goto",
+      "outcome": "boundary-off-allowlist"
+    },
+    {
+      "from": "n0",
+      "to": null,
+      "control": {
+        "index": 9,
+        "tag": "a",
+        "role": null,
+        "href": "/__ioi/run-timeline/aex_18cd2945681ffe68",
+        "disabled": false,
+        "label": "run timeline ↗"
+      },
+      "action": "goto",
+      "outcome": "boundary-off-allowlist"
+    },
+    {
+      "from": "n0",
+      "to": null,
+      "control": {
+        "index": 10,
+        "tag": "a",
+        "role": null,
+        "href": "/__ioi/run-timeline/aex_18cd2377b14dbd09",
+        "disabled": false,
+        "label": "run timeline ↗"
+      },
+      "action": "goto",
+      "outcome": "boundary-off-allowlist"
+    },
+    {
+      "from": "n0",
+      "to": null,
+      "control": {
+        "index": 11,
+        "tag": "a",
+        "role": null,
+        "href": "/__ioi/run-timeline/aex_18c75440765684b2",
+        "disabled": false,
+        "label": "run timeline ↗"
+      },
+      "action": "goto",
+      "outcome": "boundary-off-allowlist"
+    },
+    {
+      "from": "n0",
+      "to": null,
+      "control": {
+        "index": 12,
+        "tag": "a",
+        "role": null,
+        "href": "/__ioi/run-timeline/aex_18c705abfee8d144",
+        "disabled": false,
+        "label": "run timeline ↗"
+      },
+      "action": "goto",
+      "outcome": "boundary-off-allowlist"
+    },
+    {
+      "from": "n0",
+      "to": null,
+      "control": {
+        "index": 13,
+        "tag": "a",
+        "role": null,
+        "href": "/__ioi/run-timeline/aex_18c6f867479af91b",
+        "disabled": false,
+        "label": "run timeline ↗"
+      },
+      "action": "goto",
+      "outcome": "boundary-off-allowlist"
+    },
+    {
+      "from": "n0",
+      "to": null,
+      "control": {
+        "index": 14,
+        "tag": "a",
+        "role": null,
+        "href": "/__ioi/run-timeline/aex_18c668821e26f764",
+        "disabled": false,
+        "label": "run timeline ↗"
+      },
+      "action": "goto",
+      "outcome": "boundary-off-allowlist"
+    },
+    {
+      "from": "n0",
+      "to": null,
+      "control": {
+        "index": 15,
+        "tag": "a",
+        "role": null,
+        "href": "/__ioi/run-timeline/aex_18c619ec52aa8ab8",
+        "disabled": false,
+        "label": "run timeline ↗"
+      },
+      "action": "goto",
+      "outcome": "boundary-off-allowlist"
+    },
+    {
+      "from": "n0",
+      "to": null,
+      "control": {
+        "index": 16,
+        "tag": "a",
+        "role": null,
+        "href": "/__ioi/run-timeline/aex_18c52e2f2ad96444",
+        "disabled": false,
+        "label": "run timeline ↗"
+      },
+      "action": "goto",
+      "outcome": "boundary-off-allowlist"
+    },
+    {
+      "from": "n0",
+      "to": null,
+      "control": {
+        "index": 17,
+        "tag": "a",
+        "role": null,
+        "href": "/__ioi/run-timeline/aex_18c4df9b6909134f",
+        "disabled": false,
+        "label": "run timeline ↗"
+      },
+      "action": "goto",
+      "outcome": "boundary-off-allowlist"
+    },
+    {
+      "from": "n0",
+      "to": null,
+      "control": {
+        "index": 18,
+        "tag": "a",
+        "role": null,
+        "href": "/__ioi/run-timeline/aex_18c491047846f9d0",
+        "disabled": false,
+        "label": "run timeline ↗"
+      },
+      "action": "goto",
+      "outcome": "boundary-off-allowlist"
+    },
+    {
+      "from": "n0",
+      "to": null,
+      "control": {
+        "index": 19,
+        "tag": "a",
+        "role": null,
+        "href": "/__ioi/run-timeline/aex_18c44271ec6bdf1a",
+        "disabled": false,
+        "label": "run timeline ↗"
+      },
+      "action": "goto",
+      "outcome": "boundary-off-allowlist"
+    },
+    {
+      "from": "n0",
+      "to": null,
+      "control": {
+        "index": 20,
+        "tag": "a",
+        "role": null,
+        "href": "/__ioi/run-timeline/aex_18c3f3dd85879f07",
+        "disabled": false,
+        "label": "run timeline ↗"
+      },
+      "action": "goto",
+      "outcome": "boundary-off-allowlist"
+    },
+    {
+      "from": "n0",
+      "to": null,
+      "control": {
+        "index": 21,
+        "tag": "a",
+        "role": null,
+        "href": "/__ioi/run-timeline/aex_18c3081e7fe1e467",
+        "disabled": false,
+        "label": "run timeline ↗"
+      },
+      "action": "goto",
+      "outcome": "boundary-off-allowlist"
+    },
+    {
+      "from": "n0",
+      "to": null,
+      "control": {
+        "index": 22,
+        "tag": "a",
+        "role": null,
+        "href": "/__ioi/run-timeline/aex_18c2b98a39c702b3",
+        "disabled": false,
+        "label": "run timeline ↗"
+      },
+      "action": "goto",
+      "outcome": "boundary-off-allowlist"
+    },
+    {
+      "from": "n0",
+      "to": null,
+      "control": {
+        "index": 23,
+        "tag": "a",
+        "role": null,
+        "href": "/__ioi/run-timeline/aex_18c26af77b4c2ff6",
+        "disabled": false,
+        "label": "run timeline ↗"
+      },
+      "action": "goto",
+      "outcome": "boundary-off-allowlist"
+    },
+    {
+      "from": "n0",
+      "to": null,
+      "control": {
+        "index": 24,
+        "tag": "a",
+        "role": null,
+        "href": "/__ioi/run-timeline/aex_18c21c6305037f90",
+        "disabled": false,
+        "label": "run timeline ↗"
+      },
+      "action": "goto",
+      "outcome": "boundary-off-allowlist"
+    },
+    {
+      "from": "n0",
+      "to": null,
+      "control": {
+        "index": 25,
+        "tag": "a",
+        "role": null,
+        "href": "/__ioi/run-timeline/aex_18c1cdce9fb9e66a",
+        "disabled": false,
+        "label": "run timeline ↗"
+      },
+      "action": "goto",
+      "outcome": "boundary-off-allowlist"
+    },
+    {
+      "from": "n0",
+      "to": null,
+      "control": {
+        "index": 26,
+        "tag": "a",
+        "role": null,
+        "href": "/__ioi/run-timeline/aex_18c0e20e3c83ba70",
+        "disabled": false,
+        "label": "run timeline ↗"
+      },
+      "action": "goto",
+      "outcome": "boundary-off-allowlist"
+    },
+    {
+      "from": "n0",
+      "to": null,
+      "control": {
+        "index": 27,
+        "tag": "a",
+        "role": null,
+        "href": "/__ioi/run-timeline/aex_18c0937c0585248a",
+        "disabled": false,
+        "label": "run timeline ↗"
+      },
+      "action": "goto",
+      "outcome": "boundary-off-allowlist"
+    },
+    {
+      "from": "n0",
+      "to": null,
+      "control": {
+        "index": 28,
+        "tag": "a",
+        "role": null,
+        "href": "/__ioi/run-timeline/aex_18c044e59971fff9",
+        "disabled": false,
+        "label": "run timeline ↗"
+      },
+      "action": "goto",
+      "outcome": "boundary-off-allowlist"
+    },
+    {
+      "from": "n0",
+      "to": null,
+      "control": {
+        "index": 29,
+        "tag": "a",
+        "role": null,
+        "href": "/__ioi/run-timeline/aex_18bff6514861489e",
+        "disabled": false,
+        "label": "run timeline ↗"
+      },
+      "action": "goto",
+      "outcome": "boundary-off-allowlist"
+    },
+    {
+      "from": "n0",
+      "to": null,
+      "control": {
+        "index": 30,
+        "tag": "a",
+        "role": null,
+        "href": "/__ioi/run-timeline/aex_18bfb264e64a68ae",
+        "disabled": false,
+        "label": "run timeline ↗"
+      },
+      "action": "goto",
+      "outcome": "boundary-off-allowlist"
+    },
+    {
+      "from": "n0",
+      "to": null,
+      "control": {
+        "index": 31,
+        "tag": "a",
+        "role": null,
+        "href": "/__ioi/run-timeline/aex_18bf77ed72034dd4",
+        "disabled": false,
+        "label": "run timeline ↗"
+      },
+      "action": "goto",
+      "outcome": "boundary-off-allowlist"
+    },
+    {
+      "from": "n0",
+      "to": null,
+      "control": {
+        "index": 32,
+        "tag": "a",
+        "role": null,
+        "href": "/__ioi/run-timeline/aex_18bf75c913a6d052",
+        "disabled": false,
+        "label": "run timeline ↗"
+      },
+      "action": "goto",
+      "outcome": "boundary-off-allowlist"
+    },
+    {
+      "from": "n0",
+      "to": null,
+      "control": {
+        "index": 33,
+        "tag": "a",
+        "role": null,
+        "href": "/__ioi/run-timeline/aex_18bf736d8b266ba5",
+        "disabled": false,
+        "label": "run timeline ↗"
+      },
+      "action": "goto",
+      "outcome": "boundary-off-allowlist"
+    },
+    {
+      "from": "n0",
+      "to": null,
+      "control": {
+        "index": 34,
+        "tag": "a",
+        "role": null,
+        "href": "/__ioi/run-timeline/aex_18bf713593795b2e",
+        "disabled": false,
+        "label": "run timeline ↗"
+      },
+      "action": "goto",
+      "outcome": "boundary-off-allowlist"
+    },
+    {
+      "from": "n0",
+      "to": null,
+      "control": {
+        "index": 35,
+        "tag": "a",
+        "role": null,
+        "href": "/__ioi/run-timeline/aex_18bf6fac37237c86",
+        "disabled": false,
+        "label": "run timeline ↗"
+      },
+      "action": "goto",
+      "outcome": "boundary-off-allowlist"
+    },
+    {
+      "from": "n0",
+      "to": null,
+      "control": {
+        "index": 36,
+        "tag": "a",
+        "role": null,
+        "href": "/__ioi/run-timeline/aex_18bf6da1676db1e6",
+        "disabled": false,
+        "label": "run timeline ↗"
+      },
+      "action": "goto",
+      "outcome": "boundary-off-allowlist"
+    },
+    {
+      "from": "n0",
+      "to": null,
+      "control": {
+        "index": 37,
+        "tag": "a",
+        "role": null,
+        "href": "/__ioi/run-timeline/aex_18bf68f0c7cd2414",
+        "disabled": false,
+        "label": "run timeline ↗"
+      },
+      "action": "goto",
+      "outcome": "boundary-off-allowlist"
+    },
+    {
+      "from": "n0",
+      "to": null,
+      "control": {
+        "index": 38,
+        "tag": "a",
+        "role": null,
+        "href": "/__ioi/run-timeline/aex_18bf6422956a353f",
+        "disabled": false,
+        "label": "run timeline ↗"
+      },
+      "action": "goto",
+      "outcome": "boundary-off-allowlist"
+    },
+    {
+      "from": "n0",
+      "to": null,
+      "control": {
+        "index": 39,
+        "tag": "a",
+        "role": null,
+        "href": "/__ioi/run-timeline/aex_18bf61094cb69c1b",
+        "disabled": false,
+        "label": "run timeline ↗"
+      },
+      "action": "goto",
+      "outcome": "boundary-off-allowlist"
+    },
+    {
+      "from": "n0",
+      "to": null,
+      "control": {
+        "index": 40,
+        "tag": "a",
+        "role": null,
+        "href": "/__ioi/run-timeline/aex_18bf4e6554baaa2d",
+        "disabled": false,
+        "label": "run timeline ↗"
+      },
+      "action": "goto",
+      "outcome": "boundary-off-allowlist"
+    },
+    {
+      "from": "n0",
+      "to": null,
+      "control": {
+        "index": 41,
+        "tag": "a",
+        "role": null,
+        "href": "/__ioi/run-timeline/aex_18bf4383ffcb8cb8",
+        "disabled": false,
+        "label": "run timeline ↗"
+      },
+      "action": "goto",
+      "outcome": "boundary-off-allowlist"
+    },
+    {
+      "from": "n0",
+      "to": null,
+      "control": {
+        "index": 42,
+        "tag": "a",
+        "role": null,
+        "href": "/__ioi/run-timeline/aex_18bf4085126356cc",
+        "disabled": false,
+        "label": "run timeline ↗"
+      },
+      "action": "goto",
+      "outcome": "boundary-off-allowlist"
+    },
+    {
+      "from": "n0",
+      "to": null,
+      "control": {
+        "index": 43,
+        "tag": "a",
+        "role": null,
+        "href": "/__ioi/run-timeline/aex_18bf3d8f56087629",
+        "disabled": false,
+        "label": "run timeline ↗"
+      },
+      "action": "goto",
+      "outcome": "boundary-off-allowlist"
+    },
+    {
+      "from": "n0",
+      "to": null,
+      "control": {
+        "index": 44,
+        "tag": "a",
+        "role": null,
+        "href": "/__ioi/run-timeline/aex_18bf3904d1464fbc",
+        "disabled": false,
+        "label": "run timeline ↗"
+      },
+      "action": "goto",
+      "outcome": "boundary-off-allowlist"
+    },
+    {
+      "from": "n0",
+      "to": null,
+      "control": {
+        "index": 45,
+        "tag": "a",
+        "role": null,
+        "href": "/__ioi/run-timeline/aex_18bf3461f21a5d26",
+        "disabled": false,
+        "label": "run timeline ↗"
+      },
+      "action": "goto",
+      "outcome": "boundary-off-allowlist"
+    },
+    {
+      "from": "n0",
+      "to": null,
+      "control": {
+        "index": 46,
+        "tag": "a",
+        "role": null,
+        "href": "/__ioi/run-timeline/aex_18bf2a11d83985c6",
+        "disabled": false,
+        "label": "run timeline ↗"
+      },
+      "action": "goto",
+      "outcome": "boundary-off-allowlist"
+    },
+    {
+      "from": "n0",
+      "to": null,
+      "control": {
+        "index": 47,
+        "tag": "a",
+        "role": null,
+        "href": "/__ioi/run-timeline/aex_18bebbfdd587a528",
+        "disabled": false,
+        "label": "run timeline ↗"
+      },
+      "action": "goto",
+      "outcome": "boundary-off-allowlist"
+    },
+    {
+      "from": "n0",
+      "to": null,
+      "control": {
+        "index": 48,
+        "tag": "a",
+        "role": null,
+        "href": "/__ioi/run-timeline/aex_18be6d6aa15b17da",
+        "disabled": false,
+        "label": "run timeline ↗"
+      },
+      "action": "goto",
+      "outcome": "boundary-off-allowlist"
+    },
+    {
+      "from": "n0",
+      "to": null,
+      "control": {
+        "index": 49,
+        "tag": "a",
+        "role": null,
+        "href": "/__ioi/run-timeline/aex_18be1ed46cf5e4a6",
+        "disabled": false,
+        "label": "run timeline ↗"
+      },
+      "action": "goto",
+      "outcome": "boundary-off-allowlist"
+    },
+    {
+      "from": "n0",
+      "to": null,
+      "control": {
+        "index": 50,
+        "tag": "a",
+        "role": null,
+        "href": "/__ioi/run-timeline/aex_18bda819263f696b",
+        "disabled": false,
+        "label": "run timeline ↗"
+      },
+      "action": "goto",
+      "outcome": "boundary-off-allowlist"
+    },
+    {
+      "from": "n0",
+      "to": null,
+      "control": {
+        "index": 51,
+        "tag": "a",
+        "role": null,
+        "href": "/__ioi/run-timeline/aex_18bda752e0e2afa0",
+        "disabled": false,
+        "label": "run timeline ↗"
+      },
+      "action": "goto",
+      "outcome": "boundary-off-allowlist"
+    },
+    {
+      "from": "n0",
+      "to": null,
+      "control": {
+        "index": 52,
+        "tag": "a",
+        "role": null,
+        "href": "/__ioi/run-timeline/aex_18bda69fd4c5e926",
+        "disabled": false,
+        "label": "run timeline ↗"
+      },
+      "action": "goto",
+      "outcome": "boundary-off-allowlist"
+    },
+    {
+      "from": "n0",
+      "to": null,
+      "control": {
+        "index": 53,
+        "tag": "a",
+        "role": null,
+        "href": "/__ioi/run-timeline/aex_18bda69c5678e304",
+        "disabled": false,
+        "label": "run timeline ↗"
+      },
+      "action": "goto",
+      "outcome": "boundary-off-allowlist"
+    },
+    {
+      "from": "n0",
+      "to": null,
+      "control": {
+        "index": 54,
+        "tag": "a",
+        "role": null,
+        "href": "/__ioi/run-timeline/aex_18bda698d8276ce6",
+        "disabled": false,
+        "label": "run timeline ↗"
+      },
+      "action": "goto",
+      "outcome": "boundary-off-allowlist"
+    },
+    {
+      "from": "n0",
+      "to": null,
+      "control": {
+        "index": 55,
+        "tag": "a",
+        "role": null,
+        "href": "/__ioi/run-timeline/aex_18bda69559f35027",
+        "disabled": false,
+        "label": "run timeline ↗"
+      },
+      "action": "goto",
+      "outcome": "boundary-off-allowlist"
+    },
+    {
+      "from": "n0",
+      "to": null,
+      "control": {
+        "index": 56,
+        "tag": "a",
+        "role": null,
+        "href": "/__ioi/run-timeline/aex_18bda4a2f7b2d1a1",
+        "disabled": false,
+        "label": "run timeline ↗"
+      },
+      "action": "goto",
+      "outcome": "boundary-off-allowlist"
+    },
+    {
+      "from": "n0",
+      "to": null,
+      "control": {
+        "index": 57,
+        "tag": "a",
+        "role": null,
+        "href": "/__ioi/run-timeline/aex_18bda3c07ffb9cd2",
+        "disabled": false,
+        "label": "run timeline ↗"
+      },
+      "action": "goto",
+      "outcome": "boundary-off-allowlist"
+    },
+    {
+      "from": "n0",
+      "to": null,
+      "control": {
+        "index": 58,
+        "tag": "a",
+        "role": null,
+        "href": "/__ioi/run-timeline/aex_18bc8ff64958818f",
+        "disabled": false,
+        "label": "run timeline ↗"
+      },
+      "action": "goto",
+      "outcome": "boundary-off-allowlist"
+    },
+    {
+      "from": "n0",
+      "to": null,
+      "control": {
+        "index": 59,
+        "tag": "a",
+        "role": null,
+        "href": "/__ioi/run-timeline/aex_18bc8f9d072962a6",
+        "disabled": false,
+        "label": "run timeline ↗"
+      },
+      "action": "goto",
+      "outcome": "boundary-off-allowlist"
+    },
+    {
+      "from": "n0",
+      "to": null,
+      "control": {
+        "index": 60,
+        "tag": "a",
+        "role": null,
+        "href": "/__ioi/run-timeline/aex_18bc7eee543f2a42",
+        "disabled": false,
+        "label": "run timeline ↗"
+      },
+      "action": "goto",
+      "outcome": "boundary-off-allowlist"
+    },
+    {
+      "from": "n0",
+      "to": null,
+      "control": {
+        "index": 61,
+        "tag": "a",
+        "role": null,
+        "href": "/__ioi/run-timeline/aex_18bc727885341dfe",
+        "disabled": false,
+        "label": "run timeline ↗"
+      },
+      "action": "goto",
+      "outcome": "boundary-off-allowlist"
+    },
+    {
+      "from": "n0",
+      "to": null,
+      "control": {
+        "index": 62,
+        "tag": "a",
+        "role": null,
+        "href": "/__ioi/run-timeline/aex_18bc6e266b960a04",
+        "disabled": false,
+        "label": "run timeline ↗"
+      },
+      "action": "goto",
+      "outcome": "boundary-off-allowlist"
+    },
+    {
+      "from": "n0",
+      "to": null,
+      "control": {
+        "index": 63,
+        "tag": "a",
+        "role": null,
+        "href": "/__ioi/run-timeline/aex_18bc6de51787f718",
+        "disabled": false,
+        "label": "run timeline ↗"
+      },
+      "action": "goto",
+      "outcome": "boundary-off-allowlist"
+    },
+    {
+      "from": "n0",
+      "to": null,
+      "control": {
+        "index": 64,
+        "tag": "a",
+        "role": null,
+        "href": "/__ioi/run-timeline/aex_18bc6d5af8b50e29",
+        "disabled": false,
+        "label": "run timeline ↗"
+      },
+      "action": "goto",
+      "outcome": "boundary-off-allowlist"
+    },
+    {
+      "from": "n0",
+      "to": null,
+      "control": {
+        "index": 65,
+        "tag": "a",
+        "role": null,
+        "href": "/__ioi/lineage?tab=timeline",
+        "disabled": false,
+        "label": "Monocle Build timeline"
+      },
+      "action": "goto",
+      "outcome": "boundary-off-allowlist"
+    },
+    {
+      "from": "n0",
+      "to": null,
+      "control": {
+        "index": 66,
+        "tag": "a",
+        "role": null,
+        "href": "/__ioi/automations",
+        "disabled": false,
+        "label": "Automations"
+      },
+      "action": "goto",
+      "outcome": "boundary-off-allowlist"
+    },
+    {
+      "from": "n0",
+      "to": null,
+      "control": {
+        "index": 67,
+        "tag": "a",
+        "role": null,
+        "href": "/__ioi/work-ledger",
+        "disabled": false,
+        "label": "Provenance →"
+      },
+      "action": "goto",
+      "outcome": "boundary-off-allowlist"
+    },
+    {
+      "from": "n0",
+      "to": null,
+      "control": {
+        "index": 68,
+        "tag": "a",
+        "role": null,
+        "href": "/__ioi/lineage?tab=timeline",
+        "disabled": false,
+        "label": "Build timeline →"
+      },
+      "action": "goto",
+      "outcome": "boundary-off-allowlist"
+    },
+    {
+      "from": "n0",
+      "to": null,
+      "control": {
+        "index": 69,
+        "tag": "a",
+        "role": null,
+        "href": "/__ioi/automations",
+        "disabled": false,
+        "label": "Automations →"
+      },
+      "action": "goto",
+      "outcome": "boundary-off-allowlist"
+    },
+    {
+      "from": "n0",
+      "to": null,
+      "control": {
+        "index": 70,
+        "tag": "a",
+        "role": null,
+        "href": "/__ioi/agent-studio",
+        "disabled": false,
+        "label": "Agent Studio →"
+      },
+      "action": "goto",
+      "outcome": "boundary-off-allowlist"
+    },
+    {
+      "from": "n0",
+      "to": null,
+      "control": {
+        "index": 71,
+        "tag": "a",
+        "role": null,
+        "href": "/__ioi/agent-studio",
+        "disabled": false,
+        "label": "Agent Studio →"
+      },
+      "action": "goto",
+      "outcome": "boundary-off-allowlist"
+    },
+    {
+      "from": "n0",
+      "to": null,
+      "control": {
+        "index": 72,
+        "tag": "a",
+        "role": null,
+        "href": "/__ioi/agent-studio",
+        "disabled": false,
+        "label": "Agent Studio →"
+      },
+      "action": "goto",
+      "outcome": "boundary-off-allowlist"
+    },
+    {
+      "from": "n0",
+      "to": null,
+      "control": {
+        "index": 73,
+        "tag": "a",
+        "role": null,
+        "href": "/__ioi/operations",
+        "disabled": false,
+        "label": "Operations →"
+      },
+      "action": "goto",
+      "outcome": "boundary-off-allowlist"
+    },
+    {
+      "from": "n0",
+      "to": null,
+      "control": {
+        "index": 74,
+        "tag": "a",
+        "role": null,
+        "href": "/__ioi/work-ledger",
+        "disabled": false,
+        "label": "Work Ledger →"
+      },
+      "action": "goto",
+      "outcome": "boundary-off-allowlist"
+    },
+    {
+      "from": "n0",
+      "to": null,
+      "control": {
+        "index": 75,
+        "tag": "a",
+        "role": null,
+        "href": "/systems",
+        "disabled": false,
+        "label": "Systems →"
+      },
+      "action": "goto",
+      "outcome": "boundary-off-allowlist"
+    },
+    {
+      "from": "n0",
+      "to": null,
+      "control": {
+        "index": 76,
+        "tag": "a",
+        "role": null,
+        "href": "/__ioi/foundry",
+        "disabled": false,
+        "label": "Foundry →"
+      },
+      "action": "goto",
+      "outcome": "boundary-off-allowlist"
+    },
+    {
+      "from": "n0",
+      "to": null,
+      "control": {
+        "index": 77,
+        "tag": "a",
+        "role": null,
+        "href": "/__ioi/lineage",
+        "disabled": false,
+        "label": "Data lineage →"
+      },
+      "action": "goto",
+      "outcome": "boundary-off-allowlist"
+    },
+    {
+      "from": "n0",
+      "to": null,
+      "control": {
+        "index": 78,
+        "tag": "a",
+        "role": null,
+        "href": "/__ioi/lineage",
+        "disabled": false,
+        "label": "Data lineage →"
+      },
+      "action": "goto",
+      "outcome": "boundary-off-allowlist"
+    },
+    {
+      "from": "n0",
+      "to": null,
+      "control": {
+        "index": 79,
+        "tag": "a",
+        "role": null,
+        "href": "/__ioi/operations",
+        "disabled": false,
+        "label": "Operations →"
+      },
+      "action": "goto",
+      "outcome": "boundary-off-allowlist"
+    },
+    {
+      "from": "n0",
+      "to": null,
+      "control": {
+        "index": 80,
+        "tag": "a",
+        "role": null,
+        "href": "/__ioi/sessions",
+        "disabled": false,
+        "label": "Sessions →"
+      },
+      "action": "goto",
+      "outcome": "boundary-off-allowlist"
+    },
+    {
+      "from": "n0",
+      "to": null,
+      "control": {
+        "index": 81,
+        "tag": "a",
+        "role": null,
+        "href": "/__ioi/sessions",
+        "disabled": false,
+        "label": "Sessions →"
+      },
+      "action": "goto",
+      "outcome": "boundary-off-allowlist"
+    },
+    {
+      "from": "n0",
+      "to": null,
+      "control": {
+        "index": 82,
+        "tag": "a",
+        "role": null,
+        "href": "/__ioi/sessions",
+        "disabled": false,
+        "label": "Sessions →"
+      },
+      "action": "goto",
+      "outcome": "boundary-off-allowlist"
+    },
+    {
+      "from": "n0",
+      "to": null,
+      "control": {
+        "index": 83,
+        "tag": "a",
+        "role": null,
+        "href": "/__ioi/automations",
+        "disabled": false,
+        "label": "Open Automations →"
+      },
+      "action": "goto",
+      "outcome": "boundary-off-allowlist"
+    },
+    {
+      "from": "n0",
+      "to": null,
+      "control": {
+        "index": 84,
+        "tag": "a",
+        "role": null,
+        "href": "/__ioi/operations",
+        "disabled": false,
+        "label": "Operations →"
+      },
+      "action": "goto",
+      "outcome": "boundary-off-allowlist"
+    },
+    {
+      "from": "n0",
+      "to": null,
+      "control": {
+        "index": 85,
+        "tag": "a",
+        "role": null,
+        "href": "/__ioi/automations",
+        "disabled": false,
+        "label": "Automations"
+      },
+      "action": "goto",
+      "outcome": "boundary-off-allowlist"
+    },
+    {
+      "from": "n0",
+      "to": null,
+      "control": {
+        "index": 86,
+        "tag": "a",
+        "role": null,
+        "href": "/__ioi/missions",
+        "disabled": false,
+        "label": "Missions"
+      },
+      "action": "goto",
+      "outcome": "boundary-off-allowlist"
+    },
+    {
+      "from": "n0",
+      "to": null,
+      "control": {
+        "index": 87,
+        "tag": "a",
+        "role": null,
+        "href": "/__ioi/work-ledger",
+        "disabled": false,
+        "label": "the work ledger"
+      },
+      "action": "goto",
+      "outcome": "boundary-off-allowlist"
+    },
+    {
+      "from": "n0",
+      "to": null,
+      "control": {
+        "index": 88,
+        "tag": "a",
+        "role": null,
+        "href": "/__ioi/lineage?tab=timeline",
+        "disabled": false,
+        "label": "Build timeline"
+      },
+      "action": "goto",
+      "outcome": "boundary-off-allowlist"
+    },
+    {
+      "from": "n0",
+      "to": null,
+      "control": {
+        "index": 89,
+        "tag": "a",
+        "role": null,
+        "href": "/__ioi/operations",
+        "disabled": false,
+        "label": "Operations"
+      },
+      "action": "goto",
+      "outcome": "boundary-off-allowlist"
+    },
+    {
+      "from": "n0",
+      "to": "back-stack",
+      "control": null,
+      "action": "back",
+      "outcome": "navigated"
+    }
+  ],
+  "blockers": [],
+  "replay": {
+    "mode": "interaction",
+    "walked_all_edges": true,
+    "edges_total": 91,
+    "edges_executed": 0,
+    "edges_skip_classified": 91,
+    "problems": [],
+    "walked_at": "2026-09-25T12:48:09.782Z"
+  },
+  "complete_interaction_route_graph": true,
+  "shots_dir": ".artifacts/seed-graph-shots/automations/jobs",
+  "content_address": "64a53f6c65af2486a449fb2f866e705595ef139fa0857d9ff9c664a4f629ceb8"
+}

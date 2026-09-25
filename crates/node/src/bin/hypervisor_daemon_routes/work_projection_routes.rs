@@ -449,7 +449,7 @@ fn assemble(
         "migration": {
             "from": ["/__ioi/sessions (the Sessions root)", "/__ioi/missions/incidents (issue/blocker aggregates)", "/__ioi/work-ledger"],
             "to": "typed HypervisorWorkSubjectProjection rows under /work, /work/sessions, /work/queues, /work/reviews, /work/incidents and /work/history",
-            "not_core": "/__ioi/missions renders the room graph, which is the ioi.ai contribution seam's to replace, not core's to migrate",
+            "not_core": "the /__ioi/missions root is retired (ADR 0056): Missions owned no object once goal pursuit left the Hypervisor, its tools answer to their owners, and the root answers a typed route-retirement refusal toward /work",
             "rule": "legacy readouts are migration inputs, not proof; a legacy row that is not one of the two core families is not carried over as a generic mission"
         },
         "rebuild": "every read re-derives the rows from the owners' readers; nothing is cached or persisted, so a restart changes nothing this projection answers",

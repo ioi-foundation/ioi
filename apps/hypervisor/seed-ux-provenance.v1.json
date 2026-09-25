@@ -93,46 +93,12 @@
       "id": "work",
       "owner": "Work",
       "canonical_route": "/work",
-      "baseline_status": "provenance-qualified-executable-seed-present",
-      "graph_mapping_status": "baseline-graphs-complete-corroborating-typed",
-      "seed_graph_ready_for_rehome": true,
+      "baseline_status": "blocked-no-valid-seed",
+      "graph_mapping_status": "blocked-no-provenance-source",
+      "seed_graph_ready_for_rehome": false,
       "greenfield_authorization": null,
-      "graph_recovery_status": "required-for-every-summary-only-source",
-      "sources": [
-        {
-          "kind": "protected-executable-seed",
-          "slug": "jobs",
-          "starting_route": "/__ioi/missions",
-          "canonical_owner": "Work",
-          "provenance_source": "apps/hypervisor/ported-seed-preservation.v1.json",
-          "visual_evidence_status": "selected-provenance-qualified-protected-matrix-present",
-          "graph": {
-            "evidence_level": "complete_interaction_route_graph",
-            "complete_interaction_route_graph": true
-          },
-          "graph_file": "seed-graphs/work/jobs.v1.json",
-          "class": "substrate_bound",
-          "owner_mapping_note": "retired owner name: surface-registry.mjs still labels /__ioi/missions 'Missions'; ADR 0056 (owner-accepted 2026-09-25) retires that root to the typed route-retirement refusal toward /work (step M5), when this protected slug moves to the Builds successor under Automations with its cutover evidence.",
-          "seed_role": "baseline"
-        },
-        {
-          "kind": "retained-harvest-capture",
-          "slug": "jobs",
-          "starting_route": "/__apps/jobs",
-          "canonical_owner": "Work",
-          "provenance_source": "internal-docs/implementation/program/estate-disposition.md",
-          "visual_evidence_status": "selected-provenance-qualified-stable-matrix-present",
-          "graph": {
-            "evidence_level": "explored_control_graph",
-            "complete_interaction_route_graph": false
-          },
-          "graph_file": "seed-graphs/work/jobs.retained.v1.json",
-          "disposition": "rebind",
-          "audit_route_disposition": "retained-seed",
-          "replay_problem_count": 18,
-          "seed_role": "corroborating"
-        }
-      ]
+      "graph_recovery_status": "not-applicable-sources-rehomed-to-their-owners (ADR 0056 M1/M5: Issues to Operations, Builds and its capture to Automations; the Missions root they bound to is retired)",
+      "sources": []
     },
     {
       "id": "settings",
@@ -309,6 +275,21 @@
       "sources": [
         {
           "kind": "protected-executable-seed",
+          "slug": "jobs",
+          "starting_route": "/__ioi/missions/builds",
+          "canonical_owner": "Automations",
+          "provenance_source": "apps/hypervisor/ported-seed-preservation.v1.json",
+          "visual_evidence_status": "selected-provenance-qualified-protected-matrix-present",
+          "graph": {
+            "evidence_level": "complete_interaction_route_graph",
+            "complete_interaction_route_graph": true
+          },
+          "graph_file": "seed-graphs/automations/jobs.v1.json",
+          "class": "reference_ported",
+          "seed_role": "baseline"
+        },
+        {
+          "kind": "protected-executable-seed",
           "slug": "machinery",
           "starting_route": "/__ioi/studio/machinery",
           "canonical_owner": "Automations",
@@ -387,6 +368,23 @@
           "disposition": "pattern-harvest",
           "audit_route_disposition": "retained-seed",
           "visual_blocker": "stable replay is global chrome plus Page not found",
+          "seed_role": "corroborating"
+        },
+        {
+          "kind": "retained-harvest-capture",
+          "slug": "jobs",
+          "starting_route": "/__apps/jobs",
+          "canonical_owner": "Automations",
+          "provenance_source": "internal-docs/implementation/program/estate-disposition.md",
+          "visual_evidence_status": "selected-provenance-qualified-stable-matrix-present",
+          "graph": {
+            "evidence_level": "explored_control_graph",
+            "complete_interaction_route_graph": false
+          },
+          "graph_file": "seed-graphs/work/jobs.retained.v1.json",
+          "disposition": "rebind",
+          "audit_route_disposition": "retained-seed",
+          "replay_problem_count": 18,
           "seed_role": "corroborating"
         }
       ]

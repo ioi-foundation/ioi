@@ -299,9 +299,10 @@ Sessions are removed.
 Hypervisor serves no room, collective, lineage or caretaker route and must not
 grow one: goal runs and rooms are this application's domain, and core's Work
 read model publishes no reader for them and mints no route for them. The
-operational read model core does own — Missions — organizes generic work
-results by the work SUBJECT each names and deliberately resolves no application
-ref behind a subject. Resolving the composition behind a subject is exactly what
+operational read models core does own — Work, and Operations, which lists
+generic work results — carry each result's work SUBJECT verbatim and
+deliberately resolve no application ref behind a subject (the former Missions
+readout that grouped them is retired, [ADR 0056](../../../decisions/0056-organize-the-hypervisor-application-estate-by-four-axes-and-retire-missions.md)). Resolving the composition behind a subject is exactly what
 this surface does, which is why it belongs to ioi.ai and is registered through
 the product-surface registration family rather than added to core.
 
@@ -1164,10 +1165,10 @@ is the ioi.ai ORCHESTRATION, named by its own scope
 is **Work / Orchestrations** at `/work/orchestrations`. The room subject kind and
 the `outcome-room://` scheme retired with the room plane: the core projection's
 registry resolves that scheme to no kind at all, which is what an unregistered
-ref must do. The hypervisor's own `/__ioi/missions` surface reads the GoalRun
-plane, the generic WorkResults and the operations run queue — the eleven room
-planes it used to read are gone — and renders an orchestration only as the ref
-the composing application stamped, never resolved through an application seam.
+ref must do. The hypervisor's former `/__ioi/missions` surface — which read
+generic WorkResults and the operations run queue once the eleven room planes
+were gone — is retired ([ADR 0056](../../../decisions/0056-organize-the-hypervisor-application-estate-by-four-axes-and-retire-missions.md)); no Hypervisor surface resolves an
+orchestration through an application seam.
 The paragraphs below are the history of the room-shaped view.
 
 

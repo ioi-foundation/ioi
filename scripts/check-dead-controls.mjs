@@ -78,14 +78,14 @@ const LIVE = self("live");
 // bubble is not one), so the reason is now written under the field; and a one-route select opened
 // onto nothing, so a sole route renders as stated text.
 export const PINNED = Object.freeze({
-  surfaces_probed: 36,
+  surfaces_probed: 35, // ADR 0056 M5: the Missions root left the registry
   states_probed: 4,
   dead: 0,
   click_failed: 0,
   bad_landing: 0,
   dead_anchor: 0,
   slow_landing: 0,
-  reference_lane: 18,
+  reference_lane: 16, // ADR 0056 M5: the retired Missions page carried two reference-lane links
   raw_capture_href: 0,
 });
 
@@ -756,10 +756,20 @@ async function liveLeg() {
               // A control the shell keeps RE-CREATING (the call log says "element was detached from the
               // DOM" on every retry — measured on the Projects cards while the census refuses writes and
               // the shell retries them) is clicked the way the DOM does it, once, at the moment it is
-              // found: what the person's click reaches. A COVERED control never gets here.
-              if (last && /detached from the DOM/u.test(String(last.message))) {
+              // found: what the person's click reaches. The same Projects card later timed out on every
+              // retry with NO cause at all (R-240, under a load average of 12): Playwright's stability
+              // wait never settled on a card the shell kept re-rendering. So any timeout that is not a
+              // COVERED control takes this path too — only for an element that is found and has a
+              // rendered box; a covered control still fails at once, and a click that lands must still
+              // move the page to count as alive.
+              if (last && !/intercepts pointer events/u.test(String(last.message))) {
                 const found = (await shellEnumerate()).find((el) => el.ident === target.ident && el.occ === target.occ);
-                if (found && await page.locator(found.css).first().evaluate((x) => { x.click(); return true; }).catch(() => false)) last = null;
+                const clicked = found && await page.locator(found.css).first().evaluate((x) => {
+                  const r = x.getBoundingClientRect();
+                  if (!(r.width > 0 && r.height > 0)) return false;
+                  x.click(); return true;
+                }).catch(() => false);
+                if (clicked) last = null;
               }
               if (last) throw last;
             }

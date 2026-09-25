@@ -108,20 +108,19 @@ async function run() {
         "//ioi.local/__ioi/run-timeline/gr_deadbeef",
       ].every((reference) => canonicalTimelineRef(reference) === ""));
 
-  // 4. MISSIONS MODULE — contract-pulled, daemon-backed, and intentionally read-only.
+  // 4. MISSIONS MODULE — a PRESERVED SEED since ADR 0056 M5 retired the root it served. The module stays
+  // in the tree (seeds are preserved, never mass-deleted) and its own rendering contract is still proven
+  // below; what changed is that the registry no longer lists or binds it.
   const missionsReg = surfaceBySlug("missions");
   ok("missions: module exports the read-only surface contract",
     typeof missions.load === "function" && typeof missions.render === "function"
       && Array.isArray(missions.actions) && missions.actions.length === 0
       && typeof missions.handleAction === "undefined");
-  ok("missions: module meta agrees with the honest non-certified registry entry",
-    !!missionsReg && missions.meta.slug === missionsReg.slug && missions.meta.route === missionsReg.route
-      && missions.meta.verifier === missionsReg.verifier && missions.meta.certification === "n/a"
-      && missionsReg.operational_state === "read_only_by_contract"
-      && missionsReg.catalog_evidence?.schema === "ioi.hypervisor.catalog-contract-evidence.v1");
+  ok("missions: the preserved seed still says what it served (its meta names the retired root, uncertified) while the registry lists no Missions surface",
+    !missionsReg && missions.meta.slug === "missions" && missions.meta.route === "/__ioi/missions" && missions.meta.certification === "n/a");
   const missionsHit = boundSurface("/__ioi/missions", "GET");
-  ok("missions: registry binds the module (identity, not a copy)",
-    !!missionsHit && missionsHit.impl.render === missions.render && missionsHit.impl.load === missions.load);
+  ok("missions: the retired root is bound to nothing — no module serves /__ioi/missions (ADR 0056 M5: it answers the typed route-retirement refusal)",
+    !missionsHit);
   const missionsCtx = { url: new URL("http://x/__ioi/missions"), daemon: "http://127.0.0.1:1", embed: true };
   const missionsModel = await missions.load(missionsCtx);
   const missionsHtml = missions.render(missionsModel, missionsCtx);

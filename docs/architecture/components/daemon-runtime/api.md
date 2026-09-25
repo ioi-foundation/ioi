@@ -256,11 +256,12 @@ activity and execution facets derived from the owner's lifecycle state, and
 `ioi.hypervisor.work-facet-projection.v1` records that POINT at governance
 approval requests. Policy is applied before `q` narrows rows and before the
 per-view `counts` and `recents` are computed, so search never widens what a
-caller can see. `work_queue`, `work_item` and `work_run` subjects and incident
-facets are typed absences in the envelope (no owner publishes an enumeration
-yet), the migration off the Sessions root and the issue/blocker aggregates is
-stated in `migration` (the room graph under `/__ioi/missions` is the
-contribution seam's to replace, not core's to migrate), and nothing is cached or
+caller can see. `work_queue`, `work_item` and `work_run` subjects are typed
+absences in the envelope (no owner publishes an enumeration yet); incident facets
+are v2 pointers at the Operations-owned `SupportIncidentLink`s the caller's
+tenants may see, read through that plane's published reader; the migration off the Sessions root and the issue/blocker aggregates is
+stated in `migration` (the former `/__ioi/missions` root is retired by ADR 0056
+and answers a typed route-retirement refusal toward `/work`), and nothing is cached or
 persisted: a restart re-derives the same rows. Refusals: `work_projection_view_unknown`,
 `work_projection_subject_ref_invalid`, `work_projection_subject_kind_ambiguous`,
 `work_projection_subject_kind_unknown`, and `work_projection_row_contract_invalid`

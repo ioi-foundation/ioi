@@ -775,36 +775,6 @@
     },
     {
       "schema_version": "ioi.hypervisor.application_surface_registration.v2",
-      "surface_ref": "surface://hypervisor/missions",
-      "surface_key": "missions",
-      "surface_class": "tool_surface",
-      "display_name": "Missions",
-      "surface_availability": "available",
-      "canonical_route": "/__ioi/missions",
-      "canonical_owner_doc_ref": "doc://architecture/hypervisor/missions",
-      "effect_boundary": "inspect_only",
-      "surface_origin": "first_party",
-      "surface_creation_method": "adapted",
-      "supported_placements": [
-        "applications_catalog",
-        "open_application"
-      ],
-      "launch_modes": [
-        "direct",
-        "open_application",
-        "command_palette",
-        "contextual"
-      ],
-      "supported_context_kinds": [
-        "work_queue",
-        "work_item"
-      ],
-      "declared_object_contract_refs": [],
-      "declared_action_contract_refs": [],
-      "context_route_resolver_refs": []
-    },
-    {
-      "schema_version": "ioi.hypervisor.application_surface_registration.v2",
       "surface_ref": "surface://hypervisor/explorer",
       "surface_key": "explorer",
       "surface_class": "tool_surface",
@@ -1492,21 +1462,6 @@
     },
     {
       "schema_version": "ioi.hypervisor.surface_release_record.v1",
-      "release_ref": "package://hypervisor/missions/release/source-owned-v1",
-      "surface_ref": "surface://hypervisor/missions",
-      "package_ref": "package://hypervisor/missions",
-      "surface_distribution": "bundled",
-      "surface_admission_state": "admitted",
-      "surface_package_disposition": "active",
-      "surface_capability_depth": "inspect",
-      "object_contract_refs": [],
-      "action_contract_refs": [],
-      "evidence_refs": [
-        "evidence://implementation/hypervisor/source-owned-app/runtime-contract"
-      ]
-    },
-    {
-      "schema_version": "ioi.hypervisor.surface_release_record.v1",
       "release_ref": "package://hypervisor/explorer/release/source-owned-v1",
       "surface_ref": "surface://hypervisor/explorer",
       "package_ref": "package://hypervisor/explorer",
@@ -2010,20 +1965,6 @@
     },
     {
       "schema_version": "ioi.hypervisor.surface_installation_binding.v1",
-      "installation_ref": "install://hypervisor/missions/local",
-      "surface_ref": "surface://hypervisor/missions",
-      "release_ref": "package://hypervisor/missions/release/source-owned-v1",
-      "org_ref": "org://local",
-      "project_ref": null,
-      "surface_installation_state": "installed",
-      "surface_enablement_state": "enabled",
-      "visibility": "organization",
-      "allowed_object_contract_refs": [],
-      "allowed_action_refs": [],
-      "revision": 1
-    },
-    {
-      "schema_version": "ioi.hypervisor.surface_installation_binding.v1",
       "installation_ref": "install://hypervisor/explorer/local",
       "surface_ref": "surface://hypervisor/explorer",
       "release_ref": "package://hypervisor/explorer/release/source-owned-v1",
@@ -2509,20 +2450,6 @@
       "installation_ref": "install://hypervisor/incidents/local",
       "system_binding_ref": null,
       "resolved_route": "/__ioi/missions/incidents",
-      "runtime_ref": "runtime://hypervisor/source-owned-app",
-      "surface_operational_state": "serving",
-      "health_observation_refs": [
-        "observation://hypervisor/source-owned-app/build-and-contract"
-      ]
-    },
-    {
-      "schema_version": "ioi.hypervisor.surface_serving_binding.v1",
-      "serving_binding_ref": "surface-serving://hypervisor/missions/source-owned-app",
-      "surface_ref": "surface://hypervisor/missions",
-      "release_ref": "package://hypervisor/missions/release/source-owned-v1",
-      "installation_ref": "install://hypervisor/missions/local",
-      "system_binding_ref": null,
-      "resolved_route": "/__ioi/missions",
       "runtime_ref": "runtime://hypervisor/source-owned-app",
       "surface_operational_state": "serving",
       "health_observation_refs": [

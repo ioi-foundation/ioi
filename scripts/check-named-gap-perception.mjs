@@ -114,7 +114,7 @@ const LIVE = self("live");
 // 2026-09-25 (R-240, the Issues facets): labelled 611 → 610, cursor 57 → 56 — Issues' "Clear filters"
 // was a declared gap with an ordinary cursor; the facets that have data now filter, so it is a link.
 export const PINNED = Object.freeze({
-  surfaces_probed: 36,
+  surfaces_probed: 35, // ADR 0056 M5: the Missions root left the registry; it carried no declared gap, so no other count moved
   states_probed: 4,
   labelled: 610,
   primary_fill: 0,

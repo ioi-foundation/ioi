@@ -23,22 +23,86 @@
     "vertex"
   ],
   "protected_routes": [
-    { "slug": "approvals", "route": "/__ioi/governance/approvals", "class": "daemon_wired" },
-    { "slug": "changes", "route": "/__ioi/improvement/changes", "class": "daemon_wired" },
-    { "slug": "designer", "route": "/__ioi/studio/designer", "class": "daemon_wired" },
-    { "slug": "evalsuites", "route": "/__ioi/evaluations/evalsuites", "class": "daemon_wired" },
-    { "slug": "explorer", "route": "/__ioi/ontology/explorer", "class": "daemon_wired" },
-    { "slug": "incidents", "route": "/__ioi/missions/incidents", "class": "daemon_wired" },
-    { "slug": "jobs", "route": "/__ioi/missions", "class": "substrate_bound" },
-    { "slug": "lineage", "route": "/__ioi/lineage", "class": "reference_ported" },
-    { "slug": "listings", "route": "/__ioi/marketplace/listings", "class": "daemon_wired" },
-    { "slug": "machinery", "route": "/__ioi/studio/machinery", "class": "daemon_wired" },
-    { "slug": "models", "route": "/__ioi/foundry/models", "class": "daemon_wired" },
-    { "slug": "monitors", "route": "/__ioi/automations/monitors", "class": "daemon_wired" },
-    { "slug": "pipeline", "route": "/__ioi/pipeline", "class": "daemon_wired" },
-    { "slug": "schema", "route": "/__ioi/ontology/manager", "class": "daemon_wired" },
-    { "slug": "sources", "route": "/__ioi/data/sources", "class": "daemon_wired" },
-    { "slug": "vertex", "route": "/__ioi/vertex", "class": "reference_ported" }
+    {
+      "slug": "approvals",
+      "route": "/__ioi/governance/approvals",
+      "class": "daemon_wired"
+    },
+    {
+      "slug": "changes",
+      "route": "/__ioi/improvement/changes",
+      "class": "daemon_wired"
+    },
+    {
+      "slug": "designer",
+      "route": "/__ioi/studio/designer",
+      "class": "daemon_wired"
+    },
+    {
+      "slug": "evalsuites",
+      "route": "/__ioi/evaluations/evalsuites",
+      "class": "daemon_wired"
+    },
+    {
+      "slug": "explorer",
+      "route": "/__ioi/ontology/explorer",
+      "class": "daemon_wired"
+    },
+    {
+      "slug": "incidents",
+      "route": "/__ioi/missions/incidents",
+      "class": "daemon_wired"
+    },
+    {
+      "slug": "jobs",
+      "route": "/__ioi/missions/builds",
+      "class": "reference_ported"
+    },
+    {
+      "slug": "lineage",
+      "route": "/__ioi/lineage",
+      "class": "reference_ported"
+    },
+    {
+      "slug": "listings",
+      "route": "/__ioi/marketplace/listings",
+      "class": "daemon_wired"
+    },
+    {
+      "slug": "machinery",
+      "route": "/__ioi/studio/machinery",
+      "class": "daemon_wired"
+    },
+    {
+      "slug": "models",
+      "route": "/__ioi/foundry/models",
+      "class": "daemon_wired"
+    },
+    {
+      "slug": "monitors",
+      "route": "/__ioi/automations/monitors",
+      "class": "daemon_wired"
+    },
+    {
+      "slug": "pipeline",
+      "route": "/__ioi/pipeline",
+      "class": "daemon_wired"
+    },
+    {
+      "slug": "schema",
+      "route": "/__ioi/ontology/manager",
+      "class": "daemon_wired"
+    },
+    {
+      "slug": "sources",
+      "route": "/__ioi/data/sources",
+      "class": "daemon_wired"
+    },
+    {
+      "slug": "vertex",
+      "route": "/__ioi/vertex",
+      "class": "reference_ported"
+    }
   ],
   "per_app_cutover_requirements": [
     "canonical_owner_and_route_binding",

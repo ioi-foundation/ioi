@@ -436,6 +436,13 @@ export const V2_ROUTE_TABLE = [
 export const RETIRED_UI_ROUTES = {
   "/sessions": "/work/sessions",
 };
+// EXACT-PATH retirements: the path alone answers the typed 410 and its subtree keeps serving. ADR 0056
+// M5 retired the Missions ROOT, while the tools that lived under it (Issues, Builds, Build Schedules,
+// Artifact Ecology) keep their legacy lanes beside their owners' canonical routes until each cutover
+// (Ruling 7) — a subtree retirement here would have taken all four down with it.
+export const RETIRED_UI_EXACT = {
+  "/__ioi/missions": "/work",
+};
 
 const BY_ROUTE = new Map(V2_ROUTE_TABLE.map((r) => [r.route, r]));
 export function v2RouteFor(pathname) {
@@ -477,6 +484,7 @@ export function resolveV2Route(pathname) {
 // as /sessions, with the deep link carried onto the canonical replacement. A link, never a
 // redirect alias.
 export function retiredUiRouteFor(pathname) {
+  if (Object.hasOwn(RETIRED_UI_EXACT, pathname)) return { requested: pathname, replacement: RETIRED_UI_EXACT[pathname] };
   for (const [retired, replacement] of Object.entries(RETIRED_UI_ROUTES)) {
     if (pathname === retired) return { requested: pathname, replacement };
     if (pathname.startsWith(`${retired}/`)) {
@@ -644,7 +652,7 @@ export function renderRouteLedgerPage(compiled) {
       <td>${(row.serving_today || []).map((s) => `<div><a href="${esc(s.href)}"><code>${esc(s.href)}</code></a> — ${esc(s.label)}</div>`).join("") || "<span class=\"meta\">none</span>"}</td>
       <td><div class="meta">${esc(row.waves)}</div>${esc(row.build_state)}</td>
     </tr>`).join("");
-  const retired = Object.entries(RETIRED_UI_ROUTES).map(([from, to]) => `<div><code>${esc(from)}</code> → typed 410, canonical replacement <code>${esc(to)}</code></div>`).join("");
+  const retired = [...Object.entries(RETIRED_UI_ROUTES), ...Object.entries(RETIRED_UI_EXACT)].map(([from, to]) => `<div><code>${esc(from)}</code> → typed 410, canonical replacement <code>${esc(to)}</code></div>`).join("");
   return pageShell(
     "Route ledger",
     `<main data-ioi-surface-route="/__ioi/route-ledger" data-ioi-surface-owner="developer diagnostics" style="max-width:none">

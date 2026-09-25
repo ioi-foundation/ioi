@@ -1114,7 +1114,6 @@
       "adjudication_ref": "reference-seed-adjudications.v1.json#jobs + reference-seed-adjudications.v1.json#jobs-port + reference-live-tenant-atlas.v1.json#jobs",
       "port_surface": "/__ioi/missions/builds",
       "surface_name": "Automations",
-      "substrate_surface": "/__ioi/missions",
       "live_reference_evidence": "reference-live-tenant-atlas.v1.json#jobs (landing, title \"Your builds · Builds\", 14 controls) + .artifacts/live-tenant-atlas/jobs-landing.png",
       "reference_landmarks": [
         "Builds",
@@ -1151,7 +1150,6 @@
       "reference_clean_reason": "shell regions [rail, header, body] + data evidence (rows 5/0 · nodes 0 · cards 0 · lists 0 · lines 26) — clicked the 'Closed' status lane (the default Open lane is honestly empty; the capture carries 5 real closed incidents)",
       "reference_clean_artifact": "reference-clean-sweep.json",
       "adjudication_ref": "reference-seed-adjudications.v1.json#incidents",
-      "substrate_surface": "/__ioi/missions",
       "port_surface": "/__ioi/missions/incidents",
       "ioi_url_override": "/__ioi/missions/incidents?lane=closed",
       "surface_name": "Operations",

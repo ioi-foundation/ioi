@@ -2220,10 +2220,13 @@ Work subject, or else carries the affected ref verbatim as `affected_object`, an
 routes its detail to Operations / Issues. A resolved or closed link is not a Work
 incident. The `subject_kind` enum in the registered row
 shape keeps every kind above, because a contributed row must still be typed
-when it arrives. The compatibility `/__ioi/missions` readout renders the room
-graph and is therefore the contribution seam's to replace, not core's to
-migrate: core Work migrates Sessions and automation runs onto the canonical
-routes and deletes, rather than aliases, the rest (ADR 0022 Decision 2).
+when it arrives. The former `/__ioi/missions` readout is retired
+([ADR 0056](../../../decisions/0056-organize-the-hypervisor-application-estate-by-four-axes-and-retire-missions.md)): it owned no object once goal pursuit left the
+Hypervisor, its tools answer to their owners (Issues to Operations, Builds and
+Build Schedules to Automations, Artifact Ecology to Systems), and the root
+answers a typed route-retirement refusal toward `/work`. Core Work migrates
+Sessions and automation runs onto the canonical routes and deletes, rather than
+aliases, the rest (ADR 0022 Decision 2).
 
 System, Project, organization, and OutcomeRoom scope remain orthogonal to work
 kind. System-bound work projects into `System / Operate`; direct, Project,

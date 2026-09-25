@@ -158,6 +158,14 @@ test("serve: every served canonical lane is declared honestly — a rewrite name
   }
 });
 
+test("retirement: the Missions ROOT alone is retired toward /work — the tool lanes beneath it keep serving (ADR 0056 M5)", () => {
+  assert.deepEqual(retiredUiRouteFor("/__ioi/missions"), { requested: "/__ioi/missions", replacement: "/work" });
+  for (const lane of ["/__ioi/missions/incidents", "/__ioi/missions/builds", "/__ioi/missions/schedules", "/__ioi/missions/ecology"]) {
+    assert.equal(retiredUiRouteFor(lane), null, `${lane} must not be retired with the root`);
+  }
+  assert.equal(retiredUiRouteFor("/sessions/abc")?.replacement, "/work/sessions/abc", "the subtree retirements are unchanged");
+});
+
 // ------------------------------ table integrity ------------------------------
 
 test("table: every row keeps the required registration fields; retired roots never collide with rows", () => {

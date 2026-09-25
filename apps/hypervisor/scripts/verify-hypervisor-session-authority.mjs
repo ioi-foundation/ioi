@@ -92,7 +92,7 @@ let DAEMON = "";
 let SERVE = "";
 let SESSION = "";
 
-const SEED_JOBS = "/__ioi/missions"; // protected seed (slug jobs)
+const SEED_JOBS = "/__ioi/missions/builds"; // protected seed (slug jobs) — at its Builds port since ADR 0056 M5 retired the root
 const SEED_INCIDENTS = "/__ioi/missions/incidents"; // protected seed (slug incidents)
 const SEED_SESSIONS_ROOT = "/__ioi/sessions"; // the T2 sessions readout — the LIVE Sessions surface
 
@@ -337,6 +337,10 @@ async function run() {
       PRODUCT_UI_PORT: String(productUiPort),
       IOI_PRODUCT_UI_PUBLIC: path.join(APP, "product-ui", "owned", "public"),
       IOI_HYPERVISOR_DAEMON_URL: DAEMON,
+      // This verifier browses without an account; since the product requires sign-in (R-240), an
+      // anonymous HTML request became the sign-in page before any route answered — the /sessions
+      // retirement arm read 200. Automation that browses unauthenticated opts out explicitly.
+      IOI_PRODUCT_SIGNIN_REQUIRED: "0",
     },
     stdio: ["ignore", "pipe", "pipe"],
   });
@@ -390,7 +394,7 @@ async function run() {
   const seedJobs = await pageText(SEED_JOBS, { authenticated: false });
   const seedIncidents = await pageText(SEED_INCIDENTS, { authenticated: false });
   const seedSessionsRoot = await pageText(SEED_SESSIONS_ROOT, { authenticated: false });
-  ok("seed preservation: the protected Jobs cockpit (/__ioi/missions) and Incidents inbox (/__ioi/missions/incidents) keep serving their rich UX — no refusal shell, no shrinkage",
+  ok("seed preservation: the protected Builds port (/__ioi/missions/builds, slug jobs) and Issues inbox (/__ioi/missions/incidents) keep serving their rich UX — no refusal shell, no shrinkage",
     seedJobs.status === 200 && seedJobs.text.length > 1500 && !/route_retired|route retirement refusal/iu.test(seedJobs.text)
       && seedIncidents.status === 200 && seedIncidents.text.length > 1500 && !/route_retired/iu.test(seedIncidents.text),
     `${seedJobs.status}/${seedIncidents.status} · ${seedJobs.text.length}/${seedIncidents.text.length}B`);
