@@ -7209,7 +7209,7 @@ const mpMutationLanded = (result) => result.status >= 200 && result.status < 300
 function mpMutationRefusal(title, result, back) {
   const nested = (result.body && result.body.error) || {};
   const code = nested.code || (result.body && result.body.code) || "";
-  const message = PLAIN_REFUSAL[code] || nested.message || nested.reason || (result.body && (result.body.message || result.body.reason)) || "";
+  const message = plainRefusal(code, nested.message || (result.body && result.body.message)) || nested.message || nested.reason || (result.body && (result.body.message || result.body.reason)) || "";
   const blocked = (nested.blocked_reasons || []).join(", ");
   return {
     // Carry the daemon's own refusal status. A success-shaped answer that is not `ok` (a 200
@@ -8445,9 +8445,20 @@ const PLAIN_REFUSAL = {
   request_resource_owner_mismatch: "only the person who created this can change it — it belongs to its creator within your organization",
   model_route_deployment_admin_required: "only a deployment administrator can do this — the route belongs to the deployment, not to a person",
 };
+// The daemon's compare-and-swap refusals come as a FAMILY (`event_stream_expected_head_conflict`,
+// `foundry_recipe_expected_head_conflict`, …) with messages like "event stream Agentgres head
+// conflict": all mean someone saved a newer version after this page was opened (R-240, the stale
+// axis driven with two tabs).
+function plainRefusal(code, message) {
+  if (code && PLAIN_REFUSAL[code]) return PLAIN_REFUSAL[code];
+  if (/head_conflict$/u.test(code || "") || /head conflict/iu.test(message || "")) return "this changed since you opened it — someone saved a newer version. Reload it and make your change again";
+  if (/same_key_different_bytes$/u.test(code || "")) return "this form was already submitted with different contents — reload the page and submit it again";
+  return "";
+}
 function whyRefused(reply) {
   const rcode = reply && (reply.code || (reply.error && reply.error.code));
-  if (rcode && PLAIN_REFUSAL[rcode]) return PLAIN_REFUSAL[rcode];
+  const rplain = plainRefusal(rcode, reply && (reply.message || (reply.error && reply.error.message)));
+  if (rplain) return rplain;
   const msg = refusalMessageOf(reply) || String((reply && (reply.reason || (reply.error && reply.error.reason))) || "").slice(0, 300);
   if (msg) return msg;
   const code = reply && (reply.code || (reply.error && reply.error.code));
