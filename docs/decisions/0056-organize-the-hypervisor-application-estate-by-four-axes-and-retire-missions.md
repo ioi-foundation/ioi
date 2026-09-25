@@ -83,14 +83,16 @@ not include the arbitrary refs a WorkResult or a SupportIncidentLink points at.
    Environments; Artifacts becomes a tab of Packages.
 5. **Surfaces that read no plane become terminal absences.** Logic, Contour, Notepad, Quiver
    and Custom Widgets get a recorded adjudication and a typed retirement. Their seeds are
-   preserved, never mass-deleted.
+   preserved, never mass-deleted. *(Re-adjudicated by Amendment 1: Logic, Custom Widgets and
+   Quiver's time-series core are kept.)*
 6. **Two read-first lanes are added over existing planes**: Provenance / Custody &
    Jurisdiction and Governance / Leases & Limits. Neither mints a plane, an owner
    application or an authority. The learning boundary stays a cross-cutting profile.
 7. **No new daemon plane is introduced.** The contract and daemon changes this requires are
    named: a Work facet projection v2; identity and compare-and-swap on the state-machine
    plane before Process Graphs is declared effectful; taxonomy registrations (a data change,
-   not a contract change) for the surviving tools.
+   not a contract change) for the surviving tools. *(Narrowed by Amendment 1: new planes are
+   admitted contract-first where the benchmark requires them.)*
 
 ## Rulings
 
@@ -107,12 +109,12 @@ the proposal's recommendation unless noted.
    interim `/work/results` view is minted.
 5. **Artifact Ecology stays in the Hypervisor** as a System-scoped contributed view.
 6. **No-plane landings are terminal absences** answered by a typed retirement, with the seed
-   preserved.
+   preserved. *(Re-adjudicated by Amendment 1: the benchmark, not plane coverage, decides.)*
 7. **Legacy `/__ioi/missions/*` tool routes keep serving** beside their canonical routes
    until each tool's cutover, as the seed-preservation rule requires.
 8. **No authority node is stood up for the owner's deployment by this program.** Leases &
    Limits shows standing envelopes as a named absence until the owner configures one.
-9. **Rebinding onto the governed planes** (`evaluation-*`, `improvement-campaigns` and
+9. *(Reversed by Amendment 1, answer 5.)* **Rebinding onto the governed planes** (`evaluation-*`, `improvement-campaigns` and
    agendas, the `automation-specs` / installations / runs triple) is a separate program.
 10. **Canon tool renames are deferred.** Titles checked by pixel certifications do not move.
 11. **Run a route (Inference) belongs to Foundry.**
@@ -150,6 +152,85 @@ and therefore should be the deciding metric."
 
    The remaining lanes and their plane backlog come from the benchmark re-adjudication.
 
+### Amendment 1 — re-adjudication (2026-09-25, owner-accepted)
+
+Every lane was re-judged under §1 (a read-only research pass, with the reference tenant read
+over CDP and public product documentation cited). A lane belongs when a best-in-class
+autonomous-systems substrate carries it and canon places it under an owner; a reference lane
+is evidence, never membership. The benchmark covered durable agent execution (Temporal,
+LangGraph), evaluation and observability (LangSmith, Braintrust, Arize), ontology, lineage and
+data governance (Palantir Foundry/AIP, Databricks Unity Catalog), policy and bounded authority
+(OPA, Cedar, IAM Access Analyzer, Teleport, AWS Budgets), sandboxed and served execution (E2B,
+Modal, Kubernetes operators) and fleet operations with telemetry (Formant, Foxglove). Of 84
+lanes, 61 stay on existing planes (12 merging into a surviving surface), 13 stay with named
+gaps while their plane is built, and 10 are terminal absences. The owner accepted the result
+and every recommendation it made ("yes to all").
+
+1. **Decision 5, re-adjudicated.**
+   - Logic becomes **Ontology / Functions** (canon Ontology owns functions).
+   - Custom Widgets becomes **Developer Console / Extensions**.
+   - Quiver splits. Its time-series core becomes **Operations / Telemetry**, seeded from the
+     preserved Quiver port (a rebinding of the seed, not a recreation). Its BI dashboard
+     builder is a terminal absence.
+   - Contour and Notepad stay terminal absences: dataset BI and document authoring, which no
+     autonomous-systems substrate carries.
+2. **Reference lanes with no counterpart.**
+   - Kept on existing planes: Value Types → an Ontology Manager tab; Resource Management →
+     Leases & Limits and an Operations resource facet; Workflow Lineage → Lineage; Compute
+     Modules → **Automations / Services**; Examples and Walkthroughs → Studio / Templates.
+   - Kept with named gaps: Time Series Catalog → Data / Time series; Data Health →
+     Operations / Health (authored as monitors); Linter → Operations / Recommendations;
+     Notifications → a core inbox projection and a Settings pane; Checkpoints → Leases &
+     Limits; Global Branching → Improvement / Change sets; Sensitive Data Scanner → Data /
+     Sensitive data; Cipher → protect and reveal on Data / Restricted views; Document
+     Intelligence → Data / Ingestion chain.
+   - Terminal absences: SQL Studio, AIP Analyst, Carbon workspaces, Foundry Rules, Slate,
+     AI FDE, Training — each covered by another lane or outside the substrate.
+3. **Corrections to §5.** Checkpoints is not plane-backed: the daemon holds no justification
+   record, so its lane shows a named gap until the justification-checkpoint plane lands.
+   Change Plans over `release-change-plans` is the packaged Hypervisor's own update and
+   rollback; System change sets (Global Branching) are a separate plane.
+4. **Plane backlog**, each admitted contract-first (registered schema, generated contract,
+   daemon route, then a surface), each extending the named plane, none minting authority
+   (where one touches authority it only adds obligations). Ordered by benchmark weight × lanes
+   unblocked ÷ build cost:
+
+   | # | Contract | Extends | Unblocks |
+   |---|---|---|---|
+   | 1 | notification subscription + inbox | projection subscription leases, event streams | Notifications; alert routing |
+   | 2 | health check + result | monitor-mode automation specs, support incidents | Operations / Health; Work / Incidents facets |
+   | 3 | tool/function revision + test run | the runtime tool-contract registry, ontology action contracts | Ontology / Functions; agent and automation tools |
+   | 4 | change set (reusing the branch-merge plan) | improvement proposals, cohorts and release controls | Improvement / Change sets; Studio preview |
+   | 5 | justification checkpoint + record | authority evaluate, approval requests | Leases & Limits / Checkpoints |
+   | 6 | telemetry stream (+ range, derived series) | event streams (ephemeral and admitted classes) | Data / Time series; Operations / Telemetry; Embodied observe |
+   | 7 | posture finding (+ rules) | enforcement coverage, idle sweep, lease usage | Operations / Recommendations; unused-access findings |
+   | 8 | sensitive-data scan + finding | data sources, media censuses, policy-bound views | Data / Sensitive data |
+   | 9 | reversible field protection | redaction recipe, policy-bound views, declassification | Restricted views protect and reveal |
+   | 10 | document-extraction transformation kind | transformation runs, media snapshots | Ingestion chain |
+   | 11 | widget-set descriptor kind | surface descriptors, packages | Developer Console / Extensions |
+   | 12 | embodied fleet (canon objects) | machines, physical-action intents, episodes | Embodied Systems |
+
+   The Work facet projection v2 and state-machine identity with compare-and-swap stay in the
+   backlog from Decision 7.
+5. **The owner's answers to the re-adjudication's questions.**
+   1. The justification-checkpoint plane is admitted (5 above).
+   2. Automations owns Compute Modules, as Services.
+   3. Ontology owns Functions; Automations' tool builder consumes them.
+   4. Notifications is a core inbox projection plus a Settings pane, in no family.
+   5. **Ruling 9 is reversed.** Rebinding Evaluations onto the governed `evaluation-*` plane,
+      Automations onto the `automation-specs` / installations / runs triple, and Improvement
+      onto campaigns and agendas is sequenced beside planes 1–5, not deferred.
+   6. The telemetry plane starts now; it serves software agents' metric trends as well as
+      embodied systems.
+   7. Sensitive-data scanning admits the finding and marking-proposal contract with both
+      in-house scan specs and external scanners able to post findings; a marking may only
+      narrow.
+   8. Reversible protection keeps key custody with wallet.network / cTEE, and a reveal is a
+      single-use declassification approval.
+   9. The preserved Quiver port seeds the Telemetry lane.
+   10. Ruling 8 stands: standing envelopes stay a named absence until the owner configures an
+       authority node.
+
 ## Execution order
 
 Add before moving, and move dependants before removing, so no gate ever looks for a
@@ -167,6 +248,13 @@ pins from the gate's own count.
 - **M6** Collapse duplicates, one cut each.
 - **M7** No-plane landings become terminal absences.
 - **M8** The two read-first lanes, each with all of a new surface's populations in one cut.
+- **M7b** The re-adjudication's terminal absences are recorded with their adjudications, seeds
+  preserved.
+- **M8b** Each named-gap lane lands with all of its populations in one cut; its unbuilt verbs
+  are disabled and name the plane that will serve them, and no lane claims a verb before that
+  plane's route exists.
+- **P1–P12** The plane backlog, contract-first, in the order above, with the governed-plane
+  rebinding (answer 5) beside planes 1–5.
 - **M9** Catalog family grouping in the launcher.
 
 ## Consequences
