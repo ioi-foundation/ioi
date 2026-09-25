@@ -3460,7 +3460,8 @@ function renderOdkRecipeForm(existing, pk, outputKinds) {
       <h2>Named output refs <span class="sub" style="text-transform:none;letter-spacing:0;font-weight:400">— resolved only when ODK-local</span></h2>
       <div class="two">${odkCsvField("Projection refs", "projection_refs", ex.projection_refs)}${odkCsvField("Evaluation dataset refs", "evaluation_dataset_refs", ex.evaluation_dataset_refs)}</div>
       <div class="two">${odkCsvField("Worker plan refs", "worker_plan_refs", ex.worker_plan_refs)}${odkCsvField("Workflow schema refs", "workflow_schema_refs", ex.workflow_schema_refs)}</div>
-      <div class="row"><button class="act" type="submit">${isEdit ? "Save draft" : "Create draft recipe"}</button> <a class="act ghost" href="/__ioi/odk">Cancel</a></div>
+      ${isEdit && !ex.admitted_head ? `<p class="sub" role="note" style="color:#c87619">Only the person who created this recipe can edit it — you can read it here, but a save would be refused.</p>` : ""}
+      <div class="row"><button class="act" type="submit"${isEdit && !ex.admitted_head ? " disabled" : ""}>${isEdit ? "Save draft" : "Create draft recipe"}</button> <a class="act ghost" href="/__ioi/odk">Cancel</a></div>
     </form>`;
   return automationsShell(`${isEdit ? "Edit" : "New"} Data Recipe`, inner);
 }
@@ -3480,7 +3481,8 @@ function renderOdkDescriptorForm(existing, pk, patterns) {
       ${odkArea("Description", "description", ex.description)}
       <div class="two">${odkSelectField("Ontology (required)", "ontology_ref", pk.ontologies, ex.ontology_ref, "create an ontology first")}${odkSelectField("Composition pattern", "composition_pattern", patOpts, ex.composition_pattern || "list_detail")}</div>
       ${odkChecks("Recipe refs (optional)", "recipe_refs", pk.recipes, ex.recipe_refs)}
-      <div class="row"><button class="act" type="submit">${isEdit ? "Save draft" : "Create draft descriptor"}</button> <a class="act ghost" href="/__ioi/odk">Cancel</a></div>
+      ${isEdit && !ex.admitted_head ? `<p class="sub" role="note" style="color:#c87619">Only the person who created this descriptor can edit it — you can read it here, but a save would be refused.</p>` : ""}
+      <div class="row"><button class="act" type="submit"${isEdit && !ex.admitted_head ? " disabled" : ""}>${isEdit ? "Save draft" : "Create draft descriptor"}</button> <a class="act ghost" href="/__ioi/odk">Cancel</a></div>
     </form>`;
   return automationsShell(`${isEdit ? "Edit" : "New"} Surface Descriptor`, inner);
 }
@@ -3499,7 +3501,8 @@ function renderOdkManifestForm(existing, pk) {
       <div class="two">${odkCsvField("Evaluation dataset refs", "evaluation_dataset_refs", ex.evaluation_dataset_refs)}${odkCsvField("Benchmark profile refs", "benchmark_profile_refs", ex.benchmark_profile_refs)}</div>
       <div class="two">${odkCsvField("Operator contract refs", "operator_contract_refs", ex.operator_contract_refs)}${odkCsvField("MCP contract refs", "mcp_contract_refs", ex.mcp_contract_refs)}</div>
       ${odkCsvField("Worker plan refs", "worker_plan_refs", ex.worker_plan_refs)}
-      <div class="row"><button class="act" type="submit">${isEdit ? "Save draft" : "Create draft manifest"}</button> <a class="act ghost" href="/__ioi/odk">Cancel</a></div>
+      ${isEdit && !ex.admitted_head ? `<p class="sub" role="note" style="color:#c87619">Only the person who created this manifest can edit it — you can read it here, but a save would be refused.</p>` : ""}
+      <div class="row"><button class="act" type="submit"${isEdit && !ex.admitted_head ? " disabled" : ""}>${isEdit ? "Save draft" : "Create draft manifest"}</button> <a class="act ghost" href="/__ioi/odk">Cancel</a></div>
     </form>`;
   return automationsShell(`${isEdit ? "Edit" : "New"} ODK Manifest`, inner);
 }
@@ -5861,7 +5864,12 @@ function renderIncidentsPort(ops, workResults, lane, extra = {}) {
   const issueHtml = iss ? (() => {
     if (iss.error) return `<aside class="in-drawer" role="dialog" aria-label="Issue"><div class="in-dhead"><h2>Issue</h2><a class="in-dclose" href="${esc(back)}" aria-label="Close">${bpIcon("cross")}</a></div><p class="in-derr" role="alert">${esc(iss.error)}</p></aside>`;
     const r = iss.record; const sid = inIssueId(r.incident_id);
-    const acts = (IN_STATUS_ACTIONS[r.status] || []).map(([to, label]) => `<button type="submit" name="status" value="${esc(to)}" class="in-sact${to === "open" ? " re" : ""}">${esc(label)}</button>`).join("");
+    // Only the reporter can move an issue's status (a record belongs to its creator; delegation widens
+    // reads, never writes) — so anyone else is told that, not offered buttons that would be refused.
+    const mine = !iss.me || r.reported_by === iss.me;
+    const acts = mine
+      ? (IN_STATUS_ACTIONS[r.status] || []).map(([to, label]) => `<button type="submit" name="status" value="${esc(to)}" class="in-sact${to === "open" ? " re" : ""}">${esc(label)}</button>`).join("")
+      : `<span class="in-dhint" role="note">Only the person who filed this issue can change its status.</span>`;
     const aff = r.affected || {};
     return `<aside class="in-drawer" role="dialog" aria-labelledby="in-itl">
       <div class="in-dhead"><h2 id="in-itl">${esc(r.title || "(untitled)")}</h2><a class="in-dclose" href="${esc(back)}" aria-label="Close">${bpIcon("cross")}</a></div>
@@ -7201,7 +7209,7 @@ const mpMutationLanded = (result) => result.status >= 200 && result.status < 300
 function mpMutationRefusal(title, result, back) {
   const nested = (result.body && result.body.error) || {};
   const code = nested.code || (result.body && result.body.code) || "";
-  const message = nested.message || nested.reason || (result.body && (result.body.message || result.body.reason)) || "";
+  const message = PLAIN_REFUSAL[code] || nested.message || nested.reason || (result.body && (result.body.message || result.body.reason)) || "";
   const blocked = (nested.blocked_reasons || []).join(", ");
   return {
     // Carry the daemon's own refusal status. A success-shaped answer that is not `ok` (a 200
@@ -8430,7 +8438,16 @@ function withOwnedSurfaceNarrowRules(html) {
 // `error.message`, but many daemon routes answer a flat {code, message} — so their real reason was
 // replaced by the word "invalid", and a page that could say "at least one ontology_ref is required"
 // said nothing. An empty reply is not "invalid" either: it is a daemon that did not answer.
+// The daemon's ownership and administration refusals, said as the rule a person can act on (R-240):
+// "the admitted resource owner does not match its immutable request scope" means only the record's
+// creator may change it (delegation widens reads, never writes).
+const PLAIN_REFUSAL = {
+  request_resource_owner_mismatch: "only the person who created this can change it — it belongs to its creator within your organization",
+  model_route_deployment_admin_required: "only a deployment administrator can do this — the route belongs to the deployment, not to a person",
+};
 function whyRefused(reply) {
+  const rcode = reply && (reply.code || (reply.error && reply.error.code));
+  if (rcode && PLAIN_REFUSAL[rcode]) return PLAIN_REFUSAL[rcode];
   const msg = refusalMessageOf(reply) || String((reply && (reply.reason || (reply.error && reply.error.reason))) || "").slice(0, 300);
   if (msg) return msg;
   const code = reply && (reply.code || (reply.error && reply.error.code));
@@ -12961,7 +12978,10 @@ async function handleEstateRequest(req, res, body) {
           } else if (infRun.ok) {
             result = `<div class="inf-runres ok" role="status"><p><b>Already answered.</b> This exact run was recorded (invocation <code>${esc(inv.invocation_id || "")}</code>); answers are shown once and never stored, so a resubmitted form does not spend a second model call. Write the prompt again to run it anew.</p></div>`;
           } else {
-            result = `<div class="inf-runres err" role="alert"><p><b>Not run:</b> ${esc(infRun.error?.message || "the call was refused")} <code>${esc(infRun.error?.code || "")}</code></p>${checkedNote}</div>`;
+            const infWhy = infRun.error?.code === "model_route_deployment_admin_required"
+              ? "this route has gone stale and must be re-checked before it can run, and only a deployment administrator can re-check it (Agent Studio → Model routes → Probe)."
+              : (infRun.error?.message || "the call was refused");
+            result = `<div class="inf-runres err" role="alert"><p><b>Not run:</b> ${esc(infWhy)} <code>${esc(infRun.error?.code || "")}</code></p>${checkedNote}</div>`;
           }
         }
         // A sole route is not a choice: a one-option select opens onto nothing. It is stated, and the
@@ -13890,7 +13910,7 @@ async function handleEstateRequest(req, res, body) {
         daemonFetch(`/v1/hypervisor/operations`).then((x) => x.json()).catch(() => ({})),
         daemonFetch(`/v1/hypervisor/work-results`).then((x) => x.json()).catch(() => ({})),
         readJ("/v1/hypervisor/support-incidents"),
-        wantDialog ? readJ("/v1/hypervisor/auth/whoami") : null,
+        wantDialog || issueId ? readJ("/v1/hypervisor/auth/whoami") : null,
         wantDialog ? readJ("/v1/hypervisor/projects") : null,
         wantDialog ? readJ("/v1/hypervisor/principals") : null,
         issueId ? readJ(`/v1/hypervisor/support-incidents/${encodeURIComponent(issueId)}`) : null,
@@ -13927,8 +13947,9 @@ async function handleEstateRequest(req, res, body) {
       }
       if (issueId) {
         const note = (qp.get("note") || "").slice(0, 400);
+        const meRef = (whoR && (whoR.j.principal || (whoR.j.payload && whoR.j.payload.principal) || {}).principal_ref) || "";
         extra.issue = issueR.status === 200 && issueR.j.incident
-          ? { record: issueR.j.incident, notice: note ? { kind: qp.get("ok") === "1" ? "ok" : "err", text: note } : null }
+          ? { record: issueR.j.incident, me: meRef, notice: note ? { kind: qp.get("ok") === "1" ? "ok" : "err", text: note } : null }
           : { error: issueR.status === 404 ? "No filed issue has this id." : `The issue could not be read: ${why(issueR)}.` };
       }
       return renderIncidentsPort(opsRes, wrRes.work_results || [], lane, extra);
@@ -13975,7 +13996,7 @@ async function handleEstateRequest(req, res, body) {
       const r = await daemonFetch(`/v1/hypervisor/support-incidents/${encodeURIComponent(id)}/status`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ owner_ref: owner, idempotency_key: `issue-status-${f.get("nonce") || crypto.randomUUID()}`, status: to }) })
         .then(async (x) => ({ status: x.status, j: await x.json().catch(() => ({})) })).catch(() => ({ status: 0, j: {} }));
       if (r.status >= 200 && r.status < 300) return back(true, `Status is now ${r.j.incident?.status || to}.`);
-      return back(false, `Not changed: ${(r.j.error && r.j.error.message) || r.j.message || (r.status ? `the daemon answered HTTP ${r.status}` : "the daemon did not answer")}.`);
+      return back(false, `Not changed: ${whyRefused(r.j)}.`);
     }
     if (pathname === "/__ioi/operations" && req.method === "GET") {
       const [r, authpol, prov, provReceipts, spendRecon, storageB, storageInc, akashDepin, failoverRuns, failoverPlans2, workResultsRes, ledgerRes] = await Promise.all([
