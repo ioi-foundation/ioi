@@ -295,6 +295,8 @@ const LOOPBACK_REMOTE_ADDRESSES = new Set([
 // Every daemon call from this file goes through here. With no explicit `req` it uses the
 // ambient request; outside a request (startup probes) it sends no identity, which the daemon
 // adjudicates as unauthenticated rather than as an operator.
+const DAEMON_READ_DEADLINE_MS = Math.max(1000, Number(process.env.IOI_DAEMON_READ_DEADLINE_MS) || 90_000);
+const SIGNIN_GATE_DEADLINE_MS = Math.max(500, Number(process.env.IOI_SIGNIN_GATE_DEADLINE_MS) || 5_000);
 function daemonFetch(pathOrUrl, init = {}) {
   const req = init.req || reqCtx.getStore()?.req || null;
   // Header names are case-insensitive on the wire but not in an object spread: a handler that
@@ -311,7 +313,13 @@ function daemonFetch(pathOrUrl, init = {}) {
   };
   const { req: _drop, ...rest } = init;
   const url = String(pathOrUrl).startsWith("http") ? pathOrUrl : `${DAEMON}${pathOrUrl}`;
-  return fetch(url, { ...rest, headers });
+  // A READ NEVER WAITS FOREVER (R-240, measured): a daemon that accepts the connection and never
+  // answers held every page open past a 60s browser timeout. A GET without its own signal gets a
+  // safety deadline above the slowest legitimate read measured (the Systems projection, ~49s);
+  // writes and model calls are left alone — they may legitimately run long.
+  const method = String(rest.method || "GET").toUpperCase();
+  const signal = rest.signal || (method === "GET" ? AbortSignal.timeout(DAEMON_READ_DEADLINE_MS) : undefined);
+  return fetch(url, { ...rest, headers, ...(signal ? { signal } : {}) });
 }
 
 function daemonRequestHeaders(req, { includeContentType = false } = {}) {
@@ -2861,7 +2869,10 @@ async function designerEditorContext(bpId) {
     ontologies, lists, blueprint,
     model: {
       surfaces: SURFACES.filter((s) => s.route !== "/__ioi/studio/designer"), ontologies, ...lists, blueprint, head: blueprint ? bp.admitted_head || "" : "",
-      modelRoutes: (mr.model_routes || mr.routes || []).filter((r) => r && r.route_id).map((r) => ({ id: r.route_id, model: r.model?.model_id || r.route_id, availability: r.availability?.state || "unknown", stale: !!r.availability?.stale })),
+      // Runnable first: lifecycle active + availability available (the call re-checks a stale one).
+      modelRoutes: (mr.model_routes || mr.routes || []).filter((r) => r && r.route_id)
+        .map((r) => ({ id: r.route_id, model: r.model?.model_id || r.route_id, availability: r.availability?.state || "unknown", stale: !!r.availability?.stale, lifecycle: r.lifecycle?.status || "active", runnable: (r.lifecycle?.status || "active") === "active" && r.availability?.state === "available", preferred: !!r.default_route }))
+        .sort((a, b) => (Number(b.runnable) - Number(a.runnable)) || (Number(b.preferred) - Number(a.preferred))),
     },
   };
 }
@@ -3182,7 +3193,11 @@ function renderFoundryLanding(overview, specs, runPlans, modelRoutes, routeBindi
 function renderFoundrySpecForm(catalog, existing) {
   const enc = encodeURIComponent; const ex = existing || {}; const isEdit = !!existing;
   const action = isEdit ? `/__ioi/foundry/specs/${enc(ex.id)}/patch` : `/__ioi/foundry/specs`;
-  const checks = (label, name, ids, current) => `<div class="field"><label>${label}</label>${ids.length ? ids.map((id) => `<label style="display:flex;gap:8px;align-items:center;font-weight:400;margin:3px 0"><input type="checkbox" name="${name}" value="${CX_ESC(id)}" ${(current || []).includes(id) ? "checked" : ""} style="width:auto"> <code>${CX_ESC(id)}</code></label>`).join("") : `<span class="sub" style="margin:0">none available</span>`}</div>`;
+  // Each binding is submitted as the contract's own `scheme://id` ref (R-240): the bare catalog id this
+  // posted failed the registered contract, so no spec could be created. A record saved earlier with a
+  // bare id still shows as checked.
+  const SCHEME = { model_route_refs: "model-route", provider_refs: "provider", backend_refs: "backend", endpoint_refs: "endpoint" };
+  const checks = (label, name, ids, current) => `<div class="field"><label>${label}</label>${ids.length ? ids.map((id) => { const ref = `${SCHEME[name]}://${id}`; return `<label style="display:flex;gap:8px;align-items:center;font-weight:400;margin:3px 0"><input type="checkbox" name="${name}" value="${CX_ESC(ref)}" ${(current || []).includes(ref) || (current || []).includes(id) ? "checked" : ""} style="width:auto"> <code>${CX_ESC(id)}</code></label>`; }).join("") : `<span class="sub" style="margin:0">none available</span>`}</div>`;
   const kindOpts = FOUNDRY_KINDS.map((k) => `<option value="${k}" ${ex.kind === k ? "selected" : ""}>${k}</option>`).join("");
   const inputs = ex.inputs || {};
   const inner = `<p><a href="/__ioi/foundry">← Foundry</a></p><h1>${isEdit ? "Edit" : "New"} FoundrySpec</h1>
@@ -3230,8 +3245,11 @@ function renderFoundryRunPlanForm(spec, catalog) {
   const enc = encodeURIComponent; const s = spec || {};
   const sr = s.model_route_refs || []; const sp = s.provider_refs || [];
   const opt = (id, firstSel, inSpec) => `<option value="${CX_ESC(id)}" ${firstSel ? "selected" : ""}>${CX_ESC(id)}${inSpec ? " (from spec)" : ""}</option>`;
-  const routeOpts = (catalog.routes || []).map((r) => opt(r, sr[0] === r, sr.includes(r))).join("");
-  const provOpts = (catalog.providers || []).map((r) => opt(r, sp[0] === r, sp.includes(r))).join("");
+  // Targets are offered as the contract's canonical refs (R-240); a spec binding saved in either form
+  // (bare id or scheme://id) still preselects its match.
+  const canon = (scheme, id) => `${scheme}://${id}`;
+  const routeOpts = (catalog.routes || []).map((r) => opt(canon("model-route", r), sr[0] === r || sr[0] === canon("model-route", r), sr.includes(r) || sr.includes(canon("model-route", r)))).join("");
+  const provOpts = (catalog.providers || []).map((r) => opt(canon("provider", r), sp[0] === r || sp[0] === canon("provider", r), sp.includes(r) || sp.includes(canon("provider", r)))).join("");
   const inner = `<p><a href="/__ioi/foundry/specs/${enc(s.id || "")}">← ${CX_ESC(s.name || s.id || "")}</a></p><h1>New FoundryRunPlan</h1>
     <p class="sub">A draft plan from <code>${CX_ESC(s.id || "")}</code>. It records a target plus a promotion <b>preview</b> — nothing is dispatched or promoted.</p>
     <form method="post" action="/__ioi/foundry/run-plans"><input type="hidden" name="spec_ref" value="${CX_ESC(s.id || "")}">
@@ -8600,7 +8618,18 @@ async function signInGate(req, res, pathname) {
   if (!SIGNIN_REQUIRED || req.method !== "GET") return false;
   if (!String(req.headers.accept || "").includes("text/html")) return false;
   if (SIGNIN_PUBLIC.test(pathname) || /\.[a-z0-9]{2,5}$/iu.test(pathname)) return false;
-  const who = await daemonFetch("/v1/hypervisor/auth/whoami").then((r) => r.json()).catch(() => null);
+  // Every page load asks the daemon who is signed in. A daemon that REFUSES the connection fails
+  // fast and each page renders its own degraded state; one that accepts and never answers used to
+  // hang every page. The gate gives it a few seconds, then says so itself (R-240).
+  let stalled = false;
+  const who = await daemonFetch("/v1/hypervisor/auth/whoami", { signal: AbortSignal.timeout(SIGNIN_GATE_DEADLINE_MS) })
+    .then((r) => r.json())
+    .catch((e) => { stalled = e?.name === "TimeoutError" || e?.name === "AbortError"; return null; });
+  if (stalled) {
+    res.writeHead(503, { "Content-Type": "text/html; charset=utf-8", "Cache-Control": "no-store", "Retry-After": "5" });
+    res.end(`<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Daemon not answering</title><style>body{margin:0;font-family:system-ui,sans-serif;background:#f6f7f9;color:#1c2127;display:flex;min-height:100vh;align-items:center;justify-content:center}main{max-width:520px;padding:28px;background:#fff;border:1px solid #d3d8de;border-radius:10px}h1{font-size:20px;margin:0 0 8px}p{color:#404854;line-height:1.5}a{color:#215db0}@media(prefers-color-scheme:dark){body{background:#111418;color:#e6e7ea}main{background:#1c2127;border-color:#2f343c}p{color:#abb3bf}a{color:#8abbff}}</style></head><body><main data-error-code="daemon_not_answering"><h1>Daemon not answering</h1><p>The Hypervisor daemon accepted the connection but gave no answer within ${Math.round(SIGNIN_GATE_DEADLINE_MS / 1000)} seconds, so this page cannot be built. It may be busy or stuck; nothing was changed.</p><p><a href="${CX_ESC(req.url || pathname)}">Try again</a></p></main></body></html>`);
+    return true;
+  }
   // The daemon not answering is its own state, and the pages say so ("Daemon not answering").
   if (!who || who.authenticated === true) return false;
   const status = await daemonFetch("/v1/hypervisor/auth/bootstrap-status").then((r) => r.json()).catch(() => ({}));
@@ -12896,17 +12925,35 @@ async function handleEstateRequest(req, res, body) {
       const infUsage = infRowsOf("runtime_usage");
       const infModelRoutes = infRowsOf("model_routes");
       const infRunPanel = (() => {
+        // A ROUTE IS OFFERED ONLY IF IT CAN RUN (R-240). The select listed every route — a disabled one
+        // first, and routes whose provider does not have the model — so the default choice answered
+        // "Not run: route lifecycle 'disabled'". Runnable = lifecycle active + availability available
+        // (staleness is fine: the call re-checks). The rest stay visible, disabled, saying why.
+        const runState = (r) => {
+          const life = istr(r.lifecycle?.status) || (typeof r.lifecycle === "string" ? r.lifecycle : "");
+          const av = istr(r.availability?.state) || "unknown";
+          if (life && life !== "active") return { ok: false, why: `${life} — enable it in Agent Studio` };
+          if (av !== "available") return { ok: false, why: av === "model_not_present" ? "the provider does not have this model" : `availability is ${av}` };
+          return { ok: true, why: "" };
+        };
         const routeOpt = (r) => {
           const id = istr(r.route_id); const model = istr(r.model?.model_id) || istr(r.model_id);
           const avail = istr(r.availability?.state) || "unknown";
-          const picked = infRun ? infRun.routeId === id : false;
-          return `<option value="${esc(id)}"${picked ? " selected" : ""}>${esc(model || id)} · ${esc(id)} · ${esc(avail)}${r.availability?.stale ? " (stale)" : ""}</option>`;
+          const st = runState(r);
+          const picked = st.ok && infRun ? infRun.routeId === id : false;
+          return st.ok
+            ? `<option value="${esc(id)}"${picked ? " selected" : ""}>${esc(model || id)} · ${esc(id)} · ${esc(avail)}${r.availability?.stale ? " (stale)" : ""}</option>`
+            : `<option value="${esc(id)}" disabled>${esc(model || id)} · ${esc(id)} · cannot run: ${esc(st.why)}</option>`;
         };
-        const routes = infModelRoutes.filter((r) => istr(r.route_id));
+        const routes = infModelRoutes.filter((r) => istr(r.route_id))
+          .map((r) => ({ r, st: runState(r) }))
+          .sort((a, b) => (Number(b.st.ok) - Number(a.st.ok)) || (Number(!!b.r.default_route) - Number(!!a.r.default_route)))
+          .map((x) => x.r);
+        const runnable = routes.filter((r) => runState(r).ok);
         let result = "";
         if (infRun) {
           const inv = infRun.invocation || {}; const ev = inv.evidence || {}; const tm = ev.token_mix || {};
-          const checkedNote = infRun.checked ? `<p class="inf-runnote">The route's availability was ${infRun.checked.j?.availability?.state === "available" ? "checked first (it had gone stale) — the provider answered" : `checked first and the provider did not answer (<code>${esc(infRun.checked.j?.error?.code || `http_${infRun.checked.status}`)}</code>)`}.</p>` : "";
+          const checkedNote = infRun.checked ? `<p class="inf-runnote">The route's availability was ${infRun.checked.j?.availability?.state === "available" ? (infRun.ok ? "checked first (it had gone stale) — the provider answered" : "re-checked and the provider answered, so the refusal above is about the route itself, not the provider") : `checked first and the provider did not answer (<code>${esc(infRun.checked.j?.error?.code || `http_${infRun.checked.status}`)}</code>)`}.</p>` : "";
           if (infRun.ok && infRun.output !== null) {
             result = `<div class="inf-runres ok" role="status"><div class="inf-runans">${esc(infRun.output)}</div>
               <p class="inf-runmeta">${esc(inv.model_id || "")} · route <code>${esc(inv.route_id || infRun.routeId)}</code> · ${esc(String(ev.latency?.total_ms ?? "—"))} ms · ${esc(String(tm.input ?? "—"))} in / ${esc(String(tm.output ?? "—"))} out tokens · invocation <code>${esc(inv.invocation_id || "")}</code></p>
@@ -12919,13 +12966,15 @@ async function handleEstateRequest(req, res, body) {
         }
         // A sole route is not a choice: a one-option select opens onto nothing. It is stated, and the
         // way to add another is one link away.
-        const sole = routes.length === 1 ? routes[0] : null;
+        const sole = routes.length === 1 && runnable.length === 1 ? routes[0] : null;
         const routeField = sole
           ? `<div class="inf-runfixed"><span class="inf-runlbl">Model route</span><span>${esc(istr(sole.model?.model_id) || istr(sole.model_id) || istr(sole.route_id))} · <code>${esc(istr(sole.route_id))}</code> · ${esc(istr(sole.availability?.state) || "unknown")}${sole.availability?.stale ? " (stale — it is checked before the call)" : ""} <a href="/__ioi/foundry/models?register=1#register">Register another model</a></span><input type="hidden" name="route_id" value="${esc(istr(sole.route_id))}"></div>`
-          : `<label>Model route<select name="route_id" required>${routes.map(routeOpt).join("")}</select></label>`;
+          : `<label>Model route<select name="route_id" required>${routes.map(routeOpt).join("")}</select><span class="inf-runhint2">${runnable.length} of ${routes.length} route${routes.length === 1 ? "" : "s"} can run now · <a href="/__ioi/agent-studio#model-routes">Manage routes in Agent Studio</a> · <a href="/__ioi/foundry/models?register=1#register">Register a model</a></span></label>`;
         // An empty prompt is refused by the browser before anything is sent; its bubble vanishes on the
         // next keystroke, so the reason is also written under the field, where it stays until it is fixed.
-        const form = routes.length
+        const form = routes.length && !runnable.length
+          ? `<p class="inf-runnote">None of the ${routes.length} registered route${routes.length === 1 ? "" : "s"} can run right now: ${routes.map((r) => `${esc(istr(r.model?.model_id) || istr(r.route_id))} (${esc(runState(r).why)})`).join(", ")}. <a href="/__ioi/agent-studio#model-routes">Manage routes in Agent Studio</a> or <a href="/__ioi/foundry/models?register=1#register">register a model</a>.</p>`
+          : routes.length
           ? `<form method="post" action="/__ioi/foundry/inference#run" class="inf-runform" id="inf-runform">
               <input type="hidden" name="nonce" value="${esc(crypto.randomUUID())}">
               ${routeField}
@@ -12944,7 +12993,7 @@ async function handleEstateRequest(req, res, body) {
             .inf-runform select,.inf-runform textarea{font-family:inherit;font-size:14px;line-height:1.4;font-weight:400;color:#1c2127;border:1px solid rgba(17,20,24,.25);border-radius:3px;padding:6px 8px;background:#fff}
             .inf-runform button{background:#2d72d2;color:#fff;border:0;border-radius:3px;padding:6px 16px;font:inherit;font-weight:600;cursor:pointer}.inf-runform button:hover{background:#215db0}
             .inf-runfixed{display:flex;flex-direction:column;gap:4px;font-size:14px;color:#1c2127}.inf-runfixed .inf-runlbl{font-size:12px;font-weight:600;color:#404854}.inf-runfixed a{margin-left:8px;font-size:13px}
-            .inf-runhint{margin:-4px 0 0;font-size:13px;color:#ac2f33}
+            .inf-runhint{margin:-4px 0 0;font-size:13px;color:#ac2f33}.inf-runhint2{font-size:12px;font-weight:400;color:#5f6b7c}
             .inf-runres{margin-top:14px;border-radius:4px;padding:12px 14px}.inf-runres.ok{background:#f3f8f5;border:1px solid rgba(35,133,81,.3)}.inf-runres.err{background:#fcf1f1;border:1px solid rgba(172,47,51,.3)}
             .inf-runans{white-space:pre-wrap;font-size:15px;line-height:1.5;color:#1c2127}.inf-runmeta,.inf-runnote{margin:8px 0 0;font-size:12px;color:#5f6b7c}
           </style>

@@ -232,31 +232,63 @@ fn validate_bindings(
                 .into(),
         ));
     }
-    let unknown =
-        |refs: &[String], set: &HashSet<String>, label: &str| -> Option<(String, String)> {
-            for r in refs {
-                if !set.contains(r) {
-                    return Some((
-                        "foundry_ref_unresolved".into(),
-                        format!("{label} ref '{r}' does not resolve to real substrate."),
-                    ));
-                }
+    // A ref resolves by its catalog id. The registered contract (foundry-draft-spec v1) requires every
+    // ref to be `scheme://id`, while this check used to demand the bare catalog id — so a bare id failed
+    // the contract and a contract-shaped ref failed here, and NO spec could be created (R-240). The
+    // canonical schemes are the estate's own: model-route://, provider://, backend://, endpoint://.
+    let unknown = |refs: &[String],
+                   set: &HashSet<String>,
+                   label: &str,
+                   scheme: &str|
+     -> Option<(String, String)> {
+        for r in refs {
+            let id = catalog_id(r, scheme);
+            if !set.contains(id) {
+                return Some((
+                    "foundry_ref_unresolved".into(),
+                    format!("{label} ref '{r}' does not resolve to real substrate."),
+                ));
             }
-            None
-        };
-    if let Some(e) = unknown(route_refs, &cat.routes, "model_route") {
+        }
+        None
+    };
+    if let Some(e) = unknown(route_refs, &cat.routes, "model_route", "model-route") {
         return Err(e);
     }
-    if let Some(e) = unknown(provider_refs, &cat.providers, "provider") {
+    if let Some(e) = unknown(provider_refs, &cat.providers, "provider", "provider") {
         return Err(e);
     }
-    if let Some(e) = unknown(backend_refs, &cat.backends, "backend") {
+    if let Some(e) = unknown(backend_refs, &cat.backends, "backend", "backend") {
         return Err(e);
     }
-    if let Some(e) = unknown(endpoint_refs, &cat.endpoints, "endpoint") {
+    if let Some(e) = unknown(endpoint_refs, &cat.endpoints, "endpoint", "endpoint") {
         return Err(e);
     }
     Ok(())
+}
+
+/// The catalog id a binding ref names: `model-route://route.local-first` → `route.local-first`. A bare
+/// id is returned unchanged (older records and run-plan callers), and a ref under ANOTHER scheme is
+/// returned whole, so it cannot resolve by accident.
+/// The contract's canonical form of a binding ref: a bare catalog id gets its scheme
+/// (`route.local-first` → `model-route://route.local-first`); a ref that already has one is kept.
+/// The daemon owns this form, so an API caller sending a bare id is written as the contract requires.
+fn canonical_ref(r: &str, scheme: &str) -> String {
+    if r.contains("://") {
+        r.to_string()
+    } else {
+        format!("{scheme}://{r}")
+    }
+}
+fn canonical_refs(refs: Vec<String>, scheme: &str) -> Vec<String> {
+    refs.iter().map(|r| canonical_ref(r, scheme)).collect()
+}
+
+fn catalog_id<'a>(r: &'a str, scheme: &str) -> &'a str {
+    r.strip_prefix(scheme)
+        .and_then(|rest| rest.strip_prefix("://"))
+        .filter(|id| !id.is_empty())
+        .unwrap_or(r)
 }
 
 /// GET /v1/hypervisor/foundry/overview — real substrate counts + Foundry object counts + recents.
@@ -364,10 +396,10 @@ pub(crate) async fn handle_foundry_spec_create(
             &format!("kind must be one of {SPEC_KINDS:?}"),
         );
     }
-    let route_refs = str_refs(&body, "model_route_refs");
-    let provider_refs = str_refs(&body, "provider_refs");
-    let backend_refs = str_refs(&body, "backend_refs");
-    let endpoint_refs = str_refs(&body, "endpoint_refs");
+    let route_refs = canonical_refs(str_refs(&body, "model_route_refs"), "model-route");
+    let provider_refs = canonical_refs(str_refs(&body, "provider_refs"), "provider");
+    let backend_refs = canonical_refs(str_refs(&body, "backend_refs"), "backend");
+    let endpoint_refs = canonical_refs(str_refs(&body, "endpoint_refs"), "endpoint");
     let cat = fetch_catalog(&st.base_url).await;
     if let Err((code, message)) = validate_bindings(
         &cat,
@@ -464,7 +496,17 @@ pub(crate) async fn handle_foundry_spec_patch(
         "authority_policy_ref",
     ] {
         if let Some(v) = body.get(key) {
-            s[key] = v.clone();
+            let scheme = match key {
+                "model_route_refs" => Some("model-route"),
+                "provider_refs" => Some("provider"),
+                "backend_refs" => Some("backend"),
+                "endpoint_refs" => Some("endpoint"),
+                _ => None,
+            };
+            s[key] = match scheme {
+                Some(scheme) => json!(canonical_refs(str_refs(&body, key), scheme)),
+                None => v.clone(),
+            };
         }
     }
     if touches_binding {
@@ -544,16 +586,22 @@ pub(crate) async fn handle_foundry_run_plan_create(
             .and_then(|x| x.as_str())
             .map(str::to_string)
     };
+    // Written in the contract's canonical form, resolved by catalog id (R-240): a bare id from the
+    // form failed the run-plan contract, and a canonical ref inherited from a spec failed this check.
     let target_route = body
         .get("target_route_ref")
         .and_then(|v| v.as_str())
+        .filter(|v| !v.trim().is_empty())
         .map(str::to_string)
-        .or_else(|| first_ref(&spec, "model_route_refs"));
+        .or_else(|| first_ref(&spec, "model_route_refs"))
+        .map(|r| canonical_ref(&r, "model-route"));
     let target_provider = body
         .get("target_provider_ref")
         .and_then(|v| v.as_str())
+        .filter(|v| !v.trim().is_empty())
         .map(str::to_string)
-        .or_else(|| first_ref(&spec, "provider_refs"));
+        .or_else(|| first_ref(&spec, "provider_refs"))
+        .map(|r| canonical_ref(&r, "provider"));
     if target_route.is_none() && target_provider.is_none() {
         return bad(
             "foundry_target_required",
@@ -562,7 +610,7 @@ pub(crate) async fn handle_foundry_run_plan_create(
     }
     let cat = fetch_catalog(&st.base_url).await;
     if let Some(r) = &target_route {
-        if !cat.routes.contains(r) {
+        if !cat.routes.contains(catalog_id(r, "model-route")) {
             return bad(
                 "foundry_ref_unresolved",
                 &format!("target_route_ref '{r}' does not resolve to real substrate."),
@@ -570,7 +618,7 @@ pub(crate) async fn handle_foundry_run_plan_create(
         }
     }
     if let Some(p) = &target_provider {
-        if !cat.providers.contains(p) {
+        if !cat.providers.contains(catalog_id(p, "provider")) {
             return bad(
                 "foundry_ref_unresolved",
                 &format!("target_provider_ref '{p}' does not resolve to real substrate."),
@@ -722,6 +770,48 @@ mod foundry_tests {
             &[],
         )
         .unwrap_err();
+        assert_eq!(err.0, "foundry_ref_unresolved");
+    }
+
+    #[test]
+    fn a_bare_catalog_id_is_written_in_the_contracts_canonical_form() {
+        assert_eq!(
+            canonical_ref("route.local-first", "model-route"),
+            "model-route://route.local-first"
+        );
+        assert_eq!(
+            canonical_ref("provider://provider.hypervisor.local", "provider"),
+            "provider://provider.hypervisor.local"
+        );
+        assert_eq!(
+            canonical_refs(vec!["backend.ollama".into()], "backend"),
+            vec!["backend://backend.ollama".to_string()]
+        );
+    }
+
+    #[test]
+    fn binding_resolves_the_contract_shaped_ref_by_its_catalog_id() {
+        // The registered contract requires `scheme://id`; each resolves by its id.
+        assert!(validate_bindings(
+            &cat(),
+            &["model-route://route.local-first".into()],
+            &["provider://provider.hypervisor.local".into()],
+            &["backend://backend.hypervisor.native-local.fixture".into()],
+            &["endpoint://endpoint.e2e.native-local".into()],
+        )
+        .is_ok());
+        // A ref under the wrong scheme does not resolve by accident.
+        let err = validate_bindings(
+            &cat(),
+            &["backend://route.local-first".into()],
+            &[],
+            &[],
+            &[],
+        )
+        .unwrap_err();
+        assert_eq!(err.0, "foundry_ref_unresolved");
+        // An empty id after the scheme is not an id.
+        let err = validate_bindings(&cat(), &["model-route://".into()], &[], &[], &[]).unwrap_err();
         assert_eq!(err.0, "foundry_ref_unresolved");
     }
 
