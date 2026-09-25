@@ -21,6 +21,7 @@ import { spawnSync } from "node:child_process";
 import { readFileSync } from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
+import { parityOverclaims } from "./lib/parity-honesty.mjs";
 
 const SERVE = (process.env.IOI_HYPERVISOR_SERVE_URL || "http://127.0.0.1:4173").replace(/\/$/, "");
 const DAEMON = (process.env.IOI_HYPERVISOR_DAEMON_URL || "http://127.0.0.1:8765").replace(/\/$/, "");
@@ -50,7 +51,7 @@ async function run() {
   ok("matrix: machinery is daemon_wired at /__ioi/studio/machinery (Studio) with Machinery-IA landmarks", row && row.parity_class === "daemon_wired" && row.candidate_surface === "/__ioi/studio/machinery" && row.surface_name === "Studio" && Array.isArray(row.reference_landmarks) && row.reference_landmarks.length >= 8, row ? `class=${row.parity_class}` : "row missing");
   ok("matrix: the reference is ORIGIN-ALIGNED (reference_url_override → localhost:9225/workspace/machinery-app/)", row && row.reference_url_override === "http://localhost:9225/workspace/machinery-app/");
   ok("matrix keeps workshop + module reference_capture (NOT over-claimed in this cut)", bySlug.workshop?.parity_class === "reference_capture" && bySlug.module?.parity_class === "reference_capture");
-  ok("the estate census accepts machinery among the certified daemon_wired surfaces (>= 9 since #50); reference_capture stays the honest majority", (matrix.by_parity_class?.daemon_wired || 0) >= 9 && (matrix.by_parity_class?.reference_capture || 0) >= 20, JSON.stringify(matrix.by_parity_class));
+  ok("the estate census accepts machinery among the certified daemon_wired surfaces (>= 9 since #50); no row claims a parity class its evidence does not carry (the 'honest majority' clause went stale as ports landed)", (matrix.by_parity_class?.daemon_wired || 0) >= 9 && parityOverclaims(matrix).length === 0, JSON.stringify(matrix.by_parity_class));
 
   // 0b. Shell-pixel certification is REAL, committed, non-pinned, SHELL-scoped.
   let cert = null;

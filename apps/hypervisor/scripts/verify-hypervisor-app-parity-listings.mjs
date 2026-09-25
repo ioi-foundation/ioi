@@ -24,6 +24,7 @@ import { readFileSync, existsSync, rmSync } from "node:fs";
 import { spawnSync } from "node:child_process";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
+import { parityOverclaims } from "./lib/parity-honesty.mjs";
 
 const SERVE = (process.env.IOI_HYPERVISOR_SERVE_URL || "http://127.0.0.1:4173").replace(/\/$/, "");
 const DAEMON = (process.env.IOI_HYPERVISOR_DAEMON_URL || "http://127.0.0.1:8765").replace(/\/$/, "");
@@ -46,7 +47,7 @@ async function run() {
   const row = (matrix.seeds || []).find((s) => s.slug === "listings");
   ok("matrix: listings is daemon_wired at /__ioi/marketplace/listings with Listings-IA landmarks + the intact /__ioi/marketplace substrate", row && row.parity_class === "daemon_wired" && row.port_surface === "/__ioi/marketplace/listings" && row.candidate_surface === "/__ioi/marketplace/listings" && row.substrate_surface === "/__ioi/marketplace" && Array.isArray(row.reference_landmarks) && row.reference_landmarks.length >= 8, row ? `class=${row.parity_class}` : "row missing");
   ok("matrix: the listings REFERENCE is data_clean per the sweep (its Stores lane is rebound to the same substrate)", row && row.reference_clean_state === "data_clean", row ? row.reference_clean_reason?.slice(0, 80) : "");
-  ok("the estate census accepts listings among the certified daemon_wired surfaces (>= 7 since #48); reference_capture stays the honest majority", (matrix.by_parity_class?.daemon_wired || 0) >= 7 && (matrix.by_parity_class?.reference_capture || 0) >= 20, JSON.stringify(matrix.by_parity_class));
+  ok("the estate census accepts listings among the certified daemon_wired surfaces (>= 7 since #48); no row claims a parity class its evidence does not carry (the 'honest majority' clause went stale as ports landed)", (matrix.by_parity_class?.daemon_wired || 0) >= 7 && parityOverclaims(matrix).length === 0, JSON.stringify(matrix.by_parity_class));
 
   // 2. VISUAL PARITY (the pre-capture hook dismisses the What's-new modal; error text is read pre-hook by capture()).
   const artDir = path.join(appRoot, ".artifacts", "listings-port-verify");

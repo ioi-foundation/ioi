@@ -32,6 +32,7 @@ import { readFileSync, existsSync, rmSync } from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { mintApprovalGrant } from "../../../scripts/lib/mint-approval-grant.mjs";
+import { parityOverclaims } from "./lib/parity-honesty.mjs";
 
 const SERVE = (process.env.IOI_HYPERVISOR_SERVE_URL || "http://127.0.0.1:4173").replace(/\/$/, "");
 const DAEMON = (process.env.IOI_HYPERVISOR_DAEMON_URL || "http://127.0.0.1:8765").replace(/\/$/, "");
@@ -61,7 +62,7 @@ async function run() {
   const bySlug = Object.fromEntries((matrix.seeds || []).map((s) => [s.slug, s]));
   ok("matrix classifies pipeline as daemon_wired → /__ioi/pipeline with reference_landmarks + reference_url_override declared (no parity_blocked)", bySlug.pipeline?.parity_class === "daemon_wired" && bySlug.pipeline?.port_surface === "/__ioi/pipeline" && bySlug.pipeline?.candidate_surface === "/__ioi/pipeline" && Array.isArray(bySlug.pipeline?.reference_landmarks) && bySlug.pipeline.reference_landmarks.length >= 5 && typeof bySlug.pipeline?.reference_url_override === "string" && /localhost:9225/.test(bySlug.pipeline.reference_url_override) && !bySlug.pipeline?.parity_blocked, `class=${bySlug.pipeline?.parity_class} landmarks=${(bySlug.pipeline?.reference_landmarks || []).length}`);
   ok("no false parity elsewhere: schema+approvals stay daemon_wired, explorer is daemon_wired only via its #46 certified origin-aligned correction, lineage/vertex stay substrate_bound", bySlug.schema?.parity_class === "daemon_wired" && bySlug.approvals?.parity_class === "daemon_wired" && (bySlug.explorer?.parity_class !== "daemon_wired" || (bySlug.explorer?.shell_pixel_certified === true && !!bySlug.explorer?.reference_url_override)) && bySlug.lineage?.parity_class === "substrate_bound" && bySlug.vertex?.parity_class === "substrate_bound");
-  ok("estate honest: reference_capture still the majority; no false 'covered'", (matrix.by_parity_class?.reference_capture || 0) >= (matrix.by_parity_class?.reference_ported || 0) && !(matrix.seeds || []).some((s) => s.parity_class === "covered"));
+  ok("estate honest: no row claims a parity class its evidence does not carry, and nothing is 'covered' (the 'majority' clause went stale as ports landed)", parityOverclaims(matrix).length === 0, parityOverclaims(matrix).join("; "));
 
   // 0b. DATA-CLEAN PREFLIGHT (#37 infra; #38 DIAGNOSIS RE-BASELINE) — the block is MACHINE-PROVEN from the
   // live mirror, not prose. `data_clean` (the harness-path/proxy reference certifiable) must be FALSE for

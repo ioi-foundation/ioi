@@ -34,6 +34,7 @@ import { spawnSync } from "node:child_process";
 import { readFileSync, existsSync } from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
+import { parityOverclaims } from "./lib/parity-honesty.mjs";
 
 const SERVE = (process.env.IOI_HYPERVISOR_SERVE_URL || "http://127.0.0.1:4173").replace(/\/$/, "");
 const DAEMON = (process.env.IOI_HYPERVISOR_DAEMON_URL || "http://127.0.0.1:8765").replace(/\/$/, "");
@@ -84,7 +85,7 @@ async function run() {
   const bySlug = Object.fromEntries((matrix.seeds || []).map((s) => [s.slug, s]));
   ok("matrix classifies approvals as daemon_wired → /__ioi/governance/approvals (TRUE parity)", bySlug.approvals?.parity_class === "daemon_wired" && bySlug.approvals?.port_surface === "/__ioi/governance/approvals" && bySlug.approvals?.candidate_surface === "/__ioi/governance/approvals");
   ok("approvals carries a real reference_landmarks spec (≥ 5 IA labels) and NO parity_blocked (the #34 block is removed)", Array.isArray(bySlug.approvals?.reference_landmarks) && bySlug.approvals.reference_landmarks.length >= 5 && bySlug.approvals.reference_landmarks.includes("Quick filters") && bySlug.approvals.reference_landmarks.includes("Your inbox") && !bySlug.approvals.parity_blocked, (bySlug.approvals?.reference_landmarks || []).length + " landmarks");
-  ok("daemon_wired is the faithful-port set (schema + approvals, + pipeline since #39); reference_capture is the majority", bySlug.schema?.parity_class === "daemon_wired" && bySlug.approvals?.parity_class === "daemon_wired" && (matrix.by_parity_class?.daemon_wired || 0) >= 2 && (matrix.by_parity_class?.reference_capture || 0) > (matrix.by_parity_class?.daemon_wired || 0) && !(matrix.seeds || []).some((s) => s.parity_class === "covered"));
+  ok("daemon_wired is the faithful-port set (schema + approvals, + pipeline since #39); no row claims a parity class its evidence does not carry (the 'honest majority' clause went stale as ports landed)", bySlug.schema?.parity_class === "daemon_wired" && bySlug.approvals?.parity_class === "daemon_wired" && (matrix.by_parity_class?.daemon_wired || 0) >= 2 && parityOverclaims(matrix).length === 0);
 
   // 1. Reference boots (light, non-errored) — the SPA hydrates client-side, so the raw HTML shows the
   // app chrome; the DATA-CLEAN faceted IA (Quick filters + real rows) is proven by the Playwright

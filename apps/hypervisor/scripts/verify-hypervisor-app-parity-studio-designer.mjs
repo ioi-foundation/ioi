@@ -34,6 +34,7 @@ import { spawnSync } from "node:child_process";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { mintApprovalGrant } from "../../../scripts/lib/mint-approval-grant.mjs";
+import { parityOverclaims } from "./lib/parity-honesty.mjs";
 
 const SERVE = (process.env.IOI_HYPERVISOR_SERVE_URL || "http://127.0.0.1:4173").replace(/\/$/, "");
 const DAEMON = (process.env.IOI_HYPERVISOR_DAEMON_URL || "http://127.0.0.1:8765").replace(/\/$/, "");
@@ -66,7 +67,7 @@ async function run() {
   // machinery legally advanced substrate_bound → daemon_wired in #50 (its own certified port PR);
   // a class SET, not a frozen pin — the recurring frozen-pin lesson.
   ok("matrix keeps workshop + module reference_capture and machinery bound (substrate_bound|daemon_wired) — siblings NOT over-claimed", ["workshop", "module"].every((k) => bySlug[k]?.parity_class === "reference_capture") && ["substrate_bound", "daemon_wired"].includes(bySlug.machinery?.parity_class));
-  ok("the estate census accepts designer among the certified daemon_wired surfaces (>= 8 since #49); reference_capture stays the honest majority", (matrix.by_parity_class?.daemon_wired || 0) >= 8 && (matrix.by_parity_class?.reference_capture || 0) >= 20, JSON.stringify(matrix.by_parity_class));
+  ok("the estate census accepts designer among the certified daemon_wired surfaces (>= 8 since #49); no row claims a parity class its evidence does not carry (the 'honest majority' clause went stale as ports landed)", (matrix.by_parity_class?.daemon_wired || 0) >= 8 && parityOverclaims(matrix).length === 0, JSON.stringify(matrix.by_parity_class));
 
   // 0b. Shell-pixel certification is REAL, committed, non-pinned, SHELL-scoped.
   let cert = null;

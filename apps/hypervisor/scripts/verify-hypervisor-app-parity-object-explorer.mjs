@@ -23,6 +23,7 @@ import { readFileSync, existsSync, rmSync } from "node:fs";
 import { spawnSync } from "node:child_process";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
+import { parityOverclaims } from "./lib/parity-honesty.mjs";
 
 const SERVE = (process.env.IOI_HYPERVISOR_SERVE_URL || "http://127.0.0.1:4173").replace(/\/$/, "");
 const DAEMON = (process.env.IOI_HYPERVISOR_DAEMON_URL || "http://127.0.0.1:8765").replace(/\/$/, "");
@@ -46,7 +47,7 @@ async function run() {
   ok("matrix: explorer is daemon_wired at /__ioi/ontology/explorer with the ORIGIN-ALIGNED reference override + landmarks declared", row && row.parity_class === "daemon_wired" && row.port_surface === "/__ioi/ontology/explorer" && row.candidate_surface === "/__ioi/ontology/explorer" && row.reference_url_override === "http://localhost:9225/workspace/hubble/" && Array.isArray(row.reference_landmarks) && row.reference_landmarks.length >= 8, row ? `class=${row.parity_class}` : "row missing");
   ok("the OLD BLOCKER is corrected: no stale parity_blocked prose survives; the note records the origin-mismatch correction", row && !row.parity_blocked && /origin mismatch|origin-aligned|ORIGIN-ALIGNED/i.test(row.note || ""));
   ok("the sweep records the corrected reference story (data_clean via the origin-aligned lane)", row && row.reference_clean_state === "data_clean", row ? `${row.reference_clean_state} · ${String(row.reference_clean_reason).slice(0, 70)}` : "");
-  ok("the estate census accepts explorer among the certified daemon_wired surfaces (>= 5 since #46); reference_ported stays empty; reference_capture stays the honest majority", (matrix.by_parity_class?.daemon_wired || 0) >= 5 && !(matrix.by_parity_class?.reference_ported) && (matrix.by_parity_class?.reference_capture || 0) >= 20, JSON.stringify(matrix.by_parity_class));
+  ok("the estate census accepts explorer among the certified daemon_wired surfaces (>= 5 since #46); no row claims a parity class its evidence does not carry (the 'honest majority' clause went stale as ports landed) — reference_ported is no longer empty (twenty ports landed with their adjudications)", (matrix.by_parity_class?.daemon_wired || 0) >= 5 && parityOverclaims(matrix).length === 0, JSON.stringify(matrix.by_parity_class));
 
   // 2. REFERENCE VALIDITY — the origin-aligned reference renders (machine-checked, not prose).
   const ref = await page("http://localhost:9225/workspace/hubble/");

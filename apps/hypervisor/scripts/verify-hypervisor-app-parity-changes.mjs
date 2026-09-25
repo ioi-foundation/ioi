@@ -24,6 +24,7 @@ import { spawnSync } from "node:child_process";
 import { readFileSync } from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
+import { parityOverclaims } from "./lib/parity-honesty.mjs";
 
 const SERVE = (process.env.IOI_HYPERVISOR_SERVE_URL || "http://127.0.0.1:4173").replace(/\/$/, "");
 const DAEMON = (process.env.IOI_HYPERVISOR_DAEMON_URL || "http://127.0.0.1:8765").replace(/\/$/, "");
@@ -49,7 +50,7 @@ async function run() {
   const row = bySlug.changes;
   ok("matrix: changes is daemon_wired at /__ioi/improvement/changes (Improvement) with Upgrade-Assistant-IA landmarks", row && row.parity_class === "daemon_wired" && row.candidate_surface === "/__ioi/improvement/changes" && row.surface_name === "Improvement" && Array.isArray(row.reference_landmarks) && row.reference_landmarks.length >= 8, row ? `class=${row.parity_class}` : "row missing");
   ok("matrix: the reference is ORIGIN-ALIGNED (reference_url_override → localhost:9225/workspace/upgrade-assistant/)", row && row.reference_url_override === "http://localhost:9225/workspace/upgrade-assistant/");
-  ok("the estate census accepts changes among the certified daemon_wired surfaces (>= 12 since #53); reference_capture stays the honest majority", (matrix.by_parity_class?.daemon_wired || 0) >= 12 && (matrix.by_parity_class?.reference_capture || 0) >= 20, JSON.stringify(matrix.by_parity_class));
+  ok("the estate census accepts changes among the certified daemon_wired surfaces (>= 12 since #53); no row claims a parity class its evidence does not carry (the 'honest majority' clause went stale as ports landed)", (matrix.by_parity_class?.daemon_wired || 0) >= 12 && parityOverclaims(matrix).length === 0, JSON.stringify(matrix.by_parity_class));
 
   // 0b. Certification is REAL, committed, non-pinned, SHELL-scoped.
   let cert = null;

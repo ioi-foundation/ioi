@@ -31,6 +31,7 @@ import { spawnSync } from "node:child_process";
 import { readFileSync, existsSync } from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
+import { parityOverclaims } from "./lib/parity-honesty.mjs";
 
 const SERVE = (process.env.IOI_HYPERVISOR_SERVE_URL || "http://127.0.0.1:4173").replace(/\/$/, "");
 const DAEMON = (process.env.IOI_HYPERVISOR_DAEMON_URL || "http://127.0.0.1:8765").replace(/\/$/, "");
@@ -76,7 +77,7 @@ async function run() {
   ok("matrix classifies schema as daemon_wired → /__ioi/ontology/manager (TRUE parity)", bySlug.schema?.parity_class === "daemon_wired" && bySlug.schema?.port_surface === "/__ioi/ontology/manager" && bySlug.schema?.candidate_surface === "/__ioi/ontology/manager");
   ok("schema carries a real reference_landmarks spec (≥ 5 IA labels the hardened harness requires)", Array.isArray(bySlug.schema?.reference_landmarks) && bySlug.schema.reference_landmarks.length >= 5 && bySlug.schema.reference_landmarks.includes("Discover") && bySlug.schema.reference_landmarks.includes("Object types"), (bySlug.schema?.reference_landmarks || []).length + " landmarks");
   ok("approvals is also daemon_wired (the faithful light re-port, #36) — schema is not the only parity surface", bySlug.approvals?.parity_class === "daemon_wired" && Array.isArray(bySlug.approvals?.reference_landmarks) && bySlug.approvals.reference_landmarks.length >= 5);
-  ok("daemon_wired is sacred: reference_capture is the majority; no false 'covered'", (matrix.by_parity_class?.reference_capture || 0) > (matrix.by_parity_class?.daemon_wired || 0) && !(matrix.seeds || []).some((s) => s.parity_class === "covered"));
+  ok("daemon_wired is sacred: no row claims a parity class its evidence does not carry, and nothing is 'covered' (the 'majority' clause went stale as ports landed)", parityOverclaims(matrix).length === 0, parityOverclaims(matrix).join("; "));
 
   // 1. Reference boots (valid, non-errored). It is a third-party light capture — brand strings on the
   // reference are expected; brand-clean is asserted on the IOI PORT below, not on the capture.

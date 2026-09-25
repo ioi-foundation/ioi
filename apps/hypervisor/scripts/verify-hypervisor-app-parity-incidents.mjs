@@ -21,6 +21,7 @@ import { readFileSync, existsSync, rmSync } from "node:fs";
 import { spawnSync } from "node:child_process";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
+import { parityOverclaims } from "./lib/parity-honesty.mjs";
 
 const SERVE = (process.env.IOI_HYPERVISOR_SERVE_URL || "http://127.0.0.1:4173").replace(/\/$/, "");
 const DAEMON = (process.env.IOI_HYPERVISOR_DAEMON_URL || "http://127.0.0.1:8765").replace(/\/$/, "");
@@ -43,7 +44,7 @@ async function run() {
   const row = (matrix.seeds || []).find((s) => s.slug === "incidents");
   ok("matrix: incidents is daemon_wired at /__ioi/missions/incidents with landmarks + the ?lane=closed harness deep-link + the intact /__ioi/missions substrate", row && row.parity_class === "daemon_wired" && row.port_surface === "/__ioi/missions/incidents" && row.candidate_surface === "/__ioi/missions/incidents" && row.substrate_surface === "/__ioi/missions" && row.ioi_url_override === "/__ioi/missions/incidents?lane=closed" && Array.isArray(row.reference_landmarks) && row.reference_landmarks.length >= 8, row ? `class=${row.parity_class}` : "row missing");
   ok("matrix: the incidents REFERENCE is data_clean per the #44 sweep (the ranking that chose this port), with the one-click-deep evidence in the reason", row && row.reference_clean_state === "data_clean" && /Closed.*status lane|status lane.*Closed/i.test(row.reference_clean_reason || ""), row ? row.reference_clean_reason?.slice(0, 90) : "");
-  ok("no false parity elsewhere: schema/approvals/pipeline stay daemon_wired; explorer may be daemon_wired only via its #46 certified origin-aligned correction; the estate majority stays reference_capture", ["schema", "approvals", "pipeline"].every((sl) => (matrix.seeds || []).find((s) => s.slug === sl)?.parity_class === "daemon_wired") && (() => { const e = (matrix.seeds || []).find((s) => s.slug === "explorer"); return e && (e.parity_class !== "daemon_wired" || (e.shell_pixel_certified === true && !!e.reference_url_override)); })() && (matrix.by_parity_class?.reference_capture || 0) >= 20);
+  ok("no false parity elsewhere: schema/approvals/pipeline stay daemon_wired; explorer may be daemon_wired only via its #46 certified origin-aligned correction; no row claims a parity class its evidence does not carry (the 'honest majority' clause went stale as ports landed)", ["schema", "approvals", "pipeline"].every((sl) => (matrix.seeds || []).find((s) => s.slug === sl)?.parity_class === "daemon_wired") && (() => { const e = (matrix.seeds || []).find((s) => s.slug === "explorer"); return e && (e.parity_class !== "daemon_wired" || (e.shell_pixel_certified === true && !!e.reference_url_override)); })() && parityOverclaims(matrix).length === 0);
 
   // 2. VISUAL PARITY — hardened harness against the real reference (pre-capture clicks the Closed lane).
   const artDir = path.join(appRoot, ".artifacts", "incidents-port-verify");

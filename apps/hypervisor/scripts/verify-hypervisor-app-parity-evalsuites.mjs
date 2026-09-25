@@ -27,6 +27,7 @@ import { spawnSync } from "node:child_process";
 import { readFileSync } from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
+import { parityOverclaims } from "./lib/parity-honesty.mjs";
 
 const SERVE = (process.env.IOI_HYPERVISOR_SERVE_URL || "http://127.0.0.1:4173").replace(/\/$/, "");
 const DAEMON = (process.env.IOI_HYPERVISOR_DAEMON_URL || "http://127.0.0.1:8765").replace(/\/$/, "");
@@ -55,7 +56,7 @@ async function run() {
   ok("matrix: evalsuites is daemon_wired at /__ioi/evaluations/evalsuites (Evaluations) with AIP-Evals-IA landmarks", row && row.parity_class === "daemon_wired" && row.candidate_surface === "/__ioi/evaluations/evalsuites" && row.substrate_surface === "/__ioi/evaluations" && row.surface_name === "Evaluations" && Array.isArray(row.reference_landmarks) && row.reference_landmarks.length >= 8, row ? `class=${row.parity_class}` : "row missing");
   ok("matrix: the reference is ORIGIN-ALIGNED (reference_url_override → localhost:9225/workspace/evals/)", row && row.reference_url_override === "http://localhost:9225/workspace/evals/");
   ok("matrix keeps analysis + quiver reference_capture (Evaluations siblings NOT over-claimed)", bySlug.analysis?.parity_class === "reference_capture" && bySlug.quiver?.parity_class === "reference_capture");
-  ok("the estate census accepts evalsuites among the certified daemon_wired surfaces (>= 13 since #54); reference_capture stays the honest majority", (matrix.by_parity_class?.daemon_wired || 0) >= 13 && (matrix.by_parity_class?.reference_capture || 0) >= 20, JSON.stringify(matrix.by_parity_class));
+  ok("the estate census accepts evalsuites among the certified daemon_wired surfaces (>= 13 since #54); no row claims a parity class its evidence does not carry (the 'honest majority' clause went stale as ports landed)", (matrix.by_parity_class?.daemon_wired || 0) >= 13 && parityOverclaims(matrix).length === 0, JSON.stringify(matrix.by_parity_class));
 
   // 0b. Certification is REAL, committed, non-pinned, SHELL-scoped.
   let cert = null;
