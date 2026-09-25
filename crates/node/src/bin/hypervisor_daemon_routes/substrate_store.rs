@@ -2681,6 +2681,29 @@ pub(crate) fn read_event_stream_operation(
     .map_err(|error| AdmissionRefusal::SubstrateUnavailable(error.to_string()))?
 }
 
+/// Read many heads of one owner namespace in ONE strict exact-projection pass, answered in input
+/// order exactly as [`read_event_stream_operation`] answers each tail.
+///
+/// WHY (R-240, measured on a real owner data dir): an exact head read re-reads and validates the
+/// whole substrate log to answer one key, so a list that read N heads one at a time paid N
+/// full-log passes. The environments list of a principal who owns NO environment walked 47 scope
+/// heads at ~0.7 s each — 32.7 s, past the adapter's 8 s deadline — and the signed-in shell's
+/// Sessions rail retried forever. One pass answers every head with the same validation.
+pub(crate) fn read_event_stream_operations(
+    data_dir: &str,
+    owner_namespace: &str,
+    stream_tails: &[String],
+) -> Result<Vec<Option<ExactProjection>>, AdmissionRefusal> {
+    with_current_handle(data_dir, |handle| {
+        Ok(agentgres::event_stream::read_event_stream_heads(
+            handle,
+            owner_namespace,
+            stream_tails,
+        ))
+    })
+    .map_err(|error| AdmissionRefusal::SubstrateUnavailable(error.to_string()))?
+}
+
 /// Enumerate the canonical stream tails currently admitted for one owner
 /// namespace. This exposes coordinates only; callers still read every head
 /// through `read_event_stream_operation` before projecting owner state.
@@ -3160,15 +3183,16 @@ pub(crate) fn authorized_request_resource_refs(
     resource_kind: &str,
 ) -> Result<BTreeSet<String>, RequestScopeRefusal> {
     let tails = list_event_stream_tails(data_dir, REQUEST_RESOURCE_SCOPE_NAMESPACE)
+        .map_err(|error| RequestScopeRefusal::SubstrateUnavailable(error.to_string()))?
+        .into_iter()
+        .filter(|tail| tail.starts_with("scope."))
+        .collect::<Vec<_>>();
+    // Every scope head is still read and projected, in one strict pass rather than one per head
+    // (see `read_event_stream_operations` for the measured cost this replaces).
+    let heads = read_event_stream_operations(data_dir, REQUEST_RESOURCE_SCOPE_NAMESPACE, &tails)
         .map_err(|error| RequestScopeRefusal::SubstrateUnavailable(error.to_string()))?;
     let mut refs = BTreeSet::new();
-    for tail in tails.into_iter().filter(|tail| tail.starts_with("scope.")) {
-        let Some(exact) =
-            read_event_stream_operation(data_dir, REQUEST_RESOURCE_SCOPE_NAMESPACE, &tail)
-                .map_err(|error| RequestScopeRefusal::SubstrateUnavailable(error.to_string()))?
-        else {
-            continue;
-        };
+    for exact in heads.into_iter().flatten() {
         let scope = project_request_scope(&exact)?;
         if scope.resource_kind == resource_kind
             && scope.readable_by(&identity.principal_ref)
@@ -3845,6 +3869,66 @@ mod tests {
             authorized_request_resource_refs(data_dir, &beta, "foundry-training-program")
                 .unwrap()
                 .is_empty()
+        );
+        reset_handle_for_test();
+    }
+
+    #[test]
+    fn batched_scope_heads_read_exactly_what_single_reads_do() {
+        let directory = tempfile::tempdir().unwrap();
+        let data_dir = directory.path().to_str().unwrap();
+        reset_handle_for_test();
+        let owner = "org://acme/factory";
+        let alpha_headers = authenticated_headers(data_dir, "alpha", "token-alpha", &[owner]);
+        let beta_headers = authenticated_headers(data_dir, "beta", "token-beta", &[owner]);
+        let alpha = resolve_request_identity(data_dir, &alpha_headers).unwrap();
+        let beta = resolve_request_identity(data_dir, &beta_headers).unwrap();
+        for (identity, kind, resource, key) in [
+            (&alpha, "environment", "env://acme/a1", "k1"),
+            (&alpha, "environment", "env://acme/a2", "k2"),
+            (
+                &alpha,
+                "foundry-training-program",
+                "trainpipe://acme/a3",
+                "k3",
+            ),
+            (&beta, "environment", "env://acme/b1", "k4"),
+        ] {
+            bind_request_resource_scope(data_dir, identity, kind, resource, owner, owner, key)
+                .unwrap();
+        }
+        let tails = list_event_stream_tails(data_dir, REQUEST_RESOURCE_SCOPE_NAMESPACE).unwrap();
+        let mut asked = tails.clone();
+        asked.push("scope.absent-tail".to_string());
+        let batched =
+            read_event_stream_operations(data_dir, REQUEST_RESOURCE_SCOPE_NAMESPACE, &asked)
+                .unwrap();
+        assert_eq!(batched.len(), asked.len(), "one answer per tail, in order");
+        for (tail, head) in asked.iter().zip(&batched) {
+            let single =
+                read_event_stream_operation(data_dir, REQUEST_RESOURCE_SCOPE_NAMESPACE, tail)
+                    .unwrap();
+            assert_eq!(
+                head.as_ref().map(|exact| (&exact.head, exact.seq)),
+                single.as_ref().map(|exact| (&exact.head, exact.seq)),
+                "tail {tail}"
+            );
+        }
+        assert!(
+            batched.last().unwrap().is_none(),
+            "an absent tail reads as absent"
+        );
+        let owned = authorized_request_resource_refs(data_dir, &alpha, "environment").unwrap();
+        assert_eq!(
+            owned.into_iter().collect::<Vec<_>>(),
+            vec!["env://acme/a1".to_string(), "env://acme/a2".to_string()]
+        );
+        assert_eq!(
+            authorized_request_resource_refs(data_dir, &beta, "environment")
+                .unwrap()
+                .into_iter()
+                .collect::<Vec<_>>(),
+            vec!["env://acme/b1".to_string()]
         );
         reset_handle_for_test();
     }

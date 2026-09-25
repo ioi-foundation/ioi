@@ -494,6 +494,39 @@ pub fn read_event_stream_head(
         .map_err(|error| AdmissionRefusal::SubstrateUnavailable(error.to_string()))
 }
 
+/// `read_event_stream_head` for many tails of one owner namespace, answered in
+/// input order through ONE strict exact projection pass instead of one per tail.
+/// A tail whose coordinates could never name a stream reads as absent, exactly
+/// as the single read answers it.
+pub fn read_event_stream_heads(
+    handle: &MuxHandle,
+    owner_namespace: &str,
+    stream_tails: &[String],
+) -> Result<Vec<Option<ExactProjection>>, AdmissionRefusal> {
+    let keys = stream_tails
+        .iter()
+        .map(|tail| {
+            validate_stream_coordinates(owner_namespace, tail)
+                .is_ok()
+                .then(|| {
+                    (
+                        crate::refs::event_stream_domain(owner_namespace, tail),
+                        crate::refs::event_stream_object_ref(owner_namespace, tail),
+                    )
+                })
+        })
+        .collect::<Vec<_>>();
+    let asked = keys.iter().flatten().cloned().collect::<Vec<_>>();
+    let mut answers = handle
+        .project_exact_many(asked)
+        .map_err(|error| AdmissionRefusal::SubstrateUnavailable(error.to_string()))?
+        .into_iter();
+    Ok(keys
+        .iter()
+        .map(|key| key.as_ref().and_then(|_| answers.next().flatten()))
+        .collect())
+}
+
 /// Read the fully rooted admitted history for one owner-namespaced stream,
 /// ordered by admission.
 ///

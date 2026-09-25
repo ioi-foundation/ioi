@@ -18,7 +18,7 @@ use crate::{
 };
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, BTreeSet};
 use std::fs::{File, OpenOptions};
 use std::io::{BufReader, Read, Write};
 use std::path::{Path, PathBuf};
@@ -1261,9 +1261,26 @@ impl MuxEngine {
         domain: &str,
         object_ref: &str,
     ) -> std::io::Result<Vec<ExactProjection>> {
+        let key = (domain.to_string(), object_ref.to_string());
+        let mut histories =
+            self.project_exact_histories_internal(&BTreeSet::from([key.clone()]))?;
+        Ok(histories.remove(&key).unwrap_or_default())
+    }
+
+    /// The same strict pass for a SET of object keys: ONE full-log
+    /// validation answers every key, with each key's history and terminal
+    /// head checked exactly as the one-key path checks its own. A list that
+    /// asked for N heads one at a time paid N full-log passes (measured: 47
+    /// scope heads at ~0.7 s each on a debug build, R-240).
+    fn project_exact_histories_internal(
+        &self,
+        keys: &BTreeSet<(String, String)>,
+    ) -> std::io::Result<BTreeMap<(String, String), Vec<ExactProjection>>> {
         let mut reader = BufReader::new(File::open(self.dir.join("muxlog.bin"))?);
         let mut reconstructed: BTreeMap<String, StrictDomainState> = BTreeMap::new();
-        let mut history = Vec::new();
+        let requested_domains: BTreeSet<&str> =
+            keys.iter().map(|(domain, _)| domain.as_str()).collect();
+        let mut histories: BTreeMap<(String, String), Vec<ExactProjection>> = BTreeMap::new();
         let mut reconstructed_epoch = 0u64;
         let mut frame_index = 0u64;
         let mut rooting_started = false;
@@ -1401,9 +1418,11 @@ impl MuxEngine {
                             rec.root
                         )));
                     }
+                    let domain_requested = requested_domains.contains(root_domain.as_str());
                     for record in &state.pending_records {
-                        if root_domain == domain && record.op.object_ref == object_ref {
-                            history.push(ExactProjection {
+                        let key = (root_domain.clone(), record.op.object_ref.clone());
+                        if domain_requested && keys.contains(&key) {
+                            histories.entry(key).or_default().push(ExactProjection {
                                 operation: record.op.clone(),
                                 seq: record.seq,
                                 head: record.new_head.clone(),
@@ -1483,26 +1502,28 @@ impl MuxEngine {
                 self.current_epoch
             )));
         }
-        let Some(latest) = history.last() else {
-            return Ok(history);
-        };
-        let terminal = &reconstructed
-            .get(domain)
-            .ok_or_else(|| {
-                invalid_log(format!(
-                    "mux exact projection lost reconstructed domain '{domain}'"
-                ))
-            })?
-            .terminal;
-        if terminal.heads.get(object_ref) != Some(&latest.head) {
-            return Err(invalid_log(format!(
-                "mux exact projection head for '{object_ref}' is not the reconstructed terminal head"
-            )));
+        for ((domain, object_ref), history) in &mut histories {
+            let Some(latest) = history.last() else {
+                continue;
+            };
+            let terminal = &reconstructed
+                .get(domain.as_str())
+                .ok_or_else(|| {
+                    invalid_log(format!(
+                        "mux exact projection lost reconstructed domain '{domain}'"
+                    ))
+                })?
+                .terminal;
+            if terminal.heads.get(object_ref.as_str()) != Some(&latest.head) {
+                return Err(invalid_log(format!(
+                    "mux exact projection head for '{object_ref}' is not the reconstructed terminal head"
+                )));
+            }
+            for exact in history.iter_mut() {
+                exact.terminal_root = terminal.root.clone();
+            }
         }
-        for exact in &mut history {
-            exact.terminal_root = terminal.root.clone();
-        }
-        Ok(history)
+        Ok(histories)
     }
 
     pub fn project_exact(
@@ -1513,6 +1534,25 @@ impl MuxEngine {
         Ok(self
             .project_exact_history_internal(domain, object_ref)?
             .pop())
+    }
+
+    /// `project_exact` for many `(domain, object_ref)` keys in one strict
+    /// pass, answered in input order (a key with no admitted record is
+    /// `None`, exactly as `project_exact` answers it).
+    pub fn project_exact_many(
+        &self,
+        keys: &[(String, String)],
+    ) -> std::io::Result<Vec<Option<ExactProjection>>> {
+        let wanted = keys.iter().cloned().collect::<BTreeSet<_>>();
+        let histories = self.project_exact_histories_internal(&wanted)?;
+        Ok(keys
+            .iter()
+            .map(|key| {
+                histories
+                    .get(key)
+                    .and_then(|history| history.last().cloned())
+            })
+            .collect())
     }
 
     /// Strict, rooted admission history for one stable object key.
@@ -1580,6 +1620,10 @@ pub enum MuxWriterMsg {
         String,
         mpsc::Sender<std::io::Result<Vec<ExactProjection>>>,
     ),
+    ProjectExactMany(
+        Vec<(String, String)>,
+        mpsc::Sender<std::io::Result<Vec<Option<ExactProjection>>>>,
+    ),
     Status(mpsc::Sender<std::io::Result<MuxStatusSnapshot>>),
     Shutdown(mpsc::Sender<std::io::Result<()>>),
 }
@@ -1639,6 +1683,17 @@ impl MuxHandle {
                 object_ref.to_string(),
                 tx,
             ))
+            .map_err(|_| std::io::Error::other("mux writer gone"))?;
+        rx.recv()
+            .map_err(|_| std::io::Error::other("mux writer ack lost"))?
+    }
+    pub fn project_exact_many(
+        &self,
+        keys: Vec<(String, String)>,
+    ) -> std::io::Result<Vec<Option<ExactProjection>>> {
+        let (tx, rx) = mpsc::channel();
+        self.tx
+            .send(MuxWriterMsg::ProjectExactMany(keys, tx))
             .map_err(|_| std::io::Error::other("mux writer gone"))?;
         rx.recv()
             .map_err(|_| std::io::Error::other("mux writer ack lost"))?
@@ -1773,6 +1828,10 @@ pub fn spawn_mux_writer_cfg(
                 String,
                 mpsc::Sender<std::io::Result<Vec<ExactProjection>>>,
             )> = Vec::new();
+            let mut exact_manys: Vec<(
+                Vec<(String, String)>,
+                mpsc::Sender<std::io::Result<Vec<Option<ExactProjection>>>>,
+            )> = Vec::new();
             let mut statuses: Vec<mpsc::Sender<std::io::Result<MuxStatusSnapshot>>> = Vec::new();
             match first {
                 MuxWriterMsg::Admit(op, ack) => {
@@ -1786,6 +1845,7 @@ pub fn spawn_mux_writer_cfg(
                 MuxWriterMsg::ProjectExactHistory(domain, object_ref, tx) => {
                     exact_histories.push((domain, object_ref, tx));
                 }
+                MuxWriterMsg::ProjectExactMany(keys, tx) => exact_manys.push((keys, tx)),
                 MuxWriterMsg::Status(tx) => statuses.push(tx),
                 MuxWriterMsg::Shutdown(tx) => shutdown = Some(tx),
             }
@@ -1804,6 +1864,9 @@ pub fn spawn_mux_writer_cfg(
                         }
                         Ok(MuxWriterMsg::ProjectExactHistory(domain, object_ref, tx)) => {
                             exact_histories.push((domain, object_ref, tx));
+                        }
+                        Ok(MuxWriterMsg::ProjectExactMany(keys, tx)) => {
+                            exact_manys.push((keys, tx));
                         }
                         Ok(MuxWriterMsg::Status(tx)) => statuses.push(tx),
                         Ok(MuxWriterMsg::Shutdown(tx)) => {
@@ -1915,6 +1978,9 @@ pub fn spawn_mux_writer_cfg(
             }
             for (domain, object_ref, tx) in exact_histories {
                 let _ = tx.send(engine.project_exact_history(&domain, &object_ref));
+            }
+            for (keys, tx) in exact_manys {
+                let _ = tx.send(engine.project_exact_many(&keys));
             }
             for tx in statuses {
                 let _ = tx.send(engine.status_snapshot());
@@ -2073,6 +2139,64 @@ mod tests {
         assert!(handle.project_exact("a", "o://missing").unwrap().is_none());
         handle.shutdown().unwrap();
         writer.join.join().unwrap().unwrap();
+    }
+
+    #[test]
+    fn exact_many_answers_every_key_exactly_as_one_key_reads_do() {
+        let directory = tmp("exact-many");
+        let mut engine = MuxEngine::open(&directory, false).unwrap();
+        engine
+            .admit_batch(vec![op("a", "o://one", 1), op("b", "o://two", 2)])
+            .unwrap();
+        engine.admit_batch(vec![op("a", "o://one", 3)]).unwrap();
+        engine.admit_batch(vec![op("b", "o://three", 4)]).unwrap();
+        let keys = [
+            ("a", "o://one"),
+            ("b", "o://two"),
+            ("a", "o://missing"),
+            ("b", "o://three"),
+            ("a", "o://one"),
+            ("c", "o://no-domain"),
+        ]
+        .map(|(domain, object)| (domain.to_string(), object.to_string()));
+        let many = engine.project_exact_many(&keys).unwrap();
+        assert_eq!(many.len(), keys.len(), "one answer per key, in input order");
+        for ((domain, object), answer) in keys.iter().zip(&many) {
+            assert_eq!(
+                answer.as_ref(),
+                engine.project_exact(domain, object).unwrap().as_ref(),
+                "{domain} {object}"
+            );
+        }
+        assert_eq!(
+            many[0].as_ref().unwrap().operation.payload,
+            serde_json::json!({ "n": 3 }),
+            "the latest admitted head, not the first"
+        );
+        assert!(many[2].is_none() && many[5].is_none());
+
+        let (handle, writer) = spawn_mux_writer(engine, 1024);
+        assert_eq!(handle.project_exact_many(keys.to_vec()).unwrap(), many);
+        handle.shutdown().unwrap();
+        writer.join.join().unwrap().unwrap();
+    }
+
+    #[test]
+    fn exact_many_refuses_a_truncated_log_like_one_key_reads() {
+        let directory = tmp("exact-many-truncated");
+        let mut engine = MuxEngine::open(&directory, false).unwrap();
+        engine.admit_batch(vec![op("a", "o://exact", 1)]).unwrap();
+        let path = directory.join("muxlog.bin");
+        let length = std::fs::metadata(&path).unwrap().len();
+        OpenOptions::new()
+            .write(true)
+            .open(&path)
+            .unwrap()
+            .set_len(length - 1)
+            .unwrap();
+        let keys = [("a".to_string(), "o://exact".to_string())];
+        let error = engine.project_exact_many(&keys).unwrap_err();
+        assert_eq!(error.kind(), std::io::ErrorKind::UnexpectedEof);
     }
 
     #[test]
