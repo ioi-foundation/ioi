@@ -50,7 +50,7 @@ import { renderSplashLanding } from "./splash-landing-grammar.mjs";
 import { mintTestGrant, awaitingWalletAuthority, bindStandingLease, revokeStandingLease, standingLeaseRecorderMode, STANDING_LEASE_CUSTODY_TIER_UNRULED } from "./lib/wallet-authority.mjs";
 import { PROVIDER_APPROVAL_KIND, projectProviderChallenge, renderProviderFacetsCard } from "./lib/approval-card-facets.mjs";
 import { relayEditorEffect } from "./lib/editor-challenge-relay.mjs";
-import { handleSystemGenesisSurfaces } from "./system-genesis-surfaces.mjs";
+import { handleSystemGenesisSurfaces, handleSystemWorkspace, SYSTEM_WORKSPACE_LANE } from "./system-genesis-surfaces.mjs";
 import { resolveV2Route, v2RouteFor, retiredUiRouteFor, renderV2RouteShellPage, renderRetiredUiRoutePage, retiredUiRouteRefusal, renderRouteLedgerPage } from "./v2-route-shell.mjs";
 import { projectDomainAppRuntimeModel } from "./domain-app-runtime-model.mjs";
 
@@ -9962,6 +9962,12 @@ async function handleEstateRequest(req, res, body) {
         // stamped on its document; redirect: 302 to a lane the serve cannot wrap). Deep links
         // under the root still render the honest landing below. The route ledger with waves and
         // build state is developer diagnostics at /__ioi/route-ledger, never a product screen.
+        // A row that declares a DETAIL lane serves its deep links there (ADR 0056: `/systems/<id>[/<mode>]`
+        // is the System workspace), instead of the honest "not available yet" landing below.
+        if (resolved.subpath && resolved.row.detail?.kind === "rewrite") {
+          await serveCanonicalLane(req, res, body, resolved.row, `${resolved.row.detail.to}/${resolved.subpath}`, requestUrl.search || "");
+          return;
+        }
         const laneSpec = resolved.row.serve;
         if (laneSpec && !resolved.subpath && !requestUrl.searchParams.has("embed")) {
           if (laneSpec.kind === "redirect") {
@@ -14460,6 +14466,9 @@ async function handleEstateRequest(req, res, body) {
     // over /v1/hypervisor/autonomous-systems*. Flat launch-addressed routes by design — NO
     // permanent Systems rail/suite/catalog entry (M1.7). All truth is daemon-read per request;
     // every consequential action proxies verbatim to its owning daemon route.
+    if (pathname.startsWith(`${SYSTEM_WORKSPACE_LANE}/`)) {
+      if (await handleSystemWorkspace(req, res, pathname, { daemonUrl: DAEMON, shell: (title, inner) => automationsShell(title, inner, { theme: "light" }) })) return;
+    }
     if (pathname === "/__ioi/systems" || pathname.startsWith("/__ioi/systems/")) {
       // GRE-1a: /__ioi/systems and every /__ioi/systems/* page render through the platform shell
       // in its adopted LIGHT body; the module itself declares no colour of its own.

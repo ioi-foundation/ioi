@@ -2187,6 +2187,17 @@ Implementation status: target contract. Autonomous-system contract/API slices
 exist in canon, but a complete policy-filtered Systems inventory, permanent
 shell destination, and blank-to-genesis product path are not shipped.
 
+The System workspace is served at `/systems/<id>` and its six mode routes
+(2026-09-25, ADR 0056 journey step 1). Every page is gated on the
+caller-filtered Systems projection before any per-System read, because the
+per-System daemon reads by storage key do not yet resolve the caller.
+
+- Live: Overview (identity and read projection), Govern (the lifecycle ladder
+  and its governed forms) and Evidence (genesis and lifecycle receipts and the
+  operation log), plus a read-only desired-versus-observed topology on Operate.
+- Named gaps: Design, Improve, Interfaces, health and limits each name the
+  plane that is missing, and hand off to the surface that owns that work today.
+
 ## Hypervisor Work
 
 **Hypervisor Work** is the unified core workspace for starting, supervising,

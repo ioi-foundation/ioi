@@ -25,7 +25,8 @@
 //     degraded state (never a fabricated census); the projection's fail-closed
 //     system_projection_source_incomplete renders as a stale/conflict stop, never a partial list.
 import http from "node:http";
-import { escHtml } from "../surfaces/kit.mjs";
+import { createHash } from "node:crypto";
+import { escHtml, refusalCodeOf, refusalMessageOf } from "../surfaces/kit.mjs";
 
 const esc = escHtml;
 const BASE = "/__ioi/systems";
@@ -52,7 +53,19 @@ const HTMLH = { "Content-Type": "text/html; charset=utf-8", "Cache-Control": "no
 // finite 15-minute transport ceiling (same boundary the M1 verifiers use). A transport failure
 // resolves as { networkError } — the surfaces render it as a NAMED degraded state, never as
 // fabricated truth.
-function daemonJson(daemonUrl, method, path, payload) {
+// THE CALLER RIDES EVERY READ (R-240). This transport used to send only content-type, so the
+// principal-scoped reads (the Systems projection, the record seam) refused every signed-in owner as a
+// stranger and the page printed "Projection refused (HTTP 401) — untyped". `daemon` is the daemon URL,
+// or `{ url, headers }` carrying the caller's own identity headers — forwarded, never minted.
+const IDENTITY_HEADERS = ["authorization", "cookie", "x-forwarded-host", "x-forwarded-for", "x-ioi-forwarded"];
+function callerIdentityHeaders(req) {
+  const out = {};
+  for (const name of IDENTITY_HEADERS) if (req?.headers?.[name]) out[name] = req.headers[name];
+  return out;
+}
+function daemonJson(daemon, method, path, payload) {
+  const daemonUrl = typeof daemon === "string" ? daemon : daemon?.url;
+  const identity = typeof daemon === "string" ? {} : daemon?.headers || {};
   let target;
   try {
     target = new URL(`${daemonUrl}${path}`);
@@ -68,6 +81,7 @@ function daemonJson(daemonUrl, method, path, payload) {
         path: `${target.pathname}${target.search}`,
         method,
         headers: {
+          ...identity,
           "content-type": "application/json",
           ...(body === null ? {} : { "content-length": Buffer.byteLength(body) }),
         },
@@ -192,12 +206,12 @@ function renderOutcome(result, { resubmit = null, backHref = null, actionLabel =
        </dl>${resubmitForm}${jsonPre(body)}${back}`,
     );
   }
-  const code = error?.code || "";
+  const code = error?.code || body?.code || "";
   return stateBlock(
     stateForErrorCode(code),
     code,
     `<h2>Daemon refusal (HTTP ${esc(String(result.status || 0))})</h2>
-     <p class="sub">The daemon refused this ${esc(actionLabel)} — <code>${esc(code || "untyped")}</code>: ${esc(error?.message || "no message")}. The refusal is shown verbatim; nothing advanced and no success is inferred.</p>
+     <p class="sub">The daemon refused this ${esc(actionLabel)} — <code>${esc(code || "untyped")}</code>: ${esc(error?.message || body?.message || "no message")}. The refusal is shown verbatim; nothing advanced and no success is inferred.</p>
      ${jsonPre(body)}${back}`,
   );
 }
@@ -246,7 +260,8 @@ function censusState(result) {
   if (result.status === 200 && body.state === "ready") {
     return { systems: body.systems || [], body };
   }
-  const code = body.error?.code || "";
+  // Refusals come nested ({error:{code}}) or flat ({code, message} — identity-first refusals); read both.
+  const code = result.status >= 400 ? refusalCodeOf(body, result.status) : body.error?.code || "";
   if (code === "system_projection_source_incomplete") {
     return {
       html: stateBlock(
@@ -269,7 +284,7 @@ function censusState(result) {
     html: stateBlock(
       stateForErrorCode(code),
       code,
-      `<div class="empty">Projection refused (HTTP ${esc(String(result.status || 0))}) — <code>${esc(code || "untyped")}</code>: ${esc(body.error?.message || "no message")}.</div>`,
+      `<div class="empty">Projection refused (HTTP ${esc(String(result.status || 0))}) — <code>${esc(code || "untyped")}</code>: ${esc(refusalMessageOf(body) || "no message")}.</div>`,
     ),
   };
 }
@@ -456,7 +471,7 @@ async function renderLadder(daemonUrl, tail) {
         || "";
       return `<tr data-ladder-stage="${stage.key}" data-ladder-state="admitted"><td>${esc(stage.label)}</td><td>${pill("admitted", "ok")}</td><td><code>${esc(receiptRef)}</code></td></tr>`;
     }
-    const code = result.body?.error?.code || "untyped";
+    const code = refusalCodeOf(result.body, result.status) || "untyped";
     return `<tr data-ladder-stage="${stage.key}" data-ladder-state="pending"><td>${esc(stage.label)}</td><td>${pill("not admitted", "muted")}</td><td><code>${esc(code)}</code> ${esc(result.body?.error?.message || "")}</td></tr>`;
   }).join("");
   return `<table><thead><tr><th>Governed stage</th><th>State</th><th>Owner evidence / refusal</th></tr></thead><tbody>${rows}</tbody></table>
@@ -539,17 +554,20 @@ function actionForm(action, label, skeleton, note) {
     </form></details>`;
 }
 
-async function renderDetailPage(daemonUrl, shell, tail, view) {
+// The provisional detail's pieces — identity, lifecycle ladder, read projection, governed actions —
+// built once and composed by two pages: the provisional detail below and the System workspace
+// (/systems/<id>[/<mode>], ADR 0056 journey step 1). `viewHref(view)` is where the compact/advanced tabs
+// point, so each page keeps a person on its own routes.
+async function detailParts(daemonUrl, tail, view, viewHref) {
   const [admission, sequenceZero, initialize, activate] = await Promise.all([
     daemonJson(daemonUrl, "GET", `${GENESIS_API}/${tail}`),
     daemonJson(daemonUrl, "GET", `${GENESIS_API}/${tail}/sequence-zero-materialization`),
     daemonJson(daemonUrl, "GET", `${GENESIS_API}/${tail}/initialize`),
     daemonJson(daemonUrl, "GET", `${GENESIS_API}/${tail}/activate`),
   ]);
-  const title = `System ${tail.slice(0, 16)}…`;
-  const head = `${CROSSLINKS}<h1>Provisional System detail</h1>
-  ${NONCLAIMS_BANNER}
-  <p class="sub" data-provisional-detail="1">A provisional, launch-addressed readout of ONE System (<code>${esc(tail)}</code>) — deliberately not a permanent Systems navigation destination (M1.7). Compact and advanced views are the daemon's own read projections.</p>`;
+  const head = "";
+  const shell = (_title, html) => ({ blocked: html });
+  const title = "";
   if (admission.networkError) {
     return shell(title, head + stateBlock(
       "unavailable_or_degraded",
@@ -558,20 +576,19 @@ async function renderDetailPage(daemonUrl, shell, tail, view) {
     ));
   }
   if (admission.status !== 200) {
-    const code = admission.body?.error?.code || "";
+    const code = admission.status >= 400 ? refusalCodeOf(admission.body, admission.status) : "";
     return shell(title, head + stateBlock(
       stateForErrorCode(code),
       code,
-      `<div class="empty">No verified admission renders at this key — <code>${esc(code || "untyped")}</code>: ${esc(admission.body?.error?.message || "")}. Nothing substituted.</div>${jsonPre(admission.body || {})}`,
+      `<div class="empty">No verified admission renders at this key — <code>${esc(code || "untyped")}</code>: ${esc(refusalMessageOf(admission.body))}. Nothing substituted.</div>${jsonPre(admission.body || {})}`,
     ));
   }
   const record = admission.body.autonomous_system_genesis_admission || {};
   const receipt = admission.body.autonomous_system_genesis_receipt || {};
   const systemId = record.system_id || "";
-  const [projCompact, projAdvanced] = await Promise.all([
-    fetchCensus(daemonUrl, "compact", systemId),
-    fetchCensus(daemonUrl, "advanced", systemId),
-  ]);
+  // Only the view this page renders is read: a projection read can take tens of seconds, and the
+  // page used to fetch both views to draw one.
+  const chosen = await fetchCensus(daemonUrl, view, systemId);
 
   const identity = `<h2>Identity (admission owner truth)</h2><dl class="grid">
     <dt>system_id</dt><dd><code data-detail-system-id="${esc(systemId)}">${esc(systemId)}</code></dd>
@@ -589,7 +606,7 @@ async function renderDetailPage(daemonUrl, shell, tail, view) {
       const ref = receiptPointer(result.body) || "";
       return `<tr data-ladder-stage="${key}" data-ladder-state="admitted"><td>${esc(label)}</td><td>${pill("admitted", "ok")}</td><td><code>${esc(ref)}</code></td></tr>`;
     }
-    const code = result.body?.error?.code || "untyped";
+    const code = refusalCodeOf(result.body, result.status) || "untyped";
     return `<tr data-ladder-stage="${key}" data-ladder-state="pending"><td>${esc(label)}</td><td>${pill("not admitted", "muted")}</td><td><code>${esc(code)}</code> ${esc(result.body?.error?.message || "")}</td></tr>`;
   };
   const ladder = `<h2>Lifecycle ladder</h2><table><thead><tr><th>Stage</th><th>State</th><th>Owner evidence / refusal</th></tr></thead><tbody>
@@ -601,11 +618,10 @@ async function renderDetailPage(daemonUrl, shell, tail, view) {
   <p class="sub">Continuity ladder statuses render verbatim from the chain head below — dissolution runs <code>dissolution_pending</code> → <code>dissolving</code> → <code>dissolved</code>; succession, migration, and enrollment carry their own named statuses and scopes.</p>`;
 
   let projection;
-  const chosen = view === "advanced" ? projAdvanced : projCompact;
   const chosenCensus = censusState(chosen);
   const viewTabs = `<div class="tabs">
-    <a class="tab${view === "advanced" ? "" : " active"}" href="${BASE}/${encodeURIComponent(tail)}?view=compact">Compact preview</a>
-    <a class="tab${view === "advanced" ? " active" : ""}" href="${BASE}/${encodeURIComponent(tail)}?view=advanced">Advanced projection</a>
+    <a class="tab${view === "advanced" ? "" : " active"}" href="${viewHref("compact")}">Compact preview</a>
+    <a class="tab${view === "advanced" ? " active" : ""}" href="${viewHref("advanced")}">Advanced projection</a>
   </div>`;
   if (chosenCensus.html) {
     projection = viewTabs + chosenCensus.html;
@@ -657,7 +673,17 @@ async function renderDetailPage(daemonUrl, shell, tail, view) {
   ${actionForm(`${BASE}/${encodeURIComponent(tail)}/transitions`, "Protected transition (M1.5b)", { op: "", expected_chain_head_root: "", expected_predecessor_state_root: "" }, "one of the 14 generic protected ops; 'op' selects the route")}
   ${actionForm(`${BASE}/${encodeURIComponent(tail)}/amendments`, "Amendment execution (M1.5c)", {}, "executes an approved amendment exactly once under the constitution's own governance")}`;
 
-  return shell(title, head + identity + ladder + `<h2>Read projection (M1.7)</h2>` + projection + actions);
+  return { identity, ladder, projection, actions, systemId, record };
+}
+
+async function renderDetailPage(daemonUrl, shell, tail, view) {
+  const title = `System ${tail.slice(0, 16)}…`;
+  const head = `${CROSSLINKS}<h1>Provisional System detail</h1>
+  ${NONCLAIMS_BANNER}
+  <p class="sub" data-provisional-detail="1">A provisional, launch-addressed readout of ONE System (<code>${esc(tail)}</code>) — deliberately not a permanent Systems navigation destination (M1.7). Compact and advanced views are the daemon's own read projections.</p>`;
+  const parts = await detailParts(daemonUrl, tail, view, (v) => `${BASE}/${encodeURIComponent(tail)}?view=${v}`);
+  if (parts.blocked) return shell(title, head + parts.blocked);
+  return shell(title, head + parts.identity + parts.ladder + `<h2>Read projection (M1.7)</h2>` + parts.projection + parts.actions);
 }
 
 function jsonInline(value) {
@@ -725,8 +751,10 @@ async function handleDetailAction(daemonUrl, shell, tail, subPath, form) {
 // ---- dispatch ------------------------------------------------------------------------------
 // Returns true when the request was handled. `shell` is the estate page shell
 // (automationsShell) and `daemonUrl` the serve's single daemon origin.
-export async function handleSystemGenesisSurfaces(req, res, pathname, body, { daemonUrl, shell }) {
+export async function handleSystemGenesisSurfaces(req, res, pathname, body, { daemonUrl: baseDaemonUrl, shell }) {
   if (pathname !== BASE && !pathname.startsWith(`${BASE}/`)) return false;
+  // Every daemon call below carries the caller's identity (see daemonJson).
+  const daemonUrl = { url: baseDaemonUrl, headers: callerIdentityHeaders(req) };
   const query = new URL(req.url || "", "http://x").searchParams;
   const sendHtml = (html) => { res.writeHead(200, HTMLH); res.end(html); };
   const form = () => new URLSearchParams(body.toString());
@@ -773,5 +801,141 @@ export async function handleSystemGenesisSurfaces(req, res, pathname, body, { da
   }
   res.writeHead(404, HTMLH);
   res.end(shell("Not found", `${CROSSLINKS}<h1>Systems</h1><div class="empty">No such Systems surface route.</div>`));
+  return true;
+}
+
+// ================================================================================================
+// THE SYSTEM WORKSPACE — /systems/<id>[/<mode>] (ADR 0056 journey step 1, R-240).
+//
+// The daemon publishes seven mode routes per System — `/systems/<tail>`, `/design`, `/operate`,
+// `/govern`, `/evidence`, `/improve`, `/interfaces` (system_projection_routes.rs) — and until now the
+// serve answered every one with the generic "a detail view is not available yet" page, so nothing in
+// the product could hand work to a System. The route shell now rewrites `/systems/<subpath>` to this
+// lane. It ADOPTS the provisional detail's own pieces (`detailParts`) rather than re-authoring them,
+// and it adds no verb: its forms are the provisional detail's, posting to the same owning lanes.
+//
+// POLICY FIRST. The per-System daemon reads by storage key check no identity today (a daemon gap,
+// named separately), so the workspace must never read one for a System the caller cannot see. Every
+// page is GATED on the filtered projection (`projection?view=compact&system_id=`), which filters by the
+// caller before it builds a row: `honest_empty` means not in this caller's inventory — a typed absence
+// and no per-key read; `system_lifecycle_not_found` means visible but not yet live — the ladder is safe
+// to read; `ready` carries the row. Any other answer is rendered as the refusal it is.
+//
+// A System id spans path segments (`system://acme/one` → `/systems/acme/one`); the LAST segment is a
+// mode only when it is one of the six mode words. Lifecycle forms live under GOVERN, as canon places
+// them (Governance authorizes protected change; Operations performs member, placement and failover).
+export const SYSTEM_WORKSPACE_LANE = "/__ioi/system-workspace";
+const WORKSPACE_MODES = [
+  ["", "Overview"], ["design", "Design"], ["operate", "Operate"], ["govern", "Govern"],
+  ["evidence", "Evidence"], ["improve", "Improve"], ["interfaces", "Interfaces"],
+];
+const MODE_WORDS = new Set(WORKSPACE_MODES.map(([m]) => m).filter(Boolean));
+
+// The daemon's own storage identity for a System (system_genesis_routes.rs `record_tail`): the sha256
+// of the compact JSON {domain, system_id}. Used only AFTER the projection gate has shown the System is
+// the caller's.
+export function systemRecordTail(systemId) {
+  return `asg_${createHash("sha256").update(JSON.stringify({ domain: "hypervisor.autonomous-system-genesis.identity.v1", system_id: systemId })).digest("hex")}`;
+}
+
+export function parseSystemWorkspacePath(rest) {
+  let segments;
+  try { segments = String(rest || "").split("/").filter(Boolean).map((s) => decodeURIComponent(s)); } catch { return null; }
+  if (!segments.length || segments.some((s) => s === "." || s === ".." || /[\s]/u.test(s))) return null;
+  let mode = "";
+  if (segments.length > 1 && MODE_WORDS.has(segments[segments.length - 1])) mode = segments.pop();
+  const tailPath = segments.join("/");
+  return { systemId: `system://${tailPath}`, tailPath, mode };
+}
+
+const modeHref = (tailPath, mode) => `/systems/${tailPath.split("/").map(encodeURIComponent).join("/")}${mode ? `/${mode}` : ""}`;
+
+function handOffs(links) {
+  return `<p class="sub" data-system-handoffs="1">Where this mode's work happens today: ${links.map(([href, label]) => `<a href="${esc(href)}">${esc(label)} →</a>`).join(" · ")}</p>`;
+}
+function namedGap(plane, what) {
+  return stateBlock("honest_empty", "named_gap", `<div class="empty" data-system-named-gap="${esc(plane)}">${esc(what)} — a named gap: <b>${esc(plane)}</b> is not built, so nothing here stands in for it.</div>`);
+}
+
+async function renderSystemWorkspace(daemonUrl, shell, parsed) {
+  const { systemId, tailPath, mode } = parsed;
+  const modeLabel = (WORKSPACE_MODES.find(([m]) => m === mode) || ["", "Overview"])[1];
+  const tabs = `<nav class="tabs" aria-label="System modes">${WORKSPACE_MODES.map(([m, label]) =>
+    `<a class="tab${m === mode ? " active" : ""}" href="${esc(modeHref(tailPath, m))}">${esc(label)}</a>`).join("")}</nav>`;
+  const head = `<p class="sub" style="margin:0 0 4px"><a href="/systems">← All Systems</a></p>
+  <h1 data-system-workspace-mode="${esc(mode || "overview")}">System · ${esc(modeLabel)}</h1>
+  <p class="sub"><code data-system-workspace-id="${esc(systemId)}">${esc(systemId)}</code></p>${tabs}${NONCLAIMS_BANNER}`;
+  const title = `${modeLabel} · ${systemId}`;
+  // THE GATE — the filtered projection, as the caller.
+  const gate = await fetchCensus(daemonUrl, "compact", systemId);
+  if (gate.networkError) {
+    return shell(title, head + stateBlock("unavailable_or_degraded", "daemon_unreachable", `<div class="empty">The daemon did not answer (<code>${esc(gate.networkError)}</code>) — no System facts are shown, and none are substituted.</div>`));
+  }
+  const body = gate.body || {};
+  let row = null;
+  if (gate.status === 200 && body.state === "ready") row = (body.systems || []).find((s) => s.system_id === systemId) || null;
+  const code = gate.status >= 400 ? refusalCodeOf(body, gate.status) : "";
+  const visibleNotLive = code === "system_lifecycle_not_found";
+  if (!row && !visibleNotLive) {
+    if (gate.status === 200) {
+      return shell(title, head + stateBlock("honest_empty", "system_not_in_inventory", `<div class="empty" data-system-not-in-inventory="1">No System <code>${esc(systemId)}</code> is in your inventory. Either it does not exist or it is not yours to see; the projection filters by who you are before it builds a row, so this page reads nothing more.</div>`));
+    }
+    const signIn = code === "request_principal_required" ? ` <a href="/__ioi/login?next=${esc(encodeURIComponent(modeHref(tailPath, mode)))}" target="_top">Sign in</a> to see your Systems.` : "";
+    return shell(title, head + stateBlock(stateForErrorCode(code), code, `<div class="empty">The Systems projection refused this read — <code>${esc(code)}</code>: ${esc(refusalMessageOf(body))}.${signIn}</div>`));
+  }
+  const tail = row?.source_record_tail || systemRecordTail(systemId);
+  const pending = visibleNotLive
+    ? stateBlock("loading_or_pending", code, `<div class="empty">This System is visible to you but has no live chain yet (<code>${esc(code)}</code>) — the lifecycle ladder below shows how far genesis has come.</div>`)
+    : "";
+  if (mode === "" || mode === "govern" || mode === "evidence") {
+    const view = mode === "evidence" ? "advanced" : "compact";
+    const parts = await detailParts(daemonUrl, tail, view, (v) => modeHref(tailPath, v === "advanced" ? "evidence" : ""));
+    if (parts.blocked) return shell(title, head + pending + parts.blocked);
+    if (mode === "") {
+      return shell(title, head + pending + parts.identity + `<h2>Read projection</h2>` + parts.projection
+        + namedGap("health-check plane (ADR 0056 P2)", "Health for this System")
+        + `<p class="sub">Attention: owner events for your work arrive in the notification inbox (<code>/v1/hypervisor/notifications</code>); a System-scoped view waits for System subjects on runs.</p>`);
+    }
+    if (mode === "govern") {
+      return shell(title, head + pending + parts.ladder + parts.actions
+        + namedGap("authority node (ADR 0056 Ruling 8)", "Budgets and standing limits for this System"));
+    }
+    return shell(title, head + pending + `<h2>Evidence — genesis and lifecycle receipts, operation log</h2>` + parts.projection
+      + namedGap("Work Ledger lane by system_ref", "Run and session receipts filtered to this System")
+      + handOffs([["/provenance", "Provenance"], ["/evaluations", "Evaluations"]]));
+  }
+  if (mode === "operate") {
+    const topo = row?.topology || {};
+    const cell = (side) => `<td><code>${esc(topo?.[side]?.state || "—")}</code></td><td>${esc(topo?.[side]?.reason || "")}</td>`;
+    const table = row
+      ? `<h2>Desired versus observed</h2><table data-system-topology="1"><thead><tr><th></th><th>State</th><th>Reason</th></tr></thead><tbody><tr><th>Desired</th>${cell("desired")}</tr><tr><th>Observed</th>${cell("observed")}</tr></tbody></table>`
+      : "";
+    return shell(title, head + pending + table
+      + namedGap("System subject on session create (W3 C-1)", "Sessions and automation runs attached to this System")
+      + handOffs([["/operations", "Operations"], ["/environments", "Environments"], ["/work", "Work"]]));
+  }
+  if (mode === "design") {
+    return shell(title, head + pending + namedGap("blueprint system_ref (Studio blueprint plane)", "Designs bound to this System")
+      + handOffs([["/studio", "Studio"], ["/ontology", "Ontology"], ["/data", "Data"], ["/automations", "Automations"]]));
+  }
+  if (mode === "improve") {
+    return shell(title, head + pending + namedGap("System-scoped improvement (ADR 0056 P4 change sets)", "Improvement campaigns and change sets for this System — the improvement plane refuses a System scope by name today")
+      + handOffs([["/improvement", "Improvement"], ["/foundry", "Foundry"]]));
+  }
+  return shell(title, head + pending + namedGap("interface-binding plane (W3)", "Generated and bound interfaces for this System")
+    + handOffs([["/packages", "Packages"], ["/__ioi/developer-console", "Developer Console"]]));
+}
+
+export async function handleSystemWorkspace(req, res, pathname, { daemonUrl: baseDaemonUrl, shell }) {
+  if (!pathname.startsWith(`${SYSTEM_WORKSPACE_LANE}/`) || req.method !== "GET") return false;
+  const parsed = parseSystemWorkspacePath(pathname.slice(SYSTEM_WORKSPACE_LANE.length + 1));
+  if (!parsed) {
+    res.writeHead(404, HTMLH);
+    res.end(shell("Not found", `<h1>System</h1>${stateBlock("honest_empty", "system_workspace_path_invalid", `<div class="empty">That is not a System address.</div>`)}`));
+    return true;
+  }
+  const daemonUrl = { url: baseDaemonUrl, headers: callerIdentityHeaders(req) };
+  res.writeHead(200, HTMLH);
+  res.end(await renderSystemWorkspace(daemonUrl, shell, parsed));
   return true;
 }

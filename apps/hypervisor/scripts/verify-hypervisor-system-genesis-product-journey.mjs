@@ -186,7 +186,11 @@ function lifecycleDeploymentRevisionForGenesis(genesis) {
 }
 
 // ---- transport (node:http with a 15-minute ceiling — governed posts hold on the wallet) ----
-function httpCall(baseUrl, method, path, { json, form } = {}) {
+// THE OPERATOR'S SESSION (R-240). The product requires sign-in and the Systems projection is
+// identity-first, so the journey runs as a bootstrapped operator: every call carries its session
+// unless it asks to be anonymous (the signed-out lane).
+let SESSION_COOKIE = "";
+function httpCall(baseUrl, method, path, { json, form, anonymous = false } = {}) {
   const target = new URL(`${baseUrl}${path}`);
   let payload = null;
   let contentType = "application/json";
@@ -204,6 +208,7 @@ function httpCall(baseUrl, method, path, { json, form } = {}) {
         method,
         headers: {
           "content-type": contentType,
+          ...(SESSION_COOKIE && !anonymous ? { cookie: SESSION_COOKIE } : {}),
           ...(payload === null ? {} : { "content-length": Buffer.byteLength(payload) }),
         },
       },
@@ -286,6 +291,18 @@ async function main() {
       console.error("BLOCKED: target/debug/hypervisor-daemon is not built");
       process.exit(2);
     }
+    // The one-boot token is printed only in the host log (its hash is what the daemon keeps); the
+    // isolated plane writes that log inside the data directory this journey owns.
+    // (A journey that hands the plane its own data directory gets a restart-named log, so read every
+    // daemon log there and take the newest token.)
+    const daemonLogs = readdirSync(dataDir).filter((name) => /^isolated-daemon.*\.log$/u.test(name)).sort();
+    const bootToken = daemonLogs.map((name) => readFileSync(join(dataDir, name), "utf8")).join("\n").match(/ioi_bootstrap_[A-Za-z0-9_-]+/gu)?.at(-1);
+    requireValue(bootToken, "the isolated daemon printed no one-boot bootstrap token");
+    const bootReply = await httpCall(plane.daemonUrl, "POST", "/v1/hypervisor/auth/bootstrap", {
+      json: { token: bootToken, name: "Genesis Journey", email: "genesis@journey.invalid", password: "genesis-journey-pass-1" },
+    });
+    SESSION_COOKIE = bootReply.json?.session_token ? `ioi_session=${bootReply.json.session_token}` : "";
+    ok("SETUP: an operator is bootstrapped with the daemon's one-boot token, and every surface call runs as that person", !!SESSION_COOKIE, `bootstrap HTTP ${bootReply.status}`);
     let serveUrl = plane.serveUrl;
     const S = (path, options) => httpCall(serveUrl, "GET", path, options);
     const P = (path, form) => httpCall(serveUrl, "POST", path, { form });
@@ -750,6 +767,48 @@ async function main() {
         truthCode(substitutionPage.text, "system_lifecycle_head_conflict") &&
         JSON.stringify(projectionAfterSubstitution) === JSON.stringify(projectionCompact),
       "system_lifecycle_head_conflict, both chains unchanged",
+    );
+
+    // ---- 11b. the System workspace (ADR 0056 journey step 1) ---------------------------------
+    // The daemon publishes seven mode routes per System; follow THEM (never hand-built paths) and
+    // prove each is served by the workspace, gated on the caller-filtered projection.
+    const modeRoutes = (projected) => (projected?.modes || []).map((m) => m.route).filter((r) => typeof r === "string" && r.startsWith("/systems/"));
+    const alphaModes = modeRoutes(alphaProjected);
+    const workspacePages = await Promise.all(alphaModes.map((route) => S(route)));
+    ok(
+      "SYSTEM WORKSPACE: every mode route the daemon publishes for a System is SERVED by the workspace (no 'not available yet' shell), each naming its mode",
+      alphaModes.length === 7 && workspacePages.every((page) => page.status === 200
+        && String(page.headers["x-ioi-surface-lane"] || "").startsWith("/__ioi/system-workspace/")
+        && /data-system-workspace-mode="(overview|design|operate|govern|evidence|improve|interfaces)"/.test(page.text)
+        && !page.text.includes("is not available yet")),
+      `${alphaModes.length} routes · ${workspacePages.map((page) => page.status).join(",")}`,
+    );
+    const pageFor = (mode) => workspacePages[alphaModes.findIndex((route) => mode === "overview" ? !/\/(design|operate|govern|evidence|improve|interfaces)$/.test(route) : route.endsWith(`/${mode}`))]?.text || "";
+    ok(
+      "WORKSPACE OVERVIEW + GOVERN + EVIDENCE: identity, the admitted ladder with its governed forms, and the advanced receipts — alpha's own, never beta's",
+      pageFor("overview").includes(`data-detail-system-id="${alphaCompactIds.systemId}"`) && pageFor("overview").includes(alphaProjected.canonical_roots.chain_root)
+        && pageFor("govern").includes('data-ladder-stage="activate" data-ladder-state="admitted"') && pageFor("govern").includes(`action="${BASE}/${encodeURIComponent(alphaTail)}/continuity"`)
+        && pageFor("evidence").includes(alphaProjected.canonical_roots.chain_root)
+        && [pageFor("overview"), pageFor("govern"), pageFor("evidence")].every((html) => !html.includes(betaIds.systemId) && !html.includes(betaProjected.canonical_roots.chain_root)),
+      "overview/govern/evidence carry alpha only",
+    );
+    ok(
+      "WORKSPACE GAP MODES: Design, Improve and Interfaces name the missing plane and hand off to the surfaces that own the work today",
+      ["design", "improve", "interfaces"].every((mode) => /data-system-named-gap="[^"]+"/.test(pageFor(mode)) && pageFor(mode).includes('data-system-handoffs="1"')),
+    );
+    const { systemRecordTail } = await import(SURFACE_MODULE);
+    ok(
+      "WORKSPACE STORAGE KEY: the key the workspace derives for a visible-but-not-live System is the daemon's own (record_tail) for both Systems",
+      systemRecordTail(alphaCompactIds.systemId) === alphaTail && systemRecordTail(betaIds.systemId) === betaTail,
+      `${systemRecordTail(alphaCompactIds.systemId).slice(0, 16)} vs ${String(alphaTail).slice(0, 16)}`,
+    );
+    const unknownSystem = await S("/systems/acme/not-a-system");
+    const signedOutAlpha = await httpCall(serveUrl, "GET", alphaModes[0] || "/systems/acme", { anonymous: true });
+    ok(
+      "WORKSPACE POLICY: an unknown System is a typed absence that reads nothing more, and a signed-out visitor sees no System fact",
+      unknownSystem.status === 200 && unknownSystem.text.includes('data-system-not-in-inventory="1"')
+        && !signedOutAlpha.text.includes(alphaProjected.canonical_roots.chain_root) && !signedOutAlpha.text.includes(alphaCompactIds.systemId + '"'),
+      `unknown ${unknownSystem.status} · signed-out ${signedOutAlpha.status}`,
     );
 
     // ---- 12. restart lane: degraded honesty, then byte-exact reconstruction -----------------

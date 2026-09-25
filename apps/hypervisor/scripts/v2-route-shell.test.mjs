@@ -200,6 +200,18 @@ test("retirement: a TERMINAL absence retires with no replacement and no successo
   }
 });
 
+test("systems: a System's deep links are served by the workspace lane, and its id spans segments (ADR 0056 journey step 1)", async () => {
+  const row = v2RouteFor("/systems");
+  assert.deepEqual(row.detail, { kind: "rewrite", to: "/__ioi/system-workspace" });
+  assert.equal(resolveV2Route("/systems/acme/one/govern").subpath, "acme/one/govern");
+  const { parseSystemWorkspacePath, systemRecordTail } = await import("./system-genesis-surfaces.mjs");
+  assert.deepEqual(parseSystemWorkspacePath("acme/one"), { systemId: "system://acme/one", tailPath: "acme/one", mode: "" });
+  assert.deepEqual(parseSystemWorkspacePath("acme/one/govern"), { systemId: "system://acme/one", tailPath: "acme/one", mode: "govern" });
+  assert.deepEqual(parseSystemWorkspacePath("govern"), { systemId: "system://govern", tailPath: "govern", mode: "" }, "a lone mode word is an id, not a mode");
+  assert.equal(parseSystemWorkspacePath("acme/../x"), null);
+  assert.match(systemRecordTail("system://acme/one"), /^asg_[0-9a-f]{64}$/);
+});
+
 // ------------------------------ table integrity ------------------------------
 
 test("table: every row keeps the required registration fields; retired roots never collide with rows", () => {

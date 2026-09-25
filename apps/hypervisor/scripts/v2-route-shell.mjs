@@ -78,7 +78,11 @@ export const V2_ROUTE_TABLE = [
     waves: "W1 · W3 (interface-binding plane)",
     build_state: "E7 COCKPIT RETIREMENT (2026-08-20): the bound cockpit module that served this canonical route was retired with its registry row and its /__ioi/* legacy lane; this route renders the honest v2 shell page again and the live lanes named below are what serve the surface today. Designation stays GRE (landing-designations.v1.json) pending the GRE-1 owner ruling. The autonomous-system read projection and the genesis crossings are daemon truth and keep their own surface: the M1.6/M1.7 genesis cockpit below, proven by check:system-genesis-product-journey",
     serve: { kind: "rewrite", to: "/__ioi/systems-projection", heading: "Systems" },
+    // ADR 0056 journey step 1: a System's workspace — `/systems/<id>[/<mode>]`, the seven mode routes the
+    // daemon publishes per System — is SERVED by this lane rather than answered by the deep-link page.
+    detail: { kind: "rewrite", to: "/__ioi/system-workspace" },
     serving_today: [
+      { href: "/systems/<id>", label: "System workspace", note: "ADR 0056 (2026-09-25): Overview, Design, Operate, Govern, Evidence, Improve and Interfaces for one System, each gated on the caller-filtered Systems projection before any per-System read; built from the provisional detail's own pieces" },
       { href: "/__ioi/systems-projection", label: "Systems — policy-filtered projection", note: "M08.9 (2026-09-14): canon's HypervisorSystemsProjection rows over GET /v1/hypervisor/autonomous-systems/projection — verified genesis + live chain, membership and writer planes as typed presence/absence, the seven modes as routes; honest_empty when nothing is admitted" },
       { href: "/__ioi/systems/packages", label: "Systems — packages and lifecycle", note: "the system-genesis cockpit's package/lifecycle landing over daemon truth (the /__ioi/systems root resolves here)" },
       { href: "/__ioi/systems", label: "Systems genesis readout", note: "the M1.6/M1.7 system-genesis cockpit over daemon truth — the live Systems surface" },
