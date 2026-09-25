@@ -32,10 +32,10 @@ const CLEAN = [
   { slug: "ingest", ownerUrl: "/__ioi/odk", owner: "Data", title: null },
   { slug: "sources", ownerUrl: "/__ioi/odk", owner: "Data", title: /Data Connection/i },
   { slug: "evalsuites", ownerUrl: "/__ioi/feedback", owner: "Evaluations", title: /Eval/i },
-  { slug: "analysis", ownerUrl: "/__ioi/feedback", owner: "Evaluations", title: /Insight/i },
-  { slug: "jobs", ownerUrl: "/__ioi/sessions", owner: "Missions", title: /Build/i },
-  { slug: "incidents", ownerUrl: "/__ioi/sessions", owner: "Missions", title: /Issue/i },
-  { slug: "listings", ownerUrl: "/__ioi/marketplace", owner: "Marketplace", title: /Marketplace/i },
+  { slug: "analysis", ownerUrl: "/__ioi/feedback", owner: "Ontology", title: /Insight/i },
+  { slug: "jobs", ownerUrl: "/__ioi/sessions", owner: "Automations", title: /Build/i },
+  { slug: "incidents", ownerUrl: "/__ioi/sessions", owner: "Operations", title: /Issue/i },
+  { slug: "listings", ownerUrl: "/__ioi/marketplace", owner: "Packages", title: /Marketplace/i },
   { slug: "models", ownerUrl: "/__ioi/foundry", owner: "Foundry", title: /Model Catalog/i },
 ];
 // Three registered seeds that serve but do not render on the auth-dead capture — NAMED GAPS.

@@ -114,11 +114,11 @@ async function run() {
   // surface is still asserted bound (the port CARRIES substrate_surface forward, so /__ioi/missions
   // is never unbound by the promotion), and a ported jobs row must additionally name the sibling
   // port surface. A promotion that silently dropped /__ioi/missions now fails here.
-  ok("matrix binds jobs (substrate_bound|reference_ported) with the intact /__ioi/missions substrate (Missions)", ["substrate_bound", "reference_ported"].includes(bySlug.jobs?.parity_class) && bySlug.jobs?.substrate_surface === "/__ioi/missions" && bySlug.jobs?.surface_name === "Missions");
+  ok("matrix binds jobs (substrate_bound|reference_ported) with the intact /__ioi/missions substrate (owner: Automations, ADR 0056)", ["substrate_bound", "reference_ported"].includes(bySlug.jobs?.parity_class) && bySlug.jobs?.substrate_surface === "/__ioi/missions" && bySlug.jobs?.surface_name === "Automations");
   ok("a PORTED jobs row names its sibling Builds surface and never re-points the substrate at it", bySlug.jobs?.parity_class !== "reference_ported" || (bySlug.jobs?.port_surface === "/__ioi/missions/builds" && bySlug.jobs?.candidate_surface === "/__ioi/missions/builds" && bySlug.jobs?.substrate_surface === "/__ioi/missions" && /#jobs-port/.test(bySlug.jobs?.adjudication_ref || "")), bySlug.jobs?.port_surface || "(none)");
   // #45 PROMOTED incidents to daemon_wired (certified port at /__ioi/missions/incidents) — the
   // substrate surface stays bound; the class pin became a set (the frozen-class pin broke on promotion).
-  ok("matrix binds incidents (substrate_bound|daemon_wired) with the intact /__ioi/missions substrate (Missions)", ["substrate_bound", "daemon_wired"].includes(bySlug.incidents?.parity_class) && bySlug.incidents?.substrate_surface === "/__ioi/missions" && bySlug.incidents?.surface_name === "Missions");
+  ok("matrix binds incidents (substrate_bound|daemon_wired) with the intact /__ioi/missions substrate (owner: Operations, ADR 0056)", ["substrate_bound", "daemon_wired"].includes(bySlug.incidents?.parity_class) && bySlug.incidents?.substrate_surface === "/__ioi/missions" && bySlug.incidents?.surface_name === "Operations");
   ok("no over-claim estate-wide (no 'covered'); prior reclassified surfaces still bound (substrate_bound|daemon_wired) (pipeline/lineage/vertex)", !(matrix.seeds || []).some((s) => s.parity_class === "covered") && ["pipeline", "lineage", "vertex"].every((k) => ["substrate_bound", "daemon_wired", "reference_ported", "reference_port_pending"].includes(bySlug[k]?.parity_class)));
 
   // 1. Reference baselines (raw familiar captures; brand-clean enforced on the IOI surface below).

@@ -112,23 +112,7 @@
           },
           "graph_file": "seed-graphs/work/jobs.v1.json",
           "class": "substrate_bound",
-          "owner_mapping_note": "retired owner name: surface-registry.mjs still labels /__ioi/missions with the retired owner 'Missions'; canonical owner is Work per the estate ledger and core-clients-surfaces.md. The registry rename lands with the Work surface packet, not here.",
-          "seed_role": "baseline"
-        },
-        {
-          "kind": "protected-executable-seed",
-          "slug": "incidents",
-          "starting_route": "/__ioi/missions/incidents",
-          "canonical_owner": "Work",
-          "provenance_source": "apps/hypervisor/ported-seed-preservation.v1.json",
-          "visual_evidence_status": "blocked-missing-capture-corrupted-protected-variant-excluded",
-          "graph": {
-            "evidence_level": "complete_interaction_route_graph",
-            "complete_interaction_route_graph": true
-          },
-          "graph_file": "seed-graphs/work/incidents.v1.json",
-          "class": "daemon_wired",
-          "owner_mapping_note": "retired owner name: surface-registry.mjs still labels /__ioi/missions/incidents with the retired owner 'Missions'; canonical owner is Work per the estate ledger and core-clients-surfaces.md. The registry rename lands with the Work surface packet, not here.",
+          "owner_mapping_note": "retired owner name: surface-registry.mjs still labels /__ioi/missions 'Missions'; ADR 0056 (owner-accepted 2026-09-25) retires that root to the typed route-retirement refusal toward /work (step M5), when this protected slug moves to the Builds successor under Automations with its cutover evidence.",
           "seed_role": "baseline"
         },
         {
@@ -146,23 +130,6 @@
           "disposition": "rebind",
           "audit_route_disposition": "retained-seed",
           "replay_problem_count": 18,
-          "seed_role": "corroborating"
-        },
-        {
-          "kind": "retained-harvest-capture",
-          "slug": "incidents",
-          "starting_route": "/__apps/incidents",
-          "canonical_owner": "Work",
-          "provenance_source": "internal-docs/implementation/program/estate-disposition.md",
-          "visual_evidence_status": "blocked-text-log-only-no-admissible-render",
-          "graph": {
-            "evidence_level": "explored_control_graph",
-            "complete_interaction_route_graph": false
-          },
-          "graph_file": null,
-          "disposition": "rebind",
-          "audit_route_disposition": "retained-seed",
-          "visual_blocker": "stable matrix is not trustworthy: one file was overwritten with a contact sheet and no immutable genuine render is established",
           "seed_role": "corroborating"
         }
       ]
@@ -404,6 +371,23 @@
           "owner_mapping_note": "audit correction: current canonical process-graph owner is Automations; estate sweep carries the older Studio mesh assignment",
           "replay_problem_count": 36,
           "seed_role": "corroborating"
+        },
+        {
+          "kind": "retained-harvest-capture",
+          "slug": "scheduler",
+          "starting_route": "/__apps/scheduler",
+          "canonical_owner": "Automations",
+          "provenance_source": "internal-docs/implementation/program/estate-disposition.md",
+          "visual_evidence_status": "blocked-text-log-only-no-admissible-render",
+          "graph": {
+            "evidence_level": "summary_only",
+            "complete_interaction_route_graph": false
+          },
+          "graph_file": null,
+          "disposition": "pattern-harvest",
+          "audit_route_disposition": "retained-seed",
+          "visual_blocker": "stable replay is global chrome plus Page not found",
+          "seed_role": "corroborating"
         }
       ]
     },
@@ -514,6 +498,23 @@
           "disposition": "blocked-missing-capture",
           "audit_route_disposition": "blocked-missing-capture",
           "visual_blocker": "stable replay initiates a browser download/redirect",
+          "seed_role": "corroborating"
+        },
+        {
+          "kind": "retained-harvest-capture",
+          "slug": "analysis",
+          "starting_route": "/__apps/analysis",
+          "canonical_owner": "Ontology",
+          "provenance_source": "internal-docs/implementation/program/estate-disposition.md",
+          "visual_evidence_status": "blocked-text-log-only-no-admissible-render",
+          "graph": {
+            "evidence_level": "summary_only",
+            "complete_interaction_route_graph": false
+          },
+          "graph_file": null,
+          "disposition": "pattern-harvest",
+          "audit_route_disposition": "retained-seed",
+          "visual_blocker": "stable replay is blank global chrome",
           "seed_role": "corroborating"
         }
       ]
@@ -627,23 +628,6 @@
           "disposition": "blocked-missing-route",
           "audit_route_disposition": "blocked-missing-runtime",
           "visual_blocker": "stable replay is an invalid-resource Not a dataset page",
-          "seed_role": "corroborating"
-        },
-        {
-          "kind": "retained-harvest-capture",
-          "slug": "inference",
-          "starting_route": "/__apps/inference",
-          "canonical_owner": "Data",
-          "provenance_source": "internal-docs/implementation/program/estate-disposition.md",
-          "visual_evidence_status": "blocked-text-log-only-no-admissible-render",
-          "graph": {
-            "evidence_level": "summary_only",
-            "complete_interaction_route_graph": false
-          },
-          "graph_file": null,
-          "disposition": "rehome",
-          "audit_route_disposition": "rehomed",
-          "visual_blocker": "stable matrix is generic failure/error-only rather than substantive application UX",
           "seed_role": "corroborating"
         }
       ]
@@ -827,23 +811,6 @@
         },
         {
           "kind": "retained-harvest-capture",
-          "slug": "analysis",
-          "starting_route": "/__apps/analysis",
-          "canonical_owner": "Evaluations",
-          "provenance_source": "internal-docs/implementation/program/estate-disposition.md",
-          "visual_evidence_status": "blocked-text-log-only-no-admissible-render",
-          "graph": {
-            "evidence_level": "summary_only",
-            "complete_interaction_route_graph": false
-          },
-          "graph_file": null,
-          "disposition": "pattern-harvest",
-          "audit_route_disposition": "retained-seed",
-          "visual_blocker": "stable replay is blank global chrome",
-          "seed_role": "corroborating"
-        },
-        {
-          "kind": "retained-harvest-capture",
           "slug": "quiver",
           "starting_route": "/__apps/quiver",
           "canonical_owner": "Evaluations",
@@ -963,6 +930,23 @@
           "audit_route_disposition": "retained-seed",
           "visual_blocker": "stable replay is global chrome plus Page not found",
           "seed_role": "corroborating"
+        },
+        {
+          "kind": "retained-harvest-capture",
+          "slug": "inference",
+          "starting_route": "/__apps/inference",
+          "canonical_owner": "Foundry",
+          "provenance_source": "internal-docs/implementation/program/estate-disposition.md",
+          "visual_evidence_status": "blocked-text-log-only-no-admissible-render",
+          "graph": {
+            "evidence_level": "summary_only",
+            "complete_interaction_route_graph": false
+          },
+          "graph_file": null,
+          "disposition": "rehome",
+          "audit_route_disposition": "rehomed",
+          "visual_blocker": "stable matrix is generic failure/error-only rather than substantive application UX",
+          "seed_role": "corroborating"
         }
       ]
     },
@@ -989,7 +973,6 @@
           },
           "graph_file": "seed-graphs/packages/listings.v1.json",
           "class": "daemon_wired",
-          "owner_mapping_note": "retired owner name: surface-registry.mjs still labels /__ioi/marketplace/listings with the folded owner 'Marketplace'; canonical owner is Packages (marketplace is a Packages mode). The registry rename lands with the Packages surface packet, not here.",
           "seed_role": "baseline"
         },
         {
@@ -1217,27 +1200,42 @@
       "id": "operations",
       "owner": "Operations",
       "canonical_route": "/operations",
-      "baseline_status": "provenance-recorded-retained-source-present-but-visual-and-graph-blocked",
-      "graph_mapping_status": "blocked-summary-only-no-complete-interaction-route-graph",
-      "seed_graph_ready_for_rehome": false,
+      "baseline_status": "provenance-qualified-executable-seed-present",
+      "graph_mapping_status": "baseline-graphs-complete-corroborating-typed",
+      "seed_graph_ready_for_rehome": true,
       "greenfield_authorization": null,
       "graph_recovery_status": "required-for-every-summary-only-source",
       "sources": [
         {
+          "kind": "protected-executable-seed",
+          "slug": "incidents",
+          "starting_route": "/__ioi/missions/incidents",
+          "canonical_owner": "Operations",
+          "provenance_source": "apps/hypervisor/ported-seed-preservation.v1.json",
+          "visual_evidence_status": "blocked-missing-capture-corrupted-protected-variant-excluded",
+          "graph": {
+            "evidence_level": "complete_interaction_route_graph",
+            "complete_interaction_route_graph": true
+          },
+          "graph_file": "seed-graphs/work/incidents.v1.json",
+          "class": "daemon_wired",
+          "seed_role": "baseline"
+        },
+        {
           "kind": "retained-harvest-capture",
-          "slug": "scheduler",
-          "starting_route": "/__apps/scheduler",
+          "slug": "incidents",
+          "starting_route": "/__apps/incidents",
           "canonical_owner": "Operations",
           "provenance_source": "internal-docs/implementation/program/estate-disposition.md",
           "visual_evidence_status": "blocked-text-log-only-no-admissible-render",
           "graph": {
-            "evidence_level": "summary_only",
+            "evidence_level": "explored_control_graph",
             "complete_interaction_route_graph": false
           },
           "graph_file": null,
-          "disposition": "pattern-harvest",
+          "disposition": "rebind",
           "audit_route_disposition": "retained-seed",
-          "visual_blocker": "stable replay is global chrome plus Page not found",
+          "visual_blocker": "stable matrix is not trustworthy: one file was overwritten with a contact sheet and no immutable genuine render is established",
           "seed_role": "corroborating"
         }
       ]

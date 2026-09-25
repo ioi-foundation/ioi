@@ -390,7 +390,7 @@ function classify(seed, lanes, storeFacts) {
 function rankNext(records) {
   const PORTED = new Set(["daemon_wired", "reference_ported"]);
   const candidates = records.filter((r) => !PORTED.has(r.parity_class) && r.clean_state === "data_clean");
-  const OWNER_VALUE = { Data: 5, Ontology: 5, Governance: 5, Missions: 4, Automations: 4, Provenance: 4, Evaluations: 3, Foundry: 3, Studio: 3, Marketplace: 2, "Developer Console": 2, Workbench: 2, "Domain Apps": 2, Improvement: 3, Environments: 1 };
+  const OWNER_VALUE = { Data: 5, Ontology: 5, Governance: 5, Missions: 4, Operations: 4, Automations: 4, Provenance: 4, Evaluations: 3, Foundry: 3, Studio: 3, Marketplace: 2, Packages: 2, "Developer Console": 2, Workbench: 2, "Developer Workspace": 2, Systems: 3, "Domain Apps": 2, Improvement: 3, Environments: 1 };
   const scored = candidates.map((r) => {
     const bindable = r.candidate_surface || r.substrate_surface ? 2 : 0; // daemon truth already wired/easy to bind
     const owner = OWNER_VALUE[r.owner] || 1;

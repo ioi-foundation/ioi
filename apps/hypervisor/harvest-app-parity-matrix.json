@@ -211,7 +211,7 @@
       "remediation_state": "live_ia_recorded",
       "adjudication_ref": "reference-seed-adjudications.v1.json#scheduler + reference-seed-adjudications.v1.json#scheduler-port + reference-live-tenant-atlas.v1.json#scheduler + reference-live-tenant-deep-atlas.v1.json#scheduler",
       "port_surface": "/__ioi/missions/schedules",
-      "surface_name": "Missions",
+      "surface_name": "Automations",
       "live_reference_evidence": "reference-live-tenant-deep-atlas.v1.json#scheduler (landing, url /workspace/scheduler/find, title \"Build Schedules\", 15 controls, 1 input, 1 facet group APPLICATIONS, 0 rows) + .artifacts/live-tenant-atlas/deep/scheduler-landing.png",
       "reference_landmarks": [
         "Build Schedules",
@@ -523,7 +523,7 @@
       "shell_pixel_certification_artifact": "pixel-certifications/evalsuites.json"
     },
     {
-      "owner": "Evaluations",
+      "owner": "Ontology",
       "slug": "analysis",
       "app_route": "/__apps/analysis",
       "capture_base": "/workspace/insight/",
@@ -540,7 +540,7 @@
       "remediation_state": "ia_bearing_empty",
       "adjudication_ref": "reference-seed-adjudications.v1.json#analysis",
       "port_surface": "/__ioi/evaluations/insight",
-      "surface_name": "Evaluations",
+      "surface_name": "Ontology",
       "reference_url_override": "http://localhost:9225/workspace/insight/",
       "reference_landmarks": [
         "Insight",
@@ -683,7 +683,7 @@
       "shell_pixel_certified": false
     },
     {
-      "owner": "Marketplace",
+      "owner": "Packages",
       "slug": "listings",
       "app_route": "/__apps/listings",
       "capture_base": "/workspace/marketplace/",
@@ -700,7 +700,7 @@
       "adjudication_ref": "reference-seed-adjudications.v1.json#listings",
       "substrate_surface": "/__ioi/marketplace",
       "port_surface": "/__ioi/marketplace/listings",
-      "surface_name": "Marketplace",
+      "surface_name": "Packages",
       "reference_landmarks": [
         "Marketplace",
         "Discover and install Foundry products",
@@ -719,7 +719,7 @@
       "shell_pixel_certification_artifact": "pixel-certifications/listings.json"
     },
     {
-      "owner": "Marketplace",
+      "owner": "Packages",
       "slug": "registry",
       "app_route": "/__apps/registry",
       "capture_base": "/workspace/artifacts/",
@@ -736,7 +736,7 @@
       "remediation_state": "live_ia_recorded",
       "adjudication_ref": "reference-seed-adjudications.v1.json#registry + reference-seed-adjudications.v1.json#registry-port + reference-live-tenant-atlas.v1.json#registry + reference-live-tenant-deep-atlas.v1.json#registry",
       "port_surface": "/__ioi/marketplace/artifacts",
-      "surface_name": "Marketplace",
+      "surface_name": "Packages",
       "live_reference_evidence": "reference-live-tenant-deep-atlas.v1.json#registry (landing) + reference-live-tenant-atlas.v1.json#registry",
       "reference_landmarks": [
         "Artifacts",
@@ -832,7 +832,7 @@
       "adjudication_ref": "reference-seed-adjudications.v1.json#developer"
     },
     {
-      "owner": "Workbench",
+      "owner": "Developer Workspace",
       "slug": "workspaces",
       "app_route": "/__apps/workspaces",
       "capture_base": "/workspace/code-workspaces/",
@@ -848,7 +848,7 @@
       "reference_clean_artifact": "reference-clean-sweep.json",
       "adjudication_ref": "reference-seed-adjudications.v1.json#workspaces",
       "port_surface": "/__ioi/developer-workspace/workspaces",
-      "surface_name": "Workbench",
+      "surface_name": "Developer Workspace",
       "reference_url_override": "http://localhost:9225/workspace/code-workspaces/splash",
       "reference_landmarks": [
         "Code Workspaces",
@@ -861,7 +861,7 @@
       "shell_pixel_certified": false
     },
     {
-      "owner": "Workbench",
+      "owner": "Developer Workspace",
       "slug": "repositories",
       "app_route": "/__apps/repositories",
       "capture_base": "/workspace/code-repositories/",
@@ -878,7 +878,7 @@
       "donor_capture": "code (non-seed capture /workspace/code/)",
       "adjudication_ref": "reference-seed-adjudications.v1.json#repositories",
       "port_surface": "/__ioi/developer-workspace/repositories",
-      "surface_name": "Workbench",
+      "surface_name": "Developer Workspace",
       "reference_url_override": "http://localhost:9225/workspace/code/",
       "reference_landmarks": [
         "Code Repositories",
@@ -891,7 +891,7 @@
       "shell_pixel_certified": false
     },
     {
-      "owner": "Workbench",
+      "owner": "Developer Workspace",
       "slug": "notepad",
       "app_route": "/__apps/notepad",
       "capture_base": "/workspace/notepad/",
@@ -907,7 +907,7 @@
       "reference_clean_artifact": "reference-clean-sweep.json",
       "adjudication_ref": "reference-seed-adjudications.v1.json#notepad",
       "port_surface": "/__ioi/developer-workspace/notepad",
-      "surface_name": "Workbench",
+      "surface_name": "Developer Workspace",
       "reference_url_override": "http://localhost:9225/workspace/notepad/",
       "reference_landmarks": [
         "Notepad",
@@ -1096,7 +1096,7 @@
       "shell_pixel_certified": false
     },
     {
-      "owner": "Missions",
+      "owner": "Automations",
       "slug": "jobs",
       "app_route": "/__apps/jobs",
       "capture_base": "/workspace/job-tracker/",
@@ -1113,7 +1113,7 @@
       "remediation_state": "live_ia_recorded",
       "adjudication_ref": "reference-seed-adjudications.v1.json#jobs + reference-seed-adjudications.v1.json#jobs-port + reference-live-tenant-atlas.v1.json#jobs",
       "port_surface": "/__ioi/missions/builds",
-      "surface_name": "Missions",
+      "surface_name": "Automations",
       "substrate_surface": "/__ioi/missions",
       "live_reference_evidence": "reference-live-tenant-atlas.v1.json#jobs (landing, title \"Your builds · Builds\", 14 controls) + .artifacts/live-tenant-atlas/jobs-landing.png",
       "reference_landmarks": [
@@ -1136,7 +1136,7 @@
       "shell_pixel_certified": false
     },
     {
-      "owner": "Missions",
+      "owner": "Operations",
       "slug": "incidents",
       "app_route": "/__apps/incidents",
       "capture_base": "/workspace/issues-app/",
@@ -1154,7 +1154,7 @@
       "substrate_surface": "/__ioi/missions",
       "port_surface": "/__ioi/missions/incidents",
       "ioi_url_override": "/__ioi/missions/incidents?lane=closed",
-      "surface_name": "Missions",
+      "surface_name": "Operations",
       "reference_landmarks": [
         "Open",
         "Closed",

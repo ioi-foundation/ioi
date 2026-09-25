@@ -59,7 +59,7 @@ export const SEED_INVENTORY = [
 
   // ── Evaluations ────────────────────────────────────────────────────────────────────────
   { owner: "Evaluations", ownerUrl: "/__ioi/evaluations", slug: "evalsuites", captureBase: "/workspace/evals/", grammar: "table_list", tier: "high_value", reboundLane: null, note: "eval-suite library; unbound" },
-  { owner: "Evaluations", ownerUrl: "/__ioi/evaluations", slug: "analysis", captureBase: "/workspace/insight/", grammar: "editor_canvas", tier: "high_value", reboundLane: null, note: "object-set-first analysis canvas; unbound" },
+  { owner: "Ontology", ownerUrl: "/__ioi/evaluations", slug: "analysis", captureBase: "/workspace/insight/", grammar: "editor_canvas", tier: "high_value", reboundLane: null, note: "object-set-first analysis canvas; unbound" },
   { owner: "Evaluations", ownerUrl: "/__ioi/evaluations", slug: "quiver", captureBase: "/workspace/quiver/", grammar: "editor_canvas", tier: "high_value", reboundLane: null, note: "time-series analysis canvas; unbound" },
 
   // ── Foundry ────────────────────────────────────────────────────────────────────────────
@@ -68,8 +68,8 @@ export const SEED_INVENTORY = [
   { owner: "Foundry", ownerUrl: "/__ioi/foundry", slug: "inference", captureBase: "/workspace/foundry-inference-app/", grammar: "wizard", tier: "aux", reboundLane: null, note: "inference app; unbound" },
 
   // ── Marketplace ────────────────────────────────────────────────────────────────────────
-  { owner: "Marketplace", ownerUrl: "/__ioi/marketplace", slug: "listings", captureBase: "/workspace/marketplace/", grammar: "catalog", tier: "high_value", reboundLane: "daemon marketplace listing plane", note: "store browse + install wizard; drill-down = named gap" },
-  { owner: "Marketplace", ownerUrl: "/__ioi/marketplace", slug: "registry", captureBase: "/workspace/artifacts/", grammar: "table_list", tier: "high_value", reboundLane: null, note: "versioned artifact registry; unbound" },
+  { owner: "Packages", ownerUrl: "/__ioi/marketplace", slug: "listings", captureBase: "/workspace/marketplace/", grammar: "catalog", tier: "high_value", reboundLane: "daemon marketplace listing plane", note: "store browse + install wizard; drill-down = named gap" },
+  { owner: "Packages", ownerUrl: "/__ioi/marketplace", slug: "registry", captureBase: "/workspace/artifacts/", grammar: "table_list", tier: "high_value", reboundLane: null, note: "versioned artifact registry; unbound" },
 
   // ── Developer Console ──────────────────────────────────────────────────────────────────
   { owner: "Developer Console", ownerUrl: "/__ioi/connections", slug: "devconsole", captureBase: "/workspace/developer-console/", grammar: "wizard", tier: "high_value", reboundLane: null, note: "OAuth app registration + SDK on-ramps (self-bootstrapped)" },
@@ -77,9 +77,9 @@ export const SEED_INVENTORY = [
   { owner: "Developer Console", ownerUrl: "/__ioi/connections", slug: "developer", captureBase: "/workspace/developer/", grammar: "table_list", tier: "aux", reboundLane: null, note: "developer home; unbound" },
 
   // ── Workbench ──────────────────────────────────────────────────────────────────────────
-  { owner: "Workbench", ownerUrl: "/__ioi/workbench", slug: "workspaces", captureBase: "/workspace/code-workspaces/", grammar: "editor_canvas", tier: "high_value", reboundLane: null, note: "code workspace IDE; unbound" },
-  { owner: "Workbench", ownerUrl: "/__ioi/workbench", slug: "repositories", captureBase: "/workspace/code-repositories/", grammar: "table_list", tier: "aux", reboundLane: null, note: "code repositories; unbound" },
-  { owner: "Workbench", ownerUrl: "/__ioi/workbench", slug: "notepad", captureBase: "/workspace/notepad/", grammar: "document", tier: "aux", reboundLane: null, note: "notepad document; unbound" },
+  { owner: "Developer Workspace", ownerUrl: "/__ioi/workbench", slug: "workspaces", captureBase: "/workspace/code-workspaces/", grammar: "editor_canvas", tier: "high_value", reboundLane: null, note: "code workspace IDE; unbound" },
+  { owner: "Developer Workspace", ownerUrl: "/__ioi/workbench", slug: "repositories", captureBase: "/workspace/code-repositories/", grammar: "table_list", tier: "aux", reboundLane: null, note: "code repositories; unbound" },
+  { owner: "Developer Workspace", ownerUrl: "/__ioi/workbench", slug: "notepad", captureBase: "/workspace/notepad/", grammar: "document", tier: "aux", reboundLane: null, note: "notepad document; unbound" },
 
   // ── Geospatial / graph ─────────────────────────────────────────────────────────────────
   { owner: "Provenance", ownerUrl: "/__ioi/work-ledger", slug: "vertex", captureBase: "/workspace/vertex/", grammar: "graph", tier: "high_value", reboundLane: null, note: "Vertex graph exploration canvas; boots as classified from the local capture" },
@@ -91,9 +91,9 @@ export const SEED_INVENTORY = [
   { owner: "Domain Apps", ownerUrl: "/__ioi/domain-apps", slug: "contour", captureBase: "/workspace/contour-app/", grammar: "editor_canvas", tier: "aux", reboundLane: null, note: "Contour analysis; unbound" },
   { owner: "Domain Apps", ownerUrl: "/__ioi/domain-apps", slug: "fusion", captureBase: "/workspace/fusion/", grammar: "editor_canvas", tier: "aux", reboundLane: null, note: "Fusion spreadsheet; unbound" },
 
-  // ── Missions / Improvement / Governance (already rebound, kept in inventory for coverage) ─
-  { owner: "Missions", ownerUrl: "/__ioi/missions", slug: "jobs", captureBase: "/workspace/job-tracker/", grammar: "table_list", tier: "high_value", reboundLane: "daemon jobs queue", note: "run/job status table" },
-  { owner: "Missions", ownerUrl: "/__ioi/missions", slug: "incidents", captureBase: "/workspace/issues-app/", grammar: "table_list", tier: "high_value", reboundLane: "daemon incident inbox", note: "status-lane remediation inbox" },
+  // ── Automations (Builds) / Operations (Issues) / Improvement / Governance (already rebound, kept for coverage) ─
+  { owner: "Automations", ownerUrl: "/__ioi/missions", slug: "jobs", captureBase: "/workspace/job-tracker/", grammar: "table_list", tier: "high_value", reboundLane: "daemon jobs queue", note: "run/job status table" },
+  { owner: "Operations", ownerUrl: "/__ioi/missions", slug: "incidents", captureBase: "/workspace/issues-app/", grammar: "table_list", tier: "high_value", reboundLane: "daemon incident inbox", note: "status-lane remediation inbox" },
   { owner: "Governance", ownerUrl: "/__ioi/governance", slug: "approvals", captureBase: "/workspace/approvals-app/", grammar: "table_list", tier: "high_value", reboundLane: "daemon approval-requests", note: "approvals inbox; per-row drilldown = named gap" },
   { owner: "Improvement", ownerUrl: "/__ioi/agent-studio", slug: "changes", captureBase: "/workspace/upgrade-assistant/", grammar: "table_list", tier: "high_value", reboundLane: "daemon improvement-proposals", note: "change inbox" },
 ];

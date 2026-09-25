@@ -163,7 +163,10 @@ async function run() {
           homeAny: idxAny("/ai"), projects: idx("/projects"), applications: idx("#applications"),
           sessions: !!sb.querySelector('[data-testid="sessions-filter-button"]'),
           ontologyText: texts.some((t) => /^\S?Ontology$/.test(t)),
-          injected: [...sb.querySelectorAll('[id^="ioi-"]')].map((e) => e.id).filter((id) => id !== "ioi-openapp-rail").join(","),
+          // Two injected rows are not navigation: the Open Application row, and the signed-out notice
+          // under Sessions (R-240) — a STATE row that says why Sessions is empty and links to sign-in,
+          // present only while nobody is signed in. Any other injected id is permanent nav and fails.
+          injected: [...sb.querySelectorAll('[id^="ioi-"]')].map((e) => e.id).filter((id) => id !== "ioi-openapp-rail" && id !== "ioi-signedout-rail").join(","),
         };
       });
       // Re-aimed (2026-08-20): the shell's rail evolved — Home is an icon-only anchor (no text) and
