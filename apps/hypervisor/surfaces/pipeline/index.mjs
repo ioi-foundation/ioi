@@ -530,7 +530,7 @@ function renderPipelineBuilder(lists, sel, embed) {
   // pixel-faithful while the control keeps its function.
   // Embedded (native container contract #65): the native IOI rail outside the iframe owns platform
   // navigation — the module emits NO global rail at all (structural, not hidden).
-  const globalRail = embed ? "" : ioiGlobalRailHtml({ label: "Pipeline Builder", href: "/__ioi/pipeline", iconUri: PIPELINE_APP_ICON_URI, railVariant: "rv-pipe", viewAll: false, star: false, badges: true, aipGradient: true, acctMuted: true });
+  const globalRail = embed ? "" : ioiGlobalRailHtml({ label: "Pipeline Builder", href: "/__ioi/pipeline", iconUri: PIPELINE_APP_ICON_URI, railVariant: "rv-pipe", viewAll: false, star: false, aipGradient: true, acctMuted: true });
   const railPipes = ontologies.length
     ? ontologies.map((x) => { const on = selected && x.id === selected.id; const built = builtRefs.has(x.ref); return `<a class="pb-pipe ${on ? "on" : ""}" href="/__ioi/pipeline?ontology=${enc(x.id)}">${esc(x.domain || x.id)}${built ? `<span class="pb-tag">built</span>` : ""}</a>`; }).join("")
     : `<div class="pb-empty">No pipelines yet. <a href="/__ioi/odk/ontologies/new">Create an ontology</a>.</div>`;

@@ -248,7 +248,7 @@ function renderSourcesPort(sources, mruns, srcMappings, dataSourceSel, opts) {
   </section>`;
 
   // Embedded (native container contract #65): the native rail owns platform nav — emit no global rail.
-  const globalRail = embed ? "" : ioiGlobalRailHtml({ label: "Data Connection", href: "/__ioi/data/sources", iconUri: SRC_APP_TILE_URI, railVariant: "rv-pipe rv-dsg", viewAll: true, star: false, badges: true, aipGradient: true, acctMuted: true });
+  const globalRail = embed ? "" : ioiGlobalRailHtml({ label: "Data Connection", href: "/__ioi/data/sources", iconUri: SRC_APP_TILE_URI, railVariant: "rv-pipe rv-dsg", viewAll: true, star: false, aipGradient: true, acctMuted: true });
 
   const header = `<header class="src-header">
     <span class="src-hchip" aria-hidden="true"></span>

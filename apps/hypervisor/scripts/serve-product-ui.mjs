@@ -4146,7 +4146,7 @@ function renderDesignerPort(lists, selectedId, openState = null) {
     <p class="dsg-foot"><b>New Diagram</b> opens the diagram editor: concept, component and resource nodes, connections, reference architectures, and <b>Load from Data Lineage</b> over the composition below; a saved diagram is a Studio blueprint owned by your organization, listed at the top of Recents. <b>Start planning</b> asks three questions and a governed model call proposes a workflow graph, added as a suggestion. Still not bound: favorites (no record keeps them) — disabled in place above. <b>Open Diagram</b> opens the resource selector over these same designs: Recent files and Object datasources are live, and Favorites, All projects, Data Catalog and Shared with you each name the record the ODK plane does not keep. Sibling Studio seeds stay reference-only: the <a href="/__apps/machinery">machinery</a> process/state-machine graph (data lanes unbound), the <a href="/__apps/workshop">workshop</a> and module builders. Owner: <a href="/__ioi/agent-studio">Agent Studio</a> · siblings: <a href="/__ioi/studio/machinery">Machinery</a> · <a href="${managerLink({ ontology: oid })}">Ontology Manager</a> (<a href="/__ioi/odk?ontology=${enc(oid)}">ODK substrate</a>) · <a href="/__ioi/pipeline?ontology=${enc(oid)}">Pipeline Builder</a>. Reference: the origin-aligned <span class="ref-capture" title="Reference capture — development evidence only; this deployment does not serve it">Solution Designer capture (<code>http://localhost:9225/workspace/solution-design/</code>)</span> — the <a href="/__apps/designer">/__apps/designer proxy lane ↗</a> is documented insufficient (cross-origin :9225 chunk fetches manufacture CORS noise + a favorites-load failure; #44 sweep evidence).</p>
   </section>` : `<section class="dsg-truth" id="designer-truth"><p class="dsg-gapnote">No ontologies to design over yet — create one in the <a href="/__ioi/ontology/manager?section=create">Ontology Manager</a>. This canvas renders real composition truth; it never fabricates concepts. Owner: <a href="/__ioi/agent-studio">Agent Studio</a>.</p></section>`;
 
-  const globalRail = ioiGlobalRailHtml({ label: "Solution Designer", href: "/__ioi/studio/designer", iconUri: DSG_APP_TILE_URI, railVariant: "rv-pipe rv-dsg", viewAll: true, star: false, badges: true, aipGradient: true, acctMuted: true });
+  const globalRail = ioiGlobalRailHtml({ label: "Solution Designer", href: "/__ioi/studio/designer", iconUri: DSG_APP_TILE_URI, railVariant: "rv-pipe rv-dsg", viewAll: true, star: false, aipGradient: true, acctMuted: true });
 
   const header = `<header class="dsg-header">
     <span class="dsg-hchip" aria-hidden="true"></span>
@@ -4526,7 +4526,7 @@ function renderEvalsuitesPort(suitesJson) {
     <p class="evl-foot"><b>New evaluation suite</b> opens the suite form on the Evaluations owner surface. Unsupported reference lanes — favorites, marketplace example installs — are <b>named gaps disabled in place</b>, never hidden. Object sets are explored on <a href="/__ioi/ontology/explorer">Object Explorer →</a> (Insight merged there, ADR 0056) · <a href="/__ioi/evaluations/quiver">Quiver →</a>. Suites are declared/edited on the <a href="/__ioi/evaluations">Evaluations owner surface →</a> (with the consent ladder + feedback candidate source at <a href="/__ioi/feedback">Feedback &amp; Annotations</a>); assessment subjects come from real Missions runs/failures/blockers. Reference: the origin-aligned <span class="ref-capture" title="Reference capture — development evidence only; this deployment does not serve it">AIP Evals capture (<code>http://localhost:9225/workspace/evals/</code>)</span> — the <a href="/__apps/evalsuites">/__apps/evalsuites proxy lane ↗</a> is documented insufficient (renders no data; #44 sweep evidence).</p>
   </section>`;
 
-  const globalRail = ioiGlobalRailHtml({ label: "AIP Evals", href: "/__ioi/evaluations/evalsuites", iconUri: EVL_APP_TILE_URI, railVariant: "rv-pipe rv-dsg", viewAll: true, star: false, badges: true, aipGradient: true, acctMuted: true });
+  const globalRail = ioiGlobalRailHtml({ label: "AIP Evals", href: "/__ioi/evaluations/evalsuites", iconUri: EVL_APP_TILE_URI, railVariant: "rv-pipe rv-dsg", viewAll: true, star: false, aipGradient: true, acctMuted: true });
 
   const header = `<header class="evl-header">
     <span class="evl-hchip" aria-hidden="true"></span>
@@ -4724,7 +4724,7 @@ function renderChangesPort(proposals, lane, filter, q = "") {
       <p class="chg-truthp">Kinds: ${Object.entries(kinds).map(([k, n]) => `${esc(k)} (${n})`).join(" · ") || "none — the plane holds no proposal"}. Every row carries its real proof trail — gate posture, approval-request ref, release-control ref, simulation ref/hash. This surface is a <b>read-only projection</b>: proposing, simulating, approving/rejecting, applying and release-gate control all live on the <a href="/__ioi/agent-studio#improvement-proposals">owner surface (Agent Studio) →</a>; nothing here mutates, applies, deploys or releases. Reference: the origin-aligned <span class="ref-capture" title="Reference capture — development evidence only; this deployment does not serve it">Upgrade Assistant capture (<code>http://localhost:9225/workspace/upgrade-assistant/</code>)</span> — the <a href="/__apps/changes">/__apps/changes proxy lane ↗</a> is documented insufficient (renders thin data; #44 sweep evidence). Sort is a named gap (no due dates); rows order by update recency.</p>
     </div>`;
 
-  const globalRail = ioiGlobalRailHtml({ label: "Upgrade Assistant", href: "/__ioi/improvement/changes", iconUri: CHG_APP_TILE_URI, railVariant: "rv-pipe rv-dsg", viewAll: true, star: false, badges: true, aipGradient: true, acctMuted: true });
+  const globalRail = ioiGlobalRailHtml({ label: "Upgrade Assistant", href: "/__ioi/improvement/changes", iconUri: CHG_APP_TILE_URI, railVariant: "rv-pipe rv-dsg", viewAll: true, star: false, aipGradient: true, acctMuted: true });
 
   const header = `<header class="chg-header">
     <span class="chg-hchip" aria-hidden="true"></span>
@@ -4961,7 +4961,7 @@ function renderMonitorsPort(automations, runsById, view = "overview", flt = {}) 
       <code class="mon-evtref" title="execution + environment refs — the real proof trail">${esc(e.exec || "")}${e.env ? ` · ${esc(e.env)}` : ""}</code>
     </div>`).join("");
 
-  const globalRail = ioiGlobalRailHtml({ label: "Automate", href: "/__ioi/automations/monitors", iconUri: MON_APP_TILE_URI, railVariant: "rv-pipe rv-dsg", viewAll: true, star: false, badges: true, aipGradient: true, acctMuted: true });
+  const globalRail = ioiGlobalRailHtml({ label: "Automate", href: "/__ioi/automations/monitors", iconUri: MON_APP_TILE_URI, railVariant: "rv-pipe rv-dsg", viewAll: true, star: false, aipGradient: true, acctMuted: true });
 
   const header = `<header class="mon-header">
     <span class="mon-hchip" aria-hidden="true"></span>
@@ -5371,7 +5371,7 @@ function renderMachineryPort(machines, selectedId) {
     <p class="mch-foot">These are <b>definitions, not running processes</b> — nothing here executes, steps, schedules, or carries a current state; run/step/execute, scheduling, Automations/Missions/ODK binding, simulation, and versioning are <b>named gaps</b> (a later authority-crossing cut), and the marketplace example band above is the reference's own example content (verbatim capture chrome), not estate process truth. Unsupported reference lanes — graph authoring (New graph), the Recent-installations store menu, favorites, marketplace example installs — are disabled in place, never hidden. Owner: <a href="/__ioi/agent-studio">Agent Studio</a> · siblings: <a href="/__ioi/studio/designer">Solution Designer</a> · reference-only: <a href="/__apps/workshop">workshop</a> and <a href="/__apps/module">module</a> builders. Reference: the origin-aligned <span class="ref-capture" title="Reference capture — development evidence only; this deployment does not serve it">Machinery capture (<code>http://localhost:9225/workspace/machinery-app/</code>)</span> — the <a href="/__apps/machinery">/__apps/machinery proxy lane ↗</a> is documented insufficient (its Marketplace-examples fetch fails on the proxy origin; #44 sweep evidence).</p>
   </section>` : `<section class="mch-truth" id="machinery-truth"><p class="mch-gapnote">No state machines defined yet — the plane holds inert <b>definitions</b> only; nothing executes and nothing is fabricated. Owner: <a href="/__ioi/agent-studio">Agent Studio</a> · sibling: <a href="/__ioi/studio/designer">Solution Designer</a> · reference: <a href="/__apps/machinery">/__apps/machinery ↗</a>.</p></section>`;
 
-  const globalRail = ioiGlobalRailHtml({ label: "Machinery", href: "/__ioi/studio/machinery", iconUri: MCH_APP_TILE_URI, railVariant: "rv-pipe rv-dsg", viewAll: true, star: false, badges: true, aipGradient: true, acctMuted: true });
+  const globalRail = ioiGlobalRailHtml({ label: "Machinery", href: "/__ioi/studio/machinery", iconUri: MCH_APP_TILE_URI, railVariant: "rv-pipe rv-dsg", viewAll: true, star: false, aipGradient: true, acctMuted: true });
 
   const header = `<header class="mch-header">
     <span class="mch-hchip" aria-hidden="true"></span>
@@ -5911,7 +5911,7 @@ function renderIncidentsPort(ops, workResults, lane, extra = {}) {
     </aside>`;
   })() : "";
 
-  const globalRail = ioiGlobalRailHtml({ label: "Issues", href: "/__ioi/missions/incidents", iconUri: ISSUES_APP_ICON_URI, railVariant: "rv-pipe", viewAll: false, star: false, badges: true, aipGradient: true, acctMuted: true });
+  const globalRail = ioiGlobalRailHtml({ label: "Issues", href: "/__ioi/missions/incidents", iconUri: ISSUES_APP_ICON_URI, railVariant: "rv-pipe", viewAll: false, star: false, aipGradient: true, acctMuted: true });
 
   const css = `:root{color-scheme:light}*{box-sizing:border-box}
     body{margin:0;background:#fff;color:#1c2127;font:14px/1.28581 Source-Sans-Pro,Helvetica,sans-serif}
@@ -6102,7 +6102,7 @@ function renderModelCatalogPort(routesJson, view = "provided", reg = null) {
     <div class="mc-ctags">${typesOf(r).map((t) => `<span class="mc-pill">${esc(cap(t))}</span>`).join("")}<span class="mc-pill alt" title="weight custody class — daemon truth">${esc(((r.custody || {}).weight_class || "").replace(/_/g, " ") || "custody unrecorded")}</span><span class="mc-pill alt" title="credential posture — daemon truth">${esc((r.credential_posture || "").replace(/_/g, " "))}</span><span class="mc-pill alt" title="lifecycle + admission — daemon truth">${esc(((r.lifecycle || {}).status || ""))}${(r.admission || {}).last_admission_id ? " · admitted" : ""}</span></div>
   </div>`;
 
-  const globalRail = ioiGlobalRailHtml({ label: "Model Catalog", href: "/__ioi/foundry/models", iconUri: MODELS_APP_ICON_URI, railVariant: "rv-pipe", viewAll: false, star: false, badges: true, aipGradient: true, acctMuted: true });
+  const globalRail = ioiGlobalRailHtml({ label: "Model Catalog", href: "/__ioi/foundry/models", iconUri: MODELS_APP_ICON_URI, railVariant: "rv-pipe", viewAll: false, star: false, aipGradient: true, acctMuted: true });
 
   const header = `<header class="mc-header">
     <span class="mc-hchip"></span>
@@ -6250,7 +6250,7 @@ function renderMarketplaceBrowsePort(listingsJson, storeQuery = "") {
   const STORE_ROW_TEXT = "Estate Marketplace — governed listing plane · Listings drafted over real substrate";
   const storeShown = !sq || STORE_ROW_TEXT.toLowerCase().includes(sq.toLowerCase());
 
-  const globalRail = ioiGlobalRailHtml({ label: "Marketplace", href: "/__ioi/marketplace/listings", iconUri: MARKETPLACE_APP_ICON_URI, railVariant: "rv-pipe", viewAll: false, star: false, badges: true, aipGradient: true, acctMuted: true });
+  const globalRail = ioiGlobalRailHtml({ label: "Marketplace", href: "/__ioi/marketplace/listings", iconUri: MARKETPLACE_APP_ICON_URI, railVariant: "rv-pipe", viewAll: false, star: false, aipGradient: true, acctMuted: true });
 
   const header = `<header class="mk-header">
     <span class="mk-hchip"></span>

@@ -17,22 +17,26 @@ const CX_ESC = escHtml; // local alias so the moved block stays byte-identical t
 // visitor gets "Signed out" and a way to sign in. whoami's local-operator DISPLAY principal
 // (authenticated:false) is never shown as the caller.
 const ACCOUNT_CHIP_JS = `(function(){var c=document.currentScript&&document.currentScript.previousElementSibling;if(!c||!c.hasAttribute("data-ioi-account-chip"))return;fetch("/v1/hypervisor/auth/whoami",{credentials:"same-origin"}).then(function(r){return r.json()}).then(function(w){var p=w&&w.authenticated===true&&w.principal;if(p){var n=String(p.name||String(p.email||"").split("@")[0]||"").trim(),parts=n.split(/\\s+/).filter(Boolean),ini=parts.length>1?parts[0][0]+parts[parts.length-1][0]:(parts[0]||"").slice(0,1);c.querySelector("[data-ioi-account-initials]").textContent=ini.toUpperCase();c.title=n;return}if(w&&w.authenticated===false){var a=document.createElement("a");a.className="og-gitem og-gaccount";a.href="/__ioi/login";a.target="_top";a.setAttribute("data-ioi-account-chip","");a.title="Signed out \\u2014 sign in";a.innerHTML=c.innerHTML;a.querySelector(".og-glabel").textContent="Sign in";c.replaceWith(a)}}).catch(function(){})})();`;
+// THE RAIL CLAIMS NO UNREAD NOTIFICATIONS (R-240). Twelve certified surfaces reproduced their
+// captures' orange dots on Notifications and What's New, so every visitor was told of unread items no
+// record backs — the daemon keeps no read state by canon (ADR 0056 P1: the inbox is a projection of
+// owner events). The dots are gone; a count returns only with the inbox that can source it.
 function ioiGlobalRailHtml(active) {
   // Per-reference rail variant: each certified surface reproduces ITS reference capture's rail state
-  // (badges / View-all / star / gradient AIP / account-chip style differ across captures). Defaults
+  // (View-all / star / gradient AIP / account-chip style differ across captures). Defaults
   // keep the schema/approvals-certified rail untouched.
   const gi = (icon, label, opts = {}) => {
     const kbd = opts.kbd ? `<kbd class="og-gkbd">${opts.kbd.split("+").map((k) => `<span>${k.trim()}</span>`).join("<span>+</span>")}</kbd>` : "";
     const ico = icon === "@aip-grad" ? AIP_GRADIENT_SVG_RAIL : bpIcon(icon);
-    const inner = `<span class="og-gico">${ico}${opts.badge ? '<span class="og-gbadge"></span>' : ""}</span><span class="og-glabel">${CX_ESC(label)}</span>${kbd}`;
+    const inner = `<span class="og-gico">${ico}</span><span class="og-glabel">${CX_ESC(label)}</span>${kbd}`;
     return opts.href ? `<a class="og-gitem${opts.ctx ? " ctx" : ""}" href="${opts.href}" aria-label="${CX_ESC(label)}" title="${CX_ESC(label)}">${inner}</a>` : `<span class="og-gitem muted" aria-label="${CX_ESC(label)}" title="${CX_ESC(label)}">${inner}</span>`;
   };
   return `<aside class="og-grail${active.railVariant ? " " + active.railVariant : ""}">
     <div class="og-gtop"><span class="og-gmark">◗</span><span class="og-gmenu">${bpIcon("menu-closed")}</span></div>
     ${gi("home", "Home", { href: "/ai" })}
     ${gi("search", "Search…", { kbd: "ctrl + J" })}
-    ${gi("notifications", "Notifications", { badge: active.badges })}
-    ${gi("whatsnew-gift", "What's New", { badge: active.badges })}
+    ${gi("notifications", "Notifications", {})}
+    ${gi("whatsnew-gift", "What's New", {})}
     <div class="og-gdiv"></div>
     ${gi("history", "Recent", {})}
     ${gi("folder-open", "Files", {})}
@@ -59,7 +63,6 @@ const IOI_GRAIL_CSS = `
     .og-gitem:hover{background:#2f353d;color:#fff}.og-gitem.on{background:#2f353d;color:#fff;font-weight:600;height:36px}
     .og-gitem.muted{color:#f6f7f9;cursor:default}.og-gitem.muted:hover{background:transparent}
     .og-gico{display:inline-flex;align-items:center;justify-content:center;width:16px;height:16px;color:#abb3bf;flex:0 0 16px;position:relative}
-    .og-gbadge{position:absolute;left:9px;top:-3px;width:8px;height:8px;background:#fbb360;border:1px solid #2f343c;border-radius:50%}
     .og-gavatar.alt{background:rgba(45,114,210,.2);color:#8abbff;border-radius:50%;margin-left:-2px;margin-right:-2px}
     .og-gitem.ctx{background:#2f353d;color:#fff;font-weight:600}.og-gitem.ctx .og-gico{color:#f6f7f9}
     .rv-pipe .og-gitem.on{background:#1c2127;margin:0 -12px;padding:0 20px 0 17px;border-radius:0}

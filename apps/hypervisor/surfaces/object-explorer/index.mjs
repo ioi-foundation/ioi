@@ -275,7 +275,7 @@ function renderObjectExplorerPort(ov, lists, opts) {
   };
 
   // Embedded (native container contract #65): the native rail owns platform nav — emit no global rail.
-  const globalRail = opts.embed ? "" : ioiGlobalRailHtml({ label: "Object Explorer", href: "/__ioi/ontology/explorer", iconUri: EXPLORER_APP_ICON_URI, railVariant: "rv-pipe", viewAll: false, star: false, badges: true, aipGradient: true, acctMuted: true, hiliteNav: "Ontology" });
+  const globalRail = opts.embed ? "" : ioiGlobalRailHtml({ label: "Object Explorer", href: "/__ioi/ontology/explorer", iconUri: EXPLORER_APP_ICON_URI, railVariant: "rv-pipe", viewAll: false, star: false, aipGradient: true, acctMuted: true, hiliteNav: "Ontology" });
 
   const tabbar = `<div class="oe-tabbar oe-topbar">
     <span class="oe-sqbtn gap" aria-disabled="true" title="The active-exploration TAB is a reference-only session lane (named gap) — transient view state; saved object sets are daemon truth and are a different thing" data-ioi-disabled-reason="The active-exploration TAB is a reference-only session lane (named gap) — transient view state; saved object sets are daemon truth and are a different thing"><span class="oe-sqico"></span></span>

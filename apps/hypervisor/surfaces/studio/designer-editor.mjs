@@ -382,7 +382,7 @@ export function renderDesignerEditor(model) {
   const app = machinery
     ? { label: "Machinery", home: "/__ioi/studio/machinery", tile: MCH_APP_TILE_URI, save: "/__ioi/studio/machinery/graph/save", open: "/__ioi/studio/machinery", title: "Machinery" }
     : { label: "Solution Designer", home: "/__ioi/studio/designer", tile: DSG_APP_TILE_URI, save: "/__ioi/studio/designer/diagram/save", open: "/__ioi/studio/designer?open=recent", title: "Solution Designer" };
-  const rail = ioiGlobalRailHtml({ label: app.label, href: app.home, iconUri: app.tile, railVariant: "rv-pipe rv-dsg", viewAll: true, star: false, badges: true, aipGradient: true, acctMuted: true });
+  const rail = ioiGlobalRailHtml({ label: app.label, href: app.home, iconUri: app.tile, railVariant: "rv-pipe rv-dsg", viewAll: true, star: false, aipGradient: true, acctMuted: true });
   const tb = (id, icon, label, extra = "") => `<button type="button" class="dg-tool" id="${id}" title="${esc(label)}"${extra}>${bpIcon(icon, 18)}<span>${esc(label)}</span></button>`;
   const railBtn = (panel, icon, label) => `<button type="button" class="dg-rbtn" data-panel="${panel}" aria-label="${esc(label)}" title="${esc(label)}">${bpIcon(icon, 16)}</button>`;
   const css = `:root{color-scheme:light}*{box-sizing:border-box}
