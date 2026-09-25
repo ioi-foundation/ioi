@@ -47,7 +47,7 @@ import { readJsonWithDeadline } from "../surfaces/plane-read.mjs";
 import { managerLink, managerResourceLink, objectSetLink, sourcesLink, pipelineNodeLink, lineageLink as semLineageLink, vertexLink as semVertexLink, provenanceReceiptLink, provenanceSetLink, semanticBreadcrumb } from "../surfaces/ontology-context.mjs";
 import { ioiGlobalRailHtml, IOI_GRAIL_CSS } from "../surfaces/chrome.mjs";
 import { renderSplashLanding } from "./splash-landing-grammar.mjs";
-import { mintTestGrant, awaitingWalletAuthority, bindStandingLease, revokeStandingLease, STANDING_LEASE_CUSTODY_TIER_UNRULED } from "./lib/wallet-authority.mjs";
+import { mintTestGrant, awaitingWalletAuthority, bindStandingLease, revokeStandingLease, standingLeaseRecorderMode, STANDING_LEASE_CUSTODY_TIER_UNRULED } from "./lib/wallet-authority.mjs";
 import { PROVIDER_APPROVAL_KIND, projectProviderChallenge, renderProviderFacetsCard } from "./lib/approval-card-facets.mjs";
 import { relayEditorEffect } from "./lib/editor-challenge-relay.mjs";
 import { handleSystemGenesisSurfaces } from "./system-genesis-surfaces.mjs";
@@ -710,7 +710,12 @@ function renderConnectionsCockpit(connectors, scmConnectors, leases, devFacts) {
     const slb = sl?.bounds || {};
     const envelopeHtml = sl
       ? `<div class="meta" data-ioi-standing-lease="${CX_ESC(sl.status || "")}" data-ioi-standing-usages="${CX_ESC(String(slb.max_usages ?? ""))}">limits: <b>${CX_ESC(sl.status || "")}</b> · ${CX_ESC(String(slb.max_usages ?? "?"))} uses · budget $${CX_ESC((Number(slb.max_cumulative_spend_microusd || 0) / 1_000_000).toFixed(4))} · ${CX_ESC((slb.operations || []).join("+"))} · tools ${CX_ESC((slb.allowed_tools || []).join(", ") || "—")} · expires ${CX_ESC(slb.expires_at_ms ? new Date(Number(slb.expires_at_ms)).toISOString() : "—")}${sl.status === "active" ? ` <form method="post" action="/__ioi/connections/${encodeURIComponent(c.connector_id)}/standing-lease/revoke" style="display:inline" onclick="event.stopPropagation()"><button class="act ghost" type="submit">Remove limits</button></form>` : ""}</div>`
-      : `<div class="meta" data-ioi-standing-lease="absent">no limits set — sessions cannot use this connection until you set them <form method="post" action="/__ioi/connections/${encodeURIComponent(c.connector_id)}/standing-lease" style="display:inline" onclick="event.stopPropagation()"><input name="max_usages" type="number" min="1" placeholder="usages" style="width:80px"> <input name="budget_usd" type="number" min="0" step="0.01" placeholder="USD" style="width:80px"> <button class="act ghost" type="submit">Set limits</button></form></div>`;
+      // A limit is a STANDING GRANT recorded on an authority node. With none configured, every "Set
+      // limits" was refused after the person had filled it in (501 standing_lease_recorder_not_configured);
+      // the page knows at render time, so it says so where the form would be (R-240).
+      : standingLeaseRecorderMode() === "none"
+      ? `<div class="meta" data-ioi-standing-lease="absent" data-ioi-standing-recorder="none">no limits set — sessions cannot use this connection until limits are set, and this deployment runs no authority node to record them <span class="act ghost" role="button" tabindex="0" aria-disabled="true" title="Setting limits records a standing grant on an authority node; none is configured for this deployment (IOI_HYPERVISOR_LOCAL_AUTHORITY_STATE_DIR)" data-ioi-disabled-reason="Setting limits records a standing grant on an authority node; none is configured for this deployment (IOI_HYPERVISOR_LOCAL_AUTHORITY_STATE_DIR)" style="opacity:.62;cursor:not-allowed">Set limits</span></div>`
+      : `<div class="meta" data-ioi-standing-lease="absent">no limits set — sessions cannot use this connection until you set them <form method="post" action="/__ioi/connections/${encodeURIComponent(c.connector_id)}/standing-lease" style="display:inline" onclick="event.stopPropagation()" onsubmit="var b=this.querySelector('button');b.disabled=true;b.textContent='Recording on the authority node — this can take a minute or two…';"><input name="max_usages" type="number" min="1" required placeholder="usages" style="width:80px"> <input name="budget_usd" type="number" min="0" step="0.01" placeholder="USD" style="width:80px"> <button class="act ghost" type="submit">Set limits</button></form></div>`;
     push(connectionCategory(c), `<div class="card cncard" data-cn="${i}"><div class="main">
       <div class="name">${CX_ESC(c.name || c.service)}${bound ? "" : '<span class="pill warn">needs auth</span>'}<span class="pill risk">risk: ${CX_ESC(risk)}</span>${sl?.status === "active" ? '<span class="pill ok">bounded</span>' : '<span class="pill warn">unbounded</span>'}</div>
       <div class="meta">${CX_ESC(authDescriptor(c))} · <code>${CX_ESC(c.base_url || "")}</code> · tools: ${CX_ESC(tools)}${myLeases.length ? ` · ${myLeases.length} active grant${myLeases.length > 1 ? "s" : ""}` : ""}</div>
@@ -8408,7 +8413,7 @@ function withOwnedSurfaceNarrowRules(html) {
 // replaced by the word "invalid", and a page that could say "at least one ontology_ref is required"
 // said nothing. An empty reply is not "invalid" either: it is a daemon that did not answer.
 function whyRefused(reply) {
-  const msg = refusalMessageOf(reply);
+  const msg = refusalMessageOf(reply) || String((reply && (reply.reason || (reply.error && reply.error.reason))) || "").slice(0, 300);
   if (msg) return msg;
   const code = reply && (reply.code || (reply.error && reply.error.code));
   if (code) return String(code);
@@ -9942,7 +9947,7 @@ async function handleEstateRequest(req, res, body) {
           <p class="muted">You'll be returned here automatically to finish the connection.</p>
           <script>setTimeout(function(){try{document.getElementById('gh').submit()}catch(e){}}, 1200)</script>`);
       } catch (e) {
-        page = githubAppShell("Couldn't start", `<p class="muted">Daemon unavailable: ${String(e?.message || e)}</p>`);
+        page = githubAppShell("Couldn't start", `<p class="muted">Daemon unavailable: ${CX_ESC(String(e?.message || e))}</p>`);
       }
       res.writeHead(200, { "Content-Type": "text/html; charset=utf-8", "Cache-Control": "no-cache" });
       res.end(page);
@@ -9965,7 +9970,7 @@ async function handleEstateRequest(req, res, body) {
           page = githubAppShell("Couldn't create the App", `<p class="muted">${d.message || d.reason || "conversion failed"}</p>`);
         }
       } catch (e) {
-        page = githubAppShell("Couldn't create the App", `<p class="muted">${String(e?.message || e)}</p>`);
+        page = githubAppShell("Couldn't create the App", `<p class="muted">${CX_ESC(String(e?.message || e))}</p>`);
       }
       res.writeHead(200, { "Content-Type": "text/html; charset=utf-8", "Cache-Control": "no-cache" });
       res.end(page);
@@ -9982,7 +9987,7 @@ async function handleEstateRequest(req, res, body) {
           ? githubAppShell("GitHub App connected ✓", `<p>Installation <b>${d.installation_id}</b> bound to <b>${d.connector_id}</b>${d.verified ? " — installation token minted successfully." : "."}</p><p class="muted">The agent will receive a use-only lease; the App key never leaves your daemon. This connection has no webhook and supplies no live provider workflow events; signed event ingestion remains unavailable. You can close this tab.</p>`)
           : githubAppShell("Couldn't finish install", `<p class="muted">${d.reason || "installation capture failed"}</p>`);
       } catch (e) {
-        page = githubAppShell("Couldn't finish install", `<p class="muted">${String(e?.message || e)}</p>`);
+        page = githubAppShell("Couldn't finish install", `<p class="muted">${CX_ESC(String(e?.message || e))}</p>`);
       }
       res.writeHead(200, { "Content-Type": "text/html; charset=utf-8", "Cache-Control": "no-cache" });
       res.end(page);
@@ -10007,7 +10012,7 @@ async function handleEstateRequest(req, res, body) {
         res.end(githubAppShell("Can't connect yet", `<p class="muted">${d.message || d.reason || "could not resolve an OAuth profile for this integration (discovery/DCR unavailable)"}</p>`));
       } catch (e) {
         res.writeHead(200, { "Content-Type": "text/html; charset=utf-8" });
-        res.end(githubAppShell("Can't connect yet", `<p class="muted">${String(e?.message || e)}</p>`));
+        res.end(githubAppShell("Can't connect yet", `<p class="muted">${CX_ESC(String(e?.message || e))}</p>`));
       }
       return;
     }
@@ -10022,7 +10027,7 @@ async function handleEstateRequest(req, res, body) {
           ? githubAppShell("Integration connected ✓", `<p>Authorized and sealed (<b>${d.credential_kind}</b>) on <b>${d.connector_id}</b>.</p><p class="muted">The agent receives only scoped capability leases minted from this — the provider credential never leaves your daemon. You can close this tab.</p>`)
           : githubAppShell("Couldn't connect", `<p class="muted">${d.message || d.reason || "authorization failed"}</p>`);
       } catch (e) {
-        page = githubAppShell("Couldn't connect", `<p class="muted">${String(e?.message || e)}</p>`);
+        page = githubAppShell("Couldn't connect", `<p class="muted">${CX_ESC(String(e?.message || e))}</p>`);
       }
       res.writeHead(200, { "Content-Type": "text/html; charset=utf-8", "Cache-Control": "no-cache" });
       res.end(page);
@@ -10067,7 +10072,7 @@ async function handleEstateRequest(req, res, body) {
         return res.end();
       } catch (e) {
         res.writeHead(200, { "Content-Type": "text/html; charset=utf-8" });
-        res.end(githubAppShell("Couldn't set up Slack", `<p class="muted">${String(e?.message || e)}</p>`));
+        res.end(githubAppShell("Couldn't set up Slack", `<p class="muted">${CX_ESC(String(e?.message || e))}</p><p><a href="/__ioi/slack/setup">← back</a></p>`));
         return;
       }
     }
@@ -15505,7 +15510,7 @@ async function handleEstateRequest(req, res, body) {
         res.end(leaseError ? page.replace(/<div class="add">/u, `<div class="empty" data-ioi-standing-lease-error="1" style="border-color:#5c4a23;color:#d6a13a">Limits not set — ${CX_ESC(leaseError)}</div><div class="add">`) : page);
       } catch (e) {
         res.writeHead(200, { "Content-Type": "text/html; charset=utf-8" });
-        res.end(connectionsShell(`<div class="empty">Daemon unavailable: ${String(e?.message || e)}</div>`));
+        res.end(connectionsShell(`<div class="empty">Daemon unavailable: ${CX_ESC(String(e?.message || e))}</div>`));
       }
       return;
     }
@@ -15546,12 +15551,12 @@ async function handleEstateRequest(req, res, body) {
         ? `<h2>Add MCP server</h2><p class="sub">Register an MCP server URL — the daemon auto-discovers its tools and OAuth (Dynamic Client Registration) when you connect. No vendor app needed.</p>
            <form method="post" action="/__ioi/connections/add?type=mcp">
              <input name="name" placeholder="Name (e.g. Linear)" required ${inp}>
-             <input name="mcp_url" placeholder="https://mcp.example.com/mcp" required ${inp}>
+             <input name="mcp_url" type="url" pattern="https?://.+" placeholder="https://mcp.example.com/mcp" required ${inp}>
              <button class="act" type="submit">Add &amp; discover</button></form>`
         : `<h2>Add API key / service</h2><p class="sub">A bearer-token HTTP connector (advanced). The token is sealed in the daemon; the agent only ever gets scoped access.</p>
            <form method="post" action="/__ioi/connections/add?type=bearer">
              <input name="name" placeholder="Name (e.g. Linear API)" required ${inp}>
-             <input name="base_url" placeholder="https://api.example.com" required ${inp}>
+             <input name="base_url" type="url" pattern="https?://.+" placeholder="https://api.example.com" required ${inp}>
              <input name="tool_name" placeholder="tool name (e.g. create_issue)" required ${inp}>
              <input name="tool_path" placeholder="/v1/issues" required ${inp}>
              <input name="token" type="password" placeholder="API token (sealed)" required ${inp}>
@@ -15568,13 +15573,20 @@ async function handleEstateRequest(req, res, body) {
       const type = new URL(req.url, "http://x").searchParams.get("type") || "mcp";
       const p = new URLSearchParams(body.toString());
       const post = (path, b) => daemonFetch(`${path}`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(b) }).then((r) => r.json());
+      // R-240: a registration that was refused redirected as if it had landed, and nothing checked that
+      // the URL was one — a connection named "swa8qx4-mcp_url" registered and could never be bounded.
+      const couldNot = (why) => { res.writeHead(200, { "Content-Type": "text/html; charset=utf-8" }); res.end(connectionsShell(`<div class="empty">Couldn't add: ${CX_ESC(why)}</div><p><a href="/__ioi/connections/add?type=${encodeURIComponent(type)}">← back</a></p>`)); };
+      const givenUrl = String((type === "mcp" ? p.get("mcp_url") : p.get("base_url")) || "").trim();
+      if (!/^https?:\/\/\S{1,500}$/u.test(givenUrl)) return couldNot("the URL must start with http:// or https:// and contain no spaces.");
       try {
         if (type === "mcp") {
           const reg = await post("/v1/hypervisor/connectors", { service: "mcp", kind: "mcp", name: p.get("name"), base_url: p.get("mcp_url") });
+          if (!reg.connector?.connector_id) return couldNot(whyRefused(reg));
           if (reg.connector?.connector_id) await post(`/v1/hypervisor/connectors/${encodeURIComponent(reg.connector.connector_id)}/oauth/discover`, {}).catch(() => {});
         } else {
           const svc = (p.get("name") || "service").toLowerCase().replace(/[^a-z0-9]+/g, "-");
           const reg = await post("/v1/hypervisor/connectors", { service: svc, kind: "http", name: p.get("name"), base_url: p.get("base_url"), allowed_tools: [{ name: p.get("tool_name"), method: "POST", path: p.get("tool_path") }] });
+          if (!reg.connector?.connector_id) return couldNot(whyRefused(reg));
           if (reg.connector?.connector_id) await post(`/v1/hypervisor/connectors/${encodeURIComponent(reg.connector.connector_id)}/credential`, { token: p.get("token") });
           // M13.3: the SAME pass mints the scoped standing bound when the operator declared one.
           if (reg.connector?.connector_id && p.get("standing_max_usages")) {
@@ -15589,7 +15601,7 @@ async function handleEstateRequest(req, res, body) {
         return res.end();
       } catch (e) {
         res.writeHead(200, { "Content-Type": "text/html; charset=utf-8" });
-        res.end(connectionsShell(`<div class="empty">Couldn't add: ${String(e?.message || e)}</div>`));
+        res.end(connectionsShell(`<div class="empty">Couldn't add: ${CX_ESC(String(e?.message || e))}</div>`));
         return;
       }
     }

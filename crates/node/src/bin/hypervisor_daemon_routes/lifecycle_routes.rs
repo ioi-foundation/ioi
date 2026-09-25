@@ -16339,6 +16339,54 @@ pub(crate) async fn handle_capability_lease_list(
 // UX + non-bearer auth (OAuth refresh / AWS SigV4) are follow-ons on this same spine.
 // ================================================================================================
 
+/// The SessionStandingEnvelope `ref` shape a connection's base_url must have to be boundable:
+/// `^[a-z][a-z0-9+.-]*://[^\s]{1,500}$` (R-240).
+fn connector_base_url_ok(base_url: &str) -> bool {
+    base_url.split_once("://").is_some_and(|(scheme, rest)| {
+        !rest.is_empty()
+            && rest.chars().count() <= 500
+            && !rest.chars().any(char::is_whitespace)
+            && scheme
+                .chars()
+                .next()
+                .is_some_and(|c| c.is_ascii_lowercase())
+            && scheme.chars().all(|c| {
+                c.is_ascii_lowercase() || c.is_ascii_digit() || matches!(c, '+' | '.' | '-')
+            })
+    })
+}
+
+#[cfg(test)]
+mod connector_base_url_tests {
+    use super::connector_base_url_ok;
+
+    #[test]
+    fn a_connection_url_must_be_a_scheme_ref_the_standing_envelope_accepts() {
+        for ok in [
+            "https://slack.com/api",
+            "http://127.0.0.1:8080",
+            "postgres://db.internal:5432",
+            "mcp+sse://host/x",
+        ] {
+            assert!(connector_base_url_ok(ok), "{ok} should be accepted");
+        }
+        for bad in [
+            "swa8qx4-mcp_url",
+            "",
+            "https://",
+            "HTTPS://x",
+            "1http://x",
+            "https://a b",
+            "slack.com/api",
+        ] {
+            assert!(!connector_base_url_ok(bad), "{bad} should be refused");
+        }
+        assert!(!connector_base_url_ok(&format!(
+            "https://{}",
+            "a".repeat(501)
+        )));
+    }
+}
 /// POST /v1/hypervisor/connectors — register a generic service connector (no credential yet).
 ///
 /// R-20 + R-22 (ruled 2026-09-10, owner-reversible; ADR 0052 § 8). A connector's identity binds
@@ -16390,6 +16438,20 @@ pub(crate) async fn handle_connector_register(
         return (
             StatusCode::BAD_REQUEST,
             Json(json!({ "ok": false, "reason": "service and base_url are required" })),
+        );
+    }
+    // The standing limit that bounds a connection (SessionStandingEnvelope, facet_template.base_url:
+    // `^[a-z][a-z0-9+.-]*://[^\s]{1,500}$`) can only be recorded for a `scheme://…` ref. Registering any
+    // other string made a connection no session could ever be bounded to use (R-240). The same shape is
+    // checked here, so the refusal comes at registration rather than at the authority node.
+    if !connector_base_url_ok(&base_url) {
+        return (
+            StatusCode::BAD_REQUEST,
+            Json(json!({
+                "ok": false,
+                "code": "connector_base_url_invalid",
+                "reason": "base_url must be a scheme://… URL (for example https://api.example.com) with no spaces"
+            })),
         );
     }
     let kind = body
