@@ -110,9 +110,13 @@ export const actions = [
 // redirect carries ONLY the two public commitment hashes — the pane re-renders the full
 // challenge from the same plan truth the daemon derived it from. The grant blob exists in this
 // scope for the single forward POST and is never referenced afterwards.
-export async function handleAction({ action, id, fields, daemon }) {
+export async function handleAction({ action, id, fields, daemonFetch }) {
+  // THE BUILD LADDER CARRIES THE PERSON (R-240). Every step here was a raw fetch to the daemon's URL,
+  // so it carried no session — and the ODK writes it calls are identity-first, so a signed-in
+  // person's connector session, materializing run and execute were refused as anonymous. Each call
+  // now speaks through the runtime's `daemonFetch`: the caller's own identity, daemon-relative paths.
   const J = async (method, path, body) => {
-    const r = await fetch(`${daemon}${path}`, { method, headers: { "content-type": "application/json" }, body: body === undefined ? undefined : JSON.stringify(body) }).then(async (x) => ({ status: x.status, j: await x.json().catch(() => ({})) })).catch(() => null);
+    const r = await daemonFetch(path, { method, headers: { "content-type": "application/json" }, body: body === undefined ? undefined : JSON.stringify(body) }).then(async (x) => ({ status: x.status, j: await x.json().catch(() => ({})) })).catch(() => null);
     return r;
   };
   const ont = fields.ontology || "";

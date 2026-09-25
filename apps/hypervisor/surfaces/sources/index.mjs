@@ -93,14 +93,18 @@ export const actions = [
 // and redirects to the new record's selection; refusal carries the daemon's typed code/message
 // with state untouched (the redirect re-opens the declare pane, echoing ONLY the validated kind —
 // never the endpoint, which could carry the rejected credential material).
-export async function handleAction({ fields, daemon }) {
+export async function handleAction({ fields, daemonFetch }) {
   const payload = {};
   for (const k of ["name", "kind", "endpoint", "credential_posture"]) {
     if (fields[k] !== undefined && String(fields[k]).trim() !== "") payload[k] = String(fields[k]).trim();
   }
   const kindEcho = /^[a-z_]{1,40}$/.test(payload.kind || "") ? `&kind=${payload.kind}` : "";
   const paneRedirect = `/__ioi/data/sources?declare=1${kindEcho}`;
-  const r = await fetch(`${daemon}/v1/hypervisor/data-sources`, {
+  // THE DECLARATION CARRIES THE PERSON (R-240). This was a raw fetch to the daemon's URL, so it
+  // carried no session: the daemon took the declaration from anyone and recorded no declarer. The
+  // daemon now refuses an anonymous declaration, and this action speaks through the runtime's
+  // `daemonFetch` — the caller's own identity, daemon-relative paths only — as Ontology writes do.
+  const r = await daemonFetch("/v1/hypervisor/data-sources", {
     method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(payload),
   }).then(async (x) => ({ status: x.status, j: await x.json().catch(() => ({})) })).catch(() => null);
   if (!r) return { kind: "failure", http: 502, code: "daemon_unavailable", message: "the daemon did not answer — nothing was declared", redirect: paneRedirect };

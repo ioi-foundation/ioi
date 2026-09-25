@@ -24,7 +24,7 @@ use std::sync::Arc;
 use std::time::{SystemTime, UNIX_EPOCH};
 
 use axum::extract::{Path as AxumPath, State};
-use axum::http::StatusCode;
+use axum::http::{HeaderMap, StatusCode};
 use axum::Json;
 use serde_json::{json, Value};
 
@@ -277,8 +277,30 @@ pub(crate) async fn handle_data_source_get(
 /// returns the durable receipt explicitly alongside the record.
 pub(crate) async fn handle_data_source_create(
     State(st): State<Arc<DaemonState>>,
+    headers: HeaderMap,
     Json(body): Json<Value>,
 ) -> (StatusCode, Json<Value>) {
+    // IDENTITY FIRST (R-240, measured): this route took no headers at all, so any caller that could
+    // reach the daemon — including through a sign-in-required serve, whose /v1/* pass-through relies
+    // on the daemon to refuse — appended a durable, unowned record to the registry. Two verifier
+    // fixtures landed in an owner's registry that way before this was found. A declaration is an
+    // authored mutation: an anonymous caller is owed the typed refusal before any field is judged,
+    // exactly as the ODK writes answer it (#236), and the record names who declared it.
+    let identity = match super::substrate_store::resolve_request_identity(&st.data_dir, &headers) {
+        Ok(identity) => identity,
+        Err(error) => return super::odk_routes::odk_scope_refusal(error),
+    };
+    create_data_source(&st.data_dir, &identity.principal_ref, &body)
+}
+
+/// The declaration itself, once the caller is known: every check below runs as it always did, and
+/// the record carries `declared_by_principal_ref`.
+pub(crate) fn create_data_source(
+    data_dir: &str,
+    declared_by_principal_ref: &str,
+    body: &Value,
+) -> (StatusCode, Json<Value>) {
+    let body = body.clone();
     let err = |code: &str, msg: &str| {
         (
             StatusCode::BAD_REQUEST,
@@ -384,6 +406,7 @@ pub(crate) async fn handle_data_source_create(
         "credential_posture": credential_posture,
         "credential_binding": credential_lease_ref.map(|r| json!({ "kind": "lease_ref", "credential_lease_ref": r })).unwrap_or(Value::Null),
         "project_ref": project_ref,
+        "declared_by_principal_ref": declared_by_principal_ref,
         "lifecycle": { "status": "declared" },
         "ingestion": { "wired": false, "note": "declaration only — extraction requires a future authority crossing (named gap)" },
         "receipt_refs": [receipt_ref],
@@ -392,7 +415,7 @@ pub(crate) async fn handle_data_source_create(
         "runtimeTruthSource": "daemon-runtime"
     });
     if let Err((code, msg)) =
-        finalize_data_source_persist(&st.data_dir, &source_id, &record, &receipt_id, &receipt)
+        finalize_data_source_persist(data_dir, &source_id, &record, &receipt_id, &receipt)
     {
         return (
             StatusCode::INTERNAL_SERVER_ERROR,
@@ -408,6 +431,45 @@ pub(crate) async fn handle_data_source_create(
 #[cfg(test)]
 mod data_source_tests {
     use super::*;
+
+    #[test]
+    fn a_declaration_names_its_declarer_and_still_judges_every_field() {
+        let dir = temp_dir("declarer");
+        let data_dir = dir.to_str().unwrap();
+        let (status, Json(reply)) = create_data_source(
+            data_dir,
+            "user://alpha",
+            &json!({ "name": "orders", "kind": "rest_api", "endpoint": "https://api.example.test/orders" }),
+        );
+        assert_eq!(status, StatusCode::CREATED, "{reply}");
+        assert_eq!(
+            reply["data_source"]["declared_by_principal_ref"],
+            json!("user://alpha")
+        );
+        let id = reply["data_source"]["source_id"]
+            .as_str()
+            .unwrap()
+            .to_string();
+        assert_eq!(
+            load(data_dir, "data-source-registry", &id).unwrap()["declared_by_principal_ref"],
+            json!("user://alpha"),
+            "the persisted record carries the declarer, not only the reply"
+        );
+        let (status, Json(reply)) =
+            create_data_source(data_dir, "user://alpha", &json!({ "kind": "rest_api" }));
+        assert_eq!(status, StatusCode::BAD_REQUEST);
+        assert_eq!(reply["error"]["code"], json!("data_source_name_required"));
+        let (status, _) = create_data_source(
+            data_dir,
+            "user://alpha",
+            &json!({ "name": "x", "kind": "rest_api", "endpoint": "https://e.test", "password": "hunter2" }),
+        );
+        assert_eq!(
+            status,
+            StatusCode::BAD_REQUEST,
+            "a plaintext secret is still refused"
+        );
+    }
 
     fn temp_dir(tag: &str) -> std::path::PathBuf {
         let dir = std::env::temp_dir().join(format!("ioi-ds-{tag}-{:x}", nanos()));
