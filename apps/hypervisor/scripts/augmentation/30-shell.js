@@ -11,6 +11,20 @@
   function positionOpenApp() {
     const el = document.getElementById("ioi-open-app");
     if (el && el.style.display !== "none") el.style.left = railRight() + "px";
+    watchRailWidth();
+  }
+  // THE SLOT FOLLOWS THE RAIL (R-240, owner: "still buggy if you open close with a collapsed
+  // sidebar"). The slot's left edge was set once, when an app opened; collapsing or expanding the
+  // sidebar afterwards left it covering the expanded rail or leaving a gap. A ResizeObserver on the
+  // sidebar re-places it whenever the rail's width changes (re-attached if the shell re-creates it).
+  let railObserved = null, railObserver = null;
+  function watchRailWidth() {
+    const s = document.querySelector('[data-testid="sidebar"]');
+    if (!s || s === railObserved || typeof ResizeObserver !== "function") return;
+    if (railObserver) railObserver.disconnect();
+    railObserver = new ResizeObserver(() => { const el = document.getElementById("ioi-open-app"); if (el && el.style.display !== "none") el.style.left = railRight() + "px"; });
+    railObserver.observe(s);
+    railObserved = s;
   }
   function appIconFor(name) {
     const c = catalogAppByTitle(name); // ported app → its owner family's compiled emoji for the rail row
@@ -70,7 +84,36 @@
     if (u.origin !== location.origin || !SERVE_RENDERED.test(u.pathname)) return;
     e.preventDefault(); e.stopPropagation();
     const backToSignIn = /^Back to\b/.test((a.innerText || "").trim()) && /^\/__ioi\/(login|bootstrap|logout)/.test(u.pathname);
-    window.location.assign(backToSignIn ? "/ai" : u.pathname + u.search + u.hash);
+    if (backToSignIn) { window.location.assign("/ai"); return; }
+    // AN APPLICATION OPENS INSIDE THE SHELL (R-240, owner: "once engaged in an application, we lose
+    // our black rail sidebar"). This listener used to send EVERY estate page to a full navigation,
+    // which replaced the shell — rail and all. An estate application page opens in the embedded slot
+    // instead (embed=1: the page drops its own rail, the shell's stays); sign-in, help, reference
+    // lanes and the API paths keep their full navigation.
+    if (/^\/__ioi\//.test(u.pathname) && !/^\/__ioi\/(login|logout|bootstrap|help|invite)(\/|$)/.test(u.pathname)) {
+      const name = a.getAttribute("data-ioi-app") || a.getAttribute("data-app") || ((a.textContent || "").trim().split(/\s{2,}|\n/)[0] || "Application").slice(0, 60);
+      openApplication(u.pathname + u.search + u.hash, name);
+      return;
+    }
+    window.location.assign(u.pathname + u.search + u.hash);
+  }, true);
+  // ESC LEFT SETTINGS FOR A PAGE THE SHELL CANNOT DRAW (R-240, measured). Settings' Esc goes where
+  // "Back to IOI" goes — the newest history entry outside /settings — but through the shell's own
+  // router, so the click rule above never sees it: after signing in with a `next`, Esc pushed
+  // /__ioi/login and drew "This page doesn't exist". When that return target is serve-rendered, Esc
+  // leaves the way the link does: the sign-in page returns Home, any other page loads in full.
+  window.addEventListener("keydown", function (e) {
+    if (e.key !== "Escape" || e.defaultPrevented || !/^\/settings(\/|$)/.test(location.pathname)) return;
+    const overlayOpen = Array.prototype.some.call(document.querySelectorAll('[role="dialog"],[role="alertdialog"],[role="menu"],[role="listbox"]'), (x) => { const r = x.getBoundingClientRect(); return r.width > 0 && r.height > 0; });
+    if (overlayOpen) return; // Esc closes that first
+    const entries = window.navigation && typeof window.navigation.entries === "function" ? window.navigation.entries().slice().reverse() : [];
+    let back = null;
+    for (const entry of entries) {
+      try { const u = new URL(entry.url); if (!u.pathname.startsWith("/settings")) { back = u; break; } } catch (err) { /* the shell skips it too */ }
+    }
+    if (!back || back.origin !== location.origin || !SERVE_RENDERED.test(back.pathname)) return; // the shell draws it
+    e.preventDefault(); e.stopImmediatePropagation();
+    window.location.assign(/^\/__ioi\/(login|bootstrap|logout)/.test(back.pathname) ? "/ai" : back.pathname + back.search + back.hash);
   }, true);
   // Signed-out honesty (R-240). A local browser reads as the local operator — whoami answers with that
   // display principal AND `authenticated: false` — while the daemon lists and admits Sessions only for
@@ -215,16 +258,24 @@
     if (!el) {
       el = document.createElement("div");
       el.id = "ioi-open-app";
-      el.innerHTML = '<div class="ioi-oa-bar"><span class="ioi-oa-title"></span><button class="ioi-oa-close" title="Close">Close ✕</button></div><iframe title="application"></iframe>';
+      el.innerHTML = '<div class="ioi-oa-bar"><span class="ioi-oa-title"></span><button class="ioi-oa-close" title="Close">Close ✕</button></div><iframe title="application"></iframe><div class="ioi-oa-loading" role="status" aria-live="polite"><span class="ioi-oa-spin" aria-hidden="true"></span><span class="ioi-oa-loadtext">Loading…</span></div>';
       document.body.appendChild(el);
       el.querySelector(".ioi-oa-close").addEventListener("click", closeApplication);
+      // THE LOADING STATE (R-240): an application page reads its planes before it answers — measured
+      // 2–8s for the Solution Designer — and the slot showed an empty dark rectangle meanwhile. It
+      // says it is loading until the frame's document has arrived.
+      el.querySelector("iframe").addEventListener("load", () => { if (el.querySelector("iframe").getAttribute("src")) el.classList.remove("ioi-oa-busy"); });
     }
     el.querySelector(".ioi-oa-title").textContent = title || "Application";
     el.setAttribute("data-app-name", title || "Application");
     el.setAttribute("data-app-icon", appIconFor(title));
     const f = el.querySelector("iframe");
     const src = embeddedAppSrc(href);
-    if (f.getAttribute("src") !== src) f.setAttribute("src", src); // singular slot: reuse, replace src (no reload if same href)
+    if (f.getAttribute("src") !== src) {
+      el.querySelector(".ioi-oa-loadtext").textContent = "Loading " + (title || "the application") + "…";
+      el.classList.add("ioi-oa-busy");
+      f.setAttribute("src", src); // singular slot: reuse, replace src (no reload if same href)
+    }
     el.style.display = "block";
     positionOpenApp();
     updateOpenAppRail();
@@ -267,7 +318,15 @@
     if (!el) {
       el = document.createElement("div");
       el.id = "ioi-apps-modal";
+      // IT IS A DIALOG (R-240): it covers the page and takes every click, yet it carried no dialog
+      // role, so a screen reader never heard it open and Esc did not close it.
+      el.setAttribute("role", "dialog");
+      el.setAttribute("aria-modal", "true");
+      el.setAttribute("aria-label", "Applications");
       document.body.appendChild(el);
+      document.addEventListener("keydown", (e) => {
+        if (e.key === "Escape" && el.classList.contains("open")) { e.preventDefault(); e.stopPropagation(); el.classList.remove("open"); }
+      }, true);
       el.addEventListener("click", (e) => {
         if (e.target === el || e.target.closest(".ioi-mh button")) { el.classList.remove("open"); return; } // backdrop / ✕
         const row = e.target.closest(".ioi-mrow[data-href]");

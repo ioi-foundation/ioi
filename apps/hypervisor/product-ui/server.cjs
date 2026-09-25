@@ -264,6 +264,11 @@ const hypervisorBrandStyles = `<style id="hypervisor-brand-style">
 [data-sidebar-container="true"]:has([style*="width: 48px"]) .hypervisor-selected-application-copy {
   display: none;
 }
+/* R-240: the empty-favorites line wrapped one word per line in the collapsed 48px rail. */
+[data-sidebar-container="true"][style*="48px"] .hypervisor-applications-sidebar-empty,
+[data-sidebar-container="true"]:has([style*="width: 48px"]) .hypervisor-applications-sidebar-empty {
+  display: none;
+}
 [data-sidebar-container="true"][style*="48px"] .hypervisor-applications-sidebar-section,
 [data-sidebar-container="true"]:has([style*="width: 48px"]) .hypervisor-applications-sidebar-section {
   padding-left: 8px;

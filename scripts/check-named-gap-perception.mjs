@@ -110,12 +110,15 @@ const LIVE = self("live");
 // a gap. The same cut rewrote reasons that said only "named gap" and wired four dead inputs (product
 // and store search, the Ontology Manager's header search, Approvals' request type); none of those
 // four carried a gap marker, so they move no count here.
+//
+// 2026-09-25 (R-240, the Issues facets): labelled 611 → 610, cursor 57 → 56 — Issues' "Clear filters"
+// was a declared gap with an ordinary cursor; the facets that have data now filter, so it is a link.
 export const PINNED = Object.freeze({
   surfaces_probed: 36,
   states_probed: 4,
-  labelled: 611,
+  labelled: 610,
   primary_fill: 0,
-  cursor_not_disabled: 57,
+  cursor_not_disabled: 56,
   unreachable_control: 576,
   unmarked_gap: 0,
 });

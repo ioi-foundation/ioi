@@ -15,6 +15,10 @@ export const CLICK_ROLES = Object.freeze([
 
 // Text-entry input types: exercised by TYPING, then by Enter.
 export const TEXT_TYPES = Object.freeze(["", "text", "search", "email", "url", "tel", "number", "password"]);
+// A date-like input is a field too, but "zq" is not a value it accepts and a click only opens the
+// browser's picker (R-240: the Issues date-range facets read dead that way). It is exercised by
+// setting a valid value, which is what a person choosing a date does.
+export const DATE_TYPES = Object.freeze(["date", "datetime-local", "month", "week", "time"]);
 
 // Slower than this and a person decides the link is broken before it answers.
 export const SLOW_LANDING_MS = 5000;
@@ -67,8 +71,14 @@ export function exerciseFor(el) {
   if (/^(ew|ns|col|row|e|w|n|s)-resize$/u.test(el.cursor || "")) return "drag";
   if (el.tag === "SELECT") return "select";
   if (el.tag === "TEXTAREA" || (el.tag === "INPUT" && TEXT_TYPES.includes(el.type || ""))) return "type";
+  if (el.tag === "INPUT" && DATE_TYPES.includes(el.type || "")) return "date";
   if (el.tag === "INPUT" && (el.type === "checkbox" || el.type === "radio")) return "toggle";
   return "click";
+}
+
+// A value each date-like input type accepts (far enough ahead that it never matches seeded data).
+export function dateValueFor(type) {
+  return { date: "2030-01-01", "datetime-local": "2030-01-01T09:00", month: "2030-01", week: "2030-W01", time: "09:00" }[type] || "2030-01-01";
 }
 
 // What did the exercise prove?
@@ -84,7 +94,7 @@ export function exerciseVerdict(el, outcome) {
   if (outcome?.error) return { verdict: "click_failed", why: String(outcome.error).slice(0, 160) };
   const moved = SIGNALS.filter((s) => outcome?.signals?.[s] === true);
   if (moved.length) return { verdict: "alive", why: moved.join(",") };
-  const field = ["select", "type", "toggle"].includes(exerciseFor(el));
+  const field = ["select", "type", "toggle", "date"].includes(exerciseFor(el));
   if (field && el.formCanSubmit === true) return { verdict: "alive_by_form", why: "its form has an enabled submit" };
   if (!field && isSelfControl(el)) return { verdict: "self", why: "it points at where you already are" };
   return { verdict: "dead", why: field ? "a field whose change moves nothing and whose form cannot submit" : "activated, and none of the five signals moved" };

@@ -5745,13 +5745,25 @@ function renderIncidentsPort(ops, workResults, lane, extra = {}) {
     proof: `/__ioi/missions/incidents?lane=${lane}&issue=${encodeURIComponent(inIssueId(r.incident_id))}${q ? `&q=${encodeURIComponent(q)}` : ""}`,
     detail: [r.affected && r.affected.product, ((r.affected && r.affected.object_refs) || [])[0]].filter(Boolean).join(" · "),
     severity: r.severity || "", status: r.status || "", filed: true,
+    reporter: r.reported_by || "", assignee: r.assigned_owner_ref || "", product: (r.affected && r.affected.product) || "",
   });
   const incidents = filed.map(filedIncident)
     .concat(wr.filter((r) => ["failed", "blocked"].includes(String(r.status || "").toLowerCase())).map(resultIncident))
     .concat(failures.map(failureIncident));
   const open = incidents.filter((i) => !i.closed), closed = incidents.filter((i) => i.closed);
   const qn = q.toLowerCase();
-  const rowsAll = ({ open, closed, all: incidents }[lane] || open).filter((i) => !qn || `${i.title} ${i.id} ${i.detail} ${i.kind}`.toLowerCase().includes(qn));
+  // THE FACETS FILTER (R-240). Harvested shape: people facets are "Type a name…", dates are ranges.
+  // They read what filed issues record — reporter, assignee, application, filed/updated time; a
+  // derived incident records none of those, so an active person/application facet keeps filed issues.
+  const F = extra.filters || {};
+  const people = extra.people || {};
+  const personMatch = (ref, text) => { const want = String(text || "").trim().toLowerCase(); if (!want) return true; if (!ref) return false; return `${people[ref] || ""} ${ref}`.toLowerCase().includes(want); };
+  const inRange = (iso, from, to) => { const ms = Date.parse(iso || ""); if (from && !(ms >= Date.parse(`${from}T00:00:00Z`))) return false; if (to && !(ms <= Date.parse(`${to}T23:59:59Z`))) return false; return true; };
+  const facetOk = (i) => personMatch(i.assignee, F.assignee) && personMatch(i.reporter, F.reporter)
+    && (!String(F.support || "").trim() || String(i.product || "").toLowerCase().includes(String(F.support).trim().toLowerCase()))
+    && inRange(i.created, F.rf, F.rt) && inRange(i.updated, F.uf, F.ut);
+  const facetsActive = ["assignee", "reporter", "support", "rf", "rt", "uf", "ut"].some((k) => String(F[k] || "").trim());
+  const rowsAll = ({ open, closed, all: incidents }[lane] || open).filter((i) => (!qn || `${i.title} ${i.id} ${i.detail} ${i.kind}`.toLowerCase().includes(qn)) && facetOk(i));
   const rows = rowsAll.slice().sort((a, b) => String(b.updated).localeCompare(String(a.updated)));
   const CAP = 50;
   const shown = rows.slice(0, CAP);
@@ -5760,22 +5772,29 @@ function renderIncidentsPort(ops, workResults, lane, extra = {}) {
   // What each facet would need, said plainly (R-240): the reason is the control's accessible name
   // and its tooltip, so it must survive being read.
   const FACET_WHY = {
-    Assignees: "Filtering by assignee is not offered — derived incidents have no assignee; a filed issue's assignee is shown in its drawer",
-    Reporters: "Filtering by reporter is not offered — derived incidents have no reporter; a filed issue's reporter is shown in its drawer",
     Mentions: "Issues carry no comments, so there are no mentions to filter by",
     Labels: "No record keeps issue labels, so there is nothing to filter by",
-    "Support types": "Filtering by application is not offered — a filed issue's application is shown on its row",
-    "Reported on": "Filtering by date is not offered — rows are ordered by most recent update",
-    "Last updated": "Filtering by date is not offered — rows are ordered by most recent update",
   };
+  // Which facets filter, and by which query parameter; the rest stay declared with their reason.
+  const FACET_PARAM = { Assignees: "assignee", Reporters: "reporter", "Support types": "support", "Reported on": ["rf", "rt"], "Last updated": ["uf", "ut"] };
+  const FACET_HINT = { Assignees: "Filter filed issues by who they are assigned to (name or ref)", Reporters: "Filter filed issues by who filed them (name or ref)", "Support types": "Filter filed issues by the application they name" };
   const facet = (label, kind, slot) => {
+    const param = FACET_PARAM[label];
     const why = esc(FACET_WHY[label] || `${label} filtering is not offered`);
-    const input = kind === "underline"
-      ? `<input class="in-fuline" placeholder="Type a name…" disabled aria-label="${why}" title="${why}">`
-      : kind === "box"
-        ? `<input class="in-fbox" placeholder="${label === "Labels" ? "Type a label name…" : "Type a support type name..."}" disabled aria-label="${why}" title="${why}">`
-        : `<span class="in-dates" title="${why}"><input class="in-fdate" placeholder="Start date" disabled aria-label="${why}"><input class="in-fdate" placeholder="End date" disabled aria-label="${why}"></span>`;
-    const inc = kind === "dates" ? "" : `<span class="in-finc gap" role="button" tabindex="0" title="Include/exclude applies to a facet filter, and this facet cannot filter" aria-disabled="true" data-ioi-disabled-reason="Include/exclude applies to a facet filter, and this facet cannot filter">include ${bpIcon("caret-down")}</span>`;
+    let input;
+    if (!param) {
+      input = kind === "underline"
+        ? `<input class="in-fuline" placeholder="Type a name…" disabled aria-label="${why}" title="${why}">`
+        : `<input class="in-fbox" placeholder="${label === "Labels" ? "Type a label name…" : "Type a support type name..."}" disabled aria-label="${why}" title="${why}">`;
+    } else if (kind === "dates") {
+      input = `<span class="in-dates"><input class="in-fdate" type="date" name="${param[0]}" value="${esc(F[param[0]] || "")}" aria-label="${esc(label)} from" title="${esc(label)} from" onchange="this.form.requestSubmit()"><input class="in-fdate" type="date" name="${param[1]}" value="${esc(F[param[1]] || "")}" aria-label="${esc(label)} to" title="${esc(label)} to" onchange="this.form.requestSubmit()"></span>`;
+    } else {
+      input = kind === "underline"
+        ? `<input class="in-fuline" name="${param}" value="${esc(F[param] || "")}" placeholder="Type a name…" aria-label="${esc(FACET_HINT[label])}" title="${esc(FACET_HINT[label])} — press Enter" onkeydown="if(event.key==='Enter'){event.preventDefault();this.form.requestSubmit()}">`
+        : `<input class="in-fbox" name="${param}" value="${esc(F[param] || "")}" placeholder="Type a support type name..." aria-label="${esc(FACET_HINT[label])}" title="${esc(FACET_HINT[label])} — press Enter" onkeydown="if(event.key==='Enter'){event.preventDefault();this.form.requestSubmit()}">`;
+    }
+    const incWhy = param ? "Filters keep the issues that match; excluding is not offered" : "Include/exclude applies to a facet filter, and this facet cannot filter";
+    const inc = kind === "dates" ? "" : `<span class="in-finc gap" role="button" tabindex="0" title="${incWhy}" aria-disabled="true" data-ioi-disabled-reason="${incWhy}">include ${bpIcon("caret-down")}</span>`;
     return `<div class="in-facet ${slot}"><div class="in-frow"><span class="in-flabel">${esc(label)}</span>${inc}</div>${input}</div>`;
   };
   const prio = (label, color, slot) => `<label class="in-prio ${slot} gap" title="Filtering by priority is not offered: derived incidents carry no priority, and filed issues carry a severity (informational to critical, shown on each row) rather than High, Medium or Low" data-ioi-disabled-reason="Filtering by priority is not offered: derived incidents carry no priority, and filed issues carry a severity (informational to critical, shown on each row) rather than High, Medium or Low"><span class="in-cb" role="checkbox" aria-checked="false" aria-disabled="true" title="Filtering by priority is not offered: derived incidents carry no priority, and filed issues carry a severity (informational to critical, shown on each row) rather than High, Medium or Low" data-ioi-disabled-reason="Filtering by priority is not offered: derived incidents carry no priority, and filed issues carry a severity (informational to critical, shown on each row) rather than High, Medium or Low"></span><span class="in-ppill" style="background:${color}33"><span class="in-pdot" style="color:${color}">${bpIcon("issue-dot")}</span>${label}</span></label>`;
@@ -5802,7 +5821,8 @@ function renderIncidentsPort(ops, workResults, lane, extra = {}) {
     ${laneRow("open", "Open", open.length, "l1")}
     ${laneRow("closed", "Closed", closed.length, "l2")}
     ${laneRow("all", "All", incidents.length, "l3")}
-    <div class="in-fhead"><span class="in-ftitle">Filters</span><span class="in-fclear gap" role="button" tabindex="0" title="No filters are wired yet — reference-only lanes (named gap)" aria-disabled="true" data-ioi-disabled-reason="No filters are wired yet — reference-only lanes (named gap)">Clear filters</span></div>
+    <form id="in-facets" method="get" action="/__ioi/missions/incidents" style="display:contents"><input type="hidden" name="lane" value="${esc(lane)}">${q ? `<input type="hidden" name="q" value="${esc(q)}">` : ""}
+    <div class="in-fhead"><span class="in-ftitle">Filters</span><a class="in-fclear" href="/__ioi/missions/incidents?lane=${esc(lane)}${q ? `&q=${encodeURIComponent(q)}` : ""}" title="Clear every filter">Clear filters</a></div>
     <div class="in-flabel in-fprio">Priority</div>
     ${prio("High", "#ff9980", "p1")}
     ${prio("Medium", "#f0b726", "p2")}
@@ -5814,12 +5834,13 @@ function renderIncidentsPort(ops, workResults, lane, extra = {}) {
     ${facet("Support types", "box", "f5")}
     ${facet("Reported on", "dates", "f6")}
     ${facet("Last updated", "dates", "f7")}
+    </form>
   </aside>`;
 
   const list = `<main class="in-list">
     <div class="in-lhead">
       <span class="in-cb hd" role="checkbox" aria-checked="false" aria-disabled="true" title="Nothing acts on several issues at once, so there is nothing to select them for" data-ioi-disabled-reason="Nothing acts on several issues at once, so there is nothing to select them for"></span>
-      <span class="in-lcounttxt">${shown.length < rows.length ? `${shown.length} of ${rows.length}` : rows.length} ${lane === "all" ? "" : lane + " "}issue${rows.length === 1 ? "" : "s"}</span>${q ? `<span class="in-lq">matching “${esc(q)}” · <a href="/__ioi/missions/incidents?lane=${lane}">clear</a></span>` : ""}
+      <span class="in-lcounttxt">${shown.length < rows.length ? `${shown.length} of ${rows.length}` : rows.length} ${lane === "all" ? "" : lane + " "}issue${rows.length === 1 ? "" : "s"}</span>${q || facetsActive ? `<span class="in-lq">${[q ? `matching “${esc(q)}”` : "", facetsActive ? "filtered" : ""].filter(Boolean).join(" · ")} · <a href="/__ioi/missions/incidents?lane=${lane}">clear</a></span>` : ""}
       <span class="in-lmut">filtered by</span>
       <span class="in-lsel gap" role="button" tabindex="0" title="No record keeps saved filters" aria-disabled="true" data-ioi-disabled-reason="No record keeps saved filters">select filter ${bpIcon("caret-down")}</span>
       <span class="in-lsort"><span class="in-lmut">Sort by</span> <span class="in-lsortv gap" role="button" tabindex="0" title="Sort options are a reference-only lane — rows are honestly ordered by most recent update" aria-disabled="true" data-ioi-disabled-reason="Sort options are a reference-only lane — rows are honestly ordered by most recent update">Most recently updated ${bpIcon("caret-down")}</span></span>
@@ -5921,7 +5942,7 @@ function renderIncidentsPort(ops, workResults, lane, extra = {}) {
     .in-lane.on .in-lcount{background:#fff;color:#2d72d2}
     .in-fhead{position:absolute;top:138px;left:15px;right:15px;display:flex;align-items:center}
     .in-ftitle{flex:1;font-size:12px;line-height:15.4297px;font-weight:600;color:#5f6b7c;text-transform:uppercase}
-    .in-fclear{font-size:12px;line-height:15.4297px;color:#215db0;cursor:default}
+    .in-fclear{font-size:12px;line-height:15.4297px;color:#215db0;cursor:pointer}
     .in-flabel{font-size:12px;line-height:15.4297px;color:#1c2127}
     .in-fprio{position:absolute;top:168.4px;left:15px}
     .in-prio{position:absolute;left:15px;display:flex;align-items:flex-start;height:20px;gap:6px;cursor:not-allowed}
@@ -5938,7 +5959,7 @@ function renderIncidentsPort(ops, workResults, lane, extra = {}) {
     .in-fuline{width:219px;height:30px;margin:5px 0 0;border:0;border-radius:4px;background:#fff;box-shadow:inset 0 0 0 1px rgba(17,20,24,.2),inset 0 1px 1px rgba(17,20,24,.3);font:inherit;font-size:14px;color:#1c2127;outline:none;padding:0 10px}
     .in-fbox{width:219px;height:30px;margin:6px 0 0;border:0;border-radius:4px;background:#fff;box-shadow:inset 0 0 0 1px rgba(17,20,24,.2),inset 0 1px 1px rgba(17,20,24,.3);font:inherit;font-size:14px;color:#1c2127;outline:none;padding:0 8px}
     .in-dates{display:flex;gap:2px;margin-top:5px}
-    .in-fdate{width:109.5px;height:30px;border:0;border-radius:4px;background:#fff;box-shadow:inset 0 0 0 1px rgba(17,20,24,.2),inset 0 1px 1px rgba(17,20,24,.3);font:inherit;font-size:14px;color:#1c2127;outline:none;padding:0 8px}
+    .in-fdate{width:109.5px;height:30px;border:0;border-radius:4px;background:#fff;box-shadow:inset 0 0 0 1px rgba(17,20,24,.2),inset 0 1px 1px rgba(17,20,24,.3);font:inherit;font-size:12px;color:#1c2127;outline:none;padding:0 4px}
     .in-fuline::placeholder,.in-fbox::placeholder,.in-fdate::placeholder,.in-prio input{color:#5f6b7c}
     .in-list{flex:1 1 auto;min-width:0;display:flex;flex-direction:column;background:#fff}
     .in-lhead{flex:0 0 41px;position:relative;border-bottom:1px solid #e5e8eb}
@@ -5967,7 +5988,7 @@ function renderIncidentsPort(ops, workResults, lane, extra = {}) {
     .in-rpill.fail{background:rgba(205,66,70,.18)}.in-rpill.fail .in-pdot{color:#cd4246}
     .in-rkind{font-size:12px;line-height:15.4297px;color:#8f99a8;margin-top:4px}
     .in-empty{margin:24px;padding:16px 18px;border:1px dashed #d3d8de;border-radius:8px;background:#fbfbfc;color:#5f6b7c;max-width:640px}
-    .in-lq{font-size:13px;color:#5f6b7c;margin-left:8px}
+    .in-lq{position:absolute;left:330px;top:5px;line-height:30px;font-size:13px;color:#5f6b7c;white-space:nowrap}
     .in-filedown{margin:10px 24px 0;padding:8px 12px;border-radius:4px;background:#fbf3e6;border:1px solid rgba(200,118,25,.35);color:#77450d;font-size:13px}
     .in-rpill.filed{background:rgba(45,114,210,.12)}.in-rpill.filed .in-pdot{color:#2d72d2}
     .in-rpill.sev-major{background:rgba(236,154,60,.22)}.in-rpill.sev-major .in-pdot{color:#c87619}
@@ -6011,7 +6032,7 @@ function renderIncidentsPort(ops, workResults, lane, extra = {}) {
       .in-fprio{position:static;grid-column:1/-1}.in-prio{position:static;grid-column:span 2;height:auto;min-width:0;gap:4px}.in-ppill{padding:0 5px}
       .in-facet{position:static;grid-column:span 3;min-width:0}.in-frow{min-width:0}.in-finc{font-size:11px}
       .in-fuline,.in-fbox{width:100%;min-width:0}.in-dates{width:100%}.in-fdate{width:50%;min-width:0;font-size:12px;padding:0 5px}
-      .in-list{width:100%;flex:0 0 auto;min-height:380px}.in-lhead{height:41px}.in-lmut,.in-lsel,.in-lsort{display:none}.in-lcounttxt{left:47px;max-width:none}
+      .in-list{width:100%;flex:0 0 auto;min-height:380px}.in-lhead{height:41px}.in-lmut,.in-lsel,.in-lsort{display:none}.in-lcounttxt{left:47px;max-width:none}.in-lq{left:150px}
       .in-row{height:auto;min-height:78px;padding:10px 12px}.in-rico{margin-left:10px}.in-rsub{white-space:normal}.in-rright{width:78px;margin-left:8px}.in-rpill{max-width:78px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.in-rkind{display:none}
       .in-empty{margin:14px}.in-drow{grid-template-columns:1fr}.in-drawer{width:100vw}
     }`;
@@ -13916,6 +13937,8 @@ async function handleEstateRequest(req, res, body) {
       const readJ = (path) => daemonFetch(path).then(async (x) => ({ status: x.status, j: await x.json().catch(() => ({})) })).catch(() => ({ status: 0, j: {} }));
       const why = (r) => (r.j.error && r.j.error.message) || r.j.message || (r.status ? `the daemon answered HTTP ${r.status}` : "the daemon did not answer");
       const wantDialog = qp.get("new") === "1" || !!over.dialog;
+      const filters = Object.fromEntries(["assignee", "reporter", "support", "rf", "rt", "uf", "ut"].map((k) => [k, String(qp.get(k) || "").slice(0, 120)]));
+      const wantPeople = wantDialog || !!(filters.assignee.trim() || filters.reporter.trim());
       const issueId = String(qp.get("issue") || "").slice(0, 200);
       const [opsRes, wrRes, filedR, whoR, projR, peopleR, issueR, orgR] = await Promise.all([
         daemonFetch(`/v1/hypervisor/operations`).then((x) => x.json()).catch(() => ({})),
@@ -13923,12 +13946,15 @@ async function handleEstateRequest(req, res, body) {
         readJ("/v1/hypervisor/support-incidents"),
         wantDialog || issueId ? readJ("/v1/hypervisor/auth/whoami") : null,
         wantDialog ? readJ("/v1/hypervisor/projects") : null,
-        wantDialog ? readJ("/v1/hypervisor/principals") : null,
+        wantPeople ? readJ("/v1/hypervisor/principals") : null,
         issueId ? readJ(`/v1/hypervisor/support-incidents/${encodeURIComponent(issueId)}`) : null,
         wantDialog ? readJ("/v1/hypervisor/organization") : null,
       ]);
       const filedOk = filedR.status === 200 && Array.isArray(filedR.j.support_incidents);
+      const principalRows = (peopleR && Array.isArray(peopleR.j.principals)) ? peopleR.j.principals : [];
       const extra = {
+        filters,
+        people: Object.fromEntries(principalRows.filter((x) => x && x.principal_ref).map((x) => [x.principal_ref, `${x.name || ""} ${x.email || ""}`.trim()])),
         q: qp.get("q") || "",
         filed: filedOk ? filedR.j.support_incidents : [],
         filedDown: filedOk ? "" : (filedR.status === 405 ? "this daemon build serves no list of filed issues (HTTP 405) — restart it on a current build" : why(filedR)),

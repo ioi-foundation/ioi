@@ -27,6 +27,11 @@
   #ioi-open-app .ioi-oa-close{background:transparent;border:1px solid #2a2c33;color:#cbd0da;border-radius:6px;cursor:pointer;padding:3px 10px;font:inherit;}
   #ioi-open-app .ioi-oa-close:hover{color:#fff;border-color:#3a3d45;}
   #ioi-open-app iframe{width:100%;height:calc(100% - 40px);border:0;background:#0c0d10;display:block;}
+  #ioi-open-app .ioi-oa-loading{position:absolute;left:0;right:0;top:40px;bottom:0;display:none;align-items:center;justify-content:center;gap:10px;color:#cbd0da;font:14px/1.4 system-ui,sans-serif;background:#0c0d10;pointer-events:none}
+  #ioi-open-app.ioi-oa-busy .ioi-oa-loading{display:flex}
+  #ioi-open-app .ioi-oa-spin{width:16px;height:16px;border:2px solid #3a3d45;border-top-color:#8abbff;border-radius:50%;animation:ioi-oa-spin .8s linear infinite}
+  @keyframes ioi-oa-spin{to{transform:rotate(360deg)}}
+  @media (prefers-reduced-motion:reduce){#ioi-open-app .ioi-oa-spin{animation:none}}
   #ioi-apps-modal{position:fixed;inset:0;z-index:2147483640;display:none;align-items:flex-start;justify-content:center;background:rgba(0,0,0,.55);}
   #ioi-apps-modal.open{display:flex;}
   #ioi-apps-modal .ioi-modal{margin-top:8vh;width:560px;max-width:92vw;max-height:80vh;overflow:auto;background:#101216;border:1px solid #24262d;border-radius:14px;box-shadow:0 20px 60px rgba(0,0,0,.5);font:13px/1.5 system-ui,sans-serif;color:#e6e7ea;}
@@ -42,6 +47,8 @@
   /* Active "Open Application" rail row (one only; no pinned region). */
   .ioi-openapp-rail{display:flex;align-items:center;gap:8px;margin:2px 8px;padding:6px 10px;border-radius:8px;background:#15315c;border:1px solid #3a82f6;color:#fff;text-decoration:none;font:600 12px system-ui,sans-serif;cursor:pointer;}
   .ioi-openapp-rail .ioi-oar-ico{flex:0 0 auto;font-size:14px;}
+  [data-sidebar-container="true"][style*="48px"] .ioi-openapp-rail,[data-sidebar-container="true"]:has([style*="width: 48px"]) .ioi-openapp-rail{width:32px;height:32px;min-height:32px;margin:2px 8px;padding:0;justify-content:center;gap:0;}
+  [data-sidebar-container="true"][style*="48px"] .ioi-openapp-rail > :not(.ioi-oar-ico),[data-sidebar-container="true"]:has([style*="width: 48px"]) .ioi-openapp-rail > :not(.ioi-oar-ico){display:none;}
   .ioi-openapp-rail .ioi-oar-txt{display:flex;flex-direction:column;min-width:0;flex:1;line-height:1.25;}
   .ioi-openapp-rail .ioi-oar-l{font-size:9px;text-transform:uppercase;letter-spacing:.06em;opacity:.65;font-weight:600;}
   .ioi-openapp-rail .ioi-oar-n{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}

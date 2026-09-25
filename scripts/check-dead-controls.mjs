@@ -166,6 +166,10 @@ export function pureFindings(lib) {
   expect("oe-savename/exercise", lib.exerciseFor(OE_SAVENAME), "type");
   expect("oe-savename/verdict", lib.exerciseVerdict(OE_SAVENAME, NONE).verdict, "dead");
   expect("oe-savename/with-submit", lib.exerciseVerdict({ ...OE_SAVENAME, formCanSubmit: true }, NONE).verdict, "alive_by_form");
+  // A date input is exercised by setting a valid date (a click only opens the picker), and it is a
+  // field, so a form that can submit rescues it like any other (R-240: the Issues date facets).
+  expect("date-input/exercise", lib.exerciseFor({ ...OE_SAVENAME, type: "date", cursor: "default" }), "date");
+  expect("date-input/value", lib.dateValueFor("date"), "2030-01-01");
   // AND THE REPAIR: disabled beside its disabled Save, it leaves this population for the other one.
   expect("oe-savename/repaired", lib.isLiveLooking({ ...OE_SAVENAME, declared: true }), false);
 
@@ -609,6 +613,9 @@ async function liveLeg() {
             await loc.fill("zq", { timeout: 3000 });
             await page.waitForTimeout(600);
             await loc.press("Enter", { timeout: 3000, noWaitAfter: true });
+          } else if (el.exercise === "date") {
+            await loc.fill(LIB.dateValueFor(el.type), { timeout: 3000 });
+            await loc.dispatchEvent("change").catch(() => {});
           } else if (el.exercise === "toggle") {
             await loc.click({ timeout: 3000, noWaitAfter: true });
           } else {
@@ -697,6 +704,8 @@ async function liveLeg() {
             const opts = await loc.evaluate((x) => ({ cur: x.value, vals: [...x.options].filter((o) => !o.disabled).map((o) => o.value) }));
             const next = opts.vals.find((v) => v !== opts.cur);
             if (next === undefined) error = "select offers no alternative option"; else await loc.selectOption(next, { timeout: 3000 });
+          } else if (how === "date") {
+            await loc.fill(LIB.dateValueFor(now.type), { timeout: 3000 }); await loc.dispatchEvent("change").catch(() => {});
           } else if (how === "type") {
             await loc.fill("zq", { timeout: 3000 }); await page.waitForTimeout(500); await loc.press("Enter", { timeout: 3000, noWaitAfter: true });
           } else if (how === "drag") {
@@ -727,11 +736,25 @@ async function liveLeg() {
             try { await loc.click({ timeout: 3000, noWaitAfter: true }); } catch (first) {
               if (!moving(first)) throw first;
               let last = first;
+              // A TIMED-OUT CLICK CAN STILL HAVE LANDED (R-240, measured twice in full runs): Home's
+              // Applications launcher opened its dialog, and the retry then found that dialog covering
+              // the launcher and called it a failed click. Before trying again, a page that has already
+              // moved its URL or opened an overlay since the click counts as clicked.
+              const landed = await page.evaluate(PAGE_READ).catch(() => null);
+              if (landed && (landed.url !== before.url || landed.overlays > before.overlays)) last = null;
               for (let attempt = 0; attempt < 3 && last; attempt += 1) {
                 await page.waitForTimeout(1000);
                 const again = (await shellEnumerate()).find((el) => el.ident === target.ident && el.occ === target.occ);
                 if (!again) break;
                 try { await page.locator(again.css).first().click({ timeout: 3000, noWaitAfter: true }); last = null; } catch (e) { last = e; if (!moving(e)) break; }
+              }
+              // A control the shell keeps RE-CREATING (the call log says "element was detached from the
+              // DOM" on every retry — measured on the Projects cards while the census refuses writes and
+              // the shell retries them) is clicked the way the DOM does it, once, at the moment it is
+              // found: what the person's click reaches. A COVERED control never gets here.
+              if (last && /detached from the DOM/u.test(String(last.message))) {
+                const found = (await shellEnumerate()).find((el) => el.ident === target.ident && el.occ === target.occ);
+                if (found && await page.locator(found.css).first().evaluate((x) => { x.click(); return true; }).catch(() => false)) last = null;
               }
               if (last) throw last;
             }
@@ -761,9 +784,15 @@ async function liveLeg() {
           // "rendered nothing". An empty read waits for the document and reads again before it counts.
           await page.waitForTimeout(1500);
           let landed = await page.evaluate(PAGE_READ).catch(() => ({ main: "" }));
-          if (!String(landed.main || "").trim()) {
+          // A shell route boots client-side after the document loads (measured: "Back to IOI" into
+          // /settings/scim read empty twice at 1.5s spacing) — so a landing that reads as rendering
+          // nothing is re-read once a second for up to eight seconds before it counts. "Nothing" is
+          // the verdict's own floor, not an empty string: Home caught mid-boot held a few characters
+          // of skeleton, stopped a loop that waited only for EMPTY, and read as rendering nothing.
+          const renderedNothing = (x) => String(x.main || "").trim().length < LIB.SPA_MIN_TEXT;
+          for (let wait = 0; wait < 8 && renderedNothing(landed); wait += 1) {
             await page.waitForLoadState("domcontentloaded", { timeout: 10000 }).catch(() => {});
-            await page.waitForTimeout(1500);
+            await page.waitForTimeout(1000);
             landed = await page.evaluate(PAGE_READ).catch(() => ({ main: "" }));
           }
           judged = LIB.spaLandingVerdict({ urlChanged: true, text: landed.main }) || judged;
@@ -845,7 +874,7 @@ async function mutation() {
   await mutate("SIGNALS — the network signal stops counting, so a refused write reads dead", (t) => t.replace('"url", "dom", "network", "state", "other"', '"url", "dom", "state", "other"'));
   await mutate("FORM — any field is rescued by its form, submit or not", (t) => t.replace("if (field && el.formCanSubmit === true)", "if (field)"));
   await mutate("FORM — no field is ever rescued by its form", (t) => t.replace("if (field && el.formCanSubmit === true)", "if (false)"));
-  await mutate("FORM — a button is rescued by a form too", (t) => t.replace('const field = ["select", "type", "toggle"].includes(exerciseFor(el));', "const field = true;"));
+  await mutate("FORM — a button is rescued by a form too", (t) => t.replace('const field = ["select", "type", "toggle", "date"].includes(exerciseFor(el));', "const field = true;"));
   await mutate("EXERCISE — a select is clicked instead of chosen", (t) => t.replace('if (el.tag === "SELECT") return "select";', ""));
   await mutate("EXERCISE — a text field is clicked instead of typed into", (t) => t.replace('if (el.tag === "TEXTAREA" || (el.tag === "INPUT" && TEXT_TYPES.includes(el.type || ""))) return "type";', ""));
   await mutate("EXERCISE — a checkbox is clicked as a button", (t) => t.replace('if (el.tag === "INPUT" && (el.type === "checkbox" || el.type === "radio")) return "toggle";', ""));
