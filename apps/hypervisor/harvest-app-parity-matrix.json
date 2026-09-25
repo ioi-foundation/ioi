@@ -18,8 +18,8 @@
   "total_seeds": 39,
   "by_parity_class": {
     "daemon_wired": 13,
-    "reference_capture": 10,
-    "reference_ported": 16
+    "reference_capture": 12,
+    "reference_ported": 14
   },
   "legend": {
     "reference_capture": "the /__apps/<slug> reference baseline serves; no IOI port exists",
@@ -850,27 +850,15 @@
       "capture_base": "/workspace/notepad/",
       "grammar": "document",
       "tier": "aux",
-      "parity_class": "reference_ported",
+      "parity_class": "reference_capture",
       "capture_state": "blocked_missing_capture",
       "reference_capture": "/__apps/notepad",
       "reference_workspace": "/workspace/notepad/",
-      "note": "WOR-1: origin-aligned landing ported; document plane absent (named)",
+      "note": "notepad document; unbound",
       "reference_clean_state": "needs_origin_alignment",
       "reference_clean_reason": "proxy lane shows a failure (\"An error occurred\"), but the capture-origin lane (http://localhost:9225) renders the app failure-free WITH data (rows 2/0 · nodes 0 · cards 11 · lines 28) — align the reference URL like pipeline #38/#39",
       "reference_clean_artifact": "reference-clean-sweep.json",
-      "adjudication_ref": "reference-seed-adjudications.v1.json#notepad",
-      "port_surface": "/__ioi/developer-workspace/notepad",
-      "surface_name": "Developer Workspace",
-      "reference_url_override": "http://localhost:9225/workspace/notepad/",
-      "reference_landmarks": [
-        "Notepad",
-        "New document",
-        "Recents",
-        "Favorites"
-      ],
-      "binding": "I-4 splash landing (atlas: 5 facet groups) over a TYPED-ABSENT body — no document plane; the reference template-picker IA (4 facet groups) is atlas-recorded for a future cut",
-      "candidate_surface": "/__ioi/developer-workspace/notepad",
-      "shell_pixel_certified": false
+      "adjudication_ref": "reference-seed-adjudications.v1.json#notepad + ADR 0056 Amendment 1 (M7: terminal absence)"
     },
     {
       "owner": "Provenance",
@@ -934,7 +922,7 @@
       "reference_clean_reason": "the app never mounts — uncaught page error (\"Workspace context path not found\")",
       "reference_clean_artifact": "reference-clean-sweep.json",
       "remediation_state": "ia_bearing_empty",
-      "adjudication_ref": "reference-seed-adjudications.v1.json#slate",
+      "adjudication_ref": "reference-seed-adjudications.v1.json#slate + ADR 0056 Amendment 1 (M7b: terminal absence)",
       "reference_url_override": "http://localhost:9225/workspace/slate/splash"
     },
     {
@@ -973,27 +961,15 @@
       "capture_base": "/workspace/contour-app/",
       "grammar": "editor_canvas",
       "tier": "aux",
-      "parity_class": "reference_ported",
+      "parity_class": "reference_capture",
       "capture_state": "shell_only",
       "reference_capture": "/__apps/contour",
       "reference_workspace": "/workspace/contour-app/",
-      "note": "DOM-1: origin-aligned landing ported; create lane dead on the mirror (atlas authoring state)",
+      "note": "Contour analysis; unbound",
       "reference_clean_state": "needs_origin_alignment",
       "reference_clean_reason": "proxy lane shows a failure (\"404: Page Not Found\"), but the capture-origin lane (http://localhost:9225) renders the app failure-free WITH data (rows 12/0 · nodes 0 · cards 2 · lines 50) — align the reference URL like pipeline #38/#39",
       "reference_clean_artifact": "reference-clean-sweep.json",
-      "adjudication_ref": "reference-seed-adjudications.v1.json#contour",
-      "port_surface": "/__ioi/domain-apps/contour",
-      "surface_name": "Domain Apps",
-      "reference_url_override": "http://localhost:9225/workspace/contour-app/splash",
-      "reference_landmarks": [
-        "Contour",
-        "New analysis",
-        "Recents",
-        "Favorites"
-      ],
-      "binding": "I-4 splash landing (atlas: 5 facet groups) over a TYPED-ABSENT body — analysis-workbook binding is the EVA-2 build; named absences under the unified contract",
-      "candidate_surface": "/__ioi/domain-apps/contour",
-      "shell_pixel_certified": false
+      "adjudication_ref": "reference-seed-adjudications.v1.json#contour + ADR 0056 Amendment 1 (M7: terminal absence)"
     },
     {
       "owner": "Domain Apps",

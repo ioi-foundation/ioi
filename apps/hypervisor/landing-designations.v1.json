@@ -212,14 +212,19 @@
     },
     {
       "click_target": "domain-apps:contour",
-      "status": "NOW",
-      "grammar": "Contour landing (origin-align, I-4 instance)"
+      "status": "TERMINAL",
+      "grammar": "Contour landing (origin-align, I-4 instance)",
+      "superseded_note": "NOW until ADR 0056 Amendment 1 ruled it a terminal absence (M7); kept as history.",
+      "note": "dataset BI — outside the autonomous-systems substrate; the route answers a typed retirement with no successor",
+      "adjudication_ref": "docs/decisions/0056-organize-the-hypervisor-application-estate-by-four-axes-and-retire-missions.md"
     },
     {
       "click_target": "domain-apps:slate",
-      "status": "NOW",
+      "status": "TERMINAL",
       "grammar": "Slate landing via splash alias (I-4 instance; origin-aligned)",
-      "adjudication_ref": "reference-seed-adjudications.v1.json#slate"
+      "adjudication_ref": "reference-seed-adjudications.v1.json#slate + docs/decisions/0056-organize-the-hypervisor-application-estate-by-four-axes-and-retire-missions.md",
+      "superseded_note": "NOW until ADR 0056 Amendment 1 ruled it a terminal absence (M7b); kept as history.",
+      "note": "an app builder the substrate covers with Studio / Interfaces and generated domain apps; no port was ever built (the route answered a not-found page)"
     },
     {
       "click_target": "domain-apps:fusion",

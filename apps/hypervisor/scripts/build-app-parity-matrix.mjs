@@ -89,12 +89,12 @@ const REFERENCE_PORTED = {
   // DOM-1 (remediation v2): origin-aligned I-4 landings over TYPED-ABSENT bodies (no
   // no-code-function / analysis-workbook planes exist — named, never simulated).
   logic: { port_surface: "/__ioi/domain-apps/logic", surface_name: "Domain Apps", reference_url_override: "http://localhost:9225/workspace/logic-app/", reference_landmarks: ["Logic", "New logic", "Recents", "Favorites"], binding: "I-4 splash landing (atlas: 5 facet groups) over a TYPED-ABSENT body — the estate holds no no-code-function plane; New-logic + body are named absences under the unified contract", note: "DOM-1: origin-aligned landing ported; create lane dead on the mirror (atlas authoring state)" },
-  contour: { port_surface: "/__ioi/domain-apps/contour", surface_name: "Domain Apps", reference_url_override: "http://localhost:9225/workspace/contour-app/splash", reference_landmarks: ["Contour", "New analysis", "Recents", "Favorites"], binding: "I-4 splash landing (atlas: 5 facet groups) over a TYPED-ABSENT body — analysis-workbook binding is the EVA-2 build; named absences under the unified contract", note: "DOM-1: origin-aligned landing ported; create lane dead on the mirror (atlas authoring state)" },
+  // contour: TERMINAL absence by ADR 0056 Amendment 1 (M7) — the port left REFERENCE_PORTED; its capture stays evidence.
   // DEV-1 (remediation v2): origin-aligned I-4 landing over a TYPED-ABSENT body (no widget plane).
   widgets: { port_surface: "/__ioi/developer-console/widgets", surface_name: "Developer Console", reference_url_override: "http://localhost:9225/workspace/custom-widgets/", reference_landmarks: ["Custom Widgets", "New widget set", "Recents", "Favorites"], binding: "I-4 splash landing (atlas: 5 facet groups) over a TYPED-ABSENT body — no widget plane exists; New-widget-set + body are named absences under the unified contract", note: "DEV-1: origin-aligned landing ported; create lane dead on the mirror (atlas authoring state)" },
   // WOR-1 (remediation v2): workspaces over the REAL environments plane; notepad TYPED-ABSENT.
   workspaces: { port_surface: "/__ioi/developer-workspace/workspaces", surface_name: "Developer Workspace", reference_url_override: "http://localhost:9225/workspace/code-workspaces/splash", reference_landmarks: ["Code Workspaces", "New workspace", "Recents", "Favorites"], binding: "I-4 splash landing (atlas: 5 facet groups) over the REAL environments plane — newest 15 with the cap NAMED; creation stays the governed environment ladder (named gap)", note: "WOR-1: origin-aligned; the estate's workspace substrate IS the environments plane (610-record census at port time)" },
-  notepad: { port_surface: "/__ioi/developer-workspace/notepad", surface_name: "Developer Workspace", reference_url_override: "http://localhost:9225/workspace/notepad/", reference_landmarks: ["Notepad", "New document", "Recents", "Favorites"], binding: "I-4 splash landing (atlas: 5 facet groups) over a TYPED-ABSENT body — no document plane; the reference template-picker IA (4 facet groups) is atlas-recorded for a future cut", note: "WOR-1: origin-aligned landing ported; document plane absent (named)" },
+  // notepad: TERMINAL absence by ADR 0056 Amendment 1 (M7) — the port left REFERENCE_PORTED; its capture stays evidence.
   // PRO-1.build (remediation v2): the Monocle re-shell — Preview re-chromed in place (the SAME
   // graph body, light shell), History/Build-timeline LIVE lanes, 3 absences typed per-tab.
   lineage: { port_surface: "/__ioi/lineage", surface_name: "Provenance", reference_url_override: "http://localhost:9225/workspace/monocle/", reference_landmarks: ["Preview", "SQL scratchpad", "History", "Code", "Build timeline", "Data health"], binding: "the light Monocle shell over the SAME substrate truth: Preview = the lineage graph body re-chromed in place; History = the proof stream (work-ledger) newest-30 cap named; Build timeline = real run transcripts with state_root proof anchors; SQL/Code/Data-health typed absences (per-tab adjudication #lineage-tabs)", note: "PRO-1.build: the census's richest miss closed — 6-tab Monocle IA live over the existing substrate; /provenance landing designation = Monocle (D1)" },
@@ -280,7 +280,7 @@ const REMEDIATION = {
   lineage: { remediation_state: "ia_bearing_empty", adjudication_ref: `${ADJ}#lineage + ${ADJ}#lineage-tabs` },
   analysis: { remediation_state: "ia_bearing_empty", adjudication_ref: `${ADJ}#analysis` + " + ADR 0056 M6 (the port merged into Object Explorer)" },
   vertex: { remediation_state: "ia_bearing_empty", adjudication_ref: `${ADJ}#vertex` },
-  slate: { remediation_state: "ia_bearing_empty", adjudication_ref: `${ADJ}#slate`, reference_url_override: "http://localhost:9225/workspace/slate/splash" },
+  slate: { remediation_state: "ia_bearing_empty", adjudication_ref: `${ADJ}#slate` + " + ADR 0056 Amendment 1 (M7b: terminal absence)", reference_url_override: "http://localhost:9225/workspace/slate/splash" },
   developer: { donor_capture: "devconsole", adjudication_ref: `${ADJ}#developer` },
   repositories: { donor_capture: "code (non-seed capture /workspace/code/)", adjudication_ref: `${ADJ}#repositories` },
   workshop: { remediation_state: "donor_ported", donor_capture: "module", adjudication_ref: `${ADJ}#workshop` },
@@ -290,8 +290,8 @@ const REMEDIATION = {
   quiver: { remediation_state: "ia_bearing_empty", adjudication_ref: `${ADJ}#quiver` },
   devconsole: { adjudication_ref: `${ADJ}#devconsole` },
   models: { adjudication_ref: `${ADJ}#models-registered` },
-  notepad: { adjudication_ref: `${ADJ}#notepad` },
-  contour: { adjudication_ref: `${ADJ}#contour` },
+  notepad: { adjudication_ref: `${ADJ}#notepad` + " + ADR 0056 Amendment 1 (M7: terminal absence)" },
+  contour: { adjudication_ref: `${ADJ}#contour` + " + ADR 0056 Amendment 1 (M7: terminal absence)" },
   module: { adjudication_ref: `${ADJ}#workshop` },
   sources: { adjudication_ref: `reference-gap-adjudication.v1.json + ${ADJ}#sources` },
   explorer: { adjudication_ref: `${ADJ}#explorer` },

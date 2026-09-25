@@ -78,7 +78,7 @@ const LIVE = self("live");
 // bubble is not one), so the reason is now written under the field; and a one-route select opened
 // onto nothing, so a sole route renders as stated text.
 export const PINNED = Object.freeze({
-  surfaces_probed: 30, // ADR 0056 M5 retired the Missions root; M6a merged Model Studio, Insight and Map into their owners; M6b the Packages Marketplace mode into the listings port; M6c moved Artifacts into a Packages tab (a state, below)
+  surfaces_probed: 28, // M7 retired Contour and Notepad as terminal absences; ADR 0056 M5 retired the Missions root; M6a merged Model Studio, Insight and Map into their owners; M6b the Packages Marketplace mode into the listings port; M6c moved Artifacts into a Packages tab (a state, below)
   states_probed: 5, // ADR 0056 M6c: the Packages Artifacts tab
   dead: 0,
   click_failed: 0,

@@ -139,16 +139,14 @@ async function run() {
   // ADR 0056 M6 (2026-09-25): insight · map · modelstudio left with their registry rows, merged into
   // Object Explorer, Environments and the Foundry spec builder; packages-marketplace left when the
   // certified Marketplace port took /packages/marketplace (M6b); registry left when its port moved into the
-  // Packages Artifacts tab (M6c).
+  // Packages Artifacts tab (M6c); contour and notepad left as terminal absences (M7).
   const REFERENCELESS_SURFACES = {
-    contour: { provenance_id: "studio", class: "post-atlas" },
     devconsole: { provenance_id: "developer-console", class: "post-atlas" },
     fusion: { provenance_id: "studio", class: "post-atlas" },
     inference: { provenance_id: "data", class: "post-atlas" },
     ingest: { provenance_id: "data", class: "post-atlas" },
     jobs: { provenance_id: "work", class: "post-atlas" },
     logic: { provenance_id: "studio", class: "post-atlas" },
-    notepad: { provenance_id: "developer-workspace", class: "post-atlas" },
     packages: { provenance_id: "packages", class: "post-atlas" },
     quiver: { provenance_id: "evaluations", class: "post-atlas" },
     repositories: { provenance_id: "developer-workspace", class: "post-atlas" },

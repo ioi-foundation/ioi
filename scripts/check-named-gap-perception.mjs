@@ -129,13 +129,18 @@ const LIVE = self("live");
 // canonical route, which TRANSFERRED to the listings page, so the listings page's two labelled gaps
 // (Installations and Help, both with an ordinary cursor) were counted under two rows — and the mode's
 // own page was never measured at all. −9 + 5 − 2 = −6; the cursor count loses the double-counted two.
+//
+// 2026-09-25 (ADR 0056 M7): surfaces 30 → 28, labelled 173 → 165, unreachable 139 → 131. Contour and Notepad
+// are terminal absences and left the registry; each page carried four declared gaps (counted on the pages
+// before they retired: bare spans with no role or tabindex, so each was labelled AND unreachable), and
+// neither carried one with an ordinary cursor — cursor stays 53.
 export const PINNED = Object.freeze({
-  surfaces_probed: 30, // ADR 0056 M6: M6a merged Model Studio, Insight and Map; M6b the Packages Marketplace mode; M6c moved Artifacts into a Packages tab
+  surfaces_probed: 28, // ADR 0056 M6 merged/ported five surfaces; M7 retired Contour and Notepad as terminal absences
   states_probed: 5, // ADR 0056 M6c: the Packages Artifacts tab
-  labelled: 173,
+  labelled: 165,
   primary_fill: 0,
   cursor_not_disabled: 53,
-  unreachable_control: 139,
+  unreachable_control: 131,
   unmarked_gap: 0,
 });
 

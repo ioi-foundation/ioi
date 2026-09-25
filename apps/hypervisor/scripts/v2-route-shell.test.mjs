@@ -186,6 +186,20 @@ test("retirement: a duplicate merged into its canon owner retires with NO replac
   }
 });
 
+test("retirement: a TERMINAL absence retires with no replacement and no successor, and says why (ADR 0056 M7)", () => {
+  for (const route of ["/__ioi/domain-apps/contour", "/__ioi/developer-workspace/notepad"]) {
+    const retired = retiredUiRouteFor(route);
+    assert.equal(retired.replacement, null);
+    assert.equal(retired.terminal, true);
+    assert.ok(retired.reason && /outside the autonomous-systems substrate/.test(retired.reason), "the reason is recorded");
+    assert.equal(retiredUiRouteRefusal(route, retired.replacement).canonical_replacement_route, null);
+    const page = renderRetiredUiRoutePage(route, retired.replacement, retired);
+    assert.ok(page.includes("terminal absence") && page.includes(retired.reason.slice(0, 40)), "the page says why");
+    assert.ok(!/canonical replacement is|merged into/i.test(page), "and points at no successor");
+    assert.ok(!/http-equiv="refresh"/i.test(page));
+  }
+});
+
 // ------------------------------ table integrity ------------------------------
 
 test("table: every row keeps the required registration fields; retired roots never collide with rows", () => {

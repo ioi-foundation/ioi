@@ -450,6 +450,10 @@ export const RETIRED_UI_EXACT = {
   "/__ioi/environments/map": { replacement: null, successor: "/__ioi/environments", successorLabel: "Environments" },
   "/__ioi/packages/marketplace": { replacement: null, successor: "/packages/marketplace", successorLabel: "the Marketplace" },
   "/__ioi/marketplace/artifacts": { replacement: null, successor: "/packages?tab=artifacts", successorLabel: "the Packages Artifacts tab" },
+  // ADR 0056 M7 — TERMINAL absences: lanes the best-in-class substrate keeps no place for. No
+  // replacement and no successor: the page names why and the adjudication that ruled it; the seed stays.
+  "/__ioi/domain-apps/contour": { replacement: null, successor: null, terminal: true, label: "Contour", reason: "Contour is dataset BI (ad-hoc analysis boards over datasets), which is outside the autonomous-systems substrate: the benchmark keeps no such lane, and agents reach governed data through object search and ontology functions.", adjudication: "ADR 0056 Amendment 1 (M7)" },
+  "/__ioi/developer-workspace/notepad": { replacement: null, successor: null, terminal: true, label: "Notepad", reason: "Notepad is document authoring, which is outside the autonomous-systems substrate: evidence reports are Provenance audit exports and Evaluations scorecards, not a free-form document plane.", adjudication: "ADR 0056 Amendment 1 (M7)" },
 };
 
 const BY_ROUTE = new Map(V2_ROUTE_TABLE.map((r) => [r.route, r]));
@@ -496,7 +500,9 @@ export function retiredUiRouteFor(pathname) {
     const entry = RETIRED_UI_EXACT[pathname];
     return typeof entry === "string"
       ? { requested: pathname, replacement: entry }
-      : { requested: pathname, replacement: entry.replacement, successor: entry.successor, successorLabel: entry.successorLabel };
+      : entry.terminal
+        ? { requested: pathname, replacement: null, terminal: true, label: entry.label, reason: entry.reason, adjudication: entry.adjudication }
+        : { requested: pathname, replacement: entry.replacement, successor: entry.successor, successorLabel: entry.successorLabel };
   }
   for (const [retired, replacement] of Object.entries(RETIRED_UI_ROUTES)) {
     if (pathname === retired) return { requested: pathname, replacement };
@@ -667,7 +673,9 @@ export function renderRouteLedgerPage(compiled) {
     </tr>`).join("");
   const retired = [...Object.entries(RETIRED_UI_ROUTES), ...Object.entries(RETIRED_UI_EXACT)].map(([from, to]) => typeof to === "string"
     ? `<div><code>${esc(from)}</code> → typed 410, canonical replacement <code>${esc(to)}</code></div>`
-    : `<div><code>${esc(from)}</code> → typed 410, merged into <code>${esc(to.successor)}</code> (${esc(to.successorLabel)})</div>`).join("");
+    : to.terminal
+      ? `<div><code>${esc(from)}</code> → typed 410, terminal absence (${esc(to.adjudication)})</div>`
+      : `<div><code>${esc(from)}</code> → typed 410, merged into <code>${esc(to.successor)}</code> (${esc(to.successorLabel)})</div>`).join("");
   return pageShell(
     "Route ledger",
     `<main data-ioi-surface-route="/__ioi/route-ledger" data-ioi-surface-owner="developer diagnostics" style="max-width:none">
@@ -692,6 +700,19 @@ export function renderRouteLedgerPage(compiled) {
 export function renderRetiredUiRoutePage(requested, replacement, merged = null) {
   const esc = escHtml;
   const refusal = retiredUiRouteRefusal(requested, replacement);
+  // A TERMINAL absence (ADR 0056 M7): no replacement, no successor — the page says why, names the
+  // adjudication, and links nowhere but Home. The seed stays in the tree.
+  if (!replacement && merged?.terminal) {
+    return pageShell(
+      "Route retired",
+      `<div class="brand">IOI Hypervisor · typed route retirement</div>
+    <h1>410 · <code>${esc(requested)}</code> is retired</h1>
+    <p class="sub">${esc(merged.label || "This surface")} is a terminal absence. ${esc(merged.reason || "")} It has no successor, so the path answers a typed refusal rather than pointing anywhere (${esc(merged.adjudication || "ADR 0056")}).</p>
+    <h2>Refusal record (daemon semantics)</h2>
+    <pre>${esc(JSON.stringify(refusal, null, 2))}</pre>
+    <div class="foot"><a href="/ai">← Home</a></div>`,
+    );
+  }
   // A duplicate retired INTO a surviving surface (ADR 0056 M6): the refusal carries no replacement
   // route, and the page names where the lane lives now.
   if (!replacement && merged?.successor) {

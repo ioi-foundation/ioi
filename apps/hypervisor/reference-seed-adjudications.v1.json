@@ -1394,6 +1394,116 @@
       ],
       "shipped": "scripts/serve-product-ui.mjs (shell theme parameter + 6 opt-ins + inline recolours) \u00b7 surfaces/kit.mjs (the shared token block) \u00b7 surfaces/packages/index.mjs (self-contained packet re-skin) \u00b7 apps/hypervisor/.artifacts/gre1a/ (before-/after- 1440x900 captures for 9 subjects + the excluded control).",
       "verifier_family_effect": "No verifier gained, lost or weakened an assertion. Green after the re-skin: app-runtime-safety 30/30 (its hostile-operations section reads the /__ioi/operations markup live) \u00b7 packages-journey 50/50 \u00b7 app-parity-domain-landings 189/189 \u00b7 surface-modules 70/70 \u00b7 reference-clean-sweep 25/25 \u00b7 ux-atlas stage5 0 issues \u00b7 native-shell-integration 117/117 (its E7-1 baseline, unchanged)."
+    },
+    {
+      "action": "ADR0056-M7",
+      "record_id": "contour-terminal",
+      "seed": "contour",
+      "owner": "Domain Apps",
+      "date": "2026-09-25",
+      "outcome": "terminal_absence",
+      "reason": "Contour is dataset BI (ad-hoc analysis boards over datasets), which is outside the autonomous-systems substrate: the benchmark keeps no such lane, and agents reach governed data through object search and ontology functions.",
+      "estate_plane": "none \u2014 outside the substrate",
+      "evidence": "docs/decisions/0056-organize-the-hypervisor-application-estate-by-four-axes-and-retire-missions.md (Amendment 1 re-adjudication) + .artifacts/mvp-finish-line/adr-0056-best-in-class-readjudication-2026-09-25.md (session research, preserved)"
+    },
+    {
+      "action": "ADR0056-M7",
+      "record_id": "notepad-terminal",
+      "seed": "notepad",
+      "owner": "Developer Workspace",
+      "date": "2026-09-25",
+      "outcome": "terminal_absence",
+      "reason": "Notepad is document authoring, which is outside the autonomous-systems substrate: evidence reports are Provenance audit exports and Evaluations scorecards, not a free-form document plane.",
+      "estate_plane": "covered by Provenance audit exports and Evaluations scorecards",
+      "evidence": "docs/decisions/0056-organize-the-hypervisor-application-estate-by-four-axes-and-retire-missions.md (Amendment 1 re-adjudication) + .artifacts/mvp-finish-line/adr-0056-best-in-class-readjudication-2026-09-25.md (session research, preserved)"
+    },
+    {
+      "action": "ADR0056-M7",
+      "record_id": "quiver-bi-terminal",
+      "seed": "quiver",
+      "owner": "Evaluations",
+      "date": "2026-09-25",
+      "outcome": "terminal_absence",
+      "reason": "Quiver's BI dashboard builder is a terminal absence; its time-series core is NOT terminal \u2014 it re-homes to Operations / Telemetry, seeded from the preserved Quiver port (plane P6), and the route keeps serving until that lane lands.",
+      "estate_plane": "time-series core \u2192 Operations / Telemetry (P6)",
+      "evidence": "docs/decisions/0056-organize-the-hypervisor-application-estate-by-four-axes-and-retire-missions.md (Amendment 1 re-adjudication) + .artifacts/mvp-finish-line/adr-0056-best-in-class-readjudication-2026-09-25.md (session research, preserved)"
+    },
+    {
+      "action": "ADR0056-M7",
+      "record_id": "slate-terminal",
+      "seed": "slate",
+      "owner": "Domain Apps",
+      "date": "2026-09-25",
+      "outcome": "terminal_absence",
+      "reason": "Slate is an app builder; the substrate covers it with Studio / Interfaces and generated domain apps. No port was ever built.",
+      "estate_plane": "covered by Studio / Interfaces and generated domain apps",
+      "evidence": "docs/decisions/0056-organize-the-hypervisor-application-estate-by-four-axes-and-retire-missions.md (Amendment 1 re-adjudication) + .artifacts/mvp-finish-line/adr-0056-best-in-class-readjudication-2026-09-25.md (session research, preserved)"
+    },
+    {
+      "action": "ADR0056-M7",
+      "record_id": "sql-studio-terminal",
+      "seed": "sql-studio",
+      "owner": "Data",
+      "date": "2026-09-25",
+      "outcome": "terminal_absence",
+      "reason": "SQL worksheets over datasources and object types are analytics tooling; agents query objects through object-instance search and ontology functions.",
+      "estate_plane": "covered by object-instance search + ontology functions (P3)",
+      "evidence": "docs/decisions/0056-organize-the-hypervisor-application-estate-by-four-axes-and-retire-missions.md (Amendment 1 re-adjudication) + .artifacts/mvp-finish-line/adr-0056-best-in-class-readjudication-2026-09-25.md (session research, preserved)"
+    },
+    {
+      "action": "ADR0056-M7",
+      "record_id": "aip-analyst-terminal",
+      "seed": "aip-analyst",
+      "owner": "Work",
+      "date": "2026-09-25",
+      "outcome": "terminal_absence",
+      "reason": "Agentic chat over the ontology is covered by a Work Session launched from a Studio / Templates analyst recipe with ontology tools.",
+      "estate_plane": "covered by Sessions over ontology tools",
+      "evidence": "docs/decisions/0056-organize-the-hypervisor-application-estate-by-four-axes-and-retire-missions.md (Amendment 1 re-adjudication) + .artifacts/mvp-finish-line/adr-0056-best-in-class-readjudication-2026-09-25.md (session research, preserved)"
+    },
+    {
+      "action": "ADR0056-M7",
+      "record_id": "carbon-terminal",
+      "seed": "carbon",
+      "owner": "Applications",
+      "date": "2026-09-25",
+      "outcome": "terminal_absence",
+      "reason": "Admin-configured role workspaces are covered by the installation-binding audience plus System interface bindings (ADR 0016 Applications And Tools).",
+      "estate_plane": "covered by installation-binding audience + System interface bindings",
+      "evidence": "docs/decisions/0056-organize-the-hypervisor-application-estate-by-four-axes-and-retire-missions.md (Amendment 1 re-adjudication) + .artifacts/mvp-finish-line/adr-0056-best-in-class-readjudication-2026-09-25.md (session research, preserved)"
+    },
+    {
+      "action": "ADR0056-M7",
+      "record_id": "foundry-rules-terminal",
+      "seed": "foundry-rules",
+      "owner": "Automations",
+      "date": "2026-09-25",
+      "outcome": "terminal_absence",
+      "reason": "Rule-based pipelines and alerting are covered by Automations / Monitors: condition over an object set, then a governed effect.",
+      "estate_plane": "covered by Automations / Monitors",
+      "evidence": "docs/decisions/0056-organize-the-hypervisor-application-estate-by-four-axes-and-retire-missions.md (Amendment 1 re-adjudication) + .artifacts/mvp-finish-line/adr-0056-best-in-class-readjudication-2026-09-25.md (session research, preserved)"
+    },
+    {
+      "action": "ADR0056-M7",
+      "record_id": "ai-fde-terminal",
+      "seed": "ai-fde",
+      "owner": "Work",
+      "date": "2026-09-25",
+      "outcome": "terminal_absence",
+      "reason": "The AI FDE is covered by the canon Hypervisor Operator Plane run as a Session.",
+      "estate_plane": "covered by the Hypervisor Operator Plane as a Session",
+      "evidence": "docs/decisions/0056-organize-the-hypervisor-application-estate-by-four-axes-and-retire-missions.md (Amendment 1 re-adjudication) + .artifacts/mvp-finish-line/adr-0056-best-in-class-readjudication-2026-09-25.md (session research, preserved)"
+    },
+    {
+      "action": "ADR0056-M7",
+      "record_id": "training-terminal",
+      "seed": "training",
+      "owner": "Help",
+      "date": "2026-09-25",
+      "outcome": "terminal_absence",
+      "reason": "Training is help content (a pinned example app), not an autonomous-systems lane; it belongs to the Learning facet.",
+      "estate_plane": "none \u2014 help content",
+      "evidence": "docs/decisions/0056-organize-the-hypervisor-application-estate-by-four-axes-and-retire-missions.md (Amendment 1 re-adjudication) + .artifacts/mvp-finish-line/adr-0056-best-in-class-readjudication-2026-09-25.md (session research, preserved)"
     }
   ]
 }

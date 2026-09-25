@@ -1827,7 +1827,20 @@ the Foundry spec builder, and the placement map is the Placement section of
 Environments. The Marketplace mode at `/packages/marketplace` is the certified
 Marketplace port; the Packages module's duplicate of it retired. The Artifacts
 registry page moved into Packages as its Artifacts tab, reading every registry
-plane as the signed-in caller. Each merged
+plane as the signed-in caller.
+
+Some reference tools have no place in the autonomous-systems substrate, and
+they are terminal absences, not placements
+([ADR 0056](../../../decisions/0056-organize-the-hypervisor-application-estate-by-four-axes-and-retire-missions.md)
+Amendment 1). Contour (dataset BI) and Notepad (document authoring) shipped as
+landings and now answer a typed retirement with no successor. Slate, SQL Studio,
+AIP Analyst, Carbon, Foundry Rules, AI FDE, Training and Quiver's BI dashboard
+builder are recorded with what covers each.
+
+Three tools were re-homed rather than dropped: Logic joins Ontology / Functions,
+Custom Widgets joins Developer Console / Extensions, and Quiver's time-series
+core becomes Operations / Telemetry. They keep serving under their current owners
+until those lanes land. Each merged
 route answers a typed retirement that names its successor, and never redirects
 to it.
 

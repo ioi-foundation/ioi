@@ -294,6 +294,28 @@ showed, or once the lane has been ported into the survivor from the duplicate's 
 
 The M6 order is therefore M6a (done), Marketplace, Artifacts after the port, and Fusion with M8.
 
+## Amendment 3 (2026-09-25, owner-delegated): M7 and M7b execution rulings
+
+1. **Terminal means a typed retirement with no successor.** Contour and Notepad shipped as landings. Each now
+   answers the registered refusal (410, no replacement, nothing read or written), and a browser page says it
+   is a terminal absence, says why, names this amendment, and links nowhere but Home. A typed-absence page
+   would keep a registry row, and with it membership in the census, the smoke and the reachability checks,
+   for a lane the benchmark rejected. Their handlers stay in the serve as seeds.
+2. **Re-homed is not terminal.** Decision 5 named Logic, Widgets and Quiver beside Contour and Notepad.
+   Amendment 1 re-homed all three (Ontology / Functions, Developer Console / Extensions, Operations /
+   Telemetry seeded from the Quiver port). They keep serving under their current owners until those lanes
+   land, and each then retires into its lane the way M6 retired a duplicate. Only Quiver's BI dashboard
+   builder is terminal.
+3. **The seven reference lanes are recorded, not built.** Slate, SQL Studio, AIP Analyst, Carbon, Foundry
+   Rules, AI FDE and Training have `terminal_absence` adjudications. Each says what covers it or why it is
+   outside the substrate, and uses the reasons from the re-adjudication. Slate's landing designation said NOW
+   although no port was ever built, and its route answered a not-found page. It is TERMINAL.
+4. **Functions: lane versus registration.** Canon lists "function, widget, and extension registries" under
+   Developer Console, and puts Functions under Ontology elsewhere. Ontology owns the Functions lane
+   (semantic functions over objects), and Developer Console owns the developer-kit registration of function
+   packages. The wording is corrected in the cut that builds the Functions lane.
+5. **M7b needs no wait for M8.** It moves no live population, so it lands with M7.
+
 ## Consequences
 
 - The catalog reads as four jobs a buyer recognizes, and each owner application keeps

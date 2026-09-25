@@ -29,8 +29,8 @@ const SURFACES = [
   "/__ioi/evaluations/evalsuites", "/__ioi/evaluations/quiver",
   "/__ioi/improvement/changes", "/__ioi/lineage", "/__ioi/lineage?tab=history", "/__ioi/lineage?tab=timeline",
   "/__ioi/vertex", "/__ioi/developer-console", "/__ioi/developer-console/widgets",
-  "/__ioi/developer-workspace/workspaces", "/__ioi/developer-workspace/notepad", "/__ioi/developer-workspace/repositories",
-  "/__ioi/domain-apps/logic", "/__ioi/domain-apps/contour", "/__ioi/agent-studio", "/__ioi/connections",
+  "/__ioi/developer-workspace/workspaces", "/__ioi/developer-workspace/repositories",
+  "/__ioi/domain-apps/logic", "/__ioi/agent-studio", "/__ioi/connections",
   "/__ioi/environments", "/__ioi/operations", "/__ioi/work-ledger", "/__ioi/home", "/__ioi/odk", "/__ioi/domain-apps",
 ];
 
