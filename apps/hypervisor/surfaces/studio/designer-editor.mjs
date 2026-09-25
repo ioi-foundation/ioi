@@ -88,7 +88,7 @@ export const REFERENCE_DIAGRAMS = Object.freeze([
       C("auto", "/__ioi/automations/monitors", "Automate", "Trigger a run when a work item appears", 400, 0),
       C("st", "/__ioi/studio/workbench", "Studio", "The agent, its model route and its tools", 800, 0),
       C("ap", "/__ioi/governance/approvals", "Approvals", "Governed crossings for every effect", 1200, 0),
-      C("ms", "/__ioi/missions", "Missions", "Runs, receipts and outcomes", 1600, 0),
+      C("ms", "/work", "Work", "Runs, receipts and outcomes", 1600, 0),
     ],
     edges: [E("q", "auto"), E("auto", "st", "starts"), E("st", "ap", "requests"), E("st", "ms", "records")],
   },

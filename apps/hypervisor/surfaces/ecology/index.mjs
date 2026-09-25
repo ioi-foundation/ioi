@@ -314,7 +314,7 @@ export function render(model, ctx) {
         : `<p class="ec-none" style="padding:18px">No System is admitted for this caller yet.</p>`)
       : `<p class="ec-none" style="padding:18px">The System picker could not be read, which does not mean there are none — naming a System in the URL reads its ecology directly without the picker.</p>`;
     return `<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Artifact Ecology · Hypervisor</title><style>${CSS}</style></head><body data-ioi-ecology-state="needs_system"><div class="ec-shell"><main class="ec-main" data-ioi-ecology="persistent-executable-lineage">
-      <header class="ec-top"><div class="ec-title"><h1>Artifact Ecology</h1><span>Name a System to read its persistent systems</span></div><div class="ec-actions"><a class="ec-action" href="/__ioi/missions">Missions</a></div></header>
+      <header class="ec-top"><div class="ec-title"><h1>Artifact Ecology</h1><span>Name a System to read its persistent systems</span></div><div class="ec-actions"><a class="ec-action" href="/systems">Systems</a></div></header>
       ${planeNotice("System picker", model.systems)}
       ${body}
       <p class="ec-boundary" style="padding:18px">The ecology is scoped to one System because the daemon refuses to enumerate them cheaply: <code>/autonomous-systems</code> requires a <code>system_id</code>, and the projection that does enumerate re-verifies every genesis admission on every read. The picker asks it on a short deadline of its own so a slow enumeration can never blank a fast ecology.</p>
@@ -322,7 +322,7 @@ export function render(model, ctx) {
   }
 
   return `<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Artifact Ecology · Hypervisor</title><style>${CSS}</style></head><body><div class="ec-shell"><main class="ec-main" data-ioi-ecology="persistent-executable-lineage">
-    <header class="ec-top"><div class="ec-title"><h1>Artifact Ecology</h1><span>What persists, what is installed, and what is actually running</span></div><div class="ec-actions"><a class="ec-action" href="/__ioi/missions">Missions</a><a class="ec-action" href="/__ioi/operations">Operations substrate</a><a class="ec-action" href="${selectionQuery(ROUTE, { lineage: selectedId, rung: rung === "all" ? "" : rung })}" aria-label="Refresh ecology data">Refresh</a></div></header>
+    <header class="ec-top"><div class="ec-title"><h1>Artifact Ecology</h1><span>What persists, what is installed, and what is actually running</span></div><div class="ec-actions"><a class="ec-action" href="/systems">Systems</a><a class="ec-action" href="/__ioi/operations">Operations substrate</a><a class="ec-action" href="${selectionQuery(ROUTE, { lineage: selectedId, rung: rung === "all" ? "" : rung })}" aria-label="Refresh ecology data">Refresh</a></div></header>
     <div class="ec-summary">${metric("lineages", model.lineagePlane.ok ? model.projected.length : "—")}${metric("stored", count("stored"))}${metric("installed", count("installed"))}${metric("running", count("running"))}${metric("coverage gaps", model.lineagePlane.ok ? model.coverage.length : "—", model.coverage.length ? "attention" : "")}</div>
     ${planeNotice("System record seam", model.lineagePlane)}${planeNotice("Qualification verdicts", model.verdictPlane)}
     <nav class="ec-tabs" role="tablist" aria-label="Rung filters">${filters}</nav>

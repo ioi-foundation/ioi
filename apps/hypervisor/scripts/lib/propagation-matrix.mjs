@@ -60,7 +60,8 @@ export const READS = Object.freeze([
   { after: "diagram", consumer: "Studio's blueprints list the saved diagram", route: "/__ioi/studio/workbench?view=blueprints", needle: "diagram-{tag}" },
   { after: "graph", consumer: "Machinery lists the saved process graph", route: "/__ioi/studio/machinery", needle: "process-{tag}" },
   { after: "issue", consumer: "Issues lists the filed issue in its open lane", route: "/__ioi/missions/incidents?lane=open", needle: "issue-{tag}" },
-  { after: "issue", consumer: "Missions counts the filed issue among its incidents", route: "/__ioi/missions", needle: "issue-{tag}" },
+  // ADR 0056: Issues is Operations' tool at /operations/issues; the Missions root this consumer read retires.
+  { after: "issue", consumer: "Issues at its Operations route lists the filed issue", route: "/operations/issues?lane=open", needle: "issue-{tag}" },
 ]);
 
 // A needle is SPECIFIC only if it carries the run's tag. "backing datasource" alone is printed by the

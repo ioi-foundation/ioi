@@ -251,8 +251,11 @@ async function run() {
           `src=${src} shape=${JSON.stringify(shape)}`);
       }
 
-      // Missions is registry-owned; Operations is a generic embedded thread route. Drive the
-      // production anchors in both directions and prove the native slot contract at every stop.
+      // THE CROSS-APPLICATION HOP (re-aimed for ADR 0056, which retires the Missions root this hop used
+      // to start from): Builds is a registered tool (Automations' run history), Operations a generic
+      // embedded thread route. Drive the production anchors in both directions — Builds lists Operations
+      // as a plane owner; Operations links Automations / Runs, Builds' canonical route — and prove the
+      // native slot contract at every stop.
       const embeddedSlotState = async (frame) => {
         let url = null;
         try { url = frame ? new URL(frame.url()) : null; } catch { /* failed state is reported below */ }
@@ -269,24 +272,24 @@ async function run() {
         && state.slots === 1 && state.iframes === 1 && state.nativeRail && state.grails === 0;
 
       await pg.click('a[href="#applications"]');
-      await pg.waitForSelector('.ioi-mrow[data-href="/__ioi/missions"]', { timeout: 15000 });
-      await pg.click('.ioi-mrow[data-href="/__ioi/missions"]');
-      let missionsFrame = await frameFor("/__ioi/missions", ".ms-main");
-      const launchedMissions = await embeddedSlotState(missionsFrame);
-      ok("Applications → Missions: embed=1, singular slot, native rail visible, zero .og-grail elements",
-        keepsEmbeddedSlot(launchedMissions, "/__ioi/missions"), JSON.stringify(launchedMissions));
+      await pg.waitForSelector('.ioi-mrow[data-href="/__ioi/missions/builds"]', { timeout: 15000 });
+      await pg.click('.ioi-mrow[data-href="/__ioi/missions/builds"]');
+      let buildsFrame = await frameFor("/__ioi/missions/builds", ".bld-shell");
+      const launchedBuilds = await embeddedSlotState(buildsFrame);
+      ok("Applications → Builds: embed=1, singular slot, native rail visible, zero .og-grail elements",
+        keepsEmbeddedSlot(launchedBuilds, "/__ioi/missions/builds"), JSON.stringify(launchedBuilds));
 
-      if (missionsFrame) await missionsFrame.locator('a.ms-action[href^="/__ioi/operations"][href*="embed=1"]').click();
+      if (buildsFrame) await buildsFrame.locator('a[href^="/__ioi/operations"][href*="embed=1"]').first().click();
       const operationsFrame = await frameFor("/__ioi/operations", "#ops-jobs");
       const reachedOperations = await embeddedSlotState(operationsFrame);
-      ok("Missions → Operations: embed=1 persists, singular slot remains, native rail stays visible, zero .og-grail elements",
+      ok("Builds → Operations: embed=1 persists, singular slot remains, native rail stays visible, zero .og-grail elements",
         keepsEmbeddedSlot(reachedOperations, "/__ioi/operations"), JSON.stringify(reachedOperations));
 
-      if (operationsFrame) await operationsFrame.locator('a[href^="/__ioi/missions"][href*="embed=1"]').first().click();
-      missionsFrame = await frameFor("/__ioi/missions", ".ms-main");
-      const returnedMissions = await embeddedSlotState(missionsFrame);
-      ok("Operations → Missions: embed=1 persists, singular slot remains, native rail stays visible, zero .og-grail elements",
-        keepsEmbeddedSlot(returnedMissions, "/__ioi/missions"), JSON.stringify(returnedMissions));
+      if (operationsFrame) await operationsFrame.locator('a[href^="/automations/runs"][href*="embed=1"]').first().click();
+      buildsFrame = await frameFor("/automations/runs", ".bld-shell");
+      const returnedBuilds = await embeddedSlotState(buildsFrame);
+      ok("Operations → Automations / Runs (Builds at its canonical route): embed=1 persists, singular slot remains, native rail stays visible, zero .og-grail elements",
+        keepsEmbeddedSlot(returnedBuilds, "/automations/runs"), JSON.stringify(returnedBuilds));
 
       // #65 regression: Pipeline from the catalog — in-app node selection + refresh keep embed.
       await pg.click('a[href="#applications"]');

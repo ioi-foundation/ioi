@@ -106,7 +106,7 @@ export const REQUIRED_CONSUMERS = Object.freeze([
   "Studio's blueprints list the saved diagram",
   "Machinery lists the saved process graph",
   "Issues lists the filed issue in its open lane",
-  "Missions counts the filed issue among its incidents",
+  "Issues at its Operations route lists the filed issue",
 ]);
 
 // The editors whose script submits their own form — driven through their UI by the LIVE leg.

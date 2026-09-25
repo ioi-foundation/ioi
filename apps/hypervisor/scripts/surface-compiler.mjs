@@ -53,7 +53,7 @@ export const SURFACE_REGISTRATION_INPUT = {
     systems: { icon: "⬡", desc: "The live institution at the center — honest read models only.", open_today: { href: "/__ioi/systems", label: "Systems readout" } },
     projects: { icon: "🗂", desc: "Project context, preserved end to end.", open_today: null },
     applications: { icon: "◳", desc: "The catalog/compiler projection — this very surface.", open_today: { href: "/__ioi/applications", label: "Applications readout" } },
-    work: { icon: "⚑", desc: "Typed Work views; Sessions is /work/sessions.", open_today: { href: "/__ioi/missions", label: "Jobs readout" } },
+    work: { icon: "⚑", desc: "Typed Work views; Sessions is /work/sessions.", open_today: { href: "/__ioi/work-projection/active", label: "Work — typed projection" } },
     settings: { icon: "⚙", desc: "Projection-only core workspace; writes through owners.", open_today: null },
   },
   applications: {
