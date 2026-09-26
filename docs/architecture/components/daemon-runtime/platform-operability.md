@@ -1225,3 +1225,14 @@ a redacted summary, its evidence (`automation-run://`, `automation-execution://`
 `agent-run-transcript://`, `receipt://`), and the incident it filed, if any. Raw
 probe output stays evidence; the result is what the daemon admitted. A result
 grants nothing and is never authority.
+
+Readers (each through the plane's tenant-filtered readers, never a copy): the
+Operations / Health lane (`/operations/health`) lists checks with their latest
+outcome and each check's result history, and carries the plane's own writes —
+declare, evaluate now, pause / resume / archive — as forms; a System's Overview
+(`/systems/<id>`) lists the checks whose target is that System; the notification
+inbox projects a check whose LATEST result is `failed`, `errored` or `warning` as
+an `owner_event` item `health_check.<outcome>` linking back to the check, and a
+later pass re-derives it away. Not built yet, and named on the lane rather than
+simulated: scheduled evaluation (nothing fires a monitor-mode AutomationSpec
+yet), snooze, and watch levels.

@@ -315,6 +315,43 @@ fn incident_event(record: &Value) -> Option<Event> {
     })
 }
 
+/// A health check's event (an Operations owner event, ADR 0056 P2): the check's LATEST result when it
+/// did not pass — `health_check.failed`, `.errored` or `.warning` — with one link back to the check.
+/// A later pass re-derives it away; nothing is stored.
+fn health_check_event(check: &Value, latest: &Value) -> Option<Event> {
+    let owner_ref = text(check, "health_check_id");
+    if !owner_ref.starts_with("health-check://") || text(latest, "health_check_ref") != owner_ref {
+        return None;
+    }
+    let outcome = text(latest, "outcome");
+    let word = match outcome {
+        "failed" => "failed",
+        "errored" => "could not run",
+        "warning" => "warned",
+        _ => return None,
+    };
+    let at = text(latest, "observed_at");
+    let revision = text(latest, "result_id");
+    if at.is_empty() || revision.is_empty() {
+        return None;
+    }
+    let name = match text(check, "display_name") {
+        "" => tail_of(owner_ref),
+        name => name,
+    };
+    Some(Event {
+        family: "owner_event",
+        kind: format!("health_check.{outcome}"),
+        owner_ref: owner_ref.to_string(),
+        revision: revision.to_string(),
+        occurred_at: at.to_string(),
+        title: format!("Health check {word}: {name}"),
+        body: Some(text(latest, "redacted_summary").to_string()),
+        route: format!("/operations/health?check={}", tail_of(owner_ref)),
+        source: "health_check_routes::health_check_results_for_request",
+    })
+}
+
 fn within_window(at: &str, now: OffsetDateTime) -> bool {
     OffsetDateTime::parse(at, &Rfc3339)
         .map(|t| now - t <= time::Duration::days(WINDOW_DAYS))
@@ -373,8 +410,7 @@ fn assemble(
         "readers": readers,
         "typed_absences": [
             { "family": "lease", "code": "lease_events_need_a_principal_filtered_reader", "message": "The capability-lease list is not filtered by principal, so lease expiry cannot feed a per-person inbox honestly." },
-            { "family": "operation", "code": "provider_operation_events_not_projected", "message": "Provider-operation events have no policy-filtered owner reader yet." },
-            { "family": "owner_event", "code": "health_check_events_await_p2", "message": "Health-check events arrive with the health-check plane (ADR 0056 P2)." }
+            { "family": "operation", "code": "provider_operation_events_not_projected", "message": "Provider-operation events have no policy-filtered owner reader yet." }
         ],
         "delivery": { "in_platform": "this read", "email": null, "email_absence": "no delivery-channel plane exists; subscriptions record channels, nothing sends mail" },
         "stores_nothing": true
@@ -447,8 +483,34 @@ pub(crate) async fn handle_notifications(
         Ok(records) => records,
         Err(reply) => return reply,
     };
+    let checks = match super::health_check_routes::health_checks_for_request(&st, &headers) {
+        Ok(records) => records,
+        Err(reply) => return reply,
+    };
+    let results = match super::health_check_routes::health_check_results_for_request(&st, &headers)
+    {
+        Ok(records) => records,
+        Err(reply) => return reply,
+    };
+    // Results arrive newest first, so the first one seen for a check is its latest.
+    let mut latest: HashMap<&str, &Value> = HashMap::new();
+    for result in &results {
+        latest
+            .entry(text(result, "health_check_ref"))
+            .or_insert(result);
+    }
     let approvals = super::governance_routes::approval_requests_all(&st.data_dir);
     let mut events: Vec<Event> = Vec::new();
+    events.extend(
+        checks
+            .iter()
+            .filter(|check| text(check, "enablement") != "archived")
+            .filter_map(|check| {
+                latest
+                    .get(text(check, "health_check_id"))
+                    .and_then(|result| health_check_event(check, result))
+            }),
+    );
     events.extend(sessions.iter().filter_map(session_event));
     events.extend(runs.iter().filter_map(automation_run_event));
     events.extend(incidents.iter().filter_map(incident_event));
@@ -457,6 +519,7 @@ pub(crate) async fn handle_notifications(
         json!({ "family": "session", "reader": "lifecycle_routes::sessions_for_request", "records": sessions.len() }),
         json!({ "family": "automation_run", "reader": "automation_contract_routes::automation_runs_for_request", "records": runs.len() }),
         json!({ "family": "owner_event", "owner": "support_incident", "reader": "operations_support_routes::incidents_for_request", "records": incidents.len() }),
+        json!({ "family": "owner_event", "owner": "health_check", "reader": "health_check_routes::health_check_results_for_request", "records": results.len() }),
         json!({ "family": "approval", "reader": "governance_routes::approval_requests_all", "records": approvals.len(), "read_policy": "the governance plane's own (its list route answers any caller)" }),
     ];
     match assemble(events, family, limit, OffsetDateTime::now_utc(), readers) {
@@ -511,8 +574,38 @@ mod notification_tests {
         assert_eq!(inbox["stores_nothing"], true);
         assert_eq!(
             inbox["typed_absences"].as_array().unwrap().len(),
-            3,
-            "lease, operation and health events are named absences"
+            2,
+            "lease and operation events are named absences; health events are projected (ADR 0056 P2)"
+        );
+    }
+
+    #[test]
+    fn a_health_check_that_did_not_pass_is_an_owner_event_linking_back_to_the_check() {
+        let check = json!({ "health_check_id": "health-check://hc_1", "display_name": "lending answers", "enablement": "enabled" });
+        let failed = json!({ "result_id": "observation://health-check/hc_1/hcr_2", "health_check_ref": "health-check://hc_1", "outcome": "failed", "observed_at": "2026-09-25T11:00:00Z", "redacted_summary": "probe exited 3" });
+        let event = health_check_event(&check, &failed).expect("a failed check is an event");
+        let inbox = assemble(vec![event], None, 25, now(), vec![]).expect("registered-valid");
+        let item = &inbox["items"][0];
+        assert_eq!(item["event_kind"], "health_check.failed");
+        assert_eq!(item["owner_event_family"], "owner_event");
+        assert_eq!(
+            item["canonical_detail_route"],
+            "/operations/health?check=hc_1"
+        );
+        assert_eq!(
+            item["owner_revision"],
+            "observation://health-check/hc_1/hcr_2"
+        );
+        assert_eq!(item["title"], "Health check failed: lending answers");
+        let passed = json!({ "result_id": "observation://health-check/hc_1/hcr_3", "health_check_ref": "health-check://hc_1", "outcome": "passed", "observed_at": "2026-09-25T11:30:00Z" });
+        assert!(
+            health_check_event(&check, &passed).is_none(),
+            "a pass is not an event"
+        );
+        let other = json!({ "result_id": "observation://health-check/hc_9/hcr_1", "health_check_ref": "health-check://hc_9", "outcome": "failed", "observed_at": "2026-09-25T11:30:00Z" });
+        assert!(
+            health_check_event(&check, &other).is_none(),
+            "another check's result never speaks for this one"
         );
     }
 

@@ -173,6 +173,14 @@
       "assertion_names_sha256": "dcd5c855be0f02ee576bc03f9b075b105050b20f1584ca12a8c3b680932f421c"
     },
     {
+      "id": "health-checks",
+      "npm_script": "check:health-checks",
+      "source": "apps/hypervisor/scripts/verify-hypervisor-health-checks.mjs",
+      "runtime_assertions": 13,
+      "note": "2026-09-26 (R-240, ADR 0056 P2): new at 13 — Operations / Health through the product's own forms on an isolated daemon: Operations links the lane and /operations/health serves it; New check offers the caller's environment and automation; a command check with no command refused on the page with the values kept; an automation-outcome check declared and evaluated Passed citing the execution and canonical run; a probe exiting 3 Failed with its exit code, filing an issue Issues lists open; the check's history holds that one result with its issue link; a signed-out Evaluate now refused as signed out, recording nothing (red while an anonymous whoami's local-operator principal was taken as the owner); Pause removes Evaluate now and says why, Resume restores it, Archive moves the check aside; the signed-out page names the refusal. Measured with IOI_VERIFIER_CENSUS_DIR and CI's IOI_PRODUCT_SIGNIN_REQUIRED=0.",
+      "assertion_names_sha256": "6e97609811179fb97494ede25b41d012c3e38606c6a9006512360ee59df22d18"
+    },
+    {
       "id": "operational-depth",
       "npm_script": "check:operational-depth",
       "source": "apps/hypervisor/scripts/verify-hypervisor-operational-depth.mjs",
@@ -216,9 +224,9 @@
       "id": "notification-inbox",
       "npm_script": "check:notification-inbox",
       "source": "apps/hypervisor/scripts/verify-hypervisor-notification-inbox.mjs",
-      "runtime_assertions": 11,
-      "note": "New 2026-09-25 (ADR 0056 P1): the notification inbox as a projection of owner events on the verifier's own daemon — identity first, one registered item with one link back per owner event, transitions re-derived, the envelope's typed absences, typed refusals, and nothing stored (no file written by the read; the same items after a restart). Measured with IOI_VERIFIER_CENSUS_DIR.",
-      "assertion_names_sha256": "17e0b42b18c8f25bc9e2979020c1bac0f30a7b9c6ee380d46bc0739a222dc022"
+      "runtime_assertions": 12,
+      "note": "2026-09-26 (ADR 0056 P2): 11 -> 12 — a health check whose probe cannot run is evaluated `errored` and projects `health_check.errored` (an Operations owner event) linking back to the check on Operations / Health, the result id as its revision; the envelope now types TWO absent families (lease, operation), the health-check absence retired (assertion renamed). Earlier: new 2026-09-25 (ADR 0056 P1): the notification inbox as a projection of owner events on the verifier's own daemon — identity first, one registered item with one link back per owner event, transitions re-derived, the envelope's typed absences, typed refusals, and nothing stored (no file written by the read; the same items after a restart). Measured with IOI_VERIFIER_CENSUS_DIR.",
+      "assertion_names_sha256": "9756f9830ce8532bbd5c5706457dbfe3826db0fe47b60e862fb9cf3db48b32be"
     },
     {
       "id": "notification-panel",

@@ -82,7 +82,14 @@ try {
   const owner = callerOwnerRef(who);
   const inc = await post("/v1/hypervisor/support-incidents", { owner_ref: owner, idempotency_key: "inbox-verifier-1", title: "Orders feed stopped syncing", severity: "minor", affected_object_refs: ["data-source:ds_inbox"], product: "", redacted_diagnostics: "", assigned_owner_ref: "" });
   const incRef = inc.j.incident?.incident_id || "";
-  ok("SETUP — owner events raised through the owners' routes (an approval request, a filed issue)", !!apprRef && !!incRef, `${appr.status} ${inc.status} ${JSON.stringify(inc.j).slice(0, 100)}`);
+  // A health check whose probe cannot run (its environment does not exist) is ERRORED when evaluated —
+  // an Operations owner event (ADR 0056 P2). file_on never: this check files no issue of its own.
+  const hc = await post("/v1/hypervisor/health-checks", { owner_ref: owner, idempotency_key: "inbox-verifier-hc", display_name: "Inbox probe", target_ref: "environment://env_absent", check_kind: "command_exit", probe: { environment_ref: "environment://env_absent", command: "true" }, severity: "minor", incident_policy: { file_on: "never" } });
+  const hcRef = hc.j.health_check?.health_check_id || "";
+  const hcTail = hcRef.replace("health-check://", "");
+  const hcEval = hcTail ? await post(`/v1/hypervisor/health-checks/${hcTail}/evaluate`, { owner_ref: owner, idempotency_key: "inbox-verifier-hc-1" }) : { status: 0, j: {} };
+  ok("SETUP — owner events raised through the owners' routes (an approval request, a filed issue, a health check that could not run)",
+    !!apprRef && !!incRef && hcEval.j.health_check_result?.outcome === "errored", `${appr.status} ${inc.status} ${hcEval.status} ${hcEval.j.health_check_result?.outcome || JSON.stringify(hcEval.j).slice(0, 100)}`);
 
   // 2. Each owner event projects one item with a link back.
   const before = countFiles(dataDir);
@@ -95,14 +102,18 @@ try {
     inbox.status === 200 && apprItem?.event_kind === "approval.requested" && apprItem?.canonical_detail_route === `/governance/approvals?req=${apprTail}` && apprItem?.owner_event_family === "approval", JSON.stringify(apprItem).slice(0, 160));
   ok("the filed issue projects `incident.opened` (an Operations owner event) with one link back to it on Operations / Issues",
     incItem?.event_kind === "incident.opened" && incItem?.canonical_detail_route === `/operations/issues?issue=${incRef.replace("support-incident://", "")}` && incItem?.owner_event_family === "owner_event", JSON.stringify(incItem).slice(0, 160));
+  const hcItem = items.find((i) => i.owner_ref === hcRef);
+  ok("the health check that could not run projects `health_check.errored` (an Operations owner event) with one link back to the check on Operations / Health",
+    hcItem?.event_kind === "health_check.errored" && hcItem?.canonical_detail_route === `/operations/health?check=${hcTail}` && hcItem?.owner_event_family === "owner_event"
+      && hcItem?.owner_revision === hcEval.j.health_check_result?.result_id, JSON.stringify(hcItem).slice(0, 160));
   ok("every item is a registered projection with no read or delivery state",
-    items.length >= 2 && items.every((i) => i.schema_version === "ioi.hypervisor.notification-projection.v1" && i.read_model_only === true && !("read" in i) && !("delivered" in i)));
+    items.length >= 3 && items.every((i) => i.schema_version === "ioi.hypervisor.notification-projection.v1" && i.read_model_only === true && !("read" in i) && !("delivered" in i)));
 
   // 4. The envelope is honest.
   const env = inbox.j;
-  ok("the envelope names its cap, types the three absent families, names email as absent, and stores nothing",
-    env.schema_version === "ioi.hypervisor.notification-inbox.v1" && env.counts?.total >= 2 && env.counts?.shown === items.length && env.limit === 25
-      && (env.typed_absences || []).map((a) => a.family).sort().join(",") === "lease,operation,owner_event" && env.delivery?.email === null && env.stores_nothing === true && env.policy_filtered_before_counts === true);
+  ok("the envelope names its cap, types the two absent families, names email as absent, and stores nothing",
+    env.schema_version === "ioi.hypervisor.notification-inbox.v1" && env.counts?.total >= 3 && env.counts?.shown === items.length && env.limit === 25
+      && (env.typed_absences || []).map((a) => a.family).sort().join(",") === "lease,operation" && env.delivery?.email === null && env.stores_nothing === true && env.policy_filtered_before_counts === true);
 
   // 3. Transitions, re-derived.
   await fetch(`${D}/v1/hypervisor/governance/approval-requests/${encodeURIComponent(apprTail)}`, { method: "PATCH", headers: { ...H, "content-type": "application/json" }, body: JSON.stringify({ transition: "approve" }) });

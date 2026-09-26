@@ -27,6 +27,7 @@
 import http from "node:http";
 import { createHash } from "node:crypto";
 import { escHtml, refusalCodeOf, refusalMessageOf } from "../surfaces/kit.mjs";
+import { renderTargetHealth } from "./operations-health.mjs";
 
 const esc = escHtml;
 const BASE = "/__ioi/systems";
@@ -857,6 +858,23 @@ function namedGap(plane, what) {
   return stateBlock("honest_empty", "named_gap", `<div class="empty" data-system-named-gap="${esc(plane)}">${esc(what)} — a named gap: <b>${esc(plane)}</b> is not built, so nothing here stands in for it.</div>`);
 }
 
+// ADR 0056 P2: the checks that observe this System and their admitted results, read from the
+// health-check plane as the caller — the plane filters by tenant before this page sees a record.
+async function systemHealth(daemonUrl, systemId) {
+  const [checks, results] = await Promise.all([
+    daemonJson(daemonUrl, "GET", "/v1/hypervisor/health-checks"),
+    daemonJson(daemonUrl, "GET", `/v1/hypervisor/health-check-results?target_ref=${encodeURIComponent(systemId)}`),
+  ]);
+  const failed = [checks, results].find((r) => r.networkError || r.status !== 200 || r.body?.ok === false);
+  if (failed) {
+    const code = failed.networkError ? "daemon_unreachable" : refusalCodeOf(failed.body || {}, failed.status);
+    return stateBlock(stateForErrorCode(code), code, `<div class="empty" data-system-health-unavailable="1">Health could not be read — <code>${esc(code)}</code>. Nothing is shown in its place.</div>`);
+  }
+  const all = checks.body.health_checks || [];
+  const observed = all.some((c) => c.target_ref === systemId && c.enablement !== "archived") || (results.body.health_check_results || []).length > 0;
+  return stateBlock(observed ? "ready_or_proposed" : "honest_empty", observed ? null : "no_health_check_observes_system", renderTargetHealth(systemId, all, results.body.health_check_results || []));
+}
+
 async function renderSystemWorkspace(daemonUrl, shell, parsed) {
   const { systemId, tailPath, mode } = parsed;
   const modeLabel = (WORKSPACE_MODES.find(([m]) => m === mode) || ["", "Overview"])[1];
@@ -897,7 +915,7 @@ async function renderSystemWorkspace(daemonUrl, shell, parsed) {
     if (parts.blocked) return shell(title, head + pending + parts.blocked);
     if (mode === "") {
       return shell(title, head + pending + parts.identity + `<h2>Read projection</h2>` + parts.projection
-        + namedGap("health-check plane (ADR 0056 P2)", "Health for this System")
+        + `<h2>Health</h2>` + await systemHealth(daemonUrl, systemId)
         + `<p class="sub">Attention: owner events for your work arrive in the notification inbox (<code>/v1/hypervisor/notifications</code>); a System-scoped view waits for System subjects on runs.</p>`);
     }
     if (mode === "govern") {

@@ -420,6 +420,18 @@ export const V2_ROUTE_TABLE = [
     ],
   },
   {
+    route: "/operations/health",
+    surface: "Operations / Health",
+    kind: "typed Operations view (substrate: Operations)",
+    rule: "a health check names ONE target and ONE probe; every evaluation is an admitted result, and a failing check files an issue through the incident plane's own admission when its policy says so",
+    waves: "ADR 0056 P2 (2026-09-26)",
+    build_state: "ADR 0056 P2 (2026-09-26): served from the health-check plane (GET /v1/hypervisor/health-checks, GET /v1/hypervisor/health-check-results); declare, evaluate now, pause / resume / archive are the plane's own owner-scoped writes through forms. Named on the page and not built: scheduled evaluation (monitor-mode dispatch), snooze, watch levels",
+    serve: { kind: "rewrite", to: "/__ioi/operations/health", heading: "Operations / Health" },
+    serving_today: [
+      { href: "/__ioi/operations/health", label: "Health checks", note: "ADR 0056 P2: checks, their latest outcome, results history and the plane's writes" },
+    ],
+  },
+  {
     route: "/embodied-systems",
     surface: "Embodied Systems",
     kind: "conditional specialist owner application (reserved)",

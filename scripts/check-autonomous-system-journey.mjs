@@ -89,7 +89,6 @@ export const REQUIRED_GAPS = Object.freeze({
   "limits/legs/checkpoints": "system_checkpoints_absent",
   "run/legs/run-the-system": "session_system_subject_absent",
   "run/legs/automation-installation": "automation_system_binding_absent",
-  "observe/legs/health": "system_health_checks_absent",
   "observe/legs/telemetry": "system_telemetry_absent",
   "observe/legs/issue-subject-system": "issue_system_subject_absent",
   "provenance/legs/ledger-by-system": "ledger_system_lane_absent",
@@ -106,7 +105,6 @@ export const REQUIRED_PROBES = Object.freeze({
   "create/handoff/system-offered-to-studio": 'data-system-named-gap="blueprint system_ref (Studio blueprint plane)"',
   "limits/legs/limits": 'data-system-named-gap="authority node (ADR 0056 Ruling 8)"',
   "run/legs/run-the-system": 'data-system-named-gap="System subject on session create (W3 C-1)"',
-  "observe/legs/health": 'data-system-named-gap="health-check plane (ADR 0056 P2)"',
   "provenance/legs/ledger-by-system": 'data-system-named-gap="Work Ledger lane by system_ref"',
   "improve/legs/system-scope": 'data-system-named-gap="System-scoped improvement (ADR 0056 P4 change sets)"',
 });
@@ -120,6 +118,7 @@ export const REQUIRED_LIVE = Object.freeze([
   "design/handoff/walk-designer-offers-ontology",
   "data/legs/walk-ontology-and-source",
   "observe/legs/walk-issue",
+  "observe/legs/walk-health",
   "run/legs/walk-automation",
   "run/handoff/walk-run-in-work",
   "observe/handoff/walk-observed-to-receipts",
@@ -760,6 +759,27 @@ async function liveLeg() {
     claimLive("observe/legs/walk-issue",
       [200, 302, 303].includes(filed.status) && !/Not filed/u.test(filed.text) && openIssues.status === 200 && openIssues.text.includes(issueName),
       `filed ${filed.status}${/Not filed/u.test(filed.text) ? " (Not filed)" : ""} · open lane lists it ${openIssues.text.includes(issueName)}`);
+    // THIS walk's health check on its System, from Operations / Health's New check form (ADR 0056 P2):
+    // the probe runs `true` in the environment THIS walk's run used, Evaluate now admits its result, and
+    // the System's Overview lists the check by its own name with that result's outcome.
+    const walkRuns = automationIdOfWalk ? (((await read(ctx, `/v1/hypervisor/automations/${automationIdOfWalk}/runs`)).json || {}).runs || []) : [];
+    const walkEnvRef = walkRuns[0]?.environment_id ? `environment://${walkRuns[0].environment_id}` : "";
+    const healthName = `health-${vars.tag}`;
+    const healthRoute = "/operations/health";
+    const declaredCheck = outcomeOf(await submitRenderedForm(ctx, { id: "health-check", page: await page(ctx, healthRoute), from: healthRoute, action: "/__ioi/operations/health/new",
+      fields: { display_name: healthName, target: ids.systemId, check_kind: "command_exit", environment_ref: walkEnvRef, command: "true" } }));
+    const walkCheckId = declaredCheck.q.get("check") || "";
+    const evaluatedCheck = walkCheckId
+      ? outcomeOf(await submitRenderedForm(ctx, { id: "health-evaluate", page: await page(ctx, healthRoute), from: healthRoute, action: "/__ioi/operations/health/evaluate", fields: {} }))
+      : { status: 0, q: new URLSearchParams() };
+    const overview = await page(ctx, `/systems/${vars.system}`);
+    const healthRowAt = walkCheckId ? overview.text.indexOf(`data-target-health-check="health-check://${walkCheckId}"`) : -1;
+    const healthRow = healthRowAt >= 0 ? overview.text.slice(healthRowAt, overview.text.indexOf("</tr>", healthRowAt)) : "";
+    claimLive("observe/legs/walk-health",
+      declaredCheck.status === 303 && declaredCheck.q.get("ok") === "1" && /^hc_[0-9a-f]+$/u.test(walkCheckId)
+        && evaluatedCheck.q.get("check") === walkCheckId && /^Passed/u.test(evaluatedCheck.q.get("note") || "")
+        && overview.status === 200 && healthRow.includes(healthName) && healthRow.includes('data-health-outcome="passed"'),
+      `declare ${declaredCheck.status} ${walkCheckId || declaredCheck.q.get("note") || "no check"} · evaluate ${evaluatedCheck.status} ${evaluatedCheck.q.get("note") || ""} · System overview row ${healthRowAt >= 0} passed ${healthRow.includes('data-health-outcome="passed"')}`);
     await probesOf("observe");
     // HAND-OFF 6 → 7: from THIS walk's Work row, its own link opens the run's receipts (the execution's
     // run timeline), found by the run's own id — the execution the automation's history recorded.
