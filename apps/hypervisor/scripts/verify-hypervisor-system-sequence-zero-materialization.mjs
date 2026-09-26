@@ -1207,7 +1207,10 @@ async function startVerifierPlane({ dataDir, env = {}, ...options } = {}) {
     baseEnv: sanitizedProcessEnv(),
     env: {
       ...env,
-      RUST_LOG: "off",
+      // Quiet, except the one line an identity-first plane needs: the daemon prints its one-boot
+      // bootstrap token only in the startup auth notice (a lifecycle_routes warning), and with the
+      // whole log off no operator can be bootstrapped (isolatedOperatorSession found no token).
+      RUST_LOG: "off,hypervisor_daemon::lifecycle_routes=warn",
     },
   });
   if (plane) OPERATOR_SESSIONS.set(plane.daemonUrl, await isolatedOperatorSession(plane));
