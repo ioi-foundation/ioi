@@ -281,6 +281,8 @@ pub const ARCHITECTURE_CONTRACT_SCHEMA_HASHES: &[(&str, &str)] = &[
     ("schema://ioi/foundations/download-intent/v1", "sha256:6605d7acd24a8cc550cef7f0ac62fdbbaaf47fecdb871aad2c6a019a6a1e1917"),
     ("schema://ioi/foundations/data-retention-disposition/v1", "sha256:c4722a8dec02f5a06f037da8d6f8a35b66e14bb1a6c978f6e8f225da5809fa8e"),
     ("schema://ioi/components/daemon-runtime/support-incident-link/v1", "sha256:dff31b576d2bdf0a1599e8e53d3843bc79206f86dafd4f93d79d2c204c37d0e3"),
+    ("schema://ioi/components/daemon-runtime/health-check/v1", "sha256:fd5d3837a0e6125a59fe3d68fe4bdce672ac8f874b47f712021dd83662465f65"),
+    ("schema://ioi/components/daemon-runtime/health-check-result/v1", "sha256:4f8afe744c0116f038577682463b0d08c2b547ea526277bf9776576fd4bb988b"),
     ("schema://ioi/components/connectors-tools/connector-credential-grant/v1", "sha256:def8aa1d17369d96acb3d79909822b41f5c6e57f4bfca961f047df250658b7b8"),
     ("schema://ioi/components/wallet-network/authority-review-receipt/v1", "sha256:4f4fdd73468bcb9e28d1e0ff2c2ddfcc84a6e5aa869fe2dcca46c5eb0e69ca4c"),
     ("schema://ioi/components/wallet-network/wallet-authentication-challenge/v1", "sha256:3c0ccfe0fc9ae22cb54e5d3e26bd571763cd45ace48fafe5f43d35dfcb9be3a7"),
@@ -107282,6 +107284,395 @@ impl<'de> serde::Deserialize<'de> for SupportIncidentLinkV1Affected {
 }
 
 #[derive(Debug, Clone, PartialEq, serde::Serialize)]
+pub struct HealthCheckV1 {
+    pub schema_version: HealthCheckV1SchemaVersion,
+    pub health_check_id: String,
+    pub display_name: String,
+    pub target_ref: String,
+    pub check_kind: HealthCheckV1CheckKind,
+    pub probe: Option<HealthCheckV1Probe>,
+    pub severity: HealthCheckV1Severity,
+    pub incident_policy: HealthCheckV1IncidentPolicy,
+    pub enablement: HealthCheckV1Enablement,
+    pub owner_ref: String,
+    pub created_by_principal_ref: String,
+    pub created_at: String,
+    pub updated_at: String,
+    pub admitted_head: Option<String>,
+}
+
+impl<'de> serde::Deserialize<'de> for HealthCheckV1 {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let value = <serde_json::Value as serde::Deserialize>::deserialize(deserializer)?;
+        validate_projection_subschema(
+            r#"schema://ioi/components/daemon-runtime/health-check/v1"#,
+            r#"{"$schema":"https://json-schema.org/draft/2020-12/schema","$id":"schema://ioi/components/daemon-runtime/health-check/v1","title":"HealthCheck","x-ioi-schema-version":"ioi.hypervisor.health_check.v1","description":"Operations-owned declaration of WHAT TO OBSERVE about one target (ADR 0056 Amendment 1, plane 2): a check kind, a probe, a severity from the incident vocabulary, an incident policy and an enablement. It grants nothing and is never authority; a command probe runs through the governed exec primitive in the target's own environment and inherits every exec guardrail. Cadence is not a field: a periodic check is a monitor-mode AutomationSpec naming it.","type":"object","additionalProperties":false,"required":["schema_version","health_check_id","display_name","target_ref","check_kind","probe","severity","incident_policy","enablement","owner_ref","created_by_principal_ref","created_at","updated_at","admitted_head"],"properties":{"schema_version":{"type":"string","const":"ioi.hypervisor.health_check.v1"},"health_check_id":{"type":"string","pattern":"^health-check://hc_[0-9a-f]{16}$"},"display_name":{"type":"string","minLength":1,"maxLength":160},"target_ref":{"type":"string","pattern":"^(?:system|environment|automation|surface-serving)://[^\\s]{1,480}$"},"check_kind":{"type":"string","enum":["command_exit","automation_run_outcome"]},"probe":{"anyOf":[{"type":"object","additionalProperties":false,"required":["environment_ref","command"],"properties":{"environment_ref":{"type":"string","pattern":"^environment://[^\\s]{1,480}$"},"command":{"type":"string","minLength":1,"maxLength":2000}}},{"type":"null"}]},"severity":{"type":"string","enum":["informational","minor","major","critical"]},"incident_policy":{"type":"object","additionalProperties":false,"required":["file_on"],"properties":{"file_on":{"type":"string","enum":["never","failed","failed_or_errored"]}}},"enablement":{"type":"string","enum":["enabled","paused","archived"]},"owner_ref":{"type":"string","pattern":"^(?:org|project)://[^\\s]{1,480}$"},"created_by_principal_ref":{"type":"string","pattern":"^user://[^\\s]{1,480}$"},"created_at":{"type":"string","minLength":1},"updated_at":{"type":"string","minLength":1},"admitted_head":{"anyOf":[{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"},{"type":"null"}]}}}"#,
+            &value,
+        )
+            .map_err(serde::de::Error::custom)?;
+        let mut object = value
+            .as_object()
+            .cloned()
+            .ok_or_else(|| serde::de::Error::custom("validated projection is not an object"))?;
+        Ok(Self {
+            schema_version: serde_json::from_value::<HealthCheckV1SchemaVersion>(
+                object
+                    .remove(r#"schema_version"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"schema_version"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            health_check_id: serde_json::from_value::<String>(
+                object
+                    .remove(r#"health_check_id"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"health_check_id"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            display_name: serde_json::from_value::<String>(
+                object
+                    .remove(r#"display_name"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"display_name"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            target_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"target_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"target_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            check_kind: serde_json::from_value::<HealthCheckV1CheckKind>(
+                object
+                    .remove(r#"check_kind"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"check_kind"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            probe: serde_json::from_value::<Option<HealthCheckV1Probe>>(
+                object
+                    .remove(r#"probe"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"probe"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            severity: serde_json::from_value::<HealthCheckV1Severity>(
+                object
+                    .remove(r#"severity"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"severity"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            incident_policy: serde_json::from_value::<HealthCheckV1IncidentPolicy>(
+                object
+                    .remove(r#"incident_policy"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"incident_policy"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            enablement: serde_json::from_value::<HealthCheckV1Enablement>(
+                object
+                    .remove(r#"enablement"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"enablement"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            owner_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"owner_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"owner_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            created_by_principal_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"created_by_principal_ref"#)
+                    .ok_or_else(|| {
+                        serde::de::Error::missing_field(r#"created_by_principal_ref"#)
+                    })?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            created_at: serde_json::from_value::<String>(
+                object
+                    .remove(r#"created_at"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"created_at"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            updated_at: serde_json::from_value::<String>(
+                object
+                    .remove(r#"updated_at"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"updated_at"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            admitted_head: serde_json::from_value::<Option<String>>(
+                object
+                    .remove(r#"admitted_head"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"admitted_head"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+        })
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum HealthCheckV1SchemaVersion {
+    #[serde(rename = r#"ioi.hypervisor.health_check.v1"#)]
+    IoiHypervisorHealthCheckV1,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum HealthCheckV1CheckKind {
+    #[serde(rename = r#"command_exit"#)]
+    CommandExit,
+    #[serde(rename = r#"automation_run_outcome"#)]
+    AutomationRunOutcome,
+}
+
+#[derive(Debug, Clone, PartialEq, serde::Serialize)]
+pub struct HealthCheckV1Probe {
+    pub environment_ref: String,
+    pub command: String,
+}
+
+impl<'de> serde::Deserialize<'de> for HealthCheckV1Probe {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let value = <serde_json::Value as serde::Deserialize>::deserialize(deserializer)?;
+        validate_projection_subschema(
+            r#"schema://ioi/components/daemon-runtime/health-check/v1"#,
+            r#"{"type":"object","additionalProperties":false,"required":["environment_ref","command"],"properties":{"environment_ref":{"type":"string","pattern":"^environment://[^\\s]{1,480}$"},"command":{"type":"string","minLength":1,"maxLength":2000}}}"#,
+            &value,
+        )
+            .map_err(serde::de::Error::custom)?;
+        let mut object = value
+            .as_object()
+            .cloned()
+            .ok_or_else(|| serde::de::Error::custom("validated projection is not an object"))?;
+        Ok(Self {
+            environment_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"environment_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"environment_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            command: serde_json::from_value::<String>(
+                object
+                    .remove(r#"command"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"command"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+        })
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum HealthCheckV1Severity {
+    #[serde(rename = r#"informational"#)]
+    Informational,
+    #[serde(rename = r#"minor"#)]
+    Minor,
+    #[serde(rename = r#"major"#)]
+    Major,
+    #[serde(rename = r#"critical"#)]
+    Critical,
+}
+
+#[derive(Debug, Clone, PartialEq, serde::Serialize)]
+pub struct HealthCheckV1IncidentPolicy {
+    pub file_on: HealthCheckV1IncidentPolicyFileOn,
+}
+
+impl<'de> serde::Deserialize<'de> for HealthCheckV1IncidentPolicy {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let value = <serde_json::Value as serde::Deserialize>::deserialize(deserializer)?;
+        validate_projection_subschema(
+            r#"schema://ioi/components/daemon-runtime/health-check/v1"#,
+            r#"{"type":"object","additionalProperties":false,"required":["file_on"],"properties":{"file_on":{"type":"string","enum":["never","failed","failed_or_errored"]}}}"#,
+            &value,
+        )
+            .map_err(serde::de::Error::custom)?;
+        let mut object = value
+            .as_object()
+            .cloned()
+            .ok_or_else(|| serde::de::Error::custom("validated projection is not an object"))?;
+        Ok(Self {
+            file_on: serde_json::from_value::<HealthCheckV1IncidentPolicyFileOn>(
+                object
+                    .remove(r#"file_on"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"file_on"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+        })
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum HealthCheckV1IncidentPolicyFileOn {
+    #[serde(rename = r#"never"#)]
+    Never,
+    #[serde(rename = r#"failed"#)]
+    Failed,
+    #[serde(rename = r#"failed_or_errored"#)]
+    FailedOrErrored,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum HealthCheckV1Enablement {
+    #[serde(rename = r#"enabled"#)]
+    Enabled,
+    #[serde(rename = r#"paused"#)]
+    Paused,
+    #[serde(rename = r#"archived"#)]
+    Archived,
+}
+
+#[derive(Debug, Clone, PartialEq, serde::Serialize)]
+pub struct HealthCheckResultV1 {
+    pub schema_version: HealthCheckResultV1SchemaVersion,
+    pub result_id: String,
+    pub health_check_ref: String,
+    pub health_check_head: Option<String>,
+    pub target_ref: String,
+    pub outcome: HealthCheckResultV1Outcome,
+    pub observed_at: String,
+    pub exit_code: Option<ArchitectureContractSignedInteger>,
+    pub redacted_summary: String,
+    pub evidence_refs: Vec<String>,
+    pub support_incident_ref: Option<String>,
+    pub evaluated_by_principal_ref: String,
+    pub owner_ref: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub admitted_head: Option<String>,
+}
+
+impl<'de> serde::Deserialize<'de> for HealthCheckResultV1 {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let value = <serde_json::Value as serde::Deserialize>::deserialize(deserializer)?;
+        validate_projection_subschema(
+            r#"schema://ioi/components/daemon-runtime/health-check-result/v1"#,
+            r#"{"$schema":"https://json-schema.org/draft/2020-12/schema","$id":"schema://ioi/components/daemon-runtime/health-check-result/v1","title":"HealthCheckResult","x-ioi-schema-version":"ioi.hypervisor.health_check_result.v1","description":"One evaluation of one HealthCheck, admitted as an observation (observation://health-check/<check>/<result>, the reference a serving binding's health_observation_refs names). `errored` means the probe could not be evaluated, which differs from a probe that ran and failed. Raw probe output stays evidence; the result is what the daemon admitted. It grants nothing and is never authority.","type":"object","additionalProperties":false,"required":["schema_version","result_id","health_check_ref","health_check_head","target_ref","outcome","observed_at","exit_code","redacted_summary","evidence_refs","support_incident_ref","evaluated_by_principal_ref","owner_ref"],"properties":{"schema_version":{"type":"string","const":"ioi.hypervisor.health_check_result.v1"},"result_id":{"type":"string","pattern":"^observation://health-check/hc_[0-9a-f]{16}/hcr_[0-9a-f]{16}$"},"health_check_ref":{"type":"string","pattern":"^health-check://hc_[0-9a-f]{16}$"},"health_check_head":{"anyOf":[{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"},{"type":"null"}]},"target_ref":{"type":"string","pattern":"^(?:system|environment|automation|surface-serving)://[^\\s]{1,480}$"},"outcome":{"type":"string","enum":["passed","warning","failed","errored","not_applicable","not_computable"]},"observed_at":{"type":"string","minLength":1},"exit_code":{"anyOf":[{"type":"integer","minimum":-2147483648,"maximum":2147483647},{"type":"null"}]},"redacted_summary":{"type":"string","maxLength":2000},"evidence_refs":{"type":"array","uniqueItems":true,"items":{"type":"string","pattern":"^(?:automation-run|automation-execution|agent-run-transcript|receipt|environment)://[^\\s]{1,480}$"}},"support_incident_ref":{"anyOf":[{"type":"string","pattern":"^support-incident://[A-Za-z0-9._:-]+$"},{"type":"null"}]},"evaluated_by_principal_ref":{"type":"string","pattern":"^user://[^\\s]{1,480}$"},"owner_ref":{"type":"string","pattern":"^(?:org|project)://[^\\s]{1,480}$"},"admitted_head":{"anyOf":[{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"},{"type":"null"}]}}}"#,
+            &value,
+        )
+            .map_err(serde::de::Error::custom)?;
+        let mut object = value
+            .as_object()
+            .cloned()
+            .ok_or_else(|| serde::de::Error::custom("validated projection is not an object"))?;
+        Ok(Self {
+            schema_version: serde_json::from_value::<HealthCheckResultV1SchemaVersion>(
+                object
+                    .remove(r#"schema_version"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"schema_version"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            result_id: serde_json::from_value::<String>(
+                object
+                    .remove(r#"result_id"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"result_id"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            health_check_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"health_check_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"health_check_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            health_check_head: serde_json::from_value::<Option<String>>(
+                object
+                    .remove(r#"health_check_head"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"health_check_head"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            target_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"target_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"target_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            outcome: serde_json::from_value::<HealthCheckResultV1Outcome>(
+                object
+                    .remove(r#"outcome"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"outcome"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            observed_at: serde_json::from_value::<String>(
+                object
+                    .remove(r#"observed_at"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"observed_at"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            exit_code: serde_json::from_value::<Option<ArchitectureContractSignedInteger>>(
+                object
+                    .remove(r#"exit_code"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"exit_code"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            redacted_summary: serde_json::from_value::<String>(
+                object
+                    .remove(r#"redacted_summary"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"redacted_summary"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            evidence_refs: serde_json::from_value::<Vec<String>>(
+                object
+                    .remove(r#"evidence_refs"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"evidence_refs"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            support_incident_ref: serde_json::from_value::<Option<String>>(
+                object
+                    .remove(r#"support_incident_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"support_incident_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            evaluated_by_principal_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"evaluated_by_principal_ref"#)
+                    .ok_or_else(|| {
+                        serde::de::Error::missing_field(r#"evaluated_by_principal_ref"#)
+                    })?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            owner_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"owner_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"owner_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            admitted_head: match object.remove(r#"admitted_head"#) {
+                Some(field_value) => serde_json::from_value::<Option<String>>(field_value)
+                    .map_err(serde::de::Error::custom)?,
+                None => None,
+            },
+        })
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum HealthCheckResultV1SchemaVersion {
+    #[serde(rename = r#"ioi.hypervisor.health_check_result.v1"#)]
+    IoiHypervisorHealthCheckResultV1,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum HealthCheckResultV1Outcome {
+    #[serde(rename = r#"passed"#)]
+    Passed,
+    #[serde(rename = r#"warning"#)]
+    Warning,
+    #[serde(rename = r#"failed"#)]
+    Failed,
+    #[serde(rename = r#"errored"#)]
+    Errored,
+    #[serde(rename = r#"not_applicable"#)]
+    NotApplicable,
+    #[serde(rename = r#"not_computable"#)]
+    NotComputable,
+}
+
+#[derive(Debug, Clone, PartialEq, serde::Serialize)]
 pub struct ConnectorCredentialGrantV1 {
     pub schema_version: ConnectorCredentialGrantV1SchemaVersion,
     pub id: String,
@@ -181676,6 +182067,38 @@ pub const ARCHITECTURE_CONTRACT_FIXTURES: &[GoldenFixture] = &[
         expected_rule_id: None,
     },
     GoldenFixture {
+        contract_id: "schema://ioi/components/daemon-runtime/health-check/v1",
+        path: "docs/architecture/_meta/schemas/fixtures/health-check-v1/positive-command-exit.json",
+        expected_accept: true,
+        expected_schema_accept: true,
+        expected_failure: None,
+        expected_rule_id: None,
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/components/daemon-runtime/health-check/v1",
+        path: "docs/architecture/_meta/schemas/fixtures/health-check-v1/negative-unknown-kind.json",
+        expected_accept: false,
+        expected_schema_accept: false,
+        expected_failure: Some("schema"),
+        expected_rule_id: None,
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/components/daemon-runtime/health-check-result/v1",
+        path: "docs/architecture/_meta/schemas/fixtures/health-check-result-v1/positive-failed-with-incident.json",
+        expected_accept: true,
+        expected_schema_accept: true,
+        expected_failure: None,
+        expected_rule_id: None,
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/components/daemon-runtime/health-check-result/v1",
+        path: "docs/architecture/_meta/schemas/fixtures/health-check-result-v1/negative-unregistered-outcome.json",
+        expected_accept: false,
+        expected_schema_accept: false,
+        expected_failure: Some("schema"),
+        expected_rule_id: None,
+    },
+    GoldenFixture {
         contract_id: "schema://ioi/components/connectors-tools/connector-credential-grant/v1",
         path: "docs/architecture/_meta/schemas/fixtures/connector-credential-grant-v1/positive-finite-scoped.json",
         expected_accept: true,
@@ -202288,6 +202711,50 @@ pub const ARCHITECTURE_CONTRACT_DIFFERENTIAL_CASES: &[ArchitectureContractDiffer
         oracle_contract_accept: false,
     },
     ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/health-check-v1/positive-command-exit.json"#,
+        contract_id: r#"schema://ioi/components/daemon-runtime/health-check/v1"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/health-check-v1/positive-command-exit.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: true,
+        oracle_contract_accept: true,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/health-check-v1/negative-unknown-kind.json"#,
+        contract_id: r#"schema://ioi/components/daemon-runtime/health-check/v1"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/health-check-v1/negative-unknown-kind.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: false,
+        oracle_contract_accept: false,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/health-check-result-v1/positive-failed-with-incident.json"#,
+        contract_id: r#"schema://ioi/components/daemon-runtime/health-check-result/v1"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/health-check-result-v1/positive-failed-with-incident.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: true,
+        oracle_contract_accept: true,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/health-check-result-v1/negative-unregistered-outcome.json"#,
+        contract_id: r#"schema://ioi/components/daemon-runtime/health-check-result/v1"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/health-check-result-v1/negative-unregistered-outcome.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: false,
+        oracle_contract_accept: false,
+    },
+    ArchitectureContractDifferentialCase {
         id: r#"fixture:docs/architecture/_meta/schemas/fixtures/connector-credential-grant-v1/positive-finite-scoped.json"#,
         contract_id: r#"schema://ioi/components/connectors-tools/connector-credential-grant/v1"#,
         source_fixture_path: Some(
@@ -215939,6 +216406,8 @@ const CONTRACT_SCHEMAS: &[(&str, &str)] = &[
     ("schema://ioi/foundations/download-intent/v1", r#"{"$schema":"https://json-schema.org/draft/2020-12/schema","$id":"schema://ioi/foundations/download-intent/v1","title":"DownloadIntent","x-ioi-schema-version":"ioi.foundations.download_intent.v1","description":"Short-lived, rights-bound authorization to fetch one exact artifact payload. Composes with ArtifactEnvelope identity: the intent commits to the exact payload_sha256 and delivery re-verifies the bytes against that commitment before serving. The intent id is NOT a bearer token — delivery re-resolves request identity and re-checks principal binding, owner scope, expiry, and revocation on every fetch. Revocation stops all future deliveries; every content delivery is admitted to the intent's owner-scoped stream BEFORE bytes are served, so the audit trail cannot claim less than what was delivered. Expiry is derived from expires_at_ms at read time, never stored as a status.","type":"object","additionalProperties":false,"required":["schema_version","intent_id","artifact","principal_ref","owner_ref","rights","expires_at_ms","status","delivery"],"properties":{"schema_version":{"type":"string","const":"ioi.foundations.download_intent.v1"},"intent_id":{"type":"string","pattern":"^download-intent://[A-Za-z0-9._:-]+$"},"artifact":{"type":"object","additionalProperties":false,"required":["artifact_kind","artifact_ref","payload_sha256","media_type"],"properties":{"artifact_kind":{"type":"string","enum":["managed_backup_export"],"description":"The artifact family this intent delivers from. Extensible only by an owner ruling in evidence-and-delivery.md — an unlisted kind is refused at mint, not interpreted."},"artifact_ref":{"type":"string","minLength":1,"description":"The exact owning resource the payload belongs to, e.g. backup://..."},"payload_sha256":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$","description":"Exact bytes commitment. Delivery re-hashes the payload against this before serving; a mismatch is a typed conflict, never a silent substitution."},"media_type":{"type":"string","minLength":1}}},"principal_ref":{"type":"string","minLength":1,"description":"The principal the intent is bound to. Delivery refuses any other authenticated principal."},"owner_ref":{"type":"string","minLength":1,"description":"The owning org:// or project:// scope the intent was admitted under."},"rights":{"type":"object","additionalProperties":false,"required":["scope_kind","resource_ref"],"properties":{"scope_kind":{"type":"string","minLength":1,"description":"The admission scope kind that authorized minting — the same scope the underlying artifact family enforces."},"resource_ref":{"type":"string","minLength":1,"description":"The resource that scope was checked against."}}},"expires_at_ms":{"type":"integer","minimum":1,"maximum":9007199254740991,"description":"Epoch milliseconds. Delivery compares against the live clock; expiry is never stored as a status because a stored status goes stale."},"status":{"type":"string","enum":["active","revoked"],"description":"Lifecycle. Revocation stops future deliveries; it never rewrites the admitted delivery history."},"revocation":{"anyOf":[{"type":"object","additionalProperties":false,"required":["revoked_at","revoked_by"],"properties":{"revoked_at":{"type":"string","minLength":1},"revoked_by":{"type":"string","minLength":1,"description":"Resolved server-side (INV-37), never caller-supplied."}}},{"type":"null"}]},"delivery":{"type":"object","additionalProperties":false,"required":["supports_ranges","delivery_admissions"],"properties":{"supports_ranges":{"type":"boolean","description":"HTTP Range / resume posture. Ranges serve from the same hash-verified payload; a completed range grants nothing about the whole."},"delivery_admissions":{"type":"integer","minimum":0,"maximum":9007199254740991,"description":"Count of admitted content deliveries. Admitted BEFORE bytes are served."}}},"created_at":{"type":"string","description":"Projection of the admitted mint transition's own timestamp — never the wall clock."},"updated_at":{"type":"string","description":"Projection of the latest admitted transition's timestamp."},"admitted_head":{"type":"string","description":"Head of the intent's owner-scoped admission stream, projected for CAS on successors."}}}"#),
     ("schema://ioi/foundations/data-retention-disposition/v1", r#"{"$schema":"https://json-schema.org/draft/2020-12/schema","$id":"schema://ioi/foundations/data-retention-disposition/v1","title":"DataRetentionDisposition","x-ioi-schema-version":"ioi.foundations.data_retention_disposition.v1","description":"The durable, owner-scoped record of what retention duty applies to one exact data subject and of what was actually done about it: policy basis, legal hold, executed deletion with evidence. A legal hold blocks deletion typed; deletion destroys CONTENT and retains ADMISSION EVIDENCE (the receipts proving the deletion happened survive it); the deletion evidence is server-built from real outcomes, never asserted.","type":"object","additionalProperties":false,"required":["schema_version","disposition_id","subject","policy_basis_ref","owner_ref","declared_by","legal_hold","state","deletion"],"properties":{"schema_version":{"type":"string","const":"ioi.foundations.data_retention_disposition.v1"},"disposition_id":{"type":"string","pattern":"^retention-disposition://[A-Za-z0-9._:-]+$"},"subject":{"type":"object","additionalProperties":false,"required":["subject_kind","subject_ref"],"properties":{"subject_kind":{"type":"string","enum":["managed_backup_export","environment_workspace_capture","policy_bound_media_snapshot","foundry_dataset_snapshot","foundry_checkpoint_artifact"],"description":"Extensible only by an owner ruling in the canonical section; an unlisted kind is refused at declaration. `environment_workspace_capture` was bound 2026-08-14 so this plane's executed deletion reaches the legacy environment snapshot/backup store, whose material lives at a separate path the managed-runtime content-addressed lane never covered. The reach is NOT retroactive: a capture taken before that binding carries no owner scope pin, so it cannot be named as a subject and its bytes cannot be destroyed through this plane. `policy_bound_media_snapshot` was bound 2026-08-31 (M05.9) through this plane's module and is registered here 2026-09-16; `foundry_dataset_snapshot` and `foundry_checkpoint_artifact` were bound 2026-09-16 (M06.9): the payload is Foundry's content-addressed blob, `payload_state_root` is its content hash, and a blob another admitted referent still names is refused (`retention_subject_shared`) rather than destroyed under it."},"subject_ref":{"type":"string","minLength":1},"payload_state_root":{"anyOf":[{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"},{"type":"null"}]}}},"policy_basis_ref":{"type":"string","minLength":1,"description":"The governing policy as a canonical ref — a disposition without a basis is an opinion."},"owner_ref":{"type":"string","minLength":1},"declared_by":{"type":"string","minLength":1},"legal_hold":{"anyOf":[{"type":"object"},{"type":"null"}],"description":"Placed/released as distinct admitted transitions with a server-resolved actor (INV-37). While held, deletion refuses typed."},"state":{"type":"string","enum":["declared","delete_executed"]},"deletion":{"anyOf":[{"type":"object"},{"type":"null"}],"description":"Executed deletion with server-built evidence of what was actually destroyed; admission evidence survives."},"created_at":{"type":"string"},"updated_at":{"type":"string"},"admitted_head":{"type":"string"}}}"#),
     ("schema://ioi/components/daemon-runtime/support-incident-link/v1", r#"{"$schema":"https://json-schema.org/draft/2020-12/schema","$id":"schema://ioi/components/daemon-runtime/support-incident-link/v1","title":"SupportIncidentLink","x-ioi-schema-version":"ioi.hypervisor.support_incident_link.v1","description":"Operations-owned PROJECTION: an incident correlated to the exact product/tenant/objects/event-range it affects, with severity, status, and reporter-declared redacted diagnostics. It grants nothing, gates nothing, and never becomes authority; secrets have no path into an incident body.","type":"object","additionalProperties":false,"required":["schema_version","incident_id","title","severity","status","affected","reported_by","owner_ref"],"properties":{"schema_version":{"type":"string","const":"ioi.hypervisor.support_incident_link.v1"},"incident_id":{"type":"string","pattern":"^support-incident://[A-Za-z0-9._:-]+$"},"title":{"type":"string","minLength":1},"severity":{"type":"string","enum":["informational","minor","major","critical"]},"status":{"type":"string","enum":["open","mitigated","resolved","closed"]},"affected":{"type":"object","additionalProperties":false,"required":["tenant_ref","object_refs"],"properties":{"product":{"type":"string"},"tenant_ref":{"type":"string","minLength":1},"object_refs":{"type":"array","minItems":1,"items":{"type":"string","minLength":1}},"event_range":{"anyOf":[{"type":"object"},{"type":"null"}]}}},"redacted_diagnostics":{"type":"string","description":"DECLARED redacted by the reporter; the plane stores what it is given and never unseals anything."},"reported_by":{"type":"string","minLength":1,"description":"Resolved server-side (INV-37)."},"assigned_owner_ref":{"type":"string"},"owner_ref":{"type":"string","minLength":1},"created_at":{"type":"string"},"updated_at":{"type":"string"},"admitted_head":{"type":"string"}}}"#),
+    ("schema://ioi/components/daemon-runtime/health-check/v1", r#"{"$schema":"https://json-schema.org/draft/2020-12/schema","$id":"schema://ioi/components/daemon-runtime/health-check/v1","title":"HealthCheck","x-ioi-schema-version":"ioi.hypervisor.health_check.v1","description":"Operations-owned declaration of WHAT TO OBSERVE about one target (ADR 0056 Amendment 1, plane 2): a check kind, a probe, a severity from the incident vocabulary, an incident policy and an enablement. It grants nothing and is never authority; a command probe runs through the governed exec primitive in the target's own environment and inherits every exec guardrail. Cadence is not a field: a periodic check is a monitor-mode AutomationSpec naming it.","type":"object","additionalProperties":false,"required":["schema_version","health_check_id","display_name","target_ref","check_kind","probe","severity","incident_policy","enablement","owner_ref","created_by_principal_ref","created_at","updated_at","admitted_head"],"properties":{"schema_version":{"type":"string","const":"ioi.hypervisor.health_check.v1"},"health_check_id":{"type":"string","pattern":"^health-check://hc_[0-9a-f]{16}$"},"display_name":{"type":"string","minLength":1,"maxLength":160},"target_ref":{"type":"string","pattern":"^(?:system|environment|automation|surface-serving)://[^\\s]{1,480}$"},"check_kind":{"type":"string","enum":["command_exit","automation_run_outcome"]},"probe":{"anyOf":[{"type":"object","additionalProperties":false,"required":["environment_ref","command"],"properties":{"environment_ref":{"type":"string","pattern":"^environment://[^\\s]{1,480}$"},"command":{"type":"string","minLength":1,"maxLength":2000}}},{"type":"null"}]},"severity":{"type":"string","enum":["informational","minor","major","critical"]},"incident_policy":{"type":"object","additionalProperties":false,"required":["file_on"],"properties":{"file_on":{"type":"string","enum":["never","failed","failed_or_errored"]}}},"enablement":{"type":"string","enum":["enabled","paused","archived"]},"owner_ref":{"type":"string","pattern":"^(?:org|project)://[^\\s]{1,480}$"},"created_by_principal_ref":{"type":"string","pattern":"^user://[^\\s]{1,480}$"},"created_at":{"type":"string","minLength":1},"updated_at":{"type":"string","minLength":1},"admitted_head":{"anyOf":[{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"},{"type":"null"}]}}}"#),
+    ("schema://ioi/components/daemon-runtime/health-check-result/v1", r#"{"$schema":"https://json-schema.org/draft/2020-12/schema","$id":"schema://ioi/components/daemon-runtime/health-check-result/v1","title":"HealthCheckResult","x-ioi-schema-version":"ioi.hypervisor.health_check_result.v1","description":"One evaluation of one HealthCheck, admitted as an observation (observation://health-check/<check>/<result>, the reference a serving binding's health_observation_refs names). `errored` means the probe could not be evaluated, which differs from a probe that ran and failed. Raw probe output stays evidence; the result is what the daemon admitted. It grants nothing and is never authority.","type":"object","additionalProperties":false,"required":["schema_version","result_id","health_check_ref","health_check_head","target_ref","outcome","observed_at","exit_code","redacted_summary","evidence_refs","support_incident_ref","evaluated_by_principal_ref","owner_ref"],"properties":{"schema_version":{"type":"string","const":"ioi.hypervisor.health_check_result.v1"},"result_id":{"type":"string","pattern":"^observation://health-check/hc_[0-9a-f]{16}/hcr_[0-9a-f]{16}$"},"health_check_ref":{"type":"string","pattern":"^health-check://hc_[0-9a-f]{16}$"},"health_check_head":{"anyOf":[{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"},{"type":"null"}]},"target_ref":{"type":"string","pattern":"^(?:system|environment|automation|surface-serving)://[^\\s]{1,480}$"},"outcome":{"type":"string","enum":["passed","warning","failed","errored","not_applicable","not_computable"]},"observed_at":{"type":"string","minLength":1},"exit_code":{"anyOf":[{"type":"integer","minimum":-2147483648,"maximum":2147483647},{"type":"null"}]},"redacted_summary":{"type":"string","maxLength":2000},"evidence_refs":{"type":"array","uniqueItems":true,"items":{"type":"string","pattern":"^(?:automation-run|automation-execution|agent-run-transcript|receipt|environment)://[^\\s]{1,480}$"}},"support_incident_ref":{"anyOf":[{"type":"string","pattern":"^support-incident://[A-Za-z0-9._:-]+$"},{"type":"null"}]},"evaluated_by_principal_ref":{"type":"string","pattern":"^user://[^\\s]{1,480}$"},"owner_ref":{"type":"string","pattern":"^(?:org|project)://[^\\s]{1,480}$"},"admitted_head":{"anyOf":[{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"},{"type":"null"}]}}}"#),
     ("schema://ioi/components/connectors-tools/connector-credential-grant/v1", r#"{"$schema":"https://json-schema.org/draft/2020-12/schema","$id":"schema://ioi/components/connectors-tools/connector-credential-grant/v1","title":"ConnectorCredentialGrant","x-ioi-schema-version":"ioi.hypervisor.connector_credential_grant.v1","description":"A principal's finite, declared-tools-only scope over one connector's use-only lease. The grant never carries or exposes the sealed credential; expiry is required and enforced at the single check site; the granting principal is resolved server-side (INV-37); regrant never silently rewrites an existing grant's tool set (revoke first); grant and revocation both write audit records or do not happen.","type":"object","additionalProperties":false,"required":["schema_version","id","grant_id","principal_id","connector_id","tools","granted_by","expires_at_ms","created_at"],"properties":{"schema_version":{"type":"string","const":"ioi.hypervisor.connector_credential_grant.v1"},"id":{"type":"string","minLength":1},"grant_id":{"type":"string","pattern":"^plg_[0-9a-f]+$"},"principal_id":{"type":"string","minLength":1},"connector_id":{"type":"string","minLength":1},"tools":{"type":"array","minItems":1,"items":{"type":"string","minLength":1},"description":"Declared tools only — nothing is granted by default; \"*\" is a deliberate declaration, never a fallback."},"granted_by":{"type":"string","minLength":1},"expires_at_ms":{"type":"integer","minimum":1,"maximum":9007199254740991},"created_at":{"type":"string"}}}"#),
     ("schema://ioi/components/wallet-network/authority-review-receipt/v1", r##"{"$schema":"https://json-schema.org/draft/2020-12/schema","$id":"schema://ioi/components/wallet-network/authority-review-receipt/v1","title":"AuthorityReviewReceipt","description":"Portable wallet/policy decision receipt over one exact authority request, reviewed representation, ceremony context, and independently recorded presentation and authenticator evidence.","x-ioi-schema-version":"ioi.components.wallet-network.authority-review-receipt.v1","type":"object","additionalProperties":false,"required":["schema_version","receipt_envelope","body","body_hash","receipt_hash"],"properties":{"schema_version":{"const":"ioi.components.wallet-network.authority-review-receipt.v1"},"receipt_envelope":{"$ref":"#/$defs/receiptEnvelope"},"body":{"$ref":"#/$defs/reviewBody"},"body_hash":{"$ref":"#/$defs/sha256Hash"},"receipt_hash":{"$ref":"#/$defs/sha256Hash"}},"$defs":{"receiptEnvelope":{"type":"object","additionalProperties":false,"required":["receipt_id","receipt_type","receipt_profile_ref","attested_boundary_fact_refs","claim_scope_ref","run_id","task_id","actor_id","input_hash","output_hash","policy_hash","authority_grant_id","primitive_capabilities","authority_scopes","artifact_refs","evidence_bundle_refs","verification_ref","acceptance_ref","adjudication_ref","settlement_ref","timestamp","signature","public_commitment_ref"],"properties":{"receipt_id":{"$ref":"#/$defs/receiptRef"},"receipt_type":{"const":"authority_review"},"receipt_profile_ref":{"const":"schema://ioi/components/wallet-network/authority-review-receipt/v1"},"attested_boundary_fact_refs":{"type":"array","items":{"$ref":"#/$defs/canonicalRef"},"minItems":1,"uniqueItems":true},"claim_scope_ref":{"const":"schema://ioi/components/wallet-network/authority-review-receipt/v1"},"run_id":{"type":"null"},"task_id":{"type":"null"},"actor_id":{"$ref":"#/$defs/decisionActorRef"},"input_hash":{"$ref":"#/$defs/sha256Hash"},"output_hash":{"$ref":"#/$defs/sha256Hash"},"policy_hash":{"$ref":"#/$defs/sha256Hash"},"authority_grant_id":{"type":"null"},"primitive_capabilities":{"type":"array","maxItems":0},"authority_scopes":{"type":"array","maxItems":0},"artifact_refs":{"type":"array","items":{"$ref":"#/$defs/artifactRef"},"uniqueItems":true},"evidence_bundle_refs":{"type":"array","items":{"$ref":"#/$defs/evidenceBundleRef"},"uniqueItems":true},"verification_ref":{"$ref":"#/$defs/receiptRef"},"acceptance_ref":{"type":"null"},"adjudication_ref":{"type":"null"},"settlement_ref":{"type":"null"},"timestamp":{"$ref":"#/$defs/canonicalDateTime"},"signature":{"type":"null"},"public_commitment_ref":{"type":"null"}}},"reviewBody":{"type":"object","additionalProperties":false,"required":["authority_review_ref","authority_review_body_hash","authority_request_ref","authority_request_body_hash","principal_ref","product_session_ref","origin_binding_ref","acting_subject_ref","decision_actor_ref","authorization_subject","reviewed_representation_hash","presentation_surface_ref","presentation_evidence_profile_ref","presentation_evidence_refs","presentation_dimensions","approval_ceremony_context_ref","approval_ceremony_context_hash","approval_ceremony_evidence_refs","required_auth_factor_posture_refs","required_guardian_surface_refs","satisfied_auth_factor_refs","satisfied_guardian_surface_refs","posture_satisfaction_profile_ref","posture_satisfaction_evaluations","posture_satisfaction_root","auth_factor_evidence_refs","principal_authority_resolution_ref","principal_authority_resolution_hash","policy_decision_receipt_ref","policy_decision_receipt_hash","policy_hash","risk_classes","interaction_mode","authentication_posture","receipt_timing","decision","predecessor_authority_review_ref","predecessor_authority_review_body_hash","predecessor_authority_request_ref","predecessor_authority_request_body_hash","predecessor_authority_review_receipt_ref","predecessor_authority_review_receipt_hash","reviewed_at","expires_at"],"properties":{"authority_review_ref":{"type":"string","pattern":"^review://[^\\s]{1,500}$"},"authority_review_body_hash":{"$ref":"#/$defs/sha256Hash"},"authority_request_ref":{"$ref":"#/$defs/authorityRequestRef"},"authority_request_body_hash":{"$ref":"#/$defs/sha256Hash"},"principal_ref":{"$ref":"#/$defs/principalRef"},"product_session_ref":{"oneOf":[{"$ref":"#/$defs/sessionRef"},{"type":"null"}]},"origin_binding_ref":{"oneOf":[{"$ref":"#/$defs/originRef"},{"type":"null"}]},"acting_subject_ref":{"type":"string","pattern":"^(?:system|agent|worker|runtime)://[^\\s]{1,500}$"},"decision_actor_ref":{"$ref":"#/$defs/decisionActorRef"},"authorization_subject":{"$ref":"#/$defs/authorizationSubject"},"reviewed_representation_hash":{"$ref":"#/$defs/sha256Hash"},"presentation_surface_ref":{"type":"string","pattern":"^(?:wallet-client|guardian|surface)://[^\\s]{1,500}$"},"presentation_evidence_profile_ref":{"$ref":"#/$defs/schemaOrPolicyRef"},"presentation_evidence_refs":{"type":"array","items":{"$ref":"#/$defs/presentationEvidenceRef"},"uniqueItems":true},"presentation_dimensions":{"type":"object","additionalProperties":false,"required":["operator_and_surface","content_binding","request_vs_effect_binding","enrollment_and_attestation","user_presence_and_verification","freshness_and_replay","proposer_independence"],"properties":{"operator_and_surface":{"$ref":"#/$defs/presentationDimension"},"content_binding":{"$ref":"#/$defs/presentationDimension"},"request_vs_effect_binding":{"$ref":"#/$defs/presentationDimension"},"enrollment_and_attestation":{"$ref":"#/$defs/presentationDimension"},"user_presence_and_verification":{"$ref":"#/$defs/presentationDimension"},"freshness_and_replay":{"$ref":"#/$defs/presentationDimension"},"proposer_independence":{"$ref":"#/$defs/presentationDimension"}}},"approval_ceremony_context_ref":{"type":"string","pattern":"^approval-ceremony-context://[^\\s]{1,500}$"},"approval_ceremony_context_hash":{"$ref":"#/$defs/sha256Hash"},"approval_ceremony_evidence_refs":{"type":"array","items":{"$ref":"#/$defs/evidenceOrReceiptRef"},"uniqueItems":true},"required_auth_factor_posture_refs":{"type":"array","items":{"$ref":"#/$defs/authRequirementRef"},"uniqueItems":true},"required_guardian_surface_refs":{"type":"array","items":{"$ref":"#/$defs/guardianRef"},"uniqueItems":true},"satisfied_auth_factor_refs":{"type":"array","items":{"$ref":"#/$defs/authFactorRef"},"uniqueItems":true},"satisfied_guardian_surface_refs":{"type":"array","items":{"$ref":"#/$defs/guardianRef"},"uniqueItems":true},"posture_satisfaction_profile_ref":{"$ref":"#/$defs/schemaOrPolicyRef"},"posture_satisfaction_evaluations":{"type":"array","items":{"$ref":"#/$defs/postureEvaluation"}},"posture_satisfaction_root":{"$ref":"#/$defs/sha256Hash"},"auth_factor_evidence_refs":{"type":"array","items":{"$ref":"#/$defs/approvalEvidenceRef"},"uniqueItems":true},"principal_authority_resolution_ref":{"oneOf":[{"$ref":"#/$defs/artifactRef"},{"type":"null"}]},"principal_authority_resolution_hash":{"oneOf":[{"$ref":"#/$defs/sha256Hash"},{"type":"null"}]},"policy_decision_receipt_ref":{"$ref":"#/$defs/receiptRef"},"policy_decision_receipt_hash":{"$ref":"#/$defs/sha256Hash"},"policy_hash":{"$ref":"#/$defs/sha256Hash"},"risk_classes":{"type":"array","items":{"$ref":"#/$defs/riskClass"},"uniqueItems":true},"interaction_mode":{"enum":["interactive","noninteractive_policy"]},"authentication_posture":{"enum":["baseline","step_up"]},"receipt_timing":{"enum":["before_effect","after_effect"]},"decision":{"enum":["approved","denied","edit_required","expired"]},"predecessor_authority_review_ref":{"oneOf":[{"type":"string","pattern":"^review://[^\\s]{1,500}$"},{"type":"null"}]},"predecessor_authority_review_body_hash":{"oneOf":[{"$ref":"#/$defs/sha256Hash"},{"type":"null"}]},"predecessor_authority_request_ref":{"oneOf":[{"$ref":"#/$defs/authorityRequestRef"},{"type":"null"}]},"predecessor_authority_request_body_hash":{"oneOf":[{"$ref":"#/$defs/sha256Hash"},{"type":"null"}]},"predecessor_authority_review_receipt_ref":{"oneOf":[{"$ref":"#/$defs/receiptRef"},{"type":"null"}]},"predecessor_authority_review_receipt_hash":{"oneOf":[{"$ref":"#/$defs/sha256Hash"},{"type":"null"}]},"reviewed_at":{"$ref":"#/$defs/canonicalDateTime"},"expires_at":{"$ref":"#/$defs/canonicalDateTime"}},"allOf":[{"if":{"properties":{"decision":{"const":"approved"}}},"then":{"properties":{"posture_satisfaction_evaluations":{"type":"array","items":{"allOf":[{"$ref":"#/$defs/postureEvaluation"},{"type":"object","properties":{"decision":{"const":"satisfied"}}}]}}}}}]},"authorizationSubject":{"type":"object","additionalProperties":false,"required":["kind","subject_ref","subject_hash","validation_profile_ref"],"properties":{"kind":{"enum":["exact_effect","batch_manifest","standing_envelope"]},"subject_ref":{"$ref":"#/$defs/canonicalRef"},"subject_hash":{"$ref":"#/$defs/sha256Hash"},"validation_profile_ref":{"$ref":"#/$defs/schemaOrPolicyRef"}},"allOf":[{"if":{"properties":{"kind":{"const":"exact_effect"}}},"then":{"properties":{"subject_ref":{"type":"string","pattern":"^effect://[^\\s]{1,500}$"}}}},{"if":{"properties":{"kind":{"const":"batch_manifest"}}},"then":{"properties":{"subject_ref":{"type":"string","pattern":"^artifact://[^\\s]{1,500}$"}}}},{"if":{"properties":{"kind":{"const":"standing_envelope"}}},"then":{"properties":{"subject_ref":{"type":"string","pattern":"^policy://[^\\s]{1,500}$"}}}}]},"presentationDimension":{"type":"object","additionalProperties":false,"required":["claim_profile_ref","evidence_refs","decision"],"properties":{"claim_profile_ref":{"$ref":"#/$defs/schemaOrPolicyRef"},"evidence_refs":{"type":"array","items":{"$ref":"#/$defs/presentationEvidenceRef"},"uniqueItems":true},"decision":{"enum":["established","not_established","unknown"]}}},"postureEvaluation":{"type":"object","additionalProperties":false,"required":["requirement_ref","requirement_kind","satisfied_by_refs","evidence_refs","evaluation_profile_ref","decision"],"properties":{"requirement_ref":{"type":"string","pattern":"^(?:policy|auth_factor|guardian)://[^\\s]{1,500}$"},"requirement_kind":{"enum":["auth_factor","guardian_surface"]},"satisfied_by_refs":{"type":"array","items":{"type":"string","pattern":"^(?:auth_factor|guardian)://[^\\s]{1,500}$"},"uniqueItems":true},"evidence_refs":{"type":"array","items":{"$ref":"#/$defs/approvalEvidenceRef"},"uniqueItems":true},"evaluation_profile_ref":{"$ref":"#/$defs/schemaOrPolicyRef"},"decision":{"enum":["satisfied","unsatisfied","unknown"]}},"allOf":[{"if":{"properties":{"requirement_kind":{"const":"auth_factor"}}},"then":{"properties":{"requirement_ref":{"type":"string","pattern":"^(?:policy|auth_factor)://[^\\s]{1,500}$"},"satisfied_by_refs":{"type":"array","items":{"$ref":"#/$defs/authFactorRef"}}}}},{"if":{"properties":{"requirement_kind":{"const":"guardian_surface"}}},"then":{"properties":{"requirement_ref":{"$ref":"#/$defs/guardianRef"},"satisfied_by_refs":{"type":"array","items":{"$ref":"#/$defs/guardianRef"}}}}}]},"canonicalDateTime":{"type":"string","format":"date-time","pattern":"^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$"},"canonicalRef":{"type":"string","pattern":"^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"},"receiptRef":{"type":"string","pattern":"^receipt://[^\\s]{1,500}$"},"authorityRequestRef":{"type":"string","pattern":"^authority-request://[^\\s]{1,500}$"},"principalRef":{"type":"string","pattern":"^(?:(?:principal|wallet|org|worker|service|domain)://[^\\s]{1,500}|agentgres://domain/[^\\s]{1,500})$"},"sessionRef":{"type":"string","pattern":"^session://[^\\s]{1,500}$"},"originRef":{"type":"string","pattern":"^(?:origin-binding|origin)://[^\\s]{1,500}$"},"decisionActorRef":{"type":"string","pattern":"^(?:wallet|policy|system|org)://[^\\s]{1,500}$"},"schemaOrPolicyRef":{"type":"string","pattern":"^(?:schema|policy)://[^\\s]{1,500}$"},"artifactRef":{"type":"string","pattern":"^artifact://[^\\s]{1,500}$"},"guardianRef":{"type":"string","pattern":"^guardian://[^\\s]{1,500}$"},"authFactorRef":{"type":"string","pattern":"^auth_factor://[^\\s]{1,500}$"},"authRequirementRef":{"type":"string","pattern":"^(?:policy|auth_factor)://[^\\s]{1,500}$"},"presentationEvidenceRef":{"type":"string","pattern":"^(?:receipt|evidence|attestation)://[^\\s]{1,500}$"},"evidenceOrReceiptRef":{"type":"string","pattern":"^(?:receipt|evidence)://[^\\s]{1,500}$"},"approvalEvidenceRef":{"type":"string","pattern":"^(?:receipt|evidence|artifact)://[^\\s]{1,500}$"},"evidenceBundleRef":{"type":"string","pattern":"^(?:evidence|assurance-evidence|artifact)://[^\\s]{1,500}$"},"sha256Hash":{"type":"string","pattern":"^sha256:[a-f0-9]{64}$"},"riskClass":{"enum":["read","draft","external_message","commerce","funds","trade","policy_widening","secret_export","declassification","identity_change","cloud_deploy","physical_action"]}}}"##),
     ("schema://ioi/components/wallet-network/wallet-authentication-challenge/v1", r#"{"$schema":"https://json-schema.org/draft/2020-12/schema","$id":"schema://ioi/components/wallet-network/wallet-authentication-challenge/v1","title":"WalletAuthenticationChallenge","x-ioi-schema-version":"ioi.wallet_network.wallet_authentication_challenge.v1","description":"The server-minted, single-use, domain/chain/session-bound challenge an external wallet signs to prove account ownership (SIWx). Registered target contract for the wallet-interoperability packet (W1.6); doctrine §Wallet Interoperability and INV-40 govern. A challenge is authentication material, never authority: signing it yields a web3_wallet AuthFactor and nothing else. The nonce is single-use and consumed ATOMICALLY at verification and never lives in an eventually-consistent store; domain, uri, chain, and the bound product session must match at verification or the proof fails typed.","type":"object","additionalProperties":false,"required":["schema_version","challenge_id","siwx_profile_ref","chain_id","domain","uri","nonce","product_session_binding_hash","issued_at","expires_at","statement"],"properties":{"schema_version":{"type":"string","const":"ioi.wallet_network.wallet_authentication_challenge.v1"},"challenge_id":{"type":"string","pattern":"^wallet-auth-challenge://[A-Za-z0-9._:-]+$"},"siwx_profile_ref":{"type":"string","pattern":"^siwx://[a-z0-9]+/[a-z0-9]+/v[0-9]+$","description":"The one audited SIWx adapter profile this challenge is issued under (EVM ERC-4361 first)."},"chain_id":{"type":"string","pattern":"^caip2:[-a-z0-9]{3,8}:[-_a-zA-Z0-9]{1,32}$","description":"CAIP-2 chain id; a challenge is scoped to exactly one chain."},"requested_account":{"anyOf":[{"type":"string","pattern":"^caip10:[-a-z0-9]{3,8}:[-_a-zA-Z0-9]{1,32}:[-.%a-zA-Z0-9]{1,128}$"},{"type":"null"}],"description":"The CAIP-10 account the challenge targets, or null for discover-then-bind."},"domain":{"type":"string","minLength":1,"description":"Exact relying origin; verification refuses a mismatch (anti-phishing)."},"uri":{"type":"string","minLength":1,"description":"Exact request URI; verification refuses a mismatch (anti-replay)."},"nonce":{"type":"string","minLength":8,"description":"Single-use, atomically consumed at verification. Never stored in an eventually-consistent store."},"product_session_binding_hash":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$","description":"Binds the challenge to the exact product session that requested it."},"issued_at":{"type":"string","minLength":1},"expires_at":{"type":"string","minLength":1,"description":"Short expiry; verification refuses an expired challenge."},"statement":{"type":"string","minLength":1,"description":"Human-readable sign-in statement shown in the wallet."},"status":{"type":"string","enum":["issued","consumed","expired","invalidated"],"description":"Lifecycle. A provider-side account or chain change invalidates an in-flight challenge."}}}"#),
@@ -216303,6 +216772,8 @@ const CONTRACT_INVARIANTS: &[(&str, &str)] = &[
     ("schema://ioi/foundations/download-intent/v1", r#"[{"rule_id":"download_intent.payload.exact_commitment","description":"The intent commits to the exact payload bytes; delivery re-verifies against this commitment, so a substituted payload cannot be served under a minted intent.","expression":{"operator":"non_empty","path":"$.artifact.payload_sha256"}},{"rule_id":"download_intent.principal.bound","description":"The intent is bound to exactly one principal; the id is not a bearer token and delivery re-authenticates on every fetch.","expression":{"operator":"non_empty","path":"$.principal_ref"}},{"rule_id":"download_intent.rights.recorded","description":"Minting records the exact admission scope that authorized it, so the rights basis of every intent is auditable rather than implied.","expression":{"operator":"non_empty","path":"$.rights.scope_kind"}}]"#),
     ("schema://ioi/foundations/data-retention-disposition/v1", r#"[{"rule_id":"data_retention.basis.required","description":"Every disposition names its governing policy basis; an unexplained retention posture is not auditable.","expression":{"operator":"non_empty","path":"$.policy_basis_ref"}},{"rule_id":"data_retention.subject.exact","description":"The duty binds one exact subject, never a class pattern — deletion of 'roughly these' is not a deletion anyone can verify.","expression":{"operator":"non_empty","path":"$.subject.subject_ref"}},{"rule_id":"data_retention.declarer.bound","description":"The declaring principal is recorded server-side, so retention duties have an accountable origin.","expression":{"operator":"non_empty","path":"$.declared_by"}}]"#),
     ("schema://ioi/components/daemon-runtime/support-incident-link/v1", r#"[{"rule_id":"support_incident.affected.non_empty","description":"An incident links at least one affected object — an incident that affects nothing links nothing.","expression":{"operator":"non_empty","path":"$.affected.object_refs"}},{"rule_id":"support_incident.reporter.bound","description":"The reporting principal is resolved server-side, so an incident has an accountable origin.","expression":{"operator":"non_empty","path":"$.reported_by"}}]"#),
+    ("schema://ioi/components/daemon-runtime/health-check/v1", r#"[]"#),
+    ("schema://ioi/components/daemon-runtime/health-check-result/v1", r#"[]"#),
     ("schema://ioi/components/connectors-tools/connector-credential-grant/v1", r#"[{"rule_id":"connector_credential_grant.tools.declared","description":"The grant names its exact tool scope; an empty scope grants nothing and is not admissible.","expression":{"operator":"non_empty","path":"$.tools"}},{"rule_id":"connector_credential_grant.grantor.bound","description":"The granting principal is resolved server-side, so standing access has an accountable origin.","expression":{"operator":"non_empty","path":"$.granted_by"}}]"#),
     ("schema://ioi/components/wallet-network/authority-review-receipt/v1", r#"[{"rule_id":"authority_review_receipt.request_hash.matches_envelope","description":"The receipt envelope input is the exact reviewed authority request body hash.","expression":{"operator":"fields_equal","paths":["$.receipt_envelope.input_hash","$.body.authority_request_body_hash"]}},{"rule_id":"authority_review_receipt.body_hash.matches_envelope","description":"The receipt envelope output binds the immutable review-receipt body.","expression":{"operator":"fields_equal","paths":["$.receipt_envelope.output_hash","$.body_hash"]}},{"rule_id":"authority_review_receipt.policy_hash.matches_envelope","description":"The body and generic receipt envelope bind the same policy.","expression":{"operator":"fields_equal","paths":["$.receipt_envelope.policy_hash","$.body.policy_hash"]}},{"rule_id":"authority_review_receipt.actor.matches_envelope","description":"The generic receipt actor is the decision actor recorded by the profile body.","expression":{"operator":"fields_equal","paths":["$.receipt_envelope.actor_id","$.body.decision_actor_ref"]}},{"rule_id":"authority_review_receipt.timestamp.matches_envelope","description":"The generic receipt timestamp is the profile decision time.","expression":{"operator":"fields_equal","paths":["$.receipt_envelope.timestamp","$.body.reviewed_at"]}}]"#),
     ("schema://ioi/components/wallet-network/wallet-authentication-challenge/v1", r#"[{"rule_id":"wallet_auth_challenge.nonce.present","description":"Every challenge carries a nonce; verification consumes it atomically and single-use, so a replayed challenge cannot re-authenticate.","expression":{"operator":"non_empty","path":"$.nonce"}},{"rule_id":"wallet_auth_challenge.session.bound","description":"The challenge binds the exact product session that requested it, so a proof cannot be replayed into another session.","expression":{"operator":"non_empty","path":"$.product_session_binding_hash"}},{"rule_id":"wallet_auth_challenge.domain.bound","description":"The challenge names the exact relying origin, so a phishing origin cannot harvest a usable proof.","expression":{"operator":"non_empty","path":"$.domain"}}]"#),
@@ -216669,6 +217140,10 @@ const CONTRACT_PATTERN_TRANSLATIONS: &[(&str, &str)] = &[
     (
         r#"^(?:authority|regulator|counterparty)://[^\s]{1,400}$"#,
         r#"^(?:authority|regulator|counterparty)://[^\u{0009}-\u{000D}\u{0020}\u{00A0}\u{1680}\u{2000}-\u{200A}\u{2028}\u{2029}\u{202F}\u{205F}\u{3000}\u{FEFF}]{1,400}$"#,
+    ),
+    (
+        r#"^(?:automation-run|automation-execution|agent-run-transcript|receipt|environment)://[^\s]{1,480}$"#,
+        r#"^(?:automation-run|automation-execution|agent-run-transcript|receipt|environment)://[^\u{0009}-\u{000D}\u{0020}\u{00A0}\u{1680}\u{2000}-\u{200A}\u{2028}\u{2029}\u{202F}\u{205F}\u{3000}\u{FEFF}]{1,480}$"#,
     ),
     (
         r#"^(?:benchmark|rubric|gate|policy)://[^\s]{1,500}$"#,
@@ -217093,6 +217568,10 @@ const CONTRACT_PATTERN_TRANSLATIONS: &[(&str, &str)] = &[
     (
         r#"^(?:org|project)://[^\s]{1,240}$"#,
         r#"^(?:org|project)://[^\u{0009}-\u{000D}\u{0020}\u{00A0}\u{1680}\u{2000}-\u{200A}\u{2028}\u{2029}\u{202F}\u{205F}\u{3000}\u{FEFF}]{1,240}$"#,
+    ),
+    (
+        r#"^(?:org|project)://[^\s]{1,480}$"#,
+        r#"^(?:org|project)://[^\u{0009}-\u{000D}\u{0020}\u{00A0}\u{1680}\u{2000}-\u{200A}\u{2028}\u{2029}\u{202F}\u{205F}\u{3000}\u{FEFF}]{1,480}$"#,
     ),
     (
         r#"^(?:org|project)://\S*$"#,
@@ -217569,6 +218048,10 @@ const CONTRACT_PATTERN_TRANSLATIONS: &[(&str, &str)] = &[
     (
         r#"^(?:system|domain|worker|service|agent|org)://[^\s]{1,500}$"#,
         r#"^(?:system|domain|worker|service|agent|org)://[^\u{0009}-\u{000D}\u{0020}\u{00A0}\u{1680}\u{2000}-\u{200A}\u{2028}\u{2029}\u{202F}\u{205F}\u{3000}\u{FEFF}]{1,500}$"#,
+    ),
+    (
+        r#"^(?:system|environment|automation|surface-serving)://[^\s]{1,480}$"#,
+        r#"^(?:system|environment|automation|surface-serving)://[^\u{0009}-\u{000D}\u{0020}\u{00A0}\u{1680}\u{2000}-\u{200A}\u{2028}\u{2029}\u{202F}\u{205F}\u{3000}\u{FEFF}]{1,480}$"#,
     ),
     (
         r#"^(?:system|installation|worker|automation|automation-run|service|controller|runtime-assignment|managed-worker-instance)://\S+$"#,
@@ -218894,6 +219377,10 @@ const CONTRACT_PATTERN_TRANSLATIONS: &[(&str, &str)] = &[
         r#"^environment://[^\u{0009}-\u{000D}\u{0020}\u{00A0}\u{1680}\u{2000}-\u{200A}\u{2028}\u{2029}\u{202F}\u{205F}\u{3000}\u{FEFF}]{1,240}$"#,
     ),
     (
+        r#"^environment://[^\s]{1,480}$"#,
+        r#"^environment://[^\u{0009}-\u{000D}\u{0020}\u{00A0}\u{1680}\u{2000}-\u{200A}\u{2028}\u{2029}\u{202F}\u{205F}\u{3000}\u{FEFF}]{1,480}$"#,
+    ),
+    (
         r#"^environment://[^\s]{1,500}$"#,
         r#"^environment://[^\u{0009}-\u{000D}\u{0020}\u{00A0}\u{1680}\u{2000}-\u{200A}\u{2028}\u{2029}\u{202F}\u{205F}\u{3000}\u{FEFF}]{1,500}$"#,
     ),
@@ -219147,6 +219634,10 @@ const CONTRACT_PATTERN_TRANSLATIONS: &[(&str, &str)] = &[
     (
         r#"^harness-terminal-transcript:[^\s]{1,300}$"#,
         r#"^harness-terminal-transcript:[^\u{0009}-\u{000D}\u{0020}\u{00A0}\u{1680}\u{2000}-\u{200A}\u{2028}\u{2029}\u{202F}\u{205F}\u{3000}\u{FEFF}]{1,300}$"#,
+    ),
+    (
+        r#"^health-check://hc_[0-9a-f]{16}$"#,
+        r#"^health-check://hc_[0-9a-f]{16}$"#,
     ),
     (
         r#"^host-maintenance-plan://\S+$"#,
@@ -219616,6 +220107,10 @@ const CONTRACT_PATTERN_TRANSLATIONS: &[(&str, &str)] = &[
     (
         r#"^observation://\S*$"#,
         r#"^observation://[^\u{0009}-\u{000D}\u{0020}\u{00A0}\u{1680}\u{2000}-\u{200A}\u{2028}\u{2029}\u{202F}\u{205F}\u{3000}\u{FEFF}]*$"#,
+    ),
+    (
+        r#"^observation://health-check/hc_[0-9a-f]{16}/hcr_[0-9a-f]{16}$"#,
+        r#"^observation://health-check/hc_[0-9a-f]{16}/hcr_[0-9a-f]{16}$"#,
     ),
     (
         r#"^odk://[A-Za-z0-9][A-Za-z0-9._-]{0,127}$"#,
@@ -220673,6 +221168,10 @@ const CONTRACT_PATTERN_TRANSLATIONS: &[(&str, &str)] = &[
     (
         r#"^user://[^\s/?#\\]{1,480}$"#,
         r#"^user://[^\u{0009}-\u{000D}\u{0020}\u{00A0}\u{1680}\u{2000}-\u{200A}\u{2028}\u{2029}\u{202F}\u{205F}\u{3000}\u{FEFF}/?#\\]{1,480}$"#,
+    ),
+    (
+        r#"^user://[^\s]{1,480}$"#,
+        r#"^user://[^\u{0009}-\u{000D}\u{0020}\u{00A0}\u{1680}\u{2000}-\u{200A}\u{2028}\u{2029}\u{202F}\u{205F}\u{3000}\u{FEFF}]{1,480}$"#,
     ),
     (
         r#"^user://\S+$"#,
@@ -222927,6 +223426,10 @@ mod tests {
     ("docs/architecture/_meta/schemas/fixtures/data-retention-disposition-v1/negative-baseless-disposition.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/data-retention-disposition-v1/negative-baseless-disposition.json"))),
     ("docs/architecture/_meta/schemas/fixtures/support-incident-link-v1/positive-open-major.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/support-incident-link-v1/positive-open-major.json"))),
     ("docs/architecture/_meta/schemas/fixtures/support-incident-link-v1/negative-affects-nothing.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/support-incident-link-v1/negative-affects-nothing.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/health-check-v1/positive-command-exit.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/health-check-v1/positive-command-exit.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/health-check-v1/negative-unknown-kind.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/health-check-v1/negative-unknown-kind.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/health-check-result-v1/positive-failed-with-incident.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/health-check-result-v1/positive-failed-with-incident.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/health-check-result-v1/negative-unregistered-outcome.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/health-check-result-v1/negative-unregistered-outcome.json"))),
     ("docs/architecture/_meta/schemas/fixtures/connector-credential-grant-v1/positive-finite-scoped.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/connector-credential-grant-v1/positive-finite-scoped.json"))),
     ("docs/architecture/_meta/schemas/fixtures/connector-credential-grant-v1/negative-unscoped.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/connector-credential-grant-v1/negative-unscoped.json"))),
     ("docs/architecture/_meta/schemas/fixtures/authority-review-receipt-v1/positive-approved.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/authority-review-receipt-v1/positive-approved.json"))),
@@ -225214,6 +225717,16 @@ mod tests {
                 .map(|_| ())
                 .map_err(|error| error.to_string())
         },
+        "schema://ioi/components/daemon-runtime/health-check/v1" => {
+            serde_json::from_value::<HealthCheckV1>(value.clone())
+                .map(|_| ())
+                .map_err(|error| error.to_string())
+        },
+        "schema://ioi/components/daemon-runtime/health-check-result/v1" => {
+            serde_json::from_value::<HealthCheckResultV1>(value.clone())
+                .map(|_| ())
+                .map_err(|error| error.to_string())
+        },
         "schema://ioi/components/connectors-tools/connector-credential-grant/v1" => {
             serde_json::from_value::<ConnectorCredentialGrantV1>(value.clone())
                 .map(|_| ())
@@ -227025,6 +227538,16 @@ mod tests {
                 .map_err(|error| error.to_string())?;
             serde_json::to_value(projection).map_err(|error| error.to_string())
         },
+        "schema://ioi/components/daemon-runtime/health-check/v1" => {
+            let projection = serde_json::from_value::<HealthCheckV1>(value.clone())
+                .map_err(|error| error.to_string())?;
+            serde_json::to_value(projection).map_err(|error| error.to_string())
+        },
+        "schema://ioi/components/daemon-runtime/health-check-result/v1" => {
+            let projection = serde_json::from_value::<HealthCheckResultV1>(value.clone())
+                .map_err(|error| error.to_string())?;
+            serde_json::to_value(projection).map_err(|error| error.to_string())
+        },
         "schema://ioi/components/connectors-tools/connector-credential-grant/v1" => {
             let projection = serde_json::from_value::<ConnectorCredentialGrantV1>(value.clone())
                 .map_err(|error| error.to_string())?;
@@ -227776,8 +228299,8 @@ mod tests {
     fn golden_fixtures_match_generated_rust_contracts() {
         assert_eq!(
             ARCHITECTURE_CONTRACT_FIXTURES.len(),
-            2024,
-            "the registered golden corpus must remain the explicit 2024-fixture bar",
+            2028,
+            "the registered golden corpus must remain the explicit 2028-fixture bar",
         );
         for fixture in ARCHITECTURE_CONTRACT_FIXTURES {
             let body = FIXTURE_BODIES
@@ -228019,7 +228542,7 @@ mod tests {
 
     #[test]
     fn registered_ecma_pattern_translations_compile_and_match_whitespace() {
-        assert_eq!(CONTRACT_PATTERN_TRANSLATIONS.len(), 1149,);
+        assert_eq!(CONTRACT_PATTERN_TRANSLATIONS.len(), 1156,);
         for (ecma, translated) in CONTRACT_PATTERN_TRANSLATIONS {
             Regex::new(translated).unwrap_or_else(|error| panic!("{ecma}: {error}"));
         }

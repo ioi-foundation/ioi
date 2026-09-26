@@ -1,0 +1,18 @@
+{
+  "schema_version": "ioi.hypervisor.health_check_result.v1",
+  "result_id": "observation://health-check/hc_0123456789abcdef/hcr_fedcba9876543210",
+  "health_check_ref": "health-check://hc_0123456789abcdef",
+  "health_check_head": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+  "target_ref": "system://acme/lending",
+  "outcome": "failed",
+  "observed_at": "2026-09-26T10:05:00Z",
+  "exit_code": 7,
+  "redacted_summary": "probe exited 7 (connection refused)",
+  "evidence_refs": [
+    "automation-execution://aex_1"
+  ],
+  "support_incident_ref": "support-incident://sil_9f3a1c72b4e8d605a",
+  "evaluated_by_principal_ref": "user://acme-operator",
+  "owner_ref": "org://acme",
+  "admitted_head": null
+}

@@ -9927,6 +9927,45 @@ export type SupportIncidentLinkV1 = {
   admitted_head?: string;
 };
 
+export type HealthCheckV1 = {
+  schema_version: "ioi.hypervisor.health_check.v1";
+  health_check_id: string;
+  display_name: string;
+  target_ref: string;
+  check_kind: "command_exit" | "automation_run_outcome";
+  probe: {
+      environment_ref: string;
+      command: string;
+    } | null;
+  severity: "informational" | "minor" | "major" | "critical";
+  incident_policy: {
+      file_on: "never" | "failed" | "failed_or_errored";
+    };
+  enablement: "enabled" | "paused" | "archived";
+  owner_ref: string;
+  created_by_principal_ref: string;
+  created_at: string;
+  updated_at: string;
+  admitted_head: string | null;
+};
+
+export type HealthCheckResultV1 = {
+  schema_version: "ioi.hypervisor.health_check_result.v1";
+  result_id: string;
+  health_check_ref: string;
+  health_check_head: string | null;
+  target_ref: string;
+  outcome: "passed" | "warning" | "failed" | "errored" | "not_applicable" | "not_computable";
+  observed_at: string;
+  exit_code: number | null;
+  redacted_summary: string;
+  evidence_refs: Array<string>;
+  support_incident_ref: string | null;
+  evaluated_by_principal_ref: string;
+  owner_ref: string;
+  admitted_head?: string | null;
+};
+
 export type ConnectorCredentialGrantV1 = {
   schema_version: "ioi.hypervisor.connector_credential_grant.v1";
   id: string;
@@ -22934,6 +22973,38 @@ export const ARCHITECTURE_CONTRACT_FIXTURES = [
     "expected_rule_id": null
   },
   {
+    "contract_id": "schema://ioi/components/daemon-runtime/health-check/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/health-check-v1/positive-command-exit.json",
+    "expected": "accept",
+    "expected_schema_accept": true,
+    "expected_failure": null,
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/components/daemon-runtime/health-check/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/health-check-v1/negative-unknown-kind.json",
+    "expected": "reject",
+    "expected_schema_accept": false,
+    "expected_failure": "schema",
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/components/daemon-runtime/health-check-result/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/health-check-result-v1/positive-failed-with-incident.json",
+    "expected": "accept",
+    "expected_schema_accept": true,
+    "expected_failure": null,
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/components/daemon-runtime/health-check-result/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/health-check-result-v1/negative-unregistered-outcome.json",
+    "expected": "reject",
+    "expected_schema_accept": false,
+    "expected_failure": "schema",
+    "expected_rule_id": null
+  },
+  {
     "contract_id": "schema://ioi/components/connectors-tools/connector-credential-grant/v1",
     "path": "docs/architecture/_meta/schemas/fixtures/connector-credential-grant-v1/positive-finite-scoped.json",
     "expected": "accept",
@@ -35246,6 +35317,10 @@ export const ARCHITECTURE_CONTRACT_DIFFERENTIAL_CASES: ReadonlyArray<Architectur
   differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/data-retention-disposition-v1/negative-baseless-disposition.json","contract_id":"schema://ioi/foundations/data-retention-disposition/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/data-retention-disposition-v1/negative-baseless-disposition.json","mutation_id":null,"value_json":null}),
   differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/support-incident-link-v1/positive-open-major.json","contract_id":"schema://ioi/components/daemon-runtime/support-incident-link/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/support-incident-link-v1/positive-open-major.json","mutation_id":null,"value_json":null}),
   differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/support-incident-link-v1/negative-affects-nothing.json","contract_id":"schema://ioi/components/daemon-runtime/support-incident-link/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/support-incident-link-v1/negative-affects-nothing.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/health-check-v1/positive-command-exit.json","contract_id":"schema://ioi/components/daemon-runtime/health-check/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/health-check-v1/positive-command-exit.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/health-check-v1/negative-unknown-kind.json","contract_id":"schema://ioi/components/daemon-runtime/health-check/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/health-check-v1/negative-unknown-kind.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/health-check-result-v1/positive-failed-with-incident.json","contract_id":"schema://ioi/components/daemon-runtime/health-check-result/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/health-check-result-v1/positive-failed-with-incident.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/health-check-result-v1/negative-unregistered-outcome.json","contract_id":"schema://ioi/components/daemon-runtime/health-check-result/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/health-check-result-v1/negative-unregistered-outcome.json","mutation_id":null,"value_json":null}),
   differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/connector-credential-grant-v1/positive-finite-scoped.json","contract_id":"schema://ioi/components/connectors-tools/connector-credential-grant/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/connector-credential-grant-v1/positive-finite-scoped.json","mutation_id":null,"value_json":null}),
   differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/connector-credential-grant-v1/negative-unscoped.json","contract_id":"schema://ioi/components/connectors-tools/connector-credential-grant/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/connector-credential-grant-v1/negative-unscoped.json","mutation_id":null,"value_json":null}),
   differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/authority-review-receipt-v1/positive-approved.json","contract_id":"schema://ioi/components/wallet-network/authority-review-receipt/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/authority-review-receipt-v1/positive-approved.json","mutation_id":null,"value_json":null}),
@@ -36562,6 +36637,7 @@ export const ARCHITECTURE_CONTRACT_PATTERN_SOURCES = [
   "^(?:authority|grant|lease)://[^\\s]{1,400}$",
   "^(?:authority|policy)://\\S+$",
   "^(?:authority|regulator|counterparty)://[^\\s]{1,400}$",
+  "^(?:automation-run|automation-execution|agent-run-transcript|receipt|environment)://[^\\s]{1,480}$",
   "^(?:benchmark|rubric|gate|policy)://[^\\s]{1,500}$",
   "^(?:blocker|handoff|proposal)://[^\\s]{1,500}$",
   "^(?:budget|spend|allocation)://[^\\s]{1,500}$",
@@ -36668,6 +36744,7 @@ export const ARCHITECTURE_CONTRACT_PATTERN_SOURCES = [
   "^(?:org|project)://[A-Za-z0-9][A-Za-z0-9._~:@/-]*$",
   "^(?:org|project)://[^\\s?#\\\\]+$",
   "^(?:org|project)://[^\\s]{1,240}$",
+  "^(?:org|project)://[^\\s]{1,480}$",
   "^(?:org|project)://\\S*$",
   "^(?:org|project)://\\S+$",
   "^(?:org|project|service|system|wallet)://[^\\s]{1,240}$",
@@ -36787,6 +36864,7 @@ export const ARCHITECTURE_CONTRACT_PATTERN_SOURCES = [
   "^(?:system|domain|org|worker|wallet|service|provider)://[^\\s]{1,500}$",
   "^(?:system|domain|policy)://[^\\s]{1,500}$",
   "^(?:system|domain|worker|service|agent|org)://[^\\s]{1,500}$",
+  "^(?:system|environment|automation|surface-serving)://[^\\s]{1,480}$",
   "^(?:system|installation|worker|automation|automation-run|service|controller|runtime-assignment|managed-worker-instance)://\\S+$",
   "^(?:system|participant-lease|worker|service|org|domain)://[^\\s]{1,500}$",
   "^(?:system|user|org|project|domain|service)://[^\\s]{1,500}$",
@@ -37141,6 +37219,7 @@ export const ARCHITECTURE_CONTRACT_PATTERN_SOURCES = [
   "^environment-service://[^\\s]{1,240}$",
   "^environment-startup-plan://\\S+/revision/[0-9]+$",
   "^environment://[^\\s]{1,240}$",
+  "^environment://[^\\s]{1,480}$",
   "^environment://[^\\s]{1,500}$",
   "^environment://\\S+$",
   "^episode://[a-z0-9][a-z0-9._-]{0,127}$",
@@ -37207,6 +37286,7 @@ export const ARCHITECTURE_CONTRACT_PATTERN_SOURCES = [
   "^harness-session-binding:[^\\s]{1,400}$",
   "^harness-session-terminal-attach:[^\\s]{1,300}$",
   "^harness-terminal-transcript:[^\\s]{1,300}$",
+  "^health-check://hc_[0-9a-f]{16}$",
   "^host-maintenance-plan://\\S+$",
   "^hypervisor_systems_projection:\\S+$",
   "^hypervisor_work_subject_projection:\\S+$",
@@ -37325,6 +37405,7 @@ export const ARCHITECTURE_CONTRACT_PATTERN_SOURCES = [
   "^object-model://[^\\s]{1,240}$",
   "^object://[^\\s]{1,248}$",
   "^observation://\\S*$",
+  "^observation://health-check/hc_[0-9a-f]{16}/hcr_[0-9a-f]{16}$",
   "^odk://[A-Za-z0-9][A-Za-z0-9._-]{0,127}$",
   "^odk://odk_[0-9a-f]{16}$",
   "^odk_[0-9a-f]{16}$",
@@ -37602,6 +37683,7 @@ export const ARCHITECTURE_CONTRACT_PATTERN_SOURCES = [
   "^trun_[0-9a-f]{12,32}$",
   "^user://[^\\s/?#\\\\]+$",
   "^user://[^\\s/?#\\\\]{1,480}$",
+  "^user://[^\\s]{1,480}$",
   "^user://\\S+$",
   "^v[1-9][0-9]{0,8}$",
   "^vault://[^\\s]{1,248}$",
@@ -37891,6 +37973,8 @@ export const ARCHITECTURE_CONTRACT_SCHEMA_HASHES = {
   "schema://ioi/foundations/download-intent/v1": "sha256:6605d7acd24a8cc550cef7f0ac62fdbbaaf47fecdb871aad2c6a019a6a1e1917",
   "schema://ioi/foundations/data-retention-disposition/v1": "sha256:c4722a8dec02f5a06f037da8d6f8a35b66e14bb1a6c978f6e8f225da5809fa8e",
   "schema://ioi/components/daemon-runtime/support-incident-link/v1": "sha256:dff31b576d2bdf0a1599e8e53d3843bc79206f86dafd4f93d79d2c204c37d0e3",
+  "schema://ioi/components/daemon-runtime/health-check/v1": "sha256:fd5d3837a0e6125a59fe3d68fe4bdce672ac8f874b47f712021dd83662465f65",
+  "schema://ioi/components/daemon-runtime/health-check-result/v1": "sha256:4f8afe744c0116f038577682463b0d08c2b547ea526277bf9776576fd4bb988b",
   "schema://ioi/components/connectors-tools/connector-credential-grant/v1": "sha256:def8aa1d17369d96acb3d79909822b41f5c6e57f4bfca961f047df250658b7b8",
   "schema://ioi/components/wallet-network/authority-review-receipt/v1": "sha256:4f4fdd73468bcb9e28d1e0ff2c2ddfcc84a6e5aa869fe2dcca46c5eb0e69ca4c",
   "schema://ioi/components/wallet-network/wallet-authentication-challenge/v1": "sha256:3c0ccfe0fc9ae22cb54e5d3e26bd571763cd45ace48fafe5f43d35dfcb9be3a7",
@@ -111905,6 +111989,266 @@ const CONTRACT_SCHEMAS: Record<string, JsonObject> = {
       }
     }
   },
+  "schema://ioi/components/daemon-runtime/health-check/v1": {
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "$id": "schema://ioi/components/daemon-runtime/health-check/v1",
+    "title": "HealthCheck",
+    "x-ioi-schema-version": "ioi.hypervisor.health_check.v1",
+    "description": "Operations-owned declaration of WHAT TO OBSERVE about one target (ADR 0056 Amendment 1, plane 2): a check kind, a probe, a severity from the incident vocabulary, an incident policy and an enablement. It grants nothing and is never authority; a command probe runs through the governed exec primitive in the target's own environment and inherits every exec guardrail. Cadence is not a field: a periodic check is a monitor-mode AutomationSpec naming it.",
+    "type": "object",
+    "additionalProperties": false,
+    "required": [
+      "schema_version",
+      "health_check_id",
+      "display_name",
+      "target_ref",
+      "check_kind",
+      "probe",
+      "severity",
+      "incident_policy",
+      "enablement",
+      "owner_ref",
+      "created_by_principal_ref",
+      "created_at",
+      "updated_at",
+      "admitted_head"
+    ],
+    "properties": {
+      "schema_version": {
+        "type": "string",
+        "const": "ioi.hypervisor.health_check.v1"
+      },
+      "health_check_id": {
+        "type": "string",
+        "pattern": "^health-check://hc_[0-9a-f]{16}$"
+      },
+      "display_name": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 160
+      },
+      "target_ref": {
+        "type": "string",
+        "pattern": "^(?:system|environment|automation|surface-serving)://[^\\s]{1,480}$"
+      },
+      "check_kind": {
+        "type": "string",
+        "enum": [
+          "command_exit",
+          "automation_run_outcome"
+        ]
+      },
+      "probe": {
+        "anyOf": [
+          {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "environment_ref",
+              "command"
+            ],
+            "properties": {
+              "environment_ref": {
+                "type": "string",
+                "pattern": "^environment://[^\\s]{1,480}$"
+              },
+              "command": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 2000
+              }
+            }
+          },
+          {
+            "type": "null"
+          }
+        ]
+      },
+      "severity": {
+        "type": "string",
+        "enum": [
+          "informational",
+          "minor",
+          "major",
+          "critical"
+        ]
+      },
+      "incident_policy": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "file_on"
+        ],
+        "properties": {
+          "file_on": {
+            "type": "string",
+            "enum": [
+              "never",
+              "failed",
+              "failed_or_errored"
+            ]
+          }
+        }
+      },
+      "enablement": {
+        "type": "string",
+        "enum": [
+          "enabled",
+          "paused",
+          "archived"
+        ]
+      },
+      "owner_ref": {
+        "type": "string",
+        "pattern": "^(?:org|project)://[^\\s]{1,480}$"
+      },
+      "created_by_principal_ref": {
+        "type": "string",
+        "pattern": "^user://[^\\s]{1,480}$"
+      },
+      "created_at": {
+        "type": "string",
+        "minLength": 1
+      },
+      "updated_at": {
+        "type": "string",
+        "minLength": 1
+      },
+      "admitted_head": {
+        "anyOf": [
+          {
+            "type": "string",
+            "pattern": "^sha256:[0-9a-f]{64}$"
+          },
+          {
+            "type": "null"
+          }
+        ]
+      }
+    }
+  },
+  "schema://ioi/components/daemon-runtime/health-check-result/v1": {
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "$id": "schema://ioi/components/daemon-runtime/health-check-result/v1",
+    "title": "HealthCheckResult",
+    "x-ioi-schema-version": "ioi.hypervisor.health_check_result.v1",
+    "description": "One evaluation of one HealthCheck, admitted as an observation (observation://health-check/<check>/<result>, the reference a serving binding's health_observation_refs names). `errored` means the probe could not be evaluated, which differs from a probe that ran and failed. Raw probe output stays evidence; the result is what the daemon admitted. It grants nothing and is never authority.",
+    "type": "object",
+    "additionalProperties": false,
+    "required": [
+      "schema_version",
+      "result_id",
+      "health_check_ref",
+      "health_check_head",
+      "target_ref",
+      "outcome",
+      "observed_at",
+      "exit_code",
+      "redacted_summary",
+      "evidence_refs",
+      "support_incident_ref",
+      "evaluated_by_principal_ref",
+      "owner_ref"
+    ],
+    "properties": {
+      "schema_version": {
+        "type": "string",
+        "const": "ioi.hypervisor.health_check_result.v1"
+      },
+      "result_id": {
+        "type": "string",
+        "pattern": "^observation://health-check/hc_[0-9a-f]{16}/hcr_[0-9a-f]{16}$"
+      },
+      "health_check_ref": {
+        "type": "string",
+        "pattern": "^health-check://hc_[0-9a-f]{16}$"
+      },
+      "health_check_head": {
+        "anyOf": [
+          {
+            "type": "string",
+            "pattern": "^sha256:[0-9a-f]{64}$"
+          },
+          {
+            "type": "null"
+          }
+        ]
+      },
+      "target_ref": {
+        "type": "string",
+        "pattern": "^(?:system|environment|automation|surface-serving)://[^\\s]{1,480}$"
+      },
+      "outcome": {
+        "type": "string",
+        "enum": [
+          "passed",
+          "warning",
+          "failed",
+          "errored",
+          "not_applicable",
+          "not_computable"
+        ]
+      },
+      "observed_at": {
+        "type": "string",
+        "minLength": 1
+      },
+      "exit_code": {
+        "anyOf": [
+          {
+            "type": "integer",
+            "minimum": -2147483648,
+            "maximum": 2147483647
+          },
+          {
+            "type": "null"
+          }
+        ]
+      },
+      "redacted_summary": {
+        "type": "string",
+        "maxLength": 2000
+      },
+      "evidence_refs": {
+        "type": "array",
+        "uniqueItems": true,
+        "items": {
+          "type": "string",
+          "pattern": "^(?:automation-run|automation-execution|agent-run-transcript|receipt|environment)://[^\\s]{1,480}$"
+        }
+      },
+      "support_incident_ref": {
+        "anyOf": [
+          {
+            "type": "string",
+            "pattern": "^support-incident://[A-Za-z0-9._:-]+$"
+          },
+          {
+            "type": "null"
+          }
+        ]
+      },
+      "evaluated_by_principal_ref": {
+        "type": "string",
+        "pattern": "^user://[^\\s]{1,480}$"
+      },
+      "owner_ref": {
+        "type": "string",
+        "pattern": "^(?:org|project)://[^\\s]{1,480}$"
+      },
+      "admitted_head": {
+        "anyOf": [
+          {
+            "type": "string",
+            "pattern": "^sha256:[0-9a-f]{64}$"
+          },
+          {
+            "type": "null"
+          }
+        ]
+      }
+    }
+  },
   "schema://ioi/components/connectors-tools/connector-credential-grant/v1": {
     "$schema": "https://json-schema.org/draft/2020-12/schema",
     "$id": "schema://ioi/components/connectors-tools/connector-credential-grant/v1",
@@ -167842,6 +168186,8 @@ const CONTRACT_INVARIANTS: Record<string, Array<JsonObject>> = {
       }
     }
   ],
+  "schema://ioi/components/daemon-runtime/health-check/v1": [],
+  "schema://ioi/components/daemon-runtime/health-check-result/v1": [],
   "schema://ioi/components/connectors-tools/connector-credential-grant/v1": [
     {
       "rule_id": "connector_credential_grant.tools.declared",
@@ -181436,6 +181782,18 @@ export function validateSupportIncidentLinkV1(
   value: unknown,
 ): value is SupportIncidentLinkV1 {
   return validateArchitectureContract("schema://ioi/components/daemon-runtime/support-incident-link/v1", value).ok;
+}
+
+export function validateHealthCheckV1(
+  value: unknown,
+): value is HealthCheckV1 {
+  return validateArchitectureContract("schema://ioi/components/daemon-runtime/health-check/v1", value).ok;
+}
+
+export function validateHealthCheckResultV1(
+  value: unknown,
+): value is HealthCheckResultV1 {
+  return validateArchitectureContract("schema://ioi/components/daemon-runtime/health-check-result/v1", value).ok;
 }
 
 export function validateConnectorCredentialGrantV1(

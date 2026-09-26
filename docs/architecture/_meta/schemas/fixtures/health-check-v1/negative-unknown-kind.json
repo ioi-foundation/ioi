@@ -1,0 +1,21 @@
+{
+  "schema_version": "ioi.hypervisor.health_check.v1",
+  "health_check_id": "health-check://hc_0123456789abcdef",
+  "display_name": "lending workspace answers",
+  "target_ref": "system://acme/lending",
+  "check_kind": "guess",
+  "probe": {
+    "environment_ref": "environment://env_1",
+    "command": "curl -fsS http://127.0.0.1:8080/healthz"
+  },
+  "severity": "major",
+  "incident_policy": {
+    "file_on": "failed_or_errored"
+  },
+  "enablement": "enabled",
+  "owner_ref": "org://acme",
+  "created_by_principal_ref": "user://acme-operator",
+  "created_at": "2026-09-26T10:00:00Z",
+  "updated_at": "2026-09-26T10:00:00Z",
+  "admitted_head": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+}

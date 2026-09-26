@@ -1183,3 +1183,45 @@ plane stores what it is given and never unseals anything. The paginated audit
 trail (`/v1/hypervisor/audit/trail`) reads incidents beside authority receipts,
 credential-grant audit records, and retention dispositions; every row is a
 stored record, typed by source — nothing is synthesized.
+
+## HealthCheck
+
+Registered contract: `schema://ioi/components/daemon-runtime/health-check/v1`
+(ADR 0056 Amendment 1, plane 2). Runtime: `/v1/hypervisor/health-checks` over the
+shared owner-scoped admission boundary; the lane is Operations / Health, and
+"scheduler/runtime health, incidents and remediation are Operations-owned". A
+health check is a **declaration of what to observe**, never an authority: one
+`target_ref` (`system://`, `environment://`, `automation://`,
+`surface-serving://`), a `check_kind`, a severity from the incident vocabulary,
+an incident policy, and an enablement.
+
+- `command_exit` probes run a command through the governed exec primitive in the
+  target's own environment (`probe.environment_ref`); the probe inherits every
+  exec guardrail and isolation refusal, and an exec answer with no exit code is a
+  failure, never a pass.
+- `automation_run_outcome` reads the latest execution of an `automation://`
+  target and its canonical run's current lifecycle phase.
+- Cadence is not a field of the check: a periodic check is a monitor-mode
+  AutomationSpec whose `monitor_contract_ref` names the check (reuse of the
+  automation family, not a second scheduler).
+- `incident_policy.file_on` (`never | failed | failed_or_errored`) files a
+  SupportIncidentLink through that plane's own admission when a result's outcome
+  qualifies; the result carries the incident ref.
+
+The check is identity-first: its creator is stamped, it is owned by exactly one
+organization or project, and every change compare-and-swaps its admitted head.
+
+## HealthCheckResult
+
+Registered contract: `schema://ioi/components/daemon-runtime/health-check-result/v1`.
+One evaluation of one check, admitted as an observation
+(`observation://health-check/<check>/<result>`, the reference that fills a serving
+binding's `health_observation_refs`). Outcome vocabulary: `passed | warning |
+failed | errored | not_applicable | not_computable` — `errored` means the probe
+could not be evaluated (the exec route refused, the target environment is not
+running), which is different from a probe that ran and failed. A result names
+the exact check head it evaluated, the target, the exit code when there was one,
+a redacted summary, its evidence (`automation-run://`, `automation-execution://`,
+`agent-run-transcript://`, `receipt://`), and the incident it filed, if any. Raw
+probe output stays evidence; the result is what the daemon admitted. A result
+grants nothing and is never authority.

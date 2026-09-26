@@ -170,6 +170,8 @@ mod ontology_version_routes;
 mod ontology_workbench_routes;
 #[path = "hypervisor_daemon_routes/operability_routes.rs"]
 mod operability_routes;
+#[path = "hypervisor_daemon_routes/health_check_routes.rs"]
+mod health_check_routes;
 #[path = "hypervisor_daemon_routes/operations_support_routes.rs"]
 mod operations_support_routes;
 #[path = "hypervisor_daemon_routes/orchestration_routes.rs"]
@@ -1725,6 +1727,31 @@ async fn async_main() -> anyhow::Result<()> {
         .route(
             "/v1/hypervisor/audit/trail",
             get(operations_support_routes::handle_audit_trail),
+        )
+        // ADR 0056 Amendment 1, plane 2 — Operations health checks and their admitted results.
+        // A check declares what to observe; an evaluation runs its probe through the governed exec
+        // primitive (or reads an automation's latest execution), admits a result, and files an
+        // incident through the incident plane's own admission when its policy says so.
+        .route(
+            "/v1/hypervisor/health-checks",
+            post(health_check_routes::handle_health_check_create)
+                .get(health_check_routes::handle_health_check_list),
+        )
+        .route(
+            "/v1/hypervisor/health-checks/:id",
+            get(health_check_routes::handle_health_check_get),
+        )
+        .route(
+            "/v1/hypervisor/health-checks/:id/enablement",
+            post(health_check_routes::handle_health_check_enablement),
+        )
+        .route(
+            "/v1/hypervisor/health-checks/:id/evaluate",
+            post(health_check_routes::handle_health_check_evaluate),
+        )
+        .route(
+            "/v1/hypervisor/health-check-results",
+            get(health_check_routes::handle_health_check_result_list),
         )
         .route(
             "/v1/hypervisor/backups/:id/restore-plans",

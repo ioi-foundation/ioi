@@ -12665,6 +12665,92 @@
       ]
     },
     {
+      "contract_id": "schema://ioi/components/daemon-runtime/health-check/v1",
+      "canonical_name": "HealthCheck",
+      "canonical_owner_ref": "canon://docs/architecture/components/daemon-runtime/platform-operability.md#healthcheck",
+      "schema_version": "ioi.hypervisor.health_check.v1",
+      "maturity": "partial",
+      "stability": "provisional",
+      "wire_format": "json",
+      "canonical_encoding_profile_ref": null,
+      "evolution": {
+        "successor_of": null,
+        "successor_contract_id": null,
+        "compatibility": "initial",
+        "migration_policy": "none",
+        "predecessor_remains_valid": false,
+        "wire_mutation_policy": "forbidden",
+        "hash_impact": "none"
+      },
+      "schema_ref": "health-check.v1.schema.json",
+      "cross_field_invariant_refs": [],
+      "compatibility_aliases": [],
+      "generated_targets": [
+        {
+          "kind": "typescript_projection",
+          "path": "packages/hypervisor-workbench/src/runtime/generated/architecture-contracts.ts",
+          "symbol": "HealthCheckV1"
+        },
+        {
+          "kind": "rust_projection",
+          "path": "crates/types/src/app/generated/architecture_contracts.rs",
+          "symbol": "HealthCheckV1"
+        }
+      ],
+      "positive_fixture_refs": [
+        "fixtures/health-check-v1/positive-command-exit.json"
+      ],
+      "negative_fixture_refs": [
+        {
+          "path": "fixtures/health-check-v1/negative-unknown-kind.json",
+          "expected_failure": "schema"
+        }
+      ]
+    },
+    {
+      "contract_id": "schema://ioi/components/daemon-runtime/health-check-result/v1",
+      "canonical_name": "HealthCheckResult",
+      "canonical_owner_ref": "canon://docs/architecture/components/daemon-runtime/platform-operability.md#healthcheckresult",
+      "schema_version": "ioi.hypervisor.health_check_result.v1",
+      "maturity": "partial",
+      "stability": "provisional",
+      "wire_format": "json",
+      "canonical_encoding_profile_ref": null,
+      "evolution": {
+        "successor_of": null,
+        "successor_contract_id": null,
+        "compatibility": "initial",
+        "migration_policy": "none",
+        "predecessor_remains_valid": false,
+        "wire_mutation_policy": "forbidden",
+        "hash_impact": "none"
+      },
+      "schema_ref": "health-check-result.v1.schema.json",
+      "cross_field_invariant_refs": [],
+      "compatibility_aliases": [],
+      "generated_targets": [
+        {
+          "kind": "typescript_projection",
+          "path": "packages/hypervisor-workbench/src/runtime/generated/architecture-contracts.ts",
+          "symbol": "HealthCheckResultV1"
+        },
+        {
+          "kind": "rust_projection",
+          "path": "crates/types/src/app/generated/architecture_contracts.rs",
+          "symbol": "HealthCheckResultV1"
+        }
+      ],
+      "positive_fixture_refs": [
+        "fixtures/health-check-result-v1/positive-failed-with-incident.json"
+      ],
+      "negative_fixture_refs": [
+        {
+          "path": "fixtures/health-check-result-v1/negative-unregistered-outcome.json",
+          "expected_failure": "schema"
+        }
+      ]
+    },
+    {
       "contract_id": "schema://ioi/components/connectors-tools/connector-credential-grant/v1",
       "canonical_name": "ConnectorCredentialGrant",
       "canonical_owner_ref": "canon://docs/architecture/components/connectors-tools/contracts.md#connectorcredentialgrant",

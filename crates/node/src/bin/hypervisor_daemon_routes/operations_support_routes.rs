@@ -96,7 +96,19 @@ pub(crate) async fn handle_incident_create(
         Ok(actor_ref) => actor_ref,
         Err((status, value)) => return (status, Json(value)),
     };
-    let severity = str_field(&body, "severity");
+    file_incident(&st.data_dir, &caller, &reported_by, &body)
+}
+
+/// Link an incident for an ALREADY-authenticated caller and reporter — the route above after its
+/// identity seam, or another Operations plane filing through this plane's own admission (a failing
+/// health check, ADR 0056 P2). One admission path; nothing writes an incident around it.
+pub(crate) fn file_incident(
+    data_dir: &str,
+    caller: &WriteCaller,
+    reported_by: &str,
+    body: &Value,
+) -> Reply {
+    let severity = str_field(body, "severity");
     if !SEVERITIES.contains(&severity) {
         return bad(
             StatusCode::BAD_REQUEST,
@@ -104,7 +116,7 @@ pub(crate) async fn handle_incident_create(
             format!("severity must be one of {SEVERITIES:?}"),
         );
     }
-    let title = str_field(&body, "title");
+    let title = str_field(body, "title");
     if title.is_empty() {
         return bad(
             StatusCode::BAD_REQUEST,
@@ -139,8 +151,8 @@ pub(crate) async fn handle_incident_create(
         "affected_object_refs": affected_object_refs,
     });
     let commit = match admit_owner_scoped_write(
-        &st.data_dir,
-        &caller,
+        data_dir,
+        caller,
         SUPPORT_NAMESPACE,
         KIND_INCIDENT,
         &incident_ref,
@@ -152,7 +164,7 @@ pub(crate) async fn handle_incident_create(
         Err(response) => return response,
     };
     if commit.replayed {
-        if let Some(existing) = load(&st.data_dir, &id) {
+        if let Some(existing) = load(data_dir, &id) {
             return (
                 StatusCode::OK,
                 Json(json!({ "ok": true, "replayed": true, "incident": existing })),
@@ -166,21 +178,21 @@ pub(crate) async fn handle_incident_create(
         "severity": severity,
         "status": "open",
         "affected": {
-            "product": str_field(&body, "product"),
+            "product": str_field(body, "product"),
             "tenant_ref": caller.owner_ref,
             "object_refs": affected_object_refs,
             "event_range": body.get("event_range").cloned().unwrap_or(Value::Null),
         },
         // Diagnostics are DECLARED redacted by the reporter; this plane stores what it is
         // given and never unseals anything — secrets have no path into an incident body.
-        "redacted_diagnostics": str_field(&body, "redacted_diagnostics"),
+        "redacted_diagnostics": str_field(body, "redacted_diagnostics"),
         "reported_by": reported_by,
-        "assigned_owner_ref": str_field(&body, "assigned_owner_ref"),
+        "assigned_owner_ref": str_field(body, "assigned_owner_ref"),
         "owner_ref": caller.owner_ref,
         "created_at": super::iso_now(),
     });
     project_admission(&mut record, &commit);
-    if let Err(response) = project_or_fail(&st.data_dir, &id, &record) {
+    if let Err(response) = project_or_fail(data_dir, &id, &record) {
         return response;
     }
     (

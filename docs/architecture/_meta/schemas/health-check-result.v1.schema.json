@@ -1,0 +1,122 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "schema://ioi/components/daemon-runtime/health-check-result/v1",
+  "title": "HealthCheckResult",
+  "x-ioi-schema-version": "ioi.hypervisor.health_check_result.v1",
+  "description": "One evaluation of one HealthCheck, admitted as an observation (observation://health-check/<check>/<result>, the reference a serving binding's health_observation_refs names). `errored` means the probe could not be evaluated, which differs from a probe that ran and failed. Raw probe output stays evidence; the result is what the daemon admitted. It grants nothing and is never authority.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "result_id",
+    "health_check_ref",
+    "health_check_head",
+    "target_ref",
+    "outcome",
+    "observed_at",
+    "exit_code",
+    "redacted_summary",
+    "evidence_refs",
+    "support_incident_ref",
+    "evaluated_by_principal_ref",
+    "owner_ref"
+  ],
+  "properties": {
+    "schema_version": {
+      "type": "string",
+      "const": "ioi.hypervisor.health_check_result.v1"
+    },
+    "result_id": {
+      "type": "string",
+      "pattern": "^observation://health-check/hc_[0-9a-f]{16}/hcr_[0-9a-f]{16}$"
+    },
+    "health_check_ref": {
+      "type": "string",
+      "pattern": "^health-check://hc_[0-9a-f]{16}$"
+    },
+    "health_check_head": {
+      "anyOf": [
+        {
+          "type": "string",
+          "pattern": "^sha256:[0-9a-f]{64}$"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "target_ref": {
+      "type": "string",
+      "pattern": "^(?:system|environment|automation|surface-serving)://[^\\s]{1,480}$"
+    },
+    "outcome": {
+      "type": "string",
+      "enum": [
+        "passed",
+        "warning",
+        "failed",
+        "errored",
+        "not_applicable",
+        "not_computable"
+      ]
+    },
+    "observed_at": {
+      "type": "string",
+      "minLength": 1
+    },
+    "exit_code": {
+      "anyOf": [
+        {
+          "type": "integer",
+          "minimum": -2147483648,
+          "maximum": 2147483647
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "redacted_summary": {
+      "type": "string",
+      "maxLength": 2000
+    },
+    "evidence_refs": {
+      "type": "array",
+      "uniqueItems": true,
+      "items": {
+        "type": "string",
+        "pattern": "^(?:automation-run|automation-execution|agent-run-transcript|receipt|environment)://[^\\s]{1,480}$"
+      }
+    },
+    "support_incident_ref": {
+      "anyOf": [
+        {
+          "type": "string",
+          "pattern": "^support-incident://[A-Za-z0-9._:-]+$"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "evaluated_by_principal_ref": {
+      "type": "string",
+      "pattern": "^user://[^\\s]{1,480}$"
+    },
+    "owner_ref": {
+      "type": "string",
+      "pattern": "^(?:org|project)://[^\\s]{1,480}$"
+    },
+    "admitted_head": {
+      "anyOf": [
+        {
+          "type": "string",
+          "pattern": "^sha256:[0-9a-f]{64}$"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    }
+  }
+}

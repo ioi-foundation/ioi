@@ -1,0 +1,138 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "schema://ioi/components/daemon-runtime/health-check/v1",
+  "title": "HealthCheck",
+  "x-ioi-schema-version": "ioi.hypervisor.health_check.v1",
+  "description": "Operations-owned declaration of WHAT TO OBSERVE about one target (ADR 0056 Amendment 1, plane 2): a check kind, a probe, a severity from the incident vocabulary, an incident policy and an enablement. It grants nothing and is never authority; a command probe runs through the governed exec primitive in the target's own environment and inherits every exec guardrail. Cadence is not a field: a periodic check is a monitor-mode AutomationSpec naming it.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "health_check_id",
+    "display_name",
+    "target_ref",
+    "check_kind",
+    "probe",
+    "severity",
+    "incident_policy",
+    "enablement",
+    "owner_ref",
+    "created_by_principal_ref",
+    "created_at",
+    "updated_at",
+    "admitted_head"
+  ],
+  "properties": {
+    "schema_version": {
+      "type": "string",
+      "const": "ioi.hypervisor.health_check.v1"
+    },
+    "health_check_id": {
+      "type": "string",
+      "pattern": "^health-check://hc_[0-9a-f]{16}$"
+    },
+    "display_name": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 160
+    },
+    "target_ref": {
+      "type": "string",
+      "pattern": "^(?:system|environment|automation|surface-serving)://[^\\s]{1,480}$"
+    },
+    "check_kind": {
+      "type": "string",
+      "enum": [
+        "command_exit",
+        "automation_run_outcome"
+      ]
+    },
+    "probe": {
+      "anyOf": [
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "environment_ref",
+            "command"
+          ],
+          "properties": {
+            "environment_ref": {
+              "type": "string",
+              "pattern": "^environment://[^\\s]{1,480}$"
+            },
+            "command": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 2000
+            }
+          }
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "severity": {
+      "type": "string",
+      "enum": [
+        "informational",
+        "minor",
+        "major",
+        "critical"
+      ]
+    },
+    "incident_policy": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "file_on"
+      ],
+      "properties": {
+        "file_on": {
+          "type": "string",
+          "enum": [
+            "never",
+            "failed",
+            "failed_or_errored"
+          ]
+        }
+      }
+    },
+    "enablement": {
+      "type": "string",
+      "enum": [
+        "enabled",
+        "paused",
+        "archived"
+      ]
+    },
+    "owner_ref": {
+      "type": "string",
+      "pattern": "^(?:org|project)://[^\\s]{1,480}$"
+    },
+    "created_by_principal_ref": {
+      "type": "string",
+      "pattern": "^user://[^\\s]{1,480}$"
+    },
+    "created_at": {
+      "type": "string",
+      "minLength": 1
+    },
+    "updated_at": {
+      "type": "string",
+      "minLength": 1
+    },
+    "admitted_head": {
+      "anyOf": [
+        {
+          "type": "string",
+          "pattern": "^sha256:[0-9a-f]{64}$"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    }
+  }
+}
