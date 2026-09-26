@@ -510,22 +510,18 @@ pub(crate) async fn handle_work_projection(
         if subject_ref.is_empty() {
             continue;
         }
-        let status = record
-            .get("status")
-            .or_else(|| record.pointer("/resolution_receipt/material/status"))
-            .and_then(Value::as_str)
-            .unwrap_or("queued");
-        let updated = if text(record, "updated_at").is_empty() {
-            text(record, "admitted_at")
-        } else {
-            text(record, "updated_at")
-        };
+        // The run's CURRENT status lives in the shared work-lifecycle plane (R-240: the frozen record
+        // stays `queued` as admitted); the row moves with it and sorts by its last transition.
+        let (status, moved) =
+            super::automation_contract_routes::current_run_view(&st.data_dir, record);
+        let admitted = text(record, "admitted_at").to_string();
+        let updated = moved.unwrap_or(admitted);
         derived.push(derive_row(
             "automation_run",
             subject_ref,
             record,
-            status,
-            updated,
+            &status,
+            &updated,
             "automation_contract_routes::automation_runs_for_request",
         ));
     }

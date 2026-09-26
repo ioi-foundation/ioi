@@ -1313,7 +1313,7 @@ pub(crate) async fn handle_work_reservation_admit(
 /// guarantee it never enforces. `object_ref` needs no rule either — it is the stream key the
 /// append is routed by and cannot drift within a chain. Cross-owner WRITES are refused earlier
 /// still, at the route's principal check, which is authorization rather than continuity.
-struct ObjectKindContinuityGate;
+pub(crate) struct ObjectKindContinuityGate;
 
 impl LegalEdgeGate for ObjectKindContinuityGate {
     fn authorize(&self, prior: Option<&Value>, candidate: &Value) -> Result<(), String> {

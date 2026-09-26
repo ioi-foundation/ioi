@@ -1354,9 +1354,520 @@ pub(crate) async fn get_automation_run(
     }
 }
 
+// ---- Run now → a canonical AutomationRun (R-240) -----------------------------------------------
+//
+// canon-to-code-delta row 76: "connect an admitted AutomationRun to the shared lifecycle/execution
+// plane WITHOUT REWRITING ITS FROZEN TUPLE". The product's automations are the legacy plane and its
+// "Run now" really executes (orchestration_routes::handle_automation_start); nothing ever admitted a
+// canonical run for it, so no product run reached Work, the inbox or its receipts. The bridge does
+// not add a runtime: the legacy executor stays THE executor, and each execution it performs for a
+// signed-in principal is (1) admitted as a canonical AutomationRun over that principal's manual chain
+// for the automation's exact steps and (2) given a lifecycle in the shared work-lifecycle plane —
+// queued → running → succeeded | failed — keyed by the run ref, with the execution as evidence. The
+// frozen run record is never rewritten; readers derive its current status from the plane.
+
+/// The canonical chain a principal's "Run now" of one legacy automation resolves to.
+#[derive(Debug, Clone, PartialEq)]
+pub(crate) struct ManualChain {
+    pub(crate) spec_ref: String,
+    pub(crate) spec_hash: String,
+    pub(crate) binding_ref: String,
+    pub(crate) binding_hash: String,
+}
+
+/// A legacy execution's canonical run, and the head its next lifecycle record must name.
+#[derive(Debug, Clone)]
+pub(crate) struct BridgedRun {
+    pub(crate) run_ref: String,
+    pub(crate) principal_ref: String,
+    head: String,
+    ordinal: u64,
+}
+
+/// The graph a legacy automation's steps ARE: a stable ref per automation and the JCS digest of its
+/// exact steps, so an edit to the steps resolves to a new template rather than re-meaning an old one.
+pub(crate) fn legacy_automation_graph(
+    automation_id: &str,
+    steps: &Value,
+) -> Result<(String, String), String> {
+    let digest = hash(steps).map_err(|(_, Json(reply))| reply.to_string())?;
+    Ok((
+        format!("workflow://graph/automation/{automation_id}"),
+        digest,
+    ))
+}
+
+/// Pure reads: the principal's template for exactly this graph, its manual spec, and that spec's
+/// enabled HEAD binding (none of its successors). `None` when any link is missing.
+pub(crate) fn find_manual_chain(
+    data_dir: &str,
+    principal_ref: &str,
+    graph_ref: &str,
+    graph_hash: &str,
+) -> Option<ManualChain> {
+    let owned =
+        |record: &Value| record.get("owner_ref").and_then(Value::as_str) == Some(principal_ref);
+    let text = |record: &Value, key: &str| {
+        record
+            .get(key)
+            .and_then(Value::as_str)
+            .unwrap_or("")
+            .to_string()
+    };
+    let template = read_record_dir(data_dir, TEMPLATE_DIR)
+        .into_iter()
+        .find(|t| {
+            owned(t) && text(t, "graph_ref") == graph_ref && text(t, "graph_hash") == graph_hash
+        })?;
+    let template_ref = text(&template, "revision_ref");
+    let spec = read_record_dir(data_dir, SPEC_DIR).into_iter().find(|s| {
+        owned(s)
+            && text(s, "workflow_template_revision_ref") == template_ref
+            && text(s, "activation_kind") == "manual"
+    })?;
+    let spec_ref = text(&spec, "revision_ref");
+    let bindings = read_record_dir(data_dir, BINDING_DIR);
+    let is_head = |b: &Value| {
+        let revision = text(b, "revision_ref");
+        !bindings.iter().any(|other| {
+            other
+                .get("predecessor_revision_ref")
+                .and_then(Value::as_str)
+                == Some(revision.as_str())
+        })
+    };
+    let binding = bindings.iter().find(|b| {
+        owned(b)
+            && text(b, "automation_spec_revision_ref") == spec_ref
+            && b.get("enabled") == Some(&json!(true))
+            && is_head(b)
+    })?;
+    Some(ManualChain {
+        spec_ref,
+        spec_hash: text(&spec, "content_hash"),
+        binding_ref: text(binding, "revision_ref"),
+        binding_hash: text(binding, "binding_hash"),
+    })
+}
+
+fn bridge_step(label: &str, (status, Json(reply)): Reply) -> Result<Value, (String, String)> {
+    if status.is_success() && reply.get("ok") == Some(&json!(true)) {
+        return Ok(reply);
+    }
+    let code = reply
+        .pointer("/error/code")
+        .or_else(|| reply.get("code"))
+        .and_then(Value::as_str)
+        .unwrap_or("automation_bridge_refused");
+    let message = reply
+        .pointer("/error/message")
+        .or_else(|| reply.get("message"))
+        .and_then(Value::as_str)
+        .unwrap_or("");
+    Err((code.to_string(), format!("{label}: {message}")))
+}
+
+/// Mint the principal's manual chain for this automation's exact steps: a released template, a manual
+/// spec over it, the INSTALLATION DECISION admitted as an owner-scoped write (its Agentgres receipt is
+/// the binding's admission receipt — a real record of the principal installing their own automation's
+/// manual activation, never a literal), and an enabled binding carrying that receipt.
+async fn mint_manual_chain(
+    st: &Arc<DaemonState>,
+    headers: &HeaderMap,
+    identity: &super::substrate_store::RequestIdentity,
+    owner_tenant: &str,
+    display_name: &str,
+    graph_ref: &str,
+    graph_hash: &str,
+) -> Result<ManualChain, (String, String)> {
+    let principal = identity.principal_ref.as_str();
+    let template = bridge_step("workflow template", create_workflow_template(State(st.clone()), headers.clone(), Json(json!({
+        "owner_ref": principal, "display_name": display_name, "graph_ref": graph_ref, "graph_hash": graph_hash,
+        "required_primitive_capabilities": ["prim:process.execute"], "registry_status": "released",
+    }))).await)?;
+    let template = &template["workflow_template"];
+    let spec = bridge_step("automation spec", create_automation_spec(State(st.clone()), headers.clone(), Json(json!({
+        "owner_ref": principal, "display_name": format!("{display_name} · run now"),
+        "workflow_template_revision_ref": template["revision_ref"], "workflow_template_content_hash": template["content_hash"],
+        "activation_kind": "manual", "concurrency_policy_ref": "policy://automation/concurrency/serial",
+        "idempotency_policy_ref": "policy://automation/idempotency/exact", "authority_requirement_refs": ["scope:process.execute"],
+        "receipt_policy_ref": "policy://receipts/automation", "registry_status": "released",
+    }))).await)?;
+    let spec = &spec["automation_spec"];
+    let spec_ref = spec["revision_ref"].as_str().unwrap_or("").to_string();
+    let decision = super::mutation_event_foundation::admit_owner_scoped_write(
+        &st.data_dir,
+        &super::mutation_event_foundation::WriteCaller {
+            identity: identity.clone(),
+            owner_ref: owner_tenant.to_string(),
+            idempotency_key: format!("automation-installation-decision:{principal}:{spec_ref}"),
+        },
+        "hypervisor-automation-installations",
+        "automation-installation-decision",
+        &spec_ref,
+        "automation_installation.self_admit",
+        None,
+        &json!({
+            "installed_by_principal_ref": principal, "scope_ref": principal,
+            "automation_spec_revision_ref": spec_ref, "automation_spec_content_hash": spec["content_hash"],
+            "narrowed_activation_kinds": ["manual"], "narrowed_authority_requirement_refs": ["scope:process.execute"],
+        }),
+    )
+    .map_err(|(_, Json(reply))| {
+        let code = reply.get("code").or_else(|| reply.pointer("/error/code")).and_then(Value::as_str).unwrap_or("automation_installation_decision_refused");
+        (code.to_string(), "installation decision was not admitted".to_string())
+    })?;
+    let binding = bridge_step("installation binding", create_automation_installation(State(st.clone()), headers.clone(), Json(json!({
+        "owner_ref": principal, "scope_ref": principal,
+        "automation_spec_revision_ref": spec_ref, "automation_spec_content_hash": spec["content_hash"],
+        "enabled": true, "narrowed_activation_kinds": ["manual"], "narrowed_authority_requirement_refs": ["scope:process.execute"],
+        "admission_receipt_ref": decision.receipt_ref, "registry_status": "released",
+    }))).await)?;
+    let binding = &binding["automation_installation_binding"];
+    Ok(ManualChain {
+        spec_ref,
+        spec_hash: spec["content_hash"].as_str().unwrap_or("").to_string(),
+        binding_ref: binding["revision_ref"].as_str().unwrap_or("").to_string(),
+        binding_hash: binding["binding_hash"].as_str().unwrap_or("").to_string(),
+    })
+}
+
+fn lifecycle_record(
+    run: &BridgedRun,
+    from: Option<&str>,
+    to: &str,
+    key: &str,
+    evidence: &[String],
+    at_ms: i64,
+) -> Value {
+    let tail = run.run_ref.trim_start_matches("automation-run://");
+    json!({
+        "schema_version": "ioi.work-lifecycle-record.v1",
+        "record_id": format!("work-lifecycle://{tail}/{}", run.ordinal),
+        "record_hash": "",
+        "record_type": "phase_transition",
+        "object_kind": "automation_run",
+        "object_ref": run.run_ref,
+        "owner_ref": run.principal_ref,
+        "expected_head": if run.head.is_empty() { Value::Null } else { json!(run.head) },
+        "resulting_head": "",
+        "idempotency_key": key,
+        "authority_class": "automation_controller",
+        "authority_ref": "actor://daemon/automation-controller",
+        "authority_grant_refs": [],
+        "decision_receipt_ref": Value::Null,
+        "evidence_refs": evidence,
+        "receipt_refs": [],
+        "phase_transition": { "from_phase": from, "to_phase": to },
+        "child_reference": Value::Null,
+        "occurred_at_ms": at_ms,
+    })
+}
+
+fn append_phase(
+    data_dir: &str,
+    run: &mut BridgedRun,
+    from: Option<&str>,
+    to: &str,
+    key: &str,
+    evidence: &[String],
+) -> Result<(), String> {
+    let at_ms = i64::try_from(
+        std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .map(|d| d.as_millis())
+            .unwrap_or(0),
+    )
+    .unwrap_or(0);
+    let record = lifecycle_record(run, from, to, key, evidence, at_ms);
+    let report = super::work_lifecycle_routes::WorkLifecycleStore::new(data_dir.to_string())
+        .append_gated(
+            &record,
+            &super::work_lifecycle_routes::ObjectKindContinuityGate,
+        )
+        .map_err(|error| format!("{}: {error:?}", error.code()))?;
+    run.head = report.resulting_head;
+    run.ordinal += 1;
+    Ok(())
+}
+
+/// A signed-in principal's "Run now" of a legacy automation, admitted canonically BEFORE it executes:
+/// the manual chain for its exact steps (found, else minted), the run, and its lifecycle to `running`.
+/// A refusal is returned typed and the legacy execution proceeds without a canonical run — it is named
+/// on the execution record, never hidden.
+pub(crate) async fn bridge_run_now(
+    st: &Arc<DaemonState>,
+    headers: &HeaderMap,
+    automation_id: &str,
+    automation: &Value,
+    execution_id: &str,
+) -> Result<BridgedRun, (String, String)> {
+    let identity = super::substrate_store::resolve_request_identity(&st.data_dir, headers)
+        .map_err(|error| (error.code().to_string(), error.message()))?;
+    let owner_tenant = identity
+        .tenant_refs
+        .iter()
+        .find(|t| t.as_str() == "org://local")
+        .or_else(|| identity.tenant_refs.iter().find(|t| t.starts_with("org://")))
+        .or_else(|| identity.tenant_refs.iter().find(|t| t.starts_with("project://")))
+        .cloned()
+        .ok_or_else(|| ("automation_bridge_owner_tenant_required".to_string(), "the principal belongs to no organization, so the installation decision would have no owner".to_string()))?;
+    let steps = automation
+        .get("steps")
+        .cloned()
+        .unwrap_or_else(|| json!([]));
+    let (graph_ref, graph_hash) = legacy_automation_graph(automation_id, &steps)
+        .map_err(|m| ("automation_bridge_graph_unhashable".to_string(), m))?;
+    let chain = match find_manual_chain(
+        &st.data_dir,
+        &identity.principal_ref,
+        &graph_ref,
+        &graph_hash,
+    ) {
+        Some(chain) => chain,
+        None => {
+            let name = automation
+                .get("name")
+                .and_then(Value::as_str)
+                .unwrap_or(automation_id);
+            mint_manual_chain(
+                st,
+                headers,
+                &identity,
+                &owner_tenant,
+                name,
+                &graph_ref,
+                &graph_hash,
+            )
+            .await?
+        }
+    };
+    let admitted = bridge_step("automation run", admit_automation_run(State(st.clone()), headers.clone(), Json(json!({
+        "automation_spec_revision_ref": chain.spec_ref, "automation_spec_content_hash": chain.spec_hash,
+        "automation_installation_binding_revision_ref": chain.binding_ref, "automation_installation_binding_hash": chain.binding_hash,
+        "activation_kind": "manual", "activation_event_ref": format!("event://automation/{automation_id}/run-now/{execution_id}"),
+    }))).await)?;
+    let run_ref = admitted
+        .pointer("/automation_run/automation_run_ref")
+        .and_then(Value::as_str)
+        .unwrap_or("")
+        .to_string();
+    let mut run = BridgedRun {
+        run_ref,
+        principal_ref: identity.principal_ref.clone(),
+        head: String::new(),
+        ordinal: 0,
+    };
+    let evidence = vec![format!("automation-execution://{execution_id}")];
+    append_phase(
+        &st.data_dir,
+        &mut run,
+        None,
+        "queued",
+        &format!("{execution_id}:queued"),
+        &evidence,
+    )
+    .and_then(|()| {
+        append_phase(
+            &st.data_dir,
+            &mut run,
+            Some("queued"),
+            "running",
+            &format!("{execution_id}:running"),
+            &evidence,
+        )
+    })
+    .map_err(|m| ("automation_run_lifecycle_refused".to_string(), m))?;
+    Ok(run)
+}
+
+/// The execution finished: the run's lifecycle moves to `succeeded` or `failed`, carrying the
+/// execution (and its transcript, when one was recorded) as evidence.
+pub(crate) fn bridge_run_finished(
+    data_dir: &str,
+    run: &mut BridgedRun,
+    failed: bool,
+    execution_id: &str,
+    transcript_ref: Option<&str>,
+) -> Result<(), String> {
+    let mut evidence = vec![format!("automation-execution://{execution_id}")];
+    if let Some(reference) = transcript_ref.filter(|r| !r.is_empty()) {
+        evidence.push(reference.to_string());
+    }
+    let to = if failed { "failed" } else { "succeeded" };
+    append_phase(
+        data_dir,
+        run,
+        Some("running"),
+        to,
+        &format!("{execution_id}:{to}"),
+        &evidence,
+    )
+}
+
+/// The display name of the spec a run was admitted under (its automation's own name), for readers
+/// that show a run to a person; `None` when the revision is not held here.
+pub(crate) fn spec_display_name(data_dir: &str, spec_revision_ref: &str) -> Option<String> {
+    read_record_dir(data_dir, SPEC_DIR)
+        .into_iter()
+        .find(|spec| spec.get("revision_ref").and_then(Value::as_str) == Some(spec_revision_ref))
+        .and_then(|spec| {
+            spec.get("display_name")
+                .and_then(Value::as_str)
+                .map(str::to_string)
+        })
+        .filter(|name| !name.is_empty())
+}
+
+/// The run's CURRENT status and when it last moved: the lifecycle plane's active phase and last
+/// transition when it holds a chain for this run, else the frozen admission status (and no time). The
+/// run record itself is never rewritten.
+pub(crate) fn current_run_view(data_dir: &str, run: &Value) -> (String, Option<String>) {
+    let frozen = run
+        .get("status")
+        .and_then(Value::as_str)
+        .unwrap_or("queued")
+        .to_string();
+    let Some(run_ref) = run.get("automation_run_ref").and_then(Value::as_str) else {
+        return (frozen, None);
+    };
+    let Ok(projection) =
+        super::work_lifecycle_routes::WorkLifecycleStore::new(data_dir.to_string())
+            .read_projection(run_ref)
+    else {
+        return (frozen, None);
+    };
+    let phase = projection
+        .get("active_phase")
+        .and_then(Value::as_str)
+        .filter(|p| !p.is_empty())
+        .map(str::to_string);
+    let moved = projection
+        .get("last_occurred_at_ms")
+        .and_then(Value::as_i64)
+        .filter(|ms| *ms > 0)
+        .and_then(|ms| {
+            time::OffsetDateTime::from_unix_timestamp_nanos(i128::from(ms) * 1_000_000).ok()
+        })
+        .and_then(|at| {
+            at.format(&time::format_description::well_known::Rfc3339)
+                .ok()
+        });
+    match phase {
+        Some(phase) => (phase, moved),
+        None => (frozen, None),
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    fn bridge_dir(tag: &str) -> String {
+        let dir = std::env::temp_dir().join(format!("ioi-auto-bridge-{tag}-{}", tail("t")));
+        std::fs::create_dir_all(&dir).unwrap();
+        dir.to_str().unwrap().to_string()
+    }
+
+    fn seed_chain(data_dir: &str, owner: &str, graph_hash: &str, enabled: bool) {
+        let put = |family: &str, key: &str, record: Value| {
+            super::super::persist_record(data_dir, family, key, &record).unwrap()
+        };
+        put(
+            TEMPLATE_DIR,
+            "wft_a",
+            json!({ "owner_ref": owner, "graph_ref": "workflow://graph/automation/auto_1", "graph_hash": graph_hash, "revision_ref": "workflow-template://wft_a/revision/sha256:1", "content_hash": "sha256:t" }),
+        );
+        put(
+            SPEC_DIR,
+            "spec_a",
+            json!({ "owner_ref": owner, "workflow_template_revision_ref": "workflow-template://wft_a/revision/sha256:1", "activation_kind": "manual", "revision_ref": "automation://spec_a/revision/sha256:2", "content_hash": "sha256:s" }),
+        );
+        put(
+            BINDING_DIR,
+            "bind_a",
+            json!({ "owner_ref": owner, "automation_spec_revision_ref": "automation://spec_a/revision/sha256:2", "enabled": enabled, "revision_ref": "install://automation/bind_a/revision/sha256:3", "binding_hash": "sha256:b", "predecessor_revision_ref": Value::Null }),
+        );
+    }
+
+    #[test]
+    fn run_now_resolves_the_principals_manual_chain_for_exactly_these_steps() {
+        let dir = bridge_dir("find");
+        seed_chain(&dir, "user://alice", "sha256:steps", true);
+        let chain = find_manual_chain(
+            &dir,
+            "user://alice",
+            "workflow://graph/automation/auto_1",
+            "sha256:steps",
+        )
+        .expect("the seeded chain resolves");
+        assert_eq!(chain.spec_ref, "automation://spec_a/revision/sha256:2");
+        assert_eq!(
+            chain.binding_ref,
+            "install://automation/bind_a/revision/sha256:3"
+        );
+        // Another principal's chain is never theirs; edited steps are a different graph.
+        assert!(find_manual_chain(
+            &dir,
+            "user://bob",
+            "workflow://graph/automation/auto_1",
+            "sha256:steps"
+        )
+        .is_none());
+        assert!(find_manual_chain(
+            &dir,
+            "user://alice",
+            "workflow://graph/automation/auto_1",
+            "sha256:edited"
+        )
+        .is_none());
+        // A binding with a successor is not the head: the chain does not resolve through it.
+        super::super::persist_record(&dir, BINDING_DIR, "bind_b", &json!({ "owner_ref": "user://alice", "automation_spec_revision_ref": "automation://spec_a/revision/sha256:2", "enabled": false, "revision_ref": "install://automation/bind_a/revision/sha256:4", "binding_hash": "sha256:b2", "predecessor_revision_ref": "install://automation/bind_a/revision/sha256:3" })).unwrap();
+        assert!(
+            find_manual_chain(
+                &dir,
+                "user://alice",
+                "workflow://graph/automation/auto_1",
+                "sha256:steps"
+            )
+            .is_none(),
+            "a disabling successor retires the chain"
+        );
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn a_disabled_binding_is_not_a_chain_and_a_run_without_lifecycle_reads_frozen() {
+        let dir = bridge_dir("disabled");
+        seed_chain(&dir, "user://alice", "sha256:steps", false);
+        assert!(find_manual_chain(
+            &dir,
+            "user://alice",
+            "workflow://graph/automation/auto_1",
+            "sha256:steps"
+        )
+        .is_none());
+        // No lifecycle chain for this run: the frozen admission status, and no transition time.
+        let run =
+            json!({ "automation_run_ref": "automation-run://autorun_none", "status": "queued" });
+        assert_eq!(current_run_view(&dir, &run), ("queued".to_string(), None));
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn a_legacy_automations_graph_is_its_exact_steps() {
+        let (graph_ref, a) =
+            legacy_automation_graph("auto_1", &json!([{ "kind": "command", "body": "echo a" }]))
+                .unwrap();
+        let (_, b) =
+            legacy_automation_graph("auto_1", &json!([{ "kind": "command", "body": "echo b" }]))
+                .unwrap();
+        assert_eq!(graph_ref, "workflow://graph/automation/auto_1");
+        assert!(
+            a.starts_with("sha256:") && a != b,
+            "an edit to the steps is a new graph"
+        );
+    }
 
     #[test]
     fn server_owned_identity_and_hash_fields_are_not_accepted_as_template_input() {

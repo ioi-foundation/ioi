@@ -1523,9 +1523,50 @@ pub(crate) async fn handle_automation_start(
         ));
     }
 
+    // R-240 — a signed-in principal's Run now is admitted as a canonical AutomationRun BEFORE it
+    // executes (automation_contract_routes::bridge_run_now): the manual chain for these exact steps,
+    // the run, and its lifecycle to `running` in the shared work-lifecycle plane. This executor stays
+    // the executor. A refusal is named on the execution, never hidden, and does not stop the run.
+    let mut bridged = None;
+    if internal_dispatch {
+        exec["canonical_run"] = json!({ "state": "not_admitted", "code": "automation_bridge_internal_dispatch",
+            "message": "a scheduled or webhook dispatch crosses with the daemon's internal token, not a session, and canonical run admission is identity-first — this execution has no canonical run yet" });
+    } else {
+        match super::automation_contract_routes::bridge_run_now(
+            &st,
+            &inbound,
+            &id,
+            &automation,
+            &exec_id,
+        )
+        .await
+        {
+            Ok(run) => {
+                exec["automation_run_ref"] = json!(run.run_ref);
+                bridged = Some(run);
+            }
+            Err((code, message)) => {
+                exec["canonical_run"] =
+                    json!({ "state": "not_admitted", "code": code, "message": message });
+            }
+        }
+    }
+    // Close the canonical run as failed on an early exit, so it never reads `running` forever.
+    let close_failed = |bridged: &mut Option<super::automation_contract_routes::BridgedRun>| {
+        if let Some(run) = bridged.as_mut() {
+            let _ = super::automation_contract_routes::bridge_run_finished(
+                &st.data_dir,
+                run,
+                true,
+                &exec_id,
+                None,
+            );
+        }
+    };
+
     // 1) fresh environment (real env create + start over loopback).
     let spec = json!({ "spec": { "environment_class_id": automation["environment_class_id"], "recipe_ref": automation["recipe_ref"], "project_id": automation["project_id"] } });
-    let created = call(
+    let created = match call(
         &base,
         "POST",
         "/v1/hypervisor/environments",
@@ -1533,12 +1574,26 @@ pub(crate) async fn handle_automation_start(
         &inbound,
     )
     .await
-    .map_err(|e| {
-        AppError(
-            axum::http::StatusCode::BAD_GATEWAY,
-            format!("env create: {e}"),
-        )
-    })?;
+    {
+        Ok(created) => created,
+        Err(e) => {
+            // The execution ends here: record it failed (it stayed `running` forever, holding a
+            // concurrency slot) and close its canonical run, then answer the transport error.
+            exec["status"] = json!("failed");
+            exec["finished_at"] = json!(iso_now());
+            close_failed(&mut bridged);
+            if persist_record(&st.data_dir, "automation-executions", &exec_id, &exec).is_err() {
+                return Err(AppError(
+                    StatusCode::INTERNAL_SERVER_ERROR,
+                    "automation_execution_persistence_failed: the failed-execution record did not commit".to_string(),
+                ));
+            }
+            return Err(AppError(
+                axum::http::StatusCode::BAD_GATEWAY,
+                format!("env create: {e}"),
+            ));
+        }
+    };
     let env_id = created["environment"]["id"]
         .as_str()
         .unwrap_or_default()
@@ -1546,6 +1601,7 @@ pub(crate) async fn handle_automation_start(
     if env_id.is_empty() {
         exec["status"] = json!("failed");
         exec["finished_at"] = json!(iso_now());
+        close_failed(&mut bridged);
         // W1.2 / MEF-GAP-008 — the terminal `failed` state must be durable; a discarded write leaves
         // the exec "running" forever (holding a concurrency slot). Fail closed.
         if persist_record(&st.data_dir, "automation-executions", &exec_id, &exec).is_err() {
@@ -1745,14 +1801,35 @@ pub(crate) async fn handle_automation_start(
         "started_at": exec["started_at"],
         "finished_at": exec["finished_at"],
     });
-    let _ = call(
+    let transcript_recorded = call(
         &base,
         "POST",
         &format!("/v1/hypervisor/agent-run-transcripts/{exec_id}"),
         Some(transcript),
         &inbound,
     )
-    .await;
+    .await
+    .is_ok();
+    // The canonical run's lifecycle closes with the execution (and its transcript) as evidence. A
+    // refused append is named on the execution rather than dropped.
+    if let Some(run) = bridged.as_mut() {
+        let transcript_ref = format!("agent-run-transcript://{exec_id}");
+        if let Err(message) = super::automation_contract_routes::bridge_run_finished(
+            &st.data_dir,
+            run,
+            failed,
+            &exec_id,
+            transcript_recorded.then_some(transcript_ref.as_str()),
+        ) {
+            exec["canonical_run"] = json!({ "state": "lifecycle_incomplete", "code": "automation_run_lifecycle_refused", "message": message });
+            if persist_record(&st.data_dir, "automation-executions", &exec_id, &exec).is_err() {
+                return Err(AppError(
+                    StatusCode::INTERNAL_SERVER_ERROR,
+                    "automation_execution_persistence_failed: the execution's canonical-run note did not commit".to_string(),
+                ));
+            }
+        }
+    }
     Ok((
         StatusCode::OK,
         Json(json!({ "ok": !failed, "execution": exec })),

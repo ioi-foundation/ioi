@@ -209,7 +209,13 @@ fn automation_run_event(record: &Value) -> Option<Event> {
     // (automation://<id>/revision/sha256:…); it has no `automation_ref`, so reading that name left
     // every run item without a body (R-240). The family ref, not the pinned revision, is the name.
     let spec = text(record, "automation_spec_revision_ref");
-    let name = spec.split("/revision/").next().unwrap_or("");
+    // A person reads the automation's own name when this read resolved it; else the spec family ref.
+    let display = text(record, "automation_display_name");
+    let name = if display.is_empty() {
+        spec.split("/revision/").next().unwrap_or("")
+    } else {
+        display
+    };
     Some(Event {
         family: "automation_run",
         kind: kind.to_string(),
@@ -411,7 +417,30 @@ pub(crate) async fn handle_notifications(
         Err(reply) => return reply,
     };
     let runs = match super::automation_contract_routes::automation_runs_for_request(&st, &headers) {
-        Ok(records) => records,
+        // A VIEW for this read only (R-240): each run carries its current lifecycle phase and the time
+        // of that transition, so a finished run is an event; the stored run record is not touched.
+        Ok(records) => records
+            .into_iter()
+            .map(|mut run| {
+                let (status, moved) =
+                    super::automation_contract_routes::current_run_view(&st.data_dir, &run);
+                run["status"] = json!(status);
+                if let Some(at) = moved {
+                    run["updated_at"] = json!(at);
+                }
+                let spec = run
+                    .get("automation_spec_revision_ref")
+                    .and_then(Value::as_str)
+                    .unwrap_or("")
+                    .to_string();
+                if let Some(name) =
+                    super::automation_contract_routes::spec_display_name(&st.data_dir, &spec)
+                {
+                    run["automation_display_name"] = json!(name);
+                }
+                run
+            })
+            .collect::<Vec<_>>(),
         Err(reply) => return reply,
     };
     let incidents = match super::operations_support_routes::incidents_for_request(&st, &headers) {

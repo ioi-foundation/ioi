@@ -1009,7 +1009,10 @@ function renderAutomationDetail(a, runs, projectsById, webhook) {
         const c = r.counts || {};
         const st = r.status || "—";
         const pill = st === "done" ? "ok" : st === "failed" ? "warn" : "muted";
-        return `<tr><td><code>${CX_ESC(r.execution_id || "")}</code></td><td><span class="pill ${pill}">${CX_ESC(st)}</span></td><td>${CX_ESC(r.started_at || "")}</td><td>${c.done || 0}/${c.failed || 0}</td><td><a href="/__ioi/run-timeline/${encodeURIComponent(r.execution_id || "")}" target="_blank" rel="noopener">timeline ↗</a></td></tr>`;
+        const canon = r.automation_run_ref
+          ? `<div class="sub" style="margin:2px 0 0" data-canonical-run="${CX_ESC(r.automation_run_ref)}">run <code>${CX_ESC(r.automation_run_ref)}</code></div>`
+          : (r.canonical_run ? `<div class="sub" style="margin:2px 0 0" title="${CX_ESC(r.canonical_run.message || "")}">no canonical run · <code>${CX_ESC(r.canonical_run.code || "")}</code></div>` : "");
+        return `<tr><td><code>${CX_ESC(r.execution_id || "")}</code>${canon}</td><td><span class="pill ${pill}">${CX_ESC(st)}</span></td><td>${CX_ESC(r.started_at || "")}</td><td>${c.done || 0}/${c.failed || 0}</td><td><a href="/__ioi/run-timeline/${encodeURIComponent(r.execution_id || "")}" target="_blank" rel="noopener">timeline ↗</a></td></tr>`;
       }).join("") + `</tbody></table>`
     : `<div class="empty">No runs yet — use “Run now”.</div>`;
   const sched = a.schedule_spec && typeof a.schedule_spec === "object" ? a.schedule_spec : null;
@@ -8864,6 +8867,21 @@ async function handleEstateRequest(req, res, body) {
       // ?automation= / ?view=new grammar translates into the Automate shell's in-shell lanes.
       const sp0 = new URL(req.url, "http://x").searchParams;
       let loc = GRE2_TRANSFERS[pathname];
+      // A RUN LINK OPENS THE RUN (R-240). Work rows and inbox items link a canonical run as
+      // /automations?run=<id>; this forwarded to the Automate landing with the parameter unread. A run
+      // admitted for a Run now names the execution it admitted in its own activation event, so the
+      // link lands on that execution's proof (its timeline and receipts).
+      if (pathname === "/automations" && sp0.get("run")) {
+        const runTail = String(sp0.get("run")).replace(/^automation-run:\/\//u, "");
+        const runRead = await daemonFetch(`/v1/hypervisor/automation-runs/${encodeURIComponent(runTail)}`).then((x) => x.json()).catch(() => ({}));
+        const activation = String((runRead && runRead.automation_run && runRead.automation_run.activation_event_ref) || "");
+        const admitted = activation.match(/^event:\/\/automation\/(auto_[0-9a-f]+)\/run-now\/(aex_[0-9a-f]+)$/u);
+        if (admitted) {
+          res.writeHead(302, { Location: `/__ioi/run-timeline/${admitted[2]}`, "Cache-Control": "no-cache", "x-ioi-gre2-transfer": pathname });
+          res.end();
+          return;
+        }
+      }
       if (pathname === "/automations" && (sp0.get("automation") || sp0.get("view") === "new")) {
         sp0.set("tab", "automations");
         loc += `?${sp0.toString()}`;

@@ -612,6 +612,33 @@ async function run() {
     !!ledgerHit && JSON.stringify(ledgerHit).includes("state_root"),
     "");
 
+  // -- R-240: Run now is ADMITTED as a canonical AutomationRun --------------------
+  // Nothing admitted a canonical run for a product Run now, so no run reached Work, the inbox or its
+  // receipts. The legacy executor stays the executor; each Run now is admitted over the principal's
+  // manual chain for these exact steps, and its lifecycle lives in the shared work-lifecycle plane.
+  const bridgedRunRef = String(exec.automation_run_ref || "");
+  const bridgedRunTail = bridgedRunRef.replace("automation-run://", "");
+  const bridgedRun = bridgedRunTail ? ((await jd(`/v1/hypervisor/automation-runs/${encodeURIComponent(bridgedRunTail)}`)).body?.automation_run || {}) : {};
+  const bridgedPhase = async () => (bridgedRunRef ? (await jd(`/v1/hypervisor/work-lifecycle/projection?object_ref=${encodeURIComponent(bridgedRunRef)}&owner_ref=${encodeURIComponent(principalRef)}`)).body : {}) || {};
+  const phaseBefore = await bridgedPhase();
+  ok("R-240: the Run now is ADMITTED as a canonical AutomationRun before it executes — the execution names it, the run record stays frozen `queued` as admitted, its activation event names this execution, and its lifecycle in the shared work-lifecycle plane moved to `succeeded`",
+    bridgedRunRef.startsWith("automation-run://") && bridgedRun.status === "queued" && bridgedRun.activation_kind === "manual"
+      && bridgedRun.activation_event_ref === `event://automation/${automationId}/run-now/${exec.execution_id}`
+      && JSON.stringify(phaseBefore).includes('"active_phase":"succeeded"'),
+    `${bridgedRunRef || JSON.stringify(exec.canonical_run || {})} · frozen ${bridgedRun.status} · phase ${JSON.stringify(phaseBefore).match(/"active_phase":"[a-z_]*"/u)?.[0] || "none"}`);
+  const workRowOf = async () => ((await jd("/v1/hypervisor/work-projection?view=history")).body?.rows || []).find((r) => r.subject_ref === bridgedRunRef);
+  const workRow = await workRowOf();
+  const runLink = workRow ? await fetch(`${SERVE}${workRow.canonical_detail_route}`, { headers: { cookie: `ioi_session=${SESSION}` }, redirect: "manual" }).catch(() => null) : null;
+  const automationPage = await pageText(`/__ioi/automations/${encodeURIComponent(automationId)}`);
+  ok("R-240: Work lists the run in History as completed, its link opens THIS execution's proof (its run timeline) rather than the Automate landing, and the automation's run history names the canonical run",
+    workRow?.display_facets?.activity === "completed" && runLink?.status === 302 && runLink.headers.get("location") === `/__ioi/run-timeline/${exec.execution_id}`
+      && automationPage.text.includes(`data-canonical-run="${bridgedRunRef}"`),
+    `row ${workRow?.display_facets?.activity || "absent"} · link ${runLink?.status} → ${runLink?.headers.get("location") || ""}`);
+  const runItem = ((await jd("/v1/hypervisor/notifications?limit=25")).body?.items || []).find((i) => i.owner_event_family === "automation_run" && String(i.canonical_detail_route || "").endsWith(bridgedRunTail));
+  ok("R-240: the inbox reports the finished run as run.succeeded, by its automation's own name",
+    runItem?.event_kind === "run.succeeded" && String(runItem.body || "").includes("journey-nightly"),
+    runItem ? `${runItem.event_kind} · ${runItem.body}` : "no automation_run item");
+
   // -- webhook: rotate (hash-at-rest) + rejected trigger is a RECEIPTED event -
   const rotated = await jd(`/v1/hypervisor/automations/${encodeURIComponent(automationId)}/webhook-rotate`, { method: "POST" });
   const webhookToken = rotated.body?.webhook_token || "";
@@ -656,6 +683,10 @@ async function run() {
       && !!spec.automation?.webhook_token_hash
       && runsAfter.some((r) => r.execution_id === exec.execution_id),
     "");
+  const workRowAfterRestart = await workRowOf();
+  ok("R-240: after the restart the bridged run still reads completed on Work — its lifecycle is re-read from the plane, and its frozen record is unchanged",
+    workRowAfterRestart?.display_facets?.activity === "completed" && JSON.stringify(await bridgedPhase()).includes('"active_phase":"succeeded"'),
+    workRowAfterRestart?.display_facets?.activity || "absent");
   const canonicalRunAfterRestart = await jd(`/v1/hypervisor/automation-runs/${encodeURIComponent(canonicalRunTail)}`);
   ok("the canonical AutomationRun and its exact four-lifetime resolution receipt survive daemon restart byte-for-byte",
     canonicalRunAfterRestart.status === 200

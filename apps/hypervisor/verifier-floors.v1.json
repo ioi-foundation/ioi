@@ -24,9 +24,9 @@
       "id": "automations-journey",
       "npm_script": "check:automations-journey",
       "source": "apps/hypervisor/scripts/verify-hypervisor-automations-journey.mjs",
-      "runtime_assertions": 46,
-      "assertion_names_sha256": "43260b70b467c2d8574e87cfb8c11017aad7ebb12830c30b65cf36c2d56dbd62",
-      "note": "M04.2 closure: the 34-assertion live predecessor journey remains intact and twelve runtime assertions prove the canonical four-lifetime family — server-owned template identity, exact owner-scoped template/spec/binding resolution, identity-first reads, hash-substitution refusal, generated-contract validation, frozen run receipt, template-successor immutability, honest empty Agentgres/lease claims, successor-only disablement, stale-binding refusal, and restart persistence."
+      "runtime_assertions": 50,
+      "assertion_names_sha256": "4f66094f138148deede05a2144b9f6293d6d2a21138834834d3dfdae30013c75",
+      "note": "2026-09-26 (R-240): 46 -> 50 — a product Run now is admitted as a canonical AutomationRun (the execution names it; the record stays frozen queued with its activation event naming the execution; its lifecycle in the shared work-lifecycle plane reaches succeeded), Work lists it completed and its link opens the execution's run timeline, the inbox reports run.succeeded by the automation's name, and all of it survives the restart; the four are red on the pre-bridge daemon. Earlier — M04.2 closure: the 34-assertion live predecessor journey remains intact and twelve runtime assertions prove the canonical four-lifetime family — server-owned template identity, exact owner-scoped template/spec/binding resolution, identity-first reads, hash-substitution refusal, generated-contract validation, frozen run receipt, template-successor immutability, honest empty Agentgres/lease claims, successor-only disablement, stale-binding refusal, and restart persistence."
     },
     {
       "id": "backup-restore",
