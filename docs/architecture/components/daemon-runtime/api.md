@@ -1948,8 +1948,8 @@ session or API token gets the typed `request_principal_required` refusal before
 anything is built; loopback is not an identity for this write. The persisted
 record names its creator in `created_by_principal_ref`. SDK callers supply a
 token through `apiKey` or `IOI_DAEMON_TOKEN`: a fresh local daemon issues one
-through its one-boot bootstrap. The list is not yet filtered by creator, because
-thread-launched agents are not stamped yet.
+through its one-boot bootstrap. Thread-launched agents are stamped the same way
+(see Thread and Turn Control API); the list is not yet filtered by creator.
 
 ```http
 POST /v1/agents
@@ -2340,6 +2340,14 @@ Interactive clients use threads for operator-facing sessions and turns for
 bounded user/model/runtime exchanges. A thread may map to one or more runs,
 jobs, tool invocations, subagents, snapshots, or restore decisions, but the
 thread API is still a daemon control surface over canonical runtime contracts.
+
+Thread create, cancel and delete are identity-first (2026-09-25, R-240): a caller
+without a session or API token is refused `request_principal_required` before
+anything is built or changed (loopback is not an identity). Create stamps
+`created_by_principal_ref` on the thread's agent record; cancel and delete answer
+only to that creator (403 `thread_creator_mismatch`). A thread created before the
+stamp carries no creator and answers any signed-in principal. The thread and agent
+lists are not yet filtered by creator.
 
 ```http
 POST /v1/threads

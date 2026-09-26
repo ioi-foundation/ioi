@@ -488,12 +488,67 @@ fn build_agent_candidate(st: &DaemonState, options: &Value) -> Value {
 /// Builds the agent + thread candidates, validates/stamps via
 /// `plan_thread_create_state_update`, persists the agent, and returns the kernel
 /// thread projection (the thread.started event is synthesized by the projection).
+///
+/// IDENTITY FIRST (R-240): like agent create, this route took no headers, so any caller that could
+/// reach the daemon created a thread no one owned — and cancel and delete answered anyone about any
+/// thread. The caller is resolved before anything is built (loopback is not an identity), and the
+/// agent record names who created it; cancel and delete then answer only to that creator.
 pub(crate) async fn handle_thread_create(
     State(st): State<Arc<DaemonState>>,
+    headers: HeaderMap,
     Json(body): Json<Value>,
-) -> Result<Json<Value>, AppError> {
+) -> Response {
+    let identity = match super::substrate_store::resolve_request_identity(&st.data_dir, &headers) {
+        Ok(identity) => identity,
+        Err(error) => return super::odk_routes::odk_scope_refusal(error).into_response(),
+    };
+    match create_thread(&st, &identity.principal_ref, &body) {
+        Ok(record) => Json(record).into_response(),
+        Err(error) => error.into_response(),
+    }
+}
+
+/// The creator a thread's agent record names, stamped after the candidate is built from scratch so a
+/// caller's `options` cannot supply or override it (the planner carries extra fields through).
+fn stamp_thread_creator(agent: &mut Value, created_by_principal_ref: &str) {
+    agent["created_by_principal_ref"] = json!(created_by_principal_ref);
+}
+
+/// A thread's lifecycle verbs answer only to the principal that created it. A record created before
+/// creation named its caller carries no creator: it stays governable by any signed-in principal —
+/// no wider than before, and the actor is now known — while every thread created from here on is
+/// its creator's alone.
+fn thread_creator_refusal(
+    agent: &Value,
+    identity: &super::substrate_store::RequestIdentity,
+) -> Option<Response> {
+    match agent
+        .get("created_by_principal_ref")
+        .and_then(Value::as_str)
+    {
+        Some(creator) if creator != identity.principal_ref => Some(
+            (
+                StatusCode::FORBIDDEN,
+                Json(json!({
+                    "ok": false,
+                    "code": "thread_creator_mismatch",
+                    "message": "this thread answers only to the principal that created it"
+                })),
+            )
+                .into_response(),
+        ),
+        _ => None,
+    }
+}
+
+fn create_thread(
+    st: &DaemonState,
+    created_by_principal_ref: &str,
+    body: &Value,
+) -> Result<Value, AppError> {
     let options = body.get("options").cloned().unwrap_or_else(|| body.clone());
-    let agent = build_agent_candidate(&st, &options);
+    let mut agent = build_agent_candidate(st, &options);
+    stamp_thread_creator(&mut agent, created_by_principal_ref);
     let agent_id = agent
         .get("id")
         .and_then(|v| v.as_str())
@@ -531,22 +586,37 @@ pub(crate) async fn handle_thread_create(
     // --- persist the planned agent, then admit+persist thread.started to the log ---
     persist_record(&st.data_dir, "agents", &agent_id, &planned.agent)
         .map_err(|error| AppError(StatusCode::INTERNAL_SERVER_ERROR, error.to_string()))?;
-    persist_thread_events(&st, &thread_id)?;
+    persist_thread_events(st, &thread_id)?;
 
     // --- return the kernel thread projection ---
-    let record = project_thread_record(&st, &thread_id)?;
-    Ok(Json(record))
+    project_thread_record(st, &thread_id)
 }
 
 /// POST /v1/threads/:id/cancel — cancel a thread/agent execution. Real, no fake: marks the persisted
 /// agent record cancelled (so the thread projection + list reflect it). Backs AgentService/Stop.
+/// Identity first, and only the thread's creator may cancel it (see `thread_creator_refusal`).
 pub(crate) async fn handle_thread_cancel(
     State(st): State<Arc<DaemonState>>,
+    headers: HeaderMap,
     AxumPath(thread_id): AxumPath<String>,
-) -> Result<Json<Value>, AppError> {
-    let Some(mut agent) = read_agent_for_thread(&st, &thread_id) else {
-        return Err(AppError(StatusCode::NOT_FOUND, "thread not found".into()));
+) -> Response {
+    let identity = match super::substrate_store::resolve_request_identity(&st.data_dir, &headers) {
+        Ok(identity) => identity,
+        Err(error) => return super::odk_routes::odk_scope_refusal(error).into_response(),
     };
+    let Some(agent) = read_agent_for_thread(&st, &thread_id) else {
+        return AppError(StatusCode::NOT_FOUND, "thread not found".into()).into_response();
+    };
+    if let Some(refusal) = thread_creator_refusal(&agent, &identity) {
+        return refusal;
+    }
+    match cancel_thread(&st, &thread_id, agent) {
+        Ok(reply) => Json(reply).into_response(),
+        Err(error) => error.into_response(),
+    }
+}
+
+fn cancel_thread(st: &DaemonState, thread_id: &str, mut agent: Value) -> Result<Value, AppError> {
     let agent_id = agent
         .get("id")
         .and_then(|v| v.as_str())
@@ -556,19 +626,32 @@ pub(crate) async fn handle_thread_cancel(
     agent["cancelled_at"] = json!(iso_now());
     persist_record(&st.data_dir, "agents", &agent_id, &agent)
         .map_err(|e| AppError(StatusCode::INTERNAL_SERVER_ERROR, e.to_string()))?;
-    Ok(Json(
-        json!({ "ok": true, "thread_id": thread_id, "status": "cancelled", "at": iso_now() }),
-    ))
+    Ok(json!({ "ok": true, "thread_id": thread_id, "status": "cancelled", "at": iso_now() }))
 }
 
 /// DELETE /v1/threads/:id — delete a thread/agent execution. Real, no fake: removes the persisted
 /// agent record (so /v1/threads no longer lists it) + best-effort drops its event log. Backs
-/// AgentService/DeleteAgentExecution.
+/// AgentService/DeleteAgentExecution. Identity first, and only the thread's creator may delete it; a
+/// thread that does not exist still answers `existed: false`, to a signed-in caller only.
 pub(crate) async fn handle_thread_delete(
     State(st): State<Arc<DaemonState>>,
+    headers: HeaderMap,
     AxumPath(thread_id): AxumPath<String>,
-) -> Result<Json<Value>, AppError> {
-    let agent_id = agent_id_for_thread(&thread_id);
+) -> Response {
+    let identity = match super::substrate_store::resolve_request_identity(&st.data_dir, &headers) {
+        Ok(identity) => identity,
+        Err(error) => return super::odk_routes::odk_scope_refusal(error).into_response(),
+    };
+    if let Some(agent) = read_agent_for_thread(&st, &thread_id) {
+        if let Some(refusal) = thread_creator_refusal(&agent, &identity) {
+            return refusal;
+        }
+    }
+    Json(delete_thread(&st, &thread_id)).into_response()
+}
+
+fn delete_thread(st: &DaemonState, thread_id: &str) -> Value {
+    let agent_id = agent_id_for_thread(thread_id);
     let safe = |s: &str| {
         s.replace(
             |c: char| !c.is_ascii_alphanumeric() && c != '-' && c != '_',
@@ -582,7 +665,7 @@ pub(crate) async fn handle_thread_delete(
     let _ = std::fs::remove_file(&agent_path);
     let suffix = thread_id
         .strip_prefix("thread_")
-        .unwrap_or(&thread_id)
+        .unwrap_or(thread_id)
         .to_string();
     let ev_dir = std::path::Path::new(&st.data_dir).join("events");
     if let Ok(entries) = std::fs::read_dir(&ev_dir) {
@@ -592,9 +675,7 @@ pub(crate) async fn handle_thread_delete(
             }
         }
     }
-    Ok(Json(
-        json!({ "ok": true, "deleted": thread_id, "existed": existed, "at": iso_now() }),
-    ))
+    json!({ "ok": true, "deleted": thread_id, "existed": existed, "at": iso_now() })
 }
 
 /// POST /v1/agents — create an agent (no thread) via plan_agent_create_state_update.
@@ -1905,6 +1986,57 @@ mod agent_create_identity_tests {
             "the persisted record names the creator"
         );
         let _ = std::fs::remove_dir_all(&dir);
+    }
+    /// The thread planner carries the creator stamp through, exactly as the agent planner does, and a
+    /// caller's own `created_by_principal_ref` never survives the stamp.
+    #[test]
+    fn a_thread_names_its_creator_through_the_planner() {
+        let mut agent = json!({
+            "id": "agent_thread_identity_one",
+            "status": "active",
+            "runtime": "local",
+            "cwd": "/workspace",
+            "modelId": "local-model",
+            "runtimeControls": { "mode": "agent", "approvalMode": "suggest" },
+            "createdAt": "2026-09-25T12:00:00.000Z",
+            "updatedAt": "2026-09-25T12:00:00.000Z",
+            "created_by_principal_ref": "user://forged"
+        });
+        stamp_thread_creator(&mut agent, "user://alpha");
+        let thread_id = thread_id_for_agent("agent_thread_identity_one");
+        let plan_request: ThreadCreateStateUpdateRequest = serde_json::from_value(json!({
+            "schema_version": THREAD_CREATE_STATE_UPDATE_REQUEST_SCHEMA_VERSION,
+            "agent": agent,
+            "thread": {
+                "schema_version": RUNTIME_THREAD_SCHEMA_VERSION,
+                "thread_id": thread_id.clone(),
+                "agent_id": "agent_thread_identity_one",
+                "event_stream_id": format!("{thread_id}:events"),
+                "status": "active",
+                "created_at": "2026-09-25T12:00:00.000Z",
+                "updated_at": "2026-09-25T12:00:00.000Z",
+            },
+        }))
+        .expect("a well-formed thread create request");
+        let planned = RuntimeKernelService::new()
+            .plan_thread_create_state_update(&plan_request)
+            .expect("the planner admits the thread");
+        assert_eq!(planned.agent["created_by_principal_ref"], "user://alpha");
+    }
+
+    /// Cancel and delete answer only to the thread's creator; a record from before creation named its
+    /// caller answers any signed-in principal.
+    #[test]
+    fn a_thread_answers_only_to_its_creator() {
+        use super::super::substrate_store::request_identity_for_test;
+        let alpha = request_identity_for_test("user://alpha", ["org://local".to_string()]);
+        let beta = request_identity_for_test("user://beta", ["org://local".to_string()]);
+        let owned = json!({ "id": "agent_x", "created_by_principal_ref": "user://alpha" });
+        assert!(thread_creator_refusal(&owned, &alpha).is_none());
+        let refused = thread_creator_refusal(&owned, &beta).expect("another principal is refused");
+        assert_eq!(refused.status(), StatusCode::FORBIDDEN);
+        let legacy = json!({ "id": "agent_y" });
+        assert!(thread_creator_refusal(&legacy, &beta).is_none());
     }
 }
 

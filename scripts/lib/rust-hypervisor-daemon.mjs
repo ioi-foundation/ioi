@@ -70,6 +70,7 @@ export async function startRustHypervisorDaemon({ stateDir, evidence = { command
     stdio: ["ignore", "pipe", "pipe"],
   });
   let log = "";
+  let operatorSessionPromise = null;
   child.stdout.on("data", (chunk) => (log += chunk));
   child.stderr.on("data", (chunk) => (log += chunk));
   const deadline = Date.now() + 30000;
@@ -90,7 +91,8 @@ export async function startRustHypervisorDaemon({ stateDir, evidence = { command
     stateDir,
     // An operator session for governed writes (R-240: loopback is not an identity, so e.g. agent create
     // refuses an anonymous caller). The one-boot token is printed only in the daemon's own log.
-    operatorSession: async () => {
+    // The one-boot token bootstraps exactly once, so the session is minted once per daemon and shared.
+    operatorSession: () => (operatorSessionPromise ??= (async () => {
       const token = (log.match(/ioi_bootstrap_[A-Za-z0-9_-]+/gu) || []).at(-1);
       if (!token) throw new Error("the daemon printed no one-boot bootstrap token");
       const response = await fetch(`${endpoint}/v1/hypervisor/auth/bootstrap`, {
@@ -101,7 +103,7 @@ export async function startRustHypervisorDaemon({ stateDir, evidence = { command
       const reply = await response.json().catch(() => ({}));
       if (!reply.session_token) throw new Error(`operator bootstrap failed (HTTP ${response.status})`);
       return reply.session_token;
-    },
+    })()),
     close: () =>
       new Promise((resolve) => {
         if (child.exitCode !== null) return resolve();

@@ -35,17 +35,18 @@ afterEach(async () => {
   }
 });
 
-async function post(url, body) {
+async function post(url, body, headers = {}) {
   const response = await fetch(url, {
     method: "POST",
-    headers: { "content-type": "application/json" },
+    headers: { "content-type": "application/json", ...headers },
     body: JSON.stringify(body ?? {}),
   });
   return { status: response.status, body: await response.json() };
 }
 
 async function createThread() {
-  const r = await post(`${daemon.endpoint}/v1/threads`, { options: { local: { cwd: stateDir } } });
+  // Thread create is identity-first (R-240): the daemon's own operator creates the thread.
+  const r = await post(`${daemon.endpoint}/v1/threads`, { options: { local: { cwd: stateDir } } }, { authorization: `Bearer ${await daemon.operatorSession()}` });
   assert.equal(r.status, 200);
   return r.body.thread_id || r.body.id;
 }

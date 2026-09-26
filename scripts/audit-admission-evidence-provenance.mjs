@@ -459,9 +459,10 @@ const H_BASELINE = [
   "lifecycle_routes.rs::handle_secret_delete",
   "lifecycle_routes.rs::handle_secret_update_value",
   "lifecycle_routes.rs::handle_snapshot_capture",
-  "lifecycle_routes.rs::handle_thread_cancel",
-  "lifecycle_routes.rs::handle_thread_create",
-  "lifecycle_routes.rs::handle_thread_delete",
+  // "lifecycle_routes.rs::handle_thread_cancel", "…::handle_thread_create", "…::handle_thread_delete" —
+  // LEFT the baseline 2026-09-25 (R-240): the three thread routes now resolve RequestIdentity FIRST (no
+  // loopback exemption); create stamps `created_by_principal_ref` on the thread's agent record, and
+  // cancel and delete answer only to that creator. The disappearance is the intended ratchet shrink.
   "lifecycle_routes.rs::handle_workflow_edit_apply",
   "lifecycle_routes.rs::handle_workflow_edit_propose",
   // handle_backup_export LEFT this baseline on 2026-09-10, and nothing about the handler changed.
