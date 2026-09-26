@@ -93,7 +93,7 @@ export const PINNED = Object.freeze({
 // no credential), against the local daemon. Defect counts only: how many controls a page has moves
 // with the owner's data (a project card, a session row), and a pin on it would flap for no defect.
 export const SHELL_PINNED = Object.freeze({
-  shell_routes_probed: 7,
+  shell_routes_probed: 8, // ADR 0056 P1: the notification panel, opened by its bell
   shell_dead: 0,
   shell_click_failed: 0,
   shell_bad_landing: 0,
@@ -109,6 +109,9 @@ export const SHELL_TARGETS = Object.freeze([
   { key: "integrations", route: "/settings/org-integrations" },
   { key: "sessions", route: "/settings/environments" },
   { key: "account-menu", route: "/projects", menu: '[data-testid="org-switcher"]' },
+  // ADR 0056 P1: the inbox panel is a STATE the bell beside What's new opens (signed out here, so its
+  // controls are the close button and the sign-in link).
+  { key: "notifications-panel", route: "/ai", menu: "#ioi-notif-bell" },
 ]);
 
 export const CLAUSES = [

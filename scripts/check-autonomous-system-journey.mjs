@@ -89,7 +89,6 @@ export const REQUIRED_GAPS = Object.freeze({
   "limits/legs/checkpoints": "system_checkpoints_absent",
   "run/legs/run-the-system": "session_system_subject_absent",
   "run/legs/automation-installation": "automation_system_binding_absent",
-  "observe/legs/notifications-ui": "notification_inbox_ui_absent",
   "observe/legs/health": "system_health_checks_absent",
   "observe/legs/telemetry": "system_telemetry_absent",
   "observe/legs/issue-subject-system": "issue_system_subject_absent",
@@ -131,6 +130,7 @@ export const REQUIRED_COMPOSED = Object.freeze([
   "system-genesis-product-journey", "studio-journey", "cross-surface-propagation", "packages-journey", "automations-journey",
   "governance-journey", "launch-chain", "systems-work-projections", "system-record-seam", "governed-evaluation-plane",
   "improvement-governance-spine", "receipts-on-demand", "dead-controls", "named-gap-truth", "notification-inbox", "agent-studio-write-lanes",
+  "notification-panel",
 ]);
 
 const results = [];

@@ -20,7 +20,8 @@ const ACCOUNT_CHIP_JS = `(function(){var c=document.currentScript&&document.curr
 // THE RAIL CLAIMS NO UNREAD NOTIFICATIONS (R-240). Twelve certified surfaces reproduced their
 // captures' orange dots on Notifications and What's New, so every visitor was told of unread items no
 // record backs — the daemon keeps no read state by canon (ADR 0056 P1: the inbox is a projection of
-// owner events). The dots are gone; a count returns only with the inbox that can source it.
+// owner events). The dots are gone. The Notifications item opens that inbox — the shell's panel over
+// GET /v1/hypervisor/notifications at /ai#notifications — and still claims no count.
 function ioiGlobalRailHtml(active) {
   // Per-reference rail variant: each certified surface reproduces ITS reference capture's rail state
   // (View-all / star / gradient AIP / account-chip style differ across captures). Defaults
@@ -35,7 +36,7 @@ function ioiGlobalRailHtml(active) {
     <div class="og-gtop"><span class="og-gmark">◗</span><span class="og-gmenu">${bpIcon("menu-closed")}</span></div>
     ${gi("home", "Home", { href: "/ai" })}
     ${gi("search", "Search…", { kbd: "ctrl + J" })}
-    ${gi("notifications", "Notifications", {})}
+    ${gi("notifications", "Notifications", { href: "/ai#notifications" })}
     ${gi("whatsnew-gift", "What's New", {})}
     <div class="og-gdiv"></div>
     ${gi("history", "Recent", {})}

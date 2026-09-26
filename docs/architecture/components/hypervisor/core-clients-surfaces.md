@@ -4119,7 +4119,14 @@ cursors are opaque and bound to the exact filtered query and snapshot.
 
 Notifications and elapsed-time displays are projections of their owner event,
 WorkRun, AutomationRun, Session, lease, approval, or operation records; they do
-not introduce notification-event or timer truth planes. A persisted
+not introduce notification-event or timer truth planes. Implementation status
+(2026-09-26, ADR 0056 P1): the daemon serves the caller's inbox at
+`GET /v1/hypervisor/notifications`, re-derived on every read, and the shell renders
+it — a bell beside What's new opens a panel (also at `/ai#notifications`, where the
+certified rail's Notifications item lands) whose rows are exactly the inbox's items
+for the signed-in person, one link each back to the owning record; it marks
+nothing read or unread and shows no count badge, because no read state exists.
+The subscription write plane and email delivery are named absences. A persisted
 `HypervisorCanvasLayout` owns presentation geometry only and cannot mutate the
 semantics of an Ontology, workflow, System, dependency, Work, or embodied graph.
 

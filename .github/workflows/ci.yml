@@ -2008,6 +2008,14 @@ jobs:
           IOI_VERIFIER_CENSUS_DIR: .artifacts/verifier-census
         run: npm run check:notification-inbox --workspace=@ioi/hypervisor-app
 
+      # ADR 0056 P1: the inbox UI — the shell's panel over the inbox, in a browser on the verifier's own
+      # daemon and serve: rows are exactly the API's for the same person, one link each; distinct states.
+      - name: Verify against an isolated live daemon — notification-panel
+        if: ${{ !cancelled() && steps.daemon_artifact.outcome == 'success' }}
+        env:
+          IOI_VERIFIER_CENSUS_DIR: .artifacts/verifier-census
+        run: npm run check:notification-panel --workspace=@ioi/hypervisor-app
+
       # M08.9 — the Systems and Work read models: typed rows through the owners' published
       # readers, policy before search/counts/recents, nonmutation, rebuild, and the canonical
       # /work* and /systems routes rendered from them. Floor-pinned like every sibling here.

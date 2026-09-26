@@ -211,6 +211,14 @@
       "assertion_names_sha256": "17e0b42b18c8f25bc9e2979020c1bac0f30a7b9c6ee380d46bc0739a222dc022"
     },
     {
+      "id": "notification-panel",
+      "npm_script": "check:notification-panel",
+      "source": "apps/hypervisor/scripts/verify-hypervisor-notification-panel.mjs",
+      "runtime_assertions": 13,
+      "note": "New 2026-09-26 (ADR 0056 P1, the inbox UI): the shell's panel over GET /v1/hypervisor/notifications in a real browser on the verifier's own daemon and serve — the bell beside What's new opens a dialog; rows are the API's items for the same person in order, one link each to the owning record, grouped by day, with the envelope's own count; family chips filter as ?family= does; every link lands; Esc and /ai#notifications; the certified rail links to it and claims no count; phone width + dark; signed out is told to sign in; a dead daemon is said. Measured with IOI_VERIFIER_CENSUS_DIR.",
+      "assertion_names_sha256": "5eaec786a2fed66517480ea088eec4eacb9192111763037462c1858b2376949a"
+    },
+    {
       "id": "systems-work-projections",
       "npm_script": "check:systems-work-projections",
       "source": "apps/hypervisor/scripts/verify-hypervisor-systems-work-projections.mjs",
