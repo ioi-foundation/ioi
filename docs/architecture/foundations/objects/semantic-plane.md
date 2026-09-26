@@ -66,6 +66,15 @@ DomainOntologyEnvelope:
   status: draft | active | deprecated | revoked
 ```
 
+`policy_hash` is the digest of the policy set a version was admitted under.
+That is admission's fact, not the author's: when the author omits it, the
+admitting daemon stamps the digest of the admission policy it applied (the
+contract, its rule set, the owner and the governing scope), so versions admitted
+under one policy share a digest and a change to the admission rules moves it
+(R-240 ruling, 2026-09-26; a caller-supplied digest is still accepted pending
+the migration of every caller, after which the field becomes purely
+server-resolved).
+
 No Domain Ontology is presumed globally canonical. A domain may make one
 version locally canonical while other domains retain independent definitions,
 extensions, overlays, and policy-bound views. Cross-domain work must negotiate

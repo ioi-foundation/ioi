@@ -137,6 +137,38 @@ fn sha256_of(bytes: &[u8]) -> String {
     format!("sha256:{:x}", Sha256::digest(bytes))
 }
 
+/// THE POLICY SET A REVISION IS ADMITTED UNDER is a fact the admitting daemon knows and a caller does
+/// not (R-240 ruling, 2026-09-26: the estate names no other policy set, and "the policy set this
+/// revision was admitted under" is admission's to state). When a caller omits `policy_hash`, the
+/// daemon stamps the digest of the admission policy it actually applies: this contract, the rule set
+/// below, the owner and the governing scope — so revisions admitted under the same policy carry the
+/// same digest and a change to the admission rules moves it. A caller-supplied digest is still
+/// accepted as the contract has always allowed; refusing it (making the field purely server-resolved)
+/// is the follow-up once every caller omits it.
+const ADMISSION_POLICY_DOMAIN: &str = "ioi.ontology-version-admission-policy-jcs-sha256.v1";
+const ADMISSION_POLICY_RULES: &[&str] = &[
+    "identity_first_owner_qualified",
+    "coordinates_lowercase_tokens",
+    "governing_scope_scheme_closed",
+    "term_sets_bounded_and_namespaced",
+    "declares_at_least_one_term",
+    "valid_time_ordered",
+    "invariant_refs_unique",
+    "server_resolved_fields_refused",
+    "successor_states_migration",
+];
+
+fn admission_policy_hash(owner_id: &str, governing_scope_ref: &str) -> String {
+    let material = json!({
+        "domain": ADMISSION_POLICY_DOMAIN,
+        "contract": SCHEMA_VERSION,
+        "rules": ADMISSION_POLICY_RULES,
+        "owner_id": owner_id,
+        "governing_scope_ref": governing_scope_ref,
+    });
+    sha256_of(&serde_jcs::to_vec(&material).unwrap_or_default())
+}
+
 /// The exact material the registered invariant
 /// `ontology_version.content_hash.commits_semantic_content_and_valid_time` commits.
 ///
@@ -233,7 +265,8 @@ struct ProposedContent {
     namespace: String,
     name: String,
     governing_scope_ref: String,
-    policy_hash: String,
+    /// None when the caller omitted it — the daemon then stamps `admission_policy_hash`.
+    policy_hash: Option<String>,
     compatibility_profile_ref: Value,
     deprecation_policy_ref: Value,
     invariant_refs: Value,
@@ -413,11 +446,14 @@ fn validate_proposal(body: &Value) -> Result<ProposedContent, Reply> {
             "governing_scope_ref must name the scope this local meaning governs",
         ));
     }
-    let policy_hash = str_field(body, "policy_hash").to_string();
-    if !is_sha256(&policy_hash) {
+    let policy_hash = match body.get("policy_hash") {
+        None | Some(Value::Null) => None,
+        Some(_) => Some(str_field(body, "policy_hash").to_string()),
+    };
+    if policy_hash.as_deref().is_some_and(|hash| !is_sha256(hash)) {
         return Err(refuse(
             "ontology_version_policy_hash_required",
-            "policy_hash must be a sha256: digest of the policy set this revision was admitted under",
+            "policy_hash, when supplied, must be a sha256: digest of the policy set this revision was admitted under — omit it and the daemon stamps the digest of the admission policy it applies",
         ));
     }
     let compatibility_profile_ref =
@@ -1413,7 +1449,7 @@ pub(crate) async fn handle_ontology_version_admit(
         "invariant_refs": proposal.invariant_refs,
         "compatibility_profile_ref": proposal.compatibility_profile_ref,
         "deprecation_policy_ref": proposal.deprecation_policy_ref,
-        "policy_hash": proposal.policy_hash,
+        "policy_hash": proposal.policy_hash.clone().unwrap_or_else(|| admission_policy_hash(&caller.owner_ref, &proposal.governing_scope_ref)),
         "valid_time": proposal.valid_time,
         "migration": {
             "from_version_ref": predecessor_ref,
@@ -1741,7 +1777,7 @@ pub(crate) fn admit_revision_for_test(
         "invariant_refs": content.invariant_refs,
         "compatibility_profile_ref": content.compatibility_profile_ref,
         "deprecation_policy_ref": content.deprecation_policy_ref,
-        "policy_hash": content.policy_hash,
+        "policy_hash": content.policy_hash.clone().unwrap_or_else(|| admission_policy_hash(&caller.owner_ref, &content.governing_scope_ref)),
         "valid_time": content.valid_time,
         "migration": {
             "from_version_ref": predecessor_ref,
@@ -3070,6 +3106,57 @@ mod tests {
                 .1
                  .0["error"]["code"],
             "ontology_version_valid_time_not_ordered"
+        );
+    }
+
+    /// A caller that omits `policy_hash` gets the digest of the admission policy the daemon applied —
+    /// the same for the same owner and scope, different for another — and a malformed one is still
+    /// refused. A supplied digest is kept (refusing it is the follow-up).
+    #[test]
+    fn an_omitted_policy_hash_is_stamped_from_the_admission_policy() {
+        let directory = tempfile::tempdir().unwrap();
+        let data_dir = directory.path().to_str().unwrap();
+        reset_handle_for_test();
+        let mut body = proposal(
+            "acme-clinic",
+            "patient-intake",
+            &["patient"],
+            "2026-01-01T00:00:00Z",
+        );
+        body.as_object_mut().unwrap().remove("policy_hash");
+        assert!(validate_proposal(&body).unwrap().policy_hash.is_none());
+        let (document, _) = admit_revision_for_test(
+            data_dir,
+            &caller("user://one", "omitted-policy-1"),
+            &body,
+            None,
+        )
+        .expect("a revision with no policy_hash is admitted");
+        let expected = admission_policy_hash("org://acme-clinic", "domain://acme-clinic/intake");
+        assert_eq!(document["policy_hash"], json!(expected));
+        assert!(is_sha256(&expected));
+        assert_eq!(
+            admission_policy_hash("org://acme-clinic", "domain://acme-clinic/intake"),
+            expected,
+            "the same policy, the same digest"
+        );
+        assert_ne!(
+            admission_policy_hash("org://other", "domain://acme-clinic/intake"),
+            expected
+        );
+        assert_ne!(
+            admission_policy_hash("org://acme-clinic", "domain://acme-clinic/billing"),
+            expected
+        );
+
+        let mut malformed = body.clone();
+        malformed["policy_hash"] = json!("not-a-digest");
+        assert!(validate_proposal(&malformed).is_err());
+        let mut supplied = body.clone();
+        supplied["policy_hash"] = json!(format!("sha256:{}", "2b".repeat(32)));
+        assert_eq!(
+            validate_proposal(&supplied).unwrap().policy_hash.as_deref(),
+            Some(format!("sha256:{}", "2b".repeat(32)).as_str())
         );
     }
 
