@@ -1375,6 +1375,27 @@ landed. Correct every copy, or the ones left behind go on reading as evidence.
 | **Two readings made deliberately, both recorded.** "Delete" means ARCHIVE — there is no DELETE verb on a memory entry, and reading the acceptance literally would have invented one. And skills and affinities keep their direct verbs, because the unit's scope is the memory-entry and memory-mutation owners. | the verifier's nonclaims | recorded |
 | **The census caught the cut adding a production writer, and the buckets are what mattered.** `check:ontology-admission-census` went red on the writer-call population. The FAMILY writer bucket (57), family mentions (285), the non-ODK literal bucket (243) and raw filesystem calls (234) were all unchanged; only the runtime-parameter bucket moved, by exactly the two added calls, both writing a LITERAL family. Had the family bucket moved it would have meant a new admitter. Re-pinned with that reasoning beside the numbers. | `check:ontology-admission-census` 27/27 | repaired |
 
+### Journey verification CLXXVI (2026-09-25, R-240 — the done-bar is a gate, and the genesis journey it composes is green and wired)
+
+| Delta | Evidence | Disposition |
+|---|---|---|
+| **THE OWNER'S DONE-BAR IS A GATE.** `check:autonomous-system-journey` walks ONE System through the eleven steps in the UI and judges each PASS / NAMED_GAP / FAIL and every hand-off by step N's object appearing in step N+1's form; it owns its plane (sign-in on, the real wallet fixture, an operator through the first-run form), writes only through rendered forms, composes sixteen gates, ends with a restart. A named gap is never a pass: the full mode exits 2 until every gap closes. Live legs 10 (four flipped from TODO this cut: THIS walk's blueprint, ontology + source, the Designer offering that ontology, an issue naming the System — each through its owning form, read back by name); 19 gap codes across 28 legs; 7 TODO. The walk submits what a browser would and refuses an option the form does not offer. | drills 8/8; mutation 21/21; floor 8; CI (build_and_test) | built |
+| **THE GENESIS PRODUCT JOURNEY IS GREEN AND WIRED** (unwired since 2026-09-14): 37/37 on its own plane — ownership, two Systems in one read under the deadline, the workspace's policy, the dead-daemon fence, restart byte-exact, dissolution. `check:system-genesis-product-journey`, census, floor 37, an `m4_plane_verifiers` leg. | 37/37 (census 8c427d5f…) | **GREEN** |
+| **OWED.** The gate's full walk (`--no-compose`) has not been run end to end yet; the sequence-zero verifier (ACC-bound) has not been re-run under identity-first admission; the admission verifier's WALLET BINDING ATOMICITY is red solo (the restarted daemon's completer logs nothing inside the verifier's ~11 s window) and is being measured against a HEAD baseline to tell a stale expectation from a regression. | — | **OPEN** |
+
+### Journey verification CLXXV (2026-09-25, R-240 — the Systems read verified each System ~16 times)
+
+| Delta | Evidence | Disposition |
+|---|---|---|
+| **TWO SYSTEMS OUTRAN THE 90 s DEADLINE.** Measured on the journey's kept data (407 KB mux log) with local-only timings: one read, two Systems, 91 s — the verified admission 32 loads × 2.1 s, the live chain 16, policies 8, continuity 6; the Agentgres pass 49 ms of it. `read_model_memo` answers each deterministic verified loader once per key inside a read-model scope (admission, amendment source, policies, continuity); `with_exact_read_snapshot` + `project_exact_all` answer the scope's exact and family Agentgres reads from one strict pass (each exact read had been a full-log pass on the writer thread, blocking admissions). After: 8.5 s, byte-identical answers. | agentgres exact_* 13/13; snapshot + memo unit tests; System modules 85/85; journey TWO-SYSTEM `HTTP 200 in 9779 ms · rows 2` | repaired |
+
+### Journey verification CLXXIV (2026-09-25, R-240 — a System admitted through the product is its admitter's)
+
+| Delta | Evidence | Disposition |
+|---|---|---|
+| **NO SIGNED-IN PERSON COULD SEE A GENESIS-ADMITTED SYSTEM.** Admission is identity-first and stamps `admitted_by_principal_ref` + `owner_ref` (the caller's one `org://` tenant; else 403 `system_genesis_owner_tenant_unresolved`) as stored inputs both recovery paths read back and the receipt binds. | unit tests; journey OWNERSHIP; admission verifier IDENTITY (anonymous 401, zero mutation) | repaired |
+| **VERIFIER TRAPS, ONE ROOT EACH.** The scheduler rewrites its heartbeat every 15 s — whole-data-dir zero-mutation comparators that span a wallet round trip flaked on it (the journey's GOVERNANCE PREVIEW; the admission verifier's COMPILER/AUTHORITY/BOUNDARY reds); excluded by name. The journey's MOUNT and UNAVAILABLE claims predated ADR 0056 and the R-240 internal-surface fence — restated. A refused workspace page carried the System's identity marker — now only an admitted System's page does. | journey 37/37; admission verifier (solo, same binary) 33/34 | repaired |
+
 ### Journey verification CLXXIII (2026-09-25, R-240 — agent create is identity-first and names its creator)
 
 | Delta | Evidence | Disposition |
