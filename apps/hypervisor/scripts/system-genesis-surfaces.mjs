@@ -862,14 +862,17 @@ async function renderSystemWorkspace(daemonUrl, shell, parsed) {
   const modeLabel = (WORKSPACE_MODES.find(([m]) => m === mode) || ["", "Overview"])[1];
   const tabs = `<nav class="tabs" aria-label="System modes">${WORKSPACE_MODES.map(([m, label]) =>
     `<a class="tab${m === mode ? " active" : ""}" href="${esc(modeHref(tailPath, m))}">${esc(label)}</a>`).join("")}</nav>`;
-  const head = `<p class="sub" style="margin:0 0 4px"><a href="/systems">← All Systems</a></p>
+  // The workspace marks a page as THIS System's only once the gate below has admitted the System to
+  // the caller's inventory; before that, the address the caller asked for is shown as just that.
+  const headFor = (admitted) => `<p class="sub" style="margin:0 0 4px"><a href="/systems">← All Systems</a></p>
   <h1 data-system-workspace-mode="${esc(mode || "overview")}">System · ${esc(modeLabel)}</h1>
-  <p class="sub"><code data-system-workspace-id="${esc(systemId)}">${esc(systemId)}</code></p>${tabs}${NONCLAIMS_BANNER}`;
+  <p class="sub">${admitted ? `<code data-system-workspace-id="${esc(systemId)}">${esc(systemId)}</code>` : `requested <code data-system-requested="1">${esc(systemId)}</code>`}</p>${tabs}${NONCLAIMS_BANNER}`;
+  const refusedHead = headFor(false);
   const title = `${modeLabel} · ${systemId}`;
   // THE GATE — the filtered projection, as the caller.
   const gate = await fetchCensus(daemonUrl, "compact", systemId);
   if (gate.networkError) {
-    return shell(title, head + stateBlock("unavailable_or_degraded", "daemon_unreachable", `<div class="empty">The daemon did not answer (<code>${esc(gate.networkError)}</code>) — no System facts are shown, and none are substituted.</div>`));
+    return shell(title, refusedHead + stateBlock("unavailable_or_degraded", "daemon_unreachable", `<div class="empty">The daemon did not answer (<code>${esc(gate.networkError)}</code>) — no System facts are shown, and none are substituted.</div>`));
   }
   const body = gate.body || {};
   let row = null;
@@ -878,11 +881,12 @@ async function renderSystemWorkspace(daemonUrl, shell, parsed) {
   const visibleNotLive = code === "system_lifecycle_not_found";
   if (!row && !visibleNotLive) {
     if (gate.status === 200) {
-      return shell(title, head + stateBlock("honest_empty", "system_not_in_inventory", `<div class="empty" data-system-not-in-inventory="1">No System <code>${esc(systemId)}</code> is in your inventory. Either it does not exist or it is not yours to see; the projection filters by who you are before it builds a row, so this page reads nothing more.</div>`));
+      return shell(title, refusedHead + stateBlock("honest_empty", "system_not_in_inventory", `<div class="empty" data-system-not-in-inventory="1">No System <code>${esc(systemId)}</code> is in your inventory. Either it does not exist or it is not yours to see; the projection filters by who you are before it builds a row, so this page reads nothing more.</div>`));
     }
     const signIn = code === "request_principal_required" ? ` <a href="/__ioi/login?next=${esc(encodeURIComponent(modeHref(tailPath, mode)))}" target="_top">Sign in</a> to see your Systems.` : "";
-    return shell(title, head + stateBlock(stateForErrorCode(code), code, `<div class="empty">The Systems projection refused this read — <code>${esc(code)}</code>: ${esc(refusalMessageOf(body))}.${signIn}</div>`));
+    return shell(title, refusedHead + stateBlock(stateForErrorCode(code), code, `<div class="empty">The Systems projection refused this read — <code>${esc(code)}</code>: ${esc(refusalMessageOf(body))}.${signIn}</div>`));
   }
+  const head = headFor(true);
   const tail = row?.source_record_tail || systemRecordTail(systemId);
   const pending = visibleNotLive
     ? stateBlock("loading_or_pending", code, `<div class="empty">This System is visible to you but has no live chain yet (<code>${esc(code)}</code>) — the lifecycle ladder below shows how far genesis has come.</div>`)
