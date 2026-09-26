@@ -159,8 +159,9 @@
       "id": "ontology-journey",
       "npm_script": "check:ontology-journey",
       "source": "apps/hypervisor/scripts/verify-hypervisor-ontology-journey.mjs",
-      "runtime_assertions": 56,
-      "assertion_names_sha256": "b6fbaf5306d3642c33cd69e52934e4d82c1bfbce9c79d2f88e8b1bcf8c64ccef"
+      "runtime_assertions": 57,
+      "note": "2026-09-26 (R-240): 56 -> 57 — the History rail item opens the ontology's own change list (it landed on the configuration section with a count); the new assertion matches every revision the daemon's history route answers, newest first. Measured with IOI_VERIFIER_CENSUS_DIR and CI's IOI_PRODUCT_SIGNIN_REQUIRED=0.",
+      "assertion_names_sha256": "a09559fd600426125b33bda0cc89a3b4ea7c321ccd8b729f025129a2c4b0612a"
     },
     {
       "id": "operational-depth",

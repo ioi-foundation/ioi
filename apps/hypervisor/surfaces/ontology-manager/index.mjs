@@ -337,7 +337,7 @@ function renderOntologyManagerPort(ov, lists, selectedId, opts) {
   // context). The bare route — no section, no definition, no create, no q — renders exactly the
   // certified shell (the inspector aside + authoring appear ONLY under explicit context, in the
   // excluded body region). An unknown section fails closed to discover with a visible note.
-  const KNOWN_SECTIONS = ["discover", "object-types", "properties", "value-types", "link-types", "action-types", "functions", "health", "resources", "configuration", "create", "proposals"];
+  const KNOWN_SECTIONS = ["discover", "object-types", "properties", "value-types", "link-types", "action-types", "functions", "health", "resources", "configuration", "create", "proposals", "history"];
   const rawSection = sel.section || "";
   const section = rawSection && KNOWN_SECTIONS.includes(rawSection) ? rawSection : (rawSection ? "discover" : "");
   const badSection = !!(rawSection && !KNOWN_SECTIONS.includes(rawSection));
@@ -424,7 +424,7 @@ function renderOntologyManagerPort(ov, lists, selectedId, opts) {
   const appRail = `<nav class="og-arail" aria-label="Ontology Manager">
     ${arailItem("compass", "Discover", null, sHref("discover"), { on: true })}
     ${arailItem("people", "Proposals", proposalCount, sHref("proposals"))}
-    ${arailItem("time", "History", null, sHref("configuration"))}
+    ${arailItem("time", "History", selected && Array.isArray(selected.history) ? selected.history.length : null, sHref("history"))}
     <div class="og-adiv"></div>
     <div class="og-asec">Resources</div>
     ${arailItem("cube", "Object types", ots.length, sHref("object-types"), { sub: true })}
@@ -734,7 +734,31 @@ function renderOntologyManagerPort(ov, lists, selectedId, opts) {
         ${ihint("Applying and withdrawing a proposal are daemon contracts (POST /v1/hypervisor/odk/ontology-proposals/:id/apply and /withdraw) with no surface control bound yet — a named gap.")}
       </div></div>`
     : "";
-  const aside = proposalsPane || createPane || (def ? inspectorFor() : "");
+  // THE HISTORY RAIL ITEM LANDED ON CONFIGURATION (R-240): the reference's Ontology history lists the
+  // ontology's changes, grouped by when they were saved, each with what changed; ours linked to the
+  // configuration section, which showed only a count. It now lists the daemon's own history for the
+  // selected ontology — every create and patch as a revision, its summary and its receipt, newest
+  // first — and names what the reference groups there that this plane has not built: published
+  // revisions (M05.1, which await the policy-set ruling) and branch merges (branching is a named gap).
+  const historyEntries = selected && Array.isArray(selected.history) ? [...selected.history].sort((a, b) => String(b.at || "").localeCompare(String(a.at || ""))) : null;
+  const historyDay = (iso) => { const d = new Date(iso); return isNaN(d) ? "Undated" : d.toISOString().slice(0, 10); };
+  const historyPane = section === "history"
+    ? `<div class="og-inspector" data-testid="og-inspector" data-og-history="1"><div class="og-ihd"><b>Ontology history</b><span class="og-ikind">${historyEntries === null ? "no ontology selected" : `${historyEntries.length} change${historyEntries.length === 1 ? "" : "s"}`}</span></div><div class="og-ibody">
+        ${historyEntries === null
+          ? ihint("Select an ontology to read its history.")
+          : (historyEntries.length
+            ? historyEntries.reduce((acc, h) => {
+                const day = historyDay(h.at);
+                const head = day !== acc.day ? `<div class="og-histday">${esc(day)}</div>` : "";
+                acc.day = day;
+                acc.html += `${head}<div class="og-histitem" data-og-history-revision="${esc(String(h.revision ?? ""))}"><b>r${esc(String(h.revision ?? ""))} · ${esc(String(h.op || ""))}</b> ${esc(String(h.summary || ""))}<div class="og-propmeta">${esc(String(h.at || ""))}${h.receipt_ref ? ` · receipt <code>${esc(String(h.receipt_ref))}</code>` : ""}</div></div>`;
+                return acc;
+              }, { day: null, html: "" }).html
+            : ihint("No history recorded for this ontology."))}
+        ${ihint("The daemon keeps the last 20 changes per ontology. Published ontology revisions (M05.1) and branch merges are not listed here yet: publishing awaits the policy-set ruling, and branching is a named gap.")}
+      </div></div>`
+    : "";
+  const aside = historyPane || proposalsPane || createPane || (def ? inspectorFor() : "");
 
   // Result banner (#ap-result — the runtime's redirect anchor). Renders only after an action.
   const bn = O.banner || {};
@@ -863,6 +887,8 @@ function renderOntologyManagerPort(ov, lists, selectedId, opts) {
     .og-ihd{display:flex;align-items:center;gap:8px;padding:12px 14px 10px;border-bottom:1px solid #eef0f2}
     .og-ihd b{font-size:14px;color:#1c2127}.og-ikind{font-size:11px;color:#5f6b7c;text-transform:uppercase;letter-spacing:.4px}
     .og-ibody{padding:12px 14px;font-size:12px}
+    .og-histday{margin:12px 0 4px;font-size:11px;text-transform:uppercase;letter-spacing:.06em;color:#5f6b7c}
+    .og-histitem{padding:6px 0;border-top:1px solid #e5e8eb;overflow-wrap:anywhere}
     .ioi-sem-breadcrumb{font-size:12px;color:#5f6b7c;margin:0 0 12px}span.ioi-sem-crumb{color:#1c2127}
     .og-irow{display:flex;gap:10px;font-size:12px;line-height:15.4297px;padding:0 0 8px}
     .og-ik{color:#5f6b7c;width:118px;flex:0 0 118px}.og-iv{color:#1c2127;min-width:0;word-break:break-word}

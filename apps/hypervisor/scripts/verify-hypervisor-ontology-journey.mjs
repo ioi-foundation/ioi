@@ -356,6 +356,18 @@ async function run() {
   ok("a proposal naming NO change is refused typed — an empty proposal proposes nothing, and the control says so before the daemon has to",
     emptyProp.q.get("refused") === "ontology_proposal_change_required", emptyProp.q.get("refused") || "not refused");
 
+  // ---- (3b) ONTOLOGY HISTORY — the rail item lands on the ontology's own change list. It landed on
+  // the configuration section and showed a count (R-240); the reference lists the changes.
+  const historyPage = await pageAs(`/__ioi/ontology/manager?ontology=${encodeURIComponent(ontId)}&section=history`);
+  const historyTruth = await jd(`/v1/hypervisor/odk/domain-ontologies/${encodeURIComponent(ontId)}/history`, { method: "GET" });
+  const truthRevisions = (historyTruth.body?.history ?? []).map((h) => String(h.revision)).sort((a, b) => Number(b) - Number(a));
+  const shownRevisions = [...historyPage.text.matchAll(/data-og-history-revision="([^"]*)"/gu)].map((m) => m[1]);
+  const railHistory = (proposalsPage.text.match(/<a class="og-nav[^"]*" href="([^"]+)">(?:(?!<\/a>).)*History/su) || [])[1] || "";
+  ok("the manager's History rail item opens the ontology's own change list — every revision the daemon's history route answers, newest first, each with its receipt",
+    historyPage.status === 200 && historyPage.text.includes('data-og-history="1"') && shownRevisions.length >= 2
+      && JSON.stringify(shownRevisions) === JSON.stringify(truthRevisions) && railHistory.includes("section=history"),
+    `shown ${shownRevisions.join(",")} · daemon ${truthRevisions.join(",")} · rail ${railHistory.slice(0, 80)}`);
+
   // -- identity gate (W1.1/G-2 finding CLOSED): anonymous authoring refuses typed ----
   // Rule E — the refusal is owed BEFORE any record load: the serve action lane without a
   // session and a direct daemon write without identity both answer the typed
