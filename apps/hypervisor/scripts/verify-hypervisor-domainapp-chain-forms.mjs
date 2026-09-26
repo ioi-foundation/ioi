@@ -294,7 +294,30 @@ async function run() {
     !!ks && tripped.status === 302 && enforced.status === 302 && ksAfter?.state === "tripped" && ksAfter?.enforcement_state === "enforced" && afterKill?.serving !== true,
     `${said(ksCreated)} · ${said(tripped)} · ${said(enforced)} · state ${ksAfter?.state ?? "—"} · enforcement ${ksAfter?.enforcement_state ?? "none"} · runtime serving ${afterKill?.serving}`);
 
-  // ---- 9. an anonymous create is refused by name and creates nothing -----------------------------
+  // ---- 9. the app is offered as a Marketplace subject, and a descriptor can be withdrawn ----------
+  // The listing form's subjects read DomainApps under their v1 name, so no v2 app was ever listable;
+  // and the ODK delete sent a descriptor's withdrawal neither the head it succeeds nor a key.
+  const listingRoute = "/__ioi/marketplace/listings/new";
+  const subjects = renderedForm((await page(listingRoute)).text, "/__ioi/marketplace/listings")?.options?.subject_ref ?? new Set();
+  const listed = await submit(listingRoute, "/__ioi/marketplace/listings", { name: `${tag} lending listing`, listing_kind: "domain_app", subject_ref: dref });
+  const listing = ((await daemonRead("/v1/hypervisor/marketplace/listings")).body?.listings ?? []).find((l) => l.subject_ref === dref);
+  ok("the Marketplace listing form OFFERS the app as a Domain Apps Store subject, and a draft listing for it is created",
+    subjects.has(dref) && [302, 303].includes(listed.status) && !!listing && listing.listing_kind === "domain_app",
+    `offered ${subjects.has(dref)} · ${said(listed)} · listing ${listing?.id || "none"}`);
+  const spare = await submit(studioRoute, "/__ioi/studio/workbench/actions/create-descriptor", {
+    display_name: `${tag} spare surface`, surface_ref: `surface://${tag}/spare`, composition_pattern: "list_detail", ontology_refs: revisionRef,
+    canonical_object_model_refs: `object-model://${tag}/lending/loan`, policy_bound_data_view_refs: `view://${tag}/lending/reviewer`, authority_requirement_refs: "scope:lending.review",
+    daemon_api_refs: "api://v1/hypervisor/odk", receipt_obligations: `receipt://${tag}/lending/decision`, conformance_profile_refs: `profile://${tag}/lending/v1`,
+  });
+  const spareId = spare.q?.get("record") || "";
+  const withdrawn = spareId ? await submit(`/__ioi/odk/surface-descriptors/${spareId}`, `/__ioi/odk/surface-descriptors/${spareId}/delete`, {}) : { error: "no spare descriptor" };
+  const spareAfter = spareId ? (await daemonRead(`/v1/hypervisor/odk/surface-descriptors/${spareId}`)).body?.surface_descriptor : null;
+  const stillListed = ((await daemonRead("/v1/hypervisor/odk/surface-descriptors")).body?.surface_descriptors ?? []).some((d) => d.surface_descriptor_id === `surface-descriptor://${spareId}`);
+  ok("the ODK Delete form withdraws a surface descriptor — the withdrawal names the head it succeeds and a key — and it leaves the list",
+    withdrawn.status === 302 && withdrawn.location === "/__ioi/odk" && spareAfter?.status === "revoked" && !stillListed,
+    `${said(withdrawn)} · status ${spareAfter?.status ?? "—"} · still listed ${stillListed}`);
+
+  // ---- 10. an anonymous create is refused by name and creates nothing ----------------------------
   // The form a signed-in page rendered, posted with no session — a tab left open after sign-out. (A
   // signed-out page renders no descriptor to pick, which proves nothing about the server.)
   const before = ((await daemonRead("/v1/hypervisor/domain-apps")).body?.domain_apps ?? []).length;

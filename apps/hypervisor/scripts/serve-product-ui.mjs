@@ -7146,7 +7146,8 @@ async function marketplaceSubjectOptions() {
   ]);
   const opts = [];
   for (const a of (Array.isArray(ag) ? ag : [])) opts.push({ kind: "agent", v: a.id, l: `${(a.id || "").slice(0, 20)} · ${a.model_id || a.modelId || "agent"}` });
-  for (const d of ((da && da.domain_apps) || [])) opts.push({ kind: "domain_app", v: d.domain_app_ref, l: d.name || d.domain_app_id });
+  // v2 apps carry their ref as `domain_app_id`; read through the view or every v2 app is dropped (R-240).
+  for (const d of domainAppViews(da && da.domain_apps)) if (d.domain_app_ref) opts.push({ kind: "domain_app", v: d.domain_app_ref, l: d.name || d.domain_app_id });
   // v2 manifest rows are envelopes — read the record, or every ODK pack rendered as a blank, selected option.
   for (const m of ((man && man.manifests) || []).map(odkManifestView)) opts.push({ kind: "ontology_pack", v: m.ref, l: m.name || m.id });
   for (const r of ((rec && rec.data_recipes) || [])) opts.push({ kind: "data_recipe", v: r.ref, l: r.name || r.id });
@@ -14747,7 +14748,7 @@ async function handleEstateRequest(req, res, body) {
         policy_views: pv.policy_bound_data_views || [],
         projections: op.ontology_projections || [],
         materialized_sets: ms.materialized_object_sets || [],
-        domain_apps: da.domain_apps || da.apps || [],
+        domain_apps: domainAppViews(da.domain_apps || da.apps),
         // Only the blueprints this editor wrote are diagrams; other blueprints keep their Studio lane.
         diagrams: (bps.blueprints || []).filter((b) => b && b.graph && b.graph.schema === "ioi.studio.solution-diagram.v1"),
       }, selectedOntology, openState));
@@ -15100,8 +15101,17 @@ async function handleEstateRequest(req, res, body) {
             return;
           }
           if (seg2 === "delete" && req.method === "POST") {
+            // A descriptor's withdrawal is a successor mutation: it names the head it succeeds and an
+            // idempotency key, as headers. The lane sent neither, so every descriptor delete was refused
+            // (R-240). Keyed on the head read now, so a double-submit replays one withdrawal.
+            let deleteHeaders = {};
+            if (family === "surface-descriptors") {
+              const cur = await daemonFetch(`${api}/${encodeURIComponent(id)}`).then((x) => x.json()).catch(() => ({}));
+              const head = String((cur && cur.admitted_head) || "");
+              deleteHeaders = { "x-ioi-idempotency-key": `odk-sd-delete:${crypto.createHash("sha256").update(JSON.stringify([id, head])).digest("hex").slice(0, 32)}`, ...(head ? { "x-ioi-expected-head": head } : {}) };
+            }
             // A refused delete must not land on the landing page as though the record were gone.
-            const dr = await daemonFetch(`${api}/${encodeURIComponent(id)}`, { method: "DELETE" }).then(async (x) => ({ status: x.status, j: await x.json().catch(() => ({})) })).catch(() => ({ status: 0, j: {} }));
+            const dr = await daemonFetch(`${api}/${encodeURIComponent(id)}`, { method: "DELETE", headers: deleteHeaders }).then(async (x) => ({ status: x.status, j: await x.json().catch(() => ({})) })).catch(() => ({ status: 0, j: {} }));
             if (dr.status >= 200 && dr.status < 300 && dr.j.ok !== false) { res.writeHead(302, { Location: "/__ioi/odk", "Cache-Control": "no-cache" }); return res.end(); }
             const why = (dr.j.error && dr.j.error.message) || dr.j.message || (dr.status ? `HTTP ${dr.status}` : "the daemon did not answer");
             res.writeHead(200, HTMLH);
