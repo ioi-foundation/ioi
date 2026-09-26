@@ -77,6 +77,28 @@ const FORWARDED_AUTH_HEADERS: &[&str] = &[
     "x-ioi-internal-owner-ref",
 ];
 
+/// A command step's outcome from the exec route's answer. `call()` returns every JSON answer —
+/// a 4xx/5xx refusal included — so an answer with no exit code did not run the command: it is a
+/// failure carrying that answer, never a pass (R-240: `unwrap_or(0)` read every refusal as exit 0).
+fn command_step_outcome(cmd: &str, answer: Value) -> (&'static str, Value) {
+    let out = answer
+        .get("stdout")
+        .or_else(|| answer.get("output"))
+        .and_then(|v| v.as_str())
+        .unwrap_or("")
+        .to_string();
+    match answer.get("exit_code").and_then(|v| v.as_i64()) {
+        Some(code) => (
+            if code == 0 { "done" } else { "failed" },
+            json!({ "command": cmd, "exit_code": code, "stdout_excerpt": out.chars().take(400).collect::<String>() }),
+        ),
+        None => (
+            "failed",
+            json!({ "command": cmd, "exit_code": Value::Null, "error": "the exec route answered without an exit code — the command did not run", "answer": answer }),
+        ),
+    }
+}
+
 async fn call(
     base: &str,
     method: &str,
@@ -1730,19 +1752,7 @@ pub(crate) async fn handle_automation_start(
                 )
                 .await
                 {
-                    Ok(r) => {
-                        let out = r
-                            .get("stdout")
-                            .or_else(|| r.get("output"))
-                            .and_then(|v| v.as_str())
-                            .unwrap_or("")
-                            .to_string();
-                        let code = r.get("exit_code").and_then(|v| v.as_i64()).unwrap_or(0);
-                        (
-                            if code == 0 { "done" } else { "failed" },
-                            json!({ "command": cmd, "exit_code": code, "stdout_excerpt": out.chars().take(400).collect::<String>() }),
-                        )
-                    }
+                    Ok(r) => command_step_outcome(cmd, r),
                     Err(e) => ("failed", json!({ "command": cmd, "error": e })),
                 }
             }
@@ -2984,5 +2994,36 @@ mod webhook_rotation_durability_tests {
             json!("time")
         );
         assert!(token_opens_trigger(data_dir, ID, NEW_TOKEN));
+    }
+}
+
+#[cfg(test)]
+mod command_step_tests {
+    use super::*;
+
+    #[test]
+    fn a_refusal_without_an_exit_code_is_a_failed_step_never_a_pass() {
+        let (status, output) = command_step_outcome(
+            "echo hi",
+            json!({ "error": { "message": "environment_not_running" } }),
+        );
+        assert_eq!(status, "failed");
+        assert_eq!(output["exit_code"], Value::Null);
+        assert_eq!(
+            output["answer"]["error"]["message"],
+            "environment_not_running"
+        );
+        assert_eq!(
+            command_step_outcome("echo hi", json!({ "exit_code": 0, "stdout": "hi" })).0,
+            "done"
+        );
+        assert_eq!(
+            command_step_outcome("false", json!({ "exit_code": 1 })).0,
+            "failed"
+        );
+        assert_eq!(
+            command_step_outcome("blocked", json!({ "exit_code": 126 })).0,
+            "failed"
+        );
     }
 }
