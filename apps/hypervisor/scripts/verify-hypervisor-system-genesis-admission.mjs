@@ -1405,8 +1405,15 @@ async function runBindingRevocationAfterPrepare(resolver) {
       "GET",
       `${ROUTE}?system_id=${encodeURIComponent(SYSTEM_ID)}`,
     );
+    // The restarted daemon's boot-time completer logs the refusal only once the wallet chain has
+    // REJECTED the consume transaction (principal_authority_binding_coordinates_stale), and on a debug
+    // chain one block cycle outlasts the 10 s this poll used to allow (written 2026-07-19, before the
+    // wallet budgets and the Solo default slowed inclusion). The same 90 s the wallet-replay scenario
+    // gives pollJson; the expected strings are unchanged (diagnosed 2026-09-26: a stale window, not a
+    // daemon defect — the same red on HEAD's own binary).
     let restartLogs = "";
-    for (let attempt = 0; attempt < 20; attempt += 1) {
+    const logDeadline = Date.now() + 90_000;
+    while (Date.now() < logDeadline) {
       restartLogs = readdirSync(dataDir)
         .filter((name) => name.startsWith("isolated-daemon-restart-"))
         .map((name) => readFileSync(join(dataDir, name), "utf8"))
