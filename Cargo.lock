@@ -7110,6 +7110,7 @@ dependencies = [
  "parking_lot",
  "rand 0.8.5",
  "rcgen 0.13.2",
+ "regex",
  "reqwest 0.11.27",
  "rpassword",
  "rust-embed",

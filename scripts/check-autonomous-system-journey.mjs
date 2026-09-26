@@ -86,7 +86,6 @@ export const REQUIRED_GAPS = Object.freeze({
   "design/legs/design-bound-to-system": "blueprint_system_ref_absent",
   "data/legs/attach-to-system": "system_data_attachment_absent",
   "limits/legs/limits": "system_limits_authority_node_absent",
-  "limits/legs/checkpoints": "system_checkpoints_absent",
   "run/legs/run-the-system": "session_system_subject_absent",
   "run/legs/automation-installation": "automation_system_binding_absent",
   "observe/legs/telemetry": "system_telemetry_absent",
@@ -121,6 +120,8 @@ export const REQUIRED_LIVE = Object.freeze([
   "observe/legs/walk-health",
   "run/legs/walk-automation",
   "run/handoff/walk-run-in-work",
+  "limits/legs/walk-checkpoint",
+  "limits/handoff/walk-checkpoint-gates-run",
   "observe/handoff/walk-observed-to-receipts",
   "evaluate/legs/walk-suite",
   "release/legs/walk-package",
@@ -720,6 +721,16 @@ async function liveLeg() {
       designerPage.status === 200 && designerPage.text.includes(ontologyName),
       `designer ${designerPage.status} · offers ${ontologyName} ${designerPage.text.includes(ontologyName)}`);
     // ==== STEP 4 — LIMITS ==========================================================================
+    // THIS walk's checkpoint (ADR 0056 P5), from Leases & Limits' Configuration form: a person's Run now
+    // needs a written justification naming the walk. The run step below must then pass it.
+    const checkpointName = `checkpoint-${vars.tag}`;
+    const limitsRoute = "/governance/limits?tab=checkpoints&view=configuration";
+    const configuredCheckpoint = outcomeOf(await submitRenderedForm(ctx, { id: "checkpoint", page: await page(ctx, limitsRoute), from: limitsRoute, action: "/__ioi/governance/limits/checkpoints/new",
+      fields: { display_name: checkpointName, interaction_kinds: "automation.run_now", prompt_title: "Why run this now?", prompt_body: "Say why this automation runs by hand.", justification_kind: "response", response_pattern: `^walk ${vars.tag}` } }));
+    const checkpointList = await page(ctx, limitsRoute);
+    claimLive("limits/legs/walk-checkpoint",
+      configuredCheckpoint.status === 303 && configuredCheckpoint.q.get("ok") === "1" && checkpointList.status === 200 && checkpointList.text.includes(checkpointName) && checkpointList.text.includes('data-limits-enablement="enabled"'),
+      `configure ${configuredCheckpoint.status} ${configuredCheckpoint.q.get("note") || ""} · listed ${checkpointList.text.includes(checkpointName)}`);
     await probesOf("limits");
     todo("limits/handoff/lease-gates-connection-picker");
     // ==== STEP 5 — RUN =============================================================================
@@ -739,13 +750,27 @@ async function liveLeg() {
     // HAND-OFF 5 → 6: THIS walk's run. Run now on the automation's own page; the automation's run
     // history names the canonical run it admitted, and Work lists that run by its own ref.
     const automationIdOfWalk = (automationAt.match(/auto_[0-9a-f]+/u) || [])[0] || "";
-    const ranNow = automationIdOfWalk
-      ? await submitRenderedForm(ctx, { id: "run-now", page: await page(ctx, automationAt), from: automationAt, action: `/__ioi/automations/${automationIdOfWalk}/run`, fields: {} })
-      : { status: 0, headers: {} };
+    const runAction = `/__ioi/automations/${automationIdOfWalk}/run`;
+    const promptedRun = automationIdOfWalk
+      ? await submitRenderedForm(ctx, { id: "run-now", page: await page(ctx, automationAt), from: automationAt, action: runAction, fields: {} })
+      : { status: 0, headers: {}, text: "" };
+    // HAND-OFF 4 → 5: THIS walk's checkpoint pauses its Run now behind the prompt; the prompt's own form
+    // answers it, and only then does the run happen.
+    const paused = promptedRun.status === 200 && String(promptedRun.text || "").includes('data-justification-prompt="1"') && String(promptedRun.text || "").includes("Why run this now?");
+    const ranNow = paused
+      ? await submitRenderedForm(ctx, { id: "run-now-justified", page: promptedRun, from: `${automationAt} → prompt`, action: runAction, fields: { justify__0__text: `walk ${vars.tag} — the done-bar walk runs its automation` } })
+      : promptedRun;
     const runHistory = automationIdOfWalk ? await page(ctx, automationAt) : { text: "" };
     const walkRunRef = unesc((runHistory.text.match(/data-canonical-run="(automation-run:\/\/[^"]+)"/u) || [])[1] || "");
     const workHistory = await page(ctx, "/work/history");
     const workRowAt = walkRunRef ? workHistory.text.indexOf(`data-ioi-work-row="${walkRunRef}"`) : -1;
+    const walkRecords = ((await read(ctx, "/v1/hypervisor/justification-records?kind=automation.run_now")).json || {}).justification_records || [];
+    const walkRecord = walkRecords.find((r) => (r.checkpointed_item_refs || []).includes(`automation://${automationIdOfWalk}`)) || null;
+    const reviewPage = await page(ctx, "/governance/limits?tab=checkpoints&view=review");
+    claimLive("limits/handoff/walk-checkpoint-gates-run",
+      paused && [302, 303].includes(ranNow.status) && !!walkRecord && walkRecord.justification?.text?.startsWith(`walk ${vars.tag}`)
+        && reviewPage.status === 200 && reviewPage.text.includes(`data-limits-record="${walkRecord.record_id}"`),
+      `prompted ${paused} · justified run ${ranNow.status} · record ${walkRecord?.record_id || "none"} · Review lists it ${walkRecord ? reviewPage.text.includes(walkRecord.record_id) : false}`);
     claimLive("run/handoff/walk-run-in-work",
       [302, 303].includes(ranNow.status) && !!walkRunRef && workHistory.status === 200 && workRowAt >= 0,
       `run now ${ranNow.status} · run ${walkRunRef || "none named on the automation's history"} · /work/history ${workHistory.status} row ${workRowAt >= 0}`);

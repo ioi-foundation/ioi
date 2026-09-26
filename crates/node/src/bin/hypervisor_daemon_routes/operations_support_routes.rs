@@ -96,7 +96,34 @@ pub(crate) async fn handle_incident_create(
         Ok(actor_ref) => actor_ref,
         Err((status, value)) => return (status, Json(value)),
     };
-    file_incident(&st.data_dir, &caller, &reported_by, &body)
+    // ADR 0056 P5 — a person filing an issue passes the justification checkpoints that apply to it
+    // (the items are what the issue affects). Another plane filing through `file_incident` is not a
+    // person filing and is not prompted.
+    let items: Vec<String> = body
+        .get("affected_object_refs")
+        .and_then(Value::as_array)
+        .map(|refs| {
+            refs.iter()
+                .filter_map(Value::as_str)
+                .map(str::to_owned)
+                .collect()
+        })
+        .unwrap_or_default();
+    let justification_record_refs = match super::justification_checkpoint_routes::checkpoint_gate(
+        &st,
+        &headers,
+        "support_incident.file",
+        &items,
+        &body,
+    ) {
+        Ok(refs) => refs,
+        Err(prompt) => return prompt,
+    };
+    let (status, Json(mut reply)) = file_incident(&st.data_dir, &caller, &reported_by, &body);
+    if !justification_record_refs.is_empty() {
+        reply["justification_record_refs"] = json!(justification_record_refs);
+    }
+    (status, Json(reply))
 }
 
 /// Link an incident for an ALREADY-authenticated caller and reporter — the route above after its

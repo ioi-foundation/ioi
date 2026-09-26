@@ -122,6 +122,8 @@ mod institutional_learning_boundary_routes;
 mod ioi_intelligence_routes;
 #[path = "hypervisor_daemon_routes/jurisdiction_routes.rs"]
 mod jurisdiction_routes;
+#[path = "hypervisor_daemon_routes/justification_checkpoint_routes.rs"]
+mod justification_checkpoint_routes;
 #[path = "hypervisor_daemon_routes/k8s_candidate_source.rs"]
 mod k8s_candidate_source;
 #[path = "hypervisor_daemon_routes/lambda_candidate_source.rs"]
@@ -1752,6 +1754,26 @@ async fn async_main() -> anyhow::Result<()> {
         .route(
             "/v1/hypervisor/health-check-results",
             get(health_check_routes::handle_health_check_result_list),
+        )
+        // ADR 0056 P5 — Governance / Leases & Limits checkpoints. A checkpoint adds a justification
+        // obligation in front of a gated interaction and grants nothing; a record is the immutable
+        // answer, admitted before the interaction runs.
+        .route(
+            "/v1/hypervisor/justification-checkpoints",
+            post(justification_checkpoint_routes::handle_checkpoint_create)
+                .get(justification_checkpoint_routes::handle_checkpoint_list),
+        )
+        .route(
+            "/v1/hypervisor/justification-checkpoints/:id",
+            get(justification_checkpoint_routes::handle_checkpoint_get),
+        )
+        .route(
+            "/v1/hypervisor/justification-checkpoints/:id/enablement",
+            post(justification_checkpoint_routes::handle_checkpoint_enablement),
+        )
+        .route(
+            "/v1/hypervisor/justification-records",
+            get(justification_checkpoint_routes::handle_record_list),
         )
         .route(
             "/v1/hypervisor/backups/:id/restore-plans",

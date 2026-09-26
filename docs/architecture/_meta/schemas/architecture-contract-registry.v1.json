@@ -21715,6 +21715,92 @@
           "expected_failure": "schema"
         }
       ]
+    },
+    {
+      "contract_id": "schema://ioi/components/hypervisor/justification-checkpoint/v1",
+      "canonical_name": "JustificationCheckpoint",
+      "canonical_owner_ref": "canon://docs/architecture/components/hypervisor/identity-access-and-metering.md#justification-checkpoints",
+      "schema_version": "ioi.hypervisor.justification_checkpoint.v1",
+      "maturity": "partial",
+      "stability": "provisional",
+      "wire_format": "json",
+      "canonical_encoding_profile_ref": null,
+      "evolution": {
+        "successor_of": null,
+        "successor_contract_id": null,
+        "compatibility": "initial",
+        "migration_policy": "none",
+        "predecessor_remains_valid": false,
+        "wire_mutation_policy": "forbidden",
+        "hash_impact": "none"
+      },
+      "schema_ref": "justification-checkpoint.v1.schema.json",
+      "cross_field_invariant_refs": [],
+      "compatibility_aliases": [],
+      "generated_targets": [
+        {
+          "kind": "typescript_projection",
+          "path": "packages/hypervisor-workbench/src/runtime/generated/architecture-contracts.ts",
+          "symbol": "JustificationCheckpointV1"
+        },
+        {
+          "kind": "rust_projection",
+          "path": "crates/types/src/app/generated/architecture_contracts.rs",
+          "symbol": "JustificationCheckpointV1"
+        }
+      ],
+      "positive_fixture_refs": [
+        "fixtures/justification-checkpoint-v1/positive-run-now-response.json"
+      ],
+      "negative_fixture_refs": [
+        {
+          "path": "fixtures/justification-checkpoint-v1/negative-interaction-not-in-catalog.json",
+          "expected_failure": "schema"
+        }
+      ]
+    },
+    {
+      "contract_id": "schema://ioi/components/hypervisor/justification-record/v1",
+      "canonical_name": "JustificationRecord",
+      "canonical_owner_ref": "canon://docs/architecture/components/hypervisor/identity-access-and-metering.md#justification-records",
+      "schema_version": "ioi.hypervisor.justification_record.v1",
+      "maturity": "partial",
+      "stability": "provisional",
+      "wire_format": "json",
+      "canonical_encoding_profile_ref": null,
+      "evolution": {
+        "successor_of": null,
+        "successor_contract_id": null,
+        "compatibility": "initial",
+        "migration_policy": "none",
+        "predecessor_remains_valid": false,
+        "wire_mutation_policy": "forbidden",
+        "hash_impact": "none"
+      },
+      "schema_ref": "justification-record.v1.schema.json",
+      "cross_field_invariant_refs": [],
+      "compatibility_aliases": [],
+      "generated_targets": [
+        {
+          "kind": "typescript_projection",
+          "path": "packages/hypervisor-workbench/src/runtime/generated/architecture-contracts.ts",
+          "symbol": "JustificationRecordV1"
+        },
+        {
+          "kind": "rust_projection",
+          "path": "crates/types/src/app/generated/architecture_contracts.rs",
+          "symbol": "JustificationRecordV1"
+        }
+      ],
+      "positive_fixture_refs": [
+        "fixtures/justification-record-v1/positive-run-now-response.json"
+      ],
+      "negative_fixture_refs": [
+        {
+          "path": "fixtures/justification-record-v1/negative-language-not-snapshotted.json",
+          "expected_failure": "schema"
+        }
+      ]
     }
   ]
 }

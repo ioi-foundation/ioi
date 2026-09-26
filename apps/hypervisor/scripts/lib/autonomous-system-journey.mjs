@@ -127,15 +127,17 @@ export const JOURNEY = Object.freeze([
   },
   {
     n: 4, id: "limits", title: "Set leases, limits and checkpoints",
-    surface: "the Leases & Limits lane (absent) · /systems/{system}/govern (budgets)",
+    surface: "/governance/limits (Leases & Limits: checkpoints) · /systems/{system}/govern (budgets)",
     legs: [
       { id: "limits", kind: "named_gap", what: "budgets and standing limits for the System",
         gap: { code: "system_limits_authority_node_absent", plane: "authority node (ADR 0056 Ruling 8)", source: "gap map step 4 (a named gap by ruling: the owner has no authority node, and none is stood up unasked); build order 11",
           probe: { route: "/systems/{system}/govern", marker: 'data-system-named-gap="authority node (ADR 0056 Ruling 8)"' } } },
-      { id: "checkpoints", kind: "named_gap", what: "checkpoints for the System",
-        gap: { code: "system_checkpoints_absent", plane: "Checkpoints (ADR 0056 P5)", source: "gap map step 4; build order 11" } },
+      { id: "walk-checkpoint", kind: "live", what: "THIS walk's checkpoint checkpoint-{tag}, configured from Leases & Limits' Configuration form (/governance/limits): a person's Run now needs a written justification matching the walk's tag, listed enabled by its own name (closed 2026-09-26: ADR 0056 P5)",
+        assertion: "LIMITS — THIS walk's checkpoint on Run now is configured through Leases & Limits' own form and listed enabled by its own name" },
     ],
     handoff: { into: "run", legs: [
+      { id: "walk-checkpoint-gates-run", kind: "live", judged_by: "THIS walk's Run now is paused behind its checkpoint's prompt, answered on the prompt's own form, and only then runs; the justification record names the walk's automation and Review lists it",
+        assertion: "HAND-OFF 4→5 — THIS walk's checkpoint pauses its Run now until justified, and Review lists the record naming the walk's automation" },
       { id: "lease-gates-connection-picker", kind: "todo", judged_by: "a standing lease gates the connection a session or automation may pick (the gap map's 4→5 works for connections)",
         write: "name the gate that proves the picker is gated in the UI (check:session-authority-profile proves the daemon path only), or drive it: lease a connection, find it offered on the New Session composer, revoke it, find it withheld" },
       { id: "limits-bound-runs", kind: "named_gap", judged_by: "the System's limits bound the runs it starts",

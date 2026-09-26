@@ -1548,6 +1548,22 @@ pub(crate) async fn handle_automation_start(
             activation_kind: trigger,
         });
     }
+    // ADR 0056 P5 — a PERSON's Run now passes the justification checkpoints that apply to it before
+    // anything is recorded; the daemon's own dispatch is not a person and is never prompted.
+    let mut justification_record_refs: Vec<String> = Vec::new();
+    if dispatch.is_none() {
+        let asked = serde_json::from_slice::<Value>(&body).unwrap_or(Value::Null);
+        match super::justification_checkpoint_routes::checkpoint_gate(
+            &st,
+            &inbound,
+            "automation.run_now",
+            &[format!("automation://{id}")],
+            &asked,
+        ) {
+            Ok(refs) => justification_record_refs = refs,
+            Err(prompt) => return Ok(prompt),
+        }
+    }
     let base = st.base_url.clone();
     let exec_id = format!("aex_{:x}", nanos());
     let steps = automation["steps"].as_array().cloned().unwrap_or_default();
@@ -1562,6 +1578,9 @@ pub(crate) async fn handle_automation_start(
         "acting_principal_ref": acting_principal_ref,
         "step_results": [], "counts": counts, "started_at": iso_now(), "finished_at": Value::Null
     });
+    if !justification_record_refs.is_empty() {
+        exec["justification_record_refs"] = json!(justification_record_refs);
+    }
     // W1.2 / MEF-GAP-008 — this running exec is the concurrency-gate input; a discarded write means
     // unbounded concurrency. Fail closed via the existing AppError 500 lane.
     if persist_record(&st.data_dir, "automation-executions", &exec_id, &exec).is_err() {

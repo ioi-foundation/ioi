@@ -230,6 +230,18 @@ pub(crate) async fn handle_health_check_create(
             Ok(fields) => fields,
             Err(response) => return response,
         };
+    // ADR 0056 P5 — declaring a check passes the justification checkpoints that apply to it (the
+    // item is the check's target).
+    let justification_record_refs = match super::justification_checkpoint_routes::checkpoint_gate(
+        &st,
+        &headers,
+        "health_check.declare",
+        std::slice::from_ref(&target_ref),
+        &body,
+    ) {
+        Ok(refs) => refs,
+        Err(prompt) => return prompt,
+    };
     let id = replay_stable_id("hc", &caller.owner_ref, &caller.idempotency_key);
     let check_ref = format!("health-check://{id}");
     let now = super::iso_now();
@@ -282,7 +294,7 @@ pub(crate) async fn handle_health_check_create(
     (
         StatusCode::CREATED,
         Json(
-            json!({ "ok": true, "replayed": false, "health_check": record, "receipt_ref": commit.receipt_ref }),
+            json!({ "ok": true, "replayed": false, "health_check": record, "receipt_ref": commit.receipt_ref, "justification_record_refs": justification_record_refs }),
         ),
     )
 }

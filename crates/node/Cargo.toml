@@ -37,6 +37,7 @@ ioi-plugin-ibc-service = { path = "../plugins/ibc-service", optional = true }
 
 bincode = { workspace = true }
 uuid = { version = "1.8.0", features = ["v4"] }
+regex = { workspace = true }
 anyhow = { workspace = true }
 clap = { workspace = true, features = ["derive", "cargo", "env"], optional = true }
 cfg-if = "1.0"

@@ -1,0 +1,201 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "schema://ioi/components/hypervisor/justification-checkpoint/v1",
+  "title": "JustificationCheckpoint",
+  "x-ioi-schema-version": "ioi.hypervisor.justification_checkpoint.v1",
+  "description": "Governance / Leases & Limits configuration that puts a JUSTIFICATION OBLIGATION in front of a closed set of interactions a person performs in one owner tenant (ADR 0056 Amendment 1, plane 5). It adds an obligation and never grants anything: a matching interaction pauses until the person answers the prompt, and the answer becomes an immutable JustificationRecord. It is not an approval. Only interactions the daemon actually gates are in its catalog.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "checkpoint_id",
+    "display_name",
+    "description",
+    "interaction_kinds",
+    "scope_ref",
+    "conditions",
+    "prompt",
+    "justification",
+    "enablement",
+    "owner_ref",
+    "created_by_principal_ref",
+    "created_at",
+    "updated_at",
+    "admitted_head"
+  ],
+  "properties": {
+    "schema_version": {
+      "type": "string",
+      "const": "ioi.hypervisor.justification_checkpoint.v1"
+    },
+    "checkpoint_id": {
+      "type": "string",
+      "pattern": "^justification-checkpoint://jc_[0-9a-f]{16}$"
+    },
+    "display_name": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 160
+    },
+    "description": {
+      "type": "string",
+      "maxLength": 2000
+    },
+    "interaction_kinds": {
+      "type": "array",
+      "minItems": 1,
+      "uniqueItems": true,
+      "items": {
+        "type": "string",
+        "enum": [
+          "automation.run_now",
+          "support_incident.file",
+          "health_check.declare"
+        ]
+      }
+    },
+    "scope_ref": {
+      "type": "string",
+      "pattern": "^(?:org|project)://[^\\s]{1,480}$"
+    },
+    "conditions": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "item_refs",
+        "exempt_principal_refs"
+      ],
+      "properties": {
+        "item_refs": {
+          "type": "array",
+          "maxItems": 50,
+          "uniqueItems": true,
+          "items": {
+            "type": "string",
+            "pattern": "^[a-z][a-z0-9_-]*://[^\\s]{1,480}$"
+          }
+        },
+        "exempt_principal_refs": {
+          "type": "array",
+          "maxItems": 50,
+          "uniqueItems": true,
+          "items": {
+            "type": "string",
+            "pattern": "^user://[^\\s]{1,480}$"
+          }
+        }
+      }
+    },
+    "prompt": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "title",
+        "body",
+        "description"
+      ],
+      "properties": {
+        "title": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 45
+        },
+        "body": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 4000
+        },
+        "description": {
+          "type": "string",
+          "maxLength": 4000
+        }
+      }
+    },
+    "justification": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "kind",
+        "acknowledgment_text",
+        "response_pattern",
+        "options",
+        "multiple",
+        "free_text"
+      ],
+      "properties": {
+        "kind": {
+          "type": "string",
+          "enum": [
+            "acknowledgment",
+            "response",
+            "dropdown"
+          ]
+        },
+        "acknowledgment_text": {
+          "type": "string",
+          "maxLength": 500
+        },
+        "response_pattern": {
+          "type": "string",
+          "maxLength": 500
+        },
+        "options": {
+          "type": "array",
+          "maxItems": 25,
+          "uniqueItems": true,
+          "items": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 200
+          }
+        },
+        "multiple": {
+          "type": "boolean"
+        },
+        "free_text": {
+          "type": "string",
+          "enum": [
+            "none",
+            "optional",
+            "required"
+          ]
+        }
+      }
+    },
+    "enablement": {
+      "type": "string",
+      "enum": [
+        "enabled",
+        "paused",
+        "archived"
+      ]
+    },
+    "owner_ref": {
+      "type": "string",
+      "pattern": "^(?:org|project)://[^\\s]{1,480}$"
+    },
+    "created_by_principal_ref": {
+      "type": "string",
+      "pattern": "^user://[^\\s]{1,480}$"
+    },
+    "created_at": {
+      "type": "string",
+      "minLength": 1
+    },
+    "updated_at": {
+      "type": "string",
+      "minLength": 1
+    },
+    "admitted_head": {
+      "anyOf": [
+        {
+          "type": "string",
+          "pattern": "^sha256:[0-9a-f]{64}$"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    }
+  }
+}

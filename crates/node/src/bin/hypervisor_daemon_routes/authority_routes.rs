@@ -499,7 +499,8 @@ pub(crate) async fn handle_harness_binding_create(
 /// POST /v1/hypervisor/authority/evaluate — classify a requested effect.
 /// `{ "effect": "<name>" }` -> allowed_local | requires_portable_authority | blocked.
 pub(crate) async fn handle_authority_evaluate(
-    State(_st): State<Arc<DaemonState>>,
+    State(st): State<Arc<DaemonState>>,
+    headers: HeaderMap,
     Json(body): Json<Value>,
 ) -> Json<Value> {
     let effect = body.get("effect").and_then(|v| v.as_str()).unwrap_or("");
@@ -527,6 +528,9 @@ pub(crate) async fn handle_authority_evaluate(
         "decision": decision,
         "requires_portable_authority": wallet_required,
         "reason": reason,
+        // ADR 0056 P5 — obligations only ever ADD to a decision: an effect a justification
+        // checkpoint covers for this caller must be justified before it runs.
+        "obligations": super::justification_checkpoint_routes::obligations_for(&st, &headers, effect),
         "mode": "local_operator",
         "at": iso_now()
     }))

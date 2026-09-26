@@ -406,6 +406,8 @@ pub const ARCHITECTURE_CONTRACT_SCHEMA_HASHES: &[(&str, &str)] = &[
     ("schema://ioi/foundations/optimization-target-adapter/v1", "sha256:991acf470e55ab6007d489e396f5925c4b8a5cac46124be1affe29771dd5b031"),
     ("schema://ioi/components/hypervisor/notification-subscription/v1", "sha256:45e93217cbd14d2a60a34a674d85b8bc7729cbb8953c71fa0ee4fd72c4f1f1dd"),
     ("schema://ioi/components/hypervisor/notification-projection/v1", "sha256:6edeb66e0a835287a9851bd781e2a6f0136df868db2f10b16cf1e40ff671d557"),
+    ("schema://ioi/components/hypervisor/justification-checkpoint/v1", "sha256:fbaa54c53e0eebbc5eb3deb89469ea20ae589547ace10beb183d1f75512ba4d8"),
+    ("schema://ioi/components/hypervisor/justification-record/v1", "sha256:3281dcf985707d23dace61c615809ab08420965aee07cc9cce4267c93bbfc867"),
 ];
 
 pub fn architecture_contract_schema_hash(contract_id: &str) -> Option<&'static str> {
@@ -174591,6 +174593,581 @@ impl<'de> serde::Deserialize<'de> for HypervisorNotificationProjectionV1ReadMode
     }
 }
 
+#[derive(Debug, Clone, PartialEq, serde::Serialize)]
+pub struct JustificationCheckpointV1 {
+    pub schema_version: JustificationCheckpointV1SchemaVersion,
+    pub checkpoint_id: String,
+    pub display_name: String,
+    pub description: String,
+    pub interaction_kinds: Vec<JustificationCheckpointV1InteractionKindsItem>,
+    pub scope_ref: String,
+    pub conditions: JustificationCheckpointV1Conditions,
+    pub prompt: JustificationCheckpointV1Prompt,
+    pub justification: JustificationCheckpointV1Justification,
+    pub enablement: JustificationCheckpointV1Enablement,
+    pub owner_ref: String,
+    pub created_by_principal_ref: String,
+    pub created_at: String,
+    pub updated_at: String,
+    pub admitted_head: Option<String>,
+}
+
+impl<'de> serde::Deserialize<'de> for JustificationCheckpointV1 {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let value = <serde_json::Value as serde::Deserialize>::deserialize(deserializer)?;
+        validate_projection_subschema(
+            r#"schema://ioi/components/hypervisor/justification-checkpoint/v1"#,
+            r#"{"$schema":"https://json-schema.org/draft/2020-12/schema","$id":"schema://ioi/components/hypervisor/justification-checkpoint/v1","title":"JustificationCheckpoint","x-ioi-schema-version":"ioi.hypervisor.justification_checkpoint.v1","description":"Governance / Leases & Limits configuration that puts a JUSTIFICATION OBLIGATION in front of a closed set of interactions a person performs in one owner tenant (ADR 0056 Amendment 1, plane 5). It adds an obligation and never grants anything: a matching interaction pauses until the person answers the prompt, and the answer becomes an immutable JustificationRecord. It is not an approval. Only interactions the daemon actually gates are in its catalog.","type":"object","additionalProperties":false,"required":["schema_version","checkpoint_id","display_name","description","interaction_kinds","scope_ref","conditions","prompt","justification","enablement","owner_ref","created_by_principal_ref","created_at","updated_at","admitted_head"],"properties":{"schema_version":{"type":"string","const":"ioi.hypervisor.justification_checkpoint.v1"},"checkpoint_id":{"type":"string","pattern":"^justification-checkpoint://jc_[0-9a-f]{16}$"},"display_name":{"type":"string","minLength":1,"maxLength":160},"description":{"type":"string","maxLength":2000},"interaction_kinds":{"type":"array","minItems":1,"uniqueItems":true,"items":{"type":"string","enum":["automation.run_now","support_incident.file","health_check.declare"]}},"scope_ref":{"type":"string","pattern":"^(?:org|project)://[^\\s]{1,480}$"},"conditions":{"type":"object","additionalProperties":false,"required":["item_refs","exempt_principal_refs"],"properties":{"item_refs":{"type":"array","maxItems":50,"uniqueItems":true,"items":{"type":"string","pattern":"^[a-z][a-z0-9_-]*://[^\\s]{1,480}$"}},"exempt_principal_refs":{"type":"array","maxItems":50,"uniqueItems":true,"items":{"type":"string","pattern":"^user://[^\\s]{1,480}$"}}}},"prompt":{"type":"object","additionalProperties":false,"required":["title","body","description"],"properties":{"title":{"type":"string","minLength":1,"maxLength":45},"body":{"type":"string","minLength":1,"maxLength":4000},"description":{"type":"string","maxLength":4000}}},"justification":{"type":"object","additionalProperties":false,"required":["kind","acknowledgment_text","response_pattern","options","multiple","free_text"],"properties":{"kind":{"type":"string","enum":["acknowledgment","response","dropdown"]},"acknowledgment_text":{"type":"string","maxLength":500},"response_pattern":{"type":"string","maxLength":500},"options":{"type":"array","maxItems":25,"uniqueItems":true,"items":{"type":"string","minLength":1,"maxLength":200}},"multiple":{"type":"boolean"},"free_text":{"type":"string","enum":["none","optional","required"]}}},"enablement":{"type":"string","enum":["enabled","paused","archived"]},"owner_ref":{"type":"string","pattern":"^(?:org|project)://[^\\s]{1,480}$"},"created_by_principal_ref":{"type":"string","pattern":"^user://[^\\s]{1,480}$"},"created_at":{"type":"string","minLength":1},"updated_at":{"type":"string","minLength":1},"admitted_head":{"anyOf":[{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"},{"type":"null"}]}}}"#,
+            &value,
+        )
+            .map_err(serde::de::Error::custom)?;
+        let mut object = value
+            .as_object()
+            .cloned()
+            .ok_or_else(|| serde::de::Error::custom("validated projection is not an object"))?;
+        Ok(Self {
+            schema_version: serde_json::from_value::<JustificationCheckpointV1SchemaVersion>(
+                object
+                    .remove(r#"schema_version"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"schema_version"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            checkpoint_id: serde_json::from_value::<String>(
+                object
+                    .remove(r#"checkpoint_id"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"checkpoint_id"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            display_name: serde_json::from_value::<String>(
+                object
+                    .remove(r#"display_name"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"display_name"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            description: serde_json::from_value::<String>(
+                object
+                    .remove(r#"description"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"description"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            interaction_kinds: serde_json::from_value::<
+                Vec<JustificationCheckpointV1InteractionKindsItem>,
+            >(
+                object
+                    .remove(r#"interaction_kinds"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"interaction_kinds"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            scope_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"scope_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"scope_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            conditions: serde_json::from_value::<JustificationCheckpointV1Conditions>(
+                object
+                    .remove(r#"conditions"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"conditions"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            prompt: serde_json::from_value::<JustificationCheckpointV1Prompt>(
+                object
+                    .remove(r#"prompt"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"prompt"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            justification: serde_json::from_value::<JustificationCheckpointV1Justification>(
+                object
+                    .remove(r#"justification"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"justification"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            enablement: serde_json::from_value::<JustificationCheckpointV1Enablement>(
+                object
+                    .remove(r#"enablement"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"enablement"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            owner_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"owner_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"owner_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            created_by_principal_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"created_by_principal_ref"#)
+                    .ok_or_else(|| {
+                        serde::de::Error::missing_field(r#"created_by_principal_ref"#)
+                    })?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            created_at: serde_json::from_value::<String>(
+                object
+                    .remove(r#"created_at"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"created_at"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            updated_at: serde_json::from_value::<String>(
+                object
+                    .remove(r#"updated_at"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"updated_at"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            admitted_head: serde_json::from_value::<Option<String>>(
+                object
+                    .remove(r#"admitted_head"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"admitted_head"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+        })
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum JustificationCheckpointV1SchemaVersion {
+    #[serde(rename = r#"ioi.hypervisor.justification_checkpoint.v1"#)]
+    IoiHypervisorJustificationCheckpointV1,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum JustificationCheckpointV1InteractionKindsItem {
+    #[serde(rename = r#"automation.run_now"#)]
+    AutomationRunNow,
+    #[serde(rename = r#"support_incident.file"#)]
+    SupportIncidentFile,
+    #[serde(rename = r#"health_check.declare"#)]
+    HealthCheckDeclare,
+}
+
+#[derive(Debug, Clone, PartialEq, serde::Serialize)]
+pub struct JustificationCheckpointV1Conditions {
+    pub item_refs: Vec<String>,
+    pub exempt_principal_refs: Vec<String>,
+}
+
+impl<'de> serde::Deserialize<'de> for JustificationCheckpointV1Conditions {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let value = <serde_json::Value as serde::Deserialize>::deserialize(deserializer)?;
+        validate_projection_subschema(
+            r#"schema://ioi/components/hypervisor/justification-checkpoint/v1"#,
+            r#"{"type":"object","additionalProperties":false,"required":["item_refs","exempt_principal_refs"],"properties":{"item_refs":{"type":"array","maxItems":50,"uniqueItems":true,"items":{"type":"string","pattern":"^[a-z][a-z0-9_-]*://[^\\s]{1,480}$"}},"exempt_principal_refs":{"type":"array","maxItems":50,"uniqueItems":true,"items":{"type":"string","pattern":"^user://[^\\s]{1,480}$"}}}}"#,
+            &value,
+        )
+            .map_err(serde::de::Error::custom)?;
+        let mut object = value
+            .as_object()
+            .cloned()
+            .ok_or_else(|| serde::de::Error::custom("validated projection is not an object"))?;
+        Ok(Self {
+            item_refs: serde_json::from_value::<Vec<String>>(
+                object
+                    .remove(r#"item_refs"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"item_refs"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            exempt_principal_refs: serde_json::from_value::<Vec<String>>(
+                object
+                    .remove(r#"exempt_principal_refs"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"exempt_principal_refs"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+        })
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, serde::Serialize)]
+pub struct JustificationCheckpointV1Prompt {
+    pub title: String,
+    pub body: String,
+    pub description: String,
+}
+
+impl<'de> serde::Deserialize<'de> for JustificationCheckpointV1Prompt {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let value = <serde_json::Value as serde::Deserialize>::deserialize(deserializer)?;
+        validate_projection_subschema(
+            r#"schema://ioi/components/hypervisor/justification-checkpoint/v1"#,
+            r#"{"type":"object","additionalProperties":false,"required":["title","body","description"],"properties":{"title":{"type":"string","minLength":1,"maxLength":45},"body":{"type":"string","minLength":1,"maxLength":4000},"description":{"type":"string","maxLength":4000}}}"#,
+            &value,
+        )
+            .map_err(serde::de::Error::custom)?;
+        let mut object = value
+            .as_object()
+            .cloned()
+            .ok_or_else(|| serde::de::Error::custom("validated projection is not an object"))?;
+        Ok(Self {
+            title: serde_json::from_value::<String>(
+                object
+                    .remove(r#"title"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"title"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            body: serde_json::from_value::<String>(
+                object
+                    .remove(r#"body"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"body"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            description: serde_json::from_value::<String>(
+                object
+                    .remove(r#"description"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"description"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+        })
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, serde::Serialize)]
+pub struct JustificationCheckpointV1Justification {
+    pub kind: JustificationCheckpointV1JustificationKind,
+    pub acknowledgment_text: String,
+    pub response_pattern: String,
+    pub options: Vec<String>,
+    pub multiple: bool,
+    pub free_text: JustificationCheckpointV1JustificationFreeText,
+}
+
+impl<'de> serde::Deserialize<'de> for JustificationCheckpointV1Justification {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let value = <serde_json::Value as serde::Deserialize>::deserialize(deserializer)?;
+        validate_projection_subschema(
+            r#"schema://ioi/components/hypervisor/justification-checkpoint/v1"#,
+            r#"{"type":"object","additionalProperties":false,"required":["kind","acknowledgment_text","response_pattern","options","multiple","free_text"],"properties":{"kind":{"type":"string","enum":["acknowledgment","response","dropdown"]},"acknowledgment_text":{"type":"string","maxLength":500},"response_pattern":{"type":"string","maxLength":500},"options":{"type":"array","maxItems":25,"uniqueItems":true,"items":{"type":"string","minLength":1,"maxLength":200}},"multiple":{"type":"boolean"},"free_text":{"type":"string","enum":["none","optional","required"]}}}"#,
+            &value,
+        )
+            .map_err(serde::de::Error::custom)?;
+        let mut object = value
+            .as_object()
+            .cloned()
+            .ok_or_else(|| serde::de::Error::custom("validated projection is not an object"))?;
+        Ok(Self {
+            kind: serde_json::from_value::<JustificationCheckpointV1JustificationKind>(
+                object
+                    .remove(r#"kind"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"kind"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            acknowledgment_text: serde_json::from_value::<String>(
+                object
+                    .remove(r#"acknowledgment_text"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"acknowledgment_text"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            response_pattern: serde_json::from_value::<String>(
+                object
+                    .remove(r#"response_pattern"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"response_pattern"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            options: serde_json::from_value::<Vec<String>>(
+                object
+                    .remove(r#"options"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"options"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            multiple: serde_json::from_value::<bool>(
+                object
+                    .remove(r#"multiple"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"multiple"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            free_text: serde_json::from_value::<JustificationCheckpointV1JustificationFreeText>(
+                object
+                    .remove(r#"free_text"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"free_text"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+        })
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum JustificationCheckpointV1JustificationKind {
+    #[serde(rename = r#"acknowledgment"#)]
+    Acknowledgment,
+    #[serde(rename = r#"response"#)]
+    Response,
+    #[serde(rename = r#"dropdown"#)]
+    Dropdown,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum JustificationCheckpointV1JustificationFreeText {
+    #[serde(rename = r#"none"#)]
+    None,
+    #[serde(rename = r#"optional"#)]
+    Optional,
+    #[serde(rename = r#"required"#)]
+    Required,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum JustificationCheckpointV1Enablement {
+    #[serde(rename = r#"enabled"#)]
+    Enabled,
+    #[serde(rename = r#"paused"#)]
+    Paused,
+    #[serde(rename = r#"archived"#)]
+    Archived,
+}
+
+#[derive(Debug, Clone, PartialEq, serde::Serialize)]
+pub struct JustificationRecordV1 {
+    pub schema_version: JustificationRecordV1SchemaVersion,
+    pub record_id: String,
+    pub checkpoint_ref: String,
+    pub checkpoint_head: String,
+    pub interaction_kind: JustificationRecordV1InteractionKind,
+    pub interaction_ref: String,
+    pub checkpointed_item_refs: Vec<String>,
+    pub submitted_by_principal_ref: String,
+    pub owner_ref: String,
+    pub language: JustificationRecordV1Language,
+    pub justification: JustificationRecordV1Justification,
+    pub created_at: String,
+    pub admitted_head: Option<String>,
+}
+
+impl<'de> serde::Deserialize<'de> for JustificationRecordV1 {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let value = <serde_json::Value as serde::Deserialize>::deserialize(deserializer)?;
+        validate_projection_subschema(
+            r#"schema://ioi/components/hypervisor/justification-record/v1"#,
+            r#"{"$schema":"https://json-schema.org/draft/2020-12/schema","$id":"schema://ioi/components/hypervisor/justification-record/v1","title":"JustificationRecord","x-ioi-schema-version":"ioi.hypervisor.justification_record.v1","description":"The immutable evidence one person's answer to one JustificationCheckpoint left behind (ADR 0056 Amendment 1, plane 5): who, when, which interaction and items, the checkpoint's language EXACTLY AS SHOWN (a snapshot that later edits or deletion of the configuration never change), and the justification given. Every record one action produced shares its interaction_ref. It is admitted before the interaction runs, grants nothing and is never an approval.","type":"object","additionalProperties":false,"required":["schema_version","record_id","checkpoint_ref","checkpoint_head","interaction_kind","interaction_ref","checkpointed_item_refs","submitted_by_principal_ref","owner_ref","language","justification","created_at","admitted_head"],"properties":{"schema_version":{"type":"string","const":"ioi.hypervisor.justification_record.v1"},"record_id":{"type":"string","pattern":"^justification-record://jr_[0-9a-f]{16}$"},"checkpoint_ref":{"type":"string","pattern":"^justification-checkpoint://jc_[0-9a-f]{16}$"},"checkpoint_head":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"},"interaction_kind":{"type":"string","enum":["automation.run_now","support_incident.file","health_check.declare"]},"interaction_ref":{"type":"string","pattern":"^interaction://[a-z_.]{1,64}/[0-9a-f-]{36}$"},"checkpointed_item_refs":{"type":"array","maxItems":50,"items":{"type":"string","pattern":"^[a-z][a-z0-9_-]*://[^\\s]{1,480}$"}},"submitted_by_principal_ref":{"type":"string","pattern":"^user://[^\\s]{1,480}$"},"owner_ref":{"type":"string","pattern":"^(?:org|project)://[^\\s]{1,480}$"},"language":{"type":"object","additionalProperties":false,"required":["title","body","description"],"properties":{"title":{"type":"string","minLength":1,"maxLength":45},"body":{"type":"string","minLength":1,"maxLength":4000},"description":{"type":"string","maxLength":4000}}},"justification":{"type":"object","additionalProperties":false,"required":["kind","acknowledged","text","selected"],"properties":{"kind":{"type":"string","enum":["acknowledgment","response","dropdown"]},"acknowledged":{"type":"boolean"},"text":{"type":"string","maxLength":4000},"selected":{"type":"array","maxItems":25,"items":{"type":"string","minLength":1,"maxLength":200}}}},"created_at":{"type":"string","minLength":1},"admitted_head":{"anyOf":[{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"},{"type":"null"}]}}}"#,
+            &value,
+        )
+            .map_err(serde::de::Error::custom)?;
+        let mut object = value
+            .as_object()
+            .cloned()
+            .ok_or_else(|| serde::de::Error::custom("validated projection is not an object"))?;
+        Ok(Self {
+            schema_version: serde_json::from_value::<JustificationRecordV1SchemaVersion>(
+                object
+                    .remove(r#"schema_version"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"schema_version"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            record_id: serde_json::from_value::<String>(
+                object
+                    .remove(r#"record_id"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"record_id"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            checkpoint_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"checkpoint_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"checkpoint_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            checkpoint_head: serde_json::from_value::<String>(
+                object
+                    .remove(r#"checkpoint_head"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"checkpoint_head"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            interaction_kind: serde_json::from_value::<JustificationRecordV1InteractionKind>(
+                object
+                    .remove(r#"interaction_kind"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"interaction_kind"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            interaction_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"interaction_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"interaction_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            checkpointed_item_refs: serde_json::from_value::<Vec<String>>(
+                object
+                    .remove(r#"checkpointed_item_refs"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"checkpointed_item_refs"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            submitted_by_principal_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"submitted_by_principal_ref"#)
+                    .ok_or_else(|| {
+                        serde::de::Error::missing_field(r#"submitted_by_principal_ref"#)
+                    })?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            owner_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"owner_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"owner_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            language: serde_json::from_value::<JustificationRecordV1Language>(
+                object
+                    .remove(r#"language"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"language"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            justification: serde_json::from_value::<JustificationRecordV1Justification>(
+                object
+                    .remove(r#"justification"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"justification"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            created_at: serde_json::from_value::<String>(
+                object
+                    .remove(r#"created_at"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"created_at"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            admitted_head: serde_json::from_value::<Option<String>>(
+                object
+                    .remove(r#"admitted_head"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"admitted_head"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+        })
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum JustificationRecordV1SchemaVersion {
+    #[serde(rename = r#"ioi.hypervisor.justification_record.v1"#)]
+    IoiHypervisorJustificationRecordV1,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum JustificationRecordV1InteractionKind {
+    #[serde(rename = r#"automation.run_now"#)]
+    AutomationRunNow,
+    #[serde(rename = r#"support_incident.file"#)]
+    SupportIncidentFile,
+    #[serde(rename = r#"health_check.declare"#)]
+    HealthCheckDeclare,
+}
+
+#[derive(Debug, Clone, PartialEq, serde::Serialize)]
+pub struct JustificationRecordV1Language {
+    pub title: String,
+    pub body: String,
+    pub description: String,
+}
+
+impl<'de> serde::Deserialize<'de> for JustificationRecordV1Language {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let value = <serde_json::Value as serde::Deserialize>::deserialize(deserializer)?;
+        validate_projection_subschema(
+            r#"schema://ioi/components/hypervisor/justification-record/v1"#,
+            r#"{"type":"object","additionalProperties":false,"required":["title","body","description"],"properties":{"title":{"type":"string","minLength":1,"maxLength":45},"body":{"type":"string","minLength":1,"maxLength":4000},"description":{"type":"string","maxLength":4000}}}"#,
+            &value,
+        )
+            .map_err(serde::de::Error::custom)?;
+        let mut object = value
+            .as_object()
+            .cloned()
+            .ok_or_else(|| serde::de::Error::custom("validated projection is not an object"))?;
+        Ok(Self {
+            title: serde_json::from_value::<String>(
+                object
+                    .remove(r#"title"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"title"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            body: serde_json::from_value::<String>(
+                object
+                    .remove(r#"body"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"body"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            description: serde_json::from_value::<String>(
+                object
+                    .remove(r#"description"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"description"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+        })
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, serde::Serialize)]
+pub struct JustificationRecordV1Justification {
+    pub kind: JustificationRecordV1JustificationKind,
+    pub acknowledged: bool,
+    pub text: String,
+    pub selected: Vec<String>,
+}
+
+impl<'de> serde::Deserialize<'de> for JustificationRecordV1Justification {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let value = <serde_json::Value as serde::Deserialize>::deserialize(deserializer)?;
+        validate_projection_subschema(
+            r#"schema://ioi/components/hypervisor/justification-record/v1"#,
+            r#"{"type":"object","additionalProperties":false,"required":["kind","acknowledged","text","selected"],"properties":{"kind":{"type":"string","enum":["acknowledgment","response","dropdown"]},"acknowledged":{"type":"boolean"},"text":{"type":"string","maxLength":4000},"selected":{"type":"array","maxItems":25,"items":{"type":"string","minLength":1,"maxLength":200}}}}"#,
+            &value,
+        )
+            .map_err(serde::de::Error::custom)?;
+        let mut object = value
+            .as_object()
+            .cloned()
+            .ok_or_else(|| serde::de::Error::custom("validated projection is not an object"))?;
+        Ok(Self {
+            kind: serde_json::from_value::<JustificationRecordV1JustificationKind>(
+                object
+                    .remove(r#"kind"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"kind"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            acknowledged: serde_json::from_value::<bool>(
+                object
+                    .remove(r#"acknowledged"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"acknowledged"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            text: serde_json::from_value::<String>(
+                object
+                    .remove(r#"text"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"text"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            selected: serde_json::from_value::<Vec<String>>(
+                object
+                    .remove(r#"selected"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"selected"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+        })
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum JustificationRecordV1JustificationKind {
+    #[serde(rename = r#"acknowledgment"#)]
+    Acknowledgment,
+    #[serde(rename = r#"response"#)]
+    Response,
+    #[serde(rename = r#"dropdown"#)]
+    Dropdown,
+}
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct GoldenFixture {
     pub contract_id: &'static str,
@@ -190821,6 +191398,38 @@ pub const ARCHITECTURE_CONTRACT_FIXTURES: &[GoldenFixture] = &[
     GoldenFixture {
         contract_id: "schema://ioi/components/hypervisor/notification-projection/v1",
         path: "docs/architecture/_meta/schemas/fixtures/hypervisor-notification-projection-v1/negative-undotted-event-kind.json",
+        expected_accept: false,
+        expected_schema_accept: false,
+        expected_failure: Some("schema"),
+        expected_rule_id: None,
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/components/hypervisor/justification-checkpoint/v1",
+        path: "docs/architecture/_meta/schemas/fixtures/justification-checkpoint-v1/positive-run-now-response.json",
+        expected_accept: true,
+        expected_schema_accept: true,
+        expected_failure: None,
+        expected_rule_id: None,
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/components/hypervisor/justification-checkpoint/v1",
+        path: "docs/architecture/_meta/schemas/fixtures/justification-checkpoint-v1/negative-interaction-not-in-catalog.json",
+        expected_accept: false,
+        expected_schema_accept: false,
+        expected_failure: Some("schema"),
+        expected_rule_id: None,
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/components/hypervisor/justification-record/v1",
+        path: "docs/architecture/_meta/schemas/fixtures/justification-record-v1/positive-run-now-response.json",
+        expected_accept: true,
+        expected_schema_accept: true,
+        expected_failure: None,
+        expected_rule_id: None,
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/components/hypervisor/justification-record/v1",
+        path: "docs/architecture/_meta/schemas/fixtures/justification-record-v1/negative-language-not-snapshotted.json",
         expected_accept: false,
         expected_schema_accept: false,
         expected_failure: Some("schema"),
@@ -214756,6 +215365,50 @@ pub const ARCHITECTURE_CONTRACT_DIFFERENTIAL_CASES: &[ArchitectureContractDiffer
         oracle_contract_accept: false,
     },
     ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/justification-checkpoint-v1/positive-run-now-response.json"#,
+        contract_id: r#"schema://ioi/components/hypervisor/justification-checkpoint/v1"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/justification-checkpoint-v1/positive-run-now-response.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: true,
+        oracle_contract_accept: true,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/justification-checkpoint-v1/negative-interaction-not-in-catalog.json"#,
+        contract_id: r#"schema://ioi/components/hypervisor/justification-checkpoint/v1"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/justification-checkpoint-v1/negative-interaction-not-in-catalog.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: false,
+        oracle_contract_accept: false,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/justification-record-v1/positive-run-now-response.json"#,
+        contract_id: r#"schema://ioi/components/hypervisor/justification-record/v1"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/justification-record-v1/positive-run-now-response.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: true,
+        oracle_contract_accept: true,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/justification-record-v1/negative-language-not-snapshotted.json"#,
+        contract_id: r#"schema://ioi/components/hypervisor/justification-record/v1"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/justification-record-v1/negative-language-not-snapshotted.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: false,
+        oracle_contract_accept: false,
+    },
+    ArchitectureContractDifferentialCase {
         id: r#"mutation:sequence-zero-receipt-timestamp-detached"#,
         contract_id: r#"schema://ioi/foundations/autonomous-system-sequence-zero-materialization-receipt/v2"#,
         source_fixture_path: None,
@@ -216531,6 +217184,8 @@ const CONTRACT_SCHEMAS: &[(&str, &str)] = &[
     ("schema://ioi/foundations/optimization-target-adapter/v1", r#"{"$schema":"https://json-schema.org/draft/2020-12/schema","$id":"schema://ioi/foundations/optimization-target-adapter/v1","title":"OptimizationTargetAdapter","x-ioi-schema-version":"ioi.foundations.optimization-target-adapter.v1","description":"HOW A TARGET OWNER'S PLANE PARTICIPATES WITHOUT ITS SHAPE BEING ABSORBED. The adapter is what lets Foundry's existing `ExperimentOptimizationCycleEnvelope` take part while neither object is rewritten. THREE REFUSALS DEFINE IT, each naming a different way an unadapted target could slip in: `missing_adapter` — a target class with no registered adapter cannot enter a cycle at all, because an unadapted target is not one this estate can reason about; `cross_version` — an adapter whose `accepts_envelope_schema` is not the envelope actually offered is refused rather than tried, because an adapter that guesses is a translator inventing meaning; `downgrade` — an adapter emitting an older schema than it accepted is refused, since a cycle that silently lowers its own wire version loses whatever the newer one added. THE FIRST NORMALIZATION IS ONE CANON ALREADY SPECIFIED: the deprecated `target_training_pipeline_ref` is accepted only by a versioned adapter that normalizes it to `target_ref` with `target_class: training_pipeline`, and CANONICAL STATE DOES NOT EMIT BOTH — a record carrying the deprecated key and the canonical pair together has not been normalized, it has been annotated. That last law is a cross-member conditional the portable operator set cannot express, so it lives in the deriver and is named there. Owner: foundations/objects/model-foundry-and-training.md § OptimizationTargetAdapter (M10.8, R-237).","type":"object","additionalProperties":false,"required":["schema_version","adapter_id","target_class","adapter_version","accepts_envelope_schema","emits_envelope_schema","normalizations","owner_ref","content_hash"],"properties":{"schema_version":{"type":"string","const":"ioi.foundations.optimization-target-adapter.v1"},"adapter_id":{"type":"string","pattern":"^optadapter://[^\\s?#\\\\]{1,200}$"},"target_class":{"type":"string","enum":["training_pipeline","training_code","foundry_spec","run_plan","preprocessor","model_artifact","runtime_artifact","artifact_conversion","data_recipe","connector_mapping","vertical_ontology_pack","ontology_mapping_candidate","goal_run_profile","workflow_template","harness_profile","skill_manifest","runtime_tool_contract_binding","integration_surface_profile","contact_delivery_channel_requirement","model_route_policy","evaluator_asset","eval_world","simulator"],"description":"The class this adapter translates, from the SAME closed twenty-three the cycle carries. An adapter for a class canon does not recognise would make the vocabulary open again through the back door."},"adapter_version":{"type":"string","pattern":"^(?:0|[1-9][0-9]*)[.](?:0|[1-9][0-9]*)[.](?:0|[1-9][0-9]*)$"},"accepts_envelope_schema":{"type":"string","minLength":1,"maxLength":400,"description":"The EXACT schema_version this adapter reads. Exact rather than a range, because a range is how an adapter comes to guess."},"emits_envelope_schema":{"type":"string","minLength":1,"maxLength":400},"normalizations":{"type":"array","maxItems":64,"description":"Empty is legitimate: an adapter for a class whose envelope already speaks the canonical shape normalizes nothing and exists to declare that.","items":{"type":"object","additionalProperties":false,"required":["deprecated_key","canonical_key","canonical_value"],"properties":{"deprecated_key":{"type":"string","minLength":1,"maxLength":400},"canonical_key":{"type":"string","minLength":1,"maxLength":400},"canonical_value":{"anyOf":[{"type":"string","minLength":1,"maxLength":200},{"type":"null"}],"description":"The value the canonical key takes when this normalization fires, or null when the deprecated key's own value carries over unchanged."}}}},"owner_ref":{"type":"string","minLength":1,"maxLength":400},"content_hash":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$","description":"SHA-256 over JCS of `{domain, ...every other member}`, registered as a `jcs_sha256_equals` invariant so a record whose content drifts from its own hash is refused at validation. The shape is the estate's ONE commitment mechanism — the same digest the shared family spine derives for every family it serves — so this record is admissible on the existing owner-scoped chain whenever an owning plane binds it, rather than carrying a second commitment of its own."}}}"#),
     ("schema://ioi/components/hypervisor/notification-subscription/v1", r#"{"$schema":"https://json-schema.org/draft/2020-12/schema","$id":"schema://ioi/components/hypervisor/notification-subscription/v1","title":"HypervisorNotificationSubscription","x-ioi-schema-version":"ioi.hypervisor.notification-subscription.v1","description":"The one durable notification object (core-clients-surfaces.md § HypervisorNotificationSubscription): which owner-event families a principal wants delivered, on which channels, narrowed by a filter. It never stores an event — notifications are projections of their owner's records (ADR 0056 P1). Fields are canon's, verbatim; an owner-event family ref names one of the canon families and may narrow it to one owner (event-family://hypervisor/<family>[/<owner>]).","type":"object","additionalProperties":false,"required":["schema_version","subscription_ref","principal_ref","org_ref","owner_event_family_refs","delivery_channel_refs","filter","revision","agentgres_operation_ref"],"properties":{"schema_version":{"const":"ioi.hypervisor.notification-subscription.v1"},"subscription_ref":{"type":"string","pattern":"^notification-subscription://\\S+$"},"principal_ref":{"type":"string","pattern":"^(?:user|wallet)://\\S+$"},"org_ref":{"type":"string","pattern":"^org://\\S+$"},"owner_event_family_refs":{"type":"array","minItems":1,"uniqueItems":true,"items":{"type":"string","pattern":"^event-family://hypervisor/(?:owner_event|work_run|automation_run|session|lease|approval|operation)(?:/[a-z0-9][a-z0-9_.-]*){0,1}$"}},"delivery_channel_refs":{"type":"array","minItems":1,"uniqueItems":true,"items":{"type":"string","pattern":"^delivery-channel://\\S+$"}},"filter":{"type":"object","description":"Owner-defined narrowing, applied AFTER policy: a filter can only remove events the principal may already see, never widen them."},"revision":{"type":"integer","minimum":1,"maximum":9007199254740991},"agentgres_operation_ref":{"type":"string","pattern":"^agentgres://operation/\\S+$"}}}"#),
     ("schema://ioi/components/hypervisor/notification-projection/v1", r#"{"$schema":"https://json-schema.org/draft/2020-12/schema","$id":"schema://ioi/components/hypervisor/notification-projection/v1","title":"HypervisorNotificationProjection","x-ioi-schema-version":"ioi.hypervisor.notification-projection.v1","description":"One inbox item: a policy-filtered projection of ONE owner record's event, with ONE deep link back to the object that changed (core-clients-surfaces.md: notifications are projections of their owner event, WorkRun, AutomationRun, Session, lease, approval or operation records and introduce no notification-event truth plane; ADR 0056 P1). It carries no read state and no delivery state — nothing here is stored; the item is re-derived from the owner's record on every read, and work happens at the owner, never in the inbox.","type":"object","additionalProperties":false,"required":["schema_version","notification_projection_id","owner_event_family","event_kind","owner_ref","owner_revision","occurred_at","title","canonical_detail_route","source_projection_ref","policy_decision_refs","read_model_only"],"properties":{"schema_version":{"const":"ioi.hypervisor.notification-projection.v1"},"notification_projection_id":{"type":"string","pattern":"^projection://hypervisor/notification/\\S+$","description":"Derived, stable: the same owner record at the same revision and event kind always projects the same id."},"owner_event_family":{"enum":["owner_event","work_run","automation_run","session","lease","approval","operation"]},"event_kind":{"type":"string","pattern":"^[a-z][a-z0-9_]*(?:[.][a-z][a-z0-9_]*)+$","maxLength":120,"description":"The owner's own transition, verbatim and dotted (e.g. approval.requested, run.failed)."},"owner_ref":{"type":"string","pattern":"^[a-z][a-z0-9_-]*://\\S+$","description":"The record whose event this is."},"owner_revision":{"type":"string","minLength":1,"maxLength":300,"description":"The owner record's revision or operation ref at which the event happened."},"occurred_at":{"type":"string","pattern":"^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}(?:[.][0-9]+){0,1}(?:Z|[+-][0-9]{2}:[0-9]{2})$"},"title":{"type":"string","minLength":1,"maxLength":300},"body":{"type":"string","minLength":1,"maxLength":2000},"canonical_detail_route":{"type":"string","pattern":"^/\\S*$","description":"The one link back to the object that changed."},"source_projection_ref":{"type":"string","minLength":1,"maxLength":500},"policy_decision_refs":{"type":"array","uniqueItems":true,"items":{"type":"string","pattern":"^decision://\\S+$"}},"read_model_only":{"const":true}}}"#),
+    ("schema://ioi/components/hypervisor/justification-checkpoint/v1", r#"{"$schema":"https://json-schema.org/draft/2020-12/schema","$id":"schema://ioi/components/hypervisor/justification-checkpoint/v1","title":"JustificationCheckpoint","x-ioi-schema-version":"ioi.hypervisor.justification_checkpoint.v1","description":"Governance / Leases & Limits configuration that puts a JUSTIFICATION OBLIGATION in front of a closed set of interactions a person performs in one owner tenant (ADR 0056 Amendment 1, plane 5). It adds an obligation and never grants anything: a matching interaction pauses until the person answers the prompt, and the answer becomes an immutable JustificationRecord. It is not an approval. Only interactions the daemon actually gates are in its catalog.","type":"object","additionalProperties":false,"required":["schema_version","checkpoint_id","display_name","description","interaction_kinds","scope_ref","conditions","prompt","justification","enablement","owner_ref","created_by_principal_ref","created_at","updated_at","admitted_head"],"properties":{"schema_version":{"type":"string","const":"ioi.hypervisor.justification_checkpoint.v1"},"checkpoint_id":{"type":"string","pattern":"^justification-checkpoint://jc_[0-9a-f]{16}$"},"display_name":{"type":"string","minLength":1,"maxLength":160},"description":{"type":"string","maxLength":2000},"interaction_kinds":{"type":"array","minItems":1,"uniqueItems":true,"items":{"type":"string","enum":["automation.run_now","support_incident.file","health_check.declare"]}},"scope_ref":{"type":"string","pattern":"^(?:org|project)://[^\\s]{1,480}$"},"conditions":{"type":"object","additionalProperties":false,"required":["item_refs","exempt_principal_refs"],"properties":{"item_refs":{"type":"array","maxItems":50,"uniqueItems":true,"items":{"type":"string","pattern":"^[a-z][a-z0-9_-]*://[^\\s]{1,480}$"}},"exempt_principal_refs":{"type":"array","maxItems":50,"uniqueItems":true,"items":{"type":"string","pattern":"^user://[^\\s]{1,480}$"}}}},"prompt":{"type":"object","additionalProperties":false,"required":["title","body","description"],"properties":{"title":{"type":"string","minLength":1,"maxLength":45},"body":{"type":"string","minLength":1,"maxLength":4000},"description":{"type":"string","maxLength":4000}}},"justification":{"type":"object","additionalProperties":false,"required":["kind","acknowledgment_text","response_pattern","options","multiple","free_text"],"properties":{"kind":{"type":"string","enum":["acknowledgment","response","dropdown"]},"acknowledgment_text":{"type":"string","maxLength":500},"response_pattern":{"type":"string","maxLength":500},"options":{"type":"array","maxItems":25,"uniqueItems":true,"items":{"type":"string","minLength":1,"maxLength":200}},"multiple":{"type":"boolean"},"free_text":{"type":"string","enum":["none","optional","required"]}}},"enablement":{"type":"string","enum":["enabled","paused","archived"]},"owner_ref":{"type":"string","pattern":"^(?:org|project)://[^\\s]{1,480}$"},"created_by_principal_ref":{"type":"string","pattern":"^user://[^\\s]{1,480}$"},"created_at":{"type":"string","minLength":1},"updated_at":{"type":"string","minLength":1},"admitted_head":{"anyOf":[{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"},{"type":"null"}]}}}"#),
+    ("schema://ioi/components/hypervisor/justification-record/v1", r#"{"$schema":"https://json-schema.org/draft/2020-12/schema","$id":"schema://ioi/components/hypervisor/justification-record/v1","title":"JustificationRecord","x-ioi-schema-version":"ioi.hypervisor.justification_record.v1","description":"The immutable evidence one person's answer to one JustificationCheckpoint left behind (ADR 0056 Amendment 1, plane 5): who, when, which interaction and items, the checkpoint's language EXACTLY AS SHOWN (a snapshot that later edits or deletion of the configuration never change), and the justification given. Every record one action produced shares its interaction_ref. It is admitted before the interaction runs, grants nothing and is never an approval.","type":"object","additionalProperties":false,"required":["schema_version","record_id","checkpoint_ref","checkpoint_head","interaction_kind","interaction_ref","checkpointed_item_refs","submitted_by_principal_ref","owner_ref","language","justification","created_at","admitted_head"],"properties":{"schema_version":{"type":"string","const":"ioi.hypervisor.justification_record.v1"},"record_id":{"type":"string","pattern":"^justification-record://jr_[0-9a-f]{16}$"},"checkpoint_ref":{"type":"string","pattern":"^justification-checkpoint://jc_[0-9a-f]{16}$"},"checkpoint_head":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"},"interaction_kind":{"type":"string","enum":["automation.run_now","support_incident.file","health_check.declare"]},"interaction_ref":{"type":"string","pattern":"^interaction://[a-z_.]{1,64}/[0-9a-f-]{36}$"},"checkpointed_item_refs":{"type":"array","maxItems":50,"items":{"type":"string","pattern":"^[a-z][a-z0-9_-]*://[^\\s]{1,480}$"}},"submitted_by_principal_ref":{"type":"string","pattern":"^user://[^\\s]{1,480}$"},"owner_ref":{"type":"string","pattern":"^(?:org|project)://[^\\s]{1,480}$"},"language":{"type":"object","additionalProperties":false,"required":["title","body","description"],"properties":{"title":{"type":"string","minLength":1,"maxLength":45},"body":{"type":"string","minLength":1,"maxLength":4000},"description":{"type":"string","maxLength":4000}}},"justification":{"type":"object","additionalProperties":false,"required":["kind","acknowledged","text","selected"],"properties":{"kind":{"type":"string","enum":["acknowledgment","response","dropdown"]},"acknowledged":{"type":"boolean"},"text":{"type":"string","maxLength":4000},"selected":{"type":"array","maxItems":25,"items":{"type":"string","minLength":1,"maxLength":200}}}},"created_at":{"type":"string","minLength":1},"admitted_head":{"anyOf":[{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"},{"type":"null"}]}}}"#),
 ];
 
 const CONTRACT_INVARIANTS: &[(&str, &str)] = &[
@@ -216897,6 +217552,8 @@ const CONTRACT_INVARIANTS: &[(&str, &str)] = &[
     ("schema://ioi/foundations/optimization-target-adapter/v1", r#"[{"rule_id":"optimization_target_adapter.content_hash.commits_the_translation_it_performs","description":"The content hash commits the target class, the adapter version, both envelope schemas and every normalization. An adapter IS its translation, so a normalization list that could change under a stable identity would mean two records disagreeing about what the same adapter did to the same envelope — and the three refusals (missing_adapter, cross_version, downgrade) are all decided by reading exactly these members.","expression":{"operator":"jcs_sha256_equals","algorithm":"jcs_sha256","material_fields":{"domain":{"value":"ioi.optimization-target-adapter-content-commitment-jcs-sha256.v1"},"schema_version":{"path":"$.schema_version"},"adapter_id":{"path":"$.adapter_id"},"target_class":{"path":"$.target_class"},"adapter_version":{"path":"$.adapter_version"},"accepts_envelope_schema":{"path":"$.accepts_envelope_schema"},"emits_envelope_schema":{"path":"$.emits_envelope_schema"},"normalizations":{"path":"$.normalizations"},"owner_ref":{"path":"$.owner_ref"}},"expected_path":"$.content_hash","expected_encoding":"sha256_string"}}]"#),
     ("schema://ioi/components/hypervisor/notification-subscription/v1", r#"[]"#),
     ("schema://ioi/components/hypervisor/notification-projection/v1", r#"[]"#),
+    ("schema://ioi/components/hypervisor/justification-checkpoint/v1", r#"[]"#),
+    ("schema://ioi/components/hypervisor/justification-record/v1", r#"[]"#),
 ];
 
 const CONTRACT_PATTERN_TRANSLATIONS: &[(&str, &str)] = &[
@@ -218535,6 +219192,10 @@ const CONTRACT_PATTERN_TRANSLATIONS: &[(&str, &str)] = &[
         r#"^[a-z][a-z0-9_-]*(?:://|:)[^\u{0009}-\u{000D}\u{0020}\u{00A0}\u{1680}\u{2000}-\u{200A}\u{2028}\u{2029}\u{202F}\u{205F}\u{3000}\u{FEFF}]{1,240}$"#,
     ),
     (
+        r#"^[a-z][a-z0-9_-]*://[^\s]{1,480}$"#,
+        r#"^[a-z][a-z0-9_-]*://[^\u{0009}-\u{000D}\u{0020}\u{00A0}\u{1680}\u{2000}-\u{200A}\u{2028}\u{2029}\u{202F}\u{205F}\u{3000}\u{FEFF}]{1,480}$"#,
+    ),
+    (
         r#"^[a-z][a-z0-9_-]*://\S+$"#,
         r#"^[a-z][a-z0-9_-]*://[^\u{0009}-\u{000D}\u{0020}\u{00A0}\u{1680}\u{2000}-\u{200A}\u{2028}\u{2029}\u{202F}\u{205F}\u{3000}\u{FEFF}]+$"#,
     ),
@@ -219744,6 +220405,10 @@ const CONTRACT_PATTERN_TRANSLATIONS: &[(&str, &str)] = &[
         r#"^installation://[A-Za-z0-9][A-Za-z0-9._/-]{0,190}$"#,
     ),
     (
+        r#"^interaction://[a-z_.]{1,64}/[0-9a-f-]{36}$"#,
+        r#"^interaction://[a-z_.]{1,64}/[0-9a-f-]{36}$"#,
+    ),
+    (
         r#"^invariant://[^\s]{1,240}$"#,
         r#"^invariant://[^\u{0009}-\u{000D}\u{0020}\u{00A0}\u{1680}\u{2000}-\u{200A}\u{2028}\u{2029}\u{202F}\u{205F}\u{3000}\u{FEFF}]{1,240}$"#,
     ),
@@ -219774,6 +220439,14 @@ const CONTRACT_PATTERN_TRANSLATIONS: &[(&str, &str)] = &[
     (
         r#"^jurisdiction_policy_pack://[^\s?#\\]{1,200}$"#,
         r#"^jurisdiction_policy_pack://[^\u{0009}-\u{000D}\u{0020}\u{00A0}\u{1680}\u{2000}-\u{200A}\u{2028}\u{2029}\u{202F}\u{205F}\u{3000}\u{FEFF}?#\\]{1,200}$"#,
+    ),
+    (
+        r#"^justification-checkpoint://jc_[0-9a-f]{16}$"#,
+        r#"^justification-checkpoint://jc_[0-9a-f]{16}$"#,
+    ),
+    (
+        r#"^justification-record://jr_[0-9a-f]{16}$"#,
+        r#"^justification-record://jr_[0-9a-f]{16}$"#,
     ),
     (
         r#"^key://[^\s]+$"#,
@@ -224521,6 +225194,10 @@ mod tests {
     ("docs/architecture/_meta/schemas/fixtures/hypervisor-notification-projection-v1/negative-not-read-model-only.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/hypervisor-notification-projection-v1/negative-not-read-model-only.json"))),
     ("docs/architecture/_meta/schemas/fixtures/hypervisor-notification-projection-v1/negative-detail-route-absolute-url.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/hypervisor-notification-projection-v1/negative-detail-route-absolute-url.json"))),
     ("docs/architecture/_meta/schemas/fixtures/hypervisor-notification-projection-v1/negative-undotted-event-kind.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/hypervisor-notification-projection-v1/negative-undotted-event-kind.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/justification-checkpoint-v1/positive-run-now-response.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/justification-checkpoint-v1/positive-run-now-response.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/justification-checkpoint-v1/negative-interaction-not-in-catalog.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/justification-checkpoint-v1/negative-interaction-not-in-catalog.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/justification-record-v1/positive-run-now-response.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/justification-record-v1/positive-run-now-response.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/justification-record-v1/negative-language-not-snapshotted.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/justification-record-v1/negative-language-not-snapshotted.json"))),
     ];
     const RAW_STRING_DELIMITER_REGRESSION_SCHEMA: &str =
         r####"{"const":"schema-controlled\"###literal"}"####;
@@ -226339,6 +227016,16 @@ mod tests {
         },
         "schema://ioi/components/hypervisor/notification-projection/v1" => {
             serde_json::from_value::<HypervisorNotificationProjectionV1>(value.clone())
+                .map(|_| ())
+                .map_err(|error| error.to_string())
+        },
+        "schema://ioi/components/hypervisor/justification-checkpoint/v1" => {
+            serde_json::from_value::<JustificationCheckpointV1>(value.clone())
+                .map(|_| ())
+                .map_err(|error| error.to_string())
+        },
+        "schema://ioi/components/hypervisor/justification-record/v1" => {
+            serde_json::from_value::<JustificationRecordV1>(value.clone())
                 .map(|_| ())
                 .map_err(|error| error.to_string())
         },
@@ -228163,6 +228850,16 @@ mod tests {
                 .map_err(|error| error.to_string())?;
             serde_json::to_value(projection).map_err(|error| error.to_string())
         },
+        "schema://ioi/components/hypervisor/justification-checkpoint/v1" => {
+            let projection = serde_json::from_value::<JustificationCheckpointV1>(value.clone())
+                .map_err(|error| error.to_string())?;
+            serde_json::to_value(projection).map_err(|error| error.to_string())
+        },
+        "schema://ioi/components/hypervisor/justification-record/v1" => {
+            let projection = serde_json::from_value::<JustificationRecordV1>(value.clone())
+                .map_err(|error| error.to_string())?;
+            serde_json::to_value(projection).map_err(|error| error.to_string())
+        },
             _ => Err(format!("unknown projection: {contract_id}")),
         }
     }
@@ -228299,8 +228996,8 @@ mod tests {
     fn golden_fixtures_match_generated_rust_contracts() {
         assert_eq!(
             ARCHITECTURE_CONTRACT_FIXTURES.len(),
-            2028,
-            "the registered golden corpus must remain the explicit 2028-fixture bar",
+            2032,
+            "the registered golden corpus must remain the explicit 2032-fixture bar",
         );
         for fixture in ARCHITECTURE_CONTRACT_FIXTURES {
             let body = FIXTURE_BODIES
@@ -228542,7 +229239,7 @@ mod tests {
 
     #[test]
     fn registered_ecma_pattern_translations_compile_and_match_whitespace() {
-        assert_eq!(CONTRACT_PATTERN_TRANSLATIONS.len(), 1156,);
+        assert_eq!(CONTRACT_PATTERN_TRANSLATIONS.len(), 1160,);
         for (ecma, translated) in CONTRACT_PATTERN_TRANSLATIONS {
             Regex::new(translated).unwrap_or_else(|error| panic!("{ecma}: {error}"));
         }

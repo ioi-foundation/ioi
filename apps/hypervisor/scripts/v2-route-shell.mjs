@@ -297,6 +297,18 @@ export const V2_ROUTE_TABLE = [
     ],
   },
   {
+    route: "/governance/limits",
+    surface: "Governance / Leases & Limits",
+    kind: "typed Governance view (bounded authority: Governance)",
+    rule: "a checkpoint adds a justification obligation in front of an interaction the daemon gates and grants nothing; its record is immutable evidence with the wording as shown",
+    waves: "ADR 0056 P5 (2026-09-26)",
+    build_state: "ADR 0056 P5 (2026-09-26): Checkpoints served from the justification-checkpoint plane (GET /v1/hypervisor/justification-checkpoints, GET /v1/hypervisor/justification-records) — Review and Configuration, configure / pause / resume / archive as the plane's own owner-scoped writes through forms; a gated action (Run now, filing an issue, declaring a health check) answers 428 with the prompt the serve renders. Leases are handed off to Connections; Limits is a named gap (authority node, Ruling 8)",
+    serve: { kind: "rewrite", to: "/__ioi/governance/limits", heading: "Leases & Limits" },
+    serving_today: [
+      { href: "/__ioi/governance/limits", label: "Leases & Limits", note: "ADR 0056 P5: checkpoints (Review, Configuration); leases → Connections; limits → named gap" },
+    ],
+  },
+  {
     route: "/provenance",
     surface: "Provenance",
     kind: "owner application",

@@ -54,6 +54,8 @@ import { handleSystemGenesisSurfaces, handleSystemWorkspace, SYSTEM_WORKSPACE_LA
 import { resolveV2Route, v2RouteFor, retiredUiRouteFor, renderV2RouteShellPage, renderRetiredUiRoutePage, retiredUiRouteRefusal, renderRouteLedgerPage } from "./v2-route-shell.mjs";
 import { projectDomainAppRuntimeModel } from "./domain-app-runtime-model.mjs";
 import { handleOperationsHealth } from "./operations-health.mjs";
+import { handleGovernanceLimits } from "./governance-limits.mjs";
+import { isJustificationPrompt, justificationPayload, renderJustificationPrompt } from "./justification-prompt.mjs";
 
 // Build the current conversation entries for a run, in the exact NDJSON shape the SPA's V1 pane
 // renders ({id, phase, userInput|todoGroup|text}). Streamed entries are emitted once each (keyed by
@@ -13255,7 +13257,18 @@ async function handleEstateRequest(req, res, body) {
         : `/__ioi/automations/${encodeURIComponent(id)}`;
       if (action === "run" && req.method === "POST") {
         // Manual run: the daemon executor creates an env, runs the steps, and records a transcript.
-        const r = await daemonFetch(`/v1/hypervisor/automations/${encodeURIComponent(id)}/runs`, { method: "POST", headers: { "content-type": "application/json" }, body: "{}" }).catch(() => null);
+        // A Governance checkpoint on Run now answers 428 with its prompt (ADR 0056 P5): the page asks
+        // for the justification and resubmits here with it.
+        const runForm = new URLSearchParams(body.toString());
+        const r = await daemonFetch(`/v1/hypervisor/automations/${encodeURIComponent(id)}/runs`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(justificationPayload(runForm)) }).catch(() => null);
+        if (r && (r.status === 428 || r.status === 409)) {
+          const reply = await r.json().catch(() => ({}));
+          if (isJustificationPrompt(r.status, reply)) {
+            res.writeHead(200, { "Content-Type": "text/html; charset=utf-8", "Cache-Control": "no-store" });
+            res.end(automationsShell("Justification required", renderJustificationPrompt({ action: req.url, carried: runForm, reply, backHref: backTo, what: "Running this automation now" }), { theme: "light" }));
+            return;
+          }
+        }
         if (r && (r.status === 401 || r.status === 403)) {
           automationsRefusalPage(res, r.status, await r.json().catch(() => ({})), `/__ioi/automations/${encodeURIComponent(id)}`);
           return;
@@ -13815,7 +13828,14 @@ async function handleEstateRequest(req, res, body) {
         owner_ref: owner, idempotency_key: `issue-${values.nonce || crypto.randomUUID()}`,
         title: values.title.trim(), severity: values.severity || "minor", affected_object_refs: [affected],
         product: values.product.trim(), redacted_diagnostics: values.redacted_diagnostics, assigned_owner_ref: values.assigned_owner_ref.trim(),
+        ...justificationPayload(f),
       }) }).then(async (x) => ({ status: x.status, j: await x.json().catch(() => ({})) })).catch(() => ({ status: 0, j: {} }));
+      // A Governance checkpoint on filing an issue answers with its prompt (ADR 0056 P5).
+      if (isJustificationPrompt(created.status, created.j)) {
+        res.writeHead(200, { "Content-Type": "text/html; charset=utf-8", "Cache-Control": "no-store" });
+        res.end(automationsShell("Justification required", renderJustificationPrompt({ action: "/__ioi/missions/incidents/new", carried: f, reply: created.j, backHref: `${base}?lane=${lane}`, what: "Filing this issue" }), { theme: "light" }));
+        return;
+      }
       if (!(created.status >= 200 && created.status < 300) || !created.j.incident) {
         return refuse((created.j.error && created.j.error.message) || created.j.message || (created.status ? `the daemon answered HTTP ${created.status}` : "the daemon did not answer"));
       }
@@ -13840,6 +13860,12 @@ async function handleEstateRequest(req, res, body) {
       if (r.status >= 200 && r.status < 300) return back(true, `Status is now ${r.j.incident?.status || to}.`);
       return back(false, `Not changed: ${whyRefused(r.j)}.`);
     }
+    // ADR 0056 P5: Governance / Leases & Limits — checkpoints (Review + Configuration), leases handed
+    // off to Connections, limits a named gap (no authority node).
+    if (pathname.startsWith("/__ioi/governance/limits") && await handleGovernanceLimits(req, res, pathname, body, {
+      daemonFetch, whyRefused,
+      send: (r, status, inner) => { r.writeHead(status, { "Content-Type": "text/html; charset=utf-8", "Cache-Control": "no-store" }); r.end(automationsShell("Leases & Limits", inner, { theme: "light" })); },
+    })) return;
     // ADR 0056 P2: Operations / Health — checks, their admitted results, and the plane's own writes.
     if (pathname.startsWith("/__ioi/operations/health") && await handleOperationsHealth(req, res, pathname, body, {
       daemonFetch, whyRefused,

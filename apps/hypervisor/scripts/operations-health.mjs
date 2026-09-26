@@ -12,6 +12,7 @@
 // levels (who hears about which outcome).
 import crypto from "node:crypto";
 import { callerOwnerRef, escHtml as esc } from "../surfaces/kit.mjs";
+import { isJustificationPrompt, justificationPayload, renderJustificationPrompt } from "./justification-prompt.mjs";
 
 export const HEALTH_ROUTE = "/operations/health";
 export const HEALTH_LANE = "/__ioi/operations/health";
@@ -303,8 +304,14 @@ export async function handleOperationsHealth(req, res, pathname, body, deps) {
       display_name: values.display_name.trim(), target_ref: target, check_kind: values.check_kind || "command_exit",
       severity: values.severity || "minor", incident_policy: { file_on: values.file_on || "failed" },
       ...(values.check_kind === "automation_run_outcome" ? {} : { probe: { environment_ref: values.environment_ref, command: values.command.trim() } }),
+      ...justificationPayload(f),
     };
     const r = await writeJson(daemonFetch, "/v1/hypervisor/health-checks", payload);
+    // A Governance checkpoint on declaring a check answers with its prompt (ADR 0056 P5).
+    if (isJustificationPrompt(r.status, r.body)) {
+      send(res, 200, renderJustificationPrompt({ action: `${HEALTH_LANE}/new`, carried: f, reply: r.body, backHref: HEALTH_ROUTE, what: "Declaring this health check" }));
+      return true;
+    }
     if (!accepted(r)) return refuse(`${whyRefused(r.body)}.`), true;
     const id = checkTail(r.body.health_check?.health_check_id);
     back(true, r.body.replayed ? "This check was already declared — the same form was submitted twice, so nothing new was written." : "Declared. Press Evaluate now to observe it.", id);

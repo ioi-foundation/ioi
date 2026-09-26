@@ -1986,6 +1986,12 @@ jobs:
           IOI_VERIFIER_CENSUS_DIR: .artifacts/verifier-census
         run: npm run check:health-checks --workspace=@ioi/hypervisor-app
 
+      - name: Verify against an isolated live daemon — justification-checkpoints
+        if: ${{ !cancelled() && steps.daemon_artifact.outcome == 'success' }}
+        env:
+          IOI_VERIFIER_CENSUS_DIR: .artifacts/verifier-census
+        run: npm run check:justification-checkpoints --workspace=@ioi/hypervisor-app
+
       - name: Verify against an isolated live daemon — governance-journey
         if: ${{ !cancelled() && steps.daemon_artifact.outcome == 'success' }}
         env:

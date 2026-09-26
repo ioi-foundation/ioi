@@ -1,0 +1,146 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "schema://ioi/components/hypervisor/justification-record/v1",
+  "title": "JustificationRecord",
+  "x-ioi-schema-version": "ioi.hypervisor.justification_record.v1",
+  "description": "The immutable evidence one person's answer to one JustificationCheckpoint left behind (ADR 0056 Amendment 1, plane 5): who, when, which interaction and items, the checkpoint's language EXACTLY AS SHOWN (a snapshot that later edits or deletion of the configuration never change), and the justification given. Every record one action produced shares its interaction_ref. It is admitted before the interaction runs, grants nothing and is never an approval.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "record_id",
+    "checkpoint_ref",
+    "checkpoint_head",
+    "interaction_kind",
+    "interaction_ref",
+    "checkpointed_item_refs",
+    "submitted_by_principal_ref",
+    "owner_ref",
+    "language",
+    "justification",
+    "created_at",
+    "admitted_head"
+  ],
+  "properties": {
+    "schema_version": {
+      "type": "string",
+      "const": "ioi.hypervisor.justification_record.v1"
+    },
+    "record_id": {
+      "type": "string",
+      "pattern": "^justification-record://jr_[0-9a-f]{16}$"
+    },
+    "checkpoint_ref": {
+      "type": "string",
+      "pattern": "^justification-checkpoint://jc_[0-9a-f]{16}$"
+    },
+    "checkpoint_head": {
+      "type": "string",
+      "pattern": "^sha256:[0-9a-f]{64}$"
+    },
+    "interaction_kind": {
+      "type": "string",
+      "enum": [
+        "automation.run_now",
+        "support_incident.file",
+        "health_check.declare"
+      ]
+    },
+    "interaction_ref": {
+      "type": "string",
+      "pattern": "^interaction://[a-z_.]{1,64}/[0-9a-f-]{36}$"
+    },
+    "checkpointed_item_refs": {
+      "type": "array",
+      "maxItems": 50,
+      "items": {
+        "type": "string",
+        "pattern": "^[a-z][a-z0-9_-]*://[^\\s]{1,480}$"
+      }
+    },
+    "submitted_by_principal_ref": {
+      "type": "string",
+      "pattern": "^user://[^\\s]{1,480}$"
+    },
+    "owner_ref": {
+      "type": "string",
+      "pattern": "^(?:org|project)://[^\\s]{1,480}$"
+    },
+    "language": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "title",
+        "body",
+        "description"
+      ],
+      "properties": {
+        "title": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 45
+        },
+        "body": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 4000
+        },
+        "description": {
+          "type": "string",
+          "maxLength": 4000
+        }
+      }
+    },
+    "justification": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "kind",
+        "acknowledged",
+        "text",
+        "selected"
+      ],
+      "properties": {
+        "kind": {
+          "type": "string",
+          "enum": [
+            "acknowledgment",
+            "response",
+            "dropdown"
+          ]
+        },
+        "acknowledged": {
+          "type": "boolean"
+        },
+        "text": {
+          "type": "string",
+          "maxLength": 4000
+        },
+        "selected": {
+          "type": "array",
+          "maxItems": 25,
+          "items": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 200
+          }
+        }
+      }
+    },
+    "created_at": {
+      "type": "string",
+      "minLength": 1
+    },
+    "admitted_head": {
+      "anyOf": [
+        {
+          "type": "string",
+          "pattern": "^sha256:[0-9a-f]{64}$"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    }
+  }
+}

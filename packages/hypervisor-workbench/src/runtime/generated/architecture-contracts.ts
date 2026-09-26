@@ -15498,6 +15498,63 @@ export type HypervisorNotificationProjectionV1 = {
   read_model_only: true;
 };
 
+export type JustificationCheckpointV1 = {
+  schema_version: "ioi.hypervisor.justification_checkpoint.v1";
+  checkpoint_id: string;
+  display_name: string;
+  description: string;
+  interaction_kinds: Array<"automation.run_now" | "support_incident.file" | "health_check.declare">;
+  scope_ref: string;
+  conditions: {
+      item_refs: Array<string>;
+      exempt_principal_refs: Array<string>;
+    };
+  prompt: {
+      title: string;
+      body: string;
+      description: string;
+    };
+  justification: {
+      kind: "acknowledgment" | "response" | "dropdown";
+      acknowledgment_text: string;
+      response_pattern: string;
+      options: Array<string>;
+      multiple: boolean;
+      free_text: "none" | "optional" | "required";
+    };
+  enablement: "enabled" | "paused" | "archived";
+  owner_ref: string;
+  created_by_principal_ref: string;
+  created_at: string;
+  updated_at: string;
+  admitted_head: string | null;
+};
+
+export type JustificationRecordV1 = {
+  schema_version: "ioi.hypervisor.justification_record.v1";
+  record_id: string;
+  checkpoint_ref: string;
+  checkpoint_head: string;
+  interaction_kind: "automation.run_now" | "support_incident.file" | "health_check.declare";
+  interaction_ref: string;
+  checkpointed_item_refs: Array<string>;
+  submitted_by_principal_ref: string;
+  owner_ref: string;
+  language: {
+      title: string;
+      body: string;
+      description: string;
+    };
+  justification: {
+      kind: "acknowledgment" | "response" | "dropdown";
+      acknowledged: boolean;
+      text: string;
+      selected: Array<string>;
+    };
+  created_at: string;
+  admitted_head: string | null;
+};
+
 export const ARCHITECTURE_CONTRACT_REGISTRY_VERSION = "ioi.architecture-contract-registry.v1" as const;
 
 export const ARCHITECTURE_CONTRACT_PORTABLE_INTEGER_MINIMUM = 0 as const;
@@ -31731,6 +31788,38 @@ export const ARCHITECTURE_CONTRACT_FIXTURES = [
     "expected_schema_accept": false,
     "expected_failure": "schema",
     "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/components/hypervisor/justification-checkpoint/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/justification-checkpoint-v1/positive-run-now-response.json",
+    "expected": "accept",
+    "expected_schema_accept": true,
+    "expected_failure": null,
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/components/hypervisor/justification-checkpoint/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/justification-checkpoint-v1/negative-interaction-not-in-catalog.json",
+    "expected": "reject",
+    "expected_schema_accept": false,
+    "expected_failure": "schema",
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/components/hypervisor/justification-record/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/justification-record-v1/positive-run-now-response.json",
+    "expected": "accept",
+    "expected_schema_accept": true,
+    "expected_failure": null,
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/components/hypervisor/justification-record/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/justification-record-v1/negative-language-not-snapshotted.json",
+    "expected": "reject",
+    "expected_schema_accept": false,
+    "expected_failure": "schema",
+    "expected_rule_id": null
   }
 ] as const;
 
@@ -36412,6 +36501,10 @@ export const ARCHITECTURE_CONTRACT_DIFFERENTIAL_CASES: ReadonlyArray<Architectur
   differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/hypervisor-notification-projection-v1/negative-not-read-model-only.json","contract_id":"schema://ioi/components/hypervisor/notification-projection/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/hypervisor-notification-projection-v1/negative-not-read-model-only.json","mutation_id":null,"value_json":null}),
   differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/hypervisor-notification-projection-v1/negative-detail-route-absolute-url.json","contract_id":"schema://ioi/components/hypervisor/notification-projection/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/hypervisor-notification-projection-v1/negative-detail-route-absolute-url.json","mutation_id":null,"value_json":null}),
   differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/hypervisor-notification-projection-v1/negative-undotted-event-kind.json","contract_id":"schema://ioi/components/hypervisor/notification-projection/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/hypervisor-notification-projection-v1/negative-undotted-event-kind.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/justification-checkpoint-v1/positive-run-now-response.json","contract_id":"schema://ioi/components/hypervisor/justification-checkpoint/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/justification-checkpoint-v1/positive-run-now-response.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/justification-checkpoint-v1/negative-interaction-not-in-catalog.json","contract_id":"schema://ioi/components/hypervisor/justification-checkpoint/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/justification-checkpoint-v1/negative-interaction-not-in-catalog.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/justification-record-v1/positive-run-now-response.json","contract_id":"schema://ioi/components/hypervisor/justification-record/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/justification-record-v1/positive-run-now-response.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/justification-record-v1/negative-language-not-snapshotted.json","contract_id":"schema://ioi/components/hypervisor/justification-record/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/justification-record-v1/negative-language-not-snapshotted.json","mutation_id":null,"value_json":null}),
   differentialCase({"id":"mutation:sequence-zero-receipt-timestamp-detached","contract_id":"schema://ioi/foundations/autonomous-system-sequence-zero-materialization-receipt/v2","source_fixture_path":null,"mutation_id":"sequence-zero-receipt-timestamp-detached","value_json":null}),
   differentialCase({"id":"mutation:sequence-zero-receipt-authorized-materialization-id-detached","contract_id":"schema://ioi/foundations/autonomous-system-sequence-zero-materialization-receipt/v2","source_fixture_path":null,"mutation_id":"sequence-zero-receipt-authorized-materialization-id-detached","value_json":null}),
   differentialCase({"id":"mutation:sequence-zero-receipt-authority-principal-detached","contract_id":"schema://ioi/foundations/autonomous-system-sequence-zero-materialization-receipt/v2","source_fixture_path":null,"mutation_id":"sequence-zero-receipt-authority-principal-detached","value_json":null}),
@@ -36998,6 +37091,7 @@ export const ARCHITECTURE_CONTRACT_PATTERN_SOURCES = [
   "^[a-z][a-z0-9._-]{0,127}$",
   "^[a-z][a-z0-9]*(?:[._-][a-z0-9]+)*$",
   "^[a-z][a-z0-9_-]*(?:://|:)[^\\s]{1,240}$",
+  "^[a-z][a-z0-9_-]*://[^\\s]{1,480}$",
   "^[a-z][a-z0-9_-]*://\\S+$",
   "^[a-z][a-z0-9_-]*:\\S+$",
   "^[a-z][a-z0-9_-]{0,127}$",
@@ -37313,6 +37407,7 @@ export const ARCHITECTURE_CONTRACT_PATTERN_SOURCES = [
   "^install://automation/[^\\s/?#\\\\]{1,160}/revision/sha256:[0-9a-f]{64}$",
   "^install://automation/[^\\s?#\\\\]{1,140}/revision/sha256:[0-9a-f]{64}$",
   "^installation://[A-Za-z0-9][A-Za-z0-9._/-]{0,190}$",
+  "^interaction://[a-z_.]{1,64}/[0-9a-f-]{36}$",
   "^invariant://[^\\s]{1,240}$",
   "^invariant://[^\\s]{1,248}$",
   "^invoice://[^\\s]{1,400}$",
@@ -37321,6 +37416,8 @@ export const ARCHITECTURE_CONTRACT_PATTERN_SOURCES = [
   "^jurisdiction://[a-z0-9][a-z0-9._/-]{0,190}$",
   "^jurisdiction_decision://[^\\s?#\\\\]{1,200}$",
   "^jurisdiction_policy_pack://[^\\s?#\\\\]{1,200}$",
+  "^justification-checkpoint://jc_[0-9a-f]{16}$",
+  "^justification-record://jr_[0-9a-f]{16}$",
   "^key://[^\\s]+$",
   "^key://[^\\s]{1,248}$",
   "^key://[^\\s]{1,500}$",
@@ -38097,7 +38194,9 @@ export const ARCHITECTURE_CONTRACT_SCHEMA_HASHES = {
   "schema://ioi/foundations/repair-proposal/v1": "sha256:47f6fe0cc590e3f5f376cb2954cea8f1d8199d3e6f8f069db738feda77e19c06",
   "schema://ioi/foundations/optimization-target-adapter/v1": "sha256:991acf470e55ab6007d489e396f5925c4b8a5cac46124be1affe29771dd5b031",
   "schema://ioi/components/hypervisor/notification-subscription/v1": "sha256:45e93217cbd14d2a60a34a674d85b8bc7729cbb8953c71fa0ee4fd72c4f1f1dd",
-  "schema://ioi/components/hypervisor/notification-projection/v1": "sha256:6edeb66e0a835287a9851bd781e2a6f0136df868db2f10b16cf1e40ff671d557"
+  "schema://ioi/components/hypervisor/notification-projection/v1": "sha256:6edeb66e0a835287a9851bd781e2a6f0136df868db2f10b16cf1e40ff671d557",
+  "schema://ioi/components/hypervisor/justification-checkpoint/v1": "sha256:fbaa54c53e0eebbc5eb3deb89469ea20ae589547ace10beb183d1f75512ba4d8",
+  "schema://ioi/components/hypervisor/justification-record/v1": "sha256:3281dcf985707d23dace61c615809ab08420965aee07cc9cce4267c93bbfc867"
 } as const;
 
 type JsonObject = Record<string, unknown>;
@@ -157463,6 +157562,353 @@ const CONTRACT_SCHEMAS: Record<string, JsonObject> = {
         "const": true
       }
     }
+  },
+  "schema://ioi/components/hypervisor/justification-checkpoint/v1": {
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "$id": "schema://ioi/components/hypervisor/justification-checkpoint/v1",
+    "title": "JustificationCheckpoint",
+    "x-ioi-schema-version": "ioi.hypervisor.justification_checkpoint.v1",
+    "description": "Governance / Leases & Limits configuration that puts a JUSTIFICATION OBLIGATION in front of a closed set of interactions a person performs in one owner tenant (ADR 0056 Amendment 1, plane 5). It adds an obligation and never grants anything: a matching interaction pauses until the person answers the prompt, and the answer becomes an immutable JustificationRecord. It is not an approval. Only interactions the daemon actually gates are in its catalog.",
+    "type": "object",
+    "additionalProperties": false,
+    "required": [
+      "schema_version",
+      "checkpoint_id",
+      "display_name",
+      "description",
+      "interaction_kinds",
+      "scope_ref",
+      "conditions",
+      "prompt",
+      "justification",
+      "enablement",
+      "owner_ref",
+      "created_by_principal_ref",
+      "created_at",
+      "updated_at",
+      "admitted_head"
+    ],
+    "properties": {
+      "schema_version": {
+        "type": "string",
+        "const": "ioi.hypervisor.justification_checkpoint.v1"
+      },
+      "checkpoint_id": {
+        "type": "string",
+        "pattern": "^justification-checkpoint://jc_[0-9a-f]{16}$"
+      },
+      "display_name": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 160
+      },
+      "description": {
+        "type": "string",
+        "maxLength": 2000
+      },
+      "interaction_kinds": {
+        "type": "array",
+        "minItems": 1,
+        "uniqueItems": true,
+        "items": {
+          "type": "string",
+          "enum": [
+            "automation.run_now",
+            "support_incident.file",
+            "health_check.declare"
+          ]
+        }
+      },
+      "scope_ref": {
+        "type": "string",
+        "pattern": "^(?:org|project)://[^\\s]{1,480}$"
+      },
+      "conditions": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "item_refs",
+          "exempt_principal_refs"
+        ],
+        "properties": {
+          "item_refs": {
+            "type": "array",
+            "maxItems": 50,
+            "uniqueItems": true,
+            "items": {
+              "type": "string",
+              "pattern": "^[a-z][a-z0-9_-]*://[^\\s]{1,480}$"
+            }
+          },
+          "exempt_principal_refs": {
+            "type": "array",
+            "maxItems": 50,
+            "uniqueItems": true,
+            "items": {
+              "type": "string",
+              "pattern": "^user://[^\\s]{1,480}$"
+            }
+          }
+        }
+      },
+      "prompt": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "title",
+          "body",
+          "description"
+        ],
+        "properties": {
+          "title": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 45
+          },
+          "body": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 4000
+          },
+          "description": {
+            "type": "string",
+            "maxLength": 4000
+          }
+        }
+      },
+      "justification": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "kind",
+          "acknowledgment_text",
+          "response_pattern",
+          "options",
+          "multiple",
+          "free_text"
+        ],
+        "properties": {
+          "kind": {
+            "type": "string",
+            "enum": [
+              "acknowledgment",
+              "response",
+              "dropdown"
+            ]
+          },
+          "acknowledgment_text": {
+            "type": "string",
+            "maxLength": 500
+          },
+          "response_pattern": {
+            "type": "string",
+            "maxLength": 500
+          },
+          "options": {
+            "type": "array",
+            "maxItems": 25,
+            "uniqueItems": true,
+            "items": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 200
+            }
+          },
+          "multiple": {
+            "type": "boolean"
+          },
+          "free_text": {
+            "type": "string",
+            "enum": [
+              "none",
+              "optional",
+              "required"
+            ]
+          }
+        }
+      },
+      "enablement": {
+        "type": "string",
+        "enum": [
+          "enabled",
+          "paused",
+          "archived"
+        ]
+      },
+      "owner_ref": {
+        "type": "string",
+        "pattern": "^(?:org|project)://[^\\s]{1,480}$"
+      },
+      "created_by_principal_ref": {
+        "type": "string",
+        "pattern": "^user://[^\\s]{1,480}$"
+      },
+      "created_at": {
+        "type": "string",
+        "minLength": 1
+      },
+      "updated_at": {
+        "type": "string",
+        "minLength": 1
+      },
+      "admitted_head": {
+        "anyOf": [
+          {
+            "type": "string",
+            "pattern": "^sha256:[0-9a-f]{64}$"
+          },
+          {
+            "type": "null"
+          }
+        ]
+      }
+    }
+  },
+  "schema://ioi/components/hypervisor/justification-record/v1": {
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "$id": "schema://ioi/components/hypervisor/justification-record/v1",
+    "title": "JustificationRecord",
+    "x-ioi-schema-version": "ioi.hypervisor.justification_record.v1",
+    "description": "The immutable evidence one person's answer to one JustificationCheckpoint left behind (ADR 0056 Amendment 1, plane 5): who, when, which interaction and items, the checkpoint's language EXACTLY AS SHOWN (a snapshot that later edits or deletion of the configuration never change), and the justification given. Every record one action produced shares its interaction_ref. It is admitted before the interaction runs, grants nothing and is never an approval.",
+    "type": "object",
+    "additionalProperties": false,
+    "required": [
+      "schema_version",
+      "record_id",
+      "checkpoint_ref",
+      "checkpoint_head",
+      "interaction_kind",
+      "interaction_ref",
+      "checkpointed_item_refs",
+      "submitted_by_principal_ref",
+      "owner_ref",
+      "language",
+      "justification",
+      "created_at",
+      "admitted_head"
+    ],
+    "properties": {
+      "schema_version": {
+        "type": "string",
+        "const": "ioi.hypervisor.justification_record.v1"
+      },
+      "record_id": {
+        "type": "string",
+        "pattern": "^justification-record://jr_[0-9a-f]{16}$"
+      },
+      "checkpoint_ref": {
+        "type": "string",
+        "pattern": "^justification-checkpoint://jc_[0-9a-f]{16}$"
+      },
+      "checkpoint_head": {
+        "type": "string",
+        "pattern": "^sha256:[0-9a-f]{64}$"
+      },
+      "interaction_kind": {
+        "type": "string",
+        "enum": [
+          "automation.run_now",
+          "support_incident.file",
+          "health_check.declare"
+        ]
+      },
+      "interaction_ref": {
+        "type": "string",
+        "pattern": "^interaction://[a-z_.]{1,64}/[0-9a-f-]{36}$"
+      },
+      "checkpointed_item_refs": {
+        "type": "array",
+        "maxItems": 50,
+        "items": {
+          "type": "string",
+          "pattern": "^[a-z][a-z0-9_-]*://[^\\s]{1,480}$"
+        }
+      },
+      "submitted_by_principal_ref": {
+        "type": "string",
+        "pattern": "^user://[^\\s]{1,480}$"
+      },
+      "owner_ref": {
+        "type": "string",
+        "pattern": "^(?:org|project)://[^\\s]{1,480}$"
+      },
+      "language": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "title",
+          "body",
+          "description"
+        ],
+        "properties": {
+          "title": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 45
+          },
+          "body": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 4000
+          },
+          "description": {
+            "type": "string",
+            "maxLength": 4000
+          }
+        }
+      },
+      "justification": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "kind",
+          "acknowledged",
+          "text",
+          "selected"
+        ],
+        "properties": {
+          "kind": {
+            "type": "string",
+            "enum": [
+              "acknowledgment",
+              "response",
+              "dropdown"
+            ]
+          },
+          "acknowledged": {
+            "type": "boolean"
+          },
+          "text": {
+            "type": "string",
+            "maxLength": 4000
+          },
+          "selected": {
+            "type": "array",
+            "maxItems": 25,
+            "items": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 200
+            }
+          }
+        }
+      },
+      "created_at": {
+        "type": "string",
+        "minLength": 1
+      },
+      "admitted_head": {
+        "anyOf": [
+          {
+            "type": "string",
+            "pattern": "^sha256:[0-9a-f]{64}$"
+          },
+          {
+            "type": "null"
+          }
+        ]
+      }
+    }
   }
 };
 const CONTRACT_INVARIANTS: Record<string, Array<JsonObject>> = {
@@ -179483,7 +179929,9 @@ const CONTRACT_INVARIANTS: Record<string, Array<JsonObject>> = {
     }
   ],
   "schema://ioi/components/hypervisor/notification-subscription/v1": [],
-  "schema://ioi/components/hypervisor/notification-projection/v1": []
+  "schema://ioi/components/hypervisor/notification-projection/v1": [],
+  "schema://ioi/components/hypervisor/justification-checkpoint/v1": [],
+  "schema://ioi/components/hypervisor/justification-record/v1": []
 };
 
 export function architectureContractSchemaHash(contractId: string): string | null {
@@ -182532,4 +182980,16 @@ export function validateHypervisorNotificationProjectionV1(
   value: unknown,
 ): value is HypervisorNotificationProjectionV1 {
   return validateArchitectureContract("schema://ioi/components/hypervisor/notification-projection/v1", value).ok;
+}
+
+export function validateJustificationCheckpointV1(
+  value: unknown,
+): value is JustificationCheckpointV1 {
+  return validateArchitectureContract("schema://ioi/components/hypervisor/justification-checkpoint/v1", value).ok;
+}
+
+export function validateJustificationRecordV1(
+  value: unknown,
+): value is JustificationRecordV1 {
+  return validateArchitectureContract("schema://ioi/components/hypervisor/justification-record/v1", value).ok;
 }

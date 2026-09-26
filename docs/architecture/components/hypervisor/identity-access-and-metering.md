@@ -208,6 +208,36 @@ derived wallet ownership is permitted.
   explicit grant, never a role. A wallet.network grant is additionally required
   when the connector/action profile assigns authority to wallet.network.
 
+### Justification checkpoints
+- Registered contract: `schema://ioi/components/hypervisor/justification-checkpoint/v1`
+  (ADR 0056 Amendment 1, plane 5); the lane is Governance / Leases & Limits /
+  Checkpoints. A checkpoint puts a **justification obligation** in front of a
+  closed set of interactions a person performs inside one owner tenant: when an
+  interaction matches (its kind, the scope, the item conditions, and the actor
+  not exempt), it pauses until the person answers the checkpoint's prompt, and
+  the answer becomes a JustificationRecord. It **adds an obligation and never
+  grants anything**; it is not an approval, and a justification never widens
+  what the caller may do. Justification kinds: `acknowledgment`, `response`
+  (optionally matched by a pattern) and `dropdown` (predefined reasons, single or
+  multiple, with free text none / optional / required); re-authentication is not
+  offered until an identity step-up plane exists.
+- **Only an enforced interaction is in the catalog**
+  (`automation.run_now`, `support_incident.file`, `health_check.declare`): a
+  catalog entry the daemon did not gate would let a checkpoint be configured that
+  never fires. The daemon's own dispatch (a scheduled or webhook run) is not a
+  person and is never prompted. Authority evaluation reports the obligation for an
+  effect a checkpoint covers.
+
+### Justification records
+- Registered contract: `schema://ioi/components/hypervisor/justification-record/v1`.
+  One person's answer to one checkpoint, admitted through the owner-scoped
+  write foundation **before** the interaction runs: the submitter, the time, the
+  interaction kind and the items it acted on, the checkpoint's language **exactly
+  as shown** (a snapshot that later edits or deletion of the configuration never
+  change), the justification given, and an `interaction_ref` shared by every
+  record one action produced. A record is immutable evidence; an interaction that
+  later fails keeps its record.
+
 ### Secrets & API-access-token management
 - **Secrets** (org / user / project scope) — the value is **sealed at rest**
   (the same key-store as other sealed credentials), stored separately from the

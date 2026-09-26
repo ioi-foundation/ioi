@@ -181,6 +181,14 @@
       "assertion_names_sha256": "6e97609811179fb97494ede25b41d012c3e38606c6a9006512360ee59df22d18"
     },
     {
+      "id": "justification-checkpoints",
+      "npm_script": "check:justification-checkpoints",
+      "source": "apps/hypervisor/scripts/verify-hypervisor-justification-checkpoints.mjs",
+      "runtime_assertions": 14,
+      "note": "2026-09-26 (R-240, ADR 0056 P5): new at 14 — Governance / Leases & Limits checkpoints through the product's own forms on an isolated daemon: /governance/limits serves the lane (Review empty, Leases hand-off to Connections, Limits the authority-node gap); a checkpoint with no interaction refused on the page; Configuration's form configures one on Run now (owner = scope = the caller's organization, admitted head); authority evaluation reports the obligation; Run now is PAUSED behind the prompt with nothing run or recorded; a wrong answer refused on the prompt; the right one records the justification with the wording as shown, then runs, the execution naming the record; Review lists and opens it; pause lets Run now through, resume brings the prompt back, archive leaves the record's wording intact; a checkpoint on filing an issue asks for an acknowledgment; the signed-out page names the refusal. Measured with IOI_VERIFIER_CENSUS_DIR and CI's IOI_PRODUCT_SIGNIN_REQUIRED=0.",
+      "assertion_names_sha256": "68be5f3c84db1b78e95af5d31f8c9afeba4bad1cef2f6549270fb6bdbb9fd383"
+    },
+    {
       "id": "operational-depth",
       "npm_script": "check:operational-depth",
       "source": "apps/hypervisor/scripts/verify-hypervisor-operational-depth.mjs",

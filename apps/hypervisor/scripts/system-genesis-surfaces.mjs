@@ -920,7 +920,8 @@ async function renderSystemWorkspace(daemonUrl, shell, parsed) {
     }
     if (mode === "govern") {
       return shell(title, head + pending + parts.ladder + parts.actions
-        + namedGap("authority node (ADR 0056 Ruling 8)", "Budgets and standing limits for this System"));
+        + namedGap("authority node (ADR 0056 Ruling 8)", "Budgets and standing limits for this System")
+        + handOffs([["/governance/limits?tab=checkpoints", "Checkpoints in Leases & Limits"], ["/governance/approvals", "Approvals"]]));
     }
     return shell(title, head + pending + `<h2>Evidence — genesis and lifecycle receipts, operation log</h2>` + parts.projection
       + namedGap("Work Ledger lane by system_ref", "Run and session receipts filtered to this System")
