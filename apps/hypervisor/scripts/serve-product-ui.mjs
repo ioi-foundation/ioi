@@ -15387,17 +15387,28 @@ async function handleEstateRequest(req, res, body) {
           const patch = { transition: (p.get("transition") || "").trim() };
           const tr = (p.get("trip_reason") || "").trim(); if (tr) patch.trip_reason = tr;
           const r = await daemonFetch(`${api}/${encodeURIComponent(id)}`, { method: "PATCH", headers: { "content-type": "application/json" }, body: JSON.stringify(patch) }).then((x) => x.json()).catch(() => ({}));
-          if (r && r.ok === false && r.error) { res.writeHead(200, HTMLH); res.end(automationsShell("Governance", `<div class="empty">Transition failed: ${CX_ESC(r.error.message || "invalid")}</div><p><a href="${CX_ESC(back)}">← back</a></p>`)); return; }
+          // Anything but an explicit success is said (R-240): a flat {ok:false, code} refusal, or no
+          // answer at all, redirected back as though the transition had happened.
+          if (!r || r.ok !== true) { res.writeHead(200, HTMLH); res.end(automationsShell("Governance", `<div class="empty">Transition failed: ${CX_ESC(whyRefused(r))}</div><p><a href="${CX_ESC(back)}">← back</a></p>`)); return; }
           res.writeHead(302, { Location: back, "Cache-Control": "no-cache" }); return res.end();
         }
         if (action === "delete") {
-          await daemonFetch(`${api}/${encodeURIComponent(id)}`, { method: "DELETE" }).catch(() => {});
+          // A refused or unanswered delete must not land back on the list as though the record were gone.
+          const r = await daemonFetch(`${api}/${encodeURIComponent(id)}`, { method: "DELETE" }).then((x) => x.json()).catch(() => ({}));
+          if (!r || r.ok !== true) { res.writeHead(200, HTMLH); res.end(automationsShell("Governance", `<div class="empty">Delete refused: ${CX_ESC(whyRefused(r))}</div><p><a href="${CX_ESC(back)}">← back</a></p>`)); return; }
           res.writeHead(302, { Location: back, "Cache-Control": "no-cache" }); return res.end();
         }
         // Effectful KillSwitch enforcement (after trip).
         if (action === "enforce" && fam === "kill-switches") {
-          const r = await daemonFetch(`${api}/${encodeURIComponent(id)}/enforce`, { method: "POST", headers: { "content-type": "application/json" }, body: "{}" }).then((x) => x.json()).catch(() => ({}));
-          if (r && r.ok === false && r.error) { res.writeHead(200, HTMLH); res.end(automationsShell("Governance", `<div class="empty">Enforce failed: ${CX_ESC(r.error.message || "invalid")}</div><p><a href="${CX_ESC(back)}">← back</a></p>`)); return; }
+          // Enforcement stops running software, so the daemon admits it as an owner-scoped write: the
+          // caller's organization and an idempotency key. The lane sent "{}", so every Enforce was
+          // refused — and the flat refusal redirected back as though the runtimes had been stopped (R-240).
+          const ks = await daemonFetch(`${api}/${encodeURIComponent(id)}`).then((x) => x.json()).catch(() => ({}));
+          const owner_ref = callerOwnerRef(await daemonFetch("/v1/hypervisor/auth/whoami").then((x) => x.json()).catch(() => ({})));
+          const record = (ks && ks.kill_switch) || {};
+          const idempotency_key = `kill-enforce:${crypto.createHash("sha256").update(JSON.stringify([id, owner_ref, record.state || "", record.updated_at || "", record.admitted_head || ""])).digest("hex").slice(0, 32)}`;
+          const r = await daemonFetch(`${api}/${encodeURIComponent(id)}/enforce`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ owner_ref, idempotency_key }) }).then((x) => x.json()).catch(() => ({}));
+          if (!r || r.ok !== true) { res.writeHead(200, HTMLH); res.end(automationsShell("Governance", `<div class="empty">Enforce failed: ${CX_ESC(whyRefused(r))}</div><p><a href="${CX_ESC(back)}">← back</a></p>`)); return; }
           res.writeHead(302, { Location: back, "Cache-Control": "no-cache" }); return res.end();
         }
       }

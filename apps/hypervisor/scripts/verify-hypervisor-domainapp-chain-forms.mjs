@@ -6,7 +6,7 @@
 // and is PUBLISHED from Ontology Manager's History as an M05.1 revision; Studio's descriptor form binds
 // that revision; ODK's manifest form lists the ontology and the descriptor; the New Domain App form
 // builds a draft app over both; Packages freezes it as a candidate and cuts a release; the app is then
-// edited and a second one deleted through their own forms.
+// edited and a second one deleted through their own forms, and a kill switch on it trips and enforces.
 //
 // Every write submits the form the surface RENDERED — its action, its hidden values, and only options
 // it offers — and every outcome is read back from the daemon. The chain was dead at four links before
@@ -242,7 +242,20 @@ async function run() {
   ok("the Delete form deletes (the daemon no longer serves the app) and only then lands on the list",
     deleted.status === 302 && deleted.location === "/__ioi/domain-apps" && gone === 404, `${said(deleted)} · daemon GET after ${gone}`);
 
-  // ---- 7. an anonymous create is refused by name and creates nothing -----------------------------
+  // ---- 7. a kill switch on the app: created, tripped and ENFORCED through Governance's forms -------
+  // Enforcement admits as an owner-scoped write; the lane posted "{}", so every Enforce was refused
+  // and the flat refusal redirected back as though the runtimes had been stopped.
+  const ksRoute = "/__ioi/governance?tab=kill-switches";
+  const ksCreated = appId ? await submit(ksRoute, "/__ioi/governance/kill-switches", { subject_ref: `domain-app://${appId}` }) : { error: "no app" };
+  const ks = ((await daemonRead("/v1/hypervisor/governance/kill-switches")).body?.kill_switches ?? []).find((k) => k.subject_ref === `domain-app://${appId}`);
+  const tripped = ks ? await submit(ksRoute, `/__ioi/governance/kill-switches/${encodeURIComponent(ks.id)}/transition`, { transition: "trip", trip_reason: "chain forms verifier" }) : { error: "no kill switch" };
+  const enforced = ks ? await submit(ksRoute, `/__ioi/governance/kill-switches/${encodeURIComponent(ks.id)}/enforce`, {}) : { error: "no kill switch" };
+  const ksAfter = ks ? (await daemonRead(`/v1/hypervisor/governance/kill-switches/${ks.id}`)).body?.kill_switch : null;
+  ok("a kill switch on the app is created, tripped and ENFORCED through Governance's own forms — the enforcement is recorded, never a redirect over a refusal",
+    !!ks && tripped.status === 302 && enforced.status === 302 && ksAfter?.state === "tripped" && typeof ksAfter?.enforcement_state === "string" && ksAfter.enforcement_state.length > 0,
+    `${said(ksCreated)} · ${said(tripped)} · ${said(enforced)} · state ${ksAfter?.state ?? "—"} · enforcement ${ksAfter?.enforcement_state ?? "none"}`);
+
+  // ---- 8. an anonymous create is refused by name and creates nothing -----------------------------
   // The form a signed-in page rendered, posted with no session — a tab left open after sign-out. (A
   // signed-out page renders no descriptor to pick, which proves nothing about the server.)
   const before = ((await daemonRead("/v1/hypervisor/domain-apps")).body?.domain_apps ?? []).length;
