@@ -148,8 +148,10 @@ export const JOURNEY = Object.freeze([
     legs: [
       { id: "sessions", kind: "composed", gate: "launch-chain", what: "one owned Session through the typed launch chain, receipted and recoverable" },
       { id: "automations", kind: "composed", gate: "automations-journey", what: "automations created and run through the serve's action lanes" },
-      { id: "walk-session-and-automation", kind: "todo", what: "THIS walk's run",
-        write: "launch a session from the New Session composer on an environment, and create and start automation auto-{tag} through /automations' create form (project_ref required), against a deterministic stub model (the ollama-dialect stub check:governed-evaluation-plane runs)" },
+      { id: "walk-automation", kind: "live", what: "THIS walk's automation auto-{tag}, created through the New automation form (/__ioi/automations/new: a command step, a manual schedule) and listed by its own name on Automate — the project need not exist (the daemon checks only that project_ref is set; recorded in .artifacts/mvp-finish-line/journey-todo-legs-scoping-2026-09-26.md)",
+        assertion: "RUN — THIS walk's automation is created through the New automation form and listed by its own name on Automate" },
+      { id: "walk-session", kind: "todo", what: "THIS walk's session",
+        write: "launch a session from the New Session composer (a JavaScript surface: this HTTP walk needs a browser leg for it) on an environment, against a deterministic stub model (the ollama-dialect stub check:governed-evaluation-plane runs), and start auto-{tag}" },
       { id: "run-the-system", kind: "named_gap", what: "running THE System: a session or run attached to the System",
         gap: { code: "session_system_subject_absent", plane: "System subject on session create (W3 C-1)", source: "gap map step 5 (session create hard-codes subject_attachments: []); build order 5",
           probe: { route: "/systems/{system}/operate", marker: 'data-system-named-gap="System subject on session create (W3 C-1)"' } } },
@@ -206,7 +208,8 @@ export const JOURNEY = Object.freeze([
     surface: "/evaluations",
     legs: [
       { id: "governed-plane", kind: "composed", gate: "governed-evaluation-plane", what: "the governed evaluation plane on the daemon" },
-      { id: "walk-suite", kind: "todo", what: "THIS walk's suite", write: "declare suite-{tag} through the one form /evaluations renders today (suite declaration) and read it back BY NAME" },
+      { id: "walk-suite", kind: "live", what: "THIS walk's suite suite-{tag}, declared through the one form Evaluations renders today (/__ioi/evaluations#new-suite: a subject scope and a consent rung) and listed by its own name on the suites",
+        assertion: "EVALUATE — THIS walk's suite is declared through Evaluations' own form and listed by its own name" },
       { id: "evaluation-ui", kind: "named_gap", what: "evaluating from the UI: the governed evaluation plane has zero UI consumers",
         gap: { code: "evaluation_ui_consumer_absent", plane: "Evaluations rebound onto the governed evaluation plane", source: "gap map step 8; build order 8" } },
       { id: "evaluation-system-field", kind: "named_gap", what: "an evaluation naming the System it measured",

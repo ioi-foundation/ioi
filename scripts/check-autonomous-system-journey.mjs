@@ -120,6 +120,8 @@ export const REQUIRED_LIVE = Object.freeze([
   "design/handoff/walk-designer-offers-ontology",
   "data/legs/walk-ontology-and-source",
   "observe/legs/walk-issue",
+  "run/legs/walk-automation",
+  "evaluate/legs/walk-suite",
   "provenance/legs/system-evidence",
   "operate/legs/operate-mode",
   "operate/terminal/restart-reread",
@@ -719,7 +721,18 @@ async function liveLeg() {
     await probesOf("limits");
     todo("limits/handoff/lease-gates-connection-picker");
     // ==== STEP 5 — RUN =============================================================================
-    todo("run/legs/walk-session-and-automation");
+    // THIS walk's automation, through the New automation form (a fresh plane has no projects, so the
+    // form renders the project as text; the daemon checks only that it is set).
+    const automationName = `auto-${vars.tag}`;
+    const newAutomationRoute = "/__ioi/automations/new";
+    const createdAutomation = await submitRenderedForm(ctx, { id: "automation", page: await page(ctx, newAutomationRoute), from: newAutomationRoute, action: "/__ioi/automations",
+      fields: { project_ref: `project:${vars.tag}`, name: automationName, step_kind: "command", step_body: "echo journey" } });
+    const automationAt = String(createdAutomation.headers.location || "");
+    const automate = await page(ctx, "/__ioi/automations/monitors?tab=automations");
+    claimLive("run/legs/walk-automation",
+      createdAutomation.status === 302 && /^\/__ioi\/automations\/auto_[0-9a-f]+/u.test(automationAt) && automate.status === 200 && automate.text.includes(automationName),
+      `create ${createdAutomation.status} → ${automationAt.slice(0, 60) || "no location"} · Automate lists it ${automate.text.includes(automationName)}`);
+    todo("run/legs/walk-session");
     await probesOf("run");
     todo("run/handoff/walk-run-in-work");
     // ==== STEP 6 — OBSERVE =========================================================================
@@ -748,7 +761,15 @@ async function liveLeg() {
     await probesOf("provenance");
 
     // ==== STEP 8 — EVALUATE ========================================================================
-    todo("evaluate/legs/walk-suite");
+    // THIS walk's suite, through the one declaration form Evaluations renders today.
+    const suiteName = `suite-${vars.tag}`;
+    const evaluationsRoute = "/__ioi/evaluations";
+    const declared = outcomeOf(await submitRenderedForm(ctx, { id: "suite", page: await page(ctx, evaluationsRoute), from: evaluationsRoute, action: "/__ioi/evaluations",
+      fields: { name: suiteName, subject_scope: "failed_run", consent_requirements: "org_policy" } }));
+    const suites = await page(ctx, "/__ioi/evaluations/evalsuites");
+    claimLive("evaluate/legs/walk-suite",
+      declared.redirected && !declared.refused && suites.status === 200 && suites.text.includes(suiteName),
+      `declare ${declared.status}${declared.refused ? ` refused ${declared.refused.slice(0, 80)}` : ""} · the suites list it ${suites.text.includes(suiteName)}`);
     // ==== STEP 9 — IMPROVE =========================================================================
     todo("improve/legs/walk-improvement");
     await probesOf("improve");
