@@ -108,6 +108,8 @@ mod governance_routes;
 mod governed_authority;
 #[path = "hypervisor_daemon_routes/harness_routes.rs"]
 mod harness_routes;
+#[path = "hypervisor_daemon_routes/health_check_routes.rs"]
+mod health_check_routes;
 #[path = "hypervisor_daemon_routes/hypervisor_environment_routes.rs"]
 mod hypervisor_environment_routes;
 #[path = "hypervisor_daemon_routes/hypervisoros_node_routes.rs"]
@@ -170,8 +172,6 @@ mod ontology_version_routes;
 mod ontology_workbench_routes;
 #[path = "hypervisor_daemon_routes/operability_routes.rs"]
 mod operability_routes;
-#[path = "hypervisor_daemon_routes/health_check_routes.rs"]
-mod health_check_routes;
 #[path = "hypervisor_daemon_routes/operations_support_routes.rs"]
 mod operations_support_routes;
 #[path = "hypervisor_daemon_routes/orchestration_routes.rs"]
