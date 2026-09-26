@@ -146,6 +146,10 @@ export async function load(ctx) {
   }
   if (pkg && rel && inst) {
     model.installation = await client.read(`${PACKAGES_PLANE}/${enc(pkg)}/releases/${enc(rel)}/installations/${enc(inst)}`);
+    // The runtimes the serving binding may name: the package's OWN DomainApp's, read so the form can
+    // offer them (a person had to find and type a domain-app-runtime:// ref the product never showed).
+    const appRef = model.candidate?.payload?.package?.record?.domain_app_ref || "";
+    if (appRef) model.runtimes = await client.read(`/v1/hypervisor/domain-app-runtimes?domain_app_ref=${enc(appRef)}`);
   }
   return model;
 }
@@ -561,6 +565,24 @@ function releaseView(model, base, pkg, rel) {
     </form>`}`;
 }
 
+// The serving binding names a runtime of the package's own DomainApp that is SERVING. Offered from
+// the daemon's runtimes (v2 identity `domain_app_runtime_id`), never typed; when none is serving the
+// field says where to serve one. Only an unanswered runtimes read falls back to a typed ref, labelled.
+function runtimeField(model, dis) {
+  const appRef = model.candidate?.payload?.package?.record?.domain_app_ref || "";
+  const rows = model.runtimes?.ok && Array.isArray(model.runtimes.payload?.runtimes) ? model.runtimes.payload.runtimes : null;
+  const refOf = (rt) => String(rt.domain_app_runtime_id || rt.ref || "");
+  const serving = (rows || []).filter((rt) => rt.serving === true && refOf(rt));
+  if (rows && serving.length) {
+    return { ready: true, html: `<label class="fl">Serving runtime of this package's DomainApp<select name="domain_app_runtime_ref"${dis}>${serving.map((rt) => `<option value="${esc(refOf(rt))}">${esc(refOf(rt))} · ${esc(rt.state || "serving")}</option>`).join("")}</select></label>` };
+  }
+  const appPage = appRef ? `/__ioi/domain-apps/${enc(appRef.replace(/^domain-app:\/\//u, ""))}` : "/__ioi/domain-apps";
+  if (rows) {
+    return { ready: false, html: `<div class="empty" data-pkg-no-serving-runtime="1">No runtime of this package's DomainApp is serving — <a href="${appPage}">mount and serve it on its page</a>, then bind it here.</div>` };
+  }
+  return { ready: true, html: `<label class="fl">DomainApp runtime ref (the runtimes read did not answer — <code>${esc(model.runtimes?.code || "no DomainApp on the candidate")}</code> — so the ref is typed)<input name="domain_app_runtime_ref" maxlength="160" placeholder="domain-app-runtime://dartm_…"${dis}></label>` };
+}
+
 // ---- Installation detail -----------------------------------------------------------------------
 function installationView(model, base, pkg, rel, inst) {
   const d = model.installation;
@@ -575,6 +597,7 @@ function installationView(model, base, pkg, rel, inst) {
     ? `<span class="sub" style="margin:0;text-transform:none;letter-spacing:0">compare-and-swap against admitted installation head <code>${esc(shortHash(head))}</code></span>`
     : `<span class="sub" style="margin:0;text-transform:none;letter-spacing:0">no admitted head is readable — uninstall is disabled rather than guessed</span>`;
   const dis = head && !uninstalled ? "" : " disabled";
+  const rtField = runtimeField(model, dis);
   return `<h2 id="installation-detail">Installation binding</h2>
     <dl class="grid">
       <dt>Installation</dt><dd><code data-testid="inst-ref">${esc(ir.installation_ref || "—")}</code></dd>
@@ -624,8 +647,8 @@ function installationView(model, base, pkg, rel, inst) {
       <input type="hidden" name="release_digest" value="${esc(rel)}">
       <input type="hidden" name="installation_id" value="${esc(inst)}">
       ${head ? `<input type="hidden" name="expected_installation_head" value="${esc(head)}">` : ""}
-      <label class="fl">DomainApp runtime ref (the package's own DomainApp, mounted and SERVING through the DomainApp plane's governed ladder)<input name="domain_app_runtime_ref" maxlength="160" placeholder="domain-app-runtime://dartm_…"${dis}></label>
-      <button class="act" type="submit"${dis}>Bind serving runtime</button> <span class="sub" style="margin:0;text-transform:none;letter-spacing:0">route, runtime ref and operational state are derived by the daemon from the runtime's admitted ladder — a runtime that is not serving, or is not this package's DomainApp's, refuses by name</span> ${casNote}
+      ${rtField.html}
+      <button class="act" type="submit"${rtField.ready ? dis : " disabled"}>Bind serving runtime</button> <span class="sub" style="margin:0;text-transform:none;letter-spacing:0">route, runtime ref and operational state are derived by the daemon from the runtime's admitted ladder — a runtime that is not serving, or is not this package's DomainApp's, refuses by name</span> ${casNote}
     </form>`}
     <h3 style="margin:16px 0 6px;font-size:13px">Uninstall</h3>
     ${uninstalled ? `<div class="empty">Already uninstalled (revision ${esc(String(ir.revision ?? ""))}) — the transition is immutable history; re-submitting the original uninstall replays it.</div>` : ""}

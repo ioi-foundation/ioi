@@ -6,7 +6,8 @@
 // and is PUBLISHED from Ontology Manager's History as an M05.1 revision; Studio's descriptor form binds
 // that revision; ODK's manifest form lists the ontology and the descriptor; the New Domain App form
 // builds a draft app over both; Packages freezes it as a candidate and cuts a release; the app is then
-// edited and a second one deleted through their own forms, and a kill switch on it trips and enforces.
+// edited and a second one deleted through their own forms; the release is installed and registered, the
+// app mounted through the governed ladder, served, bound and launched; and a kill switch stops it.
 //
 // Every write submits the form the surface RENDERED — its action, its hidden values, and only options
 // it offers — and every outcome is read back from the daemon. The chain was dead at four links before
@@ -232,9 +233,10 @@ async function run() {
   // ---- 6. edit and delete through their own forms ------------------------------------------------
   const edited = appId ? await submit(`/__ioi/domain-apps/${appId}/edit`, `/__ioi/domain-apps/${appId}/patch`, { description: "edited through the form" }) : { error: "no app" };
   const afterEdit = appId ? (await daemonRead(`/v1/hypervisor/domain-apps/${appId}`)).body?.domain_app : null;
-  ok("the Edit draft form SAVES — the patch names the record's own owner, which the daemon had refused on every patch — and the author's operator contract survives the save",
-    edited.status === 302 && afterEdit?.description === "edited through the form" && (afterEdit?.operator_contract_refs || []).includes(`contract://${tag}/lending-ops`) && afterEdit?.owner_ref === owner,
-    `${said(edited)} · description '${afterEdit?.description ?? ""}' · ops ${JSON.stringify(afterEdit?.operator_contract_refs ?? [])}`);
+  ok("the Edit draft form SAVES — the patch names the record's own owner, which the daemon had refused on every patch — and what the edit did not touch survives it: the manifest binding (the form never offered it, so a save unbound it) and the author's operator contract",
+    edited.status === 302 && afterEdit?.description === "edited through the form" && afterEdit?.odk_manifest_ref === manRef
+      && (afterEdit?.operator_contract_refs || []).includes(`contract://${tag}/lending-ops`) && afterEdit?.owner_ref === owner,
+    `${said(edited)} · description '${afterEdit?.description ?? ""}' · manifest ${afterEdit?.odk_manifest_ref || "UNBOUND"} · ops ${JSON.stringify(afterEdit?.operator_contract_refs ?? [])}`);
   const second = await submit("/__ioi/domain-apps/new", "/__ioi/domain-apps", { name: `${tag} Throwaway`, surface_descriptor_ref: sdRef, odk_manifest_ref: manRef });
   const secondId = (second.location || "").match(/dapp_[0-9a-f]+/u)?.[0] || "";
   const deleted = secondId ? await submit(`/__ioi/domain-apps/${secondId}`, `/__ioi/domain-apps/${secondId}/delete`, {}) : { error: "no second app" };
@@ -242,7 +244,43 @@ async function run() {
   ok("the Delete form deletes (the daemon no longer serves the app) and only then lands on the list",
     deleted.status === 302 && deleted.location === "/__ioi/domain-apps" && gone === 404, `${said(deleted)} · daemon GET after ${gone}`);
 
-  // ---- 7. a kill switch on the app: created, tripped and ENFORCED through Governance's forms -------
+  // ---- 7. operate it: install, register, the governed mount, serve, bind, launch ------------------
+  const relDigest = released.q?.get("record") || "";
+  const relRoute = `${registryRoute}?pkg=${packageId}&rel=${encodeURIComponent(relDigest)}`;
+  const instId = `inst-${tag}`;
+  const installed = relDigest ? await submit(relRoute, `${registryRoute}/${packageId}/install`, { installation_id: instId }) : { error: "no release" };
+  const instRoute = `${relRoute}&inst=${instId}`;
+  const registered = installed.q?.get("acted") ? await submit(instRoute, `${registryRoute}/${packageId}/register`, { display_name: `${tag} Lending`, supported_placements: "applications_catalog", launch_modes: "direct" }) : { error: "not installed" };
+  ok("the release installs and registers as an extension application through Packages' own forms",
+    installed.q?.get("acted") === "install-release" && registered.q?.get("acted") === "register-extension", `${said(installed)} · ${said(registered)}`);
+  const dref = `domain-app://${appId}`;
+  const govApprovals = "/__ioi/governance?tab=approvals";
+  await submit(govApprovals, "/__ioi/governance/approvals", { subject_ref: dref, request_kind: "mount", reason: "chain forms verifier" });
+  const approval = ((await daemonRead("/v1/hypervisor/governance/approval-requests")).body?.approval_requests ?? []).find((a) => a.subject_ref === dref && a.status === "pending");
+  const approved = approval ? await submit(govApprovals, `/__ioi/governance/approvals/${encodeURIComponent(approval.id)}/transition`, { transition: "approve" }) : { error: "no approval" };
+  const govReleases = "/__ioi/governance?tab=releases";
+  await submit(govReleases, "/__ioi/governance/releases", { release_target_ref: dref });
+  const gate = ((await daemonRead("/v1/hypervisor/governance/release-controls")).body?.release_controls ?? []).find((r) => r.release_target_ref === dref);
+  if (gate && gate.state !== "open") await submit(govReleases, `/__ioi/governance/releases/${encodeURIComponent(gate.id)}/transition`, { transition: "open" });
+  const mounted = await submit(`/__ioi/domain-apps/${appId}`, `/__ioi/domain-apps/${appId}/mount`, {});
+  const served = await submit(`/__ioi/domain-apps/${appId}`, `/__ioi/domain-apps/${appId}/serve`, {});
+  const runtimes = (await daemonRead(`/v1/hypervisor/domain-app-runtimes?domain_app_ref=${encodeURIComponent(dref)}`)).body?.runtimes ?? [];
+  const runtime = runtimes.find((r) => r.mounted === true);
+  const runtimeRef = runtime?.domain_app_runtime_id || "";
+  const appPageServing = await page(`/__ioi/domain-apps/${appId}`);
+  ok("the app mounts through the governed ladder (an approval approved and a release gate opened in Governance) and serves — both refused on every click before the lane carried an owner — and its page shows the runtime's ref",
+    [302, 303].includes(approved.status) && !approved.q?.get("refused") && mounted.status === 302 && served.status === 302 && runtime?.serving === true && !!runtimeRef && appPageServing.text.includes(runtimeRef),
+    `${said(approved)} · mount ${said(mounted)} · serve ${said(served)} · runtime ${runtimeRef || "none"} serving ${runtime?.serving}`);
+  const bindOffers = renderedForm((await page(instRoute)).text, `${registryRoute}/${packageId}/bind-serving`)?.options?.domain_app_runtime_ref ?? new Set();
+  const bound = runtimeRef ? await submit(instRoute, `${registryRoute}/${packageId}/bind-serving`, { domain_app_runtime_ref: runtimeRef }) : { error: "no runtime" };
+  const launch = await page(`/__ioi/extensions/${packageId}`);
+  const opened = launch.location ? await page(launch.location) : { status: 0, text: "" };
+  ok("bind-serving OFFERS the package's serving runtime (never a typed ref), and the extension's route launches the served app, which renders the object type of the revision its descriptor binds — not 'declares no objects'",
+    bindOffers.has(runtimeRef) && bound.q?.get("acted") === "bind-serving" && launch.status === 302 && opened.status === 200
+      && opened.text.includes("<b>Loan</b>") && opened.text.includes(revisionRef.replace(/\/revision\/\d+$/u, "")) && !opened.text.includes("declares no objects"),
+    `offered ${[...bindOffers].join("|") || "nothing"} · ${said(bound)} · launch ${launch.status} → ${launch.location} → ${opened.status}`);
+
+  // ---- 8. a kill switch on the app: created, tripped and ENFORCED through Governance's forms -------
   // Enforcement admits as an owner-scoped write; the lane posted "{}", so every Enforce was refused
   // and the flat refusal redirected back as though the runtimes had been stopped.
   const ksRoute = "/__ioi/governance?tab=kill-switches";
@@ -251,11 +289,12 @@ async function run() {
   const tripped = ks ? await submit(ksRoute, `/__ioi/governance/kill-switches/${encodeURIComponent(ks.id)}/transition`, { transition: "trip", trip_reason: "chain forms verifier" }) : { error: "no kill switch" };
   const enforced = ks ? await submit(ksRoute, `/__ioi/governance/kill-switches/${encodeURIComponent(ks.id)}/enforce`, {}) : { error: "no kill switch" };
   const ksAfter = ks ? (await daemonRead(`/v1/hypervisor/governance/kill-switches/${ks.id}`)).body?.kill_switch : null;
-  ok("a kill switch on the app is created, tripped and ENFORCED through Governance's own forms — the enforcement is recorded, never a redirect over a refusal",
-    !!ks && tripped.status === 302 && enforced.status === 302 && ksAfter?.state === "tripped" && typeof ksAfter?.enforcement_state === "string" && ksAfter.enforcement_state.length > 0,
-    `${said(ksCreated)} · ${said(tripped)} · ${said(enforced)} · state ${ksAfter?.state ?? "—"} · enforcement ${ksAfter?.enforcement_state ?? "none"}`);
+  const afterKill = ((await daemonRead(`/v1/hypervisor/domain-app-runtimes?domain_app_ref=${encodeURIComponent(dref)}`)).body?.runtimes ?? []).find((r) => r.domain_app_runtime_id === runtimeRef);
+  ok("a kill switch on the app is created, tripped and ENFORCED through Governance's own forms — the serving runtime is actually stopped, never a redirect over a refusal",
+    !!ks && tripped.status === 302 && enforced.status === 302 && ksAfter?.state === "tripped" && ksAfter?.enforcement_state === "enforced" && afterKill?.serving !== true,
+    `${said(ksCreated)} · ${said(tripped)} · ${said(enforced)} · state ${ksAfter?.state ?? "—"} · enforcement ${ksAfter?.enforcement_state ?? "none"} · runtime serving ${afterKill?.serving}`);
 
-  // ---- 8. an anonymous create is refused by name and creates nothing -----------------------------
+  // ---- 9. an anonymous create is refused by name and creates nothing -----------------------------
   // The form a signed-in page rendered, posted with no session — a tab left open after sign-out. (A
   // signed-out page renders no descriptor to pick, which proves nothing about the server.)
   const before = ((await daemonRead("/v1/hypervisor/domain-apps")).body?.domain_apps ?? []).length;

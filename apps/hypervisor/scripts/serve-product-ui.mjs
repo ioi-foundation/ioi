@@ -6550,6 +6550,15 @@ function domainAppView(a) {
   return { ...a, domain_app_ref: ref, domain_app_id: ref.replace(/^domain-app:\/\//u, "") };
 }
 const domainAppViews = (list) => (Array.isArray(list) ? list.map(domainAppView) : []);
+// The same split one object along: a v2 runtime's identity is `domain_app_runtime_id`
+// (`domain-app-runtime://dartm_…`) and it carries no `ref`/`id`, so the app page showed an empty
+// Runtime row — and the one ref Packages' bind-serving form asks for was nowhere in the product.
+function domainAppRuntimeView(rt) {
+  if (!rt || typeof rt !== "object") return rt;
+  const raw = String(rt.ref || rt.domain_app_runtime_id || rt.id || "");
+  const ref = raw ? (raw.startsWith("domain-app-runtime://") ? raw : `domain-app-runtime://${raw}`) : "";
+  return { ...rt, ref, id: ref.replace(/^domain-app-runtime:\/\//u, "") };
+}
 // The record and its current head, for a write that must name the record's owner and key on its state.
 const domainAppRead = (id) => daemonFetch(`/v1/hypervisor/domain-apps/${encodeURIComponent(id)}`).then((x) => x.json()).then((j) => (j && j.domain_app ? { ...j, domain_app: domainAppView(j.domain_app) } : j)).catch(() => ({}));
 // Restored verbatim: #46's serve reshuffle dropped these while live call sites still reference
@@ -6571,10 +6580,13 @@ async function domainAppPickers(descriptorRefForManifestFilter) {
   const descriptors = (sd.surface_descriptors || []).map(odkDescriptorView)
     .filter((d) => d.composition_pattern === "domain_app")
     .map((d) => ({ v: d.ref, l: d.name || d.id }));
-  let manifests = man.manifests || [];
+  // Unwrap each v2 manifest row BEFORE filtering: a v2 row is an envelope whose members live under
+  // `manifest`, so filtering the raw row matched nothing — the edit form never offered the app's own
+  // manifest, and saving any edit posted "— none —" and silently UNBOUND it (R-240).
+  let manifests = (man.manifests || []).map(odkManifestView);
   if (descriptorRefForManifestFilter) manifests = manifests.filter((m) => (m.surface_descriptor_refs || []).includes(descriptorRefForManifestFilter));
   const who = await J("/v1/hypervisor/auth/whoami");
-  return { descriptors, manifests: manifests.map(odkManifestView).map((m) => ({ v: m.ref, l: m.name || m.id })), owner: callerOwnerRef(who) };
+  return { descriptors, manifests: manifests.map((m) => ({ v: m.ref, l: m.name || m.id })), owner: callerOwnerRef(who) };
 }
 function renderDomainAppForm(existing, pk) {
   const ex = existing || {}; const isEdit = !!existing;
@@ -6651,7 +6663,7 @@ function odkGovLink(ref) {
   return ref ? `<a href="/__ioi/governance?tab=${tab}"><code>${CX_ESC(ref)}</code></a>` : "—";
 }
 // The internally-served, descriptor-driven, READ-ONLY generated app view.
-function renderDomainAppRuntimeView(rt, dapp, descriptor, ontology, publicReads = {}) {
+function renderDomainAppRuntimeView(rt, dapp, descriptor, ontology, publicReads = {}, revision = null) {
   const enc = encodeURIComponent;
   const d = dapp || {}; const desc = descriptor || {}; const ont = ontology || {};
   const runtimeModel = projectDomainAppRuntimeModel(ont);
@@ -6676,6 +6688,23 @@ function renderDomainAppRuntimeView(rt, dapp, descriptor, ontology, publicReads 
     <h2>Objects</h2>${objList}`;
   const reads = renderExtensionMachineReads({ descriptor: desc, machines: publicReads.machines ?? null, esc: CX_ESC });
   const footer = `<p class="sub" style="margin-top:20px">Runtime <code>${CX_ESC(rt.ref || "")}</code> · descriptor <code>${CX_ESC(d.surface_descriptor_ref || "")}</code> · governed by ${odkGovLink(rt.approval_request_ref)} + ${odkGovLink(rt.release_control_ref)} · <a href="/__ioi/work-ledger">Work Ledger</a> · <a href="/__ioi/domain-apps/${enc(d.domain_app_id || "")}">← Domain App</a></p>`;
+  if (revision) {
+    // v2: the admitted revision this descriptor binds — its terms, at the content hash it was bound at.
+    const doc = revision.doc;
+    const terms = (k) => (doc && Array.isArray(doc[k]) ? doc[k] : []);
+    const termChips = (k) => chips(terms(k).map((t) => t.label || String(t.term_id || "").split("/term/")[1] || ""));
+    const drift = doc && revision.bound_hash && doc.content_hash !== revision.bound_hash;
+    const revModel = !doc
+      ? `<h2>Ontology</h2><div class="empty">The bound revision <code>${CX_ESC(revision.ref)}</code> could not be read (<code>${CX_ESC(revision.error || "no answer")}</code>) — its terms are not shown, and none are substituted.</div>`
+      : `<h2>Ontology: <code style="text-transform:none;letter-spacing:0">${CX_ESC(doc.ontology_family_ref || "")}</code> <span class="sub" style="text-transform:none;letter-spacing:0;font-weight:400">${CX_ESC(doc.version || "")} · bound at <code>${CX_ESC(String(revision.bound_hash || doc.content_hash || "").slice(0, 19))}…</code></span></h2>
+    ${drift ? `<div class="empty">The revision's content hash does not match the hash this descriptor bound — shown as read, not trusted.</div>` : ""}
+    <h2>Objects</h2>${terms("entity_types").length ? `<table><thead><tr><th>Object</th><th>Term</th></tr></thead><tbody>${terms("entity_types").map((t) => `<tr><td><b>${CX_ESC(t.label || "")}</b></td><td><code>${CX_ESC(String(t.term_id || "").split("/term/")[1] || "")}</code></td></tr>`).join("")}</tbody></table>` : `<div class="empty">This revision declares no object types.</div>`}
+    <div class="chips"><span class="chiplabel">Relations</span>${termChips("relationship_types")}</div>
+    <div class="chips"><span class="chiplabel">Events</span>${termChips("event_types")}</div>
+    <div class="chips"><span class="chiplabel">Actions (declared, read-only)</span>${termChips("action_types")}</div>
+    <p class="sub" style="margin:6px 0 0">A published revision declares terms — object, relationship, event and action types. Value types, states, roles and which object an action applies to are not carried by a revision, so they are not shown here.</p>`;
+    return automationsShell(d.name || "Domain App", head + banner + revModel + reads + footer);
+  }
   return automationsShell(d.name || "Domain App", head + banner + model + reads + footer);
 }
 function domainAppCard(a) {
@@ -15202,7 +15231,7 @@ async function handleEstateRequest(req, res, body) {
       const rid = decodeURIComponent(pathname.slice("/__ioi/domain-app-runtime/".length).split("/")[0]);
       const rtRes = await daemonFetch(`/v1/hypervisor/domain-app-runtimes/${encodeURIComponent(rid)}`).then((x) => x.json()).catch(() => ({}));
       if (!rtRes.ok) { res.writeHead(200, HTMLH); res.end(automationsShell("Domain App", `<div class="empty">Runtime not found.</div><p><a href="/__ioi/domain-apps">← Domain Apps</a></p>`)); return; }
-      const rt = rtRes.runtime;
+      const rt = domainAppRuntimeView(rtRes.runtime);
       const dappId = String(rt.domain_app_ref || "").replace(/^domain-app:\/\//, "");
       const dRes = await daemonFetch(`/v1/hypervisor/domain-apps/${encodeURIComponent(dappId)}`).then((x) => x.json()).catch(() => ({}));
       const dapp = domainAppView(dRes.domain_app) || {};
@@ -15211,6 +15240,17 @@ async function handleEstateRequest(req, res, body) {
       const descriptor = descRes.surface_descriptor || {};
       const ontId = String(descriptor.ontology_ref || "").replace(/^ontology:\/\//, "");
       const ontRes = ontId ? await daemonFetch(`/v1/hypervisor/odk/domain-ontologies/${encodeURIComponent(ontId)}`).then((x) => x.json()).catch(() => ({})) : {};
+      // A v2 descriptor binds exact admitted REVISIONS (ontology_refs), not a draft; the served app
+      // renders the revision it binds. Reading only v1's `ontology_ref` told a serving app's visitor
+      // "the ontology declares no objects yet" about an ontology that declared them (R-240).
+      const bound = Array.isArray(descriptor.bound_ontology_revisions) ? descriptor.bound_ontology_revisions[0] : null;
+      const revRef = String((bound && bound.ontology_revision_ref) || (Array.isArray(descriptor.ontology_refs) ? descriptor.ontology_refs[0] : "") || "");
+      const revM = revRef.match(/^ontology:\/\/([a-z0-9-]+)\/([a-z0-9-]+)\/revision\/(\d+)$/u);
+      const revision = revM
+        ? await daemonFetch(`/v1/hypervisor/ontology-versions?namespace=${revM[1]}&name=${revM[2]}&revision=${revM[3]}`).then((x) => x.json())
+          .then((j) => (j && j.ok ? { ref: revRef, bound_hash: (bound && bound.ontology_content_hash) || "", doc: j.resolved_ontology_version || null } : { ref: revRef, error: (j && ((j.error && j.error.code) || j.code)) || "ontology_version_read_failed" }))
+          .catch(() => ({ ref: revRef, error: "daemon_unavailable" }))
+        : null;
       // M08.15: an admitted extension's view may render the PUBLIC read models its descriptor names
       // and nothing else — the closed list is PUBLIC_EXTENSION_READS; every other daemon_api_ref is
       // listed as declared-and-not-rendered. Read under the caller's own identity, like every read here.
@@ -15221,7 +15261,7 @@ async function handleEstateRequest(req, res, body) {
         }
       }
       res.writeHead(200, HTMLH);
-      res.end(renderDomainAppRuntimeView(rt, dapp, descriptor, ontRes.ontology || {}, publicReads));
+      res.end(renderDomainAppRuntimeView(rt, dapp, descriptor, ontRes.ontology || {}, publicReads, revision));
       return;
     }
     // ---- Domain Apps — controlled builder over the daemon Domain Apps object plane (estate #6).
@@ -15300,7 +15340,7 @@ async function handleEstateRequest(req, res, body) {
           daemonFetch(`/v1/hypervisor/governance/approval-requests?status=approved`).then((x) => x.json()).catch(() => ({})),
           daemonFetch(`/v1/hypervisor/governance/release-controls`).then((x) => x.json()).catch(() => ({})),
         ]);
-        const rt = (rtRes.runtimes || []).find((x) => x.mounted === true) || null;
+        const rt = domainAppRuntimeView((rtRes.runtimes || []).find((x) => x.mounted === true) || null);
         res.writeHead(200, HTMLH);
         res.end(renderDomainAppDetail(app.domain_app, rt, apRes.approval_requests || [], relRes.release_controls || []));
         return;
