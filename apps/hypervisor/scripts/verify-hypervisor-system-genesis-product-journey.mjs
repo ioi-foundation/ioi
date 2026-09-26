@@ -37,6 +37,7 @@ import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 
 import { startIsolatedPlane } from "./lib/isolated-daemon.mjs";
+import { emitVerifierCensus } from "./lib/verifier-census.mjs";
 import { startRealWalletNetworkPrincipalAuthorityFixture } from "./lib/wallet-network-principal-authority-fixture.mjs";
 
 const HERE = dirname(fileURLToPath(import.meta.url));
@@ -244,7 +245,19 @@ function collectJsonFiles(root, current = root, output = []) {
   }
   return output.sort(([left], [right]) => left.localeCompare(right));
 }
-const jsonSnapshot = (dataDir) => JSON.stringify(collectJsonFiles(dataDir));
+// The zero-mutation comparator: every durable JSON record EXCEPT the scheduler's own liveness record,
+// which the daemon rewrites every 15 s whatever any request does (hypervisor-daemon.rs
+// SCHEDULER_HEARTBEAT_FAMILY) — a window that holds a wallet round trip crosses a tick, and a
+// comparison that counts it measures the clock, not the request.
+const TIMER_WRITTEN = /^scheduler-heartbeats[/]/u;
+const jsonSnapshot = (dataDir) => JSON.stringify(collectJsonFiles(dataDir).filter(([relative]) => !TIMER_WRITTEN.test(relative)));
+// Which durable JSON paths differ between two snapshots — so a zero-mutation red names what moved.
+function snapshotDelta(before, after) {
+  const left = new Map(JSON.parse(before));
+  const right = new Map(JSON.parse(after));
+  const moved = [...new Set([...left.keys(), ...right.keys()])].filter((key) => left.get(key) !== right.get(key));
+  return moved.length ? ` moved=[${moved.slice(0, 6).join(", ")}${moved.length > 6 ? ", …" : ""}]` : "";
+}
 
 const journeyState = (html, state) => html.includes(`data-journey-state="${state}"`);
 const truthCode = (html, code) => html.includes(`data-truth-code="${code}"`);
@@ -330,7 +343,12 @@ async function main() {
       return { challengePage, committed, approval };
     }
 
-    // ---- 1. MOUNT: launch-addressed only, no permanent Systems navigation ------------------
+    // ---- 1. MOUNT: Systems is a core surface; the genesis cockpit is its live lane only -------
+    // ADR 0056 made Systems one of the suite's core surfaces at /systems, and the suite card names
+    // the genesis cockpit as what serves it today (the route row's serving_today). The cockpit is
+    // reached ONLY that way: it is no app in the catalog and no injected rail item, and the suite
+    // page links into it exactly once. "Into" means BASE exactly or a path under it — the sibling
+    // /__ioi/systems-projection lane is a different surface, not the cockpit.
     const [applicationsPage, catalogJson, augmentation, systemsRedirect] = await Promise.all([
       S("/__ioi/applications"),
       S("/__ioi/api/applications"),
@@ -338,15 +356,18 @@ async function main() {
       S(BASE),
     ]);
     const catalogRoutes = (catalogJson.json?.apps || []).map((app) => app.route || "");
+    const intoCockpit = new RegExp(`${BASE.replace(/[/]/gu, "[/]")}(?:[/"'?#]|$)`, "u");
+    const suiteCockpitLinks = (applicationsPage.text.match(new RegExp(`href="${BASE.replace(/[/]/gu, "[/]")}(?:[/?#][^"]*)?"`, "gu")) || []).length;
     ok(
-      "MOUNT: the four surfaces mount launch-addressed only — no permanent Systems navigation (suite page, app catalog, injected rail untouched)",
+      "MOUNT: Systems is a core surface at /systems (ADR 0056) and the genesis cockpit is reached only as its live lane — one suite link, no catalog app, no injected rail item",
       applicationsPage.status === 200 &&
-        !applicationsPage.text.includes(BASE) &&
-        !catalogRoutes.some((route) => route.startsWith(BASE)) &&
-        !augmentation.text.includes(BASE) &&
+        applicationsPage.text.includes('href="/systems"') &&
+        suiteCockpitLinks === 1 &&
+        !catalogRoutes.some((route) => intoCockpit.test(route)) &&
+        !intoCockpit.test(augmentation.text) &&
         systemsRedirect.status === 302 &&
         systemsRedirect.headers.location === `${BASE}/packages`,
-      `catalog=${catalogRoutes.length} redirect=${systemsRedirect.status}→${systemsRedirect.headers.location || "none"}`,
+      `catalog=${catalogRoutes.length} suite_cockpit_links=${suiteCockpitLinks} redirect=${systemsRedirect.status}→${systemsRedirect.headers.location || "none"}`,
     );
 
     // ---- 2. honest_empty + composer readiness ----------------------------------------------
@@ -430,6 +451,7 @@ async function main() {
     const beforePreview = jsonSnapshot(dataDir);
     const previewPage = await P(`${BASE}/governance/preview`, { declaration: JSON.stringify(alphaExpected) });
     const previewApproval = approvalFrom(previewPage.text);
+    const afterPreview = jsonSnapshot(dataDir);
     ok(
       "GOVERNANCE PREVIEW: a valid declaration renders the exact pending authority challenge as preview-not-authority with zero mutation",
       journeyState(previewPage.text, "ready_or_proposed") &&
@@ -437,8 +459,8 @@ async function main() {
         Boolean(previewApproval.policy_hash && previewApproval.request_hash && previewApproval.effect_hash) &&
         previewPage.text.includes(GENESIS_SCOPE) &&
         previewPage.text.includes('data-sysgen-preview-nonclaim="1"') &&
-        beforePreview === jsonSnapshot(dataDir),
-      `scope+hashes rendered (${(previewApproval.request_hash || "").slice(0, 18)}…)`,
+        beforePreview === afterPreview,
+      `scope+hashes rendered (${(previewApproval.request_hash || "").slice(0, 18)}…)${snapshotDelta(beforePreview, afterPreview)}`,
     );
     const smuggled = { ...clone(alphaExpected), wallet_approval_grant: { schema_version: 1, forged: true } };
     const strippedPage = await P(`${BASE}/governance/preview`, { declaration: JSON.stringify(smuggled) });
@@ -720,7 +742,12 @@ async function main() {
     );
 
     // ---- 11. two-System isolation across the surfaces ---------------------------------------
-    const projectionCompact = (await S(`${GENESIS_API}/projection?view=compact`)).json;
+    // Every visible System projected in ONE read, through the serve's 90 s read deadline: the read
+    // time is reported, because a projection that outruns the deadline answers no rows at all.
+    const projectionStarted = Date.now();
+    const projectionRead = await S(`${GENESIS_API}/projection?view=compact`);
+    const projectionMs = Date.now() - projectionStarted;
+    const projectionCompact = projectionRead.json;
     const byId = new Map((projectionCompact?.systems || []).map((system) => [system.system_id, system]));
     const alphaProjected = byId.get(alphaCompactIds.systemId);
     const betaProjected = byId.get(betaIds.systemId);
@@ -733,8 +760,29 @@ async function main() {
         alphaProjected && betaProjected &&
         alphaProjected.canonical_roots.chain_root !== betaProjected.canonical_roots.chain_root &&
         alphaProjected.canonical_roots.latest_state_root !== betaProjected.canonical_roots.latest_state_root,
-      "one package card, two Systems, distinct chain/state roots",
+      `projection HTTP ${projectionRead.status} in ${projectionMs} ms · rows ${(projectionCompact?.systems || []).length}${projectionCompact?.error?.code || projectionCompact?.code ? ` · ${projectionCompact?.error?.code || projectionCompact?.code}` : ""}`,
     );
+    // A System admitted through the product names the person whose session admitted it and that
+    // person's one org:// tenant as its owner — beside, never in place of, the proposal's own
+    // project:// proposer — and that is why it is in this person's filtered inventory at all.
+    const whoami = (await S("/v1/hypervisor/auth/whoami")).json;
+    const operatorRef = whoami?.principal?.principal_ref || (whoami?.principal?.principal_id ? `user://${whoami.principal.principal_id}` : null);
+    const admissions = await Promise.all([alphaCompactIds.systemId, betaIds.systemId].map(async (systemId) =>
+      (await S(`${GENESIS_API}?system_id=${encodeURIComponent(systemId)}`)).json?.autonomous_system_genesis_admission || null));
+    ok(
+      "OWNERSHIP: each admission names the signed-in operator and its org:// tenant as owner, beside the proposal's project:// proposer, and both Systems are in that operator's filtered inventory",
+      !!operatorRef && whoami?.authenticated === true &&
+        admissions.every((record) => record?.admitted_by_principal_ref === operatorRef
+          && /^org:[/][/]./u.test(record?.owner_ref || "")
+          && /^project:[/][/]/u.test(record?.proposed_by_ref || "")) &&
+        !!alphaProjected && !!betaProjected,
+      `operator=${operatorRef} owners=${admissions.map((record) => record?.owner_ref).join(",")} admitted_by=${admissions.map((record) => record?.admitted_by_principal_ref).join(",")}`,
+    );
+    // Everything after this reads the two projected rows; without them the walk cannot continue, and
+    // says why rather than failing on an undefined row.
+    if (!alphaProjected || !betaProjected) {
+      throw new Error(`the Systems projection answered HTTP ${projectionRead.status} in ${projectionMs} ms with ${(projectionCompact?.systems || []).length} row(s) — the two admitted Systems are not in it`);
+    }
     const [alphaDetailCompact, alphaDetailAdvanced, betaDetailCompact] = await Promise.all([
       S(`${BASE}/${alphaTail}?view=compact`),
       S(`${BASE}/${alphaTail}?view=advanced`),
@@ -825,16 +873,18 @@ async function main() {
       S(`${BASE}/${alphaTail}`),
       S(`${GENESIS_API}/projection?view=compact`),
     ]);
+    // Named degraded state: the surface's own, or — since R-240 — the serve's internal-surface fence,
+    // which asks the daemon for its deployment posture before any /__ioi/ page renders and, when the
+    // daemon cannot be asked, answers its own named page (503 daemon_unavailable) first. Either way
+    // the page names the cause and claims no System and no lifecycle fact.
+    const degraded = (page) => journeyState(page.text, "unavailable_or_degraded")
+      || (page.status === 503 && page.text.includes('data-error-code="daemon_unavailable"'));
+    const downPages = { packages: downPackages, governance: downGovernance, compose: downComposeSubmit, detail: downDetail };
     ok(
       "UNAVAILABLE: with the daemon dead every surface renders the NAMED degraded state and fabricates nothing",
-      journeyState(downPackages.text, "unavailable_or_degraded") &&
-        !downPackages.text.includes("data-system-id=") &&
-        journeyState(downGovernance.text, "unavailable_or_degraded") &&
-        journeyState(downComposeSubmit.text, "unavailable_or_degraded") &&
-        journeyState(downDetail.text, "unavailable_or_degraded") &&
-        !downDetail.text.includes('data-lifecycle-status="active"') &&
+      Object.values(downPages).every((page) => degraded(page) && !page.text.includes("data-system-id=") && !page.text.includes('data-lifecycle-status="active"')) &&
         downSpine.status === 502,
-      "all four surfaces degraded, /v1 spine 502, no cached Systems claimed",
+      `${Object.entries(downPages).map(([name, page]) => `${name} ${page.status}${journeyState(page.text, "unavailable_or_degraded") ? " own" : page.text.includes('data-error-code="daemon_unavailable"') ? " fence" : " ?"}`).join(" · ")} · spine ${downSpine.status}`,
     );
     progress("restarting the plane on the same durable state");
     await plane.stop();
@@ -940,11 +990,15 @@ async function main() {
     try { if (plane) await plane.stop(); } catch (error) { console.error(`plane stop failed: ${error.message}`); }
     try { if (plane2) await plane2.stop(); } catch (error) { console.error(`restart plane stop failed: ${error.message}`); }
     try { await resolver.stop(); } catch (error) { console.error(`wallet fixture stop failed: ${error.message}`); }
-    try { rmSync(dataDir, { recursive: true, force: true }); } catch { /* best effort */ }
+    // IOI_SYSGEN_JOURNEY_KEEP_DATA_DIR=1 keeps the plane's data directory for diagnosis (a slow read model
+    // is measured against the real records the journey admitted); the caller then owns its removal.
+    if (process.env.IOI_SYSGEN_JOURNEY_KEEP_DATA_DIR === "1") console.log(`journey data directory kept: ${dataDir}`);
+    else try { rmSync(dataDir, { recursive: true, force: true }); } catch { /* best effort */ }
   }
   const passed = results.filter((result) => result.pass).length;
   console.log(`\n${passed}/${results.length} passed`);
   if (exitCode === 0) console.log("system genesis product journey: OK");
+  emitVerifierCensus({ verifierId: "system-genesis-product-journey", sourceUrl: import.meta.url, results });
   process.exit(exitCode);
 }
 

@@ -63,8 +63,9 @@ fn system_modes(system_id: &str) -> Vec<Value> {
 }
 
 /// Policy is decided per row from the request identity, three ways. A System is visible to the
-/// principal that proposed its genesis, or to a caller holding the tenant its genesis names as
-/// owner — both read the genesis record. The third reads the seam's own scope discipline: a
+/// principal that proposed its genesis, or to a caller holding the tenant its admission names as
+/// owner (the admitting caller's one org:// tenant, stamped at admission) — both read the genesis
+/// record. The third reads the seam's own scope discipline: a
 /// principal that holds records under a System through the System-record seam (its
 /// request-resource scopes name `<system_id>/…`) sees that System — the composition it admitted
 /// lives there, and hiding the System would hide its own records (register R-185, slice S4c-1).
@@ -351,6 +352,36 @@ mod tests {
             &hosted,
             "system://ioi/orchestration/demo-tw"
         ));
+    }
+
+    /// A record shaped as genesis admission actually writes it: the proposal names a project://
+    /// proposer and an org:// governing authority (neither is a person), and the admission names
+    /// the signed-in caller that admitted it and that caller's one org:// tenant as owner.
+    #[test]
+    fn an_admitted_system_is_visible_to_its_owner_tenant_and_to_nobody_else() {
+        use super::super::substrate_store::request_identity_for_test;
+        let admitted = json!({
+            "system_id": "system://acme/outcome",
+            "proposed_by_ref": "project://acme/outcome-operator",
+            "governing_authority_ref": "org://acme/research",
+            "admitted_by_principal_ref": "user://operator",
+            "owner_ref": "org://local"
+        });
+        let member = request_identity_for_test("user://colleague", ["org://local".to_string()]);
+        assert_eq!(
+            row_visible_to(&admitted, &member, &BTreeSet::new()),
+            Some("owner_ref in tenant_refs")
+        );
+        let outsider = request_identity_for_test("user://outsider", ["org://other".to_string()]);
+        assert_eq!(row_visible_to(&admitted, &outsider, &BTreeSet::new()), None);
+        // Governing a System is not owning it: the constitution's authority is a portable ref,
+        // not a tenant this daemon hosts, and holding a same-named tenant reads nothing.
+        let governor =
+            request_identity_for_test("user://governor", ["org://acme/research".to_string()]);
+        assert_eq!(row_visible_to(&admitted, &governor, &BTreeSet::new()), None);
+        // The admitter who has since left the owner tenant no longer sees it.
+        let departed = request_identity_for_test("user://operator", []);
+        assert_eq!(row_visible_to(&admitted, &departed, &BTreeSet::new()), None);
     }
 
     #[test]

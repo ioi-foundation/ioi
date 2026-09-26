@@ -10,7 +10,7 @@ use std::sync::{Arc, Mutex};
 
 use axum::{
     extract::{Path as AxumPath, Query, State},
-    http::StatusCode,
+    http::{HeaderMap, StatusCode},
     Json,
 };
 use ioi_services::wallet_network::{
@@ -90,6 +90,57 @@ struct ReconstructedIntent {
     wallet_consumption_tail: String,
 }
 
+/// Who admitted a System, as its admission record states it: the signed-in principal whose
+/// session carried the admission, and the one org:// tenant that principal holds — the owner the
+/// caller-filtered Systems projection reads. Both are stored inputs of the record, in the same
+/// trust class as the proposal it carries: reconstruction reads them back from the record and
+/// re-derives every other byte around them, and the receipt's output hash binds them. Records
+/// admitted before admission named its caller carry neither and still reconstruct byte-exactly.
+#[derive(Clone, Debug, PartialEq)]
+struct AdmittedBy {
+    principal_ref: String,
+    owner_ref: String,
+}
+
+/// Ownership binds to exactly one org:// tenant resolved from the caller's own session — the
+/// rule Environments and saved object sets already follow. A caller holding none, or several,
+/// has no owner a System could name, and is refused rather than guessed for.
+fn admitted_by_of(identity: &super::substrate_store::RequestIdentity) -> Result<AdmittedBy, VErr> {
+    let mut organizations = identity
+        .tenant_refs
+        .iter()
+        .filter(|tenant_ref| tenant_ref.starts_with("org://"));
+    let (Some(owner_ref), None) = (organizations.next(), organizations.next()) else {
+        return Err(verr(
+            "system_genesis_owner_tenant_unresolved",
+            "a System's owner binds to exactly one org:// tenant resolved from the caller's own session",
+        ));
+    };
+    Ok(AdmittedBy {
+        principal_ref: identity.principal_ref.clone(),
+        owner_ref: owner_ref.clone(),
+    })
+}
+
+/// The admitting caller a stored record names — both refs or neither, never one alone.
+fn stored_admitted_by(record: &Value) -> Result<Option<AdmittedBy>, String> {
+    match (record.get("admitted_by_principal_ref"), record.get("owner_ref")) {
+        (None, None) => Ok(None),
+        (Some(Value::String(principal_ref)), Some(Value::String(owner_ref)))
+            if principal_ref.starts_with("user://") && owner_ref.starts_with("org://") =>
+        {
+            Ok(Some(AdmittedBy {
+                principal_ref: principal_ref.clone(),
+                owner_ref: owner_ref.clone(),
+            }))
+        }
+        _ => Err(
+            "aggregate names its admitting principal and owner tenant only together, as user:// and org:// refs"
+                .to_string(),
+        ),
+    }
+}
+
 fn verr(code: &str, message: impl Into<String>) -> VErr {
     (code.to_string(), message.into())
 }
@@ -97,6 +148,8 @@ fn verr(code: &str, message: impl Into<String>) -> VErr {
 fn classify((code, message): VErr) -> (StatusCode, Json<Value>) {
     let status = if code.ends_with("_not_found") {
         StatusCode::NOT_FOUND
+    } else if code == "system_genesis_owner_tenant_unresolved" {
+        StatusCode::FORBIDDEN
     } else if code == "system_genesis_wallet_consumption_refused" {
         StatusCode::FORBIDDEN
     } else if code == "system_genesis_wallet_consumption_unavailable" {
@@ -553,6 +606,7 @@ fn build_record(
     receipt_ref: &str,
     authorized: &AuthorizedDecision,
     admitted_at: &str,
+    admitted_by: Option<&AdmittedBy>,
 ) -> Result<Value, VErr> {
     let proposed = &compiled.proposed_genesis;
     let system_id = proposed
@@ -577,7 +631,7 @@ fn build_record(
     );
     let governing_authority_ref = governing_authority_ref(compiled)?;
     let authorized_genesis = build_authorized_genesis(compiled, receipt_ref, &grant_ref)?;
-    Ok(json!({
+    let mut record = json!({
         "schema_version": AGGREGATE_SCHEMA,
         "admission_id": format!("system-genesis-admission://{tail}"),
         "system_id": system_id,
@@ -612,7 +666,12 @@ fn build_record(
         "admitted_at": admitted_at,
         "at": admitted_at,
         "runtimeTruthSource": "daemon-runtime"
-    }))
+    });
+    if let Some(admitted_by) = admitted_by {
+        record["admitted_by_principal_ref"] = json!(admitted_by.principal_ref);
+        record["owner_ref"] = json!(admitted_by.owner_ref);
+    }
+    Ok(record)
 }
 
 fn initial_profile_boundary_refs(genesis: &Value) -> Vec<Value> {
@@ -911,11 +970,13 @@ fn reconstruct_converged_local_evidence(
         resolved_at_ms,
     };
     let admitted_at = ms_to_rfc3339(resolved_at_ms).map_err(|(_, message)| message)?;
+    let admitted_by = stored_admitted_by(record)?;
     let expected_record = build_record(
         &compiled,
         &format!("receipt://{receipt_tail}"),
         &authorized,
         &admitted_at,
+        admitted_by.as_ref(),
     )
     .map_err(|(_, message)| message)?;
     let expected_receipt = build_receipt(receipt_tail, &expected_record, &authorized, &admitted_at);
@@ -1588,11 +1649,13 @@ fn reconstruct_intent(intent: &Value, tail: &str) -> Result<ReconstructedIntent,
                 .to_string(),
         );
     }
+    let admitted_by = stored_admitted_by(intent.get("final_record").unwrap_or(&Value::Null))?;
     let expected_record = build_record(
         &compiled,
         &format!("receipt://{receipt_tail}"),
         &authorized,
         &admitted_at,
+        admitted_by.as_ref(),
     )
     .map_err(|(_, message)| message)?;
     let expected_receipt =
@@ -1840,8 +1903,22 @@ fn complete_intent_locked(data_dir: &str, tail: &str, intent: &Value) -> Result<
 
 pub(crate) async fn handle_admit(
     State(state): State<Arc<DaemonState>>,
+    headers: HeaderMap,
     Json(body): Json<Value>,
 ) -> (StatusCode, Json<Value>) {
+    // Identity first: an admitted System names who admitted it and the tenant that owns it, so a
+    // caller with no session cannot admit one (loopback is not an identity for governed writes).
+    // The wallet grant still decides whether the admission is authorized; the identity decides
+    // only whose inventory the System enters.
+    let identity = match super::substrate_store::resolve_request_identity(&state.data_dir, &headers)
+    {
+        Ok(identity) => identity,
+        Err(error) => return super::mutation_event_foundation::scope_refusal_reply(error),
+    };
+    let admitted_by = match admitted_by_of(&identity) {
+        Ok(value) => value,
+        Err(error) => return classify(error),
+    };
     if let Err(error) = reject_sensitive_body(&body) {
         return classify(error);
     }
@@ -1943,7 +2020,13 @@ pub(crate) async fn handle_admit(
         Err(error) => return classify(error),
     };
     let receipt_ref = format!("receipt://{receipt_tail}");
-    let final_record = match build_record(&compiled, &receipt_ref, &authorized, &admitted_at) {
+    let final_record = match build_record(
+        &compiled,
+        &receipt_ref,
+        &authorized,
+        &admitted_at,
+        Some(&admitted_by),
+    ) {
         Ok(value) => value,
         Err(error) => return classify(error),
     };
@@ -2520,7 +2603,8 @@ mod system_genesis_tests {
         )
         .unwrap();
         let receipt_ref = format!("receipt://{receipt_tail}");
-        let final_record = build_record(&compiled, &receipt_ref, authorized, &admitted_at).unwrap();
+        let final_record =
+            build_record(&compiled, &receipt_ref, authorized, &admitted_at, None).unwrap();
         let receipt = build_receipt(&receipt_tail, &final_record, authorized, &admitted_at);
         let intent = seal_intent(
             json!({
@@ -2550,6 +2634,75 @@ mod system_genesis_tests {
     }
 
     #[test]
+    fn an_admission_names_its_admitting_principal_and_owner_tenant() {
+        use super::super::substrate_store::request_identity_for_test;
+        let operator = request_identity_for_test(
+            "user://operator",
+            [
+                "org://local".to_string(),
+                "project://local/alpha".to_string(),
+            ],
+        );
+        let admitted_by = admitted_by_of(&operator).unwrap();
+        assert_eq!(admitted_by.principal_ref, "user://operator");
+        assert_eq!(admitted_by.owner_ref, "org://local");
+        for tenants in [vec![], vec!["org://a".to_string(), "org://b".to_string()]] {
+            let error =
+                admitted_by_of(&request_identity_for_test("user://operator", tenants)).unwrap_err();
+            assert_eq!(error.0, "system_genesis_owner_tenant_unresolved");
+            assert_eq!(classify(error).0, StatusCode::FORBIDDEN);
+        }
+
+        let (release, proposed) = valid_inputs();
+        let compiled = compile_or_error(&release, &proposed).unwrap();
+        let authorized = fake_authorized();
+        let admitted_at = ms_to_rfc3339(authorized.resolved_at_ms).unwrap();
+        let receipt_tail = format!("asgr_{}", "8".repeat(64));
+        let receipt_ref = format!("receipt://{receipt_tail}");
+        let record = build_record(
+            &compiled,
+            &receipt_ref,
+            &authorized,
+            &admitted_at,
+            Some(&admitted_by),
+        )
+        .unwrap();
+        // The admitter sits beside what the proposal names, never in its place.
+        assert_eq!(record["admitted_by_principal_ref"], "user://operator");
+        assert_eq!(record["owner_ref"], "org://local");
+        assert_eq!(record["proposed_by_ref"], "project://acme/outcome-operator");
+        assert_eq!(record["governing_authority_ref"], "org://acme/research");
+        let receipt = build_receipt(&receipt_tail, &record, &authorized, &admitted_at);
+        let tail = record_tail(record["system_id"].as_str().unwrap());
+        reconstruct_converged_local_evidence(&tail, &record, &receipt_tail, &receipt)
+            .expect("a stamped admission reconstructs byte-exactly");
+
+        // The receipt's output hash binds the stamp: a record re-owned after the fact no longer
+        // reconstructs against the receipt it was admitted under.
+        let mut reowned = record.clone();
+        reowned["owner_ref"] = json!("org://elsewhere");
+        assert!(
+            reconstruct_converged_local_evidence(&tail, &reowned, &receipt_tail, &receipt).is_err()
+        );
+        // Both refs or neither: half a stamp is refused, not read as unowned.
+        let mut half = record.clone();
+        half.as_object_mut()
+            .unwrap()
+            .remove("admitted_by_principal_ref");
+        assert!(stored_admitted_by(&half).is_err());
+        let mut forged = record.clone();
+        forged["admitted_by_principal_ref"] = json!("project://acme/outcome-operator");
+        assert!(stored_admitted_by(&forged).is_err());
+        // A record admitted before admission named its caller still reads as it was written.
+        let unstamped =
+            build_record(&compiled, &receipt_ref, &authorized, &admitted_at, None).unwrap();
+        assert_eq!(stored_admitted_by(&unstamped), Ok(None));
+        let unstamped_receipt = build_receipt(&receipt_tail, &unstamped, &authorized, &admitted_at);
+        reconstruct_converged_local_evidence(&tail, &unstamped, &receipt_tail, &unstamped_receipt)
+            .expect("an unstamped admission still reconstructs byte-exactly");
+    }
+
+    #[test]
     fn pre_m1_4_converged_omitted_and_multi_use_evidence_remains_reconstructable() {
         for (max_usages, expected_max) in [(None, 1), (Some(3), 3)] {
             let (release, proposed) = valid_inputs();
@@ -2558,7 +2711,8 @@ mod system_genesis_tests {
             let admitted_at = ms_to_rfc3339(authorized.resolved_at_ms).unwrap();
             let receipt_tail = format!("asgr_{}", "9".repeat(64));
             let receipt_ref = format!("receipt://{receipt_tail}");
-            let record = build_record(&compiled, &receipt_ref, &authorized, &admitted_at).unwrap();
+            let record =
+                build_record(&compiled, &receipt_ref, &authorized, &admitted_at, None).unwrap();
             let receipt = build_receipt(&receipt_tail, &record, &authorized, &admitted_at);
             let tail = record_tail(record["system_id"].as_str().unwrap());
 
@@ -2766,6 +2920,7 @@ mod system_genesis_tests {
             &receipt_ref,
             &fake_authorized(),
             "2026-07-18T12:00:00Z",
+            None,
         )
         .unwrap();
         let genesis = &record["authorized_genesis"];
@@ -2820,8 +2975,14 @@ mod system_genesis_tests {
         let authorized = fake_authorized();
         let receipt_tail = format!("asgr_{}", "d".repeat(64));
         let receipt_ref = format!("receipt://{receipt_tail}");
-        let record =
-            build_record(&compiled, &receipt_ref, &authorized, "2026-07-18T12:00:00Z").unwrap();
+        let record = build_record(
+            &compiled,
+            &receipt_ref,
+            &authorized,
+            "2026-07-18T12:00:00Z",
+            None,
+        )
+        .unwrap();
         let receipt = build_receipt(&receipt_tail, &record, &authorized, "2026-07-18T12:00:00Z");
         let expected: BTreeSet<&str> = [
             "schema_version",
@@ -2894,7 +3055,8 @@ mod system_genesis_tests {
         )
         .unwrap();
         let receipt_ref = format!("receipt://{receipt_tail}");
-        let final_record = build_record(&compiled, &receipt_ref, &authorized, admitted_at).unwrap();
+        let final_record =
+            build_record(&compiled, &receipt_ref, &authorized, admitted_at, None).unwrap();
         let receipt = build_receipt(&receipt_tail, &final_record, &authorized, admitted_at);
         let mut intent = seal_intent(
             json!({

@@ -16,7 +16,7 @@ import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 
 import { mintApprovalGrant } from "../../../scripts/lib/mint-approval-grant.mjs";
-import { startIsolatedPlane } from "./lib/isolated-daemon.mjs";
+import { isolatedOperatorSession, startIsolatedPlane } from "./lib/isolated-daemon.mjs";
 import { startRealWalletNetworkPrincipalAuthorityFixture } from "./lib/wallet-network-principal-authority-fixture.mjs";
 
 const HERE = dirname(fileURLToPath(import.meta.url));
@@ -226,8 +226,13 @@ function collectJsonFiles(root, current = root, output = []) {
   return output.sort(([left], [right]) => left.localeCompare(right));
 }
 
+// The zero-mutation comparator: every durable JSON record EXCEPT the scheduler's own liveness record,
+// which the daemon rewrites every 15 s whatever any request does (hypervisor-daemon.rs
+// SCHEDULER_HEARTBEAT_FAMILY) — a window long enough to hold a wallet round trip crosses a tick, and a
+// comparison that counts it measures the clock, not the request.
+const TIMER_WRITTEN = /^scheduler-heartbeats[/]/u;
 function jsonSnapshot(dataDir) {
-  return JSON.stringify(collectJsonFiles(dataDir));
+  return JSON.stringify(collectJsonFiles(dataDir).filter(([relative]) => !TIMER_WRITTEN.test(relative)));
 }
 
 function tempResidue(root) {
@@ -276,10 +281,24 @@ function tempDataEntries() {
   }
 }
 
-async function jsonCall(base, method, path, body) {
+// Admission is identity-first: every plane this verifier starts is signed into as its operator,
+// and every call carries that session unless it is deliberately anonymous.
+const OPERATOR_SESSIONS = new Map();
+
+async function startPlane(options) {
+  const plane = await startIsolatedPlane(options);
+  if (plane) OPERATOR_SESSIONS.set(plane.daemonUrl, await isolatedOperatorSession(plane));
+  return plane;
+}
+
+async function jsonCall(base, method, path, body, { anonymous = false } = {}) {
+  const session = anonymous ? null : OPERATOR_SESSIONS.get(base);
   const response = await fetch(`${base}${path}`, {
     method,
-    headers: { "content-type": "application/json" },
+    headers: {
+      "content-type": "application/json",
+      ...(session ? { authorization: `Bearer ${session}` } : {}),
+    },
     body: body === undefined ? undefined : JSON.stringify(body),
   });
   return {
@@ -411,7 +430,7 @@ async function challengeAndGrant(call, resolver, body) {
 }
 
 async function runPrimaryJourney(resolver) {
-  const plane = await startIsolatedPlane({ serve: false, env: resolver.env });
+  const plane = await startPlane({ serve: false, env: resolver.env });
   if (!plane) throw new Error("BLOCKED: target/debug/hypervisor-daemon is not built");
   ownedTempPaths.add(plane.dataDir);
   const call = (method, path, body) => jsonCall(plane.daemonUrl, method, path, body);
@@ -456,6 +475,17 @@ async function runPrimaryJourney(resolver) {
         fixtureBody.proposed_instantiation.candidate.cryptographic_origin
           .genesis_transition_commitment_ref === undefined,
       `${fixtureBody.release.typed_components.component_set_hash}/${fixtureBody.release.release_root}`,
+    );
+
+    const beforeAnonymous = jsonSnapshot(plane.dataDir);
+    const anonymous = await jsonCall(plane.daemonUrl, "POST", ROUTE, exactFixtureBody(), { anonymous: true });
+    ok(
+      "IDENTITY: admission is identity-first — a caller with no session is refused before the compiler or any authority, with zero mutation",
+      anonymous.status === 401 &&
+        anonymous.body.code === "request_principal_required" &&
+        !anonymous.body.error?.approval &&
+        beforeAnonymous === jsonSnapshot(plane.dataDir),
+      `${anonymous.status}/${anonymous.body.code || anonymous.body.error?.code || "no-code"}`,
     );
 
     await compilerRefusal(
@@ -813,12 +843,13 @@ async function runPrimaryJourney(resolver) {
 
     const nonclaims = admitted.body.nonclaims;
     const genesis = record.authorized_genesis;
+    // The scheduler's liveness record is written by the clock (TIMER_WRITTEN above), not by admission.
     const currentJson = new Map(collectJsonFiles(plane.dataDir));
     const jsonDelta = [...currentJson.keys()]
-      .filter((path) => !startupJson.has(path))
+      .filter((path) => !startupJson.has(path) && !TIMER_WRITTEN.test(path))
       .sort();
     const changedStartupJson = [...startupJson]
-      .filter(([path, bytes]) => currentJson.get(path) !== bytes)
+      .filter(([path, bytes]) => currentJson.get(path) !== bytes && !TIMER_WRITTEN.test(path))
       .map(([path]) => path)
       .sort();
     ok(
@@ -862,7 +893,7 @@ async function runDurabilityReplay(resolver) {
   ownedTempPaths.add(dataDir);
   let plane;
   try {
-    plane = await startIsolatedPlane({
+    plane = await startPlane({
       serve: false,
       env: {
         ...resolver.env,
@@ -925,7 +956,7 @@ async function runDurabilityReplay(resolver) {
     await plane.stop();
     plane = null;
 
-    plane = await startIsolatedPlane({ serve: false, env: resolver.env, dataDir });
+    plane = await startPlane({ serve: false, env: resolver.env, dataDir });
     if (!plane) throw new Error("BLOCKED: restart replay plane could not start");
     const replayCall = (method, path, replayBody) =>
       jsonCall(plane.daemonUrl, method, path, replayBody);
@@ -974,7 +1005,7 @@ async function runRequiredDurabilityConfirmation(resolver) {
     IOI_SUBSTRATE_REPLICA_ADDRS: "127.0.0.1:1",
   };
   try {
-    plane = await startIsolatedPlane({
+    plane = await startPlane({
       serve: false,
       env: {
         ...asyncAgentgresEnv,
@@ -1014,7 +1045,7 @@ async function runRequiredDurabilityConfirmation(resolver) {
     await plane.stop();
     plane = null;
 
-    plane = await startIsolatedPlane({
+    plane = await startPlane({
       serve: false,
       env: asyncAgentgresEnv,
       dataDir,
@@ -1056,7 +1087,7 @@ async function runRequiredAdmissionBoundary(resolver) {
   ownedTempPaths.add(dataDir);
   let plane;
   try {
-    plane = await startIsolatedPlane({
+    plane = await startPlane({
       serve: false,
       env: {
         ...resolver.env,
@@ -1163,7 +1194,7 @@ async function runRequiredAdmissionBoundary(resolver) {
     await plane.stop();
     plane = null;
 
-    plane = await startIsolatedPlane({ serve: false, env: resolver.env, dataDir });
+    plane = await startPlane({ serve: false, env: resolver.env, dataDir });
     if (!plane) throw new Error("BLOCKED: required-admission restart could not start");
     call = (method, path, restartBody) =>
       jsonCall(plane.daemonUrl, method, path, restartBody);
@@ -1233,7 +1264,7 @@ async function runWalletConsumptionReplay(resolver) {
   ownedTempPaths.add(dataDir);
   let plane;
   try {
-    plane = await startIsolatedPlane({
+    plane = await startPlane({
       serve: false,
       env: {
         ...resolver.env,
@@ -1268,7 +1299,7 @@ async function runWalletConsumptionReplay(resolver) {
     await plane.stop();
     plane = null;
 
-    plane = await startIsolatedPlane({ serve: false, env: resolver.env, dataDir });
+    plane = await startPlane({ serve: false, env: resolver.env, dataDir });
     if (!plane) throw new Error("BLOCKED: wallet-consumption replay plane could not start");
     call = (method, path, replayBody) =>
       jsonCall(plane.daemonUrl, method, path, replayBody);
@@ -1307,7 +1338,7 @@ async function runBindingRevocationAfterPrepare(resolver) {
   ownedTempPaths.add(dataDir);
   let plane;
   try {
-    plane = await startIsolatedPlane({
+    plane = await startPlane({
       serve: false,
       env: {
         ...resolver.env,
@@ -1359,7 +1390,7 @@ async function runBindingRevocationAfterPrepare(resolver) {
     process.kill(plane.daemonPid, "SIGKILL");
     await plane.stop();
     plane = null;
-    plane = await startIsolatedPlane({
+    plane = await startPlane({
       serve: false,
       env: resolver.env,
       dataDir,
@@ -1405,7 +1436,7 @@ async function runBindingRevocationAfterPrepare(resolver) {
 }
 
 async function runConcurrentExactAdmission(resolver) {
-  const plane = await startIsolatedPlane({ serve: false, env: resolver.env });
+  const plane = await startPlane({ serve: false, env: resolver.env });
   if (!plane) throw new Error("BLOCKED: concurrent admission plane could not start");
   ownedTempPaths.add(plane.dataDir);
   const call = (method, path, body) => jsonCall(plane.daemonUrl, method, path, body);
@@ -1456,7 +1487,7 @@ async function runConcurrentExactAdmission(resolver) {
 }
 
 async function runStartupCompleterRace(resolver) {
-  const preparation = await startIsolatedPlane({
+  const preparation = await startPlane({
     serve: false,
     env: resolver.env,
   });
@@ -1482,7 +1513,7 @@ async function runStartupCompleterRace(resolver) {
     await preparation.stop();
   }
 
-  const plane = await startIsolatedPlane({
+  const plane = await startPlane({
     serve: false,
     env: {
       ...resolver.env,

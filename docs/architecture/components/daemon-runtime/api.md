@@ -308,7 +308,8 @@ the whole read closed).
 `GET /v1/hypervisor/autonomous-systems/projection?view=compact|advanced` (the
 Systems read model, § *Autonomous-System Control APIs* below) resolves the request
 identity BEFORE rows on the same date: a System is visible to its genesis
-proposer or to a caller holding its owner tenant, each compact row is canon's
+proposer or to a caller holding its owner tenant (the `owner_ref` admission
+stamps from the admitting caller's session), each compact row is canon's
 registered `ioi.hypervisor.systems-projection.v1` shape validated before it is
 served, and the envelope names the policy it applied and `honest_empty` when the
 caller's inventory is empty.
@@ -3209,7 +3210,20 @@ GET  /v1/hypervisor/autonomous-systems/{canonical_record_key}/sequence-zero-mate
 ```
 
 `POST /autonomous-systems` accepts the immutable package release, proposed
-instantiation, and exact wallet approval grant. The daemon re-runs the pure
+instantiation, and exact wallet approval grant. It resolves the request
+identity first (2026-09-25): a caller with no session is refused
+`request_principal_required` before the compiler or any authority, and a caller
+whose session does not hold exactly one `org://` tenant is refused
+`system_genesis_owner_tenant_unresolved` (403). The admission record names the
+admitting principal as `admitted_by_principal_ref` and that tenant as
+`owner_ref`, beside the proposal's own `proposed_by_ref` (a project/org ref,
+never a person) and the constitution's `governing_authority_ref` (a portable
+authority, not a local tenant); the receipt's output hash binds both, and
+reconstruction reads them back as stored inputs. The wallet grant still decides
+whether the admission is authorized; the identity decides only whose inventory
+the System enters. Records admitted before this carry neither field and still
+reconstruct byte-exactly; they are visible only through the System-record seam.
+The daemon re-runs the pure
 proposal compiler, derives the governing constitution authority and admission
 effect, resolves the authority through wallet.network, durably prepares the
 admission, statefully consumes the exact grant under

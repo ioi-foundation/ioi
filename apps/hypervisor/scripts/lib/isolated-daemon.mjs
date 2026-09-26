@@ -299,6 +299,49 @@ export function receiptFileCount(dataDir, family) {
 }
 
 /**
+ * An operator session on an isolated plane, for verifiers that drive identity-first routes.
+ * The first call on a data dir bootstraps the operator with the one-boot token the daemon
+ * printed to its own log (the newest isolated-daemon log that holds one); a later call —
+ * including after a restart on the same data dir, where bootstrap answers already_bootstrapped —
+ * signs the same operator in again. Returns the session token; throws when neither works.
+ */
+export const ISOLATED_OPERATOR = Object.freeze({
+  name: "Isolated Operator",
+  email: "operator@isolated.invalid",
+  password: "isolated-operator-password-1",
+});
+export async function isolatedOperatorSession(plane) {
+  const post = async (path, body) => {
+    const response = await fetch(`${plane.daemonUrl}${path}`, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify(body),
+    });
+    return { status: response.status, body: await response.json().catch(() => null) };
+  };
+  const logs = readdirSync(plane.dataDir)
+    .filter(isIsolatedDaemonLogName)
+    .map((name) => join(plane.dataDir, name))
+    .sort((a, b) => statSync(b).mtimeMs - statSync(a).mtimeMs);
+  const token = logs
+    .map((path) => (readFileSync(path, "utf8").match(/\bioi_bootstrap_[0-9a-f]+\b/gu) || []).at(-1))
+    .find(Boolean);
+  if (token) {
+    const boot = await post("/v1/hypervisor/auth/bootstrap", { token, ...ISOLATED_OPERATOR });
+    if (boot.body?.session_token) return boot.body.session_token;
+    if (boot.status !== 409) {
+      throw new Error(`isolated operator bootstrap refused (HTTP ${boot.status} ${boot.body?.reason ?? ""})`);
+    }
+  }
+  const { email, password } = ISOLATED_OPERATOR;
+  const login = await post("/v1/hypervisor/auth/login", { email, password });
+  if (!login.body?.session_token) {
+    throw new Error(`isolated operator sign-in refused (HTTP ${login.status}); no bootstrap token in ${logs.length} log(s)`);
+  }
+  return login.body.session_token;
+}
+
+/**
  * Spawn an isolated daemon (+ optional serve) on a temp data dir and random ports.
  * Returns null when the daemon binary is missing (caller should exit 2 BLOCKED), throws when the
  * processes spawn but never become healthy (that is a real failure, not an environment gap).

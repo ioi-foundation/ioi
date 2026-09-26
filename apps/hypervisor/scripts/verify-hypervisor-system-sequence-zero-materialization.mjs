@@ -31,6 +31,7 @@ import { mintApprovalGrant } from "../../../scripts/lib/mint-approval-grant.mjs"
 import {
   DAEMON_BINARY,
   isIsolatedDaemonLogName,
+  isolatedOperatorSession,
   startIsolatedPlane,
 } from "./lib/isolated-daemon.mjs";
 import {
@@ -1194,8 +1195,13 @@ function sanitizedProcessEnv() {
   };
 }
 
-function startVerifierPlane({ dataDir, env = {}, ...options } = {}) {
-  return startIsolatedPlane({
+// Genesis admission is identity-first: every plane this build of the daemon serves is signed
+// into as its operator, and jsonCall carries that session. The origin-master binary plane
+// predates that and admits anonymously, so it is started without one.
+const OPERATOR_SESSIONS = new Map();
+
+async function startVerifierPlane({ dataDir, env = {}, ...options } = {}) {
+  const plane = await startIsolatedPlane({
     dataDir,
     ...options,
     baseEnv: sanitizedProcessEnv(),
@@ -1204,6 +1210,8 @@ function startVerifierPlane({ dataDir, env = {}, ...options } = {}) {
       RUST_LOG: "off",
     },
   });
+  if (plane) OPERATOR_SESSIONS.set(plane.daemonUrl, await isolatedOperatorSession(plane));
+  return plane;
 }
 
 async function startOwnedWalletResolver(options = {}) {
@@ -1985,6 +1993,9 @@ async function jsonCall(base, method, path, body) {
         method,
         headers: {
           "content-type": "application/json",
+          ...(OPERATOR_SESSIONS.has(base)
+            ? { authorization: `Bearer ${OPERATOR_SESSIONS.get(base)}` }
+            : {}),
           ...(payload === null
             ? {}
             : { "content-length": Buffer.byteLength(payload) }),
