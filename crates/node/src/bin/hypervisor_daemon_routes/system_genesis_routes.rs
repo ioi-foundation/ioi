@@ -73,6 +73,7 @@ struct CompiledAdmission {
 ///
 /// Callers must hold `SYSTEM_GENESIS_LOCK` while loading this projection so a startup
 /// completer cannot change the pending/converged view between the intent scan and slot reads.
+#[derive(Clone)]
 pub(crate) struct VerifiedSystemGenesisAdmission {
     pub(crate) record_tail: String,
     pub(crate) record: Value,
@@ -1090,6 +1091,19 @@ fn verify_converged_admission(
 }
 
 pub(crate) fn load_verified_admission_by_key(
+    data_dir: &str,
+    tail: &str,
+) -> Result<Option<VerifiedSystemGenesisAdmission>, VErr> {
+    // Inside a read model's snapshot scope the same admission is verified once, however many of the
+    // System's loaders ask for it (see substrate_store::read_model_memo).
+    super::substrate_store::read_model_memo(
+        data_dir,
+        &format!("system-genesis-admission/{tail}"),
+        || verify_admission_by_key(data_dir, tail),
+    )
+}
+
+fn verify_admission_by_key(
     data_dir: &str,
     tail: &str,
 ) -> Result<Option<VerifiedSystemGenesisAdmission>, VErr> {

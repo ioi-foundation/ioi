@@ -3262,8 +3262,178 @@ pub(crate) fn read_required_exact(
     record_id: &str,
 ) -> std::io::Result<Option<ExactProjection>> {
     validate_required_domain(record_dir)?;
+    let object_ref = required_object_ref(record_dir, record_id);
+    if let Some(answer) = snapshot_exact(data_dir, record_dir, &object_ref)? {
+        return Ok(answer);
+    }
     with_current_handle(data_dir, |handle| {
-        handle.project_exact(record_dir, &required_object_ref(record_dir, record_id))
+        handle.project_exact(record_dir, &object_ref)
+    })
+}
+
+// ONE STRICT PASS PER READ MODEL (R-240, measured). Every exact read is a full strict validation of the
+// Agentgres log, served by the writer thread — so a read model that verifies many records paid one
+// full-log pass per record, and held every admission estate-wide while it did: the Systems projection
+// cost ~49 s for ONE System on a debug build, and two Systems outran the serve's 90 s read deadline, so
+// the inventory came back empty. Inside `with_exact_read_snapshot`, the first exact read takes ONE
+// strict pass that keeps every key's terminal projection, and every later exact read in the scope is
+// answered from it: the same validation, the same answers, at one consistent log position. It is for
+// READ MODELS ONLY — a scope that writes and then reads would read its own writes stale — and it lives
+// on the calling thread, cleared on exit even when the read panics.
+struct ExactReadSnapshot {
+    data_dir: String,
+    depth: usize,
+    projections: Option<std::collections::BTreeMap<(String, String), ExactProjection>>,
+    memo: std::collections::HashMap<String, Box<dyn std::any::Any>>,
+}
+
+thread_local! {
+    static EXACT_READ_SNAPSHOT: std::cell::RefCell<Option<ExactReadSnapshot>> =
+        const { std::cell::RefCell::new(None) };
+}
+
+struct ExactReadSnapshotScope {
+    entered: bool,
+}
+
+impl Drop for ExactReadSnapshotScope {
+    fn drop(&mut self) {
+        if !self.entered {
+            return;
+        }
+        EXACT_READ_SNAPSHOT.with(|slot| {
+            let mut slot = slot.borrow_mut();
+            let finished = match slot.as_mut() {
+                Some(snapshot) => {
+                    snapshot.depth -= 1;
+                    snapshot.depth == 0
+                }
+                None => false,
+            };
+            if finished {
+                *slot = None;
+            }
+        });
+    }
+}
+
+/// Run a read model with every exact Agentgres read in it answered from one strict pass (see above).
+/// Nested scopes on the same data dir share the outer snapshot; a scope on another data dir leaves it
+/// alone and reads directly.
+pub(crate) fn with_exact_read_snapshot<T>(data_dir: &str, read: impl FnOnce() -> T) -> T {
+    let entered = EXACT_READ_SNAPSHOT.with(|slot| {
+        let mut slot = slot.borrow_mut();
+        match slot.as_mut() {
+            Some(snapshot) if snapshot.data_dir == data_dir => {
+                snapshot.depth += 1;
+                true
+            }
+            Some(_) => false,
+            None => {
+                *slot = Some(ExactReadSnapshot {
+                    data_dir: data_dir.to_owned(),
+                    depth: 1,
+                    projections: None,
+                    memo: std::collections::HashMap::new(),
+                });
+                true
+            }
+        }
+    });
+    let _scope = ExactReadSnapshotScope { entered };
+    read()
+}
+
+/// Inside a snapshot scope, a deterministic verified loader answers ONCE per key and every later call
+/// in the scope gets that answer (measured, R-240: the Systems projection rebuilt the same verified
+/// genesis admission 16 times per System — the live chain, continuity, membership, writer and policy
+/// loaders each re-verify it — at ~2.1 s each on a debug build). Only a successful load is kept; an
+/// error is recomputed. Outside a scope, or for another data dir, it simply loads. The same
+/// read-models-only rule as the snapshot applies: nothing written inside the scope is re-read.
+pub(crate) fn read_model_memo<T: Clone + 'static, E>(
+    data_dir: &str,
+    key: &str,
+    load: impl FnOnce() -> Result<T, E>,
+) -> Result<T, E> {
+    let cached = EXACT_READ_SNAPSHOT.with(|slot| {
+        slot.borrow()
+            .as_ref()
+            .filter(|snapshot| snapshot.data_dir == data_dir)
+            .and_then(|snapshot| snapshot.memo.get(key))
+            .and_then(|value| value.downcast_ref::<T>())
+            .cloned()
+    });
+    if let Some(value) = cached {
+        return Ok(value);
+    }
+    let value = load()?;
+    EXACT_READ_SNAPSHOT.with(|slot| {
+        if let Some(snapshot) = slot
+            .borrow_mut()
+            .as_mut()
+            .filter(|snapshot| snapshot.data_dir == data_dir)
+        {
+            snapshot
+                .memo
+                .insert(key.to_owned(), Box::new(value.clone()));
+        }
+    });
+    Ok(value)
+}
+
+/// A family's latest payloads from the snapshot, in object-ref order — what `project_latest` answers
+/// for a fully rooted log, which is the only log a strict pass accepts. `Ok(None)` outside a scope.
+fn snapshot_latest(data_dir: &str, domain: &str) -> std::io::Result<Option<Vec<Value>>> {
+    if !EXACT_READ_SNAPSHOT.with(|slot| {
+        slot.borrow()
+            .as_ref()
+            .is_some_and(|snapshot| snapshot.data_dir == data_dir)
+    }) {
+        return Ok(None);
+    }
+    // Take the pass (if not yet taken) through the one-key path, then read the whole family.
+    snapshot_exact(data_dir, domain, "")?;
+    Ok(EXACT_READ_SNAPSHOT.with(|slot| {
+        slot.borrow()
+            .as_ref()
+            .and_then(|snapshot| snapshot.projections.as_ref())
+            .map(|projections| {
+                projections
+                    .iter()
+                    .filter(|((family, _), _)| family == domain)
+                    .map(|(_, exact)| exact.operation.payload.clone())
+                    .collect()
+            })
+    }))
+}
+
+/// The snapshot's answer for one key: `Ok(None)` outside a snapshot scope (read directly), otherwise
+/// `Ok(Some(answer))`, taking the one strict pass on first use.
+fn snapshot_exact(
+    data_dir: &str,
+    domain: &str,
+    object_ref: &str,
+) -> std::io::Result<Option<Option<ExactProjection>>> {
+    EXACT_READ_SNAPSHOT.with(|slot| {
+        let mut slot = slot.borrow_mut();
+        let Some(snapshot) = slot
+            .as_mut()
+            .filter(|snapshot| snapshot.data_dir == data_dir)
+        else {
+            return Ok(None);
+        };
+        if snapshot.projections.is_none() {
+            snapshot.projections = Some(with_current_handle(data_dir, |handle| {
+                handle.project_exact_all()
+            })?);
+        }
+        Ok(Some(snapshot.projections.as_ref().and_then(
+            |projections| {
+                projections
+                    .get(&(domain.to_owned(), object_ref.to_owned()))
+                    .cloned()
+            },
+        )))
     })
 }
 
@@ -3273,6 +3443,9 @@ pub(crate) fn read_required_exact(
 /// object.
 pub(crate) fn read_required_all(data_dir: &str, record_dir: &str) -> std::io::Result<Vec<Value>> {
     validate_required_domain(record_dir)?;
+    if let Some(payloads) = snapshot_latest(data_dir, record_dir)? {
+        return Ok(payloads);
+    }
     with_current_handle(data_dir, |handle| handle.project_latest(record_dir))
 }
 
@@ -4122,6 +4295,100 @@ mod tests {
             .as_ref()
             .is_some_and(|slot| slot.data_dir == data_dir.to_str().unwrap())
         {
+            cached.take()
+        } else {
+            None
+        };
+        drop(cached);
+        if let Some(slot) = owned_slot {
+            slot.handle.shutdown().unwrap();
+        }
+        std::fs::remove_dir_all(data_dir).unwrap();
+    }
+
+    /// A memoized loader runs once per key inside a scope, every time outside one, and never keeps
+    /// an error; another data dir's scope does not serve it.
+    #[test]
+    fn a_read_model_memo_loads_once_per_key_inside_its_scope_only() {
+        use std::cell::Cell;
+        let loads = Cell::new(0);
+        let load = || -> Result<u32, String> {
+            loads.set(loads.get() + 1);
+            Ok(7)
+        };
+        assert_eq!(read_model_memo("/memo-a", "k", load), Ok(7));
+        assert_eq!(read_model_memo("/memo-a", "k", load), Ok(7));
+        assert_eq!(loads.get(), 2, "outside a scope every call loads");
+        loads.set(0);
+        with_exact_read_snapshot("/memo-a", || {
+            assert_eq!(read_model_memo("/memo-a", "k", load), Ok(7));
+            assert_eq!(read_model_memo("/memo-a", "k", load), Ok(7));
+            assert_eq!(read_model_memo("/memo-a", "other", load), Ok(7));
+            assert_eq!(read_model_memo("/memo-b", "k", load), Ok(7));
+            assert_eq!(read_model_memo("/memo-b", "k", load), Ok(7));
+            let failing = || -> Result<u32, String> {
+                loads.set(loads.get() + 1);
+                Err("refused".to_owned())
+            };
+            assert!(read_model_memo("/memo-a", "bad", failing).is_err());
+            assert!(read_model_memo("/memo-a", "bad", failing).is_err());
+        });
+        assert_eq!(
+            loads.get(),
+            1 + 1 + 2 + 2,
+            "once per key in scope; another data dir and an error load every time"
+        );
+        loads.set(0);
+        assert_eq!(read_model_memo("/memo-a", "k", load), Ok(7));
+        assert_eq!(loads.get(), 1, "the scope's memo ends with the scope");
+    }
+
+    /// Inside a snapshot scope every exact and family read answers exactly what a direct read answers
+    /// (present, absent, nested), and the scope is gone when it ends — even when the read panics.
+    #[test]
+    fn an_exact_read_snapshot_answers_what_direct_reads_answer() {
+        let nonce = std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .unwrap()
+            .as_nanos();
+        let data_dir = std::env::temp_dir().join(format!(
+            "ioi-substrate-exact-snapshot-{}-{nonce}",
+            std::process::id()
+        ));
+        let dir = data_dir.to_str().unwrap().to_owned();
+        admit_required(&dir, REQUIRED_DOMAIN, REQUIRED_ID, &required_record()).unwrap();
+        let missing = format!("asg_{}", "f".repeat(64));
+        let direct = read_required_exact(&dir, REQUIRED_DOMAIN, REQUIRED_ID).unwrap();
+        let direct_all = read_required_all(&dir, REQUIRED_DOMAIN).unwrap();
+        assert!(direct.is_some() && direct_all.len() == 1);
+
+        let (exact, all, absent, nested) = with_exact_read_snapshot(&dir, || {
+            (
+                read_required_exact(&dir, REQUIRED_DOMAIN, REQUIRED_ID).unwrap(),
+                read_required_all(&dir, REQUIRED_DOMAIN).unwrap(),
+                read_required_exact(&dir, REQUIRED_DOMAIN, &missing).unwrap(),
+                with_exact_read_snapshot(&dir, || {
+                    read_required_exact(&dir, REQUIRED_DOMAIN, REQUIRED_ID).unwrap()
+                }),
+            )
+        });
+        assert_eq!(exact, direct);
+        assert_eq!(all, direct_all);
+        assert!(absent.is_none());
+        assert_eq!(nested, direct);
+        EXACT_READ_SNAPSHOT.with(|slot| assert!(slot.borrow().is_none(), "the scope ended"));
+        let _ = std::panic::catch_unwind(|| {
+            with_exact_read_snapshot(&dir, || panic!("a read model that panics"))
+        });
+        EXACT_READ_SNAPSHOT.with(|slot| {
+            assert!(
+                slot.borrow().is_none(),
+                "a panicking read still clears its scope"
+            )
+        });
+
+        let mut cached = HANDLE.get_or_init(|| Mutex::new(None)).lock().unwrap();
+        let owned_slot = if cached.as_ref().is_some_and(|slot| slot.data_dir == dir) {
             cached.take()
         } else {
             None

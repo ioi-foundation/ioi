@@ -21,6 +21,7 @@ const PROFILE_CANDIDATE_DOMAIN: &str = "ioi.autonomous-system-profile-candidate-
 type VErr = (String, String);
 
 /// Exact, root-verified policy bodies selected by the current lifecycle state.
+#[derive(Clone)]
 pub(crate) struct ActiveSystemPolicies {
     pub system_id: String,
     pub constitution: Value,
@@ -82,6 +83,18 @@ fn bind_entry(
 /// Resolve and verify the exact constitution, ordering, oracle, and lifecycle
 /// policy bodies selected by the current chain head.
 pub(crate) fn load_active_system_policies(
+    data_dir: &str,
+    key: &str,
+) -> Result<ActiveSystemPolicies, VErr> {
+    // Once per System inside a read model's snapshot scope (see substrate_store::read_model_memo).
+    super::substrate_store::read_model_memo(
+        data_dir,
+        &format!("system-active-policies/{key}"),
+        || load_active_system_policies_uncached(data_dir, key),
+    )
+}
+
+fn load_active_system_policies_uncached(
     data_dir: &str,
     key: &str,
 ) -> Result<ActiveSystemPolicies, VErr> {

@@ -123,6 +123,7 @@ fn artifact_root(domain: &str, artifact: &Value) -> Result<String, VErr> {
 }
 
 /// Durable live-chain inputs plus the active M1 lifecycle policy body.
+#[derive(Clone)]
 pub(crate) struct ContinuitySource {
     pub base: ProtectedTransitionSource,
     pub constitution: Value,
@@ -224,6 +225,15 @@ fn load_current_enrollment(
 /// Load and cross-check the active lifecycle profile from the admitted genesis
 /// bundle. Amendments preserve this profile body in the M1 selected profile.
 pub(crate) fn load_continuity_source(data_dir: &str, key: &str) -> Result<ContinuitySource, VErr> {
+    // Once per System inside a read model's snapshot scope (see substrate_store::read_model_memo).
+    super::substrate_store::read_model_memo(
+        data_dir,
+        &format!("system-continuity-source/{key}"),
+        || load_continuity_source_uncached(data_dir, key),
+    )
+}
+
+fn load_continuity_source_uncached(data_dir: &str, key: &str) -> Result<ContinuitySource, VErr> {
     let policies = super::system_policy_routes::load_active_system_policies(data_dir, key)?;
     let admission = super::system_genesis_routes::load_verified_admission_by_key(data_dir, key)?
         .ok_or_else(|| verr("system_lifecycle_not_found", "no admitted genesis exists"))?;

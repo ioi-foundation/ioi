@@ -126,6 +126,7 @@ pub(crate) const PROTECTED_INTENT_DIR: &str = "autonomous-system-protected-trans
 
 /// The exact truth a protected transition compiles against, reconstructed
 /// from durable records only — never from the caller.
+#[derive(Clone)]
 pub(crate) struct ProtectedTransitionSource {
     /// Committed sequence-two activation effect (identity carrier).
     pub activation_effect: Value,

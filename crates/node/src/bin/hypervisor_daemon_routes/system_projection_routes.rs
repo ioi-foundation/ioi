@@ -241,69 +241,75 @@ pub(crate) async fn handle_get(
         Ok(refs) => refs,
         Err(error) => return super::mutation_event_foundation::scope_refusal_reply(error),
     };
-    match with_source_locks(|| {
-        let mut records = super::system_genesis_routes::scan_records(&state.data_dir)
-            .map_err(|message| verr("system_projection_source_unreadable", message))?;
-        let mut substrate_records = super::substrate_store::read_required_all(
-            &state.data_dir,
-            super::system_genesis_routes::RECORD_DIR,
-        )
-        .map_err(|error| {
-            verr(
-                "system_projection_source_unreadable",
-                format!("Agentgres admission census failed ({error})"),
+    // ONE STRICT PASS FOR THE WHOLE READ (R-240): every exact Agentgres read the rows make — the
+    // verified admission, the live chain, the membership and writer planes, for every visible System —
+    // is answered from one validated snapshot instead of one full-log pass each.
+    match super::substrate_store::with_exact_read_snapshot(&state.data_dir, || {
+        with_source_locks(|| {
+            let mut records = super::system_genesis_routes::scan_records(&state.data_dir)
+                .map_err(|message| verr("system_projection_source_unreadable", message))?;
+            let mut substrate_records = super::substrate_store::read_required_all(
+                &state.data_dir,
+                super::system_genesis_routes::RECORD_DIR,
             )
-        })?;
-        records.sort_by_key(|record| {
-            record
-                .get("system_id")
-                .and_then(Value::as_str)
-                .unwrap_or("")
-                .to_owned()
-        });
-        substrate_records.sort_by_key(|record| {
-            record
-                .get("system_id")
-                .and_then(Value::as_str)
-                .unwrap_or("")
-                .to_owned()
-        });
-        if substrate_records != records {
-            return Err(verr(
-                "system_projection_source_incomplete",
-                "local and Agentgres genesis admission censuses differ",
-            ));
-        }
-        if let Some(filter) = query.get("system_id") {
-            records.retain(|record| {
-                record.get("system_id").and_then(Value::as_str) == Some(filter.as_str())
+            .map_err(|error| {
+                verr(
+                    "system_projection_source_unreadable",
+                    format!("Agentgres admission census failed ({error})"),
+                )
+            })?;
+            records.sort_by_key(|record| {
+                record
+                    .get("system_id")
+                    .and_then(Value::as_str)
+                    .unwrap_or("")
+                    .to_owned()
             });
-        }
-        let visible: Vec<(&Value, &'static str)> = records
-            .iter()
-            .filter_map(|record| {
-                row_visible_to(record, &identity, &hosted_record_refs)
-                    .map(|filter| (record, filter))
-            })
-            .collect();
-        let systems = visible
-            .iter()
-            .map(|(record, filter)| {
-                let policy = json!({ "principal_ref": identity.principal_ref, "filter": filter });
-                project_one(&state.data_dir, record, view, &policy)
-            })
-            .collect::<Result<Vec<_>, _>>()?;
-        Ok::<_, VErr>(json!({
-            "schema_version":"ioi.hypervisor.autonomous-system-read-projection.v1",
-            "row_schema_version": SYSTEMS_PROJECTION_SCHEMA,
-            "row_contract_id": SYSTEMS_PROJECTION_CONTRACT_ID,
-            "view":view,
-            "state":if systems.is_empty(){"honest_empty"}else{"ready"},
-            "systems":systems,
-            "policy":{"principal_ref": identity.principal_ref, "applied_before": ["rows", "state"], "admitted_rows": systems.len(), "inventory_rows": records.len()},
-            "projection_source":"verified_owner_reconstruction",
-            "nonclaims":{"authority":false,"mutation":false,"membership":false,"writer":false,"network_assurance":false,"runtime_effect":false,"persistence":false}
-        }))
+            substrate_records.sort_by_key(|record| {
+                record
+                    .get("system_id")
+                    .and_then(Value::as_str)
+                    .unwrap_or("")
+                    .to_owned()
+            });
+            if substrate_records != records {
+                return Err(verr(
+                    "system_projection_source_incomplete",
+                    "local and Agentgres genesis admission censuses differ",
+                ));
+            }
+            if let Some(filter) = query.get("system_id") {
+                records.retain(|record| {
+                    record.get("system_id").and_then(Value::as_str) == Some(filter.as_str())
+                });
+            }
+            let visible: Vec<(&Value, &'static str)> = records
+                .iter()
+                .filter_map(|record| {
+                    row_visible_to(record, &identity, &hosted_record_refs)
+                        .map(|filter| (record, filter))
+                })
+                .collect();
+            let systems = visible
+                .iter()
+                .map(|(record, filter)| {
+                    let policy =
+                        json!({ "principal_ref": identity.principal_ref, "filter": filter });
+                    project_one(&state.data_dir, record, view, &policy)
+                })
+                .collect::<Result<Vec<_>, _>>()?;
+            Ok::<_, VErr>(json!({
+                "schema_version":"ioi.hypervisor.autonomous-system-read-projection.v1",
+                "row_schema_version": SYSTEMS_PROJECTION_SCHEMA,
+                "row_contract_id": SYSTEMS_PROJECTION_CONTRACT_ID,
+                "view":view,
+                "state":if systems.is_empty(){"honest_empty"}else{"ready"},
+                "systems":systems,
+                "policy":{"principal_ref": identity.principal_ref, "applied_before": ["rows", "state"], "admitted_rows": systems.len(), "inventory_rows": records.len()},
+                "projection_source":"verified_owner_reconstruction",
+                "nonclaims":{"authority":false,"mutation":false,"membership":false,"writer":false,"network_assurance":false,"runtime_effect":false,"persistence":false}
+            }))
+        })
     }) {
         Ok(value) => (StatusCode::OK, Json(value)),
         Err(error) => classify(error),

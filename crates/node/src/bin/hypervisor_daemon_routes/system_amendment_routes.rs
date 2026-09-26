@@ -144,6 +144,7 @@ fn artifact_root_with(domain: &str, artifact: &Value) -> Result<String, VErr> {
 }
 
 /// The exact durable truth one amendment compiles against — never the caller.
+#[derive(Clone)]
 pub(crate) struct AmendmentSource {
     /// Committed sequence-two activation effect (identity carrier).
     pub activation_effect: Value,
@@ -208,6 +209,19 @@ fn load_constitution_body(
 /// cross-checking chain head, operation log, and predecessor step exactly
 /// like the protected loader before any compile happens.
 pub(crate) fn load_amendment_source(
+    data_dir: &str,
+    key: &str,
+) -> Result<(String, AmendmentSource), VErr> {
+    // Inside a read model's snapshot scope the live chain is loaded once per System, however many of
+    // its loaders ask for it (see substrate_store::read_model_memo).
+    super::substrate_store::read_model_memo(
+        data_dir,
+        &format!("system-amendment-source/{key}"),
+        || load_amendment_source_uncached(data_dir, key),
+    )
+}
+
+fn load_amendment_source_uncached(
     data_dir: &str,
     key: &str,
 ) -> Result<(String, AmendmentSource), VErr> {
