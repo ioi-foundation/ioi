@@ -245,7 +245,8 @@ export const JOURNEY = Object.freeze([
     surface: "/packages",
     legs: [
       { id: "domainapp-packages", kind: "composed", gate: "packages-journey", what: "DomainApp packages: candidate, release, install, recall, uninstall" },
-      { id: "walk-package", kind: "todo", what: "THIS walk's package", write: "create package pkg-{tag} and cut its release through Packages' own forms; read it BY NAME on /packages" },
+      { id: "walk-package", kind: "live", what: "THIS walk's package pkg-{tag}: step 3's ontology gains an object type and is PUBLISHED from Ontology Manager's History as an M05.1 revision; Studio's descriptor form binds that revision (composition domain_app); ODK's manifest form lists the ontology and the descriptor; the New Domain App form builds the draft app over both; Packages freezes it as a candidate and cuts an immutable release — every write through the form the surface rendered — and /packages lists it by its own name",
+        assertion: "RELEASE — THIS walk's package is built from its own published ontology revision through Studio, ODK, Domain Apps and Packages' own forms, released, and listed by its own name on /packages" },
       { id: "system-release", kind: "named_gap", what: "a System release cut from a promoted blueprint — the object step 1's picker lists (today the registry's releases are DomainApp surface releases and genesis takes an inline manifest release)",
         gap: { code: "system_release_absent", plane: "System release (registry-backed, cut from a promoted blueprint)", source: "gap map step 10; build order 10" } },
     ],

@@ -122,6 +122,7 @@ export const REQUIRED_LIVE = Object.freeze([
   "observe/legs/walk-issue",
   "run/legs/walk-automation",
   "evaluate/legs/walk-suite",
+  "release/legs/walk-package",
   "provenance/legs/system-evidence",
   "operate/legs/operate-mode",
   "operate/terminal/restart-reread",
@@ -774,7 +775,44 @@ async function liveLeg() {
     todo("improve/legs/walk-improvement");
     await probesOf("improve");
     // ==== STEP 10 — RELEASE ========================================================================
-    todo("release/legs/walk-package");
+    // THIS walk's package, built from step 3's ontology through the form each surface renders: a type,
+    // a PUBLISHED revision (the draft is mutable; a descriptor binds only an admitted revision), a
+    // descriptor over it, a manifest over the ontology and the descriptor, a draft app over both, a
+    // candidate, a release. The refs a person does not type are read off the surface that minted them.
+    const ontId = ontology.q.get("record") || "";
+    const typeRoute = `/__ioi/ontology/manager?ontology=${encodeURIComponent(ontId)}&section=create&newKind=object-type`;
+    const typed = outcomeOf(await submitRenderedForm(ctx, { id: "object-type", page: await page(ctx, typeRoute), from: typeRoute, action: "/__ioi/ontology/manager/actions/upsert-object-type", fields: { def_id: "loan", name: "Loan" } }));
+    const historyRoute = `/__ioi/ontology/manager?ontology=${encodeURIComponent(ontId)}&section=history`;
+    const published = outcomeOf(await submitRenderedForm(ctx, { id: "publish", page: await page(ctx, historyRoute), from: historyRoute, action: `/__ioi/ontology/manager/actions/publish-revision?ontology=${ontId}`, fields: {} }));
+    const revisionRef = published.q.get("record") || "";
+    const studioRoute = "/__ioi/studio/workbench?view=descriptors";
+    const described = outcomeOf(await submitRenderedForm(ctx, { id: "descriptor", page: await page(ctx, studioRoute), from: studioRoute, action: "/__ioi/studio/workbench/actions/create-descriptor",
+      fields: { display_name: `sd-${vars.tag}`, surface_ref: `surface://${vars.tag}/lending`, composition_pattern: "domain_app", ontology_refs: revisionRef,
+        canonical_object_model_refs: `object-model://${vars.tag}/lending/loan`, policy_bound_data_view_refs: `view://${vars.tag}/lending/reviewer`, authority_requirement_refs: "scope:lending.review",
+        daemon_api_refs: "api://v1/hypervisor/odk", receipt_obligations: `receipt://${vars.tag}/lending/decision`, conformance_profile_refs: `profile://${vars.tag}/lending/v1` } }));
+    const sdRef = described.q.get("record") ? `surface-descriptor://${described.q.get("record")}` : "";
+    const ontRef = (await read(ctx, `/v1/hypervisor/odk/domain-ontologies/${encodeURIComponent(ontId)}`)).json?.ontology?.ref || "";
+    const manifestRoute = "/__ioi/odk/manifests/new";
+    const manifestPage = await page(ctx, manifestRoute);
+    const manifestOffers = !!ontRef && !!sdRef && manifestPage.text.includes(`value="${ontRef}"`) && manifestPage.text.includes(`value="${sdRef}"`);
+    const manifested = await submitRenderedForm(ctx, { id: "manifest", page: manifestPage, from: manifestRoute, action: "/__ioi/odk/manifests", fields: { name: `man-${vars.tag}`, ontology_refs: ontRef, surface_descriptor_refs: sdRef } });
+    const manifestId = (String(manifested.headers.location || "").match(/^\/__ioi\/odk\/manifests\/(odk_[0-9a-f]+)/u) || [])[1] || "";
+    const appRoute = "/__ioi/domain-apps/new";
+    const apped = await submitRenderedForm(ctx, { id: "domain-app", page: await page(ctx, appRoute), from: appRoute, action: "/__ioi/domain-apps", fields: { name: `app-${vars.tag}`, surface_descriptor_ref: sdRef, odk_manifest_ref: manifestId ? `odk://${manifestId}` : "" } });
+    const appId = (String(apped.headers.location || "").match(/^\/__ioi\/domain-apps\/(dapp_[0-9a-f]+)/u) || [])[1] || "";
+    const packageName = `pkg-${vars.tag}`;
+    const registryRoute = "/__ioi/packages/registry";
+    const candidate = outcomeOf(await submitRenderedForm(ctx, { id: "package", page: await page(ctx, registryRoute), from: registryRoute, action: "/__ioi/packages/registry/actions/admit-candidate", fields: { package_id: packageName, domain_app_ref: `domain-app://${appId}` } }));
+    const packageRoute = `/__ioi/packages/registry?pkg=${packageName}`;
+    const released = outcomeOf(await submitRenderedForm(ctx, { id: "release", page: await page(ctx, packageRoute), from: packageRoute, action: `/__ioi/packages/registry/${packageName}/cut-release`, fields: { object_contract_refs: `object-model://${vars.tag}/lending/loan` } }));
+    const packagesPage = await page(ctx, "/packages");
+    const stage = (name, o) => `${name} ${o.refused ? `refused ${o.refused}` : o.q?.get("acted") || o.status}`;
+    claimLive("release/legs/walk-package",
+      typed.redirected && !typed.refused && published.q.get("acted") === "publish-revision" && /\/revision\/1$/u.test(revisionRef)
+        && described.q.get("acted") === "create-descriptor" && manifestOffers && manifested.status === 302 && !!manifestId
+        && apped.status === 302 && !!appId && candidate.q.get("acted") === "admit-candidate" && released.q.get("acted") === "cut-release"
+        && packagesPage.status === 200 && packagesPage.text.includes(packageName),
+      `${stage("type", typed)} · ${stage("publish", published)} ${revisionRef || "no revision"} · ${stage("descriptor", described)} · manifest ${manifested.status} ${manifestId || "none"} (offers ${manifestOffers}) · app ${apped.status} ${appId || "none"} · ${stage("candidate", candidate)} · ${stage("release", released)} · /packages lists it ${packagesPage.text.includes(packageName)}`);
 
     // ==== STEP 11 — OPERATE ========================================================================
     const operate = await page(ctx, `/systems/${vars.system}/operate`);
