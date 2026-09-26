@@ -121,6 +121,8 @@ export const REQUIRED_LIVE = Object.freeze([
   "data/legs/walk-ontology-and-source",
   "observe/legs/walk-issue",
   "run/legs/walk-automation",
+  "run/handoff/walk-run-in-work",
+  "observe/handoff/walk-observed-to-receipts",
   "evaluate/legs/walk-suite",
   "release/legs/walk-package",
   "provenance/legs/system-evidence",
@@ -735,7 +737,19 @@ async function liveLeg() {
       `create ${createdAutomation.status} → ${automationAt.slice(0, 60) || "no location"} · Automate lists it ${automate.text.includes(automationName)}`);
     todo("run/legs/walk-session");
     await probesOf("run");
-    todo("run/handoff/walk-run-in-work");
+    // HAND-OFF 5 → 6: THIS walk's run. Run now on the automation's own page; the automation's run
+    // history names the canonical run it admitted, and Work lists that run by its own ref.
+    const automationIdOfWalk = (automationAt.match(/auto_[0-9a-f]+/u) || [])[0] || "";
+    const ranNow = automationIdOfWalk
+      ? await submitRenderedForm(ctx, { id: "run-now", page: await page(ctx, automationAt), from: automationAt, action: `/__ioi/automations/${automationIdOfWalk}/run`, fields: {} })
+      : { status: 0, headers: {} };
+    const runHistory = automationIdOfWalk ? await page(ctx, automationAt) : { text: "" };
+    const walkRunRef = unesc((runHistory.text.match(/data-canonical-run="(automation-run:\/\/[^"]+)"/u) || [])[1] || "");
+    const workHistory = await page(ctx, "/work/history");
+    const workRowAt = walkRunRef ? workHistory.text.indexOf(`data-ioi-work-row="${walkRunRef}"`) : -1;
+    claimLive("run/handoff/walk-run-in-work",
+      [302, 303].includes(ranNow.status) && !!walkRunRef && workHistory.status === 200 && workRowAt >= 0,
+      `run now ${ranNow.status} · run ${walkRunRef || "none named on the automation's history"} · /work/history ${workHistory.status} row ${workRowAt >= 0}`);
     // ==== STEP 6 — OBSERVE =========================================================================
     // THIS walk's issue, from Issues' New dialog, naming the System by reference.
     const issueName = `issue-${vars.tag}`;
@@ -747,7 +761,17 @@ async function liveLeg() {
       [200, 302, 303].includes(filed.status) && !/Not filed/u.test(filed.text) && openIssues.status === 200 && openIssues.text.includes(issueName),
       `filed ${filed.status}${/Not filed/u.test(filed.text) ? " (Not filed)" : ""} · open lane lists it ${openIssues.text.includes(issueName)}`);
     await probesOf("observe");
-    todo("observe/handoff/walk-observed-to-receipts");
+    // HAND-OFF 6 → 7: from THIS walk's Work row, its own link opens the run's receipts (the execution's
+    // run timeline), found by the run's own id — the execution the automation's history recorded.
+    const workRow = workRowAt >= 0 ? workHistory.text.slice(workRowAt, workHistory.text.indexOf("</tr>", workRowAt)) : "";
+    const workRowLink = unesc((workRow.match(/<a href="([^"]+)"/u) || [])[1] || "");
+    const runLinkHop = workRowLink ? await httpCall(ctx.serve, "GET", workRowLink, { cookie: ctx.cookie, accept: "text/html" }) : { status: 0, headers: {} };
+    const receiptsAt = String(runLinkHop.headers?.location || "");
+    const receiptsPage = receiptsAt ? await page(ctx, receiptsAt) : { status: 0, text: "" };
+    const walkExecution = (runHistory.text.match(/<code>(aex_[0-9a-f]+)<\/code>/u) || [])[1] || "";
+    claimLive("observe/handoff/walk-observed-to-receipts",
+      !!workRowLink && runLinkHop.status === 302 && receiptsAt === `/__ioi/run-timeline/${walkExecution}` && receiptsPage.status === 200 && !!walkExecution && receiptsPage.text.includes(walkExecution),
+      `row link ${workRowLink || "none"} → ${runLinkHop.status} ${receiptsAt || ""} · receipts page ${receiptsPage.status} names ${walkExecution || "no execution"} ${receiptsPage.text.includes(walkExecution || "@@")}`);
 
     // ==== STEP 7 — PROVENANCE ======================================================================
     const projection = (await read(ctx, `${GENESIS_API}/projection?view=compact&system_id=${encodeURIComponent(ids.systemId)}`)).json || {};

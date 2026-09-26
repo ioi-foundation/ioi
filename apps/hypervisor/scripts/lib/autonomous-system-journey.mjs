@@ -160,7 +160,8 @@ export const JOURNEY = Object.freeze([
     ],
     handoff: { into: "observe", legs: [
       { id: "run-becomes-work", kind: "composed", gate: "systems-work-projections", judged_by: "an admitted Session becomes one Work row carrying its typed deep link (the gap map's 5→6 works for runs)" },
-      { id: "walk-run-in-work", kind: "todo", judged_by: "THIS walk's run is a row on /work", write: "GET /work and find the walk's session by its own id" },
+      { id: "walk-run-in-work", kind: "live", judged_by: "THIS walk's run — Run now pressed on its automation's own page, admitted as a canonical AutomationRun whose lifecycle reaches the shared work-lifecycle plane (R-240) — is a row on /work/history, found by the run ref the automation's run history names",
+        assertion: "HAND-OFF 5→6 — THIS walk's Run now is a row on Work, found by its own canonical run ref" },
       { id: "run-names-system", kind: "named_gap", judged_by: "the run's Work row names the System",
         gap: { code: "session_system_subject_absent", plane: "System subject on session create (W3 C-1)", source: "gap map hand-off 5→6; build order 5" } },
     ] },
@@ -184,7 +185,8 @@ export const JOURNEY = Object.freeze([
     ],
     handoff: { into: "provenance", legs: [
       { id: "run-answers-receipts", kind: "composed", gate: "receipts-on-demand", judged_by: "after a run, one request to the surface's retrieval route answers what it touched, citing receipts (the gap map's 5→7 works for runs)" },
-      { id: "walk-observed-to-receipts", kind: "todo", judged_by: "THIS walk's observed run links to its receipts", write: "from the walk's Work row, follow its link to the run's receipts and find them by the run's own id" },
+      { id: "walk-observed-to-receipts", kind: "live", judged_by: "from THIS walk's Work row, its own link opens the run's receipts — the execution's run timeline — which names the execution by its own id",
+        assertion: "HAND-OFF 6→7 — THIS walk's Work row links to its run's receipts, found by the run's own id" },
     ] },
   },
   {
