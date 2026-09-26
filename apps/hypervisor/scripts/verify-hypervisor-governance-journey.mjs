@@ -80,7 +80,10 @@ async function startDaemon() {
   return () => log;
 }
 
-const jd = (p, init) => fetch(`${DAEMON}${p}`, init ? { headers: { "content-type": "application/json" }, ...init } : undefined)
+// Governance control-object writes are identity-first (R-240): every direct daemon call carries the
+// operator's session once it exists; `anonymous` sends none, to prove the refusal.
+let SESSION = "";
+const jd = (p, init, { anonymous = false } = {}) => fetch(`${DAEMON}${p}`, { ...(init || {}), headers: { "content-type": "application/json", ...(SESSION && !anonymous ? { cookie: `ioi_session=${SESSION}` } : {}) } })
   .then(async (r) => ({ status: r.status, body: await r.json().catch(() => ({})) }))
   .catch(() => ({ status: 0, body: {} }));
 
@@ -90,7 +93,6 @@ const pageText = (p) => fetch(`${SERVE}${p}`).then(async (r) => ({ status: r.sta
 // posts NO reviewer fields — identity is daemon-derived from the forwarded
 // session cookie (P-IDENT-1A + rule E: 401 before any effect), and confirm=1 is
 // the explicit-confirmation contract for destructive transitions.
-let SESSION = "";
 async function transition(id, verb) {
   const r = await fetch(`${SERVE}/__ioi/governance/approvals/${id}/transition`, {
     method: "POST",
@@ -185,6 +187,16 @@ async function run() {
   const revoked = await transition(idA, "revoke");
   ok("revoke crosses with a decision receipt", revoked.status === 303 && revoked.q.get("acted") === "revoke" && (revoked.q.get("receipt") || "").length > 0, revoked.location.slice(0, 130));
   ok("revoked request reads back revoked", (await statusOf(idA)) === "revoked");
+
+  // -- identity-first control objects (R-240): an anonymous create or delete is refused 401 before any
+  // record is touched; the creator is stamped, and only the creator may delete.
+  const anonCreate = await jd("/v1/hypervisor/governance/approval-requests", { method: "POST", body: JSON.stringify({ subject_ref: "domain-app://anon-probe", request_kind: "probe", reason: "anonymous" }) }, { anonymous: true });
+  const anonDelete = await jd(`/v1/hypervisor/governance/approval-requests/${idC}`, { method: "DELETE" }, { anonymous: true });
+  const recC = await jd(`/v1/hypervisor/governance/approval-requests/${idC}`);
+  ok("an anonymous create and an anonymous delete of an approval request are refused 401 (request_principal_required) and touch nothing; the request names its creator",
+    anonCreate.status === 401 && anonCreate.body?.code === "request_principal_required" && anonDelete.status === 401
+      && recC.body?.approval_request?.status === "pending" && String(recC.body?.approval_request?.created_by_principal_ref || "").startsWith("user://"),
+    `create ${anonCreate.status} ${anonCreate.body?.code || ""} · delete ${anonDelete.status} · creator ${recC.body?.approval_request?.created_by_principal_ref || "—"}`);
 
   // -- withdrawn: decided elsewhere/deleted → typed refusal -------------------
   await jd(`/v1/hypervisor/governance/approval-requests/${idC}`, { method: "DELETE" });

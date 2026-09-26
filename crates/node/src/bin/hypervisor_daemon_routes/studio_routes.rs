@@ -704,8 +704,11 @@ pub(crate) async fn handle_studio_blueprint_promote(
     };
     // Governance composition — the governance plane's OWN create handler, in-process, so the
     // ApprovalRequest carries governance's validation and shape, not a studio imitation of them.
+    // The caller's own headers ride along: approval create is identity-first and stamps its creator,
+    // and the promoter is who requested this approval.
     let (approval_status, Json(approval_reply)) = super::governance_routes::handle_approval_create(
         State(st.clone()),
+        headers.clone(),
         Json(json!({
             "subject_ref": blueprint_ref,
             "request_kind": "studio_blueprint_promotion",

@@ -70,8 +70,9 @@
       "id": "governance-journey",
       "npm_script": "check:governance-journey",
       "source": "apps/hypervisor/scripts/verify-hypervisor-governance-journey.mjs",
-      "runtime_assertions": 20,
-      "assertion_names_sha256": "449f32c7bf1c90fc6d01843debd6505f7859a8b2477572d1d88c37730eaf3874"
+      "runtime_assertions": 21,
+      "note": "2026-09-26 (R-240): 20 -> 21 — governance control objects are identity-first: an anonymous create and an anonymous delete of an approval request are refused 401 and touch nothing, and the request names its creator (red on the pre-change daemon: the anonymous delete answered 200 and removed the record).",
+      "assertion_names_sha256": "a0278ff3d6768b989cf03a3ce21236e1ac093e31033ffcce0b4faaca031b4694"
     },
     {
       "id": "governed-effect-assurance",

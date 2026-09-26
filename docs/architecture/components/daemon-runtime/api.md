@@ -2688,6 +2688,18 @@ GET  /v1/threads/{thread_id}/approvals
 POST /v1/threads/{thread_id}/approvals/{approval_id}/decision
 ```
 
+The governance control objects under `/v1/hypervisor/governance/` are approval
+requests, release controls, cohorts, kill switches and improvement gates. Their
+create, patch and delete routes are identity-first (2026-09-26, R-240): a caller
+without a session or API token is refused `request_principal_required` before any
+field is validated or any record is read. Create stamps `created_by_principal_ref`.
+Delete answers only to that creator (403 `governance_creator_mismatch`); a record
+from before the stamp answers any signed-in principal. Transitions (approve,
+reject, revoke, open, close, trip, re-arm) are open to any signed-in principal,
+because a reviewer is not a requester. The approval transition attributes its
+reviewer from the session, never from the body. Kill-switch enforcement is an
+owner-scoped write: it requires `owner_ref` and `idempotency_key`.
+
 Approval request shape:
 
 ```json

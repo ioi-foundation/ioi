@@ -390,15 +390,10 @@ const H_BASELINE = [
   "foundry_routes.rs::handle_foundry_spec_create",
   "foundry_routes.rs::handle_foundry_spec_delete",
   "foundry_routes.rs::handle_foundry_spec_patch",
-  "governance_routes.rs::handle_approval_create",
-  "governance_routes.rs::handle_cohort_create",
-  "governance_routes.rs::handle_cohort_patch",
-  "governance_routes.rs::handle_gate_create",
-  "governance_routes.rs::handle_gate_patch",
-  "governance_routes.rs::handle_kill_create",
-  "governance_routes.rs::handle_kill_patch",
-  "governance_routes.rs::handle_release_create",
-  "governance_routes.rs::handle_release_patch",
+  // "governance_routes.rs::handle_{approval,cohort,gate,kill,release}_create" and
+  // "…_{cohort,gate,kill,release}_patch" — LEFT the baseline 2026-09-26 (R-240): every governance
+  // control-object create, patch and delete resolves RequestIdentity FIRST; create stamps
+  // `created_by_principal_ref`, and delete answers only to that creator.
   "ioi_intelligence_routes.rs::handle_improvement_patch",
   "ioi_intelligence_routes.rs::handle_improvement_simulate",
   "ioi_intelligence_routes.rs::handle_improvements_create",

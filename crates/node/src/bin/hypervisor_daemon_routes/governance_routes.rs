@@ -573,6 +573,33 @@ fn g_del(data_dir: &str, kind: &str, id: &str) -> Json<Value> {
     let removed = remove_record(data_dir, kind, id);
     Json(json!({ "ok": removed, "removed": removed, "id": id }))
 }
+/// DELETE answers to the record's creator (R-240). The control objects' deletes authenticated nobody —
+/// an anonymous caller could remove an approval request. A record stamped `created_by_principal_ref`
+/// is deleted only by that principal (403 `governance_creator_mismatch` otherwise); a record from
+/// before the stamp answers any signed-in principal, which is still a narrowing from anyone at all.
+fn creator_delete(
+    data_dir: &str,
+    kind: &str,
+    id: &str,
+    principal_ref: &str,
+) -> (StatusCode, Json<Value>) {
+    if let Some(record) = load(data_dir, kind, id) {
+        if let Some(creator) = record
+            .get("created_by_principal_ref")
+            .and_then(Value::as_str)
+        {
+            if creator != principal_ref {
+                return (
+                    StatusCode::FORBIDDEN,
+                    Json(
+                        json!({ "ok": false, "code": "governance_creator_mismatch", "message": "only the principal that created this control object may delete it" }),
+                    ),
+                );
+            }
+        }
+    }
+    (StatusCode::OK, g_del(data_dir, kind, id))
+}
 /// Common optional control fields (enforcement is NAMED, never executed).
 fn control_common(body: &Value) -> Value {
     json!({
@@ -627,8 +654,15 @@ pub(crate) async fn handle_approval_list(
 }
 pub(crate) async fn handle_approval_create(
     State(st): State<Arc<DaemonState>>,
+    headers: HeaderMap,
     Json(body): Json<Value>,
 ) -> (StatusCode, Json<Value>) {
+    // Identity FIRST (R-240): a governance control object is authored by someone, and an anonymous
+    // caller is owed the typed 401 before any field is validated or any record is read.
+    let identity = match super::substrate_store::resolve_request_identity(&st.data_dir, &headers) {
+        Ok(identity) => identity,
+        Err(error) => return super::mutation_event_foundation::scope_refusal_reply(error),
+    };
     let subject_ref = str_field(&body, "subject_ref");
     if let Err((c, m)) = resolve_governance_ref(&st.data_dir, subject_ref) {
         return bad(&c, &m);
@@ -651,6 +685,9 @@ pub(crate) async fn handle_approval_create(
         .as_object_mut()
         .unwrap()
         .extend(control_common(&body).as_object().unwrap().clone());
+    // The creator is who may later delete it (a reviewer is not a requester, so transitions stay
+    // open to any signed-in principal); stamped by the daemon, never read from the body.
+    record["created_by_principal_ref"] = json!(identity.principal_ref);
     if persist_record(&st.data_dir, KIND_APPROVAL, &id, &record).is_err() {
         return governance_persist_failed("approval");
     }
@@ -994,8 +1031,13 @@ pub(crate) async fn handle_approval_patch(
 pub(crate) async fn handle_approval_delete(
     State(st): State<Arc<DaemonState>>,
     AxumPath(id): AxumPath<String>,
-) -> Json<Value> {
-    g_del(&st.data_dir, KIND_APPROVAL, &id)
+    headers: HeaderMap,
+) -> (StatusCode, Json<Value>) {
+    let identity = match super::substrate_store::resolve_request_identity(&st.data_dir, &headers) {
+        Ok(identity) => identity,
+        Err(error) => return super::mutation_event_foundation::scope_refusal_reply(error),
+    };
+    creator_delete(&st.data_dir, KIND_APPROVAL, &id, &identity.principal_ref)
 }
 
 // ---- Unified approvals inbox (W0.6) ------------------------------------------------------------
@@ -1230,8 +1272,15 @@ pub(crate) async fn handle_release_list(State(st): State<Arc<DaemonState>>) -> J
 }
 pub(crate) async fn handle_release_create(
     State(st): State<Arc<DaemonState>>,
+    headers: HeaderMap,
     Json(body): Json<Value>,
 ) -> (StatusCode, Json<Value>) {
+    // Identity FIRST (R-240): a governance control object is authored by someone, and an anonymous
+    // caller is owed the typed 401 before any field is validated or any record is read.
+    let identity = match super::substrate_store::resolve_request_identity(&st.data_dir, &headers) {
+        Ok(identity) => identity,
+        Err(error) => return super::mutation_event_foundation::scope_refusal_reply(error),
+    };
     let target = str_field(&body, "release_target_ref");
     if let Err((c, m)) = resolve_governance_ref(&st.data_dir, target) {
         return bad(&c, &m);
@@ -1299,6 +1348,9 @@ pub(crate) async fn handle_release_create(
         .as_object_mut()
         .unwrap()
         .extend(control_common(&body).as_object().unwrap().clone());
+    // The creator is who may later delete it (a reviewer is not a requester, so transitions stay
+    // open to any signed-in principal); stamped by the daemon, never read from the body.
+    record["created_by_principal_ref"] = json!(identity.principal_ref);
     if persist_record(&st.data_dir, KIND_RELEASE, &id, &record).is_err() {
         return governance_persist_failed("release");
     }
@@ -1313,11 +1365,22 @@ pub(crate) async fn handle_release_get(
 ) -> Json<Value> {
     g_get(&st.data_dir, KIND_RELEASE, "release_control", &id)
 }
+/// PATCH — identity-first (R-240). Any signed-in principal may transition a control (who may approve,
+/// trip or open is a policy question the record-only plane does not answer); an anonymous caller may not.
 pub(crate) async fn handle_release_patch(
     State(st): State<Arc<DaemonState>>,
     AxumPath(id): AxumPath<String>,
+    headers: HeaderMap,
     Json(body): Json<Value>,
-) -> Json<Value> {
+) -> axum::response::Response {
+    use axum::response::IntoResponse;
+    if let Err(error) = super::substrate_store::resolve_request_identity(&st.data_dir, &headers) {
+        return super::mutation_event_foundation::scope_refusal_reply(error).into_response();
+    }
+    release_patch(&st, id, body).await.into_response()
+}
+
+async fn release_patch(st: &DaemonState, id: String, body: Value) -> Json<Value> {
     let Some(mut r) = load(&st.data_dir, KIND_RELEASE, &id) else {
         return Json(json!({ "ok": false, "reason": "release_control not found" }));
     };
@@ -1379,8 +1442,13 @@ pub(crate) async fn handle_release_patch(
 pub(crate) async fn handle_release_delete(
     State(st): State<Arc<DaemonState>>,
     AxumPath(id): AxumPath<String>,
-) -> Json<Value> {
-    g_del(&st.data_dir, KIND_RELEASE, &id)
+    headers: HeaderMap,
+) -> (StatusCode, Json<Value>) {
+    let identity = match super::substrate_store::resolve_request_identity(&st.data_dir, &headers) {
+        Ok(identity) => identity,
+        Err(error) => return super::mutation_event_foundation::scope_refusal_reply(error),
+    };
+    creator_delete(&st.data_dir, KIND_RELEASE, &id, &identity.principal_ref)
 }
 
 // ---- Cohorts -----------------------------------------------------------------------------------
@@ -1434,8 +1502,15 @@ pub(crate) async fn handle_cohort_list(State(st): State<Arc<DaemonState>>) -> Js
 }
 pub(crate) async fn handle_cohort_create(
     State(st): State<Arc<DaemonState>>,
+    headers: HeaderMap,
     Json(body): Json<Value>,
 ) -> (StatusCode, Json<Value>) {
+    // Identity FIRST (R-240): a governance control object is authored by someone, and an anonymous
+    // caller is owed the typed 401 before any field is validated or any record is read.
+    let identity = match super::substrate_store::resolve_request_identity(&st.data_dir, &headers) {
+        Ok(identity) => identity,
+        Err(error) => return super::mutation_event_foundation::scope_refusal_reply(error),
+    };
     let display_name = str_field(&body, "display_name");
     if display_name.is_empty() {
         return bad(
@@ -1463,7 +1538,7 @@ pub(crate) async fn handle_cohort_create(
     }
     let id = format!("coh_{:x}", nanos());
     let now = iso_now();
-    let record = json!({
+    let mut record = json!({
         "schema_version": "ioi.hypervisor.governance.cohort.v1",
         "object": "ioi.hypervisor.governance.cohort",
         "id": id, "ref": format!("cohort://{id}"),
@@ -1475,6 +1550,9 @@ pub(crate) async fn handle_cohort_create(
         "evidence_refs": str_refs(&body, "evidence_refs"),
         "created_at": now, "updated_at": now
     });
+    // The creator is who may later delete it (a reviewer is not a requester, so transitions stay
+    // open to any signed-in principal); stamped by the daemon, never read from the body.
+    record["created_by_principal_ref"] = json!(identity.principal_ref);
     if persist_record(&st.data_dir, KIND_COHORT, &id, &record).is_err() {
         return governance_persist_failed("cohort");
     }
@@ -1489,11 +1567,22 @@ pub(crate) async fn handle_cohort_get(
 ) -> Json<Value> {
     g_get(&st.data_dir, KIND_COHORT, "cohort", &id)
 }
+/// PATCH — identity-first (R-240). Any signed-in principal may transition a control (who may approve,
+/// trip or open is a policy question the record-only plane does not answer); an anonymous caller may not.
 pub(crate) async fn handle_cohort_patch(
     State(st): State<Arc<DaemonState>>,
     AxumPath(id): AxumPath<String>,
+    headers: HeaderMap,
     Json(body): Json<Value>,
-) -> Json<Value> {
+) -> axum::response::Response {
+    use axum::response::IntoResponse;
+    if let Err(error) = super::substrate_store::resolve_request_identity(&st.data_dir, &headers) {
+        return super::mutation_event_foundation::scope_refusal_reply(error).into_response();
+    }
+    cohort_patch(&st, id, body).await.into_response()
+}
+
+async fn cohort_patch(st: &DaemonState, id: String, body: Value) -> Json<Value> {
     let Some(mut c) = load(&st.data_dir, KIND_COHORT, &id) else {
         return Json(json!({ "ok": false, "reason": "cohort not found" }));
     };
@@ -1537,8 +1626,13 @@ pub(crate) async fn handle_cohort_patch(
 pub(crate) async fn handle_cohort_delete(
     State(st): State<Arc<DaemonState>>,
     AxumPath(id): AxumPath<String>,
-) -> Json<Value> {
-    g_del(&st.data_dir, KIND_COHORT, &id)
+    headers: HeaderMap,
+) -> (StatusCode, Json<Value>) {
+    let identity = match super::substrate_store::resolve_request_identity(&st.data_dir, &headers) {
+        Ok(identity) => identity,
+        Err(error) => return super::mutation_event_foundation::scope_refusal_reply(error),
+    };
+    creator_delete(&st.data_dir, KIND_COHORT, &id, &identity.principal_ref)
 }
 
 // ---- KillSwitch --------------------------------------------------------------------------------
@@ -1547,8 +1641,15 @@ pub(crate) async fn handle_kill_list(State(st): State<Arc<DaemonState>>) -> Json
 }
 pub(crate) async fn handle_kill_create(
     State(st): State<Arc<DaemonState>>,
+    headers: HeaderMap,
     Json(body): Json<Value>,
 ) -> (StatusCode, Json<Value>) {
+    // Identity FIRST (R-240): a governance control object is authored by someone, and an anonymous
+    // caller is owed the typed 401 before any field is validated or any record is read.
+    let identity = match super::substrate_store::resolve_request_identity(&st.data_dir, &headers) {
+        Ok(identity) => identity,
+        Err(error) => return super::mutation_event_foundation::scope_refusal_reply(error),
+    };
     let subject_ref = str_field(&body, "subject_ref");
     if let Err((c, m)) = resolve_governance_ref(&st.data_dir, subject_ref) {
         return bad(&c, &m);
@@ -1571,6 +1672,9 @@ pub(crate) async fn handle_kill_create(
         .as_object_mut()
         .unwrap()
         .extend(control_common(&body).as_object().unwrap().clone());
+    // The creator is who may later delete it (a reviewer is not a requester, so transitions stay
+    // open to any signed-in principal); stamped by the daemon, never read from the body.
+    record["created_by_principal_ref"] = json!(identity.principal_ref);
     if persist_record(&st.data_dir, KIND_KILL, &id, &record).is_err() {
         return governance_persist_failed("kill switch");
     }
@@ -1585,11 +1689,22 @@ pub(crate) async fn handle_kill_get(
 ) -> Json<Value> {
     g_get(&st.data_dir, KIND_KILL, "kill_switch", &id)
 }
+/// PATCH — identity-first (R-240). Any signed-in principal may transition a control (who may approve,
+/// trip or open is a policy question the record-only plane does not answer); an anonymous caller may not.
 pub(crate) async fn handle_kill_patch(
     State(st): State<Arc<DaemonState>>,
     AxumPath(id): AxumPath<String>,
+    headers: HeaderMap,
     Json(body): Json<Value>,
-) -> Json<Value> {
+) -> axum::response::Response {
+    use axum::response::IntoResponse;
+    if let Err(error) = super::substrate_store::resolve_request_identity(&st.data_dir, &headers) {
+        return super::mutation_event_foundation::scope_refusal_reply(error).into_response();
+    }
+    kill_patch(&st, id, body).await.into_response()
+}
+
+async fn kill_patch(st: &DaemonState, id: String, body: Value) -> Json<Value> {
     let Some(mut k) = load(&st.data_dir, KIND_KILL, &id) else {
         return Json(json!({ "ok": false, "reason": "kill_switch not found" }));
     };
@@ -1636,8 +1751,13 @@ pub(crate) async fn handle_kill_patch(
 pub(crate) async fn handle_kill_delete(
     State(st): State<Arc<DaemonState>>,
     AxumPath(id): AxumPath<String>,
-) -> Json<Value> {
-    g_del(&st.data_dir, KIND_KILL, &id)
+    headers: HeaderMap,
+) -> (StatusCode, Json<Value>) {
+    let identity = match super::substrate_store::resolve_request_identity(&st.data_dir, &headers) {
+        Ok(identity) => identity,
+        Err(error) => return super::mutation_event_foundation::scope_refusal_reply(error),
+    };
+    creator_delete(&st.data_dir, KIND_KILL, &id, &identity.principal_ref)
 }
 
 const KIND_KILL_ENFORCE_RECEIPT: &str = "governance-kill-enforcement-receipts";
@@ -1872,8 +1992,15 @@ pub(crate) async fn handle_gate_list(State(st): State<Arc<DaemonState>>) -> Json
 }
 pub(crate) async fn handle_gate_create(
     State(st): State<Arc<DaemonState>>,
+    headers: HeaderMap,
     Json(body): Json<Value>,
 ) -> (StatusCode, Json<Value>) {
+    // Identity FIRST (R-240): a governance control object is authored by someone, and an anonymous
+    // caller is owed the typed 401 before any field is validated or any record is read.
+    let identity = match super::substrate_store::resolve_request_identity(&st.data_dir, &headers) {
+        Ok(identity) => identity,
+        Err(error) => return super::mutation_event_foundation::scope_refusal_reply(error),
+    };
     let subject_ref = str_field(&body, "subject_ref");
     if let Err((c, m)) = resolve_governance_ref(&st.data_dir, subject_ref) {
         return bad(&c, &m);
@@ -1906,6 +2033,9 @@ pub(crate) async fn handle_gate_create(
         .as_object_mut()
         .unwrap()
         .extend(control_common(&body).as_object().unwrap().clone());
+    // The creator is who may later delete it (a reviewer is not a requester, so transitions stay
+    // open to any signed-in principal); stamped by the daemon, never read from the body.
+    record["created_by_principal_ref"] = json!(identity.principal_ref);
     if persist_record(&st.data_dir, KIND_GATE, &id, &record).is_err() {
         return governance_persist_failed("gate");
     }
@@ -1920,11 +2050,22 @@ pub(crate) async fn handle_gate_get(
 ) -> Json<Value> {
     g_get(&st.data_dir, KIND_GATE, "improvement_gate", &id)
 }
+/// PATCH — identity-first (R-240). Any signed-in principal may transition a control (who may approve,
+/// trip or open is a policy question the record-only plane does not answer); an anonymous caller may not.
 pub(crate) async fn handle_gate_patch(
     State(st): State<Arc<DaemonState>>,
     AxumPath(id): AxumPath<String>,
+    headers: HeaderMap,
     Json(body): Json<Value>,
-) -> Json<Value> {
+) -> axum::response::Response {
+    use axum::response::IntoResponse;
+    if let Err(error) = super::substrate_store::resolve_request_identity(&st.data_dir, &headers) {
+        return super::mutation_event_foundation::scope_refusal_reply(error).into_response();
+    }
+    gate_patch(&st, id, body).await.into_response()
+}
+
+async fn gate_patch(st: &DaemonState, id: String, body: Value) -> Json<Value> {
     let Some(mut g) = load(&st.data_dir, KIND_GATE, &id) else {
         return Json(json!({ "ok": false, "reason": "improvement_gate not found" }));
     };
@@ -1958,8 +2099,13 @@ pub(crate) async fn handle_gate_patch(
 pub(crate) async fn handle_gate_delete(
     State(st): State<Arc<DaemonState>>,
     AxumPath(id): AxumPath<String>,
-) -> Json<Value> {
-    g_del(&st.data_dir, KIND_GATE, &id)
+    headers: HeaderMap,
+) -> (StatusCode, Json<Value>) {
+    let identity = match super::substrate_store::resolve_request_identity(&st.data_dir, &headers) {
+        Ok(identity) => identity,
+        Err(error) => return super::mutation_event_foundation::scope_refusal_reply(error),
+    };
+    creator_delete(&st.data_dir, KIND_GATE, &id, &identity.principal_ref)
 }
 
 #[cfg(test)]
@@ -2410,6 +2556,39 @@ mod governance_tests {
                 "{label} still carries the pre-existing forged reviewer"
             );
         }
+    }
+
+    #[test]
+    fn a_control_object_is_deleted_only_by_its_creator() {
+        let dir = std::env::temp_dir().join(format!("ioi-gov-creator-{:x}", nanos()));
+        std::fs::create_dir_all(&dir).unwrap();
+        let data_dir = dir.to_str().unwrap();
+        let stamped = json!({ "id": "appr_stamped", "created_by_principal_ref": "user://alice" });
+        let legacy = json!({ "id": "appr_legacy" });
+        persist_record(data_dir, KIND_APPROVAL, "appr_stamped", &stamped).unwrap();
+        persist_record(data_dir, KIND_APPROVAL, "appr_legacy", &legacy).unwrap();
+        // Another principal is refused by name and removes nothing.
+        let (status, Json(reply)) =
+            creator_delete(data_dir, KIND_APPROVAL, "appr_stamped", "user://mallory");
+        assert_eq!(status, StatusCode::FORBIDDEN);
+        assert_eq!(reply["code"], "governance_creator_mismatch");
+        assert!(load(data_dir, KIND_APPROVAL, "appr_stamped").is_some());
+        // The creator deletes it.
+        let (status, Json(reply)) =
+            creator_delete(data_dir, KIND_APPROVAL, "appr_stamped", "user://alice");
+        assert_eq!(
+            (status, reply["ok"].as_bool()),
+            (StatusCode::OK, Some(true))
+        );
+        assert!(load(data_dir, KIND_APPROVAL, "appr_stamped").is_none());
+        // A record from before the stamp answers any signed-in principal.
+        let (status, Json(reply)) =
+            creator_delete(data_dir, KIND_APPROVAL, "appr_legacy", "user://mallory");
+        assert_eq!(
+            (status, reply["ok"].as_bool()),
+            (StatusCode::OK, Some(true))
+        );
+        let _ = std::fs::remove_dir_all(&dir);
     }
 
     #[test]
