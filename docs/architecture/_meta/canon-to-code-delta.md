@@ -1375,6 +1375,20 @@ landed. Correct every copy, or the ones left behind go on reading as evidence.
 | **Two readings made deliberately, both recorded.** "Delete" means ARCHIVE — there is no DELETE verb on a memory entry, and reading the acceptance literally would have invented one. And skills and affinities keep their direct verbs, because the unit's scope is the memory-entry and memory-mutation owners. | the verifier's nonclaims | recorded |
 | **The census caught the cut adding a production writer, and the buckets are what mattered.** `check:ontology-admission-census` went red on the writer-call population. The FAMILY writer bucket (57), family mentions (285), the non-ODK literal bucket (243) and raw filesystem calls (234) were all unchanged; only the runtime-parameter bucket moved, by exactly the two added calls, both writing a LITERAL family. Had the family bucket moved it would have meant a new admitter. Re-pinned with that reasoning beside the numbers. | `check:ontology-admission-census` 27/27 | repaired |
 
+### Journey verification CLXXVIII (2026-09-26, R-240 — ADR 0056 P1: the notification inbox has a surface)
+
+| Delta | Evidence | Disposition |
+|---|---|---|
+| **THE INBOX HAD NO SURFACE.** A bell beside What's new opens a panel whose rows are exactly the inbox's items for the signed-in person, grouped by day, one link each to the owning record; the envelope's own count ("in the last 30 days"), no read/unread and no badge (no read state exists); family chips filter as `?family=`; typed absences named; signed out / outage / refusal distinct. `/ai#notifications` opens it; the certified rail's Notifications item (inert since the port) links there. The done-bar gate's observe step composes the new gate in place of the named gap (18 gap codes left). | check:notification-panel 13/13 (browser, own plane, against a direct read with the same cookie); both themes + phone width looked at; smoke 368; census PASS (674 live-looking, 0 dead; shell 8 routes, 0 dead) | built |
+| **FOUND (pre-existing, measured): a stale window.** The genesis-admission verifier's WALLET BINDING ATOMICITY fails on HEAD's own binary too (solo). Read from source: the restarted daemon's completer logs the refusal only after the wallet chain REJECTS the consume transaction (`principal_authority_binding_coordinates_stale`), one block cycle that outlasts the 10 s poll written 2026-07-19 (before the per-phase wallet budgets and the Solo default). The poll now waits up to 90 s (the sibling wallet-replay scenario's budget); the expected strings are unchanged. | baseline run on a HEAD build: the same red; IDENTITY red there as expected | **re-run pending** |
+| **FOUND (forms survey).** The ODK descriptor form posts the retired v1 payload and the daemon refuses it 422 on every submission — a dead form, so no form chain can create a DomainApp (and so no package); `POST /v1/hypervisor/eval-suites` resolves no identity; Approve and Reject share one form action (the walk's last-form rule would pick Reject). | `.artifacts/mvp-finish-line/journey-todo-legs-scoping-2026-09-26.md` | **OPEN** |
+
+### Journey verification CLXXVII (2026-09-26, R-240 — threads answer to their creator)
+
+| Delta | Evidence | Disposition |
+|---|---|---|
+| **ANYONE COULD CANCEL OR DELETE ANY THREAD.** Thread create, cancel and delete are identity-first; create stamps `created_by_principal_ref`; cancel/delete answer only to the creator (403 `thread_creator_mismatch`); pre-stamp threads answer any signed-in principal. Callers surveyed: product adapter, portal sessions and every CI verifier already carry identity; the eight local contract tests now create threads as the daemon's operator. | 3/3 unit tests; admission-evidence 160/160; contract tests 37/38 (the pre-existing MCP catalog red); pre-push 21/21 | repaired |
+
 ### Journey verification CLXXVI (2026-09-25, R-240 — the done-bar is a gate, and the genesis journey it composes is green and wired)
 
 | Delta | Evidence | Disposition |
