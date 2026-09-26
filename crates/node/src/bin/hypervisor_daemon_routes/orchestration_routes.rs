@@ -68,6 +68,13 @@ const FORWARDED_AUTH_HEADERS: &[&str] = &[
     // self-calls only; a caller-supplied value forwards inert — it can never match the per-boot
     // secret, which is never emitted in any response.
     "x-ioi-internal-dispatch",
+    // The executor the daemon's own dispatch runs as, and its organization (set by
+    // handle_automation_start under the token above). The environment routes honour them ONLY when
+    // that token is authorized, and prefer a session when one resolves — so a caller-supplied value
+    // is inert. They were not forwarded, so every scheduled and webhook run failed at environment
+    // create with `internal_environment_principal_required` before its first step (R-240).
+    "x-ioi-internal-principal-ref",
+    "x-ioi-internal-owner-ref",
 ];
 
 async fn call(
@@ -1444,6 +1451,7 @@ pub(crate) async fn handle_automation_start(
     State(st): State<Arc<DaemonState>>,
     AxumPath(id): AxumPath<String>,
     mut inbound: axum::http::HeaderMap,
+    body: axum::body::Bytes,
 ) -> Result<(StatusCode, Json<Value>), AppError> {
     // #237 finding closed — identity FIRST (rule E): a manual run is a write crossing; the typed
     // 401 is owed BEFORE the record load. The daemon's OWN dispatches (scheduler tick, accepted
@@ -1473,7 +1481,20 @@ pub(crate) async fn handle_automation_start(
             .unwrap_or("")
             .to_string()
     });
+    // The daemon's own dispatch names its activation in its body (`{"trigger":"schedule"}` from the
+    // scheduler tick, `{"trigger":"webhook"}` from an accepted webhook). Read only under the internal
+    // token: a person's Run now is always a manual activation, whatever a body claims.
+    let mut dispatch: Option<super::automation_contract_routes::InternalDispatch> = None;
     if internal_dispatch {
+        let trigger = serde_json::from_slice::<Value>(&body)
+            .ok()
+            .and_then(|value| {
+                value
+                    .get("trigger")
+                    .and_then(Value::as_str)
+                    .map(str::to_string)
+            })
+            .unwrap_or_default();
         let tenant_refs = super::lifecycle_routes::resolve_principal_tenant_refs(
             &st.data_dir,
             &acting_principal_ref,
@@ -1499,6 +1520,11 @@ pub(crate) async fn handle_automation_start(
             axum::http::HeaderValue::from_str(owner_ref)
                 .map_err(|error| AppError(StatusCode::INTERNAL_SERVER_ERROR, error.to_string()))?,
         );
+        dispatch = Some(super::automation_contract_routes::InternalDispatch {
+            principal_ref: acting_principal_ref.clone(),
+            owner_ref: owner_ref.clone(),
+            activation_kind: trigger,
+        });
     }
     let base = st.base_url.clone();
     let exec_id = format!("aex_{:x}", nanos());
@@ -1523,32 +1549,29 @@ pub(crate) async fn handle_automation_start(
         ));
     }
 
-    // R-240 — a signed-in principal's Run now is admitted as a canonical AutomationRun BEFORE it
-    // executes (automation_contract_routes::bridge_run_now): the manual chain for these exact steps,
-    // the run, and its lifecycle to `running` in the shared work-lifecycle plane. This executor stays
+    // R-240 — every execution is admitted as a canonical AutomationRun BEFORE it executes
+    // (automation_contract_routes::bridge_run_now): a person's Run now over their manual chain, the
+    // daemon's own schedule / webhook dispatch over the executor's chain for that activation — then
+    // the run and its lifecycle to `running` in the shared work-lifecycle plane. This executor stays
     // the executor. A refusal is named on the execution, never hidden, and does not stop the run.
     let mut bridged = None;
-    if internal_dispatch {
-        exec["canonical_run"] = json!({ "state": "not_admitted", "code": "automation_bridge_internal_dispatch",
-            "message": "a scheduled or webhook dispatch crosses with the daemon's internal token, not a session, and canonical run admission is identity-first — this execution has no canonical run yet" });
-    } else {
-        match super::automation_contract_routes::bridge_run_now(
-            &st,
-            &inbound,
-            &id,
-            &automation,
-            &exec_id,
-        )
-        .await
-        {
-            Ok(run) => {
-                exec["automation_run_ref"] = json!(run.run_ref);
-                bridged = Some(run);
-            }
-            Err((code, message)) => {
-                exec["canonical_run"] =
-                    json!({ "state": "not_admitted", "code": code, "message": message });
-            }
+    match super::automation_contract_routes::bridge_run_now(
+        &st,
+        &inbound,
+        &id,
+        &automation,
+        &exec_id,
+        dispatch.as_ref(),
+    )
+    .await
+    {
+        Ok(run) => {
+            exec["automation_run_ref"] = json!(run.run_ref);
+            bridged = Some(run);
+        }
+        Err((code, message)) => {
+            exec["canonical_run"] =
+                json!({ "state": "not_admitted", "code": code, "message": message });
         }
     }
     // Close the canonical run as failed on an early exit, so it never reads `running` forever.
@@ -1601,6 +1624,9 @@ pub(crate) async fn handle_automation_start(
     if env_id.is_empty() {
         exec["status"] = json!("failed");
         exec["finished_at"] = json!(iso_now());
+        // Say WHY: the environment plane's own answer travels on the failed execution (a run that
+        // failed before its first step carried no reason at all).
+        exec["failure"] = json!({ "stage": "environment_create", "answer": created });
         close_failed(&mut bridged);
         // W1.2 / MEF-GAP-008 — the terminal `failed` state must be durable; a discarded write leaves
         // the exec "running" forever (holding a concurrency slot). Fail closed.

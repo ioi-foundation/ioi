@@ -659,6 +659,29 @@ async function run() {
       && !!rejectedEvent && !!rejectedEvent.receipt_id && events.body?.rejected_count === 1,
     JSON.stringify({ status: badTrigger.status, receipt: rejectedEvent?.receipt_id }));
 
+  // -- R-240: an ACCEPTED webhook fire executes, admitted as its own canonical run -----------------
+  // The daemon's own dispatch (webhook, scheduler) crosses with the internal token and runs as the
+  // automation's executor. Its identity headers were never forwarded to the environment routes, so
+  // every accepted fire failed at environment create before its first step; and it had no canonical
+  // run. It now executes, over the executor's WEBHOOK chain (a spec is one standing activation).
+  const execsBeforeFire = new Set(((await jd(`/v1/hypervisor/automations/${encodeURIComponent(automationId)}/runs`)).body?.runs || []).map((r) => r.execution_id));
+  const goodTrigger = await fetch(`${DAEMON}/v1/hypervisor/automations/${encodeURIComponent(automationId)}/webhook`, {
+    method: "POST",
+    headers: { "content-type": "application/json", "X-IOI-Trigger-Token": webhookToken },
+    body: JSON.stringify({ event: "journey-fire" }),
+  }).then((r) => r.status).catch(() => 0);
+  let fired = null;
+  for (let attempt = 0; attempt < 30 && !fired; attempt++) {
+    await new Promise((r) => setTimeout(r, 1000));
+    fired = ((await jd(`/v1/hypervisor/automations/${encodeURIComponent(automationId)}/runs`)).body?.runs || [])
+      .find((r) => !execsBeforeFire.has(r.execution_id) && ["done", "failed", "stopped"].includes(r.status)) || null;
+  }
+  const firedRun = fired?.automation_run_ref ? ((await jd(`/v1/hypervisor/automation-runs/${encodeURIComponent(fired.automation_run_ref.replace("automation-run://", ""))}`)).body?.automation_run || {}) : {};
+  ok("R-240: an ACCEPTED webhook fire EXECUTES (its step runs; it failed at environment create before), and it is admitted as its own canonical run — activation `webhook`, its event naming this execution",
+    goodTrigger === 202 && fired?.status === "done" && fired?.counts?.done === 1
+      && firedRun.activation_kind === "webhook" && firedRun.activation_event_ref === `event://automation/${automationId}/webhook/${fired.execution_id}`,
+    `fire ${goodTrigger} · ${fired?.execution_id || "no execution"} ${fired?.status || ""} ${JSON.stringify(fired?.failure || {}).slice(0, 120)} · run ${firedRun.activation_kind || "none"}`);
+
   // -- delete journey (throwaway spec — the canonical page stays honest after)
   const throwaway = await jd("/v1/hypervisor/automations", {
     method: "POST",

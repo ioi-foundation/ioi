@@ -502,6 +502,12 @@ pub(crate) async fn create_workflow_template(
         Ok(identity) => identity,
         Err(reply) => return reply,
     };
+    create_workflow_template_as(&st, &identity, &body)
+}
+
+/// The same admission for a principal the caller has ALREADY resolved — the route above after its
+/// identity seam, or the Run now bridge for the daemon's own dispatch (R-240).
+pub(crate) fn create_workflow_template_as(st: &DaemonState, identity: &str, body: &Value) -> Reply {
     let _mutation = AUTOMATION_CONTRACT_MUTATION_LOCK
         .lock()
         .unwrap_or_else(|poisoned| poisoned.into_inner());
@@ -730,9 +736,15 @@ pub(crate) async fn create_automation_spec(
     Json(body): Json<Value>,
 ) -> Reply {
     let identity = match identity_or_refusal(&st, &headers) {
-        Ok(value) => value,
+        Ok(identity) => identity,
         Err(reply) => return reply,
     };
+    create_automation_spec_as(&st, &identity, &body)
+}
+
+/// The same admission for a principal the caller has ALREADY resolved — the route above after its
+/// identity seam, or the Run now bridge for the daemon's own dispatch (R-240).
+pub(crate) fn create_automation_spec_as(st: &DaemonState, identity: &str, body: &Value) -> Reply {
     let _mutation = AUTOMATION_CONTRACT_MUTATION_LOCK
         .lock()
         .unwrap_or_else(|poisoned| poisoned.into_inner());
@@ -933,9 +945,19 @@ pub(crate) async fn create_automation_installation(
     Json(body): Json<Value>,
 ) -> Reply {
     let identity = match identity_or_refusal(&st, &headers) {
-        Ok(value) => value,
+        Ok(identity) => identity,
         Err(reply) => return reply,
     };
+    create_automation_installation_as(&st, &identity, &body)
+}
+
+/// The same admission for a principal the caller has ALREADY resolved — the route above after its
+/// identity seam, or the Run now bridge for the daemon's own dispatch (R-240).
+pub(crate) fn create_automation_installation_as(
+    st: &DaemonState,
+    identity: &str,
+    body: &Value,
+) -> Reply {
     let _mutation = AUTOMATION_CONTRACT_MUTATION_LOCK
         .lock()
         .unwrap_or_else(|poisoned| poisoned.into_inner());
@@ -1052,9 +1074,15 @@ pub(crate) async fn admit_automation_run(
     Json(body): Json<Value>,
 ) -> Reply {
     let identity = match identity_or_refusal(&st, &headers) {
-        Ok(value) => value,
+        Ok(identity) => identity,
         Err(reply) => return reply,
     };
+    admit_automation_run_as(&st, &identity, &body)
+}
+
+/// The same admission for a principal the caller has ALREADY resolved — the route above after its
+/// identity seam, or the Run now bridge for the daemon's own dispatch (R-240).
+pub(crate) fn admit_automation_run_as(st: &DaemonState, identity: &str, body: &Value) -> Reply {
     let _mutation = AUTOMATION_CONTRACT_MUTATION_LOCK
         .lock()
         .unwrap_or_else(|poisoned| poisoned.into_inner());
@@ -1397,13 +1425,15 @@ pub(crate) fn legacy_automation_graph(
     ))
 }
 
-/// Pure reads: the principal's template for exactly this graph, its manual spec, and that spec's
-/// enabled HEAD binding (none of its successors). `None` when any link is missing.
-pub(crate) fn find_manual_chain(
+/// Pure reads: the principal's template for exactly this graph, its spec for this activation kind
+/// (a spec is ONE standing activation), and that spec's enabled HEAD binding (none of its
+/// successors). `None` when any link is missing.
+pub(crate) fn find_chain(
     data_dir: &str,
     principal_ref: &str,
     graph_ref: &str,
     graph_hash: &str,
+    activation_kind: &str,
 ) -> Option<ManualChain> {
     let owned =
         |record: &Value| record.get("owner_ref").and_then(Value::as_str) == Some(principal_ref);
@@ -1423,7 +1453,7 @@ pub(crate) fn find_manual_chain(
     let spec = read_record_dir(data_dir, SPEC_DIR).into_iter().find(|s| {
         owned(s)
             && text(s, "workflow_template_revision_ref") == template_ref
-            && text(s, "activation_kind") == "manual"
+            && text(s, "activation_kind") == activation_kind
     })?;
     let spec_ref = text(&spec, "revision_ref");
     let bindings = read_record_dir(data_dir, BINDING_DIR);
@@ -1467,32 +1497,51 @@ fn bridge_step(label: &str, (status, Json(reply)): Reply) -> Result<Value, (Stri
     Err((code.to_string(), format!("{label}: {message}")))
 }
 
-/// Mint the principal's manual chain for this automation's exact steps: a released template, a manual
-/// spec over it, the INSTALLATION DECISION admitted as an owner-scoped write (its Agentgres receipt is
-/// the binding's admission receipt — a real record of the principal installing their own automation's
-/// manual activation, never a literal), and an enabled binding carrying that receipt.
-async fn mint_manual_chain(
-    st: &Arc<DaemonState>,
-    headers: &HeaderMap,
+/// Mint the principal's chain for this automation's exact steps and one activation kind: a released
+/// template, a spec for that activation over it, the INSTALLATION DECISION admitted as an owner-scoped
+/// write (its Agentgres receipt is the binding's admission receipt — a real record of the principal
+/// installing their own automation's activation, never a literal), and an enabled binding carrying it.
+fn mint_chain(
+    st: &DaemonState,
     identity: &super::substrate_store::RequestIdentity,
     owner_tenant: &str,
     display_name: &str,
     graph_ref: &str,
     graph_hash: &str,
+    activation_kind: &str,
 ) -> Result<ManualChain, (String, String)> {
     let principal = identity.principal_ref.as_str();
-    let template = bridge_step("workflow template", create_workflow_template(State(st.clone()), headers.clone(), Json(json!({
-        "owner_ref": principal, "display_name": display_name, "graph_ref": graph_ref, "graph_hash": graph_hash,
-        "required_primitive_capabilities": ["prim:process.execute"], "registry_status": "released",
-    }))).await)?;
+    let template = bridge_step(
+        "workflow template",
+        create_workflow_template_as(
+            st,
+            principal,
+            &json!({
+                "owner_ref": principal, "display_name": display_name, "graph_ref": graph_ref, "graph_hash": graph_hash,
+                "required_primitive_capabilities": ["prim:process.execute"], "registry_status": "released",
+            }),
+        ),
+    )?;
     let template = &template["workflow_template"];
-    let spec = bridge_step("automation spec", create_automation_spec(State(st.clone()), headers.clone(), Json(json!({
-        "owner_ref": principal, "display_name": format!("{display_name} · run now"),
-        "workflow_template_revision_ref": template["revision_ref"], "workflow_template_content_hash": template["content_hash"],
-        "activation_kind": "manual", "concurrency_policy_ref": "policy://automation/concurrency/serial",
-        "idempotency_policy_ref": "policy://automation/idempotency/exact", "authority_requirement_refs": ["scope:process.execute"],
-        "receipt_policy_ref": "policy://receipts/automation", "registry_status": "released",
-    }))).await)?;
+    let label = if activation_kind == "manual" {
+        "run now"
+    } else {
+        activation_kind
+    };
+    let spec = bridge_step(
+        "automation spec",
+        create_automation_spec_as(
+            st,
+            principal,
+            &json!({
+                "owner_ref": principal, "display_name": format!("{display_name} · {label}"),
+                "workflow_template_revision_ref": template["revision_ref"], "workflow_template_content_hash": template["content_hash"],
+                "activation_kind": activation_kind, "concurrency_policy_ref": "policy://automation/concurrency/serial",
+                "idempotency_policy_ref": "policy://automation/idempotency/exact", "authority_requirement_refs": ["scope:process.execute"],
+                "receipt_policy_ref": "policy://receipts/automation", "registry_status": "released",
+            }),
+        ),
+    )?;
     let spec = &spec["automation_spec"];
     let spec_ref = spec["revision_ref"].as_str().unwrap_or("").to_string();
     let decision = super::mutation_event_foundation::admit_owner_scoped_write(
@@ -1510,19 +1559,26 @@ async fn mint_manual_chain(
         &json!({
             "installed_by_principal_ref": principal, "scope_ref": principal,
             "automation_spec_revision_ref": spec_ref, "automation_spec_content_hash": spec["content_hash"],
-            "narrowed_activation_kinds": ["manual"], "narrowed_authority_requirement_refs": ["scope:process.execute"],
+            "narrowed_activation_kinds": [activation_kind], "narrowed_authority_requirement_refs": ["scope:process.execute"],
         }),
     )
     .map_err(|(_, Json(reply))| {
         let code = reply.get("code").or_else(|| reply.pointer("/error/code")).and_then(Value::as_str).unwrap_or("automation_installation_decision_refused");
         (code.to_string(), "installation decision was not admitted".to_string())
     })?;
-    let binding = bridge_step("installation binding", create_automation_installation(State(st.clone()), headers.clone(), Json(json!({
-        "owner_ref": principal, "scope_ref": principal,
-        "automation_spec_revision_ref": spec_ref, "automation_spec_content_hash": spec["content_hash"],
-        "enabled": true, "narrowed_activation_kinds": ["manual"], "narrowed_authority_requirement_refs": ["scope:process.execute"],
-        "admission_receipt_ref": decision.receipt_ref, "registry_status": "released",
-    }))).await)?;
+    let binding = bridge_step(
+        "installation binding",
+        create_automation_installation_as(
+            st,
+            principal,
+            &json!({
+                "owner_ref": principal, "scope_ref": principal,
+                "automation_spec_revision_ref": spec_ref, "automation_spec_content_hash": spec["content_hash"],
+                "enabled": true, "narrowed_activation_kinds": [activation_kind], "narrowed_authority_requirement_refs": ["scope:process.execute"],
+                "admission_receipt_ref": decision.receipt_ref, "registry_status": "released",
+            }),
+        ),
+    )?;
     let binding = &binding["automation_installation_binding"];
     Ok(ManualChain {
         spec_ref,
@@ -1591,38 +1647,72 @@ fn append_phase(
     Ok(())
 }
 
-/// A signed-in principal's "Run now" of a legacy automation, admitted canonically BEFORE it executes:
-/// the manual chain for its exact steps (found, else minted), the run, and its lifecycle to `running`.
-/// A refusal is returned typed and the legacy execution proceeds without a canonical run — it is named
-/// on the execution record, never hidden.
+/// The daemon's OWN dispatch of an automation (a scheduler tick or an accepted webhook): it crosses
+/// with the per-boot internal token, not a session, and runs as the automation's stored executor.
+pub(crate) struct InternalDispatch {
+    pub(crate) principal_ref: String,
+    pub(crate) owner_ref: String,
+    pub(crate) activation_kind: String,
+}
+
+/// One legacy execution, admitted canonically BEFORE it executes: the chain for the automation's exact
+/// steps and this activation (found, else minted), the run, and its lifecycle to `running`. A person's
+/// Run now resolves its identity from the session (activation `manual`); the daemon's own dispatch
+/// resolves the executor principal through the workload-broker seam the environment routes use
+/// (activation `schedule` / `webhook`). A refusal is returned typed and the legacy execution proceeds
+/// without a canonical run — it is named on the execution record, never hidden.
 pub(crate) async fn bridge_run_now(
     st: &Arc<DaemonState>,
     headers: &HeaderMap,
     automation_id: &str,
     automation: &Value,
     execution_id: &str,
+    dispatch: Option<&InternalDispatch>,
 ) -> Result<BridgedRun, (String, String)> {
-    let identity = super::substrate_store::resolve_request_identity(&st.data_dir, headers)
-        .map_err(|error| (error.code().to_string(), error.message()))?;
-    let owner_tenant = identity
-        .tenant_refs
-        .iter()
-        .find(|t| t.as_str() == "org://local")
-        .or_else(|| identity.tenant_refs.iter().find(|t| t.starts_with("org://")))
-        .or_else(|| identity.tenant_refs.iter().find(|t| t.starts_with("project://")))
-        .cloned()
-        .ok_or_else(|| ("automation_bridge_owner_tenant_required".to_string(), "the principal belongs to no organization, so the installation decision would have no owner".to_string()))?;
+    let (identity, owner_tenant, activation_kind) = match dispatch {
+        None => {
+            let identity = super::substrate_store::resolve_request_identity(&st.data_dir, headers)
+                .map_err(|error| (error.code().to_string(), error.message()))?;
+            let owner = identity
+                .tenant_refs
+                .iter()
+                .find(|t| t.as_str() == "org://local")
+                .or_else(|| identity.tenant_refs.iter().find(|t| t.starts_with("org://")))
+                .or_else(|| identity.tenant_refs.iter().find(|t| t.starts_with("project://")))
+                .cloned()
+                .ok_or_else(|| ("automation_bridge_owner_tenant_required".to_string(), "the principal belongs to no organization, so the installation decision would have no owner".to_string()))?;
+            (identity, owner, "manual".to_string())
+        }
+        Some(dispatch) => {
+            if !matches!(dispatch.activation_kind.as_str(), "schedule" | "webhook") {
+                return Err(("automation_bridge_activation_unknown".to_string(), format!("an internal dispatch names activation '{}'; only schedule and webhook dispatches exist", dispatch.activation_kind)));
+            }
+            let identity = super::substrate_store::resolve_workload_broker_identity(
+                &st.data_dir,
+                &dispatch.principal_ref,
+                &dispatch.owner_ref,
+                "automation-dispatch",
+            )
+            .map_err(|error| (error.code().to_string(), error.message()))?;
+            (
+                identity,
+                dispatch.owner_ref.clone(),
+                dispatch.activation_kind.clone(),
+            )
+        }
+    };
     let steps = automation
         .get("steps")
         .cloned()
         .unwrap_or_else(|| json!([]));
     let (graph_ref, graph_hash) = legacy_automation_graph(automation_id, &steps)
         .map_err(|m| ("automation_bridge_graph_unhashable".to_string(), m))?;
-    let chain = match find_manual_chain(
+    let chain = match find_chain(
         &st.data_dir,
         &identity.principal_ref,
         &graph_ref,
         &graph_hash,
+        &activation_kind,
     ) {
         Some(chain) => chain,
         None => {
@@ -1630,23 +1720,34 @@ pub(crate) async fn bridge_run_now(
                 .get("name")
                 .and_then(Value::as_str)
                 .unwrap_or(automation_id);
-            mint_manual_chain(
+            mint_chain(
                 st,
-                headers,
                 &identity,
                 &owner_tenant,
                 name,
                 &graph_ref,
                 &graph_hash,
-            )
-            .await?
+                &activation_kind,
+            )?
         }
     };
-    let admitted = bridge_step("automation run", admit_automation_run(State(st.clone()), headers.clone(), Json(json!({
-        "automation_spec_revision_ref": chain.spec_ref, "automation_spec_content_hash": chain.spec_hash,
-        "automation_installation_binding_revision_ref": chain.binding_ref, "automation_installation_binding_hash": chain.binding_hash,
-        "activation_kind": "manual", "activation_event_ref": format!("event://automation/{automation_id}/run-now/{execution_id}"),
-    }))).await)?;
+    let event = if activation_kind == "manual" {
+        "run-now"
+    } else {
+        activation_kind.as_str()
+    };
+    let admitted = bridge_step(
+        "automation run",
+        admit_automation_run_as(
+            st,
+            &identity.principal_ref,
+            &json!({
+                "automation_spec_revision_ref": chain.spec_ref, "automation_spec_content_hash": chain.spec_hash,
+                "automation_installation_binding_revision_ref": chain.binding_ref, "automation_installation_binding_hash": chain.binding_hash,
+                "activation_kind": activation_kind, "activation_event_ref": format!("event://automation/{automation_id}/{event}/{execution_id}"),
+            }),
+        ),
+    )?;
     let run_ref = admitted
         .pointer("/automation_run/automation_run_ref")
         .and_then(Value::as_str)
@@ -1794,11 +1895,12 @@ mod tests {
     fn run_now_resolves_the_principals_manual_chain_for_exactly_these_steps() {
         let dir = bridge_dir("find");
         seed_chain(&dir, "user://alice", "sha256:steps", true);
-        let chain = find_manual_chain(
+        let chain = find_chain(
             &dir,
             "user://alice",
             "workflow://graph/automation/auto_1",
             "sha256:steps",
+            "manual",
         )
         .expect("the seeded chain resolves");
         assert_eq!(chain.spec_ref, "automation://spec_a/revision/sha256:2");
@@ -1807,28 +1909,31 @@ mod tests {
             "install://automation/bind_a/revision/sha256:3"
         );
         // Another principal's chain is never theirs; edited steps are a different graph.
-        assert!(find_manual_chain(
+        assert!(find_chain(
             &dir,
             "user://bob",
             "workflow://graph/automation/auto_1",
-            "sha256:steps"
+            "sha256:steps",
+            "manual"
         )
         .is_none());
-        assert!(find_manual_chain(
+        assert!(find_chain(
             &dir,
             "user://alice",
             "workflow://graph/automation/auto_1",
-            "sha256:edited"
+            "sha256:edited",
+            "manual"
         )
         .is_none());
         // A binding with a successor is not the head: the chain does not resolve through it.
         super::super::persist_record(&dir, BINDING_DIR, "bind_b", &json!({ "owner_ref": "user://alice", "automation_spec_revision_ref": "automation://spec_a/revision/sha256:2", "enabled": false, "revision_ref": "install://automation/bind_a/revision/sha256:4", "binding_hash": "sha256:b2", "predecessor_revision_ref": "install://automation/bind_a/revision/sha256:3" })).unwrap();
         assert!(
-            find_manual_chain(
+            find_chain(
                 &dir,
                 "user://alice",
                 "workflow://graph/automation/auto_1",
-                "sha256:steps"
+                "sha256:steps",
+                "manual"
             )
             .is_none(),
             "a disabling successor retires the chain"
@@ -1837,14 +1942,40 @@ mod tests {
     }
 
     #[test]
-    fn a_disabled_binding_is_not_a_chain_and_a_run_without_lifecycle_reads_frozen() {
-        let dir = bridge_dir("disabled");
-        seed_chain(&dir, "user://alice", "sha256:steps", false);
-        assert!(find_manual_chain(
+    fn a_manual_chain_never_answers_for_a_scheduled_dispatch() {
+        // A spec is ONE standing activation: the scheduler's dispatch resolves its own schedule spec,
+        // never the principal's Run now spec over the same template.
+        let dir = bridge_dir("kinds");
+        seed_chain(&dir, "user://alice", "sha256:steps", true);
+        assert!(find_chain(
             &dir,
             "user://alice",
             "workflow://graph/automation/auto_1",
-            "sha256:steps"
+            "sha256:steps",
+            "manual"
+        )
+        .is_some());
+        assert!(find_chain(
+            &dir,
+            "user://alice",
+            "workflow://graph/automation/auto_1",
+            "sha256:steps",
+            "schedule"
+        )
+        .is_none());
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn a_disabled_binding_is_not_a_chain_and_a_run_without_lifecycle_reads_frozen() {
+        let dir = bridge_dir("disabled");
+        seed_chain(&dir, "user://alice", "sha256:steps", false);
+        assert!(find_chain(
+            &dir,
+            "user://alice",
+            "workflow://graph/automation/auto_1",
+            "sha256:steps",
+            "manual"
         )
         .is_none());
         // No lifecycle chain for this run: the frozen admission status, and no transition time.

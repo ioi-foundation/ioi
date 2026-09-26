@@ -8869,13 +8869,13 @@ async function handleEstateRequest(req, res, body) {
       let loc = GRE2_TRANSFERS[pathname];
       // A RUN LINK OPENS THE RUN (R-240). Work rows and inbox items link a canonical run as
       // /automations?run=<id>; this forwarded to the Automate landing with the parameter unread. A run
-      // admitted for a Run now names the execution it admitted in its own activation event, so the
-      // link lands on that execution's proof (its timeline and receipts).
+      // admitted for an execution (Run now, a schedule tick, an accepted webhook) names that execution
+      // in its own activation event, so the link lands on its proof (its timeline and receipts).
       if (pathname === "/automations" && sp0.get("run")) {
         const runTail = String(sp0.get("run")).replace(/^automation-run:\/\//u, "");
         const runRead = await daemonFetch(`/v1/hypervisor/automation-runs/${encodeURIComponent(runTail)}`).then((x) => x.json()).catch(() => ({}));
         const activation = String((runRead && runRead.automation_run && runRead.automation_run.activation_event_ref) || "");
-        const admitted = activation.match(/^event:\/\/automation\/(auto_[0-9a-f]+)\/run-now\/(aex_[0-9a-f]+)$/u);
+        const admitted = activation.match(/^event:\/\/automation\/(auto_[0-9a-f]+)\/(?:run-now|schedule|webhook)\/(aex_[0-9a-f]+)$/u);
         if (admitted) {
           res.writeHead(302, { Location: `/__ioi/run-timeline/${admitted[2]}`, "Cache-Control": "no-cache", "x-ioi-gre2-transfer": pathname });
           res.end();
