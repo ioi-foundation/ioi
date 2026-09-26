@@ -187,6 +187,22 @@
       "assertion_names_sha256": "466f001b4c9367f4d2159af51070158c37d3dd8e8b57e2d11aa44eed3b1ab83d"
     },
     {
+      "id": "autonomous-system-journey",
+      "npm_script": "check:autonomous-system-journey",
+      "source": "scripts/check-autonomous-system-journey.mjs",
+      "runtime_assertions": 8,
+      "note": "New 2026-09-25 (ADR 0056, R-240): the owner's done-bar, pinned at the 8 assertions of its CI-BOUND drill subset — PURE (the eleven-step journey table: every leg live, composed, a named gap by code and plane, or TODO; every non-terminal step judges its hand-off; the gap map's 19 gaps, the workspace's 6 gap markers, the 6 live legs and the 16 composed gates pinned by the gate, not the table), SOURCE (own plane on a fresh data dir, sign-in on, the real wallet.network fixture, the operator through the first-run form, ONE write path to rendered /__ioi/ forms, pure rules), BINDING, and five verdict rules. Drilled by mutate:autonomous-system-journey (21 planted defects). THE FULL MODE EXITS 2 BY DESIGN until every named gap closes. Measured with IOI_VERIFIER_CENSUS_DIR.",
+      "assertion_names_sha256": "8090539e776d85edee83b0b7bc945a1eb2f6e02dd703bf5a34908b7d0a1c749e"
+    },
+    {
+      "id": "system-genesis-product-journey",
+      "npm_script": "check:system-genesis-product-journey",
+      "source": "apps/hypervisor/scripts/verify-hypervisor-system-genesis-product-journey.mjs",
+      "runtime_assertions": 37,
+      "note": "Wired 2026-09-25 (R-240, ADR 0056 journey step 0; unwired since 2026-09-14): a System born through the product on the verifier's own daemon and serve with the REAL wallet.network fixture, as a bootstrapped operator — honest empty, blocker reports, the governance preview, the compact and advanced lanes, the governed ladder (materialize, initialize, activate), two Systems in one read under the serve's deadline, OWNERSHIP (each admission names the operator and its org:// tenant), the System workspace's seven modes and its policy (unknown System, signed-out visitor), the dead-daemon fence, restart byte-exact, cross-System substitution refused, dissolution. First green run 37/37 on 2026-09-25. Measured with IOI_VERIFIER_CENSUS_DIR.",
+      "assertion_names_sha256": "8c427d5fff7055e396c1dc7d8027042d01998ac1c948b1de081c77fb41cf914f"
+    },
+    {
       "id": "notification-inbox",
       "npm_script": "check:notification-inbox",
       "source": "apps/hypervisor/scripts/verify-hypervisor-notification-inbox.mjs",

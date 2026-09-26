@@ -94,7 +94,9 @@ const ciChecks = new Set(
 // the connected-access cockpit (M08.16, 2026-09-21, `scripts/check-connected-access-cockpit.mjs`) and the
 // collective and persistent-controller qualification gate (M10.9, 2026-09-22,
 // `scripts/check-collective-controller-qualification.mjs`) and the collective artifact-ecology
-// surface gate (M08.17, 2026-09-22, `scripts/check-collective-artifact-ecology-surface.mjs`).
+// surface gate (M08.17, 2026-09-22, `scripts/check-collective-artifact-ecology-surface.mjs`) and the
+// autonomous-system journey (ADR 0056, 2026-09-25, `scripts/check-autonomous-system-journey.mjs`, the
+// owner's done-bar, invoked through this workspace's `check:autonomous-system-journey` in its --drills form).
 // Non-verifier
 // checks (bundlers, generators) are outside this gate's subject.
 const ciVerifierScripts = new Map();
@@ -104,7 +106,7 @@ for (const check of ciChecks) {
     fail("ci_invokes_unknown_script", `${check} is run by ci.yml but is not a script in apps/hypervisor/package.json`);
     continue;
   }
-  const m = cmd.match(/(scripts\/(?:verify-[A-Za-z0-9._-]+|check-landing-designations|check-standalone-conformance|check-zero-to-operable|check-undeniable-product-proof|check-horizon-1b-improvement|check-horizon-2-distributed-work|check-provider-neutral-live-transaction|check-c8-bounded-live-effect-certificate|check-approval-card-facets|check-spend-approval-lane|check-editor-challenge-relay|check-machine-product-composition|check-machine-product-profile-qualification|check-public-verifier-conformance|check-mcp-non-tool-normalization|check-hypervisor-mcp-gateway-profile|check-connected-access-cockpit|check-collective-controller-qualification|check-collective-artifact-ecology-surface|check-jurisdiction-policy-audit-export|check-regulated-workload-assurance|check-cross-substrate-portability|check-foundry-capability-build|check-capability-construction-cycle|check-named-gap-perception|check-dead-controls|check-cross-surface-propagation)\.mjs)/);
+  const m = cmd.match(/(scripts\/(?:verify-[A-Za-z0-9._-]+|check-landing-designations|check-standalone-conformance|check-zero-to-operable|check-undeniable-product-proof|check-horizon-1b-improvement|check-horizon-2-distributed-work|check-provider-neutral-live-transaction|check-c8-bounded-live-effect-certificate|check-approval-card-facets|check-spend-approval-lane|check-editor-challenge-relay|check-machine-product-composition|check-machine-product-profile-qualification|check-public-verifier-conformance|check-mcp-non-tool-normalization|check-hypervisor-mcp-gateway-profile|check-connected-access-cockpit|check-collective-controller-qualification|check-collective-artifact-ecology-surface|check-jurisdiction-policy-audit-export|check-regulated-workload-assurance|check-cross-substrate-portability|check-foundry-capability-build|check-capability-construction-cycle|check-named-gap-perception|check-dead-controls|check-cross-surface-propagation|check-autonomous-system-journey)\.mjs)/);
   if (m) ciVerifierScripts.set(check, m[1]);
 }
 

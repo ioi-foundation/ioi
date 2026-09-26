@@ -221,7 +221,9 @@
     "check:dead-controls": "node scripts/check-dead-controls.mjs",
     "mutate:dead-controls": "node scripts/check-dead-controls.mjs --mutation",
     "check:cross-surface-propagation": "node scripts/check-cross-surface-propagation.mjs",
-    "mutate:cross-surface-propagation": "node scripts/check-cross-surface-propagation.mjs --mutation"
+    "mutate:cross-surface-propagation": "node scripts/check-cross-surface-propagation.mjs --mutation",
+    "check:autonomous-system-journey": "node scripts/check-autonomous-system-journey.mjs",
+    "mutate:autonomous-system-journey": "node scripts/check-autonomous-system-journey.mjs --mutation"
   },
   "devDependencies": {
     "@playwright/test": "^1.60.0",

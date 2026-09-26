@@ -1296,6 +1296,21 @@ jobs:
         if: ${{ !cancelled() && steps.rust_backed_daemon.outcome == 'success' }}
         run: npm run mutate:cross-surface-propagation --workspace=@ioi/hypervisor-app
 
+      # ADR 0056 / R-240 — the owner's done-bar: ONE System taken through the eleven lifecycle steps THROUGH
+      # THE UI. The drills are CI-bound: the journey table (every leg live, composed, a named gap by code and
+      # plane, or TODO; every hand-off judged), the verdict rules (a named gap is never a pass), the live
+      # leg's ownership of its plane and its forms-only write path read out of its own source, and the
+      # binding. The walk and the composition are the full mode, which exits 2 until every named gap closes.
+      - name: Verify the autonomous-system journey (ADR 0056, CI-bound drills)
+        if: ${{ !cancelled() && steps.rust_backed_daemon.outcome == 'success' }}
+        env:
+          IOI_VERIFIER_CENSUS_DIR: .artifacts/verifier-census
+        run: npm run check:autonomous-system-journey --workspace=@ioi/hypervisor-app
+
+      - name: Drill the autonomous-system journey's verdict rules
+        if: ${{ !cancelled() && steps.rust_backed_daemon.outcome == 'success' }}
+        run: npm run mutate:autonomous-system-journey --workspace=@ioi/hypervisor-app
+
       - name: Verify the surface module contract
         if: ${{ !cancelled() && steps.rust_backed_daemon.outcome == 'success' }}
         env:
@@ -1415,6 +1430,7 @@ jobs:
           - verifier_id: aiip-binding-replaceability
           - verifier_id: work-objects-composition
           - verifier_id: orchestration-records
+          - verifier_id: system-genesis-product-journey
     # Each matrix entry gets a separate runner and 120-minute interim hang
     # ceiling. This is not a performance threshold or accepted runtime doctrine.
     # 120 → 150 (2026-09-20): run 35487082803 CANCELLED the collective-artifact-runtime-lifecycle leg at
@@ -1671,6 +1687,23 @@ jobs:
       - name: Drill the orchestration-records gate's own oracles
         if: matrix.verifier_id == 'orchestration-records'
         run: npm run mutate:orchestration-records --workspace=@ioi/hypervisor-app
+
+      - name: Build the daemon the System genesis product journey boots
+        if: matrix.verifier_id == 'system-genesis-product-journey'
+        run: cargo build --locked -p ioi-node --bin hypervisor-daemon
+
+      # ADR 0056 journey step 0 — a System is born through the product: the Studio composer, the
+      # Governance preview, the Packages lifecycle and the System workspace, driven as a bootstrapped
+      # operator through every wallet-governed crossing (admit, materialize, initialize, activate,
+      # dissolve) on the verifier's own daemon and serve; the admission names that operator and its
+      # tenant as owner, so both Systems are in the operator's own inventory; restart; two Systems.
+      - name: Verify the System genesis product journey (ADR 0056 step 0)
+        if: matrix.verifier_id == 'system-genesis-product-journey'
+        env:
+          IOI_VERIFIER_CENSUS_DIR: .artifacts/verifier-census
+          IOI_WALLET_FIXTURE_READY_TIMEOUT_MS: 1200000
+          IOI_ISOLATED_DAEMON_READY_TIMEOUT_MS: 120000
+        run: npm run check:system-genesis-product-journey --workspace=@ioi/hypervisor-app
 
       - name: Build the daemon, the agent SDK and the ioi-ai orchestration package the portable-exit verifier drives
         if: matrix.verifier_id == 'aiip-portable-exit'
