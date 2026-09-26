@@ -114,6 +114,17 @@ impl Event {
 /// The owner's revision marker for an event: its own operation ref when it records one, else the
 /// timestamp the owner stamped on the transition — never a value this module invents.
 fn revision_of(record: &Value, at: &str) -> String {
+    // A contract that records its operations as a list (`agentgres_operation_refs`, as the automation
+    // run does) moves on its newest one.
+    if let Some(last) = record
+        .get("agentgres_operation_refs")
+        .and_then(Value::as_array)
+        .and_then(|refs| refs.last())
+        .and_then(Value::as_str)
+        .filter(|s| !s.is_empty())
+    {
+        return last.to_string();
+    }
     for key in ["agentgres_operation_ref", "operation_ref", "revision"] {
         if let Some(v) = record.get(key) {
             if let Some(s) = v.as_str().filter(|s| !s.is_empty()) {
@@ -194,7 +205,11 @@ fn automation_run_event(record: &Value) -> Option<Event> {
     if at.is_empty() {
         return None;
     }
-    let name = text(record, "automation_ref");
+    // The registered run contract names its automation by `automation_spec_revision_ref`
+    // (automation://<id>/revision/sha256:…); it has no `automation_ref`, so reading that name left
+    // every run item without a body (R-240). The family ref, not the pinned revision, is the name.
+    let spec = text(record, "automation_spec_revision_ref");
+    let name = spec.split("/revision/").next().unwrap_or("");
     Some(Event {
         family: "automation_run",
         kind: kind.to_string(),
@@ -433,7 +448,8 @@ mod notification_tests {
     fn every_owner_event_projects_a_registered_item_with_one_link_back() {
         let events = vec![
             approval_event(&json!({ "ref": "approval-request://appr_1", "status": "pending", "request_kind": "publish", "subject_ref": "improvement-proposal://imp_1", "created_at": "2026-09-25T10:00:00Z" })).unwrap(),
-            automation_run_event(&json!({ "automation_run_ref": "automation-run://ar_1", "status": "failed", "updated_at": "2026-09-24T09:00:00Z", "automation_ref": "automation://nightly" })).unwrap(),
+            // The run's REGISTERED fields only (automation-run.v1: no updated_at, no automation_ref).
+            automation_run_event(&json!({ "automation_run_ref": "automation-run://ar_1", "status": "failed", "admitted_at": "2026-09-24T09:00:00Z", "automation_spec_revision_ref": "automation://nightly/revision/sha256:00", "agentgres_operation_refs": ["op://1", "op://2"] })).unwrap(),
             session_event(&json!({ "session_ref": "session://acme/s1", "lifecycle_state": "completed", "updated_at": "2026-09-23T08:00:00Z" })).unwrap(),
             incident_event(&json!({ "incident_id": "support-incident://sil_1", "status": "open", "title": "Orders feed stopped", "created_at": "2026-09-22T07:00:00Z" })).unwrap(),
         ];
@@ -447,6 +463,10 @@ mod notification_tests {
             "/governance/approvals?req=appr_1"
         );
         assert_eq!(items[1]["canonical_detail_route"], "/automations?run=ar_1");
+        assert_eq!(
+            items[1]["body"], "Automation: automation://nightly",
+            "the run names its automation from the contract's own field"
+        );
         assert_eq!(items[3]["owner_event_family"], "owner_event");
         assert_eq!(
             items[3]["canonical_detail_route"],

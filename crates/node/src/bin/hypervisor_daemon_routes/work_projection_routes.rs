@@ -139,8 +139,12 @@ pub(crate) fn subject_kind_for_ref(subject_ref: &str) -> Option<&'static str> {
 /// owner's verbatim status travels beside it in the row's source note.
 pub(crate) fn activity_facet(subject_kind: &str, owner_status: &str) -> &'static str {
     match (subject_kind, owner_status) {
-        (_, "completed" | "settled" | "closed" | "resolved") => "completed",
-        (_, "archived" | "dissolved" | "retired") => "archived",
+        // `succeeded` is the automation-run contract's own terminal success; without it a finished run
+        // sat in Active as "waiting" forever (R-240).
+        (_, "completed" | "succeeded" | "settled" | "closed" | "resolved") => "completed",
+        // A canceled run neither completed nor failed: the facet claims the least that takes it out of
+        // the active lanes, and the verbatim status travels in the row's note.
+        (_, "archived" | "dissolved" | "retired" | "canceled" | "cancelled") => "archived",
         (_, s) if s.starts_with("failed") || s.starts_with("aborted") || s == "error" => "failed",
         (_, "review" | "awaiting_review" | "in_review" | "reviewing") => "review",
         (_, "blocked" | "waiting_on_conductor" | "reconciling" | "paused") => "blocked",
@@ -733,6 +737,10 @@ mod work_projection_tests {
         assert_eq!(activity_facet("session", "provisioned"), "waiting");
         assert_eq!(activity_facet("automation_run", "executing"), "active");
         assert_eq!(activity_facet("automation_run", "completed"), "completed");
+        // The registered automation-run states: succeeded is history, canceled leaves the active lanes.
+        assert_eq!(activity_facet("automation_run", "succeeded"), "completed");
+        assert_eq!(activity_facet("automation_run", "canceled"), "archived");
+        assert_eq!(activity_facet("automation_run", "queued"), "waiting");
         assert_eq!(
             activity_facet("automation_run", "failed_partial_commit"),
             "failed"
