@@ -1375,6 +1375,21 @@ landed. Correct every copy, or the ones left behind go on reading as evidence.
 | **Two readings made deliberately, both recorded.** "Delete" means ARCHIVE — there is no DELETE verb on a memory entry, and reading the acceptance literally would have invented one. And skills and affinities keep their direct verbs, because the unit's scope is the memory-entry and memory-mutation owners. | the verifier's nonclaims | recorded |
 | **The census caught the cut adding a production writer, and the buckets are what mattered.** `check:ontology-admission-census` went red on the writer-call population. The FAMILY writer bucket (57), family mentions (285), the non-ODK literal bucket (243) and raw filesystem calls (234) were all unchanged; only the runtime-parameter bucket moved, by exactly the two added calls, both writing a LITERAL family. Had the family bucket moved it would have meant a new admitter. Re-pinned with that reasoning beside the numbers. | `check:ontology-admission-census` 27/27 | repaired |
 
+### Journey verification CLXXX (2026-09-26, R-240 — evaluation-suite writes answer to their declarer)
+
+| Delta | Evidence | Disposition |
+|---|---|---|
+| **ANYONE COULD EDIT OR DELETE ANY EVALUATION SUITE.** Suite create/patch/delete are identity-first; create stamps `declared_by_principal_ref`; patch/delete answer only to the declarer (403 `eval_suite_declarer_mismatch`). The serve's Evaluations lane forwarded no identity (it worked only because the daemon asked for none) — it now carries the session, and a refused delete is said instead of redirecting as if it had worked. Two unwired parity verifiers that write to the owner's :8765 by default were deliberately not run; they are now refused there. | unit test; governed-evaluation-plane 157/157; admission-evidence 157/157; pre-push 21/21 | repaired |
+
+### Journey verification CLXXIX (2026-09-26, R-240 — both arms on Ontology Manager; the done-bar's first full walk)
+
+| Delta | Evidence | Disposition |
+|---|---|---|
+| **ARM A: HISTORY LANDED ON A COUNT.** The rail's History item (a real href) opened Configuration, where History was one row with a number. **ARM B** (reference tenant, read-only over CDP): Ontology history lists changes grouped by save, beside Proposals and a branch selector. History now lists the daemon's own per-ontology history (revision, operation, time, summary, receipt), newest first, by day, and names what it cannot show yet (published M05.1 revisions, branch merges). | ontology-journey 57/57 (9 revisions = the daemon's 9, in order); captures `.artifacts/live-tenant-atlas/r240-lanes-2026-09-26/` | repaired |
+| **THE DONE-BAR WALKS END TO END.** The first `--no-compose` run: all 12 live legs pass (genesis, the governed ladder, the /systems → Design → Studio hand-off, blueprint, ontology + source, the Designer's offer, automation, issue, Evidence, suite, Operate, restart); all six gap probes hold; verdict NAMED FAILURE (exit 2), zero failures. Two legs flipped from TODO this cut (automation, suite). | the walk, 1116 s | **built** |
+| **A STALE WINDOW, CONFIRMED.** The genesis-admission verifier's WALLET BINDING ATOMICITY now passes with the 90 s log window: 41/41, its first fully green run. | 41/41 | repaired |
+| **THE SEQUENCE-ZERO VERIFIER HID ITS OWN BOOTSTRAP.** Its planes ran with `RUST_LOG=off`, which silences the one line that prints the one-boot token, so identity-first admission could not bootstrap an operator; the filter now keeps `hypervisor_daemon::lifecycle_routes=warn`. | re-run in progress, past the former crash point | repaired (run pending) |
+
 ### Journey verification CLXXVIII (2026-09-26, R-240 — ADR 0056 P1: the notification inbox has a surface)
 
 | Delta | Evidence | Disposition |
