@@ -6521,9 +6521,37 @@ function domainAppPayload(p) {
     generated_artifact_refs: csv("generated_artifact_refs"),
   };
   const pr = (p.get("project_ref") || "").trim(); if (pr) payload.project_ref = pr;
-  const or = (p.get("owner_ref") || "").trim(); if (or) payload.owner_ref = or;
   return payload;
 }
+// DOMAIN APP WRITES ARE OWNER-SCOPED AND IDEMPOTENT (R-240). Every DomainApp write route — create,
+// patch, delete and the mount/serve ladder — admits through the mutation foundation: exactly one
+// org:// or project:// owner the caller's identity authorizes, and an idempotency key so a retried
+// click cannot apply twice. This lane sent neither (the form offered an "optional" owner a person had
+// to guess), so every create, save, delete, mount, serve, stop and unmount was refused — and delete
+// redirected as though it had worked. The owner is the record's own (a new app: the caller's
+// organization, from whoami — never typed). The key is derived from what is being done and the
+// record's current state, so a double-submit replays one command and a later identical command is new.
+async function domainAppWriteBody(payload, scope, app, state) {
+  const out = { ...payload };
+  out.owner_ref = (app && app.owner_ref) || callerOwnerRef(await daemonFetch("/v1/hypervisor/auth/whoami").then((x) => x.json()).catch(() => ({})));
+  out.idempotency_key = `dapp-ui:${crypto.createHash("sha256").update(JSON.stringify([scope, out.owner_ref || "", state == null ? "" : state, payload])).digest("hex").slice(0, 32)}`;
+  return out;
+}
+// v1 and v2 DomainApp records spell identity differently (R-240). A v2 record's identity IS
+// `domain_app_id` = `domain-app://dapp_…` and it carries no `domain_app_ref`; v1 carried a bare
+// `domain_app_id` with the ref beside it. Every reader here keyed on v1, so a v2 app linked to a
+// "not found" page (the daemon's GET takes the bare id and adds the scheme), the create redirect
+// landed there too, Packages offered it with an empty value, and the mount lane never matched its
+// approval. This reads either spelling into the two the UI uses and never rewrites the record.
+function domainAppView(a) {
+  if (!a || typeof a !== "object") return a;
+  const raw = String(a.domain_app_ref || a.domain_app_id || "");
+  const ref = raw ? (raw.startsWith("domain-app://") ? raw : `domain-app://${raw}`) : "";
+  return { ...a, domain_app_ref: ref, domain_app_id: ref.replace(/^domain-app:\/\//u, "") };
+}
+const domainAppViews = (list) => (Array.isArray(list) ? list.map(domainAppView) : []);
+// The record and its current head, for a write that must name the record's owner and key on its state.
+const domainAppRead = (id) => daemonFetch(`/v1/hypervisor/domain-apps/${encodeURIComponent(id)}`).then((x) => x.json()).then((j) => (j && j.domain_app ? { ...j, domain_app: domainAppView(j.domain_app) } : j)).catch(() => ({}));
 // Restored verbatim: #46's serve reshuffle dropped these while live call sites still reference
 // them — DOMAIN_APP_VIS/domainAppPickers (domain-apps landing chips + new/edit form pickers,
 // crashed GET /__ioi/domain-apps) and ODK_UI (the /__ioi/odk/<family> deep-route dispatch table;
@@ -6545,7 +6573,8 @@ async function domainAppPickers(descriptorRefForManifestFilter) {
     .map((d) => ({ v: d.ref, l: d.name || d.id }));
   let manifests = man.manifests || [];
   if (descriptorRefForManifestFilter) manifests = manifests.filter((m) => (m.surface_descriptor_refs || []).includes(descriptorRefForManifestFilter));
-  return { descriptors, manifests: manifests.map(odkManifestView).map((m) => ({ v: m.ref, l: m.name || m.id })) };
+  const who = await J("/v1/hypervisor/auth/whoami");
+  return { descriptors, manifests: manifests.map(odkManifestView).map((m) => ({ v: m.ref, l: m.name || m.id })), owner: callerOwnerRef(who) };
 }
 function renderDomainAppForm(existing, pk) {
   const ex = existing || {}; const isEdit = !!existing;
@@ -6562,7 +6591,7 @@ function renderDomainAppForm(existing, pk) {
       ${odkArea("Description", "description", ex.description)}
       <div class="two">${descriptorField}${odkSelectField("Visibility", "visibility", visOpts, ex.visibility || "private")}</div>
       <div class="two">${odkSelectField("ODK manifest (optional)", "odk_manifest_ref", manOpts, ex.odk_manifest_ref || "")}${odkField("Project ref (optional)", "project_ref", ex.project_ref)}</div>
-      ${odkField("Owner ref (optional)", "owner_ref", ex.owner_ref)}
+      <p class="sub" style="margin:0 0 10px">Owned by <code>${CX_ESC(ex.owner_ref || pk.owner || "your organization")}</code>${ex.owner_ref ? "" : " — read from your sign-in, not typed"}.</p>
       <h2>Author-named refs <span class="sub" style="text-transform:none;letter-spacing:0;font-weight:400">— comma-separated; not resolved here</span></h2>
       <div class="two">${odkCsvField("Authority requirement refs", "authority_requirement_refs", ex.authority_requirement_refs)}${odkCsvField("Operator contract refs", "operator_contract_refs", ex.operator_contract_refs)}</div>
       <div class="two">${odkCsvField("Receipt obligations", "receipt_obligations", ex.receipt_obligations)}${odkCsvField("Generated artifact refs", "generated_artifact_refs", ex.generated_artifact_refs)}</div>
@@ -6849,7 +6878,7 @@ function govApprovalsQueue(records) {
 function govSubjectDatalist(joins) {
   const j = joins || {};
   const rows = [
-    ...(j.domain_apps || []).filter((d) => d && d.domain_app_ref).map((d) => [d.domain_app_ref, `Domain app · ${d.name || d.domain_app_id || ""}`]),
+    ...domainAppViews(j.domain_apps).filter((d) => d && d.domain_app_ref).map((d) => [d.domain_app_ref, `Domain app · ${d.name || d.domain_app_id || ""}`]),
     ...(j.publish_candidates || []).filter((c) => c && c.ref).map((c) => [c.ref, `Publish candidate · ${String(c.listing_ref || "").replace(/^marketplace-listing:\/\//u, "")} · ${c.status || ""}`]),
     ...(j.foundry_plans || []).filter((r) => r && r.id).map((r) => [r.id, `Foundry run plan · ${r.name || r.id}`]),
   ];
@@ -6875,7 +6904,7 @@ function govControlTab(fam, records, cohorts, joins) {
     const j = joins || {};
     const r = String(ref || "");
     if (r.startsWith("domain-app://")) {
-      const a = (j.domain_apps || []).find((x) => x.domain_app_ref === r);
+      const a = domainAppViews(j.domain_apps).find((x) => x.domain_app_ref === r);
       if (!a) return ["unresolved", "warn"];
       const rt = a.runtime_posture || {};
       return [rt.serving ? "serving (internal)" : rt.mounted ? "mounted" : a.status || "draft", rt.serving || rt.mounted ? "ok" : "muted"];
@@ -13122,7 +13151,7 @@ async function handleEstateRequest(req, res, body) {
     // domain-apps + ODK surface descriptors — read-first, honest-empty, never fabricated.
     if (pathname === "/__ioi/studio/workshop" && req.method === "GET") {
       const [da, sd] = await Promise.all([
-        daemonFetch(`/v1/hypervisor/domain-apps`).then((r) => r.json()).then((j) => j.domain_apps || []).catch(() => []),
+        daemonFetch(`/v1/hypervisor/domain-apps`).then((r) => r.json()).then((j) => domainAppViews(j.domain_apps)).catch(() => []),
         daemonFetch(`/v1/hypervisor/odk/surface-descriptors`).then((r) => r.json()).then((j) => (j.surface_descriptors || []).map(odkDescriptorView)).catch(() => []),
       ]);
       const fdt = (iso) => { const d2 = new Date(iso || 0); return isNaN(d2) ? "—" : d2.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" }); };
@@ -13297,7 +13326,7 @@ async function handleEstateRequest(req, res, body) {
       ]);
       // The subjects feedback can name that resolve locally — offered, so nobody has to recall a ref (R-240).
       const subjects = [
-        ...(fda.domain_apps || []).filter((d) => d && d.domain_app_ref).map((d) => [d.domain_app_ref, `Domain app · ${d.name || d.domain_app_id || ""}`]),
+        ...domainAppViews(fda.domain_apps).filter((d) => d && d.domain_app_ref).map((d) => [d.domain_app_ref, `Domain app · ${d.name || d.domain_app_id || ""}`]),
         ...(fml.listings || []).filter((l) => l && l.ref).map((l) => [l.ref, `Marketplace listing · ${l.name || l.id}`]),
         ...(fbp.blueprints || []).filter((b) => b && (b.ref || b.blueprint_id)).map((b) => [b.ref || `blueprint://${b.blueprint_id}`, `Blueprint · ${b.name || b.blueprint_id}`]),
         ...(fsp.specs || []).filter((s) => s && s.id).map((s) => [s.id, `Foundry spec · ${s.name || s.id}`]),
@@ -13401,7 +13430,7 @@ async function handleEstateRequest(req, res, body) {
           { name: "Data recipes", items: (rc.data_recipes || []).filter((r) => hit(r.name, r.id, r.ref)).map((r) => ({ label: r.name || r.id, meta: r.output_kind || "", href: `/__ioi/odk/data-recipes/${enc2(r.id || "")}` })) },
           { name: "Surface descriptors", items: (sd.surface_descriptors || []).map(odkDescriptorView).filter((d) => hit(d.name, d.id, d.composition_pattern)).map((d) => ({ label: d.name || d.id, meta: d.composition_pattern || "", href: `/__ioi/odk/surface-descriptors/${enc2(d.id || "")}` })) },
           { name: "Manifests", items: (mf.manifests || []).filter((m) => hit(m.name, m.id, m.ref)).map((m) => ({ label: m.name || m.id, meta: m.ref || "", href: `/__ioi/odk/manifests/${enc2(m.id || "")}` })) },
-          { name: "Domain apps", items: (da.domain_apps || []).filter((a) => hit(a.name, a.domain_app_id, a.surface_descriptor_ref)).map((a) => ({ label: a.name || a.domain_app_id, meta: a.visibility || "", href: `/__ioi/domain-apps/${enc2(a.domain_app_id || "")}` })) },
+          { name: "Domain apps", items: domainAppViews(da.domain_apps).filter((a) => hit(a.name, a.domain_app_id, a.surface_descriptor_ref)).map((a) => ({ label: a.name || a.domain_app_id, meta: a.visibility || "", href: `/__ioi/domain-apps/${enc2(a.domain_app_id || "")}` })) },
           { name: "Approval requests", items: (ap.approval_requests || []).filter((a) => hit(a.subject_ref, a.request_kind, a.id, a.status)).map((a) => ({ label: `${a.request_kind || "approval"} · ${a.subject_ref || ""}`, meta: a.status || "", href: "/__ioi/governance?tab=approvals" })) },
           { name: "Failover runs", items: (fo.runs || []).filter((r) => hit(r.run_ref, r.failure_condition, r.status, r.environment_ref)).map((r) => ({ label: r.run_ref, meta: `${r.status || ""} · ${r.failure_condition || ""}`, href: "/__ioi/operations" })) },
           { name: "Environments", items: ((ev.environments) || []).filter((e) => hit(e.id, e.project_id, e.phase)).map((e) => ({ label: e.id, meta: `${e.phase || ""} · ${e.project_id || ""}`, href: `/details/${enc2(e.id)}`, top: true })) },
@@ -15176,7 +15205,7 @@ async function handleEstateRequest(req, res, body) {
       const rt = rtRes.runtime;
       const dappId = String(rt.domain_app_ref || "").replace(/^domain-app:\/\//, "");
       const dRes = await daemonFetch(`/v1/hypervisor/domain-apps/${encodeURIComponent(dappId)}`).then((x) => x.json()).catch(() => ({}));
-      const dapp = dRes.domain_app || {};
+      const dapp = domainAppView(dRes.domain_app) || {};
       const sdId = String(dapp.surface_descriptor_ref || "").replace(/^surface-descriptor:\/\//, "");
       const descRes = sdId ? await daemonFetch(`/v1/hypervisor/odk/surface-descriptors/${encodeURIComponent(sdId)}`).then((x) => x.json()).catch(() => ({})) : {};
       const descriptor = descRes.surface_descriptor || {};
@@ -15200,7 +15229,7 @@ async function handleEstateRequest(req, res, body) {
       const J = (p) => daemonFetch(`${p}`).then((r) => r.json()).catch(() => ({}));
       const [ov, list, mfs] = await Promise.all([J("/v1/hypervisor/domain-apps/overview"), J("/v1/hypervisor/domain-apps"), J("/v1/hypervisor/odk/manifests")]);
       res.writeHead(200, HTMLH);
-      res.end(renderDomainAppsLanding(ov, list.domain_apps || [], mfs.manifests || []));
+      res.end(renderDomainAppsLanding(ov, domainAppViews(list.domain_apps), mfs.manifests || []));
       return;
     }
     if (pathname === "/__ioi/domain-apps/new" && req.method === "GET") {
@@ -15209,18 +15238,19 @@ async function handleEstateRequest(req, res, body) {
       return;
     }
     if (pathname === "/__ioi/domain-apps" && req.method === "POST") {
-      const payload = domainAppPayload(new URLSearchParams(body.toString()));
+      const payload = await domainAppWriteBody(domainAppPayload(new URLSearchParams(body.toString())), "create");
       const rr = await daemonFetch(`/v1/hypervisor/domain-apps`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(payload) }).then((x) => x.json()).catch(() => ({}));
-      if (rr && rr.ok) { res.writeHead(302, { Location: `/__ioi/domain-apps/${encodeURIComponent(rr.domain_app.domain_app_id)}`, "Cache-Control": "no-cache" }); return res.end(); }
+      if (rr && rr.ok) { res.writeHead(302, { Location: `/__ioi/domain-apps/${encodeURIComponent(domainAppView(rr.domain_app).domain_app_id)}`, "Cache-Control": "no-cache" }); return res.end(); }
       res.writeHead(200, HTMLH);
       res.end(automationsShell("New Domain App", `<div class="empty">Create failed: ${CX_ESC(whyRefused(rr))}</div><p><a href="/__ioi/domain-apps/new">← back</a></p>`));
       return;
     }
     if (pathname.startsWith("/__ioi/domain-apps/")) {
       const [rawId, action] = pathname.slice("/__ioi/domain-apps/".length).split("/");
-      const id = decodeURIComponent(rawId);
+      // The daemon's routes take the bare id; a link that carried the whole ref still resolves.
+      const id = decodeURIComponent(rawId).replace(/^domain-app:\/\//u, "");
       if (action === "edit" && req.method === "GET") {
-        const app = await daemonFetch(`/v1/hypervisor/domain-apps/${encodeURIComponent(id)}`).then((x) => x.json()).catch(() => ({}));
+        const app = await domainAppRead(id);
         if (!app.ok) { res.writeHead(200, HTMLH); res.end(automationsShell("Not found", `<div class="empty">Domain App not found.</div><p><a href="/__ioi/domain-apps">← Domain Apps</a></p>`)); return; }
         const pk = await domainAppPickers(app.domain_app.surface_descriptor_ref);
         res.writeHead(200, HTMLH);
@@ -15228,7 +15258,8 @@ async function handleEstateRequest(req, res, body) {
         return;
       }
       if (action === "patch" && req.method === "POST") {
-        const payload = domainAppPayload(new URLSearchParams(body.toString()));
+        const cur = await domainAppRead(id);
+        const payload = await domainAppWriteBody(domainAppPayload(new URLSearchParams(body.toString())), `patch:${id}`, cur.domain_app, cur.admitted_head);
         const rr = await daemonFetch(`/v1/hypervisor/domain-apps/${encodeURIComponent(id)}`, { method: "PATCH", headers: { "content-type": "application/json" }, body: JSON.stringify(payload) }).then((x) => x.json()).catch(() => ({}));
         if (rr && rr.ok) { res.writeHead(302, { Location: `/__ioi/domain-apps/${encodeURIComponent(id)}`, "Cache-Control": "no-cache" }); return res.end(); }
         res.writeHead(200, HTMLH);
@@ -15236,21 +15267,32 @@ async function handleEstateRequest(req, res, body) {
         return;
       }
       if (action === "delete" && req.method === "POST") {
-        await daemonFetch(`/v1/hypervisor/domain-apps/${encodeURIComponent(id)}`, { method: "DELETE" }).catch(() => {});
-        res.writeHead(302, { Location: "/__ioi/domain-apps", "Cache-Control": "no-cache" });
-        return res.end();
+        // A refused delete must not land on the list as though the app were gone.
+        const cur = await domainAppRead(id);
+        const dr = await daemonFetch(`/v1/hypervisor/domain-apps/${encodeURIComponent(id)}`, { method: "DELETE", headers: { "content-type": "application/json" }, body: JSON.stringify(await domainAppWriteBody({}, `delete:${id}`, cur.domain_app, cur.admitted_head)) })
+          .then(async (x) => ({ status: x.status, j: await x.json().catch(() => ({})) })).catch(() => ({ status: 0, j: {} }));
+        if (dr.status >= 200 && dr.status < 300 && dr.j.ok !== false) { res.writeHead(302, { Location: "/__ioi/domain-apps", "Cache-Control": "no-cache" }); return res.end(); }
+        res.writeHead(200, HTMLH);
+        res.end(automationsShell("Delete Domain App", `<div class="empty">Delete refused: ${CX_ESC(whyRefused(dr.j))}</div><p><a href="/__ioi/domain-apps/${encodeURIComponent(id)}">← back</a></p>`));
+        return;
       }
       // Governed runtime lifecycle: mount admission -> internal serving. Daemon enforces the gates.
       if (["mount", "unmount", "serve", "stop-serving"].includes(action) && req.method === "POST") {
         const p = new URLSearchParams(body.toString());
-        const payload = action === "mount" ? { approval_request_ref: (p.get("approval_request_ref") || "").trim(), release_control_ref: (p.get("release_control_ref") || "").trim() } : {};
+        const fields = action === "mount" ? { approval_request_ref: (p.get("approval_request_ref") || "").trim(), release_control_ref: (p.get("release_control_ref") || "").trim() } : {};
+        // Keyed on the app's head AND its runtimes as they stand, so a double-click replays one
+        // transition and the next serve after a stop is a new command.
+        const cur = await domainAppRead(id);
+        const runtimes = cur.domain_app ? await daemonFetch(`/v1/hypervisor/domain-app-runtimes?domain_app_ref=${encodeURIComponent(cur.domain_app.domain_app_ref || "")}`).then((x) => x.json()).then((j) => j.runtimes || []).catch(() => []) : [];
+        const payload = await domainAppWriteBody(fields, `${action}:${id}`, cur.domain_app, [cur.admitted_head || "", runtimes]);
         const r = await daemonFetch(`/v1/hypervisor/domain-apps/${encodeURIComponent(id)}/${action}`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(payload) }).then((x) => x.json()).catch(() => ({}));
-        if (r && r.ok === false && r.error) { res.writeHead(200, HTMLH); res.end(automationsShell("Domain App", `<div class="empty">${CX_ESC(action)} failed: ${CX_ESC(r.error.message || "error")}</div><p><a href="/__ioi/domain-apps/${encodeURIComponent(id)}">← back</a></p>`)); return; }
+        // Anything but an explicit success is said — a flat {ok:false, code} refusal redirected as if it had worked.
+        if (!r || r.ok !== true) { res.writeHead(200, HTMLH); res.end(automationsShell("Domain App", `<div class="empty">${CX_ESC(action)} failed: ${CX_ESC(whyRefused(r))}</div><p><a href="/__ioi/domain-apps/${encodeURIComponent(id)}">← back</a></p>`)); return; }
         res.writeHead(302, { Location: `/__ioi/domain-apps/${encodeURIComponent(id)}`, "Cache-Control": "no-cache" });
         return res.end();
       }
       if (!action && req.method === "GET") {
-        const app = await daemonFetch(`/v1/hypervisor/domain-apps/${encodeURIComponent(id)}`).then((x) => x.json()).catch(() => ({}));
+        const app = await domainAppRead(id);
         if (!app.ok) { res.writeHead(200, HTMLH); res.end(automationsShell("Not found", `<div class="empty">Domain App not found.</div><p><a href="/__ioi/domain-apps">← Domain Apps</a></p>`)); return; }
         const dref = app.domain_app.domain_app_ref;
         const [rtRes, apRes, relRes] = await Promise.all([
@@ -15289,7 +15331,7 @@ async function handleEstateRequest(req, res, body) {
         improvement_gates: ig.improvement_gates || [],
         cohorts: co.cohorts || [],
       }, tab, {
-        domain_apps: da.domain_apps || [],
+        domain_apps: domainAppViews(da.domain_apps),
         publish_candidates: mpc.publish_candidates || mpc.candidates || [],
         listings: mls.listings || [],
         foundry_specs: fsp.specs || [],

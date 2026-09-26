@@ -164,6 +164,14 @@
       "assertion_names_sha256": "a6f6211ac0ee8a0e4a3e3ca2a4f4da9212394310f1ee2a970876fce30df4cf8e"
     },
     {
+      "id": "domainapp-chain-forms",
+      "npm_script": "check:domainapp-chain-forms",
+      "source": "apps/hypervisor/scripts/verify-hypervisor-domainapp-chain-forms.mjs",
+      "runtime_assertions": 10,
+      "note": "2026-09-26 (R-240): new at 10 — the DomainApp chain through the product's own forms on an isolated daemon: an ontology published from History, Studio's descriptor bound to that revision, ODK's manifest over both, a Domain App (owner from the sign-in, redirect lands on its page), a Packages candidate and release listed by name, edit (owner claim accepted, author operator contract kept), delete, and an anonymous create refused. Goes red on the pre-fix daemon (the patch-owner assertion).",
+      "assertion_names_sha256": "dedeb279f0a00c80c0c71568a53cb7f8f4bb36c2eef7107969dd797f8c3db01e"
+    },
+    {
       "id": "operational-depth",
       "npm_script": "check:operational-depth",
       "source": "apps/hypervisor/scripts/verify-hypervisor-operational-depth.mjs",

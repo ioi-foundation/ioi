@@ -86,6 +86,7 @@
     "check:ontology-admission-census": "node scripts/verify-hypervisor-ontology-admission-census.mjs",
     "check:ontology-backend-families": "node scripts/verify-hypervisor-ontology-backend-families.mjs",
     "check:ontology-journey": "node scripts/verify-hypervisor-ontology-journey.mjs",
+    "check:domainapp-chain-forms": "node scripts/verify-hypervisor-domainapp-chain-forms.mjs",
     "check:ontology-surface-invariant-11": "node scripts/verify-hypervisor-ontology-surface-invariant-11.mjs",
     "check:ontology-version-lifecycle": "node scripts/verify-hypervisor-ontology-version-lifecycle.mjs",
     "check:operational-depth": "node scripts/verify-hypervisor-operational-depth.mjs",

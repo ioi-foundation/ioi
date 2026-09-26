@@ -1332,6 +1332,39 @@ pub(crate) async fn handle_domain_apps_get(
 /// PATCH /v1/hypervisor/domain-apps/:id — update mutable fields. If the descriptor or manifest ref
 /// changes, re-validate the contract and re-derive the provenance snapshot. id / schema_version /
 /// status / created_at are immutable (status stays draft; runtime_posture stays unmounted).
+/// FIELDS A PATCH DOES NOT MOVE, REFUSED BY NAME RATHER THAN IGNORED. Silently dropping them answers
+/// 200 to a request that changed nothing the caller asked for, which reads as success.
+///
+/// THE OWNER IS THE WRITE'S SCOPE CLAIM, NOT A PATCHABLE FIELD. Every write names its owner — the
+/// mutation foundation requires it before anything else and binds it against the record's scope — so
+/// refusing the key outright refused every patch any caller could send: the route had no reachable
+/// success (R-240; no test had ever patched a DomainApp). What must never happen is the owner MOVING,
+/// so a body owner other than the record's own is refused by name; naming the record's own owner is
+/// the claim every write makes, not an edit.
+fn patch_field_refusal(body: &Value, record: &Value) -> Option<String> {
+    if let Some(claimed) = body.get("owner_ref") {
+        if record.get("owner_ref") != Some(claimed) {
+            return Some("'owner_ref' is not moved by this route; it is owned by the authenticated caller, and a body-supplied owner other than the record's own is how a record stops being owned by the owner its admission was scoped to".into());
+        }
+    }
+    for (field, owner) in [
+        ("status", "POST /v1/hypervisor/domain-apps/:id/inventory-status, which requires the stage binding that produced the advance"),
+        ("runtime_posture", "the DomainAppRuntime; the app's posture is a backlink projection of it, never an independently authored field"),
+        ("surface_registration_ref", "the inventory-status route"),
+        ("package_release_ref", "the inventory-status route"),
+        ("installation_ref", "the inventory-status route"),
+        ("system_binding_refs", "the inventory-status route"),
+        ("launch_posture", "the inventory-status route, derived from system_binding_refs"),
+        ("content_hash", "this daemon, recomputed from the record it commits"),
+        ("migration", "the create path; a migration is a provenance fact, not an editable field"),
+    ] {
+        if body.get(field).is_some() {
+            return Some(format!("'{field}' is not moved by this route; it is owned by {owner}"));
+        }
+    }
+    None
+}
+
 pub(crate) async fn handle_domain_apps_patch(
     State(st): State<Arc<DaemonState>>,
     AxumPath(id): AxumPath<String>,
@@ -1376,26 +1409,8 @@ pub(crate) async fn handle_domain_apps_patch(
         );
     }
     let mut a = resolved.record.clone();
-    // FIELDS THIS ROUTE DOES NOT MOVE, REFUSED BY NAME RATHER THAN IGNORED. Silently dropping them
-    // answers 200 to a request that changed nothing the caller asked for, which reads as success.
-    for (field, owner) in [
-        ("status", "POST /v1/hypervisor/domain-apps/:id/inventory-status, which requires the stage binding that produced the advance"),
-        ("runtime_posture", "the DomainAppRuntime; the app's posture is a backlink projection of it, never an independently authored field"),
-        ("owner_ref", "the authenticated caller; a body-supplied owner is how a record stops being owned by the owner its admission was scoped to"),
-        ("surface_registration_ref", "the inventory-status route"),
-        ("package_release_ref", "the inventory-status route"),
-        ("installation_ref", "the inventory-status route"),
-        ("system_binding_refs", "the inventory-status route"),
-        ("launch_posture", "the inventory-status route, derived from system_binding_refs"),
-        ("content_hash", "this daemon, recomputed from the record it commits"),
-        ("migration", "the create path; a migration is a provenance fact, not an editable field"),
-    ] {
-        if body.get(field).is_some() {
-            return bad(
-                "domain_app_field_not_patchable",
-                &format!("'{field}' is not moved by this route; it is owned by {owner}"),
-            );
-        }
+    if let Some(message) = patch_field_refusal(&body, &a) {
+        return bad("domain_app_field_not_patchable", &message);
     }
     if let Some(v) = body.get("visibility").and_then(|v| v.as_str()) {
         if !VISIBILITIES.contains(&v) {
@@ -1406,8 +1421,12 @@ pub(crate) async fn handle_domain_apps_patch(
         }
     }
     // Resolve the effective descriptor + manifest refs (post-patch) and re-validate if either moves.
-    let touches_refs =
-        body.get("surface_descriptor_ref").is_some() || body.get("odk_manifest_ref").is_some();
+    // An author's operator contracts ride on the derived set exactly as at create, so naming them
+    // re-derives too: create merged them and patch used to drop them silently on any re-derivation,
+    // and ignore them otherwise — an edit that lost what the author declared and still answered 200.
+    let touches_refs = body.get("surface_descriptor_ref").is_some()
+        || body.get("odk_manifest_ref").is_some()
+        || body.get("operator_contract_refs").is_some();
     let sd_ref = body
         .get("surface_descriptor_ref")
         .and_then(|v| v.as_str())
@@ -1462,7 +1481,11 @@ pub(crate) async fn handle_domain_apps_patch(
         a["canonical_object_model_refs"] = json!(derived.canonical_object_model_refs);
         a["data_recipe_refs"] = json!(derived.data_recipe_refs);
         a["policy_bound_data_view_refs"] = json!(derived.policy_bound_data_view_refs);
-        a["operator_contract_refs"] = json!(derived.operator_contract_refs);
+        let mut operator_contract_refs = derived.operator_contract_refs;
+        for r in str_refs(&body, "operator_contract_refs") {
+            push_unique(&mut operator_contract_refs, &r);
+        }
+        a["operator_contract_refs"] = json!(operator_contract_refs);
         a["mcp_contract_refs"] = json!(derived.mcp_contract_refs);
     }
     for key in [
@@ -3924,6 +3947,34 @@ mod domain_apps_tests {
             .unwrap_err()
             .0,
             "mount_control_wrong_subject"
+        );
+    }
+
+    #[test]
+    fn a_patch_names_the_records_own_owner_and_never_moves_it() {
+        let record = json!({ "owner_ref": "org://acme", "name": "Lending" });
+        // Every write carries its owner as the scope claim; the record's own owner is not an edit.
+        assert_eq!(
+            patch_field_refusal(
+                &json!({ "owner_ref": "org://acme", "idempotency_key": "k", "description": "d" }),
+                &record
+            ),
+            None
+        );
+        // An owner other than the record's own would move it — refused by name.
+        assert!(
+            patch_field_refusal(&json!({ "owner_ref": "org://other" }), &record)
+                .is_some_and(|m| m.contains("'owner_ref' is not moved"))
+        );
+        // The other daemon-owned fields stay refused whatever the owner says.
+        assert!(patch_field_refusal(
+            &json!({ "owner_ref": "org://acme", "status": "released" }),
+            &record
+        )
+        .is_some_and(|m| m.starts_with("'status'")));
+        assert!(
+            patch_field_refusal(&json!({ "content_hash": "sha256:00" }), &record)
+                .is_some_and(|m| m.starts_with("'content_hash'"))
         );
     }
 

@@ -391,9 +391,12 @@ function catalogView(model, base) {
         </tr>`;
       }).join("")}</tbody></table>`
       : `<div class="empty">No package candidates yet — freeze one below. A candidate snapshots one draft DomainApp + its ODK manifest + surface descriptor content-addressed; it creates no registration, route, process, or launch eligibility.</div>`);
+  // A v2 DomainApp's identity IS `domain_app_id` (`domain-app://dapp_…`); v1 spelled it
+  // `domain_app_ref`. Reading only v1 gave every option an empty value, so no app was admissible (R-240).
+  const appRef = (d) => { const raw = String(d.domain_app_ref || d.domain_app_id || ""); return raw && !raw.startsWith("domain-app://") ? `domain-app://${raw}` : raw; };
   const appOptions = domainApps === null
     ? null
-    : domainApps.filter((d) => (d.status || "") === "draft" && d.odk_manifest_ref && d.surface_descriptor_ref);
+    : domainApps.filter((d) => (d.status || "") === "draft" && d.odk_manifest_ref && d.surface_descriptor_ref && appRef(d));
   const form = appOptions === null
     ? `<div class="empty">${model.results.domain_apps?.ok === false ? `The DomainApp plane is unavailable (<code>${esc(model.results.domain_apps?.code || "daemon_unavailable")}</code>) — admission is disabled rather than guessed.` : "unavailable"}</div>`
     : (appOptions.length
@@ -402,7 +405,7 @@ function catalogView(model, base) {
           <input type="hidden" name="return" value="${esc(LEGACY_ROUTE)}">
           <label class="fl">Owner (org://…)<input name="owner_ref" value="${esc(callerOwnerRef(model.results.whoami))}" placeholder="org://…" required title="The single org:// that owns this package. The daemon admits the candidate under it and refuses a caller who holds no authority over it."></label>
           <label class="fl">Package id (globally unique, lowercase)<input name="package_id" maxlength="128" pattern="[a-z0-9][a-z0-9._-]*" required></label>
-          <label class="fl">DomainApp (draft, with ODK manifest + descriptor bound)<select name="domain_app_ref">${appOptions.map((d) => `<option value="${esc(d.domain_app_ref || "")}">${esc(d.name || d.domain_app_ref || "")}</option>`).join("")}</select></label>
+          <label class="fl">DomainApp (draft, with ODK manifest + descriptor bound)<select name="domain_app_ref">${appOptions.map((d) => `<option value="${esc(appRef(d))}">${esc(d.name || appRef(d))}</option>`).join("")}</select></label>
           <button class="act" type="submit">Admit candidate</button>
           <span class="sub" style="margin:0;text-transform:none;letter-spacing:0">idempotent: an exact retry replays the original admission (same head, same receipt)</span>
         </form>`
