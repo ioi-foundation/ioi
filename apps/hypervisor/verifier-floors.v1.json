@@ -159,9 +159,9 @@
       "id": "ontology-journey",
       "npm_script": "check:ontology-journey",
       "source": "apps/hypervisor/scripts/verify-hypervisor-ontology-journey.mjs",
-      "runtime_assertions": 57,
-      "note": "2026-09-26 (R-240): 56 -> 57 — the History rail item opens the ontology's own change list (it landed on the configuration section with a count); the new assertion matches every revision the daemon's history route answers, newest first. Measured with IOI_VERIFIER_CENSUS_DIR and CI's IOI_PRODUCT_SIGNIN_REQUIRED=0.",
-      "assertion_names_sha256": "a09559fd600426125b33bda0cc89a3b4ea7c321ccd8b729f025129a2c4b0612a"
+      "runtime_assertions": 66,
+      "note": "2026-09-26 (R-240): 57 -> 66 — Ontology Manager publishes an M05.1 revision from History: eight assertions drive the rendered publish form (unpublished form pinned to the draft revision, revision 1 admitted with a receipt, daemon truth = kind-qualified terms + daemon-stamped policy digest, a stale page refused on the moved head, the unchanged draft offers a disabled publish that says why, a draft edited after the preview refused, anonymous refused, the successor admitted with the derived additive migration) and one proves both revisions survive the restart. Earlier: 56 -> 57 — the History rail item opens the ontology's own change list (it landed on the configuration section with a count); the new assertion matches every revision the daemon's history route answers, newest first. Measured with IOI_VERIFIER_CENSUS_DIR and CI's IOI_PRODUCT_SIGNIN_REQUIRED=0.",
+      "assertion_names_sha256": "a6f6211ac0ee8a0e4a3e3ca2a4f4da9212394310f1ee2a970876fce30df4cf8e"
     },
     {
       "id": "operational-depth",
@@ -652,9 +652,9 @@
       "id": "surface-modules",
       "npm_script": "check:surface-modules",
       "source": "apps/hypervisor/scripts/verify-hypervisor-surface-modules.mjs",
-      "runtime_assertions": 70,
-      "assertion_names_sha256": "97204e23eaf1b64bcb443a670bb5ef4f09ed6205de445b049f7b631cd3f1ba3e",
-      "note": "names moved at 70 (2026-09-25, ADR 0056 M5): the two Missions assertions that read the registry entry and its binding now prove the retired root is unlisted and unbound; the preserved module's thirteen rendering assertions stand. EARLIER: First pinned 2026-09-22 (M08.17, R-224/R-226) at 70. THE GATE WAS AN ORPHAN: it asserts the module contract every served surface must satisfy — load/render/actions exports, module meta agreeing with the registry entry, the unified gap contract, embed honouring native_single_rail — and it had no npm script, no CI step, no floor row and no sweep entry, so it had never run anywhere but by hand. M08.17 added surface 36 (the artifact ecology) to the registry it polices, which is what surfaced the orphan; binding it was the alternative to relying on a gate nothing ran. It also had no census, so a floor could not have certified it at all — `emitVerifierCensus` was added in the same cut, because a gate must measure its own process."
+      "runtime_assertions": 75,
+      "assertion_names_sha256": "2b4845481cb5ae88131d3e109f3328c4202ec4c7e10e87299ef3d897e7c74b7b",
+      "note": "70 -> 75 (2026-09-26, R-240): the Ontology Manager publish derivation is pinned — family = draft id under the owner, kind-qualified terms (a shared id never collapses), functions are not terms, no-term and non-canonical drafts refused by name, successor migration derived (removed/renamed/added/retained; removal breaking), unchanged derives no change. Earlier: names moved at 70 (2026-09-25, ADR 0056 M5): the two Missions assertions that read the registry entry and its binding now prove the retired root is unlisted and unbound; the preserved module's thirteen rendering assertions stand. EARLIER: First pinned 2026-09-22 (M08.17, R-224/R-226) at 70. THE GATE WAS AN ORPHAN: it asserts the module contract every served surface must satisfy — load/render/actions exports, module meta agreeing with the registry entry, the unified gap contract, embed honouring native_single_rail — and it had no npm script, no CI step, no floor row and no sweep entry, so it had never run anywhere but by hand. M08.17 added surface 36 (the artifact ecology) to the registry it polices, which is what surfaced the orphan; binding it was the alternative to relying on a gate nothing ran. It also had no census, so a floor could not have certified it at all — `emitVerifierCensus` was added in the same cut, because a gate must measure its own process."
     },
     {
       "id": "jurisdiction-policy-audit-export",

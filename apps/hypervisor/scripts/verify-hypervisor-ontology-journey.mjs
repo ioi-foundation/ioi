@@ -368,6 +368,63 @@ async function run() {
       && JSON.stringify(shownRevisions) === JSON.stringify(truthRevisions) && railHistory.includes("section=history"),
     `shown ${shownRevisions.join(",")} · daemon ${truthRevisions.join(",")} · rail ${railHistory.slice(0, 80)}`);
 
+  // ---- (3c) PUBLISH A REVISION (R-240) — the draft becomes an immutable M05.1 OntologyVersion, from
+  // the form History renders. No surface could publish one: the v2 surface descriptor names published
+  // revisions, so the DomainApp chain could not be built through the product at all.
+  const pubForm = scrapeForm(historyPage.text, "og-pubform");
+  ok("History renders a PUBLISH form for an unpublished draft, pinned to the draft revision on screen, with no head (a first revision succeeds nothing) and a valid-from instant",
+    !!pubForm && historyPage.text.includes('data-og-published="unpublished"') && pubForm.fields.based_on_revision === String(expectedRev) && pubForm.fields.expected_head === "" && /^\d{4}-\d\d-\d\dT/u.test(pubForm.fields.valid_from || ""),
+    pubForm ? `fields ${JSON.stringify(pubForm.fields).slice(0, 160)}` : "no form rendered");
+  const pub1 = pubForm ? await submitScraped(pubForm, {}) : { status: 0, q: new URLSearchParams(), location: "" };
+  ok("submitting the rendered publish form admits revision 1 WITH a receipt",
+    pub1.status === 303 && pub1.q.get("acted") === "publish-revision" && !!pub1.q.get("receipt") && !pub1.q.get("refused"),
+    pub1.q.get("refused") ? `${pub1.q.get("refused")}: ${pub1.q.get("reason")}` : pub1.location.slice(0, 140));
+  const families = (await jd("/v1/hypervisor/ontology-versions", { method: "GET" })).body?.ontology_families ?? [];
+  const family = families.find((f) => String(f).endsWith(`/${ontId.toLowerCase().replace(/[^a-z0-9]+/gu, "-")}`)) || "";
+  const [famNs, famName] = family.replace(/^ontology:\/\//u, "").split("/");
+  const lineageOf = async () => (famNs ? (await jd(`/v1/hypervisor/ontology-versions?namespace=${famNs}&name=${famName}`, { method: "GET" })).body : {}) || {};
+  const lin1 = await lineageOf();
+  const rev1 = lin1.resolved_ontology_version || {};
+  const termIds = (d, k) => (d[k] || []).map((t) => t.term_id.split("/term/")[1]).sort().join(",");
+  ok("the revision is daemon truth: the draft's object, link and action types as kind-qualified terms, owned by the publisher's organization, its policy digest stamped by the daemon (the form sends none)",
+    lin1.revision_count === 1 && termIds(rev1, "entity_types") === "object-obj-journey,object-obj-recovered" && termIds(rev1, "relationship_types") === "link-lnk-owner"
+      && termIds(rev1, "action_types") === "action-act-review" && /^sha256:[0-9a-f]{64}$/u.test(rev1.policy_hash || "") && String(rev1.owner_id || "").startsWith("org://")
+      && rev1.migration?.compatibility === "initial",
+    `${family} · ${lin1.revision_count} rev · entity ${termIds(rev1, "entity_types")} · link ${termIds(rev1, "relationship_types")} · action ${termIds(rev1, "action_types")} · policy ${String(rev1.policy_hash).slice(0, 16)}`);
+  const resubmit = pubForm ? await submitScraped(pubForm, {}) : { q: new URLSearchParams() };
+  ok("resubmitting the SAME page's form after it published is refused typed (the head moved under it) and admits nothing",
+    resubmit.q.get("refused") === "ontology_version_expected_head_conflict" && (await lineageOf()).revision_count === 1,
+    resubmit.q.get("refused") || "not refused");
+  const historyAfter1 = await pageAs(`/__ioi/ontology/manager?ontology=${encodeURIComponent(ontId)}&section=history`);
+  ok("History lists the published revision, and an unchanged draft offers no publish — a disabled control that says why",
+    historyAfter1.text.includes(`data-og-published-revision="${rev1.ontology_id}"`) && !scrapeForm(historyAfter1.text, "og-pubform") && /data-ioi-disabled-reason="v1 already declares exactly these terms/u.test(historyAfter1.text),
+    `${rev1.ontology_id} listed=${historyAfter1.text.includes(`data-og-published-revision="${rev1.ontology_id}"`)}`);
+  // A successor: the draft grows, the preview states the derived migration, and a draft edited after
+  // the preview was rendered is refused rather than published under a stale preview.
+  await act("upsert-object-type", { ontology: ontId, def_id: "obj_second", name: "Second", description: "successor term" });
+  const staleForm = scrapeForm((await pageAs(`/__ioi/ontology/manager?ontology=${encodeURIComponent(ontId)}&section=history`)).text, "og-pubform");
+  await act("upsert-object-type", { ontology: ontId, def_id: "obj_third", name: "Third", description: "edited after the preview" });
+  expectedRev += 2; // the two draft edits above are revisions too — the restart leg reads them back
+  const stalePub = staleForm ? await submitScraped(staleForm, {}) : { q: new URLSearchParams() };
+  ok("a draft edited after the publish preview rendered is refused typed (odk_revision_conflict), never published under the stale preview",
+    !!staleForm && stalePub.q.get("refused") === "odk_revision_conflict" && (await lineageOf()).revision_count === 1,
+    stalePub.q.get("refused") || "not refused");
+  const succPage = await pageAs(`/__ioi/ontology/manager?ontology=${encodeURIComponent(ontId)}&section=history`);
+  const succForm = scrapeForm(succPage.text, "og-pubform");
+  const anonPub = succForm ? await act("publish-revision", succForm.fields, { anonymous: true }) : { q: new URLSearchParams() };
+  ok("an anonymous publish is refused typed and admits nothing",
+    anonPub.q.get("refused") === "request_principal_required" && (await lineageOf()).revision_count === 1, anonPub.q.get("refused") || "not refused");
+  const preview = (succPage.text.match(/data-og-publish-preview="1">([^<]*(?:<b>[^<]*<\/b>[^<]*)*)/u) || [])[1] || "";
+  const pub2 = succForm ? await submitScraped(succForm, {}) : { q: new URLSearchParams() };
+  const lin2 = await lineageOf();
+  const rev2 = lin2.resolved_ontology_version || {};
+  const disp = Object.fromEntries((rev2.migration?.term_mappings || []).map((m) => [m.from_term_id.split("/term/")[1], m.disposition]));
+  ok("the successor publishes as revision 2 with the migration its preview stated: additive, the two new object types added, every earlier term retained",
+    /additive<\/b> from v1: 2 added, 4 retained/u.test(preview) && !!pub2.q.get("receipt") && lin2.revision_count === 2 && rev2.migration?.compatibility === "additive"
+      && disp["object-obj-second"] === "added" && disp["object-obj-third"] === "added" && disp["object-obj-journey"] === "retained" && disp["action-act-review"] === "retained"
+      && rev2.predecessor_version_ref === rev1.ontology_id,
+    `preview "${preview.replace(/<\/?b>/gu, "").slice(0, 90)}" · ${pub2.q.get("refused") || "published"} · ${JSON.stringify(disp).slice(0, 160)}`);
+
   // -- identity gate (W1.1/G-2 finding CLOSED): anonymous authoring refuses typed ----
   // Rule E — the refusal is owed BEFORE any record load: the serve action lane without a
   // session and a direct daemon write without identity both answer the typed
@@ -408,6 +465,11 @@ async function run() {
   ok("receipts survive the restart", receiptsAfter >= receiptCount && receiptCount > 0, `${receiptsAfter} receipts`);
   const reload = await pageText(`/ontology/schema?ontology=${encodeURIComponent(ontId)}`);
   ok("canonical mount re-renders the authored ontology after restart", reload.status === 200 && reload.text.includes(domain), "");
+  const pubAfterRestart = await pageAs(`/__ioi/ontology/manager?ontology=${encodeURIComponent(ontId)}&section=history`);
+  const listedAfterRestart = [...pubAfterRestart.text.matchAll(/data-og-published-revision="([^"]*)"/gu)].map((m) => m[1]);
+  ok("both published revisions survive the restart and History lists them newest first, re-read from the family's chain",
+    (await lineageOf()).revision_count === 2 && JSON.stringify(listedAfterRestart) === JSON.stringify([rev2.ontology_id, rev1.ontology_id]),
+    listedAfterRestart.join(" · ") || "none listed");
 
   // ---- the thirteen governed controls: REAL, or a DISABLED NAMED GAP. Never silently absent. ----
   //

@@ -388,6 +388,30 @@ async function run() {
     const html2 = mod.render(model2, ctx2);
     ok(`${slug}: offline dead-daemon render keeps the certified shell landmarks`, [title, ...marks].every((m) => html2.includes(m)));
   }
+  // 5b. PUBLISH A REVISION (R-240) — the draft → M05.1 derivation is pure, so its rules are pinned
+  // here: the family is the draft id under the owner, every term carries its kind (an object type and
+  // an action type sharing an id stay two terms), functions are not terms, and a successor's migration
+  // is derived from the two term sets — any removal breaking, a relabel renamed, nothing changed unchanged.
+  const fam = ontologyManager.revisionFamilyOf("ont_18bf", "org://local");
+  ok("publish: the family is the draft's id under its owner, never the renamable domain",
+    fam && fam.family === "ontology://local/ont-18bf" && fam.governing_scope_ref === "domain://local/ont-18bf" && ontologyManager.revisionFamilyOf("ont_1", "") === null);
+  const comA = { object_types: [{ id: "approve", name: "Approval" }, { id: "loan", name: "Loan" }], link_types: [{ id: "owns", name: "owns" }], action_types: [{ id: "approve", name: "Approve", kind: "modify_object" }, { id: "score", name: "Score", kind: "function" }] };
+  const tA = ontologyManager.revisionTermsOf(comA, fam);
+  const ids = (sets) => Object.values(sets).flat().map((t) => t.term_id.split("/term/")[1]).sort().join(",");
+  ok("publish: terms are kind-qualified (a shared id never collapses) and function declarations are not terms",
+    !tA.error && ids(tA.sets) === "action-approve,link-owns,object-approve,object-loan" && tA.sets.event_types.length === 0, tA.error ? tA.error.code : ids(tA.sets));
+  ok("publish: an ontology with no object, link or action type has nothing to publish, and an id no term can carry is refused by name",
+    ontologyManager.revisionTermsOf({ action_types: [{ id: "f", kind: "function" }] }, fam).error?.code === "ontology_version_declares_no_terms"
+      && ontologyManager.revisionTermsOf({ object_types: [{ id: "x".repeat(64) }] }, fam).error?.code === "ontology_revision_term_not_canonical");
+  const comB = { object_types: [{ id: "loan", name: "Loan (renamed)" }, { id: "borrower", name: "Borrower" }], link_types: [{ id: "owns", name: "owns" }], action_types: [{ id: "approve", name: "Approve", kind: "modify_object" }] };
+  const mig = ontologyManager.revisionMigrationOf(tA.sets, ontologyManager.revisionTermsOf(comB, fam).sets);
+  const byTerm = Object.fromEntries(mig.term_mappings.map((m) => [m.from_term_id.split("/term/")[1], `${m.disposition}:${m.to_term_id ? "to" : "null"}`]));
+  ok("publish: a successor's migration is derived — removed maps to null and makes it breaking, a relabel is renamed, a new term added, the rest retained",
+    mig.compatibility === "breaking" && mig.changed && byTerm["object-approve"] === "removed:null" && byTerm["object-loan"] === "renamed:to" && byTerm["object-borrower"] === "added:to" && byTerm["link-owns"] === "retained:to" && byTerm["action-approve"] === "retained:to",
+    JSON.stringify(byTerm));
+  const same = ontologyManager.revisionMigrationOf(tA.sets, tA.sets);
+  ok("publish: an unchanged draft derives no change (the pane offers no publish), and growth alone is additive",
+    !same.changed && same.counts.retained === 4 && ontologyManager.revisionMigrationOf({ entity_types: [] }, tA.sets).compatibility === "additive");
   ok("serve no longer defines the ontology port renderers", !serveSrc.includes("function renderOntologyManagerPort") && !serveSrc.includes("function renderObjectExplorerPort"));
   ok("the odk substrate's own manager renderer STAYS in serve (not the certified port)", serveSrc.includes("function renderOntologyManager("));
 

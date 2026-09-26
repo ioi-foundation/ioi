@@ -36,6 +36,14 @@ export async function load(ctx) {
   base.lists.data_sources = ds.ok ? (Array.isArray(ds.payload.data_sources) ? ds.payload.data_sources : []) : null;
   const pr = await createReadClient({ daemon: ctx.daemon }).read("/v1/hypervisor/odk/ontology-proposals");
   base.lists.ontology_proposals = pr.ok ? (Array.isArray(pr.payload.ontology_proposals) ? pr.payload.ontology_proposals : []) : null;
+  // The selected draft's published revisions (R-240), read only when History is open, under the
+  // caller's own identity (the family is owner-scoped). NULL off History; otherwise a typed state.
+  const sel = parseOntologyContext(ctx.url);
+  if (sel.section === "history" && typeof ctx.daemonFetch === "function") {
+    const onts = Array.isArray(base.lists.ontologies) ? base.lists.ontologies : [];
+    const chosen = onts.find((x) => x.id === sel.ontology) || onts.find((x) => (x.health || {}).status === "ready") || onts[0] || null;
+    base.published = chosen ? await readPublished(createReadClient({ daemon: "", fetchImpl: ctx.daemonFetch }), chosen.id) : null;
+  }
   base.vocab = (base.overview && base.overview.odk_vocabulary) || { base_value_types: ["string", "integer", "double", "boolean", "timestamp", "enum"], link_cardinalities: ["one_to_one", "one_to_many", "many_to_many"], action_kinds: ["create_object", "modify_object", "delete_object", "function"] };
   return base;
 }
@@ -43,7 +51,7 @@ export async function load(ctx) {
 export function render(model, ctx) {
   const sel = parseOntologyContext(ctx.url);
   return renderOntologyManagerPort(model.overview, model.lists, sel.ontology || "", {
-    sel, vocab: model.vocab, embed: ctx.embed,
+    sel, vocab: model.vocab, embed: ctx.embed, published: model.published || null,
     q: ctx.url.searchParams.get("q") || "",
     newKind: ctx.url.searchParams.get("newKind") || "",
     banner: {
@@ -90,7 +98,89 @@ export const actions = [
     ...Array.from({ length: MAP_ROWS }, (_, i) => [`prop_${i}`, `src_${i}`, `typ_${i}`]).flat()]),
     authority: { plane: "odk.connector-mappings", operation: "POST /v1/hypervisor/odk/connector-mappings" },
     receipt: MAP_RECEIPT },
+  // R-240 — PUBLISH A REVISION. The draft is mutable; what a v2 surface descriptor names is an
+  // immutable published revision (M05.1). The form pins what the author saw: the draft revision the
+  // terms come from, the family head the revision succeeds, and the instant it is valid from.
+  { ...mkAction("publish-revision", ["based_on_revision", "expected_head", "valid_from"]),
+    authority: { plane: "ontology-versions", operation: "POST /v1/hypervisor/ontology-versions" },
+    receipt: "ioi.hypervisor.ontology-version-admission.v1" },
 ];
+
+// R-240 — A PUBLISHED REVISION (M05.1) is an immutable, owner-qualified OntologyVersion the daemon
+// admits against the exact head of its family; the ODK ontology is the mutable draft it is published
+// FROM. The family is the draft's own lineage — ontology://<owner>/<draft id>, the id and never the
+// renamable domain, so a rename does not fork it. Its terms are the draft's object, link and action
+// types: a revision declares TERMS, not schemas, so properties, value types and function declarations
+// are not carried (said on the pane, not dropped silently). Every term id carries its kind, so an
+// object type and an action type sharing an id never collapse into one term. policy_hash is never
+// sent: the daemon stamps the admission policy it applies (R-240 ruling).
+const REVISION_TERM_SETS = ["entity_types", "relationship_types", "event_types", "action_types"];
+const revToken = (s) => String(s || "").toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-+/, "").slice(0, 63).replace(/-+$/, "");
+export function revisionFamilyOf(ontologyId, ownerRef) {
+  const namespace = revToken(String(ownerRef || "").replace(/^[a-z][a-z0-9+.-]*:\/\//, ""));
+  const name = revToken(ontologyId);
+  return namespace && name ? { namespace, name, family: `ontology://${namespace}/${name}`, governing_scope_ref: `domain://${namespace}/${name}` } : null;
+}
+// The draft's terms, or the typed reason it cannot be published.
+export function revisionTermsOf(com, fam) {
+  const sets = { entity_types: [], relationship_types: [], event_types: [], action_types: [] };
+  const list = (k) => (Array.isArray(com && com[k]) ? com[k] : []).filter((e) => e && e.id);
+  const sources = [
+    ["entity_types", "object", list("object_types")],
+    ["relationship_types", "link", list("link_types")],
+    ["action_types", "action", list("action_types").filter((a) => a.kind !== "function")],
+  ];
+  for (const [set, kind, entries] of sources) {
+    for (const e of entries) {
+      const slug = `${kind}-${String(e.id).replace(/_/g, "-")}`;
+      if (!/^[a-z0-9][a-z0-9-]{0,62}$/.test(slug)) return { error: { code: "ontology_revision_term_not_canonical", message: `the ${kind} type '${String(e.id)}' cannot be published as a term — a term id is a lowercase token of at most 63 characters` } };
+      sets[set].push({ term_id: `ontology://${fam.namespace}/${fam.name}/term/${slug}`, label: String(e.name || e.id).trim().slice(0, 160) || String(e.id) });
+    }
+  }
+  if (REVISION_TERM_SETS.every((k) => !sets[k].length)) return { error: { code: "ontology_version_declares_no_terms", message: "this ontology declares no object, link or action type — a revision with no terms declares no meaning" } };
+  return { sets };
+}
+// A successor states how each term migrates. Derived from the two term sets, never chosen: a term
+// kept with its label is retained, kept with a new label renamed, gone removed, new added. Any removal
+// is breaking; otherwise additive. Narrowed/widened are judgements a diff cannot make — never claimed.
+export function revisionMigrationOf(prev, next) {
+  const labels = (doc) => new Map(REVISION_TERM_SETS.flatMap((k) => (Array.isArray(doc && doc[k]) ? doc[k] : []).map((t) => [t.term_id, t.label])));
+  const before = labels(prev), after = labels(next);
+  const term_mappings = [];
+  for (const [id, label] of before) {
+    term_mappings.push(after.has(id) ? { from_term_id: id, to_term_id: id, disposition: after.get(id) === label ? "retained" : "renamed" } : { from_term_id: id, to_term_id: null, disposition: "removed" });
+  }
+  for (const id of after.keys()) if (!before.has(id)) term_mappings.push({ from_term_id: id, to_term_id: id, disposition: "added" });
+  const count = (d) => term_mappings.filter((m) => m.disposition === d).length;
+  const counts = { added: count("added"), removed: count("removed"), renamed: count("renamed"), retained: count("retained") };
+  return { term_mappings, counts, compatibility: counts.removed ? "breaking" : "additive", changed: counts.added + counts.removed + counts.renamed > 0 };
+}
+// The caller's owning tenant, read from whoami — never chosen by a form.
+const ownerTenantOf = (who) => {
+  const tenants = (who && who.ok && who.payload && who.payload.principal && Array.isArray(who.payload.principal.tenant_refs)) ? who.payload.principal.tenant_refs.map(String) : [];
+  return tenants.find((x) => x === "org://local") || tenants.find((x) => x.startsWith("org://")) || tenants.find((x) => x.startsWith("project://")) || "";
+};
+// The published lineage of one draft, as the caller may read it. A family the caller cannot see and a
+// family never published answer the same scope refusal, so the caller's family INVENTORY decides
+// which it is: absent from the inventory is "not published yet", never a refusal drawn as empty.
+async function readPublished(reader, ontologyId) {
+  const who = await reader.read("/v1/hypervisor/auth/whoami");
+  if (!who.ok) return who.status === 401 ? { state: "signed_out" } : { state: "unavailable", code: who.code, message: who.message };
+  const owner = ownerTenantOf(who);
+  const fam = owner ? revisionFamilyOf(ontologyId, owner) : null;
+  if (!fam) return { state: "no_owner" };
+  const inv = await reader.read("/v1/hypervisor/ontology-versions");
+  if (!inv.ok) return { state: inv.status === 401 ? "signed_out" : "unavailable", code: inv.code, message: inv.message, owner, fam };
+  const families = Array.isArray(inv.payload.ontology_families) ? inv.payload.ontology_families.map(String) : [];
+  if (!families.includes(fam.family)) return { state: "ok", owner, fam, lineage: [] };
+  const lin = await reader.read(`/v1/hypervisor/ontology-versions?namespace=${encodeURIComponent(fam.namespace)}&name=${encodeURIComponent(fam.name)}`);
+  if (!lin.ok) return { state: "unavailable", code: lin.code, message: lin.message, owner, fam };
+  return { state: "ok", owner, fam, lineage: Array.isArray(lin.payload.lineage) ? lin.payload.lineage : [] };
+}
+const headOf = (lineage) => {
+  const last = lineage && lineage.length ? lineage[lineage.length - 1] : null;
+  return (last && last.admission && last.admission.admission_head) || "";
+};
 
 const bounded = (v, max) => (typeof v === "string" ? v.slice(0, max) : "");
 // Clone the current COM and upsert one entry into one collection by id (immutable id, merged fields).
@@ -166,6 +256,49 @@ export async function handleAction({ action, fields, daemonFetch, url }) {
   }
   // Every other action edits an existing ontology under optimistic concurrency.
   const ontId = url.searchParams.get("ontology") || fields.ontology || "";
+  if (action.id === "publish-revision") {
+    const cur = await reader.read(`/v1/hypervisor/odk/domain-ontologies/${encodeURIComponent(ontId)}`);
+    const ont = cur.ok && cur.payload && cur.payload.ontology ? cur.payload.ontology : null;
+    if (!ont) return { kind: "refusal", http: 404, code: "odk_ontology_not_found", message: "select an existing ontology first" };
+    // THE TERMS ARE THE DRAFT THE AUTHOR SAW. An edit since the page rendered is refused, never
+    // silently published under a preview that no longer matches.
+    if (String(ont.revision) !== bounded(fields.based_on_revision, 32).trim()) {
+      return { kind: "refusal", http: 409, code: "odk_revision_conflict", message: `the ontology is at revision ${ont.revision} now, not the revision this preview was built from — reload and review what you are publishing` };
+    }
+    const published = await readPublished(reader, ontId);
+    if (published.state === "signed_out") return { kind: "refusal", http: 401, code: "request_principal_required", message: "sign in to publish — a revision is owned by its publisher's organization" };
+    if (published.state === "no_owner") return { kind: "refusal", http: 403, code: "mutation_owner_ref_required", message: "your sign-in belongs to no organization of this deployment, so the revision would have no owner — sign in as a member" };
+    if (published.state !== "ok") return { kind: "failure", http: 502, code: published.code || "ontology_version_read_failed", message: published.message || "the published lineage could not be read, so the successor's migration cannot be derived" };
+    const { fam, owner, lineage } = published;
+    const head = headOf(lineage);
+    if (head !== bounded(fields.expected_head, 200).trim()) {
+      return { kind: "refusal", http: 409, code: "ontology_version_expected_head_conflict", message: "a revision was published since this page was read — reload to see it and publish against it" };
+    }
+    const terms = revisionTermsOf(ont.canonical_object_model, fam);
+    if (terms.error) return { kind: "refusal", http: 422, ...terms.error };
+    const body = {
+      owner_ref: owner, namespace: fam.namespace, name: fam.name, governing_scope_ref: fam.governing_scope_ref,
+      ...terms.sets,
+      valid_time: { starts_at: bounded(fields.valid_from, 40).trim(), ends_at: null },
+      expected_head: head || null,
+    };
+    if (lineage.length) {
+      const mig = revisionMigrationOf(lineage[lineage.length - 1], terms.sets);
+      if (!mig.changed) return { kind: "refusal", http: 409, code: "ontology_revision_unchanged", message: `${lineage[lineage.length - 1].version || "the head revision"} already declares exactly these terms — there is nothing to publish` };
+      body.compatibility = mig.compatibility;
+      body.term_mappings = mig.term_mappings;
+    }
+    // The same form submitted twice replays the one revision; a changed form is a new one.
+    const { createHash } = await import("node:crypto");
+    body.idempotency_key = `ont-rev-${createHash("sha256").update(JSON.stringify(body)).digest("hex")}`;
+    const crossed = await authority.cross("/v1/hypervisor/ontology-versions", {
+      method: "POST",
+      body,
+      grant: fields.wallet_approval_grant,
+      extractReceiptRef: (payload) => (payload && payload.ok === true && payload.ontology_version ? String(payload.receipt_ref || "") : ""),
+    });
+    return fromCrossing(crossed, (c) => ({ kind: "success", created: c.payload.ontology_version.ontology_id, status: c.payload.ontology_version.version, receipt_ref: c.receipt_ref, redirect: ontologyContextQuery("/__ioi/ontology/manager", { ontology: ontId, section: "history" }) }));
+  }
   if (action.id === "map-backing-datasource") {
     const cur = await reader.read(`/v1/hypervisor/odk/domain-ontologies/${encodeURIComponent(ontId)}`);
     const ont = cur.ok && cur.payload && cur.payload.ontology ? cur.payload.ontology : null;
@@ -422,9 +555,9 @@ function renderOntologyManagerPort(ov, lists, selectedId, opts) {
   // markup (href-only change — pixels unaffected). Named-gap lanes stay disabled in place.
   const sHref = (s) => mHref({ section: s });
   const appRail = `<nav class="og-arail" aria-label="Ontology Manager">
-    ${arailItem("compass", "Discover", null, sHref("discover"), { on: true })}
-    ${arailItem("people", "Proposals", proposalCount, sHref("proposals"))}
-    ${arailItem("time", "History", selected && Array.isArray(selected.history) ? selected.history.length : null, sHref("history"))}
+    ${arailItem("compass", "Discover", null, sHref("discover"), { on: section !== "proposals" && section !== "history" })}
+    ${arailItem("people", "Proposals", proposalCount, sHref("proposals"), { on: section === "proposals" })}
+    ${arailItem("time", "History", selected && Array.isArray(selected.history) ? selected.history.length : null, sHref("history"), { on: section === "history" })}
     <div class="og-adiv"></div>
     <div class="og-asec">Resources</div>
     ${arailItem("cube", "Object types", ots.length, sHref("object-types"), { sub: true })}
@@ -742,8 +875,43 @@ function renderOntologyManagerPort(ov, lists, selectedId, opts) {
   // revisions (M05.1, which await the policy-set ruling) and branch merges (branching is a named gap).
   const historyEntries = selected && Array.isArray(selected.history) ? [...selected.history].sort((a, b) => String(b.at || "").localeCompare(String(a.at || ""))) : null;
   const historyDay = (iso) => { const d = new Date(iso); return isNaN(d) ? "Undated" : d.toISOString().slice(0, 10); };
+  // PUBLISHED REVISIONS (R-240). The reference's history also lists what was SAVED as a version; here
+  // that is the M05.1 lineage of this draft — immutable revisions the daemon admitted against the
+  // exact head of the family. The form previews exactly what it will send (the terms, and for a
+  // successor the derived migration) and pins the draft revision, the head and the valid-from instant
+  // it was built from, so what is published is what was reviewed.
+  const pub = O.published;
+  const publishedBlock = (() => {
+    if (section !== "history" || !selected) return "";
+    const hd = (state) => `<div class="og-pubhd" data-og-published="${esc(state)}"><b>Published revisions</b></div>`;
+    if (!pub) return hd("unread") + ihint("The published lineage was not read on this render.", true);
+    if (pub.state === "signed_out") return hd("signed_out") + ihint("Sign in to see and publish revisions — a published revision belongs to its publisher's organization.");
+    if (pub.state === "no_owner") return hd("no_owner") + ihint("Your sign-in belongs to no organization of this deployment, so there is no family to publish into.", true);
+    if (pub.state !== "ok") return hd("unavailable") + ihint(`The ontology-version plane did not answer (<code>${esc(pub.code || "no answer")}</code>) — this is not an unpublished ontology.`, true);
+    const lineage = pub.lineage;
+    const termCount = (d) => REVISION_TERM_SETS.reduce((a, k) => a + (Array.isArray(d && d[k]) ? d[k].length : 0), 0);
+    const list = lineage.length
+      ? `<ul class="og-publist">${[...lineage].reverse().map((d) => `<li class="og-pubitem" data-og-published-revision="${esc(String(d.ontology_id || ""))}"><b>${esc(String(d.version || ""))}</b> · ${esc(String((d.migration || {}).compatibility || ""))} · ${termCount(d)} term${termCount(d) === 1 ? "" : "s"}<div class="og-propmeta">valid from ${esc(String((d.valid_time || {}).starts_at || ""))} · <code>${esc(String(d.ontology_id || ""))}</code> · content <code>${esc(String(d.content_hash || "").slice(0, 19))}…</code></div></li>`).join("")}</ul>`
+      : ihint(`Not published yet. Publishing admits revision 1 of <code>${esc(pub.fam.family)}</code>, owned by <code>${esc(pub.owner)}</code>; once admitted it never changes — later edits publish a successor.`);
+    const terms = revisionTermsOf(com, pub.fam);
+    const mig = !terms.error && lineage.length ? revisionMigrationOf(lineage[lineage.length - 1], terms.sets) : null;
+    let form;
+    if (terms.error) {
+      form = `<div class="og-iacts">${disabledSemanticAction({ label: "Publish revision", reason: terms.error.message })}</div>${ihint(esc(terms.error.message))}`;
+    } else if (mig && !mig.changed) {
+      const why = `${String(lineage[lineage.length - 1].version || "the head revision")} already declares exactly these terms — edit the ontology to have something to publish`;
+      form = `<div class="og-iacts">${disabledSemanticAction({ label: `Publish revision ${lineage.length + 1}`, reason: why })}</div>${ihint(esc(why))}`;
+    } else {
+      const s = terms.sets;
+      const what = `${s.entity_types.length} object · ${s.relationship_types.length} link · ${s.action_types.length} action term${s.action_types.length === 1 ? "" : "s"}`;
+      const how = mig ? ` · <b>${esc(mig.compatibility)}</b> from ${esc(String(lineage[lineage.length - 1].version || ""))}: ${["added", "renamed", "removed", "retained"].filter((k) => mig.counts[k]).map((k) => `${mig.counts[k]} ${k}`).join(", ")}` : " · the first revision (initial)";
+      form = `<form class="og-pubform" method="post" action="/__ioi/ontology/manager/actions/publish-revision?ontology=${enc(selected.id)}">${RET}<input type="hidden" name="based_on_revision" value="${esc(String(selected.revision ?? ""))}"><input type="hidden" name="expected_head" value="${esc(headOf(lineage))}"><input type="hidden" name="valid_from" value="${esc(new Date().toISOString())}"><div class="og-pubnote" data-og-publish-preview="1">${what}${how} — from draft revision ${esc(String(selected.revision ?? ""))}.</div><button class="og-save" type="submit">Publish revision ${lineage.length + 1}</button></form>`;
+    }
+    return hd(lineage.length ? "published" : "unpublished") + list + form + ihint("A revision declares terms — object, link and action types — not their properties, value types or function declarations. The daemon stamps the admission policy it applies; a published revision grants no authority.");
+  })();
   const historyPane = section === "history"
     ? `<div class="og-inspector" data-testid="og-inspector" data-og-history="1"><div class="og-ihd"><b>Ontology history</b><span class="og-ikind">${historyEntries === null ? "no ontology selected" : `${historyEntries.length} change${historyEntries.length === 1 ? "" : "s"}`}</span></div><div class="og-ibody">
+        ${publishedBlock}
         ${historyEntries === null
           ? ihint("Select an ontology to read its history.")
           : (historyEntries.length
@@ -755,7 +923,7 @@ function renderOntologyManagerPort(ov, lists, selectedId, opts) {
                 return acc;
               }, { day: null, html: "" }).html
             : ihint("No history recorded for this ontology."))}
-        ${ihint("The daemon keeps the last 20 changes per ontology. Published ontology revisions (M05.1) and branch merges are not listed here yet: publishing awaits the policy-set ruling, and branching is a named gap.")}
+        ${ihint("The daemon keeps the last 20 draft changes per ontology. Branch merges are not listed: branching is a named gap.")}
       </div></div>`
     : "";
   const aside = historyPane || proposalsPane || createPane || (def ? inspectorFor() : "");
@@ -889,6 +1057,11 @@ function renderOntologyManagerPort(ov, lists, selectedId, opts) {
     .og-ibody{padding:12px 14px;font-size:12px}
     .og-histday{margin:12px 0 4px;font-size:11px;text-transform:uppercase;letter-spacing:.06em;color:#5f6b7c}
     .og-histitem{padding:6px 0;border-top:1px solid #e5e8eb;overflow-wrap:anywhere}
+    .og-pubhd{margin:2px 0 6px;font-size:13px}
+    .og-publist{list-style:none;margin:0 0 8px;padding:0}
+    .og-pubitem{padding:6px 0;border-top:1px solid #e5e8eb;overflow-wrap:anywhere}
+    .og-pubform{margin:8px 0 12px;display:flex;flex-direction:column;gap:6px;align-items:flex-start}
+    .og-pubnote{font-size:12px;color:#404854}
     .ioi-sem-breadcrumb{font-size:12px;color:#5f6b7c;margin:0 0 12px}span.ioi-sem-crumb{color:#1c2127}
     .og-irow{display:flex;gap:10px;font-size:12px;line-height:15.4297px;padding:0 0 8px}
     .og-ik{color:#5f6b7c;width:118px;flex:0 0 118px}.og-iv{color:#1c2127;min-width:0;word-break:break-word}
