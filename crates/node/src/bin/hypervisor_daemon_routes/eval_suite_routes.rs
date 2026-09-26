@@ -20,7 +20,7 @@
 use std::sync::Arc;
 
 use axum::extract::{Path as AxumPath, Query, State};
-use axum::http::StatusCode;
+use axum::http::{HeaderMap, StatusCode};
 use axum::Json;
 use serde_json::{json, Value};
 use std::collections::HashMap;
@@ -174,10 +174,70 @@ pub(crate) async fn handle_eval_suite_list(
     Json(json!({ "ok": true, "eval_suites": items }))
 }
 
+// IDENTITY FIRST (R-240). Create, patch and delete took no headers, so anyone who could reach the
+// daemon declared a suite no one owned — and edited or deleted ANY suite. The caller is resolved
+// before anything is read or written (loopback is not an identity); create records who declared the
+// suite, and patch and delete answer only to that declarer. A suite declared before the stamp
+// carries no declarer and answers any signed-in principal — no wider than before, and the actor is
+// now known.
+
+fn declarer_refusal(
+    suite: &Value,
+    identity: &super::substrate_store::RequestIdentity,
+) -> Option<(StatusCode, Json<Value>)> {
+    match suite
+        .get("declared_by_principal_ref")
+        .and_then(Value::as_str)
+    {
+        Some(declarer) if declarer != identity.principal_ref => Some((
+            StatusCode::FORBIDDEN,
+            Json(json!({
+                "ok": false,
+                "code": "eval_suite_declarer_mismatch",
+                "message": "this suite answers only to the principal that declared it"
+            })),
+        )),
+        _ => None,
+    }
+}
+
 pub(crate) async fn handle_eval_suite_create(
     State(st): State<Arc<DaemonState>>,
+    headers: HeaderMap,
     Json(body): Json<Value>,
 ) -> (StatusCode, Json<Value>) {
+    let identity = match super::substrate_store::resolve_request_identity(&st.data_dir, &headers) {
+        Ok(identity) => identity,
+        Err(error) => return super::mutation_event_foundation::scope_refusal_reply(error),
+    };
+    let record = match build_eval_suite(&body, &identity.principal_ref) {
+        Ok(record) => record,
+        Err((code, message)) => return bad(code, &message),
+    };
+    let id = text(&record, "id").to_string();
+    if persist_record(&st.data_dir, KIND_EVAL_SUITE, &id, &record).is_err() {
+        return (
+            StatusCode::INTERNAL_SERVER_ERROR,
+            Json(
+                json!({ "ok": false, "code": "eval_suite_persistence_failed",
+                "message": "the eval suite did not commit — nothing was created" }),
+            ),
+        );
+    }
+    (
+        StatusCode::CREATED,
+        Json(json!({ "ok": true, "eval_suite": record })),
+    )
+}
+
+/// Validate a declaration and build the suite record, its declarer stamped after the body is read so
+/// a caller cannot supply or override it.
+fn build_eval_suite(
+    body: &Value,
+    declared_by_principal_ref: &str,
+) -> Result<Value, (&'static str, String)> {
+    let bad = |code: &'static str, message: &str| Err((code, message.to_string()));
+    let body = body.clone();
     let name = text(&body, "name").trim().to_string();
     if name.is_empty() {
         return bad("eval_suite_name_required", "a suite name is required");
@@ -271,21 +331,10 @@ pub(crate) async fn handle_eval_suite_create(
         "status": "draft",
         "health": health_of(candidate_refs.len()),
         "authority_note": "inert declaration — no EvalRun/scoring/judge; candidate_refs are named handoffs only",
+        "declared_by_principal_ref": declared_by_principal_ref,
         "created_at": now, "updated_at": now
     });
-    if persist_record(&st.data_dir, KIND_EVAL_SUITE, &id, &record).is_err() {
-        return (
-            StatusCode::INTERNAL_SERVER_ERROR,
-            Json(
-                json!({ "ok": false, "code": "eval_suite_persistence_failed",
-                "message": "the eval suite did not commit — nothing was created" }),
-            ),
-        );
-    }
-    (
-        StatusCode::CREATED,
-        Json(json!({ "ok": true, "eval_suite": record })),
-    )
+    Ok(record)
 }
 
 pub(crate) async fn handle_eval_suite_get(
@@ -300,12 +349,20 @@ pub(crate) async fn handle_eval_suite_get(
 
 pub(crate) async fn handle_eval_suite_patch(
     State(st): State<Arc<DaemonState>>,
+    headers: HeaderMap,
     AxumPath(id): AxumPath<String>,
     Json(body): Json<Value>,
 ) -> (StatusCode, Json<Value>) {
+    let identity = match super::substrate_store::resolve_request_identity(&st.data_dir, &headers) {
+        Ok(identity) => identity,
+        Err(error) => return super::mutation_event_foundation::scope_refusal_reply(error),
+    };
     let Some(mut e) = load(&st.data_dir, &id) else {
         return bad("eval_suite_not_found", "eval_suite not found");
     };
+    if let Some(refusal) = declarer_refusal(&e, &identity) {
+        return refusal;
+    }
 
     // A draft's declaration is editable; consent/subject/evidence stay validated on every change.
     if let Some(v) = body.get("name") {
@@ -409,15 +466,56 @@ pub(crate) async fn handle_eval_suite_patch(
 
 pub(crate) async fn handle_eval_suite_delete(
     State(st): State<Arc<DaemonState>>,
+    headers: HeaderMap,
     AxumPath(id): AxumPath<String>,
-) -> Json<Value> {
+) -> (StatusCode, Json<Value>) {
+    let identity = match super::substrate_store::resolve_request_identity(&st.data_dir, &headers) {
+        Ok(identity) => identity,
+        Err(error) => return super::mutation_event_foundation::scope_refusal_reply(error),
+    };
+    if let Some(suite) = load(&st.data_dir, &id) {
+        if let Some(refusal) = declarer_refusal(&suite, &identity) {
+            return refusal;
+        }
+    }
     let removed = remove_record(&st.data_dir, KIND_EVAL_SUITE, &id);
-    Json(json!({ "ok": removed, "removed": removed, "id": id }))
+    (
+        StatusCode::OK,
+        Json(json!({ "ok": removed, "removed": removed, "id": id })),
+    )
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    /// The declarer is stamped from the caller, never from the body, and patch/delete answer only to it.
+    #[test]
+    fn a_suite_names_its_declarer_and_answers_only_to_it() {
+        use super::super::substrate_store::request_identity_for_test;
+        let body = json!({
+            "name": "triage",
+            "subject_scope": ["failed_run"],
+            "consent_requirements": ["org_policy"],
+            "declared_by_principal_ref": "user://forged"
+        });
+        let record = build_eval_suite(&body, "user://alpha").expect("a valid declaration");
+        assert_eq!(record["declared_by_principal_ref"], "user://alpha");
+        let alpha = request_identity_for_test("user://alpha", ["org://local".to_string()]);
+        let beta = request_identity_for_test("user://beta", ["org://local".to_string()]);
+        assert!(declarer_refusal(&record, &alpha).is_none());
+        let refused = declarer_refusal(&record, &beta).expect("another principal is refused");
+        assert_eq!(refused.0, StatusCode::FORBIDDEN);
+        assert!(declarer_refusal(&json!({ "id": "es_legacy" }), &beta).is_none());
+        let invalid = build_eval_suite(
+            &json!({ "name": "x", "subject_scope": ["failed_run"], "consent_requirements": ["never_train"] }),
+            "user://alpha",
+        );
+        assert!(
+            invalid.is_err(),
+            "the declaration rules still refuse before any stamp"
+        );
+    }
 
     #[test]
     fn consent_requirements_gate_fails_closed() {

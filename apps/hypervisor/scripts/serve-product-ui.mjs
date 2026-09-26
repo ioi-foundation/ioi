@@ -13361,15 +13361,18 @@ async function handleEstateRequest(req, res, body) {
         rubric_refs: splitRefs(f.get("rubric_refs")),
         candidate_refs: splitRefs(f.get("candidate_refs")),
       };
-      const r = await daemonFetch(`/v1/hypervisor/eval-suites`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(payload) });
+      // The daemon's suite routes are identity-first (R-240): the caller's own session travels.
+      const r = await daemonFetch(`/v1/hypervisor/eval-suites`, { req, method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(payload) });
       const j = await r.json().catch(() => ({}));
       res.writeHead(302, { Location: r.ok ? "/__ioi/evaluations" : `/__ioi/evaluations?refused=${encodeURIComponent(whyRefused(j))}`, "Cache-Control": "no-cache" });
       return res.end();
     }
     if (pathname.startsWith("/__ioi/evaluations/") && pathname.endsWith("/delete") && req.method === "POST") {
       const sid = decodeURIComponent(pathname.slice("/__ioi/evaluations/".length).split("/")[0]);
-      await daemonFetch(`/v1/hypervisor/eval-suites/${encodeURIComponent(sid)}`, { method: "DELETE" }).catch(() => {});
-      res.writeHead(302, { Location: "/__ioi/evaluations", "Cache-Control": "no-cache" });
+      // Only the suite's declarer may delete it, so a refusal is said — never redirected as if it had worked.
+      const r = await daemonFetch(`/v1/hypervisor/eval-suites/${encodeURIComponent(sid)}`, { req, method: "DELETE" }).catch(() => null);
+      const j = r ? await r.json().catch(() => ({})) : { message: "the daemon did not answer" };
+      res.writeHead(302, { Location: r && r.ok && j.ok !== false ? "/__ioi/evaluations" : `/__ioi/evaluations?refused=${encodeURIComponent(whyRefused(j))}`, "Cache-Control": "no-cache" });
       return res.end();
     }
     // ---- Search — typed cross-estate discovery, fan-out over live projections at query time.

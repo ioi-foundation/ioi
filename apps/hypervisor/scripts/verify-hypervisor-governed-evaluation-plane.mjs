@@ -487,6 +487,14 @@ async function run() {
   const library = await post(LIBRARY, { name: "Intake triage suite", description: "declaration-only library suite", subject_scope: ["session"], evidence_requirements: ["transcript_ref"], consent_requirements: ["full_private_opt_in"], rubric_refs: [], candidate_refs: [] });
   const LIBRARY_REF = library.body?.eval_suite?.ref ?? "";
   ok("[P1 exact released suites] the declaration-only library suite exists (eval-suite://…) and is what a suite revision freezes — it has no run endpoint of its own", library.status === 201 && LIBRARY_REF.startsWith("eval-suite://es_"), `${library.status} ${LIBRARY_REF}`);
+  // The library suite is identity-first (R-240): it names who declared it, and an anonymous caller is
+  // refused before anything is written (loopback is not an identity).
+  const whoamiPrincipal = (await jd("/v1/hypervisor/auth/whoami", { method: "GET" })).body?.principal || {};
+  const whoamiRef = whoamiPrincipal.principal_ref || (whoamiPrincipal.principal_id ? `user://${whoamiPrincipal.principal_id}` : "");
+  const anonLibrary = await jd(LIBRARY, { method: "POST", body: JSON.stringify({ name: "Anonymous suite", subject_scope: ["session"], consent_requirements: ["org_policy"] }) }, { authenticated: false });
+  ok("[P1 exact released suites] the library suite names its declarer, and an anonymous declaration is refused (request_principal_required)",
+    !!whoamiRef && library.body?.eval_suite?.declared_by_principal_ref === whoamiRef && anonLibrary.status === 401 && code(anonLibrary.body) === "request_principal_required",
+    `declarer ${library.body?.eval_suite?.declared_by_principal_ref} · anonymous ${anonLibrary.status} ${code(anonLibrary.body)}`);
   const suiteBody = (key, over = {}) => ({ owner_ref: OWNER, idempotency_key: key, family: "acme.intake-visible", library_suite_ref: LIBRARY_REF, tasks: TASKS, scorer_revision_refs: [EVALUATOR_REF], rubric_refs: ["rubric://acme/intake/triage/v2"], world_refs: ["environment-class://acme/intake-sandbox"], required_lanes: ["visible", "sealed"], nondeterminism_class: "deterministic", declared_seed_policy_ref: null, verification_cost_class: "sublinear", ...over });
   const noLibrary = await post(SUITES, suiteBody("gep-suite-nolib", { library_suite_ref: "artifact://acme/suite" }));
   ok("a suite revision freezes an eval-suite:// library object, nothing else", noLibrary.status === 422 && code(noLibrary.body) === "evaluation_suite_revision_library_suite_required", `${noLibrary.status} ${code(noLibrary.body)}`);

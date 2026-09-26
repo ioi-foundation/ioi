@@ -379,9 +379,9 @@ const H_BASELINE = [
   "environment_routes.rs::handle_project_delete",
   "environment_routes.rs::handle_workrun_create",
   "environment_routes.rs::handle_workspace_exec",
-  "eval_suite_routes.rs::handle_eval_suite_create",
-  "eval_suite_routes.rs::handle_eval_suite_delete",
-  "eval_suite_routes.rs::handle_eval_suite_patch",
+  // "eval_suite_routes.rs::handle_eval_suite_create" / "…_delete" / "…_patch" — LEFT the baseline
+  // 2026-09-26 (R-240): the three suite writes resolve RequestIdentity FIRST; create stamps
+  // `declared_by_principal_ref`, and patch and delete answer only to that declarer.
   "feedback_routes.rs::handle_feedback_create",
   "feedback_routes.rs::handle_feedback_delete",
   "feedback_routes.rs::handle_feedback_patch",
