@@ -248,6 +248,25 @@ async function run() {
         && /Viewing changes for update Draft 1/u.test(compare) && /Previous saved version/u.test(compare) && /Selected version/u.test(compare) && !/Failed to load|There are no versions preceding/u.test(compare),
       `history "${draftHistory.slice(Math.max(0, draftHistory.indexOf("Viewing version")), Math.max(0, draftHistory.indexOf("Viewing version")) + 120)}" · compare "${compare.slice(Math.max(0, compare.indexOf("Viewing changes")), Math.max(0, compare.indexOf("Viewing changes")) + 160)}"`);
 
+    // ---- Deploy (named): the panel's deployability check answers why a deploy cannot happen yet ------------------
+    await pg.goto(`${SERVE}${editorUrl}`, { waitUntil: "domcontentloaded", timeout: 60000 });
+    await pg.waitForTimeout(12000);
+    await pg.getByText("Close", { exact: true }).first().click({ timeout: 1500 }).catch(() => { /* no announcement */ });
+    await pg.getByRole("button", { name: "Deploy", exact: true }).first().click({ timeout: 5000 }).catch(() => { /* named below */ });
+    await pg.waitForTimeout(6000);
+    const deploySettings = (await pg.evaluate(() => document.body.innerText)).replace(/\s+/gu, " ");
+    await pg.getByText(/^Errors/u).first().click({ timeout: 3000 }).catch(() => { /* named below */ });
+    await pg.waitForTimeout(1500);
+    const deployPanel = (await pg.evaluate(() => document.body.innerText)).replace(/\s+/gu, " ");
+    await pg.getByRole("button", { name: "Details", exact: true }).first().click({ timeout: 3000 }).catch(() => { /* named below */ });
+    await pg.waitForTimeout(1500);
+    const deployDetails = (await pg.evaluate(() => [...document.querySelectorAll('[role="dialog"]')].map((d) => d.innerText).join(" | "))).replace(/\s+/gu, " ");
+    ok("the Deploy panel opens (the editor no longer crashes on it) over the family's truth — its last deployment the completed run, its one compute profile the Hypervisor runtime — and says the pipeline cannot be deployed, with why under Details: the builder admits no TransformationRun yet and nothing executes a queued one",
+      /Deploy this pipeline/u.test(deploySettings) && !/Something went wrong when rendering/u.test(deploySettings) && /Last deployment Succeeded/u.test(deploySettings) && /Hypervisor runtime/u.test(deploySettings)
+        && /Pipeline cannot be deployed/u.test(deployPanel) && /does not admit runs yet/u.test(deployDetails) && /Revision 1/u.test(deployDetails),
+      `panel ${/Deploy this pipeline/u.test(deploySettings)} · crashed ${/Something went wrong when rendering/u.test(deploySettings)} · last ${/Last deployment Succeeded/u.test(deploySettings)} · profile ${/Hypervisor runtime/u.test(deploySettings)} · cannot ${/Pipeline cannot be deployed/u.test(deployPanel)} · details "${deployDetails.slice(0, 240)}"`);
+    await pg.keyboard.press("Escape").catch(() => {});
+
     // ---- Create, through the adopted form: the recipe registry is the one location; a founding change set --
     pg.on("request", (r) => { if (/\/eddie\/api\/pipelines-v2\/create/u.test(r.url())) { try { createBody = JSON.parse(r.postData() || "null"); } catch { /* not JSON */ } } });
     await pg.goto(`${SERVE}/workspace/builder/create-pipeline`, { waitUntil: "domcontentloaded", timeout: 60000 });
@@ -345,6 +364,16 @@ async function run() {
       && deploys?.currentDeployment?.sandboxVersion?.versionId === rev1Version
       && msgs(diffQ?.historyFromLatest) === "Draft 1" && msgs(diffQ?.historyFromVersion) === "Draft 1,Revision 1" && /^change:\/\//u.test(diffQ?.backingBranchName || ""),
     `deployments [${statuses}] · versions ${(versionsOnly?.eventTimeline?.values || []).length} · current ${deploys?.currentDeployment?.sandboxVersion?.versionId === rev1Version} · latest [${msgs(diffQ?.historyFromLatest)}] · from version [${msgs(diffQ?.historyFromVersion)}] · branch ${diffQ?.backingBranchName}`);
+  const runsBefore = ((await daemonReq("GET", "/v1/hypervisor/transformation-runs?family=acme.intake-normalise")).body?.transformation_runs || []).length;
+  const deployCheck = await serveJson("POST", `/eddie/api/deployment/${intakeRid}/sandboxes/${intakeMain}/check-deployable`, { currentVersionId: rev1Version, acknowledgements: [] });
+  const deployBranch = await serveJson("POST", `/eddie/api/deployment/${intakeRid}/sandboxes/${successorBranch?.id}/check-deployable`, { currentVersionId: successorBranch?.version, acknowledgements: [] });
+  const deployed = await serveJson("POST", `/eddie/api/deployment/${intakeRid}/sandboxes/${intakeMain}/deploy-v2`, { currentVersionId: rev1Version, acknowledgements: [], targetBuildSelection: { type: "all", all: {} }, useOntologyRoles: false });
+  const runsAfter = ((await daemonReq("GET", "/v1/hypervisor/transformation-runs?family=acme.intake-normalise")).body?.transformation_runs || []).length;
+  ok("a deploy is refused by name and admits nothing: Main's check names the head revision and the missing run admission, a change set's check says its drafts are not admitted revisions, and a direct deploy fails with the same reason while the family's runs stay as they were",
+    deployCheck.body?.type === "notDeployable" && /Revision 1/u.test(deployCheck.body?.notDeployable?.errors?.[0]?.message || "") && /does not admit runs yet/u.test(deployCheck.body?.notDeployable?.errors?.[0]?.message || "")
+      && /drafts are not admitted revisions/u.test(deployBranch.body?.notDeployable?.errors?.[0]?.message || "")
+      && deployed.body?.result?.type === "failed" && deployed.body?.versionId === rev1Version && runsBefore === 2 && runsAfter === 2 && !deployCheck.passthrough && !deployed.passthrough,
+    `main ${deployCheck.body?.type} · branch ${deployBranch.body?.type} · deploy ${deployed.status} ${deployed.body?.result?.type} · runs ${runsBefore} → ${runsAfter}`);
   const intake = details.find((p) => p.name === "intake-normalise");
   const claims = details.find((p) => p.name === "claims-triage");
   const snaps = await serveJson("POST", "/eddie/api/pipelines-v2/get-sandboxes-with-snapshots", { requests: [intake, claims].filter(Boolean).map((p) => ({ pipelineRid: p.rid, sandboxId: p.publishedSandboxes[0] })) });

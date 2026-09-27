@@ -192,7 +192,10 @@ export function compassOutputDatasets(rids, pipelines, userIdOf) {
   }
   return out;
 }
-const snapshotOf = (recipe) => ({ transforms: [], targets: targetsOf(recipe), groups: [], groupedExpressions: [], outputs: [], arguments: {}, backendSettings: { configuration: {} }, skippedTransforms: [], persistedTransforms: [] });
+// The Hypervisor offers ONE compute profile: a recipe runs as a TransformationRun on its own runtime. No cores or memory
+// are claimed. The deploy panel reads the snapshot's profile unguarded (it crashed the editor on a snapshot without one).
+export const RUNTIME_PROFILE = Object.freeze({ id: uuidOf("hypervisor://compute/transformation-run"), name: "Hypervisor runtime", description: "A recipe runs as a TransformationRun on the Hypervisor's own runtime; no other compute is offered.", backendSpecificDisplayProperties: {}, availableArguments: {}, argumentAvailability: {}, isDeprecated: false, requiredProfiles: {} });
+const snapshotOf = (recipe) => ({ transforms: [], targets: targetsOf(recipe), groups: [], groupedExpressions: [], outputs: [], arguments: {}, backendSettings: { computeProfile: { computeProfileId: RUNTIME_PROFILE.id, arguments: {} }, configuration: {} }, skippedTransforms: [], persistedTransforms: [] });
 export function sandboxesWithSnapshots(requests, pipelines, userIdOf) {
   const sandboxes = [];
   for (const r of Array.isArray(requests) ? requests : []) {
@@ -406,8 +409,8 @@ export function allInformation(rid, sandboxId, pipelines, userIdOf) {
   return {
     pipeline: pipelineEntry(p, userIdOf), sandbox: got.sandbox, version: got.version, snapshot: got.snapshot,
     availableInstalledTransforms: [], availableInstalledModels: [],
-    // The Hypervisor runs a recipe as a TransformationRun on its own runtime; it offers no compute profiles.
-    availableBackendSettings: { computeProfiles: [], edgeComputeProfiles: [], defaultComputeProfile: null, configuration: {} },
+    // The Hypervisor runs a recipe as a TransformationRun on its own runtime: that is its one compute profile.
+    availableBackendSettings: { computeProfiles: [RUNTIME_PROFILE], edgeComputeProfiles: [], defaultComputeProfile: RUNTIME_PROFILE.id, configuration: {} },
     settings: { settings: { protectionsForPublishedSandboxes: { allowDirectPush: false } }, version: uuidOf(`${p.familyRef}#settings`) },
     mainSandbox: main,
   };
@@ -666,3 +669,19 @@ export function historyFacts(p, sandboxId, variables, userIdOf) {
     fallbackBranchNames: onMain ? [] : ["master"],
   };
 }
+
+// ---- DEPLOY (named, R-241): a deploy admits a TransformationRun of Main's head revision. The builder admits none
+// yet and nothing executes a queued run, so the deploy panel's check answers "not deployable" with the reason (its
+// Errors tab prints the message verbatim), and a direct deploy is refused with the same error. No run is admitted.
+export const knowsSandbox = (p, sandboxId) => sandboxId === mainSandboxIdOf(p.familyRef) || p.changeSets.some((cs) => changeSetSandboxIdOf(cs.change_set_ref) === sandboxId);
+export function deployRefusalOf(p, sandboxId) {
+  const message = sandboxId !== mainSandboxIdOf(p.familyRef)
+    ? "This branch is a change set: its drafts are not admitted revisions, so there is nothing on it to run. Propose it and merge it into Main; a deploy runs Main's head revision."
+    : !p.head
+      ? "Main holds no admitted revision yet, so there is nothing to run. Merge a change set into Main first; a deploy runs Main's head revision as a TransformationRun."
+      : `A deploy admits a TransformationRun of Main's head revision (Revision ${String(p.head.revision_ref).split("/").pop()}). The Pipeline Builder does not admit runs yet, and nothing executes a queued run. Runs admitted through the transformation-run plane appear in History.`;
+  // a type the app does not know: its Errors tab shows "Pipeline cannot be deployed" with Details printing the message
+  return { type: "hypervisorDeployNotAdmitted", errorName: "Hypervisor:DeployNotAdmitted", message };
+}
+export const checkDeployableAnswer = (p, sandboxId) => ({ type: "notDeployable", notDeployable: { errors: [deployRefusalOf(p, sandboxId)], supportedStateOverrides: { supportedStateStrategyOverrides: [] } } });
+export const deployAnswer = (p, sandboxId, versionId) => ({ versionId, result: { type: "failed", failed: { errors: [deployRefusalOf(p, sandboxId)] } } });

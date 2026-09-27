@@ -104,14 +104,16 @@ test("the multipass user lookup names only principals it was given", () => {
   assert.deepEqual([users[0].username, users[0].attributes["multipass:given-name"][0], users[0].attributes["multipass:email:primary"][0]], ["john@ioi.local", "John", "john@ioi.local"]);
 });
 
-test("the editor opens a pipeline read-only: all-information carries Main's head, no compute profile, and no direct push", () => {
+test("the editor opens a pipeline read-only: all-information carries Main's head, the Hypervisor runtime as its one compute profile, and no direct push", () => {
   const ps = PIPELINE.pipelinesOf(families, sets);
   const intake = ps.find((p) => p.familyRef === "data-recipe://acme.intake");
   const info = PIPELINE.allInformation(intake.rid, null, ps, PIPELINE.uuidOf);
   assert.equal(info.mainSandbox, PIPELINE.mainSandboxIdOf(intake.familyRef));
   assert.deepEqual([info.sandbox.name, info.version.message], ["Main", "Revision 2"]);
   assert.equal(info.settings.settings.protectionsForPublishedSandboxes.allowDirectPush, false, "only a merged change set moves Main");
-  assert.deepEqual(info.availableBackendSettings.computeProfiles, []);
+  assert.deepEqual(info.availableBackendSettings.computeProfiles.map((c) => c.name), ["Hypervisor runtime"]);
+  assert.equal(info.availableBackendSettings.defaultComputeProfile, PIPELINE.RUNTIME_PROFILE.id);
+  assert.deepEqual(info.snapshot.backendSettings.computeProfile, { computeProfileId: PIPELINE.RUNTIME_PROFILE.id, arguments: {} }, "the deploy panel reads it unguarded");
   assert.equal(PIPELINE.allInformation("ri.eddie.main.pipeline.00000000-0000-4000-8000-000000000000", null, ps, PIPELINE.uuidOf), null);
   assert.deepEqual(PIPELINE.allSandboxes(intake.rid, ps, PIPELINE.uuidOf).sandboxes.map((s) => s.name), ["Main", "title bbbbbbbbbbbbbbbb"]);
 });
@@ -209,4 +211,20 @@ test("History: Main's timeline is the family's revisions and runs, newest first;
   assert.equal(c.currentDeployment, null);
   assert.deepEqual([c.backingBranchName, c.fallbackBranchNames], [sets[1].change_set_ref, ["master"]]);
   assert.deepEqual(PIPELINE.historyFacts(p, sid, { startVersionId: PIPELINE.draftVersionIdOf(sets[1].change_set_ref, 1) }, PIPELINE.uuidOf)["historyFromVersion:versionHistoryV2"].values.map((v) => v.commitMessage), ["Draft 1", "Revision 2"]);
+});
+
+test("Deploy is refused by name and admits nothing: Main names its head revision, a change set its drafts, a family with no revision the merge it needs", () => {
+  const ps = PIPELINE.pipelinesOf(families, sets);
+  const intake = ps.find((x) => x.familyRef === "data-recipe://acme.intake");
+  const claims = ps.find((x) => x.familyRef === "data-recipe://acme.claims");
+  const main = PIPELINE.mainSandboxIdOf(intake.familyRef);
+  const check = PIPELINE.checkDeployableAnswer(intake, main);
+  assert.equal(check.type, "notDeployable");
+  assert.deepEqual(check.notDeployable.supportedStateOverrides, { supportedStateStrategyOverrides: [] }, "required by the panel");
+  assert.match(check.notDeployable.errors[0].message, /head revision \(Revision 2\)\. The Pipeline Builder does not admit runs yet/u);
+  assert.match(PIPELINE.deployRefusalOf(intake, PIPELINE.changeSetSandboxIdOf(sets[1].change_set_ref)).message, /drafts are not admitted revisions/u);
+  assert.match(PIPELINE.deployRefusalOf(claims, PIPELINE.mainSandboxIdOf(claims.familyRef)).message, /Main holds no admitted revision yet/u);
+  assert.deepEqual(PIPELINE.deployAnswer(intake, main, "v").result.type, "failed");
+  assert.equal(PIPELINE.deployAnswer(intake, main, "v").versionId, "v", "the version sent is echoed, so the app loads no other");
+  assert.equal(PIPELINE.knowsSandbox(intake, "00000000-0000-4000-8000-000000000000"), false);
 });

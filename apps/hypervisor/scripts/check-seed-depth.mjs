@@ -78,7 +78,7 @@ const PINS = {
   // Before that, 2026-09-27 (R-241): Pipeline Builder's cut begins — 11 states harvested read-only (landing,
   // examples, the create form and its two choices, the editor's graph, add data, outputs, proposals, history,
   // deploy); all open until bound to DataRecipe revisions and TransformationRuns.
-  "pipeline-builder": { total: 18, bound: 10, refused: 2, named_gap: 3, open: 3 },
+  "pipeline-builder": { total: 18, bound: 10, refused: 2, named_gap: 4, open: 2 },
   // 2026-09-27 (R-241, Sessions cut 1): first rows — rename, auto-stop, Goal mode and the page's own port sync
   // refused by name; services and tasks named (absent planes); logs bound in the adapter but not yet live-asserted.
   sessions: { total: 7, bound: 0, refused: 4, named_gap: 2, open: 1 },

@@ -352,8 +352,12 @@ journey verifier → deploy to the owner's stack.
   change set's revision as a merged-proposal row) and TransformationRuns as deployments on Main, drafts on a
   change set; a queued run claims no deploy, and "Currently deployed" is the latest completed run's revision.
   Compare with… works over two aliases of one field (the resolver keys such facts `alias:field`).
-  `check:adopted-pipeline` 24/24. **Next:** Deploy (merge + admitting a TransformationRun), then the editor's
-  no-graph writes; graph edits wait on ADR 0057 (proposed).
+  `check:adopted-pipeline` 24/24.
+- **Deploy, refused by name (2026-09-27).** The deploy panel's check answers "Pipeline cannot be deployed" with
+  the reason under Details (the builder admits no TransformationRun yet and nothing executes a queued one; a
+  change set's drafts are not admitted revisions); a direct deploy fails the same way and admits nothing.
+  Deploying is gated on the edit operation the editor withholds until its writes are bound.
+  `check:adopted-pipeline` 26/26. **Next:** the editor's no-graph writes; graph edits wait on ADR 0057 (proposed).
 
 ### Arm A — the adopted apps are clicked (2026-09-27)
 

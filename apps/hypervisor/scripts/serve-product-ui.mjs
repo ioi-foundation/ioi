@@ -10069,7 +10069,19 @@ async function handleEstateRequest(req, res, body) {
         if ((m = at(`/eddie/api/pipeline-backend-feature-flags/(${PR})`)) && req.method === "GET") return (await holds(m[1])) ? send(200, []) : notFound();
         if ((m = at(`/eddie/api/work-state/(${PR})/[0-9a-f-]{36}/v2`)) && req.method === "GET") { if (!(await holds(m[1]))) return notFound(); res.writeHead(204); return res.end(); }
         if ((m = at(`/eddie/api/pipelines-v2/(${PR})/sandboxes/[0-9a-f-]{36}/session-heartbeats`)) && req.method === "GET") return (await holds(m[1])) ? send(200, { heartbeats: {} }) : notFound();
+        // The editor's presence ping (every ~20 s, unawaited: a refusal surfaced as an unhandled rejection on every open
+        // editor). No editing presence is kept, so it is received and nothing is recorded; the read above answers none.
+        if ((m = at(`/eddie/api/pipelines-v2/(${PR})/sandboxes/[0-9a-f-]{36}/session/[0-9a-f-]{36}/session-heartbeat`)) && req.method === "POST") { if (!(await holds(m[1]))) return notFound(); res.writeHead(204); return res.end(); }
         if ((m = at(`/eddie/api/deployment/(${PR})/sandboxes/[0-9a-f-]{36}/version/[0-9a-f-]{36}/targets/status`)) && req.method === "POST") return (await holds(m[1])) ? send(200, { statuses: {} }) : notFound();
+        // DEPLOY (named): the panel's deployability check and a deploy answer why a deploy cannot happen yet; no run is admitted.
+        if ((m = at(`/eddie/api/deployment/(${PR})/sandboxes/([0-9a-f-]{36})/(check-deployable|deploy-v2)`)) && req.method === "POST") {
+          const p = await holds(m[1]);
+          if (!p || !PIPELINE.knowsSandbox(p, m[2])) return notFound();
+          if (m[3] === "check-deployable") return send(200, PIPELINE.checkDeployableAnswer(p, m[2]));
+          let asked = {};
+          try { asked = JSON.parse(body.toString() || "{}"); } catch { /* none */ }
+          return send(200, PIPELINE.deployAnswer(p, m[2], typeof asked.currentVersionId === "string" ? asked.currentVersionId : null));
+        }
         // PROPOSALS (read): proposed change sets are open proposals, merged ones merged, rejected/abandoned closed.
         if ((m = at(`/eddie/api/pipelines-v2/(${PR})/proposals/by-created-at`)) && req.method === "POST") {
           const p = await holds(m[1]);
