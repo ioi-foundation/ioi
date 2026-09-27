@@ -131,3 +131,27 @@ test("the editor's GraphQL facts: the pipeline's resource in no project, its san
   const foreign = PIPELINE.pipelineEditorFactsRoot({ rid: "ri.foundry.main.dataset.00000000-0000-4000-8000-000000000000" }, ps, PIPELINE.uuidOf);
   assert.deepEqual([foreign.resourceMetadata, foreign.catalogDataset], [null, null]);
 });
+
+test("Create plans a founding change set: the recipe registry as location, standard batch compute, a family slugged from the name", () => {
+  const ps = PIPELINE.pipelinesOf(families, sets);
+  const REG = "ri.compass.main.folder.registry";
+  const plan = (req, extra = {}) => PIPELINE.createPipelinePlan({ createRequest: { parentFolder: REG, backend: "Spark", ...req }, ...extra }, ps, REG);
+  assert.deepEqual(plan({ name: "Claims Normalise (v1)" }), { family: "claims-normalise-v1", title: "Claims Normalise (v1)", draft: { name: "Claims Normalise (v1)" } });
+  assert.match(plan({ name: "x", parentFolder: "ri.compass.main.folder.project" }).issue, /recipe registry/u);
+  assert.match(plan({ name: "x", backend: "DataFusion" }).issue, /DataFusion/u);
+  assert.match(plan({ name: "x", backend: "Flink" }).issue, /streaming/u);
+  assert.match(plan({ name: "x", backend: "Databricks" }).issue, /external/u);
+  assert.match(plan({ name: "" }).issue, /needs a name/u);
+  assert.match(plan({ name: "!!!" }).issue, /letter or digit/u);
+  assert.match(plan({ name: "ACME.intake" }).issue, /already exists/u, "a family is identified by its slug");
+  assert.match(plan({ name: "fresh" }, { initialDisplay: { initialDisplay: { datasets: [{ rid: "ri.foundry.main.dataset.x" }] } } }).issue, /initial datasets/u);
+  assert.deepEqual(PIPELINE.createPipelinePlan({ name: "direct", parentFolder: REG }, ps, REG).family, "direct", "the plain create route's request, backend defaulting to standard");
+});
+
+test("Create answers the new pipeline with the founding change set's draft sandbox", () => {
+  const cs = { change_set_ref: "change://cs_eeeeeeeeeeeeeeee", title: "Fresh", status: "open", author_principal_ref: OP, created_at: "2026-09-27T12:00:00Z", subject: { kind: "data_recipe", family_ref: "data-recipe://fresh", base_revision_ref: null, base_head_ref: null }, drafts: [{ ordinal: 1, body: { name: "Fresh" }, author_principal_ref: OP, drafted_at: "2026-09-27T12:00:00Z" }] };
+  const ps = PIPELINE.pipelinesOf([], [cs]);
+  const answer = PIPELINE.createPipelineAnswer("data-recipe://fresh", cs, ps, PIPELINE.uuidOf);
+  assert.equal(answer.pipeline.name, "Fresh");
+  assert.deepEqual([answer.initialSandbox.id, answer.initialSandbox.isPublished], [PIPELINE.changeSetSandboxIdOf(cs.change_set_ref), false]);
+});

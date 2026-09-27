@@ -338,8 +338,14 @@ journey verifier → deploy to the owner's stack.
   caller holds no edit operation until drafts are bound; Main forbids a direct push (only a merged change set
   moves it); the graph honestly reads "not initialized" (steps are not derived into transforms). The
   markings reads and input resolution no longer hand out tenant records. `/workspace/builder` is an adopted
-  route alias. `check:adopted-pipeline` 14/14. **Next (cut 2c):** the editor's writes as drafts to a change
-  set (then Propose), Create as a founding change set, Proposals / History, Deploy = merge + TransformationRun.
+  route alias. `check:adopted-pipeline` 14/14.
+- **Cut 2c — Create (2026-09-27).** The adopted create form opens a FOUNDING change set (family = the name,
+  slugged) and lands in the editor on its draft sandbox. Ruling: a recipe is held in the owner's recipe
+  registry, never a project, so the location dialog offers "Data recipes" as its one location and a project is
+  refused by name; standard batch (Spark) is a TransformationRun, faster / streaming / external are refused by
+  name, as are initial datasets and a name whose family exists. `check:adopted-pipeline` 17/17. **Next
+  (cut 2d):** the editor's writes as drafts to the change set (then Propose), Proposals / History, Deploy =
+  merge + TransformationRun.
 
 ## Gate
 

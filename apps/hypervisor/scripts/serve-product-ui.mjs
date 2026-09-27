@@ -9217,6 +9217,9 @@ async function handleEstateRequest(req, res, body) {
       // One answer per adopted-app operation: bound (daemon truth) → the adapted harvest envelope → a named
       // gap. Never the mirror's loose GraphQL mock.
       const ADOPT_MIRROR_DIR = process.env.IOI_REFERENCE_MIRROR_DIR || join(REPO_ROOT, "internal-docs", "reverse-engineering", "palantir");
+      // A request made by the adopted Pipeline Builder's own pages (its location dialog answers differently
+      // from Automate's: a recipe family is held in the owner's recipe registry, never in a project).
+      const onPipelineSurface = () => /\/workspace\/builder(?:[/?#]|$)|\/__apps\/pipeline(?:[/?#]|$)/u.test(String(req.headers.referer || ""));
       // One read of what the adopted Pipeline Builder shows: the caller's DataRecipe families (each with its
       // revisions) and change sets, as pipelines (adopted-pipeline.mjs).
       const pipelineContext = async () => {
@@ -9251,6 +9254,18 @@ async function handleEstateRequest(req, res, body) {
         }
         // ADR 0056 P3 cut 3b — the function registry an adopted app reads (the Automate wizard's
         // Function effect): the Hypervisor's RELEASED function revisions, walked by the app's own query.
+        // The recipe registry as a folder the create form names after it is chosen; a view of it is not recorded.
+        const registryRid = AUTOMATE.projectFolderRid(PIPELINE.RECIPE_REGISTRY.project_id);
+        if (name === "FolderLocationQuery" && query && variables?.rid === registryRid) {
+          return { data: answerAdoptedDocument(query, { __typename: "Query", resourceMetadata: { __typename: "ResourceMetadata", rid: registryRid, name: PIPELINE.RECIPE_REGISTRY.name, path: `/${PIPELINE.RECIPE_REGISTRY.name}` } }, null, name) };
+        }
+        if (name === "ViewResourceMutation" && onPipelineSurface()) return { data: null, errors: [{ message: "ViewResourceMutation: the Hypervisor keeps no view history" }] };
+        if (AUTOMATE.SAVE_LOCATION_OPERATIONS.has(name) && query && onPipelineSurface()) {
+          // the create form's location: the recipe registry is the one location; a name is valid there when no
+          // pipeline of the caller's already carries it
+          const taken = (await pipelineContext()).map((p) => ({ project_id: PIPELINE.RECIPE_REGISTRY.project_id, name: p.name }));
+          return { data: answerAdoptedDocument(query, AUTOMATE.saveLocationFactsRoot([PIPELINE.RECIPE_REGISTRY], variables || {}, taken), null, name) };
+        }
         if (AUTOMATE.SAVE_LOCATION_OPERATIONS.has(name) && query) {
           const projects = await daemonFetch("/v1/hypervisor/projects").then((r) => r.json()).then((j) => j.projects || []).catch(() => []);
           return { data: answerAdoptedDocument(query, AUTOMATE.saveLocationFactsRoot(projects, variables || {}, ctxA.automations), null, name) };
@@ -9470,7 +9485,7 @@ async function handleEstateRequest(req, res, body) {
         }
         // The adopted Pipeline Builder, opened directly, reads over this single-operation gateway too: the same
         // answers as the bulk gateway, never the capture passthrough below.
-        if (gqlOp && PIPELINE.answersPipelineOperation(gqlName, gqlOp.variables || {})) {
+        if (gqlOp && (PIPELINE.answersPipelineOperation(gqlName, gqlOp.variables || {}) || (onPipelineSurface() && (AUTOMATE.SAVE_LOCATION_OPERATIONS.has(gqlName) || gqlName === "FolderLocationQuery" || gqlName === "ViewResourceMutation")))) {
           return sendJson(await answerAdoptedOp(gqlName, gqlOp.variables || {}, await automateContext(), String(gqlOp.query || "")));
         }
         if (gqlOp && AUTOMATE.ENVELOPE_OPERATIONS.has(gqlName)) {
@@ -9909,6 +9924,36 @@ async function handleEstateRequest(req, res, body) {
         // signed out, the picker offers nothing: the projects are the signed-in caller's to see
         return res.end(JSON.stringify(who.authenticated === true ? PIPELINE.compassSearchAnswer(request, projects, AUTOMATE.projectFolderRid, PIPELINE.uuidOf, who.principal?.principal_ref) : { result: [], nextPageToken: null }));
       }
+      // The create form checks its name in the recipe registry: valid unless one of the caller's pipelines is
+      // already over the family the name makes.
+      if (pathname === `/compass/api/resources/${AUTOMATE.projectFolderRid(PIPELINE.RECIPE_REGISTRY.project_id)}/checkName` && req.method === "POST") {
+        let asked = {};
+        try { asked = JSON.parse(body.toString() || "{}"); } catch { /* none */ }
+        const family = PIPELINE.familySlugOf(asked.name);
+        const free = !!family && !(await pipelineContext()).some((p) => p.familyRef === `data-recipe://${family}`);
+        res.writeHead(200, { "Content-Type": "application/json" });
+        return res.end(JSON.stringify(free));
+      }
+      // Create: the create form opens a FOUNDING change set for a new DataRecipe family (adopted-pipeline.mjs
+      // rules what it may carry); a refusal is the form's own error, and nothing is written.
+      if ((pathname === "/eddie/api/pipelines-v2/create-with-initial-display" || pathname === "/eddie/api/pipelines-v2/create") && req.method === "POST") {
+        const send = (status, obj) => { res.writeHead(status, { "Content-Type": "application/json" }); return res.end(JSON.stringify(obj)); };
+        const refuse = (message, status = 400) => send(status, { errorCode: "INVALID_ARGUMENT", errorName: "Eddie:PipelineNotSupportedByHypervisor", errorInstanceId: "", parameters: { message } });
+        let asked = {};
+        try { asked = JSON.parse(body.toString() || "{}"); } catch { return refuse("the request is not JSON"); }
+        const who = await daemonFetch("/v1/hypervisor/auth/whoami").then((r) => r.json()).catch(() => ({}));
+        if (who.authenticated !== true) return refuse("sign in to create a pipeline", 401);
+        const owner = (who.principal?.tenant_refs || []).find((t) => String(t).startsWith("org://"));
+        const plan = PIPELINE.createPipelinePlan(pathname.endsWith("/create") ? { createRequest: asked } : asked, await pipelineContext(), AUTOMATE.projectFolderRid(PIPELINE.RECIPE_REGISTRY.project_id));
+        if (plan.issue) return refuse(plan.issue);
+        const opened = await daemonFetch("/v1/hypervisor/change-sets", {
+          method: "POST", headers: { "content-type": "application/json" },
+          body: JSON.stringify({ owner_ref: owner, idempotency_key: `pipeline-create-${crypto.randomUUID()}`, subject: { kind: "data_recipe", family: plan.family }, title: plan.title, draft: plan.draft }),
+        }).then(async (r) => ({ status: r.status, j: await r.json().catch(() => ({})) })).catch(() => ({ status: 502, j: {} }));
+        if (opened.status !== 201 || !opened.j.change_set) return refuse(opened.j.error?.message || "the change-set plane did not open the founding change set", opened.status >= 400 ? opened.status : 409);
+        const answer = PIPELINE.createPipelineAnswer(`data-recipe://${plan.family}`, opened.j.change_set, await pipelineContext(), PIPELINE.uuidOf);
+        return answer ? send(200, answer) : refuse("the founding change set was opened but its pipeline could not be read back", 500);
+      }
       if (pathname === "/eddie/api/pipelines-v2/get/by-rids" && req.method === "POST") {
         let rids = [];
         try { rids = JSON.parse(body.toString() || "[]"); } catch { /* shape-tolerant */ }
@@ -10162,10 +10207,12 @@ async function handleEstateRequest(req, res, body) {
         let asked = null;
         try { asked = JSON.parse(body.toString() || "null"); } catch { /* none */ }
         const rids = Array.isArray(asked) ? asked : (asked && asked.rids) || [];
-        const [projects, who] = await Promise.all([
+        const [daemonProjects, who] = await Promise.all([
           daemonFetch("/v1/hypervisor/projects").then((r) => r.json()).then((j) => j.projects || []).catch(() => []),
           daemonFetch("/v1/hypervisor/auth/whoami").then((r) => r.json()).catch(() => ({})),
         ]);
+        // on the Pipeline Builder's pages the one location is the recipe registry
+        const projects = onPipelineSurface() ? [PIPELINE.RECIPE_REGISTRY] : daemonProjects;
         res.writeHead(200, { "Content-Type": "application/json" });
         // …and the output datasets the caller's pipelines declare (the Pipeline Builder landing's output pills).
         const datasets = pathname.endsWith("/resources") && rids.some((r) => String(r).startsWith("ri.foundry.main.dataset.")) ? PIPELINE.compassOutputDatasets(rids, await pipelineContext(), PIPELINE.uuidOf) : {};

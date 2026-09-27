@@ -288,7 +288,7 @@ export function compassSearchAnswer(request, projects, folderRidOf, userIdOf, ca
 // direct push: canon's patch branch is the only way a family's head moves (a change set merged).
 export const PIPELINE_EDITOR_OPERATIONS = new Set([
   "OntologiesQuery", "BackendTypeForLatestSandboxVersionQuery", "ActiveResourceQuery", "ResourceHeaderQuery",
-  "ProjectIcebergStorageQuery", "TargetProjectQuery", "DataConnectionSourceQuery", "ComputeExpressionIfAbsentStoresQuery",
+  "ProjectIcebergStorageQuery", "TargetProjectQuery", "DataConnectionSourceQuery", "ComputeExpressionIfAbsentStoresQuery", "SandboxBackendQuery",
   "CurrentDeploymentQuery", "ResolveEddieSandboxToGlobalBranch", "ResourceProjectQuery", "BranchSelectSearchQuery",
   "IssueBadgeData", "WalkthroughsForResourceQuery", "CommunicationChannelsQuery", "BackingObjectQuery", "CompassResourceViewQuery", "SaveResourceDialogQuery",
 ]);
@@ -389,4 +389,48 @@ export function allSandboxes(rid, pipelines, userIdOf) {
   if (!p) return null;
   const requests = [mainSandboxIdOf(p.familyRef), ...p.openChangeSets.map((cs) => changeSetSandboxIdOf(cs.change_set_ref))].map((sandboxId) => ({ pipelineRid: rid, sandboxId }));
   return { sandboxes: sandboxesWithSnapshots(requests, pipelines, userIdOf).sandboxes.map((s) => s.sandbox) };
+}
+
+// ---- CREATE (cut 2c): the create form opens a FOUNDING change set for a new DataRecipe family. A recipe
+// family is held in the owner's recipe registry, never in a project, so the form's location dialog offers
+// that registry as its one location ("Data recipes") and a project folder is refused by name. A recipe runs
+// as a TransformationRun on the Hypervisor's own runtime: the standard batch choice (Spark) is that; the
+// faster (DataFusion), streaming (Flink) and external (Databricks, Snowflake) choices have no counterpart and
+// are refused by name. The family's token is the name, slugged; a name whose family exists is refused.
+export const RECIPE_REGISTRY = {
+  project_id: "hypervisor-data-recipes",
+  name: "Data recipes",
+  description: "The owner's DataRecipe registry: a recipe family is held here, never in a project.",
+  created_at: "2026-09-27T00:00:00Z",
+};
+export const familySlugOf = (name) => String(name || "").toLowerCase().replace(/[^a-z0-9._-]+/gu, "-").replace(/^[^a-z0-9]+/u, "").replace(/-+$/u, "").slice(0, 128);
+const BACKEND_REFUSALS = {
+  DataFusion: "the faster compute (DataFusion) has no Hypervisor counterpart: a recipe runs as a TransformationRun on the Hypervisor's own runtime — choose Standard",
+  Flink: "a streaming pipeline has no Hypervisor counterpart: a recipe runs as one TransformationRun at a time — choose a batch pipeline",
+  Databricks: "external compute has no Hypervisor counterpart: a recipe runs on the Hypervisor's own runtime — choose Standard",
+  Snowflake: "external compute has no Hypervisor counterpart: a recipe runs on the Hypervisor's own runtime — choose Standard",
+};
+export function createPipelinePlan(body, pipelines, registryFolderRid) {
+  const req = body?.createRequest || body || {};
+  const name = String(req.name || "").trim();
+  if (!name) return { issue: "a pipeline needs a name" };
+  if (name.length > 200) return { issue: "a pipeline name is at most 200 characters" };
+  if (req.parentFolder !== registryFolderRid) return { issue: "a DataRecipe family is held in the owner's recipe registry, never in a project — choose Data recipes as the location" };
+  const backend = req.backend || "Spark";
+  if (backend !== "Spark") return { issue: BACKEND_REFUSALS[backend] || `the ${backend} compute has no Hypervisor counterpart — choose Standard` };
+  const family = familySlugOf(name);
+  if (!/^[a-z0-9][a-z0-9._-]{0,127}$/u.test(family)) return { issue: "the name must contain a letter or digit" };
+  if (pipelines.some((p) => p.familyRef === `data-recipe://${family}`)) return { issue: `a pipeline over the recipe family ${family} already exists — choose another name` };
+  // Initial datasets from the form's "add initial datasets" are not a recipe's inputs (a recipe reads
+  // connector mappings); they are refused rather than dropped.
+  if (Array.isArray(body?.initialDisplay?.initialDisplay?.datasets) && body.initialDisplay.initialDisplay.datasets.length) return { issue: "initial datasets are not a recipe's inputs (a recipe reads connector-mapping revisions) — create the pipeline without them" };
+  return { family, title: name, draft: { name } };
+}
+// The created pipeline and its initial sandbox — the founding change set's draft sandbox.
+export function createPipelineAnswer(familyRef, changeSet, pipelines, userIdOf) {
+  const p = pipelines.find((x) => x.familyRef === familyRef);
+  if (!p) return null;
+  const sandboxId = changeSetSandboxIdOf(changeSet.change_set_ref);
+  const got = sandboxesWithSnapshots([{ pipelineRid: p.rid, sandboxId }], pipelines, userIdOf).sandboxes[0];
+  return got ? { pipeline: pipelineEntry(p, userIdOf), initialSandbox: got.sandbox } : null;
 }

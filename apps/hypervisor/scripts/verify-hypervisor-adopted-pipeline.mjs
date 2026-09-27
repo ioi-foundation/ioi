@@ -124,6 +124,7 @@ async function run() {
     steps.join(",") === "200,200,200" && successor.status === 201 && founding.status === 201 && !!project.project?.id,
     `merge steps ${steps.join(",")} · successor ${successor.status} · founding ${founding.status} · project ${project.project?.id || "none"}`);
 
+  let createBody = null; // the adopted form's own create request (its registry location is reused below)
   // ---- 2. the adopted landing, in a browser ----------------------------------------------------------------
   const { chromium } = await import(path.join(ROOT, "node_modules", "playwright", "index.mjs"));
   const browser = await chromium.launch();
@@ -180,6 +181,36 @@ async function run() {
     ok("the editor's graph says it holds no transforms, rather than drawing any: a recipe's steps are not derived into the reference's transforms yet",
       /This pipeline has not been initialized/u.test(editor), editor.includes("has not been initialized") ? "not initialized" : "graph text absent");
 
+    // ---- Create, through the adopted form: the recipe registry is the one location; a founding change set --
+    pg.on("request", (r) => { if (/\/eddie\/api\/pipelines-v2\/create/u.test(r.url())) { try { createBody = JSON.parse(r.postData() || "null"); } catch { /* not JSON */ } } });
+    await pg.goto(`${SERVE}/workspace/builder/create-pipeline`, { waitUntil: "domcontentloaded", timeout: 60000 });
+    await pg.waitForTimeout(9000);
+    await pg.getByText("Select location", { exact: true }).first().click({ timeout: 8000 }).catch(() => { /* named below */ });
+    for (let i = 0; i < 20 && !(await pg.getByText("Choose pipeline location").count()); i++) await pg.waitForTimeout(1000);
+    await pg.waitForTimeout(3000);
+    const dialog = (await pg.evaluate(() => document.body.innerText)).replace(/\s+/gu, " ");
+    await pg.getByText("Data recipes", { exact: true }).first().click({ timeout: 8000 }).catch(() => { /* named below */ });
+    await pg.waitForTimeout(1500);
+    await pg.getByRole("button", { name: "Save", exact: true }).first().click({ timeout: 5000 }).catch(() => { /* named below */ });
+    await pg.waitForTimeout(3000);
+    await pg.locator("input").first().fill("Claims normalise");
+    await pg.waitForTimeout(800);
+    const form = (await pg.evaluate(() => document.body.innerText)).replace(/\s+/gu, " ");
+    ok("the create form's location dialog offers the recipe registry (Data recipes) as its one location, and the form then names it",
+      /Choose pipeline location/u.test(dialog) && /Data recipes/u.test(dialog) && /\/Data recipes/u.test(form) && !/Unable to load location/u.test(form),
+      `dialog "${dialog.slice(Math.max(0, dialog.indexOf("Choose pipeline location")), Math.max(0, dialog.indexOf("Choose pipeline location")) + 160)}" · form "${form.slice(form.indexOf("Name and location"), form.indexOf("Name and location") + 80)}"`);
+    await pg.getByRole("button", { name: "Create pipeline", exact: true }).first().click({ timeout: 5000 }).catch(() => { /* named below */ });
+    await pg.waitForTimeout(15000);
+    await pg.getByText("Close", { exact: true }).first().click({ timeout: 2000 }).catch(() => { /* no announcement */ });
+    const createdUrl = pg.url().replace(SERVE, "");
+    const createdText = (await pg.evaluate(() => document.body.innerText)).replace(/\s+/gu, " ");
+    const founded = ((await daemonReq("GET", "/v1/hypervisor/change-sets?family=claims-normalise")).body?.change_sets || [])[0] || null;
+    ok("Create pipeline opens a FOUNDING change set for a new DataRecipe family (no revision is admitted) and lands in the editor on its draft sandbox",
+      /^\/workspace\/builder\/ri\.eddie\.main\.pipeline\.[0-9a-f-]{36}\/sandbox\/[0-9a-f-]{36}$/u.test(createdUrl) && /Claims normalise/u.test(createdText)
+        && founded?.status === "open" && founded.title === "Claims normalise" && founded.subject?.base_revision_ref === null && founded.drafts?.[0]?.body?.name === "Claims normalise"
+        && createBody?.createRequest?.backend === "Spark",
+      `${createdUrl} · change set ${JSON.stringify(founded && [founded.status, founded.title, founded.subject?.family_ref, founded.subject?.base_revision_ref])} · backend ${createBody?.createRequest?.backend}`);
+
     // The mirror still answers the reference's CHROME reads, and the four builder reads named open in the
     // seed-depth record (the transform catalog and its expression examples, the AIP toggle, the editor's
     // display settings); anything else is a new lane reaching recorded tenant answers, and fails here until
@@ -188,6 +219,7 @@ async function run() {
       "GET /aip-assist/api/chat/checkAvailability", "GET /multipass/api/sessions/definitions/current", "GET /multipass/api/sessions/selection",
       "GET /workspace/api/lifecycleStatusByApplication", "POST /documentation/api/v2/release-notes/pagination", "POST /documentation/api/v2/release-notes/paginationV2",
       "POST /log-receiver/api/beacon", "GET /language-model-service/api/config/v1/enabled", "POST /people/api/eventsink/create-events",
+      "GET /compass/api/registry/actions",
     ]);
     const NAMED_OPEN = new Set(["GET /eddie/api/transformations/all", "POST /eddie/api/examples/get", "POST /eddie/api/natural-language-converter/aip-enabled", "GET /eddie/api/pipeline-builder-settings"]);
     const unexpected = [...passthroughs].filter((p) => !CHROME_PASSTHROUGHS.has(p) && !NAMED_OPEN.has(p));
@@ -208,8 +240,8 @@ async function run() {
   const names = Object.values(byRids.body?.pipelines || {}).map((p) => p.name).sort();
   const one = rids.length ? await serveJson("GET", `/eddie/api/pipelines-v2/${rids[0]}`) : { status: 0 };
   const none = await serveJson("GET", `/eddie/api/pipelines-v2/${foreign}`);
-  ok("the pipeline details answer the caller's pipelines only — a rid that is not theirs is left out of a batch and refused alone",
-    rids.length === 2 && names.join(",") === "claims-triage,intake-normalise" && !(foreign in (byRids.body?.pipelines || {})) && !byRids.passthrough && one.status === 200 && none.status === 404,
+  ok("the pipeline details answer the caller's pipelines only — the one just created among them — and a rid that is not theirs is left out of a batch and refused alone",
+    rids.length === 3 && names.join(",") === "Claims normalise,claims-triage,intake-normalise" && !(foreign in (byRids.body?.pipelines || {})) && !byRids.passthrough && one.status === 200 && none.status === 404,
     `search ${rids.length} · by-rids ${names.join(",")} · one ${one.status} · foreign ${none.status}`);
 
   const details = Object.values(byRids.body?.pipelines || {});
@@ -247,6 +279,22 @@ async function run() {
       && JSON.stringify(Object.keys(access.body?.categoryAndMarkingIds || {})) === JSON.stringify([operatorId]) && access.body.categoryAndMarkingIds[operatorId].markingIds.length === 0
       && Array.isArray(usable.body?.categories) && usable.body.categories.length === 0 && !ops.passthrough && !access.passthrough && !usable.passthrough,
     `ops ${JSON.stringify(opsMap)} · access ${JSON.stringify(Object.keys(access.body?.categoryAndMarkingIds || {}))} · usable ${usable.body?.categories?.length}`);
+
+  // Create's refusals, each by name and each writing nothing: a project as the location, a compute with no
+  // Hypervisor counterpart, a name whose family exists, and a signed-out caller.
+  const registry = createBody?.createRequest?.parentFolder || "";
+  const create = (req, cookie = true) => fetch(`${SERVE}/eddie/api/pipelines-v2/create-with-initial-display`, { method: "POST", headers: { "content-type": "application/json", ...(cookie ? { cookie: COOKIE } : {}) }, body: JSON.stringify({ createRequest: req }) }).then(async (r) => ({ status: r.status, message: (await r.json().catch(() => ({})))?.parameters?.message || "" })).catch(() => ({ status: 0, message: "" }));
+  const before = ((await daemonReq("GET", "/v1/hypervisor/change-sets")).body?.change_sets || []).length;
+  const inProject = await create({ name: "In a project", parentFolder: "ri.compass.main.folder.00000000-0000-4000-8000-000000000000", backend: "Spark" });
+  const faster = await create({ name: "Faster one", parentFolder: registry, backend: "DataFusion" });
+  const streaming = await create({ name: "Streaming one", parentFolder: registry, backend: "Flink" });
+  const duplicate = await create({ name: "Claims normalise", parentFolder: registry, backend: "Spark" });
+  const anonymous = await create({ name: "Anonymous", parentFolder: registry, backend: "Spark" }, false);
+  const after = ((await daemonReq("GET", "/v1/hypervisor/change-sets")).body?.change_sets || []).length;
+  ok("Create refuses by name a project as the location, faster and streaming compute, a name whose family exists, and a signed-out caller — and writes nothing",
+    !!registry && inProject.status === 400 && /recipe registry/u.test(inProject.message) && faster.status === 400 && /DataFusion/u.test(faster.message)
+      && streaming.status === 400 && /streaming/u.test(streaming.message) && duplicate.status === 400 && /already exists/u.test(duplicate.message) && anonymous.status === 401 && after === before,
+    `project ${inProject.status} · faster ${faster.status} · streaming ${streaming.status} · duplicate ${duplicate.status} · anonymous ${anonymous.status} · change sets ${before} → ${after}`);
 
   // Signed out, neither the picker nor the lookup names anything (the daemon answers some reads to an
   // anonymous loopback caller; these answers are the signed-in caller's to see).
