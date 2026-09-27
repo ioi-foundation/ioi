@@ -189,101 +189,16 @@
   // It drove the GoalRun activation plane, which is gone: goal runs are ioi.ai compositions over
   // the Hypervisor's thread orchestration primitives, not Hypervisor objects. The composer stays
   // Session-first, which is what it always was; nothing here turns a session into a pursuit.
-  let nativeSessionBusy = false;
-  function composerPrompt() {
-    const input = document.querySelector('[data-testid="prompt-input-textarea"]');
-    return input ? String(input.value || "").trim() : "";
-  }
-  function sessionPanel() { return document.getElementById("ioi-session-panel"); }
-  function statusHtml(label, value) {
-    return '<div class="flex items-start justify-between gap-3" style="padding:3px 0"><span class="text-xs text-content-tertiary">' + esc(label) + '</span><code class="text-xs text-content-primary" style="max-width:68%;overflow-wrap:anywhere;text-align:right">' + esc(value || "—") + "</code></div>";
-  }
-  function renderNativeSessionError(status, payload) {
-    const error = (payload && payload.error) || {};
-    const panel = sessionPanel();
-    if (!panel) return;
-    panel.style.display = "block";
-    panel.innerHTML = '<div class="rounded-lg border border-border-error bg-surface-01 text-sm text-content-negative" style="padding:12px"><b>Session creation refused</b><br><code>' + esc(error.code || (status ? "HTTP " + status : "session_unavailable")) + '</code><br><span class="text-content-secondary">' + esc(error.message || "The daemon did not admit a bounded Session.") + "</span>" + signInHint(error.code) + "</div>";
-  }
-  // A local browser reads as the local operator, but the daemon admits a Session only for an
-  // authenticated principal — and in local development nothing ever sends a person to sign in. The
-  // refusal is the one moment they need the way there, so it carries it (R-240).
-  function signInHint(code) {
-    return code === "request_principal_required"
-      ? '<br><a href="/__ioi/login" target="_top" style="text-decoration:underline">Sign in</a> <span class="text-content-secondary">to start Sessions, then submit again.</span>'
-      : "";
-  }
-  function syncNativeSessionButton() {
-    const button = document.querySelector('[data-testid="prompt-input-submit-button"]');
-    if (!button || location.pathname !== "/ai" || location.hash !== "#new-session") return;
-    const ready = composerPrompt().length > 0 && !nativeSessionBusy;
-    button.disabled = !ready;
-    button.setAttribute("aria-disabled", ready ? "false" : "true");
-    button.setAttribute("aria-busy", nativeSessionBusy ? "true" : "false");
-    button.setAttribute("data-ioi-session-rebound", "true");
-  }
-  // R-240: THE COMPOSER STARTS THE WORK AND LANDS ON THE SESSION VIEW. It used to POST a bare daemon
-  // Session — which attaches the prompt and runs NOTHING — and show "Session ready" beside a link to the
-  // /__ioi/sessions readout that M13.4 took out of product navigation. The session never appeared in
-  // the rail's Sessions and had no session view to open. It now calls the ported bundle's OWN submit,
-  // AgentService/CreateAgentSession — a real environment, a bound Session, the harness run — and goes
-  // where the bundle goes after it: /details/:environmentId, the reference-ported session view M13.4
-  // designates. The ONLY thing this intercept still skips is the vendor's payment-method verification
-  // gate, which a self-hosted deployment has no billing to satisfy. CreateAgentSession activates no
-  // goal run; nothing here turns a session into a pursuit.
-  async function submitNativeSession() {
-    if (nativeSessionBusy) return;
-    const prompt = composerPrompt();
-    if (!prompt) { renderNativeSessionError(422, { error: { code: "session_initial_input_required", message: "Describe the Session before submitting." } }); return; }
-    nativeSessionBusy = true;
-    syncNativeSessionButton();
-    try {
-      const response = await fetch("/api/ioi.v1.AgentService/CreateAgentSession", {
-        method: "POST",
-        headers: { "content-type": "application/json", "connect-protocol-version": "1" },
-        body: JSON.stringify({ initialInput: { inputs: [{ text: { content: prompt } }] } }),
-      });
-      const payload = await response.json().catch(() => ({}));
-      const envId = payload && payload.environment && payload.environment.id;
-      if (!response.ok || !envId) {
-        const error = payload.error || (payload.code ? { code: payload.code, message: payload.message } : {});
-        renderNativeSessionError(response.status, { error });
-        return;
-      }
-      location.assign("/details/" + encodeURIComponent(envId));
-    } catch (error) {
-      renderNativeSessionError(0, { error: { code: "session_daemon_unavailable", message: String(error?.message || error) } });
-    } finally {
-      nativeSessionBusy = false;
-      syncNativeSessionButton();
-    }
-  }
-  function bindNativeSessionComposer() {
-    const input = document.querySelector('[data-testid="prompt-input-textarea"]');
-    const button = document.querySelector('[data-testid="prompt-input-submit-button"]');
-    if (!input || !button) return;
-    if (input.getAttribute("data-ioi-session-rebound") !== "true") {
-      input.setAttribute("data-ioi-session-rebound", "true");
-      input.addEventListener("input", () => setTimeout(syncNativeSessionButton, 0));
-      input.addEventListener("keydown", (event) => {
-        if (event.key !== "Enter" || event.shiftKey || event.isComposing) return;
-        event.preventDefault(); event.stopImmediatePropagation(); submitNativeSession();
-      });
-    }
-    if (button.getAttribute("data-ioi-session-handler") !== "true") {
-      button.setAttribute("data-ioi-session-handler", "true");
-      button.addEventListener("click", (event) => {
-        event.preventDefault(); event.stopImmediatePropagation(); submitNativeSession();
-      });
-    }
-    syncNativeSessionButton();
-  }
+  // R-240 Arm A on Sessions: the composer's submit is the shell's OWN (AgentService/CreateAgentSession, with the project,
+  // environment class and mode the composer chose). An intercept used to rebind it, only to skip the vendor's payment
+  // verification, and sent the prompt alone — every session was filed under no project and Plan reached the harness
+  // as an Agent turn. The payment check needs no skipping (a self-hosted deployment's billing answers verified), so
+  // nothing here touches the submit.
   // Advanced-launch affordance on the New Session composer view — opens the owned governed modal
   // (registry-fed harness/model with disabled-reasons, venue picker, placement preview) so the
   // full admitted lane stays one click away from the polished composer. The "Activate Goal"
-  // button that stood beside it retired with the GoalRun activation plane (R-192, S5-1). The
-  // seed's otherwise disabled submit is rebound in place to the daemon Session contract, and no
-  // affordance here turns that act into a pursuit.
+  // button that stood beside it retired with the GoalRun activation plane (R-192, S5-1); no
+  // affordance here turns a session into a pursuit.
   function mountAdvancedLaunch(contents) {
     if (document.getElementById("ioi-ns-advanced")) return;
     const wrap = document.createElement("div");
@@ -311,7 +226,6 @@
       if (root) root.style.display = "none";
       native.style.display = "";
       mountAdvancedLaunch(contents);
-      bindNativeSessionComposer();
       return;
     }
     if (!root) {

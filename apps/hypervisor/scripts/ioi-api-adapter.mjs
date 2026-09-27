@@ -28,6 +28,7 @@ import {
   runToAgentExecution,
   extractPrompt,
   extractEnvClass,
+  extractProjectId,
   extractAuthorityProfile,
   extractModelRouteRef,
 } from "./ioi-agent-runs.mjs";
@@ -377,8 +378,7 @@ function environmentUpdateRefusal(body) {
 // read from the vendored bundle: `turnOptions.modes: ["AGENT_MODE_GOAL"]` (on CreateAgentSession's
 // `agent`, StartAgent, and SendToAgentExecution), the prompt prefix `/ioi:goal ` it prepends in Goal
 // mode, and `controlInput.goal.{set,pause,resume,complete,clear}`. `/goal` in the composer only toggles
-// the mode client-side; typed as the head of a prompt it is the same command. Plan (`AGENT_MODE_SPEC`,
-// `/ioi:spec `) and Agent turns are untouched.
+// the mode client-side; typed as the head of a prompt it is the same command. Agent turns are untouched.
 const GOAL_MODES = new Set(["AGENT_MODE_GOAL", "GOAL", 5, "5"]);
 function goalModeMarker(body) {
   const modeLists = [
@@ -393,7 +393,21 @@ function goalModeMarker(body) {
   return null;
 }
 const goalModeRefusal = (marker) =>
-  jsonStatus(501, { code: "unimplemented", message: `goal_mode_not_in_hypervisor: Goal mode (${marker}) is not a Hypervisor feature — goal pursuit is an ioi.ai composition over thread primitives. Use Agent or Plan mode here; nothing was started or sent` });
+  jsonStatus(501, { code: "unimplemented", message: `goal_mode_not_in_hypervisor: Goal mode (${marker}) is not a Hypervisor feature — goal pursuit is an ioi.ai composition over thread primitives. Use Agent mode here; nothing was started or sent` });
+
+// PLAN MODE HAS NO COUNTERPART (R-240 Arm A on Sessions, ruled 2026-09-27). The composer marks a Plan turn as
+// `turnOptions.modes: ["AGENT_MODE_SPEC"]` and the prompt prefix `/ioi:spec `. Nothing downstream interprets
+// either: the harness receives the text and runs an ordinary agent turn with the environment's full authority, so a
+// person asking for a plan could have files changed. Until a plan (read-only) turn exists, it is refused by name.
+const PLAN_MODES = new Set(["AGENT_MODE_SPEC", "SPEC"]);
+function planModeMarker(body) {
+  const modeLists = [body?.turnOptions?.modes, body?.agent?.turnOptions?.modes, body?.userInput?.metadata?.modes, body?.initialInput?.metadata?.modes];
+  if (modeLists.some((modes) => Array.isArray(modes) && modes.some((m) => PLAN_MODES.has(m)))) return "turnOptions.modes AGENT_MODE_SPEC";
+  if (/^\/(?:ioi:)?spec(?:\s|$)/u.test(extractPrompt(body))) return "a /spec prompt";
+  return null;
+}
+const planModeRefusal = (marker) =>
+  jsonStatus(501, { code: "unimplemented", message: `plan_mode_not_supported: Plan mode (${marker}) has no read-only turn in the Hypervisor harness — it would run as an Agent turn with the environment's full authority and could change files. Use Agent mode; nothing was started or sent` });
 
 // LOGS (Sessions cut 1). The Logs pane mints a token (CreateEnvironmentLogsToken → a real env-scoped
 // lease, the same one CreateEnvironmentAccessToken mints), then GETs `status.environmentUrls.logs`
@@ -810,6 +824,8 @@ async function handleImpl(pathname, bodyText) {
   ) {
     const marker = goalModeMarker(body);
     if (marker) return goalModeRefusal(marker);
+    const plan = planModeMarker(body);
+    if (plan) return planModeRefusal(plan);
   }
   try {
     if (pathname.startsWith("/api/ioi.v1.AgentService/")) {
@@ -827,6 +843,8 @@ async function handleImpl(pathname, bodyText) {
     if (pathname === "/api/ioi.v1.AgentService/CreateAgentSession") {
       const prompt = extractPrompt(body) || "Work in this environment.";
       const environmentClassId = extractEnvClass(body) || "local-workspace-v0";
+      // the composer's chosen project (its createEnvironmentFromProject), or none for a scratch session
+      const projectId = extractProjectId(body);
       if (process.env.IOI_HYPERVISOR_DEBUG) console.error("[ioi-api-adapter] CreateAgentSession body:", bodyText.slice(0, 800));
       let started;
       try {
@@ -834,6 +852,7 @@ async function handleImpl(pathname, bodyText) {
           daemonBase: DAEMON,
           prompt,
           environmentClassId,
+          projectId,
           daemonHeaders: currentDaemonHeaders(),
           authorityProfile: extractAuthorityProfile(body),
           modelRouteRef: extractModelRouteRef(body),
@@ -961,10 +980,17 @@ async function handleImpl(pathname, bodyText) {
     // authenticated reflects whether a host credential is sealed in the daemon.
     const host = body.host || body.host_name || "github.com";
     let authenticated = false;
+    let githubHost = "github.com";
     try {
       const r = await daemon("GET", "/v1/hypervisor/scm-connectors");
+      githubHost = (r.connectors || []).find((c) => c.kind === "github" && c.host_level)?.host || "github.com";
       authenticated = (r.connectors || []).some((c) => c.host === host && c.auth_posture === "token-lease:bound");
     } catch { /* daemon transient */ }
+    // A host no source-control integration covers (the runner's one integration is GitHub's) has nothing to
+    // authenticate against: answering "GitHub, not authenticated" for it blocked the composer's submit for every
+    // project hosted elsewhere (R-240 Arm A on Sessions). The shell reads Unimplemented as "no authentication step";
+    // whether the clone succeeds is then the repository's own access.
+    if (host !== githubHost) return jsonStatus(501, { code: "unimplemented", message: `no_scm_integration_for_host: no source-control integration covers ${host}; there is nothing to authenticate against` });
     // CheckAuthenticationForHostResponse has both an older boolean (`pat_supported`) and the
     // current PAT method object (`supports_pat`). The settings row reads `supportsPat`, but the
     // generated decoder still expects the message shape — returning a boolean makes the hook retry

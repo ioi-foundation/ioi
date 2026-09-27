@@ -310,6 +310,12 @@ export function extractPrompt(body) {
   return "";
 }
 
+// The composer's chosen project: CreateAgentSession's `createEnvironmentFromProject.projectId` (oneof flattened).
+export function extractProjectId(body) {
+  const pid = body?.createEnvironmentFromProject?.projectId ?? body?.environment?.createEnvironmentFromProject?.projectId ?? body?.environment?.value?.projectId ?? null;
+  return typeof pid === "string" && pid.trim() ? pid.trim() : null;
+}
+
 // Extract the chosen environment class id from the CreateEnvironment spec (oneof flattened).
 export function extractEnvClass(body) {
   const specs = [
@@ -415,6 +421,7 @@ export async function startAgentRun({
   daemonBase,
   prompt,
   environmentClassId,
+  projectId = null,
   daemonHeaders = {},
   authorityProfile = null,
   modelRouteRef = null,
@@ -433,7 +440,9 @@ export async function startAgentRun({
   };
 
   const cls = environmentClassId || "local-workspace-v0";
-  const created = await dj("POST", "/v1/hypervisor/environments", { spec: { environment_class_id: cls, project_id: "ai-session" } });
+  // the session's project is the one the composer chose (R-240 Arm A: every session was filed under "ai-session",
+  // so none was grouped under its project and "Go to project" stayed disabled); a scratch session keeps none
+  const created = await dj("POST", "/v1/hypervisor/environments", { spec: { environment_class_id: cls, project_id: projectId || "ai-session" } });
   const envRecord = created.body?.environment;
   const envId = envRecord?.id;
   if (!envId) throw new Error(`env create failed (${created.status})`);
@@ -442,7 +451,7 @@ export async function startAgentRun({
 
   const id = genId("agent");
   const sessionRef = `session:ai-${id}`;
-  const sessionCreate = await dj("POST", "/v1/hypervisor/sessions", { session_ref: sessionRef, project_ref: "project:ai", environment_id: envId, ...(authorityProfile ? { authority_profile: authorityProfile } : {}), ...(modelRouteRef ? { model_route_ref: modelRouteRef } : {}) });
+  const sessionCreate = await dj("POST", "/v1/hypervisor/sessions", { session_ref: sessionRef, project_ref: projectId || "project:ai", environment_id: envId, ...(authorityProfile ? { authority_profile: authorityProfile } : {}), ...(modelRouteRef ? { model_route_ref: modelRouteRef } : {}) });
   if (authorityProfile && sessionCreate.status >= 400) {
     // The daemon refused the profile (unknown or UNBOUNDED connection): the run cannot be created
     // under a profile the daemon did not admit, and it must not silently fall back to no profile.

@@ -150,6 +150,33 @@ async function run() {
     ok("the session details card renders (its runner is named), rather than a skeleton forever",
       /Created/u.test(card) && /Last started/u.test(card) && skeletons < 3, `skeletons ${skeletons} · created ${/Created/u.test(card)} · last started ${/Last started/u.test(card)}`);
 
+    // ---- the composer: the shell's own submit, with the project it chose ------------------------------------
+    const before = new Set(Object.keys(await phases()));
+    await pg.goto(`${SERVE}/ai#new-session`, { waitUntil: "domcontentloaded", timeout: 60000 });
+    await pg.waitForTimeout(8000);
+    await pg.getByRole("button", { name: "Add context" }).first().click({ timeout: 4000 }).catch(() => { /* named below */ });
+    await pg.waitForTimeout(1000);
+    await pg.getByText(/Start from project/u).first().click({ timeout: 4000 }).catch(() => { /* named below */ });
+    await pg.waitForTimeout(1500);
+    await pg.getByText("sessions-shell", { exact: true }).first().click({ timeout: 4000 }).catch(() => { /* named below */ });
+    await pg.waitForTimeout(1500);
+    await pg.locator('[data-testid="prompt-input-textarea"]').fill("Document the build steps", { timeout: 4000 }).catch(() => { /* named below */ });
+    await pg.waitForTimeout(800);
+    // the composer then asks for a session class (the picker opens by itself; else open it)
+    const firstClass = pg.getByText("local microVM node (Phase 1 lifecycle)", { exact: true }).first();
+    if (!(await firstClass.isVisible().catch(() => false))) { await pg.getByRole("button", { name: /Session class/u }).first().click({ timeout: 3000 }).catch(() => { /* no picker */ }); await pg.waitForTimeout(800); }
+    await firstClass.click({ timeout: 3000 }).catch(() => { /* named below */ });
+    await pg.waitForTimeout(1500);
+    const composerSubmit = pg.locator('[data-testid="prompt-input-submit-button"]');
+    const submitEnabled = !(await composerSubmit.isDisabled().catch(() => true));
+    await composerSubmit.click({ timeout: 4000 }).catch(() => { /* named below */ });
+    await pg.waitForTimeout(12000);
+    const created = Object.keys(await phases()).filter((id) => !before.has(id));
+    const createdEnv = ((await daemonReq("/v1/hypervisor/environments")).environments || []).find((e) => created.includes(e.id));
+    ok("the composer's own submit files the new session under the project it chose (it had sent the prompt alone, so every session was filed under no project), and lands on the session",
+      submitEnabled && created.length === 1 && createdEnv?.spec?.project_id === project && /\/details\//u.test(pg.url()),
+      `submit enabled ${submitEnabled} · created ${created.length} · project ${createdEnv?.spec?.project_id} (want ${project}) · at ${pg.url().replace(SERVE, "")}`);
+
     // ---- personal settings: a named gap, not a blank page ---------------------------------------------------
     await pg.goto(`${SERVE}/settings/preferences`, { waitUntil: "domcontentloaded", timeout: 60000 });
     await pg.waitForTimeout(6000);
@@ -159,6 +186,14 @@ async function run() {
   } finally {
     await browser.close();
   }
+
+  // ---- Plan mode: refused by name before anything is created ---------------------------------------------------
+  const envCountBefore = ((await daemonReq("/v1/hypervisor/environments")).environments || []).length;
+  const planned = await api("AgentService/CreateAgentSession", { createEnvironmentFromProject: { projectId: project, spec: {} }, agent: { turnOptions: { modes: ["AGENT_MODE_SPEC"] } }, initialInput: { inputs: [{ text: { content: "plan the migration" } }] } });
+  const envCountAfter = ((await daemonReq("/v1/hypervisor/environments")).environments || []).length;
+  ok("a Plan session is refused by name (no read-only turn exists; it would run with the environment's full authority) and creates nothing",
+    planned.status === 501 && /plan_mode_not_supported/u.test(JSON.stringify(planned.j)) && envCountAfter === envCountBefore,
+    `status ${planned.status} · ${JSON.stringify(planned.j).slice(0, 120)} · environments ${envCountBefore} → ${envCountAfter}`);
 
   // ---- preferences: a disposable serve keeps its own store ----------------------------------------------------
   await api("UserService/SetPreference", { preference: { key: "sessions-shell-probe", value: "isolated" } });

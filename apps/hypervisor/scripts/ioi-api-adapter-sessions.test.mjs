@@ -167,18 +167,22 @@ test("the org Agent-policies Goal-mode save (an agentPolicy goal member) is refu
   assert.match(messageOf(out), /^goal_mode_not_in_hypervisor: Goal mode \(agentPolicy\.codexGoalModeEnabled\)/u);
 });
 
-test("Plan mode (AGENT_MODE_SPEC, /ioi:spec) and Agent mode still reach the daemon as a turn", async () => {
+test("Plan mode (AGENT_MODE_SPEC, /ioi:spec) is refused by name and sends nothing; Agent mode still reaches the daemon as a turn", async () => {
+  // Ruled 2026-09-27 (R-240 Arm A): nothing downstream interprets a Plan turn, so it would run as an Agent turn with
+  // the environment's full authority and could change files.
   calls.length = 0;
-  const plan = await rpc("AgentService/SendToAgentExecution", {
-    agentExecutionId: "thread_1",
-    turnOptions: { modes: ["AGENT_MODE_SPEC"] },
-    userInput: { inputs: [{ text: { content: "/ioi:spec outline the migration" } }] },
-  });
-  assert.equal(plan.status ?? 200, 200);
+  const byMode = await rpc("AgentService/SendToAgentExecution", { agentExecutionId: "thread_1", turnOptions: { modes: ["AGENT_MODE_SPEC"] }, userInput: { inputs: [{ text: { content: "outline the migration" } }] } });
+  assert.equal(byMode.status, 501);
+  assert.match(messageOf(byMode), /^plan_mode_not_supported: Plan mode \(turnOptions\.modes AGENT_MODE_SPEC\)/u);
+  const byPrefix = await rpc("AgentService/SendToAgentExecution", { agentExecutionId: "thread_1", userInput: { inputs: [{ text: { content: "/ioi:spec outline the migration" } }] } });
+  assert.equal(byPrefix.status, 501);
+  const onCreate = await rpc("AgentService/CreateAgentSession", { agent: { turnOptions: { modes: ["AGENT_MODE_SPEC"] } }, initialInput: { inputs: [{ text: { content: "plan it" } }] } });
+  assert.equal(onCreate.status, 501, "no environment is created for a Plan session");
   const agent = await rpc("AgentService/SendToAgentExecution", { agentExecutionId: "thread_1", userInput: { inputs: [{ text: { content: "fix the failing test" } }] } });
   assert.equal(agent.status ?? 200, 200);
   const turns = calls.filter((c) => c.key === "POST /v1/threads/thread_1/turns").map((c) => JSON.parse(c.body).text);
-  assert.deepEqual(turns, ["/ioi:spec outline the migration", "fix the failing test"]);
+  assert.deepEqual(turns, ["fix the failing test"]);
+  assert.equal(calls.filter((c) => /environments$/u.test(c.key)).length, 0);
 });
 
 // ---- 4. Logs: a real lease token, validated, then the daemon's session log as text/plain -------------
@@ -284,4 +288,10 @@ test("an environment names its organization and runner; an offered editor resolv
   const unknown = await resolve("emacs");
   assert.equal(unknown.status, 412);
   assert.match(unknown.body, /editor_not_offered/u);
+});
+
+test("the composer's chosen project is read from CreateAgentSession's createEnvironmentFromProject", async () => {
+  const { extractProjectId } = await import("./ioi-agent-runs.mjs");
+  assert.equal(extractProjectId({ createEnvironmentFromProject: { projectId: "project:acme", spec: {} } }), "project:acme");
+  assert.equal(extractProjectId({ createEnvironment: { spec: {} } }), null, "a scratch session names no project");
 });
