@@ -196,7 +196,7 @@ function renderApprovalsPort(records, statusFilter, opts) {
     <div class="ap-fsec">Additional filters <a class="ap-clear" href="/__ioi/governance/approvals">Clear</a></div>
     <form class="ap-ff" method="GET" action="/__ioi/governance/approvals">
       <label class="ap-flabel">Request type</label>
-      <select class="ap-fsel" name="kind" onchange="this.form.submit()" aria-label="Request type"><option value="">All request types</option>${kinds.map((k) => `<option value="${esc(k)}"${k === kind ? " selected" : ""}>${esc(k)}</option>`).join("")}</select>
+      <select class="ap-fsel" name="kind" onchange="this.form.submit()" aria-label="Request type"${kinds.length ? "" : ' disabled data-ioi-disabled-reason="No approval request yet, so there is no request type to filter by"'}><option value="">All request types</option>${kinds.map((k) => `<option value="${esc(k)}"${k === kind ? " selected" : ""}>${esc(k)}</option>`).join("")}</select>
       <label class="ap-flabel">Status</label>
       <select class="ap-fsel" name="status" onchange="this.form.submit()">${statusOpt("all", "All requests")}${STATUSES.map(([v, l]) => statusOpt(v, l)).join("")}</select>
       <label class="ap-flabel">Created by</label>
