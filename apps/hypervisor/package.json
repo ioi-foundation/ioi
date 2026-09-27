@@ -187,7 +187,7 @@
     "serve:product-ui": "node scripts/serve-product-ui.mjs",
     "serve:reference": "node scripts/serve-product-ui.mjs",
     "test:product-shell-auth": "node --test scripts/product-shell-auth.test.mjs",
-    "test:adopted-seeds": "node --test scripts/adopted-automate.test.mjs scripts/adopted-pipeline.test.mjs",
+    "test:adopted-seeds": "node --test scripts/adopted-automate.test.mjs scripts/adopted-pipeline.test.mjs scripts/ioi-api-adapter-ports.test.mjs",
     "check:system-record-seam": "node scripts/verify-hypervisor-system-record-seam.mjs",
     "mutate:system-record-seam": "node scripts/verify-hypervisor-system-record-seam.mjs --mutation",
     "check:orchestration-composition": "node scripts/verify-hypervisor-orchestration-composition.mjs",

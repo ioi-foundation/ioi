@@ -1375,6 +1375,14 @@ landed. Correct every copy, or the ones left behind go on reading as evidence.
 | **Two readings made deliberately, both recorded.** "Delete" means ARCHIVE — there is no DELETE verb on a memory entry, and reading the acceptance literally would have invented one. And skills and affinities keep their direct verbs, because the unit's scope is the memory-entry and memory-mutation owners. | the verifier's nonclaims | recorded |
 | **The census caught the cut adding a production writer, and the buckets are what mattered.** `check:ontology-admission-census` went red on the writer-call population. The FAMILY writer bucket (57), family mentions (285), the non-ODK literal bucket (243) and raw filesystem calls (234) were all unchanged; only the runtime-parameter bucket moved, by exactly the two added calls, both writing a LITERAL family. Had the family bucket moved it would have meant a new admitter. Re-pinned with that reasoning beside the numbers. | `check:ontology-admission-census` 27/27 | repaired |
 
+### Journey verification CXCIX (2026-09-27, R-240 Arm B on Sessions — looking at a session exposed its port)
+
+| Delta | Evidence | Disposition |
+|---|---|---|
+| **A view performed a write.** The read-only harvest of the reference Sessions flow recorded that the session page sends `UpdateEnvironment {spec.ports:[{…, admission: EVERYONE}]}` by itself whenever a session's detail opens. Our shell adapter turned every listed port into an expose call, so in our product simply opening a session exposed its port. An environment update now narrows exposure and never widens it: un-exposing applies, and exposing through an update is refused by name (`port_exposure_not_by_update`) with nothing exposed. | `test:adopted-seeds` 30/30 (the fake-daemon test is red with the old expose restored) | **fixed** |
+| **A nonclaim that had gone false.** `check:data-recipe-run-split` asserted that no product surface projects the v2 DataRecipe family. The adopted Pipeline Builder projects it (`f2f21cec4`), so the check had been red since then, and no gate runs it. It now states the truth: exactly one surface, the adopted builder's two context reads, and nothing yet claims the v2 connector-mapping or transformation-run families. | `check:data-recipe-run-split` 85/85 | **fixed** |
+| **Sessions harvest (Arm B), for the next cut:** 44 states, read-only, with the reference's own auto-writes blocked in the harvest tab. Found for the Sessions cut: Rename and Auto-stop are accepted and ignored; the Logs pane is one binding from the daemon's existing logs route; Tasks and Services read as empty rather than as gaps; Goal mode must be refused by name (GoalRun is not the Hypervisor's). | `.artifacts/live-tenant-atlas/r241-sessions/` (git-ignored) | **recorded** |
+
 ### Journey verification CXCVIII (2026-09-27, R-240 Arm A — the adopted apps are clicked, and what that found)
 
 | Delta | Evidence | Disposition |

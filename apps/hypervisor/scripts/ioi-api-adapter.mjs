@@ -569,11 +569,19 @@ async function handleImpl(pathname, bodyText) {
         const desired = body.spec?.desiredPhase || body.req?.spec?.desiredPhase;
         if (desired === "ENVIRONMENT_PHASE_RUNNING") return json({ environment: daemonEnvToIOI(await act(id, "start")) });
         if (desired === "ENVIRONMENT_PHASE_STOPPED") return json({ environment: daemonEnvToIOI(await act(id, "stop")) });
+        // AN UPDATE NARROWS EXPOSURE; IT NEVER WIDENS IT (R-240 Arm B: the session page sends
+        // `spec.ports:[{…, admission: EVERYONE}]` by itself every time a session's detail opens — before this,
+        // merely LOOKING at a session exposed its port). Un-exposing a port applies; exposing one through an
+        // environment update is refused by name, so nothing widens as a side effect of a view.
+        const widening = [];
         for (const port of portsFromBody(body)) {
           const portNo = Number(port?.port || 0);
           if (!Number.isFinite(portNo) || portNo <= 0) continue;
-          const endpoint = isPortUnexpose(port) ? "unexpose" : "expose";
-          await daemon("POST", `/v1/hypervisor/environments/${encodeURIComponent(id)}/ports/${portNo}/${endpoint}`, {});
+          if (isPortUnexpose(port)) await daemon("POST", `/v1/hypervisor/environments/${encodeURIComponent(id)}/ports/${portNo}/unexpose`, {});
+          else widening.push(portNo);
+        }
+        if (widening.length) {
+          return jsonStatus(403, { code: "permission_denied", message: `port_exposure_not_by_update: exposing port ${widening.join(", ")} through an environment update is refused — an update may only narrow who reaches a port; nothing was exposed` });
         }
         return json({ environment: daemonEnvToIOI(await env(`/v1/hypervisor/environments/${encodeURIComponent(id)}`)) });
       }

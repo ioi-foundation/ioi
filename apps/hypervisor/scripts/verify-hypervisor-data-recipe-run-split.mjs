@@ -1403,24 +1403,25 @@ async function run() {
     !/v1_predecessor_custody_nonclaim|SuppliedBytes/u.test(productionSource),
     "no nonclaim member and no unproved-but-converged state remains",
   );
-  const surfaces = [
-    "apps/hypervisor/scripts/ioi-api-adapter.mjs",
-    "apps/hypervisor/scripts/serve-product-ui.mjs",
-  ]
-    .map((relative) => path.join(ROOT, relative))
-    .filter((file) => fs.existsSync(file))
-    .map((file) => fs.readFileSync(file, "utf8"))
-    .join("\n");
+  const readSurface = (relative) => { const file = path.join(ROOT, relative); return fs.existsSync(file) ? fs.readFileSync(file, "utf8") : ""; };
+  const adapterSource = readSurface("apps/hypervisor/scripts/ioi-api-adapter.mjs");
+  const serveSource = readSurface("apps/hypervisor/scripts/serve-product-ui.mjs");
+  // R-241 / ADR 0056 P4 (2026-09-27): the adopted Pipeline Builder is the ONE product surface that projects the
+  // v2 DataRecipe family — its context reads the family list and each family's revisions (two reads), nothing
+  // else does, and no surface claims the connector-mapping or transformation-run v2 families yet. The nonclaim
+  // this replaced ("zero product-surface claims") went false when the adoption landed; a check that could no
+  // longer pass was restated to the truth rather than left red.
+  const recipeReads = (serveSource.match(/\/v1\/hypervisor\/data-recipe-revisions/gu) ?? []).length;
   ok(
-    "NO SDK, CLI, MCP or serve-lane projection claims these three families: the nonclaim is checked rather than asserted, and a surface that starts claiming one turns this red",
-    !/data-recipe-revisions|connector-mapping-revisions|ioi\.data-recipe\.v2|ioi\.transformation-run\.v2|ioi\.connector-mapping\.v2/u.test(
-      surfaces,
-    ),
-    "zero product-surface claims on the v2 families",
+    "the v2 DataRecipe family is projected by exactly ONE product surface — the adopted Pipeline Builder's two reads (the family list and each family's revisions) — and no SDK, CLI, MCP or serve lane claims the connector-mapping or transformation-run v2 families",
+    recipeReads === 2 && /const pipelineContext = async \(\) => \{/u.test(serveSource)
+      && !/data-recipe-revisions|connector-mapping-revisions|ioi\.data-recipe\.v2|ioi\.transformation-run\.v2|ioi\.connector-mapping\.v2/u.test(adapterSource)
+      && !/connector-mapping-revisions|ioi\.transformation-run\.v2|ioi\.connector-mapping\.v2|\/v1\/hypervisor\/transformation-runs/u.test(serveSource),
+    `serve recipe reads ${recipeReads} (want 2, in pipelineContext) · adapter claims none`,
   );
   ok(
     "and the adapter's `recipes` projection now names the QUALIFIED route, so the rename reaches the surface that reads it rather than stopping at the daemon",
-    surfaces.includes("/v1/hypervisor/environment-recipes"),
+    `${adapterSource}\n${serveSource}`.includes("/v1/hypervisor/environment-recipes"),
     "adapter reads the qualified environment-recipe route",
   );
 }
