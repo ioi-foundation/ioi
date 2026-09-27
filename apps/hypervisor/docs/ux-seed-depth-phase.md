@@ -169,8 +169,10 @@ journey verifier → deploy to the owner's stack.
   Friday"), status, the creator resolved through our principal, and facet counts from daemon truth.
   Security fix found on the way: the mirror injects the reference tenant's real session token into every
   page it serves; the estate now substitutes a synthetic, unsigned identity token. Open next: manual and
-  webhook automations need an honest condition (the reference vocabulary has none — today they read as
-  "Time · Running on schedule"), the referenced-resources filter, Overview's owned count, the detail page
+  webhook automations need an honest condition — the reference vocabulary has none; today they read as
+  "Time · Running on schedule" (a named gap; a condition type the app does not know is worse — it hides
+  the row's name as "Restricted" and says it failed to parse — so the fix is reshaping the adopted app's
+  condition labels), the referenced-resources filter, Overview's owned count, the detail page
   (`monitors/<rid>/published`), the wizard's validate + create onto the automation plane, and the shell
   embedding (drop the reference's own sidebar under our rail) before `/automations` moves to it.
 - **Adoption steps:** (1) vendor the booted app — `index.html` + its 34 content-addressed assets,

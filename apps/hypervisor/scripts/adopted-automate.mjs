@@ -92,6 +92,10 @@ function logicOf(a) {
     const secs = Number(spec.every_seconds || spec.interval_seconds || 0);
     cron = secs >= 3600 && secs % 3600 === 0 ? `0 */${secs / 3600} * * *` : secs >= 60 ? `*/${Math.max(1, Math.round(secs / 60))} * * * *` : "";
   }
+  // A manual or webhook automation has no time condition in the reference's vocabulary. A type the app
+  // does not know makes it hide the row's name ("Restricted") and say it failed to parse, which is
+  // worse; so it is a schedule with no expression, and the adopted app's "Running on schedule" for it is
+  // a NAMED GAP (docs/ux-seed-depth-phase.md) until the condition labels are reshaped.
   return { type: "schedule", schedule: { cronExpression: cron, additionalCronExpressions: [], timeZone: spec.timezone || spec.tz || "UTC" } };
 }
 
