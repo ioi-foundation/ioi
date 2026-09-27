@@ -676,6 +676,14 @@ async function handleImpl(pathname, bodyText) {
             return pid && wantProjects.includes(pid);
           });
         }
+        // THE ARCHIVAL FILTER IS HONORED (R-240 Arm A): the Archived view asks ARCHIVAL_STATUS_ARCHIVED and its "Delete
+        // all" deletes every environment that answer lists. Answered with every live environment, that button deleted
+        // running and stopped environments too. Archived = the daemon's "archived" phase; ACTIVE excludes it; ALL and an
+        // unspecified filter keep every live environment (as before).
+        const archival = body.filter?.archivalStatus ?? body.filter?.archival_status ?? null;
+        const archivedEnv = (e) => e.status?.phase === "archived";
+        if (archival === "ARCHIVAL_STATUS_ARCHIVED" || archival === 2) live = live.filter(archivedEnv);
+        else if (archival === "ARCHIVAL_STATUS_ACTIVE" || archival === 1) live = live.filter((e) => !archivedEnv(e));
         return json({ pagination: {}, environments: live.map(daemonEnvToIOI) });
       }
       case "/api/ioi.v1.EnvironmentService/ListEnvironmentClasses": {

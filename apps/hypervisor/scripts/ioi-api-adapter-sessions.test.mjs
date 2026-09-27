@@ -27,6 +27,12 @@ const routes = {
   }),
   "GET /v1/hypervisor/auth/policy": () => ({ deployment_auth_posture: "local_development" }),
   "POST /v1/threads/thread_1/turns": () => ({ ok: true }),
+  "GET /v1/hypervisor/environments": () => ({ environments: [
+    { id: "env_run", created_at: AT, updated_at: AT, spec: { desired_phase: "running" }, status: { phase: "running" } },
+    { id: "env_stop", created_at: AT, updated_at: AT, spec: {}, status: { phase: "stopped" } },
+    { id: "env_arch", created_at: AT, updated_at: "2026-09-27T11:00:00Z", spec: {}, status: { phase: "archived" } },
+    { id: "env_gone", created_at: AT, updated_at: AT, spec: {}, status: { phase: "deleted", deleted: true } },
+  ] }),
 };
 const fake = http.createServer((req, res) => {
   let body = "";
@@ -248,3 +254,15 @@ test("the logs GET refuses an expired or unknown token (403) and never reads the
 });
 
 test.after(() => fake.close());
+
+// R-240 Arm A (Sessions): the Archived view's "Delete all" deletes every environment the ARCHIVED list answers. The list
+// ignored the filter, so that button deleted running and stopped environments too.
+test("the Archived view lists only archived environments (its Delete all deletes nothing else); the active view excludes them", async () => {
+  const list = async (filter) => JSON.parse((await handle("/api/ioi.v1.EnvironmentService/ListEnvironments", JSON.stringify({ filter }), { "content-type": "application/json" })).body).environments;
+  const archived = await list({ archivalStatus: "ARCHIVAL_STATUS_ARCHIVED" });
+  assert.deepEqual(archived.map((e) => e.id), ["env_arch"]);
+  assert.equal(archived[0].metadata.archivedAt, "2026-09-27T11:00:00Z", "the Archived view lists and sorts by it");
+  assert.deepEqual((await list({ archivalStatus: "ARCHIVAL_STATUS_ACTIVE" })).map((e) => e.id), ["env_run", "env_stop"]);
+  assert.deepEqual((await list({})).map((e) => e.id), ["env_run", "env_stop", "env_arch"], "unspecified keeps every live environment");
+  assert.equal((await list({ archivalStatus: "ARCHIVAL_STATUS_ACTIVE" }))[0].metadata.archivedAt, undefined);
+});

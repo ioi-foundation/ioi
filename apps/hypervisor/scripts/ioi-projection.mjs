@@ -154,7 +154,9 @@ export function daemonEnvToIOI(env) {
   const desired = env.spec?.desired_phase === "running" ? "ENVIRONMENT_PHASE_RUNNING" : "ENVIRONMENT_PHASE_STOPPED";
   return {
     id: env.id,
-    metadata: { lastStartedAt: env.updated_at, createdAt: env.created_at },
+    // an archived environment says when (the Archived view lists and sorts by it); the daemon's archive transition is
+    // its latest update, so that is the time unless the record names one
+    metadata: { lastStartedAt: env.updated_at, createdAt: env.created_at, ...(s.phase === "archived" ? { archivedAt: s.archived_at || env.archived_at || env.updated_at } : {}) },
     spec: { desiredPhase: desired, ports: projectEnvironmentPorts(s.ports) },
     status,
   };
