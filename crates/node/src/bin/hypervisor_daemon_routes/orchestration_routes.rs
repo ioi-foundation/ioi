@@ -1634,6 +1634,13 @@ pub(crate) async fn handle_automation_start(
         // INV-37: who triggered this run — the resolved session principal on a manual run, the
         // spec's delegated executor ref on an internal (scheduler/webhook) dispatch.
         "acting_principal_ref": acting_principal_ref,
+        // How this run was activated: a person's Run now is `manual`; the daemon's own dispatch names
+        // its trigger (`schedule` / `webhook`). Readers label the run by it, never by guesswork.
+        "activation_kind": dispatch
+            .as_ref()
+            .map(|d| d.activation_kind.clone())
+            .filter(|kind| !kind.is_empty())
+            .unwrap_or_else(|| "manual".to_string()),
         "step_results": [], "counts": counts, "started_at": iso_now(), "finished_at": Value::Null
     });
     if !justification_record_refs.is_empty() {

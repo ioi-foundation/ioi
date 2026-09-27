@@ -9236,6 +9236,20 @@ async function handleEstateRequest(req, res, body) {
           const template = AUTOMATE.harvestOperations(ADOPT_MIRROR_DIR).get(name)?.data || null;
           return { data: answerAdoptedDocument(query, await adoptedFunctionFacts(variables || {}), template, name) };
         }
+        if (AUTOMATE.PRINCIPAL_OPERATIONS.has(name) && query) return { data: answerAdoptedDocument(query, AUTOMATE.principalFactsRoot(variables || {}), null, name) };
+        if (AUTOMATE.REQUEST_LOG_OPERATIONS.has(name) && query) {
+          const a = (ctxA.automations || []).find((x) => AUTOMATE.monitorRidOf(x.automation_id) === variables?.producingRid);
+          if (!a) return { data: null, errors: [{ message: `${name}: not one of your automations` }] };
+          const runs = await daemonFetch(`/v1/hypervisor/automations/${encodeURIComponent(a.automation_id)}/runs`).then((r) => r.json()).then((j) => j.runs || []).catch(() => []);
+          return { data: answerAdoptedDocument(query, AUTOMATE.requestLogsFactsRoot(a, runs, variables || {}), null, name) };
+        }
+        // Telemetry: counted from the executions of the caller's automations the request names.
+        if (AUTOMATE.TELEMETRY_OPERATIONS.has(name) && query) {
+          const wanted = new Set((variables?.rids || []).map((r) => AUTOMATE.automationIdOf(r)).filter(Boolean));
+          const ours = (ctxA.automations || []).filter((x) => wanted.has(x.automation_id));
+          const runs = (await Promise.all(ours.map((x) => daemonFetch(`/v1/hypervisor/automations/${encodeURIComponent(x.automation_id)}/runs`).then((r) => r.json()).then((j) => j.runs || []).catch(() => [])))).flat();
+          return { data: answerAdoptedDocument(query, AUTOMATE.telemetryFactsRoot(runs, variables || {}, name), null, name) };
+        }
         // The detail page's own writes (description, rename): each a PATCH of the automation it names,
         // identity-first in the daemon; a refusal is the operation's GraphQL error, and nothing is written.
         if (AUTOMATE.MUTATION_OPERATIONS.has(name)) {
@@ -9878,6 +9892,38 @@ async function handleEstateRequest(req, res, body) {
         const id = made.j?.automation?.automation_id;
         if (!id) return sendJson(made.status >= 400 ? made.status : 502, conjureRefusal(made.j?.error?.message || made.j?.message || "the automations plane did not admit the automation"));
         return sendJson(200, { locator: { rid: AUTOMATE.monitorRidOf(id), version: 1 } });
+      }
+      // Gatekeeper's hasOperations for an adopted resource: the caller may operate on their own
+      // automation (it is theirs); any other resource answers false. Never the mirror's recorded answer.
+      {
+        const gk = /^\/multipass\/api\/authz\/access\/([^/]+)$/.exec(pathname);
+        if (gk && req.method === "GET") {
+          const mine = await automationOfMonitorRid(gk[1]);
+          res.writeHead(200, { "Content-Type": "application/json" });
+          return res.end(JSON.stringify(!!mine));
+        }
+      }
+      // Execute tab — a manual execution IS the automation's Run now. `validateRun` checks the automation
+      // is the caller's (nothing else gates a Run now here); `batchExecute` starts the run and answers
+      // once it is under way — the executor runs to completion on its own — or with the daemon's refusal
+      // when it refuses at once (a justification checkpoint, an unknown automation).
+      {
+        const ex = /^\/object-sentinel\/api\/executor\/v0\/monitors\/(validateRun|batchExecute)$/.exec(pathname);
+        if (ex && req.method === "POST") {
+          const sendJson = (status, obj) => { res.writeHead(status, { "Content-Type": "application/json" }); return res.end(JSON.stringify(obj)); };
+          let asked = {};
+          try { asked = JSON.parse(body.toString() || "{}"); } catch { /* empty */ }
+          const existing = await automationOfMonitorRid((asked.requestToValidate || asked).monitorRid);
+          if (!existing) return sendJson(404, { errorCode: "NOT_FOUND", errorName: "Monitor:NotFound", errorInstanceId: "", parameters: {} });
+          const selectionIssue = AUTOMATE.manualSelectionIssue(existing, (asked.requestToValidate || asked).effectsToExecute);
+          if (selectionIssue) return sendJson(400, conjureRefusal(selectionIssue));
+          if (ex[1] === "validateRun") return sendJson(200, { errors: {}, warnings: {} });
+          const started = daemonFetch(`/v1/hypervisor/automations/${encodeURIComponent(existing.automation_id)}/runs`, { method: "POST", headers: { "content-type": "application/json" }, body: "{}" })
+            .then(async (r) => ({ status: r.status, j: await r.json().catch(() => ({})) })).catch(() => ({ status: 502, j: {} }));
+          const early = await Promise.race([started, new Promise((resolve) => setTimeout(() => resolve(null), 2000))]);
+          if (early && (early.status >= 400 || early.j?.ok === false && !early.j?.execution)) return sendJson(early.status >= 400 ? early.status : 409, conjureRefusal(early.j?.error?.message || early.j?.message || early.j?.reason || "the automations plane did not start the run"));
+          return sendJson(200, {});
+        }
       }
       // Pause / resume from the detail page's status menu → PATCH enabled (the scheduler skips a paused
       // automation; resuming recomputes its next fire).

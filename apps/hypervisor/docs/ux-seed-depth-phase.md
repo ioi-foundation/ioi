@@ -262,10 +262,17 @@ journey verifier → deploy to the owner's stack.
   on and overwrite `stopped` with `done`). Settings are no longer accepted and ignored: the expiration
   date becomes the automation's `expires_at`, which the daemon enforces (its scheduler skips an expired
   automation, its webhook refuses `automation_expired`), and enabled event or effect retries are refused
-  by name — the executor does not retry. *Still open (named):* the Agent effect's title reads "Unknown Agent"
+  by name — the executor does not retry. The detail page's side tabs work over daemon truth: **History**
+  lists the automation's runs as events (All / Auto / Manual / Errors; a person's Run now is a manual
+  execution, a scheduled or webhook run an automatic trigger — each execution now names its
+  `activation_kind`), **Execute** is the automation's Run now (the effect picker; a selection of only some
+  effects is refused, since a run executes every step), and **Telemetry** counts its executions (runs,
+  failures, runtime; the run history is one request log per execution). Two mirror feeds were needed: the
+  telemetry chunk and five stylesheets it loads. *Still open (named):* the Agent effect's title reads "Unknown Agent"
   (no agent definition bound); command and proposal steps have no reference effect to name them; the
   editor lists a manual automation's condition as Time; the refusal reason shows only as a tooltip;
-  the header rename has no live proof yet; the detail page's side tabs are undriven.
+  the header rename has no live proof yet; History's Edits filter lists nothing (no per-automation edit
+  history is kept).
 - **Adoption steps:** (1) vendor the booted app — `index.html` + its 34 content-addressed assets,
   18.5 MB, the same scale as the tracked Ona tree — into a quarantined harvested lane in the owned tree;
   (2) serve it at the Automate canonical route, its asset and API paths answered by the serve (assets

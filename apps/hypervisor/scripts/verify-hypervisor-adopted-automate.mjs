@@ -392,6 +392,34 @@ async function run() {
       pausedSpec.description === `Paused by the verifier ${tag}` && pausedSpec.enabled === false && !!inFlight && pausedExec.status === "stopped"
         && pausedExec.step_results?.[1]?.status === "skipped" && resumedEnabled === true,
       `${writes.join(" → ")} · description ${JSON.stringify(pausedSpec.description)} · paused ${pausedSpec.enabled === false} · run ${inFlight ? pausedExec.status : "never running"} ${JSON.stringify((pausedExec.step_results || []).map((s) => s.status))} · resumed ${resumedEnabled}`);
+
+    // ---- 6. The detail page's tabs over daemon truth: Execute is the automation's Run now (the effect
+    // picker, then Confirm), History lists its runs as events, Telemetry counts its executions.
+    const runsOf = async () => (await daemonRead(`/v1/hypervisor/automations/${made.automation_id}/runs`)).body?.runs ?? [];
+    const before = (await runsOf()).length;
+    const tabNotes = [];
+    await pg.goto(`${SERVE}/automations?automation=${made.automation_id}`, { waitUntil: "domcontentloaded" });
+    await pg.waitForTimeout(8000);
+    const tab = async (label) => { await pg.getByRole("button", { name: label, exact: true }).first().click({ timeout: 8000 }); await pg.waitForTimeout(6000); return (await pg.evaluate(() => document.body.innerText)).replace(/\s+/g, " "); };
+    let executeText = "", historyText = "", telemetryText = "";
+    try {
+      await tab("Execute");
+      await pg.getByRole("button", { name: "Execute", exact: true }).last().click({ timeout: 8000 });
+      await pg.waitForTimeout(3000);
+      await pg.locator(".bp6-dialog .bp6-switch, [role=dialog] .bp6-switch").first().click({ timeout: 8000 });
+      await pg.waitForTimeout(2500);
+      await pg.getByRole("button", { name: "Confirm", exact: true }).last().click({ timeout: 8000 });
+      await pg.waitForTimeout(9000);
+      executeText = (await pg.evaluate(() => document.body.innerText)).replace(/\s+/g, " ");
+      historyText = await tab("History");
+      telemetryText = await tab("Telemetry");
+    } catch (e) { tabNotes.push(`stopped: ${String(e.message).split("\n")[0].slice(0, 120)}`); }
+    const after = await runsOf();
+    const broken = (t) => /An error has occurred|Failed to load/u.test(t);
+    ok("the adopted page's tabs work over daemon truth: Execute starts the automation's Run now (a manual run the daemon records), History lists its runs as events, and Telemetry counts its executions",
+      after.length === before + 1 && after[0]?.activation_kind === "manual" && /Execution history/u.test(executeText) && !broken(executeText)
+        && /Manual execution/u.test(historyText) && !broken(historyText) && telemetryText.includes(`${after.length} executions`) && !broken(telemetryText),
+      `${tabNotes.join(" ")} runs ${before} → ${after.length} (${after[0]?.activation_kind}) · history ${/Manual execution/u.test(historyText)} · telemetry "${(telemetryText.match(/\d+ executions/u) || ["none"])[0]}" · broken ${[executeText, historyText, telemetryText].map(broken).join("/")}`);
   } finally {
     await browser.close();
   }

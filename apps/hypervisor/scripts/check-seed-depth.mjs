@@ -33,7 +33,11 @@ const PHASE_ORDER = ["automate", "pipeline-builder", "sessions", "ontology-manag
 
 // Pinned populations. Re-pin with the reason beside the number, in the commit that moves it.
 const PINS = {
-  // 2026-09-27 (R-241): 27 → 28 — Settings split in two. The expiration date is now the automation's
+  // 2026-09-27 (R-241): 28 → 31 — the detail page's side tabs, driven: History (the automation's runs as
+  // events, filtered), Execute (a manual execution is the automation's Run now) and Telemetry (counted from
+  // its executions) are bound by one live assertion; "the side tabs undriven" leaves open, and History's
+  // Edits filter joins it (no per-automation edit history is kept yet). Open stays 3.
+  // Before that, 2026-09-27 (R-241): 27 → 28 — Settings split in two. The expiration date is now the automation's
   // expires_at, enforced by the daemon (scheduler and webhook stop firing it): bound. Event and effect
   // retries are refused by name (the executor does not retry): refused. Open 4 → 3.
   // Before that, 2026-09-27 (R-241): first census — 27 flow states: the 18 harvested wizard / list / detail states plus
@@ -42,7 +46,7 @@ const PINS = {
   // Action, Logic and Notification effects), 2 named gaps (Unknown Agent; Unknown effect for command and
   // proposal steps), 4 open (header rename unproven; the side tabs undriven; settings accepted but not
   // enforced; the editor's Time label for a manual automation).
-  automate: { total: 28, bound: 13, refused: 10, named_gap: 2, open: 3 },
+  automate: { total: 31, bound: 16, refused: 10, named_gap: 2, open: 3 },
   "pipeline-builder": { total: 0, bound: 0, refused: 0, named_gap: 0, open: 0 },
   sessions: { total: 0, bound: 0, refused: 0, named_gap: 0, open: 0 },
   "ontology-manager": { total: 0, bound: 0, refused: 0, named_gap: 0, open: 0 },

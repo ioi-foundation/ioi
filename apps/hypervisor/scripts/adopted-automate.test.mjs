@@ -180,3 +180,39 @@ test("a compass rename renames the automation and nothing else", () => {
   assert.match(AUTOMATE.automationRenameFromCompassUpdate(existing, { name: "x", parentRid: AUTOMATE.projectFolderRid("project:other") }).issue, /stays in its project/);
   assert.match(AUTOMATE.automationRenameFromCompassUpdate(existing, { name: "  " }).issue, /needs a name/);
 });
+
+test("a manual execution is the automation's Run now: every step or none, and its runs are its events", () => {
+  const a = { automation_id: "auto_0123456789abcdef", steps: [{ kind: "function" }, { kind: "command", command: "echo" }] };
+  const ids = AUTOMATE.mergedEffectsOf(a, new Map()).map((e) => e.id);
+  assert.equal(AUTOMATE.manualSelectionIssue(a, ids), null);
+  assert.equal(AUTOMATE.manualSelectionIssue(a, []), null, "no selection yet is the app's own disabled Confirm");
+  assert.match(AUTOMATE.manualSelectionIssue(a, [ids[0]]), /every step/);
+  assert.equal(AUTOMATE.manualSelectionIssue(a, ["00000000-placeholder"]), null, "the app's placeholder id is not a selection");
+  const runs = [
+    { execution_id: "aex_1", started_at: "2026-09-27T01:00:00Z", status: "done", activation_kind: "manual", step_results: [] },
+    { execution_id: "aex_2", started_at: "2026-09-27T02:00:00Z", status: "failed", activation_kind: "schedule", step_results: [{ kind: "function", status: "failed" }] },
+    { execution_id: "aex_0", started_at: "2026-09-26T00:00:00Z", status: "done", step_results: [] },
+  ];
+  const all = AUTOMATE.combinedEventsOf(a, runs, null);
+  assert.deepEqual(all.map((v) => v.event.id), ["aex_2", "aex_1", "aex_0"], "newest first");
+  assert.equal(all[1].event.__typename, "ObjectSetMonitorHistoryEvent_MonitorManualExecution");
+  assert.equal(all[0].event.__typename, "ObjectSetMonitorHistoryEvent_MonitorTriggered");
+  assert.equal(all[0].event.triggeredEffectsV2[0].anyEffectFailed, true);
+  assert.deepEqual(AUTOMATE.combinedEventsOf(a, runs, null, ["MANUAL_EXECUTION"]).map((v) => v.event.id), ["aex_1"]);
+  assert.deepEqual(AUTOMATE.combinedEventsOf(a, runs, null, ["TRIGGERED"]).map((v) => v.event.id), ["aex_2"]);
+  assert.deepEqual(AUTOMATE.combinedEventsOf(a, runs, null, ["EFFECT_FAILED", "EVALUATION_FAILED"]).map((v) => v.event.id), ["aex_2"]);
+  assert.deepEqual(AUTOMATE.combinedEventsOf(a, runs, null, ["CONDITION_EDITED", "PAUSED"]), [], "no edit history is recorded yet");
+});
+
+test("telemetry counts an automation's runs, errors and runtime in each bucket", () => {
+  const runs = [
+    { started_at: "2026-09-27T01:10:00Z", finished_at: "2026-09-27T01:10:02Z", status: "done" },
+    { started_at: "2026-09-27T01:40:00Z", finished_at: "2026-09-27T01:40:05Z", status: "failed" },
+    { started_at: "2026-09-27T03:00:00Z", finished_at: "2026-09-27T03:00:01Z", status: "done" },
+  ];
+  const single = AUTOMATE.telemetryFactsRoot(runs, { fromTimestamp: "2026-09-27T00:00:00Z", toTimestamp: "2026-09-27T04:00:00Z" }, "GetSingleTelemetry").objectSetMonitorAggregateTelemetry.bucketedTelemetry;
+  assert.equal(single.length, 1);
+  assert.deepEqual([single[0].data.numRuns, single[0].data.numErrors, single[0].data.runtimeMillis], [3, 1, 8000]);
+  const hourly = AUTOMATE.telemetryFactsRoot(runs, { fromTimestamp: "2026-09-27T00:00:00Z", toTimestamp: "2026-09-27T04:00:00Z", bucketInterval: "HOUR" }, "GetTelemetry").objectSetMonitorAggregateTelemetry.bucketedTelemetry;
+  assert.deepEqual(hourly.map((b) => b.data.numRuns), [0, 2, 0, 1]);
+});

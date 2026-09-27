@@ -721,6 +721,11 @@ async function run() {
     goodTrigger === 202 && fired?.status === "done" && fired?.counts?.done === 1
       && firedRun.activation_kind === "webhook" && firedRun.activation_event_ref === `event://automation/${automationId}/webhook/${fired.execution_id}`,
     `fire ${goodTrigger} · ${fired?.execution_id || "no execution"} ${fired?.status || ""} ${JSON.stringify(fired?.failure || {}).slice(0, 120)} · run ${firedRun.activation_kind || "none"}`);
+  // An execution names its own activation, so a reader labels a run without asking its canonical run.
+  const runNowExec = (await jd(`/v1/hypervisor/automation-executions/${encodeURIComponent(exec.execution_id || "")}`)).body?.execution || {};
+  ok("each execution names its activation: the person's Run now is `manual`, the accepted webhook fire is `webhook`",
+    runNowExec.activation_kind === "manual" && fired?.activation_kind === "webhook",
+    `run now ${runNowExec.activation_kind || "absent"} · webhook ${fired?.activation_kind || "absent"}`);
 
   // -- delete journey (throwaway spec — the canonical page stays honest after)
   const throwaway = await jd("/v1/hypervisor/automations", {

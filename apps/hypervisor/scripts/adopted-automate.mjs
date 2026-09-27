@@ -377,10 +377,14 @@ export const FACT_OPERATIONS = new Set([
   "AutomationDependenciesQuery", "ExpiryDateProjectQuery", "GetLiveStatusForNonVersionedObjectSet",
   // the edit wizard's summary: the automation's resource, its location and whether it may be edited
   "DocumentTitleQuery", "GetExistingAutomationResource", "CanEditAutomationQuery",
+  // the History and Execute tabs: the automation's runs as its events, and the effects a run executes
+  "EventsTableQuery", "ManualExecutionEventsQuery", "ExecutableEffectsPublishedEffectsQuery", "EventDetailsV2Query",
+  // Telemetry's run history names the resource that produced each run
+  "ObservabilityResourceQuery",
 ]);
 export const requestedMonitorRid = (variables) => (JSON.stringify(variables || {}).match(/ri\.object-sentinel\.main\.monitor\.[0-9a-f-]{36}/) || [])[0] || null;
 
-export function factsRoot(a, runs, principal, functionInfo = null, projects = []) {
+export function factsRoot(a, runs, principal, functionInfo = null, projects = [], eventFilters = null, eventId = null) {
   const rid = monitorRidOf(a.automation_id);
   const creator = (a.executor_identity || {}).ref || (principal || {}).ref || "";
   const project = a.project_id || "unfiled";
@@ -421,7 +425,9 @@ export function factsRoot(a, runs, principal, functionInfo = null, projects = []
   const condition = cron
     ? { __typename: "ObjectSetMonitorSchedule", __implements: ["ObjectSetMonitorLogicV3", "ObjectSetMonitorCondition"], cronExpression: cron, additionalCronExpressions: [], timeZone: spec.timezone || spec.tz || "UTC" }
     : { __typename: "HypervisorManualTrigger", __implements: ["ObjectSetMonitorLogicV3", "ObjectSetMonitorCondition"] };
-  const event = (r) => r ? { __typename: "ObjectSetMonitorHistoryEvent_MonitorTriggered", __implements: ["ObjectSetMonitorHistoryEvent"], _id: cacheId(`event:${r.execution_id}`), id: r.execution_id, triggerTime: iso(r.started_at), triggerReason: "SCHEDULE", triggeredEffectsV2: [] } : null;
+  // The reference's trigger reasons are object edits, dataset changes and stream records; a Hypervisor run
+  // is none of them, so the reason is null and the page shows no "Triggered by" row rather than Unknown.
+  const event = (r) => r ? { __typename: "ObjectSetMonitorHistoryEvent_MonitorTriggered", __implements: ["ObjectSetMonitorHistoryEvent"], _id: cacheId(`event:${r.execution_id}`), id: r.execution_id, triggerTime: iso(r.started_at), triggerReason: null, triggeredEffectsV2: [] } : null;
   const branch = {
     __typename: "ObjectSetMonitorBranch", _id: cacheId(`branch:${rid}`), isProjectScoped: false, scenarioTarget: null,
     isPausedIndefinitely: paused, pausedUntil: null, isMutedIndefinitely: false, mutedUntil: null, expiresAt: a.expires_at ? iso(a.expires_at) : null,
@@ -430,6 +436,9 @@ export function factsRoot(a, runs, principal, functionInfo = null, projects = []
     latestVersion: { __typename: "ObjectSetMonitorVersion", _id: cacheId(`version:${rid}`), monitorLogicV3: condition, mergedEffects: effects, effectOrdering: effectOrderingOf(effects), subscribers: [], persistsSharedHistoryEvent: false },
     latestEvents: { __typename: "ObjectSetMonitorLatestEvents", completeTriggered: event(latest && latest.status !== "running" ? latest : null), inProgressTriggered: event(running), evaluationRuntimeError: null, effectsRuntimeError: null },
     scheduledMonitoringEvaluationStatus: { __typename: "ObjectSetMonitorScheduledEvaluationStatus", isRunning: !!running, scheduledAt: a.next_run_at ? iso(a.next_run_at) : null },
+    combinedEvents: { __typename: "ObjectSetMonitorCombinedHistoryEventPage", nextPageToken: null, values: combinedEventsOf(a, runs, condition, eventFilters) },
+    // one event, when a request names it (the History tab's event details)
+    event: eventId ? (combinedEventsOf(a, (runs || []).filter((r) => r.execution_id === eventId), condition)[0]?.event || null) : null,
   };
   return {
     __typename: "Query",
@@ -442,9 +451,116 @@ export function factsRoot(a, runs, principal, functionInfo = null, projects = []
 export function answerFactOperation(name, query, variables, ctx, runsFor, template) {
   const rid = requestedMonitorRid(variables);
   const a = rid ? (ctx.automations || []).find((x) => monitorRidOf(x.automation_id) === rid) : null;
-  if (!a) return null;
-  return answerDocument(query, factsRoot(a, runsFor(a.automation_id), ctx.principal, ctx.functionInfo, ctx.projects), template, name);
+  // A resource that is not one of the caller's automations is unknown here (the field is optional).
+  if (!a) return name === "ObservabilityResourceQuery" ? { resourceMetadata: null } : null;
+  // The events a request asks for: the Execute tab's history is manual runs only (a literal in its
+  // query); the History tab passes its filters as a variable.
+  const filters = name === "ManualExecutionEventsQuery" ? ["MANUAL_EXECUTION"] : (Array.isArray(variables?.filters) ? variables.filters : null);
+  return answerDocument(query, factsRoot(a, runsFor(a.automation_id), ctx.principal, ctx.functionInfo, ctx.projects, filters, variables?.monitorEventId || null), template, name);
 }
+
+// ---- EVENTS: an automation's runs as the reference's history events, newest first. A person's Run now
+// (`activation_kind: manual`) is a Manual execution; a scheduled or webhook run is an automatic trigger; a
+// run recorded before executions named their activation is shown under All only, as a generic run.
+const EFFECT_TYPE = { function: "FUNCTION", agent: "AGENT" };
+const MANUAL_STATUS = { running: "Queued", stopped: "Cancelled" };
+function combinedHistoryEventOf(a, run, condition) {
+  const kind = run.activation_kind || null;
+  const rid = monitorRidOf(a.automation_id);
+  const base = {
+    __implements: ["ObjectSetMonitorHistoryEvent"], _id: cacheId(`event:${run.execution_id}`), id: run.execution_id, scenarioRid: null, triggerTime: iso(run.started_at), isScoped: false,
+    monitorBranch: { __typename: "ObjectSetMonitorBranch", _id: cacheId(`branch:${rid}`), monitor: { __typename: "ObjectSetMonitor", _id: cacheId(rid), rid } },
+  };
+  if (kind === "manual") {
+    return {
+      ...base, __typename: "ObjectSetMonitorHistoryEvent_MonitorManualExecution", numBatches: 1,
+      status: { __typename: `ObjectSetMonitorManualExecutionStatus_${MANUAL_STATUS[run.status] || "Completed"}`, __implements: ["ObjectSetMonitorManualExecutionStatus"], _id: cacheId(`manual-status:${run.execution_id}`) },
+      trigger: { __typename: "ObjectSetMonitorManualExecutionTrigger_UserTriggered", __implements: ["ObjectSetMonitorManualExecutionTrigger"] },
+    };
+  }
+  return {
+    ...base, __typename: "ObjectSetMonitorHistoryEvent_MonitorTriggered", triggerReason: null, numIgnoredObjects: 0, triggerUsers: [],
+    monitorVersion: { __typename: "ObjectSetMonitorVersion", _id: cacheId(`version:${monitorRidOf(a.automation_id)}`), monitorLogicV3: condition },
+    triggeredEffectsV2: (run.step_results || []).map((step, i) => ({ __typename: "ObjectSetMonitorTriggeredEffectV2", _id: cacheId(`effect-run:${run.execution_id}:${i}`), effectType: EFFECT_TYPE[step.kind] || "UNKNOWN_EFFECT", anyEffectFailed: step.status === "failed" })),
+    runtimeError: run.status === "failed" ? { __typename: "ObjectSetMonitorRuntimeError", safeMessage: "A step of this run failed", unsafeMessage: "" } : null,
+  };
+}
+export function combinedEventsOf(a, runs, condition, filters = null) {
+  const wants = (run) => {
+    if (!filters || !filters.length) return true;
+    const kind = run.activation_kind || null;
+    return (filters.includes("MANUAL_EXECUTION") && kind === "manual")
+      || (filters.includes("TRIGGERED") && (kind === "schedule" || kind === "webhook"))
+      || ((filters.includes("EFFECT_FAILED") || filters.includes("EVALUATION_FAILED")) && run.status === "failed");
+  };
+  return [...(runs || [])]
+    .filter(wants)
+    .sort((x, y) => String(y.started_at || "").localeCompare(String(x.started_at || "")))
+    .map((run) => ({ __typename: "ObjectSetMonitorCombinedHistoryEvent_UserScoped", __implements: ["ObjectSetMonitorCombinedHistoryEvent"], event: combinedHistoryEventOf(a, run, condition) }));
+}
+
+// A manual execution runs EVERY step (it is the automation's Run now): a selection of some effects only
+// is refused by name rather than run in full; no selection yet is the app's own disabled Confirm.
+// (The app also validates its object-set source with a generated placeholder effect id: ids that are not
+// this automation's effects are not a selection.)
+export function manualSelectionIssue(a, effectsToExecute) {
+  const all = (a.steps || []).map((_, index) => effectIdOf(a.automation_id, index));
+  const chosen = (Array.isArray(effectsToExecute) ? effectsToExecute : []).filter((id) => all.includes(id));
+  if (!chosen.length) return null;
+  return all.every((id) => chosen.includes(id)) ? null : "a manual execution runs every step of the automation — select all of its effects";
+}
+
+// ---- TELEMETRY: runs, errors and runtime per time bucket for the automations a request names, counted
+// from their executions (started in the bucket; failed ones are errors; runtime is finished − started).
+export const TELEMETRY_OPERATIONS = new Set(["GetSingleTelemetry", "GetTelemetry"]);
+const BUCKET_SECONDS = (interval) => {
+  const v = String(interval?.type || interval || "").toUpperCase();
+  return v.includes("MINUTE") ? 60 : v.includes("HOUR") ? 3600 : v.includes("WEEK") ? 7 * 86400 : v.includes("MONTH") ? 30 * 86400 : 86400;
+};
+export function telemetryFactsRoot(runs, variables, name) {
+  const from = Date.parse(variables?.fromTimestamp || "") || 0;
+  const to = Date.parse(variables?.toTimestamp || "") || Date.now();
+  const span = name === "GetSingleTelemetry" ? Math.max(1, to - from) : BUCKET_SECONDS(variables?.bucketInterval) * 1000;
+  const buckets = [];
+  for (let at = from; at < to && buckets.length < 2000; at += span) {
+    const end = Math.min(to, at + span);
+    const inside = (runs || []).filter((r) => { const t = Date.parse(r.started_at || ""); return t >= at && t < end; });
+    buckets.push({
+      __typename: "ObjectSetMonitorTelemetryBucket", bucketFrom: new Date(at).toISOString(), bucketTo: new Date(end).toISOString(),
+      data: {
+        __typename: "ObjectSetMonitorTelemetryData", numRuns: inside.length, numErrors: inside.filter((r) => r.status === "failed").length,
+        runtimeMillis: inside.reduce((sum, r) => sum + Math.max(0, (Date.parse(r.finished_at || "") || 0) - (Date.parse(r.started_at || "") || 0)), 0),
+      },
+    });
+  }
+  return { __typename: "Query", objectSetMonitorAggregateTelemetry: { __typename: "ObjectSetMonitorAggregateTelemetry", bucketedTelemetry: buckets } };
+}
+
+// Telemetry's Run history: one request log per execution of the automation (newest first) — who ran it,
+// when, for how long, and whether it succeeded; its trace is the execution itself.
+export const REQUEST_LOG_OPERATIONS = new Set(["RequestLogsQuery"]);
+export function requestLogsFactsRoot(a, runs, variables) {
+  const rid = monitorRidOf(a.automation_id);
+  const statusOf = (r) => (r.status === "done" ? "SUCCESS" : r.status === "failed" ? "FAILURE" : String(r.status || "").toUpperCase());
+  const wanted = [].concat(variables?.filter?.status ?? variables?.filter?.statuses ?? []).filter(Boolean);
+  const to = Date.parse(variables?.toExclusive || "") || Infinity;
+  const values = [...(runs || [])]
+    .filter((r) => (Date.parse(r.started_at || "") || 0) < to && (!wanted.length || wanted.includes(statusOf(r))))
+    .sort((x, y) => String(y.started_at || "").localeCompare(String(x.started_at || "")))
+    .slice(0, Math.max(1, Number(variables?.pageSize) || 50))
+    .map((r) => ({
+      __typename: "ExecutionHistoryTelemetryRequestLog", callerRid: null, createdByRequester: userIdOf(r.acting_principal_ref || ""),
+      durationMilliseconds: Math.max(0, (Date.parse(r.finished_at || "") || 0) - (Date.parse(r.started_at || "") || 0)),
+      timestamp: iso(r.finished_at || r.started_at), producingRid: rid, rawProducingResourceVersion: "1", requestStartTime: iso(r.started_at),
+      status: statusOf(r), trace: { __typename: "ExecutionHistoryTelemetryTrace", foundryTraceId: r.execution_id, traceOwningRid: rid },
+    }));
+  return { __typename: "Query", executionHistoryTelemetryRequestLogs: { __typename: "ExecutionHistoryTelemetryRequestLogPage", values, nextPageToken: null } };
+}
+
+// The Execute tab asks which groups the caller belongs to (who may be notified of a manual run). The
+// Hypervisor has no principal groups: the answer is the caller with none.
+export const PRINCIPAL_OPERATIONS = new Set(["ManualExecutionUserGroupsQuery"]);
+export const principalFactsRoot = (variables) => ({ __typename: "Query", principal: { __typename: "User", __implements: ["Principal"], _id: cacheId(`user-groups:${variables?.userId || ""}`), id: variables?.userId || null, groupsIncludingTransitive: [] } });
 
 // ---- SAVE LOCATION (ADR 0056 P3 cut 3b): the wizard's "Save as…" dialog picks where the automation
 // lives. In the Hypervisor that is a PROJECT — every automation's required durable container — so the
