@@ -120,6 +120,7 @@ export const REQUIRED_LIVE = Object.freeze([
   "observe/legs/walk-issue",
   "observe/legs/walk-health",
   "run/legs/walk-automation",
+  "run/legs/walk-function-step",
   "run/handoff/walk-run-in-work",
   "limits/legs/walk-checkpoint",
   "limits/handoff/walk-checkpoint-gates-run",
@@ -829,6 +830,31 @@ async function liveLeg() {
         && /^Passed/u.test(testedFn.q.get("note") || "") && /Output: 42/u.test(testedFn.q.get("note") || "")
         && releasedFn.q.get("ok") === "1" && fnRow.includes(fnName) && fnRow.includes('data-fn-tool-operable="1"'),
       `declare ${declaredFn.status} ${walkFnId || declaredFn.q.get("note") || "no function"} · test ${testedFn.q.get("note") || testedFn.status} · release ${releasedFn.q.get("note") || releasedFn.status} · listed ${fnRowAt >= 0} operable ${fnRow.includes('data-fn-tool-operable="1"')}`);
+    // STEP 5 (continued) — an automation step that runs THIS walk's released function by exact revision
+    // (ADR 0056 P3 cut 3). The walk's checkpoint gates every Run now, so this one is justified too.
+    const fnAutoName = `autofn-${vars.tag}`;
+    const fnRevisionRef = walkFnId ? `function://${walkFnId}/revision/1` : "";
+    const createdFnAuto = walkFnId
+      ? await submitRenderedForm(ctx, { id: "function-automation", page: await page(ctx, newAutomationRoute), from: newAutomationRoute, action: "/__ioi/automations",
+        fields: { project_ref: `project:${vars.tag}`, name: fnAutoName, step_kind: "function", step_function: fnRevisionRef, step_body: '{"amount": 99}' } })
+      : { status: 0, headers: {}, text: "" };
+    const fnAutoAt = String(createdFnAuto.headers?.location || "");
+    const fnAutoId = (fnAutoAt.match(/auto_[0-9a-f]+/u) || [])[0] || "";
+    const fnRunAction = `/__ioi/automations/${fnAutoId}/run`;
+    const fnPrompted = fnAutoId
+      ? await submitRenderedForm(ctx, { id: "function-run-now", page: await page(ctx, fnAutoAt), from: fnAutoAt, action: fnRunAction, fields: {} })
+      : { status: 0, headers: {}, text: "" };
+    const fnPaused = fnPrompted.status === 200 && String(fnPrompted.text || "").includes('data-justification-prompt="1"');
+    const fnRanNow = fnPaused
+      ? await submitRenderedForm(ctx, { id: "function-run-now-justified", page: fnPrompted, from: `${fnAutoAt} → prompt`, action: fnRunAction, fields: { justify__0__text: `walk ${vars.tag} — the walk runs its function as an automation step` } })
+      : fnPrompted;
+    const fnExec = fnAutoId ? ((((await read(ctx, `/v1/hypervisor/automations/${fnAutoId}/runs`)).json || {}).runs || [])[0] || {}) : {};
+    const fnStepResult = (fnExec.step_results || [])[0] || {};
+    claimLive("run/legs/walk-function-step",
+      createdFnAuto.status === 302 && !!fnAutoId && [302, 303].includes(fnRanNow.status) && fnExec.status === "done"
+        && fnStepResult.kind === "function" && fnStepResult.output?.outcome === "passed" && fnStepResult.output?.output === 100
+        && fnStepResult.output?.function_revision_ref === fnRevisionRef,
+      `create ${createdFnAuto.status} ${fnAutoId || "no automation"} · prompted ${fnPaused} · run ${fnRanNow.status} · ${fnExec.status || "no execution"} ${fnStepResult.output?.outcome || fnStepResult.output?.error || ""} output ${JSON.stringify(fnStepResult.output?.output)}`);
     await probesOf("observe");
     // HAND-OFF 6 → 7: from THIS walk's Work row, its own link opens the run's receipts (the execution's
     // run timeline), found by the run's own id — the execution the automation's history recorded.

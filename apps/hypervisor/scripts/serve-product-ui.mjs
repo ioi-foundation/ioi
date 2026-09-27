@@ -998,7 +998,7 @@ function renderAutomationDetail(a, runs, projectsById, webhook) {
   const v = (x) => (x == null || x === "" ? "—" : (typeof x === "string" ? CX_ESC(x) : CX_ESC(JSON.stringify(x))));
   const connectors = Array.isArray(a.connector_refs) && a.connector_refs.length ? a.connector_refs.map((c) => `<code>${CX_ESC(String(c))}</code>`).join(" ") : "—";
   const steps = Array.isArray(a.steps) && a.steps.length
-    ? `<h2>Steps</h2>` + a.steps.map((s, i) => `<div class="card"><div class="main"><div class="name">${i + 1}. ${CX_ESC(s.kind || "step")}</div><div class="meta"><code>${CX_ESC((s.prompt || s.command || s.title || "").slice(0, 200))}</code></div></div></div>`).join("")
+    ? `<h2>Steps</h2>` + a.steps.map((s, i) => `<div class="card"><div class="main"><div class="name">${i + 1}. ${CX_ESC(s.kind || "step")}</div><div class="meta"><code>${CX_ESC((s.kind === "function" ? `${s.function_revision_ref || ""} ${JSON.stringify(s.inputs || {})}` : (s.prompt || s.command || s.title || "")).slice(0, 200))}</code></div></div></div>`).join("")
     : `<h2>Steps</h2><div class="empty">No steps declared.</div>`;
   // ---- Pipeline view (09-pipeline-builder grammar donation, read-only first slice). The
   // automation AS a pipeline: trigger → declared steps → latest run outcome → proof. Rendered
@@ -1153,7 +1153,15 @@ function renderAutomationDetail(a, runs, projectsById, webhook) {
     ${canvasScript}`;
   return automationsShell(a.name || "Automation", inner);
 }
-function renderAutomationNewForm(projectId, projects, schedule = "manual") {
+// ADR 0056 P3 — the caller's released function revisions, as a function step offers them (the plane's
+// own list; a draft or deprecated revision is never offered).
+async function releasedFunctionRevisions() {
+  const j = await daemonFetch("/v1/hypervisor/functions").then((r) => r.json()).catch(() => ({}));
+  return (j.functions || []).map((f) => f.released_revision).filter((r) => r && r.status === "released" && r.tool_operable)
+    .map((r) => ({ revision_ref: r.revision_ref, content_hash: r.content_hash, display_name: r.display_name, api_name: r.api_name, version: r.version,
+      signature: (r.inputs || []).map((i) => `${i.name}: ${i.data_type?.type === "list" ? `list<${i.data_type.element_type}>` : i.data_type?.type}`).join(", ") }));
+}
+function renderAutomationNewForm(projectId, projects, schedule = "manual", releasedFunctions = []) {
   const opts = (projects || []).map((p) => `<option value="${CX_ESC(p.project_id)}"${p.project_id === projectId ? " selected" : ""}>${CX_ESC(p.name || p.project_id)}</option>`).join("");
   const tzOptions = ["UTC", "-08:00", "-07:00", "-06:00", "-05:00", "-04:00", "+01:00", "+02:00", "+05:30", "+08:00", "+09:00", "+10:00"]
     .map((z) => `<option value="${z}">${z === "UTC" ? "UTC (+00:00)" : "UTC" + z}</option>`).join("");
@@ -1200,9 +1208,10 @@ function renderAutomationNewForm(projectId, projects, schedule = "manual") {
         <div class="field"><label>Memory profile ref</label><input name="memory_profile_ref" placeholder="memory:project-default"></div>
       </div>
       <div class="two">
-        <div class="field"><label>Step kind</label><select name="step_kind"><option value="agent">agent (prompt)</option><option value="command">command (shell)</option></select></div>
+        <div class="field"><label>Step kind</label><select name="step_kind"><option value="agent">agent (prompt)</option><option value="command">command (shell)</option><option value="function">function (a released revision)</option></select></div>
         <div class="field"><label>&nbsp;</label><div class="sub" style="margin:0;font-size:12px">First step runs when you click Run now.</div></div>
       </div>
+      <div class="field"><label>Function (for a function step)</label>${releasedFunctions.length ? `<select name="step_function" data-automation-step-function="1"><option value="">Choose a released function…</option>${releasedFunctions.map((f) => `<option value="${CX_ESC(f.revision_ref)}">${CX_ESC(f.display_name)} ${CX_ESC(f.version)} — ${CX_ESC(f.api_name)}(${CX_ESC(f.signature)})</option>`).join("")}</select><div class="sub" style="margin:4px 0 0;font-size:12px">A function step runs that exact revision; its Step body is the inputs as a JSON object, for example <code>{"amount": 41}</code>. <a href="/ontology/functions">Ontology / Functions →</a></div>` : `<div class="sub" style="margin:0;font-size:12px" data-automation-step-function-none="1">No released function yet — a function step runs a released revision. <a href="/ontology/functions">Release one in Ontology / Functions →</a></div>`}</div>
       <div class="field"><label>Step body</label><textarea name="step_body" placeholder="e.g. Write a CONTRIBUTING.md for this repo."></textarea></div>
       <div class="row"><button class="act" type="submit">Create automation</button></div>
     </form>
@@ -10434,7 +10443,7 @@ async function handleEstateRequest(req, res, body) {
       const pRes = await daemonFetch(`/v1/hypervisor/projects`).then((r) => r.json()).catch(() => ({}));
       res.writeHead(200, { "Content-Type": "text/html; charset=utf-8", "Cache-Control": "no-cache" });
       const schedPreset = new URL(req.url, "http://x").searchParams.get("schedule");
-      res.end(renderAutomationNewForm(projectId, pRes.projects || [], ["manual", "interval", "cron"].includes(schedPreset) ? schedPreset : "manual"));
+      res.end(renderAutomationNewForm(projectId, pRes.projects || [], ["manual", "interval", "cron"].includes(schedPreset) ? schedPreset : "manual", await releasedFunctionRevisions()));
       return;
     }
     if (pathname === "/__ioi/automations/cron-preview" && req.method === "GET") {
@@ -10449,7 +10458,22 @@ async function handleEstateRequest(req, res, body) {
       const p = new URLSearchParams(body.toString());
       const stepBody = (p.get("step_body") || "").trim();
       const stepKind = p.get("step_kind") || "agent";
-      const steps = stepBody ? [stepKind === "command" ? { kind: "command", command: stepBody } : { kind: "agent", prompt: stepBody }] : [];
+      let steps = stepBody ? [stepKind === "command" ? { kind: "command", command: stepBody } : { kind: "agent", prompt: stepBody }] : [];
+      // ADR 0056 P3 — a function step pins the chosen released revision by its content hash, read from
+      // the plane at submission; the Step body is its inputs object.
+      if (stepKind === "function") {
+        const revisionRef = (p.get("step_function") || "").trim();
+        const released = (await releasedFunctionRevisions()).find((f) => f.revision_ref === revisionRef);
+        let inputs = null;
+        try { inputs = JSON.parse(stepBody || "{}"); } catch { inputs = null; }
+        const why = !released ? "choose a released function for the function step" : (!inputs || typeof inputs !== "object" || Array.isArray(inputs)) ? "a function step's Step body is its inputs as a JSON object, for example {\"amount\": 41}" : "";
+        if (why) {
+          res.writeHead(200, { "Content-Type": "text/html; charset=utf-8" });
+          res.end(automationsShell("New automation", `<div class="empty" data-automation-new-error="1">Create failed: ${CX_ESC(why)}.</div><p><a href="/__ioi/automations/new">← Back</a></p>`));
+          return;
+        }
+        steps = [{ kind: "function", function_revision_ref: released.revision_ref, content_hash: released.content_hash, inputs }];
+      }
       const connectorRefs = (p.get("connector_refs") || "").split(",").map((s) => s.trim()).filter(Boolean);
       // Schedule: type selector → interval | cron | manual (time trigger when scheduled).
       const schedType = p.get("schedule_type") || "manual";

@@ -227,6 +227,35 @@ pub(crate) fn internal_dispatch_authorized(st: &DaemonState, headers: &HeaderMap
         .unwrap_or(false)
 }
 
+/// ADR 0056 P3 — every `function` step in a create or patch must name a released revision the
+/// caller can run (`function_routes::prepare_step_run`); the first that cannot is the refusal.
+fn function_steps_refusal(
+    st: &DaemonState,
+    headers: &HeaderMap,
+    steps: Option<&Value>,
+) -> Result<(), (StatusCode, Json<Value>)> {
+    for (index, step) in steps
+        .and_then(Value::as_array)
+        .into_iter()
+        .flatten()
+        .enumerate()
+    {
+        if step["kind"].as_str() != Some("function") {
+            continue;
+        }
+        if let Err(why) = super::function_routes::prepare_step_run(st, headers, step) {
+            return Err((
+                StatusCode::BAD_REQUEST,
+                Json(json!({ "ok": false, "error": {
+                    "code": "automation_function_step_invalid",
+                    "message": format!("step {}: {why}", index + 1)
+                } })),
+            ));
+        }
+    }
+    Ok(())
+}
+
 /// POST /v1/hypervisor/automations — create a project-scoped AutomationWorkflow spec.
 /// `project_ref` (alias `project_id`) is REQUIRED: an automation is durable work that must hang off
 /// a project. Returns 400 if absent. On success the project's `automation_refs` is updated.
@@ -279,6 +308,11 @@ pub(crate) async fn handle_automation_create(
                 json!({ "ok": false, "error": { "code": "schedule_spec_invalid", "message": e } }),
             ),
         );
+    }
+    // ADR 0056 P3 — a function step pins a released revision the caller can see; refuse one that
+    // could never run now rather than at its first execution.
+    if let Err(response) = function_steps_refusal(&st, &headers, body.get("steps")) {
+        return response;
     }
     let mut record = json!({
         "schema_version": "ioi.hypervisor.automation-workflow.v1",
@@ -421,6 +455,9 @@ pub(crate) async fn handle_automation_patch(
                 ),
             );
         }
+    }
+    if let Err(response) = function_steps_refusal(&st, &headers, body.get("steps")) {
+        return response;
     }
     for key in [
         "name",
@@ -1775,6 +1812,30 @@ pub(crate) async fn handle_automation_start(
                     Err(e) => ("failed", json!({ "command": cmd, "error": e })),
                 }
             }
+            // ADR 0056 P3 — a released function revision, pinned by exact revision and content hash,
+            // run through the same exec primitive (and guardrails) a command step uses and judged
+            // against its declared output type.
+            "function" => match super::function_routes::prepare_step_run(&st, &inbound, step) {
+                Ok((command, revision)) => match call(
+                    &base,
+                    "POST",
+                    "/v1/hypervisor/exec",
+                    Some(json!({ "environment_id": env_id, "command": command })),
+                    &inbound,
+                )
+                .await
+                {
+                    Ok(answer) => super::function_routes::step_outcome(&revision, &answer),
+                    Err(e) => (
+                        "failed",
+                        json!({ "function_revision_ref": step["function_revision_ref"], "error": e }),
+                    ),
+                },
+                Err(why) => (
+                    "failed",
+                    json!({ "function_revision_ref": step["function_revision_ref"], "error": why }),
+                ),
+            },
             "proposal" => {
                 // a REAL proposal: the diff of everything this run changed on the env branch.
                 let range = if base_ref == "EMPTY" {

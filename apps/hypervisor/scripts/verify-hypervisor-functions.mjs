@@ -9,7 +9,9 @@
 // code printed, and an input of the wrong type is refused on the page before anything runs; Release
 // admits an exact tool revision the daemon reports operable; a successor must carry a greater version;
 // a successor that prints a log line before its value Fails its test run; Deprecate revokes the released
-// tool revision; and a signed-out post and a signed-out page each say so and change nothing.
+// tool revision; an automation's function step pins the released revision's content hash and Run now
+// runs exactly it (Passed, its output), and after Deprecate the same step fails naming why; and a
+// signed-out post and a signed-out page each say so and change nothing.
 //
 // Every write submits the form the surface RENDERED — its action, its hidden values, and only options
 // it offers — and every outcome is read back from the daemon.
@@ -228,6 +230,25 @@ async function run() {
     released.q?.get("ok") === "1" && r1r.status === "released" && r1r.runtime_tool_contract?.revision_ref === `tool://function/${fnId}/revision/1` && r1r.tool_operable === true,
     `${said(released)} · ${r1r.status || ""} ${r1r.runtime_tool_contract?.revision_ref || "no tool"} operable ${r1r.tool_operable}`);
 
+  // ---- 6b. an automation consumes the released revision by exact pin (ADR 0056 P3, cut 3) --------------
+  const newAuto = await page("/__ioi/automations/new");
+  const autoForm = renderedForm(newAuto.text, "/__ioi/automations");
+  ok("New automation offers a function step and the released revision — only released ones — to pin",
+    !!autoForm && autoForm.options.step_kind?.has("function") && autoForm.options.step_function?.has(r1r.revision_ref) && autoForm.options.step_function?.size === 2,
+    `step kinds ${autoForm?.options.step_kind ? [...autoForm.options.step_kind].join(",") : "no form"} · functions offered ${autoForm?.options.step_function ? [...autoForm.options.step_function].filter(Boolean).join(",") : "none"}`);
+  const fnAuto = await submit("/__ioi/automations/new", "/__ioi/automations", { project_ref: project.project?.id || "", name: `fnauto-${tag}`, step_kind: "function", step_function: r1r.revision_ref, step_body: '{"amount": 20}' });
+  const fnAutoId = (fnAuto.location || "").match(/auto_[0-9a-f]+/u)?.[0] || "";
+  const fnAutoRecord = ((await daemonRead(`/v1/hypervisor/automations/${fnAutoId}`)).body?.automation) || {};
+  const fnRan = fnAutoId ? await submit(`/__ioi/automations/${fnAutoId}`, `/__ioi/automations/${fnAutoId}/run`, {}) : { error: "no automation" };
+  const fnRuns = (await daemonRead(`/v1/hypervisor/automations/${fnAutoId}/runs`)).body?.runs ?? [];
+  const fnExec = fnRuns[0] || {};
+  const fnStep = fnExec.step_results?.[0] || {};
+  ok("an automation's function step pins the revision's content hash, and Run now runs that exact revision: the execution is done and the step recorded Passed with output 40 and its tool revision",
+    !!fnAutoId && fnAutoRecord.steps?.[0]?.content_hash === r1r.content_hash && [302, 303].includes(fnRan.status)
+      && fnExec.status === "done" && fnStep.kind === "function" && fnStep.output?.outcome === "passed" && fnStep.output?.output === 40
+      && fnStep.output?.tool_revision_ref === `tool://function/${fnId}/revision/1`,
+    `${said(fnAuto)} · pin ${fnAutoRecord.steps?.[0]?.content_hash === r1r.content_hash} · run ${fnRan.status ?? fnRan.error} · ${fnExec.status || "no execution"} ${fnStep.output?.outcome || fnStep.output?.error || ""} output ${JSON.stringify(fnStep.output?.output)}`);
+
   // ---- 7. successors carry a greater version ------------------------------------------------------------
   const sameVersion = await submit(`${FUNCTIONS}?function=${fnId}`, "/__ioi/ontology/functions/revise", { version: "1.0.0", source: NOISY });
   const countAfterSame = ((await daemonRead(`/v1/hypervisor/functions/${fnId}`)).body?.revisions ?? []).length;
@@ -259,6 +280,13 @@ async function run() {
   ok("Deprecate records the reason and revokes the released tool revision; the function then has no released revision",
     deprecated.q?.get("ok") === "1" && r1d.status === "deprecated" && r1d.deprecation?.reason === `superseded ${tag}` && r1d.tool_operable === false && after.function?.released_revision === null,
     `${said(deprecated)} · ${r1d.status || ""} operable ${r1d.tool_operable}`);
+
+  const depRan = fnAutoId ? await submit(`/__ioi/automations/${fnAutoId}`, `/__ioi/automations/${fnAutoId}/run`, {}) : { error: "no automation" };
+  const depExec = ((await daemonRead(`/v1/hypervisor/automations/${fnAutoId}/runs`)).body?.runs ?? []).find((r) => r.execution_id !== fnExec.execution_id) || {};
+  const depStep = depExec.step_results?.[0] || {};
+  ok("after Deprecate, the same automation's function step fails and says the pinned revision is deprecated — a pinned step never silently runs something else",
+    [302, 303].includes(depRan.status) && depExec.status === "failed" && /deprecated/u.test(depStep.output?.error || ""),
+    `run ${depRan.status ?? depRan.error} · ${depExec.status || "no execution"} ${depStep.output?.error || ""}`);
 
   // ---- 10. signed out, the page names the refusal and shows nothing in its place ----------------------------
   const anonPage = await page(FUNCTIONS, { anonymous: true });

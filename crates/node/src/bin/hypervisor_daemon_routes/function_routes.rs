@@ -1336,6 +1336,96 @@ pub(crate) fn classify_run(answer: &Value, output_type: &Value, timeout_ms: u64)
     observation
 }
 
+/// `function://fn_<16 hex>/revision/<n>` → (family id, ordinal).
+fn revision_coordinates(revision_ref: &str) -> Option<(String, u64)> {
+    let rest = revision_ref.trim().strip_prefix("function://")?;
+    let (family, ordinal) = rest.split_once("/revision/")?;
+    let ordinal = ordinal.parse::<u64>().ok().filter(|n| *n >= 1)?;
+    Some((family_id(family)?, ordinal))
+}
+
+/// An automation step's exact pin (ADR 0056 P3, cut 3): `{kind: "function", function_revision_ref,
+/// content_hash, inputs}`. The revision must be visible to the caller, still carry that content hash,
+/// be released, and have an operable tool revision; the inputs must fit its declared types. Returns the
+/// command that runs it and the revision, or why the step cannot run. Automations consume a function
+/// only this way — by exact revision, never by name.
+pub(crate) fn prepare_step_run(
+    st: &DaemonState,
+    headers: &HeaderMap,
+    step: &Value,
+) -> Result<(String, Value), String> {
+    let revision_ref = text(step, "function_revision_ref");
+    let (fn_id, ordinal) = revision_coordinates(revision_ref).ok_or_else(|| {
+        "a function step names its revision as function://fn_…/revision/<n>".to_string()
+    })?;
+    let identity = super::substrate_store::resolve_request_identity(&st.data_dir, headers)
+        .map_err(|error| error.message())?;
+    let revision = load_record(&st.data_dir, KIND_REVISION, &record_id(&fn_id, ordinal))
+        .filter(|r| {
+            r["owner_ref"]
+                .as_str()
+                .is_some_and(|owner| identity.authorizes_tenant(owner))
+        })
+        .ok_or_else(|| format!("no function revision {revision_ref} is visible to you"))?;
+    if text(step, "content_hash") != text(&revision, "content_hash") {
+        return Err(format!(
+            "the step pins content hash {} but {revision_ref} is {}",
+            text(step, "content_hash"),
+            text(&revision, "content_hash")
+        ));
+    }
+    if text(&revision, "status") != "released" {
+        return Err(format!(
+            "{revision_ref} is {}; an automation runs only a released revision",
+            text(&revision, "status")
+        ));
+    }
+    let binding = &revision["runtime_tool_contract"];
+    let operable = st
+        .runtime_tool_contract_registry
+        .read()
+        .is_ok_and(|registry| {
+            registry
+                .resolve_exact(text(binding, "revision_ref"), text(binding, "content_hash"))
+                .is_ok()
+        });
+    if !operable {
+        return Err(format!(
+            "{revision_ref}'s tool revision {} is not operable in the runtime tool-contract registry",
+            text(binding, "revision_ref")
+        ));
+    }
+    let declared: Vec<Value> = revision["inputs"].as_array().cloned().unwrap_or_default();
+    let inputs = checked_inputs(&declared, step.get("inputs").unwrap_or(&Value::Null))?;
+    let command = run_command(&revision, &inputs)?;
+    Ok((command, revision))
+}
+
+/// One function step's exec answer as the executor records it: `done` only when the run passed.
+pub(crate) fn step_outcome(revision: &Value, answer: &Value) -> (&'static str, Value) {
+    let observed = classify_run(
+        answer,
+        &revision["output"]["data_type"],
+        revision["timeout_ms"].as_u64().unwrap_or(30_000),
+    );
+    (
+        if observed.outcome == "passed" {
+            "done"
+        } else {
+            "failed"
+        },
+        json!({
+            "function_revision_ref": revision["revision_ref"],
+            "tool_revision_ref": revision["runtime_tool_contract"]["revision_ref"],
+            "outcome": observed.outcome,
+            "exit_code": observed.exit_code,
+            "output": observed.output,
+            "output_hash": observed.output_hash,
+            "summary": observed.summary,
+        }),
+    )
+}
+
 /// POST /v1/hypervisor/functions/:id/test-runs {revision_ref?|ordinal?, environment_ref, inputs} —
 /// run one exact revision now, in an environment the caller owns, and admit the run.
 pub(crate) async fn handle_function_test_run(
@@ -1710,6 +1800,60 @@ mod function_tests {
         let mut leading_zero = declaration();
         leading_zero["version"] = json!("1.02.0");
         assert!(declared(&leading_zero).is_err());
+    }
+
+    #[test]
+    fn a_step_pin_names_one_exact_revision() {
+        assert_eq!(
+            revision_coordinates("function://fn_0123456789abcdef/revision/3"),
+            Some(("fn_0123456789abcdef".to_string(), 3))
+        );
+        assert_eq!(revision_coordinates("function://fn_0123456789abcdef"), None);
+        assert_eq!(
+            revision_coordinates("function://fn_0123456789abcdef/revision/0"),
+            None
+        );
+        assert_eq!(
+            revision_coordinates("function://doubleAmount/revision/1"),
+            None,
+            "never by name"
+        );
+        assert_eq!(
+            revision_coordinates("tool://function/fn_0123456789abcdef/revision/1"),
+            None
+        );
+    }
+
+    #[test]
+    fn a_step_passes_only_when_its_run_passed() {
+        let revision = json!({
+            "revision_ref": "function://fn_0123456789abcdef/revision/1",
+            "runtime_tool_contract": { "revision_ref": "tool://function/fn_0123456789abcdef/revision/1" },
+            "output": { "data_type": { "type": "integer", "element_type": null } },
+            "timeout_ms": 30000,
+        });
+        let (status, output) =
+            step_outcome(&revision, &json!({ "exit_code": 0, "stdout": "40\n" }));
+        assert_eq!(
+            (
+                status,
+                output["outcome"].as_str(),
+                output["output"].as_i64()
+            ),
+            ("done", Some("passed"), Some(40))
+        );
+        assert_eq!(
+            output["tool_revision_ref"],
+            json!("tool://function/fn_0123456789abcdef/revision/1")
+        );
+        assert_eq!(
+            step_outcome(&revision, &json!({ "exit_code": 0, "stdout": "\"40\"" })).0,
+            "failed"
+        );
+        assert_eq!(
+            step_outcome(&revision, &json!({ "exit_code": 124 })).0,
+            "failed"
+        );
     }
 
     #[test]
