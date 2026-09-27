@@ -332,8 +332,14 @@ journey verifier → deploy to the owner's stack.
   compass), Batch, and "Not yet deployed". Search and the creator are bound; the Project filter is a named
   gap (a DataRecipe is held in no project). The project picker, the user lookup and the universal capture
   fallback no longer hand out the reference tenant's records (the fallback now flags its API answers).
-  Signed out, the picker and the lookup answer nothing. `check:adopted-pipeline` 11/11 (local mirror only). **Next (cut 2b):** the editor (`all-information`,
-  markings settings, UDF flag, the ontology load) and Create as a founding change set.
+  Signed out, the picker and the lookup answer nothing. `check:adopted-pipeline` 11/11 (local mirror only).
+- **Cut 2b — the editor opens, read-only (2026-09-27).** About 25 opening reads (REST and GraphQL) answer
+  from the Hypervisor; a pipeline opens on Main with its declared outputs and "Pipeline not yet deployed". The
+  caller holds no edit operation until drafts are bound; Main forbids a direct push (only a merged change set
+  moves it); the graph honestly reads "not initialized" (steps are not derived into transforms). The
+  markings reads and input resolution no longer hand out tenant records. `/workspace/builder` is an adopted
+  route alias. `check:adopted-pipeline` 14/14. **Next (cut 2c):** the editor's writes as drafts to a change
+  set (then Propose), Create as a founding change set, Proposals / History, Deploy = merge + TransformationRun.
 
 ## Gate
 

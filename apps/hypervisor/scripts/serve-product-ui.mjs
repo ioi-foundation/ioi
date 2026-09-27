@@ -248,7 +248,7 @@ const AUG_TAG = '<script src="/ioi-augmentation.js" defer></script>';
 // IOI_PRODUCT_SIGNIN_REQUIRED=0 — the one automation browses anonymously — keeps its signed-out states.
 // An adopted app's OWN base path (its router pushes these URLs) serves the same seed, so a reload or a
 // deep link lands where the app expects; the /__apps/<slug> lane stays the development entry.
-const ADOPTED_ROUTE_ALIASES = [["/workspace/object-monitoring", "monitors"]];
+const ADOPTED_ROUTE_ALIASES = [["/workspace/object-monitoring", "monitors"], ["/workspace/builder", "pipeline"]];
 // Whether the local reference mirror can boot a seed right now (R-241: adopted bundles live in the
 // local mirror only). Cached briefly; a canonical route opens the adopted app only when it can boot.
 const adoptedSeedCache = new Map();
@@ -9233,6 +9233,11 @@ async function handleEstateRequest(req, res, body) {
       };
       const answerAdoptedOp = async (name, variables, ctxA, query = "") => {
         if (AUTOMATE.OPERATIONS.has(name)) return { data: AUTOMATE.graphqlAnswer(name, variables || {}, ctxA) };
+        if (PIPELINE.PIPELINE_EDITOR_OPERATIONS.has(name) && query && (PIPELINE.pipelineRidIn(variables) || PIPELINE.PIPELINE_EDITOR_GLOBAL_OPERATIONS.has(name) || (PIPELINE.PIPELINE_EDITOR_DATASET_OPERATIONS.has(name) && PIPELINE.datasetRidIn(variables)))) {
+          // the reference's recorded answer to the same generic read (Automate's harvest) lends STRUCTURE only
+          const template = AUTOMATE.harvestOperations(ADOPT_MIRROR_DIR).get(name)?.data || null;
+          return { data: answerAdoptedDocument(query, PIPELINE.pipelineEditorFactsRoot(variables || {}, await pipelineContext(), PIPELINE.uuidOf), template, name) };
+        }
         if (PIPELINE.PIPELINE_OPERATIONS.has(name) && query) {
           return { data: answerAdoptedDocument(query, PIPELINE.pipelineFactsRoot(name, variables || {}, await pipelineContext(), PIPELINE.uuidOf), null, name) };
         }
@@ -9909,6 +9914,81 @@ async function handleEstateRequest(req, res, body) {
         const details = PIPELINE.pipelineDetails(pathname.split("/").pop(), await pipelineContext(), PIPELINE.uuidOf);
         res.writeHead(details ? 200 : 404, { "Content-Type": "application/json" });
         return res.end(JSON.stringify(details || { errorCode: "NOT_FOUND", errorName: "Eddie:PipelineNotFound", errorInstanceId: "", parameters: { message: "no DataRecipe family or change set of yours is this pipeline" } }));
+      }
+      // The pipeline editor's reads (cut 2b), each for a pipeline the caller holds — read-only: the caller is
+      // granted no edit operation until the editor's writes (drafts to a change set) are bound.
+      {
+        const PR = "ri\\.eddie\\.main\\.pipeline\\.[0-9a-f-]{36}";
+        const at = (re) => new RegExp(`^${re}$`, "u").exec(pathname);
+        const send = (status, obj) => { res.writeHead(status, { "Content-Type": "application/json" }); return res.end(obj === undefined ? undefined : JSON.stringify(obj)); };
+        const notFound = () => send(404, { errorCode: "NOT_FOUND", errorName: "Eddie:PipelineNotFound", errorInstanceId: "", parameters: { message: "no DataRecipe family or change set of yours is this pipeline" } });
+        const holds = async (rid) => (await pipelineContext()).find((x) => x.rid === rid) || null;
+        const query = new URL(req.url, "http://x").searchParams;
+        let m;
+        if ((m = at(`/eddie/api/pipelines-v2/(${PR})/all-information`)) && req.method === "GET") {
+          const info = PIPELINE.allInformation(m[1], query.get("sandboxId"), await pipelineContext(), PIPELINE.uuidOf);
+          return info ? send(200, info) : notFound();
+        }
+        if ((m = at(`/eddie/api/pipelines-v2/(${PR})/sandboxes/get/all`)) && req.method === "GET") {
+          const all = PIPELINE.allSandboxes(m[1], await pipelineContext(), PIPELINE.uuidOf);
+          return all ? send(200, all) : notFound();
+        }
+        if ((m = at(`/eddie/api/pipelines-v2/markings/(${PR})/settings`)) && req.method === "GET") return (await holds(m[1])) ? send(200, { enableUnmarkingInPipeline: false, requireReapproval: {} }) : notFound();
+        if ((m = at(`/eddie/api/pipeline-backend-feature-flags/(${PR})`)) && req.method === "GET") return (await holds(m[1])) ? send(200, []) : notFound();
+        if ((m = at(`/eddie/api/work-state/(${PR})/[0-9a-f-]{36}/v2`)) && req.method === "GET") { if (!(await holds(m[1]))) return notFound(); res.writeHead(204); return res.end(); }
+        if ((m = at(`/eddie/api/pipelines-v2/(${PR})/sandboxes/[0-9a-f-]{36}/session-heartbeats`)) && req.method === "GET") return (await holds(m[1])) ? send(200, { heartbeats: {} }) : notFound();
+        if ((m = at(`/eddie/api/deployment/(${PR})/sandboxes/[0-9a-f-]{36}/version/[0-9a-f-]{36}/targets/status`)) && req.method === "POST") return (await holds(m[1])) ? send(200, { statuses: {} }) : notFound();
+        if ((m = at(`/eddie/api/pipelines-v2/(${PR})/proposals/by-created-at`)) && req.method === "POST") {
+          const p = await holds(m[1]);
+          if (!p) return notFound();
+          let asked = {};
+          try { asked = JSON.parse(body.toString() || "{}"); } catch { /* none */ }
+          const sources = new Set(asked.sourceSandboxIds || []);
+          // A proposed change set IS a proposal; until the Proposals tab is bound, one that exists is refused
+          // by name rather than answered as "no proposals".
+          const proposed = p.openChangeSets.filter((cs) => cs.status === "proposed" && (!sources.size || sources.has(PIPELINE.changeSetSandboxIdOf(cs.change_set_ref))));
+          return proposed.length ? send(501, { errorCode: "INTERNAL", errorName: "Eddie:ProposalsNotBound", errorInstanceId: "", parameters: { message: `${proposed.length} proposed change set(s) exist; the Proposals tab is not bound to them yet` } }) : send(200, { proposals: [] });
+        }
+        if ((m = at(`/compass/api/resources/(${PR})/parent`)) && req.method === "GET") {
+          const p = await holds(m[1]);
+          if (!p) return notFound();
+          const t = new Date(Date.parse(p.createdAt) || 0).toISOString();
+          return send(200, { rid: "ri.compass.main.folder.0", name: "All files", created: { time: t, userId: PIPELINE.uuidOf(p.author || "unknown") }, modified: { time: t, userId: PIPELINE.uuidOf(p.author || "unknown") }, lastModified: Date.parse(t) || 0, urlVariables: {}, directlyTrashed: false, isAutosave: false, isHidden: false, isPreviewResource: false, status: null });
+        }
+        if ((m = at(`/compass/api/linked-items/(${PR})`)) && req.method === "GET") return (await holds(m[1])) ? send(200, []) : notFound();
+        // User-defined transforms are not offered in a recipe: refused by name here, never the mirror's answer.
+        if ((m = at(`/eddie/api/external-transforms/(${PR})/is-udf-enabled-v2`)) && req.method === "GET") {
+          return (await holds(m[1])) ? send(404, { errorCode: "NOT_FOUND", errorName: "Eddie:UdfsNotOffered", errorInstanceId: "", parameters: { message: "a DataRecipe runs canon's transformation steps; user-defined transforms are not offered" } }) : notFound();
+        }
+        // No output dataset of a recipe has been built, so no input resolves to a transaction — never the
+        // recorded tenant's transactions answered for our dataset.
+        if (pathname === "/eddie/api/input-resolution/resolve-v2" && req.method === "POST") return send(200, { resolvedInputs: [] });
+        // Pure functions of the request's own snapshot: no logical types, installed functions or job groupings
+        // exist for a recipe; an empty snapshot builds and tests trivially.
+        if (pathname === "/eddie/api/transformations/available-logical-types" && req.method === "POST") return send(200, { logicalTypes: [] });
+        if (pathname === "/eddie/api/transformations/logical-types" && req.method === "POST") return send(200, { definitions: [] });
+        if (pathname === "/eddie/api/external-transforms/installed-functions-for-snapshot" && req.method === "PUT") return send(200, { models: [] });
+        if (pathname === "/eddie/api/pipelines-v2/resolve-job-groupings" && req.method === "POST") return send(200, { jobGroupings: [] });
+        if (pathname === "/eddie/api/instantiated-transforms/check-testable-compacted" && req.method === "POST") return send(200, { compactedTypes: {}, result: [] });
+        if (pathname === "/eddie/api/instantiated-transforms/check-buildable-compacted" && req.method === "POST") return send(200, { compactedTypes: {}, result: { type: "success", success: { transforms: {}, targets: {}, globalWarnings: [] } } });
+        // The caller's operations on each requested pipeline of theirs: none yet (the editor opens read-only).
+        if (pathname === "/multipass/api/authz/batch/operations" && req.method === "POST") {
+          let rids = [];
+          try { rids = JSON.parse(body.toString() || "[]"); } catch { /* none */ }
+          const ours = await pipelineContext();
+          return send(200, { resourceToOperationsMap: Object.fromEntries((Array.isArray(rids) ? rids : []).filter((r) => ours.some((x) => x.rid === r)).map((r) => [r, []])) });
+        }
+        // The Hypervisor keeps no mandatory markings: none is usable, and no principal holds any — never the
+        // recorded tenant's marking catalog, nor its user's markings answered for ours.
+        if (pathname === "/multipass/api/authz/markings/usable" && req.method === "GET") return send(200, { categories: [] });
+        if (pathname === "/multipass/api/authz/markings/access/principals" && req.method === "POST") {
+          let asked = {};
+          try { asked = JSON.parse(body.toString() || "{}"); } catch { /* none */ }
+          return send(200, { categoryAndMarkingIds: Object.fromEntries((asked.principalIds || []).map((id) => [id, { categoryIds: [], hasHiddenCategoryIds: false, markingIds: [], hasHiddenMarkingIds: false }])) });
+        }
+        // No favorites are kept; no ontology is offered to a pipeline's outputs yet.
+        if (pathname === "/people/api/personal/get-favorites" && req.method === "POST") return send(200, { orderedFavorites: [] });
+        if (pathname === "/ontology-metadata/api/ontology/v2/load/all" && req.method === "POST") return send(200, { ontologies: {} });
       }
       if (pathname === "/eddie/api/pipelines-v2/get-sandboxes-with-snapshots" && req.method === "POST") {
         let request = {};

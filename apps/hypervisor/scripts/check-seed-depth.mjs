@@ -56,14 +56,18 @@ const PINS = {
   // proposal steps), 4 open (header rename unproven; the side tabs undriven; settings accepted but not
   // enforced; the editor's Time label for a manual automation).
   automate: { total: 37, bound: 19, refused: 10, named_gap: 3, open: 5 },
-  // 2026-09-27 (R-241, ADR 0056 P4 cut 2a): 11 → 14 — the landing over DataRecipe families and change sets:
+  // 2026-09-27 (R-241, ADR 0056 P4 cut 2b): 14 → 15 — the editor opens a pipeline read-only on its Main
+  // sandbox (bound: editor.open); its graph (no transforms derived from a recipe's steps, no edit operation)
+  // and its outputs pane (declared outputs without columns or a target ontology) move open → named gap.
+  // Open 10 → 8.
+  // Before that, 2026-09-27 (R-241, ADR 0056 P4 cut 2a): 11 → 14 — the landing over DataRecipe families and change sets:
   // the list (outputs from each recipe's declared outputs, Batch, never deployed), Search and the creator are
   // bound by check:adopted-pipeline; the Project filter is a named gap (a DataRecipe is held in no project).
   // Open 11 → 10.
   // Before that, 2026-09-27 (R-241): Pipeline Builder's cut begins — 11 states harvested read-only (landing,
   // examples, the create form and its two choices, the editor's graph, add data, outputs, proposals, history,
   // deploy); all open until bound to DataRecipe revisions and TransformationRuns.
-  "pipeline-builder": { total: 14, bound: 3, refused: 0, named_gap: 1, open: 10 },
+  "pipeline-builder": { total: 15, bound: 4, refused: 0, named_gap: 3, open: 8 },
   sessions: { total: 0, bound: 0, refused: 0, named_gap: 0, open: 0 },
   "ontology-manager": { total: 0, bound: 0, refused: 0, named_gap: 0, open: 0 },
   "data-connection": { total: 0, bound: 0, refused: 0, named_gap: 0, open: 0 },

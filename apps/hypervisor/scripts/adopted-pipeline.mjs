@@ -281,3 +281,102 @@ export function compassSearchAnswer(request, projects, folderRidOf, userIdOf, ca
   });
   return { result, nextPageToken: offset + limit < matched.length ? String(offset + limit) : null };
 }
+
+// ---- THE EDITOR (cut 2b): what the pipeline editor reads when it opens a pipeline, READ-ONLY. The caller
+// is granted no edit operation (the editor's writes — a draft to a change set — are the next cut), so the
+// editor opens in view mode rather than offering edits that would go nowhere. Main's protections forbid a
+// direct push: canon's patch branch is the only way a family's head moves (a change set merged).
+export const PIPELINE_EDITOR_OPERATIONS = new Set([
+  "OntologiesQuery", "BackendTypeForLatestSandboxVersionQuery", "ActiveResourceQuery", "ResourceHeaderQuery",
+  "ProjectIcebergStorageQuery", "TargetProjectQuery", "DataConnectionSourceQuery", "ComputeExpressionIfAbsentStoresQuery",
+  "CurrentDeploymentQuery", "ResolveEddieSandboxToGlobalBranch", "ResourceProjectQuery", "BranchSelectSearchQuery",
+  "IssueBadgeData", "WalkthroughsForResourceQuery", "CommunicationChannelsQuery", "BackingObjectQuery", "CompassResourceViewQuery",
+]);
+// Editor reads that name no pipeline (the caller's organization, a dataset, ontologies, branches).
+export const PIPELINE_EDITOR_GLOBAL_OPERATIONS = new Set(["OntologiesQuery", "BranchSelectSearchQuery", "CommunicationChannelsQuery", "BackingObjectQuery"]);
+// Reads keyed by a dataset rid: answered when it is one of the caller's pipelines' declared output datasets.
+export const PIPELINE_EDITOR_DATASET_OPERATIONS = new Set(["BackingObjectQuery", "CompassResourceViewQuery"]);
+export const datasetRidIn = (variables) => (JSON.stringify(variables || {}).match(/ri\.foundry\.main\.dataset\.[0-9a-f-]{36}/u) || [])[0] || null;
+export const pipelineRidIn = (variables) => (JSON.stringify(variables || {}).match(/ri\.eddie\.main\.pipeline\.[0-9a-f-]{36}/u) || [])[0] || null;
+const ALL_FILES = { __typename: "ResourceMetadata", name: "All files", rid: "ri.compass.main.folder.0", _id: cacheId("folder:0"), openUrl: null, permissions: { __typename: "ResourceMetadataPermissions", _id: cacheId("perm:folder:0"), canOpenLink: false } };
+function pipelineResource(p, userIdOf) {
+  const at = (t) => ({ __typename: "ResourceTimestamp", time: iso(t), user: { __typename: "User", id: userIdOf(p.author || "unknown"), _id: cacheId(`user:${p.author}`) } });
+  return {
+    __typename: "ResourceMetadata", _id: cacheId(`meta:${p.rid}`), rid: p.rid, name: p.name, alias: null, description: "",
+    path: `/${p.name}`, openUrl: `/workspace/builder/${p.rid}`, autosaved: false, hidden: false, trashedStatus: "NOT_TRASHED",
+    favorited: null, status: null, statusInfo: null, collections: [], isProtected: false, created: at(p.createdAt), modified: at(p.head?.admitted_at || p.createdAt),
+    ancestors: [ALL_FILES], parent: ALL_FILES, urlVariables: [], actionLinks: [], promotion: null, aipAssistWalkthroughs: [],
+    // lists the header reads: no markings, tags or collaborators are kept for a recipe family
+    markings: [], projectAccessMarkings: [], tags: [], namedTags: [], namedCollections: [], collaborators: [], linkedItems: [],
+    classification: { __typename: "Classification", userConstraintClassificationBanner: null, containerClassificationBanner: null, resourceClassificationBanner: null },
+    type: { __typename: "ResourceTypeMetadata", iconName: "pt-svg-icon-layout-hierarchy" },
+    // A DataRecipe family is held in no project.
+    project: null, projectRid: null,
+    openIssues: { __typename: "IssuePage", totalNumberOfResults: 0 },
+    permissions: { __typename: "ResourceMetadataPermissions", _id: cacheId(`perm:${p.rid}`), canOpenLink: true, canEditMetadata: false, canShare: false, canShareLink: false, canTrash: false, canEditTags: false, canMoveBetweenProjects: false, canMoveWithinProject: false, canRestore: false },
+  };
+}
+export function pipelineEditorFactsRoot(variables, pipelines, userIdOf) {
+  const rid = pipelineRidIn(variables);
+  const p = rid ? pipelines.find((x) => x.rid === rid) : null;
+  const sandboxId = variables?.sandboxId || (p ? mainSandboxIdOf(p.familyRef) : null);
+  const known = p && (sandboxId === mainSandboxIdOf(p.familyRef) || p.openChangeSets.some((cs) => changeSetSandboxIdOf(cs.change_set_ref) === sandboxId));
+  const sandbox = known ? {
+    __typename: "EddieSandbox", _id: cacheId(`sandbox:${sandboxId}`), sandboxId,
+    latestVersion: { __typename: "EddieSandboxVersion", _id: cacheId(`version:${sandboxId}`), backend: "Spark" },
+    computeExpressionIfAbsentStores: [], globalBranch: null, currentDeployment: null,
+  } : null;
+  // A dataset the request names: one of the caller's pipelines' declared output datasets backs no object type.
+  const datasetRid = (JSON.stringify(variables || {}).match(/ri\.foundry\.main\.dataset\.[0-9a-f-]{36}/u) || [])[0] || null;
+  const ownDataset = datasetRid && pipelines.some((x) => [x.head, ...x.openChangeSets.map((cs) => cs.drafts?.at(-1)?.body)].filter(Boolean)
+    .some((body) => (body.output_dataset_contract_refs || []).some((ref) => `ri.foundry.main.dataset.${uuidOf(ref)}` === datasetRid)));
+  return {
+    __typename: "Query",
+    // The caller's organization sets no communication controls, and there are no channel categories.
+    me: { __typename: "User", _id: cacheId("me"), organization: { __typename: "Organization", _id: cacheId("me:organization"), enrollment: { __typename: "Enrollment", _id: cacheId("me:enrollment"), administratorCommunicationControls: null } } },
+    communicationChannelCategories: [],
+    catalogDataset: ownDataset ? { __typename: "CatalogDataset", _id: cacheId(`dataset:${datasetRid}`), backsObjectTypes: [] } : null,
+    // The Hypervisor's ontologies are not offered as output targets yet (the editor's outputs cut).
+    allOntologies: [],
+    // no global branches exist (a change set is a patch branch of one family, not a global branch)
+    globalBranchDropdownSearchByCreatedAtDescending: { __typename: "GlobalBranchPage", values: [], nextPageToken: null },
+    eddiePipeline: p ? { __typename: "EddiePipeline", _id: cacheId(`pipeline:${p.rid}`), sandbox } : null,
+    resourceMetadata: p ? pipelineResource(p, userIdOf) : (ownDataset ? datasetResource(datasetRid, pipelines) : null),
+  };
+}
+// An output dataset as a compass resource: named by its dataset contract, in no folder of its own.
+function datasetResource(rid, pipelines) {
+  let ref = null;
+  for (const x of pipelines) for (const body of [x.head, ...x.openChangeSets.map((cs) => cs.drafts?.at(-1)?.body)].filter(Boolean)) for (const r of body.output_dataset_contract_refs || []) if (`ri.foundry.main.dataset.${uuidOf(r)}` === rid) ref = r;
+  const branch = { __typename: "ResourceBranch", _id: cacheId(`branch:${rid}:master`), name: "master", branchName: "master" };
+  return {
+    __typename: "ResourceMetadata", _id: cacheId(`meta:${rid}`), rid, name: tokenOf(ref), alias: null, path: `/${tokenOf(ref)}`, openUrl: null,
+    collections: [], status: null, statusInfo: null, trashedStatus: "NOT_TRASHED", autosaved: false, ancestors: [ALL_FILES],
+    type: { __typename: "ResourceTypeMetadata", iconName: "pt-svg-icon-dataset" },
+    permissions: { __typename: "ResourceMetadataPermissions", _id: cacheId(`perm:${rid}`), canOpenLink: false },
+    branch, defaultBranch: branch,
+  };
+}
+
+// The editor's REST reads. Each answers only a pipeline the caller holds; null means "not theirs".
+export function allInformation(rid, sandboxId, pipelines, userIdOf) {
+  const p = pipelines.find((x) => x.rid === rid);
+  if (!p) return null;
+  const main = mainSandboxIdOf(p.familyRef);
+  const got = sandboxesWithSnapshots([{ pipelineRid: rid, sandboxId: sandboxId || main }], pipelines, userIdOf).sandboxes[0];
+  if (!got) return null;
+  return {
+    pipeline: pipelineEntry(p, userIdOf), sandbox: got.sandbox, version: got.version, snapshot: got.snapshot,
+    availableInstalledTransforms: [], availableInstalledModels: [],
+    // The Hypervisor runs a recipe as a TransformationRun on its own runtime; it offers no compute profiles.
+    availableBackendSettings: { computeProfiles: [], edgeComputeProfiles: [], defaultComputeProfile: null, configuration: {} },
+    settings: { settings: { protectionsForPublishedSandboxes: { allowDirectPush: false } }, version: uuidOf(`${p.familyRef}#settings`) },
+    mainSandbox: main,
+  };
+}
+export function allSandboxes(rid, pipelines, userIdOf) {
+  const p = pipelines.find((x) => x.rid === rid);
+  if (!p) return null;
+  const requests = [mainSandboxIdOf(p.familyRef), ...p.openChangeSets.map((cs) => changeSetSandboxIdOf(cs.change_set_ref))].map((sandboxId) => ({ pipelineRid: rid, sandboxId }));
+  return { sandboxes: sandboxesWithSnapshots(requests, pipelines, userIdOf).sandboxes.map((s) => s.sandbox) };
+}

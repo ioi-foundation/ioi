@@ -162,17 +162,36 @@ async function run() {
     ok("the landing search narrows the list to the matching pipeline", /claims-triage/u.test(searched) && !/intake-normalise/u.test(searched),
       searched.slice(searched.indexOf("LAST DEPLOYED"), searched.indexOf("LAST DEPLOYED") + 160));
 
-    // The mirror still answers the reference's CHROME reads, and the three builder reads named open in the
-    // seed-depth record (the transform catalog, the AIP toggle, the editor's display settings); anything
-    // else is a new lane reaching recorded tenant answers, and fails here until it is bound.
+    // ---- the editor, opened from the row: read-only over the family's head -----------------------------
+    await pg.getByPlaceholder("Search pipelines").fill("");
+    await pg.waitForTimeout(2500);
+    await pg.getByText("intake-normalise", { exact: true }).first().click();
+    await pg.waitForTimeout(14000);
+    await pg.getByText("Close", { exact: true }).first().click({ timeout: 3000 }).catch(() => { /* no announcement */ });
+    await pg.waitForTimeout(1500);
+    const editorUrl = pg.url().replace(SERVE, "");
+    // the object output's name is an input's value (the pane renders it editable-looking, disabled here)
+    const editor = (await pg.evaluate(() => `${document.body.innerText} ${[...document.querySelectorAll("input")].map((i) => i.value).join(" ")}`)).replace(/\s+/gu, " ");
+    ok("a pipeline opens in the adopted editor READ-ONLY on its Main sandbox, listing the recipe's declared outputs and never deployed",
+      /^\/workspace\/builder\/ri\.eddie\.main\.pipeline\.[0-9a-f-]{36}\/sandbox\/[0-9a-f-]{36}$/u.test(editorUrl) && !/An error (?:has )?occurred|Pipeline not found/u.test(editor)
+        && /intake-normalise/u.test(editor) && /\bMain\b/u.test(editor) && /read-only mode/u.test(editor)
+        && /acme-clinic\/patient-intake-row\/v2/u.test(editor) && /om_patient_intake/u.test(editor) && /Pipeline not yet deployed/u.test(editor),
+      `${editorUrl} · ${JSON.stringify({ error: /An error (?:has )?occurred|Pipeline not found/u.test(editor), main: /\bMain\b/u.test(editor), readOnly: /read-only mode/u.test(editor), dataset: /acme-clinic\/patient-intake-row\/v2/u.test(editor), object: /om_patient_intake/u.test(editor), notDeployed: /Pipeline not yet deployed/u.test(editor) })}`);
+    ok("the editor's graph says it holds no transforms, rather than drawing any: a recipe's steps are not derived into the reference's transforms yet",
+      /This pipeline has not been initialized/u.test(editor), editor.includes("has not been initialized") ? "not initialized" : "graph text absent");
+
+    // The mirror still answers the reference's CHROME reads, and the four builder reads named open in the
+    // seed-depth record (the transform catalog and its expression examples, the AIP toggle, the editor's
+    // display settings); anything else is a new lane reaching recorded tenant answers, and fails here until
+    // it is bound.
     const CHROME_PASSTHROUGHS = new Set([
       "GET /aip-assist/api/chat/checkAvailability", "GET /multipass/api/sessions/definitions/current", "GET /multipass/api/sessions/selection",
-      "GET /workspace/api/lifecycleStatusByApplication", "POST /documentation/api/v2/release-notes/pagination", "POST /log-receiver/api/beacon",
-      "GET /language-model-service/api/config/v1/enabled",
+      "GET /workspace/api/lifecycleStatusByApplication", "POST /documentation/api/v2/release-notes/pagination", "POST /documentation/api/v2/release-notes/paginationV2",
+      "POST /log-receiver/api/beacon", "GET /language-model-service/api/config/v1/enabled", "POST /people/api/eventsink/create-events",
     ]);
-    const NAMED_OPEN = new Set(["GET /eddie/api/transformations/all", "POST /eddie/api/natural-language-converter/aip-enabled", "GET /eddie/api/pipeline-builder-settings"]);
+    const NAMED_OPEN = new Set(["GET /eddie/api/transformations/all", "POST /eddie/api/examples/get", "POST /eddie/api/natural-language-converter/aip-enabled", "GET /eddie/api/pipeline-builder-settings"]);
     const unexpected = [...passthroughs].filter((p) => !CHROME_PASSTHROUGHS.has(p) && !NAMED_OPEN.has(p));
-    ok("the adopted landing reaches the local mirror only for the reference's chrome reads and the three builder reads named open — its pipelines, projects and users answer from the Hypervisor",
+    ok("the adopted landing and editor reach the local mirror only for the reference's chrome reads and the four builder reads named open — pipelines, sandboxes, projects, users, markings and permissions answer from the Hypervisor",
       unexpected.length === 0 && passthroughs.size > 0, unexpected.length ? `unexpected: ${unexpected.join(" · ")}` : `${passthroughs.size} chrome/named reads`);
   } finally {
     await browser.close();
@@ -217,6 +236,17 @@ async function run() {
   ok("the user lookup names the operator by the id the pipeline carries and answers nothing for an id no principal of theirs holds",
     Array.isArray(users.body) && users.body.length === 1 && users.body[0].id === operatorId && users.body[0].username === "pipeline@ioi.local" && !users.passthrough && !!operatorRef,
     `${JSON.stringify((users.body || []).map((u) => [u.id, u.username]))}`);
+
+  // The editor's permission and marking reads: nothing of the recorded tenant's, and no edit operation yet.
+  const ops = await serveJson("POST", "/multipass/api/authz/batch/operations?operations=eddie%3Aedit-pipeline", [intake?.rid, foreign]);
+  const access = await serveJson("POST", "/multipass/api/authz/markings/access/principals", { markingTypes: ["MANDATORY"], principalIds: [operatorId] });
+  const usable = await serveJson("GET", "/multipass/api/authz/markings/usable?markingTypes=MANDATORY");
+  const opsMap = ops.body?.resourceToOperationsMap || {};
+  ok("the editor is granted no operation on the caller's pipeline (it opens read-only), names no other resource, and no principal holds a marking",
+    JSON.stringify(Object.keys(opsMap)) === JSON.stringify([intake?.rid]) && opsMap[intake?.rid]?.length === 0
+      && JSON.stringify(Object.keys(access.body?.categoryAndMarkingIds || {})) === JSON.stringify([operatorId]) && access.body.categoryAndMarkingIds[operatorId].markingIds.length === 0
+      && Array.isArray(usable.body?.categories) && usable.body.categories.length === 0 && !ops.passthrough && !access.passthrough && !usable.passthrough,
+    `ops ${JSON.stringify(opsMap)} · access ${JSON.stringify(Object.keys(access.body?.categoryAndMarkingIds || {}))} · usable ${usable.body?.categories?.length}`);
 
   // Signed out, neither the picker nor the lookup names anything (the daemon answers some reads to an
   // anonymous loopback caller; these answers are the signed-in caller's to see).

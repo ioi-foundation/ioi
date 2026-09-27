@@ -103,3 +103,31 @@ test("the multipass user lookup names only principals it was given", () => {
   assert.equal(users.length, 1);
   assert.deepEqual([users[0].username, users[0].attributes["multipass:given-name"][0], users[0].attributes["multipass:email:primary"][0]], ["john@ioi.local", "John", "john@ioi.local"]);
 });
+
+test("the editor opens a pipeline read-only: all-information carries Main's head, no compute profile, and no direct push", () => {
+  const ps = PIPELINE.pipelinesOf(families, sets);
+  const intake = ps.find((p) => p.familyRef === "data-recipe://acme.intake");
+  const info = PIPELINE.allInformation(intake.rid, null, ps, PIPELINE.uuidOf);
+  assert.equal(info.mainSandbox, PIPELINE.mainSandboxIdOf(intake.familyRef));
+  assert.deepEqual([info.sandbox.name, info.version.message], ["Main", "Revision 2"]);
+  assert.equal(info.settings.settings.protectionsForPublishedSandboxes.allowDirectPush, false, "only a merged change set moves Main");
+  assert.deepEqual(info.availableBackendSettings.computeProfiles, []);
+  assert.equal(PIPELINE.allInformation("ri.eddie.main.pipeline.00000000-0000-4000-8000-000000000000", null, ps, PIPELINE.uuidOf), null);
+  assert.deepEqual(PIPELINE.allSandboxes(intake.rid, ps, PIPELINE.uuidOf).sandboxes.map((s) => s.name), ["Main", "title bbbbbbbbbbbbbbbb"]);
+});
+
+test("the editor's GraphQL facts: the pipeline's resource in no project, its sandbox's backend, no branches; an output dataset resolves by its contract", () => {
+  const recipe = { output_dataset_contract_refs: ["schema://acme/rows/v2"], output_object_model_refs: [] };
+  const ps = PIPELINE.pipelinesOf([{ family_ref: "data-recipe://acme.rows", revisions: [{ ...recipe, revision_ref: "data-recipe://acme.rows/revision/1", name: "rows", admitted_at: "2026-09-27T09:00:00Z" }] }], []);
+  const p = ps[0];
+  const root = PIPELINE.pipelineEditorFactsRoot({ pipelineRid: p.rid, sandboxId: PIPELINE.mainSandboxIdOf(p.familyRef) }, ps, PIPELINE.uuidOf);
+  assert.deepEqual([root.resourceMetadata.name, root.resourceMetadata.project, root.resourceMetadata.markings], ["rows", null, []]);
+  assert.equal(root.eddiePipeline.sandbox.latestVersion.backend, "Spark");
+  assert.deepEqual(root.globalBranchDropdownSearchByCreatedAtDescending.values, [], "facts are keyed by the FIELD, not the query's alias");
+  assert.equal(PIPELINE.pipelineEditorFactsRoot({ pipelineRid: p.rid, sandboxId: "nope" }, ps, PIPELINE.uuidOf).eddiePipeline.sandbox, null);
+  const datasetRid = PIPELINE.targetsOf(recipe)[0].target.dataset.datasetRid;
+  const ds = PIPELINE.pipelineEditorFactsRoot({ rid: datasetRid, branch: "master" }, ps, PIPELINE.uuidOf);
+  assert.deepEqual([ds.resourceMetadata.name, ds.catalogDataset.backsObjectTypes], ["acme/rows/v2", []]);
+  const foreign = PIPELINE.pipelineEditorFactsRoot({ rid: "ri.foundry.main.dataset.00000000-0000-4000-8000-000000000000" }, ps, PIPELINE.uuidOf);
+  assert.deepEqual([foreign.resourceMetadata, foreign.catalogDataset], [null, null]);
+});
