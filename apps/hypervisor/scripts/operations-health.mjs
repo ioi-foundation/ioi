@@ -166,7 +166,7 @@ export function renderOperationsHealth(data, opts = {}) {
   const canWrite = Boolean(owner) && !readError;
   const why = readError ? "the health checks could not be read, so nothing can be changed" : "your sign-in belongs to no organization of this deployment, so a check would have no owner";
   const notice = q.get("note") ? `<div class="card" style="display:block" data-health-notice="${q.get("ok") === "1" ? "ok" : "err"}"><span class="pill ${q.get("ok") === "1" ? "ok" : "warn"}" style="margin:0 8px 0 0">${q.get("ok") === "1" ? "Done" : "Not done"}</span>${esc(q.get("note"))}</div>` : "";
-  const head = `${HEALTH_CSS}<h1>Health</h1>
+  const head = `${HEALTH_CSS}<h1>Operations / Health</h1>
     <p class="sub">What is observed about your Systems, environments and automations, and how each observation came out. A check names one target and one probe; every evaluation is an admitted result with its evidence, and a failing check files an issue when its policy says so. <a href="/__ioi/operations">← Operations</a> · <a href="/operations/issues">Issues →</a></p>`;
   if (readError) {
     return head + notice + `<div class="empty" data-health-read-error="${esc(readError.code || "")}">The health checks could not be read — <code>${esc(readError.code || "unavailable")}</code>: ${esc(readError.message || "")}.${signInHref ? ` <a href="${esc(signInHref)}" target="_top">Sign in</a> to see your checks.` : ""} Nothing is shown in their place.</div>`;

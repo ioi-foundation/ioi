@@ -1792,8 +1792,9 @@ Hypervisor Developer Workspace
 
 Hypervisor Developer Console
   extension surface: connector, connected-app, MCP, tool, and provider-
-  integration registrations; APIs and OAuth/service registrations; function,
-  widget, and extension registries; conformance; and developer-kit on-ramps
+  integration registrations; APIs and OAuth/service registrations; function-
+  package registration from the developer kit (the Functions lane itself is
+  Ontology's), widget and extension registries; conformance; and developer-kit on-ramps
   (scaffolds, templates, generated SDKs). Environments and Operations own
   provider lifecycle, placement, health, capacity, and spend
 
@@ -2788,11 +2789,15 @@ or admit private truth outside daemon and Agentgres paths.
 ## Builder Surfaces
 
 **Tool / Function Builder** is an alias for typed-function and tool-building
-flows housed primarily in Automations and Developer Console. It may
+flows. Typed functions are authored in Ontology / Functions (ADR 0056
+Amendment 3 §4) and consumed by Automations' tool builder; Developer Console
+registers function packages from the developer kit. It may
 appear in Applications, in Automations node creation, in project context, or in
 package/pattern flows. Its outputs compile into `RuntimeToolContract`,
 primitive capability declarations, authority scopes, schema validation, receipt
-obligations, and optional Automations nodes.
+obligations, and optional Automations nodes: a released `FunctionRevision`
+(foundations/objects/semantic-plane.md) compiles into one exact
+`RuntimeToolContract` revision that consumers bind by revision and hash.
 
 **Surface Generate** (Studio, scaffolded by the developer kit) is the product
 path for object-aware application shells, widgets, forms, dashboards, operator

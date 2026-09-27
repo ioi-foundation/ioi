@@ -1,0 +1,345 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "schema://ioi/foundations/objects/function-revision/v1",
+  "title": "FunctionRevision",
+  "x-ioi-schema-version": "ioi.function-revision.v1",
+  "description": "One immutable, content-addressed revision of one function family (ADR 0056 Amendment 1, plane 3; Ontology owns the Functions lane). A revision declares typed inputs, a typed output and the source it runs, and never changes once admitted: a change is a successor revision with a greater semantic version. A released revision compiles into an exact RuntimeToolContract revision, which is how agents, automations and ontology action contracts consume it — by exact revision and hash, never by name. A revision grants nothing; running it goes through the governed exec primitive in an environment the caller already owns.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "function_ref",
+    "revision_ref",
+    "predecessor_revision_ref",
+    "ordinal",
+    "version",
+    "display_name",
+    "api_name",
+    "documentation",
+    "inputs",
+    "output",
+    "implementation",
+    "timeout_ms",
+    "content_hash",
+    "status",
+    "runtime_tool_contract",
+    "deprecation",
+    "owner_ref",
+    "created_by_principal_ref",
+    "created_at",
+    "updated_at",
+    "released_at",
+    "admitted_head"
+  ],
+  "$defs": {
+    "hash": {
+      "type": "string",
+      "pattern": "^sha256:[0-9a-f]{64}$"
+    },
+    "identifier": {
+      "type": "string",
+      "pattern": "^[a-z][A-Za-z0-9_]{0,63}$"
+    },
+    "dataType": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "type",
+        "element_type"
+      ],
+      "properties": {
+        "type": {
+          "type": "string",
+          "enum": [
+            "string",
+            "integer",
+            "double",
+            "boolean",
+            "date",
+            "timestamp",
+            "list"
+          ]
+        },
+        "element_type": {
+          "anyOf": [
+            {
+              "type": "string",
+              "enum": [
+                "string",
+                "integer",
+                "double",
+                "boolean",
+                "date",
+                "timestamp"
+              ]
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "if": {
+        "properties": {
+          "type": {
+            "const": "list"
+          }
+        },
+        "required": [
+          "type"
+        ]
+      },
+      "then": {
+        "properties": {
+          "element_type": {
+            "type": "string"
+          }
+        }
+      },
+      "else": {
+        "properties": {
+          "element_type": {
+            "type": "null"
+          }
+        }
+      }
+    }
+  },
+  "properties": {
+    "schema_version": {
+      "type": "string",
+      "const": "ioi.function-revision.v1"
+    },
+    "function_ref": {
+      "type": "string",
+      "pattern": "^function://fn_[0-9a-f]{16}$"
+    },
+    "revision_ref": {
+      "type": "string",
+      "pattern": "^function://fn_[0-9a-f]{16}/revision/[1-9][0-9]{0,5}$"
+    },
+    "predecessor_revision_ref": {
+      "anyOf": [
+        {
+          "type": "string",
+          "pattern": "^function://fn_[0-9a-f]{16}/revision/[1-9][0-9]{0,5}$"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "ordinal": {
+      "type": "integer",
+      "minimum": 1,
+      "maximum": 999999
+    },
+    "version": {
+      "type": "string",
+      "pattern": "^(?:0|[1-9][0-9]{0,5})[.](?:0|[1-9][0-9]{0,5})[.](?:0|[1-9][0-9]{0,5})$"
+    },
+    "display_name": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 160
+    },
+    "api_name": {
+      "$ref": "#/$defs/identifier"
+    },
+    "documentation": {
+      "type": "string",
+      "maxLength": 4000
+    },
+    "inputs": {
+      "type": "array",
+      "maxItems": 32,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "name",
+          "description",
+          "data_type",
+          "required"
+        ],
+        "properties": {
+          "name": {
+            "$ref": "#/$defs/identifier"
+          },
+          "description": {
+            "type": "string",
+            "maxLength": 1000
+          },
+          "data_type": {
+            "$ref": "#/$defs/dataType"
+          },
+          "required": {
+            "type": "boolean"
+          }
+        }
+      }
+    },
+    "output": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "data_type",
+        "description"
+      ],
+      "properties": {
+        "data_type": {
+          "$ref": "#/$defs/dataType"
+        },
+        "description": {
+          "type": "string",
+          "maxLength": 1000
+        }
+      }
+    },
+    "implementation": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "runtime",
+        "source",
+        "source_hash"
+      ],
+      "properties": {
+        "runtime": {
+          "type": "string",
+          "enum": [
+            "python3",
+            "node",
+            "bash"
+          ]
+        },
+        "source": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 49152
+        },
+        "source_hash": {
+          "$ref": "#/$defs/hash"
+        }
+      }
+    },
+    "timeout_ms": {
+      "type": "integer",
+      "minimum": 1000,
+      "maximum": 60000
+    },
+    "content_hash": {
+      "$ref": "#/$defs/hash"
+    },
+    "status": {
+      "type": "string",
+      "enum": [
+        "draft",
+        "released",
+        "deprecated"
+      ]
+    },
+    "runtime_tool_contract": {
+      "anyOf": [
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "tool_id",
+            "revision_ref",
+            "content_hash",
+            "admission_receipt_ref"
+          ],
+          "properties": {
+            "tool_id": {
+              "type": "string",
+              "pattern": "^tool://function/fn_[0-9a-f]{16}$"
+            },
+            "revision_ref": {
+              "type": "string",
+              "pattern": "^tool://function/fn_[0-9a-f]{16}/revision/[1-9][0-9]{0,5}$"
+            },
+            "content_hash": {
+              "$ref": "#/$defs/hash"
+            },
+            "admission_receipt_ref": {
+              "type": "string",
+              "pattern": "^receipt://[^\\s]{1,480}$"
+            }
+          }
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "deprecation": {
+      "anyOf": [
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "reason",
+            "deprecated_by_principal_ref",
+            "receipt_ref"
+          ],
+          "properties": {
+            "reason": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 2000
+            },
+            "deprecated_by_principal_ref": {
+              "type": "string",
+              "pattern": "^user://[^\\s]{1,480}$"
+            },
+            "receipt_ref": {
+              "type": "string",
+              "pattern": "^receipt://[^\\s]{1,480}$"
+            }
+          }
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "owner_ref": {
+      "type": "string",
+      "pattern": "^(?:org|project)://[^\\s]{1,480}$"
+    },
+    "created_by_principal_ref": {
+      "type": "string",
+      "pattern": "^user://[^\\s]{1,480}$"
+    },
+    "created_at": {
+      "type": "string",
+      "minLength": 1
+    },
+    "updated_at": {
+      "type": "string",
+      "minLength": 1
+    },
+    "released_at": {
+      "anyOf": [
+        {
+          "type": "string",
+          "minLength": 1
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "admitted_head": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/hash"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    }
+  }
+}

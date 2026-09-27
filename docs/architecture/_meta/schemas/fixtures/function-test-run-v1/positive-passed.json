@@ -1,0 +1,22 @@
+{
+  "schema_version": "ioi.function-test-run.v1",
+  "test_run_id": "function-test-run://fn_0123456789abcdef/ftr_fedcba9876543210",
+  "function_ref": "function://fn_0123456789abcdef",
+  "revision_ref": "function://fn_0123456789abcdef/revision/2",
+  "revision_content_hash": "sha256:2b0651992ab2137dafbfbf37f6d5358419c0917b9833465a89bba63b49e2fe51",
+  "environment_ref": "environment://env_fixture",
+  "inputs": {
+    "amount": 21
+  },
+  "outcome": "passed",
+  "exit_code": 0,
+  "output": 42,
+  "output_bytes": 3,
+  "output_hash": "sha256:084c799cd551dd1d8d5c5f9a5d593b2e931f5e36122ee5c793c1d08a19839cc0",
+  "redacted_summary": "exited 0 and printed a integer",
+  "stderr_tail": "",
+  "observed_at": "2026-09-26T10:06:00Z",
+  "evaluated_by_principal_ref": "user://alice@acme.example",
+  "owner_ref": "org://acme",
+  "admitted_head": "sha256:72ea4175c74b7c7945b77fac785551d07a4e26435f0869e71abac9015294cfdb"
+}

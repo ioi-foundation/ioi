@@ -80,7 +80,7 @@ const LIVE = self("live");
 export const PINNED = Object.freeze({
   surfaces_probed: 28, // M7 retired Contour and Notepad as terminal absences; ADR 0056 M5 retired the Missions root; M6a merged Model Studio, Insight and Map into their owners; M6b the Packages Marketplace mode into the listings port; M6c moved Artifacts into a Packages tab (a state, below)
   states_probed: 5, // ADR 0056 M6c: the Packages Artifacts tab
-  lanes_probed: 13, // R-240: the canonical lanes the registry never listed (derived from the route table; see THE CANONICAL LANES in the live leg)
+  lanes_probed: 14, // R-240 (14 since ADR 0056 P3 added /ontology/functions): the canonical lanes the registry never listed (derived from the route table; see THE CANONICAL LANES in the live leg)
   dead: 0,
   click_failed: 0,
   bad_landing: 0,

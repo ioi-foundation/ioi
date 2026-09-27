@@ -55,6 +55,7 @@ import { resolveV2Route, v2RouteFor, retiredUiRouteFor, renderV2RouteShellPage, 
 import { projectDomainAppRuntimeModel } from "./domain-app-runtime-model.mjs";
 import { handleOperationsHealth } from "./operations-health.mjs";
 import { handleGovernanceLimits } from "./governance-limits.mjs";
+import { handleOntologyFunctions } from "./ontology-functions.mjs";
 import * as AUTOMATE from "./adopted-automate.mjs";
 import { isJustificationPrompt, justificationPayload, renderJustificationPrompt } from "./justification-prompt.mjs";
 
@@ -8853,7 +8854,7 @@ async function handleEstateRequest(req, res, body) {
     // dark v2 shell pages, which retire in the staged cutover).
     const FAMILY_LANDINGS = {
       "/data": { title: "Data", hero: "Supply the world-model — the Data family's shipped surfaces over real daemon truth.", newLabel: "New source", newHref: "/__ioi/data/sources?declare=1", newTitle: "Declare a data source — the governed receipted lane on Data Connection", rows: [["Data Connection", "sources · syncs (live materializing-runs lane) · governed declare", "/__ioi/data/sources"], ["Pipeline Builder", "the certified pipeline canvas (atlas-verified interaction)", "/__ioi/pipeline"], ["HyperAuto", "the ingestion CHAIN joined end to end — each stage's own claim beside what the chain actually did", "/__ioi/data/ingest"]] },
-      "/ontology": { title: "Ontology", hero: "The semantic world-model — the Ontology family's certified surfaces.", newLabel: "New object type", newHref: "/__ioi/ontology/manager", newTitle: "Author types on the certified Ontology Manager", rows: [["Ontology Manager", "types · functions · health · history (certified)", "/__ioi/ontology/manager"], ["Object Explorer", "objects · saved sets · exploration (certified)", "/__ioi/ontology/explorer"], ["ODK plane", "the composition substrate (ontologies · recipes · descriptors)", "/__ioi/odk"]] },
+      "/ontology": { title: "Ontology", hero: "The semantic world-model — the Ontology family's certified surfaces.", newLabel: "New object type", newHref: "/__ioi/ontology/manager", newTitle: "Author types on the certified Ontology Manager", rows: [["Ontology Manager", "types · functions · health · history (certified)", "/__ioi/ontology/manager"], ["Object Explorer", "objects · saved sets · exploration (certified)", "/__ioi/ontology/explorer"], ["Functions", "typed, revisioned code · test runs · released as exact tool revisions", "/ontology/functions"], ["ODK plane", "the composition substrate (ontologies · recipes · descriptors)", "/__ioi/odk"]] },
       "/studio": { title: "Studio", hero: "Compose systems & agents — the Studio family in the Designer grammar; the agent estate and composition truth live one row away.", newLabel: "New Diagram", newHref: "/__ioi/studio/designer/diagram", newTitle: "Draw a new solution design diagram", rows: [["Solution Designer", "the certified light canvas over real ODK composition truth", "/__ioi/studio/designer"], ["Machinery", "certified state-machine definitions (definition-only boundary)", "/__ioi/studio/machinery"], ["Workshop", "the D6 combined-seed app over domain-apps + surface descriptors", "/__ioi/studio/workshop"], ["Agent Studio", "the agent estate — agents · model routes · launch policies (owner surface)", "/__ioi/agent-studio"], ["Blueprints & system-design map", "content-addressed composition drafts + the design map (legacy workbench views)", "/__ioi/studio/workbench?view=blueprints"]] },
       "/developer-workspace": { title: "Workbench", hero: "The developer workbench — workspaces and repository bindings over real planes.", newLabel: "New workspace", newHref: "/ai#new-session", newTitle: "A workspace is an environment — New Session creates one through the governed environment ladder", rows: [["Code Workspaces", "the real environments plane (newest 15, cap named)", "/__ioi/developer-workspace/workspaces"], ["Code Repositories", "the real SCM connector bindings (donor-ported)", "/__ioi/developer-workspace/repositories"]] },
     };
@@ -14007,6 +14008,11 @@ async function handleEstateRequest(req, res, body) {
       res.end(JSON.stringify({ automate: AUTOMATE.unboundCounts() }));
       return;
     }
+    // ADR 0056 Amendment 1, plane 3: Ontology / Functions — revisions, test runs, release/deprecate.
+    if (pathname.startsWith("/__ioi/ontology/functions") && await handleOntologyFunctions(req, res, pathname, body, {
+      daemonFetch, whyRefused,
+      send: (r, status, inner) => { r.writeHead(status, { "Content-Type": "text/html; charset=utf-8", "Cache-Control": "no-store" }); r.end(automationsShell("Functions", inner, { theme: "light" })); },
+    })) return;
     if (pathname.startsWith("/__ioi/operations/health") && await handleOperationsHealth(req, res, pathname, body, {
       daemonFetch, whyRefused,
       send: (r, status, inner) => { r.writeHead(status, { "Content-Type": "text/html; charset=utf-8", "Cache-Control": "no-store" }); r.end(automationsShell("Health", inner, { theme: "light" })); },

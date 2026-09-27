@@ -202,6 +202,78 @@ OntologyActionContractEnvelope:
   status: draft | validating | active | deprecated | revoked
 ```
 
+## FunctionRevision
+
+A function is typed code over the semantic world: it declares its inputs, its
+output and the source it runs. Ontology owns the Functions lane; Developer
+Console owns the developer-kit registration of function packages (ADR 0056
+Amendment 3 §4). `FunctionRevision` is one immutable, content-addressed revision
+of one function family; a change is a successor revision with a greater semantic
+version, never an edit.
+
+```yaml
+FunctionRevision:
+  function_ref: function://fn_<16 hex>
+  revision_ref: function://fn_<16 hex>/revision/<ordinal>
+  predecessor_revision_ref: function://.../revision/<ordinal> | null
+  ordinal: integer            # 1, 2, … on the family's one admitted chain
+  version: MAJOR.MINOR.PATCH  # strictly greater than every earlier revision
+  display_name, api_name, documentation
+  inputs:
+    - name, description, required
+      data_type: string | integer | double | boolean | date | timestamp
+               | list<one of those>
+  output: { data_type, description }
+  implementation: { runtime: python3 | node | bash, source, source_hash }
+  timeout_ms: 1000..60000
+  content_hash: sha256 over the JCS of every field above
+  status: draft | released | deprecated
+  runtime_tool_contract: { tool_id, revision_ref, content_hash,
+                           admission_receipt_ref } | null
+  deprecation: { reason, deprecated_by_principal_ref } | null
+  owner_ref: org:// | project://
+```
+
+Releasing a revision compiles it into an exact `RuntimeToolContract` revision
+(`tool://function/fn_…/revision/<ordinal>`; connectors-tools
+[contracts](../../components/connectors-tools/contracts.md)) and admits it into
+the daemon's runtime tool-contract registry. That is the only way the rest of
+the estate uses a function: agents, automation steps and ontology action
+contracts bind the exact tool revision and hash, never a name, so a function
+cannot change under something that already depends on it. Deprecating a
+revision revokes its tool revision. A revision grants nothing. It runs only
+through the governed exec primitive, in an environment the caller already owns,
+and inherits every guardrail and isolation refusal there. The source travels in
+the command itself, so the exec deny-list reads it.
+
+Not yet in v1: inputs and outputs that are ontology objects (a named gap until
+object references resolve through an admitted ontology revision), and
+auto-upgrade to compatible versions (a consumer pins an exact revision).
+
+## FunctionTestRun
+
+`FunctionTestRun` is one admitted run of one exact revision (revision ref plus
+content hash) with typed inputs, in one environment.
+
+```yaml
+FunctionTestRun:
+  test_run_id: function-test-run://fn_<16 hex>/ftr_<16 hex>
+  function_ref, revision_ref, revision_content_hash
+  environment_ref: environment://...
+  inputs: { <name>: <value of its declared type> }
+  outcome: passed | failed | errored | timed_out
+  exit_code: integer | null
+  output: <the JSON value printed> | null
+  output_bytes, output_hash, redacted_summary, stderr_tail
+  evaluated_by_principal_ref, owner_ref
+```
+
+`passed` means the run exited 0 and printed exactly one JSON value of the
+declared output type. `failed` means it ran and exited non-zero, or printed
+something else. `errored` means it could not be run: no started environment, a
+guardrail refusal, or an isolation refusal. `timed_out` means the revision's own
+timeout stopped it. A test run neither releases a revision nor grants anything.
+
 ## CanonicalObjectModelEnvelope
 
 ```yaml

@@ -1,0 +1,130 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "schema://ioi/foundations/objects/function-test-run/v1",
+  "title": "FunctionTestRun",
+  "x-ioi-schema-version": "ioi.function-test-run.v1",
+  "description": "One admitted run of one exact FunctionRevision (revision ref plus content hash) with typed inputs in one environment the caller owns, through the governed exec primitive (every guardrail and isolation refusal applies). `passed` means the run exited 0 and printed one JSON value of the declared output type; `failed` means it ran and exited non-zero or printed something else; `errored` means it could not be run; `timed_out` means the revision's timeout stopped it. The output is retained bounded, with the hash of everything printed. A test run grants nothing and releases nothing.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "test_run_id",
+    "function_ref",
+    "revision_ref",
+    "revision_content_hash",
+    "environment_ref",
+    "inputs",
+    "outcome",
+    "exit_code",
+    "output",
+    "output_bytes",
+    "output_hash",
+    "redacted_summary",
+    "stderr_tail",
+    "observed_at",
+    "evaluated_by_principal_ref",
+    "owner_ref",
+    "admitted_head"
+  ],
+  "properties": {
+    "schema_version": {
+      "type": "string",
+      "const": "ioi.function-test-run.v1"
+    },
+    "test_run_id": {
+      "type": "string",
+      "pattern": "^function-test-run://fn_[0-9a-f]{16}/ftr_[0-9a-f]{16}$"
+    },
+    "function_ref": {
+      "type": "string",
+      "pattern": "^function://fn_[0-9a-f]{16}$"
+    },
+    "revision_ref": {
+      "type": "string",
+      "pattern": "^function://fn_[0-9a-f]{16}/revision/[1-9][0-9]{0,5}$"
+    },
+    "revision_content_hash": {
+      "type": "string",
+      "pattern": "^sha256:[0-9a-f]{64}$"
+    },
+    "environment_ref": {
+      "type": "string",
+      "pattern": "^environment://[^\\s]{1,480}$"
+    },
+    "inputs": {
+      "type": "object",
+      "description": "The typed input values, keyed by input name; the daemon checks each against the revision's declared inputs and bounds the whole at 32 names and 16 KiB before running."
+    },
+    "outcome": {
+      "type": "string",
+      "enum": [
+        "passed",
+        "failed",
+        "errored",
+        "timed_out"
+      ]
+    },
+    "exit_code": {
+      "anyOf": [
+        {
+          "type": "integer",
+          "minimum": -2147483648,
+          "maximum": 2147483647
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "output": {
+      "description": "The JSON value the run printed when it parsed and fit the retention bound; null otherwise."
+    },
+    "output_bytes": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 1073741824
+    },
+    "output_hash": {
+      "anyOf": [
+        {
+          "type": "string",
+          "pattern": "^sha256:[0-9a-f]{64}$"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "redacted_summary": {
+      "type": "string",
+      "maxLength": 2000
+    },
+    "stderr_tail": {
+      "type": "string",
+      "maxLength": 2000
+    },
+    "observed_at": {
+      "type": "string",
+      "minLength": 1
+    },
+    "evaluated_by_principal_ref": {
+      "type": "string",
+      "pattern": "^user://[^\\s]{1,480}$"
+    },
+    "owner_ref": {
+      "type": "string",
+      "pattern": "^(?:org|project)://[^\\s]{1,480}$"
+    },
+    "admitted_head": {
+      "anyOf": [
+        {
+          "type": "string",
+          "pattern": "^sha256:[0-9a-f]{64}$"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    }
+  }
+}

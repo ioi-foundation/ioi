@@ -13582,6 +13582,92 @@
       ]
     },
     {
+      "contract_id": "schema://ioi/foundations/objects/function-revision/v1",
+      "canonical_name": "FunctionRevision",
+      "canonical_owner_ref": "canon://docs/architecture/foundations/objects/semantic-plane.md#functionrevision",
+      "schema_version": "ioi.function-revision.v1",
+      "maturity": "partial",
+      "stability": "provisional",
+      "wire_format": "json",
+      "canonical_encoding_profile_ref": null,
+      "evolution": {
+        "successor_of": null,
+        "successor_contract_id": null,
+        "compatibility": "initial",
+        "migration_policy": "none",
+        "predecessor_remains_valid": false,
+        "wire_mutation_policy": "forbidden",
+        "hash_impact": "none"
+      },
+      "schema_ref": "function-revision.v1.schema.json",
+      "cross_field_invariant_refs": [],
+      "compatibility_aliases": [],
+      "generated_targets": [
+        {
+          "kind": "typescript_projection",
+          "path": "packages/hypervisor-workbench/src/runtime/generated/architecture-contracts.ts",
+          "symbol": "FunctionRevisionV1"
+        },
+        {
+          "kind": "rust_projection",
+          "path": "crates/types/src/app/generated/architecture_contracts.rs",
+          "symbol": "FunctionRevisionV1"
+        }
+      ],
+      "positive_fixture_refs": [
+        "fixtures/function-revision-v1/positive-released-with-tool-contract.json"
+      ],
+      "negative_fixture_refs": [
+        {
+          "path": "fixtures/function-revision-v1/negative-list-without-element-type.json",
+          "expected_failure": "schema"
+        }
+      ]
+    },
+    {
+      "contract_id": "schema://ioi/foundations/objects/function-test-run/v1",
+      "canonical_name": "FunctionTestRun",
+      "canonical_owner_ref": "canon://docs/architecture/foundations/objects/semantic-plane.md#functiontestrun",
+      "schema_version": "ioi.function-test-run.v1",
+      "maturity": "partial",
+      "stability": "provisional",
+      "wire_format": "json",
+      "canonical_encoding_profile_ref": null,
+      "evolution": {
+        "successor_of": null,
+        "successor_contract_id": null,
+        "compatibility": "initial",
+        "migration_policy": "none",
+        "predecessor_remains_valid": false,
+        "wire_mutation_policy": "forbidden",
+        "hash_impact": "none"
+      },
+      "schema_ref": "function-test-run.v1.schema.json",
+      "cross_field_invariant_refs": [],
+      "compatibility_aliases": [],
+      "generated_targets": [
+        {
+          "kind": "typescript_projection",
+          "path": "packages/hypervisor-workbench/src/runtime/generated/architecture-contracts.ts",
+          "symbol": "FunctionTestRunV1"
+        },
+        {
+          "kind": "rust_projection",
+          "path": "crates/types/src/app/generated/architecture_contracts.rs",
+          "symbol": "FunctionTestRunV1"
+        }
+      ],
+      "positive_fixture_refs": [
+        "fixtures/function-test-run-v1/positive-passed.json"
+      ],
+      "negative_fixture_refs": [
+        {
+          "path": "fixtures/function-test-run-v1/negative-unregistered-outcome.json",
+          "expected_failure": "schema"
+        }
+      ]
+    },
+    {
       "contract_id": "schema://ioi/foundations/objects/ontology-surface-descriptor/v1",
       "canonical_name": "OntologySurfaceDescriptor",
       "canonical_owner_ref": "canon://docs/architecture/foundations/objects/semantic-plane.md#ontologysurfacedescriptorenvelope",

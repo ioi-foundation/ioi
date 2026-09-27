@@ -1,0 +1,59 @@
+{
+  "schema_version": "ioi.function-revision.v1",
+  "function_ref": "function://fn_0123456789abcdef",
+  "revision_ref": "function://fn_0123456789abcdef/revision/2",
+  "predecessor_revision_ref": "function://fn_0123456789abcdef/revision/1",
+  "ordinal": 2,
+  "version": "1.1.0",
+  "display_name": "Double an amount",
+  "api_name": "doubleAmount",
+  "documentation": "Doubles the amount it is given.",
+  "inputs": [
+    {
+      "name": "amount",
+      "description": "The amount to double",
+      "data_type": {
+        "type": "integer",
+        "element_type": null
+      },
+      "required": true
+    },
+    {
+      "name": "tags",
+      "description": "",
+      "data_type": {
+        "type": "list",
+        "element_type": null
+      },
+      "required": false
+    }
+  ],
+  "output": {
+    "data_type": {
+      "type": "integer",
+      "element_type": null
+    },
+    "description": "Twice the amount"
+  },
+  "implementation": {
+    "runtime": "python3",
+    "source": "import json, sys\nargs = json.load(sys.stdin)\nprint(json.dumps(args[\"amount\"] * 2))\n",
+    "source_hash": "sha256:cdc6c07705334fe6e8a8fa3d6da728886d76485f59b75988e5c58119e9b60642"
+  },
+  "timeout_ms": 30000,
+  "content_hash": "sha256:2b0651992ab2137dafbfbf37f6d5358419c0917b9833465a89bba63b49e2fe51",
+  "status": "released",
+  "runtime_tool_contract": {
+    "tool_id": "tool://function/fn_0123456789abcdef",
+    "revision_ref": "tool://function/fn_0123456789abcdef/revision/2",
+    "content_hash": "sha256:c3a9dacf1e6fe0033c64e83db13445a8828e993ccce8aaf0dcc66957ad053af6",
+    "admission_receipt_ref": "receipt://hypervisor-functions/fixture-release"
+  },
+  "deprecation": null,
+  "owner_ref": "org://acme",
+  "created_by_principal_ref": "user://alice@acme.example",
+  "created_at": "2026-09-26T10:00:00Z",
+  "updated_at": "2026-09-26T10:05:00Z",
+  "released_at": "2026-09-26T10:05:00Z",
+  "admitted_head": "sha256:b0675a356be6fdd211e6705ec2583fd3a51f06d02c18c4639beddd8d7c057fe4"
+}

@@ -100,6 +100,8 @@ mod feedback_routes;
 mod foundry_execution_routes;
 #[path = "hypervisor_daemon_routes/foundry_routes.rs"]
 mod foundry_routes;
+#[path = "hypervisor_daemon_routes/function_routes.rs"]
+mod function_routes;
 #[path = "hypervisor_daemon_routes/gcp_candidate_source.rs"]
 mod gcp_candidate_source;
 #[path = "hypervisor_daemon_routes/governance_routes.rs"]
@@ -734,10 +736,18 @@ async fn async_main() -> anyhow::Result<()> {
         .map_err(|error| anyhow::anyhow!("MCP route classification blocks readiness: {error}"))?;
     let enforcement_coverage_registry = enforcement_coverage_routes::restore_registry(&data_dir)
         .map_err(|error| anyhow::anyhow!("enforcement coverage blocks readiness: {error}"))?;
-    let runtime_tool_contract_registry = Arc::new(std::sync::RwLock::new(
+    let mut runtime_tool_contract_seed =
         ioi_services::agentic::runtime::runtime_tool_contract_registry::RuntimeToolContractRegistry::seeded_native()
-            .map_err(|error| anyhow::anyhow!("runtime tool-contract seed blocks readiness: {error}"))?,
-    ));
+            .map_err(|error| anyhow::anyhow!("runtime tool-contract seed blocks readiness: {error}"))?;
+    // ADR 0056 plane 3 — released function revisions return to the registry they were released
+    // into; one that no longer compiles to its released hash stays out and is named here.
+    for skipped in
+        function_routes::rehydrate_released_functions(&data_dir, &mut runtime_tool_contract_seed)
+    {
+        eprintln!("[hypervisor-daemon] function tool revision not restored: {skipped}");
+    }
+    let runtime_tool_contract_registry =
+        Arc::new(std::sync::RwLock::new(runtime_tool_contract_seed));
     let state = Arc::new(DaemonState {
         inference,
         model_name,
@@ -1754,6 +1764,37 @@ async fn async_main() -> anyhow::Result<()> {
         .route(
             "/v1/hypervisor/health-check-results",
             get(health_check_routes::handle_health_check_result_list),
+        )
+        // ADR 0056 Amendment 1, plane 3 — functions. A revision is immutable typed code; releasing it
+        // compiles an exact RuntimeToolContract revision into the runtime tool-contract registry, and
+        // a test run executes one exact revision through the governed exec primitive.
+        .route(
+            "/v1/hypervisor/functions",
+            post(function_routes::handle_function_create).get(function_routes::handle_function_list),
+        )
+        .route(
+            "/v1/hypervisor/functions/:id",
+            get(function_routes::handle_function_get),
+        )
+        .route(
+            "/v1/hypervisor/functions/:id/revisions",
+            post(function_routes::handle_function_revise),
+        )
+        .route(
+            "/v1/hypervisor/functions/:id/revisions/:ordinal/release",
+            post(function_routes::handle_function_release),
+        )
+        .route(
+            "/v1/hypervisor/functions/:id/revisions/:ordinal/deprecate",
+            post(function_routes::handle_function_deprecate),
+        )
+        .route(
+            "/v1/hypervisor/functions/:id/test-runs",
+            post(function_routes::handle_function_test_run),
+        )
+        .route(
+            "/v1/hypervisor/function-test-runs",
+            get(function_routes::handle_function_test_run_list),
         )
         // ADR 0056 P5 — Governance / Leases & Limits checkpoints. A checkpoint adds a justification
         // obligation in front of a gated interaction and grants nothing; a record is the immutable

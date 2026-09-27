@@ -10578,6 +10578,80 @@ export type OntologyActionContractV1 = {
   status: "active" | "deprecated";
 };
 
+export type FunctionRevisionV1 = {
+  schema_version: "ioi.function-revision.v1";
+  function_ref: string;
+  revision_ref: string;
+  predecessor_revision_ref: string | null;
+  ordinal: number;
+  version: string;
+  display_name: string;
+  api_name: string;
+  documentation: string;
+  inputs: Array<{
+        name: string;
+        description: string;
+        data_type: {
+                type: "string" | "integer" | "double" | "boolean" | "date" | "timestamp" | "list";
+                element_type: "string" | "integer" | "double" | "boolean" | "date" | "timestamp" | null;
+              };
+        required: boolean;
+      }>;
+  output: {
+      data_type: {
+            type: "string" | "integer" | "double" | "boolean" | "date" | "timestamp" | "list";
+            element_type: "string" | "integer" | "double" | "boolean" | "date" | "timestamp" | null;
+          };
+      description: string;
+    };
+  implementation: {
+      runtime: "python3" | "node" | "bash";
+      source: string;
+      source_hash: string;
+    };
+  timeout_ms: number;
+  content_hash: string;
+  status: "draft" | "released" | "deprecated";
+  runtime_tool_contract: {
+      tool_id: string;
+      revision_ref: string;
+      content_hash: string;
+      admission_receipt_ref: string;
+    } | null;
+  deprecation: {
+      reason: string;
+      deprecated_by_principal_ref: string;
+      receipt_ref: string;
+    } | null;
+  owner_ref: string;
+  created_by_principal_ref: string;
+  created_at: string;
+  updated_at: string;
+  released_at: string | null;
+  admitted_head: string | null;
+};
+
+export type FunctionTestRunV1 = {
+  schema_version: "ioi.function-test-run.v1";
+  test_run_id: string;
+  function_ref: string;
+  revision_ref: string;
+  revision_content_hash: string;
+  environment_ref: string;
+  inputs: Record<string, unknown>;
+  outcome: "passed" | "failed" | "errored" | "timed_out";
+  exit_code: number | null;
+  output: unknown;
+  output_bytes: number;
+  output_hash: string | null;
+  redacted_summary: string;
+  stderr_tail: string;
+  observed_at: string;
+  evaluated_by_principal_ref: string;
+  owner_ref: string;
+  admitted_head: string | null;
+};
+
 export type OntologySurfaceDescriptorV1 = {
   schema_version: "ioi.hypervisor.odk.surface-descriptor.v1";
   object: "ioi.hypervisor.odk.surface_descriptor";
@@ -23550,6 +23624,38 @@ export const ARCHITECTURE_CONTRACT_FIXTURES = [
     "expected_rule_id": "ontology_action_contract.migration.source_is_the_exact_predecessor_revision"
   },
   {
+    "contract_id": "schema://ioi/foundations/objects/function-revision/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/function-revision-v1/positive-released-with-tool-contract.json",
+    "expected": "accept",
+    "expected_schema_accept": true,
+    "expected_failure": null,
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/foundations/objects/function-revision/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/function-revision-v1/negative-list-without-element-type.json",
+    "expected": "reject",
+    "expected_schema_accept": false,
+    "expected_failure": "schema",
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/foundations/objects/function-test-run/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/function-test-run-v1/positive-passed.json",
+    "expected": "accept",
+    "expected_schema_accept": true,
+    "expected_failure": null,
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/foundations/objects/function-test-run/v1",
+    "path": "docs/architecture/_meta/schemas/fixtures/function-test-run-v1/negative-unregistered-outcome.json",
+    "expected": "reject",
+    "expected_schema_accept": false,
+    "expected_failure": "schema",
+    "expected_rule_id": null
+  },
+  {
     "contract_id": "schema://ioi/foundations/objects/ontology-surface-descriptor/v1",
     "path": "docs/architecture/_meta/schemas/fixtures/ontology-surface-descriptor-v1/positive-stored-v1-record.json",
     "expected": "accept",
@@ -35471,6 +35577,10 @@ export const ARCHITECTURE_CONTRACT_DIFFERENTIAL_CASES: ReadonlyArray<Architectur
   differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/ontology-action-contract-v1/negative-physical-action-without-safety-profile.json","contract_id":"schema://ioi/foundations/objects/ontology-action-contract/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/ontology-action-contract-v1/negative-physical-action-without-safety-profile.json","mutation_id":null,"value_json":null}),
   differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/ontology-action-contract-v1/negative-bindings-collapsed-into-one-hash.json","contract_id":"schema://ioi/foundations/objects/ontology-action-contract/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/ontology-action-contract-v1/negative-bindings-collapsed-into-one-hash.json","mutation_id":null,"value_json":null}),
   differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/ontology-action-contract-v1/negative-migration-source-is-not-the-predecessor.json","contract_id":"schema://ioi/foundations/objects/ontology-action-contract/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/ontology-action-contract-v1/negative-migration-source-is-not-the-predecessor.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/function-revision-v1/positive-released-with-tool-contract.json","contract_id":"schema://ioi/foundations/objects/function-revision/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/function-revision-v1/positive-released-with-tool-contract.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/function-revision-v1/negative-list-without-element-type.json","contract_id":"schema://ioi/foundations/objects/function-revision/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/function-revision-v1/negative-list-without-element-type.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/function-test-run-v1/positive-passed.json","contract_id":"schema://ioi/foundations/objects/function-test-run/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/function-test-run-v1/positive-passed.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/function-test-run-v1/negative-unregistered-outcome.json","contract_id":"schema://ioi/foundations/objects/function-test-run/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/function-test-run-v1/negative-unregistered-outcome.json","mutation_id":null,"value_json":null}),
   differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/ontology-surface-descriptor-v1/positive-stored-v1-record.json","contract_id":"schema://ioi/foundations/objects/ontology-surface-descriptor/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/ontology-surface-descriptor-v1/positive-stored-v1-record.json","mutation_id":null,"value_json":null}),
   differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/ontology-surface-descriptor-v1/negative-binding-set-member-on-v1.json","contract_id":"schema://ioi/foundations/objects/ontology-surface-descriptor/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/ontology-surface-descriptor-v1/negative-binding-set-member-on-v1.json","mutation_id":null,"value_json":null}),
   differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/ontology-surface-descriptor-v1/negative-canonical-status-on-v1.json","contract_id":"schema://ioi/foundations/objects/ontology-surface-descriptor/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/ontology-surface-descriptor-v1/negative-canonical-status-on-v1.json","mutation_id":null,"value_json":null}),
@@ -36688,6 +36798,7 @@ export const ARCHITECTURE_CONTRACT_PATTERN_SOURCES = [
   "^(?:/sessions|/missions|/__ioi\\S*)$",
   "^(?:0|[1-9][0-9]*)$",
   "^(?:0|[1-9][0-9]*)[.](?:0|[1-9][0-9]*)[.](?:0|[1-9][0-9]*)$",
+  "^(?:0|[1-9][0-9]{0,5})[.](?:0|[1-9][0-9]{0,5})[.](?:0|[1-9][0-9]{0,5})$",
   "^(?:[0-9]+[.][0-9]+[.][0-9]+|[0-9]+[.][0-9]+[.][0-9]+-[0-9A-Za-z.-]+|sha256:[0-9a-f]{64})$",
   "^(?:[a-z][a-z0-9+._-]*://[^\\s]{1,500}|scope:[a-z0-9*._-]{1,200})$",
   "^(?:acceptance|decision|receipt)://[^\\s]{1,500}$",
@@ -37070,6 +37181,7 @@ export const ARCHITECTURE_CONTRACT_PATTERN_SOURCES = [
   "^[a-z0-9][a-z0-9._-]{0,63}$",
   "^[a-z0-9][a-z0-9._-]{0,95}$",
   "^[a-z0-9][a-z0-9._:/-]{0,127}$",
+  "^[a-z][A-Za-z0-9_]{0,63}$",
   "^[a-z][a-z0-9+.-]*(?:://|:)[^\\s]{1,248}$",
   "^[a-z][a-z0-9+.-]*://[^ ]{1,480}$",
   "^[a-z][a-z0-9+.-]*://[^\\s]{1,248}$",
@@ -37349,6 +37461,9 @@ export const ARCHITECTURE_CONTRACT_PATTERN_SOURCES = [
   "^frontier://[^\\s]{1,500}$",
   "^frun_[0-9a-f]+$",
   "^fspec_[0-9a-f]+$",
+  "^function-test-run://fn_[0-9a-f]{16}/ftr_[0-9a-f]{16}$",
+  "^function://fn_[0-9a-f]{16}$",
+  "^function://fn_[0-9a-f]{16}/revision/[1-9][0-9]{0,5}$",
   "^gate_[0-9a-f]{1,32}$",
   "^genesis://[A-Za-z0-9._:/-]+$",
   "^genesis://[^\\s]{1,248}$",
@@ -37617,6 +37732,7 @@ export const ARCHITECTURE_CONTRACT_PATTERN_SOURCES = [
   "^receipt://[^\\s]{1,248}$",
   "^receipt://[^\\s]{1,400}$",
   "^receipt://[^\\s]{1,460}$",
+  "^receipt://[^\\s]{1,480}$",
   "^receipt://[^\\s]{1,500}$",
   "^receipt://[a-z0-9][a-z0-9._-]{0,127}$",
   "^receipt://agentgres/event-stream/[^\\s]{1,460}$",
@@ -37771,6 +37887,8 @@ export const ARCHITECTURE_CONTRACT_PATTERN_SOURCES = [
   "^tool://[A-Za-z0-9._~:/-]+$",
   "^tool://[A-Za-z0-9._~:/-]+/revision/[A-Za-z0-9._~-]+$",
   "^tool://[^\\s?#\\\\]{1,160}/revision/sha256:[0-9a-f]{64}$",
+  "^tool://function/fn_[0-9a-f]{16}$",
+  "^tool://function/fn_[0-9a-f]{16}/revision/[1-9][0-9]{0,5}$",
   "^trainpipe://[^\\s]{1,500}$",
   "^transform://trun_[0-9a-f]{32}$",
   "^transformation-run://trun_[0-9a-f]{12,32}$",
@@ -38088,6 +38206,8 @@ export const ARCHITECTURE_CONTRACT_SCHEMA_HASHES = {
   "schema://ioi/foundations/assurance-transition-receipt/v1": "sha256:62d284c67dd29fe5d9ae2148229b995c99c75ab6b29c03194bf4f4bc05e89733",
   "schema://ioi/foundations/objects/verifier-challenge-envelope/v2": "sha256:058a0d2a179a4ef1f146d5a2d8d91604dcf0ab6233f223c1a8d8796bbae7db27",
   "schema://ioi/foundations/objects/ontology-action-contract/v1": "sha256:49dd03bfcd39ca421d1282c90d967d1f6daaffbeb3e24e40bd36122fc8d66ae5",
+  "schema://ioi/foundations/objects/function-revision/v1": "sha256:27373945d298eb6ee32cf9cf4b9b80e72c29580161e03e5c9279efee6aeaf8c7",
+  "schema://ioi/foundations/objects/function-test-run/v1": "sha256:8428e49a8091cb9eadda3ab8179d56788f2e1c9b09fce2fb7853f4adaad2317a",
   "schema://ioi/foundations/objects/ontology-surface-descriptor/v1": "sha256:8555f92bfd59dffeb01228f8b759d8150962eef762dbf72d26fa002160b171ec",
   "schema://ioi/foundations/objects/ontology-surface-descriptor/v2": "sha256:72784f0460f17dd9a45503103fdfb32663b25c9ca3698187a2dc1f38cf6c7368",
   "schema://ioi/foundations/ontology-overlay/v1": "sha256:56b57fa3e0ca896b60fc0c4c11bd66b484a12e64f94df7fea0ad4e243649b6ab",
@@ -116571,6 +116691,481 @@ const CONTRACT_SCHEMAS: Record<string, JsonObject> = {
       }
     }
   },
+  "schema://ioi/foundations/objects/function-revision/v1": {
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "$id": "schema://ioi/foundations/objects/function-revision/v1",
+    "title": "FunctionRevision",
+    "x-ioi-schema-version": "ioi.function-revision.v1",
+    "description": "One immutable, content-addressed revision of one function family (ADR 0056 Amendment 1, plane 3; Ontology owns the Functions lane). A revision declares typed inputs, a typed output and the source it runs, and never changes once admitted: a change is a successor revision with a greater semantic version. A released revision compiles into an exact RuntimeToolContract revision, which is how agents, automations and ontology action contracts consume it — by exact revision and hash, never by name. A revision grants nothing; running it goes through the governed exec primitive in an environment the caller already owns.",
+    "type": "object",
+    "additionalProperties": false,
+    "required": [
+      "schema_version",
+      "function_ref",
+      "revision_ref",
+      "predecessor_revision_ref",
+      "ordinal",
+      "version",
+      "display_name",
+      "api_name",
+      "documentation",
+      "inputs",
+      "output",
+      "implementation",
+      "timeout_ms",
+      "content_hash",
+      "status",
+      "runtime_tool_contract",
+      "deprecation",
+      "owner_ref",
+      "created_by_principal_ref",
+      "created_at",
+      "updated_at",
+      "released_at",
+      "admitted_head"
+    ],
+    "$defs": {
+      "hash": {
+        "type": "string",
+        "pattern": "^sha256:[0-9a-f]{64}$"
+      },
+      "identifier": {
+        "type": "string",
+        "pattern": "^[a-z][A-Za-z0-9_]{0,63}$"
+      },
+      "dataType": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "type",
+          "element_type"
+        ],
+        "properties": {
+          "type": {
+            "type": "string",
+            "enum": [
+              "string",
+              "integer",
+              "double",
+              "boolean",
+              "date",
+              "timestamp",
+              "list"
+            ]
+          },
+          "element_type": {
+            "anyOf": [
+              {
+                "type": "string",
+                "enum": [
+                  "string",
+                  "integer",
+                  "double",
+                  "boolean",
+                  "date",
+                  "timestamp"
+                ]
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "if": {
+          "properties": {
+            "type": {
+              "const": "list"
+            }
+          },
+          "required": [
+            "type"
+          ]
+        },
+        "then": {
+          "properties": {
+            "element_type": {
+              "type": "string"
+            }
+          }
+        },
+        "else": {
+          "properties": {
+            "element_type": {
+              "type": "null"
+            }
+          }
+        }
+      }
+    },
+    "properties": {
+      "schema_version": {
+        "type": "string",
+        "const": "ioi.function-revision.v1"
+      },
+      "function_ref": {
+        "type": "string",
+        "pattern": "^function://fn_[0-9a-f]{16}$"
+      },
+      "revision_ref": {
+        "type": "string",
+        "pattern": "^function://fn_[0-9a-f]{16}/revision/[1-9][0-9]{0,5}$"
+      },
+      "predecessor_revision_ref": {
+        "anyOf": [
+          {
+            "type": "string",
+            "pattern": "^function://fn_[0-9a-f]{16}/revision/[1-9][0-9]{0,5}$"
+          },
+          {
+            "type": "null"
+          }
+        ]
+      },
+      "ordinal": {
+        "type": "integer",
+        "minimum": 1,
+        "maximum": 999999
+      },
+      "version": {
+        "type": "string",
+        "pattern": "^(?:0|[1-9][0-9]{0,5})[.](?:0|[1-9][0-9]{0,5})[.](?:0|[1-9][0-9]{0,5})$"
+      },
+      "display_name": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 160
+      },
+      "api_name": {
+        "$ref": "#/$defs/identifier"
+      },
+      "documentation": {
+        "type": "string",
+        "maxLength": 4000
+      },
+      "inputs": {
+        "type": "array",
+        "maxItems": 32,
+        "items": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "name",
+            "description",
+            "data_type",
+            "required"
+          ],
+          "properties": {
+            "name": {
+              "$ref": "#/$defs/identifier"
+            },
+            "description": {
+              "type": "string",
+              "maxLength": 1000
+            },
+            "data_type": {
+              "$ref": "#/$defs/dataType"
+            },
+            "required": {
+              "type": "boolean"
+            }
+          }
+        }
+      },
+      "output": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "data_type",
+          "description"
+        ],
+        "properties": {
+          "data_type": {
+            "$ref": "#/$defs/dataType"
+          },
+          "description": {
+            "type": "string",
+            "maxLength": 1000
+          }
+        }
+      },
+      "implementation": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "runtime",
+          "source",
+          "source_hash"
+        ],
+        "properties": {
+          "runtime": {
+            "type": "string",
+            "enum": [
+              "python3",
+              "node",
+              "bash"
+            ]
+          },
+          "source": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 49152
+          },
+          "source_hash": {
+            "$ref": "#/$defs/hash"
+          }
+        }
+      },
+      "timeout_ms": {
+        "type": "integer",
+        "minimum": 1000,
+        "maximum": 60000
+      },
+      "content_hash": {
+        "$ref": "#/$defs/hash"
+      },
+      "status": {
+        "type": "string",
+        "enum": [
+          "draft",
+          "released",
+          "deprecated"
+        ]
+      },
+      "runtime_tool_contract": {
+        "anyOf": [
+          {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "tool_id",
+              "revision_ref",
+              "content_hash",
+              "admission_receipt_ref"
+            ],
+            "properties": {
+              "tool_id": {
+                "type": "string",
+                "pattern": "^tool://function/fn_[0-9a-f]{16}$"
+              },
+              "revision_ref": {
+                "type": "string",
+                "pattern": "^tool://function/fn_[0-9a-f]{16}/revision/[1-9][0-9]{0,5}$"
+              },
+              "content_hash": {
+                "$ref": "#/$defs/hash"
+              },
+              "admission_receipt_ref": {
+                "type": "string",
+                "pattern": "^receipt://[^\\s]{1,480}$"
+              }
+            }
+          },
+          {
+            "type": "null"
+          }
+        ]
+      },
+      "deprecation": {
+        "anyOf": [
+          {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "reason",
+              "deprecated_by_principal_ref",
+              "receipt_ref"
+            ],
+            "properties": {
+              "reason": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 2000
+              },
+              "deprecated_by_principal_ref": {
+                "type": "string",
+                "pattern": "^user://[^\\s]{1,480}$"
+              },
+              "receipt_ref": {
+                "type": "string",
+                "pattern": "^receipt://[^\\s]{1,480}$"
+              }
+            }
+          },
+          {
+            "type": "null"
+          }
+        ]
+      },
+      "owner_ref": {
+        "type": "string",
+        "pattern": "^(?:org|project)://[^\\s]{1,480}$"
+      },
+      "created_by_principal_ref": {
+        "type": "string",
+        "pattern": "^user://[^\\s]{1,480}$"
+      },
+      "created_at": {
+        "type": "string",
+        "minLength": 1
+      },
+      "updated_at": {
+        "type": "string",
+        "minLength": 1
+      },
+      "released_at": {
+        "anyOf": [
+          {
+            "type": "string",
+            "minLength": 1
+          },
+          {
+            "type": "null"
+          }
+        ]
+      },
+      "admitted_head": {
+        "anyOf": [
+          {
+            "$ref": "#/$defs/hash"
+          },
+          {
+            "type": "null"
+          }
+        ]
+      }
+    }
+  },
+  "schema://ioi/foundations/objects/function-test-run/v1": {
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "$id": "schema://ioi/foundations/objects/function-test-run/v1",
+    "title": "FunctionTestRun",
+    "x-ioi-schema-version": "ioi.function-test-run.v1",
+    "description": "One admitted run of one exact FunctionRevision (revision ref plus content hash) with typed inputs in one environment the caller owns, through the governed exec primitive (every guardrail and isolation refusal applies). `passed` means the run exited 0 and printed one JSON value of the declared output type; `failed` means it ran and exited non-zero or printed something else; `errored` means it could not be run; `timed_out` means the revision's timeout stopped it. The output is retained bounded, with the hash of everything printed. A test run grants nothing and releases nothing.",
+    "type": "object",
+    "additionalProperties": false,
+    "required": [
+      "schema_version",
+      "test_run_id",
+      "function_ref",
+      "revision_ref",
+      "revision_content_hash",
+      "environment_ref",
+      "inputs",
+      "outcome",
+      "exit_code",
+      "output",
+      "output_bytes",
+      "output_hash",
+      "redacted_summary",
+      "stderr_tail",
+      "observed_at",
+      "evaluated_by_principal_ref",
+      "owner_ref",
+      "admitted_head"
+    ],
+    "properties": {
+      "schema_version": {
+        "type": "string",
+        "const": "ioi.function-test-run.v1"
+      },
+      "test_run_id": {
+        "type": "string",
+        "pattern": "^function-test-run://fn_[0-9a-f]{16}/ftr_[0-9a-f]{16}$"
+      },
+      "function_ref": {
+        "type": "string",
+        "pattern": "^function://fn_[0-9a-f]{16}$"
+      },
+      "revision_ref": {
+        "type": "string",
+        "pattern": "^function://fn_[0-9a-f]{16}/revision/[1-9][0-9]{0,5}$"
+      },
+      "revision_content_hash": {
+        "type": "string",
+        "pattern": "^sha256:[0-9a-f]{64}$"
+      },
+      "environment_ref": {
+        "type": "string",
+        "pattern": "^environment://[^\\s]{1,480}$"
+      },
+      "inputs": {
+        "type": "object",
+        "description": "The typed input values, keyed by input name; the daemon checks each against the revision's declared inputs and bounds the whole at 32 names and 16 KiB before running."
+      },
+      "outcome": {
+        "type": "string",
+        "enum": [
+          "passed",
+          "failed",
+          "errored",
+          "timed_out"
+        ]
+      },
+      "exit_code": {
+        "anyOf": [
+          {
+            "type": "integer",
+            "minimum": -2147483648,
+            "maximum": 2147483647
+          },
+          {
+            "type": "null"
+          }
+        ]
+      },
+      "output": {
+        "description": "The JSON value the run printed when it parsed and fit the retention bound; null otherwise."
+      },
+      "output_bytes": {
+        "type": "integer",
+        "minimum": 0,
+        "maximum": 1073741824
+      },
+      "output_hash": {
+        "anyOf": [
+          {
+            "type": "string",
+            "pattern": "^sha256:[0-9a-f]{64}$"
+          },
+          {
+            "type": "null"
+          }
+        ]
+      },
+      "redacted_summary": {
+        "type": "string",
+        "maxLength": 2000
+      },
+      "stderr_tail": {
+        "type": "string",
+        "maxLength": 2000
+      },
+      "observed_at": {
+        "type": "string",
+        "minLength": 1
+      },
+      "evaluated_by_principal_ref": {
+        "type": "string",
+        "pattern": "^user://[^\\s]{1,480}$"
+      },
+      "owner_ref": {
+        "type": "string",
+        "pattern": "^(?:org|project)://[^\\s]{1,480}$"
+      },
+      "admitted_head": {
+        "anyOf": [
+          {
+            "type": "string",
+            "pattern": "^sha256:[0-9a-f]{64}$"
+          },
+          {
+            "type": "null"
+          }
+        ]
+      }
+    }
+  },
   "schema://ioi/foundations/objects/ontology-surface-descriptor/v1": {
     "$schema": "https://json-schema.org/draft/2020-12/schema",
     "$id": "schema://ioi/foundations/objects/ontology-surface-descriptor/v1",
@@ -169314,6 +169909,8 @@ const CONTRACT_INVARIANTS: Record<string, Array<JsonObject>> = {
       }
     }
   ],
+  "schema://ioi/foundations/objects/function-revision/v1": [],
+  "schema://ioi/foundations/objects/function-test-run/v1": [],
   "schema://ioi/foundations/objects/ontology-surface-descriptor/v1": [],
   "schema://ioi/foundations/objects/ontology-surface-descriptor/v2": [
     {
@@ -182338,6 +182935,18 @@ export function validateOntologyActionContractV1(
   value: unknown,
 ): value is OntologyActionContractV1 {
   return validateArchitectureContract("schema://ioi/foundations/objects/ontology-action-contract/v1", value).ok;
+}
+
+export function validateFunctionRevisionV1(
+  value: unknown,
+): value is FunctionRevisionV1 {
+  return validateArchitectureContract("schema://ioi/foundations/objects/function-revision/v1", value).ok;
+}
+
+export function validateFunctionTestRunV1(
+  value: unknown,
+): value is FunctionTestRunV1 {
+  return validateArchitectureContract("schema://ioi/foundations/objects/function-test-run/v1", value).ok;
 }
 
 export function validateOntologySurfaceDescriptorV1(

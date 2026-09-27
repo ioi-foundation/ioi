@@ -116,6 +116,7 @@ export const REQUIRED_LIVE = Object.freeze([
   "design/legs/walk-blueprint",
   "design/handoff/walk-designer-offers-ontology",
   "data/legs/walk-ontology-and-source",
+  "data/legs/walk-function",
   "observe/legs/walk-issue",
   "observe/legs/walk-health",
   "run/legs/walk-automation",
@@ -805,6 +806,29 @@ async function liveLeg() {
         && evaluatedCheck.q.get("check") === walkCheckId && /^Passed/u.test(evaluatedCheck.q.get("note") || "")
         && overview.status === 200 && healthRow.includes(healthName) && healthRow.includes('data-health-outcome="passed"'),
       `declare ${declaredCheck.status} ${walkCheckId || declaredCheck.q.get("note") || "no check"} · evaluate ${evaluatedCheck.status} ${evaluatedCheck.q.get("note") || ""} · System overview row ${healthRowAt >= 0} passed ${healthRow.includes('data-health-outcome="passed"')}`);
+    // STEP 3 (continued) — THIS walk's function, through Ontology / Functions' own forms, tested in the
+    // environment the walk's run used (so it is measured here, after the run).
+    const fnName = `fn${vars.tag}`;
+    const functionsRoute = "/ontology/functions";
+    const declaredFn = outcomeOf(await submitRenderedForm(ctx, { id: "function", page: await page(ctx, functionsRoute), from: functionsRoute, action: "/__ioi/ontology/functions/new",
+      fields: { display_name: fnName, api_name: fnName, version: "1.0.0", input_name_0: "amount", input_type_0: "integer", input_required_0: "on", output_type: "integer", runtime: "python3",
+        source: "import json, sys\nprint(json.dumps(json.load(sys.stdin)['amount'] + 1))\n" } }));
+    const walkFnId = declaredFn.q.get("function") || "";
+    const fnRoute = `${functionsRoute}?function=${walkFnId}`;
+    const testedFn = walkFnId
+      ? outcomeOf(await submitRenderedForm(ctx, { id: "function-test", page: await page(ctx, fnRoute), from: fnRoute, action: "/__ioi/ontology/functions/test", fields: { environment_ref: walkEnvRef, in_amount: "41" } }))
+      : { status: 0, q: new URLSearchParams() };
+    const releasedFn = walkFnId
+      ? outcomeOf(await submitRenderedForm(ctx, { id: "function-release", page: await page(ctx, fnRoute), from: fnRoute, action: "/__ioi/ontology/functions/release", fields: {} }))
+      : { status: 0, q: new URLSearchParams() };
+    const fnList = await page(ctx, functionsRoute);
+    const fnRowAt = walkFnId ? fnList.text.indexOf(`data-fn-row="function://${walkFnId}"`) : -1;
+    const fnRow = fnRowAt >= 0 ? fnList.text.slice(fnRowAt, fnList.text.indexOf("</tr>", fnRowAt)) : "";
+    claimLive("data/legs/walk-function",
+      declaredFn.status === 303 && declaredFn.q.get("ok") === "1" && /^fn_[0-9a-f]{16}$/u.test(walkFnId)
+        && /^Passed/u.test(testedFn.q.get("note") || "") && /Output: 42/u.test(testedFn.q.get("note") || "")
+        && releasedFn.q.get("ok") === "1" && fnRow.includes(fnName) && fnRow.includes('data-fn-tool-operable="1"'),
+      `declare ${declaredFn.status} ${walkFnId || declaredFn.q.get("note") || "no function"} · test ${testedFn.q.get("note") || testedFn.status} · release ${releasedFn.q.get("note") || releasedFn.status} · listed ${fnRowAt >= 0} operable ${fnRow.includes('data-fn-tool-operable="1"')}`);
     await probesOf("observe");
     // HAND-OFF 6 → 7: from THIS walk's Work row, its own link opens the run's receipts (the execution's
     // run timeline), found by the run's own id — the execution the automation's history recorded.

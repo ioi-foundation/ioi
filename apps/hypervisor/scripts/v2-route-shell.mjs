@@ -264,6 +264,7 @@ export const V2_ROUTE_TABLE = [
     serving_today: [
       { href: "/ontology/schema", label: "Ontology Manager (canonical)", note: "rehomed module at the canonical route — receipted semantic authoring over admitted ontologies" },
       { href: "/ontology/explore", label: "Object Explorer (canonical)", note: "rehomed module at the canonical route — read-only instance/exploration lens" },
+      { href: "/ontology/functions", label: "Functions", note: "ADR 0056 P3: typed, revisioned functions — test runs, release into the runtime tool-contract registry, deprecate" },
       { href: "/__ioi/ontology/manager", label: "Ontology Manager (legacy lane)", note: "keeps serving untouched until the W4 cutover" },
       { href: "/__ioi/ontology/explorer", label: "Object Explorer (legacy lane)", note: "keeps serving untouched until the W4 cutover" },
       { href: "/__ioi/odk", label: "ODK object planes", note: "ontology / recipe / descriptor / manifest planes (dev kit)" },
@@ -441,6 +442,18 @@ export const V2_ROUTE_TABLE = [
     serve: { kind: "rewrite", to: "/__ioi/operations/health", heading: "Operations / Health" },
     serving_today: [
       { href: "/__ioi/operations/health", label: "Health checks", note: "ADR 0056 P2: checks, their latest outcome, results history and the plane's writes" },
+    ],
+  },
+  {
+    route: "/ontology/functions",
+    surface: "Ontology / Functions",
+    kind: "typed Ontology view (substrate: Ontology)",
+    rule: "a function revision is immutable typed code; releasing one compiles an exact runtime tool-contract revision that agents, automations and actions bind by revision and hash, never by name",
+    waves: "ADR 0056 P3 (2026-09-26)",
+    build_state: "ADR 0056 P3 (2026-09-26): served from the functions plane (GET /v1/hypervisor/functions, GET /v1/hypervisor/functions/:id); declare, add a revision, test-run in an environment, release and deprecate are the plane's own owner-scoped writes through forms. Named on the page and not built: ontology-object inputs and outputs, compatible auto-upgrade, usage history, package registration (Developer Console)",
+    serve: { kind: "rewrite", to: "/__ioi/ontology/functions", heading: "Ontology / Functions" },
+    serving_today: [
+      { href: "/__ioi/ontology/functions", label: "Functions", note: "ADR 0056 P3: functions, their revisions and test runs, and the plane's writes" },
     ],
   },
   {
