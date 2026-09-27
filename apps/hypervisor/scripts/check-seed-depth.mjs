@@ -33,7 +33,10 @@ const PHASE_ORDER = ["automate", "pipeline-builder", "sessions", "ontology-manag
 
 // Pinned populations. Re-pin with the reason beside the number, in the commit that moves it.
 const PINS = {
-  // 2026-09-27 (R-241): Failures in last 4 weeks proved (a webhook-fired run whose step failed is listed):
+  // 2026-09-27 (R-240 Arm A): 37 → 39 — the header's project breadcrumb now opens the project (it went nowhere:
+  // the resolver never applied the header's ResourceAncestor fragment; check:adopted-dead-controls found it),
+  // and the daemon-stopped state answers an error rather than an empty list. Both bound.
+  // Before that, 2026-09-27 (R-241): Failures in last 4 weeks proved (a webhook-fired run whose step failed is listed):
   // open → bound; Automate open 6 → 5.
   // Before that, 2026-09-27 (R-241): 34 → 37 — the Overview's sections: Recently triggered is bound (automatic runs,
   // with the condition that fired them); Failures in last 4 weeks is fed by the same events but unproven
@@ -55,8 +58,10 @@ const PINS = {
   // Action, Logic and Notification effects), 2 named gaps (Unknown Agent; Unknown effect for command and
   // proposal steps), 4 open (header rename unproven; the side tabs undriven; settings accepted but not
   // enforced; the editor's Time label for a manual automation).
-  automate: { total: 37, bound: 19, refused: 10, named_gap: 3, open: 5 },
-  // 2026-09-27 (R-241, ADR 0056 P4 cut 2c): 15 → 16 — Create is bound (a founding change set, landing in the
+  automate: { total: 39, bound: 21, refused: 10, named_gap: 3, open: 5 },
+  // 2026-09-27 (R-240 Arm A): 16 → 18 — Data recipes (/data/recipes) opens the adopted builder (v2 recipes were
+  // invisible on the owner's route), and the daemon-stopped state answers an error. Both bound.
+  // Before that, 2026-09-27 (R-241, ADR 0056 P4 cut 2c): 15 → 16 — Create is bound (a founding change set, landing in the
   // editor on its draft sandbox) and its location dialog joins as bound (the recipe registry is the one
   // location); Streaming and the Faster / External computes are refused by name. Open 8 → 5.
   // Before that, 2026-09-27 (R-241, ADR 0056 P4 cut 2b): 14 → 15 — the editor opens a pipeline read-only on its Main
@@ -70,7 +75,7 @@ const PINS = {
   // Before that, 2026-09-27 (R-241): Pipeline Builder's cut begins — 11 states harvested read-only (landing,
   // examples, the create form and its two choices, the editor's graph, add data, outputs, proposals, history,
   // deploy); all open until bound to DataRecipe revisions and TransformationRuns.
-  "pipeline-builder": { total: 16, bound: 6, refused: 2, named_gap: 3, open: 5 },
+  "pipeline-builder": { total: 18, bound: 8, refused: 2, named_gap: 3, open: 5 },
   sessions: { total: 0, bound: 0, refused: 0, named_gap: 0, open: 0 },
   "ontology-manager": { total: 0, bound: 0, refused: 0, named_gap: 0, open: 0 },
   "data-connection": { total: 0, bound: 0, refused: 0, named_gap: 0, open: 0 },

@@ -13,6 +13,14 @@
 // known, so a fragment applies when its type condition equals the value's `__typename`, is one of the
 // value's declared `__implements`, or the value declares no typename.
 
+// The few interface facts the reference's own documents state, so a fragment on the interface applies to
+// every value of the type without each builder declaring it. Evidence: the resource header selects
+// `ancestors { ...FolderPathAncestor }` with `fragment FolderPathAncestor on ResourceAncestor { … on
+// ResourceMetadata { openUrl … } }` — a ResourceMetadata IS a ResourceAncestor, and without this the
+// breadcrumb never received a folder's openUrl (a project breadcrumb that went nowhere, found by
+// check:adopted-dead-controls).
+const KNOWN_IMPLEMENTS = Object.freeze({ ResourceMetadata: ["ResourceAncestor"] });
+
 function tokenize(src) {
   const out = [];
   const re = /\s+|,|#[^\n]*|(\.\.\.)|([{}()\[\]:!$@=|&])|("(?:[^"\\]|\\.)*")|(-?\d+(?:\.\d+)?(?:[eE][+-]?\d+)?)|([A-Za-z_][A-Za-z0-9_]*)/gy;
@@ -84,7 +92,7 @@ function applies(type, value) {
   if (!type) return true;
   if (!value || typeof value !== "object") return false;
   if (!value.__typename) return true;
-  return type === value.__typename || (Array.isArray(value.__implements) && value.__implements.includes(type));
+  return type === value.__typename || (Array.isArray(value.__implements) && value.__implements.includes(type)) || (KNOWN_IMPLEMENTS[value.__typename] || []).includes(type);
 }
 
 // GraphQL merges every selection of one response key into one value: a field selected by a fragment and

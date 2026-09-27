@@ -401,6 +401,7 @@ export const RECIPE_REGISTRY = {
   project_id: "hypervisor-data-recipes",
   name: "Data recipes",
   description: "The owner's DataRecipe registry: a recipe family is held here, never in a project.",
+  open_url: "/data/recipes",
   created_at: "2026-09-27T00:00:00Z",
 };
 export const familySlugOf = (name) => String(name || "").toLowerCase().replace(/[^a-z0-9._-]+/gu, "-").replace(/^[^a-z0-9]+/u, "").replace(/-+$/u, "").slice(0, 128);

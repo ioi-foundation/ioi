@@ -155,3 +155,11 @@ test("Create answers the new pipeline with the founding change set's draft sandb
   assert.equal(answer.pipeline.name, "Fresh");
   assert.deepEqual([answer.initialSandbox.id, answer.initialSandbox.isPublished], [PIPELINE.changeSetSandboxIdOf(cs.change_set_ref), false]);
 });
+
+test("a fragment on ResourceAncestor applies to a ResourceMetadata (the header breadcrumb's folder openUrl)", async () => {
+  const { answerDocument } = await import("./adopted-graphql.mjs");
+  const q = "query H($r: RID!) { resourceMetadata(rid: $r) { ancestors { rid name ...A __typename } __typename } } fragment A on ResourceAncestor { rid name ... on ResourceMetadata { openUrl __typename } __typename }";
+  const root = { __typename: "Query", resourceMetadata: { __typename: "ResourceMetadata", ancestors: [{ __typename: "ResourceMetadata", rid: "ri.compass.main.folder.p", name: "proj", openUrl: "/projects/p" }] } };
+  const out = answerDocument(q, root, null, "H");
+  assert.equal(out.resourceMetadata.ancestors[0].openUrl, "/projects/p");
+});

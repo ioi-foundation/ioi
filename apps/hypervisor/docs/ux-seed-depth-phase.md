@@ -347,6 +347,18 @@ journey verifier → deploy to the owner's stack.
   (cut 2d):** the editor's writes as drafts to the change set (then Propose), Proposals / History, Deploy =
   merge + TransformationRun.
 
+### Arm A — the adopted apps are clicked (2026-09-27)
+
+`check:dead-controls` never reached the adopted apps (its serve runs without adopted surfaces; `/__apps/*` is a
+reference lane to it). `check:adopted-dead-controls` is the same census over the adopted Pipeline Builder
+(landing, editor, create) and Automate (overview, list, an automation's page), with its defect list pinned
+exactly. It found the reference sidebar's dead links on the builder (our rail now), Automate's header project
+breadcrumb going nowhere (the resolver lacked `ResourceMetadata` → `ResourceAncestor`), and — driving the
+degraded axis — that a stopped or refusing daemon read as "nothing exists" across both apps (every adopted
+read now checks the answer; a plane down is the app's own error state). Cross-surface: v2 DataRecipes never
+reached the owner's `/data/recipes` (now the adopted builder). Every adopted app now carries a daemon-stopped
+assertion in its verifier.
+
 ## Gate
 
 `check:seed-depth` (built 2026-09-27 with the Automate cut; CI-bound): the tracked record

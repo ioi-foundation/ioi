@@ -480,6 +480,17 @@ async function run() {
   } finally {
     await browser.close();
   }
+
+  // Degraded: with the daemon stopped, the adopted app's automation search answers an ERROR (its own
+  // "unable to load" state) — never an empty list that reads as "you have no automations".
+  daemon.kill("SIGTERM");
+  await sleep(1500);
+  const down = await fetch(`${SERVE}/graphql-gateway/api/bulk?q=SearchMonitorsQuery`, {
+    method: "POST", headers: { cookie: COOKIE, "content-type": "application/json" },
+    body: JSON.stringify({ operations: { 0: "query SearchMonitorsQuery { __typename }" }, requests: [{ hash: "0", name: "SearchMonitorsQuery", variables: {} }] }),
+  }).then(async (r) => ({ status: r.status, text: await r.text() })).catch(() => ({ status: 0, text: "" }));
+  ok("with the daemon stopped, the adopted Automate search answers an error — never an empty list of automations",
+    down.status === 200 && /"errors":\[\{"message":"SearchMonitorsQuery: [^"]*did not answer/u.test(down.text) && !/"monitors":\[\]/u.test(down.text), `${down.status} ${down.text.slice(0, 160)}`);
 }
 
 run().then(() => {

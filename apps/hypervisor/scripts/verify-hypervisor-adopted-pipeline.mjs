@@ -157,6 +157,15 @@ async function run() {
     ok("each pipeline names its creator from the Hypervisor's principal (the change set that founded it)",
       !!operatorName && rows.length === 2 && rows.every((r) => r.by === operatorName), `operator "${operatorName}" · ${rows.map((r) => `${r.name} by "${r.by}"`).join(" · ")}`);
 
+    // Data recipes, the canonical route, opens this adopted app; our rail stands where the reference's
+    // global sidebar was.
+    const canonical = await fetch(`${SERVE}/data/recipes`, { headers: { accept: "text/html", cookie: COOKIE }, redirect: "manual" });
+    const referenceSidebar = await pg.evaluate(() => { const el = document.getElementById("workspace-sidebar"); return !!el && el.getBoundingClientRect().width > 0; });
+    const ourRail = await pg.evaluate(() => !!document.querySelector(".og-grail a[href='/ai']"));
+    ok("Data recipes (/data/recipes) opens the adopted Pipeline Builder, and our rail stands where the reference's sidebar was",
+      canonical.status === 302 && /^\/workspace\/builder\/?$/u.test(canonical.headers.get("location") || "") && ourRail && !referenceSidebar,
+      `/data/recipes ${canonical.status} → ${canonical.headers.get("location")} · our rail ${ourRail} · reference sidebar ${referenceSidebar}`);
+
     await pg.getByPlaceholder("Search pipelines").fill("claims");
     await pg.waitForTimeout(3000);
     const searched = (await pg.evaluate(() => document.body.innerText)).replace(/\s+/gu, " ");
@@ -304,6 +313,19 @@ async function run() {
   ok("signed out, the project picker and the user lookup answer nothing",
     Array.isArray(anonPicker?.result) && anonPicker.result.length === 0 && Array.isArray(anonUsers) && anonUsers.length === 0,
     `picker ${anonPicker?.result?.length ?? "?"} · users ${Array.isArray(anonUsers) ? anonUsers.length : "?"}`);
+
+  // Degraded: with the daemon stopped, the landing's search and a pipeline's details answer an ERROR the app
+  // shows ("Unable to load pipelines") — never an empty list that reads as "you have no pipelines".
+  daemon.kill("SIGTERM");
+  await sleep(1500);
+  const downSearch = await fetch(`${SERVE}/graphql-gateway/api/bulk?q=PipelineLandingSearchQuery`, {
+    method: "POST", headers: { cookie: COOKIE, "content-type": "application/json" },
+    body: JSON.stringify({ operations: { 0: "query PipelineLandingSearchQuery($text: String, $pageSize: Int!) { searchResourcesV2(pageSize: $pageSize, filter: {text: $text, types: [EDDIE_PIPELINE]}) { results { resource { rid __typename } __typename } nextPageToken __typename } __typename }" }, requests: [{ hash: "0", name: "PipelineLandingSearchQuery", variables: { text: "", pageSize: 50 } }] }),
+  }).then((r) => r.text()).catch(() => "");
+  const downDetails = await serveJson("POST", "/eddie/api/pipelines-v2/get/by-rids", rids);
+  ok("with the daemon stopped, the landing's search and a pipeline's details answer an error the app shows — never an empty list",
+    /"errors":\[/u.test(downSearch) && !/"results":\[\]/u.test(downSearch) && downDetails.status === 503,
+    `search ${downSearch.slice(0, 160)} · details ${downDetails.status}`);
 }
 
 function cleanup() {

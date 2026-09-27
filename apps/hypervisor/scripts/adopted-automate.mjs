@@ -628,7 +628,9 @@ function projectFolderNode(p) {
   const rid = folderRidOf(p.project_id);
   return {
     __typename: "ResourceMetadata", __implements: ["Recent"], _id: cacheId(`folder:${p.project_id}`), rid, name: p.name || p.project_id, alias: "",
-    openUrl: null, path: `/${p.name || p.project_id}`, collections: [], status: null, trashedStatus: "NOT_TRASHED", statusInfo: null, autosaved: false,
+    // a project folder opens the project's own page (a breadcrumb or a Location row that names it is a link
+    // there); a location that is not a project names its own page
+    openUrl: p.open_url || `/projects/${encodeURIComponent(p.project_id)}`, path: `/${p.name || p.project_id}`, collections: [], status: null, trashedStatus: "NOT_TRASHED", statusInfo: null, autosaved: false,
     type: { __typename: "ResourceTypeMetadata", iconName: "pt-svg-icon-project" },
     // the caller may create (and so save) automations in their own project
     permissions: { __typename: "ResourceMetadataPermissions", _id: cacheId(`perm:${rid}`), canOpenLink: true, canEditMetadata: true, canCreateAutomation: true },

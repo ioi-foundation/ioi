@@ -1184,12 +1184,21 @@ function renderAutomationNewForm(projectId, projects, schedule = "manual", relea
   const opts = (projects || []).map((p) => `<option value="${CX_ESC(p.project_id)}"${p.project_id === projectId ? " selected" : ""}>${CX_ESC(p.name || p.project_id)}</option>`).join("");
   const tzOptions = ["UTC", "-08:00", "-07:00", "-06:00", "-05:00", "-04:00", "+01:00", "+02:00", "+05:30", "+08:00", "+09:00", "+10:00"]
     .map((z) => `<option value="${z}">${z === "UTC" ? "UTC (+00:00)" : "UTC" + z}</option>`).join("");
-  const projectField = projects && projects.length
-    ? `<div class="field"><label>Project (required — the automation's durable container)</label><select name="project_ref" required>${opts}</select></div>`
-    : `<div class="field"><label>Project</label><input name="project_ref" value="${CX_ESC(projectId)}" placeholder="project:my-app" required></div>`;
+  // An automation hangs off one of this Hypervisor's projects, which the daemon checks. With none yet, the
+  // page offers to create one first — a free-text project field would take a value every create refuses.
+  const noProject = !(projects && projects.length);
+  const projectField = `<div class="field"><label>Project (required — the automation's durable container)</label><select name="project_ref" required>${opts}</select></div>`;
+  const projectForm = noProject ? `<h2 style="margin:18px 0 6px">First, a project</h2>
+    <p class="sub">An automation is durable work that hangs off one of this Hypervisor's projects, and there is none yet. Create one — its name and the repository it works on — and come back here with it chosen.</p>
+    <form method="post" action="/__ioi/projects/new">
+      <input type="hidden" name="return_to" value="/__ioi/automations/new">
+      <div class="field"><label>Project name</label><input name="project_name" placeholder="my-app" required></div>
+      <div class="field"><label>Repository URL</label><input name="repository_url" placeholder="https://github.com/acme/my-app.git" required></div>
+      <div class="row"><button class="act" type="submit">Create project</button></div>
+    </form>` : "";
   const inner = `<p><a href="/__ioi/automations${projectId ? `?project=${encodeURIComponent(projectId)}` : ""}">← Automations</a></p>
     <h1>New automation</h1><p class="sub">A project-scoped spec the daemon runs over a real environment. Start with one step; you can run it manually right away.</p>
-    <form method="post" action="/__ioi/automations">
+    ${noProject ? projectForm : `<form method="post" action="/__ioi/automations">
       ${projectField}
       <div class="field"><label>Name</label><input name="name" placeholder="Nightly CONTRIBUTING note" required></div>
       <div class="field"><label>Description</label><input name="description" placeholder="What this automation does"></div>
@@ -1233,7 +1242,7 @@ function renderAutomationNewForm(projectId, projects, schedule = "manual", relea
       <div class="field"><label>Function (for a function step)</label>${releasedFunctions.length ? `<select name="step_function" data-automation-step-function="1"><option value="">Choose a released function…</option>${releasedFunctions.map((f) => `<option value="${CX_ESC(f.revision_ref)}">${CX_ESC(f.display_name)} ${CX_ESC(f.version)} — ${CX_ESC(f.api_name)}(${CX_ESC(f.signature)})</option>`).join("")}</select><div class="sub" style="margin:4px 0 0;font-size:12px">A function step runs that exact revision; its Step body is the inputs as a JSON object, for example <code>{"amount": 41}</code>. <a href="/ontology/functions">Ontology / Functions →</a></div>` : `<div class="sub" style="margin:0;font-size:12px" data-automation-step-function-none="1">No released function yet — a function step runs a released revision. <a href="/ontology/functions">Release one in Ontology / Functions →</a></div>`}</div>
       <div class="field"><label>Step body</label><textarea name="step_body" placeholder="e.g. Write a CONTRIBUTING.md for this repo."></textarea></div>
       <div class="row"><button class="act" type="submit">Create automation</button></div>
-    </form>
+    </form>`}
     <script>
       function ioiSchedToggle(){var t=document.getElementById('ioi-sched-type').value;document.getElementById('ioi-sched-interval').style.display=(t==='interval')?'block':'none';document.getElementById('ioi-sched-cron').style.display=(t==='cron')?'block':'none';}
       ioiSchedToggle();
@@ -8485,6 +8494,14 @@ async function serveCanonicalLane(req, res, body, row, lane, search) {
 // ~100-surface serve died. If headers already streamed, the response just ends; the error page
 // is written only when nothing was sent.
 function surfaceErrorBoundary(req, res, err) {
+  // A daemon plane an adopted app reads did not answer: the app's own error state, never an empty answer.
+  if (err?.planeDown) {
+    try {
+      if (!res.headersSent) res.writeHead(503, { "Content-Type": "application/json", "Cache-Control": "no-store" });
+      if (!res.writableEnded) res.end(JSON.stringify({ errorCode: "INTERNAL", errorName: "Hypervisor:PlaneUnavailable", errorInstanceId: "", parameters: { message: String(err.message || "a daemon plane did not answer") } }));
+    } catch { /* client socket already gone */ }
+    return;
+  }
   console.error(`[hypervisor] surface error ${req.method} ${req.url}:`, err);
   try {
     if (!res.headersSent) res.writeHead(500, { "Content-Type": "text/html; charset=utf-8", "Cache-Control": "no-cache" });
@@ -8917,6 +8934,12 @@ async function handleEstateRequest(req, res, body) {
       res.writeHead(302, { Location: loc, "Cache-Control": "no-store" });
       return res.end();
     }
+    // R-241 / ADR 0056 P4: Data recipes opens the ADOPTED Pipeline Builder (DataRecipe families and their
+    // change sets) the same way; the owned ODK v1 ladder keeps serving at /__ioi/pipeline.
+    if (pathname === "/data/recipes" && req.method === "GET" && process.env.IOI_ADOPTED_SURFACES === "1" && await adoptedSeedAvailable("/workspace/builder/")) {
+      res.writeHead(302, { Location: "/workspace/builder/", "Cache-Control": "no-store" });
+      return res.end();
+    }
     if (GRE2_TRANSFERS[pathname] && req.method === "GET") {
       // Query continuity: old canonical deep links keep working. For /automations the cockpit's
       // ?automation= / ?view=new grammar translates into the Automate shell's in-shell lanes.
@@ -9192,13 +9215,30 @@ async function handleEstateRequest(req, res, body) {
     const MIRROR_API_PREFIXES = ["/eddie/", "/object-sentinel/", "/people/", "/comments/", "/function-registry/", "/multipass/", "/graphql-gateway/", "/compass/", "/documentation/", "/aip-assist/", "/monocle/", "/approvals/", "/workspace/api/", "/log-receiver/", "/interventions/", "/ontology-metadata/", "/magritte-coordinator/", "/issues/", "/foundry-search/", "/marketplace/", "/object-set-service/", "/phonograph2/", "/language-model-service/", "/foundry-ml/", "/artifacts/", "/foundry-catalog/", "/models/", "/build2/", "/foundry-stemma/", "/third-party-applications/", "/developer-console/"];
     const adoptedAlias = ADOPTED_ROUTE_ALIASES.find(([prefix]) => pathname === prefix || pathname.startsWith(`${prefix}/`));
     if (adoptedAlias || pathname.startsWith("/__apps/") || pathname.startsWith("/assets/content-addressable-storage/") || MIRROR_API_PREFIXES.some((pref) => pathname.startsWith(pref))) {
+      // A daemon read an adopted app depends on: a plane that does not answer — stopped, or refusing — is an
+      // ERROR the app shows (its own "unable to load" state), never an empty answer that reads as "nothing
+      // exists". The error is typed (planeDown): the GraphQL gateways answer it as the operation's error and
+      // the serve's boundary answers it 503. `planeReadOr404` is for a lookup whose 404 means "absent".
+      const planeFailure = (route, r) => { const err = new Error(`${route} did not answer (${r.status || r.statusText})`); err.planeDown = true; err.pipelinePlaneDown = true; err.status = r.status; return err; };
+      const planeRead = async (route, init) => {
+        const r = await daemonFetch(route, init).catch((e) => ({ ok: false, status: 0, statusText: String(e?.message || e) }));
+        if (!r.ok) throw planeFailure(route, r);
+        return r.json();
+      };
+      const planeReadOr404 = async (route) => {
+        const r = await daemonFetch(route).catch((e) => ({ ok: false, status: 0, statusText: String(e?.message || e) }));
+        if (r.status === 404) return null;
+        if (!r.ok) throw planeFailure(route, r);
+        return r.json();
+      };
+      const runsOf = (automationId) => planeRead(`/v1/hypervisor/automations/${encodeURIComponent(automationId)}/runs`).then((j) => j.runs || []);
       // The functions an automation's steps pin, as the adopted app shows them (revision ref → version,
       // name, typed inputs), read from the functions plane.
       const adoptedFunctionInfo = async (automations) => {
         const refs = new Set((automations || []).flatMap((a) => (a.steps || []).filter((st) => st?.kind === "function").map((st) => st.function_revision_ref)));
         const info = new Map();
         for (const id of new Set([...refs].map((r) => String(r).replace(/^function:\/\//u, "").split("/")[0]))) {
-          const d = await daemonFetch(`/v1/hypervisor/functions/${encodeURIComponent(id)}`).then((r) => (r.status === 200 ? r.json() : null)).catch(() => null);
+          const d = await planeReadOr404(`/v1/hypervisor/functions/${encodeURIComponent(id)}`);
           for (const r of d?.revisions || []) if (refs.has(r.revision_ref)) info.set(r.revision_ref, { function_ref: r.function_ref, version: r.version, display_name: r.display_name, api_name: r.api_name, inputs: r.inputs });
         }
         return info;
@@ -9206,9 +9246,9 @@ async function handleEstateRequest(req, res, body) {
       // One read of what the adopted Automate seed shows: the caller's automations and who they are.
       const automateContext = async () => {
         const [autos, who, projects] = await Promise.all([
-          daemonFetch("/v1/hypervisor/automations").then((r) => r.json()).catch(() => ({})),
-          daemonFetch("/v1/hypervisor/auth/whoami").then((r) => r.json()).catch(() => ({})),
-          daemonFetch("/v1/hypervisor/projects").then((r) => r.json()).then((j) => j.projects || []).catch(() => []),
+          planeRead("/v1/hypervisor/automations"),
+          planeRead("/v1/hypervisor/auth/whoami"),
+          planeRead("/v1/hypervisor/projects").then((j) => j.projects || []),
         ]);
         const p = who.authenticated === false ? {} : (who.principal || {});
         const automations = Array.isArray(autos.automations) ? autos.automations : [];
@@ -9222,19 +9262,34 @@ async function handleEstateRequest(req, res, body) {
       const onPipelineSurface = () => /\/workspace\/builder(?:[/?#]|$)|\/__apps\/pipeline(?:[/?#]|$)/u.test(String(req.headers.referer || ""));
       // One read of what the adopted Pipeline Builder shows: the caller's DataRecipe families (each with its
       // revisions) and change sets, as pipelines (adopted-pipeline.mjs).
+      // A plane that does not answer is an ERROR the app shows ("Unable to load pipelines"), never an empty
+      // list that reads as "you have no pipelines".
       const pipelineContext = async () => {
         const [list, sets] = await Promise.all([
-          daemonFetch("/v1/hypervisor/data-recipe-revisions").then((r) => r.json()).catch(() => ({})),
-          daemonFetch("/v1/hypervisor/change-sets").then((r) => r.json()).then((j) => j.change_sets || []).catch(() => []),
+          planeRead("/v1/hypervisor/data-recipe-revisions"),
+          planeRead("/v1/hypervisor/change-sets").then((j) => j.change_sets || []),
         ]);
         const refs = Array.isArray(list.data_recipes) ? list.data_recipes : [];
         const families = await Promise.all(refs.map(async (ref) => ({
           family_ref: ref,
-          revisions: await daemonFetch(`/v1/hypervisor/data-recipe-revisions?family=${encodeURIComponent(String(ref).replace(/^data-recipe:\/\//u, ""))}`).then((r) => r.json()).then((j) => j.revisions || []).catch(() => []),
+          revisions: await planeRead(`/v1/hypervisor/data-recipe-revisions?family=${encodeURIComponent(String(ref).replace(/^data-recipe:\/\//u, ""))}`).then((j) => j.revisions || []),
         })));
         return PIPELINE.pipelinesOf(families, sets);
       };
+      // The Automate context, when its planes do not answer, fails only the operations that need it: the
+      // Pipeline Builder's reads (and the ones that read nothing of it) still answer, or fail on their own.
+      const automateContextOrFailed = async () => {
+        try { return await automateContext(); }
+        catch (e) { if (!e?.planeDown) throw e; return { failed: e, automations: [], projects: [], principal: {}, functionInfo: new Map() }; }
+      };
       const answerAdoptedOp = async (name, variables, ctxA, query = "") => {
+        try {
+          if (ctxA?.failed && !PIPELINE.answersPipelineOperation(name, variables) && !(onPipelineSurface() && (AUTOMATE.SAVE_LOCATION_OPERATIONS.has(name) || name === "FolderLocationQuery" || name === "ViewResourceMutation"))) throw ctxA.failed;
+          return await answerAdoptedOpInner(name, variables, ctxA, query);
+        }
+        catch (e) { if (e?.planeDown) return { data: null, errors: [{ message: `${name}: ${e.message}` }] }; throw e; }
+      };
+      const answerAdoptedOpInner = async (name, variables, ctxA, query = "") => {
         if (AUTOMATE.OPERATIONS.has(name)) return { data: AUTOMATE.graphqlAnswer(name, variables || {}, ctxA) };
         if (!PIPELINE.PIPELINE_OPERATIONS.has(name) && PIPELINE.answersPipelineOperation(name, variables) && query) {
           // the reference's recorded answer to the same generic read (Automate's harvest) lends STRUCTURE only
@@ -9247,7 +9302,7 @@ async function handleEstateRequest(req, res, body) {
         if (AUTOMATE.FACT_OPERATIONS.has(name) && query) {
           const rid = AUTOMATE.requestedMonitorRid(variables);
           const autoId = rid ? AUTOMATE.automationIdOf(rid) : null;
-          const runs = autoId ? await daemonFetch(`/v1/hypervisor/automations/${encodeURIComponent(autoId)}/runs`).then((r) => r.json()).then((j) => j.runs || []).catch(() => []) : [];
+          const runs = autoId ? await runsOf(autoId) : [];
           const template = AUTOMATE.harvestOperations(ADOPT_MIRROR_DIR).get(name)?.data || null;
           const data = AUTOMATE.answerFactOperation(name, query, variables || {}, ctxA, () => runs, template);
           return data ? { data } : AUTOMATE.unboundError(name);
@@ -9267,7 +9322,7 @@ async function handleEstateRequest(req, res, body) {
           return { data: answerAdoptedDocument(query, AUTOMATE.saveLocationFactsRoot([PIPELINE.RECIPE_REGISTRY], variables || {}, taken), null, name) };
         }
         if (AUTOMATE.SAVE_LOCATION_OPERATIONS.has(name) && query) {
-          const projects = await daemonFetch("/v1/hypervisor/projects").then((r) => r.json()).then((j) => j.projects || []).catch(() => []);
+          const projects = await planeRead("/v1/hypervisor/projects").then((j) => j.projects || []);
           return { data: answerAdoptedDocument(query, AUTOMATE.saveLocationFactsRoot(projects, variables || {}, ctxA.automations), null, name) };
         }
         if (FUNCTIONS.FUNCTION_OPERATIONS.has(name) && query) {
@@ -9278,20 +9333,20 @@ async function handleEstateRequest(req, res, body) {
         if (AUTOMATE.PRINCIPAL_OPERATIONS.has(name) && query) return { data: answerAdoptedDocument(query, AUTOMATE.principalFactsRoot(variables || {}), null, name) };
         if (AUTOMATE.OVERVIEW_EVENT_OPERATIONS.has(name) && query) {
           const automations = ctxA.automations || [];
-          const runsById = new Map(await Promise.all(automations.map(async (x) => [x.automation_id, await daemonFetch(`/v1/hypervisor/automations/${encodeURIComponent(x.automation_id)}/runs`).then((r) => r.json()).then((j) => j.runs || []).catch(() => [])])));
+          const runsById = new Map(await Promise.all(automations.map(async (x) => [x.automation_id, await runsOf(x.automation_id)])));
           return { data: answerAdoptedDocument(query, AUTOMATE.overviewEventsFactsRoot(automations, runsById), null, name) };
         }
         if (AUTOMATE.REQUEST_LOG_OPERATIONS.has(name) && query) {
           const a = (ctxA.automations || []).find((x) => AUTOMATE.monitorRidOf(x.automation_id) === variables?.producingRid);
           if (!a) return { data: null, errors: [{ message: `${name}: not one of your automations` }] };
-          const runs = await daemonFetch(`/v1/hypervisor/automations/${encodeURIComponent(a.automation_id)}/runs`).then((r) => r.json()).then((j) => j.runs || []).catch(() => []);
+          const runs = await runsOf(a.automation_id);
           return { data: answerAdoptedDocument(query, AUTOMATE.requestLogsFactsRoot(a, runs, variables || {}), null, name) };
         }
         // Telemetry: counted from the executions of the caller's automations the request names.
         if (AUTOMATE.TELEMETRY_OPERATIONS.has(name) && query) {
           const wanted = new Set((variables?.rids || []).map((r) => AUTOMATE.automationIdOf(r)).filter(Boolean));
           const ours = (ctxA.automations || []).filter((x) => wanted.has(x.automation_id));
-          const runs = (await Promise.all(ours.map((x) => daemonFetch(`/v1/hypervisor/automations/${encodeURIComponent(x.automation_id)}/runs`).then((r) => r.json()).then((j) => j.runs || []).catch(() => [])))).flat();
+          const runs = (await Promise.all(ours.map((x) => runsOf(x.automation_id)))).flat();
           return { data: answerAdoptedDocument(query, AUTOMATE.telemetryFactsRoot(runs, variables || {}, name), null, name) };
         }
         // The detail page's own writes (description, rename): each a PATCH of the automation it names,
@@ -9313,10 +9368,10 @@ async function handleEstateRequest(req, res, body) {
       // The caller's functions as the registry facts (the named function's full revision list when a
       // request names one).
       const adoptedFunctionFacts = async (variables) => {
-        const families = await daemonFetch("/v1/hypervisor/functions").then((r) => r.json()).then((j) => j.functions || []).catch(() => []);
+        const families = await planeRead("/v1/hypervisor/functions").then((j) => j.functions || []);
         const wantRid = FUNCTIONS.requestedFunctionRid(variables);
         const wantId = wantRid ? FUNCTIONS.functionIdOf(wantRid) : null;
-        const detail = wantId ? await daemonFetch(`/v1/hypervisor/functions/${wantId}`).then((r) => (r.status === 200 ? r.json() : null)).catch(() => null) : null;
+        const detail = wantId ? await planeReadOr404(`/v1/hypervisor/functions/${wantId}`) : null;
         return FUNCTIONS.functionFactsRoot(families, (id) => (id === wantId && detail ? detail.revisions : null), variables);
       };
       // Per-seed fold flag: some seed documents hardcode the capture ORIGIN for their API layer
@@ -9486,7 +9541,7 @@ async function handleEstateRequest(req, res, body) {
         // The adopted Pipeline Builder, opened directly, reads over this single-operation gateway too: the same
         // answers as the bulk gateway, never the capture passthrough below.
         if (gqlOp && (PIPELINE.answersPipelineOperation(gqlName, gqlOp.variables || {}) || (onPipelineSurface() && (AUTOMATE.SAVE_LOCATION_OPERATIONS.has(gqlName) || gqlName === "FolderLocationQuery" || gqlName === "ViewResourceMutation")))) {
-          return sendJson(await answerAdoptedOp(gqlName, gqlOp.variables || {}, await automateContext(), String(gqlOp.query || "")));
+          return sendJson(await answerAdoptedOp(gqlName, gqlOp.variables || {}, await automateContextOrFailed(), String(gqlOp.query || "")));
         }
         if (gqlOp && AUTOMATE.ENVELOPE_OPERATIONS.has(gqlName)) {
           const [env, ctxA] = await Promise.all([
@@ -9832,7 +9887,7 @@ async function handleEstateRequest(req, res, body) {
       if (pathname === "/graphql-gateway/api/bulk" && req.method === "POST") {
         const ops = AUTOMATE.bulkOperations(body.toString());
         if (ops.length) {
-          const ctxA = await automateContext();
+          const ctxA = await automateContextOrFailed();
           const lines = await Promise.all(ops.map(async (o) => `data:${JSON.stringify({ ...(await answerAdoptedOp(o.name, o.variables, ctxA, o.query)), extensions: { requestIndex: o.index } })}`));
           res.writeHead(200, { "Content-Type": "text/event-stream; charset=UTF-8", "Cache-Control": "no-cache" });
           return res.end(lines.join("\n\n") + "\n\n");
@@ -9858,10 +9913,10 @@ async function handleEstateRequest(req, res, body) {
         let rids = [];
         try { rids = JSON.parse(body.toString() || "{}").monitorRids || []; } catch { /* no rids */ }
         const wanted = new Map(rids.map((rid) => [AUTOMATE.automationIdOf(rid), rid]).filter(([id]) => id));
-        const autos = await daemonFetch("/v1/hypervisor/automations").then((r) => r.json()).catch(() => ({}));
+        const autos = await planeRead("/v1/hypervisor/automations");
         const monitors = {};
         for (const a of (autos.automations || []).filter((x) => wanted.has(x.automation_id)).slice(0, 50)) {
-          const runs = await daemonFetch(`/v1/hypervisor/automations/${encodeURIComponent(a.automation_id)}/runs`).then((r) => r.json()).then((j) => j.runs || []).catch(() => []);
+          const runs = await runsOf(a.automation_id);
           monitors[wanted.get(a.automation_id)] = AUTOMATE.monitorOf(a, runs, await adoptedFunctionInfo([a]));
         }
         res.writeHead(200, { "Content-Type": "application/json" });
@@ -9880,10 +9935,10 @@ async function handleEstateRequest(req, res, body) {
         const pub = /^\/object-sentinel\/api\/registry\/v0\/monitors\/([^/]+)\/published$/.exec(pathname);
         const autoId = pub ? AUTOMATE.automationIdOf(decodeURIComponent(pub[1])) : null;
         if (autoId && req.method === "GET") {
-          const autos = await daemonFetch("/v1/hypervisor/automations").then((r) => r.json()).catch(() => ({}));
+          const autos = await planeRead("/v1/hypervisor/automations");
           const a = (autos.automations || []).find((x) => x.automation_id === autoId);
           if (!a) { res.writeHead(404, { "Content-Type": "application/json" }); return res.end(JSON.stringify({ errorCode: "NOT_FOUND", errorName: "Monitor:NotFound", errorInstanceId: "", parameters: {} })); }
-          const runs = await daemonFetch(`/v1/hypervisor/automations/${encodeURIComponent(autoId)}/runs`).then((r) => r.json()).then((j) => j.runs || []).catch(() => []);
+          const runs = await runsOf(autoId);
           res.writeHead(200, { "Content-Type": "application/json" });
           return res.end(JSON.stringify({ monitor: AUTOMATE.monitorOf(a, runs, await adoptedFunctionInfo([a])) }));
         }
@@ -9891,12 +9946,12 @@ async function handleEstateRequest(req, res, body) {
       // The adopted wizard's create request → the Hypervisor automation it describes (translated in
       // adopted-automate.mjs; what cannot be carried yet is refused by name).
       const translateMonitorRequest = async (request, existing = null) => {
-        const projects = await daemonFetch("/v1/hypervisor/projects").then((r) => r.json()).then((j) => j.projects || []).catch(() => []);
+        const projects = await planeRead("/v1/hypervisor/projects").then((j) => j.projects || []);
         const rids = [...new Set((request?.metadata?.subscribers || []).flatMap((sub) => Object.values(sub.triggerEffects || {})).map((e) => e?.function?.functionLocator?.functionRid).filter(Boolean))];
         const details = new Map();
         for (const rid of rids) {
           const id = FUNCTIONS.functionIdOf(rid);
-          if (id) details.set(rid, await daemonFetch(`/v1/hypervisor/functions/${id}`).then((r) => (r.status === 200 ? r.json() : null)).catch(() => null));
+          if (id) details.set(rid, await planeReadOr404(`/v1/hypervisor/functions/${id}`));
         }
         const releasedRevisionOf = (rid, version) => (details.get(rid)?.revisions || []).find((r) => r.status === "released" && r.version === version && r.tool_operable) || null;
         return existing
@@ -9906,7 +9961,7 @@ async function handleEstateRequest(req, res, body) {
       const automationOfMonitorRid = async (rid) => {
         const autoId = AUTOMATE.automationIdOf(decodeURIComponent(rid || ""));
         if (!autoId) return null;
-        const autos = await daemonFetch("/v1/hypervisor/automations").then((r) => r.json()).catch(() => ({}));
+        const autos = await planeRead("/v1/hypervisor/automations");
         return (autos.automations || []).find((x) => x.automation_id === autoId) || null;
       };
       const conjureRefusal = (message) => ({ errorCode: "INVALID_ARGUMENT", errorName: "Automation:NotSupportedByHypervisor", errorInstanceId: "", parameters: { message } });
@@ -9917,13 +9972,15 @@ async function handleEstateRequest(req, res, body) {
         let request = {};
         try { request = JSON.parse(body.toString() || "{}"); } catch { /* shape-tolerant */ }
         const [projects, who] = await Promise.all([
-          daemonFetch("/v1/hypervisor/projects").then((r) => r.json()).then((j) => j.projects || []).catch(() => []),
-          daemonFetch("/v1/hypervisor/auth/whoami").then((r) => r.json()).catch(() => ({})),
+          planeRead("/v1/hypervisor/projects").then((j) => j.projects || []),
+          planeRead("/v1/hypervisor/auth/whoami"),
         ]);
         res.writeHead(200, { "Content-Type": "application/json" });
         // signed out, the picker offers nothing: the projects are the signed-in caller's to see
         return res.end(JSON.stringify(who.authenticated === true ? PIPELINE.compassSearchAnswer(request, projects, AUTOMATE.projectFolderRid, PIPELINE.uuidOf, who.principal?.principal_ref) : { result: [], nextPageToken: null }));
       }
+      // The Pipeline Builder's REST reads and writes: a plane that does not answer is a 503 the app shows.
+      try {
       // The create form checks its name in the recipe registry: valid unless one of the caller's pipelines is
       // already over the family the name makes.
       if (pathname === `/compass/api/resources/${AUTOMATE.projectFolderRid(PIPELINE.RECIPE_REGISTRY.project_id)}/checkName` && req.method === "POST") {
@@ -9941,7 +9998,7 @@ async function handleEstateRequest(req, res, body) {
         const refuse = (message, status = 400) => send(status, { errorCode: "INVALID_ARGUMENT", errorName: "Eddie:PipelineNotSupportedByHypervisor", errorInstanceId: "", parameters: { message } });
         let asked = {};
         try { asked = JSON.parse(body.toString() || "{}"); } catch { return refuse("the request is not JSON"); }
-        const who = await daemonFetch("/v1/hypervisor/auth/whoami").then((r) => r.json()).catch(() => ({}));
+        const who = await planeRead("/v1/hypervisor/auth/whoami");
         if (who.authenticated !== true) return refuse("sign in to create a pipeline", 401);
         const owner = (who.principal?.tenant_refs || []).find((t) => String(t).startsWith("org://"));
         const plan = PIPELINE.createPipelinePlan(pathname.endsWith("/create") ? { createRequest: asked } : asked, await pipelineContext(), AUTOMATE.projectFolderRid(PIPELINE.RECIPE_REGISTRY.project_id));
@@ -9957,8 +10014,9 @@ async function handleEstateRequest(req, res, body) {
       if (pathname === "/eddie/api/pipelines-v2/get/by-rids" && req.method === "POST") {
         let rids = [];
         try { rids = JSON.parse(body.toString() || "[]"); } catch { /* shape-tolerant */ }
+        const answer = PIPELINE.pipelinesByRids(rids, await pipelineContext(), PIPELINE.uuidOf); // before any header: a plane down is a 503
         res.writeHead(200, { "Content-Type": "application/json" });
-        return res.end(JSON.stringify(PIPELINE.pipelinesByRids(rids, await pipelineContext(), PIPELINE.uuidOf)));
+        return res.end(JSON.stringify(answer));
       }
       if (/^\/eddie\/api\/pipelines-v2\/ri\.eddie\.main\.pipeline\.[0-9a-f-]{36}$/u.test(pathname) && req.method === "GET") {
         const details = PIPELINE.pipelineDetails(pathname.split("/").pop(), await pipelineContext(), PIPELINE.uuidOf);
@@ -10045,8 +10103,21 @@ async function handleEstateRequest(req, res, body) {
       if (pathname === "/eddie/api/pipelines-v2/get-sandboxes-with-snapshots" && req.method === "POST") {
         let request = {};
         try { request = JSON.parse(body.toString() || "{}"); } catch { /* shape-tolerant */ }
+        const answer = PIPELINE.sandboxesWithSnapshots(request.requests, await pipelineContext(), PIPELINE.uuidOf); // before any header
         res.writeHead(200, { "Content-Type": "application/json" });
-        return res.end(JSON.stringify(PIPELINE.sandboxesWithSnapshots(request.requests, await pipelineContext(), PIPELINE.uuidOf)));
+        return res.end(JSON.stringify(answer));
+      }
+        // Any other Pipeline Builder WRITE is refused by name here — it never reaches the local mirror, whose
+        // recorded answer would read as a success nothing performed. The two POST READS named open (the AIP
+        // toggle, the expression examples) still pass through, as the seed-depth record says.
+        if (pathname.startsWith("/eddie/") && req.method !== "GET" && req.method !== "HEAD" && !["/eddie/api/natural-language-converter/aip-enabled", "/eddie/api/examples/get"].includes(pathname)) {
+          res.writeHead(501, { "Content-Type": "application/json" });
+          return res.end(JSON.stringify({ errorCode: "INVALID_ARGUMENT", errorName: "Eddie:NotSupportedByHypervisor", errorInstanceId: "", parameters: { message: `${req.method} ${pathname} is not bound to the Hypervisor yet (the editor's writes are ADR 0056 P4 cut 2d)` } }));
+        }
+      } catch (e) {
+        if (!e?.planeDown) throw e;
+        res.writeHead(503, { "Content-Type": "application/json" });
+        return res.end(JSON.stringify({ errorCode: "INTERNAL", errorName: "Eddie:PlaneUnavailable", errorInstanceId: "", parameters: { message: e.message } }));
       }
       // The detail page and the edit wizard validate an edit of the automation the rid names: the same
       // translation its Save will use, so a refusal shows before Save.
@@ -10129,10 +10200,14 @@ async function handleEstateRequest(req, res, body) {
           // The pause this surface offers says in-flight executions are canceled mid-run: so they are —
           // each running execution is cancelled (the executor stops before its next step).
           if (request.disable === true) {
-            const runs = await daemonFetch(`/v1/hypervisor/automations/${encodeURIComponent(existing.automation_id)}/runs`).then((r) => r.json()).then((j) => j.runs || []).catch(() => []);
+            const runs = await runsOf(existing.automation_id);
+            const notStopped = [];
             for (const run of runs.filter((r) => r.status === "running")) {
-              await daemonFetch(`/v1/hypervisor/automation-executions/${encodeURIComponent(run.execution_id)}/cancel`, { method: "POST" }).catch(() => null);
+              const c = await daemonFetch(`/v1/hypervisor/automation-executions/${encodeURIComponent(run.execution_id)}/cancel`, { method: "POST" }).catch(() => null);
+              if (!c || !c.ok) notStopped.push(run.execution_id);
             }
+            // the pause applied; an execution it could not stop is said, never silently left running
+            if (notStopped.length) return sendJson(409, conjureRefusal(`the automation is paused, but ${notStopped.length} running execution(s) could not be cancelled: ${notStopped.join(", ")}`));
           }
           res.writeHead(204); return res.end();
         }
@@ -10159,11 +10234,11 @@ async function handleEstateRequest(req, res, body) {
         const ver = /^\/object-sentinel\/api\/registry\/v0\/monitors\/([^/]+)\/versions\/([^/]+)$/.exec(pathname);
         const autoId = ver ? AUTOMATE.automationIdOf(decodeURIComponent(ver[1])) : null;
         if (autoId && req.method === "GET") {
-          const autos = await daemonFetch("/v1/hypervisor/automations").then((r) => r.json()).catch(() => ({}));
+          const autos = await planeRead("/v1/hypervisor/automations");
           const a = (autos.automations || []).find((x) => x.automation_id === autoId);
           res.writeHead(a ? 200 : 404, { "Content-Type": "application/json" });
           if (!a) return res.end(JSON.stringify({ errorCode: "NOT_FOUND", errorName: "Monitor:NotFound", errorInstanceId: "", parameters: {} }));
-          const runs = await daemonFetch(`/v1/hypervisor/automations/${encodeURIComponent(autoId)}/runs`).then((r) => r.json()).then((j) => j.runs || []).catch(() => []);
+          const runs = await runsOf(autoId);
           return res.end(JSON.stringify({ monitor: AUTOMATE.monitorOf(a, runs, await adoptedFunctionInfo([a])) }));
         }
       }
@@ -10172,9 +10247,9 @@ async function handleEstateRequest(req, res, body) {
         const autoId = one ? AUTOMATE.automationIdOf(decodeURIComponent(one[1])) : null;
         if (autoId && req.method === "GET") {
           const [autos, projects, who] = await Promise.all([
-            daemonFetch("/v1/hypervisor/automations").then((r) => r.json()).catch(() => ({})),
-            daemonFetch("/v1/hypervisor/projects").then((r) => r.json()).then((j) => j.projects || []).catch(() => []),
-            daemonFetch("/v1/hypervisor/auth/whoami").then((r) => r.json()).catch(() => ({})),
+            planeRead("/v1/hypervisor/automations"),
+            planeRead("/v1/hypervisor/projects").then((j) => j.projects || []),
+            planeRead("/v1/hypervisor/auth/whoami"),
           ]);
           const a = (autos.automations || []).find((x) => x.automation_id === autoId);
           res.writeHead(a ? 200 : 204, { "Content-Type": "application/json" });
@@ -10185,9 +10260,9 @@ async function handleEstateRequest(req, res, body) {
         if (autoId && req.method === "PUT") {
           const sendJson = (status, obj) => { res.writeHead(status, { "Content-Type": "application/json" }); return res.end(JSON.stringify(obj)); };
           const [autos, projects, who] = await Promise.all([
-            daemonFetch("/v1/hypervisor/automations").then((r) => r.json()).catch(() => ({})),
-            daemonFetch("/v1/hypervisor/projects").then((r) => r.json()).then((j) => j.projects || []).catch(() => []),
-            daemonFetch("/v1/hypervisor/auth/whoami").then((r) => r.json()).catch(() => ({})),
+            planeRead("/v1/hypervisor/automations"),
+            planeRead("/v1/hypervisor/projects").then((j) => j.projects || []),
+            planeRead("/v1/hypervisor/auth/whoami"),
           ]);
           const a = (autos.automations || []).find((x) => x.automation_id === autoId);
           if (!a) return sendJson(404, { errorCode: "NOT_FOUND", errorName: "Compass:ResourceNotFound", errorInstanceId: "", parameters: {} });
@@ -10208,8 +10283,8 @@ async function handleEstateRequest(req, res, body) {
         try { asked = JSON.parse(body.toString() || "null"); } catch { /* none */ }
         const rids = Array.isArray(asked) ? asked : (asked && asked.rids) || [];
         const [daemonProjects, who] = await Promise.all([
-          daemonFetch("/v1/hypervisor/projects").then((r) => r.json()).then((j) => j.projects || []).catch(() => []),
-          daemonFetch("/v1/hypervisor/auth/whoami").then((r) => r.json()).catch(() => ({})),
+          planeRead("/v1/hypervisor/projects").then((j) => j.projects || []),
+          planeRead("/v1/hypervisor/auth/whoami"),
         ]);
         // on the Pipeline Builder's pages the one location is the recipe registry
         const projects = onPipelineSurface() ? [PIPELINE.RECIPE_REGISTRY] : daemonProjects;
@@ -10227,7 +10302,7 @@ async function handleEstateRequest(req, res, body) {
           const notFound = () => sendJson(404, { errorCode: "NOT_FOUND", errorName: "FunctionRegistry:FunctionNotFound", errorInstanceId: "", parameters: {} });
           const fnId = FUNCTIONS.functionIdOf(decodeURIComponent(fr[1]));
           if (!fnId) return notFound();
-          const detail = await daemonFetch(`/v1/hypervisor/functions/${fnId}`).then((r) => (r.status === 200 ? r.json() : null)).catch(() => null);
+          const detail = await planeReadOr404(`/v1/hypervisor/functions/${fnId}`);
           const released = (detail?.revisions || []).filter((r) => r.status === "released").sort((a, b) => (b.ordinal || 0) - (a.ordinal || 0));
           if (!detail?.function || !released.length) return notFound();
           if (fr[2] === "metadata" && req.method === "GET") return sendJson(200, FUNCTIONS.functionMetadata({ ...detail.function, released_revision: released[0] }));
@@ -10245,8 +10320,8 @@ async function handleEstateRequest(req, res, body) {
         let ids = [];
         try { const j = JSON.parse(body.toString() || "[]"); ids = Array.isArray(j) ? j : (j.principalIds || j.ids || []); } catch { /* none */ }
         const [autos, who] = await Promise.all([
-          daemonFetch("/v1/hypervisor/automations").then((r) => r.json()).catch(() => ({})),
-          daemonFetch("/v1/hypervisor/auth/whoami").then((r) => r.json()).catch(() => ({})),
+          planeRead("/v1/hypervisor/automations"),
+          planeRead("/v1/hypervisor/auth/whoami"),
         ]);
         const principals = [];
         if (who.authenticated !== false && who.principal?.principal_ref) principals.push({ ref: who.principal.principal_ref, name: who.principal.name, email: who.principal.email });
@@ -10259,10 +10334,12 @@ async function handleEstateRequest(req, res, body) {
       if (pathname === "/multipass/api/users" && req.method === "POST") {
         let ids = [];
         try { const j = JSON.parse(body.toString() || "[]"); ids = Array.isArray(j) ? j : (j.userIds || j.ids || []); } catch { /* none */ }
-        const [autos, who, sets] = await Promise.all([
-          daemonFetch("/v1/hypervisor/automations").then((r) => r.json()).catch(() => ({})),
-          daemonFetch("/v1/hypervisor/auth/whoami").then((r) => r.json()).catch(() => ({})),
-          daemonFetch("/v1/hypervisor/change-sets").then((r) => r.json()).then((j) => j.change_sets || []).catch(() => []),
+        // signed out, nobody is named — decided before reading planes that refuse an anonymous caller
+        const who = await planeRead("/v1/hypervisor/auth/whoami");
+        if (who.authenticated !== true) { res.writeHead(200, { "Content-Type": "application/json" }); return res.end("[]"); }
+        const [autos, sets] = await Promise.all([
+          planeRead("/v1/hypervisor/automations"),
+          planeRead("/v1/hypervisor/change-sets").then((j) => j.change_sets || []),
         ]);
         const principals = [];
         if (who.authenticated !== false && who.principal?.principal_ref) principals.push({ ref: who.principal.principal_ref, name: who.principal.name, email: who.principal.email });
@@ -10276,8 +10353,8 @@ async function handleEstateRequest(req, res, body) {
         let ids = [];
         try { const j = JSON.parse(body.toString() || "{}"); ids = j.userIds || j.ids || (Array.isArray(j) ? j : []); } catch { /* none */ }
         const [autos, who] = await Promise.all([
-          daemonFetch("/v1/hypervisor/automations").then((r) => r.json()).catch(() => ({})),
-          daemonFetch("/v1/hypervisor/auth/whoami").then((r) => r.json()).catch(() => ({})),
+          planeRead("/v1/hypervisor/automations"),
+          planeRead("/v1/hypervisor/auth/whoami"),
         ]);
         const principals = [];
         if (who.principal?.principal_ref) principals.push({ ref: who.principal.principal_ref, name: who.principal.name, email: who.principal.email });
@@ -10331,8 +10408,10 @@ async function handleEstateRequest(req, res, body) {
           // The adopted product surface (Automate) never shows the reference's global sidebar: at top
           // level OUR rail stands in its 230px column (routes to our surfaces, the caller's own account
           // chip); framed by the shell, neither shows.
-          if (seedSlug === "monitors") {
-            const rail = ioiGlobalRailHtml({ label: "Automate", href: "/automations", iconUri: MON_APP_TILE_URI, railVariant: "rv-pipe rv-dsg", viewAll: true, star: false, aipGradient: true, acctMuted: true });
+          if (seedSlug === "monitors" || seedSlug === "pipeline") {
+            const rail = seedSlug === "monitors"
+              ? ioiGlobalRailHtml({ label: "Automate", href: "/automations", iconUri: MON_APP_TILE_URI, railVariant: "rv-pipe rv-dsg", viewAll: true, star: false, aipGradient: true, acctMuted: true })
+              : ioiGlobalRailHtml({ label: "Pipeline Builder", href: "/data/recipes", iconUri: PIPELINE_APP_ICON_URI, railVariant: "rv-pipe rv-dsg", viewAll: true, star: false, aipGradient: true, acctMuted: true });
             html = html.replace("</head>", `<style>${IOI_GRAIL_CSS}[class*="shell-application__sidebar__"],#workspace-sidebar{display:none!important}.ioi-adopted-rail .og-grail{position:fixed;left:0;top:0;z-index:30}.ioi-adopted-rail .workspace-page-wrapper{padding-left:230px;box-sizing:border-box}.ioi-embedded .og-grail{display:none!important}.ioi-embedded .workspace-page-wrapper{padding-left:0!important}</style></head>`)
               .replace(/<body([^>]*)>/i, `<body$1><div class="ioi-adopted-rail">${rail}</div><script>try{if(window.top===window.self)document.documentElement.classList.add("ioi-adopted-rail")}catch(e){}</script>`);
           }
@@ -10990,6 +11069,25 @@ async function handleEstateRequest(req, res, body) {
       res.writeHead(200, { "Content-Type": "application/json; charset=utf-8", "Cache-Control": "no-cache" });
       res.end(JSON.stringify(r));
       return;
+    }
+    // A project, from the rendered form a page offers when it needs one (New automation with no project yet):
+    // the daemon's repository-backed create, then back to the page that asked, with the new project chosen.
+    if (pathname === "/__ioi/projects/new" && req.method === "POST") {
+      const p = new URLSearchParams(body.toString());
+      const back = String(p.get("return_to") || "/__ioi/automations/new");
+      const returnTo = /^\/__ioi\/[A-Za-z0-9/_-]*$/u.test(back) ? back : "/__ioi/automations/new";
+      const name = String(p.get("project_name") || "").trim();
+      const repo = String(p.get("repository_url") || "").trim();
+      const refuse = (note) => { res.writeHead(303, { Location: `${returnTo}?note=${encodeURIComponent(note)}`, "Cache-Control": "no-cache" }); return res.end(); };
+      if (!name) return refuse("a project needs a name");
+      if (!/^(https?|ssh|git):\/\/\S+$|^git@\S+:\S+$/u.test(repo)) return refuse("a project needs the URL of the repository it works on (https://… or git@…)");
+      const created = await daemonFetch("/v1/hypervisor/projects", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ repository_url: repo, project_name: name, source: "manual_url" }) })
+        .then(async (r) => ({ ok: r.ok, status: r.status, j: await r.json().catch(() => ({})) })).catch((e) => ({ ok: false, status: 0, j: { error: { message: String(e?.message || e) } } }));
+      if (!created.ok) return refuse(created.j?.error?.message || created.j?.message || `the projects plane did not create the project (${created.status})`);
+      const records = created.j.records || [];
+      const id = created.j.selected_project_id || records.at(-1)?.project_id || created.j.record?.project_id || "";
+      res.writeHead(303, { Location: `${returnTo}?project=${encodeURIComponent(id)}&ok=1&note=${encodeURIComponent(`Project ${name} created`)}`, "Cache-Control": "no-cache" });
+      return res.end();
     }
     if (pathname === "/__ioi/automations" && req.method === "POST") {
       const p = new URLSearchParams(body.toString());
