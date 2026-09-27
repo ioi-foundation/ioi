@@ -1646,7 +1646,10 @@ const server = http.createServer((req, res) => {
   // of the Hypervisor shell. The webpack-style stub below is a classic script, so an ES import of it yields no export and
   // React.lazy renders `undefined` — the session page crashed (React #306) on opening a changed file, the terminal pane
   // stayed silently empty, and the personal settings routes rendered nothing (R-240 Arm A on Sessions).
-  const viteChunk = pathname.endsWith('.js') && !fs.existsSync(filePath) ? /^([A-Za-z][A-Za-z0-9_]*)-[A-Za-z0-9_-]{6,}\.js$/.exec(path.basename(pathname)) : null;
+  // Only a Vite chunk: under the assets path, an 8-character content hash, requested as a MODULE (an ES import is a
+  // cors-mode fetch; a classic <script> is no-cors and keeps the stub below — an `export` there is a syntax error).
+  const viteChunk = pathname.endsWith('.js') && !fs.existsSync(filePath) && /\/assets\//.test(pathname) && req.headers['sec-fetch-mode'] !== 'no-cors'
+    ? /^([A-Za-z][A-Za-z0-9_]*)-[A-Za-z0-9_-]{8}\.js$/.exec(path.basename(pathname)) : null;
   if (viteChunk) {
     const name = viteChunk[1];
     const words = { FileDiffPanel: 'The file diff view', Terminal: 'The in-browser terminal', UserSettingsRedirect: 'Personal settings' }[name]

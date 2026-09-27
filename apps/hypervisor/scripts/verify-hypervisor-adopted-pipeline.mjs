@@ -122,6 +122,8 @@ async function run() {
   const succId = String(successor.body?.change_set?.change_set_ref || "").replace("change://", "");
   for (const step of ["validate", "propose"]) steps.push((await daemonReq("POST", `/v1/hypervisor/change-sets/${succId}/${step}`, w(`ap-${step}-2`))).status);
   const founding = await daemonReq("POST", "/v1/hypervisor/change-sets", w("ap-open-3", { subject: { kind: "data_recipe", family: "acme.claims-triage" }, title: "Claims triage", draft: { name: "claims-triage" } }));
+  // an Ontology Manager draft never published: the builder offers it, and a recipe cannot bind it
+  const odkDraft = await daemonReq("POST", "/v1/hypervisor/odk/domain-ontologies", w("ap-odk-1", { domain: "claims-draft", description: "an unpublished draft" }));
   const project = await fetch(`${SERVE}/api/ioi.v1.ProjectService/CreateProject`, { method: "POST", headers: { cookie: COOKIE, "content-type": "application/json" }, body: JSON.stringify({ name: "pipeline-picker-project", initializer: { specs: [{ git: { remoteUri: "https://example.invalid/adopted/pipeline.git" } }] } }) }).then((r) => r.json()).catch(() => ({}));
   ok("PRECONDITION: a DataRecipe family merged through a change set (revision 1) with an open successor, a founding-only change set, and a project exist",
     steps.join(",") === "200,200,200,200,200" && successor.status === 201 && founding.status === 201 && !!project.project?.id,
@@ -190,6 +192,9 @@ async function run() {
         && /intake-normalise/u.test(editor) && /\bMain\b/u.test(editor) && /This branch is protected\. Changes will be saved to a new branch\./u.test(editor) && !/read-only mode/u.test(editor)
         && /acme-clinic\/patient-intake-row\/v2/u.test(editor) && /om_patient_intake/u.test(editor) && /Pipeline not yet deployed/u.test(editor),
       `${editorUrl} · ${JSON.stringify({ error: /An error (?:has )?occurred|Pipeline not found/u.test(editor), main: /\bMain\b/u.test(editor), protected: /This branch is protected/u.test(editor), readOnly: /read-only mode/u.test(editor), dataset: /acme-clinic\/patient-intake-row\/v2/u.test(editor), object: /om_patient_intake/u.test(editor), notDeployed: /Pipeline not yet deployed/u.test(editor) })}`);
+    ok("the object output's target ontology is the recipe's own ontology (its declared revision's family), not \"No ontology selected\"",
+      /Target ontology acme-clinic\/patient-intake/u.test(editor) && !/No ontology selected|An ontology must be specified/u.test(editor),
+      `target ${/Target ontology acme-clinic\/patient-intake/u.test(editor)} · no-ontology error ${/No ontology selected|An ontology must be specified/u.test(editor)}`);
     ok("the editor's graph holds no transforms (a recipe keeps no transform graph yet, ADR 0057) and offers to add data, rather than drawing any",
       /Welcome to Pipeline Builder/u.test(editor) && /2 outputs defined/u.test(editor), /Welcome to Pipeline Builder/u.test(editor) ? "add-data welcome card" : "graph text absent");
 
@@ -501,6 +506,14 @@ async function run() {
         && saved.status === 200 && savedVersion.body?.details?.message === "Draft 2" && Array.isArray(draftBody?.output_dataset_contract_refs) && draftBody.output_dataset_contract_refs.length === 0
         && (draftBody?.output_object_model_refs || []).length === 1 && draftBody?.succession_reason === "output_contract_change" && (draftBody?.transformation_steps || []).length > 0,
       `stale ${stale.status} · transform ${withTransform.body?.errorName} · new output ${newOutput.body?.errorName} · main ${onMain.body?.errorName} · saved ${saved.status} ${savedVersion.body?.details?.message} · draft ${JSON.stringify({ ds: draftBody?.output_dataset_contract_refs, om: draftBody?.output_object_model_refs, why: draftBody?.succession_reason })}`);
+    const ontologyMap = Object.values((await serveJson("POST", "/ontology-metadata/api/ontology/v2/load/all", {})).body?.ontologies || {});
+    const draftOntology = ontologyMap.find((o) => o.displayName === "claims-draft");
+    const draftRid = Object.entries((await serveJson("POST", "/ontology-metadata/api/ontology/v2/load/all", {})).body?.ontologies || {}).find(([, o]) => o.displayName === "claims-draft")?.[0];
+    const onUnpublished = await push(branch?.id, { snapshot: { ...objectOnly, targetSettings: { objectTargetSettings: { ontologyRid: draftRid } } }, currentVersionId: saved.body?.newVersionId, backend: "Spark" });
+    ok("the builder's ontology map offers the caller's ontologies — the published one with its head revision, the Ontology Manager draft with none — and a Save that targets the unpublished one is refused by name",
+      odkDraft.status === 201 && ontologyMap.some((o) => o.displayName === "acme-clinic/patient-intake" && /\/revision\/1$/u.test(o.currentOntologyVersion || "")) && draftOntology?.currentOntologyVersion === null
+        && onUnpublished.status === 400 && onUnpublished.body?.errorName === "Eddie:OntologyNotPublished",
+      `odk draft ${odkDraft.status} · map ${JSON.stringify(ontologyMap.map((o) => [o.displayName, o.currentOntologyVersion]))} · unpublished save ${onUnpublished.status} ${onUnpublished.body?.errorName}`);
     const proposed = (await serveJson("POST", `/eddie/api/pipelines-v2/${rid}/proposals/create`, { proposalDetails: { name: "Retire the dataset output into Main", description: "the row contract is retired", sourceSandbox: branch?.id, targetSandbox: mainSid } })).body?.proposal;
     const review = (decision, reason) => serveJson("POST", `/eddie/api/pipelines-v2/${rid}/proposals/${proposed?.id}/review-v2`, { checkId: null, decision: { type: decision, [decision]: {} }, reviewedSandboxVersion: null, reason, reviewCommentReferences: [] });
     const approve = await review("approve", "");

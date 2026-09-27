@@ -271,3 +271,29 @@ test("the autosave buffer is the caller's, per branch, with a version a stale ta
   store.clear("user://a", "rid", "s3");
   assert.equal(store.get("user://a", "rid", "s3"), null);
 });
+
+test("the output ontology: the picker offers the caller's ontologies (published heads and unpublished drafts), the snapshot carries the recipe's own, and a Save rebinds to a published head or is refused by name", () => {
+  const catalog = PIPELINE.ontologyCatalogOf(
+    [{ family: "ontology://acme/intake", head: "ontology://acme/intake/revision/2", name: "acme/intake" }],
+    [{ family: "ontology://local/ont_1", domain: "claims-draft", description: "d" }, { family: "ontology://acme/intake", domain: "Intake", description: "" }],
+  );
+  assert.deepEqual(catalog.map((o) => [o.displayName, o.head]), [["Intake", "ontology://acme/intake/revision/2"], ["claims-draft", null]], "a draft names the family it publishes into");
+  const load = PIPELINE.ontologyLoadAnswer(catalog);
+  assert.equal(Object.keys(load.ontologies).length, 2);
+  assert.equal(load.ontologies[PIPELINE.ontologyRidOfFamily("ontology://local/ont_1")].currentOntologyVersion, null, "an unpublished ontology has no version a recipe could bind");
+  // the recipe's own ontology is the target of its object outputs
+  const recipe = { ontology_revision_refs: ["ontology://acme/intake/revision/1"], output_object_model_refs: ["object-model://om"] };
+  assert.deepEqual(PIPELINE.targetSettingsOf(recipe), { objectTargetSettings: { ontologyRid: PIPELINE.ontologyRidOfFamily("ontology://acme/intake") } });
+  assert.deepEqual(PIPELINE.targetSettingsOf({ ...recipe, output_object_model_refs: [] }), {}, "no object output, no target ontology");
+  // unchanged keeps the exact revision declared (never silently moved to the head)
+  assert.deepEqual(PIPELINE.applyTargetOntology(recipe, PIPELINE.ontologyRidOfFamily("ontology://acme/intake"), catalog).body.ontology_revision_refs, ["ontology://acme/intake/revision/1"]);
+  const other = { ontology_revision_refs: ["ontology://other/x/revision/1"] };
+  const rebound = PIPELINE.applyTargetOntology(other, PIPELINE.ontologyRidOfFamily("ontology://acme/intake"), catalog);
+  assert.deepEqual([rebound.changed, rebound.body.ontology_revision_refs], [true, ["ontology://acme/intake/revision/2"]]);
+  assert.equal(PIPELINE.applyTargetOntology(other, PIPELINE.ontologyRidOfFamily("ontology://local/ont_1"), catalog).refused.errorName, "Eddie:OntologyNotPublished");
+  assert.equal(PIPELINE.applyTargetOntology(other, "ri.ontology.main.ontology.nope", catalog).refused.errorName, "Eddie:OntologyNotFound");
+  // the GraphQL picker: the caller's own ontologies, where the caller may create object and link types
+  const facts = PIPELINE.pipelineEditorFactsRoot({ ontologyRid: catalog[0].rid }, [], PIPELINE.uuidOf, null, catalog);
+  assert.deepEqual(facts.allOntologies.map((o) => [o.displayName, o.permissions.canCreateObjectTypes && o.permissions.canCreateLinkTypes]), [["Intake", true], ["claims-draft", true]]);
+  assert.equal(facts.ontology.displayName, "Intake");
+});

@@ -77,7 +77,7 @@ export const PIPELINE_OPERATIONS = new Set([
   "CurrentPipelineDeploymentQuery",
 ]);
 
-const resourceNode = (rid) => ({ rid, _id: cacheId(`resource:${rid}`), __typename: "ResourceMetadata" });
+const resourceNode = (rid, name = null) => ({ rid, name, _id: cacheId(`resource:${rid}`), __typename: "ResourceMetadata" });
 
 export function pipelineFactsRoot(name, variables, pipelines, userIdOf) {
   const v = variables || {};
@@ -94,7 +94,7 @@ export function pipelineFactsRoot(name, variables, pipelines, userIdOf) {
       __typename: "Query",
       searchResourcesV2: {
         __typename: "ResourceSearchResults",
-        results: matched.slice(0, pageSize).map((p) => ({ __typename: "ResourceSearchResult", resource: resourceNode(p.rid) })),
+        results: matched.slice(0, pageSize).map((p) => ({ __typename: "ResourceSearchResult", resource: resourceNode(p.rid, p.name) })),
         nextPageToken: null,
       },
     };
@@ -195,7 +195,7 @@ export function compassOutputDatasets(rids, pipelines, userIdOf) {
 // The Hypervisor offers ONE compute profile: a recipe runs as a TransformationRun on its own runtime. No cores or memory
 // are claimed. The deploy panel reads the snapshot's profile unguarded (it crashed the editor on a snapshot without one).
 export const RUNTIME_PROFILE = Object.freeze({ id: uuidOf("hypervisor://compute/transformation-run"), name: "Hypervisor runtime", description: "A recipe runs as a TransformationRun on the Hypervisor's own runtime; no other compute is offered.", backendSpecificDisplayProperties: {}, availableArguments: {}, argumentAvailability: {}, isDeprecated: false, requiredProfiles: {} });
-const snapshotOf = (recipe) => ({ transforms: [], targets: targetsOf(recipe), groups: [], groupedExpressions: [], outputs: [], arguments: {}, backendSettings: { computeProfile: { computeProfileId: RUNTIME_PROFILE.id, arguments: {} }, configuration: {} }, skippedTransforms: [], persistedTransforms: [] });
+const snapshotOf = (recipe) => ({ transforms: [], targets: targetsOf(recipe), groups: [], groupedExpressions: [], outputs: [], arguments: {}, backendSettings: { computeProfile: { computeProfileId: RUNTIME_PROFILE.id, arguments: {} }, configuration: {} }, targetSettings: targetSettingsOf(recipe), skippedTransforms: [], persistedTransforms: [] });
 export function sandboxesWithSnapshots(requests, pipelines, userIdOf) {
   const sandboxes = [];
   for (const r of Array.isArray(requests) ? requests : []) {
@@ -299,11 +299,15 @@ export const PIPELINE_EDITOR_OPERATIONS = new Set([
   "IssueBadgeData", "WalkthroughsForResourceQuery", "CommunicationChannelsQuery", "BackingObjectQuery", "CompassResourceViewQuery", "SaveResourceDialogQuery",
   // the proposal page (read); a principal chip
   "UserGroupQuery", "ResolveEddieProposalIdToGlobalBranch", "ResolveEddieProposalRidToGlobalBranch", "ProposalEventsQuery", "BackendTypeForProposalQuery",
+  // the output settings' ontology name
+  "OntologyQuery",
   // the History page (read): the version timeline and the compare view
   "HistoryPageGlobalBranch", "HistoryVersionListQuery", "HistoryVersionDiffQuery",
 ]);
 // Editor reads that name no pipeline (the caller's organization, a dataset, ontologies, branches).
-export const PIPELINE_EDITOR_GLOBAL_OPERATIONS = new Set(["OntologiesQuery", "BranchSelectSearchQuery", "CommunicationChannelsQuery", "BackingObjectQuery", "SaveResourceDialogQuery", "UserGroupQuery"]);
+export const PIPELINE_EDITOR_GLOBAL_OPERATIONS = new Set(["OntologiesQuery", "OntologyQuery", "BranchSelectSearchQuery", "CommunicationChannelsQuery", "BackingObjectQuery", "SaveResourceDialogQuery", "UserGroupQuery"]);
+// The operations that read the caller's ontologies (the serve reads the ontology catalog only for these).
+export const ONTOLOGY_OPERATIONS = new Set(["OntologiesQuery", "OntologyQuery"]);
 // Reads keyed by a dataset rid: answered when it is one of the caller's pipelines' declared output datasets.
 export const PIPELINE_EDITOR_DATASET_OPERATIONS = new Set(["BackingObjectQuery", "CompassResourceViewQuery"]);
 // Whether an operation is the Pipeline Builder's to answer: its landing reads, and its editor reads when they
@@ -336,7 +340,7 @@ function pipelineResource(p, userIdOf) {
     permissions: { __typename: "ResourceMetadataPermissions", _id: cacheId(`perm:${p.rid}`), canOpenLink: true, canEditMetadata: false, canShare: false, canShareLink: false, canTrash: false, canEditTags: false, canMoveBetweenProjects: false, canMoveWithinProject: false, canRestore: false },
   };
 }
-export function pipelineEditorFactsRoot(variables, pipelines, userIdOf, caller = null) {
+export function pipelineEditorFactsRoot(variables, pipelines, userIdOf, caller = null, ontologies = []) {
   const rid = pipelineRidIn(variables);
   const p = rid ? pipelines.find((x) => x.rid === rid) : null;
   const sandboxId = variables?.sandboxId || (p ? mainSandboxIdOf(p.familyRef) : null);
@@ -359,8 +363,10 @@ export function pipelineEditorFactsRoot(variables, pipelines, userIdOf, caller =
     // the create form's location dialog: no favorites or recents are kept
     favorites: [], recents: [],
     catalogDataset: ownDataset ? { __typename: "CatalogDataset", _id: cacheId(`dataset:${datasetRid}`), backsObjectTypes: [] } : null,
-    // The Hypervisor's ontologies are not offered as output targets yet (the editor's outputs cut).
-    allOntologies: [],
+    // The caller's ontologies, offered as output targets. They are the caller's own (every read is owner-scoped), so the
+    // caller may create object and link types in them — the target picker offers only ontologies where that holds.
+    allOntologies: (ontologies || []).map((o) => ({ __typename: "Ontology", _id: cacheId(`ontology:${o.rid}`), rid: o.rid, displayName: o.displayName, apiName: o.displayName, permissions: { __typename: "OntologyPermissions", _id: cacheId(`ontology-perm:${o.rid}`), canCreateLinkTypes: true, canCreateObjectTypes: true } })),
+    ontology: variables?.ontologyRid ? (() => { const o = (ontologies || []).find((x) => x.rid === variables.ontologyRid); return o ? { __typename: "Ontology", _id: cacheId(`ontology:${o.rid}`), rid: o.rid, displayName: o.displayName, apiName: o.displayName } : null; })() : null,
     // no global branches exist (a change set is a patch branch of one family, not a global branch)
     globalBranchDropdownSearchByCreatedAtDescending: { __typename: "GlobalBranchPage", values: [], nextPageToken: null },
     eddiePipeline: p ? { __typename: "EddiePipeline", _id: cacheId(`pipeline:${p.rid}`), sandbox, proposal: proposalByVariables(pipelines, variables, userIdOf, p.rid) } : null,
@@ -538,7 +544,7 @@ export function versionOf(p, versionId, userIdOf) {
 }
 const EMPTY_DISPLAY = { transforms: [], targets: [], groups: [], datasets: [], mediaSets: [], charts: [], sources: [], clusters: [], colorDisplayNodes: [], displayFolders: [], textNodes: [], colorPalettes: [] };
 export function versionConfiguration(v) {
-  return { details: v.details, snapshot: { ...snapshotOf(v.body), targetSettings: {}, samplingStrategies: {} }, display: EMPTY_DISPLAY, packaging: null, unitTests: { tests: [], data: [] }, evalSuites: { evalSuites: [], metInputsByEvalSuite: [] } };
+  return { details: v.details, snapshot: { ...snapshotOf(v.body), samplingStrategies: {} }, display: EMPTY_DISPLAY, packaging: null, unitTests: { tests: [], data: [] }, evalSuites: { evalSuites: [], metInputsByEvalSuite: [] } };
 }
 // The diff between two versions: outputs added or removed (by target id) — a recipe's transforms are not
 // derived into the reference's (ADR 0057, proposed), so there are none to compare, and none is claimed.
@@ -716,7 +722,7 @@ const kept = (list) => (Array.isArray(list) ? list : []).filter(Boolean);
 const isEmptyish = (v) => v == null || (Array.isArray(v) && v.length === 0) || (typeof v === "object" && !Array.isArray(v) && Object.values(v).every(isEmptyish));
 // pushSnapshotToSandbox (POST …/sandboxes/{id}/push): the Save. The draft body starts from the branch's latest draft and
 // takes the snapshot's outputs; everything the editor cannot express (ontologies, mappings, steps, policy) is carried.
-export function pushPlan(p, sandboxId, req) {
+export function pushPlan(p, sandboxId, req, ontologyCatalog = null) {
   if (sandboxId === mainSandboxIdOf(p.familyRef)) return refusal(409, "PipelineBuilder:SandboxIsProtected", "Main moves only when a change set merges: save to a branch");
   const cs = p.changeSets.find((x) => changeSetSandboxIdOf(x.change_set_ref) === sandboxId);
   if (!cs) return refusal(404, "Eddie:SandboxNotFound", "no branch of yours is this sandbox");
@@ -742,9 +748,17 @@ export function pushPlan(p, sandboxId, req) {
   // an output list the base never declared stays undeclared while it is empty
   if (keepObjects.length || base.output_object_model_refs !== undefined) body.output_object_model_refs = keepObjects;
   if (keepDatasets.length || base.output_dataset_contract_refs !== undefined) body.output_dataset_contract_refs = keepDatasets;
+  const requestedOntology = snap.targetSettings?.objectTargetSettings?.ontologyRid || null;
+  let ontologyChanged = false;
+  if (requestedOntology && ontologyCatalog) {
+    const applied = applyTargetOntology(body, requestedOntology, ontologyCatalog);
+    if (applied.refused) return applied;
+    Object.assign(body, applied.body);
+    ontologyChanged = !!applied.changed;
+  }
   if (cs.subject?.base_revision_ref) {
     const same = (a, b) => JSON.stringify([...kept(a)].sort()) === JSON.stringify([...kept(b)].sort());
-    body.succession_reason = !same(base.output_dataset_contract_refs, keepDatasets) ? "output_contract_change" : !same(base.output_object_model_refs, keepObjects) ? "object_model_change" : (base.succession_reason || "correction");
+    body.succession_reason = ontologyChanged ? "ontology_revision_change" : !same(base.output_dataset_contract_refs, keepDatasets) ? "output_contract_change" : !same(base.output_object_model_refs, keepObjects) ? "object_model_change" : (base.succession_reason || "correction");
   }
   const unchanged = latest && JSON.stringify(admissionProjection(latest.body)) === JSON.stringify(admissionProjection(body)) && (latest.body?.succession_reason || null) === (body.succession_reason || null);
   return unchanged ? { unchanged: true, versionId: draftVersionIdOf(cs.change_set_ref, latest.ordinal), changeSet: cs } : { draft: body, changeSet: cs };
@@ -780,4 +794,55 @@ export class WorkStateStore {
     return { entry };
   }
   clear(principal, rid, sandboxId) { this.entries.delete(this.key(principal, rid, sandboxId)); }
+}
+
+// ---- OUTPUT ONTOLOGY (R-240 Arm A: an ontology admitted in the Ontology Manager never reached the builder's picker).
+// A recipe's object outputs bind the ontology REVISIONS it declares (`ontology_revision_refs`, each
+// `ontology://<namespace>/<name>/revision/<n>`); the builder's "Target ontology" is that revision's ONTOLOGY, named by
+// its family. The picker offers the caller's ontologies: every published family (its current version the head
+// revision) and every Ontology Manager draft not yet published (no current version: a recipe cannot bind it).
+const familyOfRevision = (ref) => String(ref || "").replace(/\/revision\/\d+$/u, "");
+export const ontologyRidOfFamily = (family) => `ri.ontology.main.ontology.${uuidOf(family)}`;
+// `families` is [{ family, head, name }] (head a revision ref); `drafts` is [{ family, domain, description }].
+export function ontologyCatalogOf(families, drafts) {
+  const byFamily = new Map();
+  for (const f of families || []) if (f?.family) byFamily.set(f.family, { family: f.family, head: f.head || null, displayName: f.name || f.family.replace(/^ontology:\/\//u, ""), description: "" });
+  // a draft names the family it publishes into: its domain is the name a person gave it
+  for (const d of drafts || []) {
+    if (!d?.family) continue;
+    const known = byFamily.get(d.family);
+    byFamily.set(d.family, { family: d.family, head: known?.head || null, displayName: d.domain || known?.displayName || d.family, description: d.description || "" });
+  }
+  return [...byFamily.values()].map((o) => ({ ...o, rid: ontologyRidOfFamily(o.family) }));
+}
+// POST /ontology-metadata/api/ontology/v2/load/all — the builder's ontology map (the picker's names).
+export function ontologyLoadAnswer(catalog) {
+  return {
+    ontologies: Object.fromEntries((catalog || []).map((o) => [o.rid, {
+      apiName: o.displayName, displayName: o.displayName, description: o.description || "",
+      // an unpublished ontology has no version a recipe could bind
+      currentOntologyVersion: o.head, currentSystemOntologyVersion: o.head, defaultBranchRid: null, namespace: o.family,
+      ontologyOwnersGroupId: null, ontologyOwnersGroupIds: [], governanceBoardGroupId: null, organizationMarkingIds: [],
+      ontologyAdminConfig: { enableUsage: false, suggestProjectsPermissionModel: false }, isShared: false,
+      compassNamespaceRid: null, ontologyProjectRid: null, areOrganizationMarkingsInheritedFromNamespace: false, areRolesEnabled: false, roleGrants: [],
+    }])),
+  };
+}
+// The object target settings a recipe's snapshot carries: the ontology of its first declared ontology revision.
+export function targetSettingsOf(recipe) {
+  const first = (recipe?.ontology_revision_refs || [])[0];
+  return first && (recipe?.output_object_model_refs || []).length ? { objectTargetSettings: { ontologyRid: ontologyRidOfFamily(familyOfRevision(first)) } } : {};
+}
+// A Save's target ontology, applied to the draft body: unchanged keeps the exact revisions declared; another ontology
+// binds its head revision (replacing the revision of the ontology it succeeds), or is refused by name when unpublished.
+export function applyTargetOntology(body, requestedRid, catalog) {
+  if (!requestedRid) return { body };
+  const refs = [...(body.ontology_revision_refs || [])];
+  const currentFamily = refs.length ? familyOfRevision(refs[0]) : null;
+  if (currentFamily && ontologyRidOfFamily(currentFamily) === requestedRid) return { body };
+  const chosen = (catalog || []).find((o) => o.rid === requestedRid);
+  if (!chosen) return refusal(400, "Eddie:OntologyNotFound", "the chosen ontology is not one of yours");
+  if (!chosen.head) return refusal(400, "Eddie:OntologyNotPublished", `${chosen.displayName} has no published revision yet: publish one in the Ontology Manager (Publish revision), then choose it`);
+  const kept = refs.filter((r) => familyOfRevision(r) !== currentFamily);
+  return { body: { ...body, ontology_revision_refs: [chosen.head, ...kept] }, changed: true };
 }

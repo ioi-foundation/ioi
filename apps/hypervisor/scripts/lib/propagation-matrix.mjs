@@ -42,13 +42,19 @@ export const READS = Object.freeze([
   { after: "ontology", consumer: "Open Diagram · Recent has the ontology", route: "/__ioi/studio/designer?open=recent", needle: "{tag}-lending" },
   { after: "ontology", consumer: "Pipeline's picker offers the ontology", route: "/__ioi/pipeline", needle: "{tag}-lending" },
   { after: "ontology", consumer: "ODK lists the ontology", route: "/__ioi/odk", needle: "{tag}-lending" },
+  // The ADOPTED Pipeline Builder (the owner's /data/recipes) is a single-page app over the local reference mirror, so
+  // it is read by the WIRE its own pages call, judged by the same tagged needle (R-240 Arm A, 2026-09-27): its output
+  // ontology picker (Target ontology) and its landing's pipelines.
+  { after: "ontology", consumer: "Pipeline Builder (Data recipes) offers the ontology as an output target", route: "/ontology-metadata/api/ontology/v2/load/all", wire: { method: "POST", body: {} }, needle: "{tag}-lending" },
   { after: "source", consumer: "Data sources lists the source", route: "/__ioi/data/sources", needle: "{tag}-src" },
+  { after: "source", consumer: "Pipeline Builder (Data recipes) Add data offers the source", named: { what: "the builder's Add data searches its dataset index, and a declared data source is not offered there: adding data is not yet bound to the Data sources and connector mappings a recipe reads", owner: "R-241 seed depth: Pipeline Builder editor.add-data (open)" }, route: "/foundry-search/api/compass/v0/search", wire: { method: "POST", body: { query: { includeResources: ["FILE"], text: "" }, limit: 50, offset: 0 } }, needle: "{tag}-src" },
   { after: "mapping", consumer: "Ontology Manager shows the backing datasource", route: "/__ioi/ontology/manager?ontology={ontology}&section=object-types&definitionKind=object-type&definitionId=loan", needle: "Loan {tag} backing datasource" },
   { after: "mapping", consumer: "Solution Designer composes the mapping", route: "/__ioi/studio/designer?ontology={ontology}", needle: "Loan {tag} backing datasource" },
   { after: "mapping", consumer: "Pipeline's mapping node shows it", route: "/__ioi/pipeline?ontology={ontology}&node=mapping", needle: "Loan {tag} backing datasource" },
   { after: "mapping", consumer: "Pipeline's datasource node carries the source", route: "/__ioi/pipeline?ontology={ontology}&node=datasource", needle: "{tag}-src" },
   { after: "mapping", consumer: "Data sources shows the source's mapping", route: "/__ioi/data/sources?dataSource={source}", needle: "Loan {tag} backing datasource" },
   { after: "recipe", consumer: "ODK lists the data recipe", route: "/__ioi/odk?ontology={ontology}", needle: "recipe-{tag}" },
+  { after: "recipe", consumer: "Pipeline Builder (Data recipes) lists the data recipe", named: { what: "two recipe families: the ODK data-recipe form authors v1 records (/v1/hypervisor/odk/data-recipes) while the Pipeline Builder lists v2 DataRecipe families (/v1/hypervisor/data-recipe-revisions); a recipe made in ODK is no pipeline until it converges into v2", owner: "R-240 / ADR 0056 P4: converge the ODK recipe form onto the v2 family (open a founding change set, as the builder's Create does)" }, route: "/graphql-gateway/api/bulk?q=PipelineLandingSearchQuery", wire: { method: "POST", body: { operations: { 0: "query PipelineLandingSearchQuery($text: String, $pageSize: Int!) { searchResourcesV2(pageSize: $pageSize, filter: {text: $text, types: [EDDIE_PIPELINE]}) { results { resource { rid name __typename } __typename } nextPageToken __typename } __typename }" }, requests: [{ hash: "0", name: "PipelineLandingSearchQuery", variables: { text: "", pageSize: 50 } }] } }, needle: "recipe-{tag}" },
   { after: "recipe-edit", consumer: "The recipe's page shows its edited name", route: "/__ioi/odk/data-recipes/{recipe}", needle: "recipe-{tag}-v2" },
   { after: "manifest", consumer: "ODK lists the manifest", route: "/__ioi/odk?ontology={ontology}", needle: "manifest-{tag}" },
   { after: "manifest", consumer: "The recipe's page names the manifest that bundles it", route: "/__ioi/odk/data-recipes/{recipe}", needle: "manifest-{tag}" },
@@ -96,6 +102,9 @@ export function matrixFindings({ writes, reads, actionsOf, drivers = [] }) {
   for (const r of reads) {
     if (!writeIds.has(r.after)) f.push(`read '${r.consumer}': follows no declared write '${r.after}'`);
     if (!isSpecificNeedle(r.needle)) f.push(`read '${r.consumer}': needle '${r.needle}' is not specific to the run`);
+    // A read may be NAMED — a known propagation defect, with what it is and who owns its fix — never nameless.
+    if (r.named !== undefined && (!r.named || typeof r.named.what !== "string" || !r.named.what.trim() || typeof r.named.owner !== "string" || !r.named.owner.trim())) f.push(`read '${r.consumer}': a named read says what the defect is and who owns its fix`);
+    if (r.wire !== undefined && (!r.wire || typeof r.wire !== "object")) f.push(`read '${r.consumer}': a wire read names its method and body`);
     const key = `${r.consumer}`;
     if (seen.has(key)) f.push(`read '${r.consumer}': named twice`);
     seen.add(key);

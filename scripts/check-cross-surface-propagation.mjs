@@ -138,6 +138,8 @@ export function pureFindings(lib, actions) {
   expect("matrix/empty-reads-refused", lib.matrixFindings({ writes: [{ id: "w", module: "m", action: "a", route: "/r" }], reads: [], actionsOf: () => ["a"] }).length > 0, true);
   expect("matrix/undriven-drive-refused", lib.matrixFindings({ writes: [{ id: "w", drive: "no-such-editor", route: "/r" }], reads: [{ after: "w", consumer: "c", route: "/x", needle: "{tag}-v" }], actionsOf: () => [], drivers: ["diagram-editor"] }).length > 0, true);
   expect("matrix/clean", lib.matrixFindings({ writes: [{ id: "w", module: "m", action: "a", route: "/r" }], reads: [{ after: "w", consumer: "c", route: "/x", needle: "{tag}-v" }], actionsOf: () => ["a"] }).length, 0);
+  expect("matrix/named-read-without-owner-refused", lib.matrixFindings({ writes: [{ id: "w", module: "m", action: "a", route: "/r" }], reads: [{ after: "w", consumer: "c", route: "/x", needle: "{tag}-v", named: { what: "a known split" } }], actionsOf: () => ["a"] }).length > 0, true);
+  expect("matrix/named-read-with-owner-clean", lib.matrixFindings({ writes: [{ id: "w", module: "m", action: "a", route: "/r" }], reads: [{ after: "w", consumer: "c", route: "/x", needle: "{tag}-v", named: { what: "a known split", owner: "R-240" } }], actionsOf: () => ["a"] }).length, 0);
   // Reads, judged.
   expect("read/shown", lib.readVerdict({ status: 200, html: "<b>Loan xs1 backing datasource</b>", needle: "Loan xs1 backing datasource" }).verdict, "shown");
   expect("read/missing", lib.readVerdict({ status: 200, html: "Add new backing datasource", needle: "Loan xs1 backing datasource" }).verdict, "missing");
@@ -216,6 +218,7 @@ const waitFor = async (url, ms, label) => {
 async function liveLeg() {
   const started = Date.now();
   const findings = [];
+  const named = [];
   const writes = [];
   const reads = [];
   let daemon = null, serve = null, browser = null, dataDir = null;
@@ -332,12 +335,20 @@ async function liveLeg() {
       const route = LIB.fill(r.route, vars);
       const needle = LIB.fill(r.needle, vars);
       let status = 0, html = "";
-      try { const resp = await page.goto(base + route, { waitUntil: "networkidle", timeout: 60000 }); status = resp ? resp.status() : 0; html = await page.content(); } catch (e) { html = ""; }
+      if (r.wire) {
+        // a single-page app is read by the wire its own page calls, under the operator's session
+        try { const resp = await page.request.fetch(base + route, { method: r.wire.method || "POST", headers: { "content-type": "application/json" }, data: JSON.stringify(r.wire.body ?? {}), timeout: 60000 }); status = resp.status(); html = await resp.text(); } catch (e) { html = ""; }
+      } else {
+        try { const resp = await page.goto(base + route, { waitUntil: "networkidle", timeout: 60000 }); status = resp ? resp.status() : 0; html = await page.content(); } catch (e) { html = ""; }
+      }
       const judged = LIB.readVerdict({ status, html, needle });
-      reads.push({ consumer: r.consumer, route, needle, status, ...judged });
-      if (judged.verdict !== "shown") findings.push({ on: "read", text: `${judged.verdict}: ${r.consumer} (${route}) — ${judged.why}` });
+      reads.push({ consumer: r.consumer, route, needle, status, ...judged, ...(r.named ? { named: true } : {}) });
+      // A NAMED read that is missing is a known defect reported by name; one that now SHOWS has outlived its name.
+      if (r.named && judged.verdict === "missing") named.push({ n: 1, what: `${r.consumer}: ${r.named.what}`, owner: r.named.owner });
+      else if (r.named && judged.verdict === "shown") findings.push({ on: "read", text: `stale name: ${r.consumer} (${route}) now shows the value — remove its name` });
+      else if (judged.verdict !== "shown") findings.push({ on: "read", text: `${judged.verdict}: ${r.consumer} (${route}) — ${judged.why}` });
     }
-    return { findings, writes, reads, vars, seconds: Math.round((Date.now() - started) / 1000) };
+    return { findings, named, writes, reads, vars, seconds: Math.round((Date.now() - started) / 1000) };
   } catch (error) {
     // A write that is refused or lands nowhere is the write's failure; anything before the first
     // write is the leg's ownership of its daemon, serve and operator failing.
@@ -440,6 +451,9 @@ async function main() {
   });
   if (binding.length) rows.find((r) => r.n === 4).red = `BINDING: ${binding.join("; ")}`;
   const result = verdict(rows);
+  // a named read keeps the verdict from PASS: it is a known defect, reported by what it is and who owns its fix
+  for (const nm of live?.named || []) result.absences.push(nm);
+  if (result.kind === "pass" && result.absences.length) result.kind = "named_failure";
   evidence.verdict = result;
   console.log(`\n=== VERDICT: ${result.kind.toUpperCase()}${result.failures.length ? ` — ${result.failures.join(" ; ")}` : ""}`);
   for (const a of result.absences) console.log(`NAMED  clause ${a.n}: ${a.what}`);

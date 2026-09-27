@@ -59,6 +59,7 @@ import { handleOntologyFunctions } from "./ontology-functions.mjs";
 import * as AUTOMATE from "./adopted-automate.mjs";
 import * as FUNCTIONS from "./adopted-functions.mjs";
 import * as PIPELINE from "./adopted-pipeline.mjs";
+import { revisionFamilyOf as ontologyRevisionFamilyOf } from "../surfaces/ontology-manager/index.mjs";
 import { answerDocument as answerAdoptedDocument } from "./adopted-graphql.mjs";
 import { isJustificationPrompt, justificationPayload, renderJustificationPrompt } from "./justification-prompt.mjs";
 
@@ -9273,6 +9274,28 @@ async function handleEstateRequest(req, res, body) {
       // The adopted editor's autosave buffer (an unsaved editor state, never recipe content), per caller, pipeline and
       // branch, in this serve's memory until it restarts.
       const pipelineWorkState = globalThis.__ioiPipelineWorkState || (globalThis.__ioiPipelineWorkState = new PIPELINE.WorkStateStore());
+      // The caller's ontologies as the builder's output picker offers them: every published family (its current version
+      // the head revision) and every Ontology Manager draft not yet published (R-240 Arm A: an ontology admitted in the
+      // Ontology Manager never reached the builder's picker).
+      const ontologyCatalog = async () => {
+        const who = await planeRead("/v1/hypervisor/auth/whoami");
+        if (who.authenticated !== true) return [];
+        const owner = (who.principal?.tenant_refs || []).find((t) => String(t).startsWith("org://"));
+        const [inv, drafts] = await Promise.all([
+          planeRead("/v1/hypervisor/ontology-versions"),
+          planeRead("/v1/hypervisor/odk/domain-ontologies").then((j) => j.ontologies || []),
+        ]);
+        const families = await Promise.all((inv.ontology_families || []).map(async (entry) => {
+          const family = typeof entry === "string" ? entry : entry?.family || entry?.ontology_family_ref || "";
+          const [ns, name] = String(family).replace(/^ontology:\/\//u, "").split("/");
+          if (!ns || !name) return null;
+          const lineage = await planeRead(`/v1/hypervisor/ontology-versions?namespace=${encodeURIComponent(ns)}&name=${encodeURIComponent(name)}`).then((j) => j.lineage || []);
+          const head = [...lineage].sort((a, b) => (a.revision_ordinal || 0) - (b.revision_ordinal || 0)).at(-1);
+          return { family, head: head?.ontology_id || null, name: `${ns}/${name}` };
+        }));
+        const draftFamilies = drafts.map((d) => ({ family: owner ? ontologyRevisionFamilyOf(d.id, owner)?.family : null, domain: d.domain, description: d.description }));
+        return PIPELINE.ontologyCatalogOf(families.filter(Boolean), draftFamilies);
+      };
       // A family's TransformationRuns are its deployments (History): the run plane lists the families the caller
       // sees runs for, and only those are read (a family with no run has no run scope to read).
       const pipelineContext = async () => {
@@ -9308,7 +9331,7 @@ async function handleEstateRequest(req, res, body) {
         if (!PIPELINE.PIPELINE_OPERATIONS.has(name) && PIPELINE.answersPipelineOperation(name, variables) && query) {
           // the reference's recorded answer to the same generic read (Automate's harvest) lends STRUCTURE only
           const template = AUTOMATE.harvestOperations(ADOPT_MIRROR_DIR).get(name)?.data || null;
-          return { data: answerAdoptedDocument(query, PIPELINE.pipelineEditorFactsRoot(variables || {}, await pipelineContext(), PIPELINE.uuidOf, ctxA?.principal || null), template, name) };
+          return { data: answerAdoptedDocument(query, PIPELINE.pipelineEditorFactsRoot(variables || {}, await pipelineContext(), PIPELINE.uuidOf, ctxA?.principal || null, PIPELINE.ONTOLOGY_OPERATIONS.has(name) ? await ontologyCatalog() : []), template, name) };
         }
         if (PIPELINE.PIPELINE_OPERATIONS.has(name) && query) {
           return { data: answerAdoptedDocument(query, PIPELINE.pipelineFactsRoot(name, variables || {}, await pipelineContext(), PIPELINE.uuidOf), null, name) };
@@ -10121,7 +10144,7 @@ async function handleEstateRequest(req, res, body) {
             }
             const push = /^sandboxes\/([0-9a-f-]{36})\/push$/u.exec(rest);
             if (push) {
-              const plan = PIPELINE.pushPlan(p, push[1], asked);
+              const plan = PIPELINE.pushPlan(p, push[1], asked, asked?.snapshot?.targetSettings?.objectTargetSettings?.ontologyRid ? await ontologyCatalog() : null);
               if (plan.refused) return refused(plan.refused);
               // nothing a draft keeps changed (a layout move is presentation): the branch stays at its version
               if (plan.unchanged) return send(200, { newVersionId: plan.versionId, newOntologyVersion: null });
@@ -10327,9 +10350,9 @@ async function handleEstateRequest(req, res, body) {
         // Lineage links (the proposal page's, and any seed's): the Hypervisor records no dataset lineage links in
         // the reference's vocabulary, so none — never the recorded tenant's lineage graph.
         if (pathname === "/monocle/api/links" && req.method === "POST") return send(200, { nodes: [] });
-        // No favorites are kept; no ontology is offered to a pipeline's outputs yet.
+        // No favorites are kept. The ontology map offers the caller's ontologies (the output picker's names).
         if (pathname === "/people/api/personal/get-favorites" && req.method === "POST") return send(200, { orderedFavorites: [] });
-        if (pathname === "/ontology-metadata/api/ontology/v2/load/all" && req.method === "POST") return send(200, { ontologies: {} });
+        if (pathname === "/ontology-metadata/api/ontology/v2/load/all" && req.method === "POST") return send(200, PIPELINE.ontologyLoadAnswer(await ontologyCatalog()));
       }
       if (pathname === "/eddie/api/pipelines-v2/get-sandboxes-with-snapshots" && req.method === "POST") {
         let request = {};
