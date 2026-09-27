@@ -208,16 +208,18 @@ export function sandboxesWithSnapshots(requests, pipelines, userIdOf) {
       sandboxes.push({ pipelineRid: p.rid, sandbox, version, snapshot: snapshotOf(head) });
       continue;
     } else {
-      const cs = p.openChangeSets.find((x) => changeSetSandboxIdOf(x.change_set_ref) === r.sandboxId);
+      // every change set of the family answers (a merged or closed proposal's page loads both sides); a closed
+      // one is archived, and the branch lists (allSandboxes, PublishedSandboxesQuery) still name only open ones
+      const cs = p.changeSets.find((x) => changeSetSandboxIdOf(x.change_set_ref) === r.sandboxId);
       if (!cs) continue;
       const draft = (cs.drafts || []).at(-1);
       const versionId = uuidOf(`${cs.change_set_ref}#draft/${draft?.ordinal || 0}`);
       const author = userIdOf(cs.author_principal_ref);
-      sandbox = { id: r.sandboxId, name: cs.title, backingBranch: cs.change_set_ref, fallbackBranches: ["master"], attribution: { time: iso(cs.created_at), user: author }, version: versionId, isArchived: false, isPublished: false };
+      sandbox = { id: r.sandboxId, name: cs.title, backingBranch: cs.change_set_ref, fallbackBranches: ["master"], attribution: { time: iso(cs.created_at), user: author }, version: versionId, isArchived: !OPEN.has(cs.status), isPublished: false };
       version = { id: versionId, message: draft ? `Draft ${draft.ordinal}` : "Root", attribution: { time: iso(draft?.drafted_at || cs.created_at), user: userIdOf(draft?.author_principal_ref || cs.author_principal_ref) }, backend: "Spark" };
     }
     // a change set's sandbox shows its latest draft's declared outputs
-    sandboxes.push({ pipelineRid: p.rid, sandbox, version, snapshot: snapshotOf(p.openChangeSets.find((x) => changeSetSandboxIdOf(x.change_set_ref) === r.sandboxId)?.drafts?.at(-1)?.body) });
+    sandboxes.push({ pipelineRid: p.rid, sandbox, version, snapshot: snapshotOf(p.changeSets.find((x) => changeSetSandboxIdOf(x.change_set_ref) === r.sandboxId)?.drafts?.at(-1)?.body) });
   }
   return { sandboxes };
 }
@@ -291,9 +293,11 @@ export const PIPELINE_EDITOR_OPERATIONS = new Set([
   "ProjectIcebergStorageQuery", "TargetProjectQuery", "DataConnectionSourceQuery", "ComputeExpressionIfAbsentStoresQuery", "SandboxBackendQuery",
   "CurrentDeploymentQuery", "ResolveEddieSandboxToGlobalBranch", "ResourceProjectQuery", "BranchSelectSearchQuery",
   "IssueBadgeData", "WalkthroughsForResourceQuery", "CommunicationChannelsQuery", "BackingObjectQuery", "CompassResourceViewQuery", "SaveResourceDialogQuery",
+  // the proposal page (read); a principal chip
+  "UserGroupQuery", "ResolveEddieProposalIdToGlobalBranch", "ResolveEddieProposalRidToGlobalBranch", "ProposalEventsQuery", "BackendTypeForProposalQuery",
 ]);
 // Editor reads that name no pipeline (the caller's organization, a dataset, ontologies, branches).
-export const PIPELINE_EDITOR_GLOBAL_OPERATIONS = new Set(["OntologiesQuery", "BranchSelectSearchQuery", "CommunicationChannelsQuery", "BackingObjectQuery", "SaveResourceDialogQuery"]);
+export const PIPELINE_EDITOR_GLOBAL_OPERATIONS = new Set(["OntologiesQuery", "BranchSelectSearchQuery", "CommunicationChannelsQuery", "BackingObjectQuery", "SaveResourceDialogQuery", "UserGroupQuery"]);
 // Reads keyed by a dataset rid: answered when it is one of the caller's pipelines' declared output datasets.
 export const PIPELINE_EDITOR_DATASET_OPERATIONS = new Set(["BackingObjectQuery", "CompassResourceViewQuery"]);
 // Whether an operation is the Pipeline Builder's to answer: its landing reads, and its editor reads when they
@@ -302,6 +306,8 @@ export const PIPELINE_EDITOR_DATASET_OPERATIONS = new Set(["BackingObjectQuery",
 export function answersPipelineOperation(name, variables) {
   if (PIPELINE_OPERATIONS.has(name)) return true;
   if (!PIPELINE_EDITOR_OPERATIONS.has(name)) return false;
+  // the proposal-rid pre-check names only the proposal
+  if (name === "ResolveEddieProposalRidToGlobalBranch") return /^ri\.eddie\.main\.proposal\.[0-9a-f-]{36}$/u.test(String(variables?.proposalRid || ""));
   return !!pipelineRidIn(variables) || PIPELINE_EDITOR_GLOBAL_OPERATIONS.has(name) || (PIPELINE_EDITOR_DATASET_OPERATIONS.has(name) && !!datasetRidIn(variables));
 }
 export const datasetRidIn = (variables) => (JSON.stringify(variables || {}).match(/ri\.foundry\.main\.dataset\.[0-9a-f-]{36}/u) || [])[0] || null;
@@ -324,11 +330,11 @@ function pipelineResource(p, userIdOf) {
     permissions: { __typename: "ResourceMetadataPermissions", _id: cacheId(`perm:${p.rid}`), canOpenLink: true, canEditMetadata: false, canShare: false, canShareLink: false, canTrash: false, canEditTags: false, canMoveBetweenProjects: false, canMoveWithinProject: false, canRestore: false },
   };
 }
-export function pipelineEditorFactsRoot(variables, pipelines, userIdOf) {
+export function pipelineEditorFactsRoot(variables, pipelines, userIdOf, caller = null) {
   const rid = pipelineRidIn(variables);
   const p = rid ? pipelines.find((x) => x.rid === rid) : null;
   const sandboxId = variables?.sandboxId || (p ? mainSandboxIdOf(p.familyRef) : null);
-  const known = p && (sandboxId === mainSandboxIdOf(p.familyRef) || p.openChangeSets.some((cs) => changeSetSandboxIdOf(cs.change_set_ref) === sandboxId));
+  const known = p && (sandboxId === mainSandboxIdOf(p.familyRef) || p.changeSets.some((cs) => changeSetSandboxIdOf(cs.change_set_ref) === sandboxId));
   const sandbox = known ? {
     __typename: "EddieSandbox", _id: cacheId(`sandbox:${sandboxId}`), sandboxId,
     latestVersion: { __typename: "EddieSandboxVersion", _id: cacheId(`version:${sandboxId}`), backend: "Spark" },
@@ -341,7 +347,7 @@ export function pipelineEditorFactsRoot(variables, pipelines, userIdOf) {
   return {
     __typename: "Query",
     // The caller's organization sets no communication controls, and there are no channel categories.
-    me: { __typename: "User", _id: cacheId("me"), organization: { __typename: "Organization", _id: cacheId("me:organization"), enrollment: { __typename: "Enrollment", _id: cacheId("me:enrollment"), administratorCommunicationControls: null } } },
+    me: { __typename: "User", _id: cacheId("me"), id: caller?.ref ? userIdOf(caller.ref) : null, username: caller?.email || null, displayName: caller?.name || null, fullName: caller?.name || null, organization: { __typename: "Organization", _id: cacheId("me:organization"), enrollment: { __typename: "Enrollment", _id: cacheId("me:enrollment"), administratorCommunicationControls: null } } },
     communicationChannelCategories: [],
     // the create form's location dialog: no favorites or recents are kept
     favorites: [], recents: [],
@@ -350,9 +356,26 @@ export function pipelineEditorFactsRoot(variables, pipelines, userIdOf) {
     allOntologies: [],
     // no global branches exist (a change set is a patch branch of one family, not a global branch)
     globalBranchDropdownSearchByCreatedAtDescending: { __typename: "GlobalBranchPage", values: [], nextPageToken: null },
-    eddiePipeline: p ? { __typename: "EddiePipeline", _id: cacheId(`pipeline:${p.rid}`), sandbox } : null,
+    eddiePipeline: p ? { __typename: "EddiePipeline", _id: cacheId(`pipeline:${p.rid}`), sandbox, proposal: proposalByVariables(pipelines, variables, userIdOf, p.rid) } : null,
+    eddiePipelineProposal: variables?.proposalRid ? proposalByVariables(pipelines, variables, userIdOf, null) : null,
+    // a principal chip: the caller, or a principal the caller's own records name (a change set's author or merger)
+    principal: variables?.id ? principalById(variables.id, pipelines, userIdOf, caller) : null,
     resourceMetadata: p ? pipelineResource(p, userIdOf) : (ownDataset ? datasetResource(datasetRid, pipelines) : null),
   };
+}
+function principalById(id, pipelines, userIdOf, caller) {
+  if (caller?.ref && userIdOf(caller.ref) === id) return { __typename: "User", _id: cacheId(`user:${caller.ref}`), id, username: caller.email || caller.ref, displayName: caller.name || caller.ref, fullName: caller.name || caller.ref };
+  for (const p of pipelines) for (const cs of p.changeSets) for (const ref of [cs.author_principal_ref, cs.merge?.merged_by_principal_ref, ...(cs.drafts || []).map((d) => d.author_principal_ref)]) {
+    if (ref && userIdOf(ref) === id) return { __typename: "User", _id: cacheId(`user:${ref}`), id, username: ref, displayName: ref, fullName: null };
+  }
+  return null;
+}
+// The proposal a request names (by pipeline + proposalId, or by proposalRid), as GraphQL facts; null when it is
+// not the caller's (the page then treats the pre-check as "no global branch", and a read of it as absent).
+function proposalByVariables(pipelines, variables, userIdOf, pipelineRid) {
+  if (!variables?.proposalId && !variables?.proposalRid) return null;
+  const hit = findProposal(pipelines, { pipelineRid, proposalId: variables.proposalId, proposalRid: variables.proposalRid });
+  return hit ? proposalFacts(hit.p, hit.cs, userIdOf) : null;
 }
 // An output dataset as a compass resource: named by its dataset contract, in no folder of its own.
 function datasetResource(rid, pipelines) {
@@ -434,4 +457,111 @@ export function createPipelineAnswer(familyRef, changeSet, pipelines, userIdOf) 
   const sandboxId = changeSetSandboxIdOf(changeSet.change_set_ref);
   const got = sandboxesWithSnapshots([{ pipelineRid: p.rid, sandboxId }], pipelines, userIdOf).sandboxes[0];
   return got ? { pipeline: pipelineEntry(p, userIdOf), initialSandbox: got.sandbox } : null;
+}
+
+// ---- PROPOSALS (read, R-241 / ADR 0056 P4): a change set that has been PROPOSED is an open proposal, a merged one
+// is merged (its version ids exact: the draft merged, the head it was opened on, the revision it became), and a
+// rejected or abandoned one is closed. An open (never proposed) change set is a branch, not a proposal. What the
+// daemon does not keep — reviews, comments, a propose time — is empty or named, never invented.
+export const proposalIdOf = (changeSetRef) => uuidOf(`${changeSetRef}#proposal`);
+export const proposalRidOf = (changeSetRef) => `ri.eddie.main.proposal.${proposalIdOf(changeSetRef)}`;
+export const draftVersionIdOf = (changeSetRef, ordinal) => uuidOf(`${changeSetRef}#draft/${ordinal}`);
+export const revisionVersionIdOf = (familyRef, revisionRef) => uuidOf(revisionRef || `${familyRef}#root`);
+const PROPOSAL_KIND = { proposed: "open", merged: "merged", rejected: "closed", abandoned: "closed" };
+export function proposalOf(p, cs, userIdOf) {
+  const kind = PROPOSAL_KIND[cs?.status];
+  if (!kind) return null;
+  const status = kind === "open" ? { type: "open", open: {} }
+    : kind === "closed" ? { type: "closed", closed: {} }
+      : { type: "merged", merged: { sourceVersionId: draftVersionIdOf(cs.change_set_ref, cs.merge?.draft_ordinal || (cs.drafts || []).length), targetVersionId: revisionVersionIdOf(p.familyRef, cs.subject?.base_revision_ref), mergedVersionId: uuidOf(cs.merge?.resulting_revision_ref) } };
+  return {
+    id: proposalIdOf(cs.change_set_ref), proposalRid: proposalRidOf(cs.change_set_ref), pipelineRid: p.rid,
+    // the change set's own chain head moves on every transition: the optimistic token a write would send back
+    version: cs.admitted_head || uuidOf(`${cs.change_set_ref}#${cs.updated_at}`),
+    status,
+    details: { name: cs.title, description: cs.description || "", sourceSandbox: changeSetSandboxIdOf(cs.change_set_ref), targetSandbox: mainSandboxIdOf(p.familyRef) },
+    // no propose time is kept: "opened on" is the change set's own opening
+    attribution: { time: iso(cs.created_at), user: userIdOf(cs.author_principal_ref) },
+  };
+}
+export function proposalsPage(p, body, limit, userIdOf) {
+  const want = { OPEN: "open", MERGED: "merged", CLOSED: "closed" }[body?.statusKind] || null;
+  const sources = new Set((body?.sourceSandboxIds || []).filter(Boolean));
+  const all = [...p.changeSets].sort((a, b) => String(b.created_at || "").localeCompare(String(a.created_at || "")))
+    .map((cs) => proposalOf(p, cs, userIdOf)).filter(Boolean)
+    .filter((x) => !want || x.status.type === want)
+    .filter((x) => !sources.size || sources.has(x.details.sourceSandbox));
+  const offset = Number(body?.pageToken) > 0 ? Number(body.pageToken) : 0;
+  const n = Number(limit) > 0 ? Math.min(Number(limit), 100) : 20;
+  const page = all.slice(offset, offset + n);
+  return offset + n < all.length ? { proposals: page, pageToken: String(offset + n) } : { proposals: page };
+}
+// The caller's proposal a request names — by pipeline and id, or by its rid alone.
+export function findProposal(pipelines, { pipelineRid, proposalId, proposalRid }) {
+  for (const p of pipelines) {
+    if (pipelineRid && p.rid !== pipelineRid) continue;
+    for (const cs of p.changeSets) {
+      if (!PROPOSAL_KIND[cs.status]) continue;
+      if ((proposalId && proposalIdOf(cs.change_set_ref) === proposalId) || (proposalRid && proposalRidOf(cs.change_set_ref) === proposalRid)) return { p, cs };
+    }
+  }
+  return null;
+}
+// A version of the caller's pipeline by its id: an admitted revision, the family's root, a change set's draft,
+// or a change set's root (draft 0: the head it was opened on). null when the caller holds no such version.
+export function versionOf(p, versionId, userIdOf) {
+  const details = (message, time, user) => ({ id: versionId, message, attribution: { time: iso(time), user: userIdOf(user || "unknown") }, backend: "Spark" });
+  for (const r of p.revisions) {
+    if (uuidOf(r.revision_ref) !== versionId) continue;
+    const merged = p.changeSets.find((cs) => cs.merge?.resulting_revision_ref === r.revision_ref);
+    return { details: details(`Revision ${String(r.revision_ref).split("/").pop()}`, r.admitted_at, merged?.merge?.merged_by_principal_ref || merged?.author_principal_ref || r.owner_ref), body: r };
+  }
+  if (uuidOf(`${p.familyRef}#root`) === versionId) return { details: details("Root", p.createdAt, p.author), body: null };
+  for (const cs of p.changeSets) {
+    for (const d of cs.drafts || []) {
+      if (draftVersionIdOf(cs.change_set_ref, d.ordinal) === versionId) return { details: details(`Draft ${d.ordinal}`, d.drafted_at, d.author_principal_ref || cs.author_principal_ref), body: d.body };
+    }
+    if (draftVersionIdOf(cs.change_set_ref, 0) === versionId) {
+      const base = p.revisions.find((r) => r.revision_ref === cs.subject?.base_revision_ref) || null;
+      return { details: details("Root", cs.created_at, cs.author_principal_ref), body: base };
+    }
+  }
+  return null;
+}
+const EMPTY_DISPLAY = { transforms: [], targets: [], groups: [], datasets: [], mediaSets: [], charts: [], sources: [], clusters: [], colorDisplayNodes: [], displayFolders: [], textNodes: [], colorPalettes: [] };
+export function versionConfiguration(v) {
+  return { details: v.details, snapshot: { ...snapshotOf(v.body), targetSettings: {}, samplingStrategies: {} }, display: EMPTY_DISPLAY, packaging: null, unitTests: { tests: [], data: [] }, evalSuites: { evalSuites: [], metInputsByEvalSuite: [] } };
+}
+// The diff between two versions: outputs added or removed (by target id) — a recipe's transforms are not
+// derived into the reference's (ADR 0057, proposed), so there are none to compare, and none is claimed.
+export function diffBetween(leftBody, rightBody) {
+  const left = new Set(targetsOf(leftBody).map((t) => t.id));
+  const right = new Set(targetsOf(rightBody).map((t) => t.id));
+  const targetChanges = [
+    ...[...right].filter((id) => !left.has(id)).map((targetId) => ({ type: "targetAdded", targetAdded: { targetId } })),
+    ...[...left].filter((id) => !right.has(id)).map((targetId) => ({ type: "targetDeleted", targetDeleted: { targetId } })),
+  ];
+  // unit tests and packaging are unions the app visits (with an unknown fallback): a version keeps neither, so "none"
+  return { diff: { instantiatedTransformChanges: [], groupedTransformChanges: [], groupedExpressionChanges: [], targetChanges, pipelineArgumentChanges: [] }, displayDiff: { type: "none", none: {} }, unitTestDiff: { type: "none", none: {} }, packagingDiff: { type: "none", none: {} }, backendChange: null };
+}
+// The GraphQL facts of a proposal: its source sandbox (no global branch; the Spark backend) and its events.
+const EVENT = (type, time, userRef, extra, userIdOf, key) => ({ __typename: `EddieProposalEvent_${type}`, __implements: ["EddieProposalEvent"], _id: cacheId(`pevent:${key}`), created: { __typename: "Attribution", time: iso(time), user: userRef ? { __typename: "User", _id: cacheId(`user:${userRef}`), id: userIdOf(userRef), username: null, displayName: null, fullName: null } : null }, ...extra });
+export function proposalFacts(p, cs, userIdOf) {
+  const sandboxId = changeSetSandboxIdOf(cs.change_set_ref);
+  const events = [EVENT("Created", cs.created_at, cs.author_principal_ref, { name: cs.title, description: cs.description || "" }, userIdOf, `${cs.change_set_ref}#created`)];
+  for (const d of (cs.drafts || []).filter((x) => x.ordinal >= 2)) {
+    events.push(EVENT("CodeChanged", d.drafted_at, d.author_principal_ref, { newVersion: { __typename: "EddieSandboxVersion", _id: cacheId(`version:${draftVersionIdOf(cs.change_set_ref, d.ordinal)}`), versionId: draftVersionIdOf(cs.change_set_ref, d.ordinal) } }, userIdOf, `${cs.change_set_ref}#draft/${d.ordinal}`));
+  }
+  if (cs.status === "rejected") {
+    events.push(EVENT("Reviewed", cs.updated_at, null, { checkId: null, decision: "DENIED", reason: { __typename: "Comment", _id: cacheId(`reason:${cs.change_set_ref}`), id: uuidOf(`${cs.change_set_ref}#reason`), message: cs.decision_note || "", mentionedUsers: [], mentionedGroups: [], reactions: [], created: { __typename: "Attribution", time: iso(cs.updated_at), user: null } } }, userIdOf, `${cs.change_set_ref}#reviewed`));
+    events.push(EVENT("Closed", cs.updated_at, null, {}, userIdOf, `${cs.change_set_ref}#closed`));
+  }
+  if (cs.status === "abandoned") events.push(EVENT("Closed", cs.updated_at, null, {}, userIdOf, `${cs.change_set_ref}#closed`));
+  if (cs.status === "merged") events.push(EVENT("Merged", cs.merge?.merged_at || cs.updated_at, cs.merge?.merged_by_principal_ref, {}, userIdOf, `${cs.change_set_ref}#merged`));
+  return {
+    __typename: "EddiePipelineProposal", _id: cacheId(`proposal:${cs.change_set_ref}`), id: proposalIdOf(cs.change_set_ref),
+    // a change set is a patch branch of one family, not a global branch
+    sourceSandbox: { __typename: "EddieSandbox", _id: cacheId(`sandbox:${sandboxId}`), sandboxId, globalBranch: null, latestVersion: { __typename: "EddieSandboxVersion", _id: cacheId(`latest:${sandboxId}`), backend: "Spark" } },
+    events: { __typename: "EddieProposalEventPage", nextPageToken: null, values: events },
+  };
 }

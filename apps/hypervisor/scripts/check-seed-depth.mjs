@@ -59,7 +59,10 @@ const PINS = {
   // proposal steps), 4 open (header rename unproven; the side tabs undriven; settings accepted but not
   // enforced; the editor's Time label for a manual automation).
   automate: { total: 39, bound: 21, refused: 10, named_gap: 3, open: 5 },
-  // 2026-09-27 (R-240 Arm A): 16 → 18 — Data recipes (/data/recipes) opens the adopted builder (v2 recipes were
+  // 2026-09-27 (R-241): Proposals bound — the family's change sets by status (proposed open, merged merged,
+  // rejected/abandoned closed), each proposal's page over its change set (diff of declared outputs, rebase
+  // check, events). Open 5 → 4.
+  // Before that, 2026-09-27 (R-240 Arm A): 16 → 18 — Data recipes (/data/recipes) opens the adopted builder (v2 recipes were
   // invisible on the owner's route), and the daemon-stopped state answers an error. Both bound.
   // Before that, 2026-09-27 (R-241, ADR 0056 P4 cut 2c): 15 → 16 — Create is bound (a founding change set, landing in the
   // editor on its draft sandbox) and its location dialog joins as bound (the recipe registry is the one
@@ -75,8 +78,10 @@ const PINS = {
   // Before that, 2026-09-27 (R-241): Pipeline Builder's cut begins — 11 states harvested read-only (landing,
   // examples, the create form and its two choices, the editor's graph, add data, outputs, proposals, history,
   // deploy); all open until bound to DataRecipe revisions and TransformationRuns.
-  "pipeline-builder": { total: 18, bound: 8, refused: 2, named_gap: 3, open: 5 },
-  sessions: { total: 0, bound: 0, refused: 0, named_gap: 0, open: 0 },
+  "pipeline-builder": { total: 18, bound: 9, refused: 2, named_gap: 3, open: 4 },
+  // 2026-09-27 (R-241, Sessions cut 1): first rows — rename, auto-stop, Goal mode and the page's own port sync
+  // refused by name; services and tasks named (absent planes); logs bound in the adapter but not yet live-asserted.
+  sessions: { total: 7, bound: 0, refused: 4, named_gap: 2, open: 1 },
   "ontology-manager": { total: 0, bound: 0, refused: 0, named_gap: 0, open: 0 },
   "data-connection": { total: 0, bound: 0, refused: 0, named_gap: 0, open: 0 },
 };

@@ -163,3 +163,10 @@ test("a fragment on ResourceAncestor applies to a ResourceMetadata (the header b
   const out = answerDocument(q, root, null, "H");
   assert.equal(out.resourceMetadata.ancestors[0].openUrl, "/projects/p");
 });
+
+test("a fragment on Principal applies to a User (the principal chip's names)", async () => {
+  const { answerDocument } = await import("./adopted-graphql.mjs");
+  const q = "query UserGroupQuery($id: String!) { principal(id: $id) { _id ...P __typename } } fragment P on Principal { ... on User { username displayName __typename } _id __typename }";
+  const out = answerDocument(q, { __typename: "Query", principal: { __typename: "User", _id: "u", username: "john@ioi.local", displayName: "John Doe" } }, null, "UserGroupQuery");
+  assert.equal(out.principal.displayName, "John Doe");
+});

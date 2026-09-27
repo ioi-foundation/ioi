@@ -19,7 +19,9 @@
 // ResourceMetadata { openUrl … } }` — a ResourceMetadata IS a ResourceAncestor, and without this the
 // breadcrumb never received a folder's openUrl (a project breadcrumb that went nowhere, found by
 // check:adopted-dead-controls).
-const KNOWN_IMPLEMENTS = Object.freeze({ ResourceMetadata: ["ResourceAncestor"] });
+// Likewise a principal chip selects `fragment PrincipalWithTooltipFragment on Principal { … on User {…} … on Group
+// {…} }` — a User and a Group ARE Principals (without this the chip read "Unknown user or group").
+const KNOWN_IMPLEMENTS = Object.freeze({ ResourceMetadata: ["ResourceAncestor"], User: ["Principal"], Group: ["Principal"] });
 
 function tokenize(src) {
   const out = [];

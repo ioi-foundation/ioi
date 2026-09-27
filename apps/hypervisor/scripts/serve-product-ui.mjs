@@ -9294,7 +9294,7 @@ async function handleEstateRequest(req, res, body) {
         if (!PIPELINE.PIPELINE_OPERATIONS.has(name) && PIPELINE.answersPipelineOperation(name, variables) && query) {
           // the reference's recorded answer to the same generic read (Automate's harvest) lends STRUCTURE only
           const template = AUTOMATE.harvestOperations(ADOPT_MIRROR_DIR).get(name)?.data || null;
-          return { data: answerAdoptedDocument(query, PIPELINE.pipelineEditorFactsRoot(variables || {}, await pipelineContext(), PIPELINE.uuidOf), template, name) };
+          return { data: answerAdoptedDocument(query, PIPELINE.pipelineEditorFactsRoot(variables || {}, await pipelineContext(), PIPELINE.uuidOf, ctxA?.principal || null), template, name) };
         }
         if (PIPELINE.PIPELINE_OPERATIONS.has(name) && query) {
           return { data: answerAdoptedDocument(query, PIPELINE.pipelineFactsRoot(name, variables || {}, await pipelineContext(), PIPELINE.uuidOf), null, name) };
@@ -9930,6 +9930,16 @@ async function handleEstateRequest(req, res, body) {
         res.writeHead(200, { "Content-Type": "application/json" });
         return res.end(JSON.stringify({ responses: reqs.map((request) => ({ request, response: { comments: [], resolvedReferences: [], nextPageToken: null, totalCommentCount: 0 } })) }));
       }
+      if (pathname === "/comments/api/comments/page-v2" && req.method === "POST") {
+        res.writeHead(200, { "Content-Type": "application/json" });
+        return res.end(JSON.stringify({ comments: [], resolvedReferences: [], nextPageToken: null, totalCommentCount: 0 }));
+      }
+      // Any other comment call writes a thread the Hypervisor does not keep: refused by name, never the local
+      // mirror's recorded answer (which would read as a comment saved, or show the reference tenant's comments).
+      if (pathname.startsWith("/comments/") && req.method !== "GET" && req.method !== "HEAD") {
+        res.writeHead(501, { "Content-Type": "application/json" });
+        return res.end(JSON.stringify({ errorCode: "INVALID_ARGUMENT", errorName: "Comments:NotSupportedByHypervisor", errorInstanceId: "", parameters: { message: "the Hypervisor keeps no comment threads" } }));
+      }
       // The adopted Automate detail page: one automation's published monitor record.
       {
         const pub = /^\/object-sentinel\/api\/registry\/v0\/monitors\/([^/]+)\/published$/.exec(pathname);
@@ -10046,16 +10056,76 @@ async function handleEstateRequest(req, res, body) {
         if ((m = at(`/eddie/api/work-state/(${PR})/[0-9a-f-]{36}/v2`)) && req.method === "GET") { if (!(await holds(m[1]))) return notFound(); res.writeHead(204); return res.end(); }
         if ((m = at(`/eddie/api/pipelines-v2/(${PR})/sandboxes/[0-9a-f-]{36}/session-heartbeats`)) && req.method === "GET") return (await holds(m[1])) ? send(200, { heartbeats: {} }) : notFound();
         if ((m = at(`/eddie/api/deployment/(${PR})/sandboxes/[0-9a-f-]{36}/version/[0-9a-f-]{36}/targets/status`)) && req.method === "POST") return (await holds(m[1])) ? send(200, { statuses: {} }) : notFound();
+        // PROPOSALS (read): proposed change sets are open proposals, merged ones merged, rejected/abandoned closed.
         if ((m = at(`/eddie/api/pipelines-v2/(${PR})/proposals/by-created-at`)) && req.method === "POST") {
           const p = await holds(m[1]);
           if (!p) return notFound();
           let asked = {};
           try { asked = JSON.parse(body.toString() || "{}"); } catch { /* none */ }
-          const sources = new Set(asked.sourceSandboxIds || []);
-          // A proposed change set IS a proposal; until the Proposals tab is bound, one that exists is refused
-          // by name rather than answered as "no proposals".
-          const proposed = p.openChangeSets.filter((cs) => cs.status === "proposed" && (!sources.size || sources.has(PIPELINE.changeSetSandboxIdOf(cs.change_set_ref))));
-          return proposed.length ? send(501, { errorCode: "INTERNAL", errorName: "Eddie:ProposalsNotBound", errorInstanceId: "", parameters: { message: `${proposed.length} proposed change set(s) exist; the Proposals tab is not bound to them yet` } }) : send(200, { proposals: [] });
+          return send(200, PIPELINE.proposalsPage(p, asked, query.get("limit"), PIPELINE.uuidOf));
+        }
+        const proposalNotFound = () => send(404, { errorCode: "NOT_FOUND", errorName: "Eddie:ProposalNotFound", errorInstanceId: "", parameters: { message: "no change set of yours is this proposal" } });
+        if ((m = at(`/eddie/api/pipelines-v2/(${PR})/proposals/([0-9a-f-]{36})`)) && req.method === "GET") {
+          const hit = PIPELINE.findProposal(await pipelineContext(), { pipelineRid: m[1], proposalId: m[2] });
+          return hit ? send(200, { proposal: PIPELINE.proposalOf(hit.p, hit.cs, PIPELINE.uuidOf) }) : proposalNotFound();
+        }
+        if ((m = at(`/eddie/api/pipelines-v2/proposal/(ri\\.eddie\\.main\\.proposal\\.[0-9a-f-]{36})`)) && req.method === "GET") {
+          const hit = PIPELINE.findProposal(await pipelineContext(), { proposalRid: m[1] });
+          return hit ? send(200, { proposal: PIPELINE.proposalOf(hit.p, hit.cs, PIPELINE.uuidOf) }) : proposalNotFound();
+        }
+        // No checks are kept for a proposal (validation is the change set's own; a reviewer plane does not exist).
+        if ((m = at(`/eddie/api/pipelines-v2/(${PR})/proposals/([0-9a-f-]{36})/check-status-compacted`)) && req.method === "GET") {
+          const hit = PIPELINE.findProposal(await pipelineContext(), { pipelineRid: m[1], proposalId: m[2] });
+          return hit ? send(200, { checks: { checks: [] } }) : proposalNotFound();
+        }
+        // The diff of a proposal (its head version against its base): outputs added or removed, nothing invented.
+        if (pathname === "/eddie/api/diff-tests/proposal/compute" && req.method === "PUT") {
+          let asked = {};
+          try { asked = JSON.parse(body.toString() || "{}"); } catch { /* none */ }
+          const hit = PIPELINE.findProposal(await pipelineContext(), { proposalRid: asked.proposalRid });
+          if (!hit) return proposalNotFound();
+          const left = PIPELINE.versionOf(hit.p, asked.leftPipelineVersion, PIPELINE.uuidOf);
+          const right = PIPELINE.versionOf(hit.p, asked.rightPipelineVersion, PIPELINE.uuidOf);
+          if (!left || !right) return send(404, { errorCode: "NOT_FOUND", errorName: "Eddie:PipelineVersionNotFound", errorInstanceId: "", parameters: { message: "a version of this proposal is not one of yours" } });
+          const empty = { instantiatedTransformChanges: [], groupedTransformChanges: [], groupedExpressionChanges: [], targetChanges: [], pipelineArgumentChanges: [] };
+          return send(200, { diff: PIPELINE.diffBetween(left.body, right.body), reviewedChanges: { diff: empty } });
+        }
+        // The diff of two versions of one pipeline (History's compare, the merge checks): outputs added or removed.
+        if (pathname === "/eddie/api/diff-tests/compute" && req.method === "POST") {
+          let asked = {};
+          try { asked = JSON.parse(body.toString() || "{}"); } catch { /* none */ }
+          const p = (await pipelineContext()).find((x) => x.rid === asked.pipelineRid) || null;
+          if (!p) return notFound();
+          const left = PIPELINE.versionOf(p, asked.leftVersionId, PIPELINE.uuidOf);
+          const right = PIPELINE.versionOf(p, asked.rightVersionId, PIPELINE.uuidOf);
+          if (!left || !right) return send(404, { errorCode: "NOT_FOUND", errorName: "Eddie:PipelineVersionNotFound", errorInstanceId: "", parameters: { message: "a version is not one of this pipeline's" } });
+          return send(200, PIPELINE.diffBetween(left.body, right.body));
+        }
+        // The common ancestor of two versions of one pipeline: a change set's base (its draft chain descends from it).
+        if ((m = at(`/eddie/api/pipelines-v2/(${PR})/versions/lowest-common-ancestor`)) && req.method === "POST") {
+          const p = await holds(m[1]);
+          if (!p) return notFound();
+          let asked = {};
+          try { asked = JSON.parse(body.toString() || "{}"); } catch { /* none */ }
+          const baseOf = (versionId) => {
+            for (const cs of p.changeSets) if ((cs.drafts || []).some((d) => PIPELINE.draftVersionIdOf(cs.change_set_ref, d.ordinal) === versionId) || PIPELINE.draftVersionIdOf(cs.change_set_ref, 0) === versionId) return PIPELINE.revisionVersionIdOf(p.familyRef, cs.subject?.base_revision_ref);
+            return versionId;
+          };
+          // a draft's ancestor with Main is the head it was opened on (so a moved head shows as a rebase); two
+          // revisions of the linear chain share the older one
+          const [lb, rb] = [baseOf(asked.left), baseOf(asked.right)];
+          if (rb !== asked.right) return send(200, { commonAncestor: rb });
+          if (lb !== asked.left) return send(200, { commonAncestor: lb });
+          const order = (v) => p.revisions.findIndex((r) => PIPELINE.revisionVersionIdOf(p.familyRef, r.revision_ref) === v);
+          return send(200, { commonAncestor: order(asked.left) <= order(asked.right) ? asked.left : asked.right });
+        }
+        // A version of the caller's pipeline: its details, and (configuration) its snapshot.
+        if ((m = at(`/eddie/api/pipelines-v2/(${PR})/versions/([0-9a-f-]{36})(/lightweight|/configuration)?`)) && req.method === "GET") {
+          const p = await holds(m[1]);
+          if (!p) return notFound();
+          const v = PIPELINE.versionOf(p, m[2], PIPELINE.uuidOf);
+          if (!v) return send(404, { errorCode: "NOT_FOUND", errorName: "Eddie:PipelineVersionNotFound", errorInstanceId: "", parameters: { message: "no version of this pipeline has that id" } });
+          return send(200, m[3] === "/configuration" ? PIPELINE.versionConfiguration(v) : { details: v.details });
         }
         if ((m = at(`/compass/api/resources/(${PR})/parent`)) && req.method === "GET") {
           const p = await holds(m[1]);
@@ -10096,6 +10166,9 @@ async function handleEstateRequest(req, res, body) {
         }
         // No lineage item is monitored.
         if (pathname === "/monocle/api/settings/monitored-items" && req.method === "GET") return send(200, { items: [], nextPageToken: null });
+        // Lineage links (the proposal page's, and any seed's): the Hypervisor records no dataset lineage links in
+        // the reference's vocabulary, so none — never the recorded tenant's lineage graph.
+        if (pathname === "/monocle/api/links" && req.method === "POST") return send(200, { nodes: [] });
         // No favorites are kept; no ontology is offered to a pipeline's outputs yet.
         if (pathname === "/people/api/personal/get-favorites" && req.method === "POST") return send(200, { orderedFavorites: [] });
         if (pathname === "/ontology-metadata/api/ontology/v2/load/all" && req.method === "POST") return send(200, { ontologies: {} });

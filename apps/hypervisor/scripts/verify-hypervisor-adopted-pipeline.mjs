@@ -118,10 +118,13 @@ async function run() {
   const steps = [];
   for (const step of ["validate", "propose", "merge"]) steps.push((await daemonReq("POST", `/v1/hypervisor/change-sets/${cs1}/${step}`, w(`ap-${step}-1`))).status);
   const successor = await daemonReq("POST", "/v1/hypervisor/change-sets", w("ap-open-2", { subject: { kind: "data_recipe", family: "acme.intake-normalise" }, title: "Add a dedupe step", draft: draft({ transformation_steps: ["extract", "redact", "normalize", "validate", "map", "dedupe"], succession_reason: "transformation_step_change" }) }));
+  // the successor is validated and PROPOSED — an open proposal on the Proposals tab
+  const succId = String(successor.body?.change_set?.change_set_ref || "").replace("change://", "");
+  for (const step of ["validate", "propose"]) steps.push((await daemonReq("POST", `/v1/hypervisor/change-sets/${succId}/${step}`, w(`ap-${step}-2`))).status);
   const founding = await daemonReq("POST", "/v1/hypervisor/change-sets", w("ap-open-3", { subject: { kind: "data_recipe", family: "acme.claims-triage" }, title: "Claims triage", draft: { name: "claims-triage" } }));
   const project = await fetch(`${SERVE}/api/ioi.v1.ProjectService/CreateProject`, { method: "POST", headers: { cookie: COOKIE, "content-type": "application/json" }, body: JSON.stringify({ name: "pipeline-picker-project", initializer: { specs: [{ git: { remoteUri: "https://example.invalid/adopted/pipeline.git" } }] } }) }).then((r) => r.json()).catch(() => ({}));
   ok("PRECONDITION: a DataRecipe family merged through a change set (revision 1) with an open successor, a founding-only change set, and a project exist",
-    steps.join(",") === "200,200,200" && successor.status === 201 && founding.status === 201 && !!project.project?.id,
+    steps.join(",") === "200,200,200,200,200" && successor.status === 201 && founding.status === 201 && !!project.project?.id,
     `merge steps ${steps.join(",")} · successor ${successor.status} · founding ${founding.status} · project ${project.project?.id || "none"}`);
 
   let createBody = null; // the adopted form's own create request (its registry location is reused below)
@@ -190,6 +193,18 @@ async function run() {
     ok("the editor's graph says it holds no transforms, rather than drawing any: a recipe's steps are not derived into the reference's transforms yet",
       /This pipeline has not been initialized/u.test(editor), editor.includes("has not been initialized") ? "not initialized" : "graph text absent");
 
+    // ---- Proposals: a proposed change set is an open proposal; its page opens over the change set ------------
+    await pg.getByText("Proposals", { exact: true }).first().click({ timeout: 5000 }).catch(() => { /* named below */ });
+    await pg.waitForTimeout(8000);
+    const proposalsTab = (await pg.evaluate(() => document.body.innerText)).replace(/\s+/gu, " ");
+    await pg.getByText("Add a dedupe step", { exact: true }).first().click({ timeout: 5000 }).catch(() => { /* named below */ });
+    await pg.waitForTimeout(12000);
+    const proposalPage = (await pg.evaluate(() => document.body.innerText)).replace(/\s+/gu, " ");
+    ok("the editor's Proposals tab lists the proposed change set with its author, and its page opens — merging into Main, up to date with it",
+      /Add a dedupe step/u.test(proposalsTab) && proposalsTab.includes(operatorName) && !/Failed to load/u.test(proposalsTab)
+        && /Merging into Main from Add a dedupe step/u.test(proposalPage) && /is up to date with "Main"/u.test(proposalPage) && !/Failed to load proposal/u.test(proposalPage),
+      `tab "${proposalsTab.slice(Math.max(0, proposalsTab.indexOf("Viewing")), Math.max(0, proposalsTab.indexOf("Viewing")) + 140)}" · page ${/Merging into Main/u.test(proposalPage)} · up to date ${/is up to date/u.test(proposalPage)}`);
+
     // ---- Create, through the adopted form: the recipe registry is the one location; a founding change set --
     pg.on("request", (r) => { if (/\/eddie\/api\/pipelines-v2\/create/u.test(r.url())) { try { createBody = JSON.parse(r.postData() || "null"); } catch { /* not JSON */ } } });
     await pg.goto(`${SERVE}/workspace/builder/create-pipeline`, { waitUntil: "domcontentloaded", timeout: 60000 });
@@ -254,6 +269,16 @@ async function run() {
     `search ${rids.length} · by-rids ${names.join(",")} · one ${one.status} · foreign ${none.status}`);
 
   const details = Object.values(byRids.body?.pipelines || {});
+  // Proposals over REST: OPEN is the proposed change set; MERGED is the founding one, its version ids exact
+  const intakeRid = details.find((p) => p.name === "intake-normalise")?.rid;
+  const openP = await serveJson("POST", `/eddie/api/pipelines-v2/${intakeRid}/proposals/by-created-at?limit=20`, { statusKind: "OPEN", sourceSandboxIds: [] });
+  const mergedP = await serveJson("POST", `/eddie/api/pipelines-v2/${intakeRid}/proposals/by-created-at?limit=20`, { statusKind: "MERGED", sourceSandboxIds: [] });
+  const merged = mergedP.body?.proposals?.[0];
+  const mergedInto = merged ? await serveJson("GET", `/eddie/api/pipelines-v2/${intakeRid}/versions/${merged.status.merged.mergedVersionId}/lightweight`) : { body: null };
+  ok("proposals are the family's change sets by status — OPEN the proposed one, MERGED the founding one, whose merged version IS revision 1",
+    openP.body?.proposals?.map((x) => x.details.name).join(",") === "Add a dedupe step" && mergedP.body?.proposals?.length === 1 && merged?.details?.name === "Normalise intake"
+      && mergedInto.body?.details?.message === "Revision 1" && !openP.passthrough,
+    `open ${JSON.stringify(openP.body?.proposals?.map((x) => x.details.name))} · merged ${merged?.details?.name} → ${mergedInto.body?.details?.message}`);
   const intake = details.find((p) => p.name === "intake-normalise");
   const claims = details.find((p) => p.name === "claims-triage");
   const snaps = await serveJson("POST", "/eddie/api/pipelines-v2/get-sandboxes-with-snapshots", { requests: [intake, claims].filter(Boolean).map((p) => ({ pipelineRid: p.rid, sandboxId: p.publishedSandboxes[0] })) });
