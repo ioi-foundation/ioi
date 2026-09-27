@@ -160,6 +160,19 @@ journey verifier → deploy to the owner's stack.
   templates (`BrowseTemplatesViewQuery`, `RecentInstallationsPopoverQuery` — named gaps). REST:
   `monitors-getMonitors`, `monitors/<rid>/published`, `validation/v0/<rid>/validate-update`, profiles,
   sessions. The adapter answers each in the captured shape (streams as event-stream).
+- **Storage ruling (owner, 2026-09-26):** adopted bundles stay in the LOCAL MIRROR only — the repository
+  is public and the bundle is not ours to publish. The estate's `/__apps/<slug>` lanes proxy the mirror
+  and rebind specific calls to the daemon; the adapter and bindings are tracked, the bundle never is. (This
+  supersedes step (1) below: nothing is vendored.)
+- **First binding live (d21206891):** the adopted reference Automate list renders the Hypervisor's real
+  automations — names, the cron condition in the reference's own words ("At 09:00 AM, Monday through
+  Friday"), status, the creator resolved through our principal, and facet counts from daemon truth.
+  Security fix found on the way: the mirror injects the reference tenant's real session token into every
+  page it serves; the estate now substitutes a synthetic, unsigned identity token. Open next: manual and
+  webhook automations need an honest condition (the reference vocabulary has none — today they read as
+  "Time · Running on schedule"), the referenced-resources filter, Overview's owned count, the detail page
+  (`monitors/<rid>/published`), the wizard's validate + create onto the automation plane, and the shell
+  embedding (drop the reference's own sidebar under our rail) before `/automations` moves to it.
 - **Adoption steps:** (1) vendor the booted app — `index.html` + its 34 content-addressed assets,
   18.5 MB, the same scale as the tracked Ona tree — into a quarantined harvested lane in the owned tree;
   (2) serve it at the Automate canonical route, its asset and API paths answered by the serve (assets
