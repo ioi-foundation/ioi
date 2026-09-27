@@ -9150,7 +9150,7 @@ async function handleEstateRequest(req, res, body) {
     // Capture API families some seed documents call (observed in seed rebind maps). Served
     // same-origin through this proxy so seeds boot under the estate; their upstream is the
     // harvest capture, never fabricated data.
-    const MIRROR_API_PREFIXES = ["/object-sentinel/", "/people/", "/multipass/", "/graphql-gateway/", "/compass/", "/documentation/", "/aip-assist/", "/monocle/", "/approvals/", "/workspace/api/", "/log-receiver/", "/interventions/", "/ontology-metadata/", "/magritte-coordinator/", "/issues/", "/foundry-search/", "/marketplace/", "/object-set-service/", "/phonograph2/", "/language-model-service/", "/foundry-ml/", "/artifacts/", "/foundry-catalog/", "/models/", "/build2/", "/foundry-stemma/", "/third-party-applications/", "/developer-console/"];
+    const MIRROR_API_PREFIXES = ["/object-sentinel/", "/people/", "/comments/", "/multipass/", "/graphql-gateway/", "/compass/", "/documentation/", "/aip-assist/", "/monocle/", "/approvals/", "/workspace/api/", "/log-receiver/", "/interventions/", "/ontology-metadata/", "/magritte-coordinator/", "/issues/", "/foundry-search/", "/marketplace/", "/object-set-service/", "/phonograph2/", "/language-model-service/", "/foundry-ml/", "/artifacts/", "/foundry-catalog/", "/models/", "/build2/", "/foundry-stemma/", "/third-party-applications/", "/developer-console/"];
     if (pathname.startsWith("/__apps/") || pathname.startsWith("/assets/content-addressable-storage/") || MIRROR_API_PREFIXES.some((pref) => pathname.startsWith(pref))) {
       // One read of what the adopted Automate seed shows: the caller's automations and who they are.
       const automateContext = async () => {
@@ -9719,6 +9719,14 @@ async function handleEstateRequest(req, res, body) {
         }
         res.writeHead(200, { "Content-Type": "application/json" });
         return res.end(JSON.stringify({ monitors }));
+      }
+      // Comments on an adopted resource: the Hypervisor keeps no comment threads, so every requested
+      // page is an honest empty one in the reference's own shape.
+      if (pathname === "/comments/api/comments/batch/page-v2" && req.method === "POST") {
+        let reqs = [];
+        try { reqs = JSON.parse(body.toString() || "{}").requests || []; } catch { /* none */ }
+        res.writeHead(200, { "Content-Type": "application/json" });
+        return res.end(JSON.stringify({ responses: reqs.map((request) => ({ request, response: { comments: [], resolvedReferences: [], nextPageToken: null, totalCommentCount: 0 } })) }));
       }
       // The adopted Automate detail page: one automation's published monitor record.
       {
@@ -13993,6 +14001,12 @@ async function handleEstateRequest(req, res, body) {
       send: (r, status, inner) => { r.writeHead(status, { "Content-Type": "text/html; charset=utf-8", "Cache-Control": "no-store" }); r.end(automationsShell("Leases & Limits", inner, { theme: "light" })); },
     })) return;
     // ADR 0056 P2: Operations / Health — checks, their admitted results, and the plane's own writes.
+    // R-241: the adopted seeds' unbound operations, by name (the fallthrough the phase counts to zero).
+    if (pathname === "/__ioi/adopted-seeds/unbound" && req.method === "GET") {
+      res.writeHead(200, { "Content-Type": "application/json", "Cache-Control": "no-store" });
+      res.end(JSON.stringify({ automate: AUTOMATE.unboundCounts() }));
+      return;
+    }
     if (pathname.startsWith("/__ioi/operations/health") && await handleOperationsHealth(req, res, pathname, body, {
       daemonFetch, whyRefused,
       send: (r, status, inner) => { r.writeHead(status, { "Content-Type": "text/html; charset=utf-8", "Cache-Control": "no-store" }); r.end(automationsShell("Health", inner, { theme: "light" })); },

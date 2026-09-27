@@ -275,7 +275,14 @@ export function graphqlAnswer(name, variables, ctx) {
   }
 }
 export const opNameOf = (op) => (op && (op.operationName || (/^\s*(?:query|mutation|subscription)\s+(\w+)/.exec(String(op.query || "")) || [])[1])) || "";
-export const unboundError = (name) => ({ data: null, errors: [{ message: `${name || "This operation"} is not bound in the Hypervisor adapter yet (a named gap of the adopted Automate seed)` }] });
+// THE FALLTHROUGH COUNT: every operation the adopted app asked for and the adapter could not answer,
+// by name — the unbound surface, measured (GET /__ioi/adopted-seeds/unbound).
+const unbound = new Map();
+export const unboundCounts = () => Object.fromEntries([...unbound.entries()].sort((a, b) => b[1] - a[1]));
+export const unboundError = (name) => {
+  unbound.set(name || "(unnamed)", (unbound.get(name || "(unnamed)") || 0) + 1);
+  return { data: null, errors: [{ message: `${name || "This operation"} is not bound in the Hypervisor adapter yet (a named gap of the adopted Automate seed)` }] };
+};
 
 // THE IDENTITY TOKEN a seed page reads client-side (it decodes the cookie's JWT `sub` — 16 bytes,
 // base64 — into the current user's UUID). The local mirror injects the reference TENANT'S REAL session
