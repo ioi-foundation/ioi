@@ -176,8 +176,8 @@ export function bulkOperations(body) {
     const j = JSON.parse(body);
     const ops = j.operations || {};
     const nameOf = (q) => (/^\s*(?:query|mutation|subscription)\s+(\w+)/.exec(String(q || "")) || [])[1] || "";
-    if (Array.isArray(j.requests)) return j.requests.map((r, index) => ({ index, name: r.name || nameOf(ops[r.hash]), variables: r.variables || {} }));
-    return Object.entries(ops).map(([index, query]) => ({ index: Number(index), name: nameOf(query), variables: {} }));
+    if (Array.isArray(j.requests)) return j.requests.map((r, index) => ({ index, name: r.name || nameOf(ops[r.hash]), variables: r.variables || {}, query: ops[r.hash] || "" }));
+    return Object.entries(ops).map(([index, query]) => ({ index: Number(index), name: nameOf(query), variables: {}, query }));
   } catch { return []; }
 }
 
@@ -354,4 +354,61 @@ export function envelopeAnswer(name, variables, ctx, mirrorDir) {
     return swap(x);
   };
   return scrubIdentity(walk(rec.data), ctx.principal);
+}
+
+// ---- FACT OPERATIONS: the detail page's reads, answered by walking each query against the automation's
+// facts (adopted-graphql.mjs). Recorded answers lend structure only.
+import { answerDocument } from "./adopted-graphql.mjs";
+export const FACT_OPERATIONS = new Set([
+  "ResourceHeaderQuery", "CompassResourceQuery", "SingleAutomationOverviewV2Query", "AutomationFlowQuery",
+  "AutomationLiveStatusQuery", "AutomationStatusControlQuery", "AutomationMonitoringRulesCardQuery",
+  "AutomationDependenciesQuery", "ExpiryDateProjectQuery", "GetLiveStatusForNonVersionedObjectSet",
+]);
+export const requestedMonitorRid = (variables) => (JSON.stringify(variables || {}).match(/ri\.object-sentinel\.main\.monitor\.[0-9a-f-]{36}/) || [])[0] || null;
+
+export function factsRoot(a, runs, principal) {
+  const rid = monitorRidOf(a.automation_id);
+  const creator = (a.executor_identity || {}).ref || (principal || {}).ref || "";
+  const project = a.project_id || "unfiled";
+  const who = (ref) => ({ __typename: "User", id: userIdOf(ref), _id: cacheId(`user:${ref}`), realm: { __typename: "PrincipalRealm", id: "hypervisor" } });
+  const at = (t, ref) => ({ __typename: "Attribution", time: iso(t), user: who(ref) });
+  const latest = [...(runs || [])].sort((x, y) => String(y.started_at || "").localeCompare(String(x.started_at || "")))[0] || null;
+  const running = (runs || []).find((r) => r.status === "running") || null;
+  const spec = a.schedule_spec || {};
+  const paused = a.enabled === false;
+  const folder = { __typename: "ResourceMetadata", rid: folderRidOf(project), name: project, openUrl: null, _id: cacheId(`folder:${project}`) };
+  const resource = {
+    __typename: "ResourceMetadata", _id: cacheId(`meta:${rid}`), rid, name: a.name || a.automation_id, description: a.description || "",
+    path: `/${project}/${a.name || a.automation_id}`, autosaved: false, hidden: false, trashedStatus: "NOT_TRASHED", favorited: null,
+    isProtected: false, created: at(a.created_at, creator), modified: at(a.updated_at || a.created_at, creator), parent: folder,
+    ancestors: [{ __typename: "ResourceMetadata", name: "All files", rid: "ri.compass.main.folder.0", _id: cacheId("folder:0") }, folder],
+    urlVariables: [{ __typename: "UrlVariable", key: "compass:isProject", value: "false" }],
+    type: { __typename: "ResourceTypeMetadata", iconName: "pt-svg-icon-automation" },
+    permissions: { __typename: "ResourceMetadataPermissions", canEditAutomation: true, canShare: false, canShareLink: false, canTrash: false, canEditTags: false, canEditMetadata: false, canMoveBetweenProjects: false, canMoveWithinProject: false, canRestore: false, canOpenLink: true, canCreateIssue: false },
+    project: { __typename: "Project", userProjectOwner: null },
+  };
+  const condition = { __typename: "ObjectSetMonitorSchedule", __implements: ["ObjectSetMonitorLogicV3", "ObjectSetMonitorCondition"], cronExpression: logicOf(a).schedule?.cronExpression || "", additionalCronExpressions: [], timeZone: spec.timezone || spec.tz || "UTC" };
+  const event = (r) => r ? { __typename: "ObjectSetMonitorHistoryEvent_MonitorTriggered", __implements: ["ObjectSetMonitorHistoryEvent"], _id: cacheId(`event:${r.execution_id}`), id: r.execution_id, triggerTime: iso(r.started_at), triggerReason: "SCHEDULE", triggeredEffectsV2: [] } : null;
+  const branch = {
+    __typename: "ObjectSetMonitorBranch", _id: cacheId(`branch:${rid}`), isProjectScoped: false, scenarioTarget: null,
+    isPausedIndefinitely: paused, pausedUntil: null, isMutedIndefinitely: false, mutedUntil: null, expiresAt: null,
+    owner: who(creator), dependentAutomations: [],
+    monitor: { __typename: "ObjectSetMonitor", _id: cacheId(rid), rid, metadata: resource },
+    latestVersion: { __typename: "ObjectSetMonitorVersion", _id: cacheId(`version:${rid}`), monitorLogicV3: condition, mergedEffects: [], effectOrdering: null, subscribers: [], persistsSharedHistoryEvent: false },
+    latestEvents: { __typename: "ObjectSetMonitorLatestEvents", completeTriggered: event(latest && latest.status !== "running" ? latest : null), inProgressTriggered: event(running), evaluationRuntimeError: null, effectsRuntimeError: null },
+    scheduledMonitoringEvaluationStatus: { __typename: "ObjectSetMonitorScheduledEvaluationStatus", isRunning: !!running, scheduledAt: a.next_run_at ? iso(a.next_run_at) : null },
+  };
+  return {
+    __typename: "Query",
+    objectSetMonitor: { __typename: "ObjectSetMonitor", _id: cacheId(rid), rid, branch, defaultBranchV2: branch, monitorRules: [] },
+    resourceMetadata: resource,
+    objectSet: null,
+  };
+}
+
+export function answerFactOperation(name, query, variables, ctx, runsFor, template) {
+  const rid = requestedMonitorRid(variables);
+  const a = rid ? (ctx.automations || []).find((x) => monitorRidOf(x.automation_id) === rid) : null;
+  if (!a) return null;
+  return answerDocument(query, factsRoot(a, runsFor(a.automation_id), ctx.principal), template, name);
 }

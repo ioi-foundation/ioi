@@ -188,6 +188,15 @@ journey verifier → deploy to the owner's stack.
   `SingleAutomationOverviewV2Query`, `AutomationFlowQuery`, `AutomationLiveStatusQuery`,
   `AutomationStatusControlQuery`, `AutomationMonitoringRulesCardQuery`, `AutomationDependenciesQuery`,
   `ExpiryDateProjectQuery`, `GetLiveStatusForNonVersionedObjectSet`; comments `batch/page-v2` (empty pages).
+- **Detail page bound (2026-09-26):** `adopted-graphql.mjs` answers each fact operation by walking the
+  app's own query document (fields, aliases, fragments, inline type conditions) against a fact object built
+  from the automation and its runs; recorded answers lend structure only (typenames, booleans, enum
+  constants), never names, times, ids or list items. Facts declare the abstract types they implement
+  (`ObjectSetMonitorLogicV3`, `ObjectSetMonitorHistoryEvent`) so fragments on unions apply. The adopted
+  detail now reads: our name, Active, "Scheduled automation — runs at 09:00 AM, Monday through Friday
+  (UTC)", last triggered Never, execution No events yet, no monitoring rules. Named gaps on it: our steps
+  (command / agent) are not reference effects, so the effects card reads empty until reshaped; some
+  metadata rows (owner, created by, automation RID) and the frequency tag; the comments batch read.
 - **Adoption steps:** (1) vendor the booted app — `index.html` + its 34 content-addressed assets,
   18.5 MB, the same scale as the tracked Ona tree — into a quarantined harvested lane in the owned tree;
   (2) serve it at the Automate canonical route, its asset and API paths answered by the serve (assets

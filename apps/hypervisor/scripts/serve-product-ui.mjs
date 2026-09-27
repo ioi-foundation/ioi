@@ -9164,8 +9164,16 @@ async function handleEstateRequest(req, res, body) {
       // One answer per adopted-app operation: bound (daemon truth) → the adapted harvest envelope → a named
       // gap. Never the mirror's loose GraphQL mock.
       const ADOPT_MIRROR_DIR = process.env.IOI_REFERENCE_MIRROR_DIR || join(REPO_ROOT, "internal-docs", "reverse-engineering", "palantir");
-      const answerAdoptedOp = (name, variables, ctxA) => {
+      const answerAdoptedOp = async (name, variables, ctxA, query = "") => {
         if (AUTOMATE.OPERATIONS.has(name)) return { data: AUTOMATE.graphqlAnswer(name, variables || {}, ctxA) };
+        if (AUTOMATE.FACT_OPERATIONS.has(name) && query) {
+          const rid = AUTOMATE.requestedMonitorRid(variables);
+          const autoId = rid ? AUTOMATE.automationIdOf(rid) : null;
+          const runs = autoId ? await daemonFetch(`/v1/hypervisor/automations/${encodeURIComponent(autoId)}/runs`).then((r) => r.json()).then((j) => j.runs || []).catch(() => []) : [];
+          const template = AUTOMATE.harvestOperations(ADOPT_MIRROR_DIR).get(name)?.data || null;
+          const data = AUTOMATE.answerFactOperation(name, query, variables || {}, ctxA, () => runs, template);
+          return data ? { data } : AUTOMATE.unboundError(name);
+        }
         const env = AUTOMATE.envelopeAnswer(name, variables || {}, ctxA, ADOPT_MIRROR_DIR);
         return env !== undefined ? { data: env } : AUTOMATE.unboundError(name);
       };
@@ -9678,7 +9686,7 @@ async function handleEstateRequest(req, res, body) {
         const ops = AUTOMATE.bulkOperations(body.toString());
         if (ops.length) {
           const ctxA = await automateContext();
-          const lines = ops.map((o) => `data:${JSON.stringify({ ...answerAdoptedOp(o.name, o.variables, ctxA), extensions: { requestIndex: o.index } })}`);
+          const lines = await Promise.all(ops.map(async (o) => `data:${JSON.stringify({ ...(await answerAdoptedOp(o.name, o.variables, ctxA, o.query)), extensions: { requestIndex: o.index } })}`));
           res.writeHead(200, { "Content-Type": "text/event-stream; charset=UTF-8", "Cache-Control": "no-cache" });
           return res.end(lines.join("\n\n") + "\n\n");
         }
