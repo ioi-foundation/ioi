@@ -2006,6 +2006,12 @@ jobs:
           IOI_VERIFIER_CENSUS_DIR: .artifacts/verifier-census
         run: npm run check:functions --workspace=@ioi/hypervisor-app
 
+      - name: Verify against an isolated live daemon — change-sets
+        if: ${{ !cancelled() && steps.daemon_artifact.outcome == 'success' }}
+        env:
+          IOI_VERIFIER_CENSUS_DIR: .artifacts/verifier-census
+        run: npm run check:change-sets --workspace=@ioi/hypervisor-app
+
       - name: Verify against an isolated live daemon — governance-journey
         if: ${{ !cancelled() && steps.daemon_artifact.outcome == 'success' }}
         env:

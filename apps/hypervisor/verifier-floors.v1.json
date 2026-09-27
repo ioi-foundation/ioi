@@ -197,6 +197,14 @@
       "assertion_names_sha256": "3fc4b0e1a29072f94ca690f1c06dcc6f313431743b66f274a545ef48f265669b"
     },
     {
+      "id": "change-sets",
+      "npm_script": "check:change-sets",
+      "source": "apps/hypervisor/scripts/verify-hypervisor-change-sets.mjs",
+      "runtime_assertions": 11,
+      "note": "2026-09-27 (R-241, ADR 0056 P4 cut 1b): new at 11 \u2014 change sets over DataRecipe families on an isolated daemon, every returned record re-validated against change-set.v1 and branch-merge-plan.v1: a founding change set pins no head and carries its first draft; merging before the latest draft validates is refused with nothing admitted; validation runs admission's own checks and writes no revision; a proposed, validated change set merges through the family's own admission (revision 1) and a BranchMergePlan records the admit decision; two successors pinned to revision 1 \u2014 the first merges as revision 2, the second is refused change_set_base_moved (red with the base re-read removed); an incomplete draft validates invalid with admission's own refusal code; reject needs a note, rejected and abandoned are terminal and take no drafts; a draft carrying expected_head and an unknown subject kind are refused by name; list, get-with-plan, and the anonymous refusal. Measured with IOI_VERIFIER_CENSUS_DIR.",
+      "assertion_names_sha256": "302f7dc1b750dc0fb1488fb9197cb626d3fb0cbe0bbdada66157d58d951fa537"
+    },
+    {
       "id": "operational-depth",
       "npm_script": "check:operational-depth",
       "source": "apps/hypervisor/scripts/verify-hypervisor-operational-depth.mjs",

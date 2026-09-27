@@ -48,6 +48,8 @@ mod azure_candidate_source;
 mod binding_routes;
 #[path = "hypervisor_daemon_routes/capability_lease_plan_routes.rs"]
 mod capability_lease_plan_routes;
+#[path = "hypervisor_daemon_routes/change_set_routes.rs"]
+mod change_set_routes;
 #[path = "hypervisor_daemon_routes/cloud_candidate_routes.rs"]
 mod cloud_candidate_routes;
 #[path = "hypervisor_daemon_routes/cloud_job_routes.rs"]
@@ -1797,6 +1799,41 @@ async fn async_main() -> anyhow::Result<()> {
         .route(
             "/v1/hypervisor/function-test-runs",
             get(function_routes::handle_function_test_run_list),
+        )
+        // ADR 0056 P4 — change sets: canon's patch branch for an object family. A change set drafts in
+        // isolation, validates by the subject admission's own checks, and merges only through that
+        // admission with the head it pinned; the decision is a BranchMergePlan. It grants nothing.
+        .route(
+            "/v1/hypervisor/change-sets",
+            post(change_set_routes::handle_change_set_open).get(change_set_routes::handle_change_set_list),
+        )
+        .route(
+            "/v1/hypervisor/change-sets/:id",
+            get(change_set_routes::handle_change_set_get),
+        )
+        .route(
+            "/v1/hypervisor/change-sets/:id/drafts",
+            post(change_set_routes::handle_change_set_draft),
+        )
+        .route(
+            "/v1/hypervisor/change-sets/:id/validate",
+            post(change_set_routes::handle_change_set_validate),
+        )
+        .route(
+            "/v1/hypervisor/change-sets/:id/propose",
+            post(change_set_routes::handle_change_set_propose),
+        )
+        .route(
+            "/v1/hypervisor/change-sets/:id/merge",
+            post(change_set_routes::handle_change_set_merge),
+        )
+        .route(
+            "/v1/hypervisor/change-sets/:id/reject",
+            post(change_set_routes::handle_change_set_reject),
+        )
+        .route(
+            "/v1/hypervisor/change-sets/:id/abandon",
+            post(change_set_routes::handle_change_set_abandon),
         )
         // ADR 0056 P5 — Governance / Leases & Limits checkpoints. A checkpoint adds a justification
         // obligation in front of a gated interaction and grants nothing; a record is the immutable

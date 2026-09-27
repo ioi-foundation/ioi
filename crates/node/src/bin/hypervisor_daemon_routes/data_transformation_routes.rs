@@ -2095,6 +2095,288 @@ pub(crate) fn resolve_admitted_transformation_run(
     ))
 }
 
+/// The DataRecipe content checks and server-resolved facts, shared by admission and by a change
+/// set's validation (ADR 0056 P4): pure reads — every member resolves through its own owner — and
+/// never a write, so a draft is judged by exactly the checks its merge will run.
+struct CheckedRecipe {
+    name: String,
+    resolved_ontology_refs: Vec<String>,
+    input_source_types: Vec<String>,
+    resolved_mapping_refs: Vec<String>,
+    output_object_model_refs: Vec<String>,
+    output_dataset_contract_refs: Vec<String>,
+    transformation_steps: Vec<String>,
+    policy_view_refs: Vec<String>,
+    receipt_obligations: Vec<String>,
+    effective_policy_hash: String,
+    registry_status: String,
+    ordinal: u64,
+    revision_ref: String,
+    predecessor_ref: Value,
+    predecessor_hash: Value,
+    succession_reason: String,
+    supersedes: bool,
+    snapshot_ref: String,
+    set_hash: String,
+    component_refs: Vec<String>,
+    component_count: usize,
+}
+
+fn check_recipe_content(
+    st: &DaemonState,
+    identity: &RequestIdentity,
+    family: &str,
+    body: &Value,
+    predecessor: Option<&AdmittedRecord>,
+) -> Result<CheckedRecipe, Reply> {
+    // ------------------------------------------------------------------ content, checked before use
+    let name = str_field(&body, "name").to_owned();
+    if name.is_empty() || name.len() > 200 {
+        return Err(refuse(
+            "data_recipe_body_invalid",
+            "a recipe revision declares a name",
+        ));
+    }
+    let ontology_refs = match string_list(&body, "ontology_revision_refs", 64) {
+        Ok(refs) => refs,
+        Err(response) => return Err(response),
+    };
+    if ontology_refs.is_empty() {
+        return Err(refuse(
+            "data_recipe_ontology_revisions_required",
+            "a recipe binds at least one EXACT admitted ontology revision; v1 carried one ref checked for local resolvability only, so it followed whatever head was current at execution time",
+        ));
+    }
+    // Every ontology member is resolved through ITS OWNER, so a family head, an unadmitted revision
+    // or another domain's lineage is refused by the owner rather than shape-checked here.
+    let mut resolved_ontology_refs = Vec::with_capacity(ontology_refs.len());
+    for candidate in &ontology_refs {
+        match super::ontology_version_routes::resolve_admitted_revision(
+            &st.data_dir,
+            identity,
+            candidate,
+        ) {
+            Ok(resolved) => resolved_ontology_refs.push(resolved.ontology_id),
+            Err(response) => return Err(response),
+        }
+    }
+    let input_source_types = match enum_list(&body, "input_source_types", INPUT_SOURCE_TYPES, 1, 5)
+    {
+        Ok(items) => items,
+        Err(response) => return Err(response),
+    };
+    let mapping_refs = match string_list(&body, "connector_mapping_revision_refs", 64) {
+        Ok(refs) => refs,
+        Err(response) => return Err(response),
+    };
+    // A MAPPING IS A SEPARATE FAMILY, RESOLVED THROUGH ITS OWN OWNER SEAM. An inline mapping object
+    // was already refused by `string_list`; a family head is refused by the seam's ref parser.
+    let mut resolved_mapping_refs = Vec::with_capacity(mapping_refs.len());
+    for candidate in &mapping_refs {
+        match resolve_admitted_connector_mapping(&st.data_dir, identity, candidate) {
+            Ok(resolved) => resolved_mapping_refs.push(resolved.revision_ref),
+            Err(response) => return Err(response),
+        }
+    }
+    let output_object_model_refs = match string_list(&body, "output_object_model_refs", 128) {
+        Ok(refs) => refs,
+        Err(response) => return Err(response),
+    };
+    let output_dataset_contract_refs = match string_list(&body, "output_dataset_contract_refs", 128)
+    {
+        Ok(refs) => refs,
+        Err(response) => return Err(response),
+    };
+    let transformation_steps =
+        match enum_list(&body, "transformation_steps", TRANSFORMATION_STEPS, 1, 8) {
+            Ok(items) => items,
+            Err(response) => return Err(response),
+        };
+    let policy_view_refs = match string_list(&body, "policy_bound_data_view_refs", 128) {
+        Ok(refs) => refs,
+        Err(response) => return Err(response),
+    };
+    let receipt_obligations =
+        match enum_list(&body, "receipt_obligations", RECEIPT_OBLIGATIONS, 2, 8) {
+            Ok(items) => items,
+            Err(response) => return Err(response),
+        };
+    if !receipt_obligations
+        .iter()
+        .any(|item| item == "data_recipe_run")
+        || !receipt_obligations
+            .iter()
+            .any(|item| item == "transformation")
+    {
+        return Err(refuse(
+            "data_recipe_receipt_obligations_incomplete",
+            "canon's two obligations — data_recipe_run and transformation — are mandatory members; an obligation is a requirement placed on future runs, never a receipt this definition holds",
+        ));
+    }
+    let effective_policy_hash = str_field(&body, "effective_policy_hash").to_owned();
+    if !is_sha256(&effective_policy_hash) {
+        return Err(refuse(
+            "data_recipe_effective_policy_hash_invalid",
+            "effective_policy_hash is the sha256 commitment over the composed policy this revision was released under",
+        ));
+    }
+    let registry_status = str_field(&body, "registry_status").to_owned();
+    if !REGISTRY_STATUSES.contains(&registry_status.as_str()) {
+        return Err(refuse(
+            "data_recipe_registry_status_invalid",
+            format!("registry_status is one of {REGISTRY_STATUSES:?}; INVENTORY status only — a run's state lives on the run, in a vocabulary sharing no member with this one"),
+        ));
+    }
+
+    // ------------------------------------------------------------------------ server-resolved facts
+    let ordinal = predecessor.map_or(1, |entry| revision_ordinal(entry, "data-recipe://") + 1);
+    let revision_ref = format!("data-recipe://{family}/revision/{ordinal}");
+    let predecessor_ref = predecessor
+        .and_then(|entry| entry.record.get("revision_ref").cloned())
+        .unwrap_or(Value::Null);
+    let predecessor_hash = predecessor
+        .and_then(|entry| entry.record.get("content_hash").cloned())
+        .unwrap_or(Value::Null);
+    let succession_reason = str_field(&body, "succession_reason").to_owned();
+    let supersedes = body
+        .get("supersedes_predecessor")
+        .and_then(Value::as_bool)
+        .unwrap_or(false);
+    if predecessor.is_none() {
+        if (!succession_reason.is_empty() && succession_reason != "genesis") || supersedes {
+            return Err(refuse(
+                "data_recipe_succession_reason_invalid",
+                "the first revision of a family succeeds nothing and supersedes nothing; its reason is 'genesis'",
+            ));
+        }
+    } else if !RECIPE_SUCCESSION_REASONS.contains(&succession_reason.as_str()) {
+        return Err(refuse(
+            "data_recipe_succession_reason_invalid",
+            format!("a successor states which change produced it, from {RECIPE_SUCCESSION_REASONS:?} — non-negotiable 3's five changes plus a step change and a correction"),
+        ));
+    }
+    if let Some(asserted) = body.get("expected_predecessor_content_hash") {
+        if asserted != &predecessor_hash {
+            return Err(refuse(
+                "data_recipe_predecessor_hash_substituted",
+                "expected_predecessor_content_hash does not match this family's exact current content hash",
+            ));
+        }
+    }
+
+    // The snapshot covers EXACTLY the union the registered invariant names, in its own order.
+    let mut components = Vec::new();
+    components.extend(resolved_ontology_refs.iter().cloned());
+    components.extend(resolved_mapping_refs.iter().cloned());
+    components.extend(output_object_model_refs.iter().cloned());
+    components.extend(output_dataset_contract_refs.iter().cloned());
+    components.extend(policy_view_refs.iter().cloned());
+    let snapshot_ref = format!("artifact://{family}/data-recipe/semantic-set/{ordinal}");
+    let (set_hash, component_refs, component_count) =
+        match semantic_snapshot(&snapshot_ref, &components) {
+            Ok(snapshot) => snapshot,
+            Err(reason) => return Err(refuse("data_recipe_semantic_snapshot_invalid", reason)),
+        };
+    Ok(CheckedRecipe {
+        name,
+        resolved_ontology_refs,
+        input_source_types,
+        resolved_mapping_refs,
+        output_object_model_refs,
+        output_dataset_contract_refs,
+        transformation_steps,
+        policy_view_refs,
+        receipt_obligations,
+        effective_policy_hash,
+        registry_status,
+        ordinal,
+        revision_ref,
+        predecessor_ref,
+        predecessor_hash,
+        succession_reason,
+        supersedes,
+        snapshot_ref,
+        set_hash,
+        component_refs,
+        component_count,
+    })
+}
+
+/// A DataRecipe family's current revision and admitted head, for a change set (ADR 0056 P4): `None`
+/// when no scope binds the family yet, so the change set founds it. A family bound to another owner
+/// is refused by the owner seam, never read as absent.
+pub(crate) fn data_recipe_tip(
+    data_dir: &str,
+    identity: &RequestIdentity,
+    family: &str,
+) -> Result<Option<(String, String)>, Reply> {
+    if !family_token(family) {
+        return Err(refuse(
+            "data_recipe_family_not_canonical",
+            "a data recipe family is a canonical token matching [a-z0-9][a-z0-9._-]{0,127}",
+        ));
+    }
+    let resource = format!("data-recipe://{family}");
+    let bound =
+        super::substrate_store::read_request_scope(data_dir, RECIPE.resource_kind, &resource)
+            .map_err(scope_refusal_reply)?;
+    if bound.is_none() {
+        return Ok(None);
+    }
+    let stream = authorized_stream(&RECIPE, data_dir, identity, &resource)?;
+    Ok(stream.last().map(|last| {
+        (
+            last.record["revision_ref"]
+                .as_str()
+                .unwrap_or("")
+                .to_string(),
+            last.head.clone(),
+        )
+    }))
+}
+
+/// Judge a change set's DataRecipe draft by admission's own content checks, without persisting
+/// anything (ADR 0056 P4). `Err((code, message))` is the first refusal admission would give.
+pub(crate) fn validate_data_recipe_draft(
+    st: &DaemonState,
+    identity: &RequestIdentity,
+    body: &Value,
+) -> Result<String, (String, String)> {
+    let finding = |reply: Reply| {
+        let body = reply.1 .0;
+        let code = body["code"]
+            .as_str()
+            .or_else(|| body["error"]["code"].as_str())
+            .unwrap_or("data_recipe_draft_invalid")
+            .to_string();
+        let message = body["message"]
+            .as_str()
+            .or_else(|| body["error"]["message"].as_str())
+            .unwrap_or("the draft would be refused by admission")
+            .to_string();
+        (code, message)
+    };
+    let family = str_field(body, "family").to_owned();
+    if !family_token(&family) {
+        return Err((
+            "data_recipe_family_not_canonical".into(),
+            "a data recipe family is a canonical token matching [a-z0-9][a-z0-9._-]{0,127}".into(),
+        ));
+    }
+    let resource = format!("data-recipe://{family}");
+    let bound =
+        super::substrate_store::read_request_scope(&st.data_dir, RECIPE.resource_kind, &resource)
+            .map_err(|error| finding(scope_refusal_reply(error)))?;
+    let stream = if bound.is_some() {
+        authorized_stream(&RECIPE, &st.data_dir, identity, &resource).map_err(finding)?
+    } else {
+        Vec::new()
+    };
+    check_recipe_content(st, identity, &family, body, stream.last())
+        .map(|checked| checked.revision_ref)
+        .map_err(finding)
+}
+
 /// POST /v1/hypervisor/data-recipe-revisions — admit one immutable, content-addressed definition
 /// revision against the exact current head of its family's Agentgres chain.
 pub(crate) async fn handle_data_recipe_admit(
@@ -2182,154 +2464,32 @@ pub(crate) async fn handle_data_recipe_admit(
     }
     let predecessor = stream.last();
 
-    // ------------------------------------------------------------------ content, checked before use
-    let name = str_field(&body, "name").to_owned();
-    if name.is_empty() || name.len() > 200 {
-        return refuse(
-            "data_recipe_body_invalid",
-            "a recipe revision declares a name",
-        );
-    }
-    let ontology_refs = match string_list(&body, "ontology_revision_refs", 64) {
-        Ok(refs) => refs,
+    let CheckedRecipe {
+        name,
+        resolved_ontology_refs,
+        input_source_types,
+        resolved_mapping_refs,
+        output_object_model_refs,
+        output_dataset_contract_refs,
+        transformation_steps,
+        policy_view_refs,
+        receipt_obligations,
+        effective_policy_hash,
+        registry_status,
+        ordinal,
+        revision_ref,
+        predecessor_ref,
+        predecessor_hash,
+        succession_reason,
+        supersedes,
+        snapshot_ref,
+        set_hash,
+        component_refs,
+        component_count,
+    } = match check_recipe_content(&st, &caller.identity, &family, &body, predecessor) {
+        Ok(checked) => checked,
         Err(response) => return response,
     };
-    if ontology_refs.is_empty() {
-        return refuse(
-            "data_recipe_ontology_revisions_required",
-            "a recipe binds at least one EXACT admitted ontology revision; v1 carried one ref checked for local resolvability only, so it followed whatever head was current at execution time",
-        );
-    }
-    // Every ontology member is resolved through ITS OWNER, so a family head, an unadmitted revision
-    // or another domain's lineage is refused by the owner rather than shape-checked here.
-    let mut resolved_ontology_refs = Vec::with_capacity(ontology_refs.len());
-    for candidate in &ontology_refs {
-        match super::ontology_version_routes::resolve_admitted_revision(
-            &st.data_dir,
-            &caller.identity,
-            candidate,
-        ) {
-            Ok(resolved) => resolved_ontology_refs.push(resolved.ontology_id),
-            Err(response) => return response,
-        }
-    }
-    let input_source_types = match enum_list(&body, "input_source_types", INPUT_SOURCE_TYPES, 1, 5)
-    {
-        Ok(items) => items,
-        Err(response) => return response,
-    };
-    let mapping_refs = match string_list(&body, "connector_mapping_revision_refs", 64) {
-        Ok(refs) => refs,
-        Err(response) => return response,
-    };
-    // A MAPPING IS A SEPARATE FAMILY, RESOLVED THROUGH ITS OWN OWNER SEAM. An inline mapping object
-    // was already refused by `string_list`; a family head is refused by the seam's ref parser.
-    let mut resolved_mapping_refs = Vec::with_capacity(mapping_refs.len());
-    for candidate in &mapping_refs {
-        match resolve_admitted_connector_mapping(&st.data_dir, &caller.identity, candidate) {
-            Ok(resolved) => resolved_mapping_refs.push(resolved.revision_ref),
-            Err(response) => return response,
-        }
-    }
-    let output_object_model_refs = match string_list(&body, "output_object_model_refs", 128) {
-        Ok(refs) => refs,
-        Err(response) => return response,
-    };
-    let output_dataset_contract_refs = match string_list(&body, "output_dataset_contract_refs", 128)
-    {
-        Ok(refs) => refs,
-        Err(response) => return response,
-    };
-    let transformation_steps =
-        match enum_list(&body, "transformation_steps", TRANSFORMATION_STEPS, 1, 8) {
-            Ok(items) => items,
-            Err(response) => return response,
-        };
-    let policy_view_refs = match string_list(&body, "policy_bound_data_view_refs", 128) {
-        Ok(refs) => refs,
-        Err(response) => return response,
-    };
-    let receipt_obligations =
-        match enum_list(&body, "receipt_obligations", RECEIPT_OBLIGATIONS, 2, 8) {
-            Ok(items) => items,
-            Err(response) => return response,
-        };
-    if !receipt_obligations
-        .iter()
-        .any(|item| item == "data_recipe_run")
-        || !receipt_obligations
-            .iter()
-            .any(|item| item == "transformation")
-    {
-        return refuse(
-            "data_recipe_receipt_obligations_incomplete",
-            "canon's two obligations — data_recipe_run and transformation — are mandatory members; an obligation is a requirement placed on future runs, never a receipt this definition holds",
-        );
-    }
-    let effective_policy_hash = str_field(&body, "effective_policy_hash").to_owned();
-    if !is_sha256(&effective_policy_hash) {
-        return refuse(
-            "data_recipe_effective_policy_hash_invalid",
-            "effective_policy_hash is the sha256 commitment over the composed policy this revision was released under",
-        );
-    }
-    let registry_status = str_field(&body, "registry_status").to_owned();
-    if !REGISTRY_STATUSES.contains(&registry_status.as_str()) {
-        return refuse(
-            "data_recipe_registry_status_invalid",
-            format!("registry_status is one of {REGISTRY_STATUSES:?}; INVENTORY status only — a run's state lives on the run, in a vocabulary sharing no member with this one"),
-        );
-    }
-
-    // ------------------------------------------------------------------------ server-resolved facts
-    let ordinal = predecessor.map_or(1, |entry| revision_ordinal(entry, "data-recipe://") + 1);
-    let revision_ref = format!("data-recipe://{family}/revision/{ordinal}");
-    let predecessor_ref = predecessor
-        .and_then(|entry| entry.record.get("revision_ref").cloned())
-        .unwrap_or(Value::Null);
-    let predecessor_hash = predecessor
-        .and_then(|entry| entry.record.get("content_hash").cloned())
-        .unwrap_or(Value::Null);
-    let succession_reason = str_field(&body, "succession_reason").to_owned();
-    let supersedes = body
-        .get("supersedes_predecessor")
-        .and_then(Value::as_bool)
-        .unwrap_or(false);
-    if predecessor.is_none() {
-        if (!succession_reason.is_empty() && succession_reason != "genesis") || supersedes {
-            return refuse(
-                "data_recipe_succession_reason_invalid",
-                "the first revision of a family succeeds nothing and supersedes nothing; its reason is 'genesis'",
-            );
-        }
-    } else if !RECIPE_SUCCESSION_REASONS.contains(&succession_reason.as_str()) {
-        return refuse(
-            "data_recipe_succession_reason_invalid",
-            format!("a successor states which change produced it, from {RECIPE_SUCCESSION_REASONS:?} — non-negotiable 3's five changes plus a step change and a correction"),
-        );
-    }
-    if let Some(asserted) = body.get("expected_predecessor_content_hash") {
-        if asserted != &predecessor_hash {
-            return refuse(
-                "data_recipe_predecessor_hash_substituted",
-                "expected_predecessor_content_hash does not match this family's exact current content hash",
-            );
-        }
-    }
-
-    // The snapshot covers EXACTLY the union the registered invariant names, in its own order.
-    let mut components = Vec::new();
-    components.extend(resolved_ontology_refs.iter().cloned());
-    components.extend(resolved_mapping_refs.iter().cloned());
-    components.extend(output_object_model_refs.iter().cloned());
-    components.extend(output_dataset_contract_refs.iter().cloned());
-    components.extend(policy_view_refs.iter().cloned());
-    let snapshot_ref = format!("artifact://{family}/data-recipe/semantic-set/{ordinal}");
-    let (set_hash, component_refs, component_count) =
-        match semantic_snapshot(&snapshot_ref, &components) {
-            Ok(snapshot) => snapshot,
-            Err(reason) => return refuse("data_recipe_semantic_snapshot_invalid", reason),
-        };
 
     let (migration, custody) =
         match converge_v1(V1Family::DataRecipe, &st, &caller, &body, &[], &[]) {

@@ -315,6 +315,16 @@ journey verifier → deploy to the owner's stack.
   complete, contract first. Until it exists the landing can list admitted recipes and Create is a named
   gap. The owner holds no DataRecipes (six ODK transformation runs), so `/data/recipes` keeps the owned
   port until the adopted landing is at least as useful; the adoption stays in its `/__apps/pipeline` lane.
+- **The plane, built (2026-09-27, ADR 0056 P4).** The recipe draft is canon's patch branch, not a new
+  mutable record: a **change set** (`change-set.v1`, `/v1/hypervisor/change-sets`) pins the family's head,
+  carries an append-only chain of drafts shaped as DataRecipe admission requests, validates a draft with
+  admission's own checks (no revision written), and merges by admitting the draft with the pinned head as
+  the expected head. A moved head is refused `change_set_base_moved`, never rebased, and the merge is
+  recorded as a BranchMergePlan. `check:change-sets` 11/11 on an isolated daemon. **Next (cut 2):** the
+  adopted landing lists recipes and open change sets; Create opens a founding change set; the editor's
+  edits are drafts; Proposals = proposed change sets; History = the family's revisions; Deploy = merge
+  plus a TransformationRun. Before the lane is shown to anyone, the compass search must answer with the
+  caller's projects.
 
 ## Gate
 

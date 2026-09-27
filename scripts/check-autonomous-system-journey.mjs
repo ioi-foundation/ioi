@@ -92,7 +92,7 @@ export const REQUIRED_GAPS = Object.freeze({
   "observe/legs/issue-subject-system": "issue_system_subject_absent",
   "provenance/legs/ledger-by-system": "ledger_system_lane_absent",
   "evaluate/legs/evaluation-ui": "evaluation_ui_consumer_absent",
-  "improve/legs/change-sets": "change_set_plane_absent",
+  "improve/legs/change-sets": "change_set_blueprint_subject_absent",
   "improve/legs/system-scope": "improvement_system_scope_refused",
   "release/legs/system-release": "system_release_absent",
   "operate/legs/typed-lifecycle": "lifecycle_forms_raw_json",

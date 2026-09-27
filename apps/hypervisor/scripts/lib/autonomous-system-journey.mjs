@@ -224,7 +224,7 @@ export const JOURNEY = Object.freeze([
     ],
     handoff: { into: "improve", legs: [
       { id: "result-proposes-change", kind: "named_gap", judged_by: "an evaluation result is offered as the basis of a change set",
-        gap: { code: "change_set_plane_absent", plane: "change sets (ADR 0056 P4)", source: "gap map hand-off →9; build order 9" } },
+        gap: { code: "change_set_evaluation_basis_absent", plane: "an evaluation result as a change set's basis (ADR 0056 P4 — the change-set plane exists; nothing links a result to one)", source: "gap map hand-off →9; build order 9" } },
     ] },
   },
   {
@@ -237,14 +237,14 @@ export const JOURNEY = Object.freeze([
       { id: "walk-improvement", kind: "todo", what: "THIS walk's improvement",
         write: "propose imp-{tag} through /__ioi/agent-studio/improvements/propose, request its approval, decide it on /governance/approvals, apply it; judge by the daemon's recorded state" },
       { id: "change-sets", kind: "named_gap", what: "a change set that yields a successor blueprint",
-        gap: { code: "change_set_plane_absent", plane: "change sets (ADR 0056 P4)", source: "gap map step 9; build order 9" } },
+        gap: { code: "change_set_blueprint_subject_absent", plane: "a System blueprint as a change-set subject (ADR 0056 P4 — the plane carries data_recipe subjects only)", source: "gap map step 9; build order 9" } },
       { id: "system-scope", kind: "named_gap", what: "improving THE System: the improvement plane refuses a System scope by name",
         gap: { code: "improvement_system_scope_refused", plane: "System-scoped improvement (ADR 0056 P4 change sets)", source: "system workspace plan (the Improve mode)",
           probe: { route: "/systems/{system}/improve", marker: 'data-system-named-gap="System-scoped improvement (ADR 0056 P4 change sets)"' } } },
     ],
     handoff: { into: "release", legs: [
       { id: "successor-offered-for-release", kind: "named_gap", judged_by: "the applied change set's successor blueprint is offered for release",
-        gap: { code: "change_set_plane_absent", plane: "change sets (ADR 0056 P4)", source: "gap map build order 9 → 10" } },
+        gap: { code: "change_set_blueprint_subject_absent", plane: "a System blueprint as a change-set subject (ADR 0056 P4 — the plane carries data_recipe subjects only)", source: "gap map build order 9 → 10" } },
     ] },
   },
   {
