@@ -441,6 +441,23 @@ async function run() {
     ok("the header's File → Rename renames the automation in the daemon, and the Metadata card's Location names its project",
       headerRenamed.name === `auto-${tag}-header` && locationRow.includes(`proj-${tag}`) && !/ri\.compass/u.test(locationRow),
       `${renameNote} name ${headerRenamed.name} · location "${locationRow}"`);
+
+    // ---- 8. Overview's "Recently triggered": an automatic run (an accepted webhook fire) is listed with
+    // the condition that fired it; a person's Run now is not a trigger and is not.
+    const hook = await fetch(`${DAEMON}/v1/hypervisor/automations/${made.automation_id}/webhook-rotate`, { method: "POST", headers: { cookie: COOKIE } }).then((r) => r.json()).catch(() => ({}));
+    const hookFire = hook.webhook_token ? await fetch(`${DAEMON}/v1/hypervisor/automations/${made.automation_id}/webhook`, { method: "POST", headers: { "content-type": "application/json", "X-IOI-Trigger-Token": hook.webhook_token }, body: "{}" }).then((r) => r.status).catch(() => 0) : 0;
+    let hookRun = null;
+    for (let attempt = 0; attempt < 40 && !hookRun; attempt++) {
+      await sleep(1000);
+      hookRun = ((await daemonRead(`/v1/hypervisor/automations/${made.automation_id}/runs`)).body?.runs ?? []).find((r) => r.activation_kind === "webhook" && r.status !== "running") || null;
+    }
+    await pg.goto(`${SERVE}/workspace/object-monitoring/`, { waitUntil: "domcontentloaded" });
+    await pg.waitForTimeout(9000);
+    const overviewText = (await pg.evaluate(() => document.body.innerText)).replace(/\s+/g, " ");
+    const triggeredRows = overviewText.slice(overviewText.indexOf("Recently triggered"), overviewText.indexOf("Example use cases"));
+    ok("the Overview's Recently triggered lists the automation's automatic run (an accepted webhook fire, done) with the condition that fired it",
+      hookFire === 202 && hookRun?.status === "done" && triggeredRows.includes(`auto-${tag}-header`) && /\bTime\b/u.test(triggeredRows) && !/Restricted|No events found/u.test(triggeredRows),
+      `fire ${hookFire} · ${hookRun?.status || "no webhook run"} · "${triggeredRows.slice(0, 200)}"`);
   } finally {
     await browser.close();
   }

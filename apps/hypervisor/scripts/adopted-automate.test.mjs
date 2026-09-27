@@ -193,15 +193,18 @@ test("a manual execution is the automation's Run now: every step or none, and it
     { execution_id: "aex_2", started_at: "2026-09-27T02:00:00Z", status: "failed", activation_kind: "schedule", step_results: [{ kind: "function", status: "failed" }] },
     { execution_id: "aex_0", started_at: "2026-09-26T00:00:00Z", status: "done", step_results: [] },
   ];
-  const all = AUTOMATE.combinedEventsOf(a, runs, null);
+  const scheduled = { ...a, schedule_spec: { type: "cron", cron: "0 9 * * *" } };
+  const all = AUTOMATE.combinedEventsOf(scheduled, runs, null);
   assert.deepEqual(all.map((v) => v.event.id), ["aex_2", "aex_1", "aex_0"], "newest first");
   assert.equal(all[1].event.__typename, "ObjectSetMonitorHistoryEvent_MonitorManualExecution");
   assert.equal(all[0].event.__typename, "ObjectSetMonitorHistoryEvent_MonitorTriggered");
   assert.equal(all[0].event.triggeredEffectsV2[0].anyEffectFailed, true);
-  assert.deepEqual(AUTOMATE.combinedEventsOf(a, runs, null, ["MANUAL_EXECUTION"]).map((v) => v.event.id), ["aex_1"]);
-  assert.deepEqual(AUTOMATE.combinedEventsOf(a, runs, null, ["TRIGGERED"]).map((v) => v.event.id), ["aex_2"]);
-  assert.deepEqual(AUTOMATE.combinedEventsOf(a, runs, null, ["EFFECT_FAILED", "EVALUATION_FAILED"]).map((v) => v.event.id), ["aex_2"]);
-  assert.deepEqual(AUTOMATE.combinedEventsOf(a, runs, null, ["CONDITION_EDITED", "PAUSED"]), [], "no edit history is recorded yet");
+  assert.deepEqual(AUTOMATE.combinedEventsOf(scheduled, runs, null, ["MANUAL_EXECUTION"]).map((v) => v.event.id), ["aex_1"]);
+  assert.deepEqual(AUTOMATE.combinedEventsOf(scheduled, runs, null, ["TRIGGERED"]).map((v) => v.event.id), ["aex_2"], "an unstamped run of a scheduled automation is neither");
+  assert.deepEqual(AUTOMATE.combinedEventsOf(scheduled, runs, null, ["EFFECT_FAILED", "EVALUATION_FAILED"]).map((v) => v.event.id), ["aex_2"]);
+  assert.deepEqual(AUTOMATE.combinedEventsOf(scheduled, runs, null, ["CONDITION_EDITED", "PAUSED"]), [], "no edit history is recorded yet");
+  // an automation with no schedule and no webhook can only have been run by hand
+  assert.deepEqual(AUTOMATE.combinedEventsOf(a, runs, null, ["MANUAL_EXECUTION"]).map((v) => v.event.id), ["aex_1", "aex_0"]);
 });
 
 test("telemetry counts an automation's runs, errors and runtime in each bucket", () => {

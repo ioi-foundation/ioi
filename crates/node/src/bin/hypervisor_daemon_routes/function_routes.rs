@@ -1358,8 +1358,35 @@ pub(crate) fn prepare_step_run(
     let (fn_id, ordinal) = revision_coordinates(revision_ref).ok_or_else(|| {
         "a function step names its revision as function://fn_…/revision/<n>".to_string()
     })?;
-    let identity = super::substrate_store::resolve_request_identity(&st.data_dir, headers)
-        .map_err(|error| error.message())?;
+    // A person's run carries a session. The daemon's own dispatch (a scheduled tick, an accepted webhook)
+    // carries the per-boot internal token and the executor it runs as — honoured ONLY under that token,
+    // as the environment routes do. Without it every scheduled or webhook run of a function step failed
+    // with "an authenticated session or API token is required" (R-241).
+    let identity = match super::substrate_store::resolve_request_identity(&st.data_dir, headers) {
+        Ok(identity) => identity,
+        Err(original) if super::orchestration_routes::internal_dispatch_authorized(st, headers) => {
+            let header = |name: &str| {
+                headers
+                    .get(name)
+                    .and_then(|value| value.to_str().ok())
+                    .filter(|value| !value.is_empty())
+            };
+            let (Some(principal_ref), Some(owner_ref)) = (
+                header("x-ioi-internal-principal-ref"),
+                header("x-ioi-internal-owner-ref"),
+            ) else {
+                return Err(original.message());
+            };
+            super::substrate_store::resolve_workload_broker_identity(
+                &st.data_dir,
+                principal_ref,
+                owner_ref,
+                "internal-function-step-dispatch",
+            )
+            .map_err(|error| error.message())?
+        }
+        Err(original) => return Err(original.message()),
+    };
     let revision = load_record(&st.data_dir, KIND_REVISION, &record_id(&fn_id, ordinal))
         .filter(|r| {
             r["owner_ref"]

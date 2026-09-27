@@ -9238,6 +9238,11 @@ async function handleEstateRequest(req, res, body) {
         }
         if (AUTOMATE.REFUSED_OPERATIONS.has(name)) return AUTOMATE.refusedAnswer(name);
         if (AUTOMATE.PRINCIPAL_OPERATIONS.has(name) && query) return { data: answerAdoptedDocument(query, AUTOMATE.principalFactsRoot(variables || {}), null, name) };
+        if (AUTOMATE.OVERVIEW_EVENT_OPERATIONS.has(name) && query) {
+          const automations = ctxA.automations || [];
+          const runsById = new Map(await Promise.all(automations.map(async (x) => [x.automation_id, await daemonFetch(`/v1/hypervisor/automations/${encodeURIComponent(x.automation_id)}/runs`).then((r) => r.json()).then((j) => j.runs || []).catch(() => [])])));
+          return { data: answerAdoptedDocument(query, AUTOMATE.overviewEventsFactsRoot(automations, runsById), null, name) };
+        }
         if (AUTOMATE.REQUEST_LOG_OPERATIONS.has(name) && query) {
           const a = (ctxA.automations || []).find((x) => AUTOMATE.monitorRidOf(x.automation_id) === variables?.producingRid);
           if (!a) return { data: null, errors: [{ message: `${name}: not one of your automations` }] };

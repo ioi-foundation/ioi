@@ -248,6 +248,20 @@ async function run() {
       && fnExec.status === "done" && fnStep.kind === "function" && fnStep.output?.outcome === "passed" && fnStep.output?.output === 40
       && fnStep.output?.tool_revision_ref === `tool://function/${fnId}/revision/1`,
     `${said(fnAuto)} · pin ${fnAutoRecord.steps?.[0]?.content_hash === r1r.content_hash} · run ${fnRan.status ?? fnRan.error} · ${fnExec.status || "no execution"} ${fnStep.output?.outcome || fnStep.output?.error || ""} output ${JSON.stringify(fnStep.output?.output)}`);
+  // The daemon's OWN dispatch runs the same step: an accepted webhook fire (as a scheduled tick would)
+  // carries the internal token and the executor, not a session. It failed with "an authenticated session
+  // or API token is required" until the function step honoured the dispatch identity (R-241).
+  const rotated = fnAutoId ? await fetch(`${DAEMON}/v1/hypervisor/automations/${fnAutoId}/webhook-rotate`, { method: "POST", headers: { cookie: COOKIE } }).then((r) => r.json()).catch(() => ({})) : {};
+  const fire = rotated.webhook_token ? await fetch(`${DAEMON}/v1/hypervisor/automations/${fnAutoId}/webhook`, { method: "POST", headers: { "content-type": "application/json", "X-IOI-Trigger-Token": rotated.webhook_token }, body: "{}" }).then((r) => r.status).catch(() => 0) : 0;
+  let fired = null;
+  for (let attempt = 0; attempt < 40 && !fired; attempt++) {
+    await sleep(1000);
+    fired = ((await daemonRead(`/v1/hypervisor/automations/${fnAutoId}/runs`)).body?.runs ?? []).find((r) => r.activation_kind === "webhook" && r.status !== "running") || null;
+  }
+  const firedStep = fired?.step_results?.[0] || {};
+  ok("the daemon's own dispatch runs a function step: an accepted webhook fire of the same automation is done, its step Passed with output 40",
+    fire === 202 && fired?.status === "done" && firedStep.output?.outcome === "passed" && firedStep.output?.output === 40,
+    `fire ${fire} · ${fired ? `${fired.status} ${firedStep.output?.outcome || firedStep.output?.error || ""}` : "no webhook execution"}`);
 
   // ---- 7. successors carry a greater version ------------------------------------------------------------
   const sameVersion = await submit(`${FUNCTIONS}?function=${fnId}`, "/__ioi/ontology/functions/revise", { version: "1.0.0", source: NOISY });

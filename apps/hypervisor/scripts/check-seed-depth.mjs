@@ -33,7 +33,10 @@ const PHASE_ORDER = ["automate", "pipeline-builder", "sessions", "ontology-manag
 
 // Pinned populations. Re-pin with the reason beside the number, in the commit that moves it.
 const PINS = {
-  // 2026-09-27 (R-241): 31 → 34 — the header driven: File → Rename is bound (UpdateResourceName, and the
+  // 2026-09-27 (R-241): 34 → 37 — the Overview's sections: Recently triggered is bound (automatic runs,
+  // with the condition that fired them); Failures in last 4 weeks is fed by the same events but unproven
+  // (open); Recently viewed always reads empty because no view history is kept (open). Open 4 → 6.
+  // Before that, 2026-09-27 (R-241): 31 → 34 — the header driven: File → Rename is bound (UpdateResourceName, and the
   // Location row names the project). Found on the way: Favorite is refused but silent (open), Move / Share /
   // Trash are disabled with no Hypervisor counterpart (named gap), Open automation… is undriven (open).
   // Open 3 → 4 (rename left, favorite and open-automation joined).
@@ -50,7 +53,7 @@ const PINS = {
   // Action, Logic and Notification effects), 2 named gaps (Unknown Agent; Unknown effect for command and
   // proposal steps), 4 open (header rename unproven; the side tabs undriven; settings accepted but not
   // enforced; the editor's Time label for a manual automation).
-  automate: { total: 34, bound: 17, refused: 10, named_gap: 3, open: 4 },
+  automate: { total: 37, bound: 18, refused: 10, named_gap: 3, open: 6 },
   "pipeline-builder": { total: 0, bound: 0, refused: 0, named_gap: 0, open: 0 },
   sessions: { total: 0, bound: 0, refused: 0, named_gap: 0, open: 0 },
   "ontology-manager": { total: 0, bound: 0, refused: 0, named_gap: 0, open: 0 },

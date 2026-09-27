@@ -209,8 +209,8 @@ export function mergeStream(mirrorText, answers) {
 // own shape where none does (marketplace templates, walkthroughs, announcements, the reference's own
 // sidebar — our shell owns the rail); a GraphQL error naming the gap for an operation not yet mapped.
 export const OPERATIONS = new Set([
-  "SearchMonitorsQuery", "AutomationOverviewEventsQuery", "SplashTableQuery", "GetCompassResource",
-  "AutomationTriggeredEventPillQuery", "AutomationNamespaceFilterComponentQuery", "GetObjectTypeInSetForNotSavedSet",
+  "SearchMonitorsQuery", "SplashTableQuery", "GetCompassResource",
+  "AutomationNamespaceFilterComponentQuery", "GetObjectTypeInSetForNotSavedSet",
   "RecentInstallationsPopoverQuery", "GetRemoteStoreRid", "SelectWalkthroughsForAppQuery",
   "BrowseTemplatesViewQuery", "LatestAnnouncementQuery", "UpdateAipAssistWalkthroughMetric",
 ]);
@@ -257,7 +257,6 @@ export function graphqlAnswer(name, variables, ctx) {
   const fullName = me.name || me.email || me.ref || "Hypervisor user";
   switch (name) {
     case "SearchMonitorsQuery": return searchMonitorsData(autos);
-    case "AutomationOverviewEventsQuery": return Q({ objectSetMonitorEvents: { nextPageToken: null, values: [], __typename: "ObjectSetMonitorEventsPage" } });
     case "SplashTableQuery": return Q({ recents: [], favorites: [] });
     case "GetCompassResource": {
       const rid = variables?.rid || variables?.resourceRid || "";
@@ -267,10 +266,6 @@ export function graphqlAnswer(name, variables, ctx) {
       const project = a ? null : (ctx.projects || []).find((p) => folderRidOf(p.project_id) === rid);
       if (project) return Q({ resourceMetadata: projectFolderNode(project) });
       return Q({ resourceMetadata: a ? { rid, collections: [], status: null, trashedStatus: "NOT_TRASHED", type: { iconName: "lightning", __typename: "ResourceType" }, alias: a.name || a.automation_id, name: a.name || a.automation_id, openUrl: `/workspace/object-monitoring/automation/${rid}/main/view/overview`, permissions: { canOpenLink: true, __typename: "ResourcePermissions" }, _id: cacheId(`meta:${rid}`), __typename: "ResourceMetadata" } : null });
-    }
-    case "AutomationTriggeredEventPillQuery": {
-      const rid = variables?.monitorRid || variables?.rid || "";
-      return Q({ objectSetMonitor: { rid, defaultBranchV2: { event: null, _id: cacheId(`branch:${rid}`), __typename: "ObjectSetMonitorBranch" }, _id: cacheId(rid), __typename: "ObjectSetMonitor" } });
     }
     case "AutomationNamespaceFilterComponentQuery": return Q({ namespaces: { nextPageToken: null, values: [], __typename: "NamespacesPage" } });
     case "GetObjectTypeInSetForNotSavedSet": return Q({ objectSet: { objectTypes: [], __typename: "ObjectSet" } });
@@ -385,8 +380,18 @@ export const FACT_OPERATIONS = new Set([
   "EventsTableQuery", "ManualExecutionEventsQuery", "ExecutableEffectsPublishedEffectsQuery", "EventDetailsV2Query",
   // Telemetry's run history names the resource that produced each run
   "ObservabilityResourceQuery",
+  // the Overview's event rows name the condition that fired (one event by id)
+  "AutomationTriggeredEventPillQuery",
 ]);
 export const requestedMonitorRid = (variables) => (JSON.stringify(variables || {}).match(/ri\.object-sentinel\.main\.monitor\.[0-9a-f-]{36}/) || [])[0] || null;
+
+function conditionOf(a) {
+  const spec = a.schedule_spec || {};
+  const cron = logicOf(a).schedule?.cronExpression || "";
+  return cron
+    ? { __typename: "ObjectSetMonitorSchedule", __implements: ["ObjectSetMonitorLogicV3", "ObjectSetMonitorCondition"], cronExpression: cron, additionalCronExpressions: [], timeZone: spec.timezone || spec.tz || "UTC" }
+    : { __typename: "HypervisorManualTrigger", __implements: ["ObjectSetMonitorLogicV3", "ObjectSetMonitorCondition"] };
+}
 
 export function factsRoot(a, runs, principal, functionInfo = null, projects = [], eventFilters = null, eventId = null) {
   const rid = monitorRidOf(a.automation_id);
@@ -426,11 +431,8 @@ export function factsRoot(a, runs, principal, functionInfo = null, projects = []
   // crash the overview's cron describer ("Expression is empty"); a typename the app does not know is
   // what its condition visitors answer with "Unknown condition" — true, where "Running on schedule"
   // was not.
-  const cron = logicOf(a).schedule?.cronExpression || "";
   const effects = mergedEffectsOf(a, functionInfo);
-  const condition = cron
-    ? { __typename: "ObjectSetMonitorSchedule", __implements: ["ObjectSetMonitorLogicV3", "ObjectSetMonitorCondition"], cronExpression: cron, additionalCronExpressions: [], timeZone: spec.timezone || spec.tz || "UTC" }
-    : { __typename: "HypervisorManualTrigger", __implements: ["ObjectSetMonitorLogicV3", "ObjectSetMonitorCondition"] };
+  const condition = conditionOf(a);
   // The reference's trigger reasons are object edits, dataset changes and stream records; a Hypervisor run
   // is none of them, so the reason is null and the page shows no "Triggered by" row rather than Unknown.
   const event = (r) => r ? { __typename: "ObjectSetMonitorHistoryEvent_MonitorTriggered", __implements: ["ObjectSetMonitorHistoryEvent"], _id: cacheId(`event:${r.execution_id}`), id: r.execution_id, triggerTime: iso(r.started_at), triggerReason: null, triggeredEffectsV2: [] } : null;
@@ -462,16 +464,19 @@ export function answerFactOperation(name, query, variables, ctx, runsFor, templa
   // The events a request asks for: the Execute tab's history is manual runs only (a literal in its
   // query); the History tab passes its filters as a variable.
   const filters = name === "ManualExecutionEventsQuery" ? ["MANUAL_EXECUTION"] : (Array.isArray(variables?.filters) ? variables.filters : null);
-  return answerDocument(query, factsRoot(a, runsFor(a.automation_id), ctx.principal, ctx.functionInfo, ctx.projects, filters, variables?.monitorEventId || null), template, name);
+  return answerDocument(query, factsRoot(a, runsFor(a.automation_id), ctx.principal, ctx.functionInfo, ctx.projects, filters, variables?.monitorEventId || variables?.eventId || null), template, name);
 }
 
 // ---- EVENTS: an automation's runs as the reference's history events, newest first. A person's Run now
 // (`activation_kind: manual`) is a Manual execution; a scheduled or webhook run is an automatic trigger; a
 // run recorded before executions named their activation is shown under All only, as a generic run.
 const EFFECT_TYPE = { function: "FUNCTION", agent: "AGENT" };
+// How a run was activated: the execution says so; a run recorded before executions named it is manual
+// when its automation has no schedule and no webhook (nothing else could have started it), else unknown.
+const activationOf = (a, run) => run.activation_kind || (!(a.schedule_spec && Object.keys(a.schedule_spec).length) && !a.webhook_token_hash ? "manual" : null);
 const MANUAL_STATUS = { running: "Queued", stopped: "Cancelled" };
 function combinedHistoryEventOf(a, run, condition) {
-  const kind = run.activation_kind || null;
+  const kind = activationOf(a, run);
   const rid = monitorRidOf(a.automation_id);
   const base = {
     __implements: ["ObjectSetMonitorHistoryEvent"], _id: cacheId(`event:${run.execution_id}`), id: run.execution_id, scenarioRid: null, triggerTime: iso(run.started_at), isScoped: false,
@@ -494,7 +499,7 @@ function combinedHistoryEventOf(a, run, condition) {
 export function combinedEventsOf(a, runs, condition, filters = null) {
   const wants = (run) => {
     if (!filters || !filters.length) return true;
-    const kind = run.activation_kind || null;
+    const kind = activationOf(a, run);
     return (filters.includes("MANUAL_EXECUTION") && kind === "manual")
       || (filters.includes("TRIGGERED") && (kind === "schedule" || kind === "webhook"))
       || ((filters.includes("EFFECT_FAILED") || filters.includes("EVALUATION_FAILED")) && run.status === "failed");
@@ -540,6 +545,23 @@ export function telemetryFactsRoot(runs, variables, name) {
     });
   }
   return { __typename: "Query", objectSetMonitorAggregateTelemetry: { __typename: "ObjectSetMonitorAggregateTelemetry", bucketedTelemetry: buckets } };
+}
+
+// Overview's "Recently triggered": the latest runs across the caller's automations, newest first, as the
+// same events History shows (a manual run is labelled as one).
+export const OVERVIEW_EVENT_OPERATIONS = new Set(["AutomationOverviewEventsQuery"]);
+export function overviewEventsFactsRoot(automations, runsById, limit = 50) {
+  const values = [];
+  for (const a of automations || []) {
+    const rid = monitorRidOf(a.automation_id);
+    for (const run of runsById.get(a.automation_id) || []) {
+      const event = combinedHistoryEventOf(a, run, conditionOf(a));
+      event.monitorBranch = { ...event.monitorBranch, globalBranch: null, monitor: { ...event.monitorBranch.monitor, metadata: { __typename: "ResourceMetadata", _id: cacheId(`meta:${rid}`), trashedStatus: "NOT_TRASHED" } } };
+      values.push(event);
+    }
+  }
+  values.sort((x, y) => String(y.triggerTime).localeCompare(String(x.triggerTime)));
+  return { __typename: "Query", objectSetMonitorEvents: { __typename: "ObjectSetMonitorEventsPage", nextPageToken: null, values: values.slice(0, limit) } };
 }
 
 // Telemetry's Run history: one request log per execution of the automation (newest first) — who ran it,
