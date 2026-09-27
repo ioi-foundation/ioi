@@ -685,3 +685,99 @@ export function deployRefusalOf(p, sandboxId) {
 }
 export const checkDeployableAnswer = (p, sandboxId) => ({ type: "notDeployable", notDeployable: { errors: [deployRefusalOf(p, sandboxId)], supportedStateOverrides: { supportedStateStrategyOverrides: [] } } });
 export const deployAnswer = (p, sandboxId, versionId) => ({ versionId, result: { type: "failed", failed: { errors: [deployRefusalOf(p, sandboxId)] } } });
+
+// ---- THE EDITOR'S WRITES (cut 2d, R-241 / ADR 0056 P4): the caller may edit their own pipelines. A Save is a draft
+// on the branch's change set; Main is protected (only a merged change set moves it), so the app's own protected-branch
+// Save opens a change set from Main's head first. Proposing validates and proposes the change set under the name the
+// dialog gave; merging admits its latest draft as the family's next revision; denying rejects it with the reason. What
+// a draft cannot hold is refused by name, never dropped: a recipe keeps no transform graph yet (ADR 0057, proposed),
+// and an output with no declared contract has nothing to bind.
+export const EDIT_OPERATION = "eddie:edit-pipeline";
+const ADMISSION_FIELDS = ["name", "ontology_revision_refs", "input_source_types", "connector_mapping_revision_refs", "output_object_model_refs", "output_dataset_contract_refs", "transformation_steps", "policy_bound_data_view_refs", "receipt_obligations", "effective_policy_hash", "registry_status"];
+// A revision or draft body projected back to what a draft may carry (admission-owned fields are the merge's).
+export function admissionProjection(body) {
+  const out = {};
+  for (const k of ADMISSION_FIELDS) if (body && body[k] !== undefined) out[k] = body[k];
+  return out;
+}
+const refusal = (status, errorName, message) => ({ refused: { status, errorName, message } });
+// createSandbox (POST …/sandboxes/create-v3): a branch is a change set opened on the family's head, drafted as that head.
+export function createSandboxPlan(p, req) {
+  const name = String(req?.name || "").trim();
+  if (!name || name.length > 200) return refusal(400, "PipelineBuilder:InvalidSandboxName", "a branch has a name of at most 200 characters");
+  const main = mainSandboxIdOf(p.familyRef);
+  if (req?.fromSandbox && req.fromSandbox !== main) return refusal(400, "Eddie:BranchFromBranchNotSupported", "a branch is a change set opened on its family's head: branch from Main");
+  const headVersion = revisionVersionIdOf(p.familyRef, p.head?.revision_ref);
+  if (req?.fromVersion && req.fromVersion !== headVersion) return refusal(400, "Eddie:BranchFromOlderVersionNotSupported", "a change set is opened on the family's head revision, never an older one: open it on Main's latest version");
+  const draft = p.head ? { ...admissionProjection(p.head), succession_reason: "correction" } : { name: p.name };
+  return { family: familyToken(p.familyRef), title: name, draft };
+}
+const kept = (list) => (Array.isArray(list) ? list : []).filter(Boolean);
+const isEmptyish = (v) => v == null || (Array.isArray(v) && v.length === 0) || (typeof v === "object" && !Array.isArray(v) && Object.values(v).every(isEmptyish));
+// pushSnapshotToSandbox (POST …/sandboxes/{id}/push): the Save. The draft body starts from the branch's latest draft and
+// takes the snapshot's outputs; everything the editor cannot express (ontologies, mappings, steps, policy) is carried.
+export function pushPlan(p, sandboxId, req) {
+  if (sandboxId === mainSandboxIdOf(p.familyRef)) return refusal(409, "PipelineBuilder:SandboxIsProtected", "Main moves only when a change set merges: save to a branch");
+  const cs = p.changeSets.find((x) => changeSetSandboxIdOf(x.change_set_ref) === sandboxId);
+  if (!cs) return refusal(404, "Eddie:SandboxNotFound", "no branch of yours is this sandbox");
+  if (!OPEN.has(cs.status)) return refusal(409, "PipelineBuilder:SandboxIsArchived", `this branch's change set is ${cs.status}; open a new branch from Main`);
+  const drafts = [...(cs.drafts || [])].sort((a, b) => a.ordinal - b.ordinal);
+  const latest = drafts.at(-1) || null;
+  if (req?.currentVersionId !== draftVersionIdOf(cs.change_set_ref, latest?.ordinal || 0)) return refusal(409, "PipelineBuilder:SandboxEditConflict", "this branch has a newer version than the one you edited");
+  if (req?.backend && req.backend !== "Spark") return refusal(400, "Eddie:BackendNotSupported", "a recipe runs as a TransformationRun on the Hypervisor's own runtime (the standard batch backend)");
+  const snap = req?.snapshot || {};
+  if (kept(snap.transforms).length || kept(snap.groups).length || kept(snap.groupedExpressions).length) return refusal(400, "Eddie:TransformsNotKept", "a DataRecipe revision keeps no transform graph yet (ADR 0057, proposed): only its outputs can be saved; remove the transforms to save");
+  if (!isEmptyish(req?.unitTests) || !isEmptyish(req?.evalSuites) || kept(req?.packaging?.inputDatasets).length) return refusal(400, "Eddie:NotKeptByARecipe", "a recipe keeps no unit tests, evaluation suites or packaging");
+  const base = latest?.body || p.revisions.find((r) => r.revision_ref === cs.subject?.base_revision_ref) || { name: p.name };
+  const objects = new Map(kept(base.output_object_model_refs).map((ref) => [`ri.ontology.main.object-type.${uuidOf(ref)}`, ref]));
+  const datasets = new Map(kept(base.output_dataset_contract_refs).map((ref) => [`ri.foundry.main.dataset.${uuidOf(ref)}`, ref]));
+  const keepObjects = [], keepDatasets = [];
+  for (const t of kept(snap.targets)) {
+    const target = t.target || {};
+    const ref = target.type === "object" ? objects.get(target.object?.rid) : target.type === "dataset" ? datasets.get(target.dataset?.datasetRid) : undefined;
+    if (!ref) return refusal(400, "Eddie:OutputHasNoContract", "a new output names no declared dataset contract or object model: a recipe's outputs bind declared contracts, and minting one from a name would point at nothing");
+    (target.type === "object" ? keepObjects : keepDatasets).push(ref);
+  }
+  const body = admissionProjection(base);
+  // an output list the base never declared stays undeclared while it is empty
+  if (keepObjects.length || base.output_object_model_refs !== undefined) body.output_object_model_refs = keepObjects;
+  if (keepDatasets.length || base.output_dataset_contract_refs !== undefined) body.output_dataset_contract_refs = keepDatasets;
+  if (cs.subject?.base_revision_ref) {
+    const same = (a, b) => JSON.stringify([...kept(a)].sort()) === JSON.stringify([...kept(b)].sort());
+    body.succession_reason = !same(base.output_dataset_contract_refs, keepDatasets) ? "output_contract_change" : !same(base.output_object_model_refs, keepObjects) ? "object_model_change" : (base.succession_reason || "correction");
+  }
+  const unchanged = latest && JSON.stringify(admissionProjection(latest.body)) === JSON.stringify(admissionProjection(body)) && (latest.body?.succession_reason || null) === (body.succession_reason || null);
+  return unchanged ? { unchanged: true, versionId: draftVersionIdOf(cs.change_set_ref, latest.ordinal), changeSet: cs } : { draft: body, changeSet: cs };
+}
+// createProposal (POST …/proposals/create): a branch proposed into Main, under the dialog's name and description.
+export function proposalCreatePlan(p, req) {
+  const d = req?.proposalDetails || {};
+  if (d.targetSandbox !== mainSandboxIdOf(p.familyRef)) return refusal(400, "Eddie:ProposalTargetNotMain", "a change set merges only into its family's head: propose into Main");
+  const cs = p.changeSets.find((x) => changeSetSandboxIdOf(x.change_set_ref) === d.sourceSandbox);
+  if (!cs) return refusal(400, "Eddie:ProposalSourceNotABranch", "propose a branch (a change set), never Main itself");
+  if (cs.status !== "open") return refusal(409, "Eddie:ProposalAlreadyOpen", cs.status === "proposed" ? "this branch is already proposed" : `this branch's change set is ${cs.status}`);
+  const title = String(d.name || "").trim() || cs.title;
+  if (title.length > 200) return refusal(400, "Eddie:ProposalNameTooLong", "a proposal's name is at most 200 characters");
+  if (String(d.description || "").length > 4000) return refusal(400, "Eddie:ProposalDescriptionTooLong", "a proposal's description is at most 4000 characters");
+  return { changeSet: cs, title, description: String(d.description || "") };
+}
+// The autosave lane: an UNSAVED buffer of the editor (never recipe content), kept per caller, pipeline and branch in
+// the serve's memory until it restarts. A version token guards a stale tab, as the reference's own conflict does.
+export class WorkStateStore {
+  constructor({ maxEntries = 200, maxBytes = 2 * 1024 * 1024 } = {}) { this.entries = new Map(); this.maxEntries = maxEntries; this.maxBytes = maxBytes; }
+  key(principal, rid, sandboxId) { return `${principal}\u0000${rid}\u0000${sandboxId}`; }
+  get(principal, rid, sandboxId) { return this.entries.get(this.key(principal, rid, sandboxId)) || null; }
+  set(principal, rid, sandboxId, request, now = new Date()) {
+    const k = this.key(principal, rid, sandboxId);
+    const prior = this.entries.get(k);
+    if (prior && request?.previousStateVersion !== prior.stateVersion) return { conflict: true };
+    const bytes = Buffer.byteLength(JSON.stringify(request?.workState ?? null));
+    if (bytes > this.maxBytes) return { tooLarge: true };
+    const entry = { workState: request?.workState ?? null, stateVersion: crypto.randomUUID(), savedAt: now.toISOString() };
+    this.entries.delete(k);
+    this.entries.set(k, entry);
+    while (this.entries.size > this.maxEntries) this.entries.delete(this.entries.keys().next().value);
+    return { entry };
+  }
+  clear(principal, rid, sandboxId) { this.entries.delete(this.key(principal, rid, sandboxId)); }
+}

@@ -357,7 +357,15 @@ journey verifier → deploy to the owner's stack.
   the reason under Details (the builder admits no TransformationRun yet and nothing executes a queued one; a
   change set's drafts are not admitted revisions); a direct deploy fails the same way and admits nothing.
   Deploying is gated on the edit operation the editor withholds until its writes are bound.
-  `check:adopted-pipeline` 26/26. **Next:** the editor's no-graph writes; graph edits wait on ADR 0057 (proposed).
+  `check:adopted-pipeline` 26/26.
+- **Cut 2d, the writes (2026-09-27).** The caller edits their own pipelines; Main stays protected. A branch is a
+  change set on Main's head (the builder's own Create new branch dialog); a Save is the change set's next draft
+  (the snapshot's outputs, everything else carried); proposing validates and proposes under the dialog's name and
+  description (the daemon's propose takes them, `518fdab9e`); merging admits the latest draft; denying rejects it
+  with the reason; archiving abandons it. Refused by name: transforms (ADR 0057), an output with no contract, a Save
+  on Main, approvals, closing, rebasing. The autosave buffer lives in the serve's memory per caller. The missing
+  checkpoint chunk had silently dropped Merge (fed to the mirror). `check:adopted-pipeline` 31/31.
+  **Next:** the proposal page's checks from the change set's validation; then Sessions (the Arm A findings).
 
 ### Arm A — the adopted apps are clicked (2026-09-27)
 

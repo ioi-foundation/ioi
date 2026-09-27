@@ -175,7 +175,7 @@ async function run() {
     ok("the landing search narrows the list to the matching pipeline", /claims-triage/u.test(searched) && !/intake-normalise/u.test(searched),
       searched.slice(searched.indexOf("LAST DEPLOYED"), searched.indexOf("LAST DEPLOYED") + 160));
 
-    // ---- the editor, opened from the row: read-only over the family's head -----------------------------
+    // ---- the editor, opened from the row: editable, over the family's head (Main is protected) -------------
     await pg.getByPlaceholder("Search pipelines").fill("");
     await pg.waitForTimeout(2500);
     await pg.getByText("intake-normalise", { exact: true }).first().click();
@@ -185,13 +185,13 @@ async function run() {
     const editorUrl = pg.url().replace(SERVE, "");
     // the object output's name is an input's value (the pane renders it editable-looking, disabled here)
     const editor = (await pg.evaluate(() => `${document.body.innerText} ${[...document.querySelectorAll("input")].map((i) => i.value).join(" ")}`)).replace(/\s+/gu, " ");
-    ok("a pipeline opens in the adopted editor READ-ONLY on its Main sandbox, listing the recipe's declared outputs and never deployed",
+    ok("a pipeline opens in the adopted editor on its Main sandbox, editable and PROTECTED (a change there is saved to a new branch: only a merged change set moves Main), listing the recipe's declared outputs and never deployed",
       /^\/workspace\/builder\/ri\.eddie\.main\.pipeline\.[0-9a-f-]{36}\/sandbox\/[0-9a-f-]{36}$/u.test(editorUrl) && !/An error (?:has )?occurred|Pipeline not found/u.test(editor)
-        && /intake-normalise/u.test(editor) && /\bMain\b/u.test(editor) && /read-only mode/u.test(editor)
+        && /intake-normalise/u.test(editor) && /\bMain\b/u.test(editor) && /This branch is protected\. Changes will be saved to a new branch\./u.test(editor) && !/read-only mode/u.test(editor)
         && /acme-clinic\/patient-intake-row\/v2/u.test(editor) && /om_patient_intake/u.test(editor) && /Pipeline not yet deployed/u.test(editor),
-      `${editorUrl} · ${JSON.stringify({ error: /An error (?:has )?occurred|Pipeline not found/u.test(editor), main: /\bMain\b/u.test(editor), readOnly: /read-only mode/u.test(editor), dataset: /acme-clinic\/patient-intake-row\/v2/u.test(editor), object: /om_patient_intake/u.test(editor), notDeployed: /Pipeline not yet deployed/u.test(editor) })}`);
-    ok("the editor's graph says it holds no transforms, rather than drawing any: a recipe's steps are not derived into the reference's transforms yet",
-      /This pipeline has not been initialized/u.test(editor), editor.includes("has not been initialized") ? "not initialized" : "graph text absent");
+      `${editorUrl} · ${JSON.stringify({ error: /An error (?:has )?occurred|Pipeline not found/u.test(editor), main: /\bMain\b/u.test(editor), protected: /This branch is protected/u.test(editor), readOnly: /read-only mode/u.test(editor), dataset: /acme-clinic\/patient-intake-row\/v2/u.test(editor), object: /om_patient_intake/u.test(editor), notDeployed: /Pipeline not yet deployed/u.test(editor) })}`);
+    ok("the editor's graph holds no transforms (a recipe keeps no transform graph yet, ADR 0057) and offers to add data, rather than drawing any",
+      /Welcome to Pipeline Builder/u.test(editor) && /2 outputs defined/u.test(editor), /Welcome to Pipeline Builder/u.test(editor) ? "add-data welcome card" : "graph text absent");
 
     // ---- Proposals: a proposed change set is an open proposal; its page opens over the change set ------------
     await pg.getByText("Proposals", { exact: true }).first().click({ timeout: 5000 }).catch(() => { /* named below */ });
@@ -398,13 +398,13 @@ async function run() {
     Array.isArray(users.body) && users.body.length === 1 && users.body[0].id === operatorId && users.body[0].username === "pipeline@ioi.local" && !users.passthrough && !!operatorRef,
     `${JSON.stringify((users.body || []).map((u) => [u.id, u.username]))}`);
 
-  // The editor's permission and marking reads: nothing of the recorded tenant's, and no edit operation yet.
+  // The editor's permission and marking reads: the caller edits their own pipelines; nothing of the recorded tenant's.
   const ops = await serveJson("POST", "/multipass/api/authz/batch/operations?operations=eddie%3Aedit-pipeline", [intake?.rid, foreign]);
   const access = await serveJson("POST", "/multipass/api/authz/markings/access/principals", { markingTypes: ["MANDATORY"], principalIds: [operatorId] });
   const usable = await serveJson("GET", "/multipass/api/authz/markings/usable?markingTypes=MANDATORY");
   const opsMap = ops.body?.resourceToOperationsMap || {};
-  ok("the editor is granted no operation on the caller's pipeline (it opens read-only), names no other resource, and no principal holds a marking",
-    JSON.stringify(Object.keys(opsMap)) === JSON.stringify([intake?.rid]) && opsMap[intake?.rid]?.length === 0
+  ok("the caller may edit their own pipeline (eddie:edit-pipeline, and nothing more: no branch-protection, approval or unmarking setting is theirs to change), no other resource is named, and no principal holds a marking",
+    JSON.stringify(Object.keys(opsMap)) === JSON.stringify([intake?.rid]) && JSON.stringify(opsMap[intake?.rid]) === JSON.stringify(["eddie:edit-pipeline"])
       && JSON.stringify(Object.keys(access.body?.categoryAndMarkingIds || {})) === JSON.stringify([operatorId]) && access.body.categoryAndMarkingIds[operatorId].markingIds.length === 0
       && Array.isArray(usable.body?.categories) && usable.body.categories.length === 0 && !ops.passthrough && !access.passthrough && !usable.passthrough,
     `ops ${JSON.stringify(opsMap)} · access ${JSON.stringify(Object.keys(access.body?.categoryAndMarkingIds || {}))} · usable ${usable.body?.categories?.length}`);
@@ -425,14 +425,120 @@ async function run() {
       && streaming.status === 400 && /streaming/u.test(streaming.message) && duplicate.status === 400 && /already exists/u.test(duplicate.message) && anonymous.status === 401 && after === before,
     `project ${inProject.status} · faster ${faster.status} · streaming ${streaming.status} · duplicate ${duplicate.status} · anonymous ${anonymous.status} · change sets ${before} → ${after}`);
 
+  // ---- 4. the editor's WRITES (cut 2d): a branch, a Save, a proposal and its merge, through the adopted pages ----
+  // (after every read above: a merge moves the family's head, which those reads pin at revision 1)
+  const writer = await chromium.launch();
+  try {
+    const ctx = await writer.newContext({ viewport: { width: 1600, height: 1000 } });
+    await ctx.addCookies([{ name: "ioi_session", value: COOKIE.split("=")[1], url: SERVE }]);
+    const pg = await ctx.newPage();
+    const posted = [];
+    pg.on("request", (r) => { if (r.method() === "POST" && /\/eddie\/api\/pipelines-v2\/[^/]+\/(?:sandboxes\/create-v3|proposals\/create|proposals\/[0-9a-f-]{36}\/merge)/u.test(r.url())) posted.push(new URL(r.url()).pathname.replace(/.*\/pipelines-v2\/[^/]+\//u, "").replace(/[0-9a-f]{8}-[0-9a-f-]{27}/gu, "<id>")); });
+    await pg.goto(`${SERVE}/workspace/builder/${intake?.rid}/sandbox/${intake?.publishedSandboxes?.[0]}`, { waitUntil: "domcontentloaded", timeout: 60000 });
+    await pg.waitForTimeout(12000);
+    await pg.getByText("Close", { exact: true }).first().click({ timeout: 1500 }).catch(() => { /* no announcement */ });
+    // a branch: the branch picker's "Create new branch" → a Pipeline Builder branch (a change set on Main's head)
+    await pg.getByRole("button", { name: "Main", exact: true }).first().click({ timeout: 5000 }).catch(() => { /* named below */ });
+    await pg.waitForTimeout(1200);
+    await pg.getByText("Create new branch", { exact: true }).first().click({ timeout: 4000 }).catch(() => { /* named below */ });
+    await pg.waitForTimeout(1200);
+    await pg.getByText("Pipeline Builder branch", { exact: true }).first().click({ timeout: 4000 }).catch(() => { /* named below */ });
+    await pg.waitForTimeout(800);
+    await pg.getByRole("button", { name: "Create", exact: true }).last().click({ timeout: 4000 }).catch(() => { /* named below */ });
+    await pg.waitForTimeout(8000);
+    const onBranch = (await pg.evaluate(() => document.body.innerText)).replace(/\s+/gu, " ");
+    // propose it: the header's propose control → the create page → Create proposal
+    // the propose control is an icon: known by its own tooltip ("Propose to merge changes on this branch…")
+    for (const icon of await pg.locator("a[role=button], button").all()) {
+      const box = await icon.boundingBox().catch(() => null);
+      if (!box || box.y > 50 || (await icon.innerText().catch(() => "x")).trim()) continue;
+      await icon.hover({ timeout: 1500 }).catch(() => {});
+      await pg.waitForTimeout(600);
+      const tip = await pg.evaluate(() => [...document.querySelectorAll('.bp6-tooltip,.bp5-tooltip,[role="tooltip"]')].map((e) => e.innerText).join(" "));
+      if (/Propose to merge/u.test(tip)) { await icon.click({ timeout: 3000 }).catch(() => {}); break; }
+    }
+    await pg.waitForTimeout(8000);
+    const createPage = (await pg.evaluate(() => document.body.innerText)).replace(/\s+/gu, " ");
+    await pg.getByRole("button", { name: /Create proposal/u }).first().click({ timeout: 5000 }).catch(() => { /* named below */ });
+    await pg.waitForTimeout(10000);
+    const proposalPage = (await pg.evaluate(() => document.body.innerText)).replace(/\s+/gu, " ");
+    ok("a branch is created from the adopted editor (a change set opened on Main's head), and proposing it opens a proposal into Main through the builder's own create page",
+      /New branch/u.test(onBranch) && /Merging New branch into Main/u.test(createPage) && /Merging New branch into Main Open/u.test(proposalPage) && posted.includes("sandboxes/create-v3") && posted.includes("proposals/create"),
+      `branch ${/New branch/u.test(onBranch)} · create page ${/Merging New branch into Main/u.test(createPage)} · proposal open ${/Merging New branch into Main Open/u.test(proposalPage)} · posted ${posted.join(",")}`);
+    // merge it (without the deploy after merge, which is refused by name): the family's head moves to revision 2
+    const deployAfter = pg.locator('label:has-text("Deploy branch") input[type="checkbox"]').first();
+    if (await deployAfter.isChecked().catch(() => false)) await pg.locator('label:has-text("Deploy branch")').first().click().catch(() => {});
+    await pg.getByRole("button", { name: "Merge proposal", exact: true }).first().click({ timeout: 5000 }).catch(() => { /* named below */ });
+    await pg.waitForTimeout(10000);
+    const mergedPage = (await pg.evaluate(() => document.body.innerText)).replace(/\s+/gu, " ");
+    const revs = ((await daemonReq("GET", "/v1/hypervisor/data-recipe-revisions?family=acme.intake-normalise")).body?.revisions || []);
+    ok("merging the proposal on its page admits the branch's latest draft as the family's next revision (the builder's checkpoint gate finds no checkpoint configuration and proceeds)",
+      /Merged proposal into Main/u.test(mergedPage) && posted.some((x) => /proposals\/<id>\/merge/u.test(x)) && revs.length === 2 && revs[1].succession?.predecessor_revision_ref === revs[0].revision_ref,
+      `page merged ${/Merged proposal into Main/u.test(mergedPage)} · posted ${posted.join(",")} · revisions ${revs.map((r) => `${r.revision_ref.split("/").pop()}:${r.succession?.succession_reason}`).join(",")}`);
+  } finally {
+    await writer.close();
+  }
+  // The writes over the wire: a Save is a draft (or refused by name), a branch is archived by abandoning its change set,
+  // a proposal is denied with its reason and never approved (no approval plane), and the autosave buffer is the caller's.
+  {
+    const rid = intake?.rid;
+    const mainSid = intake?.publishedSandboxes?.[0];
+    const headVersion = (await serveJson("GET", `/eddie/api/pipelines-v2/${rid}/all-information?sandboxId=${mainSid}`)).body?.version?.id;
+    const branch = (await serveJson("POST", `/eddie/api/pipelines-v2/${rid}/sandboxes/create-v3`, { name: "Retire the dataset output", fromVersion: headVersion, fromSandbox: mainSid, inheritFallbackBranches: true })).body?.sandbox;
+    const snap = (await serveJson("POST", "/eddie/api/pipelines-v2/get-sandboxes-with-snapshots", { requests: [{ pipelineRid: rid, sandboxId: branch?.id }] })).body?.sandboxes?.[0]?.snapshot || {};
+    const objectOnly = { ...snap, targets: (snap.targets || []).filter((t) => t.target?.type === "object") };
+    const push = (sid, body) => serveJson("POST", `/eddie/api/pipelines-v2/${rid}/sandboxes/${sid}/push`, { display: {}, message: "Saved version from Pipeline Builder", ...body });
+    const stale = await push(branch?.id, { snapshot: objectOnly, currentVersionId: headVersion });
+    const withTransform = await push(branch?.id, { snapshot: { ...objectOnly, transforms: [{ id: "t" }] }, currentVersionId: branch?.version });
+    const newOutput = await push(branch?.id, { snapshot: { ...objectOnly, targets: [...objectOnly.targets, { id: "n", target: { type: "dataset", dataset: { columns: [] } } }] }, currentVersionId: branch?.version });
+    const onMain = await push(mainSid, { snapshot: objectOnly, currentVersionId: headVersion });
+    const saved = await push(branch?.id, { snapshot: objectOnly, currentVersionId: branch?.version, backend: "Spark" });
+    const savedVersion = saved.body?.newVersionId ? await serveJson("GET", `/eddie/api/pipelines-v2/${rid}/versions/${saved.body.newVersionId}/lightweight`) : { body: null };
+    const draftBody = ((await daemonReq("GET", "/v1/hypervisor/change-sets?family=acme.intake-normalise")).body?.change_sets || []).find((c) => c.title === "Retire the dataset output")?.drafts?.at(-1)?.body;
+    ok("a Save on a branch is the change set's next draft carrying the snapshot's outputs (the dataset output dropped, everything the editor cannot express carried); a stale version, a transform, an output with no declared contract and a Save on Main are refused by name",
+      stale.status === 409 && stale.body?.errorName === "PipelineBuilder:SandboxEditConflict" && withTransform.status === 400 && withTransform.body?.errorName === "Eddie:TransformsNotKept"
+        && newOutput.status === 400 && newOutput.body?.errorName === "Eddie:OutputHasNoContract" && onMain.status === 409 && onMain.body?.errorName === "PipelineBuilder:SandboxIsProtected"
+        && saved.status === 200 && savedVersion.body?.details?.message === "Draft 2" && Array.isArray(draftBody?.output_dataset_contract_refs) && draftBody.output_dataset_contract_refs.length === 0
+        && (draftBody?.output_object_model_refs || []).length === 1 && draftBody?.succession_reason === "output_contract_change" && (draftBody?.transformation_steps || []).length > 0,
+      `stale ${stale.status} · transform ${withTransform.body?.errorName} · new output ${newOutput.body?.errorName} · main ${onMain.body?.errorName} · saved ${saved.status} ${savedVersion.body?.details?.message} · draft ${JSON.stringify({ ds: draftBody?.output_dataset_contract_refs, om: draftBody?.output_object_model_refs, why: draftBody?.succession_reason })}`);
+    const proposed = (await serveJson("POST", `/eddie/api/pipelines-v2/${rid}/proposals/create`, { proposalDetails: { name: "Retire the dataset output into Main", description: "the row contract is retired", sourceSandbox: branch?.id, targetSandbox: mainSid } })).body?.proposal;
+    const review = (decision, reason) => serveJson("POST", `/eddie/api/pipelines-v2/${rid}/proposals/${proposed?.id}/review-v2`, { checkId: null, decision: { type: decision, [decision]: {} }, reviewedSandboxVersion: null, reason, reviewCommentReferences: [] });
+    const approve = await review("approve", "");
+    const closeP = await serveJson("POST", `/eddie/api/pipelines-v2/${rid}/proposals/${proposed?.id}/close`, { oldVersion: proposed?.version });
+    const deny = await review("deny", "the row contract is still read downstream");
+    const rejected = ((await daemonReq("GET", "/v1/hypervisor/change-sets?family=acme.intake-normalise")).body?.change_sets || []).find((c) => c.title === "Retire the dataset output into Main");
+    ok("a proposal carries the name and description its dialog gave; it is denied with the reviewer's reason and never approved (there is no approval plane), and closing it is refused by name (a proposal is withdrawn by archiving its branch)",
+      proposed?.details?.name === "Retire the dataset output into Main" && proposed?.details?.description === "the row contract is retired"
+        && approve.status === 400 && approve.body?.errorName === "Eddie:ApprovalsNotKept" && closeP.status === 400 && closeP.body?.errorName === "Eddie:ProposalCloseIsArchive"
+        && deny.status === 200 && rejected?.status === "rejected" && rejected?.decision_note === "the row contract is still read downstream",
+      `proposal ${proposed?.details?.name} / ${proposed?.details?.description} · approve ${approve.body?.errorName} · close ${closeP.body?.errorName} · deny ${deny.status} → ${rejected?.status} "${rejected?.decision_note}"`);
+    const scratch = (await serveJson("POST", `/eddie/api/pipelines-v2/${rid}/sandboxes/create-v3`, { name: "Scratch", fromVersion: headVersion, fromSandbox: mainSid })).body?.sandbox;
+    const rebase = await serveJson("POST", `/eddie/api/pipelines-v2/${rid}/sandboxes/${scratch?.id}/rebase-v2`, {});
+    const archived = await serveJson("POST", `/eddie/api/pipelines-v2/${rid}/sandboxes/archive`, { sandboxesToArchive: [scratch?.id] });
+    const branches = ((await serveJson("GET", `/eddie/api/pipelines-v2/${rid}/sandboxes/get/all`)).body?.sandboxes || []).map((x) => x.name);
+    const wsPath = `/eddie/api/work-state/${rid}/${mainSid}`;
+    const ws0 = await fetch(`${SERVE}${wsPath}/v2`, { headers: { cookie: COOKIE } }).then((r) => r.status);
+    const ws1 = await serveJson("POST", wsPath, { workState: { sandboxVersion: headVersion, logic: {}, display: {} } });
+    const ws2 = await serveJson("GET", `${wsPath}/v2`);
+    const wsStale = await serveJson("POST", wsPath, { previousStateVersion: "not-the-current-one", workState: {} });
+    const wsGone = await fetch(`${SERVE}${wsPath}`, { method: "DELETE", headers: { cookie: COOKIE } }).then((r) => r.status);
+    ok("a branch is archived by abandoning its change set (rebasing a pinned change set is refused by name), and the autosave buffer keeps the caller's unsaved state with a version a stale tab conflicts on",
+      rebase.status === 400 && rebase.body?.errorName === "Eddie:ChangeSetsArePinned" && archived.status === 200 && !branches.includes("Scratch")
+        && ws0 === 204 && ws1.status === 200 && ws2.body?.stateVersion === ws1.body?.stateVersion && wsStale.status === 409 && wsStale.body?.errorName === "PipelineBuilder:WorkStateVersionConflict" && wsGone === 204,
+      `rebase ${rebase.body?.errorName} · archive ${archived.status} · branches ${JSON.stringify(branches)} · autosave ${ws0}/${ws1.status}/${ws2.status}/${wsStale.status}/${wsGone}`);
+  }
+
   // Signed out, neither the picker nor the lookup names anything (the daemon answers some reads to an
   // anonymous loopback caller; these answers are the signed-in caller's to see).
   const anon = async (route, body) => fetch(`${SERVE}${route}`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(body) }).then((r) => r.json()).catch(() => null);
   const anonPicker = await anon("/foundry-search/api/compass/v0/search", { query: { includeResources: ["FILE"], filter: { isProjectPreview: true, type: "isProjectPreview" }, text: "" }, limit: 50, offset: 0 });
   const anonUsers = await anon("/multipass/api/users", [operatorId]);
-  ok("signed out, the project picker and the user lookup answer nothing",
-    Array.isArray(anonPicker?.result) && anonPicker.result.length === 0 && Array.isArray(anonUsers) && anonUsers.length === 0,
-    `picker ${anonPicker?.result?.length ?? "?"} · users ${Array.isArray(anonUsers) ? anonUsers.length : "?"}`);
+  const anonOps = await anon("/multipass/api/authz/batch/operations", [intake?.rid]);
+  const anonPush = await fetch(`${SERVE}/eddie/api/pipelines-v2/${intake?.rid}/sandboxes/create-v3`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ name: "x" }) }).then((r) => r.status).catch(() => 0);
+  ok("signed out, the project picker and the user lookup answer nothing, no pipeline is editable, and a branch is refused",
+    Array.isArray(anonPicker?.result) && anonPicker.result.length === 0 && Array.isArray(anonUsers) && anonUsers.length === 0
+      && Object.values(anonOps?.resourceToOperationsMap || {}).every((ops) => ops.length === 0) && anonPush === 401,
+    `picker ${anonPicker?.result?.length ?? "?"} · users ${Array.isArray(anonUsers) ? anonUsers.length : "?"} · ops ${JSON.stringify(anonOps?.resourceToOperationsMap)} · branch ${anonPush}`);
 
   // Degraded: with the daemon stopped, the landing's search and a pipeline's details answer an ERROR the app
   // shows ("Unable to load pipelines") — never an empty list that reads as "you have no pipelines".

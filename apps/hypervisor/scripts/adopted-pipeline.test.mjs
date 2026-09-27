@@ -228,3 +228,46 @@ test("Deploy is refused by name and admits nothing: Main names its head revision
   assert.equal(PIPELINE.deployAnswer(intake, main, "v").versionId, "v", "the version sent is echoed, so the app loads no other");
   assert.equal(PIPELINE.knowsSandbox(intake, "00000000-0000-4000-8000-000000000000"), false);
 });
+
+test("the editor's writes: a branch is a change set on Main's head; a Save is a draft of its outputs, refusing by name what a draft cannot hold", () => {
+  const fullHead = { ...families[0].revisions[1], output_object_model_refs: ["object-model://om_a"], output_dataset_contract_refs: ["schema://acme/row/v1"], transformation_steps: ["extract", "map"], effective_policy_hash: "sha256:x", registry_status: "active" };
+  const fams = [{ family_ref: "data-recipe://acme.intake", revisions: [families[0].revisions[0], fullHead] }];
+  const branchCs = cs("eeeeeeeeeeeeeeee", "acme.intake", "open", fullHead.revision_ref, { drafts: [{ ordinal: 1, body: { ...PIPELINE.admissionProjection(fullHead), succession_reason: "correction", family: "acme.intake" }, author_principal_ref: OP, drafted_at: "2026-09-27T12:00:00Z" }] });
+  const p = PIPELINE.pipelinesOf(fams, [branchCs]).find((x) => x.familyRef === "data-recipe://acme.intake");
+  const main = PIPELINE.mainSandboxIdOf(p.familyRef);
+  // createSandbox
+  const plan = PIPELINE.createSandboxPlan(p, { name: "Retire", fromSandbox: main, fromVersion: PIPELINE.uuidOf(fullHead.revision_ref) });
+  assert.deepEqual([plan.family, plan.title, plan.draft.succession_reason, plan.draft.output_dataset_contract_refs], ["acme.intake", "Retire", "correction", ["schema://acme/row/v1"]]);
+  assert.equal(plan.draft.revision_ref, undefined, "admission-owned fields are the merge's");
+  assert.equal(PIPELINE.createSandboxPlan(p, { name: "x", fromSandbox: main, fromVersion: PIPELINE.uuidOf(families[0].revisions[0].revision_ref) }).refused.errorName, "Eddie:BranchFromOlderVersionNotSupported");
+  // push
+  const sid = PIPELINE.changeSetSandboxIdOf(branchCs.change_set_ref);
+  const v1 = PIPELINE.draftVersionIdOf(branchCs.change_set_ref, 1);
+  const targets = PIPELINE.targetsOf(fullHead);
+  const objectOnly = { transforms: [], targets: targets.filter((t) => t.target.type === "object") };
+  const saved = PIPELINE.pushPlan(p, sid, { snapshot: objectOnly, currentVersionId: v1 });
+  assert.deepEqual([saved.draft.output_dataset_contract_refs, saved.draft.output_object_model_refs, saved.draft.succession_reason, saved.draft.transformation_steps], [[], ["object-model://om_a"], "output_contract_change", ["extract", "map"]]);
+  assert.equal(PIPELINE.pushPlan(p, sid, { snapshot: { transforms: [], targets }, currentVersionId: v1 }).unchanged, true, "nothing a draft keeps changed");
+  assert.equal(PIPELINE.pushPlan(p, sid, { snapshot: objectOnly, currentVersionId: "stale" }).refused.errorName, "PipelineBuilder:SandboxEditConflict");
+  assert.equal(PIPELINE.pushPlan(p, sid, { snapshot: { ...objectOnly, transforms: [{ id: "t" }] }, currentVersionId: v1 }).refused.errorName, "Eddie:TransformsNotKept");
+  assert.equal(PIPELINE.pushPlan(p, sid, { snapshot: { transforms: [], targets: [{ target: { type: "dataset", dataset: {} } }] }, currentVersionId: v1 }).refused.errorName, "Eddie:OutputHasNoContract");
+  assert.equal(PIPELINE.pushPlan(p, main, { snapshot: objectOnly }).refused.errorName, "PipelineBuilder:SandboxIsProtected");
+  // propose
+  const prop = PIPELINE.proposalCreatePlan(p, { proposalDetails: { name: "Retire into Main", description: "d", sourceSandbox: sid, targetSandbox: main } });
+  assert.deepEqual([prop.title, prop.description], ["Retire into Main", "d"]);
+  assert.equal(PIPELINE.proposalCreatePlan(p, { proposalDetails: { sourceSandbox: main, targetSandbox: main } }).refused.errorName, "Eddie:ProposalSourceNotABranch");
+});
+
+test("the autosave buffer is the caller's, per branch, with a version a stale tab conflicts on", () => {
+  const store = new PIPELINE.WorkStateStore({ maxEntries: 2 });
+  const a = store.set("user://a", "rid", "s1", { workState: { logic: 1 } });
+  assert.ok(a.entry.stateVersion);
+  assert.equal(store.set("user://a", "rid", "s1", { previousStateVersion: "old", workState: {} }).conflict, true);
+  assert.ok(store.set("user://a", "rid", "s1", { previousStateVersion: a.entry.stateVersion, workState: { logic: 2 } }).entry);
+  assert.equal(store.get("user://b", "rid", "s1"), null, "another caller never sees it");
+  store.set("user://a", "rid", "s2", { workState: {} });
+  store.set("user://a", "rid", "s3", { workState: {} });
+  assert.equal(store.get("user://a", "rid", "s1"), null, "bounded: the oldest buffer goes first");
+  store.clear("user://a", "rid", "s3");
+  assert.equal(store.get("user://a", "rid", "s3"), null);
+});

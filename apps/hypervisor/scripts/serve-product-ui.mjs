@@ -9213,6 +9213,12 @@ async function handleEstateRequest(req, res, body) {
     // same-origin through this proxy so seeds boot under the estate; their upstream is the
     // harvest capture, never fabricated data.
     const MIRROR_API_PREFIXES = ["/eddie/", "/object-sentinel/", "/people/", "/comments/", "/function-registry/", "/multipass/", "/graphql-gateway/", "/compass/", "/documentation/", "/aip-assist/", "/monocle/", "/approvals/", "/workspace/api/", "/log-receiver/", "/interventions/", "/ontology-metadata/", "/magritte-coordinator/", "/issues/", "/foundry-search/", "/marketplace/", "/object-set-service/", "/phonograph2/", "/language-model-service/", "/foundry-ml/", "/artifacts/", "/foundry-catalog/", "/models/", "/build2/", "/foundry-stemma/", "/third-party-applications/", "/developer-console/"];
+    // An adopted app's merge and deploy pass its checkpoint gate: no checkpoint configuration is kept, which the app
+    // reads as none (never the recorded tenant's checkpoint configs, and never this serve's HTML page as an answer).
+    if (pathname === "/checkpoints/configuration/getConfigsV5" && req.method === "POST") {
+      res.writeHead(404, { "Content-Type": "application/json" });
+      return res.end(JSON.stringify({ errorCode: "NOT_FOUND", errorName: "Checkpoints:NotKept", errorInstanceId: "", parameters: { message: "no checkpoint configuration is kept; nothing gates this action" } }));
+    }
     const adoptedAlias = ADOPTED_ROUTE_ALIASES.find(([prefix]) => pathname === prefix || pathname.startsWith(`${prefix}/`));
     if (adoptedAlias || pathname.startsWith("/__apps/") || pathname.startsWith("/assets/content-addressable-storage/") || MIRROR_API_PREFIXES.some((pref) => pathname.startsWith(pref))) {
       // A daemon read an adopted app depends on: a plane that does not answer — stopped, or refusing — is an
@@ -9264,6 +9270,9 @@ async function handleEstateRequest(req, res, body) {
       // revisions) and change sets, as pipelines (adopted-pipeline.mjs).
       // A plane that does not answer is an ERROR the app shows ("Unable to load pipelines"), never an empty
       // list that reads as "you have no pipelines".
+      // The adopted editor's autosave buffer (an unsaved editor state, never recipe content), per caller, pipeline and
+      // branch, in this serve's memory until it restarts.
+      const pipelineWorkState = globalThis.__ioiPipelineWorkState || (globalThis.__ioiPipelineWorkState = new PIPELINE.WorkStateStore());
       // A family's TransformationRuns are its deployments (History): the run plane lists the families the caller
       // sees runs for, and only those are read (a family with no run has no run scope to read).
       const pipelineContext = async () => {
@@ -10067,7 +10076,6 @@ async function handleEstateRequest(req, res, body) {
           return send(200, { markings: Object.fromEntries(ids.map((id) => [id, none])), inputsForTargets: Object.fromEntries(ids.map((id) => [id, { connectedOnBuilderGraph: [], inputsInheritedFromJobGrouping: [] }])) });
         }
         if ((m = at(`/eddie/api/pipeline-backend-feature-flags/(${PR})`)) && req.method === "GET") return (await holds(m[1])) ? send(200, []) : notFound();
-        if ((m = at(`/eddie/api/work-state/(${PR})/[0-9a-f-]{36}/v2`)) && req.method === "GET") { if (!(await holds(m[1]))) return notFound(); res.writeHead(204); return res.end(); }
         if ((m = at(`/eddie/api/pipelines-v2/(${PR})/sandboxes/[0-9a-f-]{36}/session-heartbeats`)) && req.method === "GET") return (await holds(m[1])) ? send(200, { heartbeats: {} }) : notFound();
         // The editor's presence ping (every ~20 s, unawaited: a refusal surfaced as an unhandled rejection on every open
         // editor). No editing presence is kept, so it is received and nothing is recorded; the read above answers none.
@@ -10081,6 +10089,125 @@ async function handleEstateRequest(req, res, body) {
           let asked = {};
           try { asked = JSON.parse(body.toString() || "{}"); } catch { /* none */ }
           return send(200, PIPELINE.deployAnswer(p, m[2], typeof asked.currentVersionId === "string" ? asked.currentVersionId : null));
+        }
+        // THE EDITOR'S WRITES (cut 2d): a Save is a draft on the branch's change set; a branch is a change set opened on
+        // Main's head; proposing validates and proposes it under the dialog's name; merging admits its latest draft;
+        // denying rejects it with the reason. What a draft cannot hold, and what the planes do not do, is refused by name.
+        {
+          const editRoute = at(`/eddie/api/pipelines-v2/(${PR})/(sandboxes/create-v3|sandboxes/archive|sandboxes/[0-9a-f-]{36}/(?:push|rebase-v2|rebase|fast-forward|hard-reset|unarchive|fallback-branches)|proposals/create|proposals/[0-9a-f-]{36}(?:/(?:merge|merge-v2|close|reopen|review|review-v2|review-v3|reset-to-prior-version))?)`);
+          if (editRoute && req.method === "POST") {
+            const [, rid, rest] = editRoute;
+            const conjure = (status, errorName, message) => send(status, { errorCode: status === 409 ? "CONFLICT" : status === 404 ? "NOT_FOUND" : status === 401 ? "PERMISSION_DENIED" : "INVALID_ARGUMENT", errorName, errorInstanceId: "", parameters: { message } });
+            const who = await planeRead("/v1/hypervisor/auth/whoami");
+            if (who.authenticated !== true) return conjure(401, "Eddie:SignInRequired", "sign in to edit a pipeline");
+            const owner = (who.principal?.tenant_refs || []).find((t) => String(t).startsWith("org://"));
+            const p = await holds(rid);
+            if (!p) return notFound();
+            let asked = {};
+            try { asked = JSON.parse(body.toString() || "{}"); } catch { return conjure(400, "Eddie:InvalidRequest", "the request is not JSON"); }
+            const csWrite = (route, payload) => daemonFetch(route, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ owner_ref: owner, idempotency_key: `pipeline-${crypto.randomUUID()}`, ...payload }) })
+              .then(async (r) => ({ status: r.status, j: await r.json().catch(() => ({})) })).catch(() => ({ status: 502, j: {} }));
+            const csPath = (cs, verb) => `/v1/hypervisor/change-sets/${encodeURIComponent(String(cs.change_set_ref).replace(/^change:\/\//u, ""))}${verb ? `/${verb}` : ""}`;
+            // the plane's own refusal, by its code
+            const planeRefused = (w, fallback) => conjure(w.status >= 400 && w.status < 500 ? w.status : 502, `Hypervisor:${w.j?.error?.code || w.j?.code || "ChangeSetRefused"}`, w.j?.error?.message || w.j?.message || fallback);
+            const refused = (r) => conjure(r.status, r.errorName, r.message);
+            if (rest === "sandboxes/create-v3") {
+              const plan = PIPELINE.createSandboxPlan(p, asked);
+              if (plan.refused) return refused(plan.refused);
+              const opened = await csWrite("/v1/hypervisor/change-sets", { subject: { kind: "data_recipe", family: plan.family }, title: plan.title, draft: plan.draft });
+              if (opened.status !== 201 || !opened.j.change_set) return planeRefused(opened, "the change-set plane did not open the branch");
+              const got = PIPELINE.sandboxesWithSnapshots([{ pipelineRid: p.rid, sandboxId: PIPELINE.changeSetSandboxIdOf(opened.j.change_set.change_set_ref) }], await pipelineContext(), PIPELINE.uuidOf).sandboxes[0];
+              return got ? send(200, { sandbox: got.sandbox }) : conjure(500, "Eddie:BranchNotReadBack", "the branch was opened but could not be read back");
+            }
+            const push = /^sandboxes\/([0-9a-f-]{36})\/push$/u.exec(rest);
+            if (push) {
+              const plan = PIPELINE.pushPlan(p, push[1], asked);
+              if (plan.refused) return refused(plan.refused);
+              // nothing a draft keeps changed (a layout move is presentation): the branch stays at its version
+              if (plan.unchanged) return send(200, { newVersionId: plan.versionId, newOntologyVersion: null });
+              const drafted = await csWrite(csPath(plan.changeSet, "drafts"), { draft: plan.draft });
+              if (drafted.status !== 201 || !drafted.j.change_set) return planeRefused(drafted, "the change-set plane did not record the draft");
+              return send(200, { newVersionId: PIPELINE.draftVersionIdOf(plan.changeSet.change_set_ref, (drafted.j.change_set.drafts || []).at(-1)?.ordinal), newOntologyVersion: null });
+            }
+            if (rest === "sandboxes/archive") {
+              const ids = Array.isArray(asked.sandboxesToArchive) ? asked.sandboxesToArchive : [];
+              if (ids.includes(PIPELINE.mainSandboxIdOf(p.familyRef))) return conjure(400, "Eddie:MainIsNotArchived", "Main is the family's head; only a branch is archived");
+              for (const id of ids) {
+                const cs = p.changeSets.find((x) => PIPELINE.changeSetSandboxIdOf(x.change_set_ref) === id);
+                if (!cs) return notFound();
+                if (!["open", "proposed"].includes(cs.status)) continue; // already closed: no longer a branch
+                const done = await csWrite(csPath(cs, "abandon"), { note: "archived from the Pipeline Builder" });
+                if (done.status !== 200) return planeRefused(done, "the change-set plane did not abandon the branch");
+              }
+              return send(200, {});
+            }
+            if (rest === "proposals/create") {
+              const plan = PIPELINE.proposalCreatePlan(p, asked);
+              if (plan.refused) return refused(plan.refused);
+              // the proposal page shows the change set's recorded validation; propose does not require it to pass
+              const checked = await csWrite(csPath(plan.changeSet, "validate"), {});
+              if (checked.status !== 200) return planeRefused(checked, "the change-set plane did not validate the branch");
+              const proposed = await csWrite(csPath(plan.changeSet, "propose"), { title: plan.title, description: plan.description });
+              if (proposed.status !== 200 || !proposed.j.change_set) return planeRefused(proposed, "the change-set plane did not propose the branch");
+              const hit = PIPELINE.findProposal(await pipelineContext(), { pipelineRid: p.rid, proposalId: PIPELINE.proposalIdOf(plan.changeSet.change_set_ref) });
+              return hit ? send(200, { proposal: PIPELINE.proposalOf(hit.p, hit.cs, PIPELINE.uuidOf) }) : conjure(500, "Eddie:ProposalNotReadBack", "the branch was proposed but could not be read back");
+            }
+            const onProposal = /^proposals\/([0-9a-f-]{36})(?:\/(.+))?$/u.exec(rest);
+            if (onProposal) {
+              const hit = PIPELINE.findProposal([p], { pipelineRid: p.rid, proposalId: onProposal[1] });
+              if (!hit) return notFound();
+              const verb = onProposal[2] || "update";
+              if (verb === "merge" || verb === "merge-v2") {
+                if (hit.cs.status !== "proposed") return conjure(409, "Eddie:ProposalNotOpen", `this proposal is ${PIPELINE.proposalOf(hit.p, hit.cs, PIPELINE.uuidOf)?.status?.type || hit.cs.status}`);
+                if (asked.oldVersion && asked.oldVersion !== hit.cs.admitted_head) return conjure(409, "Eddie:ProposalChanged", "this proposal changed since it was opened: reload it");
+                const checked = await csWrite(csPath(hit.cs, "validate"), {});
+                if (checked.status !== 200) return planeRefused(checked, "the change-set plane did not validate the proposal");
+                const v = checked.j.change_set?.validation;
+                if (v?.outcome !== "valid") return conjure(409, "Hypervisor:change_set_unvalidated", `the latest draft does not admit: ${(v?.findings || []).map((f) => f.message || f.code).join("; ") || "no finding was recorded"}`);
+                const merged = await csWrite(csPath(hit.cs, "merge"), {});
+                if (merged.status !== 200) return planeRefused(merged, "the change-set plane did not merge the proposal");
+                return send(200, {});
+              }
+              if (verb === "review-v2" || verb === "review" || verb === "review-v3") {
+                if (asked.decision?.type !== "deny") return conjure(400, "Eddie:ApprovalsNotKept", "no reviewer approvals are kept (there is no approval plane): a proposal merges when its latest draft validates");
+                if (hit.cs.status !== "proposed") return conjure(409, "Eddie:ProposalNotOpen", "only an open proposal is denied");
+                const note = typeof asked.reason === "string" ? asked.reason : String(asked.reason?.message ?? asked.reason?.text ?? "");
+                const done = await csWrite(csPath(hit.cs, "reject"), { note });
+                if (done.status !== 200) return planeRefused(done, "the change-set plane did not reject the proposal");
+                return send(200, {});
+              }
+              if (verb === "close") return conjure(400, "Eddie:ProposalCloseIsArchive", "a proposal is withdrawn by archiving its branch (its change set is abandoned); a withdrawn proposal is not kept apart from its branch");
+              if (verb === "update") return conjure(400, "Eddie:ProposalDetailsSetWhenProposed", "a proposal's name and description are set when it is proposed; they are not edited afterwards");
+              if (verb === "reopen") return conjure(400, "Eddie:ProposalsAreTerminal", "a merged, rejected or abandoned change set is final: open a new branch from Main");
+              if (verb === "reset-to-prior-version") return conjure(400, "Eddie:RevertNotBound", "reverting a merged proposal is a new branch from Main whose draft restores the prior revision; the builder does not open it yet");
+            }
+            if (/\/(?:rebase-v2|rebase|fast-forward)$/u.test(rest)) return conjure(400, "Eddie:ChangeSetsArePinned", "a change set is pinned to the head it was opened on; when Main has moved, open a new branch from Main");
+            if (/\/hard-reset$/u.test(rest)) return conjure(400, "Eddie:ResetNotBound", "resetting a branch to another version is not bound yet: save the version you want as the branch's next draft");
+            if (/\/unarchive$/u.test(rest)) return conjure(400, "Eddie:ProposalsAreTerminal", "an abandoned change set is final: open a new branch from Main");
+            if (/\/fallback-branches$/u.test(rest)) return conjure(400, "Eddie:NoFallbackBranches", "a change set reads its family's head; no fallback branches are kept");
+          }
+        }
+        // THE AUTOSAVE LANE: the editor's unsaved state, per caller, in this serve's memory (never recipe content).
+        {
+          const ws = at(`/eddie/api/work-state/(${PR})/([0-9a-f-]{36})(/v2)?`);
+          if (ws && ["GET", "POST", "DELETE"].includes(req.method) && !(req.method === "GET" && !ws[3]) && !(req.method !== "GET" && ws[3])) {
+            if (!(await holds(ws[1]))) return notFound();
+            const who = await planeRead("/v1/hypervisor/auth/whoami");
+            const principal = who.authenticated === true ? who.principal?.principal_ref : null;
+            if (req.method === "GET") {
+              const e = principal ? pipelineWorkState.get(principal, ws[1], ws[2]) : null;
+              if (!e) { res.writeHead(204); return res.end(); }
+              return send(200, { workState: e.workState, stateVersion: e.stateVersion, savedAt: e.savedAt });
+            }
+            if (!principal) return send(401, { errorCode: "PERMISSION_DENIED", errorName: "Eddie:SignInRequired", errorInstanceId: "", parameters: { message: "sign in to edit a pipeline" } });
+            if (req.method === "DELETE") { pipelineWorkState.clear(principal, ws[1], ws[2]); res.writeHead(204); return res.end(); }
+            let asked = {};
+            try { asked = JSON.parse(body.toString() || "{}"); } catch { /* none */ }
+            const out = pipelineWorkState.set(principal, ws[1], ws[2], asked);
+            if (out.conflict) return send(409, { errorCode: "CONFLICT", errorName: "PipelineBuilder:WorkStateVersionConflict", errorInstanceId: "", parameters: { message: "another tab autosaved this branch since" } });
+            if (out.tooLarge) return send(413, { errorCode: "INVALID_ARGUMENT", errorName: "Eddie:WorkStateTooLarge", errorInstanceId: "", parameters: { message: "the unsaved state is too large to keep" } });
+            return send(200, { stateVersion: out.entry.stateVersion });
+          }
         }
         // PROPOSALS (read): proposed change sets are open proposals, merged ones merged, rejected/abandoned closed.
         if ((m = at(`/eddie/api/pipelines-v2/(${PR})/proposals/by-created-at`)) && req.method === "POST") {
@@ -10175,13 +10302,18 @@ async function handleEstateRequest(req, res, body) {
         if (pathname === "/eddie/api/pipelines-v2/resolve-job-groupings" && req.method === "POST") return send(200, { jobGroupings: [] });
         if (pathname === "/eddie/api/instantiated-transforms/check-testable-compacted" && req.method === "POST") return send(200, { compactedTypes: {}, result: [] });
         if (pathname === "/eddie/api/instantiated-transforms/check-buildable-compacted" && req.method === "POST") return send(200, { compactedTypes: {}, result: { type: "success", success: { transforms: {}, targets: {}, globalWarnings: [] } } });
-        // The caller's operations on each requested pipeline of theirs: none yet (the editor opens read-only).
+        // The caller's operations on each requested pipeline of theirs: a signed-in caller may edit their own pipelines
+        // (a Save is a draft on a change set; Main moves only by a merge). Branch protection, approval policy and
+        // unmarking settings are not the caller's to change: none of those planes exists.
         if (pathname === "/multipass/api/authz/batch/operations" && req.method === "POST") {
           let rids = [];
           try { rids = JSON.parse(body.toString() || "[]"); } catch { /* none */ }
           const ours = await pipelineContext();
-          return send(200, { resourceToOperationsMap: Object.fromEntries((Array.isArray(rids) ? rids : []).filter((r) => ours.some((x) => x.rid === r)).map((r) => [r, []])) });
+          const who = await planeRead("/v1/hypervisor/auth/whoami");
+          const ops = who.authenticated === true ? [PIPELINE.EDIT_OPERATION] : [];
+          return send(200, { resourceToOperationsMap: Object.fromEntries((Array.isArray(rids) ? rids : []).filter((r) => ours.some((x) => x.rid === r)).map((r) => [r, ops])) });
         }
+
         // The Hypervisor keeps no mandatory markings: none is usable, and no principal holds any — never the
         // recorded tenant's marking catalog, nor its user's markings answered for ours.
         if (pathname === "/multipass/api/authz/markings/usable" && req.method === "GET") return send(200, { categories: [] });
