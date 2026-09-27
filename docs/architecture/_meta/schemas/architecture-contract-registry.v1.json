@@ -13625,6 +13625,54 @@
       ]
     },
     {
+      "contract_id": "schema://ioi/foundations/objects/change-set/v1",
+      "canonical_name": "ChangeSet",
+      "canonical_owner_ref": "canon://docs/architecture/foundations/objects/bounded-improvement.md#changesetenvelope",
+      "schema_version": "ioi.change-set.v1",
+      "maturity": "partial",
+      "stability": "provisional",
+      "wire_format": "json",
+      "canonical_encoding_profile_ref": null,
+      "evolution": {
+        "successor_of": null,
+        "successor_contract_id": null,
+        "compatibility": "initial",
+        "migration_policy": "none",
+        "predecessor_remains_valid": false,
+        "wire_mutation_policy": "forbidden",
+        "hash_impact": "none"
+      },
+      "schema_ref": "change-set.v1.schema.json",
+      "cross_field_invariant_refs": [],
+      "compatibility_aliases": [],
+      "generated_targets": [
+        {
+          "kind": "typescript_projection",
+          "path": "packages/hypervisor-workbench/src/runtime/generated/architecture-contracts.ts",
+          "symbol": "ChangeSetV1"
+        },
+        {
+          "kind": "rust_projection",
+          "path": "crates/types/src/app/generated/architecture_contracts.rs",
+          "symbol": "ChangeSetV1"
+        }
+      ],
+      "positive_fixture_refs": [
+        "fixtures/change-set-v1/positive-open-founding-draft.json",
+        "fixtures/change-set-v1/positive-merged.json"
+      ],
+      "negative_fixture_refs": [
+        {
+          "path": "fixtures/change-set-v1/negative-unknown-field.json",
+          "expected_failure": "schema"
+        },
+        {
+          "path": "fixtures/change-set-v1/negative-unknown-status.json",
+          "expected_failure": "schema"
+        }
+      ]
+    },
+    {
       "contract_id": "schema://ioi/foundations/objects/function-test-run/v1",
       "canonical_name": "FunctionTestRun",
       "canonical_owner_ref": "canon://docs/architecture/foundations/objects/semantic-plane.md#functiontestrun",

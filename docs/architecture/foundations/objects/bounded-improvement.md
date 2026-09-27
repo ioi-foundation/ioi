@@ -606,3 +606,61 @@ written), `previous_cutoff_receipt_root`, `receipt_root` (every member except
 itself, `content_hash` and `admitted_at`, under
 `ioi.improvement-order-cutoff-receipt-root-jcs-sha256.v1`), `content_hash` and
 `admitted_at`.
+
+## Change Sets
+
+### ChangeSetEnvelope
+
+A change set is canon's patch branch for a Hypervisor object family: an
+isolated draft space over one family's head, merged only by that family's own
+admission (ADR 0056 Amendment 1, plane 4; agentgres/api-object-model.md
+§Patch lifecycle). Nobody mutates a family's head directly — a person drafts,
+validates, proposes and merges.
+
+```yaml
+ChangeSetEnvelope:
+  schema_version: ioi.change-set.v1
+  change_set_ref: change://cs_<16hex>
+  owner_ref: org://...
+  author_principal_ref: user://...          # resolved, never client-set
+  subject:
+    kind: data_recipe                        # closed set; grows one subject at a time
+    family_ref: data-recipe://<family>
+    base_revision_ref: data-recipe://<family>/revision/<n> | null   # null founds the family
+    base_head_ref: string | null            # the head the merge will assert
+  title: string
+  description: string
+  drafts:                                    # append-only
+    - ordinal: 1..
+      body: {}                               # the subject's admission request, verbatim
+      body_hash: hash
+      author_principal_ref: user://...
+      drafted_at: timestamp
+  status: open | proposed | merged | rejected | abandoned
+  validation: { draft_ordinal, body_hash, outcome: valid | invalid, findings: [{code, message}], validated_at } | null
+  merge: { draft_ordinal, resulting_revision_ref, resulting_head_ref, branch_merge_plan_ref, merged_by_principal_ref, merged_at } | null
+  decision_note: string | null
+  created_at: timestamp
+  updated_at: timestamp
+  admitted_head: string
+  authority_nonclaim: change_set_grants_no_authority
+  truth_nonclaim: a_draft_is_not_an_admitted_revision
+```
+
+- **The subject decides validity.** Validation runs the subject admission's own
+  checks against one draft without persisting it; there is never a second
+  validator. A `data_recipe` draft body is a DataRecipe admission request
+  (family, exact ontology and connector-mapping revisions, output contracts,
+  canon's steps, receipt obligations, policy hash, registry status, succession
+  reason).
+- **The pinned head is the merge's expected head.** A merge re-reads the
+  family: if its head moved since `base_head_ref`, the merge is refused
+  (`change_set_base_moved`) — canon's rebase, auto-merge or reviewer routing is
+  a successor change set pinned to the new head, never a silent rewrite.
+- **The merge decision is a BranchMergePlan.** A merged change set names the
+  admitted revision, the family's resulting head and the
+  `branch-merge://<sha256>` plan recording the decision.
+- **Transitions.** `open → proposed → merged | rejected`; `open | proposed →
+  abandoned`; a new draft on a proposed change set returns it to `open`;
+  `merged`, `rejected` and `abandoned` are terminal. Every transition is an
+  owner-scoped operation on the change set's own chain.

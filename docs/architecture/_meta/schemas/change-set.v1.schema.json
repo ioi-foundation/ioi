@@ -1,0 +1,308 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "schema://ioi/foundations/objects/change-set/v1",
+  "title": "ChangeSet",
+  "x-ioi-schema-version": "ioi.change-set.v1",
+  "description": "One governed change to one object family, drafted in isolation and merged by that family's own admission (ADR 0056 Amendment 1, plane 4). Canon's patch branch is an isolated draft space: nobody mutates a family's head directly. A change set pins the head it was opened against, carries an append-only chain of draft bodies shaped as the subject family's admission request, validates a draft by running that admission's own checks without persisting, and merges by admitting the draft through the subject's route with the pinned head as the expected head. If the head has moved the merge is refused, never rebased silently. The merge decision is recorded as a BranchMergePlan. A change set grants nothing, and a draft is not an admitted revision.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "change_set_ref",
+    "owner_ref",
+    "author_principal_ref",
+    "subject",
+    "title",
+    "description",
+    "drafts",
+    "status",
+    "validation",
+    "merge",
+    "decision_note",
+    "created_at",
+    "updated_at",
+    "admitted_head",
+    "authority_nonclaim",
+    "truth_nonclaim"
+  ],
+  "$defs": {
+    "hash": {
+      "type": "string",
+      "pattern": "^sha256:[0-9a-f]{64}$"
+    },
+    "timestamp": {
+      "type": "string",
+      "minLength": 20,
+      "maxLength": 40
+    },
+    "principal": {
+      "type": "string",
+      "pattern": "^user://[A-Za-z0-9._:@-]{1,200}$"
+    },
+    "finding": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "code",
+        "message"
+      ],
+      "properties": {
+        "code": {
+          "type": "string",
+          "pattern": "^[a-z][a-z0-9_]{0,95}$"
+        },
+        "message": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 1000
+        }
+      }
+    },
+    "draft": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "ordinal",
+        "body",
+        "body_hash",
+        "author_principal_ref",
+        "drafted_at"
+      ],
+      "properties": {
+        "ordinal": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 9999
+        },
+        "body": {
+          "type": "object",
+          "description": "The subject family's admission request, as the draft would be admitted. Its shape is the subject's own contract; the change set never reinterprets it."
+        },
+        "body_hash": {
+          "$ref": "#/$defs/hash"
+        },
+        "author_principal_ref": {
+          "$ref": "#/$defs/principal"
+        },
+        "drafted_at": {
+          "$ref": "#/$defs/timestamp"
+        }
+      }
+    }
+  },
+  "properties": {
+    "schema_version": {
+      "type": "string",
+      "const": "ioi.change-set.v1"
+    },
+    "change_set_ref": {
+      "type": "string",
+      "pattern": "^change://cs_[0-9a-f]{16}$"
+    },
+    "owner_ref": {
+      "type": "string",
+      "pattern": "^org://[A-Za-z0-9._:-]{1,200}$"
+    },
+    "author_principal_ref": {
+      "$ref": "#/$defs/principal"
+    },
+    "subject": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "kind",
+        "family_ref",
+        "base_revision_ref",
+        "base_head_ref"
+      ],
+      "properties": {
+        "kind": {
+          "type": "string",
+          "enum": [
+            "data_recipe"
+          ]
+        },
+        "family_ref": {
+          "type": "string",
+          "pattern": "^data-recipe://[a-z0-9][a-z0-9._-]{0,127}$"
+        },
+        "base_revision_ref": {
+          "description": "The family's current revision when the change set was opened; null when the change set founds the family.",
+          "anyOf": [
+            {
+              "type": "string",
+              "pattern": "^data-recipe://[a-z0-9][a-z0-9._-]{0,127}/revision/[1-9][0-9]{0,5}$"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "base_head_ref": {
+          "description": "The family's admitted head when the change set was opened (the expected head its merge asserts); null when the change set founds the family.",
+          "anyOf": [
+            {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 300
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      }
+    },
+    "title": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 200
+    },
+    "description": {
+      "type": "string",
+      "maxLength": 4000
+    },
+    "drafts": {
+      "type": "array",
+      "maxItems": 9999,
+      "items": {
+        "$ref": "#/$defs/draft"
+      }
+    },
+    "status": {
+      "type": "string",
+      "enum": [
+        "open",
+        "proposed",
+        "merged",
+        "rejected",
+        "abandoned"
+      ]
+    },
+    "validation": {
+      "description": "The last validation: the subject admission's own checks run against one draft without persisting.",
+      "anyOf": [
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "draft_ordinal",
+            "body_hash",
+            "outcome",
+            "findings",
+            "validated_at"
+          ],
+          "properties": {
+            "draft_ordinal": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 9999
+            },
+            "body_hash": {
+              "$ref": "#/$defs/hash"
+            },
+            "outcome": {
+              "type": "string",
+              "enum": [
+                "valid",
+                "invalid"
+              ]
+            },
+            "findings": {
+              "type": "array",
+              "maxItems": 64,
+              "items": {
+                "$ref": "#/$defs/finding"
+              }
+            },
+            "validated_at": {
+              "$ref": "#/$defs/timestamp"
+            }
+          }
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "merge": {
+      "description": "The merge: the draft admitted as the family's next revision, and the BranchMergePlan recording the decision.",
+      "anyOf": [
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "draft_ordinal",
+            "resulting_revision_ref",
+            "resulting_head_ref",
+            "branch_merge_plan_ref",
+            "merged_by_principal_ref",
+            "merged_at"
+          ],
+          "properties": {
+            "draft_ordinal": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 9999
+            },
+            "resulting_revision_ref": {
+              "type": "string",
+              "pattern": "^data-recipe://[a-z0-9][a-z0-9._-]{0,127}/revision/[1-9][0-9]{0,5}$"
+            },
+            "resulting_head_ref": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 300
+            },
+            "branch_merge_plan_ref": {
+              "type": "string",
+              "pattern": "^branch-merge://[0-9a-f]{64}$"
+            },
+            "merged_by_principal_ref": {
+              "$ref": "#/$defs/principal"
+            },
+            "merged_at": {
+              "$ref": "#/$defs/timestamp"
+            }
+          }
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "decision_note": {
+      "description": "Why a change set was rejected or abandoned; null otherwise.",
+      "anyOf": [
+        {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 2000
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "created_at": {
+      "$ref": "#/$defs/timestamp"
+    },
+    "updated_at": {
+      "$ref": "#/$defs/timestamp"
+    },
+    "admitted_head": {
+      "description": "The change set's own chain head after its latest admitted operation.",
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 300
+    },
+    "authority_nonclaim": {
+      "type": "string",
+      "const": "change_set_grants_no_authority"
+    },
+    "truth_nonclaim": {
+      "type": "string",
+      "const": "a_draft_is_not_an_admitted_revision"
+    }
+  }
+}
