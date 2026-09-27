@@ -260,6 +260,21 @@ async function run() {
         && listed && !referenceSidebar && ourRail,
       `${top.status} ${top.headers.get("location")} · deep ${deep.headers.get("location")} · reload lists ours ${listed} · reference sidebar ${referenceSidebar} · our rail ${ourRail}`);
 
+    // ---- a MANUAL automation (a command step, no schedule) has no condition in the reference's
+    // vocabulary: its detail must render, say so ("Unknown condition", never "Running on schedule" or a
+    // cron the app cannot describe), and name its owner from the Hypervisor's principal. The fixture is
+    // posted to the daemon: the adopted wizard cannot make one, and this assertion is about the READ.
+    const manual = await fetch(`${DAEMON}/v1/hypervisor/automations`, { method: "POST", headers: { cookie: COOKIE, "content-type": "application/json" }, body: JSON.stringify({ project_ref: project.project?.id, name: `manual-${tag}`, steps: [{ kind: "command", command: "echo manual" }] }) }).then((r) => r.json()).catch(() => ({}));
+    const operator = (await daemonRead("/v1/hypervisor/auth/whoami")).body?.principal?.name || "";
+    await pg.goto(`${SERVE}/automations?automation=${manual.automation?.automation_id}`, { waitUntil: "domcontentloaded" });
+    await pg.waitForTimeout(8000);
+    const manualText = (await pg.evaluate(() => document.body.innerText)).replace(/\s+/g, " ");
+    const ownerRow = (manualText.match(/Owner (?:[A-Z]{1,2} )?(.{0,40}?) Created by/u) || [])[1] || "";
+    ok("a manual automation's adopted detail renders, reads \"Unknown condition\" rather than a schedule, and names its owner from the Hypervisor's principal",
+      manualText.includes(`manual-${tag}`) && !/An error has occurred/u.test(manualText) && /Unknown condition/u.test(manualText) && !/Running on schedule|Automation runs/u.test(manualText)
+        && !!operator && ownerRow.includes(operator),
+      `error card ${/An error has occurred/u.test(manualText)} · unknown condition ${/Unknown condition/u.test(manualText)} · owner "${ownerRow}" (operator "${operator}")`);
+
     // The mirror still answers the reference's CHROME reads (sessions, beacons, release notes, favorites,
     // registry actions, lifecycle status, assist availability, view events) and nothing else: a new
     // passthrough is a new lane reaching recorded tenant answers, and fails here until it is bound.

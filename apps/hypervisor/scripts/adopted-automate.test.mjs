@@ -123,3 +123,19 @@ test("the user directory the adopted app reads names only the Hypervisor's princ
   assert.deepEqual(all, [], "an id no Hypervisor principal carries answers nothing (never a recorded directory entry)");
   assert.deepEqual(AUTOMATE.principalsFor([], principals), []);
 });
+
+test("a principal's user id is a name-based UUID the app's validator accepts, so its profile is looked up", () => {
+  const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i; // the app's own check
+  for (const ref of ["user://alice", "user://bob", "principal://operator", ""]) assert.match(AUTOMATE.principalUserId(ref), UUID, ref);
+  assert.equal(AUTOMATE.principalUserId("user://alice"), AUTOMATE.principalUserId("user://alice"));
+  assert.notEqual(AUTOMATE.principalUserId("user://alice"), AUTOMATE.principalUserId("user://bob"));
+});
+
+test("a manual automation has no condition the app knows, never a schedule with no expression", () => {
+  const condition = (a) => AUTOMATE.factsRoot({ automation_id: "auto_0123456789abcdef", name: "n", steps: [], ...a }, [], { ref: "user://a" }).objectSetMonitor.branch.latestVersion.monitorLogicV3;
+  const manual = condition({ trigger: { kind: "manual" } });
+  assert.notEqual(manual.__typename, "ObjectSetMonitorSchedule");
+  assert.equal("cronExpression" in manual, false);
+  const timed = condition({ schedule_spec: { type: "cron", cron: "0 9 * * *", timezone: "UTC" } });
+  assert.deepEqual([timed.__typename, timed.cronExpression], ["ObjectSetMonitorSchedule", "0 9 * * *"]);
+});

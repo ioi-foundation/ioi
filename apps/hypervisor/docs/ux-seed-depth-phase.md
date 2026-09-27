@@ -236,6 +236,17 @@ journey verifier → deploy to the owner's stack.
   and on the detail page's Automation flow (function, version, inputs). Without the opt-in or the mirror,
   `/automations` keeps the owned Automate surface, so every gate's own serve keeps one posture. `/__apps/*`
   now requires sign-in like every other product page.
+- **A manual automation's page renders (2026-09-27; `check:adopted-automate` 11/11).** The detail of an
+  automation with no schedule crashed ("An error has occurred"): its condition was a schedule with an
+  empty cron, which the overview's cron describer refuses. The reference has no manual condition (manual
+  execution is an action on any automation), so the detail now reads **"Unknown condition"** — its own
+  answer for a condition it does not know — and the frequency tag reads Unknown; neither claims a schedule.
+  The Owner / Created by / Updated by rows now name the Hypervisor's principal: user ids are name-based
+  UUIDs (v5 shape), because the app validates ids with the `uuid` package and silently drops every
+  profile lookup for any other shape. *Still open on the Edit wizard (named gaps):*
+  `GetExistingAutomationResource`, `DocumentTitleQuery`, `CanEditAutomationQuery` are unbound, the
+  summary's location and "Resources requiring attention" fail, it lists a manual automation's condition
+  as Time (the REST monitor record still carries the empty schedule), and Save (update) has no translation.
 - **Adoption steps:** (1) vendor the booted app — `index.html` + its 34 content-addressed assets,
   18.5 MB, the same scale as the tracked Ona tree — into a quarantined harvested lane in the owned tree;
   (2) serve it at the Automate canonical route, its asset and API paths answered by the serve (assets

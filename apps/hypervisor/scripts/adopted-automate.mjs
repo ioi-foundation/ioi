@@ -25,9 +25,13 @@ export function automationIdOf(rid) {
 }
 // The app's normalized-cache ids are opaque; a stable digest of the object's identity serves.
 const cacheId = (s) => crypto.createHash("sha256").update(String(s)).digest("base64");
+// A principal's user id is a NAME-BASED UUID of its ref: version 5 and the RFC 4122 variant. The app
+// validates user ids with the uuid package (version 1-5, variant 8-b) and never sends a profile or
+// principal lookup for one that fails, so any other shape reads as "could not load user profile".
 const userIdOf = (principalRef) => {
   const h = crypto.createHash("sha256").update(String(principalRef || "unknown")).digest("hex");
-  return `${h.slice(0, 8)}-${h.slice(8, 12)}-${h.slice(12, 16)}-${h.slice(16, 20)}-${h.slice(20, 32)}`;
+  const variant = "89ab"[parseInt(h[16], 16) & 3];
+  return `${h.slice(0, 8)}-${h.slice(8, 12)}-5${h.slice(13, 16)}-${variant}${h.slice(17, 20)}-${h.slice(20, 32)}`;
 };
 const folderRidOf = (project) => {
   const h = crypto.createHash("sha256").update(`project:${project}`).digest("hex");
@@ -394,7 +398,15 @@ export function factsRoot(a, runs, principal, functionInfo = null) {
     permissions: { __typename: "ResourceMetadataPermissions", canEditAutomation: true, canShare: false, canShareLink: false, canTrash: false, canEditTags: false, canEditMetadata: false, canMoveBetweenProjects: false, canMoveWithinProject: false, canRestore: false, canOpenLink: true, canCreateIssue: false },
     project: { __typename: "Project", userProjectOwner: null },
   };
-  const condition = { __typename: "ObjectSetMonitorSchedule", __implements: ["ObjectSetMonitorLogicV3", "ObjectSetMonitorCondition"], cronExpression: logicOf(a).schedule?.cronExpression || "", additionalCronExpressions: [], timeZone: spec.timezone || spec.tz || "UTC" };
+  // A manual or webhook automation has NO condition in the reference's vocabulary (its manual
+  // execution is an action on any automation, not a condition). A schedule with no expression would
+  // crash the overview's cron describer ("Expression is empty"); a typename the app does not know is
+  // what its condition visitors answer with "Unknown condition" — true, where "Running on schedule"
+  // was not.
+  const cron = logicOf(a).schedule?.cronExpression || "";
+  const condition = cron
+    ? { __typename: "ObjectSetMonitorSchedule", __implements: ["ObjectSetMonitorLogicV3", "ObjectSetMonitorCondition"], cronExpression: cron, additionalCronExpressions: [], timeZone: spec.timezone || spec.tz || "UTC" }
+    : { __typename: "HypervisorManualTrigger", __implements: ["ObjectSetMonitorLogicV3", "ObjectSetMonitorCondition"] };
   const event = (r) => r ? { __typename: "ObjectSetMonitorHistoryEvent_MonitorTriggered", __implements: ["ObjectSetMonitorHistoryEvent"], _id: cacheId(`event:${r.execution_id}`), id: r.execution_id, triggerTime: iso(r.started_at), triggerReason: "SCHEDULE", triggeredEffectsV2: [] } : null;
   const branch = {
     __typename: "ObjectSetMonitorBranch", _id: cacheId(`branch:${rid}`), isProjectScoped: false, scenarioTarget: null,
