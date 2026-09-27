@@ -29,7 +29,7 @@ const routes = {
   "POST /v1/threads/thread_1/turns": () => ({ ok: true }),
   "GET /v1/hypervisor/editor-targets": () => ({ openable_targets: ["vscode-browser"], targets: [] }),
   "GET /v1/hypervisor/environments": () => ({ environments: [
-    { id: "env_run", created_at: AT, updated_at: AT, spec: { desired_phase: "running" }, status: { phase: "running" } },
+    { id: "env_run", created_at: AT, updated_at: AT, spec: { desired_phase: "running", project_id: "project:acme", stop_policy: { idle_timeout_secs: 0 } }, status: { phase: "running" } },
     { id: "env_stop", created_at: AT, updated_at: AT, spec: {}, status: { phase: "stopped" } },
     { id: "env_arch", created_at: AT, updated_at: "2026-09-27T11:00:00Z", spec: {}, status: { phase: "archived" } },
     { id: "env_gone", created_at: AT, updated_at: AT, spec: {}, status: { phase: "deleted", deleted: true } },
@@ -294,4 +294,17 @@ test("the composer's chosen project is read from CreateAgentSession's createEnvi
   const { extractProjectId } = await import("./ioi-agent-runs.mjs");
   assert.equal(extractProjectId({ createEnvironmentFromProject: { projectId: "project:acme", spec: {} } }), "project:acme");
   assert.equal(extractProjectId({ createEnvironment: { spec: {} } }), null, "a scratch session names no project");
+});
+
+// R-240 Arm A (Sessions): the sidebar grouped every session "From scratch" and "Go to project" stayed disabled (the
+// projection named no project), and the auto-stop read "30m of inactivity" (the shell's default when none is sent)
+// while the daemon's idle timeout is 0 — never.
+test("an environment names its project (none for a scratch session) and its daemon auto-stop (0 = never)", async () => {
+  const envs = JSON.parse((await handle("/api/ioi.v1.EnvironmentService/ListEnvironments", JSON.stringify({}), { "content-type": "application/json" })).body).environments;
+  const run = envs.find((e) => e.id === "env_run");
+  assert.equal(run.metadata.projectId, "project:acme");
+  assert.deepEqual(run.spec.timeout, { disconnected: "0s" });
+  const stop = envs.find((e) => e.id === "env_stop");
+  assert.equal(stop.metadata.projectId, undefined);
+  assert.equal(stop.spec.timeout, undefined, "no stop policy on the record, none claimed");
 });

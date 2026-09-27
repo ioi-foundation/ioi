@@ -158,7 +158,8 @@ async function run() {
     await pg.waitForTimeout(1000);
     await pg.getByText(/Start from project/u).first().click({ timeout: 4000 }).catch(() => { /* named below */ });
     await pg.waitForTimeout(1500);
-    await pg.getByText("sessions-shell", { exact: true }).first().click({ timeout: 4000 }).catch(() => { /* named below */ });
+    // the picker's option (the sidebar also names the project now that sessions are grouped under it)
+    await pg.locator('[role="listbox"], [cmdk-list], [role="dialog"]').getByText("sessions-shell", { exact: true }).first().click({ timeout: 4000 }).catch(() => { /* named below */ });
     await pg.waitForTimeout(1500);
     await pg.locator('[data-testid="prompt-input-textarea"]').fill("Document the build steps", { timeout: 4000 }).catch(() => { /* named below */ });
     await pg.waitForTimeout(800);
@@ -173,6 +174,10 @@ async function run() {
     await pg.waitForTimeout(12000);
     const created = Object.keys(await phases()).filter((id) => !before.has(id));
     const createdEnv = ((await daemonReq("/v1/hypervisor/environments")).environments || []).find((e) => created.includes(e.id));
+    const createdView = created[0] ? (await api("EnvironmentService/GetEnvironment", { environmentId: created[0] })).j.environment : null;
+    ok("the new session carries its project to the shell (the sidebar groups it there; \"Go to project\" needs it) and the daemon's auto-stop (never), not the shell's 30-minute default",
+      createdView?.metadata?.projectId === project && createdView?.spec?.timeout?.disconnected === "0s",
+      `metadata.projectId ${createdView?.metadata?.projectId} · timeout ${JSON.stringify(createdView?.spec?.timeout)}`);
     ok("the composer's own submit files the new session under the project it chose (it had sent the prompt alone, so every session was filed under no project), and lands on the session",
       submitEnabled && created.length === 1 && createdEnv?.spec?.project_id === project && /\/details\//u.test(pg.url()),
       `submit enabled ${submitEnabled} · created ${created.length} · project ${createdEnv?.spec?.project_id} (want ${project}) · at ${pg.url().replace(SERVE, "")}`);

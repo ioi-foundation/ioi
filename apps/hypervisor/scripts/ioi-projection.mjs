@@ -156,8 +156,11 @@ export function daemonEnvToIOI(env) {
     id: env.id,
     // an archived environment says when (the Archived view lists and sorts by it); the daemon's archive transition is
     // its latest update, so that is the time unless the record names one
-    metadata: { lastStartedAt: env.updated_at, createdAt: env.created_at, ...(s.phase === "archived" ? { archivedAt: s.archived_at || env.archived_at || env.updated_at } : {}) },
-    spec: { desiredPhase: desired, ports: projectEnvironmentPorts(s.ports) },
+    // the project the environment was opened for (the sidebar groups by it; "Go to project" needs it) — the scratch
+    // placeholder "ai-session" names none — and its auto-stop, the daemon's own idle timeout (0 = never; absent, the
+    // shell would show its 30-minute default as if it were the environment's)
+    metadata: { lastStartedAt: env.updated_at, createdAt: env.created_at, ...(env.spec?.project_id && env.spec.project_id !== "ai-session" ? { projectId: env.spec.project_id } : {}), ...(s.phase === "archived" ? { archivedAt: s.archived_at || env.archived_at || env.updated_at } : {}) },
+    spec: { desiredPhase: desired, ports: projectEnvironmentPorts(s.ports), ...(Number.isFinite(Number(env.spec?.stop_policy?.idle_timeout_secs)) ? { timeout: { disconnected: `${Math.max(0, Math.trunc(Number(env.spec.stop_policy.idle_timeout_secs)))}s` } } : {}) },
     status,
   };
 }
