@@ -96,7 +96,7 @@ test("a save location is one of the caller's projects, and a name is valid there
   assert.deepEqual(Object.keys(resources), [rid], "a rid that is not the caller's project gets no entry");
 });
 
-test("an automation's function steps are the reference's Function effects, and nothing else is", () => {
+test("the editor's record carries function steps only; the detail page shows every step, in order", () => {
   const a = { automation_id: "auto_0123456789abcdef", steps: [{ kind: "command", command: "echo" }, { kind: "function", function_revision_ref: released.revision_ref, content_hash: released.content_hash, inputs: { amount: 20, tags: ["a"] } }] };
   const info = new Map([[released.revision_ref, { function_ref: released.function_ref, version: "1.0.0", display_name: "Double", api_name: "double", inputs: released.inputs }]]);
   const conjure = Object.values(AUTOMATE.triggerEffectsOf(a, info));
@@ -104,8 +104,14 @@ test("an automation's function steps are the reference's Function effects, and n
   assert.deepEqual(conjure[0].function.functionLocator, { functionRid: FUNCTIONS.functionRidOf(family.function_ref), functionVersion: "1.0.0" });
   assert.deepEqual(conjure[0].function.functionInputs.amount, { type: "staticValue", staticValue: { type: "integer", integer: 20 } });
   assert.deepEqual(conjure[0].function.functionInputs.tags.staticValue, { type: "list", list: { values: [{ type: "string", string: "a" }] } });
-  const [effect] = AUTOMATE.mergedEffectsOf(a, info);
+  const [command, effect] = AUTOMATE.mergedEffectsOf(a, info);
+  assert.equal(command.__typename.startsWith("ObjectSetMonitor"), false, "a command step is an effect the app does not know (\"Unknown effect\"), never hidden");
   assert.equal(effect.__typename, "ObjectSetMonitorFunctionEffect");
+  const agent = AUTOMATE.mergedEffectsOf({ automation_id: "auto_1", steps: [{ kind: "agent", prompt: "summarize" }] }, info)[0];
+  assert.equal(agent.__typename, "ObjectSetMonitorAgentEffect");
+  assert.deepEqual(answerDocument("query Q { e { ... on ObjectSetMonitorAgentEffect { effectInputs { ... on ObjectSetMonitorAgentEffectCreateSessionInputs { inputs { name input { ... on ObjectSetMonitorStaticValueEffectInput { value { ... on ObjectSetMonitorStaticValueEffectInput_String { value } } } } } } } } } }", { e: agent }).e.effectInputs.inputs[0], { name: "prompt", input: { value: { value: "summarize" } } });
+  assert.equal(AUTOMATE.effectOrderingOf([effect]), null, "one step states no order");
+  assert.equal(AUTOMATE.effectOrderingOf([command, effect]).length, 2, "steps run in order: an effect ordering");
   const answered = answerDocument("query Q { e { ... on ObjectSetMonitorFunctionEffect { functionV2 { range versions { values { function { displayName } } } } effectInputs { name input { ... on ObjectSetMonitorStaticValueEffectInput { value { ... on ObjectSetMonitorStaticValueEffectInput_Integer { intValue: value } } } } } } } }", { e: effect });
   assert.equal(answered.e.functionV2.range, "1.0.0");
   assert.equal(answered.e.functionV2.versions.values[0].function.displayName, "Double");

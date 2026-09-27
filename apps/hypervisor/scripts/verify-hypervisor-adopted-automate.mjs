@@ -11,7 +11,9 @@
 // to the released revision's content hash — and lands on its detail page, which shows that Function effect;
 // /automations opens the adopted app under our rail; the app reaches the local mirror only for the
 // reference's chrome reads (never its recorded directory or data); Run now on the product's own automation
-// page runs that exact revision and the step records Passed; and no operation the app sent went unanswered.
+// page runs that exact revision and the step records Passed; the adopted editor renames the automation and
+// changes its function input in one Save; a manual command-step automation's page renders with its step
+// shown and its owner named, and the editor does not save it; and no operation the app sent went unanswered.
 //
 // Browser writes are the adopted app's own controls; product writes submit the forms the surface
 // rendered. Exit: 0 pass · 1 fail · 2 blocked (no daemon binary, no local reference mirror, or the
@@ -270,10 +272,10 @@ async function run() {
     await pg.waitForTimeout(8000);
     const manualText = (await pg.evaluate(() => document.body.innerText)).replace(/\s+/g, " ");
     const ownerRow = (manualText.match(/Owner (?:[A-Z]{1,2} )?(.{0,40}?) Created by/u) || [])[1] || "";
-    ok("a manual automation's adopted detail renders, reads \"Unknown condition\" rather than a schedule, and names its owner from the Hypervisor's principal",
+    ok("a manual automation's adopted detail renders, reads \"Unknown condition\" rather than a schedule, shows its command step as an effect (never \"no effects\"), and names its owner from the Hypervisor's principal",
       manualText.includes(`manual-${tag}`) && !/An error has occurred/u.test(manualText) && /Unknown condition/u.test(manualText) && !/Running on schedule|Automation runs/u.test(manualText)
-        && !!operator && ownerRow.includes(operator),
-      `error card ${/An error has occurred/u.test(manualText)} · unknown condition ${/Unknown condition/u.test(manualText)} · owner "${ownerRow}" (operator "${operator}")`);
+        && /Unknown effect/u.test(manualText) && !/There are no effects configured/u.test(manualText) && !!operator && ownerRow.includes(operator),
+      `error card ${/An error has occurred/u.test(manualText)} · unknown condition ${/Unknown condition/u.test(manualText)} · step shown ${/Unknown effect/u.test(manualText)} · owner "${ownerRow}" (operator "${operator}")`);
 
     // The mirror still answers the reference's CHROME reads (sessions, beacons, release notes, favorites,
     // registry actions, lifecycle status, assist availability, view events) and nothing else: a new

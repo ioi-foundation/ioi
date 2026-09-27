@@ -416,6 +416,7 @@ export function factsRoot(a, runs, principal, functionInfo = null, projects = []
   // what its condition visitors answer with "Unknown condition" — true, where "Running on schedule"
   // was not.
   const cron = logicOf(a).schedule?.cronExpression || "";
+  const effects = mergedEffectsOf(a, functionInfo);
   const condition = cron
     ? { __typename: "ObjectSetMonitorSchedule", __implements: ["ObjectSetMonitorLogicV3", "ObjectSetMonitorCondition"], cronExpression: cron, additionalCronExpressions: [], timeZone: spec.timezone || spec.tz || "UTC" }
     : { __typename: "HypervisorManualTrigger", __implements: ["ObjectSetMonitorLogicV3", "ObjectSetMonitorCondition"] };
@@ -425,7 +426,7 @@ export function factsRoot(a, runs, principal, functionInfo = null, projects = []
     isPausedIndefinitely: paused, pausedUntil: null, isMutedIndefinitely: false, mutedUntil: null, expiresAt: null,
     owner: who(creator), dependentAutomations: [],
     monitor: { __typename: "ObjectSetMonitor", _id: cacheId(rid), rid, metadata: resource },
-    latestVersion: { __typename: "ObjectSetMonitorVersion", _id: cacheId(`version:${rid}`), monitorLogicV3: condition, mergedEffects: mergedEffectsOf(a, functionInfo), effectOrdering: null, subscribers: [], persistsSharedHistoryEvent: false },
+    latestVersion: { __typename: "ObjectSetMonitorVersion", _id: cacheId(`version:${rid}`), monitorLogicV3: condition, mergedEffects: effects, effectOrdering: effectOrderingOf(effects), subscribers: [], persistsSharedHistoryEvent: false },
     latestEvents: { __typename: "ObjectSetMonitorLatestEvents", completeTriggered: event(latest && latest.status !== "running" ? latest : null), inProgressTriggered: event(running), evaluationRuntimeError: null, effectsRuntimeError: null },
     scheduledMonitoringEvaluationStatus: { __typename: "ObjectSetMonitorScheduledEvaluationStatus", isRunning: !!running, scheduledAt: a.next_run_at ? iso(a.next_run_at) : null },
   };
@@ -642,8 +643,11 @@ export function compassAutomationResource(a, projects, principalRef) {
 // ---- EFFECTS (ADR 0056 P3 cut 3b): an automation's FUNCTION steps are the reference's Function effects —
 // in the registry's conjure record (`triggerEffects`) and in the detail page's GraphQL (`mergedEffects`).
 // `functionInfo` maps a step's revision ref to {function_ref, version, display_name, api_name, inputs}
-// (read from the functions plane by the serve). Command and agent steps have no reference effect; they
-// are not shown as one.
+// (read from the functions plane by the serve). On the detail page EVERY step is shown, in order: an
+// agent step is the reference's Agent effect (it opens an agent session with its prompt), and a step
+// with no reference effect (command, proposal) reads as the app's own "Unknown effect" — never "There
+// are no effects configured" for an automation that has steps. The conjure record the editor loads keeps
+// function steps only; the editor refuses to save an automation with the others.
 const effectIdOf = (automationId, index) => {
   const h = crypto.createHash("sha256").update(`${automationId}:${index}`).digest("hex");
   return `${h.slice(0, 8)}-${h.slice(8, 12)}-${h.slice(12, 16)}-${h.slice(16, 20)}-${h.slice(20, 32)}`;
@@ -678,8 +682,18 @@ function gqlStatic(dataType, value) {
   return { __typename: `ObjectSetMonitorStaticValueEffectInput_${STATIC_TYPE[t] || "String"}`, __implements: union, value };
 }
 export function mergedEffectsOf(a, functionInfo) {
-  return functionStepsOf(a, functionInfo).map(({ step, index, info }) => {
+  return (a.steps || []).map((step, index) => {
     const id = effectIdOf(a.automation_id, index);
+    const base = { _id: cacheId(`effect:${id}`), id, __implements: ["ObjectSetMonitorEffect"], retryConfiguration: null, dependencyConfiguration: null };
+    if (step?.kind === "agent") {
+      const staticString = (value) => ({ __typename: "ObjectSetMonitorStaticValueEffectInput", __implements: ["ObjectSetMonitorEffectInputValue"], value: gqlStatic({ type: "string" }, String(value ?? "")) });
+      return {
+        ...base, __typename: "ObjectSetMonitorAgentEffect", agentDefinitionVersion: null,
+        effectInputs: { __typename: "ObjectSetMonitorAgentEffectCreateSessionInputs", __implements: ["ObjectSetMonitorAgentEffectInputs"], inputs: [{ __typename: "ObjectSetMonitorAgentEffectInput", name: "prompt", input: staticString(step.prompt) }] },
+      };
+    }
+    if (step?.kind !== "function") return { ...base, __typename: `HypervisorStep_${String(step?.kind || "unknown").replace(/[^A-Za-z0-9_]/g, "_")}` };
+    const info = functionInfo?.get?.(step.function_revision_ref) || null;
     const rid = functionRidOfRef(info?.function_ref || step.function_revision_ref);
     const typeOf = (name) => (info?.inputs || []).find((i) => i.name === name)?.data_type;
     const version = {
@@ -689,13 +703,15 @@ export function mergedEffectsOf(a, functionInfo) {
       inputs: (info?.inputs || []).map((i) => ({ __typename: "FunctionInput", name: i.name, type: { __typename: GQL_TYPE[i.data_type?.type] || GQL_TYPE.string, ...(i.data_type?.type === "list" ? { elementType: { __typename: GQL_TYPE[i.data_type.element_type] || GQL_TYPE.string } } : {}) } })),
     };
     return {
-      __typename: "ObjectSetMonitorFunctionEffect", __implements: ["ObjectSetMonitorEffect"], _id: cacheId(`effect:${id}`), id,
+      ...base, __typename: "ObjectSetMonitorFunctionEffect",
       functionV2: { __typename: "FunctionSemanticVersionRange", _id: cacheId(`range:${step.function_revision_ref}`), range: info?.version || null, versions: { __typename: "FunctionVersionPage", values: [version] } },
       effectInputs: Object.entries(step.inputs || {}).map(([name, v]) => ({ __typename: "ObjectSetMonitorFunctionEffectInput", name, input: { __typename: "ObjectSetMonitorStaticValueEffectInput", __implements: ["ObjectSetMonitorEffectInputValue"], value: gqlStatic(typeOf(name), v) } })),
-      retryConfiguration: null, dependencyConfiguration: null,
     };
   });
 }
+// Steps run one after another, in order: the reference says so with an effect ordering (the app then
+// reads "Executed sequentially"); a single step has no ordering to state.
+export const effectOrderingOf = (effects) => (effects.length > 1 ? effects : null);
 // function://fn_…/revision/n or function://fn_… → the reference's function rid (adopted-functions.mjs).
 function functionRidOfRef(ref) {
   const hex = String(ref || "").replace(/^function:\/\//, "").replace(/^fn_/, "").split("/")[0].replace(/[^0-9a-f]/g, "").padEnd(16, "0").slice(0, 16);
