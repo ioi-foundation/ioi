@@ -637,3 +637,18 @@ function functionRidOfRef(ref) {
   const hex = String(ref || "").replace(/^function:\/\//, "").replace(/^fn_/, "").split("/")[0].replace(/[^0-9a-f]/g, "").padEnd(16, "0").slice(0, 16);
   return `ri.function-registry.main.function.${hex.slice(0, 8)}-${hex.slice(8, 12)}-${hex.slice(12, 16)}-${hex.slice(0, 4)}-${hex.slice(4, 16)}`;
 }
+
+// Principals by user id (the app's user chips and Metadata rows): ONLY the principals our automations
+// name, never the mirror's recorded tenant directory.
+export function principalsFor(userIds, principals) {
+  const byId = new Map(principals.map((p) => [userIdOf(p.ref), p]));
+  return (userIds || []).map((id) => byId.get(id) ? [id, byId.get(id)] : null).filter(Boolean).map(([id, p]) => {
+    const name = p.name || p.ref;
+    const [given, ...rest] = String(name).split(" ");
+    return {
+      id, username: p.email || p.ref, realm: "hypervisor", type: "USER",
+      attributes: { "multipass:given-name": [given || name], "multipass:family-name": [rest.join(" ")], ...(p.email ? { "multipass:email:primary": [p.email] } : {}) },
+    };
+  });
+}
+export const principalUserId = (principalRef) => userIdOf(principalRef);

@@ -111,3 +111,15 @@ test("an automation's function steps are the reference's Function effects, and n
   assert.equal(answered.e.functionV2.versions.values[0].function.displayName, "Double");
   assert.deepEqual(answered.e.effectInputs[0], { name: "amount", input: { value: { intValue: 20 } } });
 });
+
+test("the user directory the adopted app reads names only the Hypervisor's principals", () => {
+  const principals = [{ ref: "user://alice", name: "Alice Smith", email: "alice@acme.example" }];
+  const aliceId = AUTOMATE.principalUserId("user://alice");
+  const [alice] = AUTOMATE.principalsFor([aliceId], principals);
+  assert.equal(alice.id, aliceId);
+  assert.deepEqual(alice.attributes["multipass:given-name"], ["Alice"]);
+  assert.deepEqual(alice.attributes["multipass:email:primary"], ["alice@acme.example"]);
+  const all = AUTOMATE.principalsFor(["00000000-0000-0000-0000-000000000000"], principals);
+  assert.deepEqual(all, [], "an id no Hypervisor principal carries answers nothing (never a recorded directory entry)");
+  assert.deepEqual(AUTOMATE.principalsFor([], principals), []);
+});

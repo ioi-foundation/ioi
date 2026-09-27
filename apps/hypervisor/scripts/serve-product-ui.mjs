@@ -9825,6 +9825,14 @@ async function handleEstateRequest(req, res, body) {
         return AUTOMATE.automationFromMonitorRequest(request, { projects, releasedRevisionOf });
       };
       const conjureRefusal = (message) => ({ errorCode: "INVALID_ARGUMENT", errorName: "Automation:NotSupportedByHypervisor", errorInstanceId: "", parameters: { message } });
+      // The detail page re-validates the saved automation's configuration the same way.
+      if (/^\/object-sentinel\/api\/validation\/v0\/[^/]+\/validate-update$/u.test(pathname) && (req.method === "PUT" || req.method === "POST")) {
+        let request = {};
+        try { request = JSON.parse(body.toString() || "{}").request || {}; } catch { /* empty */ }
+        const translated = await translateMonitorRequest(request);
+        res.writeHead(translated.issue ? 400 : 200, { "Content-Type": "application/json" });
+        return res.end(JSON.stringify(translated.issue ? conjureRefusal(translated.issue) : { errors: [], warnings: [], projectScopeIssues: [] }));
+      }
       if (pathname === "/object-sentinel/api/validation/v0/validate-create" && req.method === "POST") {
         let request = {};
         try { request = JSON.parse(body.toString() || "{}").request || {}; } catch { /* empty */ }
@@ -9905,6 +9913,21 @@ async function handleEstateRequest(req, res, body) {
           return notFound();
         }
       }
+      // The directory the app resolves user ids against: the principals our automations name (the
+      // mirror would answer with the recorded tenant's people).
+      if (pathname === "/multipass/api/administration/principals" && req.method === "POST") {
+        let ids = [];
+        try { const j = JSON.parse(body.toString() || "[]"); ids = Array.isArray(j) ? j : (j.principalIds || j.ids || []); } catch { /* none */ }
+        const [autos, who] = await Promise.all([
+          daemonFetch("/v1/hypervisor/automations").then((r) => r.json()).catch(() => ({})),
+          daemonFetch("/v1/hypervisor/auth/whoami").then((r) => r.json()).catch(() => ({})),
+        ]);
+        const principals = [];
+        if (who.authenticated !== false && who.principal?.principal_ref) principals.push({ ref: who.principal.principal_ref, name: who.principal.name, email: who.principal.email });
+        for (const a of autos.automations || []) { const ref = (a.executor_identity || {}).ref; if (ref && !principals.some((p) => p.ref === ref)) principals.push({ ref, name: ref }); }
+        res.writeHead(200, { "Content-Type": "application/json" });
+        return res.end(JSON.stringify(AUTOMATE.principalsFor(ids, principals)));
+      }
       if (pathname === "/people/api/profile/get-profiles" && req.method === "POST") {
         let ids = [];
         try { const j = JSON.parse(body.toString() || "{}"); ids = j.userIds || j.ids || (Array.isArray(j) ? j : []); } catch { /* none */ }
@@ -9975,7 +9998,9 @@ async function handleEstateRequest(req, res, body) {
           if (foldOrigin) js = js.replace(/https?:\/\/(?:localhost|127\.0\.0\.1):9225/g, "");
           buf = Buffer.from(js.replace(/Palantir/g, "IOI"), "utf8");
         }
-        res.writeHead(upstream.status, { "Content-Type": ct, "Cache-Control": pathname.startsWith("/assets/") ? "public, max-age=86400" : "no-cache", "content-length": String(buf.length) });
+        // A response the serve did NOT answer from Hypervisor truth says so (the adopted-seed audits read it).
+        const passthrough = !pathname.startsWith("/assets/") && !adoptedAlias && !pathname.startsWith("/__apps/");
+        res.writeHead(upstream.status, { "Content-Type": ct, "Cache-Control": pathname.startsWith("/assets/") ? "public, max-age=86400" : "no-cache", "content-length": String(buf.length), ...(passthrough ? { "x-ioi-mirror-passthrough": "1" } : {}) });
         return res.end(buf);
       } catch {
         res.writeHead(503, { "Content-Type": "text/html; charset=utf-8" });

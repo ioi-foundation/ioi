@@ -8,9 +8,10 @@
 // forms is offered by the wizard's Function effect with its typed inputs; the Save dialog offers the
 // caller's project, validates the name against their automations and reports no issue; Save admits ONE
 // automation through the automations plane — a cron schedule in its named zone, one function step pinned
-// to the released revision's content hash — and lands on its detail page; Run now on the product's own
-// automation page runs that exact revision and the step records Passed; and no operation the app sent
-// went unanswered.
+// to the released revision's content hash — and lands on its detail page, which shows that Function effect;
+// /automations opens the adopted app under our rail; the app reaches the local mirror only for the
+// reference's chrome reads (never its recorded directory or data); Run now on the product's own automation
+// page runs that exact revision and the step records Passed; and no operation the app sent went unanswered.
 //
 // Browser writes are the adopted app's own controls; product writes submit the forms the surface
 // rendered. Exit: 0 pass · 1 fail · 2 blocked (no daemon binary, no local reference mirror, or the
@@ -183,6 +184,12 @@ async function run() {
     const ctx = await browser.newContext({ viewport: { width: 1600, height: 1000 } });
     await ctx.addCookies([{ name: "ioi_session", value: COOKIE.split("=")[1], url: SERVE }]);
     const pg = await ctx.newPage();
+    // Every response the serve did NOT answer from Hypervisor truth carries x-ioi-mirror-passthrough.
+    const passthroughs = new Set();
+    pg.on("response", (resp) => {
+      if (resp.headers()["x-ioi-mirror-passthrough"] !== "1") return;
+      passthroughs.add(`${resp.request().method()} ${new URL(resp.url()).pathname.replace(/ri\.[a-z-]+\.main\.[a-z-]+\.[0-9a-f-]{36}/gu, "<rid>")}`);
+    });
     await pg.goto(`${SERVE}/__apps/monitors`, { waitUntil: "domcontentloaded", timeout: 60000 });
     await pg.waitForTimeout(8000);
     let opened = false;
@@ -252,6 +259,18 @@ async function run() {
       top.status === 302 && top.headers.get("location") === "/workspace/object-monitoring/" && (deep.headers.get("location") || "").includes(`/automation/ri.object-sentinel.main.monitor.`)
         && listed && !referenceSidebar && ourRail,
       `${top.status} ${top.headers.get("location")} · deep ${deep.headers.get("location")} · reload lists ours ${listed} · reference sidebar ${referenceSidebar} · our rail ${ourRail}`);
+
+    // The mirror still answers the reference's CHROME reads (sessions, beacons, release notes, favorites,
+    // registry actions, lifecycle status, assist availability, view events) and nothing else: a new
+    // passthrough is a new lane reaching recorded tenant answers, and fails here until it is bound.
+    const CHROME_PASSTHROUGHS = new Set([
+      "GET /aip-assist/api/chat/checkAvailability", "GET /compass/api/registry/actions", "GET /multipass/api/sessions/definitions/current",
+      "GET /multipass/api/sessions/selection", "GET /workspace/api/lifecycleStatusByApplication", "POST /documentation/api/v2/release-notes/pagination",
+      "POST /log-receiver/api/beacon", "POST /people/api/eventsink/create-events", "POST /people/api/personal/get-favorites",
+    ]);
+    const unexpected = [...passthroughs].filter((p) => !CHROME_PASSTHROUGHS.has(p));
+    ok("the adopted app reaches the local mirror only for the reference's chrome reads — its user directory, functions, projects, automations, create and validation answer from the Hypervisor",
+      unexpected.length === 0 && passthroughs.size > 0, unexpected.length ? `unexpected: ${unexpected.join(" · ")}` : `${passthroughs.size} chrome reads`);
 
     // ---- 3. Run now on the product's own automation page --------------------------------------------------
     const ran = made.automation_id ? await submit(`/__ioi/automations/${made.automation_id}`, `/__ioi/automations/${made.automation_id}/run`, {}) : { error: "no automation" };
