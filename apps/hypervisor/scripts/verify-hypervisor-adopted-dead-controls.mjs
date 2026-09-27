@@ -206,6 +206,9 @@ async function run() {
         let judged = LIB.exerciseVerdict({ ...now, selfLink: now.selfLink || self }, { signals, error });
         const landed = LIB.spaLandingVerdict({ urlChanged: signals.url, text: after.text });
         if (landed) judged = landed;
+        // a click that lands on the app's error boundary is a crash, whatever else moved
+        const crashed = LIB.crashVerdict({ textBefore: before.text, textAfter: after.text });
+        if (crashed) judged = crashed;
         rows.push({ surface: t.key, tag: now.tag, text: now.text, how, signals: Object.entries(signals).filter(([, v]) => v).map(([k]) => k).join(","), ...judged, url: after.url.slice(0, 120) });
         dirty = true;
       }

@@ -161,6 +161,15 @@ export function spaSignals(m) {
 // the click opened must render something.
 export const SPA_NOT_FOUND = /looked everywhere|this page doesn.t exist/iu;
 export const SPA_MIN_TEXT = 40;
+// 4. A CLICK THAT CRASHES THE PAGE MOVES THE DOM. The adopted Pipeline Builder's Deploy button swapped the editor for
+// the app's error boundary ("Something went wrong when rendering the pipeline") and was scored alive for it. What a
+// click LEADS TO is judged too: an error boundary the page did not show before the click is a crash, whatever moved.
+export const ERROR_BOUNDARY = /Something went wrong when rendering|Something went wrong while rendering|An unexpected error has occurred|Application error: a client-side exception/iu;
+export function crashVerdict({ textBefore, textAfter }) {
+  const hit = String(textAfter || "").match(ERROR_BOUNDARY);
+  if (!hit || ERROR_BOUNDARY.test(String(textBefore || ""))) return null;
+  return { verdict: "crashed", why: `the page fell to its error boundary: "${hit[0]}"` };
+}
 export function spaLandingVerdict({ urlChanged, text }) {
   if (!urlChanged) return null;
   const t = String(text || "").trim();
