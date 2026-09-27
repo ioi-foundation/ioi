@@ -1658,7 +1658,7 @@ pub(crate) async fn handle_automation_start(
             let _ = super::automation_contract_routes::bridge_run_finished(
                 &st.data_dir,
                 run,
-                true,
+                super::automation_contract_routes::RunOutcome::Failed,
                 &exec_id,
                 None,
             );
@@ -1740,8 +1740,15 @@ pub(crate) async fn handle_automation_start(
 
     let mut results: Vec<Value> = Vec::new();
     let mut failed = false;
+    // A cancel (POST /automation-executions/:id/cancel) marks the durable record `stopped`; the loop
+    // reads it before every step, so the steps after a cancel never run. A step already running when
+    // the cancel lands finishes (its side effects may be partial) — the run is still stopped.
+    let mut stopped = false;
     for (idx, step) in steps.iter().enumerate() {
-        if failed {
+        if !failed && !stopped && execution_is_stopped(&st.data_dir, &exec_id) {
+            stopped = true;
+        }
+        if failed || stopped {
             results.push(json!({ "step": idx, "kind": step["kind"], "status": "skipped" }));
             continue;
         }
@@ -1889,7 +1896,23 @@ pub(crate) async fn handle_automation_start(
     counts = json!({ "pending": 0, "running": 0, "done": done, "failed": failed_n, "stopped": stopped_n });
     exec["counts"] = counts;
     exec["step_results"] = json!(results);
-    exec["status"] = json!(if failed { "failed" } else { "done" });
+    // A cancel that landed during the last step already answered "stopped" to its caller; the final
+    // write must not turn that answer false.
+    stopped = stopped || (!failed && execution_is_stopped(&st.data_dir, &exec_id));
+    let outcome = if stopped {
+        super::automation_contract_routes::RunOutcome::Cancelled
+    } else if failed {
+        super::automation_contract_routes::RunOutcome::Failed
+    } else {
+        super::automation_contract_routes::RunOutcome::Succeeded
+    };
+    exec["status"] = json!(if stopped {
+        "stopped"
+    } else if failed {
+        "failed"
+    } else {
+        "done"
+    });
     exec["finished_at"] = json!(iso_now());
     // W1.2 / MEF-GAP-008 — a discarded final write leaves the exec "running" forever; do NOT POST the
     // transcript if it fails. Fail closed via the AppError 500 lane.
@@ -1933,7 +1956,7 @@ pub(crate) async fn handle_automation_start(
         if let Err(message) = super::automation_contract_routes::bridge_run_finished(
             &st.data_dir,
             run,
-            failed,
+            outcome,
             &exec_id,
             transcript_recorded.then_some(transcript_ref.as_str()),
         ) {
@@ -1950,6 +1973,17 @@ pub(crate) async fn handle_automation_start(
         StatusCode::OK,
         Json(json!({ "ok": !failed, "execution": exec })),
     ))
+}
+
+/// Whether a cancel has marked this execution `stopped` (the executor reads it before every step).
+fn execution_is_stopped(data_dir: &str, exec_id: &str) -> bool {
+    load(data_dir, "automation-executions", exec_id)
+        .and_then(|e| {
+            e.get("status")
+                .and_then(|s| s.as_str())
+                .map(|s| s == "stopped")
+        })
+        .unwrap_or(false)
 }
 
 /// POST /v1/hypervisor/automation-executions/:id/cancel — stop a running execution.

@@ -622,6 +622,28 @@ export function automationRenameFromCompassUpdate(existing, asked = {}) {
   return name === existing.name ? { patch: null } : { patch: { name } };
 }
 
+// The detail page's own writes, each a PATCH of the automation it names: the description
+// (UpdateResourceDescription), the name (RenameResource) and pause / resume (REST
+// `POST /registry/v0/disable/<rid> {disable}`). `mutationPatch` translates; `mutationAnswer` is the
+// app's answer once the PATCH lands (same cache ids as the facts, so the page updates in place).
+export const MUTATION_OPERATIONS = new Set(["UpdateResourceDescription", "RenameResource"]);
+export function mutationPatch(name, variables, existing) {
+  if (name === "UpdateResourceDescription") {
+    const description = String(variables?.newDescription ?? "");
+    if (description.length > 4000) return { issue: "an automation's description is at most 4000 characters" };
+    return { patch: description === (existing.description || "") ? null : { description } };
+  }
+  if (name === "RenameResource") return automationRenameFromCompassUpdate(existing, { name: variables?.newName });
+  return { issue: `${name} is not an automation write the Hypervisor carries` };
+}
+export function mutationAnswer(name, a) {
+  const rid = monitorRidOf(a.automation_id);
+  if (name === "UpdateResourceDescription") return { setResourceDescription: { __typename: "ResourceMetadata", _id: cacheId(`meta:${rid}`), description: a.description || "" } };
+  if (name === "RenameResource") return { renameResource: { __typename: "RenameResourceResponse", error: null } };
+  return null;
+}
+export const pausePatchOf = (request) => (typeof request?.disable === "boolean" ? { patch: { enabled: !request.disable } } : { issue: "pause or resume: `disable` must be true or false" });
+
 // The compass resource of one automation (the monitor the wizard just created), under its project.
 export function compassAutomationResource(a, projects, principalRef) {
   const rid = monitorRidOf(a.automation_id);

@@ -1784,10 +1784,29 @@ pub(crate) async fn bridge_run_now(
 
 /// The execution finished: the run's lifecycle moves to `succeeded` or `failed`, carrying the
 /// execution (and its transcript, when one was recorded) as evidence.
+/// How an execution ended, as its canonical run's terminal phase.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub(crate) enum RunOutcome {
+    Succeeded,
+    Failed,
+    /// Stopped by a cancel (the execution record reads `stopped`): the remaining steps never ran.
+    Cancelled,
+}
+
+impl RunOutcome {
+    fn phase(self) -> &'static str {
+        match self {
+            Self::Succeeded => "succeeded",
+            Self::Failed => "failed",
+            Self::Cancelled => "cancelled",
+        }
+    }
+}
+
 pub(crate) fn bridge_run_finished(
     data_dir: &str,
     run: &mut BridgedRun,
-    failed: bool,
+    outcome: RunOutcome,
     execution_id: &str,
     transcript_ref: Option<&str>,
 ) -> Result<(), String> {
@@ -1795,7 +1814,7 @@ pub(crate) fn bridge_run_finished(
     if let Some(reference) = transcript_ref.filter(|r| !r.is_empty()) {
         evidence.push(reference.to_string());
     }
-    let to = if failed { "failed" } else { "succeeded" };
+    let to = outcome.phase();
     append_phase(
         data_dir,
         run,

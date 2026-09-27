@@ -255,7 +255,11 @@ journey verifier → deploy to the owner's stack.
   app's cache). The detail page now shows EVERY step, in order ("Executed sequentially"): an agent step
   is the reference's Agent effect with its prompt as the one input, and a command or proposal step reads
   as the app's own "Unknown effect" — the owner's 25 automations (agent + command + proposal) used to read
-  "There are no effects configured". *Still open (named):* the Agent effect's title reads "Unknown Agent"
+  "There are no effects configured". The page's own writes land too: the description and the header rename
+  (GraphQL mutations) and Pause / Resume (REST `disable`) are PATCHes of the automation; the pause
+  popover's promise that in-flight executions are canceled mid-run is kept — the adopted pause cancels
+  each running execution, and the daemon's executor now honors a cancel before every step (it used to run
+  on and overwrite `stopped` with `done`). *Still open (named):* the Agent effect's title reads "Unknown Agent"
   (no agent definition bound); command and proposal steps have no reference effect to name them; the
   editor lists a manual automation's condition as Time; the refusal reason shows only as a tooltip;
   expiry and retries are not enforced; the description field is unbound.

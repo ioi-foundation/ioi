@@ -343,6 +343,50 @@ async function run() {
     ok("the adopted editor does not save a manual command-step automation — Save stays disabled and the record is untouched",
       saveDisabled === true && manualAfter.steps?.length === 1 && manualAfter.steps[0].kind === "command" && manualAfter.updated_at === manual.automation?.updated_at,
       `save disabled ${saveDisabled} · steps ${JSON.stringify(manualAfter.steps || []).slice(0, 80)} · updated ${manualAfter.updated_at === manual.automation?.updated_at ? "no" : "YES"}`);
+
+    // ---- 5. The detail page's own writes: its description, and Pause — whose popover promises that
+    // in-flight executions are canceled mid-run — then Resume. The slow fixture and its run are posted to
+    // the daemon (the run is the thing being paused, not the lane under test).
+    const slow = await fetch(`${DAEMON}/v1/hypervisor/automations`, { method: "POST", headers: { cookie: COOKIE, "content-type": "application/json" }, body: JSON.stringify({ project_ref: project.project?.id, name: `slow-${tag}`, steps: [{ kind: "command", command: "sleep 8; echo SLOW_FIRST" }, { kind: "command", command: "echo SLOW_SECOND" }] }) }).then((r) => r.json()).catch(() => ({}));
+    const slowId = slow.automation?.automation_id || "";
+    const writes = [];
+    await pg.goto(`${SERVE}/automations?automation=${slowId}`, { waitUntil: "domcontentloaded" });
+    await pg.waitForTimeout(8000);
+    let inFlight = null;
+    let slowRun = null;
+    try {
+      await pg.getByText("Edit description", { exact: true }).first().click({ timeout: 8000 });
+      await pg.waitForTimeout(800);
+      await pg.keyboard.type(`Paused by the verifier ${tag}`);
+      await pg.getByText("Automation flow", { exact: true }).first().click({ timeout: 5000 });
+      await pg.waitForTimeout(3000);
+      writes.push("description");
+      slowRun = fetch(`${DAEMON}/v1/hypervisor/automations/${slowId}/runs`, { method: "POST", headers: { cookie: COOKIE, "content-type": "application/json" }, body: "{}" }).catch(() => null);
+      for (let attempt = 0; attempt < 60 && !inFlight; attempt++) {
+        await sleep(500);
+        inFlight = ((await daemonRead(`/v1/hypervisor/automations/${slowId}/runs`)).body?.runs || []).find((r) => r.status === "running") || null;
+      }
+      await pg.getByRole("button", { name: /^Active/u }).first().click({ timeout: 8000 });
+      await pg.waitForTimeout(1200);
+      await pg.locator(".bp6-popover-content").getByRole("button", { name: /Pause/u }).first().click({ timeout: 8000 });
+      await pg.waitForTimeout(4000);
+      writes.push("paused");
+    } catch (e) { writes.push(`stopped: ${String(e.message).split("\n")[0].slice(0, 120)}`); }
+    await slowRun;
+    const pausedSpec = (await daemonRead("/v1/hypervisor/automations")).body?.automations?.find((a) => a.automation_id === slowId) || {};
+    const pausedExec = inFlight ? ((await daemonRead(`/v1/hypervisor/automation-executions/${inFlight.execution_id}`)).body?.execution || {}) : {};
+    let resumedEnabled = null;
+    try {
+      await pg.getByRole("button", { name: /^Paused/u }).first().click({ timeout: 8000 });
+      await pg.waitForTimeout(1200);
+      await pg.locator(".bp6-popover-content").getByRole("button", { name: /Resume/u }).first().click({ timeout: 8000 });
+      await pg.waitForTimeout(4000);
+      resumedEnabled = ((await daemonRead("/v1/hypervisor/automations")).body?.automations?.find((a) => a.automation_id === slowId) || {}).enabled;
+    } catch (e) { writes.push(`resume: ${String(e.message).split("\n")[0].slice(0, 120)}`); }
+    ok("the adopted page's own writes land: the description is the automation's, Pause disables it and stops its in-flight run before the next step (as its popover promises), and Resume enables it again",
+      pausedSpec.description === `Paused by the verifier ${tag}` && pausedSpec.enabled === false && !!inFlight && pausedExec.status === "stopped"
+        && pausedExec.step_results?.[1]?.status === "skipped" && resumedEnabled === true,
+      `${writes.join(" → ")} · description ${JSON.stringify(pausedSpec.description)} · paused ${pausedSpec.enabled === false} · run ${inFlight ? pausedExec.status : "never running"} ${JSON.stringify((pausedExec.step_results || []).map((s) => s.status))} · resumed ${resumedEnabled}`);
   } finally {
     await browser.close();
   }

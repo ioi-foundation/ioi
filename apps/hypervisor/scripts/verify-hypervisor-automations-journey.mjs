@@ -639,6 +639,27 @@ async function run() {
     runItem?.event_kind === "run.succeeded" && String(runItem.body || "").includes("journey-nightly"),
     runItem ? `${runItem.event_kind} · ${runItem.body}` : "no automation_run item");
 
+  // -- a cancel STOPS the run: the steps after it never run, and "stopped" stays true -----------------
+  // The cancel route marked the record `stopped` while the executor ran on and overwrote it with
+  // `done` — a reported cancel silently undone. The executor now reads the record before every step.
+  const slow = await jd("/v1/hypervisor/automations", { method: "POST", body: JSON.stringify({ project_ref: projectId, name: "journey-cancel", steps: [{ kind: "command", command: "sleep 6; echo FIRST_STEP_RAN" }, { kind: "command", command: "echo SECOND_STEP_RAN" }] }) });
+  const slowId = slow.body?.automation?.automation_id || "";
+  const slowRun = jd(`/v1/hypervisor/automations/${encodeURIComponent(slowId)}/runs`, { method: "POST", body: "{}" });
+  let inFlight = null;
+  for (let attempt = 0; attempt < 60 && !inFlight; attempt++) {
+    await new Promise((r) => setTimeout(r, 500));
+    inFlight = ((await jd(`/v1/hypervisor/automations/${encodeURIComponent(slowId)}/runs`)).body?.runs || []).find((r) => r.status === "running") || null;
+  }
+  const cancelled = inFlight ? await jd(`/v1/hypervisor/automation-executions/${encodeURIComponent(inFlight.execution_id)}/cancel`, { method: "POST" }) : { body: {} };
+  await slowRun;
+  const stoppedExec = inFlight ? ((await jd(`/v1/hypervisor/automation-executions/${encodeURIComponent(inFlight.execution_id)}`)).body?.execution || {}) : {};
+  const stoppedRunRef = String(stoppedExec.automation_run_ref || "");
+  const stoppedPhase = stoppedRunRef ? JSON.stringify((await jd(`/v1/hypervisor/work-lifecycle/projection?object_ref=${encodeURIComponent(stoppedRunRef)}&owner_ref=${encodeURIComponent(principalRef)}`)).body || {}) : "";
+  ok("a cancel stops the run: the execution stays `stopped` after the executor finishes, the step after the cancel never runs, and its canonical run closes `cancelled`",
+    !!inFlight && cancelled.body?.status === "stopped" && stoppedExec.status === "stopped" && stoppedExec.step_results?.[1]?.status === "skipped"
+      && !JSON.stringify(stoppedExec.step_results || []).includes("SECOND_STEP_RAN") && stoppedPhase.includes('"active_phase":"cancelled"'),
+    `${inFlight ? inFlight.execution_id : "no running execution"} · cancel ${cancelled.body?.status} · final ${stoppedExec.status} · steps ${JSON.stringify((stoppedExec.step_results || []).map((s) => s.status))} · phase ${stoppedPhase.match(/"active_phase":"[a-z_]*"/u)?.[0] || "none"}`);
+
   // -- webhook: rotate (hash-at-rest) + rejected trigger is a RECEIPTED event -
   const rotated = await jd(`/v1/hypervisor/automations/${encodeURIComponent(automationId)}/webhook-rotate`, { method: "POST" });
   const webhookToken = rotated.body?.webhook_token || "";

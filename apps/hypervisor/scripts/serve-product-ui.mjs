@@ -9236,6 +9236,19 @@ async function handleEstateRequest(req, res, body) {
           const template = AUTOMATE.harvestOperations(ADOPT_MIRROR_DIR).get(name)?.data || null;
           return { data: answerAdoptedDocument(query, await adoptedFunctionFacts(variables || {}), template, name) };
         }
+        // The detail page's own writes (description, rename): each a PATCH of the automation it names,
+        // identity-first in the daemon; a refusal is the operation's GraphQL error, and nothing is written.
+        if (AUTOMATE.MUTATION_OPERATIONS.has(name)) {
+          const rid = AUTOMATE.requestedMonitorRid(variables);
+          const a = rid ? (ctxA.automations || []).find((x) => AUTOMATE.monitorRidOf(x.automation_id) === rid) : null;
+          if (!a) return { data: null, errors: [{ message: `${name}: not one of your automations` }] };
+          const t = AUTOMATE.mutationPatch(name, variables || {}, a);
+          if (t.issue) return { data: null, errors: [{ message: t.issue }] };
+          if (!t.patch) return { data: AUTOMATE.mutationAnswer(name, a) };
+          const patched = await daemonFetch(`/v1/hypervisor/automations/${encodeURIComponent(a.automation_id)}`, { method: "PATCH", headers: { "content-type": "application/json" }, body: JSON.stringify(t.patch) }).then((r) => r.json()).catch(() => ({}));
+          if (patched?.ok !== true) return { data: null, errors: [{ message: patched?.error?.message || patched?.reason || "the automations plane did not apply the edit" }] };
+          return { data: AUTOMATE.mutationAnswer(name, patched.automation) };
+        }
         const env = AUTOMATE.envelopeAnswer(name, variables || {}, ctxA, ADOPT_MIRROR_DIR);
         return env !== undefined ? { data: env } : AUTOMATE.unboundError(name);
       };
@@ -9865,6 +9878,31 @@ async function handleEstateRequest(req, res, body) {
         const id = made.j?.automation?.automation_id;
         if (!id) return sendJson(made.status >= 400 ? made.status : 502, conjureRefusal(made.j?.error?.message || made.j?.message || "the automations plane did not admit the automation"));
         return sendJson(200, { locator: { rid: AUTOMATE.monitorRidOf(id), version: 1 } });
+      }
+      // Pause / resume from the detail page's status menu → PATCH enabled (the scheduler skips a paused
+      // automation; resuming recomputes its next fire).
+      {
+        const dis = /^\/object-sentinel\/api\/registry\/v0\/disable\/([^/]+)$/.exec(pathname);
+        if (dis && req.method === "POST") {
+          const sendJson = (status, obj) => { res.writeHead(status, { "Content-Type": "application/json" }); return res.end(obj === undefined ? "" : JSON.stringify(obj)); };
+          const existing = await automationOfMonitorRid(dis[1]);
+          if (!existing) return sendJson(404, { errorCode: "NOT_FOUND", errorName: "Monitor:NotFound", errorInstanceId: "", parameters: {} });
+          let request = {};
+          try { request = JSON.parse(body.toString() || "{}"); } catch { /* empty */ }
+          const t = AUTOMATE.pausePatchOf(request);
+          if (t.issue) return sendJson(400, conjureRefusal(t.issue));
+          const patched = await daemonFetch(`/v1/hypervisor/automations/${encodeURIComponent(existing.automation_id)}`, { method: "PATCH", headers: { "content-type": "application/json" }, body: JSON.stringify(t.patch) }).then(async (r) => ({ status: r.status, j: await r.json().catch(() => ({})) })).catch(() => ({ status: 502, j: {} }));
+          if (patched.j?.ok !== true) return sendJson(patched.status >= 400 ? patched.status : 409, conjureRefusal(patched.j?.message || patched.j?.reason || "the automations plane did not apply the pause"));
+          // The pause this surface offers says in-flight executions are canceled mid-run: so they are —
+          // each running execution is cancelled (the executor stops before its next step).
+          if (request.disable === true) {
+            const runs = await daemonFetch(`/v1/hypervisor/automations/${encodeURIComponent(existing.automation_id)}/runs`).then((r) => r.json()).then((j) => j.runs || []).catch(() => []);
+            for (const run of runs.filter((r) => r.status === "running")) {
+              await daemonFetch(`/v1/hypervisor/automation-executions/${encodeURIComponent(run.execution_id)}/cancel`, { method: "POST" }).catch(() => null);
+            }
+          }
+          res.writeHead(204); return res.end();
+        }
       }
       // Edit: the wizard's Save (updateMonitor) — the edit translated and PATCHed onto the automation it
       // names (identity-first in the daemon); the answer is its monitor locator. What the edit cannot
