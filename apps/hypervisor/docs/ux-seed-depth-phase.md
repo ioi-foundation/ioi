@@ -197,6 +197,15 @@ journey verifier → deploy to the owner's stack.
   (UTC)", last triggered Never, execution No events yet, no monitoring rules. Named gaps on it: our steps
   (command / agent) are not reference effects, so the effects card reads empty until reshaped; some
   metadata rows (owner, created by, automation RID) and the frequency tag; the comments batch read.
+- **Read flows at zero unbound (aa11e47b8):** Overview, the list and the detail page make no call the
+  adapter cannot answer (`GET /__ioi/adopted-seeds/unbound` counts by name; the drive reads it).
+- **The wizard's create depends on P3 (functions).** The reference refuses Create until an effect exists,
+  and its effects are Action / Logic / Function / Notification — none is a Hypervisor command or agent
+  step. The Function effect is where "run this code" belongs, and canon gives functions to Ontology with
+  Automations consuming them (ADR 0056 answer 3), so the create path binds once the function-revision
+  plane (P3) exists: the Function effect's registry reads answer from it, and an automation created
+  through the adopted wizard becomes an automation whose step runs that function. Until then the adopted
+  wizard walks, and its Create is a named gap; `/automations` keeps the current create form.
 - **Adoption steps:** (1) vendor the booted app — `index.html` + its 34 content-addressed assets,
   18.5 MB, the same scale as the tracked Ona tree — into a quarantined harvested lane in the owned tree;
   (2) serve it at the Automate canonical route, its asset and API paths answered by the serve (assets
