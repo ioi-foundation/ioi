@@ -265,6 +265,16 @@ async function run() {
   ok("a container-less create refuses TYPED (automation_project_ref_required — the project linkage is the family's own rule)",
     noProject.status === 400 && noProject.body?.error?.code === "automation_project_ref_required",
     `${noProject.status}/${noProject.body?.error?.code}`);
+  // R-241: the container must EXIST. Create stored project_ref verbatim, so the owner's daemon held
+  // 23 automations of a project that was never created.
+  const specIds = (r) => (r.body?.automations || []).map((a) => a.automation_id).sort().join(",");
+  const beforeUnknown = await jd("/v1/hypervisor/automations");
+  const unknownProject = await jd("/v1/hypervisor/automations", { method: "POST", body: JSON.stringify({ project_ref: "project:never-created", name: "ghost", steps: [] }) });
+  const afterUnknown = await jd("/v1/hypervisor/automations");
+  ok("a create naming a project this Hypervisor does not hold refuses TYPED (422 automation_project_unknown) and admits nothing — the automation list is unchanged",
+    unknownProject.status === 422 && unknownProject.body?.error?.code === "automation_project_unknown" && !unknownProject.body?.automation
+      && beforeUnknown.status === 200 && Array.isArray(beforeUnknown.body?.automations) && afterUnknown.status === 200 && specIds(afterUnknown) === specIds(beforeUnknown),
+    `${unknownProject.status}/${unknownProject.body?.error?.code} · ${(beforeUnknown.body?.automations || []).length} → ${(afterUnknown.body?.automations || []).length} specs`);
 
   // -- identity gate (#237 finding CLOSED — next-legs III Leg 1): writes are identity-first ---
   const anonCreate = await jd("/v1/hypervisor/automations", {

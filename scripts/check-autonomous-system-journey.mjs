@@ -736,17 +736,35 @@ async function liveLeg() {
     await probesOf("limits");
     todo("limits/handoff/lease-gates-connection-picker");
     // ==== STEP 5 — RUN =============================================================================
-    // THIS walk's automation, through the New automation form (a fresh plane has no projects, so the
-    // form renders the project as text; the daemon checks only that it is set).
+    // THIS walk's automation, through the New automation form. An automation names one of this
+    // Hypervisor's projects — the daemon refuses any other (automation_project_unknown) — so THIS walk's
+    // project must exist first. On a plane with none, New automation renders only the New project form,
+    // whose answer returns to New automation with the new project chosen; once one exists, the page renders
+    // the automation form and its project select offers it.
     const automationName = `auto-${vars.tag}`;
     const newAutomationRoute = "/__ioi/automations/new";
-    const createdAutomation = await submitRenderedForm(ctx, { id: "automation", page: await page(ctx, newAutomationRoute), from: newAutomationRoute, action: "/__ioi/automations",
-      fields: { project_ref: `project:${vars.tag}`, name: automationName, step_kind: "command", step_body: "echo journey" } });
+    const walkProjectId = `project:walk-${vars.tag}`;
+    const automationFormPage = async () => {
+      const first = await page(ctx, newAutomationRoute);
+      if (!renderedForm(first.text, "/__ioi/projects/new")) return { at: newAutomationRoute, page: first, project: null };
+      const project = outcomeOf(await submitRenderedForm(ctx, { id: "project", page: first, from: newAutomationRoute, action: "/__ioi/projects/new",
+        fields: { project_name: `walk-${vars.tag}`, repository_url: `https://example.invalid/journey/walk-${vars.tag}.git` } }));
+      const at = project.location.startsWith(newAutomationRoute) ? project.location : newAutomationRoute;
+      return { at, page: await page(ctx, at), project };
+    };
+    const automationForm = await automationFormPage();
+    const walkProject = automationForm.project;
+    const createdAutomation = await submitRenderedForm(ctx, { id: "automation", page: automationForm.page, from: automationForm.at, action: "/__ioi/automations",
+      fields: { project_ref: walkProjectId, name: automationName, step_kind: "command", step_body: "echo journey" } });
     const automationAt = String(createdAutomation.headers.location || "");
     const automate = await page(ctx, "/__ioi/automations/monitors?tab=automations");
+    const walkAutomationRecord = /auto_[0-9a-f]+/u.test(automationAt)
+      ? (((await read(ctx, `/v1/hypervisor/automations/${automationAt.match(/auto_[0-9a-f]+/u)[0]}`)).json || {}).automation || {}) : {};
     claimLive("run/legs/walk-automation",
-      createdAutomation.status === 302 && /^\/__ioi\/automations\/auto_[0-9a-f]+/u.test(automationAt) && automate.status === 200 && automate.text.includes(automationName),
-      `create ${createdAutomation.status} → ${automationAt.slice(0, 60) || "no location"} · Automate lists it ${automate.text.includes(automationName)}`);
+      (!walkProject || (walkProject.status === 303 && walkProject.q.get("ok") === "1" && walkProject.q.get("project") === walkProjectId))
+        && createdAutomation.status === 302 && /^\/__ioi\/automations\/auto_[0-9a-f]+/u.test(automationAt) && walkAutomationRecord.project_ref === walkProjectId
+        && automate.status === 200 && automate.text.includes(automationName),
+      `project ${walkProject ? `${walkProject.status} ${walkProject.q.get("project") || walkProject.q.get("note") || ""}` : "already held"} · create ${createdAutomation.status} → ${automationAt.slice(0, 60) || "no location"} in ${walkAutomationRecord.project_ref || "no project"} · Automate lists it ${automate.text.includes(automationName)}`);
     todo("run/legs/walk-session");
     await probesOf("run");
     // HAND-OFF 5 → 6: THIS walk's run. Run now on the automation's own page; the automation's run
@@ -831,12 +849,14 @@ async function liveLeg() {
         && releasedFn.q.get("ok") === "1" && fnRow.includes(fnName) && fnRow.includes('data-fn-tool-operable="1"'),
       `declare ${declaredFn.status} ${walkFnId || declaredFn.q.get("note") || "no function"} · test ${testedFn.q.get("note") || testedFn.status} · release ${releasedFn.q.get("note") || releasedFn.status} · listed ${fnRowAt >= 0} operable ${fnRow.includes('data-fn-tool-operable="1"')}`);
     // STEP 5 (continued) — an automation step that runs THIS walk's released function by exact revision
-    // (ADR 0056 P3 cut 3). The walk's checkpoint gates every Run now, so this one is justified too.
+    // (ADR 0056 P3 cut 3), in THIS walk's project. The walk's checkpoint gates every Run now, so this one
+    // is justified too.
     const fnAutoName = `autofn-${vars.tag}`;
     const fnRevisionRef = walkFnId ? `function://${walkFnId}/revision/1` : "";
+    const fnAutomationForm = walkFnId ? await automationFormPage() : null;
     const createdFnAuto = walkFnId
-      ? await submitRenderedForm(ctx, { id: "function-automation", page: await page(ctx, newAutomationRoute), from: newAutomationRoute, action: "/__ioi/automations",
-        fields: { project_ref: `project:${vars.tag}`, name: fnAutoName, step_kind: "function", step_function: fnRevisionRef, step_body: '{"amount": 99}' } })
+      ? await submitRenderedForm(ctx, { id: "function-automation", page: fnAutomationForm.page, from: fnAutomationForm.at, action: "/__ioi/automations",
+        fields: { project_ref: walkProjectId, name: fnAutoName, step_kind: "function", step_function: fnRevisionRef, step_body: '{"amount": 99}' } })
       : { status: 0, headers: {}, text: "" };
     const fnAutoAt = String(createdFnAuto.headers?.location || "");
     const fnAutoId = (fnAutoAt.match(/auto_[0-9a-f]+/u) || [])[0] || "";

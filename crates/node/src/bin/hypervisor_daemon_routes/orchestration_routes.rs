@@ -256,9 +256,101 @@ fn function_steps_refusal(
     Ok(())
 }
 
+/// The canonical spelling of a project reference: `project:<slug>` as the project create kernel
+/// mints it (runtime_hypervisor_project_create), or `project://<slug>` — the same project spelled as
+/// a tenant ref (lifecycle_routes' membership tenant resolution) — mapped onto it. A bare slug is not
+/// a project reference. This names a project; it does not say one exists.
+fn canonical_project_ref(named: &str) -> Option<String> {
+    let named = named.trim();
+    let slug = named
+        .strip_prefix("project://")
+        .or_else(|| named.strip_prefix("project:"))?;
+    (!slug.is_empty()).then(|| format!("project:{slug}"))
+}
+
+/// The project an automation names, resolved against THIS Hypervisor's project records (R-241:
+/// create stored `project_ref` verbatim, so the owner's daemon holds automations of a project that
+/// never existed). Records are found by file key and `safe()` folds every non-[A-Za-z0-9_-] to
+/// '_', so a lookalike (`project:a.b` for `project:a_b`) reaches the same file: the loaded record
+/// must carry the canonical id itself.
+fn resolve_automation_project(data_dir: &str, named: &str) -> Option<String> {
+    let canonical = canonical_project_ref(named)?;
+    let record = load(data_dir, "projects", &canonical)?;
+    (record.get("project_id").and_then(Value::as_str) == Some(canonical.as_str()))
+        .then_some(canonical)
+}
+
+/// The project a create body names, admitted: present (400 `automation_project_ref_required`) and
+/// one of this Hypervisor's projects (422 `automation_project_unknown`). Returns the canonical id.
+fn admitted_automation_project(
+    data_dir: &str,
+    body: &Value,
+) -> Result<String, (StatusCode, Json<Value>)> {
+    let named = body
+        .get("project_ref")
+        .and_then(|v| v.as_str())
+        .or_else(|| body.get("project_id").and_then(|v| v.as_str()))
+        .map(str::trim)
+        .filter(|s| !s.is_empty());
+    let Some(named) = named else {
+        return Err((
+            StatusCode::BAD_REQUEST,
+            Json(json!({ "ok": false, "error": {
+                "code": "automation_project_ref_required",
+                "message": "An automation must declare a project_ref (the project is its durable container)."
+            } })),
+        ));
+    };
+    resolve_automation_project(data_dir, named).ok_or_else(|| {
+        let shown: String = named.chars().take(160).collect();
+        (
+            StatusCode::UNPROCESSABLE_ENTITY,
+            Json(json!({ "ok": false, "error": {
+                "code": "automation_project_unknown",
+                "message": format!("project_ref {shown:?} is not one of this Hypervisor's projects. An automation names an existing project as project:<slug> (project://<slug> is accepted too; a bare slug is not) — create the project first, or choose one this Hypervisor lists.")
+            } })),
+        )
+    })
+}
+
+/// PATCH never moves an automation to another project: the project is its durable container. A body
+/// naming the SAME project (either spelling) changes nothing and passes; one naming any other is
+/// refused 422 `automation_project_immutable`. The project is NOT required to exist here — an
+/// automation whose project is gone stays editable and deletable.
+fn automation_project_change_refusal(
+    current: &Value,
+    body: &Value,
+) -> Option<(StatusCode, Json<Value>)> {
+    let spelled = |s: &str| canonical_project_ref(s).unwrap_or_else(|| s.trim().to_string());
+    let held: Vec<String> = ["project_id", "project_ref"]
+        .iter()
+        .filter_map(|key| current.get(*key).and_then(Value::as_str))
+        .map(spelled)
+        .collect();
+    for key in ["project_ref", "project_id"] {
+        let named = match body.get(key) {
+            None | Some(Value::Null) => continue,
+            Some(Value::String(s)) if s.trim().is_empty() => continue,
+            Some(named) => named,
+        };
+        if !named.as_str().is_some_and(|s| held.contains(&spelled(s))) {
+            return Some((
+                StatusCode::UNPROCESSABLE_ENTITY,
+                Json(json!({ "ok": false, "error": {
+                    "code": "automation_project_immutable",
+                    "message": format!("An automation stays in its project ({}): a PATCH cannot move it to another one. Create the automation in the other project instead.", held.first().map(String::as_str).unwrap_or("none recorded"))
+                } })),
+            ));
+        }
+    }
+    None
+}
+
 /// POST /v1/hypervisor/automations — create a project-scoped AutomationWorkflow spec.
 /// `project_ref` (alias `project_id`) is REQUIRED: an automation is durable work that must hang off
-/// a project. Returns 400 if absent. On success the project's `automation_refs` is updated.
+/// a project. Returns 400 if absent, 422 `automation_project_unknown` unless it names one of this
+/// Hypervisor's projects; the canonical `project:<slug>` is stored. On success the project's
+/// `automation_refs` is updated.
 pub(crate) async fn handle_automation_create(
     State(st): State<Arc<DaemonState>>,
     headers: HeaderMap,
@@ -272,21 +364,12 @@ pub(crate) async fn handle_automation_create(
         Ok(identity) => identity,
         Err(error) => return automation_scope_refusal(error),
     };
-    let project_id = body
-        .get("project_ref")
-        .and_then(|v| v.as_str())
-        .or_else(|| body.get("project_id").and_then(|v| v.as_str()))
-        .map(str::trim)
-        .filter(|s| !s.is_empty());
-    let Some(project_id) = project_id else {
-        return (
-            StatusCode::BAD_REQUEST,
-            Json(json!({ "ok": false, "error": {
-                "code": "automation_project_ref_required",
-                "message": "An automation must declare a project_ref (the project is its durable container)."
-            } })),
-        );
+    // The project, before any other field: present, then one of this Hypervisor's projects.
+    let project_id = match admitted_automation_project(&st.data_dir, &body) {
+        Ok(project_id) => project_id,
+        Err(refusal) => return refusal,
     };
+    let project_id = project_id.as_str();
     let id = format!("auto_{:x}", nanos());
     let now = iso_now();
     let trigger = body
@@ -453,6 +536,9 @@ pub(crate) async fn handle_automation_patch(
             Json(json!({ "ok": false, "reason": "automation not found" })),
         );
     };
+    if let Some(refusal) = automation_project_change_refusal(&a, &body) {
+        return refusal;
+    }
     if let Some(spec) = body.get("schedule_spec") {
         if let Err(e) = super::validate_schedule_spec(spec) {
             return (
@@ -1441,8 +1527,9 @@ pub(crate) async fn handle_automation_webhook(
     if super::epoch_of(&iso_now()).is_some_and(|now| super::automation_expired(&a, now)) {
         return reject(StatusCode::FORBIDDEN, "automation_expired");
     }
+    // The same resolution create admits by, so create and fire agree on what "exists" means.
     let project_id = a.get("project_id").and_then(|v| v.as_str()).unwrap_or("");
-    if project_id.is_empty() || load(&st.data_dir, "projects", project_id).is_none() {
+    if resolve_automation_project(&st.data_dir, project_id).is_none() {
         return reject(StatusCode::UNPROCESSABLE_ENTITY, "project_missing");
     }
     if body.len() > MAX_PAYLOAD {
@@ -3167,5 +3254,145 @@ mod command_step_tests {
             command_step_outcome("blocked", json!({ "exit_code": 126 })).0,
             "failed"
         );
+    }
+}
+
+#[cfg(test)]
+mod automation_project_tests {
+    use super::*;
+
+    /// A project record as the create kernel mints it, at the file key `persist_record` gives it.
+    fn seed_project(data_dir: &str, project_id: &str) {
+        persist_record(
+            data_dir,
+            "projects",
+            project_id,
+            &json!({ "project_id": project_id, "name": project_id, "automation_refs": [] }),
+        )
+        .unwrap();
+    }
+
+    fn refusal_code(outcome: Result<String, (StatusCode, Json<Value>)>) -> (StatusCode, Value) {
+        let (status, Json(body)) = outcome.expect_err("refused");
+        assert_eq!(body["ok"], json!(false));
+        (status, body["error"]["code"].clone())
+    }
+
+    #[test]
+    fn an_unknown_project_is_refused_and_a_bare_slug_never_names_one() {
+        let directory = tempfile::tempdir().unwrap();
+        let data_dir = directory.path().to_str().unwrap();
+        seed_project(data_dir, "project:acme");
+
+        let (status, code) = refusal_code(admitted_automation_project(
+            data_dir,
+            &json!({ "project_ref": "project:orchestration-verify" }),
+        ));
+        assert_eq!(status, StatusCode::UNPROCESSABLE_ENTITY);
+        assert_eq!(code, json!("automation_project_unknown"));
+        // A bare slug is not a project reference, even when a project of that slug exists.
+        let (status, code) = refusal_code(admitted_automation_project(
+            data_dir,
+            &json!({ "project_ref": "acme" }),
+        ));
+        assert_eq!(status, StatusCode::UNPROCESSABLE_ENTITY);
+        assert_eq!(code, json!("automation_project_unknown"));
+        // The message names the expected form.
+        let (_, Json(body)) =
+            admitted_automation_project(data_dir, &json!({ "project_id": "project:nope" }))
+                .unwrap_err();
+        let message = body["error"]["message"].as_str().unwrap();
+        assert!(
+            message.contains("project:<slug>") && message.contains("this Hypervisor's projects")
+        );
+        // Absent still answers the 400 it always did, before any existence question.
+        let (status, code) = refusal_code(admitted_automation_project(
+            data_dir,
+            &json!({ "project_ref": "  " }),
+        ));
+        assert_eq!(status, StatusCode::BAD_REQUEST);
+        assert_eq!(code, json!("automation_project_ref_required"));
+        // The exact id is admitted, trimmed, through either field name.
+        assert_eq!(
+            admitted_automation_project(data_dir, &json!({ "project_id": " project:acme " }))
+                .unwrap(),
+            "project:acme"
+        );
+    }
+
+    #[test]
+    fn a_project_scheme_ref_is_mapped_onto_the_canonical_id() {
+        let directory = tempfile::tempdir().unwrap();
+        let data_dir = directory.path().to_str().unwrap();
+        seed_project(data_dir, "project:acme");
+
+        assert_eq!(
+            admitted_automation_project(data_dir, &json!({ "project_ref": "project://acme" }))
+                .unwrap(),
+            "project:acme"
+        );
+        let (status, code) = refusal_code(admitted_automation_project(
+            data_dir,
+            &json!({ "project_ref": "project://" }),
+        ));
+        assert_eq!(status, StatusCode::UNPROCESSABLE_ENTITY);
+        assert_eq!(code, json!("automation_project_unknown"));
+    }
+
+    #[test]
+    fn a_lookalike_that_reaches_the_same_file_is_refused() {
+        let directory = tempfile::tempdir().unwrap();
+        let data_dir = directory.path().to_str().unwrap();
+        seed_project(data_dir, "project:acme_web");
+        // `project:acme.web` and `acme_web` both fold onto project_acme_web.json.
+        assert!(load(data_dir, "projects", "project:acme.web").is_some());
+
+        for lookalike in ["project:acme.web", "project_acme_web", "project:acme web"] {
+            let (status, code) = refusal_code(admitted_automation_project(
+                data_dir,
+                &json!({ "project_ref": lookalike }),
+            ));
+            assert_eq!(status, StatusCode::UNPROCESSABLE_ENTITY, "{lookalike}");
+            assert_eq!(code, json!("automation_project_unknown"), "{lookalike}");
+        }
+        assert_eq!(
+            resolve_automation_project(data_dir, "project:acme_web").as_deref(),
+            Some("project:acme_web")
+        );
+    }
+
+    #[test]
+    fn a_patch_cannot_move_an_automation_and_never_asks_whether_its_project_exists() {
+        // No project records at all: the automation below is an orphan, and must stay editable.
+        let orphan = json!({ "automation_id": "auto_1", "project_id": "project:gone", "project_ref": "project:gone" });
+
+        for body in [
+            json!({ "name": "renamed" }),
+            json!({ "project_ref": "project:gone", "name": "renamed" }),
+            json!({ "project_id": "project://gone" }),
+            json!({ "project_ref": null }),
+            json!({ "project_ref": "" }),
+        ] {
+            assert!(
+                automation_project_change_refusal(&orphan, &body).is_none(),
+                "{body}"
+            );
+        }
+        for body in [
+            json!({ "project_ref": "project:other" }),
+            json!({ "project_id": "project://other" }),
+            json!({ "project_ref": "project:gone", "project_id": "project:other" }),
+            json!({ "project_ref": "gone" }),
+            json!({ "project_ref": 7 }),
+        ] {
+            let (status, Json(refusal)) =
+                automation_project_change_refusal(&orphan, &body).expect("refused");
+            assert_eq!(status, StatusCode::UNPROCESSABLE_ENTITY, "{body}");
+            assert_eq!(
+                refusal["error"]["code"],
+                json!("automation_project_immutable"),
+                "{body}"
+            );
+        }
     }
 }
