@@ -294,6 +294,53 @@ async function run() {
     ok("Run now on the product's automation page runs that exact revision and the step records Passed",
       [302, 303].includes(ran.status) && exec.status === "done" && step.kind === "function" && step.output?.outcome === "passed" && step.output?.function_revision_ref === r1.revision_ref,
       `run ${ran.status ?? ran.error} · ${exec.status || "no execution"} ${step.output?.outcome || step.output?.error || ""}`);
+
+    // ---- 4. Edit in the adopted wizard: rename (compass) and a new input value (updateMonitor) in ONE Save
+    await pg.goto(`${SERVE}/automations?automation=${made.automation_id}`, { waitUntil: "domcontentloaded" });
+    await pg.waitForTimeout(8000);
+    const editSteps = [];
+    try {
+      await pg.getByRole("button", { name: /^Edit/u }).first().click({ timeout: 8000 });
+      await pg.waitForTimeout(7000);
+      await pg.getByText(`Double ${tag}`, { exact: true }).first().click({ timeout: 8000 });
+      await pg.waitForTimeout(4000);
+      await pg.getByText(/^amount/u).first().locator("xpath=following::input[1]").fill("21", { timeout: 8000 });
+      await pg.keyboard.press("Tab");
+      await pg.waitForTimeout(1500);
+      editSteps.push("input");
+      await pg.getByText("Summary", { exact: true }).first().click({ timeout: 8000 });
+      await pg.waitForTimeout(3000);
+      await pg.locator(`input[value="auto-${tag}"]`).first().fill(`auto-${tag}-edited`, { timeout: 8000 });
+      await pg.keyboard.press("Tab");
+      await pg.waitForTimeout(2500);
+      editSteps.push("name");
+      await pg.getByRole("button", { name: "Save automation" }).last().click({ timeout: 8000 });
+      await pg.waitForTimeout(8000);
+      editSteps.push("saved");
+    } catch (e) { editSteps.push(`stopped: ${String(e.message).split("\n")[0].slice(0, 120)}`); }
+    const edited = (await daemonRead("/v1/hypervisor/automations")).body?.automations?.find((a) => a.automation_id === made.automation_id) || {};
+    ok("Edit in the adopted wizard renames the automation and changes its function input in one Save — same project, same pinned revision — and lands back on its page",
+      edited.name === `auto-${tag}-edited` && edited.steps?.length === 1 && edited.steps[0].inputs?.amount === 21 && edited.steps[0].function_revision_ref === r1.revision_ref
+        && edited.steps[0].content_hash === r1.content_hash && edited.project_id === project.project?.id && /\/main\/view\//u.test(pg.url()),
+      `${editSteps.join(" → ")} · name ${edited.name} · amount ${edited.steps?.[0]?.inputs?.amount} · ${pg.url().replace(SERVE, "").slice(0, 90)}`);
+
+    // An automation the editor cannot fully show (a command step, no schedule) is never saved from it. The
+    // app already disables Save for it (no effect, no schedule); the translation's own refusal of hidden
+    // steps is pinned by test:adopted-seeds, since this walk cannot tell the two apart.
+    await pg.goto(`${SERVE}/automations?automation=${manual.automation?.automation_id}`, { waitUntil: "domcontentloaded" });
+    await pg.waitForTimeout(8000);
+    let saveDisabled = null;
+    try {
+      await pg.getByRole("button", { name: /^Edit/u }).first().click({ timeout: 8000 });
+      await pg.waitForTimeout(7000);
+      await pg.getByText("Summary", { exact: true }).first().click({ timeout: 8000 });
+      await pg.waitForTimeout(4000);
+      saveDisabled = await pg.evaluate(() => { const b = [...document.querySelectorAll("button")].find((x) => /Save automation/u.test(x.innerText)); return b ? b.disabled : null; });
+    } catch { /* recorded as null */ }
+    const manualAfter = (await daemonRead("/v1/hypervisor/automations")).body?.automations?.find((a) => a.automation_id === manual.automation?.automation_id) || {};
+    ok("the adopted editor does not save a manual command-step automation — Save stays disabled and the record is untouched",
+      saveDisabled === true && manualAfter.steps?.length === 1 && manualAfter.steps[0].kind === "command" && manualAfter.updated_at === manual.automation?.updated_at,
+      `save disabled ${saveDisabled} · steps ${JSON.stringify(manualAfter.steps || []).slice(0, 80)} · updated ${manualAfter.updated_at === manual.automation?.updated_at ? "no" : "YES"}`);
   } finally {
     await browser.close();
   }

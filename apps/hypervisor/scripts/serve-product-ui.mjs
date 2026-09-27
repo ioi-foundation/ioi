@@ -9204,13 +9204,14 @@ async function handleEstateRequest(req, res, body) {
       };
       // One read of what the adopted Automate seed shows: the caller's automations and who they are.
       const automateContext = async () => {
-        const [autos, who] = await Promise.all([
+        const [autos, who, projects] = await Promise.all([
           daemonFetch("/v1/hypervisor/automations").then((r) => r.json()).catch(() => ({})),
           daemonFetch("/v1/hypervisor/auth/whoami").then((r) => r.json()).catch(() => ({})),
+          daemonFetch("/v1/hypervisor/projects").then((r) => r.json()).then((j) => j.projects || []).catch(() => []),
         ]);
         const p = who.authenticated === false ? {} : (who.principal || {});
         const automations = Array.isArray(autos.automations) ? autos.automations : [];
-        return { automations, principal: { ref: p.principal_ref, name: p.name, email: p.email }, functionInfo: await adoptedFunctionInfo(automations) };
+        return { automations, projects, principal: { ref: p.principal_ref, name: p.name, email: p.email }, functionInfo: await adoptedFunctionInfo(automations) };
       };
       // One answer per adopted-app operation: bound (daemon truth) → the adapted harvest envelope → a named
       // gap. Never the mirror's loose GraphQL mock.
@@ -9813,7 +9814,7 @@ async function handleEstateRequest(req, res, body) {
       }
       // The adopted wizard's create request → the Hypervisor automation it describes (translated in
       // adopted-automate.mjs; what cannot be carried yet is refused by name).
-      const translateMonitorRequest = async (request) => {
+      const translateMonitorRequest = async (request, existing = null) => {
         const projects = await daemonFetch("/v1/hypervisor/projects").then((r) => r.json()).then((j) => j.projects || []).catch(() => []);
         const rids = [...new Set((request?.metadata?.subscribers || []).flatMap((sub) => Object.values(sub.triggerEffects || {})).map((e) => e?.function?.functionLocator?.functionRid).filter(Boolean))];
         const details = new Map();
@@ -9822,14 +9823,25 @@ async function handleEstateRequest(req, res, body) {
           if (id) details.set(rid, await daemonFetch(`/v1/hypervisor/functions/${id}`).then((r) => (r.status === 200 ? r.json() : null)).catch(() => null));
         }
         const releasedRevisionOf = (rid, version) => (details.get(rid)?.revisions || []).find((r) => r.status === "released" && r.version === version && r.tool_operable) || null;
-        return AUTOMATE.automationFromMonitorRequest(request, { projects, releasedRevisionOf });
+        return existing
+          ? AUTOMATE.automationPatchFromMonitorRequest(existing, request, { projects, releasedRevisionOf })
+          : AUTOMATE.automationFromMonitorRequest(request, { projects, releasedRevisionOf });
+      };
+      const automationOfMonitorRid = async (rid) => {
+        const autoId = AUTOMATE.automationIdOf(decodeURIComponent(rid || ""));
+        if (!autoId) return null;
+        const autos = await daemonFetch("/v1/hypervisor/automations").then((r) => r.json()).catch(() => ({}));
+        return (autos.automations || []).find((x) => x.automation_id === autoId) || null;
       };
       const conjureRefusal = (message) => ({ errorCode: "INVALID_ARGUMENT", errorName: "Automation:NotSupportedByHypervisor", errorInstanceId: "", parameters: { message } });
-      // The detail page re-validates the saved automation's configuration the same way.
+      // The detail page and the edit wizard validate an edit of the automation the rid names: the same
+      // translation its Save will use, so a refusal shows before Save.
       if (/^\/object-sentinel\/api\/validation\/v0\/[^/]+\/validate-update$/u.test(pathname) && (req.method === "PUT" || req.method === "POST")) {
         let request = {};
         try { request = JSON.parse(body.toString() || "{}").request || {}; } catch { /* empty */ }
-        const translated = await translateMonitorRequest(request);
+        const existing = await automationOfMonitorRid(pathname.split("/")[5]);
+        if (!existing) { res.writeHead(404, { "Content-Type": "application/json" }); return res.end(JSON.stringify({ errorCode: "NOT_FOUND", errorName: "Monitor:NotFound", errorInstanceId: "", parameters: {} })); }
+        const translated = await translateMonitorRequest(request, existing);
         res.writeHead(translated.issue ? 400 : 200, { "Content-Type": "application/json" });
         return res.end(JSON.stringify(translated.issue ? conjureRefusal(translated.issue) : { errors: [], warnings: [], projectScopeIssues: [] }));
       }
@@ -9853,6 +9865,24 @@ async function handleEstateRequest(req, res, body) {
         const id = made.j?.automation?.automation_id;
         if (!id) return sendJson(made.status >= 400 ? made.status : 502, conjureRefusal(made.j?.error?.message || made.j?.message || "the automations plane did not admit the automation"));
         return sendJson(200, { locator: { rid: AUTOMATE.monitorRidOf(id), version: 1 } });
+      }
+      // Edit: the wizard's Save (updateMonitor) — the edit translated and PATCHed onto the automation it
+      // names (identity-first in the daemon); the answer is its monitor locator. What the edit cannot
+      // carry is refused by name and nothing is written.
+      {
+        const upd = /^\/object-sentinel\/api\/registry\/v0\/monitors\/([^/]+)$/.exec(pathname);
+        if (upd && req.method === "POST" && upd[1] !== "published") {
+          const sendJson = (status, obj) => { res.writeHead(status, { "Content-Type": "application/json" }); return res.end(JSON.stringify(obj)); };
+          const existing = await automationOfMonitorRid(upd[1]);
+          if (!existing) return sendJson(404, { errorCode: "NOT_FOUND", errorName: "Monitor:NotFound", errorInstanceId: "", parameters: {} });
+          let request = {};
+          try { request = JSON.parse(body.toString() || "{}"); } catch { /* empty */ }
+          const translated = await translateMonitorRequest(request, existing);
+          if (translated.issue) return sendJson(400, conjureRefusal(translated.issue));
+          const patched = await daemonFetch(`/v1/hypervisor/automations/${encodeURIComponent(existing.automation_id)}`, { method: "PATCH", headers: { "content-type": "application/json" }, body: JSON.stringify(translated.patch) }).then(async (r) => ({ status: r.status, j: await r.json().catch(() => ({})) })).catch(() => ({ status: 502, j: {} }));
+          if (patched.j?.ok !== true) return sendJson(patched.status >= 400 ? patched.status : 409, conjureRefusal(patched.j?.error?.message || patched.j?.message || patched.j?.reason || "the automations plane did not apply the edit"));
+          return sendJson(200, { locator: { rid: AUTOMATE.monitorRidOf(existing.automation_id), version: 1 } });
+        }
       }
       {
         const ver = /^\/object-sentinel\/api\/registry\/v0\/monitors\/([^/]+)\/versions\/([^/]+)$/.exec(pathname);
@@ -9878,6 +9908,27 @@ async function handleEstateRequest(req, res, body) {
           const a = (autos.automations || []).find((x) => x.automation_id === autoId);
           res.writeHead(a ? 200 : 204, { "Content-Type": "application/json" });
           return res.end(a ? JSON.stringify(AUTOMATE.compassAutomationResource(a, projects, who.principal?.principal_ref)) : "");
+        }
+        // The edit wizard renames through compass (updateResource): the automation's name, PATCHed; its
+        // location stays its project.
+        if (autoId && req.method === "PUT") {
+          const sendJson = (status, obj) => { res.writeHead(status, { "Content-Type": "application/json" }); return res.end(JSON.stringify(obj)); };
+          const [autos, projects, who] = await Promise.all([
+            daemonFetch("/v1/hypervisor/automations").then((r) => r.json()).catch(() => ({})),
+            daemonFetch("/v1/hypervisor/projects").then((r) => r.json()).then((j) => j.projects || []).catch(() => []),
+            daemonFetch("/v1/hypervisor/auth/whoami").then((r) => r.json()).catch(() => ({})),
+          ]);
+          const a = (autos.automations || []).find((x) => x.automation_id === autoId);
+          if (!a) return sendJson(404, { errorCode: "NOT_FOUND", errorName: "Compass:ResourceNotFound", errorInstanceId: "", parameters: {} });
+          let asked = {};
+          try { asked = JSON.parse(body.toString() || "{}"); } catch { /* empty */ }
+          const rename = AUTOMATE.automationRenameFromCompassUpdate(a, asked);
+          if (rename.issue) return sendJson(400, conjureRefusal(rename.issue));
+          const patched = rename.patch
+            ? await daemonFetch(`/v1/hypervisor/automations/${encodeURIComponent(autoId)}`, { method: "PATCH", headers: { "content-type": "application/json" }, body: JSON.stringify(rename.patch) }).then(async (r) => ({ status: r.status, j: await r.json().catch(() => ({})) })).catch(() => ({ status: 502, j: {} }))
+            : { status: 200, j: { ok: true, automation: a } };
+          if (patched.j?.ok !== true) return sendJson(patched.status >= 400 ? patched.status : 409, conjureRefusal(patched.j?.error?.message || patched.j?.reason || "the automations plane did not apply the rename"));
+          return sendJson(200, AUTOMATE.compassAutomationResource(patched.j.automation, projects, who.principal?.principal_ref));
         }
       }
       // Compass reads for the save-location picker: the caller's project folders only.

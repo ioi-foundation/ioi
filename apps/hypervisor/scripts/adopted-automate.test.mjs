@@ -60,7 +60,7 @@ test("the wizard's request becomes the Hypervisor automation it describes, by ex
   const t = AUTOMATE.automationFromMonitorRequest(request(), { projects, releasedRevisionOf });
   assert.equal(t.issue, undefined);
   assert.deepEqual(t.body, {
-    project_ref: "project:acme", name: "nightly double", trigger_kind: "time",
+    project_ref: "project:acme", name: "nightly double", trigger: { kind: "time" }, trigger_kind: "time",
     schedule_spec: { type: "cron", cron: "0 9 * * *", timezone: "America/New_York" },
     steps: [{ kind: "function", function_revision_ref: released.revision_ref, content_hash: released.content_hash, inputs: { amount: 20, tags: ["a"] } }],
   });
@@ -138,4 +138,32 @@ test("a manual automation has no condition the app knows, never a schedule with 
   assert.equal("cronExpression" in manual, false);
   const timed = condition({ schedule_spec: { type: "cron", cron: "0 9 * * *", timezone: "UTC" } });
   assert.deepEqual([timed.__typename, timed.cronExpression], ["ObjectSetMonitorSchedule", "0 9 * * *"]);
+});
+
+test("an edit is the automation's PATCH: it stays in its project and never drops steps the editor cannot show", () => {
+  const existing = { automation_id: "auto_0123456789abcdef", project_id: "project:acme", steps: [{ kind: "function", function_revision_ref: released.revision_ref, content_hash: released.content_hash, inputs: { amount: 1 } }] };
+  const edit = AUTOMATE.automationPatchFromMonitorRequest(existing, request({ name: "renamed" }), { projects, releasedRevisionOf });
+  assert.equal(edit.issue, undefined);
+  assert.equal(edit.patch.name, "renamed");
+  assert.equal("project_ref" in edit.patch, false, "the project is not patched");
+  assert.equal(edit.patch.steps[0].inputs.amount, 20);
+  const { name: _n, parentRid: _p, ...bare } = request();
+  const kept = AUTOMATE.automationPatchFromMonitorRequest({ ...existing, name: "kept" }, bare, { projects, releasedRevisionOf });
+  assert.equal(kept.issue, undefined, "updateMonitor sends no name or location");
+  assert.equal(kept.patch.name, "kept");
+  const moved = AUTOMATE.automationPatchFromMonitorRequest(existing, request(), { projects: [...projects, { project_id: "project:other", name: "other" }], releasedRevisionOf });
+  assert.equal(moved.issue, undefined, "same project, other projects exist");
+  const elsewhere = AUTOMATE.automationPatchFromMonitorRequest({ ...existing, project_id: "project:other" }, request(), { projects: [...projects, { project_id: "project:other" }], releasedRevisionOf });
+  assert.match(elsewhere.issue, /stays in its project/);
+  const mixed = AUTOMATE.automationPatchFromMonitorRequest({ ...existing, steps: [...existing.steps, { kind: "command", command: "echo" }, { kind: "agent" }] }, request(), { projects, releasedRevisionOf });
+  assert.match(mixed.issue, /command and agent steps/);
+});
+
+test("a compass rename renames the automation and nothing else", () => {
+  const existing = { automation_id: "auto_0123456789abcdef", project_id: "project:acme", name: "old" };
+  const here = AUTOMATE.projectFolderRid("project:acme");
+  assert.deepEqual(AUTOMATE.automationRenameFromCompassUpdate(existing, { name: " new ", parentRid: here, markings: [] }), { patch: { name: "new" } });
+  assert.deepEqual(AUTOMATE.automationRenameFromCompassUpdate(existing, { name: "old", parentRid: here }), { patch: null });
+  assert.match(AUTOMATE.automationRenameFromCompassUpdate(existing, { name: "x", parentRid: AUTOMATE.projectFolderRid("project:other") }).issue, /stays in its project/);
+  assert.match(AUTOMATE.automationRenameFromCompassUpdate(existing, { name: "  " }).issue, /needs a name/);
 });

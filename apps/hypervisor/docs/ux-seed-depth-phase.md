@@ -243,10 +243,18 @@ journey verifier → deploy to the owner's stack.
   answer for a condition it does not know — and the frequency tag reads Unknown; neither claims a schedule.
   The Owner / Created by / Updated by rows now name the Hypervisor's principal: user ids are name-based
   UUIDs (v5 shape), because the app validates ids with the `uuid` package and silently drops every
-  profile lookup for any other shape. *Still open on the Edit wizard (named gaps):*
-  `GetExistingAutomationResource`, `DocumentTitleQuery`, `CanEditAutomationQuery` are unbound, the
-  summary's location and "Resources requiring attention" fail, it lists a manual automation's condition
-  as Time (the REST monitor record still carries the empty schedule), and Save (update) has no translation.
+  profile lookup for any other shape.
+- **The editor edits (2026-09-27; `check:adopted-automate` 13/13).** Edit → Condition / Effects /
+  Settings / Summary walk over daemon truth, and one Save carries a rename (compass `updateResource` →
+  PATCH name) and the monitor edit (`updateMonitor {metadata, logic}` → PATCH schedule and function
+  steps, same pinned revision); the app lands back on the renamed automation. Refused by name, nothing
+  written: moving to another project; saving an automation with command or agent steps the editor cannot
+  show. The editor's "Insufficient permissions to save" was the app's cache holding our null answer to
+  `resourceMetadata(rid: $initialRid)` — the save-location facts now scope on `initialRid`, and one
+  builder describes a project folder everywhere (two copies with different permissions were merged by the
+  app's cache). *Still open (named):* the editor lists a manual automation's condition as Time; the
+  refusal reason shows only as a tooltip; expiry and retries are not enforced; the description field is
+  unbound.
 - **Adoption steps:** (1) vendor the booted app — `index.html` + its 34 content-addressed assets,
   18.5 MB, the same scale as the tracked Ona tree — into a quarantined harvested lane in the owned tree;
   (2) serve it at the Automate canonical route, its asset and API paths answered by the serve (assets

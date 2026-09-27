@@ -374,10 +374,12 @@ export const FACT_OPERATIONS = new Set([
   "ResourceHeaderQuery", "CompassResourceQuery", "SingleAutomationOverviewV2Query", "AutomationFlowQuery",
   "AutomationLiveStatusQuery", "AutomationStatusControlQuery", "AutomationMonitoringRulesCardQuery",
   "AutomationDependenciesQuery", "ExpiryDateProjectQuery", "GetLiveStatusForNonVersionedObjectSet",
+  // the edit wizard's summary: the automation's resource, its location and whether it may be edited
+  "DocumentTitleQuery", "GetExistingAutomationResource", "CanEditAutomationQuery",
 ]);
 export const requestedMonitorRid = (variables) => (JSON.stringify(variables || {}).match(/ri\.object-sentinel\.main\.monitor\.[0-9a-f-]{36}/) || [])[0] || null;
 
-export function factsRoot(a, runs, principal, functionInfo = null) {
+export function factsRoot(a, runs, principal, functionInfo = null, projects = []) {
   const rid = monitorRidOf(a.automation_id);
   const creator = (a.executor_identity || {}).ref || (principal || {}).ref || "";
   const project = a.project_id || "unfiled";
@@ -387,10 +389,20 @@ export function factsRoot(a, runs, principal, functionInfo = null) {
   const running = (runs || []).find((r) => r.status === "running") || null;
   const spec = a.schedule_spec || {};
   const paused = a.enabled === false;
-  const folder = { __typename: "ResourceMetadata", rid: folderRidOf(project), name: project, openUrl: null, _id: cacheId(`folder:${project}`) };
+  // The automation's location is its project — the same folder entity the save picker describes. A
+  // project that is not the caller's gets a folder with no permission to save into it.
+  const ownProject = (projects || []).find((p) => p.project_id === a.project_id) || null;
+  const projectName = ownProject?.name || project;
+  const folder = ownProject ? projectFolderNode(ownProject) : {
+    __typename: "ResourceMetadata", rid: folderRidOf(project), name: project, openUrl: null, _id: cacheId(`folder:${project}`),
+    alias: null, status: null, collections: [], autosaved: false, trashedStatus: "NOT_TRASHED", statusInfo: null, path: `/${project}`,
+    type: { __typename: "ResourceTypeMetadata", iconName: "pt-svg-icon-project" }, ancestors: [ALL_FILES_FOLDER],
+    permissions: { __typename: "ResourceMetadataPermissions", _id: cacheId(`perm:${folderRidOf(project)}`), canOpenLink: false, canEditMetadata: false, canCreateAutomation: false },
+  };
   const resource = {
     __typename: "ResourceMetadata", _id: cacheId(`meta:${rid}`), rid, name: a.name || a.automation_id, description: a.description || "",
-    path: `/${project}/${a.name || a.automation_id}`, autosaved: false, hidden: false, trashedStatus: "NOT_TRASHED", favorited: null,
+    path: `/${projectName}/${a.name || a.automation_id}`, autosaved: false, hidden: false, trashedStatus: "NOT_TRASHED", favorited: null,
+    alias: null, status: null, collections: [], statusInfo: null, openUrl: `/workspace/object-monitoring/automation/${rid}/main/view/overview`,
     isProtected: false, created: at(a.created_at, creator), modified: at(a.updated_at || a.created_at, creator), parent: folder,
     ancestors: [{ __typename: "ResourceMetadata", name: "All files", rid: "ri.compass.main.folder.0", _id: cacheId("folder:0") }, folder],
     urlVariables: [{ __typename: "UrlVariable", key: "compass:isProject", value: "false" }],
@@ -429,7 +441,7 @@ export function answerFactOperation(name, query, variables, ctx, runsFor, templa
   const rid = requestedMonitorRid(variables);
   const a = rid ? (ctx.automations || []).find((x) => monitorRidOf(x.automation_id) === rid) : null;
   if (!a) return null;
-  return answerDocument(query, factsRoot(a, runsFor(a.automation_id), ctx.principal, ctx.functionInfo), template, name);
+  return answerDocument(query, factsRoot(a, runsFor(a.automation_id), ctx.principal, ctx.functionInfo, ctx.projects), template, name);
 }
 
 // ---- SAVE LOCATION (ADR 0056 P3 cut 3b): the wizard's "Save as…" dialog picks where the automation
@@ -438,32 +450,44 @@ export function answerFactOperation(name, query, variables, ctx, runsFor, templa
 // Creating a project is not offered here; it belongs to Projects.
 export const SAVE_LOCATION_OPERATIONS = new Set(["InlineSaveLocationSelectorQuery", "PagedNamespacesQuery", "SearchProjectsQuery", "FavoriteProjectsQuery", "CanCreateCompassResourceForAutomation", "GetNameValidInLocationQuery", "ClientDetailsQuery"]);
 export const projectFolderRid = (projectId) => folderRidOf(projectId);
-// `variables` scope `resourceMetadata` to the one location a request names (parentRid / locationRid):
+// `variables` scope `resourceMetadata` to the one location a request names (parentRid / locationRid /
+// initialRid):
 // the caller may create an automation in their own project, and a name is valid there when it is not
 // empty and no automation in that project already has it.
-export function saveLocationFactsRoot(projects, variables = {}, automations = []) {
-  const allFiles = { __typename: "ResourceMetadata", name: "All files", rid: "ri.compass.main.folder.0", _id: cacheId("folder:0"), openUrl: null, permissions: { __typename: "ResourceMetadataPermissions", _id: cacheId("perm:folder:0"), canOpenLink: false, canEditMetadata: false } };
-  const namespace = { __typename: "Namespace", _id: cacheId("namespace:hypervisor"), rid: "ri.compass.main.namespace.hypervisor" };
-  const namespaceFolder = { __typename: "ResourceMetadata", name: "Hypervisor", rid: "ri.compass.main.folder.hypervisor-namespace", _id: cacheId("folder:namespace"), openUrl: null, permissions: { __typename: "ResourceMetadataPermissions", _id: cacheId("perm:folder:namespace"), canOpenLink: false, canEditMetadata: false } };
-  const folder = (p) => {
-    const rid = folderRidOf(p.project_id);
-    return {
-      __typename: "ResourceMetadata", __implements: ["Recent"], _id: cacheId(`folder:${p.project_id}`), rid, name: p.name || p.project_id, alias: "",
-      openUrl: null, path: `/${p.name || p.project_id}`, collections: [], status: null, trashedStatus: "NOT_TRASHED", statusInfo: null, autosaved: false,
-      type: { __typename: "ResourceTypeMetadata", iconName: "pt-svg-icon-project" },
-      permissions: { __typename: "ResourceMetadataPermissions", _id: cacheId(`perm:${rid}`), canOpenLink: true, canEditMetadata: true },
-      ancestors: [allFiles, namespaceFolder], parent: namespaceFolder, namespace, projectRid: rid, projectSettings: null,
-      resource: { __typename: "Folder", _id: cacheId(`resource:${rid}`) },
-      project: { __typename: "Project", _id: cacheId(`project:${rid}`), type: "PROJECT" },
-    };
+// ONE description of a caller's project as the app's folder entity. The app's cache normalizes a folder
+// by its id, so every operation that names the folder (the save picker, the edit summary's location)
+// must describe it identically — a second, thinner copy overwrote the permissions the save check reads
+// ("Insufficient permissions to save in the selected location").
+const ALL_FILES_FOLDER = { __typename: "ResourceMetadata", name: "All files", rid: "ri.compass.main.folder.0", _id: cacheId("folder:0"), openUrl: null, permissions: { __typename: "ResourceMetadataPermissions", _id: cacheId("perm:folder:0"), canOpenLink: false, canEditMetadata: false } };
+const HYPERVISOR_NAMESPACE = { __typename: "Namespace", _id: cacheId("namespace:hypervisor"), rid: "ri.compass.main.namespace.hypervisor" };
+const NAMESPACE_FOLDER = { __typename: "ResourceMetadata", name: "Hypervisor", rid: "ri.compass.main.folder.hypervisor-namespace", _id: cacheId("folder:namespace"), openUrl: null, permissions: { __typename: "ResourceMetadataPermissions", _id: cacheId("perm:folder:namespace"), canOpenLink: false, canEditMetadata: false } };
+function projectFolderNode(p) {
+  const rid = folderRidOf(p.project_id);
+  return {
+    __typename: "ResourceMetadata", __implements: ["Recent"], _id: cacheId(`folder:${p.project_id}`), rid, name: p.name || p.project_id, alias: "",
+    openUrl: null, path: `/${p.name || p.project_id}`, collections: [], status: null, trashedStatus: "NOT_TRASHED", statusInfo: null, autosaved: false,
+    type: { __typename: "ResourceTypeMetadata", iconName: "pt-svg-icon-project" },
+    // the caller may create (and so save) automations in their own project
+    permissions: { __typename: "ResourceMetadataPermissions", _id: cacheId(`perm:${rid}`), canOpenLink: true, canEditMetadata: true, canCreateAutomation: true },
+    ancestors: [ALL_FILES_FOLDER, NAMESPACE_FOLDER], parent: NAMESPACE_FOLDER, namespace: HYPERVISOR_NAMESPACE, projectRid: rid, projectSettings: null,
+    resource: { __typename: "Folder", _id: cacheId(`resource:${rid}`) },
+    project: { __typename: "Project", _id: cacheId(`project:${rid}`), type: "PROJECT" },
   };
+}
+
+export function saveLocationFactsRoot(projects, variables = {}, automations = []) {
+  const namespace = HYPERVISOR_NAMESPACE;
+  const folder = projectFolderNode;
   return {
     __typename: "Query",
     favorites: [],
     // No OAuth client acts for an automation: it runs as the principal who owns it.
     oauthClient: null,
     resourceMetadata: (() => {
-      const wantRid = variables.parentRid || variables.locationRid || null;
+      // the rid a request names: the save check's parentRid, the picker's locationRid, or the location
+      // the edit wizard opens with (initialRid). A null answer is CACHED under resourceMetadata(rid) and
+      // the save check then reads that null as "no permission" without asking.
+      const wantRid = variables.parentRid || variables.locationRid || (variables.initialRidPresent !== false && variables.initialRid) || null;
       const target = wantRid ? (projects || []).find((p) => folderRidOf(p.project_id) === wantRid) : null;
       if (!target) return null;
       const node = folder(target);
@@ -561,12 +585,40 @@ export function automationFromMonitorRequest(request, { projects = [], releasedR
     body: {
       project_ref: project.project_id,
       name: name || "automation",
+      trigger: { kind: "time" },
       trigger_kind: "time",
       schedule_spec: { type: "cron", cron: String(sched.cronExpression).trim(), timezone: sched.timeZone || "UTC" },
       steps,
     },
     unenforced: [r.metadata?.expiry?.expireOn ? `expiry ${r.metadata.expiry.expireOn}` : null, "effect retry settings"].filter(Boolean),
   };
+}
+
+// The edit wizard's Save (`updateMonitor`) → a PATCH of the automation it edits. The request is the
+// create shape, so it is translated the same way, then held to what an edit may change: the automation
+// stays in its project, and an automation whose command or agent steps the editor cannot show is never
+// saved from it (its effects list would silently replace those steps).
+export function automationPatchFromMonitorRequest(existing, request, ctx = {}) {
+  const hidden = [...new Set((existing?.steps || []).filter((s) => s.kind !== "function").map((s) => s.kind || "unknown"))];
+  if (hidden.length) return { issue: `this automation also has ${hidden.join(" and ")} steps, which the Automate editor cannot show — saving here would drop them` };
+  // updateMonitor carries `{metadata, logic}` only — the name and location live in compass — so what
+  // it leaves out stays the automation's own.
+  const r = request || {};
+  const t = automationFromMonitorRequest({ ...r, name: r.name ?? existing.name, parentRid: r.parentRid ?? folderRidOf(existing.project_id) }, ctx);
+  if (t.issue) return t;
+  if (t.body.project_ref !== existing.project_id) return { issue: "an automation stays in its project — moving it to another project is not supported yet" };
+  const { project_ref: _stays, ...patch } = t.body;
+  return { patch, unenforced: t.unenforced };
+}
+
+// The edit wizard's rename goes through compass (updateResource `{name, parentRid, …}`): the automation's
+// name, and nothing else — its location is its project, so a different parent is refused by name.
+export function automationRenameFromCompassUpdate(existing, asked = {}) {
+  if (asked.parentRid && asked.parentRid !== folderRidOf(existing.project_id)) return { issue: "an automation stays in its project — moving it to another project is not supported yet" };
+  const name = String(asked.name ?? "").trim();
+  if (!name) return { issue: "an automation needs a name" };
+  if (name.length > 200) return { issue: "an automation's name is at most 200 characters" };
+  return name === existing.name ? { patch: null } : { patch: { name } };
 }
 
 // The compass resource of one automation (the monitor the wizard just created), under its project.
