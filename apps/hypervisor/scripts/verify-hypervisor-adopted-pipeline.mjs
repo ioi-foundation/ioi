@@ -217,6 +217,15 @@ async function run() {
   ok("the user lookup names the operator by the id the pipeline carries and answers nothing for an id no principal of theirs holds",
     Array.isArray(users.body) && users.body.length === 1 && users.body[0].id === operatorId && users.body[0].username === "pipeline@ioi.local" && !users.passthrough && !!operatorRef,
     `${JSON.stringify((users.body || []).map((u) => [u.id, u.username]))}`);
+
+  // Signed out, neither the picker nor the lookup names anything (the daemon answers some reads to an
+  // anonymous loopback caller; these answers are the signed-in caller's to see).
+  const anon = async (route, body) => fetch(`${SERVE}${route}`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(body) }).then((r) => r.json()).catch(() => null);
+  const anonPicker = await anon("/foundry-search/api/compass/v0/search", { query: { includeResources: ["FILE"], filter: { isProjectPreview: true, type: "isProjectPreview" }, text: "" }, limit: 50, offset: 0 });
+  const anonUsers = await anon("/multipass/api/users", [operatorId]);
+  ok("signed out, the project picker and the user lookup answer nothing",
+    Array.isArray(anonPicker?.result) && anonPicker.result.length === 0 && Array.isArray(anonUsers) && anonUsers.length === 0,
+    `picker ${anonPicker?.result?.length ?? "?"} · users ${Array.isArray(anonUsers) ? anonUsers.length : "?"}`);
 }
 
 function cleanup() {

@@ -332,7 +332,7 @@ journey verifier → deploy to the owner's stack.
   compass), Batch, and "Not yet deployed". Search and the creator are bound; the Project filter is a named
   gap (a DataRecipe is held in no project). The project picker, the user lookup and the universal capture
   fallback no longer hand out the reference tenant's records (the fallback now flags its API answers).
-  `check:adopted-pipeline` 10/10 (local mirror only). **Next (cut 2b):** the editor (`all-information`,
+  Signed out, the picker and the lookup answer nothing. `check:adopted-pipeline` 11/11 (local mirror only). **Next (cut 2b):** the editor (`all-information`,
   markings settings, UDF flag, the ontology load) and Create as a founding change set.
 
 ## Gate

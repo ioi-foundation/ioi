@@ -9896,7 +9896,8 @@ async function handleEstateRequest(req, res, body) {
           daemonFetch("/v1/hypervisor/auth/whoami").then((r) => r.json()).catch(() => ({})),
         ]);
         res.writeHead(200, { "Content-Type": "application/json" });
-        return res.end(JSON.stringify(PIPELINE.compassSearchAnswer(request, projects, AUTOMATE.projectFolderRid, PIPELINE.uuidOf, who.principal?.principal_ref)));
+        // signed out, the picker offers nothing: the projects are the signed-in caller's to see
+        return res.end(JSON.stringify(who.authenticated === true ? PIPELINE.compassSearchAnswer(request, projects, AUTOMATE.projectFolderRid, PIPELINE.uuidOf, who.principal?.principal_ref) : { result: [], nextPageToken: null }));
       }
       if (pathname === "/eddie/api/pipelines-v2/get/by-rids" && req.method === "POST") {
         let rids = [];
@@ -10134,7 +10135,8 @@ async function handleEstateRequest(req, res, body) {
         const refs = [...(autos.automations || []).map((a) => (a.executor_identity || {}).ref), ...sets.map((c) => c.author_principal_ref)];
         for (const ref of refs) if (ref && !principals.some((p) => p.ref === ref)) principals.push({ ref, name: ref });
         res.writeHead(200, { "Content-Type": "application/json" });
-        return res.end(JSON.stringify(AUTOMATE.multipassUsersFor(ids, principals)));
+        // signed out, nobody is named
+        return res.end(JSON.stringify(who.authenticated === true ? AUTOMATE.multipassUsersFor(ids, principals) : []));
       }
       if (pathname === "/people/api/profile/get-profiles" && req.method === "POST") {
         let ids = [];
