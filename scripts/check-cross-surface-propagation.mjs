@@ -271,7 +271,7 @@ async function liveLeg() {
       await Promise.all([page.waitForNavigation({ timeout: 30000 }), form.locator('button[type="submit"]').first().click()]);
       const u = new URL(page.url());
       // A module action lands with `refused=`; the ODK form handler answers its failure page instead.
-      const failed = w.form ? ((await page.locator("body").innerText()).match(/(?:(?:Create|Save) failed|Not registered|Not filed): ([^\n]{0,200})/u) || [])[1] : null;
+      const failed = w.form ? ((await page.locator("body").innerText()).match(/(?:(?:Create|Save) failed|Not registered|Not filed|Not opened): ([^\n]{0,200})/u) || [])[1] : null;
       const row = { id: w.id, action: w.action || w.form, refused: u.searchParams.get("refused") || (failed ? "odk_form_refused" : null), reason: u.searchParams.get("reason") || failed, landed: u.pathname + u.search.slice(0, 120) };
       writes.push(row);
       if (row.refused) throw new Error(`write ${w.id} REFUSED ${row.refused}: ${row.reason}`);
@@ -309,6 +309,8 @@ async function liveLeg() {
       await f.locator(`input[name="ontology_refs"][value="ontology://${vars.ontology}"]`).check();
       await f.locator(`input[name="data_recipe_refs"][value="recipe://${vars.recipe}"]`).check();
     });
+    // The ODK recipe opened as a pipeline: a founding change set on the v2 family the Pipeline Builder lists.
+    await submit(W["recipe-converge"], async () => {});
     // A saved exploration in Object Explorer, over the object type the matrix made.
     await submit(W["saved-set"], async (f) => { await f.locator('[name="name"]').fill(`saved-${vars.tag}`); });
     // A model route registered on the Model Catalog (the provider need not answer: the registration is

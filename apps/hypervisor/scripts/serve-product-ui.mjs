@@ -3694,7 +3694,7 @@ function renderOdkRecipeDetail(r, lists) {
     ${refrow("Worker plan refs", r.worker_plan_refs)}${refrow("Workflow schema refs", r.workflow_schema_refs)}
     <dt>Created · updated</dt><dd>${CX_ESC(r.created_at || "")}<br><span class="sub" style="margin:0">${CX_ESC(r.updated_at || "")}</span></dd>
   </dl>`;
-  return automationsShell(r.name || "Data Recipe", `<p><a href="/__ioi/odk">← ODK</a></p><h1>${CX_ESC(r.name || r.id)}</h1><p class="sub">DataRecipe · draft. No transformation runs.</p>${odkDetailActions("data-recipes", r.id)}${chain}${grid}${odkReferencedBy(r, lists, "data-recipes")}${odkProofCitations(r, lists)}`);
+  return automationsShell(r.name || "Data Recipe", `<p><a href="/__ioi/odk">← ODK</a></p><h1>${CX_ESC(r.name || r.id)}</h1><p class="sub">DataRecipe · draft. No transformation runs.</p>${odkDetailActions("data-recipes", r.id)}<form class="inline" method="post" action="/__ioi/odk/data-recipes/${encodeURIComponent(r.id)}/converge" style="margin:0 0 12px"><button class="act" type="submit">Open as a pipeline</button> <span class="sub" style="margin:0">A pipeline is a governed DataRecipe family: this opens its founding change set in Data recipes, converging this draft as its v1 predecessor.</span></form>${chain}${grid}${odkReferencedBy(r, lists, "data-recipes")}${odkProofCitations(r, lists)}`);
 }
 function renderOdkDescriptorDetail(d, lists) {
   const isDA = d.composition_pattern === "domain_app";
@@ -16186,6 +16186,44 @@ async function handleEstateRequest(req, res, body) {
         // item-scoped (seg1 = id)
         if (seg1) {
           const id = decodeURIComponent(seg1);
+          // OPEN AS A PIPELINE (R-240 Arm A cross-surface): an ODK recipe is a v1 draft, and the Pipeline Builder lists
+          // v2 DataRecipe families, so a recipe made here was no pipeline at all. This opens a FOUNDING change set on the
+          // v2 family, drafted from the recipe and naming it as the v1 predecessor it converges (converge_from_v1_ref:
+          // the daemon resolves it under the caller's own owner binding and proves custody at merge). The ontology binds
+          // its published head revision when there is one. One recipe opens once (the idempotency key is its ref).
+          if (family === "data-recipes" && seg2 === "converge" && req.method === "POST") {
+            const notOpened = (why) => { res.writeHead(200, HTMLH); res.end(automationsShell("Open as a pipeline", `<div class="empty">Not opened: ${CX_ESC(why)}</div><p><a href="/__ioi/odk/data-recipes/${encodeURIComponent(id)}">← back to the recipe</a></p>`)); };
+            const rec = await daemonFetch(`${api}/${encodeURIComponent(id)}`).then((x) => x.json()).catch(() => ({}));
+            const r = rec && rec.data_recipe;
+            if (!r) return notOpened("this recipe could not be read");
+            const who = await daemonFetch("/v1/hypervisor/auth/whoami").then((x) => x.json()).catch(() => ({}));
+            const owner = (who.principal?.tenant_refs || []).find((t) => String(t).startsWith("org://"));
+            if (who.authenticated !== true || !owner) return notOpened("sign in to open this recipe as a pipeline");
+            const fam = PIPELINE.familySlugOf(r.name);
+            if (!fam) return notOpened("the recipe's name must contain a letter or digit");
+            const known = await daemonFetch(`/v1/hypervisor/data-recipe-revisions?family=${encodeURIComponent(fam)}`).then(async (x) => (x.status === 200 ? ((await x.json()).revisions || []) : [])).catch(() => []);
+            if (known.length) return notOpened(`a pipeline over the recipe family ${fam} already exists — rename this recipe to open it as a new one`);
+            let ontologyHead = null;
+            const draftOntology = String(r.ontology_ref || "").replace(/^ontology:\/\//u, "");
+            const ontFamily = draftOntology ? ontologyRevisionFamilyOf(draftOntology, owner) : null;
+            if (ontFamily) {
+              const lin = await daemonFetch(`/v1/hypervisor/ontology-versions?namespace=${encodeURIComponent(ontFamily.namespace)}&name=${encodeURIComponent(ontFamily.name)}`).then((x) => (x.status === 200 ? x.json() : {})).catch(() => ({}));
+              ontologyHead = [...(lin.lineage || [])].sort((a, b) => (a.revision_ordinal || 0) - (b.revision_ordinal || 0)).at(-1)?.ontology_id || null;
+            }
+            const draft = { name: r.name, converge_from_v1_ref: r.ref, ...(ontologyHead ? { ontology_revision_refs: [ontologyHead] } : {}) };
+            const opened = await daemonFetch("/v1/hypervisor/change-sets", {
+              method: "POST", headers: { "content-type": "application/json" },
+              body: JSON.stringify({ owner_ref: owner, idempotency_key: `odk-converge-${r.ref}`, subject: { kind: "data_recipe", family: fam }, title: r.name, description: `Opened from the ODK recipe ${r.ref}`, draft }),
+            }).then(async (x) => ({ status: x.status, j: await x.json().catch(() => ({})) })).catch(() => ({ status: 502, j: {} }));
+            const cs = opened.j && opened.j.change_set;
+            if (!cs) return notOpened((opened.j && opened.j.error && opened.j.error.message) || "the change-set plane did not open the pipeline");
+            const familyRef = `data-recipe://${fam}`;
+            const to = process.env.IOI_ADOPTED_SURFACES === "1"
+              ? `/workspace/builder/${PIPELINE.pipelineRidOf(familyRef)}/sandbox/${PIPELINE.changeSetSandboxIdOf(cs.change_set_ref)}`
+              : "/data/recipes";
+            res.writeHead(302, { Location: to, "Cache-Control": "no-cache" });
+            return res.end();
+          }
           if (seg2 === "edit" && req.method === "GET") {
             const [pk, ov, rec] = await Promise.all([
               odkPickers(),

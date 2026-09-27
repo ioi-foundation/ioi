@@ -24,6 +24,9 @@ export const WRITES = Object.freeze([
   { id: "recipe", form: "/__ioi/odk/data-recipes", route: "/__ioi/odk/data-recipes/new", capture: "recipe" },
   { id: "recipe-edit", form: "/__ioi/odk/data-recipes/{recipe}/patch", route: "/__ioi/odk/data-recipes/{recipe}/edit" },
   { id: "manifest", form: "/__ioi/odk/manifests", route: "/__ioi/odk/manifests/new", capture: "manifest" },
+  // R-240 Arm A: an ODK recipe is a v1 draft; "Open as a pipeline" converges it into a v2 DataRecipe family (a founding
+  // change set naming it as the v1 predecessor), which is what the Pipeline Builder lists.
+  { id: "recipe-converge", form: "/__ioi/odk/data-recipes/{recipe}/converge", route: "/__ioi/odk/data-recipes/{recipe}" },
   // R-240: Insight read a saved set's type from the top level; the writer nests it under `selection`.
   { id: "saved-set", module: "object-explorer", action: "save-object-set", route: "/__ioi/ontology/explorer?ontology={ontology}&objectType=loan" },
   // R-240: the lanes that replaced disabled "New…" buttons — each must reach the surfaces that list it.
@@ -54,7 +57,7 @@ export const READS = Object.freeze([
   { after: "mapping", consumer: "Pipeline's datasource node carries the source", route: "/__ioi/pipeline?ontology={ontology}&node=datasource", needle: "{tag}-src" },
   { after: "mapping", consumer: "Data sources shows the source's mapping", route: "/__ioi/data/sources?dataSource={source}", needle: "Loan {tag} backing datasource" },
   { after: "recipe", consumer: "ODK lists the data recipe", route: "/__ioi/odk?ontology={ontology}", needle: "recipe-{tag}" },
-  { after: "recipe", consumer: "Pipeline Builder (Data recipes) lists the data recipe", named: { what: "two recipe families: the ODK data-recipe form authors v1 records (/v1/hypervisor/odk/data-recipes) while the Pipeline Builder lists v2 DataRecipe families (/v1/hypervisor/data-recipe-revisions); a recipe made in ODK is no pipeline until it converges into v2", owner: "R-240 / ADR 0056 P4: converge the ODK recipe form onto the v2 family (open a founding change set, as the builder's Create does)" }, route: "/graphql-gateway/api/bulk?q=PipelineLandingSearchQuery", wire: { method: "POST", body: { operations: { 0: "query PipelineLandingSearchQuery($text: String, $pageSize: Int!) { searchResourcesV2(pageSize: $pageSize, filter: {text: $text, types: [EDDIE_PIPELINE]}) { results { resource { rid name __typename } __typename } nextPageToken __typename } __typename }" }, requests: [{ hash: "0", name: "PipelineLandingSearchQuery", variables: { text: "", pageSize: 50 } }] } }, needle: "recipe-{tag}" },
+  { after: "recipe-converge", consumer: "Pipeline Builder (Data recipes) lists the data recipe opened as a pipeline", route: "/graphql-gateway/api/bulk?q=PipelineLandingSearchQuery", wire: { method: "POST", body: { operations: { 0: "query PipelineLandingSearchQuery($text: String, $pageSize: Int!) { searchResourcesV2(pageSize: $pageSize, filter: {text: $text, types: [EDDIE_PIPELINE]}) { results { resource { rid name __typename } __typename } nextPageToken __typename } __typename }" }, requests: [{ hash: "0", name: "PipelineLandingSearchQuery", variables: { text: "", pageSize: 50 } }] } }, needle: "recipe-{tag}" },
   { after: "recipe-edit", consumer: "The recipe's page shows its edited name", route: "/__ioi/odk/data-recipes/{recipe}", needle: "recipe-{tag}-v2" },
   { after: "manifest", consumer: "ODK lists the manifest", route: "/__ioi/odk?ontology={ontology}", needle: "manifest-{tag}" },
   { after: "manifest", consumer: "The recipe's page names the manifest that bundles it", route: "/__ioi/odk/data-recipes/{recipe}", needle: "manifest-{tag}" },
