@@ -121,8 +121,9 @@ export function monitorOf(a, runs, functionInfo = null) {
       rid: monitorRidOf(a.automation_id),
       owningResource: null,
       subscribers: [{ subscriberType: { type: "user", user: { userId: userIdOf(creator) } }, triggerEffects: triggerEffectsOf(a, functionInfo), recoveryEffects: {} }],
-      expiryDate: "+999999999-12-31T23:59:59.999999999-18:00",
-      expiry: { expireOn: null },
+      // The automation's expiry date (the daemon stops firing it then); none reads as never.
+      expiryDate: a.expires_at ? iso(a.expires_at) : "+999999999-12-31T23:59:59.999999999-18:00",
+      expiry: { expireOn: a.expires_at ? iso(a.expires_at) : null },
       muted: { until: null, isMutedIndefinitely: null, forUsers: [], mutedReason: null, isMutedGlobally: null },
       disabled: { isDisabledIndefinitely: a.enabled === false, until: null, reason: a.enabled === false ? "Paused in the Hypervisor" : null },
       rendering: null,
@@ -423,7 +424,7 @@ export function factsRoot(a, runs, principal, functionInfo = null, projects = []
   const event = (r) => r ? { __typename: "ObjectSetMonitorHistoryEvent_MonitorTriggered", __implements: ["ObjectSetMonitorHistoryEvent"], _id: cacheId(`event:${r.execution_id}`), id: r.execution_id, triggerTime: iso(r.started_at), triggerReason: "SCHEDULE", triggeredEffectsV2: [] } : null;
   const branch = {
     __typename: "ObjectSetMonitorBranch", _id: cacheId(`branch:${rid}`), isProjectScoped: false, scenarioTarget: null,
-    isPausedIndefinitely: paused, pausedUntil: null, isMutedIndefinitely: false, mutedUntil: null, expiresAt: null,
+    isPausedIndefinitely: paused, pausedUntil: null, isMutedIndefinitely: false, mutedUntil: null, expiresAt: a.expires_at ? iso(a.expires_at) : null,
     owner: who(creator), dependentAutomations: [],
     monitor: { __typename: "ObjectSetMonitor", _id: cacheId(rid), rid, metadata: resource },
     latestVersion: { __typename: "ObjectSetMonitorVersion", _id: cacheId(`version:${rid}`), monitorLogicV3: condition, mergedEffects: effects, effectOrdering: effectOrderingOf(effects), subscribers: [], persistsSharedHistoryEvent: false },
@@ -534,8 +535,9 @@ export function compassFileSystems(projects, rids) {
 // ---- CREATE (ADR 0056 P3 cut 3b): the adopted wizard's monitor request, translated into the Hypervisor
 // automation it describes. What the Hypervisor automation cannot carry yet is refused BY NAME — never
 // dropped: an object condition, an action / logic / notification effect, a second cron expression, a
-// function input that is not a static value. The expiry the wizard proposes and its retry settings are
-// not enforced by the Hypervisor executor (named in `unenforced`).
+// function input that is not a static value, event or effect retries (the executor does not retry). The
+// expiry date the wizard proposes becomes the automation's `expires_at`, which the daemon enforces: the
+// scheduler and the webhook stop firing it then.
 function staticValueOf(v) {
   if (!v || typeof v !== "object") return { error: "a function input must be a static value" };
   if (v.type === "list") {
@@ -567,6 +569,11 @@ export function automationFromMonitorRequest(request, { projects = [], releasedR
     if (Object.keys(sub.recoveryEffects || {}).length) return { issue: "failure (recovery) effects are not supported by the Hypervisor automation yet" };
   }
   if (!effects.size) return { issue: "add at least one effect" };
+  const retries = r.metadata?.globalEffectExecutionSettings?.longTermRetryConfig
+    || [...effects.values()].some((e) => e?.[e?.type]?.retryConfiguration || e?.[e?.type]?.retryConfig);
+  if (retries) return { issue: "event and effect retries are not supported by the Hypervisor automation yet — turn retries off" };
+  const expireOn = r.metadata?.expiry?.expireOn ?? null;
+  if (expireOn !== null && Number.isNaN(Date.parse(expireOn))) return { issue: "the expiration date is not a date" };
   const steps = [];
   for (const effect of effects.values()) {
     if (effect.type !== "function") return { issue: `a ${effect.type} effect is not supported by the Hypervisor automation yet — use a Function effect` };
@@ -589,9 +596,10 @@ export function automationFromMonitorRequest(request, { projects = [], releasedR
       trigger: { kind: "time" },
       trigger_kind: "time",
       schedule_spec: { type: "cron", cron: String(sched.cronExpression).trim(), timezone: sched.timeZone || "UTC" },
+      expires_at: expireOn === null ? null : new Date(expireOn).toISOString(),
       steps,
     },
-    unenforced: [r.metadata?.expiry?.expireOn ? `expiry ${r.metadata.expiry.expireOn}` : null, "effect retry settings"].filter(Boolean),
+    unenforced: [],
   };
 }
 

@@ -33,13 +33,16 @@ const PHASE_ORDER = ["automate", "pipeline-builder", "sessions", "ontology-manag
 
 // Pinned populations. Re-pin with the reason beside the number, in the commit that moves it.
 const PINS = {
-  // 2026-09-27 (R-241): first census — 27 flow states: the 18 harvested wizard / list / detail states plus
+  // 2026-09-27 (R-241): 27 → 28 — Settings split in two. The expiration date is now the automation's
+  // expires_at, enforced by the daemon (scheduler and webhook stop firing it): bound. Event and effect
+  // retries are refused by name (the executor does not retry): refused. Open 4 → 3.
+  // Before that, 2026-09-27 (R-241): first census — 27 flow states: the 18 harvested wizard / list / detail states plus
   // the edit, save-as and detail-write states found by driving the adopted app. 12 bound (each a live
   // assertion of check:adopted-automate), 9 refused by name (object, threshold and dependency conditions;
   // Action, Logic and Notification effects), 2 named gaps (Unknown Agent; Unknown effect for command and
   // proposal steps), 4 open (header rename unproven; the side tabs undriven; settings accepted but not
   // enforced; the editor's Time label for a manual automation).
-  automate: { total: 27, bound: 12, refused: 9, named_gap: 2, open: 4 },
+  automate: { total: 28, bound: 13, refused: 10, named_gap: 2, open: 3 },
   "pipeline-builder": { total: 0, bound: 0, refused: 0, named_gap: 0, open: 0 },
   sessions: { total: 0, bound: 0, refused: 0, named_gap: 0, open: 0 },
   "ontology-manager": { total: 0, bound: 0, refused: 0, named_gap: 0, open: 0 },

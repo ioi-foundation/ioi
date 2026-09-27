@@ -299,6 +299,12 @@ pub(crate) async fn handle_automation_create(
         .or_else(|| trigger.get("kind").and_then(|v| v.as_str()))
         .unwrap_or("manual")
         .to_string();
+    if let Err(e) = super::validate_expires_at(body.get("expires_at").unwrap_or(&Value::Null)) {
+        return (
+            StatusCode::BAD_REQUEST,
+            Json(json!({ "ok": false, "error": { "code": "expires_at_invalid", "message": e } })),
+        );
+    }
     // Validate the schedule (cron expression / timezone) up front with a useful error.
     if let Err(e) = super::validate_schedule_spec(body.get("schedule_spec").unwrap_or(&Value::Null))
     {
@@ -325,6 +331,7 @@ pub(crate) async fn handle_automation_create(
         "trigger": trigger,
         "trigger_kind": trigger_kind,
         "enabled": body.get("enabled").and_then(|v| v.as_bool()).unwrap_or(true),
+        "expires_at": body.get("expires_at").cloned().unwrap_or(Value::Null),
         "steps": body.get("steps").cloned().unwrap_or_else(|| json!([])),
         "workflow_graph_ref": body.get("workflow_graph_ref").cloned().unwrap_or(Value::Null),
         "limits": body.get("limits").cloned().unwrap_or_else(|| json!({ "max_total": 100, "per_exec_seconds": 600, "budget": Value::Null })),
@@ -456,6 +463,16 @@ pub(crate) async fn handle_automation_patch(
             );
         }
     }
+    if let Some(expires_at) = body.get("expires_at") {
+        if let Err(e) = super::validate_expires_at(expires_at) {
+            return (
+                StatusCode::OK,
+                Json(
+                    json!({ "ok": false, "error": { "code": "expires_at_invalid", "message": e } }),
+                ),
+            );
+        }
+    }
     if let Err(response) = function_steps_refusal(&st, &headers, body.get("steps")) {
         return response;
     }
@@ -465,6 +482,7 @@ pub(crate) async fn handle_automation_patch(
         "trigger",
         "trigger_kind",
         "enabled",
+        "expires_at",
         "steps",
         "workflow_graph_ref",
         "limits",
@@ -1419,6 +1437,9 @@ pub(crate) async fn handle_automation_webhook(
     // Policy checks: kill switch, project exists, payload size, concurrency.
     if a.get("enabled").and_then(|v| v.as_bool()) != Some(true) {
         return reject(StatusCode::FORBIDDEN, "automation_disabled");
+    }
+    if super::epoch_of(&iso_now()).is_some_and(|now| super::automation_expired(&a, now)) {
+        return reject(StatusCode::FORBIDDEN, "automation_expired");
     }
     let project_id = a.get("project_id").and_then(|v| v.as_str()).unwrap_or("");
     if project_id.is_empty() || load(&st.data_dir, "projects", project_id).is_none() {

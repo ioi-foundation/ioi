@@ -240,6 +240,11 @@ async function run() {
         && /\//u.test(made.schedule_spec?.timezone || "") && made.steps?.length === 1 && made.steps[0].kind === "function"
         && made.steps[0].function_revision_ref === r1.revision_ref && made.steps[0].content_hash === r1.content_hash,
       `${made.automation_id || "no automation"} · ${JSON.stringify(made.schedule_spec || {})} · ${JSON.stringify(made.steps?.[0] || {}).slice(0, 200)}`);
+    // The Save dialog proposes an expiration date; it becomes the automation's expires_at, which the
+    // daemon enforces (its scheduler and webhook stop firing the automation then).
+    const expiresAt = Date.parse(made.expires_at || "");
+    ok("the wizard's expiration date is the automation's expires_at — a future date the daemon enforces, never dropped",
+      Number.isFinite(expiresAt) && expiresAt > Date.now(), `expires_at ${made.expires_at ?? "absent"}`);
     await pg.waitForTimeout(3000);
     if (process.env.IOI_VERIFIER_SHOTS) await pg.screenshot({ path: path.join(process.env.IOI_VERIFIER_SHOTS, "adopted-detail.png"), fullPage: true });
     const detailText = (await pg.evaluate(() => document.body.innerText)).replace(/\s+/g, " ");

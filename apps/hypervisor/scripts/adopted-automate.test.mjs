@@ -62,9 +62,10 @@ test("the wizard's request becomes the Hypervisor automation it describes, by ex
   assert.deepEqual(t.body, {
     project_ref: "project:acme", name: "nightly double", trigger: { kind: "time" }, trigger_kind: "time",
     schedule_spec: { type: "cron", cron: "0 9 * * *", timezone: "America/New_York" },
+    expires_at: "2026-12-27T00:00:00.000Z",
     steps: [{ kind: "function", function_revision_ref: released.revision_ref, content_hash: released.content_hash, inputs: { amount: 20, tags: ["a"] } }],
   });
-  assert.ok(t.unenforced.some((u) => u.startsWith("expiry")));
+  assert.deepEqual(t.unenforced, [], "the expiry is the automation's expires_at, which the daemon enforces");
 });
 
 test("what the Hypervisor automation cannot carry is refused by name, never dropped", () => {
@@ -78,6 +79,12 @@ test("what the Hypervisor automation cannot carry is refused by name, never drop
   const dynamicInput = request();
   dynamicInput.metadata.subscribers[0].triggerEffects.e1.function.functionInputs.amount = { type: "objectParameter" };
   assert.match(refuse(dynamicInput), /static value/);
+  const retrying = request();
+  retrying.metadata.globalEffectExecutionSettings = { longTermRetryConfig: { maxRetries: 3 } };
+  assert.match(refuse(retrying), /retries are not supported/);
+  const effectRetry = request();
+  effectRetry.metadata.subscribers[0].triggerEffects.e1.function.retryConfiguration = { type: "constant" };
+  assert.match(refuse(effectRetry), /retries are not supported/);
   const unknownVersion = request();
   unknownVersion.metadata.subscribers[0].triggerEffects.e1.function.functionLocator.functionVersion = "2.0.0";
   assert.match(refuse(unknownVersion), /not a released revision/);

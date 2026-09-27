@@ -660,6 +660,25 @@ async function run() {
       && !JSON.stringify(stoppedExec.step_results || []).includes("SECOND_STEP_RAN") && stoppedPhase.includes('"active_phase":"cancelled"'),
     `${inFlight ? inFlight.execution_id : "no running execution"} · cancel ${cancelled.body?.status} · final ${stoppedExec.status} · steps ${JSON.stringify((stoppedExec.step_results || []).map((s) => s.status))} · phase ${stoppedPhase.match(/"active_phase":"[a-z_]*"/u)?.[0] || "none"}`);
 
+  // -- an automation EXPIRES: past its expires_at it no longer fires (the scheduler skips it, the webhook
+  // refuses typed); an unreadable date is refused on create; a PATCH moves the date --------------------
+  const badExpiry = await jd("/v1/hypervisor/automations", { method: "POST", body: JSON.stringify({ project_ref: projectId, name: "journey-bad-expiry", expires_at: "next tuesday", steps: [] }) });
+  const expired = await jd("/v1/hypervisor/automations", { method: "POST", body: JSON.stringify({ project_ref: projectId, name: "journey-expired", expires_at: new Date(Date.now() - 60_000).toISOString(), steps: [{ kind: "command", command: "echo EXPIRED_RAN" }] }) });
+  const expiredId = expired.body?.automation?.automation_id || "";
+  const expiredToken = (await jd(`/v1/hypervisor/automations/${encodeURIComponent(expiredId)}/webhook-rotate`, { method: "POST" })).body?.webhook_token || "";
+  const expiredFire = await fetch(`${DAEMON}/v1/hypervisor/automations/${encodeURIComponent(expiredId)}/webhook`, {
+    method: "POST", headers: { "content-type": "application/json", "X-IOI-Trigger-Token": expiredToken }, body: JSON.stringify({ event: "ping" }),
+  }).then(async (r) => ({ status: r.status, body: await r.json().catch(() => ({})) })).catch(() => ({ status: 0, body: {} }));
+  const expiredRuns = (await jd(`/v1/hypervisor/automations/${encodeURIComponent(expiredId)}/runs`)).body?.runs || [];
+  const later = new Date(Date.now() + 86_400_000).toISOString();
+  const extended = await jd(`/v1/hypervisor/automations/${encodeURIComponent(expiredId)}`, { method: "PATCH", body: JSON.stringify({ expires_at: later }) });
+  ok("an automation expires: past its expires_at its webhook refuses typed (403 automation_expired) and nothing runs; an unreadable date refuses on create (expires_at_invalid); a PATCH moves the date",
+    badExpiry.status === 400 && badExpiry.body?.error?.code === "expires_at_invalid" && !!expiredId && !!expiredToken
+      && expiredFire.status === 403 && expiredFire.body?.reason === "automation_expired" && expiredRuns.length === 0
+      && extended.body?.ok === true && extended.body?.automation?.expires_at === later,
+    `bad ${badExpiry.status} ${badExpiry.body?.error?.code} · fire ${expiredFire.status} ${expiredFire.body?.reason} · runs ${expiredRuns.length} · patched ${extended.body?.automation?.expires_at === later}`);
+
+
   // -- webhook: rotate (hash-at-rest) + rejected trigger is a RECEIPTED event -
   const rotated = await jd(`/v1/hypervisor/automations/${encodeURIComponent(automationId)}/webhook-rotate`, { method: "POST" });
   const webhookToken = rotated.body?.webhook_token || "";

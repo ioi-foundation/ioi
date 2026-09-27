@@ -259,10 +259,13 @@ journey verifier → deploy to the owner's stack.
   (GraphQL mutations) and Pause / Resume (REST `disable`) are PATCHes of the automation; the pause
   popover's promise that in-flight executions are canceled mid-run is kept — the adopted pause cancels
   each running execution, and the daemon's executor now honors a cancel before every step (it used to run
-  on and overwrite `stopped` with `done`). *Still open (named):* the Agent effect's title reads "Unknown Agent"
+  on and overwrite `stopped` with `done`). Settings are no longer accepted and ignored: the expiration
+  date becomes the automation's `expires_at`, which the daemon enforces (its scheduler skips an expired
+  automation, its webhook refuses `automation_expired`), and enabled event or effect retries are refused
+  by name — the executor does not retry. *Still open (named):* the Agent effect's title reads "Unknown Agent"
   (no agent definition bound); command and proposal steps have no reference effect to name them; the
   editor lists a manual automation's condition as Time; the refusal reason shows only as a tooltip;
-  expiry and retries are not enforced; the description field is unbound.
+  the header rename has no live proof yet; the detail page's side tabs are undriven.
 - **Adoption steps:** (1) vendor the booted app — `index.html` + its 34 content-addressed assets,
   18.5 MB, the same scale as the tracked Ona tree — into a quarantined harvested lane in the owned tree;
   (2) serve it at the Automate canonical route, its asset and API paths answered by the serve (assets

@@ -5723,6 +5723,23 @@ pub(crate) fn epoch_of(iso: &str) -> Option<i64> {
         .ok()
         .map(|dt| dt.unix_timestamp())
 }
+/// An automation's optional `expires_at` (RFC 3339): null or absent never expires; anything else must
+/// parse. Validated on create and edit so the scheduler never meets a date it cannot read.
+pub(crate) fn validate_expires_at(v: &Value) -> Result<(), String> {
+    match v {
+        Value::Null => Ok(()),
+        Value::String(s) if epoch_of(s).is_some() => Ok(()),
+        _ => Err("expires_at must be an RFC 3339 timestamp or null".to_string()),
+    }
+}
+/// Whether an automation's `expires_at` has passed: an expired automation no longer fires — neither
+/// on its schedule nor from its webhook.
+pub(crate) fn automation_expired(a: &Value, now_ts: i64) -> bool {
+    a.get("expires_at")
+        .and_then(|v| v.as_str())
+        .and_then(epoch_of)
+        .is_some_and(|t| t <= now_ts)
+}
 fn iso_add_secs(iso: &str, secs: i64) -> String {
     use time::format_description::well_known::Rfc3339;
     time::OffsetDateTime::parse(iso, &Rfc3339)
@@ -6013,6 +6030,9 @@ async fn scheduler_tick(
         };
         if a.get("enabled").and_then(|v| v.as_bool()) != Some(true) {
             continue; // paused / disabled
+        }
+        if automation_expired(&a, now_ts) {
+            continue; // past its expiry date
         }
         let spec = a.get("schedule_spec").cloned().unwrap_or(Value::Null);
         if !schedule_is_active(&spec) {
@@ -10027,6 +10047,28 @@ mod cron_tests {
             time::UtcOffset::from_hms(-8, 0, 0).unwrap()
         );
         assert!(parse_utc_offset("America/New_York").is_err()); // named zones unsupported
+    }
+    #[test]
+    fn an_automation_expires_at_its_date_and_never_without_one() {
+        let now = epoch_of("2026-09-27T12:00:00Z").unwrap();
+        assert!(automation_expired(
+            &json!({ "expires_at": "2026-09-27T12:00:00Z" }),
+            now
+        ));
+        assert!(automation_expired(
+            &json!({ "expires_at": "2026-01-01T00:00:00Z" }),
+            now
+        ));
+        assert!(!automation_expired(
+            &json!({ "expires_at": "2026-12-27T08:06:15.294Z" }),
+            now
+        ));
+        assert!(!automation_expired(&json!({ "expires_at": null }), now));
+        assert!(!automation_expired(&json!({}), now));
+        assert!(validate_expires_at(&json!("2026-12-27T08:06:15.294Z")).is_ok());
+        assert!(validate_expires_at(&Value::Null).is_ok());
+        assert!(validate_expires_at(&json!("next tuesday")).is_err());
+        assert!(validate_expires_at(&json!(1735689600)).is_err());
     }
     #[test]
     fn validate_and_dispatch() {
