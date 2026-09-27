@@ -133,7 +133,9 @@ export function daemonEnvToIOI(env) {
     phase,
     machine: { phase: running ? "PHASE_RUNNING" : phase === "ENVIRONMENT_PHASE_STOPPING" ? "PHASE_STOPPING" : "PHASE_STOPPED" },
     environmentUrls: {
-      logs: `local://environments/${env.id}/logs`,
+      // The Logs pane GETs this with the CreateEnvironmentLogsToken lease as Bearer; the adapter
+      // validates the lease against the daemon and answers the daemon's session log as text/plain.
+      logs: `${gatewayOrigin}/api/ioi/environments/${encodeURIComponent(env.id)}/logs`,
       ops: `${gatewayOrigin}/supervisor/${env.id}/`,
       ports: projectEnvironmentPortUrls(s.ports),
     },

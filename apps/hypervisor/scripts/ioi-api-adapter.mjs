@@ -318,6 +318,123 @@ const isPortUnexpose = (port) => {
   return admission === 0 || admission === "0" || admission === "ADMISSION_LEVEL_UNSPECIFIED" || admission === "UNSPECIFIED";
 };
 
+// WHAT AN ENVIRONMENT UPDATE CAN CARRY, AND WHAT THE DAEMON CAN APPLY (Sessions cut 1). The daemon's
+// environment record has no update route — only GET /v1/hypervisor/environments/:id and the lifecycle
+// actions (start / stop / archive / restore / delete) plus the port routes. So an update applies
+// `spec.desiredPhase` (as start/stop) and `spec.ports` (narrowing only), and every other member it
+// carries is REFUSED BY NAME: it used to answer 200 having done nothing, which the page read as
+// "Environment renamed" / "Successfully updated auto-stop". The bundle sends a rename as
+// `metadata.name` (the row menu's Rename and the ▾ Rename beside the conversation tab both open the
+// same EnvironmentRenameOverlay), and auto-stop as `spec.timeout.disconnected`.
+const plainObject = (v) => v !== null && typeof v === "object" && !Array.isArray(v);
+function environmentUpdateRefusal(body) {
+  const metadata = [body.metadata, body.req?.metadata].find(plainObject);
+  const spec = [body.spec, body.req?.spec].find(plainObject) || {};
+  // A name cleared to "" may serialize as an empty `metadata: {}`; either way it is a rename.
+  if (metadata && ("name" in metadata || Object.keys(metadata).length === 0)) {
+    return jsonStatus(501, { code: "unimplemented", message: "environment_rename_not_supported: the daemon's environment record carries no name and has no update route, so the environment was not renamed" });
+  }
+  if (spec.timeout !== undefined && spec.timeout !== null) {
+    return jsonStatus(501, { code: "unimplemented", message: "environment_auto_stop_not_supported: the daemon sets an environment's stop policy (idle timeout) only when it is created and has no route to change it, so auto-stop was not changed" });
+  }
+  const unsupported = [
+    ...Object.keys(metadata || {}).map((k) => `metadata.${k}`),
+    ...Object.keys(spec).filter((k) => k !== "desiredPhase" && k !== "ports" && k !== "environmentId").map((k) => `spec.${k}`),
+  ];
+  if (unsupported.length) {
+    return jsonStatus(501, { code: "unimplemented", message: `environment_update_field_not_supported: the daemon has no environment update route for ${unsupported.join(", ")}; nothing was changed` });
+  }
+  return null;
+}
+
+// GOAL MODE IS NOT A HYPERVISOR FEATURE (owner rule: goal pursuit is an ioi.ai composition over thread
+// primitives; GoalRun never returns to the Hypervisor). The composer marks a Goal turn three ways, all
+// read from the vendored bundle: `turnOptions.modes: ["AGENT_MODE_GOAL"]` (on CreateAgentSession's
+// `agent`, StartAgent, and SendToAgentExecution), the prompt prefix `/ioi:goal ` it prepends in Goal
+// mode, and `controlInput.goal.{set,pause,resume,complete,clear}`. `/goal` in the composer only toggles
+// the mode client-side; typed as the head of a prompt it is the same command. Plan (`AGENT_MODE_SPEC`,
+// `/ioi:spec `) and Agent turns are untouched.
+const GOAL_MODES = new Set(["AGENT_MODE_GOAL", "GOAL", 5, "5"]);
+function goalModeMarker(body) {
+  const modeLists = [
+    body?.turnOptions?.modes,
+    body?.agent?.turnOptions?.modes,
+    body?.userInput?.metadata?.modes,
+    body?.initialInput?.metadata?.modes,
+  ];
+  if (modeLists.some((modes) => Array.isArray(modes) && modes.some((m) => GOAL_MODES.has(m)))) return "turnOptions.modes AGENT_MODE_GOAL";
+  if (plainObject(body?.controlInput?.goal)) return "controlInput.goal";
+  if (/^\/(?:ioi:)?goal(?:\s|$)/u.test(extractPrompt(body))) return "a /goal prompt";
+  return null;
+}
+const goalModeRefusal = (marker) =>
+  jsonStatus(501, { code: "unimplemented", message: `goal_mode_not_in_hypervisor: Goal mode (${marker}) is not a Hypervisor feature — goal pursuit is an ioi.ai composition over thread primitives. Use Agent or Plan mode here; nothing was started or sent` });
+
+// LOGS (Sessions cut 1). The Logs pane mints a token (CreateEnvironmentLogsToken → a real env-scoped
+// lease, the same one CreateEnvironmentAccessToken mints), then GETs `status.environmentUrls.logs`
+// (`/api/ioi/environments/<id>/logs`, ioi-projection) with `Authorization: Bearer <token>` and parses
+// the reply as the reference's log text: `[section-create]{…}`, then `[id:<section>] [<ts>] LEVEL msg`
+// per line. The bearer is the logs token, never the caller's identity — the daemon read travels on the
+// session cookie with the Authorization header removed.
+const textPlain = (text) => ({ contentType: "text/plain; charset=utf-8", body: text });
+const oneLine = (v) => String(v ?? "").replace(/[\r\n]+/gu, " ↵ ");
+function sessionLogLine(entry) {
+  const at = typeof entry?.at === "string" ? entry.at : typeof entry?.timestamp === "string" ? entry.timestamp : "";
+  const level = typeof entry?.level === "string" && /^[A-Za-z]+$/u.test(entry.level)
+    ? entry.level.toUpperCase()
+    : typeof entry?.exit_code === "number" && entry.exit_code !== 0 ? "ERROR" : "INFO";
+  const message = typeof entry?.message === "string"
+    ? oneLine(entry.message)
+    : entry?.command !== undefined
+      ? `$ ${oneLine(entry.command)} (exit ${entry.exit_code ?? "?"}; stdout ${entry.stdout_bytes ?? 0} B, stderr ${entry.stderr_bytes ?? 0} B)`
+      : oneLine(JSON.stringify(entry));
+  return `[id:session] ${at ? `[${at}] ` : ""}${level} ${message}`;
+}
+function sessionLogText(entries) {
+  const lines = [`[section-create]${JSON.stringify({ id: "session", title: "Session commands", continuous: true })}`];
+  for (const entry of entries) lines.push(sessionLogLine(entry));
+  return `${lines.join("\n")}\n`;
+}
+async function environmentLogsText(envId) {
+  const auth = String(reqCtx.getStore()?.daemonHeaders?.authorization || "");
+  const token = /^Bearer\s+(\S+)\s*$/iu.exec(auth)?.[1] || "";
+  if (!token) {
+    return jsonStatus(401, { code: "unauthenticated", message: "environment_logs_token_required: a logs token (CreateEnvironmentLogsToken) is required as the Bearer; no logs were read" });
+  }
+  const identity = currentDaemonHeaders();
+  delete identity.authorization;
+  const read = async (path) => {
+    const res = await fetch(DAEMON + path, { headers: identity, signal: AbortSignal.timeout(8000) });
+    const text = await res.text();
+    let payload = {};
+    try { payload = text ? JSON.parse(text) : {}; } catch { payload = {}; }
+    return { status: res.status, ok: res.ok, payload };
+  };
+  let lease;
+  try {
+    lease = await read(`/v1/hypervisor/ops-lease/${encodeURIComponent(token)}`);
+  } catch (e) {
+    return unavailableRpc("environment_logs_token_unverified", `the daemon did not answer the lease read (${e.message}); no logs were read`);
+  }
+  if (!lease.ok || lease.payload?.active !== true || lease.payload?.environment_id !== envId) {
+    const why = !lease.ok || lease.payload?.active !== true ? "not active (unknown, expired or revoked)" : "bound to a different environment";
+    return jsonStatus(403, { code: "permission_denied", message: `environment_logs_token_invalid: the logs token is ${why}; no logs were read` });
+  }
+  let logs;
+  try {
+    logs = await read(`/v1/hypervisor/environments/${encodeURIComponent(envId)}/logs?kind=session`);
+  } catch (e) {
+    return unavailableRpc("environment_logs_unavailable", `the daemon did not answer the logs read (${e.message}); no logs are served`);
+  }
+  if (logs.status === 401) return jsonStatus(401, { code: "unauthenticated", message: "environment_logs_unavailable: the daemon refused this read — sign in (/__ioi/login) to see it" });
+  if (logs.status === 403) return jsonStatus(403, { code: "permission_denied", message: "environment_logs_unavailable: the daemon refused this read for the signed-in principal" });
+  if (logs.status === 404) return jsonStatus(404, { code: "not_found", message: "environment_logs_unavailable: the daemon has no such environment" });
+  if (!logs.ok || logs.payload?.ok === false || !Array.isArray(logs.payload?.entries)) {
+    return unavailableRpc("environment_logs_unavailable", `the daemon's logs read did not answer with entries (${logs.status}${logs.payload?.reason ? `: ${logs.payload.reason}` : ""}); no logs are served`);
+  }
+  return textPlain(sessionLogText(logs.payload.entries));
+}
+
 async function waitForRunTerminal(runId, timeoutMs = 45000) {
   const deadline = Date.now() + timeoutMs;
   while (Date.now() < deadline) {
@@ -367,6 +484,13 @@ async function handleImpl(pathname, bodyText) {
       } catch (e) {
         return json({ error: e.message, daemon: "unreachable" });
       }
+    }
+    // The Logs pane's `environmentUrls.logs` (Sessions cut 1): lease-validated, text/plain.
+    const logsRead = /^environments\/([^/]+)\/logs$/u.exec(sub);
+    if (logsRead) {
+      let envId = "";
+      try { envId = decodeURIComponent(logsRead[1]); } catch { return jsonStatus(400, { code: "invalid_argument", message: "environment_logs_bad_id: the environment id in the logs URL is not decodable" }); }
+      return environmentLogsText(envId);
     }
     // Reads (GET): daemon projections.
     const map = {
@@ -566,6 +690,10 @@ async function handleImpl(pathname, bodyText) {
         return json({ environment: daemonEnvToIOI(await act(envIdFromBody(body), "delete")) });
       case "/api/ioi.v1.EnvironmentService/UpdateEnvironment": {
         const id = envIdFromBody(body);
+        // Refused before anything applies: a rename / auto-stop / other member the daemon cannot store is
+        // named, never answered 200 with nothing done (and never half-applied beside a port change).
+        const refused = environmentUpdateRefusal(body);
+        if (refused) return refused;
         const desired = body.spec?.desiredPhase || body.req?.spec?.desiredPhase;
         if (desired === "ENVIRONMENT_PHASE_RUNNING") return json({ environment: daemonEnvToIOI(await act(id, "start")) });
         if (desired === "ENVIRONMENT_PHASE_STOPPED") return json({ environment: daemonEnvToIOI(await act(id, "stop")) });
@@ -609,11 +737,17 @@ async function handleImpl(pathname, bodyText) {
         const lease = await daemon("POST", `/v1/hypervisor/environments/${encodeURIComponent(id)}/ops-lease`);
         return json({ accessToken: lease.accessToken || lease.lease_id });
       }
-      case "/api/ioi.v1.EnvironmentService/CreateEnvironmentLogsToken":
-        // No daemon logs-token route exists (byte-verified); the former handler minted a made-up
-        // constant. Logs themselves read via GET /v1/hypervisor/environments/:id/logs; a scoped
-        // token plane is a named backend gap.
-        return unavailableRpc("environment_logs_token_route_missing", "the daemon has no environment logs-token route; no fabricated token is minted");
+      case "/api/ioi.v1.EnvironmentService/CreateEnvironmentLogsToken": {
+        // Sessions cut 1: the logs token is a real env-scoped capability lease (the same ops-lease
+        // CreateEnvironmentAccessToken mints — no second token plane). The logs GET
+        // (`/api/ioi/environments/:id/logs`) accepts it only while the daemon reports it active AND bound
+        // to that environment, then reads GET /v1/hypervisor/environments/:id/logs as the caller.
+        const id = envIdFromBody(body);
+        const lease = await daemon("POST", `/v1/hypervisor/environments/${encodeURIComponent(id)}/ops-lease`);
+        const accessToken = lease.accessToken || lease.lease_id;
+        if (!accessToken) return unavailableRpc("environment_logs_token_unissued", "the daemon answered the lease request without a lease id; no token is fabricated");
+        return json({ accessToken });
+      }
       case "/api/ioi.v1.EnvironmentService/MarkEnvironmentActive":
         // Canon names mark_active as an environment-ops verb (providers-and-environments.md:528)
         // but no daemon route exists — the former handler returned success without doing anything.
@@ -634,6 +768,16 @@ async function handleImpl(pathname, bodyText) {
   }
 
   // ---- AgentService: real IOI daemon threads/turns (Session) ----
+  // Goal mode is refused before any run, environment or thread is touched (see goalModeMarker).
+  if (
+    pathname === "/api/ioi.v1.AgentService/CreateAgentSession" ||
+    pathname === "/api/ioi.v1.AgentService/StartAgent" ||
+    pathname === "/api/ioi.v1.AgentService/CreateAgentExecution" ||
+    pathname === "/api/ioi.v1.AgentService/SendToAgentExecution"
+  ) {
+    const marker = goalModeMarker(body);
+    if (marker) return goalModeRefusal(marker);
+  }
   try {
     if (pathname.startsWith("/api/ioi.v1.AgentService/")) {
       const decision = await agentRunCacheAccessDecision();
@@ -1184,14 +1328,21 @@ async function handleImpl(pathname, bodyText) {
   if (pathname === "/api/ioi.v1.WorkflowService/GetWorkflowExecutionSummary") {
     return json({ totalWorkflowsInOrganization: "0" });
   }
+  // An environment's services, tasks and task runs have no daemon plane: no route lists them (the
+  // daemon's `env-config apply_automations` records an observation, and `environments/:id/logs?kind=tasks`
+  // reads task log files — neither is a task or service record). An empty list presented that absence as
+  // "No tasks defined in this environment" (Sessions cut 1), so each list refuses naming the absent plane.
+  // `unimplemented` is terminal: the bundle's query retry stops on it, and the Services section renders
+  // the error in place. (The Tasks tab reads only `data`, so it still says "No tasks defined" — a bundle
+  // limit the adapter cannot reach.)
   if (pathname === "/api/ioi.v1.EnvironmentAutomationService/ListServices") {
-    return json({ pagination: {}, services: [] });
+    return jsonStatus(501, { code: "unimplemented", message: "environment_services_plane_absent: the daemon has no environment services plane (no route lists an environment's services); nothing is listed rather than an empty list that reads as \"no services\"" });
   }
   if (pathname === "/api/ioi.v1.EnvironmentAutomationService/ListTasks") {
-    return json({ pagination: {} });
+    return jsonStatus(501, { code: "unimplemented", message: "environment_tasks_plane_absent: the daemon has no environment tasks plane (no route lists an environment's tasks); nothing is listed rather than an empty list that reads as \"no tasks defined\"" });
   }
   if (pathname === "/api/ioi.v1.EnvironmentAutomationService/ListTaskExecutions") {
-    return json({ pagination: {} });
+    return jsonStatus(501, { code: "unimplemented", message: "environment_task_executions_plane_absent: the daemon has no environment task-run plane (no route lists an environment's task executions); nothing is listed rather than an empty list" });
   }
   // ---- BillingService: REAL metering & cost plane (OCU = Hypervisor Compute Units derived from
   // actual receipts in the daemon) + a wallet-backed budget. Not SaaS billing — the daemon's own
@@ -1645,6 +1796,13 @@ async function handleImpl(pathname, bodyText) {
   }
   if (pathname === "/api/ioi.v1.AgentService/ListPrompts") {
     return json({ pagination: {} });
+  }
+  // The reference's org Agent-policies page has a "Goal mode" toggle; the vendored bundle's AgentPolicy
+  // carries no goal member, so the name is unknown here. Any agentPolicy member named for goals is
+  // refused by name; every other UpdateOrganizationPolicies still falls to adapter_unmatched_rpc below.
+  if (pathname === "/api/ioi.v1.OrganizationService/UpdateOrganizationPolicies") {
+    const goalKeys = Object.keys(plainObject(body.agentPolicy) ? body.agentPolicy : {}).filter((k) => /goal/iu.test(k));
+    if (goalKeys.length) return goalModeRefusal(`agentPolicy.${goalKeys.join(", agentPolicy.")}`);
   }
 
   // W0.5 — no mock fallthrough. Every `/api/ioi.v1.*` RPC the adapter does not own above refuses
