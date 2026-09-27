@@ -94,6 +94,7 @@
     "check:seed-depth": "node scripts/check-seed-depth.mjs",
     "check:adopted-automate": "node scripts/verify-hypervisor-adopted-automate.mjs",
     "check:adopted-pipeline": "node scripts/verify-hypervisor-adopted-pipeline.mjs",
+    "check:sessions-shell": "node scripts/verify-hypervisor-sessions-shell.mjs",
     "check:adopted-dead-controls": "node scripts/verify-hypervisor-adopted-dead-controls.mjs",
     "check:ontology-surface-invariant-11": "node scripts/verify-hypervisor-ontology-surface-invariant-11.mjs",
     "check:ontology-version-lifecycle": "node scripts/verify-hypervisor-ontology-version-lifecycle.mjs",

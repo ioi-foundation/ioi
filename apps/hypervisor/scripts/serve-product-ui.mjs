@@ -17103,15 +17103,18 @@ async function handleEstateRequest(req, res, body) {
 const C = { InvalidArgument: 3, NotFound: 5, Unimplemented: 12, Internal: 13, Unavailable: 14, Unauthenticated: 16 };
 const STREAMING = new Set(["AttachTerminal", "ReadTerminal", "Watch"]);
 
-async function djson(method, path, body, token) {
+// `req` is the person's own request (the WebSocket upgrade): the daemon's control plane names a PRINCIPAL (a session),
+// and the ops lease only SCOPES the environment. With the lease alone every terminal call was refused
+// request_principal_required, so "New Terminal" always failed and ListTerminals read as none (R-240 Arm A on Sessions).
+async function djson(method, path, body, token, req) {
   const headers = { "content-type": "application/json" };
   if (token) headers["authorization"] = `Bearer ${token}`;
-  const r = await daemonFetch(path, { method, headers, body: body !== undefined ? JSON.stringify(body) : undefined });
+  const r = await daemonFetch(path, { method, headers, body: body !== undefined ? JSON.stringify(body) : undefined, ...(req ? { req } : {}) });
   const t = await r.text(); let j = {}; try { j = t ? JSON.parse(t) : {}; } catch { j = {}; }
   return { status: r.status, body: j };
 }
 
-function handleSupervisorWs(ws) {
+function handleSupervisorWs(ws, upgradeReq = null) {
   let env = null;
   let token = null;
   const streams = new Map(); // jsonrpc id -> cleanup fn
@@ -17141,25 +17144,27 @@ function handleSupervisorWs(ws) {
         const cwd = params?.workingDirectory && String(params.workingDirectory).trim() ? params.workingDirectory : undefined;
         const body = { environment_ref: envRef, shell: params?.shell || "bash", cols: params?.initialCols || 80, rows: params?.initialRows || 24 };
         if (cwd) body.cwd = cwd; // else the daemon defaults to the env workspace (empty cwd would fail)
-        const r = await djson("POST", "/v1/hypervisor/terminals", body, token);
-        return r.body?.terminal_id ? ok(id, { terminalId: r.body.terminal_id }) : err(id, C.Internal, r.body?.reason || "create terminal failed");
+        const r = await djson("POST", "/v1/hypervisor/terminals", body, token, upgradeReq);
+        return r.body?.terminal_id ? ok(id, { terminalId: r.body.terminal_id }) : err(id, r.status === 401 || r.status === 403 ? C.Unauthenticated : C.Internal, r.body?.reason || r.body?.error?.message || r.body?.message || `create terminal failed (daemon ${r.status})`);
       }
       if (m === "ListTerminals") {
-        const r = await djson("GET", "/v1/hypervisor/terminals");
+        const r = await djson("GET", "/v1/hypervisor/terminals", undefined, null, upgradeReq);
+        // a refused list is an error, never "no terminals"
+        if (r.status !== 200) return err(id, r.status === 401 || r.status === 403 ? C.Unauthenticated : C.Internal, r.body?.error?.message || r.body?.message || `list terminals failed (daemon ${r.status})`);
         const terminals = (r.body?.terminals || []).filter((t) => t.environment_ref === envRef).map((t) => ({ terminalId: t.terminal_id, shell: t.shell, cols: t.cols, rows: t.rows }));
         return ok(id, { terminals });
       }
       if (m === "WriteTerminal") {
         const data = Buffer.from(params?.data || "", "base64").toString("utf8");
-        await djson("POST", `/v1/hypervisor/terminals/${encodeURIComponent(params?.terminalId)}/input`, { data }, token);
+        await djson("POST", `/v1/hypervisor/terminals/${encodeURIComponent(params?.terminalId)}/input`, { data }, token, upgradeReq);
         return ok(id, {});
       }
       if (m === "ResizeTerminal") {
-        await djson("POST", `/v1/hypervisor/terminals/${encodeURIComponent(params?.terminalId)}/resize`, { cols: params?.cols, rows: params?.rows }, token);
+        await djson("POST", `/v1/hypervisor/terminals/${encodeURIComponent(params?.terminalId)}/resize`, { cols: params?.cols, rows: params?.rows }, token, upgradeReq);
         return ok(id, {});
       }
       if (m === "CloseTerminal") {
-        await djson("POST", `/v1/hypervisor/terminals/${encodeURIComponent(params?.terminalId)}/close`, {}, token);
+        await djson("POST", `/v1/hypervisor/terminals/${encodeURIComponent(params?.terminalId)}/close`, {}, token, upgradeReq);
         return ok(id, {});
       }
 
@@ -17176,7 +17181,7 @@ function handleSupervisorWs(ws) {
           try {
             while (!aborted) {
               let r;
-              try { r = await daemonFetch(`/v1/hypervisor/terminals/${encodeURIComponent(termId)}/stream?since=${since}`); }
+              try { r = await daemonFetch(`/v1/hypervisor/terminals/${encodeURIComponent(termId)}/stream?since=${since}`, upgradeReq ? { req: upgradeReq } : {}); }
               catch { break; }
               if (r.status === 404) { ok(id, { exited: { exitCode: 0 } }); ok(id, null); break; }
               const text = await r.text();
@@ -17267,7 +17272,7 @@ const supervisorWss = new WebSocketServer({ noServer: true });
 server.on("upgrade", (req, socket, head) => {
   const pathname = (req.url || "").split("?")[0];
   if (ENV_OPS_WS && (pathname === "/supervisor.v1.EnvironmentOpsService/" || pathname.startsWith("/supervisor/"))) {
-    supervisorWss.handleUpgrade(req, socket, head, (ws) => handleSupervisorWs(ws));
+    supervisorWss.handleUpgrade(req, socket, head, (ws) => handleSupervisorWs(ws, req));
   } else {
     socket.destroy();
   }

@@ -27,6 +27,7 @@ const routes = {
   }),
   "GET /v1/hypervisor/auth/policy": () => ({ deployment_auth_posture: "local_development" }),
   "POST /v1/threads/thread_1/turns": () => ({ ok: true }),
+  "GET /v1/hypervisor/editor-targets": () => ({ openable_targets: ["vscode-browser"], targets: [] }),
   "GET /v1/hypervisor/environments": () => ({ environments: [
     { id: "env_run", created_at: AT, updated_at: AT, spec: { desired_phase: "running" }, status: { phase: "running" } },
     { id: "env_stop", created_at: AT, updated_at: AT, spec: {}, status: { phase: "stopped" } },
@@ -265,4 +266,22 @@ test("the Archived view lists only archived environments (its Delete all deletes
   assert.deepEqual((await list({ archivalStatus: "ARCHIVAL_STATUS_ACTIVE" })).map((e) => e.id), ["env_run", "env_stop"]);
   assert.deepEqual((await list({})).map((e) => e.id), ["env_run", "env_stop", "env_arch"], "unspecified keeps every live environment");
   assert.equal((await list({ archivalStatus: "ARCHIVAL_STATUS_ACTIVE" }))[0].metadata.archivedAt, undefined);
+});
+
+// R-240 Arm A (Sessions): every editor opener threw "No environment or organization ID provided" (the projection named
+// no organization), the details card waited forever on a runner the projection never named, and ResolveEditorURL had
+// no lane at all.
+test("an environment names its organization and runner; an offered editor resolves to its open route, any other is refused by name", async () => {
+  const envs = JSON.parse((await handle("/api/ioi.v1.EnvironmentService/ListEnvironments", JSON.stringify({}), { "content-type": "application/json" })).body).environments;
+  assert.ok(envs.every((e) => e.metadata.organizationId && e.metadata.runnerId === "local-microvm"), JSON.stringify(envs.map((e) => e.metadata)));
+  const resolve = async (editorId) => handle("/api/ioi.v1.EditorService/ResolveEditorURL", JSON.stringify({ environmentId: "env_run", organizationId: "o", editorId }), { "content-type": "application/json" });
+  const ok = await resolve("vscode-browser");
+  assert.equal(ok.status ?? 200, 200);
+  assert.equal(JSON.parse(ok.body).url, "/__ioi/editor/open?environmentId=env_run");
+  const probeFailed = await resolve("cursor");
+  assert.equal(probeFailed.status, 412);
+  assert.match(probeFailed.body, /editor_not_openable/u, "an editor whose probe did not pass opens nothing");
+  const unknown = await resolve("emacs");
+  assert.equal(unknown.status, 412);
+  assert.match(unknown.body, /editor_not_offered/u);
 });

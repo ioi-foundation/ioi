@@ -367,6 +367,16 @@ journey verifier → deploy to the owner's stack.
   checkpoint chunk had silently dropped Merge (fed to the mirror). `check:adopted-pipeline` 31/31.
   **Next:** the proposal page's checks from the change set's validation; then Sessions (the Arm A findings).
 
+### Sessions — Arm A and cut 2 (2026-09-27)
+
+Driving the Sessions shell against the 44 harvested states (46 rows: 28 work, 2 refused, 6 named, 5 dead, 2
+unrenderable, 3 absent) found a destructive defect: the Archived view's "Delete all" deleted every environment
+(`a529ab650`, fixed and deployed the same hour). Cut 2: a missing shell chunk is a named gap instead of a crash (the
+file diff, the terminal pane, personal settings); the environment names its organization and runner, so the editor
+openers resolve a URL and the details card renders; the env-ops bridge carries the person's session, so the terminal
+works; each daemon keeps its own preference store. `check:sessions-shell` 8/8 is the Sessions gate. **Next:** the
+composer's dropped choices, the invented auto-stop label, the Code tab's auto-start, failed runs shown healthy.
+
 ### Arm A — the adopted apps are clicked (2026-09-27)
 
 `check:dead-controls` never reached the adopted apps (its serve runs without adopted surfaces; `/__apps/*` is a

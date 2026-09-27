@@ -96,7 +96,7 @@
       "reference_app": "Sessions (Ona)",
       "seed": "product-ui (the vendored shell)",
       "canonical_route": "/details/<environment-id>",
-      "verifier": null,
+      "verifier": "apps/hypervisor/scripts/verify-hypervisor-sessions-shell.mjs",
       "note": "Harvested 2026-09-27 read-only (44 states; .artifacts/live-tenant-atlas/r241-sessions/). The shell IS the adopted Ona app, so most lanes already answer through ioi-api-adapter.mjs; Sessions cut 1 (8c784dae1) closed the accept-and-ignore writes and named the absent planes. The remaining harvested states join as they are driven.",
       "states": [
         { "id": "detail.rename", "label": "Session — Rename (row menu, and beside the conversation tab)", "disposition": "refused", "proof": { "file": "apps/hypervisor/scripts/ioi-api-adapter-sessions.test.mjs", "text": "rename (UpdateEnvironment metadata.name) is refused by name and writes nothing" } },
@@ -105,7 +105,13 @@
         { "id": "detail.port-auto-sync", "label": "Session detail — the page's own port sync on open (admission EVERYONE)", "disposition": "refused", "proof": { "file": "apps/hypervisor/scripts/ioi-api-adapter-sessions.test.mjs", "text": "the port rule is intact: the page's own port sync (admission EVERYONE) is still refused by name" } },
         { "id": "detail.services", "label": "Session — Ports & Services, the Services section", "disposition": "named_gap", "shown_as": "environment_services_plane_absent, shown in place in the Services section", "reason": "the daemon has no environment services plane (no route lists an environment's services)" },
         { "id": "detail.tasks", "label": "Session — Tasks", "disposition": "named_gap", "shown_as": "No tasks defined in this environment (the Tasks tab reads only its data, so the refusal naming the absent plane cannot reach it)", "reason": "the daemon has no environment tasks plane; ListTasks refuses naming it" },
-        { "id": "detail.logs", "label": "Session — Environment pane, Logs", "disposition": "open", "reason": "bound in the adapter (a real env-scoped logs lease; the daemon's session log as the reference's log text) and unit-proven, but no live verifier asserts it yet" }
+        { "id": "detail.logs", "label": "Session — Environment pane, Logs", "disposition": "open", "reason": "bound in the adapter (a real env-scoped logs lease; the daemon's session log as the reference's log text) and unit-proven, but no live verifier asserts it yet" },
+        { "id": "list.archived", "label": "Sessions — the Archived view and its Delete all", "disposition": "bound", "proof": { "file": "apps/hypervisor/scripts/verify-hypervisor-sessions-shell.mjs", "text": "the Archived view lists only archived environments, and its Delete all deletes only those" } },
+        { "id": "detail.editor-open", "label": "Session — Open VS Code, the editor menu, the Code tab", "disposition": "bound", "proof": { "file": "apps/hypervisor/scripts/verify-hypervisor-sessions-shell.mjs", "text": "the editor openers resolve an editor URL for the session" } },
+        { "id": "detail.terminal", "label": "Session — Terminal, New Terminal", "disposition": "bound", "proof": { "file": "apps/hypervisor/scripts/verify-hypervisor-sessions-shell.mjs", "text": "New Terminal opens a real terminal bound to the session's environment" } },
+        { "id": "detail.environment-card", "label": "Session — Session details (the environment card)", "disposition": "bound", "proof": { "file": "apps/hypervisor/scripts/verify-hypervisor-sessions-shell.mjs", "text": "the session details card renders" } },
+        { "id": "detail.changed-file", "label": "Session — Changes, opening a changed file (the diff)", "disposition": "named_gap", "shown_as": "\"The file diff view is not part of the Hypervisor shell yet.\" in the file tab (it had crashed the whole session page)", "reason": "the shell's FileDiffPanel chunk is not vendored, and a reference chunk is not added to the public repository" },
+        { "id": "settings.personal", "label": "Personal settings (/settings/preferences, secrets, tokens, …)", "disposition": "named_gap", "shown_as": "\"Personal settings is not part of the Hypervisor shell yet.\" (the routes had rendered a blank page)", "reason": "the shell's UserSettingsRedirect chunk is not vendored; personal preferences have no daemon plane" }
       ]
     },
     { "id": "ontology-manager", "status": "not_started", "reference_app": "Ontology Manager / Explorer", "states": [] },

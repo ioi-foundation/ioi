@@ -17,6 +17,7 @@ import { readFileSync, writeFileSync, mkdirSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { AsyncLocalStorage } from "node:async_hooks";
+import { createHash } from "node:crypto";
 import { threadToAgentExecution, daemonEnvToIOI, daemonProjectToIOI } from "./ioi-projection.mjs";
 import {
   startAgentRun,
@@ -36,8 +37,13 @@ const REPO_ROOT = join(dirname(fileURLToPath(import.meta.url)), "..", "..", ".."
 // in the app-local dir, NOT the daemon data dir (.ioi/hypervisor/data stays daemon-owned).
 // If the daemon later owns user preferences, this projects to it (no JS ownership).
 const APP_LOCAL = join(REPO_ROOT, ".ioi", "hypervisor-app-local");
-const PREF_STORE = join(APP_LOCAL, "app-preferences.json");
 const DAEMON = (process.env.IOI_HYPERVISOR_DAEMON_URL || "http://127.0.0.1:8765").replace(/\/$/, "");
+// ONE STORE PER DAEMON (R-240 Arm A on Sessions): the store was one repo-wide file, so every disposable serve (a
+// verifier's, a drive's) rewrote the owner's preferences — a composer load writes PREFERRED_AGENT by itself. The
+// owner's daemon (the default address) keeps the original file; any other daemon gets its own, named by its address.
+const PREF_STORE = DAEMON === "http://127.0.0.1:8765"
+  ? join(APP_LOCAL, "app-preferences.json")
+  : join(APP_LOCAL, `app-preferences.${createHash("sha256").update(DAEMON).digest("hex").slice(0, 16)}.json`);
 // Per-request context carries the complete bounded identity envelope. Dropping Authorization or
 // x-ioi-forwarded here silently turns a managed caller into a loopback local operator at the
 // daemon, so every owned adapter path must reuse this exact envelope.
@@ -293,6 +299,25 @@ const runnerFromProvider = (p = {}) => {
     kind: "RUNNER_KIND_REMOTE",
   };
 };
+// An environment as the SPA reads it: the daemon projection plus the scope it lives in. The organization is the one
+// local org every membership names; the runner is the one the environment classes name (every class's runnerId).
+// Without the organization every editor opener threw ("No environment or organization ID provided"); without the
+// runner the session details card waited forever (R-240 Arm A on Sessions).
+const ENVIRONMENT_RUNNER_ID = "local-microvm";
+// Each offered editor's open route: vscode-browser through the serve layer's /__ioi/editor/open (it drives the daemon
+// editor chain and redirects to the live editor); desktop hosts by their native deep-link scheme.
+const EDITOR_URL_TEMPLATES = Object.freeze({
+  "vscode-browser": "/__ioi/editor/open?environmentId={{.EnvironmentId}}",
+  vscode: "vscode://ioi.ioi-flex/connect?environmentId={{.EnvironmentId}}",
+  "vscode-insiders": "vscode-insiders://ioi.ioi-flex/connect?environmentId={{.EnvironmentId}}",
+  // Cursor is a VS Code-family host running the SAME adapter extension, and the daemon states its
+  // open route in those terms ("deep link into the local cursor host (adapter extension)").
+  cursor: "cursor://ioi.ioi-flex/connect?environmentId={{.EnvironmentId}}",
+});
+const envToIOI = (e) => {
+  const x = daemonEnvToIOI(e);
+  return x ? { ...x, metadata: { ...x.metadata, organizationId: LOCAL_SCOPE.orgId, runnerId: ENVIRONMENT_RUNNER_ID } } : x;
+};
 async function listProjectedRunners() {
   const r = await daemon("GET", "/v1/hypervisor/providers");
   return (r.providers || []).map(runnerFromProvider);
@@ -305,7 +330,7 @@ const daemonClassToIOI = (c) => ({
   displayName: c.display_name || c.id,
   description: [c.substrate_class, c.minimum_isolation || c.isolation_claim || c.note].filter(Boolean).join(" • "),
   configuration: [{ key: "substrateClass", value: c.substrate_class || "" }],
-  runnerId: "local-microvm",
+  runnerId: ENVIRONMENT_RUNNER_ID,
   enabled: c.enabled !== false,
 });
 const portsFromBody = (b) => {
@@ -661,7 +686,7 @@ async function handleImpl(pathname, bodyText) {
       daemon("POST", `/v1/hypervisor/environments/${encodeURIComponent(id)}/${action}`).then((r) => r.environment);
     switch (pathname) {
       case "/api/ioi.v1.EnvironmentService/GetEnvironment":
-        return json({ environment: daemonEnvToIOI(await env(`/v1/hypervisor/environments/${encodeURIComponent(envIdFromBody(body))}`)) });
+        return json({ environment: envToIOI(await env(`/v1/hypervisor/environments/${encodeURIComponent(envIdFromBody(body))}`)) });
       case "/api/ioi.v1.EnvironmentService/ListEnvironments": {
         const r = await daemon("GET", "/v1/hypervisor/environments");
         // Deleted envs stay in the daemon as an audit record (status.deleted / phase "deleted"),
@@ -684,18 +709,18 @@ async function handleImpl(pathname, bodyText) {
         const archivedEnv = (e) => e.status?.phase === "archived";
         if (archival === "ARCHIVAL_STATUS_ARCHIVED" || archival === 2) live = live.filter(archivedEnv);
         else if (archival === "ARCHIVAL_STATUS_ACTIVE" || archival === 1) live = live.filter((e) => !archivedEnv(e));
-        return json({ pagination: {}, environments: live.map(daemonEnvToIOI) });
+        return json({ pagination: {}, environments: live.map(envToIOI) });
       }
       case "/api/ioi.v1.EnvironmentService/ListEnvironmentClasses": {
         const r = await daemon("GET", "/v1/hypervisor/environment-classes");
         return json({ pagination: {}, environmentClasses: (r.environmentClasses || []).map(daemonClassToIOI) });
       }
       case "/api/ioi.v1.EnvironmentService/StartEnvironment":
-        return json({ environment: daemonEnvToIOI(await act(envIdFromBody(body), "start")) });
+        return json({ environment: envToIOI(await act(envIdFromBody(body), "start")) });
       case "/api/ioi.v1.EnvironmentService/StopEnvironment":
-        return json({ environment: daemonEnvToIOI(await act(envIdFromBody(body), "stop")) });
+        return json({ environment: envToIOI(await act(envIdFromBody(body), "stop")) });
       case "/api/ioi.v1.EnvironmentService/DeleteEnvironment":
-        return json({ environment: daemonEnvToIOI(await act(envIdFromBody(body), "delete")) });
+        return json({ environment: envToIOI(await act(envIdFromBody(body), "delete")) });
       case "/api/ioi.v1.EnvironmentService/UpdateEnvironment": {
         const id = envIdFromBody(body);
         // Refused before anything applies: a rename / auto-stop / other member the daemon cannot store is
@@ -703,8 +728,8 @@ async function handleImpl(pathname, bodyText) {
         const refused = environmentUpdateRefusal(body);
         if (refused) return refused;
         const desired = body.spec?.desiredPhase || body.req?.spec?.desiredPhase;
-        if (desired === "ENVIRONMENT_PHASE_RUNNING") return json({ environment: daemonEnvToIOI(await act(id, "start")) });
-        if (desired === "ENVIRONMENT_PHASE_STOPPED") return json({ environment: daemonEnvToIOI(await act(id, "stop")) });
+        if (desired === "ENVIRONMENT_PHASE_RUNNING") return json({ environment: envToIOI(await act(id, "start")) });
+        if (desired === "ENVIRONMENT_PHASE_STOPPED") return json({ environment: envToIOI(await act(id, "stop")) });
         // AN UPDATE NARROWS EXPOSURE; IT NEVER WIDENS IT (R-240 Arm B: the session page sends
         // `spec.ports:[{…, admission: EVERYONE}]` by itself every time a session's detail opens — before this,
         // merely LOOKING at a session exposed its port). Un-exposing a port applies; exposing one through an
@@ -719,7 +744,7 @@ async function handleImpl(pathname, bodyText) {
         if (widening.length) {
           return jsonStatus(403, { code: "permission_denied", message: `port_exposure_not_by_update: exposing port ${widening.join(", ")} through an environment update is refused — an update may only narrow who reaches a port; nothing was exposed` });
         }
-        return json({ environment: daemonEnvToIOI(await env(`/v1/hypervisor/environments/${encodeURIComponent(id)}`)) });
+        return json({ environment: envToIOI(await env(`/v1/hypervisor/environments/${encodeURIComponent(id)}`)) });
       }
       case "/api/ioi.v1.EnvironmentService/CreateEnvironment":
       case "/api/ioi.v1.EnvironmentService/CreateEnvironmentFromProject": {
@@ -736,7 +761,7 @@ async function handleImpl(pathname, bodyText) {
         if (desired === "ENVIRONMENT_PHASE_RUNNING" && envRecord?.id) {
           try { envRecord = await act(envRecord.id, "start"); } catch (e) { console.error("[ioi-api-adapter] env auto-start failed:", e.message); }
         }
-        return json({ environment: daemonEnvToIOI(envRecord) });
+        return json({ environment: envToIOI(envRecord) });
       }
       case "/api/ioi.v1.EnvironmentService/CreateEnvironmentAccessToken": {
         // Mint a real env-scoped capability lease (Cut A): the SPA uses this as the Bearer for the
@@ -761,9 +786,9 @@ async function handleImpl(pathname, bodyText) {
         // but no daemon route exists — the former handler returned success without doing anything.
         return unavailableRpc("environment_mark_active_route_missing", "the daemon has no mark-active route; nothing was marked active");
       case "/api/ioi.v1.EnvironmentService/ArchiveEnvironment":
-        return json({ environment: daemonEnvToIOI(await act(envIdFromBody(body), "archive")) });
+        return json({ environment: envToIOI(await act(envIdFromBody(body), "archive")) });
       case "/api/ioi.v1.EnvironmentService/UnarchiveEnvironment":
-        return json({ environment: daemonEnvToIOI(await act(envIdFromBody(body), "restore")) });
+        return json({ environment: envToIOI(await act(envIdFromBody(body), "restore")) });
       default:
         break;
     }
@@ -1005,18 +1030,26 @@ async function handleImpl(pathname, bodyText) {
   }
 
   // ---- EditorService: real daemon editor targets (vscode / insiders / browser) ----
+  // The editor openers (header "Open VS Code", the editor menu, the Code tab) resolve an editor's URL for one
+  // environment: the same template ListEditors offers, for an editor whose PROBED open posture passed; any other
+  // editor is refused by name (never a URL that opens nothing).
+  if (pathname === "/api/ioi.v1.EditorService/ResolveEditorURL") {
+    const editorId = body.editorId || body.editor_id || "";
+    const environmentId = body.environmentId || body.environment_id || "";
+    if (!environmentId) return jsonStatus(400, { code: "invalid_argument", message: "an editor URL is resolved for one environment" });
+    const template = EDITOR_URL_TEMPLATES[editorId];
+    if (!template) return jsonStatus(412, { code: "failed_precondition", message: `editor_not_offered: ${editorId || "(none)"} has no open route on this Hypervisor` });
+    try {
+      const r = await daemon("GET", "/v1/hypervisor/editor-targets");
+      if (!(r.openable_targets || r.active_targets || []).includes(editorId)) return jsonStatus(412, { code: "failed_precondition", message: `editor_not_openable: the daemon's probe of ${editorId} did not pass` });
+    } catch (e) { if (editorId !== "vscode-browser") return jsonStatus(503, { code: "unavailable", message: `editor_targets_unavailable: ${e.message}` }); }
+    return json({ url: template.replace("{{.EnvironmentId}}", encodeURIComponent(environmentId)) });
+  }
   if (pathname === "/api/ioi.v1.EditorService/ListEditors") {
     // vscode-browser is the proven end-to-end target: its urlTemplate points at the serve layer's
     // /__ioi/editor/open, which drives the daemon editor chain and redirects to the live editor.
     // Desktop targets carry their native deep-link scheme (best-effort on the host).
-    const URL_TEMPLATES = {
-      "vscode-browser": "/__ioi/editor/open?environmentId={{.EnvironmentId}}",
-      vscode: "vscode://ioi.ioi-flex/connect?environmentId={{.EnvironmentId}}",
-      "vscode-insiders": "vscode-insiders://ioi.ioi-flex/connect?environmentId={{.EnvironmentId}}",
-      // Cursor is a VS Code-family host running the SAME adapter extension, and the daemon states its
-      // open route in those terms ("deep link into the local cursor host (adapter extension)").
-      cursor: "cursor://ioi.ioi-flex/connect?environmentId={{.EnvironmentId}}",
-    };
+    const URL_TEMPLATES = EDITOR_URL_TEMPLATES;
     const labels = { vscode: "VS Code", "vscode-insiders": "VS Code Insiders", "vscode-browser": "VS Code (Browser)" };
     try {
       const r = await daemon("GET", "/v1/hypervisor/editor-targets");

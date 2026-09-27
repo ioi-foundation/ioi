@@ -81,7 +81,7 @@ const PINS = {
   "pipeline-builder": { total: 27, bound: 16, refused: 3, named_gap: 6, open: 2 },
   // 2026-09-27 (R-241, Sessions cut 1): first rows — rename, auto-stop, Goal mode and the page's own port sync
   // refused by name; services and tasks named (absent planes); logs bound in the adapter but not yet live-asserted.
-  sessions: { total: 7, bound: 0, refused: 4, named_gap: 2, open: 1 },
+  sessions: { total: 13, bound: 4, refused: 4, named_gap: 4, open: 1 },
   "ontology-manager": { total: 0, bound: 0, refused: 0, named_gap: 0, open: 0 },
   "data-connection": { total: 0, bound: 0, refused: 0, named_gap: 0, open: 0 },
 };

@@ -1641,6 +1641,26 @@ const server = http.createServer((req, res) => {
 
   let filePath = path.join(PUBLIC_DIR, pathname);
 
+  // A missing VITE chunk (an ES module the shell lazy-imports as `import("./Name-hash.js").then(e => ({ default: e.Name }))`)
+  // is answered with an ES module exporting that name: a component that says, in plain words, that the view is not part
+  // of the Hypervisor shell. The webpack-style stub below is a classic script, so an ES import of it yields no export and
+  // React.lazy renders `undefined` — the session page crashed (React #306) on opening a changed file, the terminal pane
+  // stayed silently empty, and the personal settings routes rendered nothing (R-240 Arm A on Sessions).
+  const viteChunk = pathname.endsWith('.js') && !fs.existsSync(filePath) ? /^([A-Za-z][A-Za-z0-9_]*)-[A-Za-z0-9_-]{6,}\.js$/.exec(path.basename(pathname)) : null;
+  if (viteChunk) {
+    const name = viteChunk[1];
+    const words = { FileDiffPanel: 'The file diff view', Terminal: 'The in-browser terminal', UserSettingsRedirect: 'Personal settings' }[name]
+      || name.replace(/([a-z0-9])([A-Z])/g, '$1 $2');
+    const sentence = `${words} is not part of the Hypervisor shell yet.`;
+    const body = `// ${name}: not part of the Hypervisor shell (a named gap, not the reference's view).\n`
+      + `const ${name} = function HypervisorNamedGap() { return ${JSON.stringify(sentence)}; };\n`
+      + `export { ${name} };\nexport default ${name};\n`;
+    console.log(`[SERVER] Named gap for missing chunk: ${pathname}`);
+    res.writeHead(200, { 'Content-Type': 'application/javascript' });
+    res.end(body);
+    return;
+  }
+
   // Missing JS chunks/assets fallback mock (prevents client-side ChunkLoadErrors)
   if (pathname.endsWith('.js') && !fs.existsSync(filePath)) {
     const filename = path.basename(pathname);

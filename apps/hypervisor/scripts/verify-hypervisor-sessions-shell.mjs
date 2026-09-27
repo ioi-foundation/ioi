@@ -1,0 +1,182 @@
+#!/usr/bin/env node
+// THE SESSIONS SHELL WORKS OVER DAEMON TRUTH, OR SAYS WHY IT CANNOT (R-240 Arm A on Sessions, R-241 seed depth).
+//
+// The Sessions pages are the vendored product shell answered by ioi-api-adapter.mjs. Driving them against the
+// reference's 44 harvested states found a destructive defect and several dead or crashing views; this proves each
+// fix in a real browser against an ISOLATED daemon + serve (never the owner's):
+//   - the Archived view lists only archived environments, and its "Delete all" deletes only those;
+//   - opening a changed file shows a named gap instead of crashing the session page (a missing shell chunk);
+//   - the session details card renders (the projection names the runner it waits on);
+//   - the editor openers resolve an editor URL (the projection names the organization; ResolveEditorURL is bound);
+//   - "New Terminal" opens a real terminal bound to the environment (the env-ops bridge carries the person's session);
+//   - the personal settings routes show a named gap instead of a blank page;
+//   - a disposable serve never writes the owner's preference store.
+//
+// Exit: 0 pass · 1 fail · 2 blocked (no daemon binary).
+//   IOI_HYPERVISOR_DAEMON_BINARY  default target/debug/hypervisor-daemon
+//   node apps/hypervisor/scripts/verify-hypervisor-sessions-shell.mjs
+
+import { spawn } from "node:child_process";
+import crypto from "node:crypto";
+import fs from "node:fs";
+import os from "node:os";
+import path from "node:path";
+import net from "node:net";
+import { fileURLToPath } from "node:url";
+import { emitVerifierCensus } from "./lib/verifier-census.mjs";
+
+const HERE = path.dirname(fileURLToPath(import.meta.url));
+const APP = path.resolve(HERE, "..");
+const ROOT = path.resolve(APP, "..", "..");
+const BIN = process.env.IOI_HYPERVISOR_DAEMON_BINARY || path.join(ROOT, "target", "debug", "hypervisor-daemon");
+const OWNER_PREFS = path.join(ROOT, ".ioi", "hypervisor-app-local", "app-preferences.json");
+
+const results = [];
+const ok = (name, cond, detail) => results.push({ name, pass: !!cond, detail: detail || "" });
+const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+const freePort = () => new Promise((r) => { const s = net.createServer(); s.listen(0, "127.0.0.1", () => { const p = s.address().port; s.close(() => r(p)); }); });
+const waitFor = async (url, ms = 60000) => { const end = Date.now() + ms; while (Date.now() < end) { try { const r = await fetch(url); if (r.status < 500) return true; } catch { /* not yet */ } await sleep(300); } return false; };
+const hashOf = (file) => { try { return crypto.createHash("sha256").update(fs.readFileSync(file)).digest("hex"); } catch { return "absent"; } };
+
+let daemon = null;
+let serve = null;
+const dataDir = fs.mkdtempSync(path.join(os.tmpdir(), "ioi-sessions-shell-"));
+
+async function run() {
+  if (!fs.existsSync(BIN)) { console.log(`BLOCKED: no daemon binary at ${BIN}`); process.exit(2); }
+  const ownerPrefsBefore = hashOf(OWNER_PREFS);
+  const daemonPort = await freePort();
+  const DAEMON = `http://127.0.0.1:${daemonPort}`;
+  let log = "";
+  daemon = spawn(BIN, [], { cwd: ROOT, env: { ...process.env, IOI_HYPERVISOR_DAEMON_ADDR: `127.0.0.1:${daemonPort}`, IOI_HYPERVISOR_DATA_DIR: dataDir, IOI_HYPERVISOR_MODEL_UPSTREAM: "http://127.0.0.1:1/v1" }, stdio: ["ignore", "pipe", "pipe"] });
+  daemon.stdout.on("data", (c) => (log += c)); daemon.stderr.on("data", (c) => (log += c));
+  await waitFor(`${DAEMON}/healthz`);
+  const token = log.match(/ioi_bootstrap_[a-f0-9]{64}/gu)?.at(-1);
+  const boot = await (await fetch(`${DAEMON}/v1/hypervisor/auth/bootstrap`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ token, password: "sessions-shell-bootstrap-v1", email: "sessions@ioi.local" }) })).json();
+  const COOKIE = `ioi_session=${boot.session_token}`;
+  const servePort = await freePort();
+  const SERVE = `http://127.0.0.1:${servePort}`;
+  serve = spawn(process.execPath, [path.join(HERE, "serve-product-ui.mjs")], {
+    cwd: APP,
+    env: { ...process.env, PORT: String(servePort), PRODUCT_UI_PORT: String(await freePort()), IOI_PRODUCT_UI_PUBLIC: path.join(APP, "product-ui", "owned", "public"), IOI_HYPERVISOR_DAEMON_URL: DAEMON, IOI_PRODUCT_SIGNIN_REQUIRED: "0" },
+    stdio: ["ignore", "pipe", "pipe"],
+  });
+  await waitFor(`${SERVE}/__ioi/login`);
+  const api = (m, b) => fetch(`${SERVE}/api/ioi.v1.${m}`, { method: "POST", headers: { cookie: COOKIE, "content-type": "application/json" }, body: JSON.stringify(b || {}) }).then(async (r) => ({ status: r.status, j: await r.json().catch(() => ({})) }));
+  const daemonReq = (route) => fetch(`${DAEMON}${route}`, { headers: { cookie: COOKIE } }).then((r) => r.json()).catch(() => ({}));
+  const phases = async () => Object.fromEntries(((await daemonReq("/v1/hypervisor/environments")).environments || []).map((e) => [e.id, e.status?.phase]));
+
+  // ---- seed: a project; one running environment, one stopped, one archived ----------------------------------
+  const project = (await api("ProjectService/CreateProject", { name: "sessions-shell", initializer: { specs: [{ git: { remoteUri: "https://example.invalid/acme/sessions-shell.git" } }] } })).j.project?.id;
+  const mk = async () => (await api("EnvironmentService/CreateEnvironment", { spec: { projectId: project } })).j.environment?.id;
+  const RUNNING = await mk(), STOPPED = await mk(), ARCHIVED = await mk();
+  await api("EnvironmentService/StartEnvironment", { environmentId: RUNNING });
+  await api("EnvironmentService/ArchiveEnvironment", { environmentId: ARCHIVED });
+  for (let i = 0; i < 40 && (await phases())[RUNNING] !== "running"; i++) await sleep(500);
+  const seeded = await phases();
+  ok("PRECONDITION: one running, one stopped and one archived environment exist on the isolated daemon",
+    seeded[RUNNING] === "running" && seeded[STOPPED] === "stopped" && seeded[ARCHIVED] === "archived", JSON.stringify(seeded));
+
+  const { chromium } = await import(path.join(ROOT, "node_modules", "playwright", "index.mjs"));
+  const browser = await chromium.launch();
+  try {
+    const ctx = await browser.newContext({ viewport: { width: 1600, height: 1000 } });
+    await ctx.addCookies([{ name: "ioi_session", value: boot.session_token, url: SERVE }]);
+    const pg = await ctx.newPage();
+    const rpc = [];
+    const consoleErrors = [];
+    // the shell's own RPC paths (whatever package prefix it sends): …/<Service>/<Method>
+    pg.on("response", (r) => { const u = new URL(r.url()); if (/Service\/[A-Za-z]+$/u.test(u.pathname)) rpc.push(`${r.status()} ${u.pathname.split("/").pop()}`); });
+    pg.on("console", (m) => { if (m.type() === "error") consoleErrors.push(m.text()); });
+    const text = async () => (await pg.evaluate(() => document.body.innerText)).replace(/\s+/gu, " ");
+
+    // ---- the Archived view: only archived environments; its Delete all deletes only those ------------------
+    const archivedList = await api("EnvironmentService/ListEnvironments", { filter: { archivalStatus: "ARCHIVAL_STATUS_ARCHIVED" } });
+    const activeList = await api("EnvironmentService/ListEnvironments", { filter: { archivalStatus: "ARCHIVAL_STATUS_ACTIVE" } });
+    await pg.goto(`${SERVE}/ai`, { waitUntil: "domcontentloaded", timeout: 60000 });
+    await pg.waitForTimeout(8000);
+    await pg.getByRole("button", { name: /Filter sessions/u }).first().click({ timeout: 4000 }).catch(() => { /* named below */ });
+    await pg.waitForTimeout(800);
+    await pg.getByText(/^Archived/u).first().click({ timeout: 4000 }).catch(() => { /* named below */ });
+    await pg.waitForTimeout(3000);
+    await pg.getByRole("button", { name: "Delete all" }).first().click({ timeout: 4000 }).catch(() => { /* named below */ });
+    await pg.waitForTimeout(1500);
+    const dialog = (await pg.evaluate(() => [...document.querySelectorAll('[role="dialog"],[role="alertdialog"]')].map((d) => d.innerText).join(" | "))).replace(/\s+/gu, " ");
+    await pg.getByRole("button", { name: /Yes, delete/u }).first().click({ timeout: 4000 }).catch(() => { /* named below */ });
+    await pg.waitForTimeout(6000);
+    const after = await phases();
+    ok("the Archived view lists only archived environments, and its Delete all deletes only those — the running and stopped environments survive",
+      (archivedList.j.environments || []).map((e) => e.id).join(",") === ARCHIVED && !(activeList.j.environments || []).some((e) => e.id === ARCHIVED)
+        && /Delete archived environment\?/u.test(dialog) && after[ARCHIVED] === "deleted" && after[RUNNING] === "running" && after[STOPPED] === "stopped",
+      `archived list ${(archivedList.j.environments || []).length} · dialog "${dialog.slice(0, 80)}" · after ${JSON.stringify(after)}`);
+
+    // ---- the running session: editor openers, a changed file, the details card, a terminal -----------------
+    await pg.goto(`${SERVE}/details/${RUNNING}`, { waitUntil: "domcontentloaded", timeout: 60000 });
+    rpc.length = 0;
+    await pg.waitForTimeout(9000);
+    await pg.getByRole("button", { name: /Open VS Code/u }).first().click({ timeout: 4000 }).catch(() => { /* named below */ });
+    await pg.waitForTimeout(3000);
+    const envRec = (await api("EnvironmentService/GetEnvironment", { environmentId: RUNNING })).j.environment;
+    const resolved = await api("EditorService/ResolveEditorURL", { environmentId: RUNNING, organizationId: envRec?.metadata?.organizationId, editorId: "vscode-browser" });
+    ok("the editor openers resolve an editor URL for the session: the environment names its organization and runner, and ResolveEditorURL answers the offered editor's open route",
+      !!envRec?.metadata?.organizationId && envRec?.metadata?.runnerId === "local-microvm" && rpc.some((x) => /^200 ResolveEditorURL$/u.test(x))
+        && !consoleErrors.some((e) => /No environment or organization ID provided/u.test(e))
+        && resolved.j.url === `/__ioi/editor/open?environmentId=${encodeURIComponent(RUNNING)}`,
+      `metadata ${JSON.stringify(envRec?.metadata)} · page rpc ${rpc.filter((x) => /Editor/u.test(x)).join(",")} · url ${resolved.j.url}`);
+
+    const changed = pg.getByText("devcontainer.json", { exact: true }).first();
+    await changed.click({ timeout: 5000 }).catch(() => { /* named below */ });
+    await pg.waitForTimeout(3000);
+    const diff = await text();
+    ok("opening a changed file shows a named gap (the file diff view is not part of the shell yet) instead of crashing the session page",
+      /The file diff view is not part of the Hypervisor shell yet\./u.test(diff) && !/Something went wrong|Uh oh/u.test(diff), diff.includes("file diff view") ? "named gap" : diff.slice(0, 200));
+
+    await pg.goto(`${SERVE}/details/${RUNNING}`, { waitUntil: "domcontentloaded", timeout: 60000 });
+    await pg.waitForTimeout(8000);
+    await pg.locator("button,[role=tab]").filter({ hasText: /^Terminal$/u }).last().click({ timeout: 4000 }).catch(() => { /* named below */ });
+    await pg.waitForTimeout(1500);
+    await pg.getByRole("button", { name: "New Terminal", exact: true }).first().click({ timeout: 4000 }).catch(() => { /* named below */ });
+    await pg.waitForTimeout(4000);
+    const term = await text();
+    const terminals = ((await daemonReq("/v1/hypervisor/terminals")).terminals || []).filter((t) => t.environment_ref === `environment:${RUNNING}`);
+    ok("New Terminal opens a real terminal bound to the session's environment (the env-ops bridge carries the person's session to the daemon)",
+      terminals.length >= 1 && /connected/u.test(term) && !/Failed to create terminal/u.test(term),
+      `daemon terminals for the env ${terminals.length} · pane connected ${/connected/u.test(term)} · toast ${/Failed to create terminal/u.test(term)}`);
+
+    await pg.goto(`${SERVE}/details/${RUNNING}?view=environment`, { waitUntil: "domcontentloaded", timeout: 60000 });
+    await pg.waitForTimeout(10000);
+    const card = await text();
+    const skeletons = await pg.evaluate(() => document.querySelectorAll('[class*="skeleton" i],[data-slot="skeleton"]').length);
+    ok("the session details card renders (its runner is named), rather than a skeleton forever",
+      /Created/u.test(card) && /Last started/u.test(card) && skeletons < 3, `skeletons ${skeletons} · created ${/Created/u.test(card)} · last started ${/Last started/u.test(card)}`);
+
+    // ---- personal settings: a named gap, not a blank page ---------------------------------------------------
+    await pg.goto(`${SERVE}/settings/preferences`, { waitUntil: "domcontentloaded", timeout: 60000 });
+    await pg.waitForTimeout(6000);
+    const prefsPage = await text();
+    ok("a personal settings route shows a named gap rather than a blank page",
+      /Personal settings is not part of the Hypervisor shell yet\./u.test(prefsPage), prefsPage.slice(0, 160));
+  } finally {
+    await browser.close();
+  }
+
+  // ---- preferences: a disposable serve keeps its own store ----------------------------------------------------
+  await api("UserService/SetPreference", { preference: { key: "sessions-shell-probe", value: "isolated" } });
+  ok("a disposable serve's preference writes land in its own store, never the owner's",
+    hashOf(OWNER_PREFS) === ownerPrefsBefore, `owner store ${ownerPrefsBefore === "absent" ? "absent" : "unchanged?"} → ${hashOf(OWNER_PREFS) === ownerPrefsBefore ? "unchanged" : "CHANGED"}`);
+}
+
+function cleanup() {
+  try { serve?.kill("SIGTERM"); } catch { /* gone */ }
+  try { daemon?.kill("SIGTERM"); } catch { /* gone */ }
+  try { fs.rmSync(dataDir, { recursive: true, force: true }); } catch { /* keep */ }
+}
+
+run().then(() => {
+  const fails = results.filter((r) => !r.pass);
+  for (const r of results) console.log(`${r.pass ? "PASS" : "FAIL"}  ${r.name}${r.detail ? ` — ${r.detail}` : ""}`);
+  console.log(`\n${results.length - fails.length}/${results.length} passed`);
+  emitVerifierCensus({ verifierId: "sessions-shell", sourceUrl: import.meta.url, results });
+  cleanup();
+  process.exit(fails.length ? 1 : 0);
+}).catch((e) => { console.error(e); cleanup(); process.exit(1); });
