@@ -945,14 +945,20 @@ async function handleImpl(pathname, bodyText) {
       if (id && prompt) await daemon("POST", `/v1/threads/${encodeURIComponent(id)}/turns`, { text: prompt });
       return json({});
     }
-    if (pathname === "/api/ioi.v1.AgentService/StopAgentExecution") {
-      const id = body.agentExecutionId;
-      if (id) await daemon("POST", `/v1/threads/${encodeURIComponent(id)}/cancel`);
-      return json({});
-    }
-    if (pathname === "/api/ioi.v1.AgentService/DeleteAgentExecution") {
-      const id = body.agentExecutionId;
-      if (id) await daemon("DELETE", `/v1/threads/${encodeURIComponent(id)}`);
+    // A REGISTRY RUN (agent_*) is not a daemon thread: Stop and Delete used to call the thread routes, 404 there, and
+    // answer 503 agent_service_owned_path_unavailable (R-240 Arm A on Sessions). A finished run has nothing running, so
+    // Stop is done; a run still executing cannot be interrupted — the harness turn runs inside the daemon's execute and
+    // has no cancel — so Stop is refused by name, naming what does end it. A run's receipted history is not deleted.
+    if (pathname === "/api/ioi.v1.AgentService/StopAgentExecution" || pathname === "/api/ioi.v1.AgentService/DeleteAgentExecution") {
+      const id = String(body.agentExecutionId || "");
+      if (/^agent_/u.test(id)) {
+        const run = getRun(id);
+        if (!run) return jsonStatus(404, { code: "not_found", message: `no agent run ${id}` });
+        if (pathname.endsWith("/DeleteAgentExecution")) return jsonStatus(412, { code: "failed_precondition", message: "agent_run_history_kept: a run's receipted history is kept; delete its environment to remove the session" });
+        if (["running", "waiting", "awaiting_operator_approval", "awaiting_wallet_authority"].includes(run.status)) return jsonStatus(412, { code: "failed_precondition", message: "agent_turn_not_interruptible: a running harness turn runs to completion inside the daemon's execute and has no cancel; stop the environment to end it" });
+        return json({});
+      }
+      if (id) await daemon(pathname.endsWith("/StopAgentExecution") ? "POST" : "DELETE", pathname.endsWith("/StopAgentExecution") ? `/v1/threads/${encodeURIComponent(id)}/cancel` : `/v1/threads/${encodeURIComponent(id)}`);
       return json({});
     }
     if (pathname === "/api/ioi.v1.AgentService/CreateAgentExecutionConversationToken") {

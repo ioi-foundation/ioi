@@ -208,6 +208,14 @@ async function run() {
       !!rowText && !/Starting…|Working…/u.test(rowText) && runs.some((x) => x.status?.phase === "PHASE_STOPPED" && x.status?.failureMessage),
       `row "${rowText.slice(0, 120)}" · run ${JSON.stringify(runs.map((x) => [x.status?.phase, (x.status?.failureMessage || "").slice(0, 60)]))}`);
 
+    // ---- the agent's Stop on a finished run: nothing is running, so it is done (it answered 503 for every run) ------
+    const runId = runs[0]?.id;
+    const stopped = runId ? await api("AgentService/StopAgentExecution", { agentExecutionId: runId }) : { status: 0, j: {} };
+    const delRun = runId ? await api("AgentService/DeleteAgentExecution", { agentExecutionId: runId }) : { status: 0, j: {} };
+    ok("the agent's Stop on a finished run is done (it answered 503 for every run: a registry run is not a daemon thread), and deleting a run's conversation is refused by name (its receipted history is kept)",
+      stopped.status === 200 && delRun.status === 412 && /agent_run_history_kept/u.test(JSON.stringify(delRun.j)),
+      `stop ${stopped.status} · delete ${delRun.status} ${JSON.stringify(delRun.j).slice(0, 100)}`);
+
     // ---- the list follows the daemon: a deleted session leaves the open list without a reload (WatchEvents) ---
     await pg.goto(`${SERVE}/ai`, { waitUntil: "domcontentloaded", timeout: 60000 });
     await pg.waitForTimeout(8000);
