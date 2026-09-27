@@ -80,6 +80,7 @@ const LIVE = self("live");
 export const PINNED = Object.freeze({
   surfaces_probed: 28, // M7 retired Contour and Notepad as terminal absences; ADR 0056 M5 retired the Missions root; M6a merged Model Studio, Insight and Map into their owners; M6b the Packages Marketplace mode into the listings port; M6c moved Artifacts into a Packages tab (a state, below)
   states_probed: 5, // ADR 0056 M6c: the Packages Artifacts tab
+  lanes_probed: 13, // R-240: the canonical lanes the registry never listed (derived from the route table; see THE CANONICAL LANES in the live leg)
   dead: 0,
   click_failed: 0,
   bad_landing: 0,
@@ -426,6 +427,7 @@ async function liveLeg() {
   try {
     const { chromium } = await import("playwright");
     const { SURFACES, SURFACE_STATES } = await import(pathToFileURL(path.join(APP, "scripts", "surface-registry.mjs")).href);
+    const { V2_ROUTE_TABLE } = await import(pathToFileURL(path.join(APP, "scripts", "v2-route-shell.mjs")).href);
     // THIS GATE STARTS ITS OWN SERVE. A fixed port, or the :4173 a developer happens to be running,
     // can answer a gate that started neither — and then the gate is measuring somebody else's build.
     const port = await freePort();
@@ -504,6 +506,7 @@ async function liveLeg() {
     const rows = [];
     let probed = 0;
     let statesProbed = 0;
+    let lanesProbed = 0;
     // A STATE ADDS A STATE, NEVER A SURFACE: its page still carries the owning surface's controls
     // (the Designer landing renders behind the Open Diagram dialog), so a link or control already
     // counted on the surface is not counted again. Measured: without this, the two dialog states
@@ -511,9 +514,17 @@ async function liveLeg() {
     const seenBySlug = new Map();
     // Every registered surface, then every STATE of one that only a link reaches (the Open Diagram
     // selector is `?open=` on the Designer): a census of canonical routes alone never sees those.
+    // THE CANONICAL LANES (R-240): a canonical route that SERVES ITS OWN LANE and is no registered
+    // surface — Work's six views, Systems, Applications, Environments, Operations and its Health lane,
+    // Governance / Leases & Limits, the Developer Console. They are the product's core workspaces, and
+    // until this list nothing clicked a control on any of them: the census walked the registry only.
+    // Derived from the route table on every run, so a lane added tomorrow is probed tomorrow.
+    const registered = new Set(Object.values(SURFACES).flatMap((s) => [s.route, s.canonical_route].filter(Boolean)));
+    const lanes = V2_ROUTE_TABLE.filter((row) => row.serve?.kind === "rewrite" && !registered.has(row.route));
     const targets = [
       ...Object.values(SURFACES).map((s) => ({ slug: s.slug, route: s.canonical_route || s.route, state: false })),
       ...(SURFACE_STATES || []).map((x) => ({ slug: x.slug, route: x.route, state: true })),
+      ...lanes.map((row) => ({ slug: `lane${row.route.replaceAll("/", ":")}`, route: row.route, state: false, lane: true })),
     ];
     for (const s of targets) {
       const route = s.route;
@@ -557,7 +568,7 @@ async function liveLeg() {
         previous = next;
       }
       if (settled === null) { findings.push(`route_never_settled: ${route}`); continue; }
-      if (s.state) statesProbed += 1; else probed += 1;
+      if (s.state) statesProbed += 1; else if (s.lane) lanesProbed += 1; else probed += 1;
 
       const links = new Map();
       const exercises = [];
@@ -837,7 +848,7 @@ async function liveLeg() {
     rows.push(...shellRows.filter((x) => ["dead", "click_failed", "bad_landing"].includes(x.verdict)).map((x) => ({ ...x, shell: true })));
 
     const totals = LIB.censusTotals(rows.filter((x) => !x.shell));
-    const measured = { surfaces_probed: probed, states_probed: statesProbed, ...totals, ...shellMeasured };
+    const measured = { surfaces_probed: probed, states_probed: statesProbed, lanes_probed: lanesProbed, ...totals, ...shellMeasured };
     for (const key of Object.keys(PINNED)) {
       if (measured[key] !== PINNED[key]) {
         findings.push(`${key}: measured ${measured[key]}, pinned ${PINNED[key]} — ${measured[key] > PINNED[key] ? "a NEW defect landed" : "a repair landed and the pin must come down with it"}`);

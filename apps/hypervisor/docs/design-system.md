@@ -9,6 +9,11 @@ current UX*, not aspirational — every value here is extracted from the running
 > adapter). Treat the running app at **`:4173`** as the interaction and visual baseline;
 > architecture canon and daemon contracts remain the owners of product behavior and truth.
 
+> **The seed is shallow past most landings.** 33 of 39 harvested reference apps recorded only their
+> landing, so most create / list / detail / editor flows were never ported. The active phase that
+> fixes this — harvest each app's flow states, adopt, rebrand, bind, freeze — is
+> [ux-seed-depth-phase.md](ux-seed-depth-phase.md). Read it before building any flow by hand.
+
 ---
 
 ## 0. Rules for models (read first)

@@ -237,7 +237,11 @@ const AUG_TAG = '<script src="/ioi-augmentation.js" defer></script>';
 // is answered here, as the capability flag it is, and the tier stays honestly absent. What the
 // composer may actually LAUNCH is still decided by the daemon at launch time (harness admission,
 // venue policy, grants), never by this flag.
-const FEATURE_FLAG_TAG = '<script>try{localStorage.setItem("feature_flag_supervisor_watch_enabled","true");localStorage.setItem("feature_flag_onaAIEnabled","true")}catch(e){}</script>';
+// The shell also learns whether THIS serve requires sign-in (R-240, owner: "not signed in shouldn't show
+// sessions saying sign in to see, it should just be login"): where it does, a session that lapses while
+// the shell is open goes to sign-in instead of drawing a signed-out shell. A serve started with
+// IOI_PRODUCT_SIGNIN_REQUIRED=0 — the one automation browses anonymously — keeps its signed-out states.
+const FEATURE_FLAG_TAG = `<script>try{localStorage.setItem("feature_flag_supervisor_watch_enabled","true");localStorage.setItem("feature_flag_onaAIEnabled","true")}catch(e){}window.__IOI_SIGNIN_REQUIRED=${process.env.IOI_PRODUCT_SIGNIN_REQUIRED !== "0"};</script>`;
 // Only inject into a real HTML document (one with a </body>). The productUi mislabels some JSON
 // endpoints (/segment/*, /changelog/*) as text/html; appending the tag to those corrupts the
 // body the SPA later parses with Response.json() — so never append when there's no </body>.
@@ -1908,7 +1912,10 @@ function renderOperations(ops, authpol, prov, provReceipts, spendRecon, storageB
   const JOB_TYPES = [["", "All"], ["automation", "Automation"], ["harness", "Harness"], ["work-result", "Work result"], ["failover", "Failover"]];
   const jobCounts = {};
   jobs.forEach((j) => { jobCounts[j.type] = (jobCounts[j.type] || 0) + 1; });
-  const jobsChips = `<div class="chips" id="jobs-chips">${JOB_TYPES.map(([v, l]) => `<button class="chip${v === "" ? " on" : ""}" data-job-type="${v}" onclick="jobsChip(this)">${l} ${v === "" ? jobs.length : jobCounts[v] || 0}</button>`).join("")}</div>`;
+  // The applied filter says it is applied (R-240, the census's first click on this page): pressing the
+  // chip already in force changed nothing, so it read as a dead control. It carries aria-pressed and
+  // aria-disabled with the reason, and those move to whichever chip is chosen next.
+  const jobsChips = `<div class="chips" id="jobs-chips" role="group" aria-label="Filter jobs">${JOB_TYPES.map(([v, l]) => `<button class="chip${v === "" ? " on" : ""}" data-job-type="${v}" aria-pressed="${v === ""}"${v === "" ? ' aria-disabled="true" title="Already showing this filter"' : ""} onclick="jobsChip(this)">${l} ${v === "" ? jobs.length : jobCounts[v] || 0}</button>`).join("")}</div>`;
   const jobRows = capped.slice(0, 48).map((j) => `<tr data-job="${CX_ESC(j.type)}">
       <td>${CX_ESC(j.name)}<div style="color:#5f6b7c;font-size:11px;margin-top:1px"><code style="font-size:10px">${CX_ESC(j.id)}</code></div></td>
       <td><span class="pill muted">${CX_ESC(j.type)}</span></td>
@@ -1928,7 +1935,8 @@ function renderOperations(ops, authpol, prov, provReceipts, spendRecon, storageB
     : `<div class="empty">No jobs yet — automation runs, harness executions, and failover recovery land here as they happen.</div>`;
   const jobsScript = `<script>
     function jobsChip(b){
-      document.querySelectorAll('#jobs-chips .chip').forEach(function(x){x.classList.toggle('on',x===b);});
+      if(b.getAttribute('aria-disabled')==='true')return;
+      document.querySelectorAll('#jobs-chips .chip').forEach(function(x){var on=x===b;x.classList.toggle('on',on);x.setAttribute('aria-pressed',String(on));if(on){x.setAttribute('aria-disabled','true');x.setAttribute('title','Already showing this filter');}else{x.removeAttribute('aria-disabled');x.removeAttribute('title');}});
       var want=b.getAttribute('data-job-type');var shown=0;
       document.querySelectorAll('#jobs-body tr').forEach(function(r){var on=!want||r.getAttribute('data-job')===want;r.style.display=on?'':'none';if(on)shown++;});
       var e=document.getElementById('jobs-empty');if(e)e.style.display=shown?'none':'';
@@ -2281,14 +2289,14 @@ function renderEnvironments(summary, classes, providerAccounts, venuesRes, polic
   // connectivity, restore posture). The drawer fetches the real /v1 record client-side (proxied).
   const rows = envs.map((e, i) => {
     const id = e.id || "";
-    return `<tr class="envrow" data-id="${CX_ESC(id)}" data-i="${i}" onclick="envOpen(this)">
+    return `<tr class="envrow" data-id="${CX_ESC(id)}" data-i="${i}" onclick="envOpen(this, event)">
       <td><code>${CX_ESC(id)}</code></td>
       <td><span class="pill ${envPhasePill(e.phase)}">${CX_ESC(e.phase || "—")}</span></td>
       <td>${CX_ESC(e.readiness_mode || "—")}</td>
       <td>${CX_ESC(e.project_id || "—")}</td>
       <td>${CX_ESC(e.environment_class_id || "—")} · ${CX_ESC(e.substrate || "")}</td>
       <td>${e.ports_count || 0}p · ${e.services_count || 0}s · ${e.tasks_count || 0}t</td>
-      <td onclick="event.stopPropagation()"><a href="/details/${enc(id)}" target="_top">session</a> · <a href="/__ioi/run-timeline/env/${enc(id)}" target="_blank" rel="noopener">timeline ↗</a></td>
+      <td><a href="/details/${enc(id)}" target="_top">session</a> · <a href="/__ioi/run-timeline/env/${enc(id)}" target="_blank" rel="noopener">timeline ↗</a></td>
     </tr>`;
   }).join("");
   const pager = envPager("/__ioi/environments", summary);
@@ -2297,7 +2305,11 @@ function renderEnvironments(summary, classes, providerAccounts, venuesRes, polic
   const script = `<script>
     function envEsc(s){return String(s==null?'':s).replace(/[&<>]/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;'}[c];});}
     function envPhaseCls(p){return p==='ready'||p==='running'?'ok':p==='failed'||p==='blocked'?'warn':'muted';}
-    function envOpen(row){
+    function envOpen(row, ev){
+      // A link inside the row is its own verb; the row opens the detail only for a click elsewhere
+      // (R-240: the links cell used to swallow every click with stopPropagation, so the cell itself
+      // read as a control that did nothing).
+      if(ev&&ev.target&&ev.target.closest&&ev.target.closest('a'))return;
       var id=row.getAttribute('data-id');var d=document.getElementById('env-drawer');
       document.querySelectorAll('.envrow').forEach(function(r){r.classList.toggle('selrow',r===row);});
       d.innerHTML='<div class="sub" style="margin:0">Loading '+envEsc(id)+'…</div>';

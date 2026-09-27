@@ -132,6 +132,13 @@
     }
     let row = document.getElementById("ioi-signedout-rail");
     if (ioiSignedIn !== false) { if (row) row.remove(); return; }
+    // Where this serve requires sign-in, signed out IS the sign-in page — never a signed-out shell. A
+    // session that lapsed while the shell was open goes there and comes back to where it was.
+    if (window.__IOI_SIGNIN_REQUIRED === true) {
+      const here = window.top.location;
+      window.top.location.assign("/__ioi/login?next=" + encodeURIComponent(here.pathname + here.search + here.hash));
+      return;
+    }
     const label = Array.prototype.find.call(document.querySelectorAll("span"), (e) => {
       if (e.children.length || e.textContent.trim() !== "Sessions") return false;
       const r = e.getBoundingClientRect(); return r.width > 0 && r.left < 320;
@@ -271,6 +278,38 @@
       return u.pathname + u.search + u.hash;
     } catch { return href; }
   }
+  // A LOADING STATE MUST END (R-240, the owner's "Loading Pipeline Builder…" that never did). The
+  // frame's `load` event is not enough: it waits for every subresource, and it never fires at all when
+  // the navigation is cancelled (a page holding unsaved edits keeps itself). So the slot also watches
+  // the frame's own document — parsed at the requested address is loaded enough — and after 20 seconds
+  // it stops spinning and says what happened, with a way to try again or open the page on its own.
+  let openAppWatch = null;
+  function watchOpenAppLoad(el, f, src, title) {
+    if (openAppWatch) clearInterval(openAppWatch);
+    const started = Date.now();
+    const want = src.split("#")[0];
+    openAppWatch = setInterval(() => {
+      if (!el.classList.contains("ioi-oa-busy")) { clearInterval(openAppWatch); openAppWatch = null; return; }
+      let at = "", ready = "";
+      try { at = f.contentWindow.location.pathname + f.contentWindow.location.search; ready = f.contentDocument.readyState; } catch { /* another origin: wait for load */ }
+      if (at && at === want && (ready === "interactive" || ready === "complete")) { el.classList.remove("ioi-oa-busy"); return; }
+      if (Date.now() - started < 20000) return;
+      clearInterval(openAppWatch); openAppWatch = null;
+      el.classList.add("ioi-oa-stalled");
+      const name = title || "The application";
+      const kept = at.startsWith("/") && at !== want ? " The page that was open did not let go — it may be holding unsaved changes." : "";
+      const box = el.querySelector(".ioi-oa-loading");
+      box.setAttribute("data-open-app-stalled", "1");
+      el.querySelector(".ioi-oa-loadtext").textContent = name + " has not finished loading after 20 seconds." + kept;
+      if (!box.querySelector(".ioi-oa-retry")) {
+        const retry = document.createElement("button"); retry.className = "ioi-oa-retry"; retry.type = "button"; retry.textContent = "Try again";
+        retry.addEventListener("click", () => { const cur = f.getAttribute("src"); f.setAttribute("src", "about:blank"); el.classList.remove("ioi-oa-stalled"); box.removeAttribute("data-open-app-stalled"); el.querySelector(".ioi-oa-loadtext").textContent = "Loading " + (el.getAttribute("data-app-name") || "the application") + "…"; setTimeout(() => { f.setAttribute("src", cur); watchOpenAppLoad(el, f, cur, el.getAttribute("data-app-name")); }, 50); });
+        const alone = document.createElement("a"); alone.className = "ioi-oa-alone"; alone.target = "_blank"; alone.rel = "noopener"; alone.textContent = "Open in its own tab";
+        box.appendChild(retry); box.appendChild(alone);
+      }
+      box.querySelector(".ioi-oa-alone").setAttribute("href", src.replace(/([?&])embed=1&?/, "$1").replace(/[?&]$/, ""));
+    }, 500);
+  }
   function openApplication(href, title) {
     href = embeddedAppSrc(href);
     let el = document.getElementById("ioi-open-app");
@@ -283,7 +322,7 @@
       // THE LOADING STATE (R-240): an application page reads its planes before it answers — measured
       // 2–8s for the Solution Designer — and the slot showed an empty dark rectangle meanwhile. It
       // says it is loading until the frame's document has arrived.
-      el.querySelector("iframe").addEventListener("load", () => { if (el.querySelector("iframe").getAttribute("src")) el.classList.remove("ioi-oa-busy"); });
+      el.querySelector("iframe").addEventListener("load", () => { if (el.querySelector("iframe").getAttribute("src")) el.classList.remove("ioi-oa-busy", "ioi-oa-stalled"); });
     }
     el.querySelector(".ioi-oa-title").textContent = title || "Application";
     el.setAttribute("data-app-name", title || "Application");
@@ -292,8 +331,10 @@
     const src = embeddedAppSrc(href);
     if (f.getAttribute("src") !== src) {
       el.querySelector(".ioi-oa-loadtext").textContent = "Loading " + (title || "the application") + "…";
+      el.classList.remove("ioi-oa-stalled");
       el.classList.add("ioi-oa-busy");
       f.setAttribute("src", src); // singular slot: reuse, replace src (no reload if same href)
+      watchOpenAppLoad(el, f, src, title);
     }
     el.style.display = "block";
     positionOpenApp();

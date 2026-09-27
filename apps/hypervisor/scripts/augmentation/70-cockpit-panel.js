@@ -29,6 +29,10 @@
   #ioi-open-app iframe{width:100%;height:calc(100% - 40px);border:0;background:#0c0d10;display:block;}
   #ioi-open-app .ioi-oa-loading{position:absolute;left:0;right:0;top:40px;bottom:0;display:none;align-items:center;justify-content:center;gap:10px;color:#cbd0da;font:14px/1.4 system-ui,sans-serif;background:#0c0d10;pointer-events:none}
   #ioi-open-app.ioi-oa-busy .ioi-oa-loading{display:flex}
+  #ioi-open-app .ioi-oa-retry,#ioi-open-app .ioi-oa-alone{display:none}
+  #ioi-open-app.ioi-oa-stalled .ioi-oa-spin{display:none}
+  #ioi-open-app.ioi-oa-stalled .ioi-oa-loading{flex-wrap:wrap;padding:0 24px;text-align:center}
+  #ioi-open-app.ioi-oa-stalled .ioi-oa-retry,#ioi-open-app.ioi-oa-stalled .ioi-oa-alone{display:inline-block;padding:6px 12px;border:1px solid #3a3d45;border-radius:6px;background:transparent;color:#8abbff;font:inherit;cursor:pointer;text-decoration:none}
   #ioi-open-app .ioi-oa-spin{width:16px;height:16px;border:2px solid #3a3d45;border-top-color:#8abbff;border-radius:50%;animation:ioi-oa-spin .8s linear infinite}
   @keyframes ioi-oa-spin{to{transform:rotate(360deg)}}
   @media (prefers-reduced-motion:reduce){#ioi-open-app .ioi-oa-spin{animation:none}}
