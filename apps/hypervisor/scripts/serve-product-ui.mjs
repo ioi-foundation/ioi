@@ -55,6 +55,7 @@ import { resolveV2Route, v2RouteFor, retiredUiRouteFor, renderV2RouteShellPage, 
 import { projectDomainAppRuntimeModel } from "./domain-app-runtime-model.mjs";
 import { handleOperationsHealth } from "./operations-health.mjs";
 import { handleGovernanceLimits } from "./governance-limits.mjs";
+import * as AUTOMATE from "./adopted-automate.mjs";
 import { isJustificationPrompt, justificationPayload, renderJustificationPrompt } from "./justification-prompt.mjs";
 
 // Build the current conversation entries for a run, in the exact NDJSON shape the SPA's V1 pane
@@ -9149,8 +9150,17 @@ async function handleEstateRequest(req, res, body) {
     // Capture API families some seed documents call (observed in seed rebind maps). Served
     // same-origin through this proxy so seeds boot under the estate; their upstream is the
     // harvest capture, never fabricated data.
-    const MIRROR_API_PREFIXES = ["/multipass/", "/graphql-gateway/", "/compass/", "/documentation/", "/aip-assist/", "/monocle/", "/approvals/", "/workspace/api/", "/log-receiver/", "/interventions/", "/ontology-metadata/", "/magritte-coordinator/", "/issues/", "/foundry-search/", "/marketplace/", "/object-set-service/", "/phonograph2/", "/language-model-service/", "/foundry-ml/", "/artifacts/", "/foundry-catalog/", "/models/", "/build2/", "/foundry-stemma/", "/third-party-applications/", "/developer-console/"];
+    const MIRROR_API_PREFIXES = ["/object-sentinel/", "/people/", "/multipass/", "/graphql-gateway/", "/compass/", "/documentation/", "/aip-assist/", "/monocle/", "/approvals/", "/workspace/api/", "/log-receiver/", "/interventions/", "/ontology-metadata/", "/magritte-coordinator/", "/issues/", "/foundry-search/", "/marketplace/", "/object-set-service/", "/phonograph2/", "/language-model-service/", "/foundry-ml/", "/artifacts/", "/foundry-catalog/", "/models/", "/build2/", "/foundry-stemma/", "/third-party-applications/", "/developer-console/"];
     if (pathname.startsWith("/__apps/") || pathname.startsWith("/assets/content-addressable-storage/") || MIRROR_API_PREFIXES.some((pref) => pathname.startsWith(pref))) {
+      // One read of what the adopted Automate seed shows: the caller's automations and who they are.
+      const automateContext = async () => {
+        const [autos, who] = await Promise.all([
+          daemonFetch("/v1/hypervisor/automations").then((r) => r.json()).catch(() => ({})),
+          daemonFetch("/v1/hypervisor/auth/whoami").then((r) => r.json()).catch(() => ({})),
+        ]);
+        const p = who.authenticated === false ? {} : (who.principal || {});
+        return { automations: Array.isArray(autos.automations) ? autos.automations : [], principal: { ref: p.principal_ref, name: p.name, email: p.email } };
+      };
       // Per-seed fold flag: some seed documents hardcode the capture ORIGIN for their API layer
       // and only boot when those refs are folded to same-origin (lineage); self-bootstrapped
       // documents (approvals pilot) must be served byte-faithful apart from the brand rebrand.
@@ -9158,7 +9168,7 @@ async function handleEstateRequest(req, res, body) {
         approvals: { base: "/workspace/approvals-app/", fold: true },   // Governance seed (REBOUND: task-request lanes answer with daemon approval-requests)
         lineage: { base: "/workspace/monocle/", fold: true },            // Provenance seed — bootable lineage-graph editor
         designer: { base: "/workspace/solution-design/", fold: false },  // Studio seed — typed-node system-diagram editor
-        monitors: { base: "/workspace/object-monitoring/", fold: false },// Automations seed — condition→effect wizard
+        monitors: { base: "/workspace/object-monitoring/", fold: true }, // Automations seed — condition→effect wizard (fold: its API calls must reach the rebind, R-241)
         changes: { base: "/workspace/upgrade-assistant/", fold: true },  // Improvement seed (REBOUND: intervention lanes answer with daemon improvement-proposals)
         // ---- Remaining porting queue (adopted on WORKING artifact seeds; editor enrichments
         // for gap surfaces arrive via live re-harvest once auth is refreshed — same lanes).
@@ -9308,6 +9318,19 @@ async function handleEstateRequest(req, res, body) {
           // The job-type filter dropdown carries OUR real run kinds, not the reference
           // platform's build-worker registry.
           return sendJson({ data: { jobTypes: ["session", "automation-run"], transformTypes: [], __typename: "Query" } });
+        }
+        // REBIND (Automate seed, R-241): the adopted Automate app's monitor search answers with the
+        // Hypervisor's automations (adopted-automate.mjs) — the same answer the bulk gateway gets.
+        const gqlName = AUTOMATE.opNameOf(gqlOp);
+        if (gqlOp && AUTOMATE.OPERATIONS.has(gqlName)) {
+          return sendJson({ data: AUTOMATE.graphqlAnswer(gqlName, gqlOp.variables || {}, await automateContext()) });
+        }
+        if (gqlOp && AUTOMATE.ENVELOPE_OPERATIONS.has(gqlName)) {
+          const [env, ctxA] = await Promise.all([
+            fetch(`${CAPTURE}/graphql-gateway/api/graphql`, { method: "POST", headers: { "content-type": "application/json" }, body }).then((r) => r.json()).catch(() => null),
+            automateContext(),
+          ]);
+          return sendJson(env && env.data ? { data: AUTOMATE.scrubIdentity(env.data, ctxA.principal) } : AUTOMATE.unboundError(gqlName));
         }
         // REBIND (Foundry model-catalog seed): the model-catalog home lists PALANTIR_PROVIDED
         // reference models from the capture; the serve answers ModelCatalogHomeQuery with the
@@ -9638,6 +9661,65 @@ async function handleEstateRequest(req, res, body) {
           return res.end(JSON.stringify({ error: { message: `daemon unreachable: ${e.message}` } }));
         }
       }
+      // REBIND (Automate seed, R-241 — the UX seed depth phase): the adopted reference Automate app
+      // (served from the local mirror, never vendored) asks for its monitors; the Hypervisor's
+      // automations answer, in the app's own wire shapes (adopted-automate.mjs). The GraphQL gateway
+      // streams one event per operation: ours replace the mirror's for the operations we answer and
+      // the rest stay verbatim, so the unbound remainder is visible, not faked.
+      if (pathname === "/graphql-gateway/api/bulk" && req.method === "POST") {
+        const ops = AUTOMATE.bulkOperations(body.toString());
+        if (ops.length && ops.every((o) => AUTOMATE.OPERATIONS.has(o.name))) {
+          const ctxA = await automateContext();
+          let vars = {};
+          try { vars = JSON.parse(body.toString()).variables || {}; } catch { /* none */ }
+          const answers = {};
+          for (const o of ops) answers[o.index] = AUTOMATE.graphqlAnswer(o.name, vars[o.index] || {}, ctxA);
+          res.writeHead(200, { "Content-Type": "text/event-stream; charset=UTF-8", "Cache-Control": "no-cache" });
+          return res.end(AUTOMATE.mergeStream("", answers));
+        }
+      }
+      if (pathname === "/graphql-gateway/api/graphql/batch" && req.method === "POST") {
+        let batch = null;
+        try { batch = JSON.parse(body.toString()); } catch { /* not JSON */ }
+        const known = (op) => AUTOMATE.OPERATIONS.has(AUTOMATE.opNameOf(op)) || AUTOMATE.ENVELOPE_OPERATIONS.has(AUTOMATE.opNameOf(op));
+        if (Array.isArray(batch) && batch.length && batch.every(known)) {
+          const ctxA = await automateContext();
+          const answers = await Promise.all(batch.map(async (op) => {
+            const name = AUTOMATE.opNameOf(op);
+            if (AUTOMATE.OPERATIONS.has(name)) return { data: AUTOMATE.graphqlAnswer(name, op.variables || {}, ctxA) };
+            const env = await fetch(`${CAPTURE}/graphql-gateway/api/graphql`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(op) }).then((r) => r.json()).catch(() => null);
+            return env && env.data ? { data: AUTOMATE.scrubIdentity(env.data, ctxA.principal) } : AUTOMATE.unboundError(name);
+          }));
+          res.writeHead(200, { "Content-Type": "application/json" });
+          return res.end(JSON.stringify(answers));
+        }
+      }
+      if (pathname === "/object-sentinel/api/registry/v0/monitors-getMonitors") {
+        let rids = [];
+        try { rids = JSON.parse(body.toString() || "{}").monitorRids || []; } catch { /* no rids */ }
+        const wanted = new Map(rids.map((rid) => [AUTOMATE.automationIdOf(rid), rid]).filter(([id]) => id));
+        const autos = await daemonFetch("/v1/hypervisor/automations").then((r) => r.json()).catch(() => ({}));
+        const monitors = {};
+        for (const a of (autos.automations || []).filter((x) => wanted.has(x.automation_id)).slice(0, 50)) {
+          const runs = await daemonFetch(`/v1/hypervisor/automations/${encodeURIComponent(a.automation_id)}/runs`).then((r) => r.json()).then((j) => j.runs || []).catch(() => []);
+          monitors[wanted.get(a.automation_id)] = AUTOMATE.monitorOf(a, runs);
+        }
+        res.writeHead(200, { "Content-Type": "application/json" });
+        return res.end(JSON.stringify({ monitors }));
+      }
+      if (pathname === "/people/api/profile/get-profiles" && req.method === "POST") {
+        let ids = [];
+        try { const j = JSON.parse(body.toString() || "{}"); ids = j.userIds || j.ids || (Array.isArray(j) ? j : []); } catch { /* none */ }
+        const [autos, who] = await Promise.all([
+          daemonFetch("/v1/hypervisor/automations").then((r) => r.json()).catch(() => ({})),
+          daemonFetch("/v1/hypervisor/auth/whoami").then((r) => r.json()).catch(() => ({})),
+        ]);
+        const principals = [];
+        if (who.principal?.principal_ref) principals.push({ ref: who.principal.principal_ref, name: who.principal.name, email: who.principal.email });
+        for (const a of autos.automations || []) { const ref = (a.executor_identity || {}).ref; if (ref && !principals.some((p) => p.ref === ref)) principals.push({ ref, name: ref }); }
+        res.writeHead(200, { "Content-Type": "application/json" });
+        return res.end(JSON.stringify(AUTOMATE.profilesFor(ids, principals)));
+      }
       try {
         let target;
         let foldOrigin = false;
@@ -9668,6 +9750,12 @@ async function handleEstateRequest(req, res, body) {
         //      deferred code tokens. Static-asset parity accounts for these exact transforms.
         if (ct.includes("text/html")) {
           let html = buf.toString("utf8");
+          // NEVER THE TENANT'S TOKEN (R-241): the mirror injects the reference tenant's real session
+          // cookie into every page it serves; through the estate that put a live credential in this
+          // origin's cookie jar, readable by script. Every seed page gets a synthetic, unsigned identity
+          // token naming the signed-in principal instead (it authorizes nothing).
+          const whoTok = await daemonFetch("/v1/hypervisor/auth/whoami").then((r) => r.json()).catch(() => ({}));
+          html = AUTOMATE.replaceInjectedToken(html, whoTok.authenticated === false ? "anonymous" : (whoTok.principal || {}).principal_ref);
           if (foldOrigin) html = html.replace(/https?:\/\/(?:localhost|127\.0\.0\.1):9225/g, "");
           buf = Buffer.from(html.replace(/Palantir/g, "IOI"), "utf8");
         } else if (/javascript|ecmascript/.test(ct)) {
