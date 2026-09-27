@@ -150,6 +150,22 @@ journey verifier → deploy to the owner's stack.
   operation's request and response shape per state (the first harvest kept response shapes only), map
   each onto the automation plane (legacy automations + the canonical spec / installation / run chain,
   notifications, checkpoints), and name every operation with no plane as a gap in place.
+- **The adapter contract, measured (second harvest, GraphQL streams captured over the browser's own
+  Network domain):** Overview calls `SearchMonitorsQuery`, `AutomationOverviewEventsQuery` (recently
+  triggered), `SplashTableQuery` (recently viewed), `AutomationTriggeredEventPillQuery`,
+  `GetCompassResource`; the list adds `AutomationNamespaceFilterComponentQuery`, `PrincipalsQuery`,
+  `GetObjectTypeInSetForNotSavedSet`; every state also calls the reference's own sidebar
+  (`WorkspaceSidebarQuery`, `ShellSidebarQuery`, `SidebarWithPanelQuery`, `CustomerDataSupportedQuery`
+  — replaced by our shell's rail, so answered minimally), walkthroughs, announcements and marketplace
+  templates (`BrowseTemplatesViewQuery`, `RecentInstallationsPopoverQuery` — named gaps). REST:
+  `monitors-getMonitors`, `monitors/<rid>/published`, `validation/v0/<rid>/validate-update`, profiles,
+  sessions. The adapter answers each in the captured shape (streams as event-stream).
+- **Adoption steps:** (1) vendor the booted app — `index.html` + its 34 content-addressed assets,
+  18.5 MB, the same scale as the tracked Ona tree — into a quarantined harvested lane in the owned tree;
+  (2) serve it at the Automate canonical route, its asset and API paths answered by the serve (assets
+  from the vendored tree, API through the adapter to the daemon); (3) rebrand; drop the reference's own
+  sidebar under our shell; (4) bind operation by operation, fallthrough counted to zero; (5) freeze:
+  `SURFACE_STATES` for every flow state, the journey through the wizard, retire the recreation.
 
 ## Gate
 
