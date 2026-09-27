@@ -57,6 +57,8 @@ import { handleOperationsHealth } from "./operations-health.mjs";
 import { handleGovernanceLimits } from "./governance-limits.mjs";
 import { handleOntologyFunctions } from "./ontology-functions.mjs";
 import * as AUTOMATE from "./adopted-automate.mjs";
+import * as FUNCTIONS from "./adopted-functions.mjs";
+import { answerDocument as answerAdoptedDocument } from "./adopted-graphql.mjs";
 import { isJustificationPrompt, justificationPayload, renderJustificationPrompt } from "./justification-prompt.mjs";
 
 // Build the current conversation entries for a run, in the exact NDJSON shape the SPA's V1 pane
@@ -9160,7 +9162,7 @@ async function handleEstateRequest(req, res, body) {
     // Capture API families some seed documents call (observed in seed rebind maps). Served
     // same-origin through this proxy so seeds boot under the estate; their upstream is the
     // harvest capture, never fabricated data.
-    const MIRROR_API_PREFIXES = ["/object-sentinel/", "/people/", "/comments/", "/multipass/", "/graphql-gateway/", "/compass/", "/documentation/", "/aip-assist/", "/monocle/", "/approvals/", "/workspace/api/", "/log-receiver/", "/interventions/", "/ontology-metadata/", "/magritte-coordinator/", "/issues/", "/foundry-search/", "/marketplace/", "/object-set-service/", "/phonograph2/", "/language-model-service/", "/foundry-ml/", "/artifacts/", "/foundry-catalog/", "/models/", "/build2/", "/foundry-stemma/", "/third-party-applications/", "/developer-console/"];
+    const MIRROR_API_PREFIXES = ["/object-sentinel/", "/people/", "/comments/", "/function-registry/", "/multipass/", "/graphql-gateway/", "/compass/", "/documentation/", "/aip-assist/", "/monocle/", "/approvals/", "/workspace/api/", "/log-receiver/", "/interventions/", "/ontology-metadata/", "/magritte-coordinator/", "/issues/", "/foundry-search/", "/marketplace/", "/object-set-service/", "/phonograph2/", "/language-model-service/", "/foundry-ml/", "/artifacts/", "/foundry-catalog/", "/models/", "/build2/", "/foundry-stemma/", "/third-party-applications/", "/developer-console/"];
     if (pathname.startsWith("/__apps/") || pathname.startsWith("/assets/content-addressable-storage/") || MIRROR_API_PREFIXES.some((pref) => pathname.startsWith(pref))) {
       // One read of what the adopted Automate seed shows: the caller's automations and who they are.
       const automateContext = async () => {
@@ -9184,8 +9186,27 @@ async function handleEstateRequest(req, res, body) {
           const data = AUTOMATE.answerFactOperation(name, query, variables || {}, ctxA, () => runs, template);
           return data ? { data } : AUTOMATE.unboundError(name);
         }
+        // ADR 0056 P3 cut 3b — the function registry an adopted app reads (the Automate wizard's
+        // Function effect): the Hypervisor's RELEASED function revisions, walked by the app's own query.
+        if (AUTOMATE.SAVE_LOCATION_OPERATIONS.has(name) && query) {
+          const projects = await daemonFetch("/v1/hypervisor/projects").then((r) => r.json()).then((j) => j.projects || []).catch(() => []);
+          return { data: answerAdoptedDocument(query, AUTOMATE.saveLocationFactsRoot(projects, variables || {}, ctxA.automations), null, name) };
+        }
+        if (FUNCTIONS.FUNCTION_OPERATIONS.has(name) && query) {
+          const template = AUTOMATE.harvestOperations(ADOPT_MIRROR_DIR).get(name)?.data || null;
+          return { data: answerAdoptedDocument(query, await adoptedFunctionFacts(variables || {}), template, name) };
+        }
         const env = AUTOMATE.envelopeAnswer(name, variables || {}, ctxA, ADOPT_MIRROR_DIR);
         return env !== undefined ? { data: env } : AUTOMATE.unboundError(name);
+      };
+      // The caller's functions as the registry facts (the named function's full revision list when a
+      // request names one).
+      const adoptedFunctionFacts = async (variables) => {
+        const families = await daemonFetch("/v1/hypervisor/functions").then((r) => r.json()).then((j) => j.functions || []).catch(() => []);
+        const wantRid = FUNCTIONS.requestedFunctionRid(variables);
+        const wantId = wantRid ? FUNCTIONS.functionIdOf(wantRid) : null;
+        const detail = wantId ? await daemonFetch(`/v1/hypervisor/functions/${wantId}`).then((r) => (r.status === 200 ? r.json() : null)).catch(() => null) : null;
+        return FUNCTIONS.functionFactsRoot(families, (id) => (id === wantId && detail ? detail.revisions : null), variables);
       };
       // Per-seed fold flag: some seed documents hardcode the capture ORIGIN for their API layer
       // and only boot when those refs are folded to same-origin (lineage); self-bootstrapped
@@ -9749,6 +9770,100 @@ async function handleEstateRequest(req, res, body) {
           const runs = await daemonFetch(`/v1/hypervisor/automations/${encodeURIComponent(autoId)}/runs`).then((r) => r.json()).then((j) => j.runs || []).catch(() => []);
           res.writeHead(200, { "Content-Type": "application/json" });
           return res.end(JSON.stringify({ monitor: AUTOMATE.monitorOf(a, runs) }));
+        }
+      }
+      // The adopted wizard's create request → the Hypervisor automation it describes (translated in
+      // adopted-automate.mjs; what cannot be carried yet is refused by name).
+      const translateMonitorRequest = async (request) => {
+        const projects = await daemonFetch("/v1/hypervisor/projects").then((r) => r.json()).then((j) => j.projects || []).catch(() => []);
+        const rids = [...new Set((request?.metadata?.subscribers || []).flatMap((sub) => Object.values(sub.triggerEffects || {})).map((e) => e?.function?.functionLocator?.functionRid).filter(Boolean))];
+        const details = new Map();
+        for (const rid of rids) {
+          const id = FUNCTIONS.functionIdOf(rid);
+          if (id) details.set(rid, await daemonFetch(`/v1/hypervisor/functions/${id}`).then((r) => (r.status === 200 ? r.json() : null)).catch(() => null));
+        }
+        const releasedRevisionOf = (rid, version) => (details.get(rid)?.revisions || []).find((r) => r.status === "released" && r.version === version && r.tool_operable) || null;
+        return AUTOMATE.automationFromMonitorRequest(request, { projects, releasedRevisionOf });
+      };
+      const conjureRefusal = (message) => ({ errorCode: "INVALID_ARGUMENT", errorName: "Automation:NotSupportedByHypervisor", errorInstanceId: "", parameters: { message } });
+      if (pathname === "/object-sentinel/api/validation/v0/validate-create" && req.method === "POST") {
+        let request = {};
+        try { request = JSON.parse(body.toString() || "{}").request || {}; } catch { /* empty */ }
+        const translated = await translateMonitorRequest(request);
+        res.writeHead(translated.issue ? 400 : 200, { "Content-Type": "application/json" });
+        return res.end(JSON.stringify(translated.issue ? conjureRefusal(translated.issue) : { errors: [], warnings: [], projectScopeIssues: [] }));
+      }
+      // Create: the wizard's Save — its request translated and admitted as a Hypervisor automation
+      // through the automations plane (POST /v1/hypervisor/automations, identity-first); the answer is
+      // the reference's monitor locator for the new automation.
+      if (pathname === "/object-sentinel/api/registry/v0/monitors" && req.method === "POST") {
+        let request = {};
+        try { request = JSON.parse(body.toString() || "{}"); } catch { /* empty */ }
+        const translated = await translateMonitorRequest(request);
+        const sendJson = (status, obj) => { res.writeHead(status, { "Content-Type": "application/json" }); return res.end(JSON.stringify(obj)); };
+        if (translated.issue) return sendJson(400, conjureRefusal(translated.issue));
+        const made = await daemonFetch("/v1/hypervisor/automations", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(translated.body) }).then(async (r) => ({ status: r.status, j: await r.json().catch(() => ({})) })).catch(() => ({ status: 502, j: {} }));
+        const id = made.j?.automation?.automation_id;
+        if (!id) return sendJson(made.status >= 400 ? made.status : 502, conjureRefusal(made.j?.error?.message || made.j?.message || "the automations plane did not admit the automation"));
+        return sendJson(200, { locator: { rid: AUTOMATE.monitorRidOf(id), version: 1 } });
+      }
+      {
+        const ver = /^\/object-sentinel\/api\/registry\/v0\/monitors\/([^/]+)\/versions\/([^/]+)$/.exec(pathname);
+        const autoId = ver ? AUTOMATE.automationIdOf(decodeURIComponent(ver[1])) : null;
+        if (autoId && req.method === "GET") {
+          const autos = await daemonFetch("/v1/hypervisor/automations").then((r) => r.json()).catch(() => ({}));
+          const a = (autos.automations || []).find((x) => x.automation_id === autoId);
+          res.writeHead(a ? 200 : 404, { "Content-Type": "application/json" });
+          if (!a) return res.end(JSON.stringify({ errorCode: "NOT_FOUND", errorName: "Monitor:NotFound", errorInstanceId: "", parameters: {} }));
+          const runs = await daemonFetch(`/v1/hypervisor/automations/${encodeURIComponent(autoId)}/runs`).then((r) => r.json()).then((j) => j.runs || []).catch(() => []);
+          return res.end(JSON.stringify({ monitor: AUTOMATE.monitorOf(a, runs) }));
+        }
+      }
+      {
+        const one = /^\/compass\/api\/resources\/([^/]+)$/.exec(pathname);
+        const autoId = one ? AUTOMATE.automationIdOf(decodeURIComponent(one[1])) : null;
+        if (autoId && req.method === "GET") {
+          const [autos, projects, who] = await Promise.all([
+            daemonFetch("/v1/hypervisor/automations").then((r) => r.json()).catch(() => ({})),
+            daemonFetch("/v1/hypervisor/projects").then((r) => r.json()).then((j) => j.projects || []).catch(() => []),
+            daemonFetch("/v1/hypervisor/auth/whoami").then((r) => r.json()).catch(() => ({})),
+          ]);
+          const a = (autos.automations || []).find((x) => x.automation_id === autoId);
+          res.writeHead(a ? 200 : 204, { "Content-Type": "application/json" });
+          return res.end(a ? JSON.stringify(AUTOMATE.compassAutomationResource(a, projects, who.principal?.principal_ref)) : "");
+        }
+      }
+      // Compass reads for the save-location picker: the caller's project folders only.
+      if ((pathname === "/compass/api/batch/resources" || pathname === "/compass/api/batch/projectFileSystemId") && req.method === "POST") {
+        let asked = null;
+        try { asked = JSON.parse(body.toString() || "null"); } catch { /* none */ }
+        const rids = Array.isArray(asked) ? asked : (asked && asked.rids) || [];
+        const [projects, who] = await Promise.all([
+          daemonFetch("/v1/hypervisor/projects").then((r) => r.json()).then((j) => j.projects || []).catch(() => []),
+          daemonFetch("/v1/hypervisor/auth/whoami").then((r) => r.json()).catch(() => ({})),
+        ]);
+        res.writeHead(200, { "Content-Type": "application/json" });
+        return res.end(JSON.stringify(pathname.endsWith("/resources") ? AUTOMATE.compassProjectResources(projects, rids, who.principal?.principal_ref) : AUTOMATE.compassFileSystems(projects, rids)));
+      }
+      // The function registry's REST reads (the wizard's chosen function): metadata and a version
+      // range resolved to released specs — the Hypervisor's released revisions, nothing recorded.
+      {
+        const fr = /^\/function-registry\/api\/functions\/([^/]+)\/(metadata|resolve)$/.exec(pathname);
+        if (fr) {
+          const sendJson = (status, obj) => { res.writeHead(status, { "Content-Type": "application/json" }); return res.end(JSON.stringify(obj)); };
+          const notFound = () => sendJson(404, { errorCode: "NOT_FOUND", errorName: "FunctionRegistry:FunctionNotFound", errorInstanceId: "", parameters: {} });
+          const fnId = FUNCTIONS.functionIdOf(decodeURIComponent(fr[1]));
+          if (!fnId) return notFound();
+          const detail = await daemonFetch(`/v1/hypervisor/functions/${fnId}`).then((r) => (r.status === 200 ? r.json() : null)).catch(() => null);
+          const released = (detail?.revisions || []).filter((r) => r.status === "released").sort((a, b) => (b.ordinal || 0) - (a.ordinal || 0));
+          if (!detail?.function || !released.length) return notFound();
+          if (fr[2] === "metadata" && req.method === "GET") return sendJson(200, FUNCTIONS.functionMetadata({ ...detail.function, released_revision: released[0] }));
+          if (fr[2] === "resolve" && (req.method === "PUT" || req.method === "POST")) {
+            let asked = {};
+            try { asked = JSON.parse(body.toString() || "{}"); } catch { /* defaults */ }
+            return sendJson(200, FUNCTIONS.functionSpecs(detail.function, released, asked.range, asked.pageSize));
+          }
+          return notFound();
         }
       }
       if (pathname === "/people/api/profile/get-profiles" && req.method === "POST") {

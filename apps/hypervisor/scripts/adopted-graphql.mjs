@@ -87,6 +87,18 @@ function applies(type, value) {
   return type === value.__typename || (Array.isArray(value.__implements) && value.__implements.includes(type));
 }
 
+// GraphQL merges every selection of one response key into one value: a field selected by a fragment and
+// again directly answers with the UNION of both sub-selections (element-wise for lists of the same facts).
+function merge(prior, next) {
+  if (Array.isArray(prior) && Array.isArray(next) && prior.length === next.length) return prior.map((p, i) => merge(p, next[i]));
+  if (prior && next && typeof prior === "object" && typeof next === "object" && !Array.isArray(prior) && !Array.isArray(next)) {
+    const out = { ...prior };
+    for (const [k, v] of Object.entries(next)) out[k] = Object.prototype.hasOwnProperty.call(out, k) ? merge(out[k], v) : v;
+    return out;
+  }
+  return next ?? prior;
+}
+
 // Resolve `selections` against `value` (facts) with `template` (the recorded answer at the same path).
 function resolve(selections, value, template, doc, out = {}) {
   for (const sel of selections) {
@@ -104,13 +116,15 @@ function resolve(selections, value, template, doc, out = {}) {
         out[sel.alias] = has ? (fact ?? null) : (Array.isArray(tmpl) ? [] : STRUCTURAL(tmpl) ? tmpl : null);
         continue;
       }
+      let answer;
       if (has) {
-        if (fact === null || fact === undefined) out[sel.alias] = null;
-        else if (Array.isArray(fact)) out[sel.alias] = fact.map((item) => resolve(sel.selections, item, Array.isArray(tmpl) ? tmpl[0] : undefined, doc, {}));
-        else out[sel.alias] = resolve(sel.selections, fact, tmpl, doc, {});
-      } else if (Array.isArray(tmpl)) out[sel.alias] = [];
-      else if (tmpl && typeof tmpl === "object") out[sel.alias] = resolve(sel.selections, undefined, tmpl, doc, {});
-      else out[sel.alias] = null;
+        if (fact === null || fact === undefined) answer = null;
+        else if (Array.isArray(fact)) answer = fact.map((item) => resolve(sel.selections, item, Array.isArray(tmpl) ? tmpl[0] : undefined, doc, {}));
+        else answer = resolve(sel.selections, fact, tmpl, doc, {});
+      } else if (Array.isArray(tmpl)) answer = [];
+      else if (tmpl && typeof tmpl === "object") answer = resolve(sel.selections, undefined, tmpl, doc, {});
+      else answer = null;
+      out[sel.alias] = Object.prototype.hasOwnProperty.call(out, sel.alias) ? merge(out[sel.alias], answer) : answer;
     }
   }
   return out;

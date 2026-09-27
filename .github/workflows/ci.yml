@@ -1890,6 +1890,10 @@ jobs:
         if: ${{ !cancelled() }}
         run: npm run test:product-shell-auth --workspace=@ioi/hypervisor-app
 
+      - name: Verify adopted seed adapters — test:adopted-seeds
+        if: ${{ !cancelled() }}
+        run: npm run test:adopted-seeds --workspace=@ioi/hypervisor-app
+
       - name: Test the aiagent.xyz marketplace contracts
         if: ${{ !cancelled() }}
         run: npm test --workspace=apps/aiagent-xyz

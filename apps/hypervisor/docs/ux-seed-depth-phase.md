@@ -206,6 +206,26 @@ journey verifier → deploy to the owner's stack.
   plane (P3) exists: the Function effect's registry reads answer from it, and an automation created
   through the adopted wizard becomes an automation whose step runs that function. Until then the adopted
   wizard walks, and its Create is a named gap; `/automations` keeps the current create form.
+- **The wizard creates (2026-09-27, ADR 0056 P3 cut 3b; `check:adopted-automate` 8/8).** The adopted
+  wizard walks Condition (Time) → Effects (Function) → Settings → Summary → Save over daemon truth:
+  - *Function effect.* Its registry reads (FunctionResultsQuery, FunctionPreviewQuery,
+    SelectedFunctionQuery, GetFunctionDisplayName, GqlFunctionVersionSelectV2Versions,
+    getFunctionParameters, FavoriteFunctionsQuery; REST `function-registry …/metadata` and `…/resolve`)
+    answer from the functions plane (`adopted-functions.mjs`) — RELEASED, operable revisions only, the
+    same set a function step may pin; our type algebra maps 1:1 to the reference's `FunctionDataType_*`.
+  - *Save as…* offers the caller's projects as locations (an automation's required container) with two
+    ancestors (root, namespace — the picker refuses fewer), validates the name against the project's
+    automations, answers the OAuth-client read with none (the automation runs as its owner), and the
+    security card's `validate-create` with no issue when the request translates.
+  - *Save* (`POST /object-sentinel/api/registry/v0/monitors`) is translated (`automationFromMonitorRequest`)
+    into `POST /v1/hypervisor/automations`: the project, a cron `schedule_spec` in the wizard's NAMED zone
+    (the daemon scheduler now follows IANA zones from the host's tzdata — `zoneinfo.rs`), and one
+    `function` step pinned to the released revision's content hash with its typed static inputs. The app
+    then reads the new monitor version and its compass resource and lands on its detail page.
+  - *Refused by name, never dropped:* object conditions, Action / Logic / Notification effects, failure
+    effects, a second cron expression, dynamic function inputs. *Not enforced (named):* the wizard's
+    expiry date and its retry settings. The resolver fix that made this possible — GraphQL merges every
+    selection of one response key — also applies to the detail page's reads.
 - **Adoption steps:** (1) vendor the booted app — `index.html` + its 34 content-addressed assets,
   18.5 MB, the same scale as the tracked Ona tree — into a quarantined harvested lane in the owned tree;
   (2) serve it at the Automate canonical route, its asset and API paths answered by the serve (assets

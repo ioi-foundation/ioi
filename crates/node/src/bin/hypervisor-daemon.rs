@@ -280,6 +280,8 @@ mod work_projection_routes;
 mod work_result_routes;
 #[path = "hypervisor_daemon_routes/workload_effect_boundary.rs"]
 mod workload_effect_boundary;
+#[path = "hypervisor_daemon_routes/zoneinfo.rs"]
+mod zoneinfo;
 
 use std::collections::{HashMap, HashSet};
 use std::net::SocketAddr;
@@ -5807,17 +5809,31 @@ fn parse_cron_field(spec: &str, min: u8, max: u8) -> Result<(Vec<bool>, bool), S
     Ok((set, is_star))
 }
 
+/// A schedule's zone: a fixed UTC offset, or a named IANA zone that follows its daylight-saving
+/// rules from the host's time-zone database (zoneinfo.rs).
+enum ScheduleZone {
+    Fixed(time::UtcOffset),
+    Named(zoneinfo::Zone),
+}
+
+fn schedule_zone(tz: &str) -> Result<ScheduleZone, String> {
+    let t = tz.trim();
+    let named = t.contains('/')
+        || (t.chars().next().is_some_and(|c| c.is_ascii_alphabetic())
+            && !t.eq_ignore_ascii_case("utc")
+            && t != "Z");
+    if named {
+        return zoneinfo::load(t).map(ScheduleZone::Named);
+    }
+    parse_utc_offset(t).map(ScheduleZone::Fixed)
+}
+
 /// UTC offset from a tz string: "UTC"/"Z"/"" → +00:00; "+HH:MM" / "-HH:MM" / "+HH" / "-HH".
-/// Named IANA zones aren't supported (no tz DB) and surface a useful error.
+/// Named zones are resolved by `schedule_zone` before this is reached.
 fn parse_utc_offset(tz: &str) -> Result<time::UtcOffset, String> {
     let t = tz.trim();
     if t.is_empty() || t.eq_ignore_ascii_case("utc") || t == "Z" || t == "+00:00" {
         return Ok(time::UtcOffset::UTC);
-    }
-    if t.contains('/') {
-        return Err(format!(
-            "named timezone '{t}' not supported yet — use a UTC offset like +02:00"
-        ));
     }
     let sign: i8 = match t.chars().next() {
         Some('+') => 1,
@@ -5848,17 +5864,27 @@ pub(crate) fn cron_next_run(expr: &str, tz: &str, from_iso: &str) -> Result<Stri
     let (dom_s, dom_star) = parse_cron_field(fields[2], 1, 31)?;
     let (mon_s, _) = parse_cron_field(fields[3], 1, 12)?;
     let (dow_s, dow_star) = parse_cron_field(fields[4], 0, 7)?; // 0 and 7 both = Sunday
-    let offset = parse_utc_offset(tz)?;
+    let zone = schedule_zone(tz)?;
+    // Candidate minutes advance in UTC; each is judged in the zone's local time AT THAT INSTANT, so
+    // a named zone's daylight-saving change moves the local clock, never the schedule's wall time.
+    let local = |u: time::OffsetDateTime| match &zone {
+        ScheduleZone::Fixed(offset) => u.to_offset(*offset),
+        ScheduleZone::Named(named) => u.to_offset(
+            time::UtcOffset::from_whole_seconds(named.offset_at(u.unix_timestamp()))
+                .unwrap_or(time::UtcOffset::UTC),
+        ),
+    };
     let from = time::OffsetDateTime::parse(from_iso, &Rfc3339)
         .map_err(|e| format!("bad from time: {e}"))?
-        .to_offset(offset);
-    let mut c = from
+        .to_offset(time::UtcOffset::UTC);
+    let mut u = from
         .replace_second(0)
         .map_err(|e| e.to_string())?
         .replace_nanosecond(0)
         .map_err(|e| e.to_string())?
         + time::Duration::minutes(1);
     for _ in 0..(366 * 24 * 60) {
+        let c = local(u);
         let dow = c.weekday().number_days_from_sunday(); // 0=Sun..6=Sat
         let dow_ok = dow_s[dow as usize] || (dow == 0 && dow_s[7]);
         let dom_ok = dom_s[c.day() as usize];
@@ -5874,12 +5900,9 @@ pub(crate) fn cron_next_run(expr: &str, tz: &str, from_iso: &str) -> Result<Stri
             && mon_s[u8::from(c.month()) as usize]
             && day_ok
         {
-            return c
-                .to_offset(time::UtcOffset::UTC)
-                .format(&Rfc3339)
-                .map_err(|e| e.to_string());
+            return u.format(&Rfc3339).map_err(|e| e.to_string());
         }
-        c += time::Duration::minutes(1);
+        u += time::Duration::minutes(1);
     }
     Err("no cron match within a year".into())
 }
@@ -9975,6 +9998,17 @@ mod cron_tests {
     }
     #[test]
     fn invalid_expressions_rejected() {
+        // A named zone keeps the wall time across daylight saving: 09:00 New York is 14:00Z in
+        // January and 13:00Z in July.
+        assert_eq!(
+            cron_next_run("0 9 * * *", "America/New_York", "2026-01-15T00:00:00Z").unwrap(),
+            "2026-01-15T14:00:00Z"
+        );
+        assert_eq!(
+            cron_next_run("0 9 * * *", "America/New_York", "2026-07-15T00:00:00Z").unwrap(),
+            "2026-07-15T13:00:00Z"
+        );
+        assert!(cron_next_run("0 9 * * *", "Mars/Olympus_Mons", "2026-07-15T00:00:00Z").is_err());
         assert!(cron_next_run("99 9 * * *", "UTC", "2026-06-29T00:00:00Z").is_err()); // minute out of range
         assert!(cron_next_run("0 9 * *", "UTC", "2026-06-29T00:00:00Z").is_err()); // only 4 fields
         assert!(cron_next_run("0 9 * * 8", "UTC", "2026-06-29T00:00:00Z").is_err()); // dow > 7

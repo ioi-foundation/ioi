@@ -419,3 +419,158 @@ export function answerFactOperation(name, query, variables, ctx, runsFor, templa
   if (!a) return null;
   return answerDocument(query, factsRoot(a, runsFor(a.automation_id), ctx.principal), template, name);
 }
+
+// ---- SAVE LOCATION (ADR 0056 P3 cut 3b): the wizard's "Save as…" dialog picks where the automation
+// lives. In the Hypervisor that is a PROJECT — every automation's required durable container — so the
+// caller's projects are the locations offered (as the reference's project folders), and nothing else.
+// Creating a project is not offered here; it belongs to Projects.
+export const SAVE_LOCATION_OPERATIONS = new Set(["InlineSaveLocationSelectorQuery", "PagedNamespacesQuery", "SearchProjectsQuery", "FavoriteProjectsQuery", "CanCreateCompassResourceForAutomation", "GetNameValidInLocationQuery", "ClientDetailsQuery"]);
+export const projectFolderRid = (projectId) => folderRidOf(projectId);
+// `variables` scope `resourceMetadata` to the one location a request names (parentRid / locationRid):
+// the caller may create an automation in their own project, and a name is valid there when it is not
+// empty and no automation in that project already has it.
+export function saveLocationFactsRoot(projects, variables = {}, automations = []) {
+  const allFiles = { __typename: "ResourceMetadata", name: "All files", rid: "ri.compass.main.folder.0", _id: cacheId("folder:0"), openUrl: null, permissions: { __typename: "ResourceMetadataPermissions", _id: cacheId("perm:folder:0"), canOpenLink: false, canEditMetadata: false } };
+  const namespace = { __typename: "Namespace", _id: cacheId("namespace:hypervisor"), rid: "ri.compass.main.namespace.hypervisor" };
+  const namespaceFolder = { __typename: "ResourceMetadata", name: "Hypervisor", rid: "ri.compass.main.folder.hypervisor-namespace", _id: cacheId("folder:namespace"), openUrl: null, permissions: { __typename: "ResourceMetadataPermissions", _id: cacheId("perm:folder:namespace"), canOpenLink: false, canEditMetadata: false } };
+  const folder = (p) => {
+    const rid = folderRidOf(p.project_id);
+    return {
+      __typename: "ResourceMetadata", __implements: ["Recent"], _id: cacheId(`folder:${p.project_id}`), rid, name: p.name || p.project_id, alias: "",
+      openUrl: null, path: `/${p.name || p.project_id}`, collections: [], status: null, trashedStatus: "NOT_TRASHED", statusInfo: null, autosaved: false,
+      type: { __typename: "ResourceTypeMetadata", iconName: "pt-svg-icon-project" },
+      permissions: { __typename: "ResourceMetadataPermissions", _id: cacheId(`perm:${rid}`), canOpenLink: true, canEditMetadata: true },
+      ancestors: [allFiles, namespaceFolder], parent: namespaceFolder, namespace, projectRid: rid, projectSettings: null,
+      resource: { __typename: "Folder", _id: cacheId(`resource:${rid}`) },
+      project: { __typename: "Project", _id: cacheId(`project:${rid}`), type: "PROJECT" },
+    };
+  };
+  return {
+    __typename: "Query",
+    favorites: [],
+    // No OAuth client acts for an automation: it runs as the principal who owns it.
+    oauthClient: null,
+    resourceMetadata: (() => {
+      const wantRid = variables.parentRid || variables.locationRid || null;
+      const target = wantRid ? (projects || []).find((p) => folderRidOf(p.project_id) === wantRid) : null;
+      if (!target) return null;
+      const node = folder(target);
+      const name = String(variables.name ?? "").trim();
+      const taken = (automations || []).some((a) => (a.project_id || a.project_ref) === target.project_id && String(a.name || "").trim().toLowerCase() === name.toLowerCase());
+      return { ...node, permissions: { ...node.permissions, canCreateAutomation: true }, childNameValid: name.length > 0 && name.length <= 200 && !taken };
+    })(),
+    recents: (projects || []).map((p) => ({ __typename: "RecentEntry", recent: folder(p) })),
+    searchResources: { __typename: "ResourceSearchPage", nextPageToken: null, results: [...(projects || [])].sort((a, b) => String(a.name || a.project_id).localeCompare(String(b.name || b.project_id))).map((p) => ({ __typename: "ResourceSearchResult", highlights: [], resource: folder(p) })) },
+    namespaces: { __typename: "NamespacePage", nextPageToken: null, values: [{ ...namespace, permissions: { __typename: "NamespacePermissions", _id: cacheId("perm:namespace"), canCreateProject: false } }] },
+  };
+}
+
+// Compass REST for the same save locations: the project folders' resources and their file system. A rid
+// that is not one of the caller's project folders gets no entry (never a recorded tenant resource).
+// A project sits under the root and its organization's namespace, as the reference's projects do (the
+// save picker refuses a location with fewer than two ancestors: "root" or "namespace" not allowed).
+const NAMESPACE_FOLDER_RID = "ri.compass.main.folder.hypervisor-namespace";
+const WRITABLE_OPERATIONS = ["gatekeeper:view-resource", "compass:read-resource", "compass:write-resource", "compass:import-resource-to"];
+export function compassProjectResources(projects, rids, principalRef) {
+  const byRid = new Map((projects || []).map((p) => [folderRidOf(p.project_id), p]));
+  const out = {};
+  for (const rid of rids || []) {
+    const p = byRid.get(rid);
+    if (!p) continue;
+    const at = { time: iso(p.created_at || p.createdAt), userId: userIdOf(principalRef) };
+    out[rid] = {
+      rid, name: p.name || p.project_id, created: at, modified: at, lastModified: Date.parse(at.time) || 0, description: p.description || null,
+      operations: WRITABLE_OPERATIONS, urlVariables: { "compass:isProject": "true", "compass:folderType": "project", "compass:roleContext": "PROJECT" }, favorite: null, branches: null, defaultBranch: null,
+      path: `/${p.name || p.project_id}`, longDescription: null, directlyTrashed: false, inTrash: false, isAutosave: false, isHidden: false,
+      isPreviewResource: false, deprecation: null, collections: null, namedCollections: [], tags: null, namedTags: null, alias: "",
+      collaborators: [], namedAncestors: [{ rid: "ri.compass.main.folder.0", name: "All files" }, { rid: NAMESPACE_FOLDER_RID, name: "Hypervisor" }], markings: null, projectAccessMarkings: null, linkedItems: null, contactInformation: null,
+      classification: null, portfolioRid: null, namespaceRid: "ri.compass.main.namespace.hypervisor", status: null,
+    };
+  }
+  return out;
+}
+export function compassFileSystems(projects, rids) {
+  const ours = new Set([...(projects || []).map((p) => folderRidOf(p.project_id)), "ri.compass.main.folder.0"]);
+  return { ridToFileSystemId: Object.fromEntries((rids || []).filter((rid) => ours.has(rid)).map((rid) => [rid, "ri.foundry.main.filesystem.hypervisor"])) };
+}
+
+// ---- CREATE (ADR 0056 P3 cut 3b): the adopted wizard's monitor request, translated into the Hypervisor
+// automation it describes. What the Hypervisor automation cannot carry yet is refused BY NAME — never
+// dropped: an object condition, an action / logic / notification effect, a second cron expression, a
+// function input that is not a static value. The expiry the wizard proposes and its retry settings are
+// not enforced by the Hypervisor executor (named in `unenforced`).
+function staticValueOf(v) {
+  if (!v || typeof v !== "object") return { error: "a function input must be a static value" };
+  if (v.type === "list") {
+    const out = [];
+    for (const item of v.list?.values || []) {
+      const one = staticValueOf(item);
+      if (one.error) return one;
+      out.push(one.value);
+    }
+    return { value: out };
+  }
+  if (!Object.prototype.hasOwnProperty.call(v, v.type)) return { error: `unsupported static value type ${v.type}` };
+  return { value: v[v.type] };
+}
+
+export function automationFromMonitorRequest(request, { projects = [], releasedRevisionOf = () => null } = {}) {
+  const r = request || {};
+  const name = String(r.name || "").trim();
+  const project = (projects || []).find((p) => folderRidOf(p.project_id) === r.parentRid);
+  if (!project) return { issue: "choose one of your projects as the automation's location" };
+  const logic = r.logic || {};
+  if (logic.type !== "schedule") return { issue: `a ${logic.type || "missing"} condition is not supported by the Hypervisor automation yet — use a Time condition` };
+  const sched = logic.schedule || {};
+  if ((sched.additionalCronExpressions || []).length) return { issue: "only one cron expression per automation is supported" };
+  if (!String(sched.cronExpression || "").trim()) return { issue: "the Time condition has no schedule" };
+  const effects = new Map();
+  for (const sub of r.metadata?.subscribers || []) {
+    for (const [id, effect] of Object.entries(sub.triggerEffects || {})) effects.set(id, effect);
+    if (Object.keys(sub.recoveryEffects || {}).length) return { issue: "failure (recovery) effects are not supported by the Hypervisor automation yet" };
+  }
+  if (!effects.size) return { issue: "add at least one effect" };
+  const steps = [];
+  for (const effect of effects.values()) {
+    if (effect.type !== "function") return { issue: `a ${effect.type} effect is not supported by the Hypervisor automation yet — use a Function effect` };
+    const loc = effect.function?.functionLocator || {};
+    const revision = releasedRevisionOf(loc.functionRid, loc.functionVersion);
+    if (!revision) return { issue: `function ${loc.functionRid || "?"} ${loc.functionVersion || ""} is not a released revision you can run` };
+    const inputs = {};
+    for (const [inputName, input] of Object.entries(effect.function?.functionInputs || {})) {
+      if (input?.type !== "staticValue") return { issue: `function input ${inputName} must be a static value` };
+      const v = staticValueOf(input.staticValue);
+      if (v.error) return { issue: `function input ${inputName}: ${v.error}` };
+      inputs[inputName] = v.value;
+    }
+    steps.push({ kind: "function", function_revision_ref: revision.revision_ref, content_hash: revision.content_hash, inputs });
+  }
+  return {
+    body: {
+      project_ref: project.project_id,
+      name: name || "automation",
+      trigger_kind: "time",
+      schedule_spec: { type: "cron", cron: String(sched.cronExpression).trim(), timezone: sched.timeZone || "UTC" },
+      steps,
+    },
+    unenforced: [r.metadata?.expiry?.expireOn ? `expiry ${r.metadata.expiry.expireOn}` : null, "effect retry settings"].filter(Boolean),
+  };
+}
+
+// The compass resource of one automation (the monitor the wizard just created), under its project.
+export function compassAutomationResource(a, projects, principalRef) {
+  const rid = monitorRidOf(a.automation_id);
+  const project = (projects || []).find((p) => p.project_id === (a.project_id || a.project_ref));
+  const projectName = project?.name || a.project_id || "project";
+  const at = (t) => ({ time: iso(t), userId: userIdOf(principalRef) });
+  return {
+    rid, name: a.name || a.automation_id, created: at(a.created_at), modified: at(a.updated_at || a.created_at),
+    lastModified: Date.parse(iso(a.updated_at || a.created_at)) || 0, description: a.description || null,
+    operations: WRITABLE_OPERATIONS, urlVariables: {}, favorite: null, branches: null, defaultBranch: null,
+    path: `/${projectName}/${a.name || a.automation_id}`, longDescription: null, directlyTrashed: false, inTrash: false,
+    isAutosave: false, isHidden: false, isPreviewResource: false, deprecation: null, collections: null, namedCollections: [],
+    tags: null, namedTags: [], alias: "", collaborators: [], markings: [], projectAccessMarkings: [], linkedItems: null,
+    namedAncestors: [{ rid: "ri.compass.main.folder.0", name: "All files" }, { rid: NAMESPACE_FOLDER_RID, name: "Hypervisor" }, { rid: folderRidOf(a.project_id || a.project_ref), name: projectName }],
+    contactInformation: null, classification: null, portfolioRid: null, namespaceRid: "ri.compass.main.namespace.hypervisor", status: null,
+  };
+}
