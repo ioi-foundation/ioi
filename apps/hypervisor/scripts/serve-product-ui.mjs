@@ -9233,7 +9233,7 @@ async function handleEstateRequest(req, res, body) {
       };
       const answerAdoptedOp = async (name, variables, ctxA, query = "") => {
         if (AUTOMATE.OPERATIONS.has(name)) return { data: AUTOMATE.graphqlAnswer(name, variables || {}, ctxA) };
-        if (PIPELINE.PIPELINE_EDITOR_OPERATIONS.has(name) && query && (PIPELINE.pipelineRidIn(variables) || PIPELINE.PIPELINE_EDITOR_GLOBAL_OPERATIONS.has(name) || (PIPELINE.PIPELINE_EDITOR_DATASET_OPERATIONS.has(name) && PIPELINE.datasetRidIn(variables)))) {
+        if (!PIPELINE.PIPELINE_OPERATIONS.has(name) && PIPELINE.answersPipelineOperation(name, variables) && query) {
           // the reference's recorded answer to the same generic read (Automate's harvest) lends STRUCTURE only
           const template = AUTOMATE.harvestOperations(ADOPT_MIRROR_DIR).get(name)?.data || null;
           return { data: answerAdoptedDocument(query, PIPELINE.pipelineEditorFactsRoot(variables || {}, await pipelineContext(), PIPELINE.uuidOf), template, name) };
@@ -9467,6 +9467,11 @@ async function handleEstateRequest(req, res, body) {
         const gqlName = AUTOMATE.opNameOf(gqlOp);
         if (gqlOp && AUTOMATE.OPERATIONS.has(gqlName)) {
           return sendJson({ data: AUTOMATE.graphqlAnswer(gqlName, gqlOp.variables || {}, await automateContext()) });
+        }
+        // The adopted Pipeline Builder, opened directly, reads over this single-operation gateway too: the same
+        // answers as the bulk gateway, never the capture passthrough below.
+        if (gqlOp && PIPELINE.answersPipelineOperation(gqlName, gqlOp.variables || {})) {
+          return sendJson(await answerAdoptedOp(gqlName, gqlOp.variables || {}, await automateContext(), String(gqlOp.query || "")));
         }
         if (gqlOp && AUTOMATE.ENVELOPE_OPERATIONS.has(gqlName)) {
           const [env, ctxA] = await Promise.all([
@@ -9986,6 +9991,8 @@ async function handleEstateRequest(req, res, body) {
           try { asked = JSON.parse(body.toString() || "{}"); } catch { /* none */ }
           return send(200, { categoryAndMarkingIds: Object.fromEntries((asked.principalIds || []).map((id) => [id, { categoryIds: [], hasHiddenCategoryIds: false, markingIds: [], hasHiddenMarkingIds: false }])) });
         }
+        // No lineage item is monitored.
+        if (pathname === "/monocle/api/settings/monitored-items" && req.method === "GET") return send(200, { items: [], nextPageToken: null });
         // No favorites are kept; no ontology is offered to a pipeline's outputs yet.
         if (pathname === "/people/api/personal/get-favorites" && req.method === "POST") return send(200, { orderedFavorites: [] });
         if (pathname === "/ontology-metadata/api/ontology/v2/load/all" && req.method === "POST") return send(200, { ontologies: {} });

@@ -290,12 +290,20 @@ export const PIPELINE_EDITOR_OPERATIONS = new Set([
   "OntologiesQuery", "BackendTypeForLatestSandboxVersionQuery", "ActiveResourceQuery", "ResourceHeaderQuery",
   "ProjectIcebergStorageQuery", "TargetProjectQuery", "DataConnectionSourceQuery", "ComputeExpressionIfAbsentStoresQuery",
   "CurrentDeploymentQuery", "ResolveEddieSandboxToGlobalBranch", "ResourceProjectQuery", "BranchSelectSearchQuery",
-  "IssueBadgeData", "WalkthroughsForResourceQuery", "CommunicationChannelsQuery", "BackingObjectQuery", "CompassResourceViewQuery",
+  "IssueBadgeData", "WalkthroughsForResourceQuery", "CommunicationChannelsQuery", "BackingObjectQuery", "CompassResourceViewQuery", "SaveResourceDialogQuery",
 ]);
 // Editor reads that name no pipeline (the caller's organization, a dataset, ontologies, branches).
-export const PIPELINE_EDITOR_GLOBAL_OPERATIONS = new Set(["OntologiesQuery", "BranchSelectSearchQuery", "CommunicationChannelsQuery", "BackingObjectQuery"]);
+export const PIPELINE_EDITOR_GLOBAL_OPERATIONS = new Set(["OntologiesQuery", "BranchSelectSearchQuery", "CommunicationChannelsQuery", "BackingObjectQuery", "SaveResourceDialogQuery"]);
 // Reads keyed by a dataset rid: answered when it is one of the caller's pipelines' declared output datasets.
 export const PIPELINE_EDITOR_DATASET_OPERATIONS = new Set(["BackingObjectQuery", "CompassResourceViewQuery"]);
+// Whether an operation is the Pipeline Builder's to answer: its landing reads, and its editor reads when they
+// name a pipeline, a dataset (the dataset reads), or nothing at all (the global reads). One predicate for the
+// bulk and the single-operation gateways.
+export function answersPipelineOperation(name, variables) {
+  if (PIPELINE_OPERATIONS.has(name)) return true;
+  if (!PIPELINE_EDITOR_OPERATIONS.has(name)) return false;
+  return !!pipelineRidIn(variables) || PIPELINE_EDITOR_GLOBAL_OPERATIONS.has(name) || (PIPELINE_EDITOR_DATASET_OPERATIONS.has(name) && !!datasetRidIn(variables));
+}
 export const datasetRidIn = (variables) => (JSON.stringify(variables || {}).match(/ri\.foundry\.main\.dataset\.[0-9a-f-]{36}/u) || [])[0] || null;
 export const pipelineRidIn = (variables) => (JSON.stringify(variables || {}).match(/ri\.eddie\.main\.pipeline\.[0-9a-f-]{36}/u) || [])[0] || null;
 const ALL_FILES = { __typename: "ResourceMetadata", name: "All files", rid: "ri.compass.main.folder.0", _id: cacheId("folder:0"), openUrl: null, permissions: { __typename: "ResourceMetadataPermissions", _id: cacheId("perm:folder:0"), canOpenLink: false } };
@@ -335,6 +343,8 @@ export function pipelineEditorFactsRoot(variables, pipelines, userIdOf) {
     // The caller's organization sets no communication controls, and there are no channel categories.
     me: { __typename: "User", _id: cacheId("me"), organization: { __typename: "Organization", _id: cacheId("me:organization"), enrollment: { __typename: "Enrollment", _id: cacheId("me:enrollment"), administratorCommunicationControls: null } } },
     communicationChannelCategories: [],
+    // the create form's location dialog: no favorites or recents are kept
+    favorites: [], recents: [],
     catalogDataset: ownDataset ? { __typename: "CatalogDataset", _id: cacheId(`dataset:${datasetRid}`), backsObjectTypes: [] } : null,
     // The Hypervisor's ontologies are not offered as output targets yet (the editor's outputs cut).
     allOntologies: [],
