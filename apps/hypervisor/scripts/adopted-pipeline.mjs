@@ -33,15 +33,16 @@ const latestDraftName = (cs) => {
 };
 
 // The caller's pipelines: every DataRecipe family they can read, plus every family an open or proposed
-// change set would found. `families` is [{ family_ref, revisions }] (revisions oldest first, as the
-// daemon returns them); `changeSets` is the caller's change sets.
+// change set would found. `families` is [{ family_ref, revisions, runs }] (revisions oldest first, as the
+// daemon returns them; runs are the family's TransformationRuns, when it has any); `changeSets` is the
+// caller's change sets.
 export function pipelinesOf(families, changeSets) {
   const byFamily = new Map();
   const ensure = (familyRef) => {
-    if (!byFamily.has(familyRef)) byFamily.set(familyRef, { familyRef, revisions: [], changeSets: [] });
+    if (!byFamily.has(familyRef)) byFamily.set(familyRef, { familyRef, revisions: [], runs: [], changeSets: [] });
     return byFamily.get(familyRef);
   };
-  for (const f of families || []) ensure(f.family_ref).revisions = Array.isArray(f.revisions) ? f.revisions : [];
+  for (const f of families || []) Object.assign(ensure(f.family_ref), { revisions: Array.isArray(f.revisions) ? f.revisions : [], runs: Array.isArray(f.runs) ? f.runs : [] });
   for (const cs of changeSets || []) {
     const familyRef = cs?.subject?.family_ref;
     if (!familyRef) continue;
@@ -116,9 +117,9 @@ export function pipelineFactsRoot(name, variables, pipelines, userIdOf) {
     };
   }
   if (name === "CurrentPipelineDeploymentQuery") {
-    // A deploy is a TransformationRun of the head revision; none is bound to this sandbox yet, so the
-    // pipeline reads as never deployed rather than borrowing the reference's deployment.
-    return { __typename: "Query", eddiePipeline: { ...pipelineNode, sandbox: { __typename: "EddieSandbox", _id: cacheId(`sandbox:${v.sandboxId}`), currentDeployment: null } } };
+    // A deploy is a TransformationRun of a revision: Main's current deployment is the family's latest completed run
+    // (a change set's sandbox is never deployed); none reads as never deployed, never the reference's deployment.
+    return { __typename: "Query", eddiePipeline: { ...pipelineNode, sandbox: { __typename: "EddieSandbox", _id: cacheId(`sandbox:${v.sandboxId}`), currentDeployment: v.sandboxId === mainSandboxIdOf(p.familyRef) ? currentDeploymentOf(p) : null } } };
   }
   return null;
 }
@@ -295,6 +296,8 @@ export const PIPELINE_EDITOR_OPERATIONS = new Set([
   "IssueBadgeData", "WalkthroughsForResourceQuery", "CommunicationChannelsQuery", "BackingObjectQuery", "CompassResourceViewQuery", "SaveResourceDialogQuery",
   // the proposal page (read); a principal chip
   "UserGroupQuery", "ResolveEddieProposalIdToGlobalBranch", "ResolveEddieProposalRidToGlobalBranch", "ProposalEventsQuery", "BackendTypeForProposalQuery",
+  // the History page (read): the version timeline and the compare view
+  "HistoryPageGlobalBranch", "HistoryVersionListQuery", "HistoryVersionDiffQuery",
 ]);
 // Editor reads that name no pipeline (the caller's organization, a dataset, ontologies, branches).
 export const PIPELINE_EDITOR_GLOBAL_OPERATIONS = new Set(["OntologiesQuery", "BranchSelectSearchQuery", "CommunicationChannelsQuery", "BackingObjectQuery", "SaveResourceDialogQuery", "UserGroupQuery"]);
@@ -338,7 +341,8 @@ export function pipelineEditorFactsRoot(variables, pipelines, userIdOf, caller =
   const sandbox = known ? {
     __typename: "EddieSandbox", _id: cacheId(`sandbox:${sandboxId}`), sandboxId,
     latestVersion: { __typename: "EddieSandboxVersion", _id: cacheId(`version:${sandboxId}`), backend: "Spark" },
-    computeExpressionIfAbsentStores: [], globalBranch: null, currentDeployment: null,
+    computeExpressionIfAbsentStores: [], globalBranch: null,
+    ...historyFacts(p, sandboxId, variables, userIdOf),
   } : null;
   // A dataset the request names: one of the caller's pipelines' declared output datasets backs no object type.
   const datasetRid = (JSON.stringify(variables || {}).match(/ri\.foundry\.main\.dataset\.[0-9a-f-]{36}/u) || [])[0] || null;
@@ -360,7 +364,8 @@ export function pipelineEditorFactsRoot(variables, pipelines, userIdOf, caller =
     eddiePipelineProposal: variables?.proposalRid ? proposalByVariables(pipelines, variables, userIdOf, null) : null,
     // a principal chip: the caller, or a principal the caller's own records name (a change set's author or merger)
     principal: variables?.id ? principalById(variables.id, pipelines, userIdOf, caller) : null,
-    resourceMetadata: p ? pipelineResource(p, userIdOf) : (ownDataset ? datasetResource(datasetRid, pipelines) : null),
+    // the History page reads the sandbox through the resource (`… on EddiePipeline { sandbox { globalBranch } }`)
+    resourceMetadata: p ? { ...pipelineResource(p, userIdOf), resource: { __typename: "EddiePipeline", _id: cacheId(`pipeline:${p.rid}`), sandbox } } : (ownDataset ? datasetResource(datasetRid, pipelines) : null),
   };
 }
 function principalById(id, pipelines, userIdOf, caller) {
@@ -563,5 +568,101 @@ export function proposalFacts(p, cs, userIdOf) {
     // a change set is a patch branch of one family, not a global branch
     sourceSandbox: { __typename: "EddieSandbox", _id: cacheId(`sandbox:${sandboxId}`), sandboxId, globalBranch: null, latestVersion: { __typename: "EddieSandboxVersion", _id: cacheId(`latest:${sandboxId}`), backend: "Spark" } },
     events: { __typename: "EddieProposalEventPage", nextPageToken: null, values: events },
+  };
+}
+
+// ---- HISTORY (read, R-241): a sandbox's version timeline. Main's versions are the family's admitted revisions
+// (one a change set merged is a merged-proposal row; one admitted directly is a saved version) and its deployments
+// are the family's TransformationRuns; a change set's versions are its drafts, and it has no deployment. What a
+// run does not record — jobs, tasks, a build, who started it — is empty or null, never invented.
+const RUN_STATUS = { running: "InProgress", completed: "Succeeded", failed: "Failed", rejected: "Failed" };
+const userFact = (ref, userIdOf) => (ref ? { __typename: "User", _id: cacheId(`user:${ref}`), id: userIdOf(ref), username: null, displayName: null, fullName: null } : null);
+const attributionFact = (time, ref, userIdOf) => ({ __typename: "Attribution", time: iso(time), user: userFact(ref, userIdOf) });
+const versionRefFact = (versionId) => (versionId ? { __typename: "EddieSandboxVersion", _id: cacheId(`version:${versionId}`), versionId } : null);
+// The family's runs, one per run id (its latest admission), oldest first.
+export function runsOfPipeline(p) {
+  const byId = new Map();
+  for (const r of p.runs || []) if (r?.transformation_run_id) byId.set(r.transformation_run_id, r);
+  return [...byId.values()].sort((a, b) => String(a.admitted_at || "").localeCompare(String(b.admitted_at || "")));
+}
+function deploymentFact(p, run) {
+  const versionId = uuidOf(run.data_recipe_revision_ref);
+  const revision = p.revisions.find((r) => r.revision_ref === run.data_recipe_revision_ref) || null;
+  const kind = RUN_STATUS[run.execution_status];
+  return {
+    __typename: "EddieSandboxDeployment", __implements: ["EddieSandboxTimelineEvent"], _id: cacheId(`deployment:${run.transformation_run_id}`),
+    id: uuidOf(run.transformation_run_id),
+    // a run record names no principal
+    created: attributionFact(run.admitted_at, null, null),
+    // nothing executes a queued run yet: it carries no status, so its row reads "did not run" rather than "Deployed logic"
+    status: kind ? { __typename: `EddieSandboxDeploymentStatus_${kind}`, __implements: ["EddieSandboxDeploymentStatus"], tasks: [] } : null,
+    jobsV2: [], stateChanges: null,
+    // a run is of an admitted revision: Main's (the editor's deployment watcher reads the sandbox it deployed)
+    sandboxVersion: { __typename: "EddieSandboxVersion", _id: cacheId(`version:${versionId}`), versionId, sandbox: { __typename: "EddieSandbox", _id: cacheId(`sandbox:${mainSandboxIdOf(p.familyRef)}`), sandboxId: mainSandboxIdOf(p.familyRef) }, snapshot: { __typename: "EddieSandboxSnapshot", targets: targetsOf(revision).map((t) => ({ __typename: "EddieTarget", id: t.id })) } },
+  };
+}
+// The deployment the family is on: its latest COMPLETED run — "Currently deployed" is claimed only for a revision
+// that finished a run, never for one a queued run names.
+export function currentDeploymentOf(p) {
+  const run = runsOfPipeline(p).filter((r) => r.execution_status === "completed").at(-1);
+  return run ? deploymentFact(p, run) : null;
+}
+// A sandbox's versions, newest first; null when the sandbox is not the pipeline's.
+export function versionsOfSandbox(p, sandboxId) {
+  if (sandboxId === mainSandboxIdOf(p.familyRef)) {
+    return p.revisions.map((r) => {
+      const merged = p.changeSets.find((cs) => cs.merge?.resulting_revision_ref === r.revision_ref) || null;
+      const prev = r.succession?.predecessor_revision_ref || null;
+      // a revision admitted directly names no admitting principal (only its owner, an organization)
+      return { versionId: uuidOf(r.revision_ref), previousVersionId: prev ? uuidOf(prev) : null, time: r.admitted_at, user: merged?.merge?.merged_by_principal_ref || null, merged, message: `Revision ${String(r.revision_ref).split("/").pop()}` };
+    }).reverse();
+  }
+  const cs = p.changeSets.find((x) => changeSetSandboxIdOf(x.change_set_ref) === sandboxId);
+  if (!cs) return null;
+  const base = cs.subject?.base_revision_ref || null;
+  const drafts = [...(cs.drafts || [])].sort((a, b) => a.ordinal - b.ordinal);
+  // draft 1 follows the head the change set was opened on (none for a founding change set: "Branch created")
+  return drafts.map((d, i) => ({ versionId: draftVersionIdOf(cs.change_set_ref, d.ordinal), previousVersionId: i > 0 ? draftVersionIdOf(cs.change_set_ref, drafts[i - 1].ordinal) : (base ? uuidOf(base) : null), time: d.drafted_at, user: d.author_principal_ref || cs.author_principal_ref, merged: null, message: `Draft ${d.ordinal}` })).reverse();
+}
+function versionEventFact(v, userIdOf) {
+  const cs = v.merged;
+  return {
+    __typename: "EddieSandboxVersion", __implements: ["EddieSandboxTimelineEvent"], _id: cacheId(`version:${v.versionId}`),
+    versionId: v.versionId, previousVersion: versionRefFact(v.previousVersionId), created: attributionFact(v.time, v.user, userIdOf),
+    proposal: cs ? { __typename: "EddiePipelineProposal", _id: cacheId(`proposal:${cs.change_set_ref}`), id: proposalIdOf(cs.change_set_ref), name: cs.title, sourceSandbox: { __typename: "EddieSandbox", _id: cacheId(`sandbox:${changeSetSandboxIdOf(cs.change_set_ref)}`), sandboxId: changeSetSandboxIdOf(cs.change_set_ref), name: cs.title } } : null,
+  };
+}
+// The History facts of one sandbox, scoped by the request's variables (the timeline's filter and page; the compare
+// view's start version). The compare view selects `versionHistoryV2` twice under two aliases, so those facts are
+// keyed `alias:field` (adopted-graphql.mjs).
+export function historyFacts(p, sandboxId, variables, userIdOf) {
+  const versions = versionsOfSandbox(p, sandboxId) || [];
+  const onMain = sandboxId === mainSandboxIdOf(p.familyRef);
+  const asked = (variables?.filter?.eventTypesToInclude || []).filter(Boolean);
+  const kinds = new Set(asked.length ? asked : ["DEPLOYMENT", "VERSION"]);
+  const events = [];
+  if (kinds.has("VERSION")) for (const v of versions) events.push({ at: v.time, fact: versionEventFact(v, userIdOf) });
+  if (kinds.has("DEPLOYMENT") && onMain) for (const r of runsOfPipeline(p).reverse()) events.push({ at: r.admitted_at, fact: deploymentFact(p, r) });
+  events.sort((a, b) => String(b.at || "").localeCompare(String(a.at || "")));
+  const offset = Number(variables?.pageToken) > 0 ? Number(variables.pageToken) : 0;
+  const n = Number(variables?.pageSize) > 0 ? Math.min(Number(variables.pageSize), 100) : 20;
+  const entry = (versionId, message) => ({ __typename: "EddieSandboxVersion", _id: cacheId(`version:${versionId}`), versionId, backend: "Spark", commitMessage: message });
+  const page = (values) => ({ __typename: "EddieSandboxVersionPage", values, nextPageToken: null });
+  const start = versions.find((v) => v.versionId === variables?.startVersionId) || (variables?.startVersionId ? null : versions[0]);
+  const fromVersion = [];
+  if (start) {
+    fromVersion.push(entry(start.versionId, start.message));
+    // the previous version may be Main's (draft 1 follows the head its change set was opened on)
+    const prev = start.previousVersionId ? versionOf(p, start.previousVersionId, userIdOf) : null;
+    if (prev) fromVersion.push(entry(start.previousVersionId, prev.details.message));
+  }
+  return {
+    currentDeployment: onMain ? currentDeploymentOf(p) : null,
+    eventTimeline: { __typename: "EddieSandboxEventTimelinePage", values: events.slice(offset, offset + n).map((e) => e.fact), nextPageToken: offset + n < events.length ? String(offset + n) : null },
+    versionHistoryV2: page(versions.map((v) => entry(v.versionId, v.message))),
+    "historyFromLatest:versionHistoryV2": page(versions.slice(0, 1).map((v) => entry(v.versionId, v.message))),
+    "historyFromVersion:versionHistoryV2": page(fromVersion),
+    backingBranchName: onMain ? "master" : (p.changeSets.find((x) => changeSetSandboxIdOf(x.change_set_ref) === sandboxId)?.change_set_ref || null),
+    fallbackBranchNames: onMain ? [] : ["master"],
   };
 }

@@ -170,3 +170,43 @@ test("a fragment on Principal applies to a User (the principal chip's names)", a
   const out = answerDocument(q, { __typename: "Query", principal: { __typename: "User", _id: "u", username: "john@ioi.local", displayName: "John Doe" } }, null, "UserGroupQuery");
   assert.equal(out.principal.displayName, "John Doe");
 });
+
+test("a field selected under two aliases answers each alias its own fact (the History compare view)", async () => {
+  const { answerDocument } = await import("./adopted-graphql.mjs");
+  const q = "query D { s { a: h(limit: 1) { values { id } } b: h(limit: 2) { values { id } } h { values { id } } } }";
+  const out = answerDocument(q, { s: { h: { values: [{ id: "all" }] }, "a:h": { values: [{ id: "latest" }] }, "b:h": { values: [{ id: "picked" }, { id: "prev" }] } } }, null, "D");
+  assert.deepEqual([out.s.a.values.map((v) => v.id), out.s.b.values.map((v) => v.id), out.s.h.values.map((v) => v.id)], [["latest"], ["picked", "prev"], ["all"]]);
+});
+
+test("History: Main's timeline is the family's revisions and runs, newest first; a queued run claims no status; the current deployment is the latest completed run", () => {
+  const runs = [
+    { transformation_run_id: "transform://trun_1", data_recipe_revision_ref: "data-recipe://acme.intake/revision/1", execution_status: "completed", admitted_at: "2026-09-27T09:10:00Z" },
+    { transformation_run_id: "transform://trun_2", data_recipe_revision_ref: "data-recipe://acme.intake/revision/2", execution_status: "queued", admitted_at: "2026-09-27T09:40:00Z" },
+  ];
+  const withSucc = [{ ...families[0], runs, revisions: [families[0].revisions[0], { ...families[0].revisions[1], succession: { predecessor_revision_ref: "data-recipe://acme.intake/revision/1" } }] }];
+  const merged = { ...sets[0], merge: { resulting_revision_ref: "data-recipe://acme.intake/revision/1", merged_by_principal_ref: OP, draft_ordinal: 1 } };
+  const p = PIPELINE.pipelinesOf(withSucc, [merged, sets[1]]).find((x) => x.familyRef === "data-recipe://acme.intake");
+  const main = PIPELINE.mainSandboxIdOf(p.familyRef);
+  const h = PIPELINE.historyFacts(p, main, { pageSize: 20 }, PIPELINE.uuidOf);
+  const v1 = PIPELINE.uuidOf("data-recipe://acme.intake/revision/1");
+  const v2 = PIPELINE.uuidOf("data-recipe://acme.intake/revision/2");
+  assert.deepEqual(h.eventTimeline.values.map((e) => `${e.__typename}:${e.versionId || e.sandboxVersion.versionId}:${e.status === undefined ? "-" : e.status?.__typename || "null"}`), [
+    `EddieSandboxDeployment:${v2}:null`, `EddieSandboxVersion:${v2}:-`, `EddieSandboxDeployment:${v1}:EddieSandboxDeploymentStatus_Succeeded`, `EddieSandboxVersion:${v1}:-`,
+  ]);
+  const [, rev2, , rev1] = h.eventTimeline.values;
+  assert.equal(rev2.previousVersion.versionId, v1);
+  assert.equal(rev1.previousVersion, null, "genesis: the app says Branch created");
+  assert.equal(rev1.proposal.name, "title aaaaaaaaaaaaaaaa", "the merged change set's revision is a merged-proposal row");
+  assert.equal(rev2.proposal, null, "a revision admitted directly is a saved version");
+  assert.equal(h.currentDeployment.sandboxVersion.versionId, v1, "the queued run of revision 2 is not currently deployed");
+  assert.deepEqual(PIPELINE.historyFacts(p, main, { filter: { eventTypesToInclude: ["VERSION"] }, pageSize: 1 }, PIPELINE.uuidOf).eventTimeline, { __typename: "EddieSandboxEventTimelinePage", values: [h.eventTimeline.values[1]], nextPageToken: "1" });
+  assert.deepEqual(h["historyFromLatest:versionHistoryV2"].values.map((v) => v.commitMessage), ["Revision 2"]);
+  assert.deepEqual(PIPELINE.historyFacts(p, main, { startVersionId: v2 }, PIPELINE.uuidOf)["historyFromVersion:versionHistoryV2"].values.map((v) => v.commitMessage), ["Revision 2", "Revision 1"]);
+  // a change set's timeline is its drafts: draft 1 follows the head it was opened on; no deployment
+  const sid = PIPELINE.changeSetSandboxIdOf(sets[1].change_set_ref);
+  const c = PIPELINE.historyFacts(p, sid, {}, PIPELINE.uuidOf);
+  assert.deepEqual(c.eventTimeline.values.map((e) => [e.__typename, e.previousVersion?.versionId]), [["EddieSandboxVersion", v2]]);
+  assert.equal(c.currentDeployment, null);
+  assert.deepEqual([c.backingBranchName, c.fallbackBranchNames], [sets[1].change_set_ref, ["master"]]);
+  assert.deepEqual(PIPELINE.historyFacts(p, sid, { startVersionId: PIPELINE.draftVersionIdOf(sets[1].change_set_ref, 1) }, PIPELINE.uuidOf)["historyFromVersion:versionHistoryV2"].values.map((v) => v.commitMessage), ["Draft 1", "Revision 2"]);
+});

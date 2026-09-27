@@ -77,7 +77,7 @@
         { "id": "editor.add-data", "label": "Pipeline editor — Add data (Foundry data, add data, upload, manual entry)", "disposition": "open", "reason": "adding data must bind to the Data sources and connector mappings a recipe reads" },
         { "id": "editor.outputs", "label": "Pipeline editor — Pipeline outputs and output settings", "disposition": "named_gap", "shown_as": "the pane lists the recipe's declared outputs (its dataset contracts and object models), each with No columns; the object output reads No ontology selected", "reason": "columns and the target ontology are not derived from the recipe's dataset contracts and ontology revisions yet" },
         { "id": "editor.proposals", "label": "Pipeline editor — Proposals (the list, and a proposal's page)", "disposition": "bound", "proof": { "file": "apps/hypervisor/scripts/verify-hypervisor-adopted-pipeline.mjs", "text": "the editor's Proposals tab lists the proposed change set with its author, and its page opens" } },
-        { "id": "editor.history", "label": "Pipeline editor — History", "disposition": "open", "reason": "history must list the recipe's revisions and TransformationRuns" },
+        { "id": "editor.history", "label": "Pipeline editor — History (the version timeline, a deployment, Compare with…)", "disposition": "bound", "proof": { "file": "apps/hypervisor/scripts/verify-hypervisor-adopted-pipeline.mjs", "text": "the editor's History tab is the family's own timeline" } },
         { "id": "editor.deploy", "label": "Pipeline editor — Deploy / build", "disposition": "open", "reason": "deploy must admit a TransformationRun for the recipe revision" }
       ]
     },

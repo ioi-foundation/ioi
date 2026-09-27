@@ -9264,15 +9264,20 @@ async function handleEstateRequest(req, res, body) {
       // revisions) and change sets, as pipelines (adopted-pipeline.mjs).
       // A plane that does not answer is an ERROR the app shows ("Unable to load pipelines"), never an empty
       // list that reads as "you have no pipelines".
+      // A family's TransformationRuns are its deployments (History): the run plane lists the families the caller
+      // sees runs for, and only those are read (a family with no run has no run scope to read).
       const pipelineContext = async () => {
-        const [list, sets] = await Promise.all([
+        const [list, sets, runFamilies] = await Promise.all([
           planeRead("/v1/hypervisor/data-recipe-revisions"),
           planeRead("/v1/hypervisor/change-sets").then((j) => j.change_sets || []),
+          planeRead("/v1/hypervisor/transformation-runs").then((j) => new Set(j.recipe_families || [])),
         ]);
         const refs = Array.isArray(list.data_recipes) ? list.data_recipes : [];
+        const token = (ref) => encodeURIComponent(String(ref).replace(/^data-recipe:\/\//u, ""));
         const families = await Promise.all(refs.map(async (ref) => ({
           family_ref: ref,
-          revisions: await planeRead(`/v1/hypervisor/data-recipe-revisions?family=${encodeURIComponent(String(ref).replace(/^data-recipe:\/\//u, ""))}`).then((j) => j.revisions || []),
+          revisions: await planeRead(`/v1/hypervisor/data-recipe-revisions?family=${token(ref)}`).then((j) => j.revisions || []),
+          runs: runFamilies.has(ref) ? await planeRead(`/v1/hypervisor/transformation-runs?family=${token(ref)}`).then((j) => j.transformation_runs || []) : [],
         })));
         return PIPELINE.pipelinesOf(families, sets);
       };
@@ -10052,6 +10057,15 @@ async function handleEstateRequest(req, res, body) {
           return all ? send(200, all) : notFound();
         }
         if ((m = at(`/eddie/api/pipelines-v2/markings/(${PR})/settings`)) && req.method === "GET") return (await holds(m[1])) ? send(200, { enableUnmarkingInPipeline: false, requireReapproval: {} }) : notFound();
+        // A DataRecipe carries no markings: each target the posted snapshot names propagates none and inherits no input.
+        if ((m = at(`/eddie/api/pipelines-v2/markings/(${PR})/markings-propagation/[0-9a-f-]{36}`)) && req.method === "POST") {
+          if (!(await holds(m[1]))) return notFound();
+          let asked = {};
+          try { asked = JSON.parse(body.toString() || "{}"); } catch { /* none */ }
+          const ids = (asked.pipelineSnapshot?.targets || []).map((t) => t?.id).filter((id) => typeof id === "string");
+          const none = { propagatedMarkings: {}, groupPropagatedMarkings: {}, orgPropagatedMarkings: {}, orgGroupPropagatedMarkings: {}, resultingCbacMarkings: [] };
+          return send(200, { markings: Object.fromEntries(ids.map((id) => [id, none])), inputsForTargets: Object.fromEntries(ids.map((id) => [id, { connectedOnBuilderGraph: [], inputsInheritedFromJobGrouping: [] }])) });
+        }
         if ((m = at(`/eddie/api/pipeline-backend-feature-flags/(${PR})`)) && req.method === "GET") return (await holds(m[1])) ? send(200, []) : notFound();
         if ((m = at(`/eddie/api/work-state/(${PR})/[0-9a-f-]{36}/v2`)) && req.method === "GET") { if (!(await holds(m[1]))) return notFound(); res.writeHead(204); return res.end(); }
         if ((m = at(`/eddie/api/pipelines-v2/(${PR})/sandboxes/[0-9a-f-]{36}/session-heartbeats`)) && req.method === "GET") return (await holds(m[1])) ? send(200, { heartbeats: {} }) : notFound();

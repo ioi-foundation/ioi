@@ -205,6 +205,49 @@ async function run() {
         && /Merging into Main from Add a dedupe step/u.test(proposalPage) && /is up to date with "Main"/u.test(proposalPage) && !/Failed to load proposal/u.test(proposalPage),
       `tab "${proposalsTab.slice(Math.max(0, proposalsTab.indexOf("Viewing")), Math.max(0, proposalsTab.indexOf("Viewing")) + 140)}" · page ${/Merging into Main/u.test(proposalPage)} · up to date ${/is up to date/u.test(proposalPage)}`);
 
+    // ---- History: Main's timeline is the family's revisions and its TransformationRuns; a change set's, its drafts --
+    // Two runs of revision 1: one queued (nothing executes a queued run, so it claims no deploy) and one completed.
+    const RUNS = "/v1/hypervisor/transformation-runs";
+    const rev1 = ((await daemonReq("GET", "/v1/hypervisor/data-recipe-revisions?family=acme.intake-normalise")).body?.revisions || [])[0]?.revision_ref;
+    const runBody = (key, extra) => w(key, { data_recipe_revision_ref: rev1, output_intent: "ontology_objects", execution_status: "completed", input_refs: ["artifact://acme/intake-forms/batch-2026-08"], authority_grant_refs: ["grant://acme-clinic/intake-read/2026-08"], output_object_refs: ["agentgres://object/patient_intake/2026-08-batch"], receipt_refs: ["receipt://acme-clinic/transformation/2026-08-batch"], derivative_policy_ref: "policy://acme-clinic/intake-derivatives", impact_graph_ref: "agentgres://projection/intake-impact", ...extra });
+    const queuedRun = await daemonReq("POST", RUNS, runBody("ap-run-queued", { execution_status: "queued" }));
+    const completedRun = await daemonReq("POST", RUNS, runBody("ap-run-completed", { expected_head: (await daemonReq("GET", `${RUNS}?family=acme.intake-normalise`)).body?.head }));
+    await pg.goto(`${SERVE}${editorUrl}`, { waitUntil: "domcontentloaded", timeout: 60000 });
+    await pg.waitForTimeout(12000);
+    await pg.getByText("Close", { exact: true }).first().click({ timeout: 1500 }).catch(() => { /* no announcement */ });
+    await pg.getByText("History", { exact: true }).first().click({ timeout: 5000 }).catch(() => { /* named below */ });
+    await pg.waitForTimeout(8000);
+    const history = (await pg.evaluate(() => document.body.innerText)).replace(/\s+/gu, " ");
+    await pg.getByRole("button", { name: "Toggle collapse deployment" }).first().click({ timeout: 3000 }).catch(() => { /* named below */ });
+    await pg.waitForTimeout(1500);
+    const historyOpen = (await pg.evaluate(() => document.body.innerText)).replace(/\s+/gu, " ");
+    const deployments = (history.match(/\bDeployment\b/gu) || []).length;
+    ok("the editor's History tab is the family's own timeline: the revision its change set merged (currently deployed, by its one completed run) and both runs — the completed one deployed its two declared outputs, the queued one claims no deploy",
+      queuedRun.status === 201 && completedRun.status === 201 && /Viewing version history for branch: Main/u.test(history) && /Merged proposal: Normalise intake/u.test(history)
+        && /Currently deployed/u.test(history) && deployments === 2 && /Deployed logic for 2 targets/u.test(historyOpen) && (historyOpen.match(/Deployed logic/gu) || []).length === 1
+        && !/Failed to load|No history found|An error (?:has )?occurred/u.test(history),
+      `runs ${queuedRun.status}/${completedRun.status} · ${history.slice(Math.max(0, history.indexOf("Viewing version")), Math.max(0, history.indexOf("Viewing version")) + 260)} · opened "Deployed logic" ×${(historyOpen.match(/Deployed logic/gu) || []).length}`);
+    // the successor change set's history: its one draft follows the head it was opened on, and "Compare with… →
+    // Previous saved version" diffs the draft against that revision (two versions of one sandbox's chain, asked
+    // under two aliases of one field)
+    const [, pipelineRidOfEditor] = /\/workspace\/builder\/(ri\.eddie\.main\.pipeline\.[0-9a-f-]{36})\//u.exec(editorUrl) || [];
+    const sandboxesAll = await serveJson("GET", `/eddie/api/pipelines-v2/${pipelineRidOfEditor}/sandboxes/get/all`);
+    const successorSandbox = (sandboxesAll.body?.sandboxes || []).find((x) => x.name === "Add a dedupe step")?.id;
+    await pg.goto(`${SERVE}/workspace/builder/${pipelineRidOfEditor}/history/${successorSandbox}`, { waitUntil: "domcontentloaded", timeout: 60000 });
+    await pg.waitForTimeout(12000);
+    const draftHistory = (await pg.evaluate(() => document.body.innerText)).replace(/\s+/gu, " ");
+    await pg.getByRole("button", { name: "Additional timeline event actions" }).first().click({ timeout: 3000 }).catch(() => { /* named below */ });
+    await pg.waitForTimeout(800);
+    await pg.getByText("Compare with", { exact: false }).first().hover({ timeout: 3000 }).catch(() => { /* named below */ });
+    await pg.waitForTimeout(800);
+    await pg.getByText("Previous saved version", { exact: false }).first().click({ timeout: 3000 }).catch(() => { /* named below */ });
+    await pg.waitForTimeout(10000);
+    const compare = (await pg.evaluate(() => document.body.innerText)).replace(/\s+/gu, " ");
+    ok("a change set's History is its drafts, and comparing its draft with the previous saved version diffs it against the revision it was opened on",
+      /Viewing version history for branch: Add a dedupe step/u.test(draftHistory) && !/Failed to load|No history found/u.test(draftHistory)
+        && /Viewing changes for update Draft 1/u.test(compare) && /Previous saved version/u.test(compare) && /Selected version/u.test(compare) && !/Failed to load|There are no versions preceding/u.test(compare),
+      `history "${draftHistory.slice(Math.max(0, draftHistory.indexOf("Viewing version")), Math.max(0, draftHistory.indexOf("Viewing version")) + 120)}" · compare "${compare.slice(Math.max(0, compare.indexOf("Viewing changes")), Math.max(0, compare.indexOf("Viewing changes")) + 160)}"`);
+
     // ---- Create, through the adopted form: the recipe registry is the one location; a founding change set --
     pg.on("request", (r) => { if (/\/eddie\/api\/pipelines-v2\/create/u.test(r.url())) { try { createBody = JSON.parse(r.postData() || "null"); } catch { /* not JSON */ } } });
     await pg.goto(`${SERVE}/workspace/builder/create-pipeline`, { waitUntil: "domcontentloaded", timeout: 60000 });
@@ -279,6 +322,29 @@ async function run() {
     openP.body?.proposals?.map((x) => x.details.name).join(",") === "Add a dedupe step" && mergedP.body?.proposals?.length === 1 && merged?.details?.name === "Normalise intake"
       && mergedInto.body?.details?.message === "Revision 1" && !openP.passthrough,
     `open ${JSON.stringify(openP.body?.proposals?.map((x) => x.details.name))} · merged ${merged?.details?.name} → ${mergedInto.body?.details?.message}`);
+  // History over the wire: the timeline filters by event type; the queued run carries no status (the app then says
+  // it did not run); the current deployment is the completed run's revision; the compare view's two aliases of
+  // `versionHistoryV2` answer differently (the latest version, and the selected one with its predecessor).
+  const bulkData = async (name, query, variables) => {
+    const text = await fetch(`${SERVE}/graphql-gateway/api/bulk?q=${name}`, { method: "POST", headers: { cookie: COOKIE, "content-type": "application/json" }, body: JSON.stringify({ operations: { 0: query }, requests: [{ hash: "0", name, variables }] }) }).then((r) => r.text()).catch(() => "");
+    try { return JSON.parse(text.split("\n").find((l) => l.startsWith("data:")).slice(5)).data; } catch { return null; }
+  };
+  const HVL = "query HistoryVersionListQuery($pipelineRid: RID!, $sandboxId: String!, $filter: EddieSandboxEventTimelineFilter!, $pageSize: Int!) { eddiePipeline(rid: $pipelineRid) { sandbox(sandboxId: $sandboxId) { currentDeployment { sandboxVersion { versionId } } eventTimeline(filter: $filter, pageSize: $pageSize) { values { __typename ... on EddieSandboxDeployment { status { __typename } sandboxVersion { versionId } } ... on EddieSandboxVersion { versionId } } } } } }";
+  const HVD = "query HistoryVersionDiffQuery($pipelineRid: RID!, $sandboxId: String!, $startVersionId: String) { eddiePipeline(rid: $pipelineRid) { sandbox(sandboxId: $sandboxId) { historyFromLatest: versionHistoryV2(limit: 1) { values { versionId commitMessage } } historyFromVersion: versionHistoryV2(limit: 2, startVersionId: $startVersionId) { values { versionId commitMessage } } backingBranchName } } }";
+  const intakeMain = details.find((p) => p.name === "intake-normalise")?.publishedSandboxes?.[0];
+  const deploys = (await bulkData("HistoryVersionListQuery", HVL, { pipelineRid: intakeRid, sandboxId: intakeMain, filter: { eventTypesToInclude: ["DEPLOYMENT"] }, pageSize: 20 }))?.eddiePipeline?.sandbox;
+  const versionsOnly = (await bulkData("HistoryVersionListQuery", HVL, { pipelineRid: intakeRid, sandboxId: intakeMain, filter: { eventTypesToInclude: ["VERSION"] }, pageSize: 20 }))?.eddiePipeline?.sandbox;
+  const successorBranch = ((await serveJson("GET", `/eddie/api/pipelines-v2/${intakeRid}/sandboxes/get/all`)).body?.sandboxes || []).find((x) => x.name === "Add a dedupe step");
+  const diffQ = (await bulkData("HistoryVersionDiffQuery", HVD, { pipelineRid: intakeRid, sandboxId: successorBranch?.id, startVersionId: successorBranch?.version }))?.eddiePipeline?.sandbox;
+  const statuses = (deploys?.eventTimeline?.values || []).map((v) => `${v.__typename}:${v.status?.__typename || "null"}`).join(",");
+  const rev1Version = merged?.status?.merged?.mergedVersionId;
+  const msgs = (page) => (page?.values || []).map((v) => v.commitMessage).join(",");
+  ok("History over the wire: deployments alone are the two runs, newest first — the completed one Succeeded, the queued one with no status; versions alone are the one revision; Main is currently deployed at revision 1; the compare view's two aliases answer the latest draft, and that draft with the revision it follows",
+    statuses === "EddieSandboxDeployment:EddieSandboxDeploymentStatus_Succeeded,EddieSandboxDeployment:null" && (deploys?.eventTimeline?.values || []).every((v) => v.sandboxVersion?.versionId === rev1Version)
+      && (versionsOnly?.eventTimeline?.values || []).map((v) => `${v.__typename}:${v.versionId === rev1Version}`).join(",") === "EddieSandboxVersion:true"
+      && deploys?.currentDeployment?.sandboxVersion?.versionId === rev1Version
+      && msgs(diffQ?.historyFromLatest) === "Draft 1" && msgs(diffQ?.historyFromVersion) === "Draft 1,Revision 1" && /^change:\/\//u.test(diffQ?.backingBranchName || ""),
+    `deployments [${statuses}] · versions ${(versionsOnly?.eventTimeline?.values || []).length} · current ${deploys?.currentDeployment?.sandboxVersion?.versionId === rev1Version} · latest [${msgs(diffQ?.historyFromLatest)}] · from version [${msgs(diffQ?.historyFromVersion)}] · branch ${diffQ?.backingBranchName}`);
   const intake = details.find((p) => p.name === "intake-normalise");
   const claims = details.find((p) => p.name === "claims-triage");
   const snaps = await serveJson("POST", "/eddie/api/pipelines-v2/get-sandboxes-with-snapshots", { requests: [intake, claims].filter(Boolean).map((p) => ({ pipelineRid: p.rid, sandboxId: p.publishedSandboxes[0] })) });

@@ -9,7 +9,8 @@
 // as ours. Lists without a fact are empty; other scalars are null.
 //
 // Supported subset (what the adopted apps send): queries, fields, aliases, arguments (ignored — the
-// facts are already scoped), directives (ignored), fragment spreads, inline fragments. No schema is
+// facts are already scoped; a field selected under several aliases may carry one fact per alias, keyed
+// `alias:field`), directives (ignored), fragment spreads, inline fragments. No schema is
 // known, so a fragment applies when its type condition equals the value's `__typename`, is one of the
 // value's declared `__implements`, or the value declares no typename.
 
@@ -118,8 +119,12 @@ function resolve(selections, value, template, doc, out = {}) {
     } else if (sel.kind === "inline") {
       if (applies(sel.type, value ?? template)) resolve(sel.selections, value, template, doc, out);
     } else {
-      const has = value && typeof value === "object" && Object.prototype.hasOwnProperty.call(value, sel.name);
-      const fact = has ? value[sel.name] : undefined;
+      // A field selected twice under two aliases with different arguments has one fact per alias, keyed
+      // `alias:field` (a colon is in no GraphQL name, so the key can collide with no field).
+      const own = (k) => value && typeof value === "object" && Object.prototype.hasOwnProperty.call(value, k);
+      const key = sel.alias !== sel.name && own(`${sel.alias}:${sel.name}`) ? `${sel.alias}:${sel.name}` : sel.name;
+      const has = own(key);
+      const fact = has ? value[key] : undefined;
       const tmpl = template && typeof template === "object" ? template[sel.alias] ?? template[sel.name] : undefined;
       if (sel.name === "__typename") { out[sel.alias] = (value && value.__typename) || (template && template.__typename) || null; continue; }
       if (!sel.selections) {

@@ -346,6 +346,14 @@ journey verifier → deploy to the owner's stack.
   name, as are initial datasets and a name whose family exists. `check:adopted-pipeline` 17/17. **Next
   (cut 2d):** the editor's writes as drafts to the change set (then Propose), Proposals / History, Deploy =
   merge + TransformationRun.
+- **Cut 2d, the reads — Proposals and History (2026-09-27).** Proposals are the family's change sets by
+  status (proposed → open, merged → merged with exact version ids, rejected / abandoned → closed); a proposal's
+  page diffs declared outputs and lists its events. History is the family's own timeline: revisions (a merged
+  change set's revision as a merged-proposal row) and TransformationRuns as deployments on Main, drafts on a
+  change set; a queued run claims no deploy, and "Currently deployed" is the latest completed run's revision.
+  Compare with… works over two aliases of one field (the resolver keys such facts `alias:field`).
+  `check:adopted-pipeline` 24/24. **Next:** Deploy (merge + admitting a TransformationRun), then the editor's
+  no-graph writes; graph edits wait on ADR 0057 (proposed).
 
 ### Arm A — the adopted apps are clicked (2026-09-27)
 
