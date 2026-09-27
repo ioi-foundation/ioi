@@ -493,7 +493,61 @@ pub(crate) async fn handle_change_set_validate(
     }
 }
 
-/// POST /v1/hypervisor/change-sets/:id/propose — ready for review: open → proposed.
+/// The proposal's own name and description, when the propose body carries them — validated exactly
+/// as open validates them. A field that is absent (or null) leaves the record's value unchanged; a
+/// present empty description clears it, stored as the empty string open stores for none.
+fn proposal_edits(body: &Value) -> Result<(Option<String>, Option<String>), Reply> {
+    let present = |key: &str| body.get(key).is_some_and(|value| !value.is_null());
+    let title = if present("title") {
+        let title = text(body, "title").to_string();
+        if title.is_empty() || title.chars().count() > 200 {
+            return Err(bad(
+                StatusCode::BAD_REQUEST,
+                "change_set_title_required",
+                "a change set has a title of at most 200 characters",
+            ));
+        }
+        Some(title)
+    } else {
+        None
+    };
+    let description = if present("description") {
+        let description = text(body, "description").to_string();
+        if description.chars().count() > 4000 {
+            return Err(bad(
+                StatusCode::BAD_REQUEST,
+                "change_set_description_too_long",
+                "a description is at most 4000 characters",
+            ));
+        }
+        Some(description)
+    } else {
+        None
+    };
+    Ok((title, description))
+}
+
+/// Mark the record proposed with the proposal's edits applied, and return the propose transition's
+/// facts naming only what changed.
+fn apply_proposal(record: &mut Value, title: Option<String>, description: Option<String>) -> Value {
+    let mut facts = json!({ "status": "proposed" });
+    if let Some(title) = title.filter(|title| record["title"].as_str() != Some(title.as_str())) {
+        record["title"] = json!(title);
+        facts["title"] = json!(title);
+    }
+    if let Some(description) = description
+        .filter(|description| record["description"].as_str() != Some(description.as_str()))
+    {
+        record["description"] = json!(description);
+        facts["description_changed"] = json!(true);
+    }
+    record["status"] = json!("proposed");
+    facts
+}
+
+/// POST /v1/hypervisor/change-sets/:id/propose — ready for review: open → proposed. The body may
+/// name the proposal (`title`) and describe it (`description`); either, when present, replaces the
+/// change set's own at the moment it is proposed.
 pub(crate) async fn handle_change_set_propose(
     State(st): State<Arc<DaemonState>>,
     headers: HeaderMap,
@@ -514,14 +568,18 @@ pub(crate) async fn handle_change_set_propose(
     if let Err(response) = latest_draft(&record) {
         return response;
     }
-    record["status"] = json!("proposed");
+    let (title, description) = match proposal_edits(&body) {
+        Ok(edits) => edits,
+        Err(response) => return response,
+    };
+    let facts = apply_proposal(&mut record, title, description);
     match transition(
         &st,
         &caller,
         &id,
         &head,
         "change_set.propose",
-        json!({ "status": "proposed" }),
+        facts,
         record,
     ) {
         Ok((commit, record)) => reply(StatusCode::OK, &commit, &record),
@@ -914,5 +972,85 @@ mod tests {
             );
         }
         assert!(pinned_draft("acme.orders", &json!(["not", "an", "object"])).is_err());
+    }
+
+    fn refusal_code(
+        result: Result<(Option<String>, Option<String>), Reply>,
+    ) -> (StatusCode, String) {
+        let (status, Json(body)) = result.expect_err("refused");
+        (
+            status,
+            body["error"]["code"].as_str().unwrap_or("").to_string(),
+        )
+    }
+
+    #[test]
+    fn a_proposal_names_itself_validated_as_open_validates() {
+        assert_eq!(proposal_edits(&json!({})).unwrap(), (None, None));
+        assert_eq!(
+            proposal_edits(&json!({ "title": null, "description": null })).unwrap(),
+            (None, None)
+        );
+        assert_eq!(
+            proposal_edits(&json!({ "title": "  Add dedupe  ", "description": "" })).unwrap(),
+            (Some("Add dedupe".to_string()), Some(String::new()))
+        );
+        assert!(proposal_edits(&json!({ "title": "t".repeat(200) })).is_ok());
+        for title in [json!("t".repeat(201)), json!("   "), json!(""), json!(7)] {
+            assert_eq!(
+                refusal_code(proposal_edits(&json!({ "title": title }))),
+                (
+                    StatusCode::BAD_REQUEST,
+                    "change_set_title_required".to_string()
+                )
+            );
+        }
+        assert!(proposal_edits(&json!({ "description": "d".repeat(4000) })).is_ok());
+        assert_eq!(
+            refusal_code(proposal_edits(&json!({ "description": "d".repeat(4001) }))),
+            (
+                StatusCode::BAD_REQUEST,
+                "change_set_description_too_long".to_string()
+            )
+        );
+    }
+
+    #[test]
+    fn a_proposal_records_only_what_changed() {
+        let base = json!({ "title": "Normalise intake", "description": "first", "status": "open" });
+
+        let mut record = base.clone();
+        assert_eq!(
+            apply_proposal(&mut record, None, None),
+            json!({ "status": "proposed" })
+        );
+        assert_eq!(record["title"], "Normalise intake");
+        assert_eq!(record["description"], "first");
+        assert_eq!(record["status"], "proposed");
+
+        let mut record = base.clone();
+        let facts = apply_proposal(
+            &mut record,
+            Some("Add dedupe".into()),
+            Some("why it matters".into()),
+        );
+        assert_eq!(
+            facts,
+            json!({ "status": "proposed", "title": "Add dedupe", "description_changed": true })
+        );
+        assert_eq!(record["title"], "Add dedupe");
+        assert_eq!(record["description"], "why it matters");
+
+        let mut record = base.clone();
+        let facts = apply_proposal(
+            &mut record,
+            Some("Normalise intake".into()),
+            Some(String::new()),
+        );
+        assert_eq!(
+            facts,
+            json!({ "status": "proposed", "description_changed": true })
+        );
+        assert_eq!(record["description"], "");
     }
 }

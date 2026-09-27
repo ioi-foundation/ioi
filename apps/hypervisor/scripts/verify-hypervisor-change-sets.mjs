@@ -9,8 +9,10 @@
 // records a BranchMergePlan; two successors pinned to revision 1 race and the second is refused because
 // the head moved (never silently rebased); a rejection needs a note, an abandoned change set takes no
 // more drafts; a draft cannot carry the fields its merge supplies; the list and the detail read back,
-// the detail with its plan; and an anonymous caller is refused. Every record the daemon returns is
-// re-validated HERE against its registered schema.
+// the detail with its plan; and an anonymous caller is refused. A proposal carries its own name and
+// description: propose sets both, a propose naming neither keeps the ones the change set was opened
+// with, and a proposal title over 200 characters is refused by name with the change set left open.
+// Every record the daemon returns is re-validated HERE against its registered schema.
 //
 // Exit: 0 pass · 1 fail · 2 blocked (daemon binary missing).
 //
@@ -161,6 +163,33 @@ async function run() {
   ok("the family's change sets list back, one opens with its merge plan, and an anonymous caller is refused",
     list.j.change_sets?.length === 3 && detail.j.branch_merge_plan?.branch_merge_ref === merged.j.change_set?.merge?.branch_merge_plan_ref && anonymous === 401,
     `list ${list.j.change_sets?.length} · plan ${detail.j.branch_merge_plan?.status} · anonymous ${anonymous}`);
+
+  // ---- 6. a proposal carries its own name and description (the Pipeline Builder's "Create proposal")
+  const NAMED = "acme.proposal-named";
+  const openNamed = (key, title) => req("POST", "/v1/hypervisor/change-sets", w(key, { subject: { kind: "data_recipe", family: NAMED }, title, description: "the description it was opened with", draft: draft({ name: "proposal-named" }) }));
+  const named = await openNamed("cs-open-named", "Untitled proposal");
+  const idNamed = idOf(named);
+  const proposedNamed = await req("POST", `/v1/hypervisor/change-sets/${idNamed}/propose`, w("cs-propose-named", { title: "Add a dedupe step", description: "Dedupe rows before mapping them to patients." }));
+  const readNamed = await req("GET", `/v1/hypervisor/change-sets/${idNamed}`);
+  ok("proposing with a title and a description sets both on the change set, and the read-back shows them on a record that satisfies its contract",
+    proposedNamed.status === 200 && readNamed.j.change_set?.status === "proposed" && readNamed.j.change_set?.title === "Add a dedupe step"
+      && readNamed.j.change_set?.description === "Dedupe rows before mapping them to patients." && validChangeSet(readNamed.j.change_set),
+    `${proposedNamed.status} ${proposedNamed.j.error?.code ?? ""} · ${readNamed.j.change_set?.status} "${readNamed.j.change_set?.title}" · ${schemaErrors(validChangeSet)}`);
+  const kept = await openNamed("cs-open-kept", "Keep this title");
+  const idKept = idOf(kept);
+  const proposedKept = await req("POST", `/v1/hypervisor/change-sets/${idKept}/propose`, w("cs-propose-kept"));
+  const readKept = await req("GET", `/v1/hypervisor/change-sets/${idKept}`);
+  ok("proposing with no title or description keeps the ones the change set was opened with",
+    proposedKept.status === 200 && readKept.j.change_set?.status === "proposed" && readKept.j.change_set?.title === "Keep this title"
+      && readKept.j.change_set?.description === "the description it was opened with",
+    `${proposedKept.status} · ${readKept.j.change_set?.status} "${readKept.j.change_set?.title}" · "${readKept.j.change_set?.description}"`);
+  const long = await openNamed("cs-open-long", "Still open");
+  const idLong = idOf(long);
+  const proposedLong = await req("POST", `/v1/hypervisor/change-sets/${idLong}/propose`, w("cs-propose-long", { title: "t".repeat(201) }));
+  const readLong = await req("GET", `/v1/hypervisor/change-sets/${idLong}`);
+  ok("a proposal title over 200 characters is refused change_set_title_required, and the change set stays open under its old title",
+    proposedLong.status === 400 && proposedLong.j.error?.code === "change_set_title_required" && readLong.j.change_set?.status === "open" && readLong.j.change_set?.title === "Still open",
+    `${proposedLong.status} ${proposedLong.j.error?.code} · ${readLong.j.change_set?.status} "${readLong.j.change_set?.title}"`);
 }
 
 run().then(() => {
