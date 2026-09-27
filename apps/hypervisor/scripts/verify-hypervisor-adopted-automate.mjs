@@ -420,6 +420,27 @@ async function run() {
       after.length === before + 1 && after[0]?.activation_kind === "manual" && /Execution history/u.test(executeText) && !broken(executeText)
         && /Manual execution/u.test(historyText) && !broken(historyText) && telemetryText.includes(`${after.length} executions`) && !broken(telemetryText),
       `${tabNotes.join(" ")} runs ${before} → ${after.length} (${after[0]?.activation_kind}) · history ${/Manual execution/u.test(historyText)} · telemetry "${(telemetryText.match(/\d+ executions/u) || ["none"])[0]}" · broken ${[executeText, historyText, telemetryText].map(broken).join("/")}`);
+
+    // ---- 7. The header: File → Rename renames the automation (UpdateResourceName → PATCH name), and the
+    // Metadata card's Location names its project (never a bare folder id).
+    await pg.goto(`${SERVE}/automations?automation=${made.automation_id}`, { waitUntil: "domcontentloaded" });
+    await pg.waitForTimeout(8000);
+    const locationRow = ((await pg.evaluate(() => document.body.innerText)).replace(/\s+/g, " ").match(/Location (.{0,40}?) Automation RID/u) || [])[1] || "";
+    let renameNote = "";
+    try {
+      await pg.getByText("File", { exact: true }).first().click({ timeout: 8000 });
+      await pg.waitForTimeout(1200);
+      await pg.locator("[role=menuitem], .bp6-menu-item").filter({ hasText: /^Rename$/u }).first().click({ timeout: 8000 });
+      await pg.waitForTimeout(1200);
+      await pg.keyboard.press("Control+A");
+      await pg.keyboard.type(`auto-${tag}-header`);
+      await pg.keyboard.press("Enter");
+      await pg.waitForTimeout(4000);
+    } catch (e) { renameNote = `stopped: ${String(e.message).split("\n")[0].slice(0, 120)}`; }
+    const headerRenamed = ((await daemonRead("/v1/hypervisor/automations")).body?.automations || []).find((a) => a.automation_id === made.automation_id) || {};
+    ok("the header's File → Rename renames the automation in the daemon, and the Metadata card's Location names its project",
+      headerRenamed.name === `auto-${tag}-header` && locationRow.includes(`proj-${tag}`) && !/ri\.compass/u.test(locationRow),
+      `${renameNote} name ${headerRenamed.name} · location "${locationRow}"`);
   } finally {
     await browser.close();
   }

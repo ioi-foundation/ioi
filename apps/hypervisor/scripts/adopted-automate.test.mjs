@@ -216,3 +216,9 @@ test("telemetry counts an automation's runs, errors and runtime in each bucket",
   const hourly = AUTOMATE.telemetryFactsRoot(runs, { fromTimestamp: "2026-09-27T00:00:00Z", toTimestamp: "2026-09-27T04:00:00Z", bucketInterval: "HOUR" }, "GetTelemetry").objectSetMonitorAggregateTelemetry.bucketedTelemetry;
   assert.deepEqual(hourly.map((b) => b.data.numRuns), [0, 2, 0, 1]);
 });
+
+test("an operation with no Hypervisor plane is refused by name, never answered from the recording", () => {
+  const answer = AUTOMATE.refusedAnswer("ResourceTitleContainerFavoriteMutation");
+  assert.equal(answer.data, null);
+  assert.match(answer.errors[0].message, /Favorites are not kept by the Hypervisor/);
+});

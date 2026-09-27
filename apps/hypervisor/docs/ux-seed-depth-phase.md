@@ -268,11 +268,15 @@ journey verifier → deploy to the owner's stack.
   `activation_kind`), **Execute** is the automation's Run now (the effect picker; a selection of only some
   effects is refused, since a run executes every step), and **Telemetry** counts its executions (runs,
   failures, runtime; the run history is one request log per execution). Two mirror feeds were needed: the
-  telemetry chunk and five stylesheets it loads. *Still open (named):* the Agent effect's title reads "Unknown Agent"
+  telemetry chunk and five stylesheets it loads. The header's File → Rename renames the automation
+  (`UpdateResourceName`), and the Metadata card's Location names the project (it showed a bare folder id).
+  Favorite has no Hypervisor plane: it is refused by name, but the app shows no message. Move, Share and
+  Move to trash are disabled — an automation stays in its project and has no sharing or trash.
+  *Still open (named):* the Agent effect's title reads "Unknown Agent"
   (no agent definition bound); command and proposal steps have no reference effect to name them; the
   editor lists a manual automation's condition as Time; the refusal reason shows only as a tooltip;
-  the header rename has no live proof yet; History's Edits filter lists nothing (no per-automation edit
-  history is kept).
+  History's Edits filter lists nothing (no per-automation edit history is kept); Favorite is refused
+  silently; File → Open automation… is undriven.
 - **Adoption steps:** (1) vendor the booted app — `index.html` + its 34 content-addressed assets,
   18.5 MB, the same scale as the tracked Ona tree — into a quarantined harvested lane in the owned tree;
   (2) serve it at the Automate canonical route, its asset and API paths answered by the serve (assets

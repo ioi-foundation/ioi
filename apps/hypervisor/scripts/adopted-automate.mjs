@@ -262,6 +262,10 @@ export function graphqlAnswer(name, variables, ctx) {
     case "GetCompassResource": {
       const rid = variables?.rid || variables?.resourceRid || "";
       const a = autos.find((x) => monitorRidOf(x.automation_id) === rid);
+      // An automation's location (the Metadata card's Location row) is one of the caller's projects:
+      // the same folder entity the save picker and the editor describe.
+      const project = a ? null : (ctx.projects || []).find((p) => folderRidOf(p.project_id) === rid);
+      if (project) return Q({ resourceMetadata: projectFolderNode(project) });
       return Q({ resourceMetadata: a ? { rid, collections: [], status: null, trashedStatus: "NOT_TRASHED", type: { iconName: "lightning", __typename: "ResourceType" }, alias: a.name || a.automation_id, name: a.name || a.automation_id, openUrl: `/workspace/object-monitoring/automation/${rid}/main/view/overview`, permissions: { canOpenLink: true, __typename: "ResourcePermissions" }, _id: cacheId(`meta:${rid}`), __typename: "ResourceMetadata" } : null });
     }
     case "AutomationTriggeredEventPillQuery": {
@@ -376,7 +380,7 @@ export const FACT_OPERATIONS = new Set([
   "AutomationLiveStatusQuery", "AutomationStatusControlQuery", "AutomationMonitoringRulesCardQuery",
   "AutomationDependenciesQuery", "ExpiryDateProjectQuery", "GetLiveStatusForNonVersionedObjectSet",
   // the edit wizard's summary: the automation's resource, its location and whether it may be edited
-  "DocumentTitleQuery", "GetExistingAutomationResource", "CanEditAutomationQuery",
+  "DocumentTitleQuery", "GetExistingAutomationResource", "CanEditAutomationQuery", "CanEditCompassResourceForAutomation",
   // the History and Execute tabs: the automation's runs as its events, and the effects a run executes
   "EventsTableQuery", "ManualExecutionEventsQuery", "ExecutableEffectsPublishedEffectsQuery", "EventDetailsV2Query",
   // Telemetry's run history names the resource that produced each run
@@ -412,7 +416,9 @@ export function factsRoot(a, runs, principal, functionInfo = null, projects = []
     ancestors: [{ __typename: "ResourceMetadata", name: "All files", rid: "ri.compass.main.folder.0", _id: cacheId("folder:0") }, folder],
     urlVariables: [{ __typename: "UrlVariable", key: "compass:isProject", value: "false" }],
     type: { __typename: "ResourceTypeMetadata", iconName: "pt-svg-icon-automation" },
-    permissions: { __typename: "ResourceMetadataPermissions", canEditAutomation: true, canShare: false, canShareLink: false, canTrash: false, canEditTags: false, canEditMetadata: false, canMoveBetweenProjects: false, canMoveWithinProject: false, canRestore: false, canOpenLink: true, canCreateIssue: false },
+    // The caller may edit their automation and its name and description (each a PATCH); sharing, tags,
+    // trash and moving between projects have no Hypervisor counterpart, so the app disables them.
+    permissions: { __typename: "ResourceMetadataPermissions", canEditAutomation: true, canShare: false, canShareLink: false, canTrash: false, canEditTags: false, canEditMetadata: true, canMoveBetweenProjects: false, canMoveWithinProject: false, canRestore: false, canOpenLink: true, canCreateIssue: false },
     project: { __typename: "Project", userProjectOwner: null },
   };
   // A manual or webhook automation has NO condition in the reference's vocabulary (its manual
@@ -750,22 +756,34 @@ export function automationRenameFromCompassUpdate(existing, asked = {}) {
 // (UpdateResourceDescription), the name (RenameResource) and pause / resume (REST
 // `POST /registry/v0/disable/<rid> {disable}`). `mutationPatch` translates; `mutationAnswer` is the
 // app's answer once the PATCH lands (same cache ids as the facts, so the page updates in place).
-export const MUTATION_OPERATIONS = new Set(["UpdateResourceDescription", "RenameResource"]);
+export const MUTATION_OPERATIONS = new Set(["UpdateResourceDescription", "RenameResource", "UpdateResourceName"]);
 export function mutationPatch(name, variables, existing) {
   if (name === "UpdateResourceDescription") {
     const description = String(variables?.newDescription ?? "");
     if (description.length > 4000) return { issue: "an automation's description is at most 4000 characters" };
     return { patch: description === (existing.description || "") ? null : { description } };
   }
-  if (name === "RenameResource") return automationRenameFromCompassUpdate(existing, { name: variables?.newName });
+  if (name === "RenameResource" || name === "UpdateResourceName") return automationRenameFromCompassUpdate(existing, { name: variables?.newName });
   return { issue: `${name} is not an automation write the Hypervisor carries` };
 }
 export function mutationAnswer(name, a) {
   const rid = monitorRidOf(a.automation_id);
   if (name === "UpdateResourceDescription") return { setResourceDescription: { __typename: "ResourceMetadata", _id: cacheId(`meta:${rid}`), description: a.description || "" } };
-  if (name === "RenameResource") return { renameResource: { __typename: "RenameResourceResponse", error: null } };
+  if (name === "RenameResource" || name === "UpdateResourceName") {
+    const resource = {
+      __typename: "ResourceMetadata", _id: cacheId(`meta:${rid}`), name: a.name || a.automation_id, path: `/${a.project_id || "unfiled"}/${a.name || a.automation_id}`,
+      modified: { __typename: "Attribution", time: iso(a.updated_at || a.created_at), user: { __typename: "User", _id: cacheId(`user:${a.acting_principal_ref || ""}`), id: userIdOf(a.acting_principal_ref || "") } },
+    };
+    return { renameResource: { __typename: "RenameResourceResponse", error: null, resource } };
+  }
   return null;
 }
+// Operations the Hypervisor has no plane for, refused BY NAME (the operation's GraphQL error carries the
+// reason) — never left as an unbound gap, never answered from the recorded tenant.
+export const REFUSED_OPERATIONS = new Map([
+  ["ResourceTitleContainerFavoriteMutation", "Favorites are not kept by the Hypervisor yet — nothing was favorited"],
+]);
+export const refusedAnswer = (name) => ({ data: null, errors: [{ message: REFUSED_OPERATIONS.get(name) }] });
 export const pausePatchOf = (request) => (typeof request?.disable === "boolean" ? { patch: { enabled: !request.disable } } : { issue: "pause or resume: `disable` must be true or false" });
 
 // The compass resource of one automation (the monitor the wizard just created), under its project.

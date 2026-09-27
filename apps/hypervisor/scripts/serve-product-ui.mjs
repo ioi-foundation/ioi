@@ -9236,6 +9236,7 @@ async function handleEstateRequest(req, res, body) {
           const template = AUTOMATE.harvestOperations(ADOPT_MIRROR_DIR).get(name)?.data || null;
           return { data: answerAdoptedDocument(query, await adoptedFunctionFacts(variables || {}), template, name) };
         }
+        if (AUTOMATE.REFUSED_OPERATIONS.has(name)) return AUTOMATE.refusedAnswer(name);
         if (AUTOMATE.PRINCIPAL_OPERATIONS.has(name) && query) return { data: answerAdoptedDocument(query, AUTOMATE.principalFactsRoot(variables || {}), null, name) };
         if (AUTOMATE.REQUEST_LOG_OPERATIONS.has(name) && query) {
           const a = (ctxA.automations || []).find((x) => AUTOMATE.monitorRidOf(x.automation_id) === variables?.producingRid);
