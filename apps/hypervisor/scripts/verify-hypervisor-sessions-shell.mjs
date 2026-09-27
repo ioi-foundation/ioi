@@ -182,6 +182,17 @@ async function run() {
       submitEnabled && created.length === 1 && createdEnv?.spec?.project_id === project && /\/details\//u.test(pg.url()),
       `submit enabled ${submitEnabled} · created ${created.length} · project ${createdEnv?.spec?.project_id} (want ${project}) · at ${pg.url().replace(SERVE, "")}`);
 
+    // ---- the list follows the daemon: a deleted session leaves the open list without a reload (WatchEvents) ---
+    await pg.goto(`${SERVE}/ai`, { waitUntil: "domcontentloaded", timeout: 60000 });
+    await pg.waitForTimeout(8000);
+    const listed = async () => (await pg.evaluate(() => [...document.querySelectorAll("a[href]")].map((a) => a.getAttribute("href")))).some((h) => h && h.includes(STOPPED));
+    const wasListed = await listed();
+    const deleted = await api("EnvironmentService/DeleteEnvironment", { environmentId: STOPPED });
+    let left = false;
+    for (let i = 0; i < 15 && !left; i++) { await pg.waitForTimeout(1000); left = !(await listed()); }
+    ok("the open session list follows the daemon: a deleted session leaves it within seconds, without a reload (the change stream had ended at once with no event)",
+      wasListed && deleted.status === 200 && left, `listed before ${wasListed} · delete ${deleted.status} · gone ${left}`);
+
     // ---- personal settings: a named gap, not a blank page ---------------------------------------------------
     await pg.goto(`${SERVE}/settings/preferences`, { waitUntil: "domcontentloaded", timeout: 60000 });
     await pg.waitForTimeout(6000);

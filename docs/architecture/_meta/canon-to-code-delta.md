@@ -1375,6 +1375,13 @@ landed. Correct every copy, or the ones left behind go on reading as evidence.
 | **Two readings made deliberately, both recorded.** "Delete" means ARCHIVE — there is no DELETE verb on a memory entry, and reading the acceptance literally would have invented one. And skills and affinities keep their direct verbs, because the unit's scope is the memory-entry and memory-mutation owners. | the verifier's nonclaims | recorded |
 | **The census caught the cut adding a production writer, and the buckets are what mattered.** `check:ontology-admission-census` went red on the writer-call population. The FAMILY writer bucket (57), family mentions (285), the non-ODK literal bucket (243) and raw filesystem calls (234) were all unchanged; only the runtime-parameter bucket moved, by exactly the two added calls, both writing a LITERAL family. Had the family bucket moved it would have meant a new admitter. Re-pinned with that reasoning beside the numbers. | `check:ontology-admission-census` 27/27 | repaired |
 
+### Journey verification CCVIII (2026-09-27, R-240 Arm A on Sessions — the list follows the daemon)
+
+| Delta | Evidence | Disposition |
+|---|---|---|
+| **The session list never learned that anything changed.** The shell refreshes an environment, and the list, only when `EventService/WatchEvents` says it changed. The stream ended at once with no event. A deleted session stayed on "Stopping…" and an archived one stayed in the active list until a reload; the shell just kept reconnecting. The stream now snapshots the caller's environments and polls the daemon every few seconds under the caller's own identity. It emits CREATE / UPDATE / DELETE events for ENVIRONMENT, and only for changes that actually happened. It ends after a minute and the shell reconnects. | `check:sessions-shell` 12/12; the list assertion is red ("gone false") with the immediate-end stream restored | **fixed** |
+| **The Add data gap names its real dependency.** Add data places an input node on the builder's graph. A DataRecipe revision holds no graph until ADR 0057 is decided, and a recipe reads its sources through connector-mapping revisions. The named read in the propagation gate and the seed-depth reason now say so. | `53c630e06` | **named** |
+
 ### Journey verification CCVII (2026-09-27, R-240 Arm A cross-surface — an ODK recipe becomes a pipeline)
 
 | Delta | Evidence | Disposition |

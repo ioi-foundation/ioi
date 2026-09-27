@@ -17101,11 +17101,42 @@ async function handleEstateRequest(req, res, body) {
       }
       return;
     }
-    // EventService/WatchEvents is a Connect stream — own it here (UI polls via List*; real push is a
-    // follow-up). Emitting the end-stream frame keeps it adapter-owned (no mock fallthrough).
+    // EventService/WatchEvents: the shell refreshes an environment — and the session list — only when this stream says
+    // it changed. It used to end at once with no event, so a deleted or archived session stayed on "Stopping…" until a
+    // reload (R-240 Arm A on Sessions). The stream now snapshots the caller's environments, polls the daemon every few
+    // seconds under the caller's own identity, and emits CREATE (1) / UPDATE (2) / DELETE (3) for ENVIRONMENT (1) events
+    // that actually happened; it ends after a minute and the shell reconnects. Nothing is invented: no change, no event.
     if (pathname === "/api/ioi.v1.EventService/WatchEvents") {
+      let scope = {};
+      try { scope = JSON.parse(body.toString("utf8") || "{}").scope || {}; } catch { /* the organization */ }
+      const onlyEnv = scope.environmentId || null;
+      const snapshot = async () => {
+        const r = await daemonFetch("/v1/hypervisor/environments", { req }).then((x) => (x.ok ? x.json() : null)).catch(() => null);
+        if (!r) return null;
+        const m = new Map();
+        for (const e of r.environments || []) if (!onlyEnv || e.id === onlyEnv) m.set(e.id, e.status?.deleted || e.status?.phase === "deleted" ? null : `${e.status?.phase}|${e.updated_at}`);
+        return m;
+      };
       res.writeHead(200, { "Content-Type": "application/connect+json" });
-      res.end(connectEndStreamFrame({}));
+      let closed = false;
+      req.on("close", () => { closed = true; });
+      let prior = await snapshot();
+      const started = Date.now();
+      while (!closed && Date.now() - started < 60000) {
+        await new Promise((r) => setTimeout(r, 3000));
+        if (closed) break;
+        const now = await snapshot();
+        if (!now || !prior) { prior = now || prior; continue; }
+        for (const [id, sig] of now) {
+          const was = prior.get(id);
+          if (sig === null && was !== null && was !== undefined) res.write(connectMessageFrame({ resourceType: 1, operation: 3, resourceId: id }));
+          else if (sig !== null && was === undefined) res.write(connectMessageFrame({ resourceType: 1, operation: 1, resourceId: id }));
+          else if (sig !== null && sig !== was) res.write(connectMessageFrame({ resourceType: 1, operation: 2, resourceId: id }));
+        }
+        for (const id of prior.keys()) if (!now.has(id) && prior.get(id) !== null) res.write(connectMessageFrame({ resourceType: 1, operation: 3, resourceId: id }));
+        prior = now;
+      }
+      if (!closed) res.end(connectEndStreamFrame({}));
       return;
     }
     if (pathname.startsWith("/api/")) {
