@@ -1375,6 +1375,15 @@ landed. Correct every copy, or the ones left behind go on reading as evidence.
 | **Two readings made deliberately, both recorded.** "Delete" means ARCHIVE — there is no DELETE verb on a memory entry, and reading the acceptance literally would have invented one. And skills and affinities keep their direct verbs, because the unit's scope is the memory-entry and memory-mutation owners. | the verifier's nonclaims | recorded |
 | **The census caught the cut adding a production writer, and the buckets are what mattered.** `check:ontology-admission-census` went red on the writer-call population. The FAMILY writer bucket (57), family mentions (285), the non-ODK literal bucket (243) and raw filesystem calls (234) were all unchanged; only the runtime-parameter bucket moved, by exactly the two added calls, both writing a LITERAL family. Had the family bucket moved it would have meant a new admitter. Re-pinned with that reasoning beside the numbers. | `check:ontology-admission-census` 27/27 | repaired |
 
+### Journey verification CXCII (2026-09-27, R-241 — Automations opens the adopted Automate app under our rail)
+
+| Delta | Evidence | Disposition |
+|---|---|---|
+| **The adopted app is the Automations surface where it can boot.** With the owner's opt-in (`IOI_ADOPTED_SURFACES=1`) and the local mirror able to serve it, `/automations` opens the adopted reference Automate app over Hypervisor truth and `?automation=<id>` opens that automation's page; otherwise the owned Automate surface serves, so gates' own serves keep one deterministic posture. The app's own base path is served as the seed, so its pushed URLs reload in place — deep links used to bounce to Overview. | `check:adopted-automate` 9/9 | **built** |
+| **No reference chrome.** The reference's global sidebar (its logo, its navigation to routes we do not serve) never shows on the adopted product surface: at top level our rail stands in its 230px column, framed by the shell neither does. | same | **built** |
+| **Effects reshape.** An automation's function steps appear as the reference's Function effects — in the registry's conjure record (`triggerEffects`) and in the detail page's GraphQL (`mergedEffects`: function, version, typed static inputs); command and agent steps have no reference effect and are not shown as one. | `test:adopted-seeds` 7/7 | **built** |
+| **Signed out is just sign-in, on adopted lanes too.** `/__apps/*` pages were exempt from the sign-in gate; they now redirect a signed-out navigation to sign-in like every product page (API calls keep their own typed refusals). | the route drive; `test:product-shell-auth` | **fixed** |
+
 ### Journey verification CXCI (2026-09-27, R-241 — the adopted Automate wizard creates a Hypervisor automation that runs a function)
 
 | Delta | Evidence | Disposition |

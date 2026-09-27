@@ -226,6 +226,16 @@ journey verifier → deploy to the owner's stack.
     effects, a second cron expression, dynamic function inputs. *Not enforced (named):* the wizard's
     expiry date and its retry settings. The resolver fix that made this possible — GraphQL merges every
     selection of one response key — also applies to the detail page's reads.
+- **Automations opens the adopted app (2026-09-27; `check:adopted-automate` 9/9).** With
+  `IOI_ADOPTED_SURFACES=1` (the owner's serves) and the local mirror able to boot it, `/automations` opens
+  the adopted Automate app; `?automation=<id>` opens that automation's own page. The app's own base path
+  (`/workspace/object-monitoring/…`, which its router pushes) is served as the seed, so reloads and deep
+  links land in place (they used to bounce to Overview). The reference's global sidebar never shows: at
+  top level OUR rail stands in its column (our routes, the caller's account chip); framed by the shell,
+  neither shows. A function step now appears as the reference's Function effect — in the registry record
+  and on the detail page's Automation flow (function, version, inputs). Without the opt-in or the mirror,
+  `/automations` keeps the owned Automate surface, so every gate's own serve keeps one posture. `/__apps/*`
+  now requires sign-in like every other product page.
 - **Adoption steps:** (1) vendor the booted app — `index.html` + its 34 content-addressed assets,
   18.5 MB, the same scale as the tracked Ona tree — into a quarantined harvested lane in the owned tree;
   (2) serve it at the Automate canonical route, its asset and API paths answered by the serve (assets

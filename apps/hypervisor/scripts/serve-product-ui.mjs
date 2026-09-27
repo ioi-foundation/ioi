@@ -245,6 +245,22 @@ const AUG_TAG = '<script src="/ioi-augmentation.js" defer></script>';
 // sessions saying sign in to see, it should just be login"): where it does, a session that lapses while
 // the shell is open goes to sign-in instead of drawing a signed-out shell. A serve started with
 // IOI_PRODUCT_SIGNIN_REQUIRED=0 — the one automation browses anonymously — keeps its signed-out states.
+// An adopted app's OWN base path (its router pushes these URLs) serves the same seed, so a reload or a
+// deep link lands where the app expects; the /__apps/<slug> lane stays the development entry.
+const ADOPTED_ROUTE_ALIASES = [["/workspace/object-monitoring", "monitors"]];
+// Whether the local reference mirror can boot a seed right now (R-241: adopted bundles live in the
+// local mirror only). Cached briefly; a canonical route opens the adopted app only when it can boot.
+const adoptedSeedCache = new Map();
+async function adoptedSeedAvailable(basePath) {
+  const hit = adoptedSeedCache.get(basePath);
+  if (hit && Date.now() - hit.at < 30000) return hit.ok;
+  const capture = process.env.IOI_HARVEST_CAPTURE_URL || process.env.IOI_HARVEST_MIRROR_URL || "http://127.0.0.1:9225";
+  const ok = await fetch(`${capture}${basePath}`, { signal: AbortSignal.timeout(1500) }).then((r) => r.ok).catch(() => false);
+  adoptedSeedCache.set(basePath, { ok, at: Date.now() });
+  return ok;
+}
+// Adopted reference apps framed by the shell hide the reference's global sidebar (see the /__apps lane).
+const ADOPTED_EMBED_TAG = `<script>try{if(window.top!==window.self)document.documentElement.classList.add("ioi-embedded")}catch(e){document.documentElement.classList.add("ioi-embedded")}</script><style>.ioi-embedded [class*="shell-application__sidebar__"],.ioi-embedded #workspace-sidebar{display:none!important}</style>`;
 const FEATURE_FLAG_TAG = `<script>try{localStorage.setItem("feature_flag_supervisor_watch_enabled","true");localStorage.setItem("feature_flag_onaAIEnabled","true")}catch(e){}window.__IOI_SIGNIN_REQUIRED=${process.env.IOI_PRODUCT_SIGNIN_REQUIRED !== "0"};</script>`;
 // Only inject into a real HTML document (one with a </body>). The productUi mislabels some JSON
 // endpoints (/segment/*, /changelog/*) as text/html; appending the tag to those corrupts the
@@ -8779,7 +8795,7 @@ async function runSurfaceAction(hit, res, body) {
 // Automation that browses the product without an account opts out explicitly:
 // IOI_PRODUCT_SIGNIN_REQUIRED=0.
 const SIGNIN_REQUIRED = process.env.IOI_PRODUCT_SIGNIN_REQUIRED !== "0";
-const SIGNIN_PUBLIC = /^\/(?:__ioi\/(?:login|logout|bootstrap|join-organization|help|assets)(?:[/?]|$)|join-organization(?:[/?]|$)|auth\/|changelog(?:[/?]|$)|api\/|v1\/|scim\/|static\/|releases\/|__apps\/|ioi-augmentation\.js$)/u;
+const SIGNIN_PUBLIC = /^\/(?:__ioi\/(?:login|logout|bootstrap|join-organization|help|assets)(?:[/?]|$)|join-organization(?:[/?]|$)|auth\/|changelog(?:[/?]|$)|api\/|v1\/|scim\/|static\/|releases\/|ioi-augmentation\.js$)/u;
 async function signInGate(req, res, pathname) {
   if (!SIGNIN_REQUIRED || req.method !== "GET") return false;
   if (!String(req.headers.accept || "").includes("text/html")) return false;
@@ -8890,6 +8906,16 @@ async function handleEstateRequest(req, res, body) {
       return;
     }
     const GRE2_TRANSFERS = { "/automations": "/__ioi/automations/monitors", "/evaluations": "/__ioi/evaluations/evalsuites", "/foundry": "/__ioi/foundry/models", "/provenance": "/__ioi/lineage", "/improvement": "/__ioi/improvement/changes", "/governance": "/__ioi/governance/approvals" };
+    // R-241: Automations opens the ADOPTED Automate app (the reference app over Hypervisor truth) when the
+    // local mirror can boot it; a deployment without the mirror keeps the owned Automate surface below.
+    // Opt-in (IOI_ADOPTED_SURFACES=1) so every gate's own serve keeps one deterministic posture wherever
+    // it runs; the owner's serves opt in.
+    if (pathname === "/automations" && req.method === "GET" && process.env.IOI_ADOPTED_SURFACES === "1" && !new URL(req.url, "http://x").searchParams.get("run") && await adoptedSeedAvailable("/workspace/object-monitoring/")) {
+      const wanted = new URL(req.url, "http://x").searchParams.get("automation");
+      const loc = wanted && /^auto_[0-9a-f]+$/u.test(wanted) ? `/workspace/object-monitoring/automation/${AUTOMATE.monitorRidOf(wanted)}/main/view/overview` : "/workspace/object-monitoring/";
+      res.writeHead(302, { Location: loc, "Cache-Control": "no-store" });
+      return res.end();
+    }
     if (GRE2_TRANSFERS[pathname] && req.method === "GET") {
       // Query continuity: old canonical deep links keep working. For /automations the cockpit's
       // ?automation= / ?view=new grammar translates into the Automate shell's in-shell lanes.
@@ -9163,7 +9189,19 @@ async function handleEstateRequest(req, res, body) {
     // same-origin through this proxy so seeds boot under the estate; their upstream is the
     // harvest capture, never fabricated data.
     const MIRROR_API_PREFIXES = ["/object-sentinel/", "/people/", "/comments/", "/function-registry/", "/multipass/", "/graphql-gateway/", "/compass/", "/documentation/", "/aip-assist/", "/monocle/", "/approvals/", "/workspace/api/", "/log-receiver/", "/interventions/", "/ontology-metadata/", "/magritte-coordinator/", "/issues/", "/foundry-search/", "/marketplace/", "/object-set-service/", "/phonograph2/", "/language-model-service/", "/foundry-ml/", "/artifacts/", "/foundry-catalog/", "/models/", "/build2/", "/foundry-stemma/", "/third-party-applications/", "/developer-console/"];
-    if (pathname.startsWith("/__apps/") || pathname.startsWith("/assets/content-addressable-storage/") || MIRROR_API_PREFIXES.some((pref) => pathname.startsWith(pref))) {
+    const adoptedAlias = ADOPTED_ROUTE_ALIASES.find(([prefix]) => pathname === prefix || pathname.startsWith(`${prefix}/`));
+    if (adoptedAlias || pathname.startsWith("/__apps/") || pathname.startsWith("/assets/content-addressable-storage/") || MIRROR_API_PREFIXES.some((pref) => pathname.startsWith(pref))) {
+      // The functions an automation's steps pin, as the adopted app shows them (revision ref → version,
+      // name, typed inputs), read from the functions plane.
+      const adoptedFunctionInfo = async (automations) => {
+        const refs = new Set((automations || []).flatMap((a) => (a.steps || []).filter((st) => st?.kind === "function").map((st) => st.function_revision_ref)));
+        const info = new Map();
+        for (const id of new Set([...refs].map((r) => String(r).replace(/^function:\/\//u, "").split("/")[0]))) {
+          const d = await daemonFetch(`/v1/hypervisor/functions/${encodeURIComponent(id)}`).then((r) => (r.status === 200 ? r.json() : null)).catch(() => null);
+          for (const r of d?.revisions || []) if (refs.has(r.revision_ref)) info.set(r.revision_ref, { function_ref: r.function_ref, version: r.version, display_name: r.display_name, api_name: r.api_name, inputs: r.inputs });
+        }
+        return info;
+      };
       // One read of what the adopted Automate seed shows: the caller's automations and who they are.
       const automateContext = async () => {
         const [autos, who] = await Promise.all([
@@ -9171,7 +9209,8 @@ async function handleEstateRequest(req, res, body) {
           daemonFetch("/v1/hypervisor/auth/whoami").then((r) => r.json()).catch(() => ({})),
         ]);
         const p = who.authenticated === false ? {} : (who.principal || {});
-        return { automations: Array.isArray(autos.automations) ? autos.automations : [], principal: { ref: p.principal_ref, name: p.name, email: p.email } };
+        const automations = Array.isArray(autos.automations) ? autos.automations : [];
+        return { automations, principal: { ref: p.principal_ref, name: p.name, email: p.email }, functionInfo: await adoptedFunctionInfo(automations) };
       };
       // One answer per adopted-app operation: bound (daemon truth) → the adapted harvest envelope → a named
       // gap. Never the mirror's loose GraphQL mock.
@@ -9746,7 +9785,7 @@ async function handleEstateRequest(req, res, body) {
         const monitors = {};
         for (const a of (autos.automations || []).filter((x) => wanted.has(x.automation_id)).slice(0, 50)) {
           const runs = await daemonFetch(`/v1/hypervisor/automations/${encodeURIComponent(a.automation_id)}/runs`).then((r) => r.json()).then((j) => j.runs || []).catch(() => []);
-          monitors[wanted.get(a.automation_id)] = AUTOMATE.monitorOf(a, runs);
+          monitors[wanted.get(a.automation_id)] = AUTOMATE.monitorOf(a, runs, await adoptedFunctionInfo([a]));
         }
         res.writeHead(200, { "Content-Type": "application/json" });
         return res.end(JSON.stringify({ monitors }));
@@ -9769,7 +9808,7 @@ async function handleEstateRequest(req, res, body) {
           if (!a) { res.writeHead(404, { "Content-Type": "application/json" }); return res.end(JSON.stringify({ errorCode: "NOT_FOUND", errorName: "Monitor:NotFound", errorInstanceId: "", parameters: {} })); }
           const runs = await daemonFetch(`/v1/hypervisor/automations/${encodeURIComponent(autoId)}/runs`).then((r) => r.json()).then((j) => j.runs || []).catch(() => []);
           res.writeHead(200, { "Content-Type": "application/json" });
-          return res.end(JSON.stringify({ monitor: AUTOMATE.monitorOf(a, runs) }));
+          return res.end(JSON.stringify({ monitor: AUTOMATE.monitorOf(a, runs, await adoptedFunctionInfo([a])) }));
         }
       }
       // The adopted wizard's create request → the Hypervisor automation it describes (translated in
@@ -9816,7 +9855,7 @@ async function handleEstateRequest(req, res, body) {
           res.writeHead(a ? 200 : 404, { "Content-Type": "application/json" });
           if (!a) return res.end(JSON.stringify({ errorCode: "NOT_FOUND", errorName: "Monitor:NotFound", errorInstanceId: "", parameters: {} }));
           const runs = await daemonFetch(`/v1/hypervisor/automations/${encodeURIComponent(autoId)}/runs`).then((r) => r.json()).then((j) => j.runs || []).catch(() => []);
-          return res.end(JSON.stringify({ monitor: AUTOMATE.monitorOf(a, runs) }));
+          return res.end(JSON.stringify({ monitor: AUTOMATE.monitorOf(a, runs, await adoptedFunctionInfo([a])) }));
         }
       }
       {
@@ -9882,15 +9921,17 @@ async function handleEstateRequest(req, res, body) {
       try {
         let target;
         let foldOrigin = false;
+        let seedSlug = null;
         if (pathname.startsWith("/assets/content-addressable-storage/") || MIRROR_API_PREFIXES.some((pref) => pathname.startsWith(pref))) {
           target = CAPTURE + req.url;
         } else {
-          const seg = pathname.slice("/__apps/".length).split("/")[0];
+          const seg = adoptedAlias ? adoptedAlias[1] : pathname.slice("/__apps/".length).split("/")[0];
+          seedSlug = seg;
           const seedDef = HARVEST_APPS[seg];
           const base = seedDef && seedDef.base;
           foldOrigin = !!(seedDef && seedDef.fold);
           if (!base) { res.writeHead(404, { "Content-Type": "text/html; charset=utf-8" }); return res.end(automationsShell("Unknown seed", `<div class="empty">No harvested seed named <code>${CX_ESC(seg)}</code>. Available: ${Object.keys(HARVEST_APPS).map((k) => `<a href="/__apps/${k}">${k}</a>`).join(" ")}</div>`)); }
-          const rest = pathname.slice(("/__apps/" + seg).length) || "/";
+          const rest = (adoptedAlias ? pathname.slice(adoptedAlias[0].length) : pathname.slice(("/__apps/" + seg).length)) || "/";
           target = CAPTURE + (rest === "/" ? base : base.replace(/\/$/, "") + rest);
         }
         const upstream = await fetch(target, {
@@ -9916,6 +9957,18 @@ async function handleEstateRequest(req, res, body) {
           const whoTok = await daemonFetch("/v1/hypervisor/auth/whoami").then((r) => r.json()).catch(() => ({}));
           html = AUTOMATE.replaceInjectedToken(html, whoTok.authenticated === false ? "anonymous" : (whoTok.principal || {}).principal_ref);
           if (foldOrigin) html = html.replace(/https?:\/\/(?:localhost|127\.0\.0\.1):9225/g, "");
+          // UNDER OUR SHELL (R-241 adoption step 3): framed by the product shell's Open Application
+          // slot, an adopted app drops the reference's own global sidebar — the shell is the navigation.
+          // Opened on its own it keeps it (nothing else would navigate).
+          html = html.replace("</head>", `${ADOPTED_EMBED_TAG}</head>`);
+          // The adopted product surface (Automate) never shows the reference's global sidebar: at top
+          // level OUR rail stands in its 230px column (routes to our surfaces, the caller's own account
+          // chip); framed by the shell, neither shows.
+          if (seedSlug === "monitors") {
+            const rail = ioiGlobalRailHtml({ label: "Automate", href: "/automations", iconUri: MON_APP_TILE_URI, railVariant: "rv-pipe rv-dsg", viewAll: true, star: false, aipGradient: true, acctMuted: true });
+            html = html.replace("</head>", `<style>${IOI_GRAIL_CSS}[class*="shell-application__sidebar__"],#workspace-sidebar{display:none!important}.ioi-adopted-rail .og-grail{position:fixed;left:0;top:0;z-index:30}.ioi-adopted-rail .workspace-page-wrapper{padding-left:230px;box-sizing:border-box}.ioi-embedded .og-grail{display:none!important}.ioi-embedded .workspace-page-wrapper{padding-left:0!important}</style></head>`)
+              .replace(/<body([^>]*)>/i, `<body$1><div class="ioi-adopted-rail">${rail}</div><script>try{if(window.top===window.self)document.documentElement.classList.add("ioi-adopted-rail")}catch(e){}</script>`);
+          }
           buf = Buffer.from(html.replace(/Palantir/g, "IOI"), "utf8");
         } else if (/javascript|ecmascript/.test(ct)) {
           let js = buf.toString("utf8");

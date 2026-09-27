@@ -162,7 +162,7 @@ async function run() {
   SERVE = `http://127.0.0.1:${servePort}`;
   serve = spawn(process.execPath, [path.join(HERE, "serve-product-ui.mjs")], {
     cwd: APP,
-    env: { ...process.env, PORT: String(servePort), PRODUCT_UI_PORT: String(await freePort()), IOI_PRODUCT_UI_PUBLIC: path.join(APP, "product-ui", "owned", "public"), IOI_HYPERVISOR_DAEMON_URL: DAEMON, IOI_PRODUCT_SIGNIN_REQUIRED: "0", IOI_HARVEST_CAPTURE_URL: CAPTURE },
+    env: { ...process.env, PORT: String(servePort), PRODUCT_UI_PORT: String(await freePort()), IOI_PRODUCT_UI_PUBLIC: path.join(APP, "product-ui", "owned", "public"), IOI_HYPERVISOR_DAEMON_URL: DAEMON, IOI_PRODUCT_SIGNIN_REQUIRED: "0", IOI_HARVEST_CAPTURE_URL: CAPTURE, IOI_ADOPTED_SURFACES: "1" },
     stdio: ["ignore", "pipe", "pipe"],
   });
   await waitFor(`${SERVE}/__apps/monitors`, 30000);
@@ -231,11 +231,27 @@ async function run() {
         && /\//u.test(made.schedule_spec?.timezone || "") && made.steps?.length === 1 && made.steps[0].kind === "function"
         && made.steps[0].function_revision_ref === r1.revision_ref && made.steps[0].content_hash === r1.content_hash,
       `${made.automation_id || "no automation"} · ${JSON.stringify(made.schedule_spec || {})} · ${JSON.stringify(made.steps?.[0] || {}).slice(0, 200)}`);
-    ok("the adopted app lands on the new automation's own detail page, which names it",
-      landed.includes("/automation/ri.object-sentinel.main.monitor.") && (await pg.evaluate(() => document.body.innerText)).includes(`auto-${tag}`),
-      landed.slice(0, 120));
+    await pg.waitForTimeout(3000);
+    if (process.env.IOI_VERIFIER_SHOTS) await pg.screenshot({ path: path.join(process.env.IOI_VERIFIER_SHOTS, "adopted-detail.png"), fullPage: true });
+    const detailText = (await pg.evaluate(() => document.body.innerText)).replace(/\s+/g, " ");
+    ok("the adopted app lands on the new automation's own detail page, which names it and shows its Function effect: the released function, its version and its one input",
+      landed.includes("/automation/ri.object-sentinel.main.monitor.") && detailText.includes(`auto-${tag}`) && detailText.includes(`Double ${tag}`) && /1\.0\.0/u.test(detailText) && /\(1 input\)/u.test(detailText),
+      `${landed.slice(0, 90)} · effect ${detailText.includes(`Double ${tag}`)} · version ${/1\.0\.0/u.test(detailText)} · inputs ${/\(1 input\)/u.test(detailText)}`);
     const unbound = (await fetch(`${SERVE}/__ioi/adopted-seeds/unbound`, { headers: { cookie: COOKIE } }).then((r) => r.json()).catch(() => ({}))).automate || {};
     ok("no operation the adopted app sent went unanswered", Object.keys(unbound).length === 0, JSON.stringify(unbound).slice(0, 200));
+
+    // ---- Automations opens the adopted app: its canonical route, a deep link, and its own URLs on reload
+    const top = await fetch(`${SERVE}/automations`, { headers: { accept: "text/html", cookie: COOKIE }, redirect: "manual" });
+    const deep = await fetch(`${SERVE}/automations?automation=${made.automation_id}`, { headers: { accept: "text/html", cookie: COOKIE }, redirect: "manual" });
+    await pg.goto(`${SERVE}/workspace/object-monitoring/automations`, { waitUntil: "domcontentloaded" });
+    await pg.waitForTimeout(8000);
+    const listed = (await pg.evaluate(() => document.body.innerText)).includes(`auto-${tag}`);
+    const referenceSidebar = await pg.evaluate(() => { const el = document.getElementById("workspace-sidebar"); return !!el && el.getBoundingClientRect().width > 0; });
+    const ourRail = await pg.evaluate(() => !!document.querySelector(".og-grail a[href='/ai']"));
+    ok("/automations opens the adopted app (a deep link opens that automation), its own URLs reload in place, and our rail stands where the reference's sidebar was",
+      top.status === 302 && top.headers.get("location") === "/workspace/object-monitoring/" && (deep.headers.get("location") || "").includes(`/automation/ri.object-sentinel.main.monitor.`)
+        && listed && !referenceSidebar && ourRail,
+      `${top.status} ${top.headers.get("location")} · deep ${deep.headers.get("location")} · reload lists ours ${listed} · reference sidebar ${referenceSidebar} · our rail ${ourRail}`);
 
     // ---- 3. Run now on the product's own automation page --------------------------------------------------
     const ran = made.automation_id ? await submit(`/__ioi/automations/${made.automation_id}`, `/__ioi/automations/${made.automation_id}/run`, {}) : { error: "no automation" };

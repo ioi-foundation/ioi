@@ -108,7 +108,7 @@ function historyEventOf(a, run) {
 }
 
 // monitors-getMonitors → the registry record for each requested automation.
-export function monitorOf(a, runs) {
+export function monitorOf(a, runs, functionInfo = null) {
   const latest = [...(runs || [])].sort((x, y) => String(y.started_at || "").localeCompare(String(x.started_at || "")))[0] || null;
   const creator = (a.executor_identity || {}).ref || "";
   const event = historyEventOf(a, latest);
@@ -116,7 +116,7 @@ export function monitorOf(a, runs) {
     metadata: {
       rid: monitorRidOf(a.automation_id),
       owningResource: null,
-      subscribers: [{ subscriberType: { type: "user", user: { userId: userIdOf(creator) } }, triggerEffects: {}, recoveryEffects: {} }],
+      subscribers: [{ subscriberType: { type: "user", user: { userId: userIdOf(creator) } }, triggerEffects: triggerEffectsOf(a, functionInfo), recoveryEffects: {} }],
       expiryDate: "+999999999-12-31T23:59:59.999999999-18:00",
       expiry: { expireOn: null },
       muted: { until: null, isMutedIndefinitely: null, forUsers: [], mutedReason: null, isMutedGlobally: null },
@@ -373,7 +373,7 @@ export const FACT_OPERATIONS = new Set([
 ]);
 export const requestedMonitorRid = (variables) => (JSON.stringify(variables || {}).match(/ri\.object-sentinel\.main\.monitor\.[0-9a-f-]{36}/) || [])[0] || null;
 
-export function factsRoot(a, runs, principal) {
+export function factsRoot(a, runs, principal, functionInfo = null) {
   const rid = monitorRidOf(a.automation_id);
   const creator = (a.executor_identity || {}).ref || (principal || {}).ref || "";
   const project = a.project_id || "unfiled";
@@ -401,7 +401,7 @@ export function factsRoot(a, runs, principal) {
     isPausedIndefinitely: paused, pausedUntil: null, isMutedIndefinitely: false, mutedUntil: null, expiresAt: null,
     owner: who(creator), dependentAutomations: [],
     monitor: { __typename: "ObjectSetMonitor", _id: cacheId(rid), rid, metadata: resource },
-    latestVersion: { __typename: "ObjectSetMonitorVersion", _id: cacheId(`version:${rid}`), monitorLogicV3: condition, mergedEffects: [], effectOrdering: null, subscribers: [], persistsSharedHistoryEvent: false },
+    latestVersion: { __typename: "ObjectSetMonitorVersion", _id: cacheId(`version:${rid}`), monitorLogicV3: condition, mergedEffects: mergedEffectsOf(a, functionInfo), effectOrdering: null, subscribers: [], persistsSharedHistoryEvent: false },
     latestEvents: { __typename: "ObjectSetMonitorLatestEvents", completeTriggered: event(latest && latest.status !== "running" ? latest : null), inProgressTriggered: event(running), evaluationRuntimeError: null, effectsRuntimeError: null },
     scheduledMonitoringEvaluationStatus: { __typename: "ObjectSetMonitorScheduledEvaluationStatus", isRunning: !!running, scheduledAt: a.next_run_at ? iso(a.next_run_at) : null },
   };
@@ -417,7 +417,7 @@ export function answerFactOperation(name, query, variables, ctx, runsFor, templa
   const rid = requestedMonitorRid(variables);
   const a = rid ? (ctx.automations || []).find((x) => monitorRidOf(x.automation_id) === rid) : null;
   if (!a) return null;
-  return answerDocument(query, factsRoot(a, runsFor(a.automation_id), ctx.principal), template, name);
+  return answerDocument(query, factsRoot(a, runsFor(a.automation_id), ctx.principal, ctx.functionInfo), template, name);
 }
 
 // ---- SAVE LOCATION (ADR 0056 P3 cut 3b): the wizard's "Save as…" dialog picks where the automation
@@ -573,4 +573,67 @@ export function compassAutomationResource(a, projects, principalRef) {
     namedAncestors: [{ rid: "ri.compass.main.folder.0", name: "All files" }, { rid: NAMESPACE_FOLDER_RID, name: "Hypervisor" }, { rid: folderRidOf(a.project_id || a.project_ref), name: projectName }],
     contactInformation: null, classification: null, portfolioRid: null, namespaceRid: "ri.compass.main.namespace.hypervisor", status: null,
   };
+}
+
+// ---- EFFECTS (ADR 0056 P3 cut 3b): an automation's FUNCTION steps are the reference's Function effects —
+// in the registry's conjure record (`triggerEffects`) and in the detail page's GraphQL (`mergedEffects`).
+// `functionInfo` maps a step's revision ref to {function_ref, version, display_name, api_name, inputs}
+// (read from the functions plane by the serve). Command and agent steps have no reference effect; they
+// are not shown as one.
+const effectIdOf = (automationId, index) => {
+  const h = crypto.createHash("sha256").update(`${automationId}:${index}`).digest("hex");
+  return `${h.slice(0, 8)}-${h.slice(8, 12)}-${h.slice(12, 16)}-${h.slice(16, 20)}-${h.slice(20, 32)}`;
+};
+const functionStepsOf = (a, functionInfo) => (a.steps || []).map((step, index) => ({ step, index, info: step?.kind === "function" ? functionInfo?.get?.(step.function_revision_ref) : null })).filter((x) => x.step?.kind === "function");
+function conjureStatic(dataType, value) {
+  if (dataType?.type === "list") return { type: "list", list: { values: (Array.isArray(value) ? value : []).map((v) => conjureStatic({ type: dataType.element_type }, v)) } };
+  const t = dataType?.type || (typeof value === "number" ? (Number.isInteger(value) ? "integer" : "double") : typeof value === "boolean" ? "boolean" : "string");
+  return { type: t, [t]: value };
+}
+export function triggerEffectsOf(a, functionInfo) {
+  const out = {};
+  for (const { step, index, info } of functionStepsOf(a, functionInfo)) {
+    const typeOf = (name) => (info?.inputs || []).find((i) => i.name === name)?.data_type;
+    out[effectIdOf(a.automation_id, index)] = {
+      type: "function",
+      function: {
+        functionLocator: { functionRid: functionRidOfRef(info?.function_ref || step.function_revision_ref), functionVersion: info?.version || null },
+        functionInputs: Object.fromEntries(Object.entries(step.inputs || {}).map(([name, v]) => [name, { type: "staticValue", staticValue: conjureStatic(typeOf(name), v) }])),
+        executionMode: { type: "perBatchOfObjects", perBatchOfObjects: {} },
+      },
+    };
+  }
+  return out;
+}
+const GQL_TYPE = { string: "FunctionDataType_String", integer: "FunctionDataType_Integer", double: "FunctionDataType_Double", boolean: "FunctionDataType_Boolean", date: "FunctionDataType_Date", timestamp: "FunctionDataType_Timestamp", list: "FunctionDataType_List" };
+const STATIC_TYPE = { string: "String", integer: "Integer", double: "Double", boolean: "Boolean", date: "Date", timestamp: "Timestamp" };
+function gqlStatic(dataType, value) {
+  const union = ["ObjectSetMonitorStaticValueEffectInputUnion"];
+  if (dataType?.type === "list") return { __typename: "ObjectSetMonitorStaticValueEffectInput_List", __implements: union, value: (Array.isArray(value) ? value : []).map((v) => gqlStatic({ type: dataType.element_type }, v)) };
+  const t = dataType?.type || (typeof value === "number" ? "double" : typeof value === "boolean" ? "boolean" : "string");
+  return { __typename: `ObjectSetMonitorStaticValueEffectInput_${STATIC_TYPE[t] || "String"}`, __implements: union, value };
+}
+export function mergedEffectsOf(a, functionInfo) {
+  return functionStepsOf(a, functionInfo).map(({ step, index, info }) => {
+    const id = effectIdOf(a.automation_id, index);
+    const rid = functionRidOfRef(info?.function_ref || step.function_revision_ref);
+    const typeOf = (name) => (info?.inputs || []).find((i) => i.name === name)?.data_type;
+    const version = {
+      __typename: "FunctionVersion", _id: cacheId(`fv:${step.function_revision_ref}`), version: info?.version || null,
+      function: { __typename: "Function", _id: cacheId(rid), rid, displayName: info?.display_name || step.function_revision_ref, apiName: info?.api_name || null },
+      locatorV2: { __typename: "FunctionLocator_Hypervisor" },
+      inputs: (info?.inputs || []).map((i) => ({ __typename: "FunctionInput", name: i.name, type: { __typename: GQL_TYPE[i.data_type?.type] || GQL_TYPE.string, ...(i.data_type?.type === "list" ? { elementType: { __typename: GQL_TYPE[i.data_type.element_type] || GQL_TYPE.string } } : {}) } })),
+    };
+    return {
+      __typename: "ObjectSetMonitorFunctionEffect", __implements: ["ObjectSetMonitorEffect"], _id: cacheId(`effect:${id}`), id,
+      functionV2: { __typename: "FunctionSemanticVersionRange", _id: cacheId(`range:${step.function_revision_ref}`), range: info?.version || null, versions: { __typename: "FunctionVersionPage", values: [version] } },
+      effectInputs: Object.entries(step.inputs || {}).map(([name, v]) => ({ __typename: "ObjectSetMonitorFunctionEffectInput", name, input: { __typename: "ObjectSetMonitorStaticValueEffectInput", __implements: ["ObjectSetMonitorEffectInputValue"], value: gqlStatic(typeOf(name), v) } })),
+      retryConfiguration: null, dependencyConfiguration: null,
+    };
+  });
+}
+// function://fn_…/revision/n or function://fn_… → the reference's function rid (adopted-functions.mjs).
+function functionRidOfRef(ref) {
+  const hex = String(ref || "").replace(/^function:\/\//, "").replace(/^fn_/, "").split("/")[0].replace(/[^0-9a-f]/g, "").padEnd(16, "0").slice(0, 16);
+  return `ri.function-registry.main.function.${hex.slice(0, 8)}-${hex.slice(8, 12)}-${hex.slice(12, 16)}-${hex.slice(0, 4)}-${hex.slice(4, 16)}`;
 }
