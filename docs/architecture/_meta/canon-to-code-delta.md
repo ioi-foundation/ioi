@@ -1375,6 +1375,13 @@ landed. Correct every copy, or the ones left behind go on reading as evidence.
 | **Two readings made deliberately, both recorded.** "Delete" means ARCHIVE — there is no DELETE verb on a memory entry, and reading the acceptance literally would have invented one. And skills and affinities keep their direct verbs, because the unit's scope is the memory-entry and memory-mutation owners. | the verifier's nonclaims | recorded |
 | **The census caught the cut adding a production writer, and the buckets are what mattered.** `check:ontology-admission-census` went red on the writer-call population. The FAMILY writer bucket (57), family mentions (285), the non-ODK literal bucket (243) and raw filesystem calls (234) were all unchanged; only the runtime-parameter bucket moved, by exactly the two added calls, both writing a LITERAL family. Had the family bucket moved it would have meant a new admitter. Re-pinned with that reasoning beside the numbers. | `check:ontology-admission-census` 27/27 | repaired |
 
+### Journey verification CCIX (2026-09-27, R-240 Arm A on Sessions — Create PR)
+
+| Delta | Evidence | Disposition |
+|---|---|---|
+| **Create PR could never succeed, for anyone.** The shell's Create PR quick action and `/pull-request` go to the daemon's governed pull-request draft, which admits a publication proposal when the workspace has changes on a real base revision. The draft named the person's own `user://` ref as the proposal's owner. That ref is never a tenant, so admission refused `TenantAuthorityRequired` for every caller. The owner is now the tenant that owns the environment: the scope bound when the environment was created, which the owner check already resolves. | `check:sessions-shell` 15/15; red (run failed, no proposal) against a daemon built from the pre-fix source | **fixed** |
+| **The timeline dropped the daemon's reason.** The run read "daemon declined PR draft (status 403)", because the daemon's refusal arrives as `error.message` and the adapter read only `reason`. It now carries the daemon's words ("…the authenticated principal is not bound to the requested owner tenant" was the refusal above). | the red run's failure text | **fixed** |
+
 ### Journey verification CCVIII (2026-09-27, R-240 Arm A on Sessions — the list follows the daemon)
 
 | Delta | Evidence | Disposition |

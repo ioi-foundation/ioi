@@ -1950,13 +1950,19 @@ pub(crate) async fn handle_env_pr_draft(
     AxumPath(id): AxumPath<String>,
     headers: HeaderMap,
 ) -> Result<Json<Value>, AppError> {
-    let identity = authorize_environment_owner(&st.data_dir, &headers, &id)?;
+    canonical_environment_id(&id)?;
+    let identity = super::substrate_store::resolve_request_identity(&st.data_dir, &headers)
+        .map_err(environment_scope_error)?;
+    // The proposal belongs to the tenant that owns the environment — the scope bound when it was
+    // created. The principal's own `user://` ref is never a tenant, so naming it as the owner made
+    // every draft with changes refuse `TenantAuthorityRequired`, for every caller.
+    let environment_scope = authorize_environment_owner_identity(&st.data_dir, &identity, &id)?;
     let Some(env) = load_env(&st.data_dir, &id) else {
         return Ok(Json(
             json!({ "ok": false, "reason": "environment not found" }),
         ));
     };
-    let publication_owner_ref = identity.principal_ref.clone();
+    let publication_owner_ref = environment_scope.tenant_ref.clone();
     let Some(ws) = env["status"]["workspace_root"]
         .as_str()
         .filter(|s| !s.is_empty())

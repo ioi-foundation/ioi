@@ -9,6 +9,7 @@
 //   - the session details card renders (the projection names the runner it waits on);
 //   - the editor openers resolve an editor URL (the projection names the organization; ResolveEditorURL is bound);
 //   - "New Terminal" opens a real terminal bound to the environment (the env-ops bridge carries the person's session);
+//   - Create PR files a governed draft owned by the environment's tenant (it could never succeed for anyone);
 //   - the personal settings routes show a named gap instead of a blank page;
 //   - a disposable serve never writes the owner's preference store.
 //
@@ -16,7 +17,7 @@
 //   IOI_HYPERVISOR_DAEMON_BINARY  default target/debug/hypervisor-daemon
 //   node apps/hypervisor/scripts/verify-hypervisor-sessions-shell.mjs
 
-import { spawn } from "node:child_process";
+import { spawn, spawnSync } from "node:child_process";
 import crypto from "node:crypto";
 import fs from "node:fs";
 import os from "node:os";
@@ -153,6 +154,25 @@ async function run() {
     }
     ok("the session details card renders (its runner is named), rather than a skeleton forever",
       /Created/u.test(card) && /Last started/u.test(card) && skeletons < 3, `skeletons ${skeletons} · created ${/Created/u.test(card)} · last started ${/Last started/u.test(card)}`);
+
+    // ---- Create PR: the shell's own prompt files a governed draft owned by the environment's tenant ------------
+    // (the draft named the person's user:// ref as its owner, which is never a tenant, so every draft with changes
+    // was refused for every caller — and the timeline dropped the daemon's reason for a bare status)
+    const wsRoot = (await daemonReq(`/v1/hypervisor/environments/${RUNNING}`)).environment?.status?.workspace_root;
+    if (wsRoot) {
+      const git = (...a) => spawnSync("git", ["-C", wsRoot, "-c", "user.email=sessions@ioi.local", "-c", "user.name=sessions-shell", ...a], { encoding: "utf8" });
+      if (!fs.existsSync(path.join(wsRoot, ".git"))) git("init", "-q");
+      git("add", "-A");
+      git("commit", "-q", "--allow-empty", "-m", "base");
+      fs.writeFileSync(path.join(wsRoot, "BUILD.md"), "# Build\n\nnpm ci && npm run build\n");
+    }
+    const prRun = (await api("AgentService/CreateAgentExecution", { codeContext: { environmentId: RUNNING } })).j.agentExecutionId;
+    if (prRun) await api("AgentService/SendToAgentExecution", { agentExecutionId: prRun, userInput: { inputs: [{ text: { content: "Create a pull request for the current changes." } }] } });
+    let prRec = {};
+    for (let i = 0; i < 30 && prRun; i++) { prRec = (await daemonReq(`/v1/hypervisor/agent-run-transcripts/${prRun}`)).run || {}; if (prRec.status && !/running|waiting/u.test(prRec.status)) break; await sleep(500); }
+    ok("Create PR files a governed draft proposal owned by the environment's tenant (it named the person as the owner, so every draft with changes was refused for every caller)",
+      !!wsRoot && prRec.status === "done" && /^proposal:\/\/local\/hypervisor\/prd_/u.test(prRec.publication_proposal_ref || "") && !prRec.error,
+      `workspace ${wsRoot ? "seeded" : "absent"} · run ${prRec.status} · proposal ${prRec.publication_proposal_ref} · ${String(prRec.error || "").slice(0, 140)}`);
 
     // ---- the composer: the shell's own submit, with the project it chose ------------------------------------
     const before = new Set(Object.keys(await phases()));

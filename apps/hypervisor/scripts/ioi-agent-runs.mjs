@@ -627,7 +627,10 @@ async function createLocalPullRequestDraft(run, dj) {
     // proposals. The serve/adapter never mutates the workspace; it only routes to this endpoint.
     const r = await dj("POST", `/v1/hypervisor/environments/${encodeURIComponent(run.envId)}/pull-request-drafts`);
     const draft = r.body?.draft;
-    if (!r.body?.ok || !draft) throw new Error(r.body?.reason || `daemon declined PR draft (status ${r.status})`);
+    if (!r.body?.ok || !draft) {
+      const reason = r.body?.reason || r.body?.error?.message || (typeof r.body?.error === "string" ? r.body.error : "");
+      throw new Error(reason ? `daemon declined PR draft: ${reason}` : `daemon declined PR draft (status ${r.status})`);
+    }
     const refs = draft.artifact_refs || {};
     const files = [refs.summary, refs.patch].filter(Boolean);
     const remote = draft.remote_publish || {};
