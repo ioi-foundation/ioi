@@ -325,6 +325,15 @@ journey verifier → deploy to the owner's stack.
   edits are drafts; Proposals = proposed change sets; History = the family's revisions; Deploy = merge
   plus a TransformationRun. Before the lane is shown to anyone, the compass search must answer with the
   caller's projects.
+- **Cut 2a — the landing, bound (2026-09-27).** `adopted-pipeline.mjs` answers the landing: a pipeline is a
+  DataRecipe family; Main is its admitted head (the only published sandbox); each open change set is a
+  draft sandbox; a founding-only family is a pipeline whose Main holds no revision. Each row shows the
+  recipe's declared outputs (snapshot targets: object models and dataset contracts, the latter named through
+  compass), Batch, and "Not yet deployed". Search and the creator are bound; the Project filter is a named
+  gap (a DataRecipe is held in no project). The project picker, the user lookup and the universal capture
+  fallback no longer hand out the reference tenant's records (the fallback now flags its API answers).
+  `check:adopted-pipeline` 10/10 (local mirror only). **Next (cut 2b):** the editor (`all-information`,
+  markings settings, UDF flag, the ontology load) and Create as a founding change set.
 
 ## Gate
 

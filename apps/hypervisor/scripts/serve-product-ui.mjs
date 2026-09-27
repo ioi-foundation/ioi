@@ -58,6 +58,7 @@ import { handleGovernanceLimits } from "./governance-limits.mjs";
 import { handleOntologyFunctions } from "./ontology-functions.mjs";
 import * as AUTOMATE from "./adopted-automate.mjs";
 import * as FUNCTIONS from "./adopted-functions.mjs";
+import * as PIPELINE from "./adopted-pipeline.mjs";
 import { answerDocument as answerAdoptedDocument } from "./adopted-graphql.mjs";
 import { isJustificationPrompt, justificationPayload, renderJustificationPrompt } from "./justification-prompt.mjs";
 
@@ -9188,7 +9189,7 @@ async function handleEstateRequest(req, res, body) {
     // Capture API families some seed documents call (observed in seed rebind maps). Served
     // same-origin through this proxy so seeds boot under the estate; their upstream is the
     // harvest capture, never fabricated data.
-    const MIRROR_API_PREFIXES = ["/object-sentinel/", "/people/", "/comments/", "/function-registry/", "/multipass/", "/graphql-gateway/", "/compass/", "/documentation/", "/aip-assist/", "/monocle/", "/approvals/", "/workspace/api/", "/log-receiver/", "/interventions/", "/ontology-metadata/", "/magritte-coordinator/", "/issues/", "/foundry-search/", "/marketplace/", "/object-set-service/", "/phonograph2/", "/language-model-service/", "/foundry-ml/", "/artifacts/", "/foundry-catalog/", "/models/", "/build2/", "/foundry-stemma/", "/third-party-applications/", "/developer-console/"];
+    const MIRROR_API_PREFIXES = ["/eddie/", "/object-sentinel/", "/people/", "/comments/", "/function-registry/", "/multipass/", "/graphql-gateway/", "/compass/", "/documentation/", "/aip-assist/", "/monocle/", "/approvals/", "/workspace/api/", "/log-receiver/", "/interventions/", "/ontology-metadata/", "/magritte-coordinator/", "/issues/", "/foundry-search/", "/marketplace/", "/object-set-service/", "/phonograph2/", "/language-model-service/", "/foundry-ml/", "/artifacts/", "/foundry-catalog/", "/models/", "/build2/", "/foundry-stemma/", "/third-party-applications/", "/developer-console/"];
     const adoptedAlias = ADOPTED_ROUTE_ALIASES.find(([prefix]) => pathname === prefix || pathname.startsWith(`${prefix}/`));
     if (adoptedAlias || pathname.startsWith("/__apps/") || pathname.startsWith("/assets/content-addressable-storage/") || MIRROR_API_PREFIXES.some((pref) => pathname.startsWith(pref))) {
       // The functions an automation's steps pin, as the adopted app shows them (revision ref → version,
@@ -9216,8 +9217,25 @@ async function handleEstateRequest(req, res, body) {
       // One answer per adopted-app operation: bound (daemon truth) → the adapted harvest envelope → a named
       // gap. Never the mirror's loose GraphQL mock.
       const ADOPT_MIRROR_DIR = process.env.IOI_REFERENCE_MIRROR_DIR || join(REPO_ROOT, "internal-docs", "reverse-engineering", "palantir");
+      // One read of what the adopted Pipeline Builder shows: the caller's DataRecipe families (each with its
+      // revisions) and change sets, as pipelines (adopted-pipeline.mjs).
+      const pipelineContext = async () => {
+        const [list, sets] = await Promise.all([
+          daemonFetch("/v1/hypervisor/data-recipe-revisions").then((r) => r.json()).catch(() => ({})),
+          daemonFetch("/v1/hypervisor/change-sets").then((r) => r.json()).then((j) => j.change_sets || []).catch(() => []),
+        ]);
+        const refs = Array.isArray(list.data_recipes) ? list.data_recipes : [];
+        const families = await Promise.all(refs.map(async (ref) => ({
+          family_ref: ref,
+          revisions: await daemonFetch(`/v1/hypervisor/data-recipe-revisions?family=${encodeURIComponent(String(ref).replace(/^data-recipe:\/\//u, ""))}`).then((r) => r.json()).then((j) => j.revisions || []).catch(() => []),
+        })));
+        return PIPELINE.pipelinesOf(families, sets);
+      };
       const answerAdoptedOp = async (name, variables, ctxA, query = "") => {
         if (AUTOMATE.OPERATIONS.has(name)) return { data: AUTOMATE.graphqlAnswer(name, variables || {}, ctxA) };
+        if (PIPELINE.PIPELINE_OPERATIONS.has(name) && query) {
+          return { data: answerAdoptedDocument(query, PIPELINE.pipelineFactsRoot(name, variables || {}, await pipelineContext(), PIPELINE.uuidOf), null, name) };
+        }
         if (AUTOMATE.FACT_OPERATIONS.has(name) && query) {
           const rid = AUTOMATE.requestedMonitorRid(variables);
           const autoId = rid ? AUTOMATE.automationIdOf(rid) : null;
@@ -9867,6 +9885,36 @@ async function handleEstateRequest(req, res, body) {
         return (autos.automations || []).find((x) => x.automation_id === autoId) || null;
       };
       const conjureRefusal = (message) => ({ errorCode: "INVALID_ARGUMENT", errorName: "Automation:NotSupportedByHypervisor", errorInstanceId: "", parameters: { message } });
+      // REBIND (Pipeline Builder seed, R-241 / ADR 0056 P4): the landing's project picker, pipeline
+      // details and sandboxes answer from the caller's projects, DataRecipe families and change sets —
+      // never the recorded tenant's index.
+      if (pathname === "/foundry-search/api/compass/v0/search" && req.method === "POST") {
+        let request = {};
+        try { request = JSON.parse(body.toString() || "{}"); } catch { /* shape-tolerant */ }
+        const [projects, who] = await Promise.all([
+          daemonFetch("/v1/hypervisor/projects").then((r) => r.json()).then((j) => j.projects || []).catch(() => []),
+          daemonFetch("/v1/hypervisor/auth/whoami").then((r) => r.json()).catch(() => ({})),
+        ]);
+        res.writeHead(200, { "Content-Type": "application/json" });
+        return res.end(JSON.stringify(PIPELINE.compassSearchAnswer(request, projects, AUTOMATE.projectFolderRid, PIPELINE.uuidOf, who.principal?.principal_ref)));
+      }
+      if (pathname === "/eddie/api/pipelines-v2/get/by-rids" && req.method === "POST") {
+        let rids = [];
+        try { rids = JSON.parse(body.toString() || "[]"); } catch { /* shape-tolerant */ }
+        res.writeHead(200, { "Content-Type": "application/json" });
+        return res.end(JSON.stringify(PIPELINE.pipelinesByRids(rids, await pipelineContext(), PIPELINE.uuidOf)));
+      }
+      if (/^\/eddie\/api\/pipelines-v2\/ri\.eddie\.main\.pipeline\.[0-9a-f-]{36}$/u.test(pathname) && req.method === "GET") {
+        const details = PIPELINE.pipelineDetails(pathname.split("/").pop(), await pipelineContext(), PIPELINE.uuidOf);
+        res.writeHead(details ? 200 : 404, { "Content-Type": "application/json" });
+        return res.end(JSON.stringify(details || { errorCode: "NOT_FOUND", errorName: "Eddie:PipelineNotFound", errorInstanceId: "", parameters: { message: "no DataRecipe family or change set of yours is this pipeline" } }));
+      }
+      if (pathname === "/eddie/api/pipelines-v2/get-sandboxes-with-snapshots" && req.method === "POST") {
+        let request = {};
+        try { request = JSON.parse(body.toString() || "{}"); } catch { /* shape-tolerant */ }
+        res.writeHead(200, { "Content-Type": "application/json" });
+        return res.end(JSON.stringify(PIPELINE.sandboxesWithSnapshots(request.requests, await pipelineContext(), PIPELINE.uuidOf)));
+      }
       // The detail page and the edit wizard validate an edit of the automation the rid names: the same
       // translation its Save will use, so a refusal shows before Save.
       if (/^\/object-sentinel\/api\/validation\/v0\/[^/]+\/validate-update$/u.test(pathname) && (req.method === "PUT" || req.method === "POST")) {
@@ -10031,7 +10079,9 @@ async function handleEstateRequest(req, res, body) {
           daemonFetch("/v1/hypervisor/auth/whoami").then((r) => r.json()).catch(() => ({})),
         ]);
         res.writeHead(200, { "Content-Type": "application/json" });
-        return res.end(JSON.stringify(pathname.endsWith("/resources") ? AUTOMATE.compassProjectResources(projects, rids, who.principal?.principal_ref) : AUTOMATE.compassFileSystems(projects, rids)));
+        // …and the output datasets the caller's pipelines declare (the Pipeline Builder landing's output pills).
+        const datasets = pathname.endsWith("/resources") && rids.some((r) => String(r).startsWith("ri.foundry.main.dataset.")) ? PIPELINE.compassOutputDatasets(rids, await pipelineContext(), PIPELINE.uuidOf) : {};
+        return res.end(JSON.stringify(pathname.endsWith("/resources") ? { ...AUTOMATE.compassProjectResources(projects, rids, who.principal?.principal_ref), ...datasets } : AUTOMATE.compassFileSystems(projects, rids)));
       }
       // The function registry's REST reads (the wizard's chosen function): metadata and a version
       // range resolved to released specs — the Hypervisor's released revisions, nothing recorded.
@@ -10068,6 +10118,23 @@ async function handleEstateRequest(req, res, body) {
         for (const a of autos.automations || []) { const ref = (a.executor_identity || {}).ref; if (ref && !principals.some((p) => p.ref === ref)) principals.push({ ref, name: ref }); }
         res.writeHead(200, { "Content-Type": "application/json" });
         return res.end(JSON.stringify(AUTOMATE.principalsFor(ids, principals)));
+      }
+      // The multipass user lookup names the caller and the principals the caller's automations and change
+      // sets name — never the recorded tenant's directory.
+      if (pathname === "/multipass/api/users" && req.method === "POST") {
+        let ids = [];
+        try { const j = JSON.parse(body.toString() || "[]"); ids = Array.isArray(j) ? j : (j.userIds || j.ids || []); } catch { /* none */ }
+        const [autos, who, sets] = await Promise.all([
+          daemonFetch("/v1/hypervisor/automations").then((r) => r.json()).catch(() => ({})),
+          daemonFetch("/v1/hypervisor/auth/whoami").then((r) => r.json()).catch(() => ({})),
+          daemonFetch("/v1/hypervisor/change-sets").then((r) => r.json()).then((j) => j.change_sets || []).catch(() => []),
+        ]);
+        const principals = [];
+        if (who.authenticated !== false && who.principal?.principal_ref) principals.push({ ref: who.principal.principal_ref, name: who.principal.name, email: who.principal.email });
+        const refs = [...(autos.automations || []).map((a) => (a.executor_identity || {}).ref), ...sets.map((c) => c.author_principal_ref)];
+        for (const ref of refs) if (ref && !principals.some((p) => p.ref === ref)) principals.push({ ref, name: ref });
+        res.writeHead(200, { "Content-Type": "application/json" });
+        return res.end(JSON.stringify(AUTOMATE.multipassUsersFor(ids, principals)));
       }
       if (pathname === "/people/api/profile/get-profiles" && req.method === "POST") {
         let ids = [];
@@ -16549,7 +16616,10 @@ async function handleEstateRequest(req, res, body) {
             const ct = capResp.headers.get("content-type") || "application/octet-stream";
             let buf = Buffer.from(await capResp.arrayBuffer());
             if (/text\/html|javascript|ecmascript/.test(ct)) buf = Buffer.from(buf.toString("utf8").replace(/Palantir/g, "IOI"), "utf8");
-            res.writeHead(200, { "Content-Type": ct, "Cache-Control": "no-cache", "content-length": String(buf.length) });
+            // An API answer from the capture is RECORDED tenant data, not an asset: it says so, like the
+            // mirror branch's passthroughs, so the adopted-seed audits count it instead of missing it.
+            const recorded = /\/api\//u.test(pathname) ? { "x-ioi-mirror-passthrough": "1" } : {};
+            res.writeHead(200, { "Content-Type": ct, "Cache-Control": "no-cache", "content-length": String(buf.length), ...recorded });
             return res.end(buf);
           }
         } catch { /* capture offline or absent → fall through to the mock */ }

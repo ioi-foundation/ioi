@@ -173,6 +173,21 @@ export function profilesFor(userIds, principals) {
   return { profiles };
 }
 
+// The multipass user lookup (POST /multipass/api/users, a list of user ids): each id that names one of
+// the given principals, in multipass's attribute shape. An id no principal names is left out, never
+// answered with someone else's record.
+export function multipassUsersFor(userIds, principals) {
+  const byId = new Map(principals.map((p) => [userIdOf(p.ref), p]));
+  return (Array.isArray(userIds) ? userIds : []).filter((id) => byId.has(id)).map((id) => {
+    const p = byId.get(id);
+    const name = p.name || p.ref;
+    const [given, ...rest] = String(name).split(" ");
+    const attributes = { "multipass:given-name": [given || name], "multipass:family-name": [rest.join(" ")], "multipass:realm": ["hypervisor"], "multipass:realm-name": ["Hypervisor"] };
+    if (p.email) attributes["multipass:email:primary"] = [p.email];
+    return { id, username: p.email || p.ref, attributes };
+  });
+}
+
 export const HANDLED_GRAPHQL = new Set(["SearchMonitorsQuery"]);
 
 // Parse a bulk request's operation names by index.
