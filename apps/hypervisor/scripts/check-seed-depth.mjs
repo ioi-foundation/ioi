@@ -33,7 +33,9 @@ const PHASE_ORDER = ["automate", "pipeline-builder", "sessions", "ontology-manag
 
 // Pinned populations. Re-pin with the reason beside the number, in the commit that moves it.
 const PINS = {
-  // 2026-09-27 (R-241): 34 → 37 — the Overview's sections: Recently triggered is bound (automatic runs,
+  // 2026-09-27 (R-241): Failures in last 4 weeks proved (a webhook-fired run whose step failed is listed):
+  // open → bound; Automate open 6 → 5.
+  // Before that, 2026-09-27 (R-241): 34 → 37 — the Overview's sections: Recently triggered is bound (automatic runs,
   // with the condition that fired them); Failures in last 4 weeks is fed by the same events but unproven
   // (open); Recently viewed always reads empty because no view history is kept (open). Open 4 → 6.
   // Before that, 2026-09-27 (R-241): 31 → 34 — the header driven: File → Rename is bound (UpdateResourceName, and the
@@ -53,8 +55,11 @@ const PINS = {
   // Action, Logic and Notification effects), 2 named gaps (Unknown Agent; Unknown effect for command and
   // proposal steps), 4 open (header rename unproven; the side tabs undriven; settings accepted but not
   // enforced; the editor's Time label for a manual automation).
-  automate: { total: 37, bound: 18, refused: 10, named_gap: 3, open: 6 },
-  "pipeline-builder": { total: 0, bound: 0, refused: 0, named_gap: 0, open: 0 },
+  automate: { total: 37, bound: 19, refused: 10, named_gap: 3, open: 5 },
+  // 2026-09-27 (R-241): Pipeline Builder's cut begins — 11 states harvested read-only (landing, examples,
+  // the create form and its two choices, the editor's graph, add data, outputs, proposals, history, deploy);
+  // all open until bound to DataRecipe revisions and TransformationRuns.
+  "pipeline-builder": { total: 11, bound: 0, refused: 0, named_gap: 0, open: 11 },
   sessions: { total: 0, bound: 0, refused: 0, named_gap: 0, open: 0 },
   "ontology-manager": { total: 0, bound: 0, refused: 0, named_gap: 0, open: 0 },
   "data-connection": { total: 0, bound: 0, refused: 0, named_gap: 0, open: 0 },
@@ -95,7 +100,9 @@ if (record) {
       if (s.disposition === "open" && String(s.reason || "").length < 20) problems.push(`${s.id}: an open state says why it is open`);
     }
     if (app.status === "not_started" && states.length) problems.push("a not_started app carries states");
-    if (app.status !== "not_started" && !(app.verifier && readTracked(app.verifier) !== null)) problems.push(`its verifier ${app.verifier} is not a tracked file`);
+    // An app with a bound state names the live verifier that proves it (a tracked file); before its first
+    // binding it names none rather than borrowing another app's.
+    if (states.some((st) => st.disposition === "bound") && !(app.verifier && readTracked(app.verifier) !== null)) problems.push(`its verifier ${app.verifier} is not a tracked file`);
     ok(`${app.id}: every state has one disposition and a proof, a shown gap or a reason`, problems.length === 0, problems.slice(0, 6).join(" · "));
 
     const got = { total: states.length, ...Object.fromEntries(DISPOSITIONS.map((d) => [d, states.filter((s) => s.disposition === d).length])) };

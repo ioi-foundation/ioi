@@ -281,14 +281,40 @@ journey verifier → deploy to the owner's stack.
   (no agent definition bound); command and proposal steps have no reference effect to name them; the
   editor lists a manual automation's condition as Time; the refusal reason shows only as a tooltip;
   History's Edits filter lists nothing (no per-automation edit history is kept); Favorite is refused
-  silently; Recently viewed always reads empty (no view history is kept); Failures in last 4 weeks is
-  unproven.
+  silently; Recently viewed always reads empty (no view history is kept). Effects run in the order the
+  request states, and a request for parallel effects is refused by name (steps run one after another);
+  the editor's record states that order, so it reads "Execute effects sequentially".
 - **Adoption steps:** (1) vendor the booted app — `index.html` + its 34 content-addressed assets,
   18.5 MB, the same scale as the tracked Ona tree — into a quarantined harvested lane in the owned tree;
   (2) serve it at the Automate canonical route, its asset and API paths answered by the serve (assets
   from the vendored tree, API through the adapter to the daemon); (3) rebrand; drop the reference's own
   sidebar under our shell; (4) bind operation by operation, fallthrough counted to zero; (5) freeze:
   `SURFACE_STATES` for every flow state, the journey through the wizard, retire the recreation.
+
+### Pipeline Builder — harvest and the plane it needs (2026-09-27)
+
+- **H done for the known flow:** 11 states recorded read-only over CDP — the landing (recents, project
+  and creator filters, New pipeline, marketplace examples), the create form (name and location; Batch or
+  Streaming; Standard / Faster / External compute — walked, never created), and the tenant's pipeline in
+  the editor (Graph with the four-way add-data welcome card, Proposals, History, Add data, Pipeline
+  outputs and output settings). Evidence in `.artifacts/live-tenant-atlas/r241-pipeline/`. The mirror's
+  builder index was a stale build (no script in common with the tenant's); it now serves the current
+  build and every asset it and the flow reference (feeds are read-only GETs).
+- **Wire contract, measured:** the landing searches `EDDIE_PIPELINE` resources over GraphQL
+  (`PipelineLandingSearchQuery`, `PipelineLandingRecentsAndFavoritesQuery`), then reads details over REST
+  (`eddie/api/pipelines-v2/get/by-rids`: name, attribution, published sandboxes; `get-sandboxes-with-
+  snapshots`: each draft's snapshot of transforms, targets and outputs; `CurrentPipelineDeploymentQuery`).
+  The Project filter searches compass (`foundry-search/api/compass/v0/search`) — a passthrough today that
+  must answer with the caller's projects before the lane is shown to anyone.
+- **The plane it needs.** A reference pipeline is a mutable DRAFT (a sandbox holding a snapshot of
+  transforms and outputs) that is later DEPLOYED. The Hypervisor's `DataRecipe` (v2) is an immutable,
+  complete revision — exact ontology revisions, connector-mapping revisions, output contracts, canon's
+  transformation steps, receipt obligations — and a deploy is a `TransformationRun`. An empty new
+  pipeline cannot be a DataRecipe revision, so Create (and the editor's edits) need a **recipe-draft
+  plane**: an owner-scoped, mutable authoring record that is admitted as a DataRecipe revision when
+  complete, contract first. Until it exists the landing can list admitted recipes and Create is a named
+  gap. The owner holds no DataRecipes (six ODK transformation runs), so `/data/recipes` keeps the owned
+  port until the adopted landing is at least as useful; the adoption stays in its `/__apps/pipeline` lane.
 
 ## Gate
 

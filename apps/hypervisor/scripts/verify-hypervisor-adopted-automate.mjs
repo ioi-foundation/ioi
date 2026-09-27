@@ -458,6 +458,25 @@ async function run() {
     ok("the Overview's Recently triggered lists the automation's automatic run (an accepted webhook fire, done) with the condition that fired it",
       hookFire === 202 && hookRun?.status === "done" && triggeredRows.includes(`auto-${tag}-header`) && /\bTime\b/u.test(triggeredRows) && !/Restricted|No events found/u.test(triggeredRows),
       `fire ${hookFire} · ${hookRun?.status || "no webhook run"} · "${triggeredRows.slice(0, 200)}"`);
+
+    // A FAILED automatic run is listed under "Failures in last 4 weeks" (the fixture's command step exits 3;
+    // its run is fired by its webhook).
+    const failing = await fetch(`${DAEMON}/v1/hypervisor/automations`, { method: "POST", headers: { cookie: COOKIE, "content-type": "application/json" }, body: JSON.stringify({ project_ref: project.project?.id, name: `failing-${tag}`, steps: [{ kind: "command", command: "exit 3" }] }) }).then((r) => r.json()).catch(() => ({}));
+    const failingId = failing.automation?.automation_id || "";
+    const failHook = failingId ? await fetch(`${DAEMON}/v1/hypervisor/automations/${failingId}/webhook-rotate`, { method: "POST", headers: { cookie: COOKIE } }).then((r) => r.json()).catch(() => ({})) : {};
+    const failFire = failHook.webhook_token ? await fetch(`${DAEMON}/v1/hypervisor/automations/${failingId}/webhook`, { method: "POST", headers: { "content-type": "application/json", "X-IOI-Trigger-Token": failHook.webhook_token }, body: "{}" }).then((r) => r.status).catch(() => 0) : 0;
+    let failedRun = null;
+    for (let attempt = 0; attempt < 40 && !failedRun; attempt++) {
+      await sleep(1000);
+      failedRun = ((await daemonRead(`/v1/hypervisor/automations/${failingId}/runs`)).body?.runs ?? []).find((r) => r.status !== "running") || null;
+    }
+    await pg.goto(`${SERVE}/workspace/object-monitoring/`, { waitUntil: "domcontentloaded" });
+    await pg.waitForTimeout(9000);
+    const overviewAfterFailure = (await pg.evaluate(() => document.body.innerText)).replace(/\s+/g, " ");
+    const failuresSection = overviewAfterFailure.includes("Failures in last 4 weeks") ? overviewAfterFailure.slice(overviewAfterFailure.indexOf("Failures in last 4 weeks"), overviewAfterFailure.indexOf("Recently triggered")) : "";
+    ok("the Overview's Failures in last 4 weeks lists a failed automatic run (a webhook fire whose step failed)",
+      failFire === 202 && failedRun?.status === "failed" && failuresSection.includes(`failing-${tag}`),
+      `fire ${failFire} · ${failedRun?.status || "no run"} · "${failuresSection.slice(0, 160)}"`);
   } finally {
     await browser.close();
   }

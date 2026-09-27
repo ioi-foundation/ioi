@@ -130,7 +130,9 @@ export function monitorOf(a, runs, functionInfo = null) {
       renderingV2: {},
       liveConfig: { lowLatencyPatchesEnabled: false, monitorMetricsEnabled: false, streamBackedObjectsEnabled: false, editsOnlyMonitoring: false, skipPeeringEnabled: null },
       management: null,
-      globalEffectExecutionSettings: { batchSize: 0, effectOrdering: null, doNotMuteAutomationOnFailures: false, rateLimitConfig: null, longTermRetryConfig: null, queueExpirationInSeconds: null, enableAdaptiveParallelism: null },
+      // Steps run one after another: more than one function effect carries that order (the editor then
+      // reads "Execute effects sequentially"); one has no order to state.
+      globalEffectExecutionSettings: { batchSize: 0, effectOrdering: effectOrderingRecordOf(a, functionInfo), doNotMuteAutomationOnFailures: false, rateLimitConfig: null, longTermRetryConfig: null, queueExpirationInSeconds: null, enableAdaptiveParallelism: null },
       scopedTokenEffects: null,
       priority: null,
       cycleDetectionSettings: { type: "noCyclesAllowed", noCyclesAllowed: {} },
@@ -713,6 +715,16 @@ export function automationFromMonitorRequest(request, { projects = [], releasedR
     if (Object.keys(sub.recoveryEffects || {}).length) return { issue: "failure (recovery) effects are not supported by the Hypervisor automation yet" };
   }
   if (!effects.size) return { issue: "add at least one effect" };
+  // The Hypervisor runs an automation's steps one after another, in the order the request states.
+  const ordering = r.metadata?.globalEffectExecutionSettings?.effectOrdering;
+  const order = ordering?.type === "defaultEffectOrdering" ? (ordering.defaultEffectOrdering || []) : null;
+  if (effects.size > 1 && !order) return { issue: "the Hypervisor runs an automation's steps one after another — choose Execute effects sequentially" };
+  if (order) {
+    const ranked = [...order.filter((id) => effects.has(id)), ...[...effects.keys()].filter((id) => !order.includes(id))];
+    const reordered = new Map(ranked.map((id) => [id, effects.get(id)]));
+    effects.clear();
+    for (const [id, effect] of reordered) effects.set(id, effect);
+  }
   const retries = r.metadata?.globalEffectExecutionSettings?.longTermRetryConfig
     || [...effects.values()].some((e) => e?.[e?.type]?.retryConfiguration || e?.[e?.type]?.retryConfig);
   if (retries) return { issue: "event and effect retries are not supported by the Hypervisor automation yet — turn retries off" };
@@ -843,6 +855,10 @@ function conjureStatic(dataType, value) {
   if (dataType?.type === "list") return { type: "list", list: { values: (Array.isArray(value) ? value : []).map((v) => conjureStatic({ type: dataType.element_type }, v)) } };
   const t = dataType?.type || (typeof value === "number" ? (Number.isInteger(value) ? "integer" : "double") : typeof value === "boolean" ? "boolean" : "string");
   return { type: t, [t]: value };
+}
+function effectOrderingRecordOf(a, functionInfo) {
+  const ids = functionStepsOf(a, functionInfo).map(({ index }) => effectIdOf(a.automation_id, index));
+  return ids.length > 1 ? { type: "defaultEffectOrdering", defaultEffectOrdering: ids } : null;
 }
 export function triggerEffectsOf(a, functionInfo) {
   const out = {};

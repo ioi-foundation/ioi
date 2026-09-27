@@ -225,3 +225,16 @@ test("an operation with no Hypervisor plane is refused by name, never answered f
   assert.equal(answer.data, null);
   assert.match(answer.errors[0].message, /Favorites are not kept by the Hypervisor/);
 });
+
+test("effects run in the order the request states; a request for parallel effects is refused by name", () => {
+  const two = request();
+  const e1 = two.metadata.subscribers[0].triggerEffects.e1;
+  two.metadata.subscribers[0].triggerEffects = { e1, e2: { ...e1, function: { ...e1.function, functionInputs: { amount: { type: "staticValue", staticValue: { type: "integer", integer: 5 } } } } } };
+  assert.match(AUTOMATE.automationFromMonitorRequest(two, { projects, releasedRevisionOf }).issue, /one after another/);
+  two.metadata.globalEffectExecutionSettings = { effectOrdering: { type: "defaultEffectOrdering", defaultEffectOrdering: ["e2", "e1"] } };
+  const t = AUTOMATE.automationFromMonitorRequest(two, { projects, releasedRevisionOf });
+  assert.equal(t.issue, undefined);
+  assert.deepEqual(t.body.steps.map((st) => st.inputs.amount), [5, 20], "the stated order, not the object order");
+  const a = { automation_id: "auto_0123456789abcdef", steps: [{ kind: "function", function_revision_ref: released.revision_ref, inputs: {} }, { kind: "function", function_revision_ref: released.revision_ref, inputs: {} }] };
+  assert.equal(AUTOMATE.monitorOf(a, [], new Map()).metadata.globalEffectExecutionSettings.effectOrdering.defaultEffectOrdering.length, 2);
+});

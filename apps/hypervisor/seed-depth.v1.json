@@ -13,7 +13,7 @@
       "states": [
         { "id": "overview", "label": "Overview", "disposition": "bound", "proof": { "file": "apps/hypervisor/scripts/verify-hypervisor-adopted-automate.mjs", "text": "/automations opens the adopted app (a deep link opens that automation), its own URLs reload in place, and our rail stands where the reference's sidebar was" } },
         { "id": "overview.recently-triggered", "label": "Overview — Recently triggered", "disposition": "bound", "proof": { "file": "apps/hypervisor/scripts/verify-hypervisor-adopted-automate.mjs", "text": "the Overview's Recently triggered lists the automation's automatic run" } },
-        { "id": "overview.failures", "label": "Overview — Failures in last 4 weeks", "disposition": "open", "reason": "failed automatic runs are listed from the same events as Recently triggered, but no live walk proves the section yet" },
+        { "id": "overview.failures", "label": "Overview — Failures in last 4 weeks", "disposition": "bound", "proof": { "file": "apps/hypervisor/scripts/verify-hypervisor-adopted-automate.mjs", "text": "the Overview's Failures in last 4 weeks lists a failed automatic run" } },
         { "id": "overview.recently-viewed", "label": "Overview — Recently viewed", "disposition": "open", "reason": "the Hypervisor keeps no view history, so the section always reads You have no recent files" },
         { "id": "automations-list", "label": "Automations", "disposition": "bound", "proof": { "file": "apps/hypervisor/scripts/verify-hypervisor-adopted-automate.mjs", "text": "/automations opens the adopted app (a deep link opens that automation), its own URLs reload in place, and our rail stands where the reference's sidebar was" } },
         { "id": "detail.function-step", "label": "Automation — overview (a function step)", "disposition": "bound", "proof": { "file": "apps/hypervisor/scripts/verify-hypervisor-adopted-automate.mjs", "text": "the adopted app lands on the new automation's own detail page, which names it and shows its Function effect: the released function, its version and its one input" } },
@@ -50,7 +50,28 @@
         { "id": "edit.manual-condition-label", "label": "Manage automation — a manual automation's condition", "disposition": "open", "reason": "the editor lists a manual automation's condition as Time (the registry record carries an empty schedule), and the refusal's reason shows only in a tooltip" }
       ]
     },
-    { "id": "pipeline-builder", "status": "not_started", "reference_app": "Pipeline Builder", "states": [] },
+    {
+      "id": "pipeline-builder",
+      "status": "in_progress",
+      "reference_app": "Pipeline Builder",
+      "seed": "pipeline",
+      "canonical_route": "/data/recipes",
+      "verifier": null,
+      "note": "Harvested 2026-09-27 (11 states, read-only). A reference pipeline is a DataRecipe (immutable revisions, /v1/hypervisor/data-recipe-revisions); a deploy or build is a TransformationRun. Nothing is bound yet: the adopted app boots from the local mirror, and its landing queries still answer as named gaps.",
+      "states": [
+        { "id": "landing", "label": "Pipeline Builder — landing (recents, project and creator filters, New pipeline)", "disposition": "open", "reason": "PipelineLandingRecentsAndFavoritesQuery and PipelineLandingSearchQuery are unbound — the landing must list DataRecipes" },
+        { "id": "landing.examples", "label": "Pipeline Builder — Explore reference examples", "disposition": "open", "reason": "the reference examples come from its marketplace; the Hypervisor has none to offer yet" },
+        { "id": "create", "label": "Create new pipeline — name and location", "disposition": "open", "reason": "a new pipeline is an empty DRAFT, but a DataRecipe revision is immutable and complete (ontology revisions, connector mappings, output contracts, steps) — Create waits on a recipe-draft plane, contract first" },
+        { "id": "create.batch-streaming", "label": "Create new pipeline — Batch or Streaming", "disposition": "open", "reason": "a DataRecipe's execution mode is not yet mapped from the choice" },
+        { "id": "create.compute", "label": "Create new pipeline — Standard, Faster or External compute", "disposition": "open", "reason": "compute choice has no DataRecipe counterpart yet" },
+        { "id": "editor.graph", "label": "Pipeline editor — Graph (the add-data welcome card)", "disposition": "open", "reason": "the graph editor is not bound to a DataRecipe revision" },
+        { "id": "editor.add-data", "label": "Pipeline editor — Add data (Foundry data, add data, upload, manual entry)", "disposition": "open", "reason": "adding data must bind to the Data sources and connector mappings a recipe reads" },
+        { "id": "editor.outputs", "label": "Pipeline editor — Pipeline outputs and output settings", "disposition": "open", "reason": "outputs must bind to the recipe's declared outputs (datasets / object sets)" },
+        { "id": "editor.proposals", "label": "Pipeline editor — Proposals", "disposition": "open", "reason": "proposals belong to change sets (ADR 0056 P4), not yet built" },
+        { "id": "editor.history", "label": "Pipeline editor — History", "disposition": "open", "reason": "history must list the recipe's revisions and TransformationRuns" },
+        { "id": "editor.deploy", "label": "Pipeline editor — Deploy / build", "disposition": "open", "reason": "deploy must admit a TransformationRun for the recipe revision" }
+      ]
+    },
     { "id": "sessions", "status": "not_started", "reference_app": "Sessions (Ona)", "states": [] },
     { "id": "ontology-manager", "status": "not_started", "reference_app": "Ontology Manager / Explorer", "states": [] },
     { "id": "data-connection", "status": "not_started", "reference_app": "Data Connection", "states": [] }
