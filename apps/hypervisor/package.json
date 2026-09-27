@@ -90,6 +90,7 @@
     "check:health-checks": "node scripts/verify-hypervisor-health-checks.mjs",
     "check:justification-checkpoints": "node scripts/verify-hypervisor-justification-checkpoints.mjs",
     "check:functions": "node scripts/verify-hypervisor-functions.mjs",
+    "check:seed-depth": "node scripts/check-seed-depth.mjs",
     "check:adopted-automate": "node scripts/verify-hypervisor-adopted-automate.mjs",
     "check:ontology-surface-invariant-11": "node scripts/verify-hypervisor-ontology-surface-invariant-11.mjs",
     "check:ontology-version-lifecycle": "node scripts/verify-hypervisor-ontology-version-lifecycle.mjs",

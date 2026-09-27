@@ -272,10 +272,15 @@ journey verifier → deploy to the owner's stack.
 
 ## Gate
 
-`check:seed-depth` (to be built with the first app's cut, in the M12.3 shape): per app, the
-population of harvested reference flow states, adopted states, bound states and named-gap controls,
-pinned EXACTLY; a harvested state with no adopted port, or an adopted state absent from
-`SURFACE_STATES`, is red. It rides beside `check:dead-controls`, which now also probes the canonical
+`check:seed-depth` (built 2026-09-27 with the Automate cut; CI-bound): the tracked record
+`apps/hypervisor/seed-depth.v1.json` lists every reference flow state of every adopted app — the harvested
+states plus those found by driving the adopted app — each with ONE disposition: **bound** (a live
+verifier assertion, cited by its exact text), **refused** (refused by name; a test proves it),
+**named_gap** (what the person sees, and why) or **open** (known debt, counted down to zero). Renaming or
+deleting a cited proof breaks the gate; the populations are pinned exactly per app and disposition, so a
+state cannot quietly move from bound to open or vanish. Automate's first census: 27 states — 12 bound,
+9 refused, 2 named gaps, 4 open. Apps later in the phase order carry `not_started` and no states until
+their cut begins. It rides beside `check:dead-controls`, which now also probes the canonical
 lanes (Work, Systems, Operations, Environments, Leases & Limits, …) that the registry never listed.
 
 ## Rules that do not bend

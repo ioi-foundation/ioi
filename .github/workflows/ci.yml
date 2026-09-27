@@ -1894,6 +1894,10 @@ jobs:
         if: ${{ !cancelled() }}
         run: npm run test:adopted-seeds --workspace=@ioi/hypervisor-app
 
+      - name: UX seed depth census — check:seed-depth
+        if: ${{ !cancelled() }}
+        run: npm run check:seed-depth --workspace=@ioi/hypervisor-app
+
       - name: Test the aiagent.xyz marketplace contracts
         if: ${{ !cancelled() }}
         run: npm test --workspace=apps/aiagent-xyz

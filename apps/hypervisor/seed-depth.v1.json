@@ -1,0 +1,48 @@
+{
+  "schema": "ioi.hypervisor.seed-depth.v1",
+  "doc": "apps/hypervisor/docs/ux-seed-depth-phase.md",
+  "note": "One row per reference FLOW state of each adopted app (R-241): the harvested states plus the states found by driving the adopted app. Every state has a disposition — bound (a live verifier assertion proves it over daemon truth), refused (the app refuses it by name; a test proves the refusal), named_gap (visible on the surface as `shown_as`), or open (known and not yet handled — the census counts these down to zero). A proof names a file and the EXACT text of an assertion or test in it, so renaming one breaks the link. No tenant data: labels are the reference's own UI words.",
+  "apps": [
+    {
+      "id": "automate",
+      "status": "in_progress",
+      "reference_app": "Automate",
+      "seed": "monitors",
+      "canonical_route": "/automations",
+      "verifier": "apps/hypervisor/scripts/verify-hypervisor-adopted-automate.mjs",
+      "states": [
+        { "id": "overview", "label": "Overview", "disposition": "bound", "proof": { "file": "apps/hypervisor/scripts/verify-hypervisor-adopted-automate.mjs", "text": "/automations opens the adopted app (a deep link opens that automation), its own URLs reload in place, and our rail stands where the reference's sidebar was" } },
+        { "id": "automations-list", "label": "Automations", "disposition": "bound", "proof": { "file": "apps/hypervisor/scripts/verify-hypervisor-adopted-automate.mjs", "text": "/automations opens the adopted app (a deep link opens that automation), its own URLs reload in place, and our rail stands where the reference's sidebar was" } },
+        { "id": "detail.function-step", "label": "Automation — overview (a function step)", "disposition": "bound", "proof": { "file": "apps/hypervisor/scripts/verify-hypervisor-adopted-automate.mjs", "text": "the adopted app lands on the new automation's own detail page, which names it and shows its Function effect: the released function, its version and its one input" } },
+        { "id": "detail.manual", "label": "Automation — overview (a manual command-step automation)", "disposition": "bound", "proof": { "file": "apps/hypervisor/scripts/verify-hypervisor-adopted-automate.mjs", "text": "a manual automation's adopted detail renders" } },
+        { "id": "detail.writes", "label": "Automation — Edit description, Pause, Resume", "disposition": "bound", "proof": { "file": "apps/hypervisor/scripts/verify-hypervisor-adopted-automate.mjs", "text": "the adopted page's own writes land" } },
+        { "id": "detail.rename", "label": "Automation — rename from the header", "disposition": "open", "reason": "RenameResource is bound in the adapter (a PATCH of the name, the compass rename rules) but no live walk proves the header control yet" },
+        { "id": "detail.agent-step", "label": "Automation flow — an agent step", "disposition": "named_gap", "shown_as": "an Agent effect titled \"Unknown Agent\" with its prompt as the one input", "reason": "no agent definition is bound to an agent step, so the reference titles the effect Unknown Agent" },
+        { "id": "detail.command-proposal-steps", "label": "Automation flow — command and proposal steps", "disposition": "named_gap", "shown_as": "\"Unknown effect\" rows, in step order, under \"Executed sequentially\"", "reason": "the reference has no effect for a shell command or a change proposal; the page shows the step without naming it" },
+        { "id": "detail.other-tabs", "label": "Automation — History, Effects and Metrics tabs", "disposition": "open", "reason": "the detail page's side tabs past Overview have not been driven over daemon truth yet" },
+        { "id": "wizard.condition-picker", "label": "New automation — Condition", "disposition": "bound", "proof": { "file": "apps/hypervisor/scripts/verify-hypervisor-adopted-automate.mjs", "text": "Save admits ONE automation in the project: a cron schedule in its named zone and one function step pinned to the released revision's content hash" } },
+        { "id": "condition.time", "label": "Condition — Time", "disposition": "bound", "proof": { "file": "apps/hypervisor/scripts/verify-hypervisor-adopted-automate.mjs", "text": "Save admits ONE automation in the project: a cron schedule in its named zone and one function step pinned to the released revision's content hash" } },
+        { "id": "condition.objects-added", "label": "Condition — Objects added to set", "disposition": "refused", "proof": { "file": "apps/hypervisor/scripts/adopted-automate.test.mjs", "text": "what the Hypervisor automation cannot carry is refused by name, never dropped" } },
+        { "id": "condition.objects-removed", "label": "Condition — Objects removed from set", "disposition": "refused", "proof": { "file": "apps/hypervisor/scripts/adopted-automate.test.mjs", "text": "what the Hypervisor automation cannot carry is refused by name, never dropped" } },
+        { "id": "condition.objects-modified", "label": "Condition — Objects modified in a set", "disposition": "refused", "proof": { "file": "apps/hypervisor/scripts/adopted-automate.test.mjs", "text": "what the Hypervisor automation cannot carry is refused by name, never dropped" } },
+        { "id": "condition.run-on-all-objects", "label": "Condition — Run on all objects", "disposition": "refused", "proof": { "file": "apps/hypervisor/scripts/adopted-automate.test.mjs", "text": "what the Hypervisor automation cannot carry is refused by name, never dropped" } },
+        { "id": "condition.threshold-crossed", "label": "Condition — Threshold crossed", "disposition": "refused", "proof": { "file": "apps/hypervisor/scripts/adopted-automate.test.mjs", "text": "what the Hypervisor automation cannot carry is refused by name, never dropped" } },
+        { "id": "condition.automation-dependency", "label": "Condition — Automation dependency", "disposition": "refused", "proof": { "file": "apps/hypervisor/scripts/adopted-automate.test.mjs", "text": "what the Hypervisor automation cannot carry is refused by name, never dropped" } },
+        { "id": "wizard.effect-picker", "label": "New automation — Effects", "disposition": "bound", "proof": { "file": "apps/hypervisor/scripts/verify-hypervisor-adopted-automate.mjs", "text": "the adopted wizard's Function effect offers the released function and shows its typed input and version" } },
+        { "id": "effect.function", "label": "Effect — Function", "disposition": "bound", "proof": { "file": "apps/hypervisor/scripts/verify-hypervisor-adopted-automate.mjs", "text": "the adopted wizard's Function effect offers the released function and shows its typed input and version" } },
+        { "id": "effect.action", "label": "Effect — Action", "disposition": "refused", "proof": { "file": "apps/hypervisor/scripts/adopted-automate.test.mjs", "text": "what the Hypervisor automation cannot carry is refused by name, never dropped" } },
+        { "id": "effect.logic", "label": "Effect — Logic", "disposition": "refused", "proof": { "file": "apps/hypervisor/scripts/adopted-automate.test.mjs", "text": "what the Hypervisor automation cannot carry is refused by name, never dropped" } },
+        { "id": "effect.notification", "label": "Effect — Notification", "disposition": "refused", "proof": { "file": "apps/hypervisor/scripts/adopted-automate.test.mjs", "text": "what the Hypervisor automation cannot carry is refused by name, never dropped" } },
+        { "id": "wizard.settings", "label": "New automation — Settings (expiry, event retries)", "disposition": "open", "reason": "the expiry date and retry settings are accepted and carried, but the Hypervisor automation does not enforce them and nothing on the surface says so" },
+        { "id": "wizard.summary-save", "label": "New automation — Summary and Save as…", "disposition": "bound", "proof": { "file": "apps/hypervisor/scripts/verify-hypervisor-adopted-automate.mjs", "text": "the Save dialog offers the caller's project as the location, reports no issue, and enables Save" } },
+        { "id": "edit.save", "label": "Manage automation — Condition, Effects, Settings, Summary, Save", "disposition": "bound", "proof": { "file": "apps/hypervisor/scripts/verify-hypervisor-adopted-automate.mjs", "text": "Edit in the adopted wizard renames the automation and changes its function input in one Save — same project, same pinned revision — and lands back on its page" } },
+        { "id": "edit.manual", "label": "Manage automation — a manual command-step automation", "disposition": "bound", "proof": { "file": "apps/hypervisor/scripts/verify-hypervisor-adopted-automate.mjs", "text": "the adopted editor does not save a manual command-step automation — Save stays disabled and the record is untouched" } },
+        { "id": "edit.manual-condition-label", "label": "Manage automation — a manual automation's condition", "disposition": "open", "reason": "the editor lists a manual automation's condition as Time (the registry record carries an empty schedule), and the refusal's reason shows only in a tooltip" }
+      ]
+    },
+    { "id": "pipeline-builder", "status": "not_started", "reference_app": "Pipeline Builder", "states": [] },
+    { "id": "sessions", "status": "not_started", "reference_app": "Sessions (Ona)", "states": [] },
+    { "id": "ontology-manager", "status": "not_started", "reference_app": "Ontology Manager / Explorer", "states": [] },
+    { "id": "data-connection", "status": "not_started", "reference_app": "Data Connection", "states": [] }
+  ]
+}
