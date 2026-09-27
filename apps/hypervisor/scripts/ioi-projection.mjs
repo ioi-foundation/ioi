@@ -16,7 +16,8 @@
 export function threadToAgentExecution(t) {
   const id = t.thread_id || t.id;
   const running = (t.status || "active") === "active";
-  const phase = running ? "AGENT_EXECUTION_PHASE_RUNNING" : "AGENT_EXECUTION_PHASE_STOPPED";
+  // the shell's AgentExecution.Phase members are spelled PHASE_* on the wire (see ioi-agent-runs.mjs runToAgentExecution)
+  const phase = running ? "PHASE_RUNNING" : "PHASE_STOPPED";
   const session = t.session_id || id;
   const title = t.title && t.title.trim() && t.title.trim() !== "." ? t.title.trim() : "Untitled session";
   return {

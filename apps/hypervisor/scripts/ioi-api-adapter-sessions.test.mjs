@@ -308,3 +308,18 @@ test("an environment names its project (none for a scratch session) and its daem
   assert.equal(stop.metadata.projectId, undefined);
   assert.equal(stop.spec.timeout, undefined, "no stop policy on the record, none claimed");
 });
+
+// R-240 Arm A (Sessions): the shell's AgentExecution.Phase is PHASE_PENDING / RUNNING / WAITING_FOR_INPUT / STOPPED; the
+// AGENT_EXECUTION_PHASE_* spellings were dropped to UNSPECIFIED, so every run read "Starting…" forever — a failed one too.
+test("a run projects a phase the shell knows: failed is STOPPED with its reason, done is STOPPED without, waiting on the operator is WAITING_FOR_INPUT", async () => {
+  const { runToAgentExecution } = await import("./ioi-agent-runs.mjs");
+  const at = (status, extra = {}) => runToAgentExecution({ id: "agent_1", name: "n", status, createdAt: AT, updatedAt: AT, statusVersion: 1, envId: "env_1", sessionRef: "s", ...extra });
+  const failed = at("failed", { error: "No reachable model route" });
+  assert.deepEqual([failed.status.phase, failed.status.failureMessage, failed.spec.desiredPhase], ["PHASE_STOPPED", "No reachable model route", "PHASE_RUNNING"]);
+  const done = at("done");
+  assert.deepEqual([done.status.phase, done.status.failureMessage], ["PHASE_STOPPED", undefined]);
+  assert.equal(at("running").status.phase, "PHASE_RUNNING");
+  assert.equal(at("waiting").status.phase, "PHASE_PENDING");
+  assert.equal(at("awaiting_operator_approval").status.phase, "PHASE_WAITING_FOR_INPUT");
+  assert.match(at("denied").status.failureMessage, /denied/u);
+});

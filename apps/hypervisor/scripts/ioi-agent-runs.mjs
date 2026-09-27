@@ -343,12 +343,17 @@ function deriveName(prompt) {
 
 // Project a registry run onto the IOI AgentExecution shape the SPA renders.
 export function runToAgentExecution(run) {
-  const phase =
-    run.status === "running" || run.status === "waiting" || run.status === "awaiting_operator_approval"
-      ? "AGENT_EXECUTION_PHASE_RUNNING"
-      : run.status === "failed"
-        ? "AGENT_EXECUTION_PHASE_FAILED"
-        : "AGENT_EXECUTION_PHASE_STOPPED";
+  // The shell's AgentExecution.Phase is PENDING / RUNNING / WAITING_FOR_INPUT / STOPPED, spelled PHASE_* on the wire (the
+  // recorded reference answers "PHASE_STOPPED"); a failure is STOPPED with a failureMessage. The former
+  // AGENT_EXECUTION_PHASE_* spellings are no member of it and were dropped to UNSPECIFIED, so every run — done, failed
+  // or waiting on its operator — read "Starting…" / "Working…" forever (R-240 Arm A on Sessions).
+  const phase = {
+    waiting: "PHASE_PENDING",
+    running: "PHASE_RUNNING",
+    awaiting_operator_approval: "PHASE_WAITING_FOR_INPUT",
+    awaiting_wallet_authority: "PHASE_WAITING_FOR_INPUT",
+  }[run.status] || "PHASE_STOPPED";
+  const failureMessage = run.status === "failed" ? String(run.error || "the run failed") : run.status === "denied" ? String(run.error || "the run was denied") : null;
   const convo = `/__ioi/agent-runs/${run.id}/conversation`;
   return {
     id: run.id,
@@ -362,7 +367,9 @@ export function runToAgentExecution(run) {
     spec: {
       specVersion: "2",
       session: run.sessionRef,
-      desiredPhase: run.status === "running" ? "PHASE_RUNNING" : "PHASE_STOPPED",
+      // the execution stays on (the reference's own finished executions answer desiredPhase RUNNING with phase STOPPED);
+      // a desired STOPPED would read every finished run as "Stopped" rather than "Ready for review" or "Failed"
+      desiredPhase: "PHASE_RUNNING",
       agentId: run.agentId,
       harnessBindingRef: run.sessionRef,
       codeContext: { environmentId: run.envId },
@@ -372,6 +379,7 @@ export function runToAgentExecution(run) {
       statusVersion: String(run.statusVersion),
       session: run.sessionRef,
       phase,
+      ...(failureMessage ? { failureMessage } : {}),
       conversationUrl: convo,
       transcriptUrl: convo,
       // V2 conversation path: the product-ui bundle prefers conversationUrls.history/live and hydrates a

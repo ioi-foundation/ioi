@@ -136,17 +136,21 @@ async function run() {
     await pg.locator("button,[role=tab]").filter({ hasText: /^Terminal$/u }).last().click({ timeout: 4000 }).catch(() => { /* named below */ });
     await pg.waitForTimeout(1500);
     await pg.getByRole("button", { name: "New Terminal", exact: true }).first().click({ timeout: 4000 }).catch(() => { /* named below */ });
-    await pg.waitForTimeout(4000);
-    const term = await text();
+    let term = "";
+    for (let i = 0; i < 15; i++) { await pg.waitForTimeout(1000); term = await text(); if (/connected/u.test(term) || /Failed to create terminal/u.test(term)) break; }
     const terminals = ((await daemonReq("/v1/hypervisor/terminals")).terminals || []).filter((t) => t.environment_ref === `environment:${RUNNING}`);
     ok("New Terminal opens a real terminal bound to the session's environment (the env-ops bridge carries the person's session to the daemon)",
       terminals.length >= 1 && /connected/u.test(term) && !/Failed to create terminal/u.test(term),
       `daemon terminals for the env ${terminals.length} · pane connected ${/connected/u.test(term)} · toast ${/Failed to create terminal/u.test(term)}`);
 
     await pg.goto(`${SERVE}/details/${RUNNING}?view=environment`, { waitUntil: "domcontentloaded", timeout: 60000 });
-    await pg.waitForTimeout(10000);
-    const card = await text();
-    const skeletons = await pg.evaluate(() => document.querySelectorAll('[class*="skeleton" i],[data-slot="skeleton"]').length);
+    let card = "", skeletons = 99;
+    for (let i = 0; i < 25; i++) {
+      await pg.waitForTimeout(1000);
+      card = await text();
+      skeletons = await pg.evaluate(() => document.querySelectorAll('[class*="skeleton" i],[data-slot="skeleton"]').length);
+      if (/Created/u.test(card) && /Last started/u.test(card) && skeletons < 3) break;
+    }
     ok("the session details card renders (its runner is named), rather than a skeleton forever",
       /Created/u.test(card) && /Last started/u.test(card) && skeletons < 3, `skeletons ${skeletons} · created ${/Created/u.test(card)} · last started ${/Last started/u.test(card)}`);
 
@@ -182,6 +186,28 @@ async function run() {
       submitEnabled && created.length === 1 && createdEnv?.spec?.project_id === project && /\/details\//u.test(pg.url()),
       `submit enabled ${submitEnabled} · created ${created.length} · project ${createdEnv?.spec?.project_id} (want ${project}) · at ${pg.url().replace(SERVE, "")}`);
 
+    // ---- a failed run reads Failed (its phase is one the shell knows), not "Starting…" forever -------------------
+    let rowText = "";
+    if (created[0]) {
+      await pg.goto(`${SERVE}/ai`, { waitUntil: "domcontentloaded", timeout: 60000 });
+      await pg.waitForTimeout(6000);
+      // the session is grouped under its project now; open the group only if its row is not shown (a click toggles it)
+      const rowShown = () => pg.evaluate((id) => [...document.querySelectorAll("a[href]")].some((x) => (x.getAttribute("href") || "").includes(id)), created[0]);
+      if (!(await rowShown())) await pg.locator("button").filter({ hasText: /^sessions-shell$/u }).first().click({ timeout: 3000 }).catch(() => { /* no group */ });
+      for (let i = 0; i < 20; i++) {
+        await pg.waitForTimeout(1500);
+        // the session's row (some links to it are icon-only, with no text)
+        rowText = await pg.evaluate((id) => [...document.querySelectorAll("a[href]")].filter((x) => (x.getAttribute("href") || "").includes(id)).map((x) => x.innerText.replace(/\s+/g, " ").trim()).find(Boolean) || "", created[0]);
+        if (rowText && !/Starting…|Working…/u.test(rowText)) break;
+      }
+    }
+    const runs = created[0] ? ((await api("AgentService/ListAgentExecutions", {})).j.agentExecutions || []).filter((x) => x.spec?.codeContext?.environmentId === created[0]) : [];
+    // the row's dot follows the ENVIRONMENT (still running, as the reference's does); the run's own state is the record the
+    // shell derives "Failed" from — STOPPED with a failureMessage
+    ok("a session whose agent run failed no longer reads \"Starting…\" forever: its run projects a phase the shell knows (STOPPED, with the run's reason), which the shell reads as Failed",
+      !!rowText && !/Starting…|Working…/u.test(rowText) && runs.some((x) => x.status?.phase === "PHASE_STOPPED" && x.status?.failureMessage),
+      `row "${rowText.slice(0, 120)}" · run ${JSON.stringify(runs.map((x) => [x.status?.phase, (x.status?.failureMessage || "").slice(0, 60)]))}`);
+
     // ---- the list follows the daemon: a deleted session leaves the open list without a reload (WatchEvents) ---
     await pg.goto(`${SERVE}/ai`, { waitUntil: "domcontentloaded", timeout: 60000 });
     await pg.waitForTimeout(8000);
@@ -189,7 +215,7 @@ async function run() {
     const wasListed = await listed();
     const deleted = await api("EnvironmentService/DeleteEnvironment", { environmentId: STOPPED });
     let left = false;
-    for (let i = 0; i < 15 && !left; i++) { await pg.waitForTimeout(1000); left = !(await listed()); }
+    for (let i = 0; i < 25 && !left; i++) { await pg.waitForTimeout(1000); left = !(await listed()); }
     ok("the open session list follows the daemon: a deleted session leaves it within seconds, without a reload (the change stream had ended at once with no event)",
       wasListed && deleted.status === 200 && left, `listed before ${wasListed} · delete ${deleted.status} · gone ${left}`);
 

@@ -17105,7 +17105,9 @@ async function handleEstateRequest(req, res, body) {
     // it changed. It used to end at once with no event, so a deleted or archived session stayed on "Stopping…" until a
     // reload (R-240 Arm A on Sessions). The stream now snapshots the caller's environments, polls the daemon every few
     // seconds under the caller's own identity, and emits CREATE (1) / UPDATE (2) / DELETE (3) for ENVIRONMENT (1) events
-    // that actually happened; it ends after a minute and the shell reconnects. Nothing is invented: no change, no event.
+    // that actually happened. It stays open until the page leaves: the shell asks for an unbounded stream (timeoutMs -1)
+    // and treats an ended one as a failure, reconnecting with a backoff that grows to a minute — a stream that ended every
+    // minute left the page deaf for up to a minute at a time. Nothing is invented: no change, no event.
     if (pathname === "/api/ioi.v1.EventService/WatchEvents") {
       let scope = {};
       try { scope = JSON.parse(body.toString("utf8") || "{}").scope || {}; } catch { /* the organization */ }
@@ -17121,8 +17123,7 @@ async function handleEstateRequest(req, res, body) {
       let closed = false;
       req.on("close", () => { closed = true; });
       let prior = await snapshot();
-      const started = Date.now();
-      while (!closed && Date.now() - started < 60000) {
+      while (!closed) {
         await new Promise((r) => setTimeout(r, 3000));
         if (closed) break;
         const now = await snapshot();
