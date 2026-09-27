@@ -175,6 +175,19 @@ journey verifier → deploy to the owner's stack.
   condition labels), the referenced-resources filter, Overview's owned count, the detail page
   (`monitors/<rid>/published`), the wizard's validate + create onto the automation plane, and the shell
   embedding (drop the reference's own sidebar under our rail) before `/automations` moves to it.
+- **Current build, one answer per operation (2026-09-26):** the mirror's Automate index was updated to the
+  tenant's CURRENT build (all 130 runtime assets present), which ended a webpack mixed-build crash on the
+  detail route; it speaks the streaming `/bulk` gateway (`{operations, requests:[{hash,name,variables}]}`,
+  one `data:` event per request index). Every operation is now answered by the serve and never by the
+  mirror's loose mock: bound operations from daemon truth; a SAFE list of fact-free operations (the
+  reference chrome, permissions, protection, walkthroughs, branches) from the recorded answer with lists
+  emptied and identity overwritten; everything else a named GraphQL error. Lesson recorded: enveloping an
+  operation that DESCRIBES an automation leaked the recorded tenant monitor's facts ("Objects added ·
+  Live monitoring · last triggered Jun 23") onto ours — such operations must be bound, never enveloped.
+  Detail-page operations still to bind: `ResourceHeaderQuery`, `CompassResourceQuery`,
+  `SingleAutomationOverviewV2Query`, `AutomationFlowQuery`, `AutomationLiveStatusQuery`,
+  `AutomationStatusControlQuery`, `AutomationMonitoringRulesCardQuery`, `AutomationDependenciesQuery`,
+  `ExpiryDateProjectQuery`, `GetLiveStatusForNonVersionedObjectSet`; comments `batch/page-v2` (empty pages).
 - **Adoption steps:** (1) vendor the booted app — `index.html` + its 34 content-addressed assets,
   18.5 MB, the same scale as the tracked Ona tree — into a quarantined harvested lane in the owned tree;
   (2) serve it at the Automate canonical route, its asset and API paths answered by the serve (assets

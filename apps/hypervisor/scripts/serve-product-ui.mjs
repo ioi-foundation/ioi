@@ -9161,6 +9161,14 @@ async function handleEstateRequest(req, res, body) {
         const p = who.authenticated === false ? {} : (who.principal || {});
         return { automations: Array.isArray(autos.automations) ? autos.automations : [], principal: { ref: p.principal_ref, name: p.name, email: p.email } };
       };
+      // One answer per adopted-app operation: bound (daemon truth) → the adapted harvest envelope → a named
+      // gap. Never the mirror's loose GraphQL mock.
+      const ADOPT_MIRROR_DIR = process.env.IOI_REFERENCE_MIRROR_DIR || join(REPO_ROOT, "internal-docs", "reverse-engineering", "palantir");
+      const answerAdoptedOp = (name, variables, ctxA) => {
+        if (AUTOMATE.OPERATIONS.has(name)) return { data: AUTOMATE.graphqlAnswer(name, variables || {}, ctxA) };
+        const env = AUTOMATE.envelopeAnswer(name, variables || {}, ctxA, ADOPT_MIRROR_DIR);
+        return env !== undefined ? { data: env } : AUTOMATE.unboundError(name);
+      };
       // Per-seed fold flag: some seed documents hardcode the capture ORIGIN for their API layer
       // and only boot when those refs are folded to same-origin (lineage); self-bootstrapped
       // documents (approvals pilot) must be served byte-faithful apart from the brand rebrand.
@@ -9668,14 +9676,11 @@ async function handleEstateRequest(req, res, body) {
       // the rest stay verbatim, so the unbound remainder is visible, not faked.
       if (pathname === "/graphql-gateway/api/bulk" && req.method === "POST") {
         const ops = AUTOMATE.bulkOperations(body.toString());
-        if (ops.length && ops.every((o) => AUTOMATE.OPERATIONS.has(o.name))) {
+        if (ops.length) {
           const ctxA = await automateContext();
-          let vars = {};
-          try { vars = JSON.parse(body.toString()).variables || {}; } catch { /* none */ }
-          const answers = {};
-          for (const o of ops) answers[o.index] = AUTOMATE.graphqlAnswer(o.name, vars[o.index] || {}, ctxA);
+          const lines = ops.map((o) => `data:${JSON.stringify({ ...answerAdoptedOp(o.name, o.variables, ctxA), extensions: { requestIndex: o.index } })}`);
           res.writeHead(200, { "Content-Type": "text/event-stream; charset=UTF-8", "Cache-Control": "no-cache" });
-          return res.end(AUTOMATE.mergeStream("", answers));
+          return res.end(lines.join("\n\n") + "\n\n");
         }
       }
       if (pathname === "/graphql-gateway/api/graphql/batch" && req.method === "POST") {
@@ -9706,6 +9711,19 @@ async function handleEstateRequest(req, res, body) {
         }
         res.writeHead(200, { "Content-Type": "application/json" });
         return res.end(JSON.stringify({ monitors }));
+      }
+      // The adopted Automate detail page: one automation's published monitor record.
+      {
+        const pub = /^\/object-sentinel\/api\/registry\/v0\/monitors\/([^/]+)\/published$/.exec(pathname);
+        const autoId = pub ? AUTOMATE.automationIdOf(decodeURIComponent(pub[1])) : null;
+        if (autoId && req.method === "GET") {
+          const autos = await daemonFetch("/v1/hypervisor/automations").then((r) => r.json()).catch(() => ({}));
+          const a = (autos.automations || []).find((x) => x.automation_id === autoId);
+          if (!a) { res.writeHead(404, { "Content-Type": "application/json" }); return res.end(JSON.stringify({ errorCode: "NOT_FOUND", errorName: "Monitor:NotFound", errorInstanceId: "", parameters: {} })); }
+          const runs = await daemonFetch(`/v1/hypervisor/automations/${encodeURIComponent(autoId)}/runs`).then((r) => r.json()).then((j) => j.runs || []).catch(() => []);
+          res.writeHead(200, { "Content-Type": "application/json" });
+          return res.end(JSON.stringify({ monitor: AUTOMATE.monitorOf(a, runs) }));
+        }
       }
       if (pathname === "/people/api/profile/get-profiles" && req.method === "POST") {
         let ids = [];

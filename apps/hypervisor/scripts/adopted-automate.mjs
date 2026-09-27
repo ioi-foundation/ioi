@@ -169,10 +169,15 @@ export function profilesFor(userIds, principals) {
 export const HANDLED_GRAPHQL = new Set(["SearchMonitorsQuery"]);
 
 // Parse a bulk request's operation names by index.
+// The bulk gateway's request: { operations: { <hash>: query }, requests: [{ hash, name, variables }] };
+// each streamed answer's `extensions.requestIndex` is the position in `requests`.
 export function bulkOperations(body) {
   try {
-    const ops = JSON.parse(body).operations || {};
-    return Object.entries(ops).map(([index, query]) => ({ index: Number(index), name: (/^\s*(?:query|mutation|subscription)\s+(\w+)/.exec(String(query)) || [])[1] || "" }));
+    const j = JSON.parse(body);
+    const ops = j.operations || {};
+    const nameOf = (q) => (/^\s*(?:query|mutation|subscription)\s+(\w+)/.exec(String(q || "")) || [])[1] || "";
+    if (Array.isArray(j.requests)) return j.requests.map((r, index) => ({ index, name: r.name || nameOf(ops[r.hash]), variables: r.variables || {} }));
+    return Object.entries(ops).map(([index, query]) => ({ index: Number(index), name: nameOf(query), variables: {} }));
   } catch { return []; }
 }
 
@@ -286,4 +291,67 @@ export function identityTokenFor(principalRef) {
 // Replace any tenant token a mirrored page injects with the synthetic one (every seed, not only Automate).
 export function replaceInjectedToken(html, principalRef) {
   return String(html).replace(/const token = "[^"]*";/g, `const token = ${JSON.stringify(identityTokenFor(principalRef))};`);
+}
+
+// ---- THE HARVEST ENVELOPE (for operations not bound yet). The real answer the reference gave for the
+// same operation (recorded read-only, kept in the local mirror, never in the repo) is used as a
+// shape-correct envelope and made honest: the recorded monitor becomes the requested automation (its
+// rid and name), identity becomes the signed-in principal, and EVERY LIST IS EMPTIED — no recorded
+// effect, rule, event or favourite survives onto a Hypervisor automation. An operation with no recording
+// is a named GraphQL error, never the mirror's loose guess.
+import fsH from "node:fs";
+import pathH from "node:path";
+let harvestCache = null;
+export function harvestOperations(mirrorDir) {
+  if (harvestCache) return harvestCache;
+  const map = new Map();
+  const dir = pathH.join(mirrorDir, "tools/traffic/object-monitoring-flow/operations");
+  let files = [];
+  try { files = fsH.readdirSync(dir).filter((f) => /^g.*\.json$/.test(f)).sort(); } catch { /* no mirror */ }
+  for (const f of files) {
+    let d;
+    try { d = JSON.parse(fsH.readFileSync(pathH.join(dir, f), "utf8")); } catch { continue; }
+    let ops = {};
+    try { ops = JSON.parse(d.request).operations || {}; } catch { continue; }
+    const names = Object.fromEntries(Object.entries(ops).map(([i, q]) => [Number(i), (/^\s*(?:query|mutation)\s+(\w+)/.exec(String(q)) || [])[1]]));
+    for (const line of String(d.stream || "").split("\n")) {
+      if (!line.startsWith("data:")) continue;
+      let ev; try { ev = JSON.parse(line.slice(5)); } catch { continue; }
+      const n = names[ev.extensions?.requestIndex];
+      if (n && ev.data && !map.has(n)) map.set(n, { data: ev.data, recordedMonitor: (/ri\.object-sentinel\.main\.monitor\.[0-9a-f-]{36}/.exec(String(d.request)) || [])[0] || null });
+    }
+  }
+  harvestCache = map;
+  return map;
+}
+const RECORDED_NAMES = ["Automation for Priority Classification for Recent Incidents"];
+// ONLY operations whose recorded answers carry NO automation facts may be enveloped: the reference's
+// chrome, permissions, protection, walkthrough and branch reads. An operation that DESCRIBES an
+// automation (its condition, effects, status, times, location) must be bound from daemon truth — an
+// envelope there showed the recorded tenant monitor's "Objects added · Live monitoring · last triggered
+// Jun 23" on a Hypervisor automation. Until bound, those are named gaps.
+export const SAFE_ENVELOPE = new Set([
+  "CustomerDataSupportedQuery", "WorkspaceSidebarQuery", "ShellSidebarQuery", "SidebarWithPanelQuery", "PrincipalsQuery",
+  "PermissionsQuery", "GetProtectionStatus", "ActiveResourceQuery", "WalkthroughsForResourceQuery",
+  "UseOntologiesForResourceQuery", "IssueBadgeData", "ScopedSessionStatus", "GetObjectSentinelUserId", "GetAvailableBranches",
+]);
+export function envelopeAnswer(name, variables, ctx, mirrorDir) {
+  if (!SAFE_ENVELOPE.has(name)) return undefined;
+  const rec = harvestOperations(mirrorDir).get(name);
+  if (!rec) return undefined;
+  const wantRid = (JSON.stringify(variables || {}).match(/ri\.object-sentinel\.main\.monitor\.[0-9a-f-]{36}/) || [])[0] || null;
+  const auto = wantRid ? (ctx.automations || []).find((a) => monitorRidOf(a.automation_id) === wantRid) : null;
+  const recordedRid = rec.recordedMonitor;
+  const swap = (v) => {
+    if (typeof v !== "string") return v;
+    if (recordedRid && wantRid && v === recordedRid) return wantRid;
+    if (auto && RECORDED_NAMES.includes(v)) return auto.name || auto.automation_id;
+    return v;
+  };
+  const walk = (x) => {
+    if (Array.isArray(x)) return [];
+    if (x && typeof x === "object") return Object.fromEntries(Object.entries(x).map(([k, v]) => [k, walk(v)]));
+    return swap(x);
+  };
+  return scrubIdentity(walk(rec.data), ctx.principal);
 }
