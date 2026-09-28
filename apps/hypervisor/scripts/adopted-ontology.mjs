@@ -687,3 +687,329 @@ export function explorerGraphqlFacts(name, variables, ctx) {
     default: return null;
   }
 }
+
+// ---- Proposals (cut O6): the caller's ODK ontology proposals (`/v1/hypervisor/odk/ontology-proposals`) as the reference's
+// ontology proposals. An ODK proposal is a declared, validated change against one ontology at one revision (its title,
+// rationale, proposer and change set); applying it writes through the ontology plane's one writer, and withdrawing it
+// closes it. It is not a branch: the reference's proposal is an approval request over an ontology branch, so each ODK
+// proposal is answered as a request (task type ontology-metadata:approvals-v2) over a branch that holds exactly its change
+// set and names no Foundry branch. Only proposals on the caller's ontologies are listed (the plane's list is not scoped).
+// Statuses: open → In review (PENDING_APPROVAL), applied → Merged (APPROVED_AND_COMPLETED), withdrawn → Closed (CLOSED).
+import { principalUserId } from "./adopted-automate.mjs";
+export const PROPOSAL_TASK_TYPES = Object.freeze(["ontology-metadata:approvals-v2", "ontology-metadata:approvals"]);
+export const proposalRidOf = (id) => `ri.approvals.main.task-request.${uuidOf(`ontology-proposal:${id}`)}`;
+export const proposalBranchRidOf = (id) => `ri.ontology.main.branch.${uuidOf(`ontology-proposal-branch:${id}`)}`;
+// a proposal's review tasks: the rids of the object, link and action types its change set touches (none: the ontology itself)
+export function proposalTaskIdsOf(r) {
+  const fam = r.model.family, a = r.affected || {};
+  const ids = [...Object.keys(a.object_types || {}).map((id) => rid("object-type", `${fam}/${id}`)), ...Object.keys(a.link_types || {}).map((id) => rid("relation", `${fam}/link/${id}`)),
+    ...Object.keys(a.action_types || {}).map((id) => `ri.actions.main.action-type.${uuidOf(`${fam}/action/${id}`)}`)];
+  return ids.length ? ids : [r.ontologyRid];
+}
+export const PROPOSAL_STATUS = Object.freeze({ open: "PENDING_APPROVAL", applied: "APPROVED_AND_COMPLETED", withdrawn: "CLOSED" });
+const puser = (ref) => (ref ? principalUserId(ref) : null);
+// canonical JSON (key order ignored), so "changed" means what the daemon's model_changes means
+const canon = (v) => (Array.isArray(v) ? `[${v.map(canon).join(",")}]` : v && typeof v === "object" ? `{${Object.keys(v).sort().map((k) => `${JSON.stringify(k)}:${canon(v[k])}`).join(",")}}` : JSON.stringify(v ?? null));
+// what a change set does to a model, per kind and entry id (CREATED / UPDATED / DELETED) — the daemon's model_changes
+export function modelChangesOf(prev, next) {
+  const out = {};
+  for (const kind of ["object_types", "link_types", "action_types", "value_types"]) {
+    const index = (m) => new Map((Array.isArray(m?.[kind]) ? m[kind] : []).filter((e) => e && typeof e.id === "string").map((e) => [e.id, e]));
+    const before = index(prev), after = index(next), changes = {};
+    for (const [id, e] of after) { if (!before.has(id)) changes[id] = "CREATED"; else if (canon(before.get(id)) !== canon(e)) changes[id] = "UPDATED"; }
+    for (const id of before.keys()) if (!after.has(id)) changes[id] = "DELETED";
+    if (Object.keys(changes).length) out[kind] = changes;
+  }
+  return out;
+}
+// drafts: the ODK domain ontologies (raw records); models: ontologyModelsOf(drafts). A proposal's changes are read against
+// the revision it was made on while that is the ontology's current revision; once applied, the ontology's own history entry
+// for the revision it produced records them; otherwise (withdrawn, or the ontology moved on) against the current revision.
+export function proposalsOf(proposals, drafts, models) {
+  const byDraft = new Map((models || []).map((m) => [m.draftId, m]));
+  const rawById = new Map((drafts || []).map((d) => [d.id, d]));
+  return (proposals || []).filter((p) => p && p.id && byDraft.has(p.ontology_id)).map((p) => {
+    const model = byDraft.get(p.ontology_id), raw = rawById.get(p.ontology_id) || {};
+    const current = Number(raw.revision) || 1, basedOn = Number(p.based_on_revision) || 0;
+    const odkStatus = String(p.status || "");
+    const changes = p.changes && typeof p.changes === "object" ? p.changes : {};
+    const resulting = Number(p.applied?.resulting_revision) || null;
+    const recorded = resulting ? (Array.isArray(raw.history) ? raw.history : []).find((h) => Number(h?.revision) === resulting) : null;
+    const affected = recorded?.affected && typeof recorded.affected === "object" ? recorded.affected
+      : "canonical_object_model" in changes ? modelChangesOf(raw.canonical_object_model || {}, changes.canonical_object_model || {}) : {};
+    const fields = ["domain", "version", "description"].filter((k) => typeof changes[k] === "string");
+    // the ontology as the proposal would leave it: its change set over the revision it was made on (the entity rids are the
+    // same — they derive from the family and the ids), at the proposal's own version
+    const proposedRaw = { ...raw, ...Object.fromEntries(fields.map((k) => [k, changes[k]])), canonical_object_model: "canonical_object_model" in changes ? changes.canonical_object_model : raw.canonical_object_model };
+    const proposedModel = ontologyModelsOf([proposedRaw], null, () => ({ family: model.family }))[0] || null;
+    return {
+      id: p.id, rid: proposalRidOf(p.id), branchRid: proposalBranchRidOf(p.id), ontologyRid: model.rid, model, raw,
+      title: String(p.title || p.id), description: String(p.rationale || ""), odkStatus, status: PROPOSAL_STATUS[odkStatus] || "CLOSED",
+      creatorRef: p.proposed_by || null, created_at: p.created_at || null,
+      decidedBy: p.applied?.applied_by || p.withdrawn?.withdrawn_by || null, decidedAt: p.applied?.applied_at || p.withdrawn?.withdrawn_at || null,
+      withdrawReason: p.withdrawn?.reason || "", resultingRevision: resulting, receiptRef: p.applied?.ontology_receipt_ref || null,
+      basedOn, currentRevision: current, stale: odkStatus === "open" && basedOn !== current, changes, fields, affected, record: p,
+      proposed: proposedModel ? { ...proposedModel, version: proposalVersionOf({ id: p.id, basedOn }) } : null,
+      baseVersion: draftVersionOf(p.ontology_id, basedOn || 1),
+    };
+  });
+}
+// POST …/bulkLoadEntities for a proposal's page: an entity asked at a proposal's version is read from the ontology as that
+// proposal would leave it; asked at the revision a proposal was made on after the ontology has moved on (applied, or stale),
+// it is not kept (the daemon keeps no revision snapshots) and is left out; every other ask is answered as before.
+export function bulkLoadEntitiesAt(request, models, rows) {
+  const byVersion = new Map((rows || []).filter((r) => r.proposed).map((r) => [r.proposed.version, r]));
+  const lostBase = new Set((rows || []).filter((r) => r.basedOn !== r.currentRevision).map((r) => r.baseVersion));
+  const versionOf = (e) => e?.versionReference?.ontologyVersion || null;
+  const out = { objectTypes: [], linkTypes: [], sharedPropertyTypes: [], interfaceTypes: [], typeGroups: [], actionTypes: [] };
+  const answer = (kind, entries) => {
+    for (const e of entries || []) {
+      const v = versionOf(e), hit = v ? byVersion.get(v) : null;
+      if (v && lostBase.has(v) && !hit) continue;
+      const one = bulkLoadEntitiesOf({ [kind]: [e] }, hit ? [hit.proposed] : models);
+      out[kind].push(...(one[kind] || []));
+    }
+  };
+  answer("objectTypes", request?.objectTypes); answer("linkTypes", request?.linkTypes); answer("actionTypes", request?.actionTypes);
+  return out;
+}
+export const asksProposalVersion = (request, rows) => {
+  const versions = new Set((rows || []).flatMap((r) => [r.proposed?.version, r.basedOn !== r.currentRevision ? r.baseVersion : null]).filter(Boolean));
+  return ["objectTypes", "linkTypes", "actionTypes"].some((k) => (request?.[k] || []).some((e) => versions.has(e?.versionReference?.ontologyVersion)));
+};
+// POST …/modification/history for a proposal's branch: its one change set, by its proposer, from the revision it was made on
+// to the proposal's version (and, once applied, the revision it produced is the ontology's own history)
+export function proposalBranchHistoryOf(r) {
+  const affected = proposalAffectedOf(r);
+  return { modificationPageItems: [{
+    previousOntologyVersion: r.baseVersion, ontologyVersion: r.proposed?.version || r.baseVersion,
+    attribution: { date: r.created_at, author: puser(r.creatorRef) },
+    summary: { ...EMPTY_AFFECTED, ...Object.fromEntries(Object.entries(affected).map(([k, v]) => [k, Object.fromEntries(Object.entries(v).map(([rid, m]) => [rid, m.modificationType]))])) },
+    description: r.title, sourceOntologyBranchRid: r.branchRid,
+  }], nextPageToken: null };
+}
+export const proposalByRid = (rows, rid) => (rows || []).find((r) => r.rid === rid || r.branchRid === rid) || null;
+// PUT /approvals/api/search/task-requests (and /counts) from the Proposals section: every filter it sends is honored as a
+// real server would; one this layer does not know matches nothing (never silently ignored). No reviewer is named on an ODK
+// proposal (the plane has no review step: any signed-in principal may apply), so a reviewer filter matches none.
+export function proposalMatches(row, f) {
+  if (!f || !f.type) return true;
+  switch (f.type) {
+    case "taskType": return (f.taskType?.taskTypes || []).some((t) => PROPOSAL_TASK_TYPES.includes(t));
+    case "customIndexedData": return f.customIndexedData?.key === "ONTOLOGY_RID" ? (f.customIndexedData.values || []).includes(row.ontologyRid) : !(f.customIndexedData?.values || []).length;
+    case "status": return (f.status?.statuses || []).includes(row.status);
+    case "createdBy": return !!row.creatorRef && (f.createdBy?.userIds || []).includes(puser(row.creatorRef));
+    case "reviewers": return false;
+    case "notReviewedBy": return true;
+    case "title": return row.title.toLowerCase().includes(String(f.title?.contains || "").toLowerCase());
+    case "notTitle": return !row.title.includes(String(f.notTitle?.contains || "\u0000"));
+    default: return false;
+  }
+}
+const proposalsMatching = (rows, filters) => (rows || []).filter((r) => (filters || []).every((f) => proposalMatches(r, f)));
+const proposalSubStatusOf = (status) => (status === "PENDING_APPROVAL" ? "PENDING" : status === "CLOSED" ? "CLOSED" : "APPROVED");
+function proposalSearchRowOf(r) {
+  return { taskType: PROPOSAL_TASK_TYPES[0], taskRid: r.rid, title: r.title, creator: puser(r.creatorRef), creationTime: r.created_at, status: r.status,
+    customIndexedData: { ONTOLOGY_RID: [r.ontologyRid] }, subtasks: proposalTaskIdsOf(r).map((id) => ({ type: "ontology-metadata:ontology-entity-review", id, version: String(r.basedOn || 1), approvalStatus: proposalSubStatusOf(r.status) })) };
+}
+export function proposalSearchOf(request, rows) {
+  const asc = request?.sort?.order === "ASC";
+  const found = proposalsMatching(rows, request?.filters).sort((a, b) => String(a.created_at || "").localeCompare(String(b.created_at || "")) * (asc ? 1 : -1));
+  const size = Math.max(1, Number(request?.pageSizeLimit) || 100), from = Math.max(0, Number(request?.pageToken) || 0);
+  return { requests: found.slice(from, from + size).map(proposalSearchRowOf), totalCount: found.length, ...(from + size < found.length ? { nextPageToken: String(from + size) } : {}) };
+}
+export function proposalCountsOf(request, rows) {
+  const global = request?.globalFilters || [];
+  return { totalCount: proposalsMatching(rows, global).length, subCounts: Object.fromEntries(Object.entries(request?.subFilters || {}).map(([k, v]) => [k, proposalsMatching(rows, [...global, ...(v || [])]).length])) };
+}
+// GET /approvals/api/task-requests/<rid>(/minimal) — a proposal as its request: its title, rationale, proposer, and its
+// history (created; applied or withdrawn, by whom and when)
+export function proposalMinimalOf(r) {
+  return { taskRid: r.rid, taskType: PROPOSAL_TASK_TYPES[0], latestVersion: 0, title: r.title, creationTime: r.created_at, invokeAsync: false, lastUpdatedAt: r.decidedAt || r.created_at, reviewers: [], status: r.status, customIndexedData: { ONTOLOGY_RID: [r.ontologyRid] } };
+}
+export function proposalTaskOf(r) {
+  const creator = puser(r.creatorRef);
+  const history = [{ type: "creationEntry", creationEntry: { time: r.created_at, creator } }];
+  if (r.decidedAt) history.push(r.odkStatus === "applied" ? { type: "completedEntry", completedEntry: { time: r.decidedAt, user: puser(r.decidedBy) } } : { type: "closedEntry", closedEntry: { time: r.decidedAt, user: puser(r.decidedBy) } });
+  return { ...proposalMinimalOf(r), taskRequestRid: r.rid, description: r.description, creator, contributors: creator ? [creator] : [], history,
+    versionMetadata: [{ version: 0, createdBy: creator, createdAt: r.created_at }],
+    subtasks: proposalTaskIdsOf(r).map((id) => ({ type: "ontology-metadata:ontology-entity-review", id, version: String(r.basedOn || 1), policies: [], reviews: [], approvalStatus: proposalSubStatusOf(r.status) })) };
+}
+// Writes on a proposal the Hypervisor refuses, each by name (the reference's error shape).
+export const PROPOSAL_REFUSALS = Object.freeze({
+  approvalsWrite: { status: 409, code: "Hypervisor:OntologyProposalWriteRefused", message: "An ODK ontology proposal is decided through the daemon's proposal plane only: merging applies it and closing withdraws it. Nothing else on it (reviewers, comments, edits to the request) is kept, so nothing was changed." },
+  createBranch: { status: 409, code: "Hypervisor:OntologyBranchNotKept", message: "The Hypervisor keeps no ontology branches. An ODK proposal is created with its change set in one step (the daemon refuses an empty proposal), and the Ontology Manager's edits are not bound yet, so there is nothing to stage on a branch. Nothing was created." },
+  openOnBranch: { status: 409, code: "Hypervisor:OntologyBranchNotKept", message: "The Hypervisor keeps no ontology branches, so a proposal's edits cannot be opened for editing on one (and the Ontology Manager's edits are not bound yet). Review the change set on the proposal's page, then approve it to apply it or close it to withdraw it." },
+  review: { status: 409, code: "Hypervisor:OntologyProposalRejectionNotKept", message: "An ODK proposal is applied or withdrawn; the daemon keeps no rejection or change request on it. Close the proposal to withdraw it. Nothing was changed." },
+  reviewers: { status: 409, code: "Hypervisor:OntologyProposalReviewersNotKept", message: "An ODK proposal names no reviewers: any signed-in principal may apply it. Nothing was changed." },
+  editRequest: { status: 409, code: "Hypervisor:OntologyProposalNotEditable", message: "An ODK proposal's title and rationale are fixed when it is proposed; the daemon has no route to change them. Nothing was changed." },
+  decided: { status: 409, code: "Hypervisor:OntologyProposalDecided", message: "This proposal is already applied or withdrawn. Nothing was changed." },
+  signedOut: { status: 403, code: "Hypervisor:OntologyProposalSignInRequired", message: "Sign in to decide a proposal. Nothing was changed." },
+  notFound: { status: 404, code: "Hypervisor:OntologyProposalNotFound", message: "No proposal on your ontologies has this id. Nothing was changed." },
+});
+export const proposalRefusalBodyOf = (refusal) => ({ errorCode: refusal.status === 404 ? "NOT_FOUND" : refusal.status === 403 ? "PERMISSION_DENIED" : "CONFLICT", errorName: refusal.code, errorInstanceId: "", parameters: { message: refusal.message }, message: refusal.message });
+// ---- a proposal as the reference's OntologyChangeProposal (GraphQL: the Proposals section's rows, a proposal's page). Its
+// branch is the proposal's own change set on its ontology; it names no Foundry (global) branch and no datasource branch. The
+// review task is the plane's apply: any signed-in principal may apply an open proposal (the daemon checks the revision, not
+// a reviewer), so the caller may fully approve it exactly when it is open and they are signed in.
+export const PROPOSAL_GRAPHQL_OPERATIONS = new Set(["ApprovalRequestDetails", "ProposalDetailQuery", "GlobalBranchTitle", "OntologyBranchSuggestedReviewers", "ResourceProjectQuery", "TaskReviewSectionQuery",
+  "CreateBranchDialogQuery", "SearchSpacesQuery", "GetSimilarBranches", "OrganizationSelectionQuery", "GetSpace", "InviteReviewersPrincipalSearchQuery"]);
+export function proposalNodeOf(r, principalRef) {
+  const canApply = !!principalRef && r.odkStatus === "open";
+  return {
+    __typename: "OntologyChangeProposal", __implements: ["ApprovalRequest"], _id: cid(`OntologyChangeProposal:${r.rid}`), rid: r.rid, status: r.status, title: r.title, description: r.description,
+    // nothing about the request itself is edited here (its title and rationale are the proposal's); no reviewer is named
+    // an ODK proposal is applied in one act — the review IS the merge — so it is set to merge when its one review approves it
+    invocationBlockers: [], invokeWhenReady: true, reviewers: [], lastInvokedAt: r.odkStatus === "applied" ? r.decidedAt : null,
+    permissions: { __typename: "ApprovalRequestPermissions", _id: cid(`ApprovalRequestPermissions:${r.rid}`), canEditMetadata: false, canUpdateCheckpointInteractions: false },
+    permissionsForCreator: { __typename: "ApprovalRequestPermissions", _id: cid(`ApprovalRequestPermissionsForCreator:${r.rid}`), canView: true },
+    created: { __typename: "Attribution", user: puser(r.creatorRef) ? { __typename: "User", _id: cid(`User:${puser(r.creatorRef)}`), id: puser(r.creatorRef) } : null, time: r.created_at },
+    branch: { __typename: "OntologyBranch", _id: cid(`OntologyBranch:${r.branchRid}`), rid: r.branchRid, globalBranch: null, datasourceBranchName: null,
+      latestOntologyVersion: { __typename: "OntologyVersion", _id: cid(`OntologyVersion:${r.branchRid}`), ontology: ontologyNode(r.model) } },
+    // one review task per entity the change set touches (the reference's task id is the entity's rid), each decided by the
+    // plane's apply: approved by whoever applied it; a withdrawn proposal was closed, not rejected, so it records no review
+    latestVersion: { __typename: "ApprovalRequestVersion", _id: cid(`ApprovalRequestVersion:${r.rid}`), version: 0, subRequests: proposalTaskIdsOf(r).map((id) => ({
+      __typename: "ApprovalSubRequest", _id: cid(`ApprovalSubRequest:${r.rid}:${id}`), id, status: proposalSubStatusOf(r.status), version: String(r.basedOn || 1),
+      reviews: r.odkStatus === "applied" && r.decidedBy ? [{ __typename: "ApprovalSubRequestReview", _id: cid(`ApprovalSubRequestReview:${r.rid}:${id}`), active: true, reviewType: "APPROVE",
+        created: { __typename: "Attribution", user: { __typename: "User", _id: cid(`User:${puser(r.decidedBy)}`), id: puser(r.decidedBy) }, time: r.decidedAt } }] : [],
+      checkpointInteraction: null, passesCheckpointsValidation: true, hasCheckpointInteraction: false, isCurrentlyApplied: r.odkStatus === "applied",
+      permissions: { __typename: "ApprovalSubRequestPermissions", _id: cid(`ApprovalSubRequestPermissions:${r.rid}:${id}`), canFullyApprove: canApply, canPartiallyApprove: canApply },
+      applicablePolicies: [] })) },
+  };
+}
+// the namespace (the owner tenant) and organization Create branch's dialog names; null signed out
+function branchNamespaceNodeOf(ownerRef, models) {
+  if (!ownerRef) return null;
+  const nsRid = namespaceRidOf(ownerRef), name = namespaceNameOf(ownerRef);
+  return { __typename: "Namespace", _id: cid(`namespace-node:${nsRid}`), rid: nsRid, ontologies: (models || []).map((m) => ({ __typename: "Ontology", _id: cid(`ontology:${m.rid}`), rid: m.rid })),
+    metadata: { __typename: "ResourceMetadata", _id: cid(`ResourceMetadata:${nsRid}`), rid: nsRid, alias: name, name, path: `/${name}`, type: { __typename: "ResourceTypeMetadata", iconName: "pt-svg-icon-namespace" }, trashedStatus: "NOT_TRASHED", status: null } };
+}
+function organizationNodeOf(ownerRef) {
+  if (!ownerRef) return null;
+  const orgRid = `ri.multipass..organization.${uuidOf(ownerRef)}`;
+  return { __typename: "Organization", _id: cid(`Organization:${orgRid}`), rid: orgRid, marking: { __typename: "OrganizationMarking", __implements: ["MandatoryControl"], _id: cid(`OrganizationMarking:${orgRid}`),
+    id: uuidOf(`org-marking:${ownerRef}`), name: namespaceNameOf(ownerRef), description: null, deprecated: false, organizationRid: orgRid,
+    permissions: { __typename: "MandatoryControlPermissions", _id: cid(`OrganizationMarkingPermissions:${orgRid}`), canUse: true, canDeclassify: false, isMember: true } } };
+}
+// ctx: { rows, principalRef, principal: { ref, name, email }, owner, models }
+export function proposalGraphqlFacts(name, variables, ctx) {
+  const root = { __typename: "Query" };
+  switch (name) {
+    case "ApprovalRequestDetails": case "ProposalDetailQuery": case "TaskReviewSectionQuery": {
+      const r = proposalByRid(ctx.rows, variables?.rid || variables?.approvalTaskId);
+      return { ...root, approvalRequest: r ? proposalNodeOf(r, ctx.principalRef) : null };
+    }
+    // the reviewers a branch suggests come from its changed types' owning packages and datasource projects: an ODK type has
+    // neither, so the changed types are listed and nobody is suggested
+    case "OntologyBranchSuggestedReviewers": {
+      const r = proposalByRid(ctx.rows, variables?.branchRid);
+      if (!r) return { ...root, ontologyBranch: null };
+      const fam = r.model.family, a = r.affected || {};
+      const ids = (kind, change) => Object.entries(a[kind] || {}).filter(([, c]) => c === change).map(([id]) => id);
+      const ot = (id) => ({ __typename: "ObjectTypeVersion", _id: cid(`otv-branch:${r.branchRid}:${id}`), objectType: { __typename: "ObjectType", _id: cid(`ObjectType:${rid("object-type", `${fam}/${id}`)}`), owningPackage: null }, dataSources: [] });
+      const at = (id) => ({ __typename: "ActionTypeVersion", _id: cid(`atv-branch:${r.branchRid}:${id}`), actionType: { __typename: "ActionType", _id: cid(`ActionType:${fam}/${id}`), owningPackage: null } });
+      const branchOf = (typename, latest) => ({ __typename: typename, _id: cid(`${typename}:${latest._id}`), latest });
+      return { ...root, ontologyBranch: { __typename: "OntologyBranch", _id: cid(`OntologyBranch:${r.branchRid}`),
+        createdObjectTypes: ids("object_types", "CREATED").map((id) => branchOf("ObjectTypeBranch", ot(id))), updatedObjectTypes: ids("object_types", "UPDATED").map((id) => branchOf("ObjectTypeBranch", ot(id))), deletedObjectTypes: ids("object_types", "DELETED").map(ot),
+        createdActionTypes: ids("action_types", "CREATED").map((id) => branchOf("ActionTypeBranch", at(id))), updatedActionTypes: ids("action_types", "UPDATED").map((id) => branchOf("ActionTypeBranch", at(id))), deletedActionTypes: ids("action_types", "DELETED").map(at) } };
+    }
+    // a proposal's review task is not filed in a project (Review changes groups a proposal's edits by project)
+    case "ResourceProjectQuery": {
+      const r = (ctx.rows || []).find((x) => proposalTaskIdsOf(x).includes(variables?.resourceRid));
+      return { ...root, resourceMetadata: r ? { __typename: "ResourceMetadata", _id: cid(`ResourceMetadata:${variables.resourceRid}`), rid: variables.resourceRid, project: null } : null };
+    }
+    // Create branch's dialog: the caller's ontologies, each in its namespace (the owner tenant) and organization. No branch is
+    // kept, so none is similar; creating one is refused by name (CreateGlobalBranchMutation)
+    case "CreateBranchDialogQuery": {
+      const ns = branchNamespaceNodeOf(ctx.owner, ctx.models), org = organizationNodeOf(ctx.owner);
+      const mm = modelOf(ctx.models, variables?.resourceRid);
+      return { ...root, allOntologies: (ctx.models || []).map((m) => ({ ...ontologyNode(m), displayName: m.displayName, description: m.description || null, namespace: ns })),
+        // the platform's default ontology holds none of the caller's types (as everywhere on this surface)
+        defaultOntology: { ...ontologyNode({ rid: "ri.ontology.main.ontology.00000000-0000-0000-0000-000000000000" }), objectTypesV2: { __typename: "ObjectTypeVersionPage", values: [] }, actionTypes: { __typename: "ActionTypeVersionPage", values: [] } }, resourceMetadata: mm ? { __typename: "ResourceMetadata", _id: cid(`ResourceMetadata:${mm.rid}`), name: mm.displayName, namespace: ns } : null,
+        organizations: org ? [org] : [], me: org ? { __typename: "User", _id: cid(`me:${ctx.principalRef}`), organization: org } : null };
+    }
+    case "SearchSpacesQuery": {
+      const ns = branchNamespaceNodeOf(ctx.owner, ctx.models);
+      return { ...root, searchResources: { __typename: "ResourceSearchResultsPage", nextPageToken: null, results: ns ? [{ __typename: "ResourceSearchResult", resource: { __typename: "ResourceMetadata", _id: cid(`sr:${ns.rid}`), resource: ns } }] : [] } };
+    }
+    case "GetSimilarBranches": return { ...root, globalBranchesV2: { __typename: "GlobalBranchPage", values: [] } };
+    // Invite reviewers' picker: the principal the adopted layer can name (the caller); inviting is refused by name
+    case "InviteReviewersPrincipalSearchQuery": {
+      const me = ctx.principal?.ref ? puser(ctx.principal.ref) : null, name = ctx.principal?.name || ctx.principal?.email || ctx.principal?.ref || "";
+      const text = String(variables?.query || "").trim().toLowerCase();
+      const hit = me && (!text || name.toLowerCase().includes(text));
+      return { ...root, principalsV2: { __typename: "PrincipalPage", values: hit ? [{ __typename: "User", __implements: ["Principal"], _id: cid(`User:${me}`), id: me, displayName: name, fullName: name, username: ctx.principal?.email || name,
+        initials: String(name).split(/\s+/u).filter(Boolean).slice(0, 2).map((w) => w[0].toUpperCase()).join("") || "?", imageUrl: null, permissions: { __typename: "UserPermissions", isCurrentUser: true } }] : [] } };
+    }
+    // the namespace's organization (the owner tenant's), and the namespace as the space picker reads it
+    case "OrganizationSelectionQuery": case "GetSpace": {
+      const ns = branchNamespaceNodeOf(ctx.owner, ctx.models), org = organizationNodeOf(ctx.owner);
+      if (!ns || ns.rid !== (variables?.namespaceRid || variables?.rid)) return { ...root, namespace: null };
+      return { ...root, namespace: { ...ns, metadata: { ...ns.metadata, markings: org ? [{ __typename: "MarkingInfo", disjunctiveInheritedConjunctively: false, marking: { ...org.marking, organization: org } }] : [] } } };
+    }
+    // a proposal's branch names no Foundry branch
+    case "GlobalBranchTitle": {
+      const r = proposalByRid(ctx.rows, variables?.rid);
+      return { ...root, ontologyBranch: r ? { __typename: "OntologyBranch", _id: cid(`OntologyBranch:${r.branchRid}`), globalBranch: null } : null };
+    }
+    default: return null;
+  }
+}
+// ---- a proposal's branch (POST /ontology-metadata/api/ontology/approvals/experimental/ontology/<rid>/loadBranchWithProposal):
+// the proposal's change set as the branch's modifications — each object, link and action type it creates, updates or deletes,
+// keyed by the rids the app knows — made by its proposer on the revision it was proposed against. Its version is the
+// proposal's own (never a published revision); the version it was based on is the draft's revision it was proposed on.
+export const proposalVersionOf = (r) => `${Number((r.basedOn || 1) + 1).toString(16).padStart(8, "0")}-${uuidOf(`ontology-proposal-version:${r.id}`).slice(9)}`;
+const keyedChanges = (map, ridOf) => Object.fromEntries(Object.entries(map || {}).map(([id, change]) => [ridOf(id), { modificationType: String(change) }]));
+export function proposalAffectedOf(r) {
+  const fam = r.model.family, a = r.affected || {};
+  const objectTypes = keyedChanges(a.object_types, (id) => rid("object-type", `${fam}/${id}`));
+  return {
+    affectedObjectTypes: objectTypes, affectedObjectTypeEntityMetadatas: {}, affectedObjectTypeDatasources: {}, affectedObjectTypeSchemaMigrations: {},
+    affectedLinkTypes: keyedChanges(a.link_types, (id) => rid("relation", `${fam}/link/${id}`)), affectedLinkTypeEntityMetadatas: {}, affectedManyToManyLinkTypeDatasources: {},
+    affectedActionTypes: keyedChanges(a.action_types, (id) => `ri.actions.main.action-type.${uuidOf(`${fam}/action/${id}`)}`),
+    affectedRuleSets: {}, affectedSharedPropertyTypes: {}, affectedInterfaceTypes: {}, affectedTypeGroups: {},
+  };
+}
+export function branchWithProposalOf(r) {
+  return {
+    rid: r.branchRid, ontologyRid: r.ontologyRid, displayName: r.title, description: r.description,
+    attribution: { author: puser(r.creatorRef), lastUpdatedAt: r.decidedAt || r.created_at },
+    latestOntologyVersion: proposalVersionOf(r), latestRebasedOntologyVersion: draftVersionOf(r.model.draftId, r.basedOn || 1),
+    ontologyBranchModificationData: { contributors: puser(r.creatorRef) ? [puser(r.creatorRef)] : [], ...proposalAffectedOf(r) },
+    proposal: { approvalTaskRid: r.rid, status: r.status }, status: r.odkStatus === "open" ? { type: "open", open: {} } : r.odkStatus === "applied" ? { type: "merged", merged: {} } : { type: "closed", closed: {} },
+  };
+}
+// ---- a proposal's writes (GraphQL mutations the reference sends). Approving its one review (Approve all edits, or the task's
+// Approve) and merging it are the daemon's apply — an ODK proposal is set to merge when approved, and the daemon lets any
+// signed-in principal apply an open proposal on the revision it was made against (a stale or decided one it refuses by name,
+// and that refusal is shown). Closing it is the daemon's withdraw. Rejecting, requesting changes, reviewers and editing the
+// request's title or description are refused by name: the plane keeps none of them. The UI server holds no key and signs
+// nothing; each step runs under the caller's own session.
+export const PROPOSAL_MUTATIONS = new Set(["ReviewApprovalSubRequests", "ReviewSubRequests", "InvokeApprovalRequest", "CloseProposal", "CloseTask", "UpdateProposalTitle", "UpdateProposalDescription", "UpdateReviewers", "UpdateReviewersMutation",
+  "CreateFoundryBranchMutationV2WithRoleGrants", "CreateGlobalBranchMutation", "ResolveCombinedBranchRidBranchQuery"]);
+export const proposalMutationRidOf = (variables) => variables?.taskRid || variables?.rid || null;
+// → { refusal } | { daemon: { route, method, body } }
+export function proposalMutationStepOf(name, row, variables, principalRef) {
+  const R = PROPOSAL_REFUSALS;
+  // no ontology branch is kept: creating one, or opening a proposal's edits on its branch, is refused by name
+  if (name === "CreateFoundryBranchMutationV2WithRoleGrants" || name === "CreateGlobalBranchMutation") return { refusal: R.createBranch };
+  if (name === "ResolveCombinedBranchRidBranchQuery") return { refusal: R.openOnBranch };
+  if (!row) return { refusal: R.notFound };
+  if (name === "UpdateProposalTitle" || name === "UpdateProposalDescription") return { refusal: R.editRequest };
+  if (name === "UpdateReviewers" || name === "UpdateReviewersMutation") return { refusal: R.reviewers };
+  if (!principalRef) return { refusal: R.signedOut };
+  const apply = { daemon: { route: `/v1/hypervisor/odk/ontology-proposals/${encodeURIComponent(row.id)}/apply`, method: "POST", body: {} } };
+  if (name === "ReviewApprovalSubRequests" || name === "ReviewSubRequests") {
+    if (String(variables?.reviewType || "") !== "APPROVE") return { refusal: R.review };
+    return row.odkStatus === "open" ? apply : { refusal: R.decided };
+  }
+  if (name === "InvokeApprovalRequest") return row.odkStatus === "open" ? apply : { refusal: R.decided };
+  if (name === "CloseProposal" || name === "CloseTask") return row.odkStatus === "open" ? { daemon: { route: `/v1/hypervisor/odk/ontology-proposals/${encodeURIComponent(row.id)}/withdraw`, method: "POST", body: {} } } : { refusal: R.decided };
+  return { refusal: R.approvalsWrite };
+}
+// the mutation's answer: its root field is the proposal as it now stands (walked by the mutation's own document)
+export function proposalMutationFacts(name, row, principalRef) {
+  const node = row ? proposalNodeOf(row, principalRef) : null;
+  return { __typename: "Mutation", reviewApprovalSubRequests: node, invokeApprovalRequest: node, closeApprovalRequest: node, updateApprovalRequest: node };
+}

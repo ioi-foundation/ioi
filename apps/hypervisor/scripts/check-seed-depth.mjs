@@ -82,7 +82,14 @@ const PINS = {
   // 2026-09-27 (R-241, Sessions cut 1): first rows — rename, auto-stop, Goal mode and the page's own port sync
   // refused by name; services and tasks named (absent planes); logs bound in the adapter but not yet live-asserted.
   sessions: { total: 24, bound: 12, refused: 7, named_gap: 5, open: 0 },
-  // 2026-09-28 (R-241, Object Explorer O4): Explorer's landing adopted (/workspace/hubble) — the one open landing row
+  // 2026-09-28 (R-241, Ontology Manager O6, proposals): the one open Proposals row becomes twenty over ODK's proposal plane.
+  // Bound (check:adopted-ontology, live): Your proposals, the state tabs (open → In review and Assigned to you, applied →
+  // Merged, withdrawn → Closed), a proposal's Overview, Review changes and History, Approve (an ODK proposal merges when
+  // approved: the daemon's /apply), Close (the daemon's /withdraw), the pages' fence and the stopped daemon. Refused by
+  // name: a stale proposal's approval (the daemon's ontology_proposal_stale), Reject, reviewers, editing the request,
+  // deciding again, Create branch, Add edits to Branch. Named: the branch switcher (no branches kept), comments, a merged
+  // proposal's before side and a stale proposal's diff (no revision snapshots). 41 → 60; open 7 → 6.
+  // Before that, 2026-09-28 (R-241, Object Explorer O4): Explorer's landing adopted (/workspace/hubble) — the one open landing row
   // becomes six: the catalog and Recents bound (Recents shared with the Ontology Manager), counts, empty shortcuts and
   // lists named, object search open. 36 → 41.
   // Before that, 2026-09-28 (R-241, Ontology Manager O3): Functions bound — a released function crashed the section (the list read
@@ -94,7 +101,7 @@ const PINS = {
   // gaps (what an ODK model does not hold, in the reference's own empty states; Cleanup's usage read); 8 open (Functions
   // unproven, Proposals unmapped, Monitor opens a missing app, Object views says "Failed", New and edit give false or no
   // reasons, the migration page undriven, Explorer not routed).
-  "ontology-manager": { total: 41, bound: 19, refused: 0, named_gap: 15, open: 7 },
+  "ontology-manager": { total: 60, bound: 28, refused: 7, named_gap: 19, open: 6 },
   // 2026-09-28 (R-241, Data Connection D0): the harvest — 22 flow states, all open until the app is adopted. Examples
   // built on the tenant at the owner's direction (a REST API source; the "Connecting to AWS S3" example, its sync run —
   // it fails without the training bucket's credentials) gave a source's and a sync's pages.

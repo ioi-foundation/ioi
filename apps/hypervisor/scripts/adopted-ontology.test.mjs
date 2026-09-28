@@ -5,6 +5,7 @@ import assert from "node:assert/strict";
 import { answerDocument } from "./adopted-graphql.mjs";
 import * as ONTOLOGY from "./adopted-ontology.mjs";
 import { ontologyRidOfFamily } from "./adopted-pipeline.mjs";
+import { principalUserId as principalUserIdOf } from "./adopted-automate.mjs";
 
 const familyOf = (id, owner) => ({ family: `ontology://${owner.replace("org://", "")}/${id}` });
 const drafts = [{ id: "ont_1", domain: "Loans", description: "Loan book", canonical_object_model: {
@@ -100,4 +101,102 @@ test("what a type has nowhere to live answers none for the caller's types only: 
   assert.equal(page.objectTypes[0].objectType.rid, loan, "each type in its load envelope");
   assert.equal(page.nextPageToken, "1");
   assert.equal(ONTOLOGY.allActionTypesOf(models[0], {}).actionTypes[0].metadata.rid, models[0].actionTypes[0].rid, "each action type itself");
+});
+
+// ---- Proposals (cut O6): the caller's ODK ontology proposals as the reference's ontology proposals
+const OWNER = "org://local", ME = "user://me";
+const propDraft = { ...drafts[0], revision: 2, history: [{ revision: 1, op: "created" }, { revision: 2, op: "patched", affected: { object_types: { borrower: "UPDATED" } } }] };
+const describedLoan = { ...propDraft.canonical_object_model, object_types: propDraft.canonical_object_model.object_types.map((o) => (o.id === "loan" ? { ...o, description: "A loan on the book" } : o)) };
+const proposals = [
+  { id: "ontp_open", ontology_id: "ont_1", based_on_revision: 2, title: "Describe the loan type", rationale: "It needs one", changes: { canonical_object_model: describedLoan }, status: "open", proposed_by: ME, created_at: "2026-09-28T10:00:00Z" },
+  { id: "ontp_stale", ontology_id: "ont_1", based_on_revision: 1, title: "Old idea", changes: { description: "Loans and more" }, status: "open", proposed_by: "user://other", created_at: "2026-09-28T09:00:00Z" },
+  { id: "ontp_applied", ontology_id: "ont_1", based_on_revision: 1, title: "Borrower wording", changes: { canonical_object_model: propDraft.canonical_object_model }, status: "applied", proposed_by: ME, created_at: "2026-09-28T08:00:00Z", applied: { applied_by: ME, applied_at: "2026-09-28T08:30:00Z", resulting_revision: 2 } },
+  { id: "ontp_withdrawn", ontology_id: "ont_1", based_on_revision: 2, title: "Never mind", changes: { domain: "Lending" }, status: "withdrawn", proposed_by: ME, created_at: "2026-09-28T07:00:00Z", withdrawn: { withdrawn_by: ME, withdrawn_at: "2026-09-28T07:10:00Z", reason: "" } },
+  { id: "ontp_elsewhere", ontology_id: "ont_not_mine", based_on_revision: 1, title: "Someone else's", changes: { domain: "X" }, status: "open", proposed_by: ME, created_at: "2026-09-28T11:00:00Z" },
+];
+
+test("a proposal on the caller's ontology is one of the Proposals section's requests: open is In review, applied is Merged, withdrawn is Closed; another ontology's is not listed", () => {
+  const models = ONTOLOGY.ontologyModelsOf([propDraft], OWNER, familyOf);
+  const rows = ONTOLOGY.proposalsOf(proposals, [propDraft], models);
+  assert.deepEqual(rows.map((r) => [r.id, r.status]), [["ontp_open", "PENDING_APPROVAL"], ["ontp_stale", "PENDING_APPROVAL"], ["ontp_applied", "APPROVED_AND_COMPLETED"], ["ontp_withdrawn", "CLOSED"]]);
+  const open = rows[0], applied = rows[2];
+  assert.deepEqual(open.affected, { object_types: { loan: "UPDATED" } }, "an open proposal's changes are read against the revision it was made on");
+  assert.deepEqual(applied.affected, { object_types: { borrower: "UPDATED" } }, "an applied proposal's changes are the ontology's own history entry for the revision it produced");
+  assert.equal(rows[1].stale, true, "the ontology moved on since the proposal was made");
+  assert.equal(open.proposed.objectTypes.find((o) => o.id === "loan").description, "A loan on the book", "the ontology as the proposal would leave it");
+  assert.equal(open.proposed.objectTypes[0].rid, models[0].objectTypes[0].rid, "at the same entity rids");
+  assert.deepEqual(ONTOLOGY.proposalTaskIdsOf(open), [models[0].objectTypes[0].rid], "one review task per entity it touches");
+  assert.deepEqual(ONTOLOGY.proposalTaskIdsOf(rows[3]), [models[0].rid], "a change to the ontology's own fields is reviewed as the ontology");
+});
+
+test("the Proposals section's search honors every filter it sends, and one it does not know matches nothing", () => {
+  const models = ONTOLOGY.ontologyModelsOf([propDraft], OWNER, familyOf);
+  const rows = ONTOLOGY.proposalsOf(proposals, [propDraft], models);
+  const base = [{ type: "customIndexedData", customIndexedData: { key: "ONTOLOGY_RID", values: [models[0].rid] } }, { type: "taskType", taskType: { taskTypes: ["ontology-metadata:approvals-v2"] } }, { type: "notTitle", notTitle: { contains: "ri.eddie.main.pipeline" } }];
+  const titles = (filters) => ONTOLOGY.proposalSearchOf({ filters, sort: { order: "DESC" } }, rows).requests.map((r) => r.title);
+  assert.deepEqual(titles([...base, { type: "status", status: { statuses: ["INITIALIZING", "PENDING_APPROVAL", "APPROVED", "INVOKING"] } }]), ["Describe the loan type", "Old idea"]);
+  assert.deepEqual(titles([...base, { type: "status", status: { statuses: ["APPROVED_AND_COMPLETED"] } }]), ["Borrower wording"]);
+  assert.deepEqual(titles([...base, { type: "status", status: { statuses: ["CLOSED"] } }]), ["Never mind"]);
+  assert.equal(titles([...base, { type: "createdBy", createdBy: { userIds: [principalUserIdOf(ME)] } }]).length, 3, "Your proposals: what the caller proposed");
+  assert.deepEqual(titles([{ type: "customIndexedData", customIndexedData: { key: "ONTOLOGY_RID", values: ["ri.ontology.main.ontology.00000000-0000-0000-0000-000000000000"] } }]), [], "the platform default ontology holds none");
+  assert.deepEqual(titles([{ type: "taskType", taskType: { taskTypes: ["compass:request-access-to-resource"] } }]), [], "another request type is not a proposal");
+  assert.deepEqual(titles([{ type: "someFacetNobodyKnows" }]), [], "an unknown filter matches nothing");
+  const row = ONTOLOGY.proposalSearchOf({ filters: base }, rows).requests[0];
+  assert.equal(row.taskType, "ontology-metadata:approvals-v2");
+  assert.deepEqual(row.customIndexedData.ONTOLOGY_RID, [models[0].rid]);
+});
+
+test("a proposal's page reads its record: title, rationale, status, one review task per entity, and who may decide it", () => {
+  const models = ONTOLOGY.ontologyModelsOf([propDraft], OWNER, familyOf);
+  const rows = ONTOLOGY.proposalsOf(proposals, [propDraft], models);
+  const q = "query ProposalDetailQuery($approvalTaskId: RID!) { approvalRequest(rid: $approvalTaskId) { status __typename ... on OntologyChangeProposal { rid title description invokeWhenReady branch { rid globalBranch { rid } } latestVersion { subRequests { id status permissions { canFullyApprove } reviews { reviewType } } } } } }";
+  const ask = (r, principalRef) => answerDocument(q, ONTOLOGY.proposalGraphqlFacts("ProposalDetailQuery", { approvalTaskId: r.rid }, { rows, principalRef }), null, "ProposalDetailQuery").approvalRequest;
+  const open = ask(rows[0], ME);
+  assert.equal(open.__typename, "OntologyChangeProposal");
+  assert.deepEqual([open.title, open.description, open.status], ["Describe the loan type", "It needs one", "PENDING_APPROVAL"]);
+  assert.equal(open.branch.globalBranch, null, "it names no Foundry branch");
+  assert.equal(open.invokeWhenReady, true, "approving its review is the apply: it merges when approved");
+  assert.deepEqual(open.latestVersion.subRequests.map((s) => [s.id, s.permissions.canFullyApprove]), [[models[0].objectTypes[0].rid, true]], "a signed-in caller may apply an open proposal");
+  assert.equal(ask(rows[0], null).latestVersion.subRequests[0].permissions.canFullyApprove, false, "signed out, nobody may");
+  assert.equal(ask(rows[2], ME).latestVersion.subRequests[0].reviews[0].reviewType, "APPROVE", "applied: approved by whoever applied it");
+  assert.deepEqual(ask(rows[3], ME).latestVersion.subRequests[0].reviews, [], "withdrawn: closed, never rejected");
+  assert.equal(ONTOLOGY.proposalGraphqlFacts("ProposalDetailQuery", { approvalTaskId: "ri.approvals.main.task-request.x" }, { rows }).approvalRequest, null);
+  const branch = ONTOLOGY.branchWithProposalOf(rows[0]);
+  assert.deepEqual(branch.ontologyBranchModificationData.affectedObjectTypes, { [models[0].objectTypes[0].rid]: { modificationType: "UPDATED" } });
+  assert.equal(branch.latestOntologyVersion, rows[0].proposed.version);
+  assert.equal(ONTOLOGY.proposalBranchHistoryOf(rows[0]).modificationPageItems[0].summary.affectedObjectTypes[models[0].objectTypes[0].rid], "UPDATED");
+});
+
+test("a proposal's entities are read at its version from the ontology as it would leave it; the revision it was made on, once gone, is not invented", () => {
+  const models = ONTOLOGY.ontologyModelsOf([propDraft], OWNER, familyOf);
+  const rows = ONTOLOGY.proposalsOf(proposals, [propDraft], models);
+  const loanRid = models[0].objectTypes[0].rid;
+  const at = (v) => ({ identifier: { objectTypeRid: loanRid, type: "objectTypeRid" }, versionReference: { ontologyVersion: v, type: "ontologyVersion" } });
+  const req = { objectTypes: [at(rows[0].proposed.version), at(rows[0].baseVersion)] };
+  assert.equal(ONTOLOGY.asksProposalVersion(req, rows), true);
+  const out = ONTOLOGY.bulkLoadEntitiesAt(req, models, rows);
+  assert.deepEqual(out.objectTypes.map((e) => e.objectType.displayMetadata.description), ["A loan on the book", ""], "proposed, then as it stands");
+  const lost = ONTOLOGY.bulkLoadEntitiesAt({ objectTypes: [at(rows[1].baseVersion)] }, models, rows);
+  assert.deepEqual(lost.objectTypes, [], "revision 1 is not kept once the ontology moved on");
+  assert.equal(ONTOLOGY.asksProposalVersion({ objectTypes: [at(models[0].version)] }, rows), false, "the ontology's own version is answered as before");
+});
+
+test("a proposal's decisions: approving or merging is the daemon's apply, closing its withdraw; the rest is refused by name", () => {
+  const models = ONTOLOGY.ontologyModelsOf([propDraft], OWNER, familyOf);
+  const rows = ONTOLOGY.proposalsOf(proposals, [propDraft], models);
+  const step = (name, row, v = {}, who = ME) => ONTOLOGY.proposalMutationStepOf(name, row, v, who);
+  assert.equal(step("ReviewApprovalSubRequests", rows[0], { reviewType: "APPROVE" }).daemon.route, "/v1/hypervisor/odk/ontology-proposals/ontp_open/apply");
+  assert.equal(step("ReviewSubRequests", rows[0], { reviewType: "APPROVE" }).daemon.route, "/v1/hypervisor/odk/ontology-proposals/ontp_open/apply");
+  assert.equal(step("InvokeApprovalRequest", rows[0]).daemon.route, "/v1/hypervisor/odk/ontology-proposals/ontp_open/apply");
+  assert.equal(step("ReviewApprovalSubRequests", rows[1], { reviewType: "APPROVE" }).daemon.method, "POST", "a stale proposal goes to the daemon, which refuses it by name");
+  assert.equal(step("CloseProposal", rows[0]).daemon.route, "/v1/hypervisor/odk/ontology-proposals/ontp_open/withdraw");
+  assert.equal(step("ReviewSubRequests", rows[0], { reviewType: "DISAPPROVE" }).refusal.code, "Hypervisor:OntologyProposalRejectionNotKept");
+  assert.equal(step("CloseProposal", rows[2]).refusal.code, "Hypervisor:OntologyProposalDecided");
+  assert.equal(step("InvokeApprovalRequest", rows[3]).refusal.code, "Hypervisor:OntologyProposalDecided");
+  assert.equal(step("UpdateReviewersMutation", rows[0]).refusal.code, "Hypervisor:OntologyProposalReviewersNotKept");
+  assert.equal(step("UpdateProposalTitle", rows[0]).refusal.code, "Hypervisor:OntologyProposalNotEditable");
+  assert.equal(step("CreateFoundryBranchMutationV2WithRoleGrants", null).refusal.code, "Hypervisor:OntologyBranchNotKept");
+  assert.equal(step("ResolveCombinedBranchRidBranchQuery", rows[0]).refusal.code, "Hypervisor:OntologyBranchNotKept");
+  assert.equal(step("ReviewApprovalSubRequests", rows[0], { reviewType: "APPROVE" }, null).refusal.code, "Hypervisor:OntologyProposalSignInRequired");
+  assert.equal(step("CloseProposal", null).refusal.code, "Hypervisor:OntologyProposalNotFound");
 });

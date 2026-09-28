@@ -12,6 +12,9 @@
 //     functions of the Hypervisor's registry;
 //   - Object Explorer (/workspace/hubble, the same surface) lists the caller's types, and its Recents lists the type
 //     just opened in the Ontology Manager;
+//   - Proposals (cut O6) lists the caller's ODK ontology proposals by state; a proposal's page reads its record; Approve is
+//     the daemon's /apply (a stale one its ontology_proposal_stale refusal), Close its /withdraw; Create branch, rejecting,
+//     reviewers and editing the request are refused by name;
 //   - no read reaches the mirror but the reference's chrome, an unbound read is a named gap (never the serve's HTML
 //     page), and a GraphQL batch on the surface is answered by the adopted layer (it had returned a recorded tenant
 //     module);
@@ -222,6 +225,117 @@ async function run() {
         && !elsewhere.pass && elsewhere.j.data?.functionsV2?.totalNumberOfResults === 1,
       `unbound ${unbound.status} ${unbound.j.errorName} · service ${service.status} ${service.ct.split(";")[0]} · batch ${batch.status} ${batch.text.slice(0, 60)} · functions from Automate ${elsewhere.j.data?.functionsV2?.totalNumberOfResults}`);
 
+    // ---- Proposals (cut O6): the caller's ODK ontology proposals, a proposal's page, and its decisions ------------------
+    // Three proposals on the draft's current revision, each describing one type. Approving the first applies it (the
+    // ontology moves on, so the third goes stale); the second is closed; the third's approval is refused by the daemon.
+    passthrough.clear(); fenced.clear(); unnamed.clear(); htmlAnswers.clear(); gqlErrors.clear(); pageErrors.length = 0;
+    const ONT = await import(path.join(HERE, "adopted-ontology.mjs"));
+    const cur = (await d("GET", `/v1/hypervisor/odk/domain-ontologies/${made?.id}`)).j.ontology || {};
+    const withDesc = (id, text) => (cur.canonical_object_model?.object_types || []).map((o) => (o.id === id ? { ...o, description: text } : o));
+    const propose = async (title, rationale, typeId, text) => (await d("POST", "/v1/hypervisor/odk/ontology-proposals", { ontology_ref: made?.id, title, rationale, expected_revision: cur.revision,
+      changes: { canonical_object_model: { ...cur.canonical_object_model, object_types: withDesc(typeId, text) } } })).j.ontology_proposal || {};
+    const pLoan = await propose("Describe the loan type", "Loans need a description.", "loan", "A loan on the book");
+    const pBorrower = await propose("Describe the borrower type", "Borrowers need one too.", "borrower", "A person who holds a loan");
+    const pBranch = await propose("Describe the branch type", "Proposed on the same revision.", "branch", "A lending office");
+    const proposal = async (id) => (await d("GET", `/v1/hypervisor/odk/ontology-proposals/${id}`)).j.ontology_proposal || {};
+    const ontologyNow = async () => (await d("GET", `/v1/hypervisor/odk/domain-ontologies/${made?.id}`)).j.ontology || {};
+    const G = { cookie: COOKIE, "content-type": "application/json", referer: `${SERVE}/workspace/ontology/home/proposals` };
+    const gql = (operationName, query, variables) => fetch(`${SERVE}/graphql-gateway/api/graphql?q=${operationName}`, { method: "POST", headers: G, body: JSON.stringify({ operationName, query, variables }) }).then((r) => r.json()).catch(() => ({}));
+    const refusalOf = (j) => `${j.errors?.[0]?.extensions?.errorName || ""} ${j.errors?.[0]?.message || ""}`;
+
+    const yours = await visit("/workspace/ontology/home/proposals", /Describe the branch type|No proposals|Failed/u);
+    ok("the Proposals section lists the caller's ODK proposals (Your proposals: the three they proposed, each Pending approval), not \"No proposals\"",
+      ["Describe the loan type", "Describe the borrower type", "Describe the branch type"].every((t) => yours.includes(t)) && (yours.match(/Pending approval/gu) || []).length === 3 && !/No proposals/u.test(yours),
+      after(yours, "Sort: Recently created", 260));
+
+    const pagePath = `/workspace/ontology/proposals/${ONT.proposalRidOf(pLoan.id)}`;
+    const overview2 = await visit(pagePath, /Ontology changes on this branch.*Edited|An error has occurred|cannot be found/u);
+    await pg.getByText("Review changes", { exact: true }).first().click({ timeout: 8000 }).catch(() => {});
+    let review = ""; for (let i = 0; i < 15 && !/Description A loan on the book|An error has occurred/u.test(review); i++) { await pg.waitForTimeout(800); review = await text(); }
+    await pg.getByText("History", { exact: true }).first().click({ timeout: 8000 }).catch(() => {});
+    let branchHistory = ""; for (let i = 0; i < 12 && !/Branch history.*Loan Edited|No changes/u.test(branchHistory); i++) { await pg.waitForTimeout(800); branchHistory = await text(); }
+    ok("a proposal's page shows its change set from the ODK record: its title, rationale and status, the type it edits and the edit itself, and its history",
+      /Describe the loan type 1 task Pending approval/u.test(overview2) && /Loans need a description\./u.test(overview2) && /Ontology changes on this branch.*Loan Edited/u.test(overview2)
+        && /Loan .*GENERAL INFORMATION 1 edit Description A loan on the book/u.test(review) && /Branch history.*Describe the loan type Loan Edited/u.test(branchHistory) && !/An error has occurred/u.test(overview2 + review),
+      `${after(overview2, "Describe the loan type 1 task", 50)} · ${after(review, "GENERAL INFORMATION", 60)} · ${after(branchHistory, "Branch history", 90)}`);
+
+    // Approve (Review changes) is the daemon's apply: an ODK proposal merges when its review approves it
+    await pg.getByText("Review changes", { exact: true }).first().click({ timeout: 8000 }).catch(() => {});
+    await pg.waitForTimeout(2500);
+    await pg.getByRole("button", { name: "Approve", exact: true }).first().click({ timeout: 8000 }).catch(() => {});
+    let approved = ""; for (let i = 0; i < 15 && !/1 task Completed/u.test(approved); i++) { await pg.waitForTimeout(800); approved = await text(); }
+    const loanNow = await proposal(pLoan.id), afterApply = await ontologyNow();
+    ok("approving a proposal applies it through the daemon's /apply under the caller's session: the ontology takes the change at the next revision, receipted, and the proposal reads merged",
+      loanNow.status === "applied" && loanNow.applied?.resulting_revision === cur.revision + 1 && /^agentgres:\/\/odk-ontology-receipt\//u.test(loanNow.applied?.ontology_receipt_ref || "")
+        && afterApply.revision === cur.revision + 1 && afterApply.canonical_object_model?.object_types?.find((o) => o.id === "loan")?.description === "A loan on the book" && /1 task Completed/u.test(approved),
+      `${loanNow.status} → revision ${afterApply.revision} · ${loanNow.applied?.ontology_receipt_ref || "no receipt"} · ${after(approved, "Describe the loan type 1 task", 40)}`);
+
+    // the third proposal was made on the revision the first one replaced: the daemon refuses its apply by name
+    const reviewDoc = "mutation ReviewApprovalSubRequests($reviewType: ApprovalSubRequestReviewType!, $taskRid: RID!, $subRequestIdAndVersions: [ApprovalSubRequestIdAndVersion!]!) { reviewApprovalSubRequests(reviewType: $reviewType, rid: $taskRid, subRequestIdAndVersions: $subRequestIdAndVersions) { rid status __typename } }";
+    const stale = await gql("ReviewApprovalSubRequests", reviewDoc, { reviewType: "APPROVE", taskRid: ONT.proposalRidOf(pBranch.id), subRequestIdAndVersions: [] });
+    const branchNow = await proposal(pBranch.id), afterStale = await ontologyNow();
+    ok("a stale proposal's approval is refused by the daemon by name (ontology_proposal_stale): nothing is applied and it stays open",
+      /ontology_proposal_stale/u.test(refusalOf(stale)) && /has advanced since this proposal was made/u.test(refusalOf(stale)) && branchNow.status === "open" && afterStale.revision === cur.revision + 1,
+      `${refusalOf(stale).slice(0, 120)} · ${branchNow.status} · revision ${afterStale.revision}`);
+
+    // Close (the page's trash button, confirmed) is the daemon's withdraw
+    await visit(`/workspace/ontology/proposals/${ONT.proposalRidOf(pBorrower.id)}`, /tasks? Pending approval/u);
+    await pg.locator("button:has([data-icon=trash])").first().click({ timeout: 8000 }).catch(() => {});
+    await pg.waitForTimeout(1200);
+    await pg.getByRole("button", { name: "Confirm", exact: true }).first().click({ timeout: 8000 }).catch(() => {});
+    let closedToast = ""; for (let i = 0; i < 8 && !/Proposal closed|tasks? Closed/u.test(closedToast); i++) { await pg.waitForTimeout(600); closedToast = await text(); }
+    // (read again from a fresh load: the page reads the withdrawn record, not the mutation's cached answer)
+    const closedPage = await visit(`/workspace/ontology/proposals/${ONT.proposalRidOf(pBorrower.id)}`, /tasks? Closed/u);
+    const borrowerNow = await proposal(pBorrower.id), owner2 = ((await d("GET", "/v1/hypervisor/auth/whoami")).j.principal || {}).principal_ref;
+    ok("closing a proposal withdraws it through the daemon's /withdraw (by the caller), and it reads closed",
+      borrowerNow.status === "withdrawn" && borrowerNow.withdrawn?.withdrawn_by === owner2 && /Describe the borrower type \d+ tasks? Closed/u.test(closedPage) && /Proposal is closed and can no longer be worked on/u.test(closedPage),
+      `${borrowerNow.status} by ${borrowerNow.withdrawn?.withdrawn_by === owner2 ? "the caller" : borrowerNow.withdrawn?.withdrawn_by} · ${after(closedPage, "Describe the borrower type", 110)}`);
+
+    // the section's tabs sort the proposals by state
+    const tab = async (name, want) => { await visit("/workspace/ontology/home/proposals", /Sort: Recently created/u); await pg.getByRole("tab", { name, exact: true }).click({ timeout: 8000 }).catch(() => {}); let t = ""; for (let i = 0; i < 10 && !want.test(t); i++) { await pg.waitForTimeout(700); t = await text(); } return after(t, "Sort: Recently created", 200); };
+    const merged = await tab("Merged proposals", /Describe the loan type/u), closedTab = await tab("Closed proposals", /Describe the borrower type/u), inReview = await tab("In review", /Describe the branch type/u);
+    const assigned = await tab("Assigned to you", /Describe the branch type/u);
+    ok("the Proposals tabs sort the ODK proposals by state: Merged is the applied one (Completed), Closed the withdrawn one, In review and Assigned to you the open one (any signed-in principal may apply it)",
+      /Describe the loan type .*Completed/u.test(merged) && !/borrower|branch type/u.test(merged) && /Describe the borrower type .*Closed/u.test(closedTab) && !/loan type|branch type/u.test(closedTab)
+        && /Describe the branch type .*Pending approval/u.test(inReview) && !/loan type|borrower/u.test(inReview) && /Describe the branch type .*Pending approval/u.test(assigned) && !/loan type|borrower/u.test(assigned),
+      `merged: ${merged.slice(22, 90)} · closed: ${closedTab.slice(22, 90)} · in review: ${inReview.slice(22, 90)} · assigned: ${assigned.slice(22, 60)}`);
+
+    // Create branch opens over the caller's ontology and namespace; creating one is refused by name (no branch is kept)
+    await visit("/workspace/ontology/home/proposals", /Sort: Recently created/u);
+    await pg.getByRole("button", { name: "Select a branch" }).click({ timeout: 8000 }).catch(() => {});
+    await pg.waitForTimeout(1500);
+    const switcher = await text();
+    await pg.getByText("Create new branch", { exact: true }).first().click({ timeout: 8000 }).catch(() => {});
+    await pg.waitForTimeout(3000);
+    await pg.getByPlaceholder("A short descriptive name for this branch").fill("Try a branch").catch(() => {});
+    await pg.waitForTimeout(1200);
+    const dialog = await text();
+    await pg.getByRole("button", { name: "Create", exact: true }).click({ timeout: 8000 }).catch(() => {});
+    let created = ""; for (let i = 0; i < 10 && !/keeps no ontology branches/u.test(created); i++) { await pg.waitForTimeout(700); created = await text(); }
+    const allProposals = (await d("GET", "/v1/hypervisor/odk/ontology-proposals")).j.ontology_proposals || [];
+    ok("Create branch opens over the caller's ontology and namespace, the switcher lists no branches, and creating one is refused by name (the Hypervisor keeps no ontology branches); nothing is created",
+      /Main Default No branches/u.test(switcher) && /Ontology Loans/u.test(dialog) && /Space local|local Space/u.test(dialog) && !/Failed to load ontologies/u.test(dialog)
+        && /The Hypervisor keeps no ontology branches/u.test(created) && allProposals.length === 3,
+      `${after(switcher, "Create new branch", 40)} · ${after(dialog, "Ontology", 30)} · ${after(created, "The Hypervisor keeps", 60)} · proposals ${allProposals.length}`);
+
+    // every other write on a proposal is refused by name, and changes nothing
+    const disapprove = await gql("ReviewSubRequests", "mutation ReviewSubRequests($reason: String, $reviewType: ApprovalSubRequestReviewType!, $rid: RID!, $subRequestIdAndVersions: [ApprovalSubRequestIdAndVersion!]!) { reviewApprovalSubRequests(reason: $reason, reviewType: $reviewType, rid: $rid, subRequestIdAndVersions: $subRequestIdAndVersions) { rid status __typename } }", { reason: "no", reviewType: "DISAPPROVE", rid: ONT.proposalRidOf(pBranch.id), subRequestIdAndVersions: [] });
+    const reviewers = await gql("UpdateReviewersMutation", "mutation UpdateReviewersMutation($principalIdsToAdd: [String!]!, $principalIdsToRemove: [String!]!, $taskRid: RID!) { updateApprovalRequestReviewers(principalIdsToAdd: $principalIdsToAdd, principalIdsToRemove: $principalIdsToRemove, rid: $taskRid) { request { reviewers { id } } } }", { principalIdsToAdd: ["x"], principalIdsToRemove: [], taskRid: ONT.proposalRidOf(pBranch.id) });
+    const retitle = await gql("UpdateProposalTitle", "mutation UpdateProposalTitle($rid: RID!, $title: String!) { updateApprovalRequest(rid: $rid, title: $title) { title } }", { rid: ONT.proposalRidOf(pBranch.id), title: "Renamed" });
+    const reclose = await gql("CloseProposal", "mutation CloseProposal($rid: RID!) { closeApprovalRequest(rid: $rid) { status } }", { rid: ONT.proposalRidOf(pLoan.id) });
+    const restWrite = await fetch(`${SERVE}/approvals/api/task-requests/${ONT.proposalRidOf(pBranch.id)}/reviewers`, { method: "POST", headers: G, body: "{}" }).then(async (r) => ({ status: r.status, j: await r.json().catch(() => ({})) }));
+    const untouched = await proposal(pBranch.id);
+    ok("rejecting, reviewers, retitling and any approvals write are refused by name, a decided proposal cannot be decided again, and none of it changes the record",
+      /OntologyProposalRejectionNotKept/u.test(refusalOf(disapprove)) && /OntologyProposalReviewersNotKept/u.test(refusalOf(reviewers)) && /OntologyProposalNotEditable/u.test(refusalOf(retitle))
+        && /OntologyProposalDecided/u.test(refusalOf(reclose)) && restWrite.status === 409 && restWrite.j.errorName === "Hypervisor:OntologyProposalWriteRefused"
+        && untouched.status === "open" && untouched.title === "Describe the branch type" && (await proposal(pLoan.id)).status === "applied",
+      `${refusalOf(disapprove).split(" ")[0]} · ${refusalOf(reviewers).split(" ")[0]} · ${refusalOf(retitle).split(" ")[0]} · ${refusalOf(reclose).split(" ")[0]} · REST ${restWrite.status} ${restWrite.j.errorName}`);
+
+    ok("the proposal pages reach no mirror beyond the reference's chrome, answer no read with the serve's HTML page, and name every gap they meet",
+      [...passthrough].every((p) => CHROME.has(p)) && [...unnamed].every((u) => /\/comments\/api\/comments\/counts/u.test(u)) && htmlAnswers.size === 0
+        && [...gqlErrors].every((m) => /keeps no ontology branches/u.test(m)) && pageErrors.every((m) => /keeps no ontology branches/u.test(m)),
+      `passthrough ${[...passthrough].filter((p) => !CHROME.has(p)).join(",") || "chrome only"} · unnamed ${[...unnamed].filter((u) => !/comments/u.test(u)).join(",") || "none (comments are the comment lane's own gap)"} · html ${[...htmlAnswers].join(",") || "none"} · gql ${[...gqlErrors].filter((m) => !/keeps no ontology branches/u.test(m)).slice(0, 2).join(" | ") || "only the named refusal"} · page ${pageErrors.filter((m) => !/keeps no ontology branches/u.test(m)).slice(0, 1).join("") || "none"}`);
+
     // ---- degraded: the daemon stopped — each page shows its own error, never an empty ontology -----------------------
     daemon.kill("SIGTERM");
     for (let i = 0; i < 30 && daemon.exitCode === null && daemon.signalCode === null; i++) await sleep(200);
@@ -232,6 +346,12 @@ async function run() {
       /Failed to load discover page/u.test(downDiscover) && /Something went wrong while loading results from the ontology/u.test(downTypes) && /Failed to load object type/u.test(downType)
         && !/Could not find any object types/u.test(downTypes),
       `${after(downDiscover, "Failed to load discover", 40)} · ${after(downTypes, "Something went wrong", 40)} · ${after(downType, "Failed to load object", 30)}`);
+    const downProposals = await visit("/workspace/ontology/home/proposals", /Sort: Recently created .{8,}|No proposals/u);
+    const downProposal = await visit(pagePath, /did not answer|cannot be found|1 task/u);
+    ok("with the daemon stopped, the Proposals section and a proposal's page show their error — never \"No proposals\" or a proposal that is not there",
+      /Sort: Recently created Failed to load requests\./u.test(downProposals) && !/No proposals/u.test(downProposals)
+        && /ProposalDetailQuery: \/v1\/hypervisor\/odk\/ontology-proposals did not answer/u.test(downProposal) && /View all proposals/u.test(downProposal) && !/1 task/u.test(downProposal),
+      `${after(downProposals, "Sort: Recently created", 50)} · ${after(downProposal, "ProposalDetailQuery", 90)}`);
   } finally {
     await browser.close();
   }

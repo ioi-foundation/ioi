@@ -472,6 +472,24 @@ assertion in its verifier.
     across both apps). Installed-application metadata and command-palette commands answer empty instead of passing
     through. Named gaps: counts, empty shortcuts, and lists (Compass search's shape was never recorded). Open: object
     search, since objects need a materialized set.
+  - O6: Proposals, over ODK's proposal plane (`/v1/hypervisor/odk/ontology-proposals`). Done 2026-09-28:
+    - *Mapping.* An ODK proposal is a validated change set against one revision; the reference's proposal is an approval
+      request (`ontology-metadata:approvals-v2`) over an ontology branch. So each ODK proposal on the caller's ontologies
+      is a request whose branch holds exactly its change set and names no Foundry branch. Open is In review (Pending
+      approval), applied is Merged (Completed), withdrawn is Closed. One review task per entity the change set touches.
+    - *The page reads the record.* Its Overview, Review changes (each edit against the revision it was made on) and History
+      (the one change set, by its proposer) come from the proposal and the ontology as the proposal would leave it.
+    - *Writes.* An ODK proposal merges when approved (the reference's invoke-when-ready): Approve is the daemon's `/apply`
+      under the caller's session, and a stale proposal's approval is the daemon's own `ontology_proposal_stale` refusal.
+      Close proposal is `/withdraw`. Refused by name: Create branch and Add edits to Branch (no ontology branch is kept),
+      Reject and Request changes, reviewers, editing the request, deciding again, any approvals REST write.
+    - *Named.* The branch switcher (No branches), comments, a merged proposal's before side and a stale proposal's diff (no
+      revision snapshots are kept, so a stale change set is read against the current revision).
+    - `check:adopted-ontology` 28/28 (a planted defect, withdrawn read as open, turned it 26/28); seed depth 60 = 28 bound
+      / 7 refused / 19 named gaps / 6 open (ledger CCXXVII). The harvest is unfinished: the tenant session expired after
+      the empty section, the branch switcher and the Create branch dialog were captured, so the populated proposal and
+      its page were not harvested and no tenant write was made. The page's answer shapes follow the reference's own
+      documents and bundle in the mirror; harvest the example proposal when the owner signs in again.
 
 ### Data Connection — harvest and the adoption path (2026-09-28)
 

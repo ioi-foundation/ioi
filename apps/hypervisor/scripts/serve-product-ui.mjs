@@ -9390,6 +9390,20 @@ async function handleEstateRequest(req, res, body) {
         const drafts = await planeRead("/v1/hypervisor/odk/domain-ontologies").then((j) => j.ontologies || []);
         return { owner, models: owner ? ONTOLOGY.ontologyModelsOf(drafts, owner, ontologyRevisionFamilyOf) : [] };
       };
+      // The caller's ODK ontology proposals (R-241 cut O6), on their ontologies only (the plane's list is not caller-scoped).
+      // A plane that does not answer is the section's own error, never "No proposals".
+      const ontologyProposals = async () => {
+        // (the proposal plane is read first: a daemon that does not answer is named by the plane these pages read)
+        const proposals = await planeRead("/v1/hypervisor/odk/ontology-proposals").then((j) => j.ontology_proposals || []);
+        const [who, drafts] = await Promise.all([
+          planeRead("/v1/hypervisor/auth/whoami"),
+          planeRead("/v1/hypervisor/odk/domain-ontologies").then((j) => j.ontologies || []),
+        ]);
+        const owner = (who.principal?.tenant_refs || []).find((t) => String(t).startsWith("org://"));
+        const models = owner ? ONTOLOGY.ontologyModelsOf(drafts, owner, ontologyRevisionFamilyOf) : [];
+        const principal = who.authenticated === false ? {} : { ref: who.principal?.principal_ref || null, name: who.principal?.name || null, email: who.principal?.email || null };
+        return { owner, models, principal, principalRef: principal.ref || null, rows: ONTOLOGY.proposalsOf(proposals, drafts, models) };
+      };
       // A family's TransformationRuns are its deployments (History): the run plane lists the families the caller
       // sees runs for, and only those are read (a family with no run has no run scope to read).
       const pipelineContext = async () => {
@@ -9449,7 +9463,7 @@ async function handleEstateRequest(req, res, body) {
       };
       const answerAdoptedOp = async (name, variables, ctxA, query = "") => {
         try {
-          if (ctxA?.failed && !PIPELINE.answersPipelineOperation(name, variables) && !(onDataConnectionSurface() && (DATA_CONNECTION.DATA_CONNECTION_GRAPHQL_OPERATIONS.has(name) || AUTOMATE.SAVE_LOCATION_OPERATIONS.has(name))) && !(onPipelineSurface() && (AUTOMATE.SAVE_LOCATION_OPERATIONS.has(name) || name === "FolderLocationQuery" || name === "ViewResourceMutation")) && !(onApprovalsSurface() && (APPROVALS.APPROVALS_GRAPHQL_OPERATIONS.has(name) || APPROVALS.APPROVALS_MUTATIONS.has(name)))) throw ctxA.failed;
+          if (ctxA?.failed && !PIPELINE.answersPipelineOperation(name, variables) && !(onDataConnectionSurface() && (DATA_CONNECTION.DATA_CONNECTION_GRAPHQL_OPERATIONS.has(name) || AUTOMATE.SAVE_LOCATION_OPERATIONS.has(name))) && !(onPipelineSurface() && (AUTOMATE.SAVE_LOCATION_OPERATIONS.has(name) || name === "FolderLocationQuery" || name === "ViewResourceMutation")) && !(onApprovalsSurface() && (APPROVALS.APPROVALS_GRAPHQL_OPERATIONS.has(name) || APPROVALS.APPROVALS_MUTATIONS.has(name))) && !(onOntologySurface() && (ONTOLOGY.PROPOSAL_GRAPHQL_OPERATIONS.has(name) || ONTOLOGY.PROPOSAL_MUTATIONS.has(name)))) throw ctxA.failed;
           return await answerAdoptedOpInner(name, variables, ctxA, query);
         }
         catch (e) { if (e?.planeDown) return { data: null, errors: [{ message: `${name}: ${e.message}` }] }; throw e; }
@@ -9517,6 +9531,24 @@ async function handleEstateRequest(req, res, body) {
             }
           }
           return { data: answerAdoptedDocument(query, ONTOLOGY.explorerGraphqlFacts(name, variables || {}, { models, userId, recents }), null, name) };
+        }
+        // The Ontology Manager's proposals (cut O6): a proposal's request and its page, over the caller's ODK proposals (on the
+        // ontology surface only: the Approvals app answers some of the same operation names over its own asks)
+        if (ONTOLOGY.PROPOSAL_GRAPHQL_OPERATIONS.has(name) && query && onOntologySurface()) {
+          const { rows, principalRef, principal, owner, models } = await ontologyProposals();
+          return { data: answerAdoptedDocument(query, ONTOLOGY.proposalGraphqlFacts(name, variables || {}, { rows, principalRef, principal, owner, models }), null, name) };
+        }
+        // Its decisions: the daemon's apply (approve or merge) and withdraw (close) under the caller's own session, or a refusal
+        // by name — then the proposal re-read, walked by the mutation's own document
+        if (ONTOLOGY.PROPOSAL_MUTATIONS.has(name) && query && onOntologySurface()) {
+          const { rows, principalRef } = await ontologyProposals();
+          const step = ONTOLOGY.proposalMutationStepOf(name, ONTOLOGY.proposalByRid(rows, ONTOLOGY.proposalMutationRidOf(variables)), variables || {}, principalRef);
+          if (step.refusal) return { data: null, errors: [{ message: step.refusal.message, extensions: { errorName: step.refusal.code } }] };
+          const r = await daemonFetch(step.daemon.route, { method: step.daemon.method, headers: { "content-type": "application/json" }, body: JSON.stringify(step.daemon.body) }).catch(() => null);
+          const j = r ? await r.json().catch(() => ({})) : {};
+          if (!r || !r.ok || j.ok === false) return { data: null, errors: [{ message: `The daemon refused it: ${j.error?.message || j.message || (r ? `it answered ${r.status}` : "it did not answer")}. Nothing was changed.`, extensions: { errorName: `Hypervisor:${j.error?.code || j.code || "OntologyProposalRefused"}` } }] };
+          const fresh = await ontologyProposals();
+          return { data: answerAdoptedDocument(query, ONTOLOGY.proposalMutationFacts(name, ONTOLOGY.proposalByRid(fresh.rows, ONTOLOGY.proposalMutationRidOf(variables)), fresh.principalRef), null, name) };
         }
         if (ONTOLOGY.ONTOLOGY_GRAPHQL_OPERATIONS.has(name) && query) {
           const { models, owner } = await ontologyModels();
@@ -10110,6 +10142,28 @@ async function handleEstateRequest(req, res, body) {
           if (e?.planeDown) return sendA(503, { errorCode: "INTERNAL", errorName: "Hypervisor:ApprovalsPlaneDown", errorInstanceId: "", parameters: { message: e.message } });
           throw e;
         }
+      }
+      // THE ADOPTED ONTOLOGY MANAGER'S PROPOSALS (R-241 cut O6): the Proposals section's inbox, its counts and a proposal's
+      // request over the caller's ODK ontology proposals (adopted-ontology.mjs). On its surface only; any other approvals
+      // read there is a named gap and any write is refused (it had passed through to the recorded tenant's approvals).
+      if (onOntologySurface() && pathname.startsWith("/approvals/api/")) {
+        const sendJsonStatus = (status, obj) => { res.writeHead(status, { "Content-Type": "application/json" }); return res.end(JSON.stringify(obj)); };
+        let asked = null;
+        try { asked = JSON.parse(body.toString() || "null"); } catch { /* none */ }
+        try {
+          if (req.method === "PUT" && pathname === "/approvals/api/search/task-requests") return sendJsonStatus(200, ONTOLOGY.proposalSearchOf(asked, (await ontologyProposals()).rows));
+          if (req.method === "PUT" && pathname === "/approvals/api/search/task-requests/counts") return sendJsonStatus(200, ONTOLOGY.proposalCountsOf(asked, (await ontologyProposals()).rows));
+          const one = /^\/approvals\/api\/task-requests\/(ri\.[\w.-]+)(\/minimal)?$/u.exec(pathname);
+          if (one && req.method === "GET") {
+            const r = ONTOLOGY.proposalByRid((await ontologyProposals()).rows, one[1]);
+            return r ? sendJsonStatus(200, one[2] ? ONTOLOGY.proposalMinimalOf(r) : ONTOLOGY.proposalTaskOf(r)) : sendJsonStatus(404, { errorCode: "NOT_FOUND", errorName: "Approvals:TaskRequestNotFound", errorInstanceId: "", parameters: { taskRid: one[1] } });
+          }
+        } catch (e) {
+          if (e?.planeDown) return sendJsonStatus(503, { errorCode: "INTERNAL", errorName: "Hypervisor:OntologyProposalsPlaneDown", errorInstanceId: "", parameters: { message: e.message } });
+          throw e;
+        }
+        if (req.method === "GET" || req.method === "HEAD" || (req.method === "PUT" && /\/search\//u.test(pathname))) return sendJsonStatus(501, { errorCode: "INTERNAL", errorName: "Hypervisor:OntologyReadNotBound", errorInstanceId: "", parameters: { message: `${req.method} ${pathname.replace(/ri\.[\w.-]+/gu, "<rid>")} is not bound in the Hypervisor's Ontology Manager yet: a named gap, and nothing recorded is served in its place` } });
+        return sendJsonStatus(409, ONTOLOGY.proposalRefusalBodyOf(ONTOLOGY.PROPOSAL_REFUSALS.approvalsWrite));
       }
       if (pathname === "/approvals/api/search/task-requests" || pathname === "/approvals/api/search/task-requests/counts") {
         try {
@@ -10929,6 +10983,11 @@ async function handleEstateRequest(req, res, body) {
       if (pathname === "/ontology-metadata/api/ontology/ontology/bulkLoadEntities" && req.method === "POST") {
         let asked = {}; try { asked = JSON.parse(body.toString() || "{}"); } catch { /* none */ }
         const { models } = await ontologyModels();
+        // a proposal's page asks for its entities at the proposal's version and at the revision it was made on (cut O6)
+        if (onOntologySurface() && /versionReference/u.test(body.toString())) {
+          const { rows } = await ontologyProposals();
+          if (ONTOLOGY.asksProposalVersion(asked, rows)) return sendO(200, ONTOLOGY.bulkLoadEntitiesAt(asked, models, rows));
+        }
         return sendO(200, ONTOLOGY.bulkLoadEntitiesOf(asked, models));
       }
       if (pathname === "/ontology-metadata/api/ontology/v2/modification/history/entity" && req.method === "POST") {
@@ -10997,12 +11056,25 @@ async function handleEstateRequest(req, res, body) {
       }
       if (/^\/ontology-metadata\/api\/ontology\/v2\/ri\.ontology\.main\.ontology\.[0-9a-f-]{36}\/modification\/history$/u.test(pathname) && req.method === "POST") {
         let asked = {}; try { asked = JSON.parse(body.toString() || "{}"); } catch { /* none */ }
+        // a proposal's branch history is its one change set (cut O6)
+        if (asked.ontologyBranchRid) {
+          const hit = ONTOLOGY.proposalByRid((await ontologyProposals()).rows, asked.ontologyBranchRid);
+          if (hit && hit.ontologyRid === ontologyRidIn(pathname)) return sendO(200, ONTOLOGY.proposalBranchHistoryOf(hit));
+        }
         const { models } = await ontologyModels();
         const model = ONTOLOGY.modelOf(models, ontologyRidIn(pathname));
         // each revision's author is the acting principal its ODK receipt records
         const receipts = model ? await planeRead(`/v1/hypervisor/odk/domain-ontologies/${encodeURIComponent(model.draftId)}/history`).then((j) => j.receipts || []).catch(() => []) : [];
         const byRef = new Map(receipts.map((r) => [r.receipt_ref, r.acting_principal_ref]));
         return sendO(200, ONTOLOGY.modificationHistoryOf(model, asked.limit, (ref) => (byRef.get(ref) ? PIPELINE.uuidOf(byRef.get(ref)) : null)));
+      }
+      // a proposal's branch: the ODK proposal's change set as the branch's modifications (cut O6); a branch that is not one of
+      // the caller's proposals is not found
+      if (/^\/ontology-metadata\/api\/ontology\/approvals\/experimental\/ontology\/ri\.ontology\.main\.ontology\.[0-9a-f-]{36}\/loadBranchWithProposal$/u.test(pathname) && req.method === "POST") {
+        let asked = {}; try { asked = JSON.parse(body.toString() || "{}"); } catch { /* none */ }
+        const r = ONTOLOGY.proposalByRid((await ontologyProposals()).rows, asked.ontologyBranchRid);
+        return r && r.ontologyRid === ontologyRidIn(pathname) ? sendO(200, { ontologyBranchWithProposal: ONTOLOGY.branchWithProposalOf(r) })
+          : sendO(404, { errorCode: "NOT_FOUND", errorName: "OntologyMetadata:OntologyBranchNotFound", errorInstanceId: "", parameters: { ontologyBranchRid: asked.ontologyBranchRid || null } });
       }
       // the caller's groups (none) and the ontology role sets (the Hypervisor has no ontology roles) — never the tenant's
       if (onOntologySurface() && pathname === "/multipass/api/me/groups" && req.method === "GET") return sendO(200, { groups: [], next: null, orderedBy: null });
