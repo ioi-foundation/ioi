@@ -64,12 +64,15 @@ per app: the Foundry tenant for the Palantir-seeded apps, **Ona (app.gitpod.io) 
 rest of the shell. For each flow state record URL, sanitized DOM, network (bundles and API response
 shapes) and a screenshot, and feed the local mirror (`internal-docs/reverse-engineering/palantir`,
 `:9225`, on-demand harvest) so the state boots locally.
-- *Observe, do not disturb.* It is a live tenant: never save, publish, delete or share. Walk a wizard
-  to its last step and stop (Create stays unpressed); close dialogs with Esc or Cancel; never press an
-  acknowledgement that persists a preference on the owner's account.
-- *Viable demo data.* Where the tenant holds nothing for a state (many are empty), the harvest is not
-  done until the state can render populated: synthesize sanitized fixtures shaped by the harvested API
-  responses, served only by the mirror. Demo data never enters product code or a daemon.
+- *Leave what exists alone.* It is a live tenant. Never alter, share or delete the owner's existing resources, and
+  never press an acknowledgement that persists a preference on the owner's account.
+- *Build the example the state needs.* Owner, 2026-09-28, standing on every surface: "i authorize you to make any
+  mutations productive to produce a quality harvest example". Where the tenant holds nothing for a state (many are
+  empty), create, configure and run a clearly named example on the tenant (a source and its sync, a pipeline, an
+  automation, …) until the state renders populated, then harvest it. Record every tenant write in the app's
+  `.artifacts/live-tenant-atlas/<app>/TENANT-WRITES.md`. Examples are not deleted unless asked.
+- *Viable demo data.* Where a state still cannot render populated, synthesize sanitized fixtures shaped by the
+  harvested API responses, served only by the mirror. Demo data never enters product code or a daemon.
 
 **A — Adopt.** Vendor the state's ported implementation from the mirror into the owned tree beside the
 app's existing port.
@@ -470,5 +473,5 @@ lanes (Work, Systems, Operations, Environments, Leases & Limits, …) that the r
 
 - Captures, screenshots and `/__apps/*` lanes are evidence; the adopted port is the product.
 - No tenant data in product code; demo data lives only in the mirror's fixtures.
-- Observe, do not disturb the live tenant.
+- Leave the tenant's existing resources alone; build clearly named examples where a state needs one (owner, 2026-09-28).
 - A lane may run ahead of its plane only with named gaps; the client never mints the missing truth.
