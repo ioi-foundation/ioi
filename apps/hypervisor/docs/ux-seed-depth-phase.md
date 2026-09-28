@@ -389,6 +389,36 @@ read now checks the answer; a plane down is the app's own error state). Cross-su
 reached the owner's `/data/recipes` (now the adopted builder). Every adopted app now carries a daemon-stopped
 assertion in its verifier.
 
+### Ontology Manager — harvest and the adoption path (2026-09-28)
+
+- **H done for the known flow.** A read-only CDP census recorded 27 states: the landing (Discover); all 13 of its
+  sections (object, link and action types, interfaces, shared properties, value types, groups, functions, proposals,
+  history, health issues, cleanup, configuration); an object type's overview and eleven tabs (properties, security,
+  datasources, observability, capabilities, object views, materializations, automations, usage, history); and Object
+  Explorer's landing. Wire bodies were recorded for 17 of them, into the git-ignored mirror traffic dir
+  (`tools/traffic/ontology-manager-flow/`). The mirror was fed the 36 bundle assets it lacked, and now boots the
+  reference Ontology Manager locally with no failed request.
+- **What the app asks for.** 54 GraphQL operations and 35 REST endpoints:
+  - 13 are chrome on every page (sidebars, branch select, walkthroughs, announcements);
+  - the section lists: ObjectTypesListQuery, LinkTypesListQuery, ActionTypesListQuery, InterfacesListQuery,
+    SharedPropertyListQuery, TypeGroupsListQuery, SearchAllValueTypesQuery, SearchAllFunctionsQuery;
+  - the ontology loads: `ontology-metadata` `v2/load/all`, `loadAllObjectTypes`, `summary`, `bulkLoadEntities`,
+    `actions/types/load/all`, `entityMetadata/load`, permissions, `featureConfigurations`, `getSettings/user`;
+  - the object registry: `phonograph2` metadata and usage.
+- **The line that must hold first.** Every unbound REST read under the mirror prefixes is passed through to the mirror,
+  and the mirror answers with the RECORDED TENANT's ontology. So the adopted app is not reachable at a canonical route
+  until two things hold: its reads are bound over daemon truth, and a fence answers every other ontology or registry
+  read as a named gap on the ontology surface.
+- **Backing truth.** ODK domain ontologies (`canonical_object_model`: object types with properties and title property,
+  action types; health counts; a receipted history), the ontology-versions plane (M05.1 published revisions), and the
+  materialized object sets.
+- **Cuts.**
+  - O1: the landing and section lists, bound, plus the fence.
+  - O2: an object type's pages.
+  - O3: the canonical route `/ontology/schema` → the adopted app when it boots; `SURFACE_STATES`, seed-depth rows,
+    a journey verifier, deploy.
+  - O4: Object Explorer (`/workspace/hubble/`).
+
 ## Gate
 
 `check:seed-depth` (built 2026-09-27 with the Automate cut; CI-bound): the tracked record
