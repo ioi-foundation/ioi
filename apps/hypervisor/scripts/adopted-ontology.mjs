@@ -91,6 +91,7 @@ export const ONTOLOGY_GRAPHQL_OPERATIONS = new Set([
   "AdvancedOptionsPageQuery", "OntologyWithOwnerDetailsQuery", "LoadActionsTypesRelatedToObjectTypeRidsQuery",
   "ObjectTypeFavoritedQuery", "SqlPreviewSourceSelectorMaterializationsQuery", "ObjectTypePanelMachineryQuery", "CompassResourceProjectQuery", "ObjectViewConfigurationQuery",
   "ObjectTypeMetadataPanelQuery", "RolesSectionContentQuery", "ObjectTypeMonitorRulesQuery", "AutomationsTabQuery",
+  "ObjectTypeObjectsCountQuery", "ObjectTypeDependentsQuery", "ObjectTypeArchiveStatusQuery",
 ]);
 // The ontology's details (Ontology configuration, the owner check): its names, its namespace as a resource, no
 // markings, and no permission to change settings, permissions or branch protection (none is bound here).
@@ -143,9 +144,19 @@ export function ontologyGraphqlFacts(name, variables, ctx) {
     case "ObjectTypesListQuery": return { ...root, objectTypesV2: page("ObjectTypeVersionPage", "ObjectTypeVersion", "objectType", "ObjectType", m.objectTypes, variables, "excludedObjectTypeRids", "filterToObjectTypeRids") };
     case "LinkTypesListQuery": return { ...root, linkTypes: page("LinkTypeVersionPage", "LinkTypeVersion", "linkType", "LinkType", m.linkTypes, variables, "excludedLinkTypeRids", "filterToLinkTypeRids") };
     case "ActionTypesListQuery": return { ...root, actionTypes: page("ActionTypeVersionPage", "ActionTypeVersion", "actionType", "ActionType", m.actionTypes, variables, "excludedActionTypeRids", "filterToActionTypeRids") };
-    // Discover's "recently modified": an ODK ontology's history records each revision and its summary, not which object
-    // types it touched — so none is listed rather than an attribution the record cannot support.
-    case "RecentlyModifiedObjectTypesQueryOnDefault": return { ...root, ontology: model ? { ...ontologyNode(model), defaultBranch: { __typename: "OntologyBranch", _id: cid(`branch:${model.rid}`), history: { __typename: "OntologyBranchHistoryPage", values: [] } } } : null };
+    // Discover's "recently modified": the draft's revisions, newest first, each with the object types it recorded
+    // creating or updating (a revision recorded before ODK kept its changes lists none).
+    case "RecentlyModifiedObjectTypesQueryOnDefault": {
+      if (!model) return { ...root, ontology: null };
+      const live = new Map(model.objectTypes.map((o) => [o.id, o]));
+      const version = (o) => ({ __typename: "ObjectTypeVersion", _id: cid(`otv:${o.rid}`), objectType: { __typename: "ObjectType", _id: cid(`ObjectType:${o.rid}`), rid: o.rid } });
+      const pick = (h, change) => Object.entries(h.affected?.object_types || {}).filter(([id, c]) => c === change && live.has(id)).map(([id]) => version(live.get(id)));
+      const values = [...model.history].sort((a, b) => Number(b.revision) - Number(a.revision)).slice(0, Math.max(1, Number(variables?.pageSize) || 20)).map((h) => ({
+        __typename: "OntologyBranchHistoryItem", _id: cid(`history:${model.rid}:${h.revision}`),
+        summary: { __typename: "OntologyModificationSummary", affectedObjectTypes: { __typename: "AffectedObjectTypes", createdObjectTypes: pick(h, "CREATED"), updatedObjectTypes: pick(h, "UPDATED") } },
+      }));
+      return { ...root, ontology: { ...ontologyNode(model), defaultBranch: { __typename: "OntologyBranch", _id: cid(`branch:${model.rid}`), history: { __typename: "OntologyBranchHistoryPage", values } } } };
+    }
     // Discover's "prominent" object types: none is marked prominent (every Hypervisor object type has normal visibility).
     case "ProminentObjectTypesQuery": return { ...root, ontology: model ? { ...ontologyNode(model), objectTypesV2: { __typename: "ObjectTypeVersionPage", values: [] } } : null };
     // an ontology branch is an approval request of the ontology-metadata task type: the Hypervisor has none (an ODK draft
@@ -188,6 +199,16 @@ export function ontologyGraphqlFacts(name, variables, ctx) {
     case "AutomationsTabQuery": {
       const hit = objectTypeOf(ctx.models, { rid: variables?.objectTypeRid });
       return { ...root, objectType: hit ? { __typename: "ObjectType", _id: cid(`ObjectType:${hit.ot.rid}`), rid: hit.ot.rid, dependents: { __typename: "ResourceMetadataPage", values: [] } } : null };
+    }
+    // how many objects a type has: no per-type count is kept (none is indexed here), so it is unknown, never zero
+    case "ObjectTypeObjectsCountQuery": {
+      const hit = objectTypeOf(ctx.models, { rid: variables?.objectTypeRid });
+      return { ...root, defaultOrGlobalBranch: { __typename: "DefaultGlobalBranch", _id: cid("branch:default"), objectType: hit ? { __typename: "ObjectTypeBranch", _id: cid(`otb:${hit.ot.rid}`), objectCount: null } : null } };
+    }
+    // no resource depends on a type, and it has no storage to archive
+    case "ObjectTypeDependentsQuery": case "ObjectTypeArchiveStatusQuery": {
+      const hit = objectTypeOf(ctx.models, { rid: variables?.objectTypeRid });
+      return { ...root, objectTypeV2: hit ? { __typename: "ObjectType", _id: cid(`ObjectType:${hit.ot.rid}`), rid: hit.ot.rid, dependents: { __typename: "OntologyDependentPage", values: [] }, storage: null } : null };
     }
     // an object type is not filed in a project: its parent is its ontology's namespace
     case "CompassResourceProjectQuery": {
