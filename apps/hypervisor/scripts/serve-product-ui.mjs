@@ -10769,6 +10769,12 @@ async function handleEstateRequest(req, res, body) {
         const { models } = await ontologyModels();
         return sendO(200, ONTOLOGY.entityMetadataLoadOf(asked, models));
       }
+      if (pathname === "/ontology-metadata/api/schemamigrations/load/objecttypes" && req.method === "PUT") {
+        let asked = {}; try { asked = JSON.parse(body.toString() || "{}"); } catch { /* none */ }
+        const { models } = await ontologyModels();
+        return sendO(200, ONTOLOGY.schemaMigrationsOf(asked, models));
+      }
+      if (pathname === "/ontology-metadata/api/schemamigrations/load/objecttype" && req.method === "PUT") return sendO(200, ONTOLOGY.SCHEMA_MIGRATION_PAGE);
       if (pathname === "/ontology-metadata/api/permissions/actionTypes" && req.method === "PUT") {
         let asked = {}; try { asked = JSON.parse(body.toString() || "{}"); } catch { /* none */ }
         const { models } = await ontologyModels();

@@ -90,7 +90,7 @@ export const ONTOLOGY_GRAPHQL_OPERATIONS = new Set([
   "ObjectTypeStorageStatusQuery", "TypeGroupsListQuery", "InterfacesListQuery", "SharedPropertyListQuery", "SearchValueTypesQuery",
   "AdvancedOptionsPageQuery", "OntologyWithOwnerDetailsQuery", "LoadActionsTypesRelatedToObjectTypeRidsQuery",
   "ObjectTypeFavoritedQuery", "SqlPreviewSourceSelectorMaterializationsQuery", "ObjectTypePanelMachineryQuery", "CompassResourceProjectQuery", "ObjectViewConfigurationQuery",
-  "ObjectTypeMetadataPanelQuery",
+  "ObjectTypeMetadataPanelQuery", "RolesSectionContentQuery", "ObjectTypeMonitorRulesQuery", "AutomationsTabQuery",
 ]);
 // The ontology's details (Ontology configuration, the owner check): its names, its namespace as a resource, no
 // markings, and no permission to change settings, permissions or branch protection (none is bound here).
@@ -174,6 +174,20 @@ export function ontologyGraphqlFacts(name, variables, ctx) {
     case "ObjectTypeMetadataPanelQuery": {
       const hit = objectTypeOf(ctx.models, { rid: variables?.objectTypeRid });
       return { ...root, objectType: hit ? { __typename: "ObjectType", _id: cid(`ObjectType:${hit.ot.rid}`), rid: hit.ot.rid, latest: { __typename: "ObjectTypeVersion", _id: cid(`ObjectTypeVersion:${hit.ot.rid}`), dataSources: [] } } : null };
+    }
+    // no roles are granted on an object type (access is the Hypervisor principal and tenant); no monitor rule watches
+    // it; no automation depends on it (Hypervisor automations do not watch object types)
+    case "RolesSectionContentQuery": {
+      const hit = objectTypeOf(ctx.models, { rid: variables?.rid });
+      return { ...root, resourceMetadata: hit ? { __typename: "ResourceMetadata", _id: cid(`ResourceMetadata:${hit.ot.rid}`), rid: hit.ot.rid, everyoneRoles: [] } : null };
+    }
+    case "ObjectTypeMonitorRulesQuery": {
+      const hit = objectTypeOf(ctx.models, { rid: variables?.rid });
+      return { ...root, objectTypeV2: hit ? { __typename: "ObjectType", _id: cid(`ObjectType:${hit.ot.rid}`), rid: hit.ot.rid, monitorRules: [] } : null };
+    }
+    case "AutomationsTabQuery": {
+      const hit = objectTypeOf(ctx.models, { rid: variables?.objectTypeRid });
+      return { ...root, objectType: hit ? { __typename: "ObjectType", _id: cid(`ObjectType:${hit.ot.rid}`), rid: hit.ot.rid, dependents: { __typename: "ResourceMetadataPage", values: [] } } : null };
     }
     // an object type is not filed in a project: its parent is its ontology's namespace
     case "CompassResourceProjectQuery": {
@@ -427,3 +441,11 @@ export function entityHistoryOf(models, request, authorOf = () => null) {
 }
 export const REGISTRY_ONTOLOGY_ALL = { partialObjectTypeVersions: {}, bidirectionalRelationVersions: {} };
 export const ontologyRecentsIdOf = (principalRef) => `ontology-recents-${uuidOf(`recents:${principalRef || "anonymous"}`).replace(/-/gu, "").slice(0, 24)}`;
+
+// PUT /ontology-metadata/api/schemamigrations/load/objecttypes (and /objecttype) — no schema migration is recorded for
+// a draft's types (a draft is edited in place, not migrated)
+export function schemaMigrationsOf(request, models) {
+  const ours = new Set((models || []).flatMap((m) => m.objectTypes.map((o) => o.rid)));
+  return { schemaTransitions: (request?.objectTypeRids || []).filter((r) => ours.has(r?.objectTypeRid)).map((r) => ({ objectTypeRid: r.objectTypeRid, ontologyVersion: r.ontologyVersion, schemaTransitions: [], schemaVersion: 1 })) };
+}
+export const SCHEMA_MIGRATION_PAGE = { migrationPageItems: [], schemaVersion: 1, nextPageToken: null };
