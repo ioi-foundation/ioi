@@ -419,8 +419,13 @@ assertion in its verifier.
     each proven red by a planted defect); 35 flow states = 16 bound / 11 named gaps / 8 open (ledger CCXVI). The
     canonical route `/ontology/schema` stays the owned surface until create and edit are bound over ODK: New is
     disabled with no reason, and the type pages give a false one ("You do not have edit permissions").
-  - O3b, next: create and edit as an ODK patch at the expected revision (capture the app's save request locally);
-    then Proposals from ODK's proposal plane, and a Functions assertion.
+  - O3b, next: create and edit. Driven 2026-09-28 on an isolated stack with edit permission on, a description edit
+    reaches Review changes, and Save to ontology stays disabled. The reference saves a type only with a backing
+    datasource and an object data store ("Backing datasource is missing"). An ODK type has these only once
+    materialized (`odk-materialized-object-sets`, written by a materializing run under a held lease). So the cut is:
+    bind a type's materialized set as its datasource, together with its object count and index failures (a failed
+    materializing run); then a save becomes an ODK patch at the expected revision. Proposals from ODK's proposal
+    plane and a Functions assertion follow.
   - O4: Object Explorer (`/workspace/hubble/`).
 
 ## Gate
