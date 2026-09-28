@@ -9252,14 +9252,17 @@ async function handleEstateRequest(req, res, body) {
       };
       // One read of what the adopted Automate seed shows: the caller's automations and who they are.
       const automateContext = async () => {
-        const [autos, who, projects] = await Promise.all([
+        const [autos, who, projects, preferences] = await Promise.all([
           planeRead("/v1/hypervisor/automations"),
           planeRead("/v1/hypervisor/auth/whoami"),
           planeRead("/v1/hypervisor/projects").then((j) => j.projects || []),
+          // the caller's favorites and recently viewed; a preference plane that does not answer fails only those reads
+          planeRead("/v1/hypervisor/preferences").then((j) => (Array.isArray(j.preferences) ? j.preferences : null)).catch(() => null),
         ]);
         const p = who.authenticated === false ? {} : (who.principal || {});
         const automations = Array.isArray(autos.automations) ? autos.automations : [];
-        return { automations, projects, principal: { ref: p.principal_ref, name: p.name, email: p.email }, functionInfo: await adoptedFunctionInfo(automations) };
+        const userState = preferences && p.principal_ref ? AUTOMATE.userStateOf(preferences, p.principal_ref) : null;
+        return { automations, projects, principal: { ref: p.principal_ref, name: p.name, email: p.email }, functionInfo: await adoptedFunctionInfo(automations), userState };
       };
       // One answer per adopted-app operation: bound (daemon truth) → the adapted harvest envelope → a named
       // gap. Never the mirror's loose GraphQL mock.
@@ -9317,7 +9320,41 @@ async function handleEstateRequest(req, res, body) {
       // Pipeline Builder's reads (and the ones that read nothing of it) still answer, or fail on their own.
       const automateContextOrFailed = async () => {
         try { return await automateContext(); }
-        catch (e) { if (!e?.planeDown) throw e; return { failed: e, automations: [], projects: [], principal: {}, functionInfo: new Map() }; }
+        catch (e) { if (!e?.planeDown) throw e; return { failed: e, automations: [], projects: [], principal: {}, functionInfo: new Map(), userState: null }; }
+      };
+      // The caller's favorites and recently viewed (adopted-automate.mjs USER_STATE_OPERATIONS) in the daemon's preference
+      // plane. A write names the record's revision; a concurrent change (409) is re-read once and re-applied.
+      const writeUserState = async (ctxA, kind, nextValue) => {
+        let state = ctxA.userState;
+        for (let attempt = 0; attempt < 2; attempt++) {
+          const r = await daemonFetch(`/v1/hypervisor/preferences/${state.ids[kind]}`, { method: "PUT", headers: { "content-type": "application/json" }, body: JSON.stringify({ expected_revision: state.revisions[kind], preference_kind: `automate_${kind}`, value: nextValue(state) }) }).catch(() => null);
+          const j = r ? await r.json().catch(() => ({})) : {};
+          if (r && r.status === 409 && attempt === 0) {
+            const fresh = await planeRead("/v1/hypervisor/preferences").then((x) => x.preferences || []).catch(() => null);
+            if (!fresh) return "the preference plane did not answer";
+            state = AUTOMATE.userStateOf(fresh, ctxA.principal?.ref);
+            continue;
+          }
+          return j.ok === true ? null : (j.code || (r ? `the preference plane answered ${r.status}` : "the preference plane did not answer"));
+        }
+        return "the preference changed concurrently twice";
+      };
+      const answerUserState = async (name, variables, ctxA, query) => {
+        if (!ctxA.userState) return { data: null, errors: [{ message: `${name}: the daemon's preference plane did not answer, so favorites and recently viewed cannot be read or kept` }] };
+        if (name === "SplashTableQuery") return { data: answerAdoptedDocument(query, AUTOMATE.splashFactsRoot(ctxA.automations || [], ctxA.projects || [], ctxA.principal, ctxA.userState), null, name) };
+        const rid = String(variables?.rid || "");
+        const mine = (ctxA.automations || []).some((x) => AUTOMATE.monitorRidOf(x.automation_id) === rid);
+        if (name === "RegisterAsRecentResourceMutation") {
+          // a view of what is not one of the caller's automations (the create wizard's unsaved draft) records nothing
+          if (!mine) return { data: { view: null } };
+          const refused = await writeUserState(ctxA, "recents", (st) => ({ recents: AUTOMATE.recentsAfterView(st.recents, rid, new Date().toISOString()) }));
+          return refused ? { data: null, errors: [{ message: `${name}: the view was not recorded (${refused})` }] } : { data: AUTOMATE.viewAnswer(rid) };
+        }
+        if (!mine) return { data: null, errors: [{ message: `${name}: not one of your automations` }] };
+        const on = !AUTOMATE.UNFAVORITE_OPERATIONS.has(name);
+        const at = ctxA.userState.favorites.get(rid) || new Date().toISOString();
+        const refused = await writeUserState(ctxA, "favorites", (st) => ({ favorites: AUTOMATE.favoritesAfter(st.favorites, rid, on, at) }));
+        return refused ? { data: null, errors: [{ message: `${name}: nothing was ${on ? "favorited" : "unfavorited"} (${refused})` }] } : { data: AUTOMATE.favoriteAnswer(name, rid, on ? at : null) };
       };
       const answerAdoptedOp = async (name, variables, ctxA, query = "") => {
         try {
@@ -9328,6 +9365,7 @@ async function handleEstateRequest(req, res, body) {
       };
       const answerAdoptedOpInner = async (name, variables, ctxA, query = "") => {
         if (AUTOMATE.OPERATIONS.has(name)) return { data: AUTOMATE.graphqlAnswer(name, variables || {}, ctxA) };
+        if (AUTOMATE.USER_STATE_OPERATIONS.has(name)) return answerUserState(name, variables || {}, ctxA, query);
         if (!PIPELINE.PIPELINE_OPERATIONS.has(name) && PIPELINE.answersPipelineOperation(name, variables) && query) {
           // the reference's recorded answer to the same generic read (Automate's harvest) lends STRUCTURE only
           const template = AUTOMATE.harvestOperations(ADOPT_MIRROR_DIR).get(name)?.data || null;
@@ -9574,6 +9612,9 @@ async function handleEstateRequest(req, res, body) {
         const gqlName = AUTOMATE.opNameOf(gqlOp);
         if (gqlOp && AUTOMATE.OPERATIONS.has(gqlName)) {
           return sendJson({ data: AUTOMATE.graphqlAnswer(gqlName, gqlOp.variables || {}, await automateContext()) });
+        }
+        if (gqlOp && AUTOMATE.USER_STATE_OPERATIONS.has(gqlName)) {
+          return sendJson(await answerAdoptedOp(gqlName, gqlOp.variables || {}, await automateContextOrFailed(), String(gqlOp.query || "")));
         }
         // The adopted Pipeline Builder, opened directly, reads over this single-operation gateway too: the same
         // answers as the bulk gateway, never the capture passthrough below.
@@ -9933,12 +9974,13 @@ async function handleEstateRequest(req, res, body) {
       if (pathname === "/graphql-gateway/api/graphql/batch" && req.method === "POST") {
         let batch = null;
         try { batch = JSON.parse(body.toString()); } catch { /* not JSON */ }
-        const known = (op) => AUTOMATE.OPERATIONS.has(AUTOMATE.opNameOf(op)) || AUTOMATE.ENVELOPE_OPERATIONS.has(AUTOMATE.opNameOf(op));
+        const known = (op) => AUTOMATE.OPERATIONS.has(AUTOMATE.opNameOf(op)) || AUTOMATE.ENVELOPE_OPERATIONS.has(AUTOMATE.opNameOf(op)) || AUTOMATE.USER_STATE_OPERATIONS.has(AUTOMATE.opNameOf(op));
         if (Array.isArray(batch) && batch.length && batch.every(known)) {
           const ctxA = await automateContext();
           const answers = await Promise.all(batch.map(async (op) => {
             const name = AUTOMATE.opNameOf(op);
             if (AUTOMATE.OPERATIONS.has(name)) return { data: AUTOMATE.graphqlAnswer(name, op.variables || {}, ctxA) };
+            if (AUTOMATE.USER_STATE_OPERATIONS.has(name)) return answerAdoptedOp(name, op.variables || {}, ctxA, String(op.query || ""));
             const env = await fetch(`${CAPTURE}/graphql-gateway/api/graphql`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(op) }).then((r) => r.json()).catch(() => null);
             return env && env.data ? { data: AUTOMATE.scrubIdentity(env.data, ctxA.principal) } : AUTOMATE.unboundError(name);
           }));
@@ -10350,8 +10392,26 @@ async function handleEstateRequest(req, res, body) {
         // Lineage links (the proposal page's, and any seed's): the Hypervisor records no dataset lineage links in
         // the reference's vocabulary, so none — never the recorded tenant's lineage graph.
         if (pathname === "/monocle/api/links" && req.method === "POST") return send(200, { nodes: [] });
-        // No favorites are kept. The ontology map offers the caller's ontologies (the output picker's names).
+        // No APPLICATION favorites are kept (an automation's star is the caller's preference, bound in the GraphQL
+        // favorite writes). The ontology map offers the caller's ontologies (the output picker's names).
         if (pathname === "/people/api/personal/get-favorites" && req.method === "POST") return send(200, { orderedFavorites: [] });
+        // A view event is how the adopted app says a resource was opened (it posts one when an automation's page loads).
+        // One of the caller's automations viewed is recorded in their Recently viewed (the daemon's preference plane);
+        // nothing else posted here is kept, and its response says so (no event id). The mirror answered every event with
+        // a recorded event id.
+        if (pathname === "/people/api/eventsink/create-events" && req.method === "POST") {
+          let asked = {};
+          try { asked = JSON.parse(body.toString() || "{}"); } catch { /* none */ }
+          const ctxA = await automateContextOrFailed();
+          const responses = [];
+          for (const ev of Array.isArray(asked.createEventRequests) ? asked.createEventRequests : []) {
+            const rid = ev?.type === "viewEvent" ? String(ev.viewEvent?.resourceRid || "") : "";
+            const mine = !!rid && !!ctxA.userState && (ctxA.automations || []).some((x) => AUTOMATE.monitorRidOf(x.automation_id) === rid);
+            const refused = mine ? await writeUserState(ctxA, "recents", (st) => ({ recents: AUTOMATE.recentsAfterView(st.recents, rid, new Date().toISOString()) })) : "not recorded";
+            responses.push({ eventRid: refused ? null : `ri.people.main.event.${crypto.randomUUID()}` });
+          }
+          return send(200, { createEventResponses: responses });
+        }
         if (pathname === "/ontology-metadata/api/ontology/v2/load/all" && req.method === "POST") return send(200, PIPELINE.ontologyLoadAnswer(await ontologyCatalog()));
       }
       if (pathname === "/eddie/api/pipelines-v2/get-sandboxes-with-snapshots" && req.method === "POST") {

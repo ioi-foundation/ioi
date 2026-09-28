@@ -220,10 +220,33 @@ test("telemetry counts an automation's runs, errors and runtime in each bucket",
   assert.deepEqual(hourly.map((b) => b.data.numRuns), [0, 2, 0, 1]);
 });
 
-test("an operation with no Hypervisor plane is refused by name, never answered from the recording", () => {
-  const answer = AUTOMATE.refusedAnswer("ResourceTitleContainerFavoriteMutation");
-  assert.equal(answer.data, null);
-  assert.match(answer.errors[0].message, /Favorites are not kept by the Hypervisor/);
+test("favorites and recently viewed are the caller's own preference records, and only the caller's automations show", () => {
+  const me = "user://alice";
+  const ids = AUTOMATE.userStatePreferenceIds(me);
+  assert.notEqual(ids.favorites, AUTOMATE.userStatePreferenceIds("user://bob").favorites, "one record per principal");
+  const a1 = { automation_id: "auto_1", name: "Nightly", project_id: "p1", created_at: "2026-09-27T01:00:00Z" };
+  const a2 = { automation_id: "auto_2", name: "Weekly", project_id: "p1", created_at: "2026-09-27T01:00:00Z" };
+  const r1 = AUTOMATE.monitorRidOf("auto_1"), r2 = AUTOMATE.monitorRidOf("auto_2"), gone = AUTOMATE.monitorRidOf("auto_gone");
+  const prefs = [
+    { preference_id: ids.favorites, revision: 3, value: { favorites: [{ rid: r2, favorited_at: "2026-09-27T01:10:00Z" }, { rid: gone, favorited_at: "2026-09-27T01:20:00Z" }] } },
+    { preference_id: ids.recents, revision: 5, value: { recents: [{ rid: r1, viewed_at: "2026-09-27T02:00:00Z" }, { rid: gone, viewed_at: "2026-09-27T01:30:00Z" }] } },
+    { preference_id: AUTOMATE.userStatePreferenceIds("user://bob").recents, revision: 1, value: { recents: [{ rid: r2, viewed_at: "2026-09-27T03:00:00Z" }] } },
+  ];
+  const state = AUTOMATE.userStateOf(prefs, me);
+  assert.deepEqual(state.revisions, { favorites: 3, recents: 5 });
+  const root = AUTOMATE.splashFactsRoot([a1, a2], [{ project_id: "p1", name: "Ops" }], { ref: me }, state);
+  assert.deepEqual(root.recents.map((r) => r.recent.name), ["Nightly"], "a view of what is no longer the caller's is dropped; another principal's views never show");
+  // `favorited` is WHEN (the app reads any non-null value — false included — as favorited)
+  assert.deepEqual(root.favorites.map((r) => [r.name, r.favorited]), [["Weekly", "2026-09-27T01:10:00.000Z"]]);
+  assert.equal(root.recents[0].recent.favorited, null);
+  const after = AUTOMATE.recentsAfterView(state.recents, r2, "2026-09-27T04:00:00Z");
+  assert.deepEqual(after.map((r) => r.rid), [r2, r1, gone], "the newest view first, each automation once");
+  assert.deepEqual(AUTOMATE.recentsAfterView(after, r1, "2026-09-27T05:00:00Z").map((r) => r.rid), [r1, r2, gone]);
+  assert.deepEqual(AUTOMATE.favoritesAfter(state.favorites, r1, true, "2026-09-27T06:00:00Z").map((f) => f.rid).sort(), [r2, gone, r1].sort());
+  assert.equal(AUTOMATE.favoritesAfter(state.favorites, r2, true, "2026-09-27T06:00:00Z").find((f) => f.rid === r2).favorited_at, "2026-09-27T01:10:00Z", "favoriting again keeps when it was favorited");
+  assert.deepEqual(AUTOMATE.favoritesAfter(state.favorites, r2, false).map((f) => f.rid), [gone]);
+  assert.equal(AUTOMATE.favoriteAnswer("UnfavoriteMutation", r2, null).unfavorite.favorited, null);
+  assert.equal(AUTOMATE.favoriteAnswer("FavoriteMutation", r2, "2026-09-27T06:00:00Z").favoriteV2.favorited, "2026-09-27T06:00:00.000Z");
 });
 
 test("effects run in the order the request states; a request for parallel effects is refused by name", () => {

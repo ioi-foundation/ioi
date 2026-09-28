@@ -226,7 +226,7 @@ export function mergeStream(mirrorText, answers) {
 // own shape where none does (marketplace templates, walkthroughs, announcements, the reference's own
 // sidebar — our shell owns the rail); a GraphQL error naming the gap for an operation not yet mapped.
 export const OPERATIONS = new Set([
-  "SearchMonitorsQuery", "SplashTableQuery", "GetCompassResource",
+  "SearchMonitorsQuery", "GetCompassResource",
   "AutomationNamespaceFilterComponentQuery", "GetObjectTypeInSetForNotSavedSet",
   "RecentInstallationsPopoverQuery", "GetRemoteStoreRid", "SelectWalkthroughsForAppQuery",
   "BrowseTemplatesViewQuery", "LatestAnnouncementQuery", "UpdateAipAssistWalkthroughMetric",
@@ -274,7 +274,6 @@ export function graphqlAnswer(name, variables, ctx) {
   const fullName = me.name || me.email || me.ref || "Hypervisor user";
   switch (name) {
     case "SearchMonitorsQuery": return searchMonitorsData(autos);
-    case "SplashTableQuery": return Q({ recents: [], favorites: [] });
     case "GetCompassResource": {
       const rid = variables?.rid || variables?.resourceRid || "";
       const a = autos.find((x) => monitorRidOf(x.automation_id) === rid);
@@ -410,18 +409,19 @@ function conditionOf(a) {
     : { __typename: "HypervisorManualTrigger", __implements: ["ObjectSetMonitorLogicV3", "ObjectSetMonitorCondition"] };
 }
 
-export function factsRoot(a, runs, principal, functionInfo = null, projects = [], eventFilters = null, eventId = null) {
+// An automation as the reference's compass resource: its project is its folder (the same entity the save picker
+// describes); `favorited` is WHEN the caller favorited it (the app reads any non-null value as favorited — a boolean
+// false read as a favorite), from the caller's own favorites in the daemon's preference plane, never the tenant's.
+export function automationResourceNode(a, principal, projects = [], favoritedAt = null) {
   const rid = monitorRidOf(a.automation_id);
   const creator = (a.executor_identity || {}).ref || (principal || {}).ref || "";
   const project = a.project_id || "unfiled";
-  const who = (ref) => ({ __typename: "User", id: userIdOf(ref), _id: cacheId(`user:${ref}`), realm: { __typename: "PrincipalRealm", id: "hypervisor" } });
+  // the caller is named from their principal (the Overview's Creator / Last edited by columns read the name on the node)
+  const me = principal || {};
+  const who = (ref) => ({ __typename: "User", id: userIdOf(ref), _id: cacheId(`user:${ref}`), realm: { __typename: "PrincipalRealm", id: "hypervisor" },
+    ...(ref && ref === me.ref ? { fullName: me.name || me.email || ref, username: me.email || ref } : { fullName: null, username: ref || null }) });
   const at = (t, ref) => ({ __typename: "Attribution", time: iso(t), user: who(ref) });
-  const latest = [...(runs || [])].sort((x, y) => String(y.started_at || "").localeCompare(String(x.started_at || "")))[0] || null;
-  const running = (runs || []).find((r) => r.status === "running") || null;
-  const spec = a.schedule_spec || {};
-  const paused = a.enabled === false;
-  // The automation's location is its project — the same folder entity the save picker describes. A
-  // project that is not the caller's gets a folder with no permission to save into it.
+  // A project that is not the caller's gets a folder with no permission to save into it.
   const ownProject = (projects || []).find((p) => p.project_id === a.project_id) || null;
   const projectName = ownProject?.name || project;
   const folder = ownProject ? projectFolderNode(ownProject) : {
@@ -430,9 +430,9 @@ export function factsRoot(a, runs, principal, functionInfo = null, projects = []
     type: { __typename: "ResourceTypeMetadata", iconName: "pt-svg-icon-project" }, ancestors: [ALL_FILES_FOLDER],
     permissions: { __typename: "ResourceMetadataPermissions", _id: cacheId(`perm:${folderRidOf(project)}`), canOpenLink: false, canEditMetadata: false, canCreateAutomation: false },
   };
-  const resource = {
+  return {
     __typename: "ResourceMetadata", _id: cacheId(`meta:${rid}`), rid, name: a.name || a.automation_id, description: a.description || "",
-    path: `/${projectName}/${a.name || a.automation_id}`, autosaved: false, hidden: false, trashedStatus: "NOT_TRASHED", favorited: null,
+    path: `/${projectName}/${a.name || a.automation_id}`, autosaved: false, hidden: false, trashedStatus: "NOT_TRASHED", favorited: favoritedAt ? iso(favoritedAt) : null,
     alias: null, status: null, collections: [], statusInfo: null, openUrl: `/workspace/object-monitoring/automation/${rid}/main/view/overview`,
     isProtected: false, created: at(a.created_at, creator), modified: at(a.updated_at || a.created_at, creator), parent: folder,
     ancestors: [{ __typename: "ResourceMetadata", name: "All files", rid: "ri.compass.main.folder.0", _id: cacheId("folder:0") }, folder],
@@ -440,9 +440,20 @@ export function factsRoot(a, runs, principal, functionInfo = null, projects = []
     type: { __typename: "ResourceTypeMetadata", iconName: "pt-svg-icon-automation" },
     // The caller may edit their automation and its name and description (each a PATCH); sharing, tags,
     // trash and moving between projects have no Hypervisor counterpart, so the app disables them.
-    permissions: { __typename: "ResourceMetadataPermissions", canEditAutomation: true, canShare: false, canShareLink: false, canTrash: false, canEditTags: false, canEditMetadata: true, canMoveBetweenProjects: false, canMoveWithinProject: false, canRestore: false, canOpenLink: true, canCreateIssue: false },
+    permissions: { __typename: "ResourceMetadataPermissions", _id: cacheId(`perm:${rid}`), canEditAutomation: true, canShare: false, canShareLink: false, canTrash: false, canEditTags: false, canEditMetadata: true, canMoveBetweenProjects: false, canMoveWithinProject: false, canRestore: false, canOpenLink: true, canCreateIssue: false },
     project: { __typename: "Project", userProjectOwner: null },
   };
+}
+
+export function factsRoot(a, runs, principal, functionInfo = null, projects = [], eventFilters = null, eventId = null, favorites = null) {
+  const rid = monitorRidOf(a.automation_id);
+  const creator = (a.executor_identity || {}).ref || (principal || {}).ref || "";
+  const who = (ref) => ({ __typename: "User", id: userIdOf(ref), _id: cacheId(`user:${ref}`), realm: { __typename: "PrincipalRealm", id: "hypervisor" } });
+  const latest = [...(runs || [])].sort((x, y) => String(y.started_at || "").localeCompare(String(x.started_at || "")))[0] || null;
+  const running = (runs || []).find((r) => r.status === "running") || null;
+  const spec = a.schedule_spec || {};
+  const paused = a.enabled === false;
+  const resource = automationResourceNode(a, principal, projects, favorites ? favorites.get(rid) || null : null);
   // A manual or webhook automation has NO condition in the reference's vocabulary (its manual
   // execution is an action on any automation, not a condition). A schedule with no expression would
   // crash the overview's cron describer ("Expression is empty"); a typename the app does not know is
@@ -481,7 +492,7 @@ export function answerFactOperation(name, query, variables, ctx, runsFor, templa
   // The events a request asks for: the Execute tab's history is manual runs only (a literal in its
   // query); the History tab passes its filters as a variable.
   const filters = name === "ManualExecutionEventsQuery" ? ["MANUAL_EXECUTION"] : (Array.isArray(variables?.filters) ? variables.filters : null);
-  return answerDocument(query, factsRoot(a, runsFor(a.automation_id), ctx.principal, ctx.functionInfo, ctx.projects, filters, variables?.monitorEventId || variables?.eventId || null), template, name);
+  return answerDocument(query, factsRoot(a, runsFor(a.automation_id), ctx.principal, ctx.functionInfo, ctx.projects, filters, variables?.monitorEventId || variables?.eventId || null, ctx.userState?.favorites || null), template, name);
 }
 
 // ---- EVENTS: an automation's runs as the reference's history events, newest first. A person's Run now
@@ -831,9 +842,57 @@ export function mutationAnswer(name, a) {
 }
 // Operations the Hypervisor has no plane for, refused BY NAME (the operation's GraphQL error carries the
 // reason) — never left as an unbound gap, never answered from the recorded tenant.
-export const REFUSED_OPERATIONS = new Map([
-  ["ResourceTitleContainerFavoriteMutation", "Favorites are not kept by the Hypervisor yet — nothing was favorited"],
-]);
+export const REFUSED_OPERATIONS = new Map([]);
+
+// ---- THE CALLER'S OWN STATE: favorites and recently viewed (R-240 Arm A on Automate). The Overview's Recently
+// viewed read an empty list whatever was opened, and the header star was refused. Both are the signed-in person's
+// durable preferences in the daemon's preference plane (principal- and organization-scoped, revisioned) — one record
+// each, named for the principal (the plane finds a record by id). The app registers a view explicitly
+// (`RegisterAsRecentResourceMutation`, sent when an automation opens); favorites are its favorite/unfavorite writes.
+// A resource's star sends one of these (the header, the title container, the splash table).
+export const FAVORITE_OPERATIONS = new Set(["FavoriteMutation", "ResourceTitleContainerFavoriteMutation"]);
+export const UNFAVORITE_OPERATIONS = new Set(["UnfavoriteMutation", "UnFavoriteMutation", "ResourceTitleContainerUnfavoriteMutation"]);
+export const USER_STATE_OPERATIONS = new Set(["SplashTableQuery", "RegisterAsRecentResourceMutation", ...FAVORITE_OPERATIONS, ...UNFAVORITE_OPERATIONS]);
+export const RECENTS_LIMIT = 30;
+export function userStatePreferenceIds(principalRef) {
+  const tail = crypto.createHash("sha256").update(String(principalRef || "anonymous")).digest("hex").slice(0, 24);
+  return { favorites: `automate-favorites-${tail}`, recents: `automate-recents-${tail}` };
+}
+// The caller's two records out of the plane's list (each with the revision its next write must name).
+export function userStateOf(preferences, principalRef) {
+  const ids = userStatePreferenceIds(principalRef);
+  const rec = (id) => (preferences || []).find((p) => p && p.preference_id === id) || null;
+  const fav = rec(ids.favorites), rec2 = rec(ids.recents);
+  return {
+    ids,
+    // rid → when it was favorited
+    favorites: new Map((Array.isArray(fav?.value?.favorites) ? fav.value.favorites : []).filter((f) => f && typeof f.rid === "string").map((f) => [f.rid, f.favorited_at || null])),
+    recents: (Array.isArray(rec2?.value?.recents) ? rec2.value.recents : []).filter((r) => r && typeof r.rid === "string"),
+    revisions: { favorites: fav?.revision || 0, recents: rec2?.revision || 0 },
+  };
+}
+export const recentsAfterView = (recents, rid, viewedAt) => [{ rid, viewed_at: viewedAt }, ...(recents || []).filter((r) => r.rid !== rid)].slice(0, RECENTS_LIMIT);
+export const favoritesAfter = (favorites, rid, on, at) => {
+  const next = new Map(favorites || []);
+  if (on) next.set(rid, next.get(rid) || at); else next.delete(rid);
+  return [...next].map(([r, favoritedAt]) => ({ rid: r, favorited_at: favoritedAt }));
+};
+// The Overview's table: the caller's recently viewed automations (newest first) and favorites, as the same resource
+// nodes the detail page reads. A recorded view of something that is no longer one of the caller's automations is
+// dropped rather than shown as a broken row.
+export function splashFactsRoot(automations, projects, principal, state) {
+  const byRid = new Map((automations || []).map((a) => [monitorRidOf(a.automation_id), a]));
+  // the table names a resource by its alias with the name beside it in brackets unless the alias is "" (no alias —
+  // the recorded answer's spelling); null left the name in brackets and the alias column blank
+  const node = (a) => ({ ...automationResourceNode(a, principal, projects, state.favorites.get(monitorRidOf(a.automation_id)) || null), alias: "" });
+  return {
+    __typename: "Query",
+    recents: state.recents.filter((r) => byRid.has(r.rid)).map((r) => ({ __typename: "RecentWithTimestamp", viewedAt: iso(r.viewed_at), recent: node(byRid.get(r.rid)) })),
+    favorites: [...state.favorites.keys()].filter((rid) => byRid.has(rid)).map((rid) => node(byRid.get(rid))),
+  };
+}
+export const favoriteAnswer = (name, rid, favoritedAt) => ({ [UNFAVORITE_OPERATIONS.has(name) ? "unfavorite" : "favoriteV2"]: { __typename: "ResourceMetadata", _id: cacheId(`meta:${rid}`), favorited: favoritedAt ? iso(favoritedAt) : null } });
+export const viewAnswer = (rid) => ({ view: { __typename: "ResourceMetadata", _id: cacheId(`meta:${rid}`) } });
 export const refusedAnswer = (name) => ({ data: null, errors: [{ message: REFUSED_OPERATIONS.get(name) }] });
 export const pausePatchOf = (request) => (typeof request?.disable === "boolean" ? { patch: { enabled: !request.disable } } : { issue: "pause or resume: `disable` must be true or false" });
 

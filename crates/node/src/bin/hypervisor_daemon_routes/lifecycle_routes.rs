@@ -7135,6 +7135,18 @@ pub(crate) async fn handle_preference_put(
     let existing = read_record_dir(&st.data_dir, "hypervisor-preferences")
         .into_iter()
         .find(|record| record["preference_id"].as_str() == Some(id.as_str()));
+    // A record is found by id alone, so an id another principal (or organization) already holds is refused: a write
+    // naming its revision would otherwise replace that person's preference with the caller's.
+    if let Some(record) = existing.as_ref() {
+        if record["principal_ref"].as_str() != Some(principal_ref.as_str())
+            || record["org_ref"].as_str() != Some(org_ref.as_str())
+        {
+            return (
+                StatusCode::FORBIDDEN,
+                Json(json!({ "ok": false, "code": "hypervisor.preference_owner_mismatch" })),
+            );
+        }
+    }
     let current_revision = existing
         .as_ref()
         .and_then(|record| record["revision"].as_u64())

@@ -58,7 +58,7 @@ const PINS = {
   // Action, Logic and Notification effects), 2 named gaps (Unknown Agent; Unknown effect for command and
   // proposal steps), 4 open (header rename unproven; the side tabs undriven; settings accepted but not
   // enforced; the editor's Time label for a manual automation).
-  automate: { total: 39, bound: 21, refused: 10, named_gap: 3, open: 5 },
+  automate: { total: 39, bound: 23, refused: 10, named_gap: 3, open: 3 },
   // 2026-09-27 (R-241): Proposals bound — the family's change sets by status (proposed open, merged merged,
   // rejected/abandoned closed), each proposal's page over its change set (diff of declared outputs, rebase
   // check, events). Open 5 → 4.

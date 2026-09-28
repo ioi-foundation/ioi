@@ -30,6 +30,7 @@ import path from "node:path";
 import net from "node:net";
 import { fileURLToPath } from "node:url";
 import { emitVerifierCensus } from "./lib/verifier-census.mjs";
+import { monitorRidOf, userStatePreferenceIds } from "./adopted-automate.mjs";
 
 const HERE = path.dirname(fileURLToPath(import.meta.url));
 const APP = path.resolve(HERE, "..");
@@ -60,7 +61,7 @@ try { fs.accessSync(daemonBinary, fs.constants.X_OK); } catch {
 }
 
 const dataDir = fs.mkdtempSync(path.join(os.tmpdir(), "ioi-adopted-automate-"));
-let daemon = null, serve = null, DAEMON = "", SERVE = "", COOKIE = "";
+let daemon = null, serve = null, DAEMON = "", SERVE = "", COOKIE = "", operatorRef = "";
 
 // The form the page RENDERED that posts to `action`: its fields with the values a browser would send
 // untouched (a checkbox only when checked, each select's selected option), and what each choice offers.
@@ -159,6 +160,7 @@ async function run() {
     body: JSON.stringify({ token, password: "adopted-automate-bootstrap-v1", email: "adopted@ioi.local" }),
   }).then((r) => r.json()).catch(() => ({})) : {};
   COOKIE = boot.session_token ? `ioi_session=${boot.session_token}` : "";
+  operatorRef = COOKIE ? (await daemonRead("/v1/hypervisor/auth/whoami")).body?.principal?.principal_ref || "" : "";
   ok("operator bootstrap yields an authenticated session", COOKIE.startsWith("ioi_session=ioi_sess_"), COOKIE.slice(0, 24));
 
   const servePort = await freePort();
@@ -282,13 +284,14 @@ async function run() {
         && /Unknown effect/u.test(manualText) && !/There are no effects configured/u.test(manualText) && !!operator && ownerRow.includes(operator),
       `error card ${/An error has occurred/u.test(manualText)} · unknown condition ${/Unknown condition/u.test(manualText)} · step shown ${/Unknown effect/u.test(manualText)} · owner "${ownerRow}" (operator "${operator}")`);
 
-    // The mirror still answers the reference's CHROME reads (sessions, beacons, release notes, favorites,
-    // registry actions, lifecycle status, assist availability, view events) and nothing else: a new
+    // The mirror still answers the reference's CHROME reads (sessions, beacons, release notes, application
+    // favorites, registry actions, lifecycle status, assist availability) and nothing else (view events are the
+    // caller's Recently viewed now): a new
     // passthrough is a new lane reaching recorded tenant answers, and fails here until it is bound.
     const CHROME_PASSTHROUGHS = new Set([
       "GET /aip-assist/api/chat/checkAvailability", "GET /compass/api/registry/actions", "GET /multipass/api/sessions/definitions/current",
       "GET /multipass/api/sessions/selection", "GET /workspace/api/lifecycleStatusByApplication", "POST /documentation/api/v2/release-notes/pagination",
-      "POST /log-receiver/api/beacon", "POST /people/api/eventsink/create-events", "POST /people/api/personal/get-favorites",
+      "POST /log-receiver/api/beacon", "POST /people/api/personal/get-favorites",
     ]);
     const unexpected = [...passthroughs].filter((p) => !CHROME_PASSTHROUGHS.has(p));
     ok("the adopted app reaches the local mirror only for the reference's chrome reads — its user directory, functions, projects, automations, create and validation answer from the Hypervisor",
@@ -477,9 +480,52 @@ async function run() {
     ok("the Overview's Failures in last 4 weeks lists a failed automatic run (a webhook fire whose step failed)",
       failFire === 202 && failedRun?.status === "failed" && failuresSection.includes(`failing-${tag}`),
       `fire ${failFire} · ${failedRun?.status || "no run"} · "${failuresSection.slice(0, 160)}"`);
+
+    // ---- 9. The caller's own state (the daemon's preference plane): opening an automation is a view the Overview's
+    // Recently viewed lists (it read "You have no recent files" whatever was opened), and its header star is a real
+    // favorite that sticks and comes off (it was refused, and the app showed nothing).
+    const rid = monitorRidOf(made.automation_id);
+    const prefsOf = async () => (await daemonRead("/v1/hypervisor/preferences")).body?.preferences || [];
+    const valueOf = (prefs, kind) => (prefs.find((x) => x.preference_id === userStatePreferenceIds(operatorRef)[kind]) || {}).value || {};
+    await pg.goto(`${SERVE}/automations?automation=${made.automation_id}`, { waitUntil: "domcontentloaded" });
+    await pg.waitForTimeout(9000);
+    const viewed = (valueOf(await prefsOf(), "recents").recents || []).some((r) => r.rid === rid);
+    const star = pg.locator('span.favorite-star__favorite-star__1tcgvet[class*="ws-resource-header"]').first();
+    const starBefore = await star.getAttribute("aria-checked").catch(() => null);
+    await star.click({ timeout: 6000 }).catch(() => { /* named below */ });
+    await pg.waitForTimeout(3000);
+    const starOn = await star.getAttribute("aria-checked").catch(() => null);
+    const favorited = (valueOf(await prefsOf(), "favorites").favorites || []).some((f) => f.rid === rid && f.favorited_at);
+    await pg.goto(`${SERVE}/workspace/object-monitoring/`, { waitUntil: "domcontentloaded" });
+    await pg.waitForTimeout(9000);
+    const overviewNow = (await pg.evaluate(() => document.body.innerText)).replace(/\s+/g, " ");
+    const recentSection = overviewNow.includes("Recently viewed") ? overviewNow.slice(overviewNow.indexOf("Recently viewed"), overviewNow.indexOf("Recently triggered")) : "";
+    await pg.goto(`${SERVE}/automations?automation=${made.automation_id}`, { waitUntil: "domcontentloaded" });
+    await pg.waitForTimeout(9000);
+    await star.click({ timeout: 6000 }).catch(() => { /* named below */ });
+    await pg.waitForTimeout(3000);
+    const starOff = await star.getAttribute("aria-checked").catch(() => null);
+    const unfavorited = !(valueOf(await prefsOf(), "favorites").favorites || []).some((f) => f.rid === rid);
+    ok("opening an automation is a view the Overview's Recently viewed lists (by name, with its creator), and its header star is a favorite kept in the daemon's preference plane — on, then off",
+      viewed && starBefore === "false" && starOn === "true" && favorited && recentSection.includes(`auto-${tag}-header`) && !/You have no recent files/u.test(recentSection)
+        && !/\(auto-/u.test(recentSection) && starOff === "false" && unfavorited,
+      `viewed ${viewed} · star ${starBefore}→${starOn}→${starOff} · kept ${favorited} · removed ${unfavorited} · "${recentSection.slice(0, 140)}"`);
   } finally {
     await browser.close();
   }
+
+  // A preference record is found by id alone: a second person naming another's record (and its revision) is refused,
+  // and the record stays theirs (it had replaced it with the caller's).
+  const second = await fetch(`${DAEMON}/v1/hypervisor/principals`, { method: "POST", headers: { cookie: COOKIE, "content-type": "application/json" }, body: JSON.stringify({ email: `prefs-b-${tag}@ioi.local`, name: "Principal B", role: "member", password: "prefs-b-password-v1" }) }).then((r) => r.json()).catch(() => ({}));
+  const loginB = await fetch(`${DAEMON}/v1/hypervisor/auth/login`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ email: `prefs-b-${tag}@ioi.local`, password: "prefs-b-password-v1" }) }).then((r) => r.json()).catch(() => ({}));
+  const favoritesId = userStatePreferenceIds(operatorRef).favorites;
+  const heldBefore = ((await daemonRead("/v1/hypervisor/preferences")).body?.preferences || []).find((x) => x.preference_id === favoritesId) || {};
+  const overwrite = await fetch(`${DAEMON}/v1/hypervisor/preferences/${favoritesId}`, { method: "PUT", headers: { authorization: `Bearer ${loginB.session_token || ""}`, "content-type": "application/json" }, body: JSON.stringify({ expected_revision: heldBefore.revision || 0, preference_kind: "automate_favorites", value: { favorites: [] } }) }).then(async (r) => ({ status: r.status, body: await r.json().catch(() => ({})) })).catch(() => ({ status: 0, body: {} }));
+  const heldAfter = ((await daemonRead("/v1/hypervisor/preferences")).body?.preferences || []).find((x) => x.preference_id === favoritesId) || {};
+  ok("a second person cannot overwrite another's preference record by naming it and its revision — refused by name, and the record stays theirs",
+    !!second.principal?.principal_id && !!loginB.session_token && overwrite.status === 403 && overwrite.body?.code === "hypervisor.preference_owner_mismatch"
+      && heldAfter.principal_ref === operatorRef && heldAfter.revision === heldBefore.revision,
+    `B ${!!second.principal?.principal_id}/${!!loginB.session_token} · put ${overwrite.status} ${overwrite.body?.code} · owner ${heldAfter.principal_ref === operatorRef} rev ${heldBefore.revision}→${heldAfter.revision}`);
 
   // Degraded: with the daemon stopped, the adopted app's automation search answers an ERROR (its own
   // "unable to load" state) — never an empty list that reads as "you have no automations".
