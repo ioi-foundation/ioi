@@ -251,6 +251,10 @@ const AUG_TAG = '<script src="/ioi-augmentation.js" defer></script>';
 // IOI_PRODUCT_SIGNIN_REQUIRED=0 — the one automation browses anonymously — keeps its signed-out states.
 // An adopted app's OWN base path (its router pushes these URLs) serves the same seed, so a reload or a
 // deep link lands where the app expects; the /__apps/<slug> lane stays the development entry.
+// The reference chrome's own links (the workspace sidebar every adopted app shows): Home and Files open the Hypervisor's
+// home and its projects — the adopted apps already answer Compass folders as the caller's projects. Without this both
+// landed on nothing (check:adopted-dead-controls, 2026-09-28).
+const REFERENCE_CHROME_ROUTES = [["/workspace/aip", "/"], ["/workspace/compass", "/projects"]];
 const ADOPTED_ROUTE_ALIASES = [["/workspace/object-monitoring", "monitors"], ["/workspace/builder", "pipeline"], ["/workspace/ontology", "schema"], ["/workspace/hubble", "explorer"], ["/workspace/data-ingestion-app", "sources"]];
 // THE ONTOLOGY FENCE (R-241 Ontology Manager, cut O1): the adopted Ontology Manager's reads of the ontology, the object
 // registry, object sets, search and data health that are not bound are answered as named gaps — never passed through
@@ -9240,6 +9244,8 @@ async function handleEstateRequest(req, res, body) {
       res.writeHead(404, { "Content-Type": "application/json" });
       return res.end(JSON.stringify({ errorCode: "NOT_FOUND", errorName: "Checkpoints:NotKept", errorInstanceId: "", parameters: { message: "no checkpoint configuration is kept; nothing gates this action" } }));
     }
+    const chromeRoute = req.method === "GET" && REFERENCE_CHROME_ROUTES.find(([prefix]) => pathname === prefix || pathname.startsWith(`${prefix}/`));
+    if (chromeRoute) { res.writeHead(302, { Location: chromeRoute[1] }); return res.end(); }
     const adoptedAlias = ADOPTED_ROUTE_ALIASES.find(([prefix]) => pathname === prefix || pathname.startsWith(`${prefix}/`));
     const ontologyServiceRead = SERVICE_API_PATH.test(pathname) && ONTOLOGY_SURFACE_REFERER.test(String(req.headers.referer || ""));
     const dataConnectionServiceRead = SERVICE_API_PATH.test(pathname) && DATA_CONNECTION_SURFACE_REFERER.test(String(req.headers.referer || ""));
