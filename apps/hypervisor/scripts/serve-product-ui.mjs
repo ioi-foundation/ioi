@@ -770,13 +770,17 @@ function renderConnectionsCockpit(connectors, scmConnectors, leases, devFacts) {
     const sl = c.standing_lease && typeof c.standing_lease === "object" ? c.standing_lease : null;
     const slb = sl?.bounds || {};
     const envelopeHtml = sl
-      ? `<div class="meta" data-ioi-standing-lease="${CX_ESC(sl.status || "")}" data-ioi-standing-usages="${CX_ESC(String(slb.max_usages ?? ""))}">limits: <b>${CX_ESC(sl.status || "")}</b> · ${CX_ESC(String(slb.max_usages ?? "?"))} uses · budget $${CX_ESC((Number(slb.max_cumulative_spend_microusd || 0) / 1_000_000).toFixed(4))} · ${CX_ESC((slb.operations || []).join("+"))} · tools ${CX_ESC((slb.allowed_tools || []).join(", ") || "—")} · expires ${CX_ESC(slb.expires_at_ms ? new Date(Number(slb.expires_at_ms)).toISOString() : "—")}${sl.status === "active" ? ` <form method="post" action="/__ioi/connections/${encodeURIComponent(c.connector_id)}/standing-lease/revoke" style="display:inline" onclick="event.stopPropagation()"><button class="act ghost" type="submit">Remove limits</button></form>` : ""}</div>`
+      // A limit the daemon's standing decision issued is revoked on the authority node too, which
+      // takes the operator passphrase (relayed once to the daemon, never kept here).
+      ? `<div class="meta" data-ioi-standing-lease="${CX_ESC(sl.status || "")}" data-ioi-standing-usages="${CX_ESC(String(slb.max_usages ?? ""))}">limits: <b>${CX_ESC(sl.status || "")}</b> · ${CX_ESC(String(slb.max_usages ?? "?"))} uses · budget $${CX_ESC((Number(slb.max_cumulative_spend_microusd || 0) / 1_000_000).toFixed(4))} · ${CX_ESC((slb.operations || []).join("+"))} · tools ${CX_ESC((slb.allowed_tools || []).join(", ") || "—")} · expires ${CX_ESC(slb.expires_at_ms ? new Date(Number(slb.expires_at_ms)).toISOString() : "—")}${sl.status === "active" ? ` <form method="post" action="/__ioi/connections/${encodeURIComponent(c.connector_id)}/standing-lease/revoke" style="display:inline" onclick="event.stopPropagation()">${sl.standing_envelope_id ? '<input name="operator_passphrase" type="password" autocomplete="off" required placeholder="operator passphrase" aria-label="Operator passphrase" data-ioi-operator-passphrase style="width:150px"> ' : ""}<button class="act ghost" type="submit">Remove limits</button></form>` : ""}</div>`
       // A limit is a STANDING GRANT recorded on an authority node. With none configured, every "Set
       // limits" was refused after the person had filled it in (501 standing_lease_recorder_not_configured);
       // the page knows at render time, so it says so where the form would be (R-240).
       : standingLeaseRecorderMode() === "none"
       ? `<div class="meta" data-ioi-standing-lease="absent" data-ioi-standing-recorder="none">no limits set — sessions cannot use this connection until limits are set, and this deployment runs no authority node to record them <span class="act ghost" role="button" tabindex="0" aria-disabled="true" title="Setting limits records a standing grant on an authority node; none is configured for this deployment (IOI_HYPERVISOR_LOCAL_AUTHORITY_STATE_DIR)" data-ioi-disabled-reason="Setting limits records a standing grant on an authority node; none is configured for this deployment (IOI_HYPERVISOR_LOCAL_AUTHORITY_STATE_DIR)" style="opacity:.62;cursor:not-allowed">Set limits</span></div>`
-      : `<div class="meta" data-ioi-standing-lease="absent">no limits set — sessions cannot use this connection until you set them <form method="post" action="/__ioi/connections/${encodeURIComponent(c.connector_id)}/standing-lease" style="display:inline" onclick="event.stopPropagation()" onsubmit="var b=this.querySelector('button');b.disabled=true;b.textContent='Recording on the authority node — this can take a minute or two…';"><input name="max_usages" type="number" min="1" required placeholder="usages" style="width:80px"> <input name="budget_usd" type="number" min="0" step="0.01" placeholder="USD" style="width:80px"> <button class="act ghost" type="submit">Set limits</button></form></div>`;
+      // The daemon decides the envelope: the bounds and the operator passphrase go to it once; the
+      // deployment authority's sealed approver signs the standing grant (the App signs nothing).
+      : `<div class="meta" data-ioi-standing-lease="absent">no limits set — sessions cannot use this connection until you set them <form method="post" action="/__ioi/connections/${encodeURIComponent(c.connector_id)}/standing-lease" style="display:inline" onclick="event.stopPropagation()" onsubmit="var b=this.querySelector('button');b.disabled=true;b.textContent='Recording on the authority node — this can take a minute or two…';"><input name="max_usages" type="number" min="1" required placeholder="usages" style="width:80px"> <input name="budget_usd" type="number" min="0" step="0.01" placeholder="USD" style="width:80px"> <input name="expires_hours" type="number" min="1" max="2160" placeholder="hours (24)" style="width:90px">${standingLeaseRecorderMode() === "daemon" ? ' <input name="operator_passphrase" type="password" autocomplete="off" required placeholder="operator passphrase" aria-label="Operator passphrase" data-ioi-operator-passphrase style="width:150px">' : ""} <button class="act ghost" type="submit">Set limits</button></form></div>`;
     push(connectionCategory(c), `<div class="card cncard" data-cn="${i}"><div class="main">
       <div class="name">${CX_ESC(c.name || c.service)}${bound ? "" : '<span class="pill warn">needs auth</span>'}<span class="pill risk">risk: ${CX_ESC(risk)}</span>${sl?.status === "active" ? '<span class="pill ok">bounded</span>' : '<span class="pill warn">unbounded</span>'}</div>
       <div class="meta">${CX_ESC(authDescriptor(c))} · <code>${CX_ESC(c.base_url || "")}</code> · tools: ${CX_ESC(tools)}${myLeases.length ? ` · ${myLeases.length} active grant${myLeases.length > 1 ? "s" : ""}` : ""}</div>
@@ -17284,26 +17288,33 @@ async function handleEstateRequest(req, res, body) {
       }
       return;
     }
-    // M13.3 — the attach-time standing envelope: bind (mint + record + bind on the daemon) and
-    // revoke (fence). Form posts redirect to Connections; JSON calls get the typed result, including
-    // the typed custody refusal in deployment mode (nothing is fabricated to make it pass).
+    // M13.3 — the attach-time standing envelope: set (the daemon decides: bounds + the operator
+    // passphrase are relayed to POST /v1/hypervisor/authority/standing-envelopes, whose sealed
+    // authority mints and records the grant) and remove (revoke on the authority node with the
+    // passphrase, then fence). The passphrase is taken out of the request here, relayed once and
+    // dropped: never logged, never kept, never echoed. Form posts redirect to Connections; JSON calls
+    // get the daemon's typed result (nothing is fabricated to make it pass).
     {
       const leaseMatch = pathname.match(/^\/__ioi\/connections\/([^/]+)\/standing-lease(?:\/(revoke))?$/u);
       if (leaseMatch && req.method === "POST") {
         const connectorId = decodeURIComponent(leaseMatch[1]);
         const isForm = String(req.headers["content-type"] || "").includes("application/x-www-form-urlencoded");
         const params = isForm ? Object.fromEntries(new URLSearchParams(body.toString("utf8"))) : (() => { try { return JSON.parse(body.toString() || "{}"); } catch { return {}; } })();
+        let operatorPassphrase = typeof params.operator_passphrase === "string" ? params.operator_passphrase : "";
+        delete params.operator_passphrase;
         let result;
         try {
           if (leaseMatch[2] === "revoke") {
-            result = await revokeStandingLease({ connectorId, daemonFetch });
+            result = await revokeStandingLease({ connectorId, operatorPassphrase, reason: params.reason || "", daemonFetch });
           } else {
             const estate = await daemonFetch("/v1/hypervisor/connectors").then((r) => r.json()).catch(() => ({}));
             const connector = (estate.connectors || []).find((c) => c.connector_id === connectorId);
-            result = connector ? await bindStandingLease({ connector, bounds: params, daemonFetch }) : { ok: false, status: 404, code: "unknown_connector", message: "unknown connector" };
+            result = connector ? await bindStandingLease({ connector, bounds: params, operatorPassphrase, daemonFetch }) : { ok: false, status: 404, code: "unknown_connector", message: "unknown connector" };
           }
         } catch (error) {
           result = { ok: false, status: 400, code: "standing_lease_request_invalid", message: String(error?.message || error) };
+        } finally {
+          operatorPassphrase = "";
         }
         if (isForm) {
           const q = result.ok ? "" : `?standing_lease_error=${encodeURIComponent(`${result.code || "refused"}: ${result.message || ""}`)}`;
@@ -17334,6 +17345,7 @@ async function handleEstateRequest(req, res, body) {
              <input name="standing_max_usages" type="number" min="1" placeholder="max usages (e.g. 20)" ${inp}>
              <input name="standing_budget_usd" type="number" min="0" step="0.01" placeholder="budget USD (e.g. 1.00)" ${inp}>
              <input name="standing_expires_hours" type="number" min="1" placeholder="expires in hours (default 24)" ${inp}>
+             ${standingLeaseRecorderMode() === "daemon" ? `<input name="operator_passphrase" type="password" autocomplete="off" placeholder="operator passphrase (needed to set limits)" aria-label="Operator passphrase" data-ioi-operator-passphrase ${inp}>` : ""}
              <button class="act" type="submit">Add + seal token + set limits</button></form>`;
       res.writeHead(200, { "Content-Type": "text/html; charset=utf-8", "Cache-Control": "no-cache" });
       res.end(connectionsShell(`<p><a href="/__ioi/connections" style="color:#9a9da6;text-decoration:none">← Connections</a></p>${form}`));
@@ -17360,7 +17372,8 @@ async function handleEstateRequest(req, res, body) {
           if (reg.connector?.connector_id) await post(`/v1/hypervisor/connectors/${encodeURIComponent(reg.connector.connector_id)}/credential`, { token: p.get("token") });
           // M13.3: the SAME pass mints the scoped standing bound when the operator declared one.
           if (reg.connector?.connector_id && p.get("standing_max_usages")) {
-            const bound = await bindStandingLease({ connector: reg.connector, bounds: { max_usages: p.get("standing_max_usages"), budget_usd: p.get("standing_budget_usd") || 0, expires_hours: p.get("standing_expires_hours") || 24 }, daemonFetch });
+            const bound = await bindStandingLease({ connector: reg.connector, bounds: { max_usages: p.get("standing_max_usages"), budget_usd: p.get("standing_budget_usd") || 0, expires_hours: p.get("standing_expires_hours") || 24 }, operatorPassphrase: p.get("operator_passphrase") || "", daemonFetch });
+            p.delete("operator_passphrase");
             if (!bound.ok) {
               res.writeHead(303, { Location: `/__ioi/connections?standing_lease_error=${encodeURIComponent(`${bound.code}: ${bound.message}`)}`, "Cache-Control": "no-cache" });
               return res.end();

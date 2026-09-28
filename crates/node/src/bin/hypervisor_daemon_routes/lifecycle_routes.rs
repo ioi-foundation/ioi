@@ -12840,6 +12840,7 @@ pub(crate) async fn handle_connector_revoke_standing_lease(
     lease["status"] = json!("revoked");
     lease["revoked_at"] = json!(iso_now());
     let grant_hash_ref = lease["grant_hash_ref"].clone();
+    let fenced_lease = lease.clone();
     if persist_record(&st.data_dir, "connectors", &id, &connector).is_err() {
         return (
             StatusCode::INTERNAL_SERVER_ERROR,
@@ -12848,6 +12849,8 @@ pub(crate) async fn handle_connector_revoke_standing_lease(
             ),
         );
     }
+    // A lease the daemon's standing decision issued: its envelope record follows the fence.
+    super::standing_envelope_routes::note_local_fence(&st.data_dir, &fenced_lease);
     let receipt_ref = persist_session_standing_receipt(
         &st.data_dir,
         "hypervisor.session.standing_revocation",
@@ -15773,6 +15776,44 @@ fn session_execute_standing_lease(data_dir: &str, session_ref: &str) -> Option<(
     None
 }
 
+/// The connection in a session's closed profile whose standing lease covering `session_execute`
+/// was REVOKED. Leaving is real: once the operator revokes the envelope a session drew on, that
+/// session's next execute refuses typed (`standing_lease_revoked`) exactly as its next connector
+/// act does, rather than quietly falling back to another lane.
+fn session_execute_revoked_standing_lease(
+    data_dir: &str,
+    session_ref: &str,
+) -> Option<(String, Value)> {
+    let session = read_record_dir(data_dir, "sessions")
+        .into_iter()
+        .find(|record| record.get("session_ref").and_then(Value::as_str) == Some(session_ref))?;
+    let refs = session
+        .pointer("/authority_profile/connection_refs")?
+        .as_array()?
+        .clone();
+    let connectors = read_record_dir(data_dir, "connectors");
+    for reference in refs {
+        let id = reference
+            .as_str()?
+            .trim_start_matches("connector:")
+            .to_string();
+        let Some(lease) = connectors
+            .iter()
+            .find(|c| c["connector_id"].as_str() == Some(id.as_str()))
+            .and_then(|c| c.get("standing_lease"))
+            .filter(|lease| lease.is_object())
+        else {
+            continue;
+        };
+        if lease["status"].as_str() == Some("revoked")
+            && lease_covers_operation(lease, SESSION_EXECUTE_OPERATION)
+        {
+            return Some((id, lease.clone()));
+        }
+    }
+    None
+}
+
 fn standing_execute_refusal(
     data_dir: &str,
     session_ref: &str,
@@ -15877,6 +15918,62 @@ pub(crate) async fn execute_authority_gate(
         "intent": intent,
         "scopes": EXECUTION_AUTHORITY_SCOPES,
     });
+    // G5: park (or re-park) THIS exact effect's challenge on the daemon, so the operator can decide
+    // it through the decision route; the retry names the decision's approval_ref.
+    let park_exact_effect = |audience: Option<String>| {
+        super::authority_challenge_routes::park_challenge(
+            data_dir,
+            super::authority_challenge_routes::ParkRequest {
+                target_scope: SESSION_EXECUTE_SCOPE,
+                policy_hash: &policy_hash,
+                request_hash: &request_hash,
+                audience,
+                subject_ref: session_id,
+                operation: "session-execute",
+                published_preimage: json!({
+                    "effect": effect,
+                    "policy_preimage": {
+                        "domain": "hypervisor.session.execute.policy.v1",
+                        "session_ref": session_id,
+                        "workspace_root": workspace_root,
+                        "scopes": EXECUTION_AUTHORITY_SCOPES,
+                    },
+                    "request_preimage": {
+                        "domain": "hypervisor.session.execute.request.v1",
+                        "session_ref": session_id,
+                        "intent": intent,
+                        "scopes": EXECUTION_AUTHORITY_SCOPES,
+                    },
+                }),
+                requester_ref,
+            },
+        )
+    };
+    let exact_approval = |audience: &Option<String>| {
+        json!({
+            "policy_hash": policy_hash,
+            "request_hash": request_hash,
+            // `audience` is the daemon's wallet capability account: the chain consumes a
+            // grant only when its audience is the consuming signer, so a grant minted for
+            // the parked challenge must name it. Public coordinate material, never a secret.
+            "audience": audience,
+            // The exact governed scope the grant is consumed under; the approval act records
+            // the decision on wallet.network for this scope before the daemon consumes it.
+            "target_scope": SESSION_EXECUTE_SCOPE,
+        })
+    };
+    // Beyond the standing envelope's bounds the execution is NOT drawn silently: the refusal stays
+    // typed and names the bound, and the daemon additionally parks this exact effect's challenge,
+    // so the operator may approve that one run (a per-run decision on the approvals inbox, retried
+    // with its approval_ref through the exact lane). Widening the envelope itself stays a new
+    // Connections binding, never an in-run change.
+    let beyond_envelope = |mut refusal: Value| {
+        let audience = super::wallet_network_capability_client::capability_account_id_hex();
+        let parked = park_exact_effect(audience.clone());
+        refusal["approval"] = exact_approval(&audience);
+        refusal["approval_challenge"] = json!(parked);
+        refusal
+    };
     // M13.5 — a session whose closed profile names a connection carrying an ACTIVE standing
     // envelope that covers `session_execute` draws its execution silently against that lease
     // (before any harness runs) instead of parking on an exact approval; outside the envelope it
@@ -15894,6 +15991,26 @@ pub(crate) async fn execute_authority_gate(
                     None,
                 ));
             };
+            // An envelope the daemon's standing decision issued is counted down here: a draw its
+            // record says is outside the bounds refuses before the wallet is asked.
+            if let Err((reason, bound)) =
+                super::standing_envelope_routes::precheck_draw(data_dir, &lease, wall_now_ms())
+            {
+                let refusal = standing_execute_refusal(
+                    data_dir,
+                    session_id,
+                    &connector_id,
+                    reason,
+                    bound,
+                    &lease,
+                    None,
+                );
+                return Err(if reason == "standing_envelope_exceeded" {
+                    beyond_envelope(refusal)
+                } else {
+                    refusal
+                });
+            }
             // One usage per execution: a repeated identical intent is a new draw, so the effect
             // carries a daemon-minted nonce (the exact-grant lane keeps its exactly-once effect).
             let mut standing_effect = effect.clone();
@@ -15934,6 +16051,11 @@ pub(crate) async fn execute_authority_gate(
                             "runtimeTruthSource": "daemon-runtime",
                         })
                     })?;
+                    super::standing_envelope_routes::note_draw(
+                        data_dir,
+                        &lease,
+                        &admitted.admission_intent_ref,
+                    );
                     // M13.4 one-step answer — NAME the draw on the session record. Writing the
                     // receipt is not enough: the retrieval path reads the record's refs, so a
                     // receipt it does not name is findable only by walking the directory.
@@ -15958,7 +16080,7 @@ pub(crate) async fn execute_authority_gate(
                 Err((_status, Json(challenge))) => {
                     let wrapped = json!({ "authority_challenge": challenge });
                     let (reason, bound) = classify_standing_refusal(&wrapped);
-                    Err(standing_execute_refusal(
+                    let refusal = standing_execute_refusal(
                         data_dir,
                         session_id,
                         &connector_id,
@@ -15966,9 +16088,27 @@ pub(crate) async fn execute_authority_gate(
                         &bound,
                         &lease,
                         Some(&wrapped),
-                    ))
+                    );
+                    Err(if reason == "standing_envelope_exceeded" {
+                        beyond_envelope(refusal)
+                    } else {
+                        refusal
+                    })
                 }
             };
+        }
+        if let Some((connector_id, lease)) =
+            session_execute_revoked_standing_lease(data_dir, session_id)
+        {
+            return Err(standing_execute_refusal(
+                data_dir,
+                session_id,
+                &connector_id,
+                "standing_lease_revoked",
+                "status",
+                &lease,
+                None,
+            ));
         }
     }
     let admitted = match super::governed_authority::authorize_deployment_grant(
@@ -16008,47 +16148,11 @@ pub(crate) async fn execute_authority_gate(
                 .and_then(Value::as_str)
                 .is_some_and(|code| code.ends_with("authority_grant_invalid"));
             let parked = if grant_value.is_null() && wants_grant {
-                super::authority_challenge_routes::park_challenge(
-                    data_dir,
-                    super::authority_challenge_routes::ParkRequest {
-                        target_scope: SESSION_EXECUTE_SCOPE,
-                        policy_hash: &policy_hash,
-                        request_hash: &request_hash,
-                        audience: audience.clone(),
-                        subject_ref: session_id,
-                        operation: "session-execute",
-                        published_preimage: json!({
-                            "effect": effect,
-                            "policy_preimage": {
-                                "domain": "hypervisor.session.execute.policy.v1",
-                                "session_ref": session_id,
-                                "workspace_root": workspace_root,
-                                "scopes": EXECUTION_AUTHORITY_SCOPES,
-                            },
-                            "request_preimage": {
-                                "domain": "hypervisor.session.execute.request.v1",
-                                "session_ref": session_id,
-                                "intent": intent,
-                                "scopes": EXECUTION_AUTHORITY_SCOPES,
-                            },
-                        }),
-                        requester_ref,
-                    },
-                )
+                park_exact_effect(audience.clone())
             } else {
                 None
             };
-            let approval = json!({
-                "policy_hash": policy_hash,
-                "request_hash": request_hash,
-                // `audience` is the daemon's wallet capability account: the chain consumes a
-                // grant only when its audience is the consuming signer, so a grant minted for
-                // the parked challenge must name it. Public coordinate material, never a secret.
-                "audience": audience,
-                // The exact governed scope the grant is consumed under; the approval act records
-                // the decision on wallet.network for this scope before the daemon consumes it.
-                "target_scope": SESSION_EXECUTE_SCOPE,
-            });
+            let approval = exact_approval(&audience);
             return Err(json!({
                 "schema_version": SESSION_EXECUTE_DECISION_SCHEMA_VERSION,
                 "session_ref": session_id,
@@ -17492,7 +17596,11 @@ pub(crate) async fn handle_connector_set_policy(
 /// standing envelope is not a per-tool act, so the tool clause is the only thing dropped; the
 /// record family, the principal join key, the connector join key and the expiry rule are the same.
 /// This is a read of the estate's existing per-principal scoping, not a second ownership notion.
-fn principal_has_connector_grant(data_dir: &str, principal_id: &str, connector_id: &str) -> bool {
+pub(crate) fn principal_has_connector_grant(
+    data_dir: &str,
+    principal_id: &str,
+    connector_id: &str,
+) -> bool {
     let now = std::time::SystemTime::now()
         .duration_since(std::time::UNIX_EPOCH)
         .map(|d| d.as_millis() as u64)
@@ -18474,6 +18582,20 @@ pub(crate) async fn handle_connector_invoke(
         // makes the capability-lease authorization fail with the approval challenge below, which
         // is what parks the act on a review object.
         if !exact_review_required {
+            if let Err((reason, bound)) =
+                super::standing_envelope_routes::precheck_draw(&st.data_dir, &lease, wall_now_ms())
+            {
+                return standing_refusal_response(
+                    &st.data_dir,
+                    &subject,
+                    &id,
+                    &tool_name,
+                    reason,
+                    bound,
+                    Some(&lease),
+                    None,
+                );
+            }
             standing_draw = standing_draw_from_connector_lease(&lease);
         }
         if standing_draw.is_none() && !exact_review_required {
@@ -18541,6 +18663,20 @@ pub(crate) async fn handle_connector_invoke(
                     Json(
                         json!({ "ok": false, "reason": "session_authority_mode_ambiguous", "message": "a session act under a standing envelope carries no exact grant; present one or the other" }),
                     ),
+                );
+            }
+            if let Err((reason, bound)) =
+                super::standing_envelope_routes::precheck_draw(&st.data_dir, &lease, wall_now_ms())
+            {
+                return standing_refusal_response(
+                    &st.data_dir,
+                    session_ref,
+                    &id,
+                    &tool_name,
+                    reason,
+                    bound,
+                    Some(&lease),
+                    None,
                 );
             }
             standing_draw = standing_draw_from_connector_lease(&lease);
@@ -18699,6 +18835,14 @@ pub(crate) async fn handle_connector_invoke(
         // handle, which owns no session record (the receipt still stands on its own).
         if let Some(session_ref) = session_ref.as_deref() {
             append_session_receipt_ref(&st.data_dir, session_ref, &draw_ref);
+        }
+        // An envelope the daemon's standing decision issued counts the admitted draw down.
+        if let CapabilityAuthorityAdmission::Standing(standing) = &lease.admitted {
+            super::standing_envelope_routes::note_draw(
+                &st.data_dir,
+                view,
+                &standing.admission_intent_ref,
+            );
         }
     }
     let token = lease.token.unwrap_or_default();

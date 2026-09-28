@@ -230,6 +230,8 @@ mod scm_publication_routes;
 mod semantic_mapping_routes;
 #[path = "hypervisor_daemon_routes/skill_contract_routes.rs"]
 mod skill_contract_routes;
+#[path = "hypervisor_daemon_routes/standing_envelope_routes.rs"]
+mod standing_envelope_routes;
 #[path = "hypervisor_daemon_routes/state_machine_routes.rs"]
 mod state_machine_routes;
 #[path = "hypervisor_daemon_routes/storage_backend_routes.rs"]
@@ -4395,6 +4397,23 @@ async fn async_main() -> anyhow::Result<()> {
         .route(
             "/v1/hypervisor/authority/challenges/:id/decision",
             post(authority_challenge_routes::handle_challenge_decision),
+        )
+        // G5 follow-on — the standing envelope is decided through the daemon: bounds in, the sealed
+        // deployment authority mints and records the standing grant with the operator passphrase
+        // in that child's environment only, the daemon binds it to the connection. The UI server
+        // holds no signing key.
+        .route(
+            "/v1/hypervisor/authority/standing-envelopes",
+            get(standing_envelope_routes::handle_standing_envelope_list)
+                .post(standing_envelope_routes::handle_standing_envelope_create),
+        )
+        .route(
+            "/v1/hypervisor/authority/standing-envelopes/:id",
+            get(standing_envelope_routes::handle_standing_envelope_get),
+        )
+        .route(
+            "/v1/hypervisor/authority/standing-envelopes/:id/revoke",
+            post(standing_envelope_routes::handle_standing_envelope_revoke),
         )
         // M13.3 — the attach-time standing envelope (bind at attach; revoke = fence).
         .route(

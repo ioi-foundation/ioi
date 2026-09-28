@@ -673,22 +673,22 @@ async function run() {
   const A = cA.body?.connector?.connector_id || "";
   const B = cB.body?.connector?.connector_id || "";
   // ---- 5c. M13.3: the attach pass sets the standing envelope; an unbounded attach is not nameable
-  // The serve mints the scoped standing bound (usages · budget · expiry) for connection A in the
-  // same pass, records it on the authority node and binds it on the daemon. In DEPLOYMENT mode
-  // this refuses TYPED: the wallet's standing-grant rule needs a passkey step-up ceremony and the
-  // deployment-local operator key has no admitted posture for standing authority (owner ruling
-  // pending); nothing is fabricated and the run below keeps the exact approval card.
+  // FIXTURE mode: the serve mints the scoped standing bound (usages · budget · expiry) for
+  // connection A with the fixture's public approver (test flag), records it on the authority node
+  // and binds it on the daemon. DEPLOYMENT mode (G5 follow-on): the serve holds no key; the Set
+  // limits form relays the bounds and the operator passphrase to the DAEMON's standing decision
+  // (POST /v1/hypervisor/authority/standing-envelopes), which runs the sealed authority's
+  // record-standing-approval and binds the grant. Here, deployment mode proves only that the relay
+  // records NOTHING without the right passphrase; the envelope itself is set after the exact
+  // approval leg (6d), so the composer's first run still qualifies the approval card.
   const envelopeA = await jd(SERVE, `/__ioi/connections/${encodeURIComponent(A)}/standing-lease`, { method: "POST", body: JSON.stringify({ max_usages: 1, budget_usd: 0.01, expires_hours: 2 }) });
   const STANDING = envelopeA.status === 200 && envelopeA.body?.ok === true && envelopeA.body?.standing_lease?.status === "active";
   if (AUTHORITY_MODE === "deployment") {
-    // G5 (§0.5.2, owner decision 2026-09-28): the approver key is SEALED inside the deployment
-    // authority and the served App holds no key, so the serve can no longer sign the R-14 standing
-    // grant. The attach refuses TYPED and nothing is minted or recorded; the run below keeps the
-    // exact approval card, decided through the daemon. A daemon-side standing decision is the
-    // follow-on (named, not faked).
-    ok("5c-envelope", "DEPLOYMENT MODE (G5): the served App holds no signing key, so the attach pass REFUSES the standing envelope typed (standing_lease_operator_custody_required) — nothing minted, nothing recorded, the connection stays unbounded", !STANDING && envelopeA.body?.code === "standing_lease_operator_custody_required", `${envelopeA.status}/${envelopeA.body?.code || "ok"} ${String(envelopeA.body?.message || "").slice(0, 160)}`);
-    record("5c-envelope", "standing envelope in deployment mode", "NOT QUALIFIED here: a standing grant needs the sealed approver key, and the daemon-side standing decision (the G5 follow-on to the exact-effect relay) does not exist yet");
-    evidence.standing_lease = { mode: "deployment", status: "refused", code: envelopeA.body?.code || null, message: envelopeA.body?.message || null, open: "daemon-side standing decision (G5 follow-on)" };
+    const wrongEnvelope = await jd(SERVE, `/__ioi/connections/${encodeURIComponent(A)}/standing-lease`, { method: "POST", body: JSON.stringify({ max_usages: 1, budget_usd: 0.01, expires_hours: 2, operator_passphrase: `wrong-${crypto.randomBytes(8).toString("hex")}` }) });
+    const leaseAfterWrong = (await jd(DAEMON, "/v1/hypervisor/connectors")).body?.connectors?.find((c) => c.connector_id === A)?.standing_lease || null;
+    const envelopesAfterWrong = (await jd(DAEMON, "/v1/hypervisor/authority/standing-envelopes")).body?.standing_envelopes || [];
+    ok("5c-envelope", "DEPLOYMENT MODE (G5): the served App signs nothing — Set limits without the operator passphrase refuses typed (400 operator_passphrase_required) and with a wrong one the daemon's sealed authority refuses (403 operator_passphrase_refused); NOTHING is recorded (no envelope record, the connection stays unbounded)", !STANDING && envelopeA.status === 400 && envelopeA.body?.code === "operator_passphrase_required" && wrongEnvelope.status === 403 && wrongEnvelope.body?.code === "operator_passphrase_refused" && leaseAfterWrong === null && envelopesAfterWrong.length === 0, `${envelopeA.status}/${envelopeA.body?.code || "ok"} · ${wrongEnvelope.status}/${wrongEnvelope.body?.code || "ok"} · lease ${JSON.stringify(leaseAfterWrong)} · envelopes ${envelopesAfterWrong.length}`);
+    evidence.standing_lease = { mode: "deployment", refused_without_passphrase: envelopeA.body?.code || null, refused_wrong_passphrase: wrongEnvelope.body?.code || null };
   } else if (AUTHORITY_PRESENT) {
     ok("5c-envelope", "FIXTURE MODE: the attach pass minted the standing envelope (1 usage · $0.01 · 2h), recorded the grant on the authority node and bound it to connection A; the bounds render from the daemon record", STANDING && envelopeA.body?.standing_lease?.bounds?.max_usages === 1 && String(envelopeA.body?.standing_grant_hash || "").length === 64, `${envelopeA.status}/${envelopeA.body?.code || "ok"} ${envelopeA.body?.message ? String(envelopeA.body.message).slice(0, 200) : JSON.stringify(envelopeA.body?.standing_lease?.bounds || null).slice(0, 140)} · factor ${envelopeA.body?.factor_origin || ""}`);
     evidence.standing_lease = { mode: "fixture", status: STANDING ? "bound" : "refused", code: envelopeA.body?.code || null, message: envelopeA.body?.message || null, factor_origin: envelopeA.body?.factor_origin || null, bounds: envelopeA.body?.standing_lease?.bounds || null, grant_hash: envelopeA.body?.standing_grant_hash || null };
@@ -1031,6 +1031,7 @@ async function run() {
     evidence.model_route_lane = { ...(evidence.model_route_lane || {}), run_id: runId, session_ref: runSessionRef, invocations: invocations.length, provider_statuses: providerStatuses, provider_accepted: providerAccepted, usage, cost_usd_estimate: providerAccepted ? estimate : null, cost_basis: price ? `list price at authoring time (${price.input}/${price.output} USD per 1M input/output tokens) × the provider's reported usage — an estimate, not billing truth` : "no list price on file for this model; usage recorded, cost not estimated", harness_environment_keys: envKeys, run_scoped_tokens: { issued: issued.length, revoked: revoked.length } };
     record("7r-route", "cost of the live remote run", providerAccepted ? `${usage.total} tokens (${usage.prompt} in / ${usage.completion} out)${estimate === null ? "" : ` ≈ $${estimate.toFixed(6)} at list price (estimate)`}` : `no accepted provider call (provider status ${JSON.stringify(providerStatuses)}); nothing was consumed and no cost is claimed`);
   }
+  if (AUTHORITY_MODE === "deployment") await qualifyDeploymentStandingEnvelope(A);
   if (AUTHORITY_MODE === "deployment") await qualifyRotationAndRevocation(envId);
   const consumption = await jd(DAEMON, "/v1/hypervisor/usage/consumption");
   const timeline = await jd(SERVE, `/__ioi/run-timeline/env/${encodeURIComponent(envId)}`);
@@ -1156,6 +1157,72 @@ async function driveRun(intent, { approve }) {
     }
   }
   return { runId, transcript, approveResult, sessionRef: transcript?.session_ref || `session:ai-${runId}` };
+}
+
+// 6d (deployment mode, G5 follow-on): the STANDING envelope is decided through the daemon. The
+// operator sets limits on connection A through the serve's Set limits route with the passphrase;
+// the serve relays the bounds and the passphrase to the daemon and keeps nothing; the daemon runs
+// the sealed authority's record-standing-approval (mint mode) and binds the grant. A composer run
+// naming A then draws silently (no card); the next run is over the 1-usage envelope and fails closed
+// typed while the daemon parks its exact effect for a per-run decision; revoking through the serve
+// with the passphrase revokes on the authority node, and the next session naming A refuses.
+async function qualifyDeploymentStandingEnvelope(A) {
+  const leaseRoute = `/__ioi/connections/${encodeURIComponent(A)}/standing-lease`;
+  const set = await jd(SERVE, leaseRoute, { method: "POST", body: JSON.stringify({ max_usages: 1, budget_usd: 0.01, expires_hours: 2, operator_passphrase: OPERATOR_PASS }) });
+  const envelopeId = String(set.body?.standing_envelope_id || "");
+  const leaseA = (await jd(DAEMON, "/v1/hypervisor/connectors")).body?.connectors?.find((c) => c.connector_id === A)?.standing_lease || null;
+  const envelopeRecord = envelopeId ? (await jd(DAEMON, `/v1/hypervisor/authority/standing-envelopes/${encodeURIComponent(envelopeId)}`)).body?.standing_envelope || null : null;
+  ok("6d-standing", "DEPLOYMENT MODE: Set limits WITH the operator passphrase goes through the serve route to the daemon's standing decision — the sealed authority minted and recorded the standing grant (committed), the daemon bound it to connection A (1 usage · $0.01 · 2h) and keeps the envelope's public record (deployment_local_operator factor, the deployment principal)", set.status === 200 && set.body?.ok === true && set.body?.recorder === "daemon" && set.body?.recorded_on_authority === "committed" && /^sse_[0-9a-f]{32}$/u.test(envelopeId) && leaseA?.status === "active" && leaseA?.standing_envelope_id === envelopeId && leaseA?.bounds?.max_usages === 1 && envelopeRecord?.auth_factor_receipt?.factor_kind === "deployment_local_operator" && envelopeRecord?.envelope?.principal_ref === DEPLOYMENT_NODE_PRINCIPAL_REF, `${set.status}/${set.body?.code || "ok"} ${set.body?.message ? String(set.body.message).slice(0, 200) : ""} · ${envelopeId} · lease ${leaseA?.status || "none"}`);
+  const cardPage = await jd(SERVE, "/__ioi/connections");
+  ok("6d-standing", "the Connections card renders the envelope's bounds from the daemon record, and Remove limits asks for the passphrase in a password field", cardPage.status === 200 && cardPage.text.includes('data-ioi-standing-lease="active"') && cardPage.text.includes('data-ioi-standing-usages="1"') && new RegExp(`${A}/standing-lease/revoke"[^>]*><input name="operator_passphrase" type="password"`, "u").test(cardPage.text), `${cardPage.status}`);
+  evidence.standing_lease = { ...(evidence.standing_lease || {}), status: set.status === 200 ? "bound" : "refused", standing_envelope_id: envelopeId || null, bounds: leaseA?.bounds || null, grant_hash_ref: leaseA?.grant_hash_ref || null };
+
+  // ---- 6d-s. silent within policy: the envelope carries the run to done, no card ----
+  const composerBody = (intent) => ({ initialInput: { inputs: [{ text: { content: intent } }] }, environmentClassId: VENUE_CLASS_ID, authorityProfile: { connectionRefs: [`connector:${A}`] } });
+  const pollRun = async (runId, budgetMs, stopOn) => {
+    let transcript = null;
+    const start = Date.now();
+    while (Date.now() - start < budgetMs) {
+      const t = await jd(DAEMON, `/v1/hypervisor/agent-run-transcripts/${encodeURIComponent(runId)}`);
+      transcript = t.body?.run || t.body?.record || t.body;
+      if (stopOn.includes(transcript?.status)) break;
+      await sleep(2000);
+    }
+    return transcript;
+  };
+  const silent = await jd(SERVE, "/api/ioi.v1.AgentService/CreateAgentSession", { method: "POST", body: JSON.stringify(composerBody("Create a file named STANDING.md whose first line is exactly: drawn under the standing envelope")) });
+  const silentId = silent.body?.agentExecutionId || "";
+  const silentStart = Date.now();
+  const silentT = silentId ? await pollRun(silentId, EXECUTE_BUDGET_MS, ["done", "failed", "denied", "awaiting_operator_approval"]) : null;
+  const silentSession = silentT?.session_ref || `session:ai-${silentId}`;
+  const silentDraws = readReceipts((r) => r.kind === "hypervisor.session.standing_draw" && r.session_ref === silentSession && r.operation === "session_execute");
+  ok("6d-standing", `SILENT WITHIN POLICY: a composer run naming A never parks on an approval card — its execution is drawn against the daemon-issued envelope (posture silent_within_policy, one standing_draw receipt), completes and writes a file (${Math.round((Date.now() - silentStart) / 1000)}s)`, silent.status === 200 && silentT?.status === "done" && !silentT?.pending_approval && silentT?.authority?.posture === "silent_within_policy" && workFiles(silentT?.changed_files).length > 0 && silentDraws.length === 1, `${silent.status} ${silentT?.status} · ${JSON.stringify(silentT?.authority || null).slice(0, 140)} · draws ${silentDraws.length} · ${silentT?.error || ""}`);
+  const afterDraw = envelopeId ? (await jd(DAEMON, `/v1/hypervisor/authority/standing-envelopes/${encodeURIComponent(envelopeId)}`)).body?.standing_envelope || null : null;
+  ok("6d-standing", "the draw is counted on the daemon's envelope record (1 used, 0 remaining) and names the run's admission", afterDraw?.drawn?.uses === 1 && afterDraw?.remaining?.usages === 0 && (afterDraw?.drawn?.draw_refs || []).includes(silentDraws[0]?.admission_intent_ref), JSON.stringify(afterDraw?.drawn || null).slice(0, 200));
+
+  // ---- 6d-t. over the envelope: fails closed typed, and the exact effect parks for a per-run decision ----
+  const over = await jd(SERVE, "/api/ioi.v1.AgentService/CreateAgentSession", { method: "POST", body: JSON.stringify(composerBody("Create a file named OVER.md — beyond the envelope")) });
+  const overId = over.body?.agentExecutionId || "";
+  const overT = overId ? await pollRun(overId, 120_000, ["done", "failed", "denied", "awaiting_operator_approval"]) : null;
+  const overSession = overT?.session_ref || `session:ai-${overId}`;
+  const overExec = readReceipts((r) => r.kind === "hypervisor.session.execute" && r.session_ref === overSession);
+  const overRefusals = readReceipts((r) => r.kind === "hypervisor.session.standing_refusal" && r.session_ref === overSession);
+  const parkedOver = ((await jd(DAEMON, "/v1/hypervisor/authority/challenges")).body?.challenges || []).filter((c) => c.subject_ref === overSession && c.state === "pending");
+  ok("6d-standing", "OVER THE ENVELOPE: the next run under the 1-usage envelope fails CLOSED and typed (refused_outside_envelope / max_usages), nothing ran, and the daemon parked THAT exact effect's challenge (pending, decidable) for the operator's per-run decision", over.status === 200 && overT?.status === "failed" && overT?.authority?.posture === "refused_outside_envelope" && overT?.authority?.refusedBound === "max_usages" && overExec.length === 0 && overRefusals.length === 1 && parkedOver.length === 1 && parkedOver[0].decidable === true, `${over.status} ${overT?.status} · ${JSON.stringify(overT?.authority || null).slice(0, 140)} · exec ${overExec.length} · refusals ${overRefusals.length} · parked ${parkedOver.length}`);
+
+  // ---- 6d-u. revocation through the serve, with the passphrase ----
+  const revoke = await jd(SERVE, `${leaseRoute}/revoke`, { method: "POST", body: JSON.stringify({ operator_passphrase: OPERATOR_PASS, reason: "alpha journey: revoke the standing envelope" }) });
+  const afterRevokeLaunch = await jd(SERVE, "/__ioi/api/new-session/launch", { method: "POST", body: JSON.stringify({ project_ref: "project:alpha-journey", authority_profile: { connection_refs: [`connector:${A}`] } }) });
+  const revokedRecord = envelopeId ? (await jd(DAEMON, `/v1/hypervisor/authority/standing-envelopes/${encodeURIComponent(envelopeId)}`)).body?.standing_envelope || null : null;
+  ok("6d-standing", "REVOCATION: Remove limits with the passphrase revokes the grant ON THE AUTHORITY NODE (committed) and fences the connection; the very next session naming A refuses (412, lease_status revoked)", revoke.status === 200 && revoke.body?.revocation?.chain_revocation === "committed" && revokedRecord?.status === "revoked" && afterRevokeLaunch.status === 412 && afterRevokeLaunch.body?.error?.lease_status === "standing_lease_revoked", `${revoke.status}/${revoke.body?.code || "ok"} ${revoke.body?.message ? String(revoke.body.message).slice(0, 160) : ""} → ${afterRevokeLaunch.status}/${afterRevokeLaunch.body?.error?.code}`);
+  // The passphrase is nowhere at rest after the standing decision either.
+  const environOf = (pid) => { try { return fs.readFileSync(`/proc/${pid}/environ`); } catch { return Buffer.alloc(0); } };
+  const needle = Buffer.from(OPERATOR_PASS);
+  const dataDirHits = [];
+  const scan = (dir) => { for (const entry of fs.readdirSync(dir, { withFileTypes: true })) { const full = path.join(dir, entry.name); if (entry.isDirectory()) scan(full); else if (entry.isFile()) { try { if (fs.statSync(full).size < 8_000_000 && fs.readFileSync(full).includes(needle)) dataDirHits.push(full); } catch { /* unreadable */ } } } };
+  try { scan(dataDir); } catch { /* scan best effort */ }
+  ok("6d-standing", "the operator passphrase is nowhere at rest after the standing decision — not in the serve's or the daemon's environment, not in either log, not in the daemon's data dir (the envelope record included)", !environOf(serve?.pid).includes(needle) && !environOf(daemon?.pid).includes(needle) && !serveLog.includes(OPERATOR_PASS) && !daemonLog.includes(OPERATOR_PASS) && dataDirHits.length === 0, `data dir hits ${dataDirHits.length}`);
+  evidence.standing_lease = { ...(evidence.standing_lease || {}), silent_run: { run_id: silentId, status: silentT?.status, draw_receipts: silentDraws.length }, over_envelope_run: { run_id: overId, status: overT?.status, authority: overT?.authority || null, parked_challenge: parkedOver[0]?.challenge_id || null }, revocation: { status: revoke.status, chain_revocation: revoke.body?.revocation?.chain_revocation || null, next_launch: afterRevokeLaunch.status } };
 }
 
 // 2c: the operator ROTATES the approver key, a second run is approved under the new key and

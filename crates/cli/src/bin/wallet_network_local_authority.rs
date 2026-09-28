@@ -41,6 +41,12 @@
 //!   chain, signed by the daemon's capability key under the daemon's transaction lock, so the
 //!   daemon's consumption preflight finds state for the exact grant. Idempotent for the same
 //!   request hash. `approve` uses the same recorder.
+//! * `record-standing-approval --envelope-file <json> --context-file <json> --factor-file <json>`
+//!   — records a STANDING grant (R-14). Without `--grant-file` it MINTS: every grant coordinate is
+//!   read from the envelope, ceremony context and factor receipt the daemon's standing decision
+//!   derived, the sealed approver key is opened with the operator passphrase only after those
+//!   checks, signs that one grant, and the control root records it; stdout carries the grant.
+//!   `revoke-standing-approval --grant-hash <h>` revokes one on chain (the control root signs).
 //! * `seal-keys` — converts a plaintext (pre-sealing, or dev/test) state dir: seals every
 //!   plaintext seed with the operator passphrase, writes the public halves, then removes the
 //!   plaintext files.
@@ -250,8 +256,11 @@ enum Command {
         #[arg(long)]
         state_dir: PathBuf,
         /// JSON file holding the StandingApprovalGrant the operator signed (`-` reads stdin).
+        /// Omit it to MINT: the sealed approver key signs the standing grant for exactly the
+        /// envelope, ceremony context and factor receipt given (the daemon's standing decision
+        /// runs this with the operator passphrase in the child's environment only).
         #[arg(long)]
-        grant_file: String,
+        grant_file: Option<String>,
         /// JSON file holding the registered SessionStandingEnvelope the grant binds.
         #[arg(long)]
         envelope_file: String,
@@ -479,7 +488,7 @@ async fn run(cli: Cli, pass: OperatorPassSource) -> Result<()> {
         } => {
             record_standing_approval(
                 &state_dir,
-                &grant_file,
+                grant_file.as_deref(),
                 &envelope_file,
                 &context_file,
                 &factor_file,
@@ -1089,9 +1098,19 @@ fn read_json_arg(path: &str, label: &str) -> Result<String> {
 /// containment, one-ceremony consumption, tier/posture match) and this binary asserts only what a
 /// deployment can: the grant is the custodied approver's, its audience is this deployment's
 /// capability account, and it does not widen the envelope it names.
+///
+/// Two modes. With `--grant-file`, an already-signed grant is recorded (a plaintext dev/test node,
+/// or a grant signed elsewhere by the custodied key). Without it the binary MINTS: the daemon's
+/// standing decision (`POST /v1/hypervisor/authority/standing-envelopes`) hands over the envelope,
+/// the ceremony context and the factor receipt it derived, and every grant coordinate is read from
+/// them — the envelope's hash, policy and aggregate bounds, the ceremony's issuance time, review
+/// receipt and context hash, the factor receipt's hash, and this deployment's capability account
+/// as audience. Every check that needs no secret runs first; the sealed approver key is opened
+/// with the operator passphrase only after them, signs that one grant and is zeroized before the
+/// control root submits it. A wrong passphrase refuses before anything is signed or recorded.
 async fn record_standing_approval(
     state_dir: &Path,
-    grant_file: &str,
+    grant_file: Option<&str>,
     envelope_file: &str,
     context_file: &str,
     factor_file: &str,
@@ -1111,14 +1130,55 @@ async fn record_standing_approval(
     let sealed = std::fs::read(&ready.capability_key_path)?;
     let capability_seed = ioi_crypto::key_store::decrypt_key(&sealed, &guardian_pass)
         .map_err(|error| anyhow!("open capability key: {error}"))?;
-    let capability_seed: [u8; 32] = capability_seed
-        .0
-        .as_slice()
-        .try_into()
-        .map_err(|_| anyhow!("capability key is not a 32-byte seed"))?;
+    let capability_seed: Zeroizing<[u8; 32]> = Zeroizing::new(
+        capability_seed
+            .0
+            .as_slice()
+            .try_into()
+            .map_err(|_| anyhow!("capability key is not a 32-byte seed"))?,
+    );
     let capability = keypair(&capability_seed)?;
     let capability_account_id =
         account_id_from_key_material(SignatureSuite::ED25519, &capability.public_key().to_bytes())?;
+    // The evidence is read and checked BEFORE any sealed key is opened: nothing below the first
+    // unseal can be refused for a reason that needed no secret.
+    let envelope_json = read_json_arg(envelope_file, "standing envelope")?;
+    let context_json = read_json_arg(context_file, "approval ceremony context")?;
+    let factor_json = read_json_arg(factor_file, "auth factor receipt")?;
+    let envelope: serde_json::Value =
+        serde_json::from_str(&envelope_json).context("standing envelope JSON")?;
+    let context: serde_json::Value =
+        serde_json::from_str(&context_json).context("approval ceremony context JSON")?;
+    let factor: serde_json::Value =
+        serde_json::from_str(&factor_json).context("auth factor receipt JSON")?;
+    if factor
+        .get("factor_kind")
+        .and_then(serde_json::Value::as_str)
+        != Some("deployment_local_operator")
+    {
+        bail!("this recorder records the deployment-local operator custody tier only; the factor receipt names another tier");
+    }
+    let minted_coordinates = match grant_file {
+        Some(_) => None,
+        None => Some(standing_grant_coordinates(
+            &envelope,
+            &context,
+            &factor,
+            capability_account_id,
+        )?),
+    };
+    let approver_public_key = if minted_coordinates.is_some() {
+        let public_key = read_public_key(&state_dir.join("keys").join(APPROVER_PUBLIC_KEY_FILE))?;
+        if hex::encode(&public_key) != record.approver_public_key {
+            bail!(
+                "keys/{APPROVER_PUBLIC_KEY_FILE} is not the approver on record ({}); refusing to sign with a key the authority record does not name",
+                record.approver_authority_id
+            );
+        }
+        Some(public_key)
+    } else {
+        None
+    };
     // RECORDING a standing grant is a CONTROL-PLANE act (client_auth gates the method to
     // WalletAuthRole::ControlPlane, exactly as it gates authority registration and revocation):
     // it creates standing authority rather than spending it, so the deployment's control root
@@ -1133,9 +1193,41 @@ async fn record_standing_approval(
     let root_account_id =
         account_id_from_key_material(SignatureSuite::ED25519, &root.public_key().to_bytes())?;
 
-    let grant: StandingApprovalGrant =
-        serde_json::from_str(&read_json_arg(grant_file, "standing approval grant")?)
-            .context("standing approval grant JSON")?;
+    let grant: StandingApprovalGrant = match (grant_file, minted_coordinates.as_ref()) {
+        (Some(grant_file), _) => {
+            serde_json::from_str(&read_json_arg(grant_file, "standing approval grant")?)
+                .context("standing approval grant JSON")?
+        }
+        (None, Some(coordinates)) => {
+            let approver = {
+                let seed = match custody {
+                    KeyCustody::Sealed => {
+                        let operator_pass = pass.obtain(
+                            state_dir,
+                            "record-standing-approval: the approver key signs the standing grant",
+                            false,
+                        )?;
+                        open_sealed_seed(
+                            &state_dir.join("keys").join(APPROVER_SEED_SEALED),
+                            &operator_pass,
+                        )?
+                    }
+                    KeyCustody::Plaintext => {
+                        read_seed_hex(&state_dir.join("keys").join(APPROVER_SEED_PLAINTEXT))?
+                    }
+                };
+                keypair(&seed)?
+                // `seed` (Zeroizing) is wiped here, at the end of this block.
+            };
+            if Some(approver.public_key().to_bytes()) != approver_public_key {
+                bail!("the unsealed approver key is not keys/{APPROVER_PUBLIC_KEY_FILE}; nothing was signed or recorded");
+            }
+            let grant = mint_standing_grant(&approver, coordinates)?;
+            drop(approver);
+            grant
+        }
+        (None, None) => bail!("a standing grant is either given (--grant-file) or minted"),
+    };
     grant
         .verify()
         .map_err(|error| anyhow!("standing approval grant is structurally invalid: {error}"))?;
@@ -1150,20 +1242,6 @@ async fn record_standing_approval(
             hex::encode(capability_account_id)
         );
     }
-    let envelope_json = read_json_arg(envelope_file, "standing envelope")?;
-    let context_json = read_json_arg(context_file, "approval ceremony context")?;
-    let factor_json = read_json_arg(factor_file, "auth factor receipt")?;
-    let envelope: serde_json::Value =
-        serde_json::from_str(&envelope_json).context("standing envelope JSON")?;
-    let factor: serde_json::Value =
-        serde_json::from_str(&factor_json).context("auth factor receipt JSON")?;
-    if factor
-        .get("factor_kind")
-        .and_then(serde_json::Value::as_str)
-        != Some("deployment_local_operator")
-    {
-        bail!("this recorder records the deployment-local operator custody tier only; the factor receipt names another tier");
-    }
     if envelope
         .get("body_hash")
         .and_then(serde_json::Value::as_str)
@@ -1174,10 +1252,7 @@ async fn record_standing_approval(
     let params = RecordStandingApprovalGrantParams {
         grant: grant.clone(),
         standing_envelope_json: serde_jcs::to_vec(&envelope)?,
-        approval_ceremony_context_json: serde_jcs::to_vec(
-            &serde_json::from_str::<serde_json::Value>(&context_json)
-                .context("approval ceremony context JSON")?,
-        )?,
+        approval_ceremony_context_json: serde_jcs::to_vec(&context)?,
         auth_factor_receipt_json: serde_jcs::to_vec(&factor)?,
     };
     let grant_hash = grant
@@ -1194,18 +1269,305 @@ async fn record_standing_approval(
         &params,
     )
     .await?;
-    println!(
-        "{}",
-        serde_json::json!({
-            "ok": true,
-            "standing_grant_hash": hex::encode(grant_hash),
-            "standing_envelope_hash": hex::encode(grant.standing_envelope_hash),
-            "custody_tier": "deployment_local_operator",
-            "recorded": "committed",
-            "nonce": nonce,
-        })
-    );
+    // The wallet re-validates the whole tuple on commit; read the recorded state back so
+    // "committed" is the chain's word, not the submit call's.
+    if query_state_key(&ready.rpc_addr, &standing_grant_state_key(&grant_hash))
+        .await?
+        .is_none()
+    {
+        bail!("record_standing_approval_grant committed but no standing grant state is readable for {}", hex::encode(grant_hash));
+    }
+    let mut outcome = serde_json::json!({
+        "ok": true,
+        "standing_grant_hash": hex::encode(grant_hash),
+        "standing_envelope_hash": hex::encode(grant.standing_envelope_hash),
+        "custody_tier": "deployment_local_operator",
+        "recorded": "committed",
+        "nonce": nonce,
+    });
+    if minted_coordinates.is_some() {
+        // The minted grant is the output of the act (never the seed): the daemon binds exactly it.
+        outcome["minted"] = serde_json::json!(true);
+        outcome["standing_approval_grant"] = serde_json::to_value(&grant)?;
+    }
+    println!("{outcome}");
     Ok(())
+}
+
+fn standing_grant_state_key(grant_hash: &[u8; 32]) -> Vec<u8> {
+    [
+        service_namespace_prefix("wallet_network").as_slice(),
+        b"standing_approval_grant_state::",
+        grant_hash.as_slice(),
+    ]
+    .concat()
+}
+
+/// Everything a minted standing grant commits to, read from the daemon's evidence. Nothing here
+/// is chosen by the binary except the nonce: the grant is exactly the envelope's aggregate bounds
+/// and window, issued at the ceremony's own issuance time.
+#[derive(Debug, Clone, PartialEq, Eq)]
+struct StandingGrantCoordinates {
+    standing_envelope_hash: [u8; 32],
+    policy_hash: [u8; 32],
+    audience: [u8; 32],
+    issued_at_ms: u64,
+    expires_at_ms: u64,
+    max_usages: u32,
+    max_cumulative_deposit_microusd: u64,
+    max_cumulative_spend_microusd: u64,
+    review_receipt_hash: [u8; 32],
+    approval_ceremony_context_hash: [u8; 32],
+    auth_factor_receipt_hash: [u8; 32],
+}
+
+const SESSION_STANDING_ENVELOPE_SCHEMA: &str = "ioi.hypervisor.session-standing-envelope.v1";
+const APPROVAL_CEREMONY_CONTEXT_DOMAIN: &[u8] = b"IOI-APPROVAL-CEREMONY-CONTEXT-V1\0";
+
+fn sha256_32(bytes: &[u8]) -> Result<[u8; 32]> {
+    let digest = Sha256::digest(bytes).map_err(|error| anyhow!("sha256: {error}"))?;
+    let mut out = [0u8; 32];
+    out.copy_from_slice(digest.as_ref());
+    Ok(out)
+}
+
+fn json_hash32(value: &serde_json::Value, pointer: &str, label: &str) -> Result<[u8; 32]> {
+    let raw = value
+        .pointer(pointer)
+        .and_then(serde_json::Value::as_str)
+        .ok_or_else(|| anyhow!("{label} is absent"))?;
+    if !raw.starts_with("sha256:") {
+        bail!("{label} is not a sha256 ref");
+    }
+    parse_hash32(raw, label)
+}
+
+fn json_u64(value: &serde_json::Value, pointer: &str, label: &str) -> Result<u64> {
+    value
+        .pointer(pointer)
+        .and_then(serde_json::Value::as_u64)
+        .ok_or_else(|| anyhow!("{label} is not a non-negative integer"))
+}
+
+/// Milliseconds since the epoch for `YYYY-MM-DDTHH:MM:SS[.fff…]Z` — the one form the daemon
+/// writes. Any other form is refused rather than guessed at.
+fn rfc3339_utc_ms(raw: &str) -> Result<u64> {
+    let bytes = raw.as_bytes();
+    let refused =
+        || anyhow!("{raw:?} is not a UTC RFC 3339 timestamp (YYYY-MM-DDTHH:MM:SS[.fff]Z)");
+    if bytes.len() < 20
+        || bytes[4] != b'-'
+        || bytes[7] != b'-'
+        || bytes[10] != b'T'
+        || bytes[13] != b':'
+        || bytes[16] != b':'
+        || *bytes.last().unwrap_or(&0) != b'Z'
+    {
+        return Err(refused());
+    }
+    let num = |range: std::ops::Range<usize>| -> Result<i64> {
+        raw.get(range)
+            .filter(|part| part.bytes().all(|b| b.is_ascii_digit()))
+            .and_then(|part| part.parse::<i64>().ok())
+            .ok_or_else(refused)
+    };
+    let (year, month, day) = (num(0..4)?, num(5..7)?, num(8..10)?);
+    let (hour, minute, second) = (num(11..13)?, num(14..16)?, num(17..19)?);
+    if !(1..=12).contains(&month)
+        || !(1..=31).contains(&day)
+        || hour > 23
+        || minute > 59
+        || second > 59
+    {
+        return Err(refused());
+    }
+    let fraction = &raw[19..raw.len() - 1];
+    let millis = if fraction.is_empty() {
+        0
+    } else {
+        let digits = fraction.strip_prefix('.').ok_or_else(refused)?;
+        if digits.is_empty() || !digits.bytes().all(|b| b.is_ascii_digit()) {
+            return Err(refused());
+        }
+        let padded = format!("{digits:0<3}");
+        padded[..3].parse::<i64>().map_err(|_| refused())?
+    };
+    // Days from civil (Howard Hinnant), the inverse of `iso_now`'s conversion.
+    let y = if month <= 2 { year - 1 } else { year };
+    let era = if y >= 0 { y } else { y - 399 } / 400;
+    let yoe = y - era * 400;
+    let mp = (month + 9) % 12;
+    let doy = (153 * mp + 2) / 5 + day - 1;
+    let doe = yoe * 365 + yoe / 4 - yoe / 100 + doy;
+    let days = era * 146_097 + doe - 719_468;
+    let total = ((days * 86_400 + hour * 3_600 + minute * 60 + second) * 1_000) + millis;
+    u64::try_from(total).map_err(|_| refused())
+}
+
+/// Read and cross-check every coordinate of the grant to mint from the daemon's evidence. The
+/// wallet re-validates the whole tuple on record; these are the checks that let a malformed hand
+/// -over refuse before any sealed key is opened.
+fn standing_grant_coordinates(
+    envelope: &serde_json::Value,
+    context: &serde_json::Value,
+    factor: &serde_json::Value,
+    audience: [u8; 32],
+) -> Result<StandingGrantCoordinates> {
+    if envelope
+        .get("schema_version")
+        .and_then(serde_json::Value::as_str)
+        != Some(SESSION_STANDING_ENVELOPE_SCHEMA)
+    {
+        bail!("a minted standing grant binds a {SESSION_STANDING_ENVELOPE_SCHEMA} envelope only");
+    }
+    let standing_envelope_hash = json_hash32(envelope, "/body_hash", "envelope body_hash")?;
+    let policy_hash = json_hash32(
+        envelope,
+        "/trajectory_policy_hash",
+        "envelope trajectory_policy_hash",
+    )?;
+    let max_usages = u32::try_from(json_u64(
+        envelope,
+        "/aggregate_bounds/max_usages",
+        "envelope max_usages",
+    )?)
+    .map_err(|_| anyhow!("envelope max_usages exceeds u32"))?;
+    if max_usages == 0 {
+        bail!("envelope max_usages must be at least 1");
+    }
+    let max_cumulative_deposit_microusd = json_u64(
+        envelope,
+        "/aggregate_bounds/max_cumulative_deposit_microusd",
+        "envelope max_cumulative_deposit_microusd",
+    )?;
+    let max_cumulative_spend_microusd = json_u64(
+        envelope,
+        "/aggregate_bounds/max_cumulative_spend_microusd",
+        "envelope max_cumulative_spend_microusd",
+    )?;
+    let not_before_ms = json_u64(envelope, "/not_before_ms", "envelope not_before_ms")?;
+    let expires_at_ms = json_u64(envelope, "/expires_at_ms", "envelope expires_at_ms")?;
+
+    let mut context_material = APPROVAL_CEREMONY_CONTEXT_DOMAIN.to_vec();
+    context_material.extend_from_slice(&serde_jcs::to_vec(context)?);
+    let approval_ceremony_context_hash = sha256_32(&context_material)?;
+    if json_hash32(
+        context,
+        "/authorization_subject/subject_hash",
+        "ceremony subject_hash",
+    )? != standing_envelope_hash
+    {
+        bail!("the ceremony's authorization subject is not this envelope");
+    }
+    if context.pointer("/authorization_subject/subject_ref")
+        != envelope.get("standing_envelope_ref")
+    {
+        bail!("the ceremony's authorization subject ref is not this envelope's ref");
+    }
+    if json_hash32(context, "/policy_hash", "ceremony policy_hash")? != policy_hash {
+        bail!("the ceremony's policy hash is not the envelope's trajectory policy");
+    }
+    let review_receipt_hash = json_hash32(
+        context,
+        "/policy_decision_receipt_hash",
+        "ceremony policy_decision_receipt_hash",
+    )?;
+    let issued_at_ms = rfc3339_utc_ms(
+        context
+            .get("issued_at")
+            .and_then(serde_json::Value::as_str)
+            .unwrap_or(""),
+    )?;
+    let context_expires_ms = rfc3339_utc_ms(
+        context
+            .get("expires_at")
+            .and_then(serde_json::Value::as_str)
+            .unwrap_or(""),
+    )?;
+    if issued_at_ms < not_before_ms
+        || issued_at_ms >= expires_at_ms
+        || context_expires_ms <= issued_at_ms
+    {
+        bail!("the ceremony's issuance time is outside the envelope's window");
+    }
+
+    let auth_factor_receipt_hash = json_hash32(factor, "/receipt_hash", "factor receipt_hash")?;
+    let mut unhashed = factor.clone();
+    unhashed
+        .as_object_mut()
+        .ok_or_else(|| anyhow!("the factor receipt is not an object"))?
+        .remove("receipt_hash");
+    if sha256_32(&serde_jcs::to_vec(&unhashed)?)? != auth_factor_receipt_hash {
+        bail!("the factor receipt's receipt_hash is not the hash of its body");
+    }
+    if json_hash32(
+        factor,
+        "/approval_ceremony_context_hash",
+        "factor approval_ceremony_context_hash",
+    )? != approval_ceremony_context_hash
+    {
+        bail!("the factor receipt does not bind this ceremony context");
+    }
+    Ok(StandingGrantCoordinates {
+        standing_envelope_hash,
+        policy_hash,
+        audience,
+        issued_at_ms,
+        expires_at_ms,
+        max_usages,
+        max_cumulative_deposit_microusd,
+        max_cumulative_spend_microusd,
+        review_receipt_hash,
+        approval_ceremony_context_hash,
+        auth_factor_receipt_hash,
+    })
+}
+
+/// Mint ONE standing grant for exactly these coordinates — the logic of
+/// `crates/node/src/bin/mint-standing-approval-grant.rs` (canonical `signing_bytes`, a real
+/// Ed25519 signature, `authority_id` derived from the public key, structural `verify()`), with a
+/// RANDOM nonce and counter 1.
+fn mint_standing_grant(
+    approver: &Ed25519KeyPair,
+    coordinates: &StandingGrantCoordinates,
+) -> Result<StandingApprovalGrant> {
+    use rand::RngCore;
+    let public_key = approver.public_key().to_bytes();
+    let authority_id = account_id_from_key_material(SignatureSuite::ED25519, &public_key)?;
+    let mut nonce = [0u8; 32];
+    rand::rngs::OsRng.fill_bytes(&mut nonce);
+    let mut grant = StandingApprovalGrant {
+        schema_version: 1,
+        authority_id,
+        standing_envelope_hash: coordinates.standing_envelope_hash,
+        policy_hash: coordinates.policy_hash,
+        audience: coordinates.audience,
+        nonce,
+        counter: 1,
+        issued_at_ms: coordinates.issued_at_ms,
+        expires_at_ms: coordinates.expires_at_ms,
+        max_usages: coordinates.max_usages,
+        max_cumulative_deposit_microusd: coordinates.max_cumulative_deposit_microusd,
+        max_cumulative_spend_microusd: coordinates.max_cumulative_spend_microusd,
+        review_receipt_hash: coordinates.review_receipt_hash,
+        approval_ceremony_context_hash: coordinates.approval_ceremony_context_hash,
+        auth_factor_receipt_hash: coordinates.auth_factor_receipt_hash,
+        approver_public_key: public_key,
+        approver_sig: Vec::new(),
+        approver_suite: SignatureSuite::ED25519,
+    };
+    let signing_bytes = grant
+        .signing_bytes()
+        .map_err(|error| anyhow!("standing grant signing bytes: {error}"))?;
+    grant.approver_sig = approver
+        .sign(&signing_bytes)
+        .map_err(|error| anyhow!("sign standing grant: {error}"))?
+        .to_bytes()
+        .to_vec();
+    grant
+        .verify()
+        .map_err(|error| anyhow!("minted standing grant does not verify: {error}"))?;
+    Ok(grant)
 }
 
 async fn revoke_standing_approval(
@@ -2887,6 +3249,100 @@ mod tests {
         // Neither the grant nor its JSON carries the seed.
         let text = value.to_string();
         assert!(!text.contains("seed") && !text.contains("private"));
+    }
+
+    /// The evidence a daemon standing decision hands over: an envelope, the ceremony context that
+    /// binds it, and the factor receipt that binds the context (hash-consistent).
+    fn standing_evidence(
+        issued_at: &str,
+    ) -> (serde_json::Value, serde_json::Value, serde_json::Value) {
+        let hash = |byte: u8| format!("sha256:{}", hex::encode([byte; 32]));
+        let envelope = serde_json::json!({
+            "schema_version": SESSION_STANDING_ENVELOPE_SCHEMA,
+            "standing_envelope_ref": "standing-envelope://hypervisor/connections/conn_0123456789abcdef/m1",
+            "aggregate_bounds": { "max_usages": 3, "max_cumulative_deposit_microusd": 3000, "max_cumulative_spend_microusd": 3000 },
+            "not_before_ms": 1_790_000_000_000u64,
+            "expires_at_ms": 1_790_086_400_000u64,
+            "trajectory_policy_hash": hash(2),
+            "body_hash": hash(1),
+        });
+        let context = serde_json::json!({
+            "authorization_subject": { "kind": "standing_envelope", "subject_ref": envelope["standing_envelope_ref"], "subject_hash": hash(1), "validation_profile_ref": "schema://ioi/components/hypervisor/session-standing-envelope/v1" },
+            "policy_hash": hash(2),
+            "policy_decision_receipt_hash": hash(3),
+            "issued_at": issued_at,
+            "expires_at": "2026-09-21T14:18:20Z",
+        });
+        let mut material = APPROVAL_CEREMONY_CONTEXT_DOMAIN.to_vec();
+        material.extend_from_slice(&serde_jcs::to_vec(&context).unwrap());
+        let context_hash = sha256_32(&material).unwrap();
+        let mut factor = serde_json::json!({
+            "factor_kind": "deployment_local_operator",
+            "approval_ceremony_context_hash": format!("sha256:{}", hex::encode(context_hash)),
+        });
+        let receipt_hash = sha256_32(&serde_jcs::to_vec(&factor).unwrap()).unwrap();
+        factor["receipt_hash"] = serde_json::json!(format!("sha256:{}", hex::encode(receipt_hash)));
+        (envelope, context, factor)
+    }
+
+    #[test]
+    fn a_minted_standing_grant_is_exactly_the_evidence_and_verifies() {
+        // 2026-09-21T14:13:20.5Z = 1790000000500 ms.
+        assert_eq!(
+            rfc3339_utc_ms("2026-09-21T14:13:20.500Z").unwrap(),
+            1_790_000_000_500
+        );
+        assert_eq!(
+            rfc3339_utc_ms("2026-09-21T14:13:20Z").unwrap(),
+            1_790_000_000_000
+        );
+        assert!(rfc3339_utc_ms("2026-09-22T14:13:20+00:00").is_err());
+        assert!(rfc3339_utc_ms("2026-13-22T14:13:20Z").is_err());
+        let (envelope, context, factor) = standing_evidence("2026-09-21T14:13:20.500Z");
+        let audience = [9u8; 32];
+        let coordinates =
+            standing_grant_coordinates(&envelope, &context, &factor, audience).unwrap();
+        assert_eq!(coordinates.issued_at_ms, 1_790_000_000_500);
+        assert_eq!(coordinates.expires_at_ms, 1_790_086_400_000);
+        assert_eq!(coordinates.max_usages, 3);
+        assert_eq!(coordinates.max_cumulative_spend_microusd, 3000);
+        assert_eq!(coordinates.review_receipt_hash, [3u8; 32]);
+        let approver = keypair(&[7u8; 32]).unwrap();
+        let grant = mint_standing_grant(&approver, &coordinates).unwrap();
+        grant.verify().unwrap();
+        assert_eq!(grant.standing_envelope_hash, [1u8; 32]);
+        assert_eq!(grant.policy_hash, [2u8; 32]);
+        assert_eq!(grant.audience, audience);
+        assert_eq!(
+            grant.approval_ceremony_context_hash,
+            coordinates.approval_ceremony_context_hash
+        );
+        assert_eq!(
+            grant.auth_factor_receipt_hash,
+            coordinates.auth_factor_receipt_hash
+        );
+        let again = mint_standing_grant(&approver, &coordinates).unwrap();
+        assert_ne!(grant.nonce, again.nonce, "every mint carries a fresh nonce");
+
+        // A hand-over that does not hang together refuses before any key would be opened.
+        let (_, _, mut tampered) = standing_evidence("2026-09-21T14:13:20.500Z");
+        tampered["factor_kind"] = serde_json::json!("passkey");
+        assert!(
+            standing_grant_coordinates(&envelope, &context, &tampered, audience).is_err(),
+            "a factor whose body no longer hashes to receipt_hash"
+        );
+        let mut other_subject = context.clone();
+        other_subject["authorization_subject"]["subject_hash"] =
+            serde_json::json!(format!("sha256:{}", hex::encode([4u8; 32])));
+        assert!(
+            standing_grant_coordinates(&envelope, &other_subject, &factor, audience).is_err(),
+            "a ceremony for another envelope"
+        );
+        let (_, early, early_factor) = standing_evidence("2026-09-21T14:13:19Z");
+        assert!(
+            standing_grant_coordinates(&envelope, &early, &early_factor, audience).is_err(),
+            "issued before the envelope's not_before"
+        );
     }
 
     #[test]

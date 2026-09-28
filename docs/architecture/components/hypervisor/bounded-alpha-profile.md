@@ -182,6 +182,14 @@ set -a; . /var/lib/ioi/authority/serve.env;  set +a; node apps/hypervisor/script
 node apps/hypervisor/scripts/wallet-network-authority.mjs approve --state-dir /var/lib/ioi/authority \
   --policy-hash <h> --request-hash <h> --audience <daemon capability account> \
   --target-scope scope:hypervisor.live-route.<route>
+#    Standing limits (G5 follow-on): "Set limits" on a Connections card sends only
+#    the bounds (usages, budget, expiry, operations, tools) and your passphrase to
+#    the daemon's POST /v1/hypervisor/authority/standing-envelopes. The daemon
+#    derives the envelope, the single-use ceremony and the custody receipt itself,
+#    refuses a body that names any of them, and runs `record-standing-approval` in
+#    mint mode with the passphrase in that child's environment only; a wrong
+#    passphrase records nothing. "Remove limits" revokes on the node the same way
+#    (…/standing-envelopes/:id/revoke). Minting one needs the node on the wall clock.
 
 # 4. Key lifecycle — operator acts against the serving node, each one
 #    root-signed control-plane transaction (the passphrase unseals the root); a

@@ -171,21 +171,23 @@ export function awaitingWalletAuthority(approval) {
 
 // ---- M13.3 — the attach-time standing envelope --------------------------------------------------
 //
-// The Connections attach flow mints the scoped standing bound in the same pass: a registered
-// SessionStandingEnvelope for ONE connector (operations, tools, metered unit, usages, budget,
-// window) bound by a StandingApprovalGrant the deployment approver signs, recorded on the
-// authority node, then bound to the connector on the daemon.
+// The Connections attach flow sets the scoped standing bound for ONE connector (operations, tools,
+// metered unit, usages, budget, window): a registered SessionStandingEnvelope bound by a
+// StandingApprovalGrant the deployment approver signs, recorded on the authority node, then bound
+// to the connector on the daemon.
+//   · deployment (no flag): the serve holds no key and no path to one (master guide §0.5.2). It
+//     RELAYS the operator's standing decision to the daemon —
+//     `POST /v1/hypervisor/authority/standing-envelopes` with the bounds and the passphrase the
+//     operator typed — and the daemon derives every coordinate, runs the sealed authority's
+//     `record-standing-approval` (mint mode) with the passphrase in that child's environment only,
+//     and binds the grant. The passphrase rides the one request body; nothing here keeps it.
 //   · fixture authority mode (TEST-ONLY: IOI_WALLET_FIXTURE_APPROVER=1 with the fixture's command
-//     directory): the qualification fixture's public approver seed signs, and the fixture records
-//     the tuple with the SYNTHETIC contract ceremony the broker-contract verifier uses (labelled;
-//     no physical passkey claimed);
-//   · deployment mode: the approver key is SEALED inside the deployment authority node and the
-//     serve holds no key and no path to one (master guide §0.5.2, W0.2), so the serve cannot sign a
-//     standing grant. The attach refuses TYPED — `standing_lease_operator_custody_required` — until
-//     a daemon-side standing decision exists (the exact-effect relay is G5 part 2; the standing
-//     envelope's relay is its follow-on). Nothing is fabricated.
+//     directory): the qualification fixture's public approver seed signs (a published constant, no
+//     key file is read), and the fixture records the tuple with the SYNTHETIC contract ceremony the
+//     broker-contract verifier uses (labelled; no physical passkey claimed).
 export const STANDING_LEASE_CUSTODY_TIER_UNRULED = "standing_lease_custody_tier_unruled";
-export const STANDING_LEASE_OPERATOR_CUSTODY_REQUIRED = "standing_lease_operator_custody_required";
+export const STANDING_ENVELOPE_ROUTE = "/v1/hypervisor/authority/standing-envelopes";
+export const STANDING_ENVELOPE_REVOKE_ROUTE = (id) => `${STANDING_ENVELOPE_ROUTE}/${encodeURIComponent(id)}/revoke`;
 const SESSION_ENVELOPE_CONTRACT = "schema://ioi/components/hypervisor/session-standing-envelope/v1";
 
 function parseBounds(raw = {}) {
@@ -203,17 +205,74 @@ function parseBounds(raw = {}) {
   return { maxUsages, expiresHours, perOperationSpend, budgetMicro, tools, operations };
 }
 
-// "fixture" only under the explicit test flag; the serve records no standing grant otherwise.
+// "fixture" only under the explicit test flag; "daemon" when this deployment names an authority
+// principal (the daemon decides, with the operator's passphrase); "none" otherwise.
 export function standingLeaseRecorderMode() {
-  return fixtureApproverEnabled() ? "fixture" : "none";
+  if (fixtureApproverEnabled()) return "fixture";
+  return process.env.IOI_HYPERVISOR_AUTHORITY_PRINCIPAL_REF ? "daemon" : "none";
+}
+
+// The bounds a caller may send the daemon. Anything else (an envelope, a grant, a hash, a window)
+// the daemon derives itself and refuses by name.
+const RELAYED_BOUNDS = ["max_usages", "budget_usd", "expires_hours", "per_operation_usd", "tools", "operations", "reason"];
+
+async function readDaemonReply(res) {
+  const text = await res.text().catch(() => "");
+  try { return text ? JSON.parse(text) : {}; } catch { return { _raw: text.slice(0, 300) }; }
+}
+
+// The daemon refuses in three shapes: `{error:{code,message}}` (its typed refusals), `{code,message}`
+// (the identity gate's 401) and `{reason}` (unknown connector). Read all three.
+function typedRefusal(status, body, fallback) {
+  return {
+    ok: false,
+    status: status || 502,
+    code: body?.error?.code || body?.code || body?.reason || fallback,
+    message: body?.error?.message || body?.message || body?.reason || "the daemon refused the standing decision",
+  };
+}
+
+/**
+ * Relay the operator's standing decision for one connection to the daemon: the bounds plus the
+ * passphrase, once, in this request body. Returns `{ ok:true, standing_lease, standing_envelope_id,
+ * ... }` or `{ ok:false, status, code, message }` — never throws for a typed refusal.
+ */
+export async function relayStandingEnvelope({ connectorId, bounds = {}, operatorPassphrase = "", daemonFetch }) {
+  const payload = { connector_id: connectorId };
+  for (const key of RELAYED_BOUNDS) {
+    const value = bounds[key];
+    if (value === undefined || value === null || value === "") continue;
+    payload[key] = value;
+  }
+  payload.operator_passphrase = String(operatorPassphrase || "");
+  let res;
+  try {
+    res = await daemonFetch(STANDING_ENVELOPE_ROUTE, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(payload) });
+  } catch (error) {
+    return { ok: false, status: 502, code: "standing_envelope_relay_failed", message: String(error?.message || error) };
+  } finally {
+    payload.operator_passphrase = "";
+  }
+  const body = await readDaemonReply(res);
+  if (res.status !== 200 || body.ok !== true) return typedRefusal(res.status, body, "standing_envelope_refused");
+  return {
+    ok: true,
+    recorder: "daemon",
+    standing_envelope_id: body.standing_envelope_id || null,
+    standing_envelope_ref: body.standing_envelope_ref || null,
+    grant_hash_ref: body.grant_hash_ref || null,
+    recorded_on_authority: body.recorded_on_authority || null,
+    standing_lease: body.standing_lease || { status: "active", bounds: body.bounds || null },
+  };
 }
 
 // Returns { ok:true, standing_lease } or { ok:false, code, message } — never throws for a typed
-// custody refusal, so the attach surface can render the reason and the journey can record it.
-export async function bindStandingLease({ connector, bounds: rawBounds, daemonFetch }) {
-  const mode = standingLeaseRecorderMode();
-  if (mode === "none") {
-    return { ok: false, status: 501, code: STANDING_LEASE_OPERATOR_CUSTODY_REQUIRED, message: "a standing grant is signed by the deployment's sealed approver key, which the served App never holds; this deployment has no daemon-side standing decision yet, so no limits can be recorded from here" };
+// refusal, so the attach surface can render the reason and the journey can record it.
+export async function bindStandingLease({ connector, bounds: rawBounds, operatorPassphrase = "", daemonFetch }) {
+  if (standingLeaseRecorderMode() !== "fixture") {
+    // The daemon decides; the serve signs nothing. The daemon resolves the caller before anything
+    // else, so an unauthenticated press records nothing.
+    return relayStandingEnvelope({ connectorId: connector.connector_id, bounds: rawBounds || {}, operatorPassphrase, daemonFetch });
   }
   // R-17 — PRE-FLIGHT THE CALLER before anything is minted or recorded. The daemon's bind route now
   // resolves the caller and refuses an unresolved one (401). Everything below this line has side
@@ -265,22 +324,33 @@ export async function bindStandingLease({ connector, bounds: rawBounds, daemonFe
   if (!response.ok) return { ok: false, status: 502, code: "standing_grant_record_refused", message: `the authority node refused to record the standing grant: ${response.error || JSON.stringify(response).slice(0, 300)}` };
   const bind = await daemonFetch(`/v1/hypervisor/connectors/${encodeURIComponent(connector.connector_id)}/standing-lease`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ grant, envelope }) });
   const bound = await bind.json().catch(() => ({}));
-  // The daemon refuses in three shapes: `{error:{code,message}}` (the standing-lease validators),
-  // `{code,message}` (require_authenticated_principal's 401) and `{reason}` (unknown connector,
-  // already-active lease). Read all three — reading only the first rendered every 401 and every
-  // unknown-connector answer as a generic "the daemon refused to bind".
-  if (bind.status !== 200 || !bound.ok) {
-    return {
-      ok: false,
-      status: bind.status,
-      code: bound.error?.code || bound.code || bound.reason || "standing_lease_bind_refused",
-      message: bound.error?.message || bound.message || bound.reason || "the daemon refused to bind the standing lease",
-    };
-  }
+  if (bind.status !== 200 || !bound.ok) return typedRefusal(bind.status, bound, "standing_lease_bind_refused");
   return { ok: true, recorder: "fixture", factor_origin: ceremony.factor_origin, standing_grant_hash: response.standing_grant_hash || null, standing_lease: bound.standing_lease };
 }
 
-export async function revokeStandingLease({ connectorId, daemonFetch }) {
+/**
+ * Remove a connection's limits. An envelope the daemon's standing decision issued is revoked on
+ * the authority node with the operator's passphrase (then fenced); any other lease (the fixture's)
+ * is fenced on the daemon.
+ */
+export async function revokeStandingLease({ connectorId, operatorPassphrase = "", reason = "", daemonFetch }) {
+  const estate = await daemonFetch("/v1/hypervisor/connectors").then((r) => r.json()).catch(() => ({}));
+  const lease = (estate.connectors || []).find((c) => c.connector_id === connectorId)?.standing_lease || null;
+  const envelopeId = typeof lease?.standing_envelope_id === "string" ? lease.standing_envelope_id : "";
+  if (envelopeId) {
+    const payload = { reason: String(reason || "").slice(0, 400), operator_passphrase: String(operatorPassphrase || "") };
+    let res;
+    try {
+      res = await daemonFetch(STANDING_ENVELOPE_REVOKE_ROUTE(envelopeId), { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(payload) });
+    } catch (error) {
+      return { ok: false, status: 502, code: "standing_envelope_relay_failed", message: String(error?.message || error) };
+    } finally {
+      payload.operator_passphrase = "";
+    }
+    const body = await readDaemonReply(res);
+    if (res.status !== 200 || body.ok !== true) return typedRefusal(res.status, body, "standing_envelope_revoke_refused");
+    return { ok: true, status: 200, connector_id: connectorId, standing_envelope_id: envelopeId, standing_lease: { status: "revoked" }, revocation: body.revocation || null };
+  }
   const res = await daemonFetch(`/v1/hypervisor/connectors/${encodeURIComponent(connectorId)}/standing-lease`, { method: "DELETE" });
   const body = await res.json().catch(() => ({}));
   return { ok: res.status === 200 && body.ok === true, status: res.status, ...body };
