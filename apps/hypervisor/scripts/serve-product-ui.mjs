@@ -254,8 +254,14 @@ const AUG_TAG = '<script src="/ioi-augmentation.js" defer></script>';
 // deep link lands where the app expects; the /__apps/<slug> lane stays the development entry.
 // The reference chrome's own links (the workspace sidebar every adopted app shows): Home and Files open the Hypervisor's
 // home and its projects — the adopted apps already answer Compass folders as the caller's projects. Without this both
-// landed on nothing (check:adopted-dead-controls, 2026-09-28).
-const REFERENCE_CHROME_ROUTES = [["/workspace/aip", "/"], ["/workspace/compass", "/projects"]];
+// landed on nothing (check:adopted-dead-controls, 2026-09-28). The same census, once it read the tabs a click opens, found
+// two links into reference apps that are not adopted — Pipeline's View lineage (Monocle) and Automate's Add monitoring rule
+// (Data Health) — both on the shell's not-found page: each opens the Hypervisor's own home for that truth instead.
+const REFERENCE_CHROME_ROUTES = [["/workspace/aip", "/"], ["/workspace/compass", "/projects"], ["/workspace/monocle", "/__ioi/lineage"], ["/workspace/data-health", "/__ioi/operations/health"]];
+// The adopted apps' documentation links (Help, Learn more, Open docs, Documentation) open the reference's docs site under
+// this origin; nothing serves it, so 13 controls across five apps opened the not-found page. Each opens /__ioi/help, which
+// says the topic is not published for this deployment and links the surface that holds the truth.
+const REFERENCE_DOCS_PREFIX = "/docs/foundry/";
 const ADOPTED_ROUTE_ALIASES = [["/workspace/object-monitoring", "monitors"], ["/workspace/builder", "pipeline"], ["/workspace/ontology", "schema"], ["/workspace/hubble", "explorer"], ["/workspace/data-ingestion-app", "sources"], ["/workspace/approvals-app", "approvals"]];
 // THE ONTOLOGY FENCE (R-241 Ontology Manager, cut O1): the adopted Ontology Manager's reads of the ontology, the object
 // registry, object sets, search and data health that are not bound are answered as named gaps — never passed through
@@ -8137,6 +8143,11 @@ const HELP_SURFACES = [
   [/^docs\/ioi\/(mcp|source-control|integrations)/, "/__ioi/connections", "Connections — every capability binding, SCM hosts and MCP"],
   [/^docs\/ioi\/organizations\/policies/, "/__ioi/governance", "Governance — the policies this deployment enforces"],
   [/^docs\/ioi\/runners/, "/__ioi/environments", "Environments — providers, placement and runners"],
+  [/^docs\/foundry\/automate/, "/automations", "Automate — automations and their runs"],
+  [/^docs\/foundry\/building-pipelines/, "/workspace/builder/", "Pipelines — graphs, their branches and builds"],
+  [/^docs\/foundry\/data-connection/, "/workspace/data-ingestion-app/", "Data Connection — sources, syncs and their runs"],
+  [/^docs\/foundry\/approvals/, "/workspace/approvals-app/", "Approvals — requests waiting on a decision and the decisions made"],
+  [/^docs\/foundry\/announcements/, "/changelog", "What's new — this deployment's release notes"],
 ];
 // Support is not documentation: a self-hosted deployment has no vendor support desk behind it.
 const HELP_SUPPORT = /^support$/;
@@ -9263,6 +9274,10 @@ async function handleEstateRequest(req, res, body) {
     }
     const chromeRoute = req.method === "GET" && REFERENCE_CHROME_ROUTES.find(([prefix]) => pathname === prefix || pathname.startsWith(`${prefix}/`));
     if (chromeRoute) { res.writeHead(302, { Location: chromeRoute[1] }); return res.end(); }
+    if (req.method === "GET" && pathname.startsWith(REFERENCE_DOCS_PREFIX)) {
+      res.writeHead(302, { Location: `${HELP_ROUTE}${encodeURIComponent(pathname.slice(1).replace(/\/+$/u, ""))}` });
+      return res.end();
+    }
     const adoptedAlias = ADOPTED_ROUTE_ALIASES.find(([prefix]) => pathname === prefix || pathname.startsWith(`${prefix}/`));
     const ontologyServiceRead = SERVICE_API_PATH.test(pathname) && ONTOLOGY_SURFACE_REFERER.test(String(req.headers.referer || ""));
     const dataConnectionServiceRead = SERVICE_API_PATH.test(pathname) && DATA_CONNECTION_SURFACE_REFERER.test(String(req.headers.referer || ""));
@@ -11412,7 +11427,7 @@ async function handleEstateRequest(req, res, body) {
     // one exists — the surface that holds the real state. It invents no documentation.
     if (pathname === "/__ioi/help" && req.method === "GET") {
       const topic = String(new URL(req.url, "http://x").searchParams.get("topic") || "").replace(/[^A-Za-z0-9/_.#-]/g, "").slice(0, 200);
-      const words = topic.replace(/^docs\/ioi\//, "").replace(/^docs\/?/, "").split(/[/#]/).filter(Boolean).map((w) => w.replace(/-/g, " "));
+      const words = topic.replace(/^docs\/(?:ioi|foundry)\//, "").replace(/^docs\/?/, "").split(/[/#]/).filter(Boolean).map((w) => w.replace(/-/g, " "));
       const title = words.length ? words.join(" › ") : "Documentation";
       const surface = HELP_SURFACES.find(([re]) => re.test(topic));
       const notHere = HELP_NOT_HERE[0].test(topic) ? HELP_NOT_HERE[1] : "";
