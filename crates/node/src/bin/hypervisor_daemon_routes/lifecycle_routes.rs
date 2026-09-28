@@ -18770,12 +18770,24 @@ pub(crate) async fn handle_connector_mcp_tools(
 // sovereign, production, remote-wallet, or brokered profile without a usable custody key refuses
 // sealing/decryption; it never silently downgrades. Decrypt failure makes the credential unavailable
 // and every dependent effect fails closed.
+//
+// G11: the well-known key is refused outright by a release build, and outside the development
+// profile it is refused even when it arrives as an explicit IOI_WALLET_SECRET_PASS / GUARDIAN pass.
+const DEVELOPMENT_SEALING_KEY: &str = "local-mode";
 fn scm_secret_passphrase_from(
     wallet_secret_pass: Option<String>,
     guardian_secret_pass: Option<String>,
     custody_profile: Option<String>,
     development_test_fixture: bool,
+    development_build: bool,
 ) -> Option<String> {
+    let profile = custody_profile
+        .as_deref()
+        .map(str::trim)
+        .filter(|value| !value.is_empty());
+    let development_key_permitted = development_build
+        && (profile == Some("development_cooperative")
+            || (profile.is_none() && development_test_fixture));
     wallet_secret_pass
         .map(|v| v.trim().to_string())
         .filter(|v| !v.is_empty())
@@ -18784,15 +18796,8 @@ fn scm_secret_passphrase_from(
                 .map(|v| v.trim().to_string())
                 .filter(|v| !v.is_empty())
         })
-        .or_else(|| {
-            let profile = custody_profile
-                .as_deref()
-                .map(str::trim)
-                .filter(|value| !value.is_empty());
-            (profile == Some("development_cooperative")
-                || (profile.is_none() && development_test_fixture))
-                .then(|| "local-mode".to_string())
-        })
+        .or_else(|| development_key_permitted.then(|| DEVELOPMENT_SEALING_KEY.to_string()))
+        .filter(|passphrase| development_key_permitted || passphrase != DEVELOPMENT_SEALING_KEY)
 }
 pub(crate) fn scm_secret_passphrase() -> Option<String> {
     scm_secret_passphrase_from(
@@ -18800,24 +18805,15 @@ pub(crate) fn scm_secret_passphrase() -> Option<String> {
         std::env::var("IOI_GUARDIAN_KEY_PASS").ok(),
         std::env::var("IOI_SECRET_CUSTODY_PROFILE").ok(),
         cfg!(test),
+        cfg!(any(test, debug_assertions)),
     )
 }
+/// The strength-of-sealing label, derived from the passphrase sealing would actually use.
 pub(crate) fn scm_key_source() -> &'static str {
-    let has = |k: &str| {
-        std::env::var(k)
-            .map(|v| !v.trim().is_empty())
-            .unwrap_or(false)
-    };
-    if has("IOI_WALLET_SECRET_PASS") || has("IOI_GUARDIAN_KEY_PASS") {
-        "wallet-secret-pass"
-    } else if std::env::var("IOI_SECRET_CUSTODY_PROFILE")
-        .ok()
-        .map(|value| value.trim() == "development_cooperative")
-        .unwrap_or(cfg!(test))
-    {
-        "local-mode-fallback"
-    } else {
-        "custody-key-unavailable"
+    match scm_secret_passphrase().as_deref() {
+        Some(DEVELOPMENT_SEALING_KEY) => "local-mode-fallback",
+        Some(_) => "wallet-secret-pass",
+        None => "custody-key-unavailable",
     }
 }
 pub(crate) fn seal_scm_token(token: &str) -> Option<String> {
@@ -18835,7 +18831,10 @@ pub(crate) fn open_scm_token(sealed_hex: &str) -> Option<String> {
 
 #[cfg(test)]
 mod secret_custody_profile_tests {
-    use super::scm_secret_passphrase_from;
+    use super::{scm_secret_passphrase_from, DEVELOPMENT_SEALING_KEY};
+
+    const DEVELOPMENT_BUILD: bool = true;
+    const RELEASE_BUILD: bool = false;
 
     #[test]
     fn conforming_profiles_never_use_the_well_known_fallback() {
@@ -18845,13 +18844,17 @@ mod secret_custody_profile_tests {
                 None,
                 Some("development_cooperative".to_string()),
                 false,
+                DEVELOPMENT_BUILD,
             )
             .as_deref(),
             Some("local-mode")
         );
-        assert_eq!(scm_secret_passphrase_from(None, None, None, false), None);
         assert_eq!(
-            scm_secret_passphrase_from(None, None, None, true).as_deref(),
+            scm_secret_passphrase_from(None, None, None, false, DEVELOPMENT_BUILD),
+            None
+        );
+        assert_eq!(
+            scm_secret_passphrase_from(None, None, None, true, DEVELOPMENT_BUILD).as_deref(),
             Some("local-mode")
         );
         for profile in [
@@ -18861,11 +18864,77 @@ mod secret_custody_profile_tests {
             "production",
         ] {
             assert_eq!(
-                scm_secret_passphrase_from(None, None, Some(profile.to_string()), false),
+                scm_secret_passphrase_from(
+                    None,
+                    None,
+                    Some(profile.to_string()),
+                    false,
+                    DEVELOPMENT_BUILD
+                ),
                 None,
                 "{profile} must fail closed without its custody key or broker"
             );
         }
+    }
+
+    #[test]
+    fn the_development_key_is_refused_outside_development_mode() {
+        // A release build never seals or opens with it, whatever the profile says.
+        assert_eq!(
+            scm_secret_passphrase_from(
+                None,
+                None,
+                Some("development_cooperative".to_string()),
+                false,
+                RELEASE_BUILD,
+            ),
+            None
+        );
+        assert_eq!(
+            scm_secret_passphrase_from(None, None, None, true, RELEASE_BUILD),
+            None
+        );
+        // Handed over explicitly, it is still refused outside the development profile.
+        for profile in [None, Some("production"), Some("sovereign_local_passphrase")] {
+            for (wallet, guardian) in [
+                (Some(" local-mode ".to_string()), None),
+                (None, Some(DEVELOPMENT_SEALING_KEY.to_string())),
+            ] {
+                assert_eq!(
+                    scm_secret_passphrase_from(
+                        wallet,
+                        guardian,
+                        profile.map(str::to_string),
+                        false,
+                        DEVELOPMENT_BUILD,
+                    ),
+                    None,
+                    "{profile:?}: the development key must be refused"
+                );
+            }
+        }
+        assert_eq!(
+            scm_secret_passphrase_from(
+                Some(DEVELOPMENT_SEALING_KEY.to_string()),
+                None,
+                Some("development_cooperative".to_string()),
+                false,
+                RELEASE_BUILD,
+            ),
+            None
+        );
+        // And the sealing primitive it would feed refuses nothing else: a real key still works.
+        assert_eq!(
+            scm_secret_passphrase_from(
+                Some("wallet-key".to_string()),
+                None,
+                Some("production".to_string()),
+                false,
+                RELEASE_BUILD,
+            )
+            .as_deref(),
+            Some("wallet-key")
+        );
     }
 
     #[test]
@@ -18876,6 +18945,7 @@ mod secret_custody_profile_tests {
                 None,
                 Some("sovereign_local_passphrase".to_string()),
                 false,
+                DEVELOPMENT_BUILD,
             )
             .as_deref(),
             Some("wallet-key")
@@ -29326,6 +29396,17 @@ pub(crate) mod runtime_host {
         // High-volume KernelEvent capture for the step probe (Phase 5B). The receiver
         // must exist before the step so emitted events are observed, not dropped.
         let (events_tx, mut events_rx) = broadcast::channel::<KernelEvent>(512);
+        // G7 / W0.7: firewall receipts are signed with the daemon's own key (0600, under the data
+        // dir), never one derived from public values.
+        let firewall_receipt_keys =
+            match ioi_services::agentic::runtime::FirewallReceiptKeyStore::open_in_data_dir(
+                &st.data_dir,
+            ) {
+                Ok(keys) => Arc::new(keys),
+                Err(error) => {
+                    return host_error(&session_ref, "firewall_receipt_keys", &error.to_string())
+                }
+            };
         let host = build_runtime_agent_host(
             &workspace_path,
             memory,
@@ -29333,7 +29414,8 @@ pub(crate) mod runtime_host {
             events_tx,
             st.mcp_manager.clone(),
             st.runtime_tool_contract_registry.clone(),
-        );
+        )
+        .with_firewall_receipt_key_store(firewall_receipt_keys);
         let mut state = DaemonHostStateAccess::open(&st.data_dir);
         let services = synthetic_service_directory();
         let now_ns = std::time::SystemTime::now()

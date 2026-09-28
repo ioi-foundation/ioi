@@ -264,7 +264,10 @@ fn build_test_service(
         runtime,
     )
     .with_memory_runtime(memory_runtime)
-    .with_event_sender(event_sender);
+    .with_event_sender(event_sender)
+    .with_firewall_receipt_key_store(
+        crate::agentic::runtime::firewall_receipt_keys::test_firewall_receipt_keys(),
+    );
     (service, temp_dir)
 }
 

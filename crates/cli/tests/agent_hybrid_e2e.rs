@@ -212,10 +212,18 @@ async fn test_hybrid_routing_logic() -> Result<()> {
     let terminal = Arc::new(TerminalDriver::new());
     let browser = Arc::new(BrowserDriver::new());
 
+    // Firewall receipts are signed with a host-held key; the fixture's lives in a temp dir.
+    let receipt_keys_dir = tempfile::tempdir().expect("firewall receipt key dir");
     let service = RuntimeAgentService::new_hybrid(gui, terminal, browser, fast, reasoning)
         .with_os_driver(Arc::new(MockOsDriver))
         .with_memory_runtime(Arc::new(
             ioi_memory::MemoryRuntime::open_sqlite_in_memory().expect("memory runtime"),
+        ))
+        .with_firewall_receipt_key_store(Arc::new(
+            ioi_services::agentic::runtime::FirewallReceiptKeyStore::open_in_data_dir(
+                receipt_keys_dir.path(),
+            )
+            .expect("firewall receipt keys"),
         ));
     let mut state = IAVLTree::new(HashCommitmentScheme::new());
 

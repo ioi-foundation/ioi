@@ -9,10 +9,17 @@ async fn timer_query_routes_to_command_exec_without_planner_fast_path() -> Resul
     let terminal = Arc::new(TerminalDriver::new());
     let browser = Arc::new(BrowserDriver::new());
     let runtime: Arc<dyn InferenceRuntime> = Arc::new(TimerIntentRuntime);
+    // Firewall receipts are signed with a host-held key; the fixture's lives in a temp dir.
+    let receipt_keys_dir = tempfile::tempdir()?;
     let service = RuntimeAgentService::new_hybrid(gui, terminal, browser, runtime.clone(), runtime)
         .with_memory_runtime(memory_runtime)
         .with_event_sender(tx)
-        .with_os_driver(Arc::new(NoopOsDriver));
+        .with_os_driver(Arc::new(NoopOsDriver))
+        .with_firewall_receipt_key_store(Arc::new(
+            ioi_services::agentic::runtime::FirewallReceiptKeyStore::open_in_data_dir(
+                receipt_keys_dir.path(),
+            )?,
+        ));
 
     let mut state = IAVLTree::new(HashCommitmentScheme::new());
     let services_dir = ServiceDirectory::new(vec![]);

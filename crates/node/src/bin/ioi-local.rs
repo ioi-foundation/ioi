@@ -269,11 +269,26 @@ async fn async_main() -> Result<()> {
         println!("Initializing new User Node Identity...");
         let kp = identity::Keypair::generate_ed25519();
         if std::env::var("IOI_GUARDIAN_KEY_PASS").is_err() {
+            // G11: "local-mode" is the well-known development key. Only a debug build may seal
+            // with it; a release build must be given its own passphrase.
+            if !cfg!(debug_assertions) {
+                return Err(anyhow!(
+                    "IOI_GUARDIAN_KEY_PASS is required: a release build never seals under the development key"
+                ));
+            }
             std::env::set_var("IOI_GUARDIAN_KEY_PASS", "local-mode");
         }
         GuardianContainer::save_encrypted_file(&key_path, &kp.to_protobuf_encoding()?)?;
         kp
     };
+    // Sealing with the development key is development mode, so say so explicitly: the wallet
+    // refuses "local-mode" outside the development_cooperative profile, and always in release.
+    if cfg!(debug_assertions)
+        && std::env::var("IOI_GUARDIAN_KEY_PASS").as_deref() == Ok("local-mode")
+        && std::env::var("IOI_SECRET_CUSTODY_PROFILE").is_err()
+    {
+        std::env::set_var("IOI_SECRET_CUSTODY_PROFILE", "development_cooperative");
+    }
     let local_account_id = AccountId(account_id_from_key_material(
         SignatureSuite::ED25519,
         &local_key.public().encode_protobuf(),
@@ -904,6 +919,11 @@ async fn async_main() -> Result<()> {
     .with_event_sender(event_tx.clone())
     .with_runtime_thread_event_sender(runtime_thread_event_tx.clone())
     .with_os_driver(os_driver.clone())
+    // G7 / W0.7: firewall receipts are signed with this node's own key, never a derived one.
+    .with_firewall_receipt_key_store(Arc::new(
+        ioi_services::agentic::runtime::FirewallReceiptKeyStore::open_in_data_dir(&opts.data_dir)
+            .map_err(|e| anyhow!("firewall receipt keys: {e}"))?,
+    ))
     .with_som(true); // Enable SoM in Agent
 
     // Configure Optimizer with runtime-backed memory access

@@ -337,6 +337,8 @@ async fn run_agent_self_healing_journey() -> Result<()> {
     let brain = Arc::new(ResilientBrain);
     let memory_runtime = build_memory_runtime()?;
 
+    // Firewall receipts are signed with a host-held key; the fixture's lives in a temp dir.
+    let receipt_keys_dir = tempfile::tempdir().expect("firewall receipt key dir");
     let service = RuntimeAgentService::new_hybrid(
         gui,
         Arc::new(TerminalDriver::new()),
@@ -344,7 +346,13 @@ async fn run_agent_self_healing_journey() -> Result<()> {
         brain.clone(),
         brain.clone(),
     )
-    .with_memory_runtime(memory_runtime);
+    .with_memory_runtime(memory_runtime)
+    .with_firewall_receipt_key_store(Arc::new(
+        ioi_services::agentic::runtime::FirewallReceiptKeyStore::open_in_data_dir(
+            receipt_keys_dir.path(),
+        )
+        .expect("firewall receipt keys"),
+    ));
     let mut state = IAVLTree::new(HashCommitmentScheme::new());
     let services_dir = ServiceDirectory::new(vec![]);
     let mut ctx = build_ctx(&services_dir);
@@ -412,6 +420,8 @@ async fn latest_news_timeout_fails_fast_without_remedy_churn() -> Result<()> {
     let brain = Arc::new(WebTimeoutBrain);
     let memory_runtime = build_memory_runtime()?;
 
+    // Firewall receipts are signed with a host-held key; the fixture's lives in a temp dir.
+    let receipt_keys_dir = tempfile::tempdir().expect("firewall receipt key dir");
     let service = RuntimeAgentService::new_hybrid(
         gui,
         Arc::new(TerminalDriver::new()),
@@ -420,7 +430,13 @@ async fn latest_news_timeout_fails_fast_without_remedy_churn() -> Result<()> {
         brain.clone(),
     )
     .with_memory_runtime(memory_runtime)
-    .with_event_sender(event_tx);
+    .with_event_sender(event_tx)
+    .with_firewall_receipt_key_store(Arc::new(
+        ioi_services::agentic::runtime::FirewallReceiptKeyStore::open_in_data_dir(
+            receipt_keys_dir.path(),
+        )
+        .expect("firewall receipt keys"),
+    ));
 
     let mut state = IAVLTree::new(HashCommitmentScheme::new());
     let services_dir = ServiceDirectory::new(vec![]);

@@ -180,6 +180,8 @@ async fn test_ghost_mode_event_pipeline() -> Result<()> {
     });
     let brain = Arc::new(ClickerBrain);
 
+    // Firewall receipts are signed with a host-held key; the fixture's lives in a temp dir.
+    let receipt_keys_dir = tempfile::tempdir().expect("firewall receipt key dir");
     let mut service = RuntimeAgentService::new_hybrid(
         gui,
         Arc::new(ioi_drivers::terminal::TerminalDriver::new()),
@@ -190,6 +192,12 @@ async fn test_ghost_mode_event_pipeline() -> Result<()> {
     .with_os_driver(Arc::new(MockOsDriver))
     .with_memory_runtime(Arc::new(
         ioi_memory::MemoryRuntime::open_sqlite_in_memory().expect("memory runtime"),
+    ))
+    .with_firewall_receipt_key_store(Arc::new(
+        ioi_services::agentic::runtime::FirewallReceiptKeyStore::open_in_data_dir(
+            receipt_keys_dir.path(),
+        )
+        .expect("firewall receipt keys"),
     ));
     // The service emits AgentStep; driver-level ghost input is not guaranteed in this harness.
     service = service.with_event_sender(event_tx.clone());

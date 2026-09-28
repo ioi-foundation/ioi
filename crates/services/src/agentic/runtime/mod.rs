@@ -9,6 +9,7 @@ pub mod enforcement_coverage;
 pub mod event_log_bridge;
 pub mod event_stream_admission;
 pub mod execution; // Points to execution/mod.rs now
+pub mod firewall_receipt_keys;
 pub mod harness;
 pub mod kernel;
 pub mod keys;
@@ -30,6 +31,7 @@ pub(crate) mod worker_context;
 pub mod worker_templates;
 pub mod workspace_change;
 
+pub use firewall_receipt_keys::FirewallReceiptKeyStore;
 pub use service::RuntimeAgentService;
 pub use types::{
     AgentMode, AgentState, AgentStatus, CancelAgentParams, DenyAgentParams, PauseAgentParams,

@@ -234,6 +234,8 @@ async fn run_golden_pii_review_determinism_desktop_validator_desktop() -> Result
 
     let memory_runtime = Arc::new(MemoryRuntime::open_sqlite_in_memory()?);
 
+    // Firewall receipts are signed with a host-held key; the fixture's lives in a temp dir.
+    let receipt_keys_dir = tempfile::tempdir().expect("firewall receipt key dir");
     let service = RuntimeAgentService::new_hybrid(
         gui,
         Arc::new(TerminalDriver::new()),
@@ -242,7 +244,13 @@ async fn run_golden_pii_review_determinism_desktop_validator_desktop() -> Result
         runtime.clone(),
     )
     .with_memory_runtime(memory_runtime)
-    .with_os_driver(Arc::new(DummyOs));
+    .with_os_driver(Arc::new(DummyOs))
+    .with_firewall_receipt_key_store(Arc::new(
+        ioi_services::agentic::runtime::FirewallReceiptKeyStore::open_in_data_dir(
+            receipt_keys_dir.path(),
+        )
+        .expect("firewall receipt keys"),
+    ));
 
     let tool = AgentTool::OsCopy {
         content: "john@example.com".to_string(),

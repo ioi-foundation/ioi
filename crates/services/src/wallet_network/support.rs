@@ -228,37 +228,53 @@ pub(super) fn block_timestamp_ms(ctx: &TxContext<'_>) -> u64 {
     ctx.block_timestamp / 1_000_000
 }
 
+/// The well-known development sealing key. Anyone who reads this source can open what it seals, so
+/// it is usable only in a development build (debug assertions, or a compiled test) and only under
+/// the explicit `development_cooperative` profile, or by a compiled test fixture with no profile. A
+/// release build refuses it outright. Every other profile refuses it too, even when it arrives as
+/// an explicit IOI_WALLET_SECRET_PASS or IOI_GUARDIAN_KEY_PASS (G11).
+const DEVELOPMENT_SEALING_KEY: &str = "local-mode";
+
 fn wallet_secret_passphrase_from(
     wallet_secret_pass: Option<String>,
     guardian_secret_pass: Option<String>,
     custody_profile: Option<String>,
     development_test_fixture: bool,
+    development_build: bool,
 ) -> Result<String, TransactionError> {
-    wallet_secret_pass
+    let profile = custody_profile
+        .as_deref()
+        .map(str::trim)
+        .filter(|value| !value.is_empty());
+    let development_profile = profile == Some("development_cooperative");
+    let development_key_permitted = development_build
+        && (development_profile || (profile.is_none() && development_test_fixture));
+    let explicit = wallet_secret_pass
         .map(|value| value.trim().to_string())
         .filter(|value| !value.is_empty())
         .or_else(|| {
             guardian_secret_pass
                 .map(|value| value.trim().to_string())
                 .filter(|value| !value.is_empty())
-        })
-        .map(Ok)
-        .unwrap_or_else(|| {
-            let profile = custody_profile
-                .as_deref()
-                .map(str::trim)
-                .filter(|value| !value.is_empty());
-            if profile == Some("development_cooperative")
-                || (profile.is_none() && development_test_fixture)
-            {
-                Ok("local-mode".to_string())
-            } else {
-                let profile = profile.unwrap_or("unspecified");
-                Err(TransactionError::Invalid(format!(
-                    "wallet secret custody key unavailable for profile '{profile}': conforming profiles have no local-mode fallback"
-                )))
-            }
-        })
+        });
+    let profile_label = profile.unwrap_or("unspecified");
+    match explicit {
+        Some(passphrase) if passphrase == DEVELOPMENT_SEALING_KEY && !development_key_permitted => {
+            Err(TransactionError::Invalid(format!(
+                "wallet secret custody key refused for profile '{profile_label}': the well-known development key is usable only by a development build under the development_cooperative profile"
+            )))
+        }
+        Some(passphrase) => Ok(passphrase),
+        None if development_key_permitted => Ok(DEVELOPMENT_SEALING_KEY.to_string()),
+        None if !development_build && development_profile => {
+            Err(TransactionError::Invalid(
+                "wallet secret custody key unavailable: a release build never uses the well-known development key, even under the development_cooperative profile".to_string(),
+            ))
+        }
+        None => Err(TransactionError::Invalid(format!(
+            "wallet secret custody key unavailable for profile '{profile_label}': conforming profiles have no local-mode fallback"
+        ))),
+    }
 }
 
 fn wallet_secret_passphrase() -> Result<String, TransactionError> {
@@ -267,6 +283,7 @@ fn wallet_secret_passphrase() -> Result<String, TransactionError> {
         std::env::var(GUARDIAN_SECRET_PASS_ENV).ok(),
         std::env::var(SECRET_CUSTODY_PROFILE_ENV).ok(),
         cfg!(test),
+        cfg!(any(test, debug_assertions)),
     )
 }
 
@@ -292,7 +309,10 @@ pub(super) fn decrypt_secret_payload(payload: &[u8]) -> Result<Vec<u8>, Transact
 
 #[cfg(test)]
 mod custody_profile_tests {
-    use super::wallet_secret_passphrase_from;
+    use super::{wallet_secret_passphrase_from, DEVELOPMENT_SEALING_KEY};
+
+    const DEVELOPMENT_BUILD: bool = true;
+    const RELEASE_BUILD: bool = false;
 
     #[test]
     fn development_profile_is_the_only_well_known_fallback() {
@@ -302,13 +322,14 @@ mod custody_profile_tests {
                 None,
                 Some("development_cooperative".into()),
                 false,
+                DEVELOPMENT_BUILD,
             )
             .expect("development fixture fallback"),
             "local-mode"
         );
-        assert!(wallet_secret_passphrase_from(None, None, None, false).is_err());
+        assert!(wallet_secret_passphrase_from(None, None, None, false, DEVELOPMENT_BUILD).is_err());
         assert_eq!(
-            wallet_secret_passphrase_from(None, None, None, true)
+            wallet_secret_passphrase_from(None, None, None, true, DEVELOPMENT_BUILD)
                 .expect("compiled test fixture fallback"),
             "local-mode"
         );
@@ -318,34 +339,118 @@ mod custody_profile_tests {
             "remote_wallet",
             "production",
         ] {
-            let error = wallet_secret_passphrase_from(None, None, Some(profile.into()), false)
-                .expect_err("conforming profile must refuse without custody key")
-                .to_string();
+            let error = wallet_secret_passphrase_from(
+                None,
+                None,
+                Some(profile.into()),
+                false,
+                DEVELOPMENT_BUILD,
+            )
+            .expect_err("conforming profile must refuse without custody key")
+            .to_string();
             assert!(error.contains("no local-mode fallback"), "{error}");
         }
     }
 
     #[test]
+    fn a_release_build_refuses_the_development_key_even_under_the_development_profile() {
+        let error = wallet_secret_passphrase_from(
+            None,
+            None,
+            Some("development_cooperative".into()),
+            false,
+            RELEASE_BUILD,
+        )
+        .expect_err("a release build must never fall back to the development key")
+        .to_string();
+        assert!(error.contains("release build"), "{error}");
+        assert!(
+            wallet_secret_passphrase_from(None, None, None, true, RELEASE_BUILD).is_err(),
+            "the test-fixture fallback is a development-build fallback"
+        );
+        for (wallet, guardian) in [
+            (Some(DEVELOPMENT_SEALING_KEY.to_string()), None),
+            (None, Some(DEVELOPMENT_SEALING_KEY.to_string())),
+        ] {
+            let error = wallet_secret_passphrase_from(
+                wallet,
+                guardian,
+                Some("development_cooperative".into()),
+                false,
+                RELEASE_BUILD,
+            )
+            .expect_err("an explicit development key is refused by a release build")
+            .to_string();
+            assert!(error.contains("well-known development key"), "{error}");
+        }
+    }
+
+    #[test]
+    fn an_explicit_development_key_is_refused_outside_development_mode() {
+        for profile in [
+            None,
+            Some("sovereign_local_passphrase"),
+            Some("brokered_local"),
+            Some("remote_wallet"),
+            Some("production"),
+        ] {
+            for (wallet, guardian) in [
+                (Some(" local-mode ".to_string()), None),
+                (None, Some(DEVELOPMENT_SEALING_KEY.to_string())),
+            ] {
+                let error = wallet_secret_passphrase_from(
+                    wallet,
+                    guardian,
+                    profile.map(str::to_string),
+                    false,
+                    DEVELOPMENT_BUILD,
+                )
+                .expect_err("the development key is refused outside the development profile")
+                .to_string();
+                assert!(
+                    error.contains("well-known development key"),
+                    "{profile:?}: {error}"
+                );
+            }
+        }
+        assert_eq!(
+            wallet_secret_passphrase_from(
+                Some(DEVELOPMENT_SEALING_KEY.to_string()),
+                None,
+                Some("development_cooperative".into()),
+                false,
+                DEVELOPMENT_BUILD,
+            )
+            .expect("explicit development key inside development mode"),
+            DEVELOPMENT_SEALING_KEY
+        );
+    }
+
+    #[test]
     fn explicit_out_of_band_key_never_uses_fallback() {
-        assert_eq!(
-            wallet_secret_passphrase_from(
-                Some("wallet-key".into()),
-                None,
-                Some("sovereign_local_passphrase".into()),
-                false,
-            )
-            .expect("explicit wallet key"),
-            "wallet-key"
-        );
-        assert_eq!(
-            wallet_secret_passphrase_from(
-                None,
-                Some("guardian-key".into()),
-                Some("production".into()),
-                false,
-            )
-            .expect("explicit guardian key"),
-            "guardian-key"
-        );
+        for build in [DEVELOPMENT_BUILD, RELEASE_BUILD] {
+            assert_eq!(
+                wallet_secret_passphrase_from(
+                    Some("wallet-key".into()),
+                    None,
+                    Some("sovereign_local_passphrase".into()),
+                    false,
+                    build,
+                )
+                .expect("explicit wallet key"),
+                "wallet-key"
+            );
+            assert_eq!(
+                wallet_secret_passphrase_from(
+                    None,
+                    Some("guardian-key".into()),
+                    Some("production".into()),
+                    false,
+                    build,
+                )
+                .expect("explicit guardian key"),
+                "guardian-key"
+            );
+        }
     }
 }

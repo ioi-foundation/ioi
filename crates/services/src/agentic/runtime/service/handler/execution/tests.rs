@@ -1457,28 +1457,339 @@ impl ioi_api::state::StateAccess for MockState {
 
 #[test]
 fn firewall_attestation_signatures_are_real_and_verifiable() {
-    let mut state = MockState::default();
+    let data_dir = tempfile::tempdir().expect("temp data dir");
+    let keys = super::FirewallReceiptKeyStore::open_in_data_dir(data_dir.path()).expect("keys");
     let attestation = b"firewall.attestation.payload";
     let ctx = Some((ChainId(7), AccountId([9u8; 32])));
 
-    let sig = super::sign_firewall_attestation(&mut state, ctx, attestation)
+    let sig = super::sign_firewall_attestation(&keys, ctx, attestation)
         .expect("signature envelope should be generated");
-    super::verify_firewall_attestation_signature(attestation, &sig)
+    let envelope = super::verify_firewall_attestation_signature(attestation, &sig)
         .expect("signature envelope should verify");
+    assert_eq!(
+        envelope.key_id.as_deref(),
+        Some(keys.active_key_id().as_str())
+    );
 }
 
 #[test]
-fn firewall_attestation_signature_is_deterministic_for_same_signer_and_payload() {
-    let mut state = MockState::default();
+fn firewall_attestation_signature_is_deterministic_for_same_key_and_payload() {
+    let data_dir = tempfile::tempdir().expect("temp data dir");
+    let keys = super::FirewallReceiptKeyStore::open_in_data_dir(data_dir.path()).expect("keys");
     let attestation = b"deterministic.payload";
     let ctx = Some((ChainId(1), AccountId([3u8; 32])));
 
-    let first =
-        super::sign_firewall_attestation(&mut state, ctx, attestation).expect("first signature");
+    let first = super::sign_firewall_attestation(&keys, ctx, attestation).expect("first signature");
     let second =
-        super::sign_firewall_attestation(&mut state, ctx, attestation).expect("second signature");
+        super::sign_firewall_attestation(&keys, ctx, attestation).expect("second signature");
 
     assert_eq!(first, second);
+}
+
+// G7 / W0.7: the firewall receipt key is the host's own secret, and the receipt chain never
+// restarts silently.
+
+fn firewall_receipt_keys(data_dir: &Path) -> super::FirewallReceiptKeyStore {
+    super::FirewallReceiptKeyStore::open_in_data_dir(data_dir).expect("firewall receipt keys")
+}
+
+/// The pre-fix seed: sha256 over JCS of public values only. Reproduced here so the review test can
+/// show the new key is not it.
+fn legacy_public_value_seed(chain_id: ChainId, signer_account_id: AccountId) -> [u8; 32] {
+    let material = serde_json::json!({
+        "domain": "agentic.firewall.signing_key.v1",
+        "chain_id": chain_id.0,
+        "signer_account_id": hex::encode(signer_account_id.0),
+    });
+    let canonical = serde_jcs::to_vec(&material).expect("jcs");
+    let digest = ioi_crypto::algorithms::hash::sha256(&canonical).expect("sha256");
+    let mut seed = [0u8; 32];
+    seed.copy_from_slice(digest.as_ref());
+    seed
+}
+
+fn legacy_public_key(chain_id: ChainId, signer_account_id: AccountId) -> Vec<u8> {
+    use ioi_api::crypto::{SerializableKey, SigningKeyPair};
+    let seed = legacy_public_value_seed(chain_id, signer_account_id);
+    let private_key =
+        ioi_crypto::sign::eddsa::Ed25519PrivateKey::from_bytes(&seed).expect("legacy seed");
+    ioi_crypto::sign::eddsa::Ed25519KeyPair::from_private_key(&private_key)
+        .expect("legacy keypair")
+        .public_key()
+        .to_bytes()
+}
+
+const RECEIPT_SESSION: [u8; 32] = [0x5e; 32];
+const RECEIPT_SIGNER: Option<(ChainId, AccountId)> = Some((ChainId(0), AccountId([0u8; 32])));
+
+fn persist_receipt(
+    state: &mut MockState,
+    keys: &super::FirewallReceiptKeyStore,
+    step_index: u32,
+    tag: u8,
+) -> Result<[u8; 32], ioi_types::error::TransactionError> {
+    super::persist_firewall_decision_receipt(
+        state,
+        Some(keys),
+        RECEIPT_SESSION,
+        step_index,
+        [tag; 32],
+        [0xab; 32],
+        ioi_types::app::PolicyVerdict::Allow,
+        RECEIPT_SIGNER,
+    )
+}
+
+fn receipt_at_seq(state: &MockState, seq: u64) -> ioi_types::app::FirewallDecisionReceipt {
+    let bytes = state
+        .data
+        .get(&super::firewall_decision_seq_state_key(
+            RECEIPT_SESSION,
+            seq,
+        ))
+        .expect("sequenced receipt");
+    ioi_types::codec::from_bytes_canonical(bytes).expect("receipt")
+}
+
+#[test]
+fn firewall_receipt_key_is_not_a_function_of_public_inputs() {
+    // Two daemons with identical public configuration: the same chain id (the runtime-host lane
+    // uses ChainId(0)) and the same signer account.
+    let (chain_id, signer) = RECEIPT_SIGNER.expect("signer");
+    let first_dir = tempfile::tempdir().expect("first data dir");
+    let second_dir = tempfile::tempdir().expect("second data dir");
+    let first = firewall_receipt_keys(first_dir.path());
+    let second = firewall_receipt_keys(second_dir.path());
+
+    assert_ne!(first.active_public_key(), second.active_public_key());
+    assert_ne!(first.active_key_id(), second.active_key_id());
+    let legacy = legacy_public_key(chain_id, signer);
+    assert_ne!(
+        first.active_public_key(),
+        legacy,
+        "the key is not the old derivation"
+    );
+    assert_ne!(
+        second.active_public_key(),
+        legacy,
+        "the key is not the old derivation"
+    );
+
+    let payload = b"same payload, same public inputs";
+    let first_sig =
+        super::sign_firewall_attestation(&first, RECEIPT_SIGNER, payload).expect("first");
+    let second_sig =
+        super::sign_firewall_attestation(&second, RECEIPT_SIGNER, payload).expect("second");
+    assert_ne!(first_sig, second_sig);
+
+    // The secret lives in a 0600 file under the data dir, and nowhere in execution state.
+    let seed_path = first_dir
+        .path()
+        .join(crate::agentic::runtime::firewall_receipt_keys::FIREWALL_RECEIPT_KEY_DIR)
+        .join(format!("{}.ed25519", first.active_key_id()));
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::PermissionsExt;
+        let mode = std::fs::metadata(&seed_path)
+            .expect("seed file")
+            .permissions()
+            .mode()
+            & 0o777;
+        assert_eq!(mode, 0o600);
+    }
+    let seed = std::fs::read(&seed_path).expect("seed");
+    let mut state = MockState::default();
+    persist_receipt(&mut state, &first, 0, 1).expect("receipt");
+    assert!(
+        state.data.iter().all(
+            |(key, value)| !key.starts_with(b"agentic:firewall:signing_key")
+                && !value
+                    .windows(seed.len())
+                    .any(|window| window == seed.as_slice())
+        ),
+        "no signing seed is written to execution state"
+    );
+}
+
+#[test]
+fn firewall_receipts_chain_by_sequence_across_gaps_and_redecisions() {
+    let data_dir = tempfile::tempdir().expect("temp data dir");
+    let keys = firewall_receipt_keys(data_dir.path());
+    let mut state = MockState::default();
+
+    let genesis = persist_receipt(&mut state, &keys, 0, 1).expect("genesis");
+    // Steps 1-3 decided nothing; step 4's receipt still links to step 0's.
+    let second = persist_receipt(&mut state, &keys, 4, 2).expect("after a gap");
+    // Step 4 decided again (a resume after approval): it links to the first decision, and both
+    // stay walkable by sequence.
+    let third = persist_receipt(&mut state, &keys, 4, 3).expect("re-decision");
+
+    let receipts: Vec<_> = (0..3).map(|seq| receipt_at_seq(&state, seq)).collect();
+    assert_eq!(receipts[0].seq, 0);
+    assert_eq!(receipts[0].prev_receipt_hash, [0u8; 32]);
+    assert_eq!(receipts[1].seq, 1);
+    assert_eq!(receipts[1].prev_receipt_hash, genesis);
+    assert_eq!(receipts[2].seq, 2);
+    assert_eq!(receipts[2].prev_receipt_hash, second);
+    assert_eq!(
+        super::firewall_decision_receipt_hash(&receipts[2]).expect("hash"),
+        third
+    );
+    for receipt in &receipts {
+        assert_eq!(
+            super::verify_firewall_decision_receipt(receipt, &keys).expect("verifies"),
+            keys.active_key_id()
+        );
+    }
+}
+
+#[test]
+fn a_missing_previous_firewall_receipt_is_a_hard_error() {
+    let data_dir = tempfile::tempdir().expect("temp data dir");
+    let keys = firewall_receipt_keys(data_dir.path());
+
+    // The receipt the chain head names is gone.
+    let mut state = MockState::default();
+    persist_receipt(&mut state, &keys, 0, 1).expect("genesis");
+    persist_receipt(&mut state, &keys, 1, 2).expect("second");
+    state
+        .data
+        .remove(&super::firewall_decision_seq_state_key(RECEIPT_SESSION, 1));
+    let before = state.data.clone();
+    let error = persist_receipt(&mut state, &keys, 2, 3)
+        .expect_err("a missing previous receipt must not start a new chain")
+        .to_string();
+    assert!(error.contains("ReceiptChainBroken"), "{error}");
+    assert!(error.contains("missing"), "{error}");
+    assert_eq!(state.data, before, "a refused receipt writes nothing");
+
+    // The chain head itself is gone while sequenced receipts remain.
+    let mut state = MockState::default();
+    persist_receipt(&mut state, &keys, 0, 1).expect("genesis");
+    state
+        .data
+        .remove(&super::firewall_chain_head_state_key(RECEIPT_SESSION));
+    let error = persist_receipt(&mut state, &keys, 1, 2)
+        .expect_err("a lost head must not start a new chain")
+        .to_string();
+    assert!(error.contains("ReceiptChainBroken"), "{error}");
+
+    // The previous receipt was altered after it was written.
+    let mut state = MockState::default();
+    persist_receipt(&mut state, &keys, 0, 1).expect("genesis");
+    let mut altered = receipt_at_seq(&state, 0);
+    altered.verdict = ioi_types::app::PolicyVerdict::Block("rewritten".to_string());
+    state.data.insert(
+        super::firewall_decision_seq_state_key(RECEIPT_SESSION, 0),
+        ioi_types::codec::to_bytes_canonical(&altered).expect("encode"),
+    );
+    let error = persist_receipt(&mut state, &keys, 1, 2)
+        .expect_err("an altered previous receipt must refuse")
+        .to_string();
+    assert!(error.contains("ReceiptChainBroken"), "{error}");
+
+    // The previous receipt is signed by a key this host never held.
+    let mut state = MockState::default();
+    let other_dir = tempfile::tempdir().expect("other data dir");
+    let other = firewall_receipt_keys(other_dir.path());
+    persist_receipt(&mut state, &other, 0, 1).expect("foreign genesis");
+    let error = persist_receipt(&mut state, &keys, 1, 2)
+        .expect_err("a previous receipt from an unknown key must refuse")
+        .to_string();
+    assert!(error.contains("never held"), "{error}");
+}
+
+#[test]
+fn firewall_receipts_refuse_to_sign_without_a_host_key() {
+    let mut state = MockState::default();
+    let error = super::persist_firewall_decision_receipt(
+        &mut state,
+        None,
+        RECEIPT_SESSION,
+        0,
+        [1; 32],
+        [2; 32],
+        ioi_types::app::PolicyVerdict::Allow,
+        RECEIPT_SIGNER,
+    )
+    .expect_err("no host key, no receipt")
+    .to_string();
+    assert!(error.contains("not configured"), "{error}");
+    assert!(state.data.is_empty());
+}
+
+#[test]
+fn receipts_signed_before_a_key_rotation_still_verify() {
+    let data_dir = tempfile::tempdir().expect("temp data dir");
+    let keys = firewall_receipt_keys(data_dir.path());
+    let mut state = MockState::default();
+    persist_receipt(&mut state, &keys, 0, 1).expect("before rotation");
+    let old_key = keys.active_key_id();
+    let new_key = keys.rotate().expect("rotate");
+    // Linking the next receipt verifies the previous one against its (now retired) key.
+    persist_receipt(&mut state, &keys, 1, 2).expect("after rotation");
+
+    let reopened = firewall_receipt_keys(data_dir.path());
+    assert_eq!(
+        super::verify_firewall_decision_receipt(&receipt_at_seq(&state, 0), &reopened)
+            .expect("old receipt verifies"),
+        old_key
+    );
+    assert_eq!(
+        super::verify_firewall_decision_receipt(&receipt_at_seq(&state, 1), &reopened)
+            .expect("new receipt verifies"),
+        new_key
+    );
+}
+
+#[test]
+fn a_legacy_chain_continues_instead_of_restarting() {
+    use ioi_api::crypto::{SerializableKey, SigningKeyPair};
+    let (chain_id, signer) = RECEIPT_SIGNER.expect("signer");
+    let data_dir = tempfile::tempdir().expect("temp data dir");
+    let keys = firewall_receipt_keys(data_dir.path());
+    let mut state = MockState::default();
+
+    // A receipt written before the fix: keyed by step only, no chain head, and signed with the
+    // seed derived from public values.
+    let legacy_keypair = ioi_crypto::sign::eddsa::Ed25519KeyPair::from_private_key(
+        &ioi_crypto::sign::eddsa::Ed25519PrivateKey::from_bytes(&legacy_public_value_seed(
+            chain_id, signer,
+        ))
+        .expect("legacy seed"),
+    )
+    .expect("legacy keypair");
+    let verdict = ioi_types::app::PolicyVerdict::Allow;
+    let attestation =
+        super::firewall_attestation_bytes([7; 32], [8; 32], &verdict, 3, [0; 32]).expect("bytes");
+    let envelope = super::LegacyFirewallSignatureEnvelope {
+        suite: ioi_types::app::SignatureSuite::ED25519,
+        signer_account_id: signer.0,
+        public_key: legacy_keypair.public_key().to_bytes(),
+        signature: legacy_keypair.sign(&attestation).expect("sign").to_bytes(),
+    };
+    let legacy = ioi_types::app::FirewallDecisionReceipt {
+        request_hash: [7; 32],
+        policy_hash: [8; 32],
+        verdict,
+        seq: 3,
+        prev_receipt_hash: [0; 32],
+        guardian_sig: ioi_types::codec::to_bytes_canonical(&envelope).expect("envelope"),
+    };
+    state.data.insert(
+        super::firewall_decision_state_key(RECEIPT_SESSION, 3),
+        ioi_types::codec::to_bytes_canonical(&legacy).expect("legacy receipt"),
+    );
+    // The legacy signature is intact, but nothing vouches for a derivable key.
+    assert!(super::verify_firewall_decision_receipt(&legacy, &keys).is_err());
+
+    persist_receipt(&mut state, &keys, 4, 1).expect("continues the legacy chain");
+    let next = receipt_at_seq(&state, 4);
+    assert_eq!(next.seq, 4);
+    assert_eq!(
+        next.prev_receipt_hash,
+        super::firewall_decision_receipt_hash(&legacy).expect("legacy hash")
+    );
 }
 
 #[test]

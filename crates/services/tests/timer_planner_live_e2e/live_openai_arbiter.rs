@@ -19,6 +19,8 @@ async fn timer_query_live_openai_e2e_with_model_arbiter() -> Result<()> {
     let (tx, mut rx) = tokio::sync::broadcast::channel(512);
     let memory_runtime = build_memory_runtime();
 
+    // Firewall receipts are signed with a host-held key; the fixture's lives in a temp dir.
+    let receipt_keys_dir = tempfile::tempdir()?;
     let service = RuntimeAgentService::new_hybrid(
         Arc::new(NoopGuiDriver),
         Arc::new(TerminalDriver::new()),
@@ -28,7 +30,12 @@ async fn timer_query_live_openai_e2e_with_model_arbiter() -> Result<()> {
     )
     .with_memory_runtime(memory_runtime)
     .with_event_sender(tx)
-    .with_os_driver(Arc::new(NoopOsDriver));
+    .with_os_driver(Arc::new(NoopOsDriver))
+    .with_firewall_receipt_key_store(Arc::new(
+        ioi_services::agentic::runtime::FirewallReceiptKeyStore::open_in_data_dir(
+            receipt_keys_dir.path(),
+        )?,
+    ));
 
     let mut state = IAVLTree::new(HashCommitmentScheme::new());
     let services_dir = ServiceDirectory::new(vec![]);

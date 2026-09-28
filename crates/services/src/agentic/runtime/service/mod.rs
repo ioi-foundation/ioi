@@ -149,6 +149,10 @@ pub struct RuntimeAgentService {
     pub(crate) harness_worker_attach_receipt: HarnessWorkerAttachReceipt,
     /// Durable worker session record keyed by workflow activation and runtime session.
     pub(crate) harness_worker_session_record: HarnessWorkerSessionRecord,
+    /// The host-held key that signs FirewallDecisionReceipts (G7 / W0.7). It is never derived from
+    /// public values and never kept in execution state. Without it, receipt signing fails closed.
+    pub(crate) firewall_receipt_keys:
+        Option<Arc<crate::agentic::runtime::firewall_receipt_keys::FirewallReceiptKeyStore>>,
 }
 
 /// Snapshot of the active transaction context used by action execution helpers.

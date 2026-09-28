@@ -191,8 +191,131 @@ fn persist_determinism_evidence(
     Ok(())
 }
 
+/// Find where the next firewall decision receipt of `session_id` links: its `seq` and the hash of
+/// the receipt before it.
+///
+/// The chain never restarts silently. A session with a chain head must still hold the receipt the
+/// head names, unaltered and signed by a key this host holds; anything else is a hard error. A
+/// session without a head is either new (genesis) or was written before heads existed, in which
+/// case the chain continues from its latest legacy receipt instead of starting over beside it.
+fn resolve_firewall_chain_link(
+    state: &dyn StateAccess,
+    key_store: &FirewallReceiptKeyStore,
+    session_id: [u8; 32],
+) -> Result<(u64, [u8; 32]), TransactionError> {
+    let broken = |detail: String| {
+        TransactionError::Invalid(format!(
+            "ERROR_CLASS=ReceiptChainBroken Firewall receipt chain for session {}: {}; refusing to start a new chain",
+            hex::encode(&session_id[..8]),
+            detail
+        ))
+    };
+
+    if let Some(head_bytes) = state.get(&firewall_chain_head_state_key(session_id))? {
+        let head: FirewallChainHead = codec::from_bytes_canonical(&head_bytes)
+            .map_err(|e| broken(format!("the chain head is unreadable ({e})")))?;
+        let prev_bytes = state
+            .get(&firewall_decision_seq_state_key(session_id, head.seq))?
+            .ok_or_else(|| {
+                broken(format!(
+                    "the previous receipt (seq {}, step {}) is missing",
+                    head.seq, head.step_index
+                ))
+            })?;
+        let prev: FirewallDecisionReceipt =
+            codec::from_bytes_canonical(&prev_bytes).map_err(|e| {
+                broken(format!(
+                    "the previous receipt (seq {}) is unreadable ({e})",
+                    head.seq
+                ))
+            })?;
+        let prev_hash = firewall_decision_receipt_hash(&prev)?;
+        if prev.seq != head.seq || prev_hash != head.receipt_hash {
+            return Err(broken(format!(
+                "the previous receipt (seq {}) does not match the chain head",
+                head.seq
+            )));
+        }
+        verify_firewall_decision_receipt(&prev, key_store).map_err(|e| {
+            broken(format!(
+                "the previous receipt (seq {}) does not verify ({e})",
+                head.seq
+            ))
+        })?;
+        let seq = head
+            .seq
+            .checked_add(1)
+            .ok_or_else(|| broken("the sequence is exhausted".to_string()))?;
+        return Ok((seq, prev_hash));
+    }
+
+    let mut seq_prefix = FIREWALL_DECISION_SEQ_STATE_PREFIX.to_vec();
+    seq_prefix.extend_from_slice(&session_id);
+    if state.prefix_scan(&seq_prefix)?.next().is_some() {
+        return Err(broken(
+            "the chain head is missing while sequenced receipts exist".to_string(),
+        ));
+    }
+
+    // Receipts written before chain heads existed are keyed only by step. Continue from the
+    // latest of them. Keys are matched from the end, since a namespaced state returns them
+    // qualified.
+    let mut step_prefix = FIREWALL_DECISION_STATE_PREFIX.to_vec();
+    step_prefix.extend_from_slice(&session_id);
+    let mut latest: Option<(u32, Vec<u8>)> = None;
+    for entry in state.prefix_scan(&step_prefix)? {
+        let (key, value) = entry?;
+        let Some(split) = key.len().checked_sub(std::mem::size_of::<u32>()) else {
+            continue;
+        };
+        if !key[..split].ends_with(&step_prefix) {
+            continue;
+        }
+        let mut step_bytes = [0u8; 4];
+        step_bytes.copy_from_slice(&key[split..]);
+        let step = u32::from_be_bytes(step_bytes);
+        if latest
+            .as_ref()
+            .map_or(true, |(latest_step, _)| step > *latest_step)
+        {
+            latest = Some((step, value.to_vec()));
+        }
+    }
+    let Some((step, prev_bytes)) = latest else {
+        return Ok((0, [0u8; 32]));
+    };
+    let prev: FirewallDecisionReceipt = codec::from_bytes_canonical(&prev_bytes).map_err(|e| {
+        broken(format!(
+            "the legacy receipt at step {step} is unreadable ({e})"
+        ))
+    })?;
+    if decode_firewall_signature(&prev.guardian_sig)
+        .map_err(|e| broken(format!("the receipt at step {step} is unreadable ({e})")))?
+        .key_id
+        .is_some()
+    {
+        // Only a writer that also writes the head names a host key, so the head was lost.
+        return Err(broken(format!(
+            "the chain head is missing while the receipt at step {step} names a host key"
+        )));
+    }
+    log::warn!(
+        "Firewall receipt chain for session {} continues from legacy receipt seq {} (step {}); receipts up to it were signed with a key derived from public values",
+        hex::encode(&session_id[..8]),
+        prev.seq,
+        step
+    );
+    let prev_hash = firewall_decision_receipt_hash(&prev)?;
+    let seq = prev
+        .seq
+        .checked_add(1)
+        .ok_or_else(|| broken("the sequence is exhausted".to_string()))?;
+    Ok((seq, prev_hash))
+}
+
 fn persist_firewall_decision_receipt(
     state: &mut dyn StateAccess,
+    key_store: Option<&FirewallReceiptKeyStore>,
     session_id: [u8; 32],
     step_index: u32,
     request_hash: [u8; 32],
@@ -200,31 +323,12 @@ fn persist_firewall_decision_receipt(
     verdict: PolicyVerdict,
     signing_context: Option<(ChainId, AccountId)>,
 ) -> Result<[u8; 32], TransactionError> {
-    let (seq, prev_receipt_hash) = if step_index == 0 {
-        (0u64, [0u8; 32])
-    } else {
-        let prev_key = firewall_decision_state_key(session_id, step_index.saturating_sub(1));
-        let prev = state
-            .get(&prev_key)?
-            .and_then(|bytes| codec::from_bytes_canonical::<FirewallDecisionReceipt>(&bytes).ok());
-        if let Some(prev) = prev {
-            let prev_hash = firewall_decision_receipt_hash(&prev)?;
-            (prev.seq.saturating_add(1), prev_hash)
-        } else {
-            (step_index as u64, [0u8; 32])
-        }
-    };
+    let key_store = key_store.ok_or_else(missing_firewall_receipt_key_error)?;
+    let (seq, prev_receipt_hash) = resolve_firewall_chain_link(&*state, key_store, session_id)?;
 
-    let attestation_payload = json!({
-        "request_hash": request_hash,
-        "policy_hash": policy_hash,
-        "verdict": verdict,
-        "seq": seq,
-        "prev_receipt_hash": prev_receipt_hash,
-    });
-    let attestation_bytes = serde_jcs::to_vec(&attestation_payload)
-        .map_err(|e| TransactionError::Serialization(e.to_string()))?;
-    let guardian_sig = sign_firewall_attestation(state, signing_context, &attestation_bytes)?;
+    let attestation_bytes =
+        firewall_attestation_bytes(request_hash, policy_hash, &verdict, seq, prev_receipt_hash)?;
+    let guardian_sig = sign_firewall_attestation(key_store, signing_context, &attestation_bytes)?;
 
     let receipt = FirewallDecisionReceipt {
         request_hash,
@@ -234,11 +338,22 @@ fn persist_firewall_decision_receipt(
         prev_receipt_hash,
         guardian_sig,
     };
-    let key = firewall_decision_state_key(session_id, step_index);
     let bytes = codec::to_bytes_canonical(&receipt)
         .map_err(|e| TransactionError::Serialization(e.to_string()))?;
-    state.insert(&key, &bytes)?;
-    firewall_decision_receipt_hash(&receipt)
+    let receipt_hash = firewall_decision_receipt_hash(&receipt)?;
+    // The sequenced copy first and the head last: a head is only ever written over a receipt
+    // that is already in place.
+    state.insert(&firewall_decision_seq_state_key(session_id, seq), &bytes)?;
+    state.insert(&firewall_decision_state_key(session_id, step_index), &bytes)?;
+    let head = FirewallChainHead {
+        seq,
+        step_index,
+        receipt_hash,
+    };
+    let head_bytes = codec::to_bytes_canonical(&head)
+        .map_err(|e| TransactionError::Serialization(e.to_string()))?;
+    state.insert(&firewall_chain_head_state_key(session_id), &head_bytes)?;
+    Ok(receipt_hash)
 }
 
 fn persist_policy_decision_record(

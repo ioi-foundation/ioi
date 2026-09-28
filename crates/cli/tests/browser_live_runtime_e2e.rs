@@ -364,6 +364,8 @@ async fn browser_live_http_runtime_validation() -> Result<()> {
     let memory_runtime = build_memory_runtime()?;
 
     let (tx, mut rx) = broadcast::channel(512);
+    // Firewall receipts are signed with a host-held key; the fixture's lives in a temp dir.
+    let receipt_keys_dir = tempfile::tempdir().expect("firewall receipt key dir");
     let service = RuntimeAgentService::new_hybrid(
         Arc::new(NoopGuiDriver),
         Arc::new(TerminalDriver::new()),
@@ -373,7 +375,13 @@ async fn browser_live_http_runtime_validation() -> Result<()> {
     )
     .with_memory_runtime(memory_runtime)
     .with_event_sender(tx)
-    .with_os_driver(Arc::new(NoopOsDriver));
+    .with_os_driver(Arc::new(NoopOsDriver))
+    .with_firewall_receipt_key_store(Arc::new(
+        ioi_services::agentic::runtime::FirewallReceiptKeyStore::open_in_data_dir(
+            receipt_keys_dir.path(),
+        )
+        .expect("firewall receipt keys"),
+    ));
 
     let mut state = IAVLTree::new(HashCommitmentScheme::new());
     let services_dir = ServiceDirectory::new(vec![]);

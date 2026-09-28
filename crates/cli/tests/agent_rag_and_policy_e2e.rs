@@ -205,6 +205,8 @@ async fn test_agent_rag_and_policy_enforcement() -> Result<()> {
     let gui = Arc::new(MockGuiDriver);
 
     // 3. Setup Service
+    // Firewall receipts are signed with a host-held key; the fixture's lives in a temp dir.
+    let receipt_keys_dir = tempfile::tempdir().expect("firewall receipt key dir");
     let service = RuntimeAgentService::new_hybrid(
         gui,
         Arc::new(TerminalDriver::new()),
@@ -212,7 +214,13 @@ async fn test_agent_rag_and_policy_enforcement() -> Result<()> {
         brain.clone(),
         brain.clone(),
     )
-    .with_memory_runtime(memory_runtime.clone());
+    .with_memory_runtime(memory_runtime.clone())
+    .with_firewall_receipt_key_store(Arc::new(
+        ioi_services::agentic::runtime::FirewallReceiptKeyStore::open_in_data_dir(
+            receipt_keys_dir.path(),
+        )
+        .expect("firewall receipt keys"),
+    ));
 
     // 4. Setup Chain State
     let mut state = IAVLTree::new(HashCommitmentScheme::new());

@@ -4,6 +4,7 @@ use crate::agentic::fitness::LlmEvaluator;
 use crate::agentic::optimizer::OptimizerService;
 use crate::agentic::pii_adapter::RuntimeAsPiiModel;
 use crate::agentic::pii_scrubber::PiiScrubber;
+use crate::agentic::runtime::firewall_receipt_keys::FirewallReceiptKeyStore;
 
 use ioi_api::ibc::AgentZkVerifier;
 use ioi_api::vm::drivers::gui::GuiDriver;
@@ -107,6 +108,7 @@ impl RuntimeAgentService {
             harness_worker_binding_registry_record,
             harness_worker_attach_receipt,
             harness_worker_session_record,
+            firewall_receipt_keys: None,
         }
     }
 
@@ -166,11 +168,19 @@ impl RuntimeAgentService {
             harness_worker_binding_registry_record,
             harness_worker_attach_receipt,
             harness_worker_session_record,
+            firewall_receipt_keys: None,
         }
     }
 
     pub fn with_workspace_path(mut self, path: String) -> Self {
         self.workspace_path = path;
+        self
+    }
+
+    /// Give the service the host-held key that signs FirewallDecisionReceipts. A host that
+    /// executes actions against state must supply one; signing refuses without it.
+    pub fn with_firewall_receipt_key_store(mut self, keys: Arc<FirewallReceiptKeyStore>) -> Self {
+        self.firewall_receipt_keys = Some(keys);
         self
     }
 

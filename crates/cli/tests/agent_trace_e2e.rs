@@ -195,6 +195,8 @@ async fn test_agent_trace_records_ui_step() -> Result<()> {
 
     let memory_runtime =
         Arc::new(ioi_memory::MemoryRuntime::open_sqlite_in_memory().expect("memory runtime"));
+    // Firewall receipts are signed with a host-held key; the fixture's lives in a temp dir.
+    let receipt_keys_dir = tempfile::tempdir().expect("firewall receipt key dir");
     let service = RuntimeAgentService::new(
         mock_gui,
         Arc::new(TerminalDriver::new()),
@@ -202,7 +204,13 @@ async fn test_agent_trace_records_ui_step() -> Result<()> {
         mock_brain.clone(),
     )
     .with_os_driver(Arc::new(MockOsDriver))
-    .with_memory_runtime(memory_runtime.clone());
+    .with_memory_runtime(memory_runtime.clone())
+    .with_firewall_receipt_key_store(Arc::new(
+        ioi_services::agentic::runtime::FirewallReceiptKeyStore::open_in_data_dir(
+            receipt_keys_dir.path(),
+        )
+        .expect("firewall receipt keys"),
+    ));
     let mut state = IAVLTree::new(HashCommitmentScheme::new());
 
     // 2. Seed a runtime-eligible Skill through the registry + memory recall path.

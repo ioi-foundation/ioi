@@ -8,15 +8,20 @@ fn firewall_decision_state_key(session_id: [u8; 32], step_index: u32) -> Vec<u8>
     key
 }
 
-fn firewall_signing_key_state_key(chain_id: ChainId, signer_account_id: AccountId) -> Vec<u8> {
+fn firewall_decision_seq_state_key(session_id: [u8; 32], seq: u64) -> Vec<u8> {
     let mut key = Vec::with_capacity(
-        FIREWALL_SIGNING_KEY_STATE_PREFIX.len()
-            + std::mem::size_of::<u32>()
-            + signer_account_id.0.len(),
+        FIREWALL_DECISION_SEQ_STATE_PREFIX.len() + session_id.len() + std::mem::size_of::<u64>(),
     );
-    key.extend_from_slice(FIREWALL_SIGNING_KEY_STATE_PREFIX);
-    key.extend_from_slice(&chain_id.0.to_be_bytes());
-    key.extend_from_slice(&signer_account_id.0);
+    key.extend_from_slice(FIREWALL_DECISION_SEQ_STATE_PREFIX);
+    key.extend_from_slice(&session_id);
+    key.extend_from_slice(&seq.to_be_bytes());
+    key
+}
+
+fn firewall_chain_head_state_key(session_id: [u8; 32]) -> Vec<u8> {
+    let mut key = Vec::with_capacity(FIREWALL_CHAIN_HEAD_STATE_PREFIX.len() + session_id.len());
+    key.extend_from_slice(FIREWALL_CHAIN_HEAD_STATE_PREFIX);
+    key.extend_from_slice(&session_id);
     key
 }
 
@@ -36,61 +41,79 @@ fn firewall_decision_receipt_hash(
     Ok(out)
 }
 
-fn derive_firewall_signing_seed(
-    chain_id: ChainId,
-    signer_account_id: AccountId,
-) -> Result<[u8; 32], TransactionError> {
-    let seed_material = json!({
-        "domain": "agentic.firewall.signing_key.v1",
-        "chain_id": chain_id.0,
-        "signer_account_id": hex::encode(signer_account_id.0),
+/// The bytes a firewall decision receipt's signature covers.
+fn firewall_attestation_bytes(
+    request_hash: [u8; 32],
+    policy_hash: [u8; 32],
+    verdict: &PolicyVerdict,
+    seq: u64,
+    prev_receipt_hash: [u8; 32],
+) -> Result<Vec<u8>, TransactionError> {
+    let attestation_payload = json!({
+        "request_hash": request_hash,
+        "policy_hash": policy_hash,
+        "verdict": verdict,
+        "seq": seq,
+        "prev_receipt_hash": prev_receipt_hash,
     });
-    let canonical = serde_jcs::to_vec(&seed_material)
-        .map_err(|e| TransactionError::Serialization(e.to_string()))?;
-    let digest = sha256(&canonical).map_err(|e| {
-        TransactionError::Invalid(format!(
-            "ERROR_CLASS=DeterminismBoundary Firewall signing seed derivation failed: {}",
-            e
-        ))
-    })?;
-    let mut seed = [0u8; 32];
-    seed.copy_from_slice(digest.as_ref());
-    Ok(seed)
+    serde_jcs::to_vec(&attestation_payload)
+        .map_err(|e| TransactionError::Serialization(e.to_string()))
 }
 
-fn load_or_init_firewall_signing_seed(
-    state: &mut dyn StateAccess,
-    chain_id: ChainId,
-    signer_account_id: AccountId,
-) -> Result<[u8; 32], TransactionError> {
-    let key = firewall_signing_key_state_key(chain_id, signer_account_id);
-    if let Some(existing) = state.get(&key)? {
-        if existing.len() != 32 {
+/// A decoded `guardian_sig`. `key_id` is `None` for a legacy receipt, whose seed was derived from
+/// public values.
+struct DecodedFirewallSignature {
+    suite: SignatureSuite,
+    key_id: Option<String>,
+    public_key: Vec<u8>,
+    signature: Vec<u8>,
+}
+
+fn decode_firewall_signature(
+    encoded_envelope: &[u8],
+) -> Result<DecodedFirewallSignature, TransactionError> {
+    let decode_error = |e: String| {
+        TransactionError::Invalid(format!(
+            "ERROR_CLASS=DeterminismBoundary Firewall signature envelope decode failed: {}",
+            e
+        ))
+    };
+    if let Some(body) = encoded_envelope.strip_prefix(FIREWALL_SIGNATURE_ENVELOPE_V2_MAGIC) {
+        let envelope: FirewallSignatureEnvelope =
+            codec::from_bytes_canonical(body).map_err(decode_error)?;
+        // The key id is the digest of the public key, so an envelope cannot name one key and
+        // carry another.
+        if crate::agentic::runtime::firewall_receipt_keys::firewall_receipt_key_id(
+            &envelope.public_key,
+        ) != envelope.key_id
+        {
             return Err(TransactionError::Invalid(format!(
-                "ERROR_CLASS=DeterminismBoundary Firewall signing seed malformed (len={})",
-                existing.len()
+                "ERROR_CLASS=DeterminismBoundary Firewall signature names key {} but carries a different public key",
+                envelope.key_id
             )));
         }
-        let mut seed = [0u8; 32];
-        seed.copy_from_slice(&existing);
-        return Ok(seed);
+        return Ok(DecodedFirewallSignature {
+            suite: envelope.suite,
+            key_id: Some(envelope.key_id),
+            public_key: envelope.public_key,
+            signature: envelope.signature,
+        });
     }
-    let seed = derive_firewall_signing_seed(chain_id, signer_account_id)?;
-    state.insert(&key, &seed)?;
-    Ok(seed)
+    let legacy: LegacyFirewallSignatureEnvelope =
+        codec::from_bytes_canonical(encoded_envelope).map_err(decode_error)?;
+    Ok(DecodedFirewallSignature {
+        suite: legacy.suite,
+        key_id: None,
+        public_key: legacy.public_key,
+        signature: legacy.signature,
+    })
 }
 
 fn verify_firewall_attestation_signature(
     attestation_bytes: &[u8],
     encoded_envelope: &[u8],
-) -> Result<(), TransactionError> {
-    let envelope: FirewallSignatureEnvelope = codec::from_bytes_canonical(encoded_envelope)
-        .map_err(|e| {
-            TransactionError::Invalid(format!(
-                "ERROR_CLASS=DeterminismBoundary Firewall signature envelope decode failed: {}",
-                e
-            ))
-        })?;
+) -> Result<DecodedFirewallSignature, TransactionError> {
+    let envelope = decode_firewall_signature(encoded_envelope)?;
     if envelope.suite != SignatureSuite::ED25519 {
         return Err(TransactionError::Invalid(format!(
             "ERROR_CLASS=DeterminismBoundary Unsupported firewall signature suite: {}",
@@ -118,33 +141,26 @@ fn verify_firewall_attestation_signature(
                 e
             ))
         })?;
-    Ok(())
+    Ok(envelope)
+}
+
+fn missing_firewall_receipt_key_error() -> TransactionError {
+    TransactionError::Invalid(
+        "ERROR_CLASS=DeterminismBoundary Firewall receipt signing key is not configured: the host must hold its own key (FirewallReceiptKeyStore); a key derived from public values is never used.".to_string(),
+    )
 }
 
 fn sign_firewall_attestation(
-    state: &mut dyn StateAccess,
+    key_store: &FirewallReceiptKeyStore,
     signing_context: Option<(ChainId, AccountId)>,
     attestation_bytes: &[u8],
 ) -> Result<Vec<u8>, TransactionError> {
-    let (chain_id, signer_account_id) = signing_context.ok_or_else(|| {
+    let (_chain_id, signer_account_id) = signing_context.ok_or_else(|| {
         TransactionError::Invalid(
             "ERROR_CLASS=DeterminismBoundary Missing firewall signing context.".to_string(),
         )
     })?;
-    let seed = load_or_init_firewall_signing_seed(state, chain_id, signer_account_id)?;
-    let private_key = Ed25519PrivateKey::from_bytes(&seed).map_err(|e| {
-        TransactionError::Invalid(format!(
-            "ERROR_CLASS=DeterminismBoundary Firewall signing private key decode failed: {}",
-            e
-        ))
-    })?;
-    let keypair = Ed25519KeyPair::from_private_key(&private_key).map_err(|e| {
-        TransactionError::Invalid(format!(
-            "ERROR_CLASS=DeterminismBoundary Firewall signing keypair derivation failed: {}",
-            e
-        ))
-    })?;
-    let signature = keypair.sign(attestation_bytes).map_err(|e| {
+    let signed = key_store.sign(attestation_bytes).map_err(|e| {
         TransactionError::Invalid(format!(
             "ERROR_CLASS=DeterminismBoundary Firewall attestation sign failed: {}",
             e
@@ -153,13 +169,53 @@ fn sign_firewall_attestation(
     let envelope = FirewallSignatureEnvelope {
         suite: SignatureSuite::ED25519,
         signer_account_id: signer_account_id.0,
-        public_key: keypair.public_key().to_bytes(),
-        signature: signature.to_bytes(),
+        key_id: signed.key_id,
+        public_key: signed.public_key,
+        signature: signed.signature,
     };
-    let encoded = codec::to_bytes_canonical(&envelope)
-        .map_err(|e| TransactionError::Serialization(e.to_string()))?;
+    let mut encoded = FIREWALL_SIGNATURE_ENVELOPE_V2_MAGIC.to_vec();
+    encoded.extend(
+        codec::to_bytes_canonical(&envelope)
+            .map_err(|e| TransactionError::Serialization(e.to_string()))?,
+    );
     verify_firewall_attestation_signature(attestation_bytes, &encoded)?;
     Ok(encoded)
+}
+
+/// Verify one receipt against the key this host holds for the key id it names, and return that
+/// key id. A legacy receipt is refused: its key was derivable, so its signature vouches for nothing.
+fn verify_firewall_decision_receipt(
+    receipt: &FirewallDecisionReceipt,
+    key_store: &FirewallReceiptKeyStore,
+) -> Result<String, TransactionError> {
+    let attestation_bytes = firewall_attestation_bytes(
+        receipt.request_hash,
+        receipt.policy_hash,
+        &receipt.verdict,
+        receipt.seq,
+        receipt.prev_receipt_hash,
+    )?;
+    let envelope =
+        verify_firewall_attestation_signature(&attestation_bytes, &receipt.guardian_sig)?;
+    let key_id = envelope.key_id.ok_or_else(|| {
+        TransactionError::Invalid(
+            "ERROR_CLASS=DeterminismBoundary Firewall receipt is signed with a legacy key derived from public values; it cannot be verified as this host's".to_string(),
+        )
+    })?;
+    let held = key_store
+        .public_key_for(&key_id)
+        .map_err(|e| TransactionError::Invalid(format!("ERROR_CLASS=DeterminismBoundary {e}")))?
+        .ok_or_else(|| {
+            TransactionError::Invalid(format!(
+                "ERROR_CLASS=DeterminismBoundary Firewall receipt names key {key_id}, which this host has never held"
+            ))
+        })?;
+    if held != envelope.public_key {
+        return Err(TransactionError::Invalid(format!(
+            "ERROR_CLASS=DeterminismBoundary Firewall receipt key {key_id} does not match the key this host holds"
+        )));
+    }
+    Ok(key_id)
 }
 
 fn compute_policy_hash(rules: &ActionRules) -> Result<[u8; 32], TransactionError> {
@@ -229,6 +285,7 @@ fn emit_policy_decision_and_exit(
         persist_policy_decision_record(state, session_id, step_index, &policy_decision)?;
         Some(persist_firewall_decision_receipt(
             state,
+            service.firewall_receipt_keys.as_deref(),
             session_id,
             step_index,
             determinism.request_hash,
@@ -548,6 +605,7 @@ async fn enforce_policy_and_record(
         persist_policy_decision_record(state, session_id, step_index, &policy_decision)?;
         Some(persist_firewall_decision_receipt(
             state,
+            service.firewall_receipt_keys.as_deref(),
             session_id,
             step_index,
             determinism.request_hash,

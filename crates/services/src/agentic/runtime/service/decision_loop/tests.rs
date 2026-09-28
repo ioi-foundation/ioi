@@ -1342,6 +1342,9 @@ fn build_test_service() -> RuntimeAgentService {
         Arc::new(BrowserDriver::new()),
         runtime,
     )
+    .with_firewall_receipt_key_store(
+        crate::agentic::runtime::firewall_receipt_keys::test_firewall_receipt_keys(),
+    )
 }
 
 fn build_test_service_hybrid(
@@ -1355,6 +1358,9 @@ fn build_test_service_hybrid(
         Arc::new(BrowserDriver::new()),
         fast_inference,
         reasoning_inference,
+    )
+    .with_firewall_receipt_key_store(
+        crate::agentic::runtime::firewall_receipt_keys::test_firewall_receipt_keys(),
     )
 }
 
