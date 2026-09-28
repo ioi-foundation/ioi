@@ -59,6 +59,7 @@ import { handleOntologyFunctions } from "./ontology-functions.mjs";
 import * as AUTOMATE from "./adopted-automate.mjs";
 import * as FUNCTIONS from "./adopted-functions.mjs";
 import * as PIPELINE from "./adopted-pipeline.mjs";
+import * as ONTOLOGY from "./adopted-ontology.mjs";
 import { revisionFamilyOf as ontologyRevisionFamilyOf } from "../surfaces/ontology-manager/index.mjs";
 import { answerDocument as answerAdoptedDocument } from "./adopted-graphql.mjs";
 import { isJustificationPrompt, justificationPayload, renderJustificationPrompt } from "./justification-prompt.mjs";
@@ -9304,6 +9305,13 @@ async function handleEstateRequest(req, res, body) {
         const draftFamilies = drafts.map((d) => ({ family: owner ? ontologyRevisionFamilyOf(d.id, owner)?.family : null, domain: d.domain, description: d.description }));
         return PIPELINE.ontologyCatalogOf(families.filter(Boolean), draftFamilies);
       };
+      // The caller's ontologies with their object models, as the adopted Ontology Manager reads them (adopted-ontology.mjs).
+      const ontologyModels = async () => {
+        const who = await planeRead("/v1/hypervisor/auth/whoami");
+        const owner = (who.principal?.tenant_refs || []).find((t) => String(t).startsWith("org://"));
+        const drafts = await planeRead("/v1/hypervisor/odk/domain-ontologies").then((j) => j.ontologies || []);
+        return { owner, models: owner ? ONTOLOGY.ontologyModelsOf(drafts, owner, ontologyRevisionFamilyOf) : [] };
+      };
       // A family's TransformationRuns are its deployments (History): the run plane lists the families the caller
       // sees runs for, and only those are read (a family with no run has no run scope to read).
       const pipelineContext = async () => {
@@ -9371,6 +9379,10 @@ async function handleEstateRequest(req, res, body) {
       const answerAdoptedOpInner = async (name, variables, ctxA, query = "") => {
         if (AUTOMATE.OPERATIONS.has(name)) return { data: AUTOMATE.graphqlAnswer(name, variables || {}, ctxA) };
         if (AUTOMATE.USER_STATE_OPERATIONS.has(name)) return answerUserState(name, variables || {}, ctxA, query);
+        if (ONTOLOGY.ONTOLOGY_GRAPHQL_OPERATIONS.has(name) && query) {
+          const [{ models }, functionCount] = await Promise.all([ontologyModels(), planeRead("/v1/hypervisor/functions").then((j) => (j.functions || []).length).catch(() => 0)]);
+          return { data: answerAdoptedDocument(query, ONTOLOGY.ontologyGraphqlFacts(name, variables || {}, { models, functionCount }), null, name) };
+        }
         if (!PIPELINE.PIPELINE_OPERATIONS.has(name) && PIPELINE.answersPipelineOperation(name, variables) && query) {
           // the reference's recorded answer to the same generic read (Automate's harvest) lends STRUCTURE only
           const template = AUTOMATE.harvestOperations(ADOPT_MIRROR_DIR).get(name)?.data || null;
@@ -10684,6 +10696,21 @@ async function handleEstateRequest(req, res, body) {
         res.writeHead(200, { "Content-Type": "application/json" });
         return res.end(JSON.stringify(AUTOMATE.profilesFor(ids, principals)));
       }
+      // THE ADOPTED ONTOLOGY MANAGER'S READS (R-241 cut O1b) over the caller's ODK domain ontologies (adopted-ontology.mjs).
+      const sendO = (status, obj) => { res.writeHead(status, { "Content-Type": "application/json" }); return res.end(JSON.stringify(obj)); };
+      const ontologyRidIn = (p) => (p.match(/ri\.ontology\.main\.ontology\.[0-9a-f-]{36}/u) || [])[0] || null;
+      if (pathname === "/ontology-metadata/api/ontology/featureConfigurations" && req.method === "GET") return sendO(200, ONTOLOGY.FEATURE_CONFIGURATIONS);
+      if (pathname === "/ontology-metadata/api/organization/getSettings/user" && req.method === "POST") {
+        const { owner } = await ontologyModels();
+        return sendO(200, ONTOLOGY.userSettingsOf(owner ? `ri.multipass..organization.${PIPELINE.uuidOf(owner)}` : null));
+      }
+      if (/^\/ontology-metadata\/api\/permissions\/ontology\/ri\.ontology\.main\.ontology\.[0-9a-f-]{36}$/u.test(pathname) && req.method === "GET") return sendO(200, ONTOLOGY.ONTOLOGY_PERMISSIONS);
+      if (/^\/ontology-metadata\/api\/ontology\/ontology\/load\/ri\.ontology\.main\.ontology\.[0-9a-f-]{36}\/summary$/u.test(pathname) && req.method === "POST") {
+        const { models } = await ontologyModels();
+        return sendO(200, ONTOLOGY.summaryOf(ONTOLOGY.modelOf(models, ontologyRidIn(pathname))));
+      }
+      // no formatting rule sets are kept
+      if (pathname === "/ontology-metadata/api/formatting/rulesets/loadRuleSets" && req.method === "POST") return sendO(200, { ruleSets: {} });
       if (onOntologySurface() && ONTOLOGY_FENCED.test(pathname) && !(pathname === "/compass/api/registry/actions" && req.method === "GET")) {
         res.writeHead(501, { "Content-Type": "application/json" });
         return res.end(JSON.stringify({ errorCode: "INTERNAL", errorName: "Hypervisor:OntologyReadNotBound", errorInstanceId: "", parameters: { message: `${req.method} ${pathname.replace(/ri\.[\w.-]+/gu, "<rid>")} is not bound in the Hypervisor's Ontology Manager yet: a named gap, and nothing recorded is served in its place` } }));
@@ -10740,6 +10767,13 @@ async function handleEstateRequest(req, res, body) {
               : ioiGlobalRailHtml({ label: "Pipeline Builder", href: "/data/recipes", iconUri: PIPELINE_APP_ICON_URI, railVariant: "rv-pipe rv-dsg", viewAll: true, star: false, aipGradient: true, acctMuted: true });
             html = html.replace("</head>", `<style>${IOI_GRAIL_CSS}[class*="shell-application__sidebar__"],#workspace-sidebar{display:none!important}.ioi-adopted-rail .og-grail{position:fixed;left:0;top:0;z-index:30}.ioi-adopted-rail .workspace-page-wrapper{padding-left:230px;box-sizing:border-box}.ioi-embedded .og-grail{display:none!important}.ioi-embedded .workspace-page-wrapper{padding-left:0!important}</style></head>`)
               .replace(/<body([^>]*)>/i, `<body$1><div class="ioi-adopted-rail">${rail}</div><script>try{if(window.top===window.self)document.documentElement.classList.add("ioi-adopted-rail")}catch(e){}</script>`);
+          }
+          // The Hypervisor has no platform default ontology (the reference opens the all-zeros one when nothing is
+          // stored): the adopted Ontology Manager opens the caller's first ontology unless the one it stored is still
+          // theirs. With no ontology, nothing is set, and the app's "no accessible ontologies" is true.
+          if (seedSlug === "schema") {
+            const rids = await ontologyCatalog().then((c) => c.map((o) => o.rid)).catch(() => []);
+            html = html.replace("<head>", `<head><script>try{var k="@foundry/ontology/vv/13/currentOntologyRid",mine=${JSON.stringify(rids)},cur=null;try{cur=JSON.parse(localStorage.getItem(k)||"null")}catch(e){}if((!cur||mine.indexOf(cur.value)<0)&&mine.length)localStorage.setItem(k,JSON.stringify({version:13,value:mine[0]}))}catch(e){}</script>`);
           }
           buf = Buffer.from(html.replace(/Palantir/g, "IOI"), "utf8");
         } else if (/javascript|ecmascript/.test(ct)) {
