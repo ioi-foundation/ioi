@@ -301,7 +301,7 @@ const unbound = new Map();
 export const unboundCounts = () => Object.fromEntries([...unbound.entries()].sort((a, b) => b[1] - a[1]));
 export const unboundError = (name) => {
   unbound.set(name || "(unnamed)", (unbound.get(name || "(unnamed)") || 0) + 1);
-  return { data: null, errors: [{ message: `${name || "This operation"} is not bound in the Hypervisor adapter yet (a named gap of the adopted Automate seed)` }] };
+  return { data: null, errors: [{ message: `${name || "This operation"} is not bound in the Hypervisor adapter yet (a named gap of the adopted seed)` }] };
 };
 
 // THE IDENTITY TOKEN a seed page reads client-side (it decodes the cookie's JWT `sub` — 16 bytes,

@@ -249,7 +249,11 @@ const AUG_TAG = '<script src="/ioi-augmentation.js" defer></script>';
 // IOI_PRODUCT_SIGNIN_REQUIRED=0 — the one automation browses anonymously — keeps its signed-out states.
 // An adopted app's OWN base path (its router pushes these URLs) serves the same seed, so a reload or a
 // deep link lands where the app expects; the /__apps/<slug> lane stays the development entry.
-const ADOPTED_ROUTE_ALIASES = [["/workspace/object-monitoring", "monitors"], ["/workspace/builder", "pipeline"]];
+const ADOPTED_ROUTE_ALIASES = [["/workspace/object-monitoring", "monitors"], ["/workspace/builder", "pipeline"], ["/workspace/ontology", "schema"]];
+// THE ONTOLOGY FENCE (R-241 Ontology Manager, cut O1): the adopted Ontology Manager's reads of the ontology, the object
+// registry, object sets, search and data health that are not bound are answered as named gaps — never passed through
+// to the mirror, whose answers are the RECORDED TENANT's ontology.
+const ONTOLOGY_FENCED = /^\/(ontology-metadata|phonograph2|object-set-service|foundry-search|data-health|foundry-catalog|monocle|compass)\//u;
 // Whether the local reference mirror can boot a seed right now (R-241: adopted bundles live in the
 // local mirror only). Cached briefly; a canonical route opens the adopted app only when it can boot.
 const adoptedSeedCache = new Map();
@@ -9270,6 +9274,7 @@ async function handleEstateRequest(req, res, body) {
       // A request made by the adopted Pipeline Builder's own pages (its location dialog answers differently
       // from Automate's: a recipe family is held in the owner's recipe registry, never in a project).
       const onPipelineSurface = () => /\/workspace\/builder(?:[/?#]|$)|\/__apps\/pipeline(?:[/?#]|$)/u.test(String(req.headers.referer || ""));
+      const onOntologySurface = () => /\/workspace\/ontology(?:[/?#]|$)|\/__apps\/schema(?:[/?#]|$)/u.test(String(req.headers.referer || ""));
       // One read of what the adopted Pipeline Builder shows: the caller's DataRecipe families (each with its
       // revisions) and change sets, as pipelines (adopted-pipeline.mjs).
       // A plane that does not answer is an ERROR the app shows ("Unable to load pipelines"), never an empty
@@ -9824,6 +9829,9 @@ async function handleEstateRequest(req, res, body) {
             return sendJson({ errors: [{ message: `daemon unreachable: ${e.message}` }] }, 502);
           }
         }
+        // On the adopted Ontology Manager every operation answers from the adopted layer — bound, the safe chrome envelope,
+        // or a named gap. The passthrough below answers with the recorded tenant's (or the mirror's demo) data.
+        if (gqlOp && onOntologySurface()) return sendJson(await answerAdoptedOp(AUTOMATE.opNameOf(gqlOp), gqlOp.variables || {}, await automateContextOrFailed(), String(gqlOp.query || "")));
         // other GraphQL operations fall through to the capture passthrough
       }
       // Upload honesty: the estate has NO product-zip upload lane — listings are drafted
@@ -10675,6 +10683,10 @@ async function handleEstateRequest(req, res, body) {
         for (const a of autos.automations || []) { const ref = (a.executor_identity || {}).ref; if (ref && !principals.some((p) => p.ref === ref)) principals.push({ ref, name: ref }); }
         res.writeHead(200, { "Content-Type": "application/json" });
         return res.end(JSON.stringify(AUTOMATE.profilesFor(ids, principals)));
+      }
+      if (onOntologySurface() && ONTOLOGY_FENCED.test(pathname) && !(pathname === "/compass/api/registry/actions" && req.method === "GET")) {
+        res.writeHead(501, { "Content-Type": "application/json" });
+        return res.end(JSON.stringify({ errorCode: "INTERNAL", errorName: "Hypervisor:OntologyReadNotBound", errorInstanceId: "", parameters: { message: `${req.method} ${pathname.replace(/ri\.[\w.-]+/gu, "<rid>")} is not bound in the Hypervisor's Ontology Manager yet: a named gap, and nothing recorded is served in its place` } }));
       }
       try {
         let target;
