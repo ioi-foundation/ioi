@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-// THE ADOPTED ONTOLOGY MANAGER READS THE CALLER'S ONTOLOGY, AND NOTHING RECORDED (R-241, Ontology Manager O1–O3).
+// THE ADOPTED ONTOLOGY MANAGER READS THE CALLER'S ONTOLOGY, AND NOTHING RECORDED (R-241, Ontology Manager O1–O3, Object Explorer O4).
 //
 // The reference Ontology Manager (booted by the local mirror, routed at /workspace/ontology) answers from the caller's
 // ODK domain ontologies (adopted-ontology.mjs), in a real browser against an ISOLATED daemon + serve:
@@ -8,7 +8,10 @@
 //     History names who made each revision and the types it created (ODK records them);
 //   - an object type's page and its Properties, Security and History tabs, and a link type's page, read daemon truth,
 //     and say edits are not offered; what an ODK model does not hold shows the reference's own empty states;
-//   - Health issues searches the loaded ontology; Cleanup names its unbound usage read;
+//   - Health issues searches the loaded ontology; Cleanup names its unbound usage read; Functions lists the released
+//     functions of the Hypervisor's registry;
+//   - Object Explorer (/workspace/hubble, the same surface) lists the caller's types, and its Recents lists the type
+//     just opened in the Ontology Manager;
 //   - no read reaches the mirror but the reference's chrome, an unbound read is a named gap (never the serve's HTML
 //     page), and a GraphQL batch on the surface is answered by the adopted layer (it had returned a recorded tenant
 //     module);
@@ -165,6 +168,14 @@ async function run() {
         && /Object type roles Read-only/u.test(security) && /DomainOntology draft created/u.test(typeHistory),
       `${after(props, "Properties 3 Property name", 90)} · ${after(security, "Object type roles", 30)} · ${after(typeHistory, "You •", 60)}`);
 
+    // Object Explorer reads the same ontology: its catalog lists the caller's types, and its Recents lists the type just
+    // opened in the Ontology Manager (one Recently viewed per person, across both apps)
+    const explorer = await visit("/workspace/hubble/", /3 of 3|Failed to load|No object types/u);
+    const catalog = after(explorer, "Object type catalog", 400);
+    const recentsShortcut = after(explorer, "Shortcuts", 160);
+    ok("Object Explorer's catalog lists the caller's types from their ODK model, and its Recents lists the type opened in the Ontology Manager",
+      /3 of 3/u.test(catalog) && ["Loan", "Borrower", "Branch"].every((n) => catalog.includes(n)) && /Loan/u.test(recentsShortcut) && !/No recents|Failed to load recents|Failed to load type groups/u.test(explorer),
+      `${recentsShortcut.slice(0, 90)} · ${catalog.slice(0, 160)}`);
     // what an ODK model does not hold is shown as none, in the reference's own empty states
     const empties = [
       ["/workspace/ontology/home/interfaces", "Could not find any Interfaces"], ["/workspace/ontology/home/shared-properties", "Could not find any shared properties"],
@@ -184,7 +195,7 @@ async function run() {
     // Health issues searches the whole loaded ontology; Cleanup's checks read usage metrics, which are not kept
     await visit("/workspace/ontology/home/health-issues", /Click here to run a search/u);
     await pg.getByText("Click here to run a search").click({ timeout: 8000 }).catch(() => {});
-    let health = ""; for (let i = 0; i < 15 && !/Registration and index failures \d/u.test(health); i++) { await pg.waitForTimeout(800); health = await text(); }
+    let health = ""; for (let i = 0; i < 15 && !/No health issues found|Registration and index failures [1-9]|Loading full ontology failed/u.test(health); i++) { await pg.waitForTimeout(800); health = await text(); }
     await visit("/workspace/ontology/home/cleanup", /Start cleanup/u);
     await pg.getByText("Start cleanup").click({ timeout: 8000 }).catch(() => {});
     let cleanupText = ""; for (let i = 0; i < 15 && !/cleanup results|Object types \d+ Snooze/u.test(cleanupText); i++) { await pg.waitForTimeout(800); cleanupText = await text(); }

@@ -1375,6 +1375,16 @@ landed. Correct every copy, or the ones left behind go on reading as evidence.
 | **Two readings made deliberately, both recorded.** "Delete" means ARCHIVE — there is no DELETE verb on a memory entry, and reading the acceptance literally would have invented one. And skills and affinities keep their direct verbs, because the unit's scope is the memory-entry and memory-mutation owners. | the verifier's nonclaims | recorded |
 | **The census caught the cut adding a production writer, and the buckets are what mattered.** `check:ontology-admission-census` went red on the writer-call population. The FAMILY writer bucket (57), family mentions (285), the non-ODK literal bucket (243) and raw filesystem calls (234) were all unchanged; only the runtime-parameter bucket moved, by exactly the two added calls, both writing a LITERAL family. Had the family bucket moved it would have meant a new admitter. Re-pinned with that reasoning beside the numbers. | `check:ontology-admission-census` 27/27 | repaired |
 
+### Journey verification CCXVIII (2026-09-28, R-241 Object Explorer — the landing adopted over the ontology's truth)
+
+| Delta | Evidence | Disposition |
+|---|---|---|
+| **Object Explorer is adopted at `/workspace/hubble`, on the ontology surface and behind its fence.** The catalog, search results, ontologies, recents and shortcuts answer from the caller's ODK types: properties with the primary key and title marked, links with their cardinality, status Experimental, visibility Normal. Favorites, saved explorations and type groups list none, because none is kept. | `check:adopted-ontology` 18/18 (new assertion; red when object types stop declaring the `Favorite` interface the shortcuts spread on) | **bound** |
+| **One Recently viewed across both apps.** A type opened in the Ontology Manager is listed under Explorer's Recents. Both read the caller's recents in the preference plane. | same assertion | **bound** |
+| **Two more tenant reads were passing through.** Installed-application metadata (`/workspace/api/ams/metadataV2`) listed the recorded tenant's nine applications, and the command palette's `/workspace/api/commands/load` listed their commands. On the ontology surface both now answer empty, because the Hypervisor registers neither. | Explorer's passthroughs are chrome only | **fixed** |
+| **Lists stay a named gap.** The object set catalog's lists are read through Compass search. Its answer shape was never recorded, since the reference's landing did not call it, and two guessed shapes were refused ("Failed to load lists."). The read stays `Hypervisor:OntologyReadNotBound`. | driven | **named gap** |
+| **Seed depth.** Ontology Manager / Explorer: 41 = 19 bound / 15 named gaps / 7 open. The single Explorer landing row became six: catalog and Recents bound; counts, empty shortcuts and lists named; object search open, since objects need a materialized set. | `check:seed-depth` 13/13; `check:adopted-pipeline` 33/33, `check:adopted-automate` 23/23 | **recorded** |
+
 ### Journey verification CCXVII (2026-09-28, R-241 Ontology Manager — Functions, and a function read that passed through elsewhere)
 
 | Delta | Evidence | Disposition |

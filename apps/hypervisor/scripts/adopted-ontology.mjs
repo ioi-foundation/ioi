@@ -595,3 +595,95 @@ export function schemaMigrationsOf(request, models) {
   return { schemaTransitions: (request?.objectTypeRids || []).filter((r) => ours.has(r?.objectTypeRid)).map((r) => ({ objectTypeRid: r.objectTypeRid, ontologyVersion: r.ontologyVersion, schemaTransitions: [], schemaVersion: 1 })) };
 }
 export const SCHEMA_MIGRATION_PAGE = { migrationPageItems: [], schemaVersion: 1, nextPageToken: null };
+
+// ---- Object Explorer (/workspace/hubble, cut O4): the same ontology truth, as the explorer's catalog, search, recents
+// and shortcuts read it. An ODK type holds no instances and no usage is kept, so its object count and its users are
+// unknown (null), never zero; no favorites, saved explorations or type groups are kept, so each lists none.
+export const EXPLORER_GRAPHQL_OPERATIONS = new Set([
+  "AllObjectTypesQuery", "ObjectTypesQuery", "ObjectTypeResultsQuery", "OntologiesQuery", "CurrentUserQuery",
+  "RecentObjectTypesQuery", "RecentsQuery", "FavoritesQuery", "FavoriteSavedExplorationsQuery", "FavoriteTypeGroupsQuery",
+  "SavedExplorationsListQuery", "TypeGroupResultsQuery", "TypeGroupsQuery", "ObjectTypeSemanticSearchUnavailableReasonQuery",
+  "YourExplorationsQuery", "GetObjectTypeDependents",
+]);
+const explorerShallowVersionOf = (ot) => ({
+  __typename: "ObjectTypeVersion", _id: cid(`ObjectTypeVersion:${ot.rid}`), displayName: ot.name || ot.id, apiName: pascal(ot.name || ot.id),
+  description: ot.description || null, visibility: "NORMAL", status: { __typename: "ObjectTypeStatus_Experimental" },
+  iconV2: { __typename: "BlueprintIcon", color: ICON.blueprint.color, locator: ICON.blueprint.locator },
+});
+function explorerObjectTypeOf(mm, ot, latest) {
+  return {
+    // an object type is a Favorite (the interface the explorer's shortcuts spread their fragments on)
+    __typename: "ObjectType", __implements: ["Favorite"], _id: cid(`ObjectType:${ot.rid}`), rid: ot.rid, id: ot.id, favorited: false, objectCount: null,
+    permissions: { __typename: "ObjectTypePermissions", canViewData: true }, usage: { __typename: "ObjectTypeUsage", uniqueUsersCount: null },
+    ontology: { ...ontologyNode(mm), displayName: mm.displayName }, latest: latest || explorerShallowVersionOf(ot),
+  };
+}
+// a type as the catalog and search rows read it: its properties (primary key and title marked), its links, no groups
+export function explorerVersionOf(mm, ot) {
+  const byId = new Map(mm.objectTypes.map((o) => [o.id, o]));
+  const titleOf = (o) => ({ ...explorerShallowVersionOf(o), objectType: { __typename: "ObjectType", _id: cid(`ObjectType:${o.rid}`), id: o.id, rid: o.rid } });
+  const side = (o, name) => ({ __typename: "LinkTypeSideMetadata", displayName: name || o.name, apiName: camel(name || o.name) });
+  const links = mm.linkTypes.filter((l) => [endpointOf(l, "from"), endpointOf(l, "to")].includes(ot.id)).map((l) => {
+    const a = byId.get(endpointOf(l, "from")), b = byId.get(endpointOf(l, "to"));
+    if (!a || !b) return null;
+    const other = a.id === ot.id ? b : a;
+    const definition = String(l.cardinality) === "many_to_many"
+      ? { __typename: "LinkTypeDefinition_ManyToMany", aSide: { __typename: "LinkTypeSide", metadata: side(b, l.name), objectTypeV2: titleOf(a) }, bSide: { __typename: "LinkTypeSide", metadata: side(a, l.inverse_name), objectTypeV2: titleOf(b) } }
+      : { __typename: "LinkTypeDefinition_OneToMany", oneSide: { __typename: "LinkTypeOneSide", metadata: side(a, l.inverse_name), objectTypeV2: titleOf(a) },
+        manySide: { __typename: "LinkTypeManySide", cardinality: String(l.cardinality) === "one_to_one" ? "ONE" : "MANY", metadata: side(b, l.name), objectTypeV2: titleOf(b) } };
+    return {
+      __typename: "ObjectTypeLinkVersion", _id: cid(`ObjectTypeLinkVersion:${ot.rid}:${l.rid}`),
+      metadata: { __typename: "LinkMetadata", displayName: other === b ? (l.name || b.name) : (l.inverse_name || a.name) },
+      linkType: { __typename: "LinkTypeVersion", _id: cid(`LinkTypeVersion:${l.rid}`), linkType: { __typename: "LinkType", _id: cid(`LinkType:${l.rid}`), id: l.id, rid: l.rid }, definition, status: { __typename: "LinkTypeStatus_Experimental" } },
+      otherSide: { __typename: "LinkOtherSide", objectTypeRid: other.rid },
+    };
+  }).filter(Boolean);
+  const version = {
+    ...explorerShallowVersionOf(ot), groups: [], linksIncludingLinksToObjectTypesWithoutSearchableDatasources: links,
+    propertiesV2: ot.properties.map((p) => ({
+      __typename: "ObjectTypePropertyVersion", _id: cid(`ObjectTypePropertyVersion:${p.rid}`), objectTypeProperty: { __typename: "ObjectTypeProperty", _id: cid(`ObjectTypeProperty:${p.rid}`), rid: p.rid },
+      displayName: p.name || p.id, apiName: camel(p.name || p.id), status: { __typename: "ObjectTypePropertyStatus_Experimental" }, sharedProperty: null,
+      isPrimary: p.id === ot.primaryKey, isTitle: p.rid === ot.titleRid, type: { __typename: `ObjectTypePropertyType_${pascal(p.base || "string")}` },
+    })),
+  };
+  version.objectType = explorerObjectTypeOf(mm, ot, explorerShallowVersionOf(ot));
+  return version;
+}
+// the caller's types in the asked ontologies (none named: every one), whose names hold the asked text
+function explorerTypesOf(models, variables) {
+  const want = new Set(variables?.ontologyRids || variables?.ontologyRIDs || []);
+  const text = [variables?.queryString, ...(variables?.filter?.clauses || []).map((c) => c?.objectTypeDisplayNameContains)].find((t) => typeof t === "string" && t.trim()) || "";
+  return (models || []).filter((mm) => !want.size || want.has(mm.rid))
+    .flatMap((mm) => mm.objectTypes.filter((o) => !text || `${o.name || ""} ${o.id}`.toLowerCase().includes(text.trim().toLowerCase())).map((ot) => ({ mm, ot })));
+}
+// ctx: { models, userId, recents: [{ rid, viewed_at }] } — recents are the caller's Recently viewed (the same store the
+// Ontology Manager records an opened type in)
+export function explorerGraphqlFacts(name, variables, ctx) {
+  const root = { __typename: "Query" };
+  const types = explorerTypesOf(ctx.models, variables);
+  const page = (size) => {
+    const from = Math.max(0, Number(variables?.pageToken) || 0);
+    return { values: types.slice(from, from + size).map(({ mm, ot }) => explorerVersionOf(mm, ot)), totalNumberOfResults: types.length, nextPageToken: from + size < types.length ? String(from + size) : null };
+  };
+  const viewed = (ctx.recents || []).map((r) => (ctx.models || []).map((mm) => ({ mm, ot: mm.objectTypes.find((o) => o.rid === r.rid) })).find((x) => x.ot)).filter(Boolean)
+    .slice(0, Math.max(1, Number(variables?.limit) || 50))
+    .map(({ mm, ot }) => ({ __typename: "RecentItem", _id: cid(`recent:${ot.rid}`), recent: explorerObjectTypeOf(mm, ot, explorerVersionOf(mm, ot)) }));
+  switch (name) {
+    case "AllObjectTypesQuery": return { ...root, objectTypesV2: { __typename: "ObjectTypeVersionPage", totalNumberOfResults: types.length } };
+    case "ObjectTypesQuery": return { ...root, objectTypesV2: { __typename: "ObjectTypeVersionPage", ...page(20) } };
+    case "ObjectTypeResultsQuery": return { ...root, objectTypesV2: { __typename: "ObjectTypeVersionPage", ...page(10) } };
+    case "OntologiesQuery": return { ...root, allOntologies: (ctx.models || []).map((mm) => ({ ...ontologyNode(mm), displayName: mm.displayName, description: mm.description || null })) };
+    case "CurrentUserQuery": return { ...root, me: ctx.userId ? { __typename: "User", _id: cid(`User:${ctx.userId}`), id: ctx.userId } : null };
+    case "RecentObjectTypesQuery": case "RecentsQuery": return { ...root, recents: viewed };
+    case "FavoritesQuery": case "FavoriteSavedExplorationsQuery": case "FavoriteTypeGroupsQuery": return { ...root, favorites: [] };
+    case "SavedExplorationsListQuery": case "YourExplorationsQuery": return { ...root, searchResources: { __typename: "SearchResourcesPage", results: [], nextPageToken: null } };
+    // what uses a type (the catalog's apps count): nothing, as the Ontology Manager's dependents answer
+    case "GetObjectTypeDependents": {
+      const hit = objectTypeOf(ctx.models, { rid: variables?.rid });
+      return { ...root, objectTypeV2: hit ? { __typename: "ObjectType", _id: cid(`ObjectType:${hit.ot.rid}`), rid: hit.ot.rid, dependents: { __typename: "ResourceMetadataPage", values: [] } } : null };
+    }
+    case "TypeGroupResultsQuery": case "TypeGroupsQuery": return { ...root, objectTypeGroups: { __typename: "ObjectTypeGroupPage", values: [], nextPageToken: null } };
+    case "ObjectTypeSemanticSearchUnavailableReasonQuery": return { ...root, objectTypeSemanticSearchUnavailableReason: null };
+    default: return null;
+  }
+}

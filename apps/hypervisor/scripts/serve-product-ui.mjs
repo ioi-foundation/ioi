@@ -250,7 +250,7 @@ const AUG_TAG = '<script src="/ioi-augmentation.js" defer></script>';
 // IOI_PRODUCT_SIGNIN_REQUIRED=0 — the one automation browses anonymously — keeps its signed-out states.
 // An adopted app's OWN base path (its router pushes these URLs) serves the same seed, so a reload or a
 // deep link lands where the app expects; the /__apps/<slug> lane stays the development entry.
-const ADOPTED_ROUTE_ALIASES = [["/workspace/object-monitoring", "monitors"], ["/workspace/builder", "pipeline"], ["/workspace/ontology", "schema"]];
+const ADOPTED_ROUTE_ALIASES = [["/workspace/object-monitoring", "monitors"], ["/workspace/builder", "pipeline"], ["/workspace/ontology", "schema"], ["/workspace/hubble", "explorer"]];
 // THE ONTOLOGY FENCE (R-241 Ontology Manager, cut O1): the adopted Ontology Manager's reads of the ontology, the object
 // registry, object sets, search and data health that are not bound are answered as named gaps — never passed through
 // to the mirror, whose answers are the RECORDED TENANT's ontology.
@@ -258,7 +258,8 @@ const ONTOLOGY_FENCED = /^\/(ontology-metadata|phonograph2|object-set-service|fo
 // The adopted Ontology Manager's pages (a request's referer), and a platform service's API path. On that surface a service
 // read that no lane answers is a named gap: never the mirror's recorded answer, and never this serve's HTML shell (which
 // answers every unknown path with its index page — an app reads it as a malformed answer, "Failed to load").
-const ONTOLOGY_SURFACE_REFERER = /\/workspace\/ontology(?:[/?#]|$)|\/__apps\/schema(?:[/?#]|$)/u;
+// Object Explorer (/workspace/hubble, O4) reads the same ontology, so it is the same surface: the same fence.
+const ONTOLOGY_SURFACE_REFERER = /\/workspace\/(?:ontology|hubble)(?:[/?#]|$)|\/__apps\/(?:schema|explorer)(?:[/?#]|$)/u;
 const SERVICE_API_PATH = /^\/[a-z][a-z0-9-]*\/api\//u;
 // Whether the local reference mirror can boot a seed right now (R-241: adopted bundles live in the
 // local mirror only). Cached briefly; a canonical route opens the adopted app only when it can boot.
@@ -9404,6 +9405,21 @@ async function handleEstateRequest(req, res, body) {
             return { data: { __typename: "Mutation", view: { __typename: "ObjectType", rid } } };
           }
         }
+        // Object Explorer's catalog, search, recents and shortcuts (on the ontology surface only: other adopted apps send
+        // some of the same operation names)
+        if (ONTOLOGY.EXPLORER_GRAPHQL_OPERATIONS.has(name) && query && onOntologySurface()) {
+          const { models } = await ontologyModels();
+          let userId = null, recents = [];
+          if (/^(Recent|CurrentUser)/u.test(name)) {
+            const principalRef = (await planeRead("/v1/hypervisor/auth/whoami")).principal?.principal_ref || null;
+            userId = principalRef ? AUTOMATE.principalUserId(principalRef) : null;
+            if (name.startsWith("Recent") && principalRef) {
+              const id = ONTOLOGY.ontologyRecentsIdOf(principalRef);
+              recents = (await planeRead("/v1/hypervisor/preferences").then((j) => j.preferences || [])).find((x) => x.preference_id === id)?.value?.recents || [];
+            }
+          }
+          return { data: answerAdoptedDocument(query, ONTOLOGY.explorerGraphqlFacts(name, variables || {}, { models, userId, recents }), null, name) };
+        }
         if (ONTOLOGY.ONTOLOGY_GRAPHQL_OPERATIONS.has(name) && query) {
           const { models, owner } = await ontologyModels();
           return { data: answerAdoptedDocument(query, ONTOLOGY.ontologyGraphqlFacts(name, variables || {}, { models, owner }), null, name) };
@@ -10846,6 +10862,10 @@ async function handleEstateRequest(req, res, body) {
       // the object registry keeps no object data or usage for the caller's types (none is indexed there)
       if (onOntologySurface() && /^\/phonograph2\/api\/objects\/registry\/bulk\/(objectTypes|relations)\/(metadata|usageMetadata)$/u.test(pathname) && req.method === "POST") return sendO(200, {});
       // the ontology's namespace as a compass folder (read by the switcher); every other compass read stays fenced
+      // installed-application metadata and the command palette's application commands: the Hypervisor registers none
+      // (passed through, both answered with the recorded tenant's applications)
+      if (onOntologySurface() && pathname === "/workspace/api/ams/metadataV2" && req.method === "GET") return sendO(200, { applicationMetadata: [] });
+      if (onOntologySurface() && pathname === "/workspace/api/commands/load" && req.method === "GET") return sendO(200, { config: [] });
       if (onOntologySurface() && pathname === "/compass/api/roles" && req.method === "POST") {
         let asked = {}; try { asked = JSON.parse(body.toString() || "{}"); } catch { /* none */ }
         const { models } = await ontologyModels();

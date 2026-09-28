@@ -426,7 +426,11 @@ assertion in its verifier.
     bind a type's materialized set as its datasource, together with its object count and index failures (a failed
     materializing run); then a save becomes an ODK patch at the expected revision. Proposals from ODK's proposal
     plane and a Functions assertion follow.
-  - O4: Object Explorer (`/workspace/hubble/`).
+  - O4: Object Explorer (`/workspace/hubble/`). Landing adopted 2026-09-28 on the same surface and fence. Its catalog
+    lists the caller's ODK types, and Recents is the same Recently viewed the Ontology Manager records (asserted
+    across both apps). Installed-application metadata and command-palette commands answer empty instead of passing
+    through. Named gaps: counts, empty shortcuts, and lists (Compass search's shape was never recorded). Open: object
+    search, since objects need a materialized set.
 
 ## Gate
 

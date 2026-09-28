@@ -82,7 +82,10 @@ const PINS = {
   // 2026-09-27 (R-241, Sessions cut 1): first rows — rename, auto-stop, Goal mode and the page's own port sync
   // refused by name; services and tasks named (absent planes); logs bound in the adapter but not yet live-asserted.
   sessions: { total: 24, bound: 12, refused: 7, named_gap: 5, open: 0 },
-  // 2026-09-28 (R-241, Ontology Manager O3): Functions bound — a released function crashed the section (the list read
+  // 2026-09-28 (R-241, Object Explorer O4): Explorer's landing adopted (/workspace/hubble) — the one open landing row
+  // becomes six: the catalog and Recents bound (Recents shared with the Ontology Manager), counts, empty shortcuts and
+  // lists named, object search open. 36 → 41.
+  // Before that, 2026-09-28 (R-241, Ontology Manager O3): Functions bound — a released function crashed the section (the list read
   // its locator's kind, and the answer had none); it lists now, visible. Its Source column joins as a named gap (a
   // Hypervisor function has no code repository). 35 → 36; open 8 → 7.
   // Before that, 2026-09-28 (R-241, Ontology Manager O3): first census — 35 flow states: the 27 harvested (Discover, 13 sections, an
@@ -91,7 +94,7 @@ const PINS = {
   // gaps (what an ODK model does not hold, in the reference's own empty states; Cleanup's usage read); 8 open (Functions
   // unproven, Proposals unmapped, Monitor opens a missing app, Object views says "Failed", New and edit give false or no
   // reasons, the migration page undriven, Explorer not routed).
-  "ontology-manager": { total: 36, bound: 17, refused: 0, named_gap: 12, open: 7 },
+  "ontology-manager": { total: 41, bound: 19, refused: 0, named_gap: 15, open: 7 },
   "data-connection": { total: 0, bound: 0, refused: 0, named_gap: 0, open: 0 },
 };
 
