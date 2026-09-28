@@ -197,7 +197,8 @@ async function run() {
     // Health issues searches the whole loaded ontology; Cleanup's checks read usage metrics, which are not kept
     await visit("/workspace/ontology/home/health-issues", /Click here to run a search/u);
     await pg.getByText("Click here to run a search").click({ timeout: 8000 }).catch(() => {});
-    let health = ""; for (let i = 0; i < 15 && !/No health issues found|Registration and index failures [1-9]|Loading full ontology failed/u.test(health); i++) { await pg.waitForTimeout(800); health = await text(); }
+    // (waited for until the search has counted: the page says "No health issues found" before the search runs too)
+    let health = ""; for (let i = 0; i < 15 && !/Registration and index failures \d+ |Loading full ontology failed/u.test(health); i++) { await pg.waitForTimeout(800); health = await text(); }
     await visit("/workspace/ontology/home/cleanup", /Start cleanup/u);
     await pg.getByText("Start cleanup").click({ timeout: 8000 }).catch(() => {});
     let cleanupText = ""; for (let i = 0; i < 15 && !/cleanup results|Object types \d+ Snooze/u.test(cleanupText); i++) { await pg.waitForTimeout(800); cleanupText = await text(); }

@@ -1,10 +1,14 @@
 #!/usr/bin/env node
-// THE ADOPTED DATA CONNECTION IS THE CALLER'S DATA SOURCES, AND NOTHING RECORDED (R-241, Data Connection D1–D3).
+// THE ADOPTED DATA CONNECTION IS THE CALLER'S DATA SOURCES, AND NOTHING RECORDED (R-241, Data Connection D1–D4).
 //
 // The reference Data Connection (booted by the local mirror, routed at /workspace/data-ingestion-app) answers from the
 // Hypervisor's data-source plane (adopted-data-connection.mjs), in a real browser against an ISOLATED daemon + serve:
-//   - the Sources list is the caller's declared data sources, each under its connection type, with no syncs;
-//   - Syncs, Agents and Listeners say none — a declared source ingests nothing yet, and no agent or listener exists;
+//   - the Sources list is the caller's declared data sources, each under its connection type, its syncs counted;
+//   - Agents and Listeners say none — no agent or listener exists;
+//   - Syncs (cut D4) over the import ladder built on the S3 bucket: a sync is its capability-lease plan (the Syncs list,
+//     its filters, the bucket's Batch syncs table, the sync's Overview, Configuration and Versions); its runs are the
+//     plan's materializing runs (Never ran, then Waiting when one is admitted, Canceled once cancelled); Run needs a
+//     wallet-authority grant and is refused by name, as is Delete;
 //   - a source's own pages: its Overview, Code imports and Webhooks (off, and nothing turns them on);
 //   - New source (cut D3), driven as a person does it: pick REST API, name it, file it in a project, create — a draft
 //     data source — give it its domain (the draft becomes declared, with that endpoint), and walk the remaining steps;
@@ -75,7 +79,27 @@ async function run() {
   await d("POST", "/v1/hypervisor/projects", { project_name: "payments", repository_url: "https://example.local/verify/payments.git" });
   const projectRow = ((await d("GET", "/v1/hypervisor/projects")).j.projects || []).find((p) => (p.project_name || p.name) === "payments") || {};
   const project = { project_ref: projectRow.project_ref || (projectRow.project_id ? `project://${projectRow.project_id}` : null) };
-  ok("PRECONDITION: two data sources are declared (a REST API and an S3 bucket)", orders.status < 300 && plants.status < 300 && countBefore === 2, `${orders.status} · ${plants.status} · ${countBefore} declared`);
+  // the import ladder on the S3 bucket (cut D4): connector mapping → policy-bound view → transformation run (dry run) →
+  // ontology projection → capability-lease plan. The plan is the bucket's one sync; it has no run yet.
+  const owner = ((await d("GET", "/v1/hypervisor/auth/whoami")).j.principal?.tenant_refs || []).find((t) => String(t).startsWith("org://"));
+  const plantsId = plants.j.data_source?.source_id;
+  const ontology = await d("POST", "/v1/hypervisor/odk/domain-ontologies", { domain: "plants", canonical_object_model: { object_types: [{ id: "plant", name: "Plant", title_property: "title",
+    properties: [{ id: "plant_id", name: "Plant Id", value_type: "string", required: true }, { id: "title", name: "Title", value_type: "string" }] }], action_types: [] } });
+  const mapping = await d("POST", "/v1/hypervisor/odk/connector-mappings", { owner_ref: owner, idempotency_key: "adopted-dc-plants-mapping", name: "plants-map", data_source_id: plantsId, ontology_ref: ontology.j.ontology?.ref,
+    object_type_id: "plant", key_mapping: { source_field: "id", property_id: "plant_id", source_type: "string" }, title_mapping: { source_field: "name", property_id: "title", source_type: "string" } });
+  const mappingId = mapping.j.connector_mapping?.id;
+  const gate = await d("POST", "/v1/hypervisor/odk/policy-bound-data-views", { connector_mapping_id: mappingId, name: "plants-gate", authority_subjects: ["agent://materializer"], allowed_operations: ["read", "transform"],
+    purpose: "plant catalog", property_scope: ["plant_id", "title"], retention_posture: "bounded" });
+  const gateId = gate.j.policy_bound_data_view?.id;
+  const transform = await d("POST", "/v1/hypervisor/odk/transformation-runs", { owner_ref: owner, idempotency_key: "adopted-dc-plants-transform", connector_mapping_id: mappingId, policy_view_id: gateId, name: "plants-transform" });
+  const transformId = transform.j.transformation_run?.id;
+  await d("POST", `/v1/hypervisor/odk/transformation-runs/${transformId}/dry-run`);
+  const projection = await d("POST", "/v1/hypervisor/odk/ontology-projections", { connector_mapping_id: mappingId, policy_view_id: gateId, name: "plants-explorer", visible_properties: ["plant_id", "title"] });
+  const plan = await d("POST", "/v1/hypervisor/odk/capability-lease-plans", { data_source_id: plantsId, connector_mapping_id: mappingId, policy_view_id: gateId, transformation_run_id: transformId,
+    ontology_projection_id: projection.j.ontology_projection?.id, name: "Plants import", subject: "agent://materializer", ttl_seconds: 900 });
+  const planId = plan.j.capability_lease_plan?.id;
+  ok("PRECONDITION: two data sources are declared (a REST API and an S3 bucket), and a capability-lease plan binds the bucket (the import ladder, with no run)",
+    orders.status < 300 && plants.status < 300 && countBefore === 2 && plan.status === 201 && !!planId, `${orders.status} · ${plants.status} · ${countBefore} declared · plan ${plan.status}${plan.j.error ? ` ${plan.j.error.code}` : ""}`);
 
   const { chromium } = await import(path.join(ROOT, "node_modules", "playwright", "index.mjs"));
   const browser = await chromium.launch();
@@ -98,8 +122,8 @@ async function run() {
 
     const sources = await visit(`${BASE}/sources`, /Orders API|No sources|could not|Failed/u);
     const table = after(sources, "Sources Name Connection type", 260);
-    ok("the Sources list is the caller's declared data sources, each under its connection type, with no syncs",
-      /Orders API REST API/u.test(table) && /Plants bucket S3/u.test(table) && (table.match(/0 syncs/gu) || []).length === 2 && !/No sources/u.test(sources), table);
+    ok("the Sources list is the caller's declared data sources, each under its connection type, with its syncs counted from its lease plans",
+      /Orders API REST API .{0,30}\b0 syncs/u.test(table) && /Plants bucket S3 .{0,30}\b1 sync(?!s)/u.test(table) && !/No sources/u.test(sources), table);
     // a source's own page, opened from the list the way a person opens it (cut D2)
     await pg.getByText("Orders API", { exact: true }).first().click({ timeout: 8000 }).catch(() => {});
     let restPage = ""; for (let i = 0; i < 25 && !/Orders API \(REST API\)|An error occurred/u.test(restPage); i++) { await pg.waitForTimeout(800); restPage = await text(); }
@@ -111,6 +135,11 @@ async function run() {
       /\/sources\/ri\.magritte\.\.source\.[0-9a-f-]{36}\/overview$/u.test(restUrl) && /Orders API \(REST API\)/u.test(restPage) && /Explore source capabilities/u.test(restPage)
         && /Plants bucket \(S3\)/u.test(s3Page) && !/An error occurred/u.test(restPage + s3Page),
       `${restUrl.replace(/ri\.[\w.-]+/u, "<rid>")} · ${after(restPage, "Orders API (", 20)} · ${after(s3Page, "Plants bucket (", 20)}`);
+    // the bucket's Overview lists its syncs (cut D4): its lease plan, the plan's output dataset, Never ran and Manual
+    for (let i = 0; i < 20 && !/Plants import \(Plants import objects\)|Failed to load batch syncs/u.test(s3Page); i++) { await pg.waitForTimeout(700); s3Page = await text(); }
+    ok("a source's Overview lists its syncs: the bucket's Batch syncs table is its lease plan, with the plan's output dataset, Never ran and next run Manual",
+      /Batch syncs 1 /u.test(s3Page) && /Plants import \(Plants import objects\) Never ran Manual/u.test(s3Page) && !/Failed to load batch syncs/u.test(s3Page),
+      after(s3Page, "Batch syncs", 220));
     // the source's Code imports and Webhooks pages: both off, and nothing on them can turn either on (cut D2)
     const srcBase = restUrl.replace(/\/overview$/u, "");
     const controlsOf = () => pg.evaluate(() => [...document.querySelectorAll("input[type=checkbox], [role=switch], button, a[role=button]")]
@@ -127,12 +156,69 @@ async function run() {
       /Enable code imports/u.test(imports) && !/Failed to load configuration/u.test(imports) && importSwitches.every((c) => c.off) && configurable.length === 3 && configurable.every((c) => !c.on)
         && /No webhooks found/u.test(hooks) && /Webhooks 0/u.test(hooks) && newHook.length >= 1 && newHook.every((c) => c.off),
       `imports ${importSwitches.map((c) => `${c.label.replace(/^Allow (this source to be imported into|the usage of) /u, "")}:${c.on ? "on" : "off"}${c.off ? "" : "(LIVE)"}`).join(", ")} · ${after(hooks, "Webhooks 0", 40)} · New ${JSON.stringify(newHook)}`);
-    const syncs = await visit(`${BASE}/syncs`, /No syncs|Could not load syncs/u);
     const agents = await visit(`${BASE}/agents`, /No agents found|Unable to load agents/u);
     const listeners = await visit(`${BASE}/listeners`, /No listeners found|Failed to load listeners/u);
-    ok("Syncs, Agents and Listeners say none — a declared source ingests nothing yet, and no agent or listener exists",
-      /No syncs/u.test(syncs) && /No agents found/u.test(agents) && /No listeners found/u.test(listeners) && !/Could not load syncs|Unable to load agents|Failed to load listeners/u.test(syncs + agents + listeners),
-      `${after(syncs, "No syncs", 20)} · ${after(agents, "No agents", 20)} · ${after(listeners, "No listeners", 22)}`);
+    ok("Agents and Listeners say none — no agent or listener exists",
+      /No agents found/u.test(agents) && /No listeners found/u.test(listeners) && !/Unable to load agents|Failed to load listeners/u.test(agents + listeners),
+      `${after(agents, "No agents", 20)} · ${after(listeners, "No listeners", 22)}`);
+
+    // ---- Syncs (cut D4): a sync is a capability-lease plan on one of the caller's sources; its runs are the plan's
+    // materializing runs, its output dataset the plan's own, and no schedule runs it
+    // (waited for until the row's dataset and status have loaded)
+    const SYNC_ROW = /Plants import objects \/\S+ Plants bucket (Never ran|Waiting|Running|Canceled|Failed|Succeeded)|No syncs|Could not load syncs/u;
+    const syncs = await visit(`${BASE}/syncs`, SYNC_ROW);
+    const row = after(syncs, "Next run Actions", 140);
+    // the filters sift the list: a status the sync is not in hides it, its own keeps it, and so does a name it carries
+    const statusBox = (label) => pg.locator("label").filter({ hasText: new RegExp(`^\\s*${label}\\s*$`, "u") }).first();
+    await statusBox("Running").click({ timeout: 8000 }).catch(() => {}); await pg.waitForTimeout(1500);
+    const hiddenByRunning = /No syncs/u.test(await text());
+    await statusBox("Running").click({ timeout: 8000 }).catch(() => {}); await statusBox("Never ran").click({ timeout: 8000 }).catch(() => {}); await pg.waitForTimeout(1500);
+    const keptByNeverRan = /Plants import Plants import objects/u.test(await text());
+    await statusBox("Never ran").click({ timeout: 8000 }).catch(() => {});
+    ok("the Syncs list is the caller's lease plans: the bucket's sync, its output dataset and source, Never ran, next run Manual — and its status filters sift it",
+      /^Next run Actions Plants import Plants import objects \/\S+ Plants bucket Never ran Manual Run Delete/u.test(row) && hiddenByRunning && keptByNeverRan && !/Could not load syncs/u.test(syncs),
+      `${row} · Running ${hiddenByRunning ? "hides it" : "KEEPS it"} · Never ran ${keptByNeverRan ? "keeps it" : "HIDES it"}`);
+    // a sync's own pages, opened from the list the way a person opens one
+    await visit(`${BASE}/syncs`, /Plants import/u);
+    await pg.getByText("Plants import", { exact: true }).first().click({ timeout: 8000 }).catch(() => {});
+    let overview = ""; for (let i = 0; i < 25 && !/Build details .{0,40}Next run|An error occurred/u.test(overview); i++) { await pg.waitForTimeout(800); overview = await text(); }
+    const syncUrl = new URL(pg.url()).pathname;
+    const syncBase = syncUrl.replace(/\/overview$/u, "");
+    const configuration = await visit(`${syncBase}/configuration`, /type: capability-lease-plan|An error occurred/u);
+    const versions = await visit(`${syncBase}/versions`, /extractName|An error occurred/u);
+    ok("a sync opens from the list on its Overview, Configuration and Versions over its plan: the lease-plan adapter, its dataset and source, never run, Manual with no schedule, and the plan's lease shape as its one version",
+      /\/syncs\/ri\.magritte\.\.extract\.[0-9a-f-]{36}\/overview$/u.test(syncUrl)
+        && /Plants import capability-lease-plan Properties Output dataset Plants import objects Source Plants bucket Build details Never run Next run Manual/u.test(overview)
+        && /Run this import Manually/u.test(configuration) && /type: capability-lease-plan/u.test(configuration) && /subject: agent:\/\/materializer/u.test(configuration)
+        && /Version 1 Current/u.test(versions) && /extractName: Plants import/u.test(versions) && /purpose: plant catalog/u.test(versions) && !/An error occurred/u.test(overview + configuration + versions),
+      `${syncUrl.replace(/ri\.[\w.-]+/u, "<rid>")} · ${after(overview, "Properties", 150)} · ${after(configuration, "Run this import", 30)} · ${after(versions, "SYNC VERSIONS", 40)}`);
+    // a run is the plan's materializing run: admitted, it waits for its lease; cancelled (no grant needed), it is Canceled
+    const admitted = await d("POST", "/v1/hypervisor/odk/materializing-runs", { capability_lease_plan_id: planId, name: "plants-run-1" });
+    const waiting = after(await visit(`${BASE}/syncs`, /Plants import objects \/\S+ Plants bucket Waiting/u), "Next run Actions", 140);
+    const banner = await visit(`${syncBase}/configuration`, /waiting to run|An error occurred/u);
+    const cancelled = await d("POST", `/v1/hypervisor/odk/materializing-runs/${admitted.j.materializing_run?.id}/cancel`);
+    const canceled = after(await visit(`${BASE}/syncs`, /Plants import objects \/\S+ Plants bucket Canceled/u), "Next run Actions", 140);
+    ok("a sync's run is its plan's materializing run, over daemon truth: an admitted run shows Waiting (for its lease) with the running banner, and once cancelled the sync shows Canceled",
+      admitted.status === 201 && /Plants bucket Waiting/u.test(waiting) && /This dataset is waiting to run/u.test(banner) && cancelled.j.materializing_run?.status === "cancelled" && /Plants bucket Canceled/u.test(canceled),
+      `run ${admitted.status} ${admitted.j.materializing_run?.status} · ${waiting.slice(0, 110)} · banner ${/waiting to run/u.test(banner) ? "shown" : "ABSENT"} · cancel ${cancelled.j.materializing_run?.status} · ${canceled.slice(0, 110)}`);
+    // Run and Delete, as a person presses them: each refused by name — nothing runs, the plan is untouched
+    const syncWrites = [];
+    const onSyncWrite = async (r) => { if (/\/magritte-coordinator\/api\/build\//u.test(r.url())) syncWrites.push({ status: r.status(), j: await r.json().catch(() => ({})) }); };
+    pg.on("response", onSyncWrite);
+    const runsBefore = ((await d("GET", "/v1/hypervisor/odk/materializing-runs")).j.materializing_runs || []).length;
+    await visit(`${BASE}/syncs`, /Plants import/u);
+    await pg.getByText("Run", { exact: true }).first().click({ timeout: 8000 }).catch(() => {});
+    let runToast = ""; for (let i = 0; i < 12 && !/wallet-authority grant/u.test(runToast); i++) { await pg.waitForTimeout(600); runToast = await text(); }
+    await pg.getByText("Delete", { exact: true }).first().click({ timeout: 8000 }).catch(() => {});
+    await pg.getByRole("button", { name: "Confirm", exact: true }).last().click({ timeout: 8000 }).catch(() => {});
+    for (let i = 0; i < 12 && syncWrites.length < 2; i++) await pg.waitForTimeout(600);
+    pg.off("response", onSyncWrite);
+    const runsAfter = ((await d("GET", "/v1/hypervisor/odk/materializing-runs")).j.materializing_runs || []).length;
+    const planAfter = (await d("GET", `/v1/hypervisor/odk/capability-lease-plans/${planId}`)).j.capability_lease_plan;
+    ok("a sync's Run is refused by name, pointing at the approval flow (a run needs a wallet-authority grant), and Delete is refused by name — nothing runs and the plan is untouched",
+      syncWrites.some((x) => x.status === 409 && x.j.errorName === "Hypervisor:DataConnectionRunNeedsApproval") && syncWrites.some((x) => x.status === 409 && x.j.errorName === "Hypervisor:DataConnectionSyncWriteNotBound")
+        && /wallet-authority grant, issued through the Hypervisor's approval flow/u.test(runToast) && runsAfter === runsBefore && planAfter?.status === "declared" && planAfter?.revision === 1,
+      `${syncWrites.map((x) => `${x.status} ${x.j.errorName}`).join(" · ") || "no write sent"} · runs ${runsBefore} → ${runsAfter} · plan ${planAfter?.status} r${planAfter?.revision}`);
     const splash = await visit(`${BASE}/splash`, /Set up new connections|An error occurred/u);
     const newSource = await pg.evaluate(() => [...document.querySelectorAll("a,button,[role=button]")].filter((e) => (e.innerText || "").trim() === "New source").map((e) => e.disabled === true || e.getAttribute("aria-disabled") === "true"));
     ok("the landing renders, and offers New source (a source is created as a data-source declaration)",
@@ -210,6 +296,10 @@ async function run() {
     ok("with the daemon stopped, the Sources list shows its error — never \"No sources\"",
       !/Orders API/u.test(down) && !/No sources Either no sources exist/u.test(down) && /error|failed|could not|unable/iu.test(after(down, "Sources Name", 300)),
       after(down, "Sources Name", 160));
+    const syncsDown = await visit(`${BASE}/syncs`, /Plants import|No syncs|Could not load syncs/u);
+    ok("with the daemon stopped, the Syncs list shows its error — never \"No syncs\"",
+      !/Plants import/u.test(syncsDown) && !/No syncs Please create/u.test(syncsDown) && /Syncs Could not load syncs/u.test(syncsDown),
+      after(syncsDown, "Syncs Could", 80));
   } finally {
     await browser.close();
   }

@@ -9337,6 +9337,17 @@ async function handleEstateRequest(req, res, body) {
         const projects = await planeRead("/v1/hypervisor/projects").then((j) => (j.projects || []).map((p) => p.project_ref || (p.project_id ? `project://${p.project_id}` : null)).filter(Boolean)).catch(() => []);
         return DATA_CONNECTION.callerSourcesOf(sources, principalRef, projects);
       };
+      // The caller's syncs (Data Connection cut D4): the capability-lease plans on their data sources, each with its
+      // materializing runs (the plane's lists are not caller-scoped; only plans on the caller's sources are kept)
+      const callerSyncs = async (sources) => {
+        const mine = sources || await callerDataSources();
+        const [plans, runs, who] = await Promise.all([
+          planeRead("/v1/hypervisor/odk/capability-lease-plans").then((j) => j.capability_lease_plans || []),
+          planeRead("/v1/hypervisor/odk/materializing-runs").then((j) => j.materializing_runs || []),
+          planeRead("/v1/hypervisor/auth/whoami"),
+        ]);
+        return DATA_CONNECTION.callerSyncsOf(plans, runs, mine, (who.principal?.tenant_refs || []).find((t) => String(t).startsWith("org://")) || null);
+      };
       const ontologyModels = async () => {
         const who = await planeRead("/v1/hypervisor/auth/whoami");
         const owner = (who.principal?.tenant_refs || []).find((t) => String(t).startsWith("org://"));
@@ -9431,9 +9442,11 @@ async function handleEstateRequest(req, res, body) {
         }
         // Data Connection's sources, listeners and splash (on its surface only)
         if (DATA_CONNECTION.DATA_CONNECTION_GRAPHQL_OPERATIONS.has(name) && query && onDataConnectionSurface()) {
-          const sources = name === "SourcesListQuery" || DATA_CONNECTION.SOURCE_PAGE_OPERATIONS.has(name) || DATA_CONNECTION.CREATE_PAGE_OPERATIONS.has(name) ? await callerDataSources() : [];
+          const sources = name === "SourcesListQuery" || DATA_CONNECTION.SOURCE_PAGE_OPERATIONS.has(name) || DATA_CONNECTION.CREATE_PAGE_OPERATIONS.has(name) || DATA_CONNECTION.SYNC_PAGE_OPERATIONS.has(name) ? await callerDataSources() : [];
+          // a source's sync count and a sync's pages read its lease plans and their runs (cut D4)
+          const syncs = name === "SourcesListQuery" || DATA_CONNECTION.SOURCE_PAGE_OPERATIONS.has(name) || DATA_CONNECTION.SYNC_PAGE_OPERATIONS.has(name) ? await callerSyncs(sources) : [];
           const ownerRef = name === "ResourceMetadataQuery" ? ((await planeRead("/v1/hypervisor/auth/whoami")).principal?.tenant_refs || []).find((t) => String(t).startsWith("org://")) : null;
-          return { data: answerAdoptedDocument(query, DATA_CONNECTION.dataConnectionGraphqlFacts(name, variables || {}, { sources, ownerRef }), null, name) };
+          return { data: answerAdoptedDocument(query, DATA_CONNECTION.dataConnectionGraphqlFacts(name, variables || {}, { sources, syncs, ownerRef }), null, name) };
         }
         // Object Explorer's catalog, search, recents and shortcuts (on the ontology surface only: other adopted apps send
         // some of the same operation names)
@@ -9923,6 +9936,12 @@ async function handleEstateRequest(req, res, body) {
           } catch (e) {
             return sendJson({ errors: [{ message: `daemon unreachable: ${e.message}` }] }, 502);
           }
+        }
+        // A sync's running-build banner subscribes to its dataset's job updates (Data Connection cut D4). The Hypervisor
+        // pushes none (the banner reads at load), so the stream stays open with no event, as the reference's did.
+        if (gqlOp && onDataConnectionSurface() && AUTOMATE.opNameOf(gqlOp) === "RunningBuildBannerSubscription") {
+          res.writeHead(200, { "Content-Type": "text/event-stream; charset=UTF-8", "Cache-Control": "no-cache" });
+          return undefined;
         }
         // On the adopted Ontology Manager every operation answers from the adopted layer — bound, the safe chrome envelope,
         // or a named gap. The passthrough below answers with the recorded tenant's (or the mirror's demo) data.
@@ -10726,7 +10745,10 @@ async function handleEstateRequest(req, res, body) {
         // …and the output datasets the caller's pipelines declare (the Pipeline Builder landing's output pills).
         const datasets = pathname.endsWith("/resources") && rids.some((r) => String(r).startsWith("ri.foundry.main.dataset.")) ? PIPELINE.compassOutputDatasets(rids, await pipelineContext(), PIPELINE.uuidOf) : {};
         // …and on Data Connection's pages, the caller's sources and their organization folder
-        const dcSources = pathname.endsWith("/resources") && onDataConnectionSurface() ? DATA_CONNECTION.compassSourceResources(rids, await callerDataSources(), (who.principal?.tenant_refs || []).find((t) => String(t).startsWith("org://"))) : {};
+        // (and their syncs' output datasets, cut D4)
+        const dcSourceList = pathname.endsWith("/resources") && onDataConnectionSurface() ? await callerDataSources() : [];
+        const dcSources = pathname.endsWith("/resources") && onDataConnectionSurface() ? DATA_CONNECTION.compassSourceResources(rids, dcSourceList, (who.principal?.tenant_refs || []).find((t) => String(t).startsWith("org://")),
+          rids.some((r) => String(r).startsWith("ri.foundry.main.dataset.")) ? await callerSyncs(dcSourceList) : []) : {};
         return res.end(JSON.stringify(pathname.endsWith("/resources") ? { ...AUTOMATE.compassProjectResources(projects, rids, who.principal?.principal_ref), ...datasets, ...dcSources } : AUTOMATE.compassFileSystems(projects, rids)));
       }
       // The function registry's REST reads (the wizard's chosen function): metadata and a version
@@ -10909,7 +10931,7 @@ async function handleEstateRequest(req, res, body) {
       if (onDataConnectionSurface() && req.method === "GET" && pathname.startsWith("/magritte-coordinator/api/")) {
         const route = pathname.slice("/magritte-coordinator/api/".length);
         if (route === "source-store/sources/types") return sendO(200, DATA_CONNECTION.sourceTypesOf(await callerDataSources()));
-        if (route === "extract-store/extracts/source") return sendO(200, DATA_CONNECTION.extractsBySourceOf(await callerDataSources()));
+        if (route === "extract-store/extracts/source") { const sources = await callerDataSources(); return sendO(200, DATA_CONNECTION.extractsBySourceOf(sources, await callerSyncs(sources))); }
         if (route === "managed-sources/sources") return sendO(200, DATA_CONNECTION.MANAGED_SOURCE_TYPES);
         if (route === "external-stack/front-end-preload-info") return sendO(200, DATA_CONNECTION.EXTERNAL_STACK_PRELOAD);
         if (route === "agents") return sendO(200, DATA_CONNECTION.AGENTS);
@@ -10926,7 +10948,16 @@ async function handleEstateRequest(req, res, body) {
         let asked = null; try { asked = JSON.parse(body.toString() || "null"); } catch { /* none */ }
         if (route === "streaming/extracts/get-for-sources") return sendO(200, DATA_CONNECTION.streamingExtractsOf(asked, await callerDataSources()));
         if (route === "source-store/sources/description/bulk") return sendO(200, DATA_CONNECTION.sourceDescriptionsOf(asked, await callerDataSources()));
-        if (route === "extract-store/extracts/bulk") return sendO(200, DATA_CONNECTION.extractsBulkOf());
+        // a sync's own reads (cut D4): its plan as the extract, when it was declared, and its versions (the plan's history)
+        if (route === "extract-store/extracts/bulk") return sendO(200, DATA_CONNECTION.extractsBulkOf(asked, await callerSyncs()));
+        if (route === "extract-store/extracts/metadata") return sendO(200, DATA_CONNECTION.extractsMetadataOf(asked, await callerSyncs()));
+        if (route === "extract-store/extract/history") {
+          const sync = (await callerSyncs()).find((y) => y.rid === asked?.extractId);
+          const history = sync ? await planeRead(`/v1/hypervisor/odk/capability-lease-plans/${encodeURIComponent(sync.plan.id)}/history`) : null;
+          const answer = sync ? DATA_CONNECTION.extractHistoryOf(sync.rid, [sync], history) : null;
+          if (answer) return sendO(200, answer);
+          return dataConnectionRefusal(404, "Hypervisor:DataConnectionSyncNotFound", "No sync of yours has this id.");
+        }
         if (route === "source-store/sources/config/bulk") return sendO(200, DATA_CONNECTION.sourceConfigsOf(asked, await callerDataSources()));
         if (route === "source-store/sources/metadata") return sendO(200, DATA_CONNECTION.sourceMetadataOf(asked, await callerDataSources()));
         // New source → a data-source declaration (cut D3): a REST API, a draft until its domain is set; the answer is the
@@ -10943,6 +10974,26 @@ async function handleEstateRequest(req, res, body) {
           return sendO(200, DATA_CONNECTION.sourceRidOf(j.data_source.source_id));
         }
       }
+      // a sync's writes (cut D4): Run needs a wallet-authority grant (refused by name, pointing at the approval flow);
+      // creating, duplicating, changing or deleting a sync is refused by name. Nothing is written.
+      if (onDataConnectionSurface() && pathname.startsWith("/magritte-coordinator/api/")) {
+        const refusal = DATA_CONNECTION.syncWriteRefusalOf(req.method, pathname.slice("/magritte-coordinator/api/".length));
+        if (refusal) return sendO(refusal.status, DATA_CONNECTION.syncRefusalBodyOf(refusal));
+      }
+      // a sync's builds are its plan's materializing runs; no schedule runs a sync, and no build policy exists (cut D4)
+      if (onDataConnectionSurface() && req.method === "POST" && /^\/job-tracker\/api\/builds\/bulk(V2)?$/u.test(pathname)) {
+        let asked = null; try { asked = JSON.parse(body.toString() || "null"); } catch { /* none */ }
+        return sendO(200, DATA_CONNECTION.buildsBulkOf(asked, await callerSyncs()));
+      }
+      if (onDataConnectionSurface() && req.method === "GET" && /^\/job-tracker\/api\/builds\/ri\.foundry\.main\.build\.[0-9a-f-]{36}$/u.test(pathname)) {
+        const build = DATA_CONNECTION.buildByRidOf(pathname.split("/").pop(), await callerSyncs());
+        if (build) return sendO(200, build);
+      }
+      if (onDataConnectionSurface() && req.method === "POST" && pathname === "/scheduler/api/scheduler/get-schedules-by-affected-dataset3") return sendO(200, []);
+      // a sync's output dataset keeps no schema (the reference answers a dataset without one with 204)
+      if (onDataConnectionSurface() && req.method === "GET" && /^\/foundry-metadata\/api\/schemas\/datasets\/ri\.foundry\.main\.dataset\.[0-9a-f-]{36}\/branches\/[^/]+$/u.test(pathname)
+        && (await callerSyncs()).some((y) => y.datasetRid === pathname.split("/")[5])) { res.writeHead(204); return res.end(); }
+      if (onDataConnectionSurface() && req.method === "POST" && pathname === "/build2/api/manager/get-policies") return sendO(200, {});
       // a source's connection details saved → the data-source plane's update (only its declarer; only a REST domain)
       if (onDataConnectionSurface() && req.method === "PUT" && /^\/magritte-coordinator\/api\/source-store\/v2\/sources\/ri\.magritte\.\.source\.[0-9a-f-]{36}$/u.test(pathname)) {
         let asked = null; try { asked = JSON.parse(body.toString() || "null"); } catch { /* none */ }

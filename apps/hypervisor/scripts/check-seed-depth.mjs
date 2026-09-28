@@ -110,7 +110,14 @@ const PINS = {
   // 2026-09-28 (R-241, Data Connection D3): New source creates a data-source declaration (REST API; a draft until its
   // domain is set), the setup's steps walk through, and a REST source's connection settings save its endpoint — seven
   // states bound; any other type refused by name; the reference's connector directory named. 28 → 30.
-  "data-connection": { total: 30, bound: 14, refused: 1, named_gap: 7, open: 8 },
+  // 2026-09-28 (R-241, Data Connection D4): syncs over the import ladder — a sync is a capability-lease plan on one of the
+  // caller's sources, its builds the plan's materializing runs. The Syncs list (and its filters), a source's Batch syncs
+  // table, a sync's Overview, Configuration and Versions bound (named gap → bound 1, open → bound 4); a run's status
+  // (Waiting, Canceled, driven live) and the stopped-daemon Syncs list join as bound; Run (needs a wallet-authority grant)
+  // and Delete refused by name; Versions' history, Created by, the output dataset, the live banner and the build report
+  // named; a failed run (needs a grant to drive) and New / Duplicate / Save (undriven) open. The splash row's proof text
+  // (stale since D3, so this gate was red) now cites the assertion. 30 → 41.
+  "data-connection": { total: 41, bound: 21, refused: 3, named_gap: 11, open: 6 },
 };
 
 const results = [];

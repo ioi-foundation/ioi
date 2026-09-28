@@ -1,5 +1,5 @@
-// The adopted Data Connection's pure answers (R-241, Data Connection D1): the caller's data sources as the reference
-// app's sources, and the bootstrap reads over them.
+// The adopted Data Connection's pure answers (R-241, Data Connection D1–D4): the caller's data sources as the reference
+// app's sources, the bootstrap reads over them, and their syncs (lease plans) with their builds (materializing runs).
 import test from "node:test";
 import assert from "node:assert/strict";
 import { answerDocument } from "./adopted-graphql.mjs";
@@ -89,6 +89,95 @@ test("creating a source is a data-source declaration: a REST API with its domain
   assert.throws(() => DC.createBodyOf(create("s3-direct", [])), (e) => e.code === "Hypervisor:DataConnectionTypeNotCreatable");
   assert.throws(() => DC.createBodyOf(create("webhooks-rest", [{ host: "user:pw@api.example.test" }])), (e) => e.code === "Hypervisor:DataConnectionDomainInvalid", "credentials never ride in a domain");
   assert.throws(() => DC.createBodyOf(create("webhooks-rest", [{ host: "a.test" }, { host: "b.test" }])), (e) => e.code === "Hypervisor:DataConnectionOneDomain");
+});
+
+// ---- syncs (cut D4): a sync is a capability-lease plan on one of the caller's sources; its builds are the plan's runs
+const plan = { id: "clp_1", name: "Plants import", status: "declared", data_source_id: "ds_2", revision: 1, created_at: "2026-09-28T01:00:00Z", updated_at: "2026-09-28T01:00:00Z",
+  ontology_ref: "ontology://plants", object_type_id: "plant", subject: "agent://materializer", purpose: "plant catalog", requested_operations: ["read", "transform"], requested_properties: ["plant_id"], ttl_seconds: 900,
+  history: [{ revision: 1, op: "created", at: "2026-09-28T01:00:00Z", summary: "CapabilityLease plan declared (nothing minted)" }] };
+const strangersPlan = { ...plan, id: "clp_9", name: "Not yours", data_source_id: "ds_4" };
+const revoked = { ...plan, id: "clp_3", name: "Withdrawn", status: "revoked" };
+const run = (id, status, at, extra = {}) => ({ id, capability_lease_plan_id: "clp_1", status, created_at: at, updated_at: at, history: [{ revision: 1, op: "created", summary: "admitted" }], ...extra });
+
+test("a sync is a lease plan on one of the caller's sources — never another principal's, never a revoked one — with its runs newest first", () => {
+  const syncs = DC.callerSyncsOf([plan, strangersPlan, revoked], [run("mrun_a", "cancelled", "2026-09-28T02:00:00Z"), run("mrun_b", "planned", "2026-09-28T03:00:00Z")], [bucket], "org://local");
+  assert.deepEqual(syncs.map((y) => y.plan.id), ["clp_1"]);
+  assert.equal(syncs[0].rid, DC.extractRidOf("clp_1"));
+  assert.match(syncs[0].rid, /^ri\.magritte\.\.extract\.[0-9a-f-]{36}$/u);
+  assert.deepEqual(syncs[0].runs.map((r) => r.id), ["mrun_b", "mrun_a"]);
+  assert.deepEqual([syncs[0].datasetName, syncs[0].datasetPath, syncs[0].set], ["Plants import objects", "/local/Plants import objects", null], "before any executed run, the dataset holds nothing");
+  const held = DC.callerSyncsOf([plan], [run("mrun_c", "executed", "2026-09-28T04:00:00Z", { execution: { materialized_set_ref: "materialized-object-set://s1", object_instances: 3 } })], [bucket]);
+  assert.deepEqual(held[0].set, { ref: "materialized-object-set://s1", objects: 3 });
+  assert.deepEqual(DC.extractsBySourceOf([mine, bucket], syncs), { [DC.sourceRidOf("ds_1")]: [], [DC.sourceRidOf("ds_2")]: [syncs[0].rid] });
+});
+
+test("a run's status is the reference build's: planned waits, a held lease runs, executed succeeds, a refused execute fails, cancelled or released cancels", () => {
+  assert.deepEqual(DC.runStatusOf({ status: "planned" }), { build: "RUNNING", job: "WAITING" });
+  assert.deepEqual(DC.runStatusOf({ status: "lease_obtained", history: [{ op: "lease_obtained" }] }), { build: "RUNNING", job: "RUNNING" });
+  assert.deepEqual(DC.runStatusOf({ status: "lease_obtained", history: [{ op: "lease_obtained" }, { op: "execution_refused" }] }), { build: "FAILED", job: "FAILED" });
+  assert.deepEqual(DC.runStatusOf({ status: "executed" }), { build: "SUCCEEDED", job: "SUCCEEDED" });
+  assert.deepEqual(DC.runStatusOf({ status: "cancelled" }), { build: "CANCELED", job: "CANCELED" });
+  assert.deepEqual(DC.runStatusOf({ status: "lease_released" }), { build: "CANCELED", job: "CANCELED" });
+  assert.deepEqual(DC.runStatusOf({ status: "something_new" }), { build: null, job: null }, "an unknown status claims nothing");
+});
+
+test("a sync's builds, extract, metadata and versions answer from its plan and runs; a plan with no run has no build (Never ran)", () => {
+  const never = DC.callerSyncsOf([plan], [], [bucket]);
+  const ds = never[0].datasetRid;
+  assert.deepEqual(DC.buildsBulkOf([{ buildFilter: { jobDatasetRids: [ds], branchIds: ["master"] }, limit: 1 }], never), [{ buildDetails: [], buildCount: 0 }]);
+  const syncs = DC.callerSyncsOf([plan], [run("mrun_a", "cancelled", "2026-09-28T02:00:00Z", { history: [{ op: "created" }, { op: "cancelled", summary: "MaterializingRun cancelled before any crossing" }] })], [bucket]);
+  const [bulk] = DC.buildsBulkOf([{ buildFilter: { filter: { jobDatasetRids: [ds] }, type: "filter" }, limit: 1 }], syncs);
+  const b = bulk.buildDetails[0];
+  assert.deepEqual([bulk.buildCount, b.buildStatus, b.jobs[0].jobStatus, b.securedProperties.branchId, b.jobs[0].outputDatasets[0].datasetRid], [1, "CANCELED", "CANCELED", "master", ds]);
+  assert.equal(b.jobs[0].securedProperties.statusDetails.message, "MaterializingRun cancelled before any crossing");
+  assert.deepEqual([b.user, b.userId], [null, null], "who admitted a run is not recorded, so no user is named");
+  assert.equal(DC.buildByRidOf(b.buildId, syncs).buildId, b.buildId);
+  assert.equal(DC.buildsBulkOf([{ buildFilter: { jobDatasetRids: ["ri.foundry.main.dataset.other"] }, limit: 1 }], syncs)[0].buildCount, 0, "another dataset's builds are not answered");
+  const x = DC.extractsBulkOf([syncs[0].rid, "ri.magritte..extract.other"], syncs);
+  assert.deepEqual(Object.keys(x), [syncs[0].rid]);
+  assert.deepEqual([x[syncs[0].rid].extractName, x[syncs[0].rid].sourceId, x[syncs[0].rid].datasetId, x[syncs[0].rid].extractConfig.sourceAdapter.type], ["Plants import", DC.sourceRidOf("ds_2"), ds, DC.SYNC_ADAPTER]);
+  assert.deepEqual(x[syncs[0].rid].extractConfig.sourceAdapter.operations, ["read", "transform"], "the plan's lease shape is the sync's configuration");
+  assert.deepEqual(DC.extractsMetadataOf([syncs[0].rid], syncs)[syncs[0].rid], { created: { time: plan.created_at, userId: null }, lastModified: null, displayOptions: null });
+  const hist = DC.extractHistoryOf(syncs[0].rid, syncs, { revision: 1, history: plan.history });
+  assert.deepEqual(Object.keys(hist.storedExtractHistories), ["1"]);
+  assert.equal(hist.storedExtractHistories[1].storedExtract.extractName, "Plants import");
+  assert.equal(DC.extractHistoryOf("ri.magritte..extract.other", syncs, null), null);
+});
+
+test("a sync's pages answer in the reference's own documents: its name, its source, no health check, no schedule, and a run in progress", () => {
+  const syncs = DC.callerSyncsOf([plan], [run("mrun_b", "planned", "2026-09-28T03:00:00Z")], [bucket], "org://local");
+  const ctx = { sources: [bucket], syncs };
+  const y = syncs[0];
+  assert.equal(DC.dataConnectionGraphqlFacts("BatchExtractPageHelperQuery", { extractRid: y.rid }, ctx).extract.extractName, "Plants import");
+  assert.equal(DC.dataConnectionGraphqlFacts("BatchExtractPageHelperQuery", { extractRid: "ri.magritte..extract.other" }, ctx).extract, null);
+  assert.equal(DC.dataConnectionGraphqlFacts("SourceNameAndTypeQuery", { sourceRid: DC.sourceRidOf("ds_2") }, ctx).source.numberOfExtracts, 1);
+  assert.deepEqual(DC.dataConnectionGraphqlFacts("ExtractOverviewQuery", { datasetRid: y.datasetRid, branchName: "master" }, ctx).catalogDataset.branch.healthChecks, []);
+  assert.deepEqual(DC.dataConnectionGraphqlFacts("BatchExtractConfigurationPageQuery", { extractRid: y.rid }, ctx).extract.branch.indirectlyRelevantSchedules, []);
+  const banner = "query RunningBuildBannerQuery($datasetRid: RID!, $branchId: String!) { runningJobs: jobs(filter: {jobStatuses: [RUNNING]}) { results { build { rid __typename } status __typename } __typename } waitingJobs: jobs(filter: {jobStatuses: [WAITING]}) { results { build { rid __typename } status __typename } __typename } __typename }";
+  const answered = answerDocument(banner, DC.dataConnectionGraphqlFacts("RunningBuildBannerQuery", { datasetRid: y.datasetRid, branchId: "master" }, ctx), null, "RunningBuildBannerQuery");
+  assert.deepEqual([answered.runningJobs.results.length, answered.waitingJobs.results.map((r) => r.status)], [0, ["WAITING"]], "a planned run waits for its lease");
+  const table = DC.dataConnectionGraphqlFacts("BatchExtractsForSourceTableQuery", { sourceRid: DC.sourceRidOf("ds_2"), pageSize: 100 }, ctx);
+  assert.deepEqual([table.source.numberOfExtracts, table.source.permissions.canCreateExtract], [1, false], "no sync can be created here yet");
+  const row = table.searchMagritteBatchExtracts.values[0].magritteExtract;
+  assert.deepEqual([row.extractName, row.dataset.metadata.name, row.dataset.metadata.permissions.canOpenLink, row.branch.jobs.results[0].build.status], ["Plants import", "Plants import objects", false, "RUNNING"]);
+  const list = DC.dataConnectionGraphqlFacts("SourcesListQuery", {}, { sources: [mine, bucket], syncs });
+  assert.deepEqual(list.sources.values.map((v) => [v.name, v.numberOfExtracts]), [["Orders API", 0], ["Plants bucket", 1]]);
+  const res = DC.compassSourceResources([y.datasetRid], [bucket], "org://local", syncs)[y.datasetRid];
+  assert.deepEqual([res.name, res.path, res.branches[0].name], ["Plants import objects", "/local/Plants import objects", "master"]);
+});
+
+test("a sync's writes are refused by name: Run needs a wallet-authority grant (the approval flow), and create, duplicate, change or delete are not bound", () => {
+  const rid = DC.extractRidOf("clp_1");
+  const run = DC.syncWriteRefusalOf("POST", `build/trigger/${rid}`);
+  assert.deepEqual([run.status, run.code], [409, "Hypervisor:DataConnectionRunNeedsApproval"], "never 403: the app words any 403 as a missing permission");
+  assert.match(run.message, /wallet-authority grant/u);
+  assert.equal(DC.syncRefusalBodyOf(run).message, run.message, "the app prints a refusal's top-level message");
+  assert.equal(DC.syncWriteRefusalOf("POST", "preview/source-adapter").code, "Hypervisor:DataConnectionPreviewNeedsLease", "a preview would read the source");
+  assert.equal(DC.syncWriteRefusalOf("DELETE", `build/delete-extract/${rid}`).code, "Hypervisor:DataConnectionSyncWriteNotBound");
+  assert.equal(DC.syncWriteRefusalOf("POST", "build/add-extract").code, "Hypervisor:DataConnectionSyncWriteNotBound");
+  assert.equal(DC.syncWriteRefusalOf("PUT", `extract-store/extract/${rid}`).code, "Hypervisor:DataConnectionSyncWriteNotBound");
+  assert.equal(DC.syncWriteRefusalOf("POST", "extract-store/extract/history"), null, "reading a sync's versions is not a write");
+  assert.equal(DC.syncWriteRefusalOf("POST", "extract-store/extracts/bulk"), null);
 });
 
 test("changing a source: only its declarer, only a REST source's one domain, never authentication or secrets", () => {

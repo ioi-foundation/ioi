@@ -516,7 +516,16 @@ assertion in its verifier.
     `check:adopted-data-connection` 12/12; seed depth 30 = 14 bound / 1 refused / 7 named gaps / 8 open (ledger CCXXII).
     Traps paid: the Pipeline surface's authz answer ran on every surface (the catalog read "no add-source" and rendered
     nothing); the mirror's `sources/new` index was a June build, so the whole create flow ran an old app.
-  - D4: syncs over materializing runs, after the sync harvest.
+  - D4: syncs over materializing runs. Done 2026-09-28. A sync is a capability-lease plan on one of the caller's
+    sources, and its builds are the plan's materializing runs. Bound: the Syncs list and its filters, a source's Batch
+    syncs table, and a sync's Overview, Configuration and Versions (the plan's lease shape as its configuration). Run
+    statuses were driven live: Never ran, Waiting (a run admitted, waiting for its lease), and Canceled. Run needs a
+    wallet-authority grant, so it is refused by name and points at the approval flow; Delete and the other sync writes
+    are refused by name. `check:adopted-data-connection` 18/18; seed depth 41 = 21 bound / 3 refused / 11 named gaps /
+    6 open (ledger CCXXIV). Still open: a failed run (reaching it needs a grant), and New / Duplicate / Save.
+    Named gaps: Created by (a plan records no declarer), earlier versions, and the dataset and build report apps.
+    Trap paid: the Configuration page loads the reference's CustomSourceAdapter chunk, which the mirror had never
+    recorded; it was fed to the mirror from the tenant's current build.
 
 ## Gate
 
