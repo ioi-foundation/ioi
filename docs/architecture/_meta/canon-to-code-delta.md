@@ -1375,6 +1375,17 @@ landed. Correct every copy, or the ones left behind go on reading as evidence.
 | **Two readings made deliberately, both recorded.** "Delete" means ARCHIVE — there is no DELETE verb on a memory entry, and reading the acceptance literally would have invented one. And skills and affinities keep their direct verbs, because the unit's scope is the memory-entry and memory-mutation owners. | the verifier's nonclaims | recorded |
 | **The census caught the cut adding a production writer, and the buckets are what mattered.** `check:ontology-admission-census` went red on the writer-call population. The FAMILY writer bucket (57), family mentions (285), the non-ODK literal bucket (243) and raw filesystem calls (234) were all unchanged; only the runtime-parameter bucket moved, by exactly the two added calls, both writing a LITERAL family. Had the family bucket moved it would have meant a new admitter. Re-pinned with that reasoning beside the numbers. | `check:ontology-admission-census` 27/27 | repaired |
 
+### Journey verification CCXXI (2026-09-28, R-241 Data Connection D2 part 2 — a source's settings, harvested and adopted)
+
+| Delta | Evidence | Disposition |
+|---|---|---|
+| **A source's settings were harvested from the tenant's example source.** Code imports' two operations and Connection settings' two REST reads (the source's runtime and its redacted certificates) had never been recorded. They were read from the example REST source built for the harvest, using navigation only, and recorded in the git-ignored mirror traffic. | mirror traffic `data-connection-flow` | **recorded** |
+| **Code imports and Webhooks answer from daemon truth.** Code imports is off for code repositories, compute modules and pipelines for UDFs, and every switch is disabled. No webhook exists, and New is disabled. No code repository, compute module, pipeline import or webhook plane exists in the Hypervisor. | `check:adopted-data-connection` 9/9 (new assertion; red when the import switches are made manageable); `test:adopted-seeds` 77/77 | **bound** |
+| **The reference fixes two switches on.** "Source webhooks in code repositories" and "pipelines for virtual table inputs and outputs" show on and disabled, and each says it cannot be disabled. Neither applies here, because nothing they allow exists. | seed depth `source.code-imports.fixed-on` | **named gap** |
+| **Connection settings reads are bound, but the page gives a false reason.** The source's runtime is the Hypervisor's own. It holds no credential, egress policy, cloud identity or certificate, and nothing here can create one. A wallet credential lease is shown as the source's one secret, never its value. The page still says "You do not have permission to edit connection settings". The real reason: the data-source plane has no update route, so a declared source cannot change. | seed depth `source.connection-settings` | **open (daemon)** |
+| **The webhooks callout blames the runtime.** It says webhooks are unsupported "when connecting via direct connection" and suggests contacting a representative or switching runtime. The real reason is that no webhook plane exists, and there is no other runtime. | seed depth `source.webhooks.callout` | **open** |
+| **Seed depth.** Data Connection: 28 = 7 bound / 6 named gaps / 15 open. | `check:seed-depth` 13/13 | **recorded** |
+
 ### Journey verification CCXX (2026-09-28, R-241 Data Connection D2 part 1 — a source's own page)
 
 | Delta | Evidence | Disposition |

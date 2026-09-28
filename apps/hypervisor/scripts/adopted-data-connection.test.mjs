@@ -62,3 +62,22 @@ test("a source's own page: its configuration is its declared endpoint, it can do
   assert.equal(res.name, "Orders API");
   assert.deepEqual([res.branches, res.tags, res.markings], [[], [], []], "the link component iterates these");
 });
+
+test("a source's settings: its runtime is the Hypervisor's own with nothing held there, its imports and webhooks are off, and a wallet lease is its one secret", () => {
+  const rid = DC.sourceRidOf("ds_1");
+  assert.deepEqual(DC.sourceRuntimePlatformOf(rid, [mine]).cloud, { credential: null, networkEgressPolicies: { networkEgressPolicies: [] }, cloudIdentity: null, oidcRuntime: null, clientCertificates: [], serverCertificateBundles: [] });
+  assert.equal(DC.sourceRuntimePlatformOf(DC.sourceRidOf("ds_4"), [mine]), null, "another's source has no runtime answered");
+  const editor = DC.dataConnectionGraphqlFacts("SourceEditorQuery", { sourceRid: rid }, { sources: [mine] });
+  const enrollment = editor.source.metadata.project.usageAccountEnrollment;
+  assert.deepEqual([enrollment.networkEgressPolicies, enrollment.cloudIdentities, enrollment.permissions.canCreateNetworkPolicy], [[], [], false]);
+  assert.equal(editor.source.permissions.canUpdateSourceConfig, false, "a declared source cannot be changed (no update route)");
+  assert.deepEqual(editor.source.secrets, [], "no lease bound: no secret");
+  const leased = { ...mine, credential_binding: { kind: "lease_ref", credential_lease_ref: "lease://wallet/1" } };
+  assert.deepEqual(DC.dataConnectionGraphqlFacts("SourceEditorQuery", { sourceRid: rid }, { sources: [leased] }).source.secrets.map((x) => x.vaultEntryRid), ["lease://wallet/1"]);
+  const imports = DC.dataConnectionGraphqlFacts("CodeImportsStepQuery", { sourceRid: rid }, { sources: [mine] }).source;
+  assert.ok(Object.values(imports.codeResourceImportUsageRestrictionsV2).filter((v) => typeof v === "boolean").every((v) => v === false));
+  assert.deepEqual([imports.permissions.canManageImportUsageRestrictions, imports.permissions.canManageImportingCodeResources, imports.permissions.canCreateWebhook], [false, false, false]);
+  const meta = DC.dataConnectionGraphqlFacts("ResourceMetadataQuery", { resourceRid: rid }, { sources: [mine], ownerRef: "org://local" }).resourceMetadata;
+  assert.deepEqual([meta.name, meta.parent.name, meta.permissions.canEditMetadata], ["Orders API", "local", false]);
+  assert.equal(DC.dataConnectionGraphqlFacts("ResourceMetadataQuery", { resourceRid: DC.sourceRidOf("ds_4") }, { sources: [mine], ownerRef: "org://local" }).resourceMetadata, null);
+});

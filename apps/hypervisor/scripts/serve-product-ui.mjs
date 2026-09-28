@@ -9426,7 +9426,8 @@ async function handleEstateRequest(req, res, body) {
         // Data Connection's sources, listeners and splash (on its surface only)
         if (DATA_CONNECTION.DATA_CONNECTION_GRAPHQL_OPERATIONS.has(name) && query && onDataConnectionSurface()) {
           const sources = name === "SourcesListQuery" || DATA_CONNECTION.SOURCE_PAGE_OPERATIONS.has(name) ? await callerDataSources() : [];
-          return { data: answerAdoptedDocument(query, DATA_CONNECTION.dataConnectionGraphqlFacts(name, variables || {}, { sources }), null, name) };
+          const ownerRef = name === "ResourceMetadataQuery" ? ((await planeRead("/v1/hypervisor/auth/whoami")).principal?.tenant_refs || []).find((t) => String(t).startsWith("org://")) : null;
+          return { data: answerAdoptedDocument(query, DATA_CONNECTION.dataConnectionGraphqlFacts(name, variables || {}, { sources, ownerRef }), null, name) };
         }
         // Object Explorer's catalog, search, recents and shortcuts (on the ontology surface only: other adopted apps send
         // some of the same operation names)
@@ -10898,6 +10899,11 @@ async function handleEstateRequest(req, res, body) {
         if (route === "agents") return sendO(200, DATA_CONNECTION.AGENTS);
         if (route === "batch/agent/healthstatus") return sendO(200, DATA_CONNECTION.AGENT_HEALTH);
         if (route === "bootvisor/status") return sendO(200, DATA_CONNECTION.BOOTVISOR_STATUS);
+        // a source's runtime and certificates (Connection settings)
+        const rt = /^source-store\/v2\/source\/(ri\.magritte\.\.source\.[0-9a-f-]{36})\/runtimePlatform$/u.exec(route);
+        if (rt) { const platform = DATA_CONNECTION.sourceRuntimePlatformOf(rt[1], await callerDataSources()); if (platform) return sendO(200, platform); }
+        const certs = /^source-certificates\/source\/(ri\.magritte\.\.source\.[0-9a-f-]{36})\/redacted$/u.exec(route);
+        if (certs && DATA_CONNECTION.sourceRuntimePlatformOf(certs[1], await callerDataSources())) return sendO(200, DATA_CONNECTION.SOURCE_CERTIFICATES);
       }
       if (onDataConnectionSurface() && req.method === "POST" && pathname.startsWith("/magritte-coordinator/api/")) {
         const route = pathname.slice("/magritte-coordinator/api/".length);

@@ -104,6 +104,22 @@ async function run() {
       /\/sources\/ri\.magritte\.\.source\.[0-9a-f-]{36}\/overview$/u.test(restUrl) && /Orders API \(REST API\)/u.test(restPage) && /Explore source capabilities/u.test(restPage)
         && /Plants bucket \(S3\)/u.test(s3Page) && !/An error occurred/u.test(restPage + s3Page),
       `${restUrl.replace(/ri\.[\w.-]+/u, "<rid>")} · ${after(restPage, "Orders API (", 20)} · ${after(s3Page, "Plants bucket (", 20)}`);
+    // the source's Code imports and Webhooks pages: both off, and nothing on them can turn either on (cut D2)
+    const srcBase = restUrl.replace(/\/overview$/u, "");
+    const controlsOf = () => pg.evaluate(() => [...document.querySelectorAll("input[type=checkbox], [role=switch], button, a[role=button]")]
+      .map((e) => ({ label: (e.closest("label")?.innerText || e.innerText || e.getAttribute("aria-label") || "").trim().replace(/\s+/gu, " ").slice(0, 64),
+        on: e.checked === true || e.getAttribute("aria-checked") === "true", off: e.disabled === true || e.getAttribute("aria-disabled") === "true" || !!e.closest("[aria-disabled=true], .bp5-disabled, .bp6-disabled") })));
+    const imports = await visit(`${srcBase}/settings/code-imports`, /Enable code imports|Failed to load configuration/u);
+    // every switch is disabled; the three a source's editor may set (code repositories, compute modules, pipelines for UDFs)
+    // are off — the two the reference fixes on (webhooks in code repositories, virtual tables) are its own, not ours
+    const importSwitches = (await controlsOf()).filter((c) => /^Allow (this source to be imported|the usage of source webhooks)/u.test(c.label));
+    const configurable = importSwitches.filter((c) => /imported into (code repositories|compute modules|pipelines for UDFs)/u.test(c.label));
+    const hooks = await visit(`${srcBase}/webhooks`, /No webhooks found|Failed/u);
+    const newHook = (await controlsOf()).filter((c) => c.label === "New");
+    ok("a source's code imports are off and cannot be enabled, and it has no webhooks and cannot create one — no code repository or webhook plane exists here",
+      /Enable code imports/u.test(imports) && !/Failed to load configuration/u.test(imports) && importSwitches.every((c) => c.off) && configurable.length === 3 && configurable.every((c) => !c.on)
+        && /No webhooks found/u.test(hooks) && /Webhooks 0/u.test(hooks) && newHook.length >= 1 && newHook.every((c) => c.off),
+      `imports ${importSwitches.map((c) => `${c.label.replace(/^Allow (this source to be imported into|the usage of) /u, "")}:${c.on ? "on" : "off"}${c.off ? "" : "(LIVE)"}`).join(", ")} · ${after(hooks, "Webhooks 0", 40)} · New ${JSON.stringify(newHook)}`);
     const syncs = await visit(`${BASE}/syncs`, /No syncs|Could not load syncs/u);
     const agents = await visit(`${BASE}/agents`, /No agents found|Unable to load agents/u);
     const listeners = await visit(`${BASE}/listeners`, /No listeners found|Failed to load listeners/u);

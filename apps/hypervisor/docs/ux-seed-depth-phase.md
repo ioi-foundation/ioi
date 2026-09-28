@@ -465,8 +465,11 @@ assertion in its verifier.
   - D2: a source's pages over its data source and connector. Part 1 done 2026-09-28: a source opens from the list on
     its Overview (name, connection type, what it can do; nothing it cannot), `check:adopted-data-connection` 8/8; seed
     depth 26 = 5 bound / 5 named gaps / 16 open (ledger CCXX). The mirror's index was an old build loading new
-    chunks, so the page crashed; it now matches the tenant's current build. Still to bind: Connection settings,
-    Webhooks, Code imports.
+    chunks, so the page crashed; it now matches the tenant's current build. Part 2 done 2026-09-28: Code imports
+    and Webhooks bound (both off; nothing on them can turn either on), `check:adopted-data-connection` 9/9; seed depth
+    28 = 7 bound / 6 named gaps / 15 open (ledger CCXXI). Connection settings' reads are bound, but the page shows a
+    false "no permission": a declared source cannot change, because the data-source plane has no update route (daemon
+    gap). The webhooks callout blames the runtime, which is also false.
   - D3: New source as a data-source create (REST API only; every other type refused by name).
   - D4: syncs over materializing runs, after the sync harvest.
 

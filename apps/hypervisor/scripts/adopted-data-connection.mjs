@@ -95,20 +95,35 @@ export function sourceConfigOf(src) {
   }
   return { source: { type, config: { url: src.endpoint || null } }, connections: {}, additionalSecrets: {}, resources: {} };
 }
+// The enrollment a source runs under is the Hypervisor itself: no compute service, no egress CIDRs, no cloud identity, no
+// private link, and no standing network egress policy (the daemon decides each crossing on its own lease), and nothing
+// here may create one. Organization-wide, not per source.
+export const ENROLLMENT_RID = `ri.multipass..enrollment.${uuidOf("enrollment")}`;
+const enrollmentOf = (base) => ({
+  ...base, __typename: "Enrollment", rid: ENROLLMENT_RID, name: "Hypervisor",
+  computeEnvironmentDetails: { __typename: "ComputeEnvironmentDetails", cloudPlatformDetails: null, rubixEnvironmentDetails: { __typename: "RubixEnvironmentDetails", egressCidrs: [] } },
+  cloudIdentities: [], isPrivateLinkEgressServiceAvailable: false, isSourceBasedNetworkingAvailable: false, networkEgressPolicies: [],
+  networkEgressConfiguration: "SELF_SERVICE", isSelfApprovalEnabledForNetworkPolicyApprovalRequests: false, organizations: [],
+  permissions: { __typename: "EnrollmentPermissions", _id: cid("EnrollmentPermissions"), canCreateNetworkPolicy: false, canCreateNetworkPolicyApprovalRequest: false, canCreateBcapEgress: false },
+});
+// A source bound to a wallet credential lease names that lease as its one secret (the secret itself never leaves the
+// wallet); any other posture holds none here.
+const secretsOf = (src) => src.credential_binding?.credential_lease_ref ? [{ __typename: "MagritteSecret", name: "Credential lease", vaultEntryRid: src.credential_binding.credential_lease_ref }] : [];
 function sourceDetailOf(src) {
   const node = sourceNodeOf(src);
-  const off = { canCreateExport: false, canCreateExtract: false, canExploreSource: false, canRegisterTable: false, canUpdateSourceConfig: false, canCreateWebhook: false };
+  const off = { canCreateExport: false, canCreateExtract: false, canExploreSource: false, canRegisterTable: false, canUpdateSourceConfig: false, canCreateWebhook: false, canUseSourceTerminal: false };
   return {
-    ...node, apiName: null, sourceConfig: sourceConfigOf(src), permissions: { __typename: "MagritteSourcePermissions", ...off },
+    ...node, apiName: null, sourceConfig: sourceConfigOf(src), permissions: { __typename: "MagritteSourcePermissions", ...off }, secrets: secretsOf(src),
+    runtimePlatform: { __typename: "CloudRuntimePlatform", clientCertificatesV2: [], serverCertificateBundlesV2: [], migrationToCloudInfo: null },
     exportState: { __typename: "MagritteExportState", isEnabled: false },
     codeResourceImportUsageRestrictionsV2: { __typename: "CodeResourceImportUsageRestrictions", allowStemmaRepositoriesUsage: false, allowDeployedApplicationsUsage: false },
     streamingExtracts: [], exports: [], changeDataCaptureStreamingExtract: null, importingCodeResources: [], streamingMediaExtracts: [], mediaExtracts: [], hyperAutoIntegrations: [],
     tables: { __typename: "MagritteTablePage", values: [] }, magritteIcebergExtractsV2: { __typename: "MagritteIcebergExtractPage", totalNumberOfResults: 0 },
-    webhooks: { __typename: "WebhookPage", totalNumberOfResults: 0, values: [] }, lastKnownCdataOauthAuthenticationStatus: null, userUploadedJdbcDrivers: [],
+    webhooks: { __typename: "WebhooksPage", totalNumberOfResults: 0, values: [], nextPageToken: null }, lastKnownCdataOauthAuthenticationStatus: null, userUploadedJdbcDrivers: [],
     // a declared source syncs nothing, so no folder receives its datasets
     outputFolder: null,
     metadata: { ...node.metadata, name: src.name || src.source_id, description: "", permissions: { __typename: "ResourcePermissions", canEditMetadata: false },
-      project: { ...node.metadata.project, usageAccountEnrollment: { ...node.metadata.project.usageAccountEnrollment, rid: `ri.multipass..enrollment.${uuidOf("enrollment")}` } } },
+      project: { ...node.metadata.project, usageAccountEnrollment: enrollmentOf(node.metadata.project.usageAccountEnrollment) } },
   };
 }
 // REST: POST source-store/sources/config/bulk — the asked sources' configurations
@@ -150,12 +165,34 @@ export function compassSourceResources(rids, sources, ownerRef) {
   if (folder && want.has(folder)) out[folder] = base(folder, namespaceNameOf(ownerRef), { time: null, userId: null }, { path: `/${namespaceNameOf(ownerRef)}`, namedAncestors: [] });
   return out;
 }
-export const SOURCE_PAGE_OPERATIONS = new Set(["SourcePageQuery", "SourcePageHelperQuery", "SourceBadConfigurationCalloutQuery", "CdataSourceInformationQuery", "ActiveResourceQuery", "WalkthroughsForResourceQuery", "SourceOutputFolderCondensedQuery"]);
+// REST: GET source-store/v2/source/<rid>/runtimePlatform — the Hypervisor reaches a source itself (the "cloud" runtime),
+// holding no credential there (a credential stays in the wallet), no egress policy, cloud identity, OIDC runtime or
+// certificate; and GET source-certificates/source/<rid>/redacted — no certificate
+export function sourceRuntimePlatformOf(rid, sources) {
+  if (!(sources || []).some((s) => sourceRidOf(s.source_id) === rid)) return null;
+  return { type: "cloud", cloud: { credential: null, networkEgressPolicies: { networkEgressPolicies: [] }, cloudIdentity: null, oidcRuntime: null, clientCertificates: [], serverCertificateBundles: [] } };
+}
+export const SOURCE_CERTIFICATES = { client: {}, server: {} };
+// a source as a resource the settings pages name and place (its name, its folder, its path); nothing is editable here
+function sourceResourceMetadataOf(src, ownerRef) {
+  const rid = sourceRidOf(src.source_id);
+  const folderRid = ownerRef ? namespaceRidOf(ownerRef) : null;
+  const seg = (r, name, path) => ({ __typename: "ResourceMetadata", _id: cid(`ResourceMetadata:${r}`), rid: r, name, alias: null, openUrl: null, path, collections: [], status: null,
+    trashedStatus: "NOT_TRASHED", type: { __typename: "ResourceType", iconName: null }, permissions: { __typename: "ResourcePermissions", canEditMetadata: false, canOpenLink: false },
+    autosaved: false, statusInfo: null, ancestors: [], parent: null });
+  const folder = folderRid ? seg(folderRid, namespaceNameOf(ownerRef), `/${namespaceNameOf(ownerRef)}`) : null;
+  return { ...seg(rid, src.name || src.source_id, `/${namespaceNameOf(ownerRef)}/${src.name || src.source_id}`), parent: folder, ancestors: folder ? [folder] : [] };
+}
+export const SOURCE_PAGE_OPERATIONS = new Set(["SourcePageQuery", "SourcePageHelperQuery", "SourceBadConfigurationCalloutQuery", "CdataSourceInformationQuery", "ActiveResourceQuery", "WalkthroughsForResourceQuery", "SourceOutputFolderCondensedQuery",
+  "SourceSettingsPageQuery", "SourceEditorQuery", "SourceEgressSelectPanelQuery", "SourceWebhooksPageQuery", "SourceWebhooksSectionQuery", "CodeImportsStepQuery", "ResourceMetadataQuery"]);
+// no service a source's settings name exists here: no compute service, no egress or on-prem proxy
+const SERVICE_AVAILABILITY = { __typename: "MagritteServiceAvailability", computeService: { __typename: "MagritteServiceAvailabilityResult", isAvailable: false },
+  egressProxy: { __typename: "MagritteServiceAvailabilityResult", isAvailable: false }, onPremProxy: { __typename: "MagritteServiceAvailabilityResult", isAvailable: false } };
 const sourceOf = (sources, rid) => (sources || []).find((s) => sourceRidOf(s.source_id) === rid) || null;
 
 export const DATA_CONNECTION_GRAPHQL_OPERATIONS = new Set([...SOURCE_PAGE_OPERATIONS, 
   "SourcesListQuery", "CreateSourceButtonQuery", "SplashTableQuery", "TargetsListQuery", "GetRemoteStoreRid", "RecentInstallationsPopoverQuery",
-  "CommunicationChannelsQuery",
+  "CommunicationChannelsQuery", "FoundryProvidedDriverQuery",
 ]);
 // ctx: { sources } (already the caller's)
 export function dataConnectionGraphqlFacts(name, variables, ctx) {
@@ -181,11 +218,31 @@ export function dataConnectionGraphqlFacts(name, variables, ctx) {
     case "CommunicationChannelsQuery": return { ...root, communicationChannelCategories: [],
       me: { __typename: "User", _id: cid("User:me"), organization: { __typename: "Organization", _id: cid("Organization:me"), enrollment: { __typename: "Enrollment", _id: cid("Enrollment:me"), administratorCommunicationControls: { __typename: "AdministratorCommunicationControls", disallowedCommunicationChannels: [] } } } } };
     // a source's page
-    case "SourcePageQuery": case "SourcePageHelperQuery": case "SourceBadConfigurationCalloutQuery": case "CdataSourceInformationQuery": case "SourceOutputFolderCondensedQuery": {
+    case "SourcePageQuery": case "SourcePageHelperQuery": case "SourceBadConfigurationCalloutQuery": case "CdataSourceInformationQuery": case "SourceOutputFolderCondensedQuery":
+    case "SourceSettingsPageQuery": case "SourceEditorQuery": case "SourceWebhooksPageQuery": case "SourceWebhooksSectionQuery": {
       const src = sourceOf(ctx.sources, variables?.sourceRid || variables?.rid);
-      return { ...root, source: src ? sourceDetailOf(src) : null,
-        magritteServiceAvailability: { __typename: "MagritteServiceAvailability", egressProxy: { __typename: "ServiceAvailability", isAvailable: false }, onPremProxy: { __typename: "ServiceAvailability", isAvailable: false } } };
+      // no identity provider federates a source's outbound calls
+      return { ...root, source: src ? sourceDetailOf(src) : null, magritteServiceAvailability: SERVICE_AVAILABILITY, oidcMetadata: null };
     }
+    // the egress panel reads the enrollment through the source's resource metadata
+    case "SourceEgressSelectPanelQuery": {
+      const src = sourceOf(ctx.sources, variables?.sourceRid);
+      return { ...root, resourceMetadata: src ? sourceDetailOf(src).metadata : null };
+    }
+    // code imports: no code repository, deployed application or pipeline imports a source here, and none may be allowed
+    case "CodeImportsStepQuery": {
+      const src = sourceOf(ctx.sources, variables?.sourceRid);
+      if (!src) return { ...root, source: null };
+      const d = sourceDetailOf(src);
+      return { ...root, source: { ...d, codeResourceImportUsageRestrictionsV2: { ...d.codeResourceImportUsageRestrictionsV2, __typename: "MagritteSourceCodeResourceImportUsageRestrictions", allowEddiePipelinesUsage: false },
+        permissions: { ...d.permissions, canManageImportUsageRestrictions: false, canManageImportingCodeResources: false } } };
+    }
+    case "ResourceMetadataQuery": {
+      const src = sourceOf(ctx.sources, variables?.resourceRid || variables?.rid);
+      return { ...root, resourceMetadata: src ? sourceResourceMetadataOf(src, ctx.ownerRef) : null };
+    }
+    // a JDBC driver: no connection type here uses one
+    case "FoundryProvidedDriverQuery": return { ...root, magritteProvidedJdbcDriver: null };
     // a source as a resource: not promoted, and no walkthrough
     case "ActiveResourceQuery": case "WalkthroughsForResourceQuery": {
       const rid = variables?.rid || variables?.resourceRid;
