@@ -60,6 +60,7 @@ import * as AUTOMATE from "./adopted-automate.mjs";
 import * as FUNCTIONS from "./adopted-functions.mjs";
 import * as PIPELINE from "./adopted-pipeline.mjs";
 import * as ONTOLOGY from "./adopted-ontology.mjs";
+import * as DATA_CONNECTION from "./adopted-data-connection.mjs";
 import { revisionFamilyOf as ontologyRevisionFamilyOf } from "../surfaces/ontology-manager/index.mjs";
 import { answerDocument as answerAdoptedDocument } from "./adopted-graphql.mjs";
 import { isJustificationPrompt, justificationPayload, renderJustificationPrompt } from "./justification-prompt.mjs";
@@ -250,7 +251,7 @@ const AUG_TAG = '<script src="/ioi-augmentation.js" defer></script>';
 // IOI_PRODUCT_SIGNIN_REQUIRED=0 — the one automation browses anonymously — keeps its signed-out states.
 // An adopted app's OWN base path (its router pushes these URLs) serves the same seed, so a reload or a
 // deep link lands where the app expects; the /__apps/<slug> lane stays the development entry.
-const ADOPTED_ROUTE_ALIASES = [["/workspace/object-monitoring", "monitors"], ["/workspace/builder", "pipeline"], ["/workspace/ontology", "schema"], ["/workspace/hubble", "explorer"]];
+const ADOPTED_ROUTE_ALIASES = [["/workspace/object-monitoring", "monitors"], ["/workspace/builder", "pipeline"], ["/workspace/ontology", "schema"], ["/workspace/hubble", "explorer"], ["/workspace/data-ingestion-app", "sources"]];
 // THE ONTOLOGY FENCE (R-241 Ontology Manager, cut O1): the adopted Ontology Manager's reads of the ontology, the object
 // registry, object sets, search and data health that are not bound are answered as named gaps — never passed through
 // to the mirror, whose answers are the RECORDED TENANT's ontology.
@@ -261,6 +262,11 @@ const ONTOLOGY_FENCED = /^\/(ontology-metadata|phonograph2|object-set-service|fo
 // Object Explorer (/workspace/hubble, O4) reads the same ontology, so it is the same surface: the same fence.
 const ONTOLOGY_SURFACE_REFERER = /\/workspace\/(?:ontology|hubble)(?:[/?#]|$)|\/__apps\/(?:schema|explorer)(?:[/?#]|$)/u;
 const SERVICE_API_PATH = /^\/[a-z][a-z0-9-]*\/api\//u;
+// THE DATA CONNECTION FENCE (R-241 Data Connection, cut D1): the adopted Data Connection app (/workspace/data-ingestion-app)
+// reads sources, syncs, schedules, datasets and example installs from these services; one that is not bound is a named gap,
+// never the mirror's recorded answer (the recorded tenant's sources) and never this serve's HTML shell.
+const DATA_CONNECTION_SURFACE_REFERER = /\/workspace\/data-ingestion-app(?:[/?#]|$)|\/__apps\/sources(?:[/?#]|$)/u;
+const DATA_CONNECTION_FENCED = /^\/(magritte-coordinator|scheduler|marketplace|foundry-catalog|build2|foundry-stemma|monocle|data-health|compass|ontology-metadata|phonograph2|object-set-service|foundry-search|egress|network-egress)\//u;
 // Whether the local reference mirror can boot a seed right now (R-241: adopted bundles live in the
 // local mirror only). Cached briefly; a canonical route opens the adopted app only when it can boot.
 const adoptedSeedCache = new Map();
@@ -9233,7 +9239,8 @@ async function handleEstateRequest(req, res, body) {
     }
     const adoptedAlias = ADOPTED_ROUTE_ALIASES.find(([prefix]) => pathname === prefix || pathname.startsWith(`${prefix}/`));
     const ontologyServiceRead = SERVICE_API_PATH.test(pathname) && ONTOLOGY_SURFACE_REFERER.test(String(req.headers.referer || ""));
-    if (adoptedAlias || ontologyServiceRead || pathname.startsWith("/__apps/") || pathname.startsWith("/assets/content-addressable-storage/") || MIRROR_API_PREFIXES.some((pref) => pathname.startsWith(pref))) {
+    const dataConnectionServiceRead = SERVICE_API_PATH.test(pathname) && DATA_CONNECTION_SURFACE_REFERER.test(String(req.headers.referer || ""));
+    if (adoptedAlias || ontologyServiceRead || dataConnectionServiceRead || pathname.startsWith("/__apps/") || pathname.startsWith("/assets/content-addressable-storage/") || MIRROR_API_PREFIXES.some((pref) => pathname.startsWith(pref))) {
       // A daemon read an adopted app depends on: a plane that does not answer — stopped, or refusing — is an
       // ERROR the app shows (its own "unable to load" state), never an empty answer that reads as "nothing
       // exists". The error is typed (planeDown): the GraphQL gateways answer it as the operation's error and
@@ -9283,6 +9290,7 @@ async function handleEstateRequest(req, res, body) {
       // from Automate's: a recipe family is held in the owner's recipe registry, never in a project).
       const onPipelineSurface = () => /\/workspace\/builder(?:[/?#]|$)|\/__apps\/pipeline(?:[/?#]|$)/u.test(String(req.headers.referer || ""));
       const onOntologySurface = () => ONTOLOGY_SURFACE_REFERER.test(String(req.headers.referer || ""));
+      const onDataConnectionSurface = () => DATA_CONNECTION_SURFACE_REFERER.test(String(req.headers.referer || ""));
       // One read of what the adopted Pipeline Builder shows: the caller's DataRecipe families (each with its
       // revisions) and change sets, as pipelines (adopted-pipeline.mjs).
       // A plane that does not answer is an ERROR the app shows ("Unable to load pipelines"), never an empty
@@ -9313,6 +9321,13 @@ async function handleEstateRequest(req, res, body) {
         return PIPELINE.ontologyCatalogOf(families.filter(Boolean), draftFamilies);
       };
       // The caller's ontologies with their object models, as the adopted Ontology Manager reads them (adopted-ontology.mjs).
+      // (the data-source plane is read first: a daemon that does not answer is named by the plane this app reads)
+      const callerDataSources = async () => {
+        const sources = await planeRead("/v1/hypervisor/data-sources").then((j) => j.data_sources || []);
+        const principalRef = (await planeRead("/v1/hypervisor/auth/whoami")).principal?.principal_ref || null;
+        const projects = await planeRead("/v1/hypervisor/projects").then((j) => (j.projects || []).map((p) => p.project_ref || (p.project_id ? `project://${p.project_id}` : null)).filter(Boolean)).catch(() => []);
+        return DATA_CONNECTION.callerSourcesOf(sources, principalRef, projects);
+      };
       const ontologyModels = async () => {
         const who = await planeRead("/v1/hypervisor/auth/whoami");
         const owner = (who.principal?.tenant_refs || []).find((t) => String(t).startsWith("org://"));
@@ -9378,7 +9393,7 @@ async function handleEstateRequest(req, res, body) {
       };
       const answerAdoptedOp = async (name, variables, ctxA, query = "") => {
         try {
-          if (ctxA?.failed && !PIPELINE.answersPipelineOperation(name, variables) && !(onPipelineSurface() && (AUTOMATE.SAVE_LOCATION_OPERATIONS.has(name) || name === "FolderLocationQuery" || name === "ViewResourceMutation"))) throw ctxA.failed;
+          if (ctxA?.failed && !PIPELINE.answersPipelineOperation(name, variables) && !(onDataConnectionSurface() && DATA_CONNECTION.DATA_CONNECTION_GRAPHQL_OPERATIONS.has(name)) && !(onPipelineSurface() && (AUTOMATE.SAVE_LOCATION_OPERATIONS.has(name) || name === "FolderLocationQuery" || name === "ViewResourceMutation"))) throw ctxA.failed;
           return await answerAdoptedOpInner(name, variables, ctxA, query);
         }
         catch (e) { if (e?.planeDown) return { data: null, errors: [{ message: `${name}: ${e.message}` }] }; throw e; }
@@ -9404,6 +9419,11 @@ async function handleEstateRequest(req, res, body) {
             if (!r || !r.ok) return { data: null, errors: [{ message: `${name}: the view was not recorded (the preference plane answered ${r ? r.status : "nothing"})` }] };
             return { data: { __typename: "Mutation", view: { __typename: "ObjectType", rid } } };
           }
+        }
+        // Data Connection's sources, listeners and splash (on its surface only)
+        if (DATA_CONNECTION.DATA_CONNECTION_GRAPHQL_OPERATIONS.has(name) && query && onDataConnectionSurface()) {
+          const sources = name === "SourcesListQuery" ? await callerDataSources() : [];
+          return { data: answerAdoptedDocument(query, DATA_CONNECTION.dataConnectionGraphqlFacts(name, variables || {}, { sources }), null, name) };
         }
         // Object Explorer's catalog, search, recents and shortcuts (on the ontology surface only: other adopted apps send
         // some of the same operation names)
@@ -9890,7 +9910,7 @@ async function handleEstateRequest(req, res, body) {
         }
         // On the adopted Ontology Manager every operation answers from the adopted layer — bound, the safe chrome envelope,
         // or a named gap. The passthrough below answers with the recorded tenant's (or the mirror's demo) data.
-        if (gqlOp && onOntologySurface()) return sendJson(await answerAdoptedOp(AUTOMATE.opNameOf(gqlOp), gqlOp.variables || {}, await automateContextOrFailed(), String(gqlOp.query || "")));
+        if (gqlOp && (onOntologySurface() || onDataConnectionSurface())) return sendJson(await answerAdoptedOp(AUTOMATE.opNameOf(gqlOp), gqlOp.variables || {}, await automateContextOrFailed(), String(gqlOp.query || "")));
         // other GraphQL operations fall through to the capture passthrough
       }
       // Upload honesty: the estate has NO product-zip upload lane — listings are drafted
@@ -10043,7 +10063,7 @@ async function handleEstateRequest(req, res, body) {
         try { batch = JSON.parse(body.toString()); } catch { /* not JSON */ }
         // On the adopted Ontology Manager a batch answers from the adopted layer, operation by operation — never the
         // passthrough below, which answers with the recorded tenant's data (it had returned a tenant workshop module).
-        if (Array.isArray(batch) && onOntologySurface()) {
+        if (Array.isArray(batch) && (onOntologySurface() || onDataConnectionSurface())) {
           const ctxA = await automateContextOrFailed();
           const answers = await Promise.all(batch.map((op) => answerAdoptedOp(AUTOMATE.opNameOf(op), op.variables || {}, ctxA, String(op.query || ""))));
           res.writeHead(200, { "Content-Type": "application/json" });
@@ -10862,6 +10882,25 @@ async function handleEstateRequest(req, res, body) {
       // the object registry keeps no object data or usage for the caller's types (none is indexed there)
       if (onOntologySurface() && /^\/phonograph2\/api\/objects\/registry\/bulk\/(objectTypes|relations)\/(metadata|usageMetadata)$/u.test(pathname) && req.method === "POST") return sendO(200, {});
       // the ontology's namespace as a compass folder (read by the switcher); every other compass read stays fenced
+      // Data Connection's bootstrap reads: the caller's sources by type, their syncs (none), the connection types, and
+      // the agent and external-stack reads (none exists)
+      if (onDataConnectionSurface() && req.method === "GET" && pathname.startsWith("/magritte-coordinator/api/")) {
+        const route = pathname.slice("/magritte-coordinator/api/".length);
+        if (route === "source-store/sources/types") return sendO(200, DATA_CONNECTION.sourceTypesOf(await callerDataSources()));
+        if (route === "extract-store/extracts/source") return sendO(200, DATA_CONNECTION.extractsBySourceOf(await callerDataSources()));
+        if (route === "managed-sources/sources") return sendO(200, DATA_CONNECTION.MANAGED_SOURCE_TYPES);
+        if (route === "external-stack/front-end-preload-info") return sendO(200, DATA_CONNECTION.EXTERNAL_STACK_PRELOAD);
+        if (route === "agents") return sendO(200, DATA_CONNECTION.AGENTS);
+        if (route === "batch/agent/healthstatus") return sendO(200, DATA_CONNECTION.AGENT_HEALTH);
+        if (route === "bootvisor/status") return sendO(200, DATA_CONNECTION.BOOTVISOR_STATUS);
+      }
+      if (onDataConnectionSurface() && req.method === "POST" && pathname.startsWith("/magritte-coordinator/api/")) {
+        const route = pathname.slice("/magritte-coordinator/api/".length);
+        let asked = null; try { asked = JSON.parse(body.toString() || "null"); } catch { /* none */ }
+        if (route === "streaming/extracts/get-for-sources") return sendO(200, DATA_CONNECTION.streamingExtractsOf(asked, await callerDataSources()));
+        if (route === "source-store/sources/description/bulk") return sendO(200, DATA_CONNECTION.sourceDescriptionsOf(asked, await callerDataSources()));
+        if (route === "extract-store/extracts/bulk") return sendO(200, DATA_CONNECTION.extractsBulkOf());
+      }
       // installed-application metadata and the command palette's application commands: the Hypervisor registers none
       // (passed through, both answered with the recorded tenant's applications)
       if (onOntologySurface() && pathname === "/workspace/api/ams/metadataV2" && req.method === "GET") return sendO(200, { applicationMetadata: [] });
@@ -10907,6 +10946,10 @@ async function handleEstateRequest(req, res, body) {
         let asked = {}; try { asked = JSON.parse(body.toString() || "{}"); } catch { /* none */ }
         const { models } = await ontologyModels();
         return sendO(200, ONTOLOGY.objectViewsOf(asked, models));
+      }
+      if (onDataConnectionSurface() && (DATA_CONNECTION_FENCED.test(pathname) || (dataConnectionServiceRead && !MIRROR_API_PREFIXES.some((pref) => pathname.startsWith(pref)))) && !(pathname === "/compass/api/registry/actions" && req.method === "GET")) {
+        res.writeHead(501, { "Content-Type": "application/json" });
+        return res.end(JSON.stringify({ errorCode: "INTERNAL", errorName: "Hypervisor:DataConnectionReadNotBound", errorInstanceId: "", parameters: { message: `${req.method} ${pathname.replace(/ri\.[\w.-]+/gu, "<rid>")} is not bound in the Hypervisor's Data Connection yet: a named gap, and nothing recorded is served in its place` } }));
       }
       if (onOntologySurface() && (ONTOLOGY_FENCED.test(pathname) || (ontologyServiceRead && !MIRROR_API_PREFIXES.some((pref) => pathname.startsWith(pref)))) && !(pathname === "/compass/api/registry/actions" && req.method === "GET")) {
         res.writeHead(501, { "Content-Type": "application/json" });

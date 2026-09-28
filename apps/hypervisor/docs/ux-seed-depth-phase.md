@@ -460,6 +460,8 @@ assertion in its verifier.
 - **Cuts.**
   - D1: route the app (`/workspace/data-ingestion-app` → the `sources` seed) behind a fence like the ontology's;
     bind the landing and the lists (sources from the data-source plane; agents, listeners and external stacks none).
+    Done 2026-09-28: `check:adopted-data-connection` 7/7; seed depth 25 = 4 bound / 5 named gaps / 16 open (ledger
+    CCXIX).
   - D2: a source's pages over its data source and connector.
   - D3: New source as a data-source create (REST API only; every other type refused by name).
   - D4: syncs over materializing runs, after the sync harvest.
