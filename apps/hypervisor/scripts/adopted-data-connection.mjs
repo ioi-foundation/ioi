@@ -8,6 +8,8 @@
 // answers lend STRUCTURE only. Every other read on the surface is fenced by the serve as a named gap.
 import crypto from "node:crypto";
 import { uuidOf } from "./adopted-pipeline.mjs";
+import { namespaceRidOf, namespaceNameOf } from "./adopted-ontology.mjs";
+import { principalUserId } from "./adopted-automate.mjs";
 
 const cid = (s) => crypto.createHash("sha256").update(String(s)).digest("base64");
 
@@ -79,7 +81,79 @@ export function sourceDescriptionsOf(rids, sources) {
 // REST: POST extract-store/extracts/bulk — the asked syncs: none exists
 export const extractsBulkOf = () => ({});
 
-export const DATA_CONNECTION_GRAPHQL_OPERATIONS = new Set([
+// ---- a source's own pages (cut D2): the source by its rid, from the caller's sources. A declared source's configuration
+// is its endpoint (a REST API's domain, a bucket's URL); nothing can be exported, synced, explored, registered or
+// webhooked from it here, so every such permission is false, and nothing depends on it.
+const endpointUrl = (e) => { try { return new URL(String(e || "")); } catch { return null; } };
+export function sourceConfigOf(src) {
+  const type = sourceTypeOf(src.kind);
+  if (type === "webhooks-rest") {
+    const u = endpointUrl(src.endpoint);
+    const id = uuidOf(`domain:${src.source_id}`);
+    return { source: { type, config: { domains: [{ domainId: id, host: u?.host || "", scheme: u?.protocol === "http:" ? "HTTP" : "HTTPS" }] } },
+      connections: { [id]: { id, config: { type: "http", http: { url: u ? `${u.protocol}//${u.host}` : "" } } } }, additionalSecrets: {}, resources: {} };
+  }
+  return { source: { type, config: { url: src.endpoint || null } }, connections: {}, additionalSecrets: {}, resources: {} };
+}
+function sourceDetailOf(src) {
+  const node = sourceNodeOf(src);
+  const off = { canCreateExport: false, canCreateExtract: false, canExploreSource: false, canRegisterTable: false, canUpdateSourceConfig: false, canCreateWebhook: false };
+  return {
+    ...node, apiName: null, sourceConfig: sourceConfigOf(src), permissions: { __typename: "MagritteSourcePermissions", ...off },
+    exportState: { __typename: "MagritteExportState", isEnabled: false },
+    codeResourceImportUsageRestrictionsV2: { __typename: "CodeResourceImportUsageRestrictions", allowStemmaRepositoriesUsage: false, allowDeployedApplicationsUsage: false },
+    streamingExtracts: [], exports: [], changeDataCaptureStreamingExtract: null, importingCodeResources: [], streamingMediaExtracts: [], mediaExtracts: [], hyperAutoIntegrations: [],
+    tables: { __typename: "MagritteTablePage", values: [] }, magritteIcebergExtractsV2: { __typename: "MagritteIcebergExtractPage", totalNumberOfResults: 0 },
+    webhooks: { __typename: "WebhookPage", totalNumberOfResults: 0, values: [] }, lastKnownCdataOauthAuthenticationStatus: null, userUploadedJdbcDrivers: [],
+    // a declared source syncs nothing, so no folder receives its datasets
+    outputFolder: null,
+    metadata: { ...node.metadata, name: src.name || src.source_id, description: "", permissions: { __typename: "ResourcePermissions", canEditMetadata: false },
+      project: { ...node.metadata.project, usageAccountEnrollment: { ...node.metadata.project.usageAccountEnrollment, rid: `ri.multipass..enrollment.${uuidOf("enrollment")}` } } },
+  };
+}
+// REST: POST source-store/sources/config/bulk — the asked sources' configurations
+export function sourceConfigsOf(rids, sources) {
+  const byRid = new Map((sources || []).map((s) => [sourceRidOf(s.source_id), s]));
+  return Object.fromEntries((Array.isArray(rids) ? rids : []).filter((r) => byRid.has(r)).map((r) => [r, sourceConfigOf(byRid.get(r))]));
+}
+// REST: POST source-store/sources/metadata — when each asked source was declared and last changed, and by whom
+export function sourceMetadataOf(rids, sources) {
+  const byRid = new Map((sources || []).map((s) => [sourceRidOf(s.source_id), s]));
+  return Object.fromEntries((Array.isArray(rids) ? rids : []).filter((r) => byRid.has(r)).map((r) => { const s = byRid.get(r); const who = principalUserId(s.declared_by_principal_ref);
+    return [r, { created: { time: s.created_at || null, userId: who }, lastModified: { time: s.updated_at || s.created_at || null, userId: who }, displayOptions: null }]; }));
+}
+// REST: GET compass/api/resources/<source rid>/parent — a source is filed in no project here, so its parent is the owner's
+// organization folder (the namespace the adopted Ontology Manager answers too)
+export function sourceParentOf(rid, sources, ownerRef) {
+  const s = (sources || []).find((x) => sourceRidOf(x.source_id) === rid);
+  if (!s || !ownerRef) return null;
+  const at = { time: s.created_at || null, userId: principalUserId(s.declared_by_principal_ref) };
+  return { rid: namespaceRidOf(ownerRef), name: namespaceNameOf(ownerRef), created: at, modified: at, lastModified: Date.parse(s.created_at || "") || 0,
+    urlVariables: {}, directlyTrashed: false, isAutosave: false, isHidden: false, isPreviewResource: false, status: null };
+}
+// REST: POST compass/api/batch/resources — the caller's sources (and their parent, the owner's organization folder) as
+// the resources the app names and places them by: its header, breadcrumbs and path. No operation is granted on them here.
+export function compassSourceResources(rids, sources, ownerRef) {
+  const out = {};
+  const want = new Set(Array.isArray(rids) ? rids : []);
+  const folder = ownerRef ? namespaceRidOf(ownerRef) : null;
+  const base = (rid, name, at, extra) => ({ rid, name, created: at, modified: at, lastModified: Date.parse(at.time || "") || 0, description: null, operations: [], urlVariables: {},
+    favorite: null, branches: [], defaultBranch: null, longDescription: null, directlyTrashed: false, inTrash: false, isAutosave: false, isHidden: false, isPreviewResource: false,
+    deprecation: null, collections: [], namedCollections: [], tags: [], namedTags: [], alias: "", collaborators: [], markings: [], projectAccessMarkings: [],
+    linkedItems: [], classification: null, portfolioRid: null, status: null, ...extra });
+  for (const s of sources || []) {
+    const rid = sourceRidOf(s.source_id);
+    if (!want.has(rid)) continue;
+    const at = { time: s.created_at || null, userId: principalUserId(s.declared_by_principal_ref) };
+    out[rid] = base(rid, s.name || s.source_id, at, { path: `/${namespaceNameOf(ownerRef)}/${s.name || s.source_id}`, namedAncestors: folder ? [{ rid: folder, name: namespaceNameOf(ownerRef) }] : [] });
+  }
+  if (folder && want.has(folder)) out[folder] = base(folder, namespaceNameOf(ownerRef), { time: null, userId: null }, { path: `/${namespaceNameOf(ownerRef)}`, namedAncestors: [] });
+  return out;
+}
+export const SOURCE_PAGE_OPERATIONS = new Set(["SourcePageQuery", "SourcePageHelperQuery", "SourceBadConfigurationCalloutQuery", "CdataSourceInformationQuery", "ActiveResourceQuery", "WalkthroughsForResourceQuery", "SourceOutputFolderCondensedQuery"]);
+const sourceOf = (sources, rid) => (sources || []).find((s) => sourceRidOf(s.source_id) === rid) || null;
+
+export const DATA_CONNECTION_GRAPHQL_OPERATIONS = new Set([...SOURCE_PAGE_OPERATIONS, 
   "SourcesListQuery", "CreateSourceButtonQuery", "SplashTableQuery", "TargetsListQuery", "GetRemoteStoreRid", "RecentInstallationsPopoverQuery",
   "CommunicationChannelsQuery",
 ]);
@@ -106,6 +180,18 @@ export function dataConnectionGraphqlFacts(name, variables, ctx) {
     // administrator communication channels: none is configured
     case "CommunicationChannelsQuery": return { ...root, communicationChannelCategories: [],
       me: { __typename: "User", _id: cid("User:me"), organization: { __typename: "Organization", _id: cid("Organization:me"), enrollment: { __typename: "Enrollment", _id: cid("Enrollment:me"), administratorCommunicationControls: { __typename: "AdministratorCommunicationControls", disallowedCommunicationChannels: [] } } } } };
+    // a source's page
+    case "SourcePageQuery": case "SourcePageHelperQuery": case "SourceBadConfigurationCalloutQuery": case "CdataSourceInformationQuery": case "SourceOutputFolderCondensedQuery": {
+      const src = sourceOf(ctx.sources, variables?.sourceRid || variables?.rid);
+      return { ...root, source: src ? sourceDetailOf(src) : null,
+        magritteServiceAvailability: { __typename: "MagritteServiceAvailability", egressProxy: { __typename: "ServiceAvailability", isAvailable: false }, onPremProxy: { __typename: "ServiceAvailability", isAvailable: false } } };
+    }
+    // a source as a resource: not promoted, and no walkthrough
+    case "ActiveResourceQuery": case "WalkthroughsForResourceQuery": {
+      const rid = variables?.rid || variables?.resourceRid;
+      const src = sourceOf(ctx.sources, rid);
+      return { ...root, resourceMetadata: src ? { __typename: "ResourceMetadata", _id: cid(`ResourceMetadata:${rid}`), rid, promotion: null, aipAssistWalkthroughs: [] } : null };
+    }
     default: return null;
   }
 }

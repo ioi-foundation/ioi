@@ -462,7 +462,11 @@ assertion in its verifier.
     bind the landing and the lists (sources from the data-source plane; agents, listeners and external stacks none).
     Done 2026-09-28: `check:adopted-data-connection` 7/7; seed depth 25 = 4 bound / 5 named gaps / 16 open (ledger
     CCXIX).
-  - D2: a source's pages over its data source and connector.
+  - D2: a source's pages over its data source and connector. Part 1 done 2026-09-28: a source opens from the list on
+    its Overview (name, connection type, what it can do; nothing it cannot), `check:adopted-data-connection` 8/8; seed
+    depth 26 = 5 bound / 5 named gaps / 16 open (ledger CCXX). The mirror's index was an old build loading new
+    chunks, so the page crashed; it now matches the tenant's current build. Still to bind: Connection settings,
+    Webhooks, Code imports.
   - D3: New source as a data-source create (REST API only; every other type refused by name).
   - D4: syncs over materializing runs, after the sync harvest.
 

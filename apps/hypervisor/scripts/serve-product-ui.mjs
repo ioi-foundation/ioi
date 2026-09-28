@@ -9422,7 +9422,7 @@ async function handleEstateRequest(req, res, body) {
         }
         // Data Connection's sources, listeners and splash (on its surface only)
         if (DATA_CONNECTION.DATA_CONNECTION_GRAPHQL_OPERATIONS.has(name) && query && onDataConnectionSurface()) {
-          const sources = name === "SourcesListQuery" ? await callerDataSources() : [];
+          const sources = name === "SourcesListQuery" || DATA_CONNECTION.SOURCE_PAGE_OPERATIONS.has(name) ? await callerDataSources() : [];
           return { data: answerAdoptedDocument(query, DATA_CONNECTION.dataConnectionGraphqlFacts(name, variables || {}, { sources }), null, name) };
         }
         // Object Explorer's catalog, search, recents and shortcuts (on the ontology surface only: other adopted apps send
@@ -10707,7 +10707,9 @@ async function handleEstateRequest(req, res, body) {
         res.writeHead(200, { "Content-Type": "application/json" });
         // …and the output datasets the caller's pipelines declare (the Pipeline Builder landing's output pills).
         const datasets = pathname.endsWith("/resources") && rids.some((r) => String(r).startsWith("ri.foundry.main.dataset.")) ? PIPELINE.compassOutputDatasets(rids, await pipelineContext(), PIPELINE.uuidOf) : {};
-        return res.end(JSON.stringify(pathname.endsWith("/resources") ? { ...AUTOMATE.compassProjectResources(projects, rids, who.principal?.principal_ref), ...datasets } : AUTOMATE.compassFileSystems(projects, rids)));
+        // …and on Data Connection's pages, the caller's sources and their organization folder
+        const dcSources = pathname.endsWith("/resources") && onDataConnectionSurface() ? DATA_CONNECTION.compassSourceResources(rids, await callerDataSources(), (who.principal?.tenant_refs || []).find((t) => String(t).startsWith("org://"))) : {};
+        return res.end(JSON.stringify(pathname.endsWith("/resources") ? { ...AUTOMATE.compassProjectResources(projects, rids, who.principal?.principal_ref), ...datasets, ...dcSources } : AUTOMATE.compassFileSystems(projects, rids)));
       }
       // The function registry's REST reads (the wizard's chosen function): metadata and a version
       // range resolved to released specs — the Hypervisor's released revisions, nothing recorded.
@@ -10900,6 +10902,14 @@ async function handleEstateRequest(req, res, body) {
         if (route === "streaming/extracts/get-for-sources") return sendO(200, DATA_CONNECTION.streamingExtractsOf(asked, await callerDataSources()));
         if (route === "source-store/sources/description/bulk") return sendO(200, DATA_CONNECTION.sourceDescriptionsOf(asked, await callerDataSources()));
         if (route === "extract-store/extracts/bulk") return sendO(200, DATA_CONNECTION.extractsBulkOf());
+        if (route === "source-store/sources/config/bulk") return sendO(200, DATA_CONNECTION.sourceConfigsOf(asked, await callerDataSources()));
+        if (route === "source-store/sources/metadata") return sendO(200, DATA_CONNECTION.sourceMetadataOf(asked, await callerDataSources()));
+      }
+      // a source's parent folder (the owner's organization folder)
+      if (onDataConnectionSurface() && req.method === "GET" && /^\/compass\/api\/resources\/ri\.magritte\.\.source\.[0-9a-f-]{36}\/parent$/u.test(pathname)) {
+        const owner = ((await planeRead("/v1/hypervisor/auth/whoami")).principal?.tenant_refs || []).find((t) => String(t).startsWith("org://"));
+        const parent = DATA_CONNECTION.sourceParentOf(pathname.split("/")[4], await callerDataSources(), owner);
+        if (parent) return sendO(200, parent);
       }
       // installed-application metadata and the command palette's application commands: the Hypervisor registers none
       // (passed through, both answered with the recorded tenant's applications)

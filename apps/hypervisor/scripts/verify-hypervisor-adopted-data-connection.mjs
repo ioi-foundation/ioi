@@ -93,6 +93,17 @@ async function run() {
     const table = after(sources, "Sources Name Connection type", 260);
     ok("the Sources list is the caller's declared data sources, each under its connection type, with no syncs",
       /Orders API REST API/u.test(table) && /Plants bucket S3/u.test(table) && (table.match(/0 syncs/gu) || []).length === 2 && !/No sources/u.test(sources), table);
+    // a source's own page, opened from the list the way a person opens it (cut D2)
+    await pg.getByText("Orders API", { exact: true }).first().click({ timeout: 8000 }).catch(() => {});
+    let restPage = ""; for (let i = 0; i < 25 && !/Orders API \(REST API\)|An error occurred/u.test(restPage); i++) { await pg.waitForTimeout(800); restPage = await text(); }
+    const restUrl = new URL(pg.url()).pathname;
+    await visit(`${BASE}/sources`, /Plants bucket/u);
+    await pg.getByText("Plants bucket", { exact: true }).first().click({ timeout: 8000 }).catch(() => {});
+    let s3Page = ""; for (let i = 0; i < 25 && !/Plants bucket \(S3\)|An error occurred/u.test(s3Page); i++) { await pg.waitForTimeout(800); s3Page = await text(); }
+    ok("a source opens from the list on its own page over daemon truth: its name, its connection type and what it can do, with nothing it cannot",
+      /\/sources\/ri\.magritte\.\.source\.[0-9a-f-]{36}\/overview$/u.test(restUrl) && /Orders API \(REST API\)/u.test(restPage) && /Explore source capabilities/u.test(restPage)
+        && /Plants bucket \(S3\)/u.test(s3Page) && !/An error occurred/u.test(restPage + s3Page),
+      `${restUrl.replace(/ri\.[\w.-]+/u, "<rid>")} · ${after(restPage, "Orders API (", 20)} · ${after(s3Page, "Plants bucket (", 20)}`);
     const syncs = await visit(`${BASE}/syncs`, /No syncs|Could not load syncs/u);
     const agents = await visit(`${BASE}/agents`, /No agents found|Unable to load agents/u);
     const listeners = await visit(`${BASE}/listeners`, /No listeners found|Failed to load listeners/u);
@@ -100,9 +111,12 @@ async function run() {
       /No syncs/u.test(syncs) && /No agents found/u.test(agents) && /No listeners found/u.test(listeners) && !/Could not load syncs|Unable to load agents|Failed to load listeners/u.test(syncs + agents + listeners),
       `${after(syncs, "No syncs", 20)} · ${after(agents, "No agents", 20)} · ${after(listeners, "No listeners", 22)}`);
     const splash = await visit(`${BASE}/splash`, /Set up new connections|An error occurred/u);
+    // New source is not actionable: the reference renders it disabled (its tooltip's "no permission" is not the reason —
+    // creating a source is not bound yet; seed depth new-source.button-reason, open)
+    const newSource = await pg.evaluate(() => [...document.querySelectorAll("a,button,[role=button]")].filter((e) => (e.innerText || "").trim() === "New source").map((e) => e.disabled === true || e.getAttribute("aria-disabled") === "true"));
     ok("the landing renders, and offers no create it would refuse (creating a source is not bound yet)",
-      /Set up new connections/u.test(splash) && !/An error occurred/u.test(splash) && !(await pg.getByRole("button", { name: /^New source$/u }).count()),
-      after(splash, "Data Connection Synchronize", 90));
+      /Set up new connections/u.test(splash) && !/An error occurred/u.test(splash) && newSource.every(Boolean),
+      `${after(splash, "Data Connection Synchronize", 60)} · New source ${newSource.length ? (newSource.every(Boolean) ? "disabled" : "LIVE") : "absent"}`);
 
     ok("no page reached the mirror beyond the reference's chrome, every read the adopted layer does not bind is a named gap (never the serve's HTML page), and no GraphQL operation on these pages is unbound",
       [...passthrough].every((p) => CHROME.has(p)) && unnamed.size === 0 && htmlAnswers.size === 0 && fenced.size === 0 && gqlErrors.size === 0 && pageErrors.length === 0,

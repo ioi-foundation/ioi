@@ -1375,6 +1375,15 @@ landed. Correct every copy, or the ones left behind go on reading as evidence.
 | **Two readings made deliberately, both recorded.** "Delete" means ARCHIVE — there is no DELETE verb on a memory entry, and reading the acceptance literally would have invented one. And skills and affinities keep their direct verbs, because the unit's scope is the memory-entry and memory-mutation owners. | the verifier's nonclaims | recorded |
 | **The census caught the cut adding a production writer, and the buckets are what mattered.** `check:ontology-admission-census` went red on the writer-call population. The FAMILY writer bucket (57), family mentions (285), the non-ODK literal bucket (243) and raw filesystem calls (234) were all unchanged; only the runtime-parameter bucket moved, by exactly the two added calls, both writing a LITERAL family. Had the family bucket moved it would have meant a new admitter. Re-pinned with that reasoning beside the numbers. | `check:ontology-admission-census` 27/27 | repaired |
 
+### Journey verification CCXX (2026-09-28, R-241 Data Connection D2 part 1 — a source's own page)
+
+| Delta | Evidence | Disposition |
+|---|---|---|
+| **A source opens from the Sources list on its own Overview, over daemon truth.** The page shows the source's name, its connection type, and its configuration: a REST source's declared endpoint becomes its domain and connection URL; any other kind shows its endpoint URL. It offers no export, sync, exploration, table or webhook, because a declared source can do none of them. It sits in the owner's organization folder. Another principal's source is not answered. | `check:adopted-data-connection` 8/8 (new assertion); `test:adopted-seeds` 76/76 | **bound** |
+| **The page first crashed ("An error occurred", reading `call`).** The local mirror's `index.html` was an older build of the reference, which loaded chunks from a newer one. The mirror was fed the current build's assets and its index refreshed; both stay in the git-ignored mirror. Then the source-link component iterated `branches`, `tags` and `markings`, which the answer had left null; they are now empty lists. | driven | **fixed** |
+| **New source is disabled, and its tooltip gives a false reason.** It says "You do not have permission to create sources", but the real reason is that creating a source is not bound yet (cut D3). The verifier now asserts that New source is disabled, where it used to assert it was absent. | seed depth `new-source.button-reason` | **open** |
+| **Seed depth.** Data Connection: 26 = 5 bound / 5 named gaps / 16 open. | `check:seed-depth` 13/13 | **recorded** |
+
 ### Journey verification CCXIX (2026-09-28, R-241 Data Connection — harvested from examples built on the tenant; the landing and Sources adopted)
 
 | Delta | Evidence | Disposition |

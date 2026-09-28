@@ -42,3 +42,23 @@ test("the list reads name only the caller's sources", () => {
   assert.deepEqual(DC.sourceDescriptionsOf([rid, "ri.magritte..source.other"], [mine]), { [rid]: { type: "webhooks-rest", name: "Orders API", description: "", apiName: null } });
   assert.deepEqual(DC.streamingExtractsOf({ sourceIds: [rid, "ri.magritte..source.other"] }, [mine]), { streamingExtracts: { [rid]: [] } });
 });
+
+test("a source's own page: its configuration is its declared endpoint, it can do nothing here, and it sits in the owner's folder", () => {
+  const rest = { ...mine, endpoint: "https://api.example.test/orders", created_at: "2026-09-28T00:00:00Z" };
+  const cfg = DC.sourceConfigOf(rest);
+  assert.equal(cfg.source.type, "webhooks-rest");
+  assert.equal(cfg.source.config.domains[0].host, "api.example.test");
+  assert.equal(Object.values(cfg.connections)[0].config.http.url, "https://api.example.test");
+  assert.equal(DC.sourceConfigOf({ ...bucket, endpoint: "s3://plants/" }).source.config.url, "s3://plants/");
+  const rid = DC.sourceRidOf("ds_1");
+  const page = DC.dataConnectionGraphqlFacts("SourcePageQuery", { sourceRid: rid }, { sources: [rest] });
+  assert.ok(Object.values(page.source.permissions).filter((v) => typeof v === "boolean").every((v) => v === false), "no export, sync, explore, table or webhook is offered");
+  assert.equal(page.source.outputFolder, null);
+  assert.equal(page.magritteServiceAvailability.egressProxy.isAvailable, false);
+  assert.equal(DC.dataConnectionGraphqlFacts("SourcePageQuery", { sourceRid: DC.sourceRidOf("ds_4") }, { sources: [rest] }).source, null, "another's source is not answered");
+  assert.equal(DC.sourceMetadataOf([rid], [rest])[rid].created.time, "2026-09-28T00:00:00Z");
+  assert.equal(DC.sourceParentOf(rid, [rest], "org://local").name, "local");
+  const res = DC.compassSourceResources([rid], [rest], "org://local")[rid];
+  assert.equal(res.name, "Orders API");
+  assert.deepEqual([res.branches, res.tags, res.markings], [[], [], []], "the link component iterates these");
+});

@@ -101,7 +101,10 @@ const PINS = {
   // 2026-09-28 (R-241, Data Connection D1): adopted at /workspace/data-ingestion-app behind its fence — the landing and
   // the Sources list bound over the data-source plane (check:adopted-data-connection), with the stopped-daemon state and
   // the fence; Syncs, Agents, Listeners and External stacks named (none exists), and the runtime badge. 22 → 25.
-  "data-connection": { total: 25, bound: 4, refused: 0, named_gap: 5, open: 16 },
+  // 2026-09-28 (R-241, Data Connection D2, part 1): a source's Overview bound (opened from the list; the mirror's index
+  // refreshed to the tenant's current build — the old runtime had loaded new chunks); New source's false "no permission"
+  // tooltip joins as open. 25 → 26.
+  "data-connection": { total: 26, bound: 5, refused: 0, named_gap: 5, open: 16 },
 };
 
 const results = [];
