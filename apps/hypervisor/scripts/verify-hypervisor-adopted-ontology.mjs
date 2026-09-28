@@ -144,7 +144,9 @@ async function run() {
       /Money Double/u.test(values), after(values, "Value types 1", 100));
     const functions = await visit("/workspace/ontology/home/function", /Loan score|Could not find any functions|An error occurred/u);
     ok("the Functions section lists the functions released in the Hypervisor's registry",
-      /Loan score/u.test(after(functions, "Function 1 New function", 200)) && /Visible/u.test(after(functions, "Loan score", 80)) && !/Could not find any functions|An error occurred/u.test(functions),
+      // (the reference's current build lists Name, Source, Owning project, Status and Published date; a released
+      // function is Active)
+      /Loan score/u.test(after(functions, "Function 1 New function", 200)) && /Active/u.test(after(functions, "Loan score", 80)) && !/Could not find any functions|An error occurred/u.test(functions),
       after(functions, "Function 1 New function", 140));
     const history = await visit("/workspace/ontology/home/history", /Created|No changes|do not have perm/u);
     ok("History lists the revision with its author (its ODK receipt) and the type it created — not \"edits you do not have permission to view\"",
