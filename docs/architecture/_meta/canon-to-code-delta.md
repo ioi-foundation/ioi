@@ -1375,6 +1375,13 @@ landed. Correct every copy, or the ones left behind go on reading as evidence.
 | **Two readings made deliberately, both recorded.** "Delete" means ARCHIVE — there is no DELETE verb on a memory entry, and reading the acceptance literally would have invented one. And skills and affinities keep their direct verbs, because the unit's scope is the memory-entry and memory-mutation owners. | the verifier's nonclaims | recorded |
 | **The census caught the cut adding a production writer, and the buckets are what mattered.** `check:ontology-admission-census` went red on the writer-call population. The FAMILY writer bucket (57), family mentions (285), the non-ODK literal bucket (243) and raw filesystem calls (234) were all unchanged; only the runtime-parameter bucket moved, by exactly the two added calls, both writing a LITERAL family. Had the family bucket moved it would have meant a new admitter. Re-pinned with that reasoning beside the numbers. | `check:ontology-admission-census` 27/27 | repaired |
 
+### Journey verification CCXIII (2026-09-27, R-240 Arm A on Sessions — Logs asserted live; no Sessions row left open)
+
+| Delta | Evidence | Disposition |
+|---|---|---|
+| **Logs had only an adapter test.** The row menu's Logs opens `/details/:id/logs`. The session page's own log viewer mints a logs token (a real environment-scoped lease) and reads the daemon's session command log through the adapter's lease check. The verifier now runs a command in the session's environment, opens Logs, and finds the command listed. The route's own page chunk (`EnvironmentLogsPage`) was never vendored and answers with the named-gap module, which renders behind the session page. Reference chunks are not added to the tracked bundle. | `check:sessions-shell` 22/22; red ("command listed false") with the adapter serving an empty log | **bound** |
+| **Sessions seed depth has no open row.** 24 = 12 bound / 7 refused / 5 named gaps / 0 open. | `check:seed-depth` 13/13 | **recorded** |
+
 ### Journey verification CCXII (2026-09-27, R-240 Arm A on Sessions — Home's Recent reads the session list)
 
 | Delta | Evidence | Disposition |

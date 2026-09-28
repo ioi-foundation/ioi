@@ -13,6 +13,7 @@
 //   - Services, Tasks, Add port and Resource usage each say, in a sentence, what is absent and why;
 //   - the Archived view promises no automatic archiving or deletion, and its auto-delete period is refused by name;
 //   - Home's Recent lists the sessions the sidebar lists, by name;
+//   - Logs shows the session's command log through the environment's logs lease;
 //   - the personal settings routes show a named gap instead of a blank page;
 //   - a disposable serve never writes the owner's preference store.
 //
@@ -238,6 +239,21 @@ async function run() {
     ok("Create PR files a governed draft proposal owned by the environment's tenant (it named the person as the owner, so every draft with changes was refused for every caller)",
       !!wsRoot && prRec.status === "done" && /^proposal:\/\/local\/hypervisor\/prd_/u.test(prRec.publication_proposal_ref || "") && !prRec.error,
       `workspace ${wsRoot ? "seeded" : "absent"} · run ${prRec.status} · proposal ${prRec.publication_proposal_ref} · ${String(prRec.error || "").slice(0, 140)}`);
+
+    // ---- Logs: the session's command log, read through the logs lease (a live read, not only the adapter test) -------
+    const execd = await fetch(`${DAEMON}/v1/hypervisor/exec`, { method: "POST", headers: { cookie: COOKIE, "content-type": "application/json" }, body: JSON.stringify({ environment_id: RUNNING, command: "echo sessions-shell-log-probe" }) }).then((r) => r.status).catch(() => 0);
+    rpc.length = 0;
+    await pg.goto(`${SERVE}/details/${RUNNING}/logs`, { waitUntil: "domcontentloaded", timeout: 60000 });
+    let logsView = "";
+    for (let i = 0; i < 15; i++) {
+      await pg.waitForTimeout(1000);
+      logsView = await text();
+      if (/sessions-shell-log-probe/u.test(logsView)) break;
+      if (/Session commands/u.test(logsView)) await pg.getByText("Session commands", { exact: true }).first().click({ timeout: 2000 }).catch(() => { /* retried */ });
+    }
+    ok("Logs shows the session's command log, read through the environment's logs lease (the command the session ran is listed)",
+      execd === 200 && rpc.some((x) => /^200 CreateEnvironmentLogsToken$/u.test(x)) && /sessions-shell-log-probe/u.test(logsView),
+      `exec ${execd} · logs token ${rpc.some((x) => /CreateEnvironmentLogsToken/u.test(x))} · command listed ${/sessions-shell-log-probe/u.test(logsView)}`);
 
     // ---- the composer: the shell's own submit, with the project it chose ------------------------------------
     const before = new Set(Object.keys(await phases()));
