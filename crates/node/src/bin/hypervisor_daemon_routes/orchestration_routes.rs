@@ -126,14 +126,9 @@ async fn call(
     serde_json::from_str(&t).map_err(|e| format!("{e}: {t}"))
 }
 
+/// Host git in the guest-writable workspace: always the hardened invocation (W0.4 / G14).
 fn git(ws: &str, args: &[&str]) -> String {
-    std::process::Command::new("git")
-        .arg("-C")
-        .arg(ws)
-        .args(args)
-        .output()
-        .map(|o| String::from_utf8_lossy(&o.stdout).into_owned())
-        .unwrap_or_default()
+    super::host_git::run_workspace_git(ws, args).1
 }
 fn env_workspace(data_dir: &str, env_id: &str) -> Option<String> {
     let v: Value = serde_json::from_slice(

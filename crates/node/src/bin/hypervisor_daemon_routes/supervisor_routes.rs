@@ -243,30 +243,20 @@ fn authed(data_dir: &str, env_id: &str, headers: &HeaderMap) -> bool {
 
 // ---- git helpers --------------------------------------------------------------------------------
 
+/// Host git in the guest-writable workspace: always the hardened invocation (W0.4 / G14).
 fn git(ws: &str, args: &[&str]) -> Result<String, String> {
-    let out = Command::new("git")
-        .arg("-C")
-        .arg(ws)
-        .args(args)
-        .output()
-        .map_err(|e| e.to_string())?;
-    if out.status.success() {
-        Ok(String::from_utf8_lossy(&out.stdout).into_owned())
+    let (ok, stdout, stderr) = super::host_git::run_workspace_git(ws, args);
+    if ok {
+        Ok(stdout)
     } else {
-        Err(String::from_utf8_lossy(&out.stderr).into_owned())
+        Err(stderr)
     }
 }
 
 /// Run git and return stdout regardless of exit code. `git diff` exits 1 when differences exist
 /// (and `--no-index` exits 1 for any diff) — that is NOT an error for our read paths.
 fn git_lenient(ws: &str, args: &[&str]) -> String {
-    Command::new("git")
-        .arg("-C")
-        .arg(ws)
-        .args(args)
-        .output()
-        .map(|o| String::from_utf8_lossy(&o.stdout).into_owned())
-        .unwrap_or_default()
+    super::host_git::run_workspace_git(ws, args).1
 }
 
 /// Map a git porcelain XY code to the FileChange.ChangeType JSON enum name (env-ops diff contract).

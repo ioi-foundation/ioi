@@ -99,14 +99,9 @@ fn authorize_conversation(
     Ok(())
 }
 
+/// Host git in the guest-writable workspace: always the hardened invocation (W0.4 / G14).
 fn git(ws: &str, args: &[&str]) -> String {
-    std::process::Command::new("git")
-        .arg("-C")
-        .arg(ws)
-        .args(args)
-        .output()
-        .map(|o| String::from_utf8_lossy(&o.stdout).into_owned())
-        .unwrap_or_default()
+    super::host_git::run_workspace_git(ws, args).1
 }
 
 /// Append a typed event block to the conversation and bump the monotonic cursor.

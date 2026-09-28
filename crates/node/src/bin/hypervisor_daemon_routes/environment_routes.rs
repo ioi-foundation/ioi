@@ -582,10 +582,10 @@ fn provision_local_workspace(data_dir: &str, id: &str) -> Result<String, AppErro
 }
 
 // ---- git (WS-E: WorkRun materialization) ----
+/// Host git in a guest-writable workspace: always the hardened invocation (W0.4 / G14), so the
+/// workspace's own `.git/config`, hooks and attributes can never choose a program to run here.
 fn run_git(ws: &str, args: &[&str]) -> Result<String, String> {
-    let out = std::process::Command::new("git")
-        .args(args)
-        .current_dir(ws)
+    let out = super::host_git::workspace_git(ws, args)?
         .output()
         .map_err(|e| format!("git spawn: {e}"))?;
     if !out.status.success() {
@@ -1973,15 +1973,7 @@ pub(crate) async fn handle_env_pr_draft(
         ));
     };
     // lenient git (git diff exits 1 when differences exist — not an error for our read paths).
-    let git = |args: &[&str]| -> String {
-        std::process::Command::new("git")
-            .arg("-C")
-            .arg(&ws)
-            .args(args)
-            .output()
-            .map(|o| String::from_utf8_lossy(&o.stdout).into_owned())
-            .unwrap_or_default()
-    };
+    let git = |args: &[&str]| -> String { super::host_git::run_workspace_git(&ws, args).1 };
     let porcelain = git(&["status", "--porcelain", "-uall"]);
     let changed: Vec<String> = porcelain
         .lines()

@@ -2,7 +2,6 @@ use serde::Deserialize;
 use serde_json::{json, Map, Value};
 use sha2::{Digest, Sha256};
 use std::path::{Path, PathBuf};
-use std::process::Command;
 use time::{format_description::well_known::Rfc3339, OffsetDateTime};
 
 pub const REPOSITORY_WORKFLOW_PROJECTION_REQUEST_SCHEMA_VERSION: &str =
@@ -1550,11 +1549,11 @@ fn normalized_projection_kind(
     ))
 }
 
+/// Git over a workspace the agent can write: always the hardened host-git invocation (W0.4 /
+/// G14), never a plain `git -C` that would run the workspace's fsmonitor, hooks or drivers.
 fn git_output(cwd: &str, args: &[&str]) -> Option<String> {
-    let output = Command::new("git")
-        .arg("-C")
-        .arg(cwd)
-        .args(args)
+    let output = super::host_git::workspace_git(cwd, args)
+        .ok()?
         .output()
         .ok()?;
     if !output.status.success() {

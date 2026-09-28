@@ -626,3 +626,117 @@ async fn session_exec_preserves_shell_state_across_calls() {
 
     let _ = driver.reset_session(key).await;
 }
+
+// ---- W0.5 fail-closed battery: every sandbox fallback is a deny -----------------------------
+
+mod fail_closed_battery {
+    use super::super::driver::{
+        command_spawn_spec_with_probe, terminal_sandbox_posture, TerminalSandboxPosture,
+        TerminalSandboxProbe,
+    };
+
+    fn probe(
+        linux: bool,
+        bwrap_on_path: bool,
+        escape_requested: bool,
+        debug_build: bool,
+        fail_closed_profile: bool,
+    ) -> TerminalSandboxProbe {
+        TerminalSandboxProbe {
+            linux,
+            bwrap_on_path,
+            escape_requested,
+            debug_build,
+            fail_closed_profile,
+        }
+    }
+
+    fn spawn(probe: &TerminalSandboxProbe) -> anyhow::Result<super::super::driver::CommandSpawnSpec> {
+        command_spawn_spec_with_probe("echo", &["hi".to_string()], None, false, probe)
+    }
+
+    fn assert_denied(label: &str, probe: TerminalSandboxProbe) {
+        match terminal_sandbox_posture(&probe) {
+            TerminalSandboxPosture::Refused(reason) => {
+                assert!(
+                    reason.contains("terminal_sandbox_unavailable"),
+                    "{label}: refusal must be named, got {reason}"
+                );
+            }
+            other => panic!("{label}: expected deny, got {other:?}"),
+        }
+        let error = spawn(&probe).expect_err(label);
+        assert!(
+            error.to_string().contains("terminal_sandbox_unavailable"),
+            "{label}: spawn spec must refuse, got {error}"
+        );
+    }
+
+    #[test]
+    fn terminal_fallback_battery_denies_every_unsandboxed_path() {
+        // (label, probe) — every way the driver used to fall back to an unsandboxed spawn.
+        let battery = [
+            ("linux, bwrap missing", probe(true, false, false, true, false)),
+            ("linux, bwrap missing, release build", probe(true, false, false, false, false)),
+            ("non-linux (no sandbox exists)", probe(false, false, false, true, false)),
+            ("non-linux with a bwrap-named binary", probe(false, true, false, true, false)),
+            (
+                "escape requested in a release build, bwrap missing",
+                probe(true, false, true, false, false),
+            ),
+            (
+                "escape requested in a debug build under a production profile, bwrap missing",
+                probe(true, false, true, true, true),
+            ),
+            (
+                "escape requested in a release build under a production profile",
+                probe(true, false, true, false, true),
+            ),
+            (
+                "escape requested on non-linux in a release build",
+                probe(false, false, true, false, false),
+            ),
+        ];
+        let mut denied = 0;
+        for (label, probe) in battery {
+            assert_denied(label, probe);
+            denied += 1;
+        }
+        assert_eq!(denied, 8, "every battery row must deny");
+    }
+
+    #[test]
+    fn terminal_escape_outside_dev_is_ignored_and_the_sandbox_still_applies() {
+        // Release build (or fail-closed profile) with bwrap present: the escape is ignored and the
+        // command is still wrapped in bwrap with the network unshared.
+        for probe in [
+            probe(true, true, true, false, false),
+            probe(true, true, true, true, true),
+        ] {
+            assert_eq!(terminal_sandbox_posture(&probe), TerminalSandboxPosture::Sandboxed);
+            let spec = spawn(&probe).expect("sandboxed spawn spec");
+            assert_eq!(spec.executable, "bwrap");
+            assert!(spec.args.iter().any(|arg| arg == "--unshare-net"), "{:?}", spec.args);
+        }
+    }
+
+    #[test]
+    fn terminal_dev_escape_still_works_in_debug_builds_outside_fail_closed_profiles() {
+        let probe = probe(true, false, true, true, false);
+        assert_eq!(
+            terminal_sandbox_posture(&probe),
+            TerminalSandboxPosture::DevEscapeUnsandboxed
+        );
+        let spec = spawn(&probe).expect("dev escape spawn spec");
+        assert_eq!(spec.executable, "echo");
+    }
+
+    #[test]
+    fn terminal_bwrap_present_sandboxes_with_network_unshared() {
+        let probe = probe(true, true, false, true, false);
+        let spec = spawn(&probe).expect("sandboxed spawn spec");
+        assert_eq!(spec.executable, "bwrap");
+        assert!(spec.args.iter().any(|arg| arg == "--unshare-net"));
+        assert!(spec.args.iter().any(|arg| arg == "--die-with-parent"));
+    }
+}

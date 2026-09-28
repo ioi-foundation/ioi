@@ -224,15 +224,16 @@ pub(crate) trait ScmRemotePort {
 /// expected object id as a lease, so git itself refuses if the remote is no
 /// longer at that head. No code path here passes `--force`, and the effect
 /// record has no field through which one could be requested.
+///
+/// W0.4 / G14: the workspace is guest-writable, so every git call that touches it is the hardened
+/// host-git invocation (`host_git::workspace_git`), and the two remote crossings (`ls-remote`,
+/// `push`) never run inside it at all — they run from a daemon-owned neutral repository that only
+/// borrows the workspace's object store, so the guest's config, hooks, url rewrites and remote
+/// definitions are never read by the process that talks to the remote.
 pub(crate) struct GitProcessScmPort;
 
-fn git(dir: &str, args: &[&str]) -> (bool, String) {
-    match std::process::Command::new("git")
-        .arg("-C")
-        .arg(dir)
-        .args(args)
-        .output()
-    {
+fn git_output(output: std::io::Result<std::process::Output>) -> (bool, String) {
+    match output {
         Ok(output) => (
             output.status.success(),
             format!(
@@ -242,6 +243,14 @@ fn git(dir: &str, args: &[&str]) -> (bool, String) {
             ),
         ),
         Err(error) => (false, error.to_string()),
+    }
+}
+
+/// Hardened host git in the guest-writable workspace.
+fn git(dir: &str, args: &[&str]) -> (bool, String) {
+    match super::host_git::workspace_git(dir, args) {
+        Ok(mut command) => git_output(command.output()),
+        Err(reason) => (false, reason),
     }
 }
 
@@ -261,24 +270,15 @@ fn prepare_git_revision(request: &TargetRevisionPreparationRequest<'_>) -> Resul
     let staging = format!("{workspace}/.ioi-scm-publication-index");
     let _ = std::fs::remove_file(&staging);
     let index_env = |args: &[&str]| -> (bool, String) {
-        match std::process::Command::new("git")
-            .arg("-C")
-            .arg(workspace)
-            .env("GIT_INDEX_FILE", &staging)
-            .env("GIT_AUTHOR_DATE", request.authored_at)
-            .env("GIT_COMMITTER_DATE", request.authored_at)
-            .args(args)
-            .output()
-        {
-            Ok(output) => (
-                output.status.success(),
-                format!(
-                    "{}{}",
-                    String::from_utf8_lossy(&output.stdout),
-                    String::from_utf8_lossy(&output.stderr)
-                ),
+        match super::host_git::workspace_git(workspace, args) {
+            Ok(mut command) => git_output(
+                command
+                    .env("GIT_INDEX_FILE", &staging)
+                    .env("GIT_AUTHOR_DATE", request.authored_at)
+                    .env("GIT_COMMITTER_DATE", request.authored_at)
+                    .output(),
             ),
-            Err(error) => (false, error.to_string()),
+            Err(reason) => (false, reason),
         }
     };
     if !git(
@@ -347,10 +347,15 @@ impl ScmRemotePort for GitProcessScmPort {
             .ok_or_else(|| format!("'{}' is not a canonical target ref", request.target_ref))?;
         let base = remote_ref_name(request.base_ref)
             .ok_or_else(|| format!("'{}' is not a canonical base ref", request.base_ref))?;
+        // The remote is observed from a daemon-owned neutral repository, never from the daemon's
+        // working directory or a workspace, so no repository config shapes the crossing.
+        let neutral = super::host_git::NeutralRepo::create("sha1", None)?;
         let observe = |reference: &str| -> Result<Option<String>, String> {
-            let (ok, out) = git(
-                ".",
-                &["ls-remote", "--exit-code", request.remote_url, reference],
+            let (ok, out) = git_output(
+                neutral
+                    .git()
+                    .args(["ls-remote", "--exit-code", request.remote_url, reference])
+                    .output(),
             );
             if !ok {
                 // `--exit-code` reports 2 for "no matching ref"; any other
@@ -417,14 +422,29 @@ impl ScmRemotePort for GitProcessScmPort {
             Some(_) => format!("--force-with-lease={remote_ref}:{parent}"),
             None => format!("--force-with-lease={remote_ref}:"),
         };
-        let (pushed, push_out) = git(
-            workspace,
-            &[
-                "push",
-                &lease,
-                request.remote_url,
-                &format!("{commit}:{remote_ref}"),
-            ],
+        // Push from a neutral repository that borrows the workspace's objects: the guest's
+        // config (url rewrites, remotes, sshCommand, credential helpers) and hooks never run.
+        let neutral = match super::host_git::workspace_object_store(workspace).and_then(
+            |(objects, format)| super::host_git::NeutralRepo::create(&format, Some(&objects)),
+        ) {
+            Ok(neutral) => neutral,
+            Err(detail) => {
+                return TargetRefAdvanceOutcome::Refused {
+                    refusal_code: REFUSAL_EXPECTED_HEAD_MOVED.to_owned(),
+                    detail: format!("the workspace object store could not be borrowed: {detail}"),
+                };
+            }
+        };
+        let (pushed, push_out) = git_output(
+            neutral
+                .git()
+                .args([
+                    "push",
+                    &lease,
+                    request.remote_url,
+                    &format!("{commit}:{remote_ref}"),
+                ])
+                .output(),
         );
         if !pushed {
             return TargetRefAdvanceOutcome::Refused {

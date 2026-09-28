@@ -20,6 +20,7 @@ pub mod emergency_containment;
 pub mod evidence;
 pub mod governed_admission;
 pub mod governed_receipt;
+pub mod host_git;
 pub mod inference;
 pub mod intent;
 pub mod intervention;

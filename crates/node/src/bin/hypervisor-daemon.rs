@@ -114,6 +114,8 @@ mod governed_authority;
 mod harness_routes;
 #[path = "hypervisor_daemon_routes/health_check_routes.rs"]
 mod health_check_routes;
+#[path = "hypervisor_daemon_routes/host_git.rs"]
+mod host_git;
 #[path = "hypervisor_daemon_routes/hypervisor_environment_routes.rs"]
 mod hypervisor_environment_routes;
 #[path = "hypervisor_daemon_routes/hypervisoros_node_routes.rs"]

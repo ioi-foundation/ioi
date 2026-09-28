@@ -90,14 +90,15 @@ pub fn run_command_with_timeout(
     })
 }
 
+/// Git over a guest-writable workspace root: always the hardened host-git invocation (W0.4 /
+/// G14), so the workspace's `.git/config`, hooks and attributes cannot choose a program to run.
 pub fn run_git_read_only(
     root: &Path,
     args: &[String],
 ) -> Result<CommandOutput, CodingToolExecutionError> {
-    let output = Command::new("git")
-        .arg("-C")
-        .arg(root)
-        .args(args)
+    let args: Vec<&str> = args.iter().map(String::as_str).collect();
+    let output = super::host_git::workspace_git(root, &args)
+        .map_err(|reason| CodingToolExecutionError::new("git_refused", reason))?
         .output()
         .map_err(|error| CodingToolExecutionError::new("git_spawn_failed", error.to_string()))?;
     Ok(CommandOutput {

@@ -4,7 +4,8 @@
 // Proves REAL (never faked) execution for the OpenCode and DeepSeek TUI drivers, end to end
 // through the daemon: registry wiring + full-substrate runnability probes (binary, driver shim,
 // bwrap sandbox, model upstream), admitted enable, session binding admitted at create, the
-// wallet authority gate (403 challenge -> grant -> execute), a real workspace file change,
+// wallet authority gate (403 challenge -> grant -> execute), a real workspace file change (OpenCode; the DeepSeek
+// lane runs READ-ONLY since master guide G9/W0.5: no --auto, so it writes nothing and its shell is denied),
 // normalized HarnessAdapterEvent records persisted, ImplementationResultPayload on the receipt,
 // and a transcript state_root in the run plane. Codex / Claude Code stay auth/provider-trust-
 // gated adapter slots (unwired, fail-closed). The no-binding legacy lane stays byte-identical.
@@ -49,7 +50,11 @@ function jd(method, p, body) {
   });
 }
 
+// DeepSeek runs without --auto (master guide G9 / W0.5): it is offered no write tool and its shell is denied, so its
+// lane must execute and change NOTHING in the workspace.
+const READ_ONLY_LANES = new Set(["deepseek_tui"]);
 async function driveAdapter(harness, profileId) {
+  const readOnly = READ_ONLY_LANES.has(harness);
   const marker = `verify-driver-${harness}.txt`;
   const en = await jd("POST", `/v1/hypervisor/harness-profiles/${profileId}/enable`);
   ok(`${harness}: enable is planner-admitted (local trust)`, en.status === 200 && en.j?.profile?.lifecycle?.status === "active", en.j?.error?.code);
@@ -76,7 +81,7 @@ async function driveAdapter(harness, profileId) {
     // Break only on HONEST completion — a timed-out wander can still have written files,
     // and that attempt must not satisfy the gate (seen live: adapter_timed_out with the
     // requested file present). files_written alone is necessary but not sufficient.
-    if (ex.j?.decision === "executed" && (ex.j?.files_written || []).length >= 1) break;
+    if (ex.j?.decision === "executed" && (readOnly || (ex.j?.files_written || []).length >= 1)) break;
   }
   ok(`${harness}: driver lane executed`, ex.status === 200 && ex.j?.decision === "executed" && ex.j?.lane === `adapter_driver_session:${harness}` && ex.j?.harness === harness, `${ex.j?.decision} ${ex.j?.lane} ${ex.j?.error || ""} (${attempts} attempt${attempts > 1 ? "s" : ""})`);
   // The driver owns "a real mutation happened and the report is disk truth" — NOT the model's
@@ -84,7 +89,8 @@ async function driveAdapter(harness, profileId) {
   // verify-driver-opcode.txt for verify-driver-opencode.txt), which is model fidelity, not
   // driver truth; exact-name equality made this done-bar flaky on model whim.
   const written = ex.j?.files_written || [];
-  ok(`${harness}: real file change reported (workspace mutation detected)`, written.length >= 1, `${JSON.stringify(written)} (requested ${marker})`);
+  if (readOnly) ok(`${harness}: the read-only lane changed nothing in the workspace (no write tool offered; shell denied)`, written.length === 0, `${JSON.stringify(written)} (asked for ${marker})`);
+  else ok(`${harness}: real file change reported (workspace mutation detected)`, written.length >= 1, `${JSON.stringify(written)} (requested ${marker})`);
 
   const events = ex.j?.adapter_events || [];
   const kinds = new Set(events.map((e) => e.kind));
@@ -103,7 +109,9 @@ async function driveAdapter(harness, profileId) {
     const t = path.join(ws, f);
     return fs.existsSync(t) && fs.statSync(t).size > 0;
   });
-  ok(`${harness}: every reported file really exists in the session workspace`, allReal, written.map((f) => path.join(ws, f)).join(","));
+  // a read-only lane's disk truth is the absence of the file it was asked for
+  if (readOnly) ok(`${harness}: the file it was asked for is absent from the session workspace`, !!ws && !fs.existsSync(path.join(ws, marker)), path.join(ws, marker));
+  else ok(`${harness}: every reported file really exists in the session workspace`, allReal, written.map((f) => path.join(ws, f)).join(","));
 
   // Receipt truth: the lane receipt names the harness + implementation result and is on the record.
   const receipts = rec.j?.session?.latest_receipt_refs || [];

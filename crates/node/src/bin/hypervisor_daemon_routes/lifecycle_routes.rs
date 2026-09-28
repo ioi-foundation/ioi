@@ -5171,9 +5171,10 @@ pub(crate) async fn handle_workspace_change_reviews(
 /// changed file. Empty (and Ok) when the root is not a git work tree or has no changes —
 /// detection is a read-only signal, never a hard failure.
 fn git_changed_files(workspace_root: &str) -> Vec<(String, String)> {
-    let output = std::process::Command::new("git")
-        .args(["-C", workspace_root, "status", "--porcelain"])
-        .output();
+    // Host git over a guest-writable workspace: always the hardened invocation (W0.4 / G14).
+    let output = super::host_git::workspace_git(workspace_root, &["status", "--porcelain"])
+        .map_err(|_| ())
+        .and_then(|mut command| command.output().map_err(|_| ()));
     let Ok(output) = output else {
         return Vec::new();
     };
@@ -5424,8 +5425,8 @@ fn read_captured_snapshots(st: &DaemonState, thread_id: &str) -> Vec<Value> {
 /// pre-change ("before") side of a workspace snapshot. Returns None for files not in
 /// HEAD (newly created/untracked) or on any git failure.
 fn git_file_head_bytes(workspace_root: &str, path: &str) -> Option<Vec<u8>> {
-    let output = std::process::Command::new("git")
-        .args(["-C", workspace_root, "show", &format!("HEAD:{path}")])
+    let output = super::host_git::workspace_git(workspace_root, &["show", &format!("HEAD:{path}")])
+        .ok()?
         .output()
         .ok()?;
     if !output.status.success() {
@@ -5440,10 +5441,9 @@ fn git_file_head_bytes(workspace_root: &str, path: &str) -> Option<Vec<u8>> {
 /// repo (which would resolve every path to the wrong place). Falls back to the given
 /// workspace_root when it is not inside a git repo.
 fn git_repo_root(workspace_root: &str) -> String {
-    std::process::Command::new("git")
-        .args(["-C", workspace_root, "rev-parse", "--show-toplevel"])
-        .output()
+    super::host_git::workspace_git(workspace_root, &["rev-parse", "--show-toplevel"])
         .ok()
+        .and_then(|mut command| command.output().ok())
         .filter(|output| output.status.success())
         .and_then(|output| String::from_utf8(output.stdout).ok())
         .map(|value| value.trim().to_string())
@@ -5464,17 +5464,12 @@ struct SnapshotChange {
 /// renames carry BOTH the new path and the NUL-separated old path. Paths are
 /// repo-root-relative.
 fn git_snapshot_changes(repo_root: &str) -> Vec<SnapshotChange> {
-    let output = std::process::Command::new("git")
-        .args([
-            "-c",
-            "core.quotePath=false",
-            "-C",
-            repo_root,
-            "status",
-            "--porcelain=v1",
-            "-z",
-        ])
-        .output();
+    let output = super::host_git::workspace_git(
+        repo_root,
+        &["-c", "core.quotePath=false", "status", "--porcelain=v1", "-z"],
+    )
+    .map_err(|_| ())
+    .and_then(|mut command| command.output().map_err(|_| ()));
     let Ok(output) = output else {
         return Vec::new();
     };
@@ -10796,13 +10791,246 @@ fn walk_regular_files(root: &std::path::Path) -> Result<Vec<std::path::PathBuf>,
     Ok(found)
 }
 
+/// What a harness cell is built from. Pure inputs, so the argv is testable without spawning.
+pub(crate) struct HarnessSandboxSpec<'a> {
+    /// The daemon user's home. Masked with an empty tmpfs inside the cell.
+    pub(crate) home: &'a std::path::Path,
+    /// The session workspace: the only host path bound read-write besides adapter state.
+    pub(crate) workspace_root: &'a std::path::Path,
+    /// The driver shim directory (read-only).
+    pub(crate) shim_dir: &'a std::path::Path,
+    /// Executables the cell runs, as resolved on PATH (node, the adapter binary). Any that live
+    /// outside the system roots get their install root bound read-only and their PATH symlink
+    /// chain recreated, and nothing else of the directory they sit in.
+    pub(crate) executables: &'a [std::path::PathBuf],
+    /// The adapter's own state directories under home, bound read-write.
+    pub(crate) state_dirs: &'a [std::path::PathBuf],
+}
+
+/// Roots visible read-only inside every harness cell. `/etc` is NOT among them: only the files
+/// in [`HARNESS_SANDBOX_ETC`] are bound.
+const HARNESS_SANDBOX_SYSTEM_ROOTS: &[&str] =
+    &["/usr", "/bin", "/sbin", "/lib", "/lib32", "/lib64", "/libx32"];
+
+/// The minimal `/etc` a harness needs: the dynamic linker cache, name resolution (the harness
+/// reaches the daemon's model proxy over loopback), users/groups without shadow, TLS roots,
+/// time zone and the alternatives symlink farm `/usr/bin` points into.
+const HARNESS_SANDBOX_ETC: &[&str] = &[
+    "ld.so.cache",
+    "ld.so.conf",
+    "ld.so.conf.d",
+    "localtime",
+    "timezone",
+    "resolv.conf",
+    "hosts",
+    "host.conf",
+    "nsswitch.conf",
+    "gai.conf",
+    "services",
+    "protocols",
+    "passwd",
+    "group",
+    "ssl",
+    "ca-certificates",
+    "pki",
+    "crypto-policies",
+    "alternatives",
+    "os-release",
+    "lsb-release",
+    "mime.types",
+];
+
+fn under_harness_system_root(path: &std::path::Path) -> bool {
+    HARNESS_SANDBOX_SYSTEM_ROOTS
+        .iter()
+        .chain(std::iter::once(&"/etc"))
+        .any(|root| path.starts_with(root))
+}
+
+/// The directory to expose for an executable that lives outside the system roots: the npm
+/// package that contains it (`.../node_modules/<pkg>` or `.../node_modules/@scope/<pkg>`) when
+/// there is one, otherwise just the directory holding the file.
+fn harness_install_root(real: &std::path::Path) -> Option<std::path::PathBuf> {
+    let components: Vec<_> = real.components().collect();
+    for index in (0..components.len()).rev() {
+        if components[index].as_os_str() == "node_modules" {
+            let scoped = components
+                .get(index + 1)
+                .map(|next| next.as_os_str().to_string_lossy().starts_with('@'))
+                .unwrap_or(false);
+            let depth = if scoped { index + 3 } else { index + 2 };
+            if depth < components.len() {
+                return Some(components[..depth].iter().collect());
+            }
+        }
+    }
+    real.parent().map(std::path::Path::to_path_buf)
+}
+
+/// The bwrap argv (through `--`) of a harness cell (MASTER-GUIDE G12). Replaces the old
+/// `--ro-bind / /`, under which every harness could read `~/.ssh`, the daemon data dir and all
+/// of home:
+///
+/// * only the system roots, a minimal `/etc`, the harness install roots and the driver shims are
+///   visible, read-only; the daemon data dir is never bound (only the workspace inside it is);
+/// * home is an empty tmpfs; the adapter's own state dirs are bound back read-write;
+/// * the workspace is bound read-write and is the working directory;
+/// * `--unshare-pid --unshare-ipc --unshare-uts --unshare-cgroup-try`, `--new-session`,
+///   `--die-with-parent`: the harness cannot see or signal host processes, cannot reach the
+///   controlling terminal, and every process it leaves behind dies with the cell.
+///
+/// NOT yet: `--unshare-net`. The harness reaches the daemon's local model proxy over loopback, so
+/// the network namespace stays shared until egress is mediated (W2). No seccomp filter yet, and
+/// the cell runs as the daemon's uid.
+pub(crate) fn harness_sandbox_argv(spec: &HarnessSandboxSpec<'_>) -> Result<Vec<String>, String> {
+    let workspace = std::fs::canonicalize(spec.workspace_root)
+        .map_err(|error| format!("workspace {}: {error}", spec.workspace_root.display()))?;
+    let home = std::fs::canonicalize(spec.home).unwrap_or_else(|_| spec.home.to_path_buf());
+    // A workspace that contains home (or is `/`) would bind home back read-write.
+    if workspace.parent().is_none() || home.starts_with(&workspace) {
+        return Err(format!(
+            "workspace {} contains the daemon user's home; refusing to bind it into a harness cell",
+            workspace.display()
+        ));
+    }
+    let text = |path: &std::path::Path| path.to_string_lossy().into_owned();
+    let mut argv: Vec<String> = [
+        "bwrap",
+        "--die-with-parent",
+        "--new-session",
+        "--unshare-pid",
+        "--unshare-ipc",
+        "--unshare-uts",
+        "--unshare-cgroup-try",
+        "--hostname",
+        "ioi-harness",
+    ]
+    .iter()
+    .map(|arg| (*arg).to_string())
+    .collect();
+    for root in HARNESS_SANDBOX_SYSTEM_ROOTS {
+        let path = std::path::Path::new(root);
+        match std::fs::symlink_metadata(path) {
+            Ok(meta) if meta.file_type().is_symlink() => {
+                if let Ok(target) = std::fs::read_link(path) {
+                    argv.extend(["--symlink".into(), text(&target), (*root).to_string()]);
+                }
+            }
+            Ok(meta) if meta.is_dir() => {
+                argv.extend(["--ro-bind".into(), (*root).to_string(), (*root).to_string()]);
+            }
+            _ => {}
+        }
+    }
+    for entry in HARNESS_SANDBOX_ETC {
+        let path = format!("/etc/{entry}");
+        argv.extend(["--ro-bind-try".into(), path.clone(), path]);
+    }
+    argv.extend(
+        ["--dev", "/dev", "--proc", "/proc", "--tmpfs", "/tmp"]
+            .iter()
+            .map(|arg| (*arg).to_string()),
+    );
+    argv.extend(["--tmpfs".into(), text(&home)]);
+    if spec.home != home.as_path() {
+        argv.extend(["--tmpfs".into(), text(spec.home)]);
+    }
+    // Harness install roots outside the system roots (e.g. `~/.local/lib/node_modules/<pkg>`),
+    // plus the PATH symlink chain that leads to them, recreated link by link.
+    let mut bound: Vec<std::path::PathBuf> = Vec::new();
+    for executable in spec.executables {
+        let Ok(real) = std::fs::canonicalize(executable) else {
+            continue;
+        };
+        if under_harness_system_root(&real) {
+            continue;
+        }
+        if let Some(root) = harness_install_root(&real) {
+            // An install root that is home or one of its ancestors (a binary sitting directly in
+            // home) would bind all of home back into the cell: refuse rather than widen it.
+            if home.starts_with(&root) || spec.home.starts_with(&root) {
+                return Err(format!(
+                    "harness executable {} lives directly in the daemon user's home; install it under a dedicated directory",
+                    real.display()
+                ));
+            }
+            if !bound.iter().any(|known| root.starts_with(known)) {
+                argv.extend(["--ro-bind".into(), text(&root), text(&root)]);
+                bound.push(root);
+            }
+        }
+    }
+    let mut linked: Vec<std::path::PathBuf> = Vec::new();
+    for executable in spec.executables {
+        let mut link = executable.clone();
+        for _ in 0..16 {
+            if under_harness_system_root(&link) {
+                break;
+            }
+            let Ok(target) = std::fs::read_link(&link) else {
+                break;
+            };
+            // A link inside a bound install root is already visible; recreating it would collide.
+            if !bound.iter().any(|root| link.starts_with(root)) && !linked.contains(&link) {
+                argv.extend(["--symlink".into(), text(&target), text(&link)]);
+                linked.push(link.clone());
+            }
+            link = if target.is_absolute() {
+                target
+            } else {
+                link.parent().map(|parent| parent.join(&target)).unwrap_or(target)
+            };
+        }
+    }
+    argv.extend(["--ro-bind".into(), text(spec.shim_dir), text(spec.shim_dir)]);
+    for dir in spec.state_dirs {
+        argv.extend(["--bind".into(), text(dir), text(dir)]);
+    }
+    let workspace_text = text(spec.workspace_root);
+    argv.extend([
+        "--bind".into(),
+        workspace_text.clone(),
+        workspace_text.clone(),
+        "--chdir".into(),
+        workspace_text,
+        "--".into(),
+    ]);
+    Ok(argv)
+}
+
+/// W0.5: the execution lanes `POST /v1/hypervisor/sessions/:id/execute` will run. Anything else
+/// is refused by name. `container` is refused outright: it used to check only that docker/podman
+/// was on PATH and then spawn the harness ON THE HOST, so a receipt saying "container" described
+/// a boundary that never existed. It stays refused until a real container cell exists.
+pub(crate) fn session_execute_lane_refusal(
+    lane: &str,
+) -> Option<(StatusCode, &'static str, String)> {
+    match lane {
+        "host_spawn" | "native_local" => None,
+        "container" => Some((
+            StatusCode::NOT_IMPLEMENTED,
+            "container_lane_not_implemented",
+            "The container execution lane is not implemented: it never started a container and \
+             would have run the harness on the host. Refused. Use the host_spawn lane (bwrap cell) \
+             or a microvm environment."
+                .to_string(),
+        )),
+        other => Some((
+            StatusCode::BAD_REQUEST,
+            "session_execute_lane_unsupported",
+            format!("Unknown execution lane '{other}'. Supported lanes: host_spawn, native_local."),
+        )),
+    }
+}
+
 /// Resolve the wired execution driver for the session's ADMITTED harness binding.
 /// `Ok(None)` = no binding (or the native worker) — the legacy generic Lane A path applies,
-/// byte-identical. `Ok(Some((harness, argv)))` = a real adapter driver, bwrap-CONFINED: the
-/// whole filesystem read-only except the session workspace, the adapter's own state dirs, and
-/// a private /tmp (the workspace is re-bound inside it) — a small local model mangling a path
-/// cannot write outside the admitted boundary. `Err` = the binding names an adapter whose
-/// substrate is missing RIGHT NOW (binary / driver shim / sandbox) — fail closed, no spawn.
+/// byte-identical. `Ok(Some((harness, argv)))` = a real adapter driver in a bwrap cell
+/// ([`harness_sandbox_argv`]): system roots, a minimal /etc, the harness install roots and the
+/// shims read-only; home masked; the session workspace and the adapter's own state dirs
+/// read-write; a private /tmp; separate PID/IPC/UTS namespaces. `Err` = the binding names an
+/// adapter whose substrate is missing RIGHT NOW (binary / driver shim / sandbox) or whose
+/// workspace cannot be confined — fail closed, no spawn.
 pub(crate) fn resolve_adapter_driver(
     record: &Value,
     model: &str,
@@ -10859,48 +11087,40 @@ pub(crate) fn resolve_adapter_driver(
         )
     })?;
     let home = std::env::var("HOME").unwrap_or_else(|_| "/root".to_string());
-    // Adapter state dirs must exist before bwrap binds them read-write.
-    for sub in [".local/share/opencode", ".deepseek", ".cache"] {
-        let _ = std::fs::create_dir_all(std::path::Path::new(&home).join(sub));
+    let home_path = std::path::PathBuf::from(&home);
+    // The adapter's OWN state dirs (session store, provider cache) are the only part of home the
+    // cell can see read-write; they must exist before bwrap binds them.
+    let state_dirs: Vec<std::path::PathBuf> = match harness {
+        "opencode" => vec![
+            home_path.join(".local/share/opencode"),
+            home_path.join(".cache/opencode"),
+        ],
+        _ => Vec::new(),
+    };
+    for dir in &state_dirs {
+        let _ = std::fs::create_dir_all(dir);
     }
-    let mut argv: Vec<String> = vec![
-        "bwrap".into(),
-        "--ro-bind".into(),
-        "/".into(),
-        "/".into(),
-        "--dev".into(),
-        "/dev".into(),
-        "--proc".into(),
-        "/proc".into(),
-        "--tmpfs".into(),
-        "/tmp".into(),
-        // The daemon may itself run from a worktree under /tmp. The private /tmp mount above
-        // deliberately hides the host's temporary tree, so re-expose only the shipped driver
-        // directory read-only. Binding only the entry script is insufficient because both
-        // adapters import their sibling harness-adapter-driver-lib.mjs module.
-        "--ro-bind".into(),
-        shim_dir.to_string_lossy().into_owned(),
-        shim_dir.to_string_lossy().into_owned(),
-        "--bind".into(),
-        workspace_root.into(),
-        workspace_root.into(),
-        "--bind".into(),
-        format!("{home}/.local/share/opencode"),
-        format!("{home}/.local/share/opencode"),
-        "--bind".into(),
-        format!("{home}/.deepseek"),
-        format!("{home}/.deepseek"),
-        "--bind".into(),
-        format!("{home}/.cache"),
-        format!("{home}/.cache"),
-        "--die-with-parent".into(),
+    let executables: Vec<std::path::PathBuf> = [Some(node.clone()), binary_on_path(adapter_binary)]
+        .into_iter()
+        .flatten()
+        .map(std::path::PathBuf::from)
+        .collect();
+    let mut argv = harness_sandbox_argv(&HarnessSandboxSpec {
+        home: &home_path,
+        workspace_root: std::path::Path::new(workspace_root),
+        shim_dir,
+        executables: &executables,
+        state_dirs: &state_dirs,
+    })
+    .map_err(|detail| ("adapter_sandbox_refused", detail))?;
+    argv.extend([
         node,
         shim.to_string_lossy().into_owned(),
         "--model".into(),
         model.into(),
         "--cd".into(),
         workspace_root.into(),
-    ];
+    ]);
     if let Some(endpoint) = endpoint {
         argv.push("--model-endpoint".into());
         argv.push(endpoint.into());
@@ -11447,11 +11667,7 @@ fn provision_session_workspace_reserved(
                         .into_owned()
                 };
                 let cloned = std::path::Path::new(&clone_into).join(".git").is_dir()
-                    || std::process::Command::new("git")
-                        .args(["clone", "--depth", "1", remote_uri, clone_into.as_str()])
-                        .output()
-                        .map(|output| output.status.success())
-                        .unwrap_or(false);
+                    || super::host_git::clone_depth1(remote_uri, clone_into.as_str());
                 if cloned {
                     realized_specs.push(json!({ "git": remote_uri, "realized": true }));
                 } else {
@@ -13998,12 +14214,10 @@ fn project_session_workspace_diff(workspace_root: &str) -> Value {
     }
 }
 
-/// Run a git subcommand in `cwd`, returning stdout on success.
+/// Run a git subcommand in `cwd`, returning stdout on success. `cwd` is a guest-writable
+/// workspace, so this is always the hardened host-git invocation (W0.4 / G14).
 fn git_capture(cwd: &str, args: &[&str]) -> Option<String> {
-    let mut command = std::process::Command::new("git");
-    command.args(["-C", cwd]);
-    command.args(args);
-    let output = command.output().ok()?;
+    let output = super::host_git::workspace_git(cwd, args).ok()?.output().ok()?;
     if !output.status.success() {
         return None;
     }
@@ -25852,8 +26066,11 @@ pub(crate) async fn handle_github_app_installation(
 
 /// POST /v1/hypervisor/sessions/:id/execute — session execution (Lane A or Lane B).
 ///
+/// Any other `lane` is refused by name before anything runs (`container_lane_not_implemented`,
+/// `session_execute_lane_unsupported`; see [`session_execute_lane_refusal`]).
+///
 /// Lane A (default `host_spawn`): FAILS CLOSED with an honest reason
-/// (`no_model_route` / `harness_unavailable` / `container_unavailable`) when the
+/// (`no_model_route` / `harness_unavailable`) when the
 /// substrate is absent; otherwise spawns the `generic-cli-local` harness in the
 /// provisioned workspace, delivers the intent, and reports the harness's real file
 /// writes + diff + transcript + receipts. Lane B (`native_local`): a Rust-native
@@ -25911,6 +26128,25 @@ pub(crate) async fn handle_session_execute(
         .and_then(Value::as_str)
         .unwrap_or("host_spawn")
         .to_string();
+    // W0.5 fail closed: a lane that is not a real boundary (the container lane only ever checked
+    // PATH and then ran the harness on the host) or that nobody implements is refused by name,
+    // before admission, authority or any spawn.
+    if let Some((status, reason, message)) = session_execute_lane_refusal(&lane) {
+        return (
+            status,
+            Json(json!({
+                "schema_version": SESSION_EXECUTE_DECISION_SCHEMA_VERSION,
+                "session_ref": session_id,
+                "decision": "refused",
+                "reason": reason,
+                "message": message,
+                "lane": lane,
+                "changed_file_groups": [],
+                "terminal_events": [],
+                "runtimeTruthSource": "daemon-runtime",
+            })),
+        );
+    }
 
     let Some(intent) = session_execute_intent(&body) else {
         return (
@@ -25986,11 +26222,6 @@ pub(crate) async fn handle_session_execute(
         Some((
             "harness_unavailable",
             "No host harness available (the generic-cli-local node shim, or a PATH harness binary).",
-        ))
-    } else if lane == "container" && substrate.container_runtime.is_none() {
-        Some((
-            "container_unavailable",
-            "Container lane requested but no container runtime (docker / podman) on PATH.",
         ))
     } else {
         None
@@ -30034,5 +30265,321 @@ mod session_standing_lease_tests {
                 "authority_principal_not_configured".to_string()
             )
         );
+    }
+}
+
+/// MASTER-GUIDE W0.4 / G12 / W0.5 exit tests: host git never executes guest configuration, the
+/// harness cell cannot read home or the daemon data dir, and a fake lane is refused by name.
+#[cfg(test)]
+mod w0_hardening_tests {
+    use super::*;
+    use crate::host_git::test_support::HostileRepo;
+
+    #[test]
+    fn w0_4_daemon_git_paths_never_execute_a_planted_git_config_or_hooks() {
+        let repo = HostileRepo::plant();
+        repo.clear();
+        let ws = repo.workspace.to_str().expect("utf8 workspace").to_string();
+
+        // Every lifecycle code path that runs host git over a workspace.
+        let changed = git_changed_files(&ws);
+        let diff = project_session_workspace_diff(&ws);
+        let root = git_repo_root(&ws);
+        let snapshot = git_snapshot_changes(&root);
+        let head = git_file_head_bytes(&root, "tracked.txt");
+        let numstat = git_capture(&ws, &["diff", "--numstat", "HEAD"]);
+
+        let fired = repo.fired();
+        assert!(
+            fired.is_empty(),
+            "planted .git/config / hooks executed on the host: {fired:?}"
+        );
+        // The paths still did their job (hardening is not a silent no-op).
+        assert!(
+            changed.iter().any(|(_, path)| path == "tracked.txt"),
+            "status still reports the guest edit: {changed:?}"
+        );
+        assert!(snapshot.iter().any(|change| change.path == "tracked.txt"));
+        assert_eq!(head.as_deref(), Some(&b"committed\n"[..]));
+        assert!(numstat.unwrap_or_default().contains("tracked.txt"));
+        assert_eq!(
+            std::fs::canonicalize(&root).ok(),
+            std::fs::canonicalize(&repo.workspace).ok(),
+            "a guest core.worktree must not redirect the repo root"
+        );
+        assert!(diff.get("changed_file_groups").is_some(), "{diff}");
+    }
+
+    struct CellFixture {
+        _root: tempfile::TempDir,
+        home: std::path::PathBuf,
+        data_dir: std::path::PathBuf,
+        workspace: std::path::PathBuf,
+        shim_dir: std::path::PathBuf,
+    }
+
+    fn cell_fixture() -> CellFixture {
+        let root = tempfile::tempdir().expect("tempdir");
+        let home = root.path().join("home").join("operator");
+        let data_dir = home.join(".ioi").join("hypervisor").join("data");
+        let workspace = data_dir.join("environments").join("env-1").join("workspace");
+        let shim_dir = root.path().join("repo").join("packages").join("shims");
+        for dir in [&home, &workspace, &shim_dir, &home.join(".ssh")] {
+            std::fs::create_dir_all(dir).expect("mkdir");
+        }
+        std::fs::write(home.join(".ssh").join("id_ed25519"), "PRIVATE KEY\n").expect("key");
+        std::fs::write(data_dir.join("sealed-store.json"), "{\"secret\":1}\n").expect("store");
+        std::fs::write(home.join(".bash_history"), "history\n").expect("history");
+        std::fs::write(workspace.join("readme.txt"), "workspace file\n").expect("ws file");
+        std::fs::write(shim_dir.join("driver.mjs"), "// shim\n").expect("shim");
+        CellFixture {
+            _root: root,
+            home,
+            data_dir,
+            workspace,
+            shim_dir,
+        }
+    }
+
+    fn cell_argv(fixture: &CellFixture, state_dirs: &[std::path::PathBuf]) -> Vec<String> {
+        harness_sandbox_argv(&HarnessSandboxSpec {
+            home: &fixture.home,
+            workspace_root: &fixture.workspace,
+            shim_dir: &fixture.shim_dir,
+            executables: &[std::path::PathBuf::from("/usr/bin/env")],
+            state_dirs,
+        })
+        .expect("cell argv")
+    }
+
+    #[test]
+    fn g12_harness_cell_argv_masks_home_and_never_binds_the_host_root() {
+        let fixture = cell_fixture();
+        let argv = cell_argv(&fixture, &[]);
+        let windows: Vec<(&str, &str, &str)> = argv
+            .windows(3)
+            .map(|w| (w[0].as_str(), w[1].as_str(), w[2].as_str()))
+            .collect();
+        assert!(
+            !windows.contains(&("--ro-bind", "/", "/")) && !windows.contains(&("--bind", "/", "/")),
+            "the host root must never be bound: {argv:?}"
+        );
+        for flag in [
+            "--unshare-pid",
+            "--unshare-ipc",
+            "--unshare-uts",
+            "--new-session",
+            "--die-with-parent",
+        ] {
+            assert!(argv.iter().any(|arg| arg == flag), "missing {flag}: {argv:?}");
+        }
+        // Recorded gap (W2): the harness still reaches the daemon's model proxy over loopback.
+        assert!(!argv.iter().any(|arg| arg == "--unshare-net"));
+        let home = fixture.home.to_string_lossy().into_owned();
+        let home_tmpfs = argv
+            .windows(2)
+            .position(|w| w[0] == "--tmpfs" && w[1] == home)
+            .expect("home is masked with a tmpfs");
+        let ws = fixture.workspace.to_string_lossy().into_owned();
+        let ws_bind = argv
+            .windows(3)
+            .position(|w| w[0] == "--bind" && w[1] == ws && w[2] == ws)
+            .expect("workspace is bound read-write");
+        assert!(ws_bind > home_tmpfs, "the workspace bind must come after the home mask");
+        // Nothing that exposes the secrets is bound.
+        let ssh = fixture.home.join(".ssh").to_string_lossy().into_owned();
+        let data = fixture.data_dir.to_string_lossy().into_owned();
+        for (index, arg) in argv.iter().enumerate() {
+            let is_source = index > 0
+                && matches!(argv[index - 1].as_str(), "--bind" | "--ro-bind" | "--ro-bind-try");
+            if is_source {
+                assert!(
+                    !(arg == &home || arg == &ssh || arg == &data || ssh.starts_with(arg.as_str())),
+                    "a secret-bearing path is bound into the cell: {arg}"
+                );
+            }
+        }
+        // /etc is a curated file list, never the whole directory.
+        assert!(!windows.contains(&("--ro-bind", "/etc", "/etc")));
+        assert!(!argv.iter().any(|arg| arg == "/etc/shadow"));
+    }
+
+    #[test]
+    fn g12_harness_cell_refuses_a_workspace_that_contains_home() {
+        let fixture = cell_fixture();
+        let parent = fixture.home.parent().expect("home parent").to_path_buf();
+        let refused = harness_sandbox_argv(&HarnessSandboxSpec {
+            home: &fixture.home,
+            workspace_root: &parent,
+            shim_dir: &fixture.shim_dir,
+            executables: &[],
+            state_dirs: &[],
+        });
+        assert!(refused.is_err(), "a workspace above home would re-expose it");
+    }
+
+    #[test]
+    fn g12_harness_cell_refuses_an_executable_that_would_bind_home_back() {
+        let fixture = cell_fixture();
+        // a binary sitting directly in home: its install root would be home itself
+        let loose = fixture.home.join("harness-bin");
+        std::fs::write(&loose, "#!/bin/sh\n").expect("binary");
+        let refused = harness_sandbox_argv(&HarnessSandboxSpec {
+            home: &fixture.home,
+            workspace_root: &fixture.workspace,
+            shim_dir: &fixture.shim_dir,
+            executables: &[loose],
+            state_dirs: &[],
+        });
+        assert!(refused.is_err(), "an install root of home would bind ~/.ssh back read-only: {refused:?}");
+        // a binary under a dedicated directory binds only that directory
+        let tools = fixture.home.join(".local").join("bin");
+        std::fs::create_dir_all(&tools).expect("mkdir");
+        let tidy = tools.join("harness-bin");
+        std::fs::write(&tidy, "#!/bin/sh\n").expect("binary");
+        let argv = harness_sandbox_argv(&HarnessSandboxSpec {
+            home: &fixture.home,
+            workspace_root: &fixture.workspace,
+            shim_dir: &fixture.shim_dir,
+            executables: &[tidy],
+            state_dirs: &[],
+        })
+        .expect("a dedicated install dir is fine");
+        let home_text = fixture.home.to_string_lossy().into_owned();
+        assert!(!argv.windows(3).any(|w| w[0] == "--ro-bind" && w[1] == home_text), "home is never bound");
+    }
+
+    fn run_in_cell(argv: &[String], command: &[&str], home: &std::path::Path) -> std::process::Output {
+        std::process::Command::new(&argv[0])
+            .args(&argv[1..])
+            .args(command)
+            .env_clear()
+            .env("PATH", "/usr/bin:/bin")
+            .env("HOME", home)
+            .output()
+            .expect("spawn bwrap")
+    }
+
+    #[test]
+    fn g12_harness_cell_cannot_read_ssh_or_the_daemon_data_dir_when_run_under_bwrap() {
+        if binary_on_path("bwrap").is_none() {
+            eprintln!("bwrap not on PATH: argv assertions only (see the argv test)");
+            return;
+        }
+        let fixture = cell_fixture();
+        let state = fixture.home.join(".local").join("share").join("adapter-state");
+        std::fs::create_dir_all(&state).expect("state dir");
+        let argv = cell_argv(&fixture, &[state.clone()]);
+        // Positive control: the cell runs, and the workspace is readable and writable.
+        let control = run_in_cell(&argv, &["/bin/sh", "-c", "cat readme.txt && echo written > out.txt"], &fixture.home);
+        if !control.status.success()
+            && String::from_utf8_lossy(&control.stderr).contains("No permissions to create new namespace")
+        {
+            eprintln!("bwrap cannot create namespaces here: argv assertions only");
+            return;
+        }
+        assert!(
+            control.status.success(),
+            "positive control failed: {}",
+            String::from_utf8_lossy(&control.stderr)
+        );
+        assert!(String::from_utf8_lossy(&control.stdout).contains("workspace file"));
+        assert_eq!(
+            std::fs::read_to_string(fixture.workspace.join("out.txt")).ok().as_deref(),
+            Some("written\n")
+        );
+        // The planted secrets are unreadable from inside the cell.
+        let mut denied = 0;
+        for secret in [
+            fixture.home.join(".ssh").join("id_ed25519"),
+            fixture.data_dir.join("sealed-store.json"),
+            fixture.home.join(".bash_history"),
+        ] {
+            let secret_text = secret.to_string_lossy().into_owned();
+            let out = run_in_cell(&argv, &["/bin/cat", &secret_text], &fixture.home);
+            assert!(
+                !out.status.success(),
+                "{secret_text} was readable inside the cell: {}",
+                String::from_utf8_lossy(&out.stdout)
+            );
+            denied += 1;
+        }
+        assert_eq!(denied, 3);
+        // Listing home shows nothing but the mount points the cell itself needs.
+        let listing = run_in_cell(&argv, &["/bin/ls", "-A", &fixture.home.to_string_lossy()], &fixture.home);
+        let names = String::from_utf8_lossy(&listing.stdout);
+        assert!(!names.contains(".ssh") && !names.contains(".bash_history"), "home leaked: {names}");
+        // The host PID namespace is not visible.
+        let ps = run_in_cell(&argv, &["/bin/sh", "-c", "ls /proc | grep -c '^[0-9]'"], &fixture.home);
+        let visible: u32 = String::from_utf8_lossy(&ps.stdout).trim().parse().unwrap_or(9999);
+        assert!(visible < 10, "host processes visible inside the cell: {visible}");
+    }
+
+    /// The REAL argv `resolve_adapter_driver` builds for each installed adapter still reaches that
+    /// adapter's binary (install root + recreated PATH symlink) and still hides home. Runs only
+    /// where bwrap, node and the adapter are installed and the shims resolve from the working
+    /// directory (the daemon runs from the repo root; `cargo test` runs from crates/node and
+    /// skips this).
+    #[test]
+    fn g12_resolved_adapter_cells_reach_their_binaries_and_not_home() {
+        if binary_on_path("bwrap").is_none() || binary_on_path("node").is_none() {
+            eprintln!("bwrap/node absent: skipped");
+            return;
+        }
+        let home = std::env::var("HOME").unwrap_or_default();
+        let mut exercised = 0;
+        for (harness, binary) in [("opencode", "opencode"), ("deepseek_tui", "deepseek")] {
+            if binary_on_path(binary).is_none() {
+                continue;
+            }
+            let workspace = tempfile::tempdir().expect("workspace");
+            let ws = workspace.path().to_string_lossy().into_owned();
+            let record = json!({ "harness_binding": { "harness": harness } });
+            let argv = match resolve_adapter_driver(&record, "qwen2.5:7b", &ws, None) {
+                Ok(Some((_, argv))) => argv,
+                Ok(None) => panic!("{harness} must resolve to an adapter driver"),
+                Err(("adapter_driver_missing", _)) => {
+                    eprintln!("{harness}: shims not resolvable from this working directory: skipped");
+                    continue;
+                }
+                Err(other) => panic!("{harness}: {other:?}"),
+            };
+            let separator = argv.iter().position(|arg| arg == "--").expect("-- separator");
+            let script = format!(
+                "command -v {binary} >/dev/null && {binary} --version >/dev/null 2>&1; echo rc=$?; \
+                 if ls -A \"$HOME/.ssh\" 2>/dev/null | grep -q .; then echo home=LEAK; else echo home=sealed; fi"
+            );
+            let out = std::process::Command::new(&argv[0])
+                .args(&argv[1..=separator])
+                .args(["/bin/sh", "-c", &script])
+                .env_clear()
+                .env("PATH", std::env::var("PATH").unwrap_or_default())
+                .env("HOME", &home)
+                .output()
+                .expect("spawn cell");
+            let stdout = String::from_utf8_lossy(&out.stdout);
+            assert!(
+                stdout.contains("rc=0"),
+                "{harness}: `{binary} --version` failed inside its cell: {stdout} {}",
+                String::from_utf8_lossy(&out.stderr)
+            );
+            assert!(stdout.contains("home=sealed"), "{harness}: ~/.ssh visible: {stdout}");
+            exercised += 1;
+        }
+        eprintln!("resolved adapter cells exercised: {exercised}");
+    }
+
+    #[test]
+    fn w0_5_container_lane_and_unknown_lanes_are_refused_by_name() {
+        let (status, reason, _) =
+            session_execute_lane_refusal("container").expect("container lane refused");
+        assert_eq!(status, StatusCode::NOT_IMPLEMENTED);
+        assert_eq!(reason, "container_lane_not_implemented");
+        let (status, reason, _) =
+            session_execute_lane_refusal("docker").expect("unknown lane refused");
+        assert_eq!(status, StatusCode::BAD_REQUEST);
+        assert_eq!(reason, "session_execute_lane_unsupported");
+        assert!(session_execute_lane_refusal("host_spawn").is_none());
+        assert!(session_execute_lane_refusal("native_local").is_none());
     }
 }

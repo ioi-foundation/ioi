@@ -131,11 +131,70 @@ fn executable_in_path(name: &str) -> bool {
     std::env::split_paths(&path_var).any(|dir| dir.join(name).is_file())
 }
 
-fn terminal_network_sandbox_enabled() -> bool {
-    if std::env::var_os("IOI_TERMINAL_DRIVER_DISABLE_NETWORK_SANDBOX").is_some() {
-        return false;
+pub(super) const TERMINAL_SANDBOX_ESCAPE_ENV: &str = "IOI_TERMINAL_DRIVER_DISABLE_NETWORK_SANDBOX";
+
+/// What the host offers for confining a foreground terminal command (W0.5 fail closed).
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(super) struct TerminalSandboxProbe {
+    pub(super) linux: bool,
+    pub(super) bwrap_on_path: bool,
+    /// `IOI_TERMINAL_DRIVER_DISABLE_NETWORK_SANDBOX` is set.
+    pub(super) escape_requested: bool,
+    /// A debug (dev/test) build: `cfg!(debug_assertions)`.
+    pub(super) debug_build: bool,
+    /// `IOI_RUNTIME_PROFILE` is production / marketplace / validator.
+    pub(super) fail_closed_profile: bool,
+}
+
+impl TerminalSandboxProbe {
+    fn from_host() -> Self {
+        Self {
+            linux: cfg!(target_os = "linux"),
+            bwrap_on_path: executable_in_path("bwrap"),
+            escape_requested: std::env::var_os(TERMINAL_SANDBOX_ESCAPE_ENV).is_some(),
+            debug_build: cfg!(debug_assertions),
+            fail_closed_profile: crate::authority::DriverAuthorityContext::from_env()
+                .is_fail_closed_profile(),
+        }
     }
-    cfg!(target_os = "linux") && executable_in_path("bwrap")
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub(super) enum TerminalSandboxPosture {
+    /// Run inside the network-isolated bwrap sandbox.
+    Sandboxed,
+    /// The dev/test escape, honoured only in a debug build outside a fail-closed profile.
+    DevEscapeUnsandboxed,
+    /// No sandbox: the command is refused. Never a silent unsandboxed fallback.
+    Refused(String),
+}
+
+/// Decide how a foreground command may run. The sandbox used to be skipped whenever bwrap was
+/// missing (and whenever the escape variable was set, in any build) — the command then ran on
+/// the host with full network. Now: no bwrap means refuse, and the escape is dev-only.
+pub(super) fn terminal_sandbox_posture(probe: &TerminalSandboxProbe) -> TerminalSandboxPosture {
+    if probe.escape_requested {
+        if probe.debug_build && !probe.fail_closed_profile {
+            return TerminalSandboxPosture::DevEscapeUnsandboxed;
+        }
+        log::warn!(
+            "{} is set but ignored: the terminal sandbox escape is honoured only in debug builds \
+             outside production/marketplace/validator profiles",
+            TERMINAL_SANDBOX_ESCAPE_ENV
+        );
+    }
+    if probe.linux && probe.bwrap_on_path {
+        return TerminalSandboxPosture::Sandboxed;
+    }
+    TerminalSandboxPosture::Refused(format!(
+        "ERROR_CLASS=PolicyBlocked terminal_sandbox_unavailable: {}; refusing to run the command \
+         unsandboxed",
+        if probe.linux {
+            "bubblewrap (bwrap) is not on PATH"
+        } else {
+            "no terminal sandbox exists for this platform"
+        }
+    ))
 }
 
 fn command_spawn_spec(
@@ -144,11 +203,33 @@ fn command_spawn_spec(
     cwd: Option<&Path>,
     detach: bool,
 ) -> Result<CommandSpawnSpec> {
-    if detach || !terminal_network_sandbox_enabled() {
+    command_spawn_spec_with_probe(command, args, cwd, detach, &TerminalSandboxProbe::from_host())
+}
+
+pub(super) fn command_spawn_spec_with_probe(
+    command: &str,
+    args: &[String],
+    cwd: Option<&Path>,
+    detach: bool,
+    probe: &TerminalSandboxProbe,
+) -> Result<CommandSpawnSpec> {
+    // Detached launches (GUI apps) are not confined by this sandbox; that is a recorded gap,
+    // not a fallback — it does not depend on whether bwrap is present.
+    if detach {
         return Ok(CommandSpawnSpec {
             executable: command.to_string(),
             args: args.to_vec(),
         });
+    }
+    match terminal_sandbox_posture(probe) {
+        TerminalSandboxPosture::Sandboxed => {}
+        TerminalSandboxPosture::DevEscapeUnsandboxed => {
+            return Ok(CommandSpawnSpec {
+                executable: command.to_string(),
+                args: args.to_vec(),
+            });
+        }
+        TerminalSandboxPosture::Refused(reason) => return Err(anyhow!(reason)),
     }
 
     let resolved_cwd = match cwd {
@@ -287,9 +368,9 @@ struct RetainedCommandHandle {
 }
 
 #[derive(Clone, Debug)]
-struct CommandSpawnSpec {
-    executable: String,
-    args: Vec<String>,
+pub(super) struct CommandSpawnSpec {
+    pub(super) executable: String,
+    pub(super) args: Vec<String>,
 }
 
 #[derive(Clone)]
