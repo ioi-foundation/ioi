@@ -130,6 +130,32 @@ Owner visibility × plane readiness × done-bar journey legs:
 Each app is one cut: harvest census → adopted states → bindings and named gaps → `SURFACE_STATES` →
 journey verifier → deploy to the owner's stack.
 
+**Substrate seeds, harvested during this phase (added 2026-09-28).** The master guide (§0.6, "Harvest before the
+refactor") ranks 13 reference surfaces that the journey order never reaches. The substrate refactor rebinds owned
+surfaces against harvested flow states. A capability with no seed has to be designed from scratch, with no reference
+behaviour to check against. These are **harvest-only (Arm B)** cuts. They run beside the adoption cuts above and do not
+reorder them:
+
+1. Control Panel Approvals: inbox, request task, policies. A pending state needs one example request.
+2. Control Panel Network egress: policies, the request dialog, Secure Tunnels, PrivateLinks, S3 bucket policies.
+3. Identity: Foundry Groups, Markings, Roles, Users, Tokens and Third-party apps; Control Panel permissions; Ona
+   Members, Service Accounts, Login, SCIM and OIDC. Examples needed: a marking, a group, a short-lived token, a service
+   account. A secret is never recorded.
+4. AIP Chatbot Studio: agent edit and view.
+5. Ontology action type detail and the action log. Needs an action type on a backed object type, plus one submitted
+   action.
+6. The rest of the Checkpoints wizard.
+7. Ona Automations.
+8. AIP Evals and Logic editors.
+9. Spend screens and the Linter.
+10. The apps behind planes P8–P11: Sensitive Data Scanner, Cipher, Document Intelligence, Custom Widgets.
+11. Workflow Lineage.
+12. DevOps stores.
+13. Control Panel Audit logs.
+
+Nothing in either reference lets a person browse per-effect receipts or an agent's track record. Those surfaces are
+IOI-native, with no seed to copy.
+
 ### Automate — progress and the adoption path (2026-09-26)
 
 - **H done for the known flow:** 18 states recorded read-only over CDP (was 1) — Overview, the list
