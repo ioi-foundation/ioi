@@ -76,6 +76,8 @@ function functionNode(family, released, wantVersion) {
   return {
     __typename: "Function", _id: cacheId(rid), rid, displayName: family.display_name || family.api_name,
     description: latest?.documentation || "", apiName: family.api_name || null, ontologyBindings: [],
+    // only released functions are offered; none lives in a code repository or a project here
+    status: "ACTIVE", repositoryMetadata: null, metadata: { __typename: "FunctionMetadata", _id: cacheId(`metadata:${rid}`), project: null },
     sourceMetadata: resourceOf(family),
     latestVersion: latestNode, latestVersionV2: latestNode,
     version: chosen ? versionNode(family, chosen) : null,
@@ -116,6 +118,7 @@ export function functionFactsRoot(families, revisionsFor, variables) {
     favorites: [],
     allOntologies: [],
     function: targetNode,
+    functionsV2: { __typename: "FunctionSearchPage", totalNumberOfResults: values.length, nextPageToken: null, values },
     defaultOrGlobalBranch: {
       __typename: "DefaultGlobalBranch", _id: cacheId("branch:default"),
       functions: { __typename: "FunctionSearchPage", totalNumberOfResults: values.length, nextPageToken: null, values },
@@ -154,4 +157,6 @@ export function functionSpecs(family, releasedRevisions, range, pageSize = 1) {
 export const FUNCTION_OPERATIONS = new Set([
   "FavoriteFunctionsQuery", "FunctionResultsQuery", "AllOntologiesQuery", "FunctionPreviewQuery",
   "SelectedFunctionQuery", "GetFunctionDisplayName", "GqlFunctionVersionSelectV2Versions", "getFunctionParameters",
+  // the adopted Ontology Manager's Functions section and its count
+  "SearchAllFunctionsQuery", "FunctionsListSearchFunctionsQuery", "FunctionsListFavoritedFunctionsQuery",
 ]);

@@ -47,3 +47,21 @@ test("the Ontology Manager offers no write it would refuse", () => {
   assert.equal(Object.values(ONTOLOGY.ONTOLOGY_PERMISSIONS).every((v) => v === false), true);
   assert.equal(ONTOLOGY.userSettingsOf("ri.x").proposals.enabledStatus.type, "disabled");
 });
+
+test("History lists each revision with its recorded changes and its receipt's author; the creation is not a change the app shows", () => {
+  const revised = [{ ...drafts[0], revision: 2, history: [
+    { revision: 1, op: "created", at: "2026-09-27T01:00:00Z", summary: "DomainOntology draft created", receipt_ref: "r1", affected: { object_types: { loan: "CREATED", borrower: "CREATED" } } },
+    { revision: 2, op: "patched", at: "2026-09-27T02:00:00Z", summary: "patched: canonical_object_model", receipt_ref: "r2", affected: { object_types: { borrower: "DELETED", branch: "CREATED" }, action_types: { approve: "UPDATED" } } },
+  ] }];
+  const [m] = ONTOLOGY.ontologyModelsOf(revised, "org://local", familyOf);
+  const h = ONTOLOGY.modificationHistoryOf(m, 100, (ref) => (ref === "r2" ? "user-2" : null));
+  assert.deepEqual(h.modificationPageItems.map((i) => i.description), ["patched: canonical_object_model", "DomainOntology draft created"], "newest first");
+  const patched = h.modificationPageItems[0];
+  assert.equal(patched.attribution.author, "user-2");
+  assert.equal(patched.previousOntologyVersion, ONTOLOGY.draftVersionOf("ont_1", 1));
+  assert.deepEqual(Object.values(patched.summary.affectedObjectTypes).sort(), ["CREATED", "DELETED"], "a deleted type keeps its rid");
+  assert.deepEqual(Object.values(patched.summary.affectedActionTypes), ["UPDATED"]);
+  assert.equal(h.modificationPageItems[1].previousOntologyVersion, null);
+  const legacy = ONTOLOGY.modificationHistoryOf(ONTOLOGY.ontologyModelsOf([{ ...drafts[0], revision: 2, history: [{ revision: 2, op: "patched", summary: "x" }] }], "org://local", familyOf)[0]);
+  assert.deepEqual(legacy.modificationPageItems[0].summary.affectedObjectTypes, {}, "an entry recorded before changes were kept claims none");
+});

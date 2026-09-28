@@ -9384,8 +9384,8 @@ async function handleEstateRequest(req, res, body) {
           return { data: answerAdoptedDocument(query, ONTOLOGY.valueTypeFacts(name, variables || {}, { models, namespaceRid: owner ? ONTOLOGY.namespaceRidOf(owner) : null }), null, name) };
         }
         if (ONTOLOGY.ONTOLOGY_GRAPHQL_OPERATIONS.has(name) && query) {
-          const [{ models }, functionCount] = await Promise.all([ontologyModels(), planeRead("/v1/hypervisor/functions").then((j) => (j.functions || []).length).catch(() => 0)]);
-          return { data: answerAdoptedDocument(query, ONTOLOGY.ontologyGraphqlFacts(name, variables || {}, { models, functionCount }), null, name) };
+          const { models, owner } = await ontologyModels();
+          return { data: answerAdoptedDocument(query, ONTOLOGY.ontologyGraphqlFacts(name, variables || {}, { models, owner }), null, name) };
         }
         if (!PIPELINE.PIPELINE_OPERATIONS.has(name) && PIPELINE.answersPipelineOperation(name, variables) && query) {
           // the reference's recorded answer to the same generic read (Automate's harvest) lends STRUCTURE only
@@ -10750,6 +10750,21 @@ async function handleEstateRequest(req, res, body) {
         const { owner } = await ontologyModels();
         const orgRid = owner ? `ri.multipass..organization.${PIPELINE.uuidOf(owner)}` : null;
         return sendO(200, orgRid ? { [orgRid]: { organizationRid: orgRid, displayName: ONTOLOGY.namespaceNameOf(owner), description: null, markingId: null, host: null, deleted: false, deletionContextRid: null } } : {});
+      }
+      if (/^\/ontology-metadata\/api\/ontology\/v2\/ri\.ontology\.main\.ontology\.[0-9a-f-]{36}\/modification\/history$/u.test(pathname) && req.method === "POST") {
+        let asked = {}; try { asked = JSON.parse(body.toString() || "{}"); } catch { /* none */ }
+        const { models } = await ontologyModels();
+        const model = ONTOLOGY.modelOf(models, ontologyRidIn(pathname));
+        // each revision's author is the acting principal its ODK receipt records
+        const receipts = model ? await planeRead(`/v1/hypervisor/odk/domain-ontologies/${encodeURIComponent(model.draftId)}/history`).then((j) => j.receipts || []).catch(() => []) : [];
+        const byRef = new Map(receipts.map((r) => [r.receipt_ref, r.acting_principal_ref]));
+        return sendO(200, ONTOLOGY.modificationHistoryOf(model, asked.limit, (ref) => (byRef.get(ref) ? PIPELINE.uuidOf(byRef.get(ref)) : null)));
+      }
+      // the caller's groups (none) and the ontology role sets (the Hypervisor has no ontology roles) — never the tenant's
+      if (onOntologySurface() && pathname === "/multipass/api/me/groups" && req.method === "GET") return sendO(200, { groups: [], next: null, orderedBy: null });
+      if (onOntologySurface() && pathname === "/multipass/api/roles/v2/roleSets" && req.method === "PUT") {
+        let asked = {}; try { asked = JSON.parse(body.toString() || "{}"); } catch { /* none */ }
+        return sendO(200, ONTOLOGY.roleSetsOf(asked.roleSetIds));
       }
       // no data-health monitors are kept: every page of statuses is empty
       if (pathname === "/data-health/api/monitoring/global/statuses" && req.method === "POST") return sendO(200, { statusReports: [], pageToken: null });

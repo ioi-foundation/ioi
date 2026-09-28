@@ -36,6 +36,7 @@ export function ontologyModelsOf(domainOntologies, ownerRef, familyOf) {
       return { ...ot, rid: rid("object-type", `${family}/${ot.id}`), properties, titleRid: title?.rid || null, primaryKey: title?.id || null };
     });
     return {
+      history: (Array.isArray(d.history) ? d.history : []).filter((h) => h && Number(h.revision) > 0),
       rid: ontologyRidOfFamily(family), family, draftId: d.id, displayName: d.domain || family, description: d.description || "",
       revision: Number(d.revision) || 1, version: draftVersionOf(d.id, Number(d.revision) || 1),
       updatedAt: d.updated_at || d.created_at || null, objectTypes,
@@ -83,11 +84,34 @@ export { pascal, camel };
 import crypto from "node:crypto";
 const cid = (s) => crypto.createHash("sha256").update(String(s)).digest("base64");
 export const ONTOLOGY_GRAPHQL_OPERATIONS = new Set([
-  "LoadFavoriteObjectTypeRidsQuery", "FavoriteTypeGroupsQuery", "OntologyAsCodeQuery", "SearchAllFunctionsQuery",
+  "LoadFavoriteObjectTypeRidsQuery", "FavoriteTypeGroupsQuery", "OntologyAsCodeQuery",
   "TopBarStagingSavingQuery", "IsCurrentBranchProtectedQuery", "ObjectTypesListQuery", "LinkTypesListQuery", "ActionTypesListQuery",
   "RecentlyModifiedObjectTypesQueryOnDefault", "ProminentObjectTypesQuery", "TopbarQuery", "BranchSelectTotalNumberOfOntologyBranchesQuery",
-  "ObjectTypeStorageStatusQuery",
+  "ObjectTypeStorageStatusQuery", "TypeGroupsListQuery", "InterfacesListQuery", "SharedPropertyListQuery", "SearchValueTypesQuery",
+  "AdvancedOptionsPageQuery", "OntologyWithOwnerDetailsQuery",
 ]);
+// The ontology's details (Ontology configuration, the owner check): its names, its namespace as a resource, no
+// markings, and no permission to change settings, permissions or branch protection (none is bound here).
+export function ontologyDetailNode(model, ownerRef) {
+  const nsRid = namespaceRidOf(ownerRef);
+  const nsName = namespaceNameOf(ownerRef);
+  const base = ontologyNode(model);
+  const nsResource = {
+    __typename: "ResourceMetadata", _id: cid(`ResourceMetadata:${nsRid}`), rid: nsRid, collections: [], status: null, trashedStatus: "NOT_TRASHED",
+    type: { __typename: "ResourceTypeMetadata", iconName: "pt-svg-icon-namespace" }, alias: nsName, name: nsName, openUrl: null,
+    permissions: { __typename: "ResourceMetadataPermissions", _id: cid(`perm:${nsRid}`), canOpenLink: false }, ancestors: [], path: `/${nsName}`, autosaved: false, statusInfo: null,
+  };
+  return {
+    ...base, displayName: model.displayName, description: model.description || "", apiName: pascal(model.displayName),
+    metadata: {
+      __typename: "OntologyMetadata", _id: cid(`OntologyMetadata:${model.rid}`), markings: [],
+      namespace: { __typename: "Namespace", _id: cid(`namespace:${model.rid}`), metadata: nsResource, permissions: { __typename: "NamespacePermissions", _id: cid(`ns-perm:${model.rid}`), canInstallMarketplaceProduct: false } },
+      permissions: { __typename: "OntologyMetadataPermissions", _id: cid(`ont-meta-perm:${model.rid}`), canManagePermissions: false },
+    },
+    namespace: { ...base.namespace, rid: nsRid, permissions: { __typename: "NamespacePermissions", _id: cid(`ns-perm:${model.rid}`), canEditGlobalBranchConfiguration: false } },
+    permissions: { __typename: "OntologyPermissions", _id: cid(`ont-perm:${model.rid}`), canInstallMarketplaceProduct: false, canUpdateOntologySettings: false },
+  };
+}
 // an object type of the caller's, by the identifier the app sends ({ rid } or { id })
 export const objectTypeOf = (models, identifier) => {
   for (const m of models || []) { const ot = m.objectTypes.find((o) => (identifier?.rid && o.rid === identifier.rid) || (identifier?.id && o.id === identifier.id)); if (ot) return { model: m, ot }; }
@@ -113,7 +137,6 @@ export function ontologyGraphqlFacts(name, variables, ctx) {
   switch (name) {
     case "LoadFavoriteObjectTypeRidsQuery": case "FavoriteTypeGroupsQuery": return { ...root, favorites: [] };
     case "OntologyAsCodeQuery": return { ...root, stemmaRepositoryParentTemplates: [] };
-    case "SearchAllFunctionsQuery": return { ...root, functionsV2: { __typename: "FunctionSearchPage", totalNumberOfResults: ctx.functionCount || 0 } };
     case "TopBarStagingSavingQuery": case "IsCurrentBranchProtectedQuery": case "TopbarQuery": return { ...root, ontology: model ? ontologyNode(model) : null };
     case "ObjectTypesListQuery": return { ...root, objectTypesV2: page("ObjectTypeVersionPage", "ObjectTypeVersion", "objectType", "ObjectType", m.objectTypes, variables, "excludedObjectTypeRids", "filterToObjectTypeRids") };
     case "LinkTypesListQuery": return { ...root, linkTypes: page("LinkTypeVersionPage", "LinkTypeVersion", "linkType", "LinkType", m.linkTypes, variables, "excludedLinkTypeRids", "filterToLinkTypeRids") };
@@ -126,6 +149,21 @@ export function ontologyGraphqlFacts(name, variables, ctx) {
     // an ontology branch is an approval request of the ontology-metadata task type: the Hypervisor has none (an ODK draft
     // is edited in ODK, and published through the ontology-versions plane)
     case "BranchSelectTotalNumberOfOntologyBranchesQuery": return { ...root, approvalRequests: { __typename: "ApprovalRequestPage", totalNumberOfResults: 0 } };
+    case "AdvancedOptionsPageQuery": return { ...root, ontology: model ? ontologyDetailNode(model, ctx.owner) : null };
+    case "OntologyWithOwnerDetailsQuery": { const mm = modelOf(ctx.models, variables?.rid); return { ...root, ontology: mm ? ontologyDetailNode(mm, ctx.owner) : null }; }
+    // the Hypervisor keeps no type groups, interfaces or shared properties
+    case "TypeGroupsListQuery": return { ...root, objectTypeGroups: { __typename: "ObjectTypeGroupPage", totalNumberOfResults: 0, nextPageToken: null, values: [] } };
+    case "InterfacesListQuery": return { ...root, ontologyInterfaces: { __typename: "OntologyInterfacePage", totalNumberOfResults: 0, nextPageToken: null, values: [] } };
+    case "SharedPropertyListQuery": return { ...root, ontology: model ? { ...ontologyNode(model), sharedProperties: { __typename: "SharedPropertyPage", totalNumberOfResults: 0, nextPageToken: null, values: [] } } : null };
+    // the namespace's value types (every ontology's declared value types), by name
+    case "SearchValueTypesQuery": {
+      const all = (ctx.models || []).flatMap((mm) => mm.valueTypes.map((v) => ({ v, mm }))).sort((a, b) => String(a.v.name || a.v.id).localeCompare(String(b.v.name || b.v.id)));
+      return { ...root, valueTypes: { __typename: "ValueTypeSearchPage", nextPageToken: null, totalNumberOfResults: all.length, values: all.map(({ v, mm }) => {
+        const vrid = `ri.ontology.main.value-type.${uuidOf(`${mm.family}/value/${v.id}`)}`;
+        return { __typename: "ValueType", _id: cid(`ValueType:${vrid}`), rid: vrid, displayName: v.name || v.id,
+          latestVersion: { __typename: "ValueTypeVersion", _id: cid(`ValueTypeVersion:${vrid}`), created: { __typename: "Attribution", time: mm.updatedAt || null }, baseType: { __typename: `ValueTypeBaseType_${pascal(v.base || "string")}` } } };
+      }) } };
+    }
     // an object type's object-database storage: it is stored in none
     case "ObjectTypeStorageStatusQuery": {
       const hit = objectTypeOf(ctx.models, variables?.identifier);
@@ -235,3 +273,44 @@ export function bulkLoadEntitiesOf(request, models) {
     linkTypes: [], sharedPropertyTypes: [], interfaceTypes: [], typeGroups: [], actionTypes: [],
   };
 }
+
+// ---- POST /ontology-metadata/api/ontology/v2/<rid>/modification/history — the draft's receipted history, newest first.
+// Each entry names its revision and summary; it does not record which entities it touched or who made it, so the
+// affected-entity maps are empty and the author is not claimed.
+const EMPTY_AFFECTED = {
+  affectedObjectTypes: {}, affectedObjectTypeDatasources: {}, affectedLinkTypes: {}, affectedManyToManyLinkTypeDatasources: {}, affectedRuleSets: {},
+  affectedActionTypes: {}, affectedSharedPropertyTypes: {}, affectedInterfaceTypes: {}, affectedObjectTypeEntityMetadatas: {},
+  affectedLinkTypeEntityMetadatas: {}, affectedObjectTypeSchemaMigrations: {}, affectedTypeGroups: {},
+};
+// A history entry's recorded changes (ODK records, per revision, which types it CREATED / UPDATED / DELETED by id),
+// keyed by the rids the app knows (deterministic from family and id, so a deleted type keeps its rid).
+function affectedOf(model, affected) {
+  const map = (kind, ridOf) => Object.fromEntries(Object.entries(affected[kind] || {}).map(([id, change]) => [ridOf(id), String(change)]));
+  const objectTypes = map("object_types", (id) => rid("object-type", `${model.family}/${id}`));
+  return {
+    ...EMPTY_AFFECTED, affectedObjectTypes: objectTypes, affectedObjectTypeEntityMetadatas: objectTypes,
+    affectedLinkTypes: map("link_types", (id) => rid("relation", `${model.family}/link/${id}`)),
+    affectedActionTypes: map("action_types", (id) => `ri.actions.main.action-type.${uuidOf(`${model.family}/action/${id}`)}`),
+  };
+}
+// `authorOf(receiptRef)` names the principal a revision's receipt records (ODK receipts carry the acting principal).
+// A draft still at its first revision was made by exactly its creation, so that entry created every type it holds;
+// for a draft revised since, a revision's touched types are not recorded, and none is claimed.
+export function modificationHistoryOf(model, limit = 100, authorOf = () => null) {
+  if (!model) return { modificationPageItems: [], nextPageToken: null };
+  const createdAll = model.history.length === 1 && Number(model.history[0].revision) === 1 && model.revision === 1;
+  const created = (list) => Object.fromEntries(list.map((e) => [e.rid, "CREATED"]));
+  const items = [...model.history].sort((a, b) => Number(b.revision) - Number(a.revision)).slice(0, Math.max(1, Number(limit) || 100)).map((h) => ({
+    previousOntologyVersion: Number(h.revision) > 1 ? draftVersionOf(model.draftId, Number(h.revision) - 1) : null,
+    ontologyVersion: draftVersionOf(model.draftId, Number(h.revision)),
+    attribution: { date: h.at || null, author: authorOf(h.receipt_ref) },
+    summary: h.affected && typeof h.affected === "object" ? affectedOf(model, h.affected)
+      : createdAll && h.op === "created"
+        ? { ...EMPTY_AFFECTED, affectedObjectTypes: created(model.objectTypes), affectedObjectTypeEntityMetadatas: created(model.objectTypes), affectedLinkTypes: created(model.linkTypes), affectedActionTypes: created(model.actionTypes) }
+        : EMPTY_AFFECTED,
+    description: h.summary || h.op || "", sourceOntologyBranchRid: null,
+  }));
+  return { modificationPageItems: items, nextPageToken: null };
+}
+// PUT /multipass/api/roles/v2/roleSets — the Hypervisor has no ontology roles (access is its own principal and tenant)
+export const roleSetsOf = (ids) => ({ roleSets: Object.fromEntries((ids || []).map((id) => [id, { id, displayName: id, description: "", organizationRid: null, context: id, roles: {} }])) });

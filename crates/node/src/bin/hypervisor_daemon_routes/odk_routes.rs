@@ -889,6 +889,72 @@ pub(crate) async fn handle_odk_ontology_list(
 /// POST /v1/hypervisor/odk/domain-ontologies — create a DomainOntology DRAFT. The semantic root: it
 /// embeds a typed CanonicalObjectModel (value/object/link/action types), validated fail-closed, and
 /// carries revision 1 + a create receipt + a readiness health projection.
+/// What a revision did to the model's typed entries, by kind and id: CREATED (new), UPDATED (present in both and
+/// changed) or DELETED (gone). Recorded on each history entry so a reader can say which types a revision touched
+/// instead of only that the model changed (the adopted Ontology Manager's History lists them).
+fn model_changes(prev: &Value, next: &Value) -> Value {
+    let mut out = serde_json::Map::new();
+    for kind in ["object_types", "link_types", "action_types", "value_types"] {
+        let index = |model: &Value| -> std::collections::BTreeMap<String, Value> {
+            model
+                .get(kind)
+                .and_then(Value::as_array)
+                .map(|items| {
+                    items
+                        .iter()
+                        .filter_map(|item| {
+                            item.get("id")
+                                .and_then(Value::as_str)
+                                .map(|id| (id.to_string(), item.clone()))
+                        })
+                        .collect()
+                })
+                .unwrap_or_default()
+        };
+        let (before, after) = (index(prev), index(next));
+        let mut changes = serde_json::Map::new();
+        for (id, item) in &after {
+            match before.get(id) {
+                None => {
+                    changes.insert(id.clone(), json!("CREATED"));
+                }
+                Some(old) if old != item => {
+                    changes.insert(id.clone(), json!("UPDATED"));
+                }
+                Some(_) => {}
+            }
+        }
+        for id in before.keys() {
+            if !after.contains_key(id) {
+                changes.insert(id.clone(), json!("DELETED"));
+            }
+        }
+        if !changes.is_empty() {
+            out.insert(kind.to_string(), Value::Object(changes));
+        }
+    }
+    Value::Object(out)
+}
+
+#[cfg(test)]
+mod odk_model_changes_tests {
+    use super::*;
+
+    // A revision records which typed entries it touched (the adopted Ontology Manager's History lists them).
+    #[test]
+    fn model_changes_names_created_updated_and_deleted_entries_by_kind() {
+        let before = json!({ "object_types": [{ "id": "loan", "name": "Loan" }, { "id": "old", "name": "Old" }], "action_types": [{ "id": "approve", "name": "Approve" }] });
+        let after = json!({ "object_types": [{ "id": "loan", "name": "Loan (renamed)" }, { "id": "branch", "name": "Branch" }], "action_types": [{ "id": "approve", "name": "Approve" }] });
+        let changes = model_changes(&before, &after);
+        assert_eq!(changes["object_types"]["loan"], json!("UPDATED"));
+        assert_eq!(changes["object_types"]["branch"], json!("CREATED"));
+        assert_eq!(changes["object_types"]["old"], json!("DELETED"));
+        assert!(changes.get("action_types").is_none(), "an unchanged kind records nothing");
+        assert_eq!(model_changes(&json!({}), &after)["object_types"]["branch"], json!("CREATED"), "a creation creates every entry");
+        assert_eq!(model_changes(&after, &after), json!({}), "a no-op touches nothing");
+    }
+}
+
 pub(crate) async fn handle_odk_ontology_create(
     State(st): State<Arc<DaemonState>>,
     headers: HeaderMap,
@@ -962,7 +1028,7 @@ pub(crate) async fn handle_odk_ontology_create(
         "health": health,
         "revision": 1,
         "receipt_refs": [receipt_ref.clone()],
-        "history": [ { "revision": 1, "op": "created", "at": now.clone(), "summary": "DomainOntology draft created", "receipt_ref": receipt_ref } ],
+        "history": [ { "revision": 1, "op": "created", "at": now.clone(), "summary": "DomainOntology draft created", "receipt_ref": receipt_ref, "affected": model_changes(&json!({}), &com) } ],
         "created_at": now.clone(),
         "updated_at": now
     });
@@ -1162,7 +1228,11 @@ pub(crate) fn apply_ontology_change(
         .and_then(|v| v.as_array())
         .cloned()
         .unwrap_or_default();
-    hist.push(json!({ "revision": rev, "op": "patched", "at": now, "summary": summary, "receipt_ref": receipt_ref.clone() }));
+    let affected = model_changes(
+        prev.get("canonical_object_model").unwrap_or(&Value::Null),
+        o.get("canonical_object_model").unwrap_or(&Value::Null),
+    );
+    hist.push(json!({ "revision": rev, "op": "patched", "at": now, "summary": summary, "receipt_ref": receipt_ref.clone(), "affected": affected }));
     let len = hist.len();
     if len > 20 {
         hist = hist[len - 20..].to_vec();
@@ -1834,6 +1904,7 @@ pub(crate) fn resolve_stored_odk_data_recipe_v1(
 #[cfg(test)]
 mod data_recipe_v1_owner_seam_tests {
     use super::*;
+
 
     const STORED_V1: &str = include_str!(
         "../../../../../docs/architecture/_meta/schemas/fixtures/data-recipe-v1/positive-stored-v1-draft.json"
