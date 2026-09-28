@@ -9379,6 +9379,10 @@ async function handleEstateRequest(req, res, body) {
       const answerAdoptedOpInner = async (name, variables, ctxA, query = "") => {
         if (AUTOMATE.OPERATIONS.has(name)) return { data: AUTOMATE.graphqlAnswer(name, variables || {}, ctxA) };
         if (AUTOMATE.USER_STATE_OPERATIONS.has(name)) return answerUserState(name, variables || {}, ctxA, query);
+        if (ONTOLOGY.VALUE_TYPE_OPERATIONS.has(name) && query) {
+          const { owner, models } = await ontologyModels();
+          return { data: answerAdoptedDocument(query, ONTOLOGY.valueTypeFacts(name, variables || {}, { models, namespaceRid: owner ? ONTOLOGY.namespaceRidOf(owner) : null }), null, name) };
+        }
         if (ONTOLOGY.ONTOLOGY_GRAPHQL_OPERATIONS.has(name) && query) {
           const [{ models }, functionCount] = await Promise.all([ontologyModels(), planeRead("/v1/hypervisor/functions").then((j) => (j.functions || []).length).catch(() => 0)]);
           return { data: answerAdoptedDocument(query, ONTOLOGY.ontologyGraphqlFacts(name, variables || {}, { models, functionCount }), null, name) };
@@ -10432,7 +10436,14 @@ async function handleEstateRequest(req, res, body) {
           }
           return send(200, { createEventResponses: responses });
         }
-        if (pathname === "/ontology-metadata/api/ontology/v2/load/all" && req.method === "POST") return send(200, PIPELINE.ontologyLoadAnswer(await ontologyCatalog()));
+        if (pathname === "/ontology-metadata/api/ontology/v2/load/all" && req.method === "POST") {
+          // the adopted Ontology Manager also names each ontology's namespace (its owner tenant) — the switcher's second line
+          const catalog = await ontologyCatalog();
+          if (!onOntologySurface()) return send(200, PIPELINE.ontologyLoadAnswer(catalog));
+          // and loads an unpublished draft at the draft's own revision (the app loads nothing without a version)
+          const { owner, models } = await ontologyModels();
+          return send(200, PIPELINE.ontologyLoadAnswer(catalog.map((o) => ({ ...o, head: o.head || ONTOLOGY.modelOf(models, o.rid)?.version || null, namespaceRid: owner ? ONTOLOGY.namespaceRidOf(owner) : null }))));
+        }
       }
       if (pathname === "/eddie/api/pipelines-v2/get-sandboxes-with-snapshots" && req.method === "POST") {
         let request = {};
@@ -10711,6 +10722,20 @@ async function handleEstateRequest(req, res, body) {
       }
       // no formatting rule sets are kept
       if (pathname === "/ontology-metadata/api/formatting/rulesets/loadRuleSets" && req.method === "POST") return sendO(200, { ruleSets: {} });
+      // the ontology's namespace as a compass folder (read by the switcher); every other compass read stays fenced
+      if (onOntologySurface() && pathname === "/compass/api/batch/resources" && req.method === "POST") {
+        const { owner } = await ontologyModels();
+        let asked = []; try { asked = JSON.parse(body.toString() || "[]"); } catch { /* none */ }
+        const who = await planeRead("/v1/hypervisor/auth/whoami");
+        const ns = owner ? ONTOLOGY.namespaceResourceOf(owner, PIPELINE.uuidOf(who.principal?.principal_ref || "")) : null;
+        return sendO(200, Object.fromEntries((Array.isArray(asked) ? asked : []).filter((r) => ns && r === ns.rid).map((r) => [r, ns])));
+      }
+      if (onOntologySurface() && /^\/compass\/api\/resources\/ri\.compass\.main\.folder\.[0-9a-f-]{36}$/u.test(pathname) && req.method === "GET") {
+        const { owner } = await ontologyModels();
+        const who = await planeRead("/v1/hypervisor/auth/whoami");
+        const ns = owner ? ONTOLOGY.namespaceResourceOf(owner, PIPELINE.uuidOf(who.principal?.principal_ref || "")) : null;
+        if (ns && pathname.endsWith(ns.rid)) return sendO(200, ns);
+      }
       if (onOntologySurface() && ONTOLOGY_FENCED.test(pathname) && !(pathname === "/compass/api/registry/actions" && req.method === "GET")) {
         res.writeHead(501, { "Content-Type": "application/json" });
         return res.end(JSON.stringify({ errorCode: "INTERNAL", errorName: "Hypervisor:OntologyReadNotBound", errorInstanceId: "", parameters: { message: `${req.method} ${pathname.replace(/ri\.[\w.-]+/gu, "<rid>")} is not bound in the Hypervisor's Ontology Manager yet: a named gap, and nothing recorded is served in its place` } }));

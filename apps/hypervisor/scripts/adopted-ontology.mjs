@@ -37,6 +37,7 @@ export function ontologyModelsOf(domainOntologies, ownerRef, familyOf) {
     });
     return {
       rid: ontologyRidOfFamily(family), family, draftId: d.id, displayName: d.domain || family, description: d.description || "",
+      revision: Number(d.revision) || 1, version: draftVersionOf(d.id, Number(d.revision) || 1),
       updatedAt: d.updated_at || d.created_at || null, objectTypes,
       actionTypes: list(model.action_types).map((a) => ({ ...a, rid: `ri.actions.main.action-type.${uuidOf(`${family}/action/${a.id}`)}` })),
       linkTypes: list(model.link_types).map((l) => ({ ...l, rid: rid("relation", `${family}/link/${l.id}`) })),
@@ -44,6 +45,9 @@ export function ontologyModelsOf(domainOntologies, ownerRef, familyOf) {
     };
   }).filter(Boolean);
 }
+// The version the app loads an ontology at. A draft's is its own revision (the reference's versions read
+// "<ordinal>-<uuid tail>"); it is a version of the draft, never a published revision.
+export const draftVersionOf = (draftId, revision) => `${Number(revision).toString(16).padStart(8, "0")}-${uuidOf(`draft:${draftId}`).slice(9)}`;
 export const modelOf = (models, ontologyRid) => (models || []).find((m) => m.rid === ontologyRid) || null;
 
 // GET /ontology-metadata/api/ontology/featureConfigurations — none of these platform features exist in the Hypervisor.
@@ -81,7 +85,7 @@ const cid = (s) => crypto.createHash("sha256").update(String(s)).digest("base64"
 export const ONTOLOGY_GRAPHQL_OPERATIONS = new Set([
   "LoadFavoriteObjectTypeRidsQuery", "FavoriteTypeGroupsQuery", "OntologyAsCodeQuery", "SearchAllFunctionsQuery",
   "TopBarStagingSavingQuery", "IsCurrentBranchProtectedQuery", "ObjectTypesListQuery", "LinkTypesListQuery", "ActionTypesListQuery",
-  "RecentlyModifiedObjectTypesQueryOnDefault", "ProminentObjectTypesQuery",
+  "RecentlyModifiedObjectTypesQueryOnDefault", "ProminentObjectTypesQuery", "TopbarQuery", "BranchSelectTotalNumberOfOntologyBranchesQuery",
 ]);
 const page = (typename, versionTypename, entityKey, entityTypename, entities, variables, exclKey, filterKey) => {
   const excluded = new Set(variables?.[exclKey] || []);
@@ -104,7 +108,7 @@ export function ontologyGraphqlFacts(name, variables, ctx) {
     case "LoadFavoriteObjectTypeRidsQuery": case "FavoriteTypeGroupsQuery": return { ...root, favorites: [] };
     case "OntologyAsCodeQuery": return { ...root, stemmaRepositoryParentTemplates: [] };
     case "SearchAllFunctionsQuery": return { ...root, functionsV2: { __typename: "FunctionSearchPage", totalNumberOfResults: ctx.functionCount || 0 } };
-    case "TopBarStagingSavingQuery": case "IsCurrentBranchProtectedQuery": return { ...root, ontology: model ? ontologyNode(model) : null };
+    case "TopBarStagingSavingQuery": case "IsCurrentBranchProtectedQuery": case "TopbarQuery": return { ...root, ontology: model ? ontologyNode(model) : null };
     case "ObjectTypesListQuery": return { ...root, objectTypesV2: page("ObjectTypeVersionPage", "ObjectTypeVersion", "objectType", "ObjectType", m.objectTypes, variables, "excludedObjectTypeRids", "filterToObjectTypeRids") };
     case "LinkTypesListQuery": return { ...root, linkTypes: page("LinkTypeVersionPage", "LinkTypeVersion", "linkType", "LinkType", m.linkTypes, variables, "excludedLinkTypeRids", "filterToLinkTypeRids") };
     case "ActionTypesListQuery": return { ...root, actionTypes: page("ActionTypeVersionPage", "ActionTypeVersion", "actionType", "ActionType", m.actionTypes, variables, "excludedActionTypeRids", "filterToActionTypeRids") };
@@ -113,6 +117,39 @@ export function ontologyGraphqlFacts(name, variables, ctx) {
     case "RecentlyModifiedObjectTypesQueryOnDefault": return { ...root, ontology: model ? { ...ontologyNode(model), defaultBranch: { __typename: "OntologyBranch", _id: cid(`branch:${model.rid}`), history: { __typename: "OntologyBranchHistoryPage", values: [] } } } : null };
     // Discover's "prominent" object types: none is marked prominent (every Hypervisor object type has normal visibility).
     case "ProminentObjectTypesQuery": return { ...root, ontology: model ? { ...ontologyNode(model), objectTypesV2: { __typename: "ObjectTypeVersionPage", values: [] } } : null };
+    // an ontology branch is an approval request of the ontology-metadata task type: the Hypervisor has none (an ODK draft
+    // is edited in ODK, and published through the ontology-versions plane)
+    case "BranchSelectTotalNumberOfOntologyBranchesQuery": return { ...root, approvalRequests: { __typename: "ApprovalRequestPage", totalNumberOfResults: 0 } };
     default: return null;
   }
 }
+
+// ---- An ontology's namespace is its owner tenant (its family is ontology://<owner>/<name>): a compass folder the
+// app names in the ontology switcher and keys value types by. It is not a project; nothing is filed in it here.
+export const namespaceRidOf = (ownerRef) => `ri.compass.main.folder.${uuidOf(`namespace:${ownerRef}`)}`;
+export const namespaceNameOf = (ownerRef) => String(ownerRef || "").replace(/^[a-z][a-z0-9+.-]*:\/\//u, "") || "namespace";
+// the compass resource for the namespace (the reference's shape; the caller as its creator — the tenant has no other)
+export function namespaceResourceOf(ownerRef, userId, at) {
+  const t = at || new Date(0).toISOString();
+  return {
+    rid: namespaceRidOf(ownerRef), name: namespaceNameOf(ownerRef), created: { time: t, userId }, modified: { time: t, userId }, lastModified: Date.parse(t) || 0,
+    description: null, operations: ["compass:read-resource"], urlVariables: { "compass:isProject": "false", "compass:folderType": "namespace" }, favorite: null,
+    branches: [], defaultBranch: null, defaultBranchWithMarkings: null, branchesCount: null, hasBranches: null, hasMultipleBranches: null, backedObjectTypes: null,
+    path: `/${namespaceNameOf(ownerRef)}`, longDescription: null, directlyTrashed: false, inTrash: false, isAutosave: false, isHidden: false, isPreviewResource: false,
+    collections: null, namedCollections: [], tags: null, namedTags: null, alias: namespaceNameOf(ownerRef), collaborators: [], namedAncestors: null, markings: null,
+    projectAccessMarkings: null, linkedItems: null, contactInformation: null, classification: null, disableInheritedPermissions: null, propagatePermissions: null,
+    resourceLevelRoleGrantsAllowed: null, portfolioRid: null, namespaceRid: null, status: null,
+  };
+}
+// value types are the namespace's (every ontology in it); none may be created here
+export function valueTypeFacts(name, variables, ctx) {
+  const root = { __typename: "Query" };
+  if (name === "CanCreateValueTypesQuery") return { ...root, namespace: { __typename: "Namespace", _id: cid(`namespace:${variables?.compassNamespaceRid}`), permissions: { __typename: "NamespacePermissions", _id: cid(`namespace-permissions:${variables?.compassNamespaceRid}`), canCreateValueTypes: false } } };
+  if (name === "SearchAllValueTypesQuery") {
+    const nsRids = new Set(JSON.stringify(variables?.filter || {}).match(/ri\.compass\.main\.folder\.[0-9a-f-]{36}/gu) || []);
+    const count = nsRids.has(ctx.namespaceRid) ? (ctx.models || []).reduce((n, m) => n + m.valueTypes.length, 0) : 0;
+    return { ...root, valueTypes: { __typename: "ValueTypeSearchPage", totalNumberOfResults: count } };
+  }
+  return null;
+}
+export const VALUE_TYPE_OPERATIONS = new Set(["CanCreateValueTypesQuery", "SearchAllValueTypesQuery"]);

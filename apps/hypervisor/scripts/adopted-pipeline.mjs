@@ -824,7 +824,10 @@ export function ontologyLoadAnswer(catalog) {
       currentOntologyVersion: o.head, currentSystemOntologyVersion: o.head, defaultBranchRid: null, namespace: o.family,
       ontologyOwnersGroupId: null, ontologyOwnersGroupIds: [], governanceBoardGroupId: null, organizationMarkingIds: [],
       ontologyAdminConfig: { enableUsage: false, suggestProjectsPermissionModel: false }, isShared: false,
-      compassNamespaceRid: null, ontologyProjectRid: null, areOrganizationMarkingsInheritedFromNamespace: false, areRolesEnabled: false, roleGrants: [],
+      compassNamespaceRid: o.namespaceRid || null, ontologyProjectRid: null, areOrganizationMarkingsInheritedFromNamespace: false, areRolesEnabled: false, roleGrants: [],
+      // the rest of the reference's ontology record: no external mappings or restricted grants, no AI search indexing
+      restrictedRoleGrants: [], externalMappingConfigurations: [], permissionModel: { type: "rolesEnabled", rolesEnabled: {} },
+      isDefaultOntologyMultiOrg: false, semanticSearchIndexingStatus: "AIP_DISABLED", enabledObjectStoragesStatus: "OSV1_DISABLED_FOR_NEW_ENTITIES", ontologyApiNamespaceIdentifier: null,
     }])),
   };
 }
