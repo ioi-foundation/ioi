@@ -6,6 +6,8 @@ const http = require('http');
 const crypto = require('crypto');
 
 const PORT = process.env.PORT || 9228;
+// Loopback only, like the serve in front of it (master guide G5 / W0.2).
+const BIND_HOST = process.env.IOI_PRODUCT_UI_BIND_HOST || '127.0.0.1';
 // The owned tree is the only shipped product artifact. IOI_PRODUCT_UI_PUBLIC remains available to
 // the parity oracle so it can boot either side of the ownership fold explicitly, but an ordinary
 // product start must never fall back to the legacy harvested source tree.
@@ -1795,11 +1797,11 @@ const server = http.createServer((req, res) => {
   fs.createReadStream(filePath).on('error', () => { if (!res.headersSent) res.statusCode = 500; res.end(); }).pipe(res);
 });
 
-server.listen(PORT, () => {
+server.listen(PORT, BIND_HOST, () => {
   console.log(`============================================================`);
   console.log(`   HYPERVISOR APP MIRROR STATIC SERVER STARTED SUCCESSFULLY`);
   console.log(`============================================================`);
-  console.log(`Local URL:  http://localhost:${PORT}`);
+  console.log(`Local URL:  http://${BIND_HOST}:${PORT}`);
   console.log(`Serving:    ${PUBLIC_DIR}`);
   console.log(`Tree:       ${PRODUCT_UI_TREE}`);
   console.log(`Index:      sha256:${PRODUCT_UI_INDEX_SHA256}`);

@@ -295,6 +295,9 @@ function augmentHtml(html) {
 const REPO_ROOT = join(HERE, "..", "..", "..");
 const REF_SERVER = join(HERE, "..", "product-ui", "server.cjs");
 const PORT = Number(process.env.PORT || 4173);
+// Loopback only (master guide G5 / W0.2; owner 2026-09-28: no LAN access). A deployment that fronts the serve with its
+// own proxy names the interface explicitly; the product-ui child inherits the same bind.
+const BIND_HOST = process.env.IOI_PRODUCT_UI_BIND_HOST || "127.0.0.1";
 const PRODUCT_UI_PORT = Number(process.env.PRODUCT_UI_PORT || 9301);
 const DAEMON = (process.env.IOI_HYPERVISOR_DAEMON_URL || "http://127.0.0.1:8765").replace(/\/$/, "");
 const OPERATIONS_PLANE_TIMEOUT_MS = 3_000;
@@ -17724,8 +17727,8 @@ server.on("upgrade", (req, socket, head) => {
 function waitForMirror(attempt = 0) {
   const probe = http.get({ host: "127.0.0.1", port: PRODUCT_UI_PORT, path: "/" }, (r) => {
     r.destroy();
-    server.listen(PORT, async () => {
-      console.log(`[hypervisor] product-ui bundle + IOI /api adapter on http://localhost:${PORT}`);
+    server.listen(PORT, BIND_HOST, async () => {
+      console.log(`[hypervisor] product-ui bundle + IOI /api adapter on http://${BIND_HOST}:${PORT}`);
       // #3 — rehydrate the run-registry cache from the daemon's durable agent-run-transcripts so the
       // Run Timeline + env→run resolvers survive a serve restart (durable truth lives in the daemon).
       const n = await hydrateRunsFromDaemon();
