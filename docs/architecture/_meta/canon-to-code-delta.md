@@ -1375,6 +1375,15 @@ landed. Correct every copy, or the ones left behind go on reading as evidence.
 | **Two readings made deliberately, both recorded.** "Delete" means ARCHIVE — there is no DELETE verb on a memory entry, and reading the acceptance literally would have invented one. And skills and affinities keep their direct verbs, because the unit's scope is the memory-entry and memory-mutation owners. | the verifier's nonclaims | recorded |
 | **The census caught the cut adding a production writer, and the buckets are what mattered.** `check:ontology-admission-census` went red on the writer-call population. The FAMILY writer bucket (57), family mentions (285), the non-ODK literal bucket (243) and raw filesystem calls (234) were all unchanged; only the runtime-parameter bucket moved, by exactly the two added calls, both writing a LITERAL family. Had the family bucket moved it would have meant a new admitter. Re-pinned with that reasoning beside the numbers. | `check:ontology-admission-census` 27/27 | repaired |
 
+### Journey verification CCXI (2026-09-27, R-240 Arm A on Sessions — archived environments are kept)
+
+| Delta | Evidence | Disposition |
+|---|---|---|
+| **Auto-delete was saved and ignored.** The Archived view's Auto-delete saved "After 1 day" as a preference and answered "Your archived environments will be automatically deleted after 1 day!". Nothing deletes an archived environment except on request: the daemon has no retention policy, and archives and deletes only when asked. A non-zero period is now refused by name (`archived_environment_auto_delete_not_enforced`) and nothing is saved; "Never" is true and is kept. The organization's auto-delete policy, which fell to the generic unmatched-RPC refusal, is refused by the same name. | `check:sessions-shell` 20/20; red ("will be automatically deleted after 1 day!") with the adapter at HEAD; the adapter test | **refused** |
+| **The empty Archived view promised what nothing does.** It said environments unused for 7 days are archived automatically, and deleted by the auto-delete setting. An owned edit (declared in the vendor ledger and the shell-parity normalizers) now says what is true: environments are archived only when you archive them, and kept until you delete them. The shell's rebrand renders "Environments" as "Sessions". | `check:sessions-shell` (red with the chunk at HEAD); `check:shell-parity` 6/6 (5/6 without the normalizer) | **fixed** |
+| **Named plane: archived-environment retention.** A retention policy (auto-archive after idle days, auto-delete after an archived period) would be a daemon policy plane that deletes environments on a schedule. It is not built on inference; the refusal names its absence. | this entry | **named** |
+| **A disposable run's preference store outlived it.** Each serve pointed at a disposable daemon keeps its own preference file, named for the daemon's URL. `check:sessions-shell` now removes its store when the run ends. | the app-local store count was unchanged across runs | **fixed** |
+
 ### Journey verification CCX (2026-09-27, R-240 Arm A on Sessions — named gaps that read)
 
 | Delta | Evidence | Disposition |

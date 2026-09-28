@@ -64,6 +64,11 @@ const OWNED_EDIT_NORMALIZERS = {
   "static/assets/DeleteEnvironmentModal-DVlWulBs.js": (s) => s
     .replace("throw Error((await r.json().catch(() => null))?.message || `HTTP ${r.status}: ${r.statusText}`);", "throw Error(`HTTP ${r.status}: ${r.statusText}`);")
     .replace("children: n || `Try again, or contact support if the issue persists.`,", "children: `Try again, or contact support if the issue persists.`,"),
+  // R-240 Arm A on Sessions: the empty Archived view promised that unused environments are archived after 7 days and
+  // deleted by the auto-delete setting. Nothing does either (the daemon archives and deletes only on request).
+  "static/assets/SegmentProvider-CXCNBY9U.js": (s) => s
+    .replace("`Environments are archived only when you archive them.`;", "`Environments that are not used for 7 days are automatically archived.`;")
+    .replace("`${t} Archived environments are kept until you delete them.`;", "`${t} Archived environments will be deleted based on your auto-delete setting.`;"),
 };
 
 async function wireGate() {

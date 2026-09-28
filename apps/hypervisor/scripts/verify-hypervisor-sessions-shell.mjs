@@ -11,6 +11,7 @@
 //   - "New Terminal" opens a real terminal bound to the environment (the env-ops bridge carries the person's session);
 //   - Create PR files a governed draft owned by the environment's tenant (it could never succeed for anyone);
 //   - Services, Tasks, Add port and Resource usage each say, in a sentence, what is absent and why;
+//   - the Archived view promises no automatic archiving or deletion, and its auto-delete period is refused by name;
 //   - the personal settings routes show a named gap instead of a blank page;
 //   - a disposable serve never writes the owner's preference store.
 //
@@ -49,6 +50,7 @@ async function run() {
   const ownerPrefsBefore = hashOf(OWNER_PREFS);
   const daemonPort = await freePort();
   const DAEMON = `http://127.0.0.1:${daemonPort}`;
+  daemonUrl = DAEMON;
   let log = "";
   daemon = spawn(BIN, [], { cwd: ROOT, env: { ...process.env, IOI_HYPERVISOR_DAEMON_ADDR: `127.0.0.1:${daemonPort}`, IOI_HYPERVISOR_DATA_DIR: dataDir, IOI_HYPERVISOR_MODEL_UPSTREAM: "http://127.0.0.1:1/v1" }, stdio: ["ignore", "pipe", "pipe"] });
   daemon.stdout.on("data", (c) => (log += c)); daemon.stderr.on("data", (c) => (log += c));
@@ -111,6 +113,23 @@ async function run() {
       (archivedList.j.environments || []).map((e) => e.id).join(",") === ARCHIVED && !(activeList.j.environments || []).some((e) => e.id === ARCHIVED)
         && /Delete archived environment\?/u.test(dialog) && after[ARCHIVED] === "deleted" && after[RUNNING] === "running" && after[STOPPED] === "stopped",
       `archived list ${(archivedList.j.environments || []).length} · dialog "${dialog.slice(0, 80)}" · after ${JSON.stringify(after)}`);
+
+    // ---- the (now empty) Archived view: its copy is true, and auto-delete is refused rather than stored and ignored ----
+    let archivedView = "";
+    for (let i = 0; i < 10; i++) { archivedView = await text(); if (/archived only when you archive them/u.test(archivedView)) break; await pg.waitForTimeout(700); }
+    await pg.getByRole("button", { name: /Auto-delete/u }).first().click({ timeout: 4000 }).catch(() => { /* named below */ });
+    await pg.waitForTimeout(800);
+    await pg.getByRole("option", { name: /After 1 day/u }).first().click({ timeout: 4000 }).catch(() => { /* named below */ });
+    let autoDelete = "";
+    for (let i = 0; i < 10; i++) { await pg.waitForTimeout(600); autoDelete = (await pg.evaluate(() => [...document.querySelectorAll("[data-sonner-toast],[role=status],[role=alert]")].map((e) => e.innerText).join(" | "))).replace(/\s+/gu, " "); if (/Failed to update preference|preference updated/u.test(autoDelete)) break; }
+    const autoDeleteLabel = await pg.getByRole("button", { name: /Auto-delete/u }).first().innerText().catch(() => "");
+    const storedAutoDelete = (await api("UserService/GetPreference", { preferenceKey: "DELETE_ARCHIVED_ENVIRONMENTS_AFTER" })).j.preference;
+    ok("the empty Archived view no longer promises automatic archiving and deletion, and choosing an auto-delete period is refused by name and saves nothing (it answered \"will be automatically deleted after 1 day!\" and nothing ever deleted)",
+      /(Environments|Sessions) are archived only when you archive them\. Archived environments are kept until you delete them\./u.test(archivedView) && !/automatically archived|based on your auto-delete setting/u.test(archivedView)
+        && /Failed to update preference/u.test(autoDelete) && /Auto-delete isn't available yet/u.test(autoDelete) && !/will be automatically deleted/u.test(autoDelete)
+        && /never/iu.test(autoDeleteLabel) && !storedAutoDelete,
+      `copy "${(archivedView.match(/[^.]{0,60}archived only when you archive them.{0,90}/u) || [""])[0]}"${/automatically archived|based on your auto-delete setting/u.test(archivedView) ? " + an old promise" : ""} · toast "${autoDelete.slice(0, 140)}" · label "${autoDeleteLabel.trim()}" · stored ${JSON.stringify(storedAutoDelete)}`);
+    await pg.keyboard.press("Escape").catch(() => { /* closed */ });
 
     // ---- the running session: editor openers, a changed file, the details card, a terminal -----------------
     await pg.goto(`${SERVE}/details/${RUNNING}`, { waitUntil: "domcontentloaded", timeout: 60000 });
@@ -316,7 +335,10 @@ async function run() {
     hashOf(OWNER_PREFS) === ownerPrefsBefore, `owner store ${ownerPrefsBefore === "absent" ? "absent" : "unchanged?"} → ${hashOf(OWNER_PREFS) === ownerPrefsBefore ? "unchanged" : "CHANGED"}`);
 }
 
+let daemonUrl = "";
 function cleanup() {
+  // the disposable serve's preference store (named for its daemon URL) goes with the run
+  if (daemonUrl) try { fs.rmSync(path.join(ROOT, ".ioi", "hypervisor-app-local", `app-preferences.${crypto.createHash("sha256").update(daemonUrl).digest("hex").slice(0, 16)}.json`), { force: true }); } catch { /* keep */ }
   try { serve?.kill("SIGTERM"); } catch { /* gone */ }
   try { daemon?.kill("SIGTERM"); } catch { /* gone */ }
   try { fs.rmSync(dataDir, { recursive: true, force: true }); } catch { /* keep */ }

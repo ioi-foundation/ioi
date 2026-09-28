@@ -423,6 +423,14 @@ function planModeMarker(body) {
 const planModeRefusal = (marker) =>
   namedRefusal(501, "unimplemented", "plan_mode_not_supported", `Plan mode (${marker}) has no read-only turn in the Hypervisor harness — it would run as an Agent turn with the environment's full authority and could change files. Use Agent mode; nothing was started or sent`, "Plan mode isn't available yet: there is no read-only turn, so a plan would run as an Agent turn that can change files. Use Agent mode. Nothing was started or sent.");
 
+// ARCHIVED ENVIRONMENTS ARE KEPT UNTIL SOMEONE DELETES THEM. The daemon has no retention policy for them (and archives
+// only on request), so the Archived view's auto-delete preference and the organization's auto-delete policy are
+// refused by name rather than saved and ignored.
+const ARCHIVED_AUTO_DELETE_KEY = "DELETE_ARCHIVED_ENVIRONMENTS_AFTER";
+const archivedAutoDeleteRefusal = (where) =>
+  namedRefusal(501, "unimplemented", "archived_environment_auto_delete_not_enforced", `the daemon has no retention policy for archived environments — it archives and deletes one only on request — so the auto-delete ${where} was not saved`,
+    "Auto-delete isn't available yet: archived environments are kept until you delete them. The setting was not saved.");
+
 // LOGS (Sessions cut 1). The Logs pane mints a token (CreateEnvironmentLogsToken → a real env-scoped
 // lease, the same one CreateEnvironmentAccessToken mints), then GETs `status.environmentUrls.logs`
 // (`/api/ioi/environments/<id>/logs`, ioi-projection) with `Authorization: Bearer <token>` and parses
@@ -591,6 +599,10 @@ async function handleImpl(pathname, bodyText) {
   if (pathname === "/api/ioi.v1.UserService/SetPreference") {
     const key = body.preference?.key || body.key || body.preferenceKey || "DEFAULT_PREFERENCE";
     const value = body.preference?.value ?? body.value ?? "";
+    // Nothing deletes an archived environment but a person (the daemon archives and deletes only on request), so
+    // an auto-delete period would be stored and ignored while the page promised "Your archived environments will be
+    // automatically deleted after 1 day!" (R-240 Arm A on Sessions). "Never" is true and is kept.
+    if (key === ARCHIVED_AUTO_DELETE_KEY && Number(value) > 0) return archivedAutoDeleteRefusal("preference");
     const store = loadStore();
     const now = new Date().toISOString();
     store[key] = { value, createdAt: store[key]?.createdAt || now, updatedAt: now };
@@ -1906,6 +1918,8 @@ async function handleImpl(pathname, bodyText) {
   // carries no goal member, so the name is unknown here. Any agentPolicy member named for goals is
   // refused by name; every other UpdateOrganizationPolicies still falls to adapter_unmatched_rpc below.
   if (pathname === "/api/ioi.v1.OrganizationService/UpdateOrganizationPolicies") {
+    const retention = body.deleteArchivedEnvironmentsAfter ?? body.policies?.deleteArchivedEnvironmentsAfter;
+    if (retention !== undefined) return archivedAutoDeleteRefusal("organization policy");
     const goalKeys = Object.keys(plainObject(body.agentPolicy) ? body.agentPolicy : {}).filter((k) => /goal/iu.test(k));
     if (goalKeys.length) return goalModeRefusal(`agentPolicy.${goalKeys.join(", agentPolicy.")}`);
   }

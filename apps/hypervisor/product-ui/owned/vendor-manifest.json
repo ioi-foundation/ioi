@@ -1245,10 +1245,10 @@
    "gate": "esbuild-ast-equal"
   },
   "static/assets/SegmentProvider-CXCNBY9U.js": {
-   "mode": "beautified",
+   "mode": "owned-edit",
    "src_sha256": "835634356907a59637dfd3a9b70eb30a90447c11445c7c1586d6208acaccedd4",
-   "out_sha256": "1251256728fbb0123a93129e475d8dbfb48eceb85f9c366c6ca13f3d123d33d0",
-   "gate": "esbuild-ast-equal"
+   "out_sha256": "f9c4cc37317c4e0ec8bcf466fc7919f14105f707f23724989113bc1bc522838d",
+   "gate": "n/a"
   },
   "static/assets/SegmentProvider-gQNN48J_.css": {
    "mode": "verbatim",

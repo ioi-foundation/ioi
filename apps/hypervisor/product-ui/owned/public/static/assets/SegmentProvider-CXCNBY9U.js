@@ -20534,14 +20534,14 @@ var pD = ({ delay: e = 0, opacity: t = 1 }) => {
           ? `Inactive environments are automatically archived. Subscribe to Core for longer retention.`
           : e === Pr.CORE
             ? `Environments that are not used for 3 days are automatically archived.`
-            : `Environments that are not used for 7 days are automatically archived.`;
+            : `Environments are archived only when you archive them.`;
       }, [a?.tier]),
       c = (0, Q.useMemo)(() => {
         let e = a?.tier,
           t = s;
         return e === Pr.FREE_ONA || e === Pr.CORE
           ? t
-          : `${t} Archived environments will be deleted based on your auto-delete setting.`;
+          : `${t} Archived environments are kept until you delete them.`;
       }, [a?.tier, s]);
     return (0, Z.jsx)(Z.Fragment, {
       children: t

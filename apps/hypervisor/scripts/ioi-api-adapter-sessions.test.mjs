@@ -109,6 +109,17 @@ test("the port rule is intact: the page's own port sync (admission EVERYONE) is 
   assert.deepEqual(writes(), []);
 });
 
+test("an auto-delete period for archived environments is refused by name, as preference or organization policy — nothing deletes an archived environment but a person", async () => {
+  calls.length = 0;
+  const pref = await rpc("UserService/SetPreference", { preference: { key: "DELETE_ARCHIVED_ENVIRONMENTS_AFTER", value: "86400" } });
+  assert.equal(pref.status, 501);
+  assert.match(messageOf(pref), /^archived_environment_auto_delete_not_enforced: .*preference was not saved/u);
+  const policy = await rpc("OrganizationService/UpdateOrganizationPolicies", { organizationId: "org_1", deleteArchivedEnvironmentsAfter: { seconds: "86400", nanos: 0 } });
+  assert.equal(policy.status, 501);
+  assert.match(messageOf(policy), /^archived_environment_auto_delete_not_enforced: .*organization policy was not saved/u);
+  assert.deepEqual(writes(), []);
+});
+
 // ---- 2. Tasks / Services / task runs: the absent plane is named -------------------------------------
 
 for (const [method, gap] of [
