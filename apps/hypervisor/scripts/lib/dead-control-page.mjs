@@ -38,7 +38,12 @@ export const ENUMERATE = () => {
       contextText: (el.parentElement?.parentElement?.innerText || "").trim().replace(/\s+/gu, " ").slice(0, 40),
       fragmentTargetExists: href && href.startsWith("#") && href.length > 1 ? !!document.getElementById(decodeURIComponent(href.slice(1))) : null,
       inMenu: !!el.closest('[role="menu"]'), targetBlank: el.getAttribute("target") === "_blank",
-      current: el.getAttribute("aria-current") === "page" || el.getAttribute("aria-selected") === "true" || (el.getAttribute("role") === "tab" && el.getAttribute("data-state") === "active"),
+      // the item for where you already are: ARIA's markers, a Radix tab, or — as the reference's navigation marks the
+      // current section — a class naming it active (Blueprint's bpN-active, a CSS-module "…__active__…")
+      current: el.getAttribute("aria-current") === "page" || el.getAttribute("aria-selected") === "true" || (el.getAttribute("role") === "tab" && el.getAttribute("data-state") === "active")
+        // the checked option of a radio group (a segmented control): pressing it again chooses what is already chosen
+        || (/^(radio|menuitemradio)$/u.test(el.getAttribute("role") || "") && el.getAttribute("aria-checked") === "true")
+        || String(el.className?.baseVal ?? el.className ?? "").split(/\s+/u).some((c) => /^bp\d+-active$|__active__/u.test(c)),
       selfLink: !!href && !href.startsWith("#") && (() => { try { const u = new URL(href, location.href); return u.origin === location.origin && u.pathname === location.pathname && u.search === location.search; } catch { return false; } })(),
       text: (el.innerText || el.getAttribute("aria-label") || el.getAttribute("title") || el.getAttribute("placeholder") || "").trim().replace(/\s+/gu, " ").slice(0, 50),
       cls: String(el.className?.baseVal ?? el.className ?? "").slice(0, 60),

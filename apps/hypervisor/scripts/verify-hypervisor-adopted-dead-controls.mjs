@@ -44,8 +44,18 @@ const ROOT = path.resolve(APP, "..", "..");
 export const NAMED = Object.freeze([
   { surface: "pipeline:editor", tag: "OL", text: /^intake-normalise$/u, verdict: "dead",
     reason: "the pipeline title renames only once the editor's writes (drafts to a change set) are bound — ADR 0056 P4 cut 2d; the editor opens read-only until then" },
-  { surface: "automate:detail", tag: "SPAN", text: /^Add to favorites$/u, verdict: "dead",
-    reason: "the Hypervisor keeps no favorites: the favorite mutation is refused by name, and the reference app shows no message (seed-depth detail.favorite, open)" },
+  { surface: "automate:detail", tag: "SPAN", text: /^Add to favorites$/u, verdict: "dead", verdicts: ["dead", "click_failed"],
+    reason: "the Hypervisor keeps no favorites: the favorite mutation is refused by name, and the reference app shows no message (seed-depth detail.favorite, open). The header's second star renders zero-size in a fresh tab until the favorites read settles, so it is sometimes not found again — inert either way" },
+  { surface: "ontology:discover", tag: "DIV", text: /^$/u, cls: /ontology-authoring__clickable/u, verdict: "dead",
+    reason: "the Ontology Manager's app icon returns to the app's home, Discover — where this page already is; from any other section it navigates there (the object-types target exercises it live)" },
+  { surface: "ontology:object-type", tag: "DIV", text: /^$/u, cls: /ontology-icon__ontology-icon-container/u, verdict: "dead",
+    reason: "the object type's icon opens the icon-and-colour editor, which stays shut because editing an ontology is not bound yet: an ODK type has no backing datasource to save against (seed depth edit.types, open)" },
+  { surface: "ontology:link-type", tag: "DIV", text: /^Select foreign key$/u, verdict: "dead",
+    reason: "the link's foreign-key picker is an edit control, shut because editing an ontology is not bound yet (seed depth edit.types, open)" },
+  { surface: "explorer:landing", tag: "DIV", text: /^Shared with me$/u, verdict: "dead",
+    reason: "no exploration is kept, so every filter of the explorations list (All, Created by me, Shared with me, Favorites) shows the same empty list" },
+  { surface: "data-connection:syncs", tag: "BUTTON", text: /^(Name|Dataset|Status|Next run)$/u, verdict: "dead",
+    reason: "the census's stack declares sources but no sync, so the Syncs list is empty and sorting its columns shows the same empty list (the verifier's fixture builds a sync and drives the list, D4)" },
   { surface: "pipeline:create", tag: "INPUT", text: /^$/u, verdict: "dead",
     reason: "the name field is consumed by Create pipeline, which the form enables once a location is chosen (check:adopted-pipeline proves the typed name reaches the founding change set)" },
 ]);
@@ -59,7 +69,7 @@ const waitFor = async (url, ms) => { const until = Date.now() + ms; while (Date.
 const daemonBinary = path.resolve(ROOT, process.env.IOI_HYPERVISOR_DAEMON_BINARY ?? "target/debug/hypervisor-daemon");
 try { fs.accessSync(daemonBinary, fs.constants.X_OK); } catch { console.error(`BLOCKED: daemon binary not executable at ${daemonBinary}`); process.exit(2); }
 const CAPTURE = process.env.IOI_HARVEST_CAPTURE_URL || "http://127.0.0.1:9225";
-for (const seed of ["builder", "object-monitoring"]) {
+for (const seed of ["builder", "object-monitoring", "ontology", "hubble", "data-ingestion-app"]) {
   if (!fs.existsSync(path.join(ROOT, "internal-docs", "reverse-engineering", "palantir", "public", "workspace", seed, "index.html"))) { console.error(`BLOCKED: no local reference mirror for ${seed}`); process.exit(2); }
 }
 if (!(await fetch(`${CAPTURE}/workspace/builder/`).then((r) => r.ok).catch(() => false))) { console.error(`BLOCKED: the local mirror server is not reachable at ${CAPTURE}`); process.exit(2); }
@@ -71,7 +81,11 @@ const daemonReq = async (method, route, body) => { const r = await fetch(`${DAEM
 // Measured per exercise, in the page.
 const PAGE = () => {
   const vis = (e) => { const r = e.getBoundingClientRect(); const cs = getComputedStyle(e); return r.width > 0 && r.height > 0 && cs.visibility !== "hidden" && cs.display !== "none"; };
-  return { url: location.pathname + location.search + location.hash, text: document.body.innerText, overlays: [...document.querySelectorAll('[role="dialog"],[role="alertdialog"],[role="menu"],[role="listbox"],[class*="popover"]')].filter(vis).length };
+  // a control that reveals a text field and puts the caret in it (a section's search icon) changes no text, URL or
+  // network: the visible fields and the focused element are measured too
+  const field = (e) => e && /^(INPUT|TEXTAREA)$/u.test(e.tagName) ? `${e.tagName}:${e.getAttribute("placeholder") || e.getAttribute("aria-label") || e.name || ""}` : String(e?.tagName || "");
+  return { url: location.pathname + location.search + location.hash, text: document.body.innerText,
+    fields: [...document.querySelectorAll("input,textarea")].filter(vis).length, focus: field(document.activeElement), overlays: [...document.querySelectorAll('[role="dialog"],[role="alertdialog"],[role="menu"],[role="listbox"],[class*="popover"]')].filter(vis).length };
 };
 const STATES = () => JSON.stringify([...document.querySelectorAll("*")].flatMap((e) => [...e.attributes].filter((a) => /^data-.*state$/u.test(a.name)).map((a) => `${a.name}=${a.value}`)));
 const trim = (p) => String(p || "").replace(/\/+$/u, "") || "/";
@@ -118,13 +132,41 @@ async function run() {
   ok("PRECONDITION: a recipe pipeline (merged, with an open successor), a founding-only pipeline, a project and an automation exist",
     !!rid && !!main && !!project.project?.id && !!autoId, `pipeline ${rid} main ${main} · project ${project.project?.id} · automation ${autoId} ${auto.status}`);
 
-  const TARGETS = [
+  // the adopted Ontology Manager, Object Explorer and Data Connection (R-241 O1–O4, D1): an ODK ontology with a link and an
+  // action, and two declared data sources
+  const odk = await daemonReq("POST", "/v1/hypervisor/odk/domain-ontologies", { domain: "Loans", description: "Loan book", canonical_object_model: {
+    value_types: [{ id: "money", name: "Money", base: "double" }],
+    object_types: [
+      { id: "loan", name: "Loan", title_property: "title", properties: [{ id: "loan_id", name: "Loan Id", value_type: "string", required: true }, { id: "title", name: "Title", value_type: "string" }, { id: "amount", name: "Amount", value_type: "money" }] },
+      { id: "borrower", name: "Borrower", title_property: "name", properties: [{ id: "name", name: "Name", value_type: "string" }] }],
+    link_types: [{ id: "held_by", name: "Held by", from: "loan", to: "borrower", cardinality: "one_to_many" }],
+    action_types: [{ id: "approve", name: "Approve", kind: "modify_object", applies_to: "loan" }] } });
+  const sources = await Promise.all([
+    daemonReq("POST", "/v1/hypervisor/data-sources", { name: "Orders API", kind: "rest_api", endpoint: "https://api.example.test/orders", credential_posture: "wallet_credential_lease" }),
+    daemonReq("POST", "/v1/hypervisor/data-sources", { name: "Plants bucket", kind: "s3", endpoint: "s3://plants-example/", credential_posture: "wallet_credential_lease" }),
+  ]);
+  ok("PRECONDITION: an ODK ontology (types, a link, an action) and two data sources exist",
+    odk.status < 300 && sources.every((x) => x.status < 300), `ontology ${odk.status} · sources ${sources.map((x) => x.status).join(",")}`);
+
+  // IOI_DEAD_CONTROL_TARGETS (a regex over the keys) narrows a run to some surfaces; the gate runs them all
+  const ALL_TARGETS = [
     { key: "pipeline:landing", route: "/workspace/builder/" },
     { key: "pipeline:editor", route: `/workspace/builder/${rid}/sandbox/${main}` },
     { key: "pipeline:create", route: "/workspace/builder/create-pipeline" },
     { key: "automate:overview", route: "/workspace/object-monitoring/" },
     { key: "automate:automations", route: "/workspace/object-monitoring/automations" },
+    { key: "ontology:discover", route: "/workspace/ontology/home/discover" },
+    { key: "ontology:object-types", route: "/workspace/ontology/home/object-type" },
+    { key: "ontology:object-type", route: "/workspace/ontology/object-type/loan/overview" },
+    { key: "ontology:link-type", route: "/workspace/ontology/link-type/held_by/overview" },
+    { key: "ontology:configuration", route: "/workspace/ontology/home/advanced" },
+    { key: "explorer:landing", route: "/workspace/hubble/" },
+    { key: "data-connection:splash", route: "/workspace/data-ingestion-app/splash" },
+    { key: "data-connection:sources", route: "/workspace/data-ingestion-app/sources" },
+    { key: "data-connection:syncs", route: "/workspace/data-ingestion-app/syncs" },
   ];
+  const FILTER = process.env.IOI_DEAD_CONTROL_TARGETS ? new RegExp(process.env.IOI_DEAD_CONTROL_TARGETS, "u") : null;
+  const TARGETS = ALL_TARGETS.filter((t) => !FILTER || FILTER.test(t.key));
 
   const { chromium } = await import(path.join(ROOT, "node_modules", "playwright", "index.mjs"));
   const browser = await chromium.launch();
@@ -132,12 +174,33 @@ async function run() {
   try {
     const ctx = await browser.newContext({ viewport: { width: 1600, height: 1000 } });
     await ctx.addCookies([{ name: "ioi_session", value: COOKIE.split("=")[1], url: SERVE }]);
-    const pg = await ctx.newPage();
+    // EACH EXERCISE STARTS IN A FRESH TAB (see open()): a tab keeps an app's loaded chunks in its renderer's memory
+    // cache, and a reused tab that had visited another adopted app crashed the next one (2026-09-28) — a person's
+    // clean start is a new tab, not a storage wipe of a used one
+    let pg = null, opening = false;
+    const attach = (p) => {
+      if (process.env.IOI_DEAD_CONTROL_DEBUG) p.on("console", (m) => { if (m.type() === "error" && !/favicon|WebSocket|not bound/u.test(m.text())) debugConsole.push(m.text().replace(/\s+/gu, " ").slice(0, 240)); });
+      p.on("request", (q) => keys.push(LIB.requestKey(q.method(), q.url())));
+      p.on("dialog", (d) => { if (d.type() === "beforeunload") { d.accept().catch(() => {}); return; } other += 1; d.dismiss().catch(() => {}); });
+      p.on("download", () => { other += 1; });
+    };
+    const freshPage = async () => {
+      opening = true;
+      const next = await ctx.newPage().finally(() => { opening = false; });
+      attach(next);
+      const prev = pg; pg = next;
+      if (prev) await prev.close().catch(() => {});
+      // the app's storage for this origin starts empty (sessionStorage is per tab, so a new tab already has none)
+      const cdp = await ctx.newCDPSession(pg);
+      await cdp.send("Storage.clearDataForOrigin", { origin: new URL(SERVE).origin, storageTypes: "local_storage,indexeddb,cache_storage,service_workers" }).catch(() => {});
+      await cdp.detach().catch(() => {});
+    };
     const keys = []; let other = 0;
-    pg.on("request", (q) => keys.push(LIB.requestKey(q.method(), q.url())));
-    pg.on("dialog", (d) => { if (d.type() === "beforeunload") { d.accept().catch(() => {}); return; } other += 1; d.dismiss().catch(() => {}); });
-    ctx.on("page", (p) => { other += 1; p.close().catch(() => {}); });
-    pg.on("download", () => { other += 1; });
+    const debugTrail = [], debugConsole = [];
+    // a tab the page itself opens (a popup, a new-window link) counts as "anything" and is closed; the census's own
+    // fresh tabs are not
+    ctx.on("page", (p) => { if (opening || p === pg) return; other += 1; p.close().catch(() => {}); });
+    await freshPage();
     // identity by what a control IS: time-varying text ("Created 2 seconds ago") and classes are not it
     // a control with no words of its own (a facet checkbox) is known by the words of its row
     const ident = (el) => `${el.tag}|${el.role}|${String(el.text || `@${el.contextText || ""}`).split(" Created ")[0].replace(/\d+/gu, "#")}|${el.href || ""}`;
@@ -148,14 +211,14 @@ async function run() {
     await pg.goto(`${SERVE}/workspace/object-monitoring/automations`, { waitUntil: "domcontentloaded", timeout: 90000 });
     await pg.waitForTimeout(9000);
     const detail = await pg.evaluate(() => [...document.querySelectorAll("a[href]")].map((a) => a.getAttribute("href")).find((h) => /\/automation\/ri\.object-sentinel\.main\.monitor\.[0-9a-f-]{36}/u.test(h)) || null);
-    if (detail) TARGETS.push({ key: "automate:detail", route: new URL(detail, SERVE).pathname });
+    if (detail && (!FILTER || FILTER.test("automate:detail"))) TARGETS.push({ key: "automate:detail", route: new URL(detail, SERVE).pathname });
     ok("the adopted Automate list links the seeded automation's own page", !!detail, detail || "no automation link on the list");
 
     for (const t of TARGETS) {
       const open = async () => {
         // EACH EXERCISE STARTS FROM A CLEAN CLIENT (check:dead-controls' shell rule): the adopted apps keep
         // filters and choices in browser storage, so one exercise's click would reshape the next page load
-        await pg.evaluate(() => { try { localStorage.clear(); sessionStorage.clear(); } catch { /* no origin yet */ } }).catch(() => {});
+        await freshPage();
         await pg.goto(`${SERVE}${t.route}`, { waitUntil: "domcontentloaded", timeout: 90000 });
         await pg.waitForTimeout(6000);
         await pg.getByText("Close", { exact: true }).first().click({ timeout: 1500 }).catch(() => { /* no announcement */ });
@@ -173,10 +236,14 @@ async function run() {
         for (let a = 0; a < 5 && !now; a++) { now = (await enumerate()).find((el) => el.ident === target.ident && el.occ === target.occ); if (!now) await pg.waitForTimeout(500); }
         // a control a late-loading part of the page renders (a facet filled from data) gets one fresh load more
         if (!now) { await open(); for (let a = 0; a < 8 && !now; a++) { now = (await enumerate()).find((el) => el.ident === target.ident && el.occ === target.occ); if (!now) await pg.waitForTimeout(750); } }
-        if (!now) { rows.push({ surface: t.key, tag: target.tag, text: target.text, verdict: "click_failed", why: "not found again after two fresh loads" }); dirty = true; continue; }
+        if (!now) {
+          if (process.env.IOI_DEAD_CONTROL_DEBUG) { const seen = await pg.evaluate(() => document.body.innerText.replace(/\s+/gu, " ").slice(0, 160)).catch(() => "?"); const like = await pg.evaluate((t) => [...document.querySelectorAll("*")].filter((e) => t && ((e.getAttribute("aria-label") || "") === t || (e.getAttribute("title") || "") === t || ((e.innerText || "").trim() === t && e.children.length <= 2))).map((e) => { const r = e.getBoundingClientRect(); return `${e.tagName}${e.getAttribute("role") ? "[" + e.getAttribute("role") + "]" : ""} ${Math.round(r.width)}x${Math.round(r.height)} cursor=${getComputedStyle(e).cursor} cls=${String(e.className?.baseVal ?? e.className ?? "").slice(0, 50)}`; }).slice(0, 6), target.text).catch(() => []); console.error(`DEBUG click_failed ${target.tag} "${target.text}" at ${pg.url()} :: ${seen}\n  wanted ident: ${target.ident} occ ${target.occ}\n  now on page: ${JSON.stringify(like)}\n  after exercising: ${JSON.stringify(debugTrail.slice(-3))}\n  console: ${debugConsole.slice(-3).join(" || ")}`); }
+          rows.push({ surface: t.key, tag: target.tag, text: target.text, verdict: "click_failed", why: "not found again after two fresh loads" }); dirty = true; continue;
+        }
         const before = await pg.evaluate(PAGE); const st0 = await pg.evaluate(STATES);
         const k0 = keys.length; other = 0; let error = null;
         const how = LIB.exerciseFor(now);
+        if (process.env.IOI_DEAD_CONTROL_DEBUG) debugTrail.push(`${now.tag} "${now.text}" ${now.href || ""}`);
         const loc = pg.locator(now.css).first();
         const box = await loc.boundingBox().catch(() => null);
         const offViewport = !!box && (box.y + box.height <= 0 || box.x + box.width <= 0 || box.y >= 1000 || box.x >= 1600);
@@ -198,8 +265,15 @@ async function run() {
           } else { await loc.click({ timeout: 3000, noWaitAfter: true }); }
         } catch (e) { error = String(e.message).split("\n")[0].slice(0, 140); }
         await pg.waitForTimeout(1800);
-        const after = await pg.evaluate(PAGE).catch(() => ({ url: "(navigated)", text: "", overlays: 0 }));
+        let after = await pg.evaluate(PAGE).catch(() => ({ url: "(navigated)", text: "", overlays: 0 }));
+        // a click that navigated gets time to render before its landing is judged: a page that loads its data first
+        // (the owned Projects page behind the reference sidebar's Files) read as "rendered nothing" at 1.8 s under load
+        for (let i = 0; i < 8 && after.url !== before.url && String(after.text || "").trim().length < 40; i++) {
+          await pg.waitForTimeout(750);
+          after = await pg.evaluate(PAGE).catch(() => after);
+        }
         const st1 = await pg.evaluate(STATES).catch(() => st0);
+        if (after.fields !== undefined && (after.fields !== before.fields || (after.focus !== before.focus && /^(INPUT|TEXTAREA):/u.test(after.focus)))) other += 1;
         const signals = LIB.spaSignals({ urlBefore: before.url, urlAfter: after.url, textBefore: before.text, textAfter: after.text, overlaysBefore: before.overlays, overlaysAfter: after.overlays, requestKeys: keys.slice(k0), restKeys: rest, stateMoved: st0 !== st1, other });
         // a link to the page you are on is "self" whatever its trailing slash
         const self = !!now.href && (() => { try { const u = new URL(now.href, `${SERVE}${before.url}`); return u.origin === SERVE && trim(u.pathname) === trim(before.url.split(/[?#]/u)[0]); } catch { return false; } })();
@@ -209,7 +283,8 @@ async function run() {
         // a click that lands on the app's error boundary is a crash, whatever else moved
         const crashed = LIB.crashVerdict({ textBefore: before.text, textAfter: after.text });
         if (crashed) judged = crashed;
-        rows.push({ surface: t.key, tag: now.tag, text: now.text, how, signals: Object.entries(signals).filter(([, v]) => v).map(([k]) => k).join(","), ...judged, url: after.url.slice(0, 120) });
+        if (process.env.IOI_DEAD_CONTROL_DEBUG && judged.verdict !== "alive") console.error(`DEBUG ${judged.verdict} ${now.tag} "${now.text}" css=${now.css} context="${String(now.contextText || "").slice(0, 80)}" at ${before.url}`);
+        rows.push({ surface: t.key, tag: now.tag, text: now.text, cls: now.cls, how, signals: Object.entries(signals).filter(([, v]) => v).map(([k]) => k).join(","), ...judged, url: after.url.slice(0, 120) });
         dirty = true;
       }
     }
@@ -219,9 +294,13 @@ async function run() {
 
   const GOOD = new Set(["alive", "alive_by_form", "self"]);
   const bad = rows.filter((r) => !GOOD.has(r.verdict));
-  const namedFor = (r) => NAMED.find((n) => n.surface === r.surface && n.tag === r.tag && n.text.test(r.text) && n.verdict === r.verdict);
+  // a named entry may also pin the control's class (cls), so an entry for one unlabeled control excuses no other
+  // (verdicts: an entry may name more than one observed verdict when the same inert control renders unevenly)
+  const matches = (n, r) => n.surface === r.surface && n.tag === r.tag && n.text.test(r.text) && (n.verdicts ? n.verdicts.includes(r.verdict) : n.verdict === r.verdict) && (!n.cls || n.cls.test(r.cls || ""));
+  const namedFor = (r) => NAMED.find((n) => matches(n, r));
   const unnamed = bad.filter((r) => !namedFor(r));
-  const stale = NAMED.filter((n) => !bad.some((r) => n.surface === r.surface && n.tag === r.tag && n.text.test(r.text) && n.verdict === r.verdict));
+  // (a narrowed run judges only the named controls of the surfaces it visited)
+  const stale = NAMED.filter((n) => TARGETS.some((t) => t.key === n.surface) && !bad.some((r) => matches(n, r)));
   for (const t of TARGETS) {
     const mine = rows.filter((r) => r.surface === t.key);
     ok(`every live-looking control on ${t.key} does something, points where you already are, or is named with its reason`,
