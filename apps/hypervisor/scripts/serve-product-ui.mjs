@@ -10769,6 +10769,11 @@ async function handleEstateRequest(req, res, body) {
         const { models } = await ontologyModels();
         return sendO(200, ONTOLOGY.entityMetadataLoadOf(asked, models));
       }
+      if (pathname === "/ontology-metadata/api/permissions/actionTypes" && req.method === "PUT") {
+        let asked = {}; try { asked = JSON.parse(body.toString() || "{}"); } catch { /* none */ }
+        const { models } = await ontologyModels();
+        return sendO(200, ONTOLOGY.actionTypePermissionsOf(asked, models));
+      }
       if (pathname === "/ontology-metadata/api/permissions/objectTypes" && req.method === "PUT") {
         let asked = {}; try { asked = JSON.parse(body.toString() || "{}"); } catch { /* none */ }
         const { models } = await ontologyModels();

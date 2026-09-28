@@ -287,6 +287,46 @@ export function objectTypePermissionsOf(request, models) {
     datasourcePermissions: {}, propertySecurityGroupPermissions: {}, isEditRestrictedByDatasources: false, packageRid: null, permissionModel: { type: "roles", roles: {} },
   }])) };
 }
+// An ODK action type as the reference's action type. It declares its kind and the object type it applies to, not
+// rule logic or parameters, so it carries neither (no rule, no parameter, no form) — what it affects is its target.
+const ACTION_ICON = { type: "blueprint", blueprint: { color: "#111418", locator: "new-object" } };
+export function actionTypeEntityOf(model, a) {
+  return {
+    actionType: {
+      actionTypeLogic: {
+        logic: { rules: [], actionLogRule: null },
+        validation: { actionTypeLevelValidation: { rules: {}, ordering: [], writeAuthorization: null, readAuthorization: null }, parameterValidations: {}, sectionValidations: {}, actionEditsValidation: null },
+        revert: null, webhooks: null, notifications: [], effects: null,
+      },
+      metadata: {
+        rid: a.rid, apiName: camel(a.name || a.id), version: model.version,
+        displayMetadata: {
+          displayName: a.name || a.id, description: a.description || "", toolDescription: null, icon: ACTION_ICON, typeClasses: [],
+          successMessage: [], successMessageEnabled: false, applyingMessage: [], applyingMessageEnabled: false, submitButtonDisplayMetadata: null, undoButtonConfiguration: null,
+          configuration: { defaultLayout: "FORM", displayAndFormat: { table: { columnWidthByParameterRid: {}, enableFileImport: false, fitHorizontally: false, frozenColumnCount: 0, rowHeightInLines: 1 } }, enableLayoutUserSwitch: false },
+        },
+        parameters: {}, returnType: { type: "void", void: {} }, returnConfiguration: null, sections: {}, parameterOrdering: [], formContentOrdering: [],
+        actionLogConfiguration: null, status: DRAFT_STATUS,
+        entities: { affectedObjectTypes: a.applies_to ? [a.applies_to] : [], affectedLinkTypes: [], affectedInterfaceTypes: [], typeGroups: [] },
+        actionApplyClientSettings: null,
+        notificationSettings: { renderingSettings: { type: "allNotificationRenderingMustSucceed", allNotificationRenderingMustSucceed: {} }, redactionOverride: null },
+        provenance: null, owningResource: null, submissionConfiguration: null, stagingMediaSetRid: null,
+        branchSettings: { webhooksMode: { type: "disableWebhooksOnBranches", disableWebhooksOnBranches: {} }, notificationsMode: { type: "disableNotificationsOnBranches", disableNotificationsOnBranches: {} }, functionsWithExternalCallsMode: { type: "disableFunctionsWithExternalCallsOnBranches", disableFunctionsWithExternalCallsOnBranches: {} } },
+        scenarioSettings: { scenarioExecutionOnlyMode: { type: "noExecutionRestriction", noExecutionRestriction: {} } },
+        isolationSettings: { isolationMode: { type: "default", default: {} }, retrySettings: { type: "default", default: {} } },
+      },
+    },
+    ontologyRid: model.rid, ontologyVersion: model.version, resolvedBranch: { type: "default", default: { rid: branchRidOf(model) } },
+  };
+}
+// PUT /ontology-metadata/api/permissions/actionTypes — the caller sees their action types; none is edited here
+export function actionTypePermissionsOf(request, models) {
+  const ours = new Set((models || []).flatMap((m) => m.actionTypes.map((a) => a.rid)));
+  return { actionTypePermissions: Object.fromEntries((request?.actionTypeRids || []).filter((r) => ours.has(r)).map((r) => [r, {
+    canView: true, canEdit: false, canUseNotifications: false, canUpdateRoles: false, hasRolesApplied: false,
+    permissionModel: { type: "roles", roles: {} }, packageRid: null, canOverrideNotificationRedaction: false,
+  }])) };
+}
 // the requested object types (by rid or by id), each from the ontology that holds it
 export function bulkLoadEntitiesOf(request, models) {
   const find = (identifier) => {
@@ -297,9 +337,15 @@ export function bulkLoadEntitiesOf(request, models) {
     }
     return null;
   };
+  const findAction = (r) => {
+    const want = r?.actionTypeRid || r?.identifier?.actionTypeRid || r?.rid || null;
+    for (const m of models || []) { const a = m.actionTypes.find((x) => x.rid === want); if (a) return actionTypeEntityOf(m, a); }
+    return null;
+  };
   return {
     objectTypes: (request?.objectTypes || []).map((r) => find(r.identifier)).filter(Boolean),
-    linkTypes: [], sharedPropertyTypes: [], interfaceTypes: [], typeGroups: [], actionTypes: [],
+    linkTypes: [], sharedPropertyTypes: [], interfaceTypes: [], typeGroups: [],
+    actionTypes: (request?.actionTypes || []).map(findAction).filter(Boolean),
   };
 }
 
