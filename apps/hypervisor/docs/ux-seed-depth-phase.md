@@ -415,8 +415,12 @@ assertion in its verifier.
 - **Cuts.**
   - O1: the landing and section lists, bound, plus the fence.
   - O2: an object type's pages.
-  - O3: the canonical route `/ontology/schema` → the adopted app when it boots; `SURFACE_STATES`, seed-depth rows,
-    a journey verifier, deploy.
+  - O3: seed-depth rows, a journey verifier, deploy. Done 2026-09-28: `check:adopted-ontology` (16 assertions,
+    each proven red by a planted defect); 35 flow states = 16 bound / 11 named gaps / 8 open (ledger CCXVI). The
+    canonical route `/ontology/schema` stays the owned surface until create and edit are bound over ODK: New is
+    disabled with no reason, and the type pages give a false one ("You do not have edit permissions").
+  - O3b, next: create and edit as an ODK patch at the expected revision (capture the app's save request locally);
+    then Proposals from ODK's proposal plane, and a Functions assertion.
   - O4: Object Explorer (`/workspace/hubble/`).
 
 ## Gate

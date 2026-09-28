@@ -255,6 +255,11 @@ const ADOPTED_ROUTE_ALIASES = [["/workspace/object-monitoring", "monitors"], ["/
 // registry, object sets, search and data health that are not bound are answered as named gaps — never passed through
 // to the mirror, whose answers are the RECORDED TENANT's ontology.
 const ONTOLOGY_FENCED = /^\/(ontology-metadata|phonograph2|object-set-service|foundry-search|data-health|foundry-catalog|monocle|compass)\//u;
+// The adopted Ontology Manager's pages (a request's referer), and a platform service's API path. On that surface a service
+// read that no lane answers is a named gap: never the mirror's recorded answer, and never this serve's HTML shell (which
+// answers every unknown path with its index page — an app reads it as a malformed answer, "Failed to load").
+const ONTOLOGY_SURFACE_REFERER = /\/workspace\/ontology(?:[/?#]|$)|\/__apps\/schema(?:[/?#]|$)/u;
+const SERVICE_API_PATH = /^\/[a-z][a-z0-9-]*\/api\//u;
 // Whether the local reference mirror can boot a seed right now (R-241: adopted bundles live in the
 // local mirror only). Cached briefly; a canonical route opens the adopted app only when it can boot.
 const adoptedSeedCache = new Map();
@@ -9226,7 +9231,8 @@ async function handleEstateRequest(req, res, body) {
       return res.end(JSON.stringify({ errorCode: "NOT_FOUND", errorName: "Checkpoints:NotKept", errorInstanceId: "", parameters: { message: "no checkpoint configuration is kept; nothing gates this action" } }));
     }
     const adoptedAlias = ADOPTED_ROUTE_ALIASES.find(([prefix]) => pathname === prefix || pathname.startsWith(`${prefix}/`));
-    if (adoptedAlias || pathname.startsWith("/__apps/") || pathname.startsWith("/assets/content-addressable-storage/") || MIRROR_API_PREFIXES.some((pref) => pathname.startsWith(pref))) {
+    const ontologyServiceRead = SERVICE_API_PATH.test(pathname) && ONTOLOGY_SURFACE_REFERER.test(String(req.headers.referer || ""));
+    if (adoptedAlias || ontologyServiceRead || pathname.startsWith("/__apps/") || pathname.startsWith("/assets/content-addressable-storage/") || MIRROR_API_PREFIXES.some((pref) => pathname.startsWith(pref))) {
       // A daemon read an adopted app depends on: a plane that does not answer — stopped, or refusing — is an
       // ERROR the app shows (its own "unable to load" state), never an empty answer that reads as "nothing
       // exists". The error is typed (planeDown): the GraphQL gateways answer it as the operation's error and
@@ -9275,7 +9281,7 @@ async function handleEstateRequest(req, res, body) {
       // A request made by the adopted Pipeline Builder's own pages (its location dialog answers differently
       // from Automate's: a recipe family is held in the owner's recipe registry, never in a project).
       const onPipelineSurface = () => /\/workspace\/builder(?:[/?#]|$)|\/__apps\/pipeline(?:[/?#]|$)/u.test(String(req.headers.referer || ""));
-      const onOntologySurface = () => /\/workspace\/ontology(?:[/?#]|$)|\/__apps\/schema(?:[/?#]|$)/u.test(String(req.headers.referer || ""));
+      const onOntologySurface = () => ONTOLOGY_SURFACE_REFERER.test(String(req.headers.referer || ""));
       // One read of what the adopted Pipeline Builder shows: the caller's DataRecipe families (each with its
       // revisions) and change sets, as pipelines (adopted-pipeline.mjs).
       // A plane that does not answer is an ERROR the app shows ("Unable to load pipelines"), never an empty
@@ -10780,6 +10786,29 @@ async function handleEstateRequest(req, res, body) {
         const { models } = await ontologyModels();
         return sendO(200, ONTOLOGY.actionTypePermissionsOf(asked, models));
       }
+      if (/^\/ontology-metadata\/api\/ontology\/ontology\/load\/ri\.ontology\.main\.ontology\.[0-9a-f-]{36}\/[0-9a-f-]{36}\/loadAllObjectTypes$/u.test(pathname) && req.method === "POST") {
+        let asked = {}; try { asked = JSON.parse(body.toString() || "{}"); } catch { /* none */ }
+        const { models } = await ontologyModels();
+        return sendO(200, ONTOLOGY.allObjectTypesOf(ONTOLOGY.modelOf(models, ontologyRidIn(pathname)), asked));
+      }
+      if (/^\/ontology-metadata\/api\/actions\/types\/load\/all\/ri\.ontology\.main\.ontology\.[0-9a-f-]{36}(\/[0-9a-f-]{36})?$/u.test(pathname) && req.method === "POST") {
+        let asked = {}; try { asked = JSON.parse(body.toString() || "{}"); } catch { /* none */ }
+        const { models } = await ontologyModels();
+        return sendO(200, ONTOLOGY.allActionTypesOf(ONTOLOGY.modelOf(models, ontologyRidIn(pathname)), asked));
+      }
+      // an ontology's type groups, shared property types and interfaces at a version: the Hypervisor keeps none of them
+      const loadAllNone = pathname.match(/^\/ontology-metadata\/api\/ontology\/ontology\/load\/ri\.ontology\.main\.ontology\.[0-9a-f-]{36}\/[0-9a-f-]{36}\/loadAll(TypeGroups|SharedPropertyTypes|InterfaceTypes)$/u);
+      if (loadAllNone && req.method === "PUT") return sendO(200, { [{ TypeGroups: "typeGroups", SharedPropertyTypes: "sharedPropertyTypes", InterfaceTypes: "interfaceTypes" }[loadAllNone[1]]]: [], nextPageToken: null });
+      if (pathname === "/ontology-metadata/api/permissions/linkTypes" && req.method === "PUT") {
+        let asked = {}; try { asked = JSON.parse(body.toString() || "{}"); } catch { /* none */ }
+        const { models } = await ontologyModels();
+        return sendO(200, ONTOLOGY.linkTypePermissionsOf(asked, models));
+      }
+      if (pathname === "/ontology-metadata/api/ontology/ontology/load/datasources" && req.method === "POST") {
+        let asked = {}; try { asked = JSON.parse(body.toString() || "{}"); } catch { /* none */ }
+        const { models } = await ontologyModels();
+        return sendO(200, ONTOLOGY.datasourcesOf(asked, models));
+      }
       if (pathname === "/ontology-metadata/api/permissions/objectTypes" && req.method === "PUT") {
         let asked = {}; try { asked = JSON.parse(body.toString() || "{}"); } catch { /* none */ }
         const { models } = await ontologyModels();
@@ -10811,6 +10840,11 @@ async function handleEstateRequest(req, res, body) {
       // the object registry keeps no object data or usage for the caller's types (none is indexed there)
       if (onOntologySurface() && /^\/phonograph2\/api\/objects\/registry\/bulk\/(objectTypes|relations)\/(metadata|usageMetadata)$/u.test(pathname) && req.method === "POST") return sendO(200, {});
       // the ontology's namespace as a compass folder (read by the switcher); every other compass read stays fenced
+      if (onOntologySurface() && pathname === "/compass/api/roles" && req.method === "POST") {
+        let asked = {}; try { asked = JSON.parse(body.toString() || "{}"); } catch { /* none */ }
+        const { models } = await ontologyModels();
+        return sendO(200, ONTOLOGY.compassRolesOf(asked, models));
+      }
       if (onOntologySurface() && pathname === "/compass/api/batch/resources" && req.method === "POST") {
         const { owner } = await ontologyModels();
         let asked = []; try { asked = JSON.parse(body.toString() || "[]"); } catch { /* none */ }
@@ -10824,7 +10858,31 @@ async function handleEstateRequest(req, res, body) {
         const ns = owner ? ONTOLOGY.namespaceResourceOf(owner, PIPELINE.uuidOf(who.principal?.principal_ref || "")) : null;
         if (ns && pathname.endsWith(ns.rid)) return sendO(200, ns);
       }
-      if (onOntologySurface() && ONTOLOGY_FENCED.test(pathname) && !(pathname === "/compass/api/registry/actions" && req.method === "GET")) {
+      if (onOntologySurface() && pathname === "/objects-data-funnel/api/status/object-type" && req.method === "POST") {
+        let asked = {}; try { asked = JSON.parse(body.toString() || "{}"); } catch { /* none */ }
+        const { models } = await ontologyModels();
+        const status = ONTOLOGY.objectTypeFunnelStatusOf(asked, models);
+        if (status) return sendO(200, status);
+      }
+      // what depends on the caller's types: nothing (as ObjectTypeDependentsQuery answers); another resource's stays fenced
+      if (onOntologySurface() && pathname === "/foundry-dependency-service/api/dependencies/get-tagged-dependents-all-versions" && req.method === "PUT") {
+        const { models } = await ontologyModels();
+        const ours = new Set(models.flatMap((m) => m.objectTypes.map((o) => o.rid)));
+        const asked = body.toString().match(/ri\.[\w.-]+/gu) || [];
+        if (asked.length && asked.every((r) => ours.has(r))) return sendO(200, { dependents: [] });
+      }
+      if (onOntologySurface() && pathname === "/objects-data-funnel/api/view/policiesV3" && req.method === "POST") {
+        let asked = {}; try { asked = JSON.parse(body.toString() || "{}"); } catch { /* none */ }
+        const { models } = await ontologyModels();
+        return sendO(200, ONTOLOGY.objectTypePoliciesOf(asked, models));
+      }
+      // an object type's object-database views: it is indexed in none
+      if (onOntologySurface() && pathname === "/objects-data-funnel/api/view/currentV4" && req.method === "POST") {
+        let asked = {}; try { asked = JSON.parse(body.toString() || "{}"); } catch { /* none */ }
+        const { models } = await ontologyModels();
+        return sendO(200, ONTOLOGY.objectViewsOf(asked, models));
+      }
+      if (onOntologySurface() && (ONTOLOGY_FENCED.test(pathname) || (ontologyServiceRead && !MIRROR_API_PREFIXES.some((pref) => pathname.startsWith(pref)))) && !(pathname === "/compass/api/registry/actions" && req.method === "GET")) {
         res.writeHead(501, { "Content-Type": "application/json" });
         return res.end(JSON.stringify({ errorCode: "INTERNAL", errorName: "Hypervisor:OntologyReadNotBound", errorInstanceId: "", parameters: { message: `${req.method} ${pathname.replace(/ri\.[\w.-]+/gu, "<rid>")} is not bound in the Hypervisor's Ontology Manager yet: a named gap, and nothing recorded is served in its place` } }));
       }
@@ -10880,13 +10938,6 @@ async function handleEstateRequest(req, res, body) {
               : ioiGlobalRailHtml({ label: "Pipeline Builder", href: "/data/recipes", iconUri: PIPELINE_APP_ICON_URI, railVariant: "rv-pipe rv-dsg", viewAll: true, star: false, aipGradient: true, acctMuted: true });
             html = html.replace("</head>", `<style>${IOI_GRAIL_CSS}[class*="shell-application__sidebar__"],#workspace-sidebar{display:none!important}.ioi-adopted-rail .og-grail{position:fixed;left:0;top:0;z-index:30}.ioi-adopted-rail .workspace-page-wrapper{padding-left:230px;box-sizing:border-box}.ioi-embedded .og-grail{display:none!important}.ioi-embedded .workspace-page-wrapper{padding-left:0!important}</style></head>`)
               .replace(/<body([^>]*)>/i, `<body$1><div class="ioi-adopted-rail">${rail}</div><script>try{if(window.top===window.self)document.documentElement.classList.add("ioi-adopted-rail")}catch(e){}</script>`);
-          }
-          // The Hypervisor has no platform default ontology (the reference opens the all-zeros one when nothing is
-          // stored): the adopted Ontology Manager opens the caller's first ontology unless the one it stored is still
-          // theirs. With no ontology, nothing is set, and the app's "no accessible ontologies" is true.
-          if (seedSlug === "schema") {
-            const rids = await ontologyCatalog().then((c) => c.map((o) => o.rid)).catch(() => []);
-            html = html.replace("<head>", `<head><script>try{var k="@foundry/ontology/vv/13/currentOntologyRid",mine=${JSON.stringify(rids)},cur=null;try{cur=JSON.parse(localStorage.getItem(k)||"null")}catch(e){}if((!cur||mine.indexOf(cur.value)<0)&&mine.length)localStorage.setItem(k,JSON.stringify({version:13,value:mine[0]}))}catch(e){}</script>`);
           }
           buf = Buffer.from(html.replace(/Palantir/g, "IOI"), "utf8");
         } else if (/javascript|ecmascript/.test(ct)) {

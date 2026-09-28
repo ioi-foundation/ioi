@@ -82,7 +82,13 @@ const PINS = {
   // 2026-09-27 (R-241, Sessions cut 1): first rows — rename, auto-stop, Goal mode and the page's own port sync
   // refused by name; services and tasks named (absent planes); logs bound in the adapter but not yet live-asserted.
   sessions: { total: 24, bound: 12, refused: 7, named_gap: 5, open: 0 },
-  "ontology-manager": { total: 0, bound: 0, refused: 0, named_gap: 0, open: 0 },
+  // 2026-09-28 (R-241, Ontology Manager O3): first census — 35 flow states: the 27 harvested (Discover, 13 sections, an
+  // object type and its tabs, Explorer's landing) plus 8 found by driving the adopted app (a link type's page and its foreign
+  // key, New, editing, the migration page, the daemon stopped, the fence). 16 bound by check:adopted-ontology; 11 named
+  // gaps (what an ODK model does not hold, in the reference's own empty states; Cleanup's usage read); 8 open (Functions
+  // unproven, Proposals unmapped, Monitor opens a missing app, Object views says "Failed", New and edit give false or no
+  // reasons, the migration page undriven, Explorer not routed).
+  "ontology-manager": { total: 35, bound: 16, refused: 0, named_gap: 11, open: 8 },
   "data-connection": { total: 0, bound: 0, refused: 0, named_gap: 0, open: 0 },
 };
 

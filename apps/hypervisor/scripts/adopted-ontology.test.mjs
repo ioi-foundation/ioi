@@ -65,3 +65,39 @@ test("History lists each revision with its recorded changes and its receipt's au
   const legacy = ONTOLOGY.modificationHistoryOf(ONTOLOGY.ontologyModelsOf([{ ...drafts[0], revision: 2, history: [{ revision: 2, op: "patched", summary: "x" }] }], "org://local", familyOf)[0]);
   assert.deepEqual(legacy.modificationPageItems[0].summary.affectedObjectTypes, {}, "an entry recorded before changes were kept claims none");
 });
+
+test("an ODK link keeps its cardinality: one-to-one and one-to-many are the reference's one-to-many with a hint, many-to-many stays many-to-many; no join property is invented", () => {
+  const withLinks = [{ ...drafts[0], canonical_object_model: { ...drafts[0].canonical_object_model, link_types: [
+    { id: "held_by", name: "Held by", from: "loan", to: "borrower", cardinality: "one_to_many" },
+    { id: "co", name: "Co-borrows", from: "borrower", to: "loan", cardinality: "many_to_many" },
+    { id: "ghost", name: "Ghost", from: "loan", to: "nowhere", cardinality: "one_to_one" }] } }];
+  const models = ONTOLOGY.ontologyModelsOf(withLinks, "org://local", familyOf);
+  const [m] = models;
+  const [held, co, ghost] = m.linkTypes.map((l) => ONTOLOGY.linkTypeOf(m, l));
+  assert.equal(held.definition.type, "oneToMany");
+  assert.equal(held.definition.oneToMany.cardinalityHint, "ONE_TO_MANY");
+  assert.equal(held.definition.oneToMany.objectTypeRidOneSide, m.objectTypes[0].rid, "the link's from type is the one side");
+  assert.deepEqual(held.definition.oneToMany.oneSidePrimaryKeyToManySidePropertyMapping, {}, "an ODK link names no joining property");
+  assert.equal(co.definition.type, "manyToMany");
+  assert.equal(ghost, null, "a link whose endpoint does not resolve is not offered");
+  const bulk = ONTOLOGY.bulkLoadEntitiesOf({ linkTypes: [{ identifier: { linkTypeId: "held_by" } }, { identifier: { linkTypeRid: m.linkTypes[1].rid } }] }, models);
+  assert.deepEqual(bulk.linkTypes.map((e) => e.linkType.id), ["held_by", "co"], "by id (a link's page) and by rid");
+  assert.deepEqual(Object.keys(ONTOLOGY.linkTypePermissionsOf({ linkTypeRids: [m.linkTypes[0].rid, "ri.ontology.main.relation.x"] }, models).linkTypePermissions), [m.linkTypes[0].rid]);
+});
+
+test("what a type has nowhere to live answers none for the caller's types only: no index pipeline, datasource, object view, policy or role grant", () => {
+  const models = ONTOLOGY.ontologyModelsOf(drafts, "org://local", familyOf);
+  const loan = models[0].objectTypes[0].rid, stranger = "ri.ontology.main.object-type.00000000-0000-0000-0000-000000000001";
+  assert.equal(ONTOLOGY.objectTypeFunnelStatusOf({ objectType: loan }, models).activePipeline, null, "indexed by no pipeline");
+  assert.equal(ONTOLOGY.objectTypeFunnelStatusOf({ objectType: stranger }, models), null, "another type is not answered (it stays fenced)");
+  assert.deepEqual(ONTOLOGY.datasourcesOf({ objectTypes: { [loan]: "v", [stranger]: "v" } }, models).objectTypes, { [loan]: [] });
+  assert.deepEqual(ONTOLOGY.objectViewsOf({ objectTypes: [{ rid: loan }, { rid: stranger }] }, models).views.map((v) => v.resolved.views), [[]]);
+  assert.deepEqual(ONTOLOGY.objectTypePoliciesOf({ objectTypes: [{ rid: loan }] }, models).policies[0].resolved.policies, { row: [], property: {} });
+  assert.deepEqual(ONTOLOGY.compassRolesOf({ rids: [loan, stranger] }, models).resourceRolesResultMap[loan].grants, []);
+  assert.equal(ONTOLOGY.compassRolesOf({ rids: [stranger] }, models).resourceRolesResultMap[stranger], undefined);
+  assert.equal(ONTOLOGY.apiNameOfOntology(models[0]), "ont-1", "the family's name, lowercase and hyphenated");
+  const page = ONTOLOGY.allObjectTypesOf(models[0], { pageSizeLimit: 1 });
+  assert.equal(page.objectTypes[0].objectType.rid, loan, "each type in its load envelope");
+  assert.equal(page.nextPageToken, "1");
+  assert.equal(ONTOLOGY.allActionTypesOf(models[0], {}).actionTypes[0].metadata.rid, models[0].actionTypes[0].rid, "each action type itself");
+});

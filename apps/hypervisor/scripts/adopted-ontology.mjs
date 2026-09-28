@@ -48,6 +48,7 @@ export function ontologyModelsOf(domainOntologies, ownerRef, familyOf) {
 }
 // The version the app loads an ontology at. A draft's is its own revision (the reference's versions read
 // "<ordinal>-<uuid tail>"); it is a version of the draft, never a published revision.
+export const apiNameOfOntology = (model) => String(String(model?.family || "").split("/").pop() || model?.displayName || "ontology").toLowerCase().replace(/[^a-z0-9]+/gu, "-").replace(/^-+|-+$/gu, "") || "ontology";
 export const draftVersionOf = (draftId, revision) => `${Number(revision).toString(16).padStart(8, "0")}-${uuidOf(`draft:${draftId}`).slice(9)}`;
 export const modelOf = (models, ontologyRid) => (models || []).find((m) => m.rid === ontologyRid) || null;
 
@@ -92,7 +93,24 @@ export const ONTOLOGY_GRAPHQL_OPERATIONS = new Set([
   "ObjectTypeFavoritedQuery", "SqlPreviewSourceSelectorMaterializationsQuery", "ObjectTypePanelMachineryQuery", "CompassResourceProjectQuery", "ObjectViewConfigurationQuery",
   "ObjectTypeMetadataPanelQuery", "RolesSectionContentQuery", "ObjectTypeMonitorRulesQuery", "AutomationsTabQuery",
   "ObjectTypeObjectsCountQuery", "ObjectTypeDependentsQuery", "ObjectTypeArchiveStatusQuery",
+  "LinkTypeRedirectQuery", "LinkTypeStorageStatusQuery", "SelectedObjectTypeQuery", "ObjectTypeSearch", "ObjectTypeQuicksearch",
+  "IndividualRoleGrantsEditorQuery",
 ]);
+// An object type as the pickers select it: its title, icon and status (a draft's types are experimental), its primary
+// key, and no datasource, group or storage; it is not editable here.
+function objectTypeVersionOf(model, ot) {
+  const pk = ot.properties.find((p) => p.id === ot.primaryKey) || null;
+  return {
+    __typename: "ObjectTypeVersion", _id: cid(`ObjectTypeVersion:${ot.rid}`), apiName: pascal(ot.name || ot.id), displayName: ot.name || ot.id, description: ot.description || null,
+    iconV2: { __typename: "BlueprintIcon", locator: ICON.blueprint.locator, color: ICON.blueprint.color }, status: { __typename: "ObjectTypeStatus_Experimental" },
+    objectType: { __typename: "ObjectType", _id: cid(`ObjectType:${ot.rid}`), rid: ot.rid, id: ot.id, storage: null, ontology: ontologyNode(model) },
+    primaryKeyProperties: pk ? [{ __typename: "ObjectTypeProperty", _id: cid(`ObjectTypeProperty:${pk.rid}`), displayName: pk.name || pk.id, type: { __typename: `ObjectTypePropertyType_${pascal(pk.base || "string")}` } }] : [],
+    settings: { __typename: "ObjectTypeSettings", editable: false }, dataSources: [], groups: [],
+  };
+}
+// the words a picker filters by (every string in its filter clauses); a type matches when its name holds one
+const wordsOf = (v) => (typeof v === "string" ? [v] : v && typeof v === "object" ? Object.values(v).flatMap(wordsOf) : []).map((w) => w.trim().toLowerCase()).filter((w) => w && !/^(and|or|not)$/u.test(w));
+const matches = (ot, words) => !words.length || words.some((w) => `${ot.name || ""} ${ot.id}`.toLowerCase().includes(w));
 // The ontology's details (Ontology configuration, the owner check): its names, its namespace as a resource, no
 // markings, and no permission to change settings, permissions or branch protection (none is bound here).
 export function ontologyDetailNode(model, ownerRef) {
@@ -105,7 +123,8 @@ export function ontologyDetailNode(model, ownerRef) {
     permissions: { __typename: "ResourceMetadataPermissions", _id: cid(`perm:${nsRid}`), canOpenLink: false }, ancestors: [], path: `/${nsName}`, autosaved: false, statusInfo: null,
   };
   return {
-    ...base, displayName: model.displayName, description: model.description || "", apiName: pascal(model.displayName),
+    // its API name is its family's name (ontology://<namespace>/<name>), in the reference's lowercase, hyphenated form
+    ...base, displayName: model.displayName, description: model.description || "", apiName: apiNameOfOntology(model),
     metadata: {
       __typename: "OntologyMetadata", _id: cid(`OntologyMetadata:${model.rid}`), markings: [],
       namespace: { __typename: "Namespace", _id: cid(`namespace:${model.rid}`), metadata: nsResource, permissions: { __typename: "NamespacePermissions", _id: cid(`ns-perm:${model.rid}`), canInstallMarketplaceProduct: false } },
@@ -232,6 +251,43 @@ export function ontologyGraphqlFacts(name, variables, ctx) {
     case "ObjectTypeStorageStatusQuery": {
       const hit = objectTypeOf(ctx.models, variables?.identifier);
       return { ...root, objectTypeV2: hit ? { __typename: "ObjectType", _id: cid(`ObjectType:${hit.ot.rid}`), rid: hit.ot.rid, storage: null } : null };
+    }
+    // a link type's page opens it by id, in the ontology that holds it
+    case "LinkTypeRedirectQuery": {
+      const mm = (ctx.models || []).find((x) => x.linkTypes.some((l) => l.id === variables?.id));
+      const l = mm?.linkTypes.find((x) => x.id === variables?.id);
+      return { ...root, linkTypeById: l && linkTypeOf(mm, l) ? { __typename: "LinkType", _id: cid(`LinkType:${l.rid}`), rid: l.rid, ontology: ontologyNode(mm) } : null };
+    }
+    // the link editor's object type pickers: the selected type, and the caller's types to choose from
+    case "SelectedObjectTypeQuery": {
+      const mm = (ctx.models || []).find((x) => x.objectTypes.some((o) => o.id === variables?.id));
+      const ot = mm?.objectTypes.find((o) => o.id === variables?.id);
+      return { ...root, objectTypeById: ot ? { __typename: "ObjectType", _id: cid(`ObjectType:${ot.rid}`), rid: ot.rid, id: ot.id, latest: objectTypeVersionOf(mm, ot) } : null };
+    }
+    case "ObjectTypeSearch": {
+      const want = new Set(variables?.ontologyRids || []), excluded = new Set(variables?.excludeObjectTypeRids || []), words = wordsOf(variables?.filter?.clauses || []);
+      const values = (ctx.models || []).filter((mm) => !want.size || want.has(mm.rid)).flatMap((mm) => mm.objectTypes.filter((o) => !excluded.has(o.rid) && matches(o, words)).map((o) => objectTypeVersionOf(mm, o)));
+      return { ...root, objectTypesV2: { __typename: "ObjectTypeVersionPage", nextPageToken: null, totalNumberOfResults: values.length, values } };
+    }
+    case "ObjectTypeQuicksearch": {
+      const words = wordsOf(variables?.title || "");
+      const hits = (ctx.models || []).flatMap((mm) => mm.objectTypes.filter((o) => matches(o, words)).map((o) => ({ __typename: "ObjectType", _id: cid(`ObjectType:${o.rid}`), rid: o.rid, latest: objectTypeVersionOf(mm, o) })));
+      return { ...root, search: hits.slice(0, Math.max(1, Number(variables?.limit) || 100)) };
+    }
+    // a type's role grants (the Security tab): the Hypervisor keeps no ontology roles — access is its principal and
+    // tenant — so the role set has no roles and nobody holds one, on the type or on the ontology
+    case "IndividualRoleGrantsEditorQuery": {
+      const mm = modelOf(ctx.models, variables?.ontologyRid);
+      const ours = mm && (mm.objectTypes.some((o) => o.rid === variables?.rid) || mm.linkTypes.some((l) => l.rid === variables?.rid) || mm.actionTypes.some((a) => a.rid === variables?.rid));
+      return { ...root,
+        roleSet: { __typename: "RoleSet", _id: cid(`RoleSet:${variables?.roleSetId}`), id: variables?.roleSetId || null, roles: [] },
+        ontology: mm ? { ...ontologyNode(mm), metadata: { __typename: "ResourceMetadata", _id: cid(`ResourceMetadata:${mm.rid}`), parent: { __typename: "ResourceMetadata", _id: cid(`ResourceMetadata:${namespaceRidOf(ctx.owner)}`), roleGrants: [] } } } : null,
+        resourceMetadata: ours ? { __typename: "ResourceMetadata", _id: cid(`ResourceMetadata:${variables.rid}`), rid: variables.rid, roleGrants: [], everyoneRoles: [] } : null };
+    }
+    // a link type's storage: it is stored in none
+    case "LinkTypeStorageStatusQuery": {
+      const hit = linkTypeHitOf(ctx.models, variables?.rid);
+      return { ...root, linkType: hit ? { __typename: "LinkType", _id: cid(`LinkType:${hit.l.rid}`), rid: hit.l.rid, storage: null } : null };
     }
     default: return null;
   }
@@ -379,7 +435,12 @@ export function bulkLoadEntitiesOf(request, models) {
   };
   return {
     objectTypes: (request?.objectTypes || []).map((r) => find(r.identifier)).filter(Boolean),
-    linkTypes: [], sharedPropertyTypes: [], interfaceTypes: [], typeGroups: [],
+    linkTypes: (request?.linkTypes || []).map((r) => linkTypeHitOf(models, r?.identifier?.linkTypeRid || r?.linkTypeRid, r?.identifier?.linkTypeId)).filter(Boolean).map(({ model, lt }) => ({
+      linkType: lt, ontologyRid: model.rid, ontologyVersion: model.version, datasources: [],
+      entityMetadata: { entityConfig: { objectDbTypeConfigs: {} }, arePatchesEnabled: false, targetStorageBackend: { type: "objectStorageV2", objectStorageV2: { migrationConfiguration: null, editsHistoryImportConfiguration: null, archiveState: null } }, provenance: null, redacted: null },
+      resolvedBranch: { type: "default", default: { rid: branchRidOf(model) } },
+    })),
+    sharedPropertyTypes: [], interfaceTypes: [], typeGroups: [],
     actionTypes: (request?.actionTypes || []).map(findAction).filter(Boolean),
   };
 }
@@ -425,27 +486,91 @@ export function modificationHistoryOf(model, limit = 100, authorOf = () => null)
 // PUT /multipass/api/roles/v2/roleSets — the Hypervisor has no ontology roles (access is its own principal and tenant)
 export const roleSetsOf = (ids) => ({ roleSets: Object.fromEntries((ids || []).map((id) => [id, { id, displayName: id, description: "", organizationRid: null, context: id, roles: {} }])) });
 
-// ---- POST /ontology-metadata/api/ontology/linkTypesForObjectTypes(V2) — each requested object type's link types. An
-// ODK link type names its two endpoints; one whose endpoints do not resolve to the caller's types is not offered.
+// ---- An ODK link type as the reference's. A one_to_one or one_to_many link is the reference's one-to-many (its `from`
+// type the one side, its `to` type the many side, the cardinality its hint); a many_to_many link is many-to-many. An
+// ODK link names its two endpoints, not the property that joins them, so the key-to-property mapping is empty. One
+// whose endpoints do not resolve to the ontology's types is not offered.
 const endpointOf = (l, side) => l[side] || l[side === "from" ? "source" : "target"] || l[side === "from" ? "object_type_a" : "object_type_b"] || null;
+export function linkTypeOf(model, l) {
+  const byId = new Map(model.objectTypes.map((o) => [o.id, o]));
+  const a = byId.get(endpointOf(l, "from")), b = byId.get(endpointOf(l, "to"));
+  if (!a || !b) return null;
+  const side = (o, name) => ({ displayMetadata: { displayName: name || o.name, groupDisplayName: null, pluralDisplayName: name || o.name, visibility: "NORMAL" }, typeClasses: [], apiName: camel(name || o.name) });
+  const definition = String(l.cardinality) === "many_to_many"
+    ? { type: "manyToMany", manyToMany: { objectTypeAToBLinkMetadata: side(b, l.name), objectTypeBToALinkMetadata: side(a, l.inverse_name), objectTypeRidA: a.rid, objectTypeRidB: b.rid, objectTypeAPrimaryKeyPropertyMapping: {}, objectTypeBPrimaryKeyPropertyMapping: {}, peeringMetadata: null } }
+    : { type: "oneToMany", oneToMany: { cardinalityHint: String(l.cardinality) === "one_to_one" ? "ONE_TO_ONE" : "ONE_TO_MANY", manyToOneLinkMetadata: side(a, l.inverse_name), objectTypeRidManySide: b.rid, objectTypeRidOneSide: a.rid, oneToManyLinkMetadata: side(b, l.name), oneSidePrimaryKeyToManySidePropertyMapping: {} } };
+  return { description: l.description || null, definition, id: l.id, rid: l.rid, status: DRAFT_STATUS, redacted: null };
+}
+export function linkTypeHitOf(models, linkTypeRid, linkTypeId = null) {
+  for (const m of models || []) {
+    const l = m.linkTypes.find((x) => (linkTypeRid && x.rid === linkTypeRid) || (linkTypeId && x.id === linkTypeId));
+    if (l) { const lt = linkTypeOf(m, l); if (lt) return { model: m, l, lt }; }
+  }
+  return null;
+}
+// POST /ontology-metadata/api/ontology/linkTypesForObjectTypes(V2) — each requested object type's link types
 export function linkTypesForObjectTypesOf(request, models) {
   const out = {};
   for (const otRid of Object.keys(request?.objectTypeVersions || {})) {
     const hit = (models || []).map((mm) => ({ mm, ot: mm.objectTypes.find((o) => o.rid === otRid) })).find((x) => x.ot);
     if (!hit) continue;
-    const { mm } = hit;
-    const byId = new Map(mm.objectTypes.map((o) => [o.id, o]));
-    out[otRid] = mm.linkTypes.filter((l) => [endpointOf(l, "from"), endpointOf(l, "to")].includes(hit.ot.id)).map((l) => {
-      const a = byId.get(endpointOf(l, "from")), b = byId.get(endpointOf(l, "to"));
-      if (!a || !b) return null;
-      const side = (o, name) => ({ displayMetadata: { displayName: name || o.name, groupDisplayName: null, pluralDisplayName: name || o.name, visibility: "NORMAL" }, typeClasses: [], apiName: camel(name || o.name) });
-      return {
-        description: l.description || null, id: l.id, rid: l.rid, status: DRAFT_STATUS, redacted: null,
-        definition: { type: "manyToMany", manyToMany: { objectTypeAToBLinkMetadata: side(b, l.name), objectTypeBToALinkMetadata: side(a, l.inverse_name), objectTypeRidA: a.rid, objectTypeRidB: b.rid, objectTypeAPrimaryKeyPropertyMapping: {}, objectTypeBPrimaryKeyPropertyMapping: {}, peeringMetadata: null } },
-      };
-    }).filter(Boolean);
+    out[otRid] = hit.mm.linkTypes.filter((l) => [endpointOf(l, "from"), endpointOf(l, "to")].includes(hit.ot.id)).map((l) => linkTypeOf(hit.mm, l)).filter(Boolean);
   }
   return { linkTypes: out };
+}
+// POST /ontology-metadata/api/ontology/ontology/load/<ontology rid>/<version>/loadAllObjectTypes — the ontology's object
+// types (each in its load envelope, as bulkLoadEntities answers it), a page at a time (the page token is the offset)
+export function allObjectTypesOf(model, request) {
+  if (!model) return { objectTypes: [], nextPageToken: null };
+  const from = Math.max(0, Number(request?.pageToken) || 0), size = Math.max(1, Number(request?.pageSizeLimit) || 500);
+  const page = model.objectTypes.slice(from, from + size).map((ot) => objectTypeEntityOf(model, ot));
+  return { objectTypes: page, nextPageToken: from + size < model.objectTypes.length ? String(from + size) : null };
+}
+// POST /ontology-metadata/api/actions/types/load/all/<ontology rid>[/<version>] — the ontology's action types (each the
+// action type itself, not its load envelope), a page at a time
+export function allActionTypesOf(model, request) {
+  if (!model) return { actionTypes: [], nextPageToken: null };
+  const from = Math.max(0, Number(request?.pageToken) || 0), size = Math.max(1, Number(request?.pageSizeLimit) || 500);
+  return { actionTypes: model.actionTypes.slice(from, from + size).map((a) => actionTypeEntityOf(model, a).actionType), nextPageToken: from + size < model.actionTypes.length ? String(from + size) : null };
+}
+// POST /objects-data-funnel/api/view/currentV4 — the object database views of the caller's types: none (an ODK type
+// is indexed in no object database)
+export function objectViewsOf(request, models) {
+  const ours = new Set((models || []).flatMap((m) => m.objectTypes.map((o) => o.rid)));
+  return { snapshotId: null, views: (request?.objectTypes || []).filter((l) => ours.has(l?.rid)).map((l) => ({ locator: { rid: l.rid, ref: l.ref ?? null }, resolved: { views: [], ref: null, forkView: null } })) };
+}
+// POST /objects-data-funnel/api/status/object-type — a type's indexing status: no pipeline indexes it (an ODK type is
+// indexed in no object database), and it is not archived. Null for a type that is not the caller's.
+export function objectTypeFunnelStatusOf(request, models) {
+  const ours = (models || []).some((m) => m.objectTypes.some((o) => o.rid === request?.objectType));
+  return ours ? { isMigratingFunnelStorageSystem: null, resolvedRef: null, activePipeline: null, replacementPipeline: null, invalidDefinition: null, archiveStatus: { type: "active", active: {} }, activePipelineHasPatches: false } : null;
+}
+// POST /objects-data-funnel/api/view/policiesV3 — the row and property policies of the caller's types: none (no granular
+// policy restricts who sees a type's objects or properties; there are no objects)
+export function objectTypePoliciesOf(request, models) {
+  const ours = new Set((models || []).flatMap((m) => m.objectTypes.map((o) => o.rid)));
+  return { policies: (request?.objectTypes || []).filter((l) => ours.has(l?.rid)).map((l) => ({ locator: { rid: l.rid, ref: l.ref ?? null }, resolved: { policies: { row: [], property: {} }, ref: null } })) };
+}
+// POST /compass/api/roles — the role grants on the caller's types: none (no ontology roles are kept)
+export function compassRolesOf(request, models) {
+  const ours = new Set((models || []).flatMap((m) => [m.rid, ...m.objectTypes.map((o) => o.rid), ...m.linkTypes.map((l) => l.rid), ...m.actionTypes.map((a) => a.rid)]));
+  return { resourceRolesResultMap: Object.fromEntries((request?.rids || []).filter((r) => ours.has(r)).map((r) => [r, { grants: [], disableInheritedPermissionsForPrincipals: [], disableInheritedPermissions: false, disableInheritedPermissionsType: null }])) };
+}
+// PUT /ontology-metadata/api/permissions/linkTypes — the caller sees their link types; none is edited here
+export function linkTypePermissionsOf(request, models) {
+  return { linkTypePermissions: Object.fromEntries((request?.linkTypeRids || []).filter((r) => linkTypeHitOf(models, r)).map((r) => [r, {
+    canView: true, canEdit: false, canDelete: false, canAddDatasources: false, canUpdateRoles: false,
+    datasourcePermissions: {}, isEditRestrictedByDatasources: false, packageRid: null, permissionModel: { type: "roles", roles: {} },
+  }])) };
+}
+// POST /ontology-metadata/api/ontology/ontology/load/datasources — no type is backed by a datasource (an ODK model holds
+// no object instances and no join tables), so each of the caller's requested types has none
+export function datasourcesOf(request, models) {
+  const ourTypes = new Set((models || []).flatMap((m) => m.objectTypes.map((o) => o.rid)));
+  return {
+    objectTypes: Object.fromEntries(Object.keys(request?.objectTypes || {}).filter((r) => ourTypes.has(r)).map((r) => [r, []])),
+    manyToManyLinkTypes: Object.fromEntries(Object.keys(request?.manyToManyLinkTypes || {}).filter((r) => linkTypeHitOf(models, r)).map((r) => [r, []])),
+  };
 }
 
 // ---- POST /ontology-metadata/api/ontology/v2/modification/history/entity — one entity's history: the draft's revisions
