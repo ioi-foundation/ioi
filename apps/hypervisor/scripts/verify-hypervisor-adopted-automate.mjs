@@ -354,8 +354,9 @@ async function run() {
 
     // ---- 5. The detail page's own writes: its description, and Pause — whose popover promises that
     // in-flight executions are canceled mid-run — then Resume. The slow fixture and its run are posted to
-    // the daemon (the run is the thing being paused, not the lane under test).
-    const slow = await fetch(`${DAEMON}/v1/hypervisor/automations`, { method: "POST", headers: { cookie: COOKIE, "content-type": "application/json" }, body: JSON.stringify({ project_ref: project.project?.id, name: `slow-${tag}`, steps: [{ kind: "command", command: "sleep 8; echo SLOW_FIRST" }, { kind: "command", command: "echo SLOW_SECOND" }] }) }).then((r) => r.json()).catch(() => ({}));
+    // the daemon (the run is the thing being paused, not the lane under test). Its first step outlasts the clicks that
+    // reach Pause (up to ~14 s): at 8 s the second step sometimes ran before Pause landed, and the check flaked.
+    const slow = await fetch(`${DAEMON}/v1/hypervisor/automations`, { method: "POST", headers: { cookie: COOKIE, "content-type": "application/json" }, body: JSON.stringify({ project_ref: project.project?.id, name: `slow-${tag}`, steps: [{ kind: "command", command: "sleep 20; echo SLOW_FIRST" }, { kind: "command", command: "echo SLOW_SECOND" }] }) }).then((r) => r.json()).catch(() => ({}));
     const slowId = slow.automation?.automation_id || "";
     const writes = [];
     await pg.goto(`${SERVE}/automations?automation=${slowId}`, { waitUntil: "domcontentloaded" });
@@ -506,6 +507,19 @@ async function run() {
     await pg.waitForTimeout(3000);
     const starOff = await star.getAttribute("aria-checked").catch(() => null);
     const unfavorited = !(valueOf(await prefsOf(), "favorites").favorites || []).some((f) => f.rid === rid);
+    // File → Open automation… is the app's way back to choosing one: it lands on the Overview, which lists the caller's
+    // automations (Active automations, Owned by you) and the one just opened under Recently viewed.
+    await pg.getByText("File", { exact: true }).first().click({ timeout: 6000 }).catch(() => { /* named below */ });
+    await pg.waitForTimeout(1000);
+    await pg.locator("[role=menuitem], .bp6-menu-item").filter({ hasText: /Open automation/u }).first().click({ timeout: 6000 }).catch(() => { /* named below */ });
+    await pg.waitForTimeout(8000);
+    const pickerUrl = pg.url();
+    const pickerText = (await pg.evaluate(() => document.body.innerText)).replace(/\s+/g, " ");
+    const activeCount = Number((pickerText.match(/Active automations (\d+)/u) || [])[1] || 0);
+    const ownedAutomations = ((await daemonRead("/v1/hypervisor/automations")).body?.automations || []).filter((x) => x.enabled !== false).length;
+    ok("File → Open automation… lands on the Overview, where the caller's automations are counted and the one just opened is under Recently viewed",
+      /\/workspace\/object-monitoring\/?$/u.test(new URL(pickerUrl).pathname) && activeCount === ownedAutomations && activeCount > 0 && pickerText.includes(`auto-${tag}-header`),
+      `at ${new URL(pickerUrl).pathname} · active ${activeCount} (daemon ${ownedAutomations}) · recent listed ${pickerText.includes(`auto-${tag}-header`)}`);
     ok("opening an automation is a view the Overview's Recently viewed lists (by name, with its creator), and its header star is a favorite kept in the daemon's preference plane — on, then off",
       viewed && starBefore === "false" && starOn === "true" && favorited && recentSection.includes(`auto-${tag}-header`) && !/You have no recent files/u.test(recentSection)
         && !/\(auto-/u.test(recentSection) && starOff === "false" && unfavorited,

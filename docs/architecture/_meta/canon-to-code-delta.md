@@ -1375,6 +1375,13 @@ landed. Correct every copy, or the ones left behind go on reading as evidence.
 | **Two readings made deliberately, both recorded.** "Delete" means ARCHIVE — there is no DELETE verb on a memory entry, and reading the acceptance literally would have invented one. And skills and affinities keep their direct verbs, because the unit's scope is the memory-entry and memory-mutation owners. | the verifier's nonclaims | recorded |
 | **The census caught the cut adding a production writer, and the buckets are what mattered.** `check:ontology-admission-census` went red on the writer-call population. The FAMILY writer bucket (57), family mentions (285), the non-ODK literal bucket (243) and raw filesystem calls (234) were all unchanged; only the runtime-parameter bucket moved, by exactly the two added calls, both writing a LITERAL family. Had the family bucket moved it would have meant a new admitter. Re-pinned with that reasoning beside the numbers. | `check:ontology-admission-census` 27/27 | repaired |
 
+### Journey verification CCXV (2026-09-28, R-241 Automate — Open automation…, and a flaky pause check)
+
+| Delta | Evidence | Disposition |
+|---|---|---|
+| **File → Open automation… was never driven.** It is the app's way back to choosing an automation. It lands on the Overview, which counts the caller's active automations from the daemon and lists the one just opened under Recently viewed. | `check:adopted-automate` 23/23 | **bound** |
+| **The Pause check flaked.** Its fixture's first step slept 8 s. The clicks that reach Pause can take about 14 s, so the instant second step sometimes ran before Pause landed ("done, done"). The first step now outlasts the clicks, so Pause lands mid-step and the next step is skipped. | `check:adopted-automate` 23/23 after the change (the run: done, skipped); before it, 22/23 once and 23/23 once on the same tree | **fixed** |
+
 ### Journey verification CCXIV (2026-09-28, R-241 Automate — Favorites and Recently viewed are the caller's own)
 
 | Delta | Evidence | Disposition |
