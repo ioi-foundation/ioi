@@ -462,7 +462,10 @@ export async function startIsolatedPlane({
     return stopPromise;
   };
 
-  if (!(await waitFor(`${daemonUrl}/v1/hypervisor/data-sources`, readyTimeoutMs)) || !childIsAlive(daemon)) {
+  // Readiness is the daemon's own health route. It used to be an anonymous GET of the data-source
+  // list, which answered 200 only because that list was not caller-scoped; it now refuses an
+  // anonymous caller (401), as the ODK reads do.
+  if (!(await waitFor(`${daemonUrl}/healthz`, readyTimeoutMs)) || !childIsAlive(daemon)) {
     const diagnosticTail = boundedSanitizedLogTail(logPath);
     const exit = await Promise.race([
       childExits.get(daemon),

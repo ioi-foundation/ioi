@@ -51,7 +51,7 @@ export async function load(ctx) {
     ? createReadClient({ daemon: "", fetchImpl: ctx.daemonFetch })
     : createReadClient({ daemon: ctx.daemon });
   const [model, search, saved] = await Promise.all([
-    loadOntologyModel(ctx.daemon),
+    loadOntologyModel(ctx.daemon, { fetchImpl: ctx.daemonFetch }),
     loadInstanceSearch(ctx, client),
     client.read(SAVED_SETS_PLANE),
   ]);

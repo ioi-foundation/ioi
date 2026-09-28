@@ -27,7 +27,10 @@ export async function load(ctx) {
   // W2.1 (brief §5 PR 4): the eleven pipeline reads ride the shared read-projection client;
   // a degraded plane stays an honest [] (identical behavior), typed on `degraded`.
   const { createReadClient } = await import("../read-client.mjs");
-  const r = await createReadClient({ daemon: ctx.daemon }).readMany({
+  // Data sources and materialized sets are caller-scoped (an anonymous read is refused), so the
+  // reads ride the request's own identity when the runtime hands one over.
+  const client = typeof ctx.daemonFetch === "function" ? createReadClient({ daemon: "", fetchImpl: ctx.daemonFetch }) : createReadClient({ daemon: ctx.daemon });
+  const r = await client.readMany({
     o: "/v1/hypervisor/odk/domain-ontologies",
     ds: "/v1/hypervisor/data-sources",
     cm: "/v1/hypervisor/odk/connector-mappings",

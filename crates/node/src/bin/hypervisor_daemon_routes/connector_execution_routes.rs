@@ -21,7 +21,7 @@ use std::sync::Arc;
 use std::time::{SystemTime, UNIX_EPOCH};
 
 use axum::extract::{Path as AxumPath, State};
-use axum::http::StatusCode;
+use axum::http::{HeaderMap, StatusCode};
 use axum::Json;
 use serde_json::{json, Value};
 use sha2::{Digest, Sha256};
@@ -1001,23 +1001,165 @@ pub(crate) async fn handle_run_execute(
     )
 }
 
-/// GET /v1/hypervisor/odk/materialized-object-sets.
-pub(crate) async fn handle_sets_list(State(st): State<Arc<DaemonState>>) -> Json<Value> {
-    let mut items = read_record_dir(&st.data_dir, SET_DIR);
-    items.sort_by(|a, b| s(b, "registered_at", "").cmp(&s(a, "registered_at", "")));
-    Json(
-        json!({ "ok": true, "schema_version": SET_SCHEMA, "materialized_object_sets": items, "runtimeTruthSource": "daemon-runtime" }),
-    )
+// ---- WHO MAY READ A MATERIALIZED SET -----------------------------------------------------------
+//
+// A set carries the objects a source's rows became. The list, overview and get handed every set,
+// objects included, to any caller (ledger CCXVII, "open (daemon)"). They now answer only for sets
+// the caller may see, and an anonymous caller gets the ODK reads' typed refusal. The execute path,
+// the delete path and the daemon's own readers (object search, workbench, orchestration) read the
+// record dir directly and are unchanged.
+//
+// A set is the caller's when it OWNS the set's ontology, or can SEE the data source the set was
+// materialized from:
+//   * a domain ontology carries no owner field; the principal that created it is the one its
+//     `created` receipt names (INV-37: every ontology mutation receipt names who acted), and that
+//     receipt outlives a later edit or deletion;
+//   * the source is found through the set's lease plan (or its run), and is seen under the
+//     data-source plane's own rule: declared by the caller, or filed in a project it is a member of.
+// Editing someone else's ontology grants nothing here: any authenticated principal may patch an
+// ontology, so an edit receipt is not a claim to the rows bound to it.
+struct SetVisibility {
+    ontology_creators: std::collections::HashMap<String, String>,
+    sources: std::collections::HashMap<String, Value>,
+    source_of_plan: std::collections::HashMap<String, String>,
+    source_of_run: std::collections::HashMap<String, String>,
 }
 
-/// GET /v1/hypervisor/odk/materialized-object-sets/overview.
-pub(crate) async fn handle_sets_overview(State(st): State<Arc<DaemonState>>) -> Json<Value> {
-    let items = read_record_dir(&st.data_dir, SET_DIR);
+impl SetVisibility {
+    fn read(data_dir: &str) -> Self {
+        let by = |dir: &str, key: &str, value: &str| -> std::collections::HashMap<String, String> {
+            read_record_dir(data_dir, dir)
+                .into_iter()
+                .filter_map(|r| {
+                    let k = r.get(key).and_then(Value::as_str)?.to_string();
+                    let v = r.get(value).and_then(Value::as_str)?.to_string();
+                    Some((k, v))
+                })
+                .collect()
+        };
+        let ontology_creators = read_record_dir(data_dir, crate::odk_routes::KIND_ONT_RECEIPT)
+            .into_iter()
+            .filter(|r| r.get("op").and_then(Value::as_str) == Some("created"))
+            .filter_map(|r| {
+                let oref = r.get("ontology_ref").and_then(Value::as_str)?.to_string();
+                let who = r
+                    .get("acting_principal_ref")
+                    .and_then(Value::as_str)
+                    .filter(|p| !p.is_empty())?
+                    .to_string();
+                Some((oref, who))
+            })
+            .collect();
+        let sources = read_record_dir(data_dir, crate::data_source_routes::RECORD_DIR)
+            .into_iter()
+            .filter_map(|r| Some((r.get("source_id").and_then(Value::as_str)?.to_string(), r)))
+            .collect();
+        Self {
+            ontology_creators,
+            sources,
+            source_of_plan: by(
+                crate::capability_lease_plan_routes::RECORD_DIR,
+                "ref",
+                "data_source_id",
+            ),
+            source_of_run: by(
+                crate::materializing_run_routes::RECORD_DIR,
+                "ref",
+                "data_source_id",
+            ),
+        }
+    }
+
+    fn owns_ontology(
+        &self,
+        set: &Value,
+        identity: &super::substrate_store::RequestIdentity,
+    ) -> bool {
+        let oref = s(set, "ontology_ref", "");
+        if oref.is_empty() {
+            return false;
+        }
+        let canonical = if oref.starts_with("ontology://") {
+            oref
+        } else {
+            format!("ontology://{oref}")
+        };
+        self.ontology_creators.get(&canonical) == Some(&identity.principal_ref)
+    }
+
+    fn sees_source(&self, set: &Value, identity: &super::substrate_store::RequestIdentity) -> bool {
+        let source_id = self
+            .source_of_plan
+            .get(&s(set, "capability_lease_plan_ref", ""))
+            .or_else(|| self.source_of_run.get(&s(set, "materializing_run_ref", "")));
+        source_id
+            .and_then(|id| self.sources.get(id))
+            .is_some_and(|source| crate::data_source_routes::source_visible_to(source, identity))
+    }
+
+    fn visible(&self, set: &Value, identity: &super::substrate_store::RequestIdentity) -> bool {
+        self.owns_ontology(set, identity) || self.sees_source(set, identity)
+    }
+}
+
+fn visible_sets(data_dir: &str, identity: &super::substrate_store::RequestIdentity) -> Vec<Value> {
+    let scope = SetVisibility::read(data_dir);
+    read_record_dir(data_dir, SET_DIR)
+        .into_iter()
+        .filter(|set| scope.visible(set, identity))
+        .collect()
+}
+
+fn set_caller(
+    data_dir: &str,
+    headers: &HeaderMap,
+) -> Result<super::substrate_store::RequestIdentity, (StatusCode, Json<Value>)> {
+    super::substrate_store::resolve_request_identity(data_dir, headers)
+        .map_err(super::odk_routes::odk_scope_refusal)
+}
+
+/// GET /v1/hypervisor/odk/materialized-object-sets — the caller's sets (newest first).
+pub(crate) async fn handle_sets_list(
+    State(st): State<Arc<DaemonState>>,
+    headers: HeaderMap,
+) -> (StatusCode, Json<Value>) {
+    match set_caller(&st.data_dir, &headers) {
+        Ok(identity) => (StatusCode::OK, Json(list_sets(&st.data_dir, &identity))),
+        Err(refusal) => refusal,
+    }
+}
+
+pub(crate) fn list_sets(
+    data_dir: &str,
+    identity: &super::substrate_store::RequestIdentity,
+) -> Value {
+    let mut items = visible_sets(data_dir, identity);
+    items.sort_by(|a, b| s(b, "registered_at", "").cmp(&s(a, "registered_at", "")));
+    json!({ "ok": true, "schema_version": SET_SCHEMA, "materialized_object_sets": items, "runtimeTruthSource": "daemon-runtime" })
+}
+
+/// GET /v1/hypervisor/odk/materialized-object-sets/overview — counts over the caller's sets only
+/// (a registry-wide total would say when another principal materialized one).
+pub(crate) async fn handle_sets_overview(
+    State(st): State<Arc<DaemonState>>,
+    headers: HeaderMap,
+) -> (StatusCode, Json<Value>) {
+    match set_caller(&st.data_dir, &headers) {
+        Ok(identity) => (StatusCode::OK, Json(sets_overview(&st.data_dir, &identity))),
+        Err(refusal) => refusal,
+    }
+}
+
+pub(crate) fn sets_overview(
+    data_dir: &str,
+    identity: &super::substrate_store::RequestIdentity,
+) -> Value {
+    let items = visible_sets(data_dir, identity);
     let objects: u64 = items
         .iter()
         .map(|r| r.get("count").and_then(|v| v.as_u64()).unwrap_or(0))
         .sum();
-    Json(json!({
+    json!({
         "ok": true,
         "schema_version": OVERVIEW_SCHEMA,
         "materialized_object_sets": items.len(),
@@ -1031,15 +1173,31 @@ pub(crate) async fn handle_sets_overview(State(st): State<Arc<DaemonState>>) -> 
             "no actions, writeback, export, train, evaluate, publish, or route exist on this path"
         ],
         "runtimeTruthSource": "daemon-runtime"
-    }))
+    })
 }
 
-/// GET /v1/hypervisor/odk/materialized-object-sets/:id.
+/// GET /v1/hypervisor/odk/materialized-object-sets/:id — one of the caller's sets. Identity first
+/// (no existence oracle for an anonymous caller); a set the caller may not see answers exactly as
+/// an absent one does.
 pub(crate) async fn handle_set_get(
     State(st): State<Arc<DaemonState>>,
+    headers: HeaderMap,
     AxumPath(id): AxumPath<String>,
 ) -> (StatusCode, Json<Value>) {
-    match find_by_key(&st.data_dir, SET_DIR, "id", &id) {
+    match set_caller(&st.data_dir, &headers) {
+        Ok(identity) => get_set(&st.data_dir, &identity, &id),
+        Err(refusal) => refusal,
+    }
+}
+
+pub(crate) fn get_set(
+    data_dir: &str,
+    identity: &super::substrate_store::RequestIdentity,
+    id: &str,
+) -> (StatusCode, Json<Value>) {
+    let found = find_by_key(data_dir, SET_DIR, "id", id)
+        .filter(|set| SetVisibility::read(data_dir).visible(set, identity));
+    match found {
         Some(r) => (
             StatusCode::OK,
             Json(json!({ "ok": true, "materialized_object_set": r })),
@@ -1052,11 +1210,29 @@ pub(crate) async fn handle_set_get(
 }
 
 /// DELETE — receipted removal that RESETS the tied projection's materialized state (no dangling counts).
+/// Identity first, as for the read: an anonymous caller is refused, and a set the caller may not see
+/// answers exactly as an absent one (it took no identity at all, so anyone could remove any set and
+/// learn whether an id existed).
 pub(crate) async fn handle_set_delete(
     State(st): State<Arc<DaemonState>>,
+    headers: HeaderMap,
     AxumPath(id): AxumPath<String>,
 ) -> (StatusCode, Json<Value>) {
-    let Some(set) = find_by_key(&st.data_dir, SET_DIR, "id", &id) else {
+    match set_caller(&st.data_dir, &headers) {
+        Ok(identity) => delete_set(&st.data_dir, &identity, &id),
+        Err(refusal) => refusal,
+    }
+}
+
+pub(crate) fn delete_set(
+    data_dir: &str,
+    identity: &super::substrate_store::RequestIdentity,
+    id: &str,
+) -> (StatusCode, Json<Value>) {
+    let id = id.to_string();
+    let Some(set) = find_by_key(data_dir, SET_DIR, "id", &id)
+        .filter(|set| SetVisibility::read(data_dir).visible(set, identity))
+    else {
         return (
             StatusCode::NOT_FOUND,
             Json(json!({ "ok": false, "removed": false, "id": id })),
@@ -1065,7 +1241,7 @@ pub(crate) async fn handle_set_delete(
     let projection_id = s(&set, "ontology_projection_id", "");
     let mut prior_projection: Option<Value> = None;
     if let Some(mut projection) = find_by_key(
-        &st.data_dir,
+        data_dir,
         crate::ontology_projection_routes::RECORD_DIR,
         "id",
         &projection_id,
@@ -1080,7 +1256,7 @@ pub(crate) async fn handle_set_delete(
         // set while the projection still claims `materialized: true` with a dead set_ref is
         // exactly the dangling count this handler's own doc comment promises to prevent.
         if crate::ontology_projection_routes::persist_materialized_state(
-            &st.data_dir,
+            data_dir,
             &projection_id,
             &projection,
         )
@@ -1095,14 +1271,14 @@ pub(crate) async fn handle_set_delete(
             );
         }
     }
-    let removed = remove_record(&st.data_dir, SET_DIR, &id);
+    let removed = remove_record(data_dir, SET_DIR, &id);
     if !removed {
         // The projection reset committed but the set removal failed: restore the prior
         // projection so a live set never stands beside a zeroed projection.
         if let Some(prior) = prior_projection {
             // CLASSIFIED — rollback/cleanup best-effort: compensating write on an already-failing path that ends in a typed error; there is no deeper fallback to fail into.
             let _ = crate::ontology_projection_routes::persist_materialized_state(
-                &st.data_dir,
+                data_dir,
                 &projection_id,
                 &prior,
             );
@@ -1114,7 +1290,7 @@ pub(crate) async fn handle_set_delete(
         );
     }
     let _ = run_receipt(
-        &st.data_dir,
+        data_dir,
         &s(&set, "materializing_run_ref", ""),
         "materialized_output_removed",
         "ok",
@@ -1198,5 +1374,221 @@ mod connector_execution_tests {
         let h = sha256_hex("row");
         assert!(h.starts_with("sha256:"));
         assert_eq!(h, sha256_hex("row"));
+    }
+
+    // ---- set visibility ------------------------------------------------------------------------
+
+    fn temp_dir(tag: &str) -> std::path::PathBuf {
+        let dir = std::env::temp_dir().join(format!("ioi-mset-{tag}-{:x}", nanos()));
+        std::fs::create_dir_all(&dir).unwrap();
+        dir
+    }
+    fn who(
+        principal_ref: &str,
+        tenants: &[&str],
+    ) -> super::super::substrate_store::RequestIdentity {
+        super::super::substrate_store::request_identity_for_test(
+            principal_ref,
+            tenants.iter().map(|t| t.to_string()),
+        )
+    }
+    /// An ontology as the ODK plane leaves it on disk: its `created` receipt names its creator.
+    fn ontology_created_by(data_dir: &str, ont: &str, principal_ref: &str) {
+        persist_record(
+            data_dir,
+            crate::odk_routes::KIND_ONT_RECEIPT,
+            &format!("ontr_{ont}"),
+            &json!({ "receipt_id": format!("ontr_{ont}"), "ontology_ref": format!("ontology://{ont}"), "op": "created", "outcome": "ok", "acting_principal_ref": principal_ref }),
+        )
+        .unwrap();
+    }
+    /// A registered set, the lease plan it ran under, and the data source that plan binds.
+    fn set_over(data_dir: &str, set: &str, ont: &str, source_id: Option<&str>) {
+        let plan_ref = format!("capability-lease-plan://plan_{set}");
+        if let Some(source_id) = source_id {
+            persist_record(
+                data_dir,
+                crate::capability_lease_plan_routes::RECORD_DIR,
+                &format!("plan_{set}"),
+                &json!({ "id": format!("plan_{set}"), "ref": plan_ref, "data_source_id": source_id }),
+            )
+            .unwrap();
+        }
+        persist_record(
+            data_dir,
+            SET_DIR,
+            set,
+            &json!({ "id": set, "ref": format!("materialized-object-set://{set}"), "ontology_ref": format!("ontology://{ont}"),
+                     "capability_lease_plan_ref": plan_ref, "materializing_run_ref": format!("materializing-run://run_{set}"),
+                     "objects": [{ "object_key": format!("{set}-1"), "title": "secret row" }], "count": 1, "registered_at": "2026-09-28T00:00:00Z" }),
+        )
+        .unwrap();
+    }
+    fn declared(data_dir: &str, principal_ref: &str, body: Value) -> String {
+        let (status, Json(reply)) =
+            crate::data_source_routes::create_data_source(data_dir, principal_ref, &body);
+        assert_eq!(status, StatusCode::CREATED, "{reply}");
+        reply["data_source"]["source_id"]
+            .as_str()
+            .unwrap()
+            .to_string()
+    }
+    fn listed(
+        data_dir: &str,
+        identity: &super::super::substrate_store::RequestIdentity,
+    ) -> Vec<String> {
+        let mut ids: Vec<String> = list_sets(data_dir, identity)["materialized_object_sets"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .map(|r| r["id"].as_str().unwrap().to_string())
+            .collect();
+        ids.sort();
+        ids
+    }
+
+    #[test]
+    fn a_set_the_caller_cannot_see_cannot_be_deleted_and_answers_as_absent() {
+        let dir = temp_dir("delete");
+        let data_dir = dir.to_str().unwrap();
+        ontology_created_by(data_dir, "ont_a", "user://alpha");
+        set_over(data_dir, "set_a", "ont_a", None);
+        let (status, Json(reply)) = delete_set(data_dir, &who("user://mallory", &[]), "set_a");
+        assert_eq!(status, StatusCode::NOT_FOUND, "{reply}");
+        assert!(
+            find_by_key(data_dir, SET_DIR, "id", "set_a").is_some(),
+            "another principal's delete removed nothing"
+        );
+        let (absent, _) = delete_set(data_dir, &who("user://mallory", &[]), "set_missing");
+        assert_eq!(
+            absent, status,
+            "a hidden set and an absent one answer alike"
+        );
+        let (status, Json(reply)) = delete_set(data_dir, &who("user://alpha", &[]), "set_a");
+        assert_eq!(status, StatusCode::OK, "{reply}");
+        assert!(
+            find_by_key(data_dir, SET_DIR, "id", "set_a").is_none(),
+            "the owner's delete removes it"
+        );
+    }
+
+    #[test]
+    fn each_principal_lists_reads_and_counts_only_the_sets_of_its_own_ontologies() {
+        let dir = temp_dir("owned");
+        let data_dir = dir.to_str().unwrap();
+        ontology_created_by(data_dir, "ont_a", "user://alpha");
+        ontology_created_by(data_dir, "ont_b", "user://beta");
+        set_over(data_dir, "mset_a", "ont_a", None);
+        set_over(data_dir, "mset_b", "ont_b", None);
+        let (alpha, beta) = (
+            who("user://alpha", &["org://local"]),
+            who("user://beta", &["org://local"]),
+        );
+
+        assert_eq!(listed(data_dir, &alpha), vec!["mset_a".to_string()]);
+        assert_eq!(listed(data_dir, &beta), vec!["mset_b".to_string()]);
+        assert!(listed(data_dir, &who("user://gamma", &["org://local"])).is_empty());
+
+        let (status, Json(mine)) = get_set(data_dir, &alpha, "mset_a");
+        assert_eq!(status, StatusCode::OK);
+        assert_eq!(mine["materialized_object_set"]["count"], json!(1));
+        let (status, Json(theirs)) = get_set(data_dir, &alpha, "mset_b");
+        let (_, Json(absent)) = get_set(data_dir, &alpha, "mset_absent");
+        assert_eq!(
+            status,
+            StatusCode::NOT_FOUND,
+            "another principal's set is not answered"
+        );
+        assert_eq!(theirs, absent, "and answers exactly as an absent one does");
+
+        let overview = sets_overview(data_dir, &alpha);
+        assert_eq!(
+            (
+                overview["materialized_object_sets"].clone(),
+                overview["object_instances"].clone()
+            ),
+            (json!(1), json!(1)),
+            "the overview counts the caller's sets and objects only"
+        );
+
+        // an edit receipt is not ownership: any principal may patch an ontology
+        persist_record(
+            data_dir,
+            crate::odk_routes::KIND_ONT_RECEIPT,
+            "ontr_patch",
+            &json!({ "receipt_id": "ontr_patch", "ontology_ref": "ontology://ont_b", "op": "patched", "acting_principal_ref": "user://alpha" }),
+        )
+        .unwrap();
+        assert_eq!(listed(data_dir, &alpha), vec!["mset_a".to_string()]);
+        assert_eq!(
+            read_record_dir(data_dir, SET_DIR).len(),
+            2,
+            "daemon-internal readers still see both"
+        );
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn a_set_is_seen_by_whoever_may_see_the_source_it_was_materialized_from() {
+        let dir = temp_dir("source");
+        let data_dir = dir.to_str().unwrap();
+        ontology_created_by(data_dir, "ont_g", "user://gamma");
+        let filed = declared(
+            data_dir,
+            "user://gamma",
+            json!({ "name": "payments", "kind": "file_drop", "project_ref": "project://project:payments" }),
+        );
+        let private = declared(
+            data_dir,
+            "user://gamma",
+            json!({ "name": "hr", "kind": "file_drop" }),
+        );
+        set_over(data_dir, "mset_p", "ont_g", Some(&filed));
+        set_over(data_dir, "mset_h", "ont_g", Some(&private));
+
+        let member = who("user://beta", &["org://local", "project://payments"]);
+        assert_eq!(
+            listed(data_dir, &member),
+            vec!["mset_p".to_string()],
+            "a member of the source's project sees the set materialized from it, and not the other"
+        );
+        assert_eq!(get_set(data_dir, &member, "mset_p").0, StatusCode::OK);
+        assert_eq!(
+            get_set(data_dir, &member, "mset_h").0,
+            StatusCode::NOT_FOUND
+        );
+        let outsider = who("user://delta", &["org://local"]);
+        assert!(listed(data_dir, &outsider).is_empty());
+        assert_eq!(
+            get_set(data_dir, &outsider, "mset_p").0,
+            StatusCode::NOT_FOUND
+        );
+        assert_eq!(
+            listed(data_dir, &who("user://gamma", &[])),
+            vec!["mset_h".to_string(), "mset_p".to_string()],
+            "the ontology's creator sees every set of it"
+        );
+
+        // a set whose plan is gone is still traced through its run
+        std::fs::remove_dir_all(dir.join(crate::capability_lease_plan_routes::RECORD_DIR)).unwrap();
+        persist_record(
+            data_dir,
+            crate::materializing_run_routes::RECORD_DIR,
+            "run_mset_p",
+            &json!({ "id": "run_mset_p", "ref": "materializing-run://run_mset_p", "data_source_id": filed }),
+        )
+        .unwrap();
+        assert_eq!(listed(data_dir, &member), vec!["mset_p".to_string()]);
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn an_anonymous_set_read_is_the_typed_refusal_the_odk_reads_give() {
+        let dir = temp_dir("anon");
+        let data_dir = dir.to_str().unwrap();
+        let (status, Json(reply)) = set_caller(data_dir, &HeaderMap::new()).unwrap_err();
+        assert_eq!(status, StatusCode::UNAUTHORIZED);
+        assert_eq!(reply["code"], json!("request_principal_required"));
+        let _ = std::fs::remove_dir_all(&dir);
     }
 }

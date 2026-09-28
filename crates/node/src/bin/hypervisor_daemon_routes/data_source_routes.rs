@@ -212,36 +212,135 @@ fn finalize_data_source_persist(
     }
 }
 
-fn sorted_sources(data_dir: &str) -> Vec<Value> {
-    let mut sources = read_record_dir(data_dir, RECORD_DIR);
+// ---- WHO MAY READ A DECLARED SOURCE -------------------------------------------------------------
+//
+// The three reads below handed every declared source, with its endpoint, credential posture and
+// declarer, to any caller that reached the daemon; the adopted Data Connection hid other principals'
+// sources client-side. The daemon now answers only for sources the caller may see, and an
+// anonymous caller is owed the same typed refusal the ODK reads and this plane's own writes give
+// (`odk_scope_refusal`). Daemon-internal readers (lease plans, mappings, sessions, runs) read the
+// record dir directly and keep full access; only the HTTP answers are scoped.
+
+/// The project a ref names, as the slug a `project://<slug>` membership carries. A project record's
+/// id is `project:<slug>` and its membership tenant is `project://<slug>` (the membership admission
+/// resolves one to the other), while a source filed through the adopted Data Connection names it
+/// `project://project:<slug>`. All three spellings name the same project record, so they compare
+/// by slug.
+fn project_slug(project_ref: &str) -> Option<&str> {
+    let tail = project_ref
+        .strip_prefix("project://")
+        .or_else(|| project_ref.strip_prefix("project:"))?;
+    let slug = tail.strip_prefix("project:").unwrap_or(tail);
+    (!slug.is_empty()).then_some(slug)
+}
+
+/// A caller may see a source it declared, or one filed in a project it is a member of. Project
+/// membership is the principal's live `project://` tenant membership (revocation takes effect on
+/// the next request); the project registry itself names no members, so being listed there grants
+/// nothing. A source with no declarer and no project (written before declarations were identity
+/// first) is answered to no one over HTTP.
+pub(crate) fn source_visible_to(
+    record: &Value,
+    identity: &super::substrate_store::RequestIdentity,
+) -> bool {
+    if record
+        .get("declared_by_principal_ref")
+        .and_then(Value::as_str)
+        == Some(identity.principal_ref.as_str())
+    {
+        return true;
+    }
+    let Some(slug) = record
+        .get("project_ref")
+        .and_then(Value::as_str)
+        .and_then(project_slug)
+    else {
+        return false;
+    };
+    identity
+        .tenant_refs
+        .iter()
+        .filter(|tenant| tenant.starts_with("project://"))
+        .any(|tenant| project_slug(tenant) == Some(slug))
+}
+
+fn visible_sources(
+    data_dir: &str,
+    identity: &super::substrate_store::RequestIdentity,
+) -> Vec<Value> {
+    let mut sources: Vec<Value> = read_record_dir(data_dir, RECORD_DIR)
+        .into_iter()
+        .filter(|record| source_visible_to(record, identity))
+        .collect();
     sources.sort_by(|a, b| s(b, "created_at", "").cmp(&s(a, "created_at", "")));
     sources
 }
 
-/// GET /v1/hypervisor/data-sources — the declared data-source registry (newest first).
-pub(crate) async fn handle_data_sources_list(State(st): State<Arc<DaemonState>>) -> Json<Value> {
-    Json(json!({
+fn caller(
+    data_dir: &str,
+    headers: &HeaderMap,
+) -> Result<super::substrate_store::RequestIdentity, (StatusCode, Json<Value>)> {
+    super::substrate_store::resolve_request_identity(data_dir, headers)
+        .map_err(super::odk_routes::odk_scope_refusal)
+}
+
+/// GET /v1/hypervisor/data-sources — the caller's declared data sources (newest first): those it
+/// declared and those filed in a project it is a member of.
+pub(crate) async fn handle_data_sources_list(
+    State(st): State<Arc<DaemonState>>,
+    headers: HeaderMap,
+) -> (StatusCode, Json<Value>) {
+    match caller(&st.data_dir, &headers) {
+        Ok(identity) => (
+            StatusCode::OK,
+            Json(list_data_sources(&st.data_dir, &identity)),
+        ),
+        Err(refusal) => refusal,
+    }
+}
+
+pub(crate) fn list_data_sources(
+    data_dir: &str,
+    identity: &super::substrate_store::RequestIdentity,
+) -> Value {
+    json!({
         "schema_version": SOURCE_SCHEMA,
-        "data_sources": sorted_sources(&st.data_dir),
+        "data_sources": visible_sources(data_dir, identity),
         "runtimeTruthSource": "daemon-runtime"
-    }))
+    })
 }
 
 /// GET /v1/hypervisor/data-sources/overview — posture + counts + governance gaps (named honestly).
 /// `source_kinds` is the DECLARATION VOCABULARY projection (#69): each known kind with whether it
 /// requires an endpoint — a declaring surface derives its kind picker and endpoint requirement
-/// from THIS, never from a hardcoded copy. `known_kinds` is retained for compatibility.
+/// from THIS, never from a hardcoded copy. `known_kinds` is retained for compatibility. The counts
+/// are over the caller's sources only: a registry-wide total would tell any caller when another
+/// principal declared one.
 pub(crate) async fn handle_data_sources_overview(
     State(st): State<Arc<DaemonState>>,
-) -> Json<Value> {
-    let sources = read_record_dir(&st.data_dir, RECORD_DIR);
+    headers: HeaderMap,
+) -> (StatusCode, Json<Value>) {
+    match caller(&st.data_dir, &headers) {
+        Ok(identity) => (
+            StatusCode::OK,
+            Json(data_sources_overview(&st.data_dir, &identity)),
+        ),
+        Err(refusal) => refusal,
+    }
+}
+
+pub(crate) fn data_sources_overview(
+    data_dir: &str,
+    identity: &super::substrate_store::RequestIdentity,
+) -> Value {
+    let sources = visible_sources(data_dir, identity);
     let by_kind = |kind: &str| sources.iter().filter(|r| s(r, "kind", "") == kind).count();
     let kinds: Value = SOURCE_KINDS
         .iter()
         .filter(|(k, _)| by_kind(k) > 0)
         .map(|(k, _)| json!({ "kind": k, "count": by_kind(k) }))
         .collect();
-    Json(json!({
+    json!({
         "schema_version": OVERVIEW_SCHEMA,
         "data_sources": sources.len(),
         "kinds": kinds,
@@ -254,15 +353,29 @@ pub(crate) async fn handle_data_sources_overview(
             "credentials never enter this plane — only a declared credential posture is stored; the secret lives in the daemon credential planes and is referenced by posture"
         ],
         "runtimeTruthSource": "daemon-runtime"
-    }))
+    })
 }
 
-/// GET /v1/hypervisor/data-sources/:id — one declared source.
+/// GET /v1/hypervisor/data-sources/:id — one declared source the caller may see. Identity comes
+/// first, so an anonymous caller gets no existence oracle; a source the caller may not see answers
+/// exactly as an absent one does.
 pub(crate) async fn handle_data_source_get(
     State(st): State<Arc<DaemonState>>,
+    headers: HeaderMap,
     AxumPath(id): AxumPath<String>,
 ) -> (StatusCode, Json<Value>) {
-    match load_source(&st.data_dir, &id) {
+    match caller(&st.data_dir, &headers) {
+        Ok(identity) => get_data_source(&st.data_dir, &identity, &id),
+        Err(refusal) => refusal,
+    }
+}
+
+pub(crate) fn get_data_source(
+    data_dir: &str,
+    identity: &super::substrate_store::RequestIdentity,
+    id: &str,
+) -> (StatusCode, Json<Value>) {
+    match load_source(data_dir, id).filter(|record| source_visible_to(record, identity)) {
         Some(record) => (StatusCode::OK, Json(json!({ "data_source": record }))),
         None => (
             StatusCode::NOT_FOUND,
@@ -871,6 +984,183 @@ mod data_source_tests {
             (status, reply["changed"].clone()),
             (StatusCode::OK, json!(["name"])),
             "a name is not what a lease reaches"
+        );
+    }
+
+    fn who(
+        principal_ref: &str,
+        tenants: &[&str],
+    ) -> super::super::substrate_store::RequestIdentity {
+        super::super::substrate_store::request_identity_for_test(
+            principal_ref,
+            tenants.iter().map(|t| t.to_string()),
+        )
+    }
+    fn declare(data_dir: &str, principal_ref: &str, body: Value) -> String {
+        let (status, Json(reply)) = create_data_source(data_dir, principal_ref, &body);
+        assert_eq!(status, StatusCode::CREATED, "{reply}");
+        reply["data_source"]["source_id"]
+            .as_str()
+            .unwrap()
+            .to_string()
+    }
+    fn listed(
+        data_dir: &str,
+        identity: &super::super::substrate_store::RequestIdentity,
+    ) -> Vec<String> {
+        list_data_sources(data_dir, identity)["data_sources"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .map(|r| r["source_id"].as_str().unwrap().to_string())
+            .collect()
+    }
+
+    #[test]
+    fn each_principal_lists_reads_and_counts_only_the_sources_it_declared() {
+        let dir = temp_dir("scoped");
+        let data_dir = dir.to_str().unwrap();
+        let alpha_src = declare(
+            data_dir,
+            "user://alpha",
+            json!({ "name": "alpha orders", "kind": "rest_api", "endpoint": "https://alpha.example.test/orders" }),
+        );
+        let beta_src = declare(
+            data_dir,
+            "user://beta",
+            json!({ "name": "beta drop", "kind": "file_drop" }),
+        );
+        let (alpha, beta) = (
+            who("user://alpha", &["org://local"]),
+            who("user://beta", &["org://local"]),
+        );
+
+        assert_eq!(listed(data_dir, &alpha), vec![alpha_src.clone()]);
+        assert_eq!(listed(data_dir, &beta), vec![beta_src.clone()]);
+        assert!(
+            listed(data_dir, &who("user://gamma", &["org://local"])).is_empty(),
+            "a principal that declared nothing and is in no project sees nothing, though it shares the organization"
+        );
+
+        let (status, Json(reply)) = get_data_source(data_dir, &alpha, &alpha_src);
+        assert_eq!(status, StatusCode::OK);
+        assert_eq!(reply["data_source"]["name"], json!("alpha orders"));
+        let (status, Json(theirs)) = get_data_source(data_dir, &alpha, &beta_src);
+        let (_, Json(absent)) = get_data_source(data_dir, &alpha, "ds_absent");
+        assert_eq!(
+            status,
+            StatusCode::NOT_FOUND,
+            "another principal's source is not answered"
+        );
+        assert_eq!(
+            theirs["error"]["code"], absent["error"]["code"],
+            "and answers exactly as an absent one does"
+        );
+        assert!(!theirs.to_string().contains("beta drop"));
+
+        let overview = data_sources_overview(data_dir, &alpha);
+        assert_eq!(
+            overview["data_sources"],
+            json!(1),
+            "the overview counts the caller's sources only"
+        );
+        assert_eq!(
+            overview["kinds"],
+            json!([{ "kind": "rest_api", "count": 1 }])
+        );
+        assert_eq!(
+            overview["source_kinds"].as_array().unwrap().len(),
+            SOURCE_KINDS.len(),
+            "the declaration vocabulary is not scoped"
+        );
+        assert_eq!(
+            read_record_dir(data_dir, RECORD_DIR).len(),
+            2,
+            "the record dir still holds both, for daemon-internal readers"
+        );
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn a_project_member_sees_a_source_filed_in_that_project_and_a_non_member_does_not() {
+        let dir = temp_dir("project");
+        let data_dir = dir.to_str().unwrap();
+        // the adopted Data Connection files a source as `project://<project_id>`, i.e.
+        // `project://project:<slug>`; a membership names `project://<slug>`
+        let filed = declare(
+            data_dir,
+            "user://alpha",
+            json!({ "name": "payments", "kind": "file_drop", "project_ref": "project://project:payments" }),
+        );
+        let canonical = declare(
+            data_dir,
+            "user://alpha",
+            json!({ "name": "ledger", "kind": "file_drop", "project_ref": "project://payments" }),
+        );
+        let elsewhere = declare(
+            data_dir,
+            "user://alpha",
+            json!({ "name": "hr", "kind": "file_drop", "project_ref": "project://hr" }),
+        );
+        let member = who("user://beta", &["org://local", "project://payments"]);
+        let mut seen = listed(data_dir, &member);
+        seen.sort();
+        let mut want = vec![filed.clone(), canonical.clone()];
+        want.sort();
+        assert_eq!(
+            seen, want,
+            "a member of project://payments sees both of its sources, and not project://hr's"
+        );
+        assert_eq!(get_data_source(data_dir, &member, &filed).0, StatusCode::OK);
+        assert_eq!(
+            get_data_source(data_dir, &member, &elsewhere).0,
+            StatusCode::NOT_FOUND
+        );
+
+        let outsider = who("user://gamma", &["org://local", "project://pay"]);
+        assert!(
+            listed(data_dir, &outsider).is_empty(),
+            "a different project, or a prefix of the slug, grants nothing"
+        );
+        assert_eq!(
+            get_data_source(data_dir, &outsider, &filed).0,
+            StatusCode::NOT_FOUND
+        );
+        let not_a_project = who("user://gamma", &["org://payments"]);
+        assert!(
+            listed(data_dir, &not_a_project).is_empty(),
+            "an organization tenant is not a project membership"
+        );
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn an_anonymous_read_is_the_typed_refusal_the_odk_reads_give() {
+        let dir = temp_dir("anon");
+        let data_dir = dir.to_str().unwrap();
+        declare(
+            data_dir,
+            "user://alpha",
+            json!({ "name": "x", "kind": "file_drop" }),
+        );
+        let (status, Json(reply)) = caller(data_dir, &HeaderMap::new()).unwrap_err();
+        assert_eq!(status, StatusCode::UNAUTHORIZED);
+        assert_eq!(reply["code"], json!("request_principal_required"));
+        assert!(!reply.to_string().contains("\"x\""));
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn project_refs_compare_by_the_project_they_name() {
+        assert_eq!(project_slug("project://payments"), Some("payments"));
+        assert_eq!(project_slug("project://project:payments"), Some("payments"));
+        assert_eq!(project_slug("project:payments"), Some("payments"));
+        assert_eq!(project_slug("project://"), None);
+        assert_eq!(project_slug("org://payments"), None);
+        let legacy = json!({ "source_id": "ds_old", "project_ref": null });
+        assert!(
+            !source_visible_to(&legacy, &who("user://alpha", &["project://payments"])),
+            "a source with no declarer and no project is answered to no one"
         );
     }
 

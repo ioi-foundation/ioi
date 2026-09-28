@@ -34,7 +34,10 @@ export async function load(ctx) {
   // and null for the declaration vocabulary (which the form fails closed on), and each plane's
   // typed outcome is carried on `degraded` so a pane can name WHY, not just render absence.
   const { createReadClient } = await import("../read-client.mjs");
-  const r = await createReadClient({ daemon: ctx.daemon }).readMany({
+  // The data-source reads are caller-scoped (an anonymous read is refused), so they ride the
+  // request's own identity when the runtime hands one over.
+  const client = typeof ctx.daemonFetch === "function" ? createReadClient({ daemon: "", fetchImpl: ctx.daemonFetch }) : createReadClient({ daemon: ctx.daemon });
+  const r = await client.readMany({
     ds: "/v1/hypervisor/data-sources",
     mr: "/v1/hypervisor/odk/materializing-runs",
     cm: "/v1/hypervisor/odk/connector-mappings",

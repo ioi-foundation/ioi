@@ -95,7 +95,9 @@ async function buildChain(tag, endpoint, kind, connId, cleanup, opts = {}) {
 }
 
 async function run() {
-  const up = await fetch(`${DAEMON}/v1/hypervisor/odk/materialized-object-sets/overview`).then((r) => r.ok).catch(() => false);
+  // The set reads are caller-scoped and refuse an anonymous caller (401): that answer still proves
+  // the execution plane is mounted. Only no answer, a 404 or a 5xx means it is not.
+  const up = await fetch(`${DAEMON}/v1/hypervisor/odk/materialized-object-sets/overview`).then((r) => r.ok || r.status === 401).catch(() => false);
   if (!up) { console.error("BLOCKED: daemon execution plane not reachable at " + DAEMON); process.exit(2); }
   const cleanup = [];
 

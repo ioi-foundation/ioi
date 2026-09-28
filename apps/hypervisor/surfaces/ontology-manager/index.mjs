@@ -20,7 +20,7 @@ export const meta = {
 // need (connector mappings + policy-bound views + the daemon's edit vocabulary). A dead daemon
 // projection yields null (an honest "unavailable" inspector state), never a fabricated array.
 export async function load(ctx) {
-  const base = await loadOntologyModel(ctx.daemon);
+  const base = await loadOntologyModel(ctx.daemon, { fetchImpl: ctx.daemonFetch });
   // W2.1 (brief §5 PR 3): the resource read rides the shared read-projection client too. A
   // degraded plane stays NULL (the honest "unavailable" inspector state) — typed now, so the
   // reason is knowable; an ok read with no rows stays [] (honest empty). No behavior change.
@@ -32,7 +32,8 @@ export async function load(ctx) {
   // pane can say "did not answer" rather than render an unanswered read as an empty review queue.
   // The declared sources an object type can be backed by (R-240: the mapping lane). NULL when the
   // plane did not answer — the form then says so instead of offering an empty choice.
-  const ds = await createReadClient({ daemon: ctx.daemon }).read("/v1/hypervisor/data-sources");
+  // caller-scoped: an anonymous read is refused, so it rides the request's own identity
+  const ds = await (typeof ctx.daemonFetch === "function" ? createReadClient({ daemon: "", fetchImpl: ctx.daemonFetch }) : createReadClient({ daemon: ctx.daemon })).read("/v1/hypervisor/data-sources");
   base.lists.data_sources = ds.ok ? (Array.isArray(ds.payload.data_sources) ? ds.payload.data_sources : []) : null;
   const pr = await createReadClient({ daemon: ctx.daemon }).read("/v1/hypervisor/odk/ontology-proposals");
   base.lists.ontology_proposals = pr.ok ? (Array.isArray(pr.payload.ontology_proposals) ? pr.payload.ontology_proposals : []) : null;

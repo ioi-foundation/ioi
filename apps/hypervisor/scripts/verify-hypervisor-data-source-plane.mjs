@@ -20,7 +20,7 @@
 // Usage: node apps/hypervisor/scripts/verify-hypervisor-data-source-plane.mjs
 // Exit 2 = BLOCKED (daemon binary not built).
 
-import { startIsolatedPlane, receiptFileCount } from "./lib/isolated-daemon.mjs";
+import { startIsolatedPlane, receiptFileCount, isolatedOperatorSession } from "./lib/isolated-daemon.mjs";
 
 const REAL_DAEMON = (process.env.IOI_HYPERVISOR_DAEMON_URL || "http://127.0.0.1:8765").replace(/\/$/, "");
 const REAL_DATA_DIR = process.env.IOI_HYPERVISOR_DATA_DIR || `${process.env.HOME}/.ioi/hypervisor/data`;
@@ -39,12 +39,20 @@ async function run() {
   const plane = await startIsolatedPlane({ serve: true });
   if (!plane) { console.error("BLOCKED: target/debug/hypervisor-daemon is not built — cargo build -p ioi-node --bin hypervisor-daemon"); process.exit(2); }
   const { daemonUrl, serveUrl, dataDir } = plane;
-  async function jd(method, p, body) {
-    const r = await fetch(`${daemonUrl}${p}`, { method, headers: { "content-type": "application/json" }, body: body ? JSON.stringify(body) : undefined });
+  // The plane is identity-first: a declaration names its declarer, and every read answers only for
+  // the caller's own sources. The journeys run as the isolated operator; an anonymous read is refused.
+  let session = null;
+  async function jd(method, p, body, { anonymous = false } = {}) {
+    const headers = { "content-type": "application/json", ...(anonymous ? {} : { cookie: `ioi_session=${session}` }) };
+    const r = await fetch(`${daemonUrl}${p}`, { method, headers, body: body ? JSON.stringify(body) : undefined });
     return { status: r.status, j: await r.json().catch(() => ({})) };
   }
 
   try {
+    session = await isolatedOperatorSession(plane);
+    const anon = await jd("GET", "/v1/hypervisor/data-sources", null, { anonymous: true });
+    const anonOverview = await jd("GET", "/v1/hypervisor/data-sources/overview", null, { anonymous: true });
+    ok("an anonymous read of the registry is the typed refusal (401 request_principal_required), never the list", anon.status === 401 && anon.j.code === "request_principal_required" && !("data_sources" in anon.j) && anonOverview.status === 401, `${anon.status} ${anon.j.code} · overview ${anonOverview.status}`);
     // 1. The isolated plane starts EMPTY and serves; the overview names its draft-nature gaps and
     // projects the declaration vocabulary.
     const list0 = await jd("GET", "/v1/hypervisor/data-sources");
@@ -98,8 +106,10 @@ async function run() {
     ok("registration is honestly NOT wired for ingestion (named gap, no fake runtime)", rec?.ingestion?.wired === false);
     ok("no plaintext credential stored (posture only)", rec?.credential_posture === "wallet_credential_lease" && !JSON.stringify(rec).match(/hunter2|password|api_key/i));
     ok("omitted optional fields persist consistently null (project_ref, credential_binding)", rec?.project_ref === null && rec?.credential_binding === null);
-    const got = await jd("GET", `/v1/hypervisor/data-sources/${rec.source_id}`);
+    const got = await jd("GET", `/v1/hypervisor/data-sources/${rec?.source_id}`);
     ok("record reads back by id", got.status === 200 && got.j.data_source?.name === marker);
+    const anonGot = await jd("GET", `/v1/hypervisor/data-sources/${rec?.source_id}`, null, { anonymous: true });
+    ok("an anonymous read by id is refused typed before the record is looked up (no existence oracle)", anonGot.status === 401 && !JSON.stringify(anonGot.j).includes(marker), `${anonGot.status}`);
     const listN = await jd("GET", "/v1/hypervisor/data-sources");
     ok("registered source appears in the list", (listN.j.data_sources || []).some((d) => d.source_id === rec.source_id));
     const local = await jd("POST", "/v1/hypervisor/data-sources", { name: "local drop", kind: "file_drop" });

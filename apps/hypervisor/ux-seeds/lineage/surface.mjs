@@ -39,7 +39,10 @@ export const meta = {
 export const actions = Object.freeze([]);
 
 export async function load(ctx) {
-  const J = (p) => fetch(`${ctx.daemon}${p}`).then((r) => r.json()).catch(() => ({}));
+  // Materialized sets and data sources are caller-scoped (an anonymous read is refused), so the
+  // reads ride the request's own identity when the runtime hands one over.
+  const get = (p) => (typeof ctx.daemonFetch === "function" ? ctx.daemonFetch(p) : fetch(`${ctx.daemon}${p}`));
+  const J = (p) => get(p).then((r) => r.json()).catch(() => ({}));
   const [mr, ms, cm, op, dsr] = await Promise.all([
     J("/v1/hypervisor/odk/materializing-runs"),
     J("/v1/hypervisor/odk/materialized-object-sets"),

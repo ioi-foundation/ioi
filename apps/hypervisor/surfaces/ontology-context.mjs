@@ -103,8 +103,10 @@ export function formatRef(ref) {
 // read joins the shared model for the consent/visibility badge row (brief §4).
 import { createReadClient } from "./read-client.mjs";
 
-export async function loadOntologyModel(daemon) {
-  const client = createReadClient({ daemon });
+export async function loadOntologyModel(daemon, { fetchImpl } = {}) {
+  // Materialized sets are caller-scoped (an anonymous read is refused): given the request's own
+  // daemon capability, every read here rides the caller's identity.
+  const client = typeof fetchImpl === "function" ? createReadClient({ daemon: "", fetchImpl }) : createReadClient({ daemon });
   const results = await client.readMany({
     overview: "/v1/hypervisor/odk/overview",
     ontologies: "/v1/hypervisor/odk/domain-ontologies",
