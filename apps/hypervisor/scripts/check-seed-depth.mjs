@@ -95,9 +95,10 @@ const PINS = {
   // unproven, Proposals unmapped, Monitor opens a missing app, Object views says "Failed", New and edit give false or no
   // reasons, the migration page undriven, Explorer not routed).
   "ontology-manager": { total: 41, bound: 19, refused: 0, named_gap: 15, open: 7 },
-  // 2026-09-28 (R-241, Data Connection D0): the harvest — 16 flow states, all open until the app is adopted (the
-  // tenant's one example source, created at the owner's direction, gave a source's pages).
-  "data-connection": { total: 16, bound: 0, refused: 0, named_gap: 0, open: 16 },
+  // 2026-09-28 (R-241, Data Connection D0): the harvest — 22 flow states, all open until the app is adopted. Examples
+  // built on the tenant at the owner's direction (a REST API source; the "Connecting to AWS S3" example, its sync run —
+  // it fails without the training bucket's credentials) gave a source's and a sync's pages.
+  "data-connection": { total: 22, bound: 0, refused: 0, named_gap: 0, open: 22 },
 };
 
 const results = [];

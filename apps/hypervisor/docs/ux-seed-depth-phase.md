@@ -439,13 +439,21 @@ assertion in its verifier.
 
 - **H.** The reference app lives at `/workspace/data-ingestion-app/`. A read-only CDP census recorded the landing, the
   five sections (Sources, Syncs, Agents, Listeners, External stacks) and the connector catalog. The tenant held no
-  sources. At the owner's direction ("iterate to fulfill an example source integration") one example source was
-  created on the tenant: a REST API source in the owner's example project. That gave a source's Overview, Connection
-  settings, Webhooks and Code-imports pages, and the setup wizard up to connection details. Its setup stops there: no
-  domain, credentials, egress policy, webhook or sync was created. The local mirror boots the app with no failed asset.
-- **Still to harvest.** A sync's page and the remaining setup steps (export configuration, code import
-  configuration, summary). A REST API source has webhooks, not batch syncs, so the next iteration needs an example on a
-  batch-capable type. That needs network access (an egress policy), which is a larger tenant footprint.
+  sources, so at the owner's direction examples were built on it (tenant writes are listed in the atlas's
+  `TENANT-WRITES.md`):
+  - an example REST API source, which gave the setup wizard up to connection details, and a source's Overview,
+    Connection settings, Webhooks and Code-imports pages;
+  - the reference example "Connecting to AWS S3", installed from the splash. It brought a source, a sync and egress
+    policies for Palantir's training bucket, and gave an S3 source's batch syncs table, Explore source, Virtual tables
+    and Logs.
+  - The sync was run twice. Both runs fail: the training bucket is not public, and the example ships placeholder
+    credentials. So a sync's Overview, Configuration and Versions were harvested with a failed run, plus its build
+    report.
+
+  The local mirror boots the app with no failed asset. The GraphQL bodies (documents and streamed answers) are recorded
+  in the mirror's traffic dir (`data-connection-flow/operations`).
+- **Still to harvest.** A succeeded run and its dataset (they need working credentials), and the setup wizard's
+  remaining steps (export configuration, code import configuration, summary).
 - **Backing truth.** Data sources (`/v1/hypervisor/data-sources`: kind `rest_api`, endpoint, credential posture),
   connectors with their credentials, and the materialization ladder (connector mapping → projection → lease plan →
   materializing run → materialized object set). That ladder is the Hypervisor's import, the analog of a sync.

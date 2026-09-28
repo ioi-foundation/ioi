@@ -184,7 +184,7 @@
       "reference_app": "Data Connection",
       "seed": "sources (the reference app at /workspace/data-ingestion-app, from the local mirror)",
       "canonical_route": "/data/sources (owned) — the adopted app is not routed yet",
-      "note": "Harvested 2026-09-28 (.artifacts/live-tenant-atlas/r241-data-connection/): the tenant held no sources, so one example source (REST API, in the owner's example project) was created on the tenant at the owner's direction to harvest a source's pages; its setup stops at connection details. The local mirror boots the app with no failed asset.",
+      "note": "Harvested 2026-09-28 (.artifacts/live-tenant-atlas/r241-data-connection/, tenant writes in TENANT-WRITES.md): the tenant held no sources, so at the owner's direction an example REST API source was created and the reference example \"Connecting to AWS S3\" installed (a source, its sync, egress for the training bucket); the sync was run (it fails: the training bucket needs credentials the example does not ship), so a sync's pages were harvested with a failed run. The local mirror boots the app with no failed asset.",
       "states": [
         { "id": "splash", "label": "Data Connection — landing (New source, recent files, reference examples)", "disposition": "open", "reason": "harvested; not yet adopted — the app is not routed through the adopted layer, so nothing on it reads the Hypervisor yet" },
         { "id": "sources.list", "label": "Sources — the list (name, connection type, sync count, favorite)", "disposition": "open", "reason": "harvested; not yet adopted — the app is not routed through the adopted layer, so nothing on it reads the Hypervisor yet" },
@@ -201,7 +201,13 @@
         { "id": "new-source.name-and-location", "label": "New source — Name and location; Create source and continue", "disposition": "open", "reason": "harvested; not yet adopted — the app is not routed through the adopted layer, so nothing on it reads the Hypervisor yet" },
         { "id": "new-source.connection-details", "label": "New source — Connection details (setup step 3)", "disposition": "open", "reason": "harvested; not yet adopted — the app is not routed through the adopted layer, so nothing on it reads the Hypervisor yet" },
         { "id": "new-source.remaining-steps", "label": "New source — Export configuration, Code import configuration, Summary", "disposition": "open", "reason": "not yet walked: the example source's setup stops at connection details (no domain, credentials or egress policy is set on the tenant)" },
-        { "id": "sync.detail", "label": "Sync — a sync's page (runs, schedule, output dataset)", "disposition": "open", "reason": "not harvested yet: a REST API source has webhooks, not batch syncs; the next harvest iteration creates an example on a batch-capable source type" }
+        { "id": "source.syncs-table", "label": "Source — Overview, the Batch syncs table (name, dataset, build status, next run)", "disposition": "open", "reason": "harvested; not yet adopted — the app is not routed through the adopted layer, so nothing on it reads the Hypervisor yet" },
+        { "id": "source.explore", "label": "Source — Explore source / Explore and create syncs", "disposition": "open", "reason": "harvested; not yet adopted — the app is not routed through the adopted layer, so nothing on it reads the Hypervisor yet" },
+        { "id": "source.virtual-tables", "label": "Source — Virtual tables", "disposition": "open", "reason": "harvested; not yet adopted — the app is not routed through the adopted layer, so nothing on it reads the Hypervisor yet" },
+        { "id": "source.logs", "label": "Source — Logs", "disposition": "open", "reason": "harvested; not yet adopted — the app is not routed through the adopted layer, so nothing on it reads the Hypervisor yet" },
+        { "id": "sync.overview", "label": "Sync — Overview (output dataset, build details, next run, health checks), incl. a failed run", "disposition": "open", "reason": "harvested; not yet adopted — the app is not routed through the adopted layer, so nothing on it reads the Hypervisor yet" },
+        { "id": "sync.configuration", "label": "Sync — Configuration", "disposition": "open", "reason": "harvested; not yet adopted — the app is not routed through the adopted layer, so nothing on it reads the Hypervisor yet" },
+        { "id": "sync.versions", "label": "Sync — Versions", "disposition": "open", "reason": "harvested; not yet adopted — the app is not routed through the adopted layer, so nothing on it reads the Hypervisor yet" }
       ]
     }
   ]
