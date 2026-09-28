@@ -432,6 +432,27 @@ assertion in its verifier.
     through. Named gaps: counts, empty shortcuts, and lists (Compass search's shape was never recorded). Open: object
     search, since objects need a materialized set.
 
+### Data Connection — harvest and the adoption path (2026-09-28)
+
+- **H.** The reference app lives at `/workspace/data-ingestion-app/`. A read-only CDP census recorded the landing, the
+  five sections (Sources, Syncs, Agents, Listeners, External stacks) and the connector catalog. The tenant held no
+  sources. At the owner's direction ("iterate to fulfill an example source integration") one example source was
+  created on the tenant: a REST API source in the owner's example project. That gave a source's Overview, Connection
+  settings, Webhooks and Code-imports pages, and the setup wizard up to connection details. Its setup stops there: no
+  domain, credentials, egress policy, webhook or sync was created. The local mirror boots the app with no failed asset.
+- **Still to harvest.** A sync's page and the remaining setup steps (export configuration, code import
+  configuration, summary). A REST API source has webhooks, not batch syncs, so the next iteration needs an example on a
+  batch-capable type. That needs network access (an egress policy), which is a larger tenant footprint.
+- **Backing truth.** Data sources (`/v1/hypervisor/data-sources`: kind `rest_api`, endpoint, credential posture),
+  connectors with their credentials, and the materialization ladder (connector mapping → projection → lease plan →
+  materializing run → materialized object set). That ladder is the Hypervisor's import, the analog of a sync.
+- **Cuts.**
+  - D1: route the app (`/workspace/data-ingestion-app` → the `sources` seed) behind a fence like the ontology's;
+    bind the landing and the lists (sources from the data-source plane; agents, listeners and external stacks none).
+  - D2: a source's pages over its data source and connector.
+  - D3: New source as a data-source create (REST API only; every other type refused by name).
+  - D4: syncs over materializing runs, after the sync harvest.
+
 ## Gate
 
 `check:seed-depth` (built 2026-09-27 with the Automate cut; CI-bound): the tracked record

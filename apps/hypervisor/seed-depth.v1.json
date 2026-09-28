@@ -178,6 +178,31 @@
         { "id": "explorer.search", "label": "Object Explorer — Object Explorer search (objects), New exploration", "disposition": "open", "reason": "undriven: an object search needs objects, and an ODK type has none unless materialized (which needs deployment authority the owner's daemon does not have)" }
       ]
     },
-    { "id": "data-connection", "status": "not_started", "reference_app": "Data Connection", "states": [] }
+    {
+      "id": "data-connection",
+      "status": "in_progress",
+      "reference_app": "Data Connection",
+      "seed": "sources (the reference app at /workspace/data-ingestion-app, from the local mirror)",
+      "canonical_route": "/data/sources (owned) — the adopted app is not routed yet",
+      "note": "Harvested 2026-09-28 (.artifacts/live-tenant-atlas/r241-data-connection/): the tenant held no sources, so one example source (REST API, in the owner's example project) was created on the tenant at the owner's direction to harvest a source's pages; its setup stops at connection details. The local mirror boots the app with no failed asset.",
+      "states": [
+        { "id": "splash", "label": "Data Connection — landing (New source, recent files, reference examples)", "disposition": "open", "reason": "harvested; not yet adopted — the app is not routed through the adopted layer, so nothing on it reads the Hypervisor yet" },
+        { "id": "sources.list", "label": "Sources — the list (name, connection type, sync count, favorite)", "disposition": "open", "reason": "harvested; not yet adopted — the app is not routed through the adopted layer, so nothing on it reads the Hypervisor yet" },
+        { "id": "syncs.list", "label": "Syncs — the list (name, dataset, source, status, next run)", "disposition": "open", "reason": "harvested; not yet adopted — the app is not routed through the adopted layer, so nothing on it reads the Hypervisor yet" },
+        { "id": "agents.list", "label": "Agents — the list (health, version, manager, lifecycle)", "disposition": "open", "reason": "harvested; not yet adopted — the app is not routed through the adopted layer, so nothing on it reads the Hypervisor yet" },
+        { "id": "listeners.list", "label": "Listeners — the list (output, status)", "disposition": "open", "reason": "harvested; not yet adopted — the app is not routed through the adopted layer, so nothing on it reads the Hypervisor yet" },
+        { "id": "external-stacks.list", "label": "External stacks — the list (phased out in the reference)", "disposition": "open", "reason": "harvested; not yet adopted — the app is not routed through the adopted layer, so nothing on it reads the Hypervisor yet" },
+        { "id": "source.overview", "label": "Source — Overview (capabilities: webhooks, code imports; source details)", "disposition": "open", "reason": "harvested; not yet adopted — the app is not routed through the adopted layer, so nothing on it reads the Hypervisor yet" },
+        { "id": "source.connection-settings", "label": "Source — Connection settings (domains, authentication, secrets, network egress)", "disposition": "open", "reason": "harvested; not yet adopted — the app is not routed through the adopted layer, so nothing on it reads the Hypervisor yet" },
+        { "id": "source.webhooks", "label": "Source — Webhooks", "disposition": "open", "reason": "harvested; not yet adopted — the app is not routed through the adopted layer, so nothing on it reads the Hypervisor yet" },
+        { "id": "source.code-imports", "label": "Source — settings, Code imports", "disposition": "open", "reason": "harvested; not yet adopted — the app is not routed through the adopted layer, so nothing on it reads the Hypervisor yet" },
+        { "id": "new-source.catalog", "label": "New source — Select source type (the connector catalog)", "disposition": "open", "reason": "harvested; not yet adopted — the app is not routed through the adopted layer, so nothing on it reads the Hypervisor yet" },
+        { "id": "new-source.overview", "label": "New source — a type's Overview (the setup steps)", "disposition": "open", "reason": "harvested; not yet adopted — the app is not routed through the adopted layer, so nothing on it reads the Hypervisor yet" },
+        { "id": "new-source.name-and-location", "label": "New source — Name and location; Create source and continue", "disposition": "open", "reason": "harvested; not yet adopted — the app is not routed through the adopted layer, so nothing on it reads the Hypervisor yet" },
+        { "id": "new-source.connection-details", "label": "New source — Connection details (setup step 3)", "disposition": "open", "reason": "harvested; not yet adopted — the app is not routed through the adopted layer, so nothing on it reads the Hypervisor yet" },
+        { "id": "new-source.remaining-steps", "label": "New source — Export configuration, Code import configuration, Summary", "disposition": "open", "reason": "not yet walked: the example source's setup stops at connection details (no domain, credentials or egress policy is set on the tenant)" },
+        { "id": "sync.detail", "label": "Sync — a sync's page (runs, schedule, output dataset)", "disposition": "open", "reason": "not harvested yet: a REST API source has webhooks, not batch syncs; the next harvest iteration creates an example on a batch-capable source type" }
+      ]
+    }
   ]
 }
