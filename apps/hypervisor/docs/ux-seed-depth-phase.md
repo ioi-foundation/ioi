@@ -124,11 +124,23 @@ Owner visibility × plane readiness × done-bar journey legs:
 2. **Pipeline Builder** — the second comparison; fix-first: the slot that never finished loading is
    repaired (the Open Application slot now ends every load, R-240).
 3. **Sessions** — harvested from the Ona tab, into the owned shell.
-4. Ontology Manager and Object Explorer; 5. Data Connection; 6. Approvals, Issues, Marketplace, Model
-   Catalog, AIP Evals, Upgrade Assistant, Machinery, Builds, Build Schedules; 7. the browse-only apps.
+4. Ontology Manager and Object Explorer; 5. Data Connection; 6. in the master guide's recommended order (§0.6,
+   adopted 2026-09-28): Control Panel Approvals with the Approvals app, the rest of Checkpoints, Network egress,
+   Identity, AIP Chatbot Studio, the ontology action type and its action log, AIP Evals and Logic, then Ona Automations
+   with Cost & Budgets; 7. Issues, Marketplace with DevOps, Model Catalog, Upgrade Assistant, Machinery, Builds, Build
+   Schedules; 8. the browse-only apps. Model Catalog through Builds seed less of the target than anything in step 6.
 
 Each app is one cut: harvest census → adopted states → bindings and named gaps → `SURFACE_STATES` →
 journey verifier → deploy to the owner's stack.
+
+**What the seeds are for (master guide §3.6, revised 2026-09-28: remix, not port).** The later refactor does not port
+these apps one by one. It breaks every harvested state, including browse-only ones, into ingredient patterns. It gives
+each pattern one home, or a recorded reason for dropping it, in a 14-surface IA organized around the substrate's own
+objects (System, Run, Effect/Receipt, Agent, Policy, Ontology). Every bound seed-depth row must then re-bind on the
+surface that owns its pattern (U3). For this phase, that means:
+- a harvest captures the flow's states, not just a picture;
+- a bound row asserts daemon truth, so it survives the move to a new surface;
+- no seed is thrown away because it was only browsed.
 
 **Substrate seeds, harvested during this phase (added 2026-09-28).** The master guide (§0.6, "Harvest before the
 refactor") ranks 13 reference surfaces that the journey order never reaches. The substrate refactor rebinds owned
