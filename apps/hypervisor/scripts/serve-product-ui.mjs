@@ -61,6 +61,7 @@ import * as FUNCTIONS from "./adopted-functions.mjs";
 import * as PIPELINE from "./adopted-pipeline.mjs";
 import * as ONTOLOGY from "./adopted-ontology.mjs";
 import * as DATA_CONNECTION from "./adopted-data-connection.mjs";
+import * as APPROVALS from "./adopted-approvals.mjs";
 import { revisionFamilyOf as ontologyRevisionFamilyOf } from "../surfaces/ontology-manager/index.mjs";
 import { answerDocument as answerAdoptedDocument } from "./adopted-graphql.mjs";
 import { isJustificationPrompt, justificationPayload, renderJustificationPrompt } from "./justification-prompt.mjs";
@@ -255,7 +256,7 @@ const AUG_TAG = '<script src="/ioi-augmentation.js" defer></script>';
 // home and its projects — the adopted apps already answer Compass folders as the caller's projects. Without this both
 // landed on nothing (check:adopted-dead-controls, 2026-09-28).
 const REFERENCE_CHROME_ROUTES = [["/workspace/aip", "/"], ["/workspace/compass", "/projects"]];
-const ADOPTED_ROUTE_ALIASES = [["/workspace/object-monitoring", "monitors"], ["/workspace/builder", "pipeline"], ["/workspace/ontology", "schema"], ["/workspace/hubble", "explorer"], ["/workspace/data-ingestion-app", "sources"]];
+const ADOPTED_ROUTE_ALIASES = [["/workspace/object-monitoring", "monitors"], ["/workspace/builder", "pipeline"], ["/workspace/ontology", "schema"], ["/workspace/hubble", "explorer"], ["/workspace/data-ingestion-app", "sources"], ["/workspace/approvals-app", "approvals"]];
 // THE ONTOLOGY FENCE (R-241 Ontology Manager, cut O1): the adopted Ontology Manager's reads of the ontology, the object
 // registry, object sets, search and data health that are not bound are answered as named gaps — never passed through
 // to the mirror, whose answers are the RECORDED TENANT's ontology.
@@ -271,6 +272,11 @@ const SERVICE_API_PATH = /^\/[a-z][a-z0-9-]*\/api\//u;
 // never the mirror's recorded answer (the recorded tenant's sources) and never this serve's HTML shell.
 const DATA_CONNECTION_SURFACE_REFERER = /\/workspace\/data-ingestion-app(?:[/?#]|$)|\/__apps\/sources(?:[/?#]|$)/u;
 const DATA_CONNECTION_FENCED = /^\/(magritte-coordinator|scheduler|marketplace|foundry-catalog|build2|foundry-stemma|monocle|data-health|compass|ontology-metadata|phonograph2|object-set-service|foundry-search|egress|network-egress)\//u;
+// THE APPROVALS FENCE (R-241 Approvals, cut A1): the adopted Approvals app (/workspace/approvals-app) reads task requests,
+// comments, principals, approval policies and checkpoints from these services; one that is not bound is a named gap, never
+// the mirror's recorded answer (the recorded tenant's requests) and never this serve's HTML shell.
+const APPROVALS_SURFACE_REFERER = /\/workspace\/approvals-app(?:[/?#]|$)|\/__apps\/approvals(?:[/?#]|$)/u;
+const APPROVALS_FENCED = /^\/(approvals|compass|checkpoints|control-panel|resource-policy-manager|foundry-search|audit-export|language-model-service|interventions|issues|monocle)\/|^\/multipass\/api\/(?!sessions\/)/u;
 // Whether the local reference mirror can boot a seed right now (R-241: adopted bundles live in the
 // local mirror only). Cached briefly; a canonical route opens the adopted app only when it can boot.
 const adoptedSeedCache = new Map();
@@ -9260,7 +9266,8 @@ async function handleEstateRequest(req, res, body) {
     const adoptedAlias = ADOPTED_ROUTE_ALIASES.find(([prefix]) => pathname === prefix || pathname.startsWith(`${prefix}/`));
     const ontologyServiceRead = SERVICE_API_PATH.test(pathname) && ONTOLOGY_SURFACE_REFERER.test(String(req.headers.referer || ""));
     const dataConnectionServiceRead = SERVICE_API_PATH.test(pathname) && DATA_CONNECTION_SURFACE_REFERER.test(String(req.headers.referer || ""));
-    if (adoptedAlias || ontologyServiceRead || dataConnectionServiceRead || pathname.startsWith("/__apps/") || pathname.startsWith("/assets/content-addressable-storage/") || MIRROR_API_PREFIXES.some((pref) => pathname.startsWith(pref))) {
+    const approvalsServiceRead = SERVICE_API_PATH.test(pathname) && APPROVALS_SURFACE_REFERER.test(String(req.headers.referer || ""));
+    if (adoptedAlias || ontologyServiceRead || dataConnectionServiceRead || approvalsServiceRead || pathname.startsWith("/__apps/") || pathname.startsWith("/assets/content-addressable-storage/") || MIRROR_API_PREFIXES.some((pref) => pathname.startsWith(pref))) {
       // A daemon read an adopted app depends on: a plane that does not answer — stopped, or refusing — is an
       // ERROR the app shows (its own "unable to load" state), never an empty answer that reads as "nothing
       // exists". The error is typed (planeDown): the GraphQL gateways answer it as the operation's error and
@@ -9311,6 +9318,24 @@ async function handleEstateRequest(req, res, body) {
       const onPipelineSurface = () => /\/workspace\/builder(?:[/?#]|$)|\/__apps\/pipeline(?:[/?#]|$)/u.test(String(req.headers.referer || ""));
       const onOntologySurface = () => ONTOLOGY_SURFACE_REFERER.test(String(req.headers.referer || ""));
       const onDataConnectionSurface = () => DATA_CONNECTION_SURFACE_REFERER.test(String(req.headers.referer || ""));
+      const onApprovalsSurface = () => APPROVALS_SURFACE_REFERER.test(String(req.headers.referer || ""));
+      // The adopted Approvals app's requests (R-241 Approvals A1, adopted-approvals.mjs): the daemon's parked wallet challenges,
+      // its governance approval requests and the approvals inbox's pending tool calls, each one request. A plane that does not
+      // answer is an ERROR the app shows ("Failed to load requests."), never an empty inbox. Signed out, no request is anyone's.
+      const approvalsContext = async () => {
+        const who = await planeRead("/v1/hypervisor/auth/whoami");
+        const p = who.authenticated === true ? (who.principal || {}) : {};
+        const principal = { ref: p.principal_ref || null, name: p.name || null, email: p.email || null, role: p.role || null };
+        if (!principal.ref) return { principal, rows: [], dir: APPROVALS.directoryOf(principal, []) };
+        const [governance, challenges, inbox, principals] = await Promise.all([
+          planeRead("/v1/hypervisor/governance/approval-requests").then((j) => j.approval_requests || []),
+          planeRead("/v1/hypervisor/authority/challenges").then((j) => j.challenges || []),
+          planeRead("/v1/hypervisor/governance/approvals-inbox").then((j) => j.items || []),
+          // the directory names requesters and deciders; a caller who may not read it sees only their own name
+          planeRead("/v1/hypervisor/principals").then((j) => j.principals || []).catch(() => []),
+        ]);
+        return { principal, rows: APPROVALS.requestsOf({ governance, challenges, inboxItems: inbox, principal, principals }), dir: APPROVALS.directoryOf(principal, principals) };
+      };
       // One read of what the adopted Pipeline Builder shows: the caller's DataRecipe families (each with its
       // revisions) and change sets, as pipelines (adopted-pipeline.mjs).
       // A plane that does not answer is an ERROR the app shows ("Unable to load pipelines"), never an empty
@@ -9424,7 +9449,7 @@ async function handleEstateRequest(req, res, body) {
       };
       const answerAdoptedOp = async (name, variables, ctxA, query = "") => {
         try {
-          if (ctxA?.failed && !PIPELINE.answersPipelineOperation(name, variables) && !(onDataConnectionSurface() && (DATA_CONNECTION.DATA_CONNECTION_GRAPHQL_OPERATIONS.has(name) || AUTOMATE.SAVE_LOCATION_OPERATIONS.has(name))) && !(onPipelineSurface() && (AUTOMATE.SAVE_LOCATION_OPERATIONS.has(name) || name === "FolderLocationQuery" || name === "ViewResourceMutation"))) throw ctxA.failed;
+          if (ctxA?.failed && !PIPELINE.answersPipelineOperation(name, variables) && !(onDataConnectionSurface() && (DATA_CONNECTION.DATA_CONNECTION_GRAPHQL_OPERATIONS.has(name) || AUTOMATE.SAVE_LOCATION_OPERATIONS.has(name))) && !(onPipelineSurface() && (AUTOMATE.SAVE_LOCATION_OPERATIONS.has(name) || name === "FolderLocationQuery" || name === "ViewResourceMutation")) && !(onApprovalsSurface() && (APPROVALS.APPROVALS_GRAPHQL_OPERATIONS.has(name) || APPROVALS.APPROVALS_MUTATIONS.has(name)))) throw ctxA.failed;
           return await answerAdoptedOpInner(name, variables, ctxA, query);
         }
         catch (e) { if (e?.planeDown) return { data: null, errors: [{ message: `${name}: ${e.message}` }] }; throw e; }
@@ -9458,6 +9483,25 @@ async function handleEstateRequest(req, res, body) {
           const syncs = name === "SourcesListQuery" || DATA_CONNECTION.SOURCE_PAGE_OPERATIONS.has(name) || DATA_CONNECTION.SYNC_PAGE_OPERATIONS.has(name) ? await callerSyncs(sources) : [];
           const ownerRef = name === "ResourceMetadataQuery" ? ((await planeRead("/v1/hypervisor/auth/whoami")).principal?.tenant_refs || []).find((t) => String(t).startsWith("org://")) : null;
           return { data: answerAdoptedDocument(query, DATA_CONNECTION.dataConnectionGraphqlFacts(name, variables || {}, { sources, syncs, ownerRef }), null, name) };
+        }
+        // The Approvals app's list rows and a request's page (on its surface only), over the daemon's own asks
+        if (APPROVALS.APPROVALS_GRAPHQL_OPERATIONS.has(name) && query && onApprovalsSurface()) {
+          const { rows, principal, dir } = await approvalsContext();
+          return { data: answerAdoptedDocument(query, APPROVALS.approvalsGraphqlFacts(name, variables || {}, { rows, principal, dir }), null, name) };
+        }
+        // Its decisions: a step on the daemon's own route (the caller's session; the UI server holds no key), or a refusal by
+        // name — then the request re-read, walked by the mutation's own document
+        if (APPROVALS.APPROVALS_MUTATIONS.has(name) && query && onApprovalsSurface()) {
+          const { rows } = await approvalsContext();
+          const step = APPROVALS.mutationStepOf(name, APPROVALS.rowByRid(rows, APPROVALS.mutationRidOf(variables)), variables || {});
+          if (step.refusal) return { data: null, errors: [{ message: step.refusal.message, extensions: { errorName: step.refusal.code } }] };
+          if (step.daemon) {
+            const r = await daemonFetch(step.daemon.route, { method: step.daemon.method, headers: { "content-type": "application/json" }, body: JSON.stringify(step.daemon.body) }).catch(() => null);
+            const j = r ? await r.json().catch(() => ({})) : {};
+            if (!r || !r.ok || j.ok === false) return { data: null, errors: [{ message: `The daemon refused the decision: ${j.error?.message || j.message || (r ? `it answered ${r.status}` : "it did not answer")}. Nothing was changed.`, extensions: { errorName: `Hypervisor:${j.error?.code || j.code || "ApprovalsDecisionRefused"}` } }] };
+          }
+          const fresh = await approvalsContext();
+          return { data: answerAdoptedDocument(query, APPROVALS.mutationFacts(name, APPROVALS.rowByRid(fresh.rows, APPROVALS.mutationRidOf(variables)), fresh.principal), null, name) };
         }
         // Object Explorer's catalog, search, recents and shortcuts (on the ontology surface only: other adopted apps send
         // some of the same operation names)
@@ -10031,6 +10075,40 @@ async function handleEstateRequest(req, res, body) {
           return sendJson(pathname.endsWith("/batch") ? (Array.isArray(reqDoc) ? reqDoc.map(answer) : []) : answer(reqDoc));
         } catch (e) {
           return sendJson({ error: { message: `daemon unreachable: ${e.message}` } }, 502);
+        }
+      }
+      // THE ADOPTED APPROVALS APP (R-241 Approvals A1): its inbox, counts and a request's reads over the daemon's own asks
+      // (adopted-approvals.mjs); every REST write and comment it sends is refused by name, and nothing is written (its
+      // decisions are GraphQL mutations, answered with its operations). On its surface only: the /__apps/approvals pilot lane
+      // below keeps its answers for any other caller.
+      if (onApprovalsSurface() && (pathname.startsWith("/approvals/api/") || pathname.startsWith("/comments/") || (pathname === "/multipass/api/me/groups" && req.method === "GET") || (pathname === "/multipass/api/administration/principals" && req.method === "POST") || (pathname === "/multipass/api/search/v2/search" && req.method === "POST"))) {
+        const sendA = (status, obj) => { res.writeHead(status, { "Content-Type": "application/json" }); return res.end(JSON.stringify(obj)); };
+        let asked = null;
+        try { asked = JSON.parse(body.toString() || "null"); } catch { /* none */ }
+        try {
+          // the caller belongs to no group the reference names
+          if (pathname === "/multipass/api/me/groups") return sendA(200, { groups: [], next: null, orderedBy: null });
+          // the requesters and deciders a request names, from the daemon's directory (the caller's own name at least)
+          if (pathname === "/multipass/api/administration/principals") return sendA(200, APPROVALS.principalsOf(Array.isArray(asked) ? asked : (asked?.principalIds || asked?.ids || []), (await approvalsContext()).dir));
+          // the invite-reviewers picker's user search (it passed through to the mirror: the recorded tenant's directory)
+          if (pathname === "/multipass/api/search/v2/search") return sendA(200, APPROVALS.principalSearchOf(asked, (await approvalsContext()).dir));
+          // no comment thread is kept on a request: every count is zero and every page empty; a comment is refused by name
+          if (pathname === "/comments/api/comments/counts" && req.method === "POST") return sendA(200, APPROVALS.commentCountsOf(asked));
+          if (pathname === "/comments/api/comments/page-v2" && req.method === "POST") return sendA(200, { comments: [], resolvedReferences: [], nextPageToken: null, totalCommentCount: 0 });
+          if (pathname.startsWith("/comments/") && req.method !== "GET" && req.method !== "HEAD") return sendA(APPROVALS.WRITE_REFUSALS.comment.status, APPROVALS.refusalBodyOf(APPROVALS.WRITE_REFUSALS.comment));
+          if (req.method === "PUT" && pathname === "/approvals/api/search/task-requests") return sendA(200, APPROVALS.searchOf(asked, (await approvalsContext()).rows));
+          if (req.method === "PUT" && pathname === "/approvals/api/search/task-requests/counts") return sendA(200, APPROVALS.countsOf(asked, (await approvalsContext()).rows));
+          const one = /^\/approvals\/api\/task-requests\/(ri\.[\w.-]+)(\/minimal)?$/u.exec(pathname);
+          if (one && req.method === "GET") {
+            const r = APPROVALS.rowByRid((await approvalsContext()).rows, one[1]);
+            return r ? sendA(200, one[2] ? APPROVALS.minimalOf(r) : APPROVALS.fullOf(r)) : sendA(404, APPROVALS.NOT_FOUND(one[1]));
+          }
+          const refusal = APPROVALS.writeRefusalOf(req.method, pathname);
+          if (refusal) return sendA(refusal.status, APPROVALS.refusalBodyOf(refusal));
+        } catch (e) {
+          // a plane that does not answer is the app's own error state, never an empty inbox
+          if (e?.planeDown) return sendA(503, { errorCode: "INTERNAL", errorName: "Hypervisor:ApprovalsPlaneDown", errorInstanceId: "", parameters: { message: e.message } });
+          throw e;
         }
       }
       if (pathname === "/approvals/api/search/task-requests" || pathname === "/approvals/api/search/task-requests/counts") {
@@ -11079,6 +11157,10 @@ async function handleEstateRequest(req, res, body) {
       if (onDataConnectionSurface() && (DATA_CONNECTION_FENCED.test(pathname) || (dataConnectionServiceRead && !MIRROR_API_PREFIXES.some((pref) => pathname.startsWith(pref)))) && !(pathname === "/compass/api/registry/actions" && req.method === "GET")) {
         res.writeHead(501, { "Content-Type": "application/json" });
         return res.end(JSON.stringify({ errorCode: "INTERNAL", errorName: "Hypervisor:DataConnectionReadNotBound", errorInstanceId: "", parameters: { message: `${req.method} ${pathname.replace(/ri\.[\w.-]+/gu, "<rid>")} is not bound in the Hypervisor's Data Connection yet: a named gap, and nothing recorded is served in its place` } }));
+      }
+      if (onApprovalsSurface() && (APPROVALS_FENCED.test(pathname) || (approvalsServiceRead && !MIRROR_API_PREFIXES.some((pref) => pathname.startsWith(pref)))) && !(pathname === "/compass/api/registry/actions" && req.method === "GET")) {
+        res.writeHead(501, { "Content-Type": "application/json" });
+        return res.end(JSON.stringify({ errorCode: "INTERNAL", errorName: "Hypervisor:ApprovalsReadNotBound", errorInstanceId: "", parameters: { message: `${req.method} ${pathname.replace(/ri\.[\w.-]+/gu, "<rid>")} is not bound in the Hypervisor's Approvals yet: a named gap, and nothing recorded is served in its place` } }));
       }
       if (onOntologySurface() && (ONTOLOGY_FENCED.test(pathname) || (ontologyServiceRead && !MIRROR_API_PREFIXES.some((pref) => pathname.startsWith(pref)))) && !(pathname === "/compass/api/registry/actions" && req.method === "GET")) {
         res.writeHead(501, { "Content-Type": "application/json" });

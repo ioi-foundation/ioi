@@ -29,7 +29,7 @@ const ROOT = path.resolve(APP, "..", "..");
 const RECORD = path.join(APP, "seed-depth.v1.json");
 
 const DISPOSITIONS = ["bound", "refused", "named_gap", "open"];
-const PHASE_ORDER = ["automate", "pipeline-builder", "sessions", "ontology-manager", "data-connection"];
+const PHASE_ORDER = ["automate", "pipeline-builder", "sessions", "ontology-manager", "data-connection", "approvals"];
 
 // Pinned populations. Re-pin with the reason beside the number, in the commit that moves it.
 const PINS = {
@@ -118,6 +118,17 @@ const PINS = {
   // named; a failed run (needs a grant to drive) and New / Duplicate / Save (undriven) open. The splash row's proof text
   // (stale since D3, so this gate was red) now cites the assertion. 30 → 41.
   "data-connection": { total: 41, bound: 21, refused: 3, named_gap: 11, open: 6 },
+  // 2026-09-28 (R-241, Approvals A1): first census — 74 flow states: the 60 harvested (the inbox's quick filters, the type,
+  // status, creator and sort menus, search, the eight request types and their facets, a request's page, invite reviewers,
+  // edit, a reviewer task, a comment; the Compass request-access and New project dialogs the harvest walked to make its
+  // example) plus 14 found by driving the adopted app (the governance request's page, each decision, the fence, the stopped
+  // daemon, the inbox's other planes, the shared sidebar). 29 bound by check:adopted-approvals over a live parked challenge;
+  // 5 refused by name (Approve on a parked effect — no passphrase field and no key here — a governance Reject, Close,
+  // invite reviewers, a comment); 38 named gaps (the seven reference types with no Hypervisor counterpart, the access
+  // facets, Control Panel's redirecting task ids, the 20 Compass dialog states, Edit, the reviewer task card, Request
+  // changes, the inbox's other planes, the sidebar); 2 open (a challenge's Approved / Completed / Closed statuses, a
+  // thread approval — both mapped and unit-tested, neither driven).
+  approvals: { total: 74, bound: 29, refused: 5, named_gap: 38, open: 2 },
 };
 
 const results = [];

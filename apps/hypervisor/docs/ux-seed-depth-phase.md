@@ -527,6 +527,52 @@ assertion in its verifier.
     Trap paid: the Configuration page loads the reference's CustomSourceAdapter chunk, which the mirror had never
     recorded; it was fed to the mirror from the tenant's current build.
 
+### Approvals — harvest and the adoption path (2026-09-28)
+
+- **H.** The reference app lives at `/workspace/approvals-app/` (a request's page at `/task/<rid>`). A CDP census recorded
+  60 states: the empty inbox (the three quick filters, the Request type, Status, Created by and Sort menus, search, each of
+  the eight request types and their facets, the not-found page, Control Panel task ids that redirect); the reference file
+  browser's Request additional access and New project dialogs, walked to make one example; and the app with that example
+  pending (a request's page with its reviewer task, Invite reviewers, Edit, a comment draft). Evidence in
+  `.artifacts/live-tenant-atlas/r241-approvals/` (tenant writes in its `TENANT-WRITES.md`: one example project, one pending
+  access request). Control Panel's approvals inbox, task pages and policies are in `../r241-control-panel/`.
+- **Backing truth.** The daemon's asks: parked wallet challenges (`/v1/hypervisor/authority/challenges`: an exact effect a
+  gate refused for want of a grant, with its preimage, hashes, scope, audience, requester and decision), governance
+  approval requests (`/v1/hypervisor/governance/approval-requests`: record-only, with creator, reviewer, history and
+  receipts), and the approvals inbox's pending rows (`/v1/hypervisor/governance/approvals-inbox`, whose tool calls waiting
+  in a run have no list route of their own).
+- **Cuts.**
+  - A1: route the app (`/workspace/approvals-app` → the `approvals` seed) behind a fence of its own; bind the inbox and a
+    request's page. Done 2026-09-28: `check:adopted-approvals` 15/15; seed depth 74 = 29 bound / 5 refused / 38 named gaps
+    / 2 open (ledger CCXXV).
+    - *A request is one of the daemon's asks*, listed under the reference's Access requests type (the one that asks for
+      authority): a parked challenge reads "Approve session-execute on <session>", a governance request "<kind> — <subject>".
+      The seven reference types with no Hypervisor counterpart (ontology and Workshop proposals, deletions, CDM publish,
+      retention changes, user intake, add reference) list none.
+    - *The inbox.* Your inbox is what the caller may decide and has not (the operator for challenges and tool calls — the
+      daemon refuses anyone else — and any signed-in principal for governance). Unlike the reference, the requester is NOT
+      left out of their own inbox: an operator's own parked effect waits on that operator. Created by you, All requests, the
+      hierarchical Status menu, search, sort, several types together and the Created by picker (the daemon's directory)
+      sift it; the counts are the reference's three sub-filters over the same rows.
+    - *A request's page is its record*, carried in the justification: a challenge's intent, scopes, target scope, policy
+      domain and hash, request hash, audience, approval ref, expiry and decision; a governance request's ask, subject,
+      required authority, what it would call and its receipts. Requesters and deciders are named from the daemon's
+      directory.
+    - *Decisions stay keyless.* Approve on a parked effect is refused by name toward the run's approval card: approving
+      mints a grant, only the operator passphrase unseals the key that signs it, and the reference page has no passphrase
+      field. Reject and close is the daemon's own deny (no key; it mints nothing) with the typed reason. A governance
+      Approve is the plane's transition (the daemon names the reviewer from the session and writes the receipt); its Reject
+      is refused, because the plane's rejection keeps no reason. Close on an open request, Invite reviewers, comments and any
+      REST write are refused by name.
+    - *Named gaps:* the reviewer task card (the reference draws one only for its own request types), Edit, Request changes
+      (the same review as Reject), the access facets, Control Panel's redirecting task ids, the inbox's other pending planes
+      (improvement and memory proposals, marketplace reviews), the shared sidebar entry. *Open:* a challenge's Approved,
+      Completed and expired statuses, and a thread approval — mapped and unit-tested, not driven.
+    - *Mirror.* The captured index was build 6.517.0 while the tenant runs 6.545.0; it was refreshed, and every chunk the
+      current runtime can load (1,240 JS and CSS files, plus the harvest's 273 assets) was fed by plain GETs through the
+      owner's browser. The harvest's own asset list named an older build's chunks, so feeding only those left the landing
+      crashing on missing chunks.
+
 ## Gate
 
 `check:seed-depth` (built 2026-09-27 with the Automate cut; CI-bound): the tracked record
