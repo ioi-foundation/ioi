@@ -34,7 +34,7 @@ test("the Sources list answers the caller's sources in the list's own document, 
   assert.deepEqual(s3.sources.values.map((v) => v.name), ["Plants bucket"]);
   const named = DC.dataConnectionGraphqlFacts("SourcesListQuery", { name: "orders" }, { sources: [mine, bucket] });
   assert.deepEqual(named.sources.values.map((v) => v.name), ["Orders API"]);
-  assert.equal(DC.dataConnectionGraphqlFacts("CreateSourceButtonQuery", {}, {}).globalPermissions.canCreateMagritteSourceV2, false, "no create offered until it is bound");
+  assert.equal(DC.dataConnectionGraphqlFacts("CreateSourceButtonQuery", {}, {}).globalPermissions.canCreateMagritteSourceV2, true, "a source can be created (as a data-source declaration)");
 });
 
 test("the list reads name only the caller's sources", () => {
@@ -80,4 +80,33 @@ test("a source's settings: its runtime is the Hypervisor's own with nothing held
   const meta = DC.dataConnectionGraphqlFacts("ResourceMetadataQuery", { resourceRid: rid }, { sources: [mine], ownerRef: "org://local" }).resourceMetadata;
   assert.deepEqual([meta.name, meta.parent.name, meta.permissions.canEditMetadata], ["Orders API", "local", false]);
   assert.equal(DC.dataConnectionGraphqlFacts("ResourceMetadataQuery", { resourceRid: DC.sourceRidOf("ds_4") }, { sources: [mine], ownerRef: "org://local" }).resourceMetadata, null);
+});
+
+test("creating a source is a data-source declaration: a REST API with its domain as its endpoint, a draft until it has one, any other type refused by name", () => {
+  const create = (type, domains) => ({ description: { name: " Orders ", description: "", apiName: "Orders" }, config: { source: { type, config: { domains } } }, runtimePlatformRequest: { type: "cloud" }, parentRid: "ri.x" });
+  assert.deepEqual(DC.createBodyOf(create("webhooks-rest", [{ domainId: "d", host: "", scheme: "HTTPS" }])), { name: "Orders", kind: "rest_api", draft: true, credential_posture: "no_credentials_required" });
+  assert.deepEqual(DC.createBodyOf(create("webhooks-rest", [{ domainId: "d", host: "api.example.test", scheme: "HTTPS", port: 8443 }])).endpoint, "https://api.example.test:8443");
+  assert.throws(() => DC.createBodyOf(create("s3-direct", [])), (e) => e.code === "Hypervisor:DataConnectionTypeNotCreatable");
+  assert.throws(() => DC.createBodyOf(create("webhooks-rest", [{ host: "user:pw@api.example.test" }])), (e) => e.code === "Hypervisor:DataConnectionDomainInvalid", "credentials never ride in a domain");
+  assert.throws(() => DC.createBodyOf(create("webhooks-rest", [{ host: "a.test" }, { host: "b.test" }])), (e) => e.code === "Hypervisor:DataConnectionOneDomain");
+});
+
+test("changing a source: only its declarer, only a REST source's one domain, never authentication or secrets", () => {
+  const theirs = DC.callerSourcesOf([mine, teamProject], "user://me", ["project://team"]);
+  assert.deepEqual(theirs.map((x) => x.caller_may_change), [true, false], "a source filed in a visible project is not the caller's to change");
+  const rid = DC.sourceRidOf("ds_1");
+  assert.deepEqual(DC.authzOperationsOf([rid, DC.sourceRidOf("ds_3")], theirs).resourceToOperationsMap, { [rid]: ["magritte:source-store:update-source-config"], [DC.sourceRidOf("ds_3")]: [] });
+  assert.deepEqual(DC.authzOperationsOf([DC.SOURCE_ROOT], theirs, { signedIn: true }).resourceToOperationsMap[DC.SOURCE_ROOT], ["magritte:source-store:add-source"], "a signed-in caller may add a source");
+  assert.deepEqual(DC.authzOperationsOf([DC.SOURCE_ROOT], theirs).resourceToOperationsMap[DC.SOURCE_ROOT], [], "an anonymous caller may not");
+  assert.equal(DC.dataConnectionGraphqlFacts("SourceEditorQuery", { sourceRid: rid }, { sources: theirs }).source.permissions.canUpdateSourceConfig, true);
+  const put = (domains, extra = {}) => ({ patchSourceConfigRequest: { updatedSourceConfig: { type: "webhooks-rest", config: { domains } }, ...extra } });
+  assert.deepEqual(DC.updateBodyOf(put([{ domainId: "d", host: "example.com", scheme: "HTTPS" }]), theirs[0]), { endpoint: "https://example.com" });
+  assert.deepEqual(DC.updateBodyOf(put([{ host: "example.com", scheme: "HTTPS" }]), { ...theirs[0], endpoint: "https://api.example.test/orders?v=2" }), { endpoint: "https://example.com/orders?v=2" }, "a new host keeps the endpoint's path and query");
+  assert.throws(() => DC.updateBodyOf(put([{ host: "example.com", auth: { type: "basic" } }]), theirs[0]), (e) => e.code === "Hypervisor:DataConnectionCredentialNotBound");
+  assert.throws(() => DC.updateBodyOf(put([{ host: "" }]), theirs[0]), (e) => e.code === "Hypervisor:DataConnectionDomainInvalid");
+  assert.throws(() => DC.updateBodyOf({ patchDescription: {} }, theirs[0]), (e) => e.code === "Hypervisor:DataConnectionUpdateNotBound");
+  assert.throws(() => DC.updateBodyOf(put([{ host: "x.test" }]), bucket), (e) => e.code === "Hypervisor:DataConnectionUpdateNotBound");
+  const saved = DC.updatedSourceOf({ ...mine, endpoint: "https://example.com" });
+  assert.equal(saved.updatedSource.sourceConfig.config.domains[0].host, "example.com");
+  assert.deepEqual(saved.updatedSource.mavenCoordinates, { userProvided: [], foundryProvided: [] });
 });

@@ -356,12 +356,29 @@ pub(crate) fn create_data_source(
         Ok(v) => v,
         Err((code, msg)) => return err(&code, &msg),
     };
-    if requires_endpoint && endpoint.is_none() {
+    // `draft: true` declares a network source before its endpoint is known (the reference creates a
+    // source at "Name and location", before its connection details). A draft is not usable: no lease
+    // plan may bind it, and it becomes `declared` once an update gives it an endpoint.
+    let draft =
+        match body.get("draft") {
+            None | Some(Value::Null) => false,
+            Some(Value::Bool(b)) => *b,
+            Some(_) => return err(
+                "data_source_field_type_invalid",
+                "`draft` must be a boolean when present — a non-boolean value is never defaulted",
+            ),
+        };
+    if requires_endpoint && endpoint.is_none() && !draft {
         return err(
             "data_source_endpoint_required",
             "A network data source kind requires an endpoint.",
         );
     }
+    let lifecycle_status = if requires_endpoint && endpoint.is_none() {
+        "draft"
+    } else {
+        "declared"
+    };
     if let Some(e) = &endpoint {
         if endpoint_carries_credentials(e) {
             return err(
@@ -407,7 +424,7 @@ pub(crate) fn create_data_source(
         "credential_binding": credential_lease_ref.map(|r| json!({ "kind": "lease_ref", "credential_lease_ref": r })).unwrap_or(Value::Null),
         "project_ref": project_ref,
         "declared_by_principal_ref": declared_by_principal_ref,
-        "lifecycle": { "status": "declared" },
+        "lifecycle": { "status": lifecycle_status },
         "ingestion": { "wired": false, "note": "declaration only — extraction requires a future authority crossing (named gap)" },
         "receipt_refs": [receipt_ref],
         "created_at": now,
@@ -425,6 +442,216 @@ pub(crate) fn create_data_source(
     (
         StatusCode::CREATED,
         Json(json!({ "data_source": record, "data_source_receipt": receipt })),
+    )
+}
+
+/// Fields an update may change. Everything else (kind, project, declarer, lifecycle, receipts) is
+/// fixed at declaration.
+const UPDATABLE_FIELDS: &[&str] = &[
+    "name",
+    "endpoint",
+    "credential_posture",
+    "credential_lease_ref",
+];
+/// Fields that decide what a source reaches and with which credential: once a lease plan or a
+/// connector mapping binds the source, changing one would move what an approved lease authorizes.
+const BINDING_FIELDS: &[&str] = &["endpoint", "credential_posture", "credential_lease_ref"];
+
+/// PATCH /v1/hypervisor/data-sources/:id — change a declared source's name, endpoint or credential
+/// posture. Only its declarer may, every field is judged exactly as at declaration, and the change
+/// is receipted (op `updated`, naming the fields that changed — never their values).
+pub(crate) async fn handle_data_source_update(
+    State(st): State<Arc<DaemonState>>,
+    headers: HeaderMap,
+    AxumPath(id): AxumPath<String>,
+    Json(body): Json<Value>,
+) -> (StatusCode, Json<Value>) {
+    let identity = match super::substrate_store::resolve_request_identity(&st.data_dir, &headers) {
+        Ok(identity) => identity,
+        Err(error) => return super::odk_routes::odk_scope_refusal(error),
+    };
+    update_data_source(&st.data_dir, &identity.principal_ref, &id, &body)
+}
+
+fn source_is_bound(data_dir: &str, source_id: &str) -> bool {
+    [
+        crate::capability_lease_plan_routes::RECORD_DIR,
+        crate::connector_mapping_routes::RECORD_DIR,
+    ]
+    .iter()
+    .any(|dir| {
+        read_record_dir(data_dir, dir)
+            .iter()
+            .any(|r| r.get("data_source_id").and_then(|v| v.as_str()) == Some(source_id))
+    })
+}
+
+pub(crate) fn update_data_source(
+    data_dir: &str,
+    principal_ref: &str,
+    id: &str,
+    body: &Value,
+) -> (StatusCode, Json<Value>) {
+    let refuse = |status: StatusCode, code: &str, msg: String| {
+        (
+            status,
+            Json(json!({ "error": { "code": code, "message": msg } })),
+        )
+    };
+    let Some(obj) = body.as_object() else {
+        return refuse(
+            StatusCode::BAD_REQUEST,
+            "data_source_update_invalid",
+            "An update is a JSON object of the fields to change.".into(),
+        );
+    };
+    if PLAINTEXT_SECRET_KEYS
+        .iter()
+        .any(|k| obj.contains_key(*k) && !obj[*k].is_null())
+    {
+        return refuse(StatusCode::BAD_REQUEST, "data_source_plaintext_secret_rejected",
+            "Plaintext credentials are never accepted. Declare credential_posture; the secret stays in the daemon credential planes.".into());
+    }
+    if let Some(k) = obj.keys().find(|k| !UPDATABLE_FIELDS.contains(&k.as_str())) {
+        return refuse(
+            StatusCode::BAD_REQUEST,
+            "data_source_field_immutable",
+            format!(
+                "`{k}` is fixed at declaration; an update may change only {}",
+                UPDATABLE_FIELDS.join(", ")
+            ),
+        );
+    }
+    let Some(prior) = load_source(data_dir, id) else {
+        return refuse(
+            StatusCode::NOT_FOUND,
+            "not_found",
+            format!("no data source '{id}'"),
+        );
+    };
+    if s(&prior, "declared_by_principal_ref", "") != principal_ref {
+        return refuse(
+            StatusCode::FORBIDDEN,
+            "data_source_not_declarer",
+            "Only the principal that declared a data source may change it.".into(),
+        );
+    }
+    let mut next = prior.clone();
+    let mut changed: Vec<&str> = Vec::new();
+    for key in UPDATABLE_FIELDS {
+        if !obj.contains_key(*key) {
+            continue;
+        }
+        let max = match *key {
+            "name" => NAME_MAX,
+            "endpoint" => ENDPOINT_MAX,
+            "credential_posture" => POSTURE_MAX,
+            _ => REF_MAX,
+        };
+        let value = match str_opt_bounded(body, key, max) {
+            Ok(v) => v,
+            Err((code, msg)) => return refuse(StatusCode::BAD_REQUEST, &code, msg),
+        };
+        let stored = match *key {
+            "name" => match value {
+                Some(n) => json!(n),
+                None => {
+                    return refuse(
+                        StatusCode::BAD_REQUEST,
+                        "data_source_name_required",
+                        "A data source requires a name.".into(),
+                    )
+                }
+            },
+            "endpoint" => {
+                if let Some(e) = &value {
+                    if endpoint_carries_credentials(e) {
+                        return refuse(StatusCode::BAD_REQUEST, "data_source_endpoint_credentialed",
+                            "The endpoint embeds credential material (userinfo or a sensitive query param) — declare credential_posture instead; secrets never enter declared truth.".into());
+                    }
+                } else if kind_requires_endpoint(&s(&prior, "kind", "")) == Some(true) {
+                    return refuse(
+                        StatusCode::BAD_REQUEST,
+                        "data_source_endpoint_required",
+                        "A network data source kind requires an endpoint.".into(),
+                    );
+                }
+                value.map(Value::String).unwrap_or(Value::Null)
+            }
+            "credential_posture" => {
+                let posture = value.unwrap_or_else(|| "no_credentials_required".to_string());
+                if !CREDENTIAL_POSTURES.contains(&posture.as_str()) {
+                    return refuse(
+                        StatusCode::BAD_REQUEST,
+                        "data_source_credential_posture_invalid",
+                        "credential_posture must be a declared posture (never a plaintext secret)."
+                            .into(),
+                    );
+                }
+                json!(posture)
+            }
+            _ => value
+                .map(|r| json!({ "kind": "lease_ref", "credential_lease_ref": r }))
+                .unwrap_or(Value::Null),
+        };
+        let field = if *key == "credential_lease_ref" {
+            "credential_binding"
+        } else {
+            *key
+        };
+        if prior.get(field) != Some(&stored) {
+            next[field] = stored;
+            changed.push(key);
+        }
+    }
+    if changed.is_empty() {
+        return (
+            StatusCode::OK,
+            Json(json!({ "data_source": prior, "changed": [] })),
+        );
+    }
+    if changed.iter().any(|k| BINDING_FIELDS.contains(k)) && source_is_bound(data_dir, id) {
+        return refuse(StatusCode::CONFLICT, "data_source_bound",
+            format!("A lease plan or connector mapping binds this source, so its {} cannot change — it would move what an approved lease reaches.", changed.join(", ")));
+    }
+    let now = iso_now();
+    if s(
+        &prior.get("lifecycle").cloned().unwrap_or(Value::Null),
+        "status",
+        "",
+    ) == "draft"
+        && next.get("endpoint").is_some_and(|e| e.is_string())
+    {
+        next["lifecycle"] = json!({ "status": "declared" });
+    }
+    let source_ref = s(&prior, "source_ref", "");
+    let (receipt_id, mut receipt) = build_data_source_receipt(&source_ref, "updated", "ok", &now);
+    receipt["changed"] = json!(changed);
+    let receipt_ref = s(&receipt, "receipt_ref", "");
+    if let Some(refs) = next.get_mut("receipt_refs").and_then(|v| v.as_array_mut()) {
+        refs.push(json!(receipt_ref));
+    } else {
+        next["receipt_refs"] = json!([receipt_ref]);
+    }
+    next["updated_at"] = json!(now);
+    // The record persists first; if its receipt cannot, the prior record is restored (checked) so a
+    // change never stands without its receipt.
+    if let Err(e) = persist_record(data_dir, RECORD_DIR, id, &next) {
+        return refuse(
+            StatusCode::INTERNAL_SERVER_ERROR,
+            "data_source_record_persist_failed",
+            format!("data-source record persist failed ({e}) — nothing changed"),
+        );
+    }
+    if let Err(e) = persist_record(data_dir, RECEIPT_DIR, &receipt_id, &receipt) {
+        return match persist_record(data_dir, RECORD_DIR, id, &prior) {
+            Ok(()) => refuse(StatusCode::INTERNAL_SERVER_ERROR, "data_source_receipt_persist_failed", format!("data-source receipt persist failed ({e}); the prior record was restored — nothing changed")),
+            Err(re) => refuse(StatusCode::INTERNAL_SERVER_ERROR, "data_source_rollback_failed", format!("data-source receipt persist failed ({e}) AND restoring the prior record failed ({re}) — manual repair required for data source '{id}'")),
+        };
+    }
+    (
+        StatusCode::OK,
+        Json(json!({ "data_source": next, "changed": changed, "data_source_receipt": receipt })),
     )
 }
 
@@ -468,6 +695,182 @@ mod data_source_tests {
             status,
             StatusCode::BAD_REQUEST,
             "a plaintext secret is still refused"
+        );
+    }
+
+    #[test]
+    fn a_draft_is_declared_without_an_endpoint_and_becomes_declared_when_its_declarer_gives_one() {
+        let dir = temp_dir("draft");
+        let data_dir = dir.to_str().unwrap();
+        let (status, Json(reply)) = create_data_source(
+            data_dir,
+            "user://alpha",
+            &json!({ "name": "orders", "kind": "rest_api" }),
+        );
+        assert_eq!(
+            status,
+            StatusCode::BAD_REQUEST,
+            "without draft, a network kind still requires an endpoint"
+        );
+        assert_eq!(
+            reply["error"]["code"],
+            json!("data_source_endpoint_required")
+        );
+        let (status, _) = create_data_source(
+            data_dir,
+            "user://alpha",
+            &json!({ "name": "orders", "kind": "rest_api", "draft": "yes" }),
+        );
+        assert_eq!(
+            status,
+            StatusCode::BAD_REQUEST,
+            "a non-boolean draft refuses typed"
+        );
+        let (status, Json(reply)) = create_data_source(
+            data_dir,
+            "user://alpha",
+            &json!({ "name": "orders", "kind": "rest_api", "draft": true }),
+        );
+        assert_eq!(status, StatusCode::CREATED, "{reply}");
+        assert_eq!(reply["data_source"]["lifecycle"]["status"], json!("draft"));
+        let id = reply["data_source"]["source_id"]
+            .as_str()
+            .unwrap()
+            .to_string();
+
+        let (status, Json(reply)) = update_data_source(
+            data_dir,
+            "user://mallory",
+            &id,
+            &json!({ "endpoint": "https://api.example.test" }),
+        );
+        assert_eq!(
+            status,
+            StatusCode::FORBIDDEN,
+            "only the declarer may change a source"
+        );
+        assert_eq!(reply["error"]["code"], json!("data_source_not_declarer"));
+        for (body, code) in [
+            (json!({ "kind": "s3" }), "data_source_field_immutable"),
+            (
+                json!({ "endpoint": "https://u:p@api.example.test" }),
+                "data_source_endpoint_credentialed",
+            ),
+            (json!({ "endpoint": null }), "data_source_endpoint_required"),
+            (
+                json!({ "password": "hunter2" }),
+                "data_source_plaintext_secret_rejected",
+            ),
+            (
+                json!({ "credential_posture": "plaintext" }),
+                "data_source_credential_posture_invalid",
+            ),
+            (json!({ "name": 7 }), "data_source_field_type_invalid"),
+        ] {
+            let (status, Json(reply)) = update_data_source(data_dir, "user://alpha", &id, &body);
+            assert_eq!(
+                (status, reply["error"]["code"].clone()),
+                (StatusCode::BAD_REQUEST, json!(code)),
+                "{body}"
+            );
+        }
+        let untouched = load(data_dir, "data-source-registry", &id).unwrap();
+        assert_eq!(
+            untouched["lifecycle"]["status"],
+            json!("draft"),
+            "a refused update changes nothing"
+        );
+
+        let (status, Json(reply)) = update_data_source(
+            data_dir,
+            "user://alpha",
+            &id,
+            &json!({ "endpoint": "https://api.example.test/orders", "name": "orders" }),
+        );
+        assert_eq!(status, StatusCode::OK, "{reply}");
+        assert_eq!(
+            reply["changed"],
+            json!(["endpoint"]),
+            "an unchanged name is not a change"
+        );
+        assert_eq!(
+            reply["data_source"]["lifecycle"]["status"],
+            json!("declared")
+        );
+        let receipt_id = reply["data_source_receipt"]["receipt_id"]
+            .as_str()
+            .unwrap()
+            .to_string();
+        let receipt = load(data_dir, "data-source-registry-receipts", &receipt_id).unwrap();
+        assert_eq!(
+            (receipt["op"].clone(), receipt["changed"].clone()),
+            (json!("updated"), json!(["endpoint"]))
+        );
+        assert!(
+            !receipt.to_string().contains("api.example.test"),
+            "a receipt names the fields that changed, never their values"
+        );
+        let persisted = load(data_dir, "data-source-registry", &id).unwrap();
+        assert_eq!(
+            persisted["endpoint"],
+            json!("https://api.example.test/orders")
+        );
+        assert_eq!(persisted["receipt_refs"].as_array().unwrap().len(), 2);
+
+        let (status, Json(reply)) = update_data_source(
+            data_dir,
+            "user://alpha",
+            &id,
+            &json!({ "endpoint": "https://api.example.test/orders" }),
+        );
+        assert_eq!(
+            (status, reply["changed"].clone()),
+            (StatusCode::OK, json!([])),
+            "no change, no receipt"
+        );
+        assert!(reply.get("data_source_receipt").is_none());
+    }
+
+    #[test]
+    fn a_source_a_lease_plan_binds_keeps_its_endpoint_and_credential() {
+        let dir = temp_dir("bound");
+        let data_dir = dir.to_str().unwrap();
+        let (_, Json(reply)) = create_data_source(
+            data_dir,
+            "user://alpha",
+            &json!({ "name": "orders", "kind": "rest_api", "endpoint": "https://a.example.test" }),
+        );
+        let id = reply["data_source"]["source_id"]
+            .as_str()
+            .unwrap()
+            .to_string();
+        persist_record(
+            data_dir,
+            crate::capability_lease_plan_routes::RECORD_DIR,
+            "plan_1",
+            &json!({ "id": "plan_1", "data_source_id": id }),
+        )
+        .unwrap();
+        let (status, Json(reply)) = update_data_source(
+            data_dir,
+            "user://alpha",
+            &id,
+            &json!({ "endpoint": "https://b.example.test" }),
+        );
+        assert_eq!(
+            (status, reply["error"]["code"].clone()),
+            (StatusCode::CONFLICT, json!("data_source_bound"))
+        );
+        let (status, Json(reply)) = update_data_source(
+            data_dir,
+            "user://alpha",
+            &id,
+            &json!({ "name": "orders v2" }),
+        );
+        assert_eq!(
+            (status, reply["changed"].clone()),
+            (StatusCode::OK, json!(["name"])),
+            "a name is not what a lease reaches"
         );
     }
 

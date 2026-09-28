@@ -496,7 +496,14 @@ assertion in its verifier.
     28 = 7 bound / 6 named gaps / 15 open (ledger CCXXI). Connection settings' reads are bound, but the page shows a
     false "no permission": a declared source cannot change, because the data-source plane has no update route (daemon
     gap). The webhooks callout blames the runtime, which is also false.
-  - D3: New source as a data-source create (REST API only; every other type refused by name).
+  - D3: New source as a data-source create (REST API only; every other type refused by name). Done 2026-09-28: the
+    catalog, a type's overview, name and location (filed in a project), Create — a DRAFT data source (new daemon
+    `draft: true`) — connection details (the draft gets its endpoint through the new `PATCH
+    /v1/hypervisor/data-sources/:id`, declarer-only, receipted, refused once a lease plan binds the source), and the
+    remaining steps; an existing REST source's connection settings edit the same way, keeping the endpoint's path.
+    `check:adopted-data-connection` 12/12; seed depth 30 = 14 bound / 1 refused / 7 named gaps / 8 open (ledger CCXXII).
+    Traps paid: the Pipeline surface's authz answer ran on every surface (the catalog read "no add-source" and rendered
+    nothing); the mirror's `sources/new` index was a June build, so the whole create flow ran an old app.
   - D4: syncs over materializing runs, after the sync harvest.
 
 ## Gate

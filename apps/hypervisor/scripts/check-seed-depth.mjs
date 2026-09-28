@@ -107,7 +107,10 @@ const PINS = {
   // 2026-09-28 (R-241, Data Connection D2, part 2): a source's Code imports and Webhooks bound (both off, nothing can turn
   // either on); the webhooks callout's false runtime reason joins as open, the reference's two fixed-on switches named;
   // Connection settings' reads bound but the page shows a false "no permission" (no update route) — stays open. 26 → 28.
-  "data-connection": { total: 28, bound: 7, refused: 0, named_gap: 6, open: 15 },
+  // 2026-09-28 (R-241, Data Connection D3): New source creates a data-source declaration (REST API; a draft until its
+  // domain is set), the setup's steps walk through, and a REST source's connection settings save its endpoint — seven
+  // states bound; any other type refused by name; the reference's connector directory named. 28 → 30.
+  "data-connection": { total: 30, bound: 14, refused: 1, named_gap: 7, open: 8 },
 };
 
 const results = [];

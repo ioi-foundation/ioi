@@ -169,6 +169,18 @@ fn validate_inputs(data_dir: &str, body: &Value) -> Result<PlanInputs, VErr> {
             format!("data_source_id '{data_source_id}' does not resolve to a declared data source"),
         )
     })?;
+    // A draft source has no endpoint yet: there is nothing a lease could reach.
+    if source
+        .get("lifecycle")
+        .and_then(|l| l.get("status"))
+        .and_then(|v| v.as_str())
+        == Some("draft")
+    {
+        return Err(verr(
+            "lease_plan_data_source_draft",
+            format!("data source '{data_source_id}' is a draft with no endpoint — give it one before a lease plan binds it"),
+        ));
+    }
     let posture = s(&source, "credential_posture", "");
     if !LEASEABLE_POSTURES.contains(&posture.as_str()) {
         return Err(verr(

@@ -1,13 +1,16 @@
 #!/usr/bin/env node
-// THE ADOPTED DATA CONNECTION LISTS THE CALLER'S DATA SOURCES, AND NOTHING RECORDED (R-241, Data Connection D1).
+// THE ADOPTED DATA CONNECTION IS THE CALLER'S DATA SOURCES, AND NOTHING RECORDED (R-241, Data Connection D1–D3).
 //
 // The reference Data Connection (booted by the local mirror, routed at /workspace/data-ingestion-app) answers from the
 // Hypervisor's data-source plane (adopted-data-connection.mjs), in a real browser against an ISOLATED daemon + serve:
 //   - the Sources list is the caller's declared data sources, each under its connection type, with no syncs;
 //   - Syncs, Agents and Listeners say none — a declared source ingests nothing yet, and no agent or listener exists;
-//   - the landing renders, and offers no create it would refuse (creating a source is not bound yet);
-//   - no read reaches the mirror but the reference's chrome, no service read gets the serve's HTML page, and a write the
-//     app would send (creating a source) is a named gap that writes nothing;
+//   - a source's own pages: its Overview, Code imports and Webhooks (off, and nothing turns them on);
+//   - New source (cut D3), driven as a person does it: pick REST API, name it, file it in a project, create — a draft
+//     data source — give it its domain (the draft becomes declared, with that endpoint), and walk the remaining steps;
+//   - an existing REST source's connection settings: its declarer's new domain becomes its endpoint, path kept;
+//   - no read reaches the mirror but the reference's chrome, no service read gets the serve's HTML page; a type other
+//     than REST API is refused by name at create, and any other write is a named gap that writes nothing;
 //   - with the daemon stopped, the Sources list shows its error rather than "No sources".
 //
 // Exit: 0 pass · 1 fail · 2 blocked (no daemon binary, or the local mirror cannot boot the reference app).
@@ -68,6 +71,10 @@ async function run() {
   const orders = await d("POST", "/v1/hypervisor/data-sources", { name: "Orders API", kind: "rest_api", endpoint: "https://api.example.test/orders", credential_posture: "wallet_credential_lease" });
   const plants = await d("POST", "/v1/hypervisor/data-sources", { name: "Plants bucket", kind: "s3", endpoint: "s3://plants-example/", credential_posture: "wallet_credential_lease" });
   const countBefore = ((await d("GET", "/v1/hypervisor/data-sources")).j.data_sources || []).length;
+  // a project to file a new source in (the location picker offers the caller's projects)
+  await d("POST", "/v1/hypervisor/projects", { project_name: "payments", repository_url: "https://example.local/verify/payments.git" });
+  const projectRow = ((await d("GET", "/v1/hypervisor/projects")).j.projects || []).find((p) => (p.project_name || p.name) === "payments") || {};
+  const project = { project_ref: projectRow.project_ref || (projectRow.project_id ? `project://${projectRow.project_id}` : null) };
   ok("PRECONDITION: two data sources are declared (a REST API and an S3 bucket)", orders.status < 300 && plants.status < 300 && countBefore === 2, `${orders.status} · ${plants.status} · ${countBefore} declared`);
 
   const { chromium } = await import(path.join(ROOT, "node_modules", "playwright", "index.mjs"));
@@ -127,24 +134,74 @@ async function run() {
       /No syncs/u.test(syncs) && /No agents found/u.test(agents) && /No listeners found/u.test(listeners) && !/Could not load syncs|Unable to load agents|Failed to load listeners/u.test(syncs + agents + listeners),
       `${after(syncs, "No syncs", 20)} · ${after(agents, "No agents", 20)} · ${after(listeners, "No listeners", 22)}`);
     const splash = await visit(`${BASE}/splash`, /Set up new connections|An error occurred/u);
-    // New source is not actionable: the reference renders it disabled (its tooltip's "no permission" is not the reason —
-    // creating a source is not bound yet; seed depth new-source.button-reason, open)
     const newSource = await pg.evaluate(() => [...document.querySelectorAll("a,button,[role=button]")].filter((e) => (e.innerText || "").trim() === "New source").map((e) => e.disabled === true || e.getAttribute("aria-disabled") === "true"));
-    ok("the landing renders, and offers no create it would refuse (creating a source is not bound yet)",
-      /Set up new connections/u.test(splash) && !/An error occurred/u.test(splash) && newSource.every(Boolean),
-      `${after(splash, "Data Connection Synchronize", 60)} · New source ${newSource.length ? (newSource.every(Boolean) ? "disabled" : "LIVE") : "absent"}`);
+    ok("the landing renders, and offers New source (a source is created as a data-source declaration)",
+      /Set up new connections/u.test(splash) && !/An error occurred/u.test(splash) && newSource.length >= 1 && newSource.every((off) => !off),
+      `${after(splash, "Data Connection Synchronize", 60)} · New source ${newSource.length ? (newSource.every((off) => !off) ? "offered" : "DISABLED") : "absent"}`);
+
+    // ---- New source, as a person creates one (cut D3): pick REST API, name it, file it in a project, create — a draft
+    // data source — then give it its domain: the draft becomes a declared source with that endpoint
+    await visit(`${BASE}/sources/new`, /Select your source type|REST API/u);
+    await pg.locator("[role=button], button, a, div").filter({ hasText: /^REST API\b/u }).last().click({ timeout: 8000 }).catch(() => {});
+    await pg.waitForTimeout(3000);
+    await pg.getByRole("button", { name: /^Continue$/u }).first().click({ timeout: 8000 }).catch(() => {});
+    await pg.waitForTimeout(3000);
+    await pg.locator("input[type=text]").first().fill("Payments API").catch(() => {});
+    const createBtn = pg.getByRole("button", { name: /^Create source and continue$/u }).first();
+    for (let i = 0; i < 15 && !(await createBtn.isEnabled().catch(() => false)); i++) await pg.waitForTimeout(700);
+    await createBtn.click({ timeout: 8000 }).catch(() => {});
+    let setupUrl = ""; for (let i = 0; i < 25 && !/\/setup\/connection-details$/u.test(setupUrl); i++) { await pg.waitForTimeout(800); setupUrl = new URL(pg.url()).pathname; }
+    const drafted = ((await d("GET", "/v1/hypervisor/data-sources")).j.data_sources || []).find((x) => x.name === "Payments API");
+    const hostField = pg.locator("input[placeholder='external-system.com']").first();
+    await hostField.waitFor({ state: "visible", timeout: 20000 }).catch(() => {});
+    await hostField.fill("payments.example.test").catch(() => {});
+    await pg.getByRole("button", { name: /^Save and continue$/u }).first().click({ timeout: 8000 }).catch(() => {});
+    await pg.getByRole("button", { name: /^Continue without adding$/u }).first().click({ timeout: 8000 }).catch(() => {});
+    let nextUrl = ""; for (let i = 0; i < 25 && !/\/setup\/export-configuration$/u.test(nextUrl); i++) { await pg.waitForTimeout(800); nextUrl = new URL(pg.url()).pathname; }
+    const declared = ((await d("GET", "/v1/hypervisor/data-sources")).j.data_sources || []).find((x) => x.name === "Payments API");
+    ok("New source creates a REST API source as a draft data source in the chosen project, and saving its connection details gives it that endpoint",
+      /\/setup\/connection-details$/u.test(setupUrl) && drafted?.lifecycle?.status === "draft" && !drafted?.endpoint && drafted?.project_ref === project.project_ref && drafted?.declared_by_principal_ref
+        && declared?.endpoint === "https://payments.example.test" && declared?.lifecycle?.status === "declared" && (declared?.receipt_refs || []).length === 2 && /\/setup\/export-configuration$/u.test(nextUrl),
+      `${setupUrl.replace(/ri\.[\w.-]+/u, "<rid>")} · drafted ${drafted ? `${drafted.lifecycle?.status} ${drafted.endpoint || "no endpoint"} ${drafted.project_ref || "no project"}` : "none"} · declared ${declared ? `${declared.lifecycle?.status} ${declared.endpoint} ${(declared.receipt_refs || []).length} receipts` : "none"} · ${nextUrl.replace(/ri\.[\w.-]+/u, "<rid>")}`);
 
     ok("no page reached the mirror beyond the reference's chrome, every read the adopted layer does not bind is a named gap (never the serve's HTML page), and no GraphQL operation on these pages is unbound",
       [...passthrough].every((p) => CHROME.has(p)) && unnamed.size === 0 && htmlAnswers.size === 0 && fenced.size === 0 && gqlErrors.size === 0 && pageErrors.length === 0,
       `passthrough ${[...passthrough].filter((p) => !CHROME.has(p)).join(",") || "chrome only"} · fenced ${[...fenced].join(",") || "none"} · unnamed ${[...unnamed].join(",") || "none"} · html ${[...htmlAnswers].join(",") || "none"} · gql ${[...gqlErrors].slice(0, 2).join(" | ") || "none"} · page ${pageErrors.slice(0, 1).join("") || "none"}`);
 
-    // ---- the fence: the app's create (a write) is a named gap and writes nothing ---------------------------------
+    // the setup's remaining steps: exports are off and nothing here enables them, code imports are off, and the summary
+    // offers the source's page
+    await pg.getByRole("button", { name: /^Continue$/u }).last().click({ timeout: 8000 }).catch(() => {});
+    let importsUrl = ""; for (let i = 0; i < 20 && !/\/setup\/code-imports$/u.test(importsUrl); i++) { await pg.waitForTimeout(700); importsUrl = new URL(pg.url()).pathname; }
+    await pg.getByRole("button", { name: /^Continue$/u }).last().click({ timeout: 8000 }).catch(() => {});
+    let summaryUrl = ""; for (let i = 0; i < 20 && !/\/setup\/summary$/u.test(summaryUrl); i++) { await pg.waitForTimeout(700); summaryUrl = new URL(pg.url()).pathname; }
+    const summary = await text();
+    ok("the setup's remaining steps walk through as the reference's do: export configuration, code imports, then a summary that opens the source",
+      /\/setup\/code-imports$/u.test(importsUrl) && /\/setup\/summary$/u.test(summaryUrl) && /Go to Source page/u.test(summary) && /Open Source/u.test(summary),
+      `${importsUrl.replace(/ri\.[\w.-]+/u, "<rid>")} · ${summaryUrl.replace(/ri\.[\w.-]+/u, "<rid>")} · ${after(summary, "What to do next", 120)}`);
+
+    // ---- an existing REST source's connection settings: its declarer changes the domain, and the source's endpoint
+    // follows, keeping its path
+    await visit(`${srcBase}/settings/connection-details`, /Domain base URL|You do not have permission/u);
+    const domain = pg.locator("input[placeholder='external-system.com']").first();
+    await domain.waitFor({ state: "visible", timeout: 20000 }).catch(() => {});
+    const shownHost = await domain.inputValue().catch(() => "");
+    await domain.fill("orders.example.test").catch(() => {});
+    await pg.getByRole("button", { name: /^Save$/u }).first().click({ timeout: 8000 }).catch(() => {});
+    await pg.getByRole("button", { name: /^Continue without adding$/u }).first().click({ timeout: 8000 }).catch(() => {});
+    let edited = null; for (let i = 0; i < 20; i++) { await pg.waitForTimeout(700); edited = ((await d("GET", "/v1/hypervisor/data-sources")).j.data_sources || []).find((x) => x.name === "Orders API"); if (edited?.endpoint !== "https://api.example.test/orders") break; }
+    ok("an existing REST source's connection settings show its domain, and its declarer's change becomes the source's endpoint, keeping its path — receipted",
+      shownHost === "api.example.test" && edited?.endpoint === "https://orders.example.test/orders" && (edited?.receipt_refs || []).length === 2,
+      `shown ${shownHost || "(none)"} · endpoint ${edited?.endpoint} · ${(edited?.receipt_refs || []).length} receipts`);
+
+    // ---- refused by name: a type this plane cannot create, and a write the app would send that is not bound ----------
     const H = { cookie: COOKIE, "content-type": "application/json", referer: `${SERVE}${BASE}/sources/new` };
-    const create = await fetch(`${SERVE}/magritte-coordinator/api/source-store/source/v3`, { method: "POST", headers: H, body: JSON.stringify({ description: { name: "Should not exist", description: "", apiName: "ShouldNotExist" } }) }).then(async (r) => ({ status: r.status, pass: r.headers.get("x-ioi-mirror-passthrough"), j: await r.json().catch(() => ({})) }));
+    const countMid = ((await d("GET", "/v1/hypervisor/data-sources")).j.data_sources || []).length;
+    const s3 = await fetch(`${SERVE}/magritte-coordinator/api/source-store/source/v3`, { method: "POST", headers: H, body: JSON.stringify({ description: { name: "Should not exist", description: "", apiName: null }, config: { source: { type: "s3-direct", config: { url: "s3://x/" } } } }) }).then(async (r) => ({ status: r.status, pass: r.headers.get("x-ioi-mirror-passthrough"), j: await r.json().catch(() => ({})) }));
+    const exp = await fetch(`${SERVE}/magritte-coordinator/api/export-store/exports`, { method: "POST", headers: H, body: "{}" }).then(async (r) => ({ status: r.status, j: await r.json().catch(() => ({})) }));
     const countAfter = ((await d("GET", "/v1/hypervisor/data-sources")).j.data_sources || []).length;
-    ok("on the Data Connection surface the app's create is a named gap that writes nothing — never the recorded tenant's answer",
-      create.status === 501 && create.j.errorName === "Hypervisor:DataConnectionReadNotBound" && !create.pass && countAfter === countBefore,
-      `create ${create.status} ${create.j.errorName} · data sources ${countBefore} → ${countAfter}`);
+    ok("a type other than REST API is refused by name at create, and any other Data Connection write is a named gap — neither writes anything, and neither is the recorded tenant's answer",
+      s3.status === 400 && s3.j.errorName === "Hypervisor:DataConnectionTypeNotCreatable" && !s3.pass && exp.status === 501 && exp.j.errorName === "Hypervisor:DataConnectionReadNotBound" && countAfter === countMid,
+      `S3 ${s3.status} ${s3.j.errorName} · other write ${exp.status} ${exp.j.errorName} · data sources ${countMid} → ${countAfter}`);
 
     // ---- degraded: the daemon stopped ---------------------------------------------------------------------------------
     daemon.kill("SIGTERM");

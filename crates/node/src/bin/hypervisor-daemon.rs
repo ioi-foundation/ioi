@@ -3427,7 +3427,8 @@ async fn async_main() -> anyhow::Result<()> {
         )
         .route(
             "/v1/hypervisor/data-sources/:id",
-            get(data_source_routes::handle_data_source_get),
+            get(data_source_routes::handle_data_source_get)
+                .patch(data_source_routes::handle_data_source_update),
         )
         .route(
             "/v1/hypervisor/autonomous-systems",

@@ -9402,7 +9402,7 @@ async function handleEstateRequest(req, res, body) {
       };
       const answerAdoptedOp = async (name, variables, ctxA, query = "") => {
         try {
-          if (ctxA?.failed && !PIPELINE.answersPipelineOperation(name, variables) && !(onDataConnectionSurface() && DATA_CONNECTION.DATA_CONNECTION_GRAPHQL_OPERATIONS.has(name)) && !(onPipelineSurface() && (AUTOMATE.SAVE_LOCATION_OPERATIONS.has(name) || name === "FolderLocationQuery" || name === "ViewResourceMutation"))) throw ctxA.failed;
+          if (ctxA?.failed && !PIPELINE.answersPipelineOperation(name, variables) && !(onDataConnectionSurface() && (DATA_CONNECTION.DATA_CONNECTION_GRAPHQL_OPERATIONS.has(name) || AUTOMATE.SAVE_LOCATION_OPERATIONS.has(name))) && !(onPipelineSurface() && (AUTOMATE.SAVE_LOCATION_OPERATIONS.has(name) || name === "FolderLocationQuery" || name === "ViewResourceMutation"))) throw ctxA.failed;
           return await answerAdoptedOpInner(name, variables, ctxA, query);
         }
         catch (e) { if (e?.planeDown) return { data: null, errors: [{ message: `${name}: ${e.message}` }] }; throw e; }
@@ -9431,7 +9431,7 @@ async function handleEstateRequest(req, res, body) {
         }
         // Data Connection's sources, listeners and splash (on its surface only)
         if (DATA_CONNECTION.DATA_CONNECTION_GRAPHQL_OPERATIONS.has(name) && query && onDataConnectionSurface()) {
-          const sources = name === "SourcesListQuery" || DATA_CONNECTION.SOURCE_PAGE_OPERATIONS.has(name) ? await callerDataSources() : [];
+          const sources = name === "SourcesListQuery" || DATA_CONNECTION.SOURCE_PAGE_OPERATIONS.has(name) || DATA_CONNECTION.CREATE_PAGE_OPERATIONS.has(name) ? await callerDataSources() : [];
           const ownerRef = name === "ResourceMetadataQuery" ? ((await planeRead("/v1/hypervisor/auth/whoami")).principal?.tenant_refs || []).find((t) => String(t).startsWith("org://")) : null;
           return { data: answerAdoptedDocument(query, DATA_CONNECTION.dataConnectionGraphqlFacts(name, variables || {}, { sources, ownerRef }), null, name) };
         }
@@ -9483,6 +9483,12 @@ async function handleEstateRequest(req, res, body) {
           // pipeline of the caller's already carries it
           const taken = (await pipelineContext()).map((p) => ({ project_id: PIPELINE.RECIPE_REGISTRY.project_id, name: p.name }));
           return { data: answerAdoptedDocument(query, AUTOMATE.saveLocationFactsRoot([PIPELINE.RECIPE_REGISTRY], variables || {}, taken), null, name) };
+        }
+        if (AUTOMATE.SAVE_LOCATION_OPERATIONS.has(name) && query && onDataConnectionSurface()) {
+          // New source's location: the caller's projects (a source is declared into the one chosen)
+          const projects = await planeRead("/v1/hypervisor/projects").then((j) => j.projects || []);
+          const taken = (await callerDataSources()).map((x) => ({ project_ref: String(x.project_ref || "").replace(/^project:\/\//u, ""), name: x.name }));
+          return { data: answerAdoptedDocument(query, AUTOMATE.saveLocationFactsRoot(projects, variables || {}, taken), null, name) };
         }
         if (AUTOMATE.SAVE_LOCATION_OPERATIONS.has(name) && query) {
           const projects = await planeRead("/v1/hypervisor/projects").then((j) => j.projects || []);
@@ -10475,7 +10481,9 @@ async function handleEstateRequest(req, res, body) {
         // The caller's operations on each requested pipeline of theirs: a signed-in caller may edit their own pipelines
         // (a Save is a draft on a change set; Main moves only by a merge). Branch protection, approval policy and
         // unmarking settings are not the caller's to change: none of those planes exists.
-        if (pathname === "/multipass/api/authz/batch/operations" && req.method === "POST") {
+        // (Data Connection answers its own sources' operations below; this one answered first on every surface, so the
+        // New source catalog read "no operation" and rendered no connector at all)
+        if (pathname === "/multipass/api/authz/batch/operations" && req.method === "POST" && !onDataConnectionSurface()) {
           let rids = [];
           try { rids = JSON.parse(body.toString() || "[]"); } catch { /* none */ }
           const ours = await pipelineContext();
@@ -10792,6 +10800,8 @@ async function handleEstateRequest(req, res, body) {
       }
       // THE ADOPTED ONTOLOGY MANAGER'S READS (R-241 cut O1b) over the caller's ODK domain ontologies (adopted-ontology.mjs).
       const sendO = (status, obj) => { res.writeHead(status, { "Content-Type": "application/json" }); return res.end(JSON.stringify(obj)); };
+      // a Data Connection write the Hypervisor refuses, in the reference's error shape, named
+      const dataConnectionRefusal = (status, errorName, message) => sendO(status, { errorCode: ({ 403: "PERMISSION_DENIED", 404: "NOT_FOUND", 409: "CONFLICT" })[status] || (status >= 500 ? "INTERNAL" : "INVALID_ARGUMENT"), errorName, errorInstanceId: "", parameters: { message } });
       const ontologyRidIn = (p) => (p.match(/ri\.ontology\.main\.ontology\.[0-9a-f-]{36}/u) || [])[0] || null;
       if (pathname === "/ontology-metadata/api/ontology/featureConfigurations" && req.method === "GET") return sendO(200, ONTOLOGY.FEATURE_CONFIGURATIONS);
       if (pathname === "/ontology-metadata/api/organization/getSettings/user" && req.method === "POST") {
@@ -10919,6 +10929,38 @@ async function handleEstateRequest(req, res, body) {
         if (route === "extract-store/extracts/bulk") return sendO(200, DATA_CONNECTION.extractsBulkOf());
         if (route === "source-store/sources/config/bulk") return sendO(200, DATA_CONNECTION.sourceConfigsOf(asked, await callerDataSources()));
         if (route === "source-store/sources/metadata") return sendO(200, DATA_CONNECTION.sourceMetadataOf(asked, await callerDataSources()));
+        // New source → a data-source declaration (cut D3): a REST API, a draft until its domain is set; the answer is the
+        // new source's rid. Filed in the project the location picker chose, when it is one of the caller's.
+        if (route === "source-store/source/v3") {
+          let declared;
+          try { declared = DATA_CONNECTION.createBodyOf(asked); } catch (e) { if (e instanceof DATA_CONNECTION.DataConnectionRefusal) return dataConnectionRefusal(400, e.code, e.message); throw e; }
+          const projects = await planeRead("/v1/hypervisor/projects").then((j) => j.projects || []).catch(() => []);
+          const project = projects.find((p) => AUTOMATE.projectFolderRid(p.project_id) === asked?.parentRid);
+          if (project) declared.project_ref = project.project_ref || `project://${project.project_id}`;
+          const r = await daemonFetch("/v1/hypervisor/data-sources", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(declared) });
+          const j = await r.json().catch(() => ({}));
+          if (!r.ok) return dataConnectionRefusal(r.status >= 500 ? 502 : r.status, `Hypervisor:${j.error?.code || "DataSourceDeclarationRefused"}`, j.error?.message || `the data-source plane answered ${r.status}`);
+          return sendO(200, DATA_CONNECTION.sourceRidOf(j.data_source.source_id));
+        }
+      }
+      // a source's connection details saved → the data-source plane's update (only its declarer; only a REST domain)
+      if (onDataConnectionSurface() && req.method === "PUT" && /^\/magritte-coordinator\/api\/source-store\/v2\/sources\/ri\.magritte\.\.source\.[0-9a-f-]{36}$/u.test(pathname)) {
+        let asked = null; try { asked = JSON.parse(body.toString() || "null"); } catch { /* none */ }
+        const rid = pathname.split("/").pop();
+        const src = (await callerDataSources()).find((x) => DATA_CONNECTION.sourceRidOf(x.source_id) === rid);
+        if (!src) return dataConnectionRefusal(404, "Hypervisor:DataSourceNotFound", "No source of yours has this id.");
+        let patch;
+        try { patch = DATA_CONNECTION.updateBodyOf(asked, src); } catch (e) { if (e instanceof DATA_CONNECTION.DataConnectionRefusal) return dataConnectionRefusal(400, e.code, e.message); throw e; }
+        const r = await daemonFetch(`/v1/hypervisor/data-sources/${encodeURIComponent(src.source_id)}`, { method: "PATCH", headers: { "content-type": "application/json" }, body: JSON.stringify(patch) });
+        const j = await r.json().catch(() => ({}));
+        if (!r.ok) return dataConnectionRefusal(r.status >= 500 ? 502 : r.status, `Hypervisor:${j.error?.code || "DataSourceUpdateRefused"}`, j.error?.message || `the data-source plane answered ${r.status}`);
+        return sendO(200, DATA_CONNECTION.updatedSourceOf(j.data_source));
+      }
+      // which of the asked sources the caller may reconfigure: those they declared
+      if (onDataConnectionSurface() && req.method === "POST" && pathname === "/multipass/api/authz/batch/operations") {
+        let asked = null; try { asked = JSON.parse(body.toString() || "null"); } catch { /* none */ }
+        const signedIn = (await planeRead("/v1/hypervisor/auth/whoami")).authenticated === true;
+        return sendO(200, DATA_CONNECTION.authzOperationsOf(asked, await callerDataSources(), { signedIn }));
       }
       // a source's parent folder (the owner's organization folder)
       if (onDataConnectionSurface() && req.method === "GET" && /^\/compass\/api\/resources\/ri\.magritte\.\.source\.[0-9a-f-]{36}\/parent$/u.test(pathname)) {

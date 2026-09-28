@@ -37,7 +37,9 @@ export const sourceRidOf = (sourceId) => `ri.magritte..source.${uuidOf(`data-sou
 // not caller-scoped; the adopted layer never shows another principal's source.)
 export function callerSourcesOf(sources, principalRef, projectRefs) {
   const projects = new Set(projectRefs || []);
-  return (sources || []).filter((s) => s && s.source_id && ((principalRef && s.declared_by_principal_ref === principalRef) || (s.project_ref && projects.has(s.project_ref))));
+  // only its declarer may change a source (the data-source plane refuses anyone else), so only theirs is offered as editable
+  return (sources || []).filter((s) => s && s.source_id && ((principalRef && s.declared_by_principal_ref === principalRef) || (s.project_ref && projects.has(s.project_ref))))
+    .map((s) => ({ ...s, caller_may_change: !!principalRef && s.declared_by_principal_ref === principalRef }));
 }
 
 function sourceNodeOf(src) {
@@ -91,7 +93,8 @@ export function sourceConfigOf(src) {
     const u = endpointUrl(src.endpoint);
     const id = uuidOf(`domain:${src.source_id}`);
     return { source: { type, config: { domains: [{ domainId: id, host: u?.host || "", scheme: u?.protocol === "http:" ? "HTTP" : "HTTPS" }] } },
-      connections: { [id]: { id, config: { type: "http", http: { url: u ? `${u.protocol}//${u.host}` : "" } } } }, additionalSecrets: {}, resources: {} };
+      // a draft's domain has no host yet: its connection URL is the bare scheme, as the reference answers it
+      connections: { [id]: { id, config: { type: "http", http: { url: u ? `${u.protocol}//${u.host}` : "https://" } } } }, additionalSecrets: {}, resources: {} };
   }
   return { source: { type, config: { url: src.endpoint || null } }, connections: {}, additionalSecrets: {}, resources: {} };
 }
@@ -100,7 +103,7 @@ export function sourceConfigOf(src) {
 // here may create one. Organization-wide, not per source.
 export const ENROLLMENT_RID = `ri.multipass..enrollment.${uuidOf("enrollment")}`;
 const enrollmentOf = (base) => ({
-  ...base, __typename: "Enrollment", rid: ENROLLMENT_RID, name: "Hypervisor",
+  ...base, __typename: "Enrollment", _id: cid("Enrollment:hypervisor"), rid: ENROLLMENT_RID, name: "Hypervisor",
   computeEnvironmentDetails: { __typename: "ComputeEnvironmentDetails", cloudPlatformDetails: null, rubixEnvironmentDetails: { __typename: "RubixEnvironmentDetails", egressCidrs: [] } },
   cloudIdentities: [], isPrivateLinkEgressServiceAvailable: false, isSourceBasedNetworkingAvailable: false, networkEgressPolicies: [],
   networkEgressConfiguration: "SELF_SERVICE", isSelfApprovalEnabledForNetworkPolicyApprovalRequests: false, organizations: [],
@@ -111,18 +114,24 @@ const enrollmentOf = (base) => ({
 const secretsOf = (src) => src.credential_binding?.credential_lease_ref ? [{ __typename: "MagritteSecret", name: "Credential lease", vaultEntryRid: src.credential_binding.credential_lease_ref }] : [];
 function sourceDetailOf(src) {
   const node = sourceNodeOf(src);
-  const off = { canCreateExport: false, canCreateExtract: false, canExploreSource: false, canRegisterTable: false, canUpdateSourceConfig: false, canCreateWebhook: false, canUseSourceTerminal: false };
+  const off = { canCreateExport: false, canCreateExtract: false, canExploreSource: false, canRegisterTable: false, canUpdateSourceConfig: false, canCreateWebhook: false, canUseSourceTerminal: false,
+    canUpdateExportControls: false, canUpdateExportMarkings: false };
+  // a REST source's connection details are its endpoint, which its declarer may change (cut D3); nothing else is editable
+  if (src.caller_may_change && sourceTypeOf(src.kind) === "webhooks-rest") off.canUpdateSourceConfig = true;
   return {
-    ...node, apiName: null, sourceConfig: sourceConfigOf(src), permissions: { __typename: "MagritteSourcePermissions", ...off }, secrets: secretsOf(src),
+    // every entity carries a stable _id: the app's cache normalizes by it, and a null id collapses every source's
+    // permissions into one entry
+    ...node, apiName: null, sourceConfig: sourceConfigOf(src), permissions: { __typename: "MagritteSourcePermissions", _id: cid(`MagritteSourcePermissions:${node.rid}`), ...off }, secrets: secretsOf(src),
     runtimePlatform: { __typename: "CloudRuntimePlatform", clientCertificatesV2: [], serverCertificateBundlesV2: [], migrationToCloudInfo: null },
-    exportState: { __typename: "MagritteExportState", isEnabled: false },
+    // no data leaves through a source here: exports are off and no marking is exportable
+    exportState: { __typename: "MagritteSourceExportState", isEnabled: false, isEnabledWithoutMarkingsValidation: false, markingsAllowedForExport: [], markingsAllowedForExportCount: 0 },
     codeResourceImportUsageRestrictionsV2: { __typename: "CodeResourceImportUsageRestrictions", allowStemmaRepositoriesUsage: false, allowDeployedApplicationsUsage: false },
     streamingExtracts: [], exports: [], changeDataCaptureStreamingExtract: null, importingCodeResources: [], streamingMediaExtracts: [], mediaExtracts: [], hyperAutoIntegrations: [],
     tables: { __typename: "MagritteTablePage", values: [] }, magritteIcebergExtractsV2: { __typename: "MagritteIcebergExtractPage", totalNumberOfResults: 0 },
     webhooks: { __typename: "WebhooksPage", totalNumberOfResults: 0, values: [], nextPageToken: null }, lastKnownCdataOauthAuthenticationStatus: null, userUploadedJdbcDrivers: [],
     // a declared source syncs nothing, so no folder receives its datasets
     outputFolder: null,
-    metadata: { ...node.metadata, name: src.name || src.source_id, description: "", permissions: { __typename: "ResourcePermissions", canEditMetadata: false },
+    metadata: { ...node.metadata, name: src.name || src.source_id, description: "", permissions: { __typename: "ResourcePermissions", _id: cid(`ResourcePermissions:${node.rid}`), canEditMetadata: false, canAdministerNetworkControls: false },
       project: { ...node.metadata.project, usageAccountEnrollment: enrollmentOf(node.metadata.project.usageAccountEnrollment) } },
   };
 }
@@ -178,21 +187,85 @@ function sourceResourceMetadataOf(src, ownerRef) {
   const rid = sourceRidOf(src.source_id);
   const folderRid = ownerRef ? namespaceRidOf(ownerRef) : null;
   const seg = (r, name, path) => ({ __typename: "ResourceMetadata", _id: cid(`ResourceMetadata:${r}`), rid: r, name, alias: null, openUrl: null, path, collections: [], status: null,
-    trashedStatus: "NOT_TRASHED", type: { __typename: "ResourceType", iconName: null }, permissions: { __typename: "ResourcePermissions", canEditMetadata: false, canOpenLink: false },
+    trashedStatus: "NOT_TRASHED", type: { __typename: "ResourceType", iconName: null }, permissions: { __typename: "ResourcePermissions", _id: cid(`ResourcePermissions:${r}`), canEditMetadata: false, canOpenLink: false },
     autosaved: false, statusInfo: null, ancestors: [], parent: null });
   const folder = folderRid ? seg(folderRid, namespaceNameOf(ownerRef), `/${namespaceNameOf(ownerRef)}`) : null;
   return { ...seg(rid, src.name || src.source_id, `/${namespaceNameOf(ownerRef)}/${src.name || src.source_id}`), parent: folder, ancestors: folder ? [folder] : [] };
 }
+const GLOBAL_PERMISSIONS = { __typename: "GlobalPermissions", _id: cid("GlobalPermissions"), canCreateMagritteSourceV2: true };
+export const CREATE_PAGE_OPERATIONS = new Set(["ChooseNewSourceTypePageQuery", "CreateSourcePageQuery", "CreateSourceStepQuery", "ResourceNewNameKnownInvalidQuery", "CheckSourceApiNameQuery"]);
+
+// ---- creating and changing a source (cut D3): the reference's writes as data-source declarations and updates. A REST
+// API is the one type created here: its domain becomes the source's endpoint. Any other type is refused by name.
+const CREATABLE = { "webhooks-rest": "rest_api" };
+export class DataConnectionRefusal extends Error {
+  constructor(code, message) { super(message); this.code = code; }
+}
+// the first domain as an endpoint URL, or null while it has no host (the wizard creates a source before its details)
+export function endpointOfDomains(sourceConfig) {
+  const d = (sourceConfig?.config?.domains || [])[0];
+  const host = String(d?.host || "").trim();
+  if (!host) return null;
+  if (/[\s/@?#]/u.test(host)) throw new DataConnectionRefusal("Hypervisor:DataConnectionDomainInvalid", "A domain is a host name only (no scheme, path, credentials or query).");
+  const scheme = String(d?.scheme || "HTTPS").toUpperCase() === "HTTP" ? "http" : "https";
+  const port = Number(d?.port) || null;
+  return `${scheme}://${host}${port && port !== (scheme === "https" ? 443 : 80) ? `:${port}` : ""}`;
+}
+// POST source-store/source/v3 → the data-source plane's declaration body
+export function createBodyOf(request) {
+  const type = request?.config?.source?.type;
+  const kind = CREATABLE[type];
+  if (!kind) throw new DataConnectionRefusal("Hypervisor:DataConnectionTypeNotCreatable", `Only a REST API source can be created here; ${type || "this type"} cannot yet.`);
+  if ((request?.config?.source?.config?.domains || []).length > 1) throw new DataConnectionRefusal("Hypervisor:DataConnectionOneDomain", "A source here reaches one domain.");
+  const endpoint = endpointOfDomains(request.config.source);
+  return { name: String(request?.description?.name || "").trim(), kind, ...(endpoint ? { endpoint } : { draft: true }), credential_posture: "no_credentials_required" };
+}
+// PUT source-store/v2/sources/<rid> → the data-source plane's update body: only a REST source's connection details
+export function updateBodyOf(request, src) {
+  const patch = request?.patchSourceConfigRequest;
+  const other = Object.keys(request || {}).filter((k) => k !== "patchSourceConfigRequest");
+  if (!patch || other.length) throw new DataConnectionRefusal("Hypervisor:DataConnectionUpdateNotBound", `Only a source's connection details can be changed here${other.length ? ` (not ${other.join(", ")})` : ""}.`);
+  const next = patch.updatedSourceConfig;
+  if (!src || sourceTypeOf(src.kind) !== "webhooks-rest" || next?.type !== "webhooks-rest") throw new DataConnectionRefusal("Hypervisor:DataConnectionUpdateNotBound", "Only a REST API source's connection details can be changed here.");
+  if ((next?.config?.domains || []).length !== 1) throw new DataConnectionRefusal("Hypervisor:DataConnectionOneDomain", "A source here reaches exactly one domain.");
+  if ((next.config.domains[0].auth && next.config.domains[0].auth.type && next.config.domains[0].auth.type !== "none") || Object.keys(patch.additionalSecrets || {}).length)
+    throw new DataConnectionRefusal("Hypervisor:DataConnectionCredentialNotBound", "Authentication and secrets are not set here: a source's credential is a wallet lease, bound in Connections.");
+  const base = endpointOfDomains(next);
+  if (!base) throw new DataConnectionRefusal("Hypervisor:DataConnectionDomainInvalid", "A REST API source needs a domain.");
+  // the reference's domain is a host alone; a declared endpoint's path and query are kept when its host changes
+  const prior = endpointUrl(src.endpoint);
+  const rest = prior && (prior.pathname !== "/" || prior.search) ? `${prior.pathname}${prior.search}` : "";
+  return { endpoint: `${base}${rest}` };
+}
+// the reference's answer to a saved configuration, from the updated source
+export function updatedSourceOf(src) {
+  const c = sourceConfigOf(src);
+  return { updatedSource: { sourceConfig: c.source, connections: c.connections, additionalSecrets: {}, vaultEntries: {}, mavenCoordinates: { userProvided: [], foundryProvided: [] } } };
+}
+// POST multipass/api/authz/batch/operations — a signed-in caller may add a source (the source root's add-source, which
+// gates New source and its catalog), and may change the configuration of a REST source they declared
+export const SOURCE_ROOT = "ri.magritte..source.root";
+export function authzOperationsOf(rids, sources, { signedIn = false } = {}) {
+  const byRid = new Map((sources || []).map((s) => [sourceRidOf(s.source_id), s]));
+  const opsOf = (r) => {
+    if (r === SOURCE_ROOT) return signedIn ? ["magritte:source-store:add-source"] : [];
+    const src = byRid.get(r);
+    return src?.caller_may_change && sourceTypeOf(src.kind) === "webhooks-rest" ? ["magritte:source-store:update-source-config"] : [];
+  };
+  return { resourceToOperationsMap: Object.fromEntries((Array.isArray(rids) ? rids : []).map((r) => [r, opsOf(r)])) };
+}
+
 export const SOURCE_PAGE_OPERATIONS = new Set(["SourcePageQuery", "SourcePageHelperQuery", "SourceBadConfigurationCalloutQuery", "CdataSourceInformationQuery", "ActiveResourceQuery", "WalkthroughsForResourceQuery", "SourceOutputFolderCondensedQuery",
-  "SourceSettingsPageQuery", "SourceEditorQuery", "SourceEgressSelectPanelQuery", "SourceWebhooksPageQuery", "SourceWebhooksSectionQuery", "CodeImportsStepQuery", "ResourceMetadataQuery"]);
+  "SourceSettingsPageQuery", "SourceEditorQuery", "SourceEgressSelectPanelQuery", "SourceWebhooksPageQuery", "SourceWebhooksSectionQuery", "CodeImportsStepQuery", "ResourceMetadataQuery",
+  "ExportConfigurationStepQuery"]);
 // no service a source's settings name exists here: no compute service, no egress or on-prem proxy
 const SERVICE_AVAILABILITY = { __typename: "MagritteServiceAvailability", computeService: { __typename: "MagritteServiceAvailabilityResult", isAvailable: false },
   egressProxy: { __typename: "MagritteServiceAvailabilityResult", isAvailable: false }, onPremProxy: { __typename: "MagritteServiceAvailabilityResult", isAvailable: false } };
 const sourceOf = (sources, rid) => (sources || []).find((s) => sourceRidOf(s.source_id) === rid) || null;
 
-export const DATA_CONNECTION_GRAPHQL_OPERATIONS = new Set([...SOURCE_PAGE_OPERATIONS, 
+export const DATA_CONNECTION_GRAPHQL_OPERATIONS = new Set([...SOURCE_PAGE_OPERATIONS, ...CREATE_PAGE_OPERATIONS, 
   "SourcesListQuery", "CreateSourceButtonQuery", "SplashTableQuery", "TargetsListQuery", "GetRemoteStoreRid", "RecentInstallationsPopoverQuery",
-  "CommunicationChannelsQuery", "FoundryProvidedDriverQuery",
+  "CommunicationChannelsQuery", "FoundryProvidedDriverQuery", "HasAipEnabledQuery", "CreatePolicyDialogQuery",
 ]);
 // ctx: { sources } (already the caller's)
 export function dataConnectionGraphqlFacts(name, variables, ctx) {
@@ -205,8 +278,19 @@ export function dataConnectionGraphqlFacts(name, variables, ctx) {
       const from = Math.max(0, Number(variables?.pageToken) || 0);
       return { ...root, sources: { __typename: "MagritteSourcePage", values: rows.slice(from, from + 50).map(sourceNodeOf), nextPageToken: from + 50 < rows.length ? String(from + 50) : null } };
     }
-    // creating a source is not bound yet (cut D3): the app offers no create it would refuse
-    case "CreateSourceButtonQuery": return { ...root, globalPermissions: { __typename: "GlobalPermissions", _id: cid("GlobalPermissions"), canCreateMagritteSourceV2: false } };
+    // a source is created as a data-source declaration (cut D3): REST API first; any other type is refused by name at create
+    case "CreateSourceButtonQuery": case "CreateSourcePageQuery": return { ...root, globalPermissions: GLOBAL_PERMISSIONS, magritteProvidedJdbcDriver: null };
+    case "ChooseNewSourceTypePageQuery": return { ...root, globalPermissions: GLOBAL_PERMISSIONS,
+      me: { __typename: "User", _id: cid("User:me"), organization: { __typename: "Organization", _id: cid("Organization:me"), enrollment: { ...enrollmentOf({}), magritteDirectorySourceTypeConfigV2: { __typename: "MagritteDirectorySourceTypeConfig", enabled: false } } } } };
+    // Name and location: the new source's folder is the caller's organization folder (a source files into no project here)
+    case "CreateSourceStepQuery": return { ...root, resourceMetadata: { __typename: "ResourceMetadata", _id: cid(`ResourceMetadata:${variables?.folderRid}`), rid: variables?.folderRid,
+      project: { __typename: "Project", _id: cid("Project:none"), usageAccountEnrollment: { ...enrollmentOf({}), magritteDirectorySourceTypeConfigV2: { __typename: "MagritteDirectorySourceTypeConfig", enabled: false } } },
+      namespace: { __typename: "Namespace", _id: cid(`Namespace:${variables?.folderRid}`), rid: variables?.folderRid } } };
+    // a name is free unless one of the caller's sources already has it
+    case "ResourceNewNameKnownInvalidQuery": { const wip = String(variables?.debouncedResourceNameWip || "").trim().toLowerCase();
+      return { ...root, resourceMetadata: { __typename: "ResourceMetadata", _id: cid(`ResourceMetadata:${variables?.parentRid}`), childNameValid: !!wip && !(ctx.sources || []).some((x) => String(x.name || "").trim().toLowerCase() === wip) } }; }
+    // the data-source plane keeps no API name, so none is taken
+    case "CheckSourceApiNameQuery": return { ...root, namespace: { __typename: "Namespace", _id: cid(`Namespace:${variables?.namespaceRid}`), checkMagritteSourceApiName: { __typename: "CheckMagritteSourceApiNameResult", error: null } } };
     // recently viewed and favorite Data Connection resources: none is kept
     case "SplashTableQuery": return { ...root, recents: [], favorites: [] };
     // listeners (inbound message targets): none exists
@@ -219,7 +303,7 @@ export function dataConnectionGraphqlFacts(name, variables, ctx) {
       me: { __typename: "User", _id: cid("User:me"), organization: { __typename: "Organization", _id: cid("Organization:me"), enrollment: { __typename: "Enrollment", _id: cid("Enrollment:me"), administratorCommunicationControls: { __typename: "AdministratorCommunicationControls", disallowedCommunicationChannels: [] } } } } };
     // a source's page
     case "SourcePageQuery": case "SourcePageHelperQuery": case "SourceBadConfigurationCalloutQuery": case "CdataSourceInformationQuery": case "SourceOutputFolderCondensedQuery":
-    case "SourceSettingsPageQuery": case "SourceEditorQuery": case "SourceWebhooksPageQuery": case "SourceWebhooksSectionQuery": {
+    case "SourceSettingsPageQuery": case "SourceEditorQuery": case "SourceWebhooksPageQuery": case "SourceWebhooksSectionQuery": case "ExportConfigurationStepQuery": {
       const src = sourceOf(ctx.sources, variables?.sourceRid || variables?.rid);
       // no identity provider federates a source's outbound calls
       return { ...root, source: src ? sourceDetailOf(src) : null, magritteServiceAvailability: SERVICE_AVAILABILITY, oidcMetadata: null };
@@ -241,6 +325,10 @@ export function dataConnectionGraphqlFacts(name, variables, ctx) {
       const src = sourceOf(ctx.sources, variables?.resourceRid || variables?.rid);
       return { ...root, resourceMetadata: src ? sourceResourceMetadataOf(src, ctx.ownerRef) : null };
     }
+    // no AIP assistant runs here
+    case "HasAipEnabledQuery": return { ...root, me: { __typename: "User", _id: cid("User:me"), isAipEnabled: false } };
+    // the egress policy dialog: the Hypervisor enrollment, where no network policy can be created or requested
+    case "CreatePolicyDialogQuery": return { ...root, enrollment: enrollmentOf({}), me: { __typename: "User", _id: cid("User:me"), id: ctx.userId || null, username: null, attributes: [] } };
     // a JDBC driver: no connection type here uses one
     case "FoundryProvidedDriverQuery": return { ...root, magritteProvidedJdbcDriver: null };
     // a source as a resource: not promoted, and no walkthrough
