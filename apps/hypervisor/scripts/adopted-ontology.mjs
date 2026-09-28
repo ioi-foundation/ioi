@@ -88,7 +88,9 @@ export const ONTOLOGY_GRAPHQL_OPERATIONS = new Set([
   "TopBarStagingSavingQuery", "IsCurrentBranchProtectedQuery", "ObjectTypesListQuery", "LinkTypesListQuery", "ActionTypesListQuery",
   "RecentlyModifiedObjectTypesQueryOnDefault", "ProminentObjectTypesQuery", "TopbarQuery", "BranchSelectTotalNumberOfOntologyBranchesQuery",
   "ObjectTypeStorageStatusQuery", "TypeGroupsListQuery", "InterfacesListQuery", "SharedPropertyListQuery", "SearchValueTypesQuery",
-  "AdvancedOptionsPageQuery", "OntologyWithOwnerDetailsQuery",
+  "AdvancedOptionsPageQuery", "OntologyWithOwnerDetailsQuery", "LoadActionsTypesRelatedToObjectTypeRidsQuery",
+  "ObjectTypeFavoritedQuery", "SqlPreviewSourceSelectorMaterializationsQuery", "ObjectTypePanelMachineryQuery", "CompassResourceProjectQuery", "ObjectViewConfigurationQuery",
+  "ObjectTypeMetadataPanelQuery",
 ]);
 // The ontology's details (Ontology configuration, the owner check): its names, its namespace as a resource, no
 // markings, and no permission to change settings, permissions or branch protection (none is bound here).
@@ -151,6 +153,33 @@ export function ontologyGraphqlFacts(name, variables, ctx) {
     case "BranchSelectTotalNumberOfOntologyBranchesQuery": return { ...root, approvalRequests: { __typename: "ApprovalRequestPage", totalNumberOfResults: 0 } };
     case "AdvancedOptionsPageQuery": return { ...root, ontology: model ? ontologyDetailNode(model, ctx.owner) : null };
     case "OntologyWithOwnerDetailsQuery": { const mm = modelOf(ctx.models, variables?.rid); return { ...root, ontology: mm ? ontologyDetailNode(mm, ctx.owner) : null }; }
+    // the action types that take an object type as input: the ODK action types that apply to it
+    case "LoadActionsTypesRelatedToObjectTypeRidsQuery": {
+      const inputs = new Set(JSON.stringify(variables?.actionTypeFilter || {}).match(/ri\.ontology\.main\.object-type\.[0-9a-f-]{36}/gu) || []);
+      const excluded = new Set(variables?.excludedActionTypeRids || []);
+      const ids = new Set(m.objectTypes.filter((o) => inputs.has(o.rid)).map((o) => o.id));
+      const related = m.actionTypes.filter((a) => ids.has(a.applies_to) && !excluded.has(a.rid));
+      return { ...root, ontology: model ? { ...ontologyNode(model), actionTypes: { __typename: "ActionTypeSearchPage", nextPageToken: null, values: related.map((a) => ({ __typename: "ActionTypeSearchResult", _id: cid(`ats:${a.rid}`), actionTypeRid: a.rid })) } } : null };
+    }
+    // an object type's star, exports, machinery dependents and object views: none is kept for it here
+    case "ObjectTypeFavoritedQuery": case "SqlPreviewSourceSelectorMaterializationsQuery": {
+      const hit = objectTypeOf(ctx.models, { rid: variables?.rid || variables?.objectTypeRid });
+      return { ...root, objectType: hit ? { __typename: "ObjectType", _id: cid(`ObjectType:${hit.ot.rid}`), rid: hit.ot.rid, favorited: null, exports: { __typename: "ObjectTypeExportPage", nextPageToken: null, values: [] } } : null };
+    }
+    case "ObjectTypePanelMachineryQuery": case "ObjectViewConfigurationQuery": {
+      const hit = objectTypeOf(ctx.models, { rid: variables?.objectTypeRid });
+      return { ...root, objectTypeV2: hit ? { __typename: "ObjectType", _id: cid(`ObjectType:${hit.ot.rid}`), rid: hit.ot.rid, dependents: { __typename: "ResourceMetadataPage", values: [] }, objectViewConfiguration: null } : null, globalBranch: null };
+    }
+    // an object type's backing datasources: none is bound to one here
+    case "ObjectTypeMetadataPanelQuery": {
+      const hit = objectTypeOf(ctx.models, { rid: variables?.objectTypeRid });
+      return { ...root, objectType: hit ? { __typename: "ObjectType", _id: cid(`ObjectType:${hit.ot.rid}`), rid: hit.ot.rid, latest: { __typename: "ObjectTypeVersion", _id: cid(`ObjectTypeVersion:${hit.ot.rid}`), dataSources: [] } } : null };
+    }
+    // an object type is not filed in a project: its parent is its ontology's namespace
+    case "CompassResourceProjectQuery": {
+      const hit = objectTypeOf(ctx.models, { rid: variables?.resourceRid });
+      return { ...root, resourceMetadata: hit ? { __typename: "ResourceMetadata", _id: cid(`ResourceMetadata:${hit.ot.rid}`), rid: hit.ot.rid, projectRid: null, project: null, parent: { __typename: "ResourceMetadata", _id: cid(`ResourceMetadata:${namespaceRidOf(ctx.owner)}`), rid: namespaceRidOf(ctx.owner) } } : null };
+    }
     // the Hypervisor keeps no type groups, interfaces or shared properties
     case "TypeGroupsListQuery": return { ...root, objectTypeGroups: { __typename: "ObjectTypeGroupPage", totalNumberOfResults: 0, nextPageToken: null, values: [] } };
     case "InterfacesListQuery": return { ...root, ontologyInterfaces: { __typename: "OntologyInterfacePage", totalNumberOfResults: 0, nextPageToken: null, values: [] } };
@@ -314,3 +343,41 @@ export function modificationHistoryOf(model, limit = 100, authorOf = () => null)
 }
 // PUT /multipass/api/roles/v2/roleSets — the Hypervisor has no ontology roles (access is its own principal and tenant)
 export const roleSetsOf = (ids) => ({ roleSets: Object.fromEntries((ids || []).map((id) => [id, { id, displayName: id, description: "", organizationRid: null, context: id, roles: {} }])) });
+
+// ---- POST /ontology-metadata/api/ontology/linkTypesForObjectTypes(V2) — each requested object type's link types. An
+// ODK link type names its two endpoints; one whose endpoints do not resolve to the caller's types is not offered.
+const endpointOf = (l, side) => l[side] || l[side === "from" ? "source" : "target"] || l[side === "from" ? "object_type_a" : "object_type_b"] || null;
+export function linkTypesForObjectTypesOf(request, models) {
+  const out = {};
+  for (const otRid of Object.keys(request?.objectTypeVersions || {})) {
+    const hit = (models || []).map((mm) => ({ mm, ot: mm.objectTypes.find((o) => o.rid === otRid) })).find((x) => x.ot);
+    if (!hit) continue;
+    const { mm } = hit;
+    const byId = new Map(mm.objectTypes.map((o) => [o.id, o]));
+    out[otRid] = mm.linkTypes.filter((l) => [endpointOf(l, "from"), endpointOf(l, "to")].includes(hit.ot.id)).map((l) => {
+      const a = byId.get(endpointOf(l, "from")), b = byId.get(endpointOf(l, "to"));
+      if (!a || !b) return null;
+      const side = (o, name) => ({ displayMetadata: { displayName: name || o.name, groupDisplayName: null, pluralDisplayName: name || o.name, visibility: "NORMAL" }, typeClasses: [], apiName: camel(name || o.name) });
+      return {
+        description: l.description || null, id: l.id, rid: l.rid, status: DRAFT_STATUS, redacted: null,
+        definition: { type: "manyToMany", manyToMany: { objectTypeAToBLinkMetadata: side(b, l.name), objectTypeBToALinkMetadata: side(a, l.inverse_name), objectTypeRidA: a.rid, objectTypeRidB: b.rid, objectTypeAPrimaryKeyPropertyMapping: {}, objectTypeBPrimaryKeyPropertyMapping: {}, peeringMetadata: null } },
+      };
+    }).filter(Boolean);
+  }
+  return { linkTypes: out };
+}
+
+// ---- POST /ontology-metadata/api/ontology/v2/modification/history/entity — one entity's history: the draft's revisions
+// that recorded a change to it (newest first), attributed from their receipts.
+export function entityHistoryOf(models, request, authorOf = () => null) {
+  const otRid = request?.entityRid?.objectTypeRid;
+  const hit = otRid ? objectTypeOf(models, { rid: otRid }) : null;
+  const empty = { entityModificationPageItems: [], nextPageToken: null, entityMetadataModificationPageItems: [], entityMetadataNextPageToken: null };
+  if (!hit) return empty;
+  const items = [...hit.model.history].filter((h) => h.affected?.object_types?.[hit.ot.id]).sort((a, b) => Number(b.revision) - Number(a.revision))
+    .slice(0, Math.max(1, Number(request?.limit) || 20))
+    .map((h) => ({ ontologyVersion: draftVersionOf(hit.model.draftId, Number(h.revision)), attribution: { date: h.at || null, author: authorOf(h.receipt_ref) }, modificationType: String(h.affected.object_types[hit.ot.id]), description: h.summary || h.op || "" }));
+  return { ...empty, entityModificationPageItems: items };
+}
+export const REGISTRY_ONTOLOGY_ALL = { partialObjectTypeVersions: {}, bidirectionalRelationVersions: {} };
+export const ontologyRecentsIdOf = (principalRef) => `ontology-recents-${uuidOf(`recents:${principalRef || "anonymous"}`).replace(/-/gu, "").slice(0, 24)}`;

@@ -9383,6 +9383,21 @@ async function handleEstateRequest(req, res, body) {
           const { owner, models } = await ontologyModels();
           return { data: answerAdoptedDocument(query, ONTOLOGY.valueTypeFacts(name, variables || {}, { models, namespaceRid: owner ? ONTOLOGY.namespaceRidOf(owner) : null }), null, name) };
         }
+        // an object type the caller opened is kept in their Recently viewed (the daemon's preference plane)
+        if (name === "RegisterObjectTypeAsRecent") {
+          const { models } = await ontologyModels();
+          const rid = String(variables?.rid || "");
+          if (!ONTOLOGY.objectTypeOf(models, { rid })) return { data: { view: null } };
+          const who = await planeRead("/v1/hypervisor/auth/whoami");
+          const id = ONTOLOGY.ontologyRecentsIdOf(who.principal?.principal_ref);
+          for (let attempt = 0; attempt < 2; attempt++) {
+            const cur = (await planeRead("/v1/hypervisor/preferences").then((j) => j.preferences || []).catch(() => [])).find((x) => x.preference_id === id);
+            const r = await daemonFetch(`/v1/hypervisor/preferences/${id}`, { method: "PUT", headers: { "content-type": "application/json" }, body: JSON.stringify({ expected_revision: cur?.revision || 0, preference_kind: "ontology_recents", value: { recents: AUTOMATE.recentsAfterView(cur?.value?.recents || [], rid, new Date().toISOString()) } }) }).catch(() => null);
+            if (r && r.status === 409 && attempt === 0) continue;
+            if (!r || !r.ok) return { data: null, errors: [{ message: `${name}: the view was not recorded (the preference plane answered ${r ? r.status : "nothing"})` }] };
+            return { data: { __typename: "Mutation", view: { __typename: "ObjectType", rid } } };
+          }
+        }
         if (ONTOLOGY.ONTOLOGY_GRAPHQL_OPERATIONS.has(name) && query) {
           const { models, owner } = await ontologyModels();
           return { data: answerAdoptedDocument(query, ONTOLOGY.ontologyGraphqlFacts(name, variables || {}, { models, owner }), null, name) };
@@ -10734,6 +10749,20 @@ async function handleEstateRequest(req, res, body) {
         let asked = {}; try { asked = JSON.parse(body.toString() || "{}"); } catch { /* none */ }
         const { models } = await ontologyModels();
         return sendO(200, ONTOLOGY.bulkLoadEntitiesOf(asked, models));
+      }
+      if (pathname === "/ontology-metadata/api/ontology/v2/modification/history/entity" && req.method === "POST") {
+        let asked = {}; try { asked = JSON.parse(body.toString() || "{}"); } catch { /* none */ }
+        const { models } = await ontologyModels();
+        const hit = ONTOLOGY.objectTypeOf(models, { rid: asked?.entityRid?.objectTypeRid });
+        const receipts = hit ? await planeRead(`/v1/hypervisor/odk/domain-ontologies/${encodeURIComponent(hit.model.draftId)}/history`).then((j) => j.receipts || []).catch(() => []) : [];
+        const byRef = new Map(receipts.map((r) => [r.receipt_ref, r.acting_principal_ref]));
+        return sendO(200, ONTOLOGY.entityHistoryOf(models, asked, (ref) => (byRef.get(ref) ? PIPELINE.uuidOf(byRef.get(ref)) : null)));
+      }
+      if (onOntologySurface() && pathname === "/phonograph2/api/objects/registry/ontology/all" && req.method === "GET") return sendO(200, ONTOLOGY.REGISTRY_ONTOLOGY_ALL);
+      if (/^\/ontology-metadata\/api\/ontology\/linkTypesForObjectTypes(V2)?$/u.test(pathname) && req.method === "POST") {
+        let asked = {}; try { asked = JSON.parse(body.toString() || "{}"); } catch { /* none */ }
+        const { models } = await ontologyModels();
+        return sendO(200, ONTOLOGY.linkTypesForObjectTypesOf(asked, models));
       }
       if (pathname === "/ontology-metadata/api/entityMetadata/load" && req.method === "POST") {
         let asked = {}; try { asked = JSON.parse(body.toString() || "{}"); } catch { /* none */ }
