@@ -8,7 +8,9 @@
 // TLS front the daemon requires, and writes the exact environment the daemon and the served App
 // need under the state directory:
 //
-//   <state-dir>/daemon.env   the daemon's IOI_WALLET_NETWORK_* + capability key + principal ref
+//   <state-dir>/daemon.env   the daemon's IOI_WALLET_NETWORK_* + capability key + principal ref, and
+//                            the authority binary + state dir its approval decision route runs
+//                            `approve` with (G5; the passphrase is never in this file)
 //   <state-dir>/serve.env    the served App's principal and host refs — public identifiers only
 //
 // KEY CUSTODY (owner decision 2026-09-28). The control root and the operator's approver key exist
@@ -19,8 +21,10 @@
 // bring-up (the new keys are sealed with it and the root signs the genesis binding); a resume
 // needs none, and after bring-up no process holds the approver or root private key. The served App
 // holds NO signing key and no path to one: a grant is minted only by the operator's explicit
-// `approve` act (`approveGrant` / `wallet-network-authority.mjs approve`), which unseals the
-// approver key in memory, signs one one-use grant for exactly the challenge's hashes and records it.
+// `approve` act (`approveGrant` / `wallet-network-authority.mjs approve`, or the daemon's
+// `POST /v1/hypervisor/authority/challenges/:id/decision` running it with the passphrase the operator
+// typed on the in-app card), which unseals the approver key in memory, signs one one-use grant for
+// exactly the challenge's hashes and records it.
 // Plaintext seeds exist only behind the dev/test `plaintextKeys` opt-in, which the operator CLI
 // never passes.
 //
@@ -202,12 +206,19 @@ export async function startLocalAuthority({
     IOI_WALLET_NETWORK_RESOLUTION_TIMEOUT_MS: "900000",
     IOI_TESTING_RPC_COMMIT_TIMEOUT_SECS: "900",
     IOI_HYPERVISOR_GOVERNED_REPLAY_TIMEOUT_MS: "45000",
+    // G5 / W0.2 part 2 — the in-app approval goes through the DAEMON: its decision route runs THIS
+    // node's `approve` (the binary against this state dir) with the operator passphrase the person
+    // typed in that child's environment only. The daemon already opens the capability key with the
+    // guardian pass above; the sealed approver key opens only with the operator passphrase.
+    IOI_WALLET_AUTHORITY_BINARY: bin,
+    IOI_HYPERVISOR_LOCAL_AUTHORITY_STATE_DIR: stateDir,
   };
   // The served App holds NO signing key and no path to one (master guide §0.5.2, W0.2): no
   // approver key path, no authority state dir (whose guardian.pass opens the daemon's capability
-  // key), no control binary. A run that needs a grant parks with the daemon's challenge verbatim,
-  // and the operator approves it with `wallet-network-authority.mjs approve`, which mints and
-  // records the one-use grant itself. The principal and host refs are public identifiers.
+  // key), no control binary. A run that needs a grant parks on the daemon's challenge; the operator
+  // approves it on the card with the passphrase, the serve relays that decision to the daemon, and
+  // the daemon runs this node's `approve` (or the operator runs `wallet-network-authority.mjs
+  // approve` directly). The principal and host refs are public identifiers.
   const serveEnv = {
     IOI_HYPERVISOR_AUTHORITY_PRINCIPAL_REF: ready.principal_ref,
     IOI_HYPERVISOR_AUTHORITY_HOST_REF: `deployment-host://${String(ready.principal_ref).replace(/^[a-z]+:\/\//u, "")}`,

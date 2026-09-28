@@ -34,6 +34,8 @@ mod agentops_routes;
 mod akash_candidate_source;
 #[path = "hypervisor_daemon_routes/assurance_transition_routes.rs"]
 mod assurance_transition_routes;
+#[path = "hypervisor_daemon_routes/authority_challenge_routes.rs"]
+mod authority_challenge_routes;
 #[path = "hypervisor_daemon_routes/authority_gateway_routes.rs"]
 mod authority_gateway_routes;
 #[path = "hypervisor_daemon_routes/authority_routes.rs"]
@@ -4378,6 +4380,21 @@ async fn async_main() -> anyhow::Result<()> {
         .route(
             "/v1/hypervisor/authority/capability-account",
             get(lifecycle_routes::handle_authority_capability_account),
+        )
+        // G5 / W0.2 part 2 — the in-app approval goes through the daemon: parked challenges and the
+        // operator's decision, which runs the deployment authority's `approve` with the passphrase
+        // in that child's environment only. The UI server holds no signing key.
+        .route(
+            "/v1/hypervisor/authority/challenges",
+            get(authority_challenge_routes::handle_challenge_list),
+        )
+        .route(
+            "/v1/hypervisor/authority/challenges/:id",
+            get(authority_challenge_routes::handle_challenge_get),
+        )
+        .route(
+            "/v1/hypervisor/authority/challenges/:id/decision",
+            post(authority_challenge_routes::handle_challenge_decision),
         )
         // M13.3 — the attach-time standing envelope (bind at attach; revoke = fence).
         .route(

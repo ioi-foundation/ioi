@@ -131,6 +131,9 @@ test("sealed custody end to end: bring-up, resume without the passphrase, approv
     const daemonEnv = readEnvFile(path.join(stateDir, "daemon.env"));
     assert.ok(!(OPERATOR_PASS_ENV in daemonEnv) && !Object.values(daemonEnv).includes(OPERATOR));
     assert.notEqual(daemonEnv.IOI_GUARDIAN_KEY_PASS, OPERATOR);
+    // G5: the daemon's approval decision route runs THIS node's `approve`; serve.env names neither.
+    assert.equal(daemonEnv.IOI_HYPERVISOR_LOCAL_AUTHORITY_STATE_DIR, stateDir);
+    assert.ok(fs.existsSync(daemonEnv.IOI_WALLET_AUTHORITY_BINARY), "daemon.env names the authority binary");
     assert.deepEqual(filesContaining(stateDir, OPERATOR), [], "the passphrase was written to disk");
   });
 

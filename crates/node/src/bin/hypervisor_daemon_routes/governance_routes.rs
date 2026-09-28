@@ -1051,6 +1051,8 @@ pub(crate) async fn handle_approval_delete(
 ///   4. memory-mutation proposals               (review_state == "proposed")
 /// plus the two decision-shaped planes, as named rows — never silent absorption:
 ///   5. marketplace admission-reviews           (decision == "pending")
+///   5b. wallet approval challenges             (state == "pending"; G5 — decided on the
+///       challenge's own decision route with the operator passphrase)
 ///   6. the POST-only `*-admissions` planners   (synchronous; nothing queues — the
 ///      plane is named with pending 0 and its routes, mechanically derived)
 /// Read-only: every row points `decide` at the plane's EXISTING mutation route; this
@@ -1226,6 +1228,22 @@ pub(crate) async fn handle_approvals_inbox(State(st): State<Arc<DaemonState>>) -
         "read_route": "/v1/hypervisor/marketplace/admission-reviews",
         "pending": review_pending,
         "total": reviews.len()
+    }));
+
+    // 5b. Wallet approval challenges (G5 / W0.2 part 2): an exact effect a gate refused for want
+    // of a grant, parked by the daemon. Approve runs on the challenge's decision route with the
+    // operator passphrase (the daemon runs the deployment authority's `approve`); deny mints
+    // nothing. The row carries the public coordinates only, never a grant.
+    let (challenge_items, challenge_total) =
+        super::authority_challenge_routes::pending_inbox_items(&st.data_dir);
+    let challenge_pending = challenge_items.len();
+    items.extend(challenge_items);
+    planes.push(json!({
+        "plane": "wallet_approval_challenge",
+        "read_route": "/v1/hypervisor/authority/challenges",
+        "pending": challenge_pending,
+        "total": challenge_total,
+        "decidable": super::authority_challenge_routes::decider_configured()
     }));
 
     // 6. The POST-only `*-admissions` planner family: pure synchronous kernel

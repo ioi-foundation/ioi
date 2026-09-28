@@ -160,8 +160,10 @@ node apps/hypervisor/scripts/wallet-network-authority.mjs up \
   --state-dir /var/lib/ioi/authority --principal-ref domain://<your-host>
 
 # 2. Daemon and served App read those env files (the daemon's IOI_WALLET_NETWORK_*
-#    endpoint is a loopback TLS front with a pinned CA; serve.env carries only the
-#    principal and host refs: the served App holds no signing key).
+#    endpoint is a loopback TLS front with a pinned CA, and daemon.env names the
+#    authority binary and state dir its approval decision runs `approve` with;
+#    serve.env carries only the principal and host refs: the served App holds no
+#    signing key and no path to one).
 set -a; . /var/lib/ioi/authority/daemon.env; set +a; hypervisor-daemon
 set -a; . /var/lib/ioi/authority/serve.env;  set +a; node apps/hypervisor/scripts/serve-product-ui.mjs
 
@@ -169,6 +171,14 @@ set -a; . /var/lib/ioi/authority/serve.env;  set +a; node apps/hypervisor/script
 #    memory with your passphrase, signs ONE one-use grant (random nonce, 15-minute
 #    expiry by default) for exactly the challenge's coordinates, records it on the
 #    node, prints it, and wipes the key. A wrong passphrase records nothing.
+#    In the App (master guide G5 / W0.2 part 2): a run that needs a grant parks, and
+#    the daemon keeps its challenge (wallet-approval-challenges/<id>, listed in the
+#    approvals inbox). The approval card asks for your passphrase; the served App
+#    relays it to the daemon's POST /v1/hypervisor/authority/challenges/:id/decision,
+#    which runs this same `approve` for the coordinates in ITS OWN record, with the
+#    passphrase in that child's environment only, stores the one-use grant and
+#    answers approval_ref; the run resumes naming it, and the daemon presents the
+#    grant only for the exact effect it was parked for, once. From a terminal:
 node apps/hypervisor/scripts/wallet-network-authority.mjs approve --state-dir /var/lib/ioi/authority \
   --policy-hash <h> --request-hash <h> --audience <daemon capability account> \
   --target-scope scope:hypervisor.live-route.<route>
@@ -204,7 +214,9 @@ typed `node_binaries_absent` error rather than building if a binary is missing.
 Implementation: `crates/cli/src/bin/wallet_network_local_authority.rs` (node,
 sealed keys, control-plane transactions, `approve`, `record-approval`, `seal-keys`),
 `apps/hypervisor/scripts/lib/wallet-network-local-authority.mjs` (lifecycle,
-TLS front, env files), `crates/cli/src/testing/build.rs` (`IOI_NODE_BINARY_DIR`).
+TLS front, env files), `crates/cli/src/testing/build.rs` (`IOI_NODE_BINARY_DIR`),
+`crates/node/src/bin/hypervisor_daemon_routes/authority_challenge_routes.rs` (the
+daemon's parked challenges and the in-app decision relay).
 The daemon's authority resolution, grant verification, consumption and receipt
 paths are unchanged; the approver's scope allowlist is exactly
 `scope:hypervisor.live-route.*`. Bounded property stated, not hidden: the chain

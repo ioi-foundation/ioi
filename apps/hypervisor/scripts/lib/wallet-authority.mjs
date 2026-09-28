@@ -2,16 +2,20 @@
 //
 // The fixture signer (repo scripts/lib/mint-approval-grant.mjs — a deterministic PUBLIC-seed
 // Ed25519 test wallet) is test/fixture-only: production serve/module code must never import or
-// invoke it. This adapter is the only place the serve touches wallet grants:
+// invoke it. This adapter is the only place the serve touches wallet grants, and the serve holds
+// NO signing key and reads no key path in any mode (master guide §0.5.2, G5, N9):
 //
-//   - PRODUCTION (no flag): mintTestGrant() returns null — a lane needing a grant parks in the
-//     honest `awaiting_wallet_authority` state and surfaces the daemon's challenge verbatim so an
-//     EXTERNAL wallet holder can sign it. The governed Build workflow's paste handoff
-//     (challenge out → opaque signed grant back, held in memory only for the one forward POST)
-//     is the production transport.
+//   - PRODUCTION (no flag): the serve signs nothing. A lane needing a grant parks on the daemon's
+//     challenge. When the daemon parked it (`approval_challenge`) and can decide it, the operator's
+//     decision is RELAYED to the daemon with the passphrase they typed (relayChallengeDecision),
+//     and the run resumes with the returned `approval_ref`. Otherwise the run parks in
+//     `awaiting_wallet_authority` with the challenge verbatim for an EXTERNAL wallet holder (the
+//     governed Build workflow's paste handoff).
 //   - DEV/TEST (IOI_WALLET_TEST_SIGNER=1): mintTestGrant() dynamically imports the fixture signer
 //     and mints against the given challenge hashes — the explicit verifier/dev flag the mandate
 //     allows. The import happens ONLY inside the flag check; no static edge to the signer exists.
+//   - FIXTURE QUALIFICATION (IOI_WALLET_FIXTURE_APPROVER=1): the operator's decision mints with the
+//     cargo wallet fixture's PUBLIC approver seed and records through the fixture (see below).
 export const TEST_SIGNER_FLAG = "IOI_WALLET_TEST_SIGNER";
 
 export function testSignerEnabled() {
@@ -27,113 +31,114 @@ export async function mintTestGrant({ policyHash, requestHash }) {
   return mintApprovalGrant({ policyHash, requestHash });
 }
 
-// ---- The deployment-local approver (ADR 0052; the bounded-alpha single-operator profile) ------
+// ---- The operator's decision goes THROUGH THE DAEMON (master guide G5 / W0.2 part 2, N9) --------
 //
-// The alpha profile's authority is a deployment-local wallet.network node whose approval key the
-// OPERATOR holds. IOI_HYPERVISOR_LOCAL_APPROVER_KEY_PATH names that key: a file the operator
-// custodies (32-byte seed as 64 hex chars, or the raw 32 bytes), readable only by the serve's
-// user. Unlike the test signer, this key NEVER signs automatically: a lane that needs a grant
-// parks in `awaiting_operator_approval` with the exact effect, and only an explicit operator
-// approval action (the Sessions surface / the approve endpoint, under the operator's own session)
-// calls mintLocalApproverGrant for that one challenge. Deny mints nothing. The daemon still
-// resolves the deployment authority independently and refuses a grant from any other signer.
-export const LOCAL_APPROVER_KEY_PATH = "IOI_HYPERVISOR_LOCAL_APPROVER_KEY_PATH";
+// The serve holds NO signing key and reads no key path (master guide §0.5.2). The deployment's
+// approver key is sealed under the operator passphrase inside the deployment authority node
+// (ADR 0052, commit f3b869df2), and only that node's `approve` act can mint. When a gate refuses an
+// effect for want of a grant, the DAEMON parks the challenge (`approval_challenge.challenge_id` on
+// its 403) and decides it on `POST /v1/hypervisor/authority/challenges/:id/decision`: it runs the
+// authority's `approve` for the coordinates in its OWN record, with the passphrase the operator
+// typed in that child's environment only, stores the one-use grant and answers `approval_ref`.
+// The serve relays the operator's decision (the passphrase rides the one request body and is never
+// logged, persisted or put on a run) and resumes the run with `approval_ref`; the daemon presents
+// the stored grant only when its hashes equal the ones it derives from the retried request.
+export const CHALLENGE_DECISION_ROUTE = (challengeId) => `/v1/hypervisor/authority/challenges/${encodeURIComponent(challengeId)}/decision`;
 
-export function localApproverEnabled() {
-  return typeof process.env[LOCAL_APPROVER_KEY_PATH] === "string" && process.env[LOCAL_APPROVER_KEY_PATH].length > 0;
+/** The daemon's parked challenge on a gate's 403 body, or null when the refusal is not an ask. */
+export function parkedChallengeOf(body) {
+  const parked = body?.approval_challenge;
+  return parked && typeof parked === "object" && typeof parked.challenge_id === "string" && parked.challenge_id ? parked : null;
 }
 
-async function readLocalApproverSeedHex() {
-  const keyPath = process.env[LOCAL_APPROVER_KEY_PATH];
-  const { readFileSync, statSync } = await import("node:fs");
-  const stat = statSync(keyPath);
-  if ((stat.mode & 0o077) !== 0) {
-    throw new Error(`local approver key ${keyPath} is readable by group/other (mode ${(stat.mode & 0o777).toString(8)}); refusing to sign with a shared key`);
+/**
+ * Relay the operator's decision on one parked challenge to the daemon. `transport(method, path,
+ * payload, headers)` answers `{ status, body }`; `headers` are the caller's bounded daemon identity
+ * headers. Returns `{ ok, status, approval_ref, grant_ref, expires_at_ms }` or `{ ok:false, status,
+ * error }`. The passphrase is sent once, in this request body, and nothing here keeps it.
+ */
+export async function relayChallengeDecision({ challengeId, decision, reason = "", operatorPassphrase = "", headers = {}, transport }) {
+  if (!challengeId) return { ok: false, status: 409, error: { code: "challenge_not_parked", message: "the daemon parked no challenge for this effect" } };
+  if (decision === "approve" && !operatorPassphrase) {
+    return { ok: false, status: 400, error: { code: "operator_passphrase_required", message: "approving needs the operator passphrase: the daemon's deployment authority opens the sealed approver key with it for this one grant" } };
   }
-  const raw = readFileSync(keyPath);
-  const text = raw.toString("utf8").trim();
-  if (/^[0-9a-fA-F]{64}$/u.test(text)) return text.toLowerCase();
-  if (raw.length === 32) return raw.toString("hex");
-  throw new Error(`local approver key ${keyPath} is neither 64 hex characters nor 32 raw bytes`);
-}
-
-// Mint ONE grant for ONE exact challenge with the deployment-held approver key. Only an operator
-// approval action may call this; nothing else in the serve imports it.
-export async function mintLocalApproverGrant({ policyHash, requestHash, audience }) {
-  if (!localApproverEnabled()) return null;
-  if (!policyHash || !requestHash) throw new Error("local approver refuses to sign without both policy_hash and request_hash");
-  // The grant's audience is the daemon's wallet capability account, carried on the challenge the
-  // run parked on. wallet.network consumes a grant only when its audience is the consuming signer,
-  // so a grant without it can never be consumed; refuse to mint a dead grant.
-  if (!/^[0-9a-f]{64}$/u.test(String(audience || ""))) {
-    throw new Error("local approver refuses to sign without the daemon's capability audience (the challenge carried none — is the daemon's wallet client configured?)");
+  const payload = decision === "approve"
+    ? { decision, reason: String(reason || "").slice(0, 400), operator_passphrase: String(operatorPassphrase) }
+    : { decision, reason: String(reason || "").slice(0, 400) };
+  let reply;
+  try {
+    reply = await transport("POST", CHALLENGE_DECISION_ROUTE(challengeId), payload, headers);
+  } catch (error) {
+    return { ok: false, status: 502, error: { code: "challenge_decision_unreachable", message: String(error?.message || error) } };
   }
-  const seed = await readLocalApproverSeedHex();
-  const { mintApprovalGrant } = await import("../../../../scripts/lib/mint-approval-grant.mjs");
-  // Exactly one use: the grant authorizes THIS challenge once and can never be replayed.
-  return mintApprovalGrant({ seed, policyHash, requestHash, audience, maxUsages: 1 });
+  const body = reply?.body && typeof reply.body === "object" ? reply.body : {};
+  if (Number(reply?.status) === 200 && body.ok === true) {
+    return { ok: true, status: 200, state: body.state || null, approval_ref: body.approval_ref || null, grant_ref: body.grant_ref || null, expires_at_ms: body.expires_at_ms ?? null, decided_by: body.decided_by || null };
+  }
+  return {
+    ok: false,
+    status: Number(reply?.status) || 502,
+    error: body.error && typeof body.error === "object" ? body.error : { code: body.code || body.reason || `daemon_${reply?.status}`, message: body.message || "the daemon refused the decision" },
+    approval_ref: body.approval_ref || null,
+  };
 }
 
-// The operator's approval is ALSO an act against the deployment's authority node: the one-use
-// grant is recorded on wallet.network as the approval decision for the challenge's scope. Two
-// recorders exist, both the estate's own protocols: the deployment node's control binary
-// (IOI_HYPERVISOR_LOCAL_AUTHORITY_STATE_DIR names the node; the binary transacts from the daemon's
-// capability account under the daemon's transaction lock) and the cargo test fixture's command
-// directory (IOI_HYPERVISOR_WALLET_FIXTURE_COMMANDS_DIR, qualification only). Neither configured
-// → the approval refuses, because an unrecorded grant can never be consumed.
-export const LOCAL_AUTHORITY_STATE_DIR = "IOI_HYPERVISOR_LOCAL_AUTHORITY_STATE_DIR";
+// ---- TEST-ONLY: the cargo wallet fixture's approver (explicit flag) ------------------------------
+//
+// The qualification fixture (crates/cli/tests/hypervisor_wallet_network_fixture.rs) registers the
+// PUBLIC `07…` seed as the approver for its principal, and records approvals through its command
+// directory; it is not a deployment authority the daemon can run `approve` against. Lanes that
+// qualify the approval card against that fixture set IOI_WALLET_FIXTURE_APPROVER=1 (with the
+// fixture's command directory): the operator's decision then mints with that public test seed
+// and records through the fixture. The seed is a published constant — no key file is read — and
+// without the flag nothing here signs. A deployment never sets it.
+export const FIXTURE_APPROVER_FLAG = "IOI_WALLET_FIXTURE_APPROVER";
 export const FIXTURE_COMMANDS_DIR = "IOI_HYPERVISOR_WALLET_FIXTURE_COMMANDS_DIR";
+const FIXTURE_PUBLIC_APPROVER_SEED_HEX = "07".repeat(32);
 
-export async function recordLocalApproverGrant({ grant, targetScope }) {
-  if (!grant || !targetScope) throw new Error("approval recording needs the grant and the challenge's target scope");
-  const stateDir = process.env[LOCAL_AUTHORITY_STATE_DIR];
-  if (stateDir) {
-    const { spawnSync } = await import("node:child_process");
-    const { readFileSync, existsSync, mkdtempSync, writeFileSync, rmSync } = await import("node:fs");
-    const path = await import("node:path");
-    const os = await import("node:os");
-    const binary = process.env.IOI_WALLET_AUTHORITY_BINARY || path.resolve(path.dirname(new URL(import.meta.url).pathname), "../../../../target/debug/wallet-network-local-authority");
-    if (!existsSync(binary)) throw new Error(`authority control binary is absent at ${binary}`);
-    const passFile = path.join(stateDir, "keys", "guardian.pass");
-    const env = { ...process.env, ...(process.env.IOI_GUARDIAN_KEY_PASS ? {} : existsSync(passFile) ? { IOI_GUARDIAN_KEY_PASS: readFileSync(passFile, "utf8").trim() } : {}) };
-    const tmp = mkdtempSync(path.join(os.tmpdir(), "ioi-approval-"));
-    const grantFile = path.join(tmp, "grant.json");
-    try {
-      writeFileSync(grantFile, JSON.stringify(grant), { mode: 0o600 });
-      const result = spawnSync(binary, ["record-approval", "--state-dir", stateDir, "--grant-file", grantFile, "--target-scope", targetScope], { encoding: "utf8", env });
-      if (result.status !== 0) throw new Error(`record-approval failed: ${(result.stderr || result.stdout || "").trim().slice(-400)}`);
-      const line = (result.stdout || "").trim().split("\n").reverse().find((l) => l.startsWith("{"));
-      return { recorder: "deployment-node", ...(line ? JSON.parse(line) : {}) };
-    } finally {
-      rmSync(tmp, { recursive: true, force: true });
-    }
-  }
+export function fixtureApproverEnabled() {
+  return process.env[FIXTURE_APPROVER_FLAG] === "1" && typeof process.env[FIXTURE_COMMANDS_DIR] === "string" && process.env[FIXTURE_COMMANDS_DIR].length > 0;
+}
+
+async function fixtureCommand(payload) {
   const commandsDir = process.env[FIXTURE_COMMANDS_DIR];
-  if (commandsDir) {
-    const { mkdirSync, writeFileSync, renameSync, existsSync, readFileSync, rmSync } = await import("node:fs");
-    const { randomUUID } = await import("node:crypto");
-    const path = await import("node:path");
-    const principalRef = process.env.IOI_HYPERVISOR_AUTHORITY_PRINCIPAL_REF || "";
-    if (!principalRef) throw new Error("fixture recording needs IOI_HYPERVISOR_AUTHORITY_PRINCIPAL_REF");
-    const commandId = randomUUID();
-    const dir = path.join(commandsDir, commandId);
-    mkdirSync(dir, { mode: 0o700 });
-    const hex = (v) => String(v || "").replace(/^sha256:/u, "");
-    const payload = { schema_version: 1, operation: "record_approval", principal_ref: principalRef, policy_hash: hex(grant.policy_hash_hex || Buffer.from(grant.policy_hash || []).toString("hex")), request_hash: hex(grant.request_hash_hex || Buffer.from(grant.request_hash || []).toString("hex")), approval_grant: grant, target_scope: targetScope };
-    writeFileSync(path.join(dir, "request.json.tmp"), JSON.stringify(payload), { mode: 0o600 });
-    renameSync(path.join(dir, "request.json.tmp"), path.join(dir, "request.json"));
-    const responsePath = path.join(dir, "response.json");
-    const deadline = Date.now() + 900_000;
-    while (!existsSync(responsePath)) {
-      if (Date.now() > deadline) throw new Error("fixture record_approval timed out");
-      await new Promise((r) => setTimeout(r, 50));
-    }
-    const response = JSON.parse(readFileSync(responsePath, "utf8"));
-    rmSync(dir, { recursive: true, force: true });
-    if (!response.ok) throw new Error(`fixture record_approval refused: ${response.error || "unknown"}`);
-    return { recorder: "fixture", request_hash: response.request_hash };
+  if (!commandsDir) throw new Error("no fixture command directory is configured");
+  const { mkdirSync, writeFileSync, renameSync, existsSync, readFileSync, rmSync } = await import("node:fs");
+  const { randomUUID } = await import("node:crypto");
+  const path = await import("node:path");
+  const dir = path.join(commandsDir, randomUUID());
+  mkdirSync(dir, { mode: 0o700 });
+  writeFileSync(path.join(dir, "request.json.tmp"), JSON.stringify(payload), { mode: 0o600 });
+  renameSync(path.join(dir, "request.json.tmp"), path.join(dir, "request.json"));
+  const responsePath = path.join(dir, "response.json");
+  const deadline = Date.now() + 900_000;
+  while (!existsSync(responsePath)) {
+    if (Date.now() > deadline) throw new Error(`fixture ${payload.operation} timed out`);
+    await new Promise((r) => setTimeout(r, 50));
   }
-  throw new Error("no approval recorder is configured (set IOI_HYPERVISOR_LOCAL_AUTHORITY_STATE_DIR to the deployment authority node); an unrecorded grant can never be consumed");
+  const response = JSON.parse(readFileSync(responsePath, "utf8"));
+  rmSync(dir, { recursive: true, force: true });
+  return response;
+}
+
+/**
+ * TEST-ONLY (IOI_WALLET_FIXTURE_APPROVER=1): the operator's approval against the cargo wallet
+ * fixture — mint ONE one-use grant for exactly the card's hashes and audience with the fixture's
+ * public seed, record it through the fixture's command directory, and return it. Returns null
+ * without the flag.
+ */
+export async function approveWithFixtureApprover({ policyHash, requestHash, audience, targetScope }) {
+  if (!fixtureApproverEnabled()) return null;
+  if (!policyHash || !requestHash || !targetScope) throw new Error("the fixture approver needs the challenge's policy_hash, request_hash and target_scope");
+  if (!/^[0-9a-f]{64}$/u.test(String(audience || ""))) throw new Error("the fixture approver refuses to sign without the daemon's capability audience (the challenge carried none)");
+  const principalRef = process.env.IOI_HYPERVISOR_AUTHORITY_PRINCIPAL_REF || "";
+  if (!principalRef) throw new Error("fixture recording needs IOI_HYPERVISOR_AUTHORITY_PRINCIPAL_REF");
+  const { mintApprovalGrant } = await import("../../../../scripts/lib/mint-approval-grant.mjs");
+  const grant = mintApprovalGrant({ seed: FIXTURE_PUBLIC_APPROVER_SEED_HEX, policyHash, requestHash, audience, maxUsages: 1 });
+  const hex = (v) => String(v || "").replace(/^sha256:/u, "");
+  const response = await fixtureCommand({ schema_version: 1, operation: "record_approval", principal_ref: principalRef, policy_hash: hex(policyHash), request_hash: hex(requestHash), approval_grant: grant, target_scope: targetScope });
+  if (!response.ok) throw new Error(`fixture record_approval refused: ${response.error || "unknown"}`);
+  return grant;
 }
 
 // The typed parked state when the deployment-local approver holds the key: the run waits for the
@@ -169,16 +174,18 @@ export function awaitingWalletAuthority(approval) {
 // The Connections attach flow mints the scoped standing bound in the same pass: a registered
 // SessionStandingEnvelope for ONE connector (operations, tools, metered unit, usages, budget,
 // window) bound by a StandingApprovalGrant the deployment approver signs, recorded on the
-// authority node, then bound to the connector on the daemon. Recording needs the wallet's
-// standing-grant evidence rule: an interactive step-up ceremony with a PASSKEY factor receipt.
-//   · fixture authority mode (IOI_HYPERVISOR_WALLET_FIXTURE_COMMANDS_DIR): the qualification
-//     fixture records the tuple with the SYNTHETIC contract ceremony the broker-contract verifier
-//     uses (labelled; no physical passkey claimed);
-//   · deployment mode (IOI_HYPERVISOR_LOCAL_AUTHORITY_STATE_DIR): the deployment-local operator
-//     key has NO admitted posture for standing envelopes (the auth-factor receipt contract is
-//     passkey-only), so this refuses TYPED — `standing_lease_custody_tier_unruled` — until the
-//     owner rules the alpha's custody tier for standing authority. Nothing is fabricated.
+// authority node, then bound to the connector on the daemon.
+//   · fixture authority mode (TEST-ONLY: IOI_WALLET_FIXTURE_APPROVER=1 with the fixture's command
+//     directory): the qualification fixture's public approver seed signs, and the fixture records
+//     the tuple with the SYNTHETIC contract ceremony the broker-contract verifier uses (labelled;
+//     no physical passkey claimed);
+//   · deployment mode: the approver key is SEALED inside the deployment authority node and the
+//     serve holds no key and no path to one (master guide §0.5.2, W0.2), so the serve cannot sign a
+//     standing grant. The attach refuses TYPED — `standing_lease_operator_custody_required` — until
+//     a daemon-side standing decision exists (the exact-effect relay is G5 part 2; the standing
+//     envelope's relay is its follow-on). Nothing is fabricated.
 export const STANDING_LEASE_CUSTODY_TIER_UNRULED = "standing_lease_custody_tier_unruled";
+export const STANDING_LEASE_OPERATOR_CUSTODY_REQUIRED = "standing_lease_operator_custody_required";
 const SESSION_ENVELOPE_CONTRACT = "schema://ioi/components/hypervisor/session-standing-envelope/v1";
 
 function parseBounds(raw = {}) {
@@ -196,10 +203,9 @@ function parseBounds(raw = {}) {
   return { maxUsages, expiresHours, perOperationSpend, budgetMicro, tools, operations };
 }
 
+// "fixture" only under the explicit test flag; the serve records no standing grant otherwise.
 export function standingLeaseRecorderMode() {
-  if (process.env[FIXTURE_COMMANDS_DIR]) return "fixture";
-  if (process.env[LOCAL_AUTHORITY_STATE_DIR]) return "deployment";
-  return "none";
+  return fixtureApproverEnabled() ? "fixture" : "none";
 }
 
 // Returns { ok:true, standing_lease } or { ok:false, code, message } — never throws for a typed
@@ -207,7 +213,7 @@ export function standingLeaseRecorderMode() {
 export async function bindStandingLease({ connector, bounds: rawBounds, daemonFetch }) {
   const mode = standingLeaseRecorderMode();
   if (mode === "none") {
-    return { ok: false, status: 501, code: "standing_lease_recorder_not_configured", message: "no authority node is configured to record a standing grant; an unrecorded grant can never be drawn" };
+    return { ok: false, status: 501, code: STANDING_LEASE_OPERATOR_CUSTODY_REQUIRED, message: "a standing grant is signed by the deployment's sealed approver key, which the served App never holds; this deployment has no daemon-side standing decision yet, so no limits can be recorded from here" };
   }
   // R-17 — PRE-FLIGHT THE CALLER before anything is minted or recorded. The daemon's bind route now
   // resolves the caller and refuses an unresolved one (401). Everything below this line has side
@@ -224,35 +230,18 @@ export async function bindStandingLease({ connector, bounds: rawBounds, daemonFe
       message: "an authenticated session is required to bind a standing envelope — sign in and try again; nothing was minted or recorded",
     };
   }
-  if (!localApproverEnabled()) return { ok: false, status: 501, code: "local_approver_not_configured", message: "no deployment-local approver key is configured" };
   const principalRef = process.env.IOI_HYPERVISOR_AUTHORITY_PRINCIPAL_REF || "";
   if (!principalRef) return { ok: false, status: 501, code: "authority_principal_not_configured", message: "IOI_HYPERVISOR_AUTHORITY_PRINCIPAL_REF is required" };
   const bounds = parseBounds(rawBounds);
   const account = await daemonFetch("/v1/hypervisor/authority/capability-account").then((r) => r.json()).catch(() => null);
   const audience = account?.audience;
   if (!/^[0-9a-f]{64}$/u.test(String(audience || ""))) return { ok: false, status: 502, code: "capability_audience_unavailable", message: "the daemon did not report its wallet capability account; a grant without the audience can never be consumed" };
-  const { sealSessionStandingEnvelope, syntheticStandingCeremony, deploymentLocalOperatorCeremony, randomHex32 } = await import("./standing-authority-evidence.mjs");
+  const { sealSessionStandingEnvelope, syntheticStandingCeremony, randomHex32 } = await import("./standing-authority-evidence.mjs");
   const { mintStandingApprovalGrant } = await import("../../../../scripts/lib/mint-standing-approval-grant.mjs");
-  const { mkdirSync, writeFileSync, renameSync, existsSync, readFileSync, rmSync } = await import("node:fs");
-  const { randomUUID } = await import("node:crypto");
-  const path = await import("node:path");
-  const commandsDir = process.env[FIXTURE_COMMANDS_DIR];
-  const fixtureCommand = async (payload) => {
-    if (!commandsDir) throw new Error("no fixture command directory is configured");
-    const dir = path.join(commandsDir, randomUUID());
-    mkdirSync(dir, { mode: 0o700 });
-    writeFileSync(path.join(dir, "request.json.tmp"), JSON.stringify(payload), { mode: 0o600 });
-    renameSync(path.join(dir, "request.json.tmp"), path.join(dir, "request.json"));
-    const responsePath = path.join(dir, "response.json");
-    const deadline = Date.now() + 900_000;
-    while (!existsSync(responsePath)) { if (Date.now() > deadline) throw new Error(`fixture ${payload.operation} timed out`); await new Promise((r) => setTimeout(r, 50)); }
-    const response = JSON.parse(readFileSync(responsePath, "utf8"));
-    rmSync(dir, { recursive: true, force: true });
-    return response;
-  };
   // The envelope's and ceremony's windows are judged against the authority node's committed
   // chain clock, so the attach pass reads that clock rather than assuming the host's.
-  const nowMs = await standingLeaseChainClockMs(mode, fixtureCommand);
+  const clock = await fixtureCommand({ schema_version: 1, operation: "read_chain_timestamp", principal_ref: "fixture://wallet-network/chain-clock" });
+  const nowMs = Number.isSafeInteger(clock?.chain_timestamp_ms) && clock.chain_timestamp_ms > 0 ? clock.chain_timestamp_ms : Date.now();
   const marker = randomHex32().slice(0, 16);
   const policyHash = `sha256:${randomHex32()}`;
   const reviewReceiptHash = `sha256:${randomHex32()}`;
@@ -268,24 +257,11 @@ export async function bindStandingLease({ connector, bounds: rawBounds, daemonFe
     trajectory_policy_ref: "policy://hypervisor/session-standing-envelope/trajectory/v1", trajectory_policy_hash: policyHash,
     approval_mode: "standing_envelope", recovery_posture: "recovery_never_widens_or_resets_drawdown",
   });
-  // R-14: in deployment mode the ceremony is the operator's own act with the key they custody on
-  // this host; in fixture mode it is the labelled synthetic contract ceremony.
-  const ceremony = mode === "deployment"
-    ? deploymentLocalOperatorCeremony({
-      principalRef,
-      hostRef: process.env.IOI_HYPERVISOR_AUTHORITY_HOST_REF || `deployment-host://${principalRef.replace(/^[a-z]+:\/\//u, "")}`,
-      keyPath: process.env[LOCAL_APPROVER_KEY_PATH],
-      envelope, policyHash, reviewReceiptHash, validationProfileRef: SESSION_ENVELOPE_CONTRACT, nowMs, marker,
-    })
-    : syntheticStandingCeremony({ principalRef, envelope, policyHash, reviewReceiptHash, validationProfileRef: SESSION_ENVELOPE_CONTRACT, nowMs, marker });
-  const seed = await readLocalApproverSeedHex();
-  const grant = mintStandingApprovalGrant({ seed, standingEnvelopeHash: envelope.body_hash, policyHash, audience, nonce: randomHex32(), counter: 1, issuedAtMs: nowMs, expiresAtMs: envelope.expires_at_ms, maxUsages: bounds.maxUsages, maxCumulativeDepositMicrousd: bounds.budgetMicro, maxCumulativeSpendMicrousd: bounds.budgetMicro, reviewReceiptHash, approvalCeremonyContextHash: ceremony.contextHash, authFactorReceiptHash: ceremony.factor.receipt_hash });
-  // Record on the deployment's authority node — through its control binary in deployment mode
-  // (the same protocol the exact-approval act uses), through the fixture's command directory in
-  // qualification mode — then bind on the daemon.
-  const response = mode === "deployment"
-    ? await recordStandingOnDeploymentNode({ grant, envelope, ceremony })
-    : await fixtureCommand({ schema_version: 1, operation: "record_standing_approval_grant", principal_ref: principalRef, standing_approval_grant: grant, standing_authority_envelope: envelope, approval_ceremony_context: ceremony.context, auth_factor_receipt: ceremony.factor });
+  // The labelled synthetic contract ceremony (fixture qualification only).
+  const ceremony = syntheticStandingCeremony({ principalRef, envelope, policyHash, reviewReceiptHash, validationProfileRef: SESSION_ENVELOPE_CONTRACT, nowMs, marker });
+  const grant = mintStandingApprovalGrant({ seed: FIXTURE_PUBLIC_APPROVER_SEED_HEX, standingEnvelopeHash: envelope.body_hash, policyHash, audience, nonce: randomHex32(), counter: 1, issuedAtMs: nowMs, expiresAtMs: envelope.expires_at_ms, maxUsages: bounds.maxUsages, maxCumulativeDepositMicrousd: bounds.budgetMicro, maxCumulativeSpendMicrousd: bounds.budgetMicro, reviewReceiptHash, approvalCeremonyContextHash: ceremony.contextHash, authFactorReceiptHash: ceremony.factor.receipt_hash });
+  // Record through the fixture's command directory, then bind on the daemon.
+  const response = await fixtureCommand({ schema_version: 1, operation: "record_standing_approval_grant", principal_ref: principalRef, standing_approval_grant: grant, standing_authority_envelope: envelope, approval_ceremony_context: ceremony.context, auth_factor_receipt: ceremony.factor });
   if (!response.ok) return { ok: false, status: 502, code: "standing_grant_record_refused", message: `the authority node refused to record the standing grant: ${response.error || JSON.stringify(response).slice(0, 300)}` };
   const bind = await daemonFetch(`/v1/hypervisor/connectors/${encodeURIComponent(connector.connector_id)}/standing-lease`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ grant, envelope }) });
   const bound = await bind.json().catch(() => ({}));
@@ -302,61 +278,6 @@ export async function bindStandingLease({ connector, bounds: rawBounds, daemonFe
     };
   }
   return { ok: true, recorder: "fixture", factor_origin: ceremony.factor_origin, standing_grant_hash: response.standing_grant_hash || null, standing_lease: bound.standing_lease };
-}
-
-/// The chain clock the envelope's and ceremony's validity windows are judged against: the
-/// authority node's own committed clock, never the host's assumption.
-async function standingLeaseChainClockMs(mode, fixtureCommand) {
-  if (mode === "deployment") {
-    const status = await deploymentAuthorityAct(["chain-timestamp"]);
-    const parsed = Number(status?.chain_timestamp_ms);
-    if (Number.isSafeInteger(parsed) && parsed > 0) return parsed;
-    return Date.now();
-  }
-  const clock = await fixtureCommand({ schema_version: 1, operation: "read_chain_timestamp", principal_ref: "fixture://wallet-network/chain-clock" });
-  return Number.isSafeInteger(clock?.chain_timestamp_ms) && clock.chain_timestamp_ms > 0 ? clock.chain_timestamp_ms : Date.now();
-}
-
-/// Run one act against the deployment-local authority node's control binary and parse its
-/// single-line JSON result. The guardian passphrase is read from the node's own key directory
-/// exactly as the exact-approval recorder does.
-async function deploymentAuthorityAct(args, files = {}) {
-  const { spawnSync } = await import("node:child_process");
-  const { readFileSync, existsSync, mkdtempSync, writeFileSync, rmSync } = await import("node:fs");
-  const path = await import("node:path");
-  const os = await import("node:os");
-  const stateDir = process.env[LOCAL_AUTHORITY_STATE_DIR];
-  if (!stateDir) throw new Error("no deployment authority node is configured");
-  const binary = process.env.IOI_WALLET_AUTHORITY_BINARY || path.resolve(path.dirname(new URL(import.meta.url).pathname), "../../../../target/debug/wallet-network-local-authority");
-  if (!existsSync(binary)) throw new Error(`authority control binary is absent at ${binary}`);
-  const passFile = path.join(stateDir, "keys", "guardian.pass");
-  const env = { ...process.env, ...(process.env.IOI_GUARDIAN_KEY_PASS ? {} : existsSync(passFile) ? { IOI_GUARDIAN_KEY_PASS: readFileSync(passFile, "utf8").trim() } : {}) };
-  const tmp = mkdtempSync(path.join(os.tmpdir(), "ioi-standing-act-"));
-  try {
-    const fileArgs = [];
-    for (const [flag, value] of Object.entries(files)) {
-      const file = path.join(tmp, `${flag}.json`);
-      writeFileSync(file, JSON.stringify(value), { mode: 0o600 });
-      fileArgs.push(`--${flag}`, file);
-    }
-    const result = spawnSync(binary, [...args, "--state-dir", stateDir, ...fileArgs], { encoding: "utf8", env });
-    const line = (result.stdout || "").trim().split("\n").reverse().find((l) => l.startsWith("{"));
-    if (result.status !== 0) {
-      return { ok: false, error: `${args[0]} failed: ${(`${result.stdout || ""}\n${result.stderr || ""}`).trim().slice(-1200)}` };
-    }
-    return line ? JSON.parse(line) : { ok: true };
-  } finally {
-    rmSync(tmp, { recursive: true, force: true });
-  }
-}
-
-async function recordStandingOnDeploymentNode({ grant, envelope, ceremony }) {
-  return deploymentAuthorityAct(["record-standing-approval"], {
-    "grant-file": grant,
-    "envelope-file": envelope,
-    "context-file": ceremony.context,
-    "factor-file": ceremony.factor,
-  });
 }
 
 export async function revokeStandingLease({ connectorId, daemonFetch }) {

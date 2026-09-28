@@ -63,7 +63,7 @@ try {
   const servePort = await freePort();
   const productUiPort = await freePort();
   SERVE = `http://127.0.0.1:${servePort}`;
-  serve = spawn(process.execPath, [path.join(HERE, "serve-product-ui.mjs")], { cwd: APP, env: { ...sanitizedVerifierBaseEnv(process.env), PORT: String(servePort), PRODUCT_UI_PORT: String(productUiPort), IOI_PRODUCT_UI_PUBLIC: path.join(APP, "product-ui", "owned", "public"), IOI_HYPERVISOR_DAEMON_URL: DAEMON, IOI_HYPERVISOR_LOCAL_APPROVER_KEY_PATH: "" }, stdio: ["ignore", "pipe", "pipe"] });
+  serve = spawn(process.execPath, [path.join(HERE, "serve-product-ui.mjs")], { cwd: APP, env: { ...sanitizedVerifierBaseEnv(process.env), PORT: String(servePort), PRODUCT_UI_PORT: String(productUiPort), IOI_PRODUCT_UI_PUBLIC: path.join(APP, "product-ui", "owned", "public"), IOI_HYPERVISOR_DAEMON_URL: DAEMON, IOI_WALLET_FIXTURE_APPROVER: "" }, stdio: ["ignore", "pipe", "pipe"] });
   await waitFor(`${SERVE}/__ioi/login`, 60000);
   const jd = (base, p, init = {}) => fetch(`${base}${p}`, { ...init, redirect: "manual", headers: { ...(init.body ? { "content-type": "application/json" } : {}), cookie, ...(init.headers || {}) } }).then(async (r) => { const text = await r.text(); let body = {}; try { body = text ? JSON.parse(text) : {}; } catch { body = { _raw: text }; } return { status: r.status, body, text }; });
   const create = await jd(SERVE, "/api/ioi.v1.AgentService/CreateAgentSession", { method: "POST", body: JSON.stringify({ initialInput: { inputs: [{ text: { content: "Create a file named REBIND.md" } }] }, environmentClassId: "local-workspace-v0" }) });

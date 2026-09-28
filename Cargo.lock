@@ -7133,6 +7133,7 @@ dependencies = [
  "uuid 1.21.0",
  "warp",
  "webauthn-rs",
+ "zeroize",
  "zk-driver-succinct",
 ]
 

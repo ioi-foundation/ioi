@@ -1564,7 +1564,7 @@ function renderAwaitingApprovals(pendingRuns, returnTo) {
     // published preimage (M03.9, R-212): every hashed member as the exact bytes the hash covers, the
     // full commitments and audience, and a refusal with no approve form when the bytes cannot be shown.
     if (p.kind === PROVIDER_APPROVAL_KIND) {
-      return `<div data-ioi-awaiting-approval="${CX_ESC(run.id)}">${renderProviderFacetsCard(projectProviderChallenge(p.challenge), { approveUrl: `/__ioi/runs/${enc(run.id)}/approve`, denyUrl: `/__ioi/runs/${enc(run.id)}/deny`, returnTo })}</div>`;
+      return `<div data-ioi-awaiting-approval="${CX_ESC(run.id)}">${renderProviderFacetsCard(projectProviderChallenge(p.challenge), { approveUrl: `/__ioi/runs/${enc(run.id)}/approve`, denyUrl: `/__ioi/runs/${enc(run.id)}/deny`, returnTo, passphraseRequired: p.decidable === true })}</div>`;
     }
     const scopes = (p.required_scopes || []).map((s) => `<code style="font-size:11px">${CX_ESC(s)}</code>`).join(" ") || "—";
     return `<div class="card" data-ioi-awaiting-approval="${CX_ESC(run.id)}"><div class="main">
@@ -1575,11 +1575,11 @@ function renderAwaitingApprovals(pendingRuns, returnTo) {
       <div class="meta"><b>Exact commitments</b>: policy <code style="font-size:10.5px">${CX_ESC(p.policy_hash || "")}</code> · request <code style="font-size:10.5px">${CX_ESC(p.request_hash || "")}</code></div>
       <div class="meta">Requested ${CX_ESC(p.requested_at || run.updatedAt || "")} · <a href="/__ioi/run-timeline/env/${enc(run.envId || "")}" target="_blank" rel="noopener">timeline ↗</a></div>
       <div style="margin-top:10px;display:flex;gap:8px">
-        <form method="post" action="/__ioi/runs/${enc(run.id)}/approve"><input type="hidden" name="return_to" value="${CX_ESC(returnTo)}"><button class="act" type="submit">Approve and run</button></form>
+        <form method="post" action="/__ioi/runs/${enc(run.id)}/approve"><input type="hidden" name="return_to" value="${CX_ESC(returnTo)}">${p.passphrase_required ? `<input type="password" name="operator_passphrase" autocomplete="off" required placeholder="operator passphrase" aria-label="Operator passphrase" data-ioi-operator-passphrase style="background:#0c0d10;border:1px solid #2a2c33;color:#e6e7ea;border-radius:8px;padding:5px 8px;font-size:12px"> ` : ""}<button class="act" type="submit">Approve and run</button></form>
         <form method="post" action="/__ioi/runs/${enc(run.id)}/deny"><input type="hidden" name="return_to" value="${CX_ESC(returnTo)}"><input name="reason" placeholder="reason (optional)" style="background:#0c0d10;border:1px solid #2a2c33;color:#e6e7ea;border-radius:8px;padding:5px 8px;font-size:12px"> <button class="act ghost" type="submit">Deny</button></form>
       </div></div></div>`;
   }).join("");
-  return `<h2 style="margin-top:4px">Waiting for your approval</h2><p class="sub">Each card is one exact effect the daemon refused to run without your decision. Approving signs that one request with the deployment approver key; denying runs nothing.</p>${cards}`;
+  return `<h2 style="margin-top:4px">Waiting for your approval</h2><p class="sub">Each card is one exact effect the daemon refused to run without your decision. Approving sends your operator passphrase to the daemon, whose deployment authority signs that one request with the sealed approver key; this page holds no key. Denying runs nothing.</p>${cards}`;
 }
 
 function renderSessionsRoot(sessionsRes, envSummary, pendingRuns = [], returnTo = "/work/sessions") {
@@ -2560,7 +2560,7 @@ function renderCustodyCards() {
   return listPendingCredentialBinds().map((p) => `<div class="card" data-ioi-custody-approval="${CX_ESC(p.route_id)}" data-ioi-custody-request-hash="${CX_ESC(p.request_hash)}" style="border:1px solid #c9a227;border-radius:8px;padding:10px;margin:8px 0">
       <div><b>Custody approval awaiting you</b> — seal a provider key to <code>${CX_ESC(p.route_ref)}</code> (${CX_ESC(p.display_name)})</div>
       <div class="sub" style="margin:6px 0">Exact effect: tool <code>model.credential.bind</code> · scope <code>${CX_ESC(p.target_scope)}</code><br>policy_hash <code>${CX_ESC(p.policy_hash)}</code><br>request_hash <code>${CX_ESC(p.request_hash)}</code><br>grant audience <code>${CX_ESC(p.audience || "—")}</code> · expires ${CX_ESC(p.expires_at)}</div>
-      <form class="inline" method="post" action="/__ioi/agent-studio/model-routes/${enc(p.route_id)}/credential/approve"><button class="act" type="submit">Approve custody (mint + record one grant, then seal)</button></form>
+      <form class="inline" method="post" action="/__ioi/agent-studio/model-routes/${enc(p.route_id)}/credential/approve"><input type="password" name="operator_passphrase" autocomplete="off" required placeholder="operator passphrase" aria-label="Operator passphrase" data-ioi-operator-passphrase> <button class="act" type="submit">Approve custody (the daemon mints + records one grant, then seals)</button></form>
       <form class="inline" method="post" action="/__ioi/agent-studio/model-routes/${enc(p.route_id)}/credential/deny"><button class="act danger" type="submit">Deny (drop the key)</button></form>
     </div>`).join("");
 }
@@ -7841,8 +7841,12 @@ const RUN_TIMELINE_HTML = `<!doctype html>
         apc.appendChild(apkv);
         if(ap.state==="awaiting"&&ap.approveUrl){
           var apacts=el("div","rt-acts");
-          var decide=function(url,labelText){ var b=el("button","rt-act",labelText); b.addEventListener("click",function(){ b.disabled=true; b.textContent=labelText+"…"; fetch(url,{method:"POST",headers:{"content-type":"application/json"},body:"{}"}).then(function(r){return r.json();}).then(function(d){ b.textContent = d&&d.ok ? labelText+" ✓" : "Refused: "+((d&&d.error&&d.error.code)||"unknown"); setTimeout(load,600); }).catch(function(){ b.disabled=false; b.textContent=labelText; }); }); return b; };
-          apacts.appendChild(decide(ap.approveUrl,"Approve and run"));
+          // G5: the daemon's deployment authority signs with the sealed approver key; the operator
+          // types the passphrase here for this one decision. It is sent once and never stored.
+          var pass=null;
+          if(ap.passphraseRequired){ pass=document.createElement("input"); pass.type="password"; pass.autocomplete="off"; pass.placeholder="operator passphrase"; pass.setAttribute("aria-label","Operator passphrase"); pass.setAttribute("data-ioi-operator-passphrase",""); apacts.appendChild(pass); }
+          var decide=function(url,labelText,withPass){ var b=el("button","rt-act",labelText); b.addEventListener("click",function(){ var payload={}; if(withPass&&pass){ if(!pass.value){ pass.focus(); return; } payload.operator_passphrase=pass.value; pass.value=""; } b.disabled=true; b.textContent=labelText+"…"; fetch(url,{method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify(payload)}).then(function(r){return r.json();}).then(function(d){ b.textContent = d&&d.ok ? labelText+" ✓" : "Refused: "+((d&&d.error&&d.error.code)||"unknown"); if(!(d&&d.ok)) b.disabled=false; setTimeout(load,600); }).catch(function(){ b.disabled=false; b.textContent=labelText; }); }); return b; };
+          apacts.appendChild(decide(ap.approveUrl,"Approve and run",true));
           apacts.appendChild(decide(ap.denyUrl,"Deny"));
           apc.appendChild(apacts);
         }
@@ -7937,6 +7941,9 @@ const RUN_TIMELINE_HTML = `<!doctype html>
     fetch("/__ioi/agent-runs/"+encodeURIComponent(RUN_ID)+"/timeline", {headers:{"accept":"application/json"}})
       .then(function(r){ return r.ok ? r.json() : null; })
       .then(function(tl){
+        // Never re-render the approval card under the operator while they type the passphrase.
+        var typing=document.querySelector("[data-ioi-operator-passphrase]");
+        if(typing && (typing.value || document.activeElement===typing) && tl && tl.status==="awaiting_operator_approval"){ setTimeout(load, 1500); return; }
         render(tl);
         if(tl && (tl.status==="running"||tl.status==="waiting"||tl.status==="awaiting_operator_approval")) setTimeout(load, 1500);
       })
@@ -15143,17 +15150,25 @@ async function handleEstateRequest(req, res, body) {
         const isForm = String(req.headers["content-type"] || "").includes("application/x-www-form-urlencoded");
         let reason = "";
         let returnTo = "/work/sessions";
+        // G5 / W0.2 part 2: the passphrase the operator typed on the card is relayed to the daemon
+        // (which opens the sealed approver key inside the deployment authority for this one grant).
+        // It lives in this request only: never logged, never on a run, never echoed back.
+        let operatorPassphrase = "";
         if (isForm) {
           const form = new URLSearchParams(body.toString("utf8"));
           reason = form.get("reason") || "";
+          operatorPassphrase = form.get("operator_passphrase") || "";
           const wanted = form.get("return_to") || "";
           if (/^\/[a-zA-Z0-9_\-./]*$/u.test(wanted)) returnTo = wanted;
         } else {
-          try { reason = JSON.parse(body.toString() || "{}").reason || ""; } catch { /* no reason */ }
+          try { const parsed = JSON.parse(body.toString() || "{}"); reason = parsed.reason || ""; operatorPassphrase = typeof parsed.operator_passphrase === "string" ? parsed.operator_passphrase : ""; } catch { /* no reason */ }
         }
-        const result = await decideRunApproval({ runId, decision, reason, daemonHeaders: cacheAdmission.headers });
+        const result = await decideRunApproval({ runId, decision, reason, operatorPassphrase, daemonHeaders: cacheAdmission.headers });
+        operatorPassphrase = "";
         if (isForm) {
-          res.writeHead(303, { Location: returnTo, "Cache-Control": "no-cache" });
+          // A refused decision (a wrong passphrase) returns to the card with its code, run still parked.
+          const refused = !result.ok && result.error?.code ? `${returnTo.includes("?") ? "&" : "?"}approval_refused=${encodeURIComponent(result.error.code)}` : "";
+          res.writeHead(303, { Location: `${returnTo}${refused}`, "Cache-Control": "no-cache" });
           res.end();
           return;
         }
@@ -16048,14 +16063,20 @@ async function handleEstateRequest(req, res, body) {
         const routeId = decodeURIComponent(credMatch[1]);
         const decision = credMatch[2] || null;
         const isForm = String(req.headers["content-type"] || "").includes("application/x-www-form-urlencoded");
-        let token = "";
+        let token = "", operatorPassphrase = "";
         if (!decision) {
           if (isForm) token = new URLSearchParams(body.toString("utf8")).get("token") || "";
           else { try { token = JSON.parse(body.toString() || "{}").token || ""; } catch { /* no token */ } }
+        } else {
+          // the operator's passphrase goes to the daemon's challenge decision and is dropped here (G5: the UI server
+          // holds no key and keeps no secret)
+          if (isForm) operatorPassphrase = new URLSearchParams(body.toString("utf8")).get("operator_passphrase") || "";
+          else { try { operatorPassphrase = JSON.parse(body.toString() || "{}").operator_passphrase || ""; } catch { /* none */ } }
         }
         const result = decision
-          ? await decideModelRouteCredentialBind({ routeId, decision, daemonHeaders: cacheAdmission.headers })
+          ? await decideModelRouteCredentialBind({ routeId, decision, operatorPassphrase, daemonHeaders: cacheAdmission.headers })
           : await startModelRouteCredentialBind({ routeId, token, daemonHeaders: cacheAdmission.headers });
+        operatorPassphrase = "";
         if (isForm) {
           res.writeHead(303, { Location: "/__ioi/agent-studio#model-routes", "Cache-Control": "no-cache" });
           res.end();

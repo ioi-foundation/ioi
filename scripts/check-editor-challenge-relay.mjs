@@ -139,10 +139,12 @@ function stubTransport(script) {
   const transport = async (method, p, payload, headers) => { const n = calls.length; calls.push({ method, path: p, payload: structuredClone(payload ?? null), headers: { ...(headers || {}) } }); const reply = typeof script === "function" ? script(n, payload) : script[Math.min(n, script.length - 1)]; return structuredClone(reply); };
   return { transport, calls };
 }
+// G5 / W0.2 part 2: the lane's decision goes to the DAEMON's decision route (the deployment authority signs
+// there); the stub decider stands in for that relay and answers an approval_ref the retry names.
+const STUB_APPROVAL_REF = `wallet-approval-challenge://wac_${"5".repeat(32)}`;
 function stubTier() {
-  const calls = { mint: [], record: [] };
-  const grant = { schema_version: 1, grant_id: "grant_stub_0001", counter: 1, max_usages: 1, expires_at: 1850000000000, approver_sig: GRANT_MARKER };
-  return { calls, grant, minter: async (args) => { calls.mint.push({ ...args }); return structuredClone(grant); }, recorder: async ({ grant: g, targetScope }) => { calls.record.push({ grant_id: g?.grant_id ?? null, targetScope }); return { recorder: "stub" }; } };
+  const calls = { decide: [] };
+  return { calls, approvalRef: STUB_APPROVAL_REF, decider: async (args) => { calls.decide.push({ decision: args.decision, requestHash: args.pending?.request_hash, policyHash: args.pending?.policy_hash }); return { ok: true, status: 200, via: "daemon", approvalRef: STUB_APPROVAL_REF, grantRef: "wallet.network://grant/approval/stub", expiresAtMs: 1850000000000 }; } };
 }
 const PROPOSAL_REFUSAL = { status: 403, body: { ok: false, code: "provider_operation_proposal_ref_required", message: "a live provider effect requires an opaque daemon-issued operation_proposal_ref", receipt_ref: "agentgres://provider-receipt/prc_stub_proposal" } };
 const admitted = (n) => ({ status: 200, body: { ok: true, outcome: "ok", receipt_ref: `agentgres://provider-receipt/prc_stub_ok_${n}`, capability_lease: { lease_id: `lease_stub_${n}`, grant_ref: `wallet.network://grant/approval/stub_${n}`, state: "exhausted", remaining_calls: 0 }, evidence: { deployment: { deployment_ref: `akash-deployment://akdep_stub_${n}`, dseq: `simdseq_stub_${n}`, execution_mode: "simulated_control_plane" }, live_provisioning_not_run: true } } });
@@ -204,10 +206,10 @@ export async function relayLeg(fixtureChallenge) {
   const t4 = stubTransport([{ status: 501, body: structuredClone(fixtureChallenge) }, PROPOSAL_REFUSAL]);
   const r4 = await relayEditorEffect({ body, attach: ATTACH, grants: GRANTS, daemonHeaders: operator, transport: t4.transport });
   const decider = { cookie: "ioi_session=ioi_sess_operator_deciding" };
-  const a4 = await decideRunApproval({ runId: r4.run_id, decision: "approve", daemonHeaders: decider, minter: tier.minter, recorder: tier.recorder, transport: t4.transport });
+  const a4 = await decideRunApproval({ runId: r4.run_id, decision: "approve", operatorPassphrase: "stub-passphrase", daemonHeaders: decider, decider: tier.decider, transport: t4.transport });
   await tick(); await sleep(20);
   const run4 = getRun(r4.run_id);
-  if (!(a4.status === 202 && a4.kind === PROVIDER_OPERATION_KIND && tier.calls.mint.length === 1 && tier.calls.mint[0].requestHash === fixtureChallenge.approval.request_hash && t4.calls[1]?.path === PROVIDER_OPS_PATH && stable(t4.calls[1]?.payload) === stable({ ...body, wallet_approval_grant: tier.grant }) && run4?.status === "failed" && run4?.error === "provider_operation_proposal_ref_required")) f.push(`decision_not_the_lanes:${a4.status}/${run4?.status}/${run4?.error}`);
+  if (!(a4.status === 202 && a4.kind === PROVIDER_OPERATION_KIND && tier.calls.decide.length === 1 && tier.calls.decide[0].requestHash === fixtureChallenge.approval.request_hash && t4.calls[1]?.path === PROVIDER_OPS_PATH && stable(t4.calls[1]?.payload) === stable({ ...body, wallet_approval_grant: tier.approvalRef }) && run4?.status === "failed" && run4?.error === "provider_operation_proposal_ref_required")) f.push(`decision_not_the_lanes:${a4.status}/${run4?.status}/${run4?.error}`);
   if (JSON.stringify(runRecord(run4)).includes(GRANT_MARKER)) f.push("decided_record_carries_grant");
   // 6. receipt parity: the same operation admitted through the relay and through the App lane
   const tierA = stubTier(); const tierB = stubTier();
@@ -215,8 +217,8 @@ export async function relayLeg(fixtureChallenge) {
   const tB = stubTransport([{ status: 403, body: structuredClone(fixtureChallenge) }, admitted("b")]);
   const rA = await relayEditorEffect({ body, attach: ATTACH, grants: GRANTS, daemonHeaders: operator, transport: tA.transport });
   const rB = await submitProviderOperation({ body, daemonHeaders: operator, transport: tB.transport });
-  await decideRunApproval({ runId: rA.run_id, decision: "approve", daemonHeaders: decider, minter: tierA.minter, recorder: tierA.recorder, transport: tA.transport });
-  await decideRunApproval({ runId: rB.run_id, decision: "approve", daemonHeaders: decider, minter: tierB.minter, recorder: tierB.recorder, transport: tB.transport });
+  await decideRunApproval({ runId: rA.run_id, decision: "approve", operatorPassphrase: "stub-passphrase", daemonHeaders: decider, decider: tierA.decider, transport: tA.transport });
+  await decideRunApproval({ runId: rB.run_id, decision: "approve", operatorPassphrase: "stub-passphrase", daemonHeaders: decider, decider: tierB.decider, transport: tB.transport });
   await tick(); await sleep(20);
   const recA = runRecord(getRun(rA.run_id)); const recB = runRecord(getRun(rB.run_id));
   if (!(recA.status === "done" && recB.status === "done")) f.push(`parity_runs_not_done:${recA.status}/${recB.status}`);
@@ -254,8 +256,9 @@ export function sourceFindings({ relay, runs, serve, extension }) {
   if (!/submitProviderOperation\(\{ body, daemonHeaders/u.test(relay)) f.push("relay_bypasses_the_lane");
   if (/decideRunApproval/u.test(relay)) f.push("relay_carries_a_decision_path");
   if (!/export function verifyAttach/u.test(relay) || !/EDITOR_ACCESS_ACTION = "environment\.editor\.open"/u.test(relay)) f.push("relay_attach_verification_missing");
-  const mintCalls = (runs.match(/mintLocalApproverGrant\(/gu) || []).length;
-  if (mintCalls !== 1) f.push(`lane_mint_call_sites:${mintCalls}!=1`);
+  // G5: the lane signs nothing in process — its decision is relayed to the daemon.
+  if (/mintLocalApproverGrant|mintApprovalGrant|readLocalApproverSeedHex|IOI_HYPERVISOR_LOCAL_APPROVER_KEY_PATH/u.test(runs)) f.push("lane_signs_in_process");
+  if (!/decider = decideApprovalChallenge/u.test(runs)) f.push("lane_decision_not_relayed_to_the_daemon");
   if (!/pathname === "\/__ioi\/editor-relay\/provider-ops" && req\.method === "POST"/u.test(serve)) f.push("serve_relay_route_missing");
   if (!/pathname === "\/__ioi\/editor-relay\/provider-ops"[\s\S]{0,500}localRunCacheAdmission\(req\)/u.test(serve)) f.push("serve_relay_route_unadmitted");
   if (!/relayEditorEffect\(\{ body: payload\?\.body, attach: payload\?\.attach, grants/u.test(serve)) f.push("serve_relay_not_through_the_relay");
@@ -331,7 +334,7 @@ async function drills() {
   ok("RENDER: the extension's VS-Code-free renderer executes here (node:test, 3+ cases): a notification becomes one message and the actions that open the App's decision, never an in-editor approval; it depends on no editor host", render.length === 0, render.join("; ") || "rendered");
   const src = sourceFindings({ relay: fs.readFileSync(RELAY, "utf8"), runs: fs.readFileSync(RUNS, "utf8"), serve: fs.readFileSync(SERVE, "utf8"), extension: fs.readFileSync(path.join(EXTENSION_DIR, "extension.js"), "utf8") });
   evidence.source = src;
-  ok("SOURCE: the relay imports no authority module and no minter, names no minter, reads no key path or test-signer flag, writes no grant member, submits only through the lane and carries no decision path; the lane's single mint call site is unchanged; the serve's relay route sits behind the local-run cache admission, submits through the relay, and has no decision route of its own; the extension wires the renderer", src.length === 0, src.join("; ") || "pinned");
+  ok("SOURCE: the relay imports no authority module and no minter, names no minter, reads no key path or test-signer flag, writes no grant member, submits only through the lane and carries no decision path; the lane signs nothing in process and relays its decision to the daemon; the serve's relay route sits behind the local-run cache admission, submits through the relay, and has no decision route of its own; the extension wires the renderer", src.length === 0, src.join("; ") || "pinned");
   const green = (n) => ({ n, executed: [{ script: `g${n}`, status: 0, evidence: "x", evidence_sha256: "ab", ledger: { reach: 0 }, executed_assertions: 5, floor_expected: 5 }] });
   const base = []; for (let n = 1; n <= 12; n += 1) base.push(green(n));
   const allGreen = verdict(base);
@@ -418,8 +421,6 @@ async function laneLegs() {
     const t0 = Date.now();
     resolver = await startRealWalletNetworkPrincipalAuthorityFixture({ baseEnv: fixtureBaseEnv, wallClockChain: true });
     out.fixture_ready_seconds = Math.round((Date.now() - t0) / 1000);
-    const approverKeyPath = path.join(scratch, "deployment-local-approver.key");
-    fs.writeFileSync(approverKeyPath, `${FIXTURE_APPROVER_SEED_HEX}\n`, { mode: 0o600 });
     plane = await startIsolatedPlane({ baseEnv: process.env, env: { ...resolver.env, IOI_HYPERVISOR_AUTHORITY_PRINCIPAL_REF: DEPLOYMENT_AUTHORITY_REF, IOI_HYPERVISOR_MODEL_UPSTREAM: "http://127.0.0.1:9/v1", IOI_HYPERVISOR_DAEMON_BINARY: binary, IOI_WALLET_TEST_SIGNER: "" } });
     if (!plane) { fp.push("isolated_plane_did_not_start"); return { park: { findings: fp }, parity: { findings: ["not_reached"] }, ...out }; }
     const DAEMON = plane.daemonUrl;
@@ -431,7 +432,7 @@ async function laneLegs() {
     const servePort = await freePort(); const productUiPort = await freePort();
     const SERVE_URL = `http://127.0.0.1:${servePort}`;
     let serveLog = "";
-    serve = spawn(process.execPath, [SERVE], { cwd: APP_DIR, env: { ...sanitizedVerifierBaseEnv(process.env), PORT: String(servePort), PRODUCT_UI_PORT: String(productUiPort), IOI_PRODUCT_UI_PUBLIC: path.join(APP_DIR, "product-ui", "owned", "public"), IOI_HYPERVISOR_DAEMON_URL: DAEMON, IOI_HYPERVISOR_LOCAL_APPROVER_KEY_PATH: approverKeyPath, IOI_HYPERVISOR_WALLET_FIXTURE_COMMANDS_DIR: path.join(resolver.resourceDir, "commands"), IOI_HYPERVISOR_AUTHORITY_PRINCIPAL_REF: DEPLOYMENT_AUTHORITY_REF }, stdio: ["ignore", "pipe", "pipe"] });
+    serve = spawn(process.execPath, [SERVE], { cwd: APP_DIR, env: { ...sanitizedVerifierBaseEnv(process.env), PORT: String(servePort), PRODUCT_UI_PORT: String(productUiPort), IOI_PRODUCT_UI_PUBLIC: path.join(APP_DIR, "product-ui", "owned", "public"), IOI_HYPERVISOR_DAEMON_URL: DAEMON, IOI_WALLET_FIXTURE_APPROVER: "1", IOI_HYPERVISOR_WALLET_FIXTURE_COMMANDS_DIR: path.join(resolver.resourceDir, "commands"), IOI_HYPERVISOR_AUTHORITY_PRINCIPAL_REF: DEPLOYMENT_AUTHORITY_REF }, stdio: ["ignore", "pipe", "pipe"] });
     serve.stdout.on("data", (c) => { serveLog = `${serveLog}${c}`.slice(-32000); });
     serve.stderr.on("data", (c) => { serveLog = `${serveLog}${c}`.slice(-32000); });
     if (!(await waitFor(`${SERVE_URL}/__ioi/login`, 90000))) fp.push("serve_did_not_start");

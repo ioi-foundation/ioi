@@ -149,12 +149,20 @@ function stubTransport(script) {
   };
   return { transport, calls };
 }
+// G5 / W0.2 part 2: the custody tier is the DAEMON's decision route (it runs the deployment authority's
+// `approve`); the lane relays the operator's decision and passphrase and retries naming approval_ref. The
+// stub decider stands in for that relay; the relay itself is driven below with a stubbed daemon transport.
+const STUB_PASSPHRASE = "stub-operator-passphrase-NEVER-ON-A-RECORD";
+const STUB_APPROVAL_REF = `wallet-approval-challenge://wac_${"5".repeat(32)}`;
+const STUB_GRANT_REF = "wallet.network://grant/approval/stub";
 function stubTier({ mint = true } = {}) {
-  const calls = { mint: [], record: [] };
-  const grant = { schema_version: 1, grant_id: "grant_stub_0001", counter: 1, max_usages: 1, expires_at: 1850000000000, approver_sig: GRANT_MARKER, request_hash: "stub", policy_hash: "stub", audience: "stub" };
-  const minter = async (args) => { calls.mint.push({ ...args }); return mint ? structuredClone(grant) : null; };
-  const recorder = async ({ grant: g, targetScope }) => { calls.record.push({ grant_id: g?.grant_id ?? null, targetScope, carried_marker: JSON.stringify(g).includes(GRANT_MARKER) }); return { recorder: "stub", request_hash: "stub" }; };
-  return { minter, recorder, calls, grant };
+  const calls = { decide: [] };
+  const decider = async (args) => {
+    calls.decide.push({ decision: args.decision, policyHash: args.pending?.policy_hash, requestHash: args.pending?.request_hash, audience: args.pending?.audience ?? null, targetScope: args.pending?.target_scope, carried_passphrase: args.operatorPassphrase === STUB_PASSPHRASE, cookie: args.daemonHeaders?.cookie ?? null });
+    if (args.decision === "deny") return { ok: true, status: 200, via: "local" };
+    return mint ? { ok: true, status: 200, via: "daemon", approvalRef: STUB_APPROVAL_REF, grantRef: STUB_GRANT_REF, expiresAtMs: 1850000000000 } : { ok: false, status: 501, error: { code: "approval_decider_not_configured", message: "stub: no decider" } };
+  };
+  return { decider, calls, approvalRef: STUB_APPROVAL_REF };
 }
 const PROPOSAL_REFUSAL = { status: 403, body: { ok: false, reason: "provider_operation_proposal_ref_required", outcome: "proposal_not_admitted", receipt_ref: "agentgres://provider-receipt/prc_stub_proposal", admission_code: "provider_operation_proposal_ref_required" } };
 const ADMITTED = { status: 200, body: { ok: true, outcome: "ok", receipt_ref: "agentgres://provider-receipt/prc_stub_ok", grant_ref: "wallet.network://grant/approval/stub", capability_lease: { lease_id: "lease_stub_0001", state: "exhausted", remaining_calls: 0 }, evidence: { deployment: { deployment_ref: "akash-deployment://akdep_stub", dseq: "simdseq_stub", execution_mode: "simulated_control_plane" } } } };
@@ -203,47 +211,68 @@ export async function parkLeg(fixtureChallenge) {
   const noTier = stubTier({ mint: false });
   const t3 = stubTransport([{ status: 501, body: structuredClone(fixtureChallenge) }]);
   const s3 = await submitProviderOperation({ body: expectedRequest, daemonHeaders: operator, transport: t3.transport });
-  const a3 = await decideRunApproval({ runId: s3.run_id, decision: "approve", daemonHeaders: operator, minter: noTier.minter, recorder: noTier.recorder, transport: t3.transport });
-  if (!(a3.status === 501 && a3.error?.code === "local_approver_not_configured" && getRun(s3.run_id)?.status === "awaiting_operator_approval" && noTier.calls.record.length === 0 && t3.calls.length === 1)) f.push("no_tier_still_parked");
+  const a3 = await decideRunApproval({ runId: s3.run_id, decision: "approve", operatorPassphrase: STUB_PASSPHRASE, daemonHeaders: operator, decider: noTier.decider, transport: t3.transport });
+  if (!(a3.status === 501 && a3.error?.code === "approval_decider_not_configured" && getRun(s3.run_id)?.status === "awaiting_operator_approval" && noTier.calls.decide.length === 1 && t3.calls.length === 1)) f.push("no_tier_still_parked");
   // 4. the handoff: mint for exactly the card's hashes, record, retry the IDENTICAL request, the typed refusal finalizes
   const tier = stubTier();
   const t4 = stubTransport([{ status: 501, body: structuredClone(fixtureChallenge) }, PROPOSAL_REFUSAL]);
   const s4 = await submitProviderOperation({ body: expectedRequest, daemonHeaders: operator, transport: t4.transport });
   const decider = { cookie: "ioi_session=ioi_sess_operator_deciding" };
-  const a4 = await decideRunApproval({ runId: s4.run_id, decision: "approve", daemonHeaders: decider, minter: tier.minter, recorder: tier.recorder, transport: t4.transport });
+  const a4 = await decideRunApproval({ runId: s4.run_id, decision: "approve", operatorPassphrase: STUB_PASSPHRASE, daemonHeaders: decider, decider: tier.decider, transport: t4.transport });
   await tick(); await sleep(20);
   const r4 = getRun(s4.run_id);
   if (!(a4.ok === true && a4.status === 202 && a4.decision === "approved" && a4.kind === PROVIDER_OPERATION_KIND)) f.push(`handoff_reply:${JSON.stringify(a4).slice(0, 100)}`);
-  if (!(tier.calls.mint.length === 1 && tier.calls.mint[0].policyHash === fixtureChallenge.approval.policy_hash && tier.calls.mint[0].requestHash === fixtureChallenge.approval.request_hash && tier.calls.mint[0].audience === (fixtureChallenge.approval.audience ?? null))) f.push("handoff_mint_not_the_cards_hashes");
-  if (!(tier.calls.record.length === 1 && tier.calls.record[0].grant_id === "grant_stub_0001" && tier.calls.record[0].targetScope === fixtureChallenge.approval.target_scope && tier.calls.record[0].carried_marker)) f.push("handoff_not_recorded");
+  if (!(tier.calls.decide.length === 1 && tier.calls.decide[0].policyHash === fixtureChallenge.approval.policy_hash && tier.calls.decide[0].requestHash === fixtureChallenge.approval.request_hash && tier.calls.decide[0].audience === (fixtureChallenge.approval.audience ?? null))) f.push("handoff_decision_not_the_cards_hashes");
+  if (!(tier.calls.decide[0]?.targetScope === fixtureChallenge.approval.target_scope && tier.calls.decide[0]?.carried_passphrase && tier.calls.decide[0]?.cookie === decider.cookie)) f.push("handoff_not_the_operators_decision");
   const retry = t4.calls[1];
-  if (!(t4.calls.length === 2 && retry?.path === PROVIDER_OPS_PATH && retry?.headers?.cookie === decider.cookie && stable(retry?.payload) === stable({ ...expectedRequest, wallet_approval_grant: tier.grant }))) f.push("retry_not_identical_request_with_grant_under_operator");
+  if (!(t4.calls.length === 2 && retry?.path === PROVIDER_OPS_PATH && retry?.headers?.cookie === decider.cookie && stable(retry?.payload) === stable({ ...expectedRequest, wallet_approval_grant: tier.approvalRef }))) f.push("retry_not_identical_request_with_approval_ref_under_operator");
   if (!(r4?.status === "failed" && r4?.error === "provider_operation_proposal_ref_required" && r4?.providerOperation?.outcome === "proposal_not_admitted" && r4?.providerOperation?.receipt_ref === PROPOSAL_REFUSAL.body.receipt_ref)) f.push(`typed_refusal_not_finalized:${r4?.status}/${r4?.error}`);
-  if (!(r4?.authority?.grantId === "grant_stub_0001" && r4?.authority?.approver === "deployment_local_operator" && r4?.authority?.requestHash === fixtureChallenge.approval.request_hash)) f.push("authority_record");
+  if (!(r4?.authority?.grantId === STUB_GRANT_REF && r4?.authority?.approvalRef === STUB_APPROVAL_REF && r4?.authority?.approver === "deployment_local_operator" && r4?.authority?.requestHash === fixtureChallenge.approval.request_hash)) f.push("authority_record");
   const record = JSON.stringify(runRecord(r4));
   if (record.includes(GRANT_MARKER) || record.includes("wallet_approval_grant")) f.push("record_carries_grant_bytes");
-  const again = await decideRunApproval({ runId: s4.run_id, decision: "approve", daemonHeaders: decider, minter: tier.minter, recorder: tier.recorder, transport: t4.transport });
-  if (!(again.status === 409 && again.error?.code === "run_not_awaiting_approval" && tier.calls.mint.length === 1)) f.push("second_approve_not_refused");
+  if (record.includes(STUB_PASSPHRASE)) f.push("record_carries_the_passphrase");
+  const again = await decideRunApproval({ runId: s4.run_id, decision: "approve", operatorPassphrase: STUB_PASSPHRASE, daemonHeaders: decider, decider: tier.decider, transport: t4.transport });
+  if (!(again.status === 409 && again.error?.code === "run_not_awaiting_approval" && tier.calls.decide.length === 1)) f.push("second_approve_not_refused");
   const tl4 = projectRunTimeline(r4, {})?.turns?.[0];
   if (!(tl4?.approval?.state === "approved" && tl4?.approval?.approveUrl === null && tl4?.providerOperation?.outcome === "proposal_not_admitted" && tl4?.providerOperation?.receiptRef === PROPOSAL_REFUSAL.body.receipt_ref)) f.push("pane_after_decision");
   // 5. admission (the daemon's ok answer) finalizes done with the receipt, the grant ref and the lease
   const tier5 = stubTier();
   const t5 = stubTransport([{ status: 403, body: structuredClone(fixtureChallenge) }, ADMITTED]);
   const s5 = await submitProviderOperation({ body: expectedRequest, daemonHeaders: operator, transport: t5.transport });
-  await decideRunApproval({ runId: s5.run_id, decision: "approve", daemonHeaders: operator, minter: tier5.minter, recorder: tier5.recorder, transport: t5.transport });
+  await decideRunApproval({ runId: s5.run_id, decision: "approve", operatorPassphrase: STUB_PASSPHRASE, daemonHeaders: operator, decider: tier5.decider, transport: t5.transport });
   await tick(); await sleep(20);
   const r5 = getRun(s5.run_id);
   if (!(r5?.status === "done" && r5?.providerOperation?.ok === true && r5?.providerOperation?.receipt_ref === ADMITTED.body.receipt_ref && r5?.providerOperation?.grant_ref === ADMITTED.body.grant_ref && r5?.providerOperation?.capability_lease_ref === "lease_stub_0001")) f.push(`admitted_not_finalized:${r5?.status}`);
   if (JSON.stringify(runRecord(r5)).includes(GRANT_MARKER)) f.push("admitted_record_carries_grant");
   const tl5 = projectRunTimeline(r5, {})?.turns?.[0]?.providerOperation;
   if (!(tl5?.ok === true && tl5?.grantRef === ADMITTED.body.grant_ref && tl5?.capabilityLeaseRef === "lease_stub_0001")) f.push("pane_after_admission");
+  // 5b. the REAL relay (G5): the daemon parked the challenge; the default decider POSTs the operator's decision
+  // and passphrase to the daemon's decision route, a refused passphrase leaves the run parked, and the right one
+  // retries the IDENTICAL request naming the daemon's approval_ref — the lane never signs.
+  const parkedChallenge = { ...structuredClone(fixtureChallenge), approval_challenge: { challenge_id: `wac_${"7".repeat(32)}`, challenge_state: "pending", decidable: true, decision_route: `/v1/hypervisor/authority/challenges/wac_${"7".repeat(32)}/decision` } };
+  const decisionPath = parkedChallenge.approval_challenge.decision_route;
+  const t7 = stubTransport([{ status: 403, body: parkedChallenge }, { status: 403, body: { ok: false, error: { code: "operator_passphrase_refused", message: "stub" } } }, { status: 200, body: { ok: true, state: "approved", approval_ref: `wallet-approval-challenge://wac_${"7".repeat(32)}`, grant_ref: STUB_GRANT_REF, expires_at_ms: 1850000000000 } }, ADMITTED]);
+  const s7 = await submitProviderOperation({ body: expectedRequest, daemonHeaders: operator, transport: t7.transport });
+  const r7 = getRun(s7.run_id);
+  if (!(r7?.pendingApproval?.challenge_id === parkedChallenge.approval_challenge.challenge_id && r7?.pendingApproval?.decidable === true)) f.push("relay_park_without_the_daemons_challenge");
+  const noPass = await decideRunApproval({ runId: s7.run_id, decision: "approve", daemonHeaders: operator, transport: t7.transport });
+  if (!(noPass.status === 400 && noPass.error?.code === "operator_passphrase_required" && t7.calls.length === 1 && r7?.status === "awaiting_operator_approval")) f.push(`relay_without_passphrase:${noPass.status}/${noPass.error?.code}`);
+  const wrong = await decideRunApproval({ runId: s7.run_id, decision: "approve", operatorPassphrase: "wrong-passphrase", daemonHeaders: operator, transport: t7.transport });
+  if (!(wrong.status === 403 && wrong.error?.code === "operator_passphrase_refused" && r7?.status === "awaiting_operator_approval" && t7.calls.length === 2)) f.push(`relay_wrong_passphrase_not_parked:${wrong.status}/${r7?.status}`);
+  const right = await decideRunApproval({ runId: s7.run_id, decision: "approve", operatorPassphrase: STUB_PASSPHRASE, daemonHeaders: operator, transport: t7.transport });
+  await tick(); await sleep(20);
+  const decisionCall = t7.calls[2];
+  if (!(right.status === 202 && decisionCall?.path === decisionPath && decisionCall?.method === "POST" && decisionCall?.payload?.decision === "approve" && decisionCall?.payload?.operator_passphrase === STUB_PASSPHRASE && decisionCall?.headers?.cookie === operator.cookie && !("request_hash" in (decisionCall?.payload ?? {})) && !("policy_hash" in (decisionCall?.payload ?? {})))) f.push("relay_decision_not_the_operators_to_the_daemon");
+  if (!(t7.calls[3]?.path === PROVIDER_OPS_PATH && stable(t7.calls[3]?.payload) === stable({ ...expectedRequest, wallet_approval_grant: `wallet-approval-challenge://wac_${"7".repeat(32)}` }))) f.push("relay_retry_not_identical_with_approval_ref");
+  if (!(r7?.status === "done" && r7?.authority?.approvalRef === `wallet-approval-challenge://wac_${"7".repeat(32)}`)) f.push(`relay_not_finalized:${r7?.status}`);
+  if (JSON.stringify(runRecord(r7)).includes(STUB_PASSPHRASE)) f.push("relay_record_carries_the_passphrase");
   // 6. an invalid submission and a non-challenge answer
   const bad = await submitProviderOperation({ body: { op: "create" }, daemonHeaders: operator, transport: t5.transport });
   if (!(bad.ok === false && bad.status === 400 && bad.error?.code === "provider_operation_request_invalid")) f.push("invalid_request_not_refused");
   const t6 = stubTransport([{ status: 422, body: { ok: false, code: "akash_live_marketplace_facets_required", reason: null } }]);
   const s6 = await submitProviderOperation({ body: expectedRequest, daemonHeaders: operator, transport: t6.transport });
   if (!(s6.parked === false && s6.ok === false && getRun(s6.run_id)?.status === "failed" && /akash_live_marketplace_facets_required|422/u.test(getRun(s6.run_id)?.error ?? ""))) f.push("non_challenge_not_finalized");
-  return { findings: f, ...out, runs_driven: 6 };
+  return { findings: f, ...out, runs_driven: 7 };
 }
 export function sourceFindings({ serve, runs, timeline, walletAuthority }) {
   const f = [];
@@ -252,17 +281,20 @@ export function sourceFindings({ serve, runs, timeline, walletAuthority }) {
     ["serve_cache_admission", serve, /pathname === "\/__ioi\/provider-ops"[\s\S]{0,400}localRunCacheAdmission\(req\)/u],
     ["serve_submits_through_the_lane", serve, /submitProviderOperation\(\{ body: payload, daemonHeaders: cacheAdmission\.headers \}\)/u],
     ["serve_imports_lane", serve, /submitProviderOperation \} from "\.\/ioi-agent-runs\.mjs"/u],
-    ["runs_dispatch", runs, /pending\.kind === PROVIDER_OPERATION_KIND\) \{[\s\S]{0,600}transport\("POST", PROVIDER_OPS_PATH, \{ \.\.\.pending\.request, wallet_approval_grant: grant \}, runDaemonHeaders\(run, true\)\)/u],
+    ["runs_dispatch", runs, /pending\.kind === PROVIDER_OPERATION_KIND\) \{[\s\S]{0,600}transport\("POST", PROVIDER_OPS_PATH, \{ \.\.\.pending\.request, wallet_approval_grant: authorization \}, runDaemonHeaders\(run, true\)\)/u],
     ["runs_byte_derived_guard", runs, /code: "challenge_not_byte_derived"/u],
     ["runs_strips_caller_grant", runs, /delete request\.wallet_approval_grant;/u],
-    ["runs_default_tier", runs, /minter = mintLocalApproverGrant, recorder = recordLocalApproverGrant/u],
-    ["runs_record_carries_no_grant", runs, /grantId: grant\?\.grant_id \|\| grant\?\.id \|\| grant\?\.approval_id \|\| null,/u],
+    ["runs_default_tier", runs, /decider = decideApprovalChallenge, transport = daemonTransport/u],
+    ["runs_relays_to_the_daemon", runs, /relayChallengeDecision\(\{ challengeId, decision: "approve", reason, operatorPassphrase, headers, transport \}\)/u],
+    ["runs_record_carries_no_grant", runs, /grantId: decided\.grantRef \|\| null,/u],
+    ["fixture_signer_flag_only", walletAuthority, /if \(!fixtureApproverEnabled\(\)\) return null;/u],
     ["timeline_projects_operation", timeline, /providerOperation: run\.providerOperation \? \{/u],
     ["test_signer_flag_only", walletAuthority, /return process\.env\[TEST_SIGNER_FLAG\] === "1";/u],
   ];
   for (const [name, text, re] of need) if (!re.test(text)) f.push(`pin_${name}_missing`);
-  const mintCalls = (runs.match(/mintLocalApproverGrant\(/gu) || []).length;
-  if (mintCalls !== 1) f.push(`mint_call_sites:${mintCalls}!=1`);
+  // G5: the run module signs nothing and reads no key: no minter, no seed, no key path.
+  if (/mintLocalApproverGrant|mintApprovalGrant|readLocalApproverSeedHex|IOI_HYPERVISOR_LOCAL_APPROVER_KEY_PATH/u.test(runs)) f.push("runs_signs_in_process");
+  if (/IOI_HYPERVISOR_LOCAL_APPROVER_KEY_PATH|readLocalApproverSeedHex|guardian\.pass/u.test(walletAuthority)) f.push("wallet_authority_reads_key_material");
   if (/wallet_approval_grant: grant \}\)[\s\S]{0,200}run\.grant = /u.test(runs) || /run\.pendingApproval\.grant|pendingApproval\.grant = /u.test(runs)) f.push("runs_caches_grant");
   return f;
 }
@@ -333,10 +365,10 @@ async function drills() {
   const fixture = readJson(FIXTURE);
   const park = await parkLeg(fixture.challenge);
   evidence.park = park;
-  ok("PARK: a provider operation submitted through the lane goes to the daemon under the operator's identity and the refusal PARKS a run as the byte-derived card — the whole challenge, the exact request with the caller-supplied grant STRIPPED, the hashes, the audience, the receipt ref, no grant; the pane projection and the card harness are clean; a challenge without a preimage parks as a refusal that a second approve cannot sign and deny closes; a tier that mints nothing leaves the run parked; the handoff mints for exactly the card's hashes and audience, records the grant, retries the IDENTICAL request with the grant under the deciding operator's identity, and the daemon's typed refusal or its admission finalizes the run with the receipt, the grant ref and the lease — no grant bytes on the durable record, a second approve refused, an invalid submission and a non-challenge answer each typed", park.findings.length === 0, park.findings.join("; ") || `${park.runs_driven} runs driven in-process`);
+  ok("PARK: a provider operation submitted through the lane goes to the daemon under the operator's identity and the refusal PARKS a run as the byte-derived card — the whole challenge, the exact request with the caller-supplied grant STRIPPED, the hashes, the audience, the receipt ref, no grant; the pane projection and the card harness are clean; a challenge without a preimage parks as a refusal that a second approve cannot sign and deny closes; a tier that decides nothing leaves the run parked; the handoff relays the operator's decision and passphrase for exactly the card's hashes and audience to the daemon's decision route (G5: the lane signs nothing), a missing or refused passphrase leaves the run parked, and the right one retries the IDENTICAL request naming the daemon's approval_ref under the deciding operator's identity; the daemon's typed refusal or its admission finalizes the run with the receipt, the grant ref and the lease — no grant bytes and no passphrase on the durable record, a second approve refused, an invalid submission and a non-challenge answer each typed", park.findings.length === 0, park.findings.join("; ") || `${park.runs_driven} runs driven in-process`);
   const src = sourceFindings({ serve: fs.readFileSync(SERVE, "utf8"), runs: fs.readFileSync(RUNS, "utf8"), timeline: fs.readFileSync(TIMELINE, "utf8"), walletAuthority: fs.readFileSync(WALLET_AUTHORITY, "utf8") });
   evidence.source = src;
-  ok("SOURCE: the serve exposes the lane behind the local-run cache admission and submits through it; the run module dispatches a parked provider operation to the provider-ops route with the identical request and the grant, strips a caller-supplied grant, refuses a non-byte-derived park, defaults to the deployment-local tier with exactly one mint call site and keeps only the grant id; the timeline projects the operation; the test signer mounts only under its flag", src.length === 0, src.join("; ") || "pinned");
+  ok("SOURCE: the serve exposes the lane behind the local-run cache admission and submits through it; the run module dispatches a parked provider operation to the provider-ops route with the identical request and the grant, strips a caller-supplied grant, refuses a non-byte-derived park, defaults to the daemon decision relay and signs nothing in process (no minter, no seed, no key path in the run module or the wallet-authority seam) and keeps only the grant's public ref; the timeline projects the operation; the test signer and the fixture approver mount only under their flags", src.length === 0, src.join("; ") || "pinned");
   const green = (n) => ({ n, executed: [{ script: `g${n}`, status: 0, evidence: "x", evidence_sha256: "ab", ledger: { reach: 0 }, executed_assertions: 5, floor_expected: 5 }] });
   const base = []; for (let n = 1; n <= 12; n += 1) base.push(green(n));
   const allGreen = verdict(base);
@@ -373,12 +405,14 @@ async function mutation() {
   f = (await parkLeg(tampered)).findings;
   plant("a challenge whose request hash does not match its preimage (the card harness refuses it inside the park)", f.some((x) => /card_harness:challenge:request_preimage_mismatch/u.test(x)), f.find((x) => /card_harness/u.test(x)));
   const sources = { serve: fs.readFileSync(SERVE, "utf8"), runs: fs.readFileSync(RUNS, "utf8"), timeline: fs.readFileSync(TIMELINE, "utf8"), walletAuthority: fs.readFileSync(WALLET_AUTHORITY, "utf8") };
-  f = sourceFindings({ ...sources, runs: sources.runs.replace(/transport\("POST", PROVIDER_OPS_PATH, \{ \.\.\.pending\.request, wallet_approval_grant: grant \}, runDaemonHeaders\(run, true\)\)/u, "transport(\"POST\", execPath, { intent: pending.intent, wallet_approval_grant: grant }, runDaemonHeaders(run, true))") });
+  f = sourceFindings({ ...sources, runs: sources.runs.replace(/transport\("POST", PROVIDER_OPS_PATH, \{ \.\.\.pending\.request, wallet_approval_grant: authorization \}, runDaemonHeaders\(run, true\)\)/u, "transport(\"POST\", execPath, { intent: pending.intent, wallet_approval_grant: authorization }, runDaemonHeaders(run, true))") });
   plant("a dispatch that retries a parked provider operation on the session-execute route", f.includes("pin_runs_dispatch_missing"), f[0]);
   f = sourceFindings({ ...sources, runs: sources.runs.replace(/delete request\.wallet_approval_grant;/u, "") });
   plant("a lane that forwards a caller-supplied grant", f.includes("pin_runs_strips_caller_grant_missing"), f[0]);
-  f = sourceFindings({ ...sources, runs: `${sources.runs}\nfunction shadow() { return mintLocalApproverGrant({}); }\n` });
-  plant("a second mint call site in the run module", f.some((x) => /mint_call_sites:2/u.test(x)), f[0]);
+  f = sourceFindings({ ...sources, runs: `${sources.runs}\nfunction shadow() { return mintApprovalGrant({}); }\n` });
+  plant("an in-process signer in the run module", f.includes("runs_signs_in_process"), f[0]);
+  f = sourceFindings({ ...sources, walletAuthority: `${sources.walletAuthority}\nconst k = process.env.IOI_HYPERVISOR_LOCAL_APPROVER_KEY_PATH;\n` });
+  plant("a key-path read in the wallet-authority seam", f.includes("wallet_authority_reads_key_material"), f[0]);
   f = sourceFindings({ ...sources, runs: sources.runs.replace(/code: "challenge_not_byte_derived"/u, "code: \"something_else\"") });
   plant("a run module that would approve a park without a preimage", f.includes("pin_runs_byte_derived_guard_missing"), f[0]);
   f = sourceFindings({ ...sources, serve: sources.serve.replace(/pathname === "\/__ioi\/provider-ops" && req\.method === "POST"/u, "pathname === \"/__ioi/provider-ops-x\" && req.method === \"POST\"") });
@@ -410,8 +444,6 @@ async function laneLegs() {
     const t0 = Date.now();
     resolver = await startRealWalletNetworkPrincipalAuthorityFixture({ baseEnv: fixtureBaseEnv, wallClockChain: true });
     out.fixture_ready_seconds = Math.round((Date.now() - t0) / 1000);
-    const approverKeyPath = path.join(scratch, "deployment-local-approver.key");
-    fs.writeFileSync(approverKeyPath, `${FIXTURE_APPROVER_SEED_HEX}\n`, { mode: 0o600 });
     plane = await startIsolatedPlane({ baseEnv: process.env, env: { ...resolver.env, IOI_HYPERVISOR_AUTHORITY_PRINCIPAL_REF: DEPLOYMENT_AUTHORITY_REF, IOI_HYPERVISOR_MODEL_UPSTREAM: "http://127.0.0.1:9/v1", IOI_HYPERVISOR_DAEMON_BINARY: binary, IOI_WALLET_TEST_SIGNER: "" } });
     if (!plane) { findingsPark.push("isolated_plane_did_not_start"); return { park: { findings: findingsPark }, admit: { findings: ["not_reached"] }, ...out }; }
     const DAEMON = plane.daemonUrl;
@@ -423,7 +455,7 @@ async function laneLegs() {
     const servePort = await freePort(); const productUiPort = await freePort();
     const SERVE_URL = `http://127.0.0.1:${servePort}`;
     let serveLog = "";
-    serve = spawn(process.execPath, [SERVE], { cwd: APP_DIR, env: { ...sanitizedVerifierBaseEnv(process.env), PORT: String(servePort), PRODUCT_UI_PORT: String(productUiPort), IOI_PRODUCT_UI_PUBLIC: path.join(APP_DIR, "product-ui", "owned", "public"), IOI_HYPERVISOR_DAEMON_URL: DAEMON, IOI_HYPERVISOR_LOCAL_APPROVER_KEY_PATH: approverKeyPath, IOI_HYPERVISOR_WALLET_FIXTURE_COMMANDS_DIR: path.join(resolver.resourceDir, "commands"), IOI_HYPERVISOR_AUTHORITY_PRINCIPAL_REF: DEPLOYMENT_AUTHORITY_REF }, stdio: ["ignore", "pipe", "pipe"] });
+    serve = spawn(process.execPath, [SERVE], { cwd: APP_DIR, env: { ...sanitizedVerifierBaseEnv(process.env), PORT: String(servePort), PRODUCT_UI_PORT: String(productUiPort), IOI_PRODUCT_UI_PUBLIC: path.join(APP_DIR, "product-ui", "owned", "public"), IOI_HYPERVISOR_DAEMON_URL: DAEMON, IOI_WALLET_FIXTURE_APPROVER: "1", IOI_HYPERVISOR_WALLET_FIXTURE_COMMANDS_DIR: path.join(resolver.resourceDir, "commands"), IOI_HYPERVISOR_AUTHORITY_PRINCIPAL_REF: DEPLOYMENT_AUTHORITY_REF }, stdio: ["ignore", "pipe", "pipe"] });
     serve.stdout.on("data", (c) => { serveLog = `${serveLog}${c}`.slice(-32000); });
     serve.stderr.on("data", (c) => { serveLog = `${serveLog}${c}`.slice(-32000); });
     if (!(await waitFor(`${SERVE_URL}/__ioi/login`, 90000))) findingsPark.push("serve_did_not_start");
@@ -465,7 +497,7 @@ async function laneLegs() {
     if (!(final.status === "failed" && final.error === "provider_operation_proposal_ref_required" && typeof final.provider_operation?.receipt_ref === "string" && final.provider_operation?.status === 403)) findingsPark.push(`typed_refusal:${final.status}/${final.error}/${final.provider_operation?.status}`);
     // The minted v1 grant carries no id field (byte arrays under a signature); the run keeps the hashes,
     // the tier and the minting time — and never the grant.
-    if (!(final.authority?.mintedAt && final.authority?.approver === "deployment_local_operator" && final.authority?.requestHash === pending.request_hash && final.pending_approval?.decision === "approved")) findingsPark.push("authority_after_decision");
+    if (!(final.authority?.mintedAt && final.authority?.approver === "fixture_public_approver" && final.authority?.requestHash === pending.request_hash && final.pending_approval?.decision === "approved")) findingsPark.push("authority_after_decision");
     if (JSON.stringify(final).includes("wallet_approval_grant") || JSON.stringify(final).includes("approver_sig")) findingsPark.push("final_record_carries_grant_bytes");
     const receipts = (await jd(DAEMON, "/v1/hypervisor/provider-receipts")).body?.receipts ?? [];
     const mine = receipts.filter((r) => r.environment_ref === prep.body.environment_ref);

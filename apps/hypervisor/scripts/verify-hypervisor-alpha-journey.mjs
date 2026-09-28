@@ -32,8 +32,12 @@
 //                                  file says so. Use it to qualify the rest of the journey when
 //                                  the fixture cannot converge on a loaded host.
 //                                  "deployment" brings up the DEPLOYMENT-LOCAL authority node
-//                                  (scripts/wallet-network-authority.mjs: generated, operator-
-//                                  custodied keys; no public seed) and additionally qualifies
+//                                  (scripts/wallet-network-authority.mjs: generated keys SEALED
+//                                  under a per-run operator passphrase; no public seed), the
+//                                  approval goes THROUGH THE DAEMON (master guide G5 / W0.2
+//                                  part 2: the card relays the passphrase, the daemon runs the
+//                                  authority's `approve`, the run resumes with its approval_ref;
+//                                  the served App holds no key), and additionally qualifies
 //                                  approver-key ROTATION (a second run approved under the new
 //                                  key) and REVOCATION (a third run fails closed).
 //   IOI_ALPHA_JOURNEY_PACKAGE      "1" runs the journey ON THE PACKAGED RELEASE: the two signed
@@ -82,9 +86,8 @@ const APP = path.resolve(HERE, "..");
 const ROOT = path.resolve(APP, "..", "..");
 
 const DEPLOYMENT_AUTHORITY_REF = "domain://acme-host";
-// The real wallet.network fixture registers this deterministic seed as the approver for
-// domain://acme-host. It is PUBLIC test material: a real deployment generates its own key.
-const FIXTURE_APPROVER_SEED_HEX = "07".repeat(32);
+// The real wallet.network fixture registers the deterministic PUBLIC `07…` seed as the approver for
+// domain://acme-host; the serve signs with it only behind IOI_WALLET_FIXTURE_APPROVER=1 (fixture mode).
 const MODEL = process.env.IOI_ALPHA_MODEL || "qwen2.5:7b";
 const MODEL_UPSTREAM = process.env.IOI_ALPHA_MODEL_UPSTREAM || "http://127.0.0.1:11434/v1";
 // M13.9 (ADR 0053 § 2) — the REMOTE route lane. `IOI_ALPHA_MODEL_ROUTE=remote` selects a remote
@@ -120,6 +123,13 @@ const KEEP_WORKDIR = process.env.IOI_ALPHA_JOURNEY_KEEP_WORKDIR === "1";
 const AUTHORITY_MODE = ["none", "deployment", "fixture"].includes(process.env.IOI_ALPHA_JOURNEY_AUTHORITY || "")
   ? process.env.IOI_ALPHA_JOURNEY_AUTHORITY
   : "fixture";
+// G5 / W0.2 part 2: in deployment mode the approver key is SEALED under this run's operator
+// passphrase; the operator types it on the approval card and the serve relays it to the daemon,
+// which runs the deployment authority's `approve`. Fixture mode keeps the cargo fixture's PUBLIC
+// approver behind the serve's explicit test flag (IOI_WALLET_FIXTURE_APPROVER=1).
+const OPERATOR_PASS = AUTHORITY_MODE === "deployment" ? `alpha-journey-operator-${crypto.randomBytes(12).toString("hex")}` : "";
+const approveBody = () => JSON.stringify(AUTHORITY_MODE === "deployment" ? { operator_passphrase: OPERATOR_PASS } : {});
+const APPROVER_LABEL = AUTHORITY_MODE === "fixture" ? "fixture_public_approver" : "deployment_local_operator";
 // The remote lane runs only with an operator credential AND the fixture approver: sealing the key
 // to the route is itself an authority crossing (tool model.credential.bind) that the lane approves
 // headlessly through the fixture's approver, exactly as the exact-effect-review verifier does.
@@ -253,7 +263,6 @@ fs.mkdirSync(evidenceDir, { recursive: true });
 
 let fixture = null;
 let authorityNode = null;
-let approverKeyPath = "";
 let daemon = null;
 let serve = null;
 let daemonPort = 0;
@@ -418,7 +427,6 @@ async function run() {
   }
 
   // ---- 2b. bootstrap authority: the deployment-local wallet.network node + operator-held key --
-  approverKeyPath = path.join(workDir, "approver.key");
   const t0 = Date.now();
   let fixtureBaseEnv = null;
   if (AUTHORITY_MODE === "deployment") {
@@ -437,22 +445,29 @@ async function run() {
       // and the daemon checks that promise against the host clock at every bind and draw. A
       // deployment that mints standing envelopes therefore runs its authority node on the wall
       // clock; the deterministic clock is for lanes that make no real-time promise.
-      authorityNode = await launch({ stateDir, principalRef: DEPLOYMENT_NODE_PRINCIPAL_REF, binary: packageEnv.IOI_WALLET_AUTHORITY_BINARY || undefined, wallClock: true, log: () => {} });
+      // The first bring-up seals the new control root and approver key with the operator passphrase.
+      authorityNode = await launch({ stateDir, principalRef: DEPLOYMENT_NODE_PRINCIPAL_REF, binary: packageEnv.IOI_WALLET_AUTHORITY_BINARY || undefined, wallClock: true, operatorPass: OPERATOR_PASS, log: () => {} });
     } catch (error) {
       console.error(`BLOCKED: the deployment-local authority node did not come up — ${error?.message ?? error}`);
       cleanup();
       process.exit(2);
     }
-    approverKeyPath = authorityNode.approverKeyPath;
-    const keyMode = fs.statSync(approverKeyPath).mode & 0o777;
+    // SEALED custody: the control root and the approver key exist only sealed (0600) beside their
+    // public halves; the node publishes no path a process could sign with.
+    const keysDir = path.join(stateDir, "keys");
+    const keyNames = fs.readdirSync(keysDir);
+    const sealedApprover = path.join(keysDir, "approver.seed.sealed");
+    const keyMode = fs.existsSync(sealedApprover) ? (fs.statSync(sealedApprover).mode & 0o777) : null;
+    const approverPub = fs.existsSync(path.join(keysDir, "approver.pub")) ? fs.readFileSync(path.join(keysDir, "approver.pub"), "utf8").trim() : "";
     const authorityRecord = authorityNode.readAuthorityRecord();
     evidence.authority_mode = "deployment";
     evidence.deployment_authority = {
       principal_ref: DEPLOYMENT_NODE_PRINCIPAL_REF,
       binary: authorityNode.binary,
       ordering_profile: authorityNode.ready.ordering_profile,
-      keys_generated_on_host: ["keys/root.seed", "keys/capability.key (sealed)", "keys/approver.seed"],
-      approver_key_mode: keyMode.toString(8),
+      keys_generated_on_host: ["keys/root.seed.sealed", "keys/capability.key (sealed)", "keys/approver.seed.sealed"],
+      key_custody: authorityNode.keyCustody,
+      approver_key_mode: keyMode === null ? null : keyMode.toString(8),
       binding_v1: { ref: authorityRecord.binding_ref, version: authorityRecord.binding_version, status: authorityRecord.binding_status },
       approver_scope_allowlist: authorityRecord.approver_scope_allowlist,
     };
@@ -464,9 +479,9 @@ async function run() {
       const childPathOutsideRepo = childBaseEnv().PATH.split(":").every((d) => outsideRepo(d));
       ok("2b-authority", "NO-CHECKOUT closure test: the installer is the package's own (outside the repository), the authority control binary and the node binaries the launcher pinned are under the install prefix, the prefix is not a git checkout, cargo is absent from every child's PATH and no child PATH entry points into the repository", outsideRepo(pkg.installer) && under(authorityNode.binary) && under(authorityNode.nodeBinaryDir) && !evidence.no_checkout.prefix_has_git && !whichCargo && childPathOutsideRepo, JSON.stringify(evidence.no_checkout).slice(0, 220));
     }
-    ok("2b-authority", "the deployment-local wallet.network node came up with GENERATED keys (control root, sealed capability client, operator approver; no public seed), bound the approver to the deployment principal (binding v1 active) and published the daemon/serve env", keyMode === 0o600 && authorityRecord.binding_version === 1 && authorityRecord.binding_status === "active" && authorityNode.daemonEnv.IOI_WALLET_NETWORK_RPC_ADDR.startsWith("https://") && !fs.readFileSync(approverKeyPath, "utf8").includes(FIXTURE_APPROVER_SEED_HEX), `ready in ${Math.round((Date.now() - t0) / 1000)}s · ${authorityRecord.binding_ref} · key mode ${keyMode.toString(8)}`);
+    const serveEnvKeys = Object.keys(authorityNode.serveEnv).sort();
+    ok("2b-authority", "the deployment-local wallet.network node came up with GENERATED keys SEALED under the operator passphrase (control root and approver key only sealed, 0600, beside their public halves; no plaintext seed, no public seed), bound the approver to the deployment principal (binding v1 active) and published the daemon/serve env — serve.env names no key, no key path and no authority state dir; daemon.env names the authority its approval decision runs", authorityNode.keyCustody === "sealed" && authorityNode.approverKeyPath === null && keyMode === 0o600 && !keyNames.includes("approver.seed") && !keyNames.includes("root.seed") && approverPub === authorityRecord.approver_public_key && approverPub !== "" && authorityRecord.binding_version === 1 && authorityRecord.binding_status === "active" && authorityNode.daemonEnv.IOI_WALLET_NETWORK_RPC_ADDR.startsWith("https://") && JSON.stringify(serveEnvKeys) === JSON.stringify(["IOI_HYPERVISOR_AUTHORITY_HOST_REF", "IOI_HYPERVISOR_AUTHORITY_PRINCIPAL_REF"]) && authorityNode.daemonEnv.IOI_HYPERVISOR_LOCAL_AUTHORITY_STATE_DIR === stateDir && fs.existsSync(authorityNode.daemonEnv.IOI_WALLET_AUTHORITY_BINARY || ""), `ready in ${Math.round((Date.now() - t0) / 1000)}s · ${authorityRecord.binding_ref} · custody ${authorityNode.keyCustody} · sealed key mode ${keyMode === null ? "absent" : keyMode.toString(8)} · serve.env ${serveEnvKeys.join(",")}`);
   } else if (AUTHORITY_MODE === "fixture") {
-    fs.writeFileSync(approverKeyPath, `${FIXTURE_APPROVER_SEED_HEX}\n`, { mode: 0o600 });
     try {
       // The fixture's in-process debug cluster commits its setup transactions slowly on a loaded
       // host (readiness has been observed between 7 and 25 minutes). The sanitizer strips every
@@ -497,7 +512,7 @@ async function run() {
     }
     evidence.authority_mode = "fixture";
     evidence.fixture_ordering_profile = fixtureBaseEnv.IOI_M049_ORDERING_PROFILE;
-    record("2b-authority", "deployment-local wallet.network node", `ready in ${Math.round((Date.now() - t0) / 1000)}s · ${fixtureBaseEnv.IOI_M049_ORDERING_PROFILE} single-node ordering profile · chain ${fixture.env.IOI_WALLET_NETWORK_CHAIN_ID} · approver key custodied at ${approverKeyPath} (mode 0600; FIXTURE seed = public test material)`);
+    record("2b-authority", "deployment-local wallet.network node", `ready in ${Math.round((Date.now() - t0) / 1000)}s · ${fixtureBaseEnv.IOI_M049_ORDERING_PROFILE} single-node ordering profile · chain ${fixture.env.IOI_WALLET_NETWORK_CHAIN_ID} · the serve approves with the fixture's PUBLIC approver seed only behind IOI_WALLET_FIXTURE_APPROVER=1 (test material; no key file)`);
   } else {
     evidence.authority_mode = "none";
     record("2b-authority", "deployment-local wallet.network node", "NOT STARTED (IOI_ALPHA_JOURNEY_AUTHORITY=none): every step that needs execution authority is recorded as a typed block below; nothing in this run claims approval, execution, artifacts or execute receipts");
@@ -529,11 +544,11 @@ async function run() {
     IOI_HYPERVISOR_DAEMON_URL: DAEMON,
     PORT: String(servePort),
     PRODUCT_UI_PORT: String(productUiPort),
-    IOI_HYPERVISOR_LOCAL_APPROVER_KEY_PATH: approverKeyPath,
-    // The approval act records the grant on the authority node: the deployment node through its
-    // control binary, or (fixture mode) the fixture's command directory.
+    // G5: the serve holds NO signing key in any mode. Deployment: only the public principal/host
+    // refs (the daemon decides approvals). Fixture: the explicit test flag that lets the serve
+    // approve with the cargo fixture's PUBLIC seed and record through its command directory.
     ...(authorityNode ? authorityNode.serveEnv : {}),
-    ...(fixture ? { IOI_HYPERVISOR_WALLET_FIXTURE_COMMANDS_DIR: path.join(fixture.resourceDir, "commands"), IOI_HYPERVISOR_AUTHORITY_PRINCIPAL_REF: DEPLOYMENT_AUTHORITY_REF } : {}),
+    ...(fixture ? { IOI_WALLET_FIXTURE_APPROVER: "1", IOI_HYPERVISOR_WALLET_FIXTURE_COMMANDS_DIR: path.join(fixture.resourceDir, "commands"), IOI_HYPERVISOR_AUTHORITY_PRINCIPAL_REF: DEPLOYMENT_AUTHORITY_REF } : {}),
   };
   delete serveEnv.IOI_WALLET_TEST_SIGNER;
   await startDaemon();
@@ -666,13 +681,14 @@ async function run() {
   const envelopeA = await jd(SERVE, `/__ioi/connections/${encodeURIComponent(A)}/standing-lease`, { method: "POST", body: JSON.stringify({ max_usages: 1, budget_usd: 0.01, expires_hours: 2 }) });
   const STANDING = envelopeA.status === 200 && envelopeA.body?.ok === true && envelopeA.body?.standing_lease?.status === "active";
   if (AUTHORITY_MODE === "deployment") {
-    // R-14 (ruled 2026-09-09): the deployment-local operator key is a RECOGNIZED custody tier for
-    // recording a standing grant. The ceremony is the operator's own act with the key they custody
-    // on this host; the v2 auth-factor receipt attests that custody (host, key-path hash, mode
-    // 0600, the moment they acknowledged it) and never a person, and the wallet re-validates the
-    // whole tuple. Before the ruling this step refused typed; it is now qualified here.
-    ok("5c-envelope", "DEPLOYMENT MODE (R-14): the attach pass minted the standing envelope (1 usage · $0.01 · 2h) under the DEPLOYMENT-LOCAL OPERATOR custody tier, recorded it on the deployment's own authority node through its control binary, and bound it to connection A", STANDING && envelopeA.body?.standing_lease?.bounds?.max_usages === 1 && envelopeA.body?.factor_origin === "deployment_local_operator_key_custody" && String(envelopeA.body?.standing_grant_hash || "").length === 64, `${envelopeA.status}/${envelopeA.body?.code || "ok"} ${envelopeA.body?.message ? String(envelopeA.body.message).slice(0, 200) : JSON.stringify(envelopeA.body?.standing_lease?.bounds || null).slice(0, 140)} · factor ${envelopeA.body?.factor_origin || ""}`);
-    evidence.standing_lease = { mode: "deployment", custody_tier: "deployment_local_operator", ruling: "R-14 (2026-09-09, owner-reversible)", status: STANDING ? "bound" : "refused", code: envelopeA.body?.code || null, message: envelopeA.body?.message || null, factor_origin: envelopeA.body?.factor_origin || null, bounds: envelopeA.body?.standing_lease?.bounds || null, grant_hash: envelopeA.body?.standing_grant_hash || null };
+    // G5 (§0.5.2, owner decision 2026-09-28): the approver key is SEALED inside the deployment
+    // authority and the served App holds no key, so the serve can no longer sign the R-14 standing
+    // grant. The attach refuses TYPED and nothing is minted or recorded; the run below keeps the
+    // exact approval card, decided through the daemon. A daemon-side standing decision is the
+    // follow-on (named, not faked).
+    ok("5c-envelope", "DEPLOYMENT MODE (G5): the served App holds no signing key, so the attach pass REFUSES the standing envelope typed (standing_lease_operator_custody_required) — nothing minted, nothing recorded, the connection stays unbounded", !STANDING && envelopeA.body?.code === "standing_lease_operator_custody_required", `${envelopeA.status}/${envelopeA.body?.code || "ok"} ${String(envelopeA.body?.message || "").slice(0, 160)}`);
+    record("5c-envelope", "standing envelope in deployment mode", "NOT QUALIFIED here: a standing grant needs the sealed approver key, and the daemon-side standing decision (the G5 follow-on to the exact-effect relay) does not exist yet");
+    evidence.standing_lease = { mode: "deployment", status: "refused", code: envelopeA.body?.code || null, message: envelopeA.body?.message || null, open: "daemon-side standing decision (G5 follow-on)" };
   } else if (AUTHORITY_PRESENT) {
     ok("5c-envelope", "FIXTURE MODE: the attach pass minted the standing envelope (1 usage · $0.01 · 2h), recorded the grant on the authority node and bound it to connection A; the bounds render from the daemon record", STANDING && envelopeA.body?.standing_lease?.bounds?.max_usages === 1 && String(envelopeA.body?.standing_grant_hash || "").length === 64, `${envelopeA.status}/${envelopeA.body?.code || "ok"} ${envelopeA.body?.message ? String(envelopeA.body.message).slice(0, 200) : JSON.stringify(envelopeA.body?.standing_lease?.bounds || null).slice(0, 140)} · factor ${envelopeA.body?.factor_origin || ""}`);
     evidence.standing_lease = { mode: "fixture", status: STANDING ? "bound" : "refused", code: envelopeA.body?.code || null, message: envelopeA.body?.message || null, factor_origin: envelopeA.body?.factor_origin || null, bounds: envelopeA.body?.standing_lease?.bounds || null, grant_hash: envelopeA.body?.standing_grant_hash || null };
@@ -707,13 +723,23 @@ async function run() {
     const approve = await jd(SERVE, `/__ioi/agent-studio/model-routes/${encodeURIComponent(drillId)}/credential/approve`, { method: "POST", body: "{}" });
     const afterApprove = await jd(DAEMON, `/v1/hypervisor/model-routes/${encodeURIComponent(drillId)}`);
     const cbAfter = afterApprove.body?.route?.credential_binding || null;
-    ok("5d-custody", "the operator's approval mints ONE grant with the deployment-local approver, records it on the authority node, and the daemon seals the key (sealed_capability_lease with a custody lease); the read projection carries no secret", approve.status === 201 && approve.body?.decision === "approved" && approve.body?.approver === "deployment_local_operator" && cbAfter?.kind === "sealed_capability_lease" && String(cbAfter?.provider_credential_lease_ref || "").startsWith("lease:") && !afterApprove.text.includes(drillSecret), `${approve.status}/${approve.body?.decision || approve.body?.error?.code} ${approve.body?.error?.message || ""} · ${JSON.stringify(cbAfter ? { kind: cbAfter.kind, lease: cbAfter.provider_credential_lease_ref } : null)}`);
-    const replay = await jd(SERVE, `/__ioi/agent-studio/model-routes/${encodeURIComponent(drillId)}/credential/approve`, { method: "POST", body: "{}" });
-    const studioAfter = await jd(SERVE, "/__ioi/agent-studio");
-    ok("5d-custody", "one crossing, one decision: a second approval finds nothing pending (404) and the card is gone from Agent Studio", replay.status === 404 && replay.body?.error?.code === "credential_bind_not_pending" && studioAfter.status === 200 && !studioAfter.text.includes(`data-ioi-custody-approval="${drillId}"`), `${replay.status}/${replay.body?.error?.code}`);
-    const revoke = await jd(DAEMON, `/v1/hypervisor/model-routes/${encodeURIComponent(drillId)}/credential`, { method: "DELETE", body: JSON.stringify(drillMut("custody-drill-revoke")) });
+    let replay = { status: 0 };
+    if (AUTHORITY_MODE === "deployment") {
+      // G5: the custody card's approve route does not relay the operator passphrase yet, so the App
+      // cannot decide it — and must not sign it itself. The typed refusal is the claim; deny cleans up.
+      ok("5d-custody", "DEPLOYMENT MODE (G5): the custody approval signs nothing in the App — without the operator passphrase it refuses typed (400 operator_passphrase_required) and NOTHING is sealed", approve.status === 400 && approve.body?.error?.code === "operator_passphrase_required" && !cbAfter && !afterApprove.text.includes(drillSecret), `${approve.status}/${approve.body?.decision || approve.body?.error?.code} · binding ${JSON.stringify(cbAfter)}`);
+      replay = await jd(SERVE, `/__ioi/agent-studio/model-routes/${encodeURIComponent(drillId)}/credential/deny`, { method: "POST", body: "{}" });
+      ok("5d-custody", "the operator's denial closes the custody card and records the denial on the daemon's parked challenge; nothing sealed", replay.status === 200 && replay.body?.decision === "denied", `${replay.status}/${replay.body?.decision || replay.body?.error?.code}`);
+      record("5d-custody", "custody approval through the daemon", "NOT QUALIFIED in deployment mode: the Agent Studio custody card's approve route does not relay the operator passphrase yet (G5 open item); the typed refusal above proves no key in the App signed it");
+    } else {
+      ok("5d-custody", "the operator's approval mints ONE grant with the fixture approver (test flag), records it on the authority node, and the daemon seals the key (sealed_capability_lease with a custody lease); the read projection carries no secret", approve.status === 201 && approve.body?.decision === "approved" && approve.body?.approver === APPROVER_LABEL && cbAfter?.kind === "sealed_capability_lease" && String(cbAfter?.provider_credential_lease_ref || "").startsWith("lease:") && !afterApprove.text.includes(drillSecret), `${approve.status}/${approve.body?.decision || approve.body?.error?.code} ${approve.body?.error?.message || ""} · ${JSON.stringify(cbAfter ? { kind: cbAfter.kind, lease: cbAfter.provider_credential_lease_ref } : null)}`);
+      replay = await jd(SERVE, `/__ioi/agent-studio/model-routes/${encodeURIComponent(drillId)}/credential/approve`, { method: "POST", body: "{}" });
+      const studioAfter = await jd(SERVE, "/__ioi/agent-studio");
+      ok("5d-custody", "one crossing, one decision: a second approval finds nothing pending (404) and the card is gone from Agent Studio", replay.status === 404 && replay.body?.error?.code === "credential_bind_not_pending" && studioAfter.status === 200 && !studioAfter.text.includes(`data-ioi-custody-approval="${drillId}"`), `${replay.status}/${replay.body?.error?.code}`);
+    }
+    const revoke = AUTHORITY_MODE === "deployment" ? { status: 0 } : await jd(DAEMON, `/v1/hypervisor/model-routes/${encodeURIComponent(drillId)}/credential`, { method: "DELETE", body: JSON.stringify(drillMut("custody-drill-revoke")) });
     const afterRevoke = await jd(DAEMON, `/v1/hypervisor/model-routes/${encodeURIComponent(drillId)}`);
-    ok("5d-custody", "the drill key does not outlive the drill: revoking the credential leaves the route with no binding", revoke.status < 300 && !afterRevoke.body?.route?.credential_binding, `${revoke.status} → binding ${JSON.stringify(afterRevoke.body?.route?.credential_binding ?? null)}`);
+    ok("5d-custody", "the drill key does not outlive the drill: the route ends with no credential binding", (AUTHORITY_MODE === "deployment" || revoke.status < 300) && !afterRevoke.body?.route?.credential_binding, `${revoke.status} → binding ${JSON.stringify(afterRevoke.body?.route?.credential_binding ?? null)}`);
     evidence.custody_card = { route_id: drillId, submit: submit.status, approve: approve.status, replay: replay.status, revoke: revoke.status };
   } else {
     record("5d-custody", "custody approval card", "NOT DRIVEN (authority mode none): the deployment-local approver does not exist here, so the custody crossing cannot be approved");
@@ -857,15 +883,35 @@ async function run() {
   }
   if (AUTHORITY_PRESENT && !STANDING) {
   ok("6-work", "the run PARKS on the operator's approval with the daemon's exact commitments (no signer runs automatically)", transcript?.status === "awaiting_operator_approval" && pending?.policy_hash && pending?.request_hash, `${transcript?.status} · ${pending?.request_hash?.slice(0, 24) || "no request hash"}`);
-  const sessionsPage = await jd(SERVE, "/work/sessions");
-  ok("6-work", "the canonical Work / Sessions route shows the approval card with the exact effect and its commitments", sessionsPage.status === 200 && sessionsPage.text.includes(`data-ioi-awaiting-approval="${runId}"`) && sessionsPage.text.includes(pending?.request_hash || "∅"), `${sessionsPage.status}`);
+  // The card renders on the served Sessions readout (/__ioi/sessions, reached from the canonical
+  // Work / Sessions lane). Since the E7 cockpit retirement (2026-08-20) the canonical /work/sessions
+  // route itself rewrites to the typed work projection, which carries no approval card: that is
+  // RECORDED here as observed, never asserted as a pass (check:spend-approval-lane reads it the same way).
+  const canonicalSessions = await jd(SERVE, "/work/sessions");
+  record("6-work", "canonical /work/sessions route", `${canonicalSessions.status} · carries the approval card: ${canonicalSessions.text.includes(`data-ioi-awaiting-approval="${runId}"`)} (the route rewrites to the typed work projection since E7; the card lives on the Sessions readout and the session pane)`);
+  const sessionsPage = await jd(SERVE, "/__ioi/sessions", { headers: { "x-ioi-canonical-route": "/work/sessions" } });
+  ok("6-work", "the served Sessions readout (the Work / Sessions lane) shows the approval card with the exact effect and its commitments", sessionsPage.status === 200 && sessionsPage.text.includes(`data-ioi-awaiting-approval="${runId}"`) && sessionsPage.text.includes(pending?.request_hash || "∅"), `${sessionsPage.status}`);
   // M13.4: the SAME decision is reachable from the session the run was submitted in — the SPA
   // session pane's timeline projection carries the awaiting card with the exact commitments.
   const parkedTimeline = await jd(SERVE, `/__ioi/agent-runs/${encodeURIComponent(runId)}/timeline`);
   const parkedApproval = parkedTimeline.body?.turns?.[0]?.approval;
   ok("6-work", "the SPA session pane (run timeline of the environment the run was submitted in) shows the SAME awaiting-approval card: exact commitments and the approve/deny endpoints", parkedTimeline.status === 200 && parkedApproval?.state === "awaiting" && parkedApproval.requestHash === pending?.request_hash && parkedApproval.approveUrl === `/__ioi/runs/${encodeURIComponent(runId)}/approve`, `${parkedTimeline.status} · ${parkedApproval?.state || "no card"}`);
-  const approve = await jd(SERVE, `/__ioi/runs/${encodeURIComponent(runId)}/approve`, { method: "POST", body: JSON.stringify({}) });
-  ok("6-work", "the operator's approval signs exactly that request with the deployment approver key and resumes execution", approve.status === 202 && approve.body?.decision === "approved", `${approve.status} ${JSON.stringify(approve.body?.error || approve.body?.decision)}`);
+  const approveUrl = `/__ioi/runs/${encodeURIComponent(runId)}/approve`;
+  const challengeId = String(pending?.challenge_id || "");
+  if (AUTHORITY_MODE === "deployment") {
+    // ---- 6g. G5 / W0.2 part 2: the approval goes THROUGH THE DAEMON; the App holds no key ----
+    ok("6-work", "G5: the DAEMON parked this exact effect's challenge (wallet-approval-challenges/<id>, decidable here) and the approval card asks for the operator passphrase in a password field — on Work / Sessions and in the session pane", /^wac_[0-9a-f]{32}$/u.test(challengeId) && pending?.decidable === true && pending?.passphrase_required === true && parkedApproval?.passphraseRequired === true && parkedApproval?.challengeId === challengeId && /<input type="password" name="operator_passphrase"/u.test(sessionsPage.text), `${challengeId || "no challenge"} · decidable ${pending?.decidable} · pane passphraseRequired ${parkedApproval?.passphraseRequired} · card field ${/name="operator_passphrase"/u.test(sessionsPage.text)}`);
+    const inbox = await jd(DAEMON, "/v1/hypervisor/governance/approvals-inbox");
+    const inboxRow = (inbox.body?.items || []).find((item) => item.source_plane === "wallet_approval_challenge" && item.challenge_id === challengeId);
+    ok("6-work", "G5: the approvals inbox lists the parked challenge (exact request hash, decision route, approve needs the passphrase)", inbox.status === 200 && inboxRow?.request_hash === pending?.request_hash && inboxRow?.decide?.route === `/v1/hypervisor/authority/challenges/${challengeId}/decision` && (inboxRow?.decide?.approve_requires || []).includes("operator_passphrase"), `${inbox.status} · ${inboxRow ? inboxRow.decide?.route : "no row"}`);
+    const noPass = await jd(SERVE, approveUrl, { method: "POST", body: JSON.stringify({}) });
+    const wrongPass = await jd(SERVE, approveUrl, { method: "POST", body: JSON.stringify({ operator_passphrase: `wrong-${crypto.randomBytes(8).toString("hex")}` }) });
+    const stillParked = await jd(DAEMON, `/v1/hypervisor/agent-run-transcripts/${encodeURIComponent(runId)}`);
+    const challengeAfterWrong = await jd(DAEMON, `/v1/hypervisor/authority/challenges/${challengeId}`);
+    ok("6-work", "G5: an approval with no passphrase (400 operator_passphrase_required) or a wrong one (403 operator_passphrase_refused) signs and records nothing — the run stays parked and the daemon's challenge stays pending", noPass.status === 400 && noPass.body?.error?.code === "operator_passphrase_required" && wrongPass.status === 403 && wrongPass.body?.error?.code === "operator_passphrase_refused" && (stillParked.body?.run || stillParked.body?.record || stillParked.body)?.status === "awaiting_operator_approval" && challengeAfterWrong.body?.challenge?.state === "pending" && challengeAfterWrong.body?.challenge?.decision === null, `${noPass.status}/${noPass.body?.error?.code} · ${wrongPass.status}/${wrongPass.body?.error?.code} · run ${(stillParked.body?.run || stillParked.body?.record || stillParked.body)?.status} · challenge ${challengeAfterWrong.body?.challenge?.state}`);
+  }
+  const approve = await jd(SERVE, approveUrl, { method: "POST", body: approveBody() });
+  ok("6-work", AUTHORITY_MODE === "deployment" ? "the operator's approval WITH THE PASSPHRASE goes through the serve route to the daemon, whose deployment authority signs exactly that request with the sealed approver key, and the run resumes with the daemon's approval_ref" : "the operator's approval signs exactly that request (fixture approver, test flag) and resumes execution", approve.status === 202 && approve.body?.decision === "approved" && (AUTHORITY_MODE !== "deployment" || approve.body?.approval_ref === `wallet-approval-challenge://${challengeId}`), `${approve.status} ${JSON.stringify(approve.body?.error || approve.body?.decision)} ${approve.body?.approval_ref || ""}`);
   const execStart = Date.now();
   // A refused approval leaves the run parked forever; do not spend the execute budget on it.
   while (approve.status === 202 && Date.now() - execStart < EXECUTE_BUDGET_MS) {
@@ -877,6 +923,23 @@ async function run() {
   const execSeconds = Math.round((Date.now() - execStart) / 1000);
   const changed = transcript?.changed_files || [];
   ok("6-work", `the approved run completes on the qualified harness/model and writes at least one file (${execSeconds}s)`, transcript?.status === "done" && workFiles(changed).length > 0, `${transcript?.status} · ${JSON.stringify(changed).slice(0, 200)} · ${transcript?.error || ""}`);
+  if (AUTHORITY_MODE === "deployment") {
+    // The one-use grant was consumed ONCE: the daemon's challenge is consumed by the run's own
+    // admission, and a replay of the identical effect naming the same approval_ref is refused.
+    const consumed = await jd(DAEMON, `/v1/hypervisor/authority/challenges/${challengeId}`);
+    const replay = await jd(DAEMON, `/v1/hypervisor/sessions/${encodeURIComponent(runSessionRef)}/execute`, { method: "POST", body: JSON.stringify({ intent: pending?.intent, lane: "native_local", approval_ref: approve.body?.approval_ref }) });
+    ok("6-work", "G5: the grant was consumed ONCE — the daemon's challenge is consumed by the run's admission, and replaying the identical effect with the same approval_ref is refused (approval_ref_consumed)", consumed.body?.challenge?.state === "consumed" && String(consumed.body?.challenge?.consumed_by || "").startsWith("authority-admission-intents/") && replay.status === 403 && replay.body?.reason === "approval_ref_consumed", `${consumed.body?.challenge?.state} by ${consumed.body?.challenge?.consumed_by || "?"} · replay ${replay.status}/${replay.body?.reason}`);
+    // The passphrase is nowhere at rest: not in either process's environment, not in either log,
+    // not in the durable run record, not in the daemon's data dir.
+    const environOf = (pid) => { try { return fs.readFileSync(`/proc/${pid}/environ`); } catch { return Buffer.alloc(0); } };
+    const runRecordText = JSON.stringify((await jd(DAEMON, `/v1/hypervisor/agent-run-transcripts/${encodeURIComponent(runId)}`)).body || {});
+    const dataDirHits = [];
+    const scan = (dir) => { for (const entry of fs.readdirSync(dir, { withFileTypes: true })) { const full = path.join(dir, entry.name); if (entry.isDirectory()) scan(full); else if (entry.isFile()) { try { if (fs.statSync(full).size < 8_000_000 && fs.readFileSync(full).includes(Buffer.from(OPERATOR_PASS))) dataDirHits.push(full); } catch { /* unreadable */ } } } };
+    try { scan(dataDir); } catch { /* scan best effort */ }
+    const needle = Buffer.from(OPERATOR_PASS);
+    ok("6-work", "G5: the operator passphrase is nowhere at rest — not in the serve's or the daemon's environment, not in either log, not on the durable run record, not in the daemon's data dir", !environOf(serve?.pid).includes(needle) && !environOf(daemon?.pid).includes(needle) && !serveLog.includes(OPERATOR_PASS) && !daemonLog.includes(OPERATOR_PASS) && !runRecordText.includes(OPERATOR_PASS) && dataDirHits.length === 0, `data dir hits ${dataDirHits.length}`);
+    evidence.deployment_authority.g5_relay = { challenge_id: challengeId, approval_ref: approve.body?.approval_ref || null, challenge_state: consumed.body?.challenge?.state || null, consumed_by: consumed.body?.challenge?.consumed_by || null, replay: { status: replay.status, reason: replay.body?.reason || null } };
+  }
 
   // ---- 7. inspect: artifacts, receipts, cost, the approval ------------------------------------
   const env = await jd(DAEMON, `/v1/hypervisor/environments/${encodeURIComponent(envId)}`);
@@ -920,7 +983,7 @@ async function run() {
   const boundTimeline = await jd(SERVE, `/__ioi/agent-runs/${encodeURIComponent(runId)}/timeline`);
   const boundProof = boundTimeline.body?.turns?.[0]?.proof || {};
   ok("7-inspect", "M13.4: the SPA session pane's proof band is bound to the DAEMON session record (ref + lifecycle) and names the execute receipt with its capability lease, read from the daemon", boundTimeline.status === 200 && boundProof.session?.ref === runSessionRef && boundProof.session?.source === "daemon-runtime" && (boundProof.daemonReceipts || []).some((r) => r.kind === "hypervisor.session.execute" && r.capabilityLeaseRef), `${boundTimeline.status} · ${boundProof.session?.lifecycleState || "?"} · ${(boundProof.daemonReceipts || []).length} daemon receipt(s)`);
-  ok("7-inspect", "the run's authority record names the operator's approval (approver = deployment-local operator, exact hashes)", transcript?.authority?.approver === "deployment_local_operator" && transcript?.authority?.requestHash === pending?.request_hash && transcript?.pending_approval?.decision === "approved", JSON.stringify(transcript?.authority || null).slice(0, 160));
+  ok("7-inspect", `the run's authority record names the operator's approval (approver = ${APPROVER_LABEL}, exact hashes${AUTHORITY_MODE === "deployment" ? ", the daemon's approval_ref" : ""})`, transcript?.authority?.approver === APPROVER_LABEL && transcript?.authority?.requestHash === pending?.request_hash && transcript?.pending_approval?.decision === "approved" && (AUTHORITY_MODE !== "deployment" || transcript?.authority?.approvalRef === `wallet-approval-challenge://${challengeId}`), JSON.stringify(transcript?.authority || null).slice(0, 200));
   }
   if (STANDING) {
     // ---- 7s. inspect the silently authorized run: artifacts and the execute receipt ----
@@ -1083,7 +1146,7 @@ async function driveRun(intent, { approve }) {
   }
   let approveResult = null;
   if (approve && transcript?.status === "awaiting_operator_approval") {
-    approveResult = await jd(SERVE, `/__ioi/runs/${encodeURIComponent(runId)}/approve`, { method: "POST", body: JSON.stringify({}) });
+    approveResult = await jd(SERVE, `/__ioi/runs/${encodeURIComponent(runId)}/approve`, { method: "POST", body: approveBody() });
     const execStart = Date.now();
     while (approveResult.status === 202 && Date.now() - execStart < EXECUTE_BUDGET_MS) {
       const t = await jd(DAEMON, `/v1/hypervisor/agent-run-transcripts/${encodeURIComponent(runId)}`);
@@ -1100,20 +1163,24 @@ async function driveRun(intent, { approve }) {
 async function qualifyRotationAndRevocation() {
   const stateDir = authorityNode.stateDir;
   const before = authorityNode.readAuthorityRecord();
-  const oldSeed = fs.readFileSync(approverKeyPath, "utf8").trim();
-  const rotated = authorityAct("rotate", { stateDir });
+  // SEALED custody: rotation is compared on the PUBLIC halves; the seeds exist only sealed.
+  const keysDir = path.join(stateDir, "keys");
+  const readPub = (name) => (fs.existsSync(path.join(keysDir, name)) ? fs.readFileSync(path.join(keysDir, name), "utf8").trim() : "");
+  const oldPub = readPub("approver.pub");
+  const rotated = authorityAct("rotate", { stateDir, operatorPass: OPERATOR_PASS });
   const after = authorityNode.readAuthorityRecord();
-  const retiredPath = path.join(stateDir, "keys", `approver.seed.v${before.binding_version}`);
-  const newSeed = fs.readFileSync(approverKeyPath, "utf8").trim();
+  const retiredPath = path.join(keysDir, `approver.seed.sealed.v${before.binding_version}`);
+  const newPub = readPub("approver.pub");
   const retiredMode = fs.existsSync(retiredPath) ? (fs.statSync(retiredPath).mode & 0o777) : null;
-  ok("2c-rotation", "the operator rotates the approver key: a NEW key is custodied at the same path, the retired key is versioned read-only, and the chain holds an Active successor binding (version n+1) for the new authority", rotated.ok && after.binding_version === before.binding_version + 1 && after.binding_status === "active" && after.approver_authority_id !== before.approver_authority_id && newSeed !== oldSeed && fs.readFileSync(retiredPath, "utf8").trim() === oldSeed && retiredMode === 0o400, `${rotated.ok ? "ok" : rotated.stderr.slice(-200)} · v${before.binding_version}→v${after.binding_version} · ${after.binding_ref.slice(0, 60)}`);
+  const plaintextSeeds = fs.readdirSync(keysDir).filter((name) => /^(approver|root)\.seed(\.v\d+)?$/u.test(name));
+  ok("2c-rotation", "the operator rotates the approver key with the passphrase: a NEW key is SEALED in place, the retired sealed key and its public half are versioned read-only, no plaintext seed appears, and the chain holds an Active successor binding (version n+1) for the new authority", rotated.ok && after.binding_version === before.binding_version + 1 && after.binding_status === "active" && after.approver_authority_id !== before.approver_authority_id && newPub !== oldPub && newPub === after.approver_public_key && readPub(`approver.pub.v${before.binding_version}`) === oldPub && retiredMode === 0o400 && plaintextSeeds.length === 0, `${rotated.ok ? "ok" : rotated.stderr.slice(-200)} · v${before.binding_version}→v${after.binding_version} · ${after.binding_ref.slice(0, 60)} · plaintext seeds ${plaintextSeeds.length}`);
   evidence.deployment_authority.rotation = { binding_ref: after.binding_ref, version: after.binding_version, retired_key: path.relative(stateDir, retiredPath) };
   const second = await driveRun("Create a file named ROTATED.md whose first line is exactly: approved under the rotated key", { approve: true });
   const secondReceipts = readReceipts((r) => r.kind === "hypervisor.session.execute" && r.session_ref === second.sessionRef);
-  ok("2c-rotation", "a run approved AFTER rotation is signed with the new key, accepted by the daemon against the rotated binding, executes and receipts", second.approveResult?.status === 202 && second.transcript?.status === "done" && (second.transcript?.changed_files || []).length > 0 && secondReceipts.length >= 1, `${second.createFailed ? `composer submit returned NO run: HTTP ${second.createStatus} ${second.createBody} · ` : ""}${second.approveResult?.status} · ${second.transcript?.status} · ${JSON.stringify(second.transcript?.changed_files || []).slice(0, 120)} · ${second.transcript?.error || ""}`);
+  ok("2c-rotation", "a run approved AFTER rotation (through the daemon, with the passphrase) is signed with the new key, accepted by the daemon against the rotated binding, executes and receipts", second.approveResult?.status === 202 && second.transcript?.status === "done" && (second.transcript?.changed_files || []).length > 0 && secondReceipts.length >= 1, `${second.createFailed ? `composer submit returned NO run: HTTP ${second.createStatus} ${second.createBody} · ` : ""}${second.approveResult?.status} · ${second.transcript?.status} · ${JSON.stringify(second.transcript?.changed_files || []).slice(0, 120)} · ${second.transcript?.error || ""}`);
   evidence.deployment_authority.rotated_run = { run_id: second.runId, session_ref: second.sessionRef, status: second.transcript?.status };
 
-  const revoked = authorityAct("revoke", { stateDir, reason: "alpha journey: operator revoked the deployment approver" });
+  const revoked = authorityAct("revoke", { stateDir, reason: "alpha journey: operator revoked the deployment approver", operatorPass: OPERATOR_PASS });
   const afterRevoke = authorityNode.readAuthorityRecord();
   ok("2c-revocation", "the operator revokes the principal's approval authority: the chain holds a Revoked successor that retains the exact prior authority snapshot", revoked.ok && afterRevoke.binding_status === "revoked" && afterRevoke.binding_version === after.binding_version + 1, `${revoked.ok ? "ok" : revoked.stderr.slice(-200)} · v${afterRevoke.binding_version} ${afterRevoke.binding_status}`);
   const third = await driveRun("Create a file named REVOKED.md — this must never run", { approve: true });

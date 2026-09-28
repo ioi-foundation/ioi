@@ -192,6 +192,10 @@ export function projectRunTimeline(run, extra = {}) {
       decidedAt: run.pendingApproval.decided_at || null,
       approveUrl: run.status === "awaiting_operator_approval" ? `/__ioi/runs/${encodeURIComponent(run.id)}/approve` : null,
       denyUrl: run.status === "awaiting_operator_approval" ? `/__ioi/runs/${encodeURIComponent(run.id)}/deny` : null,
+      // G5: the daemon decides this challenge with the deployment authority's sealed key, so the
+      // approve act carries the operator passphrase (typed on the card, never stored).
+      challengeId: run.pendingApproval.challenge_id || null,
+      passphraseRequired: run.status === "awaiting_operator_approval" && (run.pendingApproval.passphrase_required === true || run.pendingApproval.decidable === true),
       // A parked provider operation carries every signed facet as the bytes the daemon hashed
       // (M03.9, R-212): the pane shows the same facts the card shows, whole, never re-stated.
       ...(run.pendingApproval.kind === PROVIDER_APPROVAL_KIND ? projectProviderApprovalForTimeline(run.pendingApproval) : {}),

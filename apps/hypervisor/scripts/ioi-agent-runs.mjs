@@ -2,13 +2,14 @@
 //
 // CreateAgentSession (the /ai composer's submit) maps to a REAL daemon loop:
 //   create environment → start (real workspace + git) → create env-bound session →
-//   challenge for the execution-authority hashes → mint a signed wallet grant →
-//   sessions/:id/execute (the generic-cli-local harness drives the local model and edits
-//   the env workspace). The execute is long-running, so CreateAgentSession returns as soon
+//   challenge for the execution-authority hashes → the operator's decision on the daemon's
+//   parked challenge (G5: relayed to the daemon, which runs the deployment authority's
+//   `approve`; the serve signs nothing) → sessions/:id/execute with the `approval_ref` (the
+//   generic-cli-local harness drives the local model and edits the env workspace). The execute is long-running, so CreateAgentSession returns as soon
 //   as the env exists and the run is registered; the harness runs async and this registry
 //   tracks status + transcript + changed files for GetAgentExecution / ListAgentExecutions
 //   and the conversation stream. The daemon EXECUTES; this is an app-side view of its run.
-import { mintTestGrant, localApproverEnabled, mintLocalApproverGrant, recordLocalApproverGrant } from "./lib/wallet-authority.mjs";
+import { mintTestGrant, parkedChallengeOf, relayChallengeDecision, fixtureApproverEnabled, approveWithFixtureApprover } from "./lib/wallet-authority.mjs";
 import { daemonEnvToIOI } from "./ioi-projection.mjs";
 import { join } from "node:path";
 import { createHash } from "node:crypto";
@@ -253,33 +254,69 @@ export async function startModelRouteCredentialBind({ routeId, token, daemonHead
     pending.secret = "";
     return { ok: false, status: first.status, error: first.body?.error || { code: first.body?.reason || `daemon_${first.status}`, message: first.body?.message || "the daemon refused the bind before the custody crossing" } };
   }
-  Object.assign(pending, { policy_hash: approval.policy_hash, request_hash: approval.request_hash, audience: approval.audience || null, target_scope: targetScope, allowed_tools: first.body?.allowed_tools || [], resource_refs: first.body?.resource_refs || [] });
+  const parked = parkedChallengeOf(first.body);
+  Object.assign(pending, { policy_hash: approval.policy_hash, request_hash: approval.request_hash, audience: approval.audience || null, target_scope: targetScope, allowed_tools: first.body?.allowed_tools || [], resource_refs: first.body?.resource_refs || [], challenge_id: parked?.challenge_id || null, decidable: parked?.decidable === true });
   pendingCredentialBinds.set(id, pending);
   return { ok: true, status: 202, route_id: id, decision: "awaiting_operator_approval", pending: publicPendingBind(pending) };
 }
-export async function decideModelRouteCredentialBind({ routeId, decision, daemonHeaders = {} }) {
+export async function decideModelRouteCredentialBind({ routeId, decision, reason = "", operatorPassphrase = "", daemonHeaders = {}, decider = decideApprovalChallenge }) {
   pruneCredentialBinds();
   const pending = pendingCredentialBinds.get(String(routeId || "").trim());
   if (!pending) return { ok: false, status: 404, error: { code: "credential_bind_not_pending", message: "no custody approval is pending for this route" } };
-  if (decision === "deny") { pendingCredentialBinds.delete(pending.routeId); pending.secret = ""; return { ok: true, status: 200, route_id: pending.routeId, decision: "denied" }; }
-  if (decision !== "approve") return { ok: false, status: 400, error: { code: "decision_invalid", message: "decision must be approve or deny" } };
-  let grant;
-  try {
-    grant = await mintLocalApproverGrant({ policyHash: pending.policy_hash, requestHash: pending.request_hash, audience: pending.audience });
-  } catch (error) {
-    return { ok: false, status: 502, error: { code: "local_approver_mint_failed", message: String(error?.message || error) } };
+  if (decision !== "approve" && decision !== "deny") return { ok: false, status: 400, error: { code: "decision_invalid", message: "decision must be approve or deny" } };
+  if (decision === "deny") {
+    const denied = await decider({ pending, decision: "deny", reason, daemonHeaders });
+    pendingCredentialBinds.delete(pending.routeId);
+    pending.secret = "";
+    return { ok: true, status: 200, route_id: pending.routeId, decision: "denied", daemon_recorded: denied?.via === "daemon" && denied?.ok === true };
   }
-  if (!grant) return { ok: false, status: 501, error: { code: "local_approver_not_configured", message: "no deployment-local approver key is configured" } };
-  try {
-    await recordLocalApproverGrant({ grant, targetScope: pending.target_scope });
-  } catch (error) {
-    return { ok: false, status: 502, error: { code: "local_approver_record_failed", message: String(error?.message || error) } };
-  }
-  const result = await credentialBindAttempt(pending, { wallet_approval_grant: grant }, daemonHeaders);
+  // G5: the decision goes to the daemon (which runs the deployment authority's `approve`); the App
+  // signs nothing. The retry keeps the submit's idempotency key and names the decision's approval_ref.
+  const decided = await decider({ pending, decision: "approve", reason, operatorPassphrase, daemonHeaders });
+  if (!decided?.ok) return { ok: false, status: decided?.status || 502, error: decided?.error || { code: "approval_decision_failed", message: "the approval was not decided" } };
+  const result = await credentialBindAttempt(pending, { wallet_approval_grant: decided.approvalRef || decided.grant }, daemonHeaders);
   pendingCredentialBinds.delete(pending.routeId);
   pending.secret = "";
   if (result.status >= 300) return { ok: false, status: result.status, route_id: pending.routeId, decision: "approved_but_refused", error: result.body?.error || { code: result.body?.reason || `daemon_${result.status}`, message: result.body?.message || "" } };
-  return { ok: true, status: 201, route_id: pending.routeId, decision: "approved", credential_binding: result.body?.credential_binding || null, grant_id: grant?.grant_id || grant?.id || null, approver: "deployment_local_operator" };
+  return { ok: true, status: 201, route_id: pending.routeId, decision: "approved", credential_binding: result.body?.credential_binding || null, grant_id: decided.grantRef || null, approval_ref: decided.approvalRef || null, approver: decided.via === "daemon" ? "deployment_local_operator" : "fixture_public_approver" };
+}
+
+// ---- The operator's decision on a parked challenge (master guide G5 / W0.2 part 2) --------------
+// Routed to whoever can decide it, and never to a key in this process:
+//   · the DAEMON, when it parked the challenge (`approval_challenge` on its 403) and can decide it:
+//     the passphrase the operator typed is relayed in that one request body; the daemon runs the
+//     deployment authority's `approve` for the coordinates in its own record and answers
+//     `approval_ref`, which the caller's retry names. A deny is recorded on the daemon's challenge.
+//   · TEST ONLY (IOI_WALLET_FIXTURE_APPROVER=1): the cargo wallet fixture's public approver, for
+//     lanes that qualify the card against that fixture (it is not a deployment authority).
+// Returns { ok, status, via, approvalRef?, grant?, grantRef, expiresAtMs } or { ok:false, status, error }.
+// The passphrase is never returned, logged, or put on a run.
+export async function decideApprovalChallenge({ pending, decision, reason = "", operatorPassphrase = "", daemonHeaders = {}, transport = daemonTransport }) {
+  const challengeId = pending?.challenge_id || null;
+  const headers = boundedDaemonHeaders(daemonHeaders, true);
+  if (decision === "deny") {
+    if (!challengeId) return { ok: true, status: 200, via: "local" };
+    const relayed = await relayChallengeDecision({ challengeId, decision: "deny", reason, headers, transport });
+    return { ...relayed, ok: relayed.ok, via: "daemon" };
+  }
+  if (challengeId && pending.decidable !== false) {
+    const relayed = await relayChallengeDecision({ challengeId, decision: "approve", reason, operatorPassphrase, headers, transport });
+    // Decided elsewhere already (the approvals inbox): its approval_ref resumes this run just the same.
+    if (!relayed.ok && relayed.error?.code === "challenge_already_approved" && relayed.approval_ref) {
+      return { ok: true, status: 200, via: "daemon", approvalRef: relayed.approval_ref, grantRef: null, expiresAtMs: null };
+    }
+    if (!relayed.ok) return relayed;
+    return { ok: true, status: 200, via: "daemon", approvalRef: relayed.approval_ref, grantRef: relayed.grant_ref, expiresAtMs: relayed.expires_at_ms, decidedBy: relayed.decided_by };
+  }
+  if (fixtureApproverEnabled()) {
+    try {
+      const grant = await approveWithFixtureApprover({ policyHash: pending.policy_hash, requestHash: pending.request_hash, audience: pending.audience, targetScope: pending.target_scope });
+      return { ok: true, status: 200, via: "fixture", grant, grantRef: grant?.grant_id || grant?.id || null, expiresAtMs: grant?.expires_at || null };
+    } catch (error) {
+      return { ok: false, status: 502, error: { code: "fixture_approver_failed", message: String(error?.message || error) } };
+    }
+  }
+  return { ok: false, status: 501, error: { code: "approval_decider_not_configured", message: challengeId ? "the daemon parked this challenge but has no deployment authority to decide it with (IOI_WALLET_AUTHORITY_BINARY and IOI_HYPERVISOR_LOCAL_AUTHORITY_STATE_DIR on the daemon)" : "the daemon parked no challenge for this effect, so there is nothing to decide here" } };
 }
 
 function authorityProfileNames(run) {
@@ -830,10 +867,28 @@ async function executeRun(run, base, dj) {
     const grant = await mintTestGrant({ policyHash, requestHash }).catch(() => null);
     if (!grant) {
       run.authority = { policyHash, requestHash, grantId: null, expiresAt: null, mintedAt: null };
-      if (localApproverEnabled()) {
-        // ADR 0052 (alpha profile): the deployment-local approver holds the key, so the run
-        // parks on the EXACT effect until the operator approves or denies it on Work / Sessions.
-        // Nothing is signed here; approveRun() signs exactly once, for this challenge only.
+      // G5: the DAEMON parked this exact effect's challenge. The serve signs nothing: the operator
+      // decides it (the daemon runs the deployment authority's `approve`), and the retry names the
+      // decision's approval_ref.
+      const parked = parkedChallengeOf(challenge.body);
+      if (parked?.challenge_state === "consumed") {
+        run.status = "failed";
+        run.error = "This exact effect already ran once under the operator's one-use approval; the identical request in the same session cannot run again. Start a new session for it.";
+        bump(run, `Blocked: ${run.error}`);
+        return;
+      }
+      if (parked?.challenge_state === "approved") {
+        // Approved on the daemon already (the approvals inbox): resume with its approval_ref.
+        const approvalRef = `wallet-approval-challenge://${parked.challenge_id}`;
+        run.authority = { ...run.authority, approvalRef, approver: "deployment_local_operator", mintedAt: nowIso() };
+        bump(run, "Agent working in the environment…");
+        const result = await dj("POST", execPath, { intent: run.prompt, approval_ref: approvalRef });
+        finalize(run, result);
+        return;
+      }
+      if ((parked && parked.decidable === true) || fixtureApproverEnabled()) {
+        // ADR 0052 (alpha profile): the run parks on the EXACT effect until the operator approves
+        // or denies it on Work / Sessions. Nothing is signed here.
         run.status = "awaiting_operator_approval";
         run.pendingApproval = {
           kind: "session_execute",
@@ -846,6 +901,10 @@ async function executeRun(run, base, dj) {
           audience: challenge.body?.approval?.audience || null,
           target_scope: challenge.body?.approval?.target_scope || null,
           required_scopes: challenge.body?.required_scopes || [],
+          // The daemon's parked challenge: its decision route runs the operator's approval.
+          challenge_id: parked?.challenge_id || null,
+          decidable: parked?.decidable === true,
+          passphrase_required: parked?.decidable === true,
           requested_at: nowIso(),
           decision: null,
         };
@@ -853,7 +912,7 @@ async function executeRun(run, base, dj) {
         return;
       }
       run.status = "awaiting_wallet_authority";
-      bump(run, "Run parked: awaiting wallet authority — no signer is attached (dev test signer only under IOI_WALLET_TEST_SIGNER=1)");
+      bump(run, "Run parked: awaiting wallet authority — no deployment authority can decide this challenge here (dev test signer only under IOI_WALLET_TEST_SIGNER=1)");
       return;
     }
     bump(run, "Authorizing run (wallet grant)…");
@@ -876,11 +935,14 @@ async function executeRun(run, base, dj) {
   }
 }
 
-// Operator decision on a parked run (the deployment-local approver, ADR 0052). `approve` mints ONE
-// grant for the parked challenge's exact policy/request hashes and resumes the daemon execute;
-// `deny` records the refusal and mints nothing. Both are the operator's own act (the caller's
-// daemon identity headers ride the resumed request), and both are durable through bump().
-export async function decideRunApproval({ runId, decision, reason = "", daemonHeaders = {}, minter = mintLocalApproverGrant, recorder = recordLocalApproverGrant, transport = daemonTransport }) {
+// Operator decision on a parked run (ADR 0052; master guide G5 / W0.2 part 2). `approve` relays the
+// operator's decision — with the passphrase they typed — to the daemon, which runs the deployment
+// authority's `approve` for its own record of the challenge and answers `approval_ref`; the run then
+// resumes the daemon request naming that ref. The serve signs nothing and never keeps the
+// passphrase. `deny` records the refusal (on the daemon's challenge too) and nothing runs. Both are
+// the operator's own act (the caller's identity headers ride the decision and the resumed request),
+// and both are durable through bump().
+export async function decideRunApproval({ runId, decision, reason = "", operatorPassphrase = "", daemonHeaders = {}, decider = decideApprovalChallenge, transport = daemonTransport }) {
   const run = runs.get(runId);
   if (!run) return { ok: false, status: 404, error: { code: "run_not_found", message: "unknown run" } };
   if (run.status !== "awaiting_operator_approval" || !run.pendingApproval) {
@@ -893,8 +955,9 @@ export async function decideRunApproval({ runId, decision, reason = "", daemonHe
     return { ok: false, status: 409, error: { code: "challenge_not_byte_derived", message: "the parked challenge carries no request preimage; it is not signable byte-derived and can only be denied" } };
   }
   if (decision === "deny") {
+    const denied = await decider({ pending, decision: "deny", reason, daemonHeaders, transport }).catch(() => null);
     run.status = "denied";
-    run.pendingApproval = { ...pending, decision: "denied", decided_at: nowIso(), reason: String(reason || "").slice(0, 400) };
+    run.pendingApproval = { ...pending, decision: "denied", decided_at: nowIso(), reason: String(reason || "").slice(0, 400), daemon_recorded: denied?.via === "daemon" && denied?.ok === true };
     run.error = "Denied by the operator; nothing was executed.";
     bump(run, `Denied by the operator${reason ? ` — ${String(reason).slice(0, 120)}` : ""}; nothing ran`);
     return { ok: true, status: 200, run_id: run.id, decision: "denied" };
@@ -902,42 +965,42 @@ export async function decideRunApproval({ runId, decision, reason = "", daemonHe
   if (decision !== "approve") {
     return { ok: false, status: 400, error: { code: "decision_invalid", message: "decision must be approve or deny" } };
   }
-  let grant;
+  let decided;
   try {
-    grant = await minter({ policyHash: pending.policy_hash, requestHash: pending.request_hash, audience: pending.audience });
+    decided = await decider({ pending, decision: "approve", reason, operatorPassphrase, daemonHeaders, transport });
   } catch (error) {
-    return { ok: false, status: 502, error: { code: "local_approver_mint_failed", message: String(error?.message || error) } };
+    return { ok: false, status: 502, error: { code: "approval_decision_failed", message: String(error?.message || error) } };
   }
-  if (!grant) return { ok: false, status: 501, error: { code: "local_approver_not_configured", message: "no deployment-local approver key is configured" } };
-  // The approval is an act against the deployment's authority node: the exact one-use grant is
-  // recorded on wallet.network for the challenge's scope BEFORE the daemon is asked to consume
-  // it (the daemon's preflight finds no state for an unrecorded grant and refuses).
-  try {
-    const recorded = await recorder({ grant, targetScope: pending.target_scope });
-    run.approvalRecord = recorded;
-  } catch (error) {
-    return { ok: false, status: 502, error: { code: "local_approver_record_failed", message: String(error?.message || error) } };
-  }
+  // A refused decision (a wrong passphrase, no decider) leaves the run parked on the same card.
+  if (!decided?.ok) return { ok: false, status: decided?.status || 502, error: decided?.error || { code: "approval_decision_failed", message: "the approval was not decided" } };
+  // What the resumed request names: the daemon's approval_ref (the daemon presents its stored
+  // one-use grant only for this exact effect), or — fixture qualification only — the grant itself.
+  const authorization = decided.approvalRef || decided.grant;
+  if (!authorization) return { ok: false, status: 502, error: { code: "approval_decision_empty", message: "the decision returned neither an approval_ref nor a grant" } };
   run.daemonHeaders = boundedDaemonHeaders(daemonHeaders);
   run.status = "running";
-  run.pendingApproval = { ...pending, decision: "approved", decided_at: nowIso() };
+  run.pendingApproval = { ...pending, decision: "approved", decided_at: nowIso(), approval_ref: decided.approvalRef || null };
   run.authority = {
     policyHash: pending.policy_hash,
     requestHash: pending.request_hash,
-    grantId: grant?.grant_id || grant?.id || grant?.approval_id || null,
-    expiresAt: grant?.expires_at || grant?.expiresAt || null,
+    grantId: decided.grantRef || null,
+    approvalRef: decided.approvalRef || null,
+    expiresAt: decided.expiresAtMs || null,
     mintedAt: nowIso(),
-    approver: "deployment_local_operator",
+    approver: decided.via === "fixture" ? "fixture_public_approver" : "deployment_local_operator",
   };
-  bump(run, "Approved by the operator — authorizing the run with the deployment approver key…");
+  bump(run, decided.via === "daemon"
+    ? "Approved by the operator — the daemon's deployment authority signed this one request; authorizing the run…"
+    : "Approved by the operator (fixture approver) — authorizing the run…");
   // M08.11 (R-213): a parked PROVIDER OPERATION retries the IDENTICAL request the daemon refused,
-  // with the recorded one-use grant, under the operator's own identity; the daemon answers with its
-  // receipt (admitted, or its typed refusal — a live create without a daemon-issued proposal is
-  // refused before any provider is contacted). The App keeps the hashes and the grant id, never the grant.
+  // naming the decision's approval_ref where a grant would be, under the operator's own identity;
+  // the daemon answers with its receipt (admitted, or its typed refusal — a live create without a
+  // daemon-issued proposal is refused before any provider is contacted). The App keeps the hashes
+  // and the grant's public ref, never a grant.
   if (pending.kind === PROVIDER_OPERATION_KIND) {
-    bump(run, "Retrying the identical provider operation with the recorded grant…");
+    bump(run, "Retrying the identical provider operation with the operator's approval…");
     void Promise.resolve()
-      .then(() => transport("POST", PROVIDER_OPS_PATH, { ...pending.request, wallet_approval_grant: grant }, runDaemonHeaders(run, true)))
+      .then(() => transport("POST", PROVIDER_OPS_PATH, { ...pending.request, wallet_approval_grant: authorization }, runDaemonHeaders(run, true)))
       .then((result) => finalizeProviderOperation(run, result))
       .catch((error) => {
         run.status = "failed";
@@ -946,30 +1009,20 @@ export async function decideRunApproval({ runId, decision, reason = "", daemonHe
       });
     return { ok: true, status: 202, run_id: run.id, decision: "approved", kind: PROVIDER_OPERATION_KIND };
   }
-  const base = DAEMON;
-  const dj = async (method, path, payload) => {
-    const res = await fetch(base + path, {
-      method,
-      headers: runDaemonHeaders(run, Boolean(payload)),
-      body: payload ? JSON.stringify(payload) : undefined,
-    });
-    const text = await res.text();
-    let parsed = {};
-    try { parsed = text ? JSON.parse(text) : {}; } catch { parsed = { _raw: text }; }
-    return { status: res.status, body: parsed };
-  };
   const execPath = `/v1/hypervisor/sessions/${encodeURIComponent(run.sessionRef)}/execute`;
   bump(run, "Agent working in the environment…");
+  const resume = decided.approvalRef ? { intent: pending.intent, approval_ref: decided.approvalRef } : { intent: pending.intent, wallet_approval_grant: decided.grant };
   // The execute is long-running; resume it asynchronously exactly like executeRun and let the
   // conversation stream / Sessions surface follow it. Never throws into the caller.
-  void dj("POST", execPath, { intent: pending.intent, wallet_approval_grant: grant })
+  void Promise.resolve()
+    .then(() => transport("POST", execPath, resume, runDaemonHeaders(run, true)))
     .then((result) => finalize(run, result))
     .catch((error) => {
       run.status = "failed";
       run.error = String(error?.message || error);
       bump(run, `Failed: ${run.error}`);
     });
-  return { ok: true, status: 202, run_id: run.id, decision: "approved" };
+  return { ok: true, status: 202, run_id: run.id, decision: "approved", approval_ref: decided.approvalRef || null };
 }
 
 export function listRunsAwaitingApproval() {
@@ -1033,6 +1086,9 @@ export async function submitProviderOperation({ body, daemonHeaders = {}, transp
       receipt_ref: reply.body.receipt_ref ?? null,
       request,
       byte_derived: byteDerived,
+      // G5: the daemon's parked challenge for this exact crossing, decided on its route.
+      challenge_id: parkedChallengeOf(reply.body)?.challenge_id ?? null,
+      decidable: parkedChallengeOf(reply.body)?.decidable === true,
     };
     run.authority = { policyHash: approval.policy_hash ?? null, requestHash: approval.request_hash, grantId: null, expiresAt: null, mintedAt: null };
     bump(run, byteDerived

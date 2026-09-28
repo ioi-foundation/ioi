@@ -15821,19 +15821,56 @@ fn standing_execute_refusal(
 /// the admitted capability-lease ref, or the 403 challenge body exposing the hashes
 /// so a wallet can mint a bound grant. Lane-independent (both Lane A and Lane B
 /// gate execution identically).
+///
+/// G5 / W0.2 part 2: a refusal for want of a grant PARKS the challenge on the daemon
+/// (`wallet-approval-challenges/<id>`, named on the 403 as `approval_challenge.challenge_id`) so the
+/// operator decides it through `POST /v1/hypervisor/authority/challenges/:id/decision`; the
+/// retry names the decision's `approval_ref`, and the gate presents the stored one-use grant only
+/// when the record's hashes equal the ones derived here from the retried request.
 pub(crate) async fn execute_authority_gate(
     data_dir: &str,
     body: &Value,
     session_id: &str,
     workspace_root: &str,
     intent: &str,
+    requester_ref: Option<&str>,
 ) -> Result<String, Value> {
+    const SESSION_EXECUTE_SCOPE: &str = "scope:hypervisor.live-route.session-execute";
     let policy_hash = execution_policy_hash(session_id, workspace_root, EXECUTION_AUTHORITY_SCOPES);
     let request_hash = execution_request_hash(session_id, intent, EXECUTION_AUTHORITY_SCOPES);
-    let grant_value = body
-        .get("wallet_approval_grant")
-        .cloned()
-        .unwrap_or(Value::Null);
+    let claim = match super::authority_challenge_routes::approval_ref_in_body(body) {
+        Some(approval_ref) => match super::authority_challenge_routes::claim_approval_ref(
+            data_dir,
+            &approval_ref,
+            SESSION_EXECUTE_SCOPE,
+            &policy_hash,
+            &request_hash,
+        ) {
+            Ok(claim) => Some(claim),
+            Err(refusal) => {
+                return Err(json!({
+                    "schema_version": SESSION_EXECUTE_DECISION_SCHEMA_VERSION,
+                    "session_ref": session_id,
+                    "decision": "blocked",
+                    "reason": refusal.code,
+                    "message": refusal.message,
+                    "approval_ref": approval_ref,
+                    "approval_ref_status": refusal.status.as_u16(),
+                    "changed_file_groups": [],
+                    "terminal_events": [],
+                    "runtimeTruthSource": "daemon-runtime",
+                }))
+            }
+        },
+        None => None,
+    };
+    let grant_value = match &claim {
+        Some(claim) => claim.grant.clone(),
+        None => body
+            .get("wallet_approval_grant")
+            .cloned()
+            .unwrap_or(Value::Null),
+    };
     let effect = json!({
         "session_ref": session_id,
         "workspace_root": workspace_root,
@@ -15934,10 +15971,10 @@ pub(crate) async fn execute_authority_gate(
             };
         }
     }
-    let admitted = super::governed_authority::authorize_deployment_grant(
+    let admitted = match super::governed_authority::authorize_deployment_grant(
         data_dir,
         &grant_value,
-        "scope:hypervisor.live-route.session-execute",
+        SESSION_EXECUTE_SCOPE,
         &policy_hash,
         &request_hash,
         session_id,
@@ -15946,35 +15983,95 @@ pub(crate) async fn execute_authority_gate(
         &effect,
     )
     .await
-    .map_err(|(_status, Json(challenge))| {
-        json!({
-            "schema_version": SESSION_EXECUTE_DECISION_SCHEMA_VERSION,
-            "session_ref": session_id,
-            "decision": "blocked",
-            "reason": "execution_authority_required",
-            "message": format!(
-                "Consequential execution requires independently resolved and consumed wallet authority. \
-                 Bind a wallet grant to policy_hash {policy_hash} + request_hash {request_hash}."
-            ),
-            "required_scopes": EXECUTION_AUTHORITY_SCOPES,
-            // `audience` is the daemon's wallet capability account: the chain consumes a grant
-            // only when its audience is the consuming signer, so a grant minted for the parked
-            // challenge must name it. Public coordinate material, never a secret.
-            "approval": {
+    {
+        Ok(admitted) => {
+            if let Some(claim) = &claim {
+                // Consumed on wallet.network under this admission: the approval is spent.
+                super::authority_challenge_routes::mark_consumed(
+                    data_dir,
+                    claim,
+                    &admitted.admission_intent_ref,
+                );
+            }
+            admitted
+        }
+        Err((_status, Json(challenge))) => {
+            if let Some(claim) = &claim {
+                super::authority_challenge_routes::release_claim(data_dir, claim);
+            }
+            let audience = super::wallet_network_capability_client::capability_account_id_hex();
+            // Park the challenge only when no grant was presented and the deployment authority
+            // resolved (the refusal is the missing grant itself): that is an ask the operator can
+            // decide. An unresolvable authority is a deployment prerequisite, not an ask.
+            let wants_grant = challenge
+                .pointer("/error/code")
+                .and_then(Value::as_str)
+                .is_some_and(|code| code.ends_with("authority_grant_invalid"));
+            let parked = if grant_value.is_null() && wants_grant {
+                super::authority_challenge_routes::park_challenge(
+                    data_dir,
+                    super::authority_challenge_routes::ParkRequest {
+                        target_scope: SESSION_EXECUTE_SCOPE,
+                        policy_hash: &policy_hash,
+                        request_hash: &request_hash,
+                        audience: audience.clone(),
+                        subject_ref: session_id,
+                        operation: "session-execute",
+                        published_preimage: json!({
+                            "effect": effect,
+                            "policy_preimage": {
+                                "domain": "hypervisor.session.execute.policy.v1",
+                                "session_ref": session_id,
+                                "workspace_root": workspace_root,
+                                "scopes": EXECUTION_AUTHORITY_SCOPES,
+                            },
+                            "request_preimage": {
+                                "domain": "hypervisor.session.execute.request.v1",
+                                "session_ref": session_id,
+                                "intent": intent,
+                                "scopes": EXECUTION_AUTHORITY_SCOPES,
+                            },
+                        }),
+                        requester_ref,
+                    },
+                )
+            } else {
+                None
+            };
+            let approval = json!({
                 "policy_hash": policy_hash,
                 "request_hash": request_hash,
-                "audience": super::wallet_network_capability_client::capability_account_id_hex(),
+                // `audience` is the daemon's wallet capability account: the chain consumes a
+                // grant only when its audience is the consuming signer, so a grant minted for
+                // the parked challenge must name it. Public coordinate material, never a secret.
+                "audience": audience,
                 // The exact governed scope the grant is consumed under; the approval act records
                 // the decision on wallet.network for this scope before the daemon consumes it.
-                "target_scope": "scope:hypervisor.live-route.session-execute",
-            },
-            // Blocked before any work: nothing ran, nothing fabricated.
-            "changed_file_groups": [],
-            "terminal_events": [],
-            "runtimeTruthSource": "daemon-runtime",
-            "authority_challenge": challenge,
-        })
-    })?;
+                "target_scope": SESSION_EXECUTE_SCOPE,
+            });
+            return Err(json!({
+                "schema_version": SESSION_EXECUTE_DECISION_SCHEMA_VERSION,
+                "session_ref": session_id,
+                "decision": "blocked",
+                "reason": "execution_authority_required",
+                "message": format!(
+                    "Consequential execution requires independently resolved and consumed wallet authority. \
+                     Bind a wallet grant to policy_hash {policy_hash} + request_hash {request_hash}."
+                ),
+                "required_scopes": EXECUTION_AUTHORITY_SCOPES,
+                "approval": approval,
+                // G5: the daemon's parked challenge for this exact effect (its id, state,
+                // decision route and whether this daemon can decide it), or null when the
+                // refusal is not an ask the operator can decide.
+                "approval_challenge": parked,
+                // Blocked before any work: nothing ran, nothing fabricated.
+                "changed_file_groups": [],
+                "terminal_events": [],
+                "runtimeTruthSource": "daemon-runtime",
+                "authority_challenge": challenge,
+            }));
+        }
+    };
     super::governed_authority::revalidate_admission_receipt(data_dir, &admitted)
         .await
         .map_err(|reason| {
@@ -16529,7 +16626,44 @@ pub(crate) async fn authorize_capability_lease(
     let required_scope = format!("scope:hypervisor.live-route.{operation}");
     let subject_ref = format!("capability-lease:{policy_hash}:{request_hash}");
     let effect = capability_lease_effect(req);
-    let portable_locator = portable_grant_locator(&req.grant_value).map_err(|message| {
+    // G5 / W0.2 part 2: a retry after the operator's decision carries the decision's approval_ref
+    // where a grant would be. The stored one-use grant is presented only when the parked record's
+    // scope and hashes equal the ones derived here; a standing draw never takes this path.
+    let claim = match req
+        .standing_draw
+        .is_none()
+        .then(|| super::authority_challenge_routes::approval_ref_locator(&req.grant_value))
+        .flatten()
+    {
+        Some(approval_ref) => match super::authority_challenge_routes::claim_approval_ref(
+            &st.data_dir,
+            &approval_ref,
+            &required_scope,
+            &policy_hash,
+            &request_hash,
+        ) {
+            Ok(claim) => Some(claim),
+            Err(refusal) => {
+                return Err((
+                    refusal.status,
+                    json!({
+                        "ok": false,
+                        "decision": "blocked",
+                        "reason": refusal.code,
+                        "message": refusal.message,
+                        "approval_ref": approval_ref,
+                        "host_mutation": false,
+                    }),
+                ))
+            }
+        },
+        None => None,
+    };
+    let effective_grant_value = match &claim {
+        Some(claim) => claim.grant.clone(),
+        None => req.grant_value.clone(),
+    };
+    let portable_locator = portable_grant_locator(&effective_grant_value).map_err(|message| {
         (
             StatusCode::BAD_REQUEST,
             json!({
@@ -16580,7 +16714,7 @@ pub(crate) async fn authorize_capability_lease(
     } else {
         super::governed_authority::authorize_deployment_grant(
             &st.data_dir,
-            &req.grant_value,
+            &effective_grant_value,
             &required_scope,
             &policy_hash,
             &request_hash,
@@ -16592,8 +16726,59 @@ pub(crate) async fn authorize_capability_lease(
         .await
         .map(CapabilityAuthorityAdmission::Exact)
     } {
-        Ok(admitted) => admitted,
+        Ok(admitted) => {
+            if let Some(claim) = &claim {
+                super::authority_challenge_routes::mark_consumed(
+                    &st.data_dir,
+                    claim,
+                    &admitted.intent_ref(),
+                );
+            }
+            admitted
+        }
         Err((status, Json(challenge))) => {
+            if let Some(claim) = &claim {
+                super::authority_challenge_routes::release_claim(&st.data_dir, claim);
+            }
+            let audience = super::wallet_network_capability_client::capability_account_id_hex();
+            let wants_grant = challenge
+                .pointer("/error/code")
+                .and_then(Value::as_str)
+                .is_some_and(|code| code.ends_with("authority_grant_invalid"));
+            let should_park =
+                req.standing_draw.is_none() && effective_grant_value.is_null() && wants_grant;
+            let parked = if should_park {
+                // The same published preimages the 403's `approval` carries (below), kept on the
+                // daemon's record of the challenge.
+                let (policy_preimage, request_preimage) = (
+                    capability_lease_policy_preimage(req),
+                    capability_lease_request_preimage(req),
+                );
+                super::authority_challenge_routes::park_challenge(
+                    &st.data_dir,
+                    super::authority_challenge_routes::ParkRequest {
+                        target_scope: &required_scope,
+                        policy_hash: &policy_hash,
+                        request_hash: &request_hash,
+                        audience: audience.clone(),
+                        subject_ref: &subject_ref,
+                        operation: &operation,
+                        published_preimage: json!({
+                            "effect": effect,
+                            "allowed_tools": req.allowed_tools,
+                            "resource_refs": req.resource_refs,
+                            "policy_preimage": policy_preimage,
+                            "request_preimage": request_preimage,
+                        }),
+                        requester_ref: req
+                            .principal_binding
+                            .as_ref()
+                            .map(|binding| binding.principal_ref.as_str()),
+                    },
+                )
+            } else {
+                None
+            };
             return Err((
                 status,
                 json!({
@@ -16619,6 +16804,10 @@ pub(crate) async fn authorize_capability_lease(
                         "policy_preimage": capability_lease_policy_preimage(req),
                         "request_preimage": capability_lease_request_preimage(req),
                     },
+                    // G5: the daemon's parked challenge for this exact crossing (its id, state,
+                    // decision route and whether this daemon can decide it), or null when the
+                    // refusal is not an ask the operator can decide.
+                    "approval_challenge": parked,
                     "authority_challenge": challenge,
                     "host_mutation": false,
                 }),
@@ -26157,10 +26346,11 @@ pub(crate) async fn handle_session_execute(
     // #246): the typed 401 precedes the record load, so no existence oracle exists for
     // anonymous callers; the daemon's own orchestration dispatches cross with the per-boot
     // internal dispatch token.
-    let mut record = match load_owned_session_record_for_write(&st, &headers, &session_id) {
-        Ok((_acting_principal_ref, record)) => record,
-        Err(response) => return response,
-    };
+    let (acting_principal_ref, mut record) =
+        match load_owned_session_record_for_write(&st, &headers, &session_id) {
+            Ok((acting_principal_ref, record)) => (acting_principal_ref, record),
+            Err(response) => return response,
+        };
     let workspace_root = record
         .get("workspace_root")
         .and_then(Value::as_str)
@@ -26248,6 +26438,7 @@ pub(crate) async fn handle_session_execute(
             &session_id,
             &workspace_root,
             &intent,
+            Some(&acting_principal_ref),
         )
         .await
         {
@@ -26321,13 +26512,19 @@ pub(crate) async fn handle_session_execute(
 
     // Wallet authority gate (daemon-derived hashes; 403 challenge when unbound). Runs
     // AFTER launch admission + the substrate check (offline contract), and BEFORE any spawn.
-    let capability_lease_ref =
-        match execute_authority_gate(&st.data_dir, &body, &session_id, &workspace_root, &intent)
-            .await
-        {
-            Ok(lease) => lease,
-            Err(challenge) => return (StatusCode::FORBIDDEN, Json(challenge)),
-        };
+    let capability_lease_ref = match execute_authority_gate(
+        &st.data_dir,
+        &body,
+        &session_id,
+        &workspace_root,
+        &intent,
+        Some(&acting_principal_ref),
+    )
+    .await
+    {
+        Ok(lease) => lease,
+        Err(challenge) => return (StatusCode::FORBIDDEN, Json(challenge)),
+    };
 
     // REAL Lane A: spawn the host harness in the provisioned workspace and deliver
     // the intent. The harness drives the local model and edits the workspace.
@@ -29357,6 +29554,7 @@ pub(crate) mod runtime_host {
                 &session_ref,
                 &workspace_path,
                 &goal,
+                None,
             )
             .await
             {
