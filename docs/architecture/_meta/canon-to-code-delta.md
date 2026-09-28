@@ -1375,6 +1375,13 @@ landed. Correct every copy, or the ones left behind go on reading as evidence.
 | **Two readings made deliberately, both recorded.** "Delete" means ARCHIVE — there is no DELETE verb on a memory entry, and reading the acceptance literally would have invented one. And skills and affinities keep their direct verbs, because the unit's scope is the memory-entry and memory-mutation owners. | the verifier's nonclaims | recorded |
 | **The census caught the cut adding a production writer, and the buckets are what mattered.** `check:ontology-admission-census` went red on the writer-call population. The FAMILY writer bucket (57), family mentions (285), the non-ODK literal bucket (243) and raw filesystem calls (234) were all unchanged; only the runtime-parameter bucket moved, by exactly the two added calls, both writing a LITERAL family. Had the family bucket moved it would have meant a new admitter. Re-pinned with that reasoning beside the numbers. | `check:ontology-admission-census` 27/27 | repaired |
 
+### Journey verification CCXII (2026-09-27, R-240 Arm A on Sessions — Home's Recent reads the session list)
+
+| Delta | Evidence | Disposition |
+|---|---|---|
+| **Home's Recent and the sidebar disagreed.** Recent read the daemon's harness-session records. It showed raw `session:ai-agent_… project:ai · <ISO>` refs, listed only sessions an agent run had bound, and said "No sessions yet" beside a sidebar listing two. It now reads what the sidebar reads: the shell's session list (environments) and agent runs. Each row is named for its latest agent run (or its project), shows its project, age and phase, and opens its session. | `check:sessions-shell` 21/21; red (raw refs, no named row) with the Home fragment at HEAD | **fixed** |
+| **A refresh asked for inside the throttle window was dropped.** Home is event-driven with a 15 s refetch throttle, so a request inside the window was lost. After the sidebar dropped a deleted session, Home kept listing it until some unrelated DOM change. The request is now deferred to the end of the window, and runs only while Home is on screen. | `check:sessions-shell` (the list assertion now also requires Home to drop a deleted session; red with the throttle restored) | **fixed** |
+
 ### Journey verification CCXI (2026-09-27, R-240 Arm A on Sessions — archived environments are kept)
 
 | Delta | Evidence | Disposition |

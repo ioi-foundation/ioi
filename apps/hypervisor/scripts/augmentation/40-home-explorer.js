@@ -6,20 +6,35 @@
   // button and Ctrl+O land there; an Advanced-launch affordance opens the owned governed modal —
   // one daemon-backed launch lane, no forked truth). The explorer owns no truth: every affordance
   // routes to the owning surface, missing projections are named, nothing is fabricated.
-  let hbData = null, hbFetchedAt = 0, hbInflight = false, hbTab = "sessions";
+  let hbData = null, hbFetchedAt = 0, hbInflight = false, hbTab = "sessions", hbTrailing = null;
   function hbFetch() {
-    if (hbInflight || Date.now() - hbFetchedAt < 15000) return;
+    if (hbInflight) return;
+    // A request inside the 15 s window is deferred to its end, never dropped: the page is event-driven, so a dropped
+    // request (the sidebar losing a deleted session) left Home's Recent stale until some unrelated DOM change. The
+    // deferred fetch runs only while Home is on screen.
+    const wait = 15000 - (Date.now() - hbFetchedAt);
+    if (wait > 0) {
+      if (!hbTrailing) hbTrailing = setTimeout(() => { hbTrailing = null; const r = document.getElementById("ioi-home-explorer"); if (r && r.isConnected && r.style.display !== "none") hbFetch(); }, wait);
+      return;
+    }
     hbInflight = true;
     const J = (p) => fetch(p).then((r) => r.json()).catch(() => null);
+    // Recent sessions read what the sidebar reads — the shell's own session list (environments) and agent runs — so
+    // Home and the sidebar cannot disagree. It read the daemon's harness-session records: raw `session:ai-agent_…`
+    // refs, only sessions an agent run had bound, "No sessions yet" beside a sidebar listing two (R-240 Arm A).
+    const RPC = (m, b) => fetch("/api/ioi.v1." + m, { method: "POST", headers: { "content-type": "application/json", "connect-protocol-version": "1" }, body: JSON.stringify(b || {}) })
+      .then((r) => (r.ok ? r.json() : null)).catch(() => null);
     Promise.all([
       J("/v1/hypervisor/governance/approval-requests"),
       J("/v1/hypervisor/failover/runs"),
       J("/v1/hypervisor/operations"),
       J("/v1/hypervisor/work-ledger"),
-      J("/v1/hypervisor/sessions"),
+      RPC("EnvironmentService/ListEnvironments", { filter: { archivalStatus: "ARCHIVAL_STATUS_ACTIVE" } }),
       J("/v1/hypervisor/projects"),
       J("/v1/hypervisor/auth/whoami"),
-    ]).then(([appr, fo, ops, led, sess, proj, who]) => {
+      RPC("AgentService/ListAgentExecutions", {}),
+    ]).then(([appr, fo, ops, led, envs, proj, who, agents]) => {
+      const sess = envs ? { environments: envs.environments || [], agentExecutions: (agents && agents.agentExecutions) || [] } : null;
       hbData = { appr, fo, ops, led, sess, proj, who };
       hbFetchedAt = Date.now();
       hbInflight = false;
@@ -90,13 +105,22 @@
         (r.timeline_ref ? ' <a href="' + r.timeline_ref + '" target="_blank" rel="noopener" class="text-content-secondary hover:text-content-primary" style="text-decoration:none">timeline ↗</a>' : "")));
       return rows.length ? rows.join("") : '<div class="px-1 text-sm text-content-tertiary" style="padding:14px 4px">No runs yet — governed work lands here with its receipts.</div>';
     }
-    const sessions = sess ? (sess.sessions || []).slice().sort((a, b) => String(b.created_at || "").localeCompare(String(a.created_at || ""))) : null;
-    if (sessions === null) return '<div class="px-1 text-sm text-content-tertiary" style="padding:14px 4px">Projection unavailable — the daemon did not answer.</div>';
-    const rows = sessions.slice(0, 8).map((s) => {
-      const envId = String(s.environment_ref || "").replace(/^environment:/, "");
-      return hbListRow('<span class="font-mono" style="font-size:12.5px">' + esc(s.session_ref || "") + "</span>",
-        esc((s.project_ref || "no project") + " · " + (s.created_at || "")),
-        hbPill(s.lifecycle_state || "—", "border-border-base text-content-secondary") +
+    if (!sess) return '<div class="px-1 text-sm text-content-tertiary" style="padding:14px 4px">Projection unavailable — the daemon did not answer.</div>';
+    const whenOf = (e) => String((e.metadata && (e.metadata.lastStartedAt || e.metadata.createdAt)) || "");
+    const sessions = sess.environments.slice().sort((a, b) => whenOf(b).localeCompare(whenOf(a)));
+    const projectName = (id) => { const p = (proj ? proj.projects || [] : []).find((x) => (x.project_id || x.id) === id); return p ? p.name || id : id || ""; };
+    const latestRun = (envId) => sess.agentExecutions.filter((x) => x.spec && x.spec.codeContext && x.spec.codeContext.environmentId === envId)
+      .sort((a, b) => String((b.metadata && b.metadata.updatedAt) || "").localeCompare(String((a.metadata && a.metadata.updatedAt) || "")))[0];
+    const ago = (iso) => { const t = Date.parse(iso); if (!t) return ""; const m = Math.max(0, Math.round((Date.now() - t) / 60000)); return m < 1 ? "just now" : m < 60 ? m + "m ago" : m < 1440 ? Math.round(m / 60) + "h ago" : Math.round(m / 1440) + "d ago"; };
+    const PHASE = { ENVIRONMENT_PHASE_RUNNING: "Running", ENVIRONMENT_PHASE_STARTING: "Starting", ENVIRONMENT_PHASE_STOPPING: "Stopping", ENVIRONMENT_PHASE_STOPPED: "Stopped", ENVIRONMENT_PHASE_CREATING: "Creating", ENVIRONMENT_PHASE_DELETING: "Deleting" };
+    const rows = sessions.slice(0, 8).map((e) => {
+      const envId = String(e.id || "");
+      const run = latestRun(envId);
+      const project = projectName(e.metadata && e.metadata.projectId);
+      const title = (run && run.metadata && run.metadata.name) || project || "Session";
+      return hbListRow('<a href="/details/' + encodeURIComponent(envId) + '" class="text-content-primary" style="text-decoration:none">' + esc(title) + "</a>",
+        esc([title === project ? "" : project, ago(whenOf(e))].filter(Boolean).join(" · ")),
+        hbPill(PHASE[e.status && e.status.phase] || "—", "border-border-base text-content-secondary") +
         // "workbench" opens the session view — the ported session landing (M13.4). It linked
         // /workspaces/<env>, a route this shell does not have: every recent session's workbench link
         // opened "This page doesn't exist" (R-240, found by check:dead-controls' shell leg).

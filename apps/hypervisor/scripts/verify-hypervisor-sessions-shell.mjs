@@ -12,6 +12,7 @@
 //   - Create PR files a governed draft owned by the environment's tenant (it could never succeed for anyone);
 //   - Services, Tasks, Add port and Resource usage each say, in a sentence, what is absent and why;
 //   - the Archived view promises no automatic archiving or deletion, and its auto-delete period is refused by name;
+//   - Home's Recent lists the sessions the sidebar lists, by name;
 //   - the personal settings routes show a named gap instead of a blank page;
 //   - a disposable serve never writes the owner's preference store.
 //
@@ -303,13 +304,28 @@ async function run() {
     // ---- the list follows the daemon: a deleted session leaves the open list without a reload (WatchEvents) ---
     await pg.goto(`${SERVE}/ai`, { waitUntil: "domcontentloaded", timeout: 60000 });
     await pg.waitForTimeout(8000);
-    const listed = async () => (await pg.evaluate(() => [...document.querySelectorAll("a[href]")].map((a) => a.getAttribute("href")))).some((h) => h && h.includes(STOPPED));
+    // Home's Recent reads what the sidebar reads (it listed raw harness-session refs, only for sessions an agent run had bound)
+    let recent = "", recentLinks = [];
+    for (let i = 0; i < 12; i++) {
+      [recent, recentLinks] = await pg.evaluate(() => { const r = document.getElementById("ioi-home-explorer"); return [(r?.innerText || "").replace(/\s+/gu, " "), [...(r?.querySelectorAll("a[href^='/details/']") || [])].map((a) => [a.getAttribute("href"), a.innerText.trim()])]; });
+      if (created[0] && recentLinks.some(([h]) => h.includes(created[0]))) break;
+      await pg.waitForTimeout(1000);
+    }
+    const namedRow = recentLinks.find(([h]) => created[0] && h.includes(created[0]));
+    ok("Home's Recent lists the sessions the sidebar lists, by name (its agent run's), each opening its session — not raw harness-session refs for only the sessions an agent run had bound",
+      !!namedRow && namedRow[1] === "Document the build steps" && recentLinks.some(([h]) => h.includes(STOPPED)) && !/session:ai-|project:ai ·/u.test(recent),
+      `row ${JSON.stringify(namedRow)} · stopped listed ${recentLinks.some(([h]) => h.includes(STOPPED))} · raw refs ${/session:ai-/u.test(recent)}`);
+    // the sidebar's list (Home's Recent links sessions too; it refreshes on its own ~15 s cycle, asserted after)
+    const listed = async () => (await pg.evaluate(() => [...document.querySelectorAll("a[href]")].filter((a) => !a.closest("#ioi-home-explorer")).map((a) => a.getAttribute("href")))).some((h) => h && h.includes(STOPPED));
+    const onHome = async () => (await pg.evaluate(() => [...document.querySelectorAll("#ioi-home-explorer a[href]")].map((a) => a.getAttribute("href")))).some((h) => h && h.includes(STOPPED));
     const wasListed = await listed();
     const deleted = await api("EnvironmentService/DeleteEnvironment", { environmentId: STOPPED });
     let left = false;
     for (let i = 0; i < 25 && !left; i++) { await pg.waitForTimeout(1000); left = !(await listed()); }
-    ok("the open session list follows the daemon: a deleted session leaves it within seconds, without a reload (the change stream had ended at once with no event)",
-      wasListed && deleted.status === 200 && left, `listed before ${wasListed} · delete ${deleted.status} · gone ${left}`);
+    let leftHome = false;
+    for (let i = 0; i < 25 && !leftHome; i++) { leftHome = !(await onHome()); if (!leftHome) await pg.waitForTimeout(1000); }
+    ok("the open session list follows the daemon: a deleted session leaves it within seconds, without a reload (the change stream had ended at once with no event), and leaves Home's Recent on its next refresh",
+      wasListed && deleted.status === 200 && left && leftHome, `listed before ${wasListed} · delete ${deleted.status} · gone ${left} · gone from Home ${leftHome}`);
 
     // ---- personal settings: a named gap, not a blank page ---------------------------------------------------
     await pg.goto(`${SERVE}/settings/preferences`, { waitUntil: "domcontentloaded", timeout: 60000 });
