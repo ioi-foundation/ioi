@@ -1,4 +1,5 @@
 import {
+  chmodSync,
   closeSync,
   existsSync,
   fsyncSync,
@@ -214,9 +215,25 @@ function runOpenSsl(args, fixtureDir) {
 // (`IOI_WALLET_NETWORK_TLS_CA_PATH` + `IOI_WALLET_NETWORK_TLS_SERVER_NAME`). Exported so the
 // deployment bring-up (`wallet-network-local-authority.mjs`) fronts the real node the same way
 // the fixture fronts its test node — one TLS front, not two.
-export async function startPinnedTlsProxy(upstreamAddr, fixtureDir, serverName = "wallet-network.fixture") {
+//
+// `persist` (the deployment bring-up only): keep the CA, the server certificate and the port in `fixtureDir` and reuse
+// them while the certificate stays valid, so a restarted authority node answers at the same pinned address and CA and
+// the daemon needs no restart. A test fixture keeps a fresh one-day CA and a random port per life.
+function certValidForADay(pemPath, fixtureDir) {
+  return spawnSync("openssl", ["x509", "-checkend", "86400", "-noout", "-in", pemPath], { cwd: fixtureDir }).status === 0;
+}
+export async function startPinnedTlsProxy(upstreamAddr, fixtureDir, serverName = "wallet-network.fixture", { persist = false, days = 1 } = {}) {
+  const reuse = persist
+    && ["wallet-network-ca.pem", "wallet-network-server.pem", "wallet-network-server.key"].every((f) => existsSync(path.join(fixtureDir, f)))
+    && certValidForADay(path.join(fixtureDir, "wallet-network-server.pem"), fixtureDir);
+  if (!reuse) mintPinnedTlsMaterial(fixtureDir, serverName, days);
+  if (persist) for (const key of ["wallet-network-ca.key", "wallet-network-server.key"]) chmodSync(path.join(fixtureDir, key), 0o600);
+  return serveTlsFront(upstreamAddr, fixtureDir, serverName, persist);
+}
+
+function mintPinnedTlsMaterial(fixtureDir, serverName, days) {
   runOpenSsl([
-    "req", "-x509", "-newkey", "rsa:2048", "-nodes", "-days", "1",
+    "req", "-x509", "-newkey", "rsa:2048", "-nodes", "-days", String(days),
     "-keyout", "wallet-network-ca.key", "-out", "wallet-network-ca.pem",
     "-subj", "/CN=IOI Hypervisor wallet.network fixture CA",
     "-addext", "basicConstraints=critical,CA:TRUE",
@@ -235,12 +252,14 @@ export async function startPinnedTlsProxy(upstreamAddr, fixtureDir, serverName =
     "",
   ].join("\n"));
   runOpenSsl([
-    "x509", "-req", "-days", "1",
+    "x509", "-req", "-days", String(days),
     "-in", "wallet-network-server.csr",
     "-CA", "wallet-network-ca.pem", "-CAkey", "wallet-network-ca.key", "-CAcreateserial",
     "-out", "wallet-network-server.pem", "-extfile", "wallet-network-server.ext",
   ], fixtureDir);
+}
 
+async function serveTlsFront(upstreamAddr, fixtureDir, serverName, persist) {
   const upstream = new URL(upstreamAddr.includes("://") ? upstreamAddr : `http://${upstreamAddr}`);
   const sockets = new Set();
   const server = createTlsServer({
@@ -259,10 +278,15 @@ export async function startPinnedTlsProxy(upstreamAddr, fixtureDir, serverName =
     target.pipe(client);
   });
   server.on("tlsClientError", () => {});
-  await new Promise((resolve, reject) => {
+  // a persisted front comes back on its last port (the daemon pinned that address); if it is taken, a fresh one
+  const portFile = path.join(fixtureDir, "port");
+  const wanted = persist && existsSync(portFile) ? Number(readFileSync(portFile, "utf8").trim()) || 0 : 0;
+  const listenOn = (port) => new Promise((resolve, reject) => {
     server.once("error", reject);
-    server.listen(0, "127.0.0.1", resolve);
+    server.listen(port, "127.0.0.1", () => { server.removeListener("error", reject); resolve(); });
   });
+  try { await listenOn(wanted); } catch (error) { if (!wanted || error?.code !== "EADDRINUSE") throw error; await listenOn(0); }
+  if (persist) writeFileSync(portFile, `${server.address().port}\n`);
   server.on("error", () => {});
   const destroy = () => {
     for (const socket of sockets) socket.destroy();

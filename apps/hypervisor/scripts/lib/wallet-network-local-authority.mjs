@@ -134,7 +134,9 @@ export async function startLocalAuthority({
     await delay(100);
   }
   const ready = JSON.parse(fs.readFileSync(readyPath, "utf8"));
-  const tls = await startPinnedTlsProxy(ready.rpc_addr, path.join(stateDir, "tls"), TLS_SERVER_NAME);
+  // the deployment's TLS front persists (CA, certificate, port): a restarted node answers where the daemon pinned it,
+  // and the certificate outlives a day (the fixture's per-life CA expired after 24 h and broke the daemon's handshake)
+  const tls = await startPinnedTlsProxy(ready.rpc_addr, path.join(stateDir, "tls"), TLS_SERVER_NAME, { persist: true, days: 3650 });
   const daemonEnv = {
     IOI_WALLET_NETWORK_URL: "",
     IOI_WALLET_NETWORK_RPC_ADDR: tls.rpcAddr,
