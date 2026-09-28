@@ -86,7 +86,13 @@ export const ONTOLOGY_GRAPHQL_OPERATIONS = new Set([
   "LoadFavoriteObjectTypeRidsQuery", "FavoriteTypeGroupsQuery", "OntologyAsCodeQuery", "SearchAllFunctionsQuery",
   "TopBarStagingSavingQuery", "IsCurrentBranchProtectedQuery", "ObjectTypesListQuery", "LinkTypesListQuery", "ActionTypesListQuery",
   "RecentlyModifiedObjectTypesQueryOnDefault", "ProminentObjectTypesQuery", "TopbarQuery", "BranchSelectTotalNumberOfOntologyBranchesQuery",
+  "ObjectTypeStorageStatusQuery",
 ]);
+// an object type of the caller's, by the identifier the app sends ({ rid } or { id })
+export const objectTypeOf = (models, identifier) => {
+  for (const m of models || []) { const ot = m.objectTypes.find((o) => (identifier?.rid && o.rid === identifier.rid) || (identifier?.id && o.id === identifier.id)); if (ot) return { model: m, ot }; }
+  return null;
+};
 const page = (typename, versionTypename, entityKey, entityTypename, entities, variables, exclKey, filterKey) => {
   const excluded = new Set(variables?.[exclKey] || []);
   const only = Array.isArray(variables?.[filterKey]) ? new Set(variables[filterKey]) : null;
@@ -120,6 +126,11 @@ export function ontologyGraphqlFacts(name, variables, ctx) {
     // an ontology branch is an approval request of the ontology-metadata task type: the Hypervisor has none (an ODK draft
     // is edited in ODK, and published through the ontology-versions plane)
     case "BranchSelectTotalNumberOfOntologyBranchesQuery": return { ...root, approvalRequests: { __typename: "ApprovalRequestPage", totalNumberOfResults: 0 } };
+    // an object type's object-database storage: it is stored in none
+    case "ObjectTypeStorageStatusQuery": {
+      const hit = objectTypeOf(ctx.models, variables?.identifier);
+      return { ...root, objectTypeV2: hit ? { __typename: "ObjectType", _id: cid(`ObjectType:${hit.ot.rid}`), rid: hit.ot.rid, storage: null } : null };
+    }
     default: return null;
   }
 }
@@ -153,3 +164,74 @@ export function valueTypeFacts(name, variables, ctx) {
   return null;
 }
 export const VALUE_TYPE_OPERATIONS = new Set(["CanCreateValueTypesQuery", "SearchAllValueTypesQuery"]);
+
+// ---- Entities (POST /ontology-metadata/api/ontology/ontology/bulkLoadEntities). An ODK draft's types are EXPERIMENTAL
+// (a draft is not a published revision); no object type is backed by a datasource here (none is bound to one), and
+// none is stored in an object database, so its storage metadata says so.
+const DRAFT_STATUS = { type: "experimental", experimental: {} };
+const ICON = { type: "blueprint", blueprint: { color: "#5F6B7C", locator: "cube" } };
+export const branchRidOf = (model) => `ri.ontology.main.branch.${uuidOf(`branch:${model.family}`)}`;
+export function propertyTypeOf(p) {
+  return {
+    rid: p.rid, id: p.id, apiName: camel(p.name || p.id), sharedPropertyTypeApiName: null,
+    displayMetadata: { description: null, displayName: p.name || p.id, visibility: "NORMAL" },
+    indexedForSearch: true, ruleSetBinding: null, baseFormatter: null, type: baseTypeOf(p.base), typeClasses: [], status: DRAFT_STATUS,
+    inlineAction: null, dataConstraints: null, sharedPropertyTypeRid: null, valueType: null,
+  };
+}
+export function objectTypeEntityOf(model, ot) {
+  return {
+    objectType: {
+      displayMetadata: { description: ot.description || "", displayName: ot.name || ot.id, groupDisplayName: null, icon: ICON, pluralDisplayName: ot.plural_name || ot.name || ot.id, visibility: "NORMAL" },
+      id: ot.id, primaryKeys: ot.titleRid ? [ot.properties.find((p) => p.id === ot.primaryKey)?.rid || ot.titleRid] : [],
+      propertyTypes: Object.fromEntries(ot.properties.map((p) => [p.rid, propertyTypeOf(p)])),
+      rid: ot.rid, titlePropertyTypeRid: ot.titleRid,
+      traits: { eventMetadata: null, actionLogMetadata: null, timeSeriesMetadata: null, peeringMetadata: null, sensorTrait: null, workflowObjectTypeTraits: {} },
+      apiName: pascal(ot.name || ot.id), status: DRAFT_STATUS, redacted: null,
+      implementsInterfaces: [], implementsInterfaces2: [], allImplementsInterfaces: {}, typeGroups: [], editPolicies: null,
+    },
+    ontologyRid: model.rid, ontologyVersion: model.version, datasources: [],
+    entityMetadata: entityMetadataOf(),
+    resolvedBranch: { type: "default", default: { rid: branchRidOf(model) } },
+    schemaMigrations: { schemaTransitions: [], schemaVersion: 1 },
+  };
+}
+// An object type's storage metadata: stored nowhere yet (no object database, no patches, no edits history).
+export function entityMetadataOf() {
+  return {
+    entityConfig: { objectDbTypeConfigs: {} }, arePatchesEnabled: false,
+    targetStorageBackend: { type: "objectStorageV2", objectStorageV2: { migrationConfiguration: null, editsHistoryImportConfiguration: null, archiveState: null } },
+    redacted: null, actionLogRequirednessMetadata: null, diffEdits: false, gothamMapping: null, provenance: null,
+    editsResolutionStrategies: { strategies: {} }, aliases: [], editsHistory: { type: "none", none: {} }, objectTypeIndexingSettings: null,
+    patchApplicationStrategy: { type: "objectScopedLiveness", objectScopedLiveness: {} }, directDatasourceConfiguration: null,
+    usesOnlyOsv2ObjectRids: true, interfaceSettings: { enableInterfaceActions: { type: "disabled", disabled: {} } }, owningDirectWriters: {},
+  };
+}
+// POST /ontology-metadata/api/entityMetadata/load — for the caller's object types only
+export function entityMetadataLoadOf(request, models) {
+  const ours = new Set((models || []).flatMap((m) => m.objectTypes.map((o) => o.rid)));
+  return { objectTypes: (request?.objectTypes || []).filter((r) => ours.has(r.objectTypeRid)).map((r) => ({ objectTypeRid: r.objectTypeRid, objectTypeEntityMetadata: entityMetadataOf() })) };
+}
+// PUT /ontology-metadata/api/permissions/objectTypes — the caller sees their types; the Ontology Manager edits nothing yet
+export function objectTypePermissionsOf(request, models) {
+  const ours = new Set((models || []).flatMap((m) => m.objectTypes.map((o) => o.rid)));
+  return { objectTypePermissions: Object.fromEntries((request?.objectTypeRids || []).filter((r) => ours.has(r)).map((r) => [r, {
+    canView: true, canEdit: false, canDelete: false, canAddDatasources: false, canUpdateRoles: false, canApplyRestrictedSchemaMigrations: false,
+    datasourcePermissions: {}, propertySecurityGroupPermissions: {}, isEditRestrictedByDatasources: false, packageRid: null, permissionModel: { type: "roles", roles: {} },
+  }])) };
+}
+// the requested object types (by rid or by id), each from the ontology that holds it
+export function bulkLoadEntitiesOf(request, models) {
+  const find = (identifier) => {
+    const rid = identifier?.objectTypeRid, id = identifier?.objectTypeId;
+    for (const m of models || []) {
+      const ot = m.objectTypes.find((o) => (rid && o.rid === rid) || (id && o.id === id));
+      if (ot) return objectTypeEntityOf(m, ot);
+    }
+    return null;
+  };
+  return {
+    objectTypes: (request?.objectTypes || []).map((r) => find(r.identifier)).filter(Boolean),
+    linkTypes: [], sharedPropertyTypes: [], interfaceTypes: [], typeGroups: [], actionTypes: [],
+  };
+}

@@ -9218,7 +9218,7 @@ async function handleEstateRequest(req, res, body) {
     // Capture API families some seed documents call (observed in seed rebind maps). Served
     // same-origin through this proxy so seeds boot under the estate; their upstream is the
     // harvest capture, never fabricated data.
-    const MIRROR_API_PREFIXES = ["/eddie/", "/object-sentinel/", "/people/", "/comments/", "/function-registry/", "/multipass/", "/graphql-gateway/", "/compass/", "/documentation/", "/aip-assist/", "/monocle/", "/approvals/", "/workspace/api/", "/log-receiver/", "/interventions/", "/ontology-metadata/", "/magritte-coordinator/", "/issues/", "/foundry-search/", "/marketplace/", "/object-set-service/", "/phonograph2/", "/language-model-service/", "/foundry-ml/", "/artifacts/", "/foundry-catalog/", "/models/", "/build2/", "/foundry-stemma/", "/third-party-applications/", "/developer-console/"];
+    const MIRROR_API_PREFIXES = ["/eddie/", "/object-sentinel/", "/people/", "/comments/", "/function-registry/", "/multipass/", "/graphql-gateway/", "/compass/", "/documentation/", "/aip-assist/", "/monocle/", "/approvals/", "/workspace/api/", "/log-receiver/", "/interventions/", "/ontology-metadata/", "/magritte-coordinator/", "/issues/", "/foundry-search/", "/marketplace/", "/object-set-service/", "/phonograph2/", "/language-model-service/", "/foundry-ml/", "/artifacts/", "/foundry-catalog/", "/models/", "/build2/", "/foundry-stemma/", "/third-party-applications/", "/developer-console/", "/data-health/"];
     // An adopted app's merge and deploy pass its checkpoint gate: no checkpoint configuration is kept, which the app
     // reads as none (never the recorded tenant's checkpoint configs, and never this serve's HTML page as an answer).
     if (pathname === "/checkpoints/configuration/getConfigsV5" && req.method === "POST") {
@@ -9998,6 +9998,14 @@ async function handleEstateRequest(req, res, body) {
       if (pathname === "/graphql-gateway/api/graphql/batch" && req.method === "POST") {
         let batch = null;
         try { batch = JSON.parse(body.toString()); } catch { /* not JSON */ }
+        // On the adopted Ontology Manager a batch answers from the adopted layer, operation by operation — never the
+        // passthrough below, which answers with the recorded tenant's data (it had returned a tenant workshop module).
+        if (Array.isArray(batch) && onOntologySurface()) {
+          const ctxA = await automateContextOrFailed();
+          const answers = await Promise.all(batch.map((op) => answerAdoptedOp(AUTOMATE.opNameOf(op), op.variables || {}, ctxA, String(op.query || ""))));
+          res.writeHead(200, { "Content-Type": "application/json" });
+          return res.end(JSON.stringify(answers));
+        }
         const known = (op) => AUTOMATE.OPERATIONS.has(AUTOMATE.opNameOf(op)) || AUTOMATE.ENVELOPE_OPERATIONS.has(AUTOMATE.opNameOf(op)) || AUTOMATE.USER_STATE_OPERATIONS.has(AUTOMATE.opNameOf(op));
         if (Array.isArray(batch) && batch.length && batch.every(known)) {
           const ctxA = await automateContext();
@@ -10722,6 +10730,31 @@ async function handleEstateRequest(req, res, body) {
       }
       // no formatting rule sets are kept
       if (pathname === "/ontology-metadata/api/formatting/rulesets/loadRuleSets" && req.method === "POST") return sendO(200, { ruleSets: {} });
+      if (pathname === "/ontology-metadata/api/ontology/ontology/bulkLoadEntities" && req.method === "POST") {
+        let asked = {}; try { asked = JSON.parse(body.toString() || "{}"); } catch { /* none */ }
+        const { models } = await ontologyModels();
+        return sendO(200, ONTOLOGY.bulkLoadEntitiesOf(asked, models));
+      }
+      if (pathname === "/ontology-metadata/api/entityMetadata/load" && req.method === "POST") {
+        let asked = {}; try { asked = JSON.parse(body.toString() || "{}"); } catch { /* none */ }
+        const { models } = await ontologyModels();
+        return sendO(200, ONTOLOGY.entityMetadataLoadOf(asked, models));
+      }
+      if (pathname === "/ontology-metadata/api/permissions/objectTypes" && req.method === "PUT") {
+        let asked = {}; try { asked = JSON.parse(body.toString() || "{}"); } catch { /* none */ }
+        const { models } = await ontologyModels();
+        return sendO(200, ONTOLOGY.objectTypePermissionsOf(asked, models));
+      }
+      // the Hypervisor's one organization (the owner tenant) — the recorded tenant's organizations never pass through
+      if (onOntologySurface() && pathname === "/multipass/api/organizations/v2/all" && req.method === "PUT") {
+        const { owner } = await ontologyModels();
+        const orgRid = owner ? `ri.multipass..organization.${PIPELINE.uuidOf(owner)}` : null;
+        return sendO(200, orgRid ? { [orgRid]: { organizationRid: orgRid, displayName: ONTOLOGY.namespaceNameOf(owner), description: null, markingId: null, host: null, deleted: false, deletionContextRid: null } } : {});
+      }
+      // no data-health monitors are kept: every page of statuses is empty
+      if (pathname === "/data-health/api/monitoring/global/statuses" && req.method === "POST") return sendO(200, { statusReports: [], pageToken: null });
+      // the object registry keeps no object data or usage for the caller's types (none is indexed there)
+      if (onOntologySurface() && /^\/phonograph2\/api\/objects\/registry\/bulk\/(objectTypes|relations)\/(metadata|usageMetadata)$/u.test(pathname) && req.method === "POST") return sendO(200, {});
       // the ontology's namespace as a compass folder (read by the switcher); every other compass read stays fenced
       if (onOntologySurface() && pathname === "/compass/api/batch/resources" && req.method === "POST") {
         const { owner } = await ontologyModels();
