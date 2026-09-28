@@ -9,7 +9,20 @@
 // need under the state directory:
 //
 //   <state-dir>/daemon.env   the daemon's IOI_WALLET_NETWORK_* + capability key + principal ref
-//   <state-dir>/serve.env    the served App's IOI_HYPERVISOR_LOCAL_APPROVER_KEY_PATH
+//   <state-dir>/serve.env    the served App's principal and host refs — public identifiers only
+//
+// KEY CUSTODY (owner decision 2026-09-28). The control root and the operator's approver key exist
+// on disk only SEALED under the operator passphrase (keys/root.seed.sealed, keys/approver.seed.sealed,
+// 0600), with their public halves beside them (keys/root.pub, keys/approver.pub). The passphrase is
+// IOI_AUTHORITY_OPERATOR_PASS for the one command that needs it, or a TTY prompt; it is never an
+// argument, never a file, never in daemon.env or serve.env. The node needs it once, on the FIRST
+// bring-up (the new keys are sealed with it and the root signs the genesis binding); a resume
+// needs none, and after bring-up no process holds the approver or root private key. The served App
+// holds NO signing key and no path to one: a grant is minted only by the operator's explicit
+// `approve` act (`approveGrant` / `wallet-network-authority.mjs approve`), which unseals the
+// approver key in memory, signs one one-use grant for exactly the challenge's hashes and records it.
+// Plaintext seeds exist only behind the dev/test `plaintextKeys` opt-in, which the operator CLI
+// never passes.
 //
 // It replaces the cargo test fixture (public `07…` approver seed) as the alpha's authority node.
 // It adds no second authority plane: the daemon's resolution, grant verification, consumption
@@ -71,6 +84,26 @@ function writeSecretFile(file, text) {
   fs.chmodSync(file, 0o600);
 }
 
+/** The operator passphrase's one variable. The launcher forwards it to exactly one child act. */
+export const OPERATOR_PASS_ENV = "IOI_AUTHORITY_OPERATOR_PASS";
+
+/** A fresh state dir holds no control root seed of either custody; only its bring-up needs the passphrase. */
+export function isFreshStateDir(stateDir) {
+  const keys = path.join(path.resolve(stateDir), "keys");
+  return !["root.seed.sealed", "root.seed"].some((name) => fs.existsSync(path.join(keys, name)));
+}
+
+/**
+ * The child environment for one act: the ambient passphrase is ALWAYS stripped, and the one given
+ * here is added only when this act needs it. Nothing else of the passphrase reaches a child.
+ */
+function childEnv(extra = {}, operatorPass = "") {
+  const env = { ...process.env, ...extra };
+  delete env[OPERATOR_PASS_ENV];
+  if (operatorPass) env[OPERATOR_PASS_ENV] = operatorPass;
+  return env;
+}
+
 /**
  * The guardian pass seals the daemon's wallet capability key. The operator may supply it
  * (IOI_GUARDIAN_KEY_PASS); otherwise one is generated on first bring-up and custodied at
@@ -89,12 +122,19 @@ function guardianPass(stateDir) {
  * Bring up (or resume) the deployment-local authority node. Resolves once the node is READY and
  * the TLS front is up, with the env the daemon and serve need. `stop()` shuts the node down in
  * order (shutdown file → process exit → TLS front) and leaves the durable state for resume.
+ *
+ * `operatorPass` is forwarded to the node ONLY for a fresh sealed bring-up (it seals the new keys
+ * and lets the root sign genesis); a resume never receives it. With no `operatorPass` on a fresh
+ * dir, the node prompts on this terminal when stdin is one, and refuses otherwise.
+ * `plaintextKeys` is the DEV/TEST opt-in for plaintext seeds; a deployment never passes it.
  */
 export async function startLocalAuthority({
   stateDir,
   principalRef,
   binary,
   wallClock = false,
+  plaintextKeys = false,
+  operatorPass = "",
   readyTimeoutMs = Number(process.env.IOI_WALLET_AUTHORITY_READY_TIMEOUT_MS || 1_800_000),
   log = (line) => process.stderr.write(`${line}\n`),
 } = {}) {
@@ -103,6 +143,12 @@ export async function startLocalAuthority({
   fs.mkdirSync(path.join(stateDir, "keys"), { recursive: true, mode: 0o700 });
   fs.mkdirSync(path.join(stateDir, "tls"), { recursive: true, mode: 0o700 });
   fs.chmodSync(stateDir, 0o700);
+  const fresh = isFreshStateDir(stateDir);
+  const sealedGenesis = fresh && !plaintextKeys;
+  const promptOnTerminal = sealedGenesis && !operatorPass && Boolean(process.stdin.isTTY);
+  if (sealedGenesis && !operatorPass && !promptOnTerminal) {
+    throw new Error(`${stateDir} is a fresh state dir: the first bring-up seals the new control root and approver key with the operator passphrase and the root signs the genesis binding. Supply ${OPERATOR_PASS_ENV} for this one bring-up (or run on a terminal to be prompted); every later bring-up resumes without it.`);
+  }
   const pass = guardianPass(stateDir);
   const bin = resolveBinary(binary);
   const readyPath = path.join(stateDir, "ready.json");
@@ -110,13 +156,16 @@ export async function startLocalAuthority({
   try { fs.rmSync(readyPath, { force: true }); } catch { /* none */ }
   try { fs.rmSync(shutdownPath, { force: true }); } catch { /* none */ }
 
-  const args = ["serve", "--state-dir", stateDir, "--principal-ref", principalRef, ...(wallClock ? ["--wall-clock"] : [])];
+  const args = ["serve", "--state-dir", stateDir, "--principal-ref", principalRef, ...(wallClock ? ["--wall-clock"] : []), ...(plaintextKeys ? ["--plaintext-keys"] : [])];
   let output = "";
   const nodeBins = pinnedNodeBinaryDir();
   const child = spawn(bin, args, {
     cwd: ROOT,
-    env: { ...process.env, ...(nodeBins ? { IOI_NODE_BINARY_DIR: nodeBins } : {}), IOI_GUARDIAN_KEY_PASS: pass, CARGO_TERM_COLOR: "never", RUST_MIN_STACK: String(32 * 1024 * 1024) },
-    stdio: ["ignore", "pipe", "pipe"],
+    // The passphrase rides only to a sealed genesis; the node scrubs it from its own environment
+    // block at startup, so none of the validator processes it launches inherits it.
+    env: childEnv({ ...(nodeBins ? { IOI_NODE_BINARY_DIR: nodeBins } : {}), IOI_GUARDIAN_KEY_PASS: pass, CARGO_TERM_COLOR: "never", RUST_MIN_STACK: String(32 * 1024 * 1024) }, sealedGenesis ? operatorPass : ""),
+    // A terminal prompt needs the terminal: the node reads the passphrase from /dev/tty itself.
+    stdio: [promptOnTerminal ? "inherit" : "ignore", "pipe", "pipe"],
   });
   let exited = null;
   const exitPromise = new Promise((resolve) => child.once("exit", (code, signal) => { exited = { code, signal }; resolve(exited); }));
@@ -154,14 +203,12 @@ export async function startLocalAuthority({
     IOI_TESTING_RPC_COMMIT_TIMEOUT_SECS: "900",
     IOI_HYPERVISOR_GOVERNED_REPLAY_TIMEOUT_MS: "45000",
   };
+  // The served App holds NO signing key and no path to one (master guide §0.5.2, W0.2): no
+  // approver key path, no authority state dir (whose guardian.pass opens the daemon's capability
+  // key), no control binary. A run that needs a grant parks with the daemon's challenge verbatim,
+  // and the operator approves it with `wallet-network-authority.mjs approve`, which mints and
+  // records the one-use grant itself. The principal and host refs are public identifiers.
   const serveEnv = {
-    IOI_HYPERVISOR_LOCAL_APPROVER_KEY_PATH: ready.approver_key_path,
-    // The approval act records the grant on THIS node through the control binary.
-    IOI_HYPERVISOR_LOCAL_AUTHORITY_STATE_DIR: stateDir,
-    IOI_WALLET_AUTHORITY_BINARY: bin,
-    // The attach-time standing envelope (M13.3) names the deployment principal in its envelope and
-    // ceremony, so the serve needs the same principal ref the daemon resolves authority for; and
-    // the deployment-local operator custody tier (R-14) attests the host the approver key sits on.
     IOI_HYPERVISOR_AUTHORITY_PRINCIPAL_REF: ready.principal_ref,
     IOI_HYPERVISOR_AUTHORITY_HOST_REF: `deployment-host://${String(ready.principal_ref).replace(/^[a-z]+:\/\//u, "")}`,
   };
@@ -185,18 +232,56 @@ export async function startLocalAuthority({
   process.once("exit", () => { if (!stopped) { try { fs.writeFileSync(shutdownPath, "parent-exit\n"); } catch { /* best effort */ } try { child.kill("SIGTERM"); } catch { /* gone */ } tls.destroy(); } });
   return {
     stateDir, ready, daemonEnv, serveEnv, binary: bin, nodeBinaryDir: nodeBins, pid: child.pid,
-    approverKeyPath: ready.approver_key_path, authorityRecordPath: ready.authority_record_path,
+    keyCustody: ready.key_custody || (plaintextKeys ? "plaintext" : "sealed"),
+    approverPublicKeyPath: ready.approver_public_key_path,
+    // A path a process could sign with exists only for a dev/test plaintext node.
+    approverKeyPath: ready.approver_key_path || null,
+    authorityRecordPath: ready.authority_record_path,
     exitPromise, stop,
     readAuthorityRecord: () => JSON.parse(fs.readFileSync(ready.authority_record_path, "utf8")),
   };
 }
 
-/** Operator acts against the SERVING node; each is one root-signed control-plane transaction. */
-export function authorityAct(act, { stateDir, binary, reason } = {}) {
+// The acts that open the sealed root or approver key, and so take the operator passphrase.
+const PASSPHRASE_ACTS = new Set(["approve", "rotate", "revoke", "seal-keys", "record-standing-approval", "revoke-standing-approval"]);
+
+/**
+ * Operator acts against the SERVING node (`rotate`, `revoke`, `status`, `approve`) and the
+ * offline `seal-keys` conversion. `operatorPass` is forwarded only to an act that opens a sealed
+ * key; without it, the act prompts on this terminal (stdin inherited, read from /dev/tty by the
+ * binary) or refuses. `args` carries the act's own flags; never a key or a passphrase.
+ */
+export function authorityAct(act, { stateDir, binary, reason, operatorPass = "", plaintextKeys = false, args: actArgs = [] } = {}) {
   const bin = resolveBinary(binary, { build: false });
-  const args = [act, "--state-dir", path.resolve(stateDir), ...(act === "revoke" && reason ? ["--reason", reason] : [])];
+  const args = [
+    act, "--state-dir", path.resolve(stateDir),
+    ...(act === "revoke" && reason ? ["--reason", reason] : []),
+    ...(plaintextKeys && PASSPHRASE_ACTS.has(act) && act !== "seal-keys" ? ["--plaintext-keys"] : []),
+    ...actArgs,
+  ];
   const passFile = path.join(path.resolve(stateDir), "keys", "guardian.pass");
   const pass = process.env.IOI_GUARDIAN_KEY_PASS || (fs.existsSync(passFile) ? fs.readFileSync(passFile, "utf8").trim() : "");
-  const result = spawnSync(bin, args, { cwd: ROOT, encoding: "utf8", env: { ...process.env, CARGO_TERM_COLOR: "never", ...(pass ? { IOI_GUARDIAN_KEY_PASS: pass } : {}) } });
+  const result = spawnSync(bin, args, {
+    cwd: ROOT,
+    encoding: "utf8",
+    env: childEnv({ CARGO_TERM_COLOR: "never", ...(pass ? { IOI_GUARDIAN_KEY_PASS: pass } : {}) }, PASSPHRASE_ACTS.has(act) ? operatorPass : ""),
+    stdio: [PASSPHRASE_ACTS.has(act) && !operatorPass && process.stdin.isTTY ? "inherit" : "ignore", "pipe", "pipe"],
+  });
   return { ok: result.status === 0, status: result.status, stdout: result.stdout || "", stderr: result.stderr || "" };
+}
+
+/**
+ * The operator's approval act: mint ONE one-use grant for exactly the challenge's hashes with the
+ * sealed approver key, record it on the node, and return it. Returns `{ ok, grant, outcome }` or
+ * `{ ok: false, stderr }`; stdout never carries a seed.
+ */
+export function approveGrant({ stateDir, binary, operatorPass = "", plaintextKeys = false, policyHash, requestHash, audience, targetScope, expiresInSecs, reason } = {}) {
+  if (!policyHash || !requestHash || !audience || !targetScope) throw new Error("approve needs policyHash, requestHash, audience and targetScope (the challenge's exact coordinates)");
+  const args = ["--policy-hash", policyHash, "--request-hash", requestHash, "--audience", audience, "--target-scope", targetScope,
+    ...(expiresInSecs ? ["--expires-in-secs", String(expiresInSecs)] : []), ...(reason ? ["--reason", reason] : [])];
+  const result = authorityAct("approve", { stateDir, binary, operatorPass, plaintextKeys, args });
+  if (!result.ok) return { ...result, grant: null, outcome: null };
+  const line = result.stdout.trim().split("\n").reverse().find((l) => l.startsWith("{"));
+  const outcome = line ? JSON.parse(line) : null;
+  return { ...result, outcome, grant: outcome?.approval_grant || null };
 }

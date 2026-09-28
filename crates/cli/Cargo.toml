@@ -65,6 +65,8 @@ parity-scale-codec = { workspace = true, features = ["derive", "std"] }
 
 # [FIX] Added missing rpassword for ioi keys provision
 rpassword = "7.0"
+# wallet-network-local-authority wipes unsealed seeds and the operator passphrase from memory.
+zeroize = { workspace = true }
 
 # HTTP body helpers for hyper v1 (bollard expects these shapes)
 bytes = "1"

@@ -146,27 +146,54 @@ cargo test fixture or its public seeds.
 
 ```text
 # 1. Authority node (foreground; run under your supervisor). First run generates
-#    keys/root.seed (control root), keys/capability.key (the daemon's sealed
-#    wallet client key), keys/approver.seed (YOUR approval key, 0600), starts the
+#    keys/root.seed.sealed (control root) and keys/approver.seed.sealed (YOUR
+#    approval key), both SEALED under your operator passphrase (0600; public
+#    halves in keys/root.pub and keys/approver.pub), keys/capability.key (the
+#    daemon's wallet client key, sealed under the guardian pass), starts the
 #    Solo single-validator node with durable chain state, issues the control
 #    root, registers the client and the approver, binds the approver to the
-#    principal (binding v1), and writes daemon.env + serve.env.
+#    principal (binding v1), and writes daemon.env + serve.env. The FIRST run
+#    needs the passphrase once (type it at the prompt, or set
+#    IOI_AUTHORITY_OPERATOR_PASS for that one command); every later run resumes
+#    without it and checks public keys only.
 node apps/hypervisor/scripts/wallet-network-authority.mjs up \
   --state-dir /var/lib/ioi/authority --principal-ref domain://<your-host>
 
 # 2. Daemon and served App read those env files (the daemon's IOI_WALLET_NETWORK_*
-#    endpoint is a loopback TLS front with a per-life pinned CA; the App's
-#    IOI_HYPERVISOR_LOCAL_APPROVER_KEY_PATH is your approver key).
+#    endpoint is a loopback TLS front with a pinned CA; serve.env carries only the
+#    principal and host refs: the served App holds no signing key).
 set -a; . /var/lib/ioi/authority/daemon.env; set +a; hypervisor-daemon
 set -a; . /var/lib/ioi/authority/serve.env;  set +a; node apps/hypervisor/scripts/serve-product-ui.mjs
 
-# 3. Key lifecycle — operator acts against the serving node, each one
-#    root-signed control-plane transaction; a resumed node refuses to serve a
-#    substituted root or a binding that no longer matches the custodied key.
-node apps/hypervisor/scripts/wallet-network-authority.mjs rotate --state-dir /var/lib/ioi/authority   # new key, binding v(n+1) Active; old key retired read-only as keys/approver.seed.v<n>
+# 3. Approval — the one place a grant is minted: unseals the approver key in
+#    memory with your passphrase, signs ONE one-use grant (random nonce, 15-minute
+#    expiry by default) for exactly the challenge's coordinates, records it on the
+#    node, prints it, and wipes the key. A wrong passphrase records nothing.
+node apps/hypervisor/scripts/wallet-network-authority.mjs approve --state-dir /var/lib/ioi/authority \
+  --policy-hash <h> --request-hash <h> --audience <daemon capability account> \
+  --target-scope scope:hypervisor.live-route.<route>
+
+# 4. Key lifecycle — operator acts against the serving node, each one
+#    root-signed control-plane transaction (the passphrase unseals the root); a
+#    resumed node refuses to serve a substituted root or a binding that no longer
+#    matches the custodied public key.
+node apps/hypervisor/scripts/wallet-network-authority.mjs rotate --state-dir /var/lib/ioi/authority   # new sealed key, binding v(n+1) Active; old key retired read-only as keys/approver.seed.sealed.v<n>, its public half kept as keys/approver.pub.v<n>
 node apps/hypervisor/scripts/wallet-network-authority.mjs revoke --state-dir /var/lib/ioi/authority   # Revoked successor; every later run fails closed before any harness runs
-node apps/hypervisor/scripts/wallet-network-authority.mjs status --state-dir /var/lib/ioi/authority   # custodied record + the live chain head
+node apps/hypervisor/scripts/wallet-network-authority.mjs status --state-dir /var/lib/ioi/authority   # custodied record + the live chain head (no passphrase)
+node apps/hypervisor/scripts/wallet-network-authority.mjs seal-keys --state-dir /var/lib/ioi/authority # converts a state dir that holds plaintext root.seed/approver.seed, then removes them
 ```
+
+The operator passphrase is never a command-line argument, never written to a
+file, never logged and never placed in daemon.env or serve.env, and it must
+differ from `IOI_GUARDIAN_KEY_PASS`. The node scrubs it from its own
+environment at startup, so no validator process it launches inherits it. A
+deployment state dir holding plaintext `root.seed`/`approver.seed` is refused
+until `seal-keys` converts it; plaintext seeds exist only behind the dev/test
+`--plaintext-keys` opt-in, which the operator launcher never passes. The reason
+is the host's shared uid: the daemon and every host-spawned process (the native
+worker, environment and supervisor exec, terminal sessions) run as the same
+user, and a plaintext approver or root seed would let any of them approve its
+own effects.
 
 From the packaged release the same commands run from `<install>/current`
 (`node <install>/current/apps/hypervisor/scripts/wallet-network-authority.mjs up …`):
@@ -175,7 +202,7 @@ the launcher pins the node's validator binaries to `<install>/current/node-bins`
 typed `node_binaries_absent` error rather than building if a binary is missing.
 
 Implementation: `crates/cli/src/bin/wallet_network_local_authority.rs` (node,
-keys, control-plane transactions, `record-approval`),
+sealed keys, control-plane transactions, `approve`, `record-approval`, `seal-keys`),
 `apps/hypervisor/scripts/lib/wallet-network-local-authority.mjs` (lifecycle,
 TLS front, env files), `crates/cli/src/testing/build.rs` (`IOI_NODE_BINARY_DIR`).
 The daemon's authority resolution, grant verification, consumption and receipt

@@ -22,18 +22,42 @@
 //!   publishes `ready.json` and serves until `<state-dir>/shutdown` appears or SIGTERM/SIGINT
 //!   arrives. A later run RESUMES the same chain and refuses to serve if the durable state names a
 //!   different control root or a binding head that does not match the custodied approver key.
+//!   The first run needs the operator passphrase once (the new keys are sealed with it and the
+//!   root signs the genesis records); a resume needs none and compares PUBLIC keys only.
+//! * `approve --policy-hash <h> --request-hash <h> --audience <a> --target-scope <s>` — the ONE
+//!   place a grant is minted: unseals the approver key in memory with the operator passphrase,
+//!   mints one one-use grant (random nonce, bounded expiry) for exactly those hashes, records it
+//!   on chain (the `record-approval` path), prints the grant JSON and zeroizes the seed.
 //! * `rotate` — generates a NEW approver key, registers it and appends an Active successor
-//!   binding (version n+1, previous coordinates exact). The retired seed is kept read-only as
-//!   `keys/approver.seed.v<n>`; grants signed with it are refused from the next resolution on.
+//!   binding (version n+1, previous coordinates exact). The retired sealed seed is kept read-only
+//!   as `keys/approver.seed.sealed.v<n>` and its public half as `keys/approver.pub.v<n>`; grants
+//!   signed with it are refused from the next resolution on.
 //! * `revoke [--reason ..]` — appends a Revoked successor that retains the exact prior authority
 //!   snapshot. Every later resolution for the principal fails typed-unavailable and the daemon
 //!   fails closed before any harness runs.
 //! * `status` — prints the custodied authority record and the LIVE binding head from the chain.
-//! * `record-approval --grant-file <json> --target-scope <scope>` — the operator's approval act
-//!   against the node: records the exact one-use grant the operator signed (the daemon's
-//!   capability account as audience) as a `WalletApprovalDecision` on chain, signed by the
-//!   daemon's capability key under the daemon's transaction lock, so the daemon's consumption
-//!   preflight finds state for the exact grant. Idempotent for the same request hash.
+//! * `record-approval --grant-file <json> --target-scope <scope>` — records an already-signed
+//!   one-use grant (the daemon's capability account as audience) as a `WalletApprovalDecision` on
+//!   chain, signed by the daemon's capability key under the daemon's transaction lock, so the
+//!   daemon's consumption preflight finds state for the exact grant. Idempotent for the same
+//!   request hash. `approve` uses the same recorder.
+//! * `seal-keys` — converts a plaintext (pre-sealing, or dev/test) state dir: seals every
+//!   plaintext seed with the operator passphrase, writes the public halves, then removes the
+//!   plaintext files.
+//!
+//! Key custody (owner decision 2026-09-28). The daemon and every host-spawned process run as the
+//! same uid, so a plaintext approver or root seed would let any unsandboxed host path approve its
+//! own effects. In deployment mode the control root and the approver key exist on disk ONLY
+//! sealed (`keys/root.seed.sealed`, `keys/approver.seed.sealed`, 0600, `ioi_crypto::key_store`)
+//! under the OPERATOR passphrase, with their public halves in plaintext (`keys/root.pub`,
+//! `keys/approver.pub`). The passphrase comes from `IOI_AUTHORITY_OPERATOR_PASS` (set for the one
+//! command that needs it; this binary scrubs it from its own environment block at startup so no
+//! child and no `/proc/<pid>/environ` reader sees it) or from a TTY prompt when stdin is a
+//! terminal. It is never read from argv, never written, never logged, and must differ from
+//! `IOI_GUARDIAN_KEY_PASS` (which seals only the daemon's capability key). After bring-up no
+//! process holds the approver or root private key. Plaintext seeds exist only behind the explicit
+//! dev/test `--plaintext-keys` opt-in, which the deployment launcher never passes; a plaintext
+//! state dir is refused in deployment mode until `seal-keys` converts it.
 //!
 //! Transport: the node's gRPC endpoint is plaintext on loopback. The daemon requires an
 //! `https://` endpoint with a pinned CA, which `apps/hypervisor/scripts/wallet-network-authority.mjs`
@@ -51,13 +75,13 @@
 
 use std::collections::BTreeMap;
 use std::fs::OpenOptions;
-use std::io::Write;
+use std::io::{IsTerminal, Write};
 use std::os::unix::fs::{OpenOptionsExt, PermissionsExt};
 use std::path::{Path, PathBuf};
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
 use anyhow::{anyhow, bail, Context, Result};
-use clap::{Parser, Subcommand};
+use clap::{Args, Parser, Subcommand};
 use dcrypt::algorithms::hash::{HashFunction, Sha256};
 use ioi_api::crypto::{SerializableKey, SigningKey, SigningKeyPair};
 use ioi_api::state::service_namespace_prefix;
@@ -97,6 +121,7 @@ use ioi_types::keys::ACCOUNT_NONCE_PREFIX;
 use ioi_types::service_configs::MethodPermission;
 use parity_scale_codec::{Decode, Encode};
 use serde::{Deserialize, Serialize};
+use zeroize::{Zeroize, Zeroizing};
 
 const CHAIN_ID: u32 = 1;
 /// Approval authorities and bindings issued here expire well after any alpha; rotation is the
@@ -111,6 +136,25 @@ const READY_FILE: &str = "ready.json";
 const SHUTDOWN_FILE: &str = "shutdown";
 const ROOT_RECORD_FILE: &str = "wallet-control-root.json";
 const TRANSACTION_LOCK_FILE: &str = "hypervisor-wallet-transactions.lock";
+
+/// The operator passphrase that seals the control root and the approver key. Set only for the one
+/// command that needs it; never argv, never disk, never a log line, never daemon.env/serve.env.
+const OPERATOR_PASS_ENV: &str = "IOI_AUTHORITY_OPERATOR_PASS";
+const GUARDIAN_PASS_ENV: &str = "IOI_GUARDIAN_KEY_PASS";
+const MIN_OPERATOR_PASS_CHARS: usize = 8;
+/// A one-use grant minted by `approve` expires after this long unless `--expires-in-secs` says
+/// otherwise, and never later than the ceiling: one use AND a short life.
+const DEFAULT_APPROVAL_EXPIRES_IN_SECS: u64 = 900;
+const MAX_APPROVAL_EXPIRES_IN_SECS: u64 = 3_600;
+
+// keys/ layout. Sealed (deployment) and plaintext (dev/test opt-in) seeds never coexist.
+const ROOT_SEED_SEALED: &str = "root.seed.sealed";
+const APPROVER_SEED_SEALED: &str = "approver.seed.sealed";
+const ROOT_SEED_PLAINTEXT: &str = "root.seed";
+const APPROVER_SEED_PLAINTEXT: &str = "approver.seed";
+const ROOT_PUBLIC_KEY_FILE: &str = "root.pub";
+const APPROVER_PUBLIC_KEY_FILE: &str = "approver.pub";
+const CAPABILITY_KEY_FILE: &str = "capability.key";
 
 #[derive(Parser, Debug)]
 #[command(
@@ -140,11 +184,15 @@ enum Command {
         /// deterministic fixture clock.
         #[arg(long)]
         wall_clock: bool,
+        #[command(flatten)]
+        key_mode: KeyModeArgs,
     },
     /// Rotate the operator's approver key: new key, new Active binding version.
     Rotate {
         #[arg(long)]
         state_dir: PathBuf,
+        #[command(flatten)]
+        key_mode: KeyModeArgs,
     },
     /// Revoke the principal's approval authority: Revoked successor binding.
     Revoke {
@@ -152,6 +200,43 @@ enum Command {
         state_dir: PathBuf,
         #[arg(long, default_value = "operator revoked the deployment approver")]
         reason: String,
+        #[command(flatten)]
+        key_mode: KeyModeArgs,
+    },
+    /// The operator's approval act: unseal the approver key with the operator passphrase, mint ONE
+    /// one-use grant for exactly these hashes, record it on chain and print it. The one place a
+    /// grant is minted.
+    Approve {
+        #[arg(long)]
+        state_dir: PathBuf,
+        /// The challenge's policy hash (64 hex characters, optionally `sha256:`-prefixed).
+        #[arg(long)]
+        policy_hash: String,
+        /// The challenge's request hash (64 hex characters, optionally `sha256:`-prefixed).
+        #[arg(long)]
+        request_hash: String,
+        /// The daemon's wallet capability account the challenge names (bare 64 hex characters).
+        #[arg(long)]
+        audience: String,
+        /// The exact governed scope the challenge named (e.g. scope:hypervisor.live-route.session-execute).
+        #[arg(long)]
+        target_scope: String,
+        /// Lifetime of the one-use grant, in seconds (default 900, at most 3600).
+        #[arg(long, default_value_t = DEFAULT_APPROVAL_EXPIRES_IN_SECS)]
+        expires_in_secs: u64,
+        #[arg(
+            long,
+            default_value = "Hypervisor operator approval of the exact effect"
+        )]
+        reason: String,
+        #[command(flatten)]
+        key_mode: KeyModeArgs,
+    },
+    /// Convert a plaintext state dir: seal every plaintext seed with the operator passphrase,
+    /// write the public halves, then remove the plaintext files.
+    SealKeys {
+        #[arg(long)]
+        state_dir: PathBuf,
     },
     /// Print the custodied authority record and the live binding head.
     Status {
@@ -176,6 +261,8 @@ enum Command {
         /// JSON file holding the v2 AuthFactorReceipt attesting the deployment-local custody tier.
         #[arg(long)]
         factor_file: String,
+        #[command(flatten)]
+        key_mode: KeyModeArgs,
     },
     /// Print the node's latest COMMITTED chain timestamp as one line of JSON. A standing
     /// envelope's validity window is judged against the chain clock, never the host's assumption.
@@ -190,6 +277,8 @@ enum Command {
         /// The standing grant's hash (64 hex characters).
         #[arg(long)]
         grant_hash: String,
+        #[command(flatten)]
+        key_mode: KeyModeArgs,
     },
     /// Record an operator-signed one-use approval grant on the chain (the approval act).
     RecordApproval {
@@ -207,6 +296,32 @@ enum Command {
         )]
         reason: String,
     },
+}
+
+/// Which custody the control root and approver seeds are in. Deployment mode is SEALED; the
+/// plaintext form exists only behind the explicit dev/test opt-in below.
+#[derive(Args, Debug, Clone, Copy, Default)]
+struct KeyModeArgs {
+    /// DEV/TEST ONLY: keep the control root and approver seeds as plaintext hex files
+    /// (keys/root.seed, keys/approver.seed). The deployment launcher never passes this; without
+    /// it the seeds are sealed with the operator passphrase and a plaintext state dir is refused.
+    #[arg(long)]
+    plaintext_keys: bool,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum KeyCustody {
+    Sealed,
+    Plaintext,
+}
+
+impl KeyCustody {
+    fn label(self) -> &'static str {
+        match self {
+            KeyCustody::Sealed => "sealed",
+            KeyCustody::Plaintext => "plaintext",
+        }
+    }
 }
 
 /// The custodied description of the deployment's authority. It is a RECORD of what the chain
@@ -252,32 +367,101 @@ struct ReadyManifest {
     capability_key_path: PathBuf,
     root_record_path: PathBuf,
     transaction_lock_path: PathBuf,
-    approver_key_path: PathBuf,
+    /// The plaintext approver seed — present ONLY for a dev/test `--plaintext-keys` node. A
+    /// deployment's approver key is sealed and no manifest names a path a process could sign with.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    approver_key_path: Option<PathBuf>,
+    /// The approver's PUBLIC half (hex), what every startup identity check compares against.
+    #[serde(default)]
+    approver_public_key_path: PathBuf,
+    /// `sealed` (deployment) or `plaintext` (dev/test opt-in).
+    #[serde(default)]
+    key_custody: String,
     authority_record_path: PathBuf,
     ordering_profile: String,
     wall_clock: bool,
 }
 
-struct Keys {
-    root: Ed25519KeyPair,
+/// What `serve` holds after startup: the daemon's capability key (needed to serve) and the PUBLIC
+/// halves of the control root and approver. The root private key exists in memory only on a
+/// first bring-up, until the genesis records are committed.
+struct ServeKeys {
+    custody: KeyCustody,
     capability: Ed25519KeyPair,
-    approver: Ed25519KeyPair,
-    approver_path: PathBuf,
     capability_key_path: PathBuf,
+    root_public_key: Vec<u8>,
+    approver_public_key: Vec<u8>,
+    approver_public_key_path: PathBuf,
+    approver_plaintext_path: Option<PathBuf>,
+    genesis_root: Option<Ed25519KeyPair>,
 }
 
-#[tokio::main]
-async fn main() -> Result<()> {
+fn main() -> Result<()> {
+    // FIRST: take the operator passphrase out of this process's environment — before any thread,
+    // runtime or child exists — so no spawned node binary inherits it and no reader of
+    // /proc/<pid>/environ finds it for the life of a long-running `serve`.
+    let pass = OperatorPassSource::capture_and_scrub();
     let cli = Cli::parse();
+    tokio::runtime::Builder::new_multi_thread()
+        .enable_all()
+        .build()?
+        .block_on(run(cli, pass))
+}
+
+async fn run(cli: Cli, pass: OperatorPassSource) -> Result<()> {
     match cli.command {
         Command::Serve {
             state_dir,
             principal_ref,
             client_label,
             wall_clock,
-        } => serve(&state_dir, &principal_ref, &client_label, wall_clock).await,
-        Command::Rotate { state_dir } => rotate(&state_dir).await,
-        Command::Revoke { state_dir, reason } => revoke(&state_dir, &reason).await,
+            key_mode,
+        } => {
+            serve(
+                &state_dir,
+                &principal_ref,
+                &client_label,
+                wall_clock,
+                key_mode,
+                &pass,
+            )
+            .await
+        }
+        Command::Rotate {
+            state_dir,
+            key_mode,
+        } => rotate(&state_dir, key_mode, &pass).await,
+        Command::Revoke {
+            state_dir,
+            reason,
+            key_mode,
+        } => revoke(&state_dir, &reason, key_mode, &pass).await,
+        Command::Approve {
+            state_dir,
+            policy_hash,
+            request_hash,
+            audience,
+            target_scope,
+            expires_in_secs,
+            reason,
+            key_mode,
+        } => {
+            approve(
+                &state_dir,
+                &ApproveRequest {
+                    policy_hash: &policy_hash,
+                    request_hash: &request_hash,
+                    audience: &audience,
+                    target_scope: &target_scope,
+                    expires_in_secs,
+                    reason: &reason,
+                },
+                key_mode,
+                &pass,
+            )
+            .await
+        }
+        Command::SealKeys { state_dir } => seal_keys(&state_dir, &pass),
         Command::Status { state_dir } => status(&state_dir).await,
         Command::RecordApproval {
             state_dir,
@@ -291,6 +475,7 @@ async fn main() -> Result<()> {
             envelope_file,
             context_file,
             factor_file,
+            key_mode,
         } => {
             record_standing_approval(
                 &state_dir,
@@ -298,13 +483,16 @@ async fn main() -> Result<()> {
                 &envelope_file,
                 &context_file,
                 &factor_file,
+                key_mode,
+                &pass,
             )
             .await
         }
         Command::RevokeStandingApproval {
             state_dir,
             grant_hash,
-        } => revoke_standing_approval(&state_dir, &grant_hash).await,
+            key_mode,
+        } => revoke_standing_approval(&state_dir, &grant_hash, key_mode, &pass).await,
         Command::ChainTimestamp { state_dir } => {
             let ready = read_ready(&state_dir)?;
             let chain_timestamp_ms = latest_committed_chain_timestamp_ms(&ready.rpc_addr).await?;
@@ -326,6 +514,8 @@ async fn serve(
     principal_ref: &str,
     client_label: &str,
     wall_clock: bool,
+    key_mode: KeyModeArgs,
+    pass: &OperatorPassSource,
 ) -> Result<()> {
     validate_principal_ref(principal_ref)?;
     std::fs::create_dir_all(state_dir.join("keys"))?;
@@ -333,7 +523,7 @@ async fn serve(
     let _ = std::fs::remove_file(state_dir.join(SHUTDOWN_FILE));
     let _ = std::fs::remove_file(state_dir.join(READY_FILE));
     let guardian_pass = guardian_pass()?;
-    let keys = load_or_generate_keys(state_dir, &guardian_pass)?;
+    let mut keys = load_or_generate_serve_keys(state_dir, &guardian_pass, key_mode, pass)?;
 
     // A packaged deployment pins the node binaries (IOI_NODE_BINARY_DIR) and has no cargo: the
     // launcher then builds nothing and refuses typed if a binary is absent. Only a checkout
@@ -391,15 +581,35 @@ async fn serve(
         wait_for_height(&rpc_addr, 1, Duration::from_secs(60)).await?;
         let chain_id = ChainId(CHAIN_ID);
 
-        let root_public_key = keys.root.public_key().to_bytes();
+        // Every identity check below uses PUBLIC keys: a resume needs no passphrase and no
+        // private key, and after bring-up this process holds neither the root nor the approver.
+        let root_public_key = keys.root_public_key.clone();
         let root_account_id = account_id_from_key_material(SignatureSuite::ED25519, &root_public_key)?;
         let capability_public_key = keys.capability.public_key().to_bytes();
         let capability_account_id =
             account_id_from_key_material(SignatureSuite::ED25519, &capability_public_key)?;
-        let approver_authority = approval_authority(&keys.approver)?;
+        let approver_authority = approval_authority_from_public_key(&keys.approver_public_key)?;
+        let genesis_root = keys.genesis_root.take();
 
         let root_record = match wallet_control_root(&rpc_addr).await? {
             None => {
+                // The root signs the genesis records. On a first bring-up it was generated (and
+                // sealed) moments ago; if the keys exist but the chain holds no control plane, a
+                // first bring-up was interrupted and the root must be unsealed once.
+                let root = match genesis_root {
+                    Some(root) => root,
+                    None => {
+                        if keys.custody == KeyCustody::Sealed && !pass.available() {
+                            bail!(
+                                "the chain holds no control plane yet (the first bring-up did not finish), so the control root must sign the genesis records: set {OPERATOR_PASS_ENV} for this one run (or run on a terminal to be prompted). Later runs resume without it."
+                            );
+                        }
+                        load_root_signer(state_dir, keys.custody, pass, "the control root signs the genesis records")?
+                    }
+                };
+                if root.public_key().to_bytes() != root_public_key {
+                    bail!("the unsealed control root is not keys/{ROOT_PUBLIC_KEY_FILE}; refusing to issue a control plane under a key the state dir does not name");
+                }
                 println!("--- fresh chain: issuing the deployment's control plane ---");
                 let root_record = WalletControlPlaneRootRecord {
                     account_id: root_account_id,
@@ -413,10 +623,10 @@ async fn serve(
                     ]),
                 };
                 let mut nonce = account_nonce(&rpc_addr, &root_account_id).await?;
-                submit(&rpc_addr, &keys.root, chain_id, nonce, "configure_control_root@v1",
+                submit(&rpc_addr, &root, chain_id, nonce, "configure_control_root@v1",
                     &WalletConfigureControlRootParams { root: root_record.clone() }).await?;
                 nonce += 1;
-                submit(&rpc_addr, &keys.root, chain_id, nonce, "register_client@v1",
+                submit(&rpc_addr, &root, chain_id, nonce, "register_client@v1",
                     &WalletRegisterClientParams {
                         client: WalletRegisteredClientRecord {
                             client_id: capability_account_id,
@@ -434,12 +644,14 @@ async fn serve(
                         },
                     }).await?;
                 nonce += 1;
-                submit(&rpc_addr, &keys.root, chain_id, nonce, "register_approval_authority@v1",
+                submit(&rpc_addr, &root, chain_id, nonce, "register_approval_authority@v1",
                     &RegisterApprovalAuthorityParams { authority: approver_authority.clone() }).await?;
                 nonce += 1;
-                let proof = signed_binding(&keys.root, &root_record, principal_ref, &approver_authority, 1, None)?;
-                submit(&rpc_addr, &keys.root, chain_id, nonce, "issue_principal_authority_binding@v1",
+                let proof = signed_binding(&root, &root_record, principal_ref, &approver_authority, 1, None)?;
+                submit(&rpc_addr, &root, chain_id, nonce, "issue_principal_authority_binding@v1",
                     &IssuePrincipalAuthorityBindingParams { proof: proof.clone() }).await?;
+                // Genesis is committed: the root private key leaves memory now, before serving.
+                drop(root);
                 let head = read_head(&rpc_addr, principal_ref).await?
                     .ok_or_else(|| anyhow!("binding v1 committed but no head is readable"))?;
                 if head.status != PrincipalAuthorityBindingStatus::Active || head.coordinates != proof.coordinates() {
@@ -473,10 +685,11 @@ async fn serve(
                 root_record
             }
             Some(existing) => {
-                println!("--- resumed chain: verifying the durable control plane against the custodied keys ---");
+                drop(genesis_root);
+                println!("--- resumed chain: verifying the durable control plane against the custodied public keys ---");
                 if existing.account_id != root_account_id || existing.public_key != root_public_key {
                     bail!(
-                        "durable chain state names a DIFFERENT control root ({}) than keys/root.seed ({}); refusing to serve a substituted authority",
+                        "durable chain state names a DIFFERENT control root ({}) than keys/{ROOT_PUBLIC_KEY_FILE} ({}); refusing to serve a substituted authority",
                         hex::encode(existing.account_id), hex::encode(root_account_id)
                     );
                 }
@@ -489,7 +702,7 @@ async fn serve(
                 if head.status == PrincipalAuthorityBindingStatus::Active {
                     let proof = read_proof(&rpc_addr, &head.coordinates.binding_hash).await?;
                     if proof.statement.authority_public_key != approver_authority.public_key {
-                        bail!("the chain's Active binding names an approver key that is not keys/approver.seed; run `rotate` from the custodied key or restore the key file");
+                        bail!("the chain's Active binding names an approver key that is not keys/{APPROVER_PUBLIC_KEY_FILE}; run `rotate` from the custodied key or restore the key files");
                     }
                 } else {
                     println!("NOTE: the principal's binding head is {:?}; the daemon will fail closed until `rotate` re-issues an Active binding", head.status);
@@ -512,7 +725,9 @@ async fn serve(
             capability_key_path: keys.capability_key_path.clone(),
             root_record_path,
             transaction_lock_path,
-            approver_key_path: keys.approver_path.clone(),
+            approver_key_path: keys.approver_plaintext_path.clone(),
+            approver_public_key_path: keys.approver_public_key_path.clone(),
+            key_custody: keys.custody.label().to_string(),
             authority_record_path: state_dir.join(AUTHORITY_RECORD_FILE),
             ordering_profile: "Solo".to_string(),
             wall_clock,
@@ -547,10 +762,24 @@ async fn serve(
 // rotate / revoke / status (against a serving node)
 // ---------------------------------------------------------------------------------------------
 
-async fn rotate(state_dir: &Path) -> Result<()> {
+async fn rotate(state_dir: &Path, key_mode: KeyModeArgs, pass: &OperatorPassSource) -> Result<()> {
+    let custody = require_custody(state_dir, key_mode)?;
     let ready = read_ready(state_dir)?;
     let mut record = read_authority_record(state_dir)?;
-    let root = keypair(&read_seed_hex(&state_dir.join("keys/root.seed"))?)?;
+    // One passphrase entry opens the root AND seals the new approver key under the same custody.
+    let operator_pass = match custody {
+        KeyCustody::Sealed => Some(pass.obtain(
+            state_dir,
+            "rotate: the control root signs the successor binding and the new approver key is sealed",
+            false,
+        )?),
+        KeyCustody::Plaintext => None,
+    };
+    let root = open_root_signer(
+        state_dir,
+        custody,
+        operator_pass.as_deref().map(String::as_str),
+    )?;
     let root_record: WalletControlPlaneRootRecord =
         serde_json::from_slice(&std::fs::read(&ready.root_record_path)?)?;
     let chain_id = ChainId(ready.chain_id);
@@ -559,20 +788,35 @@ async fn rotate(state_dir: &Path) -> Result<()> {
         .ok_or_else(|| anyhow!("no binding head for {}", ready.principal_ref))?;
     let previous = read_proof(&ready.rpc_addr, &head.coordinates.binding_hash).await?;
 
-    // The new key is written FIRST as approver.seed.next; the custodied current key only moves
-    // once the chain has committed the successor, so a crash between the two leaves a resumable
-    // state (next present, chain unchanged) rather than a key the chain does not know.
-    let next_path = state_dir.join("keys/approver.seed.next");
-    let next_seed = match read_seed_hex(&next_path) {
-        Ok(seed) => seed,
-        Err(_) => {
-            let seed = random_seed();
-            write_secret_hex(&next_path, &seed)?;
-            seed
+    // The new key is written FIRST as <seed>.next; the custodied current key only moves once the
+    // chain has committed the successor, so a crash between the two leaves a resumable state
+    // (next present, chain unchanged) rather than a key the chain does not know.
+    let keys_dir = state_dir.join("keys");
+    let seed_name = match custody {
+        KeyCustody::Sealed => APPROVER_SEED_SEALED,
+        KeyCustody::Plaintext => APPROVER_SEED_PLAINTEXT,
+    };
+    let next_path = keys_dir.join(format!("{seed_name}.next"));
+    let next_public_path = keys_dir.join(format!("{APPROVER_PUBLIC_KEY_FILE}.next"));
+    let next_seed = if next_path.exists() {
+        match &operator_pass {
+            Some(operator_pass) => open_sealed_seed(&next_path, operator_pass)?,
+            None => read_seed_hex(&next_path)?,
         }
+    } else {
+        let seed = random_seed();
+        match &operator_pass {
+            Some(operator_pass) => write_sealed_seed(&next_path, &seed, operator_pass)?,
+            None => write_secret_hex(&next_path, &seed)?,
+        }
+        seed
     };
     let next = keypair(&next_seed)?;
-    let authority = approval_authority(&next)?;
+    drop(next_seed);
+    let next_public_key = next.public_key().to_bytes();
+    drop(next);
+    write_public_key(&next_public_path, &next_public_key)?;
+    let authority = approval_authority_from_public_key(&next_public_key)?;
     let mut nonce = account_nonce(&ready.rpc_addr, &root_record.account_id).await?;
     submit(
         &ready.rpc_addr,
@@ -613,15 +857,24 @@ async fn rotate(state_dir: &Path) -> Result<()> {
     {
         bail!("persisted binding head differs from the signed rotation");
     }
-    // Retire the old key (read-only, versioned) and promote the new one.
-    let current_path = state_dir.join("keys/approver.seed");
-    let retired_path = state_dir.join(format!(
-        "keys/approver.seed.v{}",
-        previous.statement.binding_version
-    ));
+    drop(root);
+    // Retire the old key (read-only, versioned; its PUBLIC half stays verifiable beside it) and
+    // promote the new one.
+    let retired_version = previous.statement.binding_version;
+    let current_path = keys_dir.join(seed_name);
+    let retired_path = keys_dir.join(format!("{seed_name}.v{retired_version}"));
     std::fs::rename(&current_path, &retired_path)?;
     std::fs::set_permissions(&retired_path, std::fs::Permissions::from_mode(0o400))?;
+    let current_public_path = keys_dir.join(APPROVER_PUBLIC_KEY_FILE);
+    if current_public_path.exists() {
+        let retired_public_path =
+            keys_dir.join(format!("{APPROVER_PUBLIC_KEY_FILE}.v{retired_version}"));
+        std::fs::rename(&current_public_path, &retired_public_path)?;
+        std::fs::set_permissions(&retired_public_path, std::fs::Permissions::from_mode(0o400))?;
+    }
     std::fs::rename(&next_path, &current_path)?;
+    std::fs::rename(&next_public_path, &current_public_path)?;
+    std::fs::File::open(&keys_dir)?.sync_all()?;
     record.approver_authority_id = hex::encode(authority.authority_id);
     record.approver_public_key = hex::encode(&authority.public_key);
     record.approver_scope_allowlist = authority.scope_allowlist.clone();
@@ -650,10 +903,21 @@ async fn rotate(state_dir: &Path) -> Result<()> {
     Ok(())
 }
 
-async fn revoke(state_dir: &Path, reason: &str) -> Result<()> {
+async fn revoke(
+    state_dir: &Path,
+    reason: &str,
+    key_mode: KeyModeArgs,
+    pass: &OperatorPassSource,
+) -> Result<()> {
+    let custody = require_custody(state_dir, key_mode)?;
     let ready = read_ready(state_dir)?;
     let mut record = read_authority_record(state_dir)?;
-    let root = keypair(&read_seed_hex(&state_dir.join("keys/root.seed"))?)?;
+    let root = load_root_signer(
+        state_dir,
+        custody,
+        pass,
+        "revoke: the control root signs the Revoked successor binding",
+    )?;
     let root_record: WalletControlPlaneRootRecord =
         serde_json::from_slice(&std::fs::read(&ready.root_record_path)?)?;
     let chain_id = ChainId(ready.chain_id);
@@ -715,7 +979,18 @@ async fn revoke(state_dir: &Path, reason: &str) -> Result<()> {
 
 async fn status(state_dir: &Path) -> Result<()> {
     let record = read_authority_record(state_dir)?;
-    let mut out = serde_json::json!({ "custodied": record });
+    let keys_dir = state_dir.join("keys");
+    let custody = match detect_custody(&keys_dir) {
+        Ok(Some(custody)) => custody.label().to_string(),
+        Ok(None) => "absent".to_string(),
+        Err(error) => format!("inconsistent: {error}"),
+    };
+    let mut out = serde_json::json!({
+        "custodied": record,
+        "key_custody": custody,
+        "root_public_key": read_public_key(&keys_dir.join(ROOT_PUBLIC_KEY_FILE)).ok().map(hex::encode),
+        "approver_public_key": read_public_key(&keys_dir.join(APPROVER_PUBLIC_KEY_FILE)).ok().map(hex::encode),
+    });
     match read_ready(state_dir) {
         Ok(ready) => {
             let head = read_head(&ready.rpc_addr, &ready.principal_ref).await?;
@@ -820,7 +1095,10 @@ async fn record_standing_approval(
     envelope_file: &str,
     context_file: &str,
     factor_file: &str,
+    key_mode: KeyModeArgs,
+    pass: &OperatorPassSource,
 ) -> Result<()> {
+    let custody = require_custody(state_dir, key_mode)?;
     let ready = read_ready(state_dir)?;
     let record = read_authority_record(state_dir)?;
     if record.binding_status != "active" {
@@ -846,8 +1124,12 @@ async fn record_standing_approval(
     // it creates standing authority rather than spending it, so the deployment's control root
     // signs it. The CAPABILITY account remains the grant's audience — the signer that will later
     // consume each draw — and is checked below.
-    let root_seed = read_seed_hex(&state_dir.join("keys").join("root.seed"))?;
-    let root = keypair(&root_seed)?;
+    let root = load_root_signer(
+        state_dir,
+        custody,
+        pass,
+        "record-standing-approval: the control root records the standing grant",
+    )?;
     let root_account_id =
         account_id_from_key_material(SignatureSuite::ED25519, &root.public_key().to_bytes())?;
 
@@ -926,13 +1208,23 @@ async fn record_standing_approval(
     Ok(())
 }
 
-async fn revoke_standing_approval(state_dir: &Path, grant_hash: &str) -> Result<()> {
+async fn revoke_standing_approval(
+    state_dir: &Path,
+    grant_hash: &str,
+    key_mode: KeyModeArgs,
+    pass: &OperatorPassSource,
+) -> Result<()> {
+    let custody = require_custody(state_dir, key_mode)?;
     let ready = read_ready(state_dir)?;
     // Revoking a recorded standing grant is a CONTROL-PLANE act (client_auth gates it to the
-    // control-plane role), so it is signed by the deployment's control root, which lives beside
-    // the other keys the operator custodies.
-    let root_seed = read_seed_hex(&state_dir.join("keys").join("root.seed"))?;
-    let root = keypair(&root_seed)?;
+    // control-plane role), so it is signed by the deployment's control root, which the operator
+    // custodies sealed under the operator passphrase.
+    let root = load_root_signer(
+        state_dir,
+        custody,
+        pass,
+        "revoke-standing-approval: the control root revokes the standing grant",
+    )?;
     let root_account_id =
         account_id_from_key_material(SignatureSuite::ED25519, &root.public_key().to_bytes())?;
     let decoded = hex::decode(grant_hash.trim()).context("standing grant hash is not hex")?;
@@ -966,6 +1258,184 @@ async fn record_approval(
     target_scope: &str,
     reason: &str,
 ) -> Result<()> {
+    let grant_json = if grant_file == "-" {
+        let mut text = String::new();
+        std::io::Read::read_to_string(&mut std::io::stdin(), &mut text)?;
+        text
+    } else {
+        std::fs::read_to_string(grant_file)?
+    };
+    let grant: ApprovalGrant = serde_json::from_str(&grant_json).context("approval grant JSON")?;
+    let outcome = record_one_use_grant(state_dir, &grant, target_scope, reason).await?;
+    println!("{outcome}");
+    Ok(())
+}
+
+/// The operator's approval request, exactly as the daemon's challenge names it.
+struct ApproveRequest<'a> {
+    policy_hash: &'a str,
+    request_hash: &'a str,
+    audience: &'a str,
+    target_scope: &'a str,
+    expires_in_secs: u64,
+    reason: &'a str,
+}
+
+/// `approve`: the ONE place a grant is minted. Every check that needs no secret runs first; the
+/// approver seed is unsealed in memory only after them, signs exactly one one-use grant, and is
+/// zeroized before the grant is recorded. A wrong passphrase refuses before anything is signed or
+/// recorded. stdout carries the recording outcome and the grant — never the seed.
+async fn approve(
+    state_dir: &Path,
+    request: &ApproveRequest<'_>,
+    key_mode: KeyModeArgs,
+    pass: &OperatorPassSource,
+) -> Result<()> {
+    let custody = require_custody(state_dir, key_mode)?;
+    let policy_hash = parse_hash32(request.policy_hash, "--policy-hash")?;
+    let request_hash = parse_hash32(request.request_hash, "--request-hash")?;
+    let audience = parse_account32(request.audience, "--audience")?;
+    if !request
+        .target_scope
+        .starts_with("scope:hypervisor.live-route.")
+    {
+        bail!(
+            "target scope {} is outside the deployment approver's allowlist ({APPROVER_SCOPE_ALLOWLIST})",
+            request.target_scope
+        );
+    }
+    if request.expires_in_secs == 0 || request.expires_in_secs > MAX_APPROVAL_EXPIRES_IN_SECS {
+        bail!(
+            "--expires-in-secs must be between 1 and {MAX_APPROVAL_EXPIRES_IN_SECS}: a one-use grant is also a short-lived one"
+        );
+    }
+    let ready = read_ready(state_dir)?;
+    let record = read_authority_record(state_dir)?;
+    if record.binding_status != "active" {
+        bail!(
+            "the principal's binding is {}; nothing can be approved",
+            record.binding_status
+        );
+    }
+    if hex::encode(audience) != ready.capability_account_id {
+        bail!(
+            "--audience is not this deployment's capability account {}; wallet.network consumes a grant only for its audience",
+            ready.capability_account_id
+        );
+    }
+    let approver_public_key =
+        read_public_key(&state_dir.join("keys").join(APPROVER_PUBLIC_KEY_FILE))?;
+    if hex::encode(&approver_public_key) != record.approver_public_key {
+        bail!(
+            "keys/{APPROVER_PUBLIC_KEY_FILE} is not the approver on record ({}); refusing to sign with a key the authority record does not name",
+            record.approver_authority_id
+        );
+    }
+
+    let approver = {
+        let seed = match custody {
+            KeyCustody::Sealed => {
+                let operator_pass = pass.obtain(
+                    state_dir,
+                    "approve: the approver key signs one one-use grant",
+                    false,
+                )?;
+                open_sealed_seed(
+                    &state_dir.join("keys").join(APPROVER_SEED_SEALED),
+                    &operator_pass,
+                )?
+            }
+            KeyCustody::Plaintext => {
+                read_seed_hex(&state_dir.join("keys").join(APPROVER_SEED_PLAINTEXT))?
+            }
+        };
+        keypair(&seed)?
+        // `seed` (Zeroizing) is wiped here, at the end of this block.
+    };
+    if approver.public_key().to_bytes() != approver_public_key {
+        bail!("the unsealed approver key is not keys/{APPROVER_PUBLIC_KEY_FILE}; nothing was signed or recorded");
+    }
+    let expires_at_ms = now_ms().saturating_add(request.expires_in_secs.saturating_mul(1_000));
+    let grant = mint_one_use_grant(
+        &approver,
+        policy_hash,
+        request_hash,
+        audience,
+        expires_at_ms,
+    )?;
+    drop(approver);
+
+    let mut outcome =
+        record_one_use_grant(state_dir, &grant, request.target_scope, request.reason).await?;
+    let grant_hash = grant
+        .artifact_hash()
+        .map_err(|error| anyhow!("approval grant hash: {error}"))?;
+    outcome["grant_ref"] = serde_json::json!(format!(
+        "wallet.network://grant/approval/{}",
+        hex::encode(grant_hash)
+    ));
+    outcome["expires_at_ms"] = serde_json::json!(grant.expires_at);
+    outcome["approval_grant"] = serde_json::to_value(&grant)?;
+    println!("{outcome}");
+    Ok(())
+}
+
+/// Mint ONE grant for ONE exact challenge — the logic of `crates/node/src/bin/mint-approval-grant.rs`
+/// (canonical `signing_bytes`, a real Ed25519 signature, `authority_id` derived from the public
+/// key, structural `verify()`), with the deployment's properties: a RANDOM nonce, exactly one
+/// use and a bounded expiry.
+fn mint_one_use_grant(
+    approver: &Ed25519KeyPair,
+    policy_hash: [u8; 32],
+    request_hash: [u8; 32],
+    audience: [u8; 32],
+    expires_at_ms: u64,
+) -> Result<ApprovalGrant> {
+    use rand::RngCore;
+    let public_key = approver.public_key().to_bytes();
+    let authority_id = account_id_from_key_material(SignatureSuite::ED25519, &public_key)?;
+    let mut nonce = [0u8; 32];
+    rand::rngs::OsRng.fill_bytes(&mut nonce);
+    let mut grant = ApprovalGrant {
+        schema_version: 1,
+        authority_id,
+        request_hash,
+        policy_hash,
+        audience,
+        nonce,
+        counter: 1,
+        expires_at: expires_at_ms,
+        max_usages: Some(1),
+        window_id: None,
+        pii_action: None,
+        scoped_exception: None,
+        review_request_hash: None,
+        approver_public_key: public_key,
+        approver_sig: Vec::new(),
+        approver_suite: SignatureSuite::ED25519,
+    };
+    let signing_bytes = grant
+        .signing_bytes()
+        .map_err(|error| anyhow!("approval grant signing bytes: {error}"))?;
+    grant.approver_sig = approver
+        .sign(&signing_bytes)
+        .map_err(|error| anyhow!("sign approval grant: {error}"))?
+        .to_bytes()
+        .to_vec();
+    grant
+        .verify()
+        .map_err(|error| anyhow!("minted approval grant does not verify: {error}"))?;
+    Ok(grant)
+}
+
+/// Record an already-signed one-use grant as the approval decision for its request hash, from the
+/// daemon's capability account under the daemon's transaction lock. Returns the outcome object.
+async fn record_one_use_grant(
+    state_dir: &Path,
+    grant: &ApprovalGrant,
+    target_scope: &str,
+    reason: &str,
+) -> Result<serde_json::Value> {
     let ready = read_ready(state_dir)?;
     let record = read_authority_record(state_dir)?;
     if record.binding_status != "active" {
@@ -978,22 +1448,17 @@ async fn record_approval(
     let sealed = std::fs::read(&ready.capability_key_path)?;
     let capability_seed = ioi_crypto::key_store::decrypt_key(&sealed, &guardian_pass)
         .map_err(|error| anyhow!("open capability key: {error}"))?;
-    let capability_seed: [u8; 32] = capability_seed
-        .0
-        .as_slice()
-        .try_into()
-        .map_err(|_| anyhow!("capability key is not a 32-byte seed"))?;
+    let capability_seed: Zeroizing<[u8; 32]> = Zeroizing::new(
+        capability_seed
+            .0
+            .as_slice()
+            .try_into()
+            .map_err(|_| anyhow!("capability key is not a 32-byte seed"))?,
+    );
     let capability = keypair(&capability_seed)?;
     let capability_account_id =
         account_id_from_key_material(SignatureSuite::ED25519, &capability.public_key().to_bytes())?;
-    let grant_json = if grant_file == "-" {
-        let mut text = String::new();
-        std::io::Read::read_to_string(&mut std::io::stdin(), &mut text)?;
-        text
-    } else {
-        std::fs::read_to_string(grant_file)?
-    };
-    let grant: ApprovalGrant = serde_json::from_str(&grant_json).context("approval grant JSON")?;
+    let grant = grant.clone();
     if hex::encode(grant.authority_id) != record.approver_authority_id
         || hex::encode(&grant.approver_public_key) != record.approver_public_key
     {
@@ -1017,11 +1482,9 @@ async fn record_approval(
         let existing: WalletApprovalDecision =
             decode_state_value(&existing_bytes, "approval decision")?;
         if approval_matches(&existing, &grant, target_scope, reason) {
-            println!(
-                "{}",
-                serde_json::json!({ "ok": true, "request_hash": hex::encode(grant.request_hash), "recorded": "existing" })
+            return Ok(
+                serde_json::json!({ "ok": true, "request_hash": hex::encode(grant.request_hash), "recorded": "existing" }),
             );
-            return Ok(());
         }
         bail!("request_hash already names a different wallet approval decision");
     }
@@ -1061,11 +1524,9 @@ async fn record_approval(
     if !approval_matches(&persisted, &grant, target_scope, reason) {
         bail!("persisted approval decision differs from the one submitted");
     }
-    println!(
-        "{}",
-        serde_json::json!({ "ok": true, "request_hash": hex::encode(grant.request_hash), "recorded": "committed", "nonce": nonce })
-    );
-    Ok(())
+    Ok(
+        serde_json::json!({ "ok": true, "request_hash": hex::encode(grant.request_hash), "recorded": "committed", "nonce": nonce }),
+    )
 }
 
 // ---------------------------------------------------------------------------------------------
@@ -1073,7 +1534,7 @@ async fn record_approval(
 // ---------------------------------------------------------------------------------------------
 
 fn guardian_pass() -> Result<String> {
-    let pass = std::env::var("IOI_GUARDIAN_KEY_PASS")
+    let pass = std::env::var(GUARDIAN_PASS_ENV)
         .context("IOI_GUARDIAN_KEY_PASS is required: it seals the daemon's wallet capability key and the daemon needs the same value to open it")?;
     if pass.trim().is_empty() {
         bail!("IOI_GUARDIAN_KEY_PASS cannot be empty");
@@ -1081,56 +1542,523 @@ fn guardian_pass() -> Result<String> {
     Ok(pass)
 }
 
-fn load_or_generate_keys(state_dir: &Path, guardian_pass: &str) -> Result<Keys> {
+/// Where the operator passphrase may come from: the environment variable, captured and scrubbed
+/// at startup, or a TTY prompt when stdin is a terminal. Never argv, never a file.
+struct OperatorPassSource {
+    from_env: Option<Zeroizing<String>>,
+    prompt_allowed: bool,
+}
+
+impl OperatorPassSource {
+    /// Take `IOI_AUTHORITY_OPERATOR_PASS` out of this process: copy the value, overwrite it in the
+    /// initial environment block and unset it, so neither a child nor `/proc/<pid>/environ` sees it.
+    fn capture_and_scrub() -> Self {
+        let from_env = std::env::var_os(OPERATOR_PASS_ENV).map(|value| {
+            scrub_environment_block(OPERATOR_PASS_ENV);
+            std::env::remove_var(OPERATOR_PASS_ENV);
+            // A value that is not UTF-8 cannot be compared or typed at a prompt; it becomes the
+            // empty passphrase, which validation refuses by name.
+            Zeroizing::new(value.into_string().unwrap_or_default())
+        });
+        Self {
+            from_env,
+            prompt_allowed: std::io::stdin().is_terminal(),
+        }
+    }
+
+    fn available(&self) -> bool {
+        self.from_env.is_some() || self.prompt_allowed
+    }
+
+    /// The passphrase for one act, validated (non-empty, long enough, not the guardian pass).
+    /// `confirm` asks twice at a prompt — for acts that create a new sealed key.
+    fn obtain(&self, state_dir: &Path, purpose: &str, confirm: bool) -> Result<Zeroizing<String>> {
+        let pass = match &self.from_env {
+            Some(value) => Zeroizing::new(value.as_str().to_owned()),
+            None if self.prompt_allowed => {
+                let first = Zeroizing::new(
+                    rpassword::prompt_password(format!("Operator passphrase ({purpose}): "))
+                        .context("read the operator passphrase from the terminal")?,
+                );
+                if confirm {
+                    let second = Zeroizing::new(
+                        rpassword::prompt_password("Repeat the operator passphrase: ")
+                            .context("read the operator passphrase from the terminal")?,
+                    );
+                    if first.as_str() != second.as_str() {
+                        bail!("the two passphrase entries differ; nothing was written");
+                    }
+                }
+                first
+            }
+            None => bail!(
+                "{purpose} needs the operator passphrase: set {OPERATOR_PASS_ENV} for this one command, or run it on a terminal to be prompted (it is never read from argv or from a file)"
+            ),
+        };
+        validate_operator_pass(&pass, state_dir)?;
+        Ok(pass)
+    }
+}
+
+/// The operator passphrase is refused when empty, short, or equal to the guardian pass: the
+/// guardian pass unlocks the daemon's capability key and lives beside it on this host
+/// (`IOI_GUARDIAN_KEY_PASS`, `keys/guardian.pass`), so it can never also seal approval authority.
+fn validate_operator_pass(pass: &str, state_dir: &Path) -> Result<()> {
+    if pass.trim().is_empty() {
+        bail!("the operator passphrase cannot be empty");
+    }
+    if pass.chars().count() < MIN_OPERATOR_PASS_CHARS {
+        bail!("the operator passphrase must be at least {MIN_OPERATOR_PASS_CHARS} characters");
+    }
+    let mut guardian_values: Vec<Zeroizing<String>> = Vec::new();
+    if let Ok(value) = std::env::var(GUARDIAN_PASS_ENV) {
+        guardian_values.push(Zeroizing::new(value));
+    }
+    if let Ok(value) = std::fs::read_to_string(state_dir.join("keys").join("guardian.pass")) {
+        guardian_values.push(Zeroizing::new(value));
+    }
+    let same_as_guardian = guardian_values.iter().any(|guardian| {
+        !guardian.trim().is_empty() && (guardian.as_str() == pass || guardian.trim() == pass.trim())
+    });
+    if same_as_guardian {
+        bail!("the operator passphrase must differ from {GUARDIAN_PASS_ENV}: the guardian pass opens the daemon's capability key and sits on this host beside it, so it cannot also seal the approver and root keys");
+    }
+    Ok(())
+}
+
+/// Overwrite `NAME=value` in this process's environment block, in place, before the variable is
+/// unset. `remove_var` alone only unlinks the pointer: the bytes the kernel copied at exec stay in
+/// the block `/proc/<pid>/environ` reads for the whole life of the process.
+#[cfg(target_os = "linux")]
+fn scrub_environment_block(name: &str) {
+    extern "C" {
+        static mut environ: *mut *mut libc::c_char;
+    }
+    let prefix = format!("{name}=");
+    // SAFETY: called first thing in `main`, before any other thread exists, so nothing reads or
+    // mutates the environment concurrently. Every entry is a NUL-terminated string owned by this
+    // process; only bytes before an entry's terminator are overwritten, and the shared borrow of
+    // an entry ends before any byte of it is written.
+    unsafe {
+        let mut cursor = environ;
+        if cursor.is_null() {
+            return;
+        }
+        while !(*cursor).is_null() {
+            let entry = *cursor;
+            let (matches, total) = {
+                let bytes = std::ffi::CStr::from_ptr(entry).to_bytes();
+                (bytes.starts_with(prefix.as_bytes()), bytes.len())
+            };
+            if matches {
+                for offset in prefix.len()..total {
+                    std::ptr::write_volatile(entry.add(offset), 0);
+                }
+            }
+            cursor = cursor.add(1);
+        }
+    }
+}
+
+#[cfg(not(target_os = "linux"))]
+fn scrub_environment_block(_name: &str) {}
+
+/// Which custody keys/ is in, from the files present. Sealed and plaintext seeds never coexist
+/// except mid-`seal-keys`, which is refused until that conversion is finished.
+fn detect_custody(keys_dir: &Path) -> Result<Option<KeyCustody>> {
+    let plaintext = [ROOT_SEED_PLAINTEXT, APPROVER_SEED_PLAINTEXT]
+        .iter()
+        .any(|name| keys_dir.join(name).exists());
+    let sealed = [ROOT_SEED_SEALED, APPROVER_SEED_SEALED]
+        .iter()
+        .any(|name| keys_dir.join(name).exists());
+    match (plaintext, sealed) {
+        (false, false) => Ok(None),
+        (true, false) => Ok(Some(KeyCustody::Plaintext)),
+        (false, true) => Ok(Some(KeyCustody::Sealed)),
+        (true, true) => bail!(
+            "keys/ holds BOTH plaintext and sealed seeds (an interrupted `seal-keys`?); run `seal-keys --state-dir <dir>` again to finish the conversion"
+        ),
+    }
+}
+
+fn plaintext_refusal(state_dir: &Path) -> anyhow::Error {
+    anyhow!(
+        "{dir} holds PLAINTEXT keys/{ROOT_SEED_PLAINTEXT} and keys/{APPROVER_SEED_PLAINTEXT} (a pre-sealing or dev/test state dir). Deployment mode refuses plaintext approval and root keys: any process running as this uid could read them and approve its own effects. Convert it once with `wallet-network-local-authority seal-keys --state-dir {dir}` ({OPERATOR_PASS_ENV} set, or on a terminal); a dev/test node may pass --plaintext-keys instead.",
+        dir = state_dir.display()
+    )
+}
+
+/// The custody an act against an existing state dir runs under: sealed unless the dev/test
+/// opt-in is given for a plaintext dir; any other combination is refused.
+fn require_custody(state_dir: &Path, key_mode: KeyModeArgs) -> Result<KeyCustody> {
+    let custody = detect_custody(&state_dir.join("keys"))?.ok_or_else(|| {
+        anyhow!(
+            "{}/keys holds no control root; bring the node up with `serve` first",
+            state_dir.display()
+        )
+    })?;
+    match (custody, key_mode.plaintext_keys) {
+        (KeyCustody::Sealed, false) => Ok(KeyCustody::Sealed),
+        (KeyCustody::Plaintext, true) => Ok(KeyCustody::Plaintext),
+        (KeyCustody::Plaintext, false) => Err(plaintext_refusal(state_dir)),
+        (KeyCustody::Sealed, true) => bail!(
+            "keys/ is SEALED; --plaintext-keys is a dev/test opt-in for plaintext state dirs and never applies to sealed keys"
+        ),
+    }
+}
+
+/// Open the control root for one signing act and bind it to its public half on disk.
+fn open_root_signer(
+    state_dir: &Path,
+    custody: KeyCustody,
+    operator_pass: Option<&str>,
+) -> Result<Ed25519KeyPair> {
+    let keys_dir = state_dir.join("keys");
+    let seed = match custody {
+        KeyCustody::Sealed => {
+            let operator_pass = operator_pass
+                .ok_or_else(|| anyhow!("the sealed control root needs the operator passphrase"))?;
+            open_sealed_seed(&keys_dir.join(ROOT_SEED_SEALED), operator_pass)?
+        }
+        KeyCustody::Plaintext => read_seed_hex(&keys_dir.join(ROOT_SEED_PLAINTEXT))?,
+    };
+    let root = keypair(&seed)?;
+    let public_path = keys_dir.join(ROOT_PUBLIC_KEY_FILE);
+    if public_path.exists() {
+        if read_public_key(&public_path)? != root.public_key().to_bytes() {
+            bail!("the control root does not match keys/{ROOT_PUBLIC_KEY_FILE}; refusing to sign with a key the state dir does not name");
+        }
+    } else if custody == KeyCustody::Sealed {
+        bail!("keys/{ROOT_PUBLIC_KEY_FILE} is missing beside the sealed control root");
+    }
+    Ok(root)
+}
+
+fn load_root_signer(
+    state_dir: &Path,
+    custody: KeyCustody,
+    pass: &OperatorPassSource,
+    purpose: &str,
+) -> Result<Ed25519KeyPair> {
+    match custody {
+        KeyCustody::Sealed => {
+            let operator_pass = pass.obtain(state_dir, purpose, false)?;
+            open_root_signer(state_dir, custody, Some(&operator_pass))
+        }
+        KeyCustody::Plaintext => open_root_signer(state_dir, custody, None),
+    }
+}
+
+/// `serve`'s keys. A FRESH state dir generates the control root and the approver key — sealed
+/// with the operator passphrase, which is obtained and validated before anything is written —
+/// plus the daemon's capability key (guardian pass). A RESUME reads public halves only and needs
+/// no passphrase; a plaintext dir is refused unless the dev/test opt-in is given.
+fn load_or_generate_serve_keys(
+    state_dir: &Path,
+    guardian_pass: &str,
+    key_mode: KeyModeArgs,
+    pass: &OperatorPassSource,
+) -> Result<ServeKeys> {
     let keys_dir = state_dir.join("keys");
     std::fs::set_permissions(&keys_dir, std::fs::Permissions::from_mode(0o700))?;
-    let root_path = keys_dir.join("root.seed");
-    let approver_path = keys_dir.join("approver.seed");
-    let capability_key_path = keys_dir.join("capability.key");
-    let fresh = !root_path.exists();
-    if fresh {
-        if approver_path.exists() || capability_key_path.exists() {
-            bail!("keys/ is partially populated (no root.seed but other keys exist); refusing to guess which deployment this is");
+    let capability_key_path = keys_dir.join(CAPABILITY_KEY_FILE);
+    let root_public_path = keys_dir.join(ROOT_PUBLIC_KEY_FILE);
+    let approver_public_path = keys_dir.join(APPROVER_PUBLIC_KEY_FILE);
+    let mut genesis_root = None;
+    let custody = match detect_custody(&keys_dir)? {
+        None => {
+            if capability_key_path.exists() || root_public_path.exists() || approver_public_path.exists() {
+                bail!("keys/ is partially populated (no control root seed but other key files exist); refusing to guess which deployment this is");
+            }
+            let custody = if key_mode.plaintext_keys {
+                KeyCustody::Plaintext
+            } else {
+                KeyCustody::Sealed
+            };
+            let operator_pass = match custody {
+                KeyCustody::Sealed => {
+                    if !pass.available() {
+                        bail!(
+                            "{} is a FRESH state dir: the first bring-up generates the control root and the approver key SEALED with the operator passphrase, and the root signs the genesis binding, so this one run needs it. Set {OPERATOR_PASS_ENV} for this command only (or run it on a terminal to be prompted); every later run resumes without it.",
+                            state_dir.display()
+                        );
+                    }
+                    Some(pass.obtain(
+                        state_dir,
+                        "first bring-up seals the new control root and approver key",
+                        true,
+                    )?)
+                }
+                KeyCustody::Plaintext => None,
+            };
+            println!(
+                "--- generating the deployment's control root, capability client and approver keys ({} custody) ---",
+                custody.label()
+            );
+            let root_seed = random_seed();
+            let approver_seed = random_seed();
+            match &operator_pass {
+                Some(operator_pass) => {
+                    write_sealed_seed(&keys_dir.join(ROOT_SEED_SEALED), &root_seed, operator_pass)?;
+                    write_sealed_seed(
+                        &keys_dir.join(APPROVER_SEED_SEALED),
+                        &approver_seed,
+                        operator_pass,
+                    )?;
+                }
+                None => {
+                    write_secret_hex(&keys_dir.join(ROOT_SEED_PLAINTEXT), &root_seed)?;
+                    write_secret_hex(&keys_dir.join(APPROVER_SEED_PLAINTEXT), &approver_seed)?;
+                }
+            }
+            let root = keypair(&root_seed)?;
+            write_public_key(&root_public_path, &root.public_key().to_bytes())?;
+            write_public_key(
+                &approver_public_path,
+                &keypair(&approver_seed)?.public_key().to_bytes(),
+            )?;
+            let capability_seed = random_seed();
+            let sealed = ioi_crypto::key_store::encrypt_key(&capability_seed[..], guardian_pass)
+                .map_err(|error| anyhow!("seal capability key: {error}"))?;
+            write_secret_bytes(&capability_key_path, &sealed)?;
+            std::fs::File::open(&keys_dir)?.sync_all()?;
+            genesis_root = Some(root);
+            custody
         }
-        println!(
-            "--- generating the deployment's control root, capability client and approver keys ---"
-        );
-        write_secret_hex(&root_path, &random_seed())?;
-        write_secret_hex(&approver_path, &random_seed())?;
-        let capability_seed = random_seed();
-        let sealed = ioi_crypto::key_store::encrypt_key(&capability_seed, guardian_pass)
-            .map_err(|error| anyhow!("seal capability key: {error}"))?;
-        write_secret_bytes(&capability_key_path, &sealed)?;
-    }
-    let root = keypair(&read_seed_hex(&root_path)?)?;
-    let approver = keypair(&read_seed_hex(&approver_path)?)?;
+        Some(KeyCustody::Plaintext) if !key_mode.plaintext_keys => {
+            return Err(plaintext_refusal(state_dir))
+        }
+        Some(KeyCustody::Sealed) if key_mode.plaintext_keys => bail!(
+            "keys/ is SEALED; --plaintext-keys is a dev/test opt-in for plaintext state dirs and never applies to sealed keys"
+        ),
+        Some(KeyCustody::Plaintext) => {
+            // dev/test: the seeds are the truth; (re)derive the public halves the resume compares.
+            for (seed_name, public_path) in [
+                (ROOT_SEED_PLAINTEXT, &root_public_path),
+                (APPROVER_SEED_PLAINTEXT, &approver_public_path),
+            ] {
+                let seed = read_seed_hex(&keys_dir.join(seed_name))?;
+                let public_key = keypair(&seed)?.public_key().to_bytes();
+                write_public_key(public_path, &public_key)?;
+            }
+            KeyCustody::Plaintext
+        }
+        Some(KeyCustody::Sealed) => {
+            for path in [&root_public_path, &approver_public_path] {
+                if !path.exists() {
+                    bail!(
+                        "{} is missing beside the sealed seeds; a resume checks public keys only, so restore it from the deployment's backup",
+                        path.display()
+                    );
+                }
+            }
+            KeyCustody::Sealed
+        }
+    };
     let sealed = std::fs::read(&capability_key_path)?;
     let capability_seed = ioi_crypto::key_store::decrypt_key(&sealed, guardian_pass)
         .map_err(|error| anyhow!("open capability key with IOI_GUARDIAN_KEY_PASS: {error}"))?;
-    let capability_seed: [u8; 32] = capability_seed
-        .0
-        .as_slice()
-        .try_into()
-        .map_err(|_| anyhow!("capability key is not a 32-byte seed"))?;
+    let capability_seed: Zeroizing<[u8; 32]> = Zeroizing::new(
+        capability_seed
+            .0
+            .as_slice()
+            .try_into()
+            .map_err(|_| anyhow!("capability key is not a 32-byte seed"))?,
+    );
     let capability = keypair(&capability_seed)?;
-    Ok(Keys {
-        root,
+    Ok(ServeKeys {
+        custody,
         capability,
-        approver,
-        approver_path,
         capability_key_path,
+        root_public_key: read_public_key(&root_public_path)?,
+        approver_public_key: read_public_key(&approver_public_path)?,
+        approver_public_key_path: approver_public_path,
+        approver_plaintext_path: (custody == KeyCustody::Plaintext)
+            .then(|| keys_dir.join(APPROVER_SEED_PLAINTEXT)),
+        genesis_root,
     })
 }
 
-fn random_seed() -> [u8; 32] {
+/// `seal-keys`: convert a plaintext state dir. Every plaintext seed (root, approver, retired
+/// approvers) is sealed with the operator passphrase and verified by opening it again; only when
+/// every one is sealed are the plaintext files overwritten and removed. Re-running it finishes an
+/// interrupted conversion.
+fn seal_keys(state_dir: &Path, pass: &OperatorPassSource) -> Result<()> {
+    let keys_dir = state_dir.join("keys");
+    if !keys_dir.is_dir() {
+        bail!("{} has no keys/ directory", state_dir.display());
+    }
+    if keys_dir
+        .join(format!("{APPROVER_SEED_PLAINTEXT}.next"))
+        .exists()
+    {
+        bail!("a plaintext rotation is in progress (keys/{APPROVER_SEED_PLAINTEXT}.next); finish it with `rotate --plaintext-keys` before sealing");
+    }
+    // (plaintext seed, sealed seed, public half, mode)
+    let mut plan: Vec<(PathBuf, PathBuf, PathBuf, u32)> = vec![
+        (
+            keys_dir.join(ROOT_SEED_PLAINTEXT),
+            keys_dir.join(ROOT_SEED_SEALED),
+            keys_dir.join(ROOT_PUBLIC_KEY_FILE),
+            0o600,
+        ),
+        (
+            keys_dir.join(APPROVER_SEED_PLAINTEXT),
+            keys_dir.join(APPROVER_SEED_SEALED),
+            keys_dir.join(APPROVER_PUBLIC_KEY_FILE),
+            0o600,
+        ),
+    ];
+    let retired_prefix = format!("{APPROVER_SEED_PLAINTEXT}.v");
+    for entry in std::fs::read_dir(&keys_dir)? {
+        let name = entry?.file_name().to_string_lossy().into_owned();
+        if let Some(version) = name.strip_prefix(&retired_prefix) {
+            if !version.is_empty() && version.bytes().all(|byte| byte.is_ascii_digit()) {
+                plan.push((
+                    keys_dir.join(&name),
+                    keys_dir.join(format!("{APPROVER_SEED_SEALED}.v{version}")),
+                    keys_dir.join(format!("{APPROVER_PUBLIC_KEY_FILE}.v{version}")),
+                    0o400,
+                ));
+            }
+        }
+    }
+    let pending: Vec<_> = plan
+        .into_iter()
+        .filter(|(plaintext, ..)| plaintext.exists())
+        .collect();
+    if pending.is_empty() {
+        if keys_dir.join(ROOT_SEED_SEALED).exists() && keys_dir.join(APPROVER_SEED_SEALED).exists()
+        {
+            println!(
+                "{}",
+                serde_json::json!({ "ok": true, "key_custody": "sealed", "sealed": [], "removed": [], "note": "keys/ was already sealed" })
+            );
+            return Ok(());
+        }
+        bail!(
+            "{}/keys holds no plaintext seeds to seal",
+            state_dir.display()
+        );
+    }
+    let operator_pass = pass.obtain(
+        state_dir,
+        "seal-keys seals the control root and the approver key",
+        true,
+    )?;
+    let file_name = |path: &Path| {
+        path.file_name()
+            .map(|name| name.to_string_lossy().into_owned())
+            .unwrap_or_default()
+    };
+    let mut sealed_names = Vec::new();
+    for (plaintext, sealed, public, mode) in &pending {
+        let seed = read_seed_hex(plaintext)?;
+        if sealed.exists() {
+            // An interrupted earlier run: the sealed file must hold exactly this seed.
+            let existing = open_sealed_seed(sealed, &operator_pass)?;
+            if *existing != *seed {
+                bail!(
+                    "{} already exists and seals a DIFFERENT key than {}; refusing to overwrite or remove either",
+                    sealed.display(),
+                    plaintext.display()
+                );
+            }
+        } else {
+            write_sealed_seed(sealed, &seed, &operator_pass)?;
+            if *open_sealed_seed(sealed, &operator_pass)? != *seed {
+                bail!(
+                    "sealing {} did not round-trip; the plaintext file is kept",
+                    plaintext.display()
+                );
+            }
+        }
+        std::fs::set_permissions(sealed, std::fs::Permissions::from_mode(*mode))?;
+        write_public_key(public, &keypair(&seed)?.public_key().to_bytes())?;
+        sealed_names.push(file_name(sealed));
+    }
+    std::fs::File::open(&keys_dir)?.sync_all()?;
+    let mut removed_names = Vec::new();
+    for (plaintext, ..) in &pending {
+        scrub_and_remove(plaintext)?;
+        removed_names.push(file_name(plaintext));
+    }
+    std::fs::File::open(&keys_dir)?.sync_all()?;
+    println!(
+        "{}",
+        serde_json::json!({
+            "ok": true,
+            "key_custody": "sealed",
+            "sealed": sealed_names,
+            "removed": removed_names,
+            "root_public_key": read_public_key(&keys_dir.join(ROOT_PUBLIC_KEY_FILE)).ok().map(hex::encode),
+            "approver_public_key": read_public_key(&keys_dir.join(APPROVER_PUBLIC_KEY_FILE)).ok().map(hex::encode),
+        })
+    );
+    Ok(())
+}
+
+/// Overwrite a plaintext seed file, then unlink it. The overwrite is best effort (a journaling or
+/// copy-on-write filesystem may keep older blocks); the unlink is what is guaranteed.
+fn scrub_and_remove(path: &Path) -> Result<()> {
+    let length = std::fs::metadata(path)?.len() as usize;
+    std::fs::set_permissions(path, std::fs::Permissions::from_mode(0o600))?;
+    if let Ok(mut file) = OpenOptions::new().write(true).open(path) {
+        let _ = file.write_all(&vec![0u8; length]);
+        let _ = file.sync_all();
+    }
+    std::fs::remove_file(path).with_context(|| format!("remove {}", path.display()))?;
+    Ok(())
+}
+
+fn random_seed() -> Zeroizing<[u8; 32]> {
     use rand::RngCore;
-    let mut seed = [0u8; 32];
-    rand::rngs::OsRng.fill_bytes(&mut seed);
+    let mut seed = Zeroizing::new([0u8; 32]);
+    rand::rngs::OsRng.fill_bytes(seed.as_mut());
     seed
 }
 
+fn write_sealed_seed(path: &Path, seed: &[u8; 32], operator_pass: &str) -> Result<()> {
+    let sealed = ioi_crypto::key_store::encrypt_key(seed, operator_pass)
+        .map_err(|error| anyhow!("seal {}: {error}", path.display()))?;
+    write_secret_bytes(path, &sealed)
+}
+
+fn open_sealed_seed(path: &Path, operator_pass: &str) -> Result<Zeroizing<[u8; 32]>> {
+    refuse_shared_key_file(path)?;
+    let sealed = std::fs::read(path).with_context(|| format!("read {}", path.display()))?;
+    let opened = ioi_crypto::key_store::decrypt_key(&sealed, operator_pass).map_err(|_| {
+        anyhow!(
+            "the operator passphrase does not open {} (wrong passphrase, or not a sealed key); nothing was signed or recorded",
+            path.display()
+        )
+    })?;
+    let seed: [u8; 32] = opened
+        .0
+        .as_slice()
+        .try_into()
+        .map_err(|_| anyhow!("{} does not seal a 32-byte seed", path.display()))?;
+    Ok(Zeroizing::new(seed))
+}
+
+fn write_public_key(path: &Path, public_key: &[u8]) -> Result<()> {
+    write_atomic_durable(path, format!("{}\n", hex::encode(public_key)).as_bytes())
+}
+
+fn read_public_key(path: &Path) -> Result<Vec<u8>> {
+    let text = std::fs::read_to_string(path).with_context(|| format!("read {}", path.display()))?;
+    let bytes =
+        hex::decode(text.trim()).with_context(|| format!("{} is not hex", path.display()))?;
+    if bytes.len() != 32 {
+        bail!("{} is not a 32-byte Ed25519 public key", path.display());
+    }
+    Ok(bytes)
+}
+
 fn write_secret_hex(path: &Path, seed: &[u8; 32]) -> Result<()> {
-    write_secret_bytes(path, format!("{}\n", hex::encode(seed)).as_bytes())
+    let text = Zeroizing::new(format!("{}\n", hex::encode(seed)));
+    write_secret_bytes(path, text.as_bytes())
 }
 
 fn write_secret_bytes(path: &Path, bytes: &[u8]) -> Result<()> {
@@ -1145,7 +2073,7 @@ fn write_secret_bytes(path: &Path, bytes: &[u8]) -> Result<()> {
     Ok(())
 }
 
-fn read_seed_hex(path: &Path) -> Result<[u8; 32]> {
+fn refuse_shared_key_file(path: &Path) -> Result<()> {
     let metadata = std::fs::metadata(path).with_context(|| format!("read {}", path.display()))?;
     if metadata.permissions().mode() & 0o077 != 0 {
         bail!(
@@ -1154,19 +2082,45 @@ fn read_seed_hex(path: &Path) -> Result<[u8; 32]> {
             metadata.permissions().mode() & 0o777
         );
     }
-    let text = std::fs::read_to_string(path)?;
-    let bytes =
+    Ok(())
+}
+
+fn read_seed_hex(path: &Path) -> Result<Zeroizing<[u8; 32]>> {
+    refuse_shared_key_file(path)?;
+    let text = Zeroizing::new(std::fs::read_to_string(path)?);
+    let mut bytes =
         hex::decode(text.trim()).with_context(|| format!("{} is not hex", path.display()))?;
-    bytes
+    let seed: Result<[u8; 32]> = bytes
         .as_slice()
         .try_into()
-        .map_err(|_| anyhow!("{} is not a 32-byte seed", path.display()))
+        .map_err(|_| anyhow!("{} is not a 32-byte seed", path.display()));
+    bytes.zeroize();
+    Ok(Zeroizing::new(seed?))
 }
 
 fn keypair(seed: &[u8; 32]) -> Result<Ed25519KeyPair> {
     let private =
         Ed25519PrivateKey::from_bytes(seed).map_err(|error| anyhow!(error.to_string()))?;
     Ed25519KeyPair::from_private_key(&private).map_err(|error| anyhow!(error.to_string()))
+}
+
+/// A 32-byte hash from the challenge: bare hex or the `sha256:`-prefixed ref form.
+fn parse_hash32(raw: &str, label: &str) -> Result<[u8; 32]> {
+    let trimmed = raw.trim();
+    let hex_part = trimmed.strip_prefix("sha256:").unwrap_or(trimmed);
+    let bytes = hex::decode(hex_part).with_context(|| format!("{label} is not hex"))?;
+    bytes
+        .as_slice()
+        .try_into()
+        .map_err(|_| anyhow!("{label} must be 32 bytes (64 hex characters)"))
+}
+
+/// A 32-byte account id: bare hex only (an account is not a hash ref).
+fn parse_account32(raw: &str, label: &str) -> Result<[u8; 32]> {
+    if raw.trim().starts_with("sha256:") {
+        bail!("{label} must be bare 32-byte hex (an account id, not a hash ref)");
+    }
+    parse_hash32(raw, label)
 }
 
 // ---------------------------------------------------------------------------------------------
@@ -1198,12 +2152,13 @@ fn wallet_policy() -> ServicePolicy {
     }
 }
 
-fn approval_authority(signer: &Ed25519KeyPair) -> Result<ApprovalAuthority> {
-    let public_key = signer.public_key().to_bytes();
+/// The approval authority a PUBLIC key names: registering and binding an approver needs no private
+/// key, so neither `serve` nor `rotate` ever holds the approver's seed to do it.
+fn approval_authority_from_public_key(public_key: &[u8]) -> Result<ApprovalAuthority> {
     Ok(ApprovalAuthority {
         schema_version: 1,
-        authority_id: account_id_from_key_material(SignatureSuite::ED25519, &public_key)?,
-        public_key,
+        authority_id: account_id_from_key_material(SignatureSuite::ED25519, public_key)?,
+        public_key: public_key.to_vec(),
         signature_suite: SignatureSuite::ED25519,
         expires_at: AUTHORITY_EXPIRES_AT_MS,
         revoked: false,
@@ -1543,4 +2498,421 @@ fn iso_now() -> String {
         (sod % 3_600) / 60,
         sod % 60
     )
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use ioi_services::agentic::runtime::kernel::approval::verify_wallet_approval_grant_binding;
+
+    const OPERATOR: &str = "operator-pass-for-sealing";
+    const GUARDIAN: &str = "guardian-pass-for-capability";
+
+    fn pass_source(value: Option<&str>) -> OperatorPassSource {
+        OperatorPassSource {
+            from_env: value.map(|value| Zeroizing::new(value.to_string())),
+            prompt_allowed: false,
+        }
+    }
+
+    /// A state dir whose keys/guardian.pass holds the guardian pass, as the launcher writes it.
+    fn state_dir_with_guardian() -> tempfile::TempDir {
+        let dir = tempfile::tempdir().unwrap();
+        std::fs::create_dir_all(dir.path().join("keys")).unwrap();
+        std::fs::write(
+            dir.path().join("keys/guardian.pass"),
+            format!("{GUARDIAN}\n"),
+        )
+        .unwrap();
+        dir
+    }
+
+    fn mode(path: &Path) -> u32 {
+        std::fs::metadata(path).unwrap().permissions().mode() & 0o777
+    }
+
+    fn contains(haystack: &[u8], needle: &[u8]) -> bool {
+        haystack
+            .windows(needle.len())
+            .any(|window| window == needle)
+    }
+
+    fn key_file_names(dir: &Path) -> Vec<String> {
+        let mut names: Vec<String> = std::fs::read_dir(dir.join("keys"))
+            .unwrap()
+            .map(|entry| entry.unwrap().file_name().to_string_lossy().into_owned())
+            .collect();
+        names.sort();
+        names
+    }
+
+    #[test]
+    fn a_sealed_seed_opens_only_with_the_operator_pass() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join(APPROVER_SEED_SEALED);
+        let seed = random_seed();
+        write_sealed_seed(&path, &seed, OPERATOR).unwrap();
+        assert_eq!(mode(&path), 0o600);
+        assert_eq!(*open_sealed_seed(&path, OPERATOR).unwrap(), *seed);
+        assert!(
+            open_sealed_seed(&path, GUARDIAN).is_err(),
+            "the guardian pass must not open it"
+        );
+        assert!(
+            open_sealed_seed(&path, "").is_err(),
+            "the empty pass must not open it"
+        );
+        let bytes = std::fs::read(&path).unwrap();
+        assert!(!contains(&bytes, &seed[..]), "raw seed bytes on disk");
+        assert!(
+            !contains(&bytes, hex::encode(*seed).as_bytes()),
+            "hex seed on disk"
+        );
+    }
+
+    #[test]
+    fn the_operator_pass_is_refused_when_empty_short_or_equal_to_the_guardian_pass() {
+        let dir = state_dir_with_guardian();
+        assert!(validate_operator_pass(OPERATOR, dir.path()).is_ok());
+        let same = validate_operator_pass(GUARDIAN, dir.path())
+            .unwrap_err()
+            .to_string();
+        assert!(same.contains("must differ"), "{same}");
+        assert!(validate_operator_pass(&format!(" {GUARDIAN}\n"), dir.path()).is_err());
+        assert!(validate_operator_pass("", dir.path()).is_err());
+        assert!(validate_operator_pass("   ", dir.path()).is_err());
+        assert!(validate_operator_pass("short", dir.path()).is_err());
+    }
+
+    #[test]
+    fn a_fresh_sealed_bring_up_without_the_pass_is_refused_and_writes_nothing() {
+        let dir = state_dir_with_guardian();
+        let error = load_or_generate_serve_keys(
+            dir.path(),
+            GUARDIAN,
+            KeyModeArgs::default(),
+            &pass_source(None),
+        )
+        .err()
+        .expect("a fresh sealed bring-up without the passphrase must refuse")
+        .to_string();
+        assert!(
+            error.contains("FRESH state dir") && error.contains(OPERATOR_PASS_ENV),
+            "{error}"
+        );
+        assert_eq!(
+            key_file_names(dir.path()),
+            vec!["guardian.pass".to_string()]
+        );
+    }
+
+    #[test]
+    fn a_fresh_bring_up_with_the_guardian_pass_as_operator_pass_is_refused_and_writes_nothing() {
+        let dir = state_dir_with_guardian();
+        let error = load_or_generate_serve_keys(
+            dir.path(),
+            GUARDIAN,
+            KeyModeArgs::default(),
+            &pass_source(Some(GUARDIAN)),
+        )
+        .err()
+        .expect("the guardian pass must not seal the root and approver")
+        .to_string();
+        assert!(error.contains("must differ"), "{error}");
+        assert_eq!(
+            key_file_names(dir.path()),
+            vec!["guardian.pass".to_string()]
+        );
+    }
+
+    #[test]
+    fn a_fresh_sealed_bring_up_leaves_only_sealed_seeds_and_a_resume_needs_no_pass() {
+        let dir = state_dir_with_guardian();
+        let keys = load_or_generate_serve_keys(
+            dir.path(),
+            GUARDIAN,
+            KeyModeArgs::default(),
+            &pass_source(Some(OPERATOR)),
+        )
+        .unwrap();
+        assert_eq!(keys.custody, KeyCustody::Sealed);
+        assert!(keys.approver_plaintext_path.is_none());
+        assert_eq!(
+            key_file_names(dir.path()),
+            [
+                APPROVER_PUBLIC_KEY_FILE,
+                APPROVER_SEED_SEALED,
+                CAPABILITY_KEY_FILE,
+                "guardian.pass",
+                ROOT_PUBLIC_KEY_FILE,
+                ROOT_SEED_SEALED
+            ]
+            .map(String::from)
+            .to_vec()
+        );
+        let keys_dir = dir.path().join("keys");
+        for sealed in [ROOT_SEED_SEALED, APPROVER_SEED_SEALED] {
+            let path = keys_dir.join(sealed);
+            assert_eq!(mode(&path), 0o600, "{sealed}");
+            assert!(
+                open_sealed_seed(&path, GUARDIAN).is_err(),
+                "{sealed} opens with the guardian pass"
+            );
+            assert!(
+                open_sealed_seed(&path, "").is_err(),
+                "{sealed} opens with the empty pass"
+            );
+        }
+        // The public halves are what the sealed seeds hold.
+        let root = keypair(&open_sealed_seed(&keys_dir.join(ROOT_SEED_SEALED), OPERATOR).unwrap())
+            .unwrap();
+        let approver =
+            keypair(&open_sealed_seed(&keys_dir.join(APPROVER_SEED_SEALED), OPERATOR).unwrap())
+                .unwrap();
+        assert_eq!(keys.root_public_key, root.public_key().to_bytes());
+        assert_eq!(keys.approver_public_key, approver.public_key().to_bytes());
+        assert_eq!(
+            keys.genesis_root
+                .as_ref()
+                .map(|key| key.public_key().to_bytes()),
+            Some(root.public_key().to_bytes()),
+            "the first bring-up holds the root only to sign genesis"
+        );
+        drop(keys);
+
+        // Resume: no passphrase anywhere, no private root or approver key held.
+        let resumed = load_or_generate_serve_keys(
+            dir.path(),
+            GUARDIAN,
+            KeyModeArgs::default(),
+            &pass_source(None),
+        )
+        .unwrap();
+        assert!(resumed.genesis_root.is_none());
+        assert_eq!(resumed.root_public_key, root.public_key().to_bytes());
+        assert_eq!(
+            resumed.approver_public_key,
+            approver.public_key().to_bytes()
+        );
+        // And the dev/test opt-in never applies to sealed keys.
+        assert!(load_or_generate_serve_keys(
+            dir.path(),
+            GUARDIAN,
+            KeyModeArgs {
+                plaintext_keys: true
+            },
+            &pass_source(None),
+        )
+        .is_err());
+    }
+
+    #[test]
+    fn a_plaintext_state_dir_is_refused_in_deployment_mode_and_seal_keys_converts_it() {
+        let dir = state_dir_with_guardian();
+        let keys_dir = dir.path().join("keys");
+        let root_seed = random_seed();
+        let approver_seed = random_seed();
+        let retired_seed = random_seed();
+        write_secret_hex(&keys_dir.join(ROOT_SEED_PLAINTEXT), &root_seed).unwrap();
+        write_secret_hex(&keys_dir.join(APPROVER_SEED_PLAINTEXT), &approver_seed).unwrap();
+        let retired = keys_dir.join(format!("{APPROVER_SEED_PLAINTEXT}.v1"));
+        write_secret_hex(&retired, &retired_seed).unwrap();
+        std::fs::set_permissions(&retired, std::fs::Permissions::from_mode(0o400)).unwrap();
+
+        let refused = require_custody(dir.path(), KeyModeArgs::default())
+            .unwrap_err()
+            .to_string();
+        assert!(
+            refused.contains("PLAINTEXT") && refused.contains("seal-keys"),
+            "{refused}"
+        );
+        let serve_refused = load_or_generate_serve_keys(
+            dir.path(),
+            GUARDIAN,
+            KeyModeArgs::default(),
+            &pass_source(Some(OPERATOR)),
+        )
+        .err()
+        .expect("serve must refuse a plaintext dir in deployment mode")
+        .to_string();
+        assert!(serve_refused.contains("seal-keys"), "{serve_refused}");
+        assert_eq!(
+            require_custody(
+                dir.path(),
+                KeyModeArgs {
+                    plaintext_keys: true
+                }
+            )
+            .unwrap(),
+            KeyCustody::Plaintext
+        );
+
+        // A wrong (guardian) pass converts nothing.
+        assert!(seal_keys(dir.path(), &pass_source(Some(GUARDIAN))).is_err());
+        assert!(keys_dir.join(ROOT_SEED_PLAINTEXT).exists());
+        assert!(!keys_dir.join(ROOT_SEED_SEALED).exists());
+
+        seal_keys(dir.path(), &pass_source(Some(OPERATOR))).unwrap();
+        for gone in [
+            ROOT_SEED_PLAINTEXT,
+            APPROVER_SEED_PLAINTEXT,
+            "approver.seed.v1",
+        ] {
+            assert!(!keys_dir.join(gone).exists(), "{gone} survived seal-keys");
+        }
+        assert_eq!(mode(&keys_dir.join(ROOT_SEED_SEALED)), 0o600);
+        assert_eq!(mode(&keys_dir.join(APPROVER_SEED_SEALED)), 0o600);
+        assert_eq!(
+            mode(&keys_dir.join(format!("{APPROVER_SEED_SEALED}.v1"))),
+            0o400
+        );
+        for (sealed, public, seed) in [
+            (
+                ROOT_SEED_SEALED.to_string(),
+                ROOT_PUBLIC_KEY_FILE.to_string(),
+                &root_seed,
+            ),
+            (
+                APPROVER_SEED_SEALED.to_string(),
+                APPROVER_PUBLIC_KEY_FILE.to_string(),
+                &approver_seed,
+            ),
+            (
+                format!("{APPROVER_SEED_SEALED}.v1"),
+                format!("{APPROVER_PUBLIC_KEY_FILE}.v1"),
+                &retired_seed,
+            ),
+        ] {
+            assert_eq!(
+                *open_sealed_seed(&keys_dir.join(&sealed), OPERATOR).unwrap(),
+                **seed
+            );
+            assert_eq!(
+                read_public_key(&keys_dir.join(&public)).unwrap(),
+                keypair(seed).unwrap().public_key().to_bytes()
+            );
+        }
+        assert_eq!(
+            require_custody(dir.path(), KeyModeArgs::default()).unwrap(),
+            KeyCustody::Sealed
+        );
+        // Idempotent: a second run finds nothing plaintext and says so.
+        seal_keys(dir.path(), &pass_source(Some(OPERATOR))).unwrap();
+    }
+
+    #[test]
+    fn a_minted_grant_is_one_use_short_lived_and_passes_the_daemons_binding_verifier() {
+        let approver = keypair(&random_seed()).unwrap();
+        let public_key = approver.public_key().to_bytes();
+        let (policy, request, audience) = ([0x11u8; 32], [0x22u8; 32], [0x33u8; 32]);
+        let now = now_ms();
+        let expires_at = now + DEFAULT_APPROVAL_EXPIRES_IN_SECS * 1_000;
+        let grant = mint_one_use_grant(&approver, policy, request, audience, expires_at).unwrap();
+        let again = mint_one_use_grant(&approver, policy, request, audience, expires_at).unwrap();
+        assert_ne!(
+            grant.nonce, again.nonce,
+            "every grant carries a fresh random nonce"
+        );
+        assert_ne!(
+            grant.nonce, [4u8; 32],
+            "not the fixture minter's constant nonce"
+        );
+        assert_eq!(grant.max_usages, Some(1));
+        assert_eq!(grant.counter, 1);
+        assert_eq!(grant.expires_at, expires_at);
+        assert_eq!(
+            (grant.policy_hash, grant.request_hash, grant.audience),
+            (policy, request, audience)
+        );
+
+        // The signer tuple the daemon compares against the independently resolved authority,
+        // built here from the PUBLIC key alone (what `approver.pub` holds).
+        let authority = approval_authority_from_public_key(&public_key).unwrap();
+        assert_eq!(grant.authority_id, authority.authority_id);
+        assert_eq!(grant.approver_public_key, authority.public_key);
+        assert_eq!(grant.approver_suite, authority.signature_suite);
+
+        // The daemon's own grant verifier (authorize_deployment_grant → verify_wallet_approval_
+        // grant_binding): structural verify, Ed25519 signature, expiry, exact hashes.
+        let value = serde_json::to_value(&grant).unwrap();
+        let policy_ref = format!("sha256:{}", hex::encode(policy));
+        let request_ref = format!("sha256:{}", hex::encode(request));
+        let binding = verify_wallet_approval_grant_binding(
+            &value,
+            Some(now),
+            Some(&policy_ref),
+            Some(&request_ref),
+        )
+        .unwrap();
+        assert!(binding
+            .grant_ref
+            .starts_with("wallet.network://grant/approval/"));
+        let other = format!("sha256:{}", hex::encode([0x44u8; 32]));
+        assert!(verify_wallet_approval_grant_binding(
+            &value,
+            Some(now),
+            Some(&other),
+            Some(&request_ref)
+        )
+        .is_err());
+        assert!(verify_wallet_approval_grant_binding(
+            &value,
+            Some(now),
+            Some(&policy_ref),
+            Some(&other)
+        )
+        .is_err());
+        assert!(
+            verify_wallet_approval_grant_binding(
+                &value,
+                Some(expires_at + 1),
+                Some(&policy_ref),
+                Some(&request_ref)
+            )
+            .is_err(),
+            "an expired grant is refused"
+        );
+        let mut forged = value.clone();
+        forged["audience"] = serde_json::to_value([0x55u8; 32]).unwrap();
+        assert!(
+            verify_wallet_approval_grant_binding(
+                &forged,
+                Some(now),
+                Some(&policy_ref),
+                Some(&request_ref)
+            )
+            .is_err(),
+            "a field changed after signing breaks the signature"
+        );
+        // Neither the grant nor its JSON carries the seed.
+        let text = value.to_string();
+        assert!(!text.contains("seed") && !text.contains("private"));
+    }
+
+    #[test]
+    fn challenge_hashes_parse_in_both_forms_and_the_audience_only_bare() {
+        let hex64 = "ab".repeat(32);
+        assert_eq!(parse_hash32(&hex64, "h").unwrap(), [0xab; 32]);
+        assert_eq!(
+            parse_hash32(&format!("sha256:{hex64}"), "h").unwrap(),
+            [0xab; 32]
+        );
+        assert!(parse_hash32("abcd", "h").is_err());
+        assert_eq!(parse_account32(&hex64, "a").unwrap(), [0xab; 32]);
+        assert!(parse_account32(&format!("sha256:{hex64}"), "a").is_err());
+    }
+
+    #[test]
+    fn scrubbing_overwrites_the_value_in_place_before_it_is_unset() {
+        let name = "IOI_WALLET_AUTHORITY_SCRUB_TEST_ONLY";
+        std::env::set_var(name, "scrub-me-please");
+        scrub_environment_block(name);
+        assert_eq!(
+            std::env::var(name).as_deref(),
+            Ok(""),
+            "the value bytes are overwritten"
+        );
+        std::env::remove_var(name);
+        assert!(std::env::var_os(name).is_none());
+    }
 }

@@ -6791,6 +6791,7 @@ dependencies = [
  "transport-verifier",
  "uuid 1.21.0",
  "wit-component 0.201.0",
+ "zeroize",
  "zip",
  "zk-types",
 ]
