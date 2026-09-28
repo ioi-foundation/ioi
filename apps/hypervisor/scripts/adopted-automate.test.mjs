@@ -36,6 +36,14 @@ test("the function registry offers released, operable revisions only, scoped to 
   assert.deepEqual(answered.function.version.inputs[0], { name: "amount", required: true, type: { __typename: "FunctionDataType_Integer" } });
 });
 
+test("a listed function says where it lives and is visible: the Functions list reads its locator's kind (a null locator crashed the section)", () => {
+  const [node] = FUNCTIONS.functionFactsRoot([family], () => [released], {}).functionsV2.values;
+  assert.equal(node.visibility, "VISIBLE");
+  assert.equal(node.latestVersionV2.locatorV2.__typename, "FunctionLocator_Python3", "a python3 function");
+  const js = { ...released, implementation: { runtime: "node" } };
+  assert.equal(FUNCTIONS.functionFactsRoot([{ ...family, released_revision: js }], () => [js], {}).functionsV2.values[0].latestVersionV2.locatorV2.__typename, "FunctionLocator_External", "any other runtime: an external function of the Hypervisor");
+});
+
 test("the registry resolves a version range to the released spec in conjure types", () => {
   const { specs } = FUNCTIONS.functionSpecs(family, [released], "1.0.0", 1);
   assert.equal(specs.length, 1);

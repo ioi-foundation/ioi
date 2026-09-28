@@ -76,8 +76,17 @@ async function run() {
     action_types: [{ id: "approve", name: "Approve", kind: "modify_object", applies_to: "loan" }] } })).j.ontology;
   const revised = await d("PATCH", `/v1/hypervisor/odk/domain-ontologies/${made?.id}`, { expected_revision: 1, canonical_object_model: { ...made.canonical_object_model, object_types: [...made.canonical_object_model.object_types, { id: "branch", name: "Branch", title_property: "city", properties: [{ id: "city", name: "City", value_type: "string" }] }] } });
   const odkHistory = (await d("GET", `/v1/hypervisor/odk/domain-ontologies/${made?.id}/history`)).j.history || [];
-  ok("PRECONDITION: an ODK draft exists and its revision records which type it created (ODK keeps each revision's changes)",
-    revised.status === 200 && odkHistory.at(-1)?.affected?.object_types?.branch === "CREATED", JSON.stringify(odkHistory.at(-1)?.affected || null));
+  // and a function, declared in the Hypervisor's function registry (the Functions section lists the registry)
+  const owner = ((await d("GET", "/v1/hypervisor/auth/whoami")).j.principal?.tenant_refs || []).find((t) => String(t).startsWith("org://"));
+  const fn = await d("POST", "/v1/hypervisor/functions", { owner_ref: owner, idempotency_key: `adopted-ontology-fn-${process.pid}`, display_name: "Loan score", api_name: "loanScore", version: "1.0.0", documentation: "",
+    inputs: [{ name: "amount", description: "", data_type: { type: "integer" }, required: true }], output: { data_type: { type: "integer" }, description: "" },
+    implementation: { runtime: "python3", source: "import json, sys\nprint(json.dumps(json.load(sys.stdin)['amount'] // 100))\n" }, timeout_ms: 30000 });
+  // released (the section lists released functions: a draft revision is not yet offered to anything)
+  const fnId = String(fn.j.revision?.function_ref || "").replace(/^function:\/\//u, "");
+  const released = fnId ? await d("POST", `/v1/hypervisor/functions/${fnId}/revisions/1/release`, { owner_ref: owner, idempotency_key: `adopted-ontology-release-${process.pid}` }) : { status: 0, j: {} };
+  ok("PRECONDITION: an ODK draft exists and its revision records which type it created (ODK keeps each revision's changes), and a function is declared and released",
+    revised.status === 200 && odkHistory.at(-1)?.affected?.object_types?.branch === "CREATED" && fn.status < 300 && released.status < 300,
+    `${JSON.stringify(odkHistory.at(-1)?.affected || null)} · function ${fn.status} ${fnId} · release ${released.status} ${released.j.error?.code || ""}`);
 
   const { chromium } = await import(path.join(ROOT, "node_modules", "playwright", "index.mjs"));
   const browser = await chromium.launch();
@@ -130,6 +139,10 @@ async function run() {
     const values = await visit("/workspace/ontology/home/value-types", /Money/u);
     ok("the Value types section lists the ODK value type with its base type",
       /Money Double/u.test(values), after(values, "Value types 1", 100));
+    const functions = await visit("/workspace/ontology/home/function", /Loan score|Could not find any functions|An error occurred/u);
+    ok("the Functions section lists the functions released in the Hypervisor's registry",
+      /Loan score/u.test(after(functions, "Function 1 New function", 200)) && /Visible/u.test(after(functions, "Loan score", 80)) && !/Could not find any functions|An error occurred/u.test(functions),
+      after(functions, "Function 1 New function", 140));
     const history = await visit("/workspace/ontology/home/history", /Created|No changes|do not have perm/u);
     ok("History lists the revision with its author (its ODK receipt) and the type it created — not \"edits you do not have permission to view\"",
       /You/u.test(history) && /patched: canonical_object_model/u.test(history) && /Branch/u.test(history) && /Created/u.test(history) && !/do not have perm/u.test(history),
@@ -186,10 +199,14 @@ async function run() {
     const unbound = await fetch(`${SERVE}/ontology-metadata/api/usage/getSettings/user`, { method: "POST", headers: H, body: "{}" }).then(async (r) => ({ status: r.status, j: await r.json().catch(() => ({})) }));
     const service = await fetch(`${SERVE}/objects-data-funnel/api/status/object-type`, { method: "POST", headers: H, body: "{}" }).then(async (r) => ({ status: r.status, ct: r.headers.get("content-type") || "", j: await r.json().catch(() => ({})) }));
     const batch = await fetch(`${SERVE}/graphql-gateway/api/graphql/batch`, { method: "POST", headers: H, body: JSON.stringify([{ operationName: "GetResourceQuery", query: "query GetResourceQuery($rid: RID!) { resourceMetadata(rid: $rid) { rid __typename } __typename }", variables: { rid: "ri.workshop.main.module.00000000-0000-0000-0000-000000000000" } }]) }).then(async (r) => ({ status: r.status, headers: r.headers, text: await r.text() }));
+    // a function-registry read from another adopted surface answers the Hypervisor's functions too (passed through, it had
+    // answered the recorded tenant's)
+    const elsewhere = await fetch(`${SERVE}/graphql-gateway/api/graphql?q=SearchAllFunctionsQuery`, { method: "POST", headers: { ...H, referer: `${SERVE}/workspace/object-monitoring/` }, body: JSON.stringify({ operationName: "SearchAllFunctionsQuery", query: "query SearchAllFunctionsQuery($filter: FunctionFilter) { functionsV2(filter: $filter) { totalNumberOfResults __typename } __typename }", variables: { filter: { clauses: [], type: "OR" } } }) }).then(async (r) => ({ status: r.status, pass: r.headers.get("x-ioi-mirror-passthrough"), j: await r.json().catch(() => ({})) }));
     ok("on the ontology surface an unbound read is a named gap and a GraphQL batch is answered by the adopted layer — never the recorded tenant's answer",
       unbound.status === 501 && unbound.j.errorName === "Hypervisor:OntologyReadNotBound" && service.status === 501 && /json/u.test(service.ct) && service.j.errorName === "Hypervisor:OntologyReadNotBound"
-        && batch.status === 200 && !batch.headers.get("x-ioi-mirror-passthrough") && /not bound in the Hypervisor adapter yet/u.test(batch.text),
-      `unbound ${unbound.status} ${unbound.j.errorName} · service ${service.status} ${service.ct.split(";")[0]} · batch ${batch.status} ${batch.text.slice(0, 80)}`);
+        && batch.status === 200 && !batch.headers.get("x-ioi-mirror-passthrough") && /not bound in the Hypervisor adapter yet/u.test(batch.text)
+        && !elsewhere.pass && elsewhere.j.data?.functionsV2?.totalNumberOfResults === 1,
+      `unbound ${unbound.status} ${unbound.j.errorName} · service ${service.status} ${service.ct.split(";")[0]} · batch ${batch.status} ${batch.text.slice(0, 60)} · functions from Automate ${elsewhere.j.data?.functionsV2?.totalNumberOfResults}`);
 
     // ---- degraded: the daemon stopped — each page shows its own error, never an empty ontology -----------------------
     daemon.kill("SIGTERM");

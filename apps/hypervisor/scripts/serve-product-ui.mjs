@@ -9658,6 +9658,12 @@ async function handleEstateRequest(req, res, body) {
         if (gqlOp && AUTOMATE.USER_STATE_OPERATIONS.has(gqlName)) {
           return sendJson(await answerAdoptedOp(gqlName, gqlOp.variables || {}, await automateContextOrFailed(), String(gqlOp.query || "")));
         }
+        // The function registry's operations answer from the Hypervisor's functions on every surface, as the bulk
+        // gateway answers them: passed through, SearchAllFunctionsQuery had answered the recorded tenant's 575
+        // functions. (AllOntologiesQuery is not one of them here: it is not a function read.)
+        if (gqlOp && FUNCTIONS.FUNCTION_OPERATIONS.has(gqlName) && gqlName !== "AllOntologiesQuery") {
+          return sendJson(await answerAdoptedOp(gqlName, gqlOp.variables || {}, await automateContextOrFailed(), String(gqlOp.query || "")));
+        }
         // The adopted Pipeline Builder, opened directly, reads over this single-operation gateway too: the same
         // answers as the bulk gateway, never the capture passthrough below.
         if (gqlOp && (PIPELINE.answersPipelineOperation(gqlName, gqlOp.variables || {}) || (onPipelineSurface() && (AUTOMATE.SAVE_LOCATION_OPERATIONS.has(gqlName) || gqlName === "FolderLocationQuery" || gqlName === "ViewResourceMutation")))) {

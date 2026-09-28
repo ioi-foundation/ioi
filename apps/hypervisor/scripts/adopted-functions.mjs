@@ -63,6 +63,9 @@ function versionNode(family, revision) {
     output: typeNode(revision.output?.data_type),
     outputV2: { __typename: "FunctionOutputV2", rawType: rawTypeOf(revision.output?.data_type), objectTypes: [] },
     customTypes: [], logicalTypes: [], branch: null,
+    // where the function lives: outside the platform, in the Hypervisor's function registry (the list reads the
+    // locator's kind for its Source column — a null locator had crashed the Ontology Manager's Functions section)
+    locatorV2: revision.implementation?.runtime === "python3" ? { __typename: "FunctionLocator_Python3" } : { __typename: "FunctionLocator_External", service: "hypervisor", id: revision.revision_ref || family.function_ref },
     function: { __typename: "Function", _id: cacheId(rid), rid, displayName: family.display_name || family.api_name },
   };
 }
@@ -77,7 +80,7 @@ function functionNode(family, released, wantVersion) {
     __typename: "Function", _id: cacheId(rid), rid, displayName: family.display_name || family.api_name,
     description: latest?.documentation || "", apiName: family.api_name || null, ontologyBindings: [],
     // only released functions are offered; none lives in a code repository or a project here
-    status: "ACTIVE", repositoryMetadata: null, metadata: { __typename: "FunctionMetadata", _id: cacheId(`metadata:${rid}`), project: null },
+    status: "ACTIVE", visibility: "VISIBLE", repositoryMetadata: null, metadata: { __typename: "FunctionMetadata", _id: cacheId(`metadata:${rid}`), project: null },
     sourceMetadata: resourceOf(family),
     latestVersion: latestNode, latestVersionV2: latestNode,
     version: chosen ? versionNode(family, chosen) : null,
