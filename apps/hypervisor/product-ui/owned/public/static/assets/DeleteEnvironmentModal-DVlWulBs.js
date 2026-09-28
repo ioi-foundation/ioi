@@ -723,7 +723,7 @@ var X = !1,
               }),
               (0, K.jsx)(A, {
                 className: `text-sm text-content-secondary`,
-                children: `Try again, or contact support if the issue persists.`,
+                children: n || `Try again, or contact support if the issue persists.`,
               }),
               a &&
                 (0, K.jsx)(C, {
@@ -983,7 +983,7 @@ var $ = ({ label: e, percent: t, detail: n }) => {
 };
 async function ct(e, t, n) {
   let r = await fetch(e, { signal: n, mode: `cors`, headers: { Authorization: `Bearer ${t}` } });
-  if (!r.ok) throw Error(`HTTP ${r.status}: ${r.statusText}`);
+  if (!r.ok) throw Error((await r.json().catch(() => null))?.message || `HTTP ${r.status}: ${r.statusText}`);
   return await r.json();
 }
 function lt(e, t, n) {

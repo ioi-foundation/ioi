@@ -10,6 +10,7 @@
 //   - the editor openers resolve an editor URL (the projection names the organization; ResolveEditorURL is bound);
 //   - "New Terminal" opens a real terminal bound to the environment (the env-ops bridge carries the person's session);
 //   - Create PR files a governed draft owned by the environment's tenant (it could never succeed for anyone);
+//   - Services, Tasks, Add port and Resource usage each say, in a sentence, what is absent and why;
 //   - the personal settings routes show a named gap instead of a blank page;
 //   - a disposable serve never writes the owner's preference store.
 //
@@ -154,6 +155,50 @@ async function run() {
     }
     ok("the session details card renders (its runner is named), rather than a skeleton forever",
       /Created/u.test(card) && /Last started/u.test(card) && skeletons < 3, `skeletons ${skeletons} · created ${/Created/u.test(card)} · last started ${/Last started/u.test(card)}`);
+
+    // ---- named gaps that read: Services, Tasks, Add port, Resource usage ------------------------------------------
+    await pg.goto(`${SERVE}/details/${RUNNING}`, { waitUntil: "domcontentloaded", timeout: 60000 });
+    await pg.waitForTimeout(8000);
+    const paneOf = (t) => pg.evaluate((t) => { const tab = [...document.querySelectorAll("[role=tab]")].find((x) => x.innerText.trim() === t); const id = tab?.getAttribute("aria-controls"); const p = id ? document.getElementById(id) : null; return (p?.innerText || "").replace(/\s+/gu, " "); }, t);
+    const overlays = () => pg.evaluate(() => [...document.querySelectorAll("[role=dialog],[role=alertdialog],[data-sonner-toast],[role=status],[role=alert]")].map((e) => e.innerText).join(" | ").replace(/\s+/gu, " "));
+    await pg.getByRole("tab", { name: "Ports & Services", exact: true }).first().click({ timeout: 4000 }).catch(() => { /* named below */ });
+    let portsPane = "";
+    for (let i = 0; i < 12; i++) { await pg.waitForTimeout(800); portsPane = await paneOf("Ports & Services"); if (/environment_services_plane_absent/u.test(portsPane)) break; }
+    ok("the Services section names the absent services plane in a sentence (the shell labels Unimplemented \"Internal\" and showed a red \"Internal: …\" line)",
+      /Services aren't tracked for Hypervisor environments yet/u.test(portsPane) && /environment_services_plane_absent/u.test(portsPane) && !/Internal:/u.test(portsPane), portsPane.slice(0, 220));
+    rpc.length = 0;
+    await pg.getByRole("tab", { name: "Tasks", exact: true }).first().click({ timeout: 4000 }).catch(() => { /* named below */ });
+    let tasksPane = "";
+    for (let i = 0; i < 12; i++) { await pg.waitForTimeout(800); tasksPane = await paneOf("Tasks"); if (/environment_tasks_plane_absent/u.test(tasksPane)) break; }
+    await pg.waitForTimeout(3000);
+    const taskAsks = rpc.filter((x) => /ListTasks$/u.test(x)).length;
+    ok("the Tasks tab names the absent tasks plane instead of \"No tasks defined in this environment\" (it read only its data), and asks once rather than in a loop",
+      /Tasks aren't tracked for Hypervisor environments yet/u.test(tasksPane) && /environment_tasks_plane_absent/u.test(tasksPane) && !/No tasks defined/u.test(tasksPane) && taskAsks <= 2,
+      `${tasksPane.slice(0, 160)} · ListTasks asked ${taskAsks}×`);
+    await pg.getByRole("tab", { name: "Ports & Services", exact: true }).first().click({ timeout: 4000 }).catch(() => { /* named below */ });
+    await pg.waitForTimeout(800);
+    await pg.getByRole("button", { name: "Add port" }).first().click({ timeout: 4000 }).catch(() => { /* named below */ });
+    await pg.waitForTimeout(1200);
+    await pg.locator('[role=dialog] input[name="name"]').fill("web", { timeout: 3000 }).catch(() => { /* named below */ });
+    await pg.locator('[role=dialog] input[name="port"]').fill("3000", { timeout: 3000 }).catch(() => { /* named below */ });
+    await pg.locator("[role=dialog]").getByRole("button", { name: "Open port" }).first().click({ timeout: 3000 }).catch(() => { /* named below */ });
+    let portToast = "";
+    for (let i = 0; i < 10; i++) { await pg.waitForTimeout(600); portToast = await overlays(); if (/can't be opened|Failed to open port/u.test(portToast)) break; }
+    const envPorts = (await daemonReq(`/v1/hypervisor/environments/${RUNNING}`)).environment?.status?.ports || [];
+    ok("Add port's new port is refused naming the real rule — only the ports the recipe declares, only behind the opener's lease, never public — and nothing is exposed (it named the update rule it happened to reach)",
+      /Port 3000 can't be opened/u.test(portToast) && /only the ports their recipe declares/u.test(portToast) && !envPorts.some((x) => Number(x.port) === 3000),
+      `${(portToast.match(/Failed to open port[^|]*/u) || [portToast.slice(0, 160)])[0]} · daemon ports ${envPorts.map((x) => x.port).join(",") || "none"}`);
+    await pg.keyboard.press("Escape").catch(() => { /* closed */ });
+    await pg.goto(`${SERVE}/details/${RUNNING}`, { waitUntil: "domcontentloaded", timeout: 60000 });
+    await pg.waitForTimeout(8000);
+    await pg.getByRole("button", { name: "Environment actions" }).first().click({ timeout: 4000 }).catch(() => { /* named below */ });
+    await pg.waitForTimeout(800);
+    await pg.getByRole("menuitem", { name: "Resource usage", exact: true }).first().click({ timeout: 4000 }).catch(() => { /* named below */ });
+    let usage = "";
+    for (let i = 0; i < 12; i++) { await pg.waitForTimeout(800); usage = await overlays(); if (/environment_live_usage_plane_absent/u.test(usage)) break; }
+    ok("Resource usage says why there are no readings (the daemon reports no live usage for an environment) instead of \"N/A\" with no reason",
+      /environment_live_usage_plane_absent/u.test(usage) && /don't report live CPU, memory, disk or load/u.test(usage), usage.slice(0, 220));
+    await pg.keyboard.press("Escape").catch(() => { /* closed */ });
 
     // ---- Create PR: the shell's own prompt files a governed draft owned by the environment's tenant ------------
     // (the draft named the person's user:// ref as its owner, which is never a tenant, so every draft with changes

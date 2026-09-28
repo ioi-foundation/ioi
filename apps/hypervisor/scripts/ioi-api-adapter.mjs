@@ -77,6 +77,20 @@ const json = (payload) => ({ contentType: "application/json", body: JSON.stringi
 // Connect-protocol error: non-2xx HTTP + {code,message} so the SPA's client rejects (e.g. a
 // rejected GitHub token surfaces as a real connect failure, not a silent success).
 const jsonStatus = (status, payload) => ({ contentType: "application/json", body: JSON.stringify(payload), status });
+// A NAMED REFUSAL THE SHELL CAN READ (R-240 Arm A on Sessions). The shell labels Unimplemented "Internal" and renders a
+// refusal as a red "Internal: <code>: …" line (`use-boot-in-app-chat` ma/ha). Its own channel for a sentence a person
+// reads is a `gitpod.v1.ActionableErrorDetails` error detail: the error-message component then shows `user_message`
+// in the primary text colour, with "Show details <error_code>" revealing the raw message, and a toast shows the
+// sentence. The message and code are unchanged; the detail adds the sentence. Wire: Connect JSON error details are
+// `{type, value}` with `value` the base64 protobuf (error_code = 1, user_message = 2, both strings).
+const protoVarint = (n) => { const out = []; while (n > 0x7f) { out.push((n & 0x7f) | 0x80); n >>>= 7; } out.push(n); return out; };
+const protoString = (field, text) => { const bytes = [...Buffer.from(String(text), "utf8")]; return [(field << 3) | 2, ...protoVarint(bytes.length), ...bytes]; };
+const actionableErrorDetail = (errorCode, userMessage) => ({
+  type: "gitpod.v1.ActionableErrorDetails",
+  value: Buffer.from([...protoString(1, errorCode), ...protoString(2, userMessage)]).toString("base64").replace(/=+$/u, ""),
+});
+const namedRefusal = (status, code, gap, detail, userMessage) =>
+  jsonStatus(status, { code, message: `${gap}: ${detail}`, details: [actionableErrorDetail(gap, userMessage)] });
 // W0.5 identity truth — the typed refusal for an RPC whose backing daemon route does not exist
 // (or did not answer). The Connect client rejects with the named gap and the pane renders a
 // degraded state; nothing fabricates rows, names, or silent successes in its place.
@@ -358,17 +372,17 @@ function environmentUpdateRefusal(body) {
   const spec = [body.spec, body.req?.spec].find(plainObject) || {};
   // A name cleared to "" may serialize as an empty `metadata: {}`; either way it is a rename.
   if (metadata && ("name" in metadata || Object.keys(metadata).length === 0)) {
-    return jsonStatus(501, { code: "unimplemented", message: "environment_rename_not_supported: the daemon's environment record carries no name and has no update route, so the environment was not renamed" });
+    return namedRefusal(501, "unimplemented", "environment_rename_not_supported", "the daemon's environment record carries no name and has no update route, so the environment was not renamed", "Sessions can't be renamed here yet: an environment has no name of its own to change. Nothing was renamed.");
   }
   if (spec.timeout !== undefined && spec.timeout !== null) {
-    return jsonStatus(501, { code: "unimplemented", message: "environment_auto_stop_not_supported: the daemon sets an environment's stop policy (idle timeout) only when it is created and has no route to change it, so auto-stop was not changed" });
+    return namedRefusal(501, "unimplemented", "environment_auto_stop_not_supported", "the daemon sets an environment's stop policy (idle timeout) only when it is created and has no route to change it, so auto-stop was not changed", "Auto-stop is set when an environment is created and can't be changed afterwards. Auto-stop was not changed.");
   }
   const unsupported = [
     ...Object.keys(metadata || {}).map((k) => `metadata.${k}`),
     ...Object.keys(spec).filter((k) => k !== "desiredPhase" && k !== "ports" && k !== "environmentId").map((k) => `spec.${k}`),
   ];
   if (unsupported.length) {
-    return jsonStatus(501, { code: "unimplemented", message: `environment_update_field_not_supported: the daemon has no environment update route for ${unsupported.join(", ")}; nothing was changed` });
+    return namedRefusal(501, "unimplemented", "environment_update_field_not_supported", `the daemon has no environment update route for ${unsupported.join(", ")}; nothing was changed`, `This environment setting can't be changed here (${unsupported.join(", ")}). Nothing was changed.`);
   }
   return null;
 }
@@ -393,7 +407,7 @@ function goalModeMarker(body) {
   return null;
 }
 const goalModeRefusal = (marker) =>
-  jsonStatus(501, { code: "unimplemented", message: `goal_mode_not_in_hypervisor: Goal mode (${marker}) is not a Hypervisor feature — goal pursuit is an ioi.ai composition over thread primitives. Use Agent mode here; nothing was started or sent` });
+  namedRefusal(501, "unimplemented", "goal_mode_not_in_hypervisor", `Goal mode (${marker}) is not a Hypervisor feature — goal pursuit is an ioi.ai composition over thread primitives. Use Agent mode here; nothing was started or sent`, "Goal mode isn't part of the Hypervisor — goals are pursued in ioi.ai. Use Agent mode here. Nothing was started or sent.");
 
 // PLAN MODE HAS NO COUNTERPART (R-240 Arm A on Sessions, ruled 2026-09-27). The composer marks a Plan turn as
 // `turnOptions.modes: ["AGENT_MODE_SPEC"]` and the prompt prefix `/ioi:spec `. Nothing downstream interprets
@@ -407,7 +421,7 @@ function planModeMarker(body) {
   return null;
 }
 const planModeRefusal = (marker) =>
-  jsonStatus(501, { code: "unimplemented", message: `plan_mode_not_supported: Plan mode (${marker}) has no read-only turn in the Hypervisor harness — it would run as an Agent turn with the environment's full authority and could change files. Use Agent mode; nothing was started or sent` });
+  namedRefusal(501, "unimplemented", "plan_mode_not_supported", `Plan mode (${marker}) has no read-only turn in the Hypervisor harness — it would run as an Agent turn with the environment's full authority and could change files. Use Agent mode; nothing was started or sent`, "Plan mode isn't available yet: there is no read-only turn, so a plan would run as an Agent turn that can change files. Use Agent mode. Nothing was started or sent.");
 
 // LOGS (Sessions cut 1). The Logs pane mints a token (CreateEnvironmentLogsToken → a real env-scoped
 // lease, the same one CreateEnvironmentAccessToken mints), then GETs `status.environmentUrls.logs`
@@ -530,6 +544,12 @@ async function handleImpl(pathname, bodyText) {
       let envId = "";
       try { envId = decodeURIComponent(logsRead[1]); } catch { return jsonStatus(400, { code: "invalid_argument", message: "environment_logs_bad_id: the environment id in the logs URL is not decodable" }); }
       return environmentLogsText(envId);
+    }
+    // The Resource usage dialog's `environmentUrls.vmLiveUsage` (Sessions cut 4). The daemon publishes no live usage
+    // for an environment, so the dialog's read is refused naming that — never a fabricated snapshot. (Before, the
+    // projection carried no URL, the dialog never asked, and it read "N/A" with no reason.)
+    if (/^environments\/[^/]+\/live-usage$/u.test(sub)) {
+      return jsonStatus(501, { code: "unimplemented", message: "environment_live_usage_plane_absent: Hypervisor environments don't report live CPU, memory, disk or load readings yet (the daemon has no route that reads them), so none are shown." });
     }
     // Reads (GET): daemon projections.
     const map = {
@@ -756,7 +776,19 @@ async function handleImpl(pathname, bodyText) {
           else widening.push(portNo);
         }
         if (widening.length) {
-          return jsonStatus(403, { code: "permission_denied", message: `port_exposure_not_by_update: exposing port ${widening.join(", ")} through an environment update is refused — an update may only narrow who reaches a port; nothing was exposed` });
+          // The Add port dialog asks for a NEW public port; the page's own sync re-sends the ports the environment
+          // already lists. The daemon admits only the ports an environment's recipe declares, and opens one only
+          // behind the opener's capability lease — there is no public, everyone-can-reach port — so a new port is
+          // refused naming that rule, not the update rule it happened to reach (R-240 Arm A on Sessions).
+          const current = await env(`/v1/hypervisor/environments/${encodeURIComponent(id)}`).catch(() => null);
+          const declared = new Set(((current?.status?.ports) || []).map((p) => Number(p?.port)).filter((n) => n > 0));
+          const undeclared = widening.filter((n) => !declared.has(n));
+          if (undeclared.length) {
+            return namedRefusal(403, "permission_denied", "environment_port_not_declared", `port ${undeclared.join(", ")} is not one of this environment's declared ports (${declared.size ? [...declared].join(", ") : "it declares none"}); the daemon admits only the ports an environment's recipe declares, and opens one only behind the opener's capability lease, never to everyone; nothing was exposed`,
+              `Port ${undeclared.join(", ")} can't be opened. Hypervisor environments open only the ports their recipe declares (${declared.size ? `this one declares ${[...declared].join(", ")}` : "this one declares none"}), and only for you, behind your own access lease — never publicly. Nothing was opened.`);
+          }
+          return namedRefusal(403, "permission_denied", "port_exposure_not_by_update", `exposing port ${widening.join(", ")} through an environment update is refused — an update may only narrow who reaches a port; nothing was exposed`,
+            `Port ${widening.join(", ")} wasn't opened to everyone: an environment's ports open only for you, behind your own access lease. Nothing was changed.`);
         }
         return json({ environment: envToIOI(await env(`/v1/hypervisor/environments/${encodeURIComponent(id)}`)) });
       }
@@ -1406,16 +1438,16 @@ async function handleImpl(pathname, bodyText) {
   // reads task log files — neither is a task or service record). An empty list presented that absence as
   // "No tasks defined in this environment" (Sessions cut 1), so each list refuses naming the absent plane.
   // `unimplemented` is terminal: the bundle's query retry stops on it, and the Services section renders
-  // the error in place. (The Tasks tab reads only `data`, so it still says "No tasks defined" — a bundle
-  // limit the adapter cannot reach.)
+  // the error in place. The Tasks tab read only `data`, so it said "No tasks defined" whatever the refusal; an
+  // owned edit (vendor-manifest `owned-edit`) makes it render the section with its error, as the Services one does.
   if (pathname === "/api/ioi.v1.EnvironmentAutomationService/ListServices") {
-    return jsonStatus(501, { code: "unimplemented", message: "environment_services_plane_absent: the daemon has no environment services plane (no route lists an environment's services); nothing is listed rather than an empty list that reads as \"no services\"" });
+    return namedRefusal(501, "unimplemented", "environment_services_plane_absent", "the daemon has no environment services plane (no route lists an environment's services); nothing is listed rather than an empty list that reads as \"no services\"", "Services aren't tracked for Hypervisor environments yet, so none are listed — this doesn't mean the environment runs none.");
   }
   if (pathname === "/api/ioi.v1.EnvironmentAutomationService/ListTasks") {
-    return jsonStatus(501, { code: "unimplemented", message: "environment_tasks_plane_absent: the daemon has no environment tasks plane (no route lists an environment's tasks); nothing is listed rather than an empty list that reads as \"no tasks defined\"" });
+    return namedRefusal(501, "unimplemented", "environment_tasks_plane_absent", "the daemon has no environment tasks plane (no route lists an environment's tasks); nothing is listed rather than an empty list that reads as \"no tasks defined\"", "Tasks aren't tracked for Hypervisor environments yet, so none are listed — this doesn't mean the environment defines none.");
   }
   if (pathname === "/api/ioi.v1.EnvironmentAutomationService/ListTaskExecutions") {
-    return jsonStatus(501, { code: "unimplemented", message: "environment_task_executions_plane_absent: the daemon has no environment task-run plane (no route lists an environment's task executions); nothing is listed rather than an empty list" });
+    return namedRefusal(501, "unimplemented", "environment_task_executions_plane_absent", "the daemon has no environment task-run plane (no route lists an environment's task executions); nothing is listed rather than an empty list", "Task runs aren't recorded for Hypervisor environments yet.");
   }
   // ---- BillingService: REAL metering & cost plane (OCU = Hypervisor Compute Units derived from
   // actual receipts in the daemon) + a wallet-backed budget. Not SaaS billing — the daemon's own

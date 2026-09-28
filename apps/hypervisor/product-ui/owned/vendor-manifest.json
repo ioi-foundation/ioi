@@ -669,10 +669,10 @@
    "gate": "esbuild-ast-equal"
   },
   "static/assets/DeleteEnvironmentModal-DVlWulBs.js": {
-   "mode": "beautified",
+   "mode": "owned-edit",
    "src_sha256": "ca529481b7807c3b232c656f461956b63a3c50685e0dec40923adfb9fee16e4b",
-   "out_sha256": "2ca1b646c72449a8dea9dfa4766d79ac297b132dd6eab9d23410a941289f8494",
-   "gate": "esbuild-ast-equal"
+   "out_sha256": "580ae9ea4cb6b78d294cdd00cbcd156c932b4e2f0869c2029d77d28feaee8df4",
+   "gate": "n/a"
   },
   "static/assets/DeleteTeamDialog-Cfbufc8h.js": {
    "mode": "beautified",
@@ -747,10 +747,10 @@
    "gate": "esbuild-ast-equal"
   },
   "static/assets/EnvironmentDetailsPanel-B_-iwFn8.js": {
-   "mode": "beautified",
+   "mode": "owned-edit",
    "src_sha256": "fa8b8ebf85e0785d8ed579d1ec086a7127df5f4b17a543ea10dcc06396518a01",
-   "out_sha256": "4320fcd6a2ac530ef5243cf529e156c3a6d82d0e3a7247a34dd83bd40747c43f",
-   "gate": "esbuild-ast-equal"
+   "out_sha256": "ba69eba9dc51200128bafd185ce10ee2fcc7f67ef5e47544fa65a411cc26e305",
+   "gate": "n/a"
   },
   "static/assets/EnvironmentDetailsSection-CUK_tKGQ.js": {
    "mode": "beautified",

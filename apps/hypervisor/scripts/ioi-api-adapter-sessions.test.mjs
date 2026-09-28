@@ -11,7 +11,7 @@ import http from "node:http";
 const calls = [];
 const AT = "2026-09-27T10:00:00Z";
 const routes = {
-  "GET /v1/hypervisor/environments/env_1": () => ({ environment: { id: "env_1", spec: {}, status: { phase: "running" } } }),
+  "GET /v1/hypervisor/environments/env_1": () => ({ environment: { id: "env_1", spec: {}, status: { phase: "running", ports: [{ port: 50432, protocol: "tcp" }] } } }),
   "POST /v1/hypervisor/environments/env_1/ops-lease": () => ({ accessToken: "lease_env1", lease_id: "lease_env1", environment_id: "env_1" }),
   "GET /v1/hypervisor/ops-lease/lease_env1": () => ({ active: true, environment_id: "env_1" }),
   "GET /v1/hypervisor/ops-lease/lease_env2": () => ({ active: true, environment_id: "env_2" }),

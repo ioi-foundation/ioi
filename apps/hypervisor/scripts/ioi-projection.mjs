@@ -137,6 +137,9 @@ export function daemonEnvToIOI(env) {
       // The Logs pane GETs this with the CreateEnvironmentLogsToken lease as Bearer; the adapter
       // validates the lease against the daemon and answers the daemon's session log as text/plain.
       logs: `${gatewayOrigin}/api/ioi/environments/${encodeURIComponent(env.id)}/logs`,
+      // The Resource usage dialog reads this (with the environment access lease as Bearer); the adapter answers it
+      // refusing by name — the daemon reports no live usage — rather than the dialog never asking and reading "N/A".
+      vmLiveUsage: `${gatewayOrigin}/api/ioi/environments/${encodeURIComponent(env.id)}/live-usage`,
       ops: `${gatewayOrigin}/supervisor/${env.id}/`,
       ports: projectEnvironmentPortUrls(s.ports),
     },

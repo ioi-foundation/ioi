@@ -14,7 +14,7 @@ const fake = http.createServer((req, res) => {
   req.on("end", () => {
     calls.push(`${req.method} ${req.url}`);
     res.writeHead(200, { "content-type": "application/json" });
-    res.end(JSON.stringify(req.url.includes("/ports/") ? { ok: true } : { environment: { id: "env_1", spec: {}, status: {} } }));
+    res.end(JSON.stringify(req.url.includes("/ports/") ? { ok: true } : { environment: { id: "env_1", spec: {}, status: { ports: [{ port: 50432, protocol: "tcp" }] } } }));
   });
 });
 await new Promise((r) => fake.listen(0, "127.0.0.1", r));
@@ -27,6 +27,17 @@ test("the page's own port sync (admission EVERYONE) exposes nothing and is refus
   const out = await update([{ port: 50432, admission: "ADMISSION_LEVEL_EVERYONE", name: "agent" }]);
   assert.equal(out.status, 403);
   assert.match(out.body, /port_exposure_not_by_update/u);
+  assert.equal(calls.filter((c) => /\/expose$/u.test(c)).length, 0, "no expose call reached the daemon");
+});
+
+test("the Add port dialog's new port is refused naming the real rule (declared ports only, behind the opener's lease) and exposes nothing", async () => {
+  calls.length = 0;
+  const out = await update([{ port: 3000, admission: "ADMISSION_LEVEL_EVERYONE", name: "web" }]);
+  assert.equal(out.status, 403);
+  const body = JSON.parse(out.body);
+  assert.match(body.message, /^environment_port_not_declared: port 3000 is not one of this environment's declared ports \(50432\)/u);
+  assert.equal(body.details?.[0]?.type, "gitpod.v1.ActionableErrorDetails");
+  assert.match(Buffer.from(body.details[0].value, "base64").toString("utf8"), /Port 3000 can't be opened/u);
   assert.equal(calls.filter((c) => /\/expose$/u.test(c)).length, 0, "no expose call reached the daemon");
 });
 

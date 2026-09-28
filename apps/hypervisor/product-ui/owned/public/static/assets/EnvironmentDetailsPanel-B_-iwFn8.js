@@ -3128,8 +3128,8 @@ var Yr = [B.CREATOR_ONLY, B.ORGANIZATION, B.EVERYONE],
       children: [(0, $.jsx)(ti, { environmentId: e }), (0, $.jsx)(ci, { environmentId: e })],
     }),
   Ei = ({ environmentId: e }) => {
-    let { data: t } = jt(e);
-    return (t?.length ?? 0) > 0
+    let { data: t, isSuccess: r } = jt(e);
+    return (t?.length ?? 0) > 0 || !r
       ? (0, $.jsx)(`div`, { className: `flex flex-col gap-6`, children: (0, $.jsx)(di, { environmentId: e }) })
       : (0, $.jsx)(Di, { message: `No tasks defined in this environment.` });
   },

@@ -52,6 +52,18 @@ const runNodeAsync = (script, args = []) => new Promise((resolve) => {
 const AUG_TAG = '<script src="/ioi-augmentation.js" defer></script>';
 const OWNED_EDIT_NORMALIZERS = {
   "index.html": (s) => s.replace(AUG_TAG, "").replace(/\s+<\/head>/, "</head>"),
+  // R-240 Arm A on Sessions: the Tasks tab rendered "No tasks defined" whatever its query answered, so the refusal naming
+  // the absent tasks plane never reached it. The edit keeps the Tasks section (which renders its error) unless the query
+  // SUCCEEDED empty — keyed on success, not on the error, which a remount resets to pending (that looped the query).
+  "static/assets/EnvironmentDetailsPanel-B_-iwFn8.js": (s) => s.replace(
+    "let { data: t, isSuccess: r } = jt(e);\n    return (t?.length ?? 0) > 0 || !r\n",
+    "let { data: t } = jt(e);\n    return (t?.length ?? 0) > 0\n",
+  ),
+  // R-240 Arm A on Sessions: the Resource usage dialog dropped the reply's reason and printed "Try again, or contact
+  // support". The edit keeps a refusal's `message` and prints it in the dialog.
+  "static/assets/DeleteEnvironmentModal-DVlWulBs.js": (s) => s
+    .replace("throw Error((await r.json().catch(() => null))?.message || `HTTP ${r.status}: ${r.statusText}`);", "throw Error(`HTTP ${r.status}: ${r.statusText}`);")
+    .replace("children: n || `Try again, or contact support if the issue persists.`,", "children: `Try again, or contact support if the issue persists.`,"),
 };
 
 async function wireGate() {
