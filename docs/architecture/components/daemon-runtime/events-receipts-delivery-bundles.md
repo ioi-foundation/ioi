@@ -3482,7 +3482,7 @@ with kind `hypervisor.improvement-applied` and retains this chain:
 ```yaml
 DirectImprovementApplicationReceipt:
   proposal_ref: improvement-proposal://...
-  proposal_kind: skill_improvement | launch_policy_suggestion | automation_readiness
+  proposal_kind: skill_improvement | automation_readiness   # launch_policy_suggestion: receipts written before the kind retired (R-192) only
   signal: string
   applied_ref: string
   evidence_refs: []

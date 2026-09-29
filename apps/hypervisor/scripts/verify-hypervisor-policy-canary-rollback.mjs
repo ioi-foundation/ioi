@@ -21,6 +21,12 @@
 // launch-policy variant is refused BY NAME (410 `ioi_agent_launch_policy_retired`), as are the serve's
 // promote/rollback lanes, with no evidence deleted and nothing recorded as applied.
 //
+// RE-AIMED 2026-09-29 (R-240, launcher leftovers): the improvement plane now refuses a launch-policy
+// suggestion at PROPOSE (410 `ioi_agent_launch_policy_retired`, nothing admitted). The learned change
+// that reaches the gate is an automation-readiness suggestion; the gate chain, the reviewer
+// attribution and the rollout semantics are measured on it unchanged, and it applies through the
+// satisfied gate — an affinity, receipted and ledgered, and no rollout row.
+//
 // Usage: node apps/hypervisor/scripts/verify-hypervisor-policy-canary-rollback.mjs  (≈1 min)
 // Its own isolated daemon + serve, the operator signed in (lib/verifier-stack.mjs); an explicit
 // URL naming the owner's stack (:8765, :36173, :4173) is refused.
@@ -81,10 +87,18 @@ async function run() {
   // seed its replay subjects and make it high-impact; that lane is retired, so it simulates over no
   // launch replay and the gate chain below is built explicitly) ──
   const marker = `crb-learned-${tag}`;
-  const prop = (await jd("POST", "/v1/hypervisor/intelligence/improvement-proposals", {
+  const policyRefused = await jd("POST", "/v1/hypervisor/intelligence/improvement-proposals", {
     proposal_kind: "launch_policy_suggestion", signal: "repeated_harness_model_preference",
     target_ref: BASE, evidence_refs: [`work-result://vfycrb-${tag}`],
     suggested: { description: marker, privacy: { local_only: false, forbid_remote_trust: false, forbid_provider_credentials: false } },
+  });
+  ok("a learned launch-policy suggestion is refused at propose by name (410 ioi_agent_launch_policy_retired) — nothing is admitted to roll out",
+    policyRefused.status === 410 && policyRefused.j?.error?.code === "ioi_agent_launch_policy_retired" && !policyRefused.j?.proposal,
+    `${policyRefused.status} ${policyRefused.j?.error?.code}`);
+  const prop = (await jd("POST", "/v1/hypervisor/intelligence/improvement-proposals", {
+    proposal_kind: "automation_readiness", signal: "repeated_successful_goal_pattern",
+    evidence_refs: [`work-result://vfycrb-${tag}`],
+    suggested: { title: marker, goal_pattern: `vfycrb ${tag}` },
   })).j?.proposal || {};
   const sim = (await jd("POST", `/v1/hypervisor/intelligence/improvement-proposals/${prop.improvement_id}/simulate`, { save: true })).j?.report || {};
   await jd("POST", `/v1/hypervisor/intelligence/improvement-proposals/${prop.improvement_id}/approve`);
@@ -131,13 +145,14 @@ async function run() {
     `${opened.state} · ${canaryIn.rollout_mode}/${canaryIn.canary_percent} → ${canaryOut.canary_percent} · ${closed.state} · ${reopened.state}`);
   await jd("PATCH", `/v1/hypervisor/intelligence/improvement-proposals/${prop.improvement_id}`, { approval_request_ref: appr.ref, release_control_ref: rel.ref });
 
-  // ── The variant step is refused by name, and so are the serve's rollout lanes ──
+  // ── The learned change applies through the satisfied gate; the serve's rollout lanes stay retired ──
   const applyResp = await jd("POST", `/v1/hypervisor/intelligence/improvement-proposals/${prop.improvement_id}/apply`);
   const propAfter = (await jd("GET", `/v1/hypervisor/intelligence/improvement-proposals/${prop.improvement_id}`)).j?.proposal || {};
-  ok("apply under the satisfied gate is refused by name — 410 ioi_agent_launch_policy_retired — and no variant is written",
-    applyResp.status === 410 && applyResp.j?.error?.code === "ioi_agent_launch_policy_retired"
-    && propAfter.state === "approved" && !propAfter.applied_ref,
-    `${applyResp.status} ${applyResp.j?.error?.code} · state ${propAfter.state} · applied_ref ${propAfter.applied_ref ?? "none"}`);
+  ok("apply under the satisfied gate lands the affinity with its receipt, citing the gate's approval and release — and writes no launch-policy variant",
+    applyResp.status === 200 && propAfter.state === "applied" && String(propAfter.applied_ref || "").startsWith("automation-affinity://")
+    && propAfter.approval_request_ref === appr.ref && propAfter.release_control_ref === rel.ref
+    && (propAfter.receipt_refs || []).some((r) => String(r).startsWith("receipt://hypervisor/improvement/")),
+    `${applyResp.status} · state ${propAfter.state} · applied_ref ${propAfter.applied_ref ?? "none"}`);
   const lanes = [];
   for (const act of ["promote", "rollback"]) {
     lanes.push({ act, ...(await jd("POST", `${SHELL}/__ioi/agent-studio/launch-policies/pol_fast_local/rollout/${act}`)) });
@@ -153,18 +168,19 @@ async function run() {
     (await jd("GET", `/v1/hypervisor/governance/approval-requests/${appr.id}`)).j?.approval_request,
     await relRead(),
   ];
-  ok("the refused apply deletes NO evidence: proposal, simulation, approval and release all retained",
+  ok("the apply deletes NO evidence: proposal, simulation, approval and release all retained",
     evidence.every((e) => e && Object.keys(e).length > 0) && evidence[0].latest_simulation_ref === sim.simulation_ref);
   const ledger = (await jd("GET", "/v1/hypervisor/work-ledger")).j?.entries || [];
-  ok("the Work Ledger records nothing applied and no rollout for this proposal",
-    !ledger.some((e) => e.kind === "improvement_applied" && e.proposal_ref === prop.proposal_ref)
+  ok("the Work Ledger records the applied improvement and no rollout for this proposal",
+    ledger.some((e) => e.kind === "improvement_applied" && e.proposal_ref === prop.proposal_ref)
     && !ledger.some((e) => e.kind === "policy_rollout" && e.proposal_ref === prop.proposal_ref),
     `${ledger.length} ledger entries`);
   const ft = (await jd("GET", `${SHELL}/__ioi/fallthrough`)).j || {};
   ok("fallthrough stays empty", Array.isArray(ft.proxied) && ft.proxied.length === 0);
 
   // ── Cleanup (evidence receipts remain by design) ──
-  await jd("POST", `/v1/hypervisor/intelligence/improvement-proposals/${prop.improvement_id}/reject`, { reason: "verifier fixture" });
+  const affId = String(propAfter.applied_ref || "").replace("automation-affinity://", "");
+  if (affId) await jd("PATCH", `/v1/hypervisor/automation-affinities/${affId}`, { status: "archived" });
   const delAppr = await jd("DELETE", `/v1/hypervisor/governance/approval-requests/${appr.id}`);
   const delRel = await jd("DELETE", `/v1/hypervisor/governance/release-controls/${rel.id}`);
   const delPrincipal = await jd("DELETE", `/v1/hypervisor/principals/${encodeURIComponent(reviewer.principalId)}`, undefined, reviewer.operator);

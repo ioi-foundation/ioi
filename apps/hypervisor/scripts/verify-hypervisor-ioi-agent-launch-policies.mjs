@@ -13,9 +13,14 @@
 //   - the daemon mounts no launch-policy route (404 to the operator: no handler);
 //   - the serve's Agent Studio management and rollout lanes answer the typed 410
 //     `ioi_agent_launch_policy_retired` rather than relaying into a dead namespace;
-//   - the New Session context resolves no launch policy;
-//   - the improvement plane still admits and reviews a learned launch-policy suggestion, but its
-//     apply is refused by name (410 `ioi_agent_launch_policy_retired`) and writes nothing.
+//   - the New Session context carries no launch-policy list at all, and Agent Studio renders no
+//     Launch policies registry — no card, no "+ New policy" form posting into a 410 lane;
+//   - the improvement plane REFUSES a learned launch-policy suggestion at propose, by name (410
+//     `ioi_agent_launch_policy_retired`), and admits nothing.
+// RE-AIMED 2026-09-29 (R-240, launcher leftovers): until then the context carried an always-empty
+// `launch_policies` list, Agent Studio rendered an always-empty Launch policies tab with a create form,
+// and the improvement plane admitted a suggestion whose apply could only answer 410 — each a promise
+// nothing could keep. This guard asserted that residue; it now asserts its absence.
 //
 // Usage: node apps/hypervisor/scripts/verify-hypervisor-ioi-agent-launch-policies.mjs  (≈1 min)
 // Its own isolated daemon + serve, the operator signed in (lib/verifier-stack.mjs); an explicit
@@ -80,30 +85,36 @@ async function run() {
     serveAnswers.every((a) => a.status === 410 && a.text.includes('data-error-code="ioi_agent_launch_policy_retired"')),
     serveAnswers.map((a) => `${a.p.split("/").slice(-1)[0]}=${a.status}`).join(" "));
 
-  // ── The New Session context resolves no launch policy ──
+  // ── The New Session context carries no launch-policy list, and Agent Studio no registry ──
   const ctx = await jd("GET", `${SHELL}/__ioi/api/new-session/context`);
-  ok("the New Session context resolves no launch policy (the launcher offers no policy chooser)",
-    ctx.status === 200 && Array.isArray(ctx.j?.launch_policies) && ctx.j.launch_policies.length === 0,
-    `status ${ctx.status} · ${JSON.stringify(ctx.j?.launch_policies)}`);
+  ok("the New Session context carries no launch-policy list at all (a launch is chosen by harness profile and model route)",
+    ctx.status === 200 && ctx.j && typeof ctx.j === "object" && !("launch_policies" in ctx.j)
+    && Array.isArray(ctx.j.harness_profiles) && Array.isArray(ctx.j.model_routes),
+    `status ${ctx.status} · keys ${Object.keys(ctx.j || {}).join(",")}`);
+  const studio = await jd("GET", `${SHELL}/__ioi/agent-studio`);
+  ok("Agent Studio renders no Launch policies registry — no tab, no heading, no form posting into a retired lane — and keeps the improvement proposals under Improvements",
+    studio.status === 200 && !/Launch policies/.test(studio.text) && !studio.text.includes('data-astab="launch-policies"')
+    && !studio.text.includes('action="/__ioi/agent-studio/launch-policies') && studio.text.includes('id="improvements"')
+    && studio.text.includes('id="improvement-proposals"'),
+    `status ${studio.status}`);
 
-  // ── A learned suggestion is still reviewed, but its apply writes nothing ──
-  const prop = (await jd("POST", "/v1/hypervisor/intelligence/improvement-proposals", {
+  // ── A learned suggestion is refused at propose, by name, and nothing is admitted ──
+  const listed = async () => ((await jd("GET", "/v1/hypervisor/intelligence/improvement-proposals")).j?.proposals || []).length;
+  const before = await listed();
+  const refused = await jd("POST", "/v1/hypervisor/intelligence/improvement-proposals", {
     proposal_kind: "launch_policy_suggestion", signal: "repeated_harness_model_preference",
     target_ref: "ioi-agent-policy://pol_fast_local", evidence_refs: [`work-result://vfy-lp-${tag}`],
     suggested: { description: `learned ${tag}`, harness_preferences: { preferred_harness_refs: ["harness-profile:hp_opencode"], excluded_harness_refs: [], allow_fallback: true } },
-  })).j?.proposal || {};
-  ok("a learned launch-policy suggestion is still admitted pending, evidence bound",
-    prop.state === "pending" && String(prop.proposal_ref || "").startsWith("improvement-proposal://"), prop.improvement_id);
-  const sim = (await jd("POST", `/v1/hypervisor/intelligence/improvement-proposals/${prop.improvement_id}/simulate`, { save: true })).j?.report || {};
-  await jd("POST", `/v1/hypervisor/intelligence/improvement-proposals/${prop.improvement_id}/approve`);
-  const applied = await jd("POST", `/v1/hypervisor/intelligence/improvement-proposals/${prop.improvement_id}/apply`);
-  const after = (await jd("GET", `/v1/hypervisor/intelligence/improvement-proposals/${prop.improvement_id}`)).j?.proposal || {};
-  ok("its apply is refused by name (410 ioi_agent_launch_policy_retired) and the proposal keeps its decision without claiming an effect",
-    String(sim.simulation_ref || "").startsWith("simulation-report://")
-    && applied.status === 410 && applied.j?.error?.code === "ioi_agent_launch_policy_retired"
-    && after.state === "approved" && !after.applied_ref,
-    `${applied.status} ${applied.j?.error?.code} · state ${after.state}`);
-  await jd("POST", `/v1/hypervisor/intelligence/improvement-proposals/${prop.improvement_id}/reject`, { reason: "verifier fixture" });
+  });
+  const after = await listed();
+  ok("a learned launch-policy suggestion is refused at propose by name (410 ioi_agent_launch_policy_retired) and nothing is admitted",
+    refused.status === 410 && refused.j?.error?.code === "ioi_agent_launch_policy_retired" && !refused.j?.proposal && after === before,
+    `${refused.status} ${refused.j?.error?.code} · proposals ${before} → ${after}`);
+  const mining = (await jd("GET", "/v1/hypervisor/intelligence/outcome-mining")).j || {};
+  ok("outcome mining offers no launch-policy candidate and names the launch-derived signals retired",
+    (mining.candidates || []).every((c) => c.candidate_kind !== "launch_policy_suggestion")
+    && ["repeated_harness_model_preference", "repeated_failure_blocker_class"].every((sig) => (mining.retired_signals || []).some((r) => r.signal === sig && r.reason_code === "ioi_agent_launch_policy_retired")),
+    `${(mining.retired_signals || []).length} retired signals`);
 
   // ── Hygiene ──
   let sourceNeutral = false;

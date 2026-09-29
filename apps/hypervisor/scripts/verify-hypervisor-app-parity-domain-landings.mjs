@@ -218,7 +218,11 @@ for (const [slug, route, title, absentPhrase, ownerLink] of [
     // primitives), and the serve's Builds census replaced them with the platform planes that remain:
     // WorkResults, the work-lifecycle record chain, and attempts as System-record-seam v4 records.
     "/v1/hypervisor/work-results",
-    "/v1/hypervisor/work-lifecycle/records",
+    // R-240 (launcher leftovers): /work-lifecycle/records stood here, probed with no object_ref — a
+    // read the route refuses 400 `work_lifecycle_object_ref_required` every time, so the census
+    // counted the surface's malformed question as the plane refusing it. The plane-wide question is
+    // its status read (lifecycle objects per kind), and that is what the serve now probes.
+    "/v1/hypervisor/work-lifecycle/status",
     "/v1/hypervisor/autonomous-systems/:system_id/records?contract_id=schema://ioi/applications/ioi-ai/attempt/v4",
     "/v1/hypervisor/foundry/run-plans",
     "/v1/hypervisor/odk/transformation-runs",
@@ -228,6 +232,9 @@ for (const [slug, route, title, absentPhrase, ownerLink] of [
     "/v1/hypervisor/sessions",
     "/v1/hypervisor/session-execution-bindings",
   ];
+  // A plane whose collection is not the first array in its body names it: the lifecycle status read's
+  // collection is its per-kind counts, and the daemon's sorted keys put the one owner-route binding first.
+  const B_ROWS_KEY = { "/v1/hypervisor/work-lifecycle/status": "per_kind_lifecycle_counts" };
   const bIndex = await fetch(`${D}/v1`).then((r) => r.json()).catch(() => ({}));
   const bRoutes = (Array.isArray(bIndex.families) ? bIndex.families : []).flatMap((f) => (Array.isArray(f.paths) ? f.paths : []));
   const bMethods = (p) => { const r = bRoutes.find((x) => String(x.path || "") === p && !x.retired); return Array.isArray(r?.methods) ? r.methods : []; };
@@ -246,7 +253,7 @@ for (const [slug, route, title, absentPhrase, ownerLink] of [
         const b = body || {};
         return { path: p, state: "refused", code: String((b.error && b.error.code) || b.reason || b.code || `http_${r.status}`), n: 0, rows: [] };
       }
-      const arr = Array.isArray(body) ? body : Object.values(body || {}).find((v) => Array.isArray(v));
+      const arr = B_ROWS_KEY[p] ? (body || {})[B_ROWS_KEY[p]] : Array.isArray(body) ? body : Object.values(body || {}).find((v) => Array.isArray(v));
       if (!Array.isArray(arr)) return { path: p, state: "unreadable", code: `http_${r.status}`, n: 0, rows: [] };
       return { path: p, state: arr.length ? "live" : "empty", code: "", n: arr.length, rows: arr };
     } catch { return { path: p, state: "unreadable", code: "http_0", n: 0, rows: [] }; }
@@ -302,7 +309,21 @@ for (const [slug, route, title, absentPhrase, ownerLink] of [
       : (bServeSrc.includes("REFUSED this read with the daemon's own typed code") && bServeSrc.includes("A refusal is not a zero")),
     `${bRefused.length} refused`);
   ok("jobs: EMPTY, MISSING and NO-READ-ROUTE are held apart — a plane the daemon publishes no GET for is never rendered EMPTY", bDerived.filter((d) => d.state === "empty").every((d) => /EMPTY plane, not a missing one/.test(planeRow(d.path))) && bDerived.filter((d) => d.state === "no_read_route").every((d) => /publishes no GET here/.test(planeRow(d.path)) && /not the same as reading nothing/.test(planeRow(d.path))) && /REFUSED is not EMPTY, EMPTY is not MISSING/.test(t), `empty=${bDerived.filter((d) => d.state === "empty").length} noroute=${bDerived.filter((d) => d.state === "no_read_route").length}`);
-  ok("jobs: a LIVE plane states its own record count, taken from the plane and not from a constant", bDerived.filter((d) => d.state === "live").every((d) => new RegExp(`${d.n} record${d.n === 1 ? "" : "s"} — counted from the plane on this render`).test(planeRow(d.path))), bDerived.filter((d) => d.state === "live").map((d) => `${d.path.split("/").pop()}:${d.n}`).join(" "));
+  // The lifecycle status census counts OBJECTS across KINDS out of its per-kind rows — never "N records" for N kinds.
+  const bLiveCopy = (d) => {
+    if (!B_ROWS_KEY[d.path]) return new RegExp(`${d.n} record${d.n === 1 ? "" : "s"} — counted from the plane on this render`);
+    const objects = d.rows.reduce((n, k) => n + (Number(k && k.object_count) || 0), 0);
+    const records = d.rows.reduce((n, k) => n + (Number(k && k.record_count) || 0), 0);
+    return new RegExp(`${objects} lifecycle object${objects === 1 ? "" : "s"} across ${d.n} object kind${d.n === 1 ? "" : "s"} \\(${records} record${records === 1 ? "" : "s"}\\) — counted from the plane's status census on this render`);
+  };
+  ok("jobs: a LIVE plane states its own record count, taken from the plane and not from a constant", bDerived.filter((d) => d.state === "live").every((d) => bLiveCopy(d).test(planeRow(d.path))), bDerived.filter((d) => d.state === "live").map((d) => `${d.path.split("/").pop()}:${d.n}`).join(" "));
+  // No probe may ask a question its route refuses as malformed: a 400 is the surface's own mistake, and
+  // the census once printed one as the plane refusing it (R-240, launcher leftovers).
+  ok("jobs: no plane is probed with a question its route refuses as malformed (no HTTP 400 in the census), and the refusal line names exactly the planes that refused",
+    !/\(HTTP 400 — the read was malformed/.test(t)
+    && new RegExp(`data-ioi-refused-planes="${bRefused.length}"`).test(t)
+    && bRefused.every((d) => t.includes(`<code>${d.path}</code> answered <code>${d.code}</code>`)),
+    `${bRefused.length} refused`);
   ok("jobs: build rows == the ledger run lane exactly, newest-first, cap NAMED only when it truncates", (t.match(/class="bld-row"/g) || []).length === Math.min(200, bLedger.length) && (bLedger.length > 200 ? new RegExp(`newest <b>200</b> of <b>${bLedger.length}</b>`).test(t) : new RegExp(`All <b>${bLedger.length}</b> render here`).test(t)) && bShown.every((e) => t.includes(`data-ioi-build="${e.id}"`)), `rows=${(t.match(/class="bld-row"/g) || []).length} plane=${bLedger.length}`);
   // No build field may be invented. Started-by is the record's OWN authority on every row, and the
   // proof column is a typed dash on EXACTLY the records whose state_root is empty — not fewer

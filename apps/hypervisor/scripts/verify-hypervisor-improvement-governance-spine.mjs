@@ -319,10 +319,11 @@ async function run() {
   await post(`${PROPOSALS}/${direct1.improvement_id}/approve`, {});
   const applied1 = (await post(`${PROPOSALS}/${direct1.improvement_id}/apply`, {})).body?.proposal ?? {};
   ok("DIRECT PATH, BEFORE: a campaign-less low-impact proposal creates, approves and applies with no campaign object in existence", applied1.state === "applied" && String(applied1.applied_ref || "").startsWith("automation-affinity://") && applied1.improvement_campaign_ref === null, `${applied1.state} ${applied1.applied_ref}`);
-  const policy1 = (await post(PROPOSALS, { proposal_kind: "launch_policy_suggestion", signal: "repeated_harness_model_preference", evidence_refs: ["ioi-agent-launch://spine-before"], suggested: { display_name: "policy before" } })).body?.proposal ?? {};
-  await post(`${PROPOSALS}/${policy1.improvement_id}/approve`, {});
-  const gated1 = await post(`${PROPOSALS}/${policy1.improvement_id}/apply`, {});
-  ok("DIRECT PATH, BEFORE: the unchanged gate still refuses an unsimulated launch-policy suggestion (simulation_required)", gated1.status === 409 && code(gated1.body) === "simulation_required", `${gated1.status} ${code(gated1.body)}`);
+  // R-240 (launcher leftovers, 2026-09-29): an unsimulated launch-policy suggestion was admitted here
+  // and refused at apply (simulation_required). The kind retired with the IOI Agent launch-policy
+  // plane, so the direct path refuses it at PROPOSE, by name, and admits nothing.
+  const policy1 = await post(PROPOSALS, { proposal_kind: "launch_policy_suggestion", signal: "repeated_harness_model_preference", evidence_refs: ["ioi-agent-launch://spine-before"], suggested: { display_name: "policy before" } });
+  ok("DIRECT PATH, BEFORE: a launch-policy suggestion is refused at propose by name (410 ioi_agent_launch_policy_retired) and nothing is admitted", policy1.status === 410 && code(policy1.body) === "ioi_agent_launch_policy_retired" && !policy1.body?.proposal, `${policy1.status} ${code(policy1.body)}`);
   const authored = await post(PROPOSALS, { proposal_kind: "automation_readiness", signal: "x", evidence_refs: ["ioi-agent-launch://x"], suggested: { title: "x" }, improvement_campaign_ref: "improvement-campaign://acme.fake" });
   ok("a caller-supplied campaign binding on the public create is refused by name — the daemon never synthesizes campaign truth from a caller-supplied claim", authored.status === 400 && code(authored.body) === "improvement_campaign_binding_not_caller_authored", `${authored.status} ${code(authored.body)}`);
 
@@ -652,7 +653,8 @@ async function run() {
   ok("NO target member appears in the module's source — an emitted code the contract does not declare as implemented would be a finding", leakedTarget.length === 0, leakedTarget.join(",") || "none");
   // "role_", "nomination_", "selection_policy_" and "assurance_profile_" are M10.2's role-separation codes (register R-163), keyed on the resolved principal.
   const familyPrefixes = ["improvement_governance_profile_", "improvement_agenda_", "improvement_campaign_", "evaluation_epoch_", "evaluation_exposure_ledger_", "improvement_order_cutoff_", "mutation_", "learning_", "model_route_", "institutional_learning_", "intelligence_", "improvement_", "automation_affinity_", "memory_", "skill_", "simulation_", "request_", "role_", "nomination_", "selection_policy_", "assurance_profile_"];
-  const strayCodes = [...observedCodes].filter((c) => !canon.family.includes(c) && !familyPrefixes.some((prefix) => c.startsWith(prefix)) && c !== "mutable_target_unresolvable");
+  // `ioi_agent_launch_policy_retired` is the improvement plane's refusal of a retired proposal kind (R-240, launcher leftovers) — not a campaign code.
+  const strayCodes = [...observedCodes].filter((c) => !canon.family.includes(c) && !familyPrefixes.some((prefix) => c.startsWith(prefix)) && c !== "mutable_target_unresolvable" && c !== "ioi_agent_launch_policy_retired");
   ok("every refusal code observed on this run is a canon family member, a spine family code under its own prefix, or the target-resolver's own — no code was invented at the seam", strayCodes.length === 0, strayCodes.join(",") || "none");
 
   // -- typed absences, named rather than omitted -----------------------------------------------------------

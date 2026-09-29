@@ -25,6 +25,10 @@
 // sensitive-endpoint probe names the Hypervisor's own launch lane (session create) instead of the
 // retired IOI Agent routes.
 //
+// RE-AIMED 2026-09-29 (R-240, launcher leftovers): the improvement plane refuses a launch-policy
+// suggestion at PROPOSE now (410 `ioi_agent_launch_policy_retired`, nothing admitted), so the gate
+// chain's subject is an automation-readiness suggestion and the refusal is asserted at propose.
+//
 // Usage: node apps/hypervisor/scripts/verify-hypervisor-auth-gated-rollout-posture.mjs  (≈1 min)
 // Its own isolated daemon + serve, the operator signed in (lib/verifier-stack.mjs); an explicit
 // URL naming the owner's stack (:8765, :36173, :4173) is refused.
@@ -148,10 +152,15 @@ async function run() {
   const cohort = (await jd("POST", "/v1/hypervisor/governance/cohorts", {
     display_name: `Posture team ${tag}`, scope: "personal", member_refs: [`principal://${memberId}`],
   }, OPERATOR)).j?.cohort || {};
-  const prop = (await jd("POST", "/v1/hypervisor/intelligence/improvement-proposals", {
+  const policyRefused = await jd("POST", "/v1/hypervisor/intelligence/improvement-proposals", {
     proposal_kind: "launch_policy_suggestion", signal: "repeated_harness_model_preference",
     target_ref: BASE, evidence_refs: [`work-result://vfyauth-${tag}`],
     suggested: { description: `auth-${tag}`, privacy: { local_only: false, forbid_remote_trust: false, forbid_provider_credentials: false } },
+  }, OPERATOR);
+  const prop = (await jd("POST", "/v1/hypervisor/intelligence/improvement-proposals", {
+    proposal_kind: "automation_readiness", signal: "repeated_successful_goal_pattern",
+    evidence_refs: [`work-result://vfyauth-${tag}`],
+    suggested: { title: `auth-${tag}`, goal_pattern: `vfyauth ${tag}` },
   }, OPERATOR)).j?.proposal || {};
   await jd("POST", `/v1/hypervisor/intelligence/improvement-proposals/${prop.improvement_id}/simulate`, { save: true }, OPERATOR);
   await jd("POST", `/v1/hypervisor/intelligence/improvement-proposals/${prop.improvement_id}/approve`, undefined, OPERATOR);
@@ -165,11 +174,10 @@ async function run() {
   const rel = (await jd("POST", "/v1/hypervisor/governance/release-controls", { release_target_ref: prop.proposal_ref, rollout_mode: "cohort", cohort_refs: [cohort.ref], reason: `vfyauth-${tag}` }, OPERATOR)).j?.release_control || {};
   await jd("PATCH", `/v1/hypervisor/governance/release-controls/${rel.id}`, { transition: "open" }, OPERATOR);
   await jd("PATCH", `/v1/hypervisor/intelligence/improvement-proposals/${prop.improvement_id}`, { approval_request_ref: appr.ref, release_control_ref: rel.ref }, OPERATOR);
-  const applied = await jd("POST", `/v1/hypervisor/intelligence/improvement-proposals/${prop.improvement_id}/apply`, undefined, OPERATOR);
-  ok("fixtures ready (two principals, cohort, an open cohort release control) and the variant step refused by name (410 ioi_agent_launch_policy_retired)",
+  ok("fixtures ready (two principals, cohort, an open cohort release control) and the launch-policy suggestion refused at propose by name (410 ioi_agent_launch_policy_retired, nothing admitted)",
     !!memberTok && !!outsiderTok && String(cohort.ref || "").startsWith("cohort://") && String(rel.ref || "").startsWith("release-control://")
-    && applied.status === 410 && applied.j?.error?.code === "ioi_agent_launch_policy_retired",
-    `${cohort.ref} · ${rel.ref} · apply ${applied.status} ${applied.j?.error?.code}`);
+    && policyRefused.status === 410 && policyRefused.j?.error?.code === "ioi_agent_launch_policy_retired" && !policyRefused.j?.proposal,
+    `${cohort.ref} · ${rel.ref} · propose ${policyRefused.status} ${policyRefused.j?.error?.code}`);
 
   // ── local_development: posture stated, overrides allowed only LABELED ──
   const polLocal = (await jd("GET", "/v1/hypervisor/auth/policy")).j || {};

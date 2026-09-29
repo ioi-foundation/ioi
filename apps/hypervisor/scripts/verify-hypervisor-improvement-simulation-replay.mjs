@@ -21,6 +21,11 @@
 // high-impact and governance claims ride the skill what-if; the launch-replay, blocker-delta,
 // affinity-match (it matched only launch goals) and protected-seed clauses are dropped.
 //
+// RE-AIMED 2026-09-29 (R-240, launcher leftovers): the daemon retired the launch and affinity-match
+// replays outright (they read `ioi-agent-launches` records, which nothing writes) and every report now
+// NAMES them in `retired_scenario_kinds` with a typed reason, with no blocker deltas it cannot measure;
+// the report page says so. A launch-policy suggestion is refused at propose and at simulate.
+//
 // Usage: node apps/hypervisor/scripts/verify-hypervisor-improvement-simulation-replay.mjs  (≈1 min)
 // Its own isolated daemon + serve, the operator signed in (lib/verifier-stack.mjs); an explicit
 // URL naming the owner's stack (:8765, :36173, :4173) is refused.
@@ -124,13 +129,19 @@ async function run() {
     projScenarios.length >= 2 && projScenarios.some((s) => s.after?.simulated_skill_eligible === true && s.changed === true),
     `${projScenarios.length} of this run's subjects replayed`);
   ok("changes are counted and summarized", sim1.summary?.scenarios >= 3 && sim1.summary?.changed >= 3, JSON.stringify(sim1.summary));
-  const expectHigh = (sim1.summary?.changed || 0) >= 3 || (sim1.summary?.blockers_introduced || 0) > 0;
+  const expectHigh = (sim1.summary?.changed || 0) >= 3;
   ok("high-impact gating is named AND enforced (approval + release gate at apply time)",
     sim1.governance?.high_impact === expectHigh && sim1.governance?.high_impact === true
     && String(sim1.governance?.requirement || "").includes("approval-request") && sim1.governance?.enforced === true);
   // R-240 (2026-09-29): "launch replay covers the recent real launches", "exclusion patch flips
   // replayed selections", "blocker deltas counted" and "affinity what-if surfaces newly matching
-  // goals" all replayed IOI Agent launch records — the retired lane — and are dropped.
+  // goals" all replayed IOI Agent launch records — the retired lane — and are dropped. The report
+  // names those replays retired instead of reporting zero of them (R-240, launcher leftovers).
+  ok("the report names the launch and affinity-match replays RETIRED (typed reason), replays none of them, and claims no blocker deltas",
+    JSON.stringify((sim1.retired_scenario_kinds || []).map((k) => `${k.scenario_kind}:${k.reason_code}`)) === JSON.stringify(["launch_replay:ioi_agent_launch_retired", "affinity_match_replay:ioi_agent_launch_retired"])
+    && (sim1.scenarios || []).every((sc) => sc.scenario_kind === "memory_projection_replay")
+    && !("blockers_introduced" in (sim1.summary || {})),
+    JSON.stringify(sim1.retired_scenario_kinds || []));
   const affSim = (await simulate(affProp.improvement_id)).j?.report || {};
 
   // ── Non-mutation + privacy ──
@@ -182,7 +193,7 @@ async function run() {
   await STACK.signIn(page);
   const consoleErrors = [];
   page.on("pageerror", (e) => consoleErrors.push(String(e)));
-  await page.goto(`${SHELL}/__ioi/agent-studio#launch-policies`, { waitUntil: "networkidle" });
+  await page.goto(`${SHELL}/__ioi/agent-studio#improvements`, { waitUntil: "networkidle" });
   await page.waitForSelector("#improvement-proposals", { timeout: 15000 });
   const simForm = `form[action="/__ioi/agent-studio/improvements/${affProp.improvement_id}/simulate"] button`;
   ok("pending proposal card offers Simulate impact", await page.locator(simForm).count() === 1);
@@ -190,9 +201,9 @@ async function run() {
   const pageText = await page.evaluate(() => document.body.innerText);
   ok("simulation report page renders scenarios, hash, and before/after deltas",
     /what-if simulation/i.test(pageText) && /deterministic/i.test(pageText) && /sha256:/i.test(pageText)
-    && /memory_projection_replay/i.test(pageText) && /blockers removed/i.test(pageText));
+    && /memory_projection_replay/i.test(pageText) && /Not replayed/.test(pageText) && /launch_replay/.test(pageText) && /ioi_agent_launch_retired/.test(pageText));
   ok("report page leaks no private or secret bodies", !pageText.includes(privMarker) && !pageText.includes(secretMarker));
-  await page.goto(`${SHELL}/__ioi/agent-studio#launch-policies`, { waitUntil: "networkidle" });
+  await page.goto(`${SHELL}/__ioi/agent-studio#improvements`, { waitUntil: "networkidle" });
   const cardLink = await page.locator(`a[href^="/__ioi/intelligence/simulations/"]`).count();
   const highImpactCard = await page.locator(`a[href="/__ioi/intelligence/simulations/${simId}"]`).textContent().catch(() => "");
   ok("proposal cards link their latest simulation (high-impact marked)",

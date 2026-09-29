@@ -20,6 +20,10 @@
 // that would have written a launch-policy variant is refused BY NAME (410
 // `ioi_agent_launch_policy_retired`).
 //
+// RE-AIMED 2026-09-29 (R-240, launcher leftovers): the improvement plane now refuses a launch-policy
+// suggestion at PROPOSE, by name, and admits nothing. The cohort-gated learned change is an
+// automation-readiness suggestion, and it applies through the satisfied cohort gate.
+//
 // Usage: node apps/hypervisor/scripts/verify-hypervisor-principal-derived-rollout-cohorts.mjs  (≈1 min)
 // Its own isolated daemon + serve, the operator signed in (lib/verifier-stack.mjs); an explicit
 // URL naming the owner's stack (:8765, :36173, :4173) is refused.
@@ -85,10 +89,18 @@ async function run() {
     && badScope.j?.error?.code === "governance_cohort_scope_invalid");
 
   // ── A learned suggestion reaches the gate; the gate is decided by the authenticated session ──
-  const prop = (await jd("POST", "/v1/hypervisor/intelligence/improvement-proposals", {
+  const policyRefused = await jd("POST", "/v1/hypervisor/intelligence/improvement-proposals", {
     proposal_kind: "launch_policy_suggestion", signal: "repeated_harness_model_preference",
     target_ref: BASE, evidence_refs: [`work-result://vfyroll-${tag}`],
     suggested: { description: `roll-${tag}`, privacy: { local_only: false, forbid_remote_trust: false, forbid_provider_credentials: false } },
+  });
+  ok("a learned launch-policy suggestion is refused at propose by name (410 ioi_agent_launch_policy_retired) — no cohort-scoped variant can be proposed",
+    policyRefused.status === 410 && policyRefused.j?.error?.code === "ioi_agent_launch_policy_retired" && !policyRefused.j?.proposal,
+    `${policyRefused.status} ${policyRefused.j?.error?.code}`);
+  const prop = (await jd("POST", "/v1/hypervisor/intelligence/improvement-proposals", {
+    proposal_kind: "automation_readiness", signal: "repeated_successful_goal_pattern",
+    evidence_refs: [`work-result://vfyroll-${tag}`],
+    suggested: { title: `roll-${tag}`, goal_pattern: `vfyroll ${tag}` },
   })).j?.proposal || {};
   await jd("POST", `/v1/hypervisor/intelligence/improvement-proposals/${prop.improvement_id}/simulate`, { save: true });
   await jd("POST", `/v1/hypervisor/intelligence/improvement-proposals/${prop.improvement_id}/approve`);
@@ -110,9 +122,10 @@ async function run() {
   await jd("PATCH", `/v1/hypervisor/governance/release-controls/${rel.id}`, { transition: "open" });
   await jd("PATCH", `/v1/hypervisor/intelligence/improvement-proposals/${prop.improvement_id}`, { approval_request_ref: appr.ref, release_control_ref: rel.ref });
   const applied = await jd("POST", `/v1/hypervisor/intelligence/improvement-proposals/${prop.improvement_id}/apply`);
-  ok("cohort-scoped apply is refused by name — 410 ioi_agent_launch_policy_retired — and writes no variant",
-    applied.status === 410 && applied.j?.error?.code === "ioi_agent_launch_policy_retired" && !applied.j?.proposal?.applied_ref,
-    `${applied.status} ${applied.j?.error?.code}`);
+  ok("the cohort-gated learned change applies through the satisfied gate, citing the cohort-scoped release",
+    applied.status === 200 && applied.j?.proposal?.state === "applied" && String(applied.j?.proposal?.applied_ref || "").startsWith("automation-affinity://")
+    && applied.j?.proposal?.release_control_ref === rel.ref,
+    `${applied.status} ${applied.j?.proposal?.state} ${applied.j?.proposal?.applied_ref}`);
 
   // R-240 (2026-09-29): eligibility derivation (authenticated principal, daemon-known project,
   // anonymous and unknown-project contexts, a labelled explicit override, canary bucketing of the
@@ -150,7 +163,8 @@ async function run() {
   ok("fallthrough stays empty", Array.isArray(ft.proxied) && ft.proxied.length === 0);
 
   // ── Cleanup (evidence receipts remain by design) ──
-  await jd("POST", `/v1/hypervisor/intelligence/improvement-proposals/${prop.improvement_id}/reject`, { reason: "verifier fixture" });
+  const affId = String(applied.j?.proposal?.applied_ref || "").replace("automation-affinity://", "");
+  if (affId) await jd("PATCH", `/v1/hypervisor/automation-affinities/${affId}`, { status: "archived" });
   await jd("DELETE", `/v1/hypervisor/governance/approval-requests/${appr.id}`);
   await jd("DELETE", `/v1/hypervisor/governance/release-controls/${rel.id}`);
   await jd("DELETE", `/v1/hypervisor/governance/release-controls/${rawRC.id}`);

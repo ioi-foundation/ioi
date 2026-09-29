@@ -1848,7 +1848,10 @@ function renderWorkLedger(entries, scopedProject, selCtx) {
       var links='';
       if(e.projection_ref){links+=bl('Projection explain',e.projection_ref,'/__ioi/intelligence/projections/'+String(e.projection_ref).replace('memory-projection://','')+'/explain');}
       if(e.simulation_ref){links+=bl('Simulation report',e.simulation_ref,'/__ioi/intelligence/simulations/'+String(e.simulation_ref).replace('simulation-report://',''));}
-      if(e.kind==='policy_rollout'){links+=bl('Learned policy',e.policy_ref,'/__ioi/agent-studio#launch-policies')+bl('Base policy',e.base_policy_ref,'/__ioi/agent-studio#launch-policies');}
+      // A rollout row is history from the retired IOI Agent launch-policy plane (R-192): its policy
+      // refs are named, never linked — no surface owns a launch policy now (R-240, launcher leftovers).
+      function retiredRef(label,ref){return ref?('<li>'+wesc(label)+': <code>'+wesc(ref)+'</code> — launch-policy plane retired</li>'):'';}
+      if(e.kind==='policy_rollout'){links+=retiredRef('Learned policy',e.policy_ref)+retiredRef('Base policy',e.base_policy_ref);}
       if(e.session_ref){links+=bl('Session',e.session_ref,'/__ioi/workbench#sessions');}
       if(e.profile_ref){links+=bl('Harness profile',e.profile_ref,'/__ioi/agent-studio#harness-profiles');}
       if(e.domain_app_ref){links+=bl('Domain app',e.domain_app_ref,'/__ioi/domain-apps');}
@@ -2641,14 +2644,10 @@ function renderModelRouteRegistry(modelRoutes) {
     ${modelRoutes.length ? `<table><thead><tr><th>Route</th><th>Model</th><th>Binding</th><th>Lifecycle</th><th>Availability</th><th>Credential</th><th>Controls</th></tr></thead><tbody>${mrRows}</tbody></table>` : `<div class="empty">No model routes registered. The daemon seeds the env-default route on first read of <code>/v1/hypervisor/model-routes</code>.</div>`}`;
 }
 
-// ---- IOI Agent launch policies — durable routing/admission preference envelopes (the saved
-// strategy presets behind New Session). Seeded defaults are PROTECTED (clone to customize);
-// every policy is receipt-required. Registry-card shape with confirm-style actions — the same
-// grafted pattern as the harness/model registries, not a generic CRUD table.
 // ---- IOI Agent intelligence cockpit (Agent Studio) — portable memory, skills, and agent/
 // policy-scoped connector context. Ownership boundaries: Developer & Integrations OWNS
 // connectors (vault/secrets never appear here); Automations OWNS automations (affinities are a
-// readiness section under Launch policies, never a sibling tab).
+// readiness section under Improvements, never a sibling tab).
 function intelStatusPill(st) { return `<span class="pill ${st === "active" ? "ok" : st === "revoked" ? "warn" : "muted"}">${CX_ESC(st || "")}</span>`; }
 function intelActions(family, id, status) {
   const enc = encodeURIComponent;
@@ -2795,8 +2794,13 @@ function renderIntelMemory(entries, proposals, projections, review) {
 }
 // ---- Improvement proposals — outcome learning under governance. Mining is a derived
 // deterministic projection (propose = explicit action); proposals change NOTHING until an
-// operator approves AND applies (receipted); protected seed policies apply via clone only.
-function renderImprovementProposals(mining, improvements) {
+// operator approves AND applies (receipted). A launch-policy suggestion recorded before the
+// IOI Agent launch-policy plane retired (R-192) is read and rejectable only: the daemon refuses
+// to admit, simulate or apply one (410 ioi_agent_launch_policy_retired), so its card offers
+// Reject and names Apply as a gap rather than rendering buttons that can only be refused
+// (R-240, launcher leftovers).
+const RETIRED_LAUNCH_POLICY_REASON = "Retired: ioi_agent_launch_policy_retired. A launch-policy suggestion changed an IOI Agent launch policy, and that plane retired with goal pursuit (R-192) — the daemon refuses to simulate or apply one. Reject it to close it out; launch choices live in the New Session composer's harness and model routes.";
+function renderImprovementProposals(mining, improvements, miningMeta) {
   const enc = encodeURIComponent;
   const stPill = (st) => `<span class="pill ${st === "applied" ? "ok" : st === "rejected" ? "warn" : st === "approved" ? "ok" : "muted"}">${CX_ESC(st)}</span>`;
   const mined = mining.map((c) => `<div class="card"><div class="main">
@@ -2806,19 +2810,23 @@ function renderImprovementProposals(mining, improvements) {
   const props = improvements.map((p) => {
     const gate = p.gate || {};
     const live = p.state === "pending" || p.state === "approved";
-    const gateLabel = { no_simulation: "no simulation", simulation_required: "simulation required", simulation_stale: "simulation stale", low_impact: "low impact", awaiting_approval: "awaiting approval", awaiting_release: "awaiting release", ready: "ready to apply" }[gate.posture] || gate.posture || "";
+    const gateLabel = { no_simulation: "no simulation", simulation_required: "simulation required", simulation_stale: "simulation stale", low_impact: "low impact", awaiting_approval: "awaiting approval", awaiting_release: "awaiting release", ready: "ready to apply", retired: "retired — launch-policy plane" }[gate.posture] || gate.posture || "";
     const gateChip = live && gateLabel ? `<span class="pill ${gate.block_code ? "warn" : "ok"}" title="${CX_ESC(gate.block_code ? `apply blocks: ${gate.block_code}` : "governance gate satisfied")}">${CX_ESC(gateLabel)}</span>` : "";
     const simBtn = `<form class="inline" method="post" action="/__ioi/agent-studio/improvements/${enc(p.improvement_id)}/simulate"><button class="act ghost" type="submit" title="deterministic what-if replay over recent runs — no mutation">Simulate impact</button></form>`;
     const applyBtn = gate.block_code
-      ? `<button class="act" type="button" disabled title="apply blocked: ${CX_ESC(gate.block_code)}">Apply</button>`
+      ? `<button class="act" type="button" disabled aria-disabled="true" style="opacity:.45;cursor:not-allowed" title="apply blocked: ${CX_ESC(gate.block_code)}" data-ioi-disabled-reason="apply blocked: ${CX_ESC(gate.block_code)}">Apply</button>`
       : `<form class="inline" method="post" action="/__ioi/agent-studio/improvements/${enc(p.improvement_id)}/apply"><button class="act" type="submit">Apply</button></form>`;
-    const acts = p.state === "pending"
-      ? `${simBtn} <form class="inline" method="post" action="/__ioi/agent-studio/improvements/${enc(p.improvement_id)}/approve"><button class="act" type="submit">Approve</button></form> <form class="inline" method="post" action="/__ioi/agent-studio/improvements/${enc(p.improvement_id)}/reject"><button class="act ghost" type="submit">Reject</button></form>`
-      : p.state === "approved"
-        ? `${simBtn} ${applyBtn} <form class="inline" method="post" action="/__ioi/agent-studio/improvements/${enc(p.improvement_id)}/reject"><button class="act ghost" type="submit">Reject</button></form>`
-        : "";
+    const rejectBtn = `<form class="inline" method="post" action="/__ioi/agent-studio/improvements/${enc(p.improvement_id)}/reject"><button class="act ghost" type="submit">Reject</button></form>`;
+    const retiredKind = p.proposal_kind === "launch_policy_suggestion";
+    const acts = retiredKind
+      ? (live ? `<span class="act ghost gap" style="opacity:.45;cursor:not-allowed" data-ioi-retired-kind="launch_policy_suggestion" aria-disabled="true" title="${CX_ESC(RETIRED_LAUNCH_POLICY_REASON)}" data-ioi-disabled-reason="${CX_ESC(RETIRED_LAUNCH_POLICY_REASON)}">Apply</span> ${rejectBtn}` : "")
+      : p.state === "pending"
+        ? `${simBtn} <form class="inline" method="post" action="/__ioi/agent-studio/improvements/${enc(p.improvement_id)}/approve"><button class="act" type="submit">Approve</button></form> ${rejectBtn}`
+        : p.state === "approved"
+          ? `${simBtn} ${applyBtn} ${rejectBtn}`
+          : "";
     // High-impact governance row: bound control status + one-click create/transition + attach-existing.
-    const highPath = live && ["awaiting_approval", "awaiting_release", "ready"].includes(gate.posture);
+    const highPath = live && !retiredKind && ["awaiting_approval", "awaiting_release", "ready"].includes(gate.posture);
     const apprId = String(p.approval_request_ref || "").replace("approval-request://", "");
     const relId = String(p.release_control_ref || "").replace("release-control://", "");
     const govRow = highPath ? `<div class="meta" style="margin-top:5px" data-gov="${CX_ESC(p.improvement_id)}">gate:
@@ -2836,7 +2844,9 @@ function renderImprovementProposals(mining, improvements) {
         </form></details></div>` : "";
     const appliedLink = p.applied_ref
       ? String(p.applied_ref).startsWith("skill-entry://") ? ` · applied: <a href="/__ioi/agent-studio#skills"><code>${CX_ESC(p.applied_ref)}</code></a>`
-      : String(p.applied_ref).startsWith("ioi-agent-policy://") ? ` · applied: <a href="/__ioi/agent-studio#launch-policies"><code>${CX_ESC(p.applied_ref)}</code></a>`
+      : String(p.applied_ref).startsWith("automation-affinity://") ? ` · applied: <a href="/__ioi/agent-studio#improvements"><code>${CX_ESC(p.applied_ref)}</code></a>`
+      // A launch policy applied before the plane retired is named, never linked: no surface owns one now.
+      : String(p.applied_ref).startsWith("ioi-agent-policy://") ? ` · applied: <code>${CX_ESC(p.applied_ref)}</code> (launch-policy plane retired)`
       : ` · applied: <code>${CX_ESC(p.applied_ref)}</code>` : "";
     return `<div class="card"><div class="main">
       <div class="name" style="font-size:13px">${CX_ESC((p.suggested || {}).title || (p.suggested || {}).display_name || p.signal)} ${stPill(p.state)}<span class="pill muted">${CX_ESC(p.proposal_kind)}</span><span class="pill warn">${CX_ESC(p.signal || "")}</span>${gateChip}</div>
@@ -2848,83 +2858,38 @@ function renderImprovementProposals(mining, improvements) {
   return `<h2 id="improvement-proposals" style="margin-top:28px">Improvement proposals <span class="sub" style="text-transform:none;letter-spacing:0;font-weight:400">— deterministic outcome mining; high-impact changes gate on fresh simulation + approval + release · <a href="/__ioi/improvement/changes">Upgrade Assistant inbox →</a> (the #53 certified projection over this plane) · <a href="/__apps/changes">change-inbox capture ↗</a></span></h2>
     ${improvements.length ? props : `<div class="empty">No improvement proposals yet.</div>`}
     <h3 style="margin:16px 0 6px;font-size:12px;color:#878a93">Mined candidates (derived, not yet proposed)</h3>
-    ${mining.length ? mined : `<div class="empty">No deterministic candidates mined from recent outcomes.</div>`}`;
+    ${mining.length ? mined : `<div class="empty">No deterministic candidates mined from recent outcomes.</div>`}${retiredSignalsNote((miningMeta || {}).retired_signals)}`;
+}
+// The miner names the signals it no longer measures (they read IOI Agent launch records, which
+// nothing writes since the launch lane retired), so an absent candidate is not read as a zero.
+function retiredSignalsNote(retired) {
+  const list = Array.isArray(retired) ? retired.filter((s) => s && s.signal) : [];
+  if (!list.length) return "";
+  const codes = [...new Set(list.map((s) => String(s.reason_code || "")).filter(Boolean))];
+  return `<p class="sub" data-ioi-retired-signals="${list.length}" style="margin:8px 0 0">Not mined: ${list.map((s) => `<code>${CX_ESC(s.signal)}</code>`).join(" · ")} — each read IOI Agent launch records, which nothing writes since the launch lane retired (${codes.map((c) => `<code>${CX_ESC(c)}</code>`).join(" · ")}). Named, not counted as zero.</p>`;
 }
 
 function renderAutomationReadiness(affinities) {
   const cards = affinities.map((a) => `<div class="card"><div class="main">
     <div class="name">${CX_ESC(a.title || a.affinity_id)} ${intelStatusPill(a.status)}</div>
-    <div class="meta">goal pattern <code>${CX_ESC(a.goal_pattern || "")}</code>${a.preferred_policy_ref ? ` → <code>${CX_ESC(a.preferred_policy_ref)}</code>` : ""}</div>
+    <div class="meta">goal pattern <code>${CX_ESC(a.goal_pattern || "")}</code>${a.preferred_policy_ref ? ` → <code title="an opaque ref to the composing application's policy — the Hypervisor neither resolves nor plans it">${CX_ESC(a.preferred_policy_ref)}</code>` : ""}</div>
     <div class="chips" style="margin:6px 0 0">${(a.preferred_harness_refs || []).map((r) => `<span class="pill muted">${CX_ESC(String(r).replace("harness-profile:hp_", ""))}</span>`).join("")}${(a.preferred_automation_refs || []).map((r) => `<span class="pill muted">${CX_ESC(String(r))}</span>`).join("")}${(a.required_connector_refs || []).map((r) => `<span class="pill warn">needs ${CX_ESC(String(r).slice(0, 24))}</span>`).join("")}</div>
     </div><div>${intelActions("affinities", a.affinity_id, a.status)}</div></div>`).join("");
   const form = `<details style="margin-top:12px"><summary class="act ghost" style="display:inline-block;cursor:pointer">+ New affinity</summary>
     <form method="post" action="/__ioi/agent-studio/intel/affinities" style="margin-top:10px;max-width:640px">
       <div class="field"><label>Title</label><input name="title" required></div>
-      <div class="two">
-        <div class="field"><label>Goal pattern (substring match)</label><input name="goal_pattern" required placeholder="status file"></div>
-        <div class="field"><label>Preferred policy ref</label><input name="preferred_policy_ref" placeholder="ioi-agent-policy://pol_fast_local"></div>
-      </div>
+      <div class="field"><label>Goal pattern (substring match)</label><input name="goal_pattern" required placeholder="status file"></div>
       <div class="two">
         <div class="field"><label>Preferred automation refs (csv)</label><input name="preferred_automation_refs" placeholder="automation://auto_…"></div>
         <div class="field"><label>Preferred harness refs (csv)</label><input name="preferred_harness_refs"></div>
       </div>
       <div class="row"><button class="act" type="submit">Create affinity</button></div>
     </form></details>`;
-  return `<h2 id="automation-readiness" style="margin-top:28px">Automation readiness</h2><p class="sub" style="margin:-4px 0 12px">Affinities between goal patterns, launch policies, and existing <a href="/__ioi/automations">Hypervisor Automations →</a> (which own triggers/schedules/runs). At launch, a matching affinity steers policy/harness selection in the projection.</p>${affinities.length ? cards : `<div class="empty">No automation affinities yet.</div>`}${form}`;
-}
-
-function renderLaunchPolicies(policies, profiles) {
-  const enc = encodeURIComponent;
-  policies = Array.isArray(policies) ? policies : [];
-  const chip = (cls, label) => `<span class="pill ${cls}">${CX_ESC(label)}</span>`;
-  const cards = policies.map((p) => {
-    const hp = p.harness_preferences || {};
-    const priv = p.privacy || {};
-    const asr = p.assurance || {};
-    const active = p.status === "active";
-    const ro = p.rollout || null;
-    const roActs = ro && ro.state === "active"
-      ? `<form class="inline" method="post" action="/__ioi/agent-studio/launch-policies/${enc(p.policy_id)}/rollout/promote" onsubmit="return confirm('Promote to FULL rollout — every context using the base policy will see this learned variant?')"><button class="act" type="submit">Promote full</button></form> <form class="inline" method="post" action="/__ioi/agent-studio/launch-policies/${enc(p.policy_id)}/rollout/rollback"><button class="act ghost" type="submit">Roll back</button></form>`
-      : ro && ro.state === "promoted"
-        ? `<form class="inline" method="post" action="/__ioi/agent-studio/launch-policies/${enc(p.policy_id)}/rollout/rollback"><button class="act ghost" type="submit">Roll back</button></form>`
-        : "";
-    const acts = [
-      roActs,
-      `<form class="inline" method="post" action="/__ioi/agent-studio/launch-policies/${enc(p.policy_id)}/clone"><button class="act ghost" type="submit">Clone</button></form>`,
-      active
-        ? `<form class="inline" method="post" action="/__ioi/agent-studio/launch-policies/${enc(p.policy_id)}/disable"><button class="act ghost" type="submit">Disable</button></form>`
-        : `<form class="inline" method="post" action="/__ioi/agent-studio/launch-policies/${enc(p.policy_id)}/enable"><button class="act" type="submit">Enable</button></form>`,
-      p.protected ? "" : `<form class="inline" method="post" action="/__ioi/agent-studio/launch-policies/${enc(p.policy_id)}/delete" onsubmit="return confirm('Delete this policy?')"><button class="act danger" type="submit">Delete</button></form>`,
-    ].join(" ");
-    return `<div class="card lpcard" data-policy="${CX_ESC(p.policy_id)}"><div class="main">
-      <div class="name">${CX_ESC(p.display_name || p.policy_id)}${p.protected ? ' <span class="pill muted" title="seeded default — clone to customize">protected</span>' : ""}${active ? ' <span class="pill ok">active</span>' : ' <span class="pill muted">disabled</span>'}</div>
-      <div class="meta"><code>${CX_ESC(p.policy_ref || "")}</code> · ${CX_ESC(p.description || "")}</div>
-      <div class="chips" style="margin:6px 0 0">${chip("muted", "strategy: " + (p.strategy_preference || "auto"))}${priv.local_only ? chip("ok", "private local") : ""}${asr.require_compare ? chip("warn", "compare required") : ""}${(asr.min_successful_invocations || 0) > 1 ? chip("warn", "min success: " + asr.min_successful_invocations) : ""}${hp.allow_fallback ? chip("muted", "fallback allowed") : chip("muted", "fail-closed")}${(hp.preferred_harness_refs || []).map((r) => chip("muted", "prefers " + String(r).replace("harness-profile:hp_", ""))).join("")}${chip("ok", "receipts required")}${ro ? chip(ro.state === "active" ? "warn" : ro.state === "promoted" ? "ok" : "muted", `${ro.mode || "?"} rollout · ${ro.state}`) : ""}${ro ? chip("muted", "base " + String(ro.base_policy_ref || "").replace("ioi-agent-policy://", "")) : ""}${ro && ro.proposal_ref ? chip("muted", "learned") : ""}${(p.rollout_display?.cohort_names || []).map((n) => chip("warn", "cohort: " + n)).join("")}${p.rollout_display?.canary_percent != null ? chip("warn", p.rollout_display.canary_percent + "% canary") : ""}${p.rollout_display?.deprecated_raw ? chip("muted", "deprecated raw refs") : ""}</div>
-      </div><div>${acts}</div></div>`;
-  }).join("");
-  const hpOpts = (profiles || []).map((p) => `${p.profile_ref || ""}`).filter(Boolean);
-  const form = `<details style="margin-top:12px"><summary class="act ghost" style="display:inline-block;cursor:pointer">+ New policy</summary>
-    <form method="post" action="/__ioi/agent-studio/launch-policies" style="margin-top:10px;max-width:640px">
-      <div class="field"><label>Name</label><input name="display_name" required placeholder="OpenCode preferred"></div>
-      <div class="field"><label>Description</label><input name="description" placeholder="What this policy is for"></div>
-      <div class="two">
-        <div class="field"><label>Strategy preference</label><select name="strategy_preference"><option value="auto">auto</option><option value="direct">direct</option><option value="compare">compare</option><option value="private_local">private_local</option></select></div>
-        <div class="field"><label>Failure policy</label><select name="failure_policy"><option value="partial_ok">partial_ok</option><option value="stop_on_first_failure">stop_on_first_failure</option><option value="require_all">require_all</option><option value="retry_once">retry_once</option></select></div>
-      </div>
-      <div class="two">
-        <div class="field"><label>Preferred harness refs (csv)</label><input name="preferred_harness_refs" placeholder="${CX_ESC(hpOpts[1] || "harness-profile:hp_opencode")}"></div>
-        <div class="field"><label>Excluded harness refs (csv)</label><input name="excluded_harness_refs" placeholder=""></div>
-      </div>
-      <div class="field"><label><input type="checkbox" name="allow_fallback" style="width:auto"> allow fallback when constraints cannot be satisfied</label></div>
-      <div class="field"><label><input type="checkbox" name="local_only" style="width:auto"> private local (local trust + local routes only)</label></div>
-      <div class="two">
-        <div class="field"><label><input type="checkbox" name="require_compare" style="width:auto"> require compare (write only through reconciliation)</label></div>
-        <div class="field"><label>Min successful invocations</label><input name="min_successful_invocations" type="number" min="1" max="2" value="1"></div>
-      </div>
-      <div class="row"><button class="act" type="submit">Create policy</button></div>
-      <p class="sub" style="margin:6px 0 0">Receipts are mandatory on every policy; a policy is a routing/admission preference envelope, never a harness.</p>
-    </form></details>`;
-  return `<h2 id="launch-policies">Launch policies</h2><p class="sub" style="margin:-4px 0 12px">Saved IOI Agent strategy presets — the daemon planner composes a policy with live registry facts, authority, privacy posture, budget, and failure policy at launch. Seeded defaults are protected; clone to customize.</p>${policies.length ? cards : `<div class="empty">No launch policies yet.</div>`}${form}`;
+  // R-240 (launcher leftovers): the form offered a "Preferred policy ref" (ioi-agent-policy://…) —
+  // a record of the retired IOI Agent launch-policy plane. The daemon keeps the field as an opaque
+  // ref a composing application may set for its own policy; nothing here resolves one, so the
+  // Hypervisor form no longer asks for it.
+  return `<h2 id="automation-readiness" style="margin-top:28px">Automation readiness</h2><p class="sub" style="margin:-4px 0 12px">Affinities between goal patterns, harnesses, and existing <a href="/__ioi/automations">Hypervisor Automations →</a> (which own triggers/schedules/runs). When a memory projection is planned for a goal, the most specific matching affinity rides the projection with its preferred harnesses and automations.</p>${affinities.length ? cards : `<div class="empty">No automation affinities yet.</div>`}${form}`;
 }
 
 // A project's daemon id is always `project:<slug>` and automations are stored against that id, so a
@@ -3009,7 +2974,14 @@ function renderStudioSystemDesigns(sd) {
     `<h3 style="margin:16px 0 4px;font-size:13px">Saved system designs <span class="sub" style="text-transform:none;letter-spacing:0;font-weight:400">— admitted ODK surface descriptors</span></h3>${designRows}`;
 }
 
-function renderAgentStudio(agents, profiles, routes, providers, conversations, runs, selId, q, modelRoutes, launchPolicies, intel) {
+// R-240 (launcher leftovers, 2026-09-29): a Launch policies registry rendered here — cards, a
+// "+ New policy" form and clone/enable/disable/delete/promote/rollback lanes — over a list the route
+// resolved to an empty set since the IOI Agent launch-policy plane retired with goal pursuit
+// (R-192, S5-1), so it could only ever say "No launch policies yet" and offer a form the serve
+// answers 410 `ioi_agent_launch_policy_retired`. The registry and its argument are gone; the tab it
+// shared is Improvements (automation readiness + improvement proposals), and `#launch-policies`
+// deep links land there. Launch choices live in the New Session composer's harness/model routes.
+function renderAgentStudio(agents, profiles, routes, providers, conversations, runs, selId, q, modelRoutes, intel) {
   const enc = encodeURIComponent;
   agents = Array.isArray(agents) ? agents : [];
   profiles = Array.isArray(profiles) ? profiles : [];
@@ -3033,8 +3005,8 @@ function renderAgentStudio(agents, profiles, routes, providers, conversations, r
     // form anywhere creates an agent. (The empty state used to say an agent is created when you start a
     // session or run an automation; neither writes an agent record.)
     const ws = intel || {};
-    return automationsShell("Studio", styles + head + renderCustodyCards() + renderStudioSystemDesigns(ws.systemDesigns) + `<div class="empty" data-agent-studio-no-agents="1">No agents yet — once the agent runtime records one it appears here with its model route, runtime posture, and activity. The workspace's memory, skills and improvement proposals below belong to the workspace, not to one agent.</div>` + renderModelRouteRegistry(modelRoutes) + renderLaunchPolicies(launchPolicies, profiles)
-      + renderAutomationReadiness(ws.affinities || []) + renderImprovementProposals(ws.mining || [], ws.improvements || []) + renderIntelSkills(ws.skills || []) + renderIntelMemory(ws.entries || [], ws.proposals || [], ws.projections || [], ws.review || []));
+    return automationsShell("Studio", styles + head + renderCustodyCards() + renderStudioSystemDesigns(ws.systemDesigns) + `<div class="empty" data-agent-studio-no-agents="1">No agents yet — once the agent runtime records one it appears here with its model route, runtime posture, and activity. The workspace's memory, skills and improvement proposals below belong to the workspace, not to one agent.</div>` + renderModelRouteRegistry(modelRoutes)
+      + `<div id="improvements">` + renderAutomationReadiness(ws.affinities || []) + renderImprovementProposals(ws.mining || [], ws.improvements || [], ws.miningMeta) + `</div>` + renderIntelSkills(ws.skills || []) + renderIntelMemory(ws.entries || [], ws.proposals || [], ws.projections || [], ws.review || []));
   }
   // Selected agent (query ?agent=, else first of the filtered list).
   const sel = filtered.find((a) => a.id === selId) || filtered[0] || agents[0];
@@ -3170,7 +3142,7 @@ function renderAgentStudio(agents, profiles, routes, providers, conversations, r
     <button class="tab active" data-astab="config" type="button">Configuration</button>
     <button class="tab" data-astab="harness-profiles" type="button">Harness profiles</button>
     <button class="tab" data-astab="model-routes" type="button">Model routes</button>
-    <button class="tab" data-astab="launch-policies" type="button">Launch policies</button>
+    <button class="tab" data-astab="improvements" type="button">Improvements</button>
     <button class="tab" data-astab="connectors" type="button">Connectors</button>
     <button class="tab" data-astab="skills" type="button">Skills</button>
     <button class="tab" data-astab="memory" type="button">Memory</button>
@@ -3180,13 +3152,16 @@ function renderAgentStudio(agents, profiles, routes, providers, conversations, r
   const panels = panel("config", true, `${actions}<h2>Configuration</h2>${grid}${postureChips}<h2>Model route</h2>${routeGrid}`)
     + panel("harness-profiles", false, matrix || `<div class="empty">No harness profiles registered.</div>`)
     + panel("model-routes", false, routing)
-    + panel("launch-policies", false, renderLaunchPolicies(launchPolicies, profiles) + renderAutomationReadiness((intel || {}).affinities || []) + renderImprovementProposals((intel || {}).mining || [], (intel || {}).improvements || []))
+    + panel("improvements", false, `<div id="improvements">` + renderAutomationReadiness((intel || {}).affinities || []) + renderImprovementProposals((intel || {}).mining || [], (intel || {}).improvements || [], (intel || {}).miningMeta) + `</div>`)
     + panel("connectors", false, renderIntelConnectors(intel || {}))
     + panel("skills", false, renderIntelSkills((intel || {}).skills || []))
     + panel("memory", false, renderIntelMemory((intel || {}).entries || [], (intel || {}).proposals || [], (intel || {}).projections || [], (intel || {}).review || []))
     + panel("activity", false, activity);
   const tabScript = `<style>.aspanel{display:none}.aspanel.on{display:block}</style><script>
+    // Anchors inside a panel open that panel; #launch-policies (the retired tab) lands on Improvements.
+    var AS_ALIAS={'launch-policies':'improvements','affinities':'improvements','automation-readiness':'improvements','improvement-proposals':'improvements'};
     function asTab(name){
+      if(AS_ALIAS[name])name=AS_ALIAS[name];
       var found=false;
       document.querySelectorAll('#astabs .tab').forEach(function(b){var on=b.getAttribute('data-astab')===name;b.classList.toggle('active',on);if(on)found=true;});
       if(!found)return asTab('config');
@@ -12887,9 +12862,23 @@ async function handleEstateRequest(req, res, body) {
         { key: "work_results", path: "/v1/hypervisor/work-results", label: "Work results",
           role: "the platform's generic result record, named by the work subject the producing application recorded — the run-shaped noun that survives a pursuit, not an automation build",
           owner: "/__ioi/operations", ownerLabel: "Operations" },
-        { key: "work_lifecycle_records", path: "/v1/hypervisor/work-lifecycle/records", label: "Work lifecycle records",
-          role: "an object's append-only lifecycle chain and the projection rebuilt from it, written through one generic owner-scoped route for any object kind a composing application keeps a lifecycle for (R-192)",
-          owner: "/__ioi/work-ledger", ownerLabel: "Work Ledger" },
+        // R-240 (launcher leftovers): this row probed GET /work-lifecycle/records with no object_ref —
+        // a question the route refuses with 400 work_lifecycle_object_ref_required every time, so the
+        // census printed the surface's own malformed read as the plane REFUSING it. The records route
+        // answers one owner-scoped object's chain; the question a census can put to the whole plane
+        // is its status read, which counts lifecycle objects per kind.
+        { key: "work_lifecycle", path: "/v1/hypervisor/work-lifecycle/status", label: "Work lifecycle objects (status census)",
+          role: "the append-only lifecycle chains a composing application keeps for any object kind, written through one generic owner-scoped route (R-192) — the status read counts them per object kind; one object's chain is read by its object_ref",
+          owner: "/__ioi/work-ledger", ownerLabel: "Work Ledger",
+          // Its collection is per-KIND counts, not records, and the body carries a second array (the
+          // one live owner-route binding) that sorts first — so the collection is named, and the row
+          // counts objects and records out of it.
+          rowsKey: "per_kind_lifecycle_counts",
+          countCopy: (rows) => {
+            const objects = rows.reduce((n, k) => n + (Number(k && k.object_count) || 0), 0);
+            const records = rows.reduce((n, k) => n + (Number(k && k.record_count) || 0), 0);
+            return `${objects} lifecycle object${objects === 1 ? "" : "s"} across ${rows.length} object kind${rows.length === 1 ? "" : "s"} (${records} record${records === 1 ? "" : "s"}) — counted from the plane's status census on this render`;
+          } },
         { key: "attempts", path: "/v1/hypervisor/autonomous-systems/:system_id/records?contract_id=schema://ioi/applications/ioi-ai/attempt/v4", label: "Orchestration attempts",
           role: "attempts are v4 application records composed over the orchestration and served by the System-record seam (R-177 S4a); the goal-orchestration plane that once answered them held none and is itself retired (R-192 S5-1)",
           owner: "/systems", ownerLabel: "Systems" },
@@ -12929,7 +12918,7 @@ async function handleEstateRequest(req, res, body) {
       // constant. The order of the tests IS the contract: a plane the daemon publishes no GET for
       // is decided by the index before any body is read, a refusal is decided before any collection
       // is looked for, and only a 200 that actually carried a collection may be called live-or-empty.
-      const bldClassify = (pr) => {
+      const bldClassify = (pr, pl) => {
         const methods = bldMethodsFor(pr.path);
         if (!methods.includes("GET") || pr.status === 405) return { state: "no_read_route", code: "", methods, rows: [] };
         if (!pr.ok) {
@@ -12937,11 +12926,11 @@ async function handleEstateRequest(req, res, body) {
           const code = (b.error && b.error.code) || b.reason || b.code || `http_${pr.status}`;
           return { state: "refused", code: String(code), methods, message: String((b.error && b.error.message) || (b.error && b.error.detail) || b.message || ""), rows: [] };
         }
-        const arr = Array.isArray(pr.body) ? pr.body : Object.values(pr.body || {}).find((v) => Array.isArray(v));
+        const arr = pl && pl.rowsKey ? (pr.body || {})[pl.rowsKey] : Array.isArray(pr.body) ? pr.body : Object.values(pr.body || {}).find((v) => Array.isArray(v));
         if (!Array.isArray(arr)) return { state: "unreadable", code: `http_${pr.status}`, methods, rows: [] };
         return { state: arr.length ? "live" : "empty", code: "", methods, rows: arr };
       };
-      const bldRead = BLD_PLANES.map((pl, i) => ({ ...pl, ...bldClassify(bldProbes[i]), status: bldProbes[i].status }));
+      const bldRead = BLD_PLANES.map((pl, i) => ({ ...pl, ...bldClassify(bldProbes[i], pl), status: bldProbes[i].status }));
       const bldBy = Object.fromEntries(bldRead.map((r) => [r.key, r]));
       const bldCount = (s) => bldRead.filter((r) => r.state === s).length;
       // ONE gap contract for every named absence (aria + title + data-ioi reason). bld-gap marks a
@@ -13038,8 +13027,11 @@ async function handleEstateRequest(req, res, body) {
       // ---- The plane census: one row per plane, state classified live and stamped.
       const bldStateLabel = { live: "LIVE", empty: "EMPTY", refused: "REFUSED", no_read_route: "NO READ ROUTE", unreadable: "UNREADABLE" };
       const bldStateCopy = (r) => {
-        if (r.state === "live") return `${r.rows.length} record${r.rows.length === 1 ? "" : "s"} — counted from the plane on this render`;
+        if (r.state === "live") return typeof r.countCopy === "function" ? r.countCopy(r.rows) : `${r.rows.length} record${r.rows.length === 1 ? "" : "s"} — counted from the plane on this render`;
         if (r.state === "empty") return `the plane answered and holds none — an EMPTY plane, not a missing one`;
+        // A 400 is the route refusing the QUESTION this surface put, not the plane refusing the caller —
+        // the row says so, so a malformed probe can never read as a closed door (R-240, launcher leftovers).
+        if (r.state === "refused" && r.status === 400) return `the route refused the question this surface asked: <code>${esc(r.code)}</code> (HTTP 400 — the read was malformed, not the caller refused) — a REFUSAL, never a zero`;
         if (r.state === "refused") return `the plane refused this read: <code>${esc(r.code)}</code> — a REFUSAL, never a zero`;
         if (r.state === "no_read_route") return `the daemon's route index publishes no GET here (${r.methods.length ? `methods: ${esc(r.methods.join(", "))}` : `no route at all — HTTP ${esc(String(r.status))}`}) — nothing to read, which is not the same as reading nothing`;
         return `the plane did not answer readably (<code>${esc(r.code)}</code>) — stated, never guessed`;
@@ -13050,6 +13042,13 @@ async function handleEstateRequest(req, res, body) {
         + `<span class="bld-state bld-state-${esc(r.state)}">${esc(bldStateLabel[r.state] || r.state)}</span>`
         + `<span class="bld-scopy">${bldStateCopy(r)}</span>`
         + `<span><a href="${esc(r.owner)}">${esc(r.ownerLabel)} →</a></span></div>`).join("");
+      // The refusal line names the planes that refused on THIS render, whichever they are. It used to
+      // live only in the session-registry branch below, so a refusal on any other row went unstated
+      // while that branch said the sessions read had answered (R-240, launcher leftovers).
+      const bldRefusedRows = bldRead.filter((r) => r.state === "refused");
+      const bldRefusalLine = bldRefusedRows.length
+        ? `<p class="bld-note" data-ioi-refused-planes="${bldRefusedRows.length}"><b>Refused on this render:</b> ${bldRefusedRows.map((r) => `<code>${esc(r.path)}</code> answered <code>${esc(r.code)}</code> (HTTP ${esc(String(r.status))})`).join(" · ")}. A refusal is not a zero: none of these is counted and none is read as empty.</p>`
+        : `<p class="bld-note" data-ioi-refused-planes="0">No plane refused this read on this render; each row above states what its plane answered.</p>`;
       const bldFoot = `JOB-1 (remediation v2): the BUILDS port — the leg whose finding is that <b>no single plane lists every build</b>. The replay-scoped verdict was absent_confirmed (#jobs, MIS-1.recon — "no Builds grammar expresses at any recorded state; the substrate STANDS as the surface"); the owner-authorized live sweep OVERTURNED it and recorded a real build tracker (title "Your builds · Builds" · <b>14 controls</b> · a left Search-by/Filter-by panel · an All/Running/Finished segmented control · a six-column build table over REAL rows). Of those 14, <b>9 are the vendor global rail</b> (railless here) and the <b>5 app controls</b> port as counted census chips or typed absences. That supersession is recorded in reference-seed-adjudications.v1.json#jobs-port and the reference record stands as history; Builds is Automations' run history (ADR 0056). <b>${bldRead.length}</b> run/build planes were probed live on this render and answered in four states — <b>${bldCount("live")} LIVE</b> · <b>${bldCount("empty")} EMPTY</b> · <b>${bldCount("refused")} REFUSED</b> · <b>${bldCount("no_read_route")} NO READ ROUTE</b>. READ-ONLY: the build verbs (start an execution · cancel one) belong to <a href="/__ioi/automations">Automations</a> and are not re-minted here. Evidence: reference-seed-adjudications.v1.json#jobs-port · reference-live-tenant-atlas.v1.json#jobs (landing) · .artifacts/live-tenant-atlas/jobs-landing.png. Owner: <a href="/automations">Automations</a> · truth: <a href="/__ioi/work-ledger">the work ledger</a> · <a href="/__ioi/lineage?tab=timeline">Build timeline</a> · <a href="/__ioi/operations">Operations</a>.`;
       sendOwnedSurfaceHtmlAt(res, "jobs", pathname, "/__ioi/missions/builds", `<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Builds</title><style>
         :root{color-scheme:light}*{box-sizing:border-box}body{margin:0;background:#fff;color:#1c2127;font:14px/1.28581 Source-Sans-Pro,Helvetica,sans-serif}a{color:#215db0;text-decoration:none}
@@ -13177,10 +13176,11 @@ async function handleEstateRequest(req, res, body) {
             <div class="bld-chead"><span>Reference column</span><span>Estate field</span><span>What binds it, or why nothing does</span></div>
             ${bldColumns}
             <h2 class="bld-h">Run &amp; build planes — read live, classified into four states</h2>
-            <p class="bld-note">Every row is a REAL daemon plane and its state was classified from that plane's own response on this render, then stamped on the row (<code>data-ioi-plane-state</code>) so it can never be pasted and never rot. <b>LIVE</b> = the plane answered and holds records. <b>EMPTY</b> = it answered and holds none. <b>REFUSED</b> = the plane refused this read with a typed code — <b>a refusal is not a zero</b>. <b>NO READ ROUTE</b> = the daemon's own route index publishes no GET for it; there is nothing to read, which is not the same as reading nothing. <b>REFUSED is not EMPTY, EMPTY is not MISSING</b>, and a plane with no read route is none of the three.</p>
+            <p class="bld-note">Every row is a REAL daemon plane and its state was classified from that plane's own response on this render, then stamped on the row (<code>data-ioi-plane-state</code>) so it can never be pasted and never rot. <b>LIVE</b> = the plane answered and holds records. <b>EMPTY</b> = it answered and holds none. <b>REFUSED</b> = the route answered this read with a typed refusal code (a 400 says the question itself was malformed) — <b>a refusal is not a zero</b>. <b>NO READ ROUTE</b> = the daemon's own route index publishes no GET for it; there is nothing to read, which is not the same as reading nothing. <b>REFUSED is not EMPTY, EMPTY is not MISSING</b>, and a plane with no read route is none of the three.</p>
             <div class="bld-phead"><span>Plane</span><span>Route</span><span>State</span><span>What that state means here</span><span>Owner</span></div>
             ${bldPlaneRows}
-            <h3 class="bld-h">The session registry — ${esc(bldStateLabel[bldBy.sessions.state] || bldBy.sessions.state)}</h3>
+            ${bldRefusalLine}
+            <h3 class="bld-h">The session registry —${esc(bldStateLabel[bldBy.sessions.state] || bldBy.sessions.state)}</h3>
             <div class="bld-call">
               ${bldBy.sessions.state === "refused"
                 ? `<p><code>/v1/hypervisor/sessions</code> REFUSED this read with the daemon's own typed code <code>${esc(bldBy.sessions.code)}</code>. So this surface prints no session count and binds no build to a session — because it could not read one. <b>A refusal is not a zero</b>: rendering "0 sessions" here would convert a closed door into a measurement the estate never took, and the builds above would silently look session-less rather than unresolved.</p>`
@@ -15855,16 +15855,15 @@ async function handleEstateRequest(req, res, body) {
     }
     if (pathname === "/__ioi/api/new-session/context" && req.method === "GET") {
       const J = (p) => daemonFetch(`${p}`).then((x) => x.json()).catch(() => ({}));
-      const [pj, envs, arp, mr, et, lp, plVenues, plPolicy, cx, hpLive] = await Promise.all([
+      // R-192 (S5-1) took the IOI-Agent launch policies this context resolved; it carried an
+      // always-empty `launch_policies` list after that, which no chooser read. The list is gone
+      // (R-240, launcher leftovers): a launch is chosen by its harness profile and model route.
+      const [pj, envs, arp, mr, et, plVenues, plPolicy, cx, hpLive] = await Promise.all([
         J("/v1/hypervisor/projects"),
         J("/v1/hypervisor/environments"),
         J("/v1/hypervisor/agent-runner-profiles"),
         J("/v1/hypervisor/model-routes"),
         J("/v1/hypervisor/editor-targets"),
-        // R-192 (S5-1): active IOI-Agent launch policies were resolved here. A launch policy is
-        // goal-pursuit policy and left with that plane; the context resolves an empty set rather
-        // than a 404 body, and the launcher renders no policy chooser over it.
-        Promise.resolve({ policies: [] }),
         J("/v1/hypervisor/placement/venues"),
         J("/v1/hypervisor/placement/venue-policy"),
         J("/v1/hypervisor/connectors"),
@@ -15904,14 +15903,6 @@ async function handleEstateRequest(req, res, body) {
           default_route: r.default_route === true,
         })),
         default_route_ref: mr.default_route_ref || null,
-        launch_policies: (lp.policies || []).map((p) => ({
-          policy_ref: p.policy_ref,
-          policy_id: p.policy_id,
-          display_name: p.display_name,
-          description: p.description,
-          strategy_preference: p.strategy_preference,
-          protected: p.protected === true,
-        })),
         editor_targets: (et.targets || []).map((t) => ({
           target_id: t.target_id,
           display_name: (t.profile || {}).displayName || t.target_id,
@@ -15979,7 +15970,10 @@ async function handleEstateRequest(req, res, body) {
       const selId = sp.get("agent") || "";
       const q = sp.get("q") || "";
       const J = (p) => daemonFetch(`${p}`).then((x) => x.json()).catch(() => ({}));
-      const [ag, pr, ro, pv, cv, tr, mr, lp, me, sk, af, cn, cl, mp, mprj, rq, om, imp, rcl, coh, odkov, odksd] = await Promise.all([
+      // R-240 (launcher leftovers): an always-empty launch-policy set stood in this list (the
+      // registry left with goal pursuit, R-192), with the release-control and cohort reads that
+      // decorated its rollout cards. The registry is gone from the page, and so are those reads.
+      const [ag, pr, ro, pv, cv, tr, mr, me, sk, af, cn, cl, mp, mprj, rq, om, imp, odkov, odksd] = await Promise.all([
         J("/v1/agents"),
         J("/v1/hypervisor/agent-runner-profiles"),
         J("/v1/model-mount/routes"),
@@ -15987,9 +15981,6 @@ async function handleEstateRequest(req, res, body) {
         J("/v1/hypervisor/agentops/conversations"),
         J("/v1/hypervisor/agent-run-transcripts"),
         J("/v1/hypervisor/model-routes"),
-        // R-192 (S5-1): the launch-policy registry left with goal pursuit; the studio's policy tab
-        // renders an empty, honest set rather than a 404 body.
-        Promise.resolve({ policies: [] }),
         J("/v1/hypervisor/memory-entries"),
         J("/v1/hypervisor/skill-entries"),
         J("/v1/hypervisor/automation-affinities"),
@@ -16000,22 +15991,9 @@ async function handleEstateRequest(req, res, body) {
         J("/v1/hypervisor/intelligence/review-queue"),
         J("/v1/hypervisor/intelligence/outcome-mining"),
         J("/v1/hypervisor/intelligence/improvement-proposals"),
-        J("/v1/hypervisor/governance/release-controls"),
-        J("/v1/hypervisor/governance/cohorts"),
         J("/v1/hypervisor/odk/overview"),
         J("/v1/hypervisor/odk/surface-descriptors"),
       ]);
-      // Decorate rollout-bound learned variants with their control's cohort names + mode so
-      // the policy card can say WHO the rollout applies to.
-      for (const pol of (lp.policies || [])) {
-        if (!pol.rollout) continue;
-        const control = ((rcl || {}).release_controls || []).find((r) => r.ref === pol.rollout.release_control_ref);
-        const names = (control?.cohort_refs || []).map((ref) => {
-          const c = ((coh || {}).cohorts || []).find((x) => x.ref === ref);
-          return c ? `${c.display_name}${c.status !== "active" ? " (disabled)" : ""}` : ref;
-        });
-        pol.rollout_display = { mode: control?.rollout_mode || pol.rollout.mode, cohort_names: names, canary_percent: control?.canary_percent ?? null, deprecated_raw: (control?.deprecated_raw_cohort_refs || []).length > 0 };
-      }
       res.writeHead(200, { "Content-Type": "text/html; charset=utf-8", "Cache-Control": "no-cache" });
       res.end(renderAgentStudio(
         Array.isArray(ag) ? ag : (ag.agents || []),
@@ -16027,8 +16005,7 @@ async function handleEstateRequest(req, res, body) {
         selId,
         q,
         mr.routes || [],
-        lp.policies || [],
-        { entries: me.entries || [], skills: sk.skills || [], affinities: af.affinities || [], connectors: cn.connectors || [], leases: cl.leases || [], proposals: mp.proposals || [], projections: (mprj.projections || []).slice(0, 20), review: (rq.items || []).slice(0, 20), mining: (om.candidates || []).slice(0, 10), improvements: (imp.proposals || []).slice(0, 15), systemDesigns: { compositionPatterns: (odkov || {}).composition_patterns || [], surfaceDescriptors: ((odksd || {}).surface_descriptors || (odksd || {}).descriptors || []).map(odkDescriptorView) } },
+        { entries: me.entries || [], skills: sk.skills || [], affinities: af.affinities || [], connectors: cn.connectors || [], leases: cl.leases || [], proposals: mp.proposals || [], projections: (mprj.projections || []).slice(0, 20), review: (rq.items || []).slice(0, 20), mining: (om.candidates || []).slice(0, 10), miningMeta: { retired_signals: Array.isArray(om.retired_signals) ? om.retired_signals : [] }, improvements: (imp.proposals || []).slice(0, 15), systemDesigns: { compositionPatterns: (odkov || {}).composition_patterns || [], surfaceDescriptors: ((odksd || {}).surface_descriptors || (odksd || {}).descriptors || []).map(odkDescriptorView) } },
       ));
       return;
     }
@@ -16053,7 +16030,6 @@ async function handleEstateRequest(req, res, body) {
           }
           if (family === "affinities") {
             payload.goal_pattern = form.get("goal_pattern") || "";
-            if (form.get("preferred_policy_ref")) payload.preferred_policy_ref = form.get("preferred_policy_ref");
             if (csv("preferred_automation_refs").length) payload.preferred_automation_refs = csv("preferred_automation_refs");
             if (csv("preferred_harness_refs").length) payload.preferred_harness_refs = csv("preferred_harness_refs");
           }
@@ -16105,7 +16081,7 @@ async function handleEstateRequest(req, res, body) {
         const simId = String(j.report?.simulation_ref || "").replace("simulation-report://", "");
         if (!r || r.status >= 400 || !simId) {
           res.writeHead(200, { "Content-Type": "text/html; charset=utf-8" });
-          res.end(automationsShell("Simulation", `<div class="empty">Simulation failed: <code>${CX_ESC((j.error && j.error.code) || "daemon unavailable")}</code></div><p><a href="/__ioi/agent-studio#launch-policies">← Studio</a></p>`));
+          res.end(automationsShell("Simulation", `<div class="empty">Simulation failed: <code>${CX_ESC((j.error && j.error.code) || "daemon unavailable")}</code></div><p><a href="/__ioi/agent-studio#improvements">← Studio</a></p>`));
           return;
         }
         res.writeHead(302, { Location: `/__ioi/intelligence/simulations/${encodeURIComponent(simId)}`, "Cache-Control": "no-cache" });
@@ -16132,13 +16108,14 @@ async function handleEstateRequest(req, res, body) {
           <td>${sc.changed ? '<span class="pill warn">changed</span>' : '<span class="pill muted">same</span>'}</td>
         </tr>`;
         res.writeHead(200, { "Content-Type": "text/html; charset=utf-8", "Cache-Control": "no-cache" });
-        res.end(automationsShell("Simulation report", `<p><a href="/__ioi/agent-studio#launch-policies">← Studio · Improvement proposals</a></p>
+        res.end(automationsShell("Simulation report", `<p><a href="/__ioi/agent-studio#improvements">← Studio · Improvement proposals</a></p>
           <h1>🔮 What-if simulation <span class="pill ok">deterministic</span> <span class="pill muted">non-mutating</span>${rep.governance?.high_impact ? ' <span class="pill warn">high impact</span>' : ""}</h1>
           <p class="sub">${CX_ESC(rep.body_disclosure || "")} · ${CX_ESC(rep.registry_posture || "")}</p>
           <dl class="grid">
             <dt>Proposal</dt><dd><code>${CX_ESC(rep.proposal_ref || "")}</code> · ${CX_ESC(rep.proposal_kind || "")}</dd>
             <dt>Report hash</dt><dd><code style="font-size:10.5px">${CX_ESC(rep.report_hash || "")}</code></dd>
-            <dt>Summary</dt><dd>${CX_ESC(String(sm.scenarios))} scenarios · <b>${CX_ESC(String(sm.changed))} changed</b> · ${CX_ESC(String(sm.blockers_removed))} blockers removed · ${CX_ESC(String(sm.blockers_introduced))} introduced</dd>
+            <dt>Summary</dt><dd>${CX_ESC(String(sm.scenarios))} scenarios · <b>${CX_ESC(String(sm.changed))} changed</b>${sm.blockers_introduced != null ? ` · ${CX_ESC(String(sm.blockers_removed))} blockers removed · ${CX_ESC(String(sm.blockers_introduced))} introduced` : ""}</dd>
+            ${Array.isArray(rep.retired_scenario_kinds) && rep.retired_scenario_kinds.length ? `<dt>Not replayed</dt><dd data-ioi-retired-replays="${rep.retired_scenario_kinds.length}">${rep.retired_scenario_kinds.map((k) => `<code>${CX_ESC(k.scenario_kind || "")}</code> (<code>${CX_ESC(k.reason_code || "")}</code>)`).join(" · ")} — ${CX_ESC(rep.retirement_note || "these replays read IOI Agent launch records, which nothing writes since the launch lane retired")}</dd>` : ""}
             <dt>Governance</dt><dd>${CX_ESC(rep.governance?.requirement || "none")}${rep.governance?.enforced ? ' <span class="pill warn">gate enforced at apply</span>' : ""}</dd>
             <dt>Gate targets</dt><dd>${(rep.governance?.satisfiable_target_refs || []).map((x) => `<code>${CX_ESC(x)}</code>`).join(" ")} <span class="sub" style="text-transform:none;letter-spacing:0">— an ApprovalRequest / ReleaseControl targeting either ref satisfies this report's gate</span></dd>
             <dt>Receipts</dt><dd>${(rep.receipt_refs || []).map((x) => `<code>${CX_ESC(x)}</code>`).join(" ")} · <a href="/__ioi/work-ledger">ledger →</a></dd>
@@ -16165,10 +16142,10 @@ async function handleEstateRequest(req, res, body) {
       const j = r ? await r.json().catch(() => ({})) : {};
       if (!r || r.status >= 400) {
         res.writeHead(200, { "Content-Type": "text/html; charset=utf-8" });
-        res.end(automationsShell("Improvement", `<div class="empty">Rejected fail-closed: <code>${CX_ESC((j.error && j.error.code) || "daemon unavailable")}</code></div><p><a href="/__ioi/agent-studio#launch-policies">← Studio</a></p>`));
+        res.end(automationsShell("Improvement", `<div class="empty">Rejected fail-closed: <code>${CX_ESC((j.error && j.error.code) || "daemon unavailable")}</code></div><p><a href="/__ioi/agent-studio#improvements">← Studio</a></p>`));
         return;
       }
-      res.writeHead(302, { Location: "/__ioi/agent-studio#launch-policies", "Cache-Control": "no-cache" });
+      res.writeHead(302, { Location: "/__ioi/agent-studio#improvements", "Cache-Control": "no-cache" });
       res.end();
       return;
     }
@@ -16180,8 +16157,9 @@ async function handleEstateRequest(req, res, body) {
     // release gate, the lifecycle transitions, vault import — so every one of those buttons posted into
     // nothing. The census could not see it (it aborts every write, so a form refused on every submit reads
     // alive). Restored verbatim from 6e48f8874^ with one change: the projection explain page no longer lists
-    // a goal-run binding (GoalRun left the Hypervisor). The improvement lanes still land on
-    // #launch-policies — the Agent Studio tab that renders the improvement proposals.
+    // a goal-run binding (GoalRun left the Hypervisor). The improvement lanes land on
+    // #improvements — the Agent Studio tab that renders the improvement proposals (it was #launch-policies
+    // until that registry left the page; R-240, launcher leftovers).
     // The daemon refuses in two shapes — nested {error:{code,message}} and flat {code,message} (identity-first
     // refusals are flat) — and a page that reads only one reports the other as an outage (R-240).
     const refusalCodeOf = (j) => (j && ((j.error && j.error.code) || j.code || j.reason)) || "daemon unavailable";
@@ -16193,7 +16171,7 @@ async function handleEstateRequest(req, res, body) {
         const [, iid, act] = govBind;
         const failPage = (j, label) => {
           res.writeHead(200, { "Content-Type": "text/html; charset=utf-8" });
-          res.end(automationsShell("Governance", `<div class="empty"><b>${CX_ESC(label)}</b> rejected fail-closed: <code>${CX_ESC(refusalCodeOf(j))}</code></div><p><a href="/__ioi/agent-studio#launch-policies">← Studio</a></p>`));
+          res.end(automationsShell("Governance", `<div class="empty"><b>${CX_ESC(label)}</b> rejected fail-closed: <code>${CX_ESC(refusalCodeOf(j))}</code></div><p><a href="/__ioi/agent-studio#improvements">← Studio</a></p>`));
         };
         const pr = await daemonFetch(`/v1/hypervisor/intelligence/improvement-proposals/${encodeURIComponent(iid)}`).then((r) => r.json()).catch(() => ({}));
         const proposalRef = (pr.proposal || {}).proposal_ref || "";
@@ -16218,7 +16196,7 @@ async function handleEstateRequest(req, res, body) {
         const r2 = await daemonFetch(`/v1/hypervisor/intelligence/improvement-proposals/${encodeURIComponent(iid)}`, { method: "PATCH", headers: { "content-type": "application/json" }, body: JSON.stringify(attach) }).catch(() => null);
         const j2 = r2 ? await r2.json().catch(() => ({})) : {};
         if (!r2 || r2.status >= 400) { failPage(j2, "bind governance refs"); return; }
-        res.writeHead(302, { Location: "/__ioi/agent-studio#launch-policies", "Cache-Control": "no-cache" });
+        res.writeHead(302, { Location: "/__ioi/agent-studio#improvements", "Cache-Control": "no-cache" });
         res.end();
         return;
       }
@@ -16236,10 +16214,10 @@ async function handleEstateRequest(req, res, body) {
         const j = r ? await r.json().catch(() => ({})) : {};
         if (!r || j.ok === false) {
           res.writeHead(200, { "Content-Type": "text/html; charset=utf-8" });
-          res.end(automationsShell("Governance", `<div class="empty"><b>${CX_ESC(transition)}</b> rejected fail-closed: <code>${CX_ESC(refusalCodeOf(j))}</code></div><p><a href="/__ioi/agent-studio#launch-policies">← Studio</a></p>`));
+          res.end(automationsShell("Governance", `<div class="empty"><b>${CX_ESC(transition)}</b> rejected fail-closed: <code>${CX_ESC(refusalCodeOf(j))}</code></div><p><a href="/__ioi/agent-studio#improvements">← Studio</a></p>`));
           return;
         }
-        res.writeHead(302, { Location: "/__ioi/agent-studio#launch-policies", "Cache-Control": "no-cache" });
+        res.writeHead(302, { Location: "/__ioi/agent-studio#improvements", "Cache-Control": "no-cache" });
         res.end();
         return;
       }
@@ -16252,10 +16230,10 @@ async function handleEstateRequest(req, res, body) {
         const j = r ? await r.json().catch(() => ({})) : {};
         if (!r || r.status >= 400) {
           res.writeHead(200, { "Content-Type": "text/html; charset=utf-8" });
-          res.end(automationsShell("Improvement", `<div class="empty"><b>${CX_ESC(act)}</b> rejected fail-closed: <code>${CX_ESC(refusalCodeOf(j))}</code>${refusalMessageText(j) ? `<br>${CX_ESC(refusalMessageText(j))}` : ""}</div><p><a href="/__ioi/agent-studio#launch-policies">← Studio</a></p>`));
+          res.end(automationsShell("Improvement", `<div class="empty"><b>${CX_ESC(act)}</b> rejected fail-closed: <code>${CX_ESC(refusalCodeOf(j))}</code>${refusalMessageText(j) ? `<br>${CX_ESC(refusalMessageText(j))}` : ""}</div><p><a href="/__ioi/agent-studio#improvements">← Studio</a></p>`));
           return;
         }
-        res.writeHead(302, { Location: "/__ioi/agent-studio#launch-policies", "Cache-Control": "no-cache" });
+        res.writeHead(302, { Location: "/__ioi/agent-studio#improvements", "Cache-Control": "no-cache" });
         res.end();
         return;
       }

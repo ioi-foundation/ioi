@@ -28,8 +28,12 @@ Every improvement kind requires a saved simulation outside
 `ApprovalRequest` waives exactly the `saved_simulation` requirement for the
 current proposal ref, proposal kind, and proposal fingerprint. Local
 development retains a narrow unsimulated path for `skill_improvement` and
-`automation_readiness`; `launch_policy_suggestion` has no ordinary local
-bypass. The exact receipted waiver remains the only exception to either rule.
+`automation_readiness`. The exact receipted waiver remains the only exception.
+The `launch_policy_suggestion` kind retired with the IOI Agent launch-policy
+plane (R-192): the daemon refuses to admit or simulate one by name
+(`ioi_agent_launch_policy_retired`, 410, nothing admitted), a suggestion recorded
+before the retirement stays readable and rejectable and gates as `retired`, and
+none applies. A launch policy is the composing application's object.
 
 The direct proposal path and campaign path are both canonical. A bounded
 one-shot change may use the existing proposal/simulation gate directly. The
@@ -84,8 +88,9 @@ verdicts state the replacement version.
    ReceiptEnvelope and Agentgres admission contract.
 2. In `local_development`, an unsimulated `skill_improvement` or
    `automation_readiness` proposal may use the explicit
-   `local_development_no_simulation` posture. A `launch_policy_suggestion` still
-   returns `simulation_required` unless it carries the exact waiver above.
+   `local_development_no_simulation` posture. (A `launch_policy_suggestion`
+   returned `simulation_required` here until the kind retired; a legacy record now
+   gates as `retired` with `ioi_agent_launch_policy_retired`.)
 3. Any cited simulation must be FRESH: the report records a
    `proposal_fingerprint = sha256(proposal_kind, target_ref, suggested, evidence_refs)`;
    the live proposal must still fingerprint identically → else `simulation_stale`.

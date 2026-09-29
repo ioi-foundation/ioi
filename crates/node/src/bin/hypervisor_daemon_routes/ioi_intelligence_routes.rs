@@ -28,9 +28,8 @@ use serde_json::{json, Value};
 use std::collections::HashMap;
 use std::sync::Arc;
 
-use super::harness_routes::{fact_from_profile, live_profiles, route_fact};
+use super::harness_routes::route_fact;
 use super::{iso_now, persist_record, read_record_dir, remove_record, sha256_hex_str, DaemonState};
-use ioi_services::agentic::runtime::kernel::RuntimeKernelService;
 
 pub(crate) const SPACE_KIND: &str = "memory-spaces";
 pub(crate) const ENTRY_KIND: &str = "memory-entries";
@@ -271,6 +270,21 @@ fn validate_skill(body: &Value, record: &mut Value) -> Result<(), (StatusCode, J
     Ok(())
 }
 
+/// A bounded `scheme://id` ref: a lowercase scheme that starts with a letter, a non-empty id, no
+/// whitespace or control characters.
+fn is_opaque_ref(value: &str) -> bool {
+    let Some((scheme, id)) = value.split_once("://") else {
+        return false;
+    };
+    value.len() <= 512
+        && scheme.starts_with(|c: char| c.is_ascii_lowercase())
+        && scheme
+            .chars()
+            .all(|c| c.is_ascii_lowercase() || c.is_ascii_digit() || matches!(c, '+' | '-' | '.'))
+        && !id.is_empty()
+        && !id.chars().any(|c| c.is_whitespace() || c.is_control())
+}
+
 fn validate_affinity(body: &Value, record: &mut Value) -> Result<(), (StatusCode, Json<Value>)> {
     for key in [
         "title",
@@ -282,12 +296,19 @@ fn validate_affinity(body: &Value, record: &mut Value) -> Result<(), (StatusCode
             record[key] = json!(v.trim());
         }
     }
+    // R-240 (launcher leftovers, 2026-09-29): this ref had to be an `ioi-agent-policy://` record of
+    // the IOI Agent launch-policy plane, which retired with goal pursuit (R-192, S5-1). No
+    // Hypervisor path resolves or plans a policy any more — the projection planner echoes the ref
+    // in its affinity match and the intelligence graph draws it, nothing else — so it is an OPAQUE
+    // ref to the composing application's own policy object, the way an opaque `goal_run_ref` names
+    // its ioi.ai owner. Any `scheme://id` ref is admitted (a legacy `ioi-agent-policy://` ref still
+    // round-trips through the vault); a bare string is not a ref.
     if let Some(policy) = record.get("preferred_policy_ref").and_then(Value::as_str) {
-        if !policy.is_empty() && !policy.starts_with("ioi-agent-policy://") {
+        if !policy.is_empty() && !is_opaque_ref(policy) {
             return Err(bad(
                 StatusCode::BAD_REQUEST,
                 "automation_affinity_policy_ref_invalid",
-                "preferred_policy_ref must be an ioi-agent-policy:// ref",
+                "preferred_policy_ref is an opaque scheme://id ref to the composing application's policy; the Hypervisor neither resolves nor plans it",
             ));
         }
     }
@@ -1922,9 +1943,11 @@ pub(crate) async fn handle_intelligence_graph(
             text(affinity, "status"),
         );
         record_edges(affinity, self_ref, &mut nodes, &mut edges, &mut seen);
+        // An opaque ref to the composing application's policy (the launch-policy plane retired,
+        // R-192) — drawn as the composer's object, never resolved here.
         let policy = text(affinity, "preferred_policy_ref");
         if !policy.is_empty() {
-            push_node(&mut nodes, &mut seen, policy, "launch_policy", policy, "");
+            push_node(&mut nodes, &mut seen, policy, "composer_policy", policy, "");
             push_edge(&mut edges, self_ref, policy, "affinity_to");
         }
         for automation in refs(affinity.get("preferred_automation_refs")) {
@@ -2474,34 +2497,67 @@ pub(crate) async fn handle_review_queue(
 }
 
 // ---------------------------------------------------------------------------
-// Outcome learning — repeated work becomes reusable skills, launch-policy suggestions,
-// and automation-readiness updates WITHOUT silent behavior change. Two lanes:
+// Outcome learning — repeated work becomes reusable skills and automation-readiness updates
+// WITHOUT silent behavior change. Two lanes:
 //   1. outcome mining: a derived read projection (deterministic signals only, no LLM
-//      judging) over recent launches, goal runs, projections, and reviewed memory;
+//      judging) over recorded memory projections and reviewed memory;
 //   2. improvement proposals: durable, evidence-bound records
 //      (pending → approved → applied | rejected | superseded). Creation changes NOTHING;
 //      apply performs the governed mutation through the ordinary object lanes and mints
-//      a receipt. Protected seed policies stay immutable — a policy suggestion applies by
-//      CLONING the seed and patching the clone.
+//      a receipt.
+//
+// R-240 (launcher leftovers, 2026-09-29): the IOI Agent launch lane and its launch-policy plane
+// retired with goal pursuit (R-192, S5-1). Three things here still leaned on them: the miner read
+// `ioi-agent-launches` records (four signals), the plane admitted `launch_policy_suggestion`
+// proposals whose apply could only answer 410, and the what-if replayed launch records. Nothing
+// writes a launch record any more and no Hypervisor object is a launch policy, so the four
+// launch-derived signals are named as retired on the mining read, a launch-policy suggestion is
+// refused BY NAME at propose (nothing admitted) and at simulate, and the launch and affinity-match
+// replays are named as retired on every report. A suggestion recorded before the retirement stays
+// readable and rejectable; its gate says `retired`. Re-pointing the signals at what launches work
+// now was ruled out on the code: a Session records a lifecycle state but no outcome and no
+// blocker, an AutomationRun names an automation rather than an intent, and a WorkResult is bound
+// to an ioi.ai `goal://` — mining goal patterns over it would be goal pursuit, the composer's.
 // ---------------------------------------------------------------------------
 
 const IMPROVEMENT_KIND: &str = "improvement-proposals";
-const IMPROVEMENT_KINDS: &[&str] = &[
-    "skill_improvement",
-    "launch_policy_suggestion",
-    "automation_readiness",
-];
+const IMPROVEMENT_KINDS: &[&str] = &["skill_improvement", "automation_readiness"];
 const IMPROVEMENT_STATES: &[&str] = &["pending", "approved", "rejected", "applied", "superseded"];
+/// The retired kind: a learned change to an IOI Agent launch policy. Refused at propose and at
+/// simulate, and never applied; a record of it stays readable and rejectable.
+const RETIRED_LAUNCH_POLICY_KIND: &str = "launch_policy_suggestion";
+const LAUNCH_POLICY_RETIRED: &str = "ioi_agent_launch_policy_retired";
+const LAUNCH_RETIRED: &str = "ioi_agent_launch_retired";
 
-/// Normalize a goal to a deterministic pattern key: first four significant lowercase tokens.
-fn goal_pattern_key(goal: &str) -> String {
-    goal.to_lowercase()
-        .split_whitespace()
-        .filter(|token| token.len() > 2)
-        .take(4)
-        .collect::<Vec<_>>()
-        .join(" ")
+fn launch_policy_suggestion_retired(operation: &str) -> (StatusCode, Json<Value>) {
+    bad(
+        StatusCode::GONE,
+        LAUNCH_POLICY_RETIRED,
+        &format!(
+            "A launch-policy suggestion cannot be {operation}: the IOI Agent launch-policy plane retired with goal pursuit (R-192), so no Hypervisor object is a launch policy and nothing was admitted. A launch policy is the composing application's object; a suggestion recorded before the retirement stays readable and can be rejected."
+        ),
+    )
 }
+
+/// The mining signals and replay kinds that read IOI Agent launch records — named on every read
+/// so an absent candidate or scenario is never mistaken for a measured zero.
+fn retired_launch_signals() -> Value {
+    json!([
+        { "signal": "repeated_successful_goal_pattern", "candidate_kind": "skill_improvement", "reason_code": LAUNCH_RETIRED },
+        { "signal": "repeated_automation_ready_intent", "candidate_kind": "automation_readiness", "reason_code": LAUNCH_RETIRED },
+        { "signal": "repeated_harness_model_preference", "candidate_kind": RETIRED_LAUNCH_POLICY_KIND, "reason_code": LAUNCH_POLICY_RETIRED },
+        { "signal": "repeated_failure_blocker_class", "candidate_kind": RETIRED_LAUNCH_POLICY_KIND, "reason_code": LAUNCH_POLICY_RETIRED },
+    ])
+}
+
+fn retired_replay_kinds() -> Value {
+    json!([
+        { "scenario_kind": "launch_replay", "reason_code": LAUNCH_RETIRED },
+        { "scenario_kind": "affinity_match_replay", "reason_code": LAUNCH_RETIRED },
+    ])
+}
+
+const LAUNCH_RETIREMENT_NOTE: &str = "The IOI Agent launch lane retired with goal pursuit (R-192): nothing writes an ioi-agent-launches record, so what read them is named here rather than counted as zero.";
 
 fn mined_confidence(count: usize) -> f64 {
     (0.4 + 0.1 * count as f64).min(0.9)
@@ -2512,87 +2568,16 @@ pub(crate) async fn handle_outcome_mining(
     Query(_q): Query<HashMap<String, String>>,
 ) -> (StatusCode, Json<Value>) {
     ensure_default_space(&st);
-    let mut launches = read_record_dir(&st.data_dir, "ioi-agent-launches");
-    launches.sort_by(|a, b| text(b, "created_at").cmp(text(a, "created_at")));
-    launches.truncate(50);
     let entries = read_record_dir(&st.data_dir, ENTRY_KIND);
     let mut projections = read_record_dir(&st.data_dir, PROJECTION_KIND);
     projections.sort_by(|a, b| text(b, "created_at").cmp(text(a, "created_at")));
     projections.truncate(25);
     let mut candidates: Vec<Value> = Vec::new();
 
-    // repeated_successful_goal_pattern + repeated_automation_ready_intent + harness preference
-    let mut by_pattern: HashMap<String, Vec<&Value>> = HashMap::new();
-    for launch in launches.iter().filter(|l| text(l, "state") == "executed") {
-        let succeeded = launch
-            .pointer("/outcome/blockers")
-            .and_then(Value::as_array)
-            .map(|b| b.is_empty())
-            .unwrap_or(true);
-        if succeeded && !text(launch, "goal").is_empty() {
-            by_pattern
-                .entry(goal_pattern_key(text(launch, "goal")))
-                .or_default()
-                .push(launch);
-        }
-    }
-    let mut harness_counts: HashMap<String, Vec<&Value>> = HashMap::new();
-    for launch in launches.iter().filter(|l| text(l, "state") == "executed") {
-        let harness = text(launch, "harness_profile_ref");
-        if !harness.is_empty() {
-            harness_counts
-                .entry(harness.to_string())
-                .or_default()
-                .push(launch);
-        }
-    }
-    for (pattern, group) in by_pattern
-        .iter()
-        .filter(|(p, g)| !p.is_empty() && g.len() >= 2)
-    {
-        let evidence: Vec<String> = group
-            .iter()
-            .map(|l| format!("ioi-agent-launch://{}", text(l, "launch_id")))
-            .collect();
-        candidates.push(json!({
-            "candidate_kind": "skill_improvement",
-            "signal": "repeated_successful_goal_pattern",
-            "pattern": pattern,
-            "occurrences": group.len(),
-            "confidence": mined_confidence(group.len()),
-            "evidence_refs": evidence,
-            "suggested": {
-                "title": format!("Skill: {pattern}"),
-                "description": format!("Learned from {} successful runs matching \"{pattern}\"", group.len()),
-                "trigger_conditions": [pattern],
-            },
-        }));
-        candidates.push(json!({
-            "candidate_kind": "automation_readiness",
-            "signal": "repeated_automation_ready_intent",
-            "pattern": pattern,
-            "occurrences": group.len(),
-            "confidence": mined_confidence(group.len()),
-            "evidence_refs": group.iter().map(|l| format!("ioi-agent-launch://{}", text(l, "launch_id"))).collect::<Vec<_>>(),
-            "suggested": {
-                "title": format!("Affinity: {pattern}"),
-                "goal_pattern": pattern,
-            },
-        }));
-    }
-    for (harness, group) in harness_counts.iter().filter(|(_, g)| g.len() >= 3) {
-        candidates.push(json!({
-            "candidate_kind": "launch_policy_suggestion",
-            "signal": "repeated_harness_model_preference",
-            "occurrences": group.len(),
-            "confidence": mined_confidence(group.len()),
-            "evidence_refs": group.iter().map(|l| format!("ioi-agent-launch://{}", text(l, "launch_id"))).collect::<Vec<_>>(),
-            "suggested": {
-                "display_name": format!("Prefers {}", harness.replace("harness-profile:hp_", "")),
-                "harness_preferences": { "preferred_harness_refs": [harness], "excluded_harness_refs": [], "allow_fallback": true },
-            },
-        }));
-    }
+    // R-240 (launcher leftovers): repeated_successful_goal_pattern, repeated_automation_ready_intent,
+    // repeated_harness_model_preference and repeated_failure_blocker_class were mined here from
+    // `ioi-agent-launches` records, which nothing writes since the launch lane retired (R-192). They
+    // are named on the response as `retired_signals`; the two below read records still produced.
     // repeated_manual_correction
     let corrections: Vec<&Value> = entries
         .iter()
@@ -2637,38 +2622,6 @@ pub(crate) async fn handle_outcome_mining(
             }));
         }
     }
-    // repeated_failure_blocker_class
-    let mut failure_counts: HashMap<String, Vec<String>> = HashMap::new();
-    for launch in &launches {
-        for blocker in launch
-            .pointer("/outcome/blockers")
-            .and_then(Value::as_array)
-            .cloned()
-            .unwrap_or_default()
-        {
-            let code = text(&blocker, "reason_code").to_string();
-            if !code.is_empty() {
-                failure_counts
-                    .entry(code)
-                    .or_default()
-                    .push(format!("ioi-agent-launch://{}", text(launch, "launch_id")));
-            }
-        }
-    }
-    for (code, evidence) in failure_counts.iter().filter(|(_, e)| e.len() >= 2) {
-        candidates.push(json!({
-            "candidate_kind": "launch_policy_suggestion",
-            "signal": "repeated_failure_blocker_class",
-            "failure_class": code,
-            "occurrences": evidence.len(),
-            "confidence": mined_confidence(evidence.len()),
-            "evidence_refs": evidence,
-            "suggested": {
-                "display_name": format!("Mitigate {code}"),
-                "failure_policy": "retry_once",
-            },
-        }));
-    }
     candidates.sort_by(|a, b| {
         b.get("occurrences")
             .and_then(Value::as_u64)
@@ -2683,6 +2636,8 @@ pub(crate) async fn handle_outcome_mining(
             "derived_only": true,
             "counts": { "candidates": candidates.len() },
             "candidates": candidates,
+            "retired_signals": retired_launch_signals(),
+            "retirement_note": LAUNCH_RETIREMENT_NOTE,
             "runtimeTruthSource": "daemon-runtime",
         })),
     )
@@ -2744,11 +2699,16 @@ pub(crate) fn create_improvement_proposal(
     campaign_binding: Option<Value>,
 ) -> (StatusCode, Json<Value>) {
     let kind = text(body, "proposal_kind");
+    // Refused BY NAME before anything else is read, so a retired suggestion is never admitted and
+    // never mistaken for a malformed request (R-240, launcher leftovers).
+    if kind == RETIRED_LAUNCH_POLICY_KIND {
+        return launch_policy_suggestion_retired("proposed");
+    }
     if !IMPROVEMENT_KINDS.contains(&kind) {
         return bad(
             StatusCode::BAD_REQUEST,
             "improvement_kind_invalid",
-            "proposal_kind must be skill_improvement|launch_policy_suggestion|automation_readiness",
+            "proposal_kind must be skill_improvement|automation_readiness",
         );
     }
     let evidence = refs(body.get("evidence_refs"));
@@ -3027,15 +2987,17 @@ pub(crate) fn evaluate_improvement_gate(
     approval: Option<&Value>,
     release: Option<&Value>,
 ) -> GateDecision {
+    // A launch-policy suggestion recorded before the retirement (R-240, launcher leftovers): no
+    // simulation, approval or release can make it applicable, so the gate says so first — the
+    // posture a reader sees is the refusal apply would give, not a requirement it could meet.
+    if text(proposal, "proposal_kind") == RETIRED_LAUNCH_POLICY_KIND {
+        return GateDecision {
+            posture: "retired",
+            block: Some((LAUNCH_POLICY_RETIRED, "The IOI Agent launch-policy plane retired with goal pursuit (R-192): this suggestion can be read and rejected, never applied.")),
+        };
+    }
     let sim_ref = text(proposal, "latest_simulation_ref");
     if sim_ref.is_empty() {
-        // Launch-policy suggestions change execution behavior — always previewable before apply.
-        if text(proposal, "proposal_kind") == "launch_policy_suggestion" {
-            return GateDecision {
-                posture: "simulation_required",
-                block: Some(("simulation_required", "Launch-policy improvements must carry a saved what-if simulation before apply.")),
-            };
-        }
         return GateDecision {
             posture: "no_simulation",
             block: None,
@@ -3298,6 +3260,16 @@ pub(crate) async fn handle_improvement_apply(
             "Unknown improvement proposal.",
         );
     };
+    // RETIRED 2026-09-18 (R-192, S5-1). A launch-policy suggestion applied by SELF-CALLING the
+    // daemon's IOI-Agent launch-policy routes (clone a protected seed, patch the clone, bind a
+    // canary/cohort rollout variant); every one of those routes is gone. A launch policy narrowed
+    // how a GOAL would be pursued, and goal pursuit is an ioi.ai composition over this daemon's
+    // thread orchestration primitives. Refused by name in whatever state the record is in (R-240,
+    // launcher leftovers, moved ahead of the approval check): the record keeps its decision rather
+    // than claiming an effect it had.
+    if text(&proposal, "proposal_kind") == RETIRED_LAUNCH_POLICY_KIND {
+        return launch_policy_suggestion_retired("applied");
+    }
     if text(&proposal, "state") != "approved" {
         return bad(StatusCode::CONFLICT, "improvement_not_approved", "Apply requires an APPROVED proposal (creation changes nothing; approval is the review).");
     }
@@ -3364,24 +3336,12 @@ pub(crate) async fn handle_improvement_apply(
                     .to_string();
             }
         }
-        _ => {
-            // RETIRED 2026-09-18 (R-192, S5-1). This arm applied a learned launch-policy
-            // suggestion by SELF-CALLING the daemon's own IOI-Agent launch-policy routes: clone a
-            // protected seed, patch the clone, patch a non-protected target in place, create one
-            // from scratch when there was no target, and bind a canary/cohort rollout variant.
-            // Every one of those routes is gone. A launch policy narrowed how a GOAL would be
-            // pursued — preferred and excluded harnesses, compare-before-write, minimum successful
-            // invocations — and goal pursuit is an ioi.ai composition over this daemon's thread
-            // orchestration primitives, not a Hypervisor surface.
-            //
-            // The proposal itself is untouched: this plane still admits, reviews and records the
-            // suggestion. What it no longer does is APPLY it, because applying it means writing an
-            // object this daemon does not own. Refused by name rather than relayed into a 404, and
-            // the improvement record keeps its decision rather than claiming an effect it had.
+        other => {
+            // Only the two admitted kinds apply; the retired launch-policy kind was refused above.
             return bad(
-                StatusCode::GONE,
-                "ioi_agent_launch_policy_retired",
-                "The IOI Agent launch-policy plane retired with goal pursuit (R-192): a launch policy is the composing application's object, and this daemon serves no route that writes one. The proposal stands; its application belongs to the composer.",
+                StatusCode::CONFLICT,
+                "improvement_kind_invalid",
+                &format!("proposal_kind '{other}' has no apply path; only skill_improvement and automation_readiness apply"),
             );
         }
     }
@@ -3410,7 +3370,7 @@ async fn finish_apply(
         "at": iso_now(),
         "runtimeTruthSource": "daemon-runtime",
     });
-    // The real external effect (policy create/patch) already landed before finish_apply. A receipt
+    // The real effect (skill create, affinity create/patch) already landed before finish_apply. A receipt
     // that will not commit must fail the request, but carry applied_ref so the operator knows the
     // mutation itself is live.
     if persist_record(&st.data_dir, "receipts", &receipt_ref, &receipt).is_err() {
@@ -3451,23 +3411,18 @@ async fn finish_apply(
 
 const SIMULATION_KIND: &str = "simulation-reports";
 
-/// The counterfactual overlay a proposal represents.
+/// The counterfactual overlay a proposal represents. (A launch-policy patch overlay stood here
+/// with the policy it merged over; the launch-policy plane retired, R-192, and a launch-policy
+/// suggestion is refused before any overlay is built — R-240, launcher leftovers.)
 struct Overlay {
-    policy_patch: Value, // launch-policy fields (harness prefs / memory_posture / privacy / failure)
-    virtual_skill: Value, // suggested SkillEntry (active+accepted) or Null
+    virtual_skill: Value,    // suggested SkillEntry (active+accepted) or Null
     virtual_affinity: Value, // suggested AutomationAffinity or Null
 }
 
 fn overlay_of(proposal: &Value) -> Overlay {
     let suggested = proposal.get("suggested").cloned().unwrap_or(json!({}));
     match text(proposal, "proposal_kind") {
-        "launch_policy_suggestion" => Overlay {
-            policy_patch: suggested,
-            virtual_skill: Value::Null,
-            virtual_affinity: Value::Null,
-        },
         "skill_improvement" => Overlay {
-            policy_patch: json!({}),
             virtual_skill: json!({
                 "skill_ref": "skill-entry://simulated",
                 "title": text(&suggested, "title"),
@@ -3480,7 +3435,6 @@ fn overlay_of(proposal: &Value) -> Overlay {
             virtual_affinity: Value::Null,
         },
         _ => Overlay {
-            policy_patch: json!({}),
             virtual_skill: Value::Null,
             virtual_affinity: json!({
                 "affinity_ref": "automation-affinity://simulated",
@@ -3494,58 +3448,28 @@ fn overlay_of(proposal: &Value) -> Overlay {
     }
 }
 
-/// Merge the overlay policy patch over a base policy record (target or defaults).
-fn overlaid_policy(base: &Value, patch: &Value) -> Value {
-    let mut merged = if base.is_object() {
-        base.clone()
-    } else {
-        json!({})
-    };
-    if let (Some(target), Some(fields)) = (merged.as_object_mut(), patch.as_object()) {
-        for (key, value) in fields {
-            target.insert(key.clone(), value.clone());
-        }
-    }
-    merged
-}
-
-fn projection_ctx_for(
-    policy: &Value,
+/// The projection context a replay plans under: the recorded harness, privacy posture and goal,
+/// today's route, and the planner's default memory posture (private mode stricter). A launch
+/// policy once narrowed these; none exists since R-192.
+fn replay_ctx(
     harness: &str,
     route: &str,
     goal: &str,
     privacy: &str,
     live: Vec<String>,
 ) -> ProjectionContext {
-    let posture = policy.get("memory_posture").cloned().unwrap_or(Value::Null);
     let private_mode = privacy == "private_local";
     ProjectionContext {
         harness_profile_ref: harness.to_string(),
         model_route_ref: route.to_string(),
         privacy_posture: privacy.to_string(),
-        allow_sensitive: policy
-            .pointer("/privacy/allow_private_projection")
-            .and_then(Value::as_bool)
-            .unwrap_or(false),
+        allow_sensitive: false,
         live_connector_ids: live,
         goal: goal.to_string(),
-        allow_candidate: posture
-            .get("allow_candidate_memory_projection")
-            .and_then(Value::as_bool)
-            .unwrap_or(!private_mode),
-        include_disputed: posture
-            .get("include_disputed_memory")
-            .and_then(Value::as_bool)
-            .unwrap_or(false),
-        max_stale_age_days: posture
-            .get("max_stale_age")
-            .or_else(|| posture.get("max_stale_age_days"))
-            .and_then(Value::as_u64)
-            .unwrap_or(0),
-        require_accepted_for_private: posture
-            .get("require_accepted_memory_for_private")
-            .and_then(Value::as_bool)
-            .unwrap_or(private_mode),
+        allow_candidate: !private_mode,
+        include_disputed: false,
+        max_stale_age_days: 0,
+        require_accepted_for_private: private_mode,
     }
 }
 
@@ -3564,60 +3488,28 @@ pub(crate) async fn handle_improvement_simulate(
             "Unknown improvement proposal.",
         );
     };
+    // A launch-policy suggestion recorded before the retirement has no overlay to preview: the
+    // policy it would patch is not a Hypervisor object, and a saved report would stamp a proposal
+    // nothing can apply (R-240, launcher leftovers).
+    if text(&proposal, "proposal_kind") == RETIRED_LAUNCH_POLICY_KIND {
+        return launch_policy_suggestion_retired("simulated");
+    }
     let overlay = overlay_of(&proposal);
 
-    // Base policy: the proposal's target (when it names one) or bare defaults.
-    let base_policy = match text(&proposal, "target_ref").strip_prefix("ioi-agent-policy://") {
-        Some(pid) => load_policy_record(&st, pid).unwrap_or(json!({})),
-        None => json!({}),
-    };
-    let after_policy = overlaid_policy(&base_policy, &overlay.policy_patch);
+    // Current route fact (recorded on the report — replay uses TODAY'S probed posture).
+    let (route_ref, _, _, _) = route_fact(&st, None);
 
-    // Current registry facts (recorded on the report — replay uses TODAY'S probed posture).
-    let profiles = live_profiles(&st).await;
-    let (route_ref, route_state, _, _) = route_fact(&st, None);
-    let kernel = RuntimeKernelService::new();
-    let conductor = profiles
-        .iter()
-        .find(|p| text(p, "harness") == "hypervisor_worker")
-        .map(|p| fact_from_profile(p, &route_ref, &route_state))
-        .unwrap_or(Value::Null);
-    let implementer_facts: Vec<Value> = ["opencode", "deepseek_tui", "codex", "claude_code"]
-        .iter()
-        .filter_map(|h| profiles.iter().find(|p| text(p, "harness") == *h))
-        .map(|p| fact_from_profile(p, &route_ref, &route_state))
-        .collect();
-    let select = |policy: &Value, goal: &str, strategy: &str| -> Value {
-        let policy_arg = if policy.as_object().map(|o| o.is_empty()).unwrap_or(true) {
-            Value::Null
-        } else {
-            json!({
-                "policy_ref": text(policy, "policy_ref"),
-                "harness_preferences": policy.get("harness_preferences").cloned().unwrap_or(json!({})),
-                "assurance": policy.get("assurance").cloned().unwrap_or(json!({})),
-                "privacy": policy.get("privacy").cloned().unwrap_or(json!({})),
-            })
-        };
-        // R-192 (S5-1): execution-strategy selection (direct versus goal_run, with eligible and
-        // excluded harnesses) was GOAL PURSUIT and left the kernel with it. The simulation still
-        // reports its scenario; the strategy is the composing application's to choose over the
-        // harness-agnostic delegation primitive (S5-2, S5-3).
-        json!({
-            "blocked": true,
-            "reason_code": "goal_pursuit_retired_from_platform",
-            "detail": "execution-strategy selection belongs to the composing application"
-        })
-    };
-
-    // Scenario subjects: explicit refs or the recent record windows.
+    // Scenario subjects: the recent memory-projection window. The launch replay and the
+    // affinity-match replay read `ioi-agent-launches` records — execution-strategy selection over a
+    // launch policy, and the goals those launches carried. Nothing writes one since the launch lane
+    // retired with goal pursuit (R-192), and strategy selection had answered only
+    // `goal_pursuit_retired_from_platform` since then, so every launch replay was the same blocked
+    // answer on both sides. Both kinds are named on the report as `retired_scenario_kinds`
+    // (R-240, launcher leftovers); a legacy launch record on disk is not read.
     let window = body
         .get("replay_window")
         .and_then(Value::as_u64)
         .unwrap_or(6) as usize;
-    let mut launches = read_record_dir(&st.data_dir, "ioi-agent-launches");
-    launches.sort_by(|a, b| text(b, "created_at").cmp(text(a, "created_at")));
-    launches.retain(|l| text(l, "state") == "executed");
-    launches.truncate(window);
     let mut projections = read_record_dir(&st.data_dir, PROJECTION_KIND);
     projections.sort_by(|a, b| text(b, "created_at").cmp(text(a, "created_at")));
     projections.truncate(window);
@@ -3636,111 +3528,17 @@ pub(crate) async fn handle_improvement_simulate(
 
     let mut scenarios: Vec<Value> = Vec::new();
     let mut changed_count = 0u64;
-    let mut blockers_introduced = 0u64;
-    let mut blockers_removed = 0u64;
 
-    // 1+4+6: launch replay — route/strategy selection + failure/blocker deltas.
-    for launch_record in &launches {
-        let goal = text(launch_record, "goal");
-        let strategy = {
-            let s = text(launch_record, "strategy");
-            if s.is_empty() {
-                "auto"
-            } else {
-                s
-            }
-        };
-        let before = select(&base_policy, goal, strategy);
-        let after = select(&after_policy, goal, strategy);
-        let before_blocked = before.get("blocked").is_some();
-        let after_blocked = after.get("blocked").is_some();
-        if !before_blocked && after_blocked {
-            blockers_introduced += 1;
-        }
-        if before_blocked && !after_blocked {
-            blockers_removed += 1;
-        }
-        let changed = before != after;
-        if changed {
-            changed_count += 1;
-        }
-        scenarios.push(json!({
-            "scenario_kind": "launch_replay",
-            "subject_ref": format!("ioi-agent-launch://{}", text(launch_record, "launch_id")),
-            "goal_pattern": goal_pattern_key(goal),
-            "before": {
-                "recorded_execution_kind": text(launch_record, "execution_kind"),
-                "recorded_harness_profile_ref": launch_record.get("harness_profile_ref").cloned().unwrap_or(Value::Null),
-                "planned_execution_kind": before.get("planned_execution_kind").cloned().unwrap_or(Value::Null),
-                "selected_harness_ref": before.get("selected_harness_ref").cloned().unwrap_or(Value::Null),
-                "privacy_posture": before.get("privacy_posture").cloned().unwrap_or(Value::Null),
-                "blocked_reason": before.get("reason_code").cloned().unwrap_or(Value::Null),
-            },
-            "after": {
-                "planned_execution_kind": after.get("planned_execution_kind").cloned().unwrap_or(Value::Null),
-                "selected_harness_ref": after.get("selected_harness_ref").cloned().unwrap_or(Value::Null),
-                "eligible_harness_refs": after.get("eligible_harness_refs").cloned().unwrap_or(json!([])),
-                "privacy_posture": after.get("privacy_posture").cloned().unwrap_or(Value::Null),
-                "policy_constraints_applied": after.get("policy_constraints_applied").cloned().unwrap_or(json!([])),
-                "blocked_reason": after.get("reason_code").cloned().unwrap_or(Value::Null),
-                // R-240 (GoalRun residue, 2026-09-29): a `goal_run` planned-execution kind stood
-                // here, naming three GoalRun receipt classes (create, invocation, reconciliation).
-                // `select` has answered only `goal_pursuit_retired_from_platform` since R-192
-                // (S5-1), so the arm was unreachable, and no producer mints those classes: a goal
-                // run is an ioi.ai composition over thread orchestration primitives, never a kind
-                // this daemon plans. The session-execute class is the only one a replay names.
-                "expected_receipt_classes": json!(["receipt://hypervisor/session-execute/*"]),
-                "failure_policy": after_policy.get("failure_policy").cloned().unwrap_or(Value::Null),
-            },
-            "changed": changed,
-            "evidence_refs": [format!("ioi-agent-launch://{}", text(launch_record, "launch_id"))],
-        }));
-        // 5: affinity matching replay for the same goals.
-        if !overlay.virtual_affinity.is_null() {
-            let pattern = text(&overlay.virtual_affinity, "goal_pattern").to_lowercase();
-            let matches_after = !pattern.is_empty() && goal.to_lowercase().contains(&pattern);
-            let matched_before = affinities.iter().any(|a| {
-                let p = text(a, "goal_pattern").to_lowercase();
-                text(a, "status") == "active" && !p.is_empty() && goal.to_lowercase().contains(&p)
-            });
-            if matches_after && !matched_before {
-                changed_count += 1;
-                scenarios.push(json!({
-                    "scenario_kind": "affinity_match_replay",
-                    "subject_ref": format!("ioi-agent-launch://{}", text(launch_record, "launch_id")),
-                    "before": { "automation_affinity_match": Value::Null },
-                    "after": { "automation_affinity_match": text(&overlay.virtual_affinity, "title") },
-                    "changed": true,
-                    "evidence_refs": [format!("ioi-agent-launch://{}", text(launch_record, "launch_id"))],
-                }));
-            }
-        }
-    }
-
-    // 2+3: memory projection replay — counts + newly included/excluded refs.
+    // Memory projection replay — counts + newly included/excluded refs, the recorded posture
+    // replanned with and without the proposal's virtual skill or affinity.
     for projection in &projections {
         let harness = text(projection, "harness_profile_ref");
         let goal = text(projection, "launch_ref");
         let privacy = text(projection, "privacy_posture");
         let recorded_counts = projection.get("counts").cloned().unwrap_or(json!({}));
-        let base_ctx = projection_ctx_for(
-            &base_policy,
-            harness,
-            &route_ref,
-            goal,
-            privacy,
-            live_ids.clone(),
-        );
-        let before_plan = plan_projection(&entries, &base_skills, &affinities, &base_ctx);
+        let ctx = replay_ctx(harness, &route_ref, goal, privacy, live_ids.clone());
+        let before_plan = plan_projection(&entries, &base_skills, &affinities, &ctx);
         let before_counts = before_plan.get("counts").cloned().unwrap_or(json!({}));
-        let ctx = projection_ctx_for(
-            &after_policy,
-            harness,
-            &route_ref,
-            goal,
-            privacy,
-            live_ids.clone(),
-        );
         let after_plan = plan_projection(&entries, &overlaid_skills, &overlaid_affinities, &ctx);
         let after_counts = after_plan.get("counts").cloned().unwrap_or(json!({}));
         let skill_eligible = refs(after_plan.get("included_skill_refs"))
@@ -3768,17 +3566,9 @@ pub(crate) async fn handle_improvement_simulate(
     // Deterministic report hash over the scenario content (no timestamps inside).
     let canonical = serde_json::to_string(&scenarios).unwrap_or_default();
     let report_hash = format!("sha256:{}", sha256_hex_str(&canonical));
-    let privacy_loosened = overlay
-        .policy_patch
-        .pointer("/privacy/allow_private_projection")
-        .and_then(Value::as_bool)
-        == Some(true)
-        || overlay
-            .policy_patch
-            .pointer("/memory_posture/include_disputed_memory")
-            .and_then(Value::as_bool)
-            == Some(true);
-    let high_impact = changed_count >= 3 || blockers_introduced > 0 || privacy_loosened;
+    // Blocker deltas and privacy loosening came only from the launch replay and the launch-policy
+    // overlay, both retired; what is left to weigh is how many replayed plans changed.
+    let high_impact = changed_count >= 3;
     let mut report = json!({
         "schema_version": "ioi.hypervisor.simulation-report.v1",
         "proposal_ref": text(&proposal, "proposal_ref"),
@@ -3791,9 +3581,9 @@ pub(crate) async fn handle_improvement_simulate(
         "summary": {
             "scenarios": scenarios.len(),
             "changed": changed_count,
-            "blockers_introduced": blockers_introduced,
-            "blockers_removed": blockers_removed,
         },
+        "retired_scenario_kinds": retired_replay_kinds(),
+        "retirement_note": LAUNCH_RETIREMENT_NOTE,
         "proposal_fingerprint": proposal_fingerprint(&proposal),
         "governance": {
             "high_impact": high_impact,
@@ -3886,12 +3676,6 @@ pub(crate) async fn handle_improvement_simulate(
     )
 }
 
-fn load_policy_record(st: &DaemonState, id: &str) -> Option<Value> {
-    read_record_dir(&st.data_dir, "ioi-agent-launch-policies")
-        .into_iter()
-        .find(|p| text(p, "policy_id") == id)
-}
-
 /// The current root of a CORE-owned mutable improvement target, read through this module's own
 /// record families and committed under a domain separator. The campaign spine freezes this at
 /// creation and compares it at admission, nomination and apply (`target_base_stale`). Only the
@@ -3968,12 +3752,26 @@ mod improvement_gate_tests {
         })
     }
 
+    // R-240 (launcher leftovers): a launch-policy suggestion needed a saved simulation here. The
+    // kind retired with the launch-policy plane, so a legacy record gates as `retired` whatever
+    // controls it carries — a fresh low-impact report and an open gate included.
     #[test]
-    fn policy_without_simulation_blocks() {
-        let p = proposal("launch_policy_suggestion", None);
-        let d = evaluate_improvement_gate(&p, None, None, None);
-        assert_eq!(d.posture, "simulation_required");
-        assert_eq!(d.block.unwrap().0, "simulation_required");
+    fn a_legacy_launch_policy_suggestion_gates_as_retired_whatever_it_carries() {
+        let bare = proposal(RETIRED_LAUNCH_POLICY_KIND, None);
+        let d = evaluate_improvement_gate(&bare, None, None, None);
+        assert_eq!(d.posture, "retired");
+        assert_eq!(d.block.unwrap().0, "ioi_agent_launch_policy_retired");
+        let simulated = proposal(
+            RETIRED_LAUNCH_POLICY_KIND,
+            Some("simulation-report://sim_t"),
+        );
+        let report = fresh_report(&simulated, false);
+        let approved =
+            json!({ "subject_ref": "improvement-proposal://imp_t", "status": "approved" });
+        let open = json!({ "release_target_ref": "improvement-proposal://imp_t", "state": "open" });
+        let d = evaluate_improvement_gate(&simulated, Some(&report), Some(&approved), Some(&open));
+        assert_eq!(d.posture, "retired");
+        assert_eq!(d.block.unwrap().0, "ioi_agent_launch_policy_retired");
     }
 
     #[test]
@@ -3986,10 +3784,7 @@ mod improvement_gate_tests {
 
     #[test]
     fn mutated_proposal_makes_simulation_stale() {
-        let mut p = proposal(
-            "launch_policy_suggestion",
-            Some("simulation-report://sim_t"),
-        );
+        let mut p = proposal("automation_readiness", Some("simulation-report://sim_t"));
         let report = fresh_report(&p, true);
         p["suggested"] = json!({ "title": "changed after simulate" });
         let d = evaluate_improvement_gate(&p, Some(&report), None, None);
@@ -4006,10 +3801,7 @@ mod improvement_gate_tests {
 
     #[test]
     fn fresh_low_impact_applies_without_controls() {
-        let p = proposal(
-            "launch_policy_suggestion",
-            Some("simulation-report://sim_t"),
-        );
+        let p = proposal("automation_readiness", Some("simulation-report://sim_t"));
         let report = fresh_report(&p, false);
         let d = evaluate_improvement_gate(&p, Some(&report), None, None);
         assert_eq!(d.posture, "low_impact");
@@ -4018,10 +3810,7 @@ mod improvement_gate_tests {
 
     #[test]
     fn high_impact_requires_approval_then_release() {
-        let p = proposal(
-            "launch_policy_suggestion",
-            Some("simulation-report://sim_t"),
-        );
+        let p = proposal("automation_readiness", Some("simulation-report://sim_t"));
         let report = fresh_report(&p, true);
         assert_eq!(
             evaluate_improvement_gate(&p, Some(&report), None, None)
@@ -4092,29 +3881,32 @@ mod improvement_gate_tests {
 mod launch_replay_retirement_tests {
     use super::*;
 
-    // R-240 (GoalRun residue, 2026-09-29): the launch replay planned a `goal_run` execution kind
-    // and named three GoalRun receipt classes for it. A legacy IOI-Agent launch record still on
-    // disk — one that even recorded `execution_kind: goal_run` — replays with no planned kind, the
-    // typed retirement reason, and only the session-execute receipt class.
-    #[tokio::test]
-    async fn a_replayed_legacy_launch_plans_no_goal_run_and_names_no_goal_run_receipt() {
-        let directory = tempfile::tempdir().expect("tempdir");
-        let data_dir = directory.path().to_str().expect("utf8");
-        let st = crate::test_daemon_state(data_dir);
+    fn seed_legacy_launch(
+        data_dir: &str,
+        id: &str,
+        goal: &str,
+        harness: &str,
+        blocker: Option<&str>,
+    ) {
         persist_record(
             data_dir,
             "ioi-agent-launches",
-            "launch_legacy",
+            id,
             &json!({
-                "launch_id": "launch_legacy",
+                "launch_id": id,
                 "state": "executed",
-                "goal": "compare two retry helpers and keep the safer one",
+                "goal": goal,
                 "strategy": "compare",
                 "execution_kind": "goal_run",
-                "created_at": "2026-09-01T00:00:00Z",
+                "harness_profile_ref": harness,
+                "outcome": { "blockers": blocker.map(|code| json!([{ "reason_code": code }])).unwrap_or(json!([])) },
+                "created_at": format!("2026-09-01T00:00:0{}Z", id.len() % 10),
             }),
         )
-        .expect("seed the legacy launch");
+        .expect("seed a legacy launch");
+    }
+
+    fn seed_legacy_suggestion(data_dir: &str, state: &str) {
         persist_record(
             data_dir,
             IMPROVEMENT_KIND,
@@ -4125,43 +3917,312 @@ mod launch_replay_retirement_tests {
                 "proposal_kind": "launch_policy_suggestion",
                 "suggested": { "assurance": { "require_compare": true } },
                 "evidence_refs": ["ioi-agent-launch://launch_legacy"],
+                "state": state,
+            }),
+        )
+        .expect("seed the legacy suggestion");
+    }
+
+    // R-240 (GoalRun residue, then launcher leftovers, 2026-09-29): the launch replay planned a
+    // `goal_run` execution kind until 24fc33bb1, then replayed every legacy launch as the same
+    // blocked answer on both sides. It is retired with the affinity-match replay: a legacy launch
+    // record on disk — one that even recorded `execution_kind: goal_run` — is not read, the report
+    // names both kinds as retired with a typed reason, and it names no GoalRun receipt.
+    #[tokio::test]
+    async fn a_legacy_launch_on_disk_is_not_replayed_and_the_retired_replays_are_named() {
+        let directory = tempfile::tempdir().expect("tempdir");
+        let data_dir = directory.path().to_str().expect("utf8");
+        let st = crate::test_daemon_state(data_dir);
+        seed_legacy_launch(
+            data_dir,
+            "launch_legacy",
+            "compare two retry helpers and keep the safer one",
+            "harness-profile:hp_opencode",
+            None,
+        );
+        persist_record(
+            data_dir,
+            IMPROVEMENT_KIND,
+            "imp_affinity",
+            &json!({
+                "improvement_id": "imp_affinity",
+                "proposal_ref": "improvement-proposal://imp_affinity",
+                "proposal_kind": "automation_readiness",
+                "suggested": { "title": "Affinity: retry helpers", "goal_pattern": "retry helpers" },
+                "evidence_refs": ["memory-projection://mpr_evidence"],
                 "state": "pending",
             }),
         )
-        .expect("seed the proposal");
+        .expect("seed the affinity proposal");
+        persist_record(
+            data_dir,
+            PROJECTION_KIND,
+            "mpr_evidence",
+            &json!({
+                "projection_id": "mpr_evidence",
+                "projection_ref": "memory-projection://mpr_evidence",
+                "harness_profile_ref": "harness-profile:hp_opencode",
+                "session_ref": "session://s1",
+                "privacy_posture": "standard",
+                "counts": {},
+                "receipt_refs": ["receipt://hypervisor/memory-projection/mpr_evidence"],
+                "created_at": "2026-09-02T00:00:00Z",
+            }),
+        )
+        .expect("seed a memory projection");
 
         let (status, Json(body)) = handle_improvement_simulate(
             State(st),
-            AxumPath("imp_legacy".to_string()),
+            AxumPath("imp_affinity".to_string()),
             Json(json!({})),
         )
         .await;
         assert_eq!(status, StatusCode::OK, "{body}");
-        let replay = body["report"]["scenarios"]
-            .as_array()
-            .expect("scenarios")
-            .iter()
-            .find(|scenario| scenario["scenario_kind"] == "launch_replay")
-            .expect("the legacy launch replays")
-            .clone();
-        for side in ["before", "after"] {
-            assert!(
-                replay[side]["planned_execution_kind"].is_null(),
-                "{side}: {replay}"
-            );
-            assert_eq!(
-                replay[side]["blocked_reason"], "goal_pursuit_retired_from_platform",
-                "{side}: {replay}"
-            );
-        }
+        let report = &body["report"];
+        let scenarios = report["scenarios"].as_array().expect("scenarios");
         assert_eq!(
-            replay["after"]["expected_receipt_classes"],
-            json!(["receipt://hypervisor/session-execute/*"])
+            scenarios.len(),
+            1,
+            "only the recorded projection replays: {report}"
         );
-        let report = body["report"].to_string();
         assert!(
-            !report.contains("receipt://goal-run/") && !report.contains("goal-run-invocation"),
+            scenarios.iter().all(|scenario| {
+                scenario["scenario_kind"] == "memory_projection_replay"
+                    && !scenario["subject_ref"]
+                        .as_str()
+                        .unwrap_or("")
+                        .starts_with("ioi-agent-launch://")
+            }),
             "{report}"
         );
+        assert_eq!(
+            report["retired_scenario_kinds"],
+            json!([
+                { "scenario_kind": "launch_replay", "reason_code": "ioi_agent_launch_retired" },
+                { "scenario_kind": "affinity_match_replay", "reason_code": "ioi_agent_launch_retired" },
+            ])
+        );
+        assert!(
+            report["summary"].get("blockers_introduced").is_none(),
+            "{report}"
+        );
+        let text = report.to_string();
+        assert!(
+            !text.contains("receipt://goal-run/")
+                && !text.contains("goal-run-invocation")
+                && !text.contains("goal_run"),
+            "{text}"
+        );
+    }
+
+    // A launch-policy suggestion is refused BY NAME at propose, before evidence or credential
+    // checks, and nothing is admitted — on the public route and on the shared writer alike.
+    #[tokio::test]
+    async fn a_launch_policy_suggestion_is_refused_at_propose_and_nothing_is_admitted() {
+        let directory = tempfile::tempdir().expect("tempdir");
+        let data_dir = directory.path().to_str().expect("utf8");
+        let st = crate::test_daemon_state(data_dir);
+        let suggestion = json!({
+            "proposal_kind": "launch_policy_suggestion",
+            "signal": "repeated_harness_model_preference",
+            "target_ref": "ioi-agent-policy://pol_fast_local",
+            "evidence_refs": ["work-result://wr_evidence"],
+            "suggested": { "harness_preferences": { "preferred_harness_refs": ["harness-profile:hp_opencode"] } },
+        });
+        let (status, Json(body)) =
+            handle_improvements_create(State(st.clone()), Json(suggestion.clone())).await;
+        assert_eq!(status, StatusCode::GONE, "{body}");
+        assert_eq!(
+            body["error"]["code"], "ioi_agent_launch_policy_retired",
+            "{body}"
+        );
+        let (status, Json(body)) = create_improvement_proposal(
+            &st,
+            &json!({ "proposal_kind": "launch_policy_suggestion" }),
+            None,
+        );
+        assert_eq!(
+            status,
+            StatusCode::GONE,
+            "an evidence-less suggestion is refused by NAME, not for its evidence: {body}"
+        );
+        assert_eq!(
+            body["error"]["code"], "ioi_agent_launch_policy_retired",
+            "{body}"
+        );
+        assert!(
+            read_record_dir(data_dir, IMPROVEMENT_KIND).is_empty(),
+            "nothing was admitted"
+        );
+        let (status, Json(body)) = handle_improvements_create(
+            State(st.clone()),
+            Json(json!({ "proposal_kind": "launch_policy_tweak", "evidence_refs": ["x://e"] })),
+        )
+        .await;
+        assert_eq!(status, StatusCode::BAD_REQUEST, "{body}");
+        assert_eq!(body["error"]["code"], "improvement_kind_invalid", "{body}");
+        assert!(
+            !body["error"]["message"]
+                .as_str()
+                .unwrap_or("")
+                .contains("launch_policy_suggestion"),
+            "the admitted-kind list no longer offers the retired kind: {body}"
+        );
+    }
+
+    // A suggestion recorded before the retirement stays readable — list and get carry it with a
+    // `retired` gate — and is never simulated.
+    #[tokio::test]
+    async fn a_legacy_launch_policy_suggestion_stays_readable_but_never_simulates() {
+        let directory = tempfile::tempdir().expect("tempdir");
+        let data_dir = directory.path().to_str().expect("utf8");
+        let st = crate::test_daemon_state(data_dir);
+        seed_legacy_suggestion(data_dir, "approved");
+        let (status, Json(body)) =
+            handle_improvement_get(State(st.clone()), AxumPath("imp_legacy".to_string())).await;
+        assert_eq!(status, StatusCode::OK, "{body}");
+        assert_eq!(
+            body["proposal"]["proposal_kind"],
+            "launch_policy_suggestion"
+        );
+        assert_eq!(body["proposal"]["gate"]["posture"], "retired", "{body}");
+        assert_eq!(
+            body["proposal"]["gate"]["block_code"], "ioi_agent_launch_policy_retired",
+            "{body}"
+        );
+        let (status, Json(body)) =
+            handle_improvements_list(State(st.clone()), Query(HashMap::new())).await;
+        assert_eq!(status, StatusCode::OK, "{body}");
+        assert_eq!(body["proposals"][0]["gate"]["posture"], "retired", "{body}");
+        let (status, Json(body)) = handle_improvement_simulate(
+            State(st.clone()),
+            AxumPath("imp_legacy".to_string()),
+            Json(json!({ "save": true })),
+        )
+        .await;
+        assert_eq!(status, StatusCode::GONE, "{body}");
+        assert_eq!(
+            body["error"]["code"], "ioi_agent_launch_policy_retired",
+            "{body}"
+        );
+        assert!(
+            read_record_dir(data_dir, SIMULATION_KIND).is_empty(),
+            "no report was saved"
+        );
+        let record = read_record_dir(data_dir, IMPROVEMENT_KIND)
+            .pop()
+            .expect("the record stands");
+        assert!(
+            record.get("latest_simulation_ref").is_none(),
+            "the record is not stamped: {record}"
+        );
+        assert_eq!(
+            record["state"], "approved",
+            "the record keeps its decision: {record}"
+        );
+    }
+
+    // The miner reads no launch record: legacy launches that once mined all four launch-derived
+    // signals (a repeated goal, a repeated harness, a repeated blocker) mine nothing, the response
+    // names those signals retired, and the two signals over live records still mine.
+    #[tokio::test]
+    async fn outcome_mining_reads_no_launch_record_and_names_the_launch_signals_retired() {
+        let directory = tempfile::tempdir().expect("tempdir");
+        let data_dir = directory.path().to_str().expect("utf8");
+        let st = crate::test_daemon_state(data_dir);
+        for (id, blocker) in [
+            ("l1", Some("harness_not_runnable")),
+            ("l22", Some("harness_not_runnable")),
+            ("l333", None),
+        ] {
+            seed_legacy_launch(
+                data_dir,
+                id,
+                "produce the demo status artifact",
+                "harness-profile:hp_opencode",
+                blocker,
+            );
+        }
+        for id in ["mem_c1", "mem_c2"] {
+            persist_record(
+                data_dir,
+                ENTRY_KIND,
+                id,
+                &json!({ "entry_id": id, "entry_ref": format!("memory-entry://{id}"), "entry_kind": "correction", "status": "active", "title": id }),
+            )
+            .expect("seed a correction");
+        }
+        let (status, Json(body)) = handle_outcome_mining(State(st), Query(HashMap::new())).await;
+        assert_eq!(status, StatusCode::OK, "{body}");
+        let candidates = body["candidates"].as_array().expect("candidates");
+        assert!(
+            candidates.iter().all(|c| {
+                c["candidate_kind"] != "launch_policy_suggestion"
+                    && c["evidence_refs"]
+                        .as_array()
+                        .map(|refs| {
+                            refs.iter().all(|r| {
+                                !r.as_str().unwrap_or("").starts_with("ioi-agent-launch://")
+                            })
+                        })
+                        .unwrap_or(true)
+            }),
+            "{body}"
+        );
+        assert!(
+            candidates
+                .iter()
+                .any(|c| c["signal"] == "repeated_manual_correction"),
+            "a signal over live records still mines: {body}"
+        );
+        let retired: Vec<&str> = body["retired_signals"]
+            .as_array()
+            .expect("retired signals")
+            .iter()
+            .filter_map(|s| s["signal"].as_str())
+            .collect();
+        assert_eq!(
+            retired,
+            [
+                "repeated_successful_goal_pattern",
+                "repeated_automation_ready_intent",
+                "repeated_harness_model_preference",
+                "repeated_failure_blocker_class",
+            ]
+        );
+    }
+
+    // An affinity's preferred policy is the composing application's object, named by an opaque
+    // `scheme://id` ref: a legacy `ioi-agent-policy://` ref still round-trips, another scheme is
+    // admitted, and a bare string or a malformed scheme is not a ref.
+    #[test]
+    fn an_affinity_names_its_preferred_policy_by_any_opaque_ref() {
+        let admit = |policy: &str| {
+            let body = json!({ "title": "t", "goal_pattern": "g", "preferred_policy_ref": policy });
+            let mut record = json!({});
+            validate_affinity(&body, &mut record)
+        };
+        for good in [
+            "ioi-agent-policy://pol_fast_local",
+            "ioi-ai-policy://pol/fast",
+            "composer+v2://p.1",
+            "",
+        ] {
+            assert!(admit(good).is_ok(), "{good}");
+        }
+        for refused in [
+            "pol_fast_local",
+            "Policy://pol",
+            "1policy://pol",
+            "policy://",
+            "policy://has space",
+        ] {
+            let (status, Json(body)) = admit(refused).expect_err(refused);
+            assert_eq!(status, StatusCode::BAD_REQUEST, "{refused}");
+            assert_eq!(
+                body["error"]["code"], "automation_affinity_policy_ref_invalid",
+                "{refused}"
+            );
+        }
     }
 }

@@ -19,6 +19,12 @@
 // the launch-policy suggestion is kept as what it now is: reviewed through the same gate, its apply
 // refused by name (410 `ioi_agent_launch_policy_retired`).
 //
+// RE-AIMED 2026-09-29 (R-240, launcher leftovers). The improvement plane now refuses a launch-policy
+// suggestion at PROPOSE (410 `ioi_agent_launch_policy_retired`, nothing admitted) rather than admitting
+// one whose apply could only be refused, and the miner names its four launch-derived signals retired.
+// The gate chain and its GOV-ATTR-1 reviewer attribution ride the automation-readiness proposal, which
+// applies through that satisfied gate.
+//
 // Usage: node apps/hypervisor/scripts/verify-hypervisor-outcome-learning-proposals.mjs  (≈1 min)
 // Its own isolated daemon + serve, the operator signed in (lib/verifier-stack.mjs); an explicit
 // URL naming the owner's stack (:8765, :36173, :4173) is refused.
@@ -91,6 +97,10 @@ async function run() {
   const mining = (await jd("GET", "/v1/hypervisor/intelligence/outcome-mining")).j || {};
   ok("mining is deterministic-only and derived-only", mining.deterministic_signals_only === true && mining.derived_only === true);
   ok("mining leaks no private memory bodies", !JSON.stringify(mining).includes(privMarker));
+  ok("mining names the four launch-derived signals retired rather than counting them as zero, and offers no launch-policy candidate",
+    ["repeated_successful_goal_pattern", "repeated_automation_ready_intent", "repeated_harness_model_preference", "repeated_failure_blocker_class"].every((sig) => (mining.retired_signals || []).some((r) => r.signal === sig))
+    && (mining.candidates || []).every((c) => c.candidate_kind !== "launch_policy_suggestion"),
+    (mining.retired_signals || []).map((r) => `${r.signal}:${r.reason_code}`).join(" "));
 
   // ── Proposals: creation changes nothing ──
   const mkProp = (payload) => jd("POST", "/v1/hypervisor/intelligence/improvement-proposals", payload);
@@ -103,11 +113,19 @@ async function run() {
     proposal_kind: "skill_improvement", signal: "repeated_successful_goal_pattern", evidence_refs: evidence,
     confidence: 0.8, suggested: { title: `Skill: vfyoutcome-${tag}`, description: "produce the demo status artifact" },
   })).j?.proposal || {};
-  const policyProp = (await mkProp({
+  // R-240 (launcher leftovers): a launch-policy suggestion is refused at propose, by name, and
+  // nothing is admitted — it once was admitted pending and refused only at apply.
+  const proposalsBefore = ((await jd("GET", "/v1/hypervisor/intelligence/improvement-proposals")).j?.proposals || []).length;
+  const policyRefused = await mkProp({
     proposal_kind: "launch_policy_suggestion", signal: "repeated_harness_model_preference",
     target_ref: "ioi-agent-policy://pol_fast_local", evidence_refs: evidence,
     suggested: { description: `learned ${tag}`, harness_preferences: { preferred_harness_refs: ["harness-profile:hp_opencode"], excluded_harness_refs: [], allow_fallback: true } },
-  })).j?.proposal || {};
+  });
+  const proposalsAfterRefusal = ((await jd("GET", "/v1/hypervisor/intelligence/improvement-proposals")).j?.proposals || []).length;
+  ok("a launch-policy suggestion is refused at propose by name (410 ioi_agent_launch_policy_retired) and nothing is admitted",
+    policyRefused.status === 410 && policyRefused.j?.error?.code === "ioi_agent_launch_policy_retired" && !policyRefused.j?.proposal
+    && proposalsAfterRefusal === proposalsBefore,
+    `${policyRefused.status} ${policyRefused.j?.error?.code} · proposals ${proposalsBefore} → ${proposalsAfterRefusal}`);
   const autoProp = (await mkProp({
     proposal_kind: "automation_readiness", signal: "repeated_successful_goal_pattern", evidence_refs: evidence,
     confidence: 0.8, suggested: { title: `Affinity: vfyoutcome-${tag}`, goal_pattern: pattern },
@@ -117,7 +135,7 @@ async function run() {
     evidence_refs: ["memory-entry://mem_evidence"], suggested: { title: `Rejected-${tag}` },
   })).j?.proposal || {};
   ok("proposals created pending with evidence bound",
-    [skillProp, policyProp, autoProp, rejectProp].every((p) => p.state === "pending" && String(p.proposal_ref || "").startsWith("improvement-proposal://")));
+    [skillProp, autoProp, rejectProp].every((p) => p.state === "pending" && String(p.proposal_ref || "").startsWith("improvement-proposal://")));
 
   const skillsBefore = (await jd("GET", `/v1/hypervisor/skill-entries?q=vfyoutcome-${tag}`)).j?.skills || [];
   const affBefore = (await jd("GET", `/v1/hypervisor/automation-affinities?q=vfyoutcome-${tag}`)).j?.affinities || [];
@@ -138,33 +156,24 @@ async function run() {
   const studioSkills = await fetch(`${SHELL}/__ioi/agent-studio`).then((r) => r.text());
   ok("applied skill visible in Agent Studio Skills", studioSkills.includes(`Skill: vfyoutcome-${tag}`));
 
-  // ── Launch-policy suggestion: reviewed through the gate, its apply refused by name ──
-  await jd("POST", `/v1/hypervisor/intelligence/improvement-proposals/${policyProp.improvement_id}/approve`);
-  // Governance gates: policy improvements need a fresh saved simulation; the gate chain is built
-  // explicitly so the reviewer attribution is measured.
-  await jd("POST", `/v1/hypervisor/intelligence/improvement-proposals/${policyProp.improvement_id}/simulate`, { save: true });
-  const polGate = (await jd("POST", "/v1/hypervisor/governance/approval-requests", { subject_ref: policyProp.proposal_ref, request_kind: "improvement_apply", reason: "verifier gate" })).j?.approval_request || {};
+  // ── Automation readiness: reviewed through the gate, applied only through the approved path ──
+  await jd("POST", `/v1/hypervisor/intelligence/improvement-proposals/${autoProp.improvement_id}/approve`);
+  // The gate chain is built explicitly so the reviewer attribution is measured (R-240, launcher
+  // leftovers: it rode the launch-policy suggestion, which is no longer admitted).
+  await jd("POST", `/v1/hypervisor/intelligence/improvement-proposals/${autoProp.improvement_id}/simulate`, { save: true });
+  const polGate = (await jd("POST", "/v1/hypervisor/governance/approval-requests", { subject_ref: autoProp.proposal_ref, request_kind: "improvement_apply", reason: "verifier gate" })).j?.approval_request || {};
   // The approval is DECIDED by the admitted reviewer session; the body names nobody (GOV-ATTR-1).
   await jd("PATCH", `/v1/hypervisor/governance/approval-requests/${polGate.id}`, { transition: "approve" }, reviewer.headers);
   const polGateDecided = (await jd("GET", `/v1/hypervisor/governance/approval-requests/${polGate.id}`)).j?.approval_request || {};
   ok("the gate approval is attributed to the SERVER-DERIVED principal of the deciding session",
     polGateDecided.status === "approved" && polGateDecided.reviewer_ref === reviewer.ref,
     `reviewer ${polGateDecided.reviewer_ref} · expected ${reviewer.ref}`);
-  const polRel = (await jd("POST", "/v1/hypervisor/governance/release-controls", { release_target_ref: policyProp.proposal_ref, reason: "verifier gate" })).j?.release_control || {};
+  const polRel = (await jd("POST", "/v1/hypervisor/governance/release-controls", { release_target_ref: autoProp.proposal_ref, reason: "verifier gate" })).j?.release_control || {};
   await jd("PATCH", `/v1/hypervisor/governance/release-controls/${polRel.id}`, { transition: "open" });
-  await jd("PATCH", `/v1/hypervisor/intelligence/improvement-proposals/${policyProp.improvement_id}`, { approval_request_ref: polGate.ref, release_control_ref: polRel.ref });
-  const policyApply = await jd("POST", `/v1/hypervisor/intelligence/improvement-proposals/${policyProp.improvement_id}/apply`);
-  const policyAfter = (await jd("GET", `/v1/hypervisor/intelligence/improvement-proposals/${policyProp.improvement_id}`)).j?.proposal || {};
-  // R-240 (2026-09-29): "applied to a CLONE; protected seed untouched" and "direct mutation of
-  // protected seeds still fails closed" read the retired launch-policy plane; the apply is now
-  // refused before any policy object would be written.
-  ok("the policy suggestion's apply is refused by name (410 ioi_agent_launch_policy_retired) and writes no policy",
-    policyApply.status === 410 && policyApply.j?.error?.code === "ioi_agent_launch_policy_retired"
-    && policyAfter.state === "approved" && !policyAfter.applied_ref,
-    `${policyApply.status} ${policyApply.j?.error?.code} · state ${policyAfter.state}`);
-
-  // ── Automation readiness: applies only through the approved path ──
-  await jd("POST", `/v1/hypervisor/intelligence/improvement-proposals/${autoProp.improvement_id}/approve`);
+  const bound = (await jd("PATCH", `/v1/hypervisor/intelligence/improvement-proposals/${autoProp.improvement_id}`, { approval_request_ref: polGate.ref, release_control_ref: polRel.ref })).j?.proposal || {};
+  ok("the decided approval and the open release bind to the proposal they target",
+    bound.approval_request_ref === polGate.ref && bound.release_control_ref === polRel.ref && bound.gate?.approval_status === "approved" && bound.gate?.release_state === "open",
+    `${bound.approval_request_ref} · ${bound.release_control_ref} · ${bound.gate?.posture}`);
   const autoApplied = (await jd("POST", `/v1/hypervisor/intelligence/improvement-proposals/${autoProp.improvement_id}/apply`)).j?.proposal || {};
   const affRef = String(autoApplied.applied_ref || "");
   const affinity = (await jd("GET", `/v1/hypervisor/automation-affinities/${affRef.replace("automation-affinity://", "")}`)).j?.record || {};
@@ -178,9 +187,8 @@ async function run() {
   // ── Ledger + leakage ──
   const ledger = await jd("GET", "/v1/hypervisor/work-ledger");
   const appliedEntries = (ledger.j?.entries || []).filter((e) => e.kind === "improvement_applied");
-  ok("Work Ledger indexes the improvement-applied receipts — the skill and the affinity, and none for the refused policy",
-    appliedEntries.filter((e) => [skillApplied, autoApplied].some((p) => e.proposal_ref === p.proposal_ref)).length === 2
-    && !appliedEntries.some((e) => e.proposal_ref === policyProp.proposal_ref));
+  ok("Work Ledger indexes the improvement-applied receipts — the skill and the affinity",
+    appliedEntries.filter((e) => [skillApplied, autoApplied].some((p) => e.proposal_ref === p.proposal_ref)).length === 2);
   const allProps = await jd("GET", "/v1/hypervisor/intelligence/improvement-proposals");
   ok("no private memory body leaks into proposals, mining, or the improvement UI",
     !JSON.stringify(allProps.j).includes(privMarker)
@@ -193,7 +201,7 @@ async function run() {
   await STACK.signIn(page);
   const consoleErrors = [];
   page.on("pageerror", (e) => consoleErrors.push(String(e)));
-  await page.goto(`${SHELL}/__ioi/agent-studio#launch-policies`, { waitUntil: "networkidle" });
+  await page.goto(`${SHELL}/__ioi/agent-studio#improvements`, { waitUntil: "networkidle" });
   await page.waitForSelector("#improvement-proposals", { timeout: 15000 });
   const panel = await page.locator("#improvement-proposals").evaluate((el) => {
     let text = el.textContent || "";
@@ -201,8 +209,9 @@ async function run() {
     while (node && node.tagName !== "H2") { text += node.textContent || ""; node = node.nextElementSibling; }
     return text;
   });
-  ok("Improvement proposals panel shows states, signals, evidence, and mined candidates",
-    /applied/.test(panel) && /repeated_successful_goal_pattern|repeated_harness_model_preference/.test(panel) && /Mined candidates/.test(panel));
+  ok("Improvement proposals panel shows states, signals, evidence, and mined candidates — and names the signals it no longer mines",
+    /applied/.test(panel) && /repeated_successful_goal_pattern/.test(panel) && /Mined candidates/.test(panel)
+    && /Not mined:/.test(panel) && /repeated_harness_model_preference/.test(panel));
   ok("no console errors", consoleErrors.length === 0, consoleErrors.slice(0, 2).join(" | "));
   await browser.close();
   const ft = await fetch(`${SHELL}/__ioi/fallthrough`).then((r) => r.json()).catch(() => ({}));
@@ -212,7 +221,6 @@ async function run() {
   await jd("PATCH", `/v1/hypervisor/skill-entries/${skillRef.replace("skill-entry://", "")}`, { status: "archived" });
   await jd("PATCH", `/v1/hypervisor/automation-affinities/${affRef.replace("automation-affinity://", "")}`, { status: "archived" });
   if (privEntry.entry_id) await jd("PATCH", `/v1/hypervisor/memory-entries/${privEntry.entry_id}`, { status: "archived" });
-  await jd("POST", `/v1/hypervisor/intelligence/improvement-proposals/${policyProp.improvement_id}/reject`, { reason: "verifier fixture" });
   await jd("DELETE", `/v1/hypervisor/governance/approval-requests/${polGate.id}`);
   await jd("DELETE", `/v1/hypervisor/governance/release-controls/${polRel.id}`);
   await jd("DELETE", `/v1/hypervisor/principals/${encodeURIComponent(reviewer.principalId)}`, undefined, reviewer.operator);

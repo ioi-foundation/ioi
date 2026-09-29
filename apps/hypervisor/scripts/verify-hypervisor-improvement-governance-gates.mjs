@@ -23,6 +23,12 @@
 // (the platform's own replay subjects); `simulation_required` is still measured on an unsimulated
 // launch-policy suggestion, the one kind the gate always holds for a simulation.
 //
+// RE-AIMED 2026-09-29 (R-240, launcher leftovers): that kind retired with the IOI Agent launch-policy
+// plane. The improvement plane refuses a launch-policy suggestion at PROPOSE (410
+// `ioi_agent_launch_policy_retired`, nothing admitted), so no admitted kind is held for a simulation
+// on the direct path and `simulation_required` has no subject left to measure; the clause asserts the
+// refusal instead. Every other reason code is walked exactly as before.
+//
 // Usage: node apps/hypervisor/scripts/verify-hypervisor-improvement-governance-gates.mjs  (≈1–2 min)
 // Its own isolated daemon + serve, the operator signed in (lib/verifier-stack.mjs); an explicit
 // URL naming the owner's stack (:8765, :36173, :4173) is refused.
@@ -93,16 +99,16 @@ async function run() {
 
   const mkProp = (payload) => jd("POST", "/v1/hypervisor/intelligence/improvement-proposals", payload);
 
-  // ── simulation_required: policy improvements cannot apply unsimulated ──
-  const propP = (await mkProp({
+  // ── The kind the gate held for a simulation is retired: refused at propose, nothing admitted ──
+  const propsBefore = ((await jd("GET", "/v1/hypervisor/intelligence/improvement-proposals")).j?.proposals || []).length;
+  const propP = await mkProp({
     proposal_kind: "launch_policy_suggestion", signal: "repeated_harness_model_preference",
     evidence_refs: subjects, suggested: { description: `vfygov-${tag} unsimulated policy suggestion` },
-  })).j?.proposal || {};
-  ok("unsimulated policy proposal postures simulation_required",
-    propP.gate?.posture === "simulation_required" || (await getProp(propP.improvement_id)).gate?.posture === "simulation_required");
-  await jd("POST", `/v1/hypervisor/intelligence/improvement-proposals/${propP.improvement_id}/approve`);
-  const noSim = await apply(propP.improvement_id);
-  ok("apply without simulation blocks: simulation_required", noSim.status === 409 && noSim.j?.error?.code === "simulation_required");
+  });
+  const propsAfter = ((await jd("GET", "/v1/hypervisor/intelligence/improvement-proposals")).j?.proposals || []).length;
+  ok("a launch-policy suggestion is refused at propose by name (410 ioi_agent_launch_policy_retired) and nothing is admitted",
+    propP.status === 410 && propP.j?.error?.code === "ioi_agent_launch_policy_retired" && !propP.j?.proposal && propsAfter === propsBefore,
+    `${propP.status} ${propP.j?.error?.code} · proposals ${propsBefore} → ${propsAfter}`);
 
   // ── High-impact simulation names an ENFORCED gate with its satisfiable targets ──
   const SUGGESTED_A = highImpactSuggested(tag, "A");
@@ -200,7 +206,7 @@ async function run() {
   await STACK.signIn(page);
   const consoleErrors = [];
   page.on("pageerror", (e) => consoleErrors.push(String(e)));
-  const studio = `${SHELL}/__ioi/agent-studio#launch-policies`;
+  const studio = `${SHELL}/__ioi/agent-studio#improvements`;
   await page.goto(studio, { waitUntil: "networkidle" });
   await page.waitForSelector("#improvement-proposals", { timeout: 15000 });
   const bid = propB.improvement_id;
@@ -244,7 +250,6 @@ async function run() {
   for (const id of skillIds) await jd("PATCH", `/v1/hypervisor/skill-entries/${id}`, { status: "archived" });
   const affId = String(appliedLow.applied_ref || "").replace("automation-affinity://", "");
   await jd("PATCH", `/v1/hypervisor/automation-affinities/${affId}`, { status: "archived" });
-  await jd("POST", `/v1/hypervisor/intelligence/improvement-proposals/${propP.improvement_id}/reject`, { reason: "verifier fixture" });
   const controls = [
     ["approval-requests", apprA.id],
     ["approval-requests", foreign?.id],

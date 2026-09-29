@@ -1603,23 +1603,11 @@ pub(crate) fn resolve_released_agent_harness_adapter(
     Ok(record)
 }
 
-/// R-192 (S5-1): three harness-registry helpers moved here from the deleted GoalRun plane.
-/// They read the harness profile registry and the model-route registry's own probe truth — a
-/// harness question in every case, housed with goal pursuit only by accident of history.
-/// Live harness fact for the kernel planner — from the registry's own live probe projection.
-pub(crate) fn fact_from_profile(profile: &Value, route_ref: &str, route_state: &str) -> Value {
-    json!({
-        "profile_ref": text(profile, "profile_ref"),
-        "harness": text(profile, "harness"),
-        "lifecycle_status": profile.pointer("/lifecycle/status").and_then(Value::as_str).unwrap_or(""),
-        "execution_wiring": profile.pointer("/adapter/execution_wiring").and_then(Value::as_str).unwrap_or(""),
-        "runnability_state": profile.pointer("/runnability/state").and_then(Value::as_str).unwrap_or("not_probed"),
-        "provider_trust": profile.pointer("/adapter/provider_trust").and_then(Value::as_str).unwrap_or(""),
-        "model_route_ref": route_ref,
-        "model_route_state": route_state,
-    })
-}
-
+/// R-192 (S5-1): three harness-registry helpers moved here from the deleted GoalRun plane; one
+/// is left. `fact_from_profile` and `live_profiles` built the live harness facts the what-if
+/// simulation's launch replay handed the kernel's strategy planner; that replay retired with the
+/// IOI Agent launch lane (R-240, launcher leftovers), and nothing else read them.
+///
 /// The selected model route's (ref, availability state, model_id, endpoint) — the explicit ref
 /// or the registry default. Read from the persisted registry (availability is probe truth).
 pub(crate) fn route_fact(
@@ -1659,30 +1647,7 @@ pub(crate) fn route_fact(
     }
 }
 
-pub(crate) async fn live_profiles(st: &DaemonState) -> Vec<Value> {
-    self_get(&format!(
-        "{}/v1/hypervisor/harness-profiles?live=1",
-        st.base_url
-    ))
-    .await
-    .and_then(|body| body.get("profiles").and_then(Value::as_array).cloned())
-    .unwrap_or_default()
-}
-
-/// Two small readers the moved helpers need (R-192, S5-1): a bounded string field, and the
-/// daemon's own loopback GET used to read its registries through their public routes.
+/// The small reader the moved helper needs (R-192, S5-1): a bounded string field.
 fn text<'a>(value: &'a Value, key: &str) -> &'a str {
     value.get(key).and_then(Value::as_str).unwrap_or("")
-}
-
-async fn self_get(url: &str) -> Option<Value> {
-    reqwest::Client::new()
-        .get(url)
-        .timeout(Duration::from_millis(8000))
-        .send()
-        .await
-        .ok()?
-        .json::<Value>()
-        .await
-        .ok()
 }
