@@ -25,6 +25,14 @@
 // preview/launcher posture clauses are dropped (the projection preview above is the daemon truth
 // they relayed), and the timeline's no-leak claim is asserted on the projection records themselves.
 //
+// FIXTURES THROUGH THE PROPOSAL LANE (R-240, verifier hazard sweep 2, 2026-09-29). Memory entries are
+// proposal-only since XXXII (M13.7): the direct POST/PATCH answer 409 memory_entry_direct_mutation_refused, so
+// every fixture here was refused and the planner read an empty vault (12/25). Each entry is now proposed and
+// approved by the operator (lib/memory-proposal-lane.mjs) — created, edited, revoked and archived as a
+// receipted memory mutation — and each clause asserts what it did before on the record the approval applied.
+// The two refusal clauses are asserted where the lane refuses: credential material at the proposal, a
+// connector_derived entry without connector refs at the approval that would write it.
+//
 // Usage: node apps/hypervisor/scripts/verify-hypervisor-ioi-agent-intelligence-cockpit.mjs (≈1 min)
 // Its own isolated daemon + serve, the operator signed in (lib/verifier-stack.mjs); an explicit
 // URL naming the owner's stack (:8765, :36173, :4173) is refused.
@@ -32,6 +40,7 @@
 import { execSync } from "node:child_process";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
+import { liveConnectorFixture, memoryProposalLane } from "./lib/memory-proposal-lane.mjs";
 import { verifierStack } from "./lib/verifier-stack.mjs";
 
 const HERE = path.dirname(fileURLToPath(import.meta.url));
@@ -60,25 +69,29 @@ async function run() {
   const spaces = await jd("GET", "/v1/hypervisor/memory-spaces");
   ok("default memory space exists (workspace scope)",
     (spaces.j?.spaces || []).some((s) => s.space_ref === "memory-space://ms_workspace_default" && s.scope === "workspace"));
-  const mk = async (body) => (await jd("POST", "/v1/hypervisor/memory-entries", body)).j?.record || {};
+  const lane = memoryProposalLane(jd, { reason: `intelligence cockpit fixture ${tag}` });
+  const made = [];
+  const mk = async (body) => { const r = await lane.create(body); made.push(r); return r.record || {}; };
   const normal = await mk({ title: `vfy-pref-${tag}`, entry_kind: "preference", body: "keep replies terse" });
   const priv = await mk({ title: `vfy-private-${tag}`, entry_kind: "fact", body: privateMarker, sensitivity: "private" });
   const secret = await mk({ title: `vfy-secret-${tag}`, entry_kind: "note", body: `sealed-${tag}`, sensitivity: "secret" });
   const expired = await mk({ title: `vfy-expired-${tag}`, entry_kind: "note", body: "old", expires_at: "2020-01-01T00:00:00Z" });
   const dsOnly = await mk({ title: `vfy-dsonly-${tag}`, entry_kind: "tool_affordance", body: "deepseek trick", compatible_harness_refs: ["harness-profile:hp_deepseek_tui"] });
   const revoked = await mk({ title: `vfy-revoked-${tag}`, entry_kind: "note", body: "x" });
-  ok("MemoryEntry create works", [normal, priv, secret, expired, dsOnly, revoked].every((e) => String(e.entry_ref || "").startsWith("memory-entry://")));
-  const edited = await jd("PATCH", `/v1/hypervisor/memory-entries/${normal.entry_id}`, { body: "keep replies terse and factual" });
-  ok("MemoryEntry edit works", edited.status === 200 && edited.j?.record?.body?.includes("factual"));
-  const rv = await jd("PATCH", `/v1/hypervisor/memory-entries/${revoked.entry_id}`, { status: "revoked" });
-  ok("MemoryEntry revoke works", rv.j?.record?.status === "revoked");
+  ok("MemoryEntry create works", [normal, priv, secret, expired, dsOnly, revoked].every((e) => String(e.entry_ref || "").startsWith("memory-entry://"))
+    && made.every((r) => String(r.proposal?.receipt_refs?.[0] || "").startsWith("receipt://hypervisor/memory-mutation/")), "each an approved, receipted add proposal");
+  const edited = await lane.supersede(normal, { body: "keep replies terse and factual" });
+  ok("MemoryEntry edit works", edited.status === 200 && edited.record?.body?.includes("factual"));
+  const rv = await lane.supersede(revoked, { status: "revoked" });
+  ok("MemoryEntry revoke works", rv.record?.status === "revoked");
 
   // connector-derived: refs required, credential material forbidden
-  const connectors = await jd("GET", "/v1/hypervisor/connectors");
-  const liveConn = (connectors.j?.connectors || []).find((c) => ["token-lease:bound", "open", "local-none"].includes(c.auth_posture));
-  const noRefs = await jd("POST", "/v1/hypervisor/memory-entries", { title: "bad", entry_kind: "connector_derived", body: "x" });
-  ok("connector_derived requires connector refs", noRefs.status === 400 && noRefs.j?.error?.code === "memory_entry_connector_refs_required");
-  const credBlock = await jd("POST", "/v1/hypervisor/memory-entries", { title: "bad", entry_kind: "note", body: "x", structured_payload: { sealed_client_secret: "abc" } });
+  // A lease-ready connector the connector_derived entry names — on a fresh stack an open one registered through the
+  // product's own route (lib/memory-proposal-lane.mjs), so the connector-derived clauses run instead of skipping.
+  const liveConn = await liveConnectorFixture(jd, `intel-${tag}`);
+  const noRefs = await lane.create({ title: "bad", entry_kind: "connector_derived", body: "x" });
+  ok("connector_derived requires connector refs", noRefs.status === 400 && noRefs.j?.error?.code === "memory_entry_connector_refs_required" && noRefs.record === null);
+  const credBlock = await lane.create({ title: "bad", entry_kind: "note", body: "x", structured_payload: { sealed_client_secret: "abc" } });
   ok("credential material is rejected outright", credBlock.status === 403 && credBlock.j?.error?.code === "memory_entry_credential_material_forbidden");
   let connEntry = null;
   if (liveConn) {
@@ -161,6 +174,10 @@ async function run() {
     records.length === 2 && records.every((r) => r.includes("memory-projection://") && !r.includes(privateMarker) && !r.includes(`sealed-${tag}`)));
 
   // ── Agent Studio cockpit (8 tabs; Automations stays its own surface) ──
+  // The Studio's tabbed editor renders for a SELECTED agent; a fresh stack holds none (the owner's daemon always did),
+  // so one is recorded through the runtime's own agent route before the page is read (R-240, hazard sweep 2).
+  const agentsNow = (await jd("GET", "/v1/agents")).j;
+  if (!(Array.isArray(agentsNow) && agentsNow.length)) await jd("POST", "/v1/agents", { options: {} });
   const studio = await fetch(`${SHELL}/__ioi/agent-studio`).then((r) => r.text());
   ok("Agent Studio renders Connectors, Skills, Memory tabs + Automation readiness under Launch policies",
     ['data-astab="connectors"', 'data-astab="skills"', 'data-astab="memory"', "Automation readiness"].every((m) => studio.includes(m))
@@ -183,7 +200,7 @@ async function run() {
 
   // ── Fixture archive + posture restore ──
   for (const e of [normal, priv, secret, expired, dsOnly, connEntry].filter(Boolean)) {
-    await jd("PATCH", `/v1/hypervisor/memory-entries/${e.entry_id}`, { status: "archived" });
+    await lane.archive(e);
   }
   await jd("PATCH", `/v1/hypervisor/skill-entries/${skill.skill_id}`, { status: "archived" });
   await jd("PATCH", `/v1/hypervisor/automation-affinities/${affinity.affinity_id}`, { status: "archived" });

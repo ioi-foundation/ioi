@@ -15,11 +15,19 @@
 // SESSION (the Hypervisor's own work subject) through the projection lane an invocation references,
 // and read back by `session_ref`.
 //
+// FIXTURES THROUGH THE PROPOSAL LANE (R-240, verifier hazard sweep 2, 2026-09-29). Memory entries are
+// proposal-only since XXXII (M13.7): the direct POST/PATCH answer 409 memory_entry_direct_mutation_refused, so
+// the seeded row set was never written and the export/import/redaction clauses read an empty vault (14/23).
+// The rows are now proposed and approved by the operator (lib/memory-proposal-lane.mjs), and the tombstone,
+// reactivation and fixture archive are supersede/archive proposals — the durable-mutation-only-through-the-
+// proposal-lane claim this verifier states now holds for its own fixtures too.
+//
 // Usage: node apps/hypervisor/scripts/verify-hypervisor-portable-memory-vault.mjs (≈1 min)
 // Its own isolated daemon + serve, the operator signed in (lib/verifier-stack.mjs); an explicit
 // URL naming the owner's stack (:8765, :36173, :4173) is refused.
 
 import { chromium } from "playwright";
+import { liveConnectorFixture, memoryProposalLane } from "./lib/memory-proposal-lane.mjs";
 import { verifierStack } from "./lib/verifier-stack.mjs";
 
 const STACK = await verifierStack({ serve: true });
@@ -44,9 +52,11 @@ async function run() {
   const tag = Date.now().toString(16);
 
   // ── Seed a rich row set (tags/refs/sensitivity/compat/connector-derived) ──
-  const mk = async (body) => (await jd("POST", "/v1/hypervisor/memory-entries", body)).j?.record || {};
-  const connectors = await jd("GET", "/v1/hypervisor/connectors");
-  const liveConn = (connectors.j?.connectors || []).find((c) => ["token-lease:bound", "open", "local-none"].includes(c.auth_posture));
+  const lane = memoryProposalLane(jd, { reason: `portable vault fixture ${tag}` });
+  const mk = async (body) => (await lane.create(body)).record || {};
+  // A lease-ready connector the connector_derived entry names — on a fresh stack an open one registered through the
+  // product's own route (lib/memory-proposal-lane.mjs), so the connector-derived clauses run instead of skipping.
+  const liveConn = await liveConnectorFixture(jd, `vault-${tag}`);
   const rich = await mk({
     title: `vault-rich-${tag}`, entry_kind: "concept", body: `concept body ${tag}`,
     tags: ["vault", tag], source_refs: [`hpo_src_${tag}`], confidence: 0.9,
@@ -79,8 +89,9 @@ async function run() {
     !JSON.stringify(vault).includes("sealed_client_secret") && (vault.manifest?.scrubbed || []).length === 0);
 
   // ── Delete/archive originals, then restore from the bundle ──
-  const fixtureIds = [rich, priv, secret, dsOnly, connEntry].filter(Boolean).map((e) => e.entry_id);
-  for (const id of fixtureIds) await jd("PATCH", `/v1/hypervisor/memory-entries/${id}`, { status: "archived", body: "tombstone" });
+  const fixtures = [rich, priv, secret, dsOnly, connEntry].filter(Boolean);
+  const fixtureIds = fixtures.map((e) => e.entry_id);
+  for (const e of fixtures) await lane.supersede(e, { status: "archived", body: "tombstone" });
   await jd("PATCH", `/v1/hypervisor/skill-entries/${skill.skill_id}`, { status: "archived" });
   const conflictImport = await jd("POST", "/v1/hypervisor/intelligence/spaces/import", { vault });
   ok("import is conflict-explicit against modified rows (no duplicate-spam)",
@@ -100,7 +111,7 @@ async function run() {
 
   // Restore the archived originals from the ORIGINAL bundle by proving the archived-status
   // conflict is explicit, then reactivating and verifying content equality with the bundle.
-  for (const id of fixtureIds) await jd("PATCH", `/v1/hypervisor/memory-entries/${id}`, { status: "active" });
+  for (const e of fixtures) await lane.supersede(e, { status: "active" });
   await jd("PATCH", `/v1/hypervisor/skill-entries/${skill.skill_id}`, { status: "active" });
   const restoredRich = (await jd("GET", `/v1/hypervisor/memory-entries/${rich.entry_id}`)).j?.record || {};
   ok("refs + metadata round-trip (ref/tags/sources/confidence/compat identical)",
@@ -202,8 +213,8 @@ async function run() {
   // ── Hygiene + restore ──
   const ft = await fetch(`${SHELL}/__ioi/fallthrough`).then((r) => r.json()).catch(() => ({}));
   ok("fallthrough stays empty", Array.isArray(ft.proxied) && ft.proxied.length === 0);
-  for (const e of [rich, priv, secret, dsOnly, connEntry].filter(Boolean)) await jd("PATCH", `/v1/hypervisor/memory-entries/${e.entry_id}`, { status: "archived" });
-  await jd("PATCH", `/v1/hypervisor/memory-entries/${lostId}`, { status: "archived" });
+  for (const e of [rich, priv, secret, dsOnly, connEntry].filter(Boolean)) await lane.archive(e);
+  await lane.archive({ entry_ref: `memory-entry://${lostId}`, entry_kind: "concept" });
   await jd("PATCH", `/v1/hypervisor/skill-entries/${skill.skill_id}`, { status: "archived" });
   await jd("PATCH", `/v1/hypervisor/automation-affinities/${affinity.affinity_id}`, { status: "archived" });
   // R-240 (2026-09-29): the drivers were enabled only to run the retired launch; nothing to restore.

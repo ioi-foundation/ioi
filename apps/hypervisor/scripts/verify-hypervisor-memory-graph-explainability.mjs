@@ -16,11 +16,18 @@
 // read back by `session_ref`; the retired timeline's link clause is dropped (the Work Ledger and the
 // Memory tab's explain panel below carry the same backlink).
 //
+// FIXTURES THROUGH THE PROPOSAL LANE (R-240, verifier hazard sweep 2, 2026-09-29). Memory entries are
+// proposal-only since XXXII (M13.7): the direct POST/PATCH answer 409 memory_entry_direct_mutation_refused, so
+// the mixed vault was never written and the Memory tab's node search waited on a node that did not exist
+// (a crash). Each entry is now proposed and approved by the operator (lib/memory-proposal-lane.mjs); the
+// archived one is an archive proposal, the revoked one a supersede naming its status.
+//
 // Usage: node apps/hypervisor/scripts/verify-hypervisor-memory-graph-explainability.mjs (≈1 min)
 // Its own isolated daemon + serve, the operator signed in (lib/verifier-stack.mjs); an explicit
 // URL naming the owner's stack (:8765, :36173, :4173) is refused.
 
 import { chromium } from "playwright";
+import { liveConnectorFixture, memoryProposalLane } from "./lib/memory-proposal-lane.mjs";
 import { verifierStack } from "./lib/verifier-stack.mjs";
 
 const STACK = await verifierStack({ serve: true });
@@ -47,9 +54,11 @@ async function run() {
   const secretBody = `graphsecret-${tag}`;
 
   // ── Mixed vault fixture ──
-  const mk = async (body) => (await jd("POST", "/v1/hypervisor/memory-entries", body)).j?.record || {};
-  const connectors = await jd("GET", "/v1/hypervisor/connectors");
-  const liveConn = (connectors.j?.connectors || []).find((c) => ["token-lease:bound", "open", "local-none"].includes(c.auth_posture));
+  const lane = memoryProposalLane(jd, { reason: `memory graph fixture ${tag}` });
+  const mk = async (body) => (await lane.create(body)).record || {};
+  // A lease-ready connector the connector_derived entry names — on a fresh stack an open one registered through the
+  // product's own route (lib/memory-proposal-lane.mjs), so the connector-derived clauses run instead of skipping.
+  const liveConn = await liveConnectorFixture(jd, `graph-${tag}`);
   const pub = await mk({ title: `g-pub-${tag}`, entry_kind: "concept", body: "public concept", tags: [`gtag-${tag}`], source_refs: [`hpo_gsrc_${tag}`] });
   const priv = await mk({ title: `g-priv-${tag}`, entry_kind: "fact", body: privBody, sensitivity: "private" });
   const secret = await mk({ title: `g-secret-${tag}`, entry_kind: "note", body: secretBody, sensitivity: "secret" });
@@ -57,9 +66,9 @@ async function run() {
   const routeOnly = await mk({ title: `g-route-${tag}`, entry_kind: "note", body: "other route only", compatible_model_route_refs: ["model-route:mrt_other"] });
   const expired = await mk({ title: `g-exp-${tag}`, entry_kind: "note", body: "old", expires_at: "2020-01-01T00:00:00Z" });
   const archived = await mk({ title: `g-arch-${tag}`, entry_kind: "note", body: "arch" });
-  await jd("PATCH", `/v1/hypervisor/memory-entries/${archived.entry_id}`, { status: "archived" });
+  await lane.archive(archived);
   const revoked = await mk({ title: `g-rev-${tag}`, entry_kind: "note", body: "rev" });
-  await jd("PATCH", `/v1/hypervisor/memory-entries/${revoked.entry_id}`, { status: "revoked" });
+  await lane.supersede(revoked, { status: "revoked" });
   const connEntry = liveConn ? await mk({ title: `g-conn-${tag}`, entry_kind: "connector_derived", body: "derived", connector_refs: [`connector://${liveConn.connector_id}`] }) : null;
   const skill = (await jd("POST", "/v1/hypervisor/skill-entries", { title: `g-skill-${tag}`, description: "graph skill" })).j?.record;
   const affinity = (await jd("POST", "/v1/hypervisor/automation-affinities", { title: `g-aff-${tag}`, goal_pattern: `graphtoken-${tag}`, preferred_policy_ref: "ioi-agent-policy://pol_fast_local" })).j?.record;
@@ -138,6 +147,10 @@ async function run() {
     /Projection explain/.test(explainPage) && /Redacted/.test(explainPage) && !explainPage.includes(privBody) && !explainPage.includes(secretBody));
 
   // ── Agent Studio UI ──
+  // The Studio's tabbed editor renders for a SELECTED agent; a fresh stack holds none (the owner's daemon always did),
+  // so one is recorded through the runtime's own agent route before the page is read (R-240, hazard sweep 2).
+  const agentsNow = (await jd("GET", "/v1/agents")).j;
+  if (!(Array.isArray(agentsNow) && agentsNow.length)) await jd("POST", "/v1/agents", { options: {} });
   const browser = await chromium.launch();
   const page = await browser.newPage({ viewport: { width: 1600, height: 1000 } });
   await STACK.signIn(page);
@@ -167,7 +180,7 @@ async function run() {
   const ft = await fetch(`${SHELL}/__ioi/fallthrough`).then((r) => r.json()).catch(() => ({}));
   ok("fallthrough stays empty", Array.isArray(ft.proxied) && ft.proxied.length === 0);
   for (const e of [pub, priv, secret, dsOnly, routeOnly, expired, connEntry].filter(Boolean)) {
-    await jd("PATCH", `/v1/hypervisor/memory-entries/${e.entry_id}`, { status: "archived" });
+    await lane.archive(e);
   }
   await jd("PATCH", `/v1/hypervisor/skill-entries/${skill.skill_id}`, { status: "archived" });
   await jd("PATCH", `/v1/hypervisor/automation-affinities/${affinity.affinity_id}`, { status: "archived" });
