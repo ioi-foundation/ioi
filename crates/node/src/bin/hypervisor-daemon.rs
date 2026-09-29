@@ -5139,6 +5139,15 @@ async fn async_main() -> anyhow::Result<()> {
     // ordering—not resolver speed—is what makes readiness independent of accumulated intents.
     tokio::task::yield_now().await;
     tokio::spawn(governed_pass);
+    // R-240 decision route durability: an operator decision (an exact-effect approval, a standing
+    // envelope) a previous daemon left mid-act is reconciled from the deployment authority's own
+    // record — never re-run — once the accept loop is up.
+    tokio::spawn(authority_challenge_routes::reconcile_interrupted_decisions(
+        state.data_dir.clone(),
+    ));
+    tokio::spawn(standing_envelope_routes::reconcile_interrupted_decisions(
+        state.data_dir.clone(),
+    ));
     server.await??;
     Ok(())
 }

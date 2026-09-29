@@ -34,7 +34,8 @@ use ioi_services::wallet_network::{
     PortableAuthorityEffectAdmissionReceiptV2Record, PortableAuthorityGrantV3ConsumptionReceipt,
     PortableAuthorityGrantV3State, PortableAuthorityGrantV3Status,
     PortableAuthorityTemporalPostureV1, SettleStandingApprovalGrantConsumptionParams,
-    StandingApprovalGrantConsumptionReceipt, StandingApprovalGrantSettlementReceipt,
+    StandingApprovalContextConsumption, StandingApprovalGrantConsumptionReceipt,
+    StandingApprovalGrantSettlementReceipt, StandingApprovalGrantState,
 };
 use ioi_types::app::wallet_network::{WalletApprovalDecision, WalletApprovalDecisionKind};
 use ioi_types::app::{
@@ -53,6 +54,9 @@ const BINDING_PREFIX: &[u8] = b"principal_authority_binding::";
 const EFFECT_CONSUMPTION_RECEIPT_PREFIX: &[u8] = b"approval_effect_consumption_receipt::";
 const APPROVAL_PREFIX: &[u8] = b"approval::";
 const APPROVAL_GRANT_STATE_PREFIX: &[u8] = b"approval_grant_state::";
+const STANDING_APPROVAL_GRANT_STATE_PREFIX: &[u8] = b"standing_approval_grant_state::";
+const STANDING_APPROVAL_CONTEXT_CONSUMPTION_PREFIX: &[u8] =
+    b"standing_approval_context_consumption::";
 const STANDING_EFFECT_CONSUMPTION_RECEIPT_PREFIX: &[u8] =
     b"standing_approval_consumption_receipt::";
 const STANDING_EFFECT_SETTLEMENT_RECEIPT_PREFIX: &[u8] = b"standing_approval_settlement_receipt::";
@@ -1675,6 +1679,85 @@ pub(crate) async fn preflight_approval_grant_for_effect_v2(
             timeout.as_millis()
         ))
     })?
+}
+
+/// Read-only reconciliation reads (R-240, decision route durability). An operator decision the
+/// daemon relays to the sealed authority can be interrupted after the authority recorded its
+/// outcome but before the daemon stored it (the daemon restarted mid-act). The daemon then reads
+/// the authority's own record back, over the same pinned channel, and never re-runs the act on a
+/// guess. These take no transaction lock and submit nothing.
+async fn read_state_value<T: parity_scale_codec::Decode>(
+    prefix: &[u8],
+    suffix: &[u8],
+    what: &str,
+) -> Result<Option<T>, ResolveError> {
+    let config = load_config()?;
+    let timeout = config.timeout;
+    tokio::time::timeout(timeout, async {
+        let mut client = connect(&config).await?;
+        match query_raw(&mut client, namespaced_key(prefix, suffix)).await? {
+            Some(bytes) => Ok(Some(decode_state_value::<T>(&bytes)?)),
+            None => Ok(None),
+        }
+    })
+    .await
+    .map_err(|_| {
+        ResolveError::Unavailable(format!(
+            "wallet.network {what} read exceeded {} ms",
+            timeout.as_millis()
+        ))
+    })?
+}
+
+/// The approval decision wallet.network holds for one request hash — the `approve` act records
+/// the grant it minted there — or None when nothing was recorded for it.
+pub(crate) async fn read_approval_decision(
+    request_hash: [u8; 32],
+) -> Result<Option<WalletApprovalDecision>, ResolveError> {
+    read_state_value(APPROVAL_PREFIX, &request_hash, "approval decision").await
+}
+
+/// The standing grant one single-use approval ceremony authorised (wallet.network indexes each
+/// recording by its ceremony context hash), or None when that ceremony recorded nothing.
+pub(crate) async fn read_standing_grant_for_context(
+    approval_ceremony_context_hash: [u8; 32],
+) -> Result<Option<StandingApprovalGrantState>, ResolveError> {
+    let Some(consumption) = read_state_value::<StandingApprovalContextConsumption>(
+        STANDING_APPROVAL_CONTEXT_CONSUMPTION_PREFIX,
+        &approval_ceremony_context_hash,
+        "standing ceremony consumption",
+    )
+    .await?
+    else {
+        return Ok(None);
+    };
+    if consumption.approval_ceremony_context_hash != approval_ceremony_context_hash {
+        return Err(ResolveError::Invalid(
+            "wallet.network ceremony consumption names a different context".to_string(),
+        ));
+    }
+    read_standing_grant_state(consumption.standing_grant_hash).await
+}
+
+/// A recorded standing grant's wallet state (its grant and status) by the grant's hash.
+pub(crate) async fn read_standing_grant_state(
+    grant_hash: [u8; 32],
+) -> Result<Option<StandingApprovalGrantState>, ResolveError> {
+    let state = read_state_value::<StandingApprovalGrantState>(
+        STANDING_APPROVAL_GRANT_STATE_PREFIX,
+        &grant_hash,
+        "standing grant",
+    )
+    .await?;
+    if state
+        .as_ref()
+        .is_some_and(|state| state.grant_hash != grant_hash)
+    {
+        return Err(ResolveError::Invalid(
+            "wallet.network standing grant state names a different grant".to_string(),
+        ));
+    }
+    Ok(state)
 }
 
 #[cfg(test)]

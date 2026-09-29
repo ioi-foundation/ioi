@@ -35,6 +35,18 @@
 //!    is asked. The wallet's own ledger stays the authority; this is the daemon's pre-check and the
 //!    public "remaining" projection, never a second allowance.
 //!
+//! 4. **A decision outlives its request** (R-240, decision route durability). The mint and the
+//!    revocation run on their own task, which owns the authority child and the passphrase, so a
+//!    caller that goes away (a browser navigating off, the serve's fetch giving up) no longer kills
+//!    the child after the authority recorded its act; the route waits up to
+//!    IOI_HYPERVISOR_AUTHORITY_DECISION_WAIT_MS and otherwise answers 202. Before the mint, the
+//!    decision's evidence is kept as an intent (`standing-envelope-intents`); an intent a stopped
+//!    daemon left behind is settled at the next start from the authority's own record
+//!    (wallet.network indexes a recording by its single-use ceremony context hash): the grant is
+//!    found and bound, never minted again; nothing recorded once the ceremony's window has closed
+//!    drops the intent; an unreadable authority is re-checked. At start, every envelope held active
+//!    whose grant the authority has revoked is fenced on its connection.
+//!
 //! No second authority plane: resolution, grant verification and on-chain consumption are the
 //! existing `governed_authority` path, the lease on the connector is the one the execute gate and
 //! the connector gateway already draw from, and minting happens only inside the authority binary.
@@ -54,6 +66,9 @@ use zeroize::{Zeroize, Zeroizing};
 use super::{iso_now, read_record_dir, DaemonState};
 
 pub(crate) const STANDING_ENVELOPE_FAMILY: &str = "standing-envelopes";
+/// Standing decisions in flight (R-240, decision route durability).
+pub(crate) const STANDING_INTENT_FAMILY: &str = "standing-envelope-intents";
+const INTENT_SCHEMA: &str = "ioi.hypervisor.standing-envelope-intent.v1";
 const RECORD_SCHEMA: &str = "ioi.hypervisor.standing-envelope-record.v1";
 const ENVELOPE_SCHEMA: &str = "ioi.hypervisor.session-standing-envelope.v1";
 const ENVELOPE_BODY_DOMAIN: &str = "ioi.session-standing-envelope-jcs-sha256.v1";
@@ -702,7 +717,31 @@ impl StandingAuthority {
                     .unwrap_or(Value::Null))
             }
             #[cfg(test)]
-            Self::Fake(fake) => fake.act(args, passphrase),
+            Self::Fake(fake) => {
+                let signs =
+                    args[0] == "record-standing-approval" || args[0] == "revoke-standing-approval";
+                if signs && fake.delay_ms > 0 {
+                    tokio::time::sleep(Duration::from_millis(fake.delay_ms)).await;
+                }
+                let outcome = fake.act(args, passphrase);
+                if fake.hang_after_record
+                    && args[0] == "record-standing-approval"
+                    && outcome.is_ok()
+                {
+                    // Recorded on the authority, then the daemon never hears back.
+                    tokio::time::sleep(Duration::from_secs(3_600)).await;
+                }
+                outcome
+            }
+        }
+    }
+
+    /// Where this authority's records are read back from.
+    fn reader(&self) -> StandingReader {
+        match self {
+            Self::Binary { .. } => StandingReader::Wallet,
+            #[cfg(test)]
+            Self::Fake(fake) => StandingReader::Fake(fake.clone()),
         }
     }
 
@@ -1185,6 +1224,118 @@ pub(crate) fn check_minted_grant(
     Ok(canonical)
 }
 
+impl ExpectedGrant {
+    /// The derivation's grant coordinates as an intent keeps them (public commitments only).
+    fn to_json(&self) -> Value {
+        json!({
+            "standing_envelope_hash": hex::encode(self.standing_envelope_hash),
+            "policy_hash": hex::encode(self.policy_hash),
+            "audience": hex::encode(self.audience),
+            "issued_at_ms": self.issued_at_ms,
+            "expires_at_ms": self.expires_at_ms,
+            "max_usages": self.max_usages,
+            "max_cumulative_deposit_microusd": self.max_cumulative_deposit_microusd,
+            "max_cumulative_spend_microusd": self.max_cumulative_spend_microusd,
+            "review_receipt_hash": hex::encode(self.review_receipt_hash),
+            "approval_ceremony_context_hash": hex::encode(self.approval_ceremony_context_hash),
+            "auth_factor_receipt_hash": hex::encode(self.auth_factor_receipt_hash),
+        })
+    }
+
+    fn from_json(value: &Value) -> Option<Self> {
+        let bytes = |key: &str| -> Option<[u8; 32]> {
+            <[u8; 32]>::try_from(hex::decode(value.get(key)?.as_str()?).ok()?).ok()
+        };
+        let number = |key: &str| value.get(key).and_then(Value::as_u64);
+        Some(Self {
+            standing_envelope_hash: bytes("standing_envelope_hash")?,
+            policy_hash: bytes("policy_hash")?,
+            audience: bytes("audience")?,
+            issued_at_ms: number("issued_at_ms")?,
+            expires_at_ms: number("expires_at_ms")?,
+            max_usages: u32::try_from(number("max_usages")?).ok()?,
+            max_cumulative_deposit_microusd: number("max_cumulative_deposit_microusd")?,
+            max_cumulative_spend_microusd: number("max_cumulative_spend_microusd")?,
+            review_receipt_hash: bytes("review_receipt_hash")?,
+            approval_ceremony_context_hash: bytes("approval_ceremony_context_hash")?,
+            auth_factor_receipt_hash: bytes("auth_factor_receipt_hash")?,
+        })
+    }
+}
+
+// ---- reading the authority's record back (R-240, decision route durability) -------------------
+
+/// What the deployment authority's chain holds for one standing grant.
+#[derive(Debug)]
+pub(crate) enum StandingRead {
+    /// The recorded grant, its hash, and its wallet status (`active`, `revoked`, …).
+    Found {
+        grant: Value,
+        grant_hash: String,
+        status: String,
+    },
+    Absent,
+    /// Not readable (the authority unreachable, or no pinned channel to it): nothing concluded.
+    Unreadable(String),
+}
+
+/// Where a standing grant is read back from: wallet.network over the daemon's pinned channel, or
+/// (tests only) the in-process stand-in.
+#[derive(Clone)]
+pub(crate) enum StandingReader {
+    Wallet,
+    #[cfg(test)]
+    Fake(Arc<tests::FakeAuthority>),
+}
+
+fn standing_read(
+    read: Result<Option<ioi_services::wallet_network::StandingApprovalGrantState>, String>,
+) -> StandingRead {
+    match read {
+        Ok(Some(state)) => StandingRead::Found {
+            grant: serde_json::to_value(&state.grant).unwrap_or(Value::Null),
+            grant_hash: hex::encode(state.grant_hash),
+            status: format!("{:?}", state.status).to_ascii_lowercase(),
+        },
+        Ok(None) => StandingRead::Absent,
+        Err(detail) => StandingRead::Unreadable(detail),
+    }
+}
+
+impl StandingReader {
+    /// The grant one single-use ceremony authorised, found by the ceremony context's hash.
+    async fn grant_for_context(&self, context_hash: [u8; 32]) -> StandingRead {
+        match self {
+            Self::Wallet => standing_read(
+                super::wallet_network_capability_client::read_standing_grant_for_context(
+                    context_hash,
+                )
+                .await
+                .map_err(|error| format!("{error:?}")),
+            ),
+            #[cfg(test)]
+            Self::Fake(fake) => {
+                fake.read_grant(|grant| grant.approval_ceremony_context_hash == context_hash)
+            }
+        }
+    }
+
+    /// A recorded grant's state by its hash.
+    async fn grant_state(&self, grant_hash: [u8; 32]) -> StandingRead {
+        match self {
+            Self::Wallet => standing_read(
+                super::wallet_network_capability_client::read_standing_grant_state(grant_hash)
+                    .await
+                    .map_err(|error| format!("{error:?}")),
+            ),
+            #[cfg(test)]
+            Self::Fake(fake) => {
+                fake.read_grant(|grant| grant.artifact_hash().ok() == Some(grant_hash))
+            }
+        }
+    }
+}
+
 // ---- records ----------------------------------------------------------------------------------
 
 fn valid_envelope_id(id: &str) -> bool {
@@ -1202,6 +1353,19 @@ fn read_envelope_record(data_dir: &str, id: &str) -> Result<Option<Value>, Strin
 fn write_envelope_record(data_dir: &str, id: &str, record: &Value) -> Result<(), String> {
     super::durable_fs::persist_record_durable(data_dir, STANDING_ENVELOPE_FAMILY, id, record)
         .map_err(|error| format!("standing envelope {id} was not durably persisted: {error:?}"))
+}
+
+/// A standing decision the authority is being asked to record right now: written before the act,
+/// removed once its outcome is settled. One left behind by a stopped daemon is how the recorded
+/// grant is found again (by its ceremony context hash) instead of lingering, inert and unnamed.
+fn write_intent(data_dir: &str, id: &str, intent: &Value) -> Result<(), String> {
+    super::durable_fs::persist_record_durable(data_dir, STANDING_INTENT_FAMILY, id, intent).map_err(
+        |error| format!("standing decision intent {id} was not durably persisted: {error:?}"),
+    )
+}
+
+fn remove_intent(data_dir: &str, id: &str) {
+    super::remove_record(data_dir, STANDING_INTENT_FAMILY, id);
 }
 
 fn record_u64(record: &Value, pointer: &str) -> u64 {
@@ -1394,8 +1558,7 @@ async fn create_standing_envelope(
         bounds,
         operator_passphrase,
     } = body;
-    let Some(mut connector) =
-        connector_in_scope(ctx.data_dir, ctx.principal_id, &bounds.connector_id)
+    let Some(connector) = connector_in_scope(ctx.data_dir, ctx.principal_id, &bounds.connector_id)
     else {
         return unknown_connector();
     };
@@ -1490,6 +1653,32 @@ async fn create_standing_envelope(
             )
         }
     };
+    let id = format!("sse_{}", hex::encode(rand::random::<[u8; 16]>()));
+    // Before the authority is asked: what it is about to record, so a daemon that stops mid-act
+    // finds the grant again (wallet.network indexes a recording by its ceremony context hash) and
+    // binds it, rather than leaving an inert grant nobody can name.
+    let intent = json!({
+        "schema_version": INTENT_SCHEMA,
+        "standing_envelope_id": id,
+        "connector_id": bounds.connector_id,
+        "reason": bounds.reason,
+        "decided_by": ctx.decided_by,
+        "process": super::authority_challenge_routes::process_nonce(),
+        "started_at": iso_now(),
+        "chain_clock_ms": chain_ms,
+        "envelope": derived.envelope,
+        "approval_ceremony_context": derived.context,
+        "auth_factor_receipt": derived.factor,
+        "review": derived.review,
+        "expected_grant": derived.expected.to_json(),
+    });
+    if let Err(message) = write_intent(ctx.data_dir, &id, &intent) {
+        return refuse(
+            StatusCode::INTERNAL_SERVER_ERROR,
+            "standing_envelope_intent_not_durable",
+            format!("{message}; nothing was signed or recorded"),
+        );
+    }
     let outcome = authority
         .record(
             &derived.envelope,
@@ -1502,7 +1691,23 @@ async fn create_standing_envelope(
     drop(operator_passphrase);
     let outcome = match outcome {
         Ok(outcome) => outcome,
-        Err(failure) => return authority_refusal(failure, "record the standing grant"),
+        Err(AuthorityFailure::PassphraseRefused) => {
+            remove_intent(ctx.data_dir, &id);
+            return authority_refusal(
+                AuthorityFailure::PassphraseRefused,
+                "record the standing grant",
+            );
+        }
+        Err(failure) => {
+            // The act failed or timed out, yet it may have recorded the grant first: read the
+            // authority's record before calling the decision refused.
+            let adopted = adopt_recorded_grant(ctx.data_dir, &intent, &authority.reader()).await;
+            remove_intent(ctx.data_dir, &id);
+            if let Adoption::Bound(response) = adopted {
+                return response;
+            }
+            return authority_refusal(failure, "record the standing grant");
+        }
     };
     let grant_value = outcome
         .get("standing_approval_grant")
@@ -1511,14 +1716,67 @@ async fn create_standing_envelope(
     let canonical_grant = match check_minted_grant(&grant_value, &derived.expected) {
         Ok(canonical) => canonical,
         Err(message) => {
+            remove_intent(ctx.data_dir, &id);
             return refuse(
                 StatusCode::BAD_GATEWAY,
                 "authority_grant_mismatch",
                 format!("the authority's standing grant does not bind this decision exactly ({message}); it was not bound"),
-            )
+            );
         }
     };
-    let lease_body = json!({ "grant": canonical_grant, "envelope": derived.envelope });
+    let response = bind_minted_grant(
+        ctx.data_dir,
+        &id,
+        MintedGrant {
+            connector_id: &bounds.connector_id,
+            reason: &bounds.reason,
+            decided_by: ctx.decided_by,
+            envelope: &derived.envelope,
+            context: &derived.context,
+            factor: &derived.factor,
+            review: &derived.review,
+            canonical_grant,
+            recorded_on_authority: json!({
+                "recorded": outcome.get("recorded").cloned().unwrap_or(Value::Null),
+                "standing_grant_hash": outcome.get("standing_grant_hash").cloned().unwrap_or(Value::Null),
+                "custody_tier": outcome.get("custody_tier").cloned().unwrap_or(Value::Null),
+                "chain_clock_ms": chain_ms,
+            }),
+        },
+    );
+    remove_intent(ctx.data_dir, &id);
+    response
+}
+
+/// What the authority recorded for one standing decision, ready to bind to its connection.
+struct MintedGrant<'a> {
+    connector_id: &'a str,
+    reason: &'a str,
+    decided_by: &'a str,
+    envelope: &'a Value,
+    context: &'a Value,
+    factor: &'a Value,
+    review: &'a Value,
+    canonical_grant: Value,
+    recorded_on_authority: Value,
+}
+
+/// Bind a recorded standing grant to its connection and keep the envelope's public record. The
+/// connection is read afresh (the act took a while), and an envelope that became active on it
+/// meanwhile is never overwritten: the recorded grant is then kept as an `unbound` record that
+/// names it, so it can be revoked.
+fn bind_minted_grant(data_dir: &str, id: &str, minted: MintedGrant<'_>) -> Reply {
+    let Some(mut connector) = read_record_dir(data_dir, "connectors")
+        .into_iter()
+        .find(|c| c["connector_id"].as_str() == Some(minted.connector_id))
+    else {
+        return refuse(
+            StatusCode::CONFLICT,
+            "standing_envelope_connection_gone",
+            "the connection was removed while the authority recorded its standing grant; the grant is recorded on the authority node but NOT bound",
+        );
+    };
+    let lease_body = json!({ "grant": minted.canonical_grant, "envelope": minted.envelope });
     let mut lease = match super::lifecycle_routes::validate_connector_standing_lease(
         &connector,
         &lease_body,
@@ -1527,42 +1785,49 @@ async fn create_standing_envelope(
         Ok(lease) => lease,
         Err((status, Json(body))) => return (status, Json(body)),
     };
-    let id = format!("sse_{}", hex::encode(rand::random::<[u8; 16]>()));
-    let envelope_ref = derived.envelope["standing_envelope_ref"].clone();
+    let envelope_ref = minted.envelope["standing_envelope_ref"].clone();
     lease["standing_envelope_id"] = json!(id);
     lease["standing_envelope_ref"] = envelope_ref.clone();
     lease["issued_by"] = json!("daemon_standing_decision");
-    let record = json!({
+    let mut record = json!({
         "schema_version": RECORD_SCHEMA,
         "standing_envelope_id": id,
         "standing_envelope_ref": envelope_ref,
-        "connector_id": bounds.connector_id,
-        "connection_ref": format!("connector:{}", bounds.connector_id),
+        "connector_id": minted.connector_id,
+        "connection_ref": format!("connector:{}", minted.connector_id),
         "status": "active",
-        "decided_by": ctx.decided_by,
-        "reason": bounds.reason,
+        "decided_by": minted.decided_by,
+        "reason": minted.reason,
         "created_at": iso_now(),
         "bounds": lease["bounds"],
-        "envelope": derived.envelope,
-        "approval_ceremony_context": derived.context,
-        "auth_factor_receipt": derived.factor,
-        "review": derived.review,
-        "grant": canonical_grant,
+        "envelope": minted.envelope,
+        "approval_ceremony_context": minted.context,
+        "auth_factor_receipt": minted.factor,
+        "review": minted.review,
+        "grant": lease_body["grant"],
         "envelope_hash_ref": lease["envelope_hash_ref"],
         "policy_hash_ref": lease["policy_hash_ref"],
         "grant_hash_ref": lease["grant_hash_ref"],
-        "recorded_on_authority": {
-            "recorded": outcome.get("recorded").cloned().unwrap_or(Value::Null),
-            "standing_grant_hash": outcome.get("standing_grant_hash").cloned().unwrap_or(Value::Null),
-            "custody_tier": outcome.get("custody_tier").cloned().unwrap_or(Value::Null),
-            "chain_clock_ms": chain_ms,
-        },
+        "recorded_on_authority": minted.recorded_on_authority,
         "drawn": { "uses": 0, "spend_microusd": 0, "deposit_microusd": 0, "draw_refs": [] },
         "revoked_at": null,
         "revocation": null,
         "runtimeTruthSource": "daemon-runtime",
     });
-    if let Err(message) = write_envelope_record(ctx.data_dir, &id, &record) {
+    if connector
+        .get("standing_lease")
+        .is_some_and(|lease| lease["status"].as_str() == Some("active"))
+    {
+        record["status"] = json!("unbound");
+        record["unbound_reason"] = json!("another standing envelope became active on the connection before this recorded grant could be bound; revoke this one on the authority node");
+        let _ = write_envelope_record(data_dir, id, &record);
+        return refuse(
+            StatusCode::CONFLICT,
+            "standing_lease_already_bound",
+            "another standing envelope is active on this connection; the grant the authority recorded is kept as an unbound record (revoke it there) and was NOT bound",
+        );
+    }
+    if let Err(message) = write_envelope_record(data_dir, id, &record) {
         return refuse(
             StatusCode::INTERNAL_SERVER_ERROR,
             "standing_envelope_not_durable",
@@ -1570,35 +1835,258 @@ async fn create_standing_envelope(
         );
     }
     connector["standing_lease"] = lease.clone();
-    if super::persist_record(ctx.data_dir, "connectors", &bounds.connector_id, &connector).is_err()
-    {
+    if super::persist_record(data_dir, "connectors", minted.connector_id, &connector).is_err() {
         let _guard = lock_records();
         let mut unbound = record.clone();
         unbound["status"] = json!("unbound");
-        let _ = write_envelope_record(ctx.data_dir, &id, &unbound);
+        let _ = write_envelope_record(data_dir, id, &unbound);
         return refuse(
             StatusCode::INTERNAL_SERVER_ERROR,
             "standing_lease_persistence_failed",
             "the standing lease could not be durably bound to the connection; the envelope is NOT in force",
         );
     }
-    reply(
-        StatusCode::OK,
-        json!({
-            "ok": true,
-            "standing_envelope_id": id,
-            "standing_envelope_ref": record["standing_envelope_ref"],
-            "connector_id": bounds.connector_id,
-            "status": "active",
-            "bounds": lease["bounds"],
-            "envelope_hash_ref": lease["envelope_hash_ref"],
-            "grant_hash_ref": lease["grant_hash_ref"],
-            "recorded_on_authority": record["recorded_on_authority"]["recorded"],
-            "decided_by": ctx.decided_by,
-            "standing_lease": { "status": "active", "bounds": lease["bounds"], "envelope_hash_ref": lease["envelope_hash_ref"], "grant_hash_ref": lease["grant_hash_ref"], "standing_envelope_id": id, "declared_at": lease["declared_at"] },
-            "runtimeTruthSource": "daemon-runtime",
-        }),
-    )
+    let mut body = json!({
+        "ok": true,
+        "standing_envelope_id": id,
+        "standing_envelope_ref": record["standing_envelope_ref"],
+        "connector_id": minted.connector_id,
+        "status": "active",
+        "bounds": lease["bounds"],
+        "envelope_hash_ref": lease["envelope_hash_ref"],
+        "grant_hash_ref": lease["grant_hash_ref"],
+        "recorded_on_authority": record["recorded_on_authority"]["recorded"],
+        "decided_by": minted.decided_by,
+        "standing_lease": { "status": "active", "bounds": lease["bounds"], "envelope_hash_ref": lease["envelope_hash_ref"], "grant_hash_ref": lease["grant_hash_ref"], "standing_envelope_id": id, "declared_at": lease["declared_at"] },
+        "runtimeTruthSource": "daemon-runtime",
+    });
+    if let Some(source) = record["recorded_on_authority"].get("reconciled_from") {
+        body["reconciled_from"] = source.clone();
+    }
+    reply(StatusCode::OK, body)
+}
+
+/// How a read of the authority's record settled one standing decision the daemon never saw end.
+enum Adoption {
+    /// The grant the ceremony recorded was found and bound (or kept unbound, by name).
+    Bound(Reply),
+    Absent,
+    Unreadable(String),
+    /// A grant is recorded under the ceremony but it is not the one the intent derived: never
+    /// adopted.
+    Mismatch(String),
+}
+
+/// Find the grant the authority recorded under this intent's ceremony and bind it exactly as a
+/// completed decision would. Never mints and never re-runs the act.
+async fn adopt_recorded_grant(data_dir: &str, intent: &Value, reader: &StandingReader) -> Adoption {
+    let Some(expected) = intent
+        .get("expected_grant")
+        .and_then(ExpectedGrant::from_json)
+    else {
+        return Adoption::Mismatch("the intent names no expected grant".to_string());
+    };
+    let id = intent["standing_envelope_id"].as_str().unwrap_or("");
+    match reader
+        .grant_for_context(expected.approval_ceremony_context_hash)
+        .await
+    {
+        StandingRead::Found {
+            grant, grant_hash, ..
+        } => match check_minted_grant(&grant, &expected) {
+            Ok(canonical_grant) => Adoption::Bound(bind_minted_grant(
+                data_dir,
+                id,
+                MintedGrant {
+                    connector_id: intent["connector_id"].as_str().unwrap_or(""),
+                    reason: intent["reason"].as_str().unwrap_or(""),
+                    decided_by: intent["decided_by"].as_str().unwrap_or(""),
+                    envelope: &intent["envelope"],
+                    context: &intent["approval_ceremony_context"],
+                    factor: &intent["auth_factor_receipt"],
+                    review: &intent["review"],
+                    canonical_grant,
+                    recorded_on_authority: json!({
+                        "recorded": "existing",
+                        "standing_grant_hash": grant_hash,
+                        "custody_tier": intent.pointer("/auth_factor_receipt/factor_kind").cloned().unwrap_or(Value::Null),
+                        "chain_clock_ms": intent.get("chain_clock_ms").cloned().unwrap_or(Value::Null),
+                        "reconciled_from": "authority_record",
+                    }),
+                },
+            )),
+            Err(message) => Adoption::Mismatch(message),
+        },
+        StandingRead::Absent => Adoption::Absent,
+        StandingRead::Unreadable(detail) => Adoption::Unreadable(detail),
+    }
+}
+
+/// The intent's single-use ceremony can no longer be recorded: its window closed (with the wall
+/// clock tolerance the authority's chain clock is held to), so nothing can land under it.
+fn ceremony_window_closed(intent: &Value, now: u64) -> bool {
+    intent
+        .pointer("/approval_ceremony_context/expires_at")
+        .and_then(Value::as_str)
+        .and_then(|text| {
+            time::OffsetDateTime::parse(text, &time::format_description::well_known::Rfc3339).ok()
+        })
+        .and_then(|at| u64::try_from(at.unix_timestamp_nanos() / 1_000_000).ok())
+        .is_some_and(|expires| now > expires.saturating_add(WALL_CLOCK_TOLERANCE_MS + 60_000))
+}
+
+/// Settle every standing decision a stopped daemon left in flight. Returns how many are still
+/// unsettled for a reason a later read can change (the authority unreadable, or nothing recorded
+/// yet while the ceremony could still land).
+pub(crate) async fn reconcile_intents(data_dir: &str, reader: &StandingReader) -> usize {
+    let mut unsettled = 0;
+    for intent in read_record_dir(data_dir, STANDING_INTENT_FAMILY) {
+        if intent.get("schema_version").and_then(Value::as_str) != Some(INTENT_SCHEMA) {
+            continue;
+        }
+        // This process's own acts are still running on their tasks.
+        if intent.get("process").and_then(Value::as_str)
+            == Some(super::authority_challenge_routes::process_nonce())
+        {
+            continue;
+        }
+        let Some(id) = intent
+            .get("standing_envelope_id")
+            .and_then(Value::as_str)
+            .filter(|id| valid_envelope_id(id))
+            .map(str::to_owned)
+        else {
+            continue;
+        };
+        match adopt_recorded_grant(data_dir, &intent, reader).await {
+            Adoption::Bound((status, _)) => {
+                tracing::info!(envelope = %id, %status, "a standing grant recorded before the daemon stopped was found on the authority and bound");
+                remove_intent(data_dir, &id);
+            }
+            Adoption::Absent if ceremony_window_closed(&intent, now_ms()) => {
+                tracing::info!(envelope = %id, "an interrupted standing decision recorded nothing and its single-use ceremony has closed");
+                remove_intent(data_dir, &id);
+            }
+            Adoption::Absent => unsettled += 1,
+            Adoption::Unreadable(detail) => {
+                tracing::warn!(envelope = %id, %detail, "an interrupted standing decision cannot be reconciled until the authority is readable");
+                unsettled += 1;
+            }
+            Adoption::Mismatch(message) => {
+                tracing::warn!(envelope = %id, %message, "an interrupted standing decision names a grant the authority did not record as derived; it is not adopted");
+            }
+        }
+    }
+    unsettled
+}
+
+/// Fence every envelope this daemon holds active whose grant the authority has revoked (a
+/// revocation the daemon did not live to fence, or one made on the node directly). Returns how
+/// many were fenced.
+pub(crate) async fn reconcile_revocations(data_dir: &str, reader: &StandingReader) -> usize {
+    let mut fenced = 0;
+    for record in read_record_dir(data_dir, STANDING_ENVELOPE_FAMILY) {
+        if record.get("schema_version").and_then(Value::as_str) != Some(RECORD_SCHEMA)
+            || record.get("status").and_then(Value::as_str) != Some("active")
+        {
+            continue;
+        }
+        let (Some(id), Some(grant_hash)) = (
+            record
+                .get("standing_envelope_id")
+                .and_then(Value::as_str)
+                .filter(|id| valid_envelope_id(id)),
+            record
+                .get("grant_hash_ref")
+                .and_then(Value::as_str)
+                .and_then(ref_bytes),
+        ) else {
+            continue;
+        };
+        let StandingRead::Found { status, .. } = reader.grant_state(grant_hash).await else {
+            continue;
+        };
+        if status != "revoked" {
+            continue;
+        }
+        let connector_id = record["connector_id"].as_str().unwrap_or("");
+        let revocation = json!({
+            "kind": "authority_revocation",
+            "chain_revocation": "committed",
+            "standing_grant_status": "revoked",
+            "revoked_by": Value::Null,
+            "reason": "the authority's record shows the grant revoked; the daemon fenced the connection when it next started",
+            "reconciled_from": "authority_record",
+        });
+        match record_chain_revocation(data_dir, id, connector_id, revocation) {
+            Ok(_) => {
+                tracing::info!(envelope = %id, "a standing grant revoked on the authority was fenced on its connection");
+                fenced += 1;
+            }
+            Err(message) => {
+                tracing::warn!(envelope = %id, %message, "a standing grant revoked on the authority could not be fenced")
+            }
+        }
+    }
+    fenced
+}
+
+/// Boot: fence what the authority revoked, then settle what a stopped daemon left in flight, and
+/// keep re-checking whatever a later read can still settle until nothing is left.
+pub(crate) async fn reconcile_interrupted_decisions(data_dir: String) {
+    let reader = StandingReader::Wallet;
+    reconcile_revocations(&data_dir, &reader).await;
+    let mut wait_ms: u64 = 60_000;
+    loop {
+        if reconcile_intents(&data_dir, &reader).await == 0 {
+            return;
+        }
+        tokio::time::sleep(Duration::from_millis(wait_ms)).await;
+        wait_ms = wait_ms.saturating_mul(2).min(600_000);
+    }
+}
+
+/// Fence the connection's lease for this envelope and record the revocation (the chain has
+/// already revoked the grant). Returns the revocation as recorded.
+fn record_chain_revocation(
+    data_dir: &str,
+    id: &str,
+    connector_id: &str,
+    mut revocation: Value,
+) -> Result<Value, String> {
+    // On chain first, then the local fence: the next draw refuses here before any wallet call.
+    let fenced_lease = {
+        let connectors = read_record_dir(data_dir, "connectors");
+        connectors
+            .into_iter()
+            .find(|c| c["connector_id"].as_str() == Some(connector_id))
+            .and_then(|mut connector| {
+                let lease = connector.get_mut("standing_lease")?;
+                if lease.get("standing_envelope_id").and_then(Value::as_str) != Some(id) {
+                    return None;
+                }
+                lease["status"] = json!("revoked");
+                lease["revoked_at"] = json!(iso_now());
+                let lease_copy = lease.clone();
+                super::persist_record(data_dir, "connectors", connector_id, &connector)
+                    .ok()
+                    .map(|_| lease_copy)
+            })
+    };
+    revocation["connection_fenced"] = json!(fenced_lease.is_some());
+    let _guard = lock_records();
+    match read_envelope_record(data_dir, id) {
+        Ok(Some(mut current)) => {
+            current["status"] = json!("revoked");
+            if current.get("revoked_at").is_none_or(Value::is_null) {
+                current["revoked_at"] = json!(iso_now());
+            }
+            current["revocation"] = revocation.clone();
+            write_envelope_record(data_dir, id, &current)?;
+            Ok(revocation)
+        }
+        _ => Err("the record vanished while revoking".to_string()),
+    }
 }
 
 async fn revoke_standing_envelope(
@@ -1673,58 +2161,60 @@ async fn revoke_standing_envelope(
         .revoke(&grant_hash_hex, operator_passphrase.as_str())
         .await;
     drop(operator_passphrase);
-    let outcome = match outcome {
-        Ok(outcome) => outcome,
-        Err(failure) => return authority_refusal(failure, "revoke the standing grant"),
-    };
-    // On chain first, then the local fence: the next draw refuses here before any wallet call.
-    let fenced_lease = {
-        let connectors = read_record_dir(ctx.data_dir, "connectors");
-        connectors
-            .into_iter()
-            .find(|c| c["connector_id"].as_str() == Some(connector_id.as_str()))
-            .and_then(|mut connector| {
-                let lease = connector.get_mut("standing_lease")?;
-                if lease.get("standing_envelope_id").and_then(Value::as_str) != Some(id) {
-                    return None;
-                }
-                lease["status"] = json!("revoked");
-                lease["revoked_at"] = json!(iso_now());
-                let lease_copy = lease.clone();
-                super::persist_record(ctx.data_dir, "connectors", &connector_id, &connector)
-                    .ok()
-                    .map(|_| lease_copy)
-            })
-    };
-    let revocation = json!({
-        "kind": "authority_revocation",
-        "chain_revocation": "committed",
-        "standing_grant_status": outcome.get("standing_grant_status").cloned().unwrap_or(Value::Null),
-        "revoked_by": ctx.decided_by,
-        "reason": reason,
-        "connection_fenced": fenced_lease.is_some(),
-    });
-    let stored = {
-        let _guard = lock_records();
-        match read_envelope_record(ctx.data_dir, id) {
-            Ok(Some(mut current)) => {
-                current["status"] = json!("revoked");
-                if current.get("revoked_at").is_none_or(Value::is_null) {
-                    current["revoked_at"] = json!(iso_now());
-                }
-                current["revocation"] = revocation.clone();
-                write_envelope_record(ctx.data_dir, id, &current)
+    let (standing_grant_status, reconciled) = match outcome {
+        Ok(outcome) => (
+            outcome
+                .get("standing_grant_status")
+                .cloned()
+                .unwrap_or(Value::Null),
+            false,
+        ),
+        Err(AuthorityFailure::PassphraseRefused) => {
+            return authority_refusal(
+                AuthorityFailure::PassphraseRefused,
+                "revoke the standing grant",
+            )
+        }
+        Err(failure) => {
+            // The act failed or timed out, yet the revocation may have landed first: the
+            // authority's record decides.
+            let landed = match record
+                .get("grant_hash_ref")
+                .and_then(Value::as_str)
+                .and_then(ref_bytes)
+            {
+                Some(hash) => matches!(
+                    authority.reader().grant_state(hash).await,
+                    StandingRead::Found { ref status, .. } if status == "revoked"
+                ),
+                None => false,
+            };
+            if !landed {
+                return authority_refusal(failure, "revoke the standing grant");
             }
-            _ => Err("the record vanished while revoking".to_string()),
+            (json!("revoked"), true)
         }
     };
-    if let Err(message) = stored {
-        return refuse(
-            StatusCode::INTERNAL_SERVER_ERROR,
-            "standing_envelope_not_durable",
-            format!("{message}; the grant IS revoked on the authority node"),
-        );
+    let mut revocation = json!({
+        "kind": "authority_revocation",
+        "chain_revocation": "committed",
+        "standing_grant_status": standing_grant_status,
+        "revoked_by": ctx.decided_by,
+        "reason": reason,
+    });
+    if reconciled {
+        revocation["reconciled_from"] = json!("authority_record");
     }
+    let revocation = match record_chain_revocation(ctx.data_dir, id, &connector_id, revocation) {
+        Ok(revocation) => revocation,
+        Err(message) => {
+            return refuse(
+                StatusCode::INTERNAL_SERVER_ERROR,
+                "standing_envelope_not_durable",
+                format!("{message}; the grant IS revoked on the authority node"),
+            )
+        }
+    };
     reply(
         StatusCode::OK,
         json!({
@@ -1737,6 +2227,91 @@ async fn revoke_standing_envelope(
             "runtimeTruthSource": "daemon-runtime",
         }),
     )
+}
+
+/// A standing decision's caller and deployment coordinates, owned by the task that runs it.
+struct OwnedDecision {
+    data_dir: String,
+    decided_by: String,
+    principal_id: String,
+    principal_ref: String,
+    audience_hex: String,
+}
+
+impl OwnedDecision {
+    fn context(&self) -> DecisionContext<'_> {
+        DecisionContext {
+            data_dir: &self.data_dir,
+            decided_by: &self.decided_by,
+            principal_id: &self.principal_id,
+            principal_ref: &self.principal_ref,
+            audience_hex: &self.audience_hex,
+        }
+    }
+}
+
+/// Wait for a standing act's task up to the route's bound. The task records its outcome whether
+/// or not anyone is still waiting; a caller that goes away drops only this wait.
+async fn await_standing_act(
+    task: tokio::task::JoinHandle<Reply>,
+    wait_ms: u64,
+    subject: Value,
+) -> Reply {
+    match tokio::time::timeout(Duration::from_millis(wait_ms), task).await {
+        Ok(Ok(response)) => response,
+        Ok(Err(error)) => refuse(
+            StatusCode::INTERNAL_SERVER_ERROR,
+            "standing_envelope_decision_task_failed",
+            format!("the standing decision's task ended without an answer ({error}); what the authority recorded is reconciled from its record"),
+        ),
+        Err(_) => {
+            let mut body = json!({
+                "ok": false,
+                "error": {
+                    "code": "standing_envelope_decision_still_running",
+                    "message": format!("the deployment authority is still acting after {wait_ms} ms; the decision continues in the daemon and records its outcome on its own — re-read the connection for it"),
+                },
+                "runtimeTruthSource": "daemon-runtime",
+            });
+            if let (Some(target), Some(extra)) = (body.as_object_mut(), subject.as_object()) {
+                for (key, value) in extra {
+                    target.insert(key.clone(), value.clone());
+                }
+            }
+            reply(StatusCode::ACCEPTED, body)
+        }
+    }
+}
+
+/// Run a standing envelope decision on its OWN task: the child (and the passphrase) belong to the
+/// task, never to the request.
+async fn spawn_standing_create(
+    owned: OwnedDecision,
+    body: CreateBody,
+    authority: StandingAuthority,
+    wait_ms: u64,
+) -> Reply {
+    let connector_id = body.bounds.connector_id.clone();
+    let task =
+        tokio::spawn(
+            async move { create_standing_envelope(&owned.context(), body, &authority).await },
+        );
+    await_standing_act(task, wait_ms, json!({ "connector_id": connector_id })).await
+}
+
+/// Run a standing envelope revocation on its OWN task.
+async fn spawn_standing_revoke(
+    owned: OwnedDecision,
+    id: String,
+    body: RevokeBody,
+    authority: StandingAuthority,
+    wait_ms: u64,
+) -> Reply {
+    let subject = json!({ "standing_envelope_id": id });
+    let task = tokio::spawn(async move {
+        revoke_standing_envelope(&owned.context(), &id, body, &authority).await
+    });
+    await_standing_act(task, wait_ms, subject).await
 }
 
 // ---- routes -----------------------------------------------------------------------------------
@@ -1801,14 +2376,20 @@ pub(crate) async fn handle_standing_envelope_create(
         Ok(coordinates) => coordinates,
         Err(response) => return response,
     };
-    let ctx = DecisionContext {
-        data_dir: &st.data_dir,
-        decided_by: &decided_by,
-        principal_id: &principal_id,
-        principal_ref: &principal_ref,
-        audience_hex: &audience,
+    let owned = OwnedDecision {
+        data_dir: st.data_dir.clone(),
+        decided_by,
+        principal_id,
+        principal_ref,
+        audience_hex: audience,
     };
-    create_standing_envelope(&ctx, body, &authority).await
+    spawn_standing_create(
+        owned,
+        body,
+        authority,
+        super::authority_challenge_routes::decision_wait_ms(),
+    )
+    .await
 }
 
 /// POST /v1/hypervisor/authority/standing-envelopes/:id/revoke — revoke on the authority node with
@@ -1845,14 +2426,21 @@ pub(crate) async fn handle_standing_envelope_revoke(
             "this daemon has no deployment authority to revoke with; the passphrase-free local fence is DELETE /v1/hypervisor/connectors/:id/standing-lease",
         );
     };
-    let ctx = DecisionContext {
-        data_dir: &st.data_dir,
-        decided_by: &decided_by,
-        principal_id: &principal_id,
-        principal_ref: "",
-        audience_hex: "",
+    let owned = OwnedDecision {
+        data_dir: st.data_dir.clone(),
+        decided_by,
+        principal_id,
+        principal_ref: String::new(),
+        audience_hex: String::new(),
     };
-    revoke_standing_envelope(&ctx, &id, body, &authority).await
+    spawn_standing_revoke(
+        owned,
+        id,
+        body,
+        authority,
+        super::authority_challenge_routes::decision_wait_ms(),
+    )
+    .await
 }
 
 /// GET /v1/hypervisor/authority/standing-envelopes — every envelope this daemon decided (public
@@ -1953,6 +2541,10 @@ mod tests {
         pub(crate) chain_offset_ms: i64,
         pub(crate) recorded: Mutex<Vec<Value>>,
         pub(crate) revoked: Mutex<Vec<String>>,
+        /// How long a signing act takes (the real authority takes tens of seconds).
+        pub(crate) delay_ms: u64,
+        /// Record the grant, then never answer (the daemon stops before it hears back).
+        pub(crate) hang_after_record: bool,
     }
 
     impl FakeAuthority {
@@ -1963,7 +2555,34 @@ mod tests {
                 chain_offset_ms: -2_000,
                 recorded: Mutex::new(Vec::new()),
                 revoked: Mutex::new(Vec::new()),
+                delay_ms: 0,
+                hang_after_record: false,
             }
+        }
+
+        /// What the fake chain holds for a grant: the grant and whether it is revoked.
+        pub(crate) fn read_grant(
+            &self,
+            matches: impl Fn(&StandingApprovalGrant) -> bool,
+        ) -> StandingRead {
+            let revoked = self.revoked.lock().unwrap().clone();
+            for value in self.recorded.lock().unwrap().iter() {
+                let grant: StandingApprovalGrant = serde_json::from_value(value.clone()).unwrap();
+                if matches(&grant) {
+                    let grant_hash = hex::encode(grant.artifact_hash().unwrap());
+                    let status = if revoked.contains(&grant_hash) {
+                        "revoked"
+                    } else {
+                        "active"
+                    };
+                    return StandingRead::Found {
+                        grant: value.clone(),
+                        grant_hash,
+                        status: status.to_string(),
+                    };
+                }
+            }
+            StandingRead::Absent
         }
 
         fn keypair(&self) -> Ed25519KeyPair {
@@ -2503,5 +3122,234 @@ mod tests {
         assert!(
             derived.envelope["not_before_ms"].as_u64().unwrap() <= derived.expected.issued_at_ms
         );
+    }
+
+    // ---- R-240, decision route durability -----------------------------------------------------
+
+    fn owned(data_dir: &str, audience: &str) -> OwnedDecision {
+        OwnedDecision {
+            data_dir: data_dir.to_string(),
+            decided_by: "user://operator".to_string(),
+            principal_id: "operator".to_string(),
+            principal_ref: PRINCIPAL.to_string(),
+            audience_hex: audience.to_string(),
+        }
+    }
+
+    fn intents(data_dir: &str) -> Vec<Value> {
+        read_record_dir(data_dir, STANDING_INTENT_FAMILY)
+    }
+
+    async fn until_lease_active(data_dir: &str) -> Value {
+        for _ in 0..300 {
+            let lease = connector_lease(data_dir);
+            if lease["status"] == "active" {
+                return lease;
+            }
+            tokio::time::sleep(Duration::from_millis(50)).await;
+        }
+        panic!("the standing decision never bound its connection");
+    }
+
+    #[tokio::test]
+    async fn a_standing_decision_whose_client_goes_away_still_binds_and_a_second_is_refused() {
+        let dir = temp_data_dir("client-gone");
+        seed_connector(&dir);
+        let mut slow = FakeAuthority::new();
+        slow.delay_ms = 1_500;
+        let fake = Arc::new(slow);
+        let audience = hex::encode(fake.audience);
+        let decision = spawn_standing_create(
+            owned(&dir, &audience),
+            create_body(PASS, 2, 0.02),
+            StandingAuthority::Fake(fake.clone()),
+            60_000,
+        );
+        // The client goes away while the authority is recording.
+        assert!(tokio::time::timeout(Duration::from_millis(300), decision)
+            .await
+            .is_err());
+        assert_eq!(connector_lease(&dir), Value::Null, "nothing bound mid-act");
+        assert_eq!(
+            intents(&dir).len(),
+            1,
+            "the decision in flight is kept as an intent"
+        );
+        // A second decision for the same connection while the first runs is refused by name.
+        let second = spawn_standing_create(
+            owned(&dir, &audience),
+            create_body(PASS, 2, 0.02),
+            StandingAuthority::Fake(fake.clone()),
+            60_000,
+        )
+        .await;
+        assert_eq!(second.0, StatusCode::CONFLICT);
+        assert_eq!(
+            second.1 .0["error"]["code"],
+            "standing_envelope_decision_in_progress"
+        );
+        // The first runs to completion on its own task and binds the connection.
+        let lease = until_lease_active(&dir).await;
+        let id = lease["standing_envelope_id"].as_str().unwrap().to_string();
+        let record = read_envelope_record(&dir, &id).unwrap().unwrap();
+        assert_eq!(record["status"], "active");
+        assert_eq!(record["grant"], fake.recorded.lock().unwrap()[0]);
+        assert_eq!(fake.recorded.lock().unwrap().len(), 1, "one grant recorded");
+        for _ in 0..100 {
+            if intents(&dir).is_empty() {
+                break;
+            }
+            tokio::time::sleep(Duration::from_millis(20)).await;
+        }
+        assert!(
+            intents(&dir).is_empty(),
+            "a settled decision leaves no intent"
+        );
+        assert!(!serde_json::to_string(&record).unwrap().contains(PASS));
+
+        // A revocation is detached the same way (the authority takes as long to revoke).
+        let revoking = spawn_standing_revoke(
+            owned(&dir, ""),
+            id.clone(),
+            parse_revoke_body(&body(
+                json!({ "reason": "done", "operator_passphrase": PASS }),
+            ))
+            .ok()
+            .unwrap(),
+            StandingAuthority::Fake(fake.clone()),
+            60_000,
+        );
+        assert!(tokio::time::timeout(Duration::from_millis(300), revoking)
+            .await
+            .is_err());
+        assert_eq!(
+            connector_lease(&dir)["status"],
+            "active",
+            "not fenced mid-act"
+        );
+        for _ in 0..300 {
+            if connector_lease(&dir)["status"] == "revoked" {
+                break;
+            }
+            tokio::time::sleep(Duration::from_millis(20)).await;
+        }
+        assert_eq!(connector_lease(&dir)["status"], "revoked");
+        assert_eq!(fake.revoked.lock().unwrap().len(), 1);
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    #[tokio::test]
+    async fn a_standing_grant_recorded_before_the_daemon_stopped_is_found_and_bound_never_reminted()
+    {
+        let dir = temp_data_dir("restart");
+        seed_connector(&dir);
+        let mut hanging = FakeAuthority::new();
+        hanging.hang_after_record = true;
+        let fake = Arc::new(hanging);
+        let audience = hex::encode(fake.audience);
+        let authority = StandingAuthority::Fake(fake.clone());
+        // The daemon stops after the authority recorded the grant and before it heard back: the
+        // whole decision (not just the wait) is gone.
+        assert!(tokio::time::timeout(
+            Duration::from_millis(500),
+            create_standing_envelope(
+                &context(&dir, &audience),
+                create_body(PASS, 2, 0.02),
+                &authority
+            ),
+        )
+        .await
+        .is_err());
+        assert_eq!(fake.recorded.lock().unwrap().len(), 1);
+        assert_eq!(connector_lease(&dir), Value::Null);
+        assert!(envelope_records(&dir).is_empty());
+        let mut left = intents(&dir);
+        assert_eq!(left.len(), 1);
+        // ...and a new process starts.
+        let id = left[0]["standing_envelope_id"]
+            .as_str()
+            .unwrap()
+            .to_string();
+        left[0]["process"] = json!("dp_previous_daemon");
+        write_intent(&dir, &id, &left[0]).unwrap();
+        let reader = StandingReader::Fake(fake.clone());
+        assert_eq!(reconcile_intents(&dir, &reader).await, 0);
+        let lease = connector_lease(&dir);
+        assert_eq!(lease["status"], "active");
+        assert_eq!(lease["standing_envelope_id"], json!(id));
+        let record = read_envelope_record(&dir, &id).unwrap().unwrap();
+        assert_eq!(record["status"], "active");
+        assert_eq!(record["grant"], fake.recorded.lock().unwrap()[0]);
+        assert_eq!(
+            record["recorded_on_authority"]["reconciled_from"],
+            "authority_record"
+        );
+        assert_eq!(
+            fake.recorded.lock().unwrap().len(),
+            1,
+            "nothing was minted again"
+        );
+        assert!(intents(&dir).is_empty());
+
+        // An intent whose ceremony recorded nothing: kept while its window is open (something may
+        // still land), dropped once it has closed (nothing can).
+        let mut open = left[0].clone();
+        let open_id = format!("sse_{}", "1".repeat(32));
+        open["standing_envelope_id"] = json!(open_id);
+        open["expected_grant"]["approval_ceremony_context_hash"] = json!("22".repeat(32));
+        write_intent(&dir, &open_id, &open).unwrap();
+        assert_eq!(reconcile_intents(&dir, &reader).await, 1);
+        assert_eq!(intents(&dir).len(), 1);
+        let mut closed = open.clone();
+        closed["approval_ceremony_context"]["expires_at"] = json!(rfc3339_ms(now_ms() - 3_600_000));
+        write_intent(&dir, &open_id, &closed).unwrap();
+        assert_eq!(reconcile_intents(&dir, &reader).await, 0);
+        assert!(intents(&dir).is_empty());
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    #[tokio::test]
+    async fn a_revocation_the_daemon_did_not_live_to_fence_is_fenced_from_the_authority_record() {
+        let dir = temp_data_dir("revoked-on-chain");
+        seed_connector(&dir);
+        let fake = Arc::new(FakeAuthority::new());
+        let audience = hex::encode(fake.audience);
+        let made = create_standing_envelope(
+            &context(&dir, &audience),
+            create_body(PASS, 2, 0.02),
+            &StandingAuthority::Fake(fake.clone()),
+        )
+        .await;
+        assert_eq!(made.0, StatusCode::OK, "{}", made.1 .0);
+        let id = made.1 .0["standing_envelope_id"]
+            .as_str()
+            .unwrap()
+            .to_string();
+        let lease = connector_lease(&dir);
+        let reader = StandingReader::Fake(fake.clone());
+        assert_eq!(
+            reconcile_revocations(&dir, &reader).await,
+            0,
+            "active on chain: untouched"
+        );
+        assert_eq!(connector_lease(&dir)["status"], "active");
+        // The revocation landed on the authority; the daemon stopped before fencing.
+        let grant_hash = lease["grant_hash_ref"]
+            .as_str()
+            .unwrap()
+            .trim_start_matches("sha256:")
+            .to_string();
+        fake.revoked.lock().unwrap().push(grant_hash);
+        assert_eq!(reconcile_revocations(&dir, &reader).await, 1);
+        assert_eq!(connector_lease(&dir)["status"], "revoked");
+        let record = read_envelope_record(&dir, &id).unwrap().unwrap();
+        assert_eq!(record["status"], "revoked");
+        assert_eq!(record["revocation"]["reconciled_from"], "authority_record");
+        assert_eq!(record["revocation"]["connection_fenced"], true);
+        assert_eq!(
+            precheck_draw(&dir, &lease, now_ms()),
+            Err(("standing_lease_revoked", "status"))
+        );
+        let _ = std::fs::remove_dir_all(&dir);
     }
 }

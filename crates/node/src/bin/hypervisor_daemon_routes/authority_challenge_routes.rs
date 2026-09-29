@@ -26,18 +26,41 @@
 //!    request, presents it to the unchanged resolution + consumption path, and marks it consumed
 //!    once admitted. A consumed challenge never admits again.
 //!
+//! 4. **The decision outlives its request** (R-240, decision route durability). The approve child
+//!    takes tens of seconds (the authority unseals the approver key, mints the grant and records it
+//!    on chain). It used to run inside the request handler with kill-on-drop, so a client that went
+//!    away (a browser navigating off, the serve's fetch giving up at 300 s) dropped the handler,
+//!    killed the child, and could leave a grant recorded on chain that the daemon never stored. Now
+//!    the decision is marked in flight ON THE RECORD (`deciding`: attempt id, this process's nonce,
+//!    who decided, when, the child's pid) before anything runs; the state stays `pending`, since
+//!    nothing is decided yet, and every other decision is refused by name while the marker stands
+//!    (409 `challenge_decision_in_progress`), so no second child starts. The approve runs on a
+//!    tracked task that owns the child and the passphrase and settles the record whether or not
+//!    anyone is still listening; the handler waits up to IOI_HYPERVISOR_AUTHORITY_DECISION_WAIT_MS
+//!    (default 270 s) and otherwise answers 202 `challenge_decision_still_running`.
+//! 5. **Reconciliation, never a blind re-run** (master guide N11). A marker naming ANOTHER process
+//!    was left by a daemon that stopped mid-decision. At boot, and before any decision on that
+//!    challenge, the daemon reads the authority's own record back (the approval wallet.network
+//!    holds for the record's request hash): an approval whose grant binds the record exactly is
+//!    stored as the approval; nothing recorded and the old child gone returns the challenge to
+//!    `pending` with the interruption in its history, for the operator to decide afresh (a late
+//!    landing then conflicts on chain and is adopted from it, never minted twice); anything else is
+//!    `outcome_unknown` with a named reason, and approve is refused by name until a later
+//!    reconciliation settles it (deny stays open). The daemon never holds the passphrase across a
+//!    restart, so it cannot re-run an approve on its own.
+//!
 //! No second authority plane: wallet.network resolution, grant verification and on-chain
 //! consumption are the existing `governed_authority` path; this module only parks, relays the
 //! operator's decision to the authority's own `approve`, and hands the one grant back to the gate.
 
-use std::collections::BTreeSet;
-use std::sync::{Arc, Mutex};
+use std::sync::{Arc, Mutex, OnceLock};
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
 use axum::body::Bytes;
 use axum::extract::{Path as AxumPath, State};
 use axum::http::{HeaderMap, StatusCode};
 use axum::Json;
+use ioi_types::app::wallet_network::WalletApprovalDecisionKind;
 use serde_json::{json, Value};
 use sha2::{Digest, Sha256};
 use zeroize::{Zeroize, Zeroizing};
@@ -90,11 +113,36 @@ const DAEMON_OWNED_FIELDS: &[&str] = &[
     "approval_ref",
 ];
 
-/// Serializes every read-modify-write of a challenge record. Never held across the approve child
-/// or a wallet consumption: those are bounded by the `deciding` set and the `consuming` claim.
+/// How long the decision route waits for a running approve before answering 202: under the
+/// serve fetch's 300 s headers deadline, so a slow approve reads "still running", never
+/// "unreachable". The decision itself runs to completion either way.
+const DECISION_WAIT_ENV: &str = "IOI_HYPERVISOR_AUTHORITY_DECISION_WAIT_MS";
+const DEFAULT_DECISION_WAIT_MS: u64 = 270_000;
+/// Once nothing is left to re-check, the boot reconciler stops; while something is (the authority
+/// not yet readable, an old child still running) it re-checks on this back-off.
+const RECONCILE_RETRY_MS: u64 = 60_000;
+const RECONCILE_RETRY_MAX_MS: u64 = 600_000;
+
+/// Serializes every read-modify-write of a challenge record. Never held across the approve child,
+/// an authority read or a wallet consumption: those are bounded by the record's `deciding` marker
+/// and the `consuming` claim.
 static CHALLENGE_LOCK: Mutex<()> = Mutex::new(());
-/// Challenges whose approve child is running in this process.
-static DECIDING: Mutex<BTreeSet<String>> = Mutex::new(BTreeSet::new());
+/// This process, as an in-flight marker names it. A marker naming any other process was left by a
+/// daemon that stopped mid-decision.
+static PROCESS_NONCE: OnceLock<String> = OnceLock::new();
+
+pub(crate) fn process_nonce() -> &'static str {
+    PROCESS_NONCE.get_or_init(|| format!("dp_{}", hex::encode(rand::random::<[u8; 12]>())))
+}
+
+/// The route's bounded wait (an isolated stack may set it; zero or unparseable keeps the default).
+pub(crate) fn decision_wait_ms() -> u64 {
+    std::env::var(DECISION_WAIT_ENV)
+        .ok()
+        .and_then(|value| value.trim().parse::<u64>().ok())
+        .filter(|value| *value > 0)
+        .unwrap_or(DEFAULT_DECISION_WAIT_MS)
+}
 
 fn now_ms() -> u64 {
     SystemTime::now()
@@ -202,6 +250,37 @@ fn state_of(record: &Value) -> &str {
     record.get("state").and_then(Value::as_str).unwrap_or("")
 }
 
+/// The record's in-flight marker, while an approve for it is (or was, if another process wrote
+/// it) running.
+fn in_flight(record: &Value) -> Option<&Value> {
+    record.get("deciding").filter(|marker| marker.is_object())
+}
+
+fn marker_is_ours(marker: &Value) -> bool {
+    marker.get("process").and_then(Value::as_str) == Some(process_nonce())
+}
+
+fn attempt_of(marker: &Value) -> &str {
+    marker
+        .get("attempt_id")
+        .and_then(Value::as_str)
+        .unwrap_or("")
+}
+
+/// Why an interrupted decision's outcome is not known yet, if it is not.
+fn outcome_unknown(record: &Value) -> Option<&Value> {
+    record
+        .get("outcome_unknown")
+        .filter(|unknown| unknown.is_object())
+}
+
+/// A decision another process left in flight, or an outcome still unknown: read the authority's
+/// record before anything else is decided.
+fn needs_reconciliation(record: &Value) -> bool {
+    in_flight(record).is_some_and(|marker| !marker_is_ours(marker))
+        || outcome_unknown(record).is_some()
+}
+
 /// The record as any reader sees it: coordinates, preimage, requester, decision and the grant's
 /// public ref. Never the grant bytes.
 pub(crate) fn public_view(record: &Value) -> Value {
@@ -251,7 +330,11 @@ pub(crate) fn park_challenge(data_dir: &str, request: ParkRequest<'_>) -> Option
     let record = match existing {
         Some(mut record) => {
             let state = state_of(&record).to_string();
+            // A decision in flight (or one whose outcome is not known yet) is never reopened as a
+            // new ask under it: the operator's decision is still settling.
             let expired_pending = state == "pending"
+                && in_flight(&record).is_none()
+                && outcome_unknown(&record).is_none()
                 && record
                     .get("expires_at_ms")
                     .and_then(Value::as_u64)
@@ -421,6 +504,20 @@ pub(crate) fn claim_approval_ref(
                 StatusCode::FORBIDDEN,
                 "approval_ref_denied",
                 "the operator denied this challenge; nothing may run under it",
+            ))
+        }
+        "pending" if in_flight(&record).is_some() => {
+            return Err(refusal(
+                StatusCode::CONFLICT,
+                "approval_ref_deciding",
+                "the operator's approval of this challenge is being recorded by the deployment authority now; retry once it settles",
+            ))
+        }
+        "pending" if outcome_unknown(&record).is_some() => {
+            return Err(refusal(
+                StatusCode::CONFLICT,
+                "approval_ref_outcome_unknown",
+                "an approval of this challenge was interrupted and its outcome is not known yet; nothing is presented until the daemon reconciles it from the authority's record",
             ))
         }
         _ => {
@@ -633,29 +730,6 @@ pub(crate) async fn handle_challenge_get(
     }
 }
 
-/// Removes the challenge from the in-process `deciding` set on every exit path.
-struct DecidingGuard(String);
-
-impl DecidingGuard {
-    fn enter(id: &str) -> Option<Self> {
-        let mut deciding = DECIDING
-            .lock()
-            .unwrap_or_else(|poisoned| poisoned.into_inner());
-        deciding
-            .insert(id.to_string())
-            .then(|| Self(id.to_string()))
-    }
-}
-
-impl Drop for DecidingGuard {
-    fn drop(&mut self) {
-        let mut deciding = DECIDING
-            .lock()
-            .unwrap_or_else(|poisoned| poisoned.into_inner());
-        deciding.remove(&self.0);
-    }
-}
-
 /// The parsed decision body. The passphrase lives only in zeroizing memory.
 struct DecisionBody {
     decision: String,
@@ -758,16 +832,913 @@ fn tail(text: &str, max: usize) -> String {
     trimmed.chars().skip(count - max).collect()
 }
 
+// ---- the decision: marked in flight, run to completion on its own task, reconciled on restart --
+
+type Reply = (StatusCode, Json<Value>);
+
+/// The exact coordinates the daemon's record names: the only thing the authority is asked to sign.
+#[derive(Clone, Debug)]
+struct Coordinates {
+    target_scope: String,
+    policy_hash: String,
+    request_hash: String,
+    audience: String,
+}
+
+impl Coordinates {
+    fn of(record: &Value) -> Self {
+        let field = |name: &str| {
+            record
+                .get(name)
+                .and_then(Value::as_str)
+                .unwrap_or("")
+                .to_string()
+        };
+        Self {
+            target_scope: field("target_scope"),
+            policy_hash: field("policy_hash"),
+            request_hash: field("request_hash"),
+            audience: field("audience"),
+        }
+    }
+}
+
+/// The deployment authority's `approve`, run as a child: the authority binary on its node's state
+/// directory, bounded by IOI_HYPERVISOR_AUTHORITY_APPROVE_TIMEOUT_MS.
+#[derive(Clone, Debug)]
+pub(crate) struct Approver {
+    binary: String,
+    state_dir: String,
+    timeout_ms: u64,
+}
+
+impl Approver {
+    fn configured() -> Option<Self> {
+        let (binary, state_dir) = decider_paths()?;
+        let timeout_ms = std::env::var("IOI_HYPERVISOR_AUTHORITY_APPROVE_TIMEOUT_MS")
+            .ok()
+            .and_then(|value| value.trim().parse::<u64>().ok())
+            .filter(|value| *value > 0)
+            .unwrap_or(DEFAULT_APPROVE_TIMEOUT_MS);
+        Some(Self {
+            binary,
+            state_dir,
+            timeout_ms,
+        })
+    }
+}
+
+/// What the deployment authority's chain holds for one request hash.
+#[derive(Clone, Debug)]
+pub(crate) enum AuthorityRecord {
+    /// An approval decision is recorded: the grant it carries, the scope it was recorded under,
+    /// and whether it is an operator's approval (what `approve` records).
+    Found {
+        grant: Value,
+        target_label: String,
+        approved_by_human: bool,
+    },
+    /// Nothing is recorded for the request hash.
+    Absent,
+    /// The record could not be read (the authority unreachable, or no pinned channel to it):
+    /// nothing may be concluded.
+    Unreadable(String),
+}
+
+/// Where the authority's record is read from: wallet.network over the daemon's pinned channel,
+/// or (tests only) a fixed answer.
+#[derive(Clone)]
+pub(crate) enum AuthorityReader {
+    Wallet,
+    #[cfg(test)]
+    Fixed(Arc<Mutex<AuthorityRecord>>),
+}
+
+fn hash32(text: &str) -> Option<[u8; 32]> {
+    let hex_text = text.strip_prefix("sha256:").unwrap_or(text);
+    <[u8; 32]>::try_from(hex::decode(hex_text).ok()?).ok()
+}
+
+impl AuthorityReader {
+    async fn read(&self, request_hash: &str) -> AuthorityRecord {
+        match self {
+            Self::Wallet => {
+                let Some(hash) = hash32(request_hash) else {
+                    return AuthorityRecord::Unreadable(
+                        "the challenge's request hash is not 32 bytes of hex".into(),
+                    );
+                };
+                match super::wallet_network_capability_client::read_approval_decision(hash).await {
+                    Ok(Some(decision)) => AuthorityRecord::Found {
+                        grant: decision
+                            .approval_grant
+                            .as_ref()
+                            .and_then(|grant| serde_json::to_value(grant).ok())
+                            .unwrap_or(Value::Null),
+                        target_label: decision.interception.target.canonical_label(),
+                        approved_by_human: decision.decision
+                            == WalletApprovalDecisionKind::ApprovedByHuman,
+                    },
+                    Ok(None) => AuthorityRecord::Absent,
+                    Err(error) => AuthorityRecord::Unreadable(format!("{error:?}")),
+                }
+            }
+            #[cfg(test)]
+            Self::Fixed(record) => record
+                .lock()
+                .unwrap_or_else(|poisoned| poisoned.into_inner())
+                .clone(),
+        }
+    }
+}
+
+/// The grant must be exactly the record's: canonical, bound to the record's hashes, one use, for
+/// the record's audience. Anything else is unusable and is never stored. Returns the grant's
+/// public ref and its expiry.
+fn grant_binds(
+    grant: &Value,
+    coordinates: &Coordinates,
+    now: Option<u64>,
+) -> Result<(String, u64), String> {
+    let (typed, canonical) = super::governed_authority::canonicalize_approval_grant(grant)?;
+    let binding =
+        ioi_services::agentic::runtime::kernel::approval::verify_wallet_approval_grant_binding(
+            &canonical,
+            now,
+            Some(&coordinates.policy_hash),
+            Some(&coordinates.request_hash),
+        )?;
+    if hex::encode(typed.audience) != coordinates.audience {
+        return Err("the grant's audience is not the challenge's".into());
+    }
+    if typed.max_usages != Some(1) {
+        return Err("the grant is not one-use".into());
+    }
+    Ok((binding.grant_ref, typed.expires_at))
+}
+
+fn in_progress_reply(id: &str, record: &Value, marker: &Value) -> Reply {
+    let started_at = marker
+        .get("started_at")
+        .and_then(Value::as_str)
+        .unwrap_or("earlier");
+    let decided_by = marker
+        .get("decided_by")
+        .and_then(Value::as_str)
+        .unwrap_or("an operator");
+    reply(
+        StatusCode::CONFLICT,
+        json!({
+            "ok": false,
+            "error": {
+                "code": "challenge_decision_in_progress",
+                "message": format!("a decision on this challenge is already running (started {started_at} by {decided_by}); nothing new was started — re-read the challenge for its outcome"),
+            },
+            "challenge_id": id,
+            "state": state_of(record),
+            "deciding": { "started_at": started_at, "decided_by": decided_by },
+            "runtimeTruthSource": "daemon-runtime",
+        }),
+    )
+}
+
+fn approved_reply(
+    id: &str,
+    grant_ref: &str,
+    grant_expires_at_ms: u64,
+    decided_by: Value,
+    reconciled_from: Option<&str>,
+) -> Reply {
+    let mut body = json!({
+        "ok": true,
+        "challenge_id": id,
+        "approval_ref": approval_ref_for(id),
+        "state": "approved",
+        "grant_ref": grant_ref,
+        "expires_at_ms": grant_expires_at_ms,
+        "decided_by": decided_by,
+        "runtimeTruthSource": "daemon-runtime",
+    });
+    if let Some(source) = reconciled_from {
+        body["reconciled_from"] = json!(source);
+    }
+    reply(StatusCode::OK, body)
+}
+
+/// Mark the decision in flight, atomically with the checks that allow it: the record is pending,
+/// unexpired, not already being decided, and its outcome is not unknown. Returns the attempt id.
+fn begin_deciding(
+    data_dir: &str,
+    id: &str,
+    decided_by: &str,
+    reason: &str,
+) -> Result<String, Reply> {
+    let _guard = lock_challenges();
+    let mut record = match read_challenge(data_dir, id) {
+        Ok(Some(record)) => record,
+        Ok(None) => {
+            return Err(refuse(
+                StatusCode::NOT_FOUND,
+                "challenge_not_found",
+                "no parked challenge has this id",
+            ))
+        }
+        Err(message) => {
+            return Err(refuse(
+                StatusCode::INTERNAL_SERVER_ERROR,
+                "challenge_unreadable",
+                message,
+            ))
+        }
+    };
+    if let Some(marker) = in_flight(&record) {
+        return Err(in_progress_reply(id, &record, marker));
+    }
+    if state_of(&record) != "pending" || outcome_unknown(&record).is_some() {
+        return Err(refuse(
+            StatusCode::CONFLICT,
+            "challenge_changed",
+            "the challenge changed while deciding",
+        ));
+    }
+    if record
+        .get("expires_at_ms")
+        .and_then(Value::as_u64)
+        .is_some_and(|expires| expires <= now_ms())
+    {
+        return Err(refuse(
+            StatusCode::GONE,
+            "challenge_expired",
+            "this challenge expired; re-run the request to park it again",
+        ));
+    }
+    let attempt_id = format!("dec_{}", hex::encode(rand::random::<[u8; 12]>()));
+    record["deciding"] = json!({
+        "attempt_id": attempt_id,
+        "process": process_nonce(),
+        "decided_by": decided_by,
+        "reason": reason,
+        "started_at": iso_now(),
+        "started_at_ms": now_ms(),
+        "child_pid": Value::Null,
+    });
+    write_challenge(data_dir, id, &record).map_err(|message| {
+        refuse(
+            StatusCode::INTERNAL_SERVER_ERROR,
+            "challenge_not_durable",
+            message,
+        )
+    })?;
+    Ok(attempt_id)
+}
+
+/// Record the approve child's pid on its attempt's marker, so a later process can tell whether an
+/// interrupted approve is still running.
+fn note_child_pid(data_dir: &str, id: &str, attempt_id: &str, pid: Option<u32>) {
+    let Some(pid) = pid else { return };
+    let _guard = lock_challenges();
+    let Ok(Some(mut record)) = read_challenge(data_dir, id) else {
+        return;
+    };
+    if !in_flight(&record).is_some_and(|marker| attempt_of(marker) == attempt_id) {
+        return;
+    }
+    record["deciding"]["child_pid"] = json!(pid);
+    let _ = write_challenge(data_dir, id, &record);
+}
+
+/// What a finished approve leaves on the record.
+enum Settle {
+    /// Nothing was decided: the marker goes and the record is exactly what it was before.
+    Clear,
+    /// The authority's grant binds the record exactly: it is the approval.
+    Approved {
+        grant: Value,
+        grant_ref: String,
+        grant_expires_at_ms: u64,
+        recorded_on_authority: Value,
+        reconciled_from: Option<&'static str>,
+    },
+}
+
+/// Apply a finished approve's outcome, only to the attempt that ran it.
+fn settle_decision(
+    data_dir: &str,
+    id: &str,
+    attempt_id: &str,
+    settle: Settle,
+) -> Result<Value, String> {
+    let _guard = lock_challenges();
+    let mut record = read_challenge(data_dir, id)?
+        .ok_or_else(|| "the challenge vanished while the authority was approving".to_string())?;
+    let Some(marker) = in_flight(&record)
+        .filter(|marker| attempt_of(marker) == attempt_id)
+        .cloned()
+    else {
+        return Err("the challenge changed while the authority was approving".to_string());
+    };
+    if let Some(object) = record.as_object_mut() {
+        object.remove("deciding");
+    }
+    if let Settle::Approved {
+        grant,
+        grant_ref,
+        grant_expires_at_ms,
+        recorded_on_authority,
+        reconciled_from,
+    } = settle
+    {
+        record["state"] = json!("approved");
+        record["grant"] = grant;
+        record["grant_ref"] = json!(grant_ref);
+        record["grant_expires_at_ms"] = json!(grant_expires_at_ms);
+        record["decision"] = json!({
+            "decision": "approve",
+            "decided_by": marker.get("decided_by"),
+            "decided_at": iso_now(),
+            "reason": marker.get("reason"),
+            "recorded_on_authority": recorded_on_authority,
+        });
+        if let Some(source) = reconciled_from {
+            record["decision"]["reconciled_from"] = json!(source);
+        }
+    }
+    write_challenge(data_dir, id, &record)?;
+    Ok(record)
+}
+
+/// A task dropped before it settled its attempt (the runtime shutting down, a panic) leaves the
+/// outcome unknown — never a marker that reads as still running in a process that is not running
+/// it. Reconciliation reads what the authority recorded.
+struct SettleGuard {
+    data_dir: String,
+    id: String,
+    attempt_id: String,
+}
+
+impl Drop for SettleGuard {
+    fn drop(&mut self) {
+        let _guard = lock_challenges();
+        let Ok(Some(mut record)) = read_challenge(&self.data_dir, &self.id) else {
+            return;
+        };
+        let Some(marker) = in_flight(&record)
+            .filter(|marker| attempt_of(marker) == self.attempt_id)
+            .cloned()
+        else {
+            // Settled (or superseded): nothing to do.
+            return;
+        };
+        if let Some(object) = record.as_object_mut() {
+            object.remove("deciding");
+        }
+        record["outcome_unknown"] = json!({
+            "reason": "decision_task_aborted",
+            "message": "the daemon stopped running this approve before it settled; the authority may have recorded the grant",
+            "since": iso_now(),
+            "attempt": marker,
+        });
+        let _ = write_challenge(&self.data_dir, &self.id, &record);
+    }
+}
+
+/// One approve, owned by its task: the passphrase lives here and nowhere else.
+struct ApproveJob {
+    data_dir: String,
+    id: String,
+    attempt_id: String,
+    decided_by: String,
+    coordinates: Coordinates,
+    passphrase: Zeroizing<String>,
+    approver: Approver,
+    reader: AuthorityReader,
+}
+
+async fn run_approve_job(job: ApproveJob) -> Reply {
+    let ApproveJob {
+        data_dir,
+        id,
+        attempt_id,
+        decided_by,
+        coordinates,
+        passphrase,
+        approver,
+        reader,
+    } = job;
+    let _settled = SettleGuard {
+        data_dir: data_dir.clone(),
+        id: id.clone(),
+        attempt_id: attempt_id.clone(),
+    };
+    approve_to_completion(
+        &data_dir,
+        &id,
+        &attempt_id,
+        &decided_by,
+        &coordinates,
+        passphrase,
+        &approver,
+        &reader,
+    )
+    .await
+}
+
+/// The approve ended without a grant this daemon can store (it failed, timed out or was refused),
+/// yet it may have recorded one first, or an earlier interrupted approve did. Read the authority's
+/// record: an approval that binds the record exactly is adopted (a grant is never minted twice for
+/// one request hash); otherwise the marker goes and the refusal stands.
+async fn settle_unconfirmed(
+    data_dir: &str,
+    id: &str,
+    attempt_id: &str,
+    coordinates: &Coordinates,
+    reader: &AuthorityReader,
+    refusal: Reply,
+) -> Reply {
+    if let AuthorityRecord::Found {
+        grant,
+        target_label,
+        approved_by_human,
+    } = reader.read(&coordinates.request_hash).await
+    {
+        if approved_by_human && target_label == coordinates.target_scope {
+            if let Ok((grant_ref, grant_expires_at_ms)) =
+                grant_binds(&grant, coordinates, Some(now_ms()))
+            {
+                if let Ok(record) = settle_decision(
+                    data_dir,
+                    id,
+                    attempt_id,
+                    Settle::Approved {
+                        grant,
+                        grant_ref: grant_ref.clone(),
+                        grant_expires_at_ms,
+                        recorded_on_authority: json!("existing"),
+                        reconciled_from: Some("authority_record"),
+                    },
+                ) {
+                    let decided_by = record
+                        .pointer("/decision/decided_by")
+                        .cloned()
+                        .unwrap_or(Value::Null);
+                    return approved_reply(
+                        id,
+                        &grant_ref,
+                        grant_expires_at_ms,
+                        decided_by,
+                        Some("authority_record"),
+                    );
+                }
+            }
+        }
+    }
+    let _ = settle_decision(data_dir, id, attempt_id, Settle::Clear);
+    refusal
+}
+
+#[allow(clippy::too_many_arguments)]
+async fn approve_to_completion(
+    data_dir: &str,
+    id: &str,
+    attempt_id: &str,
+    decided_by: &str,
+    coordinates: &Coordinates,
+    passphrase: Zeroizing<String>,
+    approver: &Approver,
+    reader: &AuthorityReader,
+) -> Reply {
+    let authority_reason =
+        format!("Hypervisor operator approval of the exact effect (challenge {id})");
+    let mut command = tokio::process::Command::new(&approver.binary);
+    command
+        .args([
+            "approve",
+            "--state-dir",
+            &approver.state_dir,
+            "--policy-hash",
+            &coordinates.policy_hash,
+            "--request-hash",
+            &coordinates.request_hash,
+            "--audience",
+            &coordinates.audience,
+            "--target-scope",
+            &coordinates.target_scope,
+            "--reason",
+            &authority_reason,
+        ])
+        .env_remove(OPERATOR_PASS_ENV)
+        // The ONE place the passphrase leaves this process: the approve child's environment. The
+        // binary copies it and scrubs its own environment block before any thread starts.
+        .env(OPERATOR_PASS_ENV, passphrase.as_str())
+        .env("CARGO_TERM_COLOR", "never")
+        .stdin(std::process::Stdio::null())
+        .stdout(std::process::Stdio::piped())
+        .stderr(std::process::Stdio::piped())
+        // This task owns the child, so a departing client cannot kill it. Only the task ending
+        // early (the runtime shutting down) does, and reconciliation reads what it left.
+        .kill_on_drop(true);
+    let spawned = command.spawn();
+    // The Command's own copy of the environment goes with it, now that the child exists.
+    drop(command);
+    let child = match spawned {
+        Ok(child) => child,
+        Err(error) => {
+            drop(passphrase);
+            let _ = settle_decision(data_dir, id, attempt_id, Settle::Clear);
+            return refuse(
+                StatusCode::BAD_GATEWAY,
+                "authority_approve_unavailable",
+                format!("the authority binary could not be started: {error}"),
+            );
+        }
+    };
+    note_child_pid(data_dir, id, attempt_id, child.id());
+    let waited = tokio::time::timeout(
+        Duration::from_millis(approver.timeout_ms),
+        child.wait_with_output(),
+    )
+    .await;
+    let output = match waited {
+        Ok(Ok(output)) => output,
+        Ok(Err(error)) => {
+            drop(passphrase);
+            return settle_unconfirmed(
+                data_dir,
+                id,
+                attempt_id,
+                coordinates,
+                reader,
+                refuse(
+                    StatusCode::BAD_GATEWAY,
+                    "authority_approve_failed",
+                    format!("the authority approve did not complete: {error}"),
+                ),
+            )
+            .await;
+        }
+        Err(_) => {
+            // The timed-out wait dropped the child, which kill-on-drop ended; it may have
+            // recorded the grant first.
+            drop(passphrase);
+            return settle_unconfirmed(
+                data_dir,
+                id,
+                attempt_id,
+                coordinates,
+                reader,
+                refuse(
+                    StatusCode::GATEWAY_TIMEOUT,
+                    "authority_approve_timeout",
+                    format!(
+                        "the authority approve did not finish within {} ms; the challenge stays pending",
+                        approver.timeout_ms
+                    ),
+                ),
+            )
+            .await;
+        }
+    };
+    let stdout = scrub(
+        &String::from_utf8_lossy(&output.stdout),
+        passphrase.as_str(),
+    );
+    let stderr = scrub(
+        &String::from_utf8_lossy(&output.stderr),
+        passphrase.as_str(),
+    );
+    // Zeroized here: nothing below needs the passphrase.
+    drop(passphrase);
+    if !output.status.success() {
+        let detail = tail(&stderr, 600);
+        if detail.contains("operator passphrase") {
+            // A refused passphrase records nothing: the record goes back exactly as it was.
+            let _ = settle_decision(data_dir, id, attempt_id, Settle::Clear);
+            return refuse(
+                StatusCode::FORBIDDEN,
+                "operator_passphrase_refused",
+                "the operator passphrase did not open the sealed approver key; nothing was signed or recorded",
+            );
+        }
+        return settle_unconfirmed(
+            data_dir,
+            id,
+            attempt_id,
+            coordinates,
+            reader,
+            refuse(
+                StatusCode::BAD_GATEWAY,
+                "authority_approve_refused",
+                format!("the deployment authority refused to approve: {detail}"),
+            ),
+        )
+        .await;
+    }
+    let outcome: Value = stdout
+        .trim()
+        .lines()
+        .rev()
+        .find(|line| line.trim_start().starts_with('{'))
+        .and_then(|line| serde_json::from_str(line).ok())
+        .unwrap_or(Value::Null);
+    let grant = outcome
+        .get("approval_grant")
+        .cloned()
+        .unwrap_or(Value::Null);
+    let (grant_ref, grant_expires_at_ms) = match grant_binds(&grant, coordinates, Some(now_ms())) {
+        Ok(bound) => bound,
+        Err(message) => {
+            let _ = settle_decision(data_dir, id, attempt_id, Settle::Clear);
+            return refuse(
+                StatusCode::BAD_GATEWAY,
+                "authority_grant_mismatch",
+                format!("the authority's grant does not bind this challenge exactly ({message}); it was not stored"),
+            );
+        }
+    };
+    match settle_decision(
+        data_dir,
+        id,
+        attempt_id,
+        Settle::Approved {
+            grant,
+            grant_ref: grant_ref.clone(),
+            grant_expires_at_ms,
+            recorded_on_authority: outcome.get("recorded").cloned().unwrap_or(Value::Null),
+            reconciled_from: None,
+        },
+    ) {
+        Ok(_) => approved_reply(id, &grant_ref, grant_expires_at_ms, json!(decided_by), None),
+        Err(message) => refuse(
+            StatusCode::INTERNAL_SERVER_ERROR,
+            "challenge_not_durable",
+            message,
+        ),
+    }
+}
+
+// ---- reconciliation (N11: an unknown outcome is reconciled, never blindly re-run) -------------
+
+/// How a read of the authority's record settled one interrupted decision.
+enum Resolution {
+    Approved {
+        grant: Value,
+        grant_ref: String,
+        grant_expires_at_ms: u64,
+    },
+    /// Nothing is recorded and the earlier approve is gone: the operator decides afresh.
+    Interrupted,
+    Unknown {
+        reason: &'static str,
+        message: String,
+    },
+}
+
+/// Unknown outcomes a later read can change; the boot reconciler keeps re-checking these.
+fn retryable_unknown(unknown: &Value) -> bool {
+    matches!(
+        unknown.get("reason").and_then(Value::as_str),
+        Some("authority_record_unreadable" | "authority_approve_still_running")
+    )
+}
+
+/// The pid of the approve an earlier process started for this record, when it is still running:
+/// alive, and that exact act (the authority binary's `approve` for this request hash).
+fn approve_child_running(attempt: &Value, request_hash: &str) -> Option<u32> {
+    let pid = u32::try_from(attempt.get("child_pid").and_then(Value::as_u64)?).ok()?;
+    let cmdline = std::fs::read(format!("/proc/{pid}/cmdline")).ok()?;
+    let args: Vec<&[u8]> = cmdline.split(|byte| *byte == 0).collect();
+    (args.iter().any(|arg| *arg == b"approve")
+        && args.iter().any(|arg| *arg == request_hash.as_bytes()))
+    .then_some(pid)
+}
+
+/// The attempt an interrupted record is about: its foreign in-flight marker, or the attempt an
+/// unknown outcome names.
+fn interrupted_attempt(record: &Value) -> Value {
+    in_flight(record)
+        .cloned()
+        .or_else(|| outcome_unknown(record).and_then(|unknown| unknown.get("attempt").cloned()))
+        .unwrap_or(Value::Null)
+}
+
+/// Reconcile one challenge whose in-flight marker names another process, or whose outcome is
+/// unknown, from the authority's own record. Returns the record as it stands afterwards.
+pub(crate) async fn reconcile_challenge(
+    data_dir: &str,
+    id: &str,
+    reader: &AuthorityReader,
+) -> Result<Value, String> {
+    let record = {
+        let _guard = lock_challenges();
+        read_challenge(data_dir, id)?
+    }
+    .ok_or_else(|| format!("challenge {id} is absent"))?;
+    if !needs_reconciliation(&record) {
+        return Ok(record);
+    }
+    let attempt = interrupted_attempt(&record);
+    let attempt_id = attempt_of(&attempt).to_string();
+    let coordinates = Coordinates::of(&record);
+    let resolution = match reader.read(&coordinates.request_hash).await {
+        AuthorityRecord::Found {
+            grant,
+            target_label,
+            approved_by_human,
+        } => {
+            if !approved_by_human || target_label != coordinates.target_scope {
+                Resolution::Unknown {
+                    reason: "authority_record_mismatch",
+                    message: format!(
+                        "the authority records a decision for this request hash that is not an operator's approval under {} (it names {target_label}); it is not adopted",
+                        coordinates.target_scope
+                    ),
+                }
+            } else {
+                match grant_binds(&grant, &coordinates, None) {
+                    Ok((grant_ref, grant_expires_at_ms)) => Resolution::Approved {
+                        grant,
+                        grant_ref,
+                        grant_expires_at_ms,
+                    },
+                    Err(message) => Resolution::Unknown {
+                        reason: "authority_record_mismatch",
+                        message: format!(
+                            "the authority's recorded grant does not bind this challenge exactly ({message}); it is not adopted"
+                        ),
+                    },
+                }
+            }
+        }
+        AuthorityRecord::Absent => match approve_child_running(&attempt, &coordinates.request_hash)
+        {
+            Some(pid) => Resolution::Unknown {
+                reason: "authority_approve_still_running",
+                message: format!(
+                    "the approve an earlier daemon started (pid {pid}) is still running and the authority records nothing yet; it is re-read, never re-run"
+                ),
+            },
+            None => Resolution::Interrupted,
+        },
+        AuthorityRecord::Unreadable(detail) => Resolution::Unknown {
+            reason: "authority_record_unreadable",
+            message: format!(
+                "the authority's record for this request hash could not be read ({detail}); nothing is concluded until it can be"
+            ),
+        },
+    };
+
+    let _guard = lock_challenges();
+    let mut current =
+        read_challenge(data_dir, id)?.ok_or_else(|| format!("challenge {id} is absent"))?;
+    // Only the attempt that was read about is settled: anything that moved meanwhile stands.
+    if !needs_reconciliation(&current) || attempt_of(&interrupted_attempt(&current)) != attempt_id {
+        return Ok(current);
+    }
+    if let Resolution::Unknown { reason, message } = &resolution {
+        let unchanged = in_flight(&current).is_none()
+            && outcome_unknown(&current).is_some_and(|unknown| {
+                unknown.get("reason").and_then(Value::as_str) == Some(*reason)
+                    && unknown.get("message").and_then(Value::as_str) == Some(message.as_str())
+            });
+        if unchanged {
+            return Ok(current);
+        }
+    }
+    let prior_unknown = current.as_object_mut().and_then(|object| {
+        object.remove("deciding");
+        object.remove("outcome_unknown")
+    });
+    match resolution {
+        Resolution::Approved {
+            grant,
+            grant_ref,
+            grant_expires_at_ms,
+        } => {
+            current["state"] = json!("approved");
+            current["grant"] = grant;
+            current["grant_ref"] = json!(grant_ref);
+            current["grant_expires_at_ms"] = json!(grant_expires_at_ms);
+            current["decision"] = json!({
+                "decision": "approve",
+                "decided_by": attempt.get("decided_by"),
+                "decided_at": iso_now(),
+                "reason": attempt.get("reason"),
+                "recorded_on_authority": "existing",
+                "reconciled_from": "authority_record",
+            });
+        }
+        Resolution::Interrupted => {
+            let entry = json!({
+                "state": "interrupted",
+                "decision": Value::Null,
+                "closed_at": iso_now(),
+                "reconciliation": {
+                    "authority_record": "absent",
+                    "note": "the daemon stopped mid-approve and the authority recorded nothing for this request hash; the operator decides afresh",
+                    "attempt": attempt,
+                },
+            });
+            if let Some(history) = current.get_mut("history").and_then(Value::as_array_mut) {
+                history.push(entry);
+            } else {
+                current["history"] = json!([entry]);
+            }
+        }
+        Resolution::Unknown { reason, message } => {
+            let since = prior_unknown
+                .as_ref()
+                .and_then(|unknown| unknown.get("since").cloned())
+                .unwrap_or_else(|| json!(iso_now()));
+            current["outcome_unknown"] = json!({
+                "reason": reason,
+                "message": message,
+                "since": since,
+                "checked_at": iso_now(),
+                "attempt": attempt,
+            });
+        }
+    }
+    write_challenge(data_dir, id, &current)?;
+    Ok(current)
+}
+
+/// Reconcile every challenge a stopped daemon left mid-decision. Returns how many are still
+/// unsettled for a reason a later read can change (the authority unreadable, an old child running).
+pub(crate) async fn reconcile_pass(data_dir: &str, reader: &AuthorityReader) -> usize {
+    let interrupted: Vec<String> = read_record_dir(data_dir, CHALLENGE_FAMILY)
+        .iter()
+        .filter(|record| {
+            record.get("schema_version").and_then(Value::as_str) == Some(CHALLENGE_SCHEMA)
+                && needs_reconciliation(record)
+        })
+        .filter_map(|record| {
+            record
+                .get("challenge_id")
+                .and_then(Value::as_str)
+                .filter(|id| valid_challenge_id(id))
+                .map(str::to_owned)
+        })
+        .collect();
+    let mut unsettled = 0;
+    for id in interrupted {
+        match reconcile_challenge(data_dir, &id, reader).await {
+            Ok(record) => match outcome_unknown(&record) {
+                Some(unknown) => {
+                    if retryable_unknown(unknown) {
+                        unsettled += 1;
+                    }
+                    let reason = unknown
+                        .get("reason")
+                        .and_then(Value::as_str)
+                        .unwrap_or("")
+                        .to_string();
+                    tracing::warn!(
+                        challenge = %id,
+                        %reason,
+                        "an interrupted approval decision's outcome is not known yet"
+                    );
+                }
+                None => tracing::info!(
+                    challenge = %id,
+                    state = state_of(&record),
+                    "an interrupted approval decision was reconciled from the authority's record"
+                ),
+            },
+            Err(message) => tracing::warn!(
+                challenge = %id,
+                %message,
+                "an interrupted approval decision could not be reconciled"
+            ),
+        }
+    }
+    unsettled
+}
+
+/// Boot: reconcile what a stopped daemon left mid-decision, and keep re-checking whatever a later
+/// read can still settle until nothing is left.
+pub(crate) async fn reconcile_interrupted_decisions(data_dir: String) {
+    let reader = AuthorityReader::Wallet;
+    let mut wait_ms = RECONCILE_RETRY_MS;
+    loop {
+        if reconcile_pass(&data_dir, &reader).await == 0 {
+            return;
+        }
+        tokio::time::sleep(Duration::from_millis(wait_ms)).await;
+        wait_ms = wait_ms.saturating_mul(2).min(RECONCILE_RETRY_MAX_MS);
+    }
+}
+
 /// POST /v1/hypervisor/authority/challenges/:id/decision — the operator's decision on one parked
 /// challenge. `approve` runs the deployment authority's `approve` for the record's exact
-/// coordinates with the operator passphrase in the child's environment only, stores the one-use
-/// grant in the record and returns `approval_ref`; `deny` records the refusal and mints nothing.
+/// coordinates with the operator passphrase in the child's environment only, on a task that
+/// settles the record whether or not the caller is still there, stores the one-use grant and
+/// returns `approval_ref`; `deny` records the refusal and mints nothing.
 pub(crate) async fn handle_challenge_decision(
     State(st): State<Arc<DaemonState>>,
     headers: HeaderMap,
     AxumPath(id): AxumPath<String>,
     body: Bytes,
-) -> (StatusCode, Json<Value>) {
+) -> Reply {
     // The raw body carries the passphrase: parse it, then wipe the buffer before anything else.
     let mut raw: Vec<u8> = body.into();
     let parsed = parse_decision_body(&raw);
@@ -789,16 +1760,32 @@ pub(crate) async fn handle_challenge_decision(
             "challenge ids are wac_<32 lowercase hex>",
         );
     }
-    let Some(_deciding) = DecidingGuard::enter(&id) else {
-        return refuse(
-            StatusCode::CONFLICT,
-            "challenge_decision_in_progress",
-            "a decision on this challenge is already running",
-        );
-    };
+    decide_challenge(
+        st.data_dir.clone(),
+        id,
+        decided_by,
+        decision,
+        Approver::configured(),
+        AuthorityReader::Wallet,
+        decision_wait_ms(),
+    )
+    .await
+}
+
+/// The decision itself, for an authenticated operator. The approve is spawned onto its own task;
+/// this waits for it up to `wait_ms` and otherwise answers 202 (the task settles the record).
+async fn decide_challenge(
+    data_dir: String,
+    id: String,
+    decided_by: String,
+    decision: DecisionBody,
+    approver: Option<Approver>,
+    reader: AuthorityReader,
+    wait_ms: u64,
+) -> Reply {
     let record = {
         let _guard = lock_challenges();
-        match read_challenge(&st.data_dir, &id) {
+        match read_challenge(&data_dir, &id) {
             Ok(Some(record)) => record,
             Ok(None) => {
                 return refuse(
@@ -816,6 +1803,25 @@ pub(crate) async fn handle_challenge_decision(
             }
         }
     };
+    // A decision a stopped daemon left in flight, or an outcome not known yet, is reconciled from
+    // the authority's record before anything else is decided.
+    let record = if needs_reconciliation(&record) {
+        match reconcile_challenge(&data_dir, &id, &reader).await {
+            Ok(record) => record,
+            Err(message) => {
+                return refuse(
+                    StatusCode::INTERNAL_SERVER_ERROR,
+                    "challenge_unreadable",
+                    message,
+                )
+            }
+        }
+    } else {
+        record
+    };
+    if let Some(marker) = in_flight(&record) {
+        return in_progress_reply(&id, &record, marker);
+    }
     match state_of(&record) {
         "pending" => {}
         "approved" | "consuming" => {
@@ -867,13 +1873,16 @@ pub(crate) async fn handle_challenge_decision(
 
     if decision.decision == "deny" {
         let _guard = lock_challenges();
-        let Ok(Some(mut current)) = read_challenge(&st.data_dir, &id) else {
+        let Ok(Some(mut current)) = read_challenge(&data_dir, &id) else {
             return refuse(
                 StatusCode::CONFLICT,
                 "challenge_changed",
                 "the challenge changed while deciding",
             );
         };
+        if let Some(marker) = in_flight(&current) {
+            return in_progress_reply(&id, &current, marker);
+        }
         if state_of(&current) != "pending" {
             return refuse(
                 StatusCode::CONFLICT,
@@ -881,6 +1890,11 @@ pub(crate) async fn handle_challenge_decision(
                 "the challenge changed while deciding",
             );
         }
+        // Denying an interrupted approval is always open: whatever the authority recorded, the
+        // daemon never presents it.
+        let unknown = current
+            .as_object_mut()
+            .and_then(|object| object.remove("outcome_unknown"));
         current["state"] = json!("denied");
         current["decision"] = json!({
             "decision": "deny",
@@ -888,7 +1902,10 @@ pub(crate) async fn handle_challenge_decision(
             "decided_at": iso_now(),
             "reason": decision.reason,
         });
-        if let Err(message) = write_challenge(&st.data_dir, &id, &current) {
+        if let Some(unknown) = unknown {
+            current["decision"]["outcome_unknown_at_denial"] = unknown;
+        }
+        if let Err(message) = write_challenge(&data_dir, &id, &current) {
             return refuse(
                 StatusCode::INTERNAL_SERVER_ERROR,
                 "challenge_not_durable",
@@ -902,6 +1919,23 @@ pub(crate) async fn handle_challenge_decision(
     }
 
     // ---- approve ----
+    if let Some(unknown) = outcome_unknown(&record) {
+        let reason = unknown.get("reason").and_then(Value::as_str).unwrap_or("");
+        let detail = unknown.get("message").and_then(Value::as_str).unwrap_or("");
+        return reply(
+            StatusCode::CONFLICT,
+            json!({
+                "ok": false,
+                "error": {
+                    "code": "challenge_outcome_unknown",
+                    "message": format!("an earlier approval of this challenge was interrupted and its outcome is not known ({reason}: {detail}). The daemon re-reads the authority's record before any new approve and runs nothing on a guess; nothing was started. Deny stays available."),
+                },
+                "challenge_id": id,
+                "outcome_unknown": unknown,
+                "runtimeTruthSource": "daemon-runtime",
+            }),
+        );
+    }
     if decision.operator_passphrase.is_empty() {
         return refuse(
             StatusCode::BAD_REQUEST,
@@ -909,196 +1943,63 @@ pub(crate) async fn handle_challenge_decision(
             "approving needs the operator passphrase: it opens the sealed approver key for this one grant",
         );
     }
-    let Some((binary, state_dir)) = decider_paths() else {
+    let Some(approver) = approver else {
         return refuse(
             StatusCode::NOT_IMPLEMENTED,
             "authority_decider_not_configured",
             format!("this daemon has no deployment authority to decide with ({AUTHORITY_BINARY_ENV} and {AUTHORITY_STATE_DIR_ENV} must name the authority binary and its node's state directory)"),
         );
     };
-    let field = |name: &str| {
-        record
-            .get(name)
-            .and_then(Value::as_str)
-            .unwrap_or("")
-            .to_string()
-    };
-    let (policy_hash, request_hash, target_scope, audience) = (
-        field("policy_hash"),
-        field("request_hash"),
-        field("target_scope"),
-        field("audience"),
-    );
-    if audience.len() != 64 || !audience.chars().all(|c| c.is_ascii_hexdigit()) {
+    let coordinates = Coordinates::of(&record);
+    if coordinates.audience.len() != 64
+        || !coordinates.audience.chars().all(|c| c.is_ascii_hexdigit())
+    {
         return refuse(
             StatusCode::CONFLICT,
             "challenge_audience_absent",
             "the parked challenge names no wallet capability audience; a grant without it could never be consumed",
         );
     }
-    let timeout_ms = std::env::var("IOI_HYPERVISOR_AUTHORITY_APPROVE_TIMEOUT_MS")
-        .ok()
-        .and_then(|value| value.trim().parse::<u64>().ok())
-        .filter(|value| *value > 0)
-        .unwrap_or(DEFAULT_APPROVE_TIMEOUT_MS);
-    let authority_reason =
-        format!("Hypervisor operator approval of the exact effect (challenge {id})");
-    let mut command = tokio::process::Command::new(&binary);
-    command
-        .args([
-            "approve",
-            "--state-dir",
-            &state_dir,
-            "--policy-hash",
-            &policy_hash,
-            "--request-hash",
-            &request_hash,
-            "--audience",
-            &audience,
-            "--target-scope",
-            &target_scope,
-            "--reason",
-            &authority_reason,
-        ])
-        .env_remove(OPERATOR_PASS_ENV)
-        // The ONE place the passphrase leaves this process: the approve child's environment. The
-        // binary copies it and scrubs its own environment block before any thread starts.
-        .env(OPERATOR_PASS_ENV, decision.operator_passphrase.as_str())
-        .env("CARGO_TERM_COLOR", "never")
-        .stdin(std::process::Stdio::null())
-        .stdout(std::process::Stdio::piped())
-        .stderr(std::process::Stdio::piped())
-        .kill_on_drop(true);
-    let spawned = command.spawn();
-    // The Command's own copy of the environment goes with it, now that the child exists.
-    drop(command);
-    let child = match spawned {
-        Ok(child) => child,
-        Err(error) => {
-            return refuse(
-                StatusCode::BAD_GATEWAY,
-                "authority_approve_unavailable",
-                format!("the authority binary could not be started: {error}"),
-            )
-        }
+    let attempt_id = match begin_deciding(&data_dir, &id, &decided_by, &decision.reason) {
+        Ok(attempt_id) => attempt_id,
+        Err(response) => return response,
     };
-    let output = match tokio::time::timeout(Duration::from_millis(timeout_ms), child.wait_with_output()).await {
-        Ok(Ok(output)) => output,
-        Ok(Err(error)) => {
-            return refuse(StatusCode::BAD_GATEWAY, "authority_approve_failed", format!("the authority approve did not complete: {error}"))
-        }
-        Err(_) => {
-            return refuse(
-                StatusCode::GATEWAY_TIMEOUT,
-                "authority_approve_timeout",
-                format!("the authority approve did not finish within {timeout_ms} ms; the challenge stays pending"),
-            )
-        }
+    let job = ApproveJob {
+        data_dir,
+        id: id.clone(),
+        attempt_id,
+        decided_by,
+        coordinates,
+        passphrase: decision.operator_passphrase,
+        approver,
+        reader,
     };
-    let passphrase = decision.operator_passphrase;
-    let stdout = scrub(
-        &String::from_utf8_lossy(&output.stdout),
-        passphrase.as_str(),
-    );
-    let stderr = scrub(
-        &String::from_utf8_lossy(&output.stderr),
-        passphrase.as_str(),
-    );
-    // Zeroized here: nothing below needs the passphrase.
-    drop(passphrase);
-    if !output.status.success() {
-        let detail = tail(&stderr, 600);
-        if detail.contains("operator passphrase") {
-            return refuse(
-                StatusCode::FORBIDDEN,
-                "operator_passphrase_refused",
-                "the operator passphrase did not open the sealed approver key; nothing was signed or recorded",
-            );
-        }
-        return refuse(
-            StatusCode::BAD_GATEWAY,
-            "authority_approve_refused",
-            format!("the deployment authority refused to approve: {detail}"),
-        );
-    }
-    let outcome: Value = stdout
-        .trim()
-        .lines()
-        .rev()
-        .find(|line| line.trim_start().starts_with('{'))
-        .and_then(|line| serde_json::from_str(line).ok())
-        .unwrap_or(Value::Null);
-    let grant = outcome
-        .get("approval_grant")
-        .cloned()
-        .unwrap_or(Value::Null);
-    let grant_ref = outcome.get("grant_ref").cloned().unwrap_or(Value::Null);
-    let grant_expires_at_ms = outcome.get("expires_at_ms").and_then(Value::as_u64);
-    // The grant must be exactly the record's: canonical, bound to the record's hashes, one use,
-    // for the record's audience. Anything else is unusable and is not stored.
-    let checked = (|| -> Result<(), String> {
-        let (typed, canonical) = super::governed_authority::canonicalize_approval_grant(&grant)?;
-        ioi_services::agentic::runtime::kernel::approval::verify_wallet_approval_grant_binding(
-            &canonical,
-            Some(now_ms()),
-            Some(&policy_hash),
-            Some(&request_hash),
-        )?;
-        if hex::encode(typed.audience) != audience {
-            return Err("the grant's audience is not the challenge's".into());
-        }
-        if typed.max_usages != Some(1) {
-            return Err("the grant is not one-use".into());
-        }
-        Ok(())
-    })();
-    if let Err(message) = checked {
-        return refuse(
-            StatusCode::BAD_GATEWAY,
-            "authority_grant_mismatch",
-            format!("the authority's grant does not bind this challenge exactly ({message}); it was not stored"),
-        );
-    }
-    let stored = {
-        let _guard = lock_challenges();
-        match read_challenge(&st.data_dir, &id) {
-            Ok(Some(mut current)) if state_of(&current) == "pending" => {
-                current["state"] = json!("approved");
-                current["grant"] = grant;
-                current["grant_ref"] = grant_ref.clone();
-                current["grant_expires_at_ms"] = json!(grant_expires_at_ms);
-                current["decision"] = json!({
-                    "decision": "approve",
-                    "decided_by": decided_by,
-                    "decided_at": iso_now(),
-                    "reason": decision.reason,
-                    "recorded_on_authority": outcome.get("recorded").cloned().unwrap_or(Value::Null),
-                });
-                write_challenge(&st.data_dir, &id, &current)
-            }
-            _ => Err("the challenge changed while the authority was approving".to_string()),
-        }
-    };
-    if let Err(message) = stored {
-        return refuse(
+    // The approve runs on its OWN task: a client that goes away drops only this wait, never the
+    // child, and the task settles the record either way.
+    let task = tokio::spawn(run_approve_job(job));
+    match tokio::time::timeout(Duration::from_millis(wait_ms), task).await {
+        Ok(Ok(response)) => response,
+        Ok(Err(error)) => refuse(
             StatusCode::INTERNAL_SERVER_ERROR,
-            "challenge_not_durable",
-            message,
-        );
+            "challenge_decision_task_failed",
+            format!("the approve task ended without an answer ({error}); the challenge's outcome is reconciled from the authority's record"),
+        ),
+        Err(_) => reply(
+            StatusCode::ACCEPTED,
+            json!({
+                "ok": false,
+                "state": "pending",
+                "deciding": true,
+                "challenge_id": id,
+                "approval_ref": approval_ref_for(&id),
+                "error": {
+                    "code": "challenge_decision_still_running",
+                    "message": format!("the deployment authority is still approving after {wait_ms} ms; the decision continues in the daemon and settles the challenge on its own — re-read it for the outcome"),
+                },
+                "runtimeTruthSource": "daemon-runtime",
+            }),
+        ),
     }
-    reply(
-        StatusCode::OK,
-        json!({
-            "ok": true,
-            "challenge_id": id,
-            "approval_ref": approval_ref_for(&id),
-            "state": "approved",
-            "grant_ref": grant_ref,
-            "expires_at_ms": grant_expires_at_ms,
-            "decided_by": decided_by,
-            "runtimeTruthSource": "daemon-runtime",
-        }),
-    )
 }
 
 /// The approvals-inbox rows for pending challenges (read projection; decisions run on the route).
@@ -1141,7 +2042,13 @@ pub(crate) fn pending_inbox_items(data_dir: &str) -> (Vec<Value>, usize) {
                     "transitions": ["approve", "deny"],
                     "approve_requires": ["operator_passphrase"],
                     "decidable": decider_configured(),
-                }
+                },
+                // An approve being recorded now, or one a stopped daemon left whose outcome is
+                // not known yet (approve is refused by name until it is reconciled).
+                "deciding": in_flight(record).is_some(),
+                "outcome_unknown": outcome_unknown(record)
+                    .and_then(|unknown| unknown.get("reason").cloned())
+                    .unwrap_or(Value::Null),
             })
         })
         .collect::<Vec<_>>();
@@ -1359,5 +2266,515 @@ mod tests {
             approval_ref_in_body(&json!({ "wallet_approval_grant": reference })),
             Some(reference)
         );
+    }
+
+    // ---- R-240, decision route durability -----------------------------------------------------
+
+    use ioi_api::crypto::{SerializableKey, SigningKeyPair};
+    use ioi_crypto::sign::eddsa::{Ed25519KeyPair, Ed25519PrivateKey};
+    use ioi_types::app::action::ApprovalGrant;
+    use ioi_types::app::{account_id_from_key_material, SignatureSuite};
+
+    const PASS: &str = "decision-durability-operator-pass";
+    const OPERATOR: &str = "user://operator";
+
+    /// A one-use grant for exactly these coordinates, signed by a test approver key.
+    fn grant_for(policy: &str, request: &str) -> Value {
+        let private = Ed25519PrivateKey::from_bytes(&[9u8; 32]).unwrap();
+        let keypair = Ed25519KeyPair::from_private_key(&private).unwrap();
+        let public_key = keypair.public_key().to_bytes();
+        let mut grant = ApprovalGrant {
+            schema_version: 1,
+            authority_id: account_id_from_key_material(SignatureSuite::ED25519, &public_key)
+                .unwrap(),
+            request_hash: hash32(request).unwrap(),
+            policy_hash: hash32(policy).unwrap(),
+            audience: hash32(&"ab".repeat(32)).unwrap(),
+            nonce: rand::random(),
+            counter: 1,
+            expires_at: now_ms() + 900_000,
+            max_usages: Some(1),
+            window_id: None,
+            pii_action: None,
+            scoped_exception: None,
+            review_request_hash: None,
+            approver_public_key: public_key,
+            approver_sig: Vec::new(),
+            approver_suite: SignatureSuite::ED25519,
+        };
+        grant.approver_sig = keypair
+            .sign(&grant.signing_bytes().unwrap())
+            .unwrap()
+            .to_bytes()
+            .to_vec();
+        serde_json::to_value(&grant).unwrap()
+    }
+
+    /// A stand-in for the authority binary: a script that logs each invocation, refuses a wrong
+    /// passphrase the way the binary does, takes a while, then prints the recording outcome.
+    struct StubAuthority {
+        dir: std::path::PathBuf,
+    }
+
+    impl StubAuthority {
+        fn new(label: &str, grant: &Value, seconds: &str) -> Self {
+            let dir = std::path::PathBuf::from(temp_data_dir(&format!("stub-{label}")));
+            let outcome = json!({
+                "ok": true,
+                "recorded": "committed",
+                "grant_ref": "wallet.network://grant/approval/stub",
+                "expires_at_ms": grant["expires_at"],
+                "approval_grant": grant,
+            });
+            std::fs::write(
+                dir.join("outcome.json"),
+                serde_json::to_string(&outcome).unwrap(),
+            )
+            .unwrap();
+            let script = format!(
+                "#!/bin/sh\necho \"$$\" >> '{dir}/invocations'\nif [ \"$IOI_AUTHORITY_OPERATOR_PASS\" != '{PASS}' ]; then echo 'Error: the operator passphrase did not open the sealed approver key' >&2; exit 1; fi\nsleep {seconds}\ncat '{dir}/outcome.json'\n",
+                dir = dir.display()
+            );
+            let path = dir.join("authority");
+            std::fs::write(&path, script).unwrap();
+            use std::os::unix::fs::PermissionsExt;
+            std::fs::set_permissions(&path, std::fs::Permissions::from_mode(0o755)).unwrap();
+            Self { dir }
+        }
+
+        fn approver(&self) -> Approver {
+            Approver {
+                binary: self.dir.join("authority").to_string_lossy().into_owned(),
+                state_dir: self.dir.to_string_lossy().into_owned(),
+                timeout_ms: 60_000,
+            }
+        }
+
+        fn invocations(&self) -> usize {
+            std::fs::read_to_string(self.dir.join("invocations"))
+                .map(|text| text.lines().count())
+                .unwrap_or(0)
+        }
+    }
+
+    impl Drop for StubAuthority {
+        fn drop(&mut self) {
+            let _ = std::fs::remove_dir_all(&self.dir);
+        }
+    }
+
+    fn body(decision: &str, passphrase: &str) -> DecisionBody {
+        parse_decision_body(
+            &serde_json::to_vec(&json!({
+                "decision": decision,
+                "reason": "decision durability",
+                "operator_passphrase": passphrase,
+            }))
+            .unwrap(),
+        )
+        .ok()
+        .unwrap()
+    }
+
+    fn reader(record: AuthorityRecord) -> AuthorityReader {
+        AuthorityReader::Fixed(Arc::new(Mutex::new(record)))
+    }
+
+    fn record_of(dir: &str, id: &str) -> Value {
+        read_challenge(dir, id).unwrap().unwrap()
+    }
+
+    /// Poll until no decision is in flight on the record.
+    async fn settled(dir: &str, id: &str) -> Value {
+        for _ in 0..300 {
+            let record = record_of(dir, id);
+            if in_flight(&record).is_none() {
+                return record;
+            }
+            tokio::time::sleep(Duration::from_millis(50)).await;
+        }
+        panic!("the decision never settled: {}", record_of(dir, id));
+    }
+
+    fn park_id(dir: &str, policy: &str, request: &str) -> String {
+        park(dir, policy, request)["challenge_id"]
+            .as_str()
+            .unwrap()
+            .to_string()
+    }
+
+    #[tokio::test]
+    async fn a_decision_whose_client_goes_away_still_settles_the_record() {
+        let dir = temp_data_dir("client-gone");
+        let (policy, request) = (hash(21), hash(22));
+        let id = park_id(&dir, &policy, &request);
+        let stub = StubAuthority::new("client-gone", &grant_for(&policy, &request), "1.5");
+        let decision = decide_challenge(
+            dir.clone(),
+            id.clone(),
+            OPERATOR.into(),
+            body("approve", PASS),
+            Some(stub.approver()),
+            reader(AuthorityRecord::Absent),
+            60_000,
+        );
+        // The client goes away mid-approve: the request future is dropped.
+        assert!(
+            tokio::time::timeout(Duration::from_millis(500), decision)
+                .await
+                .is_err(),
+            "the approve was still running when the client left"
+        );
+        let mid = record_of(&dir, &id);
+        assert_eq!(mid["state"], "pending", "nothing is decided mid-approve");
+        let marker = in_flight(&mid).expect("the decision is marked in flight on the record");
+        assert!(marker_is_ours(marker));
+        assert_eq!(marker["decided_by"], OPERATOR);
+        // The approve runs to completion on its own task and settles the record.
+        let record = settled(&dir, &id).await;
+        assert_eq!(record["state"], "approved", "{record}");
+        assert!(record["grant"].is_object());
+        assert!(record["grant_ref"]
+            .as_str()
+            .unwrap()
+            .starts_with("wallet.network://grant/approval/"));
+        assert_eq!(record["decision"]["decided_by"], OPERATOR);
+        assert_eq!(record["decision"]["recorded_on_authority"], "committed");
+        assert!(outcome_unknown(&record).is_none());
+        assert!(!serde_json::to_string(&record).unwrap().contains(PASS));
+        assert_eq!(stub.invocations(), 1, "exactly one approve ran");
+        // The requester's retry claims the stored grant, as before.
+        assert!(claim_approval_ref(&dir, &approval_ref_for(&id), SCOPE, &policy, &request).is_ok());
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    #[tokio::test]
+    async fn a_second_decision_while_one_is_in_flight_is_refused_and_starts_no_child() {
+        let dir = temp_data_dir("in-flight");
+        let (policy, request) = (hash(23), hash(24));
+        let id = park_id(&dir, &policy, &request);
+        let stub = StubAuthority::new("in-flight", &grant_for(&policy, &request), "1.5");
+        // A refused passphrase first: the authority records nothing and the record is exactly
+        // what it was.
+        let before = record_of(&dir, &id);
+        let wrong = decide_challenge(
+            dir.clone(),
+            id.clone(),
+            OPERATOR.into(),
+            body("approve", "not-the-operator-passphrase"),
+            Some(stub.approver()),
+            reader(AuthorityRecord::Absent),
+            60_000,
+        )
+        .await;
+        assert_eq!(wrong.0, StatusCode::FORBIDDEN);
+        assert_eq!(wrong.1 .0["error"]["code"], "operator_passphrase_refused");
+        assert_eq!(record_of(&dir, &id), before, "the record is untouched");
+        assert_eq!(stub.invocations(), 1);
+
+        let first = tokio::spawn(decide_challenge(
+            dir.clone(),
+            id.clone(),
+            OPERATOR.into(),
+            body("approve", PASS),
+            Some(stub.approver()),
+            reader(AuthorityRecord::Absent),
+            60_000,
+        ));
+        for _ in 0..200 {
+            if in_flight(&record_of(&dir, &id)).is_some() {
+                break;
+            }
+            tokio::time::sleep(Duration::from_millis(10)).await;
+        }
+        assert!(in_flight(&record_of(&dir, &id)).is_some());
+        let second = decide_challenge(
+            dir.clone(),
+            id.clone(),
+            "user://another-operator".into(),
+            body("approve", PASS),
+            Some(stub.approver()),
+            reader(AuthorityRecord::Absent),
+            60_000,
+        )
+        .await;
+        assert_eq!(second.0, StatusCode::CONFLICT);
+        assert_eq!(
+            second.1 .0["error"]["code"], "challenge_decision_in_progress",
+            "{}",
+            second.1 .0
+        );
+        assert_eq!(second.1 .0["deciding"]["decided_by"], OPERATOR);
+        let deny = decide_challenge(
+            dir.clone(),
+            id.clone(),
+            OPERATOR.into(),
+            body("deny", ""),
+            Some(stub.approver()),
+            reader(AuthorityRecord::Absent),
+            60_000,
+        )
+        .await;
+        assert_eq!(deny.0, StatusCode::CONFLICT);
+        assert_eq!(deny.1 .0["error"]["code"], "challenge_decision_in_progress");
+        assert_eq!(
+            claim_approval_ref(&dir, &approval_ref_for(&id), SCOPE, &policy, &request)
+                .err()
+                .map(|refusal| refusal.code),
+            Some("approval_ref_deciding")
+        );
+        let done = first.await.unwrap();
+        assert_eq!(done.0, StatusCode::OK, "{}", done.1 .0);
+        assert_eq!(done.1 .0["state"], "approved");
+        assert_eq!(
+            stub.invocations(),
+            2,
+            "the refused attempt and ONE approve: the refused decisions started no child"
+        );
+        let again = decide_challenge(
+            dir.clone(),
+            id.clone(),
+            OPERATOR.into(),
+            body("approve", PASS),
+            Some(stub.approver()),
+            reader(AuthorityRecord::Absent),
+            60_000,
+        )
+        .await;
+        assert_eq!(again.1 .0["error"]["code"], "challenge_already_approved");
+        assert_eq!(stub.invocations(), 2);
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    #[tokio::test]
+    async fn a_slow_approve_answers_202_and_settles_on_its_own() {
+        let dir = temp_data_dir("slow");
+        let (policy, request) = (hash(25), hash(26));
+        let id = park_id(&dir, &policy, &request);
+        let stub = StubAuthority::new("slow", &grant_for(&policy, &request), "1");
+        let answered = decide_challenge(
+            dir.clone(),
+            id.clone(),
+            OPERATOR.into(),
+            body("approve", PASS),
+            Some(stub.approver()),
+            reader(AuthorityRecord::Absent),
+            200,
+        )
+        .await;
+        assert_eq!(answered.0, StatusCode::ACCEPTED);
+        assert_eq!(
+            answered.1 .0["error"]["code"],
+            "challenge_decision_still_running"
+        );
+        assert_eq!(answered.1 .0["challenge_id"], json!(id));
+        let record = settled(&dir, &id).await;
+        assert_eq!(record["state"], "approved", "{record}");
+        assert_eq!(stub.invocations(), 1);
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    /// What a daemon that stopped mid-approve leaves: a marker naming a process that is gone.
+    fn leave_in_flight(dir: &str, id: &str, child_pid: Option<u32>) {
+        let mut record = record_of(dir, id);
+        record["deciding"] = json!({
+            "attempt_id": "dec_previous",
+            "process": "dp_previous_daemon",
+            "decided_by": OPERATOR,
+            "reason": "before the restart",
+            "started_at": iso_now(),
+            "started_at_ms": now_ms(),
+            "child_pid": child_pid,
+        });
+        write_challenge(dir, id, &record).unwrap();
+    }
+
+    #[tokio::test]
+    async fn a_decision_left_in_flight_by_a_stopped_daemon_is_reconciled_from_the_authority_never_rerun(
+    ) {
+        let dir = temp_data_dir("restart");
+
+        // (a) The authority recorded the grant before the daemon stopped: it is adopted.
+        let (pa, ra) = (hash(31), hash(32));
+        let a = park_id(&dir, &pa, &ra);
+        leave_in_flight(&dir, &a, None);
+        let recorded = grant_for(&pa, &ra);
+        let found = reader(AuthorityRecord::Found {
+            grant: recorded.clone(),
+            target_label: SCOPE.into(),
+            approved_by_human: true,
+        });
+        assert_eq!(reconcile_pass(&dir, &found).await, 0);
+        let record = record_of(&dir, &a);
+        assert_eq!(record["state"], "approved", "{record}");
+        assert_eq!(record["grant"], recorded);
+        assert_eq!(record["decision"]["reconciled_from"], "authority_record");
+        assert_eq!(record["decision"]["decided_by"], OPERATOR);
+        assert!(in_flight(&record).is_none() && outcome_unknown(&record).is_none());
+
+        // (b) Nothing recorded and the old child is gone: pending again with the interruption in
+        // its history, and the operator's fresh decision runs.
+        let (pb, rb) = (hash(33), hash(34));
+        let b = park_id(&dir, &pb, &rb);
+        let mut gone = std::process::Command::new("true").spawn().unwrap();
+        let gone_pid = gone.id();
+        gone.wait().unwrap();
+        leave_in_flight(&dir, &b, Some(gone_pid));
+        assert_eq!(
+            reconcile_pass(&dir, &reader(AuthorityRecord::Absent)).await,
+            0
+        );
+        let record = record_of(&dir, &b);
+        assert_eq!(record["state"], "pending");
+        assert!(in_flight(&record).is_none() && outcome_unknown(&record).is_none());
+        let last = record["history"]
+            .as_array()
+            .unwrap()
+            .last()
+            .unwrap()
+            .clone();
+        assert_eq!(last["state"], "interrupted");
+        assert_eq!(last["reconciliation"]["authority_record"], "absent");
+        let stub_b = StubAuthority::new("restart-b", &grant_for(&pb, &rb), "0.1");
+        let fresh = decide_challenge(
+            dir.clone(),
+            b.clone(),
+            OPERATOR.into(),
+            body("approve", PASS),
+            Some(stub_b.approver()),
+            reader(AuthorityRecord::Absent),
+            60_000,
+        )
+        .await;
+        assert_eq!(fresh.0, StatusCode::OK, "{}", fresh.1 .0);
+        assert_eq!(stub_b.invocations(), 1);
+
+        // (c) The authority unreadable: the outcome is unknown by name, approve is refused and
+        // starts nothing, and once the authority reads back the grant it is adopted, not re-run.
+        let (pc, rc) = (hash(35), hash(36));
+        let c = park_id(&dir, &pc, &rc);
+        leave_in_flight(&dir, &c, None);
+        let unreadable = reader(AuthorityRecord::Unreadable("authority offline".into()));
+        assert_eq!(
+            reconcile_pass(&dir, &unreadable).await,
+            1,
+            "a later read can settle it"
+        );
+        let record = record_of(&dir, &c);
+        assert_eq!(record["state"], "pending");
+        assert_eq!(
+            record["outcome_unknown"]["reason"],
+            "authority_record_unreadable"
+        );
+        assert_eq!(
+            record["outcome_unknown"]["attempt"]["attempt_id"],
+            "dec_previous"
+        );
+        let stub_c = StubAuthority::new("restart-c", &grant_for(&pc, &rc), "0.1");
+        let refused = decide_challenge(
+            dir.clone(),
+            c.clone(),
+            OPERATOR.into(),
+            body("approve", PASS),
+            Some(stub_c.approver()),
+            unreadable.clone(),
+            60_000,
+        )
+        .await;
+        assert_eq!(refused.0, StatusCode::CONFLICT);
+        assert_eq!(refused.1 .0["error"]["code"], "challenge_outcome_unknown");
+        assert_eq!(
+            stub_c.invocations(),
+            0,
+            "an unknown outcome is never re-run"
+        );
+        assert_eq!(
+            claim_approval_ref(&dir, &approval_ref_for(&c), SCOPE, &pc, &rc)
+                .err()
+                .map(|refusal| refusal.code),
+            Some("approval_ref_outcome_unknown")
+        );
+        let late = grant_for(&pc, &rc);
+        let readable = reader(AuthorityRecord::Found {
+            grant: late.clone(),
+            target_label: SCOPE.into(),
+            approved_by_human: true,
+        });
+        let adopted = decide_challenge(
+            dir.clone(),
+            c.clone(),
+            OPERATOR.into(),
+            body("approve", PASS),
+            Some(stub_c.approver()),
+            readable,
+            60_000,
+        )
+        .await;
+        assert_eq!(adopted.1 .0["error"]["code"], "challenge_already_approved");
+        assert_eq!(stub_c.invocations(), 0);
+        let record = record_of(&dir, &c);
+        assert_eq!(record["state"], "approved");
+        assert_eq!(record["grant"], late);
+        assert!(outcome_unknown(&record).is_none());
+
+        // (d) The old approve still running with nothing recorded yet: unknown, re-read and never
+        // re-run; deny stays open.
+        let (pd, rd) = (hash(37), hash(38));
+        let d = park_id(&dir, &pd, &rd);
+        let mut running = std::process::Command::new("sh")
+            .args(["-c", "sleep 30; true", "approve", rd.as_str()])
+            .spawn()
+            .unwrap();
+        leave_in_flight(&dir, &d, Some(running.id()));
+        assert_eq!(
+            reconcile_pass(&dir, &reader(AuthorityRecord::Absent)).await,
+            1
+        );
+        assert_eq!(
+            record_of(&dir, &d)["outcome_unknown"]["reason"],
+            "authority_approve_still_running"
+        );
+        let denied = decide_challenge(
+            dir.clone(),
+            d.clone(),
+            OPERATOR.into(),
+            body("deny", ""),
+            None,
+            reader(AuthorityRecord::Absent),
+            60_000,
+        )
+        .await;
+        assert_eq!(denied.0, StatusCode::OK, "{}", denied.1 .0);
+        let record = record_of(&dir, &d);
+        assert_eq!(record["state"], "denied");
+        assert_eq!(
+            record["decision"]["outcome_unknown_at_denial"]["reason"],
+            "authority_approve_still_running"
+        );
+        let _ = running.kill();
+        let _ = running.wait();
+
+        // (e) A foreign grant recorded for the request hash is never adopted.
+        let (pe, re) = (hash(39), hash(40));
+        let e = park_id(&dir, &pe, &re);
+        leave_in_flight(&dir, &e, None);
+        let foreign = reader(AuthorityRecord::Found {
+            grant: grant_for(&pe, &hash(41)),
+            target_label: SCOPE.into(),
+            approved_by_human: true,
+        });
+        assert_eq!(
+            reconcile_pass(&dir, &foreign).await,
+            0,
+            "not retried: it cannot change"
+        );
+        let record = record_of(&dir, &e);
+        assert_eq!(record["state"], "pending");
+        assert_eq!(
+            record["outcome_unknown"]["reason"],
+            "authority_record_mismatch"
+        );
+        assert_eq!(record["grant"], Value::Null);
+        let _ = std::fs::remove_dir_all(&dir);
     }
 }

@@ -178,7 +178,12 @@ set -a; . /var/lib/ioi/authority/serve.env;  set +a; node apps/hypervisor/script
 #    which runs this same `approve` for the coordinates in ITS OWN record, with the
 #    passphrase in that child's environment only, stores the one-use grant and
 #    answers approval_ref; the run resumes naming it, and the daemon presents the
-#    grant only for the exact effect it was parked for, once. From a terminal:
+#    grant only for the exact effect it was parked for, once. The approve runs to
+#    completion inside the daemon even if the page stops waiting (the route answers
+#    202 after IOI_HYPERVISOR_AUTHORITY_DECISION_WAIT_MS, default 270 s); a second
+#    decision meanwhile is refused by name. A daemon restarted mid-approve settles
+#    the challenge from the node's own record: a grant the node recorded is adopted,
+#    never minted twice, and nothing is re-run without you. From a terminal:
 node apps/hypervisor/scripts/wallet-network-authority.mjs approve --state-dir /var/lib/ioi/authority \
   --policy-hash <h> --request-hash <h> --audience <daemon capability account> \
   --target-scope scope:hypervisor.live-route.<route>
@@ -190,6 +195,8 @@ node apps/hypervisor/scripts/wallet-network-authority.mjs approve --state-dir /v
 #    mint mode with the passphrase in that child's environment only; a wrong
 #    passphrase records nothing. "Remove limits" revokes on the node the same way
 #    (…/standing-envelopes/:id/revoke). Minting one needs the node on the wall clock.
+#    Both acts outlive the request the same way, and a grant recorded just before a
+#    daemon restart is found on the node (by its ceremony) and bound at the next start.
 
 # 4. Key lifecycle — operator acts against the serving node, each one
 #    root-signed control-plane transaction (the passphrase unseals the root); a
