@@ -744,9 +744,11 @@ fn scan_mux_log(log_path: &Path) -> std::io::Result<RecoveryScan> {
 }
 
 /// The rooted log file's observable identity at one instant (see
-/// [`MuxEngine::log_mark`]).
+/// [`MuxEngine::log_mark`]): which file (device and inode) and how much of it.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub(crate) struct MuxLogMark {
+    dev: u64,
+    ino: u64,
     len: u64,
     modified: std::time::SystemTime,
 }
@@ -868,15 +870,37 @@ impl MuxEngine {
         self.current_epoch
     }
 
-    /// Length and modification time of the rooted log file, or `None` when it
-    /// cannot be read. The log is append-only, so any process that linearizes
-    /// anything changes at least its length.
+    /// The rooted log file's device, inode, length and modification time, or
+    /// `None` when it cannot be read — or when the file at the log's path is no
+    /// longer the one this engine appends to. The log is append-only, so any
+    /// process that linearizes anything changes at least its length; a file
+    /// REPLACED under the path (a byte-identical `cp -p` / `rsync -a` restore
+    /// while the node runs) keeps length and mtime, and only its identity
+    /// shows it — the append handle would otherwise keep writing to the
+    /// unlinked old inode and the commit would be lost. The metadata is read
+    /// through a freshly opened handle, which also revalidates attributes a
+    /// network filesystem may have cached. On a platform without inode
+    /// identity there is no mark, and every commit re-reads committed truth.
     pub(crate) fn log_mark(&self) -> Option<MuxLogMark> {
-        let metadata = std::fs::metadata(self.dir.join("muxlog.bin")).ok()?;
-        Some(MuxLogMark {
-            len: metadata.len(),
-            modified: metadata.modified().ok()?,
-        })
+        #[cfg(unix)]
+        {
+            use std::os::unix::fs::MetadataExt;
+            let at_path = File::open(self.dir.join("muxlog.bin")).ok()?.metadata().ok()?;
+            let appending = self.log.metadata().ok()?;
+            if (at_path.dev(), at_path.ino()) != (appending.dev(), appending.ino()) {
+                return None;
+            }
+            Some(MuxLogMark {
+                dev: at_path.dev(),
+                ino: at_path.ino(),
+                len: at_path.len(),
+                modified: at_path.modified().ok()?,
+            })
+        }
+        #[cfg(not(unix))]
+        {
+            None
+        }
     }
 
     /// Current log length in bytes (fully rooted batch-boundary aligned

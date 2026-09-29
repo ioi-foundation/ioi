@@ -1134,6 +1134,86 @@ fn a_live_writer_rereads_the_spine_only_after_another_process_appends_to_it() {
     }
 }
 
+fn commit_effect(writer: &mut RecognizedEffectStore, id: &str, at: u64) {
+    let mut value = template();
+    value["checkpoint"]["previous_canonical_head"] = json!(writer.canonical_head());
+    let prepared = prepare(writer, id, value);
+    writer
+        .commit(prepared, &StaticAuthority(authority()), at)
+        .expect("effect commits");
+}
+
+#[test]
+fn a_log_replaced_under_a_live_writer_is_reread_and_no_commit_is_lost() {
+    // A byte-identical copy put in place of the rooted log while the writer
+    // runs (a `cp -p` / `rsync -a` restore) keeps the log's length and mtime.
+    // Only its identity changed: had the writer skipped the re-read, its
+    // append handle would have written to the unlinked old file and the
+    // commit would have answered Ok and been lost on reopen.
+    let temp = TempDir::new().expect("tempdir");
+    let mut writer = open(&temp);
+    commit_effect(&mut writer, "effect-0", 100);
+    commit_effect(&mut writer, "effect-1", 101);
+    assert_eq!(writer.full_refreshes, 1);
+
+    let log = temp.path().join("canonical/muxlog.bin");
+    let copy = temp.path().join("canonical/muxlog.bin.restore");
+    let modified = fs::metadata(&log).expect("log").modified().expect("mtime");
+    fs::copy(&log, &copy).expect("copy");
+    fs::File::options()
+        .write(true)
+        .open(&copy)
+        .expect("copy opens")
+        .set_modified(modified)
+        .expect("mtime kept");
+    fs::rename(&copy, &log).expect("replaced");
+
+    commit_effect(&mut writer, "effect-2", 102);
+    assert_eq!(writer.full_refreshes, 2, "a replaced log is re-read");
+    drop(writer);
+    let reopened = open(&temp);
+    for index in 0..3u64 {
+        assert!(
+            reopened.committed(&format!("effect-{index}")).is_some(),
+            "effect-{index} survives the reopen"
+        );
+    }
+}
+
+#[test]
+fn an_append_inside_the_same_mtime_tick_still_forces_the_reread() {
+    // A coarse-timestamp filesystem can leave the mtime unchanged across
+    // another process's append: its length still moved, and the retired writer
+    // must still re-read and refuse.
+    let temp = TempDir::new().expect("tempdir");
+    let mut writer = open(&temp);
+    commit_effect(&mut writer, "effect-0", 100);
+    let log = temp.path().join("canonical/muxlog.bin");
+    let modified = fs::metadata(&log).expect("log").modified().expect("mtime");
+
+    let mut integrator = open(&temp);
+    commit_cutover(
+        &mut integrator,
+        strengthening_request(),
+        &RefuseAllWeakening,
+        10,
+    )
+    .expect("cutover linearizes");
+    fs::File::options()
+        .write(true)
+        .open(&log)
+        .expect("log opens")
+        .set_modified(modified)
+        .expect("mtime put back");
+
+    let mut value = template();
+    value["checkpoint"]["previous_canonical_head"] = json!(writer.canonical_head());
+    let stale = prepare(&mut writer, "effect-after-cutover", value);
+    assert!(writer.commit(stale, &StaticAuthority(authority()), 200).is_err());
+    assert_eq!(writer.full_refreshes, 2);
+    assert!(writer.committed("effect-after-cutover").is_none());
+}
+
 #[test]
 fn commit_recovery_replay_and_outbox_are_byte_identical() {
     let temp = TempDir::new().expect("tempdir");
