@@ -234,3 +234,56 @@ test("the access facets offer nothing to pick where nothing is named: the projec
   assert.deepEqual(answerDocument(q, AX.approvalsGraphqlFacts("ProjectSearchQuery", { query: "pay" }, { rows, principal: operator }), null, "ProjectSearchQuery").searchResourcesV2.results, []);
   assert.equal(AX.approvalsGraphqlFacts("SomethingElseQuery", {}, { rows, principal: operator }), null, "the serve names it as an unbound operation");
 });
+
+// ---- R-240, challenge states + re-ask: a decision being recorded, an unknown outcome, an expired grant and its re-ask -----
+
+const DECIDING = { attempt_id: "dec_1", process: "dp_live", decided_by: "user://op", started_at: "2026-09-28T11:58:00Z", child_pid: 4242 };
+const UNKNOWN = { reason: "authority_record_unreadable", message: "the authority's record for this request hash could not be read (offline)", since: "2026-09-28T11:50:00Z" };
+const REQ_Q = "query RequestQuery($rid: RID!) { approvalRequest(rid: $rid) { status description latestVersion { subRequests { status permissions { canFullyApprove } __typename } } } }";
+const reviewOf = (rows, id, reviewType, reason) => { const r = rows.find((x) => x.id === id); return AX.mutationStepOf("ReviewSubRequests", r, { rid: r.rid, reviewType, reason }); };
+
+test("Deciding: still Pending approval (nothing is decided) and named with who started it and when; nobody may decide it while it runs, and a decision sent anyway is refused by name without reaching the daemon", () => {
+  const rows = AX.requestsOf({ ...fixture(), challenges: [challenge("wac_deciding", "pending", { deciding: DECIDING, expires_at_ms: NOW - 1 })], principal: operator });
+  const r = rows.find((x) => x.id === "wac_deciding");
+  assert.equal(AX.challengeStatusOf(r.record, NOW), "PENDING_APPROVAL", "an approve being recorded settles whatever the ask's window");
+  assert.match(r.description, /Deciding: started 2026-09-28T11:58:00Z by Ada Operator — the deployment authority is recording the operator's approval now; nothing else can be decided until it settles \(\/__ioi\/authority\/challenges\/wac_deciding\)/u);
+  const a = answerDocument(REQ_Q, AX.approvalsGraphqlFacts("RequestQuery", { rid: r.rid }, { rows, principal: operator }), null, "RequestQuery").approvalRequest;
+  assert.equal(a.latestVersion.subRequests[0].permissions.canFullyApprove, false, "no decision control while it runs");
+  for (const type of ["APPROVE", "DISAPPROVE"]) {
+    const step = reviewOf(rows, "wac_deciding", type, "no");
+    assert.ok(!step.daemon, `${type}: nothing is sent to the daemon`);
+    assert.equal(step.refusal.code, "Hypervisor:ApprovalsDecisionRunning", type);
+    assert.match(step.refusal.message, /already running \(started 2026-09-28T11:58:00Z by Ada Operator\)/u);
+    assert.equal(step.refusal.status, 409);
+  }
+});
+
+test("Outcome unknown: still Pending approval, the daemon's named reason in the description; Approve refused by that name, Reject still the daemon's deny", () => {
+  const rows = AX.requestsOf({ ...fixture(), challenges: [challenge("wac_unknown", "pending", { outcome_unknown: UNKNOWN })], principal: operator });
+  const r = rows.find((x) => x.id === "wac_unknown");
+  assert.equal(r.status, "PENDING_APPROVAL");
+  assert.match(r.description, /Outcome unknown: authority_record_unreadable — the authority's record for this request hash could not be read \(offline\)\. Approving is refused until the daemon reconciles it from the authority's record; rejecting stays open/u);
+  const approve = reviewOf(rows, "wac_unknown", "APPROVE").refusal;
+  assert.deepEqual([approve.status, approve.code], [409, "Hypervisor:ApprovalsApproveOutcomeUnknown"]);
+  assert.match(approve.message, /outcome is not known \(authority_record_unreadable: the authority's record for this request hash could not be read \(offline\)\)/u);
+  assert.deepEqual(reviewOf(rows, "wac_unknown", "DISAPPROVE", "stop").daemon, { method: "POST", route: "/v1/hypervisor/authority/challenges/wac_unknown/decision", body: { decision: "deny", reason: "stop" } }, "deny stays open");
+  const a = answerDocument(REQ_Q, AX.approvalsGraphqlFacts("RequestQuery", { rid: r.rid }, { rows, principal: operator }), null, "RequestQuery").approvalRequest;
+  assert.equal(a.latestVersion.subRequests[0].permissions.canFullyApprove, true, "the operator can still reject it");
+});
+
+test("an approval whose grant expired unused is Closed and says the action must be asked again, linking the successor its re-ask parked; the successor names what it supersedes; an interrupted attempt is named in the history line", () => {
+  const rows = AX.requestsOf({ ...fixture(), challenges: [
+    challenge("wac_old", "approved", { grant_ref: "grant://g1", grant_expires_at_ms: NOW - 1, superseded_by: "wac_new", decision: { decision: "approve", decided_by: "user://op", decided_at: "2026-09-28T09:00:00Z" } }),
+    challenge("wac_lone", "approved", { grant_ref: "grant://g2", grant_expires_at_ms: NOW - 1, decision: { decision: "approve", decided_by: "user://op", decided_at: "2026-09-28T09:00:00Z" } }),
+    challenge("wac_new", "pending", { supersedes: "wac_old", ask_nonce: "0f".repeat(16), history: [{ state: "interrupted", closed_at: "2026-09-28T11:40:00Z", decision: null, reconciliation: { authority_record: "absent", attempt: { decided_by: "user://op" } } }] }),
+  ], principal: operator });
+  const old = rows.find((x) => x.id === "wac_old"), lone = rows.find((x) => x.id === "wac_lone"), next = rows.find((x) => x.id === "wac_new");
+  assert.equal(old.status, "CLOSED", "never decided again, never open");
+  assert.match(old.description, new RegExp(`Grant expired: approved, but its one-use grant expired unused at ${new Date(NOW - 1).toISOString()}; the authority keeps one decision per request, so the action must be asked again — asked again: /__ioi/authority/challenges/wac_new`, "u"));
+  assert.match(lone.description, /so the action must be asked again — the requester's retry parks a new challenge/u);
+  assert.equal(reviewOf(rows, "wac_old", "APPROVE").refusal, AX.WRITE_REFUSALS.decided, "an expired approval is decided");
+  assert.equal(next.status, "PENDING_APPROVAL");
+  assert.match(next.description, /Asks again: this effect's earlier approval expired unused, and the authority never decides one request twice, so this ask binds the same effect under a fresh single-use nonce \(a new request hash\): \/__ioi\/authority\/challenges\/wac_old/u);
+  assert.match(next.description, /Interrupted: 2026-09-28T11:40:00Z: the daemon stopped mid-approve \(started by Ada Operator\); the authority recorded nothing, so it was decided afresh/u);
+  assert.equal(AX.challengeStatusOf(challenge("x", "approved", { grant_expires_at_ms: NOW + 1 }), NOW), "APPROVED", "a live grant stays open");
+});

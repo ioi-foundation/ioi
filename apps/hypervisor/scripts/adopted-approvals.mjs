@@ -53,15 +53,38 @@ const nameOf = (dir, ref) => (ref ? dir?.get(ref)?.name || dir?.get(ref)?.email 
 // ---- statuses: the reference's hierarchy is Open {Approved, Changes requested, Action required, Pending approval}, Draft,
 // Closed {Closed, Rejected and closed, Completed}.
 // A challenge approved but not yet run is Approved (open: the requester's retry runs it once); consumed, it is Completed;
-// denied, Rejected and closed; a pending challenge past its expiry is Closed (re-running the effect parks it again).
+// denied, Rejected and closed; a pending challenge past its expiry is Closed (re-running the effect parks it again); an
+// approval whose one-use grant expired unused is Closed (the authority keeps one decision per request, so it is never
+// decided again: the requester's retry asks the effect again as a new challenge). A decision being recorded (the record's
+// `deciding` marker) and one whose outcome an interruption left unknown are still Pending approval — nothing is decided —
+// and are named in the request's description (R-240, challenge states + re-ask); the daemon's words decide what may move.
 export function challengeStatusOf(c, nowMs = Date.now()) {
   switch (c?.state) {
-    case "pending": return Number(c.expires_at_ms) && Number(c.expires_at_ms) <= nowMs ? "CLOSED" : "PENDING_APPROVAL";
-    case "approved": case "consuming": return "APPROVED";
+    case "pending":
+      if (c.deciding && typeof c.deciding === "object") return "PENDING_APPROVAL";
+      return Number(c.expires_at_ms) && Number(c.expires_at_ms) <= nowMs ? "CLOSED" : "PENDING_APPROVAL";
+    case "approved": return grantExpiredUnused(c, nowMs) ? "CLOSED" : "APPROVED";
+    case "consuming": return "APPROVED";
     case "consumed": return "APPROVED_AND_COMPLETED";
     case "denied": return "DISAPPROVED_AND_CLOSED";
     default: return "CLOSED";
   }
+}
+const grantExpiredUnused = (c, nowMs) => c?.state === "approved" && Number(c.grant_expires_at_ms) > 0 && Number(c.grant_expires_at_ms) <= nowMs;
+// What a challenge's record says beyond its state: an approve being recorded (who, since when), an interrupted approve whose
+// outcome is unknown (the daemon's named reason), an expired grant and the successor its re-ask parked, the ask a successor
+// supersedes, and approves a stopped daemon left interrupted with nothing recorded.
+export function challengeFacetsOf(c, nowMs = Date.now()) {
+  const deciding = c?.state === "pending" && c.deciding && typeof c.deciding === "object" ? c.deciding : null;
+  const unknown = c?.state === "pending" && !deciding && c.outcome_unknown && typeof c.outcome_unknown === "object" ? c.outcome_unknown : null;
+  return {
+    deciding: deciding ? { startedAt: deciding.started_at || null, decidedBy: deciding.decided_by || null } : null,
+    outcomeUnknown: unknown ? { reason: unknown.reason || null, message: unknown.message || null, since: unknown.since || null } : null,
+    grantExpired: grantExpiredUnused(c, nowMs),
+    supersededBy: typeof c?.superseded_by === "string" ? c.superseded_by : null,
+    supersedes: typeof c?.supersedes === "string" ? c.supersedes : null,
+    interrupted: (Array.isArray(c?.history) ? c.history : []).filter((h) => h?.state === "interrupted"),
+  };
 }
 // A governance approval is record-only — the decision is the whole of it — so an approved request is Completed; a rejected
 // one Rejected and closed; a revoked approval Closed.
@@ -95,6 +118,7 @@ export function requestsOf({ governance = [], challenges = [], inboxItems = [], 
   for (const c of challenges || []) {
     if (!c || !c.challenge_id) continue;
     const status = challengeStatusOf(c, nowMs);
+    const facets = challengeFacetsOf(c, nowMs);
     const pre = c.published_preimage || {};
     const intent = pre.request_preimage?.intent || pre.effect?.intent || null;
     const scopes = pre.request_preimage?.scopes || pre.effect?.scopes || [];
@@ -107,8 +131,13 @@ export function requestsOf({ governance = [], challenges = [], inboxItems = [], 
         ["Requested by", nameOf(dir, c.requester_ref)], ["Intent", intent], ["Scopes", scopes.join(", ")], ["Target scope", c.target_scope],
         ["Policy", pre.policy_preimage?.domain], ["Policy hash", c.policy_hash], ["Request hash", c.request_hash], ["Audience", c.audience],
         ["Approval ref", c.approval_ref], ["Expires", when(c.expires_at_ms)],
+        ["Asks again", facets.supersedes ? `this effect's earlier approval expired unused, and the authority never decides one request twice, so this ask binds the same effect under a fresh single-use nonce (a new request hash): ${challengePagePath(facets.supersedes)}` : null],
+        ["Deciding", facets.deciding ? `started ${facets.deciding.startedAt || "earlier"} by ${nameOf(dir, facets.deciding.decidedBy) || "an operator"} — the deployment authority is recording the operator's approval now; nothing else can be decided until it settles (${challengePagePath(c.challenge_id)})` : null],
+        ["Outcome unknown", facets.outcomeUnknown ? `${facets.outcomeUnknown.reason || "no reason named"} — ${facets.outcomeUnknown.message || ""}. Approving is refused until the daemon reconciles it from the authority's record; rejecting stays open` : null],
         ["Closed", status === "CLOSED" && c.state === "pending" ? `expired at ${when(c.expires_at_ms)} with no decision; re-running the effect parks it again` : null],
+        ["Grant expired", facets.grantExpired ? `approved, but its one-use grant expired unused at ${when(c.grant_expires_at_ms)}; the authority keeps one decision per request, so the action must be asked again — ${facets.supersededBy ? `asked again: ${challengePagePath(facets.supersededBy)}` : "the requester's retry parks a new challenge"}` : null],
         ["Decided", decided ? `${decided.decision} by ${nameOf(dir, decided.decided_by) || "—"} at ${decided.decided_at || "—"}${decided.reason ? ` — ${decided.reason}` : ""}` : null],
+        ["Interrupted", facets.interrupted.length ? facets.interrupted.map((h) => `${h.closed_at || "—"}: the daemon stopped mid-approve${h.reconciliation?.attempt?.decided_by ? ` (started by ${nameOf(dir, h.reconciliation.attempt.decided_by)})` : ""}; the authority recorded nothing, so it was decided afresh`).join("; ") : null],
         ["Grant", c.grant_ref], ["Consumed", c.consumed_at], ["Consumed by", c.consumed_by],
       ]),
       status, creatorRef: c.requester_ref || null, created_at: c.created_at || null, updated_at: c.last_parked_at || c.created_at || null,
@@ -116,7 +145,9 @@ export function requestsOf({ governance = [], challenges = [], inboxItems = [], 
       decidedBy: decided?.decided_by || null, decidedAt: decided?.decided_at || null, decision: decided?.decision || null,
       // an approved effect completes when its one-use grant is consumed (the requester's retry ran it once)
       completedAt: status === "APPROVED_AND_COMPLETED" ? c.consumed_at || decided?.decided_at || null : null,
-      policy: { met: status === "APPROVED" || status === "APPROVED_AND_COMPLETED" }, dir, record: c,
+      policy: { met: status === "APPROVED" || status === "APPROVED_AND_COMPLETED" }, dir, record: c, facets,
+      // while an approve is being recorded nobody can decide it (the daemon answers any decision 409)
+      decisionOpen: !facets.deciding,
     });
   }
   for (const a of governance || []) {
@@ -242,7 +273,7 @@ export function principalSearchOf(request, dir) {
 // ---- a request's page (GraphQL): the request header, its reviewer task, the decision as a review, the policy trail
 function subRequestOf(r, principal) {
   const me = principal?.ref || null;
-  const may = !!me && r.reviewers.includes(userOf(me)) && r.status === "PENDING_APPROVAL";
+  const may = !!me && r.reviewers.includes(userOf(me)) && r.status === "PENDING_APPROVAL" && r.decisionOpen !== false;
   const review = r.decidedBy ? [{ __typename: "ApprovalSubRequestReview", _id: cid(`Review:${r.rid}`), active: true, reviewType: r.status === "DISAPPROVED_AND_CLOSED" ? "DISAPPROVE" : "APPROVE",
     created: { __typename: "Attribution", user: principalNode(r.decidedBy, principal, r.dir), time: r.decidedAt } }] : [];
   return {
@@ -314,9 +345,22 @@ export const WRITE_REFUSALS = {
   write: { status: 409, code: "Hypervisor:ApprovalsWriteNotBound", message: "A Hypervisor request is the daemon's own record: editing it or inviting reviewers is not bound here. Nothing was changed." },
   comment: { status: 409, code: "Hypervisor:ApprovalsCommentsNotKept", message: "The Hypervisor keeps no comment threads on a request. Nothing was posted." },
   notFound: { status: 404, code: "Hypervisor:ApprovalsRequestNotFound", message: "No request of yours has this id. Nothing was changed." },
+  // (the two below are filled in with the record's own words: decisionRunningRefusal and approveOutcomeUnknownRefusal)
+  decisionRunning: { status: 409, code: "Hypervisor:ApprovalsDecisionRunning", message: "A decision on this parked effect is already running: the deployment authority is recording it now, and the daemon refuses another decision until it settles. Nothing was sent; re-open the request for the outcome." },
+  approveOutcomeUnknown: { status: 409, code: "Hypervisor:ApprovalsApproveOutcomeUnknown", message: "An earlier approval of this parked effect was interrupted and its outcome is not known. The daemon refuses a new approve until it reconciles it from the authority's record, and runs nothing on a guess; rejecting stays open. Nothing was approved." },
 };
 // Approve on a parked effect, refused toward that effect's own approval page (the app prints the message as its toast)
 export const approveChallengeRefusal = (id) => ({ ...WRITE_REFUSALS.approveChallenge, message: WRITE_REFUSALS.approveChallenge.message.replace("/__ioi/authority/challenges/<its id>", challengePagePath(id)) });
+// A decision on a parked effect while an approve is being recorded: refused by name, saying who started it and when
+export const decisionRunningRefusal = (row) => {
+  const d = row?.facets?.deciding;
+  return d ? { ...WRITE_REFUSALS.decisionRunning, message: WRITE_REFUSALS.decisionRunning.message.replace("already running:", `already running (started ${d.startedAt || "earlier"} by ${nameOf(row.dir, d.decidedBy) || "an operator"}):`) } : WRITE_REFUSALS.decisionRunning;
+};
+// Approve on a parked effect whose interrupted approve's outcome is unknown: refused by the daemon's named reason
+export const approveOutcomeUnknownRefusal = (row) => {
+  const u = row?.facets?.outcomeUnknown;
+  return u ? { ...WRITE_REFUSALS.approveOutcomeUnknown, message: WRITE_REFUSALS.approveOutcomeUnknown.message.replace("outcome is not known.", `outcome is not known (${u.reason || "no reason named"}: ${u.message || ""}).`) } : WRITE_REFUSALS.approveOutcomeUnknown;
+};
 export const refusalBodyOf = (refusal) => ({ errorCode: refusal.status === 404 ? "NOT_FOUND" : "CONFLICT", errorName: refusal.code, errorInstanceId: "", parameters: { message: refusal.message }, message: refusal.message });
 // the GraphQL mutations the app's own buttons send
 export const APPROVALS_MUTATIONS = new Set(["ReviewSubRequests", "CloseTask", "UpdateReviewers"]);
@@ -331,6 +375,8 @@ export function mutationStepOf(name, row, variables) {
     if (row.status !== "PENDING_APPROVAL") return { refusal: WRITE_REFUSALS.decided };
     if (row.kind === "thread_approval") return { refusal: WRITE_REFUSALS.toolCall };
     if (row.kind === "wallet_approval_challenge") {
+      if (row.facets?.deciding) return { refusal: decisionRunningRefusal(row) };
+      if (type === "APPROVE" && row.facets?.outcomeUnknown) return { refusal: approveOutcomeUnknownRefusal(row) };
       if (type === "APPROVE") return { refusal: approveChallengeRefusal(row.id) };
       // a denial mints nothing: the daemon's decision route takes it on the operator's session, with the typed reason
       if (type === "DISAPPROVE" || type === "REJECT") return { daemon: { method: "POST", route: `/v1/hypervisor/authority/challenges/${encodeURIComponent(row.id)}/decision`, body: { decision: "deny", reason: String(variables?.reason || "").slice(0, 400) } } };

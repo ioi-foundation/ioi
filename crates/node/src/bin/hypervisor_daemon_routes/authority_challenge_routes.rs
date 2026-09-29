@@ -48,6 +48,17 @@
 //!    `outcome_unknown` with a named reason, and approve is refused by name until a later
 //!    reconciliation settles it (deny stays open). The daemon never holds the passphrase across a
 //!    restart, so it cannot re-run an approve on its own.
+//! 6. **An approval whose grant expired unused is asked again, never decided again** (R-240,
+//!    challenge states + re-ask; master guide N12: an approval binds the exact arguments, an expiry
+//!    and a single-use nonce). The authority keeps one decision per request hash, so an approved
+//!    challenge whose grant ran out before any retry ran it can never be approved a second time.
+//!    The requester's next retry of the same effect (with or without the stale `approval_ref`)
+//!    parks a SUCCESSOR: the same effect under a fresh daemon-minted `ask_nonce`, so a new request
+//!    hash (`reask_request_hash`, whose preimage the record publishes) and a new challenge id. The
+//!    old record keeps its approval, reads expired, and names its successor (`superseded_by`); the
+//!    successor names what it supersedes. A claim re-derives the request hash from the gate's own
+//!    fresh hash and the record's nonce, and hands the gate that hash to present, so the grant the
+//!    authority mints for the successor binds exactly the effect the retry derives.
 //!
 //! No second authority plane: wallet.network resolution, grant verification and on-chain
 //! consumption are the existing `governed_authority` path; this module only parks, relays the
@@ -71,6 +82,11 @@ pub(crate) const CHALLENGE_FAMILY: &str = "wallet-approval-challenges";
 pub(crate) const APPROVAL_REF_PREFIX: &str = "wallet-approval-challenge://";
 const CHALLENGE_SCHEMA: &str = "ioi.hypervisor.wallet-approval-challenge.v1";
 const CHALLENGE_ID_DOMAIN: &str = "ioi.hypervisor.wallet-approval-challenge.id.v1";
+/// The domain of a re-ask's request preimage: the effect's own request hash under a fresh nonce.
+const REASK_DOMAIN: &str = "ioi.hypervisor.wallet-approval-challenge.reask.v1";
+/// How many successive re-asks of one effect a park follows before it gives up (each one is an
+/// approval that expired unused; a chain this long is a record fault, not an operator's pattern).
+const MAX_REASK_CHAIN: usize = 64;
 /// The authority control binary (`wallet-network-local-authority`) the daemon runs for `approve`.
 pub(crate) const AUTHORITY_BINARY_ENV: &str = "IOI_WALLET_AUTHORITY_BINARY";
 /// The deployment authority node's state directory (the directory that IS the node).
@@ -177,6 +193,48 @@ pub(crate) fn challenge_id_for(
 
 pub(crate) fn approval_ref_for(challenge_id: &str) -> String {
     format!("{APPROVAL_REF_PREFIX}{challenge_id}")
+}
+
+/// The exact bytes a re-ask's request hash commits to: the effect's own request hash (as the gate
+/// derives it) and the ask's single-use nonce.
+fn reask_preimage(base_request_hash: &str, ask_nonce: &str) -> Value {
+    json!({
+        "domain": REASK_DOMAIN,
+        "request_hash": base_request_hash,
+        "ask_nonce": ask_nonce,
+    })
+}
+
+/// The request hash of a re-ask of the effect whose own request hash is `base_request_hash`: a new
+/// request hash for the same exact effect, so the authority decides it as a new request.
+pub(crate) fn reask_request_hash(base_request_hash: &str, ask_nonce: &str) -> String {
+    let bytes = serde_jcs::to_vec(&reask_preimage(base_request_hash, ask_nonce)).unwrap_or_default();
+    format!("sha256:{}", hex::encode(Sha256::digest(bytes)))
+}
+
+/// An approval whose one-use grant ran out before any retry presented it. The authority keeps one
+/// decision per request hash, so it can never be approved again: the effect is asked again.
+fn grant_expired_unused(record: &Value, now: u64) -> bool {
+    state_of(record) == "approved"
+        && record
+            .get("grant_expires_at_ms")
+            .and_then(Value::as_u64)
+            .is_some_and(|expires| expires <= now)
+}
+
+fn superseded_by(record: &Value) -> Option<&str> {
+    record
+        .get("superseded_by")
+        .and_then(Value::as_str)
+        .filter(|id| valid_challenge_id(id))
+}
+
+fn iso_of_ms(ms: u64) -> String {
+    use time::format_description::well_known::Rfc3339;
+    time::OffsetDateTime::from_unix_timestamp_nanos(i128::from(ms).saturating_mul(1_000_000))
+        .ok()
+        .and_then(|at| at.format(&Rfc3339).ok())
+        .unwrap_or_else(|| format!("{ms} ms since the epoch"))
 }
 
 fn challenge_id_from_ref(approval_ref: &str) -> Option<&str> {
@@ -314,11 +372,142 @@ pub(crate) struct ParkRequest<'a> {
     pub(crate) requester_ref: Option<&'a str>,
 }
 
+/// A fresh challenge record for one exact effect's coordinates.
+fn new_challenge_record(
+    id: &str,
+    request: &ParkRequest<'_>,
+    request_hash: &str,
+    published_preimage: Value,
+    now: u64,
+) -> Value {
+    json!({
+        "schema_version": CHALLENGE_SCHEMA,
+        "challenge_id": id,
+        "approval_ref": approval_ref_for(id),
+        "state": "pending",
+        "target_scope": request.target_scope,
+        "policy_hash": request.policy_hash,
+        "request_hash": request_hash,
+        "audience": request.audience,
+        "subject_ref": request.subject_ref,
+        "operation": request.operation,
+        "published_preimage": published_preimage,
+        "requester_ref": request.requester_ref,
+        "created_at": iso_now(),
+        "last_parked_at": iso_now(),
+        "expires_at_ms": now.saturating_add(challenge_ttl_ms()),
+        "decision": Value::Null,
+        "grant": Value::Null,
+        "grant_ref": Value::Null,
+        "grant_expires_at_ms": Value::Null,
+        "consumed_at": Value::Null,
+        "consumed_by": Value::Null,
+        "runtimeTruthSource": "daemon-runtime",
+    })
+}
+
+/// Re-park an existing record of this effect: a pending ask is refreshed; one closed by a denial
+/// or an expiry (nothing recorded on the authority either way) reopens under the same request
+/// hash; anything else stands as it is.
+fn repark_existing(
+    data_dir: &str,
+    id: &str,
+    mut record: Value,
+    request: &ParkRequest<'_>,
+    now: u64,
+) -> Option<Value> {
+    let state = state_of(&record).to_string();
+    // A decision in flight (or one whose outcome is not known yet) is never reopened as a new ask
+    // under it: the operator's decision is still settling.
+    let expired_pending = state == "pending"
+        && in_flight(&record).is_none()
+        && outcome_unknown(&record).is_none()
+        && record
+            .get("expires_at_ms")
+            .and_then(Value::as_u64)
+            .is_some_and(|expires| expires <= now);
+    if state == "denied" || expired_pending {
+        // A new ask for the same exact effect after a denial or an expiry.
+        let prior = json!({
+            "state": if expired_pending { "expired" } else { "denied" },
+            "decision": record.get("decision").cloned().unwrap_or(Value::Null),
+            "closed_at": iso_now(),
+        });
+        if let Some(history) = record.get_mut("history").and_then(Value::as_array_mut) {
+            history.push(prior);
+        } else {
+            record["history"] = json!([prior]);
+        }
+        record["state"] = json!("pending");
+        record["decision"] = Value::Null;
+        record["requester_ref"] = json!(request.requester_ref);
+        record["created_at"] = json!(iso_now());
+    }
+    if state_of(&record) == "pending" {
+        record["last_parked_at"] = json!(iso_now());
+        record["expires_at_ms"] = json!(now.saturating_add(challenge_ttl_ms()));
+        if record.get("requester_ref").is_none_or(Value::is_null) {
+            record["requester_ref"] = json!(request.requester_ref);
+        }
+        write_challenge(data_dir, id, &record).ok()?;
+    }
+    Some(record)
+}
+
+/// Ask the effect again after `predecessor`'s approval expired unused: a successor challenge for
+/// the same exact effect under a fresh single-use nonce, so a new request hash the authority has
+/// never decided. The predecessor keeps its approval and names the successor.
+fn park_reask(
+    data_dir: &str,
+    predecessor_id: &str,
+    mut predecessor: Value,
+    request: &ParkRequest<'_>,
+    now: u64,
+) -> Option<(String, Value)> {
+    let ask_nonce = hex::encode(rand::random::<[u8; 16]>());
+    let request_hash = reask_request_hash(request.request_hash, &ask_nonce);
+    let id = challenge_id_for(
+        request.target_scope,
+        request.policy_hash,
+        &request_hash,
+        request.audience.as_deref(),
+    );
+    let mut published_preimage = request.published_preimage.clone();
+    if let Some(object) = published_preimage.as_object_mut() {
+        object.insert(
+            "reask_preimage".into(),
+            reask_preimage(request.request_hash, &ask_nonce),
+        );
+    } else {
+        published_preimage = json!({
+            "effect_preimage": published_preimage,
+            "reask_preimage": reask_preimage(request.request_hash, &ask_nonce),
+        });
+    }
+    let mut record = new_challenge_record(&id, request, &request_hash, published_preimage, now);
+    record["ask_nonce"] = json!(ask_nonce);
+    record["base_request_hash"] = json!(request.request_hash);
+    record["supersedes"] = json!(predecessor_id);
+    record["supersedes_grant_expired_at_ms"] = predecessor
+        .get("grant_expires_at_ms")
+        .cloned()
+        .unwrap_or(Value::Null);
+    // The successor first: a predecessor never names a successor that is not there.
+    write_challenge(data_dir, &id, &record).ok()?;
+    predecessor["superseded_by"] = json!(id);
+    predecessor["superseded_at"] = json!(iso_now());
+    write_challenge(data_dir, predecessor_id, &predecessor).ok()?;
+    Some((id, record))
+}
+
 /// Park (or re-park) one exact effect's challenge. Returns the members a gate adds to its 403
-/// challenge: the challenge id, its state, the decision route and whether this daemon can decide.
+/// challenge: the challenge id, its state, the request hash a grant for it binds, the decision
+/// route and whether this daemon can decide. An approval of this effect whose grant expired unused
+/// is never reopened: the effect is asked again as its successor (a fresh nonce, a new request
+/// hash), and a later park follows that chain to the effect's latest ask.
 /// A persistence failure returns None: the gate's refusal stands without a parked challenge.
 pub(crate) fn park_challenge(data_dir: &str, request: ParkRequest<'_>) -> Option<Value> {
-    let id = challenge_id_for(
+    let base_id = challenge_id_for(
         request.target_scope,
         request.policy_hash,
         request.request_hash,
@@ -326,87 +515,69 @@ pub(crate) fn park_challenge(data_dir: &str, request: ParkRequest<'_>) -> Option
     );
     let now = now_ms();
     let _guard = lock_challenges();
-    let existing = read_challenge(data_dir, &id).ok()?;
-    let record = match existing {
-        Some(mut record) => {
-            let state = state_of(&record).to_string();
-            // A decision in flight (or one whose outcome is not known yet) is never reopened as a
-            // new ask under it: the operator's decision is still settling.
-            let expired_pending = state == "pending"
-                && in_flight(&record).is_none()
-                && outcome_unknown(&record).is_none()
-                && record
-                    .get("expires_at_ms")
-                    .and_then(Value::as_u64)
-                    .is_some_and(|expires| expires <= now);
-            if state == "denied" || expired_pending {
-                // A new ask for the same exact effect after a denial or an expiry.
-                let prior = json!({
-                    "state": if expired_pending { "expired" } else { "denied" },
-                    "decision": record.get("decision").cloned().unwrap_or(Value::Null),
-                    "closed_at": iso_now(),
-                });
-                if let Some(history) = record.get_mut("history").and_then(Value::as_array_mut) {
-                    history.push(prior);
-                } else {
-                    record["history"] = json!([prior]);
+    let mut id = base_id;
+    // The ask before `id` in the chain, whose approval expired unused.
+    let mut predecessor: Option<(String, Value)> = None;
+    let mut hops = 0;
+    let (id, record) = loop {
+        match read_challenge(data_dir, &id).ok()? {
+            Some(record) if grant_expired_unused(&record, now) => {
+                match superseded_by(&record).map(str::to_owned) {
+                    Some(next) => {
+                        // A chain that loops or runs this long is a record fault: no park.
+                        hops += 1;
+                        if hops > MAX_REASK_CHAIN {
+                            return None;
+                        }
+                        predecessor = Some((id, record));
+                        id = next;
+                    }
+                    None => break park_reask(data_dir, &id, record, &request, now)?,
                 }
-                record["state"] = json!("pending");
-                record["decision"] = Value::Null;
-                record["requester_ref"] = json!(request.requester_ref);
-                record["created_at"] = json!(iso_now());
             }
-            if state_of(&record) == "pending" {
-                record["last_parked_at"] = json!(iso_now());
-                record["expires_at_ms"] = json!(now.saturating_add(challenge_ttl_ms()));
-                if record.get("requester_ref").is_none_or(Value::is_null) {
-                    record["requester_ref"] = json!(request.requester_ref);
+            Some(record) => {
+                let record = repark_existing(data_dir, &id, record, &request, now)?;
+                break (id, record);
+            }
+            None => match predecessor.take() {
+                // A successor the chain names is gone: ask again from the one before it.
+                Some((predecessor_id, predecessor_record)) => {
+                    break park_reask(data_dir, &predecessor_id, predecessor_record, &request, now)?
                 }
-                write_challenge(data_dir, &id, &record).ok()?;
-            }
-            record
-        }
-        None => {
-            let record = json!({
-                "schema_version": CHALLENGE_SCHEMA,
-                "challenge_id": id,
-                "approval_ref": approval_ref_for(&id),
-                "state": "pending",
-                "target_scope": request.target_scope,
-                "policy_hash": request.policy_hash,
-                "request_hash": request.request_hash,
-                "audience": request.audience,
-                "subject_ref": request.subject_ref,
-                "operation": request.operation,
-                "published_preimage": request.published_preimage,
-                "requester_ref": request.requester_ref,
-                "created_at": iso_now(),
-                "last_parked_at": iso_now(),
-                "expires_at_ms": now.saturating_add(challenge_ttl_ms()),
-                "decision": Value::Null,
-                "grant": Value::Null,
-                "grant_ref": Value::Null,
-                "grant_expires_at_ms": Value::Null,
-                "consumed_at": Value::Null,
-                "consumed_by": Value::Null,
-                "runtimeTruthSource": "daemon-runtime",
-            });
-            write_challenge(data_dir, &id, &record).ok()?;
-            record
+                None => {
+                    let record = new_challenge_record(
+                        &id,
+                        &request,
+                        request.request_hash,
+                        request.published_preimage.clone(),
+                        now,
+                    );
+                    write_challenge(data_dir, &id, &record).ok()?;
+                    break (id, record);
+                }
+            },
         }
     };
-    Some(json!({
+    let mut members = json!({
         "challenge_id": id,
         "challenge_state": state_of(&record),
+        "request_hash": record.get("request_hash").cloned().unwrap_or(Value::Null),
         "decision_route": format!("/v1/hypervisor/authority/challenges/{id}/decision"),
         "decidable": decider_configured(),
-    }))
+    });
+    if let Some(supersedes) = record.get("supersedes").filter(|value| value.is_string()) {
+        members["supersedes"] = supersedes.clone();
+    }
+    Some(members)
 }
 
 /// A claimed, approved challenge: the one grant the gate may present, for exactly this effect.
 pub(crate) struct ClaimedApproval {
     pub(crate) challenge_id: String,
     pub(crate) grant: Value,
+    /// The request hash the grant binds and the gate presents: the gate's own, or for a re-ask the
+    /// gate's own under the record's single-use nonce (re-derived at the claim, never read back).
+    pub(crate) request_hash: String,
     claim_nonce: String,
 }
 
@@ -430,8 +601,9 @@ fn refusal(
 }
 
 /// Claim the stored grant behind `approval_ref` for ONE presentation, only when the record's scope
-/// and hashes equal the ones the gate derived afresh from the retried request. A consumed, denied,
-/// pending or foreign challenge is refused before anything reaches wallet.network.
+/// and hashes equal the ones the gate derived afresh from the retried request (for a re-ask: the
+/// gate's request hash under the record's nonce). A consumed, denied, pending, expired or foreign
+/// challenge is refused before anything reaches wallet.network.
 pub(crate) fn claim_approval_ref(
     data_dir: &str,
     approval_ref: &str,
@@ -465,10 +637,16 @@ pub(crate) fn claim_approval_ref(
             ))
         }
     };
+    // A re-ask's request hash is the gate's own under the record's single-use nonce: re-derived
+    // here from the hash the gate just derived, so a record can never name an effect of its own.
+    let presented_request_hash = match record.get("ask_nonce").and_then(Value::as_str) {
+        Some(ask_nonce) => reask_request_hash(request_hash, ask_nonce),
+        None => request_hash.to_string(),
+    };
     let same = |field: &str, value: &str| record.get(field).and_then(Value::as_str) == Some(value);
     if !(same("target_scope", target_scope)
         && same("policy_hash", policy_hash)
-        && same("request_hash", request_hash))
+        && same("request_hash", &presented_request_hash))
     {
         return Err(refusal(
             StatusCode::FORBIDDEN,
@@ -536,15 +714,23 @@ pub(crate) fn claim_approval_ref(
             "the approved challenge holds no grant",
         ));
     }
-    if record
+    if let Some(expired_at) = record
         .get("grant_expires_at_ms")
         .and_then(Value::as_u64)
-        .is_some_and(|expires| expires <= now)
+        .filter(|expires| *expires <= now)
     {
+        // Never "approve again": the authority keeps one decision per request hash, so this
+        // approval can never be renewed. The effect is asked again as a new challenge.
+        let successor = superseded_by(&record)
+            .map(|next| format!("; it was asked again as challenge {next}"))
+            .unwrap_or_default();
         return Err(refusal(
             StatusCode::GONE,
             "approval_ref_expired",
-            "the approval's one-use grant has expired; the operator must approve again",
+            format!(
+                "this approval's one-use grant expired unused at {}. It cannot be approved again — the deployment authority keeps one decision per request — so the action must be asked again: retrying it parks a new challenge for the operator (a fresh single-use nonce, so a new request hash){successor}",
+                iso_of_ms(expired_at)
+            ),
         ));
     }
     let claim_nonce = hex::encode(rand::random::<[u8; 16]>());
@@ -561,6 +747,7 @@ pub(crate) fn claim_approval_ref(
     Ok(ClaimedApproval {
         challenge_id: id.to_string(),
         grant,
+        request_hash: presented_request_hash,
         claim_nonce,
     })
 }
@@ -1824,6 +2011,32 @@ async fn decide_challenge(
     }
     match state_of(&record) {
         "pending" => {}
+        "approved" if grant_expired_unused(&record, now_ms()) => {
+            // Never decided twice: the authority already holds this request hash's decision.
+            let expired_at = record
+                .get("grant_expires_at_ms")
+                .and_then(Value::as_u64)
+                .unwrap_or(0);
+            let successor = superseded_by(&record);
+            return reply(
+                StatusCode::GONE,
+                json!({
+                    "ok": false,
+                    "error": {
+                        "code": "challenge_grant_expired",
+                        "message": format!(
+                            "this challenge was approved, but its one-use grant expired unused at {}. The deployment authority keeps one decision per request, so it is never decided again; the action must be asked again — the requester's retry parks a new challenge{}. Nothing was started.",
+                            iso_of_ms(expired_at),
+                            successor.map(|next| format!(" (it was asked again as challenge {next})")).unwrap_or_default()
+                        ),
+                    },
+                    "challenge_id": id,
+                    "state": state_of(&record),
+                    "superseded_by": successor,
+                    "runtimeTruthSource": "daemon-runtime",
+                }),
+            );
+        }
         "approved" | "consuming" => {
             return reply(
                 StatusCode::CONFLICT,
@@ -2332,7 +2545,7 @@ mod tests {
             )
             .unwrap();
             let script = format!(
-                "#!/bin/sh\necho \"$$\" >> '{dir}/invocations'\nif [ \"$IOI_AUTHORITY_OPERATOR_PASS\" != '{PASS}' ]; then echo 'Error: the operator passphrase did not open the sealed approver key' >&2; exit 1; fi\nsleep {seconds}\ncat '{dir}/outcome.json'\n",
+                "#!/bin/sh\necho \"$$ $*\" >> '{dir}/invocations'\nif [ \"$IOI_AUTHORITY_OPERATOR_PASS\" != '{PASS}' ]; then echo 'Error: the operator passphrase did not open the sealed approver key' >&2; exit 1; fi\nsleep {seconds}\ncat '{dir}/outcome.json'\n",
                 dir = dir.display()
             );
             let path = dir.join("authority");
@@ -2354,6 +2567,22 @@ mod tests {
             std::fs::read_to_string(self.dir.join("invocations"))
                 .map(|text| text.lines().count())
                 .unwrap_or(0)
+        }
+
+        /// The request hash each invocation asked the authority to decide, in order.
+        fn decided_request_hashes(&self) -> Vec<String> {
+            std::fs::read_to_string(self.dir.join("invocations"))
+                .unwrap_or_default()
+                .lines()
+                .filter_map(|line| {
+                    let words: Vec<&str> = line.split_whitespace().collect();
+                    words
+                        .iter()
+                        .position(|word| *word == "--request-hash")
+                        .and_then(|at| words.get(at + 1))
+                        .map(|hash| hash.to_string())
+                })
+                .collect()
         }
     }
 
@@ -2775,6 +3004,201 @@ mod tests {
             "authority_record_mismatch"
         );
         assert_eq!(record["grant"], Value::Null);
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    // ---- R-240, challenge states + re-ask ----------------------------------------------------
+
+    /// What time does to an approval nobody ran: its one-use grant's expiry passes.
+    fn let_grant_expire(dir: &str, id: &str) {
+        let mut record = record_of(dir, id);
+        record["grant_expires_at_ms"] = json!(now_ms().saturating_sub(1));
+        write_challenge(dir, id, &record).unwrap();
+    }
+
+    #[tokio::test]
+    async fn an_approval_that_expired_unused_is_asked_again_as_a_new_challenge_never_decided_twice()
+    {
+        let dir = temp_data_dir("reask");
+        let (policy, request) = (hash(51), hash(52));
+        let old = park_id(&dir, &policy, &request);
+        // The operator approves; the authority records ONE decision for this request hash.
+        let stub = StubAuthority::new("reask-old", &grant_for(&policy, &request), "0.1");
+        let approved = decide_challenge(
+            dir.clone(),
+            old.clone(),
+            OPERATOR.into(),
+            body("approve", PASS),
+            Some(stub.approver()),
+            reader(AuthorityRecord::Absent),
+            60_000,
+        )
+        .await;
+        assert_eq!(approved.0, StatusCode::OK, "{}", approved.1 .0);
+        // Nobody retries in time: the grant expires unused.
+        let_grant_expire(&dir, &old);
+
+        // The stale approval_ref is refused, and its words are true: never "approve again".
+        let stale = claim_approval_ref(&dir, &approval_ref_for(&old), SCOPE, &policy, &request)
+            .err()
+            .expect("an expired grant is never presented");
+        assert_eq!(stale.code, "approval_ref_expired");
+        assert_eq!(stale.status, StatusCode::GONE);
+        assert!(!stale.message.contains("approve again"), "{}", stale.message);
+        assert!(
+            stale.message.contains("cannot be approved again")
+                && stale.message.contains("asked again"),
+            "{}",
+            stale.message
+        );
+
+        // The requester's retry of the same effect parks a SUCCESSOR: a fresh nonce, so a new
+        // request hash and a new challenge id, pending for the operator.
+        let parked = park(&dir, &policy, &request);
+        let new = parked["challenge_id"].as_str().unwrap().to_string();
+        assert_ne!(new, old, "the old challenge is never reopened");
+        assert_eq!(parked["challenge_state"], "pending");
+        assert_eq!(parked["supersedes"], json!(old));
+        let successor = record_of(&dir, &new);
+        let nonce = successor["ask_nonce"].as_str().unwrap().to_string();
+        let new_request = successor["request_hash"].as_str().unwrap().to_string();
+        assert_ne!(new_request, request, "a new request hash");
+        assert_eq!(new_request, reask_request_hash(&request, &nonce));
+        assert_eq!(successor["base_request_hash"], json!(request));
+        assert_eq!(successor["policy_hash"], json!(policy), "the same exact effect");
+        assert_eq!(successor["supersedes"], json!(old));
+        assert_eq!(
+            successor["published_preimage"]["reask_preimage"],
+            reask_preimage(&request, &nonce),
+            "the bytes the new request hash commits to are published"
+        );
+        assert_eq!(
+            new,
+            challenge_id_for(SCOPE, &policy, &new_request, Some(&"ab".repeat(32)))
+        );
+        // The old challenge keeps its approval, reads expired, and names its successor.
+        let predecessor = record_of(&dir, &old);
+        assert_eq!(predecessor["state"], "approved");
+        assert!(grant_expired_unused(&predecessor, now_ms()));
+        assert_eq!(predecessor["superseded_by"], json!(new));
+        assert_eq!(predecessor["request_hash"], json!(request), "untouched");
+        // A re-park is the same successor (idempotent), and the stale ref now names it.
+        assert_eq!(park(&dir, &policy, &request)["challenge_id"], json!(new));
+        let replay = claim_approval_ref(&dir, &approval_ref_for(&old), SCOPE, &policy, &request)
+            .err()
+            .expect("a replay of the old approval_ref is refused");
+        assert_eq!(replay.code, "approval_ref_expired");
+        assert!(replay.message.contains(&new), "{}", replay.message);
+
+        // The authority is never asked to decide the old request hash again.
+        let again = decide_challenge(
+            dir.clone(),
+            old.clone(),
+            OPERATOR.into(),
+            body("approve", PASS),
+            Some(stub.approver()),
+            reader(AuthorityRecord::Absent),
+            60_000,
+        )
+        .await;
+        assert_eq!(again.0, StatusCode::GONE, "{}", again.1 .0);
+        assert_eq!(again.1 .0["error"]["code"], "challenge_grant_expired");
+        assert_eq!(again.1 .0["superseded_by"], json!(new));
+        assert_eq!(stub.invocations(), 1, "no second approve of the old request hash");
+
+        // The operator approves the successor: the authority decides the NEW request hash.
+        let stub_new = StubAuthority::new("reask-new", &grant_for(&policy, &new_request), "0.1");
+        let fresh = decide_challenge(
+            dir.clone(),
+            new.clone(),
+            OPERATOR.into(),
+            body("approve", PASS),
+            Some(stub_new.approver()),
+            reader(AuthorityRecord::Absent),
+            60_000,
+        )
+        .await;
+        assert_eq!(fresh.0, StatusCode::OK, "{}", fresh.1 .0);
+        let asked: Vec<String> = stub
+            .decided_request_hashes()
+            .into_iter()
+            .chain(stub_new.decided_request_hashes())
+            .collect();
+        assert_eq!(
+            asked,
+            vec![request.clone(), new_request.clone()],
+            "each request hash decided exactly once"
+        );
+
+        // The retry claims the successor with the hash the gate derives afresh, and presents the
+        // re-ask's request hash; a foreign effect cannot borrow the nonce.
+        let foreign = claim_approval_ref(&dir, &approval_ref_for(&new), SCOPE, &policy, &hash(53));
+        assert_eq!(
+            foreign.err().map(|refusal| refusal.code),
+            Some("approval_ref_coordinates_mismatch")
+        );
+        let claim = claim_approval_ref(&dir, &approval_ref_for(&new), SCOPE, &policy, &request)
+            .ok()
+            .expect("the successor's approval is claimed by the same effect");
+        assert_eq!(claim.request_hash, new_request);
+        mark_consumed(&dir, &claim, "authority-admission-intents/reask");
+        // Ran once: a re-park of the effect reads consumed, and both refs are refused.
+        assert_eq!(park(&dir, &policy, &request)["challenge_state"], "consumed");
+        assert_eq!(
+            claim_approval_ref(&dir, &approval_ref_for(&new), SCOPE, &policy, &request)
+                .err()
+                .map(|refusal| refusal.code),
+            Some("approval_ref_consumed")
+        );
+        assert_eq!(
+            claim_approval_ref(&dir, &approval_ref_for(&old), SCOPE, &policy, &request)
+                .err()
+                .map(|refusal| refusal.code),
+            Some("approval_ref_expired")
+        );
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn a_reask_chain_follows_to_the_latest_ask_and_a_lost_successor_is_asked_again() {
+        let dir = temp_data_dir("reask-chain");
+        let (policy, request) = (hash(54), hash(55));
+        let first = park_id(&dir, &policy, &request);
+        approve_in_place(&dir, &first);
+        let_grant_expire(&dir, &first);
+        let second = park_id(&dir, &policy, &request);
+        assert_ne!(second, first);
+        // The second ask is approved and also expires unused: the third follows the chain.
+        approve_in_place(&dir, &second);
+        let_grant_expire(&dir, &second);
+        let third = park_id(&dir, &policy, &request);
+        assert!(third != first && third != second, "{first} {second} {third}");
+        assert_eq!(record_of(&dir, &second)["superseded_by"], json!(third));
+        assert_eq!(record_of(&dir, &third)["supersedes"], json!(second));
+        assert_eq!(
+            record_of(&dir, &third)["base_request_hash"],
+            json!(request),
+            "every re-ask is of the effect's own request hash"
+        );
+        assert_eq!(park_id(&dir, &policy, &request), third);
+        // A denied successor reopens under ITS request hash (the authority recorded nothing).
+        let mut record = record_of(&dir, &third);
+        record["state"] = json!("denied");
+        write_challenge(&dir, &third, &record).unwrap();
+        assert_eq!(park_id(&dir, &policy, &request), third);
+        assert_eq!(record_of(&dir, &third)["state"], "pending");
+        // A successor whose record is gone is asked again from the ask before it.
+        std::fs::remove_file(
+            std::path::Path::new(&dir)
+                .join(CHALLENGE_FAMILY)
+                .join(format!("{third}.json")),
+        )
+        .unwrap();
+        assert!(read_challenge(&dir, &third).unwrap().is_none());
+        let fourth = park_id(&dir, &policy, &request);
+        assert!(fourth != third && fourth != second, "{fourth}");
+        assert_eq!(record_of(&dir, &second)["superseded_by"], json!(fourth));
+        assert_eq!(record_of(&dir, &fourth)["state"], "pending");
         let _ = std::fs::remove_dir_all(&dir);
     }
 }

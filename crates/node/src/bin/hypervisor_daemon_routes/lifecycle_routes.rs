@@ -15883,39 +15883,6 @@ pub(crate) async fn execute_authority_gate(
     const SESSION_EXECUTE_SCOPE: &str = "scope:hypervisor.live-route.session-execute";
     let policy_hash = execution_policy_hash(session_id, workspace_root, EXECUTION_AUTHORITY_SCOPES);
     let request_hash = execution_request_hash(session_id, intent, EXECUTION_AUTHORITY_SCOPES);
-    let claim = match super::authority_challenge_routes::approval_ref_in_body(body) {
-        Some(approval_ref) => match super::authority_challenge_routes::claim_approval_ref(
-            data_dir,
-            &approval_ref,
-            SESSION_EXECUTE_SCOPE,
-            &policy_hash,
-            &request_hash,
-        ) {
-            Ok(claim) => Some(claim),
-            Err(refusal) => {
-                return Err(json!({
-                    "schema_version": SESSION_EXECUTE_DECISION_SCHEMA_VERSION,
-                    "session_ref": session_id,
-                    "decision": "blocked",
-                    "reason": refusal.code,
-                    "message": refusal.message,
-                    "approval_ref": approval_ref,
-                    "approval_ref_status": refusal.status.as_u16(),
-                    "changed_file_groups": [],
-                    "terminal_events": [],
-                    "runtimeTruthSource": "daemon-runtime",
-                }))
-            }
-        },
-        None => None,
-    };
-    let grant_value = match &claim {
-        Some(claim) => claim.grant.clone(),
-        None => body
-            .get("wallet_approval_grant")
-            .cloned()
-            .unwrap_or(Value::Null),
-    };
     let effect = json!({
         "session_ref": session_id,
         "workspace_root": workspace_root,
@@ -15953,6 +15920,55 @@ pub(crate) async fn execute_authority_gate(
             },
         )
     };
+    // R-240 (challenge states + re-ask): a retry naming an approval whose grant expired unused is
+    // refused (that approval can never be renewed) AND asks the effect again: the park follows this
+    // effect's re-ask chain to its latest ask, or parks a successor under a fresh nonce.
+    let claim = match super::authority_challenge_routes::approval_ref_in_body(body) {
+        Some(approval_ref) => match super::authority_challenge_routes::claim_approval_ref(
+            data_dir,
+            &approval_ref,
+            SESSION_EXECUTE_SCOPE,
+            &policy_hash,
+            &request_hash,
+        ) {
+            Ok(claim) => Some(claim),
+            Err(refusal) => {
+                let asked_again = (refusal.code == "approval_ref_expired").then(|| {
+                    park_exact_effect(
+                        super::wallet_network_capability_client::capability_account_id_hex(),
+                    )
+                });
+                let mut blocked = json!({
+                    "schema_version": SESSION_EXECUTE_DECISION_SCHEMA_VERSION,
+                    "session_ref": session_id,
+                    "decision": "blocked",
+                    "reason": refusal.code,
+                    "message": refusal.message,
+                    "approval_ref": approval_ref,
+                    "approval_ref_status": refusal.status.as_u16(),
+                    "changed_file_groups": [],
+                    "terminal_events": [],
+                    "runtimeTruthSource": "daemon-runtime",
+                });
+                if let Some(parked) = asked_again {
+                    blocked["approval_challenge"] = json!(parked);
+                }
+                return Err(blocked);
+            }
+        },
+        None => None,
+    };
+    let grant_value = match &claim {
+        Some(claim) => claim.grant.clone(),
+        None => body
+            .get("wallet_approval_grant")
+            .cloned()
+            .unwrap_or(Value::Null),
+    };
+    // The request hash the presented grant binds: a re-ask's is this effect's under its nonce.
+    let presented_request_hash = claim
+        .as_ref()
+        .map_or_else(|| request_hash.clone(), |claim| claim.request_hash.clone());
     let exact_approval = |audience: &Option<String>| {
         json!({
             "policy_hash": policy_hash,
@@ -16120,7 +16136,7 @@ pub(crate) async fn execute_authority_gate(
         &grant_value,
         SESSION_EXECUTE_SCOPE,
         &policy_hash,
-        &request_hash,
+        &presented_request_hash,
         session_id,
         "session-execute",
         1,
@@ -16849,9 +16865,37 @@ where
     let required_scope = format!("scope:hypervisor.live-route.{operation}");
     let subject_ref = format!("capability-lease:{policy_hash}:{request_hash}");
     let effect = capability_lease_effect(req);
+    // G5: park (or re-park) THIS exact crossing's challenge, with the same published preimages the
+    // 403's `approval` carries (below), kept on the daemon's record of the challenge.
+    let park_this_crossing = || {
+        super::authority_challenge_routes::park_challenge(
+            data_dir,
+            super::authority_challenge_routes::ParkRequest {
+                target_scope: &required_scope,
+                policy_hash: &policy_hash,
+                request_hash: &request_hash,
+                audience: super::wallet_network_capability_client::capability_account_id_hex(),
+                subject_ref: &subject_ref,
+                operation: &operation,
+                published_preimage: json!({
+                    "effect": effect,
+                    "allowed_tools": req.allowed_tools,
+                    "resource_refs": req.resource_refs,
+                    "policy_preimage": capability_lease_policy_preimage(req),
+                    "request_preimage": capability_lease_request_preimage(req),
+                }),
+                requester_ref: req
+                    .principal_binding
+                    .as_ref()
+                    .map(|binding| binding.principal_ref.as_str()),
+            },
+        )
+    };
     // G5 / W0.2 part 2: a retry after the operator's decision carries the decision's approval_ref
     // where a grant would be. The stored one-use grant is presented only when the parked record's
-    // scope and hashes equal the ones derived here; a standing draw never takes this path.
+    // scope and hashes equal the ones derived here; a standing draw never takes this path. A retry
+    // naming an approval whose grant expired unused is refused and asks the crossing again (R-240,
+    // challenge states + re-ask): that approval can never be renewed.
     let claim = match req
         .standing_draw
         .is_none()
@@ -16867,17 +16911,20 @@ where
         ) {
             Ok(claim) => Some(claim),
             Err(refusal) => {
-                return Err((
-                    refusal.status,
-                    json!({
-                        "ok": false,
-                        "decision": "blocked",
-                        "reason": refusal.code,
-                        "message": refusal.message,
-                        "approval_ref": approval_ref,
-                        "host_mutation": false,
-                    }),
-                ))
+                let asked_again =
+                    (refusal.code == "approval_ref_expired").then(&park_this_crossing);
+                let mut blocked = json!({
+                    "ok": false,
+                    "decision": "blocked",
+                    "reason": refusal.code,
+                    "message": refusal.message,
+                    "approval_ref": approval_ref,
+                    "host_mutation": false,
+                });
+                if let Some(parked) = asked_again {
+                    blocked["approval_challenge"] = json!(parked);
+                }
+                return Err((refusal.status, blocked));
             }
         },
         None => None,
@@ -16886,6 +16933,10 @@ where
         Some(claim) => claim.grant.clone(),
         None => req.grant_value.clone(),
     };
+    // The request hash the presented grant binds: a re-ask's is this crossing's under its nonce.
+    let presented_request_hash = claim
+        .as_ref()
+        .map_or_else(|| request_hash.clone(), |claim| claim.request_hash.clone());
     let portable_locator = portable_grant_locator(&effective_grant_value).map_err(|message| {
         (
             StatusCode::BAD_REQUEST,
@@ -16940,7 +16991,7 @@ where
             &effective_grant_value,
             &required_scope,
             &policy_hash,
-            &request_hash,
+            &presented_request_hash,
             &subject_ref,
             &operation,
             1,
@@ -16963,7 +17014,6 @@ where
             if let Some(claim) = &claim {
                 super::authority_challenge_routes::release_claim(data_dir, claim);
             }
-            let audience = super::wallet_network_capability_client::capability_account_id_hex();
             let wants_grant = challenge
                 .pointer("/error/code")
                 .and_then(Value::as_str)
@@ -16971,34 +17021,7 @@ where
             let should_park =
                 req.standing_draw.is_none() && effective_grant_value.is_null() && wants_grant;
             let parked = if should_park {
-                // The same published preimages the 403's `approval` carries (below), kept on the
-                // daemon's record of the challenge.
-                let (policy_preimage, request_preimage) = (
-                    capability_lease_policy_preimage(req),
-                    capability_lease_request_preimage(req),
-                );
-                super::authority_challenge_routes::park_challenge(
-                    data_dir,
-                    super::authority_challenge_routes::ParkRequest {
-                        target_scope: &required_scope,
-                        policy_hash: &policy_hash,
-                        request_hash: &request_hash,
-                        audience: audience.clone(),
-                        subject_ref: &subject_ref,
-                        operation: &operation,
-                        published_preimage: json!({
-                            "effect": effect,
-                            "allowed_tools": req.allowed_tools,
-                            "resource_refs": req.resource_refs,
-                            "policy_preimage": policy_preimage,
-                            "request_preimage": request_preimage,
-                        }),
-                        requester_ref: req
-                            .principal_binding
-                            .as_ref()
-                            .map(|binding| binding.principal_ref.as_str()),
-                    },
-                )
+                park_this_crossing()
             } else {
                 None
             };

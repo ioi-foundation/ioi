@@ -21,6 +21,20 @@
 //     by the authority itself, and the page shows that refusal verbatim, not a crash; the allowlist is untouched;
 //   - an unknown or malformed id is the daemon's refusal; an ask past its expiry (the daemon restarted with its pending
 //     window shortened) reads Closed and a decision on it is the daemon's 410;
+//   - (R-240, challenge states + re-ask; the daemon restarted with its decision wait shortened to DECISION_WAIT_MS, so a real
+//     ~30 s approve outlives the route's wait) a page approve the daemon answers 202 reads Still deciding, never a refusal;
+//     the page re-read is Deciding — started when, by whom — with Approve and Deny disabled by that reason, and a decision
+//     posted anyway is the daemon's 409; the approve settles on its own;
+//   - an interrupted approve whose outcome is unknown (PLANTED on this verifier's own data dir: no live stack interrupts an
+//     approve on demand) reads Outcome unknown with the daemon's named reason, Approve disabled by that name and Deny open;
+//     Deny through the page makes the daemon reconcile from the authority's record first — nothing recorded, so a REAL
+//     `interrupted` history entry — and the page lists it;
+//   - an approval whose grant expired unused (its expiry moved into the past on this verifier's own data dir: the
+//     authority's grant lives far longer than a run) is never approved again: the requester's retry naming it is refused
+//     approval_ref_expired in true words and parks a successor for the same effect under a fresh nonce (a new request hash
+//     the verifier re-derives); the old page reads expired and links the successor, which names what it supersedes; the
+//     daemon never takes the old request hash to the authority again; the successor approved through its page is consumed
+//     by the requester's retry once, and a replay of the old approval_ref stays refused;
 //   - the passphrase reaches no serve output, no page and no file of the daemon's data dir;
 //   - with the daemon stopped, the page says so (503) and shows no challenge and no form.
 //
@@ -51,6 +65,8 @@ const WRONG_PASS = `challenge-page-wrong-${randomBytes(12).toString("hex")}`;
 const SHORT_TTL_MS = 15000;
 const GENESIS_SCOPE = "scope:autonomous_system.genesis_admit";
 const APPROVE_WAIT_MS = 900000;
+// the route's bounded wait on the second restart: far under a real approve, so the route answers 202 and the approve settles
+const DECISION_WAIT_MS = 1500;
 const SHOTS = process.env.IOI_CHALLENGE_PAGE_SCREENSHOTS || "";
 
 const results = [];
@@ -349,6 +365,120 @@ async function run() {
     ok("an ask nobody decided reads Closed once it expires (the daemon restarted with its pending window shortened — it can only be shortened): no form, and a decision posted anyway is the daemon's 410 challenge_expired on the page, the record still undecided",
       parkedC.status === 403 && C0.state === "pending" && cStatus === 200 && cState === "expired" && cForms === 0 && late.status === 410 && refusalOf(late.html).code === "challenge_expired" && C1.state === "pending" && C1.decision === null,
       `park ${parkedC.status} · page ${cStatus} ${cState} forms ${cForms} · late deny ${late.status} ${refusalOf(late.html).code} · daemon ${C1.state}`);
+
+    // ---- R-240, challenge states + re-ask: the daemon restarts on the same data with the route's wait shortened ---------
+    await stopServe(serve);
+    await plane.stop();
+    plane = await startIsolatedPlane({ dataDir: planeDir, baseEnv: sanitizedVerifierBaseEnv(process.env), env: { ...DAEMON_ENV, IOI_HYPERVISOR_AUTHORITY_DECISION_WAIT_MS: String(DECISION_WAIT_MS) } });
+    DAEMON = plane.daemonUrl;
+    COOKIE = `ioi_session=${await isolatedOperatorSession(plane)}`;
+    ({ child: serve, url: SERVE } = await startServe(DAEMON));
+    await ctx.addCookies([{ name: "ioi_session", value: COOKIE.split("=")[1], url: SERVE }]);
+    const familyDir = filesHolding(planeDir, [Buffer.from(`"challenge_id":"${idA}"`), Buffer.from(`"challenge_id": "${idA}"`)]).map((p) => path.dirname(p)).find((p) => fs.existsSync(path.join(p, `${idA}.json`))) || null;
+    const plant = (id, change) => { const file = path.join(familyDir, `${id}.json`); fs.writeFileSync(file, JSON.stringify(change(JSON.parse(fs.readFileSync(file, "utf8"))))); };
+    // one read of everything a page shows about its state (a page being decided reloads itself every few seconds)
+    const pageState = (p = pg) => p.evaluate(() => {
+      const q = (s) => document.querySelector(s);
+      const reasonOf = (label) => [...document.querySelectorAll("button[aria-disabled=true]")].find((b) => b.textContent.trim() === label)?.getAttribute("data-ioi-disabled-reason") || null;
+      return { state: q("[data-ioi-challenge-state]")?.getAttribute("data-ioi-challenge-state") || null, label: q("[data-ioi-challenge-state]")?.textContent || null,
+        since: q("[data-ioi-challenge-deciding-since]")?.textContent || null, by: q("[data-ioi-challenge-deciding-by]")?.textContent || null,
+        approveWhy: reasonOf("Approve"), denyWhy: reasonOf("Deny"), forms: [...document.querySelectorAll("form[data-ioi-challenge-decision]")].map((f) => f.getAttribute("data-ioi-challenge-decision")),
+        passphrase: !!q("[data-ioi-operator-passphrase]"), reload: q("[data-ioi-challenge-reload]")?.getAttribute("href") || null,
+        unknownReason: q("[data-ioi-challenge-unknown-reason]")?.textContent || null, stillDeciding: !!q("[data-ioi-challenge-still-deciding]"), refusal: q("[data-ioi-challenge-refusal]")?.getAttribute("data-ioi-challenge-refusal") || null,
+        supersededBy: q("[data-ioi-challenge-superseded-by] a")?.getAttribute("href") || null, supersedes: q("[data-ioi-challenge-supersedes]")?.getAttribute("data-ioi-challenge-supersedes") || null,
+        history: [...document.querySelectorAll("[data-ioi-challenge-history]")].map((r) => ({ state: r.getAttribute("data-ioi-challenge-history"), text: r.textContent })) };
+    });
+    const settledOf = async (id) => { const end = Date.now() + APPROVE_WAIT_MS; let c = await challenge(id); while (Date.now() < end && c.state === "pending" && c.deciding) { await sleep(1000); c = await challenge(id); } return c; };
+
+    // ---- Outcome unknown (planted), and Deny's real reconciliation leaving an `interrupted` history entry ----------------
+    const parkedF = await execute("rotate the staging keys");
+    const idF = parkedF.j.approval_challenge?.challenge_id;
+    const UNKNOWN_REASON = "authority_record_unreadable";
+    if (familyDir && idF) plant(idF, (c) => ({ ...c, outcome_unknown: { reason: UNKNOWN_REASON, message: "the authority's record for this request hash could not be read (planted by the challenge-page verifier); nothing is concluded until it can be", since: new Date().toISOString(), checked_at: new Date().toISOString(),
+      attempt: { attempt_id: "dec_planted_by_verifier", process: "dp_planted_by_verifier", decided_by: me.principal_ref, reason: "", started_at: new Date().toISOString(), started_at_ms: Date.now(), child_pid: null } } }));
+    const F0 = idF ? await challenge(idF) : {};
+    await visit(pg, pagePath(idF));
+    const fShown = await pageState();
+    await shot("11-outcome-unknown");
+    ok("an interrupted approve whose outcome is unknown (PLANTED on this verifier's own data dir) reads Outcome unknown with the daemon's named reason: Approve disabled by that name (aria-disabled + data-ioi-disabled-reason, no passphrase asked) and the Deny form open",
+      !!familyDir && F0.state === "pending" && F0.outcome_unknown?.reason === UNKNOWN_REASON && fShown.state === "outcome_unknown" && fShown.label === `Outcome unknown — ${UNKNOWN_REASON}` && fShown.unknownReason === UNKNOWN_REASON
+        && String(fShown.approveWhy || "").includes(`(${UNKNOWN_REASON})`) && /Deny stays open/u.test(fShown.approveWhy || "") && !fShown.passphrase && JSON.stringify(fShown.forms) === JSON.stringify(["deny"]),
+      `daemon ${F0.state} unknown ${F0.outcome_unknown?.reason} · page ${fShown.state} "${fShown.label}" · approve why "${String(fShown.approveWhy).slice(0, 120)}" · forms ${JSON.stringify(fShown.forms)} · passphrase field ${fShown.passphrase}`);
+    const fDenied = await decide("deny", { id: idF, reason: "interrupted; not needed" });
+    const F1 = await challenge(idF);
+    const fAfter = await pageState();
+    await shot("12-denied-after-reconciliation");
+    const fLast = (F1.history || []).at(-1) || {};
+    ok("Deny through the page on that ask: the daemon first reconciles it from the authority's own record (nothing recorded for its request hash, no approve running) — a REAL `interrupted` entry in its history — then denies it, and the page lists the Interrupted entry under the denial",
+      fDenied.status === 303 && F1.state === "denied" && F1.decision?.reason === "interrupted; not needed" && !F1.outcome_unknown && fLast.state === "interrupted" && fLast.reconciliation?.authority_record === "absent" && fLast.reconciliation?.attempt?.attempt_id === "dec_planted_by_verifier"
+        && fAfter.state === "denied" && fAfter.history.some((h) => h.state === "interrupted" && /Interrupted/u.test(h.text) && /the authority recorded nothing for this request hash/u.test(h.text)),
+      `POST ${fDenied.status} · daemon ${F1.state} · last history ${JSON.stringify({ state: fLast.state, record: fLast.reconciliation?.authority_record })} · page ${fAfter.state} history ${JSON.stringify(fAfter.history.map((h) => h.state))}`);
+
+    // ---- Deciding and Still deciding: a real approve outlives the route's shortened wait ---------------------------------
+    const parkedD = await execute("write the release notes");
+    const idD = parkedD.j.approval_challenge?.challenge_id;
+    const D0 = idD ? await challenge(idD) : {};
+    const still = await decide("approve", { id: idD, passphrase: OPERATOR_PASS });
+    const stillShown = await pageState();
+    const D1 = await challenge(idD);
+    await shot("13-still-deciding");
+    ok("an approve the daemon is still recording when the route's wait runs out answers 202 and reads Still deciding (a status, in the daemon's words — never a refusal), above the record re-read, which the daemon marks as being decided by the operator",
+      still.status === 202 && stillShown.stillDeciding && stillShown.refusal === null && /challenge_decision_still_running/u.test(still.t) && !/The daemon refused/u.test(still.t)
+        && D1.state === "pending" && D1.deciding?.decided_by === me.principal_ref && !still.html.includes(OPERATOR_PASS) && !still.url.includes(OPERATOR_PASS),
+      `POST ${still.status} still-deciding ${stillShown.stillDeciding} refusal ${stillShown.refusal} · daemon ${D1.state} deciding ${JSON.stringify(D1.deciding ? { by: D1.deciding.decided_by, at: D1.deciding.started_at } : null)}`);
+    await visit(pg, pagePath(idD));
+    const dShown = await pageState();
+    await shot("14-deciding");
+    const busy = await fetch(`${SERVE}${pagePath(idD)}/deny`, { method: "POST", headers: { cookie: COOKIE, "content-type": "application/x-www-form-urlencoded" }, body: "reason=while+deciding", redirect: "manual" }).then(async (r) => ({ status: r.status, html: await r.text() }));
+    const D2 = await challenge(idD);
+    ok("the page re-read while it runs reads Deciding — started when, by whom (the daemon's marker) — with Approve and Deny disabled by that reason and no form or passphrase field, a reload link to itself; and a decision posted anyway is the daemon's 409 challenge_decision_in_progress, the record still being decided",
+      dShown.state === "deciding" && dShown.since === D1.deciding?.started_at && dShown.by === `${ISOLATED_OPERATOR.name} ${me.principal_ref}` && /already running/u.test(dShown.approveWhy || "") && /already running/u.test(dShown.denyWhy || "")
+        && dShown.forms.length === 0 && !dShown.passphrase && dShown.reload === pagePath(idD)
+        && busy.status === 409 && refusalOf(busy.html).code === "challenge_decision_in_progress" && D2.state === "pending" && D2.deciding?.attempt_id === D1.deciding?.attempt_id,
+      `page ${dShown.state} "${dShown.label}" since ${dShown.since} by ${dShown.by} · approve why "${String(dShown.approveWhy).slice(0, 90)}" · deny why ${dShown.denyWhy ? "set" : "NONE"} · forms ${dShown.forms.length} · reload ${dShown.reload} · posted deny ${busy.status} ${refusalOf(busy.html).code} · daemon ${D2.state}`);
+    const D3 = await settledOf(idD);
+    ok("the approve settles on its own in the daemon: the record approved by the operator with a grant for exactly its coordinates, the marker gone",
+      D3.state === "approved" && !D3.deciding && !!D3.grant_ref && D3.decision?.decided_by === me.principal_ref && D3.request_hash === D0.request_hash,
+      `daemon ${D3.state} grant ${JSON.stringify(D3.grant_ref)} by ${D3.decision?.decided_by}`);
+
+    // ---- an approval whose grant expired unused is asked again, never approved again ------------------------------------
+    // (the authority's grant lives far longer than this run: its expiry is moved into the past on this verifier's own data)
+    if (familyDir && idD) plant(idD, (c) => ({ ...c, grant_expires_at_ms: Date.now() - 1000 }));
+    const intentD = D0.published_preimage?.request_preimage?.intent;
+    const stale = await execute(intentD, D3.approval_ref);
+    const idE = stale.j.approval_challenge?.challenge_id;
+    const E0 = idE ? await challenge(idE) : {};
+    const D4 = await challenge(idD);
+    const reaskHash = (base, nonce) => `sha256:${createHash("sha256").update(JSON.stringify({ ask_nonce: nonce, domain: "ioi.hypervisor.wallet-approval-challenge.reask.v1", request_hash: base })).digest("hex")}`;
+    ok("the requester's retry naming an approval whose grant expired unused is refused approval_ref_expired in true words (never \"approve again\") and parks a SUCCESSOR for the same effect: pending, a new request hash re-derived here from the old one and a fresh nonce, a new id naming what it supersedes; the old record keeps its approval and names the successor",
+      stale.status === 403 && stale.j.reason === "approval_ref_expired" && /cannot be approved again/u.test(stale.j.message || "") && /asked again/u.test(stale.j.message || "") && !/approve again/u.test(stale.j.message || "")
+        && !!idE && idE !== idD && stale.j.approval_challenge?.supersedes === idD && E0.state === "pending" && E0.supersedes === idD && E0.base_request_hash === D0.request_hash && E0.request_hash !== D0.request_hash
+        && E0.request_hash === reaskHash(D0.request_hash, E0.ask_nonce) && E0.policy_hash === D0.policy_hash && E0.target_scope === D0.target_scope && idE === challengeIdFor(D0.target_scope, D0.policy_hash, E0.request_hash, D0.audience)
+        && D4.state === "approved" && D4.superseded_by === idE && D4.request_hash === D0.request_hash,
+      `retry ${stale.status} ${stale.j.reason}: ${String(stale.j.message || "").slice(0, 160)} · successor ${idE} ${E0.state} supersedes ${E0.supersedes} · request ${E0.request_hash === reaskHash(D0.request_hash, E0.ask_nonce) ? "re-derived" : "NOT re-derived"} · old ${D4.state} → ${D4.superseded_by}`);
+    await visit(pg, pagePath(idD));
+    const oldShown = await pageState();
+    await shot("15-grant-expired-asked-again");
+    await visit(pg, pagePath(idE));
+    const newShown = await pageState();
+    await shot("16-successor");
+    const againOld = await d("POST", `/v1/hypervisor/authority/challenges/${idD}/decision`, { decision: "approve", operator_passphrase: OPERATOR_PASS });
+    const D5 = await challenge(idD);
+    ok("the old page reads Approved — grant expired unused; the action must be asked again, with no form and a link to the successor; the successor's page names what it supersedes and carries the operator's forms; and the old request hash is never taken to the authority again (the daemon's 410 challenge_grant_expired, nothing started)",
+      oldShown.state === "grant_expired" && /grant expired unused; the action must be asked again/u.test(oldShown.label || "") && oldShown.forms.length === 0 && oldShown.supersededBy === pagePath(idE)
+        && newShown.state === "pending" && newShown.supersedes === idD && newShown.forms.includes("approve") && newShown.forms.includes("deny")
+        && againOld.status === 410 && againOld.j.error?.code === "challenge_grant_expired" && againOld.j.superseded_by === idE && D5.state === "approved" && JSON.stringify(D5.decision) === JSON.stringify(D4.decision),
+      `old page ${oldShown.state} "${oldShown.label}" forms ${oldShown.forms.length} → ${oldShown.supersededBy} · new page ${newShown.state} supersedes ${newShown.supersedes} forms ${JSON.stringify(newShown.forms)} · approve old ${againOld.status} ${againOld.j.error?.code}`);
+    const eAsk = await decide("approve", { id: idE, passphrase: OPERATOR_PASS });
+    const E1 = await settledOf(idE);
+    const ran = await execute(intentD, E1.approval_ref);
+    const E2 = await challenge(idE);
+    const replayOld = await execute(intentD, D3.approval_ref);
+    ok("the operator approves the successor through its page: the authority mints a grant for the NEW request hash, the requester's retry naming it runs the effect once (consumed by its admission), and a replay of the old approval_ref is still refused approval_ref_expired, pointing at the successor, now completed",
+      (eAsk.status === 202 || eAsk.status === 303) && E1.state === "approved" && !!E1.grant_ref && E1.request_hash === E0.request_hash
+        && E2.state === "consumed" && String(E2.consumed_by || "").startsWith("authority-admission-intents/")
+        && replayOld.status === 403 && replayOld.j.reason === "approval_ref_expired" && replayOld.j.approval_challenge?.challenge_id === idE && replayOld.j.approval_challenge?.challenge_state === "consumed",
+      `approve ${eAsk.status} · daemon ${E1.state} grant ${JSON.stringify(E1.grant_ref)} · retry ${ran.status} ${ran.j.decision || ran.j.reason || ""} · ${E2.state} by ${E2.consumed_by} · old replay ${replayOld.status} ${replayOld.j.reason} → ${replayOld.j.approval_challenge?.challenge_id} ${replayOld.j.approval_challenge?.challenge_state}`);
 
     // ---- the passphrase: in no serve output, no page, no file of the daemon's data dir ---------------------------------
     const leaks = filesHolding(planeDir, [Buffer.from(OPERATOR_PASS), Buffer.from(WRONG_PASS)]);

@@ -76,7 +76,7 @@ test("each decided or closed state reads from the record, with no form: expired,
   const cases = [
     [record({ expires_at_ms: NOW - 1 }), "expired", /Closed — expired undecided/u, /the daemon refuses a decision on it and has dropped it from its inbox\. Re-running the effect parks it again/u],
     [record({ state: "approved", grant_ref: "grant://g1", grant_expires_at_ms: NOW + 900_000, ...decision("approve") }), "approved", /Approved — grant minted, not yet run/u, /data-ioi-challenge-grant-ref>grant:\/\/g1</u],
-    [record({ state: "approved", grant_ref: "grant://g1", grant_expires_at_ms: NOW - 1, ...decision("approve") }), "grant_expired", /the grant expired unused/u, /approval_ref_expired/u],
+    [record({ state: "approved", grant_ref: "grant://g1", grant_expires_at_ms: NOW - 1, ...decision("approve") }), "grant_expired", /Approved — grant expired unused; the action must be asked again/u, /approval_ref_expired\): the action must be asked again[^<]*and none has been parked yet/u],
     [record({ state: "consuming", grant_ref: "grant://g1", ...decision("approve") }), "consuming", /Approved — being run now/u, /presenting its one-use grant/u],
     [record({ state: "consumed", grant_ref: "grant://g1", consumed_at: "2026-09-28T11:40:00Z", consumed_by: "authority-admission-intents/x", ...decision("approve") }), "completed", /Completed — the effect ran once/u, /data-ioi-challenge-consumed-by>authority-admission-intents\/x</u],
     [record({ state: "denied", ...decision("deny", { reason: "not this effect" }) }), "denied", /data-ioi-challenge-state="denied">Denied/u, /data-ioi-challenge-reason>not this effect</u],
@@ -145,4 +145,106 @@ test("the one decision-body parser: a form or a JSON call, a same-origin return 
   assert.deepEqual(operatorDecisionFrom(Buffer.from(JSON.stringify({ reason: "ok", operator_passphrase: "p" })), "application/json"), { isForm: false, reason: "ok", operatorPassphrase: "p", returnTo: "" });
   assert.deepEqual(operatorDecisionFrom(Buffer.from("not json"), "application/json"), { isForm: false, reason: "", operatorPassphrase: "", returnTo: "" });
   assert.equal(FIELD, '<input type="password" name="operator_passphrase" autocomplete="off" required placeholder="operator passphrase" aria-label="Operator passphrase" data-ioi-operator-passphrase>', "the approval cards' own field, byte for byte");
+});
+
+// ---- R-240, challenge states + re-ask: what the decision-durability states and an expired grant read as ------------------
+
+const DECIDING = { attempt_id: "dec_1", process: "dp_live", decided_by: "user://op", reason: "", started_at: "2026-09-28T11:58:00Z", started_at_ms: NOW - 120_000, child_pid: 4242 };
+const UNKNOWN = { reason: "authority_record_unreadable", message: "the authority's record for this request hash could not be read (offline); nothing is concluded until it can be", since: "2026-09-28T11:50:00Z", checked_at: "2026-09-28T11:55:00Z",
+  attempt: { attempt_id: "dec_0", process: "dp_gone", decided_by: "user://op", started_at: "2026-09-28T11:49:00Z" } };
+const disabledReasonOf = (html, label) => new RegExp(`<button class="act[^"]*" type="button" disabled aria-disabled="true" data-ioi-disabled-reason="([^"]+)"[^>]*>${label}</button>`, "u").exec(html)?.[1] || null;
+
+test("Deciding: an approve being recorded reads from the record's marker — who started it and when — with Approve and Deny disabled by that reason (the unified gap contract), no passphrase asked, and the page re-reading itself by its own GET address", () => {
+  const r = page(record({ deciding: DECIDING }));
+  assert.equal(r.status, 200);
+  assert.match(r.inner, /data-ioi-challenge-state="deciding">Deciding — started 2026-09-28T11:58:00Z by Ada Operator</u);
+  assert.match(r.inner, /data-ioi-challenge-deciding-since>2026-09-28T11:58:00Z</u);
+  assert.match(r.inner, /data-ioi-challenge-deciding-by>Ada Operator <code>user:\/\/op<\/code></u);
+  for (const label of ["Approve", "Deny"]) {
+    const why = disabledReasonOf(r.inner, label);
+    assert.ok(why && /already running \(started 2026-09-28T11:58:00Z by Ada Operator\)/u.test(why) && /refuses another decision until it settles/u.test(why), `${label}: ${why}`);
+  }
+  assert.doesNotMatch(r.inner, /<form|data-ioi-operator-passphrase/u, "nothing can be sent while it runs");
+  assert.match(r.inner, /data-ioi-challenge-decide="deciding"/u);
+  assert.ok(r.inner.includes(`<a href="/__ioi/authority/challenges/${ID}" data-ioi-challenge-reload>`), "a Reload link to the page itself");
+  assert.ok(r.inner.includes(`location.replace("/__ioi/authority/challenges/${ID}")`), "the auto-refresh loads the GET address, never re-posts");
+  assert.doesNotMatch(page(record()).inner, /location\.replace/u, "a plain pending page does not refresh itself");
+  // deciding outranks an expiry: the daemon settles the approve whatever the ask's window
+  assert.match(page(record({ deciding: DECIDING, expires_at_ms: NOW - 1 })).inner, /data-ioi-challenge-state="deciding"/u);
+  // a member sees who is deciding, and still no form
+  const m = page(record({ deciding: DECIDING }), MEMBER);
+  assert.match(m.inner, /data-ioi-challenge-state="deciding"/u);
+  assert.match(m.inner, /data-ioi-challenge-decide="not-operator"/u);
+});
+
+test("a 202 is Still deciding, never a refusal: the daemon's code and words, the record below re-read, a reload link — and the page's status is the daemon's 202", () => {
+  const still = { decision: "approve", status: 202, code: "challenge_decision_still_running", message: "the deployment authority is still approving after 270000 ms; the decision continues in the daemon and settles the challenge on its own — re-read it for the outcome" };
+  const r = page(record({ deciding: DECIDING }), OPERATOR, { refusal: still });
+  assert.equal(r.status, 202);
+  assert.match(r.inner, /role="status" data-ioi-challenge-still-deciding/u);
+  assert.match(r.inner, /Still deciding — the daemon accepted this approval/u);
+  assert.ok(r.inner.includes(`<code>challenge_decision_still_running</code> — <span data-ioi-challenge-refusal-message>${still.message}</span>`), "in the daemon's words");
+  assert.doesNotMatch(r.inner, /data-ioi-challenge-refusal=|role="alert"|The daemon refused/u, "not rendered as a refusal");
+  assert.match(r.inner, /data-ioi-challenge-state="deciding"/u, "the record, re-read, is being decided");
+  // a concurrent decision's 409 IS a refusal, in the daemon's words
+  const busy = page(record({ deciding: DECIDING }), OPERATOR, { refusal: { decision: "deny", status: 409, code: "challenge_decision_in_progress", message: "a decision on this challenge is already running" } });
+  assert.match(busy.inner, /data-ioi-challenge-refusal="challenge_decision_in_progress"/u);
+});
+
+test("Outcome unknown: the daemon's named reason and message, Approve disabled by that name, Deny open with its reason field — and an expired one reads Closed with the unknown outcome named", () => {
+  const r = page(record({ outcome_unknown: UNKNOWN }));
+  assert.equal(r.status, 200);
+  assert.match(r.inner, /data-ioi-challenge-state="outcome_unknown">Outcome unknown — authority_record_unreadable</u);
+  assert.match(r.inner, /<code data-ioi-challenge-unknown-reason>authority_record_unreadable<\/code> — <span data-ioi-challenge-unknown-message>the authority's record for this request hash could not be read \(offline\)/u);
+  assert.match(r.inner, /since 2026-09-28T11:50:00Z, last checked 2026-09-28T11:55:00Z/u);
+  const why = disabledReasonOf(r.inner, "Approve");
+  assert.ok(why && why.includes("(authority_record_unreadable)") && /runs nothing on a guess/u.test(why) && /Deny stays open/u.test(why), why);
+  assert.doesNotMatch(r.inner, /data-ioi-operator-passphrase/u, "no passphrase is asked for an approve the daemon refuses");
+  assert.ok(r.inner.includes(`action="/__ioi/authority/challenges/${ID}/deny" data-ioi-challenge-decision="deny"><input name="reason"`), "Deny stays open");
+  assert.match(r.inner, /<button class="act ghost" type="submit" data-busy="Denying…">Deny<\/button>/u);
+  const closed = page(record({ outcome_unknown: UNKNOWN, expires_at_ms: NOW - 1 }));
+  assert.match(closed.inner, /data-ioi-challenge-state="expired"/u);
+  assert.match(closed.inner, /outcome was still unknown when it closed \(<code>authority_record_unreadable<\/code>\)/u);
+  assert.doesNotMatch(closed.inner, /<form/u);
+});
+
+test("the interrupted history entry: an approve a stopped daemon left with nothing recorded reads Interrupted in the history, with who started it and what the authority held", () => {
+  const history = [
+    { state: "expired", decision: null, closed_at: "2026-09-27T12:00:00Z" },
+    { state: "interrupted", decision: null, closed_at: "2026-09-28T11:40:00Z", reconciliation: { authority_record: "absent", note: "…", attempt: { attempt_id: "dec_0", decided_by: "user://op", started_at: "2026-09-28T11:30:00Z" } } },
+  ];
+  const r = page(record({ history }));
+  assert.match(r.inner, /<h2>Earlier asks and interrupted decisions<\/h2>/u);
+  assert.match(r.inner, /<tr data-ioi-challenge-history="interrupted"><td>Interrupted<\/td><td>2026-09-28T11:40:00Z<\/td><td>none — the daemon stopped mid-approve \(started 2026-09-28T11:30:00Z by Ada Operator <code>user:\/\/op<\/code>\); the authority recorded nothing for this request hash, so the operator decides afresh<\/td><\/tr>/u);
+  assert.match(r.inner, /<tr data-ioi-challenge-history="expired"><td>Expired undecided<\/td>/u);
+  assert.match(page(record({ history: [history[0]] })).inner, /<h2>Earlier asks for this exact effect<\/h2>/u);
+  // a decision adopted from the authority's record, and a denial made while the outcome was unknown, are named too
+  const adopted = page(record({ state: "approved", grant_ref: "grant://g", grant_expires_at_ms: NOW + 60_000, decision: { decision: "approve", decided_by: "user://op", decided_at: "2026-09-28T11:45:00Z", reconciled_from: "authority_record" } }));
+  assert.match(adopted.inner, /data-ioi-challenge-reconciled>adopted from the authority's own record \(authority_record\)/u);
+  const denied = page(record({ state: "denied", decision: { decision: "deny", decided_by: "user://op", decided_at: "2026-09-28T11:45:00Z", outcome_unknown_at_denial: UNKNOWN } }));
+  assert.match(denied.inner, /data-ioi-challenge-denied-while-unknown>an interrupted approval's outcome was unknown \(<code>authority_record_unreadable<\/code>\)/u);
+});
+
+test("an expired grant links to the successor its re-ask parked, and the successor names the ask it supersedes and the nonce its new request hash binds", () => {
+  const NEXT = "wac_" + "fedcba9876543210".repeat(2);
+  const old = page(record({ state: "approved", grant_ref: "grant://g1", grant_expires_at_ms: NOW - 1, superseded_by: NEXT, decision: { decision: "approve", decided_by: "user://op", decided_at: "2026-09-28T11:00:00Z" } }));
+  assert.match(old.inner, /data-ioi-challenge-state="grant_expired"/u);
+  assert.ok(old.inner.includes(`and has: <span data-ioi-challenge-superseded-by><a href="/__ioi/authority/challenges/${NEXT}">the new challenge</a> (<code>${NEXT}</code>)</span>.`), "links to the successor");
+  assert.doesNotMatch(old.inner, /<form/u, "an expired approval is never decided again");
+  const next = page(record({ challenge_id: NEXT, approval_ref: `wallet-approval-challenge://${NEXT}`, request_hash: HASH("d"), base_request_hash: HASH("b"), ask_nonce: "0f".repeat(16), supersedes: ID }));
+  assert.match(next.inner, /data-ioi-challenge-state="pending"/u);
+  assert.ok(next.inner.includes(`data-ioi-challenge-supersedes="${ID}">This asks the effect again: its earlier approval (<a href="/__ioi/authority/challenges/${ID}">${ID}</a>) expired unused`), "names what it supersedes");
+  assert.match(next.inner, new RegExp(`data-ioi-challenge-request-hash>${HASH("d")}</code> <span class="meta">\\(a re-ask: the effect's own request hash <code data-ioi-challenge-base-request-hash>${HASH("b")}</code> \\(hypervisor\\.session\\.execute\\.request\\.v1\\) under the single-use nonce <code>${"0f".repeat(16)}</code>\\)`, "u"));
+  assert.match(next.inner, /data-ioi-challenge-decision="approve">/u, "the successor is decided as a new ask");
+});
+
+test("the list names every new state in its pill, from the same record reading as the page", () => {
+  const list = P.renderChallengeList({ read: { ok: true, status: 200, body: { challenges: [
+    record({ deciding: DECIDING }), record({ challenge_id: "wac_" + "1".repeat(32), outcome_unknown: UNKNOWN }),
+    record({ challenge_id: "wac_" + "2".repeat(32), state: "approved", grant_expires_at_ms: NOW - 1 }),
+  ] } }, who: OPERATOR, nowMs: NOW });
+  assert.match(list.inner, /data-ioi-challenge-state="deciding">Deciding — started 2026-09-28T11:58:00Z by Ada Operator</u);
+  assert.match(list.inner, /data-ioi-challenge-state="outcome_unknown">Outcome unknown — authority_record_unreadable</u);
+  assert.match(list.inner, /data-ioi-challenge-state="grant_expired">Approved — grant expired unused; the action must be asked again</u);
+  assert.match(list.inner, /data-ioi-challenge-count="0">0 waiting for the operator · 3 in all/u, "none of them waits on the operator's approve");
 });
