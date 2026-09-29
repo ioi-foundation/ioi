@@ -31,7 +31,13 @@ import { fileURLToPath } from "node:url";
 import { SURFACES, CAPABILITIES, OPERATIONAL_STATES, EMBEDDED_SHELL_STATES, EMBED_THREAD_ROUTES, embeddableRoutes, boundSurface } from "./surface-registry.mjs";
 import { emitVerifierCensus } from "./lib/verifier-census.mjs";
 
-const SERVE = (process.env.IOI_HYPERVISOR_SERVE_URL || "http://127.0.0.1:4173").replace(/\/$/, "");
+// Its own isolated daemon + serve, the operator signed in (R-240, verifier auth sweep, 2026-09-29). This verifier read
+// `IOI_HYPERVISOR_SERVE_URL || :4173` — the OWNER's development serve, or in CI the job's own serve, which since 2026-09-26
+// requires sign-in, so a browser with no session landed on sign-in instead of the shell. An explicit URL naming the owner's
+// stack is refused (verifier-stack.mjs).
+import { verifierStack } from "./lib/verifier-stack.mjs";
+const STACK = await verifierStack({ serve: true });
+const SERVE = STACK.serveUrl;
 const HERE = dirname(fileURLToPath(import.meta.url));
 const SHOT_DIR = join(HERE, "..", ".artifacts", "native-container");
 
@@ -148,7 +154,10 @@ async function run() {
     const b = await chromium.launch();
     try {
       const pg = await b.newPage({ viewport: { width: 1440, height: 900 } });
-      await pg.goto(`${SERVE}/ai`, { waitUntil: "networkidle" });
+      await STACK.signIn(pg);
+      // 2026-09-29 (R-240, verifier auth sweep): a SIGNED-IN shell holds its session/notification streams open, so the page
+      // never reaches networkidle; the sidebar wait below is the readiness gate it always was.
+      await pg.goto(`${SERVE}/ai`, { waitUntil: "domcontentloaded" });
       const rail = pg.locator('[data-testid="sidebar"]');
       await pg.waitForSelector('[data-testid="sidebar"] a[href="#applications"]', { timeout: 15000 });
       await pg.waitForTimeout(1200); // augmentation ticks settle (React re-renders the rail)
@@ -166,7 +175,10 @@ async function run() {
           // Two injected rows are not navigation: the Open Application row, and the signed-out notice
           // under Sessions (R-240) — a STATE row that says why Sessions is empty and links to sign-in,
           // present only while nobody is signed in. Any other injected id is permanent nav and fails.
-          injected: [...sb.querySelectorAll('[id^="ioi-"]')].map((e) => e.id).filter((id) => id !== "ioi-openapp-rail" && id !== "ioi-signedout-rail").join(","),
+          // 2026-09-29 (R-240, verifier auth sweep — first run that reached this line since the sign-in gate): ADR 0056 P1
+          // (b7afa75f1) mounted the notification bell in the sidebar footer beside What's new. It opens the inbox PANEL (a
+          // dialog), it is not navigation — the same reasoning that exempts the signed-out notice.
+          injected: [...sb.querySelectorAll('[id^="ioi-"]')].map((e) => e.id).filter((id) => id !== "ioi-openapp-rail" && id !== "ioi-signedout-rail" && id !== "ioi-notif-bell").join(","),
         };
       });
       // Re-aimed (2026-08-20): the shell's rail evolved — Home is an icon-only anchor (no text) and
@@ -174,7 +186,7 @@ async function run() {
       // row (container-first, 80-automations). The permanent rail is Home → Projects → Applications
       // with the Sessions region; still no Ontology entry, still no injected permanent nav.
       ok("the permanent rail is the native set: Home (icon) → Projects → Applications, with the Sessions region", railState.homeAny >= 0 && railState.projects >= 0 && railState.applications > railState.projects && railState.sessions === true, JSON.stringify(railState));
-      ok("no Ontology rail label and no injected permanent nav id (the Open Application row is the only injected rail row)", railState.ontologyText === false && railState.injected === "");
+      ok("no Ontology rail label and no injected permanent nav id (the Open Application row is the only injected rail row)", railState.ontologyText === false && railState.injected === "", `ontology label ${railState.ontologyText} · injected [${railState.injected}]`);
 
       // Acquire the committed frame for a route, waiting for its landmark selector.
       const frameFor = async (route, marker) => {
@@ -363,6 +375,7 @@ run().then(() => {
   emitVerifierCensus({ verifierId: "native-shell", sourceUrl: import.meta.url, results });
   if (fails.length) process.exit(1);
   console.log("native application container: OK");
+  process.exit(0); // its own stack (daemon + serve children) would otherwise keep the process alive
 }).catch((e) => {
   console.error("verifier crashed:", e);
   process.exit(1);

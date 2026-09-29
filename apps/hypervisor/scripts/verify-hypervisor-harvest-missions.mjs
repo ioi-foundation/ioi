@@ -24,9 +24,16 @@ import { dirname, join } from "node:path";
 import { chromium } from "playwright";
 
 const HERE = dirname(fileURLToPath(import.meta.url));
-const SERVE = (process.env.IOI_HYPERVISOR_SERVE_URL || "http://127.0.0.1:4173").replace(/\/$/, "");
+// Its own isolated daemon (+ serve), the operator signed in (R-240, verifier auth sweep, 2026-09-29). This verifier read
+// `IOI_HYPERVISOR_DAEMON_URL || :8765` — the OWNER's daemon — with no caller; since 3aaaad467/3738d5cab the data-source,
+// materialized-set and ontology reads answer an anonymous caller 401 (read here as "not reachable"), and since 90cd1ddf2
+// an anonymous write is refused on loopback too. An explicit URL naming the owner's stack is refused (verifier-stack.mjs).
+import { verifierStack } from "./lib/verifier-stack.mjs";
+const STACK = await verifierStack({ serve: true });
+STACK.addOrigin("http://127.0.0.1:4612"); // its own mirror-down serve (below) reads the same daemon as the same operator
+const SERVE = STACK.serveUrl;
 const CAPTURE = (process.env.IOI_HARVEST_CAPTURE_URL || process.env.IOI_HARVEST_MIRROR_URL || "http://127.0.0.1:9225").replace(/\/$/, "");
-const DAEMON = (process.env.IOI_HYPERVISOR_DAEMON_URL || "http://127.0.0.1:8765").replace(/\/$/, "");
+const DAEMON = STACK.daemonUrl;
 
 const results = [];
 const ok = (name, cond, detail) => { results.push({ name, pass: !!cond, detail: detail || "" }); };
@@ -45,8 +52,7 @@ async function run() {
   // 0. Liveness — seeds serve live from the capture; rebinds serve from the daemon.
   const captureUp = await fetch(`${CAPTURE}/workspace/job-tracker/`).then((r) => r.ok).catch(() => false);
   if (!captureUp) { console.error("BLOCKED: harvest capture not reachable at " + CAPTURE); process.exit(2); }
-  const daemonUp = await fetch(`${DAEMON}/v1/hypervisor/sessions`).then((r) => r.ok).catch(() => false);
-  if (!daemonUp) { console.error("BLOCKED: daemon not reachable at " + DAEMON); process.exit(2); }
+  await STACK.requireRead(`/v1/hypervisor/sessions`, "the daemon");
   ok("harvest capture + daemon live", true, `${CAPTURE} · ${DAEMON}`);
 
   // 1. Both seeds serve under the estate, rebranded at the wire.
@@ -120,6 +126,7 @@ async function run() {
   const b = await chromium.launch();
   try {
     const page = await b.newPage({ viewport: { width: 1700, height: 1000 } });
+    await STACK.signIn(page);
     await page.goto(`${SERVE}/__apps/jobs`, { waitUntil: "networkidle", timeout: 60000 }).catch(() => {});
     await page.waitForTimeout(7000);
     const dflt = await page.evaluate(() => (document.body.innerText || "").replace(/\s+/g, " "));
@@ -133,6 +140,8 @@ async function run() {
     ok("[jobs] no brand-cased strings in rendered text", !/Palantir/.test(text));
 
     const page2 = await b.newPage({ viewport: { width: 1700, height: 1000 } });
+
+    await STACK.signIn(page2);
     await page2.goto(`${SERVE}/__apps/incidents`, { waitUntil: "networkidle", timeout: 60000 }).catch(() => {});
     await page2.waitForTimeout(6000);
     if (incs.length) {
@@ -149,7 +158,7 @@ async function run() {
 
   // 7. Offline honesty — a serve pointed at a dead capture names the outage.
   const child = spawn(process.execPath, [join(HERE, "serve-product-ui.mjs")], {
-    env: { ...process.env, PORT: "4612", PRODUCT_UI_PORT: "9412", IOI_HARVEST_MIRROR_URL: "http://127.0.0.1:1" },
+    env: { ...STACK.childEnv(), PORT: "4612", PRODUCT_UI_PORT: "9412", IOI_HARVEST_MIRROR_URL: "http://127.0.0.1:1" },
     stdio: "ignore",
   });
   try {
@@ -170,4 +179,5 @@ run().then(() => {
   console.log(`\n${results.length - fails.length}/${results.length} passed`);
   if (fails.length) process.exit(1);
   console.log("harvest-missions REBIND readiness: OK");
+  process.exit(0); // its own stack (daemon + serve children) would otherwise keep the process alive
 }).catch((e) => { console.error("verifier crashed:", e); process.exit(1); });

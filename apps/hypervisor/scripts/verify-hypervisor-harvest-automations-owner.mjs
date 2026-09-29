@@ -15,16 +15,21 @@
 // Usage: node apps/hypervisor/scripts/verify-hypervisor-harvest-automations-owner.mjs
 // Exit 2 = BLOCKED (daemon not running).
 
-const SERVE = (process.env.IOI_HYPERVISOR_SERVE_URL || "http://127.0.0.1:4173").replace(/\/$/, "");
-const DAEMON = (process.env.IOI_HYPERVISOR_DAEMON_URL || "http://127.0.0.1:8765").replace(/\/$/, "");
+// Its own isolated daemon (+ serve), the operator signed in (R-240, verifier auth sweep, 2026-09-29). This verifier read
+// `IOI_HYPERVISOR_DAEMON_URL || :8765` — the OWNER's daemon — with no caller; since 3aaaad467/3738d5cab the data-source,
+// materialized-set and ontology reads answer an anonymous caller 401 (read here as "not reachable"), and since 90cd1ddf2
+// an anonymous write is refused on loopback too. An explicit URL naming the owner's stack is refused (verifier-stack.mjs).
+import { verifierStack } from "./lib/verifier-stack.mjs";
+const STACK = await verifierStack({ serve: true });
+const SERVE = STACK.serveUrl;
+const DAEMON = STACK.daemonUrl;
 
 const results = [];
 const ok = (name, cond, detail) => { results.push({ name, pass: !!cond, detail: detail || "" }); };
 const esc = (s) => String(s).replace(/[&<>]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;" }[c]));
 
 async function run() {
-  const dmUp = await fetch(`${DAEMON}/v1/hypervisor/automations`).then((r) => r.ok).catch(() => false);
-  if (!dmUp) { console.error("BLOCKED: daemon not reachable at " + DAEMON); process.exit(2); }
+  await STACK.requireRead(`/v1/hypervisor/automations`, "the daemon");
 
   // Independent daemon read — the truth the surface must equal.
   const auto = await fetch(`${DAEMON}/v1/hypervisor/automations`).then((r) => r.json());

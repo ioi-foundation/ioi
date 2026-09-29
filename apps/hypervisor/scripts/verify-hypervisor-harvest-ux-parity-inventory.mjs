@@ -35,7 +35,13 @@ import { fileURLToPath } from "node:url";
 const HERE = path.dirname(fileURLToPath(import.meta.url));
 const { SEED_INVENTORY } = await import(path.join(HERE, "harvest-seed-inventory.mjs"));
 
-const SERVE = (process.env.IOI_HYPERVISOR_SERVE_URL || "http://127.0.0.1:4173").replace(/\/$/, "");
+// Its own isolated daemon + serve, the operator signed in (R-240, verifier auth sweep, 2026-09-29). This verifier read
+// `IOI_HYPERVISOR_SERVE_URL || :4173` — the OWNER's development serve — with no session; since 2026-09-26 a serve requires
+// sign-in, and the ontology/data-source reads behind its pages are caller-scoped. An explicit URL naming the owner's stack
+// is refused (verifier-stack.mjs).
+import { verifierStack } from "./lib/verifier-stack.mjs";
+const STACK = await verifierStack({ serve: true });
+const SERVE = STACK.serveUrl;
 const CAPTURE = (process.env.IOI_HARVEST_CAPTURE_URL || process.env.IOI_HARVEST_MIRROR_URL || "http://127.0.0.1:9225").replace(/\/$/, "");
 const ARTIFACT = process.env.IOI_PARITY_ARTIFACT || "/tmp/harvest-ux-parity-inventory.json";
 const SHOTS = process.env.IOI_PARITY_SHOTS || "";
@@ -98,6 +104,7 @@ async function assetParity(seed, assetPaths) {
 
 async function bootSeed(browser, seed) {
   const page = await browser.newPage({ viewport: { width: 1500, height: 950 } });
+  await STACK.signIn(page);
   const pageErrors = [];
   const failedReq = [];
   const assetPaths = [];

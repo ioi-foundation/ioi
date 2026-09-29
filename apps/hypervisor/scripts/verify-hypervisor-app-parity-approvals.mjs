@@ -36,8 +36,14 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { parityOverclaims } from "./lib/parity-honesty.mjs";
 
-const SERVE = (process.env.IOI_HYPERVISOR_SERVE_URL || "http://127.0.0.1:4173").replace(/\/$/, "");
-const DAEMON = (process.env.IOI_HYPERVISOR_DAEMON_URL || "http://127.0.0.1:8765").replace(/\/$/, "");
+// Its own isolated daemon (+ serve), the operator signed in (R-240, verifier auth sweep, 2026-09-29). This verifier read
+// `IOI_HYPERVISOR_DAEMON_URL || :8765` — the OWNER's daemon — with no caller; since 3aaaad467/3738d5cab the data-source,
+// materialized-set and ontology reads answer an anonymous caller 401 (read here as "not reachable"), and since 90cd1ddf2
+// an anonymous write is refused on loopback too. An explicit URL naming the owner's stack is refused (verifier-stack.mjs).
+import { verifierStack } from "./lib/verifier-stack.mjs";
+const STACK = await verifierStack({ serve: true });
+const SERVE = STACK.serveUrl;
+const DAEMON = STACK.daemonUrl;
 const here = path.dirname(fileURLToPath(import.meta.url));
 const appRoot = path.resolve(here, "..");
 
@@ -56,7 +62,7 @@ const page = async (url) => { for (let i = 0; i < 2; i++) { try { const r = awai
 //   3. `whoami` reports who that session IS — the expected reviewer ref is the daemon's own answer.
 // Admission is load-bearing: an unadmitted fixture would approve anonymously and prove nothing
 // about the identity seam, so it fails the verifier outright rather than degrading into a skip.
-const OPERATOR_SESSION = (process.env.IOI_HYPERVISOR_DAEMON_SESSION || "").trim();
+const OPERATOR_SESSION = STACK.token;
 async function admitReviewer(tag) {
   if (!OPERATOR_SESSION) throw new Error("reviewer identity fixture unavailable: set IOI_HYPERVISOR_DAEMON_SESSION to an authenticated operator session token (provisioning a principal is org-admin governed even on loopback)");
   const operator = { authorization: `Bearer ${OPERATOR_SESSION}` };
@@ -75,8 +81,7 @@ async function admitReviewer(tag) {
 }
 
 async function run() {
-  const up = await fetch(`${DAEMON}/v1/hypervisor/governance/approval-requests`).then((r) => r.ok).catch(() => false);
-  if (!up) { console.error("BLOCKED: daemon governance plane not reachable at " + DAEMON); process.exit(2); }
+  await STACK.requireRead(`/v1/hypervisor/governance/approval-requests`, "daemon governance plane");
 
   // 0. Matrix — approvals is daemon_wired, real landmark spec, no parity_blocked.
   const check = spawnSync("node", [path.join(here, "build-app-parity-matrix.mjs"), "--check"], { encoding: "utf8" });
@@ -110,7 +115,7 @@ async function run() {
 
   // 3. VISUAL PARITY — the hardened harness certifies against the VALID light reference.
   const artDir = path.join(appRoot, ".artifacts", "approvals-port-verify");
-  const h = spawnSync("node", [path.join(here, "harness-reference-parity.mjs")], { encoding: "utf8", timeout: 90000, env: { ...process.env, IOI_HARNESS_SURFACES: "approvals", IOI_HARNESS_ARTIFACT_DIR: artDir } });
+  const h = spawnSync("node", [path.join(here, "harness-reference-parity.mjs")], { encoding: "utf8", timeout: 90000, env: { ...STACK.childEnv(), IOI_HARNESS_SURFACES: "approvals", IOI_HARNESS_ARTIFACT_DIR: artDir } });
   let hp = null;
   if (h.status === 0 && existsSync(path.join(artDir, "result.json"))) hp = (JSON.parse(readFileSync(path.join(artDir, "result.json"), "utf8")).surfaces || [])[0];
   ok("HARDENED harness: the port PASSES visual_parity — theme MATCH (light/light) + full IA-landmark reproduction + region geometry, both sides valid", hp && hp.visual_parity === true && hp.theme_match === true && hp.reference_theme === "light" && hp.ioi_theme === "light" && hp.reference_valid === true && hp.ioi_valid === true && hp.evidence_ok === true, hp ? `visual=${hp.visual_parity} regions ${hp.region_score} theme ${hp.reference_theme}/${hp.ioi_theme} landmarks ${hp.landmark_covered}/${hp.landmark_applicable}` : "harness did not run");

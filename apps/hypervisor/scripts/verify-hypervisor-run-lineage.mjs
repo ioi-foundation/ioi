@@ -12,8 +12,14 @@
 
 import { chromium } from "playwright";
 
-const DAEMON = (process.env.IOI_HYPERVISOR_DAEMON_URL || "http://127.0.0.1:8765").replace(/\/$/, "");
-const SERVE = (process.env.IOI_HYPERVISOR_SERVE_URL || "http://127.0.0.1:4173").replace(/\/$/, "");
+// Its own isolated daemon (+ serve), the operator signed in (R-240, verifier auth sweep, 2026-09-29). This verifier read
+// `IOI_HYPERVISOR_DAEMON_URL || :8765` — the OWNER's daemon — with no caller; since 3aaaad467/3738d5cab the data-source,
+// materialized-set and ontology reads answer an anonymous caller 401 (read here as "not reachable"), and since 90cd1ddf2
+// an anonymous write is refused on loopback too. An explicit URL naming the owner's stack is refused (verifier-stack.mjs).
+import { verifierStack } from "./lib/verifier-stack.mjs";
+const STACK = await verifierStack({ serve: true });
+const DAEMON = STACK.daemonUrl;
+const SERVE = STACK.serveUrl;
 
 const results = [];
 const ok = (name, cond, detail) => { results.push({ name, pass: !!cond, detail: detail || "" }); };
@@ -27,6 +33,7 @@ async function run() {
   const b = await chromium.launch();
   try {
     const page = await b.newPage({ viewport: { width: 1440, height: 1000 } });
+    await STACK.signIn(page);
     await page.goto(`${SERVE}/__ioi/run-timeline/${encodeURIComponent(he.run_ref)}`, { waitUntil: "networkidle" });
     await page.waitForSelector(".rt-lineage", { timeout: 15000 });
     const lin = await page.locator(".rt-lineage").textContent();
@@ -59,4 +66,5 @@ run().then(() => {
   console.log(`\n${results.length - fails.length}/${results.length} passed`);
   if (fails.length) process.exit(1);
   console.log("run-lineage readiness: OK");
+  process.exit(0); // its own stack (daemon + serve children) would otherwise keep the process alive
 }).catch((e) => { console.error("verifier crashed:", e); process.exit(1); });

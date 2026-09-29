@@ -19,7 +19,13 @@
 
 import { chromium } from "playwright";
 
-const SERVE = (process.env.IOI_HYPERVISOR_SERVE_URL || "http://127.0.0.1:4173").replace(/\/$/, "");
+// Its own isolated daemon + serve, the operator signed in (R-240, verifier auth sweep, 2026-09-29). This verifier read
+// `IOI_HYPERVISOR_SERVE_URL || :4173` — the OWNER's development serve — with no session; since 2026-09-26 a serve requires
+// sign-in, and the ontology/data-source reads behind its pages are caller-scoped. An explicit URL naming the owner's stack
+// is refused (verifier-stack.mjs).
+import { verifierStack } from "./lib/verifier-stack.mjs";
+const STACK = await verifierStack({ serve: true });
+const SERVE = STACK.serveUrl;
 const CAPTURE = (process.env.IOI_HARVEST_CAPTURE_URL || process.env.IOI_HARVEST_MIRROR_URL || "http://127.0.0.1:9225").replace(/\/$/, "");
 
 const results = [];
@@ -56,6 +62,8 @@ async function run() {
       ok(`[${seed.slug}] brand-cased strings rebranded at the wire`, !doc.text.includes("Palantir"));
 
       const page = await b.newPage({ viewport: { width: 1600, height: 1000 } });
+
+      await STACK.signIn(page);
       await page.goto(`${SERVE}/__apps/${seed.slug}`, { waitUntil: "domcontentloaded", timeout: 40000 }).catch(() => {});
       await page.waitForTimeout(7000);
       const st = await page.evaluate(() => ({
@@ -88,4 +96,5 @@ run().then(() => {
   console.log(`\n${results.length - fails.length}/${results.length} passed`);
   if (fails.length) process.exit(1);
   console.log("harvest queue-seeds readiness: OK");
+  process.exit(0); // its own stack (daemon + serve children) would otherwise keep the process alive
 }).catch((e) => { console.error("verifier crashed:", e); process.exit(1); });

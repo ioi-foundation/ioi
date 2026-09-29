@@ -26,7 +26,13 @@ import { SURFACES, boundSurface } from "./surface-registry.mjs";
 import { contractCatalogAdmission } from "./app-catalog.mjs";
 import { emitVerifierCensus } from "./lib/verifier-census.mjs";
 
-const SERVE = (process.env.IOI_HYPERVISOR_SERVE_URL || "http://127.0.0.1:4173").replace(/\/$/, "");
+// Its own isolated daemon + serve, the operator signed in (R-240, verifier auth sweep, 2026-09-29). This verifier read
+// `IOI_HYPERVISOR_SERVE_URL || :4173` — the OWNER's development serve, or in CI the job's own serve, which since 2026-09-26
+// requires sign-in, so a browser with no session landed on sign-in instead of the shell. An explicit URL naming the owner's
+// stack is refused (verifier-stack.mjs).
+import { verifierStack } from "./lib/verifier-stack.mjs";
+const STACK = await verifierStack({ serve: true });
+const SERVE = STACK.serveUrl;
 const HERE = dirname(fileURLToPath(import.meta.url));
 const APP = join(HERE, "..");
 const ROOT = join(APP, "..", "..");
@@ -459,6 +465,7 @@ run().then(() => {
   emitVerifierCensus({ verifierId: "app-runtime-safety", sourceUrl: import.meta.url, results });
   if (fails.length) process.exit(1);
   console.log("app-runtime safety: OK");
+  process.exit(0); // its own stack (daemon + serve children) would otherwise keep the process alive
 }).catch((e) => {
   console.error("verifier crashed:", e);
   process.exit(1);

@@ -30,7 +30,13 @@ import { readFileSync, existsSync } from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
-const SERVE = (process.env.IOI_HYPERVISOR_SERVE_URL || "http://127.0.0.1:4173").replace(/\/$/, "");
+// Its own isolated daemon + serve, the operator signed in (R-240, verifier auth sweep, 2026-09-29). This verifier read
+// `IOI_HYPERVISOR_SERVE_URL || :4173` — the OWNER's development serve — with no session; since 2026-09-26 a serve requires
+// sign-in, and the ontology/data-source reads behind its pages are caller-scoped. An explicit URL naming the owner's stack
+// is refused (verifier-stack.mjs).
+import { verifierStack } from "./lib/verifier-stack.mjs";
+const STACK = await verifierStack({ serve: true });
+const SERVE = STACK.serveUrl;
 const here = path.dirname(fileURLToPath(import.meta.url));
 const appRoot = path.resolve(here, "..");
 
@@ -71,7 +77,7 @@ async function run() {
   const artDir = path.join(appRoot, ".artifacts", "reference-parity-verify");
   const h = spawnSync("node", [path.join(here, "harness-reference-parity.mjs")], {
     encoding: "utf8", timeout: 240000,
-    env: { ...process.env, IOI_HARNESS_ARTIFACT_DIR: artDir },
+    env: { ...STACK.childEnv(), IOI_HARNESS_ARTIFACT_DIR: artDir },
   });
   const harnessRan = h.status === 0 && existsSync(path.join(artDir, "result.json"));
   ok("Playwright harness runs headless + emits result.json + contact-sheet.html", harnessRan && existsSync(path.join(artDir, "contact-sheet.html")), (h.stderr || "").trim().slice(0, 100));

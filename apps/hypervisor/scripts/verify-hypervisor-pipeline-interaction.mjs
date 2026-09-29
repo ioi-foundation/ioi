@@ -27,7 +27,13 @@ import { CONTROL_MATRIX, CONTROL_OUTCOMES } from "../surfaces/pipeline/control-m
 import { ATLAS_STATES, ATLAS_CONTROLS, REFERENCE_URL } from "./pipeline-reference-atlas.mjs";
 import { SURFACE_SHELL, resolveShellRects } from "./harness-reference-pixel-parity.mjs";
 
-const SERVE = (process.env.IOI_HYPERVISOR_SERVE_URL || "http://127.0.0.1:4173").replace(/\/$/, "");
+// Its own isolated daemon + serve, the operator signed in (R-240, verifier auth sweep, 2026-09-29). This verifier read
+// `IOI_HYPERVISOR_SERVE_URL || :4173` — the OWNER's development serve, or in CI the job's own serve, which since 2026-09-26
+// requires sign-in, so a browser with no session landed on sign-in instead of the shell. An explicit URL naming the owner's
+// stack is refused (verifier-stack.mjs).
+import { verifierStack } from "./lib/verifier-stack.mjs";
+const STACK = await verifierStack({ serve: true });
+const SERVE = STACK.serveUrl;
 const HERE = dirname(fileURLToPath(import.meta.url));
 const OUT = join(HERE, "..", ".artifacts", "pipeline-interaction");
 // Interaction-parity bar: DILATED is the structural gate (1px dilation collapses AA noise, so
@@ -159,6 +165,7 @@ async function run() {
     try {
       // ---- 4. Live behavior on IOI.
       const pg = await browser.newPage({ viewport: { width: 1440, height: 900 } });
+      await STACK.signIn(pg);
       await pg.goto(`${B}&node=transform&embed=1`, { waitUntil: "networkidle" });
       const vb0 = await pg.getAttribute("#pb-graph", "viewBox");
       await pg.click("#pb-zin");
@@ -237,6 +244,7 @@ async function run() {
             refShot = await rp.screenshot();
           } catch (e) { refErr = String(e.message || e).slice(0, 120); } finally { await rp.close(); }
           const ip = await browser.newPage({ viewport: vp });
+          await STACK.signIn(ip);
           let ioiErr = "";
           try {
             await ip.goto(`${B}${st.ioiQuery}`, { waitUntil: "networkidle", timeout: 30000 });
@@ -265,6 +273,7 @@ run().then(() => {
   console.log(`\n${results.length - fails.length}/${results.length} passed`);
   if (fails.length) process.exit(1);
   console.log("pipeline interaction-fidelity: OK");
+  process.exit(0); // its own stack (daemon + serve children) would otherwise keep the process alive
 }).catch((e) => {
   console.error("verifier crashed:", e);
   process.exit(1);

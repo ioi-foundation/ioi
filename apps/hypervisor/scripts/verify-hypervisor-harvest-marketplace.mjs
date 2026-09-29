@@ -19,9 +19,15 @@
 
 import { chromium } from "playwright";
 
-const SERVE = (process.env.IOI_HYPERVISOR_SERVE_URL || "http://127.0.0.1:4173").replace(/\/$/, "");
+// Its own isolated daemon (+ serve), the operator signed in (R-240, verifier auth sweep, 2026-09-29). This verifier read
+// `IOI_HYPERVISOR_DAEMON_URL || :8765` — the OWNER's daemon — with no caller; since 3aaaad467/3738d5cab the data-source,
+// materialized-set and ontology reads answer an anonymous caller 401 (read here as "not reachable"), and since 90cd1ddf2
+// an anonymous write is refused on loopback too. An explicit URL naming the owner's stack is refused (verifier-stack.mjs).
+import { verifierStack } from "./lib/verifier-stack.mjs";
+const STACK = await verifierStack({ serve: true });
+const SERVE = STACK.serveUrl;
 const CAPTURE = (process.env.IOI_HARVEST_CAPTURE_URL || process.env.IOI_HARVEST_MIRROR_URL || "http://127.0.0.1:9225").replace(/\/$/, "");
-const DAEMON = (process.env.IOI_HYPERVISOR_DAEMON_URL || "http://127.0.0.1:8765").replace(/\/$/, "");
+const DAEMON = STACK.daemonUrl;
 
 const results = [];
 const ok = (name, cond, detail) => { results.push({ name, pass: !!cond, detail: detail || "" }); };
@@ -38,8 +44,7 @@ async function run() {
   // 0. Liveness.
   const captureUp = await fetch(`${CAPTURE}/workspace/marketplace/`).then((r) => r.ok).catch(() => false);
   if (!captureUp) { console.error("BLOCKED: harvest capture not reachable at " + CAPTURE); process.exit(2); }
-  const daemonUp = await fetch(`${DAEMON}/v1/hypervisor/marketplace/listings`).then((r) => r.ok).catch(() => false);
-  if (!daemonUp) { console.error("BLOCKED: daemon not reachable at " + DAEMON); process.exit(2); }
+  await STACK.requireRead(`/v1/hypervisor/marketplace/listings`, "the daemon");
   ok("harvest capture + daemon live", true, `${CAPTURE} · ${DAEMON}`);
 
   // 1. Seed serves under the estate, rebranded at the wire.
@@ -89,6 +94,7 @@ async function run() {
     const b = await chromium.launch();
     try {
       const page = await b.newPage({ viewport: { width: 1700, height: 1000 } });
+      await STACK.signIn(page);
       await page.goto(`${SERVE}/__apps/listings`, { waitUntil: "networkidle", timeout: 60000 }).catch(() => {});
       await page.waitForTimeout(8000);
       uiText = await page.evaluate(() => (document.body.innerText || "").replace(/\s+/g, " "));
@@ -114,4 +120,5 @@ run().then(() => {
   console.log(`\n${results.length - fails.length}/${results.length} passed`);
   if (fails.length) process.exit(1);
   console.log("harvest-marketplace REBIND readiness: OK");
+  process.exit(0); // its own stack (daemon + serve children) would otherwise keep the process alive
 }).catch((e) => { console.error("verifier crashed:", e); process.exit(1); });

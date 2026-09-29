@@ -29,8 +29,14 @@ import { spawnSync } from "node:child_process";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
-const SERVE = (process.env.IOI_HYPERVISOR_SERVE_URL || "http://127.0.0.1:4173").replace(/\/$/, "");
-const DAEMON = (process.env.IOI_HYPERVISOR_DAEMON_URL || "http://127.0.0.1:8765").replace(/\/$/, "");
+// Its own isolated daemon (+ serve), the operator signed in (R-240, verifier auth sweep, 2026-09-29). This verifier read
+// `IOI_HYPERVISOR_DAEMON_URL || :8765` — the OWNER's daemon — with no caller; since 3aaaad467/3738d5cab the data-source,
+// materialized-set and ontology reads answer an anonymous caller 401 (read here as "not reachable"), and since 90cd1ddf2
+// an anonymous write is refused on loopback too. An explicit URL naming the owner's stack is refused (verifier-stack.mjs).
+import { verifierStack } from "./lib/verifier-stack.mjs";
+const STACK = await verifierStack({ serve: true });
+const SERVE = STACK.serveUrl;
+const DAEMON = STACK.daemonUrl;
 const here = path.dirname(fileURLToPath(import.meta.url));
 
 const results = [];
@@ -40,8 +46,7 @@ const page = (url) => fetch(url).then(async (r) => ({ status: r.status, text: aw
 const countOf = (t, needle) => t.split(needle).length - 1;
 
 async function run() {
-  const up = await fetch(`${DAEMON}/v1/hypervisor/model-routes`).then((r) => r.ok).catch(() => false);
-  if (!up) { console.error("BLOCKED: daemon model-route registry not reachable at " + DAEMON); process.exit(2); }
+  await STACK.requireRead(`/v1/hypervisor/model-routes`, "daemon model-route registry");
 
   // 0. Matrix current + honest.
   const check = spawnSync("node", [path.join(here, "build-app-parity-matrix.mjs"), "--check"], { encoding: "utf8" });

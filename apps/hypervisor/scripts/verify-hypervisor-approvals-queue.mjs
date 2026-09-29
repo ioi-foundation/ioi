@@ -17,8 +17,14 @@
 // Usage: IOI_HYPERVISOR_DAEMON_SESSION=<operator session token> \
 //          node apps/hypervisor/scripts/verify-hypervisor-approvals-queue.mjs
 
-const DAEMON = (process.env.IOI_HYPERVISOR_DAEMON_URL || "http://127.0.0.1:8765").replace(/\/$/, "");
-const SERVE = (process.env.IOI_HYPERVISOR_SERVE_URL || "http://127.0.0.1:4173").replace(/\/$/, "");
+// Its own isolated daemon (+ serve), the operator signed in (R-240, verifier auth sweep, 2026-09-29). This verifier read
+// `IOI_HYPERVISOR_DAEMON_URL || :8765` — the OWNER's daemon — with no caller; since 3aaaad467/3738d5cab the data-source,
+// materialized-set and ontology reads answer an anonymous caller 401 (read here as "not reachable"), and since 90cd1ddf2
+// an anonymous write is refused on loopback too. An explicit URL naming the owner's stack is refused (verifier-stack.mjs).
+import { verifierStack } from "./lib/verifier-stack.mjs";
+const STACK = await verifierStack({ serve: true });
+const DAEMON = STACK.daemonUrl;
+const SERVE = STACK.serveUrl;
 
 const results = [];
 const ok = (name, cond, detail) => { results.push({ name, pass: !!cond, detail: detail || "" }); };
@@ -47,7 +53,7 @@ async function sForm(path, fields, headers) {
 //      never a value chosen here.
 // Admission is load-bearing: an unadmitted fixture would walk the queue as an anonymous caller and
 // prove nothing, so it fails the verifier outright rather than degrading into a skip.
-const OPERATOR_SESSION = (process.env.IOI_HYPERVISOR_DAEMON_SESSION || "").trim();
+const OPERATOR_SESSION = STACK.token;
 async function admitReviewer(tag) {
   if (!OPERATOR_SESSION) throw new Error("reviewer identity fixture unavailable: set IOI_HYPERVISOR_DAEMON_SESSION to an authenticated operator session token (provisioning a principal is org-admin governed even on loopback)");
   const operator = { authorization: `Bearer ${OPERATOR_SESSION}` };
@@ -129,6 +135,7 @@ run().then(async () => {
   console.log(`\n${results.length - fails.length}/${results.length} passed`);
   if (fails.length) process.exit(1);
   console.log("approvals-queue readiness: OK");
+  process.exit(0); // its own stack (daemon + serve children) would otherwise keep the process alive
 }).catch(async (e) => {
   await cleanup();
   console.error("verifier crashed:", e);

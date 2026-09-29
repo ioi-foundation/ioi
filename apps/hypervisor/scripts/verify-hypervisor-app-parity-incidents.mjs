@@ -23,8 +23,14 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { parityOverclaims } from "./lib/parity-honesty.mjs";
 
-const SERVE = (process.env.IOI_HYPERVISOR_SERVE_URL || "http://127.0.0.1:4173").replace(/\/$/, "");
-const DAEMON = (process.env.IOI_HYPERVISOR_DAEMON_URL || "http://127.0.0.1:8765").replace(/\/$/, "");
+// Its own isolated daemon (+ serve), the operator signed in (R-240, verifier auth sweep, 2026-09-29). This verifier read
+// `IOI_HYPERVISOR_DAEMON_URL || :8765` — the OWNER's daemon — with no caller; since 3aaaad467/3738d5cab the data-source,
+// materialized-set and ontology reads answer an anonymous caller 401 (read here as "not reachable"), and since 90cd1ddf2
+// an anonymous write is refused on loopback too. An explicit URL naming the owner's stack is refused (verifier-stack.mjs).
+import { verifierStack } from "./lib/verifier-stack.mjs";
+const STACK = await verifierStack({ serve: true });
+const SERVE = STACK.serveUrl;
+const DAEMON = STACK.daemonUrl;
 const here = path.dirname(fileURLToPath(import.meta.url));
 const appRoot = path.resolve(here, "..");
 
@@ -34,8 +40,7 @@ const page = (url) => fetch(url).then(async (r) => ({ status: r.status, text: aw
 const jd = (p) => fetch(`${DAEMON}${p}`).then((r) => r.json()).catch(() => ({}));
 
 async function run() {
-  const up = await fetch(`${DAEMON}/v1/hypervisor/operations`).then((r) => r.ok).catch(() => false);
-  if (!up) { console.error("BLOCKED: daemon operations plane not reachable at " + DAEMON); process.exit(2); }
+  await STACK.requireRead(`/v1/hypervisor/operations`, "daemon operations plane");
 
   // 1. MATRIX — daemon_wired incidents over a data_clean reference, certified, deep-link declared.
   const check = spawnSync("node", [path.join(here, "build-app-parity-matrix.mjs"), "--check"], { encoding: "utf8" });
@@ -49,7 +54,7 @@ async function run() {
   // 2. VISUAL PARITY — hardened harness against the real reference (pre-capture clicks the Closed lane).
   const artDir = path.join(appRoot, ".artifacts", "incidents-port-verify");
   try { if (existsSync(path.join(artDir, "result.json"))) rmSync(path.join(artDir, "result.json")); } catch { /* */ }
-  const h = spawnSync("node", [path.join(here, "harness-reference-parity.mjs")], { encoding: "utf8", timeout: 180000, env: { ...process.env, IOI_HARNESS_SURFACES: "incidents", IOI_HARNESS_ARTIFACT_DIR: artDir } });
+  const h = spawnSync("node", [path.join(here, "harness-reference-parity.mjs")], { encoding: "utf8", timeout: 180000, env: { ...STACK.childEnv(), IOI_HARNESS_SURFACES: "incidents", IOI_HARNESS_ARTIFACT_DIR: artDir } });
   let hp = null;
   if (h.status === 0 && existsSync(path.join(artDir, "result.json"))) hp = (JSON.parse(readFileSync(path.join(artDir, "result.json"), "utf8")).surfaces || [])[0];
   ok("harness ran + captured real screenshots for the issues-app reference vs the port", hp && hp.evidence_ok === true, hp ? `ref ${hp.reference_screenshot_bytes}b · ioi ${hp.ioi_screenshot_bytes}b` : "harness did not run");
