@@ -749,6 +749,8 @@ export function proposalsOf(proposals, drafts, models) {
       decidedBy: p.applied?.applied_by || p.withdrawn?.withdrawn_by || null, decidedAt: p.applied?.applied_at || p.withdrawn?.withdrawn_at || null,
       withdrawReason: p.withdrawn?.reason || "", resultingRevision: resulting, receiptRef: p.applied?.ontology_receipt_ref || null,
       basedOn, currentRevision: current, stale: odkStatus === "open" && basedOn !== current, changes, fields, affected, record: p,
+      // what the caller may decide, as the daemon reads it for them (the rule its apply and withdraw routes enforce)
+      mayApply: p.caller_may_apply === true, mayWithdraw: p.caller_may_withdraw === true,
       proposed: proposedModel ? { ...proposedModel, version: proposalVersionOf({ id: p.id, basedOn }) } : null,
       baseVersion: draftVersionOf(p.ontology_id, basedOn || 1),
     };
@@ -791,7 +793,8 @@ export function proposalBranchHistoryOf(r) {
 export const proposalByRid = (rows, rid) => (rows || []).find((r) => r.rid === rid || r.branchRid === rid) || null;
 // PUT /approvals/api/search/task-requests (and /counts) from the Proposals section: every filter it sends is honored as a
 // real server would; one this layer does not know matches nothing (never silently ignored). No reviewer is named on an ODK
-// proposal (the plane has no review step: any signed-in principal may apply), so a reviewer filter matches none.
+// proposal (the plane has no review step: its ontology's owner, or an administrator of its organization, applies it), so a
+// reviewer filter matches none.
 export function proposalMatches(row, f) {
   if (!f || !f.type) return true;
   switch (f.type) {
@@ -841,7 +844,7 @@ export const PROPOSAL_REFUSALS = Object.freeze({
   createBranch: { status: 409, code: "Hypervisor:OntologyBranchNotKept", message: "The Hypervisor keeps no ontology branches. An ODK proposal is created with its change set in one step (the daemon refuses an empty proposal), and the Ontology Manager's edits are not bound yet, so there is nothing to stage on a branch. Nothing was created." },
   openOnBranch: { status: 409, code: "Hypervisor:OntologyBranchNotKept", message: "The Hypervisor keeps no ontology branches, so a proposal's edits cannot be opened for editing on one (and the Ontology Manager's edits are not bound yet). Review the change set on the proposal's page, then approve it to apply it or close it to withdraw it." },
   review: { status: 409, code: "Hypervisor:OntologyProposalRejectionNotKept", message: "An ODK proposal is applied or withdrawn; the daemon keeps no rejection or change request on it. Close the proposal to withdraw it. Nothing was changed." },
-  reviewers: { status: 409, code: "Hypervisor:OntologyProposalReviewersNotKept", message: "An ODK proposal names no reviewers: any signed-in principal may apply it. Nothing was changed." },
+  reviewers: { status: 409, code: "Hypervisor:OntologyProposalReviewersNotKept", message: "An ODK proposal names no reviewers: its ontology's owner, or an administrator of its organization, applies it. Nothing was changed." },
   editRequest: { status: 409, code: "Hypervisor:OntologyProposalNotEditable", message: "An ODK proposal's title and rationale are fixed when it is proposed; the daemon has no route to change them. Nothing was changed." },
   decided: { status: 409, code: "Hypervisor:OntologyProposalDecided", message: "This proposal is already applied or withdrawn. Nothing was changed." },
   signedOut: { status: 403, code: "Hypervisor:OntologyProposalSignInRequired", message: "Sign in to decide a proposal. Nothing was changed." },
@@ -850,12 +853,13 @@ export const PROPOSAL_REFUSALS = Object.freeze({
 export const proposalRefusalBodyOf = (refusal) => ({ errorCode: refusal.status === 404 ? "NOT_FOUND" : refusal.status === 403 ? "PERMISSION_DENIED" : "CONFLICT", errorName: refusal.code, errorInstanceId: "", parameters: { message: refusal.message }, message: refusal.message });
 // ---- a proposal as the reference's OntologyChangeProposal (GraphQL: the Proposals section's rows, a proposal's page). Its
 // branch is the proposal's own change set on its ontology; it names no Foundry (global) branch and no datasource branch. The
-// review task is the plane's apply: any signed-in principal may apply an open proposal (the daemon checks the revision, not
-// a reviewer), so the caller may fully approve it exactly when it is open and they are signed in.
+// review task is the plane's apply: the ontology's owner, or an administrator of its organization, applies an open proposal
+// (the daemon checks the caller and the revision, not a reviewer), so the caller may fully approve it exactly when it is open
+// and the daemon reads them as one who may apply it (caller_may_apply) — offered to no one the daemon would refuse.
 export const PROPOSAL_GRAPHQL_OPERATIONS = new Set(["ApprovalRequestDetails", "ProposalDetailQuery", "GlobalBranchTitle", "OntologyBranchSuggestedReviewers", "ResourceProjectQuery", "TaskReviewSectionQuery",
   "CreateBranchDialogQuery", "SearchSpacesQuery", "GetSimilarBranches", "OrganizationSelectionQuery", "GetSpace", "InviteReviewersPrincipalSearchQuery"]);
 export function proposalNodeOf(r, principalRef) {
-  const canApply = !!principalRef && r.odkStatus === "open";
+  const canApply = !!principalRef && r.odkStatus === "open" && r.mayApply === true;
   return {
     __typename: "OntologyChangeProposal", __implements: ["ApprovalRequest"], _id: cid(`OntologyChangeProposal:${r.rid}`), rid: r.rid, status: r.status, title: r.title, description: r.description,
     // nothing about the request itself is edited here (its title and rationale are the proposal's); no reviewer is named

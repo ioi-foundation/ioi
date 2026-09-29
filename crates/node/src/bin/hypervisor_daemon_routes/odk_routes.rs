@@ -296,7 +296,16 @@ fn ont_health_count(ontologies: &[Value], status: &str) -> usize {
 
 /// GET /v1/hypervisor/odk/overview — real substrate counts + ODK object counts + the canonical
 /// composition patterns + recents. Read projection; nothing is transformed, generated, or promoted.
-pub(crate) async fn handle_odk_overview(State(st): State<Arc<DaemonState>>) -> Json<Value> {
+/// Identity first: the ontology counts, health and recents are over the ontologies the caller may
+/// see (a registry-wide count would say when another organization authored one).
+pub(crate) async fn handle_odk_overview(
+    State(st): State<Arc<DaemonState>>,
+    headers: HeaderMap,
+) -> (StatusCode, Json<Value>) {
+    let identity = match super::substrate_store::resolve_request_identity(&st.data_dir, &headers) {
+        Ok(identity) => identity,
+        Err(error) => return odk_scope_refusal(error),
+    };
     let base = st.base_url.clone();
     let env_classes = as_list(&get_json(&base, "/v1/hypervisor/environment-classes").await);
     let foundry_specs = as_list(&get_json(&base, "/v1/hypervisor/foundry/specs").await);
@@ -304,7 +313,7 @@ pub(crate) async fn handle_odk_overview(State(st): State<Arc<DaemonState>>) -> J
     let ledger = as_list(&get_json(&base, "/v1/hypervisor/work-ledger").await);
     let connectors = as_list(&get_json(&base, "/v1/hypervisor/connectors").await);
 
-    let ontologies = read_record_dir(&st.data_dir, KIND_ONT);
+    let ontologies = visible_ontologies(&st.data_dir, &identity);
     let recipes = read_record_dir(&st.data_dir, KIND_RECIPE);
     let manifests = read_record_dir(&st.data_dir, KIND_MANIFEST);
     let descriptors = read_record_dir(&st.data_dir, KIND_SD);
@@ -325,7 +334,7 @@ pub(crate) async fn handle_odk_overview(State(st): State<Arc<DaemonState>>) -> J
         s
     };
 
-    Json(json!({
+    let overview = json!({
         "ok": true,
         "schema_version": "ioi.hypervisor.odk.overview.v1",
         "status_note": "ODK foundation: ontologies, recipes, manifests and surface descriptors are drafts. No transformation runs, no generated UI artifacts, no Domain App creation, no training/eval execution in this plane.",
@@ -359,7 +368,8 @@ pub(crate) async fn handle_odk_overview(State(st): State<Arc<DaemonState>>) -> J
         "recent_data_recipes": recents(&recipes, "name"),
         "recent_manifests": recents(&manifests, "name"),
         "recent_surface_descriptors": recents(&descriptors, "name")
-    }))
+    });
+    (StatusCode::OK, Json(overview))
 }
 
 // ============================ ONTOLOGY-MANAGER CONTRACT =========================================
@@ -854,6 +864,196 @@ pub(crate) fn check_expected_revision(
 
 // ================================ DOMAIN ONTOLOGY ================================================
 
+// ---- WHO MAY SEE, AND WHO MAY CHANGE, A DOMAIN ONTOLOGY ----------------------------------------
+//
+// Every signed-in principal could read every ontology, patch or delete any of them, and apply or
+// withdraw any proposal on any of them (ledger CCXXVII). The plane now answers by one rule:
+//
+//   * THE OWNER. An ontology record carries no owner field. Its owner is the principal its `created`
+//     receipt names (INV-37: every ontology mutation receipt names who acted). That receipt is
+//     written once, at create, and outlives every later edit and the ontology's deletion, so an edit
+//     never transfers ownership. `ontology_owners` is the ONE definition; the materialized-set plane
+//     reads it too.
+//   * THE OWNING ORGANIZATION. An ontology names no organization either. It belongs to the org://
+//     tenants its owner is a live member of (the membership registry, so a member who leaves takes
+//     their ontologies out of that org's sight on the next request). A caller whose own session holds
+//     one of those org:// tenants may SEE the ontology. A caller who is also an active deployment
+//     administrator (`role: admin`, the org-admin test the invite plane applies) may CHANGE it.
+//   * SEE means read it, its health and its history, and propose a change to it. CHANGE means patch
+//     it, delete it, and apply (merge) a proposal on it. A proposal invites change without granting
+//     it: its proposer may withdraw it, and only someone who may change the ontology merges it.
+//
+// An ontology the caller may not see answers exactly as an absent one does. A caller who may see it
+// but not change it gets a typed 403, and nothing is recorded. An ontology no `created` receipt
+// attributes (written before receipts named who acted) is answered to no one over HTTP. Daemon-
+// internal readers (projections, mappings, object search, the workbench's own resolution) read the
+// record dir directly and keep full access; only the HTTP answers are scoped.
+
+/// The canonical `ontology://<id>` spelling of an ontology id or ref.
+pub(crate) fn canonical_ontology_ref(reference: &str) -> String {
+    if reference.starts_with("ontology://") {
+        reference.to_string()
+    } else {
+        format!("ontology://{reference}")
+    }
+}
+
+/// An ontology record's canonical ref (its `ref`, else derived from the id it was loaded by).
+fn ontology_ref_of(record: &Value, id: &str) -> String {
+    canonical_ontology_ref(
+        record
+            .get("ref")
+            .and_then(Value::as_str)
+            .filter(|r| !r.is_empty())
+            .unwrap_or(id),
+    )
+}
+
+/// THE ONE DEFINITION OF WHO OWNS AN ONTOLOGY: canonical ontology ref → the principal its `created`
+/// receipt names. Two `created` receipts naming different principals attribute the ontology to no
+/// one (fail closed; create writes exactly one).
+pub(crate) fn ontology_owners(data_dir: &str) -> HashMap<String, String> {
+    let mut seen: HashMap<String, Option<String>> = HashMap::new();
+    for receipt in read_record_dir(data_dir, KIND_ONT_RECEIPT) {
+        if receipt.get("op").and_then(Value::as_str) != Some("created") {
+            continue;
+        }
+        let Some(oref) = receipt
+            .get("ontology_ref")
+            .and_then(Value::as_str)
+            .filter(|r| !r.is_empty())
+        else {
+            continue;
+        };
+        let Some(who) = receipt
+            .get("acting_principal_ref")
+            .and_then(Value::as_str)
+            .filter(|p| !p.is_empty())
+        else {
+            continue;
+        };
+        seen.entry(canonical_ontology_ref(oref))
+            .and_modify(|owner| {
+                if owner.as_deref() != Some(who) {
+                    *owner = None;
+                }
+            })
+            .or_insert_with(|| Some(who.to_string()));
+    }
+    seen.into_iter()
+        .filter_map(|(oref, owner)| Some((oref, owner?)))
+        .collect()
+}
+
+/// An active deployment administrator: the principal record's `role` and `status`, as the invite
+/// plane's org-admin test reads them. Membership of the org is judged separately, from the caller's
+/// own (session-narrowed) tenant scope.
+fn principal_is_active_admin(data_dir: &str, principal_ref: &str) -> bool {
+    let Some(principal_id) = principal_ref.strip_prefix("user://") else {
+        return false;
+    };
+    read_record_dir(data_dir, "principals").iter().any(|p| {
+        p.get("principal_id").and_then(Value::as_str) == Some(principal_id)
+            && p.get("status").and_then(Value::as_str) == Some("active")
+            && p.get("role").and_then(Value::as_str) == Some("admin")
+    })
+}
+
+/// One caller's standing over the ontologies (see the rule above). Built once per request.
+pub(crate) struct OntologyAccess<'a> {
+    data_dir: &'a str,
+    identity: &'a super::substrate_store::RequestIdentity,
+    owners: HashMap<String, String>,
+    caller_is_admin: std::cell::OnceCell<bool>,
+    owner_orgs: std::cell::RefCell<HashMap<String, std::collections::BTreeSet<String>>>,
+}
+
+impl<'a> OntologyAccess<'a> {
+    pub(crate) fn read(
+        data_dir: &'a str,
+        identity: &'a super::substrate_store::RequestIdentity,
+    ) -> Self {
+        Self {
+            data_dir,
+            identity,
+            owners: ontology_owners(data_dir),
+            caller_is_admin: std::cell::OnceCell::new(),
+            owner_orgs: std::cell::RefCell::new(HashMap::new()),
+        }
+    }
+
+    pub(crate) fn owner(&self, ontology_ref: &str) -> Option<&str> {
+        self.owners
+            .get(&canonical_ontology_ref(ontology_ref))
+            .map(String::as_str)
+    }
+
+    pub(crate) fn owns(&self, ontology_ref: &str) -> bool {
+        self.owner(ontology_ref) == Some(self.identity.principal_ref.as_str())
+    }
+
+    /// The caller's session holds an org:// tenant the ontology's owner is a live member of.
+    fn in_owning_org(&self, ontology_ref: &str) -> bool {
+        let Some(owner) = self.owner(ontology_ref) else {
+            return false;
+        };
+        let mut cache = self.owner_orgs.borrow_mut();
+        let orgs = cache.entry(owner.to_string()).or_insert_with(|| {
+            // An unreadable registry leaves the owner in no org: only the owner then sees it.
+            super::lifecycle_routes::resolve_principal_tenant_refs(self.data_dir, owner)
+                .map(|tenants| {
+                    tenants
+                        .into_iter()
+                        .filter(|t| t.starts_with("org://"))
+                        .collect()
+                })
+                .unwrap_or_default()
+        });
+        self.identity
+            .tenant_refs
+            .iter()
+            .any(|tenant| tenant.starts_with("org://") && orgs.contains(tenant))
+    }
+
+    /// Read the ontology (and its health and history), and propose a change to it.
+    pub(crate) fn may_see(&self, ontology_ref: &str) -> bool {
+        self.owns(ontology_ref) || self.in_owning_org(ontology_ref)
+    }
+
+    /// Patch it, delete it, apply a proposal on it: the owner, or an administrator of its org.
+    pub(crate) fn may_change(&self, ontology_ref: &str) -> bool {
+        self.owns(ontology_ref)
+            || (*self.caller_is_admin.get_or_init(|| {
+                principal_is_active_admin(self.data_dir, &self.identity.principal_ref)
+            }) && self.in_owning_org(ontology_ref))
+    }
+}
+
+/// The typed refusal a caller who may see an ontology, but not change it, gets. Nothing is recorded.
+pub(crate) fn odk_ontology_not_owner(act: &str) -> (StatusCode, Json<Value>) {
+    (
+        StatusCode::FORBIDDEN,
+        Json(json!({
+            "ok": false,
+            "error": {
+                "code": "odk_ontology_not_owner",
+                "message": format!("only the ontology's owner, or an administrator of its organization, may {act} it; anyone who can see it may propose a change instead (POST /v1/hypervisor/odk/ontology-proposals). Nothing was changed")
+            }
+        })),
+    )
+}
+
+/// The ontology at `id`, when the caller may see it. `None` for an absent AND for a hidden one.
+fn visible_ontology(
+    data_dir: &str,
+    identity: &super::substrate_store::RequestIdentity,
+    id: &str,
+) -> Option<Value> {
+    load(data_dir, KIND_ONT, id).filter(|record| {
+        OntologyAccess::read(data_dir, identity).may_see(&ontology_ref_of(record, id))
+    })
+}
+
 /// PROSE ABOUT THE PLANE IS PROJECTED ON READ, NEVER SERVED FROM THE RECORD.
 ///
 /// `health.object_data_note` describes what this ESTATE can do, and it is computed at write time and
@@ -871,19 +1071,54 @@ fn reproject_object_data_note(record: &mut Value) {
     }
 }
 
+/// The ontologies the caller may see (daemon-internal readers use `read_record_dir` directly).
+fn visible_ontologies(
+    data_dir: &str,
+    identity: &super::substrate_store::RequestIdentity,
+) -> Vec<Value> {
+    let access = OntologyAccess::read(data_dir, identity);
+    read_record_dir(data_dir, KIND_ONT)
+        .into_iter()
+        .filter(|record| {
+            let id = record.get("id").and_then(Value::as_str).unwrap_or("");
+            access.may_see(&ontology_ref_of(record, id))
+        })
+        .collect()
+}
+
+/// GET /v1/hypervisor/odk/domain-ontologies — the ontologies the caller may see. Identity first.
 pub(crate) async fn handle_odk_ontology_list(
     State(st): State<Arc<DaemonState>>,
+    headers: HeaderMap,
     Query(q): Query<HashMap<String, String>>,
-) -> Json<Value> {
-    let mut items = read_record_dir(&st.data_dir, KIND_ONT);
-    if let Some(domain) = q.get("domain").map(|s| s.trim()).filter(|s| !s.is_empty()) {
+) -> (StatusCode, Json<Value>) {
+    match super::substrate_store::resolve_request_identity(&st.data_dir, &headers) {
+        Ok(identity) => (
+            StatusCode::OK,
+            Json(list_ontologies(
+                &st.data_dir,
+                &identity,
+                q.get("domain").map(String::as_str),
+            )),
+        ),
+        Err(error) => odk_scope_refusal(error),
+    }
+}
+
+pub(crate) fn list_ontologies(
+    data_dir: &str,
+    identity: &super::substrate_store::RequestIdentity,
+    domain: Option<&str>,
+) -> Value {
+    let mut items = visible_ontologies(data_dir, identity);
+    if let Some(domain) = domain.map(str::trim).filter(|s| !s.is_empty()) {
         items.retain(|o| o.get("domain").and_then(|v| v.as_str()) == Some(domain));
     }
     sort_by_updated(&mut items);
     for item in items.iter_mut() {
         reproject_object_data_note(item);
     }
-    Json(json!({ "ok": true, "ontologies": items }))
+    json!({ "ok": true, "ontologies": items })
 }
 
 /// POST /v1/hypervisor/odk/domain-ontologies — create a DomainOntology DRAFT. The semantic root: it
@@ -967,6 +1202,16 @@ pub(crate) async fn handle_odk_ontology_create(
         Ok(identity) => identity,
         Err(error) => return odk_scope_refusal(error),
     };
+    create_ontology(&st.data_dir, &identity, &body)
+}
+
+/// The create body, separated from the axum handler (identity is resolved there, first). The
+/// `created` receipt it writes names the caller, which is what makes the caller the owner.
+pub(crate) fn create_ontology(
+    data_dir: &str,
+    identity: &super::substrate_store::RequestIdentity,
+    body: &Value,
+) -> (StatusCode, Json<Value>) {
     // TRIM TO JUDGE, PERSIST WHAT THE CALLER SENT. `apply_ontology_change` stores `domain`
     // VERBATIM; this route stored it TRIMMED, so create and patch disagreed on the same field —
     // one field's worth of exactly the divergence this module's own comment claims to have ended,
@@ -1032,9 +1277,7 @@ pub(crate) async fn handle_odk_ontology_create(
         "created_at": now.clone(),
         "updated_at": now
     });
-    if let Err(m) =
-        finalize_ontology_persist(&st.data_dir, &id, None, &record, &receipt_id, &receipt)
-    {
+    if let Err(m) = finalize_ontology_persist(data_dir, &id, None, &record, &receipt_id, &receipt) {
         return (
             StatusCode::INTERNAL_SERVER_ERROR,
             Json(json!({ "ok": false, "error": { "code": "odk_persist_failed", "message": m } })),
@@ -1046,15 +1289,41 @@ pub(crate) async fn handle_odk_ontology_create(
     )
 }
 
+/// GET /v1/hypervisor/odk/domain-ontologies/:id — one ontology the caller may see. Identity first
+/// (no existence oracle for an anonymous caller); a hidden ontology answers exactly as an absent one.
 pub(crate) async fn handle_odk_ontology_get(
     State(st): State<Arc<DaemonState>>,
+    headers: HeaderMap,
     AxumPath(id): AxumPath<String>,
-) -> Json<Value> {
-    let mut out = json_get(&st.data_dir, KIND_ONT, "ontology", &id);
-    if let Some(record) = out.0.get_mut("ontology") {
-        reproject_object_data_note(record);
+) -> (StatusCode, Json<Value>) {
+    match super::substrate_store::resolve_request_identity(&st.data_dir, &headers) {
+        Ok(identity) => get_ontology(&st.data_dir, &identity, &id),
+        Err(error) => odk_scope_refusal(error),
     }
-    out
+}
+
+fn ontology_not_found() -> (StatusCode, Json<Value>) {
+    (
+        StatusCode::NOT_FOUND,
+        Json(json!({ "ok": false, "reason": "ontology not found" })),
+    )
+}
+
+pub(crate) fn get_ontology(
+    data_dir: &str,
+    identity: &super::substrate_store::RequestIdentity,
+    id: &str,
+) -> (StatusCode, Json<Value>) {
+    match visible_ontology(data_dir, identity, id) {
+        Some(mut record) => {
+            reproject_object_data_note(&mut record);
+            (
+                StatusCode::OK,
+                Json(json!({ "ok": true, "ontology": record })),
+            )
+        }
+        None => ontology_not_found(),
+    }
 }
 
 /// PATCH — fail-closed on a malformed model (revision is NOT bumped on rejection); optimistic
@@ -1141,6 +1410,11 @@ pub(crate) fn validate_ontology_change(body: &Value) -> Result<(), (StatusCode, 
 ///
 /// Identity is resolved by the CALLER, before this is reached, because rule E owes a 401 before the
 /// record read below is allowed to reveal existence.
+///
+/// WHO MAY CHANGE IT IS DECIDED HERE, AT THE ONE WRITER, so no path reaches the write without it:
+/// an ontology the caller may not see answers as absent, and one it may see but not change is the
+/// typed `odk_ontology_not_owner`, both before anything is validated or written. The proposal plane
+/// refuses a non-owner's apply with its own code before it calls this; this check is the floor.
 pub(crate) fn apply_ontology_change(
     data_dir: &str,
     identity: &super::substrate_store::RequestIdentity,
@@ -1148,14 +1422,25 @@ pub(crate) fn apply_ontology_change(
     body: &Value,
 ) -> (StatusCode, Json<Value>) {
     let st_data_dir = data_dir;
-    let Some(prev) = load(st_data_dir, KIND_ONT, id) else {
-        return (
+    let not_found = || {
+        (
             StatusCode::NOT_FOUND,
             Json(
                 json!({ "ok": false, "reason": "ontology not found", "error": { "code": "odk_ontology_not_found", "message": "ontology not found" } }),
             ),
-        );
+        )
     };
+    let Some(prev) = load(st_data_dir, KIND_ONT, id) else {
+        return not_found();
+    };
+    let access = OntologyAccess::read(st_data_dir, identity);
+    let oref = ontology_ref_of(&prev, id);
+    if !access.may_see(&oref) {
+        return not_found();
+    }
+    if !access.may_change(&oref) {
+        return odk_ontology_not_owner("change");
+    }
     let current_rev = prev.get("revision").and_then(|v| v.as_u64()).unwrap_or(1);
     if let Err((status, code, msg)) = check_expected_revision(body, current_rev) {
         return (
@@ -1278,11 +1563,41 @@ pub(crate) async fn handle_odk_ontology_delete(
         Ok(identity) => identity,
         Err(error) => return odk_scope_refusal(error),
     };
+    delete_ontology(&st.data_dir, &identity, &id)
+}
+
+/// Only whoever may change the ontology deletes it. A hidden ontology answers exactly as an absent
+/// one (the same 200 body the receipted delete gives), and a visible one the caller may not change
+/// is the typed `odk_ontology_not_owner`; neither removes or receipts anything.
+pub(crate) fn delete_ontology(
+    data_dir: &str,
+    identity: &super::substrate_store::RequestIdentity,
+    id: &str,
+) -> (StatusCode, Json<Value>) {
+    let absent = || {
+        (
+            StatusCode::OK,
+            Json(
+                json!({ "ok": false, "removed": false, "id": id, "reason": "ontology not found" }),
+            ),
+        )
+    };
+    let Some(prev) = load(data_dir, KIND_ONT, id) else {
+        return absent();
+    };
+    let access = OntologyAccess::read(data_dir, identity);
+    let oref = ontology_ref_of(&prev, id);
+    if !access.may_see(&oref) {
+        return absent();
+    }
+    if !access.may_change(&oref) {
+        return odk_ontology_not_owner("delete");
+    }
     (
         StatusCode::OK,
         Json(delete_ontology_receipted(
-            &st.data_dir,
-            &id,
+            data_dir,
+            id,
             &identity.principal_ref,
         )),
     )
@@ -1321,12 +1636,25 @@ fn delete_ontology_receipted(data_dir: &str, id: &str, acting_principal_ref: &st
     json!({ "ok": true, "removed": true, "id": id, "ontology_receipt": receipt })
 }
 
-/// GET /v1/hypervisor/odk/domain-ontologies/:id/health — the readiness projection (over ODK).
+/// GET /v1/hypervisor/odk/domain-ontologies/:id/health — the readiness projection (over ODK), for an
+/// ontology the caller may see. Identity first; a hidden ontology answers exactly as an absent one.
 pub(crate) async fn handle_odk_ontology_health(
     State(st): State<Arc<DaemonState>>,
+    headers: HeaderMap,
     AxumPath(id): AxumPath<String>,
 ) -> (StatusCode, Json<Value>) {
-    match load(&st.data_dir, KIND_ONT, &id) {
+    match super::substrate_store::resolve_request_identity(&st.data_dir, &headers) {
+        Ok(identity) => ontology_health(&st.data_dir, &identity, &id),
+        Err(error) => odk_scope_refusal(error),
+    }
+}
+
+pub(crate) fn ontology_health(
+    data_dir: &str,
+    identity: &super::substrate_store::RequestIdentity,
+    id: &str,
+) -> (StatusCode, Json<Value>) {
+    match visible_ontology(data_dir, identity, id) {
         Some(o) => (
             StatusCode::OK,
             Json(json!({
@@ -1336,30 +1664,37 @@ pub(crate) async fn handle_odk_ontology_health(
                 "health": o.get("health").cloned().unwrap_or_else(|| json!({ "status": "empty" }))
             })),
         ),
-        None => (
-            StatusCode::NOT_FOUND,
-            Json(json!({ "ok": false, "reason": "ontology not found" })),
-        ),
+        None => ontology_not_found(),
     }
 }
 
-/// GET /v1/hypervisor/odk/domain-ontologies/:id/history — embedded history + persisted receipts.
+/// GET /v1/hypervisor/odk/domain-ontologies/:id/history — embedded history + persisted receipts, for
+/// an ontology the caller may see. Identity first; a hidden ontology answers exactly as an absent one.
 pub(crate) async fn handle_odk_ontology_history(
     State(st): State<Arc<DaemonState>>,
+    headers: HeaderMap,
     AxumPath(id): AxumPath<String>,
 ) -> (StatusCode, Json<Value>) {
-    let Some(o) = load(&st.data_dir, KIND_ONT, &id) else {
-        return (
-            StatusCode::NOT_FOUND,
-            Json(json!({ "ok": false, "reason": "ontology not found" })),
-        );
+    match super::substrate_store::resolve_request_identity(&st.data_dir, &headers) {
+        Ok(identity) => ontology_history(&st.data_dir, &identity, &id),
+        Err(error) => odk_scope_refusal(error),
+    }
+}
+
+pub(crate) fn ontology_history(
+    data_dir: &str,
+    identity: &super::substrate_store::RequestIdentity,
+    id: &str,
+) -> (StatusCode, Json<Value>) {
+    let Some(o) = visible_ontology(data_dir, identity, id) else {
+        return ontology_not_found();
     };
     let oref = o
         .get("ref")
         .and_then(|v| v.as_str())
         .unwrap_or("")
         .to_string();
-    let mut receipts = read_record_dir(&st.data_dir, KIND_ONT_RECEIPT);
+    let mut receipts = read_record_dir(data_dir, KIND_ONT_RECEIPT);
     receipts.retain(|r| r.get("ontology_ref").and_then(|v| v.as_str()) == Some(oref.as_str()));
     receipts.sort_by(|a, b| {
         b.get("at")
@@ -7063,5 +7398,518 @@ mod odk_tests {
             validate_object_model(&m).unwrap_err().0,
             "ontology_enum_values_required"
         );
+    }
+}
+
+#[cfg(test)]
+mod ontology_access_tests {
+    //! Who may see and who may change a domain ontology (ledger CCXXVII), over real principals: each
+    //! one a principal record, live memberships in the membership registry, and a bearer session,
+    //! resolved through the canonical identity seam exactly as a request is.
+    use super::super::substrate_store::{resolve_request_identity, RequestIdentity};
+    use super::*;
+    use crate::ontology_workbench_routes::{
+        apply_proposal, create_proposal, get_proposal, list_proposals, withdraw_proposal,
+    };
+
+    struct Plane {
+        _dir: tempfile::TempDir,
+        data_dir: String,
+    }
+    fn plane() -> Plane {
+        let dir = tempfile::tempdir().expect("ontology access data dir");
+        let data_dir = dir.path().to_str().unwrap().to_string();
+        Plane {
+            _dir: dir,
+            data_dir,
+        }
+    }
+
+    /// A principal with the given role and live memberships, signed in with a bearer session.
+    fn session(data_dir: &str, principal_id: &str, role: &str, tenants: &[&str]) -> HeaderMap {
+        persist_record(
+            data_dir,
+            "principals",
+            principal_id,
+            &json!({ "schema_version": "ioi.hypervisor.principal.v1", "principal_id": principal_id,
+                     "email": format!("{principal_id}@example.test"), "name": principal_id, "role": role,
+                     "status": "active", "source": "test",
+                     "created_at": "2026-01-01T00:00:00Z", "updated_at": "2026-01-01T00:00:00Z" }),
+        )
+        .unwrap();
+        let principal_ref = format!("user://{principal_id}");
+        for tenant in tenants {
+            super::super::lifecycle_routes::apply_membership_transition(
+                data_dir,
+                &principal_ref,
+                &principal_ref,
+                tenant,
+                if tenant.starts_with("org://") {
+                    "organization"
+                } else {
+                    "project"
+                },
+                "active",
+                0,
+                &format!("test-{principal_id}-{tenant}"),
+                "test membership",
+                "deployment_bootstrap",
+            )
+            .unwrap();
+        }
+        let token = format!("token-{principal_id}");
+        persist_record(
+            data_dir,
+            "sessions",
+            &format!("session-{principal_id}"),
+            &json!({ "session_id": format!("session-{principal_id}"), "token_hash": super::super::sha256_hex_str(&token),
+                     "principal_id": principal_id, "source": "test",
+                     "created_at": "2026-01-01T00:00:00Z", "expires_at": "9999-12-31T23:59:59Z" }),
+        )
+        .unwrap();
+        let mut headers = HeaderMap::new();
+        headers.insert(
+            axum::http::header::AUTHORIZATION,
+            format!("Bearer {token}").parse().unwrap(),
+        );
+        headers
+    }
+    fn who(data_dir: &str, headers: &HeaderMap) -> RequestIdentity {
+        resolve_request_identity(data_dir, headers).expect("a signed-in principal")
+    }
+    fn signed_in(
+        data_dir: &str,
+        principal_id: &str,
+        role: &str,
+        tenants: &[&str],
+    ) -> RequestIdentity {
+        who(data_dir, &session(data_dir, principal_id, role, tenants))
+    }
+
+    fn created(data_dir: &str, owner: &RequestIdentity, domain: &str) -> String {
+        let (status, Json(reply)) = create_ontology(data_dir, owner, &json!({ "domain": domain }));
+        assert_eq!(status, StatusCode::CREATED, "{reply}");
+        reply["ontology"]["id"].as_str().unwrap().to_string()
+    }
+    fn proposed(
+        data_dir: &str,
+        proposer: &RequestIdentity,
+        ontology_id: &str,
+        text: &str,
+    ) -> String {
+        let (status, Json(reply)) = create_proposal(
+            data_dir,
+            proposer,
+            &json!({ "ontology_ref": format!("ontology://{ontology_id}"), "title": text, "changes": { "description": text } }),
+        );
+        assert_eq!(status, StatusCode::CREATED, "{reply}");
+        reply["ontology_proposal"]["id"]
+            .as_str()
+            .unwrap()
+            .to_string()
+    }
+    fn code(reply: &Value) -> &str {
+        reply
+            .pointer("/error/code")
+            .or_else(|| reply.get("code"))
+            .and_then(Value::as_str)
+            .unwrap_or("")
+    }
+    fn revision(data_dir: &str, id: &str) -> u64 {
+        load(data_dir, KIND_ONT, id).unwrap()["revision"]
+            .as_u64()
+            .unwrap()
+    }
+    fn receipts(data_dir: &str) -> usize {
+        read_record_dir(data_dir, KIND_ONT_RECEIPT).len()
+    }
+    fn status_of(data_dir: &str, who: &RequestIdentity, proposal_id: &str) -> String {
+        let (_, Json(reply)) = get_proposal(data_dir, who, proposal_id);
+        reply["ontology_proposal"]["status"]
+            .as_str()
+            .unwrap_or("")
+            .to_string()
+    }
+    fn listed(data_dir: &str, who: &RequestIdentity) -> Vec<String> {
+        let mut ids: Vec<String> = list_ontologies(data_dir, who, None)["ontologies"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .map(|o| o["id"].as_str().unwrap().to_string())
+            .collect();
+        ids.sort();
+        ids
+    }
+    fn proposals_listed(data_dir: &str, who: &RequestIdentity) -> Vec<String> {
+        let (status, Json(reply)) = list_proposals(data_dir, who, &HashMap::new());
+        assert_eq!(status, StatusCode::OK, "{reply}");
+        let mut ids: Vec<String> = reply["ontology_proposals"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .map(|p| p["id"].as_str().unwrap().to_string())
+            .collect();
+        ids.sort();
+        ids
+    }
+    fn sorted(mut ids: Vec<String>) -> Vec<String> {
+        ids.sort();
+        ids
+    }
+
+    #[test]
+    fn a_member_of_the_owners_org_proposes_but_only_the_owner_or_an_org_admin_changes_the_ontology()
+    {
+        let p = plane();
+        let d = p.data_dir.as_str();
+        let alpha = signed_in(d, "alpha", "member", &["org://local"]);
+        let beta = signed_in(d, "beta", "member", &["org://local"]);
+        let root = signed_in(d, "root", "admin", &["org://local"]);
+        let ont = created(d, &alpha, "lending");
+        let before = receipts(d);
+
+        // B may not patch A's ontology, nor delete it: typed, and nothing is written
+        let (status, Json(reply)) =
+            apply_ontology_change(d, &beta, &ont, &json!({ "description": "beta's edit" }));
+        assert_eq!(status, StatusCode::FORBIDDEN, "{reply}");
+        assert_eq!(code(&reply), "odk_ontology_not_owner");
+        let (status, Json(reply)) = delete_ontology(d, &beta, &ont);
+        assert_eq!(status, StatusCode::FORBIDDEN, "{reply}");
+        assert_eq!(code(&reply), "odk_ontology_not_owner");
+        assert_eq!(revision(d, &ont), 1);
+        assert_eq!(load(d, KIND_ONT, &ont).unwrap()["description"], json!(""));
+        assert_eq!(
+            receipts(d),
+            before,
+            "a refused edit or delete records nothing"
+        );
+
+        // B sees it (same org) and proposes; B may not merge its own proposal into A's ontology
+        assert_eq!(get_ontology(d, &beta, &ont).0, StatusCode::OK);
+        let proposal = proposed(d, &beta, &ont, "A loan on the book");
+        let (status, Json(reply)) = apply_proposal(d, &beta, &proposal);
+        assert_eq!(status, StatusCode::FORBIDDEN, "{reply}");
+        assert_eq!(code(&reply), "odk_proposal_apply_requires_owner");
+        assert_eq!(revision(d, &ont), 1, "nothing was applied");
+        assert_eq!(status_of(d, &beta, &proposal), "open");
+        assert_eq!(receipts(d), before);
+
+        // A applies B's proposal, through the one writer, receipted as A
+        let (status, Json(reply)) = apply_proposal(d, &alpha, &proposal);
+        assert_eq!(status, StatusCode::OK, "{reply}");
+        assert_eq!(revision(d, &ont), 2);
+        assert_eq!(
+            reply["ontology"]["description"],
+            json!("A loan on the book")
+        );
+        assert_eq!(
+            reply["ontology_receipt"]["acting_principal_ref"],
+            json!("user://alpha")
+        );
+        assert_eq!(
+            reply["ontology_proposal"]["applied"]["applied_by"],
+            json!("user://alpha")
+        );
+        // a non-owner is refused even a replay of an applied proposal
+        assert_eq!(apply_proposal(d, &beta, &proposal).0, StatusCode::FORBIDDEN);
+
+        // an administrator of the owner's org may change it; the owner stays the creator
+        let (status, Json(reply)) =
+            apply_ontology_change(d, &root, &ont, &json!({ "version": "0.2.0" }));
+        assert_eq!(status, StatusCode::OK, "{reply}");
+        assert_eq!(
+            reply["ontology_receipt"]["acting_principal_ref"],
+            json!("user://root")
+        );
+        assert_eq!(
+            ontology_owners(d).get(&format!("ontology://{ont}")),
+            Some(&"user://alpha".to_string()),
+            "an edit never moves ownership"
+        );
+        assert_eq!(
+            apply_ontology_change(d, &beta, &ont, &json!({ "version": "9" })).0,
+            StatusCode::FORBIDDEN
+        );
+        // and A may delete it
+        let (status, Json(reply)) = delete_ontology(d, &alpha, &ont);
+        assert_eq!(status, StatusCode::OK, "{reply}");
+        assert_eq!(reply["removed"], json!(true));
+    }
+
+    #[test]
+    fn a_proposal_is_withdrawn_by_its_proposer_or_whoever_may_change_the_ontology_and_no_one_else()
+    {
+        let p = plane();
+        let d = p.data_dir.as_str();
+        let alpha = signed_in(d, "alpha", "member", &["org://local"]);
+        let beta = signed_in(d, "beta", "member", &["org://local"]);
+        let delta = signed_in(d, "delta", "member", &["org://local"]);
+        let root = signed_in(d, "root", "admin", &["org://local"]);
+        let ont = created(d, &alpha, "lending");
+        let (p1, p2, p3) = (
+            proposed(d, &beta, &ont, "one"),
+            proposed(d, &beta, &ont, "two"),
+            proposed(d, &beta, &ont, "three"),
+        );
+
+        // what each caller reads they may decide is exactly what the routes below allow them
+        let flags = |who: &RequestIdentity| {
+            let (_, Json(reply)) = get_proposal(d, who, &p1);
+            let listed = list_proposals(d, who, &HashMap::new()).1 .0["ontology_proposals"]
+                .as_array()
+                .unwrap()
+                .iter()
+                .find(|row| row["id"] == json!(p1))
+                .cloned()
+                .unwrap();
+            let one = &reply["ontology_proposal"];
+            assert_eq!(one["caller_may_apply"], listed["caller_may_apply"]);
+            assert_eq!(one["caller_may_withdraw"], listed["caller_may_withdraw"]);
+            (
+                one["caller_may_apply"].as_bool().unwrap(),
+                one["caller_may_withdraw"].as_bool().unwrap(),
+            )
+        };
+        assert_eq!(flags(&alpha), (true, true), "the owner");
+        assert_eq!(flags(&root), (true, true), "an org admin");
+        assert_eq!(flags(&beta), (false, true), "the proposer");
+        assert_eq!(flags(&delta), (false, false), "another member");
+        assert!(
+            load(d, "odk-ontology-proposals", &p1)
+                .unwrap()
+                .get("caller_may_apply")
+                .is_none(),
+            "the flags are computed per read, never stored"
+        );
+
+        let (status, Json(reply)) = withdraw_proposal(d, &delta, &p1, &json!({}));
+        assert_eq!(status, StatusCode::FORBIDDEN, "{reply}");
+        assert_eq!(
+            code(&reply),
+            "odk_proposal_withdraw_requires_proposer_or_owner"
+        );
+        assert_eq!(
+            status_of(d, &delta, &p1),
+            "open",
+            "a refused withdrawal changes nothing"
+        );
+
+        let (status, Json(reply)) = withdraw_proposal(d, &beta, &p1, &json!({ "reason": "mine" }));
+        assert_eq!(status, StatusCode::OK, "{reply}");
+        assert_eq!(
+            reply["ontology_proposal"]["withdrawn"]["withdrawn_by"],
+            json!("user://beta")
+        );
+        assert_eq!(
+            withdraw_proposal(d, &alpha, &p2, &json!({})).0,
+            StatusCode::OK,
+            "the owner closes it"
+        );
+        assert_eq!(
+            withdraw_proposal(d, &root, &p3, &json!({})).0,
+            StatusCode::OK,
+            "an org admin closes it"
+        );
+        assert_eq!(revision(d, &ont), 1);
+    }
+
+    #[test]
+    fn lists_and_gets_answer_only_what_the_caller_may_see_and_a_hidden_record_answers_as_absent() {
+        let p = plane();
+        let d = p.data_dir.as_str();
+        let alpha = signed_in(d, "alpha", "member", &["org://local"]);
+        let beta_session = session(d, "beta", "member", &["org://local"]);
+        let beta = who(d, &beta_session);
+        let gamma = signed_in(d, "gamma", "member", &["project://elsewhere"]);
+        let ont_a = created(d, &alpha, "lending");
+        let ont_b = created(d, &beta, "payments");
+        let ont_g = created(d, &gamma, "private");
+
+        assert_eq!(
+            listed(d, &alpha),
+            sorted(vec![ont_a.clone(), ont_b.clone()]),
+            "an org's ontologies"
+        );
+        assert_eq!(listed(d, &beta), sorted(vec![ont_a.clone(), ont_b.clone()]));
+        assert_eq!(
+            listed(d, &gamma),
+            vec![ont_g.clone()],
+            "outside the org: its own only"
+        );
+        assert!(!listed(d, &alpha).contains(&ont_g));
+        assert_eq!(
+            list_ontologies(d, &gamma, Some("lending"))["ontologies"],
+            json!([]),
+            "a domain filter narrows the visible set, never widens it"
+        );
+
+        // a hidden ontology answers exactly as an absent one, on every read and write
+        let pairs: [(
+            &str,
+            fn(&str, &RequestIdentity, &str) -> (StatusCode, Json<Value>),
+        ); 4] = [
+            ("get", get_ontology),
+            ("health", ontology_health),
+            ("history", ontology_history),
+            ("delete", delete_ontology),
+        ];
+        for (name, read) in pairs {
+            let (hidden_status, Json(hidden)) = read(d, &gamma, &ont_a);
+            let (absent_status, Json(absent)) = read(d, &gamma, "ont_absent");
+            assert_eq!(hidden_status, absent_status, "{name}");
+            assert_eq!(
+                hidden.get("reason"),
+                absent.get("reason"),
+                "{name}: {hidden} vs {absent}"
+            );
+        }
+        assert_eq!(get_ontology(d, &gamma, &ont_a).0, StatusCode::NOT_FOUND);
+        let (hidden_status, Json(hidden)) =
+            apply_ontology_change(d, &gamma, &ont_a, &json!({ "description": "x" }));
+        let (absent_status, Json(absent)) =
+            apply_ontology_change(d, &gamma, "ont_absent", &json!({ "description": "x" }));
+        assert_eq!((hidden_status, hidden), (absent_status, absent));
+        assert_eq!(revision(d, &ont_a), 1);
+        let (status, Json(reply)) = create_proposal(
+            d,
+            &gamma,
+            &json!({ "ontology_ref": format!("ontology://{ont_a}"), "title": "t", "changes": { "description": "x" } }),
+        );
+        assert_eq!(status, StatusCode::NOT_FOUND, "{reply}");
+        assert_eq!(
+            code(&reply),
+            "odk_ontology_not_found",
+            "cannot propose to what it cannot see"
+        );
+
+        // proposals follow the ontology they target
+        let pa = proposed(d, &beta, &ont_a, "beta on alpha");
+        let pg = proposed(d, &gamma, &ont_g, "gamma on its own");
+        assert_eq!(proposals_listed(d, &alpha), vec![pa.clone()]);
+        assert_eq!(proposals_listed(d, &gamma), vec![pg.clone()]);
+        let (hidden_status, Json(hidden)) = get_proposal(d, &gamma, &pa);
+        let (absent_status, Json(absent)) = get_proposal(d, &gamma, "ontp_absent");
+        assert_eq!((hidden_status, &hidden), (absent_status, &absent));
+        assert_eq!(hidden_status, StatusCode::NOT_FOUND);
+        let plain = |(status, Json(body)): (StatusCode, Json<Value>)| (status, body);
+        assert_eq!(
+            plain(apply_proposal(d, &gamma, &pa)),
+            plain(apply_proposal(d, &gamma, "ontp_absent"))
+        );
+        assert_eq!(
+            plain(withdraw_proposal(d, &gamma, &pa, &json!({}))),
+            plain(withdraw_proposal(d, &gamma, "ontp_absent", &json!({})))
+        );
+        assert_eq!(status_of(d, &beta, &pa), "open");
+
+        // leaving the org takes the org's ontologies out of sight on the next request; the
+        // proposer still sees, and may withdraw, its own proposal
+        super::super::lifecycle_routes::apply_membership_transition(
+            d,
+            "user://beta",
+            "user://beta",
+            "org://local",
+            "organization",
+            "revoked",
+            1,
+            "test-beta-leaves",
+            "left the org",
+            "admin_api",
+        )
+        .unwrap();
+        let beta = who(d, &beta_session);
+        assert_eq!(listed(d, &beta), vec![ont_b.clone()]);
+        assert_eq!(get_ontology(d, &beta, &ont_a).0, StatusCode::NOT_FOUND);
+        assert!(
+            !listed(d, &alpha).contains(&ont_b),
+            "nor does the org see the leaver's"
+        );
+        assert_eq!(proposals_listed(d, &beta), vec![pa.clone()]);
+        assert_eq!(
+            withdraw_proposal(d, &beta, &pa, &json!({})).0,
+            StatusCode::OK
+        );
+
+        // daemon-internal readers keep full access
+        assert_eq!(read_record_dir(d, KIND_ONT).len(), 3);
+    }
+
+    #[test]
+    fn an_org_admin_changes_only_what_its_org_owns() {
+        let p = plane();
+        let d = p.data_dir.as_str();
+        let gamma = signed_in(d, "gamma", "member", &["project://elsewhere"]);
+        let root = signed_in(d, "root", "admin", &["org://local"]);
+        let ont_g = created(d, &gamma, "private");
+        assert_eq!(
+            apply_ontology_change(d, &root, &ont_g, &json!({ "description": "x" })).0,
+            StatusCode::NOT_FOUND,
+            "an admin role is not a key to another org's ontologies"
+        );
+        assert!(listed(d, &root).is_empty());
+    }
+
+    #[test]
+    fn an_ontology_no_created_receipt_attributes_is_answered_to_no_one() {
+        let p = plane();
+        let d = p.data_dir.as_str();
+        let root = signed_in(d, "root", "admin", &["org://local"]);
+        persist_record(
+            d,
+            KIND_ONT,
+            "ont_legacy",
+            &json!({ "id": "ont_legacy", "ref": "ontology://ont_legacy", "domain": "legacy", "revision": 1 }),
+        )
+        .unwrap();
+        assert!(listed(d, &root).is_empty());
+        assert_eq!(
+            get_ontology(d, &root, "ont_legacy").0,
+            StatusCode::NOT_FOUND
+        );
+        assert_eq!(
+            apply_ontology_change(d, &root, "ont_legacy", &json!({ "description": "x" })).0,
+            StatusCode::NOT_FOUND
+        );
+        assert_eq!(
+            read_record_dir(d, KIND_ONT).len(),
+            1,
+            "it is still there for the daemon"
+        );
+    }
+
+    #[test]
+    fn the_owner_is_the_principal_on_the_created_receipt_and_two_claims_attribute_it_to_no_one() {
+        let p = plane();
+        let d = p.data_dir.as_str();
+        let alpha = signed_in(d, "alpha", "member", &["org://local"]);
+        let ont = created(d, &alpha, "lending");
+        let oref = format!("ontology://{ont}");
+        assert_eq!(
+            ontology_owners(d).get(&oref),
+            Some(&"user://alpha".to_string())
+        );
+        let access = OntologyAccess::read(d, &alpha);
+        assert!(
+            access.owns(&ont),
+            "an id and its ref name the same ontology"
+        );
+        assert!(access.owns(&oref));
+        persist_record(
+            d,
+            KIND_ONT_RECEIPT,
+            "ontr_second_claim",
+            &json!({ "receipt_id": "ontr_second_claim", "ontology_ref": oref, "op": "created", "acting_principal_ref": "user://mallory" }),
+        )
+        .unwrap();
+        assert_eq!(ontology_owners(d).get(&oref), None, "fail closed");
+    }
+
+    #[test]
+    fn an_anonymous_caller_gets_the_typed_401_every_scoped_ontology_route_gives() {
+        let p = plane();
+        let refusal = resolve_request_identity(&p.data_dir, &HeaderMap::new()).unwrap_err();
+        let (status, Json(reply)) = odk_scope_refusal(refusal);
+        assert_eq!(status, StatusCode::UNAUTHORIZED);
+        assert_eq!(reply["code"], json!("request_principal_required"));
     }
 }

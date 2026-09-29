@@ -295,7 +295,7 @@ async function run() {
     const tab = async (name, want) => { await visit("/workspace/ontology/home/proposals", /Sort: Recently created/u); await pg.getByRole("tab", { name, exact: true }).click({ timeout: 8000 }).catch(() => {}); let t = ""; for (let i = 0; i < 10 && !want.test(t); i++) { await pg.waitForTimeout(700); t = await text(); } return after(t, "Sort: Recently created", 200); };
     const merged = await tab("Merged proposals", /Describe the loan type/u), closedTab = await tab("Closed proposals", /Describe the borrower type/u), inReview = await tab("In review", /Describe the branch type/u);
     const assigned = await tab("Assigned to you", /Describe the branch type/u);
-    ok("the Proposals tabs sort the ODK proposals by state: Merged is the applied one (Completed), Closed the withdrawn one, In review and Assigned to you the open one (any signed-in principal may apply it)",
+    ok("the Proposals tabs sort the ODK proposals by state: Merged is the applied one (Completed), Closed the withdrawn one, In review and Assigned to you the open one (the caller owns its ontology, so the daemon reads them as one who may apply it)",
       /Describe the loan type .*Completed/u.test(merged) && !/borrower|branch type/u.test(merged) && /Describe the borrower type .*Closed/u.test(closedTab) && !/loan type|branch type/u.test(closedTab)
         && /Describe the branch type .*Pending approval/u.test(inReview) && !/loan type|borrower/u.test(inReview) && /Describe the branch type .*Pending approval/u.test(assigned) && !/loan type|borrower/u.test(assigned),
       `merged: ${merged.slice(22, 90)} · closed: ${closedTab.slice(22, 90)} · in review: ${inReview.slice(22, 90)} · assigned: ${assigned.slice(22, 60)}`);

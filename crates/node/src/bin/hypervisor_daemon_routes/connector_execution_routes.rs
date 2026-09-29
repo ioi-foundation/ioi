@@ -1011,13 +1011,15 @@ pub(crate) async fn handle_run_execute(
 //
 // A set is the caller's when it OWNS the set's ontology, or can SEE the data source the set was
 // materialized from:
-//   * a domain ontology carries no owner field; the principal that created it is the one its
-//     `created` receipt names (INV-37: every ontology mutation receipt names who acted), and that
-//     receipt outlives a later edit or deletion;
+//   * a domain ontology carries no owner field; its owner is the principal its `created` receipt
+//     names, read through the ontology plane's one definition (`odk_routes::ontology_owners`), and
+//     that receipt outlives a later edit or deletion;
 //   * the source is found through the set's lease plan (or its run), and is seen under the
 //     data-source plane's own rule: declared by the caller, or filed in a project it is a member of.
-// Editing someone else's ontology grants nothing here: any authenticated principal may patch an
-// ontology, so an edit receipt is not a claim to the rows bound to it.
+// Seeing or changing someone else's ontology grants nothing here: an organization's members may read
+// its ontologies and its administrators may edit them (ledger CCXXVII), but the rows bound to an
+// ontology are its owner's and its source's, so neither membership nor an edit receipt is a claim to
+// them.
 struct SetVisibility {
     ontology_creators: std::collections::HashMap<String, String>,
     sources: std::collections::HashMap<String, Value>,
@@ -1037,19 +1039,7 @@ impl SetVisibility {
                 })
                 .collect()
         };
-        let ontology_creators = read_record_dir(data_dir, crate::odk_routes::KIND_ONT_RECEIPT)
-            .into_iter()
-            .filter(|r| r.get("op").and_then(Value::as_str) == Some("created"))
-            .filter_map(|r| {
-                let oref = r.get("ontology_ref").and_then(Value::as_str)?.to_string();
-                let who = r
-                    .get("acting_principal_ref")
-                    .and_then(Value::as_str)
-                    .filter(|p| !p.is_empty())?
-                    .to_string();
-                Some((oref, who))
-            })
-            .collect();
+        let ontology_creators = crate::odk_routes::ontology_owners(data_dir);
         let sources = read_record_dir(data_dir, crate::data_source_routes::RECORD_DIR)
             .into_iter()
             .filter_map(|r| Some((r.get("source_id").and_then(Value::as_str)?.to_string(), r)))
@@ -1079,12 +1069,9 @@ impl SetVisibility {
         if oref.is_empty() {
             return false;
         }
-        let canonical = if oref.starts_with("ontology://") {
-            oref
-        } else {
-            format!("ontology://{oref}")
-        };
-        self.ontology_creators.get(&canonical) == Some(&identity.principal_ref)
+        self.ontology_creators
+            .get(&crate::odk_routes::canonical_ontology_ref(&oref))
+            == Some(&identity.principal_ref)
     }
 
     fn sees_source(&self, set: &Value, identity: &super::substrate_store::RequestIdentity) -> bool {
@@ -1511,7 +1498,7 @@ mod connector_execution_tests {
             "the overview counts the caller's sets and objects only"
         );
 
-        // an edit receipt is not ownership: any principal may patch an ontology
+        // an edit receipt is not ownership (an org administrator may patch an ontology it does not own)
         persist_record(
             data_dir,
             crate::odk_routes::KIND_ONT_RECEIPT,

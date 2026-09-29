@@ -35,7 +35,8 @@ export async function load(ctx) {
   // caller-scoped: an anonymous read is refused, so it rides the request's own identity
   const ds = await (typeof ctx.daemonFetch === "function" ? createReadClient({ daemon: "", fetchImpl: ctx.daemonFetch }) : createReadClient({ daemon: ctx.daemon })).read("/v1/hypervisor/data-sources");
   base.lists.data_sources = ds.ok ? (Array.isArray(ds.payload.data_sources) ? ds.payload.data_sources : []) : null;
-  const pr = await createReadClient({ daemon: ctx.daemon }).read("/v1/hypervisor/odk/ontology-proposals");
+  // caller-scoped too (the proposals on ontologies the caller may see): it rides the request's identity
+  const pr = await (typeof ctx.daemonFetch === "function" ? createReadClient({ daemon: "", fetchImpl: ctx.daemonFetch }) : createReadClient({ daemon: ctx.daemon })).read("/v1/hypervisor/odk/ontology-proposals");
   base.lists.ontology_proposals = pr.ok ? (Array.isArray(pr.payload.ontology_proposals) ? pr.payload.ontology_proposals : []) : null;
   // The selected draft's published revisions (R-240), read only when History is open, under the
   // caller's own identity (the family is owner-scoped). NULL off History; otherwise a typed state.
@@ -239,6 +240,11 @@ export async function handleAction({ action, fields, daemonFetch, url }) {
       // A daemon that ever gates ODK writes surfaces its 428/403 here as a named state; a
       // plain gateway 4xx (e.g. a revision conflict returned non-2xx) maps to its own code.
       const http = crossed.status === 428 ? 428 : crossed.status === 403 ? 403 : (crossed.code === "odk_revision_conflict" ? 409 : 400);
+      // A 403 that carries the plane's own typed error is that refusal, not a wallet challenge: the
+      // ontology plane refuses a caller who may see an ontology but not change it by name
+      // (odk_ontology_not_owner, odk_proposal_apply_requires_owner; ledger CCXXVII), with nothing to sign.
+      const typed = crossed.status === 403 && crossed.refusal && crossed.refusal.error && crossed.refusal.error.code ? crossed.refusal.error : null;
+      if (typed) return { kind: "refusal", http, code: typed.code, message: typed.message || crossed.message };
       return { kind: "refusal", http, code: crossed.code, message: crossed.message, challenge: crossed.challenge };
     }
     return { kind: "failure", http: 502, code: crossed.code, message: crossed.message };
@@ -257,8 +263,12 @@ export async function handleAction({ action, fields, daemonFetch, url }) {
   }
   // Every other action edits an existing ontology under optimistic concurrency.
   const ontId = url.searchParams.get("ontology") || fields.ontology || "";
+  // The ontology reads below are caller-scoped (ledger CCXXVII): an anonymous caller's read is the
+  // daemon's typed 401, and that refusal is what the action answers, never "select an ontology first".
+  const readRefused = (r) => (r && r.kind === "refusal" && r.status === 401 ? { kind: "refusal", http: 401, code: r.code, message: r.message } : null);
   if (action.id === "publish-revision") {
     const cur = await reader.read(`/v1/hypervisor/odk/domain-ontologies/${encodeURIComponent(ontId)}`);
+    if (readRefused(cur)) return readRefused(cur);
     const ont = cur.ok && cur.payload && cur.payload.ontology ? cur.payload.ontology : null;
     if (!ont) return { kind: "refusal", http: 404, code: "odk_ontology_not_found", message: "select an existing ontology first" };
     // THE TERMS ARE THE DRAFT THE AUTHOR SAW. An edit since the page rendered is refused, never
@@ -302,6 +312,7 @@ export async function handleAction({ action, fields, daemonFetch, url }) {
   }
   if (action.id === "map-backing-datasource") {
     const cur = await reader.read(`/v1/hypervisor/odk/domain-ontologies/${encodeURIComponent(ontId)}`);
+    if (readRefused(cur)) return readRefused(cur);
     const ont = cur.ok && cur.payload && cur.payload.ontology ? cur.payload.ontology : null;
     if (!ont) return { kind: "refusal", http: 404, code: "odk_ontology_not_found", message: "select an existing ontology first" };
     const otId = bounded(fields.object_type_id, 64).trim();
@@ -365,6 +376,7 @@ export async function handleAction({ action, fields, daemonFetch, url }) {
     // passing it as `expected_revision` is what makes the review interval meaningful: a proposal
     // authored against a revision that has since moved is refused, not silently rebased.
     const cur0 = await reader.read(`/v1/hypervisor/odk/domain-ontologies/${encodeURIComponent(ontId)}`);
+    if (readRefused(cur0)) return readRefused(cur0);
     const ont0 = cur0.ok && cur0.payload && cur0.payload.ontology ? cur0.payload.ontology : null;
     if (!ont0) return { kind: "refusal", http: 404, code: "odk_ontology_not_found", message: "select an existing ontology first" };
     const crossed = await authority.cross("/v1/hypervisor/odk/ontology-proposals", {
@@ -376,6 +388,7 @@ export async function handleAction({ action, fields, daemonFetch, url }) {
     return fromCrossing(crossed, (c) => ({ kind: "success", createdProposal: c.payload.ontology_proposal.id, receipt_ref: c.receipt_ref, redirect: ontologyContextQuery("/__ioi/ontology/manager", { ontology: ontId, section: "proposals" }) }));
   }
   const curRead = await reader.read(`/v1/hypervisor/odk/domain-ontologies/${encodeURIComponent(ontId)}`);
+  if (readRefused(curRead)) return readRefused(curRead);
   const cur = curRead.ok ? curRead.payload : null;
   if (!cur || cur.ok === false || !cur.ontology) return { kind: "refusal", http: 404, code: "odk_ontology_not_found", message: "select an existing ontology first" };
   const ont = cur.ontology;

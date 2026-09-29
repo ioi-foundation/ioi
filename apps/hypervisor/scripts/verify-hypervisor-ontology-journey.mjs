@@ -85,7 +85,11 @@ async function startDaemon() {
 
 // Ontology writes are identity-first (rule E — the W1.1/G-2 finding is CLOSED): every
 // authoring crossing carries the bootstrap operator's session; the daemon refuses an
-// anonymous write typed-401 BEFORE any record load. Reads stay ungated.
+// anonymous write typed-401 BEFORE any record load. Ontology READS are caller-scoped too
+// (ledger CCXXVII): an anonymous read is the same typed 401, and a signed-in caller sees only the
+// ontologies it owns or shares an organization with. So every read of the operator's ontology
+// below is sessioned (`read`, `pageAs`, a sessioned browser context), and `jd` with no init stays
+// the anonymous probe it is for the two families that refuse one.
 let SESSION = "";
 const sessionCookie = () => (SESSION ? { cookie: `ioi_session=${SESSION}` } : {});
 
@@ -94,6 +98,8 @@ const jd = (p, init) => fetch(`${DAEMON}${p}`, init ? { headers: { "content-type
   .catch(() => ({ status: 0, body: {} }));
 
 const pageText = (p) => fetch(`${SERVE}${p}`).then(async (r) => ({ status: r.status, text: await r.text() })).catch(() => ({ status: 0, text: "" }));
+/** A daemon read AS THE OPERATOR (the ontology it created is scoped to it). */
+const read = (p) => jd(p, { method: "GET" });
 
 /**
  * A page fetched AS THE OPERATOR. `pageText` sends no cookie, which is right for the anonymous
@@ -202,7 +208,7 @@ async function run() {
   const created = await act("create-ontology", { domain, version: "1.0.0", description: "journey ontology" });
   const ontId = created.q.get("record") || "";
   ok("create-ontology crosses with a receipt", created.status === 303 && created.q.get("acted") === "create-ontology" && (created.q.get("receipt") || "").length > 0, created.location.slice(0, 140));
-  const afterCreate = await jd(`/v1/hypervisor/odk/domain-ontologies/${ontId}`);
+  const afterCreate = await read(`/v1/hypervisor/odk/domain-ontologies/${ontId}`);
   ok("created ontology reads back at revision 1", afterCreate.status === 200 && afterCreate.body?.ontology?.revision === 1 && afterCreate.body?.ontology?.domain === domain, `rev ${afterCreate.body?.ontology?.revision}`);
 
   // -- version discipline: five upserts + metadata, each a receipted revision -
@@ -221,7 +227,7 @@ async function run() {
     expectedRev += 1;
     ok(`${actionId} crosses with a receipt`, res.status === 303 && res.q.get("acted") === actionId && (res.q.get("receipt") || "").length > 0, res.location.slice(0, 140));
   }
-  const afterSteps = await jd(`/v1/hypervisor/odk/domain-ontologies/${ontId}`);
+  const afterSteps = await read(`/v1/hypervisor/odk/domain-ontologies/${ontId}`);
   const com = afterSteps.body?.ontology?.canonical_object_model ?? {};
   ok("revision advanced once per mutation", afterSteps.body?.ontology?.revision === expectedRev, `rev ${afterSteps.body?.ontology?.revision}, expected ${expectedRev}`);
   ok("canonical object model holds the authored definitions",
@@ -256,17 +262,17 @@ async function run() {
   ok("missing ontology denies with the typed refusal", denied.status === 303 && denied.q.get("refused") === "odk_ontology_not_found", denied.location.slice(0, 120));
 
   // -- read / search-filter / health / history -------------------------------
-  const filtered = await pageText(`/ontology/schema?ontology=${encodeURIComponent(ontId)}&section=object-types`);
+  const filtered = await pageAs(`/ontology/schema?ontology=${encodeURIComponent(ontId)}&section=object-types`);
   ok("Manager reads back the authored type through the canonical mount", filtered.status === 200 && filtered.text.includes("JourneyObject"), "");
-  const scoped = await pageText(`/ontology/explore?ontology=${encodeURIComponent(ontId)}`);
+  const scoped = await pageAs(`/ontology/explore?ontology=${encodeURIComponent(ontId)}`);
   ok("Explorer scope selector resolves the ontology", scoped.status === 200 && scoped.text.includes(domain), "");
-  const history = await jd(`/v1/hypervisor/odk/domain-ontologies/${ontId}/history`);
+  const history = await read(`/v1/hypervisor/odk/domain-ontologies/${ontId}/history`);
   ok("history records the mutation trail", history.status === 200 && JSON.stringify(history.body).length > 2, `status ${history.status}`);
   const historyReceipts = Array.isArray(history.body?.receipts) ? history.body.receipts : [];
   ok("receipts bind the resolved acting principal (INV-37)",
     historyReceipts.length > 0 && historyReceipts.every((r) => typeof r.acting_principal_ref === "string" && r.acting_principal_ref.startsWith("user://")),
     historyReceipts[0]?.acting_principal_ref ?? "no receipts");
-  const health = await jd(`/v1/hypervisor/odk/domain-ontologies/${ontId}/health`);
+  const health = await read(`/v1/hypervisor/odk/domain-ontologies/${ontId}/health`);
   ok("health answers for the authored ontology", health.status === 200, `status ${health.status}`);
 
   // -- the two families next-legs XIII LANDED, asserted at the routes that actually exist ---------
@@ -449,21 +455,21 @@ async function run() {
   ok("anonymous direct daemon patch answers typed 401 before the record load (rule E)",
     anonPatch.status === 401 && anonPatch.body?.code === "request_principal_required",
     `status ${anonPatch.status} code ${anonPatch.body?.code}`);
-  const unchanged = await jd(`/v1/hypervisor/odk/domain-ontologies/${ontId}`);
+  const unchanged = await read(`/v1/hypervisor/odk/domain-ontologies/${ontId}`);
   ok("anonymous attempts changed nothing", unchanged.status === 200 && unchanged.body?.ontology?.revision === expectedRev, `rev ${unchanged.body?.ontology?.revision}`);
 
   // -- restart survival -------------------------------------------------------
   daemon.kill("SIGTERM");
   await new Promise((r) => setTimeout(r, 1200));
   await startDaemon();
-  const afterRestart = await jd(`/v1/hypervisor/odk/domain-ontologies/${ontId}`);
+  const afterRestart = await read(`/v1/hypervisor/odk/domain-ontologies/${ontId}`);
   ok("ontology survives a daemon restart at the same revision",
     afterRestart.status === 200 && afterRestart.body?.ontology?.revision === expectedRev,
     `rev ${afterRestart.body?.ontology?.revision}, expected ${expectedRev}`);
   let receiptsAfter = 0;
   try { receiptsAfter = fs.readdirSync(path.join(dataDir, "odk-ontology-receipts")).length; } catch { receiptsAfter = -1; }
   ok("receipts survive the restart", receiptsAfter >= receiptCount && receiptCount > 0, `${receiptsAfter} receipts`);
-  const reload = await pageText(`/ontology/schema?ontology=${encodeURIComponent(ontId)}`);
+  const reload = await pageAs(`/ontology/schema?ontology=${encodeURIComponent(ontId)}`);
   ok("canonical mount re-renders the authored ontology after restart", reload.status === 200 && reload.text.includes(domain), "");
   const pubAfterRestart = await pageAs(`/__ioi/ontology/manager?ontology=${encodeURIComponent(ontId)}&section=history`);
   const listedAfterRestart = [...pubAfterRestart.text.matchAll(/data-og-published-revision="([^"]*)"/gu)].map((m) => m[1]);
@@ -514,7 +520,7 @@ async function run() {
   const gc_missingEntries = [];
   const gc_deadEntries = [];
   for (const gc_entry of gc_CREATE_ENTRIES) {
-    const gc_pane = await pageText(`/ontology/schema?ontology=${encodeURIComponent(ontId)}&section=create&newKind=${gc_entry.kind}`);
+    const gc_pane = await pageAs(`/ontology/schema?ontology=${encodeURIComponent(ontId)}&section=create&newKind=${gc_entry.kind}`);
     const gc_fields = gc_formFields(gc_pane.text, gc_entry.action);
     if (!gc_fields || !("create_new" in gc_fields)) { gc_missingEntries.push(gc_entry.kind); continue; }
     const gc_sent = { ...gc_fields, ontology: ontId, def_id: `${gc_entry.kind.replace(/-/gu, "_")}_probe`, name: `Probe ${gc_entry.kind}` };
@@ -526,15 +532,15 @@ async function run() {
   ok("every create entry SUBMITS as rendered — no control that renders but can never succeed",
     gc_deadEntries.length === 0, gc_deadEntries.length ? `refused as rendered: ${gc_deadEntries.join(", ")}` : `${gc_CREATE_ENTRIES.length}/5 submit`);
 
-  const gc_discover = await pageText(`/ontology/schema?ontology=${encodeURIComponent(ontId)}`);
+  const gc_discover = await pageAs(`/ontology/schema?ontology=${encodeURIComponent(ontId)}`);
   ok("the section-level New object type control is rendered on the surface",
     /<a[^>]+class="og-newobj"[^>]+href="[^"]*newKind=object-type/.test(gc_discover.text), "anchor + href pinned");
 
   // The create lane AUTHORS — proven on durable truth, not on the redirect.
-  const gc_beforeCreate = await jd(`/v1/hypervisor/odk/domain-ontologies/${ontId}`);
+  const gc_beforeCreate = await read(`/v1/hypervisor/odk/domain-ontologies/${ontId}`);
   const gc_lnkBefore = ((gc_beforeCreate.body?.ontology?.canonical_object_model || {}).link_types || []).length;
   const madeLink = await act("upsert-link-type", { ontology: ontId, create_new: "1", def_id: "lnk_journey", name: "Journey link", from: "obj_journey", to: "obj_journey", cardinality: "one_to_many" });
-  const gc_afterCreate = await jd(`/v1/hypervisor/odk/domain-ontologies/${ontId}`);
+  const gc_afterCreate = await read(`/v1/hypervisor/odk/domain-ontologies/${ontId}`);
   const gc_lnkAfter = ((gc_afterCreate.body?.ontology?.canonical_object_model || {}).link_types || []);
   ok("a create entry authors a NEW definition with a receipt, readable in durable truth",
     madeLink.q.get("acted") === "upsert-link-type" && !!madeLink.q.get("receipt")
@@ -545,7 +551,7 @@ async function run() {
   // would silently rewrite a definition and still return a receipt.
   const gc_revBeforeDup = gc_afterCreate.body?.ontology?.revision;
   const gc_dup = await act("upsert-link-type", { ontology: ontId, create_new: "1", def_id: "lnk_journey", name: "CLOBBERED", from: "obj_journey", to: "obj_journey", cardinality: "one_to_one" });
-  const gc_afterDup = await jd(`/v1/hypervisor/odk/domain-ontologies/${ontId}`);
+  const gc_afterDup = await read(`/v1/hypervisor/odk/domain-ontologies/${ontId}`);
   const gc_dupLink = ((gc_afterDup.body?.ontology?.canonical_object_model || {}).link_types || []).find((l) => l.id === "lnk_journey");
   ok("a create entry REFUSES a duplicate id typed — it never merges over an existing definition",
     gc_dup.q.get("refused") === "ontology_definition_exists", `refused ${gc_dup.q.get("refused") || "<none>"}`);
@@ -555,7 +561,7 @@ async function run() {
 
   // The EDIT lane is the other half of the distinction: same id, no create intent, merges.
   const gc_edited = await act("upsert-link-type", { ontology: ontId, def_id: "lnk_journey", name: "Journey link renamed", from: "obj_journey", to: "obj_journey", cardinality: "one_to_many" });
-  const gc_afterEdit = await jd(`/v1/hypervisor/odk/domain-ontologies/${ontId}`);
+  const gc_afterEdit = await read(`/v1/hypervisor/odk/domain-ontologies/${ontId}`);
   ok("the EDIT lane still merges onto the same id — create and edit stay distinct governed acts",
     gc_edited.q.get("acted") === "upsert-link-type"
       && ((gc_afterEdit.body?.ontology?.canonical_object_model || {}).link_types || []).find((l) => l.id === "lnk_journey")?.name === "Journey link renamed",
@@ -574,10 +580,10 @@ async function run() {
   // duplicate; it says nothing about whether the CONTROL sends the create intent. The first version
   // of this assertion did exactly that and the mutation stripping `create_new` from the rendered
   // "Add a property" form passed 46/46 — twice. The fields below come from the form itself.
-  const gc_addPane = await pageText(`/ontology/schema?ontology=${encodeURIComponent(ontId)}&section=object-types&definitionKind=object-type&definitionId=obj_propowner`);
+  const gc_addPane = await pageAs(`/ontology/schema?ontology=${encodeURIComponent(ontId)}&section=object-types&definitionKind=object-type&definitionId=obj_propowner`);
   const gc_addFields = gc_formFields(gc_addPane.text, "upsert-property") || {};
   const gc_propDup = await act("upsert-property", { ...gc_addFields, ontology: ontId, object_type_id: "obj_propowner", def_id: "prop_amount", name: "Amount", value_type: "integer" });
-  const gc_afterProp = await jd(`/v1/hypervisor/odk/domain-ontologies/${ontId}`);
+  const gc_afterProp = await read(`/v1/hypervisor/odk/domain-ontologies/${ontId}`);
   const gc_prop = (((gc_afterProp.body?.ontology?.canonical_object_model || {}).object_types || [])
     .find((t) => t.id === "obj_propowner")?.properties || []).find((x) => x.id === "prop_amount");
   ok("the rendered ADD A PROPERTY form carries the create intent — a duplicate id is refused, never silently retyped",
@@ -586,7 +592,7 @@ async function run() {
 
   // The property EDIT lane exists, or making Add create-only would have removed the ability to
   // change a property at all.
-  const gc_propEdit = await pageText(`/ontology/schema?ontology=${encodeURIComponent(ontId)}&section=object-types&definitionKind=property&definitionId=${encodeURIComponent("obj_propowner.prop_amount")}`);
+  const gc_propEdit = await pageAs(`/ontology/schema?ontology=${encodeURIComponent(ontId)}&section=object-types&definitionKind=property&definitionId=${encodeURIComponent("obj_propowner.prop_amount")}`);
   ok("a property EDIT lane is rendered, so create-only Add does not strand the definition",
     /action="\/__ioi\/ontology\/manager\/actions\/upsert-property"/.test(gc_propEdit.text) && !/name="create_new"[^>]*>\s*<label[^>]*>Property id/.test(gc_propEdit.text),
     "edit form present");
@@ -609,6 +615,8 @@ async function run() {
       ["narrow-reduced-motion", { viewport: { width: 390, height: 844 }, colorScheme: "light", reducedMotion: "reduce" }],
     ]) {
       const ctx = await browser.newContext(opts);
+      // the operator's own session: the ontology it renders is scoped to its owner (ledger CCXXVII)
+      if (SESSION) await ctx.addCookies([{ name: "ioi_session", value: SESSION, url: SERVE }]);
       const page = await ctx.newPage();
       const errors = [];
       page.on("console", (m) => { if (m.type() === "error") errors.push(m.text()); });

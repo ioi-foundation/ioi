@@ -44,8 +44,8 @@ use serde_json::{json, Value};
 use std::collections::HashMap;
 
 use super::odk_routes::{
-    apply_ontology_change, check_expected_revision, load, nanos, odk_scope_refusal,
-    validate_ontology_change, KIND_ONT,
+    apply_ontology_change, canonical_ontology_ref, check_expected_revision, load, nanos,
+    odk_scope_refusal, validate_ontology_change, OntologyAccess, KIND_ONT,
 };
 use super::{iso_now, persist_record, read_record_dir, DaemonState};
 
@@ -199,6 +199,83 @@ fn proposal_change_set(body: &Value) -> Result<Value, Reply> {
     Ok(change)
 }
 
+// WHO MAY SEE, PROPOSE, APPLY AND WITHDRAW (ledger CCXXVII). The list, get, apply and withdraw
+// checked identity only, so any signed-in principal could merge or close any proposal on any
+// ontology. The ontology plane's own rule decides now (`odk_routes::OntologyAccess`):
+//   * a caller may PROPOSE a change to an ontology it may see; that is how a proposal invites change
+//     without granting it;
+//   * a caller sees a proposal when it may see the ontology the proposal targets, or proposed it;
+//   * only a caller who may CHANGE the ontology (its owner, or an administrator of its organization)
+//     APPLIES a proposal; the proposer alone may not merge into someone else's ontology;
+//   * the proposer, or whoever may change the ontology, WITHDRAWS it.
+// A proposal the caller may not see answers exactly as an absent one; a visible one the caller may
+// not decide is a typed 403; neither records anything.
+
+/// The canonical ref of the ontology a proposal targets.
+fn proposal_ontology_ref(proposal: &Value) -> String {
+    canonical_ontology_ref(
+        proposal
+            .get("ontology_ref")
+            .and_then(Value::as_str)
+            .filter(|r| !r.is_empty())
+            .or_else(|| proposal.get("ontology_id").and_then(Value::as_str))
+            .unwrap_or(""),
+    )
+}
+
+fn proposed_by_caller(
+    proposal: &Value,
+    identity: &super::substrate_store::RequestIdentity,
+) -> bool {
+    proposal.get("proposed_by").and_then(Value::as_str) == Some(identity.principal_ref.as_str())
+}
+
+fn proposal_visible(
+    access: &OntologyAccess,
+    identity: &super::substrate_store::RequestIdentity,
+    proposal: &Value,
+) -> bool {
+    proposed_by_caller(proposal, identity) || access.may_see(&proposal_ontology_ref(proposal))
+}
+
+fn proposal_not_found() -> Reply {
+    bad(
+        StatusCode::NOT_FOUND,
+        "ontology_proposal_not_found",
+        "no proposal exists at this id",
+    )
+}
+
+/// A proposal as THIS caller reads it: the stored record plus what the caller may decide on it —
+/// `caller_may_apply` (they may change its ontology: its owner, or an administrator of its
+/// organization) and `caller_may_withdraw` (that, or they proposed it). Computed per read by the
+/// same rule the apply and withdraw routes enforce, never stored, so a surface that offers Approve
+/// or Close offers it exactly to whom the daemon will not refuse.
+fn proposal_for_caller(
+    access: &OntologyAccess,
+    identity: &super::substrate_store::RequestIdentity,
+    mut proposal: Value,
+) -> Value {
+    let may_apply = access.may_change(&proposal_ontology_ref(&proposal));
+    let may_withdraw = may_apply || proposed_by_caller(&proposal, identity);
+    if let Some(object) = proposal.as_object_mut() {
+        object.insert("caller_may_apply".to_string(), Value::Bool(may_apply));
+        object.insert("caller_may_withdraw".to_string(), Value::Bool(may_withdraw));
+    }
+    proposal
+}
+
+/// The proposal at `id`, when the caller may see it. `None` for an absent AND for a hidden one.
+fn visible_proposal(
+    data_dir: &str,
+    access: &OntologyAccess,
+    identity: &super::substrate_store::RequestIdentity,
+    id: &str,
+) -> Option<Value> {
+    load(data_dir, KIND_PROPOSAL, id)
+        .filter(|proposal| proposal_visible(access, identity, proposal))
+}
+
 /// POST /v1/hypervisor/odk/ontology-proposals
 pub(crate) async fn handle_proposal_create(
     State(st): State<Arc<DaemonState>>,
@@ -211,23 +288,39 @@ pub(crate) async fn handle_proposal_create(
         Ok(identity) => identity,
         Err(reply) => return reply,
     };
-    let ontology_ref = match bounded_string(&body, "ontology_ref", TEXT_MAX, true) {
+    create_proposal(&st.data_dir, &identity, &body)
+}
+
+/// Any signed-in caller who may SEE the ontology proposes; an ontology it may not see answers as an
+/// absent one.
+pub(crate) fn create_proposal(
+    data_dir: &str,
+    identity: &super::substrate_store::RequestIdentity,
+    body: &Value,
+) -> Reply {
+    let ontology_ref = match bounded_string(body, "ontology_ref", TEXT_MAX, true) {
         Ok(value) => value,
         Err(reply) => return reply,
     };
-    let title = match bounded_string(&body, "title", NAME_MAX, true) {
+    let title = match bounded_string(body, "title", NAME_MAX, true) {
         Ok(value) => value,
         Err(reply) => return reply,
     };
-    let rationale = match bounded_string(&body, "rationale", TEXT_MAX, false) {
+    let rationale = match bounded_string(body, "rationale", TEXT_MAX, false) {
         Ok(value) => value,
         Err(reply) => return reply,
     };
-    let change = match proposal_change_set(&body) {
+    let change = match proposal_change_set(body) {
         Ok(change) => change,
         Err(reply) => return reply,
     };
-    let Some((ontology_id, ontology)) = resolve_ontology(&st.data_dir, &ontology_ref) else {
+    let Some((ontology_id, ontology)) =
+        resolve_ontology(data_dir, &ontology_ref).filter(|(id, record)| {
+            OntologyAccess::read(data_dir, identity).may_see(&canonical_ontology_ref(
+                record.get("ref").and_then(Value::as_str).unwrap_or(id),
+            ))
+        })
+    else {
         return bad(
             StatusCode::NOT_FOUND,
             "odk_ontology_not_found",
@@ -238,7 +331,7 @@ pub(crate) async fn handle_proposal_create(
         .get("revision")
         .and_then(Value::as_u64)
         .unwrap_or(1);
-    if let Err((status, code, message)) = check_expected_revision(&body, current_revision) {
+    if let Err((status, code, message)) = check_expected_revision(body, current_revision) {
         return (
             status,
             Json(
@@ -263,7 +356,7 @@ pub(crate) async fn handle_proposal_create(
         "applied": Value::Null,
         "withdrawn": Value::Null,
     });
-    if persist_record(&st.data_dir, KIND_PROPOSAL, &id, &record).is_err() {
+    if persist_record(data_dir, KIND_PROPOSAL, &id, &record).is_err() {
         return bad(
             StatusCode::INTERNAL_SERVER_ERROR,
             "ontology_proposal_persistence_failed",
@@ -276,21 +369,32 @@ pub(crate) async fn handle_proposal_create(
     )
 }
 
-/// GET /v1/hypervisor/odk/ontology-proposals[?ontology_ref=&status=]
+/// GET /v1/hypervisor/odk/ontology-proposals[?ontology_ref=&status=] — the proposals the caller may
+/// see (on an ontology it may see, or its own).
 pub(crate) async fn handle_proposal_list(
     State(st): State<Arc<DaemonState>>,
     headers: HeaderMap,
     Query(query): Query<HashMap<String, String>>,
 ) -> Reply {
-    if let Err(reply) = super::substrate_store::resolve_request_identity(&st.data_dir, &headers)
+    match super::substrate_store::resolve_request_identity(&st.data_dir, &headers)
         .map_err(odk_scope_refusal)
     {
-        return reply;
+        Ok(identity) => list_proposals(&st.data_dir, &identity, &query),
+        Err(reply) => reply,
     }
+}
+
+pub(crate) fn list_proposals(
+    data_dir: &str,
+    identity: &super::substrate_store::RequestIdentity,
+    query: &HashMap<String, String>,
+) -> Reply {
+    let access = OntologyAccess::read(data_dir, identity);
     let wanted_ontology = query.get("ontology_ref").map(String::as_str);
     let wanted_status = query.get("status").map(String::as_str);
-    let mut proposals = read_record_dir(&st.data_dir, KIND_PROPOSAL)
+    let mut proposals = read_record_dir(data_dir, KIND_PROPOSAL)
         .into_iter()
+        .filter(|record| proposal_visible(&access, identity, record))
         .filter(|record| {
             wanted_ontology.is_none_or(|reference| {
                 record.get("ontology_ref").and_then(Value::as_str) == Some(reference)
@@ -298,6 +402,7 @@ pub(crate) async fn handle_proposal_list(
             }) && wanted_status
                 .is_none_or(|status| record.get("status").and_then(Value::as_str) == Some(status))
         })
+        .map(|record| proposal_for_caller(&access, identity, record))
         .collect::<Vec<_>>();
     proposals.sort_by(|a, b| {
         b.get("created_at")
@@ -313,27 +418,32 @@ pub(crate) async fn handle_proposal_list(
     )
 }
 
-/// GET /v1/hypervisor/odk/ontology-proposals/:id
+/// GET /v1/hypervisor/odk/ontology-proposals/:id — a hidden proposal answers exactly as an absent one.
 pub(crate) async fn handle_proposal_get(
     State(st): State<Arc<DaemonState>>,
     headers: HeaderMap,
     AxumPath(id): AxumPath<String>,
 ) -> Reply {
-    if let Err(reply) = super::substrate_store::resolve_request_identity(&st.data_dir, &headers)
+    match super::substrate_store::resolve_request_identity(&st.data_dir, &headers)
         .map_err(odk_scope_refusal)
     {
-        return reply;
+        Ok(identity) => get_proposal(&st.data_dir, &identity, &id),
+        Err(reply) => reply,
     }
-    match load(&st.data_dir, KIND_PROPOSAL, &id) {
+}
+
+pub(crate) fn get_proposal(
+    data_dir: &str,
+    identity: &super::substrate_store::RequestIdentity,
+    id: &str,
+) -> Reply {
+    let access = OntologyAccess::read(data_dir, identity);
+    match visible_proposal(data_dir, &access, identity, id) {
         Some(record) => (
             StatusCode::OK,
-            Json(json!({ "ok": true, "ontology_proposal": record })),
+            Json(json!({ "ok": true, "ontology_proposal": proposal_for_caller(&access, identity, record) })),
         ),
-        None => bad(
-            StatusCode::NOT_FOUND,
-            "ontology_proposal_not_found",
-            "no proposal exists at this id",
-        ),
+        None => proposal_not_found(),
     }
 }
 
@@ -342,6 +452,10 @@ pub(crate) async fn handle_proposal_get(
 /// THE WRITE GOES THROUGH THE ONTOLOGY PLANE'S OWN WRITER. This handler decides only whether the
 /// proposal may be applied; what "applying" means is `odk_routes::apply_ontology_change`, the same
 /// function an ordinary PATCH runs.
+///
+/// ONLY WHOEVER MAY CHANGE THE ONTOLOGY MERGES INTO IT: its owner, or an administrator of its
+/// organization. A caller who may see the proposal but not change the ontology, the proposer
+/// included, is refused by name before anything is read further or written.
 pub(crate) async fn handle_proposal_apply(
     State(st): State<Arc<DaemonState>>,
     headers: HeaderMap,
@@ -353,13 +467,25 @@ pub(crate) async fn handle_proposal_apply(
         Ok(identity) => identity,
         Err(reply) => return reply,
     };
-    let Some(proposal) = load(&st.data_dir, KIND_PROPOSAL, &id) else {
-        return bad(
-            StatusCode::NOT_FOUND,
-            "ontology_proposal_not_found",
-            "no proposal exists at this id",
-        );
+    apply_proposal(&st.data_dir, &identity, &id)
+}
+
+pub(crate) fn apply_proposal(
+    data_dir: &str,
+    identity: &super::substrate_store::RequestIdentity,
+    id: &str,
+) -> Reply {
+    let access = OntologyAccess::read(data_dir, identity);
+    let Some(proposal) = visible_proposal(data_dir, &access, identity, id) else {
+        return proposal_not_found();
     };
+    if !access.may_change(&proposal_ontology_ref(&proposal)) {
+        return bad(
+            StatusCode::FORBIDDEN,
+            "odk_proposal_apply_requires_owner",
+            "only the ontology's owner, or an administrator of its organization, may apply a proposal to it; the proposer alone may not merge it. Nothing was applied",
+        );
+    }
     match proposal.get("status").and_then(Value::as_str) {
         Some("open") => {}
         Some("applied") => {
@@ -392,7 +518,7 @@ pub(crate) async fn handle_proposal_apply(
         .get("based_on_revision")
         .and_then(Value::as_u64)
         .unwrap_or(0);
-    let Some((_, ontology)) = resolve_ontology(&st.data_dir, &ontology_id) else {
+    let Some((_, ontology)) = resolve_ontology(data_dir, &ontology_id) else {
         return bad(
             StatusCode::CONFLICT,
             "odk_ontology_not_found",
@@ -428,8 +554,7 @@ pub(crate) async fn handle_proposal_apply(
         .cloned()
         .unwrap_or_else(|| json!({}));
     change["expected_revision"] = json!(current_revision);
-    let (status, Json(applied)) =
-        apply_ontology_change(&st.data_dir, &identity, &ontology_id, &change);
+    let (status, Json(applied)) = apply_ontology_change(data_dir, identity, &ontology_id, &change);
     if !status.is_success() || applied.get("ok").and_then(Value::as_bool) != Some(true) {
         return (status, Json(applied));
     }
@@ -441,7 +566,7 @@ pub(crate) async fn handle_proposal_apply(
         "resulting_revision": applied.pointer("/ontology/revision").cloned().unwrap_or(Value::Null),
         "ontology_receipt_ref": applied.pointer("/ontology_receipt/receipt_ref").cloned().unwrap_or(Value::Null),
     });
-    if persist_record(&st.data_dir, KIND_PROPOSAL, &id, &successor).is_err() {
+    if persist_record(data_dir, KIND_PROPOSAL, id, &successor).is_err() {
         // The ONTOLOGY edit is durable and receipted; only the proposal's own projection failed.
         // Saying so exactly is the honest answer — claiming the apply failed would be false, and
         // claiming it succeeded would hide a proposal stuck reading `open` over an applied change.
@@ -462,7 +587,8 @@ pub(crate) async fn handle_proposal_apply(
     )
 }
 
-/// POST /v1/hypervisor/odk/ontology-proposals/:id/withdraw
+/// POST /v1/hypervisor/odk/ontology-proposals/:id/withdraw — by its proposer, or by whoever may
+/// change the ontology it targets.
 pub(crate) async fn handle_proposal_withdraw(
     State(st): State<Arc<DaemonState>>,
     headers: HeaderMap,
@@ -475,17 +601,32 @@ pub(crate) async fn handle_proposal_withdraw(
         Ok(identity) => identity,
         Err(reply) => return reply,
     };
-    let reason = match bounded_string(&body, "reason", TEXT_MAX, false) {
+    withdraw_proposal(&st.data_dir, &identity, &id, &body)
+}
+
+pub(crate) fn withdraw_proposal(
+    data_dir: &str,
+    identity: &super::substrate_store::RequestIdentity,
+    id: &str,
+    body: &Value,
+) -> Reply {
+    let reason = match bounded_string(body, "reason", TEXT_MAX, false) {
         Ok(value) => value,
         Err(reply) => return reply,
     };
-    let Some(proposal) = load(&st.data_dir, KIND_PROPOSAL, &id) else {
-        return bad(
-            StatusCode::NOT_FOUND,
-            "ontology_proposal_not_found",
-            "no proposal exists at this id",
-        );
+    let access = OntologyAccess::read(data_dir, identity);
+    let Some(proposal) = visible_proposal(data_dir, &access, identity, id) else {
+        return proposal_not_found();
     };
+    if !proposed_by_caller(&proposal, identity)
+        && !access.may_change(&proposal_ontology_ref(&proposal))
+    {
+        return bad(
+            StatusCode::FORBIDDEN,
+            "odk_proposal_withdraw_requires_proposer_or_owner",
+            "only the proposal's proposer, or the ontology's owner (or an administrator of its organization), may withdraw it. Nothing was changed",
+        );
+    }
     match proposal.get("status").and_then(Value::as_str) {
         Some("withdrawn") => {
             return (
@@ -516,7 +657,7 @@ pub(crate) async fn handle_proposal_withdraw(
         "withdrawn_at": iso_now(),
         "reason": reason,
     });
-    if persist_record(&st.data_dir, KIND_PROPOSAL, &id, &successor).is_err() {
+    if persist_record(data_dir, KIND_PROPOSAL, id, &successor).is_err() {
         return bad(
             StatusCode::INTERNAL_SERVER_ERROR,
             "ontology_proposal_persistence_failed",

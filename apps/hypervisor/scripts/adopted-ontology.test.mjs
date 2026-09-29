@@ -108,7 +108,7 @@ const OWNER = "org://local", ME = "user://me";
 const propDraft = { ...drafts[0], revision: 2, history: [{ revision: 1, op: "created" }, { revision: 2, op: "patched", affected: { object_types: { borrower: "UPDATED" } } }] };
 const describedLoan = { ...propDraft.canonical_object_model, object_types: propDraft.canonical_object_model.object_types.map((o) => (o.id === "loan" ? { ...o, description: "A loan on the book" } : o)) };
 const proposals = [
-  { id: "ontp_open", ontology_id: "ont_1", based_on_revision: 2, title: "Describe the loan type", rationale: "It needs one", changes: { canonical_object_model: describedLoan }, status: "open", proposed_by: ME, created_at: "2026-09-28T10:00:00Z" },
+  { id: "ontp_open", ontology_id: "ont_1", based_on_revision: 2, title: "Describe the loan type", rationale: "It needs one", changes: { canonical_object_model: describedLoan }, status: "open", proposed_by: ME, created_at: "2026-09-28T10:00:00Z", caller_may_apply: true, caller_may_withdraw: true },
   { id: "ontp_stale", ontology_id: "ont_1", based_on_revision: 1, title: "Old idea", changes: { description: "Loans and more" }, status: "open", proposed_by: "user://other", created_at: "2026-09-28T09:00:00Z" },
   { id: "ontp_applied", ontology_id: "ont_1", based_on_revision: 1, title: "Borrower wording", changes: { canonical_object_model: propDraft.canonical_object_model }, status: "applied", proposed_by: ME, created_at: "2026-09-28T08:00:00Z", applied: { applied_by: ME, applied_at: "2026-09-28T08:30:00Z", resulting_revision: 2 } },
   { id: "ontp_withdrawn", ontology_id: "ont_1", based_on_revision: 2, title: "Never mind", changes: { domain: "Lending" }, status: "withdrawn", proposed_by: ME, created_at: "2026-09-28T07:00:00Z", withdrawn: { withdrawn_by: ME, withdrawn_at: "2026-09-28T07:10:00Z", reason: "" } },
@@ -156,8 +156,12 @@ test("a proposal's page reads its record: title, rationale, status, one review t
   assert.deepEqual([open.title, open.description, open.status], ["Describe the loan type", "It needs one", "PENDING_APPROVAL"]);
   assert.equal(open.branch.globalBranch, null, "it names no Foundry branch");
   assert.equal(open.invokeWhenReady, true, "approving its review is the apply: it merges when approved");
-  assert.deepEqual(open.latestVersion.subRequests.map((s) => [s.id, s.permissions.canFullyApprove]), [[models[0].objectTypes[0].rid, true]], "a signed-in caller may apply an open proposal");
+  assert.deepEqual(open.latestVersion.subRequests.map((s) => [s.id, s.permissions.canFullyApprove]), [[models[0].objectTypes[0].rid, true]], "a caller the daemon reads as one who may apply it may apply an open proposal");
   assert.equal(ask(rows[0], null).latestVersion.subRequests[0].permissions.canFullyApprove, false, "signed out, nobody may");
+  // who may apply is the daemon's reading of the caller (caller_may_apply: the ontology's owner or an org admin), never "signed in"
+  const [notMine] = ONTOLOGY.proposalsOf([{ ...proposals[0], caller_may_apply: false, caller_may_withdraw: true }], [propDraft], models);
+  assert.equal(answerDocument(q, ONTOLOGY.proposalGraphqlFacts("ProposalDetailQuery", { approvalTaskId: notMine.rid }, { rows: [notMine], principalRef: ME }), null, "ProposalDetailQuery").approvalRequest.latestVersion.subRequests[0].permissions.canFullyApprove,
+    false, "a caller the daemon would refuse is offered no Approve");
   assert.equal(ask(rows[2], ME).latestVersion.subRequests[0].reviews[0].reviewType, "APPROVE", "applied: approved by whoever applied it");
   assert.deepEqual(ask(rows[3], ME).latestVersion.subRequests[0].reviews, [], "withdrawn: closed, never rejected");
   assert.equal(ONTOLOGY.proposalGraphqlFacts("ProposalDetailQuery", { approvalTaskId: "ri.approvals.main.task-request.x" }, { rows }).approvalRequest, null);

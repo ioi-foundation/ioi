@@ -457,8 +457,16 @@ async function run() {
   ok("but not by an anonymous one",
     listedAnon.status === 401, `status ${listedAnon.status}`);
 
+  // ONLY THE OWNER EDITS (ledger CCXXVII). B sees A's ontology (they share the org) and may propose to
+  // it, but the direct edit is its owner's, or an administrator's of its org. B's edit drove the drift
+  // below until the plane checked identity only; it is refused now and changes nothing.
+  const bDrift = await jd("PATCH", `/v1/hypervisor/odk/domain-ontologies/${ontologyId}`, { expected_revision: 1, version: "1.0.1" }, { as: "B" });
+  ok("ANOTHER PRINCIPAL MAY NOT EDIT THE ONTOLOGY: it sees it and may propose, but only its owner (or an administrator of its org) changes it; the refusal is typed and changes nothing",
+    bDrift.status === 403 && code(bDrift.j) === "odk_ontology_not_owner" && readRecord("odk-domain-ontologies", ontologyId)?.revision === 1,
+    `status ${bDrift.status} code ${code(bDrift.j)} rev ${readRecord("odk-domain-ontologies", ontologyId)?.revision}`);
+
   // THE ONTOLOGY MOVES UNDERNEATH THE PROPOSAL.
-  const drift = await jd("PATCH", `/v1/hypervisor/odk/domain-ontologies/${ontologyId}`, { expected_revision: 1, version: "1.0.1" }, { as: "B" });
+  const drift = await jd("PATCH", `/v1/hypervisor/odk/domain-ontologies/${ontologyId}`, { expected_revision: 1, version: "1.0.1" }, { as: "A" });
   ok("PRECONDITION: an ordinary edit really does advance the ontology to revision 2",
     drift.status === 200 && drift.j?.ontology?.revision === 2, `status ${drift.status} rev ${drift.j?.ontology?.revision}`);
   const staleApply = await jd("POST", `/v1/hypervisor/odk/ontology-proposals/${proposalId}/apply`, null, { as: "A" });
@@ -471,14 +479,23 @@ async function run() {
     afterStale.j?.ontology?.revision === 2 && readRecord("odk-ontology-proposals", proposalId)?.status === "open",
     `rev ${afterStale.j?.ontology?.revision} proposal ${readRecord("odk-ontology-proposals", proposalId)?.status}`);
 
-  // A REBASED PROPOSAL APPLIES, THROUGH THE ONTOLOGY PLANE'S OWN WRITER.
+  // A REBASED PROPOSAL APPLIES, THROUGH THE ONTOLOGY PLANE'S OWN WRITER. Another principal (B)
+  // proposes it; only the ontology's owner (A) merges it. C applied it until the plane checked
+  // identity only (ledger CCXXVII); C, and B itself, are refused by name first.
   const rebased = await jd("POST", "/v1/hypervisor/odk/ontology-proposals", {
     ontology_ref: ontologyRef, title: "rebased", expected_revision: 2,
     changes: { description: "widgets, their links, and the actions over them" },
-  }, { as: "A" });
+  }, { as: "B" });
   const rebasedId = rebased.j?.ontology_proposal?.id ?? "";
+  const cApply = await jd("POST", `/v1/hypervisor/odk/ontology-proposals/${rebasedId}/apply`, null, { as: "C" });
+  const bApply = await jd("POST", `/v1/hypervisor/odk/ontology-proposals/${rebasedId}/apply`, null, { as: "B" });
+  ok("ONLY THE ONTOLOGY'S OWNER MERGES A PROPOSAL: a third principal and the proposer itself are refused by name, and nothing is applied",
+    rebased.status === 201 && rebased.j?.ontology_proposal?.proposed_by === P.B.ref
+      && [cApply, bApply].every((r) => r.status === 403 && code(r.j) === "odk_proposal_apply_requires_owner")
+      && readRecord("odk-domain-ontologies", ontologyId)?.revision === 2 && readRecord("odk-ontology-proposals", rebasedId)?.status === "open",
+    `propose ${rebased.status} · C ${cApply.status} ${code(cApply.j)} · B ${bApply.status} ${code(bApply.j)}`);
   const receiptsBefore = recordsIn("odk-ontology-receipts").length;
-  const applied = await jd("POST", `/v1/hypervisor/odk/ontology-proposals/${rebasedId}/apply`, null, { as: "C" });
+  const applied = await jd("POST", `/v1/hypervisor/odk/ontology-proposals/${rebasedId}/apply`, null, { as: "A" });
   ok("A PROPOSAL APPLIES, and the ontology really carries the proposed change at the next revision",
     applied.status === 200
       && applied.j?.ontology?.revision === 3
@@ -494,10 +511,10 @@ async function run() {
     `${(applied.j?.ontology?.history ?? []).length} history entries`);
   ok("the applied proposal records WHO applied it and the revision it produced",
     readRecord("odk-ontology-proposals", rebasedId)?.status === "applied"
-      && readRecord("odk-ontology-proposals", rebasedId)?.applied?.applied_by === P.C.ref
+      && readRecord("odk-ontology-proposals", rebasedId)?.applied?.applied_by === P.A.ref
       && readRecord("odk-ontology-proposals", rebasedId)?.applied?.resulting_revision === 3,
     JSON.stringify(readRecord("odk-ontology-proposals", rebasedId)?.applied ?? {}));
-  const reapply = await jd("POST", `/v1/hypervisor/odk/ontology-proposals/${rebasedId}/apply`, null, { as: "C" });
+  const reapply = await jd("POST", `/v1/hypervisor/odk/ontology-proposals/${rebasedId}/apply`, null, { as: "A" });
   const afterReapply = await jd("GET", `/v1/hypervisor/odk/domain-ontologies/${ontologyId}`, null, { as: "A" });
   ok("RE-APPLYING replays rather than editing twice — the ontology stays at the revision the first apply produced",
     reapply.status === 200 && reapply.j?.replayed === true && afterReapply.j?.ontology?.revision === 3,
@@ -1133,7 +1150,10 @@ async function run() {
     "axum::Json",
     "serde_json::{json, Value}",
     "std::collections::HashMap",
-    "super::odk_routes::{ apply_ontology_change, check_expected_revision, load, nanos, odk_scope_refusal, validate_ontology_change, KIND_ONT, }",
+    // 2026-09-28 (ledger CCXXVII): + `canonical_ontology_ref` and `OntologyAccess`, the ontology plane's own
+    // read-only answer to who may see and who may change an ontology. Neither persists anything; the
+    // proposal plane asks it rather than keeping a second rule.
+    "super::odk_routes::{ apply_ontology_change, canonical_ontology_ref, check_expected_revision, load, nanos, odk_scope_refusal, validate_ontology_change, OntologyAccess, KIND_ONT, }",
     "super::{iso_now, persist_record, read_record_dir, DaemonState}",
   ];
   const unlistedDecls = useDecls.filter((d) => !ALLOWED_USE_DECLS.includes(d));
