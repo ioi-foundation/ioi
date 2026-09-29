@@ -1,10 +1,11 @@
-// R-240 journey WP-A: the governed ladder's typed forms and the Limits tab, as pure renders.
+// R-240 journey WP-A: the governed ladder's typed forms, the Limits tab and a System's limits, as pure renders (the last over a stub daemon).
 //
 //   node --test apps/hypervisor/scripts/system-governed-approval.test.mjs
 import test from "node:test";
 import assert from "node:assert/strict";
 import { createHash } from "node:crypto";
-import { ladderExpectations, TYPED_LADDER_FIELDS, TYPED_LIFECYCLE_GAP } from "./system-genesis-surfaces.mjs";
+import http from "node:http";
+import { ladderExpectations, systemLimits, SYSTEM_DATA_ATTACHMENT_CONTRACT, SYSTEM_DATA_ATTACHMENT_CONTRACT_V1, TYPED_LADDER_FIELDS, TYPED_LIFECYCLE_GAP } from "./system-genesis-surfaces.mjs";
 import { renderGovernanceLimits } from "./governance-limits.mjs";
 
 // The daemon's own JCS-sha256 domains (system_sequence_zero_routes.rs / the journey gate's helpers).
@@ -68,4 +69,39 @@ test("the Limits tab names the authority-node gap only on a deployment whose dae
   const unread = limitsTab({ readError: { code: "request_principal_required", message: "whether this deployment can record limits could not be read" } });
   assert.match(unread, /data-limits-standing-unavailable="request_principal_required"/u);
   assert.doesNotMatch(unread, /system_limits_authority_node_absent/u, "an unread posture is never claimed");
+});
+
+// A stub daemon answering the four reads Govern mode's limits make, as the caller: the System's
+// attachments under each contract generation, the connectors plane and the standing-envelope posture.
+async function withStubDaemon(routes, run) {
+  const server = http.createServer((req, res) => {
+    const body = routes[req.url];
+    res.writeHead(body ? 200 : 404, { "content-type": "application/json" });
+    res.end(JSON.stringify(body || { ok: false, error: { code: "not_found" } }));
+  });
+  await new Promise((resolve) => server.listen(0, "127.0.0.1", resolve));
+  try { return await run(`http://127.0.0.1:${server.address().port}`); } finally { server.close(); }
+}
+
+test("a System's limits read both attachment generations: a v2 connector subject maps to its own connector's standing envelope", async () => {
+  const system = "system://acme/one";
+  const records = (contract) => `/v1/hypervisor/autonomous-systems/${encodeURIComponent(system)}/records?contract_id=${encodeURIComponent(contract)}`;
+  const attached = (kind, ref, version) => ({ head: "sha256:h", current: { schema_version: `ioi.hypervisor.system-data-attachment.${version}`, subject_kind: kind, subject_ref: ref, status: "attached", system_binding: { system_id: system } } });
+  const html = await withStubDaemon({
+    [records(SYSTEM_DATA_ATTACHMENT_CONTRACT)]: { ok: true, records: [attached("connector", "connector:conn_walk", "v2")] },
+    [records(SYSTEM_DATA_ATTACHMENT_CONTRACT_V1)]: { ok: true, records: [attached("connection", "connection://provider/conn_gh/user:1", "v1"), attached("ontology", "ontology://acme/x", "v1")] },
+    "/v1/hypervisor/connectors": { ok: true, connectors: [
+      { connector_id: "conn_walk", name: "cx-walk", standing_lease: { status: "active", bounds: { max_usages: 5, max_cumulative_spend_microusd: 1_000_000, operations: ["session_execute"], expires_at_ms: 1_790_000_000_000 } } },
+      { connector_id: "conn_gh", name: "GitHub" },
+    ] },
+    "/v1/hypervisor/authority/standing-envelopes": { ok: true, decidable: true, envelopes: [] },
+  }, (url) => systemLimits(url, system, "acme/one"));
+  assert.equal(SYSTEM_DATA_ATTACHMENT_CONTRACT, "schema://ioi/components/hypervisor/system-data-attachment/v2");
+  assert.match(html, /data-system-limit-connection="connector:conn_walk" data-standing-lease-status="active"/u);
+  assert.match(html, /cx-walk[\s\S]*5 uses · budget \$1\.0000 · session_execute/u);
+  assert.match(html, /data-system-limit-connection="connection:\/\/provider\/conn_gh\/user:1" data-standing-lease-status="none"/u, "v1's records still count");
+  assert.doesNotMatch(html, /ontology:\/\/acme\/x/u, "only connections carry limits");
+  assert.match(html, /data-system-limits-authority="deployment"/u);
+  assert.match(html, /data-system-limits-bound-runs="absent"/u);
+  assert.doesNotMatch(html, /SystemDataAttachment v2\)/u, "the connector gap is closed");
 });

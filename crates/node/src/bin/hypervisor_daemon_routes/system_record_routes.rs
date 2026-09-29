@@ -326,12 +326,21 @@ struct SubjectBearing {
 /// The subject-bearing contracts this seam admits. A record under one of them may name only a subject
 /// its writer can see: otherwise anyone could publish, under a System they may write under, a ref to
 /// something they cannot read.
-const SUBJECT_BEARING: &[SubjectBearing] = &[SubjectBearing {
-    contract_id: "schema://ioi/components/hypervisor/system-data-attachment/v1",
-    kind_member: "subject_kind",
-    ref_member: "subject_ref",
-    release: ("status", "detached"),
-}];
+const SUBJECT_BEARING: &[SubjectBearing] = &[
+    SubjectBearing {
+        contract_id: "schema://ioi/components/hypervisor/system-data-attachment/v1",
+        kind_member: "subject_kind",
+        ref_member: "subject_ref",
+        release: ("status", "detached"),
+    },
+    // v2 succeeds v1 by the `connector` kind (R-240 journey WP-A); its subjects are judged the same way.
+    SubjectBearing {
+        contract_id: "schema://ioi/components/hypervisor/system-data-attachment/v2",
+        kind_member: "subject_kind",
+        ref_member: "subject_ref",
+        release: ("status", "detached"),
+    },
+];
 
 /// Whether the caller may see the subject a ref names, by its owning plane's own read rule: `Ok(false)`
 /// for an absent and a hidden subject alike; `Err` only when the plane cannot answer.
@@ -357,11 +366,34 @@ fn data_source_visible(
     ))
 }
 
+/// A connector (`connector:<id>`, one of Connections' connectors) by the connector estate's own read
+/// rule: the estate is deployment-wide — its list route serves every registered connector to every
+/// caller — so a connector is visible exactly when it is registered, read with the list's own reader.
+fn connector_visible(
+    data_dir: &str,
+    _identity: &RequestIdentity,
+    subject: &str,
+) -> Result<bool, String> {
+    let Some(connector_id) = subject.strip_prefix("connector:") else {
+        return Ok(false);
+    };
+    let canonical = !connector_id.is_empty()
+        && connector_id.len() <= 128
+        && connector_id
+            .chars()
+            .all(|c| c.is_ascii_alphanumeric() || c == '_' || c == '-');
+    Ok(canonical
+        && super::read_record_dir(data_dir, "connectors")
+            .iter()
+            .any(|record| record["connector_id"].as_str() == Some(connector_id)))
+}
+
 /// THE SUBJECT-KIND VISIBILITY TABLE: one row per kind a subject-bearing record may name, each decided
 /// by the plane that owns that kind — ontologies by the ODK plane (owner, or a member of the owner's
 /// org), data sources by the data-source plane (declared by the caller, or filed in a project it is a
-/// member of), connections by the provider-connection plane (a request scope the caller may read). A
-/// kind with no row is refused, never admitted unseen.
+/// member of), connections by the provider-connection plane (a request scope the caller may read),
+/// connectors by the connector estate (registered). A kind with no row is refused, never admitted
+/// unseen.
 const SUBJECT_KINDS: &[(&str, SubjectVisible)] = &[
     ("ontology", ontology_visible),
     ("data_source", data_source_visible),
@@ -369,6 +401,7 @@ const SUBJECT_KINDS: &[(&str, SubjectVisible)] = &[
         "connection",
         super::provider_connection_routes::connection_visible_to,
     ),
+    ("connector", connector_visible),
 ];
 
 /// A subject-bearing record names only a subject its writer can see, answered exactly as an absent one
@@ -1361,6 +1394,48 @@ mod authority_tests {
             &attach_body("org://local", "data_source", &mine, "attached", None),
         );
         assert_eq!(status, StatusCode::CREATED, "{reply}");
+    }
+
+    /// v2 (R-240 journey WP-A): a connector is one of a System's connections — admitted when it is a
+    /// registered connector, refused exactly as an absent subject otherwise, and never under v1.
+    #[test]
+    fn a_v2_attachment_names_a_registered_connector_and_v1_cannot() {
+        let dir = tempfile::tempdir().unwrap();
+        let d = dir.path().to_str().unwrap();
+        let owner = session(d, "owner", "member", &["org://local"]);
+        super::super::persist_record(
+            d,
+            "connectors",
+            "conn_walk",
+            &json!({ "connector_id": "conn_walk", "name": "walk" }),
+        )
+        .unwrap();
+        let v2 = |subject: &str| {
+            let mut body = attach_body("org://local", "connector", subject, "attached", None);
+            body["contract_id"] = json!("schema://ioi/components/hypervisor/system-data-attachment/v2");
+            body["record"]["schema_version"] = json!("ioi.hypervisor.system-data-attachment.v2");
+            body
+        };
+        let before = fingerprint(d);
+        let (status, unknown) = post(&lending(), d, &owner, &v2("connector:conn_other"));
+        assert_eq!(
+            (status, code_of(&unknown)),
+            (StatusCode::UNPROCESSABLE_ENTITY, "system_record_subject_unknown"),
+            "{unknown}"
+        );
+        // v1's wire is frozen: its schema has no connector kind.
+        let (status, under_v1) = post(
+            &lending(),
+            d,
+            &owner,
+            &attach_body("org://local", "connector", "connector:conn_walk", "attached", None),
+        );
+        assert_eq!(status, StatusCode::UNPROCESSABLE_ENTITY, "{under_v1}");
+        assert_eq!(code_of(&under_v1), "system_record_not_registered_valid", "{under_v1}");
+        assert_eq!(fingerprint(d), before, "a refused write records nothing");
+        let (status, admitted) = post(&lending(), d, &owner, &v2("connector:conn_walk"));
+        assert_eq!(status, StatusCode::CREATED, "{admitted}");
+        assert_eq!(admitted["record"]["subject_ref"], "connector:conn_walk", "{admitted}");
     }
 
     #[test]

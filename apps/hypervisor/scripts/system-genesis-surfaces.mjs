@@ -1217,19 +1217,17 @@ export async function handleSystemWorkspace(req, res, pathname, { daemonUrl: bas
 // A standing limit is a STANDING ENVELOPE on one of Connections' connectors: its bounds (uses,
 // budget, operations, expiry) are recorded as a standing grant on the deployment's authority node,
 // and a session may name the connection only while it is active. A System's limits are the envelopes
-// of the connectors behind the connections attached to it (SystemDataAttachment, subject kind
-// `connection`: a provider connection, connection://provider/<connector>/<principal>), read as the
-// caller from the connectors plane and the System-record seam. A connector with no provider
-// connection (an API key, an MCP server) cannot be attached: v1's connection kind names provider
-// connections and its wire is frozen, so that is named here as its own gap. Setting and removing a limit happens
+// of the connectors behind the connections attached to it (SystemDataAttachment: a `connector` subject,
+// connector:<id>, v2's kind; or a `connection` subject, a provider connection
+// connection://provider/<connector>/<principal>), read as the caller from the connectors plane and the
+// System-record seam. Setting and removing a limit happens
 // on Connections, with the operator passphrase. Whether this deployment can record limits at all is
 // the daemon's own answer (`decidable` on its standing-envelope list: a deployment authority to
 // record one with); both postures are said as they are. The limits do not yet bound the runs a System starts —
 // no System session draws on one (the session-subject gap) — and the page says so.
-export const SYSTEM_CONNECTOR_GAP = "connectors attached to a System (SystemDataAttachment v2)";
 export async function systemLimits(daemonUrl, systemId, tailPath) {
   const [attachments, connectors, authority] = await Promise.all([
-    daemonJson(daemonUrl, "GET", `${GENESIS_API}/${encodeURIComponent(systemId)}/records?contract_id=${encodeURIComponent(SYSTEM_DATA_ATTACHMENT_CONTRACT)}`),
+    systemAttachments(daemonUrl, systemId),
     daemonJson(daemonUrl, "GET", "/v1/hypervisor/connectors"),
     daemonJson(daemonUrl, "GET", "/v1/hypervisor/authority/standing-envelopes"),
   ]);
@@ -1240,14 +1238,14 @@ export async function systemLimits(daemonUrl, systemId, tailPath) {
     ? `<p class="sub" data-system-limits-authority="deployment">This deployment's daemon records limits on its deployment authority node: a connection's limits are set and removed on <a href="/__ioi/connections">Connections</a> with the operator passphrase, and a session may name a connection only while its limits are active.</p>`
     : `<p class="sub" data-system-limits-authority="none">This deployment's daemon has no deployment authority node to record limits on (IOI_WALLET_AUTHORITY_BINARY and IOI_HYPERVISOR_LOCAL_AUTHORITY_STATE_DIR on the daemon), so no connection here can carry limits, and a session can name none of them.</p>`;
   const byId = new Map((Array.isArray(connectors.body?.connectors) ? connectors.body.connectors : []).map((c) => [c.connector_id, c]));
-  const connectorOf = (ref) => byId.get((/^connection:\/\/provider\/([^/]+)\//u.exec(String(ref || "")) || [])[1] || "") || null;
-  const connectorGap = namedGap(SYSTEM_CONNECTOR_GAP, "Attaching a connector that has no provider connection — an API key, an MCP server — so its limits are this System's: the attachment names provider connections only");
+  // A connector subject names its connector; a provider connection names it in its ref.
+  const connectorOf = (ref) => byId.get((/^connector:([A-Za-z0-9_-]{1,128})$/u.exec(String(ref || "")) || /^connection:\/\/provider\/([^/]+)\//u.exec(String(ref || "")) || [])[1] || "") || null;
   const attached = (Array.isArray(attachments.body?.records) ? attachments.body.records : [])
     .map((r) => r.current || {})
-    .filter((r) => r.status === "attached" && r.subject_kind === "connection" && r.system_binding?.system_id === systemId);
+    .filter((r) => r.status === "attached" && (r.subject_kind === "connection" || r.subject_kind === "connector") && r.system_binding?.system_id === systemId);
   const unbound = `<p class="sub" data-system-limits-bound-runs="absent">These limits do not bound the runs this System starts yet: a session names no System (the session-subject gap on Operate), so no run of this System draws on them.</p>`;
   if (!attached.length) {
-    return stateBlock("honest_empty", "no_connection_attached_to_system", `<div class="empty" data-system-limits="${esc(systemId)}">No connection is attached to this System, so it has no limits. Attach one on its <a href="${esc(modeHref(tailPath, "design"))}">Design</a> mode.</div>${posture}`) + connectorGap;
+    return stateBlock("honest_empty", "no_connection_attached_to_system", `<div class="empty" data-system-limits="${esc(systemId)}">No connection is attached to this System, so it has no limits. Attach one on its <a href="${esc(modeHref(tailPath, "design"))}">Design</a> mode.</div>${posture}`);
   }
   const money = (micro) => `$${(Number(micro || 0) / 1_000_000).toFixed(4)}`;
   const rows = attached.map((r) => {
@@ -1260,7 +1258,7 @@ export async function systemLimits(daemonUrl, systemId, tailPath) {
       : "no limits set — a session cannot name this connection";
     return `<tr data-system-limit-connection="${esc(r.subject_ref)}" data-standing-lease-status="${esc(status)}"><td>${c ? `<b>${esc(c.name || c.connector_id)}</b>` : `<span class="sub" style="margin:0">its connector is not registered</span>`}<br><code>${esc(r.subject_ref)}</code></td><td>${pill(lease ? status : "unbounded", status === "active" ? "ok" : "warn")}</td><td>${limits}</td></tr>`;
   }).join("");
-  return stateBlock("ready_or_proposed", null, `<table data-system-limits="${esc(systemId)}"><thead><tr><th>Connection</th><th>Limits</th><th>Bounds</th></tr></thead><tbody>${rows}</tbody></table>${posture}${unbound}`) + connectorGap;
+  return stateBlock("ready_or_proposed", null, `<table data-system-limits="${esc(systemId)}"><thead><tr><th>Connection</th><th>Limits</th><th>Bounds</th></tr></thead><tbody>${rows}</tbody></table>${posture}${unbound}`);
 }
 
 // ---- Design mode: what the System is made of (R-240 journey WP-C1) ------------------------------
@@ -1268,8 +1266,20 @@ export async function systemLimits(daemonUrl, systemId, tailPath) {
 // attached to it (SystemDataAttachment records in the System-record seam), each read as the caller
 // from the plane that owns it. Attaching is one write through the seam; the subject stays its own
 // plane's. Every read degrades on its own and names its refusal code; nothing is cached.
-export const SYSTEM_DATA_ATTACHMENT_CONTRACT = "schema://ioi/components/hypervisor/system-data-attachment/v1";
-const ATTACH_KINDS = { ontology: "Ontology", data_source: "Data source", connection: "Connection" };
+// Attachments are written under v2 (R-240 journey WP-A: v2 succeeds v1 by the `connector` kind); v1's
+// records stay valid and are still read, so a System's data is the union of both.
+export const SYSTEM_DATA_ATTACHMENT_CONTRACT = "schema://ioi/components/hypervisor/system-data-attachment/v2";
+export const SYSTEM_DATA_ATTACHMENT_CONTRACT_V1 = "schema://ioi/components/hypervisor/system-data-attachment/v1";
+const ATTACH_KINDS = { ontology: "Ontology", data_source: "Data source", connection: "Connection", connector: "Connector" };
+// Both generations' records under one System, as the caller: one read per contract, merged; the first
+// refusal stands for the whole answer (a partial list would read as fewer attachments).
+async function systemAttachments(daemonUrl, systemId) {
+  const reads = await Promise.all([SYSTEM_DATA_ATTACHMENT_CONTRACT, SYSTEM_DATA_ATTACHMENT_CONTRACT_V1].map((contract) =>
+    daemonJson(daemonUrl, "GET", `${GENESIS_API}/${encodeURIComponent(systemId)}/records?contract_id=${encodeURIComponent(contract)}`)));
+  const failed = reads.find((r) => unreadCode(r));
+  if (failed) return failed;
+  return { status: 200, body: { ok: true, records: reads.flatMap((r) => (Array.isArray(r.body?.records) ? r.body.records : [])) } };
+}
 const STUDIO_BLUEPRINTS = "/__ioi/studio/workbench?view=blueprints";
 const sha256Hex = (text) => createHash("sha256").update(text).digest("hex");
 // One attachment per System and subject: its identity is derived from both, so attaching the same
@@ -1282,12 +1292,13 @@ const unreadCode = (result) => (result.networkError
   : (result.status !== 200 || result.body?.ok === false) ? refusalCodeOf(result.body || {}, result.status) : null);
 
 async function systemDesign(daemonUrl, systemId, tailPath, query) {
-  const [blueprints, attachments, ontologies, sources, connections] = await Promise.all([
+  const [blueprints, attachments, ontologies, sources, connections, connectors] = await Promise.all([
     daemonJson(daemonUrl, "GET", `/v1/hypervisor/studio/blueprints?system_ref=${encodeURIComponent(systemId)}`),
-    daemonJson(daemonUrl, "GET", `${GENESIS_API}/${encodeURIComponent(systemId)}/records?contract_id=${encodeURIComponent(SYSTEM_DATA_ATTACHMENT_CONTRACT)}`),
+    systemAttachments(daemonUrl, systemId),
     daemonJson(daemonUrl, "GET", "/v1/hypervisor/odk/domain-ontologies"),
     daemonJson(daemonUrl, "GET", "/v1/hypervisor/data-sources"),
     daemonJson(daemonUrl, "GET", "/v1/hypervisor/auth/connections"),
+    daemonJson(daemonUrl, "GET", "/v1/hypervisor/connectors"),
   ]);
   const acted = query?.get("acted") === "attach-data"
     ? stateBlock("completed", null, `<div class="empty" data-system-attach-result="attached">Attached <code>${esc(query.get("record") || "")}</code> to this System · receipt <code>${esc(query.get("receipt") || "")}</code></div>`)
@@ -1311,15 +1322,19 @@ async function systemDesign(daemonUrl, systemId, tailPath, query) {
   const srcCode = unreadCode(sources);
   const ontList = ontCode ? [] : (Array.isArray(ontologies.body?.ontologies) ? ontologies.body.ontologies : []).filter((o) => String(o.ref || "").startsWith("ontology://"));
   const srcList = srcCode ? [] : (Array.isArray(sources.body?.data_sources) ? sources.body.data_sources : []).filter((s) => String(s.source_ref || "").startsWith("data-source:"));
-  // Provider connections the caller may read (R-240 journey WP-A): a System's connections, whose
-  // connectors carry its standing limits (listed on Govern mode). The attachment's connection kind names
-  // a provider connection (connection://provider/<connector>/<principal>); a connector with none — an API
-  // key or an MCP server — cannot be attached until a SystemDataAttachment successor names connectors.
+  // A System's connections (R-240 journey WP-A), whose connectors carry its standing limits (listed on
+  // Govern mode): the provider connections the caller may read (connection://provider/<connector>/<principal>)
+  // and Connections' connectors (connector:<id>, v2's kind — an API key or an MCP server has no provider
+  // connection). The connector estate is deployment-wide: every registered connector is offered.
+  const cnCode = unreadCode(connectors);
+  const cnList = cnCode ? [] : (Array.isArray(connectors.body?.connectors) ? connectors.body.connectors : []).filter((c) => typeof c.connector_id === "string" && /^[A-Za-z0-9_-]{1,128}$/u.test(c.connector_id));
+  const cnRef = (c) => `connector:${c.connector_id}`;
+  const cnLabel = (c) => c.name || c.connector_id;
   const cxCode = unreadCode(connections);
   const cxList = cxCode ? [] : (Array.isArray(connections.body?.connections) ? connections.body.connections : []).filter((c) => String(c.connection_ref || "").startsWith("connection://"));
   const cxRef = (c) => c.connection_ref;
   const cxLabel = (c) => `${String(c.connector_ref || "").replace(/^connector:\/\//u, "") || c.connection_ref} (${c.status || "unknown"})`;
-  const names = new Map([...ontList.map((o) => [o.ref, o.domain || o.id || o.ref]), ...srcList.map((s) => [s.source_ref, s.name || s.source_id || s.source_ref]), ...cxList.map((c) => [cxRef(c), cxLabel(c)])]);
+  const names = new Map([...ontList.map((o) => [o.ref, o.domain || o.id || o.ref]), ...srcList.map((s) => [s.source_ref, s.name || s.source_id || s.source_ref]), ...cxList.map((c) => [cxRef(c), cxLabel(c)]), ...cnList.map((c) => [cnRef(c), cnLabel(c)])]);
   const attCode = unreadCode(attachments);
   const attached = attCode ? [] : (Array.isArray(attachments.body?.records) ? attachments.body.records : [])
     .map((r) => ({ record: r.current || {}, head: r.head || "" }))
@@ -1335,11 +1350,12 @@ async function systemDesign(daemonUrl, systemId, tailPath, query) {
   const ontOptions = offer(ontList, "ontology", (o) => o.ref, (o) => o.domain || o.id || o.ref);
   const srcOptions = offer(srcList, "data_source", (s) => s.source_ref, (s) => s.name || s.source_id || s.source_ref);
   const cxOptions = offer(cxList, "connection", cxRef, cxLabel);
-  const unreadNote = [ontCode && `ontologies unavailable (<code>${esc(ontCode)}</code>)`, srcCode && `data sources unavailable (<code>${esc(srcCode)}</code>)`, cxCode && `connections unavailable (<code>${esc(cxCode)}</code>)`].filter(Boolean).join(" · ");
-  const attachForm = ontOptions || srcOptions || cxOptions
+  const cnOptions = offer(cnList, "connector", cnRef, cnLabel);
+  const unreadNote = [ontCode && `ontologies unavailable (<code>${esc(ontCode)}</code>)`, srcCode && `data sources unavailable (<code>${esc(srcCode)}</code>)`, cxCode && `connections unavailable (<code>${esc(cxCode)}</code>)`, cnCode && `connectors unavailable (<code>${esc(cnCode)}</code>)`].filter(Boolean).join(" · ");
+  const attachForm = ontOptions || srcOptions || cxOptions || cnOptions
     ? `<form method="post" action="${BASE}/attach-data" data-system-attach-form="1">
         <input type="hidden" name="system_id" value="${esc(systemId)}">
-        <div class="field"><label>Attach an ontology, a data source or a connection you can see</label><select name="subject">${ontOptions ? `<optgroup label="Ontologies">${ontOptions}</optgroup>` : ""}${srcOptions ? `<optgroup label="Data sources">${srcOptions}</optgroup>` : ""}${cxOptions ? `<optgroup label="Connections">${cxOptions}</optgroup>` : ""}</select></div>
+        <div class="field"><label>Attach an ontology, a data source or a connection you can see</label><select name="subject">${ontOptions ? `<optgroup label="Ontologies">${ontOptions}</optgroup>` : ""}${srcOptions ? `<optgroup label="Data sources">${srcOptions}</optgroup>` : ""}${cxOptions ? `<optgroup label="Provider connections">${cxOptions}</optgroup>` : ""}${cnOptions ? `<optgroup label="Connectors">${cnOptions}</optgroup>` : ""}</select></div>
         <button class="act" type="submit">Attach to this System</button>
       </form>${unreadNote ? `<p class="sub">${unreadNote}</p>` : ""}`
     : `<div class="empty" data-system-attach-none="1">Nothing to attach: every ontology, data source and connection you can see is attached already, or you have none — create one in <a href="/ontology">Ontology</a>, <a href="/data">Data</a> or <a href="/__ioi/connections">Connections</a>.${unreadNote ? ` ${unreadNote}.` : ""}</div>`;
@@ -1364,7 +1380,7 @@ async function handleAttachData(daemonUrl, res, form) {
     res.end();
   };
   if (!tailPath || /\s/u.test(systemId)) return back({ refused: "system_workspace_path_invalid", reason: "system_id is not a system:// ref" });
-  if (!ATTACH_KINDS[kind] || !subjectRef) return back({ refused: "system_attachment_subject_invalid", reason: "choose an ontology, a data source or a connection from the form" });
+  if (!ATTACH_KINDS[kind] || !subjectRef) return back({ refused: "system_attachment_subject_invalid", reason: "choose an ontology, a data source, a connection or a connector from the form" });
   const gate = await fetchCensus(daemonUrl, "compact", systemId);
   const row = !gate.networkError && gate.status === 200 && gate.body?.state === "ready" ? (gate.body.systems || []).find((s) => s.system_id === systemId) : null;
   if (!row) {
@@ -1378,11 +1394,12 @@ async function handleAttachData(daemonUrl, res, form) {
   const attachmentId = systemDataAttachmentId(systemId, subjectRef);
   const result = await daemonJson(daemonUrl, "POST", `${GENESIS_API}/${encodeURIComponent(systemId)}/records`, {
     owner_ref: ownerRef,
-    idempotency_key: `system-data-attachment-${sha256Hex(`${attachmentId}\u0000genesis`).slice(0, 32)}`,
+    // (a v2 write is its own request: a v1 record of the same subject never replays as it)
+    idempotency_key: `system-data-attachment-v2-${sha256Hex(`${attachmentId}\u0000genesis\u0000v2`).slice(0, 32)}`,
     contract_id: SYSTEM_DATA_ATTACHMENT_CONTRACT,
     object_id: attachmentId,
     parent_scope_ref: null,
-    record: { schema_version: "ioi.hypervisor.system-data-attachment.v1", attachment_id: attachmentId, subject_kind: kind, subject_ref: subjectRef, status: "attached" },
+    record: { schema_version: "ioi.hypervisor.system-data-attachment.v2", attachment_id: attachmentId, subject_kind: kind, subject_ref: subjectRef, status: "attached" },
     expected_head: null,
   });
   if (result.networkError) return back({ refused: "daemon_unreachable", reason: result.networkError });

@@ -417,6 +417,7 @@ pub const ARCHITECTURE_CONTRACT_SCHEMA_HASHES: &[(&str, &str)] = &[
     ("schema://ioi/components/hypervisor/justification-record/v1", "sha256:3281dcf985707d23dace61c615809ab08420965aee07cc9cce4267c93bbfc867"),
     ("schema://ioi/components/hypervisor/studio-blueprint/v1", "sha256:d6339ec53c4da2ab521a58da345bf427ce9ce82e118b7cfd49b11fe511db46af"),
     ("schema://ioi/components/hypervisor/system-data-attachment/v1", "sha256:f027567dacb88d035a7d9312d74676c174a438184c5daeadfe0d19faed8a70a3"),
+    ("schema://ioi/components/hypervisor/system-data-attachment/v2", "sha256:7e258e6522dac46e397346dc25089ea13497746261d6f4f53f9dbd6f5dad9d13"),
 ];
 
 pub fn architecture_contract_schema_hash(contract_id: &str) -> Option<&'static str> {
@@ -178557,6 +178558,183 @@ pub enum SystemDataAttachmentV1SystemBindingSchemaVersion {
     IoiFoundationsSystemScopedObjectBindingV1,
 }
 
+#[derive(Debug, Clone, PartialEq, serde::Serialize)]
+pub struct SystemDataAttachmentV2 {
+    pub schema_version: SystemDataAttachmentV2SchemaVersion,
+    pub attachment_id: String,
+    pub subject_kind: SystemDataAttachmentV2SubjectKind,
+    pub subject_ref: String,
+    pub status: SystemDataAttachmentV2Status,
+    pub system_binding: SystemDataAttachmentV2SystemBinding,
+}
+
+impl<'de> serde::Deserialize<'de> for SystemDataAttachmentV2 {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let value = <serde_json::Value as serde::Deserialize>::deserialize(deserializer)?;
+        validate_projection_subschema(
+            r#"schema://ioi/components/hypervisor/system-data-attachment/v2"#,
+            r##"{"$schema":"https://json-schema.org/draft/2020-12/schema","$id":"schema://ioi/components/hypervisor/system-data-attachment/v2","title":"SystemDataAttachment","x-ioi-schema-version":"ioi.hypervisor.system-data-attachment.v2","description":"One subject a bounded System uses — an ontology, a data source, a provider connection or a connector — attached to that System through the System-record seam. It names the subject by its owning plane's own ref and nothing more: the subject stays owned, scoped and governed by its plane, and attaching grants no access to it. v2 succeeds v1 by one subject kind: `connector`, one of Connections' connectors (`connector:<id>`, the ref a session's authority profile and a standing envelope name), so a System's connections include those with no provider connection — an API key or an MCP server — and their standing limits are the System's. `system_binding` is DERIVED by the seam (the System, the parent scope, the resolved principal and a payload root over this record with the binding absent) and is never authored. The attachment's identity is `attachment_id`, one per System and subject; `status` moves from attached to detached only by a successor on the exact admitted head.","type":"object","additionalProperties":false,"required":["schema_version","attachment_id","subject_kind","subject_ref","status","system_binding"],"properties":{"schema_version":{"type":"string","const":"ioi.hypervisor.system-data-attachment.v2"},"attachment_id":{"type":"string","pattern":"^system-data-attachment://sda_[0-9a-f]{16}$"},"subject_kind":{"type":"string","enum":["ontology","data_source","connection","connector"]},"subject_ref":{"type":"string","pattern":"^[a-z][a-z0-9+._-]*:[^\\s]{1,500}$"},"status":{"type":"string","enum":["attached","detached"]},"system_binding":{"$ref":"#/$defs/systemBinding"}},"allOf":[{"if":{"type":"object","required":["subject_kind"],"properties":{"subject_kind":{"type":"string","const":"ontology"}}},"then":{"type":"object","properties":{"subject_ref":{"type":"string","pattern":"^ontology://[^\\s]{1,500}$"}}}},{"if":{"type":"object","required":["subject_kind"],"properties":{"subject_kind":{"type":"string","const":"data_source"}}},"then":{"type":"object","properties":{"subject_ref":{"type":"string","pattern":"^data-source:[^\\s]{1,500}$"}}}},{"if":{"type":"object","required":["subject_kind"],"properties":{"subject_kind":{"type":"string","const":"connection"}}},"then":{"type":"object","properties":{"subject_ref":{"type":"string","pattern":"^connection://[^\\s]{1,500}$"}}}},{"if":{"type":"object","required":["subject_kind"],"properties":{"subject_kind":{"type":"string","const":"connector"}}},"then":{"type":"object","properties":{"subject_ref":{"type":"string","pattern":"^connector:[A-Za-z0-9_-]{1,128}$"}}}}],"$defs":{"systemBinding":{"type":"object","additionalProperties":false,"required":["schema_version","system_id","parent_scope_ref","proposed_or_issued_by_ref","payload_root","created_at","updated_at"],"properties":{"schema_version":{"type":"string","const":"ioi.foundations.system-scoped-object-binding.v1"},"system_id":{"type":"string","pattern":"^system://[^\\s]{1,500}$"},"parent_scope_ref":{"type":"string","pattern":"^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"},"proposed_or_issued_by_ref":{"type":"string","pattern":"^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"},"payload_root":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"},"created_at":{"type":"string","format":"date-time","pattern":"^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$"},"updated_at":{"anyOf":[{"type":"string","format":"date-time","pattern":"^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$"},{"type":"null"}]}}}}}"##,
+            &value,
+        )
+            .map_err(serde::de::Error::custom)?;
+        let mut object = value
+            .as_object()
+            .cloned()
+            .ok_or_else(|| serde::de::Error::custom("validated projection is not an object"))?;
+        Ok(Self {
+            schema_version: serde_json::from_value::<SystemDataAttachmentV2SchemaVersion>(
+                object
+                    .remove(r#"schema_version"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"schema_version"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            attachment_id: serde_json::from_value::<String>(
+                object
+                    .remove(r#"attachment_id"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"attachment_id"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            subject_kind: serde_json::from_value::<SystemDataAttachmentV2SubjectKind>(
+                object
+                    .remove(r#"subject_kind"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"subject_kind"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            subject_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"subject_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"subject_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            status: serde_json::from_value::<SystemDataAttachmentV2Status>(
+                object
+                    .remove(r#"status"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"status"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            system_binding: serde_json::from_value::<SystemDataAttachmentV2SystemBinding>(
+                object
+                    .remove(r#"system_binding"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"system_binding"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+        })
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum SystemDataAttachmentV2SchemaVersion {
+    #[serde(rename = r#"ioi.hypervisor.system-data-attachment.v2"#)]
+    IoiHypervisorSystemDataAttachmentV2,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum SystemDataAttachmentV2SubjectKind {
+    #[serde(rename = r#"ontology"#)]
+    Ontology,
+    #[serde(rename = r#"data_source"#)]
+    DataSource,
+    #[serde(rename = r#"connection"#)]
+    Connection,
+    #[serde(rename = r#"connector"#)]
+    Connector,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum SystemDataAttachmentV2Status {
+    #[serde(rename = r#"attached"#)]
+    Attached,
+    #[serde(rename = r#"detached"#)]
+    Detached,
+}
+
+#[derive(Debug, Clone, PartialEq, serde::Serialize)]
+pub struct SystemDataAttachmentV2SystemBinding {
+    pub schema_version: SystemDataAttachmentV2SystemBindingSchemaVersion,
+    pub system_id: String,
+    pub parent_scope_ref: String,
+    pub proposed_or_issued_by_ref: String,
+    pub payload_root: String,
+    pub created_at: String,
+    pub updated_at: Option<String>,
+}
+
+impl<'de> serde::Deserialize<'de> for SystemDataAttachmentV2SystemBinding {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let value = <serde_json::Value as serde::Deserialize>::deserialize(deserializer)?;
+        validate_projection_subschema(
+            r#"schema://ioi/components/hypervisor/system-data-attachment/v2"#,
+            r#"{"type":"object","additionalProperties":false,"required":["schema_version","system_id","parent_scope_ref","proposed_or_issued_by_ref","payload_root","created_at","updated_at"],"properties":{"schema_version":{"type":"string","const":"ioi.foundations.system-scoped-object-binding.v1"},"system_id":{"type":"string","pattern":"^system://[^\\s]{1,500}$"},"parent_scope_ref":{"type":"string","pattern":"^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"},"proposed_or_issued_by_ref":{"type":"string","pattern":"^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"},"payload_root":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"},"created_at":{"type":"string","format":"date-time","pattern":"^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$"},"updated_at":{"anyOf":[{"type":"string","format":"date-time","pattern":"^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$"},{"type":"null"}]}}}"#,
+            &value,
+        )
+            .map_err(serde::de::Error::custom)?;
+        let mut object = value
+            .as_object()
+            .cloned()
+            .ok_or_else(|| serde::de::Error::custom("validated projection is not an object"))?;
+        Ok(Self {
+            schema_version: serde_json::from_value::<
+                SystemDataAttachmentV2SystemBindingSchemaVersion,
+            >(
+                object
+                    .remove(r#"schema_version"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"schema_version"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            system_id: serde_json::from_value::<String>(
+                object
+                    .remove(r#"system_id"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"system_id"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            parent_scope_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"parent_scope_ref"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"parent_scope_ref"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            proposed_or_issued_by_ref: serde_json::from_value::<String>(
+                object
+                    .remove(r#"proposed_or_issued_by_ref"#)
+                    .ok_or_else(|| {
+                        serde::de::Error::missing_field(r#"proposed_or_issued_by_ref"#)
+                    })?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            payload_root: serde_json::from_value::<String>(
+                object
+                    .remove(r#"payload_root"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"payload_root"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            created_at: serde_json::from_value::<String>(
+                object
+                    .remove(r#"created_at"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"created_at"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+            updated_at: serde_json::from_value::<Option<String>>(
+                object
+                    .remove(r#"updated_at"#)
+                    .ok_or_else(|| serde::de::Error::missing_field(r#"updated_at"#))?,
+            )
+            .map_err(serde::de::Error::custom)?,
+        })
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum SystemDataAttachmentV2SystemBindingSchemaVersion {
+    #[serde(rename = r#"ioi.foundations.system-scoped-object-binding.v1"#)]
+    IoiFoundationsSystemScopedObjectBindingV1,
+}
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct GoldenFixture {
     pub contract_id: &'static str,
@@ -195067,6 +195245,54 @@ pub const ARCHITECTURE_CONTRACT_FIXTURES: &[GoldenFixture] = &[
     GoldenFixture {
         contract_id: "schema://ioi/components/hypervisor/system-data-attachment/v1",
         path: "docs/architecture/_meta/schemas/fixtures/system-data-attachment-v1/negative-subject-ref-of-another-kind.json",
+        expected_accept: false,
+        expected_schema_accept: false,
+        expected_failure: Some("schema"),
+        expected_rule_id: None,
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/components/hypervisor/system-data-attachment/v2",
+        path: "docs/architecture/_meta/schemas/fixtures/system-data-attachment-v2/positive-connector-attached.json",
+        expected_accept: true,
+        expected_schema_accept: true,
+        expected_failure: None,
+        expected_rule_id: None,
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/components/hypervisor/system-data-attachment/v2",
+        path: "docs/architecture/_meta/schemas/fixtures/system-data-attachment-v2/positive-provider-connection-attached.json",
+        expected_accept: true,
+        expected_schema_accept: true,
+        expected_failure: None,
+        expected_rule_id: None,
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/components/hypervisor/system-data-attachment/v2",
+        path: "docs/architecture/_meta/schemas/fixtures/system-data-attachment-v2/positive-ontology-attached.json",
+        expected_accept: true,
+        expected_schema_accept: true,
+        expected_failure: None,
+        expected_rule_id: None,
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/components/hypervisor/system-data-attachment/v2",
+        path: "docs/architecture/_meta/schemas/fixtures/system-data-attachment-v2/negative-connector-named-as-a-provider-connection.json",
+        expected_accept: false,
+        expected_schema_accept: false,
+        expected_failure: Some("schema"),
+        expected_rule_id: None,
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/components/hypervisor/system-data-attachment/v2",
+        path: "docs/architecture/_meta/schemas/fixtures/system-data-attachment-v2/negative-connector-with-a-path.json",
+        expected_accept: false,
+        expected_schema_accept: false,
+        expected_failure: Some("schema"),
+        expected_rule_id: None,
+    },
+    GoldenFixture {
+        contract_id: "schema://ioi/components/hypervisor/system-data-attachment/v2",
+        path: "docs/architecture/_meta/schemas/fixtures/system-data-attachment-v2/negative-v1-schema-version.json",
         expected_accept: false,
         expected_schema_accept: false,
         expected_failure: Some("schema"),
@@ -219387,6 +219613,72 @@ pub const ARCHITECTURE_CONTRACT_DIFFERENTIAL_CASES: &[ArchitectureContractDiffer
         oracle_contract_accept: false,
     },
     ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/system-data-attachment-v2/positive-connector-attached.json"#,
+        contract_id: r#"schema://ioi/components/hypervisor/system-data-attachment/v2"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/system-data-attachment-v2/positive-connector-attached.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: true,
+        oracle_contract_accept: true,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/system-data-attachment-v2/positive-provider-connection-attached.json"#,
+        contract_id: r#"schema://ioi/components/hypervisor/system-data-attachment/v2"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/system-data-attachment-v2/positive-provider-connection-attached.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: true,
+        oracle_contract_accept: true,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/system-data-attachment-v2/positive-ontology-attached.json"#,
+        contract_id: r#"schema://ioi/components/hypervisor/system-data-attachment/v2"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/system-data-attachment-v2/positive-ontology-attached.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: true,
+        oracle_contract_accept: true,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/system-data-attachment-v2/negative-connector-named-as-a-provider-connection.json"#,
+        contract_id: r#"schema://ioi/components/hypervisor/system-data-attachment/v2"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/system-data-attachment-v2/negative-connector-named-as-a-provider-connection.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: false,
+        oracle_contract_accept: false,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/system-data-attachment-v2/negative-connector-with-a-path.json"#,
+        contract_id: r#"schema://ioi/components/hypervisor/system-data-attachment/v2"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/system-data-attachment-v2/negative-connector-with-a-path.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: false,
+        oracle_contract_accept: false,
+    },
+    ArchitectureContractDifferentialCase {
+        id: r#"fixture:docs/architecture/_meta/schemas/fixtures/system-data-attachment-v2/negative-v1-schema-version.json"#,
+        contract_id: r#"schema://ioi/components/hypervisor/system-data-attachment/v2"#,
+        source_fixture_path: Some(
+            r#"docs/architecture/_meta/schemas/fixtures/system-data-attachment-v2/negative-v1-schema-version.json"#,
+        ),
+        mutation_id: None,
+        value_json: None,
+        ajv_schema_accept: false,
+        oracle_contract_accept: false,
+    },
+    ArchitectureContractDifferentialCase {
         id: r#"mutation:sequence-zero-receipt-timestamp-detached"#,
         contract_id: r#"schema://ioi/foundations/autonomous-system-sequence-zero-materialization-receipt/v2"#,
         source_fixture_path: None,
@@ -221173,6 +221465,7 @@ const CONTRACT_SCHEMAS: &[(&str, &str)] = &[
     ("schema://ioi/components/hypervisor/justification-record/v1", r#"{"$schema":"https://json-schema.org/draft/2020-12/schema","$id":"schema://ioi/components/hypervisor/justification-record/v1","title":"JustificationRecord","x-ioi-schema-version":"ioi.hypervisor.justification_record.v1","description":"The immutable evidence one person's answer to one JustificationCheckpoint left behind (ADR 0056 Amendment 1, plane 5): who, when, which interaction and items, the checkpoint's language EXACTLY AS SHOWN (a snapshot that later edits or deletion of the configuration never change), and the justification given. Every record one action produced shares its interaction_ref. It is admitted before the interaction runs, grants nothing and is never an approval.","type":"object","additionalProperties":false,"required":["schema_version","record_id","checkpoint_ref","checkpoint_head","interaction_kind","interaction_ref","checkpointed_item_refs","submitted_by_principal_ref","owner_ref","language","justification","created_at","admitted_head"],"properties":{"schema_version":{"type":"string","const":"ioi.hypervisor.justification_record.v1"},"record_id":{"type":"string","pattern":"^justification-record://jr_[0-9a-f]{16}$"},"checkpoint_ref":{"type":"string","pattern":"^justification-checkpoint://jc_[0-9a-f]{16}$"},"checkpoint_head":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"},"interaction_kind":{"type":"string","enum":["automation.run_now","support_incident.file","health_check.declare"]},"interaction_ref":{"type":"string","pattern":"^interaction://[a-z_.]{1,64}/[0-9a-f-]{36}$"},"checkpointed_item_refs":{"type":"array","maxItems":50,"items":{"type":"string","pattern":"^[a-z][a-z0-9_-]*://[^\\s]{1,480}$"}},"submitted_by_principal_ref":{"type":"string","pattern":"^user://[^\\s]{1,480}$"},"owner_ref":{"type":"string","pattern":"^(?:org|project)://[^\\s]{1,480}$"},"language":{"type":"object","additionalProperties":false,"required":["title","body","description"],"properties":{"title":{"type":"string","minLength":1,"maxLength":45},"body":{"type":"string","minLength":1,"maxLength":4000},"description":{"type":"string","maxLength":4000}}},"justification":{"type":"object","additionalProperties":false,"required":["kind","acknowledged","text","selected"],"properties":{"kind":{"type":"string","enum":["acknowledgment","response","dropdown"]},"acknowledged":{"type":"boolean"},"text":{"type":"string","maxLength":4000},"selected":{"type":"array","maxItems":25,"items":{"type":"string","minLength":1,"maxLength":200}}}},"created_at":{"type":"string","minLength":1},"admitted_head":{"anyOf":[{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"},{"type":"null"}]}}}"#),
     ("schema://ioi/components/hypervisor/studio-blueprint/v1", r#"{"$schema":"https://json-schema.org/draft/2020-12/schema","$id":"schema://ioi/components/hypervisor/studio-blueprint/v1","title":"StudioBlueprint","x-ioi-schema-version":"ioi.hypervisor.studio.blueprint.v1","description":"One Studio blueprint: an authored composition draft owned by one tenant, optionally bound to the one bounded System it designs. Its identity is `ref` (derived from the owner and the creating caller's idempotency key); its tip is the admitted head of its own event stream, which the daemon serves beside the record as `admitted_head` and every successor compare-and-swaps against. `content_hash` is the canonical (JCS) sha256 of the four authored fields (name, description, graph, layout_ref) and names what the draft says, never who holds it or where it is bound. `system_ref` is set when the blueprint is created — only to an ACTIVE System in the creating caller's inventory — and never moves; null means the draft designs no System. `created_at` and `updated_at` are stamped from the admission on the read model and are absent from the admitted payload. A blueprint confers no authority and mounts nothing; promotion only composes a governance approval request.","type":"object","additionalProperties":false,"required":["schema_version","object","id","ref","name","description","graph","layout_ref","status","content_hash","owner_ref","system_ref"],"properties":{"schema_version":{"type":"string","const":"ioi.hypervisor.studio.blueprint.v1"},"object":{"type":"string","const":"ioi.hypervisor.studio.blueprint"},"id":{"type":"string","pattern":"^bp_[0-9a-f]{1,64}$"},"ref":{"type":"string","pattern":"^blueprint://bp_[0-9a-f]{1,64}$"},"name":{"type":"string","minLength":1,"maxLength":200},"description":{"type":"string","maxLength":2000},"graph":{"type":"object"},"layout_ref":{"anyOf":[{"type":"string","pattern":"^artifact://[^\\s]{1,289}$"},{"type":"null"}]},"status":{"type":"string","enum":["draft"]},"content_hash":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"},"owner_ref":{"type":"string","pattern":"^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"},"system_ref":{"anyOf":[{"type":"string","pattern":"^system://[^\\s]{1,500}$"},{"type":"null"}]},"promote_state":{"type":"string","enum":["approval_requested"]},"approval_request_id":{"type":"string","minLength":1,"maxLength":200},"approval_request_ref":{"type":"string","pattern":"^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"},"created_at":{"type":"string","format":"date-time","pattern":"^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$"},"updated_at":{"type":"string","format":"date-time","pattern":"^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$"}}}"#),
     ("schema://ioi/components/hypervisor/system-data-attachment/v1", r##"{"$schema":"https://json-schema.org/draft/2020-12/schema","$id":"schema://ioi/components/hypervisor/system-data-attachment/v1","title":"SystemDataAttachment","x-ioi-schema-version":"ioi.hypervisor.system-data-attachment.v1","description":"One subject a bounded System uses — an ontology, a data source or a connection — attached to that System through the System-record seam. It names the subject by its owning plane's own ref and nothing more: the subject stays owned, scoped and governed by its plane, and attaching grants no access to it. `system_binding` is DERIVED by the seam (the System, the parent scope, the resolved principal and a payload root over this record with the binding absent) and is never authored. The attachment's identity is `attachment_id`, one per System and subject; `status` moves from attached to detached only by a successor on the exact admitted head.","type":"object","additionalProperties":false,"required":["schema_version","attachment_id","subject_kind","subject_ref","status","system_binding"],"properties":{"schema_version":{"type":"string","const":"ioi.hypervisor.system-data-attachment.v1"},"attachment_id":{"type":"string","pattern":"^system-data-attachment://sda_[0-9a-f]{16}$"},"subject_kind":{"type":"string","enum":["ontology","data_source","connection"]},"subject_ref":{"type":"string","pattern":"^[a-z][a-z0-9+._-]*:[^\\s]{1,500}$"},"status":{"type":"string","enum":["attached","detached"]},"system_binding":{"$ref":"#/$defs/systemBinding"}},"allOf":[{"if":{"type":"object","required":["subject_kind"],"properties":{"subject_kind":{"type":"string","const":"ontology"}}},"then":{"type":"object","properties":{"subject_ref":{"type":"string","pattern":"^ontology://[^\\s]{1,500}$"}}}},{"if":{"type":"object","required":["subject_kind"],"properties":{"subject_kind":{"type":"string","const":"data_source"}}},"then":{"type":"object","properties":{"subject_ref":{"type":"string","pattern":"^data-source:[^\\s]{1,500}$"}}}},{"if":{"type":"object","required":["subject_kind"],"properties":{"subject_kind":{"type":"string","const":"connection"}}},"then":{"type":"object","properties":{"subject_ref":{"type":"string","pattern":"^connection://[^\\s]{1,500}$"}}}}],"$defs":{"systemBinding":{"type":"object","additionalProperties":false,"required":["schema_version","system_id","parent_scope_ref","proposed_or_issued_by_ref","payload_root","created_at","updated_at"],"properties":{"schema_version":{"type":"string","const":"ioi.foundations.system-scoped-object-binding.v1"},"system_id":{"type":"string","pattern":"^system://[^\\s]{1,500}$"},"parent_scope_ref":{"type":"string","pattern":"^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"},"proposed_or_issued_by_ref":{"type":"string","pattern":"^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"},"payload_root":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"},"created_at":{"type":"string","format":"date-time","pattern":"^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$"},"updated_at":{"anyOf":[{"type":"string","format":"date-time","pattern":"^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$"},{"type":"null"}]}}}}}"##),
+    ("schema://ioi/components/hypervisor/system-data-attachment/v2", r##"{"$schema":"https://json-schema.org/draft/2020-12/schema","$id":"schema://ioi/components/hypervisor/system-data-attachment/v2","title":"SystemDataAttachment","x-ioi-schema-version":"ioi.hypervisor.system-data-attachment.v2","description":"One subject a bounded System uses — an ontology, a data source, a provider connection or a connector — attached to that System through the System-record seam. It names the subject by its owning plane's own ref and nothing more: the subject stays owned, scoped and governed by its plane, and attaching grants no access to it. v2 succeeds v1 by one subject kind: `connector`, one of Connections' connectors (`connector:<id>`, the ref a session's authority profile and a standing envelope name), so a System's connections include those with no provider connection — an API key or an MCP server — and their standing limits are the System's. `system_binding` is DERIVED by the seam (the System, the parent scope, the resolved principal and a payload root over this record with the binding absent) and is never authored. The attachment's identity is `attachment_id`, one per System and subject; `status` moves from attached to detached only by a successor on the exact admitted head.","type":"object","additionalProperties":false,"required":["schema_version","attachment_id","subject_kind","subject_ref","status","system_binding"],"properties":{"schema_version":{"type":"string","const":"ioi.hypervisor.system-data-attachment.v2"},"attachment_id":{"type":"string","pattern":"^system-data-attachment://sda_[0-9a-f]{16}$"},"subject_kind":{"type":"string","enum":["ontology","data_source","connection","connector"]},"subject_ref":{"type":"string","pattern":"^[a-z][a-z0-9+._-]*:[^\\s]{1,500}$"},"status":{"type":"string","enum":["attached","detached"]},"system_binding":{"$ref":"#/$defs/systemBinding"}},"allOf":[{"if":{"type":"object","required":["subject_kind"],"properties":{"subject_kind":{"type":"string","const":"ontology"}}},"then":{"type":"object","properties":{"subject_ref":{"type":"string","pattern":"^ontology://[^\\s]{1,500}$"}}}},{"if":{"type":"object","required":["subject_kind"],"properties":{"subject_kind":{"type":"string","const":"data_source"}}},"then":{"type":"object","properties":{"subject_ref":{"type":"string","pattern":"^data-source:[^\\s]{1,500}$"}}}},{"if":{"type":"object","required":["subject_kind"],"properties":{"subject_kind":{"type":"string","const":"connection"}}},"then":{"type":"object","properties":{"subject_ref":{"type":"string","pattern":"^connection://[^\\s]{1,500}$"}}}},{"if":{"type":"object","required":["subject_kind"],"properties":{"subject_kind":{"type":"string","const":"connector"}}},"then":{"type":"object","properties":{"subject_ref":{"type":"string","pattern":"^connector:[A-Za-z0-9_-]{1,128}$"}}}}],"$defs":{"systemBinding":{"type":"object","additionalProperties":false,"required":["schema_version","system_id","parent_scope_ref","proposed_or_issued_by_ref","payload_root","created_at","updated_at"],"properties":{"schema_version":{"type":"string","const":"ioi.foundations.system-scoped-object-binding.v1"},"system_id":{"type":"string","pattern":"^system://[^\\s]{1,500}$"},"parent_scope_ref":{"type":"string","pattern":"^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"},"proposed_or_issued_by_ref":{"type":"string","pattern":"^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"},"payload_root":{"type":"string","pattern":"^sha256:[0-9a-f]{64}$"},"created_at":{"type":"string","format":"date-time","pattern":"^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$"},"updated_at":{"anyOf":[{"type":"string","format":"date-time","pattern":"^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$"},{"type":"null"}]}}}}}"##),
 ];
 
 const CONTRACT_INVARIANTS: &[(&str, &str)] = &[
@@ -221550,6 +221843,7 @@ const CONTRACT_INVARIANTS: &[(&str, &str)] = &[
     ("schema://ioi/components/hypervisor/justification-record/v1", r#"[]"#),
     ("schema://ioi/components/hypervisor/studio-blueprint/v1", r#"[]"#),
     ("schema://ioi/components/hypervisor/system-data-attachment/v1", r#"[]"#),
+    ("schema://ioi/components/hypervisor/system-data-attachment/v2", r#"[]"#),
 ];
 
 const CONTRACT_PATTERN_TRANSLATIONS: &[(&str, &str)] = &[
@@ -223813,6 +224107,10 @@ const CONTRACT_PATTERN_TRANSLATIONS: &[(&str, &str)] = &[
     (
         r#"^connector://[^\s]{1,248}$"#,
         r#"^connector://[^\u{0009}-\u{000D}\u{0020}\u{00A0}\u{1680}\u{2000}-\u{200A}\u{2028}\u{2029}\u{202F}\u{205F}\u{3000}\u{FEFF}]{1,248}$"#,
+    ),
+    (
+        r#"^connector:[A-Za-z0-9_-]{1,128}$"#,
+        r#"^connector:[A-Za-z0-9_-]{1,128}$"#,
     ),
     (
         r#"^constitution-amendment://[^\s]{1,248}$"#,
@@ -229356,6 +229654,12 @@ mod tests {
     ("docs/architecture/_meta/schemas/fixtures/system-data-attachment-v1/positive-ontology-attached.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/system-data-attachment-v1/positive-ontology-attached.json"))),
     ("docs/architecture/_meta/schemas/fixtures/system-data-attachment-v1/positive-data-source-attached.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/system-data-attachment-v1/positive-data-source-attached.json"))),
     ("docs/architecture/_meta/schemas/fixtures/system-data-attachment-v1/negative-subject-ref-of-another-kind.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/system-data-attachment-v1/negative-subject-ref-of-another-kind.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/system-data-attachment-v2/positive-connector-attached.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/system-data-attachment-v2/positive-connector-attached.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/system-data-attachment-v2/positive-provider-connection-attached.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/system-data-attachment-v2/positive-provider-connection-attached.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/system-data-attachment-v2/positive-ontology-attached.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/system-data-attachment-v2/positive-ontology-attached.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/system-data-attachment-v2/negative-connector-named-as-a-provider-connection.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/system-data-attachment-v2/negative-connector-named-as-a-provider-connection.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/system-data-attachment-v2/negative-connector-with-a-path.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/system-data-attachment-v2/negative-connector-with-a-path.json"))),
+    ("docs/architecture/_meta/schemas/fixtures/system-data-attachment-v2/negative-v1-schema-version.json", include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/../../", "docs/architecture/_meta/schemas/fixtures/system-data-attachment-v2/negative-v1-schema-version.json"))),
     ];
     const RAW_STRING_DELIMITER_REGRESSION_SCHEMA: &str =
         r####"{"const":"schema-controlled\"###literal"}"####;
@@ -231229,6 +231533,11 @@ mod tests {
         },
         "schema://ioi/components/hypervisor/system-data-attachment/v1" => {
             serde_json::from_value::<SystemDataAttachmentV1>(value.clone())
+                .map(|_| ())
+                .map_err(|error| error.to_string())
+        },
+        "schema://ioi/components/hypervisor/system-data-attachment/v2" => {
+            serde_json::from_value::<SystemDataAttachmentV2>(value.clone())
                 .map(|_| ())
                 .map_err(|error| error.to_string())
         },
@@ -233108,6 +233417,11 @@ mod tests {
                 .map_err(|error| error.to_string())?;
             serde_json::to_value(projection).map_err(|error| error.to_string())
         },
+        "schema://ioi/components/hypervisor/system-data-attachment/v2" => {
+            let projection = serde_json::from_value::<SystemDataAttachmentV2>(value.clone())
+                .map_err(|error| error.to_string())?;
+            serde_json::to_value(projection).map_err(|error| error.to_string())
+        },
             _ => Err(format!("unknown projection: {contract_id}")),
         }
     }
@@ -233244,8 +233558,8 @@ mod tests {
     fn golden_fixtures_match_generated_rust_contracts() {
         assert_eq!(
             ARCHITECTURE_CONTRACT_FIXTURES.len(),
-            2063,
-            "the registered golden corpus must remain the explicit 2063-fixture bar",
+            2069,
+            "the registered golden corpus must remain the explicit 2069-fixture bar",
         );
         for fixture in ARCHITECTURE_CONTRACT_FIXTURES {
             let body = FIXTURE_BODIES
@@ -233487,7 +233801,7 @@ mod tests {
 
     #[test]
     fn registered_ecma_pattern_translations_compile_and_match_whitespace() {
-        assert_eq!(CONTRACT_PATTERN_TRANSLATIONS.len(), 1195,);
+        assert_eq!(CONTRACT_PATTERN_TRANSLATIONS.len(), 1196,);
         for (ecma, translated) in CONTRACT_PATTERN_TRANSLATIONS {
             Regex::new(translated).unwrap_or_else(|error| panic!("{ecma}: {error}"));
         }

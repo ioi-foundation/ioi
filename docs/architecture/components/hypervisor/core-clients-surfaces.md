@@ -2220,14 +2220,30 @@ journey WP-C1).
   to one System. The caller must be signed in, the System must be one they can
   see, and only blueprints owned by the caller's tenants are returned. Studio's
   Draft a blueprint form offers the caller's active Systems as `system_ref`.
-- **Data.** An ontology, a data source or a connection is attached as a
-  `schema://ioi/components/hypervisor/system-data-attachment/v1` record through
+- **Data and connections.** An ontology, a data source, a provider connection
+  or a connector is attached as a
+  `schema://ioi/components/hypervisor/system-data-attachment/v2` record through
   the System-record seam (`/v1/hypervisor/autonomous-systems/:id/records`). The
   seam derives the `SystemScopedObjectBinding`, checks the System is active and
   keeps the record's head and receipt. The attachment holds only the subject's
   ref; the subject stays owned and governed by its own plane, and attaching it
-  grants no access. Design mode's Attach form offers only ontologies and data
-  sources the caller's own scoped reads return.
+  grants no access. v2 succeeds v1 (whose records stay valid and are still read)
+  by one subject kind, `connector` (`connector:<id>`, one of Connections'
+  connectors — the ref a session's authority profile and a standing envelope
+  name), so a connector with no provider connection (an API key, an MCP server)
+  can be one of a System's connections (2026-09-29, R-240 journey WP-A). Design
+  mode's Attach form offers the ontologies, data sources, provider connections
+  and connectors the caller's own reads return; a connector is visible to any
+  signed-in caller, the connector estate's own read rule.
+- **Limits (Govern mode).** A System's limits are the standing envelopes of the
+  connectors behind the connections attached to it: a `connector` subject's own,
+  or a provider connection's connector's. Govern mode lists each with its status,
+  uses, budget, operations and expiry, read from the connectors plane. It says
+  whether this deployment can record limits at all from the daemon's own answer
+  (`decidable` on `GET /v1/hypervisor/authority/standing-envelopes`), and that the
+  limits do not bound the System's runs yet (no session names a System). Limits
+  are set and removed on Connections with the operator passphrase (the daemon's
+  standing decision; the deployment authority signs the standing grant).
 - **Who may attach (2026-09-29, R-240 System seam authority).** The daemon
   enforces this itself; the form is an ordinary client. A seam write needs
   WRITE standing on the System: the caller must be the principal its genesis

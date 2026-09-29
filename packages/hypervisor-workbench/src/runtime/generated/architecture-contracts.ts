@@ -15883,6 +15883,23 @@ export type SystemDataAttachmentV1 = {
     };
 };
 
+export type SystemDataAttachmentV2 = {
+  schema_version: "ioi.hypervisor.system-data-attachment.v2";
+  attachment_id: string;
+  subject_kind: "ontology" | "data_source" | "connection" | "connector";
+  subject_ref: string;
+  status: "attached" | "detached";
+  system_binding: {
+      schema_version: "ioi.foundations.system-scoped-object-binding.v1";
+      system_id: string;
+      parent_scope_ref: string;
+      proposed_or_issued_by_ref: string;
+      payload_root: string;
+      created_at: string;
+      updated_at: string | null;
+    };
+};
+
 export const ARCHITECTURE_CONTRACT_REGISTRY_VERSION = "ioi.architecture-contract-registry.v1" as const;
 
 export const ARCHITECTURE_CONTRACT_PORTABLE_INTEGER_MINIMUM = 0 as const;
@@ -32396,6 +32413,54 @@ export const ARCHITECTURE_CONTRACT_FIXTURES = [
     "expected_schema_accept": false,
     "expected_failure": "schema",
     "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/components/hypervisor/system-data-attachment/v2",
+    "path": "docs/architecture/_meta/schemas/fixtures/system-data-attachment-v2/positive-connector-attached.json",
+    "expected": "accept",
+    "expected_schema_accept": true,
+    "expected_failure": null,
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/components/hypervisor/system-data-attachment/v2",
+    "path": "docs/architecture/_meta/schemas/fixtures/system-data-attachment-v2/positive-provider-connection-attached.json",
+    "expected": "accept",
+    "expected_schema_accept": true,
+    "expected_failure": null,
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/components/hypervisor/system-data-attachment/v2",
+    "path": "docs/architecture/_meta/schemas/fixtures/system-data-attachment-v2/positive-ontology-attached.json",
+    "expected": "accept",
+    "expected_schema_accept": true,
+    "expected_failure": null,
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/components/hypervisor/system-data-attachment/v2",
+    "path": "docs/architecture/_meta/schemas/fixtures/system-data-attachment-v2/negative-connector-named-as-a-provider-connection.json",
+    "expected": "reject",
+    "expected_schema_accept": false,
+    "expected_failure": "schema",
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/components/hypervisor/system-data-attachment/v2",
+    "path": "docs/architecture/_meta/schemas/fixtures/system-data-attachment-v2/negative-connector-with-a-path.json",
+    "expected": "reject",
+    "expected_schema_accept": false,
+    "expected_failure": "schema",
+    "expected_rule_id": null
+  },
+  {
+    "contract_id": "schema://ioi/components/hypervisor/system-data-attachment/v2",
+    "path": "docs/architecture/_meta/schemas/fixtures/system-data-attachment-v2/negative-v1-schema-version.json",
+    "expected": "reject",
+    "expected_schema_accept": false,
+    "expected_failure": "schema",
+    "expected_rule_id": null
   }
 ] as const;
 
@@ -37112,6 +37177,12 @@ export const ARCHITECTURE_CONTRACT_DIFFERENTIAL_CASES: ReadonlyArray<Architectur
   differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/system-data-attachment-v1/positive-ontology-attached.json","contract_id":"schema://ioi/components/hypervisor/system-data-attachment/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/system-data-attachment-v1/positive-ontology-attached.json","mutation_id":null,"value_json":null}),
   differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/system-data-attachment-v1/positive-data-source-attached.json","contract_id":"schema://ioi/components/hypervisor/system-data-attachment/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/system-data-attachment-v1/positive-data-source-attached.json","mutation_id":null,"value_json":null}),
   differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/system-data-attachment-v1/negative-subject-ref-of-another-kind.json","contract_id":"schema://ioi/components/hypervisor/system-data-attachment/v1","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/system-data-attachment-v1/negative-subject-ref-of-another-kind.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/system-data-attachment-v2/positive-connector-attached.json","contract_id":"schema://ioi/components/hypervisor/system-data-attachment/v2","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/system-data-attachment-v2/positive-connector-attached.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/system-data-attachment-v2/positive-provider-connection-attached.json","contract_id":"schema://ioi/components/hypervisor/system-data-attachment/v2","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/system-data-attachment-v2/positive-provider-connection-attached.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/system-data-attachment-v2/positive-ontology-attached.json","contract_id":"schema://ioi/components/hypervisor/system-data-attachment/v2","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/system-data-attachment-v2/positive-ontology-attached.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/system-data-attachment-v2/negative-connector-named-as-a-provider-connection.json","contract_id":"schema://ioi/components/hypervisor/system-data-attachment/v2","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/system-data-attachment-v2/negative-connector-named-as-a-provider-connection.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/system-data-attachment-v2/negative-connector-with-a-path.json","contract_id":"schema://ioi/components/hypervisor/system-data-attachment/v2","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/system-data-attachment-v2/negative-connector-with-a-path.json","mutation_id":null,"value_json":null}),
+  differentialCase({"id":"fixture:docs/architecture/_meta/schemas/fixtures/system-data-attachment-v2/negative-v1-schema-version.json","contract_id":"schema://ioi/components/hypervisor/system-data-attachment/v2","source_fixture_path":"docs/architecture/_meta/schemas/fixtures/system-data-attachment-v2/negative-v1-schema-version.json","mutation_id":null,"value_json":null}),
   differentialCase({"id":"mutation:sequence-zero-receipt-timestamp-detached","contract_id":"schema://ioi/foundations/autonomous-system-sequence-zero-materialization-receipt/v2","source_fixture_path":null,"mutation_id":"sequence-zero-receipt-timestamp-detached","value_json":null}),
   differentialCase({"id":"mutation:sequence-zero-receipt-authorized-materialization-id-detached","contract_id":"schema://ioi/foundations/autonomous-system-sequence-zero-materialization-receipt/v2","source_fixture_path":null,"mutation_id":"sequence-zero-receipt-authorized-materialization-id-detached","value_json":null}),
   differentialCase({"id":"mutation:sequence-zero-receipt-authority-principal-detached","contract_id":"schema://ioi/foundations/autonomous-system-sequence-zero-materialization-receipt/v2","source_fixture_path":null,"mutation_id":"sequence-zero-receipt-authority-principal-detached","value_json":null}),
@@ -37866,6 +37937,7 @@ export const ARCHITECTURE_CONTRACT_PATTERN_SOURCES = [
   "^connector://[A-Za-z0-9][A-Za-z0-9._-]{0,127}$",
   "^connector://[A-Za-z0-9][A-Za-z0-9._:/-]*$",
   "^connector://[^\\s]{1,248}$",
+  "^connector:[A-Za-z0-9_-]{1,128}$",
   "^constitution-amendment://[^\\s]{1,248}$",
   "^constitution://[A-Za-z0-9._:/-]+$",
   "^constitution://[^\\s]{1,248}$",
@@ -38847,7 +38919,8 @@ export const ARCHITECTURE_CONTRACT_SCHEMA_HASHES = {
   "schema://ioi/components/hypervisor/justification-checkpoint/v1": "sha256:fbaa54c53e0eebbc5eb3deb89469ea20ae589547ace10beb183d1f75512ba4d8",
   "schema://ioi/components/hypervisor/justification-record/v1": "sha256:3281dcf985707d23dace61c615809ab08420965aee07cc9cce4267c93bbfc867",
   "schema://ioi/components/hypervisor/studio-blueprint/v1": "sha256:d6339ec53c4da2ab521a58da345bf427ce9ce82e118b7cfd49b11fe511db46af",
-  "schema://ioi/components/hypervisor/system-data-attachment/v1": "sha256:f027567dacb88d035a7d9312d74676c174a438184c5daeadfe0d19faed8a70a3"
+  "schema://ioi/components/hypervisor/system-data-attachment/v1": "sha256:f027567dacb88d035a7d9312d74676c174a438184c5daeadfe0d19faed8a70a3",
+  "schema://ioi/components/hypervisor/system-data-attachment/v2": "sha256:7e258e6522dac46e397346dc25089ea13497746261d6f4f53f9dbd6f5dad9d13"
 } as const;
 
 type JsonObject = Record<string, unknown>;
@@ -160900,6 +160973,204 @@ const CONTRACT_SCHEMAS: Record<string, JsonObject> = {
         }
       }
     }
+  },
+  "schema://ioi/components/hypervisor/system-data-attachment/v2": {
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "$id": "schema://ioi/components/hypervisor/system-data-attachment/v2",
+    "title": "SystemDataAttachment",
+    "x-ioi-schema-version": "ioi.hypervisor.system-data-attachment.v2",
+    "description": "One subject a bounded System uses — an ontology, a data source, a provider connection or a connector — attached to that System through the System-record seam. It names the subject by its owning plane's own ref and nothing more: the subject stays owned, scoped and governed by its plane, and attaching grants no access to it. v2 succeeds v1 by one subject kind: `connector`, one of Connections' connectors (`connector:<id>`, the ref a session's authority profile and a standing envelope name), so a System's connections include those with no provider connection — an API key or an MCP server — and their standing limits are the System's. `system_binding` is DERIVED by the seam (the System, the parent scope, the resolved principal and a payload root over this record with the binding absent) and is never authored. The attachment's identity is `attachment_id`, one per System and subject; `status` moves from attached to detached only by a successor on the exact admitted head.",
+    "type": "object",
+    "additionalProperties": false,
+    "required": [
+      "schema_version",
+      "attachment_id",
+      "subject_kind",
+      "subject_ref",
+      "status",
+      "system_binding"
+    ],
+    "properties": {
+      "schema_version": {
+        "type": "string",
+        "const": "ioi.hypervisor.system-data-attachment.v2"
+      },
+      "attachment_id": {
+        "type": "string",
+        "pattern": "^system-data-attachment://sda_[0-9a-f]{16}$"
+      },
+      "subject_kind": {
+        "type": "string",
+        "enum": [
+          "ontology",
+          "data_source",
+          "connection",
+          "connector"
+        ]
+      },
+      "subject_ref": {
+        "type": "string",
+        "pattern": "^[a-z][a-z0-9+._-]*:[^\\s]{1,500}$"
+      },
+      "status": {
+        "type": "string",
+        "enum": [
+          "attached",
+          "detached"
+        ]
+      },
+      "system_binding": {
+        "$ref": "#/$defs/systemBinding"
+      }
+    },
+    "allOf": [
+      {
+        "if": {
+          "type": "object",
+          "required": [
+            "subject_kind"
+          ],
+          "properties": {
+            "subject_kind": {
+              "type": "string",
+              "const": "ontology"
+            }
+          }
+        },
+        "then": {
+          "type": "object",
+          "properties": {
+            "subject_ref": {
+              "type": "string",
+              "pattern": "^ontology://[^\\s]{1,500}$"
+            }
+          }
+        }
+      },
+      {
+        "if": {
+          "type": "object",
+          "required": [
+            "subject_kind"
+          ],
+          "properties": {
+            "subject_kind": {
+              "type": "string",
+              "const": "data_source"
+            }
+          }
+        },
+        "then": {
+          "type": "object",
+          "properties": {
+            "subject_ref": {
+              "type": "string",
+              "pattern": "^data-source:[^\\s]{1,500}$"
+            }
+          }
+        }
+      },
+      {
+        "if": {
+          "type": "object",
+          "required": [
+            "subject_kind"
+          ],
+          "properties": {
+            "subject_kind": {
+              "type": "string",
+              "const": "connection"
+            }
+          }
+        },
+        "then": {
+          "type": "object",
+          "properties": {
+            "subject_ref": {
+              "type": "string",
+              "pattern": "^connection://[^\\s]{1,500}$"
+            }
+          }
+        }
+      },
+      {
+        "if": {
+          "type": "object",
+          "required": [
+            "subject_kind"
+          ],
+          "properties": {
+            "subject_kind": {
+              "type": "string",
+              "const": "connector"
+            }
+          }
+        },
+        "then": {
+          "type": "object",
+          "properties": {
+            "subject_ref": {
+              "type": "string",
+              "pattern": "^connector:[A-Za-z0-9_-]{1,128}$"
+            }
+          }
+        }
+      }
+    ],
+    "$defs": {
+      "systemBinding": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "schema_version",
+          "system_id",
+          "parent_scope_ref",
+          "proposed_or_issued_by_ref",
+          "payload_root",
+          "created_at",
+          "updated_at"
+        ],
+        "properties": {
+          "schema_version": {
+            "type": "string",
+            "const": "ioi.foundations.system-scoped-object-binding.v1"
+          },
+          "system_id": {
+            "type": "string",
+            "pattern": "^system://[^\\s]{1,500}$"
+          },
+          "parent_scope_ref": {
+            "type": "string",
+            "pattern": "^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"
+          },
+          "proposed_or_issued_by_ref": {
+            "type": "string",
+            "pattern": "^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"
+          },
+          "payload_root": {
+            "type": "string",
+            "pattern": "^sha256:[0-9a-f]{64}$"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time",
+            "pattern": "^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$"
+          },
+          "updated_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time",
+                "pattern": "^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        }
+      }
+    }
   }
 };
 const CONTRACT_INVARIANTS: Record<string, Array<JsonObject>> = {
@@ -182931,7 +183202,8 @@ const CONTRACT_INVARIANTS: Record<string, Array<JsonObject>> = {
   "schema://ioi/components/hypervisor/justification-checkpoint/v1": [],
   "schema://ioi/components/hypervisor/justification-record/v1": [],
   "schema://ioi/components/hypervisor/studio-blueprint/v1": [],
-  "schema://ioi/components/hypervisor/system-data-attachment/v1": []
+  "schema://ioi/components/hypervisor/system-data-attachment/v1": [],
+  "schema://ioi/components/hypervisor/system-data-attachment/v2": []
 };
 
 export function architectureContractSchemaHash(contractId: string): string | null {
@@ -186046,4 +186318,10 @@ export function validateSystemDataAttachmentV1(
   value: unknown,
 ): value is SystemDataAttachmentV1 {
   return validateArchitectureContract("schema://ioi/components/hypervisor/system-data-attachment/v1", value).ok;
+}
+
+export function validateSystemDataAttachmentV2(
+  value: unknown,
+): value is SystemDataAttachmentV2 {
+  return validateArchitectureContract("schema://ioi/components/hypervisor/system-data-attachment/v2", value).ok;
 }

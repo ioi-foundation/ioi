@@ -1,0 +1,198 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "schema://ioi/components/hypervisor/system-data-attachment/v2",
+  "title": "SystemDataAttachment",
+  "x-ioi-schema-version": "ioi.hypervisor.system-data-attachment.v2",
+  "description": "One subject a bounded System uses — an ontology, a data source, a provider connection or a connector — attached to that System through the System-record seam. It names the subject by its owning plane's own ref and nothing more: the subject stays owned, scoped and governed by its plane, and attaching grants no access to it. v2 succeeds v1 by one subject kind: `connector`, one of Connections' connectors (`connector:<id>`, the ref a session's authority profile and a standing envelope name), so a System's connections include those with no provider connection — an API key or an MCP server — and their standing limits are the System's. `system_binding` is DERIVED by the seam (the System, the parent scope, the resolved principal and a payload root over this record with the binding absent) and is never authored. The attachment's identity is `attachment_id`, one per System and subject; `status` moves from attached to detached only by a successor on the exact admitted head.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "attachment_id",
+    "subject_kind",
+    "subject_ref",
+    "status",
+    "system_binding"
+  ],
+  "properties": {
+    "schema_version": {
+      "type": "string",
+      "const": "ioi.hypervisor.system-data-attachment.v2"
+    },
+    "attachment_id": {
+      "type": "string",
+      "pattern": "^system-data-attachment://sda_[0-9a-f]{16}$"
+    },
+    "subject_kind": {
+      "type": "string",
+      "enum": [
+        "ontology",
+        "data_source",
+        "connection",
+        "connector"
+      ]
+    },
+    "subject_ref": {
+      "type": "string",
+      "pattern": "^[a-z][a-z0-9+._-]*:[^\\s]{1,500}$"
+    },
+    "status": {
+      "type": "string",
+      "enum": [
+        "attached",
+        "detached"
+      ]
+    },
+    "system_binding": {
+      "$ref": "#/$defs/systemBinding"
+    }
+  },
+  "allOf": [
+    {
+      "if": {
+        "type": "object",
+        "required": [
+          "subject_kind"
+        ],
+        "properties": {
+          "subject_kind": {
+            "type": "string",
+            "const": "ontology"
+          }
+        }
+      },
+      "then": {
+        "type": "object",
+        "properties": {
+          "subject_ref": {
+            "type": "string",
+            "pattern": "^ontology://[^\\s]{1,500}$"
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "type": "object",
+        "required": [
+          "subject_kind"
+        ],
+        "properties": {
+          "subject_kind": {
+            "type": "string",
+            "const": "data_source"
+          }
+        }
+      },
+      "then": {
+        "type": "object",
+        "properties": {
+          "subject_ref": {
+            "type": "string",
+            "pattern": "^data-source:[^\\s]{1,500}$"
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "type": "object",
+        "required": [
+          "subject_kind"
+        ],
+        "properties": {
+          "subject_kind": {
+            "type": "string",
+            "const": "connection"
+          }
+        }
+      },
+      "then": {
+        "type": "object",
+        "properties": {
+          "subject_ref": {
+            "type": "string",
+            "pattern": "^connection://[^\\s]{1,500}$"
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "type": "object",
+        "required": [
+          "subject_kind"
+        ],
+        "properties": {
+          "subject_kind": {
+            "type": "string",
+            "const": "connector"
+          }
+        }
+      },
+      "then": {
+        "type": "object",
+        "properties": {
+          "subject_ref": {
+            "type": "string",
+            "pattern": "^connector:[A-Za-z0-9_-]{1,128}$"
+          }
+        }
+      }
+    }
+  ],
+  "$defs": {
+    "systemBinding": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "schema_version",
+        "system_id",
+        "parent_scope_ref",
+        "proposed_or_issued_by_ref",
+        "payload_root",
+        "created_at",
+        "updated_at"
+      ],
+      "properties": {
+        "schema_version": {
+          "type": "string",
+          "const": "ioi.foundations.system-scoped-object-binding.v1"
+        },
+        "system_id": {
+          "type": "string",
+          "pattern": "^system://[^\\s]{1,500}$"
+        },
+        "parent_scope_ref": {
+          "type": "string",
+          "pattern": "^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"
+        },
+        "proposed_or_issued_by_ref": {
+          "type": "string",
+          "pattern": "^[a-z][a-z0-9+._-]*://[^\\s]{1,500}$"
+        },
+        "payload_root": {
+          "type": "string",
+          "pattern": "^sha256:[0-9a-f]{64}$"
+        },
+        "created_at": {
+          "type": "string",
+          "format": "date-time",
+          "pattern": "^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$"
+        },
+        "updated_at": {
+          "anyOf": [
+            {
+              "type": "string",
+              "format": "date-time",
+              "pattern": "^[0-9]{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12][0-9]|3[01])T(?:[01][0-9]|2[0-3]):[0-5][0-9]:(?:[0-5][0-9]|60)(?:[.][0-9]+|)(?:Z|[+-](?:[01][0-9]|2[0-3]):[0-5][0-9])$"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      }
+    }
+  }
+}

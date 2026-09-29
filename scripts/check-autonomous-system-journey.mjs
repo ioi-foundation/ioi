@@ -85,10 +85,9 @@ export const REQUIRED_GAPS = Object.freeze({
   // WP-A (2026-09-29): genesis_approval_not_in_inbox is closed — create/legs/approval-in-inbox is live.
   // WP-C1 (2026-09-28): blueprint_system_ref_absent and system_data_attachment_absent are closed —
   // their four rows are live legs (REQUIRED_LIVE).
-  // WP-A (2026-09-29): the lease half of hand-off 4→5 is live on the gate's own authority node. What stays:
-  // a connector attached to the System (the attachment names provider connections only) and limits
-  // binding the System's runs (no session names a System yet).
-  "limits/legs/limits": "system_connector_attachment_absent",
+  // WP-A (2026-09-29): the System's limits (its connector attached under SystemDataAttachment v2) and the
+  // lease half of hand-off 4→5 are live on the gate's own authority node; what stays is limits binding the
+  // System's runs (no session names a System yet).
   "limits/handoff/limits-bound-runs": "system_limits_bound_runs_absent",
   // WP-B (2026-09-28): a run satisfies "running THE System"; the SESSION half keeps the code here.
   "run/legs/session-subject-system": "session_system_subject_absent",
@@ -107,7 +106,6 @@ export const REQUIRED_GAPS = Object.freeze({
 // The gaps the System workspace itself names on the page (system-genesis-surfaces.mjs `namedGap`). The
 // walk reads each marker: while it is there the gap is true; when it goes, the row is stale.
 export const REQUIRED_PROBES = Object.freeze({
-  "limits/legs/limits": 'data-system-named-gap="connectors attached to a System (SystemDataAttachment v2)"',
   "operate/legs/typed-lifecycle": 'data-system-named-gap="typed lifecycle forms (continuity, transitions, amendments, the initialize deployment revision)"',
   "run/legs/session-subject-system": 'data-system-named-gap="System subject on session create (W3 C-1)"',
   "improve/legs/system-scope": 'data-system-named-gap="System-scoped improvement campaigns (the constitution\'s protected profile binding — an ADR)"',
@@ -160,6 +158,8 @@ export const REQUIRED_LIVE = Object.freeze([
   "create/legs/approval-in-inbox",
   "operate/legs/typed-ladder",
   "limits/handoff/lease-gates-connection-picker",
+  "data/handoff/data-offered-to-limits",
+  "limits/legs/limits",
 ]);
 
 // The gap map's "Composes (does not re-prove)" list, plus the two R-240 lanes the walk leans on.
@@ -349,7 +349,8 @@ export function bindingFindings({ rootPkg, appPkg, floors, ci, floorsGate, compo
 // (exact JCS hashing over the tracked M1 fixtures); both should import one shared copy.
 const SYSTEMS_BASE = "/__ioi/systems";
 const GENESIS_API = "/v1/hypervisor/autonomous-systems";
-const ATTACHMENT_CONTRACT = "schema://ioi/components/hypervisor/system-data-attachment/v1";
+// Attachments are written under v2 since WP-A (v2 succeeds v1 by the `connector` subject kind).
+const ATTACHMENT_CONTRACT = "schema://ioi/components/hypervisor/system-data-attachment/v2";
 const OWNER = "org://acme/research";
 // This run's own operator passphrase: it seals this gate's authority node's keys on their first bring-up
 // and is typed on the approval cards. It reaches no log, no file and no argv of this gate.
@@ -930,6 +931,20 @@ async function liveLeg() {
       fields: { name: cxName, base_url: `https://example.invalid/journey/${vars.tag}`, tool_name: "list_loans", tool_path: "/v1/loans", token: `journey-${vars.tag}-sealed-token` } });
     const walkConnector = ((((await read(ctx, "/v1/hypervisor/connectors")).json || {}).connectors || []).find((c) => c.name === cxName)) || null;
     const walkConnectionRef = walkConnector?.connector_id ? `connector:${walkConnector.connector_id}` : "";
+    // HAND-OFF 3 → 4 (WP-A): THIS walk's connector attached to THIS System from its Design mode's Attach
+    // form (a SystemDataAttachment v2 of kind connector), and listed in the System's limits on its Govern
+    // mode — unbounded until the walk sets its limits (below).
+    const attachedCx = walkConnectionRef ? await attachOne("attach-connector", `connector|${walkConnectionRef}`) : { status: 0, q: new URLSearchParams() };
+    const governLimits = await page(ctx, governRoute);
+    const limitRow = (html) => { const at = walkConnectionRef ? html.indexOf(`data-system-limit-connection="${walkConnectionRef}"`) : -1; return at >= 0 ? html.slice(at, html.indexOf("</tr>", at)) : ""; };
+    const cxHeld = ((((await read(ctx, `${GENESIS_API}/${encodeURIComponent(ids.systemId)}/records?contract_id=${encodeURIComponent(ATTACHMENT_CONTRACT)}`)).json || {}).records) || [])
+      .some((r) => r.current?.schema_version === "ioi.hypervisor.system-data-attachment.v2" && r.current?.subject_kind === "connector" && r.current?.subject_ref === walkConnectionRef
+        && r.current?.status === "attached" && r.current?.system_binding?.system_id === ids.systemId && typeof r.head === "string");
+    claimLive("data/handoff/data-offered-to-limits",
+      attachedCx.status === 303 && attachedCx.q.get("acted") === "attach-data" && !!attachedCx.q.get("receipt") && cxHeld
+        && governLimits.status === 200 && limitRow(governLimits.text).includes('data-standing-lease-status="none"') && limitRow(governLimits.text).includes(cxName)
+        && governLimits.text.includes('data-system-limits-authority="deployment"'),
+      `attach ${walkConnectionRef || "no connector"} → ${attachedCx.status} ${attachedCx.q.get("acted") || attachedCx.q.get("refused") || ""} ${attachedCx.q.get("reason") || ""} · the seam holds it under v2 ${cxHeld} · Govern row ${limitRow(governLimits.text) ? (limitRow(governLimits.text).match(/data-standing-lease-status="([a-z_]+)"/u) || [])[1] : "absent"}`);
     await probesOf("limits");
     // ==== STEP 5 — RUN =============================================================================
     // THIS walk's automation, through the New automation form. An automation names one of this
@@ -1024,6 +1039,14 @@ async function liveLeg() {
     const leased = ((((await read(ctx, "/v1/hypervisor/connectors")).json || {}).connectors || []).find((c) => c.connector_id === walkConnector?.connector_id)) || {};
     const leaseNow = leased.standing_lease || {};
     const limitsTab = await page(ctx, "/governance/limits?tab=limits");
+    const governLeased = await page(ctx, governRoute);
+    // STEP 4 (WP-A) — budgets and standing limits for THE System: its attached connector's standing
+    // envelope, set through Connections' own form with the passphrase, listed active with the daemon's
+    // bounds on the System's Govern mode.
+    claimLive("limits/legs/limits",
+      leaseNow.status === "active" && Number(leaseNow.bounds?.max_usages) === 5 && cxHeld
+        && limitRow(governLeased.text).includes('data-standing-lease-status="active"') && limitRow(governLeased.text).includes("5 uses"),
+      `daemon lease ${leaseNow.status || "none"} ${leaseNow.bounds?.max_usages ?? "?"} uses · attached under v2 ${cxHeld} · Govern row ${(limitRow(governLeased.text).match(/data-standing-lease-status="([a-z_]+)"/u) || [])[1] || "absent"} ${limitRow(governLeased.text).includes("5 uses") ? "5 uses" : ""}`);
     const tabRowAt = walkConnectionRef ? limitsTab.text.indexOf(`data-limits-connection="${walkConnectionRef}"`) : -1;
     const tabRow = tabRowAt >= 0 ? limitsTab.text.slice(tabRowAt, limitsTab.text.indexOf("</tr>", tabRowAt)) : "";
     let leasedRow = null;
