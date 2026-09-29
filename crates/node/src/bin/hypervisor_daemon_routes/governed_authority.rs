@@ -2398,6 +2398,26 @@ pub(crate) fn decision_policy_hash_for_context(
     required_authority: &str,
     op: &str,
 ) -> String {
+    record_output_hash(
+        &decision_policy_material_for_context(
+            contract,
+            governance,
+            context,
+            required_authority,
+            op,
+        ),
+        &[],
+    )
+}
+
+/// The exact bytes `decision_policy_hash_for_context` commits to (a parked challenge publishes them).
+pub(crate) fn decision_policy_material_for_context(
+    contract: AuthorityContract,
+    governance: Governance,
+    context: AuthorityPolicyContext<'_>,
+    required_authority: &str,
+    op: &str,
+) -> Value {
     let mut material = serde_json::Map::new();
     material.insert("domain".into(), json!(contract.policy_domain));
     material.insert(
@@ -2429,7 +2449,7 @@ pub(crate) fn decision_policy_hash_for_context(
     }
     material.insert("required_authority_ref".into(), json!(required_authority));
     material.insert("required_scope".into(), json!(contract.operation_scope(op)));
-    record_output_hash(&Value::Object(material), &[])
+    Value::Object(material)
 }
 
 pub(crate) fn decision_request_hash(
@@ -2442,18 +2462,39 @@ pub(crate) fn decision_request_hash(
     effect_hash: &str,
 ) -> String {
     record_output_hash(
-        &json!({
-            "domain": contract.request_domain,
-            "governance": contract.governance_label(governance),
-            "subject_ref": subject_ref,
-            "op": op,
-            "revision": revision,
-            "required_authority_ref": required_authority,
-            "required_scope": contract.operation_scope(op),
-            "effect_hash": effect_hash,
-        }),
+        &decision_request_material(
+            contract,
+            governance,
+            subject_ref,
+            op,
+            revision,
+            required_authority,
+            effect_hash,
+        ),
         &[],
     )
+}
+
+/// The exact bytes `decision_request_hash` commits to (a parked challenge publishes them).
+pub(crate) fn decision_request_material(
+    contract: AuthorityContract,
+    governance: Governance,
+    subject_ref: &str,
+    op: &str,
+    revision: u64,
+    required_authority: &str,
+    effect_hash: &str,
+) -> Value {
+    json!({
+        "domain": contract.request_domain,
+        "governance": contract.governance_label(governance),
+        "subject_ref": subject_ref,
+        "op": op,
+        "revision": revision,
+        "required_authority_ref": required_authority,
+        "required_scope": contract.operation_scope(op),
+        "effect_hash": effect_hash,
+    })
 }
 
 pub(crate) fn decision_effect_hash(contract: AuthorityContract, effect: &Value) -> String {
@@ -3679,6 +3720,257 @@ pub(crate) async fn authorize_decision_with_context(
         revision,
         effect,
     )
+}
+
+// ---- a governed decision parks its challenge and takes its approval by ref (R-240, journey WP-A) --
+//
+// Genesis admission, sequence-zero materialization and the lifecycle initialize/activate steps are
+// governed decisions of the System's host authority. Until this cut a person could only take one by
+// minting a grant outside the product and pasting it into the refusal page. They now reuse the
+// session-execute gate's relay — the daemon's parked challenge and its decision route — and add no
+// second authority plane: resolution, grant verification and on-chain consumption stay exactly the
+// path above.
+//
+// * A refusal for want of a grant (no grant presented; the host authority resolved) PARKS the exact
+//   effect's challenge (`authority_challenge_routes::park_challenge`): the decision's own policy and
+//   request hashes, its scope, the daemon's wallet capability account as audience, and the preimages
+//   the hashes commit to. The 403 names it as `error.approval_challenge`; the operator decides it on
+//   `POST /v1/hypervisor/authority/challenges/:id/decision`, where the deployment authority's sealed
+//   approver signs one one-use grant for exactly those coordinates. A challenge is parked only for a
+//   decision the deployment authority can sign: host governance, and — when the deployment names its
+//   authority principal — only for a System governed by that principal; otherwise the refusal says
+//   why nothing was parked (`error.approval_challenge_withheld`).
+// * The retry names the challenge's `approval_ref` where a grant would be (`wallet_approval_grant:
+//   {"approval_ref": …}`). The claim succeeds only when the record's scope and hashes equal the ones
+//   derived afresh from the retried request (N12); the stored grant is then presented to the unchanged
+//   verification, marked consumed once the wallet consumed it, and released for a corrected retry if
+//   the decision refuses before that.
+
+/// Everything that fixes one governed decision's coordinates.
+#[derive(Clone, Copy)]
+pub(crate) struct GovernedDecision<'a> {
+    pub(crate) contract: AuthorityContract,
+    pub(crate) governance: Governance,
+    pub(crate) context: AuthorityPolicyContext<'a>,
+    pub(crate) required_authority: &'a str,
+    pub(crate) subject_ref: &'a str,
+    pub(crate) op: &'a str,
+    pub(crate) revision: u64,
+    pub(crate) effect: &'a Value,
+}
+
+impl GovernedDecision<'_> {
+    fn scope(&self) -> String {
+        self.contract.operation_scope(self.op)
+    }
+
+    fn policy_hash(&self) -> String {
+        decision_policy_hash_for_context(
+            self.contract,
+            self.governance,
+            self.context,
+            self.required_authority,
+            self.op,
+        )
+    }
+
+    fn effect_hash(&self) -> String {
+        decision_effect_hash(self.contract, self.effect)
+    }
+
+    fn request_hash(&self) -> String {
+        decision_request_hash(
+            self.contract,
+            self.governance,
+            self.subject_ref,
+            self.op,
+            self.revision,
+            self.required_authority,
+            &self.effect_hash(),
+        )
+    }
+
+    /// The exact bytes the challenge's hashes commit to.
+    fn published_preimage(&self) -> Value {
+        json!({
+            "effect": self.effect,
+            "effect_preimage": { "domain": format!("{}.effect.v1", self.contract.request_domain), "effect_hash": self.effect_hash() },
+            "policy_preimage": decision_policy_material_for_context(self.contract, self.governance, self.context, self.required_authority, self.op),
+            "request_preimage": decision_request_material(self.contract, self.governance, self.subject_ref, self.op, self.revision, self.required_authority, &self.effect_hash()),
+        })
+    }
+}
+
+/// An approval claimed for one governed decision. Dropped unconsumed, it is released: the approval
+/// stays usable for a corrected retry (the chain's one-use record still binds it to one effect).
+pub(crate) struct GovernedApprovalClaim {
+    data_dir: String,
+    claim: Option<super::authority_challenge_routes::ClaimedApproval>,
+}
+
+impl GovernedApprovalClaim {
+    /// The wallet consumed the claimed grant for this decision: the approval is spent for good.
+    pub(crate) fn consumed(mut self, consumption_ref: &str) {
+        if let Some(claim) = self.claim.take() {
+            super::authority_challenge_routes::mark_consumed(&self.data_dir, &claim, consumption_ref);
+        }
+    }
+}
+
+impl Drop for GovernedApprovalClaim {
+    fn drop(&mut self) {
+        if let Some(claim) = self.claim.take() {
+            super::authority_challenge_routes::release_claim(&self.data_dir, &claim);
+        }
+    }
+}
+
+/// Before a governed decision: a body naming an approval ref (a locator in `wallet_approval_grant`)
+/// claims the grant the daemon stored for it — only when the record's scope and hashes are the ones
+/// this decision derives afresh — and the body carries that grant from here on. A body with no ref
+/// is returned as it is. A refused claim presents nothing to wallet.network.
+pub(crate) fn claim_governed_approval(
+    data_dir: &str,
+    body: &Value,
+    decision: &GovernedDecision<'_>,
+) -> Result<(Value, GovernedApprovalClaim), (StatusCode, Json<Value>)> {
+    let none = GovernedApprovalClaim {
+        data_dir: data_dir.to_owned(),
+        claim: None,
+    };
+    let Some(approval_ref) = body
+        .get("wallet_approval_grant")
+        .and_then(super::authority_challenge_routes::approval_ref_locator)
+    else {
+        return Ok((body.clone(), none));
+    };
+    let scope = decision.scope();
+    let request_hash = decision.request_hash();
+    let refused = |status: StatusCode, code: &str, message: String| {
+        Err((
+            status,
+            Json(json!({
+                "error": {
+                    "code": code,
+                    "message": message,
+                    "approval_ref": approval_ref,
+                    "required_scope": scope,
+                    "runtimeTruthSource": "daemon-runtime"
+                }
+            })),
+        ))
+    };
+    let claim = match super::authority_challenge_routes::claim_approval_ref(
+        data_dir,
+        &approval_ref,
+        &scope,
+        &decision.policy_hash(),
+        &request_hash,
+    ) {
+        Ok(claim) => claim,
+        Err(refusal) => return refused(refusal.status, refusal.code, refusal.message),
+    };
+    if claim.request_hash != request_hash {
+        // A re-ask (an earlier approval of this effect expired unused) binds the effect's request
+        // hash under a fresh nonce; a governed decision's grant must bind the decision's own request
+        // hash, which carries no nonce, so the re-ask's grant could never verify here. Released,
+        // nothing presented.
+        super::authority_challenge_routes::release_claim(data_dir, &claim);
+        return refused(
+            StatusCode::CONFLICT,
+            "governed_approval_reask_unsupported",
+            "this approval is a re-ask under a fresh nonce, but a governed System decision's grant must bind the decision's own request hash, which carries no nonce. The operator's earlier approval of this exact step expired unused, and the deployment authority never decides one request twice, so this exact step cannot be approved again; only a changed request (for genesis, a new System identity) asks afresh. Nothing was presented".to_string(),
+        );
+    }
+    let mut carried = body.clone();
+    carried["wallet_approval_grant"] = claim.grant.clone();
+    Ok((
+        carried,
+        GovernedApprovalClaim {
+            data_dir: data_dir.to_owned(),
+            claim: Some(claim),
+        },
+    ))
+}
+
+/// The principal this deployment's authority node is bound to (daemon.env), when it names one.
+fn deployment_authority_principal() -> Option<String> {
+    std::env::var("IOI_HYPERVISOR_AUTHORITY_PRINCIPAL_REF")
+        .ok()
+        .map(|value| value.trim().to_owned())
+        .filter(|value| !value.is_empty())
+}
+
+/// Why this deployment's decision route cannot approve `decision`, or None when it can.
+fn governed_park_withheld(
+    decision: &GovernedDecision<'_>,
+    deployment: Option<&str>,
+) -> Option<String> {
+    if decision.governance != Governance::Host {
+        return Some(format!(
+            "'{}' is a {} decision, approved by that participant's own authority, never by this deployment's approver",
+            decision.op,
+            decision.contract.governance_label(decision.governance)
+        ));
+    }
+    let deployment = deployment?;
+    (deployment != decision.required_authority).then(|| {
+        format!(
+            "this decision is governed by '{}', and this deployment's authority is '{deployment}': the daemon's decision route signs only with the deployment's own approver, so the governing authority must approve it with its own wallet",
+            decision.required_authority
+        )
+    })
+}
+
+/// After a governed decision refused: a refusal for want of a grant — no grant was presented and the
+/// host authority resolved — parks this exact effect's challenge and names it on the refusal (or
+/// says why none was parked). Every other refusal is returned unchanged.
+pub(crate) fn park_governed_refusal(
+    data_dir: &str,
+    response: (StatusCode, Json<Value>),
+    decision: &GovernedDecision<'_>,
+    grant_presented: bool,
+    requester_ref: Option<&str>,
+) -> (StatusCode, Json<Value>) {
+    let (status, Json(mut body)) = response;
+    let wanted = decision.contract.code(match decision.governance {
+        Governance::Host => "host_authority_required",
+        Governance::Participant => "participant_authority_required",
+    });
+    if grant_presented
+        || status != StatusCode::FORBIDDEN
+        || body.pointer("/error/code").and_then(Value::as_str) != Some(wanted.as_str())
+    {
+        return (status, Json(body));
+    }
+    if let Some(reason) = governed_park_withheld(decision, deployment_authority_principal().as_deref()) {
+        body["error"]["approval_challenge"] = Value::Null;
+        body["error"]["approval_challenge_withheld"] = json!(reason);
+        return (status, Json(body));
+    }
+    let scope = decision.scope();
+    let policy_hash = decision.policy_hash();
+    let request_hash = decision.request_hash();
+    let audience = super::wallet_network_capability_client::capability_account_id_hex();
+    let parked = super::authority_challenge_routes::park_challenge(
+        data_dir,
+        super::authority_challenge_routes::ParkRequest {
+            target_scope: &scope,
+            policy_hash: &policy_hash,
+            request_hash: &request_hash,
+            audience: audience.clone(),
+            subject_ref: decision.subject_ref,
+            operation: decision.op,
+            published_preimage: decision.published_preimage(),
+            requester_ref,
+        },
+    );
+    body["error"]["approval_challenge"] = json!(parked);
+    if let Some(approval) = body.pointer_mut("/error/approval").and_then(Value::as_object_mut) {
+        approval.insert("audience".into(), json!(audience));
+        approval.insert("target_scope".into(), json!(scope));
+    }
+    (status, Json(body))
 }
 
 pub(crate) fn sealed_evidence(receipt: &Value) -> DecisionEvidence {
@@ -5245,5 +5537,227 @@ mod typed_effect_recovery_tests {
             ),
             RecoveryDecision::Refuse(_)
         ));
+    }
+}
+
+#[cfg(test)]
+mod governed_approval_tests {
+    //! R-240 journey WP-A: a governed System decision parks its challenge on the daemon and takes
+    //! its approval by ref, through the session-execute gate's own park/claim.
+    use super::*;
+    use super::super::authority_challenge_routes::{approval_ref_for, CHALLENGE_FAMILY};
+
+    const CONTRACT: AuthorityContract = AuthorityContract {
+        scope_prefix: "scope:autonomous_system",
+        policy_domain: "test.system-genesis.decision.policy.v1",
+        request_domain: "test.system-genesis.decision.request.v1",
+        resolution_domain: "test.system-genesis.resolution.v1",
+        code_prefix: "system_genesis",
+        host_label: "system_owner",
+        participant_label: "participant",
+    };
+    const OWNER: &str = "org://acme/research";
+
+    fn temp_dir(label: &str) -> String {
+        let dir = std::env::temp_dir().join(format!(
+            "ioi-governed-approval-{label}-{}-{}",
+            std::process::id(),
+            nonce_nanos()
+        ));
+        std::fs::create_dir_all(&dir).unwrap();
+        dir.to_string_lossy().into_owned()
+    }
+
+    fn decision<'a>(effect: &'a Value, op: &'a str) -> GovernedDecision<'a> {
+        GovernedDecision {
+            contract: CONTRACT,
+            governance: Governance::Host,
+            context: AuthorityPolicyContext::SystemGenesis {
+                system_id: "system://acme/one",
+                genesis_id: "genesis://acme/one/zero",
+            },
+            required_authority: OWNER,
+            subject_ref: "genesis://acme/one/zero",
+            op,
+            revision: 0,
+            effect,
+        }
+    }
+
+    /// The daemon's refusal of a grantless governed decision, as `authorize_decision_*` answers it.
+    fn wants_grant(d: &GovernedDecision<'_>) -> (StatusCode, Json<Value>) {
+        (
+            StatusCode::FORBIDDEN,
+            Json(json!({ "error": {
+                "code": "system_genesis_host_authority_required",
+                "required_scope": d.scope(),
+                "approval": { "policy_hash": d.policy_hash(), "request_hash": d.request_hash(), "effect_hash": d.effect_hash() }
+            } })),
+        )
+    }
+
+    fn record(dir: &str, id: &str) -> Value {
+        super::super::durable_fs::read_record_durable(dir, CHALLENGE_FAMILY, id)
+            .unwrap()
+            .expect("the challenge is on the daemon")
+    }
+
+    /// What the decision route leaves when the operator approved: one grant for the record.
+    fn approve_in_place(dir: &str, id: &str) {
+        let mut approved = record(dir, id);
+        approved["state"] = json!("approved");
+        approved["grant"] = json!({ "request_hash": approved["request_hash"], "planted": true });
+        approved["grant_ref"] = json!("wallet.network://grant/approval/planted");
+        approved["grant_expires_at_ms"] = json!(local_now_ms() + 600_000);
+        super::super::durable_fs::persist_record_durable(dir, CHALLENGE_FAMILY, id, &approved)
+            .unwrap();
+    }
+
+    #[test]
+    fn a_grantless_refusal_parks_the_exact_decision_and_publishes_what_its_hashes_commit_to() {
+        let dir = temp_dir("park");
+        let effect = json!({ "system_id": "system://acme/one", "proposal_root": "sha256:1" });
+        let d = decision(&effect, "genesis_admit");
+        let (status, Json(body)) =
+            park_governed_refusal(&dir, wants_grant(&d), &d, false, Some("user://operator"));
+        assert_eq!(status, StatusCode::FORBIDDEN, "the refusal stands");
+        let id = body["error"]["approval_challenge"]["challenge_id"]
+            .as_str()
+            .expect("the refusal names the parked challenge")
+            .to_string();
+        assert_eq!(body["error"]["approval"]["target_scope"], json!(d.scope()));
+        let parked = record(&dir, &id);
+        assert_eq!(parked["state"], "pending");
+        assert_eq!(parked["target_scope"], json!("scope:autonomous_system.genesis_admit"));
+        assert_eq!(parked["policy_hash"], json!(d.policy_hash()));
+        assert_eq!(parked["request_hash"], json!(d.request_hash()));
+        assert_eq!(parked["operation"], "genesis_admit");
+        assert_eq!(parked["subject_ref"], "genesis://acme/one/zero");
+        assert_eq!(parked["requester_ref"], "user://operator");
+        // The published preimages are the exact bytes the hashes commit to.
+        let pre = &parked["published_preimage"];
+        assert_eq!(record_output_hash(&pre["policy_preimage"], &[]), d.policy_hash());
+        assert_eq!(record_output_hash(&pre["request_preimage"], &[]), d.request_hash());
+        assert_eq!(pre["effect"], effect);
+        assert_eq!(pre["request_preimage"]["effect_hash"], json!(d.effect_hash()));
+        // A re-park of the same effect is the same challenge.
+        let (_, Json(again)) = park_governed_refusal(&dir, wants_grant(&d), &d, false, None);
+        assert_eq!(again["error"]["approval_challenge"]["challenge_id"], json!(id));
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn only_a_grantless_host_refusal_the_deployment_can_sign_parks() {
+        let dir = temp_dir("no-park");
+        let effect = json!({ "n": 1 });
+        let d = decision(&effect, "genesis_admit");
+        // A presented grant that failed verification is not an ask.
+        let (_, Json(presented)) = park_governed_refusal(&dir, wants_grant(&d), &d, true, None);
+        assert!(presented["error"].get("approval_challenge").is_none());
+        // Any other refusal (an unresolvable authority) is a deployment prerequisite, not an ask.
+        let unresolved = (
+            StatusCode::FORBIDDEN,
+            Json(json!({ "error": { "code": "system_genesis_authority_resolution_refused" } })),
+        );
+        let (_, Json(other)) = park_governed_refusal(&dir, unresolved, &d, false, None);
+        assert!(other["error"].get("approval_challenge").is_none());
+        assert!(
+            super::super::read_record_dir(&dir, CHALLENGE_FAMILY).is_empty(),
+            "nothing was parked"
+        );
+        // A System governed by another principal than the deployment's is withheld, with why.
+        assert!(governed_park_withheld(&d, None).is_none());
+        assert!(governed_park_withheld(&d, Some(OWNER)).is_none());
+        let reason = governed_park_withheld(&d, Some("domain://pop-os")).expect("withheld");
+        assert!(reason.contains(OWNER) && reason.contains("domain://pop-os"), "{reason}");
+        let participant = GovernedDecision {
+            governance: Governance::Participant,
+            ..d
+        };
+        assert!(governed_park_withheld(&participant, None).is_some());
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn an_approval_ref_is_claimed_only_for_its_exact_decision_and_spent_once() {
+        let dir = temp_dir("claim");
+        let effect = json!({ "system_id": "system://acme/one", "proposal_root": "sha256:1" });
+        let d = decision(&effect, "genesis_admit");
+        let (_, Json(parked)) = park_governed_refusal(&dir, wants_grant(&d), &d, false, None);
+        let id = parked["error"]["approval_challenge"]["challenge_id"]
+            .as_str()
+            .unwrap()
+            .to_string();
+        let retry = json!({ "release": {}, "wallet_approval_grant": { "approval_ref": approval_ref_for(&id) } });
+        // Not approved yet: refused, nothing presented.
+        let refused = claim_governed_approval(&dir, &retry, &d).err().expect("pending");
+        assert_eq!(refused.0, StatusCode::CONFLICT);
+        assert_eq!(refused.1 .0["error"]["code"], "approval_ref_not_approved");
+        approve_in_place(&dir, &id);
+        // Another effect (a changed declaration) cannot borrow the approval.
+        let other_effect = json!({ "system_id": "system://acme/one", "proposal_root": "sha256:2" });
+        let other = decision(&other_effect, "genesis_admit");
+        let foreign = claim_governed_approval(&dir, &retry, &other)
+            .err()
+            .expect("foreign");
+        assert_eq!(foreign.1 .0["error"]["code"], "approval_ref_coordinates_mismatch");
+        // The exact decision claims it: the body now carries the stored grant.
+        let (carried, claim) = claim_governed_approval(&dir, &retry, &d).ok().expect("claimed");
+        assert_eq!(carried["wallet_approval_grant"]["planted"], json!(true));
+        assert_eq!(carried["release"], json!({}), "the rest of the body is untouched");
+        assert_eq!(record(&dir, &id)["state"], "consuming");
+        // Refused before consumption: released for a corrected retry.
+        drop(claim);
+        assert_eq!(record(&dir, &id)["state"], "approved");
+        // Consumed: spent for good, and a replay is refused.
+        let (_, claim) = claim_governed_approval(&dir, &retry, &d).ok().expect("claimed again");
+        claim.consumed("wallet.network://approval-effect-consumption/planted");
+        let spent = record(&dir, &id);
+        assert_eq!(spent["state"], "consumed");
+        assert_eq!(spent["consumed_by"], "wallet.network://approval-effect-consumption/planted");
+        let replay = claim_governed_approval(&dir, &retry, &d).err().expect("spent");
+        assert_eq!(replay.1 .0["error"]["code"], "approval_ref_consumed");
+        // A body with no ref passes through unchanged.
+        let plain = json!({ "release": {} });
+        let (same, _) = claim_governed_approval(&dir, &plain, &d).ok().unwrap();
+        assert_eq!(same, plain);
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn a_reask_of_a_governed_decision_is_refused_by_name_and_nothing_is_presented() {
+        let dir = temp_dir("reask");
+        let effect = json!({ "system_id": "system://acme/one", "proposal_root": "sha256:3" });
+        let d = decision(&effect, "genesis_materialize");
+        let (_, Json(first)) = park_governed_refusal(&dir, wants_grant(&d), &d, false, None);
+        let id = first["error"]["approval_challenge"]["challenge_id"]
+            .as_str()
+            .unwrap()
+            .to_string();
+        // Approved, then its grant expires unused: the next park of the same decision is a re-ask.
+        approve_in_place(&dir, &id);
+        let mut expired = record(&dir, &id);
+        expired["grant_expires_at_ms"] = json!(local_now_ms().saturating_sub(1));
+        super::super::durable_fs::persist_record_durable(&dir, CHALLENGE_FAMILY, &id, &expired)
+            .unwrap();
+        let (_, Json(again)) = park_governed_refusal(&dir, wants_grant(&d), &d, false, None);
+        let successor = again["error"]["approval_challenge"]["challenge_id"]
+            .as_str()
+            .unwrap()
+            .to_string();
+        assert_ne!(successor, id, "a re-ask is a new challenge");
+        approve_in_place(&dir, &successor);
+        let retry = json!({ "wallet_approval_grant": { "approval_ref": approval_ref_for(&successor) } });
+        let refused = claim_governed_approval(&dir, &retry, &d)
+            .err()
+            .expect("a governed decision cannot present a re-ask's grant");
+        assert_eq!(refused.0, StatusCode::CONFLICT);
+        assert_eq!(refused.1 .0["error"]["code"], "governed_approval_reask_unsupported");
+        assert_eq!(
+            record(&dir, &successor)["state"],
+            "approved",
+            "released, never left consuming"
+        );
+        let _ = std::fs::remove_dir_all(&dir);
     }
 }

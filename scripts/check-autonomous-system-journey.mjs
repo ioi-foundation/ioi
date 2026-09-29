@@ -13,9 +13,9 @@
 // design, data, limits, run, observe, provenance, evaluate, improve, release, operate — and judges every
 // step PASS, NAMED_GAP (by code, naming the missing plane) or FAIL, and every hand-off by step N's object
 // appearing as an option or a link in step N+1's form. It OWNS its plane: a fresh data directory, its own
-// daemon and serve on free ports with the sign-in gate on, the REAL wallet.network fixture as the
-// authority, and an operator bootstrapped with the daemon's one-boot token through the serve's first-run
-// form. Every write goes through a form the owning surface rendered, found on the page before it is
+// daemon and serve on free ports with the sign-in gate on, a sealed deployment-local wallet.network
+// authority node of its own (a per-run operator passphrase; the serve holds no key), and an operator
+// bootstrapped with the daemon's one-boot token through the serve's first-run form. Every write goes through a form the owning surface rendered, found on the page before it is
 // submitted. It COMPOSES the existing gates (it does not re-prove them) and ends with a restart and a
 // re-read of the System.
 //
@@ -37,7 +37,7 @@ import fs from "node:fs";
 import http from "node:http";
 import os from "node:os";
 import path from "node:path";
-import { createHash } from "node:crypto";
+import { createHash, randomBytes } from "node:crypto";
 import { spawn, spawnSync } from "node:child_process";
 import { fileURLToPath, pathToFileURL } from "node:url";
 import { emitVerifierCensus } from "../apps/hypervisor/scripts/lib/verifier-census.mjs";
@@ -67,8 +67,8 @@ export const CLAUSES = [
   { n: 1, demand: "THE LIFECYCLE WORKS THROUGH THE UI, AS ONE CONTINUOUS WALK. One tag, one System, created by governed genesis and carried through the eleven steps the gap map names — create, design, data, limits, run, observe, provenance, evaluate, improve, release, operate. Each step is PASS, NAMED_GAP or FAIL, and the gate passes only when all eleven PASS", executed_by: [PURE, LIVE, COMPOSED] },
   { n: 2, demand: "EVERY HAND-OFF IS JUDGED. Step N's object must appear as an option or a link in step N+1's form; a step whose hand-off is not judged is red, never skipped. The last step hands off to nothing: the walk ends with a restart and a re-read of the System", executed_by: [PURE, LIVE] },
   { n: 3, demand: "A NAMED GAP IS NEVER A PASS. Any NAMED_GAP step exits 2, \"journey incomplete\"; a gap that reports pass is fabricated and red; a gap the product no longer names is stale and red. Closing a gap flips its row to a live leg with its own assertion, in the same cut that removes it from REQUIRED_GAPS", executed_by: [PURE, LIVE] },
-  { n: 4, demand: "EVERY WRITE GOES THROUGH THE FORM ITS OWNING SURFACE RENDERS — found on the rendered page before it is submitted, never the daemon API; a JavaScript surface (the New Session composer) is driven in a browser as the same operator through the controls the page rendered — and authority is a real wallet.network grant for the exact hashes the surface rendered", executed_by: [SOURCE, LIVE] },
-  { n: 5, demand: "THE GATE OWNS ITS DAEMON, ITS SERVE AND ITS OPERATOR: a fresh data directory, free ports, the sign-in gate on, the real wallet.network fixture, an operator bootstrapped with the daemon's one-boot token through the serve's first-run form. The owner's data is never read or written, and no shared serve can answer for it", executed_by: [SOURCE, LIVE] },
+  { n: 4, demand: "EVERY WRITE GOES THROUGH THE FORM ITS OWNING SURFACE RENDERS — found on the rendered page before it is submitted, never the daemon API; a JavaScript surface (the New Session composer) is driven in a browser as the same operator through the controls the page rendered — and authority is the operator's approval of the exact challenge the daemon parked, given with the passphrase on the challenge page and relayed to the daemon's decision route, whose deployment authority signs one grant for exactly that record — the gate mints and pastes no grant", executed_by: [SOURCE, LIVE] },
+  { n: 5, demand: "THE GATE OWNS ITS DAEMON, ITS SERVE AND ITS OPERATOR: a fresh data directory, free ports, the sign-in gate on, a sealed deployment-local wallet.network authority node of its own (a per-run passphrase; the serve holds no key or path to one), an operator bootstrapped with the daemon's one-boot token through the serve's first-run form. The owner's data is never read or written, and no shared serve can answer for it", executed_by: [SOURCE, LIVE] },
   { n: 6, demand: "COMPOSED, NOT RE-PROVEN. A leg passes by composition only when the named gate ran green in this invocation on an unmoved basis; not executed, exit 2, a timeout or a moved basis is never a pass", executed_by: [PURE, COMPOSED] },
   { n: 7, demand: "EVERY PASS NAMES ITS EVIDENCE — the live assertion that measured it or the composed gate whose run proved it — and a leg the walk never reached is red, never read as green", executed_by: [PURE, LIVE] },
 ];
@@ -82,13 +82,14 @@ export const REQUIRED_STEPS = Object.freeze(["create", "design", "data", "limits
 // The gap map's named gaps, each at the leg that owns it. Closing one is a deliberate edit here.
 export const REQUIRED_GAPS = Object.freeze({
   "create/legs/template-picker": "system_template_picker_absent",
-  "create/legs/approval-in-inbox": "genesis_approval_not_in_inbox",
+  // WP-A (2026-09-29): genesis_approval_not_in_inbox is closed — create/legs/approval-in-inbox is live.
   // WP-C1 (2026-09-28): blueprint_system_ref_absent and system_data_attachment_absent are closed —
   // their four rows are live legs (REQUIRED_LIVE).
-  "limits/legs/limits": "system_limits_authority_node_absent",
-  // Journey TODO legs (2026-09-29): the lease half of hand-off 4→5 waits on the same authority node;
-  // the withheld half is live (unleased-connection-withheld).
-  "limits/handoff/lease-gates-connection-picker": "system_limits_authority_node_absent",
+  // WP-A (2026-09-29): the lease half of hand-off 4→5 is live on the gate's own authority node. What stays:
+  // a connector attached to the System (the attachment names provider connections only) and limits
+  // binding the System's runs (no session names a System yet).
+  "limits/legs/limits": "system_connector_attachment_absent",
+  "limits/handoff/limits-bound-runs": "system_limits_bound_runs_absent",
   // WP-B (2026-09-28): a run satisfies "running THE System"; the SESSION half keeps the code here.
   "run/legs/session-subject-system": "session_system_subject_absent",
   // ADR 0056 P6 (2026-09-29): system_telemetry_absent is closed — observe/legs/telemetry is live.
@@ -99,15 +100,15 @@ export const REQUIRED_GAPS = Object.freeze({
   "improve/legs/system-scope": "improvement_campaign_system_scope_absent",
   "improve/handoff/successor-offered-for-release": "system_release_absent",
   "release/legs/system-release": "system_release_absent",
+  // WP-A (2026-09-29): the ladder half is live (operate/legs/typed-ladder); the code stays for the rest.
   "operate/legs/typed-lifecycle": "lifecycle_forms_raw_json",
 });
 
 // The gaps the System workspace itself names on the page (system-genesis-surfaces.mjs `namedGap`). The
 // walk reads each marker: while it is there the gap is true; when it goes, the row is stale.
 export const REQUIRED_PROBES = Object.freeze({
-  "limits/legs/limits": 'data-system-named-gap="authority node (ADR 0056 Ruling 8)"',
-  // Connections names it on the connection's own card, where Set limits would be.
-  "limits/handoff/lease-gates-connection-picker": 'data-ioi-standing-recorder="none"',
+  "limits/legs/limits": 'data-system-named-gap="connectors attached to a System (SystemDataAttachment v2)"',
+  "operate/legs/typed-lifecycle": 'data-system-named-gap="typed lifecycle forms (continuity, transitions, amendments, the initialize deployment revision)"',
   "run/legs/session-subject-system": 'data-system-named-gap="System subject on session create (W3 C-1)"',
   "improve/legs/system-scope": 'data-system-named-gap="System-scoped improvement campaigns (the constitution\'s protected profile binding — an ADR)"',
 });
@@ -155,6 +156,10 @@ export const REQUIRED_LIVE = Object.freeze([
   // WP-C2 (2026-09-29): THE System improved through a change set on its blueprint, from its Improve mode.
   "improve/legs/change-sets",
   "improve/legs/improve-mode",
+  // WP-A (2026-09-29): authority in the lifecycle journey.
+  "create/legs/approval-in-inbox",
+  "operate/legs/typed-ladder",
+  "limits/handoff/lease-gates-connection-picker",
 ]);
 
 // The gap map's "Composes (does not re-prove)" list, plus the two R-240 lanes the walk leans on.
@@ -290,15 +295,17 @@ function shippedBestCase(lib) {
 export function sourceFindings({ gate, lib }) {
   const f = [];
   const code = gate.split("\n").filter((l) => !/^\s*\/\//u.test(l)).join("\n");
-  if (!/dataDir = fs\.mkdtempSync\(/u.test(code) || !/plane = await startIsolatedPlane\(\{ serve: true, dataDir, env: planeEnv/u.test(code)) f.push("the LIVE leg no longer runs its plane on a FRESH data directory of its own");
-  if (!/ctx\.resolver = await startRealWalletNetworkPrincipalAuthorityFixture\(\{/u.test(code)) f.push("the LIVE leg no longer takes authority from the REAL wallet.network fixture");
-  if (!/planeEnv = \{ \.\.\.ctx\.resolver\.env, IOI_PRODUCT_SIGNIN_REQUIRED: "[1]" \}/u.test(code)) f.push("the LIVE leg no longer measures the product with its sign-in gate on");
+  if (!/dataDir = fs\.mkdtempSync\(/u.test(code) || !/plane = await startIsolatedPlane\(\{ serve: true, dataDir, env: planeEnv, serveEnv/u.test(code)) f.push("the LIVE leg no longer runs its plane on a FRESH data directory of its own");
+  if (!/ctx\.resolver = await startLocalAuthority\(\{ stateDir: authorityDir, principalRef: OWNER, wallClock: true, operatorPass: OPERATOR_PASS,/u.test(code) || !/authorityDir = fs\.mkdtempSync\(/u.test(code)) f.push("the LIVE leg no longer takes authority from a sealed deployment-local wallet.network authority node of its own");
+  if (!/const OPERATOR_PASS = `[a-z-]+\$\{randomBytes\(/u.test(code) || /console\.[a-z]+\([^\n]*OPERATOR_PAS[S]/u.test(code)) f.push("the operator passphrase is no longer this run's own, or it reaches a log line");
+  if (/\b(?:mintForCapabilit[y]|recordApprova[l]|approveGran[t]|startRealWalletNetworkPrincipalAuthorityFixtur[e])\b/u.test(code)) f.push("the gate mints, records or holds a grant itself instead of the operator approving the daemon's parked challenge");
+  if (!/planeEnv = \{ \.\.\.ctx\.resolver\.daemonEnv, IOI_PRODUCT_SIGNIN_REQUIRED: "[1]" \}/u.test(code) || !/serveEnv = \{ \.\.\.ctx\.resolver\.serveEnv, IOI_PRODUCT_SIGNIN_REQUIRED: "[1]" \}/u.test(code)) f.push("the LIVE leg no longer measures the product with its sign-in gate on, or its serve holds more than the authority's public refs");
   if (!/action: "\/__ioi\/bootstrap",/u.test(code) || !/match\(\/ioi_bootstrap_\[A-Za-z0-9_-\]\+\/gu\)/u.test(code) || !/fs\.readdirSync\(dataDir\)\.filter\(/u.test(code)) f.push("the LIVE leg no longer bootstraps its own operator through the serve's first-run form with the one-boot token from its own plane's log");
   if (/127\.0\.0\.1:8765|\.ioi\/hypervisor\/data/u.test(code)) f.push("the LIVE leg names the owner's daemon or data directory");
   // ONE write path: submitRenderedForm, the gate's only POST, refuses anything but a /__ioi/ form it found
   // on the rendered page.
   const posts = code.match(/"PO[S]T"/gu) || [];
-  if (posts.length !== 1 || !/if \(!action\.startsWith\("\/__ioi\/"\)\)/u.test(code) || !/renderedForm\(page\.text, action\)/u.test(code)) f.push("a write no longer goes only through submitRenderedForm — the one POST, to a /__ioi/ form found on the rendered page");
+  if (posts.length !== 1 || !/if \(!action\.startsWith\("\/__ioi\/"\)\)/u.test(code) || !/renderedForm\(page\.text, action, marker\)/u.test(code)) f.push("a write no longer goes only through submitRenderedForm — the one POST, to a /__ioi/ form found on the rendered page");
   if (/"(?:PA[T]CH|P[U]T|DE[L]ETE)"|\bfet[c]h\(/u.test(code)) f.push("the gate carries a write verb or a transport outside its one form submitter");
   // The ONE browser leg (the New Session composer is JavaScript) signs in as THIS gate's operator on its
   // own serve and drives only what the page rendered: it carries no request, route or header of its own.
@@ -344,6 +351,9 @@ const SYSTEMS_BASE = "/__ioi/systems";
 const GENESIS_API = "/v1/hypervisor/autonomous-systems";
 const ATTACHMENT_CONTRACT = "schema://ioi/components/hypervisor/system-data-attachment/v1";
 const OWNER = "org://acme/research";
+// This run's own operator passphrase: it seals this gate's authority node's keys on their first bring-up
+// and is typed on the approval cards. It reaches no log, no file and no argv of this gate.
+const OPERATOR_PASS = `autonomous-system-journey-${randomBytes(12).toString("hex")}`;
 const GENESIS_SCOPE = "scope:autonomous_system.genesis_admit";
 const MATERIALIZE_SCOPE = "scope:autonomous_system.genesis_materialize";
 const INITIALIZE_SCOPE = "scope:autonomous_system.lifecycle.initialize";
@@ -484,16 +494,24 @@ function approvalFrom(html) {
 }
 
 // The form the page RENDERED that posts to `action` (the last one, so a challenge page's own "Resubmit
-// with grant" form wins), with the names it offers and the values a browser would submit for it
+// with grant" form wins — or, given a `marker`, the last such form whose tag carries it: the approval
+// card and the Resume form of a governed step), with the names it offers and the values a browser would submit for it
 // untouched: every input's rendered value (a checkbox or radio only when checked), each select's
 // selected option (else its first), each textarea's text — the hidden lane, the owner a form prefills,
 // the verbatim declaration a challenge page re-offers.
 const attrOf = (tag, name) => { const m = tag.match(new RegExp(`\\b${name}="([^"]*)"`, "u")); return m ? unesc(m[1]) : null; };
-function renderedForm(html, action) {
-  const at = html.lastIndexOf(`action="${action}"`);
-  if (at < 0) return null;
-  const start = html.lastIndexOf("<form", at);
-  const end = html.indexOf("</form>", at);
+function renderedForm(html, action, marker = null) {
+  let start;
+  if (marker) {
+    const tag = [...html.matchAll(/<form\b[^>]*>/gu)].filter((m) => m[0].includes(`action="${action}"`) && m[0].includes(marker)).at(-1);
+    if (!tag) return null;
+    start = tag.index;
+  } else {
+    const at = html.lastIndexOf(`action="${action}"`);
+    if (at < 0) return null;
+    start = html.lastIndexOf("<form", at);
+  }
+  const end = html.indexOf("</form>", start);
   if (start < 0 || end < 0) return null;
   const inner = html.slice(start, end);
   const names = new Set([...inner.matchAll(/\bname="([^"]+)"/gu)].map((m) => m[1]));
@@ -523,10 +541,10 @@ function renderedForm(html, action) {
 // THE ONLY WRITE PATH. A person can only submit a form they can see: the form must be on the page the
 // surface rendered, post to a /__ioi/ lane, and offer every field filled. Its own hidden values travel as
 // rendered; the filled fields override them.
-async function submitRenderedForm(ctx, { id, page, from, action, fields }) {
+async function submitRenderedForm(ctx, { id, page, from, action, fields, marker = null }) {
   if (!action.startsWith("/__ioi/")) throw new Error(`write ${id}: '${action}' is not a form the product renders — every write goes through a /__ioi/ form`);
-  const form = renderedForm(page.text, action);
-  if (!form) throw new Error(`write ${id}: no form posting to '${action}' is rendered at ${from} (HTTP ${page.status})`);
+  const form = renderedForm(page.text, action, marker);
+  if (!form) throw new Error(`write ${id}: no form posting to '${action}'${marker ? ` marked ${marker}` : ""} is rendered at ${from} (HTTP ${page.status})`);
   const missing = Object.keys(fields).filter((name) => !form.names.has(name));
   if (missing.length) throw new Error(`write ${id}: the form at ${from} renders no field ${missing.join(", ")}`);
   const unoffered = Object.entries(fields).filter(([name, value]) => form.options[name] && !form.options[name].has(String(value)));
@@ -555,25 +573,49 @@ function outcomeOf(res) {
   return { status: res.status, location, q, redirected: res.status === 302 || res.status === 303, refused: q.get("refused") };
 }
 
-// A governed step as a person takes it: submit the form, read the daemon's exact challenge off the page,
-// approve THOSE hashes in the wallet (the real wallet.network fixture), and paste the grant into the
-// challenge page's own "Resubmit with grant" form (the named gap genesis_approval_not_in_inbox).
-async function governedStep(ctx, { id, page: from, route, action, fields, scope }) {
+// A governed step as a person takes it (R-240 journey WP-A): submit the form without a grant; the daemon
+// PARKS its exact challenge and the page carries the operator's approval card; read the daemon's record of
+// that challenge (and the approvals inbox holding it) as the same person; approve it on the card with the
+// operator passphrase — the serve relays it to the daemon's decision route, whose deployment authority
+// signs one grant for exactly that record; then press the answer page's Resume, which names the
+// challenge's approval_ref and which the daemon claims only for the exact coordinates it derives afresh,
+// consuming it once. The gate never mints, records or pastes a grant.
+const APPROVE_WAIT_MS = 900_000;
+async function governedStep(ctx, { id, page: from, route, action, fields }) {
   const challenge = await submitRenderedForm(ctx, { id: `${id} (challenge)`, page: from, from: route, action, fields });
   const approval = approvalFrom(challenge.text);
-  if (!journeyState(challenge.text, "ready_or_proposed") || !approval.policy_hash || !approval.request_hash) {
-    throw new Error(`write ${id}: the surface rendered no authority challenge (HTTP ${challenge.status}, ${(challenge.text.match(/data-truth-code="([a-z0-9_.]+)"/u) || [])[1] || "no code"})`);
+  const challengeId = (challenge.text.match(/data-approval-challenge="(wac_[0-9a-f]{32})"/u) || [])[1] || null;
+  if (!journeyState(challenge.text, "ready_or_proposed") || !approval.policy_hash || !approval.request_hash || !challengeId) {
+    throw new Error(`write ${id}: the surface rendered no parked authority challenge (HTTP ${challenge.status}, ${(challenge.text.match(/data-truth-code="([a-z0-9_.]+)"/u) || [])[1] || "no code"}${challengeId ? "" : ", no approval card"})`);
   }
-  const grant = ctx.resolver.mintForCapability(OWNER, approval.policy_hash, approval.request_hash);
-  await ctx.resolver.recordApproval(OWNER, approval.policy_hash, approval.request_hash, grant, scope);
-  const resubmit = () => submitRenderedForm(ctx, { id: `${id} (granted)`, page: challenge, from: `${route} → challenge`, action, fields: { wallet_approval_grant: JSON.stringify(grant) } });
-  let committed = await resubmit();
+  const record = async () => ((await read(ctx, `/v1/hypervisor/authority/challenges/${challengeId}`)).json || {}).challenge || {};
+  const parked = await record();
+  const inbox = ((await read(ctx, "/v1/hypervisor/governance/approvals-inbox")).json || {}).items || [];
+  const approved = await submitRenderedForm(ctx, { id: `${id} (approve)`, page: challenge, from: `${route} → challenge`, action, marker: 'data-approval-card-form="1"', fields: { operator_passphrase: OPERATOR_PASS } });
+  // A decision still being recorded settles in the daemon on its own: wait on its record, never re-post.
+  let decided = await record();
+  for (const until = Date.now() + APPROVE_WAIT_MS; decided.state === "pending" && decided.deciding && Date.now() < until;) {
+    await new Promise((r) => setTimeout(r, 3000));
+    decided = await record();
+  }
+  const resume = () => submitRenderedForm(ctx, { id: `${id} (resume)`, page: approved, from: `${route} → approved`, action, marker: 'data-approval-resume="1"', fields: {} });
+  let committed = await resume();
   for (let retry = 0; retry < 3 && truthCode(committed.text, "system_lifecycle_authority_resolver_unavailable"); retry += 1) {
     await new Promise((r) => setTimeout(r, 250));
-    committed = await resubmit();
+    committed = await resume();
   }
-  return { challenge, committed, approval };
+  const spent = await record();
+  return { challenge, approved, committed, approval, challengeId, parked, inboxHeld: inbox.some((i) => i.challenge_id === challengeId), decided, spent };
 }
+// The daemon's record of one governed step's challenge, judged: parked for exactly the page's hashes under
+// the step's scope, asked by this operator, approved by this operator through the daemon with one grant,
+// then consumed once by the resumed step.
+const governedTruth = (step, scope, operatorRef) => step.parked.state === "pending" && step.parked.policy_hash === step.approval.policy_hash
+  && step.parked.request_hash === step.approval.request_hash && step.parked.target_scope === scope && step.parked.requester_ref === operatorRef
+  && step.decided.state === "approved" && step.decided.decision?.decision === "approve" && step.decided.decision?.decided_by === operatorRef && typeof step.decided.grant_ref === "string"
+  && step.spent.state === "consumed" && typeof step.spent.consumed_by === "string" && step.spent.consumed_by.length > 0
+  && step.approved.text.includes('data-approval-state="approved"');
+const governedSaid = (step) => `challenge ${step.challengeId} ${step.parked.state || "unread"}→${step.decided.state || "?"}→${step.spent.state || "?"} (scope ${step.parked.target_scope || "?"}) · approve page ${(step.approved.text.match(/data-approval-state="([a-z_]+)"/u) || [])[1] || "none"} · resume ${step.committed.status}`;
 
 // ---- LIVE: the browser leg ----------------------------------------------------------------------
 // The New Session composer is a JavaScript surface: its launcher is a modal the page builds from the
@@ -638,19 +680,26 @@ async function liveLeg() {
 
   // Inherited IOI_* must not leak into the plane or the wallet fixture (the genesis journey's rule), except
   // the explicit ready-timeout and binary knobs CI sets on its wallet-fixture jobs.
-  const KNOBS = new Set(["IOI_WALLET_FIXTURE_READY_TIMEOUT_MS", "IOI_ISOLATED_DAEMON_READY_TIMEOUT_MS", "IOI_HYPERVISOR_DAEMON_BINARY"]);
+  const KNOBS = new Set(["IOI_WALLET_FIXTURE_READY_TIMEOUT_MS", "IOI_ISOLATED_DAEMON_READY_TIMEOUT_MS", "IOI_HYPERVISOR_DAEMON_BINARY", "IOI_WALLET_AUTHORITY_BINARY", "IOI_WALLET_AUTHORITY_READY_TIMEOUT_MS", "IOI_NODE_BINARY_DIR"]);
   const cleanEnv = Object.fromEntries(Object.entries(process.env).filter(([k]) => !k.startsWith("IOI_") || KNOBS.has(k)));
-  let plane = null, plane2 = null, dataDir = null, reached = false;
+  let plane = null, plane2 = null, dataDir = null, authorityDir = null, reached = false;
   try {
     const { startIsolatedPlane } = await import("../apps/hypervisor/scripts/lib/isolated-daemon.mjs");
-    const { startRealWalletNetworkPrincipalAuthorityFixture } = await import("../apps/hypervisor/scripts/lib/wallet-network-principal-authority-fixture.mjs");
-    console.log("# LIVE — the real wallet.network principal-authority fixture (the first run may compile)");
-    ctx.resolver = await startRealWalletNetworkPrincipalAuthorityFixture({ baseEnv: cleanEnv });
+    const { startLocalAuthority, OPERATOR_PASS_ENV } = await import("../apps/hypervisor/scripts/lib/wallet-network-local-authority.mjs");
+    // THIS GATE'S AUTHORITY (R-240 journey WP-A): a sealed deployment-local wallet.network node of its own —
+    // generated keys sealed under this run's passphrase, the System owner's principal bound to its approver —
+    // the node a deployment points its daemon at. Its daemon.env goes to the daemon (which runs the node's
+    // `approve` on the operator's decision); the serve gets only its public refs.
+    console.log("# LIVE — a sealed deployment-local wallet.network authority node of this gate's own (the first run may compile)");
+    delete process.env[OPERATOR_PASS_ENV];
+    authorityDir = fs.mkdtempSync(path.join(os.tmpdir(), "autonomous-system-journey-authority-"));
+    ctx.resolver = await startLocalAuthority({ stateDir: authorityDir, principalRef: OWNER, wallClock: true, operatorPass: OPERATOR_PASS, log: () => {} });
 
     // THIS GATE OWNS ITS PLANE: a fresh data directory, free ports, the sign-in gate ON.
     dataDir = fs.mkdtempSync(path.join(os.tmpdir(), "autonomous-system-journey-"));
-    const planeEnv = { ...ctx.resolver.env, IOI_PRODUCT_SIGNIN_REQUIRED: "1" };
-    plane = await startIsolatedPlane({ serve: true, dataDir, env: planeEnv, baseEnv: cleanEnv });
+    const planeEnv = { ...ctx.resolver.daemonEnv, IOI_PRODUCT_SIGNIN_REQUIRED: "1" };
+    const serveEnv = { ...ctx.resolver.serveEnv, IOI_PRODUCT_SIGNIN_REQUIRED: "1" };
+    plane = await startIsolatedPlane({ serve: true, dataDir, env: planeEnv, serveEnv, baseEnv: cleanEnv });
     if (!plane) throw new Error("BLOCKED: target/debug/hypervisor-daemon is not built");
     ctx.serve = plane.serveUrl;
 
@@ -686,8 +735,9 @@ async function liveLeg() {
     evidence.system_id = ids.systemId;
     const revision = lifecycleDeploymentRevisionForGenesis(rebindGenesisBodySystem(exactGenesisBody(), ids).proposed_instantiation.candidate);
     const composeRoute = `${SYSTEMS_BASE}/compose?lane=compact`;
+    const operatorRef = who.json?.principal?.principal_ref || "";
     const admit = await governedStep(ctx, {
-      id: "genesis", page: await page(ctx, composeRoute), route: composeRoute, action: `${SYSTEMS_BASE}/compose`, scope: GENESIS_SCOPE,
+      id: "genesis", page: await page(ctx, composeRoute), route: composeRoute, action: `${SYSTEMS_BASE}/compose`,
       fields: {
         declaration: JSON.stringify(exactGenesisBody()), system_id: ids.systemId, genesis_id: ids.genesisId, constitution_ref: ids.constitutionRef,
         deployment_profile_ref: revision.deployment_profile_ref, ordering_profile_ref: ids.orderingProfileRef, oracle_profile_ref: ids.oracleProfileRef,
@@ -702,23 +752,41 @@ async function liveLeg() {
     const receipt = recordRead.json?.autonomous_system_genesis_receipt;
     claimLive("create/legs/genesis-admission",
       journeyState(admit.committed.text, "completed") && !!tail && record?.system_id === ids.systemId && admit.committed.text.includes(record?.proposal_root || "__none__"),
-      `admission ${tail || "none"} · ${record?.system_id || "no record"}`);
+      `admission ${tail || "none"} · ${record?.system_id || "no record"} · ${governedSaid(admit)}`);
+    // STEP 1 (WP-A) — the genesis approval is an approval: parked on the daemon for the page's exact hashes,
+    // held by the approvals inbox while it waited, approved by this operator through the daemon's decision
+    // route, and consumed once by the resumed admission (the daemon's own challenge record, read back).
+    const challengePage = await page(ctx, `/__ioi/authority/challenges/${admit.challengeId}`);
+    claimLive("create/legs/approval-in-inbox",
+      governedTruth(admit, GENESIS_SCOPE, operatorRef) && admit.inboxHeld && admit.spent.consumed_by.startsWith("wallet.network://approval-effect-consumption/")
+        && challengePage.status === 200 && challengePage.text.includes(`data-ioi-challenge="${admit.challengeId}"`) && challengePage.text.includes('data-ioi-challenge-state="completed"'),
+      `${governedSaid(admit)} · inbox held it ${admit.inboxHeld} · consumed by ${admit.spent.consumed_by || "nothing"} · its own page ${challengePage.status} ${(challengePage.text.match(/data-ioi-challenge-state="([a-z_]+)"/u) || [])[1] || "no state"}`);
     if (!tail || !record || !receipt) throw new Error("step 1: the admission did not commit through the composer");
 
-    // The governed ladder, through the forms the System's GOVERN mode renders (canon puts lifecycle under
-    // Govern). Visible-but-not-live, the workspace renders the pending ladder and its forms.
+    // The governed ladder, through the typed forms the System's GOVERN mode renders (canon puts lifecycle
+    // under Govern). Each form's expected roots are prefilled from the daemon's own reads of the step before;
+    // the walk submits the form as rendered (initialize adds the pinned deployment profile revision, still
+    // pasted — the typed-lifecycle gap) and cross-checks every prefilled root against the root it derives
+    // itself from the daemon's records. Each step is parked, approved on its challenge page and resumed.
     const governRoute = `/systems/${vars.system}/govern`;
-    const ladder = async (id, sub, request, scope) => governedStep(ctx, { id, page: await page(ctx, governRoute), route: governRoute, action: `${SYSTEMS_BASE}/${tail}/${sub}`, fields: { request: JSON.stringify(request) }, scope });
+    const prefilled = {};
+    const ladder = async (id, sub, expected, extra = {}) => {
+      const govern = await page(ctx, governRoute);
+      const form = renderedForm(govern.text, `${SYSTEMS_BASE}/${tail}/${sub}`);
+      const roots = Object.keys(expected);
+      const fromDaemon = roots.every((name) => new RegExp(`name="${name}"[^>]*data-ladder-root-source="daemon"`, "u").test(govern.text));
+      prefilled[id] = { typed: form?.values.request_form === "typed", fromDaemon, equal: roots.every((name) => form?.values[name] === expected[name]), fields: roots.length };
+      return governedStep(ctx, { id, page: govern, route: governRoute, action: `${SYSTEMS_BASE}/${tail}/${sub}`, fields: extra });
+    };
     const materialized = await ladder("materialize", "sequence-zero-materialization", {
       expected_genesis_admission_record_root: domainHash("ioi.autonomous-system-genesis-admission-record-jcs-sha256.v1", record),
       expected_genesis_admission_receipt_root: domainHash("ioi.autonomous-system-genesis-admission-receipt-jcs-sha256.v1", receipt),
-    }, MATERIALIZE_SCOPE);
+    });
     const seqZero = (await read(ctx, `${GENESIS_API}/${tail}/sequence-zero-materialization`)).json || {};
     const initialized = await ladder("initialize", "initialize", {
       expected_sequence_zero_materialization_root: artifactHash("ioi.autonomous-system-sequence-zero-materialization-artifact-jcs-sha256.v1", seqZero.autonomous_system_sequence_zero_materialization),
       expected_sequence_zero_materialization_receipt_root: artifactHash("ioi.autonomous-system-sequence-zero-materialization-receipt-artifact-jcs-sha256.v1", seqZero.autonomous_system_sequence_zero_materialization_receipt),
-      deployment_profile_revision: lifecycleDeploymentRevisionForGenesis(record.authorized_genesis),
-    }, INITIALIZE_SCOPE);
+    }, { deployment_profile_revision: JSON.stringify(lifecycleDeploymentRevisionForGenesis(record.authorized_genesis)) });
     const initGraph = (await read(ctx, `${GENESIS_API}/${tail}/initialize`)).json || {};
     const state = initGraph.autonomous_system_activation_state || {};
     const activated = await ladder("activate", "activate", {
@@ -727,12 +795,20 @@ async function liveLeg() {
       expected_initialize_state_root: state.activation_state_root,
       expected_initialize_transition_root: state.transition_root,
       expected_initialize_receipt_root: state.transition_receipt_root,
-    }, ACTIVATE_SCOPE);
+    });
     claimLive("create/legs/governed-ladder",
       [materialized, initialized, activated].every((s) => journeyState(s.committed.text, "completed")) && activated.committed.text.includes('data-lifecycle-status="active"'),
       `materialize ${materialized.committed.status} · initialize ${initialized.committed.status} · activate ${activated.committed.status}`);
-    // create/legs/genesis-depth is COMPOSED (system-genesis-product-journey); the template picker and the
-    // inbox approval are named gaps with no marker on the page to probe.
+    // OPERATE (WP-A): the ladder without raw JSON — every expected root the forms carried came from the
+    // daemon's reads and equals the root the walk derives itself, and every step was approved on the
+    // challenge the daemon parked for its scope (no grant pasted), each consumed once by its resumed step.
+    const stepScopes = [[materialized, MATERIALIZE_SCOPE], [initialized, INITIALIZE_SCOPE], [activated, ACTIVATE_SCOPE]];
+    claimLive("operate/legs/typed-ladder",
+      Object.values(prefilled).length === 3 && Object.values(prefilled).every((p) => p.typed && p.fromDaemon && p.equal)
+        && stepScopes.every(([step, scope]) => governedTruth(step, scope, operatorRef)),
+      `forms ${Object.entries(prefilled).map(([k, p]) => `${k} typed ${p.typed} daemon ${p.fromDaemon} equal ${p.equal}`).join(" · ")} · ${stepScopes.map(([step]) => governedSaid(step)).join(" · ")}`);
+    // create/legs/genesis-depth is COMPOSED (system-genesis-product-journey); the template picker is a
+    // named gap with no marker on the page to probe.
 
     // ---- HAND-OFF 1 → 2: the System reaches its Design mode, and Design hands off to Studio. ----------
     // Follow the daemon's own published route from the /systems card — never a hand-built path.
@@ -847,8 +923,7 @@ async function liveLeg() {
       `configure ${configuredCheckpoint.status} ${configuredCheckpoint.q.get("note") || ""} · listed ${checkpointList.text.includes(checkpointName)}`);
     // HAND-OFF 4 → 5 (connections): THIS walk's connection, added through Connections' Add API key form
     // with its token sealed and no limits. A session may name only a connection whose standing lease is
-    // active, so the New Session composer (step 5) must withhold it; leasing it needs the authority node
-    // (the named gap probed here, on the connection's own card).
+    // active, so the New Session composer (step 5) must withhold it until its limits are set (below).
     const cxName = `cx-${vars.tag}`;
     const addConnectionRoute = "/__ioi/connections/add?type=bearer";
     const addedConnection = await submitRenderedForm(ctx, { id: "connection", page: await page(ctx, addConnectionRoute), from: addConnectionRoute, action: "/__ioi/connections/add?type=bearer",
@@ -919,7 +994,6 @@ async function liveLeg() {
     const walkSessionRef = (composerSaid.match(/session:hyp-[0-9a-f]{64}/u) || [])[0] || "";
     const sessionRead = walkSessionRef ? (await read(ctx, `/v1/hypervisor/sessions/${encodeURIComponent(walkSessionRef)}`)).json || {} : {};
     const walkSession = sessionRead.session || sessionRead;
-    const operatorRef = who.json?.principal?.principal_ref || "";
     const provisionReceipt = (walkSession.latest_receipt_refs || []).find((r) => String(r).startsWith("receipt://hypervisor/session-provision/")) || "";
     const sessionsPage = walkSessionRef ? await page(ctx, "/work/sessions") : { status: 0, text: "" };
     claimLive("run/legs/walk-session",
@@ -940,6 +1014,31 @@ async function liveLeg() {
         && !!composerConnection && composerConnection.tickable === false && /no limits set/u.test(composerConnection.text)
         && Array.isArray(walkSession.authority_profile?.connection_refs) && !walkSession.authority_profile.connection_refs.includes(walkConnectionRef),
       `add ${addedConnection.status} → ${String(addedConnection.headers.location || "no location").slice(0, 60)} · connector ${walkConnector ? `${walkConnector.connector_id} ${walkConnector.auth_posture} lease ${walkConnector.standing_lease?.status || "none"}` : "absent"} · composer row ${composerConnection ? `tickable ${composerConnection.tickable} '${composerConnection.text.replace(/\s+/gu, " ").trim().slice(0, 80)}'` : "absent"}`);
+    // HAND-OFF 4 → 5 (WP-A), the lease half — THIS walk's connection gets limits from Connections' own Set
+    // limits form, with the operator passphrase: the daemon's standing decision, which its deployment
+    // authority records as a standing grant. Judged from daemon truth (the connector's standing envelope),
+    // on Leases & Limits' Limits tab, and on the New Session composer, which now offers it.
+    const connectionsRoute = "/__ioi/connections";
+    const setLimits = walkConnector ? await submitRenderedForm(ctx, { id: "set-limits", page: await page(ctx, connectionsRoute), from: connectionsRoute, action: `/__ioi/connections/${encodeURIComponent(walkConnector.connector_id)}/standing-lease`,
+      fields: { max_usages: "5", budget_usd: "1", expires_hours: "24", operator_passphrase: OPERATOR_PASS } }) : { status: 0, headers: {}, text: "" };
+    const leased = ((((await read(ctx, "/v1/hypervisor/connectors")).json || {}).connectors || []).find((c) => c.connector_id === walkConnector?.connector_id)) || {};
+    const leaseNow = leased.standing_lease || {};
+    const limitsTab = await page(ctx, "/governance/limits?tab=limits");
+    const tabRowAt = walkConnectionRef ? limitsTab.text.indexOf(`data-limits-connection="${walkConnectionRef}"`) : -1;
+    const tabRow = tabRowAt >= 0 ? limitsTab.text.slice(tabRowAt, limitsTab.text.indexOf("</tr>", tabRowAt)) : "";
+    let leasedRow = null;
+    let leasedError = "";
+    try {
+      const composer = await openComposer(ctx);
+      try { leasedRow = composer.connections.find((c) => c.ref === walkConnectionRef) || null; } finally { await composer.close(); }
+    } catch (error) {
+      leasedError = String(error.message).split("\n")[0].slice(0, 160);
+    }
+    claimLive("limits/handoff/lease-gates-connection-picker",
+      leaseNow.status === "active" && Number(leaseNow.bounds?.max_usages) === 5 && (leaseNow.bounds?.operations || []).includes("session_execute")
+        && tabRow.includes('data-standing-lease-status="active"') && tabRow.includes("5 uses")
+        && !!composerConnection && composerConnection.tickable === false && !!leasedRow && leasedRow.tickable === true,
+      `Set limits ${setLimits.status} ${String(setLimits.headers?.location || "").slice(0, 60)} · daemon lease ${leaseNow.status || "none"} ${leaseNow.bounds?.max_usages ?? "?"} uses ${(leaseNow.bounds?.operations || []).join("+")} · Limits tab row ${(tabRow.match(/data-standing-lease-status="([a-z_]+)"/u) || [])[1] || "absent"} · ${leasedError ? `composer: ${leasedError} · ` : ""}withheld before ${composerConnection ? !composerConnection.tickable : "?"} · offered once leased ${leasedRow ? leasedRow.tickable : "absent"}`);
     await probesOf("run");
     // HAND-OFF 5 → 6: THIS walk's run. Run now on the automation's own page; the automation's run
     // history names the canonical run it admitted, and Work lists that run by its own ref.
@@ -1296,13 +1395,15 @@ async function liveLeg() {
     claimLive("operate/legs/operate-mode",
       operate.status === 200 && operate.text.includes('data-system-workspace-mode="operate"') && operate.text.includes(`data-system-workspace-id="${ids.systemId}"`) && operate.text.includes('data-system-topology="1"'),
       `operate ${operate.status}`);
+    // What still takes raw JSON on the Govern mode is named there (the typed-lifecycle gap's own marker).
+    await probesOf("operate");
 
     // ---- TERMINAL: restart the plane on its own data directory and re-read the System. ----------------
     const overviewRoute = `/systems/${vars.system}`;
     const before = await page(ctx, overviewRoute);
     await plane.stop(); // a plane handed its data directory keeps it on stop: this gate owns and removes it
     plane = null;
-    plane2 = await startIsolatedPlane({ serve: true, dataDir, env: planeEnv, baseEnv: cleanEnv });
+    plane2 = await startIsolatedPlane({ serve: true, dataDir, env: planeEnv, serveEnv, baseEnv: cleanEnv });
     if (!plane2) throw new Error("the restarted plane did not boot");
     ctx.serve = plane2.serveUrl;
     ctx.cache.clear();
@@ -1323,6 +1424,7 @@ async function liveLeg() {
     try { await plane2?.stop(); } catch { /* gone */ }
     try { await ctx.resolver?.stop(); } catch { /* gone */ }
     try { if (dataDir) fs.rmSync(dataDir, { recursive: true, force: true }); } catch { /* best effort */ }
+    try { if (authorityDir) fs.rmSync(authorityDir, { recursive: true, force: true }); } catch { /* best effort */ }
   }
   return { setup, claims, walk: ctx.walk, vars, reached, seconds: Math.round((Date.now() - started) / 1000) };
 }
@@ -1403,7 +1505,7 @@ async function drills() {
   ok("PURE — the eleven steps are held in order with every leg live, composed, a named gap by code and plane, or a TODO; every non-terminal step judges its hand-off; the gap map's gaps, the workspace's gap markers, today's live legs and the composed gates are all still covered; and the verdict rules hold against planted tables and planted runs", pure.length === 0, pure.slice(0, 4).join(" ; "));
   const src = sourceFindings({ gate: readText(SELF_PATH), lib: readText(LIB_PATH) });
   evidence.source = src;
-  ok("SOURCE — the LIVE leg runs its own plane on a fresh data directory with the sign-in gate on and the real wallet.network fixture, bootstraps its own operator through the first-run form, writes only through forms found on the rendered page, and the journey rules reach no browser, file, clock or network", src.length === 0, src.slice(0, 4).join(" ; "));
+  ok("SOURCE — the LIVE leg runs its own plane on a fresh data directory with the sign-in gate on and a sealed deployment-local authority node of its own (the serve holds only its public refs), bootstraps its own operator through the first-run form, writes only through forms found on the rendered page, mints no grant — the operator approves the daemon's parked challenge with this run's own passphrase — and the journey rules reach no browser, file, clock or network", src.length === 0, src.slice(0, 4).join(" ; "));
   const binding = bindingFindings({
     rootPkg: readJson(path.join(ROOT, "package.json")),
     appPkg: readJson(path.join(APP, "package.json")),
@@ -1419,7 +1521,7 @@ async function drills() {
   ok("VERDICT — the real eleven-step table, every leg measured green with named evidence, is the only exit 0", g.exit === 0 && g.steps.length === 11 && g.steps.every((s) => s.state === "PASS"), `${g.kind} ${g.failures.slice(0, 2).join(" ; ")}`);
   const best = LIB.verdict(LIB.JOURNEY, shippedBestCase(LIB), LIB.ESTATE);
   ok("VERDICT — the table as shipped, even with every live leg and composed gate green, exits 2 (journey incomplete): its named gaps and TODOs are never a pass", best.exit === 2 && best.kind === "named_failure" && best.failures.length === 0 && Object.values(REQUIRED_GAPS).every((c) => best.gaps.includes(c)), `${best.kind} · ${best.gaps.length} gaps · ${best.failures.slice(0, 2).join(" ; ")}`);
-  const fabricated = LIB.verdict(LIB.JOURNEY, { ...shippedBestCase(LIB), claims: { ...shippedBestCase(LIB).claims, "limits/legs/limits": { state: "pass" } } }, LIB.ESTATE);
+  const fabricated = LIB.verdict(LIB.JOURNEY, { ...shippedBestCase(LIB), claims: { ...shippedBestCase(LIB).claims, "release/legs/system-release": { state: "pass" } } }, LIB.ESTATE);
   ok("VERDICT — a named gap that reports pass is fabricated: exit 1", fabricated.exit === 1 && fabricated.failures.some((x) => /fabricated/u.test(x)));
   const unjudged = LIB.JOURNEY.map((s) => (s.id === "data" ? { ...s, handoff: undefined } : s));
   ok("VERDICT — a step whose hand-off is not judged is red", LIB.verdict(unjudged, shippedBestCase(LIB), LIB.ESTATE).exit === 1);
@@ -1470,10 +1572,10 @@ async function mutation() {
   await mutate("RULES — a live leg needs no assertion", 'if (leg.kind === "live" && !leg.assertion)', "if (false)");
   // The table.
   await mutate("TABLE — step 3's hand-off is dropped", 'handoff: { into: "limits", legs: [', 'handoff_dropped: { into: "limits", legs: [');
-  await mutate("TABLE — the limits gap is quietly turned into a TODO", '{ id: "limits", kind: "named_gap", what: "budgets and standing limits for the System",', '{ id: "limits", kind: "todo", write: "planted", what: "budgets and standing limits for the System",');
+  await mutate("TABLE — the typed-lifecycle gap is quietly turned into a TODO", '{ id: "typed-lifecycle", kind: "named_gap",', '{ id: "typed-lifecycle", kind: "todo", write: "planted",');
   await mutate("TABLE — the live 1→2 hand-off is quietly turned into a TODO", '{ id: "system-links-its-design", kind: "live",', '{ id: "system-links-its-design", kind: "todo", write: "planted",');
   await mutate("TABLE — a composed gate drops out of COMPOSE", '{ id: "notification-inbox", pkg: "app",', '{ id: "notification-inbox-dropped", pkg: "app",');
-  await mutate("TABLE — the authority-node gap loses its probe", 'probe: { route: "/systems/{system}/govern", marker:', 'probe_dropped: { route: "/systems/{system}/govern", marker:');
+  await mutate("TABLE — the typed-lifecycle gap loses its probe", 'probe: { route: "/systems/{system}/govern", marker: \'data-system-named-gap="typed lifecycle', 'probe_dropped: { route: "/systems/{system}/govern", marker: \'data-system-named-gap="typed lifecycle');
   try { fs.rmSync(dir, { recursive: true, force: true }); } catch { /* best effort */ }
   console.log(`\n${caught}/${planted} planted defects caught`);
   evidence.mutation = { planted, caught };

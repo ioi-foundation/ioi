@@ -1915,6 +1915,9 @@ fn complete_intent_locked(data_dir: &str, tail: &str, intent: &Value) -> Result<
     consume_intent(data_dir, tail, intent_created_family(intent)?)
 }
 
+/// Set by the serve's Governance preview: the request renders the pending decision and parks nothing.
+const GOVERNED_PREVIEW_HEADER: &str = "x-ioi-governed-preview";
+
 pub(crate) async fn handle_admit(
     State(state): State<Arc<DaemonState>>,
     headers: HeaderMap,
@@ -1991,6 +1994,30 @@ pub(crate) async fn handle_admit(
     }
 
     let effect = admission_effect(&compiled);
+    // R-240 journey WP-A: a retry naming the operator's approval (an approval_ref where the grant
+    // goes) carries the grant the daemon stored for it, claimed only for these exact coordinates;
+    // a refusal for want of a grant parks this exact effect's challenge for the operator.
+    let decision = governed::GovernedDecision {
+        contract: AUTHORITY,
+        governance: Governance::Host,
+        context: AuthorityPolicyContext::SystemGenesis {
+            system_id: &system_id,
+            genesis_id: &genesis_ref,
+        },
+        required_authority: &required_authority_ref,
+        subject_ref: &genesis_ref,
+        op: "genesis_admit",
+        revision: 0,
+        effect: &effect,
+    };
+    let (body, approval_claim) =
+        match governed::claim_governed_approval(&state.data_dir, &body, &decision) {
+            Ok(value) => value,
+            Err(response) => return response,
+        };
+    let grant_presented = body
+        .get("wallet_approval_grant")
+        .is_some_and(|grant| !grant.is_null());
     let authority_body = match canonical_authority_body(&body) {
         Ok(value) => value,
         Err(error) => return classify(error),
@@ -2012,7 +2039,24 @@ pub(crate) async fn handle_admit(
     .await
     {
         Ok(value) => value,
-        Err(response) => return response,
+        // A governance PREVIEW (the serve's preview surface, which renders the pending decision and
+        // must mutate nothing) asks nothing of the operator, so it parks no challenge.
+        Err(response) if headers
+            .get(GOVERNED_PREVIEW_HEADER)
+            .and_then(|value| value.to_str().ok())
+            == Some("1") =>
+        {
+            return response
+        }
+        Err(response) => {
+            return governed::park_governed_refusal(
+                &state.data_dir,
+                response,
+                &decision,
+                grant_presented,
+                Some(&admitted_by.principal_ref),
+            )
+        }
     };
     let admitted_at = match ms_to_rfc3339(authorized.resolved_at_ms) {
         Ok(value) => value,
@@ -2136,7 +2180,11 @@ pub(crate) async fn handle_admit(
         }
     };
     let wallet_receipt = match consume_wallet_grant_for_intent(&reconstructed).await {
-        Ok(value) => value,
+        Ok(value) => {
+            // The wallet consumed the grant for this admission: a claimed approval is spent.
+            approval_claim.consumed(&wallet_consumption_ref);
+            value
+        }
         Err(error) if error.0 == "system_genesis_wallet_consumption_precondition_refused" => {
             let cleanup = {
                 let _plane = SYSTEM_GENESIS_LOCK

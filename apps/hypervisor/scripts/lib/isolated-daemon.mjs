@@ -347,6 +347,10 @@ export async function isolatedOperatorSession(plane) {
  * processes spawn but never become healthy (that is a real failure, not an environment gap).
  * options.serve   — also spawn a serve-product-ui instance bound to the isolated daemon.
  * options.env     — extra env for BOTH processes (e.g. test flags for a flagged serve).
+ * options.serveEnv — when given, the serve gets THIS instead of options.env: a daemon pointed at a
+ *                   deployment authority takes its authority binary, state dir and guardian pass in
+ *                   options.env, and the serve must hold none of them (master guide §0.5.2) — only the
+ *                   authority's serve.env (public principal and host refs).
  * options.dataDir — reuse an EXISTING isolated data dir (crash/restart lanes prove recovery
  *                   against the same durable state); the caller keeps ownership of cleanup.
  * The returned handle exposes daemonPid/servePid so callers can prove the process they test is
@@ -358,6 +362,7 @@ process.on("exit", () => { for (const fn of EXIT_CLEANUPS) fn(); });
 export async function startIsolatedPlane({
   serve = false,
   env = {},
+  serveEnv = null,
   dataDir: reuseDataDir = null,
   baseEnv = process.env,
 } = {}) {
@@ -512,7 +517,7 @@ export async function startIsolatedPlane({
           baseEnv.IOI_PRODUCT_UI_PUBLIC ||
           join(APP, "product-ui", "owned", "public"),
         IOI_WALLET_TEST_SIGNER: "", IOI_APP_RUNTIME_TEST_ROUTE: "",
-        ...env,
+        ...(serveEnv ?? env),
       },
       stdio: ["ignore", serveLogFd, serveLogFd],
     }));

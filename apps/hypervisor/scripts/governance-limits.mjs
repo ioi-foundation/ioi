@@ -3,9 +3,11 @@
 // justification-checkpoint plane): Configuration declares which interactions need a justification in
 // the caller's organization and what the person must say; Review lists the records their answers
 // left, with the checkpoint's wording exactly as shown. Leases live in Connections (capability leases
-// are Connections' bindings) and are handed off there. Limits — budgets and standing limits — need an
-// authority node, which this deployment has none of and which is never stood up unasked; that section
-// is a named gap.
+// are Connections' bindings) and are handed off there. Limits — budgets and standing limits — are the
+// standing envelopes on Connections' connectors, recorded as standing grants on the deployment's
+// authority node: the Limits tab lists them when the daemon has a deployment authority to record them
+// on, and names the gap when it has none (an authority node is never stood up unasked). R-240 journey
+// WP-A: the page says which posture it is in from the daemon's own answer.
 //
 // Every read is the daemon's, on every request; every write is the plane's own owner-scoped write,
 // posted as a form the serve re-encodes with the caller's organization and a per-render key.
@@ -141,6 +143,30 @@ const NAMED_GAPS = [
   ["checkpoint_conflict_panel_absent", "A conflicts check while configuring", "overlapping checkpoints all apply — each is shown to the person — but the form does not warn about overlap yet"],
 ];
 
+// The standing limits of this deployment's connections (R-240, journey WP-A): each connector's standing
+// envelope, from the connectors plane, and whether the daemon can record one at all (`decidable` on its
+// standing-envelope list — a deployment authority to record one with). Set and removed on Connections.
+function standingLimits(limits) {
+  if (!limits || limits.readError) {
+    const code = limits?.readError?.code || "unavailable";
+    return `<div class="empty" data-limits-standing-unavailable="${esc(code)}">The standing limits could not be read — <code>${esc(code)}</code>${limits?.readError?.message ? `: ${esc(limits.readError.message)}` : ""}. Nothing is shown in their place.</div>`;
+  }
+  if (!limits.decidable) {
+    return `<div class="empty" data-named-gap="system_limits_authority_node_absent" data-limits-authority-gap="1"><b>Budgets and standing limits</b> — a named gap on this deployment: a limit is a standing grant recorded on the deployment's authority node (ADR 0056 Ruling 8), and this deployment's daemon has none configured to record it on (it names no deployment authority to decide with). None is stood up without the owner deciding to; until then no connection carries limits and a session can name none.</div>`;
+  }
+  const money = (micro) => `$${(Number(micro || 0) / 1_000_000).toFixed(4)}`;
+  const rows = limits.connectors.map((c) => {
+    const lease = c.standing_lease && typeof c.standing_lease === "object" ? c.standing_lease : null;
+    const b = lease?.bounds || {};
+    const status = lease?.status || "none";
+    return `<tr data-limits-connection="connector:${esc(c.connector_id)}" data-standing-lease-status="${esc(status)}"><td><b>${esc(c.name || c.connector_id)}</b><br><code>connector:${esc(c.connector_id)}</code></td><td><span class="pill ${status === "active" ? "ok" : "warn"}">${esc(lease ? status : "unbounded")}</span></td><td>${lease ? `${esc(String(b.max_usages ?? "?"))} uses · budget ${esc(money(b.max_cumulative_spend_microusd))} · ${esc((b.operations || []).join("+") || "—")} · expires ${esc(b.expires_at_ms ? new Date(Number(b.expires_at_ms)).toISOString() : "—")}` : "no limits set — a session cannot name this connection"}</td></tr>`;
+  }).join("");
+  const lead = `<p class="sub" data-limits-standing="deployment">Budgets and standing limits are standing envelopes on Connections' connectors, recorded as standing grants on this deployment's authority node: a session may name a connection only while its limits are active, and every use is counted down against them. Set and remove a connection's limits on <a href="/__ioi/connections">Connections</a> with the operator passphrase. A System's limits are those of the connections attached to it — listed on its Govern mode.</p>`;
+  return lead + (rows
+    ? `<table data-limits-standing-list="${limits.connectors.length}"><thead><tr><th>Connection</th><th>Limits</th><th>Bounds</th></tr></thead><tbody>${rows}</tbody></table>`
+    : `<div class="empty" data-limits-standing-list="0">No connection is registered yet — add one on <a href="/__ioi/connections">Connections</a>.</div>`);
+}
+
 export function renderGovernanceLimits(data, opts = {}) {
   const q = opts.query || new URLSearchParams();
   const tab = ["checkpoints", "leases", "limits"].includes(q.get("tab")) ? q.get("tab") : "checkpoints";
@@ -152,9 +178,7 @@ export function renderGovernanceLimits(data, opts = {}) {
   if (tab === "leases") {
     return head + tabs(tab) + `<div class="card" style="display:block" data-limits-leases="1"><b>Leases live in Connections.</b><p class="sub" style="margin:6px 0 0">A capability lease binds one person or automation to one connector's tools, for a time, and every use names it on its receipt. Connections owns every capability binding, so leases are granted, listed and revoked there. <a href="/__ioi/connections">Open Connections →</a></p></div>`;
   }
-  if (tab === "limits") {
-    return head + tabs(tab) + `<div class="empty" data-named-gap="system_limits_authority_node_absent" data-limits-authority-gap="1"><b>Budgets and standing limits</b> — a named gap: they are enforced by an authority node (ADR 0056 Ruling 8), and this deployment has none. None is stood up without the owner deciding to.</div>`;
-  }
+  if (tab === "limits") return head + tabs(tab) + standingLimits(data.limits);
   if (data.readError) {
     return head + tabs(tab) + notice + `<div class="empty" data-limits-read-error="${esc(data.readError.code || "")}">Checkpoints could not be read — <code>${esc(data.readError.code || "unavailable")}</code>: ${esc(data.readError.message || "")}.${data.signInHref ? ` <a href="${esc(data.signInHref)}" target="_top">Sign in</a> to see them.` : ""} Nothing is shown in their place.</div>`;
   }
@@ -201,6 +225,26 @@ async function loadLimitsData({ daemonFetch }) {
   };
 }
 
+// The connectors plane's list and the daemon's own answer to whether it can record a limit.
+async function loadStandingLimits({ daemonFetch }) {
+  const [cxR, chR] = await Promise.all([
+    readJson(daemonFetch, "/v1/hypervisor/connectors"),
+    readJson(daemonFetch, "/v1/hypervisor/authority/standing-envelopes"),
+  ]);
+  if (cxR.networkError || cxR.status !== 200 || cxR.body?.ok === false) {
+    const b = cxR.body || {};
+    return { readError: { code: cxR.networkError ? "daemon_unreachable" : b.code || b.error?.code || `http_${cxR.status}`, message: cxR.networkError || b.message || b.error?.message || "" } };
+  }
+  if (chR.networkError || chR.status !== 200) {
+    const b = chR.body || {};
+    return { readError: { code: chR.networkError ? "daemon_unreachable" : b.code || b.error?.code || `http_${chR.status}`, message: `whether this deployment can record limits could not be read${chR.networkError ? ` (${chR.networkError})` : ""}` } };
+  }
+  return {
+    connectors: (Array.isArray(cxR.body.connectors) ? cxR.body.connectors : []).filter((c) => typeof c?.connector_id === "string" && c.connector_id),
+    decidable: chR.body?.decidable === true,
+  };
+}
+
 async function writeJson(daemonFetch, path, payload) {
   try {
     const r = await daemonFetch(path, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(payload) });
@@ -213,7 +257,10 @@ async function writeJson(daemonFetch, path, payload) {
 export async function handleGovernanceLimits(req, res, pathname, body, deps) {
   const { daemonFetch, whyRefused, send } = deps;
   if (pathname === LIMITS_LANE && req.method === "GET") {
-    send(res, 200, renderGovernanceLimits(await loadLimitsData(deps), { query: new URL(req.url, "http://x").searchParams }));
+    const query = new URL(req.url, "http://x").searchParams;
+    const data = await loadLimitsData(deps);
+    if (query.get("tab") === "limits") data.limits = await loadStandingLimits(deps);
+    send(res, 200, renderGovernanceLimits(data, { query }));
     return true;
   }
   if (!pathname.startsWith(`${LIMITS_LANE}/checkpoints/`) || req.method !== "POST") return false;

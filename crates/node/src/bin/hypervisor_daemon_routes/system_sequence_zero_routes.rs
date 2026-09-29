@@ -9,7 +9,7 @@ use std::sync::{Arc, Mutex};
 
 use axum::{
     extract::{Path as AxumPath, State},
-    http::StatusCode,
+    http::{HeaderMap, StatusCode},
     Json,
 };
 use ioi_services::wallet_network::{
@@ -2001,6 +2001,7 @@ fn build_online_artifacts(
 pub(crate) async fn handle_materialize(
     AxumPath(source_record_tail): AxumPath<String>,
     State(state): State<Arc<DaemonState>>,
+    headers: HeaderMap,
     Json(body): Json<Value>,
 ) -> (StatusCode, Json<Value>) {
     if !canonical_tail(&source_record_tail, "asg_") {
@@ -2023,6 +2024,30 @@ pub(crate) async fn handle_materialize(
         Ok(value) => value,
         Err(error) => return classify(error),
     };
+    // R-240 journey WP-A: the operator's approval by ref, claimed for these exact coordinates; a
+    // refusal for want of a grant parks this exact effect's challenge.
+    let subject_ref = s(&source.plan.materialization_body, "materialization_id");
+    let decision = governed::GovernedDecision {
+        contract: AUTHORITY,
+        governance: Governance::Host,
+        context: AuthorityPolicyContext::SystemGenesis {
+            system_id: &source.system_id,
+            genesis_id: &source.genesis_ref,
+        },
+        required_authority: &source.governing_authority_ref,
+        subject_ref: &subject_ref,
+        op: OP,
+        revision: 0,
+        effect: &source.plan.authority_effect,
+    };
+    let (body, approval_claim) =
+        match governed::claim_governed_approval(&state.data_dir, &body, &decision) {
+            Ok(value) => value,
+            Err(response) => return response,
+        };
+    let grant_presented = body
+        .get("wallet_approval_grant")
+        .is_some_and(|grant| !grant.is_null());
     let authorized = match governed::authorize_decision_with_context(
         AUTHORITY,
         &body,
@@ -2032,7 +2057,7 @@ pub(crate) async fn handle_materialize(
             genesis_id: &source.genesis_ref,
         },
         &source.governing_authority_ref,
-        &s(&source.plan.materialization_body, "materialization_id"),
+        &subject_ref,
         OP,
         0,
         &source.plan.authority_effect,
@@ -2040,7 +2065,17 @@ pub(crate) async fn handle_materialize(
     .await
     {
         Ok(value) => value,
-        Err(response) => return response,
+        Err(response) => {
+            let requester = super::lifecycle_routes::resolve_principal(&state.data_dir, &headers)
+                .and_then(|principal| principal["principal_ref"].as_str().map(str::to_owned));
+            return governed::park_governed_refusal(
+                &state.data_dir,
+                response,
+                &decision,
+                grant_presented,
+                requester.as_deref(),
+            );
+        }
     };
     let reconstructed = match build_online_artifacts(source.clone(), &authorized) {
         Ok(value) => value,
@@ -2158,7 +2193,11 @@ pub(crate) async fn handle_materialize(
         Err(error) => return classify(error),
     };
     let wallet_receipt = match consume_wallet_grant(&reconstructed).await {
-        Ok(value) => value,
+        Ok(value) => {
+            // The wallet consumed the grant for this materialization: a claimed approval is spent.
+            approval_claim.consumed(&reconstructed.wallet_consumption_ref);
+            value
+        }
         Err(error) if error.0 == "system_sequence_zero_wallet_consumption_precondition_refused" => {
             if let Err(cleanup_error) = with_plane_locks(|| {
                 consume_unspent_precondition_intent_locked(

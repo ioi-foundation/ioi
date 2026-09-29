@@ -9,7 +9,7 @@ use std::sync::{Arc, Mutex};
 
 use axum::{
     extract::{Path as AxumPath, State},
-    http::StatusCode,
+    http::{HeaderMap, StatusCode},
     Json,
 };
 use ioi_services::wallet_network::{
@@ -2319,6 +2319,7 @@ async fn post(
     operation: SystemLifecycleOperation,
     key: String,
     state: Arc<DaemonState>,
+    headers: HeaderMap,
     body: Value,
 ) -> (StatusCode, Json<Value>) {
     if !canonical_system_key(&key) {
@@ -2356,6 +2357,29 @@ async fn post(
         .and_then(Value::as_str)
         .unwrap_or("");
     let authority = plan.source.source_governing_authority_ref.clone();
+    // R-240 journey WP-A: the operator's approval by ref, claimed for these exact coordinates; a
+    // refusal for want of a grant parks this exact effect's challenge.
+    let decision = governed::GovernedDecision {
+        contract: AUTHORITY,
+        governance: Governance::Host,
+        context: AuthorityPolicyContext::SystemGenesis {
+            system_id,
+            genesis_id: genesis_ref,
+        },
+        required_authority: &authority,
+        subject_ref: system_id,
+        op: operation.as_str(),
+        revision: operation.sequence(),
+        effect: &plan.authority_effect,
+    };
+    let (body, approval_claim) =
+        match governed::claim_governed_approval(&state.data_dir, &body, &decision) {
+            Ok(value) => value,
+            Err(response) => return response,
+        };
+    let grant_presented = body
+        .get("wallet_approval_grant")
+        .is_some_and(|grant| !grant.is_null());
     let authorized = match governed::authorize_decision_with_context(
         AUTHORITY,
         &body,
@@ -2372,7 +2396,17 @@ async fn post(
     )
     .await
     {
-        Err(response) => return response,
+        Err(response) => {
+            let requester = super::lifecycle_routes::resolve_principal(&state.data_dir, &headers)
+                .and_then(|principal| principal["principal_ref"].as_str().map(str::to_owned));
+            return governed::park_governed_refusal(
+                &state.data_dir,
+                response,
+                &decision,
+                grant_presented,
+                requester.as_deref(),
+            );
+        }
         Ok(value) => value,
     };
     let mut evidence = match prepare_node_evidence(&plan, authorized) {
@@ -2403,7 +2437,14 @@ async fn post(
         )
         .await
         {
-            Ok(value) => value,
+            Ok(value) => {
+                // The wallet consumed the grant for this step: a claimed approval is spent.
+                approval_claim.consumed(&format!(
+                    "{AUTHORITY_CONSUMPTION_DIR}/{}",
+                    evidence.wallet_consumption_tail
+                ));
+                value
+            }
             Err(
                 super::wallet_network_capability_client::ResolveError::NotConfigured(message)
                 | super::wallet_network_capability_client::ResolveError::Unavailable(message),
@@ -2516,16 +2557,18 @@ async fn post(
 pub(crate) async fn handle_initialize(
     AxumPath(key): AxumPath<String>,
     State(state): State<Arc<DaemonState>>,
+    headers: HeaderMap,
     Json(body): Json<Value>,
 ) -> (StatusCode, Json<Value>) {
-    post(SystemLifecycleOperation::Initialize, key, state, body).await
+    post(SystemLifecycleOperation::Initialize, key, state, headers, body).await
 }
 pub(crate) async fn handle_activate(
     AxumPath(key): AxumPath<String>,
     State(state): State<Arc<DaemonState>>,
+    headers: HeaderMap,
     Json(body): Json<Value>,
 ) -> (StatusCode, Json<Value>) {
-    post(SystemLifecycleOperation::Activate, key, state, body).await
+    post(SystemLifecycleOperation::Activate, key, state, headers, body).await
 }
 
 pub(crate) async fn handle_get_initialize(

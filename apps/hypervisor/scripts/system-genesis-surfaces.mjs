@@ -27,6 +27,8 @@
 import http from "node:http";
 import { createHash } from "node:crypto";
 import { callerOwnerRef, escHtml, refusalCodeOf, refusalMessageOf } from "../surfaces/kit.mjs";
+import { relayChallengeDecision } from "./lib/wallet-authority.mjs";
+import { challengePagePath } from "./authority-challenge-page.mjs";
 import { renderTargetHealth } from "./operations-health.mjs";
 import { renderTargetTelemetry } from "./operations-telemetry.mjs";
 
@@ -184,9 +186,10 @@ function renderOutcome(result, { resubmit = null, backHref = null, actionLabel =
   }
   if (error && error.approval) {
     const approval = error.approval;
+    const card = approvalCard(error, resubmit);
     const resubmitForm = resubmit
       ? `<h3 style="margin:16px 0 6px">Attach existing authority</h3>
-         <p class="sub">Approving is a wallet act, not a surface act: paste a wallet approval grant minted for the EXACT policy/request hashes above. The declaration below is resubmitted verbatim to the daemon route.</p>
+         <p class="sub">${card ? "Or attach a grant minted outside this deployment: " : "Approving is a wallet act, not a surface act: "}paste a wallet approval grant minted for the EXACT policy/request hashes above. The declaration below is resubmitted verbatim to the daemon route.</p>
          <form method="post" action="${esc(resubmit.action)}">
            <textarea name="${esc(resubmit.declarationField || "declaration")}" style="display:none">${esc(resubmit.declaration)}</textarea>
            ${resubmit.extraHidden || ""}
@@ -205,7 +208,7 @@ function renderOutcome(result, { resubmit = null, backHref = null, actionLabel =
          <dt>policy_hash</dt><dd><code data-approval="policy_hash">${esc(approval.policy_hash || "")}</code></dd>
          <dt>request_hash</dt><dd><code data-approval="request_hash">${esc(approval.request_hash || "")}</code></dd>
          <dt>effect_hash</dt><dd><code data-approval="effect_hash">${esc(approval.effect_hash || "")}</code></dd>
-       </dl>${resubmitForm}${jsonPre(body)}${back}`,
+       </dl>${card}${resubmitForm}${jsonPre(body)}${back}`,
     );
   }
   const code = error?.code || body?.code || "";
@@ -226,6 +229,100 @@ function renderInputRefusal(what, detail, backHref) {
     "surface_declaration_unparseable",
     `<h2>Declaration not parseable</h2><div class="empty">${esc(what)} is not valid JSON (${esc(detail)}). Nothing was sent to the daemon and nothing changed. This is a compose-time input refusal owned by the surface, not daemon truth.</div><p><a href="${esc(backHref)}">← back</a></p>`,
   );
+}
+
+// ---- the operator's approval, through the daemon (R-240, journey WP-A) ---------------------
+// A governed genesis or lifecycle step refused for want of a grant is PARKED by the daemon as a
+// wallet approval challenge (`error.approval_challenge` on its 403: the exact hashes, scope and
+// audience a grant would bind, in the daemon's own record). The challenge page then carries the
+// operator's approval card: the passphrase goes, once, to the daemon's decision route through the
+// approval cards' one relay (lib/wallet-authority.mjs relayChallengeDecision), and the daemon's
+// deployment authority signs ONE one-use grant for exactly that record. This surface signs nothing,
+// holds no key and keeps nothing typed (master guide §0.5.2, N9). A decision answers with the
+// Resume form: the SAME declaration, naming the challenge's approval_ref, which the daemon claims
+// only when the hashes it derives from the resubmitted declaration are the approved ones (N12), and
+// consumes once. The same challenge is listed on its own page and in Approvals.
+const CHALLENGE_ID_RE = /^wac_[0-9a-f]{32}$/u;
+const APPROVAL_REF_RE = /^wallet-approval-challenge:\/\/wac_[0-9a-f]{32}$/u;
+const approvalRefOf = (id) => `wallet-approval-challenge://${id}`;
+const PASSPHRASE_INPUT = `<input type="password" name="operator_passphrase" autocomplete="off" required placeholder="operator passphrase" aria-label="Operator passphrase" data-ioi-operator-passphrase>`;
+
+// The declaration a governed form re-offers, carried unchanged into the next form.
+function carriedDeclaration(resubmit) {
+  return `<textarea name="${esc(resubmit.declarationField || "declaration")}" style="display:none">${esc(resubmit.declaration)}</textarea>${resubmit.extraHidden || ""}`;
+}
+
+// The operator's approval card for the challenge the daemon parked (or why none can be offered).
+function approvalCard(error, resubmit) {
+  const parked = error?.approval_challenge && typeof error.approval_challenge === "object" ? error.approval_challenge : null;
+  const id = String(parked?.challenge_id || "");
+  if (!parked || !CHALLENGE_ID_RE.test(id)) {
+    const withheld = typeof error?.approval_challenge_withheld === "string" ? error.approval_challenge_withheld : "";
+    return withheld ? `<div class="card" style="display:block" data-approval-card="withheld"><h3 style="margin:0 0 6px">No approval card</h3><p class="sub">The daemon parked no challenge for this effect: ${esc(withheld)}</p></div>` : "";
+  }
+  const page = challengePagePath(id);
+  const lead = `<p class="sub">The daemon parked this exact effect for the operator as challenge <code>${esc(id)}</code> — see <a href="${esc(page)}">its own page</a>; it is listed in Approvals too. Approving sends your operator passphrase to the daemon, whose deployment authority signs ONE one-use grant for exactly the hashes above; this page holds no key and keeps nothing you type. Once it is approved, resume the step to run it once.</p>`;
+  const form = !resubmit
+    ? `<p class="sub">Approve it on <a href="${esc(page)}">its own page</a>, then submit this step again naming <code>${esc(approvalRefOf(id))}</code>.</p>`
+    : parked.decidable === true
+      ? `<form method="post" action="${esc(resubmit.action)}" data-approval-card-form="1">${carriedDeclaration(resubmit)}<input type="hidden" name="approval_challenge_id" value="${esc(id)}"><div class="field"><label>Operator passphrase</label>${PASSPHRASE_INPUT}</div><button class="act" type="submit">Approve — sign one grant for exactly this</button></form>`
+      : `<p class="sub" data-approval-undecidable="1">This daemon has no deployment authority to approve with (IOI_WALLET_AUTHORITY_BINARY and IOI_HYPERVISOR_LOCAL_AUTHORITY_STATE_DIR on the daemon), so no Hypervisor page approves it; the operator approves it with the local authority's approve command, or attaches a grant below.</p>`;
+  return `<div class="card" style="display:block" data-approval-card="1" data-approval-challenge="${esc(id)}"><h3 style="margin:0 0 6px">Approve this effect</h3>${lead}${form}</div>`;
+}
+
+// The approval card's post: relay the operator's decision to the daemon, re-read the challenge from
+// the daemon, and answer with the Resume form — or the daemon's refusal and the card again.
+async function relayGovernedApproval(daemonUrl, form, { resubmit, backHref, actionLabel }) {
+  const back = backHref ? `<p><a href="${esc(backHref)}">← back</a></p>` : "";
+  const id = String(form.get("approval_challenge_id") || "").trim();
+  let passphrase = form.get("operator_passphrase") || "";
+  form.delete("operator_passphrase");
+  if (!CHALLENGE_ID_RE.test(id)) {
+    passphrase = "";
+    return stateBlock("denied_or_revoked", "approval_challenge_id_invalid", `<h2>Not approved</h2><div class="empty">'${esc(id)}' is not a challenge the daemon parked (wac_ plus 32 lowercase hex). Nothing was sent to the daemon.</div>${back}`);
+  }
+  const relayed = await relayChallengeDecision({
+    challengeId: id, decision: "approve", reason: `approved on the ${actionLabel} challenge page`, operatorPassphrase: passphrase,
+    transport: (method, route, payload) => daemonJson(daemonUrl, method, route, payload).then((r) => {
+      if (r.networkError) throw new Error(r.networkError);
+      return { status: r.status, body: r.body };
+    }),
+  });
+  passphrase = "";
+  const reread = await daemonJson(daemonUrl, "GET", `/v1/hypervisor/authority/challenges/${id}`);
+  const record = !reread.networkError && reread.status === 200 && reread.body?.challenge && typeof reread.body.challenge === "object" ? reread.body.challenge : null;
+  const page = challengePagePath(id);
+  const ref = approvalRefOf(id);
+  const resume = `<form method="post" action="${esc(resubmit.action)}" data-approval-resume="1">${carriedDeclaration(resubmit)}<input type="hidden" name="approval_ref" value="${esc(ref)}"><button class="act" type="submit">Resume — run it once under this approval</button></form>`;
+  if (record?.state === "approved") {
+    const expires = Number(record.grant_expires_at_ms) > 0 ? new Date(Number(record.grant_expires_at_ms)).toISOString() : "";
+    return stateBlock("ready_or_proposed", null, `<h2>Approved — resume to run it once</h2><p class="sub" data-approval-state="approved" data-approval-ref="${esc(ref)}">The daemon records challenge <code>${esc(id)}</code> approved${record.decision?.decided_by ? ` by <code>${esc(record.decision.decided_by)}</code>` : ""}: its deployment authority minted one one-use grant (<code>${esc(typeof record.grant_ref === "string" ? record.grant_ref : "")}</code>) for exactly its hashes${expires ? `, usable until ${esc(expires)}` : ""}. Nothing has run yet. Resuming submits the same declaration naming <code>${esc(ref)}</code>; the daemon presents the stored grant only if the hashes it derives from it are the approved ones, and consumes it once.</p>${resume}<p><a href="${esc(page)}">The challenge's own page →</a></p>${back}`);
+  }
+  if (Number(relayed.status) === 202 || relayed.error?.code === "challenge_decision_still_running" || record?.deciding) {
+    return stateBlock("loading_or_pending", "challenge_decision_still_running", `<h2>Still deciding</h2><p class="sub" data-approval-state="deciding" data-approval-ref="${esc(ref)}">The daemon accepted the approval of challenge <code>${esc(id)}</code> and its deployment authority is still recording it; the daemon settles it on its own and nothing needs to be sent again. Resume once <a href="${esc(page)}">its own page</a> reads Approved — until then the daemon refuses the resume by name and runs nothing.</p>${resume}${back}`);
+  }
+  const code = relayed.error?.code || (record ? `challenge_${record.state || "unknown"}` : "challenge_unreadable");
+  return stateBlock("denied_or_revoked", code, `<h2>Not approved</h2><p class="sub" data-approval-state="${esc(record?.state || "unknown")}">The daemon did not approve challenge <code>${esc(id)}</code> (HTTP ${esc(String(relayed.status || 0))}) — <code>${esc(code)}</code>: ${esc(relayed.error?.message || "no message")}. Nothing was approved, and the challenge reads as the daemon records it on <a href="${esc(page)}">its own page</a>.</p>${record?.state === "pending" ? approvalCard({ approval_challenge: { challenge_id: id, decidable: record.decidable === true } }, resubmit) : ""}${back}`);
+}
+
+// The authority a resubmitted governed form carries: a pasted grant, or the approval_ref of the
+// challenge the operator approved (the daemon's locator form, `{approval_ref}`) — never both.
+// Returns { grant } (null when none) or { refusal } — a surface-owned input refusal, nothing sent.
+function carriedAuthority(form, backHref) {
+  const grantText = (form.get("wallet_approval_grant") || "").trim();
+  const approvalRef = (form.get("approval_ref") || "").trim();
+  const refuse = (code, detail) => ({ refusal: stateBlock("denied_or_revoked", code, `<h2>Authority not understood</h2><div class="empty">${esc(detail)} Nothing was sent to the daemon and nothing changed. This is a compose-time input refusal owned by the surface, not daemon truth.</div><p><a href="${esc(backHref)}">← back</a></p>`) });
+  if (grantText && approvalRef) return refuse("surface_authority_ambiguous", "The form names both a pasted wallet grant and an approval_ref; a governed step carries one authority.");
+  if (approvalRef) {
+    if (!APPROVAL_REF_RE.test(approvalRef)) return refuse("surface_approval_ref_invalid", `'${approvalRef}' is not a wallet-approval-challenge://wac_… ref the daemon issued.`);
+    return { grant: { approval_ref: approvalRef } };
+  }
+  if (!grantText) return { grant: null };
+  try {
+    return { grant: JSON.parse(grantText) };
+  } catch (error) {
+    return { refusal: renderInputRefusal("The wallet_approval_grant", error.message, backHref) };
+  }
 }
 
 // ---- projection census (shared by packages / governance / detail) --------------------------
@@ -383,25 +480,20 @@ async function handleComposeSubmit(daemonUrl, shell, form) {
       lifecycle_profile_ref: (form.get("lifecycle_profile_ref") || "").trim(),
     });
   }
-  const grantText = (form.get("wallet_approval_grant") || "").trim();
-  let requestBody = declared;
-  if (grantText) {
-    try {
-      requestBody = { ...declared, wallet_approval_grant: JSON.parse(grantText) };
-    } catch (error) {
-      return shell("Composer — input refused", `${CROSSLINKS}<h1>Studio · System Genesis Composer</h1>${renderInputRefusal("The wallet_approval_grant", error.message, backHref)}`);
-    }
+  const resubmit = {
+    action: `${BASE}/compose`,
+    declaration: JSON.stringify(declared),
+    extraHidden: `<input type="hidden" name="lane" value="advanced">`,
+  };
+  if (form.has("approval_challenge_id")) {
+    const decided = await relayGovernedApproval(daemonUrl, form, { resubmit, backHref, actionLabel: "genesis proposal" });
+    return shell("Composer — the operator's approval", `${CROSSLINKS}<h1>Studio · System Genesis Composer</h1>${decided}`);
   }
+  const authority = carriedAuthority(form, backHref);
+  if (authority.refusal) return shell("Composer — input refused", `${CROSSLINKS}<h1>Studio · System Genesis Composer</h1>${authority.refusal}`);
+  const requestBody = authority.grant ? { ...declared, wallet_approval_grant: authority.grant } : declared;
   const result = await daemonJson(daemonUrl, "POST", GENESIS_API, requestBody);
-  const outcome = renderOutcome(result, {
-    actionLabel: "genesis proposal",
-    backHref,
-    resubmit: {
-      action: `${BASE}/compose`,
-      declaration: JSON.stringify(declared),
-      extraHidden: `<input type="hidden" name="lane" value="advanced">`,
-    },
-  });
+  const outcome = renderOutcome(result, { actionLabel: "genesis proposal", backHref, resubmit });
   return shell("Composer — daemon outcome", `${CROSSLINKS}<h1>Studio · System Genesis Composer</h1><p class="sub">Lane: <b data-composed-lane="${lane}">${lane}</b> — the outcome below is the daemon's answer to the composed declaration, verbatim.</p>${outcome}`);
 }
 
@@ -477,7 +569,7 @@ async function renderLadder(daemonUrl, tail) {
     return `<tr data-ladder-stage="${stage.key}" data-ladder-state="pending"><td>${esc(stage.label)}</td><td>${pill("not admitted", "muted")}</td><td><code>${esc(code)}</code> ${esc(result.body?.error?.message || "")}</td></tr>`;
   }).join("");
   return `<table><thead><tr><th>Governed stage</th><th>State</th><th>Owner evidence / refusal</th></tr></thead><tbody>${rows}</tbody></table>
-  <p class="sub">Each row is a live daemon read — a refusal renders verbatim and never implies progress. Approvals happen ONLY as wallet grants attached on the <a href="${BASE}/compose">composer</a> or the System detail action forms; this preview cannot approve anything.</p>`;
+  <p class="sub">Each row is a live daemon read — a refusal renders verbatim and never implies progress. A step is approved on the challenge the daemon parks when it is submitted from the <a href="${BASE}/compose">composer</a> or the System's governed forms — the approval card, or the challenge's own page under <a href="/__ioi/authority/challenges">parked effects</a> — or with a wallet grant attached there; this preview cannot approve anything.</p>`;
 }
 
 async function renderGovernancePage(daemonUrl, shell, selectedTail) {
@@ -533,7 +625,9 @@ async function handleGovernancePreview(daemonUrl, shell, form) {
     delete declared.wallet_approval_grant;
     stripped = true;
   }
-  const result = await daemonJson(daemonUrl, "POST", GENESIS_API, declared);
+  // A preview asks nothing of the operator: the daemon parks no challenge for it (R-240 journey WP-A).
+  const previewDaemon = { url: daemonUrl.url, headers: { ...(daemonUrl.headers || {}), "x-ioi-governed-preview": "1" } };
+  const result = await daemonJson(previewDaemon, "POST", GENESIS_API, declared);
   const strippedNote = stripped
     ? `<p class="sub" data-grant-stripped="1">A <code>wallet_approval_grant</code> was present in the pasted declaration and was <b>stripped</b> — the Governance preview never carries authority to the daemon.</p>`
     : `<p class="sub" data-grant-stripped="0">No grant traveled with this preview.</p>`;
@@ -552,6 +646,89 @@ function actionForm(action, label, skeleton, note) {
         <textarea name="request" style="min-height:110px">${esc(JSON.stringify(skeleton, null, 2))}</textarea></div>
       <div class="field"><label>wallet_approval_grant (optional JSON — omit to receive the authority challenge preview)</label>
         <textarea name="wallet_approval_grant"></textarea></div>
+      <button class="act" type="submit">Submit to daemon route</button>
+    </form></details>`;
+}
+
+// ---- the governed ladder's typed forms (R-240, journey WP-A #9) ---------------------------------
+// Materialize, initialize and activate each bind the exact artifacts of the step before them. Their
+// expected roots are not typed by a person: each field is prefilled from the daemon's own read of the
+// step before (the detail page reads all four), hashed under the same domains the daemon re-derives
+// and compares on submit — the daemon stays the validator, and a stale or foreign root is its refusal,
+// shown verbatim. Approving happens on the challenge the daemon parks (the approval card), never by
+// pasting a grant here. Initialize's pinned deployment profile revision has no source yet: no plane
+// holds deployment profile revisions (genesis records only the ref), so it stays a pasted declaration
+// and a named gap.
+export const TYPED_LADDER_FIELDS = Object.freeze({
+  "sequence-zero-materialization": ["expected_genesis_admission_record_root", "expected_genesis_admission_receipt_root"],
+  initialize: ["expected_sequence_zero_materialization_root", "expected_sequence_zero_materialization_receipt_root"],
+  activate: ["expected_initialize_proposal_root", "expected_initialize_decision_root", "expected_initialize_state_root", "expected_initialize_transition_root", "expected_initialize_receipt_root"],
+});
+// What still takes raw JSON: the continuity, protected-transition and amendment forms (their routes park
+// no challenge yet, so they keep the pasted grant), and initialize's pinned deployment profile revision.
+export const TYPED_LIFECYCLE_GAP = "typed lifecycle forms (continuity, transitions, amendments, the initialize deployment revision)";
+function canonicalJson(value) {
+  if (Array.isArray(value)) return `[${value.map(canonicalJson).join(",")}]`;
+  if (value !== null && typeof value === "object") return `{${Object.keys(value).sort().map((key) => `${JSON.stringify(key)}:${canonicalJson(value[key])}`).join(",")}}`;
+  return JSON.stringify(value);
+}
+const rootOver = (material) => `sha256:${createHash("sha256").update(canonicalJson(material)).digest("hex")}`;
+const isObject = (value) => value !== null && typeof value === "object" && !Array.isArray(value);
+
+// The expected roots each step binds, from the daemon's reads of the steps before it (null where the
+// step before has not been admitted: that field is empty, and the daemon's refusal says why).
+export function ladderExpectations({ admission, sequenceZero, initialize }) {
+  const record = admission?.status === 200 ? admission.body?.autonomous_system_genesis_admission : null;
+  const receipt = admission?.status === 200 ? admission.body?.autonomous_system_genesis_receipt : null;
+  const seq = sequenceZero?.status === 200 ? sequenceZero.body || {} : null;
+  const init = initialize?.status === 200 ? initialize.body || {} : null;
+  const state = isObject(init?.autonomous_system_activation_state) ? init.autonomous_system_activation_state : {};
+  const facts = isObject(init?.lifecycle_receipt?.bound_facts) ? init.lifecycle_receipt.bound_facts : {};
+  const str = (v) => (typeof v === "string" && v ? v : null);
+  return {
+    "sequence-zero-materialization": {
+      expected_genesis_admission_record_root: isObject(record) ? rootOver({ domain: "ioi.autonomous-system-genesis-admission-record-jcs-sha256.v1", value: record }) : null,
+      expected_genesis_admission_receipt_root: isObject(receipt) ? rootOver({ domain: "ioi.autonomous-system-genesis-admission-receipt-jcs-sha256.v1", value: receipt }) : null,
+    },
+    initialize: {
+      expected_sequence_zero_materialization_root: isObject(seq?.autonomous_system_sequence_zero_materialization) ? rootOver({ domain: "ioi.autonomous-system-sequence-zero-materialization-artifact-jcs-sha256.v1", artifact: seq.autonomous_system_sequence_zero_materialization }) : null,
+      expected_sequence_zero_materialization_receipt_root: isObject(seq?.autonomous_system_sequence_zero_materialization_receipt) ? rootOver({ domain: "ioi.autonomous-system-sequence-zero-materialization-receipt-artifact-jcs-sha256.v1", artifact: seq.autonomous_system_sequence_zero_materialization_receipt }) : null,
+    },
+    activate: {
+      expected_initialize_proposal_root: str(facts.proposal_root),
+      expected_initialize_decision_root: str(facts.decision_root),
+      expected_initialize_state_root: str(state.activation_state_root),
+      expected_initialize_transition_root: str(state.transition_root),
+      expected_initialize_receipt_root: str(state.transition_receipt_root),
+    },
+  };
+}
+
+const LADDER_FIELD_LABELS = {
+  expected_genesis_admission_record_root: "The genesis admission record it byte-verifies",
+  expected_genesis_admission_receipt_root: "The genesis admission receipt",
+  expected_sequence_zero_materialization_root: "The sequence-zero materialization it binds",
+  expected_sequence_zero_materialization_receipt_root: "The sequence-zero materialization receipt",
+  expected_initialize_proposal_root: "Initialize's proposal",
+  expected_initialize_decision_root: "Initialize's decision",
+  expected_initialize_state_root: "The state initialize admitted",
+  expected_initialize_transition_root: "Initialize's transition",
+  expected_initialize_receipt_root: "Initialize's transition receipt",
+};
+
+function typedLadderForm(action, subPath, label, note, expected, { admitted, next }) {
+  const values = expected[subPath] || {};
+  const known = TYPED_LADDER_FIELDS[subPath].every((name) => values[name]);
+  const fields = TYPED_LADDER_FIELDS[subPath].map((name) => `<div class="field"><label>${esc(LADDER_FIELD_LABELS[name] || name)} <span class="sub" style="display:inline;margin:0;text-transform:none;letter-spacing:0">${values[name] ? "(from the daemon's read above)" : "(the step before is not admitted yet)"}</span></label><input name="${esc(name)}" value="${esc(values[name] || "")}" required spellcheck="false" autocomplete="off" data-ladder-root="${esc(name)}" data-ladder-root-source="${values[name] ? "daemon" : "absent"}" style="font-family:ui-monospace,monospace;font-size:12px"></div>`).join("");
+  const revision = subPath === "initialize"
+    ? `<div class="field"><label>Deployment profile revision (JSON — the pinned revision initialize binds; no plane holds deployment profile revisions yet, since the genesis records only the revision's ref, so it is pasted here)</label><textarea name="deployment_profile_revision" style="min-height:90px" placeholder='{"deployment_profile_ref": "deployment-profile://…/revision/sha256:…", "deployment_profile_root": "sha256:…", "profile": { … }}'></textarea></div>`
+    : "";
+  const status = admitted ? pill("admitted", "ok") : known ? pill(next ? "next step" : "ready", "warn") : pill("waiting on the step before", "muted");
+  return `<details class="card" style="display:block" data-ladder-form="${esc(subPath)}"${next ? " open" : ""}><summary style="cursor:pointer"><b>${esc(label)}</b> ${status} <span class="sub" style="display:inline;margin:0;text-transform:none;letter-spacing:0">${esc(note || "")}</span></summary>
+    <form method="post" action="${esc(action)}" style="margin-top:10px">
+      <input type="hidden" name="request_form" value="typed">
+      ${fields}${revision}
+      <p class="sub">Submitting asks the daemon for this step: it re-derives every root above from its own records and refuses a stale or foreign one. Without an approval it parks this exact effect for the operator and the answer carries the approval card.</p>
       <button class="act" type="submit">Submit to daemon route</button>
     </form></details>`;
 }
@@ -658,12 +835,14 @@ async function detailParts(daemonUrl, tail, view, viewHref) {
     }
   }
 
+  const expected = ladderExpectations({ admission, sequenceZero, initialize });
   const continuityOptions = CONTINUITY_OPS.map((op) => `<option value="${op}">${op}</option>`).join("");
   const actions = `<h2>Governed lifecycle actions</h2>
   <p class="sub">Each form proxies ONE declaration verbatim to its owning daemon route. Without a grant the daemon answers its authority challenge (rendered as a preview); with a grant it commits or refuses — always shown verbatim. The serve layer never mutates state itself.</p>
-  ${actionForm(`${BASE}/${encodeURIComponent(tail)}/sequence-zero-materialization`, "Materialize sequence zero (M1.4)", { expected_genesis_admission_record_root: "", expected_genesis_admission_receipt_root: "" }, "byte-verifies the admission you inspected above")}
-  ${actionForm(`${BASE}/${encodeURIComponent(tail)}/initialize`, "Initialize (sequence 1)", { expected_sequence_zero_materialization_root: "", expected_sequence_zero_materialization_receipt_root: "", deployment_profile_revision: {} }, "binds the exact M1.4 artifact + pinned deployment revision")}
-  ${actionForm(`${BASE}/${encodeURIComponent(tail)}/activate`, "Activate (sequence 2)", { expected_initialize_proposal_root: "", expected_initialize_decision_root: "", expected_initialize_state_root: "", expected_initialize_transition_root: "", expected_initialize_receipt_root: "" }, "refused by the daemon unless initialize is admitted")}
+  ${typedLadderForm(`${BASE}/${encodeURIComponent(tail)}/sequence-zero-materialization`, "sequence-zero-materialization", "Materialize sequence zero (M1.4)", "byte-verifies the admission you inspected above", expected, { admitted: sequenceZero.status === 200, next: sequenceZero.status !== 200 })}
+  ${typedLadderForm(`${BASE}/${encodeURIComponent(tail)}/initialize`, "initialize", "Initialize (sequence 1)", "binds the exact M1.4 artifact + pinned deployment revision", expected, { admitted: initialize.status === 200, next: sequenceZero.status === 200 && initialize.status !== 200 })}
+  ${typedLadderForm(`${BASE}/${encodeURIComponent(tail)}/activate`, "activate", "Activate (sequence 2)", "refused by the daemon unless initialize is admitted", expected, { admitted: activate.status === 200, next: initialize.status === 200 && activate.status !== 200 })}
+  ${namedGap(TYPED_LIFECYCLE_GAP, "Typed forms for the continuity, protected-transition and amendment steps below (they take a raw JSON declaration, and their routes park no challenge yet, so a grant is pasted), and a source for initialize's pinned deployment profile revision")}
   <details class="card" style="display:block"><summary style="cursor:pointer"><b>Continuity transition (M1.5d)</b> <span class="sub" style="display:inline;margin:0;text-transform:none;letter-spacing:0">succession · migration · dissolution ladder · enrollment</span></summary>
     <form method="post" action="${BASE}/${encodeURIComponent(tail)}/continuity" style="margin-top:10px">
       <div class="field"><label>Operation</label><select name="op">${continuityOptions}</select></div>
@@ -718,32 +897,35 @@ async function handleDetailAction(daemonUrl, shell, tail, subPath, form) {
     return null;
   }
   let request;
+  const typed = form.get("request_form") === "typed" && TYPED_LADDER_FIELDS[subPath];
   try {
-    request = JSON.parse(form.get("request") || "{}");
+    if (typed) {
+      // A typed ladder form: each expected root is its own field (prefilled from the daemon's reads);
+      // initialize's deployment profile revision is still a pasted declaration (a named gap).
+      request = Object.fromEntries(TYPED_LADDER_FIELDS[subPath].map((name) => [name, String(form.get(name) || "").trim()]));
+      if (subPath === "initialize") request.deployment_profile_revision = JSON.parse(form.get("deployment_profile_revision") || "");
+    } else {
+      request = JSON.parse(form.get("request") || "{}");
+    }
   } catch (error) {
-    return shell("System action — input refused", `${CROSSLINKS}<h1>Provisional System detail</h1>${renderInputRefusal("The request declaration", error.message, backHref)}`);
+    return shell("System action — input refused", `${CROSSLINKS}<h1>Provisional System detail</h1>${renderInputRefusal(typed ? "The deployment profile revision" : "The request declaration", error.message, backHref)}`);
   }
   if (request && typeof request === "object" && !Array.isArray(request)) delete request.op;
-  const grantText = (form.get("wallet_approval_grant") || "").trim();
-  let requestBody = request;
-  if (grantText) {
-    try {
-      requestBody = { ...request, wallet_approval_grant: JSON.parse(grantText) };
-    } catch (error) {
-      return shell("System action — input refused", `${CROSSLINKS}<h1>Provisional System detail</h1>${renderInputRefusal("The wallet_approval_grant", error.message, backHref)}`);
-    }
+  const resubmit = {
+    action: `${BASE}/${encodeURIComponent(tail)}/${subPath}`,
+    declaration: JSON.stringify(request),
+    declarationField: "request",
+    extraHidden: subPath === "continuity" ? `<input type="hidden" name="op" value="${esc((form.get("op") || "").trim())}">` : (subPath === "transitions" ? `<input type="hidden" name="op" value="${esc((form.get("op") || "").trim())}">` : ""),
+  };
+  if (form.has("approval_challenge_id")) {
+    const decided = await relayGovernedApproval(daemonUrl, form, { resubmit, backHref, actionLabel: label });
+    return shell(`System action — ${label}`, `${CROSSLINKS}<h1>Provisional System detail — the operator's approval</h1>${decided}`);
   }
+  const authority = carriedAuthority(form, backHref);
+  if (authority.refusal) return shell("System action — input refused", `${CROSSLINKS}<h1>Provisional System detail</h1>${authority.refusal}`);
+  const requestBody = authority.grant ? { ...request, wallet_approval_grant: authority.grant } : request;
   const result = await daemonJson(daemonUrl, "POST", daemonPath, requestBody);
-  const outcome = renderOutcome(result, {
-    actionLabel: label,
-    backHref,
-    resubmit: {
-      action: `${BASE}/${encodeURIComponent(tail)}/${subPath}`,
-      declaration: JSON.stringify(request),
-      declarationField: "request",
-      extraHidden: subPath === "continuity" ? `<input type="hidden" name="op" value="${esc((form.get("op") || "").trim())}">` : (subPath === "transitions" ? `<input type="hidden" name="op" value="${esc((form.get("op") || "").trim())}">` : ""),
-    },
-  });
+  const outcome = renderOutcome(result, { actionLabel: label, backHref, resubmit });
   return shell(
     `System action — ${label}`,
     `${CROSSLINKS}<h1>Provisional System detail — governed action</h1><p class="sub">Route: <code>POST ${esc(daemonPath)}</code> — outcome verbatim.</p>${outcome}`,
@@ -986,8 +1168,8 @@ async function renderSystemWorkspace(daemonUrl, shell, parsed) {
     }
     if (mode === "govern") {
       return shell(title, head + pending + parts.ladder + parts.actions
-        + namedGap("authority node (ADR 0056 Ruling 8)", "Budgets and standing limits for this System")
-        + handOffs([["/governance/limits?tab=checkpoints", "Checkpoints in Leases & Limits"], ["/governance/approvals", "Approvals"]]));
+        + `<h2>Limits — the standing limits of the connections this System uses</h2>` + await systemLimits(daemonUrl, systemId, tailPath)
+        + handOffs([["/governance/limits?tab=limits", "Limits in Leases & Limits"], ["/governance/limits?tab=checkpoints", "Checkpoints"], ["/governance/approvals", "Approvals"]]));
     }
     return shell(title, head + pending + `<h2>Evidence — genesis and lifecycle receipts, operation log</h2>` + parts.projection
       + `<h2>Run receipts — this System's runs</h2>` + await systemWork(daemonUrl, systemId)
@@ -1031,6 +1213,56 @@ export async function handleSystemWorkspace(req, res, pathname, { daemonUrl: bas
   return true;
 }
 
+// ---- Govern mode: the System's limits (R-240, journey WP-A) --------------------------------------
+// A standing limit is a STANDING ENVELOPE on one of Connections' connectors: its bounds (uses,
+// budget, operations, expiry) are recorded as a standing grant on the deployment's authority node,
+// and a session may name the connection only while it is active. A System's limits are the envelopes
+// of the connectors behind the connections attached to it (SystemDataAttachment, subject kind
+// `connection`: a provider connection, connection://provider/<connector>/<principal>), read as the
+// caller from the connectors plane and the System-record seam. A connector with no provider
+// connection (an API key, an MCP server) cannot be attached: v1's connection kind names provider
+// connections and its wire is frozen, so that is named here as its own gap. Setting and removing a limit happens
+// on Connections, with the operator passphrase. Whether this deployment can record limits at all is
+// the daemon's own answer (`decidable` on its standing-envelope list: a deployment authority to
+// record one with); both postures are said as they are. The limits do not yet bound the runs a System starts —
+// no System session draws on one (the session-subject gap) — and the page says so.
+export const SYSTEM_CONNECTOR_GAP = "connectors attached to a System (SystemDataAttachment v2)";
+export async function systemLimits(daemonUrl, systemId, tailPath) {
+  const [attachments, connectors, authority] = await Promise.all([
+    daemonJson(daemonUrl, "GET", `${GENESIS_API}/${encodeURIComponent(systemId)}/records?contract_id=${encodeURIComponent(SYSTEM_DATA_ATTACHMENT_CONTRACT)}`),
+    daemonJson(daemonUrl, "GET", "/v1/hypervisor/connectors"),
+    daemonJson(daemonUrl, "GET", "/v1/hypervisor/authority/standing-envelopes"),
+  ]);
+  const failed = unreadCode(attachments) || unreadCode(connectors);
+  if (failed) return stateBlock(stateForErrorCode(failed), failed, `<div class="empty" data-system-limits-unavailable="1">This System's limits could not be read — <code>${esc(failed)}</code>. Nothing is shown in their place.</div>`);
+  const decidable = !authority.networkError && authority.status === 200 && authority.body?.decidable === true;
+  const posture = decidable
+    ? `<p class="sub" data-system-limits-authority="deployment">This deployment's daemon records limits on its deployment authority node: a connection's limits are set and removed on <a href="/__ioi/connections">Connections</a> with the operator passphrase, and a session may name a connection only while its limits are active.</p>`
+    : `<p class="sub" data-system-limits-authority="none">This deployment's daemon has no deployment authority node to record limits on (IOI_WALLET_AUTHORITY_BINARY and IOI_HYPERVISOR_LOCAL_AUTHORITY_STATE_DIR on the daemon), so no connection here can carry limits, and a session can name none of them.</p>`;
+  const byId = new Map((Array.isArray(connectors.body?.connectors) ? connectors.body.connectors : []).map((c) => [c.connector_id, c]));
+  const connectorOf = (ref) => byId.get((/^connection:\/\/provider\/([^/]+)\//u.exec(String(ref || "")) || [])[1] || "") || null;
+  const connectorGap = namedGap(SYSTEM_CONNECTOR_GAP, "Attaching a connector that has no provider connection — an API key, an MCP server — so its limits are this System's: the attachment names provider connections only");
+  const attached = (Array.isArray(attachments.body?.records) ? attachments.body.records : [])
+    .map((r) => r.current || {})
+    .filter((r) => r.status === "attached" && r.subject_kind === "connection" && r.system_binding?.system_id === systemId);
+  const unbound = `<p class="sub" data-system-limits-bound-runs="absent">These limits do not bound the runs this System starts yet: a session names no System (the session-subject gap on Operate), so no run of this System draws on them.</p>`;
+  if (!attached.length) {
+    return stateBlock("honest_empty", "no_connection_attached_to_system", `<div class="empty" data-system-limits="${esc(systemId)}">No connection is attached to this System, so it has no limits. Attach one on its <a href="${esc(modeHref(tailPath, "design"))}">Design</a> mode.</div>${posture}`) + connectorGap;
+  }
+  const money = (micro) => `$${(Number(micro || 0) / 1_000_000).toFixed(4)}`;
+  const rows = attached.map((r) => {
+    const c = connectorOf(r.subject_ref);
+    const lease = c?.standing_lease && typeof c.standing_lease === "object" ? c.standing_lease : null;
+    const b = lease?.bounds || {};
+    const status = lease?.status || "none";
+    const limits = lease
+      ? `${esc(String(b.max_usages ?? "?"))} uses · budget ${esc(money(b.max_cumulative_spend_microusd))} · ${esc((b.operations || []).join("+") || "—")} · expires ${esc(b.expires_at_ms ? new Date(Number(b.expires_at_ms)).toISOString() : "—")}`
+      : "no limits set — a session cannot name this connection";
+    return `<tr data-system-limit-connection="${esc(r.subject_ref)}" data-standing-lease-status="${esc(status)}"><td>${c ? `<b>${esc(c.name || c.connector_id)}</b>` : `<span class="sub" style="margin:0">its connector is not registered</span>`}<br><code>${esc(r.subject_ref)}</code></td><td>${pill(lease ? status : "unbounded", status === "active" ? "ok" : "warn")}</td><td>${limits}</td></tr>`;
+  }).join("");
+  return stateBlock("ready_or_proposed", null, `<table data-system-limits="${esc(systemId)}"><thead><tr><th>Connection</th><th>Limits</th><th>Bounds</th></tr></thead><tbody>${rows}</tbody></table>${posture}${unbound}`) + connectorGap;
+}
+
 // ---- Design mode: what the System is made of (R-240 journey WP-C1) ------------------------------
 // The blueprints bound to the System (Studio's own plane, narrowed by system_ref) and the data
 // attached to it (SystemDataAttachment records in the System-record seam), each read as the caller
@@ -1050,11 +1282,12 @@ const unreadCode = (result) => (result.networkError
   : (result.status !== 200 || result.body?.ok === false) ? refusalCodeOf(result.body || {}, result.status) : null);
 
 async function systemDesign(daemonUrl, systemId, tailPath, query) {
-  const [blueprints, attachments, ontologies, sources] = await Promise.all([
+  const [blueprints, attachments, ontologies, sources, connections] = await Promise.all([
     daemonJson(daemonUrl, "GET", `/v1/hypervisor/studio/blueprints?system_ref=${encodeURIComponent(systemId)}`),
     daemonJson(daemonUrl, "GET", `${GENESIS_API}/${encodeURIComponent(systemId)}/records?contract_id=${encodeURIComponent(SYSTEM_DATA_ATTACHMENT_CONTRACT)}`),
     daemonJson(daemonUrl, "GET", "/v1/hypervisor/odk/domain-ontologies"),
     daemonJson(daemonUrl, "GET", "/v1/hypervisor/data-sources"),
+    daemonJson(daemonUrl, "GET", "/v1/hypervisor/auth/connections"),
   ]);
   const acted = query?.get("acted") === "attach-data"
     ? stateBlock("completed", null, `<div class="empty" data-system-attach-result="attached">Attached <code>${esc(query.get("record") || "")}</code> to this System · receipt <code>${esc(query.get("receipt") || "")}</code></div>`)
@@ -1078,7 +1311,15 @@ async function systemDesign(daemonUrl, systemId, tailPath, query) {
   const srcCode = unreadCode(sources);
   const ontList = ontCode ? [] : (Array.isArray(ontologies.body?.ontologies) ? ontologies.body.ontologies : []).filter((o) => String(o.ref || "").startsWith("ontology://"));
   const srcList = srcCode ? [] : (Array.isArray(sources.body?.data_sources) ? sources.body.data_sources : []).filter((s) => String(s.source_ref || "").startsWith("data-source:"));
-  const names = new Map([...ontList.map((o) => [o.ref, o.domain || o.id || o.ref]), ...srcList.map((s) => [s.source_ref, s.name || s.source_id || s.source_ref])]);
+  // Provider connections the caller may read (R-240 journey WP-A): a System's connections, whose
+  // connectors carry its standing limits (listed on Govern mode). The attachment's connection kind names
+  // a provider connection (connection://provider/<connector>/<principal>); a connector with none — an API
+  // key or an MCP server — cannot be attached until a SystemDataAttachment successor names connectors.
+  const cxCode = unreadCode(connections);
+  const cxList = cxCode ? [] : (Array.isArray(connections.body?.connections) ? connections.body.connections : []).filter((c) => String(c.connection_ref || "").startsWith("connection://"));
+  const cxRef = (c) => c.connection_ref;
+  const cxLabel = (c) => `${String(c.connector_ref || "").replace(/^connector:\/\//u, "") || c.connection_ref} (${c.status || "unknown"})`;
+  const names = new Map([...ontList.map((o) => [o.ref, o.domain || o.id || o.ref]), ...srcList.map((s) => [s.source_ref, s.name || s.source_id || s.source_ref]), ...cxList.map((c) => [cxRef(c), cxLabel(c)])]);
   const attCode = unreadCode(attachments);
   const attached = attCode ? [] : (Array.isArray(attachments.body?.records) ? attachments.body.records : [])
     .map((r) => ({ record: r.current || {}, head: r.head || "" }))
@@ -1088,22 +1329,23 @@ async function systemDesign(daemonUrl, systemId, tailPath, query) {
     ? stateBlock(stateForErrorCode(attCode), attCode, `<div class="empty" data-system-data-unavailable="1">The data attached to this System could not be read — <code>${esc(attCode)}</code>. Nothing is shown in its place.</div>`)
     : attached.length
       ? stateBlock("ready_or_proposed", null, `<table data-system-data="${esc(systemId)}"><thead><tr><th>Kind</th><th>Name</th><th>Ref</th><th>Admitted head</th></tr></thead><tbody>${attached.map(({ record, head }) => `<tr data-system-attachment="${esc(record.attachment_id || "")}" data-subject-ref="${esc(record.subject_ref || "")}"><td>${esc(ATTACH_KINDS[record.subject_kind] || record.subject_kind || "")}</td><td>${names.has(record.subject_ref) ? `<b>${esc(names.get(record.subject_ref))}</b>` : `<span class="sub" style="margin:0">not in your own reads</span>`}</td><td><code>${esc(record.subject_ref || "")}</code></td><td><code>${esc(head)}</code></td></tr>`).join("")}</tbody></table>`)
-      : stateBlock("honest_empty", "no_data_attached_to_system", `<div class="empty" data-system-data="${esc(systemId)}">No ontology or data source is attached to this System yet.</div>`);
+      : stateBlock("honest_empty", "no_data_attached_to_system", `<div class="empty" data-system-data="${esc(systemId)}">No ontology, data source or connection is attached to this System yet.</div>`);
   const offer = (list, kind, refOf, labelOf) => list.filter((x) => !attachedRefs.has(refOf(x)))
     .map((x) => `<option value="${esc(`${kind}|${refOf(x)}`)}">${esc(labelOf(x))} — ${esc(refOf(x))}</option>`).join("");
   const ontOptions = offer(ontList, "ontology", (o) => o.ref, (o) => o.domain || o.id || o.ref);
   const srcOptions = offer(srcList, "data_source", (s) => s.source_ref, (s) => s.name || s.source_id || s.source_ref);
-  const unreadNote = [ontCode && `ontologies unavailable (<code>${esc(ontCode)}</code>)`, srcCode && `data sources unavailable (<code>${esc(srcCode)}</code>)`].filter(Boolean).join(" · ");
-  const attachForm = ontOptions || srcOptions
+  const cxOptions = offer(cxList, "connection", cxRef, cxLabel);
+  const unreadNote = [ontCode && `ontologies unavailable (<code>${esc(ontCode)}</code>)`, srcCode && `data sources unavailable (<code>${esc(srcCode)}</code>)`, cxCode && `connections unavailable (<code>${esc(cxCode)}</code>)`].filter(Boolean).join(" · ");
+  const attachForm = ontOptions || srcOptions || cxOptions
     ? `<form method="post" action="${BASE}/attach-data" data-system-attach-form="1">
         <input type="hidden" name="system_id" value="${esc(systemId)}">
-        <div class="field"><label>Attach an ontology or a data source you can see</label><select name="subject">${ontOptions ? `<optgroup label="Ontologies">${ontOptions}</optgroup>` : ""}${srcOptions ? `<optgroup label="Data sources">${srcOptions}</optgroup>` : ""}</select></div>
+        <div class="field"><label>Attach an ontology, a data source or a connection you can see</label><select name="subject">${ontOptions ? `<optgroup label="Ontologies">${ontOptions}</optgroup>` : ""}${srcOptions ? `<optgroup label="Data sources">${srcOptions}</optgroup>` : ""}${cxOptions ? `<optgroup label="Connections">${cxOptions}</optgroup>` : ""}</select></div>
         <button class="act" type="submit">Attach to this System</button>
       </form>${unreadNote ? `<p class="sub">${unreadNote}</p>` : ""}`
-    : `<div class="empty" data-system-attach-none="1">Nothing to attach: every ontology and data source you can see is attached already, or you have none — create one in <a href="/ontology">Ontology</a> or <a href="/data">Data</a>.${unreadNote ? ` ${unreadNote}.` : ""}</div>`;
+    : `<div class="empty" data-system-attach-none="1">Nothing to attach: every ontology, data source and connection you can see is attached already, or you have none — create one in <a href="/ontology">Ontology</a>, <a href="/data">Data</a> or <a href="/__ioi/connections">Connections</a>.${unreadNote ? ` ${unreadNote}.` : ""}</div>`;
 
   return `${acted}<h2>Designs bound to this System</h2>${designs}${draftLink}`
-    + `<h2>Data attached to this System</h2>${dataTable}${attachForm}`
+    + `<h2>Data and connections attached to this System</h2>${dataTable}${attachForm}`
     + `<p class="sub">Attaching records that this System uses the subject; the subject stays owned and governed by its own plane, and attaching grants no access to it.</p>`;
 }
 
@@ -1122,7 +1364,7 @@ async function handleAttachData(daemonUrl, res, form) {
     res.end();
   };
   if (!tailPath || /\s/u.test(systemId)) return back({ refused: "system_workspace_path_invalid", reason: "system_id is not a system:// ref" });
-  if (!ATTACH_KINDS[kind] || !subjectRef) return back({ refused: "system_attachment_subject_invalid", reason: "choose an ontology or a data source from the form" });
+  if (!ATTACH_KINDS[kind] || !subjectRef) return back({ refused: "system_attachment_subject_invalid", reason: "choose an ontology, a data source or a connection from the form" });
   const gate = await fetchCensus(daemonUrl, "compact", systemId);
   const row = !gate.networkError && gate.status === 200 && gate.body?.state === "ready" ? (gate.body.systems || []).find((s) => s.system_id === systemId) : null;
   if (!row) {
