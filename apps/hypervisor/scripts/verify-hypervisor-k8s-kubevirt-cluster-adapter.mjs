@@ -12,17 +12,25 @@
 import path from "node:path";
 import { writeFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
-import { verifierFixtureDir, verifierStack } from "./lib/verifier-stack.mjs";
+import { verifierFixtureDir } from "./lib/verifier-stack.mjs";
+import { authorityVerifierStack } from "./lib/verifier-authority-stack.mjs";
 
 const HERE = path.dirname(fileURLToPath(import.meta.url));
-const { mintApprovalGrant } = await import(path.join(HERE, "../../../scripts/lib/mint-approval-grant.mjs"));
 const { teardownFindings, selfTestTeardownContract } = await import(path.join(HERE, "lib/teardown-disposition.mjs"));
 
 // Its own isolated daemon + serve on a temp data dir, the operator signed in, its offer/bid/facts documents in a temp
 // fixture dir — never the owner's :8765/:4173 nor anything under ~/.ioi/hypervisor (R-240, verifier hygiene,
 // 2026-09-29). This verifier used to delete (and, through the daemon, write) resource-budgets/*-verify.json in the
 // OWNER's data dir and write fixtures under ~/.ioi/hypervisor/vast-fixture; a fresh plane is torn down whole.
-const STACK = await verifierStack({ serve: true, fresh: true });
+//
+// A REAL AUTHORITY, NOT A TEST SIGNER (R-240, provider adapters on an authority stack, 2026-09-29). A provider-ops write
+// names its owner and an idempotency key (400 mutation_owner_ref_required otherwise), and a grant-gated crossing needs a
+// configured authority principal — a test-signer grant is no authority (501 provider_operation_authority_required). The
+// daemon takes its grants from a sealed deployment-local wallet.network authority of this verifier's own
+// (lib/verifier-authority-stack.mjs): the ungranted call parks a challenge, the operator approves it with the run's
+// passphrase on the daemon's decision route, and the retry names the approval_ref. A sealed bring-up takes minutes.
+const A = await authorityVerifierStack({ label: "k8s-kubevirt-cluster" });
+const STACK = A.stack;
 const DAEMON = STACK.daemonUrl;
 const SHELL = STACK.serveUrl;
 const FIXTURES = verifierFixtureDir("k8s");
@@ -46,19 +54,9 @@ const k8sSource = async () => {
 let accountId = null;
 let env = null;
 let casBackendId = null;
-async function opWithGrant(o, extra = {}) {
-  const base = { provider_id: accountId, op: o, environment_ref: extra.environment_ref || env, ...extra };
-  const c = await jd("POST", "/v1/hypervisor/provider-ops", base);
-  if (c.status !== 403) return c;
-  const grant = mintApprovalGrant({ policyHash: c.j.approval.policy_hash, requestHash: c.j.approval.request_hash });
-  return jd("POST", "/v1/hypervisor/provider-ops", { ...base, wallet_approval_grant: grant });
-}
-async function archiveOp(body) {
-  const c = await jd("POST", "/v1/hypervisor/storage-archive-ops", body);
-  if (c.status !== 403) return c;
-  const grant = mintApprovalGrant({ policyHash: c.j.approval.policy_hash, requestHash: c.j.approval.request_hash });
-  return jd("POST", "/v1/hypervisor/storage-archive-ops", { ...body, wallet_approval_grant: grant });
-}
+// one logical op, one idempotency key: the challenged call and its granted retry are the same request
+const opWithGrant = (o, extra = {}) => A.crossing("/v1/hypervisor/provider-ops", A.owned({ provider_id: accountId, op: o, environment_ref: extra.environment_ref || env, ...extra }));
+const archiveOp = (body) => A.crossing("/v1/hypervisor/storage-archive-ops", body);
 
 async function run() {
   const tag = Date.now().toString(16);
@@ -147,12 +145,16 @@ async function run() {
   const simEndpoint = { mode: "simulator", fixture_file: factsFile, namespace: "ioi-sim", cluster: "sim-cluster" };
   await jd("PATCH", `/v1/hypervisor/provider-accounts/${k8s.account_id}`, { endpoint: simEndpoint });
   await jd("POST", `/v1/hypervisor/provider-accounts/${k8s.account_id}/preflight`);
-  const fixCreate = await jd("POST", "/v1/hypervisor/provider-ops", { provider_id: accountId, op: "create", environment_ref: env, candidate_ref: nsCand.candidate_ref });
+  const fixCreate = await jd("POST", "/v1/hypervisor/provider-ops", A.owned({ provider_id: accountId, op: "create", environment_ref: env, candidate_ref: nsCand.candidate_ref }));
   const sim = (await jd("POST", "/v1/hypervisor/cloud-candidates/candidates/refresh", { intent_ref: intent.intent_ref })).j;
   const cand = (sim.candidates || []).find((c) => c.provider_kind === "k8s" && c.namespace === "ioi-sim") || {};
   ok("fixture facts can never admit (k8s_quote_not_live) — and NO budget was demanded (customer cluster, unmetered by default)",
     fixCreate.status === 409 && /k8s_quote_not_live/.test(fixCreate.j.reason || ""));
-  const admit = (extra) => opWithGrant("create", { environment_ref: env, candidate_ref: cand.candidate_ref, teardown_policy: "always_teardown_required", ...extra });
+  // (a candidate's facts live 15 minutes, and each admission below is a real authority's approval, minutes long: every
+  // create takes the namespace's fresh candidate, as the product requires — an expired one is refused before any lease)
+  const freshCand = async () => ((await jd("POST", "/v1/hypervisor/cloud-candidates/candidates/refresh", { intent_ref: intent.intent_ref })).j.candidates || [])
+    .find((c) => c.provider_kind === "k8s" && c.namespace === "ioi-sim") || {};
+  const admit = async (extra) => opWithGrant("create", { environment_ref: env, candidate_ref: (await freshCand()).candidate_ref, teardown_policy: "always_teardown_required", ...extra });
   const badNs = await admit({ namespace: "locked-ns" });
   const ghostNs = await admit({ namespace: "ghost-ns" });
   const overQuota = await admit({ resources: { cpu_milli: 99000, memory_gb: 4, gpu: 0 } });
@@ -169,12 +171,12 @@ async function run() {
     && badLb.j.ok === false && /k8s_service_ingress_unsupported/.test(badLb.j.reason || ""));
 
   // ── 5. Happy admission: wallet binds the workload spec; create → ready → exec ──
-  const createBase = { provider_id: accountId, op: "create", environment_ref: env,
-    candidate_ref: cand.candidate_ref, teardown_policy: "always_teardown_required",
+  const createBase = A.owned({ provider_id: accountId, op: "create", environment_ref: env,
+    candidate_ref: (await freshCand()).candidate_ref, teardown_policy: "always_teardown_required",
     namespace: "ioi-sim", image: "ubuntu:24.04",
     resources: { cpu_milli: 2000, memory_gb: 4, gpu: 1 },
     pvc: { storage_class: "standard-rwo", size_gb: 10 },
-    service: { type: "ClusterIP", port: 8080 } };
+    service: { type: "ClusterIP", port: 8080 } });
   const challenge = await jd("POST", "/v1/hypervisor/provider-ops", createBase);
   const facets = challenge.j.lease_request_facets || {};
   ok("wallet challenge binds CLUSTER facets (namespace + workload spec hash + kubernetes exec posture + teardown) — no price facet exists",
@@ -184,7 +186,7 @@ async function run() {
     && facets.exec_posture === "kubernetes_exec"
     && facets.teardown_policy === "always_teardown_required"
     && (facets.usd_per_hour === null || facets.usd_per_hour === undefined));
-  const grant = mintApprovalGrant({ policyHash: challenge.j.approval.policy_hash, requestHash: challenge.j.approval.request_hash });
+  const grant = await A.approve(challenge);
   const created = await jd("POST", "/v1/hypervisor/provider-ops", { ...createBase, wallet_approval_grant: grant });
   ok("admitted create mints the workload — pod/PVC/service names + uid EVIDENCE ONLY, Pending until readiness",
     created.j.ok === true
@@ -307,11 +309,11 @@ async function run() {
   // ── 8. Metered posture honesty: declared metering demands a SOURCED price ──
   await jd("PATCH", `/v1/hypervisor/provider-accounts/${k8s.account_id}`, { endpoint: { ...simEndpoint, metered: { declared: true } } });
   await jd("POST", `/v1/hypervisor/provider-accounts/${k8s.account_id}/preflight`);
-  const noBudget = await jd("POST", "/v1/hypervisor/provider-ops", { provider_id: accountId, op: "create", environment_ref: `env-k8s4-${tag}`, candidate_ref: cand3.candidate_ref });
+  const noBudget = await jd("POST", "/v1/hypervisor/provider-ops", A.owned({ provider_id: accountId, op: "create", environment_ref: `env-k8s4-${tag}`, candidate_ref: cand3.candidate_ref }));
   await jd("POST", "/v1/hypervisor/resource/budgets", { budget_id: "k8s-verify", name: "K8s verify", scope: "external_spend", limit: 5, spent: 0, currency: "USD" });
   const sim4 = (await jd("POST", "/v1/hypervisor/cloud-candidates/candidates/refresh", { intent_ref: intent.intent_ref })).j;
   const cand4 = (sim4.candidates || []).find((c) => c.provider_kind === "k8s" && c.namespace === "ioi-sim") || {};
-  const unpricedMetered = await jd("POST", "/v1/hypervisor/provider-ops", { provider_id: accountId, op: "create", environment_ref: `env-k8s4-${tag}`, candidate_ref: cand4.candidate_ref });
+  const unpricedMetered = await jd("POST", "/v1/hypervisor/provider-ops", A.owned({ provider_id: accountId, op: "create", environment_ref: `env-k8s4-${tag}`, candidate_ref: cand4.candidate_ref }));
   ok("DECLARED metered posture flips the budget gate AND refuses unpriced candidates (exposure only with a sourced price)",
     noBudget.status === 409 && /budget_undiscovered_before_mutation/.test(noBudget.j.reason || "")
     && unpricedMetered.status === 409 && /k8s_metered_posture_unpriced/.test(unpricedMetered.j.reason || ""));
@@ -332,7 +334,7 @@ async function run() {
     && /GPU device-plugin scheduling per namespace quota \(guarded adapter\)/.test(venues));
   await jd("PATCH", `/v1/hypervisor/provider-accounts/${k8s.account_id}`, { endpoint: { mode: "live", endpoint: "https://127.0.0.1:9", ca_mode: "insecure_dev" } });
   await jd("POST", `/v1/hypervisor/provider-accounts/${k8s.account_id}/preflight`);
-  const liveCreate = await jd("POST", "/v1/hypervisor/provider-ops", { provider_id: accountId, op: "create", environment_ref: `env-k8s5-${tag}`, candidate_ref: cand4.candidate_ref });
+  const liveCreate = await jd("POST", "/v1/hypervisor/provider-ops", A.owned({ provider_id: accountId, op: "create", environment_ref: `env-k8s5-${tag}`, candidate_ref: cand4.candidate_ref }));
   ok("live mode blocks NAMED — live admission demands live cluster facts, never a fake workload",
     liveCreate.status === 409 && /k8s_quote_mode_mismatch|k8s_quote_expired_requires_requote/.test(liveCreate.j.reason || ""));
   if (LIVE_MODE && !LIVE_KEY) {
@@ -351,7 +353,7 @@ async function cleanup() {
   try {
     if (accountId && env) {
       for (const e of [env, env.replace("env-k8s-", "env-k8s2-"), env.replace("env-k8s-", "env-k8s3-")]) {
-        const obs = await jd("POST", "/v1/hypervisor/provider-ops", { provider_id: accountId, op: "observe", environment_ref: e });
+        const obs = await jd("POST", "/v1/hypervisor/provider-ops", A.owned({ provider_id: accountId, op: "observe", environment_ref: e }));
         if (obs.j?.evidence?.teardown_state === "live_or_pending") await opWithGrant("delete", { environment_ref: e });
       }
     }
@@ -367,9 +369,10 @@ run()
     for (const r of results) { console.log(`  ${r.pass ? "PASS" : "FAIL"}  ${r.name}${r.detail ? `  (${r.detail})` : ""}`); if (!r.pass) fail++; }
     console.log(`\n${results.length - fail}/${results.length} passed`);
     console.log(`k8s/kubevirt cluster adapter readiness: ${fail ? "FAIL" : "OK"}${LIVE_MODE ? "" : " (live_provisioning_not_run)"}`);
-    FIXTURES.remove(); STACK.stop().finally(() => process.exit(fail ? 1 : 0));
+    if (A.decisionRefusals.length) console.log(`authority decisions refused: ${A.decisionRefusals.map((d) => `${d.op || "?"}: ${d.status} ${d.code}`).join(", ")}`);
+    FIXTURES.remove(); A.stop().finally(() => process.exit(fail ? 1 : 0));
   })
   .catch((e) => {
     console.error("verifier crashed:", e);
-    process.exit(1);
+    A.stop().finally(() => process.exit(1));
   });

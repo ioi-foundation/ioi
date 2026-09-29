@@ -15,14 +15,22 @@
 import path from "node:path";
 import { writeFileSync } from "node:fs";
 import { ensureSshFixture } from "./ensure-ssh-fixture.mjs";
-import { mintApprovalGrant } from "../../../scripts/lib/mint-approval-grant.mjs";
-import { verifierFixtureDir, verifierStack } from "./lib/verifier-stack.mjs";
+import { verifierFixtureDir } from "./lib/verifier-stack.mjs";
+import { authorityVerifierStack } from "./lib/verifier-authority-stack.mjs";
 
 // Its own isolated daemon + serve on a temp data dir, the operator signed in, its offer/bid/facts documents in a temp
 // fixture dir — never the owner's :8765/:4173 nor anything under ~/.ioi/hypervisor (R-240, verifier hygiene,
 // 2026-09-29). This verifier used to delete (and, through the daemon, write) resource-budgets/*-verify.json in the
 // OWNER's data dir and write fixtures under ~/.ioi/hypervisor/vast-fixture; a fresh plane is torn down whole.
-const STACK = await verifierStack({ serve: true, fresh: true });
+//
+// A REAL AUTHORITY, NOT A TEST SIGNER (R-240, provider adapters on an authority stack, 2026-09-29). A provider-ops write
+// names its owner and an idempotency key (400 mutation_owner_ref_required otherwise), and a grant-gated crossing needs a
+// configured authority principal — a test-signer grant is no authority (501 provider_operation_authority_required). The
+// daemon takes its grants from a sealed deployment-local wallet.network authority of this verifier's own
+// (lib/verifier-authority-stack.mjs): the ungranted call parks a challenge, the operator approves it with the run's
+// passphrase on the daemon's decision route, and the retry names the approval_ref. A sealed bring-up takes minutes.
+const A = await authorityVerifierStack({ label: "auto-failover-trigger" });
+const STACK = A.stack;
 const DAEMON = STACK.daemonUrl;
 const SHELL = STACK.serveUrl;
 const FIXTURES = verifierFixtureDir("xfa");
@@ -36,21 +44,12 @@ async function jd(method, url, body) {
   });
   return { status: r.status, j: await r.json().catch(() => ({})) };
 }
-function grantFor(challenge) {
-  const a = challenge?.approval || challenge?.next_required?.approval || {};
-  return mintApprovalGrant({ policyHash: a.policy_hash, requestHash: a.request_hash });
-}
-async function opWithGrant(providerId, op, extra = {}) {
-  const base = { provider_id: providerId, op, ...extra };
-  const c = await jd("POST", "/v1/hypervisor/provider-ops", base);
-  if (c.status !== 403) return c;
-  return jd("POST", "/v1/hypervisor/provider-ops", { ...base, wallet_approval_grant: grantFor(c.j) });
-}
-async function archiveOp(body) {
-  const c = await jd("POST", "/v1/hypervisor/storage-archive-ops", body);
-  if (c.status !== 403) return c;
-  return jd("POST", "/v1/hypervisor/storage-archive-ops", { ...body, wallet_approval_grant: grantFor(c.j) });
-}
+// The operator's approval of what a refusal parked: a failover run parked at a wallet gate carries the provider op's
+// refusal (its challenge) in next_required.challenge.
+const grantFor = (parked) => A.approve({ j: parked?.challenge || parked?.next_required?.challenge || parked || {} });
+// one logical op, one idempotency key: the challenged call and its granted retry are the same request
+const opWithGrant = (providerId, op, extra = {}) => A.crossing("/v1/hypervisor/provider-ops", A.owned({ provider_id: providerId, op, ...extra }));
+const archiveOp = (body) => A.crossing("/v1/hypervisor/storage-archive-ops", body);
 
 let akashId = "", vastId = "", env = "", replacementEnv = "";
 
@@ -134,6 +133,9 @@ async function run() {
   ok("provider-side lease revocation recorded (the bid_lease_revocation risk, exercised)", outage.j.ok === true);
 
   // evaluate → trigger, parked at the wallet gate
+  // (a quote lives 15 minutes, and each crossing above was a real authority's approval, minutes long: the replacement is
+  // chosen among fresh candidates, as a failover after a real outage would be — the first batch's have expired)
+  await jd("POST", "/v1/hypervisor/cloud-candidates/candidates/refresh", { intent_ref: intent.intent_ref });
   const ev1 = (await jd("POST", "/v1/hypervisor/failover/evaluate", {})).j;
   const trig = (ev1.evaluations || []).find((e) => e.plan_ref === plan.plan_ref) || {};
   ok("evidence-mapped trigger fires with cited evidence refs",
@@ -156,13 +158,13 @@ async function run() {
 
   // granted resume completes the cross-class move
   let runRec = runRec0;
-  const g1 = await jd("POST", "/v1/hypervisor/failover/run", { run_ref: runRec.run_ref, wallet_approval_grant_create: grantFor(runRec.next_required) });
+  const g1 = await jd("POST", "/v1/hypervisor/failover/run", { run_ref: runRec.run_ref, wallet_approval_grant_create: await grantFor(runRec.next_required) });
   runRec = g1.j.run || {};
-  const g2 = await jd("POST", "/v1/hypervisor/failover/run", { run_ref: runRec.run_ref, wallet_approval_grant_start: grantFor(runRec.next_required) });
+  const g2 = await jd("POST", "/v1/hypervisor/failover/run", { run_ref: runRec.run_ref, wallet_approval_grant_start: await grantFor(runRec.next_required) });
   runRec = g2.j.run || {};
-  const g3 = await jd("POST", "/v1/hypervisor/failover/run", { run_ref: runRec.run_ref, wallet_approval_grant_restore: grantFor(runRec.next_required) });
+  const g3 = await jd("POST", "/v1/hypervisor/failover/run", { run_ref: runRec.run_ref, wallet_approval_grant_restore: await grantFor(runRec.next_required) });
   runRec = g3.j.run || {};
-  const g4 = await jd("POST", "/v1/hypervisor/failover/run", { run_ref: runRec.run_ref, wallet_approval_grant_teardown: grantFor(runRec.next_required) });
+  const g4 = await jd("POST", "/v1/hypervisor/failover/run", { run_ref: runRec.run_ref, wallet_approval_grant_teardown: await grantFor(runRec.next_required) });
   runRec = g4.j.run || {};
   ok("granted resume completes the auto-triggered failover", ["restored", "restored_with_warning"].includes(runRec.status));
   const wr2 = await opWithGrant(vastId, "workrun", { environment_ref: replacementEnv, command: "cat xfa.txt" });
@@ -217,5 +219,6 @@ run().then(cleanup, (e) => { console.error(e); return cleanup().then(() => { res
   }
   console.log(`\n${results.length - fail}/${results.length} passed`);
   console.log(`auto-failover trigger readiness: ${fail ? "FAIL" : "OK"}`);
-  FIXTURES.remove(); STACK.stop().finally(() => process.exit(fail ? 1 : 0));
+  if (A.decisionRefusals.length) console.log(`authority decisions refused: ${A.decisionRefusals.map((d) => `${d.op || "?"}: ${d.status} ${d.code}`).join(", ")}`);
+  FIXTURES.remove(); A.stop().finally(() => process.exit(fail ? 1 : 0));
 });

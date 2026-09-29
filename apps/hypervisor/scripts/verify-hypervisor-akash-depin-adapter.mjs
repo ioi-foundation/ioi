@@ -13,11 +13,11 @@
 import path from "node:path";
 import { writeFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
-import { verifierFixtureDir, verifierStack } from "./lib/verifier-stack.mjs";
+import { verifierFixtureDir } from "./lib/verifier-stack.mjs";
+import { authorityVerifierStack } from "./lib/verifier-authority-stack.mjs";
 
 const HERE = path.dirname(fileURLToPath(import.meta.url));
 const { ensureSshFixture } = await import(path.join(HERE, "ensure-ssh-fixture.mjs"));
-const { mintApprovalGrant } = await import(path.join(HERE, "../../../scripts/lib/mint-approval-grant.mjs"));
 const { teardownFindings, selfTestTeardownContract } = await import(path.join(HERE, "lib/teardown-disposition.mjs"));
 
 // Its own isolated daemon + serve on a temp data dir, the operator signed in, its offer/bid/facts documents in a temp
@@ -25,7 +25,15 @@ const { teardownFindings, selfTestTeardownContract } = await import(path.join(HE
 // 2026-09-29). This verifier used to delete (and, through the daemon, write) resource-budgets/*-verify.json in the
 // OWNER's data dir, delete exposure records out of it, and write fixtures under ~/.ioi/hypervisor/vast-fixture; a fresh
 // plane is torn down whole.
-const STACK = await verifierStack({ serve: true, fresh: true });
+//
+// A REAL AUTHORITY, NOT A TEST SIGNER (R-240, provider adapters on an authority stack, 2026-09-29). A provider-ops write
+// names its owner and an idempotency key (400 mutation_owner_ref_required otherwise), and a grant-gated crossing needs a
+// configured authority principal — a test-signer grant is no authority (501 provider_operation_authority_required). The
+// daemon takes its grants from a sealed deployment-local wallet.network authority of this verifier's own
+// (lib/verifier-authority-stack.mjs): the ungranted call parks a challenge, the operator approves it with the run's
+// passphrase on the daemon's decision route, and the retry names the approval_ref. A sealed bring-up takes minutes.
+const A = await authorityVerifierStack({ label: "akash-depin" });
+const STACK = A.stack;
 const DAEMON = STACK.daemonUrl;
 const SHELL = STACK.serveUrl;
 const FIXTURES = verifierFixtureDir("akash");
@@ -49,19 +57,9 @@ const akashSource = async () => {
 let accountId = null;
 let env = null;
 let casBackendId = null;
-async function opWithGrant(o, extra = {}) {
-  const base = { provider_id: accountId, op: o, environment_ref: extra.environment_ref || env, ...extra };
-  const c = await jd("POST", "/v1/hypervisor/provider-ops", base);
-  if (c.status !== 403) return c;
-  const grant = mintApprovalGrant({ policyHash: c.j.approval.policy_hash, requestHash: c.j.approval.request_hash });
-  return jd("POST", "/v1/hypervisor/provider-ops", { ...base, wallet_approval_grant: grant });
-}
-async function archiveOp(body) {
-  const c = await jd("POST", "/v1/hypervisor/storage-archive-ops", body);
-  if (c.status !== 403) return c;
-  const grant = mintApprovalGrant({ policyHash: c.j.approval.policy_hash, requestHash: c.j.approval.request_hash });
-  return jd("POST", "/v1/hypervisor/storage-archive-ops", { ...body, wallet_approval_grant: grant });
-}
+// one logical op, one idempotency key: the challenged call and its granted retry are the same request
+const opWithGrant = (o, extra = {}) => A.crossing("/v1/hypervisor/provider-ops", A.owned({ provider_id: accountId, op: o, environment_ref: extra.environment_ref || env, ...extra }));
+const archiveOp = (body) => A.crossing("/v1/hypervisor/storage-archive-ops", body);
 
 async function run() {
   const tag = Date.now().toString(16);
@@ -150,15 +148,15 @@ async function run() {
   await jd("POST", `/v1/hypervisor/provider-accounts/${ak.account_id}/preflight`);
   await jd("POST", "/v1/hypervisor/resource/budgets", { budget_id: "akash-verify", name: "Akash verify", scope: "external_spend", limit: 1, spent: 0, currency: "USD" });
   // Fixture-quote refusal FIRST — while the fixture batch is still active.
-  const fixCreate = await jd("POST", "/v1/hypervisor/provider-ops", { provider_id: accountId, op: "create", environment_ref: env, candidate_ref: gpuBid.candidate_ref });
+  const fixCreate = await jd("POST", "/v1/hypervisor/provider-ops", A.owned({ provider_id: accountId, op: "create", environment_ref: env, candidate_ref: gpuBid.candidate_ref }));
   const sim = (await jd("POST", "/v1/hypervisor/cloud-candidates/candidates/refresh", { intent_ref: intent.intent_ref })).j;
   const cand = (sim.candidates || []).find((c) => c.provider_kind === "akash" && c.provider_address === "akash1gpuprov4090xq") || {};
-  const overMax = await jd("POST", "/v1/hypervisor/provider-ops", { provider_id: accountId, op: "create", environment_ref: env, candidate_ref: cand.candidate_ref, max_hourly_usd: 0.10 });
+  const overMax = await jd("POST", "/v1/hypervisor/provider-ops", A.owned({ provider_id: accountId, op: "create", environment_ref: env, candidate_ref: cand.candidate_ref, max_hourly_usd: 0.10 }));
   ok("quote gate refuses fixture + over-max with akash-named reasons",
     fixCreate.status === 409 && /akash_quote_not_live/.test(fixCreate.j.reason || "")
     && overMax.status === 409 && /akash_price_above_max/.test(overMax.j.reason || ""));
-  const createBase = { provider_id: accountId, op: "create", environment_ref: env,
-    candidate_ref: cand.candidate_ref, max_hourly_usd: 0.4, teardown_policy: "always_teardown_required" };
+  const createBase = A.owned({ provider_id: accountId, op: "create", environment_ref: env,
+    candidate_ref: cand.candidate_ref, max_hourly_usd: 0.4, teardown_policy: "always_teardown_required" });
   const challenge = await jd("POST", "/v1/hypervisor/provider-ops", createBase);
   const facets = challenge.j.lease_request_facets || {};
   ok("wallet challenge binds the DEPLOYMENT SPEC + bid/lease + spend posture (SDL hash, provider, bid, persistence, rate cap)",
@@ -170,7 +168,7 @@ async function run() {
     && String(facets.sdl_hash || "").startsWith("sha256:")
     && facets.persistent_storage === true
     && facets.max_hourly_usd === 0.4 && facets.teardown_policy === "always_teardown_required");
-  const grant = mintApprovalGrant({ policyHash: challenge.j.approval.policy_hash, requestHash: challenge.j.approval.request_hash });
+  const grant = await A.approve(challenge);
   const created = await jd("POST", "/v1/hypervisor/provider-ops", { ...createBase, wallet_approval_grant: grant });
   const dep1Ref = created.j.evidence?.deployment?.deployment_ref || "";
   ok("grant-authorized create mints deployment+bid+lease records with endpoint UNKNOWN until readiness",
@@ -186,7 +184,7 @@ async function run() {
   const preEndpoint = await opWithGrant("workrun", { command: "echo too-early" });
   ok("pre-endpoint exec fails CLOSED with akash_endpoint_unready (endpoints are proven, never assumed)",
     preEndpoint.j.ok === false && /akash_endpoint_unready/.test(preEndpoint.j.reason || ""));
-  const overBudget = await jd("POST", "/v1/hypervisor/provider-ops", { provider_id: accountId, op: "create", environment_ref: `env-ak2-${tag}`, candidate_ref: cand.candidate_ref, max_hourly_usd: 0.7 });
+  const overBudget = await jd("POST", "/v1/hypervisor/provider-ops", A.owned({ provider_id: accountId, op: "create", environment_ref: `env-ak2-${tag}`, candidate_ref: cand.candidate_ref, max_hourly_usd: 0.7 }));
   ok("external_spend reservation blocks the over-budget second lease",
     overBudget.status === 409 && /akash_budget_reservation_exceeded/.test(overBudget.j.reason || ""));
   const started = await opWithGrant("start");
@@ -254,12 +252,12 @@ async function run() {
     selfTestTeardownContract().length === 0, selfTestTeardownContract().join("; "));
   const sim2 = (await jd("POST", "/v1/hypervisor/cloud-candidates/candidates/refresh", { intent_ref: intent.intent_ref })).j;
   const cand2 = (sim2.candidates || []).find((c) => c.provider_kind === "akash" && c.provider_address === "akash1gpuprov4090xq") || {};
-  const redeployBase = { provider_id: accountId, op: "redeploy", environment_ref: env,
+  const redeployBase = A.owned({ provider_id: accountId, op: "redeploy", environment_ref: env,
     candidate_ref: cand2.candidate_ref, max_hourly_usd: 0.4, teardown_policy: "always_teardown_required",
-    restore_material_ref: materialRef, archive_ref: archiveRef };
+    restore_material_ref: materialRef, archive_ref: archiveRef });
   const rchallenge = await jd("POST", "/v1/hypervisor/provider-ops", redeployBase);
   const rfacets = rchallenge.j.lease_request_facets || {};
-  const rgrant = mintApprovalGrant({ policyHash: rchallenge.j.approval.policy_hash, requestHash: rchallenge.j.approval.request_hash });
+  const rgrant = await A.approve(rchallenge);
   const redeployed = await jd("POST", "/v1/hypervisor/provider-ops", { ...redeployBase, wallet_approval_grant: rgrant });
   const dep2Ref = redeployed.j.evidence?.deployment?.deployment_ref || "";
   ok("REDEPLOY mints a fresh deployment/lease with lineage — the wallet challenge binds the restore refs",
@@ -337,7 +335,7 @@ async function run() {
     && /SDL → bids → lease/.test(venues) && /lease-assigned IP\/ports \(evidence, not authority\)/.test(venues));
   await jd("PATCH", `/v1/hypervisor/provider-accounts/${ak.account_id}`, { endpoint: { mode: "live", endpoint: "http://127.0.0.1:9" } });
   await jd("POST", `/v1/hypervisor/provider-accounts/${ak.account_id}/preflight`);
-  const liveCreate = await jd("POST", "/v1/hypervisor/provider-ops", { provider_id: accountId, op: "create", environment_ref: `env-ak3-${tag}`, candidate_ref: cand2.candidate_ref, max_hourly_usd: 0.4 });
+  const liveCreate = await jd("POST", "/v1/hypervisor/provider-ops", A.owned({ provider_id: accountId, op: "create", environment_ref: `env-ak3-${tag}`, candidate_ref: cand2.candidate_ref, max_hourly_usd: 0.4 }));
   ok("live mode blocks NAMED — live provisioning demands live quotes/config, never a fake deployment",
     liveCreate.status === 409 && /akash_quote_mode_mismatch|akash_quote_expired_requires_requote/.test(liveCreate.j.reason || ""));
   if (LIVE_MODE && !LIVE_KEY) {
@@ -355,7 +353,7 @@ async function run() {
 async function cleanup() {
   try {
     if (accountId && env) {
-      const obs = await jd("POST", "/v1/hypervisor/provider-ops", { provider_id: accountId, op: "observe", environment_ref: env });
+      const obs = await jd("POST", "/v1/hypervisor/provider-ops", A.owned({ provider_id: accountId, op: "observe", environment_ref: env }));
       if (obs.j?.evidence?.teardown_state === "live_or_pending") await opWithGrant("delete");
     }
   } catch { /* best effort */ }
@@ -370,9 +368,10 @@ run()
     for (const r of results) { console.log(`  ${r.pass ? "PASS" : "FAIL"}  ${r.name}${r.detail ? `  (${r.detail})` : ""}`); if (!r.pass) fail++; }
     console.log(`\n${results.length - fail}/${results.length} passed`);
     console.log(`akash depin adapter readiness: ${fail ? "FAIL" : "OK"}${LIVE_MODE ? "" : " (live_provisioning_not_run)"}`);
-    FIXTURES.remove(); STACK.stop().finally(() => process.exit(fail ? 1 : 0));
+    if (A.decisionRefusals.length) console.log(`authority decisions refused: ${A.decisionRefusals.map((d) => `${d.op || "?"}: ${d.status} ${d.code}`).join(", ")}`);
+    FIXTURES.remove(); A.stop().finally(() => process.exit(fail ? 1 : 0));
   })
   .catch((e) => {
     console.error("verifier crashed:", e);
-    process.exit(1);
+    A.stop().finally(() => process.exit(1));
   });

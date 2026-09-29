@@ -15,18 +15,26 @@
 import path from "node:path";
 import { writeFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
-import { verifierFixtureDir, verifierStack } from "./lib/verifier-stack.mjs";
+import { verifierFixtureDir } from "./lib/verifier-stack.mjs";
+import { authorityVerifierStack } from "./lib/verifier-authority-stack.mjs";
 
 const HERE = path.dirname(fileURLToPath(import.meta.url));
 const { ensureSshFixture } = await import(path.join(HERE, "ensure-ssh-fixture.mjs"));
-const { mintApprovalGrant } = await import(path.join(HERE, "../../../scripts/lib/mint-approval-grant.mjs"));
 const { teardownFindings, selfTestTeardownContract } = await import(path.join(HERE, "lib/teardown-disposition.mjs"));
 
 // Its own isolated daemon + serve on a temp data dir, the operator signed in, its offer/bid/facts documents in a temp
 // fixture dir — never the owner's :8765/:4173 nor anything under ~/.ioi/hypervisor (R-240, verifier hygiene,
 // 2026-09-29). This verifier used to delete (and, through the daemon, write) resource-budgets/*-verify.json in the
 // OWNER's data dir and write fixtures under ~/.ioi/hypervisor/vast-fixture; a fresh plane is torn down whole.
-const STACK = await verifierStack({ serve: true, fresh: true });
+//
+// A REAL AUTHORITY, NOT A TEST SIGNER (R-240, provider adapters on an authority stack, 2026-09-29). A provider-ops write
+// names its owner and an idempotency key (400 mutation_owner_ref_required otherwise), and a grant-gated crossing needs a
+// configured authority principal — a test-signer grant is no authority (501 provider_operation_authority_required). The
+// daemon takes its grants from a sealed deployment-local wallet.network authority of this verifier's own
+// (lib/verifier-authority-stack.mjs): the ungranted call parks a challenge, the operator approves it with the run's
+// passphrase on the daemon's decision route, and the retry names the approval_ref. A sealed bring-up takes minutes.
+const A = await authorityVerifierStack({ label: "vast-lifecycle" });
+const STACK = A.stack;
 const DAEMON = STACK.daemonUrl;
 const SHELL = STACK.serveUrl;
 const FIXTURES = verifierFixtureDir("vast-lifecycle");
@@ -51,13 +59,8 @@ let liveAccountId = null;
 let liveEnv = null;
 let liveProven = false;
 
-async function opWithGrant(accountId, o, extra = {}) {
-  const base = { provider_id: accountId, op: o, environment_ref: env, ...extra };
-  const c = await jd("POST", "/v1/hypervisor/provider-ops", base);
-  if (c.status !== 403) return c;
-  const grant = mintApprovalGrant({ policyHash: c.j.approval.policy_hash, requestHash: c.j.approval.request_hash });
-  return jd("POST", "/v1/hypervisor/provider-ops", { ...base, wallet_approval_grant: grant });
-}
+// one logical op, one idempotency key: the challenged call and its granted retry are the same request
+const opWithGrant = (accountId, o, extra = {}) => A.crossing("/v1/hypervisor/provider-ops", A.owned({ provider_id: accountId, op: o, environment_ref: env, ...extra }));
 
 async function run() {
   const tag = Date.now().toString(16);
@@ -73,7 +76,7 @@ async function run() {
   // ── 1. No credential → source unavailable + mutation impossible ──
   const vast = (await jd("POST", "/v1/hypervisor/provider-accounts", { kind: "vast", display_name: `Vast LC ${tag}` })).j.account || {};
   vastAccountId = vast.account_id;
-  const noCred = await jd("POST", "/v1/hypervisor/provider-ops", { provider_id: vast.account_id, op: "create", environment_ref: env });
+  const noCred = await jd("POST", "/v1/hypervisor/provider-ops", A.owned({ provider_id: vast.account_id, op: "create", environment_ref: env }));
   // Fail-closed can fire at ANY rung of the ladder depending on estate state: budget (409),
   // quote gate (422 candidate required), credential resolution (428), or named not-implemented.
   ok("no credential → no mutation possible (fail-closed before any provisioning)",
@@ -99,9 +102,9 @@ async function run() {
     && /guarded_lifecycle_simulator/.test(simCand.lifecycle || ""));
 
   // ── 3. Budget discovery FIRST ──
-  const budgetGate = await jd("POST", "/v1/hypervisor/provider-ops", {
+  const budgetGate = await jd("POST", "/v1/hypervisor/provider-ops", A.owned({
     provider_id: vast.account_id, op: "create", environment_ref: env, candidate_ref: simCand.candidate_ref,
-  });
+  }));
   const budgets = (await jd("GET", "/v1/hypervisor/resource/budgets")).j.budgets || [];
   const hadBudget = budgets.some((b) => b.scope === "external_spend" && (b.limit || 0) > (b.spent || 0));
   ok("budget discovery precedes everything (409 budget_blocked without external_spend headroom)",
@@ -111,7 +114,7 @@ async function run() {
   }
 
   // ── 4. Quote gates: missing/unknown/fixture/expired quotes can never provision ──
-  const noRef = await jd("POST", "/v1/hypervisor/provider-ops", { provider_id: vast.account_id, op: "create", environment_ref: env });
+  const noRef = await jd("POST", "/v1/hypervisor/provider-ops", A.owned({ provider_id: vast.account_id, op: "create", environment_ref: env }));
   ok("create without candidate_ref → named refusal + failure receipt (quote-gated provisioning)",
     noRef.status === 422 && /vast_candidate_ref_required/.test(noRef.j.reason || "")
     && String(noRef.j.receipt_ref || "").startsWith("agentgres://provider-receipt/"));
@@ -125,9 +128,9 @@ async function run() {
       ssh: { host: fixture.host, port: fixture.port, user: fixture.user, key_file: fixture.client_key_path } },
   });
   await jd("POST", `/v1/hypervisor/provider-accounts/${vast.account_id}/preflight`);
-  const fixtureCreate = await jd("POST", "/v1/hypervisor/provider-ops", {
+  const fixtureCreate = await jd("POST", "/v1/hypervisor/provider-ops", A.owned({
     provider_id: vast.account_id, op: "create", environment_ref: env, candidate_ref: fixCand.candidate_ref,
-  });
+  }));
   ok("FIXTURE quote → mutation rejected (vast_quote_not_live) — fixture stays advisory forever",
     fixtureCreate.status === 409 && /vast_quote_not_live/.test(fixtureCreate.j.reason || ""));
   // Expired quote.
@@ -135,19 +138,19 @@ async function run() {
   const shortCands = (await jd("GET", `/v1/hypervisor/cloud-candidates/candidates?intent_ref=${intent.intent_ref}`)).j.candidates || [];
   const shortCand = shortCands.find((c) => c.provider_kind === "vast" && c.status === "active") || {};
   await sleep(6500);
-  const expiredCreate = await jd("POST", "/v1/hypervisor/provider-ops", {
+  const expiredCreate = await jd("POST", "/v1/hypervisor/provider-ops", A.owned({
     provider_id: vast.account_id, op: "create", environment_ref: env, candidate_ref: shortCand.candidate_ref,
-  });
+  }));
   ok("EXPIRED quote → mutation rejected (vast_quote_expired_requires_requote)",
     expiredCreate.status === 409 && /vast_quote_expired_requires_requote/.test(expiredCreate.j.reason || ""));
 
   // ── 5. Authority: challenge binds the quote facts; presence strings never pass ──
   const fresh = (await jd("POST", "/v1/hypervisor/cloud-candidates/candidates/refresh", { intent_ref: intent.intent_ref })).j;
   const cand = (fresh.candidates || []).find((c) => c.provider_kind === "vast") || {};
-  const challenge = await jd("POST", "/v1/hypervisor/provider-ops", {
+  const challenge = await jd("POST", "/v1/hypervisor/provider-ops", A.owned({
     provider_id: vast.account_id, op: "create", environment_ref: env,
     candidate_ref: cand.candidate_ref, max_hourly_usd: 0.5, teardown_policy: "always_teardown_required",
-  });
+  }));
   const facets = challenge.j.lease_request_facets || {};
   ok("missing grant → 403 wallet/capability challenge binding account+quote+candidate+max-price+GPU+teardown+spend posture",
     challenge.status === 403 && !!challenge.j.approval?.policy_hash
@@ -155,15 +158,15 @@ async function run() {
     && facets.max_hourly_usd === 0.5 && facets.gpu?.model === "RTX 4090"
     && facets.teardown_policy === "always_teardown_required"
     && !!challenge.j.spend_estimate);
-  const fakeGrant = await jd("POST", "/v1/hypervisor/provider-ops", {
+  const fakeGrant = await jd("POST", "/v1/hypervisor/provider-ops", A.owned({
     provider_id: vast.account_id, op: "create", environment_ref: env,
     candidate_ref: cand.candidate_ref, grant_ref: "grant://fake-presence-string",
-  });
+  }));
   ok("fake grant_ref presence string → still 403 (never admitted)", fakeGrant.status === 403);
-  const overMax = await jd("POST", "/v1/hypervisor/provider-ops", {
+  const overMax = await jd("POST", "/v1/hypervisor/provider-ops", A.owned({
     provider_id: vast.account_id, op: "create", environment_ref: env,
     candidate_ref: cand.candidate_ref, max_hourly_usd: 0.10,
-  });
+  }));
   ok("price above declared max → refused before any lease (vast_price_above_max)",
     overMax.status === 409 && /vast_price_above_max/.test(overMax.j.reason || ""));
 
@@ -372,7 +375,7 @@ async function cleanup() {
   // Teardown ALWAYS runs — including failure paths (live instance first: real money).
   try {
     if (liveAccountId && liveEnv) {
-      const obs = await jd("POST", "/v1/hypervisor/provider-ops", { provider_id: liveAccountId, op: "observe", environment_ref: liveEnv });
+      const obs = await jd("POST", "/v1/hypervisor/provider-ops", A.owned({ provider_id: liveAccountId, op: "observe", environment_ref: liveEnv }));
       if (obs.j?.evidence?.teardown_state === "live_or_pending") {
         const prevA = vastAccountId; const prevE = env;
         vastAccountId = liveAccountId; env = liveEnv;
@@ -383,7 +386,7 @@ async function cleanup() {
   } catch { /* live teardown best effort — verify the Vast console if this ever fails */ }
   try {
     if (vastAccountId && env) {
-      const obs = await jd("POST", "/v1/hypervisor/provider-ops", { provider_id: vastAccountId, op: "observe", environment_ref: env });
+      const obs = await jd("POST", "/v1/hypervisor/provider-ops", A.owned({ provider_id: vastAccountId, op: "observe", environment_ref: env }));
       if (obs.j?.evidence?.teardown_state === "live_or_pending") {
         await opWithGrant(vastAccountId, "delete");
       }
@@ -404,9 +407,10 @@ run()
     for (const r of results) { console.log(`  ${r.pass ? "PASS" : "FAIL"}  ${r.name}${r.detail ? `  (${r.detail})` : ""}`); if (!r.pass) fail++; }
     console.log(`\n${results.length - fail}/${results.length} passed`);
     console.log(`vast guarded lifecycle readiness: ${fail ? "FAIL" : "OK"}${LIVE_MODE ? (liveProven ? " (live_execution_proven)" : " (live blocked/incomplete)") : " (live_provisioning_not_run)"}`);
-    FIXTURES.remove(); STACK.stop().finally(() => process.exit(fail ? 1 : 0));
+    if (A.decisionRefusals.length) console.log(`authority decisions refused: ${A.decisionRefusals.map((d) => `${d.op || "?"}: ${d.status} ${d.code}`).join(", ")}`);
+    FIXTURES.remove(); A.stop().finally(() => process.exit(fail ? 1 : 0));
   })
   .catch((e) => {
     console.error("verifier crashed:", e);
-    process.exit(1);
+    A.stop().finally(() => process.exit(1));
   });

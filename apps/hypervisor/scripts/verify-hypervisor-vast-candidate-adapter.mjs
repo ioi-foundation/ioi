@@ -150,7 +150,10 @@ async function run() {
   const ops = ((await jd("GET", "/v1/hypervisor/provider-operations")).j.operations || [])
     .filter((o) => o.account_ref === vast.account_ref);
   ok("no provider mutation occurred on the quote path (zero admitted ops for the vast account)", ops.length === 0);
+  // (a provider-ops write names its owner and an idempotency key — R-240, provider adapters on an authority stack — so the
+  // quote-as-grant is refused by the gate ladder, never by the write's envelope)
   const asGrant = await jd("POST", "/v1/hypervisor/provider-ops", {
+    owner_ref: STACK.owner, idempotency_key: `vast-candidate-quote-as-grant-${tag}`,
     provider_id: vast.account_id, op: "create", environment_ref: `env-vast-${tag}`,
     wallet_approval_grant: { quote_ref: c4090.quote_ref },
   });

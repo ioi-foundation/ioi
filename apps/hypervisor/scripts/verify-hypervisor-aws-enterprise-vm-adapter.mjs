@@ -11,11 +11,11 @@
 import path from "node:path";
 import { writeFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
-import { verifierFixtureDir, verifierStack } from "./lib/verifier-stack.mjs";
+import { verifierFixtureDir } from "./lib/verifier-stack.mjs";
+import { authorityVerifierStack } from "./lib/verifier-authority-stack.mjs";
 
 const HERE = path.dirname(fileURLToPath(import.meta.url));
 const { ensureSshFixture } = await import(path.join(HERE, "ensure-ssh-fixture.mjs"));
-const { mintApprovalGrant } = await import(path.join(HERE, "../../../scripts/lib/mint-approval-grant.mjs"));
 const { teardownFindings, selfTestTeardownContract } = await import(path.join(HERE, "lib/teardown-disposition.mjs"));
 
 // Its own isolated daemon + serve on a temp data dir, the operator signed in, its offer/bid/facts documents in a temp
@@ -23,7 +23,15 @@ const { teardownFindings, selfTestTeardownContract } = await import(path.join(HE
 // 2026-09-29). This verifier used to delete (and, through the daemon, write) resource-budgets/*-verify.json in the
 // OWNER's data dir, delete exposure records out of it, and write fixtures under ~/.ioi/hypervisor/vast-fixture; a fresh
 // plane is torn down whole.
-const STACK = await verifierStack({ serve: true, fresh: true });
+//
+// A REAL AUTHORITY, NOT A TEST SIGNER (R-240, provider adapters on an authority stack, 2026-09-29). A provider-ops write
+// names its owner and an idempotency key (400 mutation_owner_ref_required otherwise), and a grant-gated crossing needs a
+// configured authority principal — a test-signer grant is no authority (501 provider_operation_authority_required). The
+// daemon takes its grants from a sealed deployment-local wallet.network authority of this verifier's own
+// (lib/verifier-authority-stack.mjs): the ungranted call parks a challenge, the operator approves it with the run's
+// passphrase on the daemon's decision route, and the retry names the approval_ref. A sealed bring-up takes minutes.
+const A = await authorityVerifierStack({ label: "aws-enterprise-vm" });
+const STACK = A.stack;
 const DAEMON = STACK.daemonUrl;
 const SHELL = STACK.serveUrl;
 const FIXTURES = verifierFixtureDir("aws");
@@ -47,19 +55,9 @@ const awsSource = async () => {
 let accountId = null;
 let env = null;
 let casBackendId = null;
-async function opWithGrant(o, extra = {}) {
-  const base = { provider_id: accountId, op: o, environment_ref: extra.environment_ref || env, ...extra };
-  const c = await jd("POST", "/v1/hypervisor/provider-ops", base);
-  if (c.status !== 403) return c;
-  const grant = mintApprovalGrant({ policyHash: c.j.approval.policy_hash, requestHash: c.j.approval.request_hash });
-  return jd("POST", "/v1/hypervisor/provider-ops", { ...base, wallet_approval_grant: grant });
-}
-async function archiveOp(body) {
-  const c = await jd("POST", "/v1/hypervisor/storage-archive-ops", body);
-  if (c.status !== 403) return c;
-  const grant = mintApprovalGrant({ policyHash: c.j.approval.policy_hash, requestHash: c.j.approval.request_hash });
-  return jd("POST", "/v1/hypervisor/storage-archive-ops", { ...body, wallet_approval_grant: grant });
-}
+// one logical op, one idempotency key: the challenged call and its granted retry are the same request
+const opWithGrant = (o, extra = {}) => A.crossing("/v1/hypervisor/provider-ops", A.owned({ provider_id: accountId, op: o, environment_ref: extra.environment_ref || env, ...extra }));
+const archiveOp = (body) => A.crossing("/v1/hypervisor/storage-archive-ops", body);
 
 async function run() {
   const tag = Date.now().toString(16);
@@ -147,15 +145,15 @@ async function run() {
   await jd("PATCH", `/v1/hypervisor/provider-accounts/${aws.account_id}`, { endpoint: simEndpoint });
   await jd("POST", `/v1/hypervisor/provider-accounts/${aws.account_id}/preflight`);
   await jd("POST", "/v1/hypervisor/resource/budgets", { budget_id: "aws-verify", name: "AWS verify", scope: "external_spend", limit: 3, spent: 0, currency: "USD" });
-  const fixCreate = await jd("POST", "/v1/hypervisor/provider-ops", { provider_id: accountId, op: "create", environment_ref: env, candidate_ref: g5.candidate_ref });
+  const fixCreate = await jd("POST", "/v1/hypervisor/provider-ops", A.owned({ provider_id: accountId, op: "create", environment_ref: env, candidate_ref: g5.candidate_ref }));
   const sim = (await jd("POST", "/v1/hypervisor/cloud-candidates/candidates/refresh", { intent_ref: intent.intent_ref })).j;
   const cand = (sim.candidates || []).find((c) => c.provider_kind === "aws" && c.instance_type === "g5.xlarge") || {};
-  const overMax = await jd("POST", "/v1/hypervisor/provider-ops", { provider_id: accountId, op: "create", environment_ref: env, candidate_ref: cand.candidate_ref, max_hourly_usd: 0.10 });
+  const overMax = await jd("POST", "/v1/hypervisor/provider-ops", A.owned({ provider_id: accountId, op: "create", environment_ref: env, candidate_ref: cand.candidate_ref, max_hourly_usd: 0.10 }));
   ok("quote gate refuses fixture + over-max with aws-named reasons",
     fixCreate.status === 409 && /aws_quote_not_live/.test(fixCreate.j.reason || "")
     && overMax.status === 409 && /aws_price_above_max/.test(overMax.j.reason || ""));
-  const createBase = { provider_id: accountId, op: "create", environment_ref: env,
-    candidate_ref: cand.candidate_ref, max_hourly_usd: 1.1, teardown_policy: "always_teardown_required" };
+  const createBase = A.owned({ provider_id: accountId, op: "create", environment_ref: env,
+    candidate_ref: cand.candidate_ref, max_hourly_usd: 1.1, teardown_policy: "always_teardown_required" });
   const challenge = await jd("POST", "/v1/hypervisor/provider-ops", createBase);
   const facets = challenge.j.lease_request_facets || {};
   ok("wallet challenge binds AWS-specific facets (region + AZ + instance type + disk + NETWORK POSTURE + teardown)",
@@ -165,7 +163,7 @@ async function run() {
     && facets.network_posture?.posture_label === "default_vpc_simulator"
     && facets.network_posture?.public_ip === true && facets.network_posture?.ssh_ingress === true
     && facets.teardown_policy === "always_teardown_required");
-  const grant = mintApprovalGrant({ policyHash: challenge.j.approval.policy_hash, requestHash: challenge.j.approval.request_hash });
+  const grant = await A.approve(challenge);
   const created = await jd("POST", "/v1/hypervisor/provider-ops", { ...createBase, wallet_approval_grant: grant });
   ok("grant-authorized create provisions the (simulated) EC2 instance — ssh UNKNOWN, EBS root volume evidence-only",
     created.j.ok === true
@@ -179,7 +177,7 @@ async function run() {
   const preBoot = await opWithGrant("workrun", { command: "echo too-early" });
   ok("pre-boot workrun fails CLOSED with aws_ssh_bootstrap_unknown",
     preBoot.j.ok === false && /aws_ssh_bootstrap_unknown/.test(preBoot.j.reason || ""));
-  const overBudget = await jd("POST", "/v1/hypervisor/provider-ops", { provider_id: accountId, op: "create", environment_ref: `env-aws2-${tag}`, candidate_ref: cand.candidate_ref, max_hourly_usd: 2.5 });
+  const overBudget = await jd("POST", "/v1/hypervisor/provider-ops", A.owned({ provider_id: accountId, op: "create", environment_ref: `env-aws2-${tag}`, candidate_ref: cand.candidate_ref, max_hourly_usd: 2.5 }));
   ok("external_spend reservation blocks the over-budget second create",
     overBudget.status === 409 && /aws_budget_reservation_exceeded/.test(overBudget.j.reason || ""));
   const started = await opWithGrant("start");
@@ -256,7 +254,7 @@ async function run() {
   const brokeU = await opWithGrant("workrun", { environment_ref: envU, command: "chmod 500 .." });
   const delU = await opWithGrant("delete", { environment_ref: envU });
   const unverified = teardownFindings(delU, "torn_down_unverified");
-  const obsU = await jd("POST", "/v1/hypervisor/provider-ops", { provider_id: accountId, op: "observe", environment_ref: envU });
+  const obsU = await jd("POST", "/v1/hypervisor/provider-ops", A.owned({ provider_id: accountId, op: "observe", environment_ref: envU }));
   ok("an UNREACHABLE cleanup half is torn_down_unverified with a durable obligation, is never reported verified, and delete still answers",
     brokeU.j.evidence?.exit_code === 0 && unverified.length === 0
     && delU.j.evidence?.remote_workspace_cleanup === "unreachable"
@@ -291,12 +289,12 @@ async function run() {
   const env3 = `env-aws3-${tag}`;
   const sim3 = (await jd("POST", "/v1/hypervisor/cloud-candidates/candidates/refresh", { intent_ref: intent.intent_ref })).j;
   const cand3 = (sim3.candidates || []).find((c) => c.provider_kind === "aws" && c.instance_type === "m5.large") || {};
-  const privBase = { provider_id: accountId, op: "create", environment_ref: env3,
+  const privBase = A.owned({ provider_id: accountId, op: "create", environment_ref: env3,
     candidate_ref: cand3.candidate_ref, max_hourly_usd: 0.2,
-    network: { vpc_id: "vpc-0priv", subnet_id: "subnet-0priv", security_group_id: "sg-0priv", public_ip: false } };
+    network: { vpc_id: "vpc-0priv", subnet_id: "subnet-0priv", security_group_id: "sg-0priv", public_ip: false } });
   const privChallenge = await jd("POST", "/v1/hypervisor/provider-ops", privBase);
   const privFacets = privChallenge.j.lease_request_facets || {};
-  const privGrant = mintApprovalGrant({ policyHash: privChallenge.j.approval.policy_hash, requestHash: privChallenge.j.approval.request_hash });
+  const privGrant = await A.approve(privChallenge);
   const privCreated = await jd("POST", "/v1/hypervisor/provider-ops", { ...privBase, wallet_approval_grant: privGrant });
   const privStart = await opWithGrant("start", { environment_ref: env3 });
   ok("explicit VPC config binds in facets; private-only posture fails CLOSED at boot (never fake-ready)",
@@ -323,7 +321,7 @@ async function run() {
     && /enterprise customer-cloud \(guarded adapter\)/.test(venues));
   await jd("PATCH", `/v1/hypervisor/provider-accounts/${aws.account_id}`, { endpoint: { mode: "live", endpoint: "http://127.0.0.1:9" } });
   await jd("POST", `/v1/hypervisor/provider-accounts/${aws.account_id}/preflight`);
-  const liveCreate = await jd("POST", "/v1/hypervisor/provider-ops", { provider_id: accountId, op: "create", environment_ref: `env-aws4-${tag}`, candidate_ref: cand3.candidate_ref, max_hourly_usd: 0.2 });
+  const liveCreate = await jd("POST", "/v1/hypervisor/provider-ops", A.owned({ provider_id: accountId, op: "create", environment_ref: `env-aws4-${tag}`, candidate_ref: cand3.candidate_ref, max_hourly_usd: 0.2 }));
   ok("live mode blocks NAMED — live provisioning demands live quotes/config, never a fake instance",
     liveCreate.status === 409 && /aws_quote_mode_mismatch|aws_quote_expired_requires_requote/.test(liveCreate.j.reason || ""));
   if (LIVE_MODE && !LIVE_KEY) {
@@ -342,7 +340,7 @@ async function cleanup() {
   try {
     if (accountId && env) {
       for (const e of [env, env.replace("env-aws-", "env-aws2-"), env.replace("env-aws-", "env-aws3-")]) {
-        const obs = await jd("POST", "/v1/hypervisor/provider-ops", { provider_id: accountId, op: "observe", environment_ref: e });
+        const obs = await jd("POST", "/v1/hypervisor/provider-ops", A.owned({ provider_id: accountId, op: "observe", environment_ref: e }));
         if (obs.j?.evidence?.teardown_state === "live_or_pending") await opWithGrant("delete", { environment_ref: e });
       }
     }
@@ -358,9 +356,10 @@ run()
     for (const r of results) { console.log(`  ${r.pass ? "PASS" : "FAIL"}  ${r.name}${r.detail ? `  (${r.detail})` : ""}`); if (!r.pass) fail++; }
     console.log(`\n${results.length - fail}/${results.length} passed`);
     console.log(`aws enterprise vm adapter readiness: ${fail ? "FAIL" : "OK"}${LIVE_MODE ? "" : " (live_provisioning_not_run)"}`);
-    FIXTURES.remove(); STACK.stop().finally(() => process.exit(fail ? 1 : 0));
+    if (A.decisionRefusals.length) console.log(`authority decisions refused: ${A.decisionRefusals.map((d) => `${d.op || "?"}: ${d.status} ${d.code}`).join(", ")}`);
+    FIXTURES.remove(); A.stop().finally(() => process.exit(fail ? 1 : 0));
   })
   .catch((e) => {
     console.error("verifier crashed:", e);
-    process.exit(1);
+    A.stop().finally(() => process.exit(1));
   });

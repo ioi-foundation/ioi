@@ -15,11 +15,11 @@
 import path from "node:path";
 import { writeFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
-import { verifierFixtureDir, verifierStack } from "./lib/verifier-stack.mjs";
+import { verifierFixtureDir } from "./lib/verifier-stack.mjs";
+import { authorityVerifierStack } from "./lib/verifier-authority-stack.mjs";
 
 const HERE = path.dirname(fileURLToPath(import.meta.url));
 const { ensureSshFixture } = await import(path.join(HERE, "ensure-ssh-fixture.mjs"));
-const { mintApprovalGrant } = await import(path.join(HERE, "../../../scripts/lib/mint-approval-grant.mjs"));
 const { teardownFindings, selfTestTeardownContract } = await import(path.join(HERE, "lib/teardown-disposition.mjs"));
 
 // Its own isolated daemon + serve on a temp data dir, the operator signed in, its offer/bid/facts documents in a temp
@@ -27,7 +27,15 @@ const { teardownFindings, selfTestTeardownContract } = await import(path.join(HE
 // 2026-09-29). This verifier used to delete (and, through the daemon, write) resource-budgets/*-verify.json in the
 // OWNER's data dir, delete exposure records out of it, and write fixtures under ~/.ioi/hypervisor/vast-fixture; a fresh
 // plane is torn down whole.
-const STACK = await verifierStack({ serve: true, fresh: true });
+//
+// A REAL AUTHORITY, NOT A TEST SIGNER (R-240, provider adapters on an authority stack, 2026-09-29). A provider-ops write
+// names its owner and an idempotency key (400 mutation_owner_ref_required otherwise), and a grant-gated crossing needs a
+// configured authority principal — a test-signer grant is no authority (501 provider_operation_authority_required). The
+// daemon takes its grants from a sealed deployment-local wallet.network authority of this verifier's own
+// (lib/verifier-authority-stack.mjs): the ungranted call parks a challenge, the operator approves it with the run's
+// passphrase on the daemon's decision route, and the retry names the approval_ref. A sealed bring-up takes minutes.
+const A = await authorityVerifierStack({ label: "runpod" });
+const STACK = A.stack;
 const DAEMON = STACK.daemonUrl;
 const SHELL = STACK.serveUrl;
 const FIXTURES = verifierFixtureDir("runpod");
@@ -51,13 +59,8 @@ const runpodSource = async () => {
 
 let accountId = null;
 let env = null;
-async function opWithGrant(o, extra = {}) {
-  const base = { provider_id: accountId, op: o, environment_ref: env, ...extra };
-  const c = await jd("POST", "/v1/hypervisor/provider-ops", base);
-  if (c.status !== 403) return c;
-  const grant = mintApprovalGrant({ policyHash: c.j.approval.policy_hash, requestHash: c.j.approval.request_hash });
-  return jd("POST", "/v1/hypervisor/provider-ops", { ...base, wallet_approval_grant: grant });
-}
+// one logical op, one idempotency key: the challenged call and its granted retry are the same request
+const opWithGrant = (o, extra = {}) => A.crossing("/v1/hypervisor/provider-ops", A.owned({ provider_id: accountId, op: o, environment_ref: env, ...extra }));
 
 async function run() {
   const tag = Date.now().toString(16);
@@ -134,10 +137,10 @@ async function run() {
   // supersedes it, which would fire the expired/superseded rung instead of the fixture rung).
   const fixCand = rpc.find((c) => c.cloud_type === "secure_cloud_on_demand") || {};
   await jd("POST", "/v1/hypervisor/resource/budgets", { budget_id: "runpod-verify", name: "RunPod verify", scope: "external_spend", limit: 1, spent: 0, currency: "USD" });
-  const fixCreate = await jd("POST", "/v1/hypervisor/provider-ops", { provider_id: accountId, op: "create", environment_ref: env, candidate_ref: fixCand.candidate_ref });
+  const fixCreate = await jd("POST", "/v1/hypervisor/provider-ops", A.owned({ provider_id: accountId, op: "create", environment_ref: env, candidate_ref: fixCand.candidate_ref }));
   const sim = (await jd("POST", "/v1/hypervisor/cloud-candidates/candidates/refresh", { intent_ref: intent.intent_ref })).j;
   const cand = (sim.candidates || []).find((c) => c.provider_kind === "runpod" && c.cloud_type === "secure_cloud_on_demand") || {};
-  const overMax = await jd("POST", "/v1/hypervisor/provider-ops", { provider_id: accountId, op: "create", environment_ref: env, candidate_ref: cand.candidate_ref, max_hourly_usd: 0.10 });
+  const overMax = await jd("POST", "/v1/hypervisor/provider-ops", A.owned({ provider_id: accountId, op: "create", environment_ref: env, candidate_ref: cand.candidate_ref, max_hourly_usd: 0.10 }));
   ok("quote gate refuses fixture + over-max with runpod-named reasons",
     fixCreate.status === 409 && /runpod_quote_not_live/.test(fixCreate.j.reason || "")
     && overMax.status === 409 && /runpod_price_above_max/.test(overMax.j.reason || ""));
@@ -147,7 +150,7 @@ async function run() {
     && String(created.j.evidence?.instance?.instance_id || "").startsWith("rpsim_")
     && created.j.evidence?.live_provisioning_not_run === true
     && /no real RunPod pod exists/.test(created.j.evidence?.provider_native?.note || ""));
-  const overBudget = await jd("POST", "/v1/hypervisor/provider-ops", { provider_id: accountId, op: "create", environment_ref: `env-rp2-${tag}`, candidate_ref: cand.candidate_ref, max_hourly_usd: 0.7 });
+  const overBudget = await jd("POST", "/v1/hypervisor/provider-ops", A.owned({ provider_id: accountId, op: "create", environment_ref: `env-rp2-${tag}`, candidate_ref: cand.candidate_ref, max_hourly_usd: 0.7 }));
   ok("external_spend reservation blocks the over-budget second create",
     overBudget.status === 409 && /runpod_budget_reservation_exceeded/.test(overBudget.j.reason || ""));
   const marker = `runpod-${tag}`;
@@ -191,14 +194,18 @@ async function run() {
 
   const envMain = env;
   const preflight = async () => jd("POST", `/v1/hypervisor/provider-accounts/${rp.account_id}/preflight`);
+  // (a quote lives 15 minutes, and each crossing is now a real authority's approval, minutes long: every create below
+  // takes a fresh quote for the same offer, as the product requires — an expired one is refused before any lease)
+  const freshCand = async () => ((await jd("POST", "/v1/hypervisor/cloud-candidates/candidates/refresh", { intent_ref: intent.intent_ref })).j.candidates || [])
+    .find((c) => c.provider_kind === "runpod" && c.cloud_type === "secure_cloud_on_demand") || {};
   // UNVERIFIED: absence cannot be re-observed, so the outcome is Unknown — never coerced.
   env = `env-rp-unverified-${tag}`;
-  await opWithGrant("create", { candidate_ref: cand.candidate_ref, max_hourly_usd: 0.7, teardown_policy: "always_teardown_required" });
+  await opWithGrant("create", { candidate_ref: (await freshCand()).candidate_ref, max_hourly_usd: 0.7, teardown_policy: "always_teardown_required" });
   await opWithGrant("start");
   const broke = await opWithGrant("workrun", { command: "chmod 500 .." });
   const delUnverified = await opWithGrant("delete");
   const unverified = teardownFindings(delUnverified, "torn_down_unverified");
-  const obsUnverified = await jd("POST", "/v1/hypervisor/provider-ops", { provider_id: accountId, op: "observe", environment_ref: env });
+  const obsUnverified = await jd("POST", "/v1/hypervisor/provider-ops", A.owned({ provider_id: accountId, op: "observe", environment_ref: env }));
   ok("an UNREACHABLE cleanup half is torn_down_unverified with a durable obligation, is never reported verified, and delete still answers",
     broke.j.evidence?.exit_code === 0 && unverified.length === 0
     && delUnverified.j.evidence?.remote_workspace_cleanup === "unreachable"
@@ -212,7 +219,7 @@ async function run() {
 
   // FAILED: the provider-native destroy explicitly reported it did not destroy.
   env = `env-rp-failed-${tag}`;
-  await opWithGrant("create", { candidate_ref: cand.candidate_ref, max_hourly_usd: 0.7, teardown_policy: "always_teardown_required" });
+  await opWithGrant("create", { candidate_ref: (await freshCand()).candidate_ref, max_hourly_usd: 0.7, teardown_policy: "always_teardown_required" });
   await opWithGrant("start");
   await jd("PATCH", `/v1/hypervisor/provider-accounts/${rp.account_id}`, { endpoint: { ...simEndpoint, simulate_teardown_failure: true } });
   await preflight();
@@ -257,7 +264,7 @@ async function run() {
 async function cleanup() {
   try {
     if (accountId && env) {
-      const obs = await jd("POST", "/v1/hypervisor/provider-ops", { provider_id: accountId, op: "observe", environment_ref: env });
+      const obs = await jd("POST", "/v1/hypervisor/provider-ops", A.owned({ provider_id: accountId, op: "observe", environment_ref: env }));
       if (obs.j?.evidence?.teardown_state === "live_or_pending") await opWithGrant("delete");
     }
   } catch { /* best effort */ }
@@ -271,9 +278,10 @@ run()
     for (const r of results) { console.log(`  ${r.pass ? "PASS" : "FAIL"}  ${r.name}${r.detail ? `  (${r.detail})` : ""}`); if (!r.pass) fail++; }
     console.log(`\n${results.length - fail}/${results.length} passed`);
     console.log(`runpod adapter readiness: ${fail ? "FAIL" : "OK"}${LIVE_MODE ? "" : " (live_provisioning_not_run)"}`);
-    FIXTURES.remove(); STACK.stop().finally(() => process.exit(fail ? 1 : 0));
+    if (A.decisionRefusals.length) console.log(`authority decisions refused: ${A.decisionRefusals.map((d) => `${d.op || "?"}: ${d.status} ${d.code}`).join(", ")}`);
+    FIXTURES.remove(); A.stop().finally(() => process.exit(fail ? 1 : 0));
   })
   .catch((e) => {
     console.error("verifier crashed:", e);
-    process.exit(1);
+    A.stop().finally(() => process.exit(1));
   });

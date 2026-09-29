@@ -17,14 +17,22 @@
 import path from "node:path";
 import { writeFileSync } from "node:fs";
 import { ensureSshFixture } from "./ensure-ssh-fixture.mjs";
-import { mintApprovalGrant } from "../../../scripts/lib/mint-approval-grant.mjs";
-import { refuseOwnerPath, verifierFixtureDir, verifierStack } from "./lib/verifier-stack.mjs";
+import { refuseOwnerPath, verifierFixtureDir } from "./lib/verifier-stack.mjs";
+import { authorityVerifierStack } from "./lib/verifier-authority-stack.mjs";
 
 // Its own isolated daemon + serve on a temp data dir, the operator signed in, its offer/bid/facts documents in a temp
 // fixture dir — never the owner's :8765/:4173 nor anything under ~/.ioi/hypervisor (R-240, verifier hygiene,
 // 2026-09-29). This verifier used to delete (and, through the daemon, write) resource-budgets/*-verify.json in the
 // OWNER's data dir and write fixtures under ~/.ioi/hypervisor/vast-fixture; a fresh plane is torn down whole.
-const STACK = await verifierStack({ serve: true, fresh: true });
+//
+// A REAL AUTHORITY, NOT A TEST SIGNER (R-240, provider adapters on an authority stack, 2026-09-29). A provider-ops write
+// names its owner and an idempotency key (400 mutation_owner_ref_required otherwise), and a grant-gated crossing needs a
+// configured authority principal — a test-signer grant is no authority (501 provider_operation_authority_required). The
+// daemon takes its grants from a sealed deployment-local wallet.network authority of this verifier's own
+// (lib/verifier-authority-stack.mjs): the ungranted call parks a challenge, the operator approves it with the run's
+// passphrase on the daemon's decision route, and the retry names the approval_ref. A sealed bring-up takes minutes.
+const A = await authorityVerifierStack({ label: "cross-provider-failover" });
+const STACK = A.stack;
 const DAEMON = STACK.daemonUrl;
 const SHELL = STACK.serveUrl;
 const FIXTURES = verifierFixtureDir("xfo");
@@ -39,21 +47,12 @@ async function jd(method, url, body) {
   });
   return { status: r.status, j: await r.json().catch(() => ({})) };
 }
-function grantFor(challenge) {
-  const a = challenge?.approval || challenge?.next_required?.approval || {};
-  return mintApprovalGrant({ policyHash: a.policy_hash, requestHash: a.request_hash });
-}
-async function opWithGrant(providerId, op, extra = {}) {
-  const base = { provider_id: providerId, op, ...extra };
-  const c = await jd("POST", "/v1/hypervisor/provider-ops", base);
-  if (c.status !== 403) return c;
-  return jd("POST", "/v1/hypervisor/provider-ops", { ...base, wallet_approval_grant: grantFor(c.j) });
-}
-async function archiveOp(body) {
-  const c = await jd("POST", "/v1/hypervisor/storage-archive-ops", body);
-  if (c.status !== 403) return c;
-  return jd("POST", "/v1/hypervisor/storage-archive-ops", { ...body, wallet_approval_grant: grantFor(c.j) });
-}
+// The operator's approval of what a refusal parked: a failover run parked at a wallet gate carries the provider op's
+// refusal (its challenge) in next_required.challenge.
+const grantFor = (parked) => A.approve({ j: parked?.challenge || parked?.next_required?.challenge || parked || {} });
+// one logical op, one idempotency key: the challenged call and its granted retry are the same request
+const opWithGrant = (providerId, op, extra = {}) => A.crossing("/v1/hypervisor/provider-ops", A.owned({ provider_id: providerId, op, ...extra }));
+const archiveOp = (body) => A.crossing("/v1/hypervisor/storage-archive-ops", body);
 
 let vastId = "", akashId = "", env = "", replacementEnv = "";
 
@@ -158,6 +157,9 @@ async function run() {
     noMat.status === 409 && noMat.j.reason === "failover_refused_no_restore_material");
 
   // ── the real failover: declared host_unreachable, cross-class ──
+  // (a quote lives 15 minutes, and each crossing above was a real authority's approval, minutes long: the replacement is
+  // chosen among fresh candidates, as a failover after a real outage would be — the first batch's have expired)
+  await jd("POST", "/v1/hypervisor/cloud-candidates/candidates/refresh", { intent_ref: intent.intent_ref });
   const p1 = await jd("POST", "/v1/hypervisor/failover/run", { plan_ref: plan.plan_ref, failure_condition: "host_unreachable", max_hourly_usd: 0.4, teardown_policy: "always_teardown_required" });
   let runRec = p1.j.run || {};
   replacementEnv = runRec.replacement_environment_ref || "";
@@ -171,19 +173,20 @@ async function run() {
   const opsBefore = (await jd("GET", "/v1/hypervisor/provider-operations")).j;
   const replOpsBefore = (opsBefore.operations || opsBefore || []).filter?.((o) => o.environment_ref === replacementEnv)?.length ?? 0;
   ok("awaiting authority = zero replacement mutation happened (no wallet grant, no create)", replOpsBefore === 0);
-  const p2 = await jd("POST", "/v1/hypervisor/failover/run", { run_ref: runRec.run_ref, wallet_approval_grant_create: grantFor(runRec.next_required) });
+  const p2 = await jd("POST", "/v1/hypervisor/failover/run", { run_ref: runRec.run_ref, wallet_approval_grant_create: await grantFor(runRec.next_required) });
   runRec = p2.j.run || {};
   ok("granted create lands on replacement class; run advances to start gate",
     runRec.status === "awaiting_authority_start" && (runRec.events || []).some((e) => e.phase === "replacement_created"));
-  const p2b = await jd("POST", "/v1/hypervisor/failover/run", { run_ref: runRec.run_ref, wallet_approval_grant_start: grantFor(runRec.next_required) });
+  const p2b = await jd("POST", "/v1/hypervisor/failover/run", { run_ref: runRec.run_ref, wallet_approval_grant_start: await grantFor(runRec.next_required) });
   runRec = p2b.j.run || {};
   ok("replacement endpoint proven (started) before restore is attempted",
     runRec.status === "awaiting_authority_restore" && (runRec.events || []).some((e) => e.phase === "started"));
-  const p3 = await jd("POST", "/v1/hypervisor/failover/run", { run_ref: runRec.run_ref, wallet_approval_grant_restore: grantFor(runRec.next_required) });
+  const p3 = await jd("POST", "/v1/hypervisor/failover/run", { run_ref: runRec.run_ref, wallet_approval_grant_restore: await grantFor(runRec.next_required) });
   runRec = p3.j.run || {};
   ok("state_root-validated restore admits on the replacement provider",
-    runRec.status === "awaiting_authority_teardown" && (runRec.events || []).some((e) => e.phase === "restored"));
-  const p4 = await jd("POST", "/v1/hypervisor/failover/run", { run_ref: runRec.run_ref, wallet_approval_grant_teardown: grantFor(runRec.next_required) });
+    runRec.status === "awaiting_authority_teardown" && (runRec.events || []).some((e) => e.phase === "restored"),
+    `${runRec.status} · ${(runRec.events || []).slice(-2).map((e) => `${e.phase}:${e.status}`).join(", ")} · ${JSON.stringify(runRec.old_teardown || null).slice(0, 200)}`);
+  const p4 = await jd("POST", "/v1/hypervisor/failover/run", { run_ref: runRec.run_ref, wallet_approval_grant_teardown: await grantFor(runRec.next_required) });
   runRec = p4.j.run || {};
   ok("old provider closed; failover run completes", ["restored", "restored_with_warning"].includes(runRec.status)
     && (runRec.events || []).some((e) => e.phase === "old_closed"));
@@ -199,7 +202,8 @@ async function run() {
   const oldExp = exps.find((e) => e.environment_ref === env && e.account_ref === vast.account_ref) || {};
   const newExp = exps.find((e) => e.environment_ref === replacementEnv) || {};
   ok("spend exposure closed on old provider and open on replacement",
-    ["closed", "closed_with_warning"].includes(oldExp.status) && newExp.status === "open");
+    ["closed", "closed_with_warning"].includes(oldExp.status) && newExp.status === "open",
+    `old ${oldExp.status || "none"} · new ${newExp.status || "none"}`);
 
   // ── archive ladder positive + corrupt-archive negative ──
   const mats = (await jd("GET", "/v1/hypervisor/provider-materials")).j;
@@ -208,7 +212,7 @@ async function run() {
   const plan2 = (await jd("POST", "/v1/hypervisor/failover/plans", { environment_ref: env, source_account_ref: vast.account_ref, intent_ref: intent.intent_ref })).j.plan || {};
   let r2 = (await jd("POST", "/v1/hypervisor/failover/run", { plan_ref: plan2.plan_ref, failure_condition: "provider_outage", max_hourly_usd: 0.4 })).j.run || {};
   if (r2.status === "awaiting_authority_archive_restore") {
-    r2 = (await jd("POST", "/v1/hypervisor/failover/run", { run_ref: r2.run_ref, wallet_approval_grant_archive_restore: grantFor(r2.next_required) })).j.run || {};
+    r2 = (await jd("POST", "/v1/hypervisor/failover/run", { run_ref: r2.run_ref, wallet_approval_grant_archive_restore: await grantFor(r2.next_required) })).j.run || {};
   }
   ok("corrupt daemon custody heals through the storage-archive 5-gate ladder (fetch→hash→decrypt→state_root)",
     (r2.events || []).some((e) => e.phase === "material_secured" && /storage_archive/.test(e.detail?.via || "")));
@@ -224,11 +228,12 @@ async function run() {
   if (r3run.status === "awaiting_authority_archive_restore") {
     // the ladder is wallet-gated even on the way to a refusal — resume, then
     // the commitment-hash gate must refuse the corrupted sealed bytes
-    r3 = await jd("POST", "/v1/hypervisor/failover/run", { run_ref: r3run.run_ref, wallet_approval_grant_archive_restore: grantFor(r3run.next_required) });
+    r3 = await jd("POST", "/v1/hypervisor/failover/run", { run_ref: r3run.run_ref, wallet_approval_grant_archive_restore: await grantFor(r3run.next_required) });
     r3run = r3.j.run || {};
   }
   ok("corrupt custody + corrupt archive refuses failover by name (stale/corrupt archive never restores)",
-    r3.status === 409 && ["archive_invalid", "snapshot_invalid"].includes(r3.j.reason || r3run.refusal?.reason));
+    r3.status === 409 && ["archive_invalid", "snapshot_invalid"].includes(r3.j.reason || r3run.refusal?.reason),
+    `${r3.status} ${r3.j.reason || r3run.refusal?.reason || ""} · ${String(r3.j.detail || r3run.refusal?.detail || "").slice(0, 160)}`);
 
   // ── ledger links the chain ──
   const ledger = (await jd("GET", "/v1/hypervisor/work-ledger")).j;
@@ -278,5 +283,6 @@ run().then(cleanup, (e) => { console.error(e); return cleanup().then(() => { res
   }
   console.log(`\n${results.length - fail}/${results.length} passed`);
   console.log(`cross-provider failover readiness: ${fail ? "FAIL" : "OK"}`);
-  FIXTURES.remove(); STACK.stop().finally(() => process.exit(fail ? 1 : 0));
+  if (A.decisionRefusals.length) console.log(`authority decisions refused: ${A.decisionRefusals.map((d) => `${d.op || "?"}: ${d.status} ${d.code}`).join(", ")}`);
+  FIXTURES.remove(); A.stop().finally(() => process.exit(fail ? 1 : 0));
 });

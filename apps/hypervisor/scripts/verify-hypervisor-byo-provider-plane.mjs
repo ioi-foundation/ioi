@@ -17,10 +17,10 @@ import { readFileSync, writeFileSync } from "node:fs";
 import path from "node:path";
 import { createHash } from "node:crypto";
 import { fileURLToPath } from "node:url";
-import { refuseOwnerPath, verifierStack } from "./lib/verifier-stack.mjs";
+import { refuseOwnerPath } from "./lib/verifier-stack.mjs";
+import { authorityVerifierStack } from "./lib/verifier-authority-stack.mjs";
 
 const HERE = path.dirname(fileURLToPath(import.meta.url));
-const { mintApprovalGrant } = await import(path.join(HERE, "../../../scripts/lib/mint-approval-grant.mjs"));
 const { ensureSshFixture } = await import(path.join(HERE, "ensure-ssh-fixture.mjs"));
 
 // Its own isolated daemon + serve on a temp data dir, the operator signed in — never the owner's :8765/:4173 nor
@@ -28,7 +28,15 @@ const { ensureSshFixture } = await import(path.join(HERE, "ensure-ssh-fixture.mj
 // resource-budgets/byo-verify-external-spend.json in the OWNER's data dir and "self-heal" by deleting every provider
 // account whose display name began "AWS " or "AKASH " — on the owner's daemon, the owner's own accounts. A fresh plane
 // holds no prior run's records, so there is nothing to sweep; it is torn down whole.
-const STACK = await verifierStack({ serve: true, fresh: true });
+//
+// A REAL AUTHORITY, NOT A TEST SIGNER (R-240, provider adapters on an authority stack, 2026-09-29). A provider-ops write
+// names its owner and an idempotency key (400 mutation_owner_ref_required otherwise), and a grant-gated crossing needs a
+// configured authority principal — a test-signer grant is no authority (501 provider_operation_authority_required). The
+// daemon takes its grants from a sealed deployment-local wallet.network authority of this verifier's own
+// (lib/verifier-authority-stack.mjs): the ungranted call parks a challenge, the operator approves it with the run's
+// passphrase on the daemon's decision route, and the retry names the approval_ref. A sealed bring-up takes minutes.
+const A = await authorityVerifierStack({ label: "byo-provider-plane" });
+const STACK = A.stack;
 const DAEMON = STACK.daemonUrl;
 const SHELL = STACK.serveUrl;
 const DATA = refuseOwnerPath(STACK.dataDir, "data dir");
@@ -99,18 +107,14 @@ async function run() {
 
   // ── 5. Authority: mutation needs a REAL wallet grant — presence strings do not pass ──
   const env = `env-byo-${tag}`;
-  const opRaw = (o, extra = {}) => jd("POST", "/v1/hypervisor/provider-ops", { provider_id: acc.account_id, op: o, environment_ref: env, ...extra });
+  const opRaw = (o, extra = {}) => jd("POST", "/v1/hypervisor/provider-ops", A.owned({ provider_id: acc.account_id, op: o, environment_ref: env, ...extra }));
   const noGrant = await opRaw("create");
   const fakeRef = await opRaw("create", { grant_ref: "grant://not-a-real-grant" });
   ok("mutation without a wallet grant → 403 challenge echoing policy/request hashes (grant_ref presence does NOT pass)",
     noGrant.status === 403 && !!noGrant.j.approval?.policy_hash && !!noGrant.j.approval?.request_hash
     && fakeRef.status === 403);
-  const op = async (o, extra = {}) => {
-    const c = await opRaw(o, extra);
-    if (c.status !== 403) return c;
-    const grant = mintApprovalGrant({ policyHash: c.j.approval.policy_hash, requestHash: c.j.approval.request_hash });
-    return opRaw(o, { ...extra, wallet_approval_grant: grant });
-  };
+  // one logical op, one idempotency key: the challenged call and its granted retry are the same request
+  const op = (o, extra = {}) => A.crossing("/v1/hypervisor/provider-ops", A.owned({ provider_id: acc.account_id, op: o, environment_ref: env, ...extra }));
 
   // ── 6-7. Real remote lifecycle: create → start → workrun over genuine ssh ──
   const createRes = await op("create");
@@ -215,14 +219,15 @@ async function run() {
 
   // ── 15. Budget discovery gates metered kinds BEFORE authority/mutation ──
   const awsEnv = `env-aws-${tag}`;
-  const awsNoBudget = await jd("POST", "/v1/hypervisor/provider-ops", { provider_id: aws.account_id, op: "create", environment_ref: awsEnv });
+  const awsNoBudget = await jd("POST", "/v1/hypervisor/provider-ops", A.owned({ provider_id: aws.account_id, op: "create", environment_ref: awsEnv }));
   ok("metered provider mutation without an external_spend budget → budget_blocked BEFORE any crossing",
     awsNoBudget.status === 409 && /budget_undiscovered_before_mutation/.test(awsNoBudget.j.reason || "")
     && String(awsNoBudget.j.receipt_ref || "").startsWith("agentgres://provider-receipt/"));
   await jd("POST", "/v1/hypervisor/resource/budgets", { budget_id: "byo-verify-external-spend", name: "BYO verifier external spend", scope: "external_spend", limit: 100, spent: 0, currency: "USD" });
-  const awsChallenged = await jd("POST", "/v1/hypervisor/provider-ops", { provider_id: aws.account_id, op: "create", environment_ref: awsEnv });
-  const awsGrant = mintApprovalGrant({ policyHash: awsChallenged.j.approval.policy_hash, requestHash: awsChallenged.j.approval.request_hash });
-  const awsCreate = await jd("POST", "/v1/hypervisor/provider-ops", { provider_id: aws.account_id, op: "create", environment_ref: awsEnv, wallet_approval_grant: awsGrant });
+  const awsCreateBase = A.owned({ provider_id: aws.account_id, op: "create", environment_ref: awsEnv });
+  const awsChallenged = await jd("POST", "/v1/hypervisor/provider-ops", awsCreateBase);
+  const awsGrant = await A.approve(awsChallenged);
+  const awsCreate = await jd("POST", "/v1/hypervisor/provider-ops", { ...awsCreateBase, wallet_approval_grant: awsGrant });
   ok("with budget + real grant, cloud lifecycle still fails closed with a NAMED not-implemented reason (never faked)",
     awsChallenged.status === 403
     && awsCreate.j.ok === false && awsCreate.j.outcome === "not_implemented"
@@ -364,8 +369,9 @@ run().then(() => {
   for (const r of results) { console.log(`  ${r.pass ? "PASS" : "FAIL"}  ${r.name}${r.detail ? `  (${r.detail})` : ""}`); if (!r.pass) fail++; }
   console.log(`\n${results.length - fail}/${results.length} passed`);
   console.log(`byo provider plane readiness: ${fail ? "FAIL" : "OK"}`);
-  STACK.stop().finally(() => process.exit(fail ? 1 : 0));
+  if (A.decisionRefusals.length) console.log(`authority decisions refused: ${A.decisionRefusals.map((d) => `${d.op || "?"}: ${d.status} ${d.code}`).join(", ")}`);
+  A.stop().finally(() => process.exit(fail ? 1 : 0));
 }).catch((e) => {
   console.error("verifier crashed:", e);
-  process.exit(1);
+  A.stop().finally(() => process.exit(1));
 });
