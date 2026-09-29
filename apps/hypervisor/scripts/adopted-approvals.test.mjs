@@ -159,6 +159,8 @@ test("a decision is the daemon's own step or a refusal by name: Approve on a par
   assert.equal(review("wac_pending", "APPROVE").refusal, AX.WRITE_REFUSALS.approveChallenge);
   assert.match(AX.WRITE_REFUSALS.approveChallenge.message, /operator passphrase/u);
   assert.match(AX.WRITE_REFUSALS.approveChallenge.message, /Nothing was approved/u);
+  // the card exists only for a run the Hypervisor started: the refusal says so, and names the gap for every other parked effect
+  assert.match(AX.WRITE_REFUSALS.approveChallenge.message, /A run the Hypervisor started shows its own approval card.*no Hypervisor page approves any other parked effect yet/u);
   assert.deepEqual(review("wac_pending", "DISAPPROVE", "not this effect").daemon, { method: "POST", route: "/v1/hypervisor/authority/challenges/wac_pending/decision", body: { decision: "deny", reason: "not this effect" } });
   assert.ok(!("operator_passphrase" in review("wac_pending", "DISAPPROVE", "x").daemon.body), "a denial carries no passphrase: the UI server holds none");
   assert.equal(review("wac_pending", "DISAPPROVE", "y".repeat(900)).daemon.body.reason.length, 400, "the reason is bounded as the daemon bounds it");

@@ -14,7 +14,8 @@
 //
 // Decisions stay with the daemon, and the UI server never signs. The reference app has no passphrase field, so it cannot
 // approve a wallet challenge (the daemon's decision route opens the sealed approver key only with the operator passphrase):
-// Approve there is refused by name and points at the Hypervisor's own approval card. A rejection needs no key — the
+// Approve there is refused by name, saying where approving happens: a run the Hypervisor started has its own approval card;
+// no page approves any other parked effect yet (the operator uses the local authority's approve command). A rejection needs no key — the
 // daemon's decision route denies a challenge on the operator's session alone and mints nothing — so Reject is the daemon's
 // deny, with the reason the person typed. A governance request's Approve is the governance plane's own transition (the
 // daemon names the reviewer from the session and writes the receipt); its Reject is refused by name, because the plane's
@@ -301,7 +302,7 @@ export function approvalsGraphqlFacts(name, variables, ctx) {
 // UI server may call without a key (409 on REST, never 403: the app words a 403 as a missing permission, a false reason, and
 // prints a 409's message; a GraphQL error's message is the app's toast). Nothing is written by a refusal.
 export const WRITE_REFUSALS = {
-  approveChallenge: { status: 409, code: "Hypervisor:ApprovalsApproveNeedsPassphrase", message: "Approving mints a grant, and only the operator passphrase opens the sealed approver key that signs it. This page has no passphrase field and holds no key: approve on the Hypervisor's own approval card for the run that asked, which takes the passphrase and hands it to the daemon. Nothing was approved." },
+  approveChallenge: { status: 409, code: "Hypervisor:ApprovalsApproveNeedsPassphrase", message: "Approving mints a grant, and only the operator passphrase opens the sealed approver key that signs it. This page has no passphrase field and holds no key. A run the Hypervisor started shows its own approval card, which takes the passphrase and hands it to the daemon; no Hypervisor page approves any other parked effect yet — the operator approves it with the local authority's approve command. Nothing was approved." },
   toolCall: { status: 409, code: "Hypervisor:ApprovalsToolCallNeedsGrant", message: "Deciding a tool call waiting inside a run takes a wallet-signed grant for exactly its approval lease — the daemon's decision on a run's approval admits nothing else — and this page has no passphrase field and holds no key. The run's own client decides it with that grant. Nothing was decided here." },
   rejectGovernance: { status: 409, code: "Hypervisor:ApprovalsRejectionReasonNotKept", message: "The governance plane's rejection records no reason, so the reason typed here would be lost: reject this request on the Hypervisor's governance approvals page. Nothing was rejected." },
   changesRequested: { status: 409, code: "Hypervisor:ApprovalsNoChangesRequested", message: "A Hypervisor request is approved or rejected; it has no changes-requested state. Nothing was changed." },

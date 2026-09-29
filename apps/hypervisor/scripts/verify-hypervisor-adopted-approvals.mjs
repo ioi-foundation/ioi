@@ -9,7 +9,7 @@
 //   - Your inbox is what waits on the operator (the parked effects and the open governance requests), counted; Created by
 //     you and All requests sift; a status group, a reference type with no Hypervisor counterpart, search and sort sift;
 //   - a request's page is its record: a challenge's intent, scope, policy and hashes; a governance request's ask;
-//   - Approve on a parked effect is refused by name toward the approval card (the page has no passphrase field and the UI
+//   - Approve on a parked effect is refused by name, saying where approving happens (the page has no passphrase field and the UI
 //     server holds no key); Reject and close is the daemon's own deny, with the typed reason; Approve on a governance
 //     request is the governance plane's own transition, receipted; every other write is refused by name and writes nothing;
 //   - no read reaches the mirror but the reference's chrome, an unbound read is a named 501, never the serve's HTML;
@@ -303,10 +303,10 @@ async function run() {
     await visit(`${BASE}/task/${ridA}`, /Justification/u);
     refusals.length = 0;
     await pg.getByRole("button", { name: "Approve", exact: true }).first().click({ timeout: 8000 }).catch(() => {});
-    const toast = await settle(/approve on the Hypervisor's own approval card/u);
+    const toast = await settle(/no Hypervisor page approves any other parked effect yet/u);
     const A1 = await challenge(idA);
-    ok("Approve on a parked effect is refused by name toward the approval card — the page has no passphrase field and holds no key — and the challenge stays pending on the daemon, with no decision and no grant",
-      refusals.includes("Hypervisor:ApprovalsApproveNeedsPassphrase") && /approve on the Hypervisor's own approval card for the run that asked/u.test(toast) && /Pending approval/u.test(toast)
+    ok("Approve on a parked effect is refused by name, saying where approving happens — the page has no passphrase field and holds no key; a run the Hypervisor started has its own approval card, and no page approves any other parked effect yet — and the challenge stays pending on the daemon, with no decision and no grant",
+      refusals.includes("Hypervisor:ApprovalsApproveNeedsPassphrase") && /A run the Hypervisor started shows its own approval card.*no Hypervisor page approves any other parked effect yet/u.test(toast) && /Pending approval/u.test(toast)
         && A1.state === "pending" && A1.decision === null && A1.grant_ref === null,
       `${refusals.join(",") || "no refusal"} · daemon ${A1.state} decision ${JSON.stringify(A1.decision)} grant ${A1.grant_ref}`);
     // Reject and close on the other parked effect: the daemon's deny, with the typed reason
