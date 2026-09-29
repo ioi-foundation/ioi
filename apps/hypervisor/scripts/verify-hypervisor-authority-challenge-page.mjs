@@ -16,9 +16,10 @@
 //   - the right passphrase through the page's form: the daemon's record is approved with a grant_ref for exactly its
 //     hashes, and the requester's retry consumes it once (the page reads Completed);
 //   - Deny through the page, with a reason: denied, the reason and the operator in the record;
-//   - a challenge whose scope is outside the deployment approver's allowlist (a System genesis scope — planted on this
-//     verifier's OWN data dir, because no daemon gate parks one today: both park sites are live-route scopes) is refused
-//     by the authority itself, and the page shows that refusal verbatim, not a crash; the allowlist is untouched;
+//   - a challenge under a System lifecycle scope (genesis admission — planted on this verifier's OWN data dir: parking one
+//     through a daemon gate needs a whole System, which the journey gate drives) is approved through the page with one grant
+//     from the deployment authority (the approver's allowlist names the System lifecycle scopes since 2026-09-29), and one
+//     under a scope still outside the list (an unlisted sibling) is refused by the authority itself, verbatim on the page;
 //   - an unknown or malformed id is the daemon's refusal; an ask past its expiry (the daemon restarted with its pending
 //     window shortened) reads Closed and a decision on it is the daemon's 410;
 //   - (R-240, challenge states + re-ask; the daemon restarted with its decision wait shortened to DECISION_WAIT_MS, so a real
@@ -311,27 +312,47 @@ async function run() {
         && /data-ioi-challenge-state="denied"/u.test(denied.html) && /data-ioi-challenge-reason(?:="")?>not this effect</u.test(denied.html) && !denied.html.includes("<form"),
       `POST ${denied.status} · daemon ${B1.state} ${JSON.stringify(B1.decision)?.slice(0, 160)}`);
 
-    // ---- a scope outside the deployment approver's allowlist: the authority's own refusal, verbatim ----------------------
-    // (planted on this verifier's own data dir, beside the real records: B's pending coordinates re-scoped to System genesis)
+    // ---- a System lifecycle scope is approvable through the page; a scope outside the list is the authority's refusal ------
+    // The deployment approver's allowlist is the live-route family plus the System lifecycle scopes the daemon asks of a
+    // System's governing authority, each named exactly (owner approval 2026-09-29; wallet_network_local_authority.rs). Both
+    // challenges are planted on this verifier's own data dir, beside the real records (a daemon gate that parks a System
+    // genesis challenge needs a whole System on the stack — the journey gate drives that one): B's denied coordinates
+    // re-scoped to System genesis (the authority recorded no decision for them), and a fresh ask under an unlisted sibling.
     const family = filesHolding(planeDir, [Buffer.from(`"challenge_id":"${idB}"`), Buffer.from(`"challenge_id": "${idB}"`)]).map((p) => path.dirname(p)).find((p) => fs.existsSync(path.join(p, `${idB}.json`))) || null;
-    const idG = challengeIdFor(GENESIS_SCOPE, B0.policy_hash, B0.request_hash, B0.audience);
     const { decidable: _decidable, decision_route: _route, ...plantedBase } = B0;
-    if (family) fs.writeFileSync(path.join(family, `${idG}.json`), JSON.stringify({ ...plantedBase, challenge_id: idG, approval_ref: `wallet-approval-challenge://${idG}`, target_scope: GENESIS_SCOPE, state: "pending", decision: null, grant: null, grant_ref: null, history: undefined, created_at: new Date().toISOString(), last_parked_at: new Date().toISOString(), expires_at_ms: Date.now() + 3_600_000 }));
+    const plantAsk = (scope, policy, request) => {
+      const id = challengeIdFor(scope, policy, request, B0.audience);
+      if (family) fs.writeFileSync(path.join(family, `${id}.json`), JSON.stringify({ ...plantedBase, challenge_id: id, approval_ref: `wallet-approval-challenge://${id}`, target_scope: scope, policy_hash: policy, request_hash: request, state: "pending", decision: null, grant: null, grant_ref: null, history: undefined, created_at: new Date().toISOString(), last_parked_at: new Date().toISOString(), expires_at_ms: Date.now() + 3_600_000 }));
+      return id;
+    };
+    const unescape = (s) => String(s || "").replace(/&quot;/gu, "\"").replace(/&gt;/gu, ">").replace(/&lt;/gu, "<").replace(/&amp;/gu, "&");
+    const idG = plantAsk(GENESIS_SCOPE, B0.policy_hash, B0.request_hash);
     const G0 = await challenge(idG);
     await visit(pg, pagePath(idG));
     const gScope = await inner("[data-ioi-challenge-target-scope]");
     const genesis = await decide("approve", { id: idG, passphrase: OPERATOR_PASS });
-    const gr = refusalOf(genesis.html);
-    await shot("08-refused-outside-allowlist");
+    await shot("08-approved-system-scope");
     const G1 = await challenge(idG);
+    ok("a challenge under a System lifecycle scope (genesis admission; planted on this verifier's own data dir) is approvable through its page: the right passphrase answers 303 back to the page, and the daemon's record is approved by the operator with one grant from the deployment authority, for exactly its hashes under that scope",
+      !!family && G0.state === "pending" && G0.target_scope === GENESIS_SCOPE && gScope === GENESIS_SCOPE && genesis.status === 303
+        && G1.state === "approved" && G1.decision?.decision === "approve" && G1.decision?.decided_by === me.principal_ref && typeof G1.grant_ref === "string" && G1.grant_ref.length > 0
+        && G1.target_scope === GENESIS_SCOPE && G1.policy_hash === B0.policy_hash && G1.request_hash === B0.request_hash && /data-ioi-challenge-state="approved"/u.test(genesis.html),
+      `family ${family ? "found" : "NOT FOUND"} · planted ${G0.state} ${G0.target_scope} · page scope ${gScope} · POST ${genesis.status} · daemon ${G1.state} grant ${G1.grant_ref} by ${G1.decision?.decided_by}`);
+    const OUTSIDE_SCOPE = "scope:autonomous_system.ordering.recover";
+    const hash = () => `sha256:${randomBytes(32).toString("hex")}`;
+    const idO = plantAsk(OUTSIDE_SCOPE, hash(), hash());
+    const O0 = await challenge(idO);
+    const outside = await decide("approve", { id: idO, passphrase: OPERATOR_PASS });
+    const or = refusalOf(outside.html);
+    await shot("09-refused-outside-allowlist");
+    const O1 = await challenge(idO);
     // the daemon's own words for the same decision (refused again before any secret is opened: nothing is recorded)
-    const direct = await d("POST", `/v1/hypervisor/authority/challenges/${idG}/decision`, { decision: "approve", operator_passphrase: OPERATOR_PASS });
-    const unescape = (s) => String(s || "").replace(/&quot;/gu, "\"").replace(/&gt;/gu, ">").replace(/&lt;/gu, "<").replace(/&amp;/gu, "&");
-    ok("a challenge whose scope is outside the deployment approver's allowlist (System genesis; planted on this verifier's own data dir — no daemon gate parks one today) shows its scope, and approving it with the right passphrase is the authority's own refusal, verbatim on the page at the daemon's status — the record still pending with no grant, and the allowlist untouched",
-      !!family && G0.state === "pending" && G0.target_scope === GENESIS_SCOPE && gScope === GENESIS_SCOPE && genesis.status === 502 && gr.code === "authority_approve_refused"
-        && unescape(gr.message) === direct.j.error?.message && /target scope scope:autonomous_system\.genesis_admit is outside the deployment approver's allowlist \(scope:hypervisor\.live-route\.\*\)/u.test(unescape(gr.message))
-        && G1.state === "pending" && G1.decision === null && G1.grant_ref === null && /data-ioi-challenge-state="pending"/u.test(genesis.html),
-      `family ${family ? "found" : "NOT FOUND"} · planted ${G0.state} ${G0.target_scope} · page scope ${gScope} · POST ${genesis.status} ${gr.code}: ${unescape(gr.message).slice(0, 220)} · daemon's own: ${direct.status} ${direct.j.error?.code} · record ${G1.state}`);
+    const direct = await d("POST", `/v1/hypervisor/authority/challenges/${idO}/decision`, { decision: "approve", operator_passphrase: OPERATOR_PASS });
+    ok("a challenge whose scope is outside the deployment approver's allowlist (an unlisted System sibling, ordering recovery; planted) is refused by the authority itself before any key is opened, verbatim on the page at the daemon's status — the record still pending with no grant",
+      !!family && O0.state === "pending" && O0.target_scope === OUTSIDE_SCOPE && outside.status === 502 && or.code === "authority_approve_refused"
+        && unescape(or.message) === direct.j.error?.message && /target scope scope:autonomous_system\.ordering\.recover is outside the deployment approver's allowlist \(scope:hypervisor\.live-route\.\* and \d+ named System lifecycle scopes\)/u.test(unescape(or.message))
+        && O1.state === "pending" && O1.decision === null && O1.grant_ref === null && /data-ioi-challenge-state="pending"/u.test(outside.html),
+      `planted ${O0.state} ${O0.target_scope} · POST ${outside.status} ${or.code}: ${unescape(or.message).slice(0, 220)} · daemon's own: ${direct.status} ${direct.j.error?.code} · record ${O1.state}`);
 
     // ---- an id the daemon does not hold, and one it refuses to parse ---------------------------------------------------
     const unknownStatus = await visit(pg, pagePath(`wac_${"0".repeat(32)}`));

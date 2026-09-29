@@ -133,10 +133,91 @@ const CHAIN_ID: u32 = 1;
 /// Approval authorities and bindings issued here expire well after any alpha; rotation is the
 /// operator's act, never a silent expiry the daemon would have to explain.
 const AUTHORITY_EXPIRES_AT_MS: u64 = 1_850_000_000_000;
-/// The scope family the deployment approver may sign: every live-route effect the daemon gates
-/// (session execute, materializing runs, workspace-restore apply, provider ops, approval
-/// decisions). Nothing outside `scope:hypervisor.live-route.*` is signable by the alpha approver.
-const APPROVER_SCOPE_ALLOWLIST: &str = "scope:hypervisor.live-route.*";
+/// THE DEPLOYMENT APPROVER'S SCOPES — one list, read by the binding every bring-up and `rotate`
+/// registers (`approval_authority_from_public_key`) and by both of `approve`'s own checks (before
+/// any key is opened, and again before anything is recorded):
+///
+/// * `scope:hypervisor.live-route.*` — every live-route effect the daemon gates (session execute,
+///   materializing runs, workspace-restore apply, provider ops, approval decisions);
+/// * the System lifecycle scopes the daemon asks of a System's governing authority, each spelled
+///   exactly as the daemon derives it (`AuthorityContract::operation_scope`) and never widened to a
+///   `scope:autonomous_system.*` wildcard: genesis admission, sequence-zero materialization,
+///   initialize, activate, the constitution amendment and its governance approval, the fourteen
+///   protected transitions, the named continuity scopes and the enrollment scopes (local enroll,
+///   local exit, enrollment change) — the daemon's `SUCCESSOR_GOVERNANCE_SCOPES`, the set it
+///   requires of any System authority, plus the four genesis and activation scopes and the
+///   amendment's governance approval.
+///
+/// Until 2026-09-29 the alpha approver signed only the live-route family (f3b869df2), so no System
+/// could be admitted, materialized or activated on a deployment authority: the daemon's resolution
+/// was refused on chain (`approval_grant_out_of_scope`) and `approve` refused locally. The owner
+/// approved widening it to these NAMED scopes on 2026-09-29 (as relayed with the journey's WP-A;
+/// master guide D1, the deployment-local authority node, and N12 — approvals stay exact: each
+/// grant is one use, for one challenge's hashes, under one of these scopes). Every other scope,
+/// and every near miss of these, is refused before a key is opened. A node brought up before the
+/// change keeps its old binding (the allowlist is part of the registered authority the binding
+/// commits to) until the operator runs `rotate`, which registers the new key with this list.
+const LIVE_ROUTE_SCOPE_PATTERN: &str = "scope:hypervisor.live-route.*";
+const LIVE_ROUTE_SCOPE_PREFIX: &str = "scope:hypervisor.live-route.";
+const SYSTEM_LIFECYCLE_SCOPES: [&str; 31] = [
+    "scope:autonomous_system.genesis_admit",
+    "scope:autonomous_system.genesis_materialize",
+    "scope:autonomous_system.lifecycle.initialize",
+    "scope:autonomous_system.lifecycle.activate",
+    "scope:autonomous_system.lifecycle.amend_constitution",
+    "scope:autonomous_system.governance.approve_constitution_amendment",
+    "scope:autonomous_system.lifecycle.pause",
+    "scope:autonomous_system.lifecycle.resume",
+    "scope:autonomous_system.lifecycle.suspend",
+    "scope:autonomous_system.lifecycle.reinstate",
+    "scope:autonomous_system.lifecycle.enter_dormancy",
+    "scope:autonomous_system.lifecycle.wake",
+    "scope:autonomous_system.lifecycle.begin_recovery",
+    "scope:autonomous_system.lifecycle.complete_recovery",
+    "scope:autonomous_system.lifecycle.quarantine",
+    "scope:autonomous_system.lifecycle.release_quarantine",
+    "scope:autonomous_system.lifecycle.retire",
+    "scope:autonomous_system.lifecycle.archive",
+    "scope:autonomous_system.lifecycle.revoke",
+    "scope:autonomous_system.lifecycle.decommission",
+    "scope:autonomous_system.continuity.initiate_succession",
+    "scope:autonomous_system.continuity.complete_succession",
+    "scope:autonomous_system.continuity.migrate",
+    "scope:autonomous_system.continuity.migration_destination_acknowledge",
+    "scope:autonomous_system.continuity.initiate_dissolution",
+    "scope:autonomous_system.continuity.open_dissolution_disposition",
+    "scope:autonomous_system.continuity.record_dissolution_domain_outcome",
+    "scope:autonomous_system.continuity.complete_dissolution",
+    "scope:autonomous_system.network_enrollment.local.enroll",
+    "scope:autonomous_system.network_enrollment.local.exit",
+    "scope:autonomous_system.network_enrollment_change",
+];
+
+/// The scope allowlist the approver authority is registered with, in this order.
+fn approver_scope_allowlist() -> Vec<String> {
+    std::iter::once(LIVE_ROUTE_SCOPE_PATTERN)
+        .chain(SYSTEM_LIFECYCLE_SCOPES)
+        .map(str::to_owned)
+        .collect()
+}
+
+/// Whether the deployment approver may sign `scope`: a live-route scope (the family's prefix plus a
+/// non-empty name) or one of the named System scopes, compared exactly.
+fn approver_may_sign(scope: &str) -> bool {
+    (scope.len() > LIVE_ROUTE_SCOPE_PREFIX.len() && scope.starts_with(LIVE_ROUTE_SCOPE_PREFIX))
+        || SYSTEM_LIFECYCLE_SCOPES.contains(&scope)
+}
+
+/// Refuse a scope outside the approver's allowlist, in words that name the rule.
+fn require_approver_scope(scope: &str) -> Result<()> {
+    if !approver_may_sign(scope) {
+        bail!(
+            "target scope {scope} is outside the deployment approver's allowlist ({LIVE_ROUTE_SCOPE_PATTERN} and {} named System lifecycle scopes)",
+            SYSTEM_LIFECYCLE_SCOPES.len()
+        );
+    }
+    Ok(())
+}
 const AUTHORITY_RECORD_FILE: &str = "authority.json";
 const READY_FILE: &str = "ready.json";
 const SHUTDOWN_FILE: &str = "shutdown";
@@ -1657,15 +1738,8 @@ async fn approve(
     let policy_hash = parse_hash32(request.policy_hash, "--policy-hash")?;
     let request_hash = parse_hash32(request.request_hash, "--request-hash")?;
     let audience = parse_account32(request.audience, "--audience")?;
-    if !request
-        .target_scope
-        .starts_with("scope:hypervisor.live-route.")
-    {
-        bail!(
-            "target scope {} is outside the deployment approver's allowlist ({APPROVER_SCOPE_ALLOWLIST})",
-            request.target_scope
-        );
-    }
+    // The scope is checked before the passphrase is asked for or any key is opened.
+    require_approver_scope(request.target_scope)?;
     if request.expires_in_secs == 0 || request.expires_in_secs > MAX_APPROVAL_EXPIRES_IN_SECS {
         bail!(
             "--expires-in-secs must be between 1 and {MAX_APPROVAL_EXPIRES_IN_SECS}: a one-use grant is also a short-lived one"
@@ -1798,6 +1872,8 @@ async fn record_one_use_grant(
     target_scope: &str,
     reason: &str,
 ) -> Result<serde_json::Value> {
+    // The scope is checked before the capability key is opened or anything is recorded.
+    require_approver_scope(target_scope)?;
     let ready = read_ready(state_dir)?;
     let record = read_authority_record(state_dir)?;
     if record.binding_status != "active" {
@@ -1834,9 +1910,6 @@ async fn record_one_use_grant(
     }
     if grant.max_usages != Some(1) {
         bail!("a session-execute approval must be a one-use grant (max_usages=1)");
-    }
-    if !target_scope.starts_with("scope:hypervisor.live-route.") {
-        bail!("target scope {target_scope} is outside the deployment approver's allowlist ({APPROVER_SCOPE_ALLOWLIST})");
     }
     let _lock = acquire_transaction_lock(&ready.transaction_lock_path)?;
     let approval_key = wallet_approval_key(&grant.request_hash);
@@ -2524,7 +2597,7 @@ fn approval_authority_from_public_key(public_key: &[u8]) -> Result<ApprovalAutho
         signature_suite: SignatureSuite::ED25519,
         expires_at: AUTHORITY_EXPIRES_AT_MS,
         revoked: false,
-        scope_allowlist: vec![APPROVER_SCOPE_ALLOWLIST.to_string()],
+        scope_allowlist: approver_scope_allowlist(),
     })
 }
 
@@ -3356,6 +3429,176 @@ mod tests {
         assert!(parse_hash32("abcd", "h").is_err());
         assert_eq!(parse_account32(&hex64, "a").unwrap(), [0xab; 32]);
         assert!(parse_account32(&format!("sha256:{hex64}"), "a").is_err());
+    }
+
+    /// The deployment approver's allowlist as the owner approved it (2026-09-29): the live-route
+    /// family and the System lifecycle scopes the daemon asks for, spelled as the daemon derives
+    /// them. Written out here so a change to the list is a change to this test too.
+    const EXPECTED_APPROVER_SCOPES: [&str; 32] = [
+        "scope:hypervisor.live-route.*",
+        "scope:autonomous_system.genesis_admit",
+        "scope:autonomous_system.genesis_materialize",
+        "scope:autonomous_system.lifecycle.initialize",
+        "scope:autonomous_system.lifecycle.activate",
+        "scope:autonomous_system.lifecycle.amend_constitution",
+        "scope:autonomous_system.governance.approve_constitution_amendment",
+        "scope:autonomous_system.lifecycle.pause",
+        "scope:autonomous_system.lifecycle.resume",
+        "scope:autonomous_system.lifecycle.suspend",
+        "scope:autonomous_system.lifecycle.reinstate",
+        "scope:autonomous_system.lifecycle.enter_dormancy",
+        "scope:autonomous_system.lifecycle.wake",
+        "scope:autonomous_system.lifecycle.begin_recovery",
+        "scope:autonomous_system.lifecycle.complete_recovery",
+        "scope:autonomous_system.lifecycle.quarantine",
+        "scope:autonomous_system.lifecycle.release_quarantine",
+        "scope:autonomous_system.lifecycle.retire",
+        "scope:autonomous_system.lifecycle.archive",
+        "scope:autonomous_system.lifecycle.revoke",
+        "scope:autonomous_system.lifecycle.decommission",
+        "scope:autonomous_system.continuity.initiate_succession",
+        "scope:autonomous_system.continuity.complete_succession",
+        "scope:autonomous_system.continuity.migrate",
+        "scope:autonomous_system.continuity.migration_destination_acknowledge",
+        "scope:autonomous_system.continuity.initiate_dissolution",
+        "scope:autonomous_system.continuity.open_dissolution_disposition",
+        "scope:autonomous_system.continuity.record_dissolution_domain_outcome",
+        "scope:autonomous_system.continuity.complete_dissolution",
+        "scope:autonomous_system.network_enrollment.local.enroll",
+        "scope:autonomous_system.network_enrollment.local.exit",
+        "scope:autonomous_system.network_enrollment_change",
+    ];
+
+    /// Out of the list: other daemon scopes that are not the System owner's lifecycle (membership,
+    /// writer, ordering recovery, the node plane), near misses of listed scopes, a wildcard spelled
+    /// as a scope, and the live-route prefix with no name.
+    const REFUSED_SCOPES: [&str; 12] = [
+        "scope:autonomous_system.genesis_admitX",
+        "scope:autonomous_system.genesis_admit.",
+        "scope:autonomous_system.lifecycle.initialize ",
+        "Scope:autonomous_system.genesis_admit",
+        "scope:autonomous_system.*",
+        "scope:autonomous_system.lifecycle.*",
+        "scope:autonomous_system.ordering.recover",
+        "scope:autonomous_system.membership.admit_node",
+        "scope:autonomous_system.writer.promotion",
+        "scope:hypervisoros.node.admit_node_identity",
+        "scope:hypervisor.live-route.",
+        "scope:hypervisor.live-routeX.session-execute",
+    ];
+
+    #[test]
+    fn the_approver_allowlist_is_exactly_the_named_list_with_no_system_wildcard() {
+        assert_eq!(approver_scope_allowlist(), EXPECTED_APPROVER_SCOPES.map(str::to_owned).to_vec());
+        let unique: std::collections::BTreeSet<_> = EXPECTED_APPROVER_SCOPES.iter().collect();
+        assert_eq!(unique.len(), EXPECTED_APPROVER_SCOPES.len(), "a scope is listed twice");
+        assert!(
+            approver_scope_allowlist()
+                .iter()
+                .filter(|scope| scope.contains('*'))
+                .eq(["scope:hypervisor.live-route.*"].iter()),
+            "the live-route family is the only pattern; every System scope is named exactly"
+        );
+        // A fresh bring-up and every rotation register the approver with exactly this list.
+        let authority =
+            approval_authority_from_public_key(&keypair(&random_seed()).unwrap().public_key().to_bytes())
+                .unwrap();
+        assert_eq!(authority.scope_allowlist, approver_scope_allowlist());
+    }
+
+    #[test]
+    fn only_listed_scopes_may_be_signed_and_near_misses_are_refused() {
+        for scope in &EXPECTED_APPROVER_SCOPES[1..] {
+            assert!(approver_may_sign(scope), "{scope} must be signable");
+            assert!(require_approver_scope(scope).is_ok());
+        }
+        for scope in [
+            "scope:hypervisor.live-route.session-execute",
+            "scope:hypervisor.live-route.materializing-run",
+        ] {
+            assert!(approver_may_sign(scope), "{scope} is in the live-route family");
+        }
+        for scope in REFUSED_SCOPES {
+            assert!(!approver_may_sign(scope), "{scope:?} must be refused");
+            let message = require_approver_scope(scope).unwrap_err().to_string();
+            assert!(
+                message.contains("outside the deployment approver's allowlist"),
+                "{message}"
+            );
+        }
+    }
+
+    /// `approve` against a sealed state dir with NO ready.json and a pass source that can give no
+    /// passphrase: an unlisted scope must be refused by the allowlist (the first secret-free check
+    /// after the coordinates parse), never reaching the node's files or the key; a listed scope
+    /// passes the allowlist and stops only at the next check (the node is not serving).
+    #[test]
+    fn approve_refuses_an_unlisted_scope_before_any_key_or_node_file_is_touched() {
+        let dir = state_dir_with_guardian();
+        load_or_generate_serve_keys(
+            dir.path(),
+            GUARDIAN,
+            KeyModeArgs::default(),
+            &pass_source(Some(OPERATOR)),
+        )
+        .unwrap();
+        let (policy, request, audience) = ("11".repeat(32), "22".repeat(32), "33".repeat(32));
+        let runtime = tokio::runtime::Builder::new_current_thread()
+            .enable_all()
+            .build()
+            .unwrap();
+        let run = |scope: &str| {
+            let request = ApproveRequest {
+                policy_hash: &policy,
+                request_hash: &request,
+                audience: &audience,
+                target_scope: scope,
+                expires_in_secs: DEFAULT_APPROVAL_EXPIRES_IN_SECS,
+                reason: "allowlist test",
+            };
+            runtime
+                .block_on(approve(
+                    dir.path(),
+                    &request,
+                    KeyModeArgs::default(),
+                    &pass_source(None),
+                ))
+                .unwrap_err()
+                .to_string()
+        };
+        for scope in REFUSED_SCOPES {
+            let message = run(scope);
+            assert!(
+                message.contains("outside the deployment approver's allowlist"),
+                "{scope:?}: {message}"
+            );
+        }
+        for scope in &EXPECTED_APPROVER_SCOPES[1..] {
+            let message = run(scope);
+            assert!(
+                !message.contains("outside the deployment approver's allowlist"),
+                "{scope}: {message}"
+            );
+        }
+        // Recording refuses an unlisted scope before the capability key is opened or the node read.
+        let grant = mint_one_use_grant(
+            &keypair(&random_seed()).unwrap(),
+            [1; 32],
+            [2; 32],
+            [3; 32],
+            now_ms() + 60_000,
+        )
+        .unwrap();
+        let refused = runtime
+            .block_on(record_one_use_grant(
+                dir.path(),
+                &grant,
+                "scope:autonomous_system.genesis_admitX",
+                "allowlist test",
+            ))
+            .unwrap_err()
+            .to_string();
+        assert!(refused.contains("outside the deployment approver's allowlist"), "{refused}");
     }
 
     #[test]

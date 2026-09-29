@@ -1,7 +1,8 @@
 // The deployment authority's approval and root keys are SEALED under the operator passphrase (owner decision
 // 2026-09-28). End to end against a REAL single-validator node in temp dirs only: first bring-up, resume with no
-// passphrase, `approve` (right / wrong / guardian / empty passphrase), rotate + revoke, the `seal-keys` migration,
-// and scans of argv, stdout, every state file and every /proc/<pid>/environ for the passphrase and the seeds.
+// passphrase, `approve` (right / wrong / guardian / empty passphrase; the approver's named scope allowlist), rotate +
+// revoke, the `seal-keys` migration, and scans of argv, stdout, every state file and every /proc/<pid>/environ for the
+// passphrase and the seeds.
 //
 //   node --test apps/hypervisor/scripts/lib/wallet-network-local-authority.test.mjs
 //
@@ -25,6 +26,19 @@ const CLI = path.resolve(HERE, "..", "wallet-network-authority.mjs");
 // Unique per run, so a scan for it anywhere on the host can only find THIS test's passphrase.
 const OPERATOR = `sealed-operator-${randomBytes(12).toString("hex")}`;
 const SCOPE = "scope:hypervisor.live-route.session-execute";
+// The deployment approver's allowlist (owner approval 2026-09-29): the live-route family plus the System lifecycle scopes
+// the daemon asks of a System's governing authority, each named exactly — never a scope:autonomous_system.* wildcard.
+const SYSTEM_SCOPES = [
+  "genesis_admit", "genesis_materialize", "lifecycle.initialize", "lifecycle.activate", "lifecycle.amend_constitution",
+  "governance.approve_constitution_amendment",
+  ...["pause", "resume", "suspend", "reinstate", "enter_dormancy", "wake", "begin_recovery", "complete_recovery", "quarantine",
+    "release_quarantine", "retire", "archive", "revoke", "decommission"].map((op) => `lifecycle.${op}`),
+  ...["initiate_succession", "complete_succession", "migrate", "migration_destination_acknowledge", "initiate_dissolution",
+    "open_dissolution_disposition", "record_dissolution_domain_outcome", "complete_dissolution"].map((op) => `continuity.${op}`),
+  "network_enrollment.local.enroll", "network_enrollment.local.exit", "network_enrollment_change",
+].map((tail) => `scope:autonomous_system.${tail}`);
+const APPROVER_SCOPES = ["scope:hypervisor.live-route.*", ...SYSTEM_SCOPES];
+const OUTSIDE = /outside the deployment approver's allowlist/u;
 const quiet = () => {};
 const hex32 = () => randomBytes(32).toString("hex");
 const bytesHex = (value) => Buffer.from(value).toString("hex");
@@ -121,6 +135,7 @@ test("sealed custody end to end: bring-up, resume without the passphrase, approv
     for (const pub of ["root.pub", "approver.pub"]) assert.match(publicKeyOf(stateDir, pub), /^[0-9a-f]{64}$/u, pub);
     assert.equal(publicKeyOf(stateDir, "approver.pub"), node.readAuthorityRecord().approver_public_key);
     assert.equal(node.keyCustody, "sealed");
+    assert.deepEqual(node.readAuthorityRecord().approver_scope_allowlist, APPROVER_SCOPES, "the approver is registered with exactly the named list");
     assert.equal(node.approverKeyPath, null, "no signing path is published for a sealed node");
     assert.ok(!("approver_key_path" in node.ready), "ready.json names no approver seed path");
   });
@@ -199,6 +214,22 @@ test("sealed custody end to end: bring-up, resume without the passphrase, approv
     assert.notEqual(bytesHex(again.grant.nonce), bytesHex(grant.nonce), "every grant carries a fresh nonce");
   });
 
+  await t.test("(c) a System lifecycle scope is signable; an unlisted sibling or a near miss is refused before any key is opened", () => {
+    const system = approveGrant({ stateDir, operatorPass: OPERATOR, policyHash: hex32(), requestHash: hex32(), audience, targetScope: "scope:autonomous_system.genesis_admit" });
+    assert.equal(system.ok, true, system.stderr);
+    assert.equal(system.outcome.recorded, "committed", "the chain recorded an approval under a named System scope");
+    for (const targetScope of ["scope:autonomous_system.genesis_admitX", "scope:autonomous_system.ordering.recover", "scope:autonomous_system.*", "scope:hypervisor.live-route."]) {
+      // A WRONG passphrase still meets the allowlist refusal, never "does not open": the scope is refused before the unseal.
+      const early = approveGrant({ stateDir, operatorPass: "definitely-the-wrong-passphrase", policyHash: hex32(), requestHash: hex32(), audience, targetScope });
+      assert.equal(early.ok, false, targetScope);
+      assert.match(early.stderr, OUTSIDE, `${targetScope}: ${early.stderr}`);
+      assert.doesNotMatch(early.stderr, /does not open/u, targetScope);
+      const right = approveGrant({ stateDir, operatorPass: OPERATOR, policyHash: hex32(), requestHash: hex32(), audience, targetScope });
+      assert.equal(right.ok, false, targetScope);
+      assert.match(right.stderr, OUTSIDE, `${targetScope}: ${right.stderr}`);
+    }
+  });
+
   await t.test("status reports sealed custody from public keys only", () => {
     const status = authorityAct("status", { stateDir });
     assert.equal(status.ok, true, status.stderr);
@@ -220,6 +251,7 @@ test("sealed custody end to end: bring-up, resume without the passphrase, approv
     const newPublic = publicKeyOf(stateDir, "approver.pub");
     assert.notEqual(newPublic, oldPublic);
     assert.equal(record.approver_public_key, newPublic);
+    assert.deepEqual(record.approver_scope_allowlist, APPROVER_SCOPES, "rotate registers the new key with exactly the named list");
     assert.equal(publicKeyOf(stateDir, "approver.pub.v1"), oldPublic, "the retired public key is kept");
     assert.equal(mode(path.join(keysDir, "approver.seed.sealed.v1")), 0o400);
     assert.ok(!fs.readdirSync(keysDir).some((name) => /^(approver|root)\.seed(\.v\d+|\.next)?$/u.test(name)), fs.readdirSync(keysDir).join(","));
