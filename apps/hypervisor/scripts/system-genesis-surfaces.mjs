@@ -25,7 +25,7 @@
 //     degraded state (never a fabricated census); the projection's fail-closed
 //     system_projection_source_incomplete renders as a stale/conflict stop, never a partial list.
 import http from "node:http";
-import { createHash } from "node:crypto";
+import { createHash, randomUUID } from "node:crypto";
 import { callerOwnerRef, escHtml, refusalCodeOf, refusalMessageOf } from "../surfaces/kit.mjs";
 import { relayChallengeDecision } from "./lib/wallet-authority.mjs";
 import { challengePagePath } from "./authority-challenge-page.mjs";
@@ -1469,7 +1469,7 @@ async function systemImprove(daemonUrl, systemId, query) {
       : stateBlock("honest_empty", "no_change_set_on_system_blueprints", `<div class="empty" data-system-change-sets="${esc(systemId)}">No change set has been proposed on this System's blueprints yet.</div>`);
   const proposeForm = bps.length
     ? `<form method="post" action="${CHANGE_SET_ACTIONS.propose}" data-system-propose-change-set="1">
-        ${hidden("system_id", systemId)}${hidden("form_nonce", globalThis.crypto.randomUUID())}
+        ${hidden("system_id", systemId)}${hidden("form_nonce", randomUUID())}
         <div class="field"><label>Blueprint</label><select name="blueprint">${bps.map((b) => `<option value="${esc(b.id || "")}">${esc(b.name || b.id || "")} — ${esc(b.ref || "")}</option>`).join("")}</select></div>
         <div class="field"><label>Change set title</label><input name="title" maxlength="200" required></div>
         <div class="field"><label>Why (description)</label><textarea name="description" maxlength="4000"></textarea></div>
