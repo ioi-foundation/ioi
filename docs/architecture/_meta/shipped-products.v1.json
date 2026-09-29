@@ -37,7 +37,7 @@
           "materialization": "tracked",
           "digest_policy": "verify",
           "expected_file_count": 383,
-          "expected_sha256": "99d38e3079fe97e8a3f56cd3cb74e0efb1ad38b43603833c157ae03cb1a3e166",
+          "expected_sha256": "27d67509ef8123799cf7bf719b307b02a0f4f8f18ab061a5079b76439b29310a",
           "identity_gate": {
             "schema_version": "ioi.hypervisor-product-ui-tree.v1",
             "endpoint": "/__ioi/product-ui-identity",

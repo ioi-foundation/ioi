@@ -59,9 +59,15 @@ function review(data, q) {
   const shown = records.filter((r) => (!kind || r.interaction_kind === kind) && (!checkpoint || tail(r.checkpoint_ref, "justification-checkpoint://") === checkpoint)
     && (!who || String(r.submitted_by_principal_ref || "").includes(who)) && (!interaction || r.interaction_ref === interaction));
   const opt = (v, l, sel) => `<option value="${esc(v)}"${sel ? " selected" : ""}>${esc(l)}</option>`;
+  // A SELECT WITH NOTHING TO CHOOSE IS NOT A CHOICE (R-240, verifier hygiene, 2026-09-29): with no checkpoint declared, the
+  // checkpoint filter's only option was "Every checkpoint" — opened, it offered nothing, and the dead-control census read it
+  // click_failed. It renders disabled and says why (the unified gap contract); disabled, it submits nothing, which is the
+  // same filter as "Every checkpoint".
+  const checkpointWhy = "No checkpoint is declared on this deployment yet, so there is no one checkpoint to filter the records by — declare one under Checkpoints";
+  const checkpointGap = checkpoints.length === 0 ? ` disabled aria-disabled="true" title="${esc(checkpointWhy)}" data-ioi-disabled-reason="${esc(checkpointWhy)}"` : "";
   const filters = `<form method="get" action="${LIMITS_ROUTE}" class="row" data-limits-filters="1" style="margin:0 0 12px">${hidden("tab", "checkpoints")}${hidden("view", "review")}
     <select name="kind">${opt("", "Every interaction", !kind)}${Object.keys(INTERACTIONS).map((k) => opt(k, label(k), k === kind)).join("")}</select>
-    <select name="checkpoint">${opt("", "Every checkpoint", !checkpoint)}${checkpoints.map((c) => opt(tail(c.checkpoint_id, "justification-checkpoint://"), c.display_name, tail(c.checkpoint_id, "justification-checkpoint://") === checkpoint)).join("")}</select>
+    <select name="checkpoint"${checkpointGap}>${opt("", "Every checkpoint", !checkpoint)}${checkpoints.map((c) => opt(tail(c.checkpoint_id, "justification-checkpoint://"), c.display_name, tail(c.checkpoint_id, "justification-checkpoint://") === checkpoint)).join("")}</select>
     <input name="submitted_by" value="${esc(who)}" placeholder="Submitted by (user://…)">
     <input name="interaction" value="${esc(interaction)}" placeholder="Interaction (interaction://…)">
     <button class="act ghost" type="submit">Filter</button>${kind || checkpoint || who || interaction ? ` <a href="${LIMITS_ROUTE}?tab=checkpoints&amp;view=review">Clear</a>` : ""}</form>`;

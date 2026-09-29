@@ -74,6 +74,15 @@ var y = u.forwardRef(
                     : (0, d.jsx)(i, { "aria-hidden": !0, size: 16 }),
               }),
             }),
+            (x || S) &&
+              (0, d.jsx)(`span`, {
+                role: `status`,
+                "aria-live": `polite`,
+                "data-ioi-copy-status": x ? `copied` : `failed`,
+                className: x ? `text-content-success` : `text-content-danger`,
+                style: { position: `absolute`, right: 0, top: `100%`, marginTop: 4, fontSize: 12, lineHeight: `16px`, whiteSpace: `nowrap`, pointerEvents: `none` },
+                children: x ? `Copied` : `Couldn’t copy: ${S}`,
+              }),
           ],
         })
       : t || r

@@ -156,6 +156,15 @@ var u = e(t(), 1),
                       : (0, f.jsx)(i, { "aria-hidden": !0, size: 16 }),
                 }),
               }),
+              (A || j) &&
+                (0, f.jsx)(`span`, {
+                  role: `status`,
+                  "aria-live": `polite`,
+                  "data-ioi-copy-status": A ? `copied` : `failed`,
+                  className: A ? `text-content-success` : `text-content-danger`,
+                  style: { position: `absolute`, right: 0, top: `100%`, marginTop: 4, fontSize: 12, lineHeight: `16px`, whiteSpace: `nowrap`, pointerEvents: `none` },
+                  children: A ? `Copied` : `Couldn’t copy: ${j}`,
+                }),
             ],
           })
         : (0, f.jsx)(`textarea`, {

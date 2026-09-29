@@ -137,8 +137,14 @@ function newCheckForm(data, values, canWrite, why) {
   const known = new Set([...data.systems, ...data.environments, ...data.automations].map(([ref]) => ref));
   const otherValue = v.target_ref || (target && !known.has(target) ? target : "");
   const targets = `<select name="target" data-health-field="target">${opt("", "Choose what to observe…", !target)}${group("Systems", data.systems)}${group("Environments", data.environments)}${group("Automations", data.automations)}${opt("__other", "Another reference…", target === "__other" || Boolean(otherValue))}</select>`;
-  const envs = `<select name="environment_ref" data-health-field="environment_ref">${opt("", "Choose an environment…", !v.environment_ref)}${data.environments.map(([ref, name, phase]) => opt(ref, `${name || ref}${phase ? ` (${phase})` : ""}`, ref === v.environment_ref)).join("")}</select>`;
   const disabled = canWrite ? "" : " disabled";
+  // A SELECT WITH NOTHING TO CHOOSE IS NOT A CHOICE (R-240, verifier hygiene, 2026-09-29): with no environment on the
+  // deployment this rendered a live select whose only option was its placeholder — opened, it offered nothing, and the
+  // dead-control census read it click_failed. It now renders disabled and says why, in the unified gap contract.
+  const noEnvironment = data.environments.length === 0;
+  const envWhy = "No environment exists on this deployment yet, so there is none for a command check to run in — create one under Environments first";
+  const envGap = noEnvironment ? ` disabled aria-disabled="true" title="${esc(envWhy)}" data-ioi-disabled-reason="${esc(envWhy)}"` : disabled;
+  const envs = `<select name="environment_ref" data-health-field="environment_ref"${envGap}>${opt("", noEnvironment ? "No environment yet" : "Choose an environment…", !v.environment_ref)}${data.environments.map(([ref, name, phase]) => opt(ref, `${name || ref}${phase ? ` (${phase})` : ""}`, ref === v.environment_ref)).join("")}</select>`;
   return `<form method="post" action="${HEALTH_LANE}/new" id="new-check" data-health-new="1" class="grid" style="grid-template-columns:180px 1fr">
     ${hidden("nonce", v.nonce || crypto.randomUUID())}
     <label for="hc-name">Name</label><input id="hc-name" name="display_name" maxlength="160" value="${esc(v.display_name || "")}" placeholder="Lending service answers"${disabled}>

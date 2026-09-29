@@ -65,6 +65,18 @@ const runNodeAsync = (script, args = []) => new Promise((resolve) => {
 // Declared owned edits, normalized before wire comparison. Each entry documents WHY the owned
 // tree may differ at that path; anything not declared here must be identical.
 const AUG_TAG = '<script src="/ioi-augmentation.js" defer></script>';
+const copyStatus = (indent, jsx, copied, error) => `
+${indent}(${copied} || ${error}) &&
+${indent}  (0, ${jsx}.jsx)(\`span\`, {
+${indent}    role: \`status\`,
+${indent}    "aria-live": \`polite\`,
+${indent}    "data-ioi-copy-status": ${copied} ? \`copied\` : \`failed\`,
+${indent}    className: ${copied} ? \`text-content-success\` : \`text-content-danger\`,
+${indent}    style: { position: \`absolute\`, right: 0, top: \`100%\`, marginTop: 4, fontSize: 12, lineHeight: \`16px\`, whiteSpace: \`nowrap\`, pointerEvents: \`none\` },
+${indent}    children: ${copied} ? \`Copied\` : \`Couldn’t copy: \${${error}}\`,
+${indent}  }),`;
+const COPY_STATUS_INPUT = copyStatus("            ", "d", "x", "S");
+const COPY_STATUS_TEXTAREA = copyStatus("              ", "f", "A", "j");
 const OWNED_EDIT_NORMALIZERS = {
   "index.html": (s) => s.replace(AUG_TAG, "").replace(/\s+<\/head>/, "</head>"),
   // R-240 Arm A on Sessions: the Tasks tab rendered "No tasks defined" whatever its query answered, so the refusal naming
@@ -84,6 +96,12 @@ const OWNED_EDIT_NORMALIZERS = {
   "static/assets/SegmentProvider-CXCNBY9U.js": (s) => s
     .replace("`Environments are archived only when you archive them.`;", "`Environments that are not used for 7 days are automatically archived.`;")
     .replace("`${t} Archived environments are kept until you delete them.`;", "`${t} Archived environments will be deleted based on your auto-delete setting.`;"),
+  // R-240 (verifier hygiene, 2026-09-29): a copyable field's Copy to clipboard answered only by swapping an aria-hidden
+  // icon — nothing a screen reader hears, no text a person reads (Login configuration's read dead to the census). The
+  // edit adds a visible "Copied" / "Couldn't copy: …" status (role=status, aria-live=polite) under the field while the
+  // copy hook reports one; it renders nothing at rest, so no page's static DOM moves.
+  "static/assets/input-C42Z_4fO.js": (s) => s.replace(COPY_STATUS_INPUT, ""),
+  "static/assets/textarea-65aCrC5K.js": (s) => s.replace(COPY_STATUS_TEXTAREA, ""),
 };
 
 async function wireGate() {
