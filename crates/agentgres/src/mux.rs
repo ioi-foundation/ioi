@@ -885,7 +885,10 @@ impl MuxEngine {
         #[cfg(unix)]
         {
             use std::os::unix::fs::MetadataExt;
-            let at_path = File::open(self.dir.join("muxlog.bin")).ok()?.metadata().ok()?;
+            let at_path = File::open(self.dir.join("muxlog.bin"))
+                .ok()?
+                .metadata()
+                .ok()?;
             let appending = self.log.metadata().ok()?;
             if (at_path.dev(), at_path.ino()) != (appending.dev(), appending.ino()) {
                 return None;

@@ -1209,7 +1209,9 @@ fn an_append_inside_the_same_mtime_tick_still_forces_the_reread() {
     let mut value = template();
     value["checkpoint"]["previous_canonical_head"] = json!(writer.canonical_head());
     let stale = prepare(&mut writer, "effect-after-cutover", value);
-    assert!(writer.commit(stale, &StaticAuthority(authority()), 200).is_err());
+    assert!(writer
+        .commit(stale, &StaticAuthority(authority()), 200)
+        .is_err());
     assert_eq!(writer.full_refreshes, 2);
     assert!(writer.committed("effect-after-cutover").is_none());
 }
